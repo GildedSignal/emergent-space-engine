@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "g2-physical-law-qualification-v1",
+  "status": "frozen-before-candidate-implementation",
+  "purpose": "Experimental physical-law selection on one M1 CPU. These thresholds are engineering acceptance targets, not an established physics certification.",
+  "units": {"gravitational_parameter": 1.0, "semimajor_axis": 1.0, "light_speed": 64.0},
+  "quanta": [2.384185791015625e-7, 1.1920928955078125e-7, 5.960464477539063e-8],
+  "rotations_radians": [0.0, 0.39269908169872414, 0.7853981633974483],
+  "orbit_scenarios": [
+    {"id": "regular", "eccentricity": 0.0, "periods": 8, "dt": 0.001953125, "energy_drift_max": 0.005, "angular_momentum_drift_max": 0.001, "radial_envelope_error_max": 0.02, "period_relative_error_max": 0.01},
+    {"id": "eccentric", "eccentricity": 0.6, "periods": 4, "dt": 0.0009765625, "energy_drift_max": 0.02, "angular_momentum_drift_max": 0.005, "radial_envelope_error_max": 0.02, "period_relative_error_max": 0.02}
+  ],
+  "stationary_metric": {"shell_width": 0.0078125, "minimum_radius": 0.0625, "maximum_radius": 8.0, "maximum_crossings_per_step": 64},
+  "aggregate_gates": {
+    "angular_radial_spread_max": 0.002,
+    "angular_energy_spread_max": 0.002,
+    "quantum_envelope_change_max": 0.003,
+    "quantum_energy_growth_factor_max": 2.0,
+    "quantum_energy_growth_floor": 0.00001,
+    "stationary_clock_absolute_error_max": 0.00001,
+    "source_tree_bound_ratio_max": 1.0,
+    "backreaction_relative_error_max": 0.000000000001,
+    "momentum_balance_absolute_error_max": 0.000000000001,
+    "pre_lightcone_response_max": 0.0
+  },
+  "required_production_gates": ["orbit_stability", "angular_isotropy", "quantum_refinement", "stationary_clock", "source_tree_bound", "source_backreaction", "causal_dynamic_sources", "well_posed_exterior", "compact_field_certification", "terminating_exact_branches"],
+  "promotion": "All numerical and required production gates must pass. Floating-point experiments alone cannot pass terminating_exact_branches. No threshold may be changed based on candidate results.",
+  "failure_policy": "Preserve every failure and unsupported regime in the serializable report. Keep candidate law identifiers separate. Never promote a substitute force law based on runtime solver selection."
+}
