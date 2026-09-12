@@ -1,0 +1,96 @@
+
+running 22 tests
+test geometry::tests::aabb_touch_counts_as_intersection ... ok
+test geometry::tests::inclusive_intervals_validate_and_include_single_ticks ... ok
+test math::tests::rational_normalization_and_serialization_preserve_identity ... ok
+test geometry::tests::tangent_and_point_crossing_between_tick_samples_are_not_missed ... ok
+test geometry::tests::tangent_at_integer_boundary_belongs_only_to_ending_bin ... ok
+test math::tests::vector_arithmetic_stays_exact_beyond_machine_integer_range ... ok
+test population::tests::rng_known_vector_and_purpose_separation ... ok
+test geometry::tests::receding_contact_invalid_radius_and_stationary_overlap ... ok
+test propagator::tests::nearly_lightlike_quantization_is_explicit_not_a_float_accident ... ok
+test propagator::tests::rejects_lightlike_and_superluminal_worldlines ... ok
+test propagator::tests::serialization_contains_only_canonical_worldline_state ... ok
+test propagator::tests::proper_time_is_subdivision_and_rebase_invariant ... ok
+test population::tests::billion_id_is_random_access_and_split_invariant ... ok
+test response::tests::min_plus_routes_and_overflow ... ok
+test propagator::tests::worldtube_bounds_negative_motion_and_fractional_samples ... ok
+test response::tests::compose_checks_boundary_and_cache_dependencies ... ok
+test propagator::tests::rebasing_preserves_the_entire_worldline ... ok
+test propagator::tests::proper_rate_is_an_exact_dyadic_lower_bound ... ok
+test storage::tests::checkpoint_roundtrip_corruption_and_law_rejection ... ok
+test geometry::tests::lightcone_and_binary_search_handle_full_i128_range_without_overflow ... ok
+test geometry::tests::signal_arrival_matches_exhaustive_tick_oracle ... ok
+test geometry::tests::continuous_contact_matches_independent_linear_interval_oracle_grid ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s
+
+
+running 18 tests
+test extreme_identity_and_restored_range_order_are_validated ... ok
+test contacts_between_samples_are_not_missed ... ok
+test future_inspection_and_zero_budget_never_claim_completion ... ok
+test family_splits_and_lookup_are_representation_only ... ok
+test invalid_simultaneous_burn_is_atomic ... ok
+test observational_queries_are_pure_and_occluders_block_light ... ok
+test one_ship_burn_extracts_only_that_identity ... ok
+test failed_notification_capacity_is_atomic_and_resumable ... ok
+test receiver_course_change_invalidates_old_signal_arrival ... ok
+test opposing_simultaneous_impulses_commute ... ok
+test stationary_family_source_moments_equal_materialized_sum ... ok
+test budget_partition_subdivision_and_cold_restart_do_not_change_history ... ok
+test single_operation_continuations_terminate_and_preserve_result ... ok
+test complete_causal_loop_and_independent_witness ... ok
+test replay_rebuilds_causal_facts_from_genesis_and_commands ... ok
+test extracted_family_collisions_match_a_materialized_population ... ok
+test indexed_occluders_match_individual_observations ... ok
+test exhaustive_small_world_contact_oracle ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+
+running 8 tests
+test tests::stationary_source_counterexample_really_changes_before_signal_arrival ... ok
+test tests::analytic_circle_solver_finds_two_crossings_without_sampling ... ok
+test tests::monopole_bound_contains_independently_summed_asymmetric_sources ... ok
+test tests::inverse_square_kernel_is_three_dimensional_restricted_to_plane ... ok
+test tests::zero_mass_verlet_is_exact_ballistic_at_binary_boundaries ... ok
+test tests::shell_free_flight_matches_its_hamiltonian_velocity ... ok
+test tests::frozen_manifest_has_all_three_quanta_and_both_regimes ... ok
+test tests::circular_orbit_is_checked_against_analytic_period_and_radius ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 5 tests
+test app::tests::camera_roundtrip_and_zoom_keep_anchor ... ok
+test app::tests::canonical_ticks_are_not_rounded_for_display ... ok
+test app::tests::camera_fit_rejects_invalid_samples ... ok
+test adapter::tests::sensor_capability_failures_are_visible ... ok
+test adapter::tests::worker_commands_observation_lookup_and_archive_are_real ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.36s
+     Running unittests src/lib.rs (target/debug/deps/emergent_engine-1f2a3f695ec07787)
+     Running tests/causal_contract.rs (target/debug/deps/causal_contract-af38d51f2b48fdf6)
+     Running unittests src/lib.rs (target/debug/deps/emergent_law_lab-e8f7b98fb8d50827)
+     Running unittests src/main.rs (target/debug/deps/emergent_observatory-2dc3560961389ffc)
+     Running unittests src/main.rs (target/debug/deps/xtask-d3472796d7778969)
+   Doc-tests emergent_engine
+   Doc-tests emergent_law_lab
