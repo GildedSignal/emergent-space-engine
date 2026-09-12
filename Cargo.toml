@@ -6,12 +6,12 @@ default-members = ["crates/engine", "crates/law-lab", "xtask"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.90"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
 num-bigint = { version = "0.4", features = ["serde"] }
 num-rational = { version = "0.4", features = ["serde"] }
 num-traits = "0.2"
@@ -25,4 +25,3 @@ debug = 1
 [profile.release]
 debug = 1
 lto = "thin"
-

@@ -104,13 +104,27 @@ pub struct PhasePoint {
     pub momentum: [f64; 2],
 }
 
-fn add(a: [f64; 2], b: [f64; 2]) -> [f64; 2] { [a[0] + b[0], a[1] + b[1]] }
-fn sub(a: [f64; 2], b: [f64; 2]) -> [f64; 2] { [a[0] - b[0], a[1] - b[1]] }
-fn scale(a: [f64; 2], s: f64) -> [f64; 2] { [a[0] * s, a[1] * s] }
-fn dot(a: [f64; 2], b: [f64; 2]) -> f64 { a[0] * b[0] + a[1] * b[1] }
-fn norm(a: [f64; 2]) -> f64 { dot(a, a).sqrt() }
-fn cross(a: [f64; 2], b: [f64; 2]) -> f64 { a[0] * b[1] - a[1] * b[0] }
-fn quantize(x: f64, q: f64) -> f64 { (x / q).round_ties_even() * q }
+fn add(a: [f64; 2], b: [f64; 2]) -> [f64; 2] {
+    [a[0] + b[0], a[1] + b[1]]
+}
+fn sub(a: [f64; 2], b: [f64; 2]) -> [f64; 2] {
+    [a[0] - b[0], a[1] - b[1]]
+}
+fn scale(a: [f64; 2], s: f64) -> [f64; 2] {
+    [a[0] * s, a[1] * s]
+}
+fn dot(a: [f64; 2], b: [f64; 2]) -> f64 {
+    a[0] * b[0] + a[1] * b[1]
+}
+fn norm(a: [f64; 2]) -> f64 {
+    dot(a, a).sqrt()
+}
+fn cross(a: [f64; 2], b: [f64; 2]) -> f64 {
+    a[0] * b[1] - a[1] * b[0]
+}
+fn quantize(x: f64, q: f64) -> f64 {
+    (x / q).round_ties_even() * q
+}
 fn quantize_state(mut s: PhasePoint, q: f64) -> PhasePoint {
     for i in 0..2 {
         s.position[i] = quantize(s.position[i], q);
@@ -137,19 +151,37 @@ pub fn gravitational_acceleration(position: [f64; 2], mu: f64) -> Result<[f64; 2
 /// discrete variational integrator; projection generally destroys its exact
 /// symplectic and reversal properties. Quantization happens at this law-defined
 /// step boundary, never at diagnostic queries.
-pub fn stationary_verlet_step(s: PhasePoint, dt: f64, q: f64, mu: f64) -> Result<PhasePoint, String> {
+pub fn stationary_verlet_step(
+    s: PhasePoint,
+    dt: f64,
+    q: f64,
+    mu: f64,
+) -> Result<PhasePoint, String> {
     if !(dt > 0.0 && q > 0.0 && dt.is_finite() && q.is_finite() && finite(s)) {
         return Err("invalid stationary Verlet input".into());
     }
-    let half = add(s.momentum, scale(gravitational_acceleration(s.position, mu)?, 0.5 * dt));
+    let half = add(
+        s.momentum,
+        scale(gravitational_acceleration(s.position, mu)?, 0.5 * dt),
+    );
     let position = add(s.position, scale(half, dt));
-    let momentum = add(half, scale(gravitational_acceleration(position, mu)?, 0.5 * dt));
+    let momentum = add(
+        half,
+        scale(gravitational_acceleration(position, mu)?, 0.5 * dt),
+    );
     let result = quantize_state(PhasePoint { position, momentum }, q);
-    if finite(result) { Ok(result) } else { Err("nonfinite stationary Verlet result".into()) }
+    if finite(result) {
+        Ok(result)
+    } else {
+        Err("nonfinite stationary Verlet result".into())
+    }
 }
 
 #[derive(Clone, Copy)]
-enum Candidate { Verlet, Lapse }
+enum Candidate {
+    Verlet,
+    Lapse,
+}
 
 impl Candidate {
     fn id(self) -> &'static str {
@@ -160,18 +192,27 @@ impl Candidate {
     }
 }
 
-fn config() -> Config { serde_json::from_str(MANIFEST).expect("checked-in frozen law manifest") }
+fn config() -> Config {
+    serde_json::from_str(MANIFEST).expect("checked-in frozen law manifest")
+}
 
 fn shell_index(r: f64, cfg: &Config) -> Result<i64, String> {
-    if !r.is_finite() || r < cfg.stationary_metric.minimum_radius || r >= cfg.stationary_metric.maximum_radius {
-        return Err(format!("stationary lapse radius {r} outside finite laboratory domain"));
+    if !r.is_finite()
+        || r < cfg.stationary_metric.minimum_radius
+        || r >= cfg.stationary_metric.maximum_radius
+    {
+        return Err(format!(
+            "stationary lapse radius {r} outside finite laboratory domain"
+        ));
     }
     Ok((r / cfg.stationary_metric.shell_width).floor() as i64)
 }
 
 fn lapse_at_shell(index: i64, mu: f64, cfg: &Config) -> Result<f64, String> {
     let radius = (index as f64 + 0.5) * cfg.stationary_metric.shell_width;
-    if radius < cfg.stationary_metric.minimum_radius || radius >= cfg.stationary_metric.maximum_radius {
+    if radius < cfg.stationary_metric.minimum_radius
+        || radius >= cfg.stationary_metric.maximum_radius
+    {
         return Err("stationary lapse crossing outside finite laboratory domain".into());
     }
     let square = 1.0 - 2.0 * mu / (cfg.units.light_speed.powi(2) * radius);
@@ -182,7 +223,11 @@ fn lapse_at_shell(index: i64, mu: f64, cfg: &Config) -> Result<f64, String> {
 }
 
 fn lapse_hamiltonian(s: PhasePoint, cfg: &Config) -> Result<f64, String> {
-    let alpha = lapse_at_shell(shell_index(norm(s.position), cfg)?, cfg.units.gravitational_parameter, cfg)?;
+    let alpha = lapse_at_shell(
+        shell_index(norm(s.position), cfg)?,
+        cfg.units.gravitational_parameter,
+        cfg,
+    )?;
     let c2 = cfg.units.light_speed.powi(2);
     Ok(alpha * c2 * (1.0 + dot(s.momentum, s.momentum) / c2).sqrt())
 }
@@ -191,21 +236,32 @@ fn lapse_hamiltonian(s: PhasePoint, cfg: &Config) -> Result<f64, String> {
 /// This is an analytic floating diagnostic, not an exact root certificate.
 fn circle_crossing(x: [f64; 2], v: [f64; 2], radius: f64, outward: bool) -> Option<f64> {
     let a = dot(v, v);
-    if a <= 0.0 { return None; }
+    if a <= 0.0 {
+        return None;
+    }
     let b = dot(x, v);
     let discriminant = b * b - a * (dot(x, x) - radius * radius);
-    if discriminant < 0.0 { return None; }
+    if discriminant < 0.0 {
+        return None;
+    }
     let d = discriminant.sqrt();
     let mut result = None;
     // q-form avoids cancellation for the small root near a boundary.
     let qr = -b - d.copysign(b);
-    let roots = if qr == 0.0 { [-b / a, -b / a] }
-        else { [qr / a, (dot(x, x) - radius * radius) / qr] };
+    let roots = if qr == 0.0 {
+        [-b / a, -b / a]
+    } else {
+        [qr / a, (dot(x, x) - radius * radius) / qr]
+    };
     for t in roots {
-        if t <= 1e-12 || !t.is_finite() { continue; }
+        if t <= 1e-12 || !t.is_finite() {
+            continue;
+        }
         let radial = dot(add(x, scale(v, t)), v);
-        if (outward && radial > 0.0) || (!outward && radial < 0.0) {
-            if result.is_none_or(|old| t < old) { result = Some(t); }
+        if ((outward && radial > 0.0) || (!outward && radial < 0.0))
+            && result.is_none_or(|old| t < old)
+        {
+            result = Some(t);
         }
     }
     result
@@ -238,7 +294,11 @@ fn lapse_step(mut s: PhasePoint, dt: f64, q: f64, cfg: &Config) -> Result<PhaseP
             s.position = add(s.position, scale(velocity, remaining));
             let result = quantize_state(s, q);
             shell_index(norm(result.position), cfg)?;
-            return if finite(result) { Ok(result) } else { Err("nonfinite lapse map result".into()) };
+            return if finite(result) {
+                Ok(result)
+            } else {
+                Err("nonfinite lapse map result".into())
+            };
         }
         let (time, direction) = next.expect("crossing selected");
         s.position = add(s.position, scale(velocity, time));
@@ -248,21 +308,28 @@ fn lapse_step(mut s: PhasePoint, dt: f64, q: f64, cfg: &Config) -> Result<PhaseP
         let tangent = sub(s.momentum, scale(normal, radial));
         let next_alpha = lapse_at_shell(band + direction, cfg.units.gravitational_parameter, cfg)?;
         let energy_over_next = alpha * gamma / next_alpha;
-        let next_radial_square = c2 * (energy_over_next * energy_over_next - 1.0) - dot(tangent, tangent);
+        let next_radial_square =
+            c2 * (energy_over_next * energy_over_next - 1.0) - dot(tangent, tangent);
         if next_radial_square >= 0.0 {
-            s.momentum = add(tangent, scale(normal, next_radial_square.sqrt().copysign(radial)));
+            s.momentum = add(
+                tangent,
+                scale(normal, next_radial_square.sqrt().copysign(radial)),
+            );
             band += direction;
         } else {
             s.momentum = sub(s.momentum, scale(normal, 2.0 * radial));
         }
-        if remaining <= 0.0 { return Ok(quantize_state(s, q)); }
+        if remaining <= 0.0 {
+            return Ok(quantize_state(s, q));
+        }
     }
     Err("stationary lapse finite crossing budget exhausted; no result accepted".into())
 }
 
 fn energy(candidate: Candidate, s: PhasePoint, cfg: &Config) -> Result<f64, String> {
     match candidate {
-        Candidate::Verlet => Ok(0.5 * dot(s.momentum, s.momentum) - cfg.units.gravitational_parameter / norm(s.position)),
+        Candidate::Verlet => Ok(0.5 * dot(s.momentum, s.momentum)
+            - cfg.units.gravitational_parameter / norm(s.position)),
         Candidate::Lapse => Ok(lapse_hamiltonian(s, cfg)? - cfg.units.light_speed.powi(2)),
     }
 }
@@ -279,7 +346,13 @@ struct OrbitResult {
     steps: usize,
 }
 
-fn orbit(candidate: Candidate, scenario: &OrbitScenario, q: f64, angle: f64, cfg: &Config) -> Result<OrbitResult, String> {
+fn orbit(
+    candidate: Candidate,
+    scenario: &OrbitScenario,
+    q: f64,
+    angle: f64,
+    cfg: &Config,
+) -> Result<OrbitResult, String> {
     let mu = cfg.units.gravitational_parameter;
     let a = cfg.units.semimajor_axis;
     let periapsis = a * (1.0 - scenario.eccentricity);
@@ -294,14 +367,25 @@ fn orbit(candidate: Candidate, scenario: &OrbitScenario, q: f64, angle: f64, cfg
     if matches!(candidate, Candidate::Lapse) {
         let alpha = lapse_at_shell(shell_index(periapsis, cfg)?, mu, cfg)?;
         // v=alpha p/sqrt(1+p²/c²), inverted for the same initial coordinate v.
-        s.momentum = scale(s.momentum, 1.0 / (alpha * alpha - speed * speed / cfg.units.light_speed.powi(2)).sqrt());
+        s.momentum = scale(
+            s.momentum,
+            1.0 / (alpha * alpha - speed * speed / cfg.units.light_speed.powi(2)).sqrt(),
+        );
     }
     s = quantize_state(s, q);
     let initial_energy = energy(candidate, s, cfg)?;
     let initial_angular = cross(s.position, s.momentum);
     let steps = (period * scenario.periods as f64 / scenario.dt).ceil() as usize;
-    let mut result = OrbitResult { energy_drift: 0.0, angular_drift: 0.0, radial_error: 0.0,
-        period_error: 0.0, min_radius: norm(s.position), max_radius: norm(s.position), final_radius: 0.0, steps };
+    let mut result = OrbitResult {
+        energy_drift: 0.0,
+        angular_drift: 0.0,
+        radial_error: 0.0,
+        period_error: 0.0,
+        min_radius: norm(s.position),
+        max_radius: norm(s.position),
+        final_radius: 0.0,
+        steps,
+    };
     let mut unwrapped_angle = 0.0;
     let mut previous_angle = s.position[1].atan2(s.position[0]);
     let mut crossings = Vec::new();
@@ -310,12 +394,18 @@ fn orbit(candidate: Candidate, scenario: &OrbitScenario, q: f64, angle: f64, cfg
             Candidate::Verlet => stationary_verlet_step(s, scenario.dt, q, mu)?,
             Candidate::Lapse => lapse_step(s, scenario.dt, q, cfg)?,
         };
-        if !finite(s) { return Err("orbit produced nonfinite state".into()); }
+        if !finite(s) {
+            return Err("orbit produced nonfinite state".into());
+        }
         let r = norm(s.position);
         result.min_radius = result.min_radius.min(r);
         result.max_radius = result.max_radius.max(r);
-        result.energy_drift = result.energy_drift.max((energy(candidate, s, cfg)? - initial_energy).abs() / initial_energy.abs());
-        result.angular_drift = result.angular_drift.max((cross(s.position, s.momentum) - initial_angular).abs() / initial_angular.abs());
+        result.energy_drift = result
+            .energy_drift
+            .max((energy(candidate, s, cfg)? - initial_energy).abs() / initial_energy.abs());
+        result.angular_drift = result
+            .angular_drift
+            .max((cross(s.position, s.momentum) - initial_angular).abs() / initial_angular.abs());
         let current_angle = s.position[1].atan2(s.position[0]);
         let delta = (current_angle - previous_angle + PI).rem_euclid(TAU) - PI;
         let old = unwrapped_angle;
@@ -326,39 +416,75 @@ fn orbit(candidate: Candidate, scenario: &OrbitScenario, q: f64, angle: f64, cfg
         }
         previous_angle = current_angle;
     }
-    result.radial_error = ((result.min_radius - periapsis).abs().max((result.max_radius - apoapsis).abs())) / a;
+    result.radial_error = ((result.min_radius - periapsis)
+        .abs()
+        .max((result.max_radius - apoapsis).abs()))
+        / a;
     result.final_radius = norm(s.position);
     // Use every completed revolution; no selection of a favorable crossing.
-    if crossings.is_empty() { return Err("orbit did not complete one revolution".into()); }
+    if crossings.is_empty() {
+        return Err("orbit did not complete one revolution".into());
+    }
     for (i, arrival) in crossings.iter().enumerate() {
-        result.period_error = result.period_error.max((arrival / (i + 1) as f64 / period - 1.0).abs());
+        result.period_error = result
+            .period_error
+            .max((arrival / (i + 1) as f64 / period - 1.0).abs());
     }
     Ok(result)
 }
 
-fn metric(report: &mut CandidateReport, scenario: impl Into<String>, name: &str, value: f64, unit: &str, threshold: f64) -> bool {
+fn metric(
+    report: &mut CandidateReport,
+    scenario: impl Into<String>,
+    name: &str,
+    value: f64,
+    unit: &str,
+    threshold: f64,
+) -> bool {
     let passed = value.is_finite() && value <= threshold;
     // Nonfinite outputs become explicit failed gates rather than invalid JSON.
     if value.is_finite() {
-        report.metrics.push(Metric { scenario: scenario.into(), name: name.into(), value, unit: unit.into(), threshold, passed });
+        report.metrics.push(Metric {
+            scenario: scenario.into(),
+            name: name.into(),
+            value,
+            unit: unit.into(),
+            threshold,
+            passed,
+        });
     } else {
-        gate(report, name, false, "nonfinite diagnostic value; no numeric result accepted");
+        gate(
+            report,
+            name,
+            false,
+            "nonfinite diagnostic value; no numeric result accepted",
+        );
     }
     passed
 }
 
 fn gate(report: &mut CandidateReport, id: &str, passed: bool, reason: impl Into<String>) {
-    report.gates.push(GateResult { id: id.into(), passed, reason: reason.into() });
+    report.gates.push(GateResult {
+        id: id.into(),
+        passed,
+        reason: reason.into(),
+    });
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct PointSource { pub mass: f64, pub position: [f64; 2] }
+pub struct PointSource {
+    pub mass: f64,
+    pub position: [f64; 2],
+}
 
 /// Floating direct-source oracle, including every positive source mass.
 pub fn direct_acceleration(sources: &[PointSource], target: [f64; 2]) -> Result<[f64; 2], String> {
     let mut sum = [0.0, 0.0];
     for source in sources {
-        sum = sub(sum, gravitational_acceleration(sub(source.position, target), source.mass)?);
+        sum = sub(
+            sum,
+            gravitational_acceleration(sub(source.position, target), source.mass)?,
+        );
     }
     Ok(sum)
 }
@@ -377,30 +503,79 @@ pub struct TreeEvaluation {
 /// has error <=2 M a/(d-a)^3. The analytic truncation bound is sound in
 /// real arithmetic; the floating padding here is diagnostic, not a formal
 /// directed-rounding proof for a production certificate.
-pub fn bounded_monopole_tree(sources: &[PointSource], target: [f64; 2]) -> Result<TreeEvaluation, String> {
-    fn recurse(sources: &[PointSource], target: [f64; 2], depth: usize) -> Result<TreeEvaluation, String> {
-        if sources.is_empty() { return Ok(TreeEvaluation { acceleration: [0.0, 0.0], absolute_error_bound: 0.0, accepted_nodes: 0, direct_sources: 0 }); }
+pub fn bounded_monopole_tree(
+    sources: &[PointSource],
+    target: [f64; 2],
+) -> Result<TreeEvaluation, String> {
+    fn recurse(
+        sources: &[PointSource],
+        target: [f64; 2],
+        depth: usize,
+    ) -> Result<TreeEvaluation, String> {
+        if sources.is_empty() {
+            return Ok(TreeEvaluation {
+                acceleration: [0.0, 0.0],
+                absolute_error_bound: 0.0,
+                accepted_nodes: 0,
+                direct_sources: 0,
+            });
+        }
         let mass: f64 = sources.iter().map(|s| s.mass).sum();
-        if mass <= 0.0 || sources.iter().any(|s| s.mass <= 0.0 || !s.mass.is_finite()) { return Err("tree requires finite positive masses".into()); }
-        let center = scale(sources.iter().fold([0.0, 0.0], |sum, s| add(sum, scale(s.position, s.mass))), 1.0 / mass);
-        let radius = sources.iter().map(|s| norm(sub(s.position, center))).fold(0.0, f64::max);
+        if mass <= 0.0 || sources.iter().any(|s| s.mass <= 0.0 || !s.mass.is_finite()) {
+            return Err("tree requires finite positive masses".into());
+        }
+        let center = scale(
+            sources
+                .iter()
+                .fold([0.0, 0.0], |sum, s| add(sum, scale(s.position, s.mass))),
+            1.0 / mass,
+        );
+        let radius = sources
+            .iter()
+            .map(|s| norm(sub(s.position, center)))
+            .fold(0.0, f64::max);
         let distance = norm(sub(target, center));
         if sources.len() > 1 && distance > radius && radius / distance < 0.2 {
-            let acceleration = direct_acceleration(&[PointSource { mass, position: center }], target)?;
+            let acceleration = direct_acceleration(
+                &[PointSource {
+                    mass,
+                    position: center,
+                }],
+                target,
+            )?;
             let truncation = 2.0 * mass * radius / (distance - radius).powi(3);
             let pad = 128.0 * f64::EPSILON * (1.0 + norm(acceleration) + truncation);
-            return Ok(TreeEvaluation { acceleration, absolute_error_bound: truncation + pad, accepted_nodes: 1, direct_sources: 0 });
+            return Ok(TreeEvaluation {
+                acceleration,
+                absolute_error_bound: truncation + pad,
+                accepted_nodes: 1,
+                direct_sources: 0,
+            });
         }
         if sources.len() <= 4 || depth >= 24 || radius == 0.0 {
             let acceleration = direct_acceleration(sources, target)?;
-            return Ok(TreeEvaluation { acceleration, absolute_error_bound: 128.0 * sources.len() as f64 * f64::EPSILON * (1.0 + norm(acceleration)), accepted_nodes: 0, direct_sources: sources.len() });
+            return Ok(TreeEvaluation {
+                acceleration,
+                absolute_error_bound: 128.0
+                    * sources.len() as f64
+                    * f64::EPSILON
+                    * (1.0 + norm(acceleration)),
+                accepted_nodes: 0,
+                direct_sources: sources.len(),
+            });
         }
         let mut children = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
         for s in sources {
-            let index = usize::from(s.position[0] >= center[0]) + 2 * usize::from(s.position[1] >= center[1]);
+            let index = usize::from(s.position[0] >= center[0])
+                + 2 * usize::from(s.position[1] >= center[1]);
             children[index].push(*s);
         }
-        let mut result = TreeEvaluation { acceleration: [0.0, 0.0], absolute_error_bound: 0.0, accepted_nodes: 0, direct_sources: 0 };
+        let mut result = TreeEvaluation {
+            acceleration: [0.0, 0.0],
+            absolute_error_bound: 0.0,
+            accepted_nodes: 0,
+            direct_sources: 0,
+        };
         for child in children {
             let part = recurse(&child, target, depth + 1)?;
             result.acceleration = add(result.acceleration, part.acceleration);
@@ -418,42 +593,112 @@ fn qualify_sources(report: &mut CandidateReport, cfg: &Config) {
     let mut tested = 0;
     let mut accepted = 0;
     let fixtures = [
-        (0..64).map(|i| PointSource { mass: 1.0 / 64.0, position: [0.01 * (i as f64 * TAU / 64.0).cos(), 0.01 * (i as f64 * TAU / 64.0).sin()] }).collect::<Vec<_>>(),
-        (0..65).map(|i| PointSource { mass: if i == 0 { 1e9 } else { 1e-6 }, position: [0.03 * i as f64, 0.001 * ((i * 17) % 23) as f64] }).collect(),
-        (0..128).map(|i| PointSource { mass: 0.1 + (i % 7) as f64, position: [((i * 37) % 101) as f64 / 20.0 - 2.5, ((i * 61) % 103) as f64 / 20.0 - 2.5] }).collect(),
+        (0..64)
+            .map(|i| PointSource {
+                mass: 1.0 / 64.0,
+                position: [
+                    0.01 * (i as f64 * TAU / 64.0).cos(),
+                    0.01 * (i as f64 * TAU / 64.0).sin(),
+                ],
+            })
+            .collect::<Vec<_>>(),
+        (0..65)
+            .map(|i| PointSource {
+                mass: if i == 0 { 1e9 } else { 1e-6 },
+                position: [0.03 * i as f64, 0.001 * ((i * 17) % 23) as f64],
+            })
+            .collect(),
+        (0..128)
+            .map(|i| PointSource {
+                mass: 0.1 + (i % 7) as f64,
+                position: [
+                    ((i * 37) % 101) as f64 / 20.0 - 2.5,
+                    ((i * 61) % 103) as f64 / 20.0 - 2.5,
+                ],
+            })
+            .collect(),
     ];
     for (i, sources) in fixtures.iter().enumerate() {
         for target in [[0.123, 0.789], [3.0, 2.0], [10.0, -1.0], [-80.0, 50.0]] {
-            match (direct_acceleration(sources, target), bounded_monopole_tree(sources, target)) {
+            match (
+                direct_acceleration(sources, target),
+                bounded_monopole_tree(sources, target),
+            ) {
                 (Ok(direct), Ok(tree)) => {
-                    let ratio = norm(sub(direct, tree.acceleration)) / tree.absolute_error_bound.max(f64::MIN_POSITIVE);
+                    let ratio = norm(sub(direct, tree.acceleration))
+                        / tree.absolute_error_bound.max(f64::MIN_POSITIVE);
                     worst_ratio = worst_ratio.max(ratio);
                     accepted += tree.accepted_nodes;
                     tested += 1;
-                    metric(report, format!("source_fixture_{i}_target_{target:?}"), "tree_error_to_bound", ratio, "ratio", cfg.aggregate_gates.source_tree_bound_ratio_max);
+                    metric(
+                        report,
+                        format!("source_fixture_{i}_target_{target:?}"),
+                        "tree_error_to_bound",
+                        ratio,
+                        "ratio",
+                        cfg.aggregate_gates.source_tree_bound_ratio_max,
+                    );
                 }
-                _ => gate(report, "source_fixture_execution", false, "source fixture failed to evaluate"),
+                _ => gate(
+                    report,
+                    "source_fixture_execution",
+                    false,
+                    "source fixture failed to evaluate",
+                ),
             }
         }
     }
     gate(report, "source_tree_bound", tested == 12 && accepted > 0 && worst_ratio <= cfg.aggregate_gates.source_tree_bound_ratio_max,
         format!("{tested} direct/tree queries; {accepted} accepted monopole nodes; worst observed error/bound={worst_ratio:.6e}. Analytic truncation plus floating diagnostic padding; not a certified FMM."));
 
-    let ship = PointSource { mass: 1.0, position: [2.0, 0.0] };
+    let ship = PointSource {
+        mass: 1.0,
+        position: [2.0, 0.0],
+    };
     let single = direct_acceleration(&[ship], [-2.0, 0.0]).expect("nonsingular fixture");
     let fleet = direct_acceleration(&vec![ship; 64], [-2.0, 0.0]).expect("nonsingular fixture");
     let ratio_error = (norm(fleet) / norm(single) / 64.0 - 1.0).abs();
     let star_mass = 1000.0;
-    let ship_acceleration = direct_acceleration(&[PointSource { mass: star_mass, position: [-2.0, 0.0] }], ship.position).expect("nonsingular fixture");
-    let force_residual = norm(add(scale(fleet, star_mass), scale(ship_acceleration, 64.0 * ship.mass)));
-    let passed = metric(report, "backreaction", "fleet_acceleration_scaling_error", ratio_error, "relative", cfg.aggregate_gates.backreaction_relative_error_max)
-        & metric(report, "backreaction", "total_force_residual", force_residual, "force", cfg.aggregate_gates.momentum_balance_absolute_error_max);
+    let ship_acceleration = direct_acceleration(
+        &[PointSource {
+            mass: star_mass,
+            position: [-2.0, 0.0],
+        }],
+        ship.position,
+    )
+    .expect("nonsingular fixture");
+    let force_residual = norm(add(
+        scale(fleet, star_mass),
+        scale(ship_acceleration, 64.0 * ship.mass),
+    ));
+    let passed = metric(
+        report,
+        "backreaction",
+        "fleet_acceleration_scaling_error",
+        ratio_error,
+        "relative",
+        cfg.aggregate_gates.backreaction_relative_error_max,
+    ) & metric(
+        report,
+        "backreaction",
+        "total_force_residual",
+        force_residual,
+        "force",
+        cfg.aggregate_gates.momentum_balance_absolute_error_max,
+    );
     gate(report, "source_backreaction", passed,
         format!("Direct two-way source experiment: star acceleration {} for one ship and {} for 64; total pair-force residual {force_residual}. This source evaluator is not dynamically coupled into either stationary orbit map.", norm(single), norm(fleet)));
 }
 
 fn qualify_candidate(candidate: Candidate, cfg: &Config) -> CandidateReport {
-    let mut report = CandidateReport { id: candidate.id().into(), version: 1, status: "FAIL".into(), metrics: Vec::new(), gates: Vec::new(), evidence: Vec::new() };
+    let mut report = CandidateReport {
+        id: candidate.id().into(),
+        version: 1,
+        status: "FAIL".into(),
+        metrics: Vec::new(),
+        gates: Vec::new(),
+        evidence: Vec::new(),
+    };
     let mut all_orbits = true;
     let mut isotropy = true;
     let mut quantum = true;
@@ -467,10 +712,38 @@ fn qualify_candidate(candidate: Candidate, cfg: &Config) -> CandidateReport {
                 match orbit(candidate, scenario, q, angle, cfg) {
                     Ok(result) => {
                         total_steps += result.steps;
-                        all_orbits &= metric(&mut report, &label, "maximum_energy_drift", result.energy_drift, "relative", scenario.energy_drift_max);
-                        all_orbits &= metric(&mut report, &label, "maximum_angular_momentum_drift", result.angular_drift, "relative", scenario.angular_momentum_drift_max);
-                        all_orbits &= metric(&mut report, &label, "radial_envelope_error", result.radial_error, "semimajor_axis", scenario.radial_envelope_error_max);
-                        all_orbits &= metric(&mut report, &label, "revolution_period_error", result.period_error, "relative", scenario.period_relative_error_max);
+                        all_orbits &= metric(
+                            &mut report,
+                            &label,
+                            "maximum_energy_drift",
+                            result.energy_drift,
+                            "relative",
+                            scenario.energy_drift_max,
+                        );
+                        all_orbits &= metric(
+                            &mut report,
+                            &label,
+                            "maximum_angular_momentum_drift",
+                            result.angular_drift,
+                            "relative",
+                            scenario.angular_momentum_drift_max,
+                        );
+                        all_orbits &= metric(
+                            &mut report,
+                            &label,
+                            "radial_envelope_error",
+                            result.radial_error,
+                            "semimajor_axis",
+                            scenario.radial_envelope_error_max,
+                        );
+                        all_orbits &= metric(
+                            &mut report,
+                            &label,
+                            "revolution_period_error",
+                            result.period_error,
+                            "relative",
+                            scenario.period_relative_error_max,
+                        );
                         by_angle.push(result);
                     }
                     Err(error) => {
@@ -484,11 +757,28 @@ fn qualify_candidate(candidate: Candidate, cfg: &Config) -> CandidateReport {
             if by_angle.len() == cfg.rotations_radians.len() {
                 let spread = |extract: fn(&OrbitResult) -> f64| -> f64 {
                     let min = by_angle.iter().map(extract).fold(f64::INFINITY, f64::min);
-                    let max = by_angle.iter().map(extract).fold(f64::NEG_INFINITY, f64::max);
+                    let max = by_angle
+                        .iter()
+                        .map(extract)
+                        .fold(f64::NEG_INFINITY, f64::max);
                     max - min
                 };
-                isotropy &= metric(&mut report, format!("{}_q{qi}", scenario.id), "rotated_final_radius_spread", spread(|r| r.final_radius), "length", cfg.aggregate_gates.angular_radial_spread_max);
-                isotropy &= metric(&mut report, format!("{}_q{qi}", scenario.id), "rotated_energy_drift_spread", spread(|r| r.energy_drift), "relative", cfg.aggregate_gates.angular_energy_spread_max);
+                isotropy &= metric(
+                    &mut report,
+                    format!("{}_q{qi}", scenario.id),
+                    "rotated_final_radius_spread",
+                    spread(|r| r.final_radius),
+                    "length",
+                    cfg.aggregate_gates.angular_radial_spread_max,
+                );
+                isotropy &= metric(
+                    &mut report,
+                    format!("{}_q{qi}", scenario.id),
+                    "rotated_energy_drift_spread",
+                    spread(|r| r.energy_drift),
+                    "relative",
+                    cfg.aggregate_gates.angular_energy_spread_max,
+                );
                 by_quantum.push(by_angle);
             }
         }
@@ -497,26 +787,72 @@ fn qualify_candidate(candidate: Candidate, cfg: &Config) -> CandidateReport {
                 for ai in 0..cfg.rotations_radians.len() {
                     let coarse = &by_quantum[qi - 1][ai];
                     let fine = &by_quantum[qi][ai];
-                    let change = (fine.min_radius - coarse.min_radius).abs().max((fine.max_radius - coarse.max_radius).abs());
-                    quantum &= metric(&mut report, format!("{}_q{}-q{}_rotation{ai}", scenario.id, qi - 1, qi), "quantum_radial_envelope_change", change, "length", cfg.aggregate_gates.quantum_envelope_change_max);
-                    quantum &= metric(&mut report, format!("{}_q{}-q{}_rotation{ai}", scenario.id, qi - 1, qi), "refined_energy_drift", fine.energy_drift, "relative", coarse.energy_drift * cfg.aggregate_gates.quantum_energy_growth_factor_max + cfg.aggregate_gates.quantum_energy_growth_floor);
+                    let change = (fine.min_radius - coarse.min_radius)
+                        .abs()
+                        .max((fine.max_radius - coarse.max_radius).abs());
+                    quantum &= metric(
+                        &mut report,
+                        format!("{}_q{}-q{}_rotation{ai}", scenario.id, qi - 1, qi),
+                        "quantum_radial_envelope_change",
+                        change,
+                        "length",
+                        cfg.aggregate_gates.quantum_envelope_change_max,
+                    );
+                    quantum &= metric(
+                        &mut report,
+                        format!("{}_q{}-q{}_rotation{ai}", scenario.id, qi - 1, qi),
+                        "refined_energy_drift",
+                        fine.energy_drift,
+                        "relative",
+                        coarse.energy_drift * cfg.aggregate_gates.quantum_energy_growth_factor_max
+                            + cfg.aggregate_gates.quantum_energy_growth_floor,
+                    );
                 }
             }
-        } else { quantum = false; }
+        } else {
+            quantum = false;
+        }
     }
     gate(&mut report, "orbit_stability", all_orbits, "All frozen regular/eccentric orbit, period, energy, angular momentum and radial envelope gates must pass; analytic Kepler formulas are independent diagnostics, not the canonical law.");
-    gate(&mut report, "angular_isotropy", isotropy, "Same initial orbit rotated by 0, pi/8 and pi/4, with every frozen quantum included.");
-    gate(&mut report, "quantum_refinement", quantum, "Compare q,q/2,q/4 radial envelopes and drift; no chaotic coordinate-equality requirement.");
-    report.evidence.push(format!("Executed {total_steps} finite-map steps across {} orbit/quantum/orientation scenarios.", cfg.orbit_scenarios.len() * cfg.quanta.len() * cfg.rotations_radians.len()));
+    gate(
+        &mut report,
+        "angular_isotropy",
+        isotropy,
+        "Same initial orbit rotated by 0, pi/8 and pi/4, with every frozen quantum included.",
+    );
+    gate(
+        &mut report,
+        "quantum_refinement",
+        quantum,
+        "Compare q,q/2,q/4 radial envelopes and drift; no chaotic coordinate-equality requirement.",
+    );
+    report.evidence.push(format!(
+        "Executed {total_steps} finite-map steps across {} orbit/quantum/orientation scenarios.",
+        cfg.orbit_scenarios.len() * cfg.quanta.len() * cfg.rotations_radians.len()
+    ));
 
     let mut clock_passed = true;
     for radius in [0.4, 1.0, 1.6, 4.0] {
-        let reference = (1.0 - 2.0 * cfg.units.gravitational_parameter / (cfg.units.light_speed.powi(2) * radius)).sqrt();
+        let reference = (1.0
+            - 2.0 * cfg.units.gravitational_parameter / (cfg.units.light_speed.powi(2) * radius))
+            .sqrt();
         let candidate_rate = match candidate {
             Candidate::Verlet => 1.0,
-            Candidate::Lapse => lapse_at_shell(shell_index(radius, cfg).expect("clock fixture in domain"), cfg.units.gravitational_parameter, cfg).expect("clock fixture real"),
+            Candidate::Lapse => lapse_at_shell(
+                shell_index(radius, cfg).expect("clock fixture in domain"),
+                cfg.units.gravitational_parameter,
+                cfg,
+            )
+            .expect("clock fixture real"),
         };
-        clock_passed &= metric(&mut report, format!("stationary_clock_r{radius}"), "proper_time_rate_error", (candidate_rate - reference).abs(), "d_tau/d_t", cfg.aggregate_gates.stationary_clock_absolute_error_max);
+        clock_passed &= metric(
+            &mut report,
+            format!("stationary_clock_r{radius}"),
+            "proper_time_rate_error",
+            (candidate_rate - reference).abs(),
+            "d_tau/d_t",
+            cfg.aggregate_gates.stationary_clock_absolute_error_max,
+        );
     }
     gate(&mut report, "stationary_clock", clock_passed, match candidate {
         Candidate::Verlet => "Newtonian time has d_tau/d_t=1 and fails the stationary relativistic-clock gate.",
@@ -537,9 +873,25 @@ fn qualify_candidate(candidate: Candidate, cfg: &Config) -> CandidateReport {
         Candidate::Lapse => lapse_at_shell(shell_index(radius, cfg).unwrap(), 2.0, cfg).unwrap(),
     };
     let response = (after - before).abs();
-    let causality = metric(&mut report, "mass_change_before_lightcone", "pre_lightcone_response", response, "acceleration_or_clock_rate", cfg.aggregate_gates.pre_lightcone_response_max);
+    let causality = metric(
+        &mut report,
+        "mass_change_before_lightcone",
+        "pre_lightcone_response",
+        response,
+        "acceleration_or_clock_rate",
+        cfg.aggregate_gates.pre_lightcone_response_max,
+    );
     gate(&mut report, "causal_dynamic_sources", causality, format!("Counterexample: source mu 1->2 at t=0; radius={radius}; query t={} < arrival {} responds by {response:.12e}. Static formulas lack retarded source histories and coupled field evolution.", radius / cfg.units.light_speed / 4.0, radius / cfg.units.light_speed));
-    let exterior_effect = norm(direct_acceleration(&[PointSource { mass: 1.0, position: [16.0, 0.0] }], [1.0, 0.0]).unwrap());
+    let exterior_effect = norm(
+        direct_acceleration(
+            &[PointSource {
+                mass: 1.0,
+                position: [16.0, 0.0],
+            }],
+            [1.0, 0.0],
+        )
+        .unwrap(),
+    );
     gate(&mut report, "well_posed_exterior", false, format!("No infinite-universe source measure, initial field or certified tail is specified. Adding a unit source outside the finite r<8 laboratory changes acceleration at r=1 by {exterior_effect:.12e}; omitting it cannot be certified. A finite authoritative massive root is the next allowed model, not an implicit infinity."));
     gate(&mut report, "compact_field_certification", false, match candidate {
         Candidate::Verlet => "The 1/r Newtonian map has a singular r=0 force and no light deflection, horizon or stationary compact-field branch evaluator.",
@@ -549,9 +901,15 @@ fn qualify_candidate(candidate: Candidate, cfg: &Config) -> CandidateReport {
     report.evidence.push("The source tree is a monopole quadtree with an explicit analytic truncation bound. It is not FMM; floating arithmetic error is not formally certified.".into());
     report.evidence.push("The stationary source is an external fixed field in both orbit experiments. The separate direct backreaction experiment does not grant either map dynamic coupled-source support.".into());
     report.evidence.push("Neither orbital step count nor elapsed simulated time is an integrated billion-year/billion-ship qualification.".into());
-    let complete = cfg.required_production_gates.iter().all(|id| report.gates.iter().any(|g| &g.id == id && g.passed))
-        && report.gates.iter().all(|g| g.passed) && report.metrics.iter().all(|m| m.passed);
-    if complete { report.status = "PASS".into(); }
+    let complete = cfg
+        .required_production_gates
+        .iter()
+        .all(|id| report.gates.iter().any(|g| &g.id == id && g.passed))
+        && report.gates.iter().all(|g| g.passed)
+        && report.metrics.iter().all(|m| m.passed);
+    if complete {
+        report.status = "PASS".into();
+    }
     report
 }
 
@@ -560,8 +918,14 @@ fn qualify_candidate(candidate: Candidate, cfg: &Config) -> CandidateReport {
 /// No filesystem mutation, clocks or scheduler-dependent random state is used.
 pub fn qualify() -> QualificationReport {
     let cfg = config();
-    let candidates = [Candidate::Verlet, Candidate::Lapse].into_iter().map(|candidate| qualify_candidate(candidate, &cfg)).collect::<Vec<_>>();
-    let production_law = candidates.iter().find(|c| c.status == "PASS").map(|c| c.id.clone());
+    let candidates = [Candidate::Verlet, Candidate::Lapse]
+        .into_iter()
+        .map(|candidate| qualify_candidate(candidate, &cfg))
+        .collect::<Vec<_>>();
+    let production_law = candidates
+        .iter()
+        .find(|c| c.status == "PASS")
+        .map(|c| c.id.clone());
     QualificationReport {
         schema_version: 1,
         gate_manifest_digest: blake3::hash(MANIFEST.as_bytes()).to_hex().to_string(),
@@ -577,7 +941,9 @@ pub fn qualify() -> QualificationReport {
     }
 }
 
-pub fn gate_manifest() -> &'static str { MANIFEST }
+pub fn gate_manifest() -> &'static str {
+    MANIFEST
+}
 
 #[cfg(test)]
 mod tests {
@@ -588,12 +954,20 @@ mod tests {
         let acceleration = gravitational_acceleration([3.0, 4.0], 10.0).unwrap();
         assert!((acceleration[0] + 0.24).abs() < 1e-15);
         assert!((acceleration[1] + 0.32).abs() < 1e-15);
-        assert!((norm(gravitational_acceleration([6.0, 8.0], 10.0).unwrap()) / norm(acceleration) - 0.25).abs() < 1e-15);
+        assert!(
+            (norm(gravitational_acceleration([6.0, 8.0], 10.0).unwrap()) / norm(acceleration)
+                - 0.25)
+                .abs()
+                < 1e-15
+        );
     }
 
     #[test]
     fn zero_mass_verlet_is_exact_ballistic_at_binary_boundaries() {
-        let state = PhasePoint { position: [1.0, -2.0], momentum: [0.5, 0.25] };
+        let state = PhasePoint {
+            position: [1.0, -2.0],
+            momentum: [0.5, 0.25],
+        };
         let next = stationary_verlet_step(state, 0.125, 1.0 / 1024.0, 0.0).unwrap();
         assert_eq!(next.position, [1.0625, -1.96875]);
         assert_eq!(next.momentum, state.momentum);
@@ -602,7 +976,14 @@ mod tests {
     #[test]
     fn circular_orbit_is_checked_against_analytic_period_and_radius() {
         let cfg = config();
-        let result = orbit(Candidate::Verlet, &cfg.orbit_scenarios[0], cfg.quanta[2], 0.0, &cfg).unwrap();
+        let result = orbit(
+            Candidate::Verlet,
+            &cfg.orbit_scenarios[0],
+            cfg.quanta[2],
+            0.0,
+            &cfg,
+        )
+        .unwrap();
         assert!(result.period_error < 0.01, "period {}", result.period_error);
         assert!(result.radial_error < 0.02, "radial {}", result.radial_error);
     }
@@ -610,7 +991,10 @@ mod tests {
     #[test]
     fn shell_free_flight_matches_its_hamiltonian_velocity() {
         let cfg = config();
-        let s = PhasePoint { position: [1.003, 0.0], momentum: [0.0, 0.5] };
+        let s = PhasePoint {
+            position: [1.003, 0.0],
+            momentum: [0.0, 0.5],
+        };
         let q = 2.0_f64.powi(-40);
         let dt = 2.0_f64.powi(-16);
         let alpha = (1.0 - 2.0 / (64.0_f64.powi(2) * (128.5 / 128.0))).sqrt();
@@ -630,7 +1014,16 @@ mod tests {
 
     #[test]
     fn monopole_bound_contains_independently_summed_asymmetric_sources() {
-        let sources = [PointSource { mass: 2.0, position: [-0.2, 0.1] }, PointSource { mass: 7.0, position: [0.4, -0.1] }];
+        let sources = [
+            PointSource {
+                mass: 2.0,
+                position: [-0.2, 0.1],
+            },
+            PointSource {
+                mass: 7.0,
+                position: [0.4, -0.1],
+            },
+        ];
         let target = [10.0, 3.0];
         let tree = bounded_monopole_tree(&sources, target).unwrap();
         let direct = direct_acceleration(&sources, target).unwrap();
@@ -653,6 +1046,5 @@ mod tests {
         let initial = gravitational_acceleration([4.0, 0.0], 1.0).unwrap();
         let changed = gravitational_acceleration([4.0, 0.0], 2.0).unwrap();
         assert_eq!(norm(sub(changed, initial)), 1.0 / 16.0);
-        assert!(1.0 / 64.0 < 4.0 / 64.0);
     }
 }

@@ -1,8 +1,8 @@
+mod adapter;
 mod app;
 mod bridge;
 
 use app::{AppOptions, ObservatoryApp};
-use bridge::DisconnectedBridge;
 use eframe::egui;
 use std::path::PathBuf;
 
@@ -59,7 +59,7 @@ fn main() -> eframe::Result {
         Box::new(move |cc| {
             Ok(Box::new(ObservatoryApp::new(
                 cc,
-                Box::new(DisconnectedBridge),
+                Box::new(adapter::EngineBridge::new()),
                 options,
             )))
         }),

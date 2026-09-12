@@ -14,6 +14,7 @@ pub enum BodyKind {
     #[default]
     Ship,
     Observer,
+    #[allow(dead_code)] // Reserved presentation kind for causal wavefront overlays.
     Signal,
 }
 
@@ -130,15 +131,4 @@ pub enum UiCommand {
 pub trait ObservatoryBridge {
     fn snapshot(&self) -> UiSnapshot;
     fn command(&mut self, command: UiCommand) -> Result<(), String>;
-}
-
-/// Explicitly empty scaffold; the real native entrypoint installs the engine adapter.
-pub struct DisconnectedBridge;
-impl ObservatoryBridge for DisconnectedBridge {
-    fn snapshot(&self) -> UiSnapshot {
-        UiSnapshot::default()
-    }
-    fn command(&mut self, _: UiCommand) -> Result<(), String> {
-        Err("The canonical engine is not connected.".into())
-    }
 }

@@ -1,7 +1,7 @@
 use crate::bridge::{BodyKind, ObservatoryBridge, UiBody, UiCommand, UiSnapshot, ViewMode};
 use eframe::egui::{
     self, pos2, vec2, Align, Align2, Color32, FontFamily, FontId, Pos2, Rect, RichText, Sense,
-    Shape, Stroke, Vec2,
+    Shape, Stroke,
 };
 use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
@@ -217,6 +217,8 @@ impl ObservatoryApp {
             identity: id.clone(),
         });
         if let Ok(parsed) = id.parse::<u64>() {
+            self.selected = Some(parsed);
+            self.track_selected = true;
             if let Some(body) = self.snapshot.bodies.iter().find(|body| body.id == parsed) {
                 self.selected = Some(body.id);
                 self.camera.center = body.position;
@@ -301,24 +303,23 @@ impl ObservatoryApp {
                         }
                         ui.add_space(20.0);
                         if ui.available_width() > 290.0 {
-                            ui.vertical(|ui| {
-                                ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
+                            ui.allocate_ui_with_layout(
+                                vec2(300.0, 48.0),
+                                egui::Layout::top_down(Align::RIGHT),
+                                |ui| {
                                     ui.label(
                                         RichText::new(&self.snapshot.capability_status)
                                             .size(9.0)
                                             .color(OCHRE)
                                             .extra_letter_spacing(1.0),
                                     );
-                                    ui.painter().circle_filled(
-                                        ui.cursor().min + vec2(0.0, 7.0),
-                                        2.5,
-                                        OCHRE,
+                                    ui.label(
+                                        RichText::new(&self.snapshot.law_name)
+                                            .size(12.0)
+                                            .color(INK),
                                     );
-                                });
-                                ui.label(
-                                    RichText::new(&self.snapshot.law_name).size(12.0).color(INK),
-                                );
-                            });
+                                },
+                            );
                         }
                     });
                 });
@@ -609,7 +610,7 @@ impl ObservatoryApp {
                     if let Some(pointer) = pointer {
                         let d = at.distance(pointer);
                         if d < body.radius.max(12.0) + 10.0
-                            && nearest.map_or(true, |(_, old)| d < old)
+                            && nearest.is_none_or(|(_, old)| d < old)
                         {
                             nearest = Some((body.id, d));
                         }
@@ -978,7 +979,7 @@ impl ObservatoryApp {
             ui.horizontal(|ui| {
                 if ui.add_enabled(self.snapshot.can_save, egui::Button::new("Save universe")).clicked() {
                     self.command(UiCommand::Save { path: PathBuf::from(&self.save_path) });
-                    if self.status.as_ref().map_or(true, |(_, error, when)| !*error || when.elapsed().as_secs() > 1) { self.status("Universe saved"); }
+                    self.status("Archive write requested");
                 }
                 if ui.add_enabled(self.snapshot.can_load, egui::Button::new("Load universe")).clicked() {
                     self.playing = false;
@@ -1038,7 +1039,10 @@ impl ObservatoryApp {
                 }
             }
         }
-        if self.options.screenshot.is_some() && self.frame_count >= 6 && !self.screenshot_requested
+        if self.options.screenshot.is_some()
+            && self.frame_count >= 10
+            && (self.snapshot.can_advance || self.frame_count > 300)
+            && !self.screenshot_requested
         {
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));
             self.screenshot_requested = true;
@@ -1060,6 +1064,9 @@ impl ObservatoryApp {
 }
 
 impl eframe::App for ObservatoryApp {
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        egui::Rgba::from(PAPER).to_array()
+    }
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.frame_count += 1;
         self.snapshot = self.bridge.snapshot();
@@ -1105,6 +1112,8 @@ impl eframe::App for ObservatoryApp {
         self.archive_window(ctx);
         self.help_window(ctx);
         self.capture_and_exit(ctx);
+        // Worker snapshots can change while paused, without a native input event.
+        ctx.request_repaint_after(Duration::from_millis(100));
     }
 }
 
@@ -1437,7 +1446,7 @@ fn separated(n: u64) -> String {
     let raw = n.to_string();
     let mut output = String::with_capacity(raw.len() + raw.len() / 3);
     for (index, ch) in raw.chars().enumerate() {
-        if index > 0 && (raw.len() - index) % 3 == 0 {
+        if index > 0 && (raw.len() - index).is_multiple_of(3) {
             output.push(',');
         }
         output.push(ch);

@@ -100,7 +100,11 @@ pub fn first_contact(
     radius: &Rational,
     domain: TickInterval,
 ) -> Option<i128> {
-    if domain.start > domain.end || radius < &r(0) || !a.is_subluminal() || !b.is_subluminal() {
+    if domain.start > domain.end
+        || radius < &r(0)
+        || a.velocity.norm_squared() > r(1)
+        || b.velocity.norm_squared() > r(1)
+    {
         return None;
     }
     let velocity = &a.velocity - &b.velocity;
