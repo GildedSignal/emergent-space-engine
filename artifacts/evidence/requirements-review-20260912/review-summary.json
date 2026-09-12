@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-12",
+  "scope": "Requirements and source review; no runtime/law implementation edits",
+  "head": "47f3290cf31039bc3b3bc926a457a0ec8ce0a6ef",
+  "tested_tree": "dirty; see per-file SHA256 in review-provenance.json",
+  "tests": [
+    {
+      "command": "CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo xtask test artifacts/runs/requirements-review-20260912",
+      "exit_code": 1,
+      "status": "FAIL",
+      "reason": "cooperative_prep_yields_before_scan_completes observed 5625584 ns against unchanged 5000000 ns limit",
+      "passed_before_abort": 75,
+      "failed": 1,
+      "evidence": "test-output.txt"
+    },
+    {
+      "command": "CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-engine --test compiler_coop cooperative_prep_yields_before_scan_completes --locked --offline -- --exact --nocapture",
+      "exit_code": 0,
+      "status": "PASS",
+      "passed": 1,
+      "evidence": "isolated-yield-test.txt"
+    },
+    {
+      "command": "CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test --workspace --locked --offline -- --test-threads=1",
+      "exit_code": 0,
+      "status": "PASS",
+      "passed": 148,
+      "law_lab_passed": 65,
+      "evidence": "serial-workspace-tests.txt"
+    }
+  ],
+  "law_qualification": {
+    "command": "CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo xtask law-lab artifacts/runs/requirements-review-20260912",
+    "exit_code": 2,
+    "status": "FAIL",
+    "production_law": null,
+    "evidence": "law-qualification.json"
+  },
+  "performance": "No new release performance comparison; H0013 exception timing remains historical. Default test latency failure is retained; controls do not erase it.",
+  "limitations": [
+    "Test metric writers refresh gitignored compiler run outputs; frozen 1dac658 evidence was not modified.",
+    "Test pass counts concern implementation checks; G2 remains FAIL.",
+    "No integrated qualification, 30 FPS, GPU-inclusive memory or billion-year gravitational run.",
+    "Review proposes follow-ups; it does not establish physical viability or speedup."
+  ],
+  "evidence_sha256": {
+    "isolated-yield-test.txt": "8ff21ada3958a317f35bd49f59f580962374405e440719186e2e862d2e25ae47",
+    "law-command.txt": "a163317993c7513bafd0dec9a73b501205a955b820a1ee65d74b2039520f5d38",
+    "law-qualification.json": "a116b0f18e27099bf1d8ef8fe90a17c6a78ef5cdd367c9cf8bb6fe0d73c17d74",
+    "review-provenance.json": "6c756d75ec3613cbb4e03dd47a120f4e4f7f21d5f273b9d49d1d1b4538e3b85b",
+    "serial-workspace-tests.txt": "f14287b1a2c08a7556abab39e7c752797375d05df5a03f7616af071a89dfce23",
+    "test-output.txt": "1b708639fc5ff06bbbbc114e4cf061acf4c3c3949da365f60e2215001ca70169",
+    "history-check.txt": "dedd22f556089a9accbd28df4d46130923344dfec1e081f104036cff41cb9c33"
+  },
+  "history_check": {
+    "command": "CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo xtask history check",
+    "exit_code": 0,
+    "status": "PASS",
+    "entries": 25,
+    "evidence": "history-check.txt"
+  },
+  "documentation_checks": {
+    "report_local_links": "PASS",
+    "source_hashes_unchanged": "PASS",
+    "preexisting_full_tree_diff_check": "Existing docs/law-lab.md blank line at EOF; file not edited during review."
+  }
+}

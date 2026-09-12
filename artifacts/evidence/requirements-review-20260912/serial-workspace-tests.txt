@@ -1,0 +1,197 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.36s
+     Running unittests src/lib.rs (target/debug/deps/emergent_engine-1f2a3f695ec07787)
+
+running 24 tests
+test geometry::tests::aabb_touch_counts_as_intersection ... ok
+test geometry::tests::continuous_contact_matches_independent_linear_interval_oracle_grid ... ok
+test geometry::tests::inclusive_intervals_validate_and_include_single_ticks ... ok
+test geometry::tests::lightcone_and_binary_search_handle_full_i128_range_without_overflow ... ok
+test geometry::tests::receding_contact_invalid_radius_and_stationary_overlap ... ok
+test geometry::tests::signal_arrival_matches_exhaustive_tick_oracle ... ok
+test geometry::tests::tangent_and_point_crossing_between_tick_samples_are_not_missed ... ok
+test geometry::tests::tangent_at_integer_boundary_belongs_only_to_ending_bin ... ok
+test math::tests::rational_normalization_and_serialization_preserve_identity ... ok
+test math::tests::vector_arithmetic_stays_exact_beyond_machine_integer_range ... ok
+test population::tests::billion_id_is_random_access_and_split_invariant ... ok
+test population::tests::closing_phase_family_is_not_self_disjoint ... ok
+test population::tests::phase_decode_split_and_moment_match_materialized ... ok
+test population::tests::rng_known_vector_and_purpose_separation ... ok
+test propagator::tests::nearly_lightlike_quantization_is_explicit_not_a_float_accident ... ok
+test propagator::tests::proper_rate_is_an_exact_dyadic_lower_bound ... ok
+test propagator::tests::proper_time_is_subdivision_and_rebase_invariant ... ok
+test propagator::tests::rebasing_preserves_the_entire_worldline ... ok
+test propagator::tests::rejects_lightlike_and_superluminal_worldlines ... ok
+test propagator::tests::serialization_contains_only_canonical_worldline_state ... ok
+test propagator::tests::worldtube_bounds_negative_motion_and_fractional_samples ... ok
+test response::tests::compose_checks_boundary_and_cache_dependencies ... ok
+test response::tests::min_plus_routes_and_overflow ... ok
+test storage::tests::checkpoint_roundtrip_corruption_and_law_rejection ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.31s
+
+     Running tests/causal_contract.rs (target/debug/deps/causal_contract-af38d51f2b48fdf6)
+
+running 18 tests
+test budget_partition_subdivision_and_cold_restart_do_not_change_history ... ok
+test complete_causal_loop_and_independent_witness ... ok
+test contacts_between_samples_are_not_missed ... ok
+test exhaustive_small_world_contact_oracle ... ok
+test extracted_family_collisions_match_a_materialized_population ... ok
+test extreme_identity_and_restored_range_order_are_validated ... ok
+test failed_notification_capacity_is_atomic_and_resumable ... ok
+test family_splits_and_lookup_are_representation_only ... ok
+test future_inspection_and_zero_budget_never_claim_completion ... ok
+test indexed_occluders_match_individual_observations ... ok
+test invalid_simultaneous_burn_is_atomic ... ok
+test observational_queries_are_pure_and_occluders_block_light ... ok
+test one_ship_burn_extracts_only_that_identity ... ok
+test opposing_simultaneous_impulses_commute ... ok
+test receiver_course_change_invalidates_old_signal_arrival ... ok
+test replay_rebuilds_causal_facts_from_genesis_and_commands ... ok
+test single_operation_continuations_terminate_and_preserve_result ... ok
+test stationary_family_source_moments_equal_materialized_sum ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/compiler_coop.rs (target/debug/deps/compiler_coop-0e2cbdf67841b46b)
+
+running 34 tests
+test cancel_resume_tiny_budget_matches_full_history ... ok
+test causally_adjacent_families_share_a_component_not_an_identity ... ok
+test closing_phase_family_is_rejected_not_interior_skipped ... ok
+test compressed_vs_materialized_scripted_family_member ... ok
+test cooperative_prep_yields_before_scan_completes ... ok
+test dense_one_burn_matches_pairwise_and_groups ... ok
+test event_storm_simultaneous_setcourse_is_budget_invariant ... ok
+test extract_only_when_family_generator_changes ... ok
+test family_phase_burn_updates_in_place_not_family_wide_extract ... ok
+test grazing_miss_matches_oracle ... ok
+test incremental_sap_one_burn_matches_rebuild_and_oracle ... ok
+test independent_families_do_not_share_a_component ... ok
+test near_c_subluminal_setcourse_is_accepted ... ok
+test packed_overlap_forms_a_large_war_island ... ok
+test phase_family_compressed_matches_materialized_fixture ... ok
+test phase_family_first_middle_last_extract ... ok
+test phase_lane_facts_match_under_component_compile ... ok
+test quiet_inertial_zero_events_do_not_recheck_pairs ... ok
+test records_causal_component_metrics ... ok
+test records_compiler_coop_metrics ... ok
+test records_overlap_certificate_metrics ... ok
+test records_phase_family_metrics ... ok
+test records_war_island_metrics ... ok
+test relay_digest_and_witness_stay_independent ... ok
+test reversed_phase_family_order_on_restore_is_rejected ... ok
+test scripted_interaction_v1_course_signal_and_contact ... ok
+test sensor_budget_cancel_resume_matches_full_and_keeps_digest ... ok
+test sensor_continuation_records_metrics ... ok
+test set_course_range_compressed_matches_materialized ... ok
+test set_course_range_does_not_merge_adjacent_families ... ok
+test set_course_range_is_one_hyperedge_and_does_not_extract ... ok
+test tangency_at_integer_tick_matches_oracle ... ok
+test two_families_approach_then_miss ... ok
+test two_quiet_contacts_do_not_recheck_certified_pairs ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.92s
+
+     Running unittests src/lib.rs (target/debug/deps/emergent_law_lab-e8f7b98fb8d50827)
+
+running 65 tests
+test causal_kernel::tests::always_zero_kernel_fails_post_cone ... ok
+test causal_kernel::tests::authored_worldtubes_fail_two_way_backreaction ... ok
+test causal_kernel::tests::compact_is_refused_and_far_is_not ... ok
+test causal_kernel::tests::incomplete_root_fails_certified_query_closed ... ok
+test causal_kernel::tests::instantaneous_newton_fails_the_first_gate ... ok
+test causal_kernel::tests::moving_source_ignores_present_position_before_cone ... ok
+test causal_kernel::tests::query_in_omitted_region_fails_closed ... ok
+test causal_kernel::tests::research_kernel_does_not_promote ... ok
+test causal_kernel::tests::research_law_is_not_the_inertial_laboratory ... ok
+test causal_kernel::tests::retarded_mass_change_is_two_sided ... ok
+test causal_kernel::tests::self_query_without_exclude_is_singular ... ok
+test causal_kernel::tests::simultaneous_changes_arrive_on_their_own_cones ... ok
+test causal_kernel::tests::sound_tail_bound_encloses_omitted_r16 ... ok
+test causal_kernel::tests::superluminal_history_is_rejected ... ok
+test causal_kernel::tests::unsound_tail_bound_is_violated_by_omitted_r16 ... ok
+test compact::tests::coincidence_is_singular_not_nan ... ok
+test compact::tests::compact_class_is_exact_on_interior_horizon_and_far ... ok
+test compact::tests::compact_field_does_not_promote ... ok
+test compact::tests::compact_of_a_mass_change_is_retarded ... ok
+test compact::tests::compact_radius_is_exact_two_mu_over_c2 ... ok
+test compact::tests::interior_is_captured_and_newton_is_not ... ok
+test compact::tests::newton_deflection_is_half_of_gr_weak_field ... ok
+test coupled::tests::both_bodies_move ... ok
+test coupled::tests::coupled_capture_halt_is_finite ... ok
+test coupled::tests::coupled_kernel_does_not_promote ... ok
+test coupled::tests::coupled_law_is_isolated ... ok
+test coupled::tests::coupled_mass_change_is_two_sided ... ok
+test coupled::tests::every_positive_mass_sources ... ok
+test coupled::tests::fleet_collective_is_retarded_and_larger ... ok
+test coupled::tests::incomplete_coupled_certified_query_fails_closed ... ok
+test coupled::tests::instantaneous_two_body_fails_pre_cone ... ok
+test coupled::tests::isolated_mass_has_no_self_force ... ok
+test coupled::tests::next_segment_is_the_retarded_update ... ok
+test coupled::tests::rejects_more_than_tiny_n ... ok
+test exact_branch::tests::certified_exterior_decision_fails_closed ... ok
+test exact_branch::tests::compact_ties_are_capture_or_refuse ... ok
+test exact_branch::tests::cone_is_before_on_after_in_one_step ... ok
+test exact_branch::tests::curved_null_is_unsupported ... ok
+test exact_branch::tests::exact_branch_manifest_is_additive ... ok
+test exact_branch::tests::f64_escalates_and_nonfinite_refuses ... ok
+test exact_branch::tests::floating_root_is_diagnostic_only ... ok
+test exact_branch::tests::iteration_cap_is_not_a_sign ... ok
+test exact_branch::tests::simultaneous_capture_is_first_worldtube ... ok
+test exact_branch::tests::terminating_exact_branches_does_not_promote ... ok
+test schwarzschild::tests::circular_and_radial_domains_are_exact ... ok
+test schwarzschild::tests::domain_misses_fail_closed ... ok
+test schwarzschild::tests::geodesic_ivp_of_a_mass_change_is_retarded ... ok
+test schwarzschild::tests::horizon_fallback_beats_scatter_impact ... ok
+test schwarzschild::tests::null_capture_is_exact_without_sqrt3 ... ok
+test schwarzschild::tests::null_geodesic_ivp_distinguishes_capture_scatter_and_photon ... ok
+test schwarzschild::tests::photon_sphere_is_exact_three_mu_over_c2 ... ok
+test schwarzschild::tests::scatter_trajectory_and_off_axis_fail_closed ... ok
+test schwarzschild::tests::schwarzschild_does_not_promote ... ok
+test schwarzschild::tests::schwarzschild_law_is_isolated ... ok
+test schwarzschild::tests::schwarzschild_of_a_mass_change_is_retarded ... ok
+test schwarzschild::tests::turning_root_is_fail_closed_and_cap_is_not_a_sign ... ok
+test schwarzschild::tests::weak_field_deflection_is_exactly_4mu_and_newton_is_not ... ok
+test tests::analytic_circle_solver_finds_two_crossings_without_sampling ... ok
+test tests::circular_orbit_is_checked_against_analytic_period_and_radius ... ok
+test tests::frozen_manifest_has_all_three_quanta_and_both_regimes ... ok
+test tests::inverse_square_kernel_is_three_dimensional_restricted_to_plane ... ok
+test tests::monopole_bound_contains_independently_summed_asymmetric_sources ... ok
+test tests::shell_free_flight_matches_its_hamiltonian_velocity ... ok
+test tests::stationary_source_counterexample_really_changes_before_signal_arrival ... ok
+test tests::zero_mass_verlet_is_exact_ballistic_at_binary_boundaries ... ok
+
+test result: ok. 65 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.16s
+
+     Running unittests src/main.rs (target/debug/deps/emergent_observatory-2dc3560961389ffc)
+
+running 5 tests
+test adapter::tests::sensor_capability_failures_are_visible ... ok
+test adapter::tests::worker_commands_observation_lookup_and_archive_are_real ... ok
+test app::tests::camera_fit_rejects_invalid_samples ... ok
+test app::tests::camera_roundtrip_and_zoom_keep_anchor ... ok
+test app::tests::canonical_ticks_are_not_rounded_for_display ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running unittests src/main.rs (target/debug/deps/xtask-d3472796d7778969)
+
+running 2 tests
+test history::tests::completed_append_preserves_committed_records ... ok
+test history::tests::rejects_missing_fields_duplicates_and_unfinished_templates ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests emergent_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests emergent_law_lab
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

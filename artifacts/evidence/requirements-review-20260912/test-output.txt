@@ -1,0 +1,110 @@
+
+running 24 tests
+test geometry::tests::aabb_touch_counts_as_intersection ... ok
+test geometry::tests::inclusive_intervals_validate_and_include_single_ticks ... ok
+test geometry::tests::tangent_and_point_crossing_between_tick_samples_are_not_missed ... ok
+test geometry::tests::tangent_at_integer_boundary_belongs_only_to_ending_bin ... ok
+test geometry::tests::receding_contact_invalid_radius_and_stationary_overlap ... ok
+test math::tests::rational_normalization_and_serialization_preserve_identity ... ok
+test math::tests::vector_arithmetic_stays_exact_beyond_machine_integer_range ... ok
+test population::tests::rng_known_vector_and_purpose_separation ... ok
+test population::tests::closing_phase_family_is_not_self_disjoint ... ok
+test propagator::tests::nearly_lightlike_quantization_is_explicit_not_a_float_accident ... ok
+test population::tests::phase_decode_split_and_moment_match_materialized ... ok
+test propagator::tests::rejects_lightlike_and_superluminal_worldlines ... ok
+test population::tests::billion_id_is_random_access_and_split_invariant ... ok
+test propagator::tests::serialization_contains_only_canonical_worldline_state ... ok
+test propagator::tests::worldtube_bounds_negative_motion_and_fractional_samples ... ok
+test response::tests::min_plus_routes_and_overflow ... ok
+test propagator::tests::proper_time_is_subdivision_and_rebase_invariant ... ok
+test response::tests::compose_checks_boundary_and_cache_dependencies ... ok
+test propagator::tests::rebasing_preserves_the_entire_worldline ... ok
+test propagator::tests::proper_rate_is_an_exact_dyadic_lower_bound ... ok
+test storage::tests::checkpoint_roundtrip_corruption_and_law_rejection ... ok
+test geometry::tests::lightcone_and_binary_search_handle_full_i128_range_without_overflow ... ok
+test geometry::tests::signal_arrival_matches_exhaustive_tick_oracle ... ok
+test geometry::tests::continuous_contact_matches_independent_linear_interval_oracle_grid ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+
+
+running 18 tests
+test family_splits_and_lookup_are_representation_only ... ok
+test extreme_identity_and_restored_range_order_are_validated ... ok
+test contacts_between_samples_are_not_missed ... ok
+test future_inspection_and_zero_budget_never_claim_completion ... ok
+test complete_causal_loop_and_independent_witness ... ok
+test invalid_simultaneous_burn_is_atomic ... ok
+test failed_notification_capacity_is_atomic_and_resumable ... ok
+test observational_queries_are_pure_and_occluders_block_light ... ok
+test one_ship_burn_extracts_only_that_identity ... ok
+test budget_partition_subdivision_and_cold_restart_do_not_change_history ... ok
+test receiver_course_change_invalidates_old_signal_arrival ... ok
+test opposing_simultaneous_impulses_commute ... ok
+test replay_rebuilds_causal_facts_from_genesis_and_commands ... ok
+test stationary_family_source_moments_equal_materialized_sum ... ok
+test extracted_family_collisions_match_a_materialized_population ... ok
+test single_operation_continuations_terminate_and_preserve_result ... ok
+test indexed_occluders_match_individual_observations ... ok
+test exhaustive_small_world_contact_oracle ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+
+running 34 tests
+test closing_phase_family_is_rejected_not_interior_skipped ... ok
+test causally_adjacent_families_share_a_component_not_an_identity ... ok
+test grazing_miss_matches_oracle ... ok
+test extract_only_when_family_generator_changes ... ok
+test independent_families_do_not_share_a_component ... ok
+test near_c_subluminal_setcourse_is_accepted ... ok
+test compressed_vs_materialized_scripted_family_member ... ok
+test cancel_resume_tiny_budget_matches_full_history ... ok
+test event_storm_simultaneous_setcourse_is_budget_invariant ... ok
+test family_phase_burn_updates_in_place_not_family_wide_extract ... ok
+test quiet_inertial_zero_events_do_not_recheck_pairs ... ok
+test phase_family_first_middle_last_extract ... ok
+test phase_lane_facts_match_under_component_compile ... ok
+test cooperative_prep_yields_before_scan_completes ... FAILED
+test records_overlap_certificate_metrics ... ok
+test dense_one_burn_matches_pairwise_and_groups ... ok
+test relay_digest_and_witness_stay_independent ... ok
+test reversed_phase_family_order_on_restore_is_rejected ... ok
+test scripted_interaction_v1_course_signal_and_contact ... ok
+test incremental_sap_one_burn_matches_rebuild_and_oracle ... ok
+test sensor_budget_cancel_resume_matches_full_and_keeps_digest ... ok
+test set_course_range_compressed_matches_materialized ... ok
+test set_course_range_does_not_merge_adjacent_families ... ok
+test set_course_range_is_one_hyperedge_and_does_not_extract ... ok
+test tangency_at_integer_tick_matches_oracle ... ok
+test two_families_approach_then_miss ... ok
+test two_quiet_contacts_do_not_recheck_certified_pairs ... ok
+test phase_family_compressed_matches_materialized_fixture ... ok
+test records_phase_family_metrics ... ok
+test sensor_continuation_records_metrics ... ok
+test records_compiler_coop_metrics ... ok
+test records_causal_component_metrics ... ok
+test packed_overlap_forms_a_large_war_island ... ok
+test records_war_island_metrics ... ok
+
+failures:
+
+---- cooperative_prep_yields_before_scan_completes stdout ----
+
+thread 'cooperative_prep_yields_before_scan_completes' panicked at crates/engine/tests/compiler_coop.rs:217:9:
+cooperative yield spent 5625584 ns
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    cooperative_prep_yields_before_scan_completes
+
+test result: FAILED. 33 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.26s
+
+   Compiling emergent-law-lab v0.1.0 (/Users/julien_laurent/Documents/ChatGPT/Emergent space/crates/law-lab)
+   Compiling xtask v0.1.0 (/Users/julien_laurent/Documents/ChatGPT/Emergent space/xtask)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.64s
+     Running unittests src/lib.rs (target/debug/deps/emergent_engine-1f2a3f695ec07787)
+     Running tests/causal_contract.rs (target/debug/deps/causal_contract-af38d51f2b48fdf6)
+     Running tests/compiler_coop.rs (target/debug/deps/compiler_coop-0e2cbdf67841b46b)
+error: test failed, to rerun pass `-p emergent-engine --test compiler_coop`
