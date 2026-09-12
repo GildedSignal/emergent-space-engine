@@ -200,6 +200,7 @@ fn snapshot(
     pending: Option<i128>,
     warning: Option<String>,
 ) -> UiSnapshot {
+    let mut warning = warning;
     let now = engine.state.clock;
     let mut ids = vec![1, 2, 3, 4, 5];
     if let Some(id) = extra {
@@ -208,7 +209,13 @@ fn snapshot(
         }
     }
     let observations = if mode == ViewMode::HistoricalSensor {
-        engine.observe(1, now, &ids).unwrap_or_default()
+        match engine.observe(1, now, &ids) {
+            Ok(observations) => observations,
+            Err(error) => {
+                warning = Some(format!("Sensor query incomplete: {error}"));
+                vec![]
+            }
+        }
     } else {
         vec![]
     };
@@ -346,6 +353,18 @@ mod tests {
         assert_eq!(lookup.canonical_hash, initial.canonical_hash);
         assert_eq!(lookup.explicit_population, 5);
         bridge
+            .command(UiCommand::Navigate {
+                destination: [-50., 100.],
+                speed_fraction: 0.5,
+            })
+            .unwrap();
+        let course = wait(&bridge, |s| {
+            s.bodies
+                .iter()
+                .any(|b| b.id == 1 && b.velocity == [0., 0.5])
+        });
+        assert_ne!(course.canonical_hash, initial.canonical_hash);
+        bridge
             .command(UiCommand::SendSignal { target_id: 2 })
             .unwrap();
         bridge.command(UiCommand::Advance { ticks: 100 }).unwrap();
@@ -372,5 +391,12 @@ mod tests {
         let loaded = wait(&bridge, |s| s.time_ticks == later.time_ticks);
         assert_eq!(loaded.canonical_hash, later.canonical_hash);
         std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn sensor_capability_failures_are_visible() {
+        let mut e = scenario::observatory().unwrap();
+        e.max_pending_jobs = 0;
+        let s = snapshot(&e, ViewMode::HistoricalSensor, None, None, None);
+        assert!(s.warning.unwrap().contains("Sensor query incomplete"));
     }
 }
