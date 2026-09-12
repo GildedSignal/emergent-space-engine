@@ -6,6 +6,16 @@ The repository implements exact rational worldlines, swept contact certificates,
 
 **This is not a qualified full gravity engine.** The physical-law laboratory evaluates two executable candidates and retains their failed gates. The billion-population / ten-billion-year tests measure the inertial compression mechanism. They do not establish integrated gravitational scale.
 
+## Continue development
+
+Start with [the agent handoff](docs/HANDOFF.md). [The development history](docs/HISTORY.md) records what changed and why, and [the update procedure](docs/history-workflow.md) keeps it current. The original approved plan, conversation, research and aesthetic references are preserved in [the reference index](docs/reference/README.md).
+
+```sh
+cargo xtask history list
+cargo xtask history search "compression"
+cargo xtask history check
+```
+
 ## Run
 
 The checked-in toolchain is Rust 1.90.0. Build concurrency is limited to two jobs for the M1/8 GB target.

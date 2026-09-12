@@ -1,0 +1,58 @@
+{
+  "scope": "Handoff/history tooling on uncommitted changes from 99764b4; physical qualification unchanged",
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "xtask",
+        "history",
+        "append",
+        "/tmp/emergent-history-entry.md"
+      ],
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "output": "PASS: 9 development history entries; fields, local links and committed prefix checked\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s\n     Running `target/debug/xtask history append /tmp/emergent-history-entry.md`\nerror: invalid history heading: ## H0010 \u2014 TODO milestone title\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "xtask",
+        "test",
+        "artifacts/runs/handoff-20260912"
+      ],
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "output": "PASS: 9 development history entries; fields, local links and committed prefix checked\nPASS: canonical and law-laboratory test suites\nEvidence: artifacts/runs/handoff-20260912\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s\n     Running `target/debug/xtask test artifacts/runs/handoff-20260912`\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "xtask",
+        "--all-targets",
+        "--locked",
+        "--offline",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "output": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "xtask",
+        "history",
+        "search",
+        "co-moving"
+      ],
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "output": "## H0006 \u2014 Integrate the causal loop and shared populations\n\n- Date: 2026-09-12\n- Kind: implementation and compression experiment\n- Status: causal laboratory and scoped compression mechanisms implemented\n- Revisions: `38bce52`.\n- Scope: Scheduler, signals, simultaneous contacts, indexed families and sparse exceptions.\n- Changed: Connected reception, impulse, contact stop, notification and replay into one causal loop. Added affine identity families with exact partition offsets, binary family lookup and selective member extraction. Swept boxes use a common co-moving frame; extracted identities are removed from derived ranges before spatial refinement.\n- Why: Charge independently changing descriptions and consequential interactions rather than logical ships times elapsed ticks. Common drift should cancel before making long-horizon bounds enormous. Repeatedly rediscovering an exception at the leaves of a family tree was avoidable work.\n- Validation: The relay fixes event ticks 14/43/71. Compressed versus individual collision and occlusion tests pass, including first/middle/last member extraction. The final frozen inertial sweep represents 1e9 distinct ships in 16 families using 5,463 serialized bytes; a 1,000-exception advance takes 18.478 ms.\n- Evidence: [Runtime](../crates/engine/src/runtime.rs), [family representation](../crates/engine/src/population.rs), [differential contracts](../crates/engine/tests/causal_contract.rs), [frozen benchmarks](../artifacts/evidence/1dac658/benchmarks.json), [measurement limits](implementation-report.md).\n- Limitations: The earlier roughly one-second exception probe was not a controlled release baseline. The 5.5 KB figure is serialized state, not RAM. Families currently share velocity and must have disjoint members. Broad-phase setup is not yet fully cooperative, and no gravity participates in these scale sweeps.\n- Next: Test more general route/departure/phase families and fragmentation with fixed fixtures; preserve identity and exact interaction semantics. Make broad-phase work resumable before claiming bounded command latency.\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s\n     Running `target/debug/xtask history search co-moving`\n"
+    }
+  ],
+  "unfinished_draft_left_history_unchanged": true
+}

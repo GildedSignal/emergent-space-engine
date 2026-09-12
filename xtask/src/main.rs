@@ -1,4 +1,5 @@
 mod bench;
+mod history;
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -22,6 +23,10 @@ fn write(path: &Path, value: &Value) -> Result<()> {
 fn run() -> Result<u8> {
     let mut args = std::env::args().skip(1);
     let task = args.next().unwrap_or_else(|| "help".into());
+    if task == "history" {
+        history::run(args.collect())?;
+        return Ok(0);
+    }
     let out = PathBuf::from(
         args.next()
             .unwrap_or_else(|| "artifacts/runs/latest".into()),
@@ -31,11 +36,12 @@ fn run() -> Result<u8> {
         return Ok(0);
     }
     if !["test", "reference", "law-lab", "bench", "fermi", "qualify"].contains(&task.as_str()) {
-        println!("Emergent Space tasks: test | reference | law-lab | bench | fermi | qualify [output-dir]\nverify CHECKPOINT\nUse cargo run --release -p xtask -- qualify for measured evidence.\nQualification exits 2 when a research gate fails; the failure remains in the report.");
+        println!("Emergent Space tasks: test | reference | law-lab | bench | fermi | qualify [output-dir]\nverify CHECKPOINT\nhistory [list | search TEXT | template | append FILE | check]\nUse cargo run --release -p xtask -- qualify for measured evidence.\nQualification exits 2 when a research gate fails; the failure remains in the report.");
         return Ok(0);
     }
     fs::create_dir_all(&out)?;
     if task == "test" || task == "qualify" {
+        history::check()?;
         let tests = Command::new("cargo")
             .args(["test", "--workspace", "--locked", "--offline"])
             .output()?;
