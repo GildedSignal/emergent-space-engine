@@ -4,6 +4,7 @@
 //! gravity are deliberately versioned separately.
 pub const LAW_ID: &str = "es-inertial-causal-v1";
 pub mod archive;
+pub mod authority;
 pub mod coupled_adapter;
 pub mod geometry;
 pub mod math;

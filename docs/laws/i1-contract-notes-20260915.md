@@ -40,4 +40,8 @@ Still remaining for increment 1: `Engine::advance` does not yet suspend these jo
 
 `Engine::advance(..., WorkBudget)` now polls the diagnostic pipeline before inertial work: collocation (per block), residual seal (per sample; compact sidecar skipped), pair-inverse (per FD column and LU step), enclosure (per Euler/Picard dt), repair collocation. Headless scene `crates/engine/tests/i1_connected_scene.rs` binds ship/ray/clock/contact to interval functions, applies received-knowledge course change, retains an in-flight signal across checkpoint restore, pauses at budget=1, varies query order, clears consumer cache, replays inertial facts, and keeps beyond-horizon required queries visible.
 
-Historical `compile_source_response` still runs compact fit atomically so H0124 counts stay. Diagnostic path does not use that compact decode. `Enclosure.certified` remains diagnostic. Increment 2 authority (finite-semantic reference, near-ties, slow vs compiled canonical GEM facts, separately versioned resolution) has not exited. `production_law` null.
+Historical `compile_source_response` still runs compact fit atomically so H0124 counts stay. Diagnostic path does not use that compact decode. `Enclosure.certified` remains diagnostic. Increment 2 authority is recorded below. `production_law` null.
+
+## I1 increment 2 authority (2026-09-15)
+
+Canonical facts are exact inertial contact and light-cone on `es-inertial-causal-v1`. Independent geometry predicates on committed worldlines match compiled events on the connected scene (`Engine::canonical_facts_agree`). GEM stays `es-linearized-retarded-gem-response-v0`: 16-sample enclosure is labeled `sampled-16-not-interval-wide`; sampled `certified: true` does not authorize events; historical compact seal stays `atomic-h0124-not-authority`. Shifted units, input epoch and `Domain.dt` are separately versioned. Tests: `crates/engine/tests/i1_increment2_authority.rs`. Gravity acceptance remains `diagnostic-only`.
