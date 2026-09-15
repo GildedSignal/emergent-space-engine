@@ -101,10 +101,11 @@ pub struct CoupledDiagnostic {
 }
 
 impl CoupledDiagnostic {
-    pub fn laboratory() -> Result<Self, ResponseError> {
-        let genesis = laboratory_two_body();
-        let horizon = 3.0;
-        let dt = 1.0 / 32.0;
+    pub fn from_ic(
+        genesis: InitialCondition,
+        horizon: f64,
+        dt: f64,
+    ) -> Result<Self, ResponseError> {
         let job = CoupledCompileJob::from_genesis(&genesis, &[], horizon)?;
         Ok(Self {
             pipeline: Pipeline::Collocate {
@@ -122,6 +123,10 @@ impl CoupledDiagnostic {
             max_uninterrupted_ns: 0,
             last_poll_ns: 0,
         })
+    }
+
+    pub fn laboratory() -> Result<Self, ResponseError> {
+        Self::from_ic(laboratory_two_body(), 3.0, 1.0 / 32.0)
     }
 
     pub fn is_ready(&self) -> bool {
@@ -420,6 +425,20 @@ fn inertial_body(id: u64, name: &str, x: i128, y: i128, radius: i128) -> Body {
 impl Engine {
     pub fn attach_connected_laboratory(&mut self) -> Result<(), EngineError> {
         let diag = CoupledDiagnostic::laboratory().map_err(|e| EngineError::Unsupported(e.to_string()))?;
+        self.coupled = Some(Box::new(diag));
+        Ok(())
+    }
+
+    /// Bind a chosen GEM genesis as this engine's selected geometry.
+    /// Does not mint canonical gravity.
+    pub fn attach_coupled_laboratory(
+        &mut self,
+        genesis: InitialCondition,
+        horizon: f64,
+        dt: f64,
+    ) -> Result<(), EngineError> {
+        let diag = CoupledDiagnostic::from_ic(genesis, horizon, dt)
+            .map_err(|e| EngineError::Unsupported(e.to_string()))?;
         self.coupled = Some(Box::new(diag));
         Ok(())
     }

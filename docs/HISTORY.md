@@ -2062,3 +2062,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I4 GEM authority](laws/i4-gem-authority-20260915.md), [I4 solar start](laws/i4-solar-authority-20260915.md), [six-card contract](laws/litmus-gallery-contract-20260914.md)
 - Limitations: I4 not exited. Galaxy hierarchical expansion missed 0.05. Black-hole/near-mass unsupported. Six-card crossing not on the integrated engine. Genesis prefix not authorized. `production_law` null.
 - Next: Retarded multipole with remainder bound, or keep direct N-body, then a BH model alternative, then six-card crossing. Do not launch I5–I6. Do not select `production_law`. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.
+
+
+## H0139 — I4 six-card crossing: direct galaxy sums, Sch–GEM interface, one engine
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0138 `f0a795b`
+- Scope: I4 remaining cards and crossing of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); [six-card contract](laws/litmus-gallery-contract-20260914.md); not I5–I6; not `production_law`
+- Changed: Retarded quadrupole clusters remainder 0.478>0.05 (bound 0.783); mass accounted; admitted method is direct small-world GEM sums. New model `es-schwarzschild-gem-interface-v0`: clocks/Φ and first-order deflection match at compactness 0.05; accel PN jump 0.10; capture μ 0.01→8.01; moving multi-mass refused. One engine binds solar GEM genesis, ship/ray/clock, asteroid, affine fleet and delayed policy (1 burn). Kernel unused. `CANONICAL_GRAVITY_ACCEPTANCE` stays diagnostic-only.
+- Why: I4 required galaxy remainder with an explicit bound, one named BH alternative, and six-card crossing on the integrated engine rather than glued fixtures. Multipole could not meet 0.05; do not widen.
+- Validation: Law-lab `i4_` 13 PASS, engine `i4_six_card_crossing` 1, `i1_increment2_authority` 6, `i2_composed_scene` 1. `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never` `--offline --locked --test-threads=1`.
+- Evidence: [I4 six-card](laws/i4-six-card-crossing-20260915.md), [I4 GEM authority](laws/i4-gem-authority-20260915.md), [six-card contract](laws/litmus-gallery-contract-20260914.md)
+- Limitations: Family does not source GEM. Moving multi-mass compact fields unsupported. Accel continuity 0.10>0.05. Full-engine incomplete. `production_law` null.
+- Next: Do not start I5 until assigned. Remaining physics: family-sourced GEM or recorded BH/galaxy alternatives. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.

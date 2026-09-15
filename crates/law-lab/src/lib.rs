@@ -967,6 +967,11 @@ pub mod i4_solar;
 /// I4 interval-wide GEM field authority on causal blocks. Not production_law.
 /// Does not mint CANONICAL_GRAVITY_ACCEPTANCE.
 pub mod i4_gem_authority;
+/// I4 galaxy-like retarded multipole vs direct sums. Not production_law.
+pub mod i4_galaxy;
+/// I4 restricted exterior Schwarzschild–GEM interface. New model version.
+/// Not production_law. Does not mint CANONICAL_GRAVITY_ACCEPTANCE.
+pub mod i4_near_mass;
 
 #[cfg(test)]
 mod tests {

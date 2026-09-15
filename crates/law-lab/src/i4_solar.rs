@@ -675,11 +675,13 @@ mod tests {
     }
 
     #[test]
-    fn i4_black_hole_card_is_an_exact_gap() {
-        let gap = "linearized retarded GEM has no absorbing capture or connected weak-to-strong near-mass propagator; Schwarzschild predicates are not in this worktree";
-        let a = "restricted exterior Schwarzschild + GEM weak-field match at a named interface, as a new model version";
-        let b = "connected GEM-to-absorbing-horizon family with source/capture accounting and no interiors, as a new model version";
-        eprintln!("I4_BH_GAP {gap}; alternatives: (a) {a}; (b) {b}");
-        assert!(gap.contains("absorbing capture"));
+    fn i4_black_hole_card_uses_schwarzschild_gem_interface() {
+        let report = crate::i4_near_mass::measure_near_mass_interface().expect("near-mass");
+        eprintln!(
+            "I4_BH law={} matched={} accel_rem={} moving={}",
+            report.law_id, report.matched, report.accel_remainder, report.moving_multi_mass
+        );
+        assert_eq!(report.law_id, crate::i4_near_mass::SCHWARZSCHILD_GEM_LAW_ID);
+        assert!(report.moving_multi_mass.contains("cannot qualify"));
     }
 }
