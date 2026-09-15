@@ -1972,3 +1972,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I3 secular evidence](laws/i3-secular-evidence-20260915.md), [I3 keep/reject](laws/i3-keep-reject-evidence-20260915.md), [H0131](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: I3 exit is not proven. Kepler+residual is cheaper than collocation only where it fails to match GEM. Lazy inverse is setup deferral, not skipped evolution. Interval-wide GEM authority is still missing. `production_law` null. Canonical gravity remains `diagnostic-only`.
 - Next: Osculating / retarded perturbation of Kepler (variation of elements from GEM lookback), not another post-pass residual and not I4 qualification. Do not launch I4–I6 theater.
+
+
+## H0133 — I3: osculating Kepler with retarded GEM lookback rejected; high-e fallback
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: failed
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after `0b72990`; this entry's follow-on commit
+- Scope: I3 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); osculating / retarded perturbation of Kepler; not gravitational qualification
+- Changed: Implemented `compile_osculating_response`: Kepler-advance, retarded GEM lookback, Δv = (GEM−Newton) Δt, refit elements. Cadence `OSC_DT=0.25` (half light-crossing), not collocation `dt=1/32`. Position gate `OSC_POS_BAND=0.20` declared before runs; H0132 0.05 accel band not widened. Circular a=4 at H=4 and H=6 refuses `e=0.886>0.85` (a→18.47) before Δx is measured. Eccentric, resonance, and weak forcing refuse the same way. Radial rest pair still refuses as close-encounter. Collocation baselines 1551 (H=4) and 2057 (H=6). I4–I6 not started.
+- Why: Kepler+constant-element residual skipped collocation but missed GEM. Osculating elements were the next discriminating test. GEM−Newton on this pair is not a small Kepler perturbation; absorbing it as Δv drives the ellipse through the close-encounter gate.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. Law-lab `i3_` 7, `coupled_` 54. `cargo xtask history check` on journal home required.
+- Evidence: [I3 osculating evidence](laws/i3-osculating-evidence-20260915.md), [I3 secular](laws/i3-secular-evidence-20260915.md), [H0132](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: I3 exit is not proven. Construction never reached the 0.20 position gate. The 0.85 eccentricity refuse was not raised after seeing 0.886. `production_law` null. Canonical gravity remains `diagnostic-only`.
+- Next: Do not use Kepler as the GEM two-body reference. Try low-rank / memory-kernel compression of the retarded Volterra collocation operator. Do not launch I4–I6 theater.

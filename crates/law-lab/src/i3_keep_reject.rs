@@ -534,4 +534,176 @@ mod tests {
         }
         eprintln!("I3_LAZY_INVERSE failure_case=Schur consumer still pays ensure_pair_inverse; H=3 Schur tide remains rejected");
     }
+
+    #[test]
+    fn i3_osculating_varies_elements_not_a_post_pass() {
+        use crate::coupled_source_response::{
+            compile_source_response_opts, laboratory_two_body, CompileOpts,
+        };
+        use crate::i3_secular::{
+            compile_osculating_response, laboratory_circular_pair, laboratory_eccentric_pair,
+            laboratory_resonant_kicks, OSC_POS_BAND,
+        };
+
+        assert_eq!(OSC_POS_BAND, 0.20, "gate declared before this slice's runs");
+        let mut rows = Vec::new();
+        for h in [4.0_f64, 6.0] {
+            let osc = compile_osculating_response(laboratory_circular_pair(), vec![], h);
+            let collocation = compile_source_response_opts(
+                laboratory_circular_pair(),
+                vec![],
+                h,
+                1.0 / 32.0,
+                CompileOpts {
+                    store_pair_inverse: false,
+                },
+            )
+            .unwrap();
+            let coll_cost = TotalCost::of(&collocation);
+            match osc {
+                Ok(osc) => {
+                    let mut q_charge = Charge::default();
+                    let t_eval = std::time::Instant::now();
+                    let mut max_dx = 0.0_f64;
+                    for k in 0..8 {
+                        let t = h * (k as f64 + 0.5) / 8.0;
+                        let xs = osc.eval(0, t, &mut q_charge).unwrap();
+                        let xc = eval_interval_at(&collocation, t);
+                        max_dx = max_dx.max((xs[0] - xc[0]).abs().max((xs[1] - xc[1]).abs()));
+                    }
+                    let eval_ns = t_eval.elapsed().as_nanos();
+                    let a0 = osc.samples.first().map(|(_, e)| e.a).unwrap_or(0.0);
+                    let a1 = osc.samples.last().map(|(_, e)| e.a).unwrap_or(0.0);
+                    eprintln!(
+                        "I3_OSC H={h} osc_ledger={} collocation_ledger={} osc_runtime={} collocation_runtime={} osc_bytes={} collocation_bytes={} osc_coeff={} collocation_coeff={} osc_factor={} collocation_factor={} osc_recon={} collocation_recon={} osc_cert={} collocation_cert={} remainder={} max_dx={} pos_band={} eval_ns={} osc_wall={} collocation_wall={} collocation_se={} collocation_ret={} samples={} a0={} a1={}",
+                        osc.charge.ledger_total(),
+                        coll_cost.ledger,
+                        osc.charge.runtime_request_total(),
+                        coll_cost.runtime,
+                        osc.bytes(),
+                        coll_cost.bytes,
+                        osc.charge.coefficient_construction,
+                        coll_cost.coefficient_construction,
+                        osc.charge.factorization,
+                        coll_cost.factorization,
+                        osc.charge.reconstruction + q_charge.reconstruction,
+                        coll_cost.reconstruction,
+                        osc.charge.validation + osc.charge.verification,
+                        coll_cost.certificate,
+                        osc.max_remainder,
+                        max_dx,
+                        OSC_POS_BAND,
+                        eval_ns,
+                        osc.wall_ns,
+                        coll_cost.wall_ns,
+                        coll_cost.source_evolution,
+                        coll_cost.retarded_solves,
+                        osc.samples.len(),
+                        a0,
+                        a1
+                    );
+                    rows.push((
+                        h,
+                        Some(osc.charge.ledger_total()),
+                        coll_cost.ledger,
+                        Some(max_dx),
+                        Some(osc.charge.source_evolution + osc.charge.retarded_solves),
+                        coll_cost.source_evolution + coll_cost.retarded_solves,
+                        (a1 - a0).abs() > 1e-8,
+                    ));
+                }
+                Err(err) => {
+                    eprintln!(
+                        "I3_OSC H={h} fallback={err} collocation_ledger={} collocation_se={} collocation_ret={}",
+                        coll_cost.ledger, coll_cost.source_evolution, coll_cost.retarded_solves
+                    );
+                    rows.push((
+                        h,
+                        None,
+                        coll_cost.ledger,
+                        None,
+                        None,
+                        coll_cost.source_evolution + coll_cost.retarded_solves,
+                        false,
+                    ));
+                }
+            }
+        }
+        let col_lo = rows[0].2;
+        let col_hi = rows[1].2;
+        assert!(col_hi > col_lo, "collocation must still grow with H");
+        match (rows[0].1, rows[0].3, rows[1].1, rows[1].3) {
+            (Some(osc_lo), Some(dx_lo), Some(osc_hi), Some(dx_hi)) => {
+                let matched = dx_lo < OSC_POS_BAND && dx_hi < OSC_POS_BAND;
+                let varied = rows[0].6 || rows[1].6;
+                let cheaper = osc_hi < col_hi && osc_lo < col_lo;
+                if matched && cheaper && varied {
+                    eprintln!(
+                        "I3_KEEP osculating Kepler in circular a=4 H=4..6: ledger {osc_lo}->{osc_hi} < collocation {col_lo}->{col_hi}, max_dx {dx_lo}->{dx_hi} < {OSC_POS_BAND}"
+                    );
+                } else {
+                    eprintln!(
+                        "I3_REJECT osculating Kepler as skipped GEM: matched={matched} varied={varied} cheaper={cheaper} ledger {osc_lo}->{osc_hi} vs {col_lo}->{col_hi} max_dx {dx_lo}->{dx_hi} band={OSC_POS_BAND}"
+                    );
+                }
+            }
+            (Some(osc_lo), Some(dx_lo), None, _) => {
+                eprintln!(
+                    "I3_REJECT osculating Kepler: H=4 ledger {osc_lo} max_dx={dx_lo}; H=6 refused. collocation {col_lo}->{col_hi}"
+                );
+            }
+            _ => {
+                eprintln!(
+                    "I3_REJECT osculating Kepler: construction refused in H=4..6; collocation {col_lo}->{col_hi}"
+                );
+            }
+        }
+
+        let ecc = compile_osculating_response(laboratory_eccentric_pair(), vec![], 6.0);
+        match &ecc {
+            Ok(s) => eprintln!(
+                "I3_OSC_ECC ledger={} remainder={} samples={} e0={}",
+                s.charge.ledger_total(),
+                s.max_remainder,
+                s.samples.len(),
+                s.samples[0].1.e
+            ),
+            Err(err) => eprintln!("I3_OSC_ECC fallback: {err}"),
+        }
+
+        let radial = compile_osculating_response(laboratory_two_body(), vec![], 6.0);
+        assert!(
+            radial.is_err(),
+            "radial rest pair remains a close-encounter fallback"
+        );
+        eprintln!("I3_OSC_ENCOUNTER refuse={}", radial.unwrap_err());
+
+        let period = compile_osculating_response(laboratory_circular_pair(), vec![], 4.0)
+            .map(|s| s.samples[0].1.period)
+            .unwrap_or(2.0);
+        let resonant = laboratory_resonant_kicks(period.min(2.0), 6.0);
+        match compile_osculating_response(laboratory_circular_pair(), resonant, 6.0) {
+            Ok(s) => eprintln!(
+                "I3_OSC_RESONANCE samples={} ledger={} remainder={}",
+                s.samples.len(),
+                s.charge.ledger_total(),
+                s.max_remainder
+            ),
+            Err(err) => eprintln!("I3_OSC_RESONANCE fallback: {err}"),
+        }
+        let weak = vec![crate::coupled_source_response::Intervention {
+            t: 1.25,
+            body_id: 0,
+            delta_v: [0.0, 0.02],
+        }];
+        match compile_osculating_response(laboratory_circular_pair(), weak, 6.0) {
+            Ok(s) => eprintln!(
+                "I3_OSC_FORCE samples={} ledger={} remainder={}",
+                s.samples.len(),
+                s.charge.ledger_total(),
+                s.max_remainder
+            ),
+            Err(err) => eprintln!("I3_OSC_FORCE fallback: {err}"),
+        }
+    }
 }

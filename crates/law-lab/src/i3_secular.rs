@@ -15,6 +15,13 @@ const MIN_PERIAPSIS_OVER_A: f64 = 0.15;
 const RESIDUAL_MODES: usize = 3;
 const SAMPLES_PER_ORBIT: usize = 16;
 const MAX_LOOKBACK_SEGMENTS: usize = 64;
+/// Osculating update cadence: half the circular-pair light crossing
+/// (`r/c = 4/8 = 0.5`). Not collocation `dt = 1/32`.
+const OSC_DT: f64 = 0.25;
+/// Position match vs collocation, 5% of circular laboratory `a=4`.
+/// Declared before this slice's osculating runs. Not a widened H0132 0.05
+/// accel-fit band (that peak was 0.078 on frozen-element residual).
+pub const OSC_POS_BAND: f64 = 0.20;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeplerElements {
@@ -123,7 +130,7 @@ impl KeplerElements {
         let energy = 0.5 * v2 - gm / rmag;
         if energy >= -1e-12 {
             return Err(ResponseError::UnsupportedDomain {
-                why: format!("unbound two-body (energy={energy}); secular Kepler refuses"),
+                why: format!("unbound two-body (energy={energy}); Kepler refuses"),
             });
         }
         let sma = -gm / (2.0 * energy);
@@ -546,6 +553,240 @@ pub fn compile_secular_response(
         elements: el,
         pieces,
         residual,
+        charge,
+        wall_ns: start.elapsed().as_nanos(),
+        max_remainder,
+    })
+}
+
+/// Piecewise osculating Kepler: GEM lookback perturbs cartesian state, then
+/// elements are refit. Construction does not `interval_compile` over H.
+/// Positions come from Kepler(elements(t)), not a post-pass residual.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OsculatingResponse {
+    pub law_id: String,
+    pub horizon: f64,
+    pub genesis: InitialCondition,
+    pub incoming: Vec<Intervention>,
+    pub samples: Vec<(f64, KeplerElements)>,
+    pub charge: Charge,
+    pub wall_ns: u128,
+    pub max_remainder: f64,
+}
+
+impl OsculatingResponse {
+    pub fn bytes(&self) -> usize {
+        serde_json::to_vec(self).map(|b| b.len()).unwrap_or(0)
+    }
+
+    pub fn eval(&self, id: u64, t: f64, charge: &mut Charge) -> Result<[f64; 2], ResponseError> {
+        charge.reconstruction = charge.reconstruction.saturating_add(1);
+        let el = osculating_at(&self.samples, t)?;
+        let (x, _) = el.state(id, t)?;
+        Ok(x)
+    }
+}
+
+fn osculating_at(samples: &[(f64, KeplerElements)], t: f64) -> Result<&KeplerElements, ResponseError> {
+    if samples.is_empty() {
+        return Err(ResponseError::UnsupportedDomain {
+            why: "no osculating samples".into(),
+        });
+    }
+    Ok(samples
+        .iter()
+        .rev()
+        .find(|(tk, _)| t + 1e-12 >= *tk)
+        .map(|(_, el)| el)
+        .unwrap_or(&samples[0].1))
+}
+
+fn gem_a_retarded(
+    el: &KeplerElements,
+    history: &[(f64, KeplerElements)],
+    id: u64,
+    t: f64,
+    x: [f64; 2],
+    v: [f64; 2],
+    genesis_t: f64,
+    charge: &mut Charge,
+) -> Result<[f64; 2], ResponseError> {
+    let src = if id == el.id0 { el.id1 } else { el.id0 };
+    let mu_src = if src == el.id0 { el.mu0 } else { el.mu1 };
+    let mut u = hypot(x[0] - el.com[0], x[1] - el.com[1]).max(1e-9) / C;
+    if t - u < genesis_t {
+        charge.retarded_solves += 1;
+        return el.newtonian_a(id, t);
+    }
+    let (mut x_ret, mut v_ret) = (x, v);
+    for _ in 0..12 {
+        let t_ret = t - u;
+        let src_el = osculating_at(history, t_ret.max(history[0].0))?;
+        let (xs, vs) = src_el.state(src, t_ret.max(src_el.t0))?;
+        let r = hypot(x[0] - xs[0], x[1] - xs[1]).max(1e-15);
+        let u_new = r / C;
+        x_ret = xs;
+        v_ret = vs;
+        if (u_new - u).abs() < 1e-12 {
+            break;
+        }
+        u = u_new;
+    }
+    charge.retarded_solves += 1;
+    charge.field_evals += 1;
+    let rel = [x[0] - x_ret[0], x[1] - x_ret[1]];
+    let r = hypot(rel[0], rel[1]);
+    if r < 1e-15 {
+        return Err(ResponseError::Singular);
+    }
+    let n = [rel[0] / r, rel[1] / r];
+    let beta = [v_ret[0] / C, v_ret[1] / C];
+    let beta2 = beta[0] * beta[0] + beta[1] * beta[1];
+    if beta2.sqrt() >= 1.0 {
+        return Err(ResponseError::Superluminal);
+    }
+    let ndb = n[0] * beta[0] + n[1] * beta[1];
+    let kappa = 1.0 - ndb;
+    if kappa.abs() < 1e-15 {
+        return Err(ResponseError::Singular);
+    }
+    let d = r * kappa;
+    let inv_d2 = mu_src / (d * d);
+    let scale = (1.0 - beta2) / kappa;
+    let grad = [
+        (-beta[0] + n[0] * scale) * inv_d2,
+        (-beta[1] + n[1] * scale) * inv_d2,
+    ];
+    let dphi_dt = (mu_src * C / (d * d * kappa)) * (beta2 - ndb);
+    let dxi_dt = [beta[0] * dphi_dt, beta[1] * dphi_dt];
+    let e = [
+        -grad[0] - dxi_dt[0] * 4.0 / C,
+        -grad[1] - dxi_dt[1] * 4.0 / C,
+    ];
+    let curl_z = inv_d2 * scale * (n[0] * beta[1] - n[1] * beta[0]);
+    let b_z = (4.0 / C) * curl_z;
+    Ok([e[0] + v[1] * b_z, e[1] - v[0] * b_z])
+}
+
+fn apply_kick(bodies: &mut [BodyInit], kicks: &[Intervention], t: f64, charge: &mut Charge) {
+    for k in kicks {
+        if (k.t - t).abs() < 1e-12 {
+            if let Some(b) = bodies.iter_mut().find(|b| b.id == k.body_id) {
+                b.v[0] += k.delta_v[0];
+                b.v[1] += k.delta_v[1];
+                charge.repair += 1;
+            }
+        }
+    }
+}
+
+/// Osculating Kepler driven by retarded GEM lookback. Does not collocate
+/// interval functions over H. Strong kicks and close-encounters refuse.
+pub fn compile_osculating_response(
+    ic: InitialCondition,
+    incoming: Vec<Intervention>,
+    horizon: f64,
+) -> Result<OsculatingResponse, ResponseError> {
+    let start = std::time::Instant::now();
+    let mut charge = Charge {
+        init: 1,
+        ..Charge::default()
+    };
+    if ic.bodies.len() != 2 {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: "osculating Kepler is a two-body representation".into(),
+        });
+    }
+    let weak = incoming
+        .iter()
+        .all(|k| hypot(k.delta_v[0], k.delta_v[1]) <= 0.03);
+    if !incoming.is_empty() && !weak {
+        charge.fallback += 1;
+        charge.push_child(
+            "osculating-kick-fallback",
+            ChargeRole::Fallback,
+            Charge {
+                fallback: 1,
+                ..Charge::default()
+            },
+        );
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!(
+                "osculating Kepler refuses {} strong interventions; collocation is the fallback",
+                incoming.len()
+            ),
+        });
+    }
+    let mut kicks = incoming.clone();
+    kicks.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
+    let mut bodies = ic.bodies.clone();
+    apply_kick(&mut bodies, &kicks, ic.genesis_t, &mut charge);
+    let mut el = KeplerElements::from_pair(&bodies[0], &bodies[1], ic.genesis_t)?;
+    let mut samples = vec![(ic.genesis_t, el.clone())];
+    let dt_s = OSC_DT
+        .min(el.period / SAMPLES_PER_ORBIT as f64)
+        .max((horizon - ic.genesis_t) / MAX_LOOKBACK_SEGMENTS as f64);
+    let mut t = ic.genesis_t;
+    let mut max_remainder = 0.0_f64;
+    let mut kick_pieces = 1u32;
+    while t + 1e-12 < horizon {
+        let mut dt = dt_s.min(horizon - t);
+        if let Some(k) = kicks.iter().find(|k| k.t > t + 1e-12 && k.t < t + dt) {
+            dt = k.t - t;
+        }
+        let t1 = t + dt;
+        charge.source_evolution += 2;
+        let (x0, v0) = el.state(el.id0, t1)?;
+        let (x1, v1) = el.state(el.id1, t1)?;
+        let a0_n = el.newtonian_a(el.id0, t1)?;
+        let a1_n = el.newtonian_a(el.id1, t1)?;
+        let a0_g = gem_a_retarded(&el, &samples, el.id0, t1, x0, v0, ic.genesis_t, &mut charge)?;
+        let a1_g = gem_a_retarded(&el, &samples, el.id1, t1, x1, v1, ic.genesis_t, &mut charge)?;
+        let f0 = [a0_g[0] - a0_n[0], a0_g[1] - a0_n[1]];
+        let f1 = [a1_g[0] - a1_n[0], a1_g[1] - a1_n[1]];
+        max_remainder = max_remainder.max(hypot(f0[0], f0[1])).max(hypot(f1[0], f1[1]));
+        bodies[0].x = x0;
+        bodies[0].v = [v0[0] + f0[0] * dt, v0[1] + f0[1] * dt];
+        bodies[1].x = x1;
+        bodies[1].v = [v1[0] + f1[0] * dt, v1[1] + f1[1] * dt];
+        apply_kick(&mut bodies, &kicks, t1, &mut charge);
+        charge.coefficient_construction += 1;
+        el = match KeplerElements::from_pair(&bodies[0], &bodies[1], t1) {
+            Ok(next) => next,
+            Err(err) => {
+                charge.fallback += 1;
+                return Err(err);
+            }
+        };
+        if kicks.iter().any(|k| (k.t - t1).abs() < 1e-12) {
+            kick_pieces += 1;
+        }
+        t = t1;
+        samples.push((t, el.clone()));
+        if samples.len() > MAX_LOOKBACK_SEGMENTS + 1 {
+            charge.fallback += 1;
+            return Err(ResponseError::UnsupportedDomain {
+                why: "osculating sample table hit the lookback cap; not a skip of collocation".into(),
+            });
+        }
+    }
+    if kick_pieces > 4 {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!(
+                "resonance/forcing produced {kick_pieces} osculating pieces; fallback to collocation"
+            ),
+        });
+    }
+    charge.validation += samples.len() as u64;
+    charge.verification += 1;
+    Ok(OsculatingResponse {
+        law_id: COUPLED_RESPONSE_LAW_ID.into(),
+        horizon,
+        genesis: ic,
+        incoming,
+        samples,
         charge,
         wall_ns: start.elapsed().as_nanos(),
         max_remainder,
