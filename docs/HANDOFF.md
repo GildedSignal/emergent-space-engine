@@ -1,23 +1,24 @@
 # Emergent Space — agent handoff
 
-**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0 is evidenced on `/private/tmp/emergent-full-engine-integration` (`codex/full-engine-integration` from `254ba1f`). Next is I1 increment 1: resumable diagnostic scene. Do not report canonical-gravity acceptance from that increment. [Integration plan](full-engine-integration-plan-20260915.md). [Task graph](../orchestration/tasks.json) names I0–I6 and retains G0–G8 separately.
+**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0 is evidenced (`56453a8`, H0126). I1 increment 1 diagnostic scene is evidenced on `/private/tmp/emergent-full-engine-integration`. Next is I1 increment 2: authority-backed commit on these moving cases. Do not report canonical-gravity acceptance. [Integration plan](full-engine-integration-plan-20260915.md). [Task graph](../orchestration/tasks.json) names I0–I6 and retains G0–G8 separately.
 
 ## First ten minutes
 
 1. Read the heading-check skill and living card at `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight. Journal home remains `/private/tmp/emergent-g2-law`. Integration worktree is `/private/tmp/emergent-full-engine-integration`.
 2. Read [the integration plan](full-engine-integration-plan-20260915.md), especially Evidence, the four initial issues, and I0/I1. Run `cargo xtask history list` and search relevant entries. H0124 closed the previous prompt's assigned laboratory exits; I0 reproduced repair completeness and nested accounting on the clean worktree.
 3. Inspect `git status --short`, `git log -8 --oneline`, and `git worktree list`. Do not merge cumulative packet branches wholesale or delete original worktrees.
-4. Continue I1 increment 1: `CoupledCompileJob` suspends collocation; still need `Engine::advance` suspension, policy course-change, in-flight save/restore. Do not report canonical-gravity acceptance. Authority-backed commit is increment 2.
+4. Continue I1 increment 2: admitted finite-semantic reference and independent branch validation on the moving diagnostic scene; contact/light-cone near-ties and full interval bounds; slow versus compiled canonical facts; separately versioned physical resolution. Sampled `certified: true` must not authorize events. Do not report canonical-gravity acceptance until that authority path passes.
 5. Read hypothesis notes when selecting a discriminating experiment. They are candidates, not prescriptions. Keep a plan change separate from a measured engine capability.
 
 ## Current capabilities and boundaries
 
+- **I1 increment 1 (this worktree):** `Engine::advance` polls coupled collocation/residual/pair-inverse/enclosure/repair jobs with `WorkBudget`. Headless connected scene binds ship/ray/clock/contact to interval functions, received-knowledge course change, in-flight signal checkpoint, pause/resume, query order, cache clear, replay. `CANONICAL_GRAVITY_ACCEPTANCE = diagnostic-only`. Compact sidecar skipped on the diagnostic seal. [I1 notes](laws/i1-contract-notes-20260915.md).
 - **I0 (this worktree):** Selected inertial foundation + coupled compiler; Packet 6 policy/archive types without `truncated_admission`. `repair_from_committed` continues with the complete ordered input history. `Charge` nested ledger records enclosure genesis/Picard as `OfflineAudit`. Source ops, wall-time and pair-inverse bytes are distinct. [I0 report](laws/i0-full-cost-report-20260915.md).
 - **H0100–H0124:** Historical overlay `/private/tmp/emergent-coupled-response`. [H0124 evidence](laws/coupled-prompt-completion-evidence-20260915.md). Counts **1188 vs 1675** and **1126 vs 1722** still pass in historical scope on the I0 worktree.
 - **Certificate authority:** Sampled f64 `certified: true` remains diagnostic. [I1 notes](laws/i1-contract-notes-20260915.md).
 - **Dense setup:** Quiet pair `store_pair_inverse` grows with interval-function count (H=3 n=20 / 3360 B; H=6 n=44 / 15840 B).
 - **Default/canonical law:** `es-inertial-causal-v1`; `production_law` remains null. H0052/H0054 and `1dac658` unchanged.
-- **Physics still missing:** I1 connected engine path, authority, then I2–I6 as planned. Solar/galaxy/black-hole cards remain unsupported in the coupled slice.
+- **Physics still missing:** I1 increment 2 authority-backed GEM commit, then I2–I6 as planned. Solar/galaxy/black-hole cards remain unsupported in the coupled slice.
 
 ## Direction, behavior and targets
 

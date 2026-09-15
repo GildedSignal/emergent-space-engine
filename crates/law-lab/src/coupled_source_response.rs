@@ -1,5 +1,6 @@
 //! Isolated `es-linearized-retarded-gem-response-v0`.
-//! Not `production_law`. Not `Engine::advance`.
+//! Not `production_law`. Diagnostic `Engine::advance` may poll jobs here;
+//! that path does not authorize canonical gravity.
 //!
 //! Slow reference and compiled response share the GEM-v0 formulas with f64
 //! finite semantics. The reference is constructed only from genesis plus the
@@ -1167,6 +1168,7 @@ pub enum JobPoll {
     Ready,
 }
 
+#[derive(Clone, Debug)]
 pub struct CoupledCompileJob {
     bodies: Vec<Body>,
     t: f64,
@@ -1429,6 +1431,66 @@ impl CoupledCompileJob {
     pub fn charge(&self) -> &Charge {
         &self.charge
     }
+
+    /// Resume a committed prefix after an extra kick in an uncommitted suffix
+    /// or new history branch. Continuation uses the complete ordered inputs.
+    pub fn from_repair(
+        compiled: &SourceResponse,
+        extra: &[Intervention],
+        horizon: f64,
+    ) -> Result<Self, ResponseError> {
+        if extra.is_empty() {
+            return Err(ResponseError::UnsupportedDomain {
+                why: "repair extra is empty; extra-ray consumers are not a source-history splice"
+                    .into(),
+            });
+        }
+        if compiled.interval_functions.is_empty() {
+            return Err(ResponseError::UnsupportedDomain {
+                why: "no stored interval functions; refusing to paper inertial chords as reuse"
+                    .into(),
+            });
+        }
+        let kept = kept_certified_functions(compiled, extra)?;
+        let body_ids: Vec<u64> = compiled.genesis.bodies.iter().map(|b| b.id).collect();
+        let t_prefix = certified_prefix_end(&kept, compiled.genesis.genesis_t, &body_ids);
+        let worldtubes = worldtubes_from_interval_functions(&compiled.genesis, &kept);
+        let all = merge_repair_interventions(&compiled.incoming, extra);
+        Self::begin(
+            worldtubes,
+            t_prefix,
+            &all,
+            horizon,
+            Charge {
+                repair: 1,
+                init: 1,
+                reconstruction: kept.len() as u64,
+                history: 1,
+                ..Charge::default()
+            },
+            Some(compiled.interval_tau),
+            &kept,
+        )
+    }
+
+    pub fn collocation_parts(
+        self,
+    ) -> Result<(Vec<Body>, Vec<IntervalFunction>, u64, f64, f64, Charge, f64), ResponseError> {
+        if !self.ready {
+            return Err(ResponseError::UnsupportedDomain {
+                why: "collocation job is not ready".into(),
+            });
+        }
+        Ok((
+            self.bodies,
+            self.functions,
+            self.blocks,
+            self.q,
+            self.tau,
+            self.charge,
+            self.horizon,
+        ))
+    }
 }
 
 fn incoming_knots(
@@ -1535,25 +1597,89 @@ fn interval_continue(
     })
 }
 
-fn continue_from(
-    bodies: &mut Vec<Body>,
-    t_start: f64,
-    interventions: &[Intervention],
+/// Euler/GEM reference continuation. One dt (or kick-clipped) step is charged
+/// before a yield. Used by enclosure genesis evolutions and `continue_from`.
+#[derive(Clone, Debug)]
+pub struct EulerContinueJob {
+    bodies: Vec<Body>,
+    kicks: Vec<Intervention>,
+    t: f64,
+    k: usize,
     horizon: f64,
     dt: f64,
-    charge: &mut Charge,
-) -> Result<(), ResponseError> {
-    let mut kicks: Vec<Intervention> = interventions
-        .iter()
-        .filter(|iv| iv.t + 1e-12 >= t_start)
-        .cloned()
-        .collect();
-    kicks.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
-    let mut t = t_start;
-    let mut k = 0usize;
-    while t < horizon - 1e-15 {
-        while k < kicks.len() && kicks[k].t <= t + 1e-12 {
-            let kick = &kicks[k];
+    charge: Charge,
+    ready: bool,
+}
+
+impl EulerContinueJob {
+    pub fn start(
+        bodies: Vec<Body>,
+        t_start: f64,
+        interventions: &[Intervention],
+        horizon: f64,
+        dt: f64,
+        charge: Charge,
+    ) -> Self {
+        let mut kicks: Vec<Intervention> = interventions
+            .iter()
+            .filter(|iv| iv.t + 1e-12 >= t_start)
+            .cloned()
+            .collect();
+        kicks.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
+        Self {
+            bodies,
+            kicks,
+            t: t_start,
+            k: 0,
+            horizon,
+            dt,
+            charge,
+            ready: false,
+        }
+    }
+
+    pub fn from_genesis(
+        ic: &InitialCondition,
+        interventions: &[Intervention],
+        horizon: f64,
+        dt: f64,
+    ) -> Self {
+        Self::start(
+            genesis_bodies(ic),
+            ic.genesis_t,
+            interventions,
+            horizon,
+            dt,
+            Charge {
+                init: 1,
+                history: 1,
+                ..Charge::default()
+            },
+        )
+    }
+
+    pub fn poll(&mut self, op_budget: &mut u64) -> Result<JobPoll, ResponseError> {
+        if self.ready {
+            return Ok(JobPoll::Ready);
+        }
+        loop {
+            if self.t >= self.horizon - 1e-15 {
+                self.ready = true;
+                return Ok(JobPoll::Ready);
+            }
+            if *op_budget == 0 {
+                return Ok(JobPoll::Pending);
+            }
+            self.step_one()?;
+            *op_budget = op_budget.saturating_sub(1);
+        }
+    }
+
+    fn step_one(&mut self) -> Result<(), ResponseError> {
+        let bodies = &mut self.bodies;
+        let t = self.t;
+        while self.k < self.kicks.len() && self.kicks[self.k].t <= t + 1e-12 {
+            let kick = &self.kicks[self.k];
             if let Some(body) = bodies.iter_mut().find(|b| b.id == kick.body_id) {
                 let (x, v, mu) = body.present(kick.t)?;
                 let v_new = v.add(V2::from_arr(kick.delta_v));
@@ -1561,18 +1687,18 @@ fn continue_from(
                     return Err(ResponseError::Superluminal);
                 }
                 close_and_kink(body, kick.t, x, v_new, mu, V2::zero(), V2::zero());
-                charge.history += 1;
+                self.charge.history += 1;
             }
-            k += 1;
+            self.k += 1;
         }
         let t_next = {
-            let step = t + dt;
-            let next_kick = kicks.get(k).map(|iv| iv.t).unwrap_or(horizon);
-            step.min(next_kick).min(horizon)
+            let step = t + self.dt;
+            let next_kick = self.kicks.get(self.k).map(|iv| iv.t).unwrap_or(self.horizon);
+            step.min(next_kick).min(self.horizon)
         };
         if t_next <= t + 1e-18 {
-            t = t_next;
-            continue;
+            self.t = t_next;
+            return Ok(());
         }
         let h = t_next - t;
         let mut updates: Vec<(usize, V2, V2, f64)> = Vec::new();
@@ -1583,7 +1709,7 @@ fn continue_from(
                     why: format!("beta={} exceeds admitted {}", v.norm() / C, BETA_MAX),
                 });
             }
-            let field = field_at(bodies, t, x, Some(body.id), charge)?;
+            let field = field_at(bodies, t, x, Some(body.id), &mut self.charge)?;
             if field.phi.abs() / (C * C) > PHI_C2_MAX {
                 return Err(ResponseError::UnsupportedDomain {
                     why: format!("|Phi|/c^2={} exceeds {PHI_C2_MAX}", field.phi.abs() / (C * C)),
@@ -1596,7 +1722,7 @@ fn continue_from(
                 return Err(ResponseError::Superluminal);
             }
             updates.push((i, x_new, v_new, mu));
-            charge.source_evolution += 1;
+            self.charge.source_evolution += 1;
         }
         for (i, x_new, v_new, mu) in updates {
             close_and_kink(
@@ -1609,8 +1735,39 @@ fn continue_from(
                 V2::zero(),
             );
         }
-        t = t_next;
+        self.t = t_next;
+        Ok(())
     }
+
+    pub fn is_ready(&self) -> bool {
+        self.ready
+    }
+
+    pub fn into_bodies(self) -> (Vec<Body>, Charge) {
+        (self.bodies, self.charge)
+    }
+}
+
+fn continue_from(
+    bodies: &mut Vec<Body>,
+    t_start: f64,
+    interventions: &[Intervention],
+    horizon: f64,
+    dt: f64,
+    charge: &mut Charge,
+) -> Result<(), ResponseError> {
+    let mut job = EulerContinueJob::start(
+        bodies.clone(),
+        t_start,
+        interventions,
+        horizon,
+        dt,
+        charge.clone(),
+    );
+    let mut budget = u64::MAX;
+    while job.poll(&mut budget)? == JobPoll::Pending {}
+    *bodies = job.bodies;
+    *charge = job.charge;
     Ok(())
 }
 
@@ -2090,11 +2247,11 @@ pub fn contact_closest(
     Ok((best_t, best_d))
 }
 
-fn body_state_compiled(
+pub fn body_state_compiled(
     compiled: &SourceResponse,
     id: u64,
     t: f64,
-) -> Result<(V2, V2), ResponseError> {
+) -> Result<([f64; 2], [f64; 2]), ResponseError> {
     let mut funs: Vec<&IntervalFunction> = compiled
         .interval_functions
         .iter()
@@ -2102,13 +2259,13 @@ fn body_state_compiled(
         .collect();
     funs.sort_by(|a, b| a.t0.partial_cmp(&b.t0).unwrap());
     if let Some(fun) = funs.last() {
-        return Ok(fun.state_at(t));
+        let (x, v) = fun.state_at(t);
+        return Ok((x.arr(), v.arr()));
     }
-    let (x, v) = body_state(&compiled.worldtubes, id, t)?;
-    Ok((V2::from_arr(x), V2::from_arr(v)))
+    body_state(&compiled.worldtubes, id, t)
 }
 
-fn contact_closest_compiled(
+pub fn contact_closest_compiled(
     compiled: &SourceResponse,
     id_a: u64,
     id_b: u64,
@@ -2123,7 +2280,7 @@ fn contact_closest_compiled(
     while t <= t1 + 1e-15 {
         let (xa, _) = body_state_compiled(compiled, id_a, t)?;
         let (xb, _) = body_state_compiled(compiled, id_b, t)?;
-        let d = xa.sub(xb).norm();
+        let d = V2::from_arr(xa).sub(V2::from_arr(xb)).norm();
         if d < best_d {
             best_d = d;
             best_t = t;
@@ -2359,6 +2516,7 @@ fn rematch_interval_functions(
     Ok(out)
 }
 
+#[allow(dead_code)]
 fn lu_factor(mat: &mut [f64], n: usize) -> Result<Vec<usize>, ResponseError> {
     let mut pivots = Vec::with_capacity(n);
     for k in 0..n {
@@ -2442,87 +2600,413 @@ fn mat_vec(mat: &[f64], n: usize, v: &[f64]) -> Vec<f64> {
 
 /// Assemble and factor \((I-K_{AB}K_{BA})\) on the stored pair mesh.
 /// Charged to the two-body compile, never to a three-body compile.
+/// One finite-difference column or one LU elimination step per poll.
+#[derive(Clone, Debug)]
+pub struct PairInverseJob {
+    genesis: InitialCondition,
+    funs: Vec<IntervalFunction>,
+    nfun: usize,
+    n: usize,
+    k_mat: Vec<f64>,
+    fill_j: usize,
+    fill_comp: usize,
+    m: Vec<f64>,
+    m_copy: Vec<f64>,
+    lu_k: usize,
+    pivots: Vec<usize>,
+    charge: Charge,
+    stage: PairInverseStage,
+    result: Option<PairInverse>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PairInverseStage {
+    Fill,
+    Assemble,
+    Factor,
+    Check,
+    Done,
+}
+
+impl PairInverseJob {
+    pub fn start(pair: &SourceResponse) -> Result<Self, ResponseError> {
+        if pair.genesis.bodies.len() != 2 {
+            return Err(ResponseError::UnsupportedDomain {
+                why: "pair inverse is stored only on a two-body compile".into(),
+            });
+        }
+        let funs = pair.interval_functions.clone();
+        if funs.len() < 2 {
+            return Err(ResponseError::UnsupportedDomain {
+                why: "pair inverse needs stored interval functions; refusing to paper chords"
+                    .into(),
+            });
+        }
+        let nfun = funs.len();
+        let n = 2 * nfun;
+        Ok(Self {
+            genesis: pair.genesis.clone(),
+            funs,
+            nfun,
+            n,
+            k_mat: vec![0.0; n * n],
+            fill_j: 0,
+            fill_comp: 0,
+            m: Vec::new(),
+            m_copy: Vec::new(),
+            lu_k: 0,
+            pivots: Vec::new(),
+            charge: Charge::default(),
+            stage: PairInverseStage::Fill,
+            result: None,
+        })
+    }
+
+    pub fn poll(&mut self, op_budget: &mut u64) -> Result<JobPoll, ResponseError> {
+        if self.stage == PairInverseStage::Done {
+            return Ok(JobPoll::Ready);
+        }
+        loop {
+            if self.stage == PairInverseStage::Done {
+                return Ok(JobPoll::Ready);
+            }
+            if *op_budget == 0 {
+                return Ok(JobPoll::Pending);
+            }
+            match self.stage {
+                PairInverseStage::Fill => self.fill_one_column()?,
+                PairInverseStage::Assemble => self.assemble()?,
+                PairInverseStage::Factor => self.factor_one()?,
+                PairInverseStage::Check => self.check()?,
+                PairInverseStage::Done => {}
+            }
+            *op_budget = op_budget.saturating_sub(1);
+        }
+    }
+
+    fn fill_one_column(&mut self) -> Result<(), ResponseError> {
+        let j = self.fill_j;
+        let comp = self.fill_comp;
+        let mut pert = self.funs.clone();
+        pert[j].a[comp] += PAIR_INVERSE_FD_EPS;
+        let pert = rematch_interval_functions(&self.genesis, &pert)?;
+        let tubes = worldtubes_from_interval_functions(&self.genesis, &pert);
+        self.charge.coefficient_construction += 1;
+        for i in 0..self.nfun {
+            if self.funs[i].body_id == self.funs[j].body_id {
+                continue;
+            }
+            let h = self.funs[i].t1 - self.funs[i].t0;
+            if h <= 1e-18 {
+                continue;
+            }
+            let t_col = self.funs[i].t0 + 0.5 * h;
+            let x_col =
+                V2::from_arr(self.funs[i].x0).add(V2::from_arr(self.funs[i].v0).scale(0.5 * h));
+            let field = field_at_stored(
+                &pert,
+                &tubes,
+                t_col,
+                x_col,
+                Some(self.funs[i].body_id),
+                &mut self.charge,
+            )?;
+            let a = apply_gem_a(field, V2::from_arr(self.funs[i].v0));
+            let a0 = V2::from_arr(self.funs[i].a);
+            self.k_mat[2 * i * self.n + (2 * j + comp)] = (a.x - a0.x) / PAIR_INVERSE_FD_EPS;
+            self.k_mat[(2 * i + 1) * self.n + (2 * j + comp)] = (a.y - a0.y) / PAIR_INVERSE_FD_EPS;
+        }
+        if self.fill_comp == 0 {
+            self.fill_comp = 1;
+        } else {
+            self.fill_comp = 0;
+            self.fill_j += 1;
+            if self.fill_j >= self.nfun {
+                self.stage = PairInverseStage::Assemble;
+            }
+        }
+        Ok(())
+    }
+
+    fn assemble(&mut self) -> Result<(), ResponseError> {
+        let n = self.n;
+        self.m = vec![0.0; n * n];
+        for i in 0..n {
+            for j in 0..n {
+                self.m[i * n + j] = if i == j { 1.0 } else { 0.0 } - self.k_mat[i * n + j];
+            }
+        }
+        self.m_copy = self.m.clone();
+        self.pivots = (0..n).collect();
+        self.lu_k = 0;
+        self.stage = PairInverseStage::Factor;
+        Ok(())
+    }
+
+    fn factor_one(&mut self) -> Result<(), ResponseError> {
+        let n = self.n;
+        let k = self.lu_k;
+        let mut pivot = k;
+        let mut best = self.m[k * n + k].abs();
+        for i in (k + 1)..n {
+            let mag = self.m[i * n + k].abs();
+            if mag > best {
+                best = mag;
+                pivot = i;
+            }
+        }
+        if !best.is_finite() || best < 1e-18 {
+            return Err(ResponseError::UnsupportedDomain {
+                why: "pair inverse (I-K) is singular; refusing a stored inverse".into(),
+            });
+        }
+        if pivot != k {
+            for j in 0..n {
+                let a = self.m[k * n + j];
+                self.m[k * n + j] = self.m[pivot * n + j];
+                self.m[pivot * n + j] = a;
+            }
+        }
+        self.pivots[k] = pivot;
+        let akk = self.m[k * n + k];
+        for i in (k + 1)..n {
+            self.m[i * n + k] /= akk;
+            let lik = self.m[i * n + k];
+            for j in (k + 1)..n {
+                self.m[i * n + j] -= lik * self.m[k * n + j];
+            }
+        }
+        self.lu_k += 1;
+        if self.lu_k >= n {
+            self.charge.factorization += 1;
+            self.stage = PairInverseStage::Check;
+        }
+        Ok(())
+    }
+
+    fn check(&mut self) -> Result<(), ResponseError> {
+        let mut probe = vec![0.0; self.n];
+        probe[0] = 1.0;
+        let solved = lu_solve(&self.m, &self.pivots, &probe)?;
+        let check = mat_vec(&self.m_copy, self.n, &solved);
+        let mut err = 0.0_f64;
+        for i in 0..self.n {
+            err = err.max((check[i] - probe[i]).abs());
+        }
+        self.charge.verification += 1;
+        if err > 1e-8 {
+            return Err(ResponseError::UnsupportedDomain {
+                why: format!("stored pair inverse failed LU residual check err={err}"),
+            });
+        }
+        self.result = Some(PairInverse {
+            body_id: self.funs.iter().map(|f| f.body_id).collect(),
+            t0: self.funs.iter().map(|f| f.t0).collect(),
+            lu: self.m.clone(),
+            pivots: self.pivots.clone(),
+            n: self.n,
+        });
+        self.stage = PairInverseStage::Done;
+        Ok(())
+    }
+
+    pub fn is_ready(&self) -> bool {
+        self.stage == PairInverseStage::Done
+    }
+
+    pub fn take(self) -> Result<(PairInverse, Charge), ResponseError> {
+        let inv = self.result.ok_or(ResponseError::UnsupportedDomain {
+            why: "pair inverse job is not ready".into(),
+        })?;
+        Ok((inv, self.charge))
+    }
+}
+
 fn store_pair_inverse(
     pair: &SourceResponse,
     charge: &mut Charge,
 ) -> Result<PairInverse, ResponseError> {
-    if pair.genesis.bodies.len() != 2 {
-        return Err(ResponseError::UnsupportedDomain {
-            why: "pair inverse is stored only on a two-body compile".into(),
-        });
+    let mut job = PairInverseJob::start(pair)?;
+    job.charge = charge.clone();
+    let mut budget = u64::MAX;
+    while job.poll(&mut budget)? == JobPoll::Pending {}
+    let (inv, next) = job.take()?;
+    *charge = next;
+    Ok(inv)
+}
+
+/// Diagnostic seal: skip the compact sidecar and charge residual samples one at
+/// a time. Consumers bind to interval functions, not Chebyshev decode.
+#[derive(Clone, Debug)]
+pub struct ResidualJob {
+    genesis: InitialCondition,
+    incoming: Vec<Intervention>,
+    raw: Vec<Body>,
+    interval_functions: Vec<IntervalFunction>,
+    horizon: f64,
+    dt: f64,
+    samples: Vec<f64>,
+    sample_i: usize,
+    interval_blocks: u64,
+    interval_q: f64,
+    interval_tau: f64,
+    charge: Charge,
+    max_grad_rel: f64,
+    max_accel_rel: f64,
+    max_phi_c2: f64,
+    max_beta: f64,
+    ready: bool,
+    result: Option<SourceResponse>,
+}
+
+impl ResidualJob {
+    pub fn start(
+        genesis: InitialCondition,
+        incoming: Vec<Intervention>,
+        raw: Vec<Body>,
+        interval_functions: Vec<IntervalFunction>,
+        horizon: f64,
+        dt: f64,
+        interval_blocks: u64,
+        interval_q: f64,
+        interval_tau: f64,
+        mut charge: Charge,
+    ) -> Self {
+        let samples: Vec<f64> = (0..12)
+            .map(|i| genesis.genesis_t + (i as f64 + 1.0) * (horizon - genesis.genesis_t) / 12.0)
+            .collect();
+        charge.fallback += 1;
+        charge.validation += 1;
+        Self {
+            genesis,
+            incoming,
+            raw,
+            interval_functions,
+            horizon,
+            dt,
+            samples,
+            sample_i: 0,
+            interval_blocks,
+            interval_q,
+            interval_tau,
+            charge,
+            max_grad_rel: 0.0,
+            max_accel_rel: 0.0,
+            max_phi_c2: 0.0,
+            max_beta: 0.0,
+            ready: false,
+            result: None,
+        }
     }
-    let funs = &pair.interval_functions;
-    if funs.len() < 2 {
-        return Err(ResponseError::UnsupportedDomain {
-            why: "pair inverse needs stored interval functions; refusing to paper chords".into(),
-        });
-    }
-    let nfun = funs.len();
-    let n = 2 * nfun;
-    let mut k_mat = vec![0.0; n * n];
-    for j in 0..nfun {
-        for comp in 0..2 {
-            let mut pert = funs.clone();
-            pert[j].a[comp] += PAIR_INVERSE_FD_EPS;
-            let pert = rematch_interval_functions(&pair.genesis, &pert)?;
-            let tubes = worldtubes_from_interval_functions(&pair.genesis, &pert);
-            charge.coefficient_construction += 1;
-            for i in 0..nfun {
-                if funs[i].body_id == funs[j].body_id {
-                    continue;
-                }
-                let h = funs[i].t1 - funs[i].t0;
-                if h <= 1e-18 {
-                    continue;
-                }
-                let t_col = funs[i].t0 + 0.5 * h;
-                let x_col =
-                    V2::from_arr(funs[i].x0).add(V2::from_arr(funs[i].v0).scale(0.5 * h));
-                let field = field_at_stored(
-                    &pert,
-                    &tubes,
-                    t_col,
-                    x_col,
-                    Some(funs[i].body_id),
-                    charge,
-                )?;
-                let a = apply_gem_a(field, V2::from_arr(funs[i].v0));
-                let a0 = V2::from_arr(funs[i].a);
-                k_mat[2 * i * n + (2 * j + comp)] = (a.x - a0.x) / PAIR_INVERSE_FD_EPS;
-                k_mat[(2 * i + 1) * n + (2 * j + comp)] = (a.y - a0.y) / PAIR_INVERSE_FD_EPS;
+
+    pub fn poll(&mut self, op_budget: &mut u64) -> Result<JobPoll, ResponseError> {
+        if self.ready {
+            return Ok(JobPoll::Ready);
+        }
+        loop {
+            if self.sample_i >= self.samples.len() {
+                self.finish_residual()?;
+                self.ready = true;
+                return Ok(JobPoll::Ready);
             }
+            if *op_budget == 0 {
+                return Ok(JobPoll::Pending);
+            }
+            self.sample_one()?;
+            *op_budget = op_budget.saturating_sub(1);
         }
     }
-    let mut m = vec![0.0; n * n];
-    for i in 0..n {
-        for j in 0..n {
-            m[i * n + j] = if i == j { 1.0 } else { 0.0 } - k_mat[i * n + j];
+
+    fn sample_one(&mut self) -> Result<(), ResponseError> {
+        let t = self.samples[self.sample_i];
+        self.sample_i += 1;
+        if t <= self.raw[0].segments[0].t0 + 1e-12 {
+            return Ok(());
         }
+        for body in &self.raw {
+            let Ok((x, v, _)) = body.present(t) else {
+                continue;
+            };
+            self.max_beta = self.max_beta.max(v.norm() / C);
+            let field = field_at(&self.raw, t, x, Some(body.id), &mut self.charge)?;
+            self.max_phi_c2 = self.max_phi_c2.max(field.phi.abs() / (C * C));
+            let probe = x.add(V2::new(0.35, 0.2));
+            let analytic = field_at(&self.raw, t, probe, None, &mut self.charge)?;
+            let fd = finite_diff_grad(&self.raw, t, probe, &mut self.charge)?;
+            let denom = analytic.e.norm().max(1e-12);
+            let grad_from_e = analytic.e.scale(-1.0);
+            self.max_grad_rel = self
+                .max_grad_rel
+                .max(fd.sub(grad_from_e).norm() / denom.max(fd.norm()));
+            let a = apply_gem_a(field, v);
+            self.max_accel_rel = self.max_accel_rel.max(a.norm());
+        }
+        Ok(())
     }
-    let m_copy = m.clone();
-    let pivots = lu_factor(&mut m, n)?;
-    charge.factorization += 1;
-    let mut probe = vec![0.0; n];
-    probe[0] = 1.0;
-    let solved = lu_solve(&m, &pivots, &probe)?;
-    let check = mat_vec(&m_copy, n, &solved);
-    let mut err = 0.0_f64;
-    for i in 0..n {
-        err = err.max((check[i] - probe[i]).abs());
-    }
-    charge.verification += 1;
-    if err > 1e-8 {
-        return Err(ResponseError::UnsupportedDomain {
-            why: format!("stored pair inverse failed LU residual check err={err}"),
+
+    fn finish_residual(&mut self) -> Result<(), ResponseError> {
+        let rest = laboratory_two_body();
+        let rest_bodies = genesis_bodies(&rest);
+        let mut dummy = Charge::default();
+        let f = field_at(
+            &rest_bodies,
+            1.0,
+            V2::new(-4.0, 0.0),
+            Some(0),
+            &mut dummy,
+        )?;
+        let expected = 1.0 / 64.0;
+        let static_kernel_ok = (f.e.x - expected).abs() < 1e-12 && f.e.y.abs() < 1e-12;
+        let residual = Residual {
+            max_grad_rel: self.max_grad_rel,
+            max_accel_rel: self.max_accel_rel,
+            max_phi_c2: self.max_phi_c2,
+            max_beta: self.max_beta,
+            static_kernel_ok,
+        };
+        self.charge.verification += 1;
+        self.result = Some(SourceResponse {
+            law_id: COUPLED_RESPONSE_LAW_ID.into(),
+            domain: Domain {
+                phi_c2_max: residual.max_phi_c2,
+                beta_max: residual.max_beta,
+                horizon: self.horizon,
+                dt: self.dt,
+            },
+            incoming: self.incoming.clone(),
+            compact: crate::coupled_phase_nav::CompactResponse {
+                law_id: COUPLED_RESPONSE_LAW_ID.into(),
+                band: 0.0,
+                max_error: 0.0,
+                pieces: Vec::new(),
+                charge: Charge {
+                    fallback: 1,
+                    ..Charge::default()
+                },
+            },
+            worldtubes: self.raw.clone(),
+            interval_blocks: self.interval_blocks,
+            interval_q: self.interval_q,
+            interval_tau: self.interval_tau,
+            genesis: self.genesis.clone(),
+            interval_functions: self.interval_functions.clone(),
+            pair_inverse: None,
+            residual,
+            charge: self.charge.clone(),
+            wall_ns: 0,
         });
+        Ok(())
     }
-    Ok(PairInverse {
-        body_id: funs.iter().map(|f| f.body_id).collect(),
-        t0: funs.iter().map(|f| f.t0).collect(),
-        lu: m,
-        pivots,
-        n,
-    })
+
+    pub fn is_ready(&self) -> bool {
+        self.ready
+    }
+
+    pub fn take(self) -> Result<SourceResponse, ResponseError> {
+        self.result.ok_or(ResponseError::UnsupportedDomain {
+            why: "residual job is not ready".into(),
+        })
+    }
 }
 
 /// Apply stored \((I-K)^{-1}\) to incoming \(K_{AC}c\) at frozen pair knots.

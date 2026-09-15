@@ -35,3 +35,9 @@ Quiet two-body compile eagerly factorizes a dense `(I-K)^{-1}` whose dimension i
 `CoupledCompileJob::poll` charges one collocation block then yields when `op_budget` is 0. Atomic `interval_continue` polls with `u64::MAX`. Tests: `compile_job_suspends_inside_collocation_not_after`, `diagnostic_scene_is_not_canonical_gravity`, `adapter_does_not_report_canonical_gravity`. `CANONICAL_GRAVITY_ACCEPTANCE = diagnostic-only`.
 
 Still remaining for increment 1: `Engine::advance` does not yet suspend these jobs; seal/pair-inverse/enclosure are still atomic; received-message course change and in-flight signal save/restore are not connected through the engine; consumers are bound in the law-lab diagnostic scene, not a headless engine loop. Increment 2 (authority-backed commit) has not started.
+
+## I1 increment 1 diagnostic exit (2026-09-15 follow-on)
+
+`Engine::advance(..., WorkBudget)` now polls the diagnostic pipeline before inertial work: collocation (per block), residual seal (per sample; compact sidecar skipped), pair-inverse (per FD column and LU step), enclosure (per Euler/Picard dt), repair collocation. Headless scene `crates/engine/tests/i1_connected_scene.rs` binds ship/ray/clock/contact to interval functions, applies received-knowledge course change, retains an in-flight signal across checkpoint restore, pauses at budget=1, varies query order, clears consumer cache, replays inertial facts, and keeps beyond-horizon required queries visible.
+
+Historical `compile_source_response` still runs compact fit atomically so H0124 counts stay. Diagnostic path does not use that compact decode. `Enclosure.certified` remains diagnostic. Increment 2 authority (finite-semantic reference, near-ties, slow vs compiled canonical GEM facts, separately versioned resolution) has not exited. `production_law` null.

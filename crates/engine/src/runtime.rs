@@ -688,14 +688,20 @@ pub struct Engine {
     /// Last finite-horizon SAP causal components (representative identities).
     /// Isolated generators are singleton islands. Empty before the first scan.
     pub causal_components: Vec<Vec<u64>>,
+    /// Diagnostic coupled compiler. Not `production_law`. Not canonical gravity.
+    pub coupled: Option<Box<crate::coupled_adapter::CoupledDiagnostic>>,
+    /// In-world received-knowledge program. Evaluated on committed receptions only.
+    pub policy: Option<crate::policy::PolicyProgram>,
+    /// Policy course-change during a commit requires a new scan for later contacts.
+    pub(crate) force_rescan: bool,
 }
 
-fn digest<T: Serialize>(value: &T) -> String {
+pub(crate) fn digest<T: Serialize>(value: &T) -> String {
     blake3::hash(&serde_json::to_vec(value).expect("serializable canonical facts"))
         .to_hex()
         .to_string()
 }
-fn event(
+pub(crate) fn event(
     tick: i128,
     kind: &str,
     subjects: Vec<u64>,
@@ -773,6 +779,9 @@ impl Engine {
             max_pending_jobs: 1_000_000,
             incremental_sap: true,
             causal_components: Vec::new(),
+            coupled: None,
+            policy: None,
+            force_rescan: false,
         };
         engine.validate()?;
         Ok(engine)
@@ -1051,7 +1060,7 @@ impl Engine {
         }
     }
     /// Extract a family member only when its future generator actually changes.
-    fn apply_course_change(
+    pub(crate) fn apply_course_change(
         &mut self,
         id: u64,
         t: i128,
@@ -2906,6 +2915,7 @@ impl Engine {
         }
         self.state.clock = tick;
         self.metrics.committed_events += n as u64;
+        let _ = self.apply_received_policy()?;
         for (source, target) in acc.notifications {
             self.apply_command(
                 source,
@@ -3004,6 +3014,42 @@ impl Engine {
             return Err(EngineError::Invalid(
                 "cannot advance committed history backwards".into(),
             ));
+        }
+        let mut coupled_ops = 0;
+        if self.coupled.as_ref().is_some_and(|d| !d.is_ready()) {
+            let mut rest = WorkBudget {
+                operations: budget.operations,
+                max_events: budget.max_events,
+            };
+            let before = rest.operations;
+            self.poll_coupled(&mut rest)?;
+            coupled_ops = before.saturating_sub(rest.operations);
+            if self.coupled.as_ref().is_some_and(|d| !d.is_ready()) {
+                return Ok(AdvanceResult {
+                    committed_through: self.state.clock,
+                    target,
+                    complete: false,
+                    operations: coupled_ops.max(1),
+                    events: 0,
+                    pending_jobs: self.coupled_pending_jobs()
+                        + self.pending.as_ref().map_or(0, |s| s.pending_work()),
+                });
+            }
+        }
+        let budget = WorkBudget {
+            operations: budget.operations.saturating_sub(coupled_ops),
+            max_events: budget.max_events,
+        };
+        if budget.operations == 0 && self.state.clock < target {
+            return Ok(AdvanceResult {
+                committed_through: self.state.clock,
+                target,
+                complete: false,
+                operations: coupled_ops.max(1),
+                events: 0,
+                pending_jobs: self.coupled_pending_jobs()
+                    + self.pending.as_ref().map_or(0, |s| s.pending_work()),
+            });
         }
         let mut used = 0;
         let mut events = 0;
@@ -3115,6 +3161,12 @@ impl Engine {
                 }
                 continue;
             }
+            if self.force_rescan {
+                self.force_rescan = false;
+                self.pending = None;
+                used = used.max(1);
+                continue;
+            }
             if scan.heap.peek().is_none()
                 && scan.commit.is_none()
                 && scan.after.is_none()
@@ -3133,9 +3185,10 @@ impl Engine {
             committed_through: self.state.clock,
             target,
             complete: self.state.clock == target,
-            operations: used,
+            operations: used.saturating_add(coupled_ops),
             events,
-            pending_jobs: self.pending.as_ref().map_or(0, |s| s.pending_work()),
+            pending_jobs: self.coupled_pending_jobs()
+                + self.pending.as_ref().map_or(0, |s| s.pending_work()),
         })
     }
     pub fn advance_fully(&mut self, target: i128) -> Result<AdvanceResult, EngineError> {
@@ -3180,6 +3233,9 @@ impl Engine {
     pub fn clear_derived(&mut self) {
         self.pending = None;
         self.sensor = None;
+        if let Some(diag) = self.coupled.as_mut() {
+            diag.clear_consumer_cache();
+        }
     }
     pub fn sensor_pending(&self) -> bool {
         self.sensor.as_ref().is_some_and(|s| !s.complete)
@@ -3201,6 +3257,9 @@ impl Engine {
             max_pending_jobs: 1_000_000,
             incremental_sap: true,
             causal_components: Vec::new(),
+            coupled: None,
+            policy: None,
+            force_rescan: false,
         };
         e.validate()?;
         Ok(e)
@@ -3219,6 +3278,7 @@ impl Engine {
             families,
         )?;
         e.state.branch = self.state.branch.clone();
+        e.policy = self.policy.clone();
         if e.state.genesis_digest != self.state.genesis_digest {
             return Err(EngineError::Checkpoint(
                 "genesis commitment mismatch".into(),

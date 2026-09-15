@@ -1897,3 +1897,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I1 contract notes](laws/i1-contract-notes-20260915.md), [H0126](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: `Engine::advance` is still inertial and does not poll coupled jobs. Seal, pair-inverse and enclosure remain atomic. Received-message course change and in-flight signal save/restore are not wired through the engine. Authority-backed commit (increment 2) has not started. `production_law` null.
 - Next: Finish I1 increment 1 by connecting policy, save/restore of in-flight signals, and `advance` suspension of remaining compile/validate/repair jobs, still without canonical-gravity acceptance. Then increment 2 authority path.
+
+
+## H0128 — I1 increment 1: resumable diagnostic Engine::advance and connected scene
+
+- Date: 2026-09-15
+- Kind: implementation
+- Status: implemented
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after `611d200`; this entry's follow-on commit
+- Scope: I1 increment 1 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); diagnostic adapter only; not I1 increment 2 authority
+- Changed: `Engine::advance` polls coupled collocation, residual seal, pair-inverse, enclosure and repair jobs with `WorkBudget` before inertial progress. Residual seal skips the compact sidecar and yields per sample. Pair-inverse yields per finite-difference column and LU step. Enclosure yields per Euler/Picard dt. Headless scene binds ship, ray, clock and contact to compiled interval functions, applies received-knowledge course change, retains an in-flight signal across checkpoint restore, pauses at budget 1, varies query order, clears consumer cache, and replays inertial facts. Pending required queries beyond the admitted horizon stay visible. Policy course-change during a commit forces a rescan so later contacts are not missed.
+- Why: Increment 1 requires `advance(…, WorkBudget)` to suspend compile/validate/repair inside expensive loops and a connected scene on selected geometry, without reporting canonical-gravity acceptance.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. `cargo test -p emergent-law-lab --lib coupled_` PASS (54). `cargo test -p emergent-engine --lib` PASS (29). `causal_contract` PASS (18). `i1_connected_scene` PASS (2). Observatory 10 still pass. `cargo xtask history check` on this journal required.
+- Evidence: [I1 increment 1 evidence](laws/i1-increment1-evidence-20260915.md), [I1 contract notes](laws/i1-contract-notes-20260915.md), [H0127](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Historical `compile_source_response` compact fit remains atomic so H0124 counts stay. Sampled `certified: true` is still diagnostic and does not authorize GEM events. Finite-semantic reference, near-ties, slow-versus-compiled canonical GEM facts and separately versioned physical resolution (increment 2) have not exited. I2–I6 not started. `production_law` null.
+- Next: I1 increment 2 authority path on these moving cases. Do not launch I3–I6 optimization or qualification theater before I1 (and I2 where required).

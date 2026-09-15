@@ -945,14 +945,14 @@ pub fn gate_manifest() -> &'static str {
     MANIFEST
 }
 
-/// Isolated coupled source-response experiment. Not selected as `production_law`
-/// and not wired into `Engine::advance`.
+/// Isolated coupled source-response experiment. Not selected as `production_law`.
+/// Diagnostic `Engine::advance` may poll its jobs; that is not canonical gravity.
 pub mod coupled_source_response;
 pub use coupled_source_response::COUPLED_RESPONSE_LAW_ID;
 /// Independent interval contraction/enclosure. Does not share the compile residual.
 pub mod coupled_interval_enclosure;
 /// Compact phase/residual stored response and navigation inversion on the GEM slice.
-/// Not `production_law`. Not `Engine::advance`.
+/// Not `production_law`. Diagnostic advance may skip this sidecar.
 pub mod coupled_phase_nav;
 
 #[cfg(test)]
