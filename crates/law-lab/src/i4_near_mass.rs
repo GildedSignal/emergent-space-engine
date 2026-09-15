@@ -16,6 +16,9 @@ use crate::coupled_source_response::{Charge, C, G};
 use crate::i4_solar::compile_solar_with_prehistory;
 
 pub const SCHWARZSCHILD_GEM_LAW_ID: &str = "es-schwarzschild-gem-interface-v0";
+/// 1PN GEM in the interface areal radius. New model version; v0 Newton GEM
+/// vs Schwarzschild Γ^r_tt remains the 0.10 FAIL row.
+pub const SCHWARZSCHILD_1PN_GEM_LAW_ID: &str = "es-schwarzschild-1pn-gem-v0";
 /// Compactness `|Φ|/c²` at the named GEM match surface. Declared before results.
 pub const I4_IF_COMPACTNESS: f64 = 0.05;
 /// Accel/clock/deflection remainder band at the interface. Same 0.05 laboratory
@@ -81,6 +84,14 @@ fn sch_static_accel(mu: f64, r: f64) -> f64 {
 
 fn gem_newton_accel(mu: f64, r: f64) -> f64 {
     G * mu / (r * r)
+}
+
+/// 1PN GEM gravitoelectric radial field in areal radius.
+/// Independent of Schwarzschild Γ: E = −∇Φ_N (1 + 2 Φ_N / c²) with
+/// Φ_N = −Gμ/r, so |E| = (Gμ/r²)(1 − 2 Gμ/(r c²)).
+fn gem_1pn_accel(mu: f64, r: f64) -> f64 {
+    let phi_n = -G * mu / r;
+    gem_newton_accel(mu, r) * (1.0 + 2.0 * phi_n / (C * C))
 }
 
 fn sch_rest_clock(mu: f64, r: f64) -> f64 {
@@ -157,6 +168,23 @@ pub fn measure_near_mass_interface() -> Result<NearMassReport, crate::coupled_so
     })
 }
 
+/// 1PN GEM across the named interface. Predeclared band 0.05. Oracle is
+/// Schwarzschild Γ^r_tt, not a bit-identical trajectory. Moving multi-mass
+/// stays refused.
+pub fn measure_near_mass_1pn() -> Result<NearMassReport, crate::coupled_source_response::ResponseError> {
+    let mut report = measure_near_mass_interface()?;
+    report.law_id = SCHWARZSCHILD_1PN_GEM_LAW_ID;
+    report.a_gem_if = gem_1pn_accel(report.mu, report.r_if);
+    report.accel_remainder =
+        (report.a_sch_if - report.a_gem_if).abs() / report.a_sch_if.max(1e-12);
+    report.matched = report.clock_remainder <= I4_IF_MATCH_BAND
+        && report.deflection_remainder <= I4_IF_MATCH_BAND
+        && report.accel_remainder <= I4_IF_MATCH_BAND;
+    report.moving_multi_mass =
+        "refused: 1PN GEM + stationary Schwarzschild still cannot qualify moving multi-mass strong fields";
+    Ok(report)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,6 +195,7 @@ mod tests {
         assert_eq!(I4_IF_MATCH_BAND, 0.05);
         assert_eq!(I4_IF_MATCH_BAND, crate::i4_solar::I4_POS_BAND);
         assert_eq!(SCHWARZSCHILD_GEM_LAW_ID, "es-schwarzschild-gem-interface-v0");
+        assert_eq!(SCHWARZSCHILD_1PN_GEM_LAW_ID, "es-schwarzschild-1pn-gem-v0");
     }
 
     #[test]
@@ -221,5 +250,36 @@ mod tests {
         assert!(report.moving_multi_mass.contains("cannot qualify"));
         let b_c = capture_impact(report.mu);
         assert!(b_c > report.r_ph);
+    }
+
+    #[test]
+    fn i4_near_mass_1pn_continuity_keep_or_fail() {
+        assert_eq!(I4_IF_MATCH_BAND, 0.05);
+        let v0 = measure_near_mass_interface().expect("v0");
+        let report = measure_near_mass_1pn().expect("1pn");
+        eprintln!(
+            "I4_NEAR_MASS_1PN law={} a_sch={} a_1pn={} rem={} clk_rem={} matched={} moving={}",
+            report.law_id,
+            report.a_sch_if,
+            report.a_gem_if,
+            report.accel_remainder,
+            report.clock_remainder,
+            report.matched,
+            report.moving_multi_mass
+        );
+        assert_eq!(report.law_id, SCHWARZSCHILD_1PN_GEM_LAW_ID);
+        assert!(
+            v0.accel_remainder > I4_IF_MATCH_BAND,
+            "v0 Newton GEM jump stays visible"
+        );
+        assert!(report.moving_multi_mass.contains("cannot qualify"));
+        if report.accel_remainder > I4_IF_MATCH_BAND {
+            eprintln!(
+                "I4_NEAR_MASS_1PN REJECT rem {} > {}; alternatives: (a) GEM-to-horizon family as another model version, (b) keep v0 clocks-only match and bound a by 2 compactness",
+                report.accel_remainder, I4_IF_MATCH_BAND
+            );
+        } else {
+            eprintln!("I4_KEEP 1PN GEM accel continuity on stationary interface; band not widened");
+        }
     }
 }

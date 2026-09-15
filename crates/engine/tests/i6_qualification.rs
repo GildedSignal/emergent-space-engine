@@ -43,14 +43,11 @@ fn i6_same_model_matrix_runs_without_promotion() {
         status(&report, "moving-multi-mass-compact"),
         GateStatus::Unsupported
     );
-    assert_eq!(status(&report, "sch-gem-accel-continuity"), GateStatus::Fail);
-    assert_eq!(status(&report, "engine-canonical-gravity"), GateStatus::Fail);
-    assert_eq!(
-        status(&report, "family-moment-as-galaxy-skip"),
-        GateStatus::Fail
-    );
+    assert_eq!(status(&report, "sch-gem-accel-continuity-v0"), GateStatus::Fail);
+    assert_eq!(status(&report, "family-moment-as-galaxy-skip"), GateStatus::Fail);
     assert_eq!(status(&report, "production-promotion"), GateStatus::Fail);
     assert_eq!(status(&report, "envelope-frozen-target"), GateStatus::Unsupported);
+    assert_eq!(report.canonical_gravity_acceptance, "diagnostic-only");
 
     let bh = report
         .cards

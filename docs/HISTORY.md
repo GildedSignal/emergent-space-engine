@@ -2119,3 +2119,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [six-card contract](laws/litmus-gallery-contract-20260914.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: Full-engine incomplete. Envelope targets unqualified. Combined rendering unpublished. Frozen `1dac658` / H0052 / H0054 / H0124 unchanged. `production_law` null.
 - Next: Close required physics gaps (moving multi-mass compact fields, quadrupole skip, accel continuity, engine gravity) before any promotion attempt. Do not select `production_law` from this matrix.
+
+## H0143 — 1PN interface KEEP and domain-local GEM field events; matrix still mixed
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0142 `2054d29`; this entry's follow-on commit
+- Scope: Required FAIL physics after I6 matrix-run of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); not promotion; not full-engine
+- Changed: New model `es-schwarzschild-1pn-gem-v0`: 1PN GEM E=−∇Φ_N(1+2Φ_N/c²) vs independent Schwarzschild Γ^r_tt at the named interface, band 0.05, remainder ≤ 0.05 KEEP. v0 Newton GEM 0.10 FAIL row kept (`sch-gem-accel-continuity-v0`). Engine `authorizes_gem_events_on_admitted_field` true only on the Lipschitz/KA solar admitted interior; `CANONICAL_GRAVITY_ACCEPTANCE` stays diagnostic-only. Moving multi-mass still UNSUPPORTED. Galaxy quadrupole skip and family-moment-as-galaxy-skip stay FAIL. Same I6 matrix re-run: still mixed; promotion false; full-engine false; `production_law` null.
+- Why: Coordinator assigned closing required FAIL physics without a new matrix theater. 0.05 not widened. Do not fake moving compact fields with a static anchor.
+- Validation: `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-law-lab --lib i4_near_mass --offline --locked -- --test-threads=1` 3 PASS. `cargo test -p emergent-engine --test i6_qualification --offline --locked -- --test-threads=1` 1 PASS. `i1_increment2_authority` 6 PASS.
+- Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Crossing still FAIL. Galaxy skip still FAIL. Envelope targets UNSUPPORTED. Full-engine incomplete. Frozen H0139/H0142 interpretation: v0 0.10 remains a FAIL row.
+- Next: Do not select `production_law`. Remaining required gaps: moving multi-mass compact fields, quadrupole skip, gravitational crossing, envelope workload. Stop shopping if those still cannot pass.

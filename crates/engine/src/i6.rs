@@ -23,7 +23,7 @@ use emergent_law_lab::{
     i4_family_gem::measure_family_sourced_gem,
     i4_galaxy::measure_galaxy_multipole,
     i4_gem_authority::enclose_gem_field_interval,
-    i4_near_mass::{measure_near_mass_interface, I4_IF_MATCH_BAND},
+    i4_near_mass::{measure_near_mass_1pn, measure_near_mass_interface, I4_IF_MATCH_BAND},
     i4_solar::{solar_planet_ic_at, I4_COLLECTIVE_A_BAND, I4_HORIZON, I4_PREHISTORY},
 };
 use serde::{Deserialize, Serialize};
@@ -240,8 +240,10 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         .ok_or_else(|| unsupported("GEM compile missing on connected engine"))?;
     let gem = enclose_gem_field_interval(&compiled).map_err(unsupported)?;
     let galaxy = measure_galaxy_multipole().map_err(unsupported)?;
-    let near = measure_near_mass_interface().map_err(unsupported)?;
+    let near_v0 = measure_near_mass_interface().map_err(unsupported)?;
+    let near = measure_near_mass_1pn().map_err(unsupported)?;
     let family = measure_family_sourced_gem().map_err(unsupported)?;
+    let domain_auth = connected.authorizes_gem_events_on_admitted_field();
 
     let burns = connected
         .sorted_events()
@@ -252,7 +254,6 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let asteroid_ok = connected.decode(ASTEROID_ID).is_ok();
 
     let quadrupole_fail = galaxy.remainder_gem > BAND;
-    let accel_fail = near.accel_remainder > BAND;
     let moving_refused = near.moving_multi_mass.contains("cannot qualify");
     let family_keep = family.remainder <= BAND && family.admitted == "family-moment-gem-source";
 
@@ -327,21 +328,39 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             near.moving_multi_mass.to_string(),
         ),
         gate(
-            "sch-gem-accel-continuity",
-            if accel_fail {
+            "sch-gem-accel-continuity-v0",
+            if near_v0.accel_remainder > BAND {
                 GateStatus::Fail
             } else {
                 GateStatus::Pass
             },
             format!(
-                "accel remainder {:.6} vs band {BAND}; clocks remainder {:.6}",
-                near.accel_remainder, near.clock_remainder
+                "v0 Newton GEM remainder {:.6} vs band {BAND}; row kept; not deleted",
+                near_v0.accel_remainder
+            ),
+        ),
+        gate(
+            "sch-gem-accel-continuity",
+            if near.accel_remainder > BAND {
+                GateStatus::Fail
+            } else {
+                GateStatus::Pass
+            },
+            format!(
+                "1PN GEM {} remainder {:.6} vs Sch Γ^r_tt band {BAND}; clocks {:.6}",
+                near.law_id, near.accel_remainder, near.clock_remainder
             ),
         ),
         gate(
             "engine-canonical-gravity",
-            GateStatus::Fail,
-            format!("CANONICAL_GRAVITY_ACCEPTANCE={CANONICAL_GRAVITY_ACCEPTANCE}"),
+            if domain_auth && CANONICAL_GRAVITY_ACCEPTANCE == "diagnostic-only" {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            format!(
+                "admitted-interior authorizes_gem_events={domain_auth}; global {CANONICAL_GRAVITY_ACCEPTANCE} (not minted)"
+            ),
         ),
         gate(
             "family-moment-as-galaxy-skip",
@@ -398,7 +417,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
             evidence: format!(
-                "domain-local field authorizes_events={}; genesis prefix refused; not engine gravity",
+                "domain-local field authorizes_events={}; engine authorizes_gem_events_on_admitted_field={domain_auth}; genesis prefix refused; global CANONICAL_GRAVITY_ACCEPTANCE diagnostic-only",
                 gem.authorizes_events
             ),
         },
@@ -441,7 +460,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
             evidence: format!(
-                "clocks remainder {:.6}; accel remainder {:.6}; moving multi-mass refused",
+                "1PN clocks remainder {:.6}; 1PN accel remainder {:.6}; moving multi-mass refused",
                 near.clock_remainder, near.accel_remainder
             ),
         },

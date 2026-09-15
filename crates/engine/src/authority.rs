@@ -17,6 +17,7 @@ use emergent_law_lab::coupled_source_response::{
     body_state, body_state_compiled, contact_closest_compiled, fly_ship, fly_ship_compiled,
     Charge, Reference, ResponseError, SourceResponse, COUPLED_RESPONSE_LAW_ID,
 };
+use emergent_law_lab::i4_gem_authority::enclose_gem_field_interval;
 
 /// GEM enclosure coverage. Sixteen f64 samples are not interval-wide bounds.
 pub const GEM_INTERVAL_COVERAGE: &str = "sampled-16-not-interval-wide";
@@ -173,6 +174,61 @@ impl Engine {
         let committed_arrivals = committed_arrivals(self.sorted_events(), through);
         Ok(independent.contacts == committed_contacts
             && independent.arrivals == committed_arrivals)
+    }
+
+    /// Domain-local GEM field events only when the Lipschitz/KA bound covers
+    /// the compiled admitted interior. Does not mint global
+    /// `CANONICAL_GRAVITY_ACCEPTANCE`. Ambiguity is pending/refusal.
+    pub fn authorizes_gem_events_on_admitted_field(&self) -> bool {
+        self.gem_field_authorization().authorizes_gem_events
+    }
+
+    pub fn gem_field_authorization(&self) -> AuthorityReport {
+        let mut pending = Vec::new();
+        let compiled = self
+            .coupled
+            .as_ref()
+            .and_then(|d| d.compiled.as_ref());
+        let Some(compiled) = compiled else {
+            pending.push("no compiled GEM response".into());
+            return authority_status(pending);
+        };
+        match enclose_gem_field_interval(compiled) {
+            Ok(gem) => {
+                if gem.authorizes_events {
+                    AuthorityReport {
+                        canonical_law: LAW_ID.into(),
+                        gem_law: COUPLED_RESPONSE_LAW_ID.into(),
+                        gravity_acceptance: CANONICAL_GRAVITY_ACCEPTANCE.into(),
+                        gem_interval_coverage: GEM_FIELD_INTERVAL_COVERAGE.into(),
+                        historical_compact_seal: HISTORICAL_COMPACT_SEAL.into(),
+                        authorizes_gem_events: true,
+                        pending: gem
+                            .prefix_gap
+                            .into_iter()
+                            .collect(),
+                        refused: vec![
+                            "sampled Enclosure.certified does not authorize events".into(),
+                            "queries outside the admitted interior stay pending/refused".into(),
+                            "CANONICAL_GRAVITY_ACCEPTANCE stays diagnostic-only".into(),
+                        ],
+                    }
+                } else {
+                    if let Some(g) = gem.prefix_gap {
+                        pending.push(g);
+                    }
+                    if let Some(g) = gem.interior_gap {
+                        pending.push(g);
+                    }
+                    pending.push("Lipschitz/KA bound does not cover the queried domain".into());
+                    authority_status(pending)
+                }
+            }
+            Err(e) => {
+                pending.push(e.to_string());
+                authority_status(pending)
+            }
+        }
     }
 }
 

@@ -3,7 +3,7 @@
 Plan I6 exit is **this matrix existing and run**, not a green promotion.
 `production_law` remains **null**. `CANONICAL_GRAVITY_ACCEPTANCE` remains
 `diagnostic-only`. Full-engine remains **incomplete**. Frozen `1dac658`,
-H0052/H0054, and H0124 counts are unchanged.
+H0052/H0054, and H0124 counts are unchanged. FAIL rows are not deleted.
 
 Machine-readable companion:
 [i6-qualification-matrix-20260915.json](i6-qualification-matrix-20260915.json).
@@ -14,22 +14,18 @@ Machine-readable companion:
 |---|---|
 | Canonical law | `es-inertial-causal-v1` |
 | Diagnostic response | `es-linearized-retarded-gem-response-v0` |
+| Near-mass keep | `es-schwarzschild-1pn-gem-v0` (v0 Newton interface FAIL row kept) |
 | Implementation | `emergent-full-engine-integration` |
 | Workload | connected family + hierarchy + in-flight ray + observer/policy + archive |
 | Promotion | **false** |
 | Full engine | **false** |
 
-A candidate with mixed PASS and FAIL/UNSUPPORTED required cards cannot select
-`production_law`. This run is that candidate.
-
 ## Observatory
 
-Native `EngineBridge` hosts `emergent_engine::Engine` (`scenario::observatory`
-by default; `--world connected` loads the I6 scene). Same crate and law as
-I1–I5. The GEM-response gallery in `observatory/src/gallery.rs` is **not**
-the qualification world.
+Native `EngineBridge` hosts `emergent_engine::Engine`. `--world connected` is
+the I6 scene. GEM gallery is not the qualification world.
 
-## Gates
+## Gates (re-run after 1PN + domain-local field authority)
 
 | id | status |
 |---|---|
@@ -37,39 +33,26 @@ the qualification world.
 | compiler-inertial-facts | PASS |
 | persist-replay | PASS |
 | cold-history-query | PASS |
-| galaxy-quadrupole-skip | **FAIL** remainder 0.478 vs band 0.05; admitted direct sums |
-| moving-multi-mass-compact | **UNSUPPORTED** |
-| sch-gem-accel-continuity | **FAIL** accel remainder 0.10 vs 0.05 |
-| engine-canonical-gravity | **FAIL** diagnostic-only |
-| family-moment-as-galaxy-skip | **FAIL** N=4 rest KEEP is not an all-galaxy skip |
+| galaxy-quadrupole-skip | **FAIL** 0.478 vs 0.05; direct sums admitted |
+| moving-multi-mass-compact | **UNSUPPORTED** (1PN + stationary Sch still cannot) |
+| sch-gem-accel-continuity-v0 | **FAIL** Newton GEM 0.10 (row kept) |
+| sch-gem-accel-continuity | **PASS** 1PN GEM vs Sch Γ^r_tt ≤ 0.05 |
+| engine-canonical-gravity | **PASS** admitted-interior `authorizes_gem_events`; global diagnostic-only |
+| family-moment-as-galaxy-skip | **FAIL** N=4 KEEP is not an all-galaxy skip |
 | production-promotion | **FAIL** |
-| envelope-pressure | UNSUPPORTED |
-| envelope-frozen-target | UNSUPPORTED |
+| envelope-pressure / frozen-target | UNSUPPORTED |
 
 ## Six cards
 
-Each card names look-for, allowed outcome class, model/regime, and comparison
-type. Failing inputs and unconfirmed magnitudes stay visible.
+| id | status |
+|---|---|
+| fast-ships-light-twins | PASS |
+| solar-system-hierarchy | PASS |
+| three-bodies | PASS |
+| galaxy-like-population | PASS via direct sums; quadrupole FAIL visible |
+| black-hole-near-mass | **UNSUPPORTED** (moving multi-mass) |
+| fleet-asteroid-causal | PASS (N=4 family-moment only) |
+| crossing | **FAIL** (required gravitational crossing still unsupported) |
 
-| id | status | class | comparison |
-|---|---|---|---|
-| fast-ships-light-twins | PASS | `one_way_pulse` | compiler_only oracle |
-| solar-system-hierarchy | PASS | `supported_hierarchy` | physical_law band 0.05 |
-| three-bodies | PASS | `hierarchical_bound` | physical_law |
-| galaxy-like-population | PASS via **direct sums** | `clumpy_collection` | quadrupole skip FAIL remains visible |
-| black-hole-near-mass | **UNSUPPORTED** | `near_mass_clock` | stationary only |
-| fleet-asteroid-causal | PASS | `staggered_arrival` | family KEEP on N=4 fixture only |
-| coupled-…-boost (crossing) | **FAIL** | `crossing` | gravity not canonical |
-
-Daily gallery seed `0x14C0_55ED`. Held-out seeds `0x16B0_1D01` /
-`0x16B0_1D02` are predeclared; they do not erase FAIL cards.
-
-Envelope: tiny PASS; connected PASS; pressure UNSUPPORTED; frozen target
-UNSUPPORTED. ≤4 GiB / 30 FPS / billion-identity hour remain **targets**.
-
-## Behavior, not leftover pins
-
-Compiler-only gates compare independent inertial contact/arrival oracles to
-engine ticks/subjects/digest. Physical-law gates use the 0.05 remainder band.
-This matrix does not `assert_eq` leftover==0.0, freeze 1188/1675 ops, or pin
-`1.5193527764310737`.
+Envelope targets remain targets. Behavior gates use remainder bands / independent
+oracles. This matrix does not pin leftover==0.0, 1188/1675, or 1.519….

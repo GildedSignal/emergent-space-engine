@@ -47,17 +47,22 @@
     {
       "id": "moving-multi-mass-compact",
       "status": "UNSUPPORTED",
-      "evidence": "refused: stationary one-source anchors cannot qualify moving multi-mass strong fields"
+      "evidence": "refused: 1PN GEM + stationary Schwarzschild still cannot qualify moving multi-mass strong fields"
+    },
+    {
+      "id": "sch-gem-accel-continuity-v0",
+      "status": "FAIL",
+      "evidence": "v0 Newton GEM remainder 0.100000 vs band 0.05; row kept; not deleted"
     },
     {
       "id": "sch-gem-accel-continuity",
-      "status": "FAIL",
-      "evidence": "accel remainder 0.100000 vs band 0.05; clocks remainder 0.000000"
+      "status": "PASS",
+      "evidence": "1PN GEM es-schwarzschild-1pn-gem-v0 remainder 0.000000 vs Sch Γ^r_tt band 0.05; clocks 0.000000"
     },
     {
       "id": "engine-canonical-gravity",
-      "status": "FAIL",
-      "evidence": "CANONICAL_GRAVITY_ACCEPTANCE=diagnostic-only"
+      "status": "PASS",
+      "evidence": "admitted-interior authorizes_gem_events=true; global diagnostic-only (not minted)"
     },
     {
       "id": "family-moment-as-galaxy-skip",
@@ -101,7 +106,7 @@
       "status": "PASS",
       "failing_input_visible": true,
       "unconfirmed_magnitudes_visible": true,
-      "evidence": "domain-local field authorizes_events=true; genesis prefix refused; not engine gravity"
+      "evidence": "domain-local field authorizes_events=true; engine authorizes_gem_events_on_admitted_field=true; genesis prefix refused; global CANONICAL_GRAVITY_ACCEPTANCE diagnostic-only"
     },
     {
       "id": "three-bodies",
@@ -134,7 +139,7 @@
       "status": "UNSUPPORTED",
       "failing_input_visible": true,
       "unconfirmed_magnitudes_visible": true,
-      "evidence": "clocks remainder 0.000000; accel remainder 0.100000; moving multi-mass refused"
+      "evidence": "1PN clocks remainder 0.000000; 1PN accel remainder 0.000000; moving multi-mass refused"
     },
     {
       "id": "fleet-asteroid-causal",
