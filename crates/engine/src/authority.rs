@@ -21,6 +21,11 @@ use emergent_law_lab::coupled_source_response::{
 /// GEM enclosure coverage. Sixteen f64 samples are not interval-wide bounds.
 pub const GEM_INTERVAL_COVERAGE: &str = "sampled-16-not-interval-wide";
 
+/// I4 per-query unique retarded lookback. Not an interval-wide field bound
+/// and not event authority.
+pub const GEM_RETARDED_ROOT_COVERAGE: &str =
+    "per-query-unique-lookback-not-interval-wide-field";
+
 /// Historical compact fit used by `compile_source_response`. Not the diagnostic
 /// ResidualJob seal and not an authority procedure.
 pub const HISTORICAL_COMPACT_SEAL: &str = "atomic-h0124-not-authority";
@@ -61,6 +66,7 @@ pub fn authority_status(pending: Vec<String>) -> AuthorityReport {
         refused: vec![
             "sampled Enclosure.certified does not authorize events".into(),
             "GEM 16-sample enclosure is not interval-wide coverage".into(),
+            format!("I4 retarded root: {GEM_RETARDED_ROOT_COVERAGE}"),
         ],
     }
 }

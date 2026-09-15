@@ -58,6 +58,7 @@ pub struct KernelChargeSplit {
     pub advance: u64,
     pub certificate: u64,
     pub reconstruction: u64,
+    pub patch: u64,
     pub fallback: u64,
     pub total: u64,
 }
@@ -66,6 +67,11 @@ pub struct KernelChargeSplit {
 /// declared before this slice's kick runs. Not a widened quiet band.
 pub const KERNEL_KICK_POS_BAND: f64 = 0.05;
 pub const KERNEL_KICK_A_BAND: f64 = 0.05;
+/// Short collocation patch after a strong kick, then kernel resume.
+/// Same 0.05 as quiet/weak-kick; declared before this slice's patch runs.
+pub const KERNEL_PATCH_POS_BAND: f64 = 0.05;
+/// Collocation length after the kick: one memory window. Not full H.
+pub const KERNEL_PATCH_LEN: f64 = 1.0;
 
 impl MemoryKernelResponse {
     pub fn bytes(&self) -> usize {
@@ -379,6 +385,88 @@ pub fn recouple_kernel_suffix(
     Ok(compiled)
 }
 
+/// Collocate a short window after the kick, then resume the memory-kernel.
+/// Not kernel-resume of the same strong Δv (H0135 rejected that). Close-entrant
+/// n-body still refuses at the quiet prefix.
+pub fn compile_kernel_kick_patch(
+    ic: InitialCondition,
+    incoming: Vec<Intervention>,
+    horizon: f64,
+) -> Result<MemoryKernelResponse, ResponseError> {
+    if incoming.is_empty() {
+        return Err(ResponseError::UnsupportedDomain {
+            why: "kick patch needs a kick".into(),
+        });
+    }
+    let t_kick = incoming
+        .iter()
+        .map(|iv| iv.t)
+        .fold(f64::INFINITY, f64::min);
+    if t_kick < KERNEL_MEMORY - 1e-12 {
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!("kick at {t_kick} is inside the bootstrap window; fallback to collocation"),
+        });
+    }
+    let mut prefix = compile_memory_kernel_response(ic.clone(), vec![], t_kick)?;
+    let mut recon = Charge::default();
+    let mut kicked = ic_from_kernel(&prefix, t_kick, &mut recon)?;
+    for iv in &incoming {
+        if (iv.t - t_kick).abs() < 1e-12 {
+            if let Some(b) = kicked.bodies.iter_mut().find(|b| b.id == iv.body_id) {
+                b.v[0] += iv.delta_v[0];
+                b.v[1] += iv.delta_v[1];
+            }
+        }
+    }
+    let patch_end = (t_kick + KERNEL_PATCH_LEN).min(horizon);
+    let later: Vec<Intervention> = incoming
+        .iter()
+        .filter(|iv| iv.t > t_kick + 1e-12 && iv.t < patch_end - 1e-12)
+        .cloned()
+        .collect();
+    let patch = crate::coupled_source_response::compile_source_response_opts(
+        kicked,
+        later,
+        patch_end,
+        1.0 / 32.0,
+        CompileOpts {
+            store_pair_inverse: false,
+        },
+    )?;
+    let mut functions = prefix.functions;
+    functions.extend(patch.interval_functions.clone());
+    prefix
+        .charge
+        .push_child("kernel_prefix_recon", ChargeRole::Reconstruction, recon);
+    prefix
+        .charge
+        .push_child("kick_patch", ChargeRole::RuntimeRequest, patch.charge.clone());
+    if patch_end < horizon - 1e-15 {
+        let mut advance_charge = Charge::default();
+        let r0 = hypot(
+            ic.bodies[0].x[0] - ic.bodies[1].x[0],
+            ic.bodies[0].x[1] - ic.bodies[1].x[1],
+        );
+        let (memory_len, min_r) = march_kernel(
+            &ic,
+            &mut functions,
+            patch_end,
+            horizon,
+            r0.min(prefix.min_r),
+            &mut advance_charge,
+        )?;
+        prefix
+            .charge
+            .push_child("kernel_advance_suffix", ChargeRole::RuntimeRequest, advance_charge);
+        prefix.memory_len = prefix.memory_len.max(memory_len);
+        prefix.min_r = min_r;
+    }
+    prefix.horizon = horizon;
+    prefix.incoming = incoming;
+    prefix.functions = functions;
+    Ok(prefix)
+}
+
 pub fn laboratory_tight_pair() -> InitialCondition {
     let mut ic = laboratory_circular_pair();
     ic.bodies[0].x = [-1.5, 0.0];
@@ -403,6 +491,7 @@ fn charge_split(charge: &Charge) -> KernelChargeSplit {
         advance: child("kernel_advance") + child("kernel_advance_suffix"),
         certificate: child("certificate"),
         reconstruction: child("kernel_prefix_recon") + charge.reconstruction,
+        patch: child("kick_patch"),
         fallback: charge.fallback,
         total: charge.ledger_total(),
     }
@@ -720,6 +809,8 @@ mod tests {
         assert_eq!(KERNEL_A_BAND, 0.05);
         assert_eq!(KERNEL_KICK_POS_BAND, 0.05);
         assert_eq!(KERNEL_KICK_A_BAND, 0.05);
+        assert_eq!(KERNEL_PATCH_POS_BAND, 0.05);
+        assert_eq!(KERNEL_PATCH_LEN, 1.0);
         assert_eq!(KERNEL_RANK_MAX, 16);
         assert_eq!(KERNEL_MEMORY, 1.0);
         assert_eq!(KERNEL_STEP, 0.5);

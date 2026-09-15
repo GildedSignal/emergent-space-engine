@@ -1248,4 +1248,107 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn i3_kernel_kick_patch_then_resume_is_the_last_strong_kick_method() {
+        use crate::coupled_source_response::{
+            compile_source_response_opts, laboratory_encounter, laboratory_kick, CompileOpts,
+        };
+        use crate::i3_kernel::{
+            compile_kernel_kick_patch, KERNEL_PATCH_LEN, KERNEL_PATCH_POS_BAND,
+        };
+        use crate::i3_secular::laboratory_circular_pair;
+
+        assert_eq!(KERNEL_PATCH_POS_BAND, 0.05, "gate declared before this slice");
+        assert_eq!(KERNEL_PATCH_LEN, 1.0, "patch length declared before this slice");
+
+        let h = 8.0_f64;
+        let strong = laboratory_kick();
+        let collocation = compile_source_response_opts(
+            laboratory_circular_pair(),
+            strong.clone(),
+            h,
+            1.0 / 32.0,
+            CompileOpts {
+                store_pair_inverse: false,
+            },
+        )
+        .unwrap();
+        let col = TotalCost::of(&collocation);
+        match compile_kernel_kick_patch(laboratory_circular_pair(), strong, h) {
+            Ok(patched) => {
+                let split = patched.split();
+                let mut q = Charge::default();
+                let mut max_dx = 0.0_f64;
+                for i in 0..8 {
+                    let t = h * (i as f64 + 0.5) / 8.0;
+                    let xs = patched.eval(0, t, &mut q).unwrap();
+                    let xc = eval_interval_at(&collocation, t);
+                    max_dx = max_dx.max((xs[0] - xc[0]).abs().max((xs[1] - xc[1]).abs()));
+                }
+                eprintln!(
+                    "I3_KERNEL_PATCH H=8 total={} bootstrap={} jacobian={} advance={} patch={} collocation={} max_dx={} pos_band={} rank={} memory={}",
+                    split.total,
+                    split.bootstrap,
+                    split.jacobian,
+                    split.advance,
+                    split.patch,
+                    col.ledger,
+                    max_dx,
+                    KERNEL_PATCH_POS_BAND,
+                    patched.boundary_rank,
+                    patched.memory_len
+                );
+                let matched = max_dx < KERNEL_PATCH_POS_BAND;
+                let cheaper = split.total < col.ledger;
+                if matched && cheaper {
+                    eprintln!(
+                        "I3_KEEP kick-patch then kernel-resume H=8: ledger {} < {}, Δx={max_dx} < {KERNEL_PATCH_POS_BAND}",
+                        split.total, col.ledger
+                    );
+                } else {
+                    eprintln!(
+                        "I3_REJECT kick-patch then kernel-resume: matched={matched} cheaper={cheaper} ledger {} vs {} max_dx={max_dx} band={KERNEL_PATCH_POS_BAND}; stop shopping",
+                        split.total, col.ledger
+                    );
+                }
+            }
+            Err(err) => {
+                eprintln!(
+                    "I3_REJECT kick-patch construction: {err}; collocation={}; stop shopping",
+                    col.ledger
+                );
+            }
+        }
+
+        let (enc_ic, _) = laboratory_encounter();
+        let enc = compile_kernel_kick_patch(
+            enc_ic.clone(),
+            vec![crate::coupled_source_response::Intervention {
+                t: 2.0,
+                body_id: 0,
+                delta_v: [0.0, 0.125],
+            }],
+            4.0,
+        );
+        assert!(enc.is_err(), "close-entrant is not a kernel-patch domain");
+        eprintln!("I3_KERNEL_PATCH_ENCOUNTER refuse={}", enc.unwrap_err());
+        let enc_col = compile_source_response_opts(
+            enc_ic,
+            vec![],
+            4.0,
+            1.0 / 32.0,
+            CompileOpts {
+                store_pair_inverse: false,
+            },
+        )
+        .unwrap();
+        eprintln!(
+            "I3_KERNEL_PATCH_ENCOUNTER recouple_ledger={}",
+            TotalCost::of(&enc_col).ledger
+        );
+        eprintln!(
+            "I3_DOMAIN admitted=quiet_kernel H=4..12, weak_kick_resume H=8; failure=strong_kernel_resume, strong_kick_patch_measured_above, close_entrant_recouple, Kepler, PERIOD, compact-after-the-fact, Schur tide, population-solved"
+        );
+    }
 }

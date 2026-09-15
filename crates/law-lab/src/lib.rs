@@ -961,6 +961,9 @@ pub mod i3_secular;
 /// Low-rank / memory-kernel Volterra compression. Construction does not
 /// collocate over H. Not production_law. Not canonical gravity.
 pub mod i3_kernel;
+/// I4 solar hierarchy and ordinary weak-field encounters. GEM stays diagnostic.
+/// Not production_law. Not canonical gravity.
+pub mod i4_solar;
 
 #[cfg(test)]
 mod tests {

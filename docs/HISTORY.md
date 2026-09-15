@@ -2017,3 +2017,33 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I3 amort/kick](laws/i3-kernel-amort-kick-evidence-20260915.md), [I3 kernel](laws/i3-kernel-evidence-20260915.md), [H0134](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: I3 exit is not proven. Bootstrap still dominates kernel setup. Strong kicks miss 0.05. Close-entrant and tides still recouple. `production_law` null. Canonical gravity remains `diagnostic-only`.
 - Next: A representation that matches GEM after a strong Δv or close-entrant without full collocation, or admit I3 cannot skip sequential GEM on those domains. Do not launch I4–I6 theater.
+
+
+## H0136 — I3 domain exit: keep quiet/weak-kick kernel; reject strong-kick patch
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after `f774ba5`; this entry's follow-on commit
+- Scope: I3 plan exit is keep-in-domain plus published failure, not infinite shopping. Last strong-kick method: short collocation patch then kernel resume. Not gravitational qualification.
+- Changed: `compile_kernel_kick_patch` collocates `KERNEL_PATCH_LEN=1.0` after `laboratory_kick` then resumes kernel. H=8 ledger 1937 vs collocation 2556, Δx=0.218>0.05 **REJECT**. Close-entrant still recouple. Published admitted domains (quiet kernel H=4..12, weak-kick resume H=8, H≤3 collocation vs Euler, prefix-repair, lazy inverse) and failure domains (Kepler ansatze, PERIOD, compact-after-the-fact, Schur tide, population-solved, strong kicks, close-entrant). 0.05 not widened. Do not claim skipped evolution on strong kicks.
+- Why: The plan's I3 exit is domain publication after one last discriminating strong-kick method, keep or honest reject.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. Law-lab `i3_` 11. `cargo xtask history check` on journal home required.
+- Evidence: [I3 domain exit](laws/i3-domain-exit-20260915.md), [I3 amort/kick](laws/i3-kernel-amort-kick-evidence-20260915.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Sequential collocation still owns strong kicks and close-entrants. Interval-wide GEM authority is I4 work. `production_law` null.
+- Next: I4 bound solar hierarchy with prehistory and the GEM authority path. Do not launch I5–I6 theater.
+
+
+## H0137 — I4 start: solar prehistory vs switch-on; retarded-root authority still diagnostic
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0136
+- Scope: I4 item 1 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); six-card solar hierarchy; not I4 exit; not I5–I6
+- Changed: Declared GEM hierarchical two-body approximation, 0.05 band, prehistory 2.0, admitted states and collocation fallback before runs. Prehistory-initialized solar pair stays bound (min_r=6.31, `|Phi|/c²=0.020`); genesis switch-on defect 0.476>0.05 so switch-on is not an equilibrium initializer. Weak-field flyby uses 3-body collocation (3685), not kernel. Per-query retarded lookback 14 unique / 2 missed; coverage `per-query-unique-lookback-not-interval-wide-field`; `authorizes_events=false`. `CANONICAL_GRAVITY_ACCEPTANCE` remains diagnostic-only. Engine authority refused list names the I4 root gap.
+- Why: I4 requires initialized prehistory and an authority path; sampled 16-point enclosure must not mint canonical gravity.
+- Validation: Law-lab `i4_` 3, `coupled_` 54, engine `i1_increment2_authority` 6. Same build flags as H0136.
+- Evidence: [I4 solar/authority](laws/i4-solar-authority-20260915.md), [I3 domain exit](laws/i3-domain-exit-20260915.md), [six-card contract](laws/litmus-gallery-contract-20260914.md)
+- Limitations: Interval-wide GEM field bound missing. Galaxy and black-hole cards unsupported. I4 not exited. `production_law` null.
+- Next: Lipschitz or interval/KA field bound on retarded GEM, or the next six-card regime. Do not launch I5–I6. Do not select `production_law`.
