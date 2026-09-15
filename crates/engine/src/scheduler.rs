@@ -214,6 +214,179 @@ impl Engine {
         self.certify_region(dest, through)
     }
 
+    /// Advance only this region's identities from its certified cut to `target`.
+    /// Spatial overlap with a lagging region, or an influence whose source is
+    /// uncertified, refuses independent advance (joint solve / lost lookahead).
+    pub fn advance_region(
+        &mut self,
+        name: &str,
+        target: i128,
+        budget: crate::runtime::WorkBudget,
+    ) -> Result<crate::runtime::AdvanceResult, EngineError> {
+        let Some(idx) = self.scheduler.regions.iter().position(|r| r.name == name) else {
+            return Err(EngineError::Invalid("unknown region".into()));
+        };
+        let lo = self.scheduler.regions[idx].lo;
+        let hi = self.scheduler.regions[idx].hi;
+        let from = self.scheduler.regions[idx].certified_through;
+        if target < from {
+            return Err(EngineError::Invalid(
+                "cannot advance a region behind its certified cut".into(),
+            ));
+        }
+        let incoming = self.scheduler.regions[idx].incoming.clone();
+        for inf in &incoming {
+            if inf.earliest_arrival <= target {
+                let source_cut = self
+                    .scheduler
+                    .region(&inf.source_region)
+                    .map(|s| s.certified_through)
+                    .unwrap_or(0);
+                if inf.emission_tick > source_cut {
+                    self.scheduler
+                        .lost_lookahead
+                        .push(format!("{}:{target}", inf.id));
+                    return Err(EngineError::Invalid(
+                        "lost lookahead: source region is behind the emission".into(),
+                    ));
+                }
+            }
+        }
+        if self.region_advance_overlaps_lagging(idx, from, target)? {
+            return Err(EngineError::Invalid(
+                "spatial overlap with a lagging region requires a joint solve".into(),
+            ));
+        }
+        let saved_clock = self.state.clock;
+        self.clear_pending_scan();
+        self.scan_filter = Some((lo, hi));
+        self.state.clock = from;
+        let ops = budget.operations.max(1);
+        let result = loop {
+            let step = self.advance(target, crate::runtime::WorkBudget::new(ops))?;
+            if step.complete {
+                break step;
+            }
+        };
+        self.scan_filter = None;
+        self.clear_pending_scan();
+        self.scheduler.regions[idx].certified_through = target;
+        self.state.clock = saved_clock.max(target);
+        self.scheduler.detect_cycles_and_starvation();
+        Ok(result)
+    }
+
+    pub fn advance_joint(
+        &mut self,
+        a: &str,
+        b: &str,
+        target: i128,
+        budget: crate::runtime::WorkBudget,
+    ) -> Result<crate::runtime::AdvanceResult, EngineError> {
+        let from = {
+            let ra = self
+                .scheduler
+                .region(a)
+                .ok_or_else(|| EngineError::Invalid("unknown region".into()))?;
+            let rb = self
+                .scheduler
+                .region(b)
+                .ok_or_else(|| EngineError::Invalid("unknown region".into()))?;
+            ra.certified_through.min(rb.certified_through)
+        };
+        if target < from {
+            return Err(EngineError::Invalid(
+                "cannot jointly advance behind the lagging certified cut".into(),
+            ));
+        }
+        let saved_clock = self.state.clock;
+        self.clear_pending_scan();
+        self.scan_filter = None;
+        self.state.clock = from;
+        let ops = budget.operations.max(1);
+        let result = loop {
+            let step = self.advance(target, crate::runtime::WorkBudget::new(ops))?;
+            if step.complete {
+                break step;
+            }
+        };
+        for name in [a, b] {
+            if let Some(r) = self.scheduler.region_mut(name) {
+                r.certified_through = r.certified_through.max(target);
+            }
+        }
+        self.state.clock = saved_clock.max(target);
+        self.scheduler.detect_cycles_and_starvation();
+        Ok(result)
+    }
+
+    fn region_advance_overlaps_lagging(
+        &self,
+        idx: usize,
+        from: i128,
+        target: i128,
+    ) -> Result<bool, EngineError> {
+        let lo = self.scheduler.regions[idx].lo;
+        let hi = self.scheduler.regions[idx].hi;
+        let mine = self.region_window_aabb(lo, hi, from, target)?;
+        for (j, other) in self.scheduler.regions.iter().enumerate() {
+            if j == idx {
+                continue;
+            }
+            if other.certified_through >= target {
+                continue;
+            }
+            let theirs = self.region_window_aabb(
+                other.lo,
+                other.hi,
+                other.certified_through,
+                target,
+            )?;
+            if mine.intersects(&theirs) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    fn region_window_aabb(
+        &self,
+        lo: u64,
+        hi: u64,
+        t0: i128,
+        t1: i128,
+    ) -> Result<Aabb, EngineError> {
+        let mut pts = Vec::new();
+        let mut rad = crate::math::r(0);
+        for id in [lo, hi] {
+            let body = self.decode(id)?;
+            pts.push(body.at(t0));
+            pts.push(body.at(t1));
+            if body.radius > rad {
+                rad = body.radius.clone();
+            }
+        }
+        for (_, body) in self.state.bodies.range(lo..=hi) {
+            pts.push(body.at(t0));
+            pts.push(body.at(t1));
+            if body.radius > rad {
+                rad = body.radius.clone();
+            }
+        }
+        let mut aabb = Aabb::from_points(&pts[0], pts.get(1).unwrap_or(&pts[0]));
+        for p in &pts[1..] {
+            aabb.min.x = aabb.min.x.clone().min(p.x.clone());
+            aabb.min.y = aabb.min.y.clone().min(p.y.clone());
+            aabb.max.x = aabb.max.x.clone().max(p.x.clone());
+            aabb.max.y = aabb.max.y.clone().max(p.y.clone());
+        }
+        aabb.min.x -= rad.clone();
+        aabb.min.y -= rad.clone();
+        aabb.max.x += rad.clone();
+        aabb.max.y += rad;
+        Ok(aabb)
+    }
+
     pub fn joint_solve_required(&self, a: &str, b: &str) -> bool {
         let Some(ra) = self.scheduler.region(a) else {
             return false;

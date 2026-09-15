@@ -177,7 +177,7 @@ impl Engine {
                 .unwrap_or_default();
             let mut id = b.lo;
             while id <= b.hi {
-                if map.contains_key(&id) {
+                if map.contains_key(&id) || !self.in_scan_filter(id) {
                     id = id.saturating_add(1);
                     continue;
                 }

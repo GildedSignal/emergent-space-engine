@@ -1942,3 +1942,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I2 composition evidence](laws/i2-composition-evidence-20260915.md), [H0129](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: Certified cuts overlay a single physics clock. Broadcast indexing still walks a small materialized range. Cold observation uses remainder worldtubes plus selected chunks. The family does not gravitationally perturb GEM. Canonical gravity acceptance remains `diagnostic-only`. I3–I6 not started. `production_law` null.
 - Next: I3 first experiment against the measured bottleneck from this scene (history reconstruction and the single-clock scheduler overlay), not all representation hypotheses. Do not launch I4–I6 theater.
+
+
+## H0131 — I3: two-region advance and keep/reject representations; I3 exit not proven
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: partial
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after `e319bc9`; this entry's follow-on commit
+- Scope: I3 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); two-region scheduler plus sequential time/perturbation/population kill tests; not gravitational qualification
+- Changed: `advance_region` / `advance_joint` rewind a region's certified cut, scan only that identity range, and refuse independent advance when a lagging region's radius-expanded AABB overlaps. I2 composed-scene cuts now use that path (hierarchy through 8 while family stays 0). Nested Charge keep/reject: quiet-pair collocation ledger 1250 vs Euler 5602 at H=3; prefix repair 923 vs recouple 1212 on quiet-kick H=3; compact-after-the-fact, PERIOD, resonance-skip, H=3 local Schur tide, and population-as-solved rejected. Selective cold observe 1.4 ms versus restore 0.83 ms with reconstruction charged. I4–I6 not started.
+- Why: I2 named the one-clock overlay and history reconstruction as the measured bottleneck. I3 must attack that constraint with total-cost kill tests rather than documenting around it or launching later-stage theater.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. Engine lib 31, `causal_contract` 18, `i1_connected_scene` 2, `i1_increment2_authority` 6, `i2_composed_scene` 1, `i3_representation` 4, law-lab `i3_` 4, `coupled_` 54. `cargo xtask history check` on this journal required.
+- Evidence: [I3 keep/reject evidence](laws/i3-keep-reject-evidence-20260915.md), [H0130](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: I3 exit is not proven. Sequential collocation still grows with horizon. Broadcast indexing still walks a materialized range. Family does not gravitationally perturb GEM. Interval-wide GEM authority is still missing. Canonical gravity acceptance remains `diagnostic-only`. `production_law` null.
+- Next: Revise long-time source representation before scaling the same loop. Do not launch I4–I6 theater. I4 remains blocked on interval-wide GEM authority as well as I1/I2 interfaces.

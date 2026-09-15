@@ -96,13 +96,17 @@ fn i2_composed_scene_crosses_extraction_remerge_history_and_cuts() {
         "ray/signal must be in flight before family work"
     );
 
-    engine.advance_fully(8).unwrap();
-    engine.certify_region("hierarchy", 8).unwrap();
-    engine.certify_region("family", 0).unwrap();
-    assert_ne!(
+    engine
+        .advance_region("hierarchy", 8, WorkBudget::new(100_000))
+        .unwrap();
+    assert_eq!(
         engine.scheduler.region("hierarchy").unwrap().certified_through,
+        8
+    );
+    assert_eq!(
         engine.scheduler.region("family").unwrap().certified_through,
-        "unequal certified cuts"
+        0,
+        "family must remain behind until its own advance"
     );
     assert!(engine.scheduler.global_cut().is_none());
 
@@ -197,7 +201,12 @@ fn i2_composed_scene_crosses_extraction_remerge_history_and_cuts() {
         .certify_region("family", engine.state.clock)
         .is_err());
 
-    engine.advance_fully(40).unwrap();
+    engine
+        .advance_region("hierarchy", 40, WorkBudget::new(100_000))
+        .unwrap();
+    engine
+        .advance_region("family", 40, WorkBudget::new(100_000))
+        .unwrap();
     let burns: Vec<_> = engine
         .sorted_events()
         .iter()

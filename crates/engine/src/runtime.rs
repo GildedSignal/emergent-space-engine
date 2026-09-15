@@ -712,6 +712,8 @@ pub struct Engine {
     pub scheduler: CompositionScheduler,
     /// Sealed chunk archive handle after `seal_archive`.
     pub archive: Option<LiveArchive>,
+    /// When set, SAP/commit only includes this identity range (two-region advance).
+    pub(crate) scan_filter: Option<(u64, u64)>,
 }
 
 pub(crate) fn digest<T: Serialize>(value: &T) -> String {
@@ -805,6 +807,7 @@ impl Engine {
             force_rescan: false,
             scheduler: CompositionScheduler::default(),
             archive: None,
+            scan_filter: None,
         };
         engine.validate()?;
         Ok(engine)
@@ -849,6 +852,22 @@ impl Engine {
         }
         Ok(())
     }
+    pub fn in_scan_filter(&self, id: u64) -> bool {
+        self.scan_filter
+            .map(|(lo, hi)| id >= lo && id <= hi)
+            .unwrap_or(true)
+    }
+
+    pub(crate) fn clear_pending_scan(&mut self) {
+        self.pending = None;
+    }
+
+    fn range_intersects_filter(&self, lo: u64, hi: u64) -> bool {
+        self.scan_filter
+            .map(|(flo, fhi)| lo <= fhi && flo <= hi)
+            .unwrap_or(true)
+    }
+
     pub fn logical_count(&self) -> u128 {
         self.state
             .families
@@ -1593,12 +1612,19 @@ impl Engine {
                             .get(&id)
                             .is_none_or(|cert| *cert < scan.target)
                     {
-                        if scan.jobs.len() >= self.max_pending_jobs {
-                            return Err(EngineError::ResourceLimit(
-                                "combined frontier exceeds job capacity".into(),
-                            ));
+                        let target_ok = self
+                            .state
+                            .signals
+                            .get(&id)
+                            .is_some_and(|s| self.in_scan_filter(s.target));
+                        if target_ok {
+                            if scan.jobs.len() >= self.max_pending_jobs {
+                                return Err(EngineError::ResourceLimit(
+                                    "combined frontier exceeds job capacity".into(),
+                                ));
+                            }
+                            scan.jobs.push_back(Job::Signal(id));
                         }
-                        scan.jobs.push_back(Job::Signal(id));
                     }
                     scan.prep = Some(Prep::EnqueuingFrontier {
                         phase: FrontierPhase::Signals(following),
@@ -1867,7 +1893,9 @@ impl Engine {
                         .map(|(&id, _)| id),
                 };
                 if let Some(id) = next {
-                    items.push(Item::Body(id));
+                    if self.in_scan_filter(id) {
+                        items.push(Item::Body(id));
+                    }
                     scan.prep = Some(Prep::CollectBodies {
                         next_after: Some(id),
                         items,
@@ -1905,6 +1933,14 @@ impl Engine {
                     })));
                 } else {
                     let f = &self.state.families[family_index];
+                    if !self.range_intersects_filter(f.first_id, f.last_id()) {
+                        scan.prep = Some(Prep::CollectFamilies {
+                            family_index: family_index + 1,
+                            cursor: None,
+                            items,
+                        });
+                        return Ok(());
+                    }
                     let end = f.first_id + (f.count - 1);
                     let cur = cursor.unwrap_or(f.first_id);
                     if let Some((&id, _)) = self.state.bodies.range(cur..=end).next() {
@@ -3284,6 +3320,7 @@ impl Engine {
             force_rescan: false,
             scheduler: CompositionScheduler::default(),
             archive: None,
+            scan_filter: None,
         };
         e.validate()?;
         Ok(e)

@@ -954,6 +954,8 @@ pub mod coupled_interval_enclosure;
 /// Compact phase/residual stored response and navigation inversion on the GEM slice.
 /// Not `production_law`. Diagnostic advance may skip this sidecar.
 pub mod coupled_phase_nav;
+/// I3 keep/reject measurements. Not production_law. Not canonical gravity.
+pub mod i3_keep_reject;
 
 #[cfg(test)]
 mod tests {
