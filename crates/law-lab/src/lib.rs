@@ -956,6 +956,8 @@ pub mod coupled_interval_enclosure;
 pub mod coupled_phase_nav;
 /// I3 keep/reject measurements. Not production_law. Not canonical gravity.
 pub mod i3_keep_reject;
+/// Kepler + slow residual as evolution. Construction does not collocate over H.
+pub mod i3_secular;
 
 #[cfg(test)]
 mod tests {

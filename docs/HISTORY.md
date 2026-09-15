@@ -1957,3 +1957,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I3 keep/reject evidence](laws/i3-keep-reject-evidence-20260915.md), [H0130](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: I3 exit is not proven. Sequential collocation still grows with horizon. Broadcast indexing still walks a materialized range. Family does not gravitationally perturb GEM. Interval-wide GEM authority is still missing. Canonical gravity acceptance remains `diagnostic-only`. `production_law` null.
 - Next: Revise long-time source representation before scaling the same loop. Do not launch I4–I6 theater. I4 remains blocked on interval-wide GEM authority as well as I1/I2 interfaces.
+
+
+## H0132 — I3: Kepler+residual rejected as unmatched GEM; lazy pair-inverse kept without Schur consumer
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: partial
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after `b7e5ad7`; this entry's follow-on commit
+- Scope: I3 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); long-time representation that does not collocate the skipped interval; lazy pair-inverse; not gravitational qualification
+- Changed: Added `compile_secular_response` (Kepler elements + rank-3 GEM−Newton residual as the evolution, no `interval_compile` over H) and `compile_source_response_opts` / `ensure_pair_inverse` so the dense quiet-pair inverse can be deferred. Circular pair H=4 secular ledger 151 vs collocation 1551 but max_dx=0.93; H=6 remainder 0.078 exceeds band 0.05 and refuses. Radial rest pair, eccentric H=6, resonant kicks and weak Δv=0.02 also refuse. Lazy inverse at H=6: ledger 1468 vs eager 2438, bytes 2637 vs 18125, n grows 20→44. H0131 keeps unchanged. I4–I6 not started.
+- Why: Sequential collocation grows with H. Building a trajectory then compressing it cannot establish skipped evolution. If none removes enough sequential work while matching GEM, I3 stays incomplete.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. Law-lab `i3_` 6, `coupled_` 54, engine lib 31. `cargo xtask history check` on journal home required.
+- Evidence: [I3 secular evidence](laws/i3-secular-evidence-20260915.md), [I3 keep/reject](laws/i3-keep-reject-evidence-20260915.md), [H0131](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: I3 exit is not proven. Kepler+residual is cheaper than collocation only where it fails to match GEM. Lazy inverse is setup deferral, not skipped evolution. Interval-wide GEM authority is still missing. `production_law` null. Canonical gravity remains `diagnostic-only`.
+- Next: Osculating / retarded perturbation of Kepler (variation of elements from GEM lookback), not another post-pass residual and not I4 qualification. Do not launch I4–I6 theater.

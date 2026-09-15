@@ -197,7 +197,7 @@ mod tests {
             "I3_ENCOUNTER refuse_local=true recouple_ledger={} recouple_fallback={}",
             rec_c.ledger, rec_c.fallback
         );
-        eprintln!("I3_REJECT resonance-skip: no admitted GEM resonance fixture; PERIOD remains algebraic control");
+        eprintln!("I3_REJECT resonance-skip as skipped GEM; fixture lives in i3_secular_kepler_does_not_collocate_the_skipped_interval");
         let _ = pair;
         let _ = forced_c;
     }
@@ -287,5 +287,251 @@ mod tests {
     #[test]
     fn i3_period_is_algebraic_control_not_physical_orbit() {
         eprintln!("I3_REJECT PERIOD as physical long-time source representation (algebraic control only)");
+    }
+
+    #[test]
+    fn i3_secular_kepler_does_not_collocate_the_skipped_interval() {
+        use crate::coupled_source_response::{
+            compile_source_response_opts, CompileOpts,
+        };
+        use crate::i3_secular::{
+            compile_secular_response, laboratory_circular_pair, laboratory_eccentric_pair,
+            laboratory_resonant_kicks,
+        };
+
+        let mut rows = Vec::new();
+        for h in [4.0_f64, 6.0] {
+            let secular = compile_secular_response(laboratory_circular_pair(), vec![], h);
+            let collocation = compile_source_response_opts(
+                laboratory_circular_pair(),
+                vec![],
+                h,
+                1.0 / 32.0,
+                CompileOpts {
+                    store_pair_inverse: false,
+                },
+            )
+            .unwrap();
+            let coll_cost = TotalCost::of(&collocation);
+            match secular {
+                Ok(secular) => {
+                    let mut q_charge = Charge::default();
+                    let t_eval = std::time::Instant::now();
+                    let mut max_dx = 0.0_f64;
+                    for k in 0..8 {
+                        let t = h * (k as f64 + 0.5) / 8.0;
+                        let xs = secular.eval(0, t, &mut q_charge).unwrap();
+                        let xc = eval_interval_at(&collocation, t);
+                        max_dx = max_dx.max((xs[0] - xc[0]).abs().max((xs[1] - xc[1]).abs()));
+                    }
+                    let eval_ns = t_eval.elapsed().as_nanos();
+                    eprintln!(
+                        "I3_SECULAR H={h} secular_ledger={} collocation_ledger={} secular_runtime={} collocation_runtime={} secular_bytes={} collocation_bytes={} secular_coeff={} collocation_coeff={} secular_factor={} collocation_factor={} secular_recon={} collocation_recon={} secular_cert={} collocation_cert={} remainder={} max_dx={} eval_ns={} secular_wall={} collocation_wall={} collocation_se={} collocation_ret={}",
+                        secular.charge.ledger_total(),
+                        coll_cost.ledger,
+                        secular.charge.runtime_request_total(),
+                        coll_cost.runtime,
+                        secular.bytes(),
+                        coll_cost.bytes,
+                        secular.charge.coefficient_construction,
+                        coll_cost.coefficient_construction,
+                        secular.charge.factorization,
+                        coll_cost.factorization,
+                        secular.charge.reconstruction + q_charge.reconstruction,
+                        coll_cost.reconstruction,
+                        secular.charge.validation + secular.charge.verification,
+                        coll_cost.certificate,
+                        secular.max_remainder,
+                        max_dx,
+                        eval_ns,
+                        secular.wall_ns,
+                        coll_cost.wall_ns,
+                        coll_cost.source_evolution,
+                        coll_cost.retarded_solves
+                    );
+                    rows.push((
+                        h,
+                        Some(secular.charge.ledger_total()),
+                        coll_cost.ledger,
+                        Some(max_dx),
+                        Some(secular.charge.source_evolution + secular.charge.retarded_solves),
+                        coll_cost.source_evolution + coll_cost.retarded_solves,
+                    ));
+                }
+                Err(err) => {
+                    eprintln!(
+                        "I3_SECULAR H={h} fallback={err} collocation_ledger={} collocation_se={} collocation_ret={} collocation_bytes={}",
+                        coll_cost.ledger,
+                        coll_cost.source_evolution,
+                        coll_cost.retarded_solves,
+                        coll_cost.bytes
+                    );
+                    rows.push((
+                        h,
+                        None,
+                        coll_cost.ledger,
+                        None,
+                        None,
+                        coll_cost.source_evolution + coll_cost.retarded_solves,
+                    ));
+                }
+            }
+        }
+        let col_lo = rows[0].2;
+        let col_hi = rows[1].2;
+        let col_src_lo = rows[0].5;
+        let col_src_hi = rows[1].5;
+        assert!(
+            col_hi > col_lo && col_src_hi > col_src_lo,
+            "collocation must still grow with H as the baseline"
+        );
+        match (rows[0].1, rows[0].3, rows[1].1) {
+            (Some(sec_lo), Some(dx_lo), Some(sec_hi)) => {
+                let dx_hi = rows[1].3.unwrap();
+                let sec_src_lo = rows[0].4.unwrap();
+                let sec_src_hi = rows[1].4.unwrap();
+                let matched = dx_hi < 0.25 && dx_lo < 0.25;
+                let src_flat = sec_src_hi <= sec_src_lo.saturating_mul(2) + 8;
+                if matched && src_flat && sec_hi < col_hi {
+                    eprintln!(
+                        "I3_KEEP secular Kepler+residual as evolution in circular-pair H=4..6: ledger {sec_hi} < collocation {col_hi}, source_ops {sec_src_lo}->{sec_src_hi} vs {col_src_lo}->{col_src_hi}, max_dx={dx_hi}"
+                    );
+                } else {
+                    eprintln!(
+                        "I3_REJECT secular Kepler+residual as skipped GEM: matched={matched} src_flat={src_flat} ledger {sec_lo}->{sec_hi} vs {col_lo}->{col_hi} max_dx_H4={dx_lo}"
+                    );
+                }
+            }
+            (Some(sec_lo), Some(dx_lo), None) => {
+                eprintln!(
+                    "I3_REJECT secular Kepler+residual as skipped GEM: H=4 ledger {sec_lo} vs collocation {col_lo} max_dx={dx_lo}; H=6 remainder refused, collocation {col_hi}. Construction skipped collocation but did not match GEM trajectories."
+                );
+            }
+            _ => {
+                eprintln!(
+                    "I3_REJECT secular Kepler+residual: construction refused in the H=4..6 circular domain; collocation {col_lo}->{col_hi}"
+                );
+            }
+        }
+
+        let ecc = compile_secular_response(laboratory_eccentric_pair(), vec![], 6.0);
+        match &ecc {
+            Ok(s) => eprintln!(
+                "I3_SECULAR_ECC ledger={} remainder={} e={}",
+                s.charge.ledger_total(),
+                s.max_remainder,
+                s.elements.e
+            ),
+            Err(err) => eprintln!("I3_SECULAR_ECC fallback: {err}"),
+        }
+
+        let radial = compile_secular_response(laboratory_two_body(), vec![], 6.0);
+        assert!(
+            radial.is_err(),
+            "radial rest pair is a close-encounter fallback, not a secular keep"
+        );
+        eprintln!("I3_ENCOUNTER_FIXTURE secular_radial_refuse={}", radial.unwrap_err());
+        let recov = compile_source_response(laboratory_two_body(), vec![], 6.0, 1.0 / 32.0).unwrap();
+        eprintln!(
+            "I3_ENCOUNTER_FIXTURE collocation_fallback_ledger={}",
+            TotalCost::of(&recov).ledger
+        );
+
+        let period = match compile_secular_response(laboratory_circular_pair(), vec![], 4.0) {
+            Ok(s) => s.elements.period,
+            Err(_) => 2.0,
+        };
+        let resonant = laboratory_resonant_kicks(period.min(2.0), 6.0);
+        let res_try =
+            compile_secular_response(laboratory_circular_pair(), resonant.clone(), 6.0);
+        match res_try {
+            Ok(s) => eprintln!(
+                "I3_RESONANCE secular_pieces={} ledger={} kicks={}",
+                s.pieces.len(),
+                s.charge.ledger_total(),
+                resonant.len()
+            ),
+            Err(err) => eprintln!("I3_RESONANCE fallback (fixture closed): {err}"),
+        }
+        let weak = vec![crate::coupled_source_response::Intervention {
+            t: 1.25,
+            body_id: 0,
+            delta_v: [0.0, 0.02],
+        }];
+        let forced = compile_secular_response(laboratory_circular_pair(), weak, 6.0);
+        match forced {
+            Ok(s) => eprintln!(
+                "I3_FORCE secular_pieces={} ledger={} remainder={}",
+                s.pieces.len(),
+                s.charge.ledger_total(),
+                s.max_remainder
+            ),
+            Err(err) => eprintln!("I3_FORCE fallback: {err}"),
+        }
+    }
+
+    #[test]
+    fn i3_lazy_pair_inverse_defers_dense_setup() {
+        use crate::coupled_source_response::{
+            compile_source_response_opts, ensure_pair_inverse, CompileOpts,
+        };
+        let mut rows = Vec::new();
+        for h in [3.0_f64, 6.0] {
+            let eager =
+                compile_source_response(laboratory_two_body(), vec![], h, 1.0 / 32.0).unwrap();
+            let lazy = compile_source_response_opts(
+                laboratory_two_body(),
+                vec![],
+                h,
+                1.0 / 32.0,
+                CompileOpts {
+                    store_pair_inverse: false,
+                },
+            )
+            .unwrap();
+            let eager_c = TotalCost::of(&eager);
+            let lazy_c = TotalCost::of(&lazy);
+            assert!(lazy.pair_inverse.is_none());
+            assert!(eager.pair_inverse.is_some());
+            eprintln!(
+                "I3_LAZY_INVERSE H={h} eager_ledger={} lazy_ledger={} eager_factor={} lazy_factor={} eager_bytes={} lazy_bytes={} eager_n={}",
+                eager_c.ledger,
+                lazy_c.ledger,
+                eager_c.factorization,
+                lazy_c.factorization,
+                eager_c.bytes,
+                lazy_c.bytes,
+                eager.pair_inverse.as_ref().unwrap().n
+            );
+            rows.push((h, eager_c, lazy_c, eager.pair_inverse.as_ref().unwrap().n));
+        }
+        let mut on_demand = compile_source_response_opts(
+            laboratory_two_body(),
+            vec![],
+            3.0,
+            1.0 / 32.0,
+            CompileOpts {
+                store_pair_inverse: false,
+            },
+        )
+        .unwrap();
+        ensure_pair_inverse(&mut on_demand).unwrap();
+        assert!(on_demand.pair_inverse.is_some());
+        let n3 = rows[0].3;
+        let n6 = rows[1].3;
+        assert!(n6 > n3, "eager inverse dimension still grows with H");
+        if rows[1].2.ledger < rows[1].1.ledger && rows[1].2.factorization < rows[1].1.factorization
+        {
+            eprintln!(
+                "I3_KEEP lazy pair-inverse when no Schur consumer: H=6 ledger {} < eager {}, factor {} < {}",
+                rows[1].2.ledger, rows[1].1.ledger, rows[1].2.factorization, rows[1].1.factorization
+            );
+        } else {
+            eprintln!(
+                "I3_REJECT lazy pair-inverse as a total-cost win: lazy {} vs eager {}",
+                rows[1].2.ledger, rows[1].1.ledger
+            );
+        }
+        eprintln!("I3_LAZY_INVERSE failure_case=Schur consumer still pays ensure_pair_inverse; H=3 Schur tide remains rejected");
     }
 }

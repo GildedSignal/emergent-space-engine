@@ -1835,11 +1835,37 @@ fn validate_residual(bodies: &[Body], t_samples: &[f64], charge: &mut Charge) ->
     })
 }
 
+/// Compile options. Historical `compile_source_response` stores the dense
+/// pair inverse on a quiet two-body. I3 may skip that setup when no Schur
+/// consumer is present; call `ensure_pair_inverse` if a later consumer needs it.
+#[derive(Clone, Copy, Debug)]
+pub struct CompileOpts {
+    pub store_pair_inverse: bool,
+}
+
+impl Default for CompileOpts {
+    fn default() -> Self {
+        Self {
+            store_pair_inverse: true,
+        }
+    }
+}
+
 pub fn compile_source_response(
     ic: InitialCondition,
     interventions: Vec<Intervention>,
     horizon: f64,
     dt: f64,
+) -> Result<SourceResponse, ResponseError> {
+    compile_source_response_opts(ic, interventions, horizon, dt, CompileOpts::default())
+}
+
+pub fn compile_source_response_opts(
+    ic: InitialCondition,
+    interventions: Vec<Intervention>,
+    horizon: f64,
+    dt: f64,
+    opts: CompileOpts,
 ) -> Result<SourceResponse, ResponseError> {
     let start = std::time::Instant::now();
     let mut charge = Charge {
@@ -1866,7 +1892,8 @@ pub fn compile_source_response(
     )?;
     // Quiet two-body only: do not assemble on a kicked pair or a three-body
     // compile to inflate a denominator or fail unrelated kick/compact paths.
-    if compiled.genesis.bodies.len() == 2
+    if opts.store_pair_inverse
+        && compiled.genesis.bodies.len() == 2
         && compiled.incoming.is_empty()
         && compiled.interval_functions.len() >= 2
     {
@@ -1876,6 +1903,27 @@ pub fn compile_source_response(
         compiled.pair_inverse = Some(inv);
     }
     Ok(compiled)
+}
+
+/// On-demand dense pair inverse. No-op if already stored. Not a skip of
+/// collocation; it only defers factorization until a Schur consumer exists.
+pub fn ensure_pair_inverse(compiled: &mut SourceResponse) -> Result<(), ResponseError> {
+    if compiled.pair_inverse.is_some() {
+        return Ok(());
+    }
+    if compiled.genesis.bodies.len() != 2
+        || !compiled.incoming.is_empty()
+        || compiled.interval_functions.len() < 2
+    {
+        return Err(ResponseError::UnsupportedDomain {
+            why: "pair inverse is only stored for a quiet two-body compile".into(),
+        });
+    }
+    let mut inverse_charge = compiled.charge.clone();
+    let inv = store_pair_inverse(compiled, &mut inverse_charge)?;
+    compiled.charge = inverse_charge;
+    compiled.pair_inverse = Some(inv);
+    Ok(())
 }
 
 /// Fit the compact sidecar and attach interval-operator metadata.
