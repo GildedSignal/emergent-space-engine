@@ -2148,3 +2148,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: Halt μ-transfer is capture accounting, not compact GR. Weak-field Euler remainder does not qualify the compact regime. Full-engine incomplete. Frozen H0139–H0143 interpretation unchanged.
 - Next: Do not shop another linearized-GEM moving-compact variant. Do not select `production_law`. Remaining required gaps: galaxy quadrupole skip (do not retry), gravitational crossing, envelope workload.
+
+
+## H0145 — Moving Schwarzschild 1PN covers laboratory compact fields; Engine crossing still FAIL
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: measured
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0144 `4c7440e`; this entry's follow-on commit
+- Scope: Plan I4.4 moving compact sources of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); I6 matrix re-run; not promotion; not full-engine
+- Changed: New model `es-moving-schwarzschild-1pn-v0`: two moving masses (ratio 0.0625), mutual 1PN until `r_if`, Schwarzschild geodesic in the moving primary rest frame, absorbing capture μ 0.5→8.5. Compactness 0.5 at `r_s` is admitted (not linearized GEM). Remainder vs independent RK4 dt/4: weak 2.82e-4, strong 4.57e-4, clock 1.02e-3, null 1.36e-5, band 0.05. I6 `moving-multi-mass-compact` PASS. BH card PASS. Crossing FAIL: connected Engine does not host this law. Galaxy quadrupole 0.478 and family-as-galaxy-skip FAIL rows kept. Envelope UNSUPPORTED. `production_law` null. GEM-to-horizon wrappers remain stopped (H0144).
+- Why: H0144 stopped linearized GEM wrappers, not the full-engine objective. I4.4 requires moving compact transport and capture. Stationary anchors cannot qualify that. Comparable-mass NR is still out of reach; this is the strongest moving compact dynamics that still carries the claim.
+- Validation: `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-law-lab --lib i4_moving_compact --offline --locked -- --test-threads=1` 2 PASS. `cargo test -p emergent-engine --test i6_qualification --offline --locked -- --test-threads=1` 1 PASS. Matrix mixed; promotion false; full-engine false.
+- Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Galilean rest-frame at β≈0.02, not a Lorentz-boosted Kerr hole. Mass ratio cap 0.1. Not NR two-body strong fields. Connected Engine still inertial+diagnostic GEM, so gravitational crossing is not Engine-hosted. Frozen H0139–H0144 interpretation unchanged.
+- Next: Do not select `production_law`. Do not retry galaxy quadrupole skip. Remaining required gaps: Engine-hosted crossing of this regime, envelope workload.

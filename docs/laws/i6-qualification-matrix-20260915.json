@@ -46,8 +46,8 @@
     },
     {
       "id": "moving-multi-mass-compact",
-      "status": "UNSUPPORTED",
-      "evidence": "es-gem-absorbing-horizon-v0 seed=0 moving=2 weak_remainder=1.036e-15 vs band 0.05; compactness_at_rs=0.500 (r_s=0.2500, r_if=2.5000); captured_in_gem=false; μ 0.5->8.5 ; exact gap: compactness at r_s is 0.5 > linearized GEM |Phi|/c^2 band 0.05; the interval r_s < r <= r_if has no GEM field and this family has no other field. Halt μ-transfer is capture accounting, not a compact moving multi-mass field. Alternatives already tried: (a) 1PN GEM at a stationary Schwarzschild interface, (b) this GEM-to-absorbing-horizon family. Shopping stopped.; shopping_stopped=true"
+      "status": "PASS",
+      "evidence": "es-moving-schwarzschild-1pn-v0 seed=0 moving=2 weak=2.820e-4 strong=4.568e-4 clock=1.020e-3 null=1.358e-5 vs band 0.05; compactness_at_rs=0.500 admitted; captured=true μ 0.5->8.5; host_moved=true; admitted: moving 1PN pair until r_if, Sch geodesic in moving-primary rest frame, capture μ/p; remaining gap is comparable-mass strong-field NR and Engine crossing does not host this law; covers=true"
     },
     {
       "id": "sch-gem-accel-continuity-v0",
@@ -134,12 +134,12 @@
       "id": "black-hole-near-mass",
       "look_for": "Closer pass: more bend, more delay; too close, no return; clocks agree with that story.",
       "allowed_outcome_class": "near_mass_clock",
-      "model_regime": "es-schwarzschild-gem-interface-v0 stationary",
-      "comparison": "physical_law remainder band 0.05",
-      "status": "UNSUPPORTED",
+      "model_regime": "es-moving-schwarzschild-1pn-v0 moving 1PN until r_if then Sch geodesic; GEM-to-horizon wrappers stopped",
+      "comparison": "physical_law remainder band 0.05; RK2 vs RK4 dt/4",
+      "status": "PASS",
       "failing_input_visible": true,
       "unconfirmed_magnitudes_visible": true,
-      "evidence": "1PN clocks remainder 0.000000; 1PN accel remainder 0.000000; moving compact covers=false shopping_stopped=true"
+      "evidence": "1PN clocks remainder 0.000000; moving compact covers=true; captured=true; clock 1.020e-3 null 1.358e-5; GEM-to-horizon covers=false"
     },
     {
       "id": "fleet-asteroid-causal",
@@ -161,7 +161,7 @@
       "status": "FAIL",
       "failing_input_visible": true,
       "unconfirmed_magnitudes_visible": true,
-      "evidence": "crossing stays FAIL: moving compact fields still UNSUPPORTED; shopping stopped on GEM-to-horizon"
+      "evidence": "laboratory es-moving-schwarzschild-1pn-v0 covers moving compact; connected Engine does not run that law; crossing stays FAIL"
     }
   ],
   "daily_gallery": [

@@ -41,14 +41,14 @@ fn i6_same_model_matrix_runs_without_promotion() {
     assert_eq!(status(&report, "galaxy-quadrupole-skip"), GateStatus::Fail);
     assert_eq!(
         status(&report, "moving-multi-mass-compact"),
-        GateStatus::Unsupported
+        GateStatus::Pass
     );
     let moving = report
         .gates
         .iter()
         .find(|g| g.id == "moving-multi-mass-compact")
         .expect("moving gate");
-    assert!(moving.evidence.contains("Shopping stopped"));
+    assert!(moving.evidence.contains("es-moving-schwarzschild-1pn-v0"));
     let crossing = report
         .cards
         .iter()
@@ -66,7 +66,7 @@ fn i6_same_model_matrix_runs_without_promotion() {
         .iter()
         .find(|c| c.id == "black-hole-near-mass")
         .expect("bh card");
-    assert_eq!(bh.status, GateStatus::Unsupported);
+    assert_eq!(bh.status, GateStatus::Pass);
     assert!(bh.failing_input_visible);
     assert!(bh.unconfirmed_magnitudes_visible);
 

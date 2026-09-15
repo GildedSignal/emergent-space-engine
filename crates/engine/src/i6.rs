@@ -23,6 +23,7 @@ use emergent_law_lab::{
     i4_family_gem::measure_family_sourced_gem,
     i4_galaxy::measure_galaxy_multipole,
     i4_gem_authority::enclose_gem_field_interval,
+    i4_moving_compact::measure_moving_compact,
     i4_moving_horizon::measure_moving_horizon,
     i4_near_mass::{measure_near_mass_1pn, measure_near_mass_interface, I4_IF_MATCH_BAND},
     i4_solar::{solar_planet_ic_at, I4_COLLECTIVE_A_BAND, I4_HORIZON, I4_PREHISTORY},
@@ -244,6 +245,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let near_v0 = measure_near_mass_interface().map_err(unsupported)?;
     let near = measure_near_mass_1pn().map_err(unsupported)?;
     let horizon = measure_moving_horizon().map_err(unsupported)?;
+    let compact = measure_moving_compact();
     let family = measure_family_sourced_gem().map_err(unsupported)?;
     let domain_auth = connected.authorizes_gem_events_on_admitted_field();
 
@@ -321,12 +323,12 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         ),
         gate(
             "moving-multi-mass-compact",
-            if horizon.covers_compact {
+            if compact.covers_compact {
                 GateStatus::Pass
             } else {
                 GateStatus::Unsupported
             },
-            horizon.gate_evidence(),
+            compact.gate_evidence(),
         ),
         gate(
             "sch-gem-accel-continuity-v0",
@@ -455,14 +457,26 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             id: "black-hole-near-mass".into(),
             look_for: "Closer pass: more bend, more delay; too close, no return; clocks agree with that story.".into(),
             allowed_outcome_class: "near_mass_clock".into(),
-            model_regime: "es-schwarzschild-gem-interface-v0 stationary".into(),
-            comparison: "physical_law remainder band 0.05".into(),
-            status: GateStatus::Unsupported,
+            model_regime: format!(
+                "{} moving 1PN until r_if then Sch geodesic; GEM-to-horizon wrappers stopped",
+                compact.law_id
+            ),
+            comparison: "physical_law remainder band 0.05; RK2 vs RK4 dt/4".into(),
+            status: if compact.covers_compact {
+                GateStatus::Pass
+            } else {
+                GateStatus::Unsupported
+            },
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
             evidence: format!(
-                "1PN clocks remainder {:.6}; 1PN accel remainder {:.6}; moving compact covers={} shopping_stopped={}",
-                near.clock_remainder, near.accel_remainder, horizon.covers_compact, horizon.shopping_stopped
+                "1PN clocks remainder {:.6}; moving compact covers={}; captured={}; clock {:.3e} null {:.3e}; GEM-to-horizon covers={}",
+                near.clock_remainder,
+                compact.covers_compact,
+                compact.captured,
+                compact.clock_remainder,
+                compact.null_remainder,
+                horizon.covers_compact
             ),
         },
         Card {
@@ -489,17 +503,16 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             allowed_outcome_class: "crossing".into(),
             model_regime: "one Engine; GEM diagnostic; kernel unused".into(),
             comparison: "compiler_only inertial facts; gravity not canonical".into(),
-            status: if horizon.covers_compact {
-                GateStatus::Pass
-            } else {
-                GateStatus::Fail
-            },
+            status: GateStatus::Fail,
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
-            evidence: if horizon.covers_compact {
-                "moving compact fields passed; crossing still requires the other required gates".into()
+            evidence: if compact.covers_compact {
+                format!(
+                    "laboratory {} covers moving compact; connected Engine does not run that law; crossing stays FAIL",
+                    compact.law_id
+                )
             } else {
-                "crossing stays FAIL: moving compact fields still UNSUPPORTED; shopping stopped on GEM-to-horizon".into()
+                "crossing stays FAIL: moving compact fields still UNSUPPORTED".into()
             },
         },
     ];
