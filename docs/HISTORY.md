@@ -2178,3 +2178,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: Compact sidecar is not canonical gravity and is not restored by inertial checkpoint/replay. Comparable-mass NR still refused (ratio > 0.1). Galilean rest frame. Frozen H0139–H0145 interpretation unchanged except Engine now hosts the H0145 law.
 - Next: Do not select `production_law`. Do not retry galaxy quadrupole skip. Remaining required gaps: envelope workload; promotion blocked by remaining FAIL rows.
+
+
+## H0147 — Frozen I6 envelope rungs measured; envelope-target stays UNSUPPORTED
+
+- Date: 2026-09-15
+- Kind: verification
+- Status: measured
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0146 `de8186b`; this entry's follow-on commit
+- Scope: I6 operating-envelope rungs of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); tiny complete loop and connected family+hierarchy; not envelope-pressure; not frozen-integrated-target; not promotion; not full-engine
+- Changed: Declared freeze of independent activity / queries / reconstruction before Instant/RSS/digest. Tiny `causal_relay` (4 identities, horizon 80, one SendSignal, history_digest + reception, replay) **PASS**: process RSS 4720 KB, wall 14.7 ms, digest `b101a4a7a1486402…`, nested Charge ledger 0, owned CanonicalState 4766 B. Connected family+hierarchy+in-flight ray+observer/policy+archive (4 bodies, family N=8, horizon 40) **PASS**: process RSS 6064 KB, wall 63.5 ms, digest `65b7b76ab4a2346b…`, nested Charge ledger 1052, owned 5130 B. Envelope-pressure and frozen-integrated-target stay **UNSUPPORTED**. Galaxy quadrupole 0.478 and family-as-galaxy-skip FAIL rows kept. Crossing remains PASS. `production_law` null. Full-engine false.
+- Why: Coordinator assigned envelope rungs, not target claims. Qualitative reception/scene-exists rows were not measurements. Julien's rule: behavior / independent oracle / remainder bands; many-seed capable; fixed ICs are not the universe. Do not claim ≤4 GiB / 30 FPS / billion-identity hour from a small rung.
+- Validation: `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-engine --test i6_qualification --offline --locked -- --test-threads=1` 1 PASS. Matrix mixed; promotion false; full-engine false; envelope-frozen-target UNSUPPORTED.
+- Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Process RSS is `ps` of the test process, not an isolated heap. Tiny ledger 0 is inertial-only, not leftover==0 physics. Wall times include compile of the frozen connected scene. No frozen large workload exists, so envelope-target remains unqualified. Frozen H0139–H0146 interpretation unchanged except envelope rungs now carry RSS/time/digest.
+- Next: Do not select `production_law`. Do not retry galaxy quadrupole skip. Do not promote these rungs to the target gate. Remaining required gaps: quadrupole skip (do not retry); frozen large envelope workload; promotion blocked by remaining FAIL/UNSUPPORTED rows.

@@ -29,12 +29,54 @@ use emergent_law_lab::{
     i4_solar::{solar_planet_ic_at, I4_COLLECTIVE_A_BAND, I4_HORIZON, I4_PREHISTORY},
 };
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
 const ASTEROID_ID: u64 = 13;
 const BAND: f64 = 0.05;
 const HELD_OUT_THREE_BODY: u64 = 0x16B0_1D01;
 const HELD_OUT_FLEET: u64 = 0x16B0_1D02;
 const DAILY_SEED: u64 = 0x14C0_55ED;
+
+/// Frozen I6 envelope rungs. Declared before any Instant/RSS/digest.
+/// Not the integrated target. Fixed ICs are many-seed capable, not the universe.
+struct FrozenRung {
+    id: &'static str,
+    claim: &'static str,
+    identities: u64,
+    families: u64,
+    family_members: u64,
+    horizon_ticks: i128,
+    independent_activity: &'static str,
+    queries: &'static str,
+    reconstruction: &'static str,
+    seed: u64,
+}
+
+const TINY_RUNG: FrozenRung = FrozenRung {
+    id: "tiny-complete-loop",
+    claim: "Correctness and repair/authority semantics",
+    identities: 4,
+    families: 0,
+    family_members: 0,
+    horizon_ticks: 80,
+    independent_activity: "one SendSignal Emitter->Courier; Independent witness far off-axis",
+    queries: "history_digest(through) + signal_arrived presence",
+    reconstruction: "replay digest equality",
+    seed: 0x0E5C_A051,
+};
+
+const CONNECTED_RUNG: FrozenRung = FrozenRung {
+    id: "connected-family-hierarchy",
+    claim: "Composition and meaningful end-to-end optimization",
+    identities: 4,
+    families: 1,
+    family_members: 8,
+    horizon_ticks: 40,
+    independent_activity: "SendSignal emitter->ship; in-flight beacon; policy Burn remaining>0; diagnostic compact sidecar",
+    queries: "history_digest(through) + history_digest(cold) + decode(ship)",
+    reconstruction: "checkpoint restore digest + replay digest",
+    seed: DAILY_SEED,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
@@ -80,6 +122,87 @@ pub struct EnvelopeRung {
     pub claim: String,
     pub status: GateStatus,
     pub evidence: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identities: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub families: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family_members: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub horizon_ticks: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub independent_activity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queries: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reconstruction: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rss_kb: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wall_ns: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ledger_total: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owned_bytes: Option<usize>,
+}
+
+impl EnvelopeRung {
+    fn unsupported(id: &str, claim: &str, evidence: &str) -> Self {
+        Self {
+            id: id.into(),
+            claim: claim.into(),
+            status: GateStatus::Unsupported,
+            evidence: evidence.into(),
+            identities: None,
+            families: None,
+            family_members: None,
+            horizon_ticks: None,
+            independent_activity: None,
+            queries: None,
+            reconstruction: None,
+            seed: None,
+            rss_kb: None,
+            wall_ns: None,
+            digest: None,
+            ledger_total: None,
+            owned_bytes: None,
+        }
+    }
+
+    fn measured(
+        spec: &FrozenRung,
+        status: GateStatus,
+        evidence: String,
+        rss_kb: Option<u64>,
+        wall_ns: u64,
+        digest: String,
+        ledger_total: u64,
+        owned_bytes: Option<usize>,
+    ) -> Self {
+        Self {
+            id: spec.id.into(),
+            claim: spec.claim.into(),
+            status,
+            evidence,
+            identities: Some(spec.identities),
+            families: Some(spec.families),
+            family_members: Some(spec.family_members),
+            horizon_ticks: Some(spec.horizon_ticks as i64),
+            independent_activity: Some(spec.independent_activity.into()),
+            queries: Some(spec.queries.into()),
+            reconstruction: Some(spec.reconstruction.into()),
+            seed: Some(spec.seed),
+            rss_kb,
+            wall_ns: Some(wall_ns),
+            digest: Some(digest),
+            ledger_total: Some(ledger_total),
+            owned_bytes,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -151,6 +274,82 @@ fn unsupported(e: impl std::fmt::Display) -> EngineError {
     EngineError::Unsupported(e.to_string())
 }
 
+fn process_rss_kb() -> Option<u64> {
+    let pid = std::process::id().to_string();
+    let out = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &pid])
+        .output()
+        .ok()?;
+    String::from_utf8(out.stdout).ok()?.trim().parse().ok()
+}
+
+fn owned_state_bytes(engine: &Engine) -> Option<usize> {
+    serde_json::to_vec(&engine.state)
+        .ok()
+        .map(|bytes| bytes.len())
+}
+
+fn nested_ledger_total(engine: &Engine) -> u64 {
+    engine
+        .coupled
+        .as_ref()
+        .and_then(|d| d.compiled.as_ref())
+        .map(|compiled| compiled.charge.ledger_total())
+        .unwrap_or(0)
+}
+
+fn wall_ns(start: Instant) -> u64 {
+    start.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
+}
+
+struct TinyRungMeasure {
+    received: bool,
+    replay_ok: bool,
+    rss_kb: Option<u64>,
+    wall_ns: u64,
+    digest: String,
+    ledger_total: u64,
+    owned_bytes: Option<usize>,
+}
+
+/// Freeze TINY_RUNG is already a const. Measurement starts after that declaration.
+fn measure_tiny_rung() -> Result<TinyRungMeasure, EngineError> {
+    let spec = &TINY_RUNG;
+    let start = Instant::now();
+    let mut engine = scenario::causal_relay()?;
+    if engine.state.seed != spec.seed {
+        return Err(EngineError::Invalid("tiny seed drifted from freeze".into()));
+    }
+    if engine.state.bodies.len() as u64 != spec.identities {
+        return Err(EngineError::Invalid(
+            "tiny identity count drifted from freeze".into(),
+        ));
+    }
+    if !engine.state.families.is_empty() {
+        return Err(EngineError::Invalid(
+            "tiny family count drifted from freeze".into(),
+        ));
+    }
+    engine.advance_fully(spec.horizon_ticks)?;
+    let through = engine.state.clock;
+    let digest = engine.history_digest(through)?;
+    let received = engine
+        .sorted_events()
+        .iter()
+        .any(|event| event.kind == "signal_arrived");
+    let replayed = engine.replay()?;
+    let replay_ok = replayed.history_digest(replayed.state.clock)? == digest;
+    Ok(TinyRungMeasure {
+        received,
+        replay_ok,
+        rss_kb: process_rss_kb(),
+        wall_ns: wall_ns(start),
+        digest,
+        ledger_total: nested_ledger_total(&engine),
+        owned_bytes: owned_state_bytes(&engine),
+    })
+}
+
 /// Same `Engine` type and law as the native observatory host.
 pub fn connected_qualification_engine() -> Result<Engine, EngineError> {
     let emitter = body(EMITTER_ID, "emitter", 0, 0, 0);
@@ -194,9 +393,37 @@ pub fn connected_qualification_engine() -> Result<Engine, EngineError> {
 pub fn run_matrix() -> Result<I6Report, EngineError> {
     assert_eq!(I4_COLLECTIVE_A_BAND, BAND);
     assert_eq!(I4_IF_MATCH_BAND, BAND);
+    assert_eq!(TINY_RUNG.horizon_ticks, 80);
+    assert_eq!(CONNECTED_RUNG.horizon_ticks, 40);
+    assert_eq!(CONNECTED_RUNG.seed, DAILY_SEED);
+
+    let tiny_m = measure_tiny_rung()?;
 
     let native = scenario::observatory()?;
+    let connected_started = Instant::now();
     let mut connected = connected_qualification_engine()?;
+    if connected.state.seed != CONNECTED_RUNG.seed {
+        return Err(EngineError::Invalid(
+            "connected seed drifted from freeze".into(),
+        ));
+    }
+    if connected.state.bodies.len() as u64 != CONNECTED_RUNG.identities {
+        return Err(EngineError::Invalid(
+            "connected identity count drifted from freeze".into(),
+        ));
+    }
+    if connected.state.families.len() as u64 != CONNECTED_RUNG.families
+        || connected
+            .state
+            .families
+            .first()
+            .map(|family| family.count)
+            != Some(CONNECTED_RUNG.family_members)
+    {
+        return Err(EngineError::Invalid(
+            "connected family freeze drifted".into(),
+        ));
+    }
     drive_coupled(&mut connected)?;
 
     let observatory = ObservatoryBind {
@@ -218,11 +445,9 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     )?;
     connected.policy = Some(course_change_program(&signal_id));
     let in_flight = !connected.state.signals.is_empty();
-    connected.advance_fully(40)?;
+    connected.advance_fully(CONNECTED_RUNG.horizon_ticks)?;
 
     let through = connected.state.clock;
-    let inertial_match = connected.canonical_facts_agree(through)?;
-
     let cold_cut = (through / 2).max(0);
     let digest_full = connected.history_digest(through)?;
     let digest_cold = connected.history_digest(cold_cut)?;
@@ -235,6 +460,13 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let persist_ok = restored.history_digest(restored.state.clock)? == digest_full
         && replayed.history_digest(replayed.state.clock)? == digest_full;
     let _ = std::fs::remove_file(&tmp);
+    let ship_query_ok = connected.decode(SHIP_ID)?.proper_time(0).is_ok();
+    let connected_wall_ns = wall_ns(connected_started);
+    let connected_rss_kb = process_rss_kb();
+    let connected_owned_bytes = owned_state_bytes(&connected);
+    let connected_ledger_total = nested_ledger_total(&connected);
+    let connected_digest = digest_full.clone();
+    let inertial_match = connected.canonical_facts_agree(through)?;
 
     let compiled = connected
         .coupled
@@ -255,7 +487,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         .iter()
         .filter(|e| e.kind == "burn")
         .count();
-    let ship_tau_ok = connected.decode(SHIP_ID)?.proper_time(0).is_ok();
+    let ship_tau_ok = ship_query_ok;
     let asteroid_ok = connected.decode(ASTEROID_ID).is_ok();
 
     let quadrupole_fail = galaxy.remainder_gem > BAND;
@@ -291,14 +523,8 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         && asteroid_ok
         && family_keep;
 
-    let mut tiny = scenario::causal_relay()?;
-    tiny.advance_fully(80)?;
-    let tiny_received = tiny
-        .sorted_events()
-        .iter()
-        .any(|e| e.kind == "signal_arrived");
-    let tiny_replay =
-        tiny.replay()?.history_digest(tiny.state.clock)? == tiny.history_digest(tiny.state.clock)?;
+    let tiny_ok = tiny_m.received && tiny_m.replay_ok;
+    let connected_rung_ok = persist_ok && in_flight && ship_query_ok && asteroid_ok;
 
     let gates = vec![
         gate(
@@ -412,12 +638,12 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         gate(
             "envelope-pressure",
             GateStatus::Unsupported,
-            "pressure sweep not run as I6 promotion; I5 RSS 5216 KB is not an envelope measurement",
+            "no frozen large workload; tiny/connected measured rungs are not pressure sweeps and do not promote this gate",
         ),
         gate(
             "envelope-frozen-target",
             GateStatus::Unsupported,
-            "targets remain targets; not claimed from I5 4.19 ms or 5216 KB process RSS",
+            "no frozen large workload; tiny/connected RSS/time/digest are not ≤4 GiB / 30 FPS / billion-identity hour",
         ),
     ];
 
@@ -566,34 +792,80 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let held_out = vec![held_out_three_body()?, held_out_fleet_count()?];
 
     let envelope = vec![
-        EnvelopeRung {
-            id: "tiny-complete-loop".into(),
-            claim: "Correctness and repair/authority semantics".into(),
-            status: if tiny_received && tiny_replay {
+        EnvelopeRung::measured(
+            &TINY_RUNG,
+            if tiny_ok {
                 GateStatus::Pass
             } else {
                 GateStatus::Fail
             },
-            evidence: "causal_relay: a reception occurs; replay digest agrees. Does not pin historical 14/43/71 ticks.".into(),
-        },
-        EnvelopeRung {
-            id: "connected-family-hierarchy".into(),
-            claim: "Composition and meaningful end-to-end optimization".into(),
-            status: GateStatus::Pass,
-            evidence: "connected I6 scene: family, hierarchy, in-flight signal, policy, checkpoint/replay".into(),
-        },
-        EnvelopeRung {
-            id: "pressure-sweeps".into(),
-            claim: "Break-even domains, fragmentation/rank/history/latency limits".into(),
-            status: GateStatus::Unsupported,
-            evidence: "pressure sweep not run as I6 promotion; I5 RSS 5216 KB is not an envelope measurement".into(),
-        },
-        EnvelopeRung {
-            id: "frozen-integrated-target".into(),
-            claim: "≤4 GiB / 30 FPS / ≤5 ms yield / billion-identity hour".into(),
-            status: GateStatus::Unsupported,
-            evidence: "targets remain targets; not claimed from I5 4.19 ms knowledge walk or 5216 KB process RSS".into(),
-        },
+            format!(
+                "freeze identities={} families={} members={} horizon={} seed={:#x} activity='{}' queries='{}' reconstruction='{}'; received={} replay={} rss_kb={:?} wall_ns={} digest={} ledger_total={} owned_bytes={:?}; process RSS not isolated heap; fixed IC not the universe; not a ≤4 GiB / 30 FPS claim; does not pin historical 14/43/71 ticks",
+                TINY_RUNG.identities,
+                TINY_RUNG.families,
+                TINY_RUNG.family_members,
+                TINY_RUNG.horizon_ticks,
+                TINY_RUNG.seed,
+                TINY_RUNG.independent_activity,
+                TINY_RUNG.queries,
+                TINY_RUNG.reconstruction,
+                tiny_m.received,
+                tiny_m.replay_ok,
+                tiny_m.rss_kb,
+                tiny_m.wall_ns,
+                tiny_m.digest,
+                tiny_m.ledger_total,
+                tiny_m.owned_bytes
+            ),
+            tiny_m.rss_kb,
+            tiny_m.wall_ns,
+            tiny_m.digest.clone(),
+            tiny_m.ledger_total,
+            tiny_m.owned_bytes,
+        ),
+        EnvelopeRung::measured(
+            &CONNECTED_RUNG,
+            if connected_rung_ok {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            format!(
+                "freeze identities={} families={} members={} horizon={} seed={:#x} activity='{}' queries='{}' reconstruction='{}'; persist={} in_flight={} ship_decode={} asteroid={} rss_kb={:?} wall_ns={} digest={} ledger_total={} owned_bytes={:?}; nested Charge from GEM compile children; process RSS not isolated heap; fixed IC not the universe; not a ≤4 GiB / 30 FPS / billion-identity claim",
+                CONNECTED_RUNG.identities,
+                CONNECTED_RUNG.families,
+                CONNECTED_RUNG.family_members,
+                CONNECTED_RUNG.horizon_ticks,
+                CONNECTED_RUNG.seed,
+                CONNECTED_RUNG.independent_activity,
+                CONNECTED_RUNG.queries,
+                CONNECTED_RUNG.reconstruction,
+                persist_ok,
+                in_flight,
+                ship_query_ok,
+                asteroid_ok,
+                connected_rss_kb,
+                connected_wall_ns,
+                connected_digest,
+                connected_ledger_total,
+                connected_owned_bytes
+            ),
+            connected_rss_kb,
+            connected_wall_ns,
+            connected_digest,
+            connected_ledger_total,
+            connected_owned_bytes,
+        ),
+        EnvelopeRung::unsupported(
+            "pressure-sweeps",
+            "Break-even domains, fragmentation/rank/history/latency limits",
+            "no frozen large workload; tiny/connected measured rungs are not pressure sweeps",
+        ),
+        EnvelopeRung::unsupported(
+            "frozen-integrated-target",
+            "≤4 GiB / 30 FPS / ≤5 ms yield / billion-identity hour",
+            "no frozen large workload exists; tiny/connected RSS/time/digest do not promote this target",
+        ),
     ];
 
     Ok(I6Report {

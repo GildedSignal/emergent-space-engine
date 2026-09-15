@@ -43,6 +43,19 @@ the I6 scene. GEM gallery is not the qualification world.
 | production-promotion | **FAIL** |
 | envelope-pressure / frozen-target | UNSUPPORTED |
 
+## Envelope rungs (measured; not the target)
+
+Freeze of independent activity / queries / reconstruction was declared before Instant/RSS/digest. Fixed ICs are many-seed capable, not the universe. Process RSS is `ps` of the test process, not an isolated heap. Nested Charge is GEM `ledger_total` (children included). Behavior is reception+replay / persist+in-flight, not leftover==0 or frozen op counts.
+
+| id | status | rss_kb | wall | digest prefix | ledger_total | owned_bytes |
+|---|---|---|---|---|---|---|
+| tiny-complete-loop | **PASS** | 4720 | 14.7 ms | `b101a4a7a1486402` | 0 (inertial) | 4766 |
+| connected-family-hierarchy | **PASS** | 6064 | 63.5 ms | `65b7b76ab4a2346b` | 1052 | 5130 |
+| pressure-sweeps | **UNSUPPORTED** | — | — | — | — | — |
+| frozen-integrated-target | **UNSUPPORTED** | — | — | — | — | — |
+
+These rungs do **not** promote envelope-pressure or ≤4 GiB / 30 FPS / billion-identity hour.
+
 ## Six cards
 
 | id | status |
@@ -58,7 +71,8 @@ the I6 scene. GEM gallery is not the qualification world.
 Exact remaining gap: comparable-mass strong-field NR (mass ratio > 0.1 inside
 `r_if`); crossing is Engine-hosted diagnostic compact, not canonical gravity.
 Linearized GEM wrappers remain stopped (H0144). Galaxy quadrupole skip 0.478
-and family-as-galaxy-skip FAIL rows kept. Envelope UNSUPPORTED.
+and family-as-galaxy-skip FAIL rows kept. Envelope-pressure and frozen-target
+stay **UNSUPPORTED**; tiny/connected rungs are measured rows only.
 
 Envelope targets remain targets. Behavior gates use remainder bands / independent
 oracles. This matrix does not pin leftover==0.0, 1188/1675, or 1.519….

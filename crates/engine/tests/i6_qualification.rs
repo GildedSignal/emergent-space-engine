@@ -52,6 +52,7 @@ fn i6_same_model_matrix_runs_without_promotion() {
     assert_eq!(status(&report, "sch-gem-accel-continuity-v0"), GateStatus::Fail);
     assert_eq!(status(&report, "family-moment-as-galaxy-skip"), GateStatus::Fail);
     assert_eq!(status(&report, "production-promotion"), GateStatus::Fail);
+    assert_eq!(status(&report, "envelope-pressure"), GateStatus::Unsupported);
     assert_eq!(status(&report, "envelope-frozen-target"), GateStatus::Unsupported);
     assert_eq!(report.canonical_gravity_acceptance, "diagnostic-only");
 
@@ -76,6 +77,48 @@ fn i6_same_model_matrix_runs_without_promotion() {
     assert_eq!(report.daily_gallery.len(), 1);
     assert_eq!(report.envelope.len(), 4);
 
+    fn envelope<'a>(
+        report: &'a emergent_engine::i6::I6Report,
+        id: &str,
+    ) -> &'a emergent_engine::i6::EnvelopeRung {
+        report
+            .envelope
+            .iter()
+            .find(|rung| rung.id == id)
+            .unwrap_or_else(|| panic!("missing envelope rung {id}"))
+    }
+    let tiny = envelope(&report, "tiny-complete-loop");
+    assert_eq!(tiny.status, GateStatus::Pass, "tiny {}", tiny.evidence);
+    assert_eq!(tiny.identities, Some(4));
+    assert_eq!(tiny.horizon_ticks, Some(80));
+    assert!(tiny.digest.as_ref().is_some_and(|d| !d.is_empty()));
+    assert!(tiny.wall_ns.is_some());
+    assert_eq!(tiny.ledger_total, Some(0));
+    assert!(!tiny.evidence.contains("leftover==0"));
+    let connected_rung = envelope(&report, "connected-family-hierarchy");
+    assert_eq!(
+        connected_rung.status,
+        GateStatus::Pass,
+        "connected {}",
+        connected_rung.evidence
+    );
+    assert_eq!(connected_rung.identities, Some(4));
+    assert_eq!(connected_rung.families, Some(1));
+    assert_eq!(connected_rung.family_members, Some(8));
+    assert_eq!(connected_rung.horizon_ticks, Some(40));
+    assert!(connected_rung.digest.as_ref().is_some_and(|d| !d.is_empty()));
+    assert!(connected_rung.wall_ns.is_some());
+    assert!(connected_rung.ledger_total.is_some_and(|n| n > 0));
+    assert!(!connected_rung.evidence.contains("leftover==0"));
+    assert_eq!(
+        envelope(&report, "pressure-sweeps").status,
+        GateStatus::Unsupported
+    );
+    assert_eq!(
+        envelope(&report, "frozen-integrated-target").status,
+        GateStatus::Unsupported
+    );
+
     let json = serde_json::to_string_pretty(&report).expect("json");
     assert!(json.contains("\"production_law\": null"));
     let dest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -91,6 +134,17 @@ fn i6_same_model_matrix_runs_without_promotion() {
     }
     for c in &report.cards {
         eprintln!("I6_CARD {} {:?} {}", c.id, c.status, c.evidence);
+    }
+    for rung in &report.envelope {
+        eprintln!(
+            "I6_ENVELOPE {} {:?} rss_kb={:?} wall_ns={:?} ledger={:?} digest={:?}",
+            rung.id,
+            rung.status,
+            rung.rss_kb,
+            rung.wall_ns,
+            rung.ledger_total,
+            rung.digest.as_ref().map(|d| &d[..d.len().min(16)])
+        );
     }
 
     let crossing = report

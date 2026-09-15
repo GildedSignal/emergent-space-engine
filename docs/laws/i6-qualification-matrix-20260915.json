@@ -77,12 +77,12 @@
     {
       "id": "envelope-pressure",
       "status": "UNSUPPORTED",
-      "evidence": "pressure sweep not run as I6 promotion; I5 RSS 5216 KB is not an envelope measurement"
+      "evidence": "no frozen large workload; tiny/connected measured rungs are not pressure sweeps and do not promote this gate"
     },
     {
       "id": "envelope-frozen-target",
       "status": "UNSUPPORTED",
-      "evidence": "targets remain targets; not claimed from I5 4.19 ms or 5216 KB process RSS"
+      "evidence": "no frozen large workload; tiny/connected RSS/time/digest are not ≤4 GiB / 30 FPS / billion-identity hour"
     }
   ],
   "cards": [
@@ -197,25 +197,51 @@
       "id": "tiny-complete-loop",
       "claim": "Correctness and repair/authority semantics",
       "status": "PASS",
-      "evidence": "causal_relay: a reception occurs; replay digest agrees. Does not pin historical 14/43/71 ticks."
+      "evidence": "freeze identities=4 families=0 members=0 horizon=80 seed=0xe5ca051 activity='one SendSignal Emitter->Courier; Independent witness far off-axis' queries='history_digest(through) + signal_arrived presence' reconstruction='replay digest equality'; received=true replay=true rss_kb=Some(4720) wall_ns=14717167 digest=b101a4a7a14864025c98498f2988bd2cfaf7044c3970301490768809cd9158d3 ledger_total=0 owned_bytes=Some(4766); process RSS not isolated heap; fixed IC not the universe; not a ≤4 GiB / 30 FPS claim; does not pin historical 14/43/71 ticks",
+      "identities": 4,
+      "families": 0,
+      "family_members": 0,
+      "horizon_ticks": 80,
+      "independent_activity": "one SendSignal Emitter->Courier; Independent witness far off-axis",
+      "queries": "history_digest(through) + signal_arrived presence",
+      "reconstruction": "replay digest equality",
+      "seed": 240951377,
+      "rss_kb": 4720,
+      "wall_ns": 14717167,
+      "digest": "b101a4a7a14864025c98498f2988bd2cfaf7044c3970301490768809cd9158d3",
+      "ledger_total": 0,
+      "owned_bytes": 4766
     },
     {
       "id": "connected-family-hierarchy",
       "claim": "Composition and meaningful end-to-end optimization",
       "status": "PASS",
-      "evidence": "connected I6 scene: family, hierarchy, in-flight signal, policy, checkpoint/replay"
+      "evidence": "freeze identities=4 families=1 members=8 horizon=40 seed=0x14c055ed activity='SendSignal emitter->ship; in-flight beacon; policy Burn remaining>0; diagnostic compact sidecar' queries='history_digest(through) + history_digest(cold) + decode(ship)' reconstruction='checkpoint restore digest + replay digest'; persist=true in_flight=true ship_decode=true asteroid=true rss_kb=Some(6064) wall_ns=63455958 digest=65b7b76ab4a2346b1a248a1364b12ca33064ccca4af1a26d696c8ce8db21cb44 ledger_total=1052 owned_bytes=Some(5130); nested Charge from GEM compile children; process RSS not isolated heap; fixed IC not the universe; not a ≤4 GiB / 30 FPS / billion-identity claim",
+      "identities": 4,
+      "families": 1,
+      "family_members": 8,
+      "horizon_ticks": 40,
+      "independent_activity": "SendSignal emitter->ship; in-flight beacon; policy Burn remaining>0; diagnostic compact sidecar",
+      "queries": "history_digest(through) + history_digest(cold) + decode(ship)",
+      "reconstruction": "checkpoint restore digest + replay digest",
+      "seed": 348149229,
+      "rss_kb": 6064,
+      "wall_ns": 63455958,
+      "digest": "65b7b76ab4a2346b1a248a1364b12ca33064ccca4af1a26d696c8ce8db21cb44",
+      "ledger_total": 1052,
+      "owned_bytes": 5130
     },
     {
       "id": "pressure-sweeps",
       "claim": "Break-even domains, fragmentation/rank/history/latency limits",
       "status": "UNSUPPORTED",
-      "evidence": "pressure sweep not run as I6 promotion; I5 RSS 5216 KB is not an envelope measurement"
+      "evidence": "no frozen large workload; tiny/connected measured rungs are not pressure sweeps"
     },
     {
       "id": "frozen-integrated-target",
       "claim": "≤4 GiB / 30 FPS / ≤5 ms yield / billion-identity hour",
       "status": "UNSUPPORTED",
-      "evidence": "targets remain targets; not claimed from I5 4.19 ms knowledge walk or 5216 KB process RSS"
+      "evidence": "no frozen large workload exists; tiny/connected RSS/time/digest do not promote this target"
     }
   ]
 }
