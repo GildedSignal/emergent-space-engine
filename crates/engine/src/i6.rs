@@ -23,7 +23,7 @@ use emergent_law_lab::{
     i4_family_gem::measure_family_sourced_gem,
     i4_galaxy::measure_galaxy_multipole,
     i4_gem_authority::enclose_gem_field_interval,
-    i4_moving_compact::measure_moving_compact,
+    i4_moving_compact::{measure_moving_compact, MOVING_SCHWARZSCHILD_1PN_LAW_ID},
     i4_moving_horizon::measure_moving_horizon,
     i4_near_mass::{measure_near_mass_1pn, measure_near_mass_interface, I4_IF_MATCH_BAND},
     i4_solar::{solar_planet_ic_at, I4_COLLECTIVE_A_BAND, I4_HORIZON, I4_PREHISTORY},
@@ -186,6 +186,7 @@ pub fn connected_qualification_engine() -> Result<Engine, EngineError> {
         I4_HORIZON,
         1.0 / 32.0,
     )?;
+    engine.attach_moving_compact(DAILY_SEED)?;
     Ok(engine)
 }
 
@@ -259,6 +260,36 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
 
     let quadrupole_fail = galaxy.remainder_gem > BAND;
     let family_keep = family.remainder <= BAND && family.admitted == "family-moment-gem-source";
+    let hosted = connected.hosts_moving_compact_law();
+    let engine_captured = connected
+        .moving_compact
+        .as_ref()
+        .is_some_and(|m| m.captured());
+    let engine_rem = connected
+        .moving_compact
+        .as_ref()
+        .map(|m| m.remainder_vs_slow())
+        .unwrap_or(1.0);
+    let engine_moved = connected
+        .moving_compact
+        .as_ref()
+        .is_some_and(|m| m.map.host_displaced());
+    let remnant_mu = connected
+        .moving_compact
+        .as_ref()
+        .map(|m| m.map.remnant_mu())
+        .unwrap_or(0.0);
+    let crossing_ok = hosted
+        && engine_captured
+        && engine_rem <= BAND
+        && engine_moved
+        && in_flight
+        && ship_tau_ok
+        && burns > 0
+        && persist_ok
+        && inertial_match
+        && asteroid_ok
+        && family_keep;
 
     let mut tiny = scenario::causal_relay()?;
     tiny.advance_fully(80)?;
@@ -501,19 +532,21 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             id: "coupled-fleet-hierarchy-inflight-ray-observer-boost".into(),
             look_for: "Conjunction of hierarchy, in-flight light, and delayed fleet feedback on one Engine.".into(),
             allowed_outcome_class: "crossing".into(),
-            model_regime: "one Engine; GEM diagnostic; kernel unused".into(),
-            comparison: "compiler_only inertial facts; gravity not canonical".into(),
-            status: GateStatus::Fail,
+            model_regime: format!(
+                "one Engine; GEM diagnostic; {} hosted sidecar; kernel unused",
+                MOVING_SCHWARZSCHILD_1PN_LAW_ID
+            ),
+            comparison: "compiler_only inertial facts; moving compact RK2 vs RK4 dt/4 band 0.05".into(),
+            status: if crossing_ok {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
-            evidence: if compact.covers_compact {
-                format!(
-                    "laboratory {} covers moving compact; connected Engine does not run that law; crossing stays FAIL",
-                    compact.law_id
-                )
-            } else {
-                "crossing stays FAIL: moving compact fields still UNSUPPORTED".into()
-            },
+            evidence: format!(
+                "hosted={hosted} captured={engine_captured} remainder={engine_rem:.3e} remnant={remnant_mu} host_moved={engine_moved} in_flight={in_flight} burns={burns} persist={persist_ok}; not a second lab world"
+            ),
         },
     ];
 

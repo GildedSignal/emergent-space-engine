@@ -25,6 +25,7 @@ use emergent_law_lab::{
         InitialCondition, Intervention, JobPoll, PairInverseJob, ResidualJob, ResponseError,
         ShipState, SourceResponse, RayState,
     },
+    i4_moving_compact::{session_remainder, CompactSession, MOVING_SCHWARZSCHILD_1PN_LAW_ID},
 };
 use std::collections::BTreeSet;
 
@@ -34,6 +35,64 @@ pub const CANONICAL_GRAVITY_ACCEPTANCE: &str = "diagnostic-only";
 pub const EMITTER_ID: u64 = 10;
 pub const SHIP_ID: u64 = 11;
 pub const BEACON_ID: u64 = 12;
+
+/// Diagnostic moving compact host on the same Engine. Not canonical gravity.
+#[derive(Clone, Debug)]
+pub struct MovingCompactDiagnostic {
+    pub law_id: &'static str,
+    pub dt: f64,
+    pub map: CompactSession,
+    genesis: CompactSession,
+    last_clock: i128,
+}
+
+impl MovingCompactDiagnostic {
+    pub fn new(seed: u64) -> Self {
+        let map = CompactSession::capture_ic(seed);
+        Self {
+            law_id: MOVING_SCHWARZSCHILD_1PN_LAW_ID,
+            dt: 1.0 / 32.0,
+            genesis: map.clone(),
+            map,
+            last_clock: 0,
+        }
+    }
+
+    pub fn poll_steps(&mut self, n: usize) {
+        for _ in 0..n {
+            self.map.step_map(self.dt);
+        }
+    }
+
+    pub fn sync_to_clock(&mut self, clock: i128) {
+        if clock <= self.last_clock {
+            return;
+        }
+        let ticks = (clock - self.last_clock) as usize;
+        self.poll_steps(ticks.saturating_mul(2));
+        self.last_clock = clock;
+    }
+
+    pub fn remainder_vs_slow(&self) -> f64 {
+        let mut map_s = self.genesis.clone();
+        let mut slow = self.genesis.clone();
+        let sdt = self.dt / 4.0;
+        let r0 = self.map.r_if.max(1e-6);
+        let mut max_rem = 0.0_f64;
+        while map_s.t + 1e-15 < self.map.t && !map_s.captured() && !slow.captured() {
+            map_s.step_map(self.dt);
+            while slow.t + 1e-15 < map_s.t {
+                slow.step_slow(sdt.min(map_s.t - slow.t));
+            }
+            max_rem = max_rem.max(session_remainder(&map_s, &slow, r0));
+        }
+        max_rem
+    }
+
+    pub fn captured(&self) -> bool {
+        self.map.captured()
+    }
+}
 
 pub fn poll_coupled_job(
     job: &mut CoupledCompileJob,
@@ -456,6 +515,24 @@ impl Engine {
 
     pub fn coupled_pending_jobs(&self) -> usize {
         self.coupled.as_ref().map_or(0, |d| d.pending_jobs())
+    }
+
+    pub fn attach_moving_compact(&mut self, seed: u64) -> Result<(), EngineError> {
+        self.moving_compact = Some(Box::new(MovingCompactDiagnostic::new(seed)));
+        Ok(())
+    }
+
+    pub fn hosts_moving_compact_law(&self) -> bool {
+        self.moving_compact.as_ref().is_some_and(|m| {
+            m.law_id == MOVING_SCHWARZSCHILD_1PN_LAW_ID
+        })
+    }
+
+    pub(crate) fn sync_moving_compact(&mut self) {
+        let clock = self.state.clock;
+        if let Some(mc) = self.moving_compact.as_mut() {
+            mc.sync_to_clock(clock);
+        }
     }
 
     pub fn apply_received_policy(&mut self) -> Result<bool, EngineError> {

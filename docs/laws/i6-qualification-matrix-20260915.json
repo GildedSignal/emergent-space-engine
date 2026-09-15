@@ -47,7 +47,7 @@
     {
       "id": "moving-multi-mass-compact",
       "status": "PASS",
-      "evidence": "es-moving-schwarzschild-1pn-v0 seed=0 moving=2 weak=2.820e-4 strong=4.568e-4 clock=1.020e-3 null=1.358e-5 vs band 0.05; compactness_at_rs=0.500 admitted; captured=true μ 0.5->8.5; host_moved=true; admitted: moving 1PN pair until r_if, Sch geodesic in moving-primary rest frame, capture μ/p; remaining gap is comparable-mass strong-field NR and Engine crossing does not host this law; covers=true"
+      "evidence": "es-moving-schwarzschild-1pn-v0 seed=0 moving=2 weak=2.820e-4 strong=4.568e-4 clock=1.020e-3 null=1.358e-5 vs band 0.05; compactness_at_rs=0.500 admitted; captured=true μ 0.5->8.5; host_moved=true; admitted: moving 1PN pair until r_if, Sch geodesic in moving-primary rest frame, capture μ/p; remaining gap is comparable-mass strong-field NR; Engine host is diagnostic and does not mint canonical gravity; covers=true"
     },
     {
       "id": "sch-gem-accel-continuity-v0",
@@ -156,12 +156,12 @@
       "id": "coupled-fleet-hierarchy-inflight-ray-observer-boost",
       "look_for": "Conjunction of hierarchy, in-flight light, and delayed fleet feedback on one Engine.",
       "allowed_outcome_class": "crossing",
-      "model_regime": "one Engine; GEM diagnostic; kernel unused",
-      "comparison": "compiler_only inertial facts; gravity not canonical",
-      "status": "FAIL",
+      "model_regime": "one Engine; GEM diagnostic; es-moving-schwarzschild-1pn-v0 hosted sidecar; kernel unused",
+      "comparison": "compiler_only inertial facts; moving compact RK2 vs RK4 dt/4 band 0.05",
+      "status": "PASS",
       "failing_input_visible": true,
       "unconfirmed_magnitudes_visible": true,
-      "evidence": "laboratory es-moving-schwarzschild-1pn-v0 covers moving compact; connected Engine does not run that law; crossing stays FAIL"
+      "evidence": "hosted=true captured=true remainder=1.347e-2 remnant=8.5 host_moved=true in_flight=true burns=1 persist=true; not a second lab world"
     }
   ],
   "daily_gallery": [

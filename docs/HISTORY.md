@@ -2163,3 +2163,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: Galilean rest-frame at β≈0.02, not a Lorentz-boosted Kerr hole. Mass ratio cap 0.1. Not NR two-body strong fields. Connected Engine still inertial+diagnostic GEM, so gravitational crossing is not Engine-hosted. Frozen H0139–H0144 interpretation unchanged.
 - Next: Do not select `production_law`. Do not retry galaxy quadrupole skip. Remaining required gaps: Engine-hosted crossing of this regime, envelope workload.
+
+
+## H0146 — Connected Engine hosts moving compact capture; crossing PASS; matrix still mixed
+
+- Date: 2026-09-15
+- Kind: implementation
+- Status: measured
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0145 `ee8c5a6`; this entry's follow-on commit
+- Scope: I6 crossing of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md) on the same connected Engine; not promotion; not full-engine
+- Changed: `connected_qualification_engine` (observatory `--world connected`) now attaches `es-moving-schwarzschild-1pn-v0` as a diagnostic sidecar and steps it during `Engine::advance` with ships/signals/policy/archive. Capture 0.5→8.5 on that Engine; remainder vs independent RK4 dt/4 is 1.35e-2 ≤ 0.05 (scale `r_if`). Crossing card PASS. Canonical law stays `es-inertial-causal-v1`; `CANONICAL_GRAVITY_ACCEPTANCE` diagnostic-only. Galaxy quadrupole 0.478 and family-as-galaxy-skip FAIL rows kept. Envelope UNSUPPORTED. `production_law` null. Full-engine false.
+- Why: H0145 laboratory cover was not Engine-hosted crossing. Julien assigned wiring the law into the same connected Engine, not a second lab world.
+- Validation: `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-law-lab --lib i4_moving_compact --offline --locked -- --test-threads=1` 2 PASS. `cargo test -p emergent-engine --test i6_qualification --offline --locked -- --test-threads=1` 1 PASS. Matrix mixed; promotion false; full-engine false.
+- Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Compact sidecar is not canonical gravity and is not restored by inertial checkpoint/replay. Comparable-mass NR still refused (ratio > 0.1). Galilean rest frame. Frozen H0139–H0145 interpretation unchanged except Engine now hosts the H0145 law.
+- Next: Do not select `production_law`. Do not retry galaxy quadrupole skip. Remaining required gaps: envelope workload; promotion blocked by remaining FAIL rows.

@@ -431,12 +431,75 @@ fn evolve(
 
 fn pos_remainder(a: &Particle, b: &Particle, other_a: &Particle, other_b: &Particle, r0: f64) -> f64 {
     let da = norm(sub(a.x, other_a.x));
-    let db = if a.alive && other_b.alive {
+    let db = if b.alive && other_b.alive {
         norm(sub(b.x, other_b.x))
     } else {
         0.0
     };
     da.max(db) / r0.max(1e-12)
+}
+
+/// Engine-hosted moving compact session. Same map as the laboratory report.
+#[derive(Clone, Debug)]
+pub struct CompactSession {
+    pub seed: u64,
+    pub r_s: f64,
+    pub r_if: f64,
+    pub t: f64,
+    host: Particle,
+    guest: Particle,
+}
+
+impl CompactSession {
+    /// Infalling secondary that can be captured. Both bodies move.
+    pub fn capture_ic(seed: u64) -> Self {
+        let mu_host = 8.0;
+        let mu_in = 0.5;
+        let (r_s, _, r_if) = schwarzschild_radii(mu_host);
+        let (host, guest) = pair_at(seed, r_s + 0.15, mu_host, mu_in);
+        Self {
+            seed,
+            r_s,
+            r_if,
+            t: 0.0,
+            host,
+            guest,
+        }
+    }
+
+    pub fn step_map(&mut self, dt: f64) {
+        step_map(&mut self.host, &mut self.guest, dt, self.r_s, self.r_if);
+        self.t += dt;
+    }
+
+    pub fn step_slow(&mut self, dt: f64) {
+        step_slow(&mut self.host, &mut self.guest, dt, self.r_s, self.r_if);
+        self.t += dt;
+    }
+
+    pub fn captured(&self) -> bool {
+        !self.guest.alive
+    }
+
+    pub fn remnant_mu(&self) -> f64 {
+        self.host.mu
+    }
+
+    pub fn captured_mu(&self) -> f64 {
+        if self.captured() {
+            0.5
+        } else {
+            0.0
+        }
+    }
+
+    pub fn host_displaced(&self) -> bool {
+        norm(self.host.x) > 1e-6
+    }
+}
+
+pub fn session_remainder(map: &CompactSession, slow: &CompactSession, r0: f64) -> f64 {
+    pos_remainder(&map.host, &map.guest, &slow.host, &slow.guest, r0)
 }
 
 fn rest_clock(mu: f64, r: f64) -> f64 {
@@ -551,7 +614,7 @@ pub fn measure_moving_compact_seed(seed: u64) -> MovingCompactReport {
         && captured
         && mass_accounted;
     let gap = if covers_compact {
-        "admitted: moving 1PN pair until r_if, Sch geodesic in moving-primary rest frame, capture μ/p; remaining gap is comparable-mass strong-field NR and Engine crossing does not host this law"
+        "admitted: moving 1PN pair until r_if, Sch geodesic in moving-primary rest frame, capture μ/p; remaining gap is comparable-mass strong-field NR; Engine host is diagnostic and does not mint canonical gravity"
     } else {
         "remaining gap: moving compact remainders or accounting missed the 0.05 band, or worldlines were not both evolved"
     };
@@ -659,6 +722,12 @@ mod tests {
             let ic = pair_at(seed, 6.0, 8.0, 0.5);
             assert!(norm(ic.0.v) > 0.0 && norm(ic.1.v) > 0.0);
             assert!((compactness(ic.0.mu, schwarzschild_radii(ic.0.mu).0) - 0.5).abs() < 1e-12);
+            let mut session = CompactSession::capture_ic(seed);
+            for _ in 0..80 {
+                session.step_map(DT);
+            }
+            assert!(session.captured(), "seed {seed} must capture on the hosted map");
+            assert!((session.remnant_mu() - 8.5).abs() < 1e-9);
         }
         if !report.covers_compact {
             eprintln!(

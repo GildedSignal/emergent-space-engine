@@ -49,12 +49,6 @@ fn i6_same_model_matrix_runs_without_promotion() {
         .find(|g| g.id == "moving-multi-mass-compact")
         .expect("moving gate");
     assert!(moving.evidence.contains("es-moving-schwarzschild-1pn-v0"));
-    let crossing = report
-        .cards
-        .iter()
-        .find(|c| c.id == "coupled-fleet-hierarchy-inflight-ray-observer-boost")
-        .expect("crossing");
-    assert_eq!(crossing.status, GateStatus::Fail);
     assert_eq!(status(&report, "sch-gem-accel-continuity-v0"), GateStatus::Fail);
     assert_eq!(status(&report, "family-moment-as-galaxy-skip"), GateStatus::Fail);
     assert_eq!(status(&report, "production-promotion"), GateStatus::Fail);
@@ -96,6 +90,19 @@ fn i6_same_model_matrix_runs_without_promotion() {
         eprintln!("I6_GATE {} {:?}", g.id, g.status);
     }
     for c in &report.cards {
-        eprintln!("I6_CARD {} {:?}", c.id, c.status);
+        eprintln!("I6_CARD {} {:?} {}", c.id, c.status, c.evidence);
     }
+
+    let crossing = report
+        .cards
+        .iter()
+        .find(|c| c.id == "coupled-fleet-hierarchy-inflight-ray-observer-boost")
+        .expect("crossing");
+    assert!(crossing.evidence.contains("hosted="));
+    assert_eq!(
+        crossing.status,
+        GateStatus::Pass,
+        "crossing evidence {}",
+        crossing.evidence
+    );
 }

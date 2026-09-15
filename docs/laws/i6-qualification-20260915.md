@@ -15,7 +15,7 @@ Machine-readable companion:
 | Canonical law | `es-inertial-causal-v1` |
 | Diagnostic response | `es-linearized-retarded-gem-response-v0` |
 | Near-mass keep | `es-schwarzschild-1pn-gem-v0` (v0 Newton interface FAIL row kept) |
-| Moving compact | `es-moving-schwarzschild-1pn-v0` laboratory **PASS**; GEM-to-horizon wrappers stopped |
+| Moving compact | `es-moving-schwarzschild-1pn-v0` laboratory **PASS**; hosted on connected Engine; GEM-to-horizon wrappers stopped |
 | Implementation | `emergent-full-engine-integration` |
 | Workload | connected family + hierarchy + in-flight ray + observer/policy + archive |
 | Promotion | **false** |
@@ -26,7 +26,7 @@ Machine-readable companion:
 Native `EngineBridge` hosts `emergent_engine::Engine`. `--world connected` is
 the I6 scene. GEM gallery is not the qualification world.
 
-## Gates (re-run after moving Schwarzschild 1PN)
+## Gates (re-run after Engine-hosted moving compact)
 
 | id | status |
 |---|---|
@@ -53,12 +53,12 @@ the I6 scene. GEM gallery is not the qualification world.
 | galaxy-like-population | PASS via direct sums; quadrupole FAIL visible |
 | black-hole-near-mass | **PASS** moving 1PN until r_if, Sch geodesic, capture 0.5→8.5 |
 | fleet-asteroid-causal | PASS (N=4 family-moment only) |
-| crossing | **FAIL** (connected Engine does not run `es-moving-schwarzschild-1pn-v0`) |
+| crossing | **PASS** same Engine hosts capture + ships/policy/archive; remainder 1.35e-2 vs 0.05 |
 
 Exact remaining gap: comparable-mass strong-field NR (mass ratio > 0.1 inside
-`r_if`); connected Engine does not host `es-moving-schwarzschild-1pn-v0`, so
-crossing stays FAIL. Linearized GEM wrappers remain stopped (H0144). Galaxy
-quadrupole skip 0.478 and family-as-galaxy-skip FAIL rows kept.
+`r_if`); crossing is Engine-hosted diagnostic compact, not canonical gravity.
+Linearized GEM wrappers remain stopped (H0144). Galaxy quadrupole skip 0.478
+and family-as-galaxy-skip FAIL rows kept. Envelope UNSUPPORTED.
 
 Envelope targets remain targets. Behavior gates use remainder bands / independent
 oracles. This matrix does not pin leftover==0.0, 1188/1675, or 1.519….

@@ -704,6 +704,8 @@ pub struct Engine {
     pub causal_components: Vec<Vec<u64>>,
     /// Diagnostic coupled compiler. Not `production_law`. Not canonical gravity.
     pub coupled: Option<Box<crate::coupled_adapter::CoupledDiagnostic>>,
+    /// Hosted moving compact map. Diagnostic; not canonical gravity.
+    pub moving_compact: Option<Box<crate::coupled_adapter::MovingCompactDiagnostic>>,
     /// In-world received-knowledge program. Evaluated on committed receptions only.
     pub policy: Option<crate::policy::PolicyProgram>,
     /// Policy course-change during a commit requires a new scan for later contacts.
@@ -807,6 +809,7 @@ impl Engine {
             incremental_sap: true,
             causal_components: Vec::new(),
             coupled: None,
+            moving_compact: None,
             policy: None,
             force_rescan: false,
             scheduler: CompositionScheduler::default(),
@@ -3245,6 +3248,7 @@ impl Engine {
             used = used.max(1);
         }
         self.index_broadcast_receptions()?;
+        self.sync_moving_compact();
         Ok(AdvanceResult {
             committed_through: self.state.clock,
             target,
@@ -3362,6 +3366,7 @@ impl Engine {
             incremental_sap: true,
             causal_components: Vec::new(),
             coupled: None,
+            moving_compact: None,
             policy: None,
             force_rescan: false,
             scheduler: CompositionScheduler::default(),
