@@ -8,6 +8,7 @@ pub mod authority;
 pub mod composition;
 pub mod coupled_adapter;
 pub mod geometry;
+pub mod i6;
 pub mod math;
 pub mod policy;
 pub mod population;

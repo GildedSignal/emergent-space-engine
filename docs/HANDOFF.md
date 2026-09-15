@@ -1,17 +1,18 @@
 # Emergent Space — agent handoff
 
-**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0–I3 domain-exited. I4 family-sourced GEM KEEP (H0140). I5 CPU-only exited (H0141). I6 not started. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`. [Integration plan](full-engine-integration-plan-20260915.md).
+**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0–I5 CPU-only. I6 matrix **run** (not promoted). `production_law` null. Full-engine incomplete. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`. [Integration plan](full-engine-integration-plan-20260915.md).
 
 ## First ten minutes
 
 1. Read the heading-check skill and living card at `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight. Journal home remains `/private/tmp/emergent-g2-law`. Integration worktree is `/private/tmp/emergent-full-engine-integration`.
 2. Read [the integration plan](full-engine-integration-plan-20260915.md), especially Evidence, the four initial issues, and I0/I1. Run `cargo xtask history list` and search relevant entries. H0124 closed the previous prompt's assigned laboratory exits; I0 reproduced repair completeness and nested accounting on the clean worktree.
 3. Inspect `git status --short`, `git log -8 --oneline`, and `git worktree list`. Do not merge cumulative packet branches wholesale or delete original worktrees.
-4. I3 domain-exited (H0136). I4 six-card crossing (H0139) plus family-sourced GEM KEEP (H0140 remainder 0). I5 CPU-only exited (H0141). I6 not started. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.
+4. I3 domain-exited (H0136). I4 family GEM KEEP (H0140). I5 CPU-only (H0141). I6 matrix run, not promoted. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`. Do not select `production_law`.
 5. Read hypothesis notes when selecting a discriminating experiment. They are candidates, not prescriptions. Keep a plan change separate from a measured engine capability.
 
 ## Current capabilities and boundaries
 
+- **I6 matrix (this worktree):** Same-model matrix on `es-inertial-causal-v1` + diagnostic GEM, connected workload. Native observatory `EngineBridge` hosts that Engine (`--world connected` for the I6 scene). Plan I6 exit is the matrix run; promotion **false**; full-engine **false**. [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md).
 - **I5 CPU-only (this worktree):** Knowledge queries use a derived per-observer arrival index, not a full-history event scan. Equal `history_digest` and received signals. Cold 4.19 ms / warm 0.57 ms; process RSS 5216 KB; owned state 4566 B; GPU none. Lazy pair inverse. [I5 surviving](laws/i5-surviving-work-20260915.md).
 - **I4 (this worktree):** Six-card crossing on one engine with solar GEM genesis. Galaxy: direct small-world GEM sums admitted; retarded quadrupole REJECT 0.478>0.05. Affine family moments KEEP as GEM sources (remainder 0, extract 127395 vs moment 1906); identities retained. BH: `es-schwarzschild-gem-interface-v0` clocks/deflection match; accel PN jump 0.10; moving multi-mass refused. Domain-local GEM field bound on solar interior unchanged. Engine canonical events stay inertial. [I4 family GEM](laws/i4-family-gem-20260915.md), [I4 six-card](laws/i4-six-card-crossing-20260915.md), [I4 GEM authority](laws/i4-gem-authority-20260915.md).
 - **I3 domain exit:** Admitted: quiet kernel H=4..12, weak-kick resume H=8, H≤3 collocation vs Euler, prefix-repair, lazy inverse. Failure: Kepler ansatze, PERIOD, compact-after-the-fact, Schur tide, population-solved, strong kicks (resume Δx=0.216, patch Δx=0.218), close-entrant recouple. [I3 domain exit](laws/i3-domain-exit-20260915.md), [I3 amort/kick](laws/i3-kernel-amort-kick-evidence-20260915.md).
@@ -23,7 +24,7 @@
 - **Certificate authority:** Sampled f64 `certified: true` remains diagnostic. [I1 notes](laws/i1-contract-notes-20260915.md).
 - **Dense setup:** Quiet pair `store_pair_inverse` still grows with interval-function count when stored (H=3 n=20 / ~3 kB; H=6 n=44 / 18125 B in I3 nested bytes). Lazy compile skips that LU until `ensure_pair_inverse`.
 - **Default/canonical law:** `es-inertial-causal-v1`; `production_law` remains null. H0052/H0054 and `1dac658` unchanged.
-- **Physics still missing:** Engine-wide canonical gravity. Moving multi-mass compact fields. Accel continuity at the Sch–GEM interface (PN jump 0.10). Galaxy still uses direct sums (multipole rejected). I6 same-model qualification matrix. Combined simulation+rendering unpublished (GPU unused).
+- **Physics still missing:** Engine-wide canonical gravity. Moving multi-mass compact fields. Accel continuity at the Sch–GEM interface (PN jump 0.10). Galaxy still uses direct sums (multipole rejected). Envelope targets (≤4 GiB / 30 FPS / billion-identity hour) unqualified. Combined simulation+rendering unpublished.
 
 ## Direction, behavior and targets
 

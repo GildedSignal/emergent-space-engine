@@ -1,0 +1,216 @@
+{
+  "schema": 1,
+  "id": "i6-same-model-matrix-20260915",
+  "canonical_law": "es-inertial-causal-v1",
+  "diagnostic_response": "es-linearized-retarded-gem-response-v0",
+  "implementation": "emergent-full-engine-integration",
+  "workload": "connected-family-hierarchy-inflight-ray-observer-policy-archive",
+  "production_law": null,
+  "canonical_gravity_acceptance": "diagnostic-only",
+  "promotion": false,
+  "plan_i6_exit": "matrix-run",
+  "full_engine": false,
+  "observatory": {
+    "host": "EngineBridge",
+    "engine": "emergent_engine::Engine",
+    "law": "es-inertial-causal-v1",
+    "native_world": "scenario::observatory",
+    "connected_world": "i6::connected_qualification_engine",
+    "not_qualification_world": "observatory::gallery GEM-response-slice"
+  },
+  "gates": [
+    {
+      "id": "observatory-same-engine",
+      "status": "PASS",
+      "evidence": "native law=es-inertial-causal-v1 connected law=es-inertial-causal-v1; host EngineBridge; gallery GEM slice is not this matrix"
+    },
+    {
+      "id": "compiler-inertial-facts",
+      "status": "PASS",
+      "evidence": "independent contact/arrival oracle vs engine events; comparison_type=compiler_only"
+    },
+    {
+      "id": "persist-replay",
+      "status": "PASS",
+      "evidence": "checkpoint restore and replay match history_digest at the committed cut"
+    },
+    {
+      "id": "cold-history-query",
+      "status": "PASS",
+      "evidence": "history_digest(20) without moving clock 40"
+    },
+    {
+      "id": "galaxy-quadrupole-skip",
+      "status": "FAIL",
+      "evidence": "remainder_gem=0.478416 vs band 0.05; admitted=direct-small-world-gem-sums; not hidden"
+    },
+    {
+      "id": "moving-multi-mass-compact",
+      "status": "UNSUPPORTED",
+      "evidence": "refused: stationary one-source anchors cannot qualify moving multi-mass strong fields"
+    },
+    {
+      "id": "sch-gem-accel-continuity",
+      "status": "FAIL",
+      "evidence": "accel remainder 0.100000 vs band 0.05; clocks remainder 0.000000"
+    },
+    {
+      "id": "engine-canonical-gravity",
+      "status": "FAIL",
+      "evidence": "CANONICAL_GRAVITY_ACCEPTANCE=diagnostic-only"
+    },
+    {
+      "id": "family-moment-as-galaxy-skip",
+      "status": "FAIL",
+      "evidence": "family KEEP remainder 0.000000 ≤ 0.05 on affine N=4 rest fixture only; not an all-galaxy skip"
+    },
+    {
+      "id": "production-promotion",
+      "status": "FAIL",
+      "evidence": "required cards include FAIL/UNSUPPORTED; production_law stays null"
+    },
+    {
+      "id": "envelope-pressure",
+      "status": "UNSUPPORTED",
+      "evidence": "pressure sweep not run as I6 promotion; I5 RSS 5216 KB is not an envelope measurement"
+    },
+    {
+      "id": "envelope-frozen-target",
+      "status": "UNSUPPORTED",
+      "evidence": "targets remain targets; not claimed from I5 4.19 ms or 5216 KB process RSS"
+    }
+  ],
+  "cards": [
+    {
+      "id": "fast-ships-light-twins",
+      "look_for": "Pulses reach moving receivers in an order that matches emission events and finite c; accumulated proper time fits the worldline.",
+      "allowed_outcome_class": "one_way_pulse",
+      "model_regime": "es-inertial-causal-v1 exact inertial; GEM diagnostic",
+      "comparison": "compiler_only independent inertial oracle",
+      "status": "PASS",
+      "failing_input_visible": true,
+      "unconfirmed_magnitudes_visible": true,
+      "evidence": "in_flight=true proper_time_ok=true oracle_match=true"
+    },
+    {
+      "id": "solar-system-hierarchy",
+      "look_for": "A supported hierarchy stays organized; a kick breathes, it does not snap to a circle.",
+      "allowed_outcome_class": "supported_hierarchy",
+      "model_regime": "solar two-body GEM with prehistory; admitted interior field bound",
+      "comparison": "physical_law remainder band 0.05",
+      "status": "PASS",
+      "failing_input_visible": true,
+      "unconfirmed_magnitudes_visible": true,
+      "evidence": "domain-local field authorizes_events=true; genesis prefix refused; not engine gravity"
+    },
+    {
+      "id": "three-bodies",
+      "look_for": "Nested seeds can stay bound; encounter seeds can swap, eject, or go messy.",
+      "allowed_outcome_class": "hierarchical_bound",
+      "model_regime": "inertial third body plus GEM pair; close-entrant collocation fallback",
+      "comparison": "physical_law; chaos does not excuse compiler change of inertial facts",
+      "status": "PASS",
+      "failing_input_visible": true,
+      "unconfirmed_magnitudes_visible": true,
+      "evidence": "asteroid shares the connected engine; encounter class lives in the held-out bank"
+    },
+    {
+      "id": "galaxy-like-population",
+      "look_for": "The crowd shears together; mass, not sprites, moves it.",
+      "allowed_outcome_class": "clumpy_collection",
+      "model_regime": "direct small-world GEM sums; quadrupole rejected",
+      "comparison": "physical_law remainder vs direct sums; band 0.05",
+      "status": "PASS",
+      "failing_input_visible": true,
+      "unconfirmed_magnitudes_visible": true,
+      "evidence": "admitted=direct-small-world-gem-sums; quadrupole remainder 0.478416 FAIL as skip (visible, not hidden)"
+    },
+    {
+      "id": "black-hole-near-mass",
+      "look_for": "Closer pass: more bend, more delay; too close, no return; clocks agree with that story.",
+      "allowed_outcome_class": "near_mass_clock",
+      "model_regime": "es-schwarzschild-gem-interface-v0 stationary",
+      "comparison": "physical_law remainder band 0.05",
+      "status": "UNSUPPORTED",
+      "failing_input_visible": true,
+      "unconfirmed_magnitudes_visible": true,
+      "evidence": "clocks remainder 0.000000; accel remainder 0.100000; moving multi-mass refused"
+    },
+    {
+      "id": "fleet-asteroid-causal",
+      "look_for": "Many small masses jointly affect a larger body; news arrives at different times; later motion feels the change.",
+      "allowed_outcome_class": "staggered_arrival",
+      "model_regime": "affine family + delayed policy; family-moment GEM KEEP remainder 0.000000 on N=4 rest fixture",
+      "comparison": "compiler_only policy burn; physical_law family remainder ≤ 0.05",
+      "status": "PASS",
+      "failing_input_visible": true,
+      "unconfirmed_magnitudes_visible": true,
+      "evidence": "burns=1 family_admitted=family-moment-gem-source"
+    },
+    {
+      "id": "coupled-fleet-hierarchy-inflight-ray-observer-boost",
+      "look_for": "Conjunction of hierarchy, in-flight light, and delayed fleet feedback on one Engine.",
+      "allowed_outcome_class": "crossing",
+      "model_regime": "one Engine; GEM diagnostic; kernel unused",
+      "comparison": "compiler_only inertial facts; gravity not canonical",
+      "status": "FAIL",
+      "failing_input_visible": true,
+      "unconfirmed_magnitudes_visible": true,
+      "evidence": "crossing scene exists; engine gravity diagnostic-only so the required gravitational crossing is not supported"
+    }
+  ],
+  "daily_gallery": [
+    {
+      "role": "daily-diagnostic",
+      "seed": 348149229,
+      "intended_outcome_class": "one_way_pulse",
+      "observed_class": "one_way_pulse",
+      "status": "PASS",
+      "evidence": "fixed lab IC; not the universe; re-seeding cannot erase galaxy/BH FAILs"
+    }
+  ],
+  "held_out": [
+    {
+      "role": "held-out",
+      "seed": 380640513,
+      "intended_outcome_class": "chaotic_close_pass",
+      "observed_class": "hierarchical_bound",
+      "status": "PASS",
+      "evidence": "predeclared seed; contacts=0; a miss here cannot erase daily FAIL cards"
+    },
+    {
+      "role": "held-out",
+      "seed": 380640514,
+      "intended_outcome_class": "clumpy_collection",
+      "observed_class": "clumpy_collection",
+      "status": "PASS",
+      "evidence": "predeclared N=3 family count=3; does not re-seed the galaxy quadrupole FAIL"
+    }
+  ],
+  "envelope": [
+    {
+      "id": "tiny-complete-loop",
+      "claim": "Correctness and repair/authority semantics",
+      "status": "PASS",
+      "evidence": "causal_relay: a reception occurs; replay digest agrees. Does not pin historical 14/43/71 ticks."
+    },
+    {
+      "id": "connected-family-hierarchy",
+      "claim": "Composition and meaningful end-to-end optimization",
+      "status": "PASS",
+      "evidence": "connected I6 scene: family, hierarchy, in-flight signal, policy, checkpoint/replay"
+    },
+    {
+      "id": "pressure-sweeps",
+      "claim": "Break-even domains, fragmentation/rank/history/latency limits",
+      "status": "UNSUPPORTED",
+      "evidence": "pressure sweep not run as I6 promotion; I5 RSS 5216 KB is not an envelope measurement"
+    },
+    {
+      "id": "frozen-integrated-target",
+      "claim": "≤4 GiB / 30 FPS / ≤5 ms yield / billion-identity hour",
+      "status": "UNSUPPORTED",
+      "evidence": "targets remain targets; not claimed from I5 4.19 ms knowledge walk or 5216 KB process RSS"
+    }
+  ]
+}

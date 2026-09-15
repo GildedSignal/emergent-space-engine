@@ -29,8 +29,11 @@ fn parse_options() -> Result<AppOptions, String> {
                     args.next().ok_or("--save-path needs a path")?,
                 ))
             }
+            "--world" => {
+                options.world = args.next().ok_or("--world needs observatory or connected")?;
+            }
             "--help" | "-h" => {
-                println!("Emergent Space native observatory\n  --screenshot PATH   Capture a native wgpu frame to PNG\n  --frames N          Close after N rendered frames (minimum 10)\n  --save-path PATH    Set the local archive path");
+                println!("Emergent Space native observatory\n  --screenshot PATH   Capture a native wgpu frame to PNG\n  --frames N          Close after N rendered frames (minimum 10)\n  --save-path PATH    Set the local archive path\n  --world NAME        observatory (default) or connected (I6 same Engine)");
                 std::process::exit(0);
             }
             _ => return Err(format!("Unknown argument: {arg}")),
@@ -57,9 +60,17 @@ fn main() -> eframe::Result {
         "Emergent Space",
         native,
         Box::new(move |cc| {
+            let world = match options.world.as_str() {
+                "" | "observatory" => adapter::NativeWorld::Observatory,
+                "connected" => adapter::NativeWorld::Connected,
+                other => {
+                    eprintln!("Unknown --world {other}; use observatory or connected");
+                    std::process::exit(2);
+                }
+            };
             Ok(Box::new(ObservatoryApp::new(
                 cc,
-                Box::new(adapter::EngineBridge::new()),
+                Box::new(adapter::EngineBridge::with_world(world)),
                 options,
             )))
         }),

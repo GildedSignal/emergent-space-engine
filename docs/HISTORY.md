@@ -2105,3 +2105,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I5 surviving](laws/i5-surviving-work-20260915.md), [I4 family GEM](laws/i4-family-gem-20260915.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: RSS is the test-process `ps` figure, not an isolated heap. Combined simulation+rendering unpublished (GPU unused). Moving multi-mass compact fields, galaxy direct sums, and accel PN jump 0.10 remain. I6 not started. `production_law` null.
 - Next: I6 same-model qualification matrix when assigned. Do not select `production_law`. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.
+
+## H0142 — I6 matrix run on one model; production_law stays null
+
+- Date: 2026-09-15
+- Kind: verification
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0141 `cd1c805`; this entry's follow-on commit
+- Scope: I6 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); same-model matrix; native observatory on the same Engine; not `production_law` promotion
+- Changed: Machine-readable matrix on `es-inertial-causal-v1` + diagnostic GEM, connected workload. Native `EngineBridge` hosts that Engine (`--world connected` for the I6 scene; gallery GEM slice is not qualification). Daily gallery, held-out bank, envelope ladder. Cold history and checkpoint/replay PASS. Honest FAIL: galaxy quadrupole skip 0.478, Sch–GEM accel 0.10, engine gravity diagnostic, family-moment-as-galaxy-skip, production promotion. Honest UNSUPPORTED: moving multi-mass, envelope pressure/frozen targets. Six cards name look-for, class, regime, comparison. Plan I6 exit is the matrix run; full-engine remains incomplete. `CANONICAL_GRAVITY_ACCEPTANCE` stays diagnostic-only.
+- Why: Coordinator assigned I6. Promotion requires every required gate PASS on one model; published gaps remain. Julien's rule: behavior and remainder bands, not leftover==0.0 / 1188/1675 / 1.519 pins.
+- Validation: `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-engine --test i6_qualification --offline --locked -- --test-threads=1` 1 PASS. Regressions: `i1_increment2_authority` 6, `i4_six_card_crossing` 1.
+- Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [six-card contract](laws/litmus-gallery-contract-20260914.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Full-engine incomplete. Envelope targets unqualified. Combined rendering unpublished. Frozen `1dac658` / H0052 / H0054 / H0124 unchanged. `production_law` null.
+- Next: Close required physics gaps (moving multi-mass compact fields, quadrupole skip, accel continuity, engine gravity) before any promotion attempt. Do not select `production_law` from this matrix.

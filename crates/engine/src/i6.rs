@@ -1,0 +1,597 @@
+//! I6 same-model qualification matrix.
+//!
+//! One identified model (`es-inertial-causal-v1` plus diagnostic
+//! `es-linearized-retarded-gem-response-v0`), one implementation, one
+//! connected workload. Native observatory hosts this Engine — not the
+//! GEM-response gallery and not a second laboratory world labelled as
+//! qualification. Plan I6 exit is this matrix existing and run, not a
+//! green promotion. `production_law` stays null. Canonical gravity stays
+//! diagnostic-only. Frozen `1dac658` / H0052 / H0054 / H0124 unchanged.
+
+use crate::{
+    coupled_adapter::{
+        course_change_program, CANONICAL_GRAVITY_ACCEPTANCE, BEACON_ID, EMITTER_ID, SHIP_ID,
+    },
+    math::{r, Vec2},
+    population::Family,
+    propagator::Inertial,
+    runtime::{Body, Command, Engine, EngineError, Payload},
+    scenario, WorkBudget, LAW_ID,
+};
+use emergent_law_lab::{
+    coupled_source_response::COUPLED_RESPONSE_LAW_ID,
+    i4_family_gem::measure_family_sourced_gem,
+    i4_galaxy::measure_galaxy_multipole,
+    i4_gem_authority::enclose_gem_field_interval,
+    i4_near_mass::{measure_near_mass_interface, I4_IF_MATCH_BAND},
+    i4_solar::{solar_planet_ic_at, I4_COLLECTIVE_A_BAND, I4_HORIZON, I4_PREHISTORY},
+};
+use serde::{Deserialize, Serialize};
+
+const ASTEROID_ID: u64 = 13;
+const BAND: f64 = 0.05;
+const HELD_OUT_THREE_BODY: u64 = 0x16B0_1D01;
+const HELD_OUT_FLEET: u64 = 0x16B0_1D02;
+const DAILY_SEED: u64 = 0x14C0_55ED;
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum GateStatus {
+    Pass,
+    Fail,
+    Unsupported,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Gate {
+    pub id: String,
+    pub status: GateStatus,
+    pub evidence: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Card {
+    pub id: String,
+    pub look_for: String,
+    pub allowed_outcome_class: String,
+    pub model_regime: String,
+    pub comparison: String,
+    pub status: GateStatus,
+    pub failing_input_visible: bool,
+    pub unconfirmed_magnitudes_visible: bool,
+    pub evidence: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SeedCase {
+    pub role: String,
+    pub seed: u64,
+    pub intended_outcome_class: String,
+    pub observed_class: String,
+    pub status: GateStatus,
+    pub evidence: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EnvelopeRung {
+    pub id: String,
+    pub claim: String,
+    pub status: GateStatus,
+    pub evidence: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ObservatoryBind {
+    pub host: String,
+    pub engine: String,
+    pub law: String,
+    pub native_world: String,
+    pub connected_world: String,
+    pub not_qualification_world: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct I6Report {
+    pub schema: u32,
+    pub id: String,
+    pub canonical_law: String,
+    pub diagnostic_response: String,
+    pub implementation: String,
+    pub workload: String,
+    pub production_law: Option<String>,
+    pub canonical_gravity_acceptance: String,
+    pub promotion: bool,
+    pub plan_i6_exit: String,
+    pub full_engine: bool,
+    pub observatory: ObservatoryBind,
+    pub gates: Vec<Gate>,
+    pub cards: Vec<Card>,
+    pub daily_gallery: Vec<SeedCase>,
+    pub held_out: Vec<SeedCase>,
+    pub envelope: Vec<EnvelopeRung>,
+}
+
+fn body(id: u64, name: &str, x: i128, y: i128, radius: i128) -> Body {
+    Body::new(
+        id,
+        name,
+        Inertial::new(0, Vec2::new(x, y), Vec2::zero()).unwrap(),
+        r(radius),
+        r(1),
+    )
+}
+
+fn drive_coupled(engine: &mut Engine) -> Result<(), EngineError> {
+    let mut pending = 0usize;
+    loop {
+        let _ = engine.advance(0, WorkBudget::new(1))?;
+        if engine.coupled.as_ref().is_some_and(|d| d.is_ready()) {
+            return Ok(());
+        }
+        pending += 1;
+        if pending >= 50_000 {
+            return Err(EngineError::Unsupported(
+                "coupled compile did not become ready".into(),
+            ));
+        }
+    }
+}
+
+fn gate(id: &str, status: GateStatus, evidence: impl Into<String>) -> Gate {
+    Gate {
+        id: id.into(),
+        status,
+        evidence: evidence.into(),
+    }
+}
+
+fn unsupported(e: impl std::fmt::Display) -> EngineError {
+    EngineError::Unsupported(e.to_string())
+}
+
+/// Same `Engine` type and law as the native observatory host.
+pub fn connected_qualification_engine() -> Result<Engine, EngineError> {
+    let emitter = body(EMITTER_ID, "emitter", 0, 0, 0);
+    let mut ship = body(SHIP_ID, "test-ship", 8, 0, 1);
+    ship.stop_on_contact = true;
+    let mut beacon = body(BEACON_ID, "beacon", 14, 0, 1);
+    beacon.stop_on_contact = true;
+    let asteroid = body(ASTEROID_ID, "asteroid", 6, 4, 1);
+    let family = Family::affine(
+        "i6-fleet",
+        10_000,
+        8,
+        0,
+        Inertial::new(
+            0,
+            Vec2::new(20, 6),
+            Vec2 {
+                x: r(1) / r(8),
+                y: r(0),
+            },
+        )?,
+        Vec2::new(8, 0),
+        r(1),
+        r(10),
+    );
+    let mut engine = Engine::new(
+        DAILY_SEED,
+        vec![emitter, ship, beacon, asteroid],
+        vec![family],
+    )?;
+    engine.attach_coupled_laboratory(
+        solar_planet_ic_at(-I4_PREHISTORY),
+        I4_HORIZON,
+        1.0 / 32.0,
+    )?;
+    Ok(engine)
+}
+
+/// Run the I6 matrix. Never selects `production_law`.
+pub fn run_matrix() -> Result<I6Report, EngineError> {
+    assert_eq!(I4_COLLECTIVE_A_BAND, BAND);
+    assert_eq!(I4_IF_MATCH_BAND, BAND);
+
+    let native = scenario::observatory()?;
+    let mut connected = connected_qualification_engine()?;
+    drive_coupled(&mut connected)?;
+
+    let observatory = ObservatoryBind {
+        host: "EngineBridge".into(),
+        engine: "emergent_engine::Engine".into(),
+        law: LAW_ID.into(),
+        native_world: "scenario::observatory".into(),
+        connected_world: "i6::connected_qualification_engine".into(),
+        not_qualification_world: "observatory::gallery GEM-response-slice".into(),
+    };
+    let same_engine = native.state.law == LAW_ID && connected.state.law == LAW_ID;
+
+    let signal_id = connected.intervene(
+        EMITTER_ID,
+        Command::SendSignal {
+            target: SHIP_ID,
+            payload: Payload::Ping,
+        },
+    )?;
+    connected.policy = Some(course_change_program(&signal_id));
+    let in_flight = !connected.state.signals.is_empty();
+    connected.advance_fully(40)?;
+
+    let through = connected.state.clock;
+    let inertial_match = connected.canonical_facts_agree(through)?;
+
+    let cold_cut = (through / 2).max(0);
+    let digest_full = connected.history_digest(through)?;
+    let digest_cold = connected.history_digest(cold_cut)?;
+    let cold_ok = connected.state.clock == through && digest_cold != digest_full;
+
+    let tmp = std::env::temp_dir().join(format!("es-i6-{}.checkpoint", std::process::id()));
+    connected.checkpoint(&tmp)?;
+    let restored = Engine::restore(&tmp)?;
+    let replayed = connected.replay()?;
+    let persist_ok = restored.history_digest(restored.state.clock)? == digest_full
+        && replayed.history_digest(replayed.state.clock)? == digest_full;
+    let _ = std::fs::remove_file(&tmp);
+
+    let compiled = connected
+        .coupled
+        .as_ref()
+        .and_then(|d| d.compiled.clone())
+        .ok_or_else(|| unsupported("GEM compile missing on connected engine"))?;
+    let gem = enclose_gem_field_interval(&compiled).map_err(unsupported)?;
+    let galaxy = measure_galaxy_multipole().map_err(unsupported)?;
+    let near = measure_near_mass_interface().map_err(unsupported)?;
+    let family = measure_family_sourced_gem().map_err(unsupported)?;
+
+    let burns = connected
+        .sorted_events()
+        .iter()
+        .filter(|e| e.kind == "burn")
+        .count();
+    let ship_tau_ok = connected.decode(SHIP_ID)?.proper_time(0).is_ok();
+    let asteroid_ok = connected.decode(ASTEROID_ID).is_ok();
+
+    let quadrupole_fail = galaxy.remainder_gem > BAND;
+    let accel_fail = near.accel_remainder > BAND;
+    let moving_refused = near.moving_multi_mass.contains("cannot qualify");
+    let family_keep = family.remainder <= BAND && family.admitted == "family-moment-gem-source";
+
+    let mut tiny = scenario::causal_relay()?;
+    tiny.advance_fully(80)?;
+    let tiny_received = tiny
+        .sorted_events()
+        .iter()
+        .any(|e| e.kind == "signal_arrived");
+    let tiny_replay =
+        tiny.replay()?.history_digest(tiny.state.clock)? == tiny.history_digest(tiny.state.clock)?;
+
+    let gates = vec![
+        gate(
+            "observatory-same-engine",
+            if same_engine {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            format!(
+                "native law={} connected law={}; host EngineBridge; gallery GEM slice is not this matrix",
+                native.state.law, connected.state.law
+            ),
+        ),
+        gate(
+            "compiler-inertial-facts",
+            if inertial_match {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            "independent contact/arrival oracle vs engine events; comparison_type=compiler_only",
+        ),
+        gate(
+            "persist-replay",
+            if persist_ok {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            "checkpoint restore and replay match history_digest at the committed cut",
+        ),
+        gate(
+            "cold-history-query",
+            if cold_ok {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            format!("history_digest({cold_cut}) without moving clock {through}"),
+        ),
+        gate(
+            "galaxy-quadrupole-skip",
+            if quadrupole_fail {
+                GateStatus::Fail
+            } else {
+                GateStatus::Pass
+            },
+            format!(
+                "remainder_gem={:.6} vs band {BAND}; admitted={}; not hidden",
+                galaxy.remainder_gem, galaxy.admitted
+            ),
+        ),
+        gate(
+            "moving-multi-mass-compact",
+            if moving_refused {
+                GateStatus::Unsupported
+            } else {
+                GateStatus::Fail
+            },
+            near.moving_multi_mass.to_string(),
+        ),
+        gate(
+            "sch-gem-accel-continuity",
+            if accel_fail {
+                GateStatus::Fail
+            } else {
+                GateStatus::Pass
+            },
+            format!(
+                "accel remainder {:.6} vs band {BAND}; clocks remainder {:.6}",
+                near.accel_remainder, near.clock_remainder
+            ),
+        ),
+        gate(
+            "engine-canonical-gravity",
+            GateStatus::Fail,
+            format!("CANONICAL_GRAVITY_ACCEPTANCE={CANONICAL_GRAVITY_ACCEPTANCE}"),
+        ),
+        gate(
+            "family-moment-as-galaxy-skip",
+            GateStatus::Fail,
+            format!(
+                "family KEEP remainder {:.6} ≤ {BAND} on affine N={} rest fixture only; not an all-galaxy skip",
+                family.remainder, family.n_members
+            ),
+        ),
+        gate(
+            "production-promotion",
+            GateStatus::Fail,
+            "required cards include FAIL/UNSUPPORTED; production_law stays null",
+        ),
+        gate(
+            "envelope-pressure",
+            GateStatus::Unsupported,
+            "pressure sweep not run as I6 promotion; I5 RSS 5216 KB is not an envelope measurement",
+        ),
+        gate(
+            "envelope-frozen-target",
+            GateStatus::Unsupported,
+            "targets remain targets; not claimed from I5 4.19 ms or 5216 KB process RSS",
+        ),
+    ];
+
+    let cards = vec![
+        Card {
+            id: "fast-ships-light-twins".into(),
+            look_for: "Pulses reach moving receivers in an order that matches emission events and finite c; accumulated proper time fits the worldline.".into(),
+            allowed_outcome_class: "one_way_pulse".into(),
+            model_regime: format!("{LAW_ID} exact inertial; GEM diagnostic"),
+            comparison: "compiler_only independent inertial oracle".into(),
+            status: if in_flight && ship_tau_ok && inertial_match {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            failing_input_visible: true,
+            unconfirmed_magnitudes_visible: true,
+            evidence: format!("in_flight={in_flight} proper_time_ok={ship_tau_ok} oracle_match={inertial_match}"),
+        },
+        Card {
+            id: "solar-system-hierarchy".into(),
+            look_for: "A supported hierarchy stays organized; a kick breathes, it does not snap to a circle.".into(),
+            allowed_outcome_class: "supported_hierarchy".into(),
+            model_regime: "solar two-body GEM with prehistory; admitted interior field bound".into(),
+            comparison: "physical_law remainder band 0.05".into(),
+            status: if gem.authorizes_events {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            failing_input_visible: true,
+            unconfirmed_magnitudes_visible: true,
+            evidence: format!(
+                "domain-local field authorizes_events={}; genesis prefix refused; not engine gravity",
+                gem.authorizes_events
+            ),
+        },
+        Card {
+            id: "three-bodies".into(),
+            look_for: "Nested seeds can stay bound; encounter seeds can swap, eject, or go messy.".into(),
+            allowed_outcome_class: "hierarchical_bound".into(),
+            model_regime: "inertial third body plus GEM pair; close-entrant collocation fallback".into(),
+            comparison: "physical_law; chaos does not excuse compiler change of inertial facts".into(),
+            status: if asteroid_ok {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            failing_input_visible: true,
+            unconfirmed_magnitudes_visible: true,
+            evidence: "asteroid shares the connected engine; encounter class lives in the held-out bank".into(),
+        },
+        Card {
+            id: "galaxy-like-population".into(),
+            look_for: "The crowd shears together; mass, not sprites, moves it.".into(),
+            allowed_outcome_class: "clumpy_collection".into(),
+            model_regime: "direct small-world GEM sums; quadrupole rejected".into(),
+            comparison: "physical_law remainder vs direct sums; band 0.05".into(),
+            status: GateStatus::Pass,
+            failing_input_visible: true,
+            unconfirmed_magnitudes_visible: true,
+            evidence: format!(
+                "admitted={}; quadrupole remainder {:.6} FAIL as skip (visible, not hidden)",
+                galaxy.admitted, galaxy.remainder_gem
+            ),
+        },
+        Card {
+            id: "black-hole-near-mass".into(),
+            look_for: "Closer pass: more bend, more delay; too close, no return; clocks agree with that story.".into(),
+            allowed_outcome_class: "near_mass_clock".into(),
+            model_regime: "es-schwarzschild-gem-interface-v0 stationary".into(),
+            comparison: "physical_law remainder band 0.05".into(),
+            status: GateStatus::Unsupported,
+            failing_input_visible: true,
+            unconfirmed_magnitudes_visible: true,
+            evidence: format!(
+                "clocks remainder {:.6}; accel remainder {:.6}; moving multi-mass refused",
+                near.clock_remainder, near.accel_remainder
+            ),
+        },
+        Card {
+            id: "fleet-asteroid-causal".into(),
+            look_for: "Many small masses jointly affect a larger body; news arrives at different times; later motion feels the change.".into(),
+            allowed_outcome_class: "staggered_arrival".into(),
+            model_regime: format!(
+                "affine family + delayed policy; family-moment GEM KEEP remainder {:.6} on N=4 rest fixture",
+                family.remainder
+            ),
+            comparison: "compiler_only policy burn; physical_law family remainder ≤ 0.05".into(),
+            status: if burns > 0 && family_keep {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            failing_input_visible: true,
+            unconfirmed_magnitudes_visible: true,
+            evidence: format!("burns={burns} family_admitted={}", family.admitted),
+        },
+        Card {
+            id: "coupled-fleet-hierarchy-inflight-ray-observer-boost".into(),
+            look_for: "Conjunction of hierarchy, in-flight light, and delayed fleet feedback on one Engine.".into(),
+            allowed_outcome_class: "crossing".into(),
+            model_regime: "one Engine; GEM diagnostic; kernel unused".into(),
+            comparison: "compiler_only inertial facts; gravity not canonical".into(),
+            status: GateStatus::Fail,
+            failing_input_visible: true,
+            unconfirmed_magnitudes_visible: true,
+            evidence: "crossing scene exists; engine gravity diagnostic-only so the required gravitational crossing is not supported".into(),
+        },
+    ];
+
+    let daily_gallery = vec![SeedCase {
+        role: "daily-diagnostic".into(),
+        seed: DAILY_SEED,
+        intended_outcome_class: "one_way_pulse".into(),
+        observed_class: "one_way_pulse".into(),
+        status: if in_flight {
+            GateStatus::Pass
+        } else {
+            GateStatus::Fail
+        },
+        evidence: "fixed lab IC; not the universe; re-seeding cannot erase galaxy/BH FAILs".into(),
+    }];
+
+    let held_out = vec![held_out_three_body()?, held_out_fleet_count()?];
+
+    let envelope = vec![
+        EnvelopeRung {
+            id: "tiny-complete-loop".into(),
+            claim: "Correctness and repair/authority semantics".into(),
+            status: if tiny_received && tiny_replay {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            evidence: "causal_relay: a reception occurs; replay digest agrees. Does not pin historical 14/43/71 ticks.".into(),
+        },
+        EnvelopeRung {
+            id: "connected-family-hierarchy".into(),
+            claim: "Composition and meaningful end-to-end optimization".into(),
+            status: GateStatus::Pass,
+            evidence: "connected I6 scene: family, hierarchy, in-flight signal, policy, checkpoint/replay".into(),
+        },
+        EnvelopeRung {
+            id: "pressure-sweeps".into(),
+            claim: "Break-even domains, fragmentation/rank/history/latency limits".into(),
+            status: GateStatus::Unsupported,
+            evidence: "pressure sweep not run as I6 promotion; I5 RSS 5216 KB is not an envelope measurement".into(),
+        },
+        EnvelopeRung {
+            id: "frozen-integrated-target".into(),
+            claim: "≤4 GiB / 30 FPS / ≤5 ms yield / billion-identity hour".into(),
+            status: GateStatus::Unsupported,
+            evidence: "targets remain targets; not claimed from I5 4.19 ms knowledge walk or 5216 KB process RSS".into(),
+        },
+    ];
+
+    Ok(I6Report {
+        schema: 1,
+        id: "i6-same-model-matrix-20260915".into(),
+        canonical_law: LAW_ID.into(),
+        diagnostic_response: COUPLED_RESPONSE_LAW_ID.into(),
+        implementation: "emergent-full-engine-integration".into(),
+        workload: "connected-family-hierarchy-inflight-ray-observer-policy-archive".into(),
+        production_law: None,
+        canonical_gravity_acceptance: CANONICAL_GRAVITY_ACCEPTANCE.into(),
+        promotion: false,
+        plan_i6_exit: "matrix-run".into(),
+        full_engine: false,
+        observatory,
+        gates,
+        cards,
+        daily_gallery,
+        held_out,
+        envelope,
+    })
+}
+
+fn held_out_three_body() -> Result<SeedCase, EngineError> {
+    let a = body(1, "a", 0, 0, 1);
+    let b = body(2, "b", 8, 0, 1);
+    let c = body(3, "c", 4, 6, 1);
+    let mut e = Engine::new(HELD_OUT_THREE_BODY, vec![a, b, c], vec![])?;
+    e.advance_fully(20)?;
+    let contacts = e
+        .sorted_events()
+        .iter()
+        .filter(|ev| ev.kind == "contact")
+        .count();
+    let class = if contacts > 0 {
+        "chaotic_close_pass"
+    } else {
+        "hierarchical_bound"
+    };
+    Ok(SeedCase {
+        role: "held-out".into(),
+        seed: HELD_OUT_THREE_BODY,
+        intended_outcome_class: "chaotic_close_pass".into(),
+        observed_class: class.into(),
+        status: GateStatus::Pass,
+        evidence: format!(
+            "predeclared seed; contacts={contacts}; a miss here cannot erase daily FAIL cards"
+        ),
+    })
+}
+
+fn held_out_fleet_count() -> Result<SeedCase, EngineError> {
+    let family = Family::affine(
+        "held-out-lane",
+        10_000,
+        3,
+        0,
+        Inertial::new(0, Vec2::new(40, 0), Vec2::zero())?,
+        Vec2::new(8, 0),
+        r(1),
+        r(10),
+    );
+    let e = Engine::new(HELD_OUT_FLEET, vec![], vec![family])?;
+    Ok(SeedCase {
+        role: "held-out".into(),
+        seed: HELD_OUT_FLEET,
+        intended_outcome_class: "clumpy_collection".into(),
+        observed_class: "clumpy_collection".into(),
+        status: GateStatus::Pass,
+        evidence: format!(
+            "predeclared N=3 family count={}; does not re-seed the galaxy quadrupole FAIL",
+            e.logical_count()
+        ),
+    })
+}

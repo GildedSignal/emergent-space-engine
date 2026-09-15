@@ -24,6 +24,7 @@ pub struct AppOptions {
     pub screenshot: Option<PathBuf>,
     pub frames: Option<u64>,
     pub save_path: Option<PathBuf>,
+    pub world: String,
 }
 
 #[derive(Clone, Debug)]

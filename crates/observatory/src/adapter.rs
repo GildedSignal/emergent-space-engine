@@ -1,7 +1,7 @@
 //! Worker-owned canonical engine. The UI exchanges commands and bounded snapshots.
 use crate::bridge::*;
 use emergent_engine::{
-    math::{r, Vec2},
+    i6, math::{r, Vec2},
     runtime::Payload,
     scenario, Command, Engine, WorkBudget,
 };
@@ -12,12 +12,24 @@ use std::{
     time::Duration,
 };
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum NativeWorld {
+    /// Billion-identity inertial host. Same `Engine` / `es-inertial-causal-v1`.
+    #[default]
+    Observatory,
+    /// I6 connected qualification scene. Same engine crate and law.
+    Connected,
+}
+
 pub struct EngineBridge {
     sender: mpsc::Sender<UiCommand>,
     snapshot: Arc<RwLock<UiSnapshot>>,
 }
 impl EngineBridge {
     pub fn new() -> Self {
+        Self::with_world(NativeWorld::Observatory)
+    }
+    pub fn with_world(world: NativeWorld) -> Self {
         let (sender, receiver) = mpsc::channel();
         let initial = UiSnapshot {
             capability_status: "STARTING ENGINE".into(),
@@ -28,7 +40,7 @@ impl EngineBridge {
         let shared = snapshot.clone();
         thread::Builder::new()
             .name("causal-engine".into())
-            .spawn(move || run(receiver, shared))
+            .spawn(move || run(receiver, shared, world))
             .expect("engine worker");
         Self { sender, snapshot }
     }
@@ -44,8 +56,11 @@ impl ObservatoryBridge for EngineBridge {
     }
 }
 
-fn run(receiver: mpsc::Receiver<UiCommand>, shared: Arc<RwLock<UiSnapshot>>) {
-    let mut engine = match scenario::observatory() {
+fn run(receiver: mpsc::Receiver<UiCommand>, shared: Arc<RwLock<UiSnapshot>>, world: NativeWorld) {
+    let mut engine = match world {
+        NativeWorld::Observatory => scenario::observatory(),
+        NativeWorld::Connected => i6::connected_qualification_engine(),
+    } {
         Ok(e) => e,
         Err(e) => {
             shared.write().unwrap().warning = Some(e.to_string());
