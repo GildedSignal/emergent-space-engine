@@ -2077,3 +2077,31 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I4 six-card](laws/i4-six-card-crossing-20260915.md), [I4 GEM authority](laws/i4-gem-authority-20260915.md), [six-card contract](laws/litmus-gallery-contract-20260914.md)
 - Limitations: Family does not source GEM. Moving multi-mass compact fields unsupported. Accel continuity 0.10>0.05. Full-engine incomplete. `production_law` null.
 - Next: Do not start I5 until assigned. Remaining physics: family-sourced GEM or recorded BH/galaxy alternatives. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.
+
+## H0140 — I4: family moments KEEP as GEM sources; identities retained
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0139 `abf31d5`; this entry's follow-on commit
+- Scope: Remaining I4 physics hole of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); affine family mass as a GEM source; not galaxy multipole; not I6
+- Changed: Affine N=4 μ=0.01 rest family at y=18 sources GEM as one COM plus `FamilyIdentities`. Remainder vs extract-and-collocate **0** ≤ 0.05 (octupole-like bound 1.04×10⁻⁶). Mass 0.04=0.04. Extract ledger 127395 vs moment 1906. Nested Charge construction/certificate/reconstruction/fallback/query recorded. Admitted `family-moment-gem-source`. Direct small-world GEM sums remain the galaxy method (H0139 quadrupole 0.478 unchanged). `CANONICAL_GRAVITY_ACCEPTANCE` stays diagnostic-only.
+- Why: H0139 left family mass uncoupled from GEM. Coordinator assigned that hole before I5. Do not drop mass or member identities.
+- Validation: `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-law-lab --lib i4_family --offline --locked -- --test-threads=1` 2 PASS.
+- Evidence: [I4 family GEM](laws/i4-family-gem-20260915.md), [I4 six-card](laws/i4-six-card-crossing-20260915.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: KEEP is affine equal-μ at H≤2 beside `laboratory_two_body`, not a galaxy skip. Moment remainder 0 is monopole agreement, not interval-wide authority. Frozen H0139 evidence unchanged. `production_law` null.
+- Next: I5 on surviving work. Do not start I6 in that slice until I5 is evidenced. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.
+
+## H0141 — I5 CPU-only exit: knowledge index and lazy inverse at equal digest
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0140 in the same follow-on commit
+- Scope: I5 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); CPU-only surviving I2/I3/I4 work; not I6; not combined rendering
+- Changed: Replaced full-history `received_knowledge` scans with a derived per-observer `signal_arrivals` index plus `broadcast_receptions`. Policy burns no longer walk `events`. Composed scene: 3 GEM bodies (pair+family COM), ship/signal/policy, digest equal on replay, received_signals equal, indexed arrivals 1 vs 4 events. Cold 4.19 ms / warm 0.57 ms; process RSS 5216 KB; owned `CanonicalState` 4566 B; GPU none. Lazy pair inverse skipped. Quiet kernel ledger 1137 stays in-domain. Family moment 1906 vs extract 127395. `CANONICAL_GRAVITY_ACCEPTANCE` stays diagnostic-only.
+- Why: I5 first removes full-history scans, eager dense matrices and redundant copies on real I2–I4 workloads. Hardware cannot compensate for unbounded extract of every member.
+- Validation: `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-engine --test i5_surviving --offline --locked -- --test-threads=1` 1 PASS. Regressions: `i1_increment2_authority` 6, `i1_connected_scene` 2, `i2_composed_scene` 1, `i4_six_card_crossing` 1.
+- Evidence: [I5 surviving](laws/i5-surviving-work-20260915.md), [I4 family GEM](laws/i4-family-gem-20260915.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: RSS is the test-process `ps` figure, not an isolated heap. Combined simulation+rendering unpublished (GPU unused). Moving multi-mass compact fields, galaxy direct sums, and accel PN jump 0.10 remain. I6 not started. `production_law` null.
+- Next: I6 same-model qualification matrix when assigned. Do not select `production_law`. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.

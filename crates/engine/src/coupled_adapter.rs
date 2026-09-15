@@ -7,7 +7,10 @@
 
 use crate::{
     math::{r, Vec2},
-    policy::{evaluate_policy, Guard, PolicyAction, PolicyProgram, PolicyRule, ReceivedKnowledge},
+    policy::{
+        evaluate_policy, BroadcastReception, Guard, PolicyAction, PolicyProgram, PolicyRule,
+        ReceivedKnowledge,
+    },
     propagator::Inertial,
     runtime::{
         Body, Engine, EngineError, Observation, WorkBudget,
@@ -462,10 +465,7 @@ impl Engine {
         let now = self.state.clock;
         let mut fired = false;
         for observer in program.lo..=program.hi {
-            let already = self.state.policy_fired.contains(&(program.id.clone(), observer))
-                || self.state.events.values().any(|e| {
-                    e.kind == "burn" && e.tick == now && e.subjects.contains(&observer)
-                });
+            let already = self.state.policy_fired.contains(&(program.id.clone(), observer));
             if already {
                 continue;
             }
@@ -499,19 +499,17 @@ impl Engine {
         let now = self.state.clock;
         let mut received_signals = BTreeSet::new();
         let mut received_broadcasts = BTreeSet::new();
-        for event in self.state.events.values() {
-            if event.kind == "signal_arrived" && event.tick <= now && event.subjects.contains(&observer)
-            {
-                for pred in &event.predecessors {
-                    received_signals.insert(pred.clone());
+        if let Some(arrivals) = self.signal_arrivals.get(&observer) {
+            for (tick, preds) in arrivals {
+                if *tick <= now {
+                    received_signals.extend(preds.iter().cloned());
                 }
             }
-            if event.kind == "broadcast_received"
-                && event.tick <= now
-                && event.subjects.get(1) == Some(&observer)
-            {
-                for pred in &event.predecessors {
-                    received_broadcasts.insert(pred.clone());
+        }
+        for (broadcast_id, map) in &self.state.broadcast_receptions {
+            if let Some(BroadcastReception::Received { tick }) = map.get(&observer) {
+                if *tick <= now {
+                    received_broadcasts.insert(broadcast_id.clone());
                 }
             }
         }

@@ -972,6 +972,9 @@ pub mod i4_galaxy;
 /// I4 restricted exterior Schwarzschild–GEM interface. New model version.
 /// Not production_law. Does not mint CANONICAL_GRAVITY_ACCEPTANCE.
 pub mod i4_near_mass;
+/// I4 family moments vs extract-and-collocate as GEM sources.
+/// Not production_law. Not canonical gravity.
+pub mod i4_family_gem;
 
 #[cfg(test)]
 mod tests {

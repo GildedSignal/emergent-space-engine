@@ -714,6 +714,10 @@ pub struct Engine {
     pub archive: Option<LiveArchive>,
     /// When set, SAP/commit only includes this identity range (two-region advance).
     pub(crate) scan_filter: Option<(u64, u64)>,
+    /// Derived knowledge index: observer → signal arrivals. Rebuilt from
+    /// events; not a canonical fact. Avoids full-history scans in
+    /// `received_knowledge`.
+    pub(crate) signal_arrivals: BTreeMap<u64, Vec<(i128, Vec<String>)>>,
 }
 
 pub(crate) fn digest<T: Serialize>(value: &T) -> String {
@@ -808,6 +812,7 @@ impl Engine {
             scheduler: CompositionScheduler::default(),
             archive: None,
             scan_filter: None,
+            signal_arrivals: BTreeMap::new(),
         };
         engine.validate()?;
         Ok(engine)
@@ -2967,6 +2972,7 @@ impl Engine {
         }
         let n = acc.records.len();
         for e in acc.records {
+            self.note_signal_arrival(&e);
             self.state.events.insert(e.id.clone(), e);
         }
         self.state.clock = tick;
@@ -3288,6 +3294,46 @@ impl Engine {
         e.sort_by(|a, b| (a.tick, &a.id).cmp(&(b.tick, &b.id)));
         e
     }
+
+    pub(crate) fn note_signal_arrival(&mut self, e: &EventRecord) {
+        if e.kind != "signal_arrived" || e.subjects.len() < 2 {
+            return;
+        }
+        let observer = e.subjects[1];
+        self.signal_arrivals
+            .entry(observer)
+            .or_default()
+            .push((e.tick, e.predecessors.clone()));
+    }
+
+    pub(crate) fn rebuild_signal_arrivals(&mut self) {
+        self.signal_arrivals.clear();
+        let arrivals: Vec<(u64, i128, Vec<String>)> = self
+            .state
+            .events
+            .values()
+            .filter(|e| e.kind == "signal_arrived" && e.subjects.len() >= 2)
+            .map(|e| (e.subjects[1], e.tick, e.predecessors.clone()))
+            .collect();
+        for (observer, tick, preds) in arrivals {
+            self.signal_arrivals
+                .entry(observer)
+                .or_default()
+                .push((tick, preds));
+        }
+    }
+
+    /// Events examined to answer received-knowledge for one observer.
+    /// Full-history scan is `state.events.len()`; the index is this observer's arrivals.
+    pub fn knowledge_scan_width(&self, observer: u64) -> (usize, usize) {
+        let full = self.state.events.len();
+        let indexed = self
+            .signal_arrivals
+            .get(&observer)
+            .map(|v| v.len())
+            .unwrap_or(0);
+        (full, indexed)
+    }
     pub fn clear_derived(&mut self) {
         self.pending = None;
         self.sensor = None;
@@ -3306,7 +3352,7 @@ impl Engine {
         if state.genesis_families.is_empty() {
             state.genesis_families = state.families.clone();
         }
-        let e = Self {
+        let mut e = Self {
             state,
             metrics: Metrics::default(),
             pending: None,
@@ -3321,7 +3367,9 @@ impl Engine {
             scheduler: CompositionScheduler::default(),
             archive: None,
             scan_filter: None,
+            signal_arrivals: BTreeMap::new(),
         };
+        e.rebuild_signal_arrivals();
         e.validate()?;
         Ok(e)
     }
