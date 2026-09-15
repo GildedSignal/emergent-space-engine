@@ -121,6 +121,87 @@ pub fn first_contact(
     })
 }
 
+/// Contact ticks owned by `segments[index]`: the first segment covers the full
+/// incoming domain; a later segment starts at epoch+1 so the switch tick stays
+/// on the previous piece (matching `Body::at` continuity at the join).
+pub fn segment_query_domain(
+    segments: &[Inertial],
+    index: usize,
+    domain: TickInterval,
+) -> Option<TickInterval> {
+    if index >= segments.len() || domain.start > domain.end {
+        return None;
+    }
+    let start = if index == 0 {
+        domain.start
+    } else {
+        domain.start.max(segments[index].epoch.saturating_add(1))
+    };
+    let end = match segments.get(index + 1) {
+        Some(next) => domain.end.min(next.epoch),
+        None => domain.end,
+    };
+    if start <= end {
+        Some(TickInterval { start, end })
+    } else {
+        None
+    }
+}
+
+/// Earliest contact between piecewise inertial generators. Each piece is clipped
+/// to the ticks it owns; the result is the minimum certified tick.
+pub fn first_contact_piecewise(
+    a: &[Inertial],
+    b: &[Inertial],
+    radius: &Rational,
+    domain: TickInterval,
+) -> Option<i128> {
+    let mut best = None;
+    for i in 0..a.len() {
+        let Some(da) = segment_query_domain(a, i, domain) else {
+            continue;
+        };
+        for j in 0..b.len() {
+            let Some(db) = segment_query_domain(b, j, domain) else {
+                continue;
+            };
+            let start = da.start.max(db.start);
+            let end = da.end.min(db.end);
+            if start > end {
+                continue;
+            }
+            if let Some(tick) = first_contact(
+                &a[i],
+                &b[j],
+                radius,
+                TickInterval { start, end },
+            ) {
+                best = Some(best.map_or(tick, |t: i128| t.min(tick)));
+            }
+        }
+    }
+    best
+}
+
+/// Earliest light-cone arrival onto a piecewise receiver.
+pub fn first_signal_arrival_piecewise(
+    emission_tick: i128,
+    emission: &Vec2,
+    receiver: &[Inertial],
+    domain: TickInterval,
+) -> Option<i128> {
+    let mut best = None;
+    for i in 0..receiver.len() {
+        let Some(d) = segment_query_domain(receiver, i, domain) else {
+            continue;
+        };
+        if let Some(tick) = first_signal_arrival(emission_tick, emission, &receiver[i], d) {
+            best = Some(best.map_or(tick, |t: i128| t.min(tick)));
+        }
+    }
+    best
+}
+
 /// Does A u^2+B u+C <= 0 anywhere in (0,duration]? Here A is nonnegative.
 /// The closed right endpoint and open left endpoint need separate treatment when
 /// the only zero is a tangent at the left edge.

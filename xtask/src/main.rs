@@ -35,8 +35,18 @@ fn run() -> Result<u8> {
         println!("{}", emergent_engine::Engine::verify_checkpoint(out)?);
         return Ok(0);
     }
-    if !["test", "reference", "law-lab", "bench", "fermi", "qualify"].contains(&task.as_str()) {
-        println!("Emergent Space tasks: test | reference | law-lab | bench | fermi | qualify [output-dir]\nverify CHECKPOINT\nhistory [list | search TEXT | template | append FILE | check]\nUse cargo run --release -p xtask -- qualify for measured evidence.\nQualification exits 2 when a research gate fails; the failure remains in the report.");
+    if ![
+        "test",
+        "reference",
+        "law-lab",
+        "bench",
+        "fermi",
+        "qualify",
+        "exception-setup-advance",
+    ]
+    .contains(&task.as_str())
+    {
+        println!("Emergent Space tasks: test | reference | law-lab | bench | fermi | qualify | exception-setup-advance [output-dir]\nverify CHECKPOINT\nhistory [list | search TEXT | template | append FILE | check]\nUse cargo run --release -p xtask -- qualify for measured evidence.\nQualification exits 2 when a research gate fails; the failure remains in the report.");
         return Ok(0);
     }
     fs::create_dir_all(&out)?;
@@ -60,6 +70,10 @@ fn run() -> Result<u8> {
     }
     if task == "bench" || task == "qualify" {
         write(&out.join("benchmarks.json"), &bench::run(&out)?)?;
+    }
+    if task == "exception-setup-advance" {
+        write(&out.join("metrics.json"), &bench::exception_setup_advance()?)?;
+        println!("Measured: 1,000-exception setup vs advance (historical 18.478/27.768 ms remain labels only)");
     }
     if task == "fermi" || task == "qualify" {
         write(&out.join("fermi-estimates.json"), &bench::fermi())?;

@@ -2,6 +2,10 @@
 
 The canonical engine and the physical-law experiments are separate versioned capabilities. Never label a laboratory population/time benchmark as integrated gravitational qualification.
 
+## Heading check
+
+Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Living card: `~/.cursor/skills/heading-check/cards/emergent-space.md`. Tree: `~/.cursor/skills/heading-check/cards/emergent-space.tree.md` (show it if asked). If the skill is unreadable, still read the card when present; do not invent goals; preflight before acting. Codex, GLM/OMP, and Cursor must load this loop for this repo — do not pass `--no-skills`. Journal home is `/private/tmp/emergent-g2-law`. Living start: that tree's `docs/HANDOFF.md` First ten minutes.
+
 - Root orchestrator owns Cargo workspace, shared contracts, integration and evidence.
 - Work in assigned worktrees and modules. Do not edit another owner's files.
 - Only the root runs heavyweight builds/benchmarks unless explicitly assigned; the target is an M1 with 8 GB.

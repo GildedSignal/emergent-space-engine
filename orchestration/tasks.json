@@ -1,18 +1,305 @@
 {
- "schema":1,"mode":"development team only","concurrency":{"orchestrator":1,"specialists_max":3,"heavy_builds_max":1,"current_policy":"continue locally; user requested token conservation"},
- "interface_contract":"es-inertial-causal-v1",
- "ticket_required_fields":["id","depends_on","owner","owned_modules","acceptance","allowed_approximation","rejection"],
- "tasks":[
-  {"id":"G0","depends_on":[],"owner":"integrator","owned_modules":["workspace","xtask","scenarios"],"acceptance":"cargo xtask test","allowed_approximation":"none in canonical semantics","rejection":"unreproducible build or unfrozen test definition"},
-  {"id":"G1-math","depends_on":["G0"],"owner":"mechanics","owned_modules":["engine/math","engine/geometry","engine/propagator"],"acceptance":"cargo test -p emergent-engine","allowed_approximation":"explicit dyadic proper-clock law only","rejection":"any incorrect certified branch or split-dependent result"},
-  {"id":"G1-runtime","depends_on":["G1-math"],"owner":"systems","owned_modules":["engine/runtime"],"acceptance":"cargo xtask reference","allowed_approximation":"none","rejection":"incorrect simultaneous event, missed contact, or budget-dependent history"},
-  {"id":"G2","depends_on":["G1-runtime"],"owner":"mechanics","owned_modules":["law-lab"],"acceptance":"cargo xtask law-lab","allowed_approximation":"versioned experimental laws, no production promotion without every gate","rejection":"missing causal dynamics, exact decision procedure, exterior or compact-field qualification"},
-  {"id":"G3","depends_on":["G2"],"owner":"mechanics","owned_modules":["future certified physical engine"],"acceptance":"same-law direct/accelerated parity and conservation","allowed_approximation":"sound certified enclosure","rejection":"different solver selects different physics"},
-  {"id":"G4-families","depends_on":["G1-runtime"],"owner":"systems","owned_modules":["engine/population"],"acceptance":"cargo test -p emergent-engine --test causal_contract","allowed_approximation":"none; exact indexed families","rejection":"identity loss or hidden approximate merge"},
-  {"id":"G4-fmm","depends_on":["G3"],"owner":"mechanics","owned_modules":["future causal FMM"],"acceptance":"certified direct-sum parity and full-cost source benchmarks","allowed_approximation":"bounded source expansion","rejection":"underestimated remainder or missing cumulative backreaction"},
-  {"id":"G5","depends_on":["G1-runtime"],"owner":"systems","owned_modules":["engine/response","engine/storage"],"acceptance":"cargo test -p emergent-engine","allowed_approximation":"reconstructible cache eviction only","rejection":"stale response, corrupt replay, or unsupported input accepted"},
-  {"id":"G6","depends_on":["G1-runtime","G5"],"owner":"systems","owned_modules":["observatory"],"acceptance":"native screenshot/smoke and adapter tests","allowed_approximation":"presentation geometry only","rejection":"observation changes reality or falsely completed advance"},
-  {"id":"G7","depends_on":["G3","G4-fmm","G5"],"owner":"systems","owned_modules":["future causal worker partitioning and GPU physics"],"acceptance":"history parity across schedules and measured end-to-end crossover","allowed_approximation":"certified candidate arithmetic","rejection":"nondeterministic commit or kernel-only speed claim"},
-  {"id":"G8","depends_on":["G3","G4-fmm","G4-families","G5","G6","G7"],"owner":"independent verifier","owned_modules":["qualification evidence"],"acceptance":"cargo run --release -p xtask -- qualify","allowed_approximation":"none beyond the frozen production law","rejection":"any unmet integrated requirement; inertial scaling cannot substitute"}
- ]
+  "schema": 1,
+  "mode": "development team only",
+  "concurrency": {
+    "orchestrator": 1,
+    "specialists_max": 3,
+    "heavy_builds_max": 1,
+    "current_policy": "root plus at most two narrowly scoped implementation specialists by default; one heavy build; root owns shared files and journal"
+  },
+  "interface_contract": "current canonical: es-inertial-causal-v1; proposed integration response/authority contract to freeze in I1",
+  "ticket_required_fields": [
+    "id",
+    "depends_on",
+    "owner",
+    "owned_modules",
+    "acceptance",
+    "allowed_approximation",
+    "rejection"
+  ],
+  "tasks": [
+    {
+      "id": "I0",
+      "depends_on": [],
+      "owner": "integrator",
+      "owned_modules": [
+        "selection inventory",
+        "Cargo workspace",
+        "cost ledger",
+        "repair regression fixtures"
+      ],
+      "acceptance": "Pinned selected overlay; repeated-repair reference parity; complete nested cost accounting",
+      "allowed_approximation": "No changed law or canonical outcomes",
+      "rejection": "Lost prior intervention, omitted executed cost, unpreserved source overlay",
+      "status": "implemented",
+      "details": "docs/full-engine-integration-plan-20260915.md; docs/laws/i0-full-cost-report-20260915.md"
+    },
+    {
+      "id": "I1",
+      "depends_on": [
+        "I0"
+      ],
+      "owner": "integrator + law/validation + runtime specialists",
+      "owned_modules": [
+        "response contract",
+        "compiler continuation modules",
+        "root-owned runtime integration",
+        "authority tests"
+      ],
+      "acceptance": "Connected scene; real suspend/resume; authority-backed causal commits; replay/query/cache/budget invariance",
+      "allowed_approximation": "Labeled floating diagnostics before authority; explicit finite model for canonical path",
+      "rejection": "Budget charged after atomic work; sampled evidence authorizes event; unsupported required query",
+      "status": "planned",
+      "details": "docs/full-engine-integration-plan-20260915.md"
+    },
+    {
+      "id": "I2",
+      "depends_on": [
+        "I1"
+      ],
+      "owner": "population/history specialists + integrator",
+      "owned_modules": [
+        "population adapter",
+        "archive and query modules",
+        "policy indexes",
+        "root-owned scheduler/schema"
+      ],
+      "acceptance": "One scene crosses family extraction/remerge, collective gravity, individual reception, unequal cuts and selective history reconstruction",
+      "allowed_approximation": "Exact representational sharing or explicitly bounded same-law evaluation",
+      "rejection": "Global materialization; missing mass/cause; changed history; unbounded job",
+      "status": "planned",
+      "details": "docs/full-engine-integration-plan-20260915.md"
+    },
+    {
+      "id": "I3",
+      "depends_on": [
+        "I1"
+      ],
+      "owner": "numerical and representation specialists",
+      "owned_modules": [
+        "long-time response",
+        "perturbation response",
+        "population compression experiments"
+      ],
+      "acceptance": "Matched total-cost break-even and failure domain; promotion additionally requires I2 composition scene",
+      "allowed_approximation": "Same canonical law for compiler changes; model changes separately versioned",
+      "rejection": "Hidden replay; dense/history/bit growth erases savings; misleading source-only ratio",
+      "status": "planned",
+      "details": "docs/full-engine-integration-plan-20260915.md"
+    },
+    {
+      "id": "I4",
+      "depends_on": [
+        "I1",
+        "I2"
+      ],
+      "owner": "physics specialist + independent verifier",
+      "owned_modules": [
+        "physical model extensions",
+        "far-field/source representation",
+        "navigation",
+        "compact transport"
+      ],
+      "acceptance": "All six required behaviors and their crossing supported by one consistent versioned model suite",
+      "allowed_approximation": "Declared physical approximations with independent anchors and validated overlap/transition",
+      "rejection": "Disconnected per-card laws; missing required regime; unaccounted source or field effect",
+      "status": "planned",
+      "details": "docs/full-engine-integration-plan-20260915.md"
+    },
+    {
+      "id": "I5",
+      "depends_on": [
+        "I2"
+      ],
+      "owner": "systems specialist + root benchmark owner",
+      "owned_modules": [
+        "hot data layouts",
+        "candidate kernels",
+        "bounded CPU/GPU jobs"
+      ],
+      "acceptance": "Measured full-cost crossover with simulation/rendering contention and tail/memory bounds",
+      "allowed_approximation": "Candidate arithmetic with unchanged canonical authority",
+      "rejection": "Kernel-only gain, unbounded latency, increased unresolved reconstruction debt",
+      "status": "planned",
+      "details": "docs/full-engine-integration-plan-20260915.md"
+    },
+    {
+      "id": "I6",
+      "depends_on": [
+        "I2",
+        "I3",
+        "I4",
+        "I5"
+      ],
+      "owner": "independent verifier + integrator",
+      "owned_modules": [
+        "native engine observatory",
+        "integrated qualification manifest",
+        "promotion matrix"
+      ],
+      "acceptance": "One identified build/model/workload passes every required capability and operating-envelope gate",
+      "allowed_approximation": "Only approximations in the identified admitted model",
+      "rejection": "Unsupported required card, mixed-law passes, omitted verification cost or target violation",
+      "status": "planned",
+      "details": "docs/full-engine-integration-plan-20260915.md"
+    }
+  ],
+  "historical_gate_tasks": [
+    {
+      "id": "G0",
+      "depends_on": [],
+      "owner": "integrator",
+      "owned_modules": [
+        "workspace",
+        "xtask",
+        "scenarios"
+      ],
+      "acceptance": "cargo xtask test",
+      "allowed_approximation": "none in canonical semantics",
+      "rejection": "unreproducible build or unfrozen test definition"
+    },
+    {
+      "id": "G1-math",
+      "depends_on": [
+        "G0"
+      ],
+      "owner": "mechanics",
+      "owned_modules": [
+        "engine/math",
+        "engine/geometry",
+        "engine/propagator"
+      ],
+      "acceptance": "cargo test -p emergent-engine",
+      "allowed_approximation": "explicit dyadic proper-clock law only",
+      "rejection": "any incorrect certified branch or split-dependent result"
+    },
+    {
+      "id": "G1-runtime",
+      "depends_on": [
+        "G1-math"
+      ],
+      "owner": "systems",
+      "owned_modules": [
+        "engine/runtime"
+      ],
+      "acceptance": "cargo xtask reference",
+      "allowed_approximation": "none",
+      "rejection": "incorrect simultaneous event, missed contact, or budget-dependent history"
+    },
+    {
+      "id": "G2",
+      "depends_on": [
+        "G1-runtime"
+      ],
+      "owner": "mechanics",
+      "owned_modules": [
+        "law-lab"
+      ],
+      "acceptance": "cargo xtask law-lab",
+      "allowed_approximation": "versioned experimental laws, no production promotion without every gate",
+      "rejection": "missing causal dynamics, exact decision procedure, exterior or compact-field qualification"
+    },
+    {
+      "id": "G3",
+      "depends_on": [
+        "G2"
+      ],
+      "owner": "mechanics",
+      "owned_modules": [
+        "future certified physical engine"
+      ],
+      "acceptance": "same-law direct/accelerated parity and conservation",
+      "allowed_approximation": "sound certified enclosure",
+      "rejection": "different solver selects different physics"
+    },
+    {
+      "id": "G4-families",
+      "depends_on": [
+        "G1-runtime"
+      ],
+      "owner": "systems",
+      "owned_modules": [
+        "engine/population"
+      ],
+      "acceptance": "cargo test -p emergent-engine --test causal_contract",
+      "allowed_approximation": "none; exact indexed families",
+      "rejection": "identity loss or hidden approximate merge"
+    },
+    {
+      "id": "G4-fmm",
+      "depends_on": [
+        "G3"
+      ],
+      "owner": "mechanics",
+      "owned_modules": [
+        "future causal FMM"
+      ],
+      "acceptance": "certified direct-sum parity and full-cost source benchmarks",
+      "allowed_approximation": "bounded source expansion",
+      "rejection": "underestimated remainder or missing cumulative backreaction"
+    },
+    {
+      "id": "G5",
+      "depends_on": [
+        "G1-runtime"
+      ],
+      "owner": "systems",
+      "owned_modules": [
+        "engine/response",
+        "engine/storage"
+      ],
+      "acceptance": "cargo test -p emergent-engine",
+      "allowed_approximation": "reconstructible cache eviction only",
+      "rejection": "stale response, corrupt replay, or unsupported input accepted"
+    },
+    {
+      "id": "G6",
+      "depends_on": [
+        "G1-runtime",
+        "G5"
+      ],
+      "owner": "systems",
+      "owned_modules": [
+        "observatory"
+      ],
+      "acceptance": "native screenshot/smoke and adapter tests",
+      "allowed_approximation": "presentation geometry only",
+      "rejection": "observation changes reality or falsely completed advance"
+    },
+    {
+      "id": "G7",
+      "depends_on": [
+        "G3",
+        "G4-fmm",
+        "G5"
+      ],
+      "owner": "systems",
+      "owned_modules": [
+        "future causal worker partitioning and GPU physics"
+      ],
+      "acceptance": "history parity across schedules and measured end-to-end crossover",
+      "allowed_approximation": "certified candidate arithmetic",
+      "rejection": "nondeterministic commit or kernel-only speed claim"
+    },
+    {
+      "id": "G8",
+      "depends_on": [
+        "G3",
+        "G4-fmm",
+        "G4-families",
+        "G5",
+        "G6",
+        "G7"
+      ],
+      "owner": "independent verifier",
+      "owned_modules": [
+        "qualification evidence"
+      ],
+      "acceptance": "cargo run --release -p xtask -- qualify",
+      "allowed_approximation": "none beyond the frozen production law",
+      "rejection": "any unmet integrated requirement; inertial scaling cannot substitute"
+    }
+  ],
+  "active_plan": "docs/full-engine-integration-plan-20260915.md",
+  "plan_status": "prepared for review and agent handoff; implementation not dispatched"
 }

@@ -61,6 +61,164 @@ fn peak_rss() -> u64 {
         }
     }
 }
+fn current_rss_bytes() -> u64 {
+    let pid = std::process::id().to_string();
+    shell("ps", &["-o", "rss=", "-p", &pid])
+        .split_whitespace()
+        .next()
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(|kb| kb.saturating_mul(1024))
+        .unwrap_or(0)
+}
+fn apply_exception_interventions(e: &mut Engine, exceptions: usize) -> Result<()> {
+    for i in 0..exceptions {
+        e.intervene(
+            10000 + i as u64 * 17,
+            Command::SetVelocity {
+                velocity: Vec2 {
+                    x: r(1) / r(4),
+                    y: r(1 + (i % 3) as i128) / r(1024),
+                },
+            },
+        )?;
+    }
+    Ok(())
+}
+fn metric_view(m: &emergent_engine::runtime::Metrics) -> Value {
+    json!({
+        "search_operations": m.search_operations,
+        "scans": m.scans,
+        "broadphase_boxes": m.broadphase_boxes,
+        "broadphase_pairs": m.broadphase_pairs,
+        "box_builds": m.box_builds,
+        "sort_steps": m.sort_steps,
+        "expire_ops": m.expire_ops,
+        "group_ops": m.group_ops,
+        "frontier_ops": m.frontier_ops,
+        "commit_prep_ops": m.commit_prep_ops,
+        "aabb_compares": m.aabb_compares,
+        "family_range_ops": m.family_range_ops,
+        "sap_repairs": m.sap_repairs,
+        "invalidated_pairs": m.invalidated_pairs,
+        "quiet_commits": m.quiet_commits,
+        "pairs_total": m.pairs_total,
+        "pairs_rechecked": m.pairs_rechecked,
+        "committed_events": m.committed_events,
+        "components": m.components,
+        "component_size_max": m.component_size_max,
+        "ir_nodes": m.ir_nodes
+    })
+}
+fn delta_u64(after: u64, before: u64) -> u64 {
+    after.saturating_sub(before)
+}
+/// Release-profile the frozen 1,000-exception / 32-tick fixture with setup vs
+/// advance timed separately. Repeats are contemporaneous controls on this
+/// process; frozen 18.478 ms and H0013 27.768 ms are historical labels only.
+pub fn exception_setup_advance() -> Result<Value> {
+    let mut relay = scenario::causal_relay()?;
+    relay.advance_fully(100)?;
+    let relay_labels: Vec<String> = [("signal_arrived", 14), ("contact", 43), ("signal_arrived", 71)]
+        .into_iter()
+        .map(|(kind, tick)| {
+            if relay
+                .sorted_events()
+                .iter()
+                .any(|x| x.kind == kind && x.tick == tick)
+            {
+                Ok(format!("{kind}@{tick}"))
+            } else {
+                Err(format!("missing {kind}@{tick}").into())
+            }
+        })
+        .collect::<Result<_>>()?;
+    const EXCEPTIONS: usize = 1000;
+    const HORIZON: i128 = 32;
+    const REPEATS: usize = 3;
+    let mut rows = Vec::new();
+    for repeat in 0..REPEATS {
+        let rss_before = current_rss_bytes();
+        let peak_before = peak_rss();
+        let t_setup = Instant::now();
+        let mut e = scenario::population_fixture(1_000_000_000, 16)?;
+        apply_exception_interventions(&mut e, EXCEPTIONS)?;
+        let setup_ns = t_setup.elapsed().as_nanos();
+        let setup_metrics = e.metrics.clone();
+        let extracted = e.state.bodies.len();
+        let setup_serialized = serde_json::to_vec(&e.state)?.len();
+        let rss_after_setup = current_rss_bytes();
+        let peak_after_setup = peak_rss();
+        let t_adv = Instant::now();
+        let result = e.advance_fully(HORIZON)?;
+        let advance_ns = t_adv.elapsed().as_nanos();
+        let final_metrics = e.metrics.clone();
+        let encoded = serde_json::to_vec(&e.state)?;
+        rows.push(json!({
+            "repeat": repeat,
+            "process_state": if repeat == 0 {
+                "first_1k_exception_after_relay_warmup"
+            } else {
+                "fresh_engine_warm_process"
+            },
+            "setup_ns": setup_ns,
+            "advance_ns": advance_ns,
+            "extracted_ships": extracted,
+            "advance_operations": result.operations,
+            "advance_complete": result.complete,
+            "canonical_serialized_bytes_after_setup": setup_serialized,
+            "canonical_serialized_bytes_after_advance": encoded.len(),
+            "rss_bytes_before_case": rss_before,
+            "rss_bytes_after_setup": rss_after_setup,
+            "rss_bytes_after_advance": current_rss_bytes(),
+            "process_peak_rss_bytes_before_case": peak_before,
+            "process_peak_rss_bytes_after_setup": peak_after_setup,
+            "process_peak_rss_bytes_after_advance": peak_rss(),
+            "setup_metrics": metric_view(&setup_metrics),
+            "advance_delta_metrics": {
+                "search_operations": delta_u64(final_metrics.search_operations, setup_metrics.search_operations),
+                "scans": delta_u64(final_metrics.scans, setup_metrics.scans),
+                "pairs_total": delta_u64(final_metrics.pairs_total, setup_metrics.pairs_total),
+                "pairs_rechecked": delta_u64(final_metrics.pairs_rechecked, setup_metrics.pairs_rechecked),
+                "box_builds": delta_u64(final_metrics.box_builds, setup_metrics.box_builds),
+                "sort_steps": delta_u64(final_metrics.sort_steps, setup_metrics.sort_steps),
+                "expire_ops": delta_u64(final_metrics.expire_ops, setup_metrics.expire_ops),
+                "group_ops": delta_u64(final_metrics.group_ops, setup_metrics.group_ops),
+                "frontier_ops": delta_u64(final_metrics.frontier_ops, setup_metrics.frontier_ops),
+                "commit_prep_ops": delta_u64(final_metrics.commit_prep_ops, setup_metrics.commit_prep_ops),
+                "aabb_compares": delta_u64(final_metrics.aabb_compares, setup_metrics.aabb_compares),
+                "family_range_ops": delta_u64(final_metrics.family_range_ops, setup_metrics.family_range_ops),
+                "sap_repairs": delta_u64(final_metrics.sap_repairs, setup_metrics.sap_repairs),
+                "quiet_commits": delta_u64(final_metrics.quiet_commits, setup_metrics.quiet_commits),
+                "committed_events": delta_u64(final_metrics.committed_events, setup_metrics.committed_events)
+            },
+            "final_metrics": metric_view(&final_metrics)
+        }));
+    }
+    Ok(json!({
+        "schema": 1,
+        "provenance": provenance(),
+        "scope": "1,000-exception / 32-tick inertial fixture; setup (fixture+interventions) vs initial advance timed separately; no gravity",
+        "fixture": {
+            "logical_ships": 1_000_000_000u64,
+            "families": 16,
+            "exceptions": EXCEPTIONS,
+            "horizon_ticks": HORIZON,
+            "intervention": "SetVelocity on identities 10000 + i*17",
+            "interventions_before_timed_advance": true
+        },
+        "relay": {"status": "PASS", "events": relay_labels},
+        "accounting": "setup_ns includes population_fixture plus 1,000 SetVelocity interventions. advance_ns is the subsequent advance_fully(32). Repeats use fresh Engine states in one process. Repeat 0 follows only the causal-relay check; it is not the frozen full scale-gates sweep warmup. Serialized bytes are canonical JSON, not RAM. RSS is process-resident (ps rss) and peak is cumulative getrusage ru_maxrss. search_operations are WorkBudget-charged ops.",
+        "historical_labels_not_matched_process": {
+            "frozen_1dac658_setup_ms": 7.740,
+            "frozen_1dac658_advance_ms": 18.478,
+            "frozen_serialized_bytes": 923734,
+            "h0013_advance_ms": 27.768,
+            "h0013_serialized_bytes": 923757,
+            "note": "Do not treat frozen 18.478 ms and H0013 27.768 ms as the same process. This file is the contemporaneous control on this checkout."
+        },
+        "rows": rows
+    }))
+}
 pub fn reference() -> Result<Value> {
     let mut e = scenario::causal_relay()?;
     e.advance_fully(100)?;
@@ -122,17 +280,7 @@ pub fn run(out: &Path) -> Result<Value> {
     for exceptions in manifest.exception_counts {
         let start = Instant::now();
         let mut e = scenario::population_fixture(1_000_000_000, 16)?;
-        for i in 0..exceptions {
-            e.intervene(
-                10000 + i as u64 * 17,
-                Command::SetVelocity {
-                    velocity: Vec2 {
-                        x: r(1) / r(4),
-                        y: r(1 + (i % 3) as i128) / r(1024),
-                    },
-                },
-            )?;
-        }
+        apply_exception_interventions(&mut e, exceptions)?;
         let setup_us = start.elapsed().as_micros();
         let t = Instant::now();
         let result = e.advance_fully(32)?;

@@ -24,7 +24,9 @@ The checked-in toolchain is Rust 1.90.0. Build concurrency is limited to two job
 cargo observatory
 ```
 
-Drag to pan, scroll to zoom, click a symbol to inspect, and press Space to play/pause. Switch between the scientific diagnostic chart and the delayed sensor chart. Use **Set course** to apply a controlled heading, send signals to selected identities, or save/restore through Archive. Enter a ship identity from `10000` through `1000009999` to decode a member of the billion-ship transit population. Initial local objects have identities `1`–`5`.
+The default chart is the evolving spacetime laboratory patch (two masses, a test ship, a light ray and a clock) driven by the real `advance_patch` map. It is labeled a research completeness experiment: **not production gravity and not a G2 pass**. Press Play or +1; Jump 8 reaches the post-cone emit `t=1/8`. Buttons switch PΔ (μ 1→2) / P0 baseline, or open the inertial laboratory. `cargo observatory -- --world inertial` starts the canonical inertial ships instead.
+
+Drag to pan, scroll to zoom, click a symbol to inspect, and press Space to play/pause. In the inertial laboratory, switch between the scientific diagnostic chart and the delayed sensor chart. Use **Set course** to apply a controlled heading, send signals to selected identities, or save/restore through Archive. Enter a ship identity from `10000` through `1000009999` to decode a member of the billion-ship transit population. Initial local objects have identities `1`–`5`.
 
 The observatory displays the laboratory law and actual committed time. Long work runs on a separate worker and reports progress. Chart symbols and radii are schematic. The initial finite-radius celestial symbol is an occluder, not a secretly enabled gravitational body.
 

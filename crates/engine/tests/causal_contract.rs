@@ -217,7 +217,12 @@ fn family_splits_and_lookup_are_representation_only() {
         whole.history_digest(scenario::TEN_BILLION_YEARS).unwrap(),
         split.history_digest(scenario::TEN_BILLION_YEARS).unwrap()
     );
-    assert_eq!(whole.metrics.search_operations, 0);
+    assert_eq!(whole.metrics.exact_leaf_queries, 0);
+    assert!(
+        whole.metrics.search_operations < 32,
+        "family leap charged {} ops; must not scan population×ticks",
+        whole.metrics.search_operations
+    );
 }
 
 #[test]
@@ -302,12 +307,12 @@ fn exhaustive_small_world_contact_oracle() {
 
 #[test]
 fn stationary_family_source_moments_equal_materialized_sum() {
-    let f = Family {
-        name: "affine".into(),
-        first_id: 100,
-        count: 50,
-        offset: 9,
-        trajectory: Inertial::new(
+    let f = Family::affine(
+        "affine",
+        100,
+        50,
+        9,
+        Inertial::new(
             0,
             Vec2::new(3, -2),
             Vec2 {
@@ -316,10 +321,10 @@ fn stationary_family_source_moments_equal_materialized_sum() {
             },
         )
         .unwrap(),
-        stride: Vec2::new(9, 7),
-        radius: r(1),
-        mass: r(3),
-    };
+        Vec2::new(9, 7),
+        r(1),
+        r(3),
+    );
     let sum = (100..150).fold(Vec2::zero(), |sum, id| {
         sum + f.member(id).unwrap().state_at(100) * r(3)
     });
@@ -328,16 +333,16 @@ fn stationary_family_source_moments_equal_materialized_sum() {
 
 #[test]
 fn extracted_family_collisions_match_a_materialized_population() {
-    let f = Family {
-        name: "route".into(),
-        first_id: 100,
-        count: 8,
-        offset: 0,
-        trajectory: Inertial::new(0, Vec2::new(10, 0), Vec2::zero()).unwrap(),
-        stride: Vec2::new(8, 0),
-        radius: r(1) / r(8),
-        mass: r(1),
-    };
+    let f = Family::affine(
+        "route",
+        100,
+        8,
+        0,
+        Inertial::new(0, Vec2::new(10, 0), Vec2::zero()).unwrap(),
+        Vec2::new(8, 0),
+        r(1) / r(8),
+        r(1),
+    );
     for changed in [100, 103, 107] {
         let explicit = (100..108)
             .map(|id| Body::new(id, "route", f.member(id).unwrap(), f.radius.clone(), r(1)))
@@ -434,16 +439,16 @@ fn replay_rebuilds_causal_facts_from_genesis_and_commands() {
 
 #[test]
 fn indexed_occluders_match_individual_observations() {
-    let f = Family {
-        name: "occluders".into(),
-        first_id: 100,
-        count: 64,
-        offset: 0,
-        trajectory: Inertial::new(0, Vec2::new(5, 0), Vec2::zero()).unwrap(),
-        stride: Vec2::new(0, 8),
-        radius: r(1),
-        mass: r(1),
-    };
+    let f = Family::affine(
+        "occluders",
+        100,
+        64,
+        0,
+        Inertial::new(0, Vec2::new(5, 0), Vec2::zero()).unwrap(),
+        Vec2::new(0, 8),
+        r(1),
+        r(1),
+    );
     let endpoints = vec![body(1, 0, 0, 0, 0, 1), body(2, 10, 0, 0, 0, 1)];
     let mut individual = endpoints.clone();
     individual
