@@ -23,6 +23,7 @@ use emergent_law_lab::{
     i4_family_gem::measure_family_sourced_gem,
     i4_galaxy::measure_galaxy_multipole,
     i4_gem_authority::enclose_gem_field_interval,
+    i4_moving_horizon::measure_moving_horizon,
     i4_near_mass::{measure_near_mass_1pn, measure_near_mass_interface, I4_IF_MATCH_BAND},
     i4_solar::{solar_planet_ic_at, I4_COLLECTIVE_A_BAND, I4_HORIZON, I4_PREHISTORY},
 };
@@ -242,6 +243,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let galaxy = measure_galaxy_multipole().map_err(unsupported)?;
     let near_v0 = measure_near_mass_interface().map_err(unsupported)?;
     let near = measure_near_mass_1pn().map_err(unsupported)?;
+    let horizon = measure_moving_horizon().map_err(unsupported)?;
     let family = measure_family_sourced_gem().map_err(unsupported)?;
     let domain_auth = connected.authorizes_gem_events_on_admitted_field();
 
@@ -254,7 +256,6 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let asteroid_ok = connected.decode(ASTEROID_ID).is_ok();
 
     let quadrupole_fail = galaxy.remainder_gem > BAND;
-    let moving_refused = near.moving_multi_mass.contains("cannot qualify");
     let family_keep = family.remainder <= BAND && family.admitted == "family-moment-gem-source";
 
     let mut tiny = scenario::causal_relay()?;
@@ -320,12 +321,12 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         ),
         gate(
             "moving-multi-mass-compact",
-            if moving_refused {
-                GateStatus::Unsupported
+            if horizon.covers_compact {
+                GateStatus::Pass
             } else {
-                GateStatus::Fail
+                GateStatus::Unsupported
             },
-            near.moving_multi_mass.to_string(),
+            horizon.gate_evidence(),
         ),
         gate(
             "sch-gem-accel-continuity-v0",
@@ -460,8 +461,8 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
             evidence: format!(
-                "1PN clocks remainder {:.6}; 1PN accel remainder {:.6}; moving multi-mass refused",
-                near.clock_remainder, near.accel_remainder
+                "1PN clocks remainder {:.6}; 1PN accel remainder {:.6}; moving compact covers={} shopping_stopped={}",
+                near.clock_remainder, near.accel_remainder, horizon.covers_compact, horizon.shopping_stopped
             ),
         },
         Card {
@@ -488,10 +489,18 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             allowed_outcome_class: "crossing".into(),
             model_regime: "one Engine; GEM diagnostic; kernel unused".into(),
             comparison: "compiler_only inertial facts; gravity not canonical".into(),
-            status: GateStatus::Fail,
+            status: if horizon.covers_compact {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
-            evidence: "crossing scene exists; engine gravity diagnostic-only so the required gravitational crossing is not supported".into(),
+            evidence: if horizon.covers_compact {
+                "moving compact fields passed; crossing still requires the other required gates".into()
+            } else {
+                "crossing stays FAIL: moving compact fields still UNSUPPORTED; shopping stopped on GEM-to-horizon".into()
+            },
         },
     ];
 

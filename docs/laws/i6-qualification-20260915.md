@@ -15,6 +15,7 @@ Machine-readable companion:
 | Canonical law | `es-inertial-causal-v1` |
 | Diagnostic response | `es-linearized-retarded-gem-response-v0` |
 | Near-mass keep | `es-schwarzschild-1pn-gem-v0` (v0 Newton interface FAIL row kept) |
+| Moving compact attempt | `es-gem-absorbing-horizon-v0` **UNSUPPORTED**; shopping stopped |
 | Implementation | `emergent-full-engine-integration` |
 | Workload | connected family + hierarchy + in-flight ray + observer/policy + archive |
 | Promotion | **false** |
@@ -25,7 +26,7 @@ Machine-readable companion:
 Native `EngineBridge` hosts `emergent_engine::Engine`. `--world connected` is
 the I6 scene. GEM gallery is not the qualification world.
 
-## Gates (re-run after 1PN + domain-local field authority)
+## Gates (re-run after GEM-to-absorbing-horizon moving attempt)
 
 | id | status |
 |---|---|
@@ -34,7 +35,7 @@ the I6 scene. GEM gallery is not the qualification world.
 | persist-replay | PASS |
 | cold-history-query | PASS |
 | galaxy-quadrupole-skip | **FAIL** 0.478 vs 0.05; direct sums admitted |
-| moving-multi-mass-compact | **UNSUPPORTED** (1PN + stationary Sch still cannot) |
+| moving-multi-mass-compact | **UNSUPPORTED** compactness at r_s=0.5 > GEM 0.05; shopping stopped |
 | sch-gem-accel-continuity-v0 | **FAIL** Newton GEM 0.10 (row kept) |
 | sch-gem-accel-continuity | **PASS** 1PN GEM vs Sch Γ^r_tt ≤ 0.05 |
 | engine-canonical-gravity | **PASS** admitted-interior `authorizes_gem_events`; global diagnostic-only |
@@ -50,9 +51,13 @@ the I6 scene. GEM gallery is not the qualification world.
 | solar-system-hierarchy | PASS |
 | three-bodies | PASS |
 | galaxy-like-population | PASS via direct sums; quadrupole FAIL visible |
-| black-hole-near-mass | **UNSUPPORTED** (moving multi-mass) |
+| black-hole-near-mass | **UNSUPPORTED** (moving compact still unsupported; shopping stopped) |
 | fleet-asteroid-causal | PASS (N=4 family-moment only) |
-| crossing | **FAIL** (required gravitational crossing still unsupported) |
+| crossing | **FAIL** (moving compact fields still UNSUPPORTED) |
+
+Exact gap for moving compact fields: compactness at `r_s` is 0.5, above linearized
+GEM `|Φ|/c² ≤ 0.05`. Alternatives already tried: (a) 1PN GEM at a stationary
+Schwarzschild interface, (b) `es-gem-absorbing-horizon-v0`. **Shopping stopped.**
 
 Envelope targets remain targets. Behavior gates use remainder bands / independent
 oracles. This matrix does not pin leftover==0.0, 1188/1675, or 1.519….

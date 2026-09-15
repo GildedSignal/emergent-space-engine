@@ -2133,3 +2133,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: Crossing still FAIL. Galaxy skip still FAIL. Envelope targets UNSUPPORTED. Full-engine incomplete. Frozen H0139/H0142 interpretation: v0 0.10 remains a FAIL row.
 - Next: Do not select `production_law`. Remaining required gaps: moving multi-mass compact fields, quadrupole skip, gravitational crossing, envelope workload. Stop shopping if those still cannot pass.
+
+
+## H0144 — GEM-to-horizon moving attempt stays UNSUPPORTED; shopping stopped
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: failed
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0143 `bc56321`; this entry's follow-on commit
+- Scope: One recorded alternative for I6 `moving-multi-mass-compact` of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); not promotion; not full-engine
+- Changed: New model `es-gem-absorbing-horizon-v0`: two moving masses, GEM outside `r_s`, absorbing halt with μ transfer (0.5→8.5), remainder vs independent slow Euler (1.036e-15 on the weak prefix, band 0.05, not a leftover==0 pin). Compact cover fails: compactness at `r_s` is 0.5 > linearized GEM `|Φ|/c²` 0.05; `r_s < r ≤ r_if` has no GEM field. I6 `moving-multi-mass-compact` stays UNSUPPORTED. Crossing stays FAIL. Galaxy quadrupole 0.478 and family-as-galaxy-skip FAIL rows kept. Envelope UNSUPPORTED. `production_law` null. Shopping stopped: (a) 1PN+stationary Sch and (b) this GEM-to-horizon family are exhausted.
+- Why: Coordinator assigned one moving-source attempt that is not a static Schwarzschild anchor. Linearized GEM + 1PN + halt-capture still cannot cover compact multi-mass fields. 0.05 not widened.
+- Validation: `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-law-lab --lib i4_moving_horizon --offline --locked -- --test-threads=1` 2 PASS. `cargo test -p emergent-engine --test i6_qualification --offline --locked -- --test-threads=1` 1 PASS. Matrix mixed; promotion false; full-engine false.
+- Evidence: [I6 matrix JSON](laws/i6-qualification-matrix-20260915.json), [I6 notes](laws/i6-qualification-20260915.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Halt μ-transfer is capture accounting, not compact GR. Weak-field Euler remainder does not qualify the compact regime. Full-engine incomplete. Frozen H0139–H0143 interpretation unchanged.
+- Next: Do not shop another linearized-GEM moving-compact variant. Do not select `production_law`. Remaining required gaps: galaxy quadrupole skip (do not retry), gravitational crossing, envelope workload.

@@ -43,6 +43,18 @@ fn i6_same_model_matrix_runs_without_promotion() {
         status(&report, "moving-multi-mass-compact"),
         GateStatus::Unsupported
     );
+    let moving = report
+        .gates
+        .iter()
+        .find(|g| g.id == "moving-multi-mass-compact")
+        .expect("moving gate");
+    assert!(moving.evidence.contains("Shopping stopped"));
+    let crossing = report
+        .cards
+        .iter()
+        .find(|c| c.id == "coupled-fleet-hierarchy-inflight-ray-observer-boost")
+        .expect("crossing");
+    assert_eq!(crossing.status, GateStatus::Fail);
     assert_eq!(status(&report, "sch-gem-accel-continuity-v0"), GateStatus::Fail);
     assert_eq!(status(&report, "family-moment-as-galaxy-skip"), GateStatus::Fail);
     assert_eq!(status(&report, "production-promotion"), GateStatus::Fail);
