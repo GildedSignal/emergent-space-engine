@@ -924,4 +924,328 @@ mod tests {
             Err(err) => eprintln!("I3_KERNEL_ENTRANT fallback: {err}"),
         }
     }
+
+    #[test]
+    fn i3_kernel_amortizes_bootstrap_and_wires_kicks() {
+        use crate::coupled_source_response::{
+            compile_source_response_opts, laboratory_distant_tide, laboratory_encounter,
+            laboratory_kick, repair_from_committed, CompileOpts, Intervention,
+        };
+        use crate::i3_kernel::{
+            compile_kernel_with_kick, compile_memory_kernel_response, recouple_kernel_suffix,
+            KERNEL_A_BAND, KERNEL_KICK_A_BAND, KERNEL_KICK_POS_BAND, KERNEL_POS_BAND,
+        };
+        use crate::i3_secular::laboratory_circular_pair;
+
+        assert_eq!(KERNEL_POS_BAND, 0.05, "quiet gate declared before this slice");
+        assert_eq!(KERNEL_A_BAND, 0.05, "quiet gate declared before this slice");
+        assert_eq!(KERNEL_KICK_POS_BAND, 0.05, "kick gate declared before this slice");
+        assert_eq!(KERNEL_KICK_A_BAND, 0.05, "kick gate declared before this slice");
+
+        let mut quiet_rows = Vec::new();
+        for h in [8.0_f64, 12.0] {
+            let kernel = compile_memory_kernel_response(laboratory_circular_pair(), vec![], h)
+                .expect("quiet kernel at longer H");
+            let collocation = compile_source_response_opts(
+                laboratory_circular_pair(),
+                vec![],
+                h,
+                1.0 / 32.0,
+                CompileOpts {
+                    store_pair_inverse: false,
+                },
+            )
+            .unwrap();
+            let coll_cost = TotalCost::of(&collocation);
+            let split = kernel.split();
+            let mut q = Charge::default();
+            let mut max_dx = 0.0_f64;
+            let mut max_da = 0.0_f64;
+            let mut t_at_max_da = 0.0_f64;
+            for i in 0..8 {
+                let t = h * (i as f64 + 0.5) / 8.0;
+                let xs = kernel.eval(0, t, &mut q).unwrap();
+                let xc = eval_interval_at(&collocation, t);
+                max_dx = max_dx.max((xs[0] - xc[0]).abs().max((xs[1] - xc[1]).abs()));
+                if let (Ok(ak), Some(fun)) = (
+                    kernel.accel(0, t),
+                    collocation
+                        .interval_functions
+                        .iter()
+                        .rev()
+                        .find(|f| f.body_id == 0 && t + 1e-15 >= f.t0 && t <= f.t1 + 1e-15),
+                ) {
+                    let da = (ak[0] - fun.a[0]).abs().max((ak[1] - fun.a[1]).abs());
+                    if da > max_da {
+                        max_da = da;
+                        t_at_max_da = t;
+                    }
+                }
+            }
+            let advance_share = split.advance as f64 / split.total.max(1) as f64;
+            let boot_share = split.bootstrap as f64 / split.total.max(1) as f64;
+            eprintln!(
+                "I3_KERNEL_AMORT H={h} total={} bootstrap={} jacobian={} advance={} cert={} recon={} fallback={} collocation={} coll_se={} max_dx={} max_da={} t_at_max_da={} rank={} k_n={} memory={} fill={} boot_share={:.3} advance_share={:.3}",
+                split.total,
+                split.bootstrap,
+                split.jacobian,
+                split.advance,
+                split.certificate,
+                split.reconstruction + q.reconstruction,
+                split.fallback,
+                coll_cost.ledger,
+                coll_cost.source_evolution,
+                max_dx,
+                max_da,
+                t_at_max_da,
+                kernel.boundary_rank,
+                kernel.jacobian_n,
+                kernel.memory_len,
+                kernel.fill_in,
+                boot_share,
+                advance_share
+            );
+            quiet_rows.push((
+                h,
+                split,
+                coll_cost.ledger,
+                max_dx,
+                max_da,
+                kernel.boundary_rank,
+                kernel.jacobian_n,
+                kernel.memory_len,
+                kernel.fill_in,
+            ));
+        }
+        let a0 = &quiet_rows[0];
+        let a1 = &quiet_rows[1];
+        let rank_bounded = a0.5 == a1.5 && a0.6 == a1.6 && a0.7 == a1.7 && a0.8 == a1.8;
+        let matched = a0.3 < KERNEL_POS_BAND
+            && a1.3 < KERNEL_POS_BAND
+            && a0.4 < KERNEL_A_BAND
+            && a1.4 < KERNEL_A_BAND;
+        let cheaper = a0.1.total < a0.2 && a1.1.total < a1.2;
+        let advance_grows = a1.1.advance > a0.1.advance;
+        let bootstrap_flat = a1.1.bootstrap == a0.1.bootstrap;
+        let boot_still_dominates = a1.1.bootstrap as f64 > 0.5 * a1.1.total as f64;
+        if matched && cheaper && rank_bounded && advance_grows && bootstrap_flat {
+            eprintln!(
+                "I3_KEEP quiet kernel amortization H=8..12: ledger {}->{} < collocation {}->{}, Δx {}->{}, advance {}->{}, bootstrap {} (dominates={})",
+                a0.1.total, a1.1.total, a0.2, a1.2, a0.3, a1.3, a0.1.advance, a1.1.advance, a1.1.bootstrap, boot_still_dominates
+            );
+        } else {
+            eprintln!(
+                "I3_REJECT quiet kernel amortization: matched={matched} cheaper={cheaper} rank_bounded={rank_bounded} advance_grows={advance_grows} bootstrap_flat={bootstrap_flat} boot_dominates={boot_still_dominates}"
+            );
+        }
+        if boot_still_dominates {
+            eprintln!(
+                "I3_KERNEL_AMORT bootstrap remains {:.3} of H=12 ledger {}; not invented amortization of setup",
+                a1.1.bootstrap as f64 / a1.1.total.max(1) as f64,
+                a1.1.total
+            );
+        }
+
+        let h = 8.0_f64;
+        let weak = vec![Intervention {
+            t: 2.0,
+            body_id: 0,
+            delta_v: [0.0, 0.02],
+        }];
+        let kicked_col = compile_source_response_opts(
+            laboratory_circular_pair(),
+            weak.clone(),
+            h,
+            1.0 / 32.0,
+            CompileOpts {
+                store_pair_inverse: false,
+            },
+        )
+        .unwrap();
+        let col_kick = TotalCost::of(&kicked_col);
+        let mut kick_keep = false;
+        match compile_kernel_with_kick(laboratory_circular_pair(), weak.clone(), h) {
+            Ok(resumed) => {
+                let split = resumed.split();
+                let mut q = Charge::default();
+                let mut max_dx = 0.0_f64;
+                let mut max_da = 0.0_f64;
+                for i in 0..8 {
+                    let t = h * (i as f64 + 0.5) / 8.0;
+                    let xs = resumed.eval(0, t, &mut q).unwrap();
+                    let xc = eval_interval_at(&kicked_col, t);
+                    max_dx = max_dx.max((xs[0] - xc[0]).abs().max((xs[1] - xc[1]).abs()));
+                    if let (Ok(ak), Some(fun)) = (
+                        resumed.accel(0, t),
+                        kicked_col.interval_functions.iter().rev().find(|f| {
+                            f.body_id == 0 && t + 1e-15 >= f.t0 && t <= f.t1 + 1e-15
+                        }),
+                    ) {
+                        max_da = max_da
+                            .max((ak[0] - fun.a[0]).abs().max((ak[1] - fun.a[1]).abs()));
+                    }
+                }
+                eprintln!(
+                    "I3_KERNEL_KICK resume total={} bootstrap={} jacobian={} advance={} factor={} collocation={} max_dx={} max_da={} pos_band={} a_band={} rank={} memory={}",
+                    split.total,
+                    split.bootstrap,
+                    split.jacobian,
+                    split.advance,
+                    resumed.charge.factorization,
+                    col_kick.ledger,
+                    max_dx,
+                    max_da,
+                    KERNEL_KICK_POS_BAND,
+                    KERNEL_KICK_A_BAND,
+                    resumed.boundary_rank,
+                    resumed.memory_len
+                );
+                let matched = max_dx < KERNEL_KICK_POS_BAND && max_da < KERNEL_KICK_A_BAND;
+                if matched && split.total < col_kick.ledger {
+                    kick_keep = true;
+                    eprintln!(
+                        "I3_KEEP kernel-resume after weak kick H=8: ledger {} < collocation {}, Δx={max_dx}",
+                        split.total, col_kick.ledger
+                    );
+                } else {
+                    eprintln!(
+                        "I3_REJECT kernel-resume after weak kick: matched={matched} cheaper={} Δx={max_dx} da={max_da}",
+                        split.total < col_kick.ledger
+                    );
+                    let prefix =
+                        compile_memory_kernel_response(laboratory_circular_pair(), vec![], 2.0)
+                            .unwrap();
+                    match recouple_kernel_suffix(&prefix, &weak, h) {
+                        Ok(suffix) => {
+                            let suf = TotalCost::of(&suffix);
+                            eprintln!(
+                                "I3_KERNEL_KICK recouple_suffix ledger={} collocation={}",
+                                suf.ledger, col_kick.ledger
+                            );
+                            if suf.ledger < col_kick.ledger {
+                                eprintln!(
+                                    "I3_KEEP kernel-prefix + recouple-suffix H=8: {} < {}",
+                                    suf.ledger, col_kick.ledger
+                                );
+                                kick_keep = true;
+                            } else {
+                                eprintln!(
+                                    "I3_REJECT kernel-prefix + recouple-suffix as break-even: {} >= {}",
+                                    suf.ledger, col_kick.ledger
+                                );
+                            }
+                        }
+                        Err(err) => eprintln!("I3_KERNEL_KICK recouple_suffix fallback: {err}"),
+                    }
+                    let quiet = compile_source_response_opts(
+                        laboratory_circular_pair(),
+                        vec![],
+                        h,
+                        1.0 / 32.0,
+                        CompileOpts {
+                            store_pair_inverse: false,
+                        },
+                    )
+                    .unwrap();
+                    match repair_from_committed(&quiet, &weak, h, 1.0 / 32.0) {
+                        Ok(repaired) => {
+                            let rc = TotalCost::of(&repaired);
+                            eprintln!(
+                                "I3_KERNEL_KICK prefix-repair ledger={} recouple={}",
+                                rc.ledger, col_kick.ledger
+                            );
+                        }
+                        Err(err) => eprintln!("I3_KERNEL_KICK prefix-repair fallback: {err}"),
+                    }
+                }
+            }
+            Err(err) => {
+                eprintln!("I3_KERNEL_KICK resume fallback: {err}");
+                eprintln!(
+                    "I3_FALLBACK kicked collocation ledger={}",
+                    col_kick.ledger
+                );
+            }
+        }
+
+        let strong = laboratory_kick();
+        let strong_col = compile_source_response_opts(
+            laboratory_circular_pair(),
+            strong.clone(),
+            8.0,
+            1.0 / 32.0,
+            CompileOpts {
+                store_pair_inverse: false,
+            },
+        )
+        .unwrap();
+        match compile_kernel_with_kick(laboratory_circular_pair(), strong, 8.0) {
+            Ok(s) => {
+                let mut q = Charge::default();
+                let mut dx = 0.0_f64;
+                for i in 0..8 {
+                    let t = 8.0 * (i as f64 + 0.5) / 8.0;
+                    let xs = s.eval(0, t, &mut q).unwrap();
+                    let xc = eval_interval_at(&strong_col, t);
+                    dx = dx.max((xs[0] - xc[0]).abs().max((xs[1] - xc[1]).abs()));
+                }
+                eprintln!(
+                    "I3_KERNEL_KICK_STRONG ledger={} collocation={} max_dx={} pos_band={}",
+                    s.charge.ledger_total(),
+                    TotalCost::of(&strong_col).ledger,
+                    dx,
+                    KERNEL_KICK_POS_BAND
+                );
+                if dx >= KERNEL_KICK_POS_BAND {
+                    eprintln!(
+                        "I3_REJECT strong kick (Δv=0.125) as skipped GEM: max_dx={dx} >= {KERNEL_KICK_POS_BAND}"
+                    );
+                }
+            }
+            Err(err) => eprintln!("I3_KERNEL_KICK_STRONG fallback: {err}"),
+        }
+        let (enc_ic, _) = laboratory_encounter();
+        let enc = compile_kernel_with_kick(enc_ic.clone(), vec![Intervention {
+            t: 2.0,
+            body_id: 0,
+            delta_v: [0.0, 0.02],
+        }], 4.0);
+        assert!(enc.is_err(), "close-entrant stays a recouple/collocation fallback");
+        eprintln!("I3_KERNEL_KICK_ENCOUNTER refuse={}", enc.unwrap_err());
+        let enc_col = compile_source_response_opts(
+            enc_ic,
+            vec![],
+            4.0,
+            1.0 / 32.0,
+            CompileOpts {
+                store_pair_inverse: false,
+            },
+        )
+        .unwrap();
+        eprintln!(
+            "I3_KERNEL_KICK_ENCOUNTER recouple_ledger={}",
+            TotalCost::of(&enc_col).ledger
+        );
+        let tide = compile_kernel_with_kick(laboratory_distant_tide(), vec![Intervention {
+            t: 2.0,
+            body_id: 0,
+            delta_v: [0.0, 0.02],
+        }], 4.0);
+        eprintln!(
+            "I3_KERNEL_KICK_TIDE fallback={}",
+            tide.err()
+                .map(|e| e.to_string())
+                .unwrap_or_else(|| "unexpected keep".into())
+        );
+
+        if !kick_keep {
+            eprintln!(
+                "I3_INCOMPLETE kick path has no total-cost break-even under predeclared 0.05 gates; I3 exit is not proven"
+            );
+        } else {
+            eprintln!(
+                "I3_KERNEL_KICK admitted in weak-kick H=8; I3 exit still requires a horizon where sequential collocation would have dominated including kicks"
+            );
+        }
+    }
 }

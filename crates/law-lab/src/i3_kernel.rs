@@ -49,6 +49,24 @@ pub struct MemoryKernelResponse {
     functions: Vec<IntervalFunction>,
 }
 
+/// Nested Charge split for amortization. Reconstruction is charged on eval,
+/// not construction.
+#[derive(Clone, Copy, Debug)]
+pub struct KernelChargeSplit {
+    pub bootstrap: u64,
+    pub jacobian: u64,
+    pub advance: u64,
+    pub certificate: u64,
+    pub reconstruction: u64,
+    pub fallback: u64,
+    pub total: u64,
+}
+
+/// Kick-path match vs kicked collocation. Same 0.05 as the quiet kernel;
+/// declared before this slice's kick runs. Not a widened quiet band.
+pub const KERNEL_KICK_POS_BAND: f64 = 0.05;
+pub const KERNEL_KICK_A_BAND: f64 = 0.05;
+
 impl MemoryKernelResponse {
     pub fn bytes(&self) -> usize {
         serde_json::to_vec(self).map(|b| b.len()).unwrap_or(0)
@@ -91,6 +109,28 @@ impl MemoryKernelResponse {
                 why: format!("memory-kernel has no accel for body {id} at t={t}"),
             })?;
         Ok(fun.a)
+    }
+
+    pub fn state(
+        &self,
+        id: u64,
+        t: f64,
+        charge: &mut Charge,
+    ) -> Result<([f64; 2], [f64; 2]), ResponseError> {
+        charge.reconstruction = charge.reconstruction.saturating_add(1);
+        let fun = covering_function(&self.functions, id, t)?;
+        let h = t - fun.t0;
+        Ok((
+            [
+                fun.x0[0] + fun.v0[0] * h + 0.5 * fun.a[0] * h * h,
+                fun.x0[1] + fun.v0[1] * h + 0.5 * fun.a[1] * h * h,
+            ],
+            [fun.v0[0] + fun.a[0] * h, fun.v0[1] + fun.a[1] * h],
+        ))
+    }
+
+    pub fn split(&self) -> KernelChargeSplit {
+        charge_split(&self.charge)
     }
 }
 
@@ -192,10 +232,223 @@ pub fn compile_memory_kernel_response(
     }
 
     let mut functions = boot_funs;
+    let mut advance_charge = Charge::default();
+    let (memory_len, min_r) = march_kernel(
+        &ic,
+        &mut functions,
+        KERNEL_MEMORY,
+        horizon,
+        r0,
+        &mut advance_charge,
+    )?;
+    charge.push_child("kernel_advance", ChargeRole::RuntimeRequest, advance_charge);
+    if memory_len > 4 * KERNEL_RANK_MAX {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!(
+                "memory length {memory_len} grew past 4×rank cap; compression moved work into the boundary"
+            ),
+        });
+    }
+    let mut cert = Charge::default();
+    cert.verification += 1;
+    charge.push_child("certificate", ChargeRole::Certificate, cert);
+    Ok(MemoryKernelResponse {
+        law_id: COUPLED_RESPONSE_LAW_ID.into(),
+        horizon,
+        genesis: ic,
+        incoming,
+        bootstrap_horizon: KERNEL_MEMORY,
+        boundary_rank: rank,
+        jacobian_n: k_n,
+        memory_len,
+        fill_in,
+        discarded_energy: discarded,
+        min_r,
+        charge,
+        wall_ns: start.elapsed().as_nanos(),
+        max_remainder: discarded,
+        functions,
+    })
+}
+
+/// Kernel quiet prefix, apply kicks, resume kernel march. Remainder vs kicked
+/// collocation is measured by the caller. Does not mint a keep from a refused
+/// remainder; the caller falls back to recouple/collocation.
+pub fn compile_kernel_with_kick(
+    ic: InitialCondition,
+    incoming: Vec<Intervention>,
+    horizon: f64,
+) -> Result<MemoryKernelResponse, ResponseError> {
+    if incoming.is_empty() {
+        return Err(ResponseError::UnsupportedDomain {
+            why: "kernel kick path needs a kick; empty extra is not a skip".into(),
+        });
+    }
+    let t_kick = incoming
+        .iter()
+        .map(|iv| iv.t)
+        .fold(f64::INFINITY, f64::min);
+    if t_kick < KERNEL_MEMORY - 1e-12 {
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!(
+                "kick at {t_kick} is inside the bootstrap window; fallback to collocation"
+            ),
+        });
+    }
+    if t_kick > horizon + 1e-12 {
+        return Err(ResponseError::UnsupportedDomain {
+            why: "kick is after the horizon; not this path".into(),
+        });
+    }
+    let mut prefix = compile_memory_kernel_response(ic.clone(), vec![], t_kick)?;
+    let mut functions = prefix.functions;
+    let mut kick_charge = Charge::default();
+    for iv in &incoming {
+        apply_kick(&mut functions, iv, &mut kick_charge)?;
+    }
+    prefix.charge.push_child("kick_apply", ChargeRole::RuntimeRequest, kick_charge);
+    let mut advance_charge = Charge::default();
+    let r0 = hypot(
+        ic.bodies[0].x[0] - ic.bodies[1].x[0],
+        ic.bodies[0].x[1] - ic.bodies[1].x[1],
+    );
+    let (memory_len, min_r) = march_kernel(
+        &ic,
+        &mut functions,
+        t_kick,
+        horizon,
+        r0.min(prefix.min_r),
+        &mut advance_charge,
+    )?;
+    prefix
+        .charge
+        .push_child("kernel_advance_suffix", ChargeRole::RuntimeRequest, advance_charge);
+    prefix.horizon = horizon;
+    prefix.incoming = incoming;
+    prefix.memory_len = prefix.memory_len.max(memory_len);
+    prefix.min_r = min_r;
+    prefix.functions = functions;
+    prefix.wall_ns = prefix.wall_ns; // prefix wall only; suffix is nested
+    Ok(prefix)
+}
+
+/// Suffix collocation from the kernel state at the first kick. Explicit recouple
+/// of the kicked tail; not a guessed kernel event.
+pub fn recouple_kernel_suffix(
+    prefix: &MemoryKernelResponse,
+    incoming: &[Intervention],
+    horizon: f64,
+) -> Result<crate::coupled_source_response::SourceResponse, ResponseError> {
+    let t_kick = incoming
+        .iter()
+        .map(|iv| iv.t)
+        .fold(f64::INFINITY, f64::min);
+    if !t_kick.is_finite() {
+        return Err(ResponseError::UnsupportedDomain {
+            why: "recouple suffix needs a kick time".into(),
+        });
+    }
+    let mut recon = Charge::default();
+    let mut kicked = ic_from_kernel(prefix, t_kick, &mut recon)?;
+    for iv in incoming {
+        if (iv.t - t_kick).abs() < 1e-12 {
+            if let Some(b) = kicked.bodies.iter_mut().find(|b| b.id == iv.body_id) {
+                b.v[0] += iv.delta_v[0];
+                b.v[1] += iv.delta_v[1];
+            }
+        }
+    }
+    let mut compiled = crate::coupled_source_response::compile_source_response_opts(
+        kicked,
+        incoming
+            .iter()
+            .filter(|iv| iv.t > t_kick + 1e-12)
+            .cloned()
+            .collect(),
+        horizon,
+        1.0 / 32.0,
+        CompileOpts {
+            store_pair_inverse: false,
+        },
+    )?;
+    compiled.charge.push_child("kernel_prefix_recon", ChargeRole::Reconstruction, recon);
+    compiled
+        .charge
+        .push_child("kernel_prefix", ChargeRole::RuntimeRequest, prefix.charge.clone());
+    Ok(compiled)
+}
+
+pub fn laboratory_tight_pair() -> InitialCondition {
+    let mut ic = laboratory_circular_pair();
+    ic.bodies[0].x = [-1.5, 0.0];
+    ic.bodies[1].x = [1.5, 0.0];
+    let a = 3.0;
+    let v = (crate::coupled_source_response::G * 2.0 / a).sqrt() / 2.0;
+    ic.bodies[0].v = [0.0, -v];
+    ic.bodies[1].v = [0.0, v];
+    ic
+}
+
+fn charge_split(charge: &Charge) -> KernelChargeSplit {
+    let child = |name: &str| {
+        charge
+            .child(name)
+            .map(|c| c.charge.ledger_total())
+            .unwrap_or(0)
+    };
+    KernelChargeSplit {
+        bootstrap: child("bootstrap_window"),
+        jacobian: child("window_jacobian"),
+        advance: child("kernel_advance") + child("kernel_advance_suffix"),
+        certificate: child("certificate"),
+        reconstruction: child("kernel_prefix_recon") + charge.reconstruction,
+        fallback: charge.fallback,
+        total: charge.ledger_total(),
+    }
+}
+
+fn covering_function(
+    functions: &[IntervalFunction],
+    id: u64,
+    t: f64,
+) -> Result<&IntervalFunction, ResponseError> {
+    functions
+        .iter()
+        .rev()
+        .find(|f| f.body_id == id && t + 1e-15 >= f.t0 && t <= f.t1 + 1e-15)
+        .or_else(|| {
+            functions
+                .iter()
+                .rev()
+                .find(|f| f.body_id == id && f.t0 <= t + 1e-15)
+        })
+        .ok_or(ResponseError::UnsupportedDomain {
+            why: format!("memory-kernel has no function for body {id} at t={t}"),
+        })
+}
+
+fn function_state(fun: &IntervalFunction, t: f64) -> ([f64; 2], [f64; 2]) {
+    let h = t - fun.t0;
+    (
+        [
+            fun.x0[0] + fun.v0[0] * h + 0.5 * fun.a[0] * h * h,
+            fun.x0[1] + fun.v0[1] * h + 0.5 * fun.a[1] * h * h,
+        ],
+        [fun.v0[0] + fun.a[0] * h, fun.v0[1] + fun.a[1] * h],
+    )
+}
+
+fn march_kernel(
+    ic: &InitialCondition,
+    functions: &mut Vec<IntervalFunction>,
+    t_from: f64,
+    horizon: f64,
+    mut min_r: f64,
+    charge: &mut Charge,
+) -> Result<(usize, f64), ResponseError> {
     let mut memory_len = functions.len();
-    let mut t = KERNEL_MEMORY;
-    let mut min_r = r0;
-    let max_remainder = discarded;
+    let mut t = t_from;
     while t < horizon - 1e-15 {
         let t_next = (t + KERNEL_STEP).min(horizon);
         let h = t_next - t;
@@ -218,25 +471,11 @@ pub fn compile_memory_kernel_response(
         let mut created: Vec<IntervalFunction> = Vec::new();
         let mut step_x: Vec<[f64; 2]> = Vec::new();
         for body in ic.bodies.iter() {
-            let last = functions
-                .iter()
-                .rev()
-                .find(|f| f.body_id == body.id)
-                .ok_or(ResponseError::UnsupportedDomain {
-                    why: format!("missing memory for body {}", body.id),
-                })?;
-            let dt_last = t - last.t0;
-            let x = [
-                last.x0[0] + last.v0[0] * dt_last + 0.5 * last.a[0] * dt_last * dt_last,
-                last.x0[1] + last.v0[1] * dt_last + 0.5 * last.a[1] * dt_last * dt_last,
-            ];
-            let v = [
-                last.v0[0] + last.a[0] * dt_last,
-                last.v0[1] + last.a[1] * dt_last,
-            ];
+            let last = covering_function(functions, body.id, t)?;
+            let (x, v) = function_state(last, t);
             let t_col = t + 0.5 * h;
             let x_col = [x[0] + v[0] * (t_col - t), x[1] + v[1] * (t_col - t)];
-            let a = field_acceleration(&sources, t_col, x_col, v, Some(body.id), &mut charge)?;
+            let a = field_acceleration(&sources, t_col, x_col, v, Some(body.id), charge)?;
             step_x.push(x);
             created.push(IntervalFunction {
                 body_id: body.id,
@@ -264,43 +503,50 @@ pub fn compile_memory_kernel_response(
         functions.extend(created);
         t = t_next;
     }
-    if memory_len > 4 * KERNEL_RANK_MAX {
-        charge.fallback += 1;
-        return Err(ResponseError::UnsupportedDomain {
-            why: format!(
-                "memory length {memory_len} grew past 4×rank cap; compression moved work into the boundary"
-            ),
-        });
-    }
-    charge.verification += 1;
-    Ok(MemoryKernelResponse {
-        law_id: COUPLED_RESPONSE_LAW_ID.into(),
-        horizon,
-        genesis: ic,
-        incoming,
-        bootstrap_horizon: KERNEL_MEMORY,
-        boundary_rank: rank,
-        jacobian_n: k_n,
-        memory_len,
-        fill_in,
-        discarded_energy: discarded,
-        min_r,
-        charge,
-        wall_ns: start.elapsed().as_nanos(),
-        max_remainder,
-        functions,
-    })
+    Ok((memory_len, min_r))
 }
 
-pub fn laboratory_tight_pair() -> InitialCondition {
-    let mut ic = laboratory_circular_pair();
-    ic.bodies[0].x = [-1.5, 0.0];
-    ic.bodies[1].x = [1.5, 0.0];
-    let a = 3.0;
-    let v = (crate::coupled_source_response::G * 2.0 / a).sqrt() / 2.0;
-    ic.bodies[0].v = [0.0, -v];
-    ic.bodies[1].v = [0.0, v];
-    ic
+fn apply_kick(
+    functions: &mut Vec<IntervalFunction>,
+    iv: &Intervention,
+    charge: &mut Charge,
+) -> Result<(), ResponseError> {
+    charge.history += 1;
+    let last = covering_function(functions, iv.body_id, iv.t)?.clone();
+    let (x, mut v) = function_state(&last, iv.t);
+    v[0] += iv.delta_v[0];
+    v[1] += iv.delta_v[1];
+    functions.push(IntervalFunction {
+        body_id: iv.body_id,
+        t0: iv.t,
+        t1: iv.t,
+        x0: x,
+        v0: v,
+        a: last.a,
+        mu: last.mu,
+    });
+    Ok(())
+}
+
+fn ic_from_kernel(
+    kernel: &MemoryKernelResponse,
+    t: f64,
+    charge: &mut Charge,
+) -> Result<InitialCondition, ResponseError> {
+    let mut bodies = Vec::new();
+    for b in &kernel.genesis.bodies {
+        let (x, v) = kernel.state(b.id, t, charge)?;
+        bodies.push(crate::coupled_source_response::BodyInit {
+            id: b.id,
+            mu: b.mu,
+            x,
+            v,
+        });
+    }
+    Ok(InitialCondition {
+        genesis_t: t,
+        bodies,
+    })
 }
 
 fn hypot(x: f64, y: f64) -> f64 {
@@ -472,6 +718,8 @@ mod tests {
     fn kernel_gates_are_declared() {
         assert_eq!(KERNEL_POS_BAND, 0.05);
         assert_eq!(KERNEL_A_BAND, 0.05);
+        assert_eq!(KERNEL_KICK_POS_BAND, 0.05);
+        assert_eq!(KERNEL_KICK_A_BAND, 0.05);
         assert_eq!(KERNEL_RANK_MAX, 16);
         assert_eq!(KERNEL_MEMORY, 1.0);
         assert_eq!(KERNEL_STEP, 0.5);

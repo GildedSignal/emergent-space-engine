@@ -2002,3 +2002,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I3 kernel evidence](laws/i3-kernel-evidence-20260915.md), [I3 osculating](laws/i3-osculating-evidence-20260915.md), [H0133](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: I3 exit is not proven. Bootstrap still dominates the kernel ledger (~1089 of 1113). Coarse marched samples still grow with H (18→26 vs collocation 30→46). Kicks and entrants are fallbacks, not skipped GEM. `production_law` null. Canonical gravity remains `diagnostic-only`.
 - Next: Amortize the bootstrap over a longer quiet horizon, or a kick/entrant path that is an explicit recouple/collocation fallback. Do not launch I4–I6 theater.
+
+
+## H0135 — I3: quiet kernel amortizes to H=12; weak-kick resume kept; I3 not exited
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after `954a8c7`; this entry's follow-on commit
+- Scope: I3 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); bootstrap amortization and explicit kick path; not gravitational qualification
+- Changed: Nested Charge split bootstrap/jacobian/advance/certificate. Quiet circular a=4 at H=8 ledger 1137 vs collocation 2300 (Δx=0.00403) and H=12 ledger 1185 vs 3176 (Δx=0.00954); rank 4, memory 6, fill-in 144 bounded; advance 84→132; bootstrap flat at 870 (73% of H=12 kernel ledger — not invented amortization of setup). Weak Δv=0.02 kick resume KEEP 1139 vs 2525, Δx=0.004. Strong laboratory_kick Δx=0.216 rejected. Recouple-suffix 2932 is not cheaper. Close-entrant/n-body refuse to recouple. 0.05 gates not widened. I4–I6 not started.
+- Why: I3 exit needs a horizon where sequential collocation would have dominated, including kicks. Quiet longer-H and a weak-kick path were the discriminating leftovers after H0134.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. Law-lab `i3_` 10, `coupled_` 54. `cargo xtask history check` on journal home required.
+- Evidence: [I3 amort/kick](laws/i3-kernel-amort-kick-evidence-20260915.md), [I3 kernel](laws/i3-kernel-evidence-20260915.md), [H0134](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: I3 exit is not proven. Bootstrap still dominates kernel setup. Strong kicks miss 0.05. Close-entrant and tides still recouple. `production_law` null. Canonical gravity remains `diagnostic-only`.
+- Next: A representation that matches GEM after a strong Δv or close-entrant without full collocation, or admit I3 cannot skip sequential GEM on those domains. Do not launch I4–I6 theater.
