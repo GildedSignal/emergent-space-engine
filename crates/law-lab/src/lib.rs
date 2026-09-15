@@ -958,6 +958,9 @@ pub mod coupled_phase_nav;
 pub mod i3_keep_reject;
 /// Kepler + slow residual as evolution. Construction does not collocate over H.
 pub mod i3_secular;
+/// Low-rank / memory-kernel Volterra compression. Construction does not
+/// collocate over H. Not production_law. Not canonical gravity.
+pub mod i3_kernel;
 
 #[cfg(test)]
 mod tests {

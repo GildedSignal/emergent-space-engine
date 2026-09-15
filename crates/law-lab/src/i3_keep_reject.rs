@@ -706,4 +706,222 @@ mod tests {
             Err(err) => eprintln!("I3_OSC_FORCE fallback: {err}"),
         }
     }
+
+    #[test]
+    fn i3_memory_kernel_does_not_collocate_the_skipped_interval() {
+        use crate::coupled_source_response::{
+            compile_source_response_opts, laboratory_distant_tide, laboratory_two_body, CompileOpts,
+        };
+        use crate::i3_kernel::{
+            compile_memory_kernel_response, laboratory_tight_pair, KERNEL_A_BAND, KERNEL_MEMORY,
+            KERNEL_POS_BAND, KERNEL_RANK_MAX, KERNEL_STEP,
+        };
+        use crate::i3_secular::{
+            laboratory_circular_pair, laboratory_eccentric_pair, laboratory_resonant_kicks,
+        };
+
+        assert_eq!(KERNEL_POS_BAND, 0.05, "gate declared before this slice's runs");
+        assert_eq!(KERNEL_A_BAND, 0.05, "gate declared before this slice's runs");
+        assert_eq!(KERNEL_RANK_MAX, 16);
+        assert_eq!(KERNEL_MEMORY, 1.0);
+        assert_eq!(KERNEL_STEP, 0.5);
+
+        let mut rows = Vec::new();
+        for h in [4.0_f64, 6.0] {
+            let kernel = compile_memory_kernel_response(laboratory_circular_pair(), vec![], h);
+            let collocation = compile_source_response_opts(
+                laboratory_circular_pair(),
+                vec![],
+                h,
+                1.0 / 32.0,
+                CompileOpts {
+                    store_pair_inverse: false,
+                },
+            )
+            .unwrap();
+            let coll_cost = TotalCost::of(&collocation);
+            let coll_nfun = collocation.interval_functions.len();
+            match kernel {
+                Ok(k) => {
+                    let mut q_charge = Charge::default();
+                    let mut max_dx = 0.0_f64;
+                    let mut max_da = 0.0_f64;
+                    for i in 0..8 {
+                        let t = h * (i as f64 + 0.5) / 8.0;
+                        let xs = k.eval(0, t, &mut q_charge).unwrap();
+                        let xc = eval_interval_at(&collocation, t);
+                        max_dx = max_dx.max((xs[0] - xc[0]).abs().max((xs[1] - xc[1]).abs()));
+                        if let (Ok(ak), Some(fun)) = (
+                            k.accel(0, t),
+                            collocation.interval_functions.iter().find(|f| {
+                                f.body_id == 0 && t + 1e-15 >= f.t0 && t <= f.t1 + 1e-15
+                            }),
+                        ) {
+                            max_da = max_da
+                                .max((ak[0] - fun.a[0]).abs().max((ak[1] - fun.a[1]).abs()));
+                        }
+                    }
+                    eprintln!(
+                        "I3_KERNEL H={h} kernel_ledger={} collocation_ledger={} kernel_runtime={} collocation_runtime={} kernel_bytes={} collocation_bytes={} kernel_coeff={} collocation_coeff={} kernel_factor={} collocation_factor={} kernel_recon={} collocation_recon={} kernel_cert={} collocation_cert={} remainder={} discarded={} max_dx={} max_da={} pos_band={} a_band={} rank={} k_n={} memory_len={} fill_in={} stored_funs={} coll_nfun={} kernel_se={} collocation_se={} collocation_ret={} min_r={}",
+                        k.charge.ledger_total(),
+                        coll_cost.ledger,
+                        k.charge.runtime_request_total(),
+                        coll_cost.runtime,
+                        k.bytes(),
+                        coll_cost.bytes,
+                        k.charge.coefficient_construction,
+                        coll_cost.coefficient_construction,
+                        k.charge.factorization,
+                        coll_cost.factorization,
+                        k.charge.reconstruction + q_charge.reconstruction,
+                        coll_cost.reconstruction,
+                        k.charge.validation + k.charge.verification,
+                        coll_cost.certificate,
+                        k.max_remainder,
+                        k.discarded_energy,
+                        max_dx,
+                        max_da,
+                        KERNEL_POS_BAND,
+                        KERNEL_A_BAND,
+                        k.boundary_rank,
+                        k.jacobian_n,
+                        k.memory_len,
+                        k.fill_in,
+                        k.stored_funs(),
+                        coll_nfun,
+                        k.charge.source_evolution,
+                        coll_cost.source_evolution,
+                        coll_cost.retarded_solves,
+                        k.min_r
+                    );
+                    rows.push((
+                        h,
+                        Some(k.charge.ledger_total()),
+                        coll_cost.ledger,
+                        Some(max_dx),
+                        Some(max_da),
+                        k.boundary_rank,
+                        k.jacobian_n,
+                        k.memory_len,
+                        k.fill_in,
+                        k.stored_funs(),
+                        coll_nfun,
+                    ));
+                }
+                Err(err) => {
+                    eprintln!(
+                        "I3_KERNEL H={h} fallback={err} collocation_ledger={} collocation_se={} collocation_ret={} coll_nfun={}",
+                        coll_cost.ledger,
+                        coll_cost.source_evolution,
+                        coll_cost.retarded_solves,
+                        coll_nfun
+                    );
+                    rows.push((
+                        h, None, coll_cost.ledger, None, None, 0, 0, 0, 0, 0, coll_nfun,
+                    ));
+                }
+            }
+        }
+        let col_lo = rows[0].2;
+        let col_hi = rows[1].2;
+        assert!(col_hi > col_lo, "collocation must still grow with H");
+        match (rows[0].1, rows[0].3, rows[1].1, rows[1].3) {
+            (Some(k_lo), Some(dx_lo), Some(k_hi), Some(dx_hi)) => {
+                let da_lo = rows[0].4.unwrap_or(f64::INFINITY);
+                let da_hi = rows[1].4.unwrap_or(f64::INFINITY);
+                let matched = dx_lo < KERNEL_POS_BAND
+                    && dx_hi < KERNEL_POS_BAND
+                    && da_lo < KERNEL_A_BAND
+                    && da_hi < KERNEL_A_BAND;
+                let cheaper = k_hi < col_hi && k_lo < col_lo;
+                let rank_grew = rows[1].5 > rows[0].5;
+                let kn_grew = rows[1].6 > rows[0].6;
+                let mem_grew = rows[1].7 > rows[0].7;
+                let fill_grew = rows[1].8 > rows[0].8;
+                // Plan kill: rank/memory/fill-in growing like the dense pair-inverse.
+                // Coarse marched samples still grow with H (slower than collocation nfun);
+                // that is the trajectory, not operator fill-in.
+                let like_dense = kn_grew || fill_grew || rank_grew || mem_grew;
+                if matched && cheaper && !like_dense {
+                    eprintln!(
+                        "I3_KEEP memory-kernel in circular a=4 H=4..6: ledger {k_lo}->{k_hi} < collocation {col_lo}->{col_hi}, max_dx {dx_lo}->{dx_hi} < {KERNEL_POS_BAND}, da {da_lo}->{da_hi} < {KERNEL_A_BAND}, rank {}->{}, memory {}->{}, fill {}->{}, stored {}->{} vs coll_nfun {}->{}",
+                        rows[0].5, rows[1].5, rows[0].7, rows[1].7, rows[0].8, rows[1].8, rows[0].9, rows[1].9, rows[0].10, rows[1].10
+                    );
+                } else {
+                    eprintln!(
+                        "I3_REJECT memory-kernel as skipped GEM: matched={matched} cheaper={cheaper} like_dense={like_dense} ledger {k_lo}->{k_hi} vs {col_lo}->{col_hi} max_dx {dx_lo}->{dx_hi} da {da_lo}->{da_hi} rank {}->{} k_n {}->{} memory {}->{} fill {}->{} stored {}->{} coll_nfun {}->{}",
+                        rows[0].5, rows[1].5, rows[0].6, rows[1].6, rows[0].7, rows[1].7, rows[0].8, rows[1].8, rows[0].9, rows[1].9, rows[0].10, rows[1].10
+                    );
+                }
+            }
+            _ => {
+                eprintln!(
+                    "I3_REJECT memory-kernel: construction refused in H=4..6; collocation {col_lo}->{col_hi}"
+                );
+            }
+        }
+
+        match compile_memory_kernel_response(laboratory_eccentric_pair(), vec![], 6.0) {
+            Ok(s) => {
+                let ecc_col = compile_source_response_opts(
+                    laboratory_eccentric_pair(),
+                    vec![],
+                    6.0,
+                    1.0 / 32.0,
+                    CompileOpts {
+                        store_pair_inverse: false,
+                    },
+                )
+                .unwrap();
+                let mut q = Charge::default();
+                let mut ecc_dx = 0.0_f64;
+                for i in 0..8 {
+                    let t = 6.0 * (i as f64 + 0.5) / 8.0;
+                    let xs = s.eval(0, t, &mut q).unwrap();
+                    let xc = eval_interval_at(&ecc_col, t);
+                    ecc_dx = ecc_dx.max((xs[0] - xc[0]).abs().max((xs[1] - xc[1]).abs()));
+                }
+                eprintln!(
+                    "I3_KERNEL_ECC ledger={} collocation_ledger={} remainder={} rank={} memory_len={} max_dx={} pos_band={}",
+                    s.charge.ledger_total(),
+                    ecc_col.charge.ledger_total(),
+                    s.max_remainder,
+                    s.boundary_rank,
+                    s.memory_len,
+                    ecc_dx,
+                    KERNEL_POS_BAND
+                );
+            }
+            Err(err) => eprintln!("I3_KERNEL_ECC fallback: {err}"),
+        }
+        match compile_memory_kernel_response(laboratory_tight_pair(), vec![], 6.0) {
+            Ok(s) => eprintln!(
+                "I3_KERNEL_COUPLE ledger={} remainder={} rank={} min_r={}",
+                s.charge.ledger_total(),
+                s.max_remainder,
+                s.boundary_rank,
+                s.min_r
+            ),
+            Err(err) => eprintln!("I3_KERNEL_COUPLE fallback: {err}"),
+        }
+        let radial = compile_memory_kernel_response(laboratory_two_body(), vec![], 6.0);
+        assert!(
+            radial.is_err(),
+            "radial rest pair remains a close-encounter fallback"
+        );
+        eprintln!("I3_KERNEL_ENCOUNTER refuse={}", radial.unwrap_err());
+        let resonant = laboratory_resonant_kicks(2.0, 6.0);
+        match compile_memory_kernel_response(laboratory_circular_pair(), resonant, 6.0) {
+            Ok(s) => eprintln!(
+                "I3_KERNEL_RESONANCE ledger={} remainder={}",
+                s.charge.ledger_total(),
+                s.max_remainder
+            ),
+            Err(err) => eprintln!("I3_KERNEL_RESONANCE fallback: {err}"),
+        }
+        match compile_memory_kernel_response(laboratory_distant_tide(), vec![], 4.0) {
+            Ok(s) => eprintln!("I3_KERNEL_ENTRANT ledger={}", s.charge.ledger_total()),
+            Err(err) => eprintln!("I3_KERNEL_ENTRANT fallback: {err}"),
+        }
+    }
 }

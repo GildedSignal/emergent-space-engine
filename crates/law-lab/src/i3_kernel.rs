@@ -1,0 +1,479 @@
+//! I3 memory-kernel / low-rank Volterra compression of retarded GEM
+//! collocation. Construction collocates a fixed memory window, then advances
+//! later windows from that operator — it does not `interval_compile` over H.
+//! Compact-after-the-fact of a finished collocation is not this object.
+//! Not `production_law`. Not canonical gravity.
+
+use crate::coupled_source_response::{
+    field_acceleration, Body, Charge, ChargeRole, CompileOpts, InitialCondition, IntervalFunction,
+    Intervention, ResponseError, Segment, COUPLED_RESPONSE_LAW_ID,
+};
+use crate::i3_secular::laboratory_circular_pair;
+use serde::{Deserialize, Serialize};
+
+/// Position match vs collocation. 1.25% of circular laboratory `a=4`.
+/// Declared before this slice's kernel runs. Not the osculating 0.20 band,
+/// and not a widened H0132 0.05 accel-fit (that peak was 0.078).
+pub const KERNEL_POS_BAND: f64 = 0.05;
+/// Remainder: discarded SVD energy of the bootstrap-window Jacobian, and
+/// test-time max `|a_kernel − a_collocation|`. Declared before runs.
+pub const KERNEL_A_BAND: f64 = 0.05;
+/// Maximum admitted numerical rank of the window Jacobian. Full window
+/// dimension on a two-light-crossing bootstrap is expected ≤ this.
+pub const KERNEL_RANK_MAX: usize = 16;
+/// Memory length: two light-crossings of the circular `a=4` pair (`r/c=0.5`).
+/// Fixed. Must not grow with H.
+pub const KERNEL_MEMORY: f64 = 1.0;
+/// March cadence: one light-crossing. Coarser than collocation `τ/2≈0.25`.
+pub const KERNEL_STEP: f64 = 0.5;
+const KERNEL_SV_REL: f64 = 1e-3;
+const KERNEL_CLOSE_R: f64 = 1.0;
+const FD_EPS: f64 = 1e-6;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MemoryKernelResponse {
+    pub law_id: String,
+    pub horizon: f64,
+    pub genesis: InitialCondition,
+    pub incoming: Vec<Intervention>,
+    pub bootstrap_horizon: f64,
+    pub boundary_rank: usize,
+    pub jacobian_n: usize,
+    pub memory_len: usize,
+    pub fill_in: usize,
+    pub discarded_energy: f64,
+    pub min_r: f64,
+    pub charge: Charge,
+    pub wall_ns: u128,
+    pub max_remainder: f64,
+    functions: Vec<IntervalFunction>,
+}
+
+impl MemoryKernelResponse {
+    pub fn bytes(&self) -> usize {
+        serde_json::to_vec(self).map(|b| b.len()).unwrap_or(0)
+    }
+
+    pub fn eval(&self, id: u64, t: f64, charge: &mut Charge) -> Result<[f64; 2], ResponseError> {
+        charge.reconstruction = charge.reconstruction.saturating_add(1);
+        let fun = self
+            .functions
+            .iter()
+            .rev()
+            .find(|f| f.body_id == id && t + 1e-15 >= f.t0 && t <= f.t1 + 1e-15)
+            .or_else(|| {
+                self.functions
+                    .iter()
+                    .rev()
+                    .find(|f| f.body_id == id && f.t0 <= t + 1e-15)
+            })
+            .ok_or(ResponseError::UnsupportedDomain {
+                why: format!("memory-kernel has no function for body {id} at t={t}"),
+            })?;
+        let h = t - fun.t0;
+        Ok([
+            fun.x0[0] + fun.v0[0] * h + 0.5 * fun.a[0] * h * h,
+            fun.x0[1] + fun.v0[1] * h + 0.5 * fun.a[1] * h * h,
+        ])
+    }
+
+    pub fn stored_funs(&self) -> usize {
+        self.functions.len()
+    }
+
+    pub fn accel(&self, id: u64, t: f64) -> Result<[f64; 2], ResponseError> {
+        let fun = self
+            .functions
+            .iter()
+            .rev()
+            .find(|f| f.body_id == id && t + 1e-15 >= f.t0 && t <= f.t1 + 1e-15)
+            .ok_or(ResponseError::UnsupportedDomain {
+                why: format!("memory-kernel has no accel for body {id} at t={t}"),
+            })?;
+        Ok(fun.a)
+    }
+}
+
+pub fn compile_memory_kernel_response(
+    ic: InitialCondition,
+    incoming: Vec<Intervention>,
+    horizon: f64,
+) -> Result<MemoryKernelResponse, ResponseError> {
+    let start = std::time::Instant::now();
+    let mut charge = Charge {
+        init: 1,
+        ..Charge::default()
+    };
+    if ic.bodies.len() != 2 {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: "entrant / n-body; memory-kernel pair operator refuses; fallback to collocation"
+                .into(),
+        });
+    }
+    if horizon + 1e-15 < KERNEL_MEMORY {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!("horizon {horizon} is shorter than memory window {KERNEL_MEMORY}"),
+        });
+    }
+    let r0 = hypot(
+        ic.bodies[0].x[0] - ic.bodies[1].x[0],
+        ic.bodies[0].x[1] - ic.bodies[1].x[1],
+    );
+    let v0 = hypot(ic.bodies[0].v[0], ic.bodies[0].v[1])
+        + hypot(ic.bodies[1].v[0], ic.bodies[1].v[1]);
+    if r0 < KERNEL_CLOSE_R || v0 < 1e-12 {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!(
+                "close-encounter / radial rest pair (r={r0}, |v|={v0}); fallback to collocation"
+            ),
+        });
+    }
+    if !incoming.is_empty() {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: "resonance/forcing kicks; memory-kernel has no event table; fallback to collocation"
+                .into(),
+        });
+    }
+
+    let mut bootstrap_charge = Charge::default();
+    let bootstrap = crate::coupled_source_response::compile_source_response_opts(
+        ic.clone(),
+        vec![],
+        KERNEL_MEMORY,
+        1.0 / 32.0,
+        CompileOpts {
+            store_pair_inverse: false,
+        },
+    )
+    .map_err(|err| {
+        bootstrap_charge.fallback += 1;
+        err
+    })?;
+    bootstrap_charge = bootstrap.charge.clone();
+    charge.push_child("bootstrap_window", ChargeRole::RuntimeRequest, bootstrap_charge);
+
+    let boot_funs = bootstrap.interval_functions.clone();
+    if boot_funs.len() < 2 {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: "bootstrap window stored no interval functions".into(),
+        });
+    }
+
+    let mut k_charge = Charge::default();
+    let (k_n, k_mat) = window_jacobian(&boot_funs, &mut k_charge)?;
+    charge.push_child("window_jacobian", ChargeRole::RuntimeRequest, k_charge);
+    if k_n == 0 || k_n > 2 * KERNEL_RANK_MAX {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!("window Jacobian n={k_n} is empty or exceeds 2×rank cap"),
+        });
+    }
+    charge.factorization += 1;
+    let (rank, discarded) = svd_rank(&k_mat, k_n, KERNEL_SV_REL);
+    let fill_in = k_n * k_n;
+    if rank > KERNEL_RANK_MAX {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!("boundary rank {rank} exceeds cap {KERNEL_RANK_MAX}; not a small boundary"),
+        });
+    }
+    if discarded > KERNEL_A_BAND {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!(
+                "window Jacobian discarded energy {discarded} exceeds band {KERNEL_A_BAND}; not low-rank"
+            ),
+        });
+    }
+
+    let mut functions = boot_funs;
+    let mut memory_len = functions.len();
+    let mut t = KERNEL_MEMORY;
+    let mut min_r = r0;
+    let max_remainder = discarded;
+    while t < horizon - 1e-15 {
+        let t_next = (t + KERNEL_STEP).min(horizon);
+        let h = t_next - t;
+        if h <= 1e-18 {
+            break;
+        }
+        let lookback: Vec<IntervalFunction> = functions
+            .iter()
+            .filter(|f| f.t1 > t - KERNEL_MEMORY - 1e-12 && f.t0 < t + 1e-12)
+            .cloned()
+            .collect();
+        memory_len = memory_len.max(lookback.len());
+        if lookback.len() < 2 {
+            charge.fallback += 1;
+            return Err(ResponseError::UnsupportedDomain {
+                why: format!("memory lookback empty at t={t}; fallback to collocation"),
+            });
+        }
+        let sources = bodies_from_functions(&lookback);
+        let mut created: Vec<IntervalFunction> = Vec::new();
+        let mut step_x: Vec<[f64; 2]> = Vec::new();
+        for body in ic.bodies.iter() {
+            let last = functions
+                .iter()
+                .rev()
+                .find(|f| f.body_id == body.id)
+                .ok_or(ResponseError::UnsupportedDomain {
+                    why: format!("missing memory for body {}", body.id),
+                })?;
+            let dt_last = t - last.t0;
+            let x = [
+                last.x0[0] + last.v0[0] * dt_last + 0.5 * last.a[0] * dt_last * dt_last,
+                last.x0[1] + last.v0[1] * dt_last + 0.5 * last.a[1] * dt_last * dt_last,
+            ];
+            let v = [
+                last.v0[0] + last.a[0] * dt_last,
+                last.v0[1] + last.a[1] * dt_last,
+            ];
+            let t_col = t + 0.5 * h;
+            let x_col = [x[0] + v[0] * (t_col - t), x[1] + v[1] * (t_col - t)];
+            let a = field_acceleration(&sources, t_col, x_col, v, Some(body.id), &mut charge)?;
+            step_x.push(x);
+            created.push(IntervalFunction {
+                body_id: body.id,
+                t0: t,
+                t1: t_next,
+                x0: x,
+                v0: v,
+                a,
+                mu: body.mu,
+            });
+            charge.source_evolution += 1;
+        }
+        if step_x.len() == 2 {
+            min_r = min_r.min(hypot(
+                step_x[0][0] - step_x[1][0],
+                step_x[0][1] - step_x[1][1],
+            ));
+            if min_r < KERNEL_CLOSE_R {
+                charge.fallback += 1;
+                return Err(ResponseError::UnsupportedDomain {
+                    why: format!("close-encounter during march (r={min_r}); fallback to collocation"),
+                });
+            }
+        }
+        functions.extend(created);
+        t = t_next;
+    }
+    if memory_len > 4 * KERNEL_RANK_MAX {
+        charge.fallback += 1;
+        return Err(ResponseError::UnsupportedDomain {
+            why: format!(
+                "memory length {memory_len} grew past 4×rank cap; compression moved work into the boundary"
+            ),
+        });
+    }
+    charge.verification += 1;
+    Ok(MemoryKernelResponse {
+        law_id: COUPLED_RESPONSE_LAW_ID.into(),
+        horizon,
+        genesis: ic,
+        incoming,
+        bootstrap_horizon: KERNEL_MEMORY,
+        boundary_rank: rank,
+        jacobian_n: k_n,
+        memory_len,
+        fill_in,
+        discarded_energy: discarded,
+        min_r,
+        charge,
+        wall_ns: start.elapsed().as_nanos(),
+        max_remainder,
+        functions,
+    })
+}
+
+pub fn laboratory_tight_pair() -> InitialCondition {
+    let mut ic = laboratory_circular_pair();
+    ic.bodies[0].x = [-1.5, 0.0];
+    ic.bodies[1].x = [1.5, 0.0];
+    let a = 3.0;
+    let v = (crate::coupled_source_response::G * 2.0 / a).sqrt() / 2.0;
+    ic.bodies[0].v = [0.0, -v];
+    ic.bodies[1].v = [0.0, v];
+    ic
+}
+
+fn hypot(x: f64, y: f64) -> f64 {
+    (x * x + y * y).sqrt()
+}
+
+fn bodies_from_functions(funs: &[IntervalFunction]) -> Vec<Body> {
+    let mut ids: Vec<u64> = Vec::new();
+    for fun in funs {
+        if !ids.contains(&fun.body_id) {
+            ids.push(fun.body_id);
+        }
+    }
+    ids.into_iter()
+        .map(|id| {
+            let mut segs: Vec<Segment> = funs
+                .iter()
+                .filter(|f| f.body_id == id)
+                .map(|f| Segment {
+                    t0: f.t0,
+                    t1: Some(f.t1),
+                    x0: f.x0,
+                    v: f.v0,
+                    a: f.a,
+                    mu: f.mu,
+                })
+                .collect();
+            segs.sort_by(|a, b| a.t0.partial_cmp(&b.t0).unwrap());
+            Body {
+                id,
+                segments: segs,
+            }
+        })
+        .collect()
+}
+
+fn window_jacobian(
+    funs: &[IntervalFunction],
+    charge: &mut Charge,
+) -> Result<(usize, Vec<f64>), ResponseError> {
+    let nfun = funs.len();
+    let n = 2 * nfun;
+    let mut k_mat = vec![0.0; n * n];
+    let sources0 = bodies_from_functions(funs);
+    for j in 0..nfun {
+        for comp in 0..2 {
+            let mut pert = funs.to_vec();
+            pert[j].a[comp] += FD_EPS;
+            let sources = bodies_from_functions(&pert);
+            charge.coefficient_construction += 1;
+            for i in 0..nfun {
+                if funs[i].body_id == funs[j].body_id {
+                    continue;
+                }
+                let h = funs[i].t1 - funs[i].t0;
+                if h <= 1e-18 {
+                    continue;
+                }
+                let t_col = funs[i].t0 + 0.5 * h;
+                let x_col = [
+                    funs[i].x0[0] + funs[i].v0[0] * 0.5 * h,
+                    funs[i].x0[1] + funs[i].v0[1] * 0.5 * h,
+                ];
+                let a = field_acceleration(
+                    &sources,
+                    t_col,
+                    x_col,
+                    funs[i].v0,
+                    Some(funs[i].body_id),
+                    charge,
+                )?;
+                let a0 = field_acceleration(
+                    &sources0,
+                    t_col,
+                    x_col,
+                    funs[i].v0,
+                    Some(funs[i].body_id),
+                    charge,
+                )?;
+                k_mat[2 * i * n + (2 * j + comp)] = (a[0] - a0[0]) / FD_EPS;
+                k_mat[(2 * i + 1) * n + (2 * j + comp)] = (a[1] - a0[1]) / FD_EPS;
+            }
+        }
+    }
+    Ok((n, k_mat))
+}
+
+fn svd_rank(k: &[f64], n: usize, rel: f64) -> (usize, f64) {
+    let mut gram = vec![0.0; n * n];
+    for i in 0..n {
+        for j in 0..n {
+            let mut s = 0.0;
+            for p in 0..n {
+                s += k[p * n + i] * k[p * n + j];
+            }
+            gram[i * n + j] = s;
+        }
+    }
+    let evals = jacobi_eigenvalues(&mut gram, n);
+    let mut sigmas: Vec<f64> = evals.into_iter().map(|λ| λ.max(0.0).sqrt()).collect();
+    sigmas.sort_by(|a, b| b.partial_cmp(a).unwrap());
+    let smax = sigmas.first().copied().unwrap_or(0.0);
+    let thresh = smax * rel;
+    let rank = sigmas.iter().filter(|s| **s > thresh).count();
+    let total: f64 = sigmas.iter().map(|s| s * s).sum();
+    let kept: f64 = sigmas.iter().take(rank).map(|s| s * s).sum();
+    let discarded = if total > 1e-18 {
+        (1.0 - kept / total).max(0.0)
+    } else {
+        0.0
+    };
+    (rank.max(1), discarded)
+}
+
+fn jacobi_eigenvalues(a: &mut [f64], n: usize) -> Vec<f64> {
+    for _ in 0..32 {
+        let mut max_off = 0.0_f64;
+        let mut p = 0;
+        let mut q = 1;
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let mag = a[i * n + j].abs();
+                if mag > max_off {
+                    max_off = mag;
+                    p = i;
+                    q = j;
+                }
+            }
+        }
+        if max_off < 1e-14 {
+            break;
+        }
+        let app = a[p * n + p];
+        let aqq = a[q * n + q];
+        let apq = a[p * n + q];
+        let tau = (aqq - app) / (2.0 * apq);
+        let sign = if tau >= 0.0 { 1.0 } else { -1.0 };
+        let t = if tau.abs() > 1e18 {
+            1.0 / (2.0 * tau)
+        } else {
+            sign / (tau.abs() + (1.0 + tau * tau).sqrt())
+        };
+        let c = 1.0 / (1.0 + t * t).sqrt();
+        let s = t * c;
+        for k in 0..n {
+            if k == p || k == q {
+                continue;
+            }
+            let aik = a[k * n + p];
+            let aiq = a[k * n + q];
+            a[k * n + p] = c * aik - s * aiq;
+            a[p * n + k] = a[k * n + p];
+            a[k * n + q] = s * aik + c * aiq;
+            a[q * n + k] = a[k * n + q];
+        }
+        a[p * n + p] = c * c * app - 2.0 * s * c * apq + s * s * aqq;
+        a[q * n + q] = s * s * app + 2.0 * s * c * apq + c * c * aqq;
+        a[p * n + q] = 0.0;
+        a[q * n + p] = 0.0;
+    }
+    (0..n).map(|i| a[i * n + i]).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kernel_gates_are_declared() {
+        assert_eq!(KERNEL_POS_BAND, 0.05);
+        assert_eq!(KERNEL_A_BAND, 0.05);
+        assert_eq!(KERNEL_RANK_MAX, 16);
+        assert_eq!(KERNEL_MEMORY, 1.0);
+        assert_eq!(KERNEL_STEP, 0.5);
+    }
+}

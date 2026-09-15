@@ -1987,3 +1987,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I3 osculating evidence](laws/i3-osculating-evidence-20260915.md), [I3 secular](laws/i3-secular-evidence-20260915.md), [H0132](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: I3 exit is not proven. Construction never reached the 0.20 position gate. The 0.85 eccentricity refuse was not raised after seeing 0.886. `production_law` null. Canonical gravity remains `diagnostic-only`.
 - Next: Do not use Kepler as the GEM two-body reference. Try low-rank / memory-kernel compression of the retarded Volterra collocation operator. Do not launch I4–I6 theater.
+
+
+## H0134 — I3: memory-kernel Volterra compression kept on the quiet pair; I3 not exited
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after `facf4a5`; this entry's follow-on commit
+- Scope: I3 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); low-rank / memory-kernel compression of retarded GEM collocation; not gravitational qualification
+- Changed: Implemented `compile_memory_kernel_response`: bootstrap collocation on a fixed two-light-crossing window, window Jacobian SVD, then memory-truncated GEM march at one light-crossing. Does not `interval_compile` over H. Predeclared `KERNEL_POS_BAND=0.05` and `KERNEL_A_BAND=0.05` (not widened). Circular a=4: H=4 ledger 1089 vs 1551, Δx=0.00150, Δa=0.00122; H=6 ledger 1113 vs 2057, Δx=0.00259; rank 4, memory 6, Jacobian n=12, fill-in 144, none growing with H. Eccentric H=6 Δx=0.00177. Close-entrant, resonance kicks and n-body entrant refuse with explicit collocation fallback. Tight pair constructs at rank 12. I4–I6 not started.
+- Why: Kepler ansatze missed GEM. The plan's next discriminating test was whether a bounded retarded kernel can advance time without dense pair-inverse growth.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. Law-lab `i3_` 9, `coupled_` 54. `cargo xtask history check` on journal home required.
+- Evidence: [I3 kernel evidence](laws/i3-kernel-evidence-20260915.md), [I3 osculating](laws/i3-osculating-evidence-20260915.md), [H0133](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: I3 exit is not proven. Bootstrap still dominates the kernel ledger (~1089 of 1113). Coarse marched samples still grow with H (18→26 vs collocation 30→46). Kicks and entrants are fallbacks, not skipped GEM. `production_law` null. Canonical gravity remains `diagnostic-only`.
+- Next: Amortize the bootstrap over a longer quiet horizon, or a kick/entrant path that is an explicit recouple/collocation fallback. Do not launch I4–I6 theater.
