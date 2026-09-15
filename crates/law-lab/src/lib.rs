@@ -964,6 +964,9 @@ pub mod i3_kernel;
 /// I4 solar hierarchy and ordinary weak-field encounters. GEM stays diagnostic.
 /// Not production_law. Not canonical gravity.
 pub mod i4_solar;
+/// I4 interval-wide GEM field authority on causal blocks. Not production_law.
+/// Does not mint CANONICAL_GRAVITY_ACCEPTANCE.
+pub mod i4_gem_authority;
 
 #[cfg(test)]
 mod tests {

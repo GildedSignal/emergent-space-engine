@@ -1,18 +1,18 @@
 # Emergent Space — agent handoff
 
-**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0–I3 domain-exited. I4 started: solar prehistory vs switch-on; GEM still diagnostic. Do not launch I5–I6 theater. [Integration plan](full-engine-integration-plan-20260915.md).
+**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0–I3 domain-exited. I4 in progress: interval-wide GEM field bound on the solar admitted interior; six-card crossing, galaxy hierarchical expansion, and black-hole capture still missing. Do not launch I5–I6 theater. [Integration plan](full-engine-integration-plan-20260915.md).
 
 ## First ten minutes
 
 1. Read the heading-check skill and living card at `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight. Journal home remains `/private/tmp/emergent-g2-law`. Integration worktree is `/private/tmp/emergent-full-engine-integration`.
 2. Read [the integration plan](full-engine-integration-plan-20260915.md), especially Evidence, the four initial issues, and I0/I1. Run `cargo xtask history list` and search relevant entries. H0124 closed the previous prompt's assigned laboratory exits; I0 reproduced repair completeness and nested accounting on the clean worktree.
 3. Inspect `git status --short`, `git log -8 --oneline`, and `git worktree list`. Do not merge cumulative packet branches wholesale or delete original worktrees.
-4. I3 is domain-exited (H0136): quiet kernel and weak-kick resume kept; strong-kick patch rejected (Δx=0.218). I4 started (H0137): solar prehistory required; GEM still diagnostic. Do not launch I5–I6 theater.
+4. I3 is domain-exited (H0136). I4 (H0138): causal-block Lipschitz/KA delay covers the solar admitted interior and authorizes GEM field events there; genesis prefix, galaxy monopoles, and black-hole capture remain gaps. Do not launch I5–I6 theater. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.
 5. Read hypothesis notes when selecting a discriminating experiment. They are candidates, not prescriptions. Keep a plan change separate from a measured engine capability.
 
 ## Current capabilities and boundaries
 
-- **I4 (this worktree):** Solar hierarchical two-body with prehistory stays bound; genesis switch-on defect 0.476>0.05. Weak-field flyby and close-entrant use collocation/recouple, not kernel. Per-query retarded lookback is not interval-wide and does not authorize events. [I4 solar/authority](laws/i4-solar-authority-20260915.md).
+- **I4 (this worktree):** Interval-wide GEM field bound on stored-a causal blocks covers solar two-body admitted interior [-0.926, 4] (`authorizes_events=true` there; genesis prefix refused). Companion hierarchy a=20 collocation; inner Δx=0.013. Collective two-cluster monopoles REJECT (0.269>0.05). Ships/rays/clocks/nav forward-verified on solar. Black-hole card is an exact gap. Engine canonical events stay inertial; `CANONICAL_GRAVITY_ACCEPTANCE=diagnostic-only`. [I4 GEM authority](laws/i4-gem-authority-20260915.md), [I4 solar start](laws/i4-solar-authority-20260915.md).
 - **I3 domain exit:** Admitted: quiet kernel H=4..12, weak-kick resume H=8, H≤3 collocation vs Euler, prefix-repair, lazy inverse. Failure: Kepler ansatze, PERIOD, compact-after-the-fact, Schur tide, population-solved, strong kicks (resume Δx=0.216, patch Δx=0.218), close-entrant recouple. [I3 domain exit](laws/i3-domain-exit-20260915.md), [I3 amort/kick](laws/i3-kernel-amort-kick-evidence-20260915.md).
 - **I2 composition:** One scene joins a massive affine family to the I1 hierarchy while a ray is in flight. Extraction, exact affine re-merge, range broadcast receptions, unequal certified cuts (now via `advance_region`), incremental archive seal/eviction/cold observation, restore/replay, collective mass, burst recovery and resident-history bytes are evidenced. Policy fires once. [I2 evidence](laws/i2-composition-evidence-20260915.md). Frozen H0130 leftovers about the one-clock overlay are closed by H0131; do not rewrite that file.
 - **I1 increment 2:** Exact inertial contact/light-cone oracle matches compiled events on the connected scene. GEM 16-sample enclosure is not interval-wide and does not authorize events. Units/epoch/dt are separately versioned from `es-inertial-causal-v1`. [I1 increment 2 evidence](laws/i1-increment2-evidence-20260915.md).
@@ -22,7 +22,7 @@
 - **Certificate authority:** Sampled f64 `certified: true` remains diagnostic. [I1 notes](laws/i1-contract-notes-20260915.md).
 - **Dense setup:** Quiet pair `store_pair_inverse` still grows with interval-function count when stored (H=3 n=20 / ~3 kB; H=6 n=44 / 18125 B in I3 nested bytes). Lazy compile skips that LU until `ensure_pair_inverse`.
 - **Default/canonical law:** `es-inertial-causal-v1`; `production_law` remains null. H0052/H0054 and `1dac658` unchanged.
-- **Physics still missing:** Canonical gravity (interval-wide GEM field bounds). I4 remainder: galaxy-like population, black-hole/near-mass, six-card crossing. I5–I6 as planned. Broadcast indexing still walks a small materialized range. Family does not gravitationally perturb GEM.
+- **Physics still missing:** Engine-wide canonical gravity (GEM field bound is domain-local; engine events stay inertial). I4 remainder: galaxy-like hierarchical expansion, black-hole/near-mass capture, six-card crossing. I5–I6 as planned. Broadcast indexing still walks a small materialized range. Family does not gravitationally perturb GEM.
 
 ## Direction, behavior and targets
 

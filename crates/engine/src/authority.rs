@@ -22,9 +22,16 @@ use emergent_law_lab::coupled_source_response::{
 pub const GEM_INTERVAL_COVERAGE: &str = "sampled-16-not-interval-wide";
 
 /// I4 per-query unique retarded lookback. Not an interval-wide field bound
-/// and not event authority.
+/// and not event authority. The interval-wide causal-block path lives in
+/// law-lab `i4_gem_authority` and does not mint engine canonical gravity.
 pub const GEM_RETARDED_ROOT_COVERAGE: &str =
     "per-query-unique-lookback-not-interval-wide-field";
+
+/// I4 causal-block Lipschitz/KA delay enclosure on the admitted interior.
+/// Engine canonical events stay inertial until this path is wired and covers
+/// the queried domain.
+pub const GEM_FIELD_INTERVAL_COVERAGE: &str =
+    "causal-block-lipschitz-ka-delay-admitted-interior";
 
 /// Historical compact fit used by `compile_source_response`. Not the diagnostic
 /// ResidualJob seal and not an authority procedure.
@@ -67,6 +74,9 @@ pub fn authority_status(pending: Vec<String>) -> AuthorityReport {
             "sampled Enclosure.certified does not authorize events".into(),
             "GEM 16-sample enclosure is not interval-wide coverage".into(),
             format!("I4 retarded root: {GEM_RETARDED_ROOT_COVERAGE}"),
+            format!(
+                "I4 field interval {GEM_FIELD_INTERVAL_COVERAGE} is domain-local; engine canonical events stay inertial"
+            ),
         ],
     }
 }
@@ -331,6 +341,10 @@ mod tests {
         assert!(physical_resolutions_are_separate());
         assert!(!refuse_certified_authorization(true));
         assert_eq!(HISTORICAL_COMPACT_SEAL, "atomic-h0124-not-authority");
+        assert_eq!(
+            GEM_FIELD_INTERVAL_COVERAGE,
+            "causal-block-lipschitz-ka-delay-admitted-interior"
+        );
     }
 
     #[test]

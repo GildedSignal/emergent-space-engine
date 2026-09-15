@@ -2047,3 +2047,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I4 solar/authority](laws/i4-solar-authority-20260915.md), [I3 domain exit](laws/i3-domain-exit-20260915.md), [six-card contract](laws/litmus-gallery-contract-20260914.md)
 - Limitations: Interval-wide GEM field bound missing. Galaxy and black-hole cards unsupported. I4 not exited. `production_law` null.
 - Next: Lipschitz or interval/KA field bound on retarded GEM, or the next six-card regime. Do not launch I5–I6. Do not select `production_law`.
+
+
+## H0138 — I4 GEM interval-wide field bound on solar admitted interior
+
+- Date: 2026-09-15
+- Kind: experiment
+- Status: succeeded
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after H0137 `91e81c4`
+- Scope: I4 authority then remaining six-card order of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); not I4 exit; not I5–I6
+- Changed: Lipschitz/tidal-L per causal block plus Krawczyk-style delay enclosure of stored-a quadratics, with units and 32-ulp arithmetic. Solar two-body admitted interior [-0.926, 4] covers 26/26 blocks; domain-local `authorizes_events=true`; genesis prefix [-2, -0.926) refused (no incoming field). Companion hierarchy a=20 collocation 4087, inner Δx=0.013, GEM 48/48 on [0.964, 4]. Collective two-cluster retarded monopoles remainder 0.269>0.05 REJECT; mass accounted; keep direct sums. Ships/rays/clocks/nav forward-verified on solar (nav miss ~0). Black-hole card exact gap. `CANONICAL_GRAVITY_ACCEPTANCE` stays diagnostic-only; engine `authorizes_gem_events=false`.
+- Why: I4 required interval-wide coverage, not 16 samples. Ambiguity stays pending/refusal. Domain-local GEM field authority is not engine canonical gravity.
+- Validation: Law-lab `i4_` 9 PASS, engine `i1_increment2_authority` 6 PASS. `CARGO_BUILD_JOBS=1 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never cargo test -p emergent-law-lab --lib i4_ --offline --locked -- --test-threads=1` and `cargo test -p emergent-engine --test i1_increment2_authority --offline --locked -- --test-threads=1`.
+- Evidence: [I4 GEM authority](laws/i4-gem-authority-20260915.md), [I4 solar start](laws/i4-solar-authority-20260915.md), [six-card contract](laws/litmus-gallery-contract-20260914.md)
+- Limitations: I4 not exited. Galaxy hierarchical expansion missed 0.05. Black-hole/near-mass unsupported. Six-card crossing not on the integrated engine. Genesis prefix not authorized. `production_law` null.
+- Next: Retarded multipole with remainder bound, or keep direct N-body, then a BH model alternative, then six-card crossing. Do not launch I5–I6. Do not select `production_law`. Do not mint `CANONICAL_GRAVITY_ACCEPTANCE`.
