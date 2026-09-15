@@ -470,6 +470,57 @@ impl Family {
             None => Ok(vec![self.clone()]),
         }
     }
+
+    /// Extracted body matches this generator from `at` forward. A kinked
+    /// worldline is a distinct history and must not fold back.
+    pub fn matches_extracted_body(&self, body: &crate::runtime::Body, at: i128) -> bool {
+        if !self.contains(body.id) || body.mass != self.mass || body.radius != self.radius {
+            return false;
+        }
+        let Some(expected) = self.member_state(body.id, at) else {
+            return false;
+        };
+        let Some(velocity) = self.member_velocity(body.id, at) else {
+            return false;
+        };
+        body.at(at) == expected && body.flow().velocity == velocity
+    }
+
+    /// Adjacent partitions that share an affine future at the same epoch.
+    /// Permutation of interacting identities is not a join.
+    pub fn exact_remerge(a: &Self, b: &Self) -> Option<Self> {
+        if a.last_id().checked_add(1) != Some(b.first_id) {
+            return None;
+        }
+        if a.offset.checked_add(a.count) != Some(b.offset) {
+            return None;
+        }
+        if a.mass != b.mass || a.radius != b.radius || a.phase.is_some() || b.phase.is_some() {
+            return None;
+        }
+        let joined = if a.compatible_generator(b) {
+            let mut next = a.clone();
+            next.count = a.count.checked_add(b.count)?;
+            next
+        } else if a.trajectory.epoch == b.trajectory.epoch
+            && a.trajectory.velocity == b.trajectory.velocity
+            && a.stride == b.stride
+            && a.trajectory.origin.clone() + a.stride.clone() * r(a.count as i128)
+                == b.trajectory.origin
+        {
+            let mut next = a.clone();
+            next.count = a.count.checked_add(b.count)?;
+            next.revision = a.revision.max(b.revision);
+            next
+        } else {
+            return None;
+        };
+        joined.validate().ok()?;
+        if !joined.self_disjoint() {
+            return None;
+        }
+        Some(joined)
+    }
 }
 
 /// Semantic, stateless random access. Family partition IDs are intentionally absent.

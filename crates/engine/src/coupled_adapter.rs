@@ -443,14 +443,18 @@ impl Engine {
         let now = self.state.clock;
         let mut fired = false;
         for observer in program.lo..=program.hi {
-            let already = self.state.events.values().any(|e| {
-                e.kind == "burn" && e.tick == now && e.subjects.contains(&observer)
-            });
+            let already = self.state.policy_fired.contains(&(program.id.clone(), observer))
+                || self.state.events.values().any(|e| {
+                    e.kind == "burn" && e.tick == now && e.subjects.contains(&observer)
+                });
             if already {
                 continue;
             }
             let knowledge = self.received_knowledge(observer)?;
             let outcome = evaluate_policy(&program, &knowledge)?;
+            if !outcome.fired {
+                continue;
+            }
             if let PolicyAction::Burn { velocity } = outcome.action {
                 let before = self.decode(observer)?.flow().velocity.clone();
                 self.apply_course_change(observer, now, velocity.clone())?;
@@ -462,6 +466,9 @@ impl Engine {
                     crate::runtime::digest(&(before, velocity.clone())),
                 );
                 self.state.events.insert(e.id.clone(), e);
+                self.state
+                    .policy_fired
+                    .insert((program.id.clone(), observer));
                 fired = true;
                 self.force_rescan = true;
             }
@@ -472,11 +479,20 @@ impl Engine {
     pub fn received_knowledge(&self, observer: u64) -> Result<ReceivedKnowledge, EngineError> {
         let now = self.state.clock;
         let mut received_signals = BTreeSet::new();
+        let mut received_broadcasts = BTreeSet::new();
         for event in self.state.events.values() {
             if event.kind == "signal_arrived" && event.tick <= now && event.subjects.contains(&observer)
             {
                 for pred in &event.predecessors {
                     received_signals.insert(pred.clone());
+                }
+            }
+            if event.kind == "broadcast_received"
+                && event.tick <= now
+                && event.subjects.get(1) == Some(&observer)
+            {
+                for pred in &event.predecessors {
+                    received_broadcasts.insert(pred.clone());
                 }
             }
         }
@@ -494,7 +510,7 @@ impl Engine {
         Ok(ReceivedKnowledge {
             observer,
             now,
-            received_broadcasts: BTreeSet::new(),
+            received_broadcasts,
             received_signals,
             observations,
             proper_time,

@@ -6,10 +6,13 @@
 //! until the earliest conservative invalidation. Search, swept-box construction
 //! and caches are derived. Only completed causal cuts and event facts commit.
 use crate::{
+    archive::LiveArchive,
     geometry::{self, TickInterval},
     math::{r, Rational, Vec2},
+    policy::{Broadcast, BroadcastReception},
     population::Family,
     propagator::Inertial,
+    scheduler::CompositionScheduler,
     LAW_ID,
 };
 use serde::{Deserialize, Serialize};
@@ -175,6 +178,8 @@ pub enum Command {
         at: i128,
         velocity: Vec2,
     },
+    /// Shared emission toward `{lo..=hi}`. Reception is per-receiver.
+    Broadcast { lo: u64, hi: u64, payload: Payload },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -276,6 +281,15 @@ pub struct CanonicalState {
     /// Shared scripted courses over an identity range; one IR object, not N commands.
     #[serde(default)]
     pub scheduled_range_courses: BTreeMap<String, ScheduledRangeCourse>,
+    /// Shared broadcasts still awaiting individual receptions.
+    #[serde(default)]
+    pub broadcasts: BTreeMap<String, Broadcast>,
+    /// Per-broadcast, per-receiver receptions. Never a single heard-it bit.
+    #[serde(default)]
+    pub broadcast_receptions: BTreeMap<String, BTreeMap<u64, BroadcastReception>>,
+    /// Policy programs that already produced a burn for an observer.
+    #[serde(default)]
+    pub policy_fired: BTreeSet<(String, u64)>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -694,6 +708,10 @@ pub struct Engine {
     pub policy: Option<crate::policy::PolicyProgram>,
     /// Policy course-change during a commit requires a new scan for later contacts.
     pub(crate) force_rescan: bool,
+    /// I2 unequal certified cuts. Derived; not a second physics clock.
+    pub scheduler: CompositionScheduler,
+    /// Sealed chunk archive handle after `seal_archive`.
+    pub archive: Option<LiveArchive>,
 }
 
 pub(crate) fn digest<T: Serialize>(value: &T) -> String {
@@ -771,6 +789,9 @@ impl Engine {
                 actuator_momentum: Vec2::zero(),
                 scheduled_courses: BTreeMap::new(),
                 scheduled_range_courses: BTreeMap::new(),
+                broadcasts: BTreeMap::new(),
+                broadcast_receptions: BTreeMap::new(),
+                policy_fired: BTreeSet::new(),
             },
             metrics: Metrics::default(),
             pending: None,
@@ -782,6 +803,8 @@ impl Engine {
             coupled: None,
             policy: None,
             force_rescan: false,
+            scheduler: CompositionScheduler::default(),
+            archive: None,
         };
         engine.validate()?;
         Ok(engine)
@@ -1057,6 +1080,9 @@ impl Engine {
                 at,
                 velocity,
             } => self.schedule_or_apply_range(lo, hi, at, velocity, "range_burn", vec![lo, hi]),
+            Command::Broadcast { lo, hi, payload } => {
+                self.emit_broadcast(observer, lo, hi, payload, t)
+            }
         }
     }
     /// Extract a family member only when its future generator actually changes.
@@ -1205,8 +1231,8 @@ impl Engine {
         self.pending = None;
         Ok(())
     }
-    /// Merge only adjacent partitions that already share a generator.
-    /// Causal adjacency alone is not an equivalence group.
+    /// Merge only adjacent partitions that share a generator or an exact affine
+    /// future. Causal adjacency or permutation alone is not an equivalence group.
     fn normalize_equivalent_families(families: Vec<Family>) -> Result<Vec<Family>, EngineError> {
         let mut normalized: Vec<Family> = Vec::new();
         for f in families {
@@ -1217,14 +1243,8 @@ impl Engine {
                 ));
             }
             if let Some(a) = normalized.last_mut() {
-                if a.first_id.checked_add(a.count) == Some(f.first_id)
-                    && a.offset.checked_add(a.count) == Some(f.offset)
-                    && a.compatible_generator(&f)
-                {
-                    a.count = a
-                        .count
-                        .checked_add(f.count)
-                        .ok_or_else(|| EngineError::Invalid("family count overflow".into()))?;
+                if let Some(joined) = Family::exact_remerge(a, &f) {
+                    *a = joined;
                     continue;
                 }
             }
@@ -2916,6 +2936,7 @@ impl Engine {
         self.state.clock = tick;
         self.metrics.committed_events += n as u64;
         let _ = self.apply_received_policy()?;
+        self.index_broadcast_receptions()?;
         for (source, target) in acc.notifications {
             self.apply_command(
                 source,
@@ -3181,6 +3202,7 @@ impl Engine {
             // A scan with no jobs still makes progress without spending a timestep.
             used = used.max(1);
         }
+        self.index_broadcast_receptions()?;
         Ok(AdvanceResult {
             committed_through: self.state.clock,
             target,
@@ -3260,6 +3282,8 @@ impl Engine {
             coupled: None,
             policy: None,
             force_rescan: false,
+            scheduler: CompositionScheduler::default(),
+            archive: None,
         };
         e.validate()?;
         Ok(e)

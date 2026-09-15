@@ -1,25 +1,26 @@
 # Emergent Space — agent handoff
 
-**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0 `56453a8` H0126, I1 increment 1 `5c24026` H0128, and I1 increment 2 (this commit, H0129) stand on `/private/tmp/emergent-full-engine-integration`. I1 is the first engine integration milestone, not gravitational qualification. Canonical gravity remains diagnostic. Next: I2 composition exit (family perturbing a hierarchy, extraction/re-merge, selective history, indexed policies, unequal certified cuts). [Integration plan](full-engine-integration-plan-20260915.md).
+**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0 `56453a8` H0126, I1 `5c24026`/`9fbd43d` H0128/H0129, and I2 composition (this commit, H0130) stand on `/private/tmp/emergent-full-engine-integration`. I1/I2 are integration milestones, not gravitational qualification. Canonical gravity remains diagnostic. Next: I3 first experiment against the measured bottleneck (history reconstruction / single-clock scheduler overlay). Do not launch I4–I6 theater. [Integration plan](full-engine-integration-plan-20260915.md).
 
 ## First ten minutes
 
 1. Read the heading-check skill and living card at `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight. Journal home remains `/private/tmp/emergent-g2-law`. Integration worktree is `/private/tmp/emergent-full-engine-integration`.
 2. Read [the integration plan](full-engine-integration-plan-20260915.md), especially Evidence, the four initial issues, and I0/I1. Run `cargo xtask history list` and search relevant entries. H0124 closed the previous prompt's assigned laboratory exits; I0 reproduced repair completeness and nested accounting on the clean worktree.
 3. Inspect `git status --short`, `git log -8 --oneline`, and `git worktree list`. Do not merge cumulative packet branches wholesale or delete original worktrees.
-4. I1 increment 2 is implemented on the integration worktree (finite-semantic inertial oracle, GEM stays diagnostic). Continue I2: family perturbing a hierarchy with a ray in flight, extraction/re-merge, selective history, indexed policies, unequal certified cuts. Do not report canonical-gravity acceptance. Do not start I3–I6 theater.
+4. I2 composition is implemented on the integration worktree (extraction, re-merge, range reception, unequal cuts, history eviction, cold observation). GEM stays diagnostic. I3 may begin against the measured bottleneck (history reconstruction / single-clock scheduler overlay). Do not launch I4–I6 theater. Do not report canonical-gravity acceptance.
 5. Read hypothesis notes when selecting a discriminating experiment. They are candidates, not prescriptions. Keep a plan change separate from a measured engine capability.
 
 ## Current capabilities and boundaries
 
-- **I2 started (not exit):** `i2_composed_scene.rs` places a small affine family on the diagnostic scene with a signal in flight and extracts one identity. Re-merge, selective history, indexed range reception and unequal certified cuts are missing.
+- **I2 composition (this worktree):** One scene joins a massive affine family to the I1 hierarchy while a ray is in flight. Extraction, exact affine re-merge, range broadcast receptions, unequal certified cuts, incremental archive seal/eviction/cold observation, restore/replay, collective mass, burst recovery and resident-history bytes are evidenced. Policy fires once. [I2 evidence](laws/i2-composition-evidence-20260915.md).
+- **I1 increment 2:** Exact inertial contact/light-cone oracle matches compiled events on the connected scene. GEM 16-sample enclosure is not interval-wide and does not authorize events. Units/epoch/dt are separately versioned from `es-inertial-causal-v1`. [I1 increment 2 evidence](laws/i1-increment2-evidence-20260915.md).
 - **I1 increment 1 (this worktree):** `Engine::advance` polls coupled collocation/residual/pair-inverse/enclosure/repair jobs with `WorkBudget`. Headless connected scene binds ship/ray/clock/contact to interval functions, received-knowledge course change, in-flight signal checkpoint, pause/resume, query order, cache clear, replay. `CANONICAL_GRAVITY_ACCEPTANCE = diagnostic-only`. Compact sidecar skipped on the diagnostic seal. [I1 notes](laws/i1-contract-notes-20260915.md).
 - **I0 (this worktree):** Selected inertial foundation + coupled compiler; Packet 6 policy/archive types without `truncated_admission`. `repair_from_committed` continues with the complete ordered input history. `Charge` nested ledger records enclosure genesis/Picard as `OfflineAudit`. Source ops, wall-time and pair-inverse bytes are distinct. [I0 report](laws/i0-full-cost-report-20260915.md).
 - **H0100–H0124:** Historical overlay `/private/tmp/emergent-coupled-response`. [H0124 evidence](laws/coupled-prompt-completion-evidence-20260915.md). Counts **1188 vs 1675** and **1126 vs 1722** still pass in historical scope on the I0 worktree.
 - **Certificate authority:** Sampled f64 `certified: true` remains diagnostic. [I1 notes](laws/i1-contract-notes-20260915.md).
 - **Dense setup:** Quiet pair `store_pair_inverse` grows with interval-function count (H=3 n=20 / 3360 B; H=6 n=44 / 15840 B).
 - **Default/canonical law:** `es-inertial-causal-v1`; `production_law` remains null. H0052/H0054 and `1dac658` unchanged.
-- **Physics still missing:** Canonical gravity (interval-wide GEM bounds). I2 exit (re-merge, selective history, indexed range reception, unequal certified cuts), then I3–I6 as planned. Solar/galaxy/black-hole cards remain unsupported in the coupled slice.
+- **Physics still missing:** Canonical gravity (interval-wide GEM bounds). I3 representations that remove evolution work, then I4–I6 as planned. Certified cuts still overlay one physics clock. Broadcast indexing still walks a small materialized range. Solar/galaxy/black-hole cards remain unsupported in the coupled slice.
 
 ## Direction, behavior and targets
 

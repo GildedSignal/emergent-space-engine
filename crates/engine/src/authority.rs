@@ -102,7 +102,17 @@ impl Engine {
                         bin,
                     ) == Some(tick)
                     {
-                        contacts.push((tick, ids[i].min(ids[j]), ids[i].max(ids[j])));
+                        let continued = tick > domain.start
+                            && geometry::first_contact_piecewise(
+                                &a.segments,
+                                &b.segments,
+                                &radius,
+                                TickInterval::new(tick - 1, tick - 1)
+                                    .map_err(|e| EngineError::Invalid(e))?,
+                            ) == Some(tick - 1);
+                        if !continued {
+                            contacts.push((tick, ids[i].min(ids[j]), ids[i].max(ids[j])));
+                        }
                     }
                     tick += 1;
                 }

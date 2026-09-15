@@ -5,6 +5,7 @@
 pub const LAW_ID: &str = "es-inertial-causal-v1";
 pub mod archive;
 pub mod authority;
+pub mod composition;
 pub mod coupled_adapter;
 pub mod geometry;
 pub mod math;
@@ -14,8 +15,10 @@ pub mod propagator;
 pub mod response;
 pub mod runtime;
 pub mod scenario;
+pub mod scheduler;
 pub mod storage;
-pub use archive::{ArchiveManifest, HistoryChunk, HistoryRemainder};
+pub use archive::{ArchiveManifest, HistoryChunk, HistoryRemainder, LiveArchive};
+pub use composition::ReceptionIndex;
 pub use policy::{
     compile_policy, evaluate_policy, evaluate_policy_bytecode, Broadcast, BroadcastReception, Guard,
     OmniscientDiagnostic, PolicyAction, PolicyBytecode, PolicyOutcome, PolicyProgram, PolicyRule,
@@ -24,3 +27,4 @@ pub use policy::{
 pub use runtime::{
     AdvanceResult, Command, Engine, EngineError, EventRecord, Observation, ObserveResult, WorkBudget,
 };
+pub use scheduler::{CompositionScheduler, IncomingInfluence, Region};

@@ -1927,3 +1927,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I1 increment 2 evidence](laws/i1-increment2-evidence-20260915.md), [I1 notes](laws/i1-contract-notes-20260915.md), [H0128](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: GEM has no interval-wide retarded-root bound. Slow versus compiled GEM trajectories are two numerical methods of the same diagnostic law, not event equality. Canonical gravity acceptance remains `diagnostic-only`. I2 composition exit is not proven. I3–I6 not started. `production_law` null.
 - Next: I2 exit requirements: massive family perturbing a hierarchy while a ray is in flight; extraction/re-merge; selective history; indexed policies; unequal certified cuts. Do not launch I3–I6 theater.
+
+
+## H0130 — I2: composed family, re-merge, range reception, unequal cuts, archive eviction
+
+- Date: 2026-09-15
+- Kind: implementation
+- Status: implemented
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after `9fbd43d`; this entry's follow-on commit
+- Scope: I2 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); composition milestone; not gravitational qualification
+- Changed: One connected diagnostic scene now includes a massive affine family while a ray is in flight. Extraction, restricted exact re-merge, indexed range broadcast receptions, unequal certified cuts with reconcile, incremental chunk seal, resident-tail eviction and cold observation run in that scene. Collective mass is conserved. Policy burns fire once; the I1 re-fire hole is closed. The inertial contact oracle matches rising-edge overlap rather than re-burn artifacts. GEM stays diagnostic. I3 was not started.
+- Why: I2 requires composition in one scene, not a one-identity extraction fixture and not several separate benchmarks.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. Engine lib 31, `causal_contract` 18, `i1_connected_scene` 2, `i1_increment2_authority` 6, `i2_composed_scene` 1, law-lab `coupled_` 54. `cargo xtask history check` on journal home required.
+- Evidence: [I2 composition evidence](laws/i2-composition-evidence-20260915.md), [H0129](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: Certified cuts overlay a single physics clock. Broadcast indexing still walks a small materialized range. Cold observation uses remainder worldtubes plus selected chunks. The family does not gravitationally perturb GEM. Canonical gravity acceptance remains `diagnostic-only`. I3–I6 not started. `production_law` null.
+- Next: I3 first experiment against the measured bottleneck from this scene (history reconstruction and the single-clock scheduler overlay), not all representation hypotheses. Do not launch I4–I6 theater.
