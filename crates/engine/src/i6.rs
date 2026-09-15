@@ -10,13 +10,18 @@
 
 use crate::{
     coupled_adapter::{
-        course_change_program, CANONICAL_GRAVITY_ACCEPTANCE, BEACON_ID, EMITTER_ID, SHIP_ID,
+        course_change_program, CANONICAL_GRAVITY_ACCEPTANCE, BEACON_ID, EMITTER_ID,
+        SHIP_ID, MovingCompactDiagnostic,
     },
     math::{r, Vec2},
     population::Family,
     propagator::Inertial,
     runtime::{Body, Command, Engine, EngineError, Payload},
-    scenario, WorkBudget, LAW_ID,
+    scenario::{
+        self, packed_overlap_island, PACKED_FAR_NORTH, PACKED_ISLAND_BODIES,
+        PACKED_ISLAND_HORIZON, PACKED_ISLAND_LANES, PACKED_ISLAND_LANE_SHIPS,
+    },
+    WorkBudget, LAW_ID,
 };
 use emergent_law_lab::{
     coupled_source_response::COUPLED_RESPONSE_LAW_ID,
@@ -35,7 +40,12 @@ const ASTEROID_ID: u64 = 13;
 const BAND: f64 = 0.05;
 const HELD_OUT_THREE_BODY: u64 = 0x16B0_1D01;
 const HELD_OUT_FLEET: u64 = 0x16B0_1D02;
+const HELD_OUT_COMPILER: u64 = 0x16B0_1D03;
+const HELD_OUT_REFINEMENT: u64 = 0x16B0_1D04;
+const HELD_OUT_PHYSICAL: u64 = 0x16B0_1D05;
 const DAILY_SEED: u64 = 0x14C0_55ED;
+const PRESSURE_SEED: u64 = 0x15E1_A15D;
+const PRESSURE_YIELD_BUDGET: usize = 128;
 
 /// Frozen I6 envelope rungs. Declared before any Instant/RSS/digest.
 /// Not the integrated target. Fixed ICs are many-seed capable, not the universe.
@@ -78,6 +88,19 @@ const CONNECTED_RUNG: FrozenRung = FrozenRung {
     seed: DAILY_SEED,
 };
 
+const PRESSURE_RUNG: FrozenRung = FrozenRung {
+    id: "pressure-sweeps",
+    claim: "Break-even domains, fragmentation/rank/history/latency limits",
+    identities: 64,
+    families: 10,
+    family_members: 48,
+    horizon_ticks: 80,
+    independent_activity: "SetCourseRange lane burn at t=10; SendSignal 0->7; hot packed island plus quiet far-north/south families; diagnostic GEM collocation H=2",
+    queries: "history_digest(through) + decode(far-north) + observe_with_budget yield",
+    reconstruction: "replay digest equality; residual bytes = owned CanonicalState JSON",
+    seed: PRESSURE_SEED,
+};
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum GateStatus {
@@ -114,6 +137,8 @@ pub struct SeedCase {
     pub observed_class: String,
     pub status: GateStatus,
     pub evidence: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comparison: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -148,6 +173,20 @@ pub struct EnvelopeRung {
     pub ledger_total: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owned_bytes: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub residual_bytes: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limiting_resource: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub yield_pauses: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collocation_ns: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reconstruction_ns: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub advance_ns: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oracle_ns: Option<u64>,
 }
 
 impl EnvelopeRung {
@@ -170,6 +209,13 @@ impl EnvelopeRung {
             digest: None,
             ledger_total: None,
             owned_bytes: None,
+            residual_bytes: None,
+            limiting_resource: None,
+            yield_pauses: None,
+            collocation_ns: None,
+            reconstruction_ns: None,
+            advance_ns: None,
+            oracle_ns: None,
         }
     }
 
@@ -201,7 +247,32 @@ impl EnvelopeRung {
             digest: Some(digest),
             ledger_total: Some(ledger_total),
             owned_bytes,
+            residual_bytes: owned_bytes,
+            limiting_resource: None,
+            yield_pauses: None,
+            collocation_ns: None,
+            reconstruction_ns: None,
+            advance_ns: None,
+            oracle_ns: None,
         }
+    }
+
+    fn with_pressure(
+        mut self,
+        limiter: &str,
+        yield_pauses: u64,
+        collocation_ns: u64,
+        reconstruction_ns: u64,
+        advance_ns: u64,
+        oracle_ns: u64,
+    ) -> Self {
+        self.limiting_resource = Some(limiter.into());
+        self.yield_pauses = Some(yield_pauses);
+        self.collocation_ns = Some(collocation_ns);
+        self.reconstruction_ns = Some(reconstruction_ns);
+        self.advance_ns = Some(advance_ns);
+        self.oracle_ns = Some(oracle_ns);
+        self
     }
 }
 
@@ -350,6 +421,156 @@ fn measure_tiny_rung() -> Result<TinyRungMeasure, EngineError> {
     })
 }
 
+struct PressureRungMeasure {
+    ok: bool,
+    rss_kb: Option<u64>,
+    wall_ns: u64,
+    digest: String,
+    ledger_total: u64,
+    owned_bytes: Option<usize>,
+    limiter: &'static str,
+    yield_pauses: u64,
+    collocation_ns: u64,
+    reconstruction_ns: u64,
+    advance_ns: u64,
+    oracle_ns: u64,
+    far_ok: bool,
+    replay_ok: bool,
+    oracle_ok: bool,
+}
+
+fn name_limiter(
+    collocation_ns: u64,
+    advance_ns: u64,
+    reconstruction_ns: u64,
+    oracle_ns: u64,
+    yield_pauses: u64,
+) -> &'static str {
+    let max_t = collocation_ns
+        .max(advance_ns)
+        .max(reconstruction_ns)
+        .max(oracle_ns);
+    if max_t == 0 {
+        return "unmeasured";
+    }
+    if oracle_ns == max_t {
+        "sequential-query"
+    } else if collocation_ns == max_t {
+        "sequential-collocation"
+    } else if reconstruction_ns == max_t {
+        "reconstruction"
+    } else if yield_pauses > 0 {
+        "yield"
+    } else {
+        "sequential-advance"
+    }
+}
+
+/// Freeze PRESSURE_RUNG is already a const. Mixed quiet/hot, not the billion-identity target.
+fn measure_pressure_rung() -> Result<PressureRungMeasure, EngineError> {
+    let spec = &PRESSURE_RUNG;
+    assert_eq!(spec.identities, PACKED_ISLAND_BODIES);
+    assert_eq!(spec.families, PACKED_ISLAND_LANES + 2);
+    assert_eq!(
+        spec.family_members,
+        PACKED_ISLAND_LANES * PACKED_ISLAND_LANE_SHIPS + 16
+    );
+    assert_eq!(spec.horizon_ticks, PACKED_ISLAND_HORIZON);
+    assert_eq!(spec.seed, PRESSURE_SEED);
+
+    let total = Instant::now();
+    let colloc_started = Instant::now();
+    let mut engine = packed_overlap_island()?;
+    if engine.state.seed != spec.seed {
+        return Err(EngineError::Invalid(
+            "pressure seed drifted from freeze".into(),
+        ));
+    }
+    if engine.state.bodies.len() as u64 != spec.identities {
+        return Err(EngineError::Invalid(
+            "pressure identity count drifted from freeze".into(),
+        ));
+    }
+    if engine.state.families.len() as u64 != spec.families
+        || engine
+            .state
+            .families
+            .iter()
+            .map(|family| family.count)
+            .sum::<u64>()
+            != spec.family_members
+    {
+        return Err(EngineError::Invalid(
+            "pressure family freeze drifted".into(),
+        ));
+    }
+    engine.attach_coupled_laboratory(
+        solar_planet_ic_at(-I4_PREHISTORY),
+        I4_HORIZON.min(2.0),
+        1.0 / 32.0,
+    )?;
+    drive_coupled(&mut engine)?;
+    let collocation_ns = wall_ns(colloc_started);
+
+    let adv_started = Instant::now();
+    let mut yield_pauses = 0u64;
+    loop {
+        let result = engine.advance(spec.horizon_ticks, WorkBudget::new(PRESSURE_YIELD_BUDGET))?;
+        if result.complete {
+            break;
+        }
+        yield_pauses += 1;
+        if yield_pauses > 100_000 {
+            return Err(EngineError::ResourceLimit(
+                "pressure yield loop did not complete".into(),
+            ));
+        }
+    }
+    let through = engine.state.clock;
+    let digest = engine.history_digest(through)?;
+    let far_ok = engine.decode(PACKED_FAR_NORTH).is_ok();
+    let _ = engine.observe_with_budget(
+        0,
+        through,
+        &[7, PACKED_FAR_NORTH],
+        WorkBudget::new(16),
+    );
+    let advance_ns = wall_ns(adv_started);
+
+    let recon_started = Instant::now();
+    let replayed = engine.replay()?;
+    let replay_ok = replayed.history_digest(replayed.state.clock)? == digest;
+    let reconstruction_ns = wall_ns(recon_started);
+    let oracle_started = Instant::now();
+    let oracle_ok = engine.canonical_facts_agree(through)?;
+    let oracle_ns = wall_ns(oracle_started);
+
+    let limiter = name_limiter(
+        collocation_ns,
+        advance_ns,
+        reconstruction_ns,
+        oracle_ns,
+        yield_pauses,
+    );
+    Ok(PressureRungMeasure {
+        ok: replay_ok && far_ok && oracle_ok,
+        rss_kb: process_rss_kb(),
+        wall_ns: wall_ns(total),
+        digest,
+        ledger_total: nested_ledger_total(&engine),
+        owned_bytes: owned_state_bytes(&engine),
+        limiter,
+        yield_pauses,
+        collocation_ns,
+        reconstruction_ns,
+        advance_ns,
+        oracle_ns,
+        far_ok,
+        replay_ok,
+        oracle_ok,
+    })
+}
+
 /// Same `Engine` type and law as the native observatory host.
 pub fn connected_qualification_engine() -> Result<Engine, EngineError> {
     let emitter = body(EMITTER_ID, "emitter", 0, 0, 0);
@@ -396,8 +617,11 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     assert_eq!(TINY_RUNG.horizon_ticks, 80);
     assert_eq!(CONNECTED_RUNG.horizon_ticks, 40);
     assert_eq!(CONNECTED_RUNG.seed, DAILY_SEED);
+    assert_eq!(PRESSURE_RUNG.horizon_ticks, PACKED_ISLAND_HORIZON);
+    assert_eq!(PRESSURE_RUNG.seed, PRESSURE_SEED);
 
     let tiny_m = measure_tiny_rung()?;
+    let pressure_m = measure_pressure_rung()?;
 
     let native = scenario::observatory()?;
     let connected_started = Instant::now();
@@ -638,7 +862,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         gate(
             "envelope-pressure",
             GateStatus::Unsupported,
-            "no frozen large workload; tiny/connected measured rungs are not pressure sweeps and do not promote this gate",
+            "pressure-sweeps rung is measured on packed quiet/hot; this gate stays UNSUPPORTED because no frozen large break-even workload was declared; not ≤4 GiB / 30 FPS",
         ),
         gate(
             "envelope-frozen-target",
@@ -787,9 +1011,16 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             GateStatus::Fail
         },
         evidence: "fixed lab IC; not the universe; re-seeding cannot erase galaxy/BH FAILs".into(),
+        comparison: Some("compiler_exact".into()),
     }];
 
-    let held_out = vec![held_out_three_body()?, held_out_fleet_count()?];
+    let held_out = vec![
+        held_out_three_body()?,
+        held_out_fleet_count()?,
+        held_out_compiler_exact()?,
+        held_out_numerical_refinement()?,
+        held_out_physical_law(family.remainder, family.n_members),
+    ];
 
     let envelope = vec![
         EnvelopeRung::measured(
@@ -856,15 +1087,56 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             connected_ledger_total,
             connected_owned_bytes,
         ),
-        EnvelopeRung::unsupported(
-            "pressure-sweeps",
-            "Break-even domains, fragmentation/rank/history/latency limits",
-            "no frozen large workload; tiny/connected measured rungs are not pressure sweeps",
+        EnvelopeRung::measured(
+            &PRESSURE_RUNG,
+            if pressure_m.ok {
+                GateStatus::Pass
+            } else {
+                GateStatus::Fail
+            },
+            format!(
+                "freeze identities={} families={} members={} horizon={} seed={:#x} activity='{}' queries='{}' reconstruction='{}'; limiter={} yield_pauses={} colloc_ns={} adv_ns={} recon_ns={} oracle_ns={} far={} replay={} oracle={} rss_kb={:?} wall_ns={} digest={} ledger_total={} residual_bytes={:?}; mixed quiet/hot packed island; process RSS not isolated heap; not a ≤4 GiB / 30 FPS / billion-identity claim",
+                PRESSURE_RUNG.identities,
+                PRESSURE_RUNG.families,
+                PRESSURE_RUNG.family_members,
+                PRESSURE_RUNG.horizon_ticks,
+                PRESSURE_RUNG.seed,
+                PRESSURE_RUNG.independent_activity,
+                PRESSURE_RUNG.queries,
+                PRESSURE_RUNG.reconstruction,
+                pressure_m.limiter,
+                pressure_m.yield_pauses,
+                pressure_m.collocation_ns,
+                pressure_m.advance_ns,
+                pressure_m.reconstruction_ns,
+                pressure_m.oracle_ns,
+                pressure_m.far_ok,
+                pressure_m.replay_ok,
+                pressure_m.oracle_ok,
+                pressure_m.rss_kb,
+                pressure_m.wall_ns,
+                pressure_m.digest,
+                pressure_m.ledger_total,
+                pressure_m.owned_bytes
+            ),
+            pressure_m.rss_kb,
+            pressure_m.wall_ns,
+            pressure_m.digest.clone(),
+            pressure_m.ledger_total,
+            pressure_m.owned_bytes,
+        )
+        .with_pressure(
+            pressure_m.limiter,
+            pressure_m.yield_pauses,
+            pressure_m.collocation_ns,
+            pressure_m.reconstruction_ns,
+            pressure_m.advance_ns,
+            pressure_m.oracle_ns,
         ),
         EnvelopeRung::unsupported(
             "frozen-integrated-target",
             "≤4 GiB / 30 FPS / ≤5 ms yield / billion-identity hour",
-            "no frozen large workload exists; tiny/connected RSS/time/digest do not promote this target",
+            "no frozen large workload exists; tiny/connected/pressure RSS/time/digest do not promote this target",
         ),
     ];
 
@@ -914,6 +1186,7 @@ fn held_out_three_body() -> Result<SeedCase, EngineError> {
         evidence: format!(
             "predeclared seed; contacts={contacts}; a miss here cannot erase daily FAIL cards"
         ),
+        comparison: Some("compiler_exact".into()),
     })
 }
 
@@ -939,5 +1212,94 @@ fn held_out_fleet_count() -> Result<SeedCase, EngineError> {
             "predeclared N=3 family count={}; does not re-seed the galaxy quadrupole FAIL",
             e.logical_count()
         ),
+        comparison: Some("compiler_exact".into()),
     })
+}
+
+fn held_out_compiler_exact() -> Result<SeedCase, EngineError> {
+    let emitter = body(1, "held-emitter", 0, 0, 0);
+    let mut receiver = body(2, "held-receiver", 12, 0, 1);
+    receiver.stop_on_contact = true;
+    let mut engine = Engine::new(HELD_OUT_COMPILER, vec![emitter, receiver], vec![])?;
+    engine.intervene(
+        1,
+        Command::SendSignal {
+            target: 2,
+            payload: Payload::Ping,
+        },
+    )?;
+    engine.advance_fully(24)?;
+    let digest = engine.history_digest(engine.state.clock)?;
+    let replayed = engine.replay()?;
+    let replay_ok = replayed.history_digest(replayed.state.clock)? == digest;
+    let oracle_ok = engine.canonical_facts_agree(engine.state.clock)?;
+    let pass = replay_ok && oracle_ok;
+    Ok(SeedCase {
+        role: "held-out".into(),
+        seed: HELD_OUT_COMPILER,
+        intended_outcome_class: "compiler_exact_digest".into(),
+        observed_class: if pass {
+            "compiler_exact_digest".into()
+        } else {
+            "compiler_mismatch".into()
+        },
+        status: if pass {
+            GateStatus::Pass
+        } else {
+            GateStatus::Fail
+        },
+        evidence: format!(
+            "comparison=compiler_exact replay={replay_ok} oracle={oracle_ok}; re-seeding cannot erase galaxy quadrupole FAIL"
+        ),
+        comparison: Some("compiler_exact".into()),
+    })
+}
+
+fn held_out_numerical_refinement() -> Result<SeedCase, EngineError> {
+    let mut host = MovingCompactDiagnostic::new(HELD_OUT_REFINEMENT);
+    host.poll_steps(64);
+    let remainder = host.remainder_vs_slow();
+    let pass = remainder <= BAND;
+    Ok(SeedCase {
+        role: "held-out".into(),
+        seed: HELD_OUT_REFINEMENT,
+        intended_outcome_class: "numerical_refinement_band".into(),
+        observed_class: if pass {
+            "numerical_refinement_band".into()
+        } else {
+            "refinement_remainder_outside_band".into()
+        },
+        status: if pass {
+            GateStatus::Pass
+        } else {
+            GateStatus::Fail
+        },
+        evidence: format!(
+            "comparison=numerical_refinement RK2 vs RK4 dt/4 remainder={remainder:.3e} band={BAND}; distinct seed from daily compact; does not re-seed galaxy quadrupole FAIL"
+        ),
+        comparison: Some("numerical_refinement".into()),
+    })
+}
+
+fn held_out_physical_law(remainder: f64, n_members: usize) -> SeedCase {
+    let pass = remainder <= BAND;
+    SeedCase {
+        role: "held-out".into(),
+        seed: HELD_OUT_PHYSICAL,
+        intended_outcome_class: "physical_law_remainder_band".into(),
+        observed_class: if pass {
+            "physical_law_remainder_band".into()
+        } else {
+            "physical_law_remainder_outside_band".into()
+        },
+        status: if pass {
+            GateStatus::Pass
+        } else {
+            GateStatus::Fail
+        },
+        evidence: format!(
+            "comparison=physical_law family-moment remainder={remainder:.6} on N={n_members} rest fixture; bank id {HELD_OUT_PHYSICAL:#x} is not the IC; galaxy quadrupole FAIL 0.478 remains a different row"
+        ),
+        comparison: Some("physical_law".into()),
+    }
 }

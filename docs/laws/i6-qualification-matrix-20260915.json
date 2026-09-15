@@ -77,7 +77,7 @@
     {
       "id": "envelope-pressure",
       "status": "UNSUPPORTED",
-      "evidence": "no frozen large workload; tiny/connected measured rungs are not pressure sweeps and do not promote this gate"
+      "evidence": "pressure-sweeps rung is measured on packed quiet/hot; this gate stays UNSUPPORTED because no frozen large break-even workload was declared; not ≤4 GiB / 30 FPS"
     },
     {
       "id": "envelope-frozen-target",
@@ -171,7 +171,8 @@
       "intended_outcome_class": "one_way_pulse",
       "observed_class": "one_way_pulse",
       "status": "PASS",
-      "evidence": "fixed lab IC; not the universe; re-seeding cannot erase galaxy/BH FAILs"
+      "evidence": "fixed lab IC; not the universe; re-seeding cannot erase galaxy/BH FAILs",
+      "comparison": "compiler_exact"
     }
   ],
   "held_out": [
@@ -181,7 +182,8 @@
       "intended_outcome_class": "chaotic_close_pass",
       "observed_class": "hierarchical_bound",
       "status": "PASS",
-      "evidence": "predeclared seed; contacts=0; a miss here cannot erase daily FAIL cards"
+      "evidence": "predeclared seed; contacts=0; a miss here cannot erase daily FAIL cards",
+      "comparison": "compiler_exact"
     },
     {
       "role": "held-out",
@@ -189,7 +191,35 @@
       "intended_outcome_class": "clumpy_collection",
       "observed_class": "clumpy_collection",
       "status": "PASS",
-      "evidence": "predeclared N=3 family count=3; does not re-seed the galaxy quadrupole FAIL"
+      "evidence": "predeclared N=3 family count=3; does not re-seed the galaxy quadrupole FAIL",
+      "comparison": "compiler_exact"
+    },
+    {
+      "role": "held-out",
+      "seed": 380640515,
+      "intended_outcome_class": "compiler_exact_digest",
+      "observed_class": "compiler_exact_digest",
+      "status": "PASS",
+      "evidence": "comparison=compiler_exact replay=true oracle=true; re-seeding cannot erase galaxy quadrupole FAIL",
+      "comparison": "compiler_exact"
+    },
+    {
+      "role": "held-out",
+      "seed": 380640516,
+      "intended_outcome_class": "numerical_refinement_band",
+      "observed_class": "numerical_refinement_band",
+      "status": "PASS",
+      "evidence": "comparison=numerical_refinement RK2 vs RK4 dt/4 remainder=1.347e-2 band=0.05; distinct seed from daily compact; does not re-seed galaxy quadrupole FAIL",
+      "comparison": "numerical_refinement"
+    },
+    {
+      "role": "held-out",
+      "seed": 380640517,
+      "intended_outcome_class": "physical_law_remainder_band",
+      "observed_class": "physical_law_remainder_band",
+      "status": "PASS",
+      "evidence": "comparison=physical_law family-moment remainder=0.000000 on N=4 rest fixture; bank id 0x16b01d05 is not the IC; galaxy quadrupole FAIL 0.478 remains a different row",
+      "comparison": "physical_law"
     }
   ],
   "envelope": [
@@ -197,7 +227,7 @@
       "id": "tiny-complete-loop",
       "claim": "Correctness and repair/authority semantics",
       "status": "PASS",
-      "evidence": "freeze identities=4 families=0 members=0 horizon=80 seed=0xe5ca051 activity='one SendSignal Emitter->Courier; Independent witness far off-axis' queries='history_digest(through) + signal_arrived presence' reconstruction='replay digest equality'; received=true replay=true rss_kb=Some(4720) wall_ns=14717167 digest=b101a4a7a14864025c98498f2988bd2cfaf7044c3970301490768809cd9158d3 ledger_total=0 owned_bytes=Some(4766); process RSS not isolated heap; fixed IC not the universe; not a ≤4 GiB / 30 FPS claim; does not pin historical 14/43/71 ticks",
+      "evidence": "freeze identities=4 families=0 members=0 horizon=80 seed=0xe5ca051 activity='one SendSignal Emitter->Courier; Independent witness far off-axis' queries='history_digest(through) + signal_arrived presence' reconstruction='replay digest equality'; received=true replay=true rss_kb=Some(4656) wall_ns=10459000 digest=b101a4a7a14864025c98498f2988bd2cfaf7044c3970301490768809cd9158d3 ledger_total=0 owned_bytes=Some(4766); process RSS not isolated heap; fixed IC not the universe; not a ≤4 GiB / 30 FPS claim; does not pin historical 14/43/71 ticks",
       "identities": 4,
       "families": 0,
       "family_members": 0,
@@ -206,17 +236,18 @@
       "queries": "history_digest(through) + signal_arrived presence",
       "reconstruction": "replay digest equality",
       "seed": 240951377,
-      "rss_kb": 4720,
-      "wall_ns": 14717167,
+      "rss_kb": 4656,
+      "wall_ns": 10459000,
       "digest": "b101a4a7a14864025c98498f2988bd2cfaf7044c3970301490768809cd9158d3",
       "ledger_total": 0,
-      "owned_bytes": 4766
+      "owned_bytes": 4766,
+      "residual_bytes": 4766
     },
     {
       "id": "connected-family-hierarchy",
       "claim": "Composition and meaningful end-to-end optimization",
       "status": "PASS",
-      "evidence": "freeze identities=4 families=1 members=8 horizon=40 seed=0x14c055ed activity='SendSignal emitter->ship; in-flight beacon; policy Burn remaining>0; diagnostic compact sidecar' queries='history_digest(through) + history_digest(cold) + decode(ship)' reconstruction='checkpoint restore digest + replay digest'; persist=true in_flight=true ship_decode=true asteroid=true rss_kb=Some(6064) wall_ns=63455958 digest=65b7b76ab4a2346b1a248a1364b12ca33064ccca4af1a26d696c8ce8db21cb44 ledger_total=1052 owned_bytes=Some(5130); nested Charge from GEM compile children; process RSS not isolated heap; fixed IC not the universe; not a ≤4 GiB / 30 FPS / billion-identity claim",
+      "evidence": "freeze identities=4 families=1 members=8 horizon=40 seed=0x14c055ed activity='SendSignal emitter->ship; in-flight beacon; policy Burn remaining>0; diagnostic compact sidecar' queries='history_digest(through) + history_digest(cold) + decode(ship)' reconstruction='checkpoint restore digest + replay digest'; persist=true in_flight=true ship_decode=true asteroid=true rss_kb=Some(7808) wall_ns=36867958 digest=65b7b76ab4a2346b1a248a1364b12ca33064ccca4af1a26d696c8ce8db21cb44 ledger_total=1052 owned_bytes=Some(5130); nested Charge from GEM compile children; process RSS not isolated heap; fixed IC not the universe; not a ≤4 GiB / 30 FPS / billion-identity claim",
       "identities": 4,
       "families": 1,
       "family_members": 8,
@@ -225,23 +256,44 @@
       "queries": "history_digest(through) + history_digest(cold) + decode(ship)",
       "reconstruction": "checkpoint restore digest + replay digest",
       "seed": 348149229,
-      "rss_kb": 6064,
-      "wall_ns": 63455958,
+      "rss_kb": 7808,
+      "wall_ns": 36867958,
       "digest": "65b7b76ab4a2346b1a248a1364b12ca33064ccca4af1a26d696c8ce8db21cb44",
       "ledger_total": 1052,
-      "owned_bytes": 5130
+      "owned_bytes": 5130,
+      "residual_bytes": 5130
     },
     {
       "id": "pressure-sweeps",
       "claim": "Break-even domains, fragmentation/rank/history/latency limits",
-      "status": "UNSUPPORTED",
-      "evidence": "no frozen large workload; tiny/connected measured rungs are not pressure sweeps"
+      "status": "FAIL",
+      "evidence": "freeze identities=64 families=10 members=48 horizon=80 seed=0x15e1a15d activity='SetCourseRange lane burn at t=10; SendSignal 0->7; hot packed island plus quiet far-north/south families; diagnostic GEM collocation H=2' queries='history_digest(through) + decode(far-north) + observe_with_budget yield' reconstruction='replay digest equality; residual bytes = owned CanonicalState JSON'; limiter=sequential-query yield_pauses=217 colloc_ns=21628708 adv_ns=842092416 recon_ns=833262709 oracle_ns=12089422667 far=true replay=true oracle=false rss_kb=Some(5920) wall_ns=13789742667 digest=951cc96ad9f4ae865a87fca15e21ef4c3f80216d6d4c9853a2a83b9b70aaf09e ledger_total=928 residual_bytes=Some(157961); mixed quiet/hot packed island; process RSS not isolated heap; not a ≤4 GiB / 30 FPS / billion-identity claim",
+      "identities": 64,
+      "families": 10,
+      "family_members": 48,
+      "horizon_ticks": 80,
+      "independent_activity": "SetCourseRange lane burn at t=10; SendSignal 0->7; hot packed island plus quiet far-north/south families; diagnostic GEM collocation H=2",
+      "queries": "history_digest(through) + decode(far-north) + observe_with_budget yield",
+      "reconstruction": "replay digest equality; residual bytes = owned CanonicalState JSON",
+      "seed": 367108445,
+      "rss_kb": 5920,
+      "wall_ns": 13789742667,
+      "digest": "951cc96ad9f4ae865a87fca15e21ef4c3f80216d6d4c9853a2a83b9b70aaf09e",
+      "ledger_total": 928,
+      "owned_bytes": 157961,
+      "residual_bytes": 157961,
+      "limiting_resource": "sequential-query",
+      "yield_pauses": 217,
+      "collocation_ns": 21628708,
+      "reconstruction_ns": 833262709,
+      "advance_ns": 842092416,
+      "oracle_ns": 12089422667
     },
     {
       "id": "frozen-integrated-target",
       "claim": "≤4 GiB / 30 FPS / ≤5 ms yield / billion-identity hour",
       "status": "UNSUPPORTED",
-      "evidence": "no frozen large workload exists; tiny/connected RSS/time/digest do not promote this target"
+      "evidence": "no frozen large workload exists; tiny/connected/pressure RSS/time/digest do not promote this target"
     }
   ]
 }

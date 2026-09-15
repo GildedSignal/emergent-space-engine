@@ -74,8 +74,33 @@ fn i6_same_model_matrix_runs_without_promotion() {
     assert!(galaxy.evidence.contains("FAIL as skip"));
 
     assert!(!report.held_out.is_empty());
+    assert!(report.held_out.len() >= 5);
     assert_eq!(report.daily_gallery.len(), 1);
     assert_eq!(report.envelope.len(), 4);
+    assert!(
+        report
+            .held_out
+            .iter()
+            .any(|c| c.comparison.as_deref() == Some("compiler_exact"))
+    );
+    assert!(
+        report
+            .held_out
+            .iter()
+            .any(|c| c.comparison.as_deref() == Some("numerical_refinement"))
+    );
+    assert!(
+        report
+            .held_out
+            .iter()
+            .any(|c| c.comparison.as_deref() == Some("physical_law"))
+    );
+    assert!(
+        report
+            .held_out
+            .iter()
+            .all(|c| !c.evidence.contains("leftover==0"))
+    );
 
     fn envelope<'a>(
         report: &'a emergent_engine::i6::I6Report,
@@ -110,10 +135,23 @@ fn i6_same_model_matrix_runs_without_promotion() {
     assert!(connected_rung.wall_ns.is_some());
     assert!(connected_rung.ledger_total.is_some_and(|n| n > 0));
     assert!(!connected_rung.evidence.contains("leftover==0"));
-    assert_eq!(
-        envelope(&report, "pressure-sweeps").status,
-        GateStatus::Unsupported
+    let pressure = envelope(&report, "pressure-sweeps");
+    assert_ne!(
+        pressure.status,
+        GateStatus::Unsupported,
+        "pressure rung must be measured"
     );
+    assert_eq!(pressure.identities, Some(64));
+    assert_eq!(pressure.families, Some(10));
+    assert_eq!(pressure.family_members, Some(48));
+    assert_eq!(pressure.horizon_ticks, Some(80));
+    assert!(pressure.digest.as_ref().is_some_and(|d| !d.is_empty()));
+    assert!(pressure.wall_ns.is_some());
+    assert!(pressure.ledger_total.is_some_and(|n| n > 0));
+    assert!(pressure.limiting_resource.as_ref().is_some_and(|s| !s.is_empty()));
+    assert!(pressure.evidence.contains("oracle="));
+    assert!(!pressure.evidence.contains("leftover==0"));
+    assert!(!pressure.evidence.contains("billion-identity hour"));
     assert_eq!(
         envelope(&report, "frozen-integrated-target").status,
         GateStatus::Unsupported
@@ -137,9 +175,10 @@ fn i6_same_model_matrix_runs_without_promotion() {
     }
     for rung in &report.envelope {
         eprintln!(
-            "I6_ENVELOPE {} {:?} rss_kb={:?} wall_ns={:?} ledger={:?} digest={:?}",
+            "I6_ENVELOPE {} {:?} limiter={:?} rss_kb={:?} wall_ns={:?} ledger={:?} digest={:?}",
             rung.id,
             rung.status,
+            rung.limiting_resource,
             rung.rss_kb,
             rung.wall_ns,
             rung.ledger_total,
