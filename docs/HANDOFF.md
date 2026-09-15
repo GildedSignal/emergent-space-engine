@@ -7,7 +7,7 @@
 1. Read the heading-check skill and living card at `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight. Journal home remains `/private/tmp/emergent-g2-law`. Integration worktree is `/private/tmp/emergent-full-engine-integration`.
 2. Read [the integration plan](full-engine-integration-plan-20260915.md), especially Evidence, the four initial issues, and I0/I1. Run `cargo xtask history list` and search relevant entries. H0124 closed the previous prompt's assigned laboratory exits; I0 reproduced repair completeness and nested accounting on the clean worktree.
 3. Inspect `git status --short`, `git log -8 --oneline`, and `git worktree list`. Do not merge cumulative packet branches wholesale or delete original worktrees.
-4. Continue I1: freeze shared contracts, refactor interval compile into continuation jobs, connect a diagnostic scene. Authority-backed commit is increment 2. Root owns shared contracts, Cargo, runtime, storage schema, integration and journal.
+4. Continue I1 increment 1: `CoupledCompileJob` suspends collocation; still need `Engine::advance` suspension, policy course-change, in-flight save/restore. Do not report canonical-gravity acceptance. Authority-backed commit is increment 2.
 5. Read hypothesis notes when selecting a discriminating experiment. They are candidates, not prescriptions. Keep a plan change separate from a measured engine capability.
 
 ## Current capabilities and boundaries

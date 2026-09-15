@@ -1159,6 +1159,278 @@ struct IntervalStats {
     functions: Vec<IntervalFunction>,
 }
 
+/// Pollable collocation/repair continuation. One causal block is charged before
+/// a yield. This is a diagnostic adapter; it does not authorize canonical gravity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JobPoll {
+    Pending,
+    Ready,
+}
+
+pub struct CoupledCompileJob {
+    bodies: Vec<Body>,
+    t: f64,
+    k: usize,
+    knots: Vec<Vec<f64>>,
+    kicks: Vec<Intervention>,
+    known: Vec<IntervalFunction>,
+    functions: Vec<IntervalFunction>,
+    blocks: u64,
+    q: f64,
+    tau: f64,
+    horizon: f64,
+    t_start: f64,
+    charge: Charge,
+    ready: bool,
+}
+
+impl CoupledCompileJob {
+    pub fn from_genesis(
+        ic: &InitialCondition,
+        interventions: &[Intervention],
+        horizon: f64,
+    ) -> Result<Self, ResponseError> {
+        Self::begin(
+            genesis_bodies(ic),
+            ic.genesis_t,
+            interventions,
+            horizon,
+            Charge {
+                init: 1,
+                ..Charge::default()
+            },
+            None,
+            &[],
+        )
+    }
+
+    fn begin(
+        mut bodies: Vec<Body>,
+        t_start: f64,
+        interventions: &[Intervention],
+        horizon: f64,
+        mut charge: Charge,
+        tau_hint: Option<f64>,
+        prior: &[IntervalFunction],
+    ) -> Result<Self, ResponseError> {
+        let mut kicks: Vec<Intervention> = interventions
+            .iter()
+            .filter(|iv| iv.t + 1e-12 >= t_start)
+            .cloned()
+            .collect();
+        kicks.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
+        let tau = match tau_hint {
+            Some(tau) if tau.is_finite() && tau > 0.0 => tau,
+            _ => pair_tau_min(&bodies, t_start)?,
+        };
+        let knots = incoming_knots(&bodies, t_start, horizon, &kicks, tau)?;
+        let mut functions: Vec<IntervalFunction> = Vec::new();
+        let mut known: Vec<IntervalFunction> = prior.to_vec();
+        {
+            let mut catch_up: Vec<(usize, V2, V2, f64, IntervalFunction)> = Vec::new();
+            for (i, body) in bodies.iter().enumerate() {
+                let has = kicks
+                    .iter()
+                    .any(|iv| iv.body_id == body.id && (iv.t - t_start).abs() < 1e-12);
+                if !has {
+                    continue;
+                }
+                let t_seg = body.segments.last().map(|s| s.t0).unwrap_or(t_start);
+                if t_start <= t_seg + 1e-18 {
+                    continue;
+                }
+                let h = t_start - t_seg;
+                let (x, v, mu) = body.present(t_seg)?;
+                let t_col = t_seg + 0.5 * h;
+                let x_col = x.add(v.scale(t_col - t_seg));
+                let field = field_at_stored(&known, &bodies, t_col, x_col, Some(body.id), &mut charge)?;
+                let a = apply_gem_a(field, v);
+                let fun = IntervalFunction {
+                    body_id: body.id,
+                    t0: t_seg,
+                    t1: t_start,
+                    x0: x.arr(),
+                    v0: v.arr(),
+                    a: a.arr(),
+                    mu,
+                };
+                let (x_new, v_new) = fun.inertial_end();
+                if v_new.norm() >= C {
+                    return Err(ResponseError::Superluminal);
+                }
+                catch_up.push((i, x_new, v_new, mu, fun));
+                charge.source_evolution += 1;
+            }
+            if !catch_up.is_empty() {
+                charge.factorization += 1;
+            }
+            for (i, x_new, v_new, mu, fun) in catch_up {
+                close_and_kink(
+                    &mut bodies[i],
+                    t_start,
+                    x_new,
+                    v_new,
+                    mu,
+                    V2::from_arr(fun.a),
+                    V2::from_arr(fun.a),
+                );
+                known.push(fun.clone());
+                functions.push(fun);
+            }
+        }
+        Ok(Self {
+            bodies,
+            t: t_start,
+            k: 0,
+            knots,
+            kicks,
+            known,
+            functions,
+            blocks: 0,
+            q: 0.0,
+            tau,
+            horizon,
+            t_start,
+            charge,
+            ready: false,
+        })
+    }
+
+    /// Charge one collocation block, then yield if the budget is exhausted.
+    pub fn poll(&mut self, op_budget: &mut u64) -> Result<JobPoll, ResponseError> {
+        if self.ready {
+            return Ok(JobPoll::Ready);
+        }
+        loop {
+            if self.t >= self.horizon - 1e-15 {
+                self.ready = true;
+                return Ok(JobPoll::Ready);
+            }
+            if *op_budget == 0 {
+                return Ok(JobPoll::Pending);
+            }
+            self.step_one_block()?;
+            *op_budget = op_budget.saturating_sub(1);
+        }
+    }
+
+    fn step_one_block(&mut self) -> Result<(), ResponseError> {
+        let bodies = &mut self.bodies;
+        let t = self.t;
+        let horizon = self.horizon;
+        let t_start = self.t_start;
+        while self.k < self.kicks.len() && self.kicks[self.k].t <= t + 1e-12 {
+            let kick = &self.kicks[self.k];
+            if let Some(body) = bodies.iter_mut().find(|b| b.id == kick.body_id) {
+                let (x, v, mu) = body.present(kick.t)?;
+                let v_new = v.add(V2::from_arr(kick.delta_v));
+                if v_new.norm() >= C {
+                    return Err(ResponseError::Superluminal);
+                }
+                let closed_a = body
+                    .segments
+                    .last()
+                    .map(|s| V2::from_arr(s.a))
+                    .unwrap_or(V2::zero());
+                close_and_kink(body, kick.t, x, v_new, mu, closed_a, V2::zero());
+                self.charge.history += 1;
+            }
+            self.k += 1;
+        }
+        let mut t_next = horizon;
+        let mut any_physical = false;
+        for body_knots in &self.knots {
+            if let Some(tn) = body_knots.iter().copied().find(|tn| *tn > t + 1e-12) {
+                if tn < t_next {
+                    t_next = tn;
+                    any_physical = true;
+                } else if (tn - t_next).abs() < 1e-12 {
+                    any_physical = true;
+                }
+            }
+        }
+        if !any_physical || t_next <= t + 1e-18 {
+            self.t = horizon;
+            return Ok(());
+        }
+        let mut updates: Vec<(usize, V2, V2, f64, IntervalFunction)> = Vec::new();
+        let mut h_max = 0.0_f64;
+        let mut t_col_q = t;
+        for (i, body) in bodies.iter().enumerate() {
+            let has_knot = self.knots[i].iter().any(|tn| (*tn - t_next).abs() < 1e-12);
+            if !has_knot {
+                continue;
+            }
+            let t_seg = body.segments.last().map(|s| s.t0).unwrap_or(t);
+            let h = t_next - t_seg;
+            if h <= 1e-18 {
+                continue;
+            }
+            let (x, v, mu) = body.present(t_seg)?;
+            if v.norm() / C > BETA_MAX {
+                return Err(ResponseError::UnsupportedDomain {
+                    why: format!("beta={} exceeds admitted {}", v.norm() / C, BETA_MAX),
+                });
+            }
+            let t_col = t_seg + 0.5 * h;
+            let x_col = x.add(v.scale(t_col - t_seg));
+            let field = field_at_stored(&self.known, bodies, t_col, x_col, Some(body.id), &mut self.charge)?;
+            if field.phi.abs() / (C * C) > PHI_C2_MAX {
+                return Err(ResponseError::UnsupportedDomain {
+                    why: format!("|Phi|/c^2={} exceeds {PHI_C2_MAX}", field.phi.abs() / (C * C)),
+                });
+            }
+            let a = apply_gem_a(field, v);
+            let fun = IntervalFunction {
+                body_id: body.id,
+                t0: t_seg,
+                t1: t_next,
+                x0: x.arr(),
+                v0: v.arr(),
+                a: a.arr(),
+                mu,
+            };
+            let (x_new, v_new) = fun.inertial_end();
+            if v_new.norm() >= C {
+                return Err(ResponseError::Superluminal);
+            }
+            updates.push((i, x_new, v_new, mu, fun));
+            self.charge.source_evolution += 1;
+            h_max = h_max.max(h);
+            t_col_q = t_col;
+        }
+        if !updates.is_empty() {
+            let l = tidal_l_at(bodies, t_col_q.min(horizon).max(t_start), &mut self.charge)?;
+            self.q = self.q.max(h_max * l);
+            self.charge.factorization += 1;
+        }
+        for (i, x_new, v_new, mu, fun) in updates {
+            close_and_kink(
+                &mut bodies[i],
+                t_next,
+                x_new,
+                v_new,
+                mu,
+                V2::from_arr(fun.a),
+                V2::from_arr(fun.a),
+            );
+            self.known.push(fun.clone());
+            self.functions.push(fun);
+        }
+        self.blocks += 1;
+        self.t = t_next;
+        Ok(())
+    }
+
+    pub fn is_ready(&self) -> bool {
+        self.ready
+    }
+
+    pub fn charge(&self) -> &Charge {
+        &self.charge
+    }
+}
+
 fn incoming_knots(
     bodies: &[Body],
     t_start: f64,
@@ -1242,187 +1514,24 @@ fn interval_continue(
     tau_hint: Option<f64>,
     prior: &[IntervalFunction],
 ) -> Result<IntervalStats, ResponseError> {
-    let mut kicks: Vec<Intervention> = interventions
-        .iter()
-        .filter(|iv| iv.t + 1e-12 >= t_start)
-        .cloned()
-        .collect();
-    kicks.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
-    let tau = match tau_hint {
-        Some(tau) if tau.is_finite() && tau > 0.0 => tau,
-        _ => pair_tau_min(bodies, t_start)?,
-    };
-    let knots = incoming_knots(bodies, t_start, horizon, &kicks, tau)?;
-    // Catch up to t_start for bodies that have a physical knot here (a kick
-    // splice) without collocating bodies whose next knot is later. Horizon is
-    // not a collocation knot; last segments stay open (`t1 = None`) with the
-    // last stored `a`.
-    let mut functions: Vec<IntervalFunction> = Vec::new();
-    let mut known: Vec<IntervalFunction> = prior.to_vec();
-    {
-        let mut catch_up: Vec<(usize, V2, V2, f64, IntervalFunction)> = Vec::new();
-        for (i, body) in bodies.iter().enumerate() {
-            let has = kicks
-                .iter()
-                .any(|iv| iv.body_id == body.id && (iv.t - t_start).abs() < 1e-12);
-            if !has {
-                continue;
-            }
-            let t_seg = body.segments.last().map(|s| s.t0).unwrap_or(t_start);
-            if t_start <= t_seg + 1e-18 {
-                continue;
-            }
-            let h = t_start - t_seg;
-            let (x, v, mu) = body.present(t_seg)?;
-            let t_col = t_seg + 0.5 * h;
-            let x_col = x.add(v.scale(t_col - t_seg));
-            let field = field_at_stored(&known, bodies, t_col, x_col, Some(body.id), charge)?;
-            let a = apply_gem_a(field, v);
-            let fun = IntervalFunction {
-                body_id: body.id,
-                t0: t_seg,
-                t1: t_start,
-                x0: x.arr(),
-                v0: v.arr(),
-                a: a.arr(),
-                mu,
-            };
-            let (x_new, v_new) = fun.inertial_end();
-            if v_new.norm() >= C {
-                return Err(ResponseError::Superluminal);
-            }
-            catch_up.push((i, x_new, v_new, mu, fun));
-            charge.source_evolution += 1;
-        }
-        if !catch_up.is_empty() {
-            charge.factorization += 1;
-        }
-        for (i, x_new, v_new, mu, fun) in catch_up {
-            close_and_kink(
-                &mut bodies[i],
-                t_start,
-                x_new,
-                v_new,
-                mu,
-                V2::from_arr(fun.a),
-                V2::from_arr(fun.a),
-            );
-            known.push(fun.clone());
-            functions.push(fun);
-        }
-    }
-    let mut t = t_start;
-    let mut k = 0usize;
-    let mut blocks = 0u64;
-    let mut q = 0.0_f64;
-    while t < horizon - 1e-15 {
-        while k < kicks.len() && kicks[k].t <= t + 1e-12 {
-            let kick = &kicks[k];
-            if let Some(body) = bodies.iter_mut().find(|b| b.id == kick.body_id) {
-                let (x, v, mu) = body.present(kick.t)?;
-                let v_new = v.add(V2::from_arr(kick.delta_v));
-                if v_new.norm() >= C {
-                    return Err(ResponseError::Superluminal);
-                }
-                let closed_a = body
-                    .segments
-                    .last()
-                    .map(|s| V2::from_arr(s.a))
-                    .unwrap_or(V2::zero());
-                close_and_kink(body, kick.t, x, v_new, mu, closed_a, V2::zero());
-                charge.history += 1;
-            }
-            k += 1;
-        }
-        let mut t_next = horizon;
-        let mut any_physical = false;
-        for body_knots in &knots {
-            if let Some(tn) = body_knots.iter().copied().find(|tn| *tn > t + 1e-12) {
-                if tn < t_next {
-                    t_next = tn;
-                    any_physical = true;
-                } else if (tn - t_next).abs() < 1e-12 {
-                    any_physical = true;
-                }
-            }
-        }
-        if !any_physical || t_next <= t + 1e-18 {
-            break;
-        }
-        let mut updates: Vec<(usize, V2, V2, f64, IntervalFunction)> = Vec::new();
-        let mut h_max = 0.0_f64;
-        let mut t_col_q = t;
-        for (i, body) in bodies.iter().enumerate() {
-            let has_knot = knots[i].iter().any(|tn| (*tn - t_next).abs() < 1e-12);
-            if !has_knot {
-                continue;
-            }
-            let t_seg = body.segments.last().map(|s| s.t0).unwrap_or(t);
-            let h = t_next - t_seg;
-            if h <= 1e-18 {
-                continue;
-            }
-            let (x, v, mu) = body.present(t_seg)?;
-            if v.norm() / C > BETA_MAX {
-                return Err(ResponseError::UnsupportedDomain {
-                    why: format!("beta={} exceeds admitted {}", v.norm() / C, BETA_MAX),
-                });
-            }
-            let t_col = t_seg + 0.5 * h;
-            let x_col = x.add(v.scale(t_col - t_seg));
-            let field = field_at_stored(&known, bodies, t_col, x_col, Some(body.id), charge)?;
-            if field.phi.abs() / (C * C) > PHI_C2_MAX {
-                return Err(ResponseError::UnsupportedDomain {
-                    why: format!("|Phi|/c^2={} exceeds {PHI_C2_MAX}", field.phi.abs() / (C * C)),
-                });
-            }
-            let a = apply_gem_a(field, v);
-            let fun = IntervalFunction {
-                body_id: body.id,
-                t0: t_seg,
-                t1: t_next,
-                x0: x.arr(),
-                v0: v.arr(),
-                a: a.arr(),
-                mu,
-            };
-            // Observer knot is the stored-a endpoint (including ½ah²). Closed
-            // worldtube segments store the same a so present matches state_at.
-            let (x_new, v_new) = fun.inertial_end();
-            if v_new.norm() >= C {
-                return Err(ResponseError::Superluminal);
-            }
-            updates.push((i, x_new, v_new, mu, fun));
-            charge.source_evolution += 1;
-            h_max = h_max.max(h);
-            t_col_q = t_col;
-        }
-        if !updates.is_empty() {
-            let l = tidal_l_at(bodies, t_col_q.min(horizon).max(t_start), charge)?;
-            q = q.max(h_max * l);
-            charge.factorization += 1;
-        }
-        for (i, x_new, v_new, mu, fun) in updates {
-            close_and_kink(
-                &mut bodies[i],
-                t_next,
-                x_new,
-                v_new,
-                mu,
-                V2::from_arr(fun.a),
-                V2::from_arr(fun.a),
-            );
-            known.push(fun.clone());
-            functions.push(fun);
-        }
-        blocks += 1;
-        t = t_next;
-    }
+    let mut job = CoupledCompileJob::begin(
+        bodies.clone(),
+        t_start,
+        interventions,
+        horizon,
+        charge.clone(),
+        tau_hint,
+        prior,
+    )?;
+    let mut budget = u64::MAX;
+    while job.poll(&mut budget)? == JobPoll::Pending {}
+    *bodies = job.bodies;
+    *charge = job.charge;
     Ok(IntervalStats {
-        blocks,
-        q,
-        tau,
-        functions,
+        blocks: job.blocks,
+        q: job.q,
+        tau: job.tau,
+        functions: job.functions,
     })
 }
 
@@ -5649,6 +5758,90 @@ mod tests {
         assert_eq!(repaired.law_id, COUPLED_RESPONSE_LAW_ID);
         assert_eq!(full.law_id, COUPLED_RESPONSE_LAW_ID);
         assert!(reused.charge.repair >= 1);
+    }
+
+    #[test]
+    fn compile_job_suspends_inside_collocation_not_after() {
+        let ic = laboratory_two_body();
+        let horizon = 4.0;
+        let mut job = CoupledCompileJob::begin(
+            genesis_bodies(&ic),
+            ic.genesis_t,
+            &[],
+            horizon,
+            Charge {
+                init: 1,
+                ..Charge::default()
+            },
+            None,
+            &[],
+        )
+        .unwrap();
+        let mut polls = 0u64;
+        let mut pending_seen = false;
+        loop {
+            let mut budget = 1;
+            match job.poll(&mut budget).unwrap() {
+                JobPoll::Pending => {
+                    pending_seen = true;
+                    polls += 1;
+                    assert!(!job.is_ready());
+                    assert!(job.charge().source_evolution > 0 || job.charge().history > 0);
+                }
+                JobPoll::Ready => {
+                    polls += 1;
+                    break;
+                }
+            }
+            assert!(polls < 10_000, "job failed to terminate");
+        }
+        assert!(pending_seen, "budget=1 must suspend inside collocation");
+        assert!(polls > 1);
+        let direct = compile_source_response(ic, Vec::new(), horizon, 1.0 / 32.0).unwrap();
+        for id in [0_u64, 1] {
+            let (xj, _) = body_state(&job.bodies, id, horizon).unwrap();
+            let (xd, _) = body_state(&direct.worldtubes, id, horizon).unwrap();
+            let err = V2::from_arr(xj).sub(V2::from_arr(xd)).norm();
+            assert!(err < 1e-8, "suspended compile must match atomic compile, body {id} err={err}");
+        }
+    }
+
+    #[test]
+    fn diagnostic_scene_is_not_canonical_gravity() {
+        let ic = laboratory_two_body();
+        let dt = 1.0 / 32.0;
+        let horizon = 4.0;
+        let compiled = compile_source_response(ic.clone(), Vec::new(), horizon, dt).unwrap();
+        let mut charge = Charge::default();
+        let ship = fly_ship_compiled(
+            &compiled,
+            1.1,
+            [0.0, 3.0],
+            [0.125, 0.0],
+            3.5,
+            dt,
+            &mut charge,
+        )
+        .unwrap();
+        let ray = fly_ray_compiled(
+            &compiled,
+            1.1,
+            [0.0, 3.0],
+            [1.0, 0.0],
+            8.0,
+            0.05,
+            &mut charge,
+        )
+        .unwrap();
+        let rate = clock_rate_compiled(&compiled, ship.t, ship.x, ship.v, &mut charge).unwrap();
+        let extra = laboratory_kick();
+        let repaired = repair_from_committed(&compiled, &extra, horizon, dt).unwrap();
+        let (ok_ship, ok_ray, ok_clock, ok_contact) =
+            complete_required_queries_compiled(&repaired, horizon, &mut Charge::default()).unwrap();
+        assert!(ship.tau > 0.0 && ray.t > 1.1 && rate > 0.0 && rate <= 1.0);
+        assert!(ok_ship && ok_ray && ok_clock && ok_contact);
+        assert_eq!(compiled.law_id, COUPLED_RESPONSE_LAW_ID);
+        // Diagnostic scene only. Sampled enclosure/certified is not a canonical event.
     }
 
     #[test]

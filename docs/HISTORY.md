@@ -1882,3 +1882,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [I0 cost report](laws/i0-full-cost-report-20260915.md), [I0 snapshot](laws/i0-overlay-snapshot-20260915.md), [I1 contract notes](laws/i1-contract-notes-20260915.md), [H0124](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
 - Limitations: I1 is not done. Sampled `certified: true` is still diagnostic. Pair-inverse remains eager and dense. Policy/archive types are not yet wired through `Engine::advance` or live save/restore. Quiet compile `ledger_total` equals `total` because compile does not nest enclosure. Wall-time varies with cache warmth and is not a source-op count. No new speedup is claimed. Frozen `1dac658` untouched.
 - Next: I1 increment 1 — resumable compile/repair/enclosure jobs charged inside the loop, connected diagnostic scene (must not report canonical-gravity acceptance). Increment 2 is the authority-backed commit path.
+
+
+## H0127 — I1 increment 1 started: collocation jobs suspend inside the loop (diagnostic only)
+
+- Date: 2026-09-15
+- Kind: implementation
+- Status: partial
+- Revisions: `/private/tmp/emergent-full-engine-integration` `codex/full-engine-integration` after I0 commit `56453a8`; this entry's follow-on commit
+- Scope: I1 increment 1 of [full-engine-integration-plan-20260915.md](full-engine-integration-plan-20260915.md); diagnostic adapter only
+- Changed: `CoupledCompileJob` polls one charged collocation block then yields on empty budget. `interval_continue` uses that job with an unlimited budget so H0124 results stay. Engine `coupled_adapter` maps `WorkBudget` onto the job and labels `CANONICAL_GRAVITY_ACCEPTANCE` as `diagnostic-only`. A law-lab diagnostic scene compiles two masses, ship, ray, clock, contact and repair without reporting canonical gravity.
+- Why: I1 requires `advance(…, WorkBudget)` to suspend compile work inside expensive loops, not after atomic completion. Collocation is the first loop that dominated source evolution.
+- Validation: Same `CARGO_TARGET_DIR` / `CARGO_BUILD_JOBS=1` / `--offline --locked` / `--test-threads=1`. `cargo test -p emergent-law-lab --lib coupled_` PASS (54). `cargo test -p emergent-engine --lib` PASS (28). Observatory 10 and causal_contract 18 still pass. `cargo xtask history check` on journal home required.
+- Evidence: [I1 contract notes](laws/i1-contract-notes-20260915.md), [H0126](HISTORY.md), [plan](full-engine-integration-plan-20260915.md)
+- Limitations: `Engine::advance` is still inertial and does not poll coupled jobs. Seal, pair-inverse and enclosure remain atomic. Received-message course change and in-flight signal save/restore are not wired through the engine. Authority-backed commit (increment 2) has not started. `production_law` null.
+- Next: Finish I1 increment 1 by connecting policy, save/restore of in-flight signals, and `advance` suspension of remaining compile/validate/repair jobs, still without canonical-gravity acceptance. Then increment 2 authority path.

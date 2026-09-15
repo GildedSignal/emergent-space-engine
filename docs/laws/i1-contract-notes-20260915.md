@@ -30,6 +30,8 @@ Repair may insert an earlier intervention only in an uncommitted suffix or a new
 
 Quiet two-body compile eagerly factorizes a dense `(I-K)^{-1}` whose dimension is `2 * interval_functions`. Setup bytes grow with horizon. I1 should keep this lazy unless a consumer actually uses the stored inverse. A dense boundary replacing a small source system can erase reuse.
 
-## Packet 6 policy/storage
+## I1 increment 1 started (not complete)
 
-`policy.rs` and `archive.rs` compile as isolated modules. I1 increment 1: connect Broadcast delivery, received-message course change, in-flight signal across save/restore. I1 increment 2: authority-backed commit. Do not report canonical-gravity acceptance from increment 1.
+`CoupledCompileJob::poll` charges one collocation block then yields when `op_budget` is 0. Atomic `interval_continue` polls with `u64::MAX`. Tests: `compile_job_suspends_inside_collocation_not_after`, `diagnostic_scene_is_not_canonical_gravity`, `adapter_does_not_report_canonical_gravity`. `CANONICAL_GRAVITY_ACCEPTANCE = diagnostic-only`.
+
+Still remaining for increment 1: `Engine::advance` does not yet suspend these jobs; seal/pair-inverse/enclosure are still atomic; received-message course change and in-flight signal save/restore are not connected through the engine; consumers are bound in the law-lab diagnostic scene, not a headless engine loop. Increment 2 (authority-backed commit) has not started.
