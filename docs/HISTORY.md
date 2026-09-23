@@ -2250,3 +2250,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [probe and interpretation](laws/orbit-duration-20260923.md), [raw runs and provenance](../artifacts/evidence/orbit-duration-20260923), [duration implementation](../crates/law-lab/src/orbit_duration.rs)
 - Limitations: Seeds4/8/9/10/11 fail signed coverage; 8/9/10/11 also position. No true duration convergence result yet. Sampled offline diagnostics are not interval certificates or Engine canonical dynamics. 1,639,446 compile ledger units and 15.15s summed debug bank wall are not operating-envelope qualification. Inherited history check still lacks 116 historical evidence paths. production_law null; full-engine incomplete.
 - Next: Compare failed seeds with actually refined retarded-GEM reference or expose a frozen causal-block resolution control. Preserve these failures and earlier initialization banks. Continue authoritative gravitational integration and remaining plan gates.
+
+## H0152 — Record user-confirmed same-genesis orbital convergence experiment
+
+- Date: 2026-09-23
+- Kind: decision
+- Status: proposed
+- Revisions: baseline `61f72a9`; this documentation commit
+- Scope: Next I4/I6 experiment; existing retarded-GEM model numerical validation
+- Changed: User confirmed the next step: compare failed seeds 4/8/9/10/11 against an independent progressively refined retarded-GEM reference and/or genuinely refined causal blocks, using identical resolved genesis, prehistory, equations and one-period horizon. Handoff, task tracker and living intent card updated.
+- Why: Separate compiler numerical error from converged physical-model disagreement before changing the model or initialization assumptions.
+- Validation: Documentation-only update; no physics experiment or code tests run. History list reviewed; history check rerun with its inherited missing-evidence failure.
+- Evidence: [current next step](HANDOFF.md), [task tracker](../orchestration/tasks.json), [retained orbital failures](laws/orbit-duration-20260923.md)
+- Limitations: Experiment remains unexecuted. Stored dt does not refine collocation. Existing gates, failures and null production_law remain unchanged; historical evidence remains missing.
+- Next: Execute the frozen same-genesis numerical comparison, establish convergence, then interpret any remaining Kepler disagreement as a model/initialization question.
