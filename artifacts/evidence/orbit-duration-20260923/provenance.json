@@ -1,0 +1,23 @@
+{
+  "baseline": "55612eb",
+  "scope": "offline one-period diagnostics; no full-engine qualification",
+  "final_source_sha256": {
+    "crates/law-lab/src/orbit_duration.rs": "785ab45313de701c11e3c073832b9d69354d5975696b6238d01fbc3833f4a036",
+    "crates/law-lab/src/lib.rs": "44dba283823e0e825c8d6cafe2c5d151ba02d505471bda0fd174d09b2c0322f8",
+    "crates/engine/src/i6.rs": "d6272112792b46d4adae37639ba8b3d425d060c30e503f30e1c9828aa2de78f8",
+    "crates/engine/tests/i6_qualification.rs": "9f4fb24c14eb61bc4baddb183e3f64dbfef4d0eba9a5c962f6e99375493ecb8c"
+  },
+  "test_revision_note": "105-test law suite and I6 matrix ran before prefix-failure retention correction; final orbit_duration tests run after it. Initial raw bank names timestep_refinement; final metadata_dt_divisor explicitly corrects interpretation. This naming change does not alter trajectories.",
+  "environment": {
+    "profile": "debug",
+    "build_jobs": 1,
+    "target_dir": "/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target"
+  },
+  "commands": [
+    "cargo test -p emergent-law-lab --lib --offline --locked",
+    "cargo test -p emergent-engine --test i6_qualification --offline --locked",
+    "cargo test -p emergent-law-lab --lib orbit_duration --offline --locked",
+    "cargo xtask history check"
+  ],
+  "hardware": "Darwin MacBook-Air-de-Julien.local 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:26:46 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T8103 arm64"
+}

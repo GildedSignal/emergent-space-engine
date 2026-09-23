@@ -1,0 +1,77 @@
+{
+  "version": "kepler-one-period-after-short-shoot-v1",
+  "law_id": "es-linearized-retarded-gem-response-v0",
+  "case": {
+    "seed": 0,
+    "a": 4.0,
+    "eccentricity": 0.0,
+    "mass_ratio": 0.01,
+    "total_mass": 0.5,
+    "compactness": 0.001953125,
+    "orientation": 0.0,
+    "genesis": -2.0,
+    "horizon": 8.485281374238571
+  },
+  "period": 71.08612701053386,
+  "compile_dt": 0.02047906518405971,
+  "initialization": {
+    "version": "kepler-observation-newton-v1",
+    "trials": 19,
+    "residual": 5.382049920207442e-13,
+    "total_compile_charge": 50711,
+    "complete_charge": true,
+    "resolved_genesis": {
+      "genesis_t": -2.0,
+      "bodies": [
+        {
+          "id": 0,
+          "mu": 0.49504950495049505,
+          "x": [
+            -0.03902548158558076,
+            0.006970000783414142
+          ],
+          "v": [
+            -0.00046238663982096673,
+            -0.0034697308071664455
+          ]
+        },
+        {
+          "id": 1,
+          "mu": 0.0049504950495049506,
+          "x": [
+            3.9025125859317633,
+            -0.6970138289531748
+          ],
+          "v": [
+            0.04625824616081178,
+            0.34698357379848044
+          ]
+        }
+      ]
+    },
+    "reason": "Newton converged by evolving genesis; accepted compiled history returned without state patch"
+  },
+  "status": "PASS",
+  "reason": "One nominal period with fixed short-horizon initialized genesis; sampled position/energy/angular-momentum bands, padded radial envelope and signed angular coverage. No interval-wide or permanent-boundedness claim; no physical-law promotion.",
+  "physical_band": 0.05,
+  "requested_samples": 1025,
+  "completed_samples": 1025,
+  "position_error_over_a": 0.0006689538910560519,
+  "newtonian_energy_drift": 0.00011799691268121748,
+  "angular_momentum_drift": 0.0000590002002861721,
+  "min_separation": 3.999999999999819,
+  "max_separation": 4.000250494390686,
+  "signed_angular_coverage": 6.282518232674348,
+  "radial_lower": 3.8,
+  "radial_upper": 4.2,
+  "minimum_angular_coverage": 6.233185307179586,
+  "initializer_compile_charge": 50711,
+  "duration_compile_charge": 14054,
+  "total_compile_charge": 64765,
+  "complete_compile_charge": true,
+  "sample_state_queries": 2050,
+  "initialization_wall_ns": 158636458,
+  "duration_compile_wall_ns": 122239375,
+  "wall_ns": 290231208,
+  "accounting_scope": "All returned initialization and duration compile ledgers; a failed compile lacks partial counters and is flagged. State-query counts exclude analytic arithmetic; total wall includes it. Offline sampled diagnostic, not an engine WorkBudget or interval certificate."
+}

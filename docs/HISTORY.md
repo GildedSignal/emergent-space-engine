@@ -2236,3 +2236,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [bank freeze](laws/two-body-bank-20260923.md), [initializer freeze and results](laws/two-body-initialization-20260923.md), [provenance](../artifacts/evidence/orbit-initialization-20260923/provenance.json), [matrix](../artifacts/evidence/orbit-initialization-20260923/i6-initialized-matrix.json)
 - Limitations: Structured 12-case finite arcs cover only 0.119 periods, not full orbit, statistical coverage, strong fields or canonical gravity. Initializer is offline and atomic; source continuation is budgeted. Counters are returned ledger units; failed APIs can omit partial counters, explicitly flagged. Frozen historical failures and 116 missing historical paths remain. production_law null; full engine incomplete.
 - Next: One full-orbit probe from the identical resolved genesis without re-shooting for a longer horizon, then widen duration only if discriminating behavior supports it. Continue physical three-body/population and integrated gravity authority; do not promote short-arc evidence.
+
+## H0151 — Same-genesis full-orbit bank exposes five retained physical failures
+
+- Date: 2026-09-23
+- Kind: implementation
+- Status: partial
+- Revisions: baseline `55612eb`; this entry's commit; source hashes and test timing distinctions in retained provenance
+- Scope: I4/I6 diagnostic two-body duration with original observation-start Newton initialization; no canonical gravity promotion
+- Changed: Added one-period sampled Kepler position/invariants/radial/signed-angle checks for all twelve original cases. Seed0 probe PASS, expanded bank 7 PASS/5 FAIL. I6 schema3 retains all reports and a separate failed one-period gate. Query refusal cannot erase an observed prefix FAIL. dt-halving diagnostic produced identical trajectories because the compiler stores dt as metadata and selects causal blocks independently; this is not convergence evidence.
+- Why: Twelve short-arc passes do not establish complete orbital behavior. Test duration using identical calibrated genesis instead of fitting a different past for the requested future.
+- Validation: `cargo test -p emergent-law-lab --lib --offline --locked` 105 PASS; `cargo test -p emergent-engine --test i6_qualification --offline --locked` 1 PASS (57.60s); final duration regression and history-check outputs retained with evidence. Physical bank remains 7 PASS/5 FAIL independently of test-runner success.
+- Evidence: [probe and interpretation](laws/orbit-duration-20260923.md), [raw runs and provenance](../artifacts/evidence/orbit-duration-20260923), [duration implementation](../crates/law-lab/src/orbit_duration.rs)
+- Limitations: Seeds4/8/9/10/11 fail signed coverage; 8/9/10/11 also position. No true duration convergence result yet. Sampled offline diagnostics are not interval certificates or Engine canonical dynamics. 1,639,446 compile ledger units and 15.15s summed debug bank wall are not operating-envelope qualification. Inherited history check still lacks 116 historical evidence paths. production_law null; full-engine incomplete.
+- Next: Compare failed seeds with actually refined retarded-GEM reference or expose a frozen causal-block resolution control. Preserve these failures and earlier initialization banks. Continue authoritative gravitational integration and remaining plan gates.

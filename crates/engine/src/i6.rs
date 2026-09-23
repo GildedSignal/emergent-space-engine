@@ -307,6 +307,7 @@ pub struct I6Report {
     pub two_body_behavior: BankReport,
     pub initialized_two_body_behavior: BankReport,
     pub newton_two_body_behavior: BankReport,
+    pub one_period_two_body: Vec<emergent_law_lab::orbit_duration::OrbitDurationReport>,
     pub solar_window: SolarHierarchy,
     pub envelope: Vec<EnvelopeRung>,
 }
@@ -711,6 +712,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let two_body_behavior = measure_bank();
     let initialized_two_body_behavior=measure_initialized_bank();
     let newton_two_body_behavior=measure_newton_bank();
+    let one_period_two_body: Vec<_> = (0..12).map(|seed| emergent_law_lab::orbit_duration::measure_duration(emergent_law_lab::two_body_bank::Case::from_seed(seed))).collect();
     let solar_window = measure_solar_hierarchy().map_err(unsupported)?;
     let domain_auth = connected.authorizes_gem_events_on_admitted_field();
 
@@ -759,6 +761,11 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let connected_rung_ok = persist_ok && in_flight && ship_query_ok && asteroid_ok;
 
     let gates = vec![
+        gate("newton-initialized-two-body-one-period",
+            if one_period_two_body.iter().all(|c|c.status=="PASS") {GateStatus::Pass}
+            else if one_period_two_body.iter().any(|c|c.status=="FAIL") {GateStatus::Fail}
+            else {GateStatus::Unsupported},
+            "All twelve original short-horizon resolved geneses extended to one period; sampled Kepler position, invariants, radial extent and signed coverage; not perpetual stability or canonical gravity"),
         gate("newton-initialized-two-body-finite-arcs",
             if newton_two_body_behavior.all_pass {GateStatus::Pass}
             else if newton_two_body_behavior.cases.iter().any(|c|c.status=="FAIL"){GateStatus::Fail}else{GateStatus::Unsupported},
@@ -1169,7 +1176,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     ];
 
     Ok(I6Report {
-        schema: 2,
+        schema: 3,
         id: "i6-same-model-matrix-20260915".into(),
         canonical_law: LAW_ID.into(),
         diagnostic_response: COUPLED_RESPONSE_LAW_ID.into(),
@@ -1188,6 +1195,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         two_body_behavior,
         initialized_two_body_behavior,
         newton_two_body_behavior,
+        one_period_two_body,
         solar_window,
         envelope,
     })

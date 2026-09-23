@@ -966,6 +966,7 @@ pub mod i3_kernel;
 pub mod i4_solar;
 pub mod two_body_bank;
 pub mod orbit_initialization;
+pub mod orbit_duration;
 /// I4 interval-wide GEM field authority on causal blocks. Not production_law.
 /// Does not mint CANONICAL_GRAVITY_ACCEPTANCE.
 pub mod i4_gem_authority;

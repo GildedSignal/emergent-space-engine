@@ -164,6 +164,11 @@ fn i6_same_model_matrix_runs_without_promotion() {
         }
     }
 
+    assert_eq!(report.one_period_two_body.len(),12);
+    for (seed, case) in report.one_period_two_body.iter().enumerate() {
+        assert_eq!(case.case.seed as usize, seed);
+        assert_eq!(case.metadata_dt_divisor, 1);
+    }
     assert_eq!(report.two_body_behavior.cases.len(),12);
     assert_eq!(report.held_out.iter().filter(|c|c.comparison.as_deref()==Some("physical_law")).count(),24);
     for case in &report.two_body_behavior.cases {
