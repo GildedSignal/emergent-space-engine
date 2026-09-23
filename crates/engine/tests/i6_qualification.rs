@@ -159,10 +159,27 @@ fn i6_same_model_matrix_runs_without_promotion() {
 
     for case in &report.held_out {
         if ["chaotic_close_pass", "clumpy_collection"].contains(&case.intended_outcome_class.as_str())
-            || case.comparison.as_deref() == Some("physical_law") {
+ {
             assert_eq!(case.status, GateStatus::Unsupported, "unsupported behavior must not pass: {}", case.evidence);
         }
     }
+
+    assert_eq!(report.two_body_behavior.cases.len(),12);
+    assert_eq!(report.held_out.iter().filter(|c|c.comparison.as_deref()==Some("physical_law")).count(),24);
+    for case in &report.two_body_behavior.cases {
+        let row=report.held_out.iter().find(|r|r.seed==case.case.seed && r.role=="held-out" && r.comparison.as_deref()==Some("physical_law")).unwrap();
+        assert_eq!(row.status, match case.status.as_str(){"PASS"=>GateStatus::Pass,"FAIL"=>GateStatus::Fail,_=>GateStatus::Unsupported});
+    }
+    assert_eq!(report.initialized_two_body_behavior.cases.len(),12);
+    assert_eq!(report.newton_two_body_behavior.cases.len(),12);
+    for case in &report.newton_two_body_behavior.cases {
+        let row=report.held_out.iter().find(|r|r.seed==case.case.seed && r.role=="held-out-newton-initialized").unwrap();
+        assert_eq!(row.status,match case.status.as_str(){"PASS"=>GateStatus::Pass,"FAIL"=>GateStatus::Fail,_=>GateStatus::Unsupported});
+    }
+    for id in ["solar-system-hierarchy","three-bodies","galaxy-like-population"] {
+        assert_eq!(report.cards.iter().find(|c|c.id==id).unwrap().status,GateStatus::Unsupported);
+    }
+    assert_eq!(report.solar_window.sustained_bound_status,"UNSUPPORTED");
 
     let json = serde_json::to_string_pretty(&report).expect("json");
     assert!(json.contains("\"production_law\": null"));

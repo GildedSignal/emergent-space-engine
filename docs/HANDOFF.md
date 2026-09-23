@@ -2,6 +2,10 @@
 
 **Current heading — 23 September 2026:** Continue the full integration plan. Recovered committed Cursor implementation `e510b2f` into durable worktree `/Users/julien_laurent/Research/emergent-integration`, branch `codex/integration-continuation-20260923`; temporary worktree files had disappeared. H0149 corrects the pressure oracle and RK2 integration, adds adversarial/multiple-IC tests, and removes unsupported held-out PASS claims. Full engine remains incomplete; `production_law` remains null. The sections below H0149 describe the retained September 15 snapshot unless explicitly superseded.
 
+## Current continuation — H0150
+
+The [versioned initializer report](laws/two-body-initialization-20260923.md) supersedes H0149's missing two-body bank: actual varied finite arcs now exist. Original initialization is 8 PASS/4 FAIL; fixed-point is 10 PASS/2 UNSUPPORTED; separately charged Newton is 12 PASS. All are retained in the new I6 matrix. 102 law tests and two engine integration tests pass; source interval functions survive budgets 1/256 on seeds 0/8/10. Solar/three-body/galaxy dynamics remain unsupported; no full orbit or canonical gravity promotion. Next run the [frozen one-period probe](laws/orbit-duration-20260923.md) with the SAME resolved genesis, not a horizon-specific reinitialization. History check still fails on inherited missing evidence.
+
 ## Current continuation — H0149
 
 - Start in the durable worktree above. The original Documents checkout remains dirty and untouched. The recovered [plan](full-engine-integration-plan-20260915.md) is unchanged.

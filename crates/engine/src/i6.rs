@@ -31,8 +31,9 @@ use emergent_law_lab::{
     i4_moving_compact::{measure_moving_compact, MOVING_SCHWARZSCHILD_1PN_LAW_ID},
     i4_moving_horizon::measure_moving_horizon,
     i4_near_mass::{measure_near_mass_1pn, measure_near_mass_interface, I4_IF_MATCH_BAND},
-    i4_solar::{solar_planet_ic_at, I4_COLLECTIVE_A_BAND, I4_HORIZON, I4_PREHISTORY},
+    i4_solar::{measure_solar_hierarchy, SolarHierarchy, solar_planet_ic_at, I4_COLLECTIVE_A_BAND, I4_HORIZON, I4_PREHISTORY},
 };
+use emergent_law_lab::two_body_bank::{measure_bank, measure_initialized_bank, measure_newton_bank, BankReport};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -42,7 +43,6 @@ const HELD_OUT_THREE_BODY: u64 = 0x16B0_1D01;
 const HELD_OUT_FLEET: u64 = 0x16B0_1D02;
 const HELD_OUT_COMPILER: u64 = 0x16B0_1D03;
 const HELD_OUT_REFINEMENT: u64 = 0x16B0_1D04;
-const HELD_OUT_PHYSICAL: u64 = 0x16B0_1D05;
 const DAILY_SEED: u64 = 0x14C0_55ED;
 const PRESSURE_SEED: u64 = 0x15E1_A15D;
 const PRESSURE_YIELD_BUDGET: usize = 128;
@@ -304,6 +304,10 @@ pub struct I6Report {
     pub cards: Vec<Card>,
     pub daily_gallery: Vec<SeedCase>,
     pub held_out: Vec<SeedCase>,
+    pub two_body_behavior: BankReport,
+    pub initialized_two_body_behavior: BankReport,
+    pub newton_two_body_behavior: BankReport,
+    pub solar_window: SolarHierarchy,
     pub envelope: Vec<EnvelopeRung>,
 }
 
@@ -704,6 +708,10 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let horizon = measure_moving_horizon().map_err(unsupported)?;
     let compact = measure_moving_compact();
     let family = measure_family_sourced_gem().map_err(unsupported)?;
+    let two_body_behavior = measure_bank();
+    let initialized_two_body_behavior=measure_initialized_bank();
+    let newton_two_body_behavior=measure_newton_bank();
+    let solar_window = measure_solar_hierarchy().map_err(unsupported)?;
     let domain_auth = connected.authorizes_gem_events_on_admitted_field();
 
     let burns = connected
@@ -751,6 +759,15 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     let connected_rung_ok = persist_ok && in_flight && ship_query_ok && asteroid_ok;
 
     let gates = vec![
+        gate("newton-initialized-two-body-finite-arcs",
+            if newton_two_body_behavior.all_pass {GateStatus::Pass}
+            else if newton_two_body_behavior.cases.iter().any(|c|c.status=="FAIL"){GateStatus::Fail}else{GateStatus::Unsupported},
+            "separate observation-start Newton initializer; all derivative/line-search solves charged; retained original bank; not full-orbit or production qualification"),
+        gate("two-body-finite-arc-behavior",
+            if two_body_behavior.all_pass { GateStatus::Pass }
+            else if two_body_behavior.cases.iter().any(|c|c.status=="FAIL") { GateStatus::Fail }
+            else { GateStatus::Unsupported },
+            &format!("{}; {} / {} pass; numerical agreement cannot replace independent physical anchors; frozen failures retained",two_body_behavior.scope,two_body_behavior.cases.iter().filter(|c|c.status=="PASS").count(),two_body_behavior.cases.len())),
         gate(
             "observatory-same-engine",
             if same_engine {
@@ -893,16 +910,14 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             allowed_outcome_class: "supported_hierarchy".into(),
             model_regime: "solar two-body GEM with prehistory; admitted interior field bound".into(),
             comparison: "physical_law remainder band 0.05".into(),
-            status: if gem.authorizes_events {
-                GateStatus::Pass
-            } else {
-                GateStatus::Fail
-            },
+            status: GateStatus::Unsupported,
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
             evidence: format!(
-                "domain-local field authorizes_events={}; engine authorizes_gem_events_on_admitted_field={domain_auth}; genesis prefix refused; global CANONICAL_GRAVITY_ACCEPTANCE diagnostic-only",
-                gem.authorizes_events
+                "sustained_orbit={}; finite-window radius=[{:.6},{:.6}] angular_coverage={:.6} radians negative_sampled_energy={}; field authorization={} is not orbital behavior; global gravity diagnostic-only",
+                solar_window.sustained_bound_status,solar_window.min_r,solar_window.max_r,
+                solar_window.sampled_orbit.sampled_angular_coverage_radians,
+                solar_window.sampled_orbit.all_sampled_newtonian_energies_negative,gem.authorizes_events
             ),
         },
         Card {
@@ -911,14 +926,10 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             allowed_outcome_class: "hierarchical_bound".into(),
             model_regime: "inertial third body plus GEM pair; close-entrant collocation fallback".into(),
             comparison: "physical_law; chaos does not excuse compiler change of inertial facts".into(),
-            status: if asteroid_ok {
-                GateStatus::Pass
-            } else {
-                GateStatus::Fail
-            },
+            status: GateStatus::Unsupported,
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
-            evidence: "asteroid shares the connected engine; encounter class lives in the held-out bank".into(),
+            evidence: "asteroid shares the connected engine; decode success does not validate a gravitational three-body encounter; actual outcome bank still unsupported".into(),
         },
         Card {
             id: "galaxy-like-population".into(),
@@ -926,11 +937,11 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
             allowed_outcome_class: "clumpy_collection".into(),
             model_regime: "direct small-world GEM sums; quadrupole rejected".into(),
             comparison: "physical_law remainder vs direct sums; band 0.05".into(),
-            status: GateStatus::Pass,
+            status: GateStatus::Unsupported,
             failing_input_visible: true,
             unconfirmed_magnitudes_visible: true,
             evidence: format!(
-                "admitted={}; quadrupole remainder {:.6} FAIL as skip (visible, not hidden)",
+                "admitted={}; quadrupole remainder {:.6} FAIL as skip (visible, not hidden); direct field sums do not establish evolved clumpy collection behavior",
                 galaxy.admitted, galaxy.remainder_gem
             ),
         },
@@ -1014,13 +1025,30 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         comparison: Some("compiler_exact".into()),
     }];
 
-    let held_out = vec![
+    let mut held_out = vec![
         held_out_three_body()?,
         held_out_fleet_count()?,
         held_out_compiler_exact()?,
         held_out_numerical_refinement()?,
-        held_out_physical_law(family.remainder, family.n_members),
     ];
+
+    held_out.extend(two_body_behavior.cases.iter().map(|case| SeedCase {
+        role: "held-out".into(), seed: case.case.seed,
+        intended_outcome_class: "weak-field-finite-orbital-arc".into(),
+        observed_class: format!("finite_arc_{}",case.status.to_lowercase()),
+        status: match case.status.as_str() { "PASS"=>GateStatus::Pass,"FAIL"=>GateStatus::Fail,_=>GateStatus::Unsupported },
+        comparison: Some("physical_law".into()),
+        evidence: serde_json::to_string(case).expect("finite bank report"),
+    }));
+
+    held_out.extend(newton_two_body_behavior.cases.iter().map(|case| SeedCase {
+        role: "held-out-newton-initialized".into(), seed: case.case.seed,
+        intended_outcome_class: "weak-field-finite-orbital-arc".into(),
+        observed_class: format!("finite_arc_{}",case.status.to_lowercase()),
+        status: match case.status.as_str(){"PASS"=>GateStatus::Pass,"FAIL"=>GateStatus::Fail,_=>GateStatus::Unsupported},
+        comparison: Some("physical_law".into()),
+        evidence: serde_json::to_string(case).expect("finite initialized bank report"),
+    }));
 
     let envelope = vec![
         EnvelopeRung::measured(
@@ -1141,7 +1169,7 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
     ];
 
     Ok(I6Report {
-        schema: 1,
+        schema: 2,
         id: "i6-same-model-matrix-20260915".into(),
         canonical_law: LAW_ID.into(),
         diagnostic_response: COUPLED_RESPONSE_LAW_ID.into(),
@@ -1157,6 +1185,10 @@ pub fn run_matrix() -> Result<I6Report, EngineError> {
         cards,
         daily_gallery,
         held_out,
+        two_body_behavior,
+        initialized_two_body_behavior,
+        newton_two_body_behavior,
+        solar_window,
         envelope,
     })
 }
@@ -1279,18 +1311,4 @@ fn held_out_numerical_refinement() -> Result<SeedCase, EngineError> {
         ),
         comparison: Some("numerical_refinement".into()),
     })
-}
-
-fn held_out_physical_law(remainder: f64, n_members: usize) -> SeedCase {
-    SeedCase {
-        role: "held-out".into(),
-        seed: HELD_OUT_PHYSICAL,
-        intended_outcome_class: "physical_law_remainder_band".into(),
-        observed_class: "daily_family_remainder_reused".into(),
-        status: GateStatus::Unsupported,
-        evidence: format!(
-            "comparison=physical_law has no independent held-out IC or physical oracle; reused daily family-moment remainder={remainder:.6} on N={n_members} rest fixture; bank id {HELD_OUT_PHYSICAL:#x} is metadata, not the IC; galaxy quadrupole FAIL 0.478 remains a different row"
-        ),
-        comparison: Some("physical_law".into()),
-    }
 }

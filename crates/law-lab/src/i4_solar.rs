@@ -9,7 +9,7 @@
 //! GEM stays diagnostic. Not `production_law`. Not canonical gravity.
 
 use crate::coupled_source_response::{
-    compile_source_response_opts, field_acceleration, retarded_lookback_time, BodyInit, Charge,
+    body_state_compiled, compile_source_response_opts, field_acceleration, retarded_lookback_time, BodyInit, Charge,
     CompileOpts, InitialCondition, Reference, ResponseError, SourceResponse, C, G,
 };
 use serde::{Deserialize, Serialize};
@@ -37,11 +37,81 @@ pub struct SolarHierarchy {
     pub horizon: f64,
     pub switch_on_defect: f64,
     pub newton_remainder: f64,
+    /// Sampled separation extrema; not interval-wide bounds.
     pub min_r: f64,
+    pub max_r: f64,
     pub max_phi_c2: f64,
+    /// Maximum actual compiled body speed / C at the diagnostic sample times.
     pub max_beta: f64,
-    pub bound: bool,
+    pub sampled_orbit: SolarWindowDiagnostics,
+    /// Always UNSUPPORTED for this short-window diagnostic.
+    pub sustained_bound_status: String,
     pub charge: Charge,
+}
+
+/// Finite-window numerical observations, not a sustained-orbit classifier.
+/// Newtonian osculating energy is a diagnostic for the GEM trajectory, not a
+/// conserved GEM energy. Angular coverage is the sum of shortest sampled angle
+/// increments; it cannot rule out motion aliased between samples.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SolarWindowDiagnostics {
+    pub samples: usize,
+    pub min_separation: f64,
+    pub max_separation: f64,
+    pub min_newtonian_specific_energy: f64,
+    pub max_newtonian_specific_energy: f64,
+    pub all_sampled_newtonian_energies_negative: bool,
+    pub sampled_angular_coverage_radians: f64,
+    /// All samples satisfy the original radius window AND negative osculating
+    /// energy. Even true does not establish sustained boundedness.
+    pub finite_window_bound_compatible: bool,
+}
+
+fn diagnose_solar_window(
+    relative_states: &[([f64; 2], [f64; 2])],
+    total_mu: f64,
+) -> Result<SolarWindowDiagnostics, ResponseError> {
+    if relative_states.len() < 2 || !total_mu.is_finite() || total_mu <= 0.0 {
+        return Err(ResponseError::UnsupportedDomain {
+            why: "solar window requires two finite samples and positive total mass".into(),
+        });
+    }
+    let mut min_r = f64::INFINITY;
+    let mut max_r = 0.0_f64;
+    let mut min_energy = f64::INFINITY;
+    let mut max_energy = f64::NEG_INFINITY;
+    let mut angular_coverage = 0.0;
+    let mut previous: Option<[f64; 2]> = None;
+    for &(x, v) in relative_states {
+        let radius = hypot(x[0], x[1]);
+        let energy = 0.5 * (v[0] * v[0] + v[1] * v[1]) - G * total_mu / radius;
+        if !radius.is_finite() || radius <= 0.0 || !energy.is_finite() {
+            return Err(ResponseError::UnsupportedDomain {
+                why: "nonfinite or coincident solar diagnostic sample".into(),
+            });
+        }
+        min_r = min_r.min(radius);
+        max_r = max_r.max(radius);
+        min_energy = min_energy.min(energy);
+        max_energy = max_energy.max(energy);
+        let unit = [x[0] / radius, x[1] / radius];
+        if let Some(prev) = previous {
+            angular_coverage += (prev[0] * unit[1] - prev[1] * unit[0])
+                .atan2(prev[0] * unit[0] + prev[1] * unit[1])
+                .abs();
+        }
+        previous = Some(unit);
+    }
+    Ok(SolarWindowDiagnostics {
+        samples: relative_states.len(),
+        min_separation: min_r,
+        max_separation: max_r,
+        min_newtonian_specific_energy: min_energy,
+        max_newtonian_specific_energy: max_energy,
+        all_sampled_newtonian_energies_negative: max_energy < 0.0,
+        sampled_angular_coverage_radians: angular_coverage,
+        finite_window_bound_compatible: min_r > 2.0 && max_r < 12.0 && max_energy < 0.0,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -199,7 +269,6 @@ pub fn measure_solar_hierarchy() -> Result<SolarHierarchy, ResponseError> {
     charge.verification += 1;
     let mut switch_on_defect = 0.0_f64;
     let mut newton_remainder = 0.0_f64;
-    let mut min_r = f64::INFINITY;
     let mut max_phi_c2 = 0.0_f64;
     let mut max_beta = 0.0_f64;
     for i in 0..8 {
@@ -213,9 +282,6 @@ pub fn measure_solar_hierarchy() -> Result<SolarHierarchy, ResponseError> {
             newton_remainder.max((xp[0] - analytic[0]).abs().max((xp[1] - analytic[1]).abs()));
         let x0 = eval_x(&pre, 0, t)?;
         let r = hypot(xp[0] - x0[0], xp[1] - x0[1]);
-        min_r = min_r.min(r);
-        let v = solar_planet_ic_at(t).bodies[1].v;
-        max_beta = max_beta.max(hypot(v[0], v[1]) / C);
         if let Ok(a) = field_acceleration(&pre.worldtubes, t, xp, [0.0, 0.0], Some(1), &mut charge)
         {
             let an = hypot(a[0], a[1]);
@@ -223,17 +289,44 @@ pub fn measure_solar_hierarchy() -> Result<SolarHierarchy, ResponseError> {
         }
         charge.reconstruction += 1;
     }
-    let bound = min_r > 2.0 && min_r < 12.0;
+    // Frozen 65 endpoint-inclusive samples over H=4: diagnostics only. This
+    // short window and sampled values cannot establish a sustained bound orbit.
+    let mut relative_states = Vec::with_capacity(65);
+    for i in 0..=64 {
+        let t = I4_HORIZON * i as f64 / 64.0;
+        let (x0, v0) = body_state_compiled(&pre, 0, t)?;
+        let (x1, v1) = body_state_compiled(&pre, 1, t)?;
+        for v in [v0, v1] {
+            let beta = hypot(v[0], v[1]) / C;
+            if !beta.is_finite() {
+                return Err(ResponseError::UnsupportedDomain {
+                    why: "nonfinite compiled solar velocity".into(),
+                });
+            }
+            max_beta = max_beta.max(beta);
+        }
+        relative_states.push((
+            [x1[0] - x0[0], x1[1] - x0[1]],
+            [v1[0] - v0[0], v1[1] - v0[1]],
+        ));
+        charge.reconstruction += 2;
+    }
+    let sampled_orbit = diagnose_solar_window(
+        &relative_states,
+        pre.genesis.bodies.iter().map(|body| body.mu).sum(),
+    )?;
     Ok(SolarHierarchy {
         law_id: crate::coupled_source_response::COUPLED_RESPONSE_LAW_ID.into(),
         prehistory: I4_PREHISTORY,
         horizon: I4_HORIZON,
         switch_on_defect,
         newton_remainder,
-        min_r,
+        min_r: sampled_orbit.min_separation,
+        max_r: sampled_orbit.max_separation,
         max_phi_c2,
         max_beta,
-        bound,
+        sampled_orbit,
+        sustained_bound_status: "UNSUPPORTED".into(),
         charge,
     })
 }
@@ -431,33 +524,54 @@ mod tests {
     }
 
     #[test]
+    fn i4_solar_window_rejects_escape_despite_acceptable_initial_radius() {
+        // Frozen negative control: outward linear track r=6..14 over H=4,
+        // v=2, total_mu=8.02. The old min-only rule incorrectly accepted it.
+        let samples: Vec<_> = (0..=64)
+            .map(|i| ([6.0 + 8.0 * i as f64 / 64.0, 0.0], [2.0, 0.0]))
+            .collect();
+        let window = diagnose_solar_window(&samples, 8.02).unwrap();
+        assert!(window.min_separation > 2.0 && window.min_separation < 12.0);
+        assert!(window.max_separation > 12.0);
+        assert!(window.min_newtonian_specific_energy > 0.0);
+        assert!(!window.all_sampled_newtonian_energies_negative);
+        assert!(!window.finite_window_bound_compatible);
+        // Positive energy alone must reject even before the radius exits.
+        let early = diagnose_solar_window(&samples[..17], 8.02).unwrap();
+        assert!(early.max_separation < 12.0);
+        assert!(!early.finite_window_bound_compatible);
+    }
+
+    #[test]
     fn i4_solar_prehistory_is_not_genesis_switch_on() {
         let solar = measure_solar_hierarchy().expect("solar hierarchy");
         eprintln!(
-            "I4_SOLAR switch_on_defect={} newton_remainder={} pos_band={} min_r={} phi_c2={} bound={} ledger={}",
+            "I4_SOLAR switch_on_defect={} newton_remainder={} pos_band={} min_r={} max_r={} phi_c2={} sampled_orbit={:?} sustained_bound={} ledger={}",
             solar.switch_on_defect,
             solar.newton_remainder,
             I4_POS_BAND,
             solar.min_r,
+            solar.max_r,
             solar.max_phi_c2,
-            solar.bound,
+            solar.sampled_orbit,
+            solar.sustained_bound_status,
             solar.charge.ledger_total()
         );
         assert!(
             solar.switch_on_defect > I4_POS_BAND,
             "genesis switch-on must not be an equilibrium initializer"
         );
-        if solar.bound {
-            eprintln!(
-                "I4_KEEP solar two-body with prehistory: stays bound min_r={}; switch-on defect {} > {}; newton remainder {} is GEM−Newton, not a keep gate",
-                solar.min_r, solar.switch_on_defect, I4_POS_BAND, solar.newton_remainder
-            );
-        } else {
-            eprintln!(
-                "I4_GAP solar two-body unbound min_r={}; alternatives: nested pair collocation, or Newtonian hierarchy plus GEM diagnostic enclosure",
-                solar.min_r
-            );
-        }
+        assert_eq!(solar.sustained_bound_status, "UNSUPPORTED");
+        assert_eq!(solar.sampled_orbit.samples, 65);
+        assert!(solar.max_beta.is_finite() && solar.max_beta >= 0.0);
+        eprintln!(
+            "I4_SOLAR_WINDOW compatibility={} over H={}; sampled Newtonian energies [{}, {}], angular coverage={}; no sustained-bound claim or promotion",
+            solar.sampled_orbit.finite_window_bound_compatible,
+            solar.horizon,
+            solar.sampled_orbit.min_newtonian_specific_energy,
+            solar.sampled_orbit.max_newtonian_specific_energy,
+            solar.sampled_orbit.sampled_angular_coverage_radians,
+        );
         let roots = enclose_retarded_roots(&compile_solar_with_prehistory().unwrap()).unwrap();
         eprintln!(
             "I4_GEM_ROOT unique={} missed={} delay_max={} ulp={} interval_wide_field={} authorizes={} coverage={}",
