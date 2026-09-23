@@ -118,10 +118,13 @@ fn rk2_1pn(a: &mut Particle, b: &mut Particle, dt: f64) {
     bh.x = xb;
     bh.v = vb;
     let (aa1, ab1) = accels_1pn(&ah, &bh);
-    a.v = add(a.v, scale(add(aa0, aa1), 0.5 * dt));
-    b.v = add(b.v, scale(add(ab0, ab1), 0.5 * dt));
+    // Heun's position derivative uses the old and Euler-predicted velocities.
+    // Updating v first would add another half acceleration term to x and
+    // reduce the global position accuracy to first order.
     a.x = add(a.x, scale(add(a.v, va), 0.5 * dt));
     b.x = add(b.x, scale(add(b.v, vb), 0.5 * dt));
+    a.v = add(a.v, scale(add(aa0, aa1), 0.5 * dt));
+    b.v = add(b.v, scale(add(ab0, ab1), 0.5 * dt));
 }
 
 fn rk4_1pn(a: &mut Particle, b: &mut Particle, dt: f64) {
@@ -684,6 +687,55 @@ mod tests {
         assert!(r_s < r_if);
         assert!((compactness(8.0, r_s) - 0.5).abs() < 1e-12);
         assert!(compactness(8.0, r_s) > MOVING_COMPACT_BAND);
+    }
+
+    #[test]
+    fn i4_moving_compact_weak_rk2_has_second_order_convergence() {
+        // Frozen numerical regression: H=0.5, r=6, masses 8 and 0.5;
+        // halving RK2 steps must divide the error by roughly four (3..=5).
+        // RK4 references share the force law: this tests integration order,
+        // not the independent physical validity of that law. Rotations test
+        // coordinate consistency, not a bank of distinct dynamical regimes.
+        fn integrate(seed: u64, steps: usize, rk4: bool) -> (Particle, Particle) {
+            let (mut a, mut b) = pair_at(seed, 6.0, 8.0, 0.5);
+            let dt = 0.5 / steps as f64;
+            for _ in 0..steps {
+                if rk4 {
+                    rk4_1pn(&mut a, &mut b, dt);
+                } else {
+                    rk2_1pn(&mut a, &mut b, dt);
+                }
+                assert!(norm(sub(a.x, b.x)) > schwarzschild_radii(a.mu).2);
+            }
+            (a, b)
+        }
+        fn error(a: (Particle, Particle), b: (Particle, Particle)) -> f64 {
+            [
+                norm(sub(a.0.x, b.0.x)),
+                norm(sub(a.0.v, b.0.v)),
+                norm(sub(a.1.x, b.1.x)),
+                norm(sub(a.1.v, b.1.v)),
+            ]
+            .into_iter()
+            .fold(0.0, f64::max)
+        }
+        for seed in [0, 1, 4] {
+            let reference = integrate(seed, 4096, true);
+            let reference_error = error(integrate(seed, 2048, true), reference);
+            let errors = [16, 32, 64].map(|n| error(integrate(seed, n, false), reference));
+            assert!(errors.iter().all(|e| e.is_finite() && *e > 0.0));
+            assert!(
+                reference_error < errors[2] / 100.0,
+                "seed={seed} RK4 refinement={reference_error:e} RK2 errors={errors:?}"
+            );
+            for pair in errors.windows(2) {
+                let ratio = pair[0] / pair[1];
+                assert!(
+                    (3.0..=5.0).contains(&ratio),
+                    "seed={seed} halving ratio={ratio} RK2 errors={errors:?}"
+                );
+            }
+        }
     }
 
     #[test]

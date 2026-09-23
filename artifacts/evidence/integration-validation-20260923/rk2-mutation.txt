@@ -1,0 +1,19 @@
+   Compiling emergent-law-lab v0.1.0 (/Users/julien_laurent/Research/emergent-integration/crates/law-lab)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.26s
+     Running unittests src/lib.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/emergent_law_lab-40288e1f43a8bf55)
+
+running 1 test
+
+thread 'i4_moving_compact::tests::i4_moving_compact_weak_rk2_has_second_order_convergence' panicked at crates/law-lab/src/i4_moving_compact.rs:733:17:
+seed=0 halving ratio=1.9991324450976982 RK2 errors=[0.0016921158237455103, 0.0008464250719830702, 0.0004233038117282817]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test i4_moving_compact::tests::i4_moving_compact_weak_rk2_has_second_order_convergence ... FAILED
+
+failures:
+
+failures:
+    i4_moving_compact::tests::i4_moving_compact_weak_rk2_has_second_order_convergence
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-law-lab --lib`

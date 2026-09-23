@@ -157,11 +157,23 @@ fn i6_same_model_matrix_runs_without_promotion() {
         GateStatus::Unsupported
     );
 
+    for case in &report.held_out {
+        if ["chaotic_close_pass", "clumpy_collection"].contains(&case.intended_outcome_class.as_str())
+            || case.comparison.as_deref() == Some("physical_law") {
+            assert_eq!(case.status, GateStatus::Unsupported, "unsupported behavior must not pass: {}", case.evidence);
+        }
+    }
+
     let json = serde_json::to_string_pretty(&report).expect("json");
     assert!(json.contains("\"production_law\": null"));
-    let dest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../docs/laws/i6-qualification-matrix-20260915.json");
-    std::fs::write(&dest, json).expect("write matrix");
+    // A test run must never overwrite retained evidence from an earlier revision.
+    let dest = std::env::var_os("I6_MATRIX_OUTPUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::env::temp_dir().join(format!("i6-matrix-{}.json", std::process::id())));
+    use std::io::Write;
+    let mut output = std::fs::OpenOptions::new().write(true).create_new(true)
+        .open(&dest).expect("new matrix path (existing evidence is immutable)");
+    output.write_all(json.as_bytes()).expect("write matrix");
     eprintln!(
         "I6_MATRIX path={} promotion=false full_engine=false production_law=null plan_exit={}",
         dest.display(),

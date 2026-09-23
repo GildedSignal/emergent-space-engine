@@ -4,7 +4,7 @@ The canonical engine and the physical-law experiments are separate versioned cap
 
 ## Heading check
 
-Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Living card: `~/.cursor/skills/heading-check/cards/emergent-space.md`. Tree: `~/.cursor/skills/heading-check/cards/emergent-space.tree.md` (show it if asked). If the skill is unreadable, still read the card when present; do not invent goals; preflight before acting. Codex, GLM/OMP, and Cursor must load this loop for this repo — do not pass `--no-skills`. Journal home is `/private/tmp/emergent-g2-law`. Living start: that tree's `docs/HANDOFF.md` First ten minutes.
+Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Living card: `~/.cursor/skills/heading-check/cards/emergent-space.md`. Tree: `~/.cursor/skills/heading-check/cards/emergent-space.tree.md` (show it if asked). If the skill is unreadable, still read the card when present; do not invent goals; preflight before acting. Codex, GLM/OMP, and Cursor must load this loop for this repo — do not pass `--no-skills`. Journal home is `/Users/julien_laurent/Research/emergent-integration` (recovered from committed Cursor work after temporary files disappeared). Living start: that tree's `docs/HANDOFF.md` First ten minutes.
 
 - Root orchestrator owns Cargo workspace, shared contracts, integration and evidence.
 - Work in assigned worktrees and modules. Do not edit another owner's files.

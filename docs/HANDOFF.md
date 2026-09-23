@@ -1,10 +1,20 @@
 # Emergent Space — agent handoff
 
-**Current heading — 15 September 2026:** Julien requested `/goal Implement "full-engine-integration-plan-20260915.md" fully.` I0–I6 matrix-run. Envelope tiny/connected PASS; pressure-sweeps rung FAIL (sequential-query limiter). Envelope-target gates still UNSUPPORTED. Crossing PASS as diagnostic sidecar. `production_law` null. Full-engine incomplete. Do not mint global `CANONICAL_GRAVITY_ACCEPTANCE`. [Integration plan](full-engine-integration-plan-20260915.md).
+**Current heading — 23 September 2026:** Continue the full integration plan. Recovered committed Cursor implementation `e510b2f` into durable worktree `/Users/julien_laurent/Research/emergent-integration`, branch `codex/integration-continuation-20260923`; temporary worktree files had disappeared. H0149 corrects the pressure oracle and RK2 integration, adds adversarial/multiple-IC tests, and removes unsupported held-out PASS claims. Full engine remains incomplete; `production_law` remains null. The sections below H0149 describe the retained September 15 snapshot unless explicitly superseded.
+
+## Current continuation — H0149
+
+- Start in the durable worktree above. The original Documents checkout remains dirty and untouched. The recovered [plan](full-engine-integration-plan-20260915.md) is unchanged.
+- Read [validation continuation](laws/integration-validation-20260923.md) and its new matrix/evidence. The old September 15 matrix stays immutable.
+- Pressure correctness now matches all 471 contact facts, including family identities and revision changes. The independent predicate audit is retrospective on committed trajectories/emissions, not independent evolution; it cannot detect missing emission generation or certify gravity. Phase families and ambiguous simultaneous range histories refuse; identity/work caps fail explicitly.
+- RK2 now passes second-order convergence against refined RK4. The old update ordering fails the same frozen test. This checks numerical integration under shared equations, not independent physical validity.
+- Three formerly unsupported held-out behaviors now honestly report UNSUPPORTED. Merely varying a seed label or rotating a fixture is not a dynamical seed bank. The 12 varied inertial IC cases are compiler/contact validation only.
+- Next physics work: replace held-out placeholders with actual moving-source behavioral ensembles and independent magnitude/physical anchors; fix the weak solar boundedness classifier. I1 gravity event authority still needs an integrated path, and I4 moving comparable-mass strong fields remain unsupported. Do not retry rejected galaxy quadrupole or promote a pressure correctness rung to target performance.
+- Continuity blocker inherited from `e510b2f`: history check fails on missing historical referenced files (first `crates/law-lab/src/causal_kernel.rs`). A complete missing-path inventory is retained. Recover authentic evidence from backups; do not fabricate files or relax the checker.
 
 ## First ten minutes
 
-1. Read the heading-check skill and living card at `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight. Journal home remains `/private/tmp/emergent-g2-law`. Integration worktree is `/private/tmp/emergent-full-engine-integration`.
+1. Read the heading-check skill and living card at `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight. Journal and integration worktree now live at `/Users/julien_laurent/Research/emergent-integration`; `/private/tmp/emergent-g2-law/docs` contains compatibility links.
 2. Read [the integration plan](full-engine-integration-plan-20260915.md), especially Evidence, the four initial issues, and I0/I1. Run `cargo xtask history list` and search relevant entries. H0124 closed the previous prompt's assigned laboratory exits; I0 reproduced repair completeness and nested accounting on the clean worktree.
 3. Inspect `git status --short`, `git log -8 --oneline`, and `git worktree list`. Do not merge cumulative packet branches wholesale or delete original worktrees.
 4. I3 domain-exited (H0136). I4 family GEM KEEP (H0140). I5 CPU-only (H0141). I6 matrix run (H0142) then 1PN (H0143), GEM-to-horizon wrappers stopped (H0144), moving Schwarzschild 1PN laboratory PASS (H0145), Engine-hosted crossing PASS (H0146), envelope rungs measured (H0147), pressure sweep measured FAIL (H0148). Do not mint global `CANONICAL_GRAVITY_ACCEPTANCE`. Do not select `production_law`. Full-engine incomplete.

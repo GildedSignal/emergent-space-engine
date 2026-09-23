@@ -10,7 +10,8 @@ use crate::{
     coupled_adapter::CANONICAL_GRAVITY_ACCEPTANCE,
     geometry::{self, TickInterval},
     math::r,
-    runtime::{Engine, EngineError, EventRecord},
+    runtime::{Body, Command, Engine, EngineError, EventRecord},
+    propagator::Inertial,
     LAW_ID,
 };
 use emergent_law_lab::coupled_source_response::{
@@ -85,12 +86,96 @@ pub fn authority_status(pending: Vec<String>) -> AuthorityReport {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CanonicalMatch {
     pub contacts: Vec<(i128, u64, u64)>,
-    pub arrivals: Vec<(i128, u64, u64)>,
+    pub arrivals: Vec<(i128, u64, u64, String)>,
+}
+
+/// Exhaustive audit only: refuse large populations before materialization.
+const ORACLE_MAX_IDENTITIES: usize = 4096;
+
+fn segment_at(segments: &[Inertial], tick: i128) -> usize {
+    segments.partition_point(|s| s.epoch <= tick).saturating_sub(1)
+}
+
+/// Independent exact quadratic minimum on the half-open bin (tick-1,tick].
+/// Does not call the production contact search, heap, or broad phase.
+fn oracle_contact_bin(a: &Inertial, b: &Inertial, radius: &crate::math::Rational, tick: i128) -> bool {
+    let x = a.state_at(tick - 1) - b.state_at(tick - 1);
+    let v = &a.velocity - &b.velocity;
+    let q = v.norm_squared();
+    let xv = x.dot(&v);
+    let c = x.norm_squared() - radius * radius;
+    if c < r(0) || &q + r(2) * &xv + &c <= r(0) {
+        return true;
+    }
+    // A minimum strictly inside the bin also counts; a left-only tangent does not.
+    q > r(0) && xv < r(0) && -&xv < q && c * q <= &xv * &xv
+}
+
+fn has_range_burn(engine: &Engine, id: u64, tick: i128) -> bool {
+    engine.state.interventions.iter().any(|input| matches!(&input.command,
+        Command::SetCourseRange { lo, hi, at, .. } if *lo <= id && id <= *hi && *at == tick))
+}
+
+fn oracle_bodies(engine: &Engine, through: i128) -> Result<Vec<Body>, EngineError> {
+    let mut ids: std::collections::BTreeSet<u64> = engine.state.bodies.keys().copied().collect();
+    for f in &engine.state.genesis_families {
+        if f.phase.is_some() {
+            return Err(EngineError::Unsupported("oracle phase-family revision history is not implemented".into()));
+        }
+        if f.count > ORACLE_MAX_IDENTITIES as u64 || ids.len() + f.count as usize > ORACLE_MAX_IDENTITIES {
+            return Err(EngineError::ResourceLimit("exhaustive oracle identity limit".into()));
+        }
+        ids.extend(f.first_id..=f.last_id());
+    }
+    if ids.len() > ORACLE_MAX_IDENTITIES {
+        return Err(EngineError::ResourceLimit("exhaustive oracle identity limit".into()));
+    }
+    let mut out = Vec::new();
+    for id in ids {
+        let mut body = engine.decode(id)?;
+        if let Some(f) = engine.state.genesis_families.iter().find(|f| f.contains(id)) {
+            let mut segments = f.member_segments(id).ok_or(EngineError::UnknownIdentity(id))?;
+            // Parametric range burns replace the current family generator.
+            // Reconstruct its past from genesis plus recorded inputs instead of
+            // extrapolating the final generator backwards through the burn.
+            let mut burns = Vec::new();
+            for input in &engine.state.interventions {
+                match &input.command {
+                    Command::SetCourseRange { lo, hi, at, velocity } if *lo <= id && id <= *hi && *at <= through => {
+                        burns.push((*at, velocity.clone()));
+                    }
+                    Command::FamilyPhaseBurn { .. } => return Err(EngineError::Unsupported(
+                        "oracle family-phase burn history requires explicit range provenance".into())),
+                    _ => {}
+                }
+            }
+            burns.sort_by_key(|(at, _)| *at);
+            if burns.windows(2).any(|w| w[0].0 == w[1].0) {
+                return Err(EngineError::Unsupported("oracle overlapping same-tick range burns require canonical order reconstruction".into()));
+            }
+            for (at, velocity) in burns {
+                let origin = segments[segment_at(&segments, at)].state_at(at);
+                segments.retain(|s| s.epoch < at);
+                segments.push(Inertial::new(at, origin, velocity).map_err(EngineError::Invalid)?);
+            }
+            if engine.state.bodies.contains_key(&id) {
+                // Explicit history begins at extraction; retain the generated prefix.
+                let epoch = body.segments[0].epoch;
+                segments.retain(|s| s.epoch < epoch);
+                segments.extend(body.segments.clone());
+            }
+            body.segments = segments;
+        }
+        out.push(body);
+    }
+    Ok(out)
 }
 
 impl Engine {
-    /// Independent finite-semantic reference: geometry predicates on committed
-    /// piecewise worldlines, not the scan heap that found the events.
+    /// Exhaustive small-world audit of committed trajectories and emissions.
+    /// Independent rational contact/cone predicates, not production searches.
+    /// This is not an independent evolution or missing-emission oracle; phase
+    /// families refuse and populations above 4096 identities fail explicitly.
     pub fn independent_inertial_facts(
         &self,
         through: i128,
@@ -98,45 +183,44 @@ impl Engine {
         if through < 0 || through > self.state.clock {
             return Err(EngineError::Invalid("oracle cut is not committed".into()));
         }
-        let domain = TickInterval::new(0, through)
-            .map_err(|e| EngineError::Invalid(e))?;
-        let mut ids: Vec<u64> = self.state.bodies.keys().copied().collect();
-        ids.sort_unstable();
+        if through == 0 {
+            return Ok(CanonicalMatch { contacts: vec![], arrivals: vec![] });
+        }
+        let domain = TickInterval::new(1, through).map_err(EngineError::Invalid)?;
+        let bodies = oracle_bodies(self, through)?;
+        let pair_bins = (bodies.len() as u128)
+            .saturating_mul(bodies.len().saturating_sub(1) as u128)
+            .saturating_mul(through as u128) / 2;
+        let signal_bins = (self.state.events.len() as u128).saturating_mul(through as u128);
+        if pair_bins.saturating_add(signal_bins) > 5_000_000 {
+            return Err(EngineError::ResourceLimit("exhaustive oracle work limit".into()));
+        }
         let mut contacts = Vec::new();
-        for i in 0..ids.len() {
-            for j in (i + 1)..ids.len() {
-                let a = self.decode(ids[i])?;
-                let b = self.decode(ids[j])?;
+        for (i, a) in bodies.iter().enumerate() {
+            for b in &bodies[i + 1..] {
                 let radius = &a.radius + &b.radius;
-                let mut tick = domain.start;
-                while tick <= domain.end {
-                    let bin = TickInterval::new(tick, tick)
-                        .map_err(|e| EngineError::Invalid(e))?;
-                    if geometry::first_contact_piecewise(
-                        &a.segments,
-                        &b.segments,
-                        &radius,
-                        bin,
-                    ) == Some(tick)
-                    {
-                        let continued = tick > domain.start
-                            && geometry::first_contact_piecewise(
-                                &a.segments,
-                                &b.segments,
-                                &radius,
-                                TickInterval::new(tick - 1, tick - 1)
-                                    .map_err(|e| EngineError::Invalid(e))?,
-                            ) == Some(tick - 1);
-                        if !continued {
-                            contacts.push((tick, ids[i].min(ids[j]), ids[i].max(ids[j])));
-                        }
+                // One event per unchanged trajectory pair, including a new
+                // event after a commanded burn while already overlapping.
+                let mut consumed = None;
+                for tick in 1..=through {
+                    let ai = segment_at(&a.segments, tick - 1);
+                    let bi = segment_at(&b.segments, tick - 1);
+                    if consumed == Some((ai, bi)) {
+                        continue;
                     }
-                    tick += 1;
+                    if oracle_contact_bin(&a.segments[ai], &b.segments[bi], &radius, tick) {
+                        contacts.push((tick, a.id, b.id));
+                        // Individual burns/impulses/stops precede contact revision
+                        // storage; range burns follow it. Reconstruct that ordering.
+                        let after_a = if has_range_burn(self, a.id, tick) { ai } else { segment_at(&a.segments, tick) };
+                        let after_b = if has_range_burn(self, b.id, tick) { bi } else { segment_at(&b.segments, tick) };
+                        consumed = Some((after_a, after_b));
+                    }
                 }
             }
         }
         contacts.sort_unstable();
-        contacts.dedup();
+
 
         let mut arrivals = Vec::new();
         for event in self.sorted_events() {
@@ -148,21 +232,24 @@ impl Engine {
             }
             let source = event.subjects[0];
             let target = event.subjects[1];
-            let emission = self.decode(source)?.at(event.tick);
-            let receiver = self.decode(target)?;
-            if let Some(tick) = geometry::first_signal_arrival_piecewise(
-                event.tick,
-                &emission,
-                &receiver.segments,
-                domain,
-            ) {
-                if tick <= through {
-                    arrivals.push((tick, source, target));
+            let emission = bodies.iter().find(|b| b.id == source)
+                .ok_or(EngineError::UnknownIdentity(source))?.at(event.tick);
+            let receiver = bodies.iter().find(|b| b.id == target)
+                .ok_or(EngineError::UnknownIdentity(target))?;
+            // Direct cone membership, independent of production root search.
+            // Emissions committed at t cannot be received until t+1.
+            if let Some(start) = event.tick.checked_add(1) {
+                for tick in start.max(domain.start)..=through {
+                    let elapsed = r(tick) - r(event.tick);
+                    if (receiver.at(tick) - &emission).norm_squared() <= &elapsed * &elapsed {
+                        arrivals.push((tick, source, target, event.predecessors[0].clone()));
+                        break;
+                    }
                 }
             }
         }
         arrivals.sort_unstable();
-        arrivals.dedup();
+
         Ok(CanonicalMatch { contacts, arrivals })
     }
 
@@ -241,20 +328,20 @@ fn committed_contacts(events: Vec<&EventRecord>, through: i128) -> Vec<(i128, u6
         out.push((e.tick, e.subjects[0].min(e.subjects[1]), e.subjects[0].max(e.subjects[1])));
     }
     out.sort_unstable();
-    out.dedup();
+
     out
 }
 
-fn committed_arrivals(events: Vec<&EventRecord>, through: i128) -> Vec<(i128, u64, u64)> {
+fn committed_arrivals(events: Vec<&EventRecord>, through: i128) -> Vec<(i128, u64, u64, String)> {
     let mut out = Vec::new();
     for e in events {
         if e.kind != "signal_arrived" || e.tick > through || e.subjects.len() < 2 {
             continue;
         }
-        out.push((e.tick, e.subjects[0], e.subjects[1]));
+        out.push((e.tick, e.subjects[0], e.subjects[1], e.predecessors.first().cloned().unwrap_or_default()));
     }
     out.sort_unstable();
-    out.dedup();
+
     out
 }
 

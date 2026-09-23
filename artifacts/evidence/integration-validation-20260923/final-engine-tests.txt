@@ -1,0 +1,100 @@
+   Compiling emergent-engine v0.1.0 (/Users/julien_laurent/Research/emergent-integration/crates/engine)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.10s
+     Running unittests src/lib.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/emergent_engine-9ff024804825f5b9)
+
+running 31 tests
+test archive::tests::remainder_schema_refuses_truncated_admission_field ... ok
+test authority::tests::gravity_acceptance_stays_diagnostic ... ok
+test authority::tests::near_tangent_between_ticks_is_owned_by_the_ending_bin ... ok
+test coupled_adapter::tests::adapter_does_not_report_canonical_gravity ... ok
+test coupled_adapter::tests::euler_and_pair_inverse_jobs_yield ... ok
+test geometry::tests::aabb_touch_counts_as_intersection ... ok
+test geometry::tests::continuous_contact_matches_independent_linear_interval_oracle_grid ... ok
+test geometry::tests::inclusive_intervals_validate_and_include_single_ticks ... ok
+test geometry::tests::lightcone_and_binary_search_handle_full_i128_range_without_overflow ... ok
+test geometry::tests::receding_contact_invalid_radius_and_stationary_overlap ... ok
+test geometry::tests::signal_arrival_matches_exhaustive_tick_oracle ... ok
+test geometry::tests::tangent_and_point_crossing_between_tick_samples_are_not_missed ... ok
+test geometry::tests::tangent_at_integer_boundary_belongs_only_to_ending_bin ... ok
+test math::tests::rational_normalization_and_serialization_preserve_identity ... ok
+test math::tests::vector_arithmetic_stays_exact_beyond_machine_integer_range ... ok
+test policy::tests::omniscient_diagnostic_is_a_distinct_type ... ok
+test policy::tests::tree_and_bytecode_match_on_received_knowledge ... ok
+test population::tests::billion_id_is_random_access_and_split_invariant ... ok
+test population::tests::closing_phase_family_is_not_self_disjoint ... ok
+test population::tests::phase_decode_split_and_moment_match_materialized ... ok
+test population::tests::rng_known_vector_and_purpose_separation ... ok
+test propagator::tests::nearly_lightlike_quantization_is_explicit_not_a_float_accident ... ok
+test propagator::tests::proper_rate_is_an_exact_dyadic_lower_bound ... ok
+test propagator::tests::proper_time_is_subdivision_and_rebase_invariant ... ok
+test propagator::tests::rebasing_preserves_the_entire_worldline ... ok
+test propagator::tests::rejects_lightlike_and_superluminal_worldlines ... ok
+test propagator::tests::serialization_contains_only_canonical_worldline_state ... ok
+test propagator::tests::worldtube_bounds_negative_motion_and_fractional_samples ... ok
+test response::tests::compose_checks_boundary_and_cache_dependencies ... ok
+test response::tests::min_plus_routes_and_overflow ... ok
+test storage::tests::checkpoint_roundtrip_corruption_and_law_rejection ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.37s
+
+     Running tests/i1_increment2_authority.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/i1_increment2_authority-e5eeb197aca759cf)
+
+running 6 tests
+test i1_increment2_beyond_horizon_stays_pending ... ok
+test i1_increment2_canonical_inertial_facts_agree_on_connected_scene ... ok
+test i1_increment2_kicked_near_tangent_between_enclosure_samples ... ok
+test i1_increment2_sampled_contact_misses_are_not_interval_wide_bounds ... ok
+test i1_increment2_shifted_units_epoch_and_dt_are_separately_versioned ... ok
+test i1_increment2_three_mass_compile_stays_diagnostic ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/i6_qualification.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/i6_qualification-6bc78d32744537ce)
+
+running 1 test
+test i6_same_model_matrix_runs_without_promotion ... I6_MATRIX path=/Users/julien_laurent/Research/emergent-integration/artifacts/runs/continuation-20260923/i6-matrix.json promotion=false full_engine=false production_law=null plan_exit=matrix-run
+I6_GATE observatory-same-engine Pass
+I6_GATE compiler-inertial-facts Pass
+I6_GATE persist-replay Pass
+I6_GATE cold-history-query Pass
+I6_GATE galaxy-quadrupole-skip Fail
+I6_GATE moving-multi-mass-compact Pass
+I6_GATE sch-gem-accel-continuity-v0 Fail
+I6_GATE sch-gem-accel-continuity Pass
+I6_GATE engine-canonical-gravity Pass
+I6_GATE family-moment-as-galaxy-skip Fail
+I6_GATE production-promotion Fail
+I6_GATE envelope-pressure Unsupported
+I6_GATE envelope-frozen-target Unsupported
+I6_CARD fast-ships-light-twins Pass in_flight=true proper_time_ok=true oracle_match=true
+I6_CARD solar-system-hierarchy Pass domain-local field authorizes_events=true; engine authorizes_gem_events_on_admitted_field=true; genesis prefix refused; global CANONICAL_GRAVITY_ACCEPTANCE diagnostic-only
+I6_CARD three-bodies Pass asteroid shares the connected engine; encounter class lives in the held-out bank
+I6_CARD galaxy-like-population Pass admitted=direct-small-world-gem-sums; quadrupole remainder 0.478416 FAIL as skip (visible, not hidden)
+I6_CARD black-hole-near-mass Pass 1PN clocks remainder 0.000000; moving compact covers=true; captured=true; clock 1.020e-3 null 1.358e-5; GEM-to-horizon covers=false
+I6_CARD fleet-asteroid-causal Pass burns=1 family_admitted=family-moment-gem-source
+I6_CARD coupled-fleet-hierarchy-inflight-ray-observer-boost Pass hosted=true captured=true remainder=1.347e-2 remnant=8.5 host_moved=true in_flight=true burns=1 persist=true; not a second lab world
+I6_ENVELOPE tiny-complete-loop Pass limiter=None rss_kb=Some(4720) wall_ns=Some(15098208) ledger=Some(0) digest=Some("b101a4a7a1486402")
+I6_ENVELOPE connected-family-hierarchy Pass limiter=None rss_kb=Some(7792) wall_ns=Some(33254542) ledger=Some(1052) digest=Some("65b7b76ab4a2346b")
+I6_ENVELOPE pressure-sweeps Pass limiter=Some("sequential-query") rss_kb=Some(5136) wall_ns=Some(31656960583) ledger=Some(928) digest=Some("951cc96ad9f4ae86")
+I6_ENVELOPE frozen-integrated-target Unsupported limiter=None rss_kb=None wall_ns=None ledger=None digest=None
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.92s
+
+     Running tests/oracle_pressure.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/oracle_pressure-811241c7e8dad303)
+
+running 10 tests
+test contact_stop_does_not_emit_again_on_new_stop_segment ... ok
+test family_history_and_materialized_bank_agree_across_varied_initial_states ... ok
+test genesis_overlap_and_reburn_follow_revision_semantics ... ok
+test independent_predicate_catches_between_tick_contact_and_left_tangent ... ok
+test oracle_detects_deleted_contact_record_and_coincident_signal_arrival ... ok
+test oracle_detects_one_missing_of_two_coincident_signals ... ok
+test oracle_refuses_ambiguous_range_order_and_excessive_work ... ok
+test oracle_refuses_unbounded_materialization ... ok
+test packed_pressure_oracle_matches ... oracle=471 actual=471 missing=[] extra=[]
+ok
+test simultaneous_contact_and_individual_burn_consumes_resulting_revision ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.90s
+

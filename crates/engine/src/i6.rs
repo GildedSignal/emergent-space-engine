@@ -1173,18 +1173,18 @@ fn held_out_three_body() -> Result<SeedCase, EngineError> {
         .filter(|ev| ev.kind == "contact")
         .count();
     let class = if contacts > 0 {
-        "chaotic_close_pass"
+        "inertial_contacts"
     } else {
-        "hierarchical_bound"
+        "stationary_noninteracting_bodies"
     };
     Ok(SeedCase {
         role: "held-out".into(),
         seed: HELD_OUT_THREE_BODY,
         intended_outcome_class: "chaotic_close_pass".into(),
         observed_class: class.into(),
-        status: GateStatus::Pass,
+        status: GateStatus::Unsupported,
         evidence: format!(
-            "predeclared seed; contacts={contacts}; a miss here cannot erase daily FAIL cards"
+            "fixed stationary inertial IC; seed is engine metadata, not an IC generator; contacts={contacts}; no gravitational three-body evolution or chaotic-close-pass classifier is implemented for this row"
         ),
         comparison: Some("compiler_exact".into()),
     })
@@ -1206,10 +1206,10 @@ fn held_out_fleet_count() -> Result<SeedCase, EngineError> {
         role: "held-out".into(),
         seed: HELD_OUT_FLEET,
         intended_outcome_class: "clumpy_collection".into(),
-        observed_class: "clumpy_collection".into(),
-        status: GateStatus::Pass,
+        observed_class: "stationary_affine_family".into(),
+        status: GateStatus::Unsupported,
         evidence: format!(
-            "predeclared N=3 family count={}; does not re-seed the galaxy quadrupole FAIL",
+            "fixed stationary affine IC; seed is engine metadata, not an IC generator; measured family count={}; population count does not validate clumpy collection dynamics or gravitational aggregation",
             e.logical_count()
         ),
         comparison: Some("compiler_exact".into()),
@@ -1249,7 +1249,7 @@ fn held_out_compiler_exact() -> Result<SeedCase, EngineError> {
             GateStatus::Fail
         },
         evidence: format!(
-            "comparison=compiler_exact replay={replay_ok} oracle={oracle_ok}; re-seeding cannot erase galaxy quadrupole FAIL"
+            "comparison=compiler_exact replay={replay_ok} oracle={oracle_ok}; fixed inertial IC with engine seed metadata, not a generated many-seed physical workload; re-seeding cannot erase galaxy quadrupole FAIL"
         ),
         comparison: Some("compiler_exact".into()),
     })
@@ -1275,30 +1275,21 @@ fn held_out_numerical_refinement() -> Result<SeedCase, EngineError> {
             GateStatus::Fail
         },
         evidence: format!(
-            "comparison=numerical_refinement RK2 vs RK4 dt/4 remainder={remainder:.3e} band={BAND}; distinct seed from daily compact; does not re-seed galaxy quadrupole FAIL"
+            "comparison=numerical_refinement RK2 vs RK4 dt/4 remainder={remainder:.3e} band={BAND}; seed changes only one of seven rotations (seed % 7) of the same radial capture IC; both integrators share the law derivatives, so this is numerical refinement, not independent physical-law validation; does not re-seed galaxy quadrupole FAIL"
         ),
         comparison: Some("numerical_refinement".into()),
     })
 }
 
 fn held_out_physical_law(remainder: f64, n_members: usize) -> SeedCase {
-    let pass = remainder <= BAND;
     SeedCase {
         role: "held-out".into(),
         seed: HELD_OUT_PHYSICAL,
         intended_outcome_class: "physical_law_remainder_band".into(),
-        observed_class: if pass {
-            "physical_law_remainder_band".into()
-        } else {
-            "physical_law_remainder_outside_band".into()
-        },
-        status: if pass {
-            GateStatus::Pass
-        } else {
-            GateStatus::Fail
-        },
+        observed_class: "daily_family_remainder_reused".into(),
+        status: GateStatus::Unsupported,
         evidence: format!(
-            "comparison=physical_law family-moment remainder={remainder:.6} on N={n_members} rest fixture; bank id {HELD_OUT_PHYSICAL:#x} is not the IC; galaxy quadrupole FAIL 0.478 remains a different row"
+            "comparison=physical_law has no independent held-out IC or physical oracle; reused daily family-moment remainder={remainder:.6} on N={n_members} rest fixture; bank id {HELD_OUT_PHYSICAL:#x} is metadata, not the IC; galaxy quadrupole FAIL 0.478 remains a different row"
         ),
         comparison: Some("physical_law".into()),
     }
