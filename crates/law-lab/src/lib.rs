@@ -1088,3 +1088,5 @@ mod tests {
         assert_eq!(norm(sub(changed, initial)), 1.0 / 16.0);
     }
 }
+
+pub mod orbit_reference;

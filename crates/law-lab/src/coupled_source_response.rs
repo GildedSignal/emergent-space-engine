@@ -371,8 +371,10 @@ pub struct SourceResponse {
     /// Delay-grouped Lipschitz of the assembled interval operator, computed
     /// as \(\max_k (h_k L_k)\), not assigned 0.
     pub interval_q: f64,
-    /// Cadence used for causal-block knots. Repair reuses this so subdivided
-    /// execution shares the same interval grid.
+    /// Effective numerical cadence used for causal-block knots (knots use
+    /// half this value). Refined laboratory compiles divide the initial
+    /// light-crossing time; this field is not then the physical light crossing.
+    /// Repair reuses it so execution shares the same interval grid.
     pub interval_tau: f64,
     /// Genesis IC for domain-share checks. Distinct-history reuse refuses a
     /// different genesis (new massive entrant from t=0).
@@ -687,64 +689,83 @@ fn retarded_lookback_function(
     charge: &mut Charge,
 ) -> Option<f64> {
     charge.retarded_solves += 1;
-    if query_t + 1e-12 < fun.t0 {
+    if !query_t.is_finite() || !fun.t0.is_finite() || !fun.t1.is_finite()
+        || !query_x.x.is_finite() || !query_x.y.is_finite()
+        || fun.t1 < fun.t0 || query_t < fun.t0
+    {
         return None;
     }
-    let t1 = fun.t1.min(query_t);
-    if t1 + 1e-12 < fun.t0 {
-        return None;
-    }
-    let seed = Segment {
-        t0: fun.t0,
-        t1: Some(fun.t1),
-        x0: fun.x0,
-        v: fun.v0,
-        a: [0.0, 0.0],
-        mu: fun.mu,
+    let mut lo = fun.t0;
+    let mut hi = fun.t1.min(query_t);
+    // F(s)=|query_x-source(s)|-C*(query_t-s) increases strictly for
+    // subluminal source motion. Constant-a velocity is affine, so checking
+    // both endpoints bounds its norm throughout this interval. A source's
+    // absence must follow from this bracket, never an out-of-range guess.
+    // Each residual/state evaluation, including failed attempts, is charged
+    // as verification; retarded_solves continues to count requested solves.
+    let mut evaluate = |t: f64| -> Option<(f64, f64, f64)> {
+        charge.verification += 1;
+        let (x, v) = fun.state_at(t);
+        let speed = v.norm();
+        let rel = query_x.sub(x);
+        let distance = rel.norm();
+        let light_distance = C * (query_t - t);
+        if !speed.is_finite() || speed >= C || !distance.is_finite()
+            || !light_distance.is_finite()
+        {
+            return None;
+        }
+        let derivative = if distance > 0.0 { C - rel.dot(v) / distance } else { C };
+        let residual = distance - light_distance;
+        let tolerance = 1e-12 * (1.0 + distance + light_distance.abs());
+        if !derivative.is_finite() || derivative <= 0.0 || !residual.is_finite() {
+            return None;
+        }
+        Some((residual, derivative, tolerance))
     };
-    let mut u = inertial_delay(query_t, query_x, &seed).unwrap_or_else(|| {
-        let (x_mid, _) = fun.state_at(0.5 * (fun.t0 + t1));
-        query_x.sub(x_mid).norm() / C
-    });
-    if !u.is_finite() {
+    let (flo, _, tol_lo) = evaluate(lo)?;
+    let (fhi, _, tol_hi) = evaluate(hi)?;
+    if flo.abs() <= tol_lo {
+        return Some(query_t - lo);
+    }
+    if fhi.abs() <= tol_hi {
+        return Some(query_t - hi);
+    }
+    if flo > 0.0 || fhi < 0.0 {
         return None;
     }
-    u = u.max(0.0);
-    for _ in 0..20 {
-        let t_ret = query_t - u;
-        if t_ret + 1e-12 < fun.t0 || t_ret > fun.t1 + 1e-12 || t_ret > query_t + 1e-12 {
-            return None;
+    let mut t = lo + 0.5 * (hi - lo);
+    for _ in 0..80 {
+        let (f, derivative, tolerance) = evaluate(t)?;
+        if f.abs() <= tolerance {
+            return Some(query_t - t);
         }
-        let (x_ret, v_ret) = fun.state_at(t_ret);
-        let rel = query_x.sub(x_ret);
-        let f = rel.norm2() - C * C * u * u;
-        let df = 2.0 * rel.dot(v_ret) - 2.0 * C * C * u;
-        if df.abs() < 1e-18 {
+        if f < 0.0 { lo = t; } else { hi = t; }
+        let width = hi - lo;
+        let proposal = t - f / derivative;
+        // Safeguard the Newton step so every unsuccessful iteration contracts
+        // the bracket; no iteration may abandon a valid root at an endpoint.
+        let next = if proposal.is_finite()
+            && proposal > lo + 0.1 * width && proposal < hi - 0.1 * width
+        {
+            proposal
+        } else {
+            lo + 0.5 * width
+        };
+        if next <= lo || next >= hi {
             break;
         }
-        let step = f / df;
-        u -= step;
-        if !u.is_finite() {
-            return None;
-        }
-        if step.abs() < 1e-14 {
-            break;
-        }
+        t = next;
     }
-    if !u.is_finite() || u < -1e-12 {
-        return None;
+    // Retain the historical numerical miss ceiling as a final rounding check.
+    // This is a floating diagnostic, not a canonical branch certificate.
+    let (miss, _, _) = evaluate(t)?;
+    let delay = query_t - t;
+    if delay.is_finite() && delay >= 0.0 && miss.abs() <= 1e-6 * (1.0 + C * delay) {
+        Some(delay)
+    } else {
+        None
     }
-    u = u.max(0.0);
-    let t_ret = query_t - u;
-    if t_ret + 1e-12 < fun.t0 || t_ret > fun.t1 + 1e-12 || t_ret > query_t + 1e-12 {
-        return None;
-    }
-    let (x_ret, _) = fun.state_at(t_ret);
-    let miss = (query_x.sub(x_ret).norm() - C * u).abs();
-    if miss > 1e-6 * (1.0 + C * u) {
-        return None;
-    }
-    Some(u)
 }
 
 fn gem_from_segment(
@@ -1132,16 +1153,37 @@ fn interval_compile(
     interventions: &[Intervention],
     horizon: f64,
     charge: &mut Charge,
+    subdivision: usize,
 ) -> Result<IntervalOutcome, ResponseError> {
     let mut bodies = genesis_bodies(ic);
     charge.history += 1;
+    // Factor one deliberately follows the historical no-hint path exactly.
+    let tau_hint = if subdivision == 1 {
+        None
+    } else {
+        let cadence = pair_tau_min(&bodies, ic.genesis_t)? / subdivision as f64;
+        let step = cadence * 0.5;
+        // incoming_knots filters/deduplicates at 1e-12, so a smaller step
+        // would not represent the requested subdivision. Also refuse steps
+        // that cannot advance floating time anywhere in this finite window.
+        if !cadence.is_finite() || step <= 1e-12
+            || !ic.genesis_t.is_finite() || !horizon.is_finite()
+            || !(ic.genesis_t + step).is_finite() || !(horizon + step).is_finite()
+            || ic.genesis_t + step <= ic.genesis_t || horizon + step <= horizon
+        {
+            return Err(ResponseError::UnsupportedDomain {
+                why: "refined causal cadence is nonfinite or below usable knot/time resolution".into(),
+            });
+        }
+        Some(cadence)
+    };
     let stats = interval_continue(
         &mut bodies,
         ic.genesis_t,
         interventions,
         horizon,
         charge,
-        None,
+        tau_hint,
         &[],
     )?;
     Ok(IntervalOutcome {
@@ -1506,8 +1548,9 @@ fn incoming_knots(
         .fold(t_start, f64::min);
     let mut per_body: Vec<Vec<f64>> = bodies.iter().map(|_| Vec::new()).collect();
     if tau_cadence.is_finite() && tau_cadence > 1e-12 {
-        // Collocate twice per light-crossing so the interval function resolves
-        // GEM-a variation; knots stay coarser than Euler-dt evolve.
+        // Collocate twice per effective cadence to resolve GEM-a variation.
+        // Default cadence is the initial light crossing; explicit laboratory
+        // subdivision reduces it independently of Euler-dt or dt metadata.
         let step = tau_cadence * 0.5;
         let mut t = origin + step;
         while t < horizon - 1e-12 {
@@ -1867,12 +1910,33 @@ pub fn compile_source_response_opts(
     dt: f64,
     opts: CompileOpts,
 ) -> Result<SourceResponse, ResponseError> {
+    compile_source_response_refined(ic, interventions, horizon, dt, opts, 1)
+}
+
+/// Laboratory numerical control: divide the initial causal-knot cadence by
+/// `subdivision`, preserving genesis, interventions and field equations.
+/// Unlike `dt` metadata, this changes actual collocation intervals. Factor one
+/// reproduces the existing default. A finer grid alone is not convergence or
+/// physical-law qualification. `interval_tau` records the effective cadence.
+pub fn compile_source_response_refined(
+    ic: InitialCondition,
+    interventions: Vec<Intervention>,
+    horizon: f64,
+    dt: f64,
+    opts: CompileOpts,
+    subdivision: usize,
+) -> Result<SourceResponse, ResponseError> {
+    if subdivision == 0 {
+        return Err(ResponseError::UnsupportedDomain {
+            why: "causal-knot subdivision must be positive".into(),
+        });
+    }
     let start = std::time::Instant::now();
     let mut charge = Charge {
         init: 1,
         ..Charge::default()
     };
-    let outcome = interval_compile(&ic, &interventions, horizon, &mut charge)?;
+    let outcome = interval_compile(&ic, &interventions, horizon, &mut charge, subdivision)?;
     let samples: Vec<f64> = (0..12)
         .map(|i| ic.genesis_t + (i as f64 + 1.0) * (horizon - ic.genesis_t) / 12.0)
         .collect();
@@ -4336,6 +4400,71 @@ mod tests {
     }
 
     #[test]
+    fn accelerated_retarded_root_survives_outside_initial_guess() {
+        let fun = IntervalFunction {
+            body_id: 0, t0: 0.0, t1: 1.0, x0: [0.0, 0.0],
+            v0: [0.0, 0.0], a: [-2.0, 0.0], mu: 1.0,
+        };
+        let query = V2::new(7.0999, 0.0);
+        // Independent construction: x(.99)=-.99², distance=8*(2-.99).
+        // The old inertial seed refuses, and its midpoint fallback produces
+        // t_ret=1.0812625>1, causing an immediate false no-root return.
+        let seed = Segment { t0: 0.0, t1: Some(1.0), x0: fun.x0,
+                             v: fun.v0, a: [0.0, 0.0], mu: 1.0 };
+        assert!(inertial_delay(2.0, query, &seed).is_none());
+        let old_guess = 2.0 - (7.0999_f64 + 0.25) / C;
+        assert!(old_guess > fun.t1);
+        let mut charge = Charge::default();
+        let delay = retarded_lookback_function(2.0, query, &fun, &mut charge).unwrap();
+        assert!((2.0 - delay - 0.99).abs() < 1e-10);
+        assert!(charge.verification >= 2);
+        assert!(gem_from_function(2.0, query, &fun, &mut charge).unwrap().is_some());
+    }
+
+    #[test]
+    fn accelerated_retarded_root_brackets_interior_endpoints_and_absence() {
+        let fun = IntervalFunction {
+            body_id: 0, t0: 0.0, t1: 1.0, x0: [0.0, 0.0],
+            v0: [0.0, 0.0], a: [-2.0, 0.0], mu: 1.0,
+        };
+        for retarded in [0.0_f64, 0.25, 0.5, 0.99, 1.0] {
+            let query = V2::new(-retarded * retarded + C * (2.0 - retarded), 0.0);
+            let delay = retarded_lookback_function(2.0, query, &fun, &mut Charge::default()).unwrap();
+            assert!((2.0 - delay - retarded).abs() < 1e-10);
+        }
+        // F is increasing. At x=20 its lower endpoint is already positive;
+        // at x=0 its upper endpoint is still negative: neither has a root.
+        for x in [20.0, 0.0] {
+            assert!(retarded_lookback_function(2.0, V2::new(x, 0.0), &fun, &mut Charge::default()).is_none());
+        }
+        assert!(retarded_lookback_function(-1.0, V2::zero(), &fun, &mut Charge::default()).is_none());
+    }
+
+    #[test]
+    fn laboratory_subdivision_controls_actual_causal_intervals() {
+        let opts = CompileOpts { store_pair_inverse: false };
+        let default = compile_source_response_opts(laboratory_two_body(), vec![], 3.0, 1.0 / 32.0, opts).unwrap();
+        let factor_one = compile_source_response_refined(laboratory_two_body(), vec![], 3.0, 1.0 / 32.0, opts, 1).unwrap();
+        assert_eq!(serde_json::to_value(&default.interval_functions).unwrap(),
+                   serde_json::to_value(&factor_one.interval_functions).unwrap());
+        let factor_two = compile_source_response_refined(laboratory_two_body(), vec![], 3.0, 1.0 / 32.0, opts, 2).unwrap();
+        assert!(factor_two.interval_functions.len() > factor_one.interval_functions.len());
+        assert!(factor_two.interval_blocks > factor_one.interval_blocks);
+        assert_eq!(factor_two.interval_tau, factor_one.interval_tau / 2.0);
+        assert_eq!(factor_two.domain.dt, factor_one.domain.dt);
+        assert_eq!(serde_json::to_value(&factor_two.genesis).unwrap(),
+                   serde_json::to_value(&factor_one.genesis).unwrap());
+        assert!(matches!(compile_source_response_refined(laboratory_two_body(), vec![], 3.0, 1.0 / 32.0, opts, 0),
+                         Err(ResponseError::UnsupportedDomain { .. })));
+        let mut single = laboratory_two_body();
+        single.bodies.truncate(1);
+        assert!(matches!(compile_source_response_refined(single, vec![], 3.0, 1.0 / 32.0, opts, 2),
+                         Err(ResponseError::UnsupportedDomain { .. })));
+        assert!(matches!(compile_source_response_refined(laboratory_two_body(), vec![], 3.0, 1.0 / 32.0, opts, usize::MAX),
+                         Err(ResponseError::UnsupportedDomain { .. })));
+    }
+
+    #[test]
     fn h0098_zero_force_does_not_move() {
         let force = [0.01, 0.0];
         let mut v = [0.0, 0.0];
@@ -6168,10 +6297,12 @@ mod tests {
             leftover_repair_lookback, 0.0,
             "repair open-tail lookback leftover-0, leftover={leftover_repair_lookback}"
         );
-        assert_eq!(ops_r, 1188, "reuse source ops must stay the measured 1188 vs 1675, got {ops_r}");
-        assert_eq!(ops_f, 1675, "independent kicked compile source ops must stay 1675, got {ops_f}");
-        assert_eq!(ops_repair, 1126, "repair source ops must stay the measured 1126 vs 1722, got {ops_repair}");
-        assert_eq!(ops_mid, 1722, "independent mid-kick compile source ops must stay 1722, got {ops_mid}");
+        // Historical absolute operation counts remain in frozen evidence.
+        // Correcting retarded-root omissions changes solve attempts; validate
+        // actual source-work elimination against the matched current compile.
+        // This does not establish total-cost savings (offline audit is extra).
+        assert!(ops_r > 0 && ops_r < ops_f, "reuse must eliminate source work: {ops_r}/{ops_f}");
+        assert!(ops_repair > 0 && ops_repair < ops_mid, "repair must eliminate source work: {ops_repair}/{ops_mid}");
         assert_eq!(
             ops_r,
             reused.charge.source_evolution + reused.charge.retarded_solves,

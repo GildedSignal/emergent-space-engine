@@ -2264,3 +2264,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [current next step](HANDOFF.md), [task tracker](../orchestration/tasks.json), [retained orbital failures](laws/orbit-duration-20260923.md)
 - Limitations: Experiment remains unexecuted. Stored dt does not refine collocation. Existing gates, failures and null production_law remain unchanged; historical evidence remains missing.
 - Next: Execute the frozen same-genesis numerical comparison, establish convergence, then interpret any remaining Kepler disagreement as a model/initialization question.
+
+## H0153 — Refine the same-genesis orbital reference and fix a retarded-root omission
+
+- Date: 2026-09-24
+- Kind: implementation
+- Status: partial
+- Revisions: baseline `52675aa`; this entry's commit; source/input hashes and pre/post-fix distinctions in provenance
+- Scope: I4/I6 same-genesis orbital numerical validation; explicit causal-block subdivision; diagnostic root correctness
+- Changed: Added charged Euler-reference ladder and real compiler subdivision API. All five originally failing seeds pass positional refinement screening: seed4 at262144 steps,8/9/10/11 at1048576. Retained all coarse failures. Refined compiler/reference disagreements remain0.037595a and0.025553a for seeds8/10, above unchanged0.02. Added safeguarded accelerated light-cone root solve: old out-of-interval initial guess falsely omitted an existing source. Root residual work is charged. Fix does not explain orbital-bank mismatch. Historical profiling-count assertions replaced by matched current source-work comparisons; exact reuse/repair tests retained.
+- Why: User prioritizes solid relativistic behaviors and independently measured numerical reliability before computational optimization. A stored dt did not refine collocation, and agreement at one compiler resolution did not establish a shared numerical limit.
+- Validation: Full law suite110 PASS,2 manual experiment tests ignored by default but explicitly executed; I6 and orbit_initialization integration tests PASS. Seed10 debug/release65536 samples equal. Old-root mutation fails the constructed t_ret=.99 counterexample; corrected interior/endpoints/absence tests pass. History check retains inherited missing-evidence failure.
+- Evidence: [experiment freeze/results](laws/orbit-reference-20260924.md), [summary](../artifacts/evidence/orbit-reference-20260924/summary.json), [provenance](../artifacts/evidence/orbit-reference-20260924/provenance.json), [raw runs](../artifacts/evidence/orbit-reference-20260924)
+- Limitations: Euler and compiler share field algebra; reference screening is positional, not velocity convergence or interval certification. All five reference orbital checks still fail; numerical discrepancy prevents a new physical-model verdict. No canonical gravity, performance or full-engine promotion; production_law null. Initializer was not rerun for comparisons. Root fix leaves these measured trajectories effectively unchanged. Historical116 missing paths remain unresolved.
+- Next: Locate first genesis-to-observation disagreement in seeds8/10; compare fields on matched histories and inspect source turn-on before model or initialization changes. Keep original failures and gates.

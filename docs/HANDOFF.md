@@ -2,6 +2,12 @@
 
 **Current heading — 23 September 2026:** Continue the full integration plan. Recovered committed Cursor implementation `e510b2f` into durable worktree `/Users/julien_laurent/Research/emergent-integration`, branch `codex/integration-continuation-20260923`; temporary worktree files had disappeared. H0149 corrects the pressure oracle and RK2 integration, adds adversarial/multiple-IC tests, and removes unsupported held-out PASS claims. Full engine remains incomplete; `production_law` remains null. The sections below H0149 describe the retained September 15 snapshot unless explicitly superseded.
 
+## Current continuation — H0153 (24 September 2026)
+
+The [same-genesis numerical experiment](laws/orbit-reference-20260924.md) is implemented and measured. All five failed seeds pass the Euler positional refinement screen (seed4 at262144 steps; others at1048576), yet retain orbital behavior failures. Real causal-block subdivisions1/2/4/8 are now available through an explicit laboratory API. Refined compiler/reference disagreement exceeds0.02a for seeds8/10, so numerical validation remains incomplete. A constructed accelerated light-cone root omission is fixed and mutation-tested, but it does not explain these orbital discrepancies. 110 law tests and two engine integration tests pass. New matrix/evidence remain separate from frozen results; production_law null.
+
+Next isolate the FIRST disagreement during genesis-to-observation for seeds8/10, including velocity and field evaluations on matched source histories and source turn-on handling. Keep saved genesis and physical gates fixed. Do not infer a physical-model failure or re-shoot away the mismatch. The next-step entries below are historical and superseded by this measured result. History check still fails on inherited missing evidence.
+
 ## User-confirmed next step — H0152
 
 Numerically validate failing orbital seeds 4, 8, 9, 10 and 11 under the existing retarded-GEM model. Freeze the exact resolved genesis, prehistory, equations and one-period horizon. Compare against an independent retarded-GEM reference at progressively finer resolution and/or genuinely refine the compiler causal blocks; stored dt is not a resolution control. Retain Kepler comparisons, all existing failures and frozen thresholds. Establish numerical convergence before attributing the discrepancy to the physical model or reconsidering initialization assumptions. This is the next experiment, not an executed result.
