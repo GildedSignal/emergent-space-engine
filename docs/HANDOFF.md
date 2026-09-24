@@ -2,6 +2,14 @@
 
 **Current heading — 23 September 2026:** Continue the full integration plan. Recovered committed Cursor implementation `e510b2f` into durable worktree `/Users/julien_laurent/Research/emergent-integration`, branch `codex/integration-continuation-20260923`; temporary worktree files had disappeared. H0149 corrects the pressure oracle and RK2 integration, adds adversarial/multiple-IC tests, and removes unsupported held-out PASS claims. Full engine remains incomplete; `production_law` remains null. The sections below H0149 describe the retained September 15 snapshot unless explicitly superseded.
 
+## Current continuation — H0154 (24 September 2026)
+
+The [genesis-onset diagnosis](laws/orbit-onset-20260924.md) resolves the measured positional discrepancy: midpoint blocks straddled the first incoming field wave. Added an analytic first massive-source genesis-light arrival knot for initially unforced, common-genesis receivers. Same-history field dispatch agrees near1e-13. With identical saved geneses and Euler references, all five cases now satisfy the existing0.02a numerical agreement band at subdivision8; worst difference0.003056a. Original full-orbit physical bank remains7 PASS/5 FAIL. No force-law or initializer change was used in this comparison.
+
+111 law tests, final prefix-accounting regression and4 engine integration checks pass; disabling the boundary fails its regression. Prefix tests check actual retained functions and generated work, not historical counts; reconstruction also includes compact decoding. See retained failed intermediate assertions. Earlier receiver commands/changed velocity prefixes use existing cadence fallback; their precise front tracking is not qualified. Canonical gravity remains diagnostic-only, production_law null. History check still has inherited missing evidence.
+
+Next establish velocity/invariant convergence with frozen gates, then audit shared GEM equations and initialization assumptions against independent physical anchors. Position agreement alone does not qualify those quantities or GR. The H0153 localization task below is superseded by this result.
+
 ## Current continuation — H0153 (24 September 2026)
 
 The [same-genesis numerical experiment](laws/orbit-reference-20260924.md) is implemented and measured. All five failed seeds pass the Euler positional refinement screen (seed4 at262144 steps; others at1048576), yet retain orbital behavior failures. Real causal-block subdivisions1/2/4/8 are now available through an explicit laboratory API. Refined compiler/reference disagreement exceeds0.02a for seeds8/10, so numerical validation remains incomplete. A constructed accelerated light-cone root omission is fixed and mutation-tested, but it does not explain these orbital discrepancies. 110 law tests and two engine integration tests pass. New matrix/evidence remain separate from frozen results; production_law null.

@@ -1267,7 +1267,7 @@ impl CoupledCompileJob {
             Some(tau) if tau.is_finite() && tau > 0.0 => tau,
             _ => pair_tau_min(&bodies, t_start)?,
         };
-        let knots = incoming_knots(&bodies, t_start, horizon, &kicks, tau)?;
+        let knots = incoming_knots(&bodies, t_start, horizon, &kicks, tau, &mut charge)?;
         let mut functions: Vec<IntervalFunction> = Vec::new();
         let mut known: Vec<IntervalFunction> = prior.to_vec();
         {
@@ -1541,12 +1541,50 @@ fn incoming_knots(
     horizon: f64,
     interventions: &[Intervention],
     tau_cadence: f64,
+    charge: &mut Charge,
 ) -> Result<Vec<Vec<f64>>, ResponseError> {
     let origin = bodies
         .iter()
         .filter_map(|b| b.segments.first().map(|s| s.t0))
         .fold(t_start, f64::min);
     let mut per_body: Vec<Vec<f64>> = bodies.iter().map(|_| Vec::new()).collect();
+    // The genesis-limited model has no field before its first massive-source
+    // light cone arrives. A midpoint block must not straddle that discontinuity.
+    // Before the FIRST arrival each receiver is inertial, so its intersection
+    // with the emitted genesis event is analytic. Later arrivals need not be
+    // inertial; do not claim their frozen-position prediction is exact.
+    // Restrict this construction to the common-genesis history contract.
+    if bodies.iter().all(|b| b.segments.first().is_some_and(|s| s.t0 == origin)) {
+        for (i, receiver) in bodies.iter().enumerate() {
+            let rec = &receiver.segments[0];
+            let mut first = f64::INFINITY;
+            for source in bodies {
+                if source.id == receiver.id { continue; }
+                let src = &source.segments[0];
+                if src.mu == 0.0 { continue; }
+                charge.retarded_solves += 1;
+                let offset = V2::from_arr(rec.x0).sub(V2::from_arr(src.x0));
+                let velocity = V2::from_arr(rec.v);
+                let a = velocity.norm2() - C*C;
+                let b = 2.0*offset.dot(velocity);
+                let d = b*b - 4.0*a*offset.norm2();
+                if a >= 0.0 || !d.is_finite() || d < 0.0 {
+                    return Err(ResponseError::UnsupportedDomain { why: "invalid genesis light-cone intersection".into() });
+                }
+                let arrival = origin + (-b-d.sqrt())/(2.0*a);
+                if !arrival.is_finite() { return Err(ResponseError::UnsupportedDomain { why: "nonfinite genesis arrival".into() }); }
+                first = first.min(arrival);
+            }
+            // An earlier commanded velocity change invalidates the straight
+            // receiver construction. Retain cadence/intervention subdivision
+            // in that case rather than labeling this guess a true arrival.
+            let earlier_command = interventions.iter().any(|iv| iv.body_id == receiver.id && iv.t < first);
+            let changed_prefix = receiver.segments.iter().any(|seg| seg.t0 < first && seg.v != rec.v);
+            if !earlier_command && !changed_prefix && first > t_start + 1e-12 && first < horizon - 1e-12 {
+                per_body[i].push(first);
+            }
+        }
+    }
     if tau_cadence.is_finite() && tau_cadence > 1e-12 {
         // Collocate twice per effective cadence to resolve GEM-a variation.
         // Default cadence is the initial light crossing; explicit laboratory
@@ -4395,6 +4433,77 @@ pub fn laboratory_scene_svg() -> Result<String, ResponseError> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn genesis_front_is_a_real_knot_for_moving_receiver() {
+        let ic=InitialCondition { genesis_t:0.0, bodies:vec![
+            BodyInit{id:0,mu:0.01,x:[0.0,0.0],v:[0.0,0.0]},
+            BodyInit{id:1,mu:0.01,x:[4.0,0.0],v:[1.0,0.0]},
+        ]};
+        let response=compile_source_response_opts(ic,vec![],1.0,0.1,CompileOpts{store_pair_inverse:false}).unwrap();
+        // 4+t=8t, independent of the source's subsequent motion.
+        let arrival=4.0/7.0;
+        assert!(response.interval_functions.iter().any(|f|f.body_id==1 && (f.t1-arrival).abs()<1e-12));
+        for fun in response.interval_functions.iter().filter(|f|f.body_id==1 && f.t1<=arrival) {
+            assert_eq!(fun.a,[0.0,0.0],"no force before the first source light cone");
+        }
+        let (x,v)=body_state_compiled(&response,1,arrival).unwrap();
+        assert!((x[0]-(4.0+arrival)).abs()<1e-12);
+        assert!((v[0]-1.0).abs()<1e-12);
+        let (_,after)=body_state_compiled(&response,1,0.9).unwrap();
+        assert!(after[0]<v[0]);
+    }
+
+    #[test]
+    #[ignore = "charged genesis-to-observation localization"]
+    fn orbital_onset_diagnostic() {
+        let saved:serde_json::Value=serde_json::from_str(include_str!("../../../artifacts/evidence/orbit-duration-20260923/orbit-duration-bank.json")).unwrap();
+        let mut reports=vec![];
+        for seed in [8_usize,10] {
+            let case:crate::two_body_bank::Case=serde_json::from_value(saved[seed]["case"].clone()).unwrap();
+            let ic:InitialCondition=serde_json::from_value(saved[seed]["initialization"]["resolved_genesis"].clone()).unwrap();
+            let start=std::time::Instant::now();
+            let (reference,ref_charge)=Reference::from_genesis(ic.clone(),vec![],-ic.genesis_t/32768.0).evolve_to(0.0).unwrap();
+            let reference_functions:Vec<_>=reference.iter().flat_map(|body|body.segments.iter().map(move |seg|{
+                let mut f=segment_as_function(seg,0.0);f.body_id=body.id;f
+            })).collect();
+            let vs=(G*case.total_mass/case.a).sqrt();
+            let ascale=G*case.total_mass/(case.a*case.a);
+            let mut variants=vec![];
+            for factor in [1,8,32] {
+                let compiled=compile_source_response_refined(ic.clone(),vec![],0.0,-ic.genesis_t/512.0,CompileOpts{store_pair_inverse:false},factor).unwrap();
+                let mut charge=Charge::default();
+                let mut rows=vec![];let mut max_dx=0.0_f64;let mut max_dv=0.0_f64;let mut first=None;
+                let mut compiled_field_dispatch_difference=0.0_f64;let mut reference_field_dispatch_difference=0.0_f64;
+                for i in 0..1025 {
+                    let t=ic.genesis_t*(1.0-i as f64/1024.0);
+                    let (xc,vc)=body_state_compiled(&compiled,0,t).unwrap();let(xr,vr)=body_state(&reference,0,t).unwrap();
+                    let dx=V2::from_arr(xc).sub(V2::from_arr(xr)).norm()/case.a;
+                    let dv=V2::from_arr(vc).sub(V2::from_arr(vr)).norm()/vs;
+                    assert!(dx.is_finite() && dv.is_finite());
+                    max_dx=max_dx.max(dx);max_dv=max_dv.max(dv);
+                    if dv>1e-6 && first.is_none(){first=Some(t);}
+                    if i%32==0 || (dv>1e-6 && rows.is_empty()) {
+                        let fc=field_at_stored(&compiled.interval_functions,&compiled.worldtubes,t,V2::from_arr(xc),Some(0),&mut charge).unwrap();
+                        let fcc=field_at(&compiled.worldtubes,t,V2::from_arr(xc),Some(0),&mut charge).unwrap();
+                        let fr=field_at(&reference,t,V2::from_arr(xr),Some(0),&mut charge).unwrap();
+                        let frr=field_at_stored(&reference_functions,&reference,t,V2::from_arr(xr),Some(0),&mut charge).unwrap();
+                        let ac=apply_gem_a(fc,V2::from_arr(vc));let ar=apply_gem_a(fr,V2::from_arr(vr));
+                        compiled_field_dispatch_difference=compiled_field_dispatch_difference.max(ac.sub(apply_gem_a(fcc,V2::from_arr(vc))).norm()/ascale);
+                        reference_field_dispatch_difference=reference_field_dispatch_difference.max(ar.sub(apply_gem_a(frr,V2::from_arr(vr))).norm()/ascale);
+                        rows.push(serde_json::json!({"t":t,"dx":dx,"dv":dv,"xc":xc,"xr":xr,"vc":vc,"vr":vr,"ac":ac.arr(),"ar":ar.arr()}));
+                    }
+                }
+                variants.push(serde_json::json!({"factor":factor,"compiler_charge":compiled.charge.ledger_total(),"field_query_charge":charge.ledger_total(),"state_queries":2050,"max_dx":max_dx,"max_dv":max_dv,"first_dv_over_1e6":first,"compiled_field_dispatch_difference":compiled_field_dispatch_difference,"reference_field_dispatch_difference":reference_field_dispatch_difference,"rows":rows}));
+            }
+            reports.push(serde_json::json!({"seed":seed,"genesis":ic,"reference_steps":32768,"reference_charge":ref_charge.ledger_total(),"wall_ns":start.elapsed().as_nanos(),"variants":variants}));
+        }
+        if let Some(path)=std::env::var_os("ORBIT_ONSET_OUTPUT") {
+            use std::io::Write;
+            let mut f=std::fs::OpenOptions::new().write(true).create_new(true).open(path).unwrap();
+            f.write_all(serde_json::to_string_pretty(&reports).unwrap().as_bytes()).unwrap();
+        }
+    }
+
     fn a_scale() -> f64 {
         1.0 / 64.0
     }
@@ -6312,16 +6421,7 @@ mod tests {
             ops_repair,
             repaired.charge.source_evolution + repaired.charge.retarded_solves
         );
-        assert_eq!(
-            reused.charge.source_evolution, 11,
-            "recoupled reuse suffix collocation through the horizon is 11, not a skipped >0 flag; got {}",
-            reused.charge.source_evolution
-        );
-        assert_eq!(
-            repaired.charge.source_evolution, 24,
-            "recoupled repair suffix collocation through the horizon is 24, not a skipped >0 flag; got {}",
-            repaired.charge.source_evolution
-        );
+
         for id in [0_u64, 1, 99] {
             let t1 = last_function_t1(&reused, id).expect("reused body interval functions");
             assert!(
@@ -6346,8 +6446,22 @@ mod tests {
             repaired.charge.total(),
             ops_repair
         );
-        assert_eq!(reused.charge.reconstruction, 81, "copied prefix functions are 81, not the 1188 denominator");
-        assert_eq!(repaired.charge.reconstruction, 70, "copied repair prefix functions are 70, not the 1126 denominator");
+        // Reconstruction also includes compact decoding in seal_compiled;
+        // it is not just a copied-function count. Verify every retained prefix
+        // for all bodies and require its copies to be covered by the ledger.
+        for (result, interventions) in [(&reused, &late), (&repaired, &mid)] {
+            let prefix: Vec<_> = recoupled.interval_functions.iter().filter(|f|
+                f.t1 <= certified_prefix_cut(&recoupled.genesis, interventions, f.body_id).unwrap() + 1e-12
+            ).collect();
+            assert!(!prefix.is_empty());
+            let generated = result.interval_functions.len() - prefix.len();
+            assert!(generated > 0, "repair must evolve a real suffix");
+            assert_eq!(result.charge.source_evolution, generated as u64);
+            assert!(result.charge.reconstruction >= prefix.len() as u64);
+            for function in prefix {
+                assert!(result.interval_functions.contains(function), "lost retained prefix for body {}", function.body_id);
+            }
+        }
         assert_ne!(
             reused.charge.reconstruction, ops_r,
             "copied interval functions are not the through-horizon source-op denominator"

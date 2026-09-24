@@ -1,0 +1,23 @@
+   Compiling emergent-law-lab v0.1.0 (/Users/julien_laurent/Research/emergent-integration/crates/law-lab)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.25s
+     Running unittests src/lib.rs (/Users/julien_laurent/.cache/emergent-space/full-engine-integration-target/debug/deps/emergent_law_lab-40288e1f43a8bf55)
+
+running 1 test
+test coupled_source_response::tests::genesis_front_is_a_real_knot_for_moving_receiver ... FAILED
+
+failures:
+
+---- coupled_source_response::tests::genesis_front_is_a_real_knot_for_moving_receiver stdout ----
+
+thread 'coupled_source_response::tests::genesis_front_is_a_real_knot_for_moving_receiver' panicked at crates/law-lab/src/coupled_source_response.rs:4445:9:
+assertion failed: response.interval_functions.iter().any(|f|
+        f.body_id == 1 && (f.t1 - arrival).abs() < 1e-12)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    coupled_source_response::tests::genesis_front_is_a_real_knot_for_moving_receiver
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 113 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-law-lab --lib`
