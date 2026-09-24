@@ -2,6 +2,12 @@
 
 **Current heading — 23 September 2026:** Continue the full integration plan. Recovered committed Cursor implementation `e510b2f` into durable worktree `/Users/julien_laurent/Research/emergent-integration`, branch `codex/integration-continuation-20260923`; temporary worktree files had disappeared. H0149 corrects the pressure oracle and RK2 integration, adds adversarial/multiple-IC tests, and removes unsupported held-out PASS claims. Full engine remains incomplete; `production_law` remains null. The sections below H0149 describe the retained September 15 snapshot unless explicitly superseded.
 
+## Current continuation — H0155 (24 September 2026)
+
+The [state-convergence audit](laws/orbit-state-convergence-20260924.md) now checks paired position, velocity, Newtonian energy and signed angular momentum, with strict provenance and invalid-data rejection. On saved Euler/block runs: seed4 passes all four; seeds8/9/10/11 fail velocity-reference resolution (finest changes0.00826–0.01072 versus0.005). Their energy/angular-momentum screens and comparisons pass. Compiler velocity differences below0.02 cannot qualify against insufficient references. Retrospective screen, not held-out evidence. No new evolution or physical-model changes; physical bank remains7 PASS/5 FAIL and production_law null.
+
+115 law tests and five CLI rejection controls pass. Next refine Euler beyond1048576 steps on those four same geneses; do not weaken0.005 or infer a compiler/model defect from reference insufficiency. Charge additional rungs. If reference lookup cost blocks refinement, validate any acceleration against exhaustive history lookup first. Then independently audit equations/initialization. Historical evidence-path failure persists. This supersedes the H0154 next action.
+
 ## Current continuation — H0154 (24 September 2026)
 
 The [genesis-onset diagnosis](laws/orbit-onset-20260924.md) resolves the measured positional discrepancy: midpoint blocks straddled the first incoming field wave. Added an analytic first massive-source genesis-light arrival knot for initially unforced, common-genesis receivers. Same-history field dispatch agrees near1e-13. With identical saved geneses and Euler references, all five cases now satisfy the existing0.02a numerical agreement band at subdivision8; worst difference0.003056a. Original full-orbit physical bank remains7 PASS/5 FAIL. No force-law or initializer change was used in this comparison.
