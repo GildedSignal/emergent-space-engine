@@ -1,0 +1,23 @@
+X1-relative-motion             256 PASS                11 ms  p99     0.39 ms SMOOTH cores 0.98  
+X1-relative-motion            4096 PASS               209 ms  p99     0.22 ms SMOOTH cores 0.98  
+X1-relative-motion           65536 PASS              6650 ms  p99     0.00 ms SMOOTH cores 0.97  
+X1-relative-motion          262144 FAIL              8002 ms  p99     0.00 ms SMOOTH cores 0.89  wall cap 8 s
+X1-relative-motion         1048576 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X2-horizon                      64 PASS                53 ms  p99     0.27 ms SMOOTH cores 0.99  
+X2-horizon                    4096 PASS               199 ms  p99     0.21 ms SMOOTH cores 1.00  
+X2-horizon                  262144 FAIL              3735 ms  p99     0.22 ms SMOOTH cores 0.94  engine error: resource limit: dense interaction frontier exceeds job capacity
+X2-horizon                16777216 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X3-crowded-axes                256 PASS                 2 ms  p99     0.14 ms SMOOTH cores 1.00  
+X3-crowded-axes               4096 PASS               103 ms  p99     0.18 ms SMOOTH cores 1.00  
+X3-crowded-axes              65536 FAIL              8001 ms  p99     0.00 ms SMOOTH cores 0.84  wall cap 8 s
+X3-crowded-axes             262144 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X4-near-miss-lattice             1 PASS                47 ms  p99     2.52 ms SMOOTH cores 0.98  
+X4-near-miss-lattice             4 PASS               920 ms  p99     3.27 ms SMOOTH cores 0.97  
+X4-near-miss-lattice            16 FAIL             11032 ms  p99     8.63 ms JANK   cores 0.83  wall cap 8 s
+X4-near-miss-lattice            64 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+C1-packed-stop-cascade          64 PASS                29 ms  p99     0.46 ms SMOOTH cores 0.95  
+C1-packed-stop-cascade         256 FAIL                 0 ms  p99     0.00 ms        cores 0.00  killed after 44 s (setup, oracle or checks exceeded the outer limit)
+C1-packed-stop-cascade        1024 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+C1-packed-stop-cascade        4096 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+C1-packed-stop-cascade       16384 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+ladder wall time 90.2 s

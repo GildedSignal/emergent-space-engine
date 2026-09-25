@@ -52,6 +52,38 @@ pub struct Body {
     pub revision: u64,
     pub stop_on_contact: bool,
     pub notify_on_contact: Option<u64>,
+    /// Elastic contact response (H0159): bounces off other bouncing bodies and container walls.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub bounce: bool,
+    /// Kinetic energy owed from lattice rounding (energy carry). Only the sum over bodies is
+    /// physical: total kinetic energy minus the sum of residuals is conserved by bounces.
+    #[serde(default = "zero_rational", skip_serializing_if = "is_zero_rational")]
+    pub energy_residual: Rational,
+}
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+fn zero_rational() -> Rational {
+    r(0)
+}
+fn is_zero_rational(x: &Rational) -> bool {
+    *x == r(0)
+}
+/// Reflecting axis-aligned container for bouncing bodies.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct Container {
+    pub min: Vec2,
+    pub max: Vec2,
+}
+/// Elastic-law configuration and ledger (`es-elastic-lattice-v0`, H0159).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ElasticState {
+    pub container: Option<Container>,
+    /// Bounce responses round velocity changes to multiples of 1/Q (momentum exact, energy
+    /// carried). `None` keeps exact fractions, whose size grows without bound.
+    pub response_quantum: Option<i128>,
+    /// Exact momentum delivered to the container walls since genesis.
+    pub wall_momentum: Vec2,
 }
 impl Body {
     pub fn new(
@@ -70,6 +102,8 @@ impl Body {
             revision: 0,
             stop_on_contact: false,
             notify_on_contact: None,
+            bounce: false,
+            energy_residual: r(0),
         }
     }
     pub fn flow(&self) -> &Inertial {
@@ -121,6 +155,8 @@ impl Body {
             revision,
             stop_on_contact: false,
             notify_on_contact: None,
+            bounce: false,
+            energy_residual: r(0),
         })
     }
     pub fn proper_time(&self, t: i128) -> Result<Rational, EngineError> {
@@ -138,7 +174,10 @@ impl Body {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum Payload {
     Ping,
+    /// Scripted velocity change, independent of mass.
     Impulse { delta: Vec2 },
+    /// Physical momentum transfer: velocity changes by `impulse / mass`.
+    Momentum { impulse: Vec2 },
     /// Addressed scripted heading change; applied on reception, not a force law.
     SetCourse { velocity: Vec2 },
 }
@@ -290,6 +329,9 @@ pub struct CanonicalState {
     /// Policy programs that already produced a burn for an observer.
     #[serde(default)]
     pub policy_fired: BTreeSet<(String, u64)>,
+    /// Elastic law configuration and wall ledger; absent for the inertial law.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elastic: Option<ElasticState>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -371,6 +413,7 @@ enum Job {
     Signal(String),
     Scheduled(String),
     ScheduledRange(String),
+    Wall(u64),
 }
 #[derive(Clone, Debug)]
 enum Action {
@@ -378,6 +421,7 @@ enum Action {
     Arrival(String),
     Course(String),
     RangeCourse(String),
+    Wall(u64),
 }
 #[derive(Clone, Debug)]
 struct Candidate {
@@ -472,6 +516,7 @@ enum FrontierPhase {
     Signals(Option<String>),
     Courses(Option<String>),
     Ranges(Option<String>),
+    Walls(Option<u64>),
 }
 
 #[derive(Clone, Debug)]
@@ -485,6 +530,12 @@ struct BatchEffects {
     fired_courses: Vec<String>,
     fired_ranges: Vec<ScheduledRangeCourse>,
     notifications: Vec<(u64, u64)>,
+    bounces: Vec<(u64, u64)>,
+    walls: BTreeSet<u64>,
+    /// Bodies changed only by bounces or walls this batch.
+    elastic_only: BTreeSet<u64>,
+    residuals: BTreeMap<u64, Rational>,
+    wall_momentum: Vec2,
 }
 
 #[derive(Clone, Debug)]
@@ -548,6 +599,7 @@ enum TraceGuard {
     SetCourseRange,
     ContactStop,
     InboundSignal,
+    Wall,
 }
 
 #[derive(Clone, Debug)]
@@ -558,7 +610,8 @@ struct GuardedTrace {
 #[derive(Clone, Debug)]
 enum Repair {
     Update { items: Vec<Item>, next: usize },
-    Retest { dirty: Vec<ItemKey>, di: usize, j: usize },
+    /// `a_at` caches the dirty box's index; boxes do not move during a retest.
+    Retest { dirty: Vec<ItemKey>, di: usize, j: usize, a_at: Option<usize> },
     Enqueue,
 }
 #[derive(Clone, Debug)]
@@ -581,6 +634,7 @@ struct Scan {
     jobs: VecDeque<Job>,
     heap: BinaryHeap<Reverse<(i128, String)>>,
     candidates: BTreeMap<String, Candidate>,
+    wall_certs: BTreeMap<u64, i128>,
 }
 impl Scan {
     fn pending_work(&self) -> usize {
@@ -695,6 +749,8 @@ pub struct Engine {
     pub metrics: Metrics,
     pending: Option<Scan>,
     sensor: Option<SensorJob>,
+    /// Individually tracked ships allowed in memory. Derived from the memory budget
+    /// (`resident_body_capacity`), not a fixed count; the engine refuses explicitly above it.
     pub max_resident_bodies: usize,
     pub max_pending_jobs: usize,
     /// Persistent kinetic SAP; disable only to compare against rebuild-all.
@@ -745,6 +801,15 @@ pub(crate) fn event(
     }
 }
 
+/// Runtime memory budget from the operating-envelope target (4 GiB on the 8 GB M1).
+pub const DEFAULT_MEMORY_BUDGET_BYTES: u64 = 4 << 30;
+/// Measured process memory per individually tracked ship including search state
+/// (scale ladder X1, H0157: 177 MB at 65,536 bodies ≈ 2.7 KB), rounded up.
+pub const RESIDENT_BODY_BYTES: u64 = 3 << 10;
+/// How many individually tracked ships fit in a memory budget.
+pub fn resident_body_capacity(memory_budget_bytes: u64) -> usize {
+    (memory_budget_bytes / RESIDENT_BODY_BYTES) as usize
+}
 impl Engine {
     pub fn new(
         seed: u64,
@@ -800,11 +865,12 @@ impl Engine {
                 broadcasts: BTreeMap::new(),
                 broadcast_receptions: BTreeMap::new(),
                 policy_fired: BTreeSet::new(),
+                elastic: None,
             },
             metrics: Metrics::default(),
             pending: None,
             sensor: None,
-            max_resident_bodies: 100_000,
+            max_resident_bodies: resident_body_capacity(DEFAULT_MEMORY_BUDGET_BYTES),
             max_pending_jobs: 1_000_000,
             incremental_sap: true,
             causal_components: Vec::new(),
@@ -817,8 +883,39 @@ impl Engine {
             scan_filter: None,
             signal_arrivals: BTreeMap::new(),
         };
+        if engine.state.bodies.len() > engine.max_resident_bodies {
+            // Refuse up front instead of accepting a world that fails at its first event.
+            return Err(EngineError::ResourceLimit(
+                "individually tracked ships exceed the memory budget".into(),
+            ));
+        }
         engine.validate()?;
         Ok(engine)
+    }
+    /// Configure the elastic law (H0159) before any advance: an optional reflecting container
+    /// and an optional response quantum Q (velocity lattice 1/Q). Bodies opt in with `bounce`.
+    pub fn with_elastic(
+        mut self,
+        container: Option<Container>,
+        response_quantum: Option<i128>,
+    ) -> Result<Self, EngineError> {
+        if self.state.clock != 0 || !self.state.events.is_empty() {
+            return Err(EngineError::Invalid("elastic law must be set at genesis".into()));
+        }
+        if response_quantum.is_some_and(|q| q <= 0) {
+            return Err(EngineError::Invalid("response quantum must be positive".into()));
+        }
+        if let Some(c) = &container {
+            if c.min.x >= c.max.x || c.min.y >= c.max.y {
+                return Err(EngineError::Invalid("empty container".into()));
+            }
+        }
+        self.state.elastic = Some(ElasticState {
+            container,
+            response_quantum,
+            wall_momentum: Vec2::zero(),
+        });
+        Ok(self)
     }
     pub fn validate(&self) -> Result<(), EngineError> {
         if self.state.law != LAW_ID {
@@ -1324,6 +1421,7 @@ impl Engine {
             jobs: VecDeque::new(),
             heap: BinaryHeap::new(),
             candidates: BTreeMap::new(),
+            wall_certs: BTreeMap::new(),
         });
         self.metrics.scans += 1;
         Ok(())
@@ -1526,6 +1624,7 @@ impl Engine {
                 .is_some_and(|s| dirty.contains(&s.target)),
             Action::Course(_) => false,
             Action::RangeCourse(_) => false,
+            Action::Wall(id) => dirty.contains(id),
         }
     }
     fn invalidate_dirty_certificates(&mut self, scan: &mut Scan, dirty: &[u64]) {
@@ -1538,6 +1637,7 @@ impl Engine {
         }
         scan.overlap_certs
             .retain(|pair, _| !pair.0.involves_any(&dirty_set) && !pair.1.involves_any(&dirty_set));
+        scan.wall_certs.retain(|id, _| !dirty_set.contains(id));
         scan.signal_certs.retain(|id, _| {
             self.state
                 .signals
@@ -1546,7 +1646,7 @@ impl Engine {
         });
     }
     fn frontier_needs_resume(&self, scan: &Scan) -> bool {
-        scan.overlaps.iter().any(|key| {
+        self.wall_frontier_pending(scan) || scan.overlaps.iter().any(|key| {
             scan.overlap_certs
                 .get(key)
                 .is_none_or(|cert| *cert < scan.target)
@@ -1578,6 +1678,53 @@ impl Engine {
         scan.prep = Some(Prep::EnqueuingFrontier {
             phase: FrontierPhase::Pairs(first),
         });
+    }
+    fn wall_frontier_pending(&self, scan: &Scan) -> bool {
+        self.state.elastic.as_ref().is_some_and(|el| el.container.is_some())
+            && self.state.bodies.iter().any(|(id, b)| {
+                b.bounce
+                    && !scan.candidates.contains_key(&format!("wall:{id:020}"))
+                    && scan.wall_certs.get(id).is_none_or(|c| *c < scan.target)
+            })
+    }
+    fn first_bouncer_after(&self, after: Option<u64>) -> Option<u64> {
+        let mut it: Box<dyn Iterator<Item = (&u64, &Body)>> = match after {
+            None => Box::new(self.state.bodies.iter()),
+            Some(id) => Box::new(self.state.bodies.range((Excluded(id), Unbounded))),
+        };
+        it.find(|(_, b)| b.bounce).map(|(&id, _)| id)
+    }
+    /// First tick in [start, end] at which the body touches or is beyond a container wall while
+    /// moving outward. Linear motion, exact.
+    fn first_wall_tick(b: &Body, c: &Container, clock: i128, start: i128, end: i128) -> Option<i128> {
+        let p = b.at(clock);
+        let v = b.velocity_at(clock);
+        let mut best: Option<i128> = None;
+        for (x, vx, lo, hi) in [(&p.x, &v.x, &c.min.x, &c.max.x), (&p.y, &v.y, &c.min.y, &c.max.y)] {
+            let tick = if *vx < r(0) {
+                let w = lo + &b.radius;
+                if *x <= w {
+                    Some(start)
+                } else {
+                    let dt = ((x - &w) / (-vx.clone())).ceil().to_integer();
+                    i128::try_from(dt).ok().map(|d| (clock + d).max(start))
+                }
+            } else if *vx > r(0) {
+                let w = hi - &b.radius;
+                if *x >= w {
+                    Some(start)
+                } else {
+                    let dt = ((&w - x) / vx.clone()).ceil().to_integer();
+                    i128::try_from(dt).ok().map(|d| (clock + d).max(start))
+                }
+            } else {
+                None
+            };
+            if let Some(t) = tick.filter(|t| *t <= end) {
+                best = Some(best.map_or(t, |b: i128| b.min(t)));
+            }
+        }
+        best
     }
     fn step_enqueue_frontier(
         &mut self,
@@ -1702,6 +1849,32 @@ impl Engine {
                     }
                     scan.prep = Some(Prep::EnqueuingFrontier {
                         phase: FrontierPhase::Ranges(following),
+                    });
+                } else if self.state.elastic.as_ref().is_some_and(|el| el.container.is_some()) {
+                    scan.prep = Some(Prep::EnqueuingFrontier {
+                        phase: FrontierPhase::Walls(self.first_bouncer_after(None)),
+                    });
+                } else {
+                    scan.prep = None;
+                }
+            }
+            FrontierPhase::Walls(next) => {
+                if let Some(id) = next {
+                    let following = self.first_bouncer_after(Some(id));
+                    let cand = format!("wall:{id:020}");
+                    if !scan.candidates.contains_key(&cand)
+                        && scan.wall_certs.get(&id).is_none_or(|cert| *cert < scan.target)
+                        && self.in_scan_filter(id)
+                    {
+                        if scan.jobs.len() >= self.max_pending_jobs {
+                            return Err(EngineError::ResourceLimit(
+                                "combined frontier exceeds job capacity".into(),
+                            ));
+                        }
+                        scan.jobs.push_back(Job::Wall(id));
+                    }
+                    scan.prep = Some(Prep::EnqueuingFrontier {
+                        phase: FrontierPhase::Walls(following),
                     });
                 } else {
                     scan.prep = None;
@@ -2320,6 +2493,7 @@ impl Engine {
                         dirty,
                         di: 0,
                         j: 0,
+                        a_at: None,
                     });
                 } else {
                     let item = items[next].clone();
@@ -2339,31 +2513,32 @@ impl Engine {
                     });
                 }
             }
-            Repair::Retest { dirty, mut di, mut j } => {
+            Repair::Retest { dirty, mut di, mut j, a_at } => {
                 if di >= dirty.len() {
                     scan.repair = Some(Repair::Enqueue);
                 } else if j >= scan.boxes.len() {
                     di += 1;
-                    scan.repair = Some(Repair::Retest { dirty, di, j: 0 });
+                    scan.repair = Some(Repair::Retest { dirty, di, j: 0, a_at: None });
                 } else {
                     let a_key = dirty[di];
+                    // One lookup per dirty item (charged as this step), not one per compare.
+                    let Some(a_at) = a_at.or_else(|| scan.boxes.iter().position(|b| b.item.key() == a_key)) else {
+                        di += 1;
+                        scan.repair = Some(Repair::Retest { dirty, di, j: 0, a_at: None });
+                        return Ok(());
+                    };
                     let b_key = scan.boxes[j].item.key();
                     if a_key != b_key {
-                        let Some(a) = scan.boxes.iter().find(|b| b.item.key() == a_key) else {
-                            di += 1;
-                            scan.repair = Some(Repair::Retest { dirty, di, j: 0 });
-                            return Ok(());
-                        };
                         self.metrics.aabb_compares += 1;
                         self.metrics.broadphase_pairs += 1;
-                        if Self::aabb_overlap(a, &scan.boxes[j]) {
+                        if Self::aabb_overlap(&scan.boxes[a_at], &scan.boxes[j]) {
                             self.record_overlap(scan, a_key, b_key);
                         } else {
                             self.metrics.certified_rejections += 1;
                         }
                     }
                     j += 1;
-                    scan.repair = Some(Repair::Retest { dirty, di, j });
+                    scan.repair = Some(Repair::Retest { dirty, di, j, a_at: Some(a_at) });
                 }
             }
             Repair::Enqueue => {
@@ -2599,6 +2774,21 @@ impl Engine {
                 }
                 scan.signal_certs.insert(id, end);
             }
+            Job::Wall(id) => {
+                if let Some(c) = self.state.elastic.as_ref().and_then(|el| el.container.clone()) {
+                    let b = self.decode(id)?;
+                    if let Some(tick) = Self::first_wall_tick(&b, &c, self.state.clock, start, end) {
+                        let key = format!("wall:{id:020}");
+                        scan.heap.push(Reverse((tick, key.clone())));
+                        scan.candidates.insert(
+                            key.clone(),
+                            Candidate { tick, key, action: Action::Wall(id) },
+                        );
+                        Self::tighten_trace(scan, ItemKey::Body(id), tick, TraceGuard::Wall);
+                    }
+                }
+                scan.wall_certs.insert(id, end);
+            }
             Job::Pair(a, b) => {
                 let pair = Self::pair_key(a.key(), b.key());
                 if self.family_exception(&a) || self.family_exception(&b) {
@@ -2625,6 +2815,17 @@ impl Engine {
                     {
                         scan.overlap_certs.insert(pair, end);
                         return Ok(());
+                    }
+                    if aa.bounce && bb.bounce {
+                        // Overlapping bouncers that already separate never touch again on these
+                        // trajectories (linear motion): no contact until one of them changes.
+                        let d = bb.at(self.state.clock) - aa.at(self.state.clock);
+                        let w = bb.velocity_at(self.state.clock) - aa.velocity_at(self.state.clock);
+                        let reach = &aa.radius + &bb.radius;
+                        if d.norm_squared() <= &reach * &reach && d.dot(&w) >= r(0) {
+                            scan.overlap_certs.insert(pair, end);
+                            return Ok(());
+                        }
                     }
                     self.metrics.exact_leaf_queries += 1;
                     if let Some(tick) = geometry::first_contact_piecewise(
@@ -2685,7 +2886,144 @@ impl Engine {
             fired_courses: Vec::new(),
             fired_ranges: Vec::new(),
             notifications: Vec::new(),
+            bounces: Vec::new(),
+            walls: BTreeSet::new(),
+            elastic_only: BTreeSet::new(),
+            residuals: BTreeMap::new(),
+            wall_momentum: Vec2::zero(),
         }
+    }
+    /// Elastic responses for this batch's bounce contacts (H0159), resolved one pair at a time
+    /// in canonical pair order, each from the velocities the earlier pairs left (sequential
+    /// impulses; summing pairs from pre-batch states heated a dense gas by 3.2%). With a response quantum Q, each pair's
+    /// momentum exchange is rounded per component to multiples of lcm(m_a, m_b)/Q, so both
+    /// velocity changes stay on the 1/Q lattice and momentum stays exact. Among the floor/ceil
+    /// candidates (never zero when the exact exchange is not), the one bringing the pair's owed
+    /// energy closest to zero wins; ties keep enumeration order. Each pair's energy error is
+    /// added to its lower-id body's residual; the batch's multi-contact remainder goes to the
+    /// lowest-id body. Total kinetic energy minus total residual is therefore conserved.
+    fn resolve_bounces(&mut self, tick: i128, acc: &mut BatchEffects) -> Result<(), EngineError> {
+        let external: BTreeSet<u64> = acc
+            .deltas
+            .keys()
+            .copied()
+            .chain(acc.courses.keys().copied())
+            .chain(acc.stops.iter().copied())
+            .collect();
+        for &id in &acc.walls {
+            if !external.contains(&id) {
+                acc.elastic_only.insert(id);
+            }
+        }
+        if acc.bounces.is_empty() {
+            return Ok(());
+        }
+        let mut pairs = acc.bounces.clone();
+        pairs.sort_unstable();
+        pairs.dedup();
+        let quantum = self.state.elastic.as_ref().and_then(|el| el.response_quantum);
+        let mut bodies: BTreeMap<u64, Body> = BTreeMap::new();
+        for &(a, b) in &pairs {
+            for id in [a, b] {
+                if !bodies.contains_key(&id) {
+                    bodies.insert(id, self.decode(id)?);
+                }
+            }
+        }
+        let mut residual: BTreeMap<u64, Rational> =
+            bodies.iter().map(|(id, b)| (*id, b.energy_residual.clone())).collect();
+        let original = residual.clone();
+        let ke = |m: &Rational, v: &Vec2| m * v.norm_squared() / r(2);
+        let mut delta: BTreeMap<u64, Vec2> = BTreeMap::new();
+        let mut pair_errors = r(0);
+        for &(a, b) in &pairs {
+            let (ba, bb) = (&bodies[&a], &bodies[&b]);
+            // Sequential impulses: each pair starts from the velocities the earlier pairs of
+            // this batch left, so a multi-contact batch stays exactly elastic before rounding.
+            let va = ba.velocity_at(tick) + delta.get(&a).cloned().unwrap_or_else(Vec2::zero);
+            let vb = bb.velocity_at(tick) + delta.get(&b).cloned().unwrap_or_else(Vec2::zero);
+            let d = bb.at(tick) - ba.at(tick);
+            let w = vb.clone() - va.clone();
+            let dot = d.dot(&w);
+            let dd = d.norm_squared();
+            if dot >= r(0) || dd == r(0) {
+                continue;
+            }
+            let (ma, mb) = (ba.mass.clone(), bb.mass.clone());
+            // Exact elastic momentum given to `a` along the line of centres.
+            let exact = d.clone() * (r(2) * &ma * &mb / (&ma + &mb) * &dot / &dd);
+            let chosen = match quantum {
+                None => exact.clone(),
+                Some(q) => {
+                    if !ma.is_integer() || !mb.is_integer() {
+                        return Err(EngineError::Unsupported(
+                            "lattice bounces need integer masses".into(),
+                        ));
+                    }
+                    let lcm = num_integer::Integer::lcm(&ma.to_integer(), &mb.to_integer());
+                    let step = Rational::from_integer(lcm) / r(q);
+                    let down = |x: &Rational| (x / &step).floor() * &step;
+                    let up = |x: &Rational| (x / &step).ceil() * &step;
+                    let mut cands: Vec<Vec2> = Vec::new();
+                    for x in [down(&exact.x), up(&exact.x)] {
+                        for y in [down(&exact.y), up(&exact.y)] {
+                            let c = Vec2 { x: x.clone(), y };
+                            if !cands.contains(&c) && !(c == Vec2::zero() && exact != Vec2::zero()) {
+                                cands.push(c);
+                            }
+                        }
+                    }
+                    let owed = &residual[&a] + &residual[&b];
+                    let mut best: Option<(Rational, Vec2)> = None;
+                    for c in cands {
+                        let na = va.clone() + c.clone() * (r(1) / &ma);
+                        let nb = vb.clone() - c.clone() * (r(1) / &mb);
+                        let e = ke(&ma, &na) + ke(&mb, &nb) - ke(&ma, &va) - ke(&mb, &vb);
+                        let score = num_traits::Signed::abs(&(&owed + &e));
+                        if best.as_ref().is_none_or(|(s, _)| score < *s) {
+                            best = Some((score, c));
+                        }
+                    }
+                    best.map_or(exact.clone(), |(_, c)| c)
+                }
+            };
+            let da = chosen.clone() * (r(1) / &ma);
+            let db = chosen * (-(r(1) / &mb));
+            let e = ke(&ma, &(va.clone() + da.clone())) + ke(&mb, &(vb.clone() + db.clone()))
+                - ke(&ma, &va)
+                - ke(&mb, &vb);
+            *residual.get_mut(&a).expect("pair body") += &e;
+            pair_errors += &e;
+            let ea = delta.entry(a).or_insert_with(Vec2::zero);
+            *ea = ea.clone() + da;
+            let eb = delta.entry(b).or_insert_with(Vec2::zero);
+            *eb = eb.clone() + db;
+        }
+        // Multi-contact remainder: the true batch energy change minus the pairwise estimates.
+        let mut batch_error = r(0);
+        for (id, dv) in &delta {
+            let b = &bodies[id];
+            let v = b.velocity_at(tick);
+            batch_error += ke(&b.mass, &(v.clone() + dv.clone())) - ke(&b.mass, &v);
+        }
+        if let Some(first) = bodies.keys().next().copied() {
+            *residual.get_mut(&first).expect("first body") += batch_error - pair_errors;
+        }
+        for (id, value) in residual {
+            if original.get(&id) != Some(&value) {
+                acc.residuals.insert(id, value);
+            }
+        }
+        for id in bodies.keys() {
+            if !external.contains(id) {
+                acc.elastic_only.insert(*id);
+            }
+        }
+        for (id, dv) in delta {
+            let e = acc.deltas.entry(id).or_insert_with(Vec2::zero);
+            *e = e.clone() + dv;
+        }
+        Ok(())
     }
     fn accumulate_one(
         &self,
@@ -2727,6 +3065,14 @@ impl Engine {
                     Payload::SetCourse { velocity } => {
                         acc.courses.insert(s.target, velocity.clone());
                     }
+                    Payload::Momentum { impulse } => {
+                        let mass = self.decode(s.target)?.mass;
+                        if mass <= r(0) {
+                            return Err(EngineError::Invalid("momentum needs positive mass".into()));
+                        }
+                        let v = acc.deltas.entry(s.target).or_insert_with(Vec2::zero);
+                        *v = v.clone() + impulse.clone() * (r(1) / mass);
+                    }
                     Payload::Ping => {}
                 }
                 acc.records.push(event(
@@ -2738,11 +3084,18 @@ impl Engine {
                 ));
                 acc.received.push(id.clone());
             }
+            Action::Wall(id) => {
+                acc.walls.insert(*id);
+                acc.records.push(event(tick, "wall", vec![*id], vec![], "container wall".into()));
+            }
             Action::Contact(a, b) => {
                 let (a, b) = if a < b { (*a, *b) } else { (*b, *a) };
                 let aa = self.decode(a)?;
                 let bb = self.decode(b)?;
                 acc.contacts.push((a, b, aa.revision, bb.revision));
+                if aa.bounce && bb.bounce {
+                    acc.bounces.push((a, b));
+                }
                 for body in [&aa, &bb] {
                     if body.stop_on_contact {
                         acc.stops.insert(body.id);
@@ -2813,12 +3166,14 @@ impl Engine {
                 if index >= batch.len() {
                     acc.notifications.sort_unstable();
                     acc.notifications.dedup();
+                    self.resolve_bounces(tick, &mut acc)?;
                     let affected: Vec<u64> = acc
                         .deltas
                         .keys()
                         .copied()
                         .chain(acc.courses.keys().copied())
                         .chain(acc.stops.iter().copied())
+                        .chain(acc.walls.iter().copied())
                         .collect::<BTreeSet<_>>()
                         .into_iter()
                         .collect();
@@ -2874,16 +3229,58 @@ impl Engine {
                 } else {
                     let id = affected[next];
                     let b = self.decode(id)?;
+                    // Stopping a body already at rest changes nothing physically. It must
+                    // not open a new trajectory revision: that would re-arm contacts with
+                    // every overlapping resting neighbour and make them re-collide each tick.
+                    if acc.stops.contains(&id) && b.velocity_at(tick) == Vec2::zero() {
+                        scan.commit = Some(CommitPrep::ValidateAffected {
+                            tick,
+                            acc,
+                            affected,
+                            next: next + 1,
+                            velocities,
+                        });
+                        return Ok(None);
+                    }
                     b.revision.checked_add(1).ok_or_else(|| {
                         EngineError::ResourceLimit("trajectory revision exhausted".into())
                     })?;
-                    let v = if acc.stops.contains(&id) {
+                    let mut v = if acc.stops.contains(&id) {
                         Vec2::zero()
                     } else if let Some(course) = acc.courses.remove(&id) {
                         course
                     } else {
                         b.flow().velocity.clone() + acc.deltas.remove(&id).unwrap_or_else(Vec2::zero)
                     };
+                    if acc.walls.contains(&id) {
+                        if let Some(c) = self.state.elastic.as_ref().and_then(|el| el.container.clone()) {
+                            // Reflect each component still moving outward at a wall it touches.
+                            let p = b.at(tick);
+                            let before = v.clone();
+                            if (p.x <= &c.min.x + &b.radius && v.x < r(0))
+                                || (p.x >= &c.max.x - &b.radius && v.x > r(0))
+                            {
+                                v.x = -v.x.clone();
+                            }
+                            if (p.y <= &c.min.y + &b.radius && v.y < r(0))
+                                || (p.y >= &c.max.y - &b.radius && v.y > r(0))
+                            {
+                                v.y = -v.y.clone();
+                            }
+                            acc.wall_momentum = acc.wall_momentum.clone() + (before - v.clone()) * b.mass.clone();
+                        }
+                    }
+                    if acc.elastic_only.contains(&id) && v == b.velocity_at(tick) {
+                        // A bounce or wall that leaves the velocity unchanged opens no revision.
+                        scan.commit = Some(CommitPrep::ValidateAffected {
+                            tick,
+                            acc,
+                            affected,
+                            next: next + 1,
+                            velocities,
+                        });
+                        return Ok(None);
+                    }
                     Inertial::new(tick, b.at(tick), v.clone())?;
                     velocities.push((id, v));
                     scan.commit = Some(CommitPrep::ValidateAffected {
@@ -2954,6 +3351,14 @@ impl Engine {
         let dirty: Vec<u64> = velocities.iter().map(|(id, _)| *id).collect();
         for (id, v) in velocities {
             self.apply_course_change(id, tick, v)?;
+        }
+        for (id, value) in &acc.residuals {
+            if let Some(b) = self.state.bodies.get_mut(id) {
+                b.energy_residual = value.clone();
+            }
+        }
+        if let Some(el) = self.state.elastic.as_mut() {
+            el.wall_momentum = el.wall_momentum.clone() + acc.wall_momentum.clone();
         }
         for (a, b, _, _) in &acc.contacts {
             let aa = self.decode(*a)?;
@@ -3184,6 +3589,16 @@ impl Engine {
                 self.pending = Some(scan);
                 break;
             }
+            // The finished after-commit step may have scheduled a repair of the bodies the
+            // last batch changed. Their new pairs must be searched before anything else
+            // commits; otherwise a later commit overtakes (or overwrites) that repair and
+            // contacts with freshly stopped or redirected bodies are missed or late.
+            if scan.commit.is_none()
+                && (scan.prep.is_some() || scan.repair.is_some() || !scan.jobs.is_empty())
+            {
+                self.pending = Some(scan);
+                continue;
+            }
             if scan.commit.is_none() {
                 if let Some(Reverse((tick, _))) = scan.heap.peek() {
                     let tick = *tick;
@@ -3361,7 +3776,7 @@ impl Engine {
             metrics: Metrics::default(),
             pending: None,
             sensor: None,
-            max_resident_bodies: 100_000,
+            max_resident_bodies: resident_body_capacity(DEFAULT_MEMORY_BUDGET_BYTES),
             max_pending_jobs: 1_000_000,
             incremental_sap: true,
             causal_components: Vec::new(),
@@ -3393,6 +3808,13 @@ impl Engine {
         )?;
         e.state.branch = self.state.branch.clone();
         e.policy = self.policy.clone();
+        if let Some(el) = &self.state.elastic {
+            e.state.elastic = Some(ElasticState {
+                container: el.container.clone(),
+                response_quantum: el.response_quantum,
+                wall_momentum: Vec2::zero(),
+            });
+        }
         if e.state.genesis_digest != self.state.genesis_digest {
             return Err(EngineError::Checkpoint(
                 "genesis commitment mismatch".into(),

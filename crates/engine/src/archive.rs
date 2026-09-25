@@ -6,7 +6,8 @@ use crate::{
     policy::{Broadcast, BroadcastReception, PolicyProgram},
     population::Family,
     runtime::{
-        Body, CanonicalState, Engine, EngineError, EventRecord, Observation, RecordedIntervention,
+        Body, CanonicalState, ElasticState, Engine, EngineError, EventRecord, Observation,
+        RecordedIntervention,
         ScheduledCourse, ScheduledRangeCourse, Signal,
     },
     LAW_ID,
@@ -83,6 +84,8 @@ pub struct HistoryRemainder {
     pub policy_fired: BTreeSet<(String, u64)>,
     #[serde(default)]
     pub policy: Option<PolicyProgram>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elastic: Option<ElasticState>,
     pub payload_hash: String,
 }
 
@@ -318,6 +321,7 @@ impl Engine {
             scheduled_courses: self.state.scheduled_courses.clone(),
             scheduled_range_courses: self.state.scheduled_range_courses.clone(),
             policy_fired: self.state.policy_fired.clone(),
+            elastic: self.state.elastic.clone(),
             policy: self.policy.clone(),
             payload_hash: String::new(),
         };
@@ -380,6 +384,7 @@ impl Engine {
             broadcasts: remainder.broadcasts,
             broadcast_receptions: remainder.broadcast_receptions,
             policy_fired: remainder.policy_fired,
+            elastic: remainder.elastic.clone(),
         };
         let mut engine = Self::from_state(state)?;
         engine.policy = remainder.policy;
@@ -450,6 +455,7 @@ impl Engine {
             broadcasts: remainder.broadcasts,
             broadcast_receptions: remainder.broadcast_receptions,
             policy_fired: remainder.policy_fired,
+            elastic: remainder.elastic.clone(),
         };
         let engine = Self::from_state(state)?;
         engine.observe(observer, now.min(engine.state.clock), targets)
@@ -509,6 +515,7 @@ mod tests {
             scheduled_range_courses: BTreeMap::new(),
             policy_fired: BTreeSet::new(),
             policy: None,
+            elastic: None,
             payload_hash: String::new(),
         };
         let json = serde_json::to_string(&remainder).unwrap();

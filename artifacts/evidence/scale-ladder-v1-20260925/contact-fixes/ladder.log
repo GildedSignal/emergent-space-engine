@@ -1,0 +1,41 @@
+rung X1-relative-motion #0 (size 256)
+rung X1-relative-motion #1 (size 4096)
+rung X1-relative-motion #2 (size 65536)
+rung X1-relative-motion #3 (size 262144)
+rung X2-horizon #0 (size 64)
+rung X2-horizon #1 (size 4096)
+rung X2-horizon #2 (size 262144)
+rung X3-crowded-axes #0 (size 256)
+rung X3-crowded-axes #1 (size 4096)
+rung X3-crowded-axes #2 (size 65536)
+rung X4-near-miss-lattice #0 (size 1)
+rung X4-near-miss-lattice #1 (size 4)
+rung X4-near-miss-lattice #2 (size 16)
+rung X4-near-miss-lattice #3 (size 64)
+rung C1-packed-stop-cascade #0 (size 64)
+rung C1-packed-stop-cascade #1 (size 256)
+rung C1-packed-stop-cascade #2 (size 1024)
+rung C1-packed-stop-cascade #3 (size 4096)
+rung C1-packed-stop-cascade #4 (size 16384)
+X1-relative-motion       rung 0 size 256.0 PASS          
+X1-relative-motion       rung 1 size 4096.0 PASS          
+X1-relative-motion       rung 2 size 65536.0 PASS          
+X1-relative-motion       rung 3 size 262144.0 FAIL          engine error: resource limit: event requires too many independent ships
+X1-relative-motion       rung 4 size 1048576.0 NOT_ATTEMPTED an earlier rung failed
+X2-horizon               rung 0 size 64.0 PASS          
+X2-horizon               rung 1 size 4096.0 PASS          
+X2-horizon               rung 2 size 262144.0 FAIL          engine error: resource limit: dense interaction frontier exceeds job capacity
+X2-horizon               rung 3 size 16777216.0 NOT_ATTEMPTED an earlier rung failed
+X3-crowded-axes          rung 0 size 256.0 PASS          
+X3-crowded-axes          rung 1 size 4096.0 PASS          
+X3-crowded-axes          rung 2 size 65536.0 PASS          
+X4-near-miss-lattice     rung 0 size 1.0 PASS          
+X4-near-miss-lattice     rung 1 size 4.0 PASS          
+X4-near-miss-lattice     rung 2 size 16.0 PASS          
+X4-near-miss-lattice     rung 3 size 64.0 FAIL          engine error: resource limit: family refinement exceeds job capacity
+C1-packed-stop-cascade   rung 0 size 64.0 PASS          
+C1-packed-stop-cascade   rung 1 size 256.0 PASS          
+C1-packed-stop-cascade   rung 2 size 1024.0 PASS          
+C1-packed-stop-cascade   rung 3 size 4096.0 PASS          
+C1-packed-stop-cascade   rung 4 size 16384.0 FAIL          wall cap 120 s
+exit 0

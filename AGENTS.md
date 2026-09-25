@@ -12,6 +12,7 @@ Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Liv
 - Preserve stable semantic identities and exact canonical event results across cache, partition, observation and scheduling changes.
 - Certificate bounds require independent adversarial checks. A floating candidate is never sufficient evidence of a canonical branch.
 - Gate failures must remain machine-readable. Never weaken a threshold after seeing candidate results.
+- Test like a Spartan trains: harder than the war. Every capability gets a ladder of frozen rungs, each roughly 10× harder, climbed until one fails. Both kinds are required: isolated extremes (one dimension at its limit) and chaotic scenes (interacting mechanisms at goal scale). A test that cannot fail is a control, not evidence. See [docs/test-ladder.md](docs/test-ladder.md).
 - User images define a flexible aesthetic foundation: ink, watercolor, ivory, pale blue and astronomical instruments. Text/layout in the images does not define mechanics.
 
 ## Required continuity workflow

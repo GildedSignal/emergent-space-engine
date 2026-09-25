@@ -1,5 +1,10 @@
 mod bench;
+mod gas;
 mod history;
+mod ladder;
+mod ladder5;
+mod lattice;
+mod proxy;
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -27,12 +32,125 @@ fn run() -> Result<u8> {
         history::run(args.collect())?;
         return Ok(0);
     }
+    if task == "gas-endurance" {
+        // Law experiment on the independent reference (not a ladder rung): energy drift of the
+        // 64-ship gas as collisions accumulate. Args: bodies, horizons...
+        let rest: Vec<i128> = args.filter_map(|a| a.parse().ok()).collect();
+        let n = rest.first().copied().unwrap_or(64) as u64;
+        for &h in rest.iter().skip(1) {
+            let g = gas::world(n, 0.1, 1024, 256, 2_718_281_828);
+            let t = std::time::Instant::now();
+            let reference = gas::reference(&g, h);
+            let e0: i128 = g.bodies.iter().map(|(_, v)| v[0] * v[0] + v[1] * v[1]).sum();
+            let drift: i128 = reference.finals.iter().map(|f| f.2).sum();
+            let max_res = reference.finals.iter().map(|f| f.2.abs()).max().unwrap_or(0);
+            let contacts = reference.events.iter().filter(|e| e.1 == "contact").count();
+            println!("bodies {n} ticks {h:>8} contacts {contacts:>9} energy drift {:+.3e} (relative) max residual {:.2e} energy units ({:.1} s)",
+                drift as f64 / e0 as f64, max_res as f64 / (2.0 * 1024.0 * 1024.0), t.elapsed().as_secs_f64());
+        }
+        return Ok(0);
+    }
+    if task == "lattice-check" {
+        // The lattice contract's CPU chronon reference against the independent gas reference.
+        // Args: bodies:horizon pairs (default 64:1024 256:1024 64:8192).
+        let rest: Vec<String> = args.collect();
+        let cases: Vec<(u64, i64)> = if rest.is_empty() {
+            vec![(64, 1024), (256, 1024), (64, 8192)]
+        } else {
+            rest.iter().filter_map(|a| a.split_once(':')).filter_map(|(n, h)| Some((n.parse().ok()?, h.parse().ok()?))).collect()
+        };
+        let mut ok = true;
+        for (n, h) in cases {
+            let v = lattice::check_gas(n, h, 2_718_281_828);
+            let pass = v["same_genesis"] == true && v["events_equal"] == true && v["finals_equal"] == true && v["wall_momentum_equal"] == true;
+            ok &= pass;
+            println!("{} {}", if pass { "EQUAL" } else { "DIFFERENT" }, v);
+        }
+        return Ok(if ok { 0 } else { 1 });
+    }
+    if task == "hevc-proxy" {
+        // Args: out-dir [frames] [ticks-per-frame]
+        let rest: Vec<String> = args.collect();
+        let out = PathBuf::from(rest.first().cloned().unwrap_or_else(|| "artifacts/runs/hevc-proxy".into()));
+        let frames = rest.get(1).and_then(|v| v.parse().ok()).unwrap_or(60);
+        let tpf = rest.get(2).and_then(|v| v.parse().ok()).unwrap_or(4);
+        proxy::run(&out, frames, tpf)?;
+        return Ok(0);
+    }
+    if task == "ladder5-rung" {
+        ladder5::rung(args.collect())?;
+        return Ok(0);
+    }
+    if task == "ladder5" {
+        // Args: out-dir [track] [--full] [--modes=chronon,event,metal,regions]
+        let rest: Vec<String> = args.collect();
+        let out = PathBuf::from(rest.first().cloned().unwrap_or_else(|| "artifacts/runs/ladder5".into()));
+        fs::create_dir_all(&out)?;
+        let profile = if rest.iter().any(|a| a == "--full") { "full" } else { "quick" };
+        let modes: Vec<String> = rest
+            .iter()
+            .find_map(|a| a.strip_prefix("--modes="))
+            .unwrap_or("chronon,event,metal,regions")
+            .split(',')
+            .map(String::from)
+            .collect();
+        let only = rest.iter().skip(1).find(|a| !a.starts_with("--")).cloned();
+        let value = ladder5::run(&out, &modes, only.as_deref(), profile)?;
+        write(&out.join("ladder.json"), &value)?;
+        for row in value["rows"].as_array().into_iter().flatten() {
+            println!(
+                "{:<8} {:<24} {:>9} {:<13} {:>8.0} ms  unit max {:>8.2} ms {:<6} ops/event {:>8.1} pred/op {:.2} cores {:.2}  {}",
+                row["mode"].as_str().unwrap_or("?"),
+                row["track"].as_str().unwrap_or("?"),
+                row["size"].as_f64().unwrap_or(0.0),
+                row["status"].as_str().unwrap_or("?"),
+                row["advance_ms"].as_f64().unwrap_or(0.0),
+                row["unit_ms_max"].as_f64().unwrap_or(0.0),
+                row["smoothness"].as_str().unwrap_or(""),
+                row["ops_per_event"].as_f64().unwrap_or(0.0),
+                row["predicates_per_op"].as_f64().unwrap_or(0.0),
+                row["cores_used"].as_f64().unwrap_or(0.0),
+                row["limiter"].as_str().unwrap_or("")
+            );
+        }
+        println!("gates {}", value["gates"]);
+        println!("ladder wall time {:.1} s", value["ladder_seconds"].as_f64().unwrap_or(0.0));
+        return Ok(0);
+    }
+    if task == "ladder-rung" {
+        ladder::rung(args.collect())?;
+        return Ok(0);
+    }
     let out = PathBuf::from(
         args.next()
             .unwrap_or_else(|| "artifacts/runs/latest".into()),
     );
     if task == "verify" {
         println!("{}", emergent_engine::Engine::verify_checkpoint(out)?);
+        return Ok(0);
+    }
+    if task == "ladder" {
+        fs::create_dir_all(&out)?;
+        let rest: Vec<String> = args.collect();
+        let profile = if rest.iter().any(|a| a == "--full") { "full" } else { "quick" };
+        let only = rest.iter().find(|a| !a.starts_with("--")).cloned();
+        let value = ladder::run(&out, only.as_deref(), profile)?;
+        write(&out.join("ladder.json"), &value)?;
+        for row in value["rows"].as_array().into_iter().flatten() {
+            let s = &row["smoothness"];
+            println!(
+                "{:<24} {:>9} {:<13} {:>8.0} ms  p99 {:>8.2} ms {:<6} cores {:.2}  {}",
+                row["track"].as_str().unwrap_or("?"),
+                row["size"].as_f64().unwrap_or(0.0),
+                row["status"].as_str().unwrap_or("?"),
+                row["advance_ms"].as_f64().unwrap_or(0.0),
+                s["p99_ms"].as_f64().unwrap_or(0.0),
+                s["verdict"].as_str().unwrap_or(""),
+                row["cores_used"].as_f64().unwrap_or(0.0),
+                row["limiter"].as_str().unwrap_or("")
+            );
+        }
+        println!("ladder wall time {:.1} s", value["ladder_seconds"].as_f64().unwrap_or(0.0));
         return Ok(0);
     }
     if ![

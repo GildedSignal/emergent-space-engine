@@ -1,0 +1,166 @@
+{
+  "accounting": "Each rung ran in a fresh child process; peak RSS is that process's getrusage maximum. Wall times are single runs. Oracle and correctness checks run after the timed advance and are excluded from advance_ms.",
+  "manifest": "scenarios/scale-ladder-v1.json",
+  "manifest_blake3": "8bbc16f111c28b84a3a97e0e7245a0fc95913949d59259051858ce2d1facc06e",
+  "provenance": {
+    "hardware": "Apple M1",
+    "law": "es-inertial-causal-v1",
+    "manifest_hash": "378fda05a47846981d32c586995e955643ba753ef91d561816b0a953fc7ba41d",
+    "memory_bytes": "8589934592",
+    "profile": "release",
+    "revision": "3b0f697a58923c1c01a4bc7cf40a2b243a4dfd27",
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "unix_seconds": 1790343161,
+    "working_tree_diff_hash": "cbb383872620834fca8bdcd1efd571629565e966b7231ab0cf2885e44624f778",
+    "working_tree_status": "M AGENTS.md\n M crates/engine/src/runtime.rs\n M crates/law-lab/src/coupled_source_response.rs\n M crates/law-lab/src/lib.rs\n M crates/law-lab/src/orbit_initialization.rs\n M crates/law-lab/src/orbit_reference.rs\n M docs/HANDOFF.md\n M docs/HISTORY.md\n M xtask/src/main.rs\n?? artifacts/evidence/orbit-refinement-20260924/\n?? crates/engine/tests/contact_cascade.rs\n?? crates/law-lab/examples/orbit_failure_diagnosis.rs\n?? crates/law-lab/examples/orbit_reinitialize.rs\n?? crates/law-lab/src/orbit_newtonian_control.rs\n?? docs/laws/orbit-refinement-20260924.md\n?? docs/test-ladder.md\n?? scenarios/scale-ladder-v1.json\n?? xtask/src/ladder.rs"
+  },
+  "rows": [
+    {
+      "aabb_compares": 4200,
+      "advance_ms": 26.943082999999998,
+      "certified_rejections": 3656,
+      "child_wall_s": 2.305670125,
+      "correctness": {
+        "audit_contacts": 30,
+        "audit_equal": true,
+        "budget_64_digest_equal": true,
+        "engine_contacts": 30,
+        "replay_equal": true,
+        "stopped_bodies": 48
+      },
+      "descriptions": 64,
+      "events": 30,
+      "limiter": null,
+      "operations": 37587,
+      "pairs_per_description": 65.625,
+      "param": {
+        "bodies": 64,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 4603904,
+      "rss_per_description": 71936.0,
+      "rung": 0,
+      "setup_ms": 0.639834,
+      "size": 64.0,
+      "slices": 1,
+      "status": "PASS",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 26.942959
+    },
+    {
+      "aabb_compares": 65322,
+      "advance_ms": 229.686666,
+      "certified_rejections": 60982,
+      "child_wall_s": 36.298657792,
+      "correctness": {
+        "audit_contacts": 129,
+        "audit_equal": true,
+        "budget_64_digest_equal": true,
+        "engine_contacts": 129,
+        "replay_equal": true,
+        "stopped_bodies": 199
+      },
+      "descriptions": 256,
+      "events": 129,
+      "limiter": null,
+      "operations": 571860,
+      "pairs_per_description": 255.1640625,
+      "param": {
+        "bodies": 256,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 8568832,
+      "rss_per_description": 33472.0,
+      "rung": 1,
+      "setup_ms": 1.604416,
+      "size": 256.0,
+      "slices": 6,
+      "status": "PASS",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 111.142583
+    },
+    {
+      "aabb_compares": 1008116,
+      "advance_ms": 1290.287417,
+      "certified_rejections": 987803,
+      "child_wall_s": 3.919366292,
+      "correctness": {
+        "budget_64_digest_equal": true,
+        "replay_equal": true,
+        "stopped_bodies": 863
+      },
+      "descriptions": 1024,
+      "events": 569,
+      "limiter": null,
+      "operations": 4128088,
+      "pairs_per_description": 984.48828125,
+      "param": {
+        "bodies": 1024,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 25329664,
+      "rss_per_description": 24736.0,
+      "rung": 2,
+      "setup_ms": 7.147166,
+      "size": 1024.0,
+      "slices": 42,
+      "status": "PASS",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 453.12508299999996
+    },
+    {
+      "aabb_compares": 15682028,
+      "advance_ms": 9782.605500000001,
+      "certified_rejections": 15593958,
+      "child_wall_s": 19.898776792,
+      "correctness": {
+        "replay_equal": true,
+        "stopped_bodies": 3586
+      },
+      "descriptions": 4096,
+      "events": 2372,
+      "limiter": null,
+      "operations": 30318866,
+      "pairs_per_description": 3828.6201171875,
+      "param": {
+        "bodies": 4096,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 109002752,
+      "rss_per_description": 26612.0,
+      "rung": 3,
+      "setup_ms": 18.854333,
+      "size": 4096.0,
+      "slices": 304,
+      "status": "PASS",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 1199.217042
+    },
+    {
+      "aabb_compares": 191146203,
+      "advance_ms": 120253.885125,
+      "certified_rejections": 190765509,
+      "child_wall_s": 120.386237375,
+      "correctness": {},
+      "descriptions": 16384,
+      "events": 6878,
+      "limiter": "wall cap 120 s",
+      "operations": 242500000,
+      "pairs_per_description": 11666.638366699219,
+      "param": {
+        "bodies": 16384,
+        "horizon": 128
+      },
+      "peak_rss_bytes": 245760000,
+      "rss_per_description": 15000.0,
+      "rung": 4,
+      "setup_ms": 69.15895800000001,
+      "size": 16384.0,
+      "slices": 2425,
+      "status": "FAIL",
+      "track": "C1-packed-stop-cascade",
+      "worst_slice_ms": 5177.922542
+    }
+  ],
+  "schema": 1
+}

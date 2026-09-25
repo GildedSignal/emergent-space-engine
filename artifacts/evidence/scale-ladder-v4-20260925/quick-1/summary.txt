@@ -1,0 +1,36 @@
+X1-relative-motion             256 PASS                12 ms  p99     0.37 ms SMOOTH cores 0.83  
+X1-relative-motion            4096 PASS               185 ms  p99     0.31 ms SMOOTH cores 0.99  
+X1-relative-motion           65536 PASS              7636 ms  p99     0.01 ms SMOOTH cores 0.88  
+X1-relative-motion          262144 FAIL              8000 ms  p99     0.00 ms SMOOTH cores 0.99  wall cap 8 s
+X1-relative-motion         1048576 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X2-horizon                      64 PASS                52 ms  p99     0.26 ms SMOOTH cores 1.00  
+X2-horizon                    4096 PASS               193 ms  p99     0.31 ms SMOOTH cores 1.00  
+X2-horizon                  262144 FAIL              3254 ms  p99     0.01 ms SMOOTH cores 0.99  engine error: resource limit: dense interaction frontier exceeds job capacity
+X2-horizon                16777216 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X3-crowded-axes                256 PASS                 2 ms  p99     0.13 ms SMOOTH cores 1.00  
+X3-crowded-axes               4096 PASS               129 ms  p99     0.00 ms SMOOTH cores 1.00  
+X3-crowded-axes              65536 FAIL              8000 ms  p99     0.00 ms SMOOTH cores 0.98  wall cap 8 s
+X3-crowded-axes             262144 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X4-near-miss-lattice             1 PASS                42 ms  p99     1.99 ms SMOOTH cores 1.00  
+X4-near-miss-lattice             4 PASS               771 ms  p99     1.94 ms SMOOTH cores 1.00  
+X4-near-miss-lattice            16 FAIL              8089 ms  p99     2.02 ms SMOOTH cores 0.99  wall cap 8 s
+X4-near-miss-lattice            64 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+C1-packed-stop-cascade          64 PASS                26 ms  p99     0.42 ms SMOOTH cores 1.00  
+C1-packed-stop-cascade         256 PASS               362 ms  p99     0.37 ms SMOOTH cores 0.72  
+C1-packed-stop-cascade        1024 PASS              1452 ms  p99     0.18 ms SMOOTH cores 1.00  
+C1-packed-stop-cascade        4096 FAIL              8042 ms  p99     0.32 ms SMOOTH cores 0.97  wall cap 8 s
+C1-packed-stop-cascade       16384 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+C2-trapped-gas                  64 PASS              4302 ms  p99     0.94 ms SMOOTH cores 0.98  
+C2-trapped-gas                 256 FAIL              8004 ms  p99     0.78 ms SMOOTH cores 0.90  wall cap 8 s
+C2-trapped-gas                1024 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+C2-trapped-gas                4096 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+C2-trapped-gas               16384 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X5-carry-endurance            4096 FAIL              8004 ms  p99     1.11 ms SMOOTH cores 0.90  wall cap 8 s
+X5-carry-endurance           32768 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X5-carry-endurance          262144 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X5-carry-endurance         2097152 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X6-exact-fraction-gas           16 FAIL             15850 ms  p99   406.42 ms JANK   cores 1.00  wall cap 8 s
+X6-exact-fraction-gas           32 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X6-exact-fraction-gas           64 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+X6-exact-fraction-gas          128 NOT_ATTEMPTED        0 ms  p99     0.00 ms        cores 0.00  an earlier rung failed
+ladder wall time 99.9 s

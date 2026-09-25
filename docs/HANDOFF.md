@@ -2,6 +2,50 @@
 
 **Current heading — 23 September 2026:** Continue the full integration plan. Recovered committed Cursor implementation `e510b2f` into durable worktree `/Users/julien_laurent/Research/emergent-integration`, branch `codex/integration-continuation-20260923`; temporary worktree files had disappeared. H0149 corrects the pressure oracle and RK2 integration, adds adversarial/multiple-IC tests, and removes unsupported held-out PASS claims. Full engine remains incomplete; `production_law` remains null. The sections below H0149 describe the retained September 15 snapshot unless explicitly superseded.
 
+## Current plan (25 September 2026, after H0160)
+
+The agreed direction is [work-allocation-principles.md](work-allocation-principles.md), with the GPU path on Metal. Build order, each step gated by the whole ladder with no regressions:
+0. Commit pending work (with Julien's OK) and recover authentic missing evidence where possible.
+1. Local event core in integer lattices, single core.
+2. Bounded units, time-boxed frames and per-region slack.
+3. Forecasts and the least-slack queue.
+4. Performance and efficiency cores.
+5. Metal chronon mode, with exact integer AMX/GPU slices.
+6. Speculation (Neural Engine targeting) and recompression.
+7. Gravity field certificates.
+
+Parallel design threads: the aggregate combat law, the player's influence and input design, share codes, and ladder v5.
+
+Status (25 September 2026, 23:30, H0161–H0163). Nothing is committed; step 0 still waits for Julien's OK.
+- **Contract:** `crates/lattice` (law, CPU chronon reference, digests, `Stepper`) equals the independent gas reference.
+- **Ladder:** [v5](../scenarios/scale-ladder-v5.json) is frozen; run it with `cargo run --release -p xtask -- ladder5 <dir> [track] --modes=chronon,event`.
+- **Step 1 (event core, `crates/lattice-event`):** passes invariance, cost-per-event and useful-work gates. Its smooth gate fails; round 2 is in progress.
+- **Step 5 (`crates/lattice-metal`) and steps 2–4 (`crates/allocator`):** being built by specialists (interrupted once by an API rate limit, resumed 23:10). New target from Julien: the gas at 1M ships must be trivial.
+- **Relativistic bounce:** `crates/lattice/src/relativity.rs` is tested but not yet wired. Next: `World.law` and `Body.carry` once the specialists finish, then ladder v6.
+- **Whole computer:** design §4b has the tier rule and silicon table, with the HEVC sensor measured.
+
+## Current continuation — H0159 (25 September 2026)
+
+Read [the work-allocation design](work-allocation-design.md) (proposed, awaiting Julien): integer lattices, a local event core, dense chronon mode on the GPU, light-cone deadlines, and frames that never block. An opt-in elastic lattice law (`Engine::with_elastic`, `Body::bounce`) now exists and equals an independent integer reference simulator exactly. Its energy error stays bounded (±0.11% over 1.3M collisions on the reference). The engine runs the gas about 70× slower than naive stepping. Ladder v4 adds the gas tracks C2, X5 and X6 ([test ladder](test-ladder.md)). Next: build the local event core.
+
+## Current continuation — H0158 (25 September 2026)
+
+Quick scale-ladder climb: `cargo run --release -p xtask -- ladder <out-dir>`, about 1 minute; add `--full` for qualification ([test ladder](test-ladder.md)). Every rung now reports frame p95/p99/max at the observatory's 24-operation budget and cores used. The engine uses one core of eight. Worst frames reach 138 ms, and dense scenes need thousands of frames per simulated tick. The resident-ship cap is now derived from the 4 GiB memory budget (about 1.4M ships). Approved next work, in order: an elastic bounce law (walls, momentum-exact rounded velocities, energy residual carry, mass-aware impulses) with a trapped-gas track; a spatial index over short time windows; bounded operations and time-boxed frames; and a multi-core compute-allocation scheduler.
+
+## Current continuation — H0157 (25 September 2026)
+
+Scale ladder v1 is frozen ([manifest](../scenarios/scale-ladder-v1.json)) and climbed with `cargo run --release -p xtask -- ladder <out-dir> [track]`; status per track is in the [test ladder](test-ladder.md). The chaotic stop-cascade track found two canonical-engine correctness bugs at 64 bodies. The results depended on the slice budget and disagreed with the audit. Both are fixed with mutation-checked [regression tests](../crates/engine/tests/contact_cascade.rs):
+- A stop on a resting body is now a no-op.
+- Repairs of changed bodies now finish before the next commit.
+
+114 engine tests pass. The remaining limiters are structural: per-event repair compares every box, single-axis sweep grows N^1.5 to N², boxes are swept over the whole horizon, family near misses are bisected down to members, and charged operations are not bounded work (slices up to 7.9 s). Next step proposed and awaiting Julien: an incremental spatial index over bounded time slabs, measured on the same rungs. Orbit refinement work of 25 September is still uncommitted and unjournaled.
+
+## Current continuation — H0156 (25 September 2026)
+
+New repo rule from Julien: test like a Spartan trains, harder than the war. Every capability gets a [test ladder](test-ladder.md) of frozen rungs, each ~10× harder, climbed until one fails, with both isolated extremes and chaotic goal-scale scenes. The population benchmark (cost independent of ship count and age) is a control: every group shared one velocity. With any relative motion the collision search compares every pair of groups (32,640 of 32,640 at 256 groups, still 5–11 ms); the sweep axis is chosen by centre spread, which drift inflates along the lanes ([probe](../artifacts/evidence/scale-ladder-v1-20260925/relative-motion-probe/README.md)). 112 engine tests pass in release.
+
+Unrecorded work: the 25 September [orbit refinement results](laws/orbit-refinement-20260924.md) are uncommitted and have no journal entry. All five original seeds now pass numerical screening; GEM-v0 still fails all five physically. The shortfall scales linearly with field strength at 8–15× the relativistic scale. The H0155 next action is done. The next step awaits Julien's choice between the scale ladder (freeze first rungs, then fix or replace the single-axis sweep) and a one-geometry gravity contract.
+
 ## Current continuation — H0155 (24 September 2026)
 
 The [state-convergence audit](laws/orbit-state-convergence-20260924.md) now checks paired position, velocity, Newtonian energy and signed angular momentum, with strict provenance and invalid-data rejection. On saved Euler/block runs: seed4 passes all four; seeds8/9/10/11 fail velocity-reference resolution (finest changes0.00826–0.01072 versus0.005). Their energy/angular-momentum screens and comparisons pass. Compiler velocity differences below0.02 cannot qualify against insufficient references. Retrospective screen, not held-out evidence. No new evolution or physical-model changes; physical bank remains7 PASS/5 FAIL and production_law null.
