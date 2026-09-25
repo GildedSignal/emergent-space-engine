@@ -436,6 +436,32 @@ impl Reference {
         }
     }
 
+    /// Opt-in numerical reference lookup for continuous Euler histories only.
+    /// Original exhaustive path remains the equivalence oracle.
+    pub fn evolve_to_indexed(&self, horizon: f64) -> Result<(Vec<Body>, Charge), ResponseError> {
+        if !self.interventions.is_empty()
+            || !self.dt.is_finite()
+            || self.dt <= 0.0
+            || !horizon.is_finite()
+            || !self.ic.genesis_t.is_finite()
+            || horizon < self.ic.genesis_t
+            || self.ic.genesis_t + self.dt <= self.ic.genesis_t
+            || horizon + self.dt <= horizon
+            || self.ic.bodies.iter().any(|b| {
+                !b.mu.is_finite()
+                    || !b.x.iter().chain(b.v.iter()).all(|x| x.is_finite())
+                    || V2::from_arr(b.v).norm() / C > BETA_MAX
+            })
+        {
+            return Err(ResponseError::UnsupportedDomain { why:"indexed Euler requires finite unforced subluminal genesis and positive representable dt".into() });
+        }
+        let mut job = EulerContinueJob::from_genesis(&self.ic, &[], horizon, self.dt);
+        job.indexed_lookup = true;
+        let mut budget = u64::MAX;
+        while job.poll(&mut budget)? == JobPoll::Pending {}
+        Ok(job.into_bodies())
+    }
+
     pub fn evolve_to(&self, horizon: f64) -> Result<(Vec<Body>, Charge), ResponseError> {
         let mut charge = Charge {
             init: 1,
@@ -964,6 +990,64 @@ fn field_at(
             total.phi += f.phi;
             total.e = total.e.add(f.e);
             total.b_z += f.b_z;
+        }
+    }
+    Ok(total)
+}
+
+/// Private: callers must construct continuous subluminal inertial chords through
+/// Euler from genesis. Arrival(s)=s+|x-X(s)|/C is strictly increasing on this
+/// domain. Select a conservative upper start index, then run the ORIGINAL root
+/// and field routines in the ORIGINAL reverse order. This is floating laboratory
+/// lookup, not a certificate for canonical branches.
+fn field_at_euler_indexed(
+    bodies: &[Body],
+    t: f64,
+    x: V2,
+    skip: Option<u64>,
+    charge: &mut Charge,
+) -> Result<GemField, ResponseError> {
+    let mut total = GemField {
+        phi: 0.0,
+        e: V2::zero(),
+        b_z: 0.0,
+    };
+    for body in bodies {
+        if Some(body.id) == skip || body.segments.is_empty() {
+            continue;
+        }
+        let first = &body.segments[0];
+        // Includes the root's time-boundary tolerance and conservative roundoff
+        // slack. Extra candidates cost work; never snap the selected root/state.
+        let slack = 1e-9
+            * (1.0 + t.abs() + x.norm() + V2::from_arr(first.x0).norm() + C * (t - first.t0).abs());
+        let (mut lo, mut hi) = (0, body.segments.len());
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            let seg = &body.segments[mid];
+            charge.verification += 1;
+            let arrival = seg.t0 + x.sub(V2::from_arr(seg.x0)).norm() / C;
+            if !arrival.is_finite() || !slack.is_finite() {
+                return Err(ResponseError::UnsupportedDomain {
+                    why: "nonfinite indexed arrival".into(),
+                });
+            }
+            if arrival <= t + slack {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        for seg in body.segments[..lo].iter().rev() {
+            if seg.t0 > t + 1e-15 {
+                continue;
+            }
+            if let Some(f) = gem_from_segment(t, x, seg, charge)? {
+                total.phi += f.phi;
+                total.e = total.e.add(f.e);
+                total.b_z += f.b_z;
+                break;
+            }
         }
     }
     Ok(total)
@@ -1690,6 +1774,7 @@ pub struct EulerContinueJob {
     dt: f64,
     charge: Charge,
     ready: bool,
+    indexed_lookup: bool,
 }
 
 impl EulerContinueJob {
@@ -1716,6 +1801,7 @@ impl EulerContinueJob {
             dt,
             charge,
             ready: false,
+            indexed_lookup: false,
         }
     }
 
@@ -1790,7 +1876,9 @@ impl EulerContinueJob {
                     why: format!("beta={} exceeds admitted {}", v.norm() / C, BETA_MAX),
                 });
             }
-            let field = field_at(bodies, t, x, Some(body.id), &mut self.charge)?;
+            let field = if self.indexed_lookup {
+                field_at_euler_indexed(bodies,t,x,Some(body.id),&mut self.charge)?
+            } else { field_at(bodies, t, x, Some(body.id), &mut self.charge)? };
             if field.phi.abs() / (C * C) > PHI_C2_MAX {
                 return Err(ResponseError::UnsupportedDomain {
                     why: format!("|Phi|/c^2={} exceeds {PHI_C2_MAX}", field.phi.abs() / (C * C)),
@@ -1799,6 +1887,9 @@ impl EulerContinueJob {
             let a = apply_gem_a(field, v);
             let v_new = v.add(a.scale(h));
             let x_new = x.add(v.scale(h));
+            if self.indexed_lookup && (!v_new.norm().is_finite() || !x_new.norm().is_finite()) {
+                return Err(ResponseError::UnsupportedDomain {why:"nonfinite indexed Euler state".into()});
+            }
             if v_new.norm() >= C {
                 return Err(ResponseError::Superluminal);
             }
@@ -4506,6 +4597,51 @@ mod tests {
 
     fn a_scale() -> f64 {
         1.0 / 64.0
+    }
+
+    #[test]
+    fn indexed_euler_matches_exhaustive_fields_at_fronts_and_kinks() {
+        let mut body = genesis_bodies(&laboratory_two_body()).remove(0);
+        for i in 1..101 {
+            let t = i as f64 * 0.03125;
+            let x = body.segments.last().unwrap().at(t);
+            let v = V2::new(0.6 * (i as f64).sin(), 0.4 * (i as f64).cos());
+            close_and_kink(&mut body, t, x, v, 1.0, V2::zero(), V2::zero());
+        }
+        let bodies = vec![body];
+        let mut indexed = Charge::default();
+        let mut exhaustive = Charge::default();
+        for x in [V2::new(3.0, 2.0), V2::new(-7.0, -0.4), V2::new(100.0, 30.0)] {
+            for seg in &bodies[0].segments {
+                let arrival = seg.t0 + x.sub(V2::from_arr(seg.x0)).norm() / C;
+                for shift in [-1e-8, -1e-12, 0.0, 1e-12, 1e-8, 0.01] {
+                    let t = arrival + shift;
+                    let a = field_at(&bodies, t, x, None, &mut exhaustive).unwrap();
+                    let b = field_at_euler_indexed(&bodies, t, x, None, &mut indexed).unwrap();
+                    assert_eq!((a.phi, a.e.arr(), a.b_z), (b.phi, b.e.arr(), b.b_z));
+                }
+            }
+        }
+        assert!(indexed.ledger_total() < exhaustive.ledger_total());
+    }
+
+    #[test]
+    fn indexed_euler_preserves_complete_trajectories_on_varied_geneses() {
+        for seed in [0, 4, 8, 9, 10, 11] {
+            let case = crate::two_body_bank::Case::from_seed(seed);
+            let ic = case.initial_condition();
+            let reference = Reference::from_genesis(ic, vec![], (case.horizon - case.genesis) / 2048.0);
+            let (a, ca) = reference.evolve_to(case.horizon).unwrap();
+            let (b, cb) = reference.evolve_to_indexed(case.horizon).unwrap();
+            assert_eq!(
+                serde_json::to_value(a).unwrap(),
+                serde_json::to_value(b).unwrap()
+            );
+            assert_eq!(ca.source_evolution, cb.source_evolution);
+            assert!(cb.verification > 0);
+        }
+        let r = Reference::from_genesis(laboratory_two_body(), laboratory_kick(), 0.01);
+        assert!(r.evolve_to_indexed(2.0).is_err());
     }
 
     #[test]

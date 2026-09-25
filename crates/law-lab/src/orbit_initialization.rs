@@ -1,6 +1,6 @@
 //! Versioned offline shooting initialization. Never edits state at observation start.
 use crate::coupled_source_response::{
-    body_state_compiled, compile_source_response_opts, CompileOpts, InitialCondition,
+    body_state_compiled, compile_source_response_opts, compile_source_response_refined, CompileOpts, InitialCondition,
     SourceResponse,
 };
 use crate::two_body_bank::{kepler_relative, Case};
@@ -146,6 +146,7 @@ fn evaluate_newton(
     y: [f64; 8],
     case: &Case,
     report: &mut InitializationReport,
+    subdivision: usize,
 ) -> Result<(SourceResponse, [f64; 8]), String> {
     if report.trials >= NEWTON_MAX_EVALUATIONS {
         return Err("frozen total compile evaluation budget exhausted".into());
@@ -157,7 +158,7 @@ fn evaluate_newton(
     report.resolved_genesis = ic.clone();
     report.residual = None;
     report.trials += 1;
-    let compiled = compile_source_response_opts(
+    let compiled = compile_source_response_refined(
         ic.clone(),
         vec![],
         case.horizon,
@@ -165,6 +166,7 @@ fn evaluate_newton(
         CompileOpts {
             store_pair_inverse: false,
         },
+        subdivision,
     )
     .map_err(|e| {
         report.complete_charge = false;
@@ -234,8 +236,21 @@ fn solve_newton(mut matrix: [[f64; 8]; 8], mut rhs: [f64; 8]) -> Result<[f64; 8]
 /// Distinct initializer version; does not replace fixed-point results or gates.
 /// `trials` counts compile evaluations, not Newton iterations.
 pub fn initialize_newton(case: &Case) -> (Option<SourceResponse>, InitializationReport) {
+    initialize_newton_with_subdivision(case, 1, NEWTON_INITIALIZER_VERSION)
+}
+
+pub const REFINED_NEWTON_INITIALIZER_VERSION: &str = "kepler-observation-newton-block8-v2";
+/// Separate numerical initializer, with unchanged target and trial limits.
+pub fn initialize_newton_refined(case: &Case) -> (Option<SourceResponse>, InitializationReport) {
+    initialize_newton_with_subdivision(case, 8, REFINED_NEWTON_INITIALIZER_VERSION)
+}
+fn initialize_newton_with_subdivision(
+    case: &Case,
+    subdivision: usize,
+    version: &str,
+) -> (Option<SourceResponse>, InitializationReport) {
     let mut report = InitializationReport {
-        version: NEWTON_INITIALIZER_VERSION.into(),
+        version: version.into(),
         trials: 0,
         residual: None,
         total_compile_charge: 0,
@@ -245,7 +260,7 @@ pub fn initialize_newton(case: &Case) -> (Option<SourceResponse>, Initialization
     };
     let result = (|| -> Result<SourceResponse, String> {
         let mut y = normalized_genesis(&report.resolved_genesis, case);
-        let (mut compiled, mut residual) = evaluate_newton(y, case, &mut report)?;
+        let (mut compiled, mut residual) = evaluate_newton(y, case, &mut report, subdivision)?;
         for _ in 0..NEWTON_MAX_UPDATES {
             if residual_norm(&residual) <= RESIDUAL_TOLERANCE {
                 return Ok(compiled);
@@ -254,7 +269,8 @@ pub fn initialize_newton(case: &Case) -> (Option<SourceResponse>, Initialization
             for column in 0..8 {
                 let mut perturbed = y;
                 perturbed[column] += JACOBIAN_STEP;
-                let (_, perturbed_residual) = evaluate_newton(perturbed, case, &mut report)?;
+                let (_, perturbed_residual) =
+                    evaluate_newton(perturbed, case, &mut report, subdivision)?;
                 for row in 0..8 {
                     jacobian[row][column] =
                         (perturbed_residual[row] - residual[row]) / JACOBIAN_STEP;
@@ -265,7 +281,8 @@ pub fn initialize_newton(case: &Case) -> (Option<SourceResponse>, Initialization
             let mut accepted = None;
             for alpha in [1.0, 0.5, 0.25, 0.125] {
                 let proposal = std::array::from_fn(|i| y[i] + alpha * delta[i]);
-                let (candidate, candidate_residual) = evaluate_newton(proposal, case, &mut report)?;
+                let (candidate, candidate_residual) =
+                    evaluate_newton(proposal, case, &mut report, subdivision)?;
                 if residual_norm(&candidate_residual) < previous_norm {
                     accepted = Some((proposal, candidate, candidate_residual));
                     break;
@@ -340,6 +357,17 @@ mod tests {
         let (compiled, report) = initialize_newton(&case);
         assert!(report.trials <= NEWTON_MAX_EVALUATIONS);
         assert_accepted_history(&case, &compiled.expect("Newton eccentric case"), &report);
+    }
+
+    #[test]
+    fn refined_newton_initializes_eccentric_cases_without_patching() {
+        for seed in [8, 10] {
+            let case = Case::from_seed(seed);
+            let (compiled, report) = initialize_newton_refined(&case);
+            assert_eq!(report.version, REFINED_NEWTON_INITIALIZER_VERSION);
+            assert!(report.trials <= NEWTON_MAX_EVALUATIONS);
+            assert_accepted_history(&case, &compiled.expect("refined initialization"), &report);
+        }
     }
 
     #[test]

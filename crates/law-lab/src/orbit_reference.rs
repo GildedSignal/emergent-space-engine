@@ -93,7 +93,12 @@ fn sample(
     }
     Ok(result)
 }
-fn behavior(c: &Case, period: f64, samples: &[Sample]) -> Behavior {
+/// Physical classifier on the uniform 1025-point observation grid.
+/// Invalid inputs are refused rather than hidden by floating maximum reductions.
+pub fn behavior(c: &Case, period: f64, samples: &[Sample]) -> Behavior {
+    assert!(period.is_finite() && period > 0.0 && samples.len() == 1025);
+    assert!(samples.iter().all(|s| s.x.iter().chain(s.v.iter()).all(|v| v.is_finite())
+        && s.x[0].hypot(s.x[1]) > 0.0));
     let e0 = -G * c.total_mass / (2.0 * c.a);
     let l0 = (G * c.total_mass * c.a * (1.0 - c.eccentricity.powi(2))).sqrt();
     let mut b = Behavior {
@@ -138,6 +143,16 @@ pub fn measure(
     genesis: InitialCondition,
     steps: &[usize],
 ) -> Result<Report, ResponseError> {
+    measure_with_lookup(case, genesis, steps, false)
+}
+pub fn measure_indexed(
+    case: Case,
+    genesis: InitialCondition,
+    steps: &[usize],
+) -> Result<Report, ResponseError> {
+    measure_with_lookup(case, genesis, steps, true)
+}
+fn measure_with_lookup(case: Case, genesis: InitialCondition, steps: &[usize], indexed: bool) -> Result<Report, ResponseError> {
     assert!(
         steps.len() >= 3
             && steps.iter().all(|n| *n > 0)
@@ -162,6 +177,7 @@ pub fn measure(
     )?;
     let mut report=Report{version:"same-genesis-euler-refinement-v1".into(),candidate_charge:compiled.charge.ledger_total(),candidate_state_queries:queries,candidate_wall_ns:start.elapsed().as_nanos(),candidate_behavior:behavior(&case,period,&candidate),case,genesis,period,rungs:vec![],refinement_ratio:None,reference_screen_pass:false,candidate_agrees:false,total_charge:compiled.charge.ledger_total(),complete_charge:true,wall_ns:0,scope:"Shared GEM equations/root routines; independent Euler evolution. Observed sampled refinement, not interval certification. Reused frozen genesis; historical initialization cost excluded explicitly. Charges are ledger units, not arithmetic; failed API partial counters unavailable.".into()};
     drop(compiled);
+    if indexed { report.scope.push_str(" Opt-in indexed Euler history lookup; numerical recurrence unchanged; verification predicates charged."); }
     for &n in steps {
         let start = Instant::now();
         let dt = (period - report.genesis.genesis_t) / n as f64;
@@ -183,7 +199,9 @@ pub fn measure(
             previous_difference: None,
             samples: vec![],
         };
-        match Reference::from_genesis(report.genesis.clone(), vec![], dt).evolve_to(period) {
+        let reference = Reference::from_genesis(report.genesis.clone(), vec![], dt);
+        let evolved = if indexed { reference.evolve_to_indexed(period) } else { reference.evolve_to(period) };
+        match evolved {
             Err(e) => rung.reason = format!("reference refused: {e:?}"),
             Ok((bodies, charge)) => {
                 rung.charge = charge.ledger_total();
@@ -300,6 +318,8 @@ mod tests {
         );
         assert!(result.is_err());
         assert_eq!(queries, 2);
+        let invalid = vec![Sample { x:[1.0,0.0], v:[f64::NAN,0.0] };1025];
+        assert!(std::panic::catch_unwind(|| behavior(&Case::from_seed(0),1.0,&invalid)).is_err());
     }
 
     #[test]
@@ -391,7 +411,10 @@ mod tests {
             .split(',')
             .map(|s| s.parse().unwrap())
             .collect();
-        let report = match measure(case, genesis, &steps) {
+        let measured = if std::env::var_os("ORBIT_REFERENCE_INDEXED").is_some() {
+            measure_indexed(case, genesis, &steps)
+        } else { measure(case, genesis, &steps) };
+        let report = match measured {
             Ok(report) => report,
             Err(error) => {
                 let refused = serde_json::json!({"status":"UNSUPPORTED", "seed":seed,

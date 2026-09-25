@@ -1091,3 +1091,4 @@ mod tests {
 
 pub mod orbit_reference;
 pub mod orbit_state_convergence;
+pub mod orbit_newtonian_control;

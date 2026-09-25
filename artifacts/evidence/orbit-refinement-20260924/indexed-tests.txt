@@ -1,0 +1,9 @@
+   Compiling emergent-law-lab v0.1.0 (/Users/julien_laurent/Research/emergent-integration/crates/law-lab)
+error[E0425]: cannot find value `x_new` in this scope
+    --> crates/law-lab/src/coupled_source_response.rs:1826:74
+     |
+1826 |                 if self.indexed_lookup && (!v_new.norm().is_finite() || !x_new.norm().is_finite()) {
+     |                                                                          ^^^^^ help: a local variable with a similar name exists: `v_new`
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `emergent-law-lab` (lib test) due to 1 previous error
