@@ -57,6 +57,17 @@ pub enum Response {
     Stop,
 }
 
+/// Which bounce a world obeys. Positions, predicates, walls and cells are shared.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Law {
+    /// `es-lattice-elastic-v0`: Newtonian impulses; evolved speeds may exceed c.
+    #[default]
+    Newtonian,
+    /// `es-lattice-relativistic-v0` ([`crate::relativity`]): 4-momentum exact up to a bounded
+    /// carry, and |k|² < Q² for every body at every tick.
+    Relativistic,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Body {
     pub id: u64,
@@ -68,12 +79,20 @@ pub struct Body {
     /// Radius in 1/Q units.
     pub radius: i64,
     pub response: Response,
-    /// Energy carry in units of m·|k|² (2Q² × kinetic energy).
+    /// Energy carry: m·|k|² units (2Q² × kinetic energy) under the Newtonian law; fixed-point
+    /// 4-momentum units under the relativistic law.
     pub residual: i64,
     pub rev: u32,
+    /// Momentum carry (relativistic law, fixed-point 4-momentum units); zero under Newtonian.
+    #[serde(default)]
+    pub carry: [i64; 2],
 }
 
 impl Body {
+    pub fn new(id: u64, x: [i64; 2], k: [i64; 2], mass: i64, radius: i64, response: Response) -> Body {
+        Body { id, x, k, mass, radius, response, residual: 0, rev: 0, carry: [0, 0] }
+    }
+
     pub fn energy(&self) -> i128 {
         energy(self.mass as i128, [self.k[0] as i128, self.k[1] as i128])
     }
@@ -111,8 +130,11 @@ pub struct World {
     pub bodies: Vec<Body>,
     /// Live consumed contacts (see [`World::canonical`]).
     pub consumed: Vec<Consumed>,
-    /// Momentum given to the walls, in mass·(1/Q units per chronon).
+    /// Momentum given to the walls: mass·(1/Q units per chronon) under the Newtonian law,
+    /// fixed-point 4-momentum units under the relativistic law.
     pub wall_momentum: [i64; 2],
+    #[serde(default)]
+    pub law: Law,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -132,10 +154,18 @@ fn err<T>(s: String) -> Result<T, LawError> {
 impl World {
     /// A genesis world: exactness ranges and the speed limit c = 1.
     pub fn new(q: i64, container: Option<Container>, bodies: Vec<Body>) -> Result<Self, LawError> {
-        let w = World { q, tick: 0, container, bodies, consumed: vec![], wall_momentum: [0, 0] };
+        let w = World { q, tick: 0, container, bodies, consumed: vec![], wall_momentum: [0, 0], law: Law::Newtonian };
         w.validate()?;
         w.check_speed_limit()?;
         Ok(w)
+    }
+
+    /// The same genesis under another law (the relativistic law needs |k| < c strictly).
+    pub fn with_law(mut self, law: Law) -> Result<Self, LawError> {
+        self.law = law;
+        self.validate()?;
+        self.check_speed_limit()?;
+        Ok(self)
     }
 
     /// c = 1 (|k|² ≤ Q²): checked at genesis and interventions, not on evolved states.
@@ -145,8 +175,9 @@ impl World {
         let q2 = self.q as i128 * self.q as i128;
         for b in &self.bodies {
             let kk = b.k[0] as i128 * b.k[0] as i128 + b.k[1] as i128 * b.k[1] as i128;
-            if kk > q2 {
-                return err(format!("body {} faster than light: |k|² = {kk} > Q² = {q2}", b.id));
+            let over = if self.law == Law::Relativistic { kk >= q2 } else { kk > q2 };
+            if over {
+                return err(format!("body {} at or beyond light: |k|² = {kk}, Q² = {q2}", b.id));
             }
         }
         Ok(())
@@ -172,6 +203,10 @@ impl World {
             }
             if b.k.iter().any(|c| c.abs() > MAX_SPEED) {
                 return err(format!("body {} velocity outside 2^22", b.id));
+            }
+            let kk = b.k[0] as i128 * b.k[0] as i128 + b.k[1] as i128 * b.k[1] as i128;
+            if self.law == Law::Relativistic && kk >= self.q as i128 * self.q as i128 {
+                return err(format!("body {} at or beyond light under the relativistic law", b.id));
             }
         }
         if let Some(c) = &self.container {
@@ -232,6 +267,7 @@ impl World {
         let mut put = |v: i128| out.extend_from_slice(&v.to_le_bytes());
         put(w.q as i128);
         put(w.tick as i128);
+        put(w.law as i128);
         match &w.container {
             Some(c) => {
                 put(1);
@@ -249,6 +285,8 @@ impl World {
             put(b.response as i128);
             put(b.residual as i128);
             put(b.rev as i128);
+            put(b.carry[0] as i128);
+            put(b.carry[1] as i128);
         }
         put(w.consumed.len() as i128);
         for c in &w.consumed {
@@ -370,7 +408,23 @@ fn gcd(a: i128, b: i128) -> i128 {
     if b == 0 { a.abs() } else { gcd(b, a % b) }
 }
 
-/// Respond to one chronon's batch (or any union of its connected components).
+/// Respond under the world's law: every mode calls this, never a law's function directly.
+pub fn respond(
+    law: Law,
+    q: i64,
+    bodies: &mut [Body],
+    pairs: &[(usize, usize)],
+    walls: &[bool],
+    container: Option<&Container>,
+    wall_momentum: &mut [i64; 2],
+) {
+    match law {
+        Law::Newtonian => resolve(bodies, pairs, walls, container, wall_momentum),
+        Law::Relativistic => crate::relativity::resolve(q, bodies, pairs, walls, container, wall_momentum),
+    }
+}
+
+/// Newtonian response to one chronon's batch (or any union of its connected components).
 ///
 /// `bodies`: the batch's bodies sorted by id, already advanced to the chronon's end, with
 /// `k` the velocity during the bin. `pairs`: hit pairs as (i, j) indices into `bodies`,

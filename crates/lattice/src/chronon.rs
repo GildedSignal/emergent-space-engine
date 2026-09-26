@@ -111,7 +111,7 @@ impl Chronon {
             for &g in &walls {
                 lw[local[&g]] = true;
             }
-            law::resolve(&mut batch, &lp, &lw, self.w.container.as_ref(), &mut self.w.wall_momentum);
+            law::respond(self.w.law, self.w.q, &mut batch, &lp, &lw, self.w.container.as_ref(), &mut self.w.wall_momentum);
             for (l, &g) in involved.iter().enumerate() {
                 self.w.bodies[g] = batch[l].clone();
             }

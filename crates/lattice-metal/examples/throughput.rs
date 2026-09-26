@@ -14,7 +14,7 @@ fn main() {
     let sizes = if args.is_empty() { vec![256, 1024, 4096, 16384, 65536, 262144, 1048576] } else { args };
     let horizon = 1024;
     println!("gas fill 0.1, Q 1024, vmax 256, horizon {horizon}; rates over the full horizon");
-    println!("| n | ref chronons | CPU chronon/s | GPU chronon/s | CPU body-chronon/s | GPU body-chronon/s | GPU/CPU | contacts/chronon | GPU wait | GPU busy | respond | cmd buffers | missed | digests |");
+    println!("| n | ref chronons | CPU chronon/s | GPU chronon/s | CPU body-chronon/s | GPU body-chronon/s | GPU/CPU | contacts/chronon | GPU wait | GPU busy | respond | cmd buffers | halts | digests |");
     println!("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
     for n in sizes {
         let w = worlds::gas(n, 0.1, 1024, 256, 1);
@@ -62,7 +62,7 @@ fn main() {
             100.0 * s.gpu_busy.as_secs_f64() / total,
             100.0 * s.respond.as_secs_f64() / total,
             s.command_buffers,
-            s.missed,
+            s.halts,
             if reference == 0 { "no reference" } else if same { "equal" } else { "DIFFER" }
         );
         assert!(same, "n = {n}: MetalChronon differs from the reference");

@@ -1,6 +1,8 @@
 mod bench;
 mod gas;
+mod gas_rel;
 mod history;
+mod hybrid;
 mod ladder;
 mod ladder5;
 mod lattice;
@@ -77,11 +79,25 @@ fn run() -> Result<u8> {
         proxy::run(&out, frames, tpf)?;
         return Ok(0);
     }
-    if task == "ladder5-rung" {
+    if task == "lattice-check-rel" {
+        // The relativistic chronon reference against the independent relativistic gas reference.
+        let cases: [(u64, i64, i64); 4] = [(64, 1024, 256), (256, 1024, 256), (64, 8192, 256), (64, 2048, 600)];
+        let mut ok = true;
+        for (n, h, v) in cases {
+            let r = lattice::check_gas_relativistic(n, h, v, 2_718_281_828);
+            let pass = r["events_equal"] == true && r["finals_equal"] == true && r["wall_momentum_equal"] == true;
+            ok &= pass;
+            println!("{} {}", if pass { "EQUAL" } else { "DIFFERENT" }, r);
+        }
+        return Ok(if ok { 0 } else { 1 });
+    }
+    if task == "ladder5-rung" || task == "ladder6-rung" {
+        ladder5::set_version(if task == "ladder6-rung" { 6 } else { 5 });
         ladder5::rung(args.collect())?;
         return Ok(0);
     }
-    if task == "ladder5" {
+    if task == "ladder5" || task == "ladder6" {
+        ladder5::set_version(if task == "ladder6" { 6 } else { 5 });
         // Args: out-dir [track] [--full] [--modes=chronon,event,metal,regions]
         let rest: Vec<String> = args.collect();
         let out = PathBuf::from(rest.first().cloned().unwrap_or_else(|| "artifacts/runs/ladder5".into()));
@@ -90,7 +106,7 @@ fn run() -> Result<u8> {
         let modes: Vec<String> = rest
             .iter()
             .find_map(|a| a.strip_prefix("--modes="))
-            .unwrap_or("chronon,event,metal,regions")
+            .unwrap_or("chronon,event,metal,regions,hybrid")
             .split(',')
             .map(String::from)
             .collect();

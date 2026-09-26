@@ -5,9 +5,10 @@
 //! ledgers, mode invariance against the chronon reference, and budget invariance.
 use crate::ladder::{self as v4, Disc};
 use crate::{gas, lattice};
-use emergent_lattice::{chronon::Chronon, worlds, Body, Kind, Response, Stepper, World};
+use emergent_lattice::{chronon::Chronon, relativity, worlds, Body, Kind, Law, Response, Stepper, World};
 use serde_json::{json, Value};
 use std::{
+    sync::atomic::{AtomicU8, Ordering},
     fs,
     path::Path,
     process::{Command as Process, Stdio},
@@ -15,10 +16,25 @@ use std::{
 };
 type Result<T> = super::Result<T>;
 
-const MANIFEST: &[u8] = include_bytes!("../../scenarios/scale-ladder-v5.json");
+const MANIFEST5: &[u8] = include_bytes!("../../scenarios/scale-ladder-v5.json");
+const MANIFEST6: &[u8] = include_bytes!("../../scenarios/scale-ladder-v6.json");
+/// Which frozen manifest this process climbs (5: es-lattice-elastic-v0, 6: relativistic).
+static VERSION: AtomicU8 = AtomicU8::new(5);
+
+pub fn set_version(v: u8) {
+    VERSION.store(v, Ordering::Relaxed);
+}
+
+fn version() -> u8 {
+    VERSION.load(Ordering::Relaxed)
+}
+
+fn manifest_bytes() -> &'static [u8] {
+    if version() == 6 { MANIFEST6 } else { MANIFEST5 }
+}
 
 fn manifest() -> Result<Value> {
-    Ok(serde_json::from_slice(MANIFEST)?)
+    Ok(serde_json::from_slice(manifest_bytes())?)
 }
 
 /// The execution modes. A mode that is not built yet reports NOT_ATTEMPTED.
@@ -27,6 +43,7 @@ fn make(mode: &str, w: World, keep: bool) -> std::result::Result<Box<dyn Stepper
         "chronon" => Chronon::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
         "event" => emergent_lattice_event::EventCore::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
         "metal" => emergent_lattice_metal::MetalChronon::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
+        "hybrid" => crate::hybrid::Hybrid::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>),
         _ => Err(format!("mode {mode} not built yet")),
     }
 }
@@ -81,7 +98,7 @@ fn crowded(n: u64, track: &Value, m: &Value) -> (World, i64) {
     let mut bodies = Vec::new();
     let mut push = |p: [i128; 2], k: [i64; 2]| {
         let id = bodies.len() as u64 + 1;
-        bodies.push(Body { id, x: [p[0] as i64 * den, p[1] as i64 * den], k, mass: 1, radius: radius * den, response: Response::Pass, residual: 0, rev: 0 });
+        bodies.push(Body::new(id, [p[0] as i64 * den, p[1] as i64 * den], k, 1, radius * den, Response::Pass));
     };
     for i in 0..half {
         let p = [i * s, rng.range(0, width)];
@@ -100,7 +117,7 @@ fn setup(track: &Value, i: usize, m: &Value) -> Result<(World, i64, Option<gas::
     let seed = m["seed"].as_u64().unwrap_or(1);
     let den = m["velocity_denominator"].as_i64().unwrap_or(1024);
     let size = |k: &str| track[k][i].as_u64().ok_or("rung index");
-    Ok(match track["id"].as_str().unwrap_or("") {
+    let (w, h, g) = match track["id"].as_str().unwrap_or("") {
         "X1-relative-motion" => {
             let area = track["area_per_body"].as_i64().unwrap_or(1_000_000);
             (worlds::random(size("bodies")?, area, den, track["radius"].as_i64().unwrap_or(1), seed, Response::Pass), track["horizon"].as_i64().unwrap_or(4096), None)
@@ -126,8 +143,23 @@ fn setup(track: &Value, i: usize, m: &Value) -> Result<(World, i64, Option<gas::
             (worlds::gas(n, fill, q, vmax, seed), h, Some(gas::world(n, fill, q as i128, vmax as i128, seed)))
         }
         "C3-mixed-invariance" => (worlds::mixed(size("bodies")?, track["quantum"].as_i64().unwrap_or(512), seed), track["horizon"].as_i64().unwrap_or(2048), None),
+        "C4-near-c-mixed" => {
+            let q = track["quantum"].as_i64().unwrap_or(512);
+            let mut w = worlds::mixed(size("bodies")?, q, seed);
+            let lim = (95 * q / 100) as i128;
+            for b in &mut w.bodies {
+                b.response = Response::Bounce;
+                b.k = [b.k[0] * 19 / 10, b.k[1] * 19 / 10];
+                while (b.k[0] as i128).pow(2) + (b.k[1] as i128).pow(2) > lim * lim {
+                    b.k = [b.k[0] * 9 / 10, b.k[1] * 9 / 10];
+                }
+            }
+            (w, track["horizon"].as_i64().unwrap_or(2048), None)
+        }
         other => return Err(format!("track {other} has no lattice generator").into()),
-    })
+    };
+    let w = if m["law"] == "Relativistic" { w.with_law(Law::Relativistic)? } else { w };
+    Ok((w, h, g))
 }
 
 fn contact_pairs(s: &dyn Stepper) -> Vec<(u64, u64)> {
@@ -147,7 +179,7 @@ pub fn rung(args: Vec<String>) -> Result<()> {
     m["caps"] = c.clone();
     let track = m["tracks"].as_array().ok_or("tracks")?.iter().find(|t| t["id"] == track_id.as_str()).ok_or("unknown track")?.clone();
     if track_id == "X4-near-miss-lattice" {
-        println!("{}", json!({"status": "NOT_SUPPORTED", "limiter": "groups (families) are not in es-lattice-elastic-v0"}));
+        println!("{}", json!({"status": "NOT_SUPPORTED", "limiter": "groups (families) are not in the lattice laws yet"}));
         return Ok(());
     }
     let t = Instant::now();
@@ -207,6 +239,30 @@ pub fn rung(args: Vec<String>) -> Result<()> {
                     if keep {
                         correct["h0159_contact_pairs_equal"] = json!(old == contact_pairs(s.as_ref()));
                     }
+                }
+            }
+            "Bounce" if w.law == Law::Relativistic => {
+                let (t0, t1, cr) = (relativity::total(&w0), relativity::total(&w), relativity::carried(&w));
+                let energy_ok = t1[0] - t0[0] == cr[0];
+                let momentum_ok = (0..2).all(|a| t1[1 + a] - t0[1 + a] + w.wall_momentum[a] as i128 == cr[1 + a]);
+                let q2 = (w.q as i128).pow(2);
+                let below_c = w.bodies.iter().all(|b| (b.k[0] as i128).pow(2) + (b.k[1] as i128).pow(2) < q2);
+                let gmax = w0.bodies.iter().chain(&w.bodies).map(|b| relativity::gamma(b.k, w.q)).max().unwrap_or(relativity::F);
+                let mmax = w.bodies.iter().map(|b| b.mass).max().unwrap_or(1);
+                let bound = 64.0 * relativity::F as f64 * mmax as f64 * (gmax as f64 / relativity::F as f64).powi(3);
+                let max_carry = w.bodies.iter().flat_map(|b| [b.residual, b.carry[0], b.carry[1]]).map(|v| v.unsigned_abs()).max().unwrap_or(0) as f64;
+                let contained = w.container.is_none_or(|cont| {
+                    let kmax1 = w.bodies.iter().map(|b| b.k[0].abs().max(b.k[1].abs())).max().unwrap_or(0);
+                    w.bodies.iter().all(|b| (0..2).all(|a| b.x[a] >= cont.min[a] - kmax1 && b.x[a] <= cont.max[a] + kmax1))
+                });
+                ok &= energy_ok && momentum_ok && below_c && max_carry <= bound && contained;
+                correct = json!({"contacts": s.log().contacts, "walls": s.log().walls, "energy_ledger_exact": energy_ok, "momentum_ledger_exact": momentum_ok,
+                    "below_c": below_c, "max_carry": max_carry, "carry_bound": bound, "gamma_max": gmax as f64 / relativity::F as f64, "contained": contained});
+                if reference_ok {
+                    let (eq, detail) = lattice::gas_rel_equal(g.as_ref().expect("gas"), horizon, &w, s.log());
+                    correct["reference_equal"] = json!(eq);
+                    correct["reference"] = detail;
+                    ok &= eq;
                 }
             }
             "Bounce" => {
@@ -335,6 +391,11 @@ fn gates(m: &Value, rows: &[Value]) -> Value {
         });
     }
     out.insert("smooth".into(), json!(smooth));
+    if let Some(gm) = g.get("gas_one_million") {
+        let n = gm["bodies"].as_f64().unwrap_or(1048576.0);
+        let hit: Vec<&str> = rows.iter().filter(|r| r["track"] == gm["track"] && r["size"].as_f64() == Some(n) && r["status"] == "PASS").filter_map(|r| r["mode"].as_str()).collect();
+        out.insert("gas_one_million".into(), json!({"status": if hit.is_empty() { "FAIL" } else { "PASS" }, "passing_modes": hit}));
+    }
     Value::Object(out)
 }
 
@@ -382,7 +443,7 @@ pub fn run(out: &Path, modes: &[String], only: Option<&str>, profile: &str) -> R
                 }
                 eprintln!("v5 {mode} {id} #{i} (size {size})");
                 let started = Instant::now();
-                let mut child = Process::new(&exe).args(["ladder5-rung", mode, id, &i.to_string(), profile]).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn()?;
+                let mut child = Process::new(&exe).args([format!("ladder{}-rung", version()).as_str(), mode, id, &i.to_string(), profile]).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn()?;
                 let kill_after = Duration::from_secs_f64(wall * 3.0 + 20.0);
                 let status = loop {
                     if let Some(s) = child.try_wait()? {
@@ -418,9 +479,9 @@ pub fn run(out: &Path, modes: &[String], only: Option<&str>, profile: &str) -> R
         }
     }
     Ok(json!({
-        "schema": 5, "manifest": "scenarios/scale-ladder-v5.json", "profile": profile, "modes": modes,
+        "schema": version(), "manifest": format!("scenarios/scale-ladder-v{}.json", version()), "profile": profile, "modes": modes,
         "ladder_seconds": start.elapsed().as_secs_f64(),
-        "manifest_blake3": blake3::hash(MANIFEST).to_hex().to_string(),
+        "manifest_blake3": blake3::hash(manifest_bytes()).to_hex().to_string(),
         "provenance": super::bench::provenance(),
         "gates": gates(&m, &rows),
         "rows": rows,

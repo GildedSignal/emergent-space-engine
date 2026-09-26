@@ -16,7 +16,7 @@ pub mod law;
 pub mod relativity;
 pub mod worlds;
 
-pub use law::{Body, Consumed, Container, Response, Tick, World};
+pub use law::{Body, Consumed, Container, Law, Response, Tick, World};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

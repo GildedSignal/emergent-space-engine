@@ -22,7 +22,7 @@ impl Rng {
 }
 
 fn body(id: u64, x: [i64; 2], k: [i64; 2], mass: i64, radius: i64, response: Response) -> Body {
-    Body { id, x, k, mass, radius, response, residual: 0, rev: 0 }
+    Body::new(id, x, k, mass, radius, response)
 }
 
 /// Trapped gas (ladder C2/X5): n unit-mass bouncers of radius 1 on a jittered grid in a

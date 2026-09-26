@@ -1,33 +1,33 @@
-//! Chronon mode on Metal for `es-lattice-elastic-v0` (step 5 of docs/work-allocation-design.md §7).
+//! Chronon mode on Metal for the lattice law (step 5 of docs/work-allocation-design.md §7).
 //!
-//! [`MetalChronon`] reproduces [`emergent_lattice::chronon::Chronon`] bit for bit: world digest,
-//! log digest, and the `ops`, `predicates`, `fired`, `batches` and `max_batch` metrics (the GPU
-//! tests exactly the candidate pairs the reference grid tests, unless the GPU consumed-contact
-//! table overflows, see [`Stats::table_overflows`]). `units` and `max_unit_ops` follow its own
-//! slicing.
+//! [`MetalChronon`] reproduces [`emergent_lattice::chronon::Chronon`] bit for bit under both
+//! laws: world digest, log digest, and the `ops`, `predicates`, `fired`, `batches` and
+//! `max_batch` metrics (the GPU tests exactly the candidate pairs the reference grid tests,
+//! unless the GPU consumed-contact table overflows, see [`Stats::table_overflows`]). `units`
+//! and `max_unit_ops` follow its own slicing.
 //!
-//! Per chronon, on the GPU (shaders.metal): a snapshot (cells of side reach_max + 2·max|k_c|
-//! as the reference, a counting sort into a spatially ordered torus of buckets, 32-byte
-//! records), the 3×3-cell scan with the exact bin predicate, the advance and the wall set.
-//! Contacts that form a component of their own (the common case: 96% of the 1M-ship gas)
-//! are resolved on the GPU too (`settle`, `law::resolve` on one pair in i64 with overflow
-//! guards; components commute, law.rs). The CPU resolves the rest with `law::resolve` in
-//! i128 (components in parallel), logs, and patches the few records its response changed.
-//! One-chronon command buffers also snapshot the next chronon, so each dense chronon costs one
-//! GPU round trip; quiet chronons are encoded back to back and need none.
+//! The chronon loop lives on the GPU (shaders.metal): up to 64 chronons per command buffer,
+//! each one the reference's cell side from the exact max|k_c|, a counting sort into a
+//! spatially ordered torus of buckets, the pair scan with the exact bin predicate, the advance
+//! and wall set, and, under the Newtonian law, the response: the batch splits into connected
+//! components (they commute, law.rs) and each is resolved by `law::resolve`'s rule in i64,
+//! consumed and logged. The CPU hashes the event log while the next buffer runs. A chronon
+//! holding a component the GPU may not resolve exactly (the relativistic law, a guard, a full
+//! table row or log, a component too large to follow) stops the buffer; the CPU resolves those
+//! components with `law::respond` in i128 (in parallel) and the loop resumes.
 //!
 //! # 64-bit exactness
 //! The GPU evaluates `law::hit` in i64. Let C be the cell side, K = max|k_c| over bodies and
 //! R = reach_max ≤ C. Pairs are only tested between adjacent cells, so |d_c| < 2C, |w_c| ≤ 2K,
 //! reach ≤ R, and 2K ≤ C. Hence dd < 8C², |dw| < 8CK, ww ≤ 8K², rr·ww ≤ 8C²K², cross² < 64C²K²
-//! and |d + w|² < 18C². Before every GPU batch the CPU checks **C·(K + 1) ≤ 2^28**, which puts
+//! and |d + w|² < 18C². Before every chronon the GPU checks **C·(K + 1) ≤ 2^28**, which puts
 //! every product below 2^62 and lets velocities travel as i16 (K < 2^14), positions relative
-//! to their cell as u32 and radii in 28 bits; and that **cell coordinates fit i32** for the
-//! batch (max|x_c| is tracked as a bound). Velocities change only in responses, which end a
-//! batch. Otherwise the chronon runs on the CPU path, the reference grid in i128. `settle`
-//! hands any pair whose impulse arithmetic might leave i64 to the CPU (float bounds with a
-//! factor 4 of slack); full pair buffers are regrown and the chronon rerun. Nothing is ever
-//! rounded.
+//! to their cell as u32 and radii in 28 bits; the CPU checks that **cell coordinates fit i32**
+//! for the whole buffer (max|x_c| is tracked as a bound). Otherwise the chronon runs on the
+//! CPU path, the reference grid in i128. The GPU response hands any component whose impulse
+//! arithmetic might leave i64 to the CPU (|k_c| < 2^18, |d_c| < 2^30, carries < 2^60, float
+//! bounds below 2^60 on the rounding denominator and numerators); full pair buffers are
+//! regrown and the chronon rerun. Nothing is ever rounded.
 use std::time::Duration;
 
 #[cfg(target_os = "macos")]
@@ -74,41 +74,44 @@ pub struct Options {
     pub par_min: usize,
     /// Response threads; 0 uses the available parallelism (at most 8).
     pub threads: usize,
-    /// Resolve isolated contacts on the GPU (one-chronon buffers).
-    pub gpu_settle: bool,
+    /// Resolve contact components on the GPU (Newtonian law); false leaves every response
+    /// to the CPU.
+    pub gpu_response: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { max_batch: 64, pair_capacity: 0, cpu_every: 0, par_min: 512, threads: 0, gpu_settle: true }
+        Options { max_batch: 64, pair_capacity: 0, cpu_every: 0, par_min: 512, threads: 0, gpu_response: true }
     }
 }
 
 /// Where the chronons went (not part of the canonical outcome).
 #[derive(Clone, Debug, Default)]
 pub struct Stats {
+    /// Chronons detected on the GPU (responded there, or on the CPU after a halt).
     pub gpu_chronons: u64,
-    /// Chronons run on the CPU path (precondition, `cpu_every`, empty worlds).
+    /// Chronons run entirely on the CPU path (precondition, `cpu_every`, empty worlds).
     pub cpu_chronons: u64,
     pub command_buffers: u64,
-    /// Chronons encoded, including those skipped after an earlier event in their buffer.
+    /// Chronons encoded, including those skipped after a halt in their buffer.
     pub encoded: u64,
+    /// Command buffers that stopped for a CPU response.
+    pub halts: u64,
+    /// Contacts resolved on the GPU and on the CPU.
+    pub gpu_contacts: u64,
+    pub cpu_contacts: u64,
     /// Chronons rerun because the pair buffer was full.
     pub pair_overflows: u64,
     /// Consumed contacts the GPU table could not hold (the CPU still filters them exactly;
     /// only the predicate count can then exceed the reference's).
     pub table_overflows: u64,
-    /// Contacts resolved on the GPU (isolated pairs).
-    pub settled: u64,
     /// GPU hits the CPU dropped as already consumed.
     pub filtered: u64,
-    /// Next-chronon snapshots discarded because the response changed the cell side.
-    pub missed: u64,
     /// Wall time from commit to completion of command buffers.
     pub gpu_wait: Duration,
     /// GPU execution time of those command buffers (GPUStartTime to GPUEndTime).
     pub gpu_busy: Duration,
-    /// Wall time in CPU responses (resolve, consume, log).
+    /// Wall time in CPU responses after halts.
     pub respond: Duration,
 }
 

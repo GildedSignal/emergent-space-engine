@@ -11,7 +11,7 @@ use num_bigint::BigInt;
 const Q: i64 = 1024;
 
 fn ball(id: u64, x: [i64; 2], k: [i64; 2], mass: i64) -> Body {
-    Body { id, x, k, mass, radius: Q, response: Response::Bounce, residual: 0, rev: 0 }
+    Body::new(id, x, k, mass, Q, Response::Bounce)
 }
 
 fn inside(k: [i64; 2]) -> bool {
@@ -33,12 +33,11 @@ fn pair(rng: &mut Rng, vmax: i64, mmax: i64) -> [Body; 2] {
     }
 }
 
-fn bounce(p: &[Body; 2]) -> ([Body; 2], [[i64; 2]; 2]) {
+fn bounce(p: &[Body; 2]) -> [Body; 2] {
     let mut bodies = p.clone();
-    let mut carry = [[0i64; 2]; 2];
-    let mut wm = [0i128; 2];
-    relativity::resolve(Q, &mut bodies, &mut carry, &[(0, 1)], &[false, false], None, &mut wm);
-    (bodies, carry)
+    let mut wm = [0i64; 2];
+    relativity::resolve(Q, &mut bodies, &[(0, 1)], &[false, false], None, &mut wm);
+    bodies
 }
 
 #[test]
@@ -49,7 +48,7 @@ fn nothing_massive_reaches_c() {
         // Heavy fast bodies hitting light ones: Newtonian bounces exceed c here.
         let mut p = pair(&mut rng, Q * 9 / 10, 1);
         p[0].mass = 1 << rng.range(0, 12);
-        let (out, _) = bounce(&p);
+        let out = bounce(&p);
         assert!(inside(out[0].k) && inside(out[1].k), "{p:?} -> {out:?}");
         let mut n = p.clone();
         let mut wm = [0i64; 2];
@@ -125,7 +124,7 @@ fn low_speeds_reduce_to_the_newtonian_bounce() {
     let mut worst = 0f64;
     for _ in 0..20_000 {
         let p = pair(&mut rng, Q / 64, 4);
-        let (r, _) = bounce(&p);
+        let r = bounce(&p);
         let d = law::sub(p[1].x, p[0].x);
         let w = law::sub(p[1].k, p[0].k);
         let (ma, mb) = (p[0].mass as f64, p[1].mass as f64);
@@ -177,7 +176,6 @@ fn ledgers_are_exact_and_carries_stay_bounded() {
     let mut rng = Rng(6);
     let n = 64;
     let mut bodies: Vec<Body> = (0..n).map(|i| ball(i as u64 + 1, [0, 0], [rng.range(-300, 300), rng.range(-300, 300)], rng.range(1, 3))).collect();
-    let mut carry = vec![[0i64; 2]; n];
     let e0: i128 = bodies.iter().map(|b| four_momentum(b.mass, b.k, Q)[0]).sum();
     let p0: [i128; 2] = [1, 2].map(|c| bodies.iter().map(|b| four_momentum(b.mass, b.k, Q)[c]).sum());
     let mut worst = [0i128; 3];
@@ -194,17 +192,15 @@ fn ledgers_are_exact_and_carries_stay_bounded() {
         let mut pair = [bodies[i].clone(), bodies[j].clone()];
         pair[0].x = [0, 0];
         pair[1].x = d;
-        let mut c = [carry[i], carry[j]];
-        let mut wm = [0i128; 2];
-        relativity::resolve(Q, &mut pair, &mut c, &[(0, 1)], &[false, false], None, &mut wm);
+        let mut wm = [0i64; 2];
+        relativity::resolve(Q, &mut pair, &[(0, 1)], &[false, false], None, &mut wm);
         for (slot, b) in [i, j].into_iter().zip(pair) {
             bodies[slot].k = b.k;
             bodies[slot].residual = b.residual;
+            bodies[slot].carry = b.carry;
         }
-        carry[i] = c[0];
-        carry[j] = c[1];
         for b in 0..n {
-            let v = [bodies[b].residual as i128, carry[b][0] as i128, carry[b][1] as i128];
+            let v = [bodies[b].residual as i128, bodies[b].carry[0] as i128, bodies[b].carry[1] as i128];
             for x in 0..3 {
                 worst[x] = worst[x].max(v[x].abs());
                 if round < rounds / 10 {
@@ -218,7 +214,7 @@ fn ledgers_are_exact_and_carries_stay_bounded() {
     let p1: [i128; 2] = [1, 2].map(|c| bodies.iter().map(|b| four_momentum(b.mass, b.k, Q)[c]).sum());
     assert_eq!(e1 - e0, bodies.iter().map(|b| b.residual as i128).sum::<i128>(), "energy ledger");
     for c in 0..2 {
-        assert_eq!(p1[c] - p0[c], carry.iter().map(|x| x[c] as i128).sum::<i128>(), "momentum ledger {c}");
+        assert_eq!(p1[c] - p0[c], bodies.iter().map(|b| b.carry[c] as i128).sum::<i128>(), "momentum ledger {c}");
     }
     // Bounded, not a random walk: the last 90% of the run may not push any carry more than
     // twice past what the first 10% reached (a √n walk would grow about 3×).

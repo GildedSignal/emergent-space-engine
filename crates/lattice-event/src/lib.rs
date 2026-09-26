@@ -1307,7 +1307,7 @@ impl EventCore {
 /// The law's response for one component: the one call to change when the contract gains
 /// its law selector.
 fn respond(bodies: &mut [Body], pairs: &[(usize, usize)], walls: &[bool], meta: &World, wall_momentum: &mut [i64; 2]) {
-    law::resolve(bodies, pairs, walls, meta.container.as_ref(), wall_momentum);
+    law::respond(meta.law, meta.q, bodies, pairs, walls, meta.container.as_ref(), wall_momentum);
 }
 
 impl Stepper for EventCore {
@@ -1386,5 +1386,5 @@ pub fn crowded_axes(n: u64, q: i64, seed: u64) -> (World, Tick) {
 
 /// A genesis body: the one place this crate spells out every [`Body`] field.
 pub fn genesis(id: u64, x: [i64; 2], k: [i64; 2], mass: i64, radius: i64, response: Response) -> Body {
-    Body { id, x, k, mass, radius, response, residual: 0, rev: 0 }
+    Body::new(id, x, k, mass, radius, response)
 }

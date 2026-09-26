@@ -1,14 +1,16 @@
 //! MetalChronon against the CPU chronon reference: events, state, digests and metrics.
-use emergent_lattice::{chronon::Chronon, law::Response, worlds, Stepper, World};
-use emergent_lattice_metal::{MetalChronon, Options, Stats};
+use emergent_lattice::{chronon::Chronon, law::Response, worlds, Law, Stepper, World};
+use emergent_lattice_metal::{MetalChronon, MetalError, Options, Stats};
 
+/// None (the test skips) only when there is no Metal device; any other error fails.
 fn metal(w: World, opts: Options) -> Option<MetalChronon> {
     match MetalChronon::with_options(w, true, opts) {
         Ok(m) => Some(m),
-        Err(e) => {
-            eprintln!("skip: {e}");
+        Err(MetalError::NoDevice) => {
+            eprintln!("skip: no Metal device");
             None
         }
+        Err(e) => panic!("{e}"),
     }
 }
 
@@ -111,13 +113,54 @@ fn every_path_gives_the_same_bits() {
     check("mixed, threaded response", worlds::mixed(700, 1024, 8), 400, threads.clone());
     check("packed, threaded response", worlds::packed(1500, 8, 2, 1024, 1, 7), 200, threads.clone());
     check("gas, threaded response", worlds::gas(4096, 0.1, 1024, 256, 2), 200, threads);
-    // Every contact resolved on the CPU, none settled on the GPU.
-    let cpu = Options { gpu_settle: false, ..Options::default() };
+    // Every contact resolved on the CPU.
+    let cpu = Options { gpu_response: false, ..Options::default() };
     check("gas, CPU responds to all", worlds::gas(1024, 0.1, 1024, 256, 3), 300, cpu.clone());
     check("mixed, CPU responds to all", worlds::mixed(200, 512, 21), 600, cpu);
     // Q = 2^20 with speeds near c: C·(K + 1) is about 2^39, so every chronon takes the CPU path.
     let big = worlds::gas(64, 0.1, 1 << 20, 1 << 18, 3);
     if let Some(s) = check("gas Q = 2^20 (precondition fails)", big, 400, Options::default()) {
         assert_eq!((s.gpu_chronons, s.cpu_chronons), (0, 400), "{s:?}");
+    }
+}
+
+/// Mixed bouncers at up to 0.88c at genesis (as the event core's relativistic test).
+fn hot_mixed(n: u64, q: i64, seed: u64) -> World {
+    let mut w = worlds::mixed(n, q, seed);
+    for b in &mut w.bodies {
+        b.response = Response::Bounce;
+        b.k = [b.k[0] * 5 / 4, b.k[1] * 5 / 4];
+    }
+    w.with_law(Law::Relativistic).unwrap()
+}
+
+#[test]
+fn relativistic_worlds_match_reference() {
+    let rel = |w: World| w.with_law(Law::Relativistic).unwrap();
+    let cases = [
+        ("gas 256 relativistic", rel(worlds::gas(256, 0.1, 1024, 256, 3)), 1024),
+        ("gas 2048 relativistic", rel(worlds::gas(2048, 0.1, 1024, 256, 4)), 200),
+        ("mixed relativistic", rel(worlds::mixed(200, 512, 21)), 800),
+        ("hot mixed 256", hot_mixed(256, 256, 31), 1500),
+        ("hot mixed 1024", hot_mixed(1024, 512, 32), 500),
+    ];
+    for (name, w0, horizon) in cases {
+        let Some(s) = check(name, w0.clone(), horizon, Options::default()) else { return };
+        assert_eq!(s.gpu_contacts, 0, "{name}: the GPU resolves Newtonian contacts only");
+        let Some(mut m) = metal(w0, Options::default()) else { return };
+        m.run_to(horizon);
+        let w = m.world();
+        assert!(w.bodies.iter().all(|b| (b.k[0] as i128).pow(2) + (b.k[1] as i128).pow(2) < (w.q as i128).pow(2)), "{name}: below c");
+    }
+    // Slicing under the relativistic law.
+    let w0 = hot_mixed(256, 256, 31);
+    let mut r = Chronon::new(w0.clone(), false).unwrap();
+    r.run_to(900);
+    for budget in [97u64, 5000] {
+        let Some(mut m) = metal(w0.clone(), Options::default()) else { return };
+        while m.tick() < 900 {
+            m.advance(900, budget);
+        }
+        assert_eq!(m.outcome(), r.outcome(), "relativistic budget {budget}");
     }
 }

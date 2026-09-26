@@ -24,7 +24,7 @@
 //! The error joins the lower id's carry: energy in `residual`, momentum in the momentum
 //! carry. The ledgers are exact: ΣE(final) − ΣE(initial) = Σresidual, and
 //! Σp(final) − Σp(initial) + wall momentum = Σcarry.
-use crate::law::{dot, sub, Body, Container, Response};
+use crate::law::{dot, sub, Body, Container, Response, World};
 use num_bigint::BigInt;
 
 /// Fixed-point scale of γ: 2^16. At Q = 1024 the smallest kinetic step (|k| = 1) is
@@ -156,22 +156,20 @@ pub fn candidates(t: Target, q: i64) -> Vec<[i64; 2]> {
 }
 
 /// Relativistic counterpart of [`crate::law::resolve`]: same batch conventions (bodies
-/// sorted by id and advanced to the chronon's end, pairs sorted, wall flags). `carry[i]` is
-/// body i's momentum carry; `residual` holds the energy carry, in 4-momentum units.
+/// sorted by id and advanced to the chronon's end, pairs sorted, wall flags). The pair's
+/// 4-momentum error joins the lower id's carry: energy in `residual`, momentum in `carry`.
 pub fn resolve(
     q: i64,
     bodies: &mut [Body],
-    carry: &mut [[i64; 2]],
     pairs: &[(usize, usize)],
     walls: &[bool],
     container: Option<&Container>,
-    wall_momentum: &mut [i128; 2],
+    wall_momentum: &mut [i64; 2],
 ) {
     debug_assert_eq!(walls.len(), bodies.len());
-    debug_assert_eq!(carry.len(), bodies.len());
     let before: Vec<[i64; 2]> = bodies.iter().map(|b| b.k).collect();
     let mut k = before.clone();
-    let mut owe: Vec<[i128; 3]> = bodies.iter().zip(carry.iter()).map(|(b, c)| [b.residual as i128, c[0] as i128, c[1] as i128]).collect();
+    let mut owe: Vec<[i128; 3]> = bodies.iter().map(|b| [b.residual as i128, b.carry[0] as i128, b.carry[1] as i128]).collect();
     let mut touched = vec![false; bodies.len()];
     for &(a, b) in pairs {
         if bodies[a].response != Response::Bounce || bodies[b].response != Response::Bounce {
@@ -225,7 +223,8 @@ pub fn resolve(
             let (lo, hi) = c.inset(body.radius);
             for ax in 0..2 {
                 if (body.x[ax] <= lo[ax] && k[i][ax] < 0) || (body.x[ax] >= hi[ax] && k[i][ax] > 0) {
-                    wall_momentum[ax] += 2 * four_momentum(body.mass, k[i], q)[1 + ax];
+                    let dp = i64::try_from(2 * four_momentum(body.mass, k[i], q)[1 + ax]).expect("wall exchange fits i64");
+                    wall_momentum[ax] = wall_momentum[ax].checked_add(dp).expect("wall ledger fits i64");
                     k[i][ax] = -k[i][ax];
                 }
             }
@@ -234,11 +233,22 @@ pub fn resolve(
     for (i, body) in bodies.iter_mut().enumerate() {
         if touched[i] {
             body.residual = i64::try_from(owe[i][0]).expect("energy carry fits i64");
-            carry[i] = [i64::try_from(owe[i][1]).expect("momentum carry fits i64"), i64::try_from(owe[i][2]).expect("momentum carry fits i64")];
+            body.carry = [i64::try_from(owe[i][1]).expect("momentum carry fits i64"), i64::try_from(owe[i][2]).expect("momentum carry fits i64")];
         }
         if k[i] != before[i] {
             body.k = k[i];
             body.rev += 1;
         }
     }
+}
+
+/// Total fixed-point 4-momentum of a world (energy, px, py).
+pub fn total(w: &World) -> [i128; 3] {
+    w.bodies.iter().fold([0, 0, 0], |t, b| add3(t, four_momentum(b.mass, b.k, w.q)))
+}
+
+/// Total carries (energy, px, py). Ledgers: total(end) − total(genesis) = carries, with the
+/// wall momentum added to the momentum side.
+pub fn carried(w: &World) -> [i128; 3] {
+    w.bodies.iter().fold([0, 0, 0], |t, b| add3(t, [b.residual as i128, b.carry[0] as i128, b.carry[1] as i128]))
 }

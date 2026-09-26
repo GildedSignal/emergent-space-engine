@@ -81,8 +81,8 @@ pub fn all_pairs(mut w: emergent_lattice::World, horizon: i64) -> (emergent_latt
                     })
             })
             .collect();
-        let container = w.container;
-        law::resolve(&mut w.bodies, &pairs, &walls, container.as_ref(), &mut w.wall_momentum);
+        let (container, lw, q) = (w.container, w.law, w.q);
+        law::respond(lw, q, &mut w.bodies, &pairs, &walls, container.as_ref(), &mut w.wall_momentum);
         for &(i, j) in &pairs {
             consumed.insert((i, j), (w.bodies[i].rev, w.bodies[j].rev));
             log.record(Event { tick: t, kind: Kind::Contact, a: w.bodies[i].id, b: w.bodies[j].id });
@@ -122,4 +122,63 @@ pub fn gas_reference_equal(g: &gas::Gas, horizon: i64, world: &emergent_lattice:
     let first = events.iter().zip(&reference.events).position(|(a, b)| a != b);
     (ev && fin && w, json!({"events_equal": ev, "finals_equal": fin, "wall_momentum_equal": w, "reference_events": reference.events.len(),
         "first_event_difference": first.map(|i| format!("{:?} vs {:?}", events.get(i), reference.events.get(i)))}))
+}
+
+/// The relativistic law in the chronon reference against the independent relativistic
+/// gas reference (gas_rel.rs, no shared code).
+pub fn check_gas_relativistic(n: u64, horizon: i64, vmax: i64, seed: u64) -> Value {
+    let g = gas::world(n, 0.1, 1024, vmax as i128, seed);
+    let w = worlds::gas(n, 0.1, 1024, vmax, seed).with_law(emergent_lattice::Law::Relativistic).expect("subluminal gas");
+    let t = std::time::Instant::now();
+    let reference = crate::gas_rel::reference(&g, horizon as i128);
+    let reference_ms = t.elapsed().as_secs_f64() * 1e3;
+    let mut c = Chronon::new(w, true).expect("gas world");
+    c.run_to(horizon);
+    let events: Vec<(i128, String, Vec<u64>)> = c
+        .log()
+        .sorted()
+        .into_iter()
+        .map(|e| match e.kind {
+            Kind::Contact => (e.tick as i128, "contact".to_string(), vec![e.a, e.b]),
+            Kind::Wall => (e.tick as i128, "wall".to_string(), vec![e.a]),
+        })
+        .collect();
+    let world = c.world();
+    let finals: Vec<([i128; 2], [i128; 2], i128, [i128; 2], u64)> = world
+        .bodies
+        .iter()
+        .map(|b| ([b.x[0] as i128, b.x[1] as i128], [b.k[0] as i128, b.k[1] as i128], b.residual as i128, [b.carry[0] as i128, b.carry[1] as i128], b.rev as u64))
+        .collect();
+    let wm = [world.wall_momentum[0] as i128, world.wall_momentum[1] as i128];
+    let first = events.iter().zip(&reference.events).position(|(a, b)| a != b);
+    let first_body = finals.iter().zip(&reference.finals).position(|(a, b)| a != b);
+    json!({
+        "bodies": n, "horizon": horizon, "vmax_units": vmax,
+        "events_equal": events == reference.events, "finals_equal": finals == reference.finals,
+        "wall_momentum_equal": wm == reference.wall_momentum,
+        "contacts": c.log().contacts, "walls": c.log().walls, "reference_ms": reference_ms,
+        "first_event_difference": first.map(|i| format!("{:?} vs {:?}", events.get(i), reference.events.get(i))),
+        "first_body_difference": first_body.map(|i| format!("{:?} vs {:?}", finals.get(i), reference.finals.get(i))),
+    })
+}
+
+/// Compare a relativistic lattice run of the gas with the independent relativistic reference.
+pub fn gas_rel_equal(g: &gas::Gas, horizon: i64, world: &emergent_lattice::World, log: &emergent_lattice::Log) -> (bool, Value) {
+    let reference = crate::gas_rel::reference(g, horizon as i128);
+    let events: Vec<(i128, String, Vec<u64>)> = log
+        .sorted()
+        .into_iter()
+        .map(|e| match e.kind {
+            Kind::Contact => (e.tick as i128, "contact".to_string(), vec![e.a, e.b]),
+            Kind::Wall => (e.tick as i128, "wall".to_string(), vec![e.a]),
+        })
+        .collect();
+    let finals: Vec<([i128; 2], [i128; 2], i128, [i128; 2], u64)> = world
+        .bodies
+        .iter()
+        .map(|b| ([b.x[0] as i128, b.x[1] as i128], [b.k[0] as i128, b.k[1] as i128], b.residual as i128, [b.carry[0] as i128, b.carry[1] as i128], b.rev as u64))
+        .collect();
+    let wm = [world.wall_momentum[0] as i128, world.wall_momentum[1] as i128];
+    let (ev, fin, w) = (events == reference.events, finals == reference.finals, wm == reference.wall_momentum);
+    (ev && fin && w, json!({"events_equal": ev, "finals_equal": fin, "wall_momentum_equal": w, "reference_events": reference.events.len()}))
 }
