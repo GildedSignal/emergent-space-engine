@@ -1,6 +1,6 @@
 # Emergent Space — agent handoff
 
-**Current heading — 23 September 2026:** Continue the full integration plan. Recovered committed Cursor implementation `e510b2f` into durable worktree `/Users/julien_laurent/Research/emergent-integration`, branch `codex/integration-continuation-20260923`; temporary worktree files had disappeared. H0149 corrects the pressure oracle and RK2 integration, adds adversarial/multiple-IC tests, and removes unsupported held-out PASS claims. Full engine remains incomplete; `production_law` remains null. The sections below H0149 describe the retained September 15 snapshot unless explicitly superseded.
+**Current heading — 26 September 2026:** see the status under Current plan (H0177). **Earlier heading — 23 September 2026:** Continue the full integration plan. Recovered committed Cursor implementation `e510b2f` into durable worktree `/Users/julien_laurent/Research/emergent-integration`, branch `codex/integration-continuation-20260923`; temporary worktree files had disappeared. H0149 corrects the pressure oracle and RK2 integration, adds adversarial/multiple-IC tests, and removes unsupported held-out PASS claims. Full engine remains incomplete; `production_law` remains null. The sections below H0149 describe the retained September 15 snapshot unless explicitly superseded.
 
 ## Current plan (25 September 2026, after H0160)
 
@@ -16,17 +16,26 @@ The agreed direction is [work-allocation-principles.md](work-allocation-principl
 
 Parallel design threads: the aggregate combat law, the player's influence and input design, share codes, and ladder v5.
 
-Status (26 September 2026, H0161–H0167). Everything is committed, local only, on `codex/integration-continuation-20260923`.
-- **Modes:** the contract (`crates/lattice`), event core (`crates/lattice-event`), Metal chronon mode (`crates/lattice-metal`) and allocator (`crates/allocator`) all give bit-identical results.
-- **Best passing rung per v5 track:** X1 1M bodies (event); X2 16.7M ticks (event); X3 262,144 (event); C1 65,536; C2 262,144 ships (metal; 1M at 102 chronons/s outside the ladder); X5 2.1M ticks (event); C3 65,536 (metal). X4 (families) is not supported.
-- **Failing gates:** smooth (metal units are GPU round trips; event at C2 65,536 and X5 2.1M); useful_work at C3 64 (0.479).
-- **Journal check:** `history check` passes again (H0166 evidence map).
+Status (26 September 2026, H0161–H0177). Everything is committed, local only, on `codex/integration-continuation-20260923`.
+- **Build steps 1–5 are done and measured.**
+  - Step 1: the event core, whose cells now follow local density, so empty space is free (H0177).
+  - Steps 2–4: the allocator (units, verified-only frames, light-cone finality, SITA lanes, stealing, AIMD strides, P/E cores; H0172).
+  - Step 5: Metal chronon mode, with the exact v0 relativistic bounce on the GPU (H0171).
+- **Step 6 is partial:** the speculation horizon and HEVC surprise-sensor probe exist, but nothing targets the Neural Engine yet.
+- **Step 7 (gravity) is not started.**
+- **Law:** `es-lattice-relativistic-v1` (H0174): special-relativistic collisions, with the energy quantum matched to the velocity quantum and an exact Newtonian limit. v0 is kept for the frozen v6 evidence.
+- **Quanta ([universe-quanta.md](universe-quanta.md)):** one floor and no ruler. Q = coherence time / chronon, with a target of 2^40. Today's ranges stop at Q = 2^20 and 2^39 units.
+- **Modes:** chronon, event, metal, hybrid and regions (the allocator over hybrid regions, H0176) are all bit-identical.
+- **Ladder v7** is frozen (H0175): v6's tracks under v1, plus the galaxy tracks G1 and G2. It has not been climbed.
+- **1M gas:** 9.7 s under v0 on Metal against the 8 s target. The Metal v1 port is in progress.
+- **Old engine and "compiler" lineage (H0100–H0155, H0164):** paused since H0156.
+  - The canonical engine law is still `es-inertial-causal-v1`, and `production_law` is null.
+  - Gravity there is diagnostic only: GEM-v0 fails 5 of 12 orbits for physical reasons (no acceleration-dependent terms, not complete 1PN); a moving-Schwarzschild 1PN sidecar passes compact captures.
 - **Next, in order:**
-  1. κ-based mode selection per region, and the regions ladder mode.
-  2. A GPU-resident multi-chronon loop for 1M in under 8 s.
-  3. Wire the relativistic law (`relativity.rs`: `World.law`, `Body.carry`, a hard speed bound for per-region finality) with an independent reference; freeze ladder v6.
-  4. Decide the contact-chain superluminality question with Julien.
-  5. Parity with the old engine (groups first, then commands, signals, observation) before gravity.
+  1. Merge the Metal v1 port, and climb v7 on a quiet machine.
+  2. Widen ranges toward Q = 2^40 (filtered predicates, a wide v1 energy).
+  3. An independent weak-field GR benchmark before any gravity law: periapsis advance, period, light bending, Shapiro delay, time dilation, geodetic precession, Newtonian limit.
+  4. Julien decides the gravity field's representation in the lattice (a local metric in the light-cone predicate, rotors on region links, retarded field claims) and whether parity with the old engine (groups, commands, signals, observation) comes before gravity.
 
 ## Current continuation — H0159 (25 September 2026)
 
