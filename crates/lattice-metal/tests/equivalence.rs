@@ -161,6 +161,16 @@ fn relativistic_worlds_match_reference() {
     // Q > 2^15: the GPU still detects, the CPU responds.
     let s = check("relativistic Q = 2^16", rel(worlds::gas(256, 0.1, 1 << 16, 256, 5)), 400, Options::default()).unwrap();
     assert!(s.gpu_chronons == 400 && s.gpu_contacts == 0, "{s:?}");
+    // es-lattice-relativistic-v1: the GPU detects, the CPU responds (the kernel is v0's).
+    let v1 = |w: World| w.with_law(Law::RelativisticV1).unwrap();
+    for (name, w0, horizon) in [
+        ("gas 2048 v1", v1(worlds::gas(2048, 0.1, 1024, 256, 4)), 200),
+        ("hot mixed 256 v1", World { law: Law::RelativisticV1, ..hot_mixed(256, 256, 31) }, 1500),
+        ("slow gas v1 (0.004c)", v1(worlds::gas(1024, 0.1, 4096, 16, 6)), 4000),
+    ] {
+        let s = check(name, w0, horizon, Options::default()).unwrap();
+        assert!(s.gpu_contacts == 0 && s.cpu_contacts > 0, "{name}: v1 responds on the CPU: {s:?}");
+    }
     // Slicing under the relativistic law.
     let w0 = hot_mixed(256, 256, 31);
     let mut r = Chronon::new(w0.clone(), false).unwrap();

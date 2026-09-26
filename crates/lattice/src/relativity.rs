@@ -24,11 +24,27 @@
 //! The error joins the lower id's carry: energy in `residual`, momentum in the momentum
 //! carry. The ledgers are exact: ΣE(final) − ΣE(initial) = Σresidual, and
 //! Σp(final) − Σp(initial) + wall momentum = Σcarry.
-use crate::law::{dot, sub, Body, Container, Response, World};
+//!
+//! **v1 (`es-lattice-relativistic-v1`, 26 September 2026).** v0 floors Γ before multiplying
+//! by Q, so its energy moves in steps of m·Q and cannot see kinetic energy below
+//! √(2/F)·c ≈ 0.0055c: slow gases drift (H0173). v1 keeps the reflection, the candidates and
+//! the carries and changes only the fixed-point 4-momentum, per unit mass:
+//!
+//! E = ⌊2Q³/√(Q² − |k|²)⌋ = ⌊2Q²γ⌋,  p_c = sgn(k_c)·⌊2Q²|k_c|/√(Q² − |k|²)⌋ = sgn·⌊2Qγ|k_c|⌋,
+//!
+//! times the mass. The scale is 2Q (γ·mQ, γ·mk scaled by 2Q), and each floor is taken after
+//! the products, so the energy quantum is the velocity quantum's: 2Q²γ = 2Q² + |k|² +
+//! 3|k|⁴/(4Q²) + …, hence E = m(2Q² + |k|²) exactly (the Newtonian energy m|k|² above the
+//! rest energy) while 3|k|⁴ < 4Q², and p = 2Q·m·k exactly while |k_c|·|k|² < Q. Above that
+//! the relativistic corrections enter as whole units. Both are antisymmetric in k, so walls
+//! and mirror images stay exact. Exact square roots of exact quotients: 4Q⁶ and 4Q⁴k² fit
+//! u128 for Q ≤ 2^20.
+use crate::law::{dot, sub, Body, Container, Law, Response, World};
 use num_bigint::BigInt;
 
-/// Fixed-point scale of γ: 2^16. At Q = 1024 the smallest kinetic step (|k| = 1) is
-/// m·F/(2Q) = 32 units, well above Γ's flooring error of one unit.
+/// Fixed-point scale of γ in v0: 2^16. Γ is floored before the product with Q, so Γ = F for
+/// every |k| < √(2/F)·Q and v0's energy cannot see kinetic energy below about 0.0055c
+/// (measured in H0173); v1 fixes this.
 pub const F: i128 = 1 << 16;
 
 /// Γ(k) = ⌊F·Q/√(Q² − |k|²)⌋ (floor of a square root of a floor is exact). |k|² < Q².
@@ -43,6 +59,30 @@ pub fn gamma(k: [i64; 2], q: i64) -> i128 {
 pub fn four_momentum(m: i64, k: [i64; 2], q: i64) -> [i128; 3] {
     let g = m as i128 * gamma(k, q);
     [g * q as i128, g * k[0] as i128, g * k[1] as i128]
+}
+
+/// `es-lattice-relativistic-v1` 4-momentum (E, px, py) of mass m at lattice velocity k.
+pub fn four_momentum_v1(m: i64, k: [i64; 2], q: i64) -> [i128; 3] {
+    let q2 = q as u128 * q as u128;
+    let kk = (k[0] as i128 * k[0] as i128 + k[1] as i128 * k[1] as i128) as u128;
+    assert!(kk < q2, "massive body at or beyond c: |k|² ≥ Q²");
+    let s = q2 - kk;
+    let e = ((4 * q2 * q2 * q2) / s).isqrt() as i128;
+    let p = |c: i64| -> i128 {
+        let a = c.unsigned_abs() as u128;
+        let v = ((4 * q2 * q2 * a * a) / s).isqrt() as i128;
+        if c < 0 { -v } else { v }
+    };
+    let m = m as i128;
+    [m * e, m * p(k[0]), m * p(k[1])]
+}
+
+/// The 4-momentum under a relativistic law version.
+pub fn momentum(law: Law, m: i64, k: [i64; 2], q: i64) -> [i128; 3] {
+    match law {
+        Law::RelativisticV1 => four_momentum_v1(m, k, q),
+        _ => four_momentum(m, k, q),
+    }
 }
 
 fn add3(a: [i128; 3], b: [i128; 3]) -> [i128; 3] {
@@ -166,6 +206,22 @@ pub fn resolve(
     container: Option<&Container>,
     wall_momentum: &mut [i64; 2],
 ) {
+    resolve_law(Law::Relativistic, q, bodies, pairs, walls, container, wall_momentum)
+}
+
+/// [`resolve`] under a given relativistic law version (v0 or v1): only the fixed-point
+/// 4-momentum differs.
+pub fn resolve_law(
+    law: Law,
+    q: i64,
+    bodies: &mut [Body],
+    pairs: &[(usize, usize)],
+    walls: &[bool],
+    container: Option<&Container>,
+    wall_momentum: &mut [i64; 2],
+) {
+    debug_assert!(law.subluminal());
+    let four_momentum = |m: i64, k: [i64; 2], q: i64| momentum(law, m, k, q);
     debug_assert_eq!(walls.len(), bodies.len());
     let before: Vec<[i64; 2]> = bodies.iter().map(|b| b.k).collect();
     let mut k = before.clone();
@@ -244,7 +300,7 @@ pub fn resolve(
 
 /// Total fixed-point 4-momentum of a world (energy, px, py).
 pub fn total(w: &World) -> [i128; 3] {
-    w.bodies.iter().fold([0, 0, 0], |t, b| add3(t, four_momentum(b.mass, b.k, w.q)))
+    w.bodies.iter().fold([0, 0, 0], |t, b| add3(t, momentum(w.law, b.mass, b.k, w.q)))
 }
 
 /// Total carries (energy, px, py). Ledgers: total(end) − total(genesis) = carries, with the

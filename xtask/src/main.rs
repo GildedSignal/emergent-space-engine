@@ -88,10 +88,17 @@ fn run() -> Result<u8> {
     }
     if task == "lattice-check-rel" {
         // The relativistic chronon reference against the independent relativistic gas reference.
-        let cases: [(u64, i64, i64); 4] = [(64, 1024, 256), (256, 1024, 256), (64, 8192, 256), (64, 2048, 600)];
+        // v0 and v1 on the same gases (Q = 1024), then v1 slow (0.004c at Q = 4096), where v0's
+        // energy is blind and v1's is the Newtonian one.
+        use emergent_lattice::Law::{Relativistic, RelativisticV1};
+        let mut cases: Vec<(u64, i64, i64, i64, emergent_lattice::Law)> = Vec::new();
+        for law in [Relativistic, RelativisticV1] {
+            cases.extend([(64, 1024, 256, 1024, law), (256, 1024, 256, 1024, law), (64, 8192, 256, 1024, law), (64, 2048, 600, 1024, law)]);
+        }
+        cases.push((64, 16384, 16, 4096, RelativisticV1));
         let mut ok = true;
-        for (n, h, v) in cases {
-            let r = lattice::check_gas_relativistic(n, h, v, 2_718_281_828);
+        for (n, h, v, q, law) in cases {
+            let r = lattice::check_gas_relativistic(n, h, v, 2_718_281_828, q, law);
             let pass = r["events_equal"] == true && r["finals_equal"] == true && r["wall_momentum_equal"] == true;
             ok &= pass;
             println!("{} {}", if pass { "EQUAL" } else { "DIFFERENT" }, r);

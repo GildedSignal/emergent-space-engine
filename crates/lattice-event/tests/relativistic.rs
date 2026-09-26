@@ -14,15 +14,19 @@ fn hot_mixed(n: u64, q: i64, seed: u64) -> World {
 
 #[test]
 fn relativistic_worlds_equal_the_chronon_reference() {
+    let v1 = |w: World| World { law: Law::RelativisticV1, ..w };
     let cases = [
         (worlds::gas(256, 0.1, 1024, 256, 3).with_law(Law::Relativistic).unwrap(), 2048),
         (hot_mixed(256, 256, 31), 3000),
         (hot_mixed(1024, 512, 32), 1500),
+        (worlds::gas(256, 0.1, 1024, 256, 3).with_law(Law::RelativisticV1).unwrap(), 2048),
+        (v1(hot_mixed(256, 256, 31)), 3000),
+        (worlds::gas(256, 0.1, 4096, 16, 3).with_law(Law::RelativisticV1).unwrap(), 20000),
     ];
     for (i, (w0, horizon)) in cases.into_iter().enumerate() {
         let mut r = Chronon::new(w0.clone(), false).unwrap();
         r.run_to(horizon);
-        assert!(r.log().contacts > 500, "case {i} must collide");
+        assert!(r.log().contacts > if i == 5 { 100 } else { 500 }, "case {i} must collide ({})", r.log().contacts);
         for budget in [u64::MAX, 97] {
             let mut e = EventCore::new(w0.clone(), false).unwrap();
             while e.tick() < horizon {

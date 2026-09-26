@@ -126,11 +126,11 @@ pub fn gas_reference_equal(g: &gas::Gas, horizon: i64, world: &emergent_lattice:
 
 /// The relativistic law in the chronon reference against the independent relativistic
 /// gas reference (gas_rel.rs, no shared code).
-pub fn check_gas_relativistic(n: u64, horizon: i64, vmax: i64, seed: u64) -> Value {
-    let g = gas::world(n, 0.1, 1024, vmax as i128, seed);
-    let w = worlds::gas(n, 0.1, 1024, vmax, seed).with_law(emergent_lattice::Law::Relativistic).expect("subluminal gas");
+pub fn check_gas_relativistic(n: u64, horizon: i64, vmax: i64, seed: u64, q: i64, law: emergent_lattice::Law) -> Value {
+    let g = gas::world(n, 0.1, q as i128, vmax as i128, seed);
+    let w = worlds::gas(n, 0.1, q, vmax, seed).with_law(law).expect("subluminal gas");
     let t = std::time::Instant::now();
-    let reference = crate::gas_rel::reference(&g, horizon as i128);
+    let reference = crate::gas_rel::reference(&g, horizon as i128, law == emergent_lattice::Law::RelativisticV1);
     let reference_ms = t.elapsed().as_secs_f64() * 1e3;
     let mut c = Chronon::new(w, true).expect("gas world");
     c.run_to(horizon);
@@ -153,7 +153,7 @@ pub fn check_gas_relativistic(n: u64, horizon: i64, vmax: i64, seed: u64) -> Val
     let first = events.iter().zip(&reference.events).position(|(a, b)| a != b);
     let first_body = finals.iter().zip(&reference.finals).position(|(a, b)| a != b);
     json!({
-        "bodies": n, "horizon": horizon, "vmax_units": vmax,
+        "law": format!("{law:?}"), "q": q, "bodies": n, "horizon": horizon, "vmax_units": vmax,
         "events_equal": events == reference.events, "finals_equal": finals == reference.finals,
         "wall_momentum_equal": wm == reference.wall_momentum,
         "contacts": c.log().contacts, "walls": c.log().walls, "reference_ms": reference_ms,
@@ -164,7 +164,7 @@ pub fn check_gas_relativistic(n: u64, horizon: i64, vmax: i64, seed: u64) -> Val
 
 /// Compare a relativistic lattice run of the gas with the independent relativistic reference.
 pub fn gas_rel_equal(g: &gas::Gas, horizon: i64, world: &emergent_lattice::World, log: &emergent_lattice::Log) -> (bool, Value) {
-    let reference = crate::gas_rel::reference(g, horizon as i128);
+    let reference = crate::gas_rel::reference(g, horizon as i128, world.law == emergent_lattice::Law::RelativisticV1);
     let events: Vec<(i128, String, Vec<u64>)> = log
         .sorted()
         .into_iter()

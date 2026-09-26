@@ -66,6 +66,17 @@ pub enum Law {
     /// `es-lattice-relativistic-v0` ([`crate::relativity`]): 4-momentum exact up to a bounded
     /// carry, and |k|² < Q² for every body at every tick.
     Relativistic,
+    /// `es-lattice-relativistic-v1` ([`crate::relativity`]): v0's reflection with the energy
+    /// quantum matched to the velocity quantum (scale 2Q, floors after the products), so the
+    /// ledgers see kinetic energy at every speed and reduce exactly to the Newtonian ones.
+    RelativisticV1,
+}
+
+impl Law {
+    /// Every relativistic version keeps |k|² < Q² for every body at every tick.
+    pub fn subluminal(self) -> bool {
+        matches!(self, Law::Relativistic | Law::RelativisticV1)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -175,7 +186,7 @@ impl World {
         let q2 = self.q as i128 * self.q as i128;
         for b in &self.bodies {
             let kk = b.k[0] as i128 * b.k[0] as i128 + b.k[1] as i128 * b.k[1] as i128;
-            let over = if self.law == Law::Relativistic { kk >= q2 } else { kk > q2 };
+            let over = if self.law.subluminal() { kk >= q2 } else { kk > q2 };
             if over {
                 return err(format!("body {} at or beyond light: |k|² = {kk}, Q² = {q2}", b.id));
             }
@@ -205,7 +216,7 @@ impl World {
                 return err(format!("body {} velocity outside 2^22", b.id));
             }
             let kk = b.k[0] as i128 * b.k[0] as i128 + b.k[1] as i128 * b.k[1] as i128;
-            if self.law == Law::Relativistic && kk >= self.q as i128 * self.q as i128 {
+            if self.law.subluminal() && kk >= self.q as i128 * self.q as i128 {
                 return err(format!("body {} at or beyond light under the relativistic law", b.id));
             }
         }
@@ -420,7 +431,7 @@ pub fn respond(
 ) {
     match law {
         Law::Newtonian => resolve(bodies, pairs, walls, container, wall_momentum),
-        Law::Relativistic => crate::relativity::resolve(q, bodies, pairs, walls, container, wall_momentum),
+        Law::Relativistic | Law::RelativisticV1 => crate::relativity::resolve_law(law, q, bodies, pairs, walls, container, wall_momentum),
     }
 }
 

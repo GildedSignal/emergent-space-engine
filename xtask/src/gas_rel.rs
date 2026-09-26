@@ -6,6 +6,9 @@
 //! candidates strictly inside the light cone; the candidate pair minimising |owed + e|²,
 //! never keeping both velocities; the error joins the lower id's carries; walls flip and
 //! record 2·p; a contact is consumed at the post-batch revisions.
+//!
+//! v1 (es-lattice-relativistic-v1) changes only the 4-momentum, written here from its rule:
+//! per unit mass E = ⌊2Q³/√(Q² − |k|²)⌋ and p_c = sgn(k_c)·⌊2Q²|k_c|/√(Q² − |k|²)⌋.
 use crate::gas::Gas;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -44,7 +47,15 @@ fn gamma(q: i128, k: [i128; 2]) -> i128 {
     isqrt(F * F * q * q / s)
 }
 
-fn p4(q: i128, k: [i128; 2]) -> [i128; 3] {
+fn p4(q: i128, k: [i128; 2], v1: bool) -> [i128; 3] {
+    if v1 {
+        // ⌊√(N²/s)⌋ = ⌊N/√s⌋: the floor of a square root of a floor is exact.
+        let s = q * q - k[0] * k[0] - k[1] * k[1];
+        assert!(s > 0, "reference: a ship reached c");
+        let e = isqrt(mul(mul(4, mul(q * q, q * q)), q * q) / s);
+        let p = |c: i128| c.signum() * isqrt(mul(mul(4, mul(q * q, q * q)), c * c) / s);
+        return [e, p(k[0]), p(k[1])];
+    }
     let g = gamma(q, k); // unit masses in the gas
     [g * q, g * k[0], g * k[1]]
 }
@@ -76,7 +87,8 @@ fn around(q: i128, v: [i128; 3]) -> Vec<[i128; 2]> {
     out
 }
 
-pub fn reference(g: &Gas, horizon: i128) -> RelReference {
+pub fn reference(g: &Gas, horizon: i128, v1: bool) -> RelReference {
+    let p4 = |q: i128, k: [i128; 2]| p4(q, k, v1);
     let q = g.q;
     let mut ships: Vec<Ship> = g.bodies.iter().map(|(p, v)| Ship { x: [p[0] * q, p[1] * q], k: *v, rev: 0, carry: [0; 3] }).collect();
     let n = ships.len();

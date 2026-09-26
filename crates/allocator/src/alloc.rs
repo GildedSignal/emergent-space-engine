@@ -54,7 +54,7 @@ pub struct Config {
     /// Smallest region a split may create (smaller groups join the nearest large one).
     pub min_region: usize,
     /// A per-axis speed bound (1/Q per chronon) the law guarantees at every tick. Implied by
-    /// `Law::Relativistic` (|k| < Q, so |k_c| ≤ Q − 1). It turns on light-cone finality. The
+    /// every relativistic law (|k| < Q, so |k_c| ≤ Q − 1). It turns on light-cone finality. The
     /// Newtonian law has none (exchanges push bodies past c): only the global tick is final.
     pub hard_speed: Option<i64>,
     /// The player's position (1/Q units): deadlines are distance / c from here.
@@ -1816,7 +1816,7 @@ impl<S: Stepper + Send + 'static> Allocator<S> {
         union.validate().map_err(|e| format!("scene: {e} (ids must be disjoint across worlds)"))?;
         let (t0, q, bodies, closed) = (first.tick, first.q, union.bodies.len(), first.container.is_some());
         // Relativistic: |k|² < Q² at every tick, so every component is at most Q − 1.
-        let hard = cfg.hard_speed.or((first.law == Law::Relativistic).then_some(q - 1));
+        let hard = cfg.hard_speed.or(first.law.subluminal().then_some(q - 1));
         if let Some(v) = hard {
             let m = vmax(union.bodies.iter());
             if m > v {

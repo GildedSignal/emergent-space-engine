@@ -774,7 +774,9 @@ impl MetalChronon {
         let (bmin, bmax) = self.container.map_or(([0, 0], [0, 0]), |c| (c.min, c.max));
         // The GPU cannot filter hits by the overflow map, and its relativistic bounce needs
         // F²Q² < 2^62 (Q ≤ 2^15).
-        let resolve = self.opts.gpu_response && self.overflow.is_empty() && (self.law == Law::Newtonian || self.q <= 1 << 15);
+        // The GPU bounce implements es-lattice-elastic-v0 and es-lattice-relativistic-v0; v1
+        // contacts are resolved on the CPU until the kernel is ported.
+        let resolve = self.opts.gpu_response && self.overflow.is_empty() && (self.law == Law::Newtonian || (self.law == Law::Relativistic && self.q <= 1 << 15));
         let params = Params {
             reach: self.reach_max,
             bmin,
