@@ -167,6 +167,15 @@ struct Rec {
     rf: u32,
 }
 
+/// A dispatch's grid: threads (groups of `tg`), thread groups × threads, or thread groups
+/// read from `args` at a byte offset.
+#[derive(Clone, Copy)]
+enum Grid {
+    Threads(u64),
+    Groups(u64, u64),
+    Indirect(u64),
+}
+
 struct Gpu {
     device: Device,
     queue: CommandQueue,
@@ -201,7 +210,7 @@ struct Gpu {
     /// Events of the components the general response resolves.
     list: Buf<u32>,
     /// Scratch of the staged relativistic bounce, per hit (shaders.metal REL_LONGS).
-    rel: Buf<[i64; 40]>,
+    rel: Buf<[i64; 32]>,
     log: [Buf<Ev>; 2],
     args: Buf<u32>,
     // GPU-private scratch.
@@ -216,8 +225,8 @@ struct Gpu {
     comp: Buf<u32>,
 }
 
-const KERNELS: [&str; 21] = [
-    "rel_prep", "rel_mom", "kmax", "plan", "clear", "bin", "scan_reduce", "scan_sums", "scan_final", "scatter", "pairs", "advance", "tally", "classify", "resolve_pair",
+const KERNELS: [&str; 20] = [
+    "rel_mom", "kmax", "plan", "clear", "bin", "scan_reduce", "scan_sums", "scan_final", "scatter", "pairs", "advance", "tally", "classify", "resolve_pair",
     "listargs", "hook", "mark", "resolve", "unmark", "prune",
 ];
 
@@ -232,7 +241,11 @@ impl Gpu {
         let mut pso = HashMap::new();
         // The law is a function constant: each pipeline keeps only its own bounce.
         let constants = metal::FunctionConstantValues::new();
-        let code = (law == Law::Relativistic) as u32;
+        let code: u32 = match law {
+            Law::Newtonian => 0,
+            Law::Relativistic => 1,
+            Law::RelativisticV1 => 2,
+        };
         constants.set_constant_value_at_index(&code as *const u32 as *const c_void, metal::MTLDataType::UInt, 0);
         for name in KERNELS {
             let f = lib.get_function(name, Some(constants.clone())).map_err(MetalError::Shader)?;
@@ -262,7 +275,7 @@ impl Gpu {
             walls: Buf::new(d, n),
             stat: Buf::new(d, pair_cap + n),
             list: Buf::new(d, pair_cap + n),
-            rel: Buf::new(d, if law == Law::Relativistic { pair_cap } else { 0 }),
+            rel: Buf::new(d, if law.subluminal() { pair_cap } else { 0 }),
             log: [Buf::new(d, log_cap), Buf::new(d, log_cap)],
             args: Buf::new(d, 18),
             count: Buf::new(d, h),
@@ -282,71 +295,96 @@ impl Gpu {
             pso,
             tg: 256,
             sums_tg,
-            relativistic: law == Law::Relativistic,
+            relativistic: law.subluminal(),
         })
     }
 
     /// Encode `b` chronons starting after tick `first` (plus a leading prune when `prune`)
     /// in one command buffer and commit it. A prune follows chronons that end at multiples
-    /// of 64.
-    fn commit(&self, params: Params, b: u64, first: Tick, prune: bool, parity: usize) -> CommandBuffer {
+    /// of 64. With `profile`, every dispatch gets a command buffer of its own instead, returned
+    /// with its kernel's name for timing (the same work in the same order).
+    fn commit(&self, params: Params, b: u64, first: Tick, prune: bool, parity: usize, profile: bool) -> (CommandBuffer, Vec<(&'static str, CommandBuffer)>) {
+        let n = params.n as u64;
+        // (kernel, chronon of the buffer, grid)
+        let mut work: Vec<(&'static str, u32, Grid)> = Vec::with_capacity(24 * b as usize + 1);
+        if prune {
+            work.push(("prune", 0, Grid::Threads(n)));
+        }
+        for s in 0..b as u32 {
+            let mut push = |k: &'static str, g: Grid| work.push((k, s, g));
+            push("kmax", Grid::Threads(n));
+            push("plan", Grid::Groups(1, 1));
+            // Grids sized on the GPU: offsets into `args` (see tally, listargs, plan).
+            push("clear", Grid::Indirect(48));
+            push("bin", Grid::Indirect(36));
+            push("scan_reduce", Grid::Groups(self.nblocks as u64, 256));
+            push("scan_sums", Grid::Groups(1, self.sums_tg));
+            push("scan_final", Grid::Groups(self.nblocks as u64, 256));
+            push("scatter", Grid::Threads(n));
+            push("pairs", Grid::Threads(n));
+            push("advance", Grid::Threads(n));
+            push("tally", Grid::Groups(1, 1));
+            push("classify", Grid::Indirect(0));
+            if self.relativistic {
+                // The relativistic bounce of isolated pairs in stages (classify runs the first):
+                // few registers each.
+                push("rel_mom", Grid::Indirect(60));
+            }
+            push("resolve_pair", Grid::Indirect(0));
+            push("listargs", Grid::Groups(1, 1));
+            for _ in 0..HOOKS {
+                push("hook", Grid::Indirect(24));
+            }
+            push("mark", Grid::Indirect(24));
+            push("resolve", Grid::Indirect(24));
+            push("unmark", Grid::Indirect(24));
+            if (first + s as i64 + 1) % 64 == 0 {
+                push("prune", Grid::Threads(n));
+            }
+        }
+        let set = |enc: &ComputeCommandEncoderRef, step: u32| {
+            let p = Params { step, ..params };
+            enc.set_bytes(5, std::mem::size_of::<Params>() as u64, &p as *const Params as *const c_void);
+        };
+        let encode = |enc: &ComputeCommandEncoderRef, k: &str, g: Grid| {
+            enc.set_compute_pipeline_state(&self.pso[k]);
+            match g {
+                Grid::Threads(t) => enc.dispatch_threads(MTLSize::new(t, 1, 1), MTLSize::new(self.tg, 1, 1)),
+                Grid::Groups(g, t) => enc.dispatch_thread_groups(MTLSize::new(g, 1, 1), MTLSize::new(t, 1, 1)),
+                Grid::Indirect(offset) => enc.dispatch_thread_groups_indirect(&self.args.raw, offset, MTLSize::new(256, 1, 1)),
+            }
+        };
         objc::rc::autoreleasepool(|| {
-            let cb = self.queue.new_command_buffer();
-            let enc = cb.new_compute_command_encoder();
-            self.bind(enc, parity);
-            let n = params.n as u64;
-            let grid = |k: &str, threads: u64| {
-                enc.set_compute_pipeline_state(&self.pso[k]);
-                enc.dispatch_threads(MTLSize::new(threads, 1, 1), MTLSize::new(self.tg, 1, 1));
-            };
-            let groups = |k: &str, g: u64, t: u64| {
-                enc.set_compute_pipeline_state(&self.pso[k]);
-                enc.dispatch_thread_groups(MTLSize::new(g, 1, 1), MTLSize::new(t, 1, 1));
-            };
-            // Grids sized on the GPU (Params offsets into `args`, see tally, listargs, plan).
-            let indirect = |k: &str, offset: u64| {
-                enc.set_compute_pipeline_state(&self.pso[k]);
-                enc.dispatch_thread_groups_indirect(&self.args.raw, offset, MTLSize::new(256, 1, 1));
-            };
-            let set = |p: &Params| enc.set_bytes(5, std::mem::size_of::<Params>() as u64, p as *const Params as *const c_void);
-            if prune {
-                set(&params);
-                grid("prune", n);
+            if !profile {
+                let cb = self.queue.new_command_buffer();
+                let enc = cb.new_compute_command_encoder();
+                self.bind(enc, parity);
+                let mut step = None;
+                for &(k, s, g) in &work {
+                    if step != Some(s) {
+                        set(enc, s);
+                        step = Some(s);
+                    }
+                    encode(enc, k, g);
+                }
+                enc.end_encoding();
+                cb.commit();
+                return (cb.to_owned(), vec![]);
             }
-            for s in 0..b {
-                set(&Params { step: s as u32, ..params });
-                grid("kmax", n);
-                groups("plan", 1, 1);
-                indirect("clear", 48);
-                indirect("bin", 36);
-                groups("scan_reduce", self.nblocks as u64, 256);
-                groups("scan_sums", 1, self.sums_tg);
-                groups("scan_final", self.nblocks as u64, 256);
-                grid("scatter", n);
-                grid("pairs", n);
-                grid("advance", n);
-                groups("tally", 1, 1);
-                indirect("classify", 0);
-                if self.relativistic {
-                    // The relativistic bounce of isolated pairs in stages: few registers each.
-                    indirect("rel_prep", 12);
-                    indirect("rel_mom", 60);
-                }
-                indirect("resolve_pair", 0);
-                groups("listargs", 1, 1);
-                for _ in 0..HOOKS {
-                    indirect("hook", 24);
-                }
-                indirect("mark", 24);
-                indirect("resolve", 24);
-                indirect("unmark", 24);
-                if (first + s as i64 + 1) % 64 == 0 {
-                    grid("prune", n);
-                }
-            }
-            enc.end_encoding();
-            cb.commit();
-            cb.to_owned()
+            let timed: Vec<(&'static str, CommandBuffer)> = work
+                .iter()
+                .map(|&(k, s, g)| {
+                    let cb = self.queue.new_command_buffer();
+                    let enc = cb.new_compute_command_encoder();
+                    self.bind(enc, parity);
+                    set(enc, s);
+                    encode(enc, k, g);
+                    enc.end_encoding();
+                    cb.commit();
+                    (k, cb.to_owned())
+                })
+                .collect();
+            (timed.last().expect("at least one dispatch").1.clone(), timed)
         })
     }
 
@@ -394,6 +432,71 @@ impl Gpu {
         }
         enc.set_threadgroup_memory_length(0, 32 * 4);
     }
+}
+
+/// Run test kernel `name` (compiled for law v1) over `io`, one thread per record, with `q`.
+fn probe<const N: usize>(name: &str, q: i64, io: &[[i64; N]]) -> Result<Vec<[i64; N]>, MetalError> {
+    let device = Device::system_default().ok_or(MetalError::NoDevice)?;
+    let options = metal::CompileOptions::new();
+    options.set_fast_math_enabled(false);
+    let lib = device.new_library_with_source(include_str!("shaders.metal"), &options).map_err(MetalError::Shader)?;
+    let constants = metal::FunctionConstantValues::new();
+    let code = 2u32;
+    constants.set_constant_value_at_index(&code as *const u32 as *const c_void, metal::MTLDataType::UInt, 0);
+    let f = lib.get_function(name, Some(constants)).map_err(MetalError::Shader)?;
+    let pso = device.new_compute_pipeline_state_with_function(&f).map_err(MetalError::Shader)?;
+    let mut buf: Buf<[i64; N]> = Buf::new(&device, io.len());
+    buf.get_mut().copy_from_slice(io);
+    let params = Params {
+        reach: 0,
+        bmin: [0, 0],
+        bmax: [0, 0],
+        q,
+        n: io.len() as u32,
+        wbits: 0,
+        hmask: 0,
+        has_box: 0,
+        pair_cap: 0,
+        nblocks: 0,
+        resolve: 0,
+        log_cap: 0,
+        step: 0,
+        pad: 0,
+    };
+    let queue = device.new_command_queue();
+    objc::rc::autoreleasepool(|| {
+        let cb = queue.new_command_buffer();
+        let enc = cb.new_compute_command_encoder();
+        enc.set_compute_pipeline_state(&pso);
+        enc.set_buffer(30, Some(&buf.raw), 0);
+        enc.set_bytes(5, std::mem::size_of::<Params>() as u64, &params as *const Params as *const c_void);
+        enc.dispatch_threads(MTLSize::new(io.len().max(1) as u64, 1, 1), MTLSize::new(64, 1, 1));
+        enc.end_encoding();
+        cb.commit();
+        Gpu::wait(cb);
+    });
+    Ok(buf.get().to_vec())
+}
+
+/// Test hook: the GPU kernel's v1 4-momentum (`relativity::four_momentum_v1`) of each
+/// (mass, velocity) at `q`, or None where the kernel leaves its checked ranges (a contact
+/// needing it goes to the CPU).
+#[doc(hidden)]
+pub fn v1_momenta(q: i64, cases: &[(i64, [i64; 2])]) -> Result<Vec<Option<[i64; 3]>>, MetalError> {
+    let io: Vec<[i64; 4]> = cases.iter().map(|&(m, k)| [m, k[0], k[1], 0]).collect();
+    Ok(probe("fourm1_probe", q, &io)?.iter().map(|r| if r[3] == 0 { Some([r[0], r[1], r[2]]) } else { None }).collect())
+}
+
+/// Test hook: the reflection's float filter (shaders.metal `float_floors`) on
+/// (q, T, 2S, p, n): the floors of q·x/e and q·y/e, (e, x, y) = T·p − 2S·n, or None where it
+/// defers to the exact path.
+#[doc(hidden)]
+pub fn float_floors_probe(cases: &[crate::FloorCase]) -> Result<Vec<Option<[i64; 2]>>, MetalError> {
+    let io: Vec<[i64; 12]> = cases
+        .iter()
+        .map(|&(q, t, s2, pv, nv)| [t as i64, (t >> 64) as i64, s2 as i64, (s2 >> 64) as i64, pv[0], pv[1], pv[2], nv[0], nv[1], nv[2], q, 0])
+        .collect();
+    Ok(probe("floors_probe", 1, &io)?.iter().map(|r| if r[0] != 0 { Some([r[1], r[2]]) } else { None }).collect())
 }
 
 fn kval(k: [i64; 2]) -> i64 {
@@ -772,11 +875,14 @@ impl MetalChronon {
         let n = self.bodies.len();
         let t0 = self.tick;
         let (bmin, bmax) = self.container.map_or(([0, 0], [0, 0]), |c| (c.min, c.max));
-        // The GPU cannot filter hits by the overflow map, and its relativistic bounce needs
-        // F²Q² < 2^62 (Q ≤ 2^15).
-        // The GPU bounce implements es-lattice-elastic-v0 and es-lattice-relativistic-v0; v1
-        // contacts are resolved on the CPU until the kernel is ported.
-        let resolve = self.opts.gpu_response && self.overflow.is_empty() && (self.law == Law::Newtonian || (self.law == Law::Relativistic && self.q <= 1 << 15));
+        // The GPU cannot filter hits by the overflow map. Its v0 bounce needs F²Q² < 2^62
+        // (Q ≤ 2^15); its v1 bounce covers the law's whole range (Q ≤ 2^20, crate docs).
+        let law_fits = match self.law {
+            Law::Newtonian => true,
+            Law::Relativistic => self.q <= 1 << 15,
+            Law::RelativisticV1 => self.q <= 1 << 20,
+        };
+        let resolve = self.opts.gpu_response && self.overflow.is_empty() && law_fits;
         let params = Params {
             reach: self.reach_max,
             bmin,
@@ -802,9 +908,23 @@ impl MetalChronon {
         self.gpu.steps.get_mut()[..b as usize].fill(StepRec::default());
         let parity = self.parity;
         let clock = Instant::now();
-        let cb = self.gpu.commit(params, b, t0, prune, parity);
+        let (cb, timed) = self.gpu.commit(params, b, t0, prune, parity, self.opts.profile);
         self.hash_pending();
-        let busy = Gpu::wait(&cb);
+        let mut busy = Gpu::wait(&cb);
+        if !timed.is_empty() {
+            busy = 0.0;
+            for (k, c) in timed {
+                let t = Gpu::wait(&c);
+                busy += t;
+                match self.stats.kernels.iter_mut().find(|e| e.0 == k) {
+                    Some(e) => {
+                        e.1 += Duration::from_secs_f64(t);
+                        e.2 += 1;
+                    }
+                    None => self.stats.kernels.push((k, Duration::from_secs_f64(t), 1)),
+                }
+            }
+        }
         self.stats.gpu_wait += clock.elapsed();
         self.stats.gpu_busy += Duration::from_secs_f64(busy);
         self.stats.command_buffers += 1;
@@ -850,7 +970,7 @@ impl MetalChronon {
                 self.gpu.out = Buf::new(&self.gpu.device, cap);
                 self.gpu.stat = Buf::new(&self.gpu.device, cap + n);
                 self.gpu.list = Buf::new(&self.gpu.device, cap + n);
-                if self.law == Law::Relativistic {
+                if self.law.subluminal() {
                     self.gpu.rel = Buf::new(&self.gpu.device, cap);
                 }
                 self.stats.pair_overflows += 1;

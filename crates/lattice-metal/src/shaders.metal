@@ -1,7 +1,7 @@
 // The GPU half of MetalChronon. One chronon = kmax, plan, [clear, bin: only when the cell
 // side changed], scan_reduce, scan_sums, scan_final, scatter (the snapshot), pairs
 // (detection), advance (wall set, and binning for the next chronon), then the response:
-// tally, classify, [rel_prep, rel_mom: relativistic law], resolve_pair (isolated contacts),
+// tally, classify, [rel_mom: relativistic laws], resolve_pair (isolated contacts),
 // listargs, hook × HOOKS, mark, resolve (larger components), unmark; every 64 chronons,
 // prune. Many chronons share one command
 // buffer; the CPU is needed only when a chronon holds a component the GPU may not resolve
@@ -18,14 +18,15 @@ struct Params {
     long bmin_x, bmin_y, bmax_x, bmax_y;
     long q;
     uint n, wbits, hmask, has_box, pair_cap, nblocks;
-    uint resolve;  // resolve contacts here (no CPU-side consumed filter; Q ≤ 2^15 if relativistic)
+    uint resolve;  // resolve contacts here (no CPU-side consumed filter; Q ≤ 2^15 under v0)
     uint log_cap;
     uint step;  // chronon index in this command buffer
     uint pad;
 };
 
 // The world's law, fixed when the pipelines are built so each keeps only its own bounce:
-// 0 Newtonian (law::resolve), 1 relativistic (relativity::resolve).
+// 0 Newtonian (law::resolve), 1 relativistic v0 and 2 relativistic v1 (relativity::resolve_law;
+// the versions differ only in the fixed-point 4-momentum, `fourm`).
 constant uint LAW [[function_constant(0)]];
 
 constant uint HALT_CPU = 1, HALT_PAIRS = 2, HALT_P1 = 3;
@@ -489,7 +490,7 @@ kernel void advance(device long2* pos [[buffer(0)]],
 // GPU cannot follow or bound (too large, a label not converged, a guard, a full table row
 // or log) is left whole to the CPU, which resolves it in i128.
 
-// Indirect grid sizes: every event (hits then walls), then hits only.
+// Indirect grid sizes: every event (hits then walls), and eight threads per hit (rel_mom).
 kernel void tally(device Ctl* ctl [[buffer(4)]],
                   constant Params& p [[buffer(5)]],
                   device uint* args [[buffer(23)]],
@@ -510,7 +511,6 @@ kernel void tally(device Ctl* ctl [[buffer(4)]],
         }
     }
     args[0] = (ev + 255) / 256; args[1] = 1; args[2] = 1;
-    args[3] = (hits + 255) / 256; args[4] = 1; args[5] = 1;
     args[15] = (8 * hits + 255) / 256; args[16] = 1; args[17] = 1;
 }
 
@@ -534,7 +534,12 @@ static inline uint count_of(device Dyn* dy, uint x) {
     return atomic_load_explicit(&dy[x].cnt, memory_order_relaxed);
 }
 
-// Incidences per body (first ADJ recorded), distinct bodies, labels initialised to self.
+// Incidences per body (first ADJ recorded), distinct bodies, labels initialised to self; and
+// under the relativistic laws the bounce's first stage for every hit.
+// Stage 1 of the relativistic bounce (defined with it below).
+static inline void rel_prep_one(uint e, uint a, uint b, device const long2* pos, device Dyn* dy, constant Params& p,
+                                device const uint* mass, device long* rel);
+
 kernel void classify(device Ctl* ctl [[buffer(4)]],
                      constant Params& p [[buffer(5)]],
                      device const uint* walls [[buffer(12)]],
@@ -543,6 +548,9 @@ kernel void classify(device Ctl* ctl [[buffer(4)]],
                      device atomic_uint* label [[buffer(24)]],
                      device Step* steps [[buffer(25)]],
                      device uint* adj [[buffer(26)]],
+                     device const long2* pos [[buffer(0)]],
+                     device const uint* mass [[buffer(10)]],
+                     device long* rel [[buffer(30)]],
                      uint e [[thread_position_in_grid]]) {
     uint a = 0, b = 0, m = bodies_of(e, ctl, out, walls, a, b), first = 0;
     for (uint q = 0; q < m; ++q) {
@@ -556,6 +564,8 @@ kernel void classify(device Ctl* ctl [[buffer(4)]],
     }
     first = simd_sum(first);  // distinct bodies, one atomic per SIMD group
     if (simd_is_first() && first != 0) atomic_fetch_add_explicit(&steps[p.step].inv, first, memory_order_relaxed);
+    // The relativistic bounce's first stage while this hit's bodies are at hand.
+    if (LAW != 0 && m == 2) rel_prep_one(e, a, b, pos, dy, p, mass, rel);
 }
 
 // One round of min-label propagation along contacts.
@@ -811,15 +821,161 @@ static inline long gam(long2 k, long q, thread bool& ok) {
     return g;
 }
 
-// Fixed-point 4-momentum (E, px, py) = m·Γ·(Q, k), required below 2^60 (|p| < E) so the
+// v0 fixed-point 4-momentum (E, px, py) = m·Γ·(Q, k), required below 2^60 (|p| < E) so the
 // sums and differences below stay exact in 64 bits.
-static inline long3 fourm(uint m, long2 k, long q, thread bool& ok) {
+static inline long3 fourm0(uint m, long2 k, long q, thread bool& ok) {
     long g = long(m) * gam(k, q, ok);  // < 2^47
     ok = ok && g < (1l << 60) / q;
     return long3(g * q, g * k.x, g * k.y);
 }
 
+// ---- v1 square roots: ⌊t/√s⌋ for t ≥ 0, s ≥ 1, the largest v with v²·s ≤ t² -------------
+// (equivalent for integers: v ≤ t/√s ⟺ v²s ≤ t²). A float estimate, then exact brackets
+// v²s ≤ t² < (v+1)²s; unit steps, and far off (near c) a float Newton step on the exact
+// residual. Nothing is rounded: a bracket not found in two rounds hands the contact to the CPU.
+
+// Unsigned 96-bit values as 32-bit limbs (a lowest): 32-bit multiplies are native, 64-bit
+// ones are emulated.
+struct u96 {
+    uint a, b, c;
+};
+// v²·s for v, s < 2^32 (below 2^96).
+static inline u96 sqs(uint v, uint s) {
+    uint l = v * v, h = mulhi(v, v);
+    uint l1 = mulhi(l, s), h0 = h * s;
+    u96 r;
+    r.a = l * s;
+    r.b = l1 + h0;
+    r.c = mulhi(h, s) + uint(r.b < l1);
+    return r;
+}
+// x + y, for sums below 2^96.
+static inline u96 u96_add(u96 x, u96 y) {
+    u96 r;
+    r.a = x.a + y.a;
+    uint c0 = uint(r.a < x.a);
+    r.b = x.b + y.b;
+    uint c1 = uint(r.b < x.b);
+    r.b += c0;
+    c1 += uint(r.b < c0);
+    r.c = x.c + y.c + c1;
+    return r;
+}
+static inline bool u96_lt(u96 x, u96 y) {
+    return x.c != y.c ? x.c < y.c : x.b != y.b ? x.b < y.b : x.a < y.a;
+}
+// float(x − y), subtracting exactly first.
+static inline float u96_diff(u96 x, u96 y) {
+    bool neg = u96_lt(x, y);
+    u96 p = neg ? y : x, q = neg ? x : y;
+    uint a = p.a - q.a, ba = uint(p.a < q.a);
+    uint b = p.b - q.b, bb = uint(p.b < q.b) + uint(b < ba);
+    b -= ba;
+    float f = float(p.c - q.c - bb) * 0x1p64f + float(b) * 0x1p32f + float(a);
+    return neg ? -f : f;
+}
+
+// t ≤ 2^31 and s < 2^32 (Q ≤ 2^10 for every v1 root): v ≤ t, so v + 1 < 2^32 and every
+// product fits 96 bits.
+static inline long root32(uint t, uint s, float rs, thread bool& ok) {
+    u96 t2 = {t * t, mulhi(t, t), 0};
+    // First the window {v, v + 1} half a unit below the float estimate, with the brackets
+    // v²s, (v+1)²s = v²s + (2v+1)s and (v+2)²s = (v+1)²s + (2v+3)s (below 2^95): no division,
+    // no branch. The estimate is within about 2^-22 relative, so this settles every root up to
+    // 2^21 or so (the energies of a gas at Q = 2^10 are 2^21 to 2^22).
+    uint v = uint(clamp(float(t) * rs - 0.5f, 0.0f, float(t)));
+    uint vs0 = v * s, vs1 = mulhi(v, s);                                  // v·s
+    u96 d1 = u96_add(u96{vs0 << 1, (vs1 << 1) | (vs0 >> 31), vs1 >> 31}, u96{s, 0, 0});  // (2v+1)s
+    u96 d2 = u96_add(d1, u96{s << 1, s >> 31, 0});                        // (2v+3)s
+    u96 b0 = sqs(v, s), b1 = u96_add(b0, d1), b2 = u96_add(b1, d2);
+    if (!u96_lt(t2, b0)) {
+        if (u96_lt(t2, b1)) return v;
+        if (u96_lt(t2, b2)) return v + 1;
+    }
+    for (uint i = 0; i < 8; ++i) {
+        u96 lo = sqs(v, s);
+        bool below = !u96_lt(t2, lo);  // v²s ≤ t²
+        if (below && u96_lt(t2, sqs(v + 1, s))) return v;
+        // A unit step toward the root; far off (near c, where the float estimate is 2^-22
+        // relative) a float Newton step on the exact residual, the update in integers.
+        float dv = u96_diff(t2, lo) / (2.0f * float(max(v, 1u)) * float(s));
+        long step = fabs(dv) < 2.0f ? (below ? 1l : -1l) : long(rint(clamp(dv, -0x1p33f, 0x1p33f)));
+        v = uint(clamp(long(v) + step, 0l, long(t)));
+    }
+    ok = false;
+    return 0;
+}
+
+// t ≤ 2^61 and s ≤ 2^40 (Q ≤ 2^20): t² < 2^123, and every bracket near the root stays below
+// 2^124 (checked all the same).
+static inline long root_wide(long t, long s, float rs, thread bool& ok) {
+    w128 t2 = w_mul(t, t);
+    long v = clamp(long(min(float(t) * rs, float(t))), 0l, t);
+    bool fine = true;
+    for (uint i = 0; i < 8 && fine; ++i) {
+        w128 r = w_sub(t2, w_mul(w_mul(v, v), s, fine), fine);  // t² − v²s
+        bool below = !w_neg(r);
+        if (below && w_lt(r, w_mul(2 * v + 1, s)) && fine) return v;  // t² < (v+1)²s
+        float dv = w_float(r) / (2.0f * float(max(v, 1l)) * float(s));
+        long step = fabs(dv) < 2.0f ? (below ? 1l : -1l) : long(rint(clamp(dv, -0x1p62f, 0x1p62f)));
+        v = clamp(v + step, 0l, t);
+    }
+    ok = false;
+    return 0;
+}
+
+static inline long root(long t, long s, float rs, thread bool& ok) {
+    return t <= (1l << 31) && s < (1l << 32) ? root32(uint(t), uint(s), rs, ok) : root_wide(t, s, rs, ok);
+}
+
+// v1 fixed-point 4-momentum (relativity::four_momentum_v1): per unit mass E = ⌊2Q³/√s⌋ and
+// p_c = sgn(k_c)·⌊2Q²|k_c|/√s⌋, s = Q² − |k|², times m; E below 2^60 (|p_c| ≤ E) as in v0.
+// Q ≤ 2^20 (the law's range), |k_c| ≤ Q.
+static inline long3 fourm1(uint m, long2 k, long q, thread bool& ok) {
+    long q2 = q * q, s = q2 - (k.x * k.x + k.y * k.y);
+    if (s <= 0 || q > (1l << 20)) {
+        ok = false;
+        return 0;
+    }
+    float rs = rsqrt(float(s));
+    long e = root(2 * q * q2, s, rs, ok);
+    long px = root(2 * q2 * abs(k.x), s, rs, ok), py = root(2 * q2 * abs(k.y), s, rs, ok);
+    // m ≤ 2^32 and e < 2^62: the float product bounds m·e within 2^-22, far inside 2^59 < 2^60.
+    ok = ok && float(e) * float(m) < 0x1p59f;
+    long M = long(m);
+    return long3(M * e, M * (k.x < 0 ? -px : px), M * (k.y < 0 ? -py : py));
+}
+
+// The world's relativistic 4-momentum.
+static inline long3 fourm(uint m, long2 k, long q, thread bool& ok) {
+    return LAW == 2 ? fourm1(m, k, q, ok) : fourm0(m, k, q, ok);
+}
+
 constant uint REL_EXCH = 0, REL_NONE = 1, REL_CPU = 2;
+
+// The floors of one side's targets q·x/e and q·y/e, where (e, x, y) = T·p − 2S·n exactly
+// (Tf and S2f are T and 2S within 2^-23 relative, scaled by 2^-64), decided in floats when
+// an error bound allows; false leaves them to the exact 128-bit path. Every float operation
+// here is IEEE (no fast math): a product of two rounded inputs is within 2^-22 relative of
+// the exact one, so each part v of (e, x, y) is within err = 2^-20·(|T·p| + |2S·n|) (2^-21.4
+// with its difference; a factor of 3 to spare). With v_e clear of zero (|v_e| > 4·err_e, so e
+// has v_e's sign), |x/e − v_x/v_e| ≤ (err_x/|v_e| + |v_x/v_e|·err_e/|v_e|)/(1 − err_e/|v_e|);
+// twice that times q, plus 2^-21 of the quotient (its two roundings, a division of up to 2.5
+// ulp included) and 2^-20, must leave the target's float inside one open unit interval: then
+// its floor is exact and the target is not an integer. Ratios only, so nothing overflows.
+static inline bool float_floors(long q, float Tf, float S2f, long3 pv, long3 nv, thread long2& f) {
+    float3 a = Tf * float3(pv), b = S2f * float3(nv), v = a - b;
+    float3 err = (fabs(a) + fabs(b)) * 0x1p-20f;
+    if (!(fabs(v.x) > 4.0f * err.x)) return false;
+    float ve = fabs(v.x), re = err.x / ve, fq = float(q);
+    float2 w = (v.x < 0 ? -v.yz : v.yz) / ve;  // e > 0 after normalising, as the exact path does
+    float2 tf = fq * w;
+    float2 bound = 2.0f * (fq * (err.yz / ve + fabs(w) * re) / (1.0f - re) + fabs(tf) * 0x1p-21f) + 0x1p-20f;
+    float2 fl = floor(tf);
+    if (!all(fabs(tf) < 0x1p22f) || !all(tf - bound > fl) || !all(tf + bound < fl + 1.0f)) return false;
+    f = long2(fl);
+    return true;
+}
 
 // Candidate slot z of a pair: 0..3 body a's (fl, fl), (fl, ce), (ce, fl), (ce, ce) around its
 // target, 4..7 body b's, as positions relative to the floors `fl` (a.x, a.y, b.x, b.y).
@@ -849,23 +1005,28 @@ static inline uint rel_setup(long q, long2 d, uint ma, uint mb, long2 ka, long2 
     if (!ok) return REL_CPU;
     if (w_zero(S) || w_zero(T)) return REL_NONE;
     w128 S2 = w_add(S, S, ok);
+    // T and 2S scaled by 2^-64 (exactly), so the float products below stay under 2^126.
+    float Tf = w_float(T) * 0x1p-64f, S2f = w_float(S2) * 0x1p-64f;
     valid = 0;
     for (uint side = 0; side < 2 && ok; ++side) {
         long3 pv = side == 0 ? pa : pb;
         long sg = side == 0 ? 1 : -1;
-        w128 e = w_sub(w_mul(T, pv.x, ok), w_mul(S2, n0 * sg, ok), ok);
-        w128 x = w_sub(w_mul(T, pv.y, ok), w_mul(S2, n1 * sg, ok), ok);
-        w128 y = w_sub(w_mul(T, pv.z, ok), w_mul(S2, n2 * sg, ok), ok);
-        x = w_mul(x, q, ok);
-        y = w_mul(y, q, ok);
-        if (w_neg(e)) {
-            e = w_minus(e, ok);
-            x = w_minus(x, ok);
-            y = w_minus(y, ok);
-        }
-        if (!ok || w_zero(e)) return REL_CPU;
         bool ex = false, ey = false;
-        long2 f = long2(w_floor(x, e, ex, ok), w_floor(y, e, ey, ok));
+        long2 f = 0;
+        if (!float_floors(q, Tf, S2f, pv, long3(n0, n1, n2) * sg, f)) {
+            w128 e = w_sub(w_mul(T, pv.x, ok), w_mul(S2, n0 * sg, ok), ok);
+            w128 x = w_sub(w_mul(T, pv.y, ok), w_mul(S2, n1 * sg, ok), ok);
+            w128 y = w_sub(w_mul(T, pv.z, ok), w_mul(S2, n2 * sg, ok), ok);
+            x = w_mul(x, q, ok);
+            y = w_mul(y, q, ok);
+            if (w_neg(e)) {
+                e = w_minus(e, ok);
+                x = w_minus(x, ok);
+                y = w_minus(y, ok);
+            }
+            if (!ok || w_zero(e)) return REL_CPU;
+            f = long2(w_floor(x, e, ex, ok), w_floor(y, e, ey, ok));
+        }
         if (side == 0) fl.xy = f; else fl.zw = f;
         for (uint z = 0; z < 4; ++z) {
             long2 c = f + long2(z >> 1, z & 1);
@@ -876,25 +1037,43 @@ static inline uint rel_setup(long q, long2 d, uint ma, uint mb, long2 ka, long2 
     return ok && (valid & 15) != 0 && (valid >> 4) != 0 ? REL_EXCH : REL_CPU;
 }
 
-// Candidate 4-momenta, from a thread array (general response) or the stage-2 scratch
-// (isolated pairs), as flat longs (E, px, py, fail) per slot: arrays of 64-bit vectors
-// miscompiled here (lost or misplaced components). fail != 0: Γ left the checked range.
-struct ThreadMom {
-    thread long* m;
-    long4 operator()(uint z) const { return long4(m[4 * z], m[4 * z + 1], m[4 * z + 2], m[4 * z + 3]); }
-};
-struct DeviceMom {
-    device const long* m;
-    long4 operator()(uint z) const { return long4(m[4 * z], m[4 * z + 1], m[4 * z + 2], m[4 * z + 3]); }
-};
+// Candidate 4-momenta in the stage-2 scratch or a thread array, flat longs (E, px, py) per
+// slot: arrays of 64-bit vectors miscompiled here (lost or misplaced components). E < 0
+// marks a momentum that left its checked range (a valid one has E ≥ 0).
+static inline long3 mom_of(device const long* m, uint z) {
+    return long3(m[3 * z], m[3 * z + 1], m[3 * z + 2]);
+}
+static inline long3 mom_of(thread const long* m, uint z) {
+    return long3(m[3 * z], m[3 * z + 1], m[3 * z + 2]);
+}
+static inline long3 mom_or_fail(long3 f, bool ok) {
+    return ok ? f : long3(-1, 0, 0);
+}
+
+// a² for a < 2^32, from native 32-bit multiplies.
+static inline ulong sq32(uint a) {
+    return as_type<ulong>(uint2(a * a, mulhi(a, a)));
+}
+// |r|² exactly for |r_c| < 2^62 (else clears ok): in 64 bits when every |r_c| < 2^31 (three
+// squares below 2^62 each), else in 128.
+static inline w128 score_of(long3 r, thread bool& ok) {
+    ok = ok && all(abs(r) < (1l << 62));
+    if (all(abs(r) < (1l << 31))) {
+        uint3 u = uint3(abs(r));
+        w128 w;
+        w.lo = sq32(u.x) + sq32(u.y) + sq32(u.z);
+        w.hi = 0;
+        return w;
+    }
+    return w_add(w_add(w_mul(r.x, r.x), w_mul(r.y, r.y), ok), w_mul(r.z, r.z), ok);
+}
 
 // Stage 3: the pair of candidates minimising |owed + e|², e the 4-momentum rounding error;
 // the first strict minimum in the reference's order; both unchanged only if nothing else.
 // a's carries `oa` absorb e. Every 4-momentum part and carry is below 2^60, so e and
 // owed + e are exact in 64 bits; the squares need |owed + e| < 2^62.
-template <typename Mom>
-static inline bool rel_pick(thread long2& ka, thread long2& kb, thread long3& oa, long3 ob, long3 P, long4 fl, uint valid,
-                            Mom mom) {
+template <typename M>
+static inline bool rel_pick(thread long2& ka, thread long2& kb, thread long3& oa, long3 ob, long3 P, long4 fl, uint valid, M m) {
     bool ok = all(abs(oa) < (1l << 60)) && all(abs(ob) < (1l << 60));
     uint va = valid & 15, vb = valid >> 4;
     bool allowed = popcount(va) * popcount(vb) == 1, found = false;
@@ -903,15 +1082,14 @@ static inline bool rel_pick(thread long2& ka, thread long2& kb, thread long3& oa
     uint si = 0, sj = 4;
     for (uint i = 0; i < 4; ++i) {
         if (((va >> i) & 1) == 0) continue;
-        long4 fa = mom(i);
-        ok = ok && fa.w == 0;
+        long3 fa = mom_of(m, i);
+        ok = ok && fa.x >= 0;
         for (uint j = 4; j < 8; ++j) {
             if (((vb >> (j - 4)) & 1) == 0 || (!allowed && all(slot(fl, i) == ka) && all(slot(fl, j) == kb))) continue;
-            long4 fb = mom(j);
-            ok = ok && fb.w == 0;
-            long3 e = fa.xyz + fb.xyz - P, r = owed + e;
-            ok = ok && all(abs(r) < (1l << 62));
-            w128 score = w_add(w_add(w_mul(r.x, r.x), w_mul(r.y, r.y), ok), w_mul(r.z, r.z), ok);
+            long3 fb = mom_of(m, j);
+            ok = ok && fb.x >= 0;
+            long3 e = fa + fb - P;
+            w128 score = score_of(owed + e, ok);
             if (!found || w_lt(score, best)) {
                 found = true;
                 best = score;
@@ -930,48 +1108,49 @@ static inline bool rel_pick(thread long2& ka, thread long2& kb, thread long3& oa
 }
 
 // relativity::resolve for one bouncer pair, all stages in one thread (larger components).
+// Leaders of many components share a SIMD group, so one thread per component (not eight
+// cooperating) keeps the lanes busy: measured faster.
 static inline bool rel_bounce(long q, long2 d, uint ma, uint mb, thread long2& ka, thread long2& kb, thread long3& oa, long3 ob) {
     long3 P = 0;
     long4 fl = 0;
     uint valid = 0, st = rel_setup(q, d, ma, mb, ka, kb, P, fl, valid);
     if (st != REL_EXCH) return st == REL_NONE;
-    long m[32];
+    long m[24];  // (E, px, py) per slot
     for (uint z = 0; z < 8; ++z) {
         bool ok = true;
         long3 f = ((valid >> z) & 1) != 0 ? fourm(z < 4 ? ma : mb, slot(fl, z), q, ok) : long3(0);
-        m[4 * z] = f.x;
-        m[4 * z + 1] = f.y;
-        m[4 * z + 2] = f.z;
-        m[4 * z + 3] = long(!ok);
+        f = mom_or_fail(f, ok);
+        m[3 * z] = f.x;
+        m[3 * z + 1] = f.y;
+        m[3 * z + 2] = f.z;
     }
-    ThreadMom mom;
-    mom.m = m;
-    return rel_pick(ka, kb, oa, ob, P, fl, valid, mom);
+    return rel_pick(ka, kb, oa, ob, P, fl, valid, m);
 }
 
-// Scratch of the staged bounce of an isolated relativistic pair, flat (see ThreadMom):
-// P (E, px, py) at 0, floors at 3, valid | state << 8 at 7, slot momenta from 8, 4 each.
-constant uint REL_LONGS = 40;
+// relativity::resolve for one bouncer pair from its staged scratch r (rel_bounce's outcome
+// when the pair's velocities are the ones it was staged with).
+static inline bool rel_staged(device const long* r, thread long2& ka, thread long2& kb, thread long3& oa, long3 ob) {
+    uint vs = uint(r[7]), st = (vs >> 8) & 255;
+    if (st != REL_EXCH) return st == REL_NONE;
+    return rel_pick(ka, kb, oa, ob, long3(r[0], r[1], r[2]), long4(r[3], r[4], r[5], r[6]), vs & 255, r + 8);
+}
 
-// Stage 1 for isolated bouncer pairs (other hits are left to resolve_pair's own path).
-kernel void rel_prep(device const long2* pos [[buffer(0)]],
-                     device Dyn* dy [[buffer(3)]],
-                     device Ctl* ctl [[buffer(4)]],
-                     constant Params& p [[buffer(5)]],
-                     device const uint* rf [[buffer(8)]],
-                     device const uint* mass [[buffer(10)]],
-                     device const uint2* out [[buffer(14)]],
-                     device long* rel [[buffer(30)]],
-                     uint e [[thread_position_in_grid]]) {
-    if (e >= atomic_load_explicit(&ctl->npairs, memory_order_relaxed)) return;
-    uint a = out[e].x, b = out[e].y;
-    uint st = REL_NONE;
+// Scratch of the staged bounce of a hit, flat (see mom_of):
+// P (E, px, py) at 0, floors at 3, valid | state << 8 | m_a << 16 | m_b << 40 at 7, slot
+// momenta from 8, 3 each.
+constant uint REL_LONGS = 32;
+
+// Stage 1, run by classify for every hit (isolation is known only once classify is done, and
+// whether both bodies bounce is checked by the consumers): resolve_pair uses the scratch of
+// isolated pairs of bouncers, resolve that of larger components' bouncer contacts whose bodies
+// have not bounced yet. The masses ride along for rel_mom.
+static inline void rel_prep_one(uint e, uint a, uint b, device const long2* pos, device Dyn* dy, constant Params& p,
+                                device const uint* mass, device long* rel) {
+    uint ma = mass[a], mb = mass[b];
+    long2 xa = pos[a], xb = pos[b], ka = dy[a].k, kb = dy[b].k;
     long3 P = 0;
     long4 fl = 0;
-    uint valid = 0;
-    if (count_of(dy, a) == 1 && count_of(dy, b) == 1 && (rf[a] & rf[b] & BOUNCE) != 0) {
-        st = rel_setup(p.q, pos[b] - pos[a], mass[a], mass[b], dy[a].k, dy[b].k, P, fl, valid);
-    }
+    uint valid = 0, st = rel_setup(p.q, xb - xa, ma, mb, ka, kb, P, fl, valid);
     device long* r = rel + e * REL_LONGS;
     r[0] = P.x;
     r[1] = P.y;
@@ -980,7 +1159,7 @@ kernel void rel_prep(device const long2* pos [[buffer(0)]],
     r[4] = fl.y;
     r[5] = fl.z;
     r[6] = fl.w;
-    r[7] = long(valid | st << 8);
+    r[7] = long(valid | st << 8) | long(ma) << 16 | long(mb) << 40;  // masses < 2^17 (law.rs MAX_MASS)
 }
 
 // Stage 2: one candidate 4-momentum per thread (eight per pair).
@@ -993,27 +1172,23 @@ kernel void rel_mom(device Ctl* ctl [[buffer(4)]],
     uint e = t / 8, z = t % 8;
     if (e >= atomic_load_explicit(&ctl->npairs, memory_order_relaxed)) return;
     device long* r = rel + e * REL_LONGS;
-    uint vs = uint(r[7]);
-    if ((vs >> 8) != REL_EXCH || ((vs >> z) & 1) == 0) return;
+    long vs = r[7];
+    if (((vs >> 8) & 255) != REL_EXCH || ((vs >> z) & 1) == 0) return;
     bool ok = true;
-    long3 f = fourm(mass[z < 4 ? out[e].x : out[e].y], slot(long4(r[3], r[4], r[5], r[6]), z), p.q, ok);
-    r[8 + 4 * z] = f.x;
-    r[9 + 4 * z] = f.y;
-    r[10 + 4 * z] = f.z;
-    r[11 + 4 * z] = long(!ok);
+    long3 f = fourm(uint(z < 4 ? (vs >> 16) & 0xffffff : vs >> 40), slot(long4(r[3], r[4], r[5], r[6]), z), p.q, ok);
+    f = mom_or_fail(f, ok);
+    r[8 + 3 * z] = f.x;
+    r[9 + 3 * z] = f.y;
+    r[10 + 3 * z] = f.z;
 }
 
-// The bounce of the world's law. `oa`, `ob`: carries (energy, and momentum under the
-// relativistic law); a's absorbs the pair's error.
-static inline bool bounce(constant Params& p, long2 d, uint ma, uint mb, thread long2& ka, thread long2& kb,
-                          thread long3& oa, long3 ob) {
-    if (LAW == 0) {
-        long en = 0, carry = oa.x;
-        bool ok = impulse(d, ma, mb, ka, kb, oa.x + ob.x, en, carry);
-        oa.x = carry;
-        return ok;
-    }
-    return rel_bounce(p.q, d, ma, mb, ka, kb, oa, ob);
+// The Newtonian bounce (law::resolve) of one pair: `oa`, `ob` carry the energy; a's absorbs
+// the pair's error.
+static inline bool bounce(long2 d, uint ma, uint mb, thread long2& ka, thread long2& kb, thread long3& oa, long3 ob) {
+    long en = 0, carry = oa.x;
+    bool ok = impulse(d, ma, mb, ka, kb, oa.x + ob.x, en, carry);
+    oa.x = carry;
+    return ok;
 }
 
 // Momentum a wall takes from a bouncer flipping component ax: 2·m·k (Newtonian), 2·p
@@ -1046,46 +1221,62 @@ kernel void resolve_pair(device const long2* pos [[buffer(0)]],
                          uint e [[thread_position_in_grid]]) {
     uint np = atomic_load_explicit(&ctl->npairs, memory_order_relaxed);
     uint nw = atomic_load_explicit(&ctl->nwalls, memory_order_relaxed);
-    uint a = 0, b = 0;
+    uint a = 0, b = 0, fa = 0, fb = 0, ra = 0, rb = 0, ma = 0, mb = 0;
+    long2 ka = 0, kb = 0, xa = 0, xb = 0, pa = 0, pb = 0;
+    long ea = 0, eb = 0;
     bool mine = e < np;
     if (mine) {
         a = out[e].x;
         b = out[e].y;
-        mine = count_of(dy, a) == 1 && count_of(dy, b) == 1;
+        // Every gather at once: they are independent, and nearly every hit is an isolated
+        // pair of bouncers.
+        uint na = count_of(dy, a), nb = count_of(dy, b);
+        fa = rf[a];
+        fb = rf[b];
+        ka = dy[a].k;
+        kb = dy[b].k;
+        ea = dy[a].res;
+        eb = dy[b].res;
+        ra = dy[a].rev;
+        rb = dy[b].rev;
+        if (LAW == 0) {
+            xa = pos[a];
+            xb = pos[b];
+            ma = mass[a];
+            mb = mass[b];
+        } else {
+            pa = car[a];
+            pb = car[b];
+        }
+        mine = na == 1 && nb == 1;
     }
     uint other = uint(!mine && e < np + nw);
     uint lpre = simd_prefix_exclusive_sum(other), ltot = simd_sum(other), lbase = 0;
     if (simd_is_first() && ltot != 0) lbase = atomic_fetch_add_explicit(&ctl->nlist, ltot, memory_order_relaxed);
     lbase = simd_broadcast_first(lbase) + lpre;
     if (other != 0) list[lbase] = e;
-    long2 ka = 0, kb = 0, oa = 0, ob = 0;
+    long2 oa = ka, ob = kb;
     long3 ca = 0;
-    uint fa = 0, fb = 0, rva = 0, rvb = 0;
+    uint rva = 0, rvb = 0;
     bool ok = mine;
     if (mine) {
-        fa = rf[a];
-        fb = rf[b];
-        oa = ka = dy[a].k;
-        ob = kb = dy[b].k;
         if ((fa & BOUNCE) != 0 && (fb & BOUNCE) != 0) {
             if (LAW == 0) {
-                ca = long3(dy[a].res, 0, 0);
-                ok = bounce(p, pos[b] - pos[a], mass[a], mass[b], ka, kb, ca, long3(dy[b].res, 0, 0));
+                ca = long3(ea, 0, 0);
+                ok = bounce(xb - xa, ma, mb, ka, kb, ca, long3(eb, 0, 0));
             } else {
-                // Stages 1 and 2 ran in rel_prep and rel_mom.
-                ca = long3(dy[a].res, car[a]);
+                // Stages 1 and 2 ran in classify and rel_mom.
+                ca = long3(ea, pa);
                 device const long* r = rel + e * REL_LONGS;
-                uint vs = uint(r[7]), st = vs >> 8;
-                DeviceMom mom;
-                mom.m = r + 8;
-                ok = st == REL_NONE || (st == REL_EXCH && rel_pick(ka, kb, ca, long3(dy[b].res, car[b]), long3(r[0], r[1], r[2]),
-                                                                    long4(r[3], r[4], r[5], r[6]), vs & 255, mom));
+                uint vs = uint(r[7]), st = (vs >> 8) & 255;
+                ok = st == REL_NONE || (st == REL_EXCH && rel_pick(ka, kb, ca, long3(eb, pb), long3(r[0], r[1], r[2]),
+                                                                    long4(r[3], r[4], r[5], r[6]), vs & 255, r + 8));
             }
         }
         if ((fa & STOP) != 0) ka = 0;
         if ((fb & STOP) != 0) kb = 0;
-        rva = dy[a].rev + uint(any(ka != oa));
-        rvb = dy[b].rev + uint(any(kb != ob));
+        rva = ra + uint(any(ka != oa));
+        rvb = rb + uint(any(kb != ob));
         // Room in a's row: b's own slot, an empty one, or a stale one (every entry is stale
         // once a revises).
         if (ok) {
@@ -1170,6 +1361,7 @@ kernel void resolve(device const long2* pos [[buffer(0)]],
                     device Ev* log [[buffer(28)]],
                     device const uint* list [[buffer(29)]],
                     device long2* car [[buffer(15)]],
+                    device const long* rel [[buffer(30)]],
                     uint i [[thread_position_in_grid]]) {
     if (i >= atomic_load_explicit(&ctl->nlist, memory_order_relaxed)) return;
     uint e = list[i];
@@ -1239,7 +1431,17 @@ kernel void resolve(device const long2* pos [[buffer(0)]],
         if ((rf[a] & BOUNCE) == 0 || (rf[b] & BOUNCE) == 0) continue;
         cw |= (1u << ia) | (1u << ib);
         long3 wa = long3(WE0[ia], WP[ia]);
-        ok = bounce(p, pos[b] - pos[a], mass[a], mass[b], K[ia], K[ib], wa, long3(WE0[ib], WP[ib]));
+        long3 wb = long3(WE0[ib], WP[ib]);
+        if (LAW == 0) {
+            ok = bounce(pos[b] - pos[a], mass[a], mass[b], K[ia], K[ib], wa, wb);
+        } else if (all(K[ia] == K0[ia]) && all(K[ib] == K0[ib])) {
+            // Both bodies still move as at the chronon's start: classify and rel_mom staged
+            // this contact's reflection and candidate momenta (for every hit, isolated or
+            // not); only the pick depends on the carries so far.
+            ok = rel_staged(rel + P[z] * REL_LONGS, K[ia], K[ib], wa, wb);
+        } else {
+            ok = rel_bounce(p.q, pos[b] - pos[a], mass[a], mass[b], K[ia], K[ib], wa, wb);
+        }
         WE0[ia] = wa.x;
         WP[ia] = wa.yz;
     }
@@ -1406,4 +1608,39 @@ kernel void prune(device const long2* pos [[buffer(0)]],
         }
     }
     mask[i] = m;
+}
+
+// Test hook (gpu.rs `v1_momenta`): the v1 4-momentum of each (m, kx, ky), flat (see mom_of):
+// io[4i..4i+3] holds (m, kx, ky, 0) in and (E, px, py, fail) out.
+kernel void fourm1_probe(constant Params& p [[buffer(5)]],
+                         device long* io [[buffer(30)]],
+                         uint i [[thread_position_in_grid]]) {
+    if (i >= p.n) return;
+    device long* r = io + 4 * i;
+    bool ok = true;
+    long3 f = fourm1(uint(r[0]), long2(r[1], r[2]), p.q, ok);
+    r[0] = f.x;
+    r[1] = f.y;
+    r[2] = f.z;
+    r[3] = long(!ok);
+}
+
+// Test hook (gpu.rs `float_floors_probe`): float_floors on (T, 2S, p, n) given as 64-bit parts
+// io[12i..12i+11] = (T.lo, T.hi, S2.lo, S2.hi, pE, px, py, n0, n1, n2, q, 0) in and
+// (decided, fx, fy) at the start out.
+kernel void floors_probe(constant Params& p [[buffer(5)]],
+                         device long* io [[buffer(30)]],
+                         uint i [[thread_position_in_grid]]) {
+    if (i >= p.n) return;
+    device long* r = io + 12 * i;
+    w128 T, S2;
+    T.lo = ulong(r[0]);
+    T.hi = ulong(r[1]);
+    S2.lo = ulong(r[2]);
+    S2.hi = ulong(r[3]);
+    long2 f = 0;
+    bool decided = float_floors(r[10], w_float(T) * 0x1p-64f, w_float(S2) * 0x1p-64f, long3(r[4], r[5], r[6]), long3(r[7], r[8], r[9]), f);
+    r[0] = long(decided);
+    r[1] = f.x;
+    r[2] = f.y;
 }

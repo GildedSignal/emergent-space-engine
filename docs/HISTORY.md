@@ -2628,3 +2628,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [rows](../artifacts/evidence/gr-oracle-20260927/rows.jsonl)
 - Limitations: Single-mass Schwarzschild only: no Shapiro delay yet, no two-body 1PN dynamics or radiation, no frame dragging. Weak-field rows beyond the ODE's range rest on one exact method plus the series.
 - Next: Add the Shapiro delay and the Newtonian-limit Kepler period. Freeze the lattice-gravity comparison bands before any gravity law runs. Julien chooses the field representation for the first prototype.
+
+## H0179 — Metal runs the exact v1 bounce on the GPU: the 1M v1 gas takes 8.0 s
+
+- Date: 2026-09-27
+- Kind: implementation
+- Status: measured
+- Revisions: `892e2f4`; this entry's commit
+- Scope: `crates/lattice-metal` (shaders.metal, gpu.rs, lib.rs, tests/equivalence.rs, examples/throughput.rs), by the Metal specialist and verified by the integrator
+- Changed: The GPU now resolves es-lattice-relativistic-v1 contacts exactly for Q ≤ 2^20, the law's whole range. The square roots start from float estimates verified exactly (brackets on 32-bit limbs up to Q = 2^10, 128-bit above). A float filter decides the reflection's target floors when a proven error bound allows; otherwise the exact 128-bit path runs. Stage 1 of the bounce is fused into `classify`, the scratch is smaller, and `resolve` reuses staged work. `Options::profile` gives per-kernel GPU times, and `throughput` accepts `v1`, `h=`, `ref=` and `profile`. The float filter decides nearly every floor at Q ≤ 2^12 and covers Q = 2^16. At Q = 2^20 the Minkowski normal exceeds 62 bits and contacts go to the CPU. A cooperative 8-thread resolve was measured slower and dropped.
+- Why: H0174 left v1 contacts on the CPU; the target is 1M ships in under 8 s under the universe's law.
+- Validation: `cargo test --release -p emergent-lattice-metal` passes 9 of 9 (8.5 s). The three v1 cases resolve every contact on the GPU. New cases: near-c light and heavy v1 (both paths run), Q = 2^16 (GPU), and Q = 2^20 (all contacts on the CPU). Two adversarial checks: the v1 momentum kernel against `four_momentum_v1` over 216k cases, and the float filter against exact i128 floors over 60k cases, including exact-integer and near-integer targets; every decided result was exact. The 1M v1 gas over 1,024 chronons, digest equal to the CPU reference at tick 16: the specialist measured 7.98–8.45 s (v0 8.40–8.81 s, down from 9.7 s in H0171; Newtonian 7.32–7.66 s) at load 3.6–5.6; the integrator measured 127 chronons/s, 8.03 s, at load 4.6. No thermal warnings.
+- Evidence: this entry; `cargo run --release -p emergent-lattice-metal --example throughput -- v1 1048576`
+- Limitations: The 8 s target is met only on a quiet machine: all runs sit within the 30% thermal and load band. At Q = 2^20 contacts go to the CPU. Detection is about 5.5 of 8.8 ms per chronon and is shared by every law; random gathers of body data cost more than the arithmetic.
+- Next: Cut detection's memory traffic (spatially ordered body storage, 64-bit cell-relative positions, needed for Q = 2^40 anyway). Climb ladder v7 on a quiet machine.
