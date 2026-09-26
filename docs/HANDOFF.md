@@ -16,13 +16,17 @@ The agreed direction is [work-allocation-principles.md](work-allocation-principl
 
 Parallel design threads: the aggregate combat law, the player's influence and input design, share codes, and ladder v5.
 
-Status (25 September 2026, 23:30, H0161–H0163). Nothing is committed; step 0 still waits for Julien's OK.
-- **Contract:** `crates/lattice` (law, CPU chronon reference, digests, `Stepper`) equals the independent gas reference.
-- **Ladder:** [v5](../scenarios/scale-ladder-v5.json) is frozen; run it with `cargo run --release -p xtask -- ladder5 <dir> [track] --modes=chronon,event`.
-- **Step 1 (event core, `crates/lattice-event`):** passes invariance, cost-per-event and useful-work gates. Its smooth gate fails; round 2 is in progress.
-- **Step 5 (`crates/lattice-metal`) and steps 2–4 (`crates/allocator`):** being built by specialists (interrupted once by an API rate limit, resumed 23:10). New target from Julien: the gas at 1M ships must be trivial.
-- **Relativistic bounce:** `crates/lattice/src/relativity.rs` is tested but not yet wired. Next: `World.law` and `Body.carry` once the specialists finish, then ladder v6.
-- **Whole computer:** design §4b has the tier rule and silicon table, with the HEVC sensor measured.
+Status (26 September 2026, H0161–H0167). Everything is committed, local only, on `codex/integration-continuation-20260923`.
+- **Modes:** the contract (`crates/lattice`), event core (`crates/lattice-event`), Metal chronon mode (`crates/lattice-metal`) and allocator (`crates/allocator`) all give bit-identical results.
+- **Best passing rung per v5 track:** X1 1M bodies (event); X2 16.7M ticks (event); X3 262,144 (event); C1 65,536; C2 262,144 ships (metal; 1M at 102 chronons/s outside the ladder); X5 2.1M ticks (event); C3 65,536 (metal). X4 (families) is not supported.
+- **Failing gates:** smooth (metal units are GPU round trips; event at C2 65,536 and X5 2.1M); useful_work at C3 64 (0.479).
+- **Journal check:** `history check` passes again (H0166 evidence map).
+- **Next, in order:**
+  1. κ-based mode selection per region, and the regions ladder mode.
+  2. A GPU-resident multi-chronon loop for 1M in under 8 s.
+  3. Wire the relativistic law (`relativity.rs`: `World.law`, `Body.carry`, a hard speed bound for per-region finality) with an independent reference; freeze ladder v6.
+  4. Decide the contact-chain superluminality question with Julien.
+  5. Parity with the old engine (groups first, then commands, signals, observation) before gravity.
 
 ## Current continuation — H0159 (25 September 2026)
 
