@@ -1,0 +1,24 @@
+Ladder v7 climb, 2026-09-27 00:45–01:03, HEAD c073241, quick profile (8 s per rung, 240 s per climb), one mode per climb (climb.log: load 3.3–7.3, no thermal or performance warning).
+G2 for metal and regions was cut by the 240 s climb budget and was completed with `xtask ladder7 <dir> G2-galaxy-span --modes=<m>` (metal-G2/, regions-G2/).
+No correctness flag was false in any mode, track or rung (ledgers, below c, carry bound, chronon digests, budget invariance, independent references).
+
+Best passing rung per track (advance ms):
+X1  hybrid 1,048,576 (4,031) | event 1,048,576 (3,559) | regions 65,536 | metal 65,536 | chronon 4,096
+X2  hybrid 16.7M ticks (533) | event 16.7M (506) | regions 262,144 (then killed at 44 s: checks) | metal 4,096 | chronon 4,096
+X3  hybrid 262,144 | event 262,144 | regions 4,096 (then killed at 44 s) | metal 256 | chronon 256
+X4  NOT_SUPPORTED (families)
+C1  65,536 in every mode (event 172, metal 193, regions 210, hybrid 211, chronon 2,365)
+C2  regions 262,144 (6,137) | metal 262,144 (6,722) | hybrid 262,144 (6,766) | event 65,536 | chronon 16,384; 1M: regions reached 1,024 in 15.3 s, metal 768 ticks and hybrid 578 in 8 s
+X5  hybrid 262,144 ticks | regions 262,144 | event 262,144 | chronon 262,144 | metal 32,768
+C3  16,384 in hybrid, regions, metal and event; chronon 4,096
+C4  16,384 in hybrid, regions, metal and event; chronon 4,096
+G1  regions 262,144 (2,766) | metal 262,144 (4,268) | hybrid 65,536 | event 65,536 | chronon 16,384; 1M: regions reached 1,024 in 8.2 s, metal at the 8 s cap
+G2  spans 2^12..2^30 pass in event (904 at 2^30), hybrid (911), metal (348), regions (229), chronon (6,631); 2^45 NOT_SUPPORTED (coordinate range) everywhere
+
+Gates:
+gas_one_million FAIL (no mode passes C2 1M within 8 s in the ladder harness; standalone Metal throughput is 8.0 s, H0179)
+galaxy_one_million FAIL (regions 8.2 s, metal at the cap)
+empty_space_free: event PASS (1.008, spans 2^12→2^30), metal PASS (0.759), hybrid FAIL (1.965)
+cost_per_event_flat: event PASS (X1 0.93, C2 1.40)
+useful_work: event FAIL (0.483, C3 64 as in H0165)
+smooth: event PASS; metal FAIL (units are GPU round trips); hybrid FAIL; regions FAIL (a ladder unit is the whole batch for this mode)

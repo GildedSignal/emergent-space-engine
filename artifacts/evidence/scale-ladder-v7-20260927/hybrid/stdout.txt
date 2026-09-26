@@ -1,0 +1,62 @@
+hybrid   X1-relative-motion             256 PASS                 1 ms  unit max     0.15 ms SMOOTH ops/event  12526.0 pred/op 0.50 cores 0.55  
+hybrid   X1-relative-motion            4096 PASS                 6 ms  unit max     0.14 ms SMOOTH ops/event  13087.8 pred/op 0.52 cores 1.00  
+hybrid   X1-relative-motion           65536 PASS                81 ms  unit max     0.14 ms SMOOTH ops/event  12862.7 pred/op 0.54 cores 1.00  
+hybrid   X1-relative-motion          262144 PASS               659 ms  unit max     6.14 ms JANK   ops/event  11363.4 pred/op 0.55 cores 0.97  
+hybrid   X1-relative-motion         1048576 PASS              4031 ms  unit max    45.63 ms JANK   ops/event  11709.5 pred/op 0.55 cores 0.95  
+hybrid   X2-horizon                      64 PASS                 2 ms  unit max     0.12 ms SMOOTH ops/event  79470.0 pred/op 0.47 cores 1.00  
+hybrid   X2-horizon                    4096 PASS                 6 ms  unit max     0.14 ms SMOOTH ops/event  13087.8 pred/op 0.52 cores 1.00  
+hybrid   X2-horizon                  262144 PASS               155 ms  unit max     0.20 ms SMOOTH ops/event  20251.9 pred/op 0.34 cores 1.00  
+hybrid   X2-horizon                16777216 PASS               533 ms  unit max     0.20 ms SMOOTH ops/event  65300.8 pred/op 0.28 cores 1.00  
+hybrid   X3-crowded-axes                256 PASS                 0 ms  unit max     0.07 ms SMOOTH ops/event  14944.0 pred/op 0.46 cores 1.00  
+hybrid   X3-crowded-axes               4096 PASS                 6 ms  unit max     0.11 ms SMOOTH ops/event 274049.0 pred/op 0.53 cores 1.00  
+hybrid   X3-crowded-axes              65536 PASS               336 ms  unit max     0.25 ms SMOOTH ops/event 15405297.0 pred/op 0.62 cores 1.00  
+hybrid   X3-crowded-axes             262144 PASS              4044 ms  unit max     0.75 ms SMOOTH ops/event 120175429.0 pred/op 0.63 cores 0.99  
+hybrid   X4-near-miss-lattice             1 NOT_SUPPORTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  groups (families) are not in the lattice laws yet
+hybrid   X4-near-miss-lattice             4 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  groups (families) are not in the lattice laws yet
+hybrid   X4-near-miss-lattice            16 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  groups (families) are not in the lattice laws yet
+hybrid   X4-near-miss-lattice            64 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  groups (families) are not in the lattice laws yet
+hybrid   C1-packed-stop-cascade          64 PASS                 0 ms  unit max     0.22 ms SMOOTH ops/event    149.0 pred/op 0.40 cores 1.00  
+hybrid   C1-packed-stop-cascade         256 PASS                 1 ms  unit max     0.20 ms SMOOTH ops/event    175.3 pred/op 0.48 cores 0.90  
+hybrid   C1-packed-stop-cascade        1024 PASS                 3 ms  unit max     0.15 ms SMOOTH ops/event    157.7 pred/op 0.50 cores 1.00  
+hybrid   C1-packed-stop-cascade        4096 PASS               111 ms  unit max    55.47 ms JANK   ops/event    447.0 pred/op 0.26 cores 0.28  
+hybrid   C1-packed-stop-cascade       16384 PASS               111 ms  unit max     9.57 ms JANK   ops/event    573.4 pred/op 0.27 cores 0.29  
+hybrid   C1-packed-stop-cascade       65536 PASS               211 ms  unit max    64.22 ms JANK   ops/event    221.4 pred/op 0.30 cores 0.58  
+hybrid   C2-trapped-gas                  64 PASS                 5 ms  unit max     0.41 ms SMOOTH ops/event     70.9 pred/op 0.55 cores 0.97  
+hybrid   C2-trapped-gas                 256 PASS                18 ms  unit max     0.18 ms SMOOTH ops/event     82.0 pred/op 0.57 cores 1.00  
+hybrid   C2-trapped-gas                1024 PASS                66 ms  unit max     0.19 ms SMOOTH ops/event     89.8 pred/op 0.58 cores 1.00  
+hybrid   C2-trapped-gas                4096 PASS               369 ms  unit max    54.93 ms JANK   ops/event     99.4 pred/op 0.58 cores 0.78  
+hybrid   C2-trapped-gas               16384 PASS              1317 ms  unit max    42.68 ms JANK   ops/event    109.5 pred/op 0.59 cores 0.87  
+hybrid   C2-trapped-gas               65536 PASS              3416 ms  unit max    52.59 ms JANK   ops/event    198.8 pred/op 0.53 cores 0.33  
+hybrid   C2-trapped-gas              262144 PASS              6766 ms  unit max    80.72 ms JANK   ops/event    194.8 pred/op 0.54 cores 0.60  
+hybrid   C2-trapped-gas             1048576 FAIL              9389 ms  unit max   242.42 ms JANK   ops/event    192.6 pred/op 0.54 cores 0.84  wall cap 8 s at tick 578 of 1024
+hybrid   C2-trapped-gas             4194304 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+hybrid   X5-carry-endurance            4096 PASS                29 ms  unit max     0.65 ms SMOOTH ops/event     69.0 pred/op 0.55 cores 0.99  
+hybrid   X5-carry-endurance           32768 PASS               126 ms  unit max     0.19 ms SMOOTH ops/event     68.6 pred/op 0.55 cores 1.00  
+hybrid   X5-carry-endurance          262144 PASS              1006 ms  unit max     2.09 ms SMOOTH ops/event     68.7 pred/op 0.55 cores 0.99  
+hybrid   X5-carry-endurance         2097152 FAIL              8029 ms  unit max     1.25 ms SMOOTH ops/event     68.8 pred/op 0.55 cores 1.00  wall cap 8 s at tick 2094883 of 2097152
+hybrid   X5-carry-endurance        16777216 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+hybrid   C3-mixed-invariance             64 PASS                11 ms  unit max     0.22 ms SMOOTH ops/event     71.8 pred/op 0.48 cores 1.00  
+hybrid   C3-mixed-invariance            256 PASS                45 ms  unit max     0.21 ms SMOOTH ops/event     78.6 pred/op 0.53 cores 1.00  
+hybrid   C3-mixed-invariance           1024 PASS               195 ms  unit max     0.23 ms SMOOTH ops/event     81.7 pred/op 0.53 cores 1.00  
+hybrid   C3-mixed-invariance           4096 PASS               963 ms  unit max    51.66 ms JANK   ops/event    100.6 pred/op 0.63 cores 0.92  
+hybrid   C3-mixed-invariance          16384 PASS              4227 ms  unit max    50.12 ms JANK   ops/event    134.3 pred/op 0.64 cores 0.69  
+hybrid   C3-mixed-invariance          65536 FAIL              8375 ms  unit max    49.76 ms JANK   ops/event    176.4 pred/op 0.66 cores 0.45  wall cap 8 s (reached tick 2048 of 2048 in 8.4 s)
+hybrid   C4-near-c-mixed                 64 PASS                40 ms  unit max     0.51 ms SMOOTH ops/event     72.8 pred/op 0.56 cores 1.00  
+hybrid   C4-near-c-mixed                256 PASS                94 ms  unit max     0.20 ms SMOOTH ops/event     87.5 pred/op 0.61 cores 1.00  
+hybrid   C4-near-c-mixed               1024 PASS               432 ms  unit max     0.29 ms SMOOTH ops/event     94.0 pred/op 0.64 cores 1.00  
+hybrid   C4-near-c-mixed               4096 PASS              1906 ms  unit max    35.40 ms JANK   ops/event    102.9 pred/op 0.66 cores 0.92  
+hybrid   C4-near-c-mixed              16384 PASS              5763 ms  unit max    56.77 ms JANK   ops/event    100.1 pred/op 0.67 cores 0.41  
+hybrid   C4-near-c-mixed              65536 FAIL              8819 ms  unit max    29.29 ms JANK   ops/event    100.4 pred/op 0.68 cores 0.68  wall cap 8 s (reached tick 2048 of 2048 in 8.8 s)
+hybrid   G1-galaxy-clusters           16384 PASS               828 ms  unit max     0.68 ms SMOOTH ops/event    271.0 pred/op 0.54 cores 1.00  
+hybrid   G1-galaxy-clusters           65536 PASS              3496 ms  unit max    15.13 ms JANK   ops/event    273.1 pred/op 0.54 cores 0.98  
+hybrid   G1-galaxy-clusters          262144 FAIL              8039 ms  unit max     6.80 ms JANK   ops/event    331.0 pred/op 0.64 cores 1.00  wall cap 8 s at tick 392 of 1024
+hybrid   G1-galaxy-clusters         1048576 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+hybrid   G2-galaxy-span                  12 PASS               463 ms  unit max    40.65 ms JANK   ops/event    992.7 pred/op 0.42 cores 0.43  
+hybrid   G2-galaxy-span                  18 PASS               877 ms  unit max     0.48 ms SMOOTH ops/event    360.7 pred/op 0.63 cores 1.00  
+hybrid   G2-galaxy-span                  24 PASS               938 ms  unit max     0.48 ms SMOOTH ops/event    399.6 pred/op 0.65 cores 1.00  
+hybrid   G2-galaxy-span                  30 PASS               911 ms  unit max     0.96 ms SMOOTH ops/event    379.3 pred/op 0.63 cores 1.00  
+hybrid   G2-galaxy-span                  45 NOT_SUPPORTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  coordinate range: body 1 position outside 2^39 (needs wide region origins, docs/universe-quanta.md stage 3)
+hybrid   G2-galaxy-span                  60 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  coordinate range: body 1 position outside 2^39 (needs wide region origins, docs/universe-quanta.md stage 3)
+hybrid   G2-galaxy-span                  75 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  coordinate range: body 1 position outside 2^39 (needs wide region origins, docs/universe-quanta.md stage 3)
+gates {"cost_per_event_flat":[{"limiter":"fewer than two passing rungs","mode":"event","status":"NOT_ATTEMPTED","track":"X1-relative-motion"},{"limiter":"fewer than two passing rungs","mode":"event","status":"NOT_ATTEMPTED","track":"C2-trapped-gas"}],"empty_space_free":[{"limiter":"fewer than two passing spans","mode":"event","status":"NOT_ATTEMPTED"},{"limiter":"fewer than two passing spans","mode":"metal","status":"NOT_ATTEMPTED"},{"growth":1.9652034047530162,"mode":"hybrid","spans":[12.0,30.0],"status":"FAIL"}],"galaxy_one_million":{"passing_modes":[],"status":"FAIL"},"gas_one_million":{"passing_modes":[],"status":"FAIL"},"smooth":[{"mode":"event","status":"NOT_ATTEMPTED"},{"mode":"metal","status":"NOT_ATTEMPTED"},{"mode":"regions","status":"NOT_ATTEMPTED"},{"jank_rungs":["X1-relative-motion 262144.0","X1-relative-motion 1048576.0","C1-packed-stop-cascade 4096.0","C1-packed-stop-cascade 16384.0","C1-packed-stop-cascade 65536.0","C2-trapped-gas 4096.0","C2-trapped-gas 16384.0","C2-trapped-gas 65536.0","C2-trapped-gas 262144.0","C3-mixed-invariance 4096.0","C3-mixed-invariance 16384.0","C4-near-c-mixed 4096.0","C4-near-c-mixed 16384.0","G1-galaxy-clusters 65536.0","G2-galaxy-span 12.0"],"mode":"hybrid","status":"FAIL"}],"useful_work":[{"mode":"event","status":"NOT_ATTEMPTED"}]}
+ladder wall time 170.3 s

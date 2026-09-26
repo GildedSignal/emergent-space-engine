@@ -2642,3 +2642,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: this entry; `cargo run --release -p emergent-lattice-metal --example throughput -- v1 1048576`
 - Limitations: The 8 s target is met only on a quiet machine: all runs sit within the 30% thermal and load band. At Q = 2^20 contacts go to the CPU. Detection is about 5.5 of 8.8 ms per chronon and is shared by every law; random gathers of body data cost more than the arithmetic.
 - Next: Cut detection's memory traffic (spatially ordered body storage, 64-bit cell-relative positions, needed for Q = 2^40 anyway). Climb ladder v7 on a quiet machine.
+
+## H0180 — Ladder v7 climbed: v1 holds everywhere, empty space is free for event and Metal, the 1M rungs sit at the cap
+
+- Date: 2026-09-27
+- Kind: benchmark
+- Status: measured
+- Revisions: `c073241`; this entry's commit
+- Scope: [scale-ladder-v7.json](../scenarios/scale-ladder-v7.json), all five modes; no code change
+- Changed: The first v7 climb, one mode per climb under the quick profile (8 s per rung, 240 s per climb), 00:45–01:03, at load 3.3–7.3 with no thermal or performance warnings. The 240 s budget cut G2 for metal and regions, so that track was completed with single-track climbs.
+- Why: H0175 froze v7 (law v1, the galaxy tracks, the regions mode). H0177 and H0179 changed the event core and Metal, so v7 had to be measured before building on them.
+- Validation: No correctness flag was false in any mode, track or rung (ledgers, below c, carry bound, chronon digests, budget invariance, independent references). Best rungs: hybrid: X1 1M, X2 16.7M ticks, X3 262,144; C1: 65,536 in every mode; C2: 262,144 in regions (6.1 s), metal and hybrid; C3 and C4: 16,384; G1: 262,144 in regions (2.8 s) and metal (4.3 s); G2: spans 2^12 to 2^30 pass in every mode (regions 229 ms, metal 348 ms, event 904 ms at 2^30), and 2^45 is NOT_SUPPORTED (coordinate range) everywhere. Gates: empty_space_free: event PASS (1.008), metal PASS (0.759), hybrid FAIL (1.965); cost_per_event_flat: event PASS (X1 0.93, C2 1.40); smooth: event PASS (it failed in v6); metal, hybrid and regions FAIL; useful_work: event FAIL (0.483, C3 64 as before); gas_one_million FAIL: regions reached 1,024 chronons in 15.3 s, metal 768 in 8 s; galaxy_one_million FAIL: regions reached 1,024 in 8.2 s, metal hit the cap.
+- Evidence: [summary](../artifacts/evidence/scale-ladder-v7-20260927/summary.txt), per-mode `ladder.json` and `climb.log` in the same folder
+- Limitations: Load from other processes means timings may be off by about 30%; the 8.2 s galaxy rung is marginal. In the ladder harness Metal's 1M gas runs slower than standalone (8.0 s, H0179), because every ladder unit is a GPU round trip. A regions-mode ladder unit is the whole certified batch, so its smooth gate is not meaningful yet. Regions X2 16.7M and X3 65,536 were killed at 44 s in the post-run checks.
+- Next: Fix the hybrid's kinetic prior, which uses the global mean density, the same flaw as the event core's old cell sizing (hybrid G2 FAIL). Report the allocator's own unit timings in regions rows. Remove the per-unit GPU round trip in the ladder harness. Rerun the marginal 1M rungs on a quiet machine.
