@@ -18,7 +18,9 @@ type Result<T> = super::Result<T>;
 
 const MANIFEST5: &[u8] = include_bytes!("../../scenarios/scale-ladder-v5.json");
 const MANIFEST6: &[u8] = include_bytes!("../../scenarios/scale-ladder-v6.json");
-/// Which frozen manifest this process climbs (5: es-lattice-elastic-v0, 6: relativistic).
+const MANIFEST7: &[u8] = include_bytes!("../../scenarios/scale-ladder-v7.json");
+/// Which frozen manifest this process climbs (5: es-lattice-elastic-v0, 6: relativistic v0,
+/// 7: relativistic v1 with the galaxy tracks).
 static VERSION: AtomicU8 = AtomicU8::new(5);
 
 pub fn set_version(v: u8) {
@@ -30,7 +32,11 @@ fn version() -> u8 {
 }
 
 fn manifest_bytes() -> &'static [u8] {
-    if version() == 6 { MANIFEST6 } else { MANIFEST5 }
+    match version() {
+        7 => MANIFEST7,
+        6 => MANIFEST6,
+        _ => MANIFEST5,
+    }
 }
 
 fn manifest() -> Result<Value> {
@@ -156,9 +162,22 @@ fn setup(track: &Value, i: usize, m: &Value) -> Result<(World, i64, Option<gas::
             }
             (w, track["horizon"].as_i64().unwrap_or(2048), None)
         }
+        "G1-galaxy-clusters" | "G2-galaxy-span" => {
+            let g1 = track["id"] == "G1-galaxy-clusters";
+            let n = if g1 { size("bodies")? } else { track["bodies"].as_u64().unwrap_or(65536) };
+            let clusters = if g1 { size("clusters")? } else { track["clusters"].as_u64().unwrap_or(64) };
+            let span = if g1 { track["span_bits"].as_u64().unwrap_or(30) } else { size("spans")? } as u32;
+            let q = track["quantum"].as_i64().unwrap_or(256);
+            let w = worlds::galaxy(n, clusters, span, q, seed).map_err(|e| format!("RANGE: {}", e.0))?;
+            (w, track["horizon"].as_i64().unwrap_or(1024), None)
+        }
         other => return Err(format!("track {other} has no lattice generator").into()),
     };
-    let w = if m["law"] == "Relativistic" { w.with_law(Law::Relativistic)? } else { w };
+    let w = match m["law"].as_str() {
+        Some("Relativistic") => w.with_law(Law::Relativistic)?,
+        Some("RelativisticV1") => w.with_law(Law::RelativisticV1)?,
+        _ => w,
+    };
     Ok((w, h, g))
 }
 
@@ -183,7 +202,15 @@ pub fn rung(args: Vec<String>) -> Result<()> {
         return Ok(());
     }
     let t = Instant::now();
-    let (w0, horizon, g) = setup(&track, i, &m)?;
+    let (w0, horizon, g) = match setup(&track, i, &m) {
+        Ok(v) => v,
+        Err(e) if e.to_string().starts_with("RANGE: ") => {
+            let why = e.to_string();
+            println!("{}", json!({"status": "NOT_SUPPORTED", "limiter": format!("coordinate range: {} (needs wide region origins, docs/universe-quanta.md stage 3)", &why[7..])}));
+            return Ok(());
+        }
+        Err(e) => return Err(e),
+    };
     let n = w0.bodies.len() as u64;
     let unit_ops = m["units"]["unit_ops"].as_u64().unwrap_or(4096);
     let pair_ticks = n as f64 * n as f64 / 2.0 * horizon as f64;
@@ -241,7 +268,7 @@ pub fn rung(args: Vec<String>) -> Result<()> {
                     }
                 }
             }
-            "Bounce" if w.law == Law::Relativistic => {
+            "Bounce" if w.law.subluminal() => {
                 let (t0, t1, cr) = (relativity::total(&w0), relativity::total(&w), relativity::carried(&w));
                 let energy_ok = t1[0] - t0[0] == cr[0];
                 let momentum_ok = (0..2).all(|a| t1[1 + a] - t0[1 + a] + w.wall_momentum[a] as i128 == cr[1 + a]);
@@ -249,7 +276,9 @@ pub fn rung(args: Vec<String>) -> Result<()> {
                 let below_c = w.bodies.iter().all(|b| (b.k[0] as i128).pow(2) + (b.k[1] as i128).pow(2) < q2);
                 let gmax = w0.bodies.iter().chain(&w.bodies).map(|b| relativity::gamma(b.k, w.q)).max().unwrap_or(relativity::F);
                 let mmax = w.bodies.iter().map(|b| b.mass).max().unwrap_or(1);
-                let bound = 64.0 * relativity::F as f64 * mmax as f64 * (gmax as f64 / relativity::F as f64).powi(3);
+                // The law's 4-momentum scale: F in v0, 2Q in v1 (carry_bound in the manifest).
+                let scale = if w.law == Law::RelativisticV1 { 2.0 * w.q as f64 } else { relativity::F as f64 };
+                let bound = 64.0 * scale * mmax as f64 * (gmax as f64 / relativity::F as f64).powi(3);
                 let max_carry = w.bodies.iter().flat_map(|b| [b.residual, b.carry[0], b.carry[1]]).map(|v| v.unsigned_abs()).max().unwrap_or(0) as f64;
                 let contained = w.container.is_none_or(|cont| {
                     let kmax1 = w.bodies.iter().map(|b| b.k[0].abs().max(b.k[1].abs())).max().unwrap_or(0);
@@ -339,11 +368,11 @@ pub fn rung(args: Vec<String>) -> Result<()> {
 }
 
 fn rung_count(track: &Value) -> usize {
-    ["bodies", "horizons", "lanes_per_axis"].iter().find_map(|k| track[*k].as_array().map(Vec::len)).unwrap_or(0)
+    ["bodies", "horizons", "lanes_per_axis", "spans"].iter().find_map(|k| track[*k].as_array().map(Vec::len)).unwrap_or(0)
 }
 
 fn rung_size(track: &Value, i: usize) -> f64 {
-    ["bodies", "horizons", "lanes_per_axis"].iter().find_map(|k| track[*k].as_array().and_then(|a| a[i].as_f64())).unwrap_or(0.0)
+    ["bodies", "horizons", "lanes_per_axis", "spans"].iter().find_map(|k| track[*k].as_array().and_then(|a| a[i].as_f64())).unwrap_or(0.0)
 }
 
 /// Frozen track gates (step exit criteria) over the climbed rows.
@@ -396,6 +425,25 @@ fn gates(m: &Value, rows: &[Value]) -> Value {
         let hit: Vec<&str> = rows.iter().filter(|r| r["track"] == gm["track"] && r["size"].as_f64() == Some(n) && r["status"] == "PASS").filter_map(|r| r["mode"].as_str()).collect();
         out.insert("gas_one_million".into(), json!({"status": if hit.is_empty() { "FAIL" } else { "PASS" }, "passing_modes": hit}));
     }
+    if let Some(gm) = g.get("galaxy_one_million") {
+        let n = gm["bodies"].as_f64().unwrap_or(1048576.0);
+        let hit: Vec<&str> = rows.iter().filter(|r| r["track"] == gm["track"] && r["size"].as_f64() == Some(n) && r["status"] == "PASS").filter_map(|r| r["mode"].as_str()).collect();
+        out.insert("galaxy_one_million".into(), json!({"status": if hit.is_empty() { "FAIL" } else { "PASS" }, "passing_modes": hit}));
+    }
+    if let Some(es) = g.get("empty_space_free") {
+        let mut v = vec![];
+        for mode in es["modes"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+            let p = passing(mode, es["track"].as_str().unwrap_or(""));
+            v.push(match (p.first(), p.last()) {
+                (Some(a), Some(b)) if p.len() >= 2 => {
+                    let growth = b["advance_ms"].as_f64().unwrap_or(f64::MAX) / a["advance_ms"].as_f64().unwrap_or(1.0).max(1e-9);
+                    json!({"mode": mode, "spans": [a["size"], b["size"]], "growth": growth, "status": if growth <= es["max_growth"].as_f64().unwrap_or(1.5) { "PASS" } else { "FAIL" }})
+                }
+                _ => json!({"mode": mode, "status": "NOT_ATTEMPTED", "limiter": "fewer than two passing spans"}),
+            });
+        }
+        out.insert("empty_space_free".into(), json!(v));
+    }
     Value::Object(out)
 }
 
@@ -441,7 +489,7 @@ pub fn run(out: &Path, modes: &[String], only: Option<&str>, profile: &str) -> R
                         continue;
                     }
                 }
-                eprintln!("v5 {mode} {id} #{i} (size {size})");
+                eprintln!("v{} {mode} {id} #{i} (size {size})", version());
                 let started = Instant::now();
                 let mut child = Process::new(&exe).args([format!("ladder{}-rung", version()).as_str(), mode, id, &i.to_string(), profile]).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn()?;
                 let kill_after = Duration::from_secs_f64(wall * 3.0 + 20.0);

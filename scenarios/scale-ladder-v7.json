@@ -1,0 +1,312 @@
+{
+  "schema": 7,
+  "id": "scale-ladder-v7",
+  "frozen": "2026-09-26, before any v7 rung ran. v6's tracks under es-lattice-relativistic-v1 (energy quantum matched to the velocity quantum, exact Newtonian limit; H0174), plus a galaxy track of ship clusters (Julien: 'we need a test galaxy scale too with clusters') and its span ladder, whose rungs past the law's coordinate range report NOT_SUPPORTED until wide region origins exist (docs/universe-quanta.md stage 3). No gravity: the fleets coast; this is not a gravitational qualification. v6 remains the ladder of es-lattice-relativistic-v0.",
+  "seed": 2718281828,
+  "velocity_denominator": 1024,
+  "modes": {
+    "chronon": "crates/lattice chronon::Chronon, CPU, one core: the reference every other mode must equal",
+    "event": "crates/lattice-event EventCore: cells, per-item events, calendar (build step 1)",
+    "metal": "crates/lattice-metal MetalChronon: chronon mode on the M1 GPU (build step 5)",
+    "regions": "crates/allocator over hybrid regions on 8 workers (not wired into the ladder yet: NOT_ATTEMPTED)",
+    "hybrid": "xtask/src/hybrid.rs: per-region choice between event and metal by measured cost (built after v6 froze)"
+  },
+  "profiles": {
+    "quick": {
+      "wall_seconds_per_rung": 8,
+      "ladder_seconds": 240,
+      "audit_max_bodies": 64,
+      "budget_invariance_max_bodies": 1024,
+      "reference_max_pair_ticks": 50000000,
+      "mode_invariance_max_body_ticks": 20000000
+    },
+    "full": {
+      "wall_seconds_per_rung": 120,
+      "ladder_seconds": 7200,
+      "audit_max_bodies": 256,
+      "budget_invariance_max_bodies": 4096,
+      "reference_max_pair_ticks": 1000000000,
+      "mode_invariance_max_body_ticks": 1000000000
+    }
+  },
+  "caps": {
+    "peak_rss_bytes": 4294967296,
+    "skip_if_projected_rss_over_cap": true
+  },
+  "units": {
+    "why": "Julien cares about p95/p99 and the single worst frame. Every advance runs in units of unit_ops charged operations and every unit is timed. A frame is at most one unit per worker, so the worst unit bounds the worst frame.",
+    "unit_ops": 4096,
+    "target_max_unit_ms": 5,
+    "verdict": "SMOOTH if the worst unit of the whole run is at most target_max_unit_ms, else JANK (step-2 exit criterion; reported per rung, does not stop the climb)"
+  },
+  "budget_invariance_unit_ops": [
+    64,
+    4096
+  ],
+  "track_gates": {
+    "why": "Build-step exit criteria, frozen before any v7 rung ran.",
+    "cost_per_event_flat": {
+      "modes": [
+        "event"
+      ],
+      "tracks": [
+        "X1-relative-motion",
+        "C2-trapped-gas"
+      ],
+      "max_growth": 2.0,
+      "measure": "ops / fired events at the largest passing rung over the smallest rung"
+    },
+    "useful_work": {
+      "modes": [
+        "event"
+      ],
+      "min_predicates_per_op": 0.5,
+      "on": "every passing rung with at least 1000 fired events"
+    },
+    "smooth": {
+      "modes": [
+        "event",
+        "metal",
+        "regions",
+        "hybrid"
+      ],
+      "on": "every passing rung: worst unit at most target_max_unit_ms"
+    },
+    "gas_one_million": {
+      "why": "Julien: 1M ships must be trivial",
+      "track": "C2-trapped-gas",
+      "bodies": 1048576,
+      "rule": "passes within the rung wall cap in at least one mode"
+    },
+    "galaxy_one_million": {
+      "why": "Julien: 1M ships must be trivial, and a galaxy of clusters must not cost its empty space",
+      "track": "G1-galaxy-clusters",
+      "bodies": 1048576,
+      "rule": "passes within the rung wall cap in at least one mode"
+    },
+    "empty_space_free": {
+      "why": "H0173: the event core paid for empty space (0.37 s at span 2^12, 3.5 s from 2^18 on, same ships)",
+      "track": "G2-galaxy-span",
+      "modes": [
+        "event",
+        "metal",
+        "hybrid"
+      ],
+      "max_growth": 1.5,
+      "measure": "advance_ms at the largest passing span over advance_ms at the smallest span; fewer than two passing spans is NOT_ATTEMPTED"
+    }
+  },
+  "reported_not_gated": [
+    "advance_ms",
+    "chronons_per_second",
+    "cores_used",
+    "peak_rss_bytes",
+    "ops_per_event",
+    "predicates_per_op",
+    "unit_ms_p50",
+    "unit_ms_p99"
+  ],
+  "tracks": [
+    {
+      "id": "X1-relative-motion",
+      "kind": "extreme",
+      "response": "Pass",
+      "stress": "independent bodies, uniform random positions and velocities (components in [-1/2, 1/2]), constant density",
+      "bodies": [
+        256,
+        4096,
+        65536,
+        262144,
+        1048576
+      ],
+      "area_per_body": 1000000,
+      "horizon": 4096,
+      "radius": 1,
+      "pass": "complete within caps; contact pairs equal the exact integer pair oracle (grid, cross-checked by brute force up to 4096 bodies); every non-chronon mode's digests equal chronon's while bodies x horizon <= mode_invariance_max_body_ticks"
+    },
+    {
+      "id": "X2-horizon",
+      "kind": "extreme",
+      "response": "Pass",
+      "stress": "X1's world at 4096 bodies, horizon grows",
+      "bodies": 4096,
+      "area_per_body": 1000000,
+      "horizons": [
+        64,
+        4096,
+        262144,
+        16777216
+      ],
+      "radius": 1,
+      "pass": "as X1"
+    },
+    {
+      "id": "X3-crowded-axes",
+      "kind": "extreme",
+      "response": "Pass",
+      "stress": "v4's X3 generator: every swept box overlaps on one projection, none touch",
+      "bodies": [
+        256,
+        4096,
+        65536,
+        262144
+      ],
+      "spacing": 16,
+      "speed": "1/4",
+      "radius": 1,
+      "pass": "complete within caps and zero contacts (analytic; brute force up to 4096 bodies)"
+    },
+    {
+      "id": "X4-near-miss-lattice",
+      "kind": "extreme",
+      "stress": "v4's affine lanes of 1M members",
+      "lanes_per_axis": [
+        1,
+        4,
+        16,
+        64
+      ],
+      "pass": "NOT_SUPPORTED in every lattice mode until groups exist in es-lattice-elastic-v0; reported, never counted as a pass"
+    },
+    {
+      "id": "C1-packed-stop-cascade",
+      "kind": "chaotic",
+      "response": "Stop",
+      "stress": "v4's packed grid (spacing 8, jitter +-2), every body stops on contact",
+      "bodies": [
+        64,
+        256,
+        1024,
+        4096,
+        16384,
+        65536
+      ],
+      "grid_spacing": 8,
+      "jitter": 2,
+      "horizon": 128,
+      "radius": 1,
+      "pass": "complete within caps; chronon equals an all-pairs brute-force run of the law up to audit_max_bodies; every other mode's digests equal chronon's within mode_invariance_max_body_ticks; budget invariance up to budget_invariance_max_bodies; the H0159 engine's contact count is reported for comparison (different law version, not gated)"
+    },
+    {
+      "id": "C2-trapped-gas",
+      "kind": "chaotic",
+      "response": "Bounce",
+      "stress": "bouncing ships at 10% fill in a reflecting box",
+      "bodies": [
+        64,
+        256,
+        1024,
+        4096,
+        16384,
+        65536,
+        262144,
+        1048576,
+        4194304
+      ],
+      "fill": 0.1,
+      "quantum": 1024,
+      "vmax_units": 256,
+      "horizon": 1024,
+      "pass": "complete within caps; independent relativistic reference (xtask/src/gas_rel.rs) equal (events, positions, velocities, energy and momentum carries, revisions, wall momentum) while bodies^2/2 x horizon <= reference_max_pair_ticks; |k| < Q for every body; 4-momentum ledgers exact (energy change = energy carries; momentum change + wall momentum = momentum carries); carries within carry_bound; every body within one chronon's travel of the box; mode and budget invariance as v5"
+    },
+    {
+      "id": "X5-carry-endurance",
+      "kind": "extreme",
+      "response": "Bounce",
+      "stress": "the 64-ship gas run longer and longer",
+      "bodies": 64,
+      "horizons": [
+        4096,
+        32768,
+        262144,
+        2097152,
+        16777216
+      ],
+      "fill": 0.1,
+      "quantum": 1024,
+      "vmax_units": 256,
+      "pass": "as C2"
+    },
+    {
+      "id": "C3-mixed-invariance",
+      "kind": "chaotic",
+      "response": "mixed",
+      "stress": "worlds::mixed: masses 1-4, radii Q/2-2Q, 80% bouncers, 10% pass, 10% stop, dense box; the elastic tail can exceed c",
+      "bodies": [
+        64,
+        256,
+        1024,
+        4096,
+        16384,
+        65536
+      ],
+      "quantum": 512,
+      "horizon": 2048,
+      "pass": "complete within caps; energy ledger exact over bouncer-only batches is not claimed (stops remove energy); every mode's digests equal chronon's within mode_invariance_max_body_ticks; budget invariance up to budget_invariance_max_bodies"
+    },
+    {
+      "id": "C4-near-c-mixed",
+      "kind": "chaotic",
+      "response": "Bounce",
+      "stress": "worlds::mixed with every body a bouncer, masses 1-4, radii Q/2-2Q, velocities scaled by 19/10 then reduced by 9/10 steps until |k| <= 0.95c: heavy-light collisions near c, where the Newtonian bounce breaks c",
+      "bodies": [
+        64,
+        256,
+        1024,
+        4096,
+        16384,
+        65536
+      ],
+      "quantum": 512,
+      "horizon": 2048,
+      "pass": "complete within caps; |k| < Q for every body; 4-momentum ledgers exact; carries within carry_bound; mode and budget invariance as v5"
+    },
+    {
+      "id": "G1-galaxy-clusters",
+      "kind": "scale",
+      "response": "Bounce",
+      "stress": "worlds::galaxy: Zipf-sized fleets on two spiral arms over a disc of radius 2^30 light-chronons, drift up to Q/4, dispersion Q/16, ~10% fill inside fleets, a 256-ship stream at 0.9c aimed at the largest fleet; no gravity",
+      "bodies": [
+        16384,
+        65536,
+        262144,
+        1048576
+      ],
+      "clusters": [
+        16,
+        64,
+        256,
+        1024
+      ],
+      "span_bits": 30,
+      "quantum": 256,
+      "horizon": 1024,
+      "pass": "complete within caps; relativistic ledgers exact, every body below c, carries within carry_bound; digests equal to the chronon reference where mode invariance runs"
+    },
+    {
+      "id": "G2-galaxy-span",
+      "kind": "scale",
+      "response": "Bounce",
+      "stress": "G1's generator with 65,536 ships in 64 fleets while the disc grows from 2^12 to 2^75 light-chronons (2^75 at δt = 83 ps is a real galaxy); rungs past the law's coordinate range (2^39 units: span_bits ≤ 30 at Q = 256) report NOT_SUPPORTED",
+      "bodies": 65536,
+      "clusters": 64,
+      "spans": [
+        12,
+        18,
+        24,
+        30,
+        45,
+        60,
+        75
+      ],
+      "quantum": 256,
+      "horizon": 256,
+      "pass": "as G1"
+    }
+  ],
+  "law": "RelativisticV1",
+  "carry_bound": {
+    "why": "the relativistic carry must stay bounded (a random walk over a million collisions would reach about 1000 quanta)",
+    "rule": "every carry component (energy, px, py) at most 64·S·m_max·γ_max³, with S the law's 4-momentum scale (F = 2^16 in v0, 2Q in v1) and γ_max = Γ_max/F over genesis and final velocities (Γ = ⌊F·Q/√(Q²−|k|²)⌋ as a γ estimate)"
+  }
+}

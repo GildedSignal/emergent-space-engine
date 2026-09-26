@@ -105,13 +105,13 @@ fn run() -> Result<u8> {
         }
         return Ok(if ok { 0 } else { 1 });
     }
-    if task == "ladder5-rung" || task == "ladder6-rung" {
-        ladder5::set_version(if task == "ladder6-rung" { 6 } else { 5 });
+    if task == "ladder5-rung" || task == "ladder6-rung" || task == "ladder7-rung" {
+        ladder5::set_version(task[6..7].parse().unwrap_or(5));
         ladder5::rung(args.collect())?;
         return Ok(0);
     }
-    if task == "ladder5" || task == "ladder6" {
-        ladder5::set_version(if task == "ladder6" { 6 } else { 5 });
+    if task == "ladder5" || task == "ladder6" || task == "ladder7" {
+        ladder5::set_version(task[6..7].parse().unwrap_or(5));
         // Args: out-dir [track] [--full] [--modes=chronon,event,metal,regions]
         let rest: Vec<String> = args.collect();
         let out = PathBuf::from(rest.first().cloned().unwrap_or_else(|| "artifacts/runs/ladder5".into()));
