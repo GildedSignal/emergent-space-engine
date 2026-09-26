@@ -9,14 +9,14 @@
 //! The chronon loop lives on the GPU (shaders.metal): up to 64 chronons per command buffer,
 //! each one the reference's cell side from the exact max|k_c|, a counting sort into a
 //! spatially ordered torus of buckets, the pair scan with the exact bin predicate, the advance
-//! and wall set, and, under the Newtonian law, the response: the batch splits into connected
-//! components (they commute, law.rs) and each is resolved by `law::resolve`'s rule in i64,
+//! and wall set, and the response: the batch splits into connected components (they commute,
+//! law.rs) and each is resolved by the law's rule (`law::resolve`, `relativity::resolve`),
 //! consumed and logged. The CPU hashes the event log while the next buffer runs. A chronon
-//! holding a component the GPU may not resolve exactly (the relativistic law, a guard, a full
-//! table row or log, a component too large to follow) stops the buffer; the CPU resolves those
-//! components with `law::respond` in i128 (in parallel) and the loop resumes.
+//! holding a component the GPU may not resolve exactly (a checked range left, a full table
+//! row or log, a component too large to follow) stops the buffer; the CPU resolves those
+//! components with `law::respond` in i128 or big integers (in parallel) and the loop resumes.
 //!
-//! # 64-bit exactness
+//! # Exactness
 //! The GPU evaluates `law::hit` in i64. Let C be the cell side, K = max|k_c| over bodies and
 //! R = reach_max ≤ C. Pairs are only tested between adjacent cells, so |d_c| < 2C, |w_c| ≤ 2K,
 //! reach ≤ R, and 2K ≤ C. Hence dd < 8C², |dw| < 8CK, ww ≤ 8K², rr·ww ≤ 8C²K², cross² < 64C²K²
@@ -24,10 +24,19 @@
 //! every product below 2^62 and lets velocities travel as i16 (K < 2^14), positions relative
 //! to their cell as u32 and radii in 28 bits; the CPU checks that **cell coordinates fit i32**
 //! for the whole buffer (max|x_c| is tracked as a bound). Otherwise the chronon runs on the
-//! CPU path, the reference grid in i128. The GPU response hands any component whose impulse
-//! arithmetic might leave i64 to the CPU (|k_c| < 2^18, |d_c| < 2^30, carries < 2^60, float
-//! bounds below 2^60 on the rounding denominator and numerators); full pair buffers are
-//! regrown and the chronon rerun. Nothing is ever rounded.
+//! CPU path, the reference grid in i128.
+//!
+//! The Newtonian bounce runs in i64 with |k_c| < 2^18, |d_c| < 2^30, carries < 2^60 and float
+//! bounds below 2^60 on the rounding denominator and numerators. The relativistic bounce runs
+//! in exact 128-bit arithmetic built from 64-bit halves (every operation that could overflow
+//! is checked): Q ≤ 2^15 so F²Q² < 2^62 and Γ < 2^31, 4-momentum parts and carries below
+//! 2^60, the Minkowski normal's parts below 2^62 (so T = N·N and S = p·N fit 126 bits), the
+//! targets T·p ∓ 2S·N and their Q-multiples within 2^127, and |owed + e| < 2^62 for the
+//! squared scores. A contact outside these ranges is handed, with its whole component, to
+//! the CPU. Floats only estimate: every quotient, square root and floor is verified in
+//! integers, except where an IEEE error bound decides it with a wide margin (float math is
+//! compiled without fast-math). Full pair buffers are regrown and the chronon rerun. Nothing
+//! is ever rounded.
 use std::time::Duration;
 
 #[cfg(target_os = "macos")]
@@ -74,8 +83,7 @@ pub struct Options {
     pub par_min: usize,
     /// Response threads; 0 uses the available parallelism (at most 8).
     pub threads: usize,
-    /// Resolve contact components on the GPU (Newtonian law); false leaves every response
-    /// to the CPU.
+    /// Resolve contact components on the GPU; false leaves every response to the CPU.
     pub gpu_response: bool,
 }
 

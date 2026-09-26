@@ -2516,3 +2516,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [summary](../artifacts/evidence/tick-scale-20260926/summary.txt)
 - Limitations: One world, one seed; timings were measured while two specialists ran; collision fidelity is judged by counts and wall momentum only. Relative to the finest run, collisions drop about 1.6% at CFL 0.35 (the ladder gas), 5% at 0.7, 9% at 1.4 and 13% at 2.8.
 - Next: define the chronon from what the game must order (which signal or shot came first) and a CFL target for dense combat; add a realistic-scale ladder track (small ships, speeds far below c) to replace the abstract radius = one light-chronon gas as the main collision benchmark.
+
+## H0171 — Metal round 4: the exact relativistic bounce runs on the GPU; the 1M relativistic gas takes 9.7 s
+
+- Date: 2026-09-26
+- Kind: implementation
+- Status: measured
+- Revisions: `91da23e`; this entry's commit
+- Scope: `crates/lattice-metal` (shaders.metal, gpu.rs, lib.rs, tests/equivalence.rs, examples/throughput.rs)
+- Changed: The Metal specialist ported `relativity::resolve` to the GPU. It uses exact 128-bit arithmetic built from 64-bit halves, and every operation that could overflow is checked. The ranges are Q ≤ 2^15 (so Γ < 2^31), 4-momentum parts and carries below 2^60, Minkowski-normal parts below 2^62, targets within 2^127, and |owed + e| < 2^62. A contact outside these ranges hands its whole component to the CPU, which uses i128 or big integers there. Floats only estimate: every quotient, square root and floor is verified in integers. The specialist's session ended at a rate limit; the integrator verified the work, removed its scratch examples and measured.
+- Why: H0169: the 1M gas failed under the relativistic law because Metal sent every relativistic contact to the CPU.
+- Validation: `cargo test --release -p emergent-lattice-metal` passes 7 tests. They cover relativistic gas and hot mixed worlds (the GPU resolves more contacts than the CPU), near-c light-and-heavy mixes up to γ ≈ 22 with masses 1 to 2^16 (both paths run, results equal), light pairs near c (mostly on the GPU), Q = 2^16 (the GPU detects, the CPU responds) and slicing under the relativistic law. `examples/diff_tmp` (removed) found no divergence from Chronon over 1,024 chronons of the relativistic gas. Throughput at 1,048,576 ships: 106 chronons/s under the relativistic law (1,024 chronons in 9.7 s), with 0 halts, the GPU 99% busy and digests equal to the CPU reference at tick 16. The Newtonian law ran 136 chronons/s in the same session (7.5 s). Load average 3.8–7.8 (a browser used 130% CPU); no thermal warnings.
+- Evidence: [throughput](../artifacts/evidence/metal-round4-20260926/throughput.txt)
+- Limitations: The 8 s target for the 1M relativistic gas is missed by about 20%. The run is GPU-bound: the relativistic kernel costs about 28% more than the Newtonian one. The measurement is within the 30% thermal/load band, so rerun cool before any ladder claim. The GPU relativistic path needs Q ≤ 2^15 (a velocity quantum of c/32,768); larger Q falls back to the CPU response.
+- Next: Profile the relativistic kernel: the per-contact 128-bit work and the 16-candidate search. Rerun the 1M relativistic gas on a cool, quiet machine. Revisit the Q ≤ 2^15 bound together with the universe-quanta design (the velocity quantum c/Q).

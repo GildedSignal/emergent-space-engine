@@ -1,5 +1,5 @@
 //! MetalChronon against the CPU chronon reference: events, state, digests and metrics.
-use emergent_lattice::{chronon::Chronon, law::Response, worlds, Law, Stepper, World};
+use emergent_lattice::{chronon::Chronon, law::Response, worlds, worlds::Rng, Law, Stepper, World};
 use emergent_lattice_metal::{MetalChronon, MetalError, Options, Stats};
 
 /// None (the test skips) only when there is no Metal device; any other error fails.
@@ -146,12 +146,21 @@ fn relativistic_worlds_match_reference() {
     ];
     for (name, w0, horizon) in cases {
         let Some(s) = check(name, w0.clone(), horizon, Options::default()) else { return };
-        assert_eq!(s.gpu_contacts, 0, "{name}: the GPU resolves Newtonian contacts only");
+        assert!(s.gpu_contacts > s.cpu_contacts, "{name}: the GPU resolves relativistic contacts: {s:?}");
         let Some(mut m) = metal(w0, Options::default()) else { return };
         m.run_to(horizon);
         let w = m.world();
         assert!(w.bodies.iter().all(|b| (b.k[0] as i128).pow(2) + (b.k[1] as i128).pow(2) < (w.q as i128).pow(2)), "{name}: below c");
     }
+    // Near c, light and heavy: γ up to ~22, masses 1 to 2^16. Heavy fast pairs leave the
+    // GPU's 128-bit ranges and go to the CPU (big integers there); the rest stay on the GPU.
+    let Some(s) = check("near c, light and heavy", near_c(400, 41, &[1, 1, 2, 3, 7, 1024, 65536]), 300, Options::default()) else { return };
+    assert!(s.gpu_contacts > 0 && s.cpu_contacts > 0 && s.halts > 0, "both paths must run: {s:?}");
+    let Some(s) = check("near c, light", near_c(1500, 42, &[1, 2, 3, 7]), 200, Options::default()) else { return };
+    assert!(s.gpu_contacts > 2 * s.cpu_contacts, "light pairs near c stay on the GPU: {s:?}");
+    // Q > 2^15: the GPU still detects, the CPU responds.
+    let s = check("relativistic Q = 2^16", rel(worlds::gas(256, 0.1, 1 << 16, 256, 5)), 400, Options::default()).unwrap();
+    assert!(s.gpu_chronons == 400 && s.gpu_contacts == 0, "{s:?}");
     // Slicing under the relativistic law.
     let w0 = hot_mixed(256, 256, 31);
     let mut r = Chronon::new(w0.clone(), false).unwrap();
@@ -163,4 +172,19 @@ fn relativistic_worlds_match_reference() {
         }
         assert_eq!(m.outcome(), r.outcome(), "relativistic budget {budget}");
     }
+}
+
+/// Bouncers of the given masses at |k| from 0.9c to 1023/1024 c (γ up to ~22), boxed.
+fn near_c(n: u64, seed: u64, masses: &[i64]) -> World {
+    let mut w = worlds::mixed(n, 1024, seed);
+    let mut rng = Rng(seed);
+    for b in &mut w.bodies {
+        b.response = Response::Bounce;
+        b.mass = masses[(rng.next() % masses.len() as u64) as usize];
+        let speed = rng.range(922, 1023);
+        let kx = rng.range(-speed, speed);
+        let ky = ((speed * speed - kx * kx) as f64).sqrt() as i64 * if rng.next() % 2 == 0 { 1 } else { -1 };
+        b.k = [kx, ky];
+    }
+    w.with_law(Law::Relativistic).unwrap()
 }

@@ -92,6 +92,7 @@ struct Params {
     reach: i64,
     bmin: [i64; 2],
     bmax: [i64; 2],
+    q: i64,
     n: u32,
     wbits: u32,
     hmask: u32,
@@ -172,6 +173,7 @@ struct Gpu {
     pso: HashMap<&'static str, ComputePipelineState>,
     tg: u64,
     sums_tg: u64,
+    relativistic: bool,
     wbits: u32,
     hmask: u32,
     nblocks: u32,
@@ -183,6 +185,8 @@ struct Gpu {
     kq: Buf<[i16; 2]>,
     table: Buf<[u32; 3]>,
     mask: Buf<u32>,
+    /// Momentum carries (relativistic law).
+    car: Buf<[i64; 2]>,
     // Constant per body.
     /// Radius | stop << 30 | bouncer << 31.
     rf: Buf<u32>,
@@ -196,6 +200,8 @@ struct Gpu {
     stat: Buf<u8>,
     /// Events of the components the general response resolves.
     list: Buf<u32>,
+    /// Scratch of the staged relativistic bounce, per hit (shaders.metal REL_LONGS).
+    rel: Buf<[i64; 40]>,
     log: [Buf<Ev>; 2],
     args: Buf<u32>,
     // GPU-private scratch.
@@ -210,20 +216,26 @@ struct Gpu {
     comp: Buf<u32>,
 }
 
-const KERNELS: [&str; 19] = [
-    "kmax", "plan", "clear", "bin", "scan_reduce", "scan_sums", "scan_final", "scatter", "pairs", "advance", "tally", "classify", "resolve_pair",
+const KERNELS: [&str; 21] = [
+    "rel_prep", "rel_mom", "kmax", "plan", "clear", "bin", "scan_reduce", "scan_sums", "scan_final", "scatter", "pairs", "advance", "tally", "classify", "resolve_pair",
     "listargs", "hook", "mark", "resolve", "unmark", "prune",
 ];
 
 impl Gpu {
-    fn new(n: usize, pair_cap: usize, log_cap: usize) -> Result<Self, MetalError> {
+    fn new(n: usize, pair_cap: usize, log_cap: usize, law: Law) -> Result<Self, MetalError> {
         let device = Device::system_default().ok_or(MetalError::NoDevice)?;
-        let lib = device
-            .new_library_with_source(include_str!("shaders.metal"), &metal::CompileOptions::new())
-            .map_err(MetalError::Shader)?;
+        // IEEE float semantics: the float filters' error bounds (try_pair, w_floor) assume
+        // correctly rounded operations; every other float estimate is verified exactly.
+        let options = metal::CompileOptions::new();
+        options.set_fast_math_enabled(false);
+        let lib = device.new_library_with_source(include_str!("shaders.metal"), &options).map_err(MetalError::Shader)?;
         let mut pso = HashMap::new();
+        // The law is a function constant: each pipeline keeps only its own bounce.
+        let constants = metal::FunctionConstantValues::new();
+        let code = (law == Law::Relativistic) as u32;
+        constants.set_constant_value_at_index(&code as *const u32 as *const c_void, metal::MTLDataType::UInt, 0);
         for name in KERNELS {
-            let f = lib.get_function(name, None).map_err(MetalError::Shader)?;
+            let f = lib.get_function(name, Some(constants.clone())).map_err(MetalError::Shader)?;
             let p = device.new_compute_pipeline_state_with_function(&f).map_err(MetalError::Shader)?;
             if p.max_total_threads_per_threadgroup() < 256 {
                 return Err(MetalError::Shader(format!("{name} needs 256 threads per threadgroup")));
@@ -241,6 +253,7 @@ impl Gpu {
             kq: Buf::new(d, n),
             table,
             mask: Buf::new(d, n),
+            car: Buf::new(d, n),
             rf: Buf::new(d, n),
             mass: Buf::new(d, n),
             ctl: Buf::new(d, 1),
@@ -249,8 +262,9 @@ impl Gpu {
             walls: Buf::new(d, n),
             stat: Buf::new(d, pair_cap + n),
             list: Buf::new(d, pair_cap + n),
+            rel: Buf::new(d, if law == Law::Relativistic { pair_cap } else { 0 }),
             log: [Buf::new(d, log_cap), Buf::new(d, log_cap)],
-            args: Buf::new(d, 15),
+            args: Buf::new(d, 18),
             count: Buf::new(d, h),
             bins: Buf::new(d, n),
             start: Buf::new(d, h + 1),
@@ -268,6 +282,7 @@ impl Gpu {
             pso,
             tg: 256,
             sums_tg,
+            relativistic: law == Law::Relativistic,
         })
     }
 
@@ -312,6 +327,11 @@ impl Gpu {
                 grid("advance", n);
                 groups("tally", 1, 1);
                 indirect("classify", 0);
+                if self.relativistic {
+                    // The relativistic bounce of isolated pairs in stages: few registers each.
+                    indirect("rel_prep", 12);
+                    indirect("rel_mom", 60);
+                }
                 indirect("resolve_pair", 0);
                 groups("listargs", 1, 1);
                 for _ in 0..HOOKS {
@@ -341,7 +361,7 @@ impl Gpu {
 
     fn bind(&self, enc: &ComputeCommandEncoderRef, parity: usize) {
         // Indices match the [[buffer(i)]] attributes in shaders.metal (5 is Params).
-        let bufs: [(u64, &Buffer); 24] = [
+        let bufs: [(u64, &Buffer); 26] = [
             (0, &self.pos.raw),
             (1, &self.count.raw),
             (2, &self.bins.raw),
@@ -355,6 +375,7 @@ impl Gpu {
             (12, &self.walls.raw),
             (13, &self.table.raw),
             (14, &self.out.raw),
+            (15, &self.car.raw),
             (16, &self.bsum.raw),
             (17, &self.boff.raw),
             (18, &self.mask.raw),
@@ -366,6 +387,7 @@ impl Gpu {
             (27, &self.comp.raw),
             (28, &self.log[parity].raw),
             (29, &self.list.raw),
+            (30, &self.rel.raw),
         ];
         for (i, buf) in bufs {
             enc.set_buffer(i, Some(buf), 0);
@@ -401,6 +423,7 @@ struct Views {
     bodies: *mut Body,
     pos: *const [i64; 2],
     dy: *mut Dyn,
+    car: *mut [i64; 2],
     kq: *mut [i16; 2],
     table: *mut [u32; 3],
     mask: *mut u32,
@@ -439,7 +462,7 @@ unsafe fn process(ch: &mut Chunk, v: Views, rule: (Law, i64), container: Option<
         .map(|&g| {
             let g = g as usize;
             let d = *v.dy.add(g);
-            Body { x: *v.pos.add(g), k: d.k, rev: d.rev, residual: d.res, ..(*v.bodies.add(g)).clone() }
+            Body { x: *v.pos.add(g), k: d.k, rev: d.rev, residual: d.res, carry: *v.car.add(g), ..(*v.bodies.add(g)).clone() }
         })
         .collect();
     let lp: Vec<(usize, usize)> = ch.pairs.iter().map(|&(a, b)| (local(a), local(b))).collect();
@@ -457,6 +480,7 @@ unsafe fn process(ch: &mut Chunk, v: Views, rule: (Law, i64), container: Option<
             *v.mask.add(g) = 0;
         }
         (d.k, d.rev, d.res) = (b.k, b.rev, b.residual);
+        *v.car.add(g) = b.carry;
         *v.bodies.add(g) = b;
     }
     for &(a, b) in &ch.pairs {
@@ -503,7 +527,7 @@ pub struct MetalChronon {
     tick: Tick,
     container: Option<Container>,
     wall_momentum: [i64; 2],
-    /// Canonical bodies, except x, k, rev and residual, which live in the GPU buffers.
+    /// Canonical bodies, except x, k, rev, residual and carry, which live in the GPU buffers.
     bodies: Vec<Body>,
     /// Body ids by index (for logging GPU events).
     ids: Vec<u64>,
@@ -548,10 +572,11 @@ impl MetalChronon {
             return Err(law::LawError(format!("{n} bodies exceed 32-bit indices")).into());
         }
         let cap = if opts.pair_capacity == 0 { n / 8 + 4096 } else { opts.pair_capacity as usize };
-        let mut gpu = Gpu::new(n, cap, 2 * n + 65536)?;
+        let mut gpu = Gpu::new(n, cap, 2 * n + 65536, world.law)?;
         for (i, body) in world.bodies.iter().enumerate() {
             gpu.pos.get_mut()[i] = body.x;
             gpu.dy.get_mut()[i] = Dyn { k: body.k, res: body.residual, rev: body.rev, cnt: 0 };
+            gpu.car.get_mut()[i] = body.carry;
             gpu.kq.get_mut()[i] = narrow(body.k);
             // The GPU path runs only with radius ≤ C/2 ≤ 2^27, which fits the 28-bit field.
             let flags = match body.response {
@@ -747,9 +772,9 @@ impl MetalChronon {
         let n = self.bodies.len();
         let t0 = self.tick;
         let (bmin, bmax) = self.container.map_or(([0, 0], [0, 0]), |c| (c.min, c.max));
-        // The GPU implements the Newtonian bounce only, and cannot filter hits by the
-        // overflow map.
-        let resolve = self.opts.gpu_response && self.law == Law::Newtonian && self.overflow.is_empty();
+        // The GPU cannot filter hits by the overflow map, and its relativistic bounce needs
+        // F²Q² < 2^62 (Q ≤ 2^15).
+        let resolve = self.opts.gpu_response && self.overflow.is_empty() && (self.law == Law::Newtonian || self.q <= 1 << 15);
         let params = Params {
             reach: self.reach_max,
             bmin,
@@ -761,6 +786,7 @@ impl MetalChronon {
             pair_cap: self.gpu.out.len as u32,
             nblocks: self.gpu.nblocks,
             resolve: resolve as u32,
+            q: self.q,
             log_cap: self.gpu.log[0].len as u32,
             step: 0,
             pad: 0,
@@ -822,6 +848,9 @@ impl MetalChronon {
                 self.gpu.out = Buf::new(&self.gpu.device, cap);
                 self.gpu.stat = Buf::new(&self.gpu.device, cap + n);
                 self.gpu.list = Buf::new(&self.gpu.device, cap + n);
+                if self.law == Law::Relativistic {
+                    self.gpu.rel = Buf::new(&self.gpu.device, cap);
+                }
                 self.stats.pair_overflows += 1;
                 self.run = 1;
             }
@@ -1020,6 +1049,7 @@ impl MetalChronon {
             bodies: self.bodies.as_mut_ptr(),
             pos: self.gpu.pos.get().as_ptr(),
             dy: self.gpu.dy.get_mut().as_mut_ptr(),
+            car: self.gpu.car.get_mut().as_mut_ptr(),
             kq: self.gpu.kq.get_mut().as_mut_ptr(),
             table: self.gpu.table.get_mut().as_mut_ptr(),
             mask: self.gpu.mask.get_mut().as_mut_ptr(),
@@ -1128,12 +1158,12 @@ impl Stepper for MetalChronon {
     }
 
     fn world(&self) -> World {
-        let (pos, dy) = (self.gpu.pos.get(), self.gpu.dy.get());
+        let (pos, dy, car) = (self.gpu.pos.get(), self.gpu.dy.get(), self.gpu.car.get());
         let bodies = self
             .bodies
             .iter()
             .enumerate()
-            .map(|(i, b)| Body { x: pos[i], k: dy[i].k, rev: dy[i].rev, residual: dy[i].res, ..b.clone() })
+            .map(|(i, b)| Body { x: pos[i], k: dy[i].k, rev: dy[i].rev, residual: dy[i].res, carry: car[i], ..b.clone() })
             .collect();
         let id = |i: u32| self.bodies[i as usize].id;
         let table = self.gpu.table.get().chunks(SLOTS).enumerate().flat_map(|(i, row)| {

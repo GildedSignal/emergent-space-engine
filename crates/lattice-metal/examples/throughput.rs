@@ -1,23 +1,25 @@
 //! Trapped gas throughput, CPU chronon reference vs MetalChronon, digests compared in the
-//! same run. `cargo run -p emergent-lattice-metal --release --example throughput [n ...]`
-//! (default n = 256 … 1048576; fill 0.1, Q 1024, vmax 256, horizon 1024).
+//! same run. `cargo run -p emergent-lattice-metal --release --example throughput [rel] [n ...]`
+//! (default n = 256 … 1048576; fill 0.1, Q 1024, vmax 256, horizon 1024; `rel`: the
+//! relativistic law).
 //!
 //! The reference costs O(n) per chronon on one core, so above 65536 bodies it runs only a
 //! prefix of the horizon (64 chronons to 262144, then 16, none above 1048576); MetalChronon
 //! is compared with it at that tick, mid-run, and then timed to the full horizon.
-use emergent_lattice::{chronon::Chronon, worlds, Stepper};
+use emergent_lattice::{chronon::Chronon, worlds, Law, Stepper};
 use emergent_lattice_metal::MetalChronon;
 use std::time::Instant;
 
 fn main() {
+    let law = if std::env::args().any(|a| a == "rel") { Law::Relativistic } else { Law::Newtonian };
     let args: Vec<u64> = std::env::args().skip(1).filter_map(|a| a.parse().ok()).collect();
     let sizes = if args.is_empty() { vec![256, 1024, 4096, 16384, 65536, 262144, 1048576] } else { args };
     let horizon = 1024;
-    println!("gas fill 0.1, Q 1024, vmax 256, horizon {horizon}; rates over the full horizon");
+    println!("gas fill 0.1, Q 1024, vmax 256, horizon {horizon}, {law:?} law; rates over the full horizon");
     println!("| n | ref chronons | CPU chronon/s | GPU chronon/s | CPU body-chronon/s | GPU body-chronon/s | GPU/CPU | contacts/chronon | GPU wait | GPU busy | respond | cmd buffers | halts | digests |");
     println!("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
     for n in sizes {
-        let w = worlds::gas(n, 0.1, 1024, 256, 1);
+        let w = worlds::gas(n, 0.1, 1024, 256, 1).with_law(law).unwrap();
         let reference = match n {
             ..=65536 => horizon,
             ..=262144 => 64,
