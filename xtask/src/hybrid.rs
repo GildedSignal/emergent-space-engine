@@ -52,23 +52,25 @@ pub struct Hybrid {
     pub switches: u32,
 }
 
-/// Kinetic estimate of collisions per body per chronon: n·σ·v̄_rel with σ = 2·(2r̄).
+/// Kinetic estimate of collisions per body per chronon: n·σ·v̄_rel with σ = 2·(2r̄), where n
+/// is the density *where the bodies are*: the mean number of other bodies sharing a cell of
+/// side 8r̄ (Σ c(c − 1) / N, unbiased for a Poisson scatter) over the cell's area. The box's
+/// mean density was meaningless for clustered worlds (a galaxy's fleets: H0180, as for the
+/// event core's cells in H0177); for a uniform gas both estimates agree.
 pub fn kappa(w: &World) -> f64 {
-    let n = w.bodies.len() as f64;
-    if n < 2.0 {
+    let n = w.bodies.len();
+    if n < 2 {
         return 0.0;
     }
-    let (lo, hi) = match w.container {
-        Some(c) => (c.min, c.max),
-        None => (
-            [0, 1].map(|a| w.bodies.iter().map(|b| b.x[a]).min().unwrap()),
-            [0, 1].map(|a| w.bodies.iter().map(|b| b.x[a]).max().unwrap()),
-        ),
-    };
-    let area = ((hi[0] - lo[0]).max(1) as f64) * ((hi[1] - lo[1]).max(1) as f64);
-    let r = w.bodies.iter().map(|b| b.radius as f64).sum::<f64>() / n;
-    let v2 = w.bodies.iter().map(|b| (b.k[0] as f64).powi(2) + (b.k[1] as f64).powi(2)).sum::<f64>() / n;
-    n / area * 4.0 * r * (2.0 * v2).sqrt()
+    let r = w.bodies.iter().map(|b| b.radius as f64).sum::<f64>() / n as f64;
+    let v2 = w.bodies.iter().map(|b| (b.k[0] as f64).powi(2) + (b.k[1] as f64).powi(2)).sum::<f64>() / n as f64;
+    let side = (8.0 * r).max(1.0) as i64;
+    let mut cells: std::collections::HashMap<(i64, i64), u64> = std::collections::HashMap::with_capacity(n);
+    for b in &w.bodies {
+        *cells.entry((b.x[0].div_euclid(side), b.x[1].div_euclid(side))).or_default() += 1;
+    }
+    let mates = cells.values().map(|&c| (c * (c - 1)) as f64).sum::<f64>() / n as f64;
+    mates / (side as f64).powi(2) * 4.0 * r * (2.0 * v2).sqrt()
 }
 
 fn make(mode: Mode, w: World, keep: bool) -> Result<Box<dyn Stepper + Send>, String> {

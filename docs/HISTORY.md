@@ -2656,3 +2656,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [summary](../artifacts/evidence/scale-ladder-v7-20260927/summary.txt), per-mode `ladder.json` and `climb.log` in the same folder
 - Limitations: Load from other processes means timings may be off by about 30%; the 8.2 s galaxy rung is marginal. In the ladder harness Metal's 1M gas runs slower than standalone (8.0 s, H0179), because every ladder unit is a GPU round trip. A regions-mode ladder unit is the whole certified batch, so its smooth gate is not meaningful yet. Regions X2 16.7M and X3 65,536 were killed at 44 s in the post-run checks.
 - Next: Fix the hybrid's kinetic prior, which uses the global mean density, the same flaw as the event core's old cell sizing (hybrid G2 FAIL). Report the allocator's own unit timings in regions rows. Remove the per-unit GPU round trip in the ladder harness. Rerun the marginal 1M rungs on a quiet machine.
+
+## H0181 — The hybrid judges density where the bodies are: its galaxy rungs pass and empty space is free
+
+- Date: 2026-09-27
+- Kind: implementation
+- Status: measured
+- Revisions: `7a0fc88`; this entry's commit
+- Scope: `kappa` in [hybrid.rs](../xtask/src/hybrid.rs); thresholds unchanged
+- Changed: The hybrid's kinetic prior κ = n·σ·v̄_rel took n from the bounding box, the same flaw as the event core's old cell sizing (H0177). On a spread-out galaxy κ fell below the Metal floor, so the hybrid never considered the GPU. n now comes from where the bodies are: Σc(c − 1)/N over cells of side 8r̄, divided by the cell area. This is unbiased for a Poisson scatter and agrees with the box estimate for a uniform gas. DENSE_KAPPA, MIN_METAL_KAPPA and the other thresholds are unchanged.
+- Why: H0180: hybrid failed empty_space_free (growth 1.965) and G1 at 262,144.
+- Validation: Single v7 rungs under the 60 s cap, at load 5.3: G2 span 2^12 456 ms and span 2^30 519 ms (growth 1.14 against the frozen 1.5; before, 911 ms at 2^30 and FAIL); G1 262,144 PASS in 4.1 s (FAIL before); C2 262,144 5.7 s (6.8 s in H0180); X1 1,048,576 3.6 s (4.0 s). Every rung PASS with exact ledgers, and digests equal to Chronon wherever mode invariance runs.
+- Evidence: this entry; rerun with `xtask ladder7-rung hybrid <track> <rung> quick`
+- Limitations: Spot rungs only, not a full re-climb, under load from other processes. The regions mode inherits the fix through its hybrid regions but was not re-measured.
+- Next: Re-climb hybrid and regions on a quiet machine. Report the allocator's own unit timings in regions rows. Remove the per-unit GPU round trip in the ladder harness.
