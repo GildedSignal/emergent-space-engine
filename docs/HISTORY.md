@@ -2600,3 +2600,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: this entry
 - Limitations: Only 1.3–1.8 cores are busy on these rungs: the largest Zipf fleet is the critical path, and a single region never splits across workers. The row's unit timings (and so smooth) describe the whole batch, not the allocator's units. The frame harness's unit statistics are the real smoothness measure and are not in the row yet.
 - Next: Report the allocator's own unit percentiles in regions rows. Split giant fleets across workers (region clocks within a fleet), or send them to Metal. Climb v7 once the specialists' work is merged.
+
+## H0177 — The event core stops paying for empty space: cells sized from local density
+
+- Date: 2026-09-26
+- Kind: implementation
+- Status: verified
+- Revisions: `95b107e`; this entry's commit
+- Scope: `crates/lattice-event` (src/lib.rs, tests/equality.rs, examples/galaxy.rs), by the event specialist and verified by the integrator
+- Changed: Cause confirmed. At span 2^30 frame 0's first cell side was 11.4M light-chronons (from the bounding box's mean density), so each cluster sat in one cell. Feedback managed only 2 halvings in 256 chronons, because each window costs n × cluster size, and predicates were 223M of 224M ops. A worry about memory in the dense grid array is refuted: the array is dense only when it fits in 4n + 1024 cells, and otherwise the grid is all-sparse. Fix: at rebuild, for new frames only, a resumable density probe starts from the mean-density side. It halves the side while a sample of up to 16,384 bodies averages more than 2 cell-mates, then fits to about 1 cell-mate. A frame that isn't crowded keeps exactly its old side. The fix adds `examples/galaxy.rs` (the H0173 probe's generator with a gas mode) and the regression test `clusters_in_empty_space_get_local_cells`, which fails at HEAD.
+- Why: H0173: a clustered galaxy made the event core pay for empty space (13.7k ships: 0.37 s at span 2^12 against 3.5 s from 2^18 on; 217k did not finish in 10 minutes).
+- Validation: Specialist runs (load 2.4–4.4): 13.7k galaxy at span 2^12 0.39 → 0.18 s, at span 2^30 3.55 → 0.18 s, same digests. 217k galaxy over 1,024 chronons: killed at 60 s → 17.0 s (17.4 s at span 2^16, 20.2 s at 2^22), with digests and 775,835 contacts equal to Metal's (1.9 s). Uniform gas 65k: same cell side (5.61) and digest, ops +0.02%. The specialist saw a +17% median under contention. The integrator's interleaved A/B builds of HEAD and the fix gave identical digests in 8 of 8 runs and identical predicates (90,720,383). In a timed pair at load about 6.5, the fix ran 5.06 s against HEAD's 5.58 s, so the difference is noise. `cargo test --release -p emergent-lattice-event` passes 11 of 11. v7 rungs (load 3.7): G2 event at span 2^12 1,154 ms and at span 2^30 1,279 ms (ratio 1.11; the empty_space_free gate allows 1.5), G1 16,384 896 ms (was 1,711), all digests equal to Chronon.
+- Evidence: this entry; tests and example named above
+- Limitations: The 217k galaxy is still 9× Metal. The clustered world's per-op cost is 82 ns against the gas's 34 ns (memory locality suspected). The worst unit time with an all-sparse grid is not measured. In debug builds `dispersal_regrows_the_cells` exceeds the 60 s cap, at HEAD as well.
+- Next: Climb v7. Find the per-op cost of clustered worlds.

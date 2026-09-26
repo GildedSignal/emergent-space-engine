@@ -17,8 +17,12 @@
 //!   for cells bodies drift to) of side L ≥ reach_max + 2·kcap with every |k_c| ≤ kcap: a
 //!   pair hitting in bin t has |d_c(t−1)| ≤ reach + |w_c| ≤ L in any frame, so it sits in
 //!   adjacent cells. A response past kcap (the elastic tail past c) grows every grid; c is
-//!   never assumed. Frame 0's L starts at sqrt(area per body) and follows density by cost
-//!   feedback: over each window of n predictions it counts crossing- and event-triggered
+//!   never assumed. A new frame's L starts at DENSITY_FACTOR / sqrt(local density): from
+//!   L0 = sqrt(box area per body) the density probe halves L while a sample of the frame's
+//!   bodies averages more than CROWDED cell-mates, then interpolates (cell-mates ∝ L²), so
+//!   clusters in empty space get cells of their own density, not the box's mean. Frame 0's
+//!   L then follows density by cost feedback: over each window of n predictions it counts
+//!   crossing- and event-triggered
 //!   predictions and their neighbours, models 2L and L/2 (crossings ∝ 1/L, neighbours ∝ L²)
 //!   and rescales when that saves 30%. A dispersing world grows its cells as it spreads, and
 //!   frame 0 is re-formed around bodies that drifted out of its dense box.
@@ -42,8 +46,9 @@
 //!
 //! **Bounded units.** [`Stepper::advance`] runs resumable steps: one calendar pop, one
 //! candidate scan, one component response, one body re-index or prediction, one body or
-//! 4096 dense cells of a rebuild. The calendar is allocated once (n slots), cell arrays at
-//! formation and filled in chunks, the sparse cell map and consumed arena are reserved and
+//! 4096 dense cells of a rebuild, one sampled body or level of the density probe (its count
+//! map holds at most DENSITY_SAMPLE cells). The calendar is allocated once (n slots), cell
+//! arrays at formation and filled in chunks, the sparse cell map and consumed arena are reserved and
 //! a rebuild re-forms rather than rehash; batch buffers never outgrow the largest batch. So
 //! no step reallocates or rehashes O(n) data (measured: the worst unit's own CPU time).
 //! Overshoot: less than one step, at most max(one neighbourhood per frame + 8, 6 × batch)
@@ -53,8 +58,9 @@
 //!
 //! **Metrics.** `ops` charges 1 per neighbourhood lookup, neighbour visited (a predicate or
 //! a consumed-pair skip), wall predicate, crossing or entry time, calendar update and pop,
-//! re-index check, cell unlink and link, rebuild sketch step (2) and box step, 64 dense
-//! cells initialised, body in a response,
+//! re-index check, cell unlink and link, rebuild sketch step (2), box step and density
+//! probe step (2), frame and 64 count slots at a probe level's end, 64 dense cells
+//! initialised, body in a response,
 //! resolved pair, consumed entry kept or pruned, and published body, pair or wall.
 //! `predicates` counts exact pair and wall predicates only.
 use emergent_lattice::law::{self, Body, Consumed, Response, Tick, World};
@@ -66,8 +72,16 @@ const NEVER: Tick = Tick::MAX;
 const NONE: u32 = u32::MAX;
 const REST: usize = 0;
 const UNHOMED: u8 = u8::MAX;
-/// Initial cell side in units of sqrt(area per body), before feedback.
+/// Initial cell side in units of sqrt(area per body) at the local density the density probe
+/// measures (so a uniform world gets DENSITY_FACTOR² cell-mates per body), before feedback.
 pub const DENSITY_FACTOR: f64 = 1.0;
+/// Bodies the density probe samples per level (all of them in smaller worlds). The sampled
+/// pairs estimate the mean cell-mates of a body; the estimate only ever affects speed.
+const DENSITY_SAMPLE: usize = 16_384;
+/// The probe refines a frame's side while its bodies average more than this many times
+/// DENSITY_FACTOR² cell-mates: a uniform world (about DENSITY_FACTOR²) keeps its mean-density
+/// side; a clustered one refines down to the clusters' own density.
+const CROWDED: f64 = 2.0;
 /// Smallest velocity class that gets a co-moving frame.
 pub const CLASS_MIN: u32 = 64;
 pub const MAX_CLASSES: usize = 8;
@@ -502,6 +516,22 @@ struct Rebuild {
     count: Vec<usize>,
     lo: Vec<[i64; 2]>,
     hi: Vec<[i64; 2]>,
+    /// Density probe state per new frame, and the sampled bodies' counts per (cell, frame)
+    /// at the current level (reserved once for the sample, cleared per level).
+    probe: Vec<Probe>,
+    occ: Map<([i64; 2], u8), u32>,
+}
+
+/// One frame's density probe: the side of the current level (the result once `done`), the
+/// previous level's side (0 at level 0), sampled bodies and ordered sampled pairs that
+/// share a cell at this level.
+#[derive(Clone, Copy, Default)]
+struct Probe {
+    side: i64,
+    prev: i64,
+    sampled: u64,
+    pairs: u64,
+    done: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -511,6 +541,10 @@ enum Phase {
     Count,
     /// Assign homes and measure each new frame's box.
     Box,
+    /// Size the frames formed from density (no frame of their velocity to inherit a side
+    /// from): count sampled cell-mates at the level's side, one sampled body per step; at the
+    /// level's end settle each frame or halve its side.
+    Density,
     /// Create the new frames (one step, O(frames)).
     Setup,
     /// Initialise frame `.1 / 2^32`'s dense cells, FILL_CHUNK per step.
@@ -631,7 +665,7 @@ impl EventCore {
             metrics: Metrics::default(),
             stage: Stage::Idle,
             b: Batch::default(),
-            rb: Rebuild { home: vec![0; n], ..Rebuild::default() },
+            rb: Rebuild { home: vec![0; n], occ: map_with(n.min(DENSITY_SAMPLE) + 64), ..Rebuild::default() },
             rebuilds: 0,
             fb: [0; 4],
             bodies,
@@ -865,7 +899,7 @@ impl EventCore {
                 self.metrics.ops += 2;
                 Stage::Rebuild(phase, i + 1)
             }
-            Phase::Box if i == n => next(Phase::Setup),
+            Phase::Box if i == n => next(if self.probe_start() { Phase::Density } else { Phase::Setup }),
             Phase::Box => {
                 let k = self.hot[i].k;
                 let h = rb.classes.iter().position(|&u| u == k).map_or(REST, |p| p + 1);
@@ -879,6 +913,28 @@ impl EventCore {
                 }
                 self.metrics.ops += 1;
                 Stage::Rebuild(phase, i + 1)
+            }
+            Phase::Density => {
+                // Sample every stride-th body, at most DENSITY_SAMPLE of them.
+                let stride = n.div_ceil(DENSITY_SAMPLE).max(1);
+                match i.checked_mul(stride).filter(|&b| b < n) {
+                    Some(b) => {
+                        let h = rb.home[b] as usize;
+                        let p = &mut rb.probe[h];
+                        if !p.done {
+                            // New frames are referenced at t, so y = x(t).
+                            let x = self.hot[b].at(t);
+                            let c = rb.occ.entry(([x[0].div_euclid(p.side), x[1].div_euclid(p.side)], h as u8)).or_insert(0);
+                            p.pairs += 2 * *c as u64;
+                            *c += 1;
+                            p.sampled += 1;
+                        }
+                        self.metrics.ops += 2;
+                        Stage::Rebuild(phase, i + 1)
+                    }
+                    None if self.probe_level() => next(Phase::Setup),
+                    None => next(Phase::Density),
+                }
             }
             Phase::Setup => {
                 self.setup_frames();
@@ -925,8 +981,80 @@ impl EventCore {
         };
     }
 
+    /// Velocity of new frame h.
+    fn frame_u(&self, h: usize) -> [i64; 2] {
+        if h == REST {
+            [0, 0]
+        } else {
+            self.rb.classes[h - 1]
+        }
+    }
+
+    /// New frame h's formation box: its bodies' positions at the tick, and frame 0 also
+    /// covers the container.
+    fn formation_box(&self, h: usize) -> ([i64; 2], [i64; 2]) {
+        let (lo, hi) = (self.rb.lo[h], self.rb.hi[h]);
+        match (&self.meta.container, h) {
+            (Some(c), REST) => ([lo[0].min(c.min[0]), lo[1].min(c.min[1])], [hi[0].max(c.max[0]), hi[1].max(c.max[1])]),
+            _ => (lo, hi),
+        }
+    }
+
+    /// Start the density probe (one step, O(frames)): every new frame without a side to
+    /// inherit starts at L0 = DENSITY_FACTOR · sqrt(box area per body). Returns whether any
+    /// frame is left to probe (L0 above the validity bound).
+    fn probe_start(&mut self) -> bool {
+        let valid = (self.reach_max + 4 * self.kseen).max(1);
+        let fixed = self.frames.is_empty() && self.fixed_side.is_some();
+        let mut probe = std::mem::take(&mut self.rb.probe);
+        probe.clear();
+        for h in 0..self.rb.count.len() {
+            let (u, m) = (self.frame_u(h), self.rb.count[h]);
+            let (lo, hi) = self.formation_box(h);
+            let area = if m == 0 { 0.0 } else { (hi[0] - lo[0]) as f64 * (hi[1] - lo[1]) as f64 };
+            let side = ((DENSITY_FACTOR * (area / m.max(1) as f64).sqrt()).ceil() as i64).max(valid);
+            let done = fixed || m < 2 || side <= valid || self.frames.iter().any(|f| f.u == u);
+            probe.push(Probe { side, prev: 0, sampled: 0, pairs: 0, done });
+        }
+        self.rb.probe = probe;
+        self.rb.occ.clear();
+        self.metrics.ops += self.rb.count.len() as u64;
+        self.rb.probe.iter().any(|p| !p.done)
+    }
+
+    /// End of a probe level: estimate each open frame's mean cell-mates per body from its
+    /// sampled pairs, m − 1 over sampled s − 1 (exact when every member is sampled). Above
+    /// CROWDED · DENSITY_FACTOR² the side halves (not below the validity bound); otherwise
+    /// the side settles: kept at level 0 (L0, as a uniform world gets it), else fitted to
+    /// DENSITY_FACTOR² cell-mates (cell-mates ∝ side²), at most the previous level's side.
+    /// Returns whether every frame has settled.
+    fn probe_level(&mut self) -> bool {
+        let valid = (self.reach_max + 4 * self.kseen).max(1);
+        let target = DENSITY_FACTOR * DENSITY_FACTOR;
+        let rb = &mut self.rb;
+        for (h, p) in rb.probe.iter_mut().enumerate().filter(|(_, p)| !p.done) {
+            let (m, s) = (rb.count[h] as f64, p.sampled as f64);
+            let mates = if p.sampled < 2 { 0.0 } else { p.pairs as f64 * (m - 1.0) / (s * (s - 1.0)) };
+            if mates > CROWDED * target && p.side > valid {
+                (p.prev, p.side) = (p.side, (p.side / 2).max(valid));
+                (p.sampled, p.pairs) = (0, 0);
+            } else {
+                p.done = true;
+                if p.prev != 0 {
+                    // mates = 0 fits an infinite side: the float→int cast saturates.
+                    let fit = (p.side as f64 * (target / mates).sqrt()).ceil() as i64;
+                    p.side = fit.min(p.prev).max(valid);
+                }
+            }
+        }
+        self.metrics.ops += (rb.probe.len() + rb.occ.capacity() / 64 + 1) as u64;
+        rb.occ.clear();
+        rb.probe.iter().all(|p| p.done)
+    }
+
     /// Form the new frames: sides from feedback (a frame of the same velocity existed) or
-    /// from density, never below the validity bound with a 2× margin for the elastic tail.
+    /// from the density probe, never below the validity bound with a 2× margin for the
+    /// elastic tail.
     fn setup_frames(&mut self) {
         let n = self.bodies.len();
         let valid = (self.reach_max + 4 * self.kseen).max(1);
@@ -934,18 +1062,12 @@ impl EventCore {
         let genesis = self.old.is_empty();
         let rb = &self.rb;
         for h in 0..rb.count.len() {
-            let u = if h == REST { [0, 0] } else { rb.classes[h - 1] };
-            let (mut lo, mut hi) = (rb.lo[h], rb.hi[h]);
-            if let (Some(c), REST) = (&self.meta.container, h) {
-                (lo, hi) = ([lo[0].min(c.min[0]), lo[1].min(c.min[1])], [hi[0].max(c.max[0]), hi[1].max(c.max[1])]);
-            }
+            let u = self.frame_u(h);
+            let (lo, hi) = self.formation_box(h);
             let side = match (self.old.iter().find(|f| f.u == u), self.fixed_side) {
                 (Some(f), _) => f.next_side.max(valid),
                 (None, Some(s)) if genesis => s.max(self.reach_max + 2 * self.kseen).max(1),
-                (None, _) => {
-                    let area = if rb.count[h] == 0 { 0.0 } else { (hi[0] - lo[0]) as f64 * (hi[1] - lo[1]) as f64 };
-                    ((DENSITY_FACTOR * (area / rb.count[h].max(1) as f64).sqrt()).ceil() as i64).max(valid)
-                }
+                (None, _) => rb.probe[h].side.max(valid),
             };
             // Dense over the box plus one cell (at most 4 cells a body); drifters go sparse.
             // Frame 0 can come to hold every body; a class frame only its members.

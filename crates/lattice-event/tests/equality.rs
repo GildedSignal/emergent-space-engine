@@ -254,3 +254,43 @@ fn dispersal_regrows_the_cells() {
         }
     }
 }
+
+/// Two tight clusters (about 8% fill) at opposite corners of a 2^20 light-chronon box.
+fn far_clusters(q: i64, seed: u64) -> (World, i64) {
+    let mut rng = Rng(seed);
+    let (m, far, half) = (150usize, 1i64 << 20, 39i64);
+    let mut xs: Vec<[i64; 2]> = Vec::new();
+    for centre in [[0, 0], [far, far]] {
+        let start = xs.len();
+        while xs.len() < start + m {
+            let p = [(centre[0] + rng.range(-half, half)) * q + rng.range(0, q), (centre[1] + rng.range(-half, half)) * q + rng.range(0, q)];
+            let apart = |o: &[i64; 2]| {
+                let d = [(o[0] - p[0]) as i128, (o[1] - p[1]) as i128];
+                d[0] * d[0] + d[1] * d[1] > 9 * (q as i128) * (q as i128)
+            };
+            if xs[start..].iter().all(apart) {
+                xs.push(p);
+            }
+        }
+    }
+    let bodies = xs.into_iter().enumerate().map(|(i, x)| genesis(i as u64 + 1, x, [rng.range(-q / 8, q / 8), rng.range(-q / 8, q / 8)], 1, q, Response::Bounce)).collect();
+    // sqrt(area per body) inside a cluster.
+    let local = (2 * half * q) as f64 / (m as f64).sqrt();
+    (World::new(q, None, bodies).expect("cluster world"), local as i64)
+}
+
+#[test]
+fn clusters_in_empty_space_get_local_cells() {
+    // Journal H0173: sized from the box's mean density, each cluster sat in one cell. The
+    // genesis side must follow the clusters' own density, and nothing may change.
+    let (w0, local) = far_clusters(1024, 41);
+    let horizon = 400;
+    let c = chronon(&w0, horizon, false);
+    assert!(c.log().contacts > 100, "the clusters must collide: {}", c.log().contacts);
+    let mut probe = EventCore::new(w0.clone(), false).unwrap();
+    probe.advance(1, u64::MAX);
+    assert!(probe.cell_side() <= 4 * local, "genesis side {} for a local spacing {local}", probe.cell_side());
+    for budget in [7u64, u64::MAX] {
+        assert_eq!(event(&w0, horizon, false, budget).outcome(), c.outcome(), "budget {budget}");
+    }
+}
