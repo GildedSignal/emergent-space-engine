@@ -26,6 +26,7 @@ fn make(mode: &str, w: World, keep: bool) -> std::result::Result<Box<dyn Stepper
     match mode {
         "chronon" => Chronon::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
         "event" => emergent_lattice_event::EventCore::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
+        "metal" => emergent_lattice_metal::MetalChronon::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
         _ => Err(format!("mode {mode} not built yet")),
     }
 }
