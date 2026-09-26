@@ -1,0 +1,51 @@
+metal    X1-relative-motion             256 PASS               610 ms  unit max    22.89 ms JANK   ops/event 2097186.0 pred/op 0.00 cores 0.15  
+metal    X1-relative-motion            4096 PASS              1611 ms  unit max    10.77 ms JANK   ops/event 2097182.1 pred/op 0.00 cores 0.27  
+metal    X1-relative-motion           65536 PASS              3698 ms  unit max    36.73 ms JANK   ops/event 2089024.0 pred/op 0.00 cores 0.20  
+metal    X1-relative-motion          262144 PASS              6499 ms  unit max    45.28 ms JANK   ops/event 1859324.0 pred/op 0.00 cores 0.14  
+metal    X1-relative-motion         1048576 FAIL              8155 ms  unit max    81.21 ms JANK   ops/event 1952288.3 pred/op 0.00 cores 0.08  wall cap 8 s at tick 1280 of 4096
+metal    X2-horizon                      64 PASS                37 ms  unit max     8.96 ms JANK   ops/event 524297.0 pred/op 0.00 cores 0.35  
+metal    X2-horizon                    4096 PASS              2501 ms  unit max     8.63 ms JANK   ops/event 2097182.1 pred/op 0.00 cores 0.30  
+metal    X2-horizon                  262144 FAIL              8054 ms  unit max     9.18 ms JANK   ops/event 2586529.1 pred/op 0.00 cores 0.36  wall cap 8 s at tick 18944 of 262144
+metal    X2-horizon                16777216 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+metal    X3-crowded-axes                256 PASS              1336 ms  unit max    11.30 ms JANK   ops/event 4194304.0 pred/op 0.00 cores 0.22  
+metal    X3-crowded-axes               4096 FAIL              8077 ms  unit max     8.45 ms JANK   ops/event 153092096.0 pred/op 0.00 cores 0.38  wall cap 8 s at tick 18688 of 131072
+metal    X3-crowded-axes              65536 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+metal    X3-crowded-axes             262144 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+metal    X4-near-miss-lattice             1 NOT_SUPPORTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  groups (families) are not in the lattice laws yet
+metal    X4-near-miss-lattice             4 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  groups (families) are not in the lattice laws yet
+metal    X4-near-miss-lattice            16 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  groups (families) are not in the lattice laws yet
+metal    X4-near-miss-lattice            64 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  groups (families) are not in the lattice laws yet
+metal    C1-packed-stop-cascade          64 PASS                40 ms  unit max    21.70 ms JANK   ops/event    704.4 pred/op 0.22 cores 0.40  
+metal    C1-packed-stop-cascade         256 PASS                47 ms  unit max    10.13 ms JANK   ops/event    673.5 pred/op 0.24 cores 0.33  
+metal    C1-packed-stop-cascade        1024 PASS                54 ms  unit max     9.74 ms JANK   ops/event    622.9 pred/op 0.26 cores 0.37  
+metal    C1-packed-stop-cascade        4096 PASS                64 ms  unit max     8.77 ms JANK   ops/event    600.8 pred/op 0.26 cores 0.32  
+metal    C1-packed-stop-cascade       16384 PASS                84 ms  unit max     9.18 ms JANK   ops/event    587.8 pred/op 0.26 cores 0.29  
+metal    C1-packed-stop-cascade       65536 PASS               175 ms  unit max    12.25 ms JANK   ops/event    583.2 pred/op 0.27 cores 0.29  
+metal    C2-trapped-gas                  64 PASS               399 ms  unit max    16.21 ms JANK   ops/event    144.4 pred/op 0.46 cores 0.32  
+metal    C2-trapped-gas                 256 PASS               408 ms  unit max    10.41 ms JANK   ops/event    182.7 pred/op 0.47 cores 0.33  
+metal    C2-trapped-gas                1024 PASS               548 ms  unit max     9.65 ms JANK   ops/event    195.2 pred/op 0.49 cores 0.34  
+metal    C2-trapped-gas                4096 PASS               816 ms  unit max    10.08 ms JANK   ops/event    202.1 pred/op 0.50 cores 0.44  
+metal    C2-trapped-gas               16384 PASS              1606 ms  unit max    10.14 ms JANK   ops/event    203.5 pred/op 0.52 cores 0.63  
+metal    C2-trapped-gas               65536 PASS              2859 ms  unit max    54.46 ms JANK   ops/event    197.3 pred/op 0.53 cores 1.66  
+metal    C2-trapped-gas              262144 PASS              7089 ms  unit max    16.69 ms JANK   ops/event    193.5 pred/op 0.54 cores 2.39  
+metal    C2-trapped-gas             1048576 FAIL              8140 ms  unit max    56.62 ms JANK   ops/event    189.8 pred/op 0.54 cores 2.44  wall cap 8 s at tick 512 of 1024
+metal    C2-trapped-gas             4194304 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+metal    X5-carry-endurance            4096 PASS              2568 ms  unit max    14.28 ms JANK   ops/event    149.4 pred/op 0.46 cores 0.48  
+metal    X5-carry-endurance           32768 FAIL             10220 ms  unit max    28.91 ms JANK   ops/event    149.0 pred/op 0.46 cores 0.51  wall cap 8 s at tick 17584 of 32768
+metal    X5-carry-endurance          262144 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+metal    X5-carry-endurance         2097152 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+metal    X5-carry-endurance        16777216 NOT_ATTEMPTED        0 ms  unit max     0.00 ms        ops/event      0.0 pred/op 0.00 cores 0.00  an earlier rung failed
+metal    C3-mixed-invariance             64 PASS              1271 ms  unit max    14.81 ms JANK   ops/event    161.8 pred/op 0.50 cores 0.45  
+metal    C3-mixed-invariance            256 PASS              1347 ms  unit max    10.97 ms JANK   ops/event    172.6 pred/op 0.58 cores 0.46  
+metal    C3-mixed-invariance           1024 PASS              1538 ms  unit max    10.27 ms JANK   ops/event    170.3 pred/op 0.61 cores 0.41  
+metal    C3-mixed-invariance           4096 PASS              2336 ms  unit max     9.70 ms JANK   ops/event    178.9 pred/op 0.63 cores 0.59  
+metal    C3-mixed-invariance          16384 PASS              2643 ms  unit max     9.61 ms JANK   ops/event    179.4 pred/op 0.65 cores 1.13  
+metal    C3-mixed-invariance          65536 PASS              5608 ms  unit max    58.69 ms JANK   ops/event    176.0 pred/op 0.66 cores 1.40  
+metal    C4-near-c-mixed                 64 PASS               773 ms  unit max    11.80 ms JANK   ops/event     86.1 pred/op 0.60 cores 0.32  
+metal    C4-near-c-mixed                256 PASS               842 ms  unit max    10.62 ms JANK   ops/event     91.7 pred/op 0.64 cores 0.29  
+metal    C4-near-c-mixed               1024 PASS              1182 ms  unit max     9.35 ms JANK   ops/event     91.4 pred/op 0.66 cores 0.41  
+metal    C4-near-c-mixed               4096 PASS              2225 ms  unit max     9.37 ms JANK   ops/event     98.4 pred/op 0.67 cores 0.67  
+metal    C4-near-c-mixed              16384 PASS              3458 ms  unit max    22.41 ms JANK   ops/event     99.4 pred/op 0.67 cores 1.68  
+metal    C4-near-c-mixed              65536 PASS              6151 ms  unit max    13.20 ms JANK   ops/event     99.9 pred/op 0.68 cores 2.54  
+gates {"cost_per_event_flat":[{"limiter":"fewer than two passing rungs","mode":"event","status":"NOT_ATTEMPTED","track":"X1-relative-motion"},{"limiter":"fewer than two passing rungs","mode":"event","status":"NOT_ATTEMPTED","track":"C2-trapped-gas"}],"gas_one_million":{"passing_modes":[],"status":"FAIL"},"smooth":[{"mode":"event","status":"NOT_ATTEMPTED"},{"jank_rungs":["X1-relative-motion 256.0","X1-relative-motion 4096.0","X1-relative-motion 65536.0","X1-relative-motion 262144.0","X2-horizon 64.0","X2-horizon 4096.0","X3-crowded-axes 256.0","C1-packed-stop-cascade 64.0","C1-packed-stop-cascade 256.0","C1-packed-stop-cascade 1024.0","C1-packed-stop-cascade 4096.0","C1-packed-stop-cascade 16384.0","C1-packed-stop-cascade 65536.0","C2-trapped-gas 64.0","C2-trapped-gas 256.0","C2-trapped-gas 1024.0","C2-trapped-gas 4096.0","C2-trapped-gas 16384.0","C2-trapped-gas 65536.0","C2-trapped-gas 262144.0","X5-carry-endurance 4096.0","C3-mixed-invariance 64.0","C3-mixed-invariance 256.0","C3-mixed-invariance 1024.0","C3-mixed-invariance 4096.0","C3-mixed-invariance 16384.0","C3-mixed-invariance 65536.0","C4-near-c-mixed 64.0","C4-near-c-mixed 256.0","C4-near-c-mixed 1024.0","C4-near-c-mixed 4096.0","C4-near-c-mixed 16384.0","C4-near-c-mixed 65536.0"],"mode":"metal","status":"FAIL"},{"mode":"regions","status":"NOT_ATTEMPTED"}],"useful_work":[{"mode":"event","status":"NOT_ATTEMPTED"}]}
+ladder wall time 164.5 s
