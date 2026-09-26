@@ -7,6 +7,7 @@ mod ladder;
 mod ladder5;
 mod lattice;
 mod proxy;
+mod regions;
 mod tick_scale;
 use serde_json::{json, Value};
 use std::{

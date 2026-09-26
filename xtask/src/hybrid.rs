@@ -31,7 +31,7 @@ enum Mode {
 }
 
 pub struct Hybrid {
-    cur: Box<dyn Stepper>,
+    cur: Box<dyn Stepper + Send>,
     mode: Mode,
     keep: bool,
     /// Log and metrics of the steppers already handed over.
@@ -71,10 +71,10 @@ pub fn kappa(w: &World) -> f64 {
     n / area * 4.0 * r * (2.0 * v2).sqrt()
 }
 
-fn make(mode: Mode, w: World, keep: bool) -> Result<Box<dyn Stepper>, String> {
+fn make(mode: Mode, w: World, keep: bool) -> Result<Box<dyn Stepper + Send>, String> {
     match mode {
-        Mode::Event => EventCore::new(w, keep).map(|s| Box::new(s) as Box<dyn Stepper>).map_err(|e| e.to_string()),
-        Mode::Metal => MetalChronon::new(w, keep).map(|s| Box::new(s) as Box<dyn Stepper>).map_err(|e| e.to_string()),
+        Mode::Event => EventCore::new(w, keep).map(|s| Box::new(s) as Box<dyn Stepper + Send>).map_err(|e| e.to_string()),
+        Mode::Metal => MetalChronon::new(w, keep).map(|s| Box::new(s) as Box<dyn Stepper + Send>).map_err(|e| e.to_string()),
     }
 }
 

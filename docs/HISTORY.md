@@ -2586,3 +2586,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: this entry; the climb comes next
 - Limitations: Not climbed yet. The event cell-sizing fix and the Metal v1 bounce are in progress with specialists, and both change v7's numbers. No gravity, so this is not a gravitational qualification. G2's unsupported rungs wait for wide region origins.
 - Next: Merge the specialists' work. Climb v7 per track (each rung capped at 8 s by the quick profile), on a quiet machine with the thermal state logged. Wire the regions mode.
+
+## H0176 — The regions mode joins the ladder: the allocator runs a galaxy's fleets as parallel hybrid regions
+
+- Date: 2026-09-26
+- Kind: implementation
+- Status: verified
+- Revisions: `52a9392`; this entry's commit
+- Scope: [regions.rs](../xtask/src/regions.rs) (new); [hybrid.rs](../xtask/src/hybrid.rs) (its stepper is now Send); `make` in [ladder5.rs](../xtask/src/ladder5.rs) (regions from v7 on); `execute` in crates/allocator
+- Changed: The regions mode is a Stepper that wraps the allocator over hybrid regions with 4 P and 4 E workers. Each ladder advance is one certified batch to the target, so the row's ladder units are one call. The allocator schedules its own worker units. The allocator's `execute` asserted that every unit commits a tick. The Stepper contract allows an advance that commits none (work inside one chronon, as the event core does on a small budget), so a unit now keeps advancing until it commits one, and the overshoot counts as the stepper's indivisible step. Before, the event core under the allocator stopped a worker ("0 → 0, target 32"): earlier allocator runs had used Chronon regions only.
+- Why: Julien: use the whole computer; a galaxy of independent fleets is the scene where regions should run in parallel. v6 had listed the regions mode, but it had never run on the ladder.
+- Validation: Single v7 rungs under the 60 s cap, at load 3.6: C2 1,024 PASS (70 ms; digests equal to Chronon, budget invariance holds); G1 16,384 PASS in 431 ms (event 1,711 ms, metal 910 ms); G2 at span 2^12 PASS in 765 ms (event 1,177 ms). All with exact ledgers, every body below c and digests equal to Chronon. Allocator tests: the unit test, certificate 1, finality 4, invariance 8 (12 s at load 9 while two specialists compiled), all pass.
+- Evidence: this entry
+- Limitations: Only 1.3–1.8 cores are busy on these rungs: the largest Zipf fleet is the critical path, and a single region never splits across workers. The row's unit timings (and so smooth) describe the whole batch, not the allocator's units. The frame harness's unit statistics are the real smoothness measure and are not in the row yet.
+- Next: Report the allocator's own unit percentiles in regions rows. Split giant fleets across workers (region clocks within a fleet), or send them to Metal. Climb v7 once the specialists' work is merged.

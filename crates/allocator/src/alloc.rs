@@ -7,7 +7,7 @@ use crate::forecast::{kinetic, CostModel, Features, Sabotage};
 use crate::geom::{coalesce, islands, separated, Aabb, Ent, Uf};
 use crate::qos::{self, Class};
 use crate::report::*;
-use emergent_lattice::law::{Body, Consumed, Law, Tick, World};
+use emergent_lattice::law::{Body, Consumed, Tick, World};
 use emergent_lattice::worlds::Rng;
 use emergent_lattice::{Log, Stepper};
 use serde::Serialize;
@@ -1687,7 +1687,13 @@ impl<S: Stepper + Send + 'static> State<S> {
 fn execute<S: Stepper>(mut job: Job<S>) -> Done<S> {
     let ops0 = job.stepper.metrics().ops;
     let t = Instant::now();
-    let tick = job.stepper.advance(job.target, job.budget);
+    let mut tick = job.stepper.advance(job.target, job.budget);
+    // The Stepper contract allows a call that commits no tick (work inside one chronon, as the
+    // event core does on a small budget); a unit commits at least one, so it continues. The
+    // overshoot is the stepper's indivisible step, reported as an over-budget unit.
+    while tick == job.tick0 {
+        tick = job.stepper.advance(job.target, job.budget);
+    }
     let advance_secs = t.elapsed().as_secs_f64();
     assert!(tick > job.tick0 && tick <= job.target, "a unit advances without passing its target ({} → {tick}, target {})", job.tick0, job.target);
     let t = Instant::now();
@@ -2171,7 +2177,7 @@ mod tests {
     //! then finality is computed from them.
     use super::*;
     use crate::scenes;
-    use emergent_lattice::{chronon::Chronon, law::Response, worlds};
+    use emergent_lattice::{chronon::Chronon, law::{Law, Response}, worlds};
 
     /// Advance one region alone to `to`, unit by unit, as a worker would.
     fn drive(g: &mut State<Chronon>, id: u64, to: Tick) {
