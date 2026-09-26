@@ -1,7 +1,7 @@
 //! Deterministic multi-island scenes (containerless) for invariance tests and the frame
 //! harness. Each scene is a list of worlds with disjoint ids: a scene may start as several
 //! worlds, and [`union`] is the single world the reference stepper runs.
-use emergent_lattice::law::{Body, Response, World};
+use emergent_lattice::law::{Body, Law, Response, World};
 use emergent_lattice::worlds;
 
 /// Bodies of `w` shifted by `offset` units (× Q), velocities scaled by num/den then offset by
@@ -88,4 +88,31 @@ pub fn galaxy(q: i64, rows: i64, cols: i64, per: u64, spacing: i64, den: i64, se
         out.push(world(&w, place(&w, 1 + 100_000 * i as u64, off, 1, den, drift)));
     }
     out
+}
+
+/// The same scene under another law (genesis rules re-checked: relativistic needs |k| < c).
+pub fn with_law(ws: Vec<World>, law: Law) -> Vec<World> {
+    ws.into_iter().map(|w| w.with_law(law).expect("scene valid under the law")).collect()
+}
+
+/// A dense gas cluster without its container ([`worlds::gas`] bodies), offset by `offset` units.
+pub fn loose_gas(n: u64, q: i64, vmax_units: i64, seed: u64, first_id: u64, offset: [i64; 2]) -> World {
+    let g = World { container: None, ..worlds::gas(n, 0.3, q, vmax_units, seed) };
+    world(&g, place(&g, first_id, offset, 1, 1, [0, 0]))
+}
+
+/// Heavy-tailed scene: one dense gas region of `gas_n` bodies at the origin and a
+/// `rows × cols` grid of small sparse islands (`per` bodies, alternating bouncing and Pass
+/// discs) `spacing` units apart, starting `gap` units to the east. Returns the worlds and a
+/// point in the middle of the islands (where the player looks).
+pub fn heavy_tail(q: i64, gas_n: u64, rows: i64, cols: i64, per: u64, spacing: i64, gap: i64, seed: u64) -> (Vec<World>, [i64; 2]) {
+    let mut out = vec![loose_gas(gas_n, q, q / 4, seed, 1, [0, 0])];
+    for i in 0..rows * cols {
+        let response = if i % 2 == 0 { Response::Bounce } else { Response::Pass };
+        let w = worlds::random(per, 300, q, 1, seed + 1 + i as u64, response);
+        let off = [gap + (i % cols) * spacing, (i / cols) * spacing];
+        out.push(world(&w, place(&w, 1_000_000 + 1000 * i as u64, off, 1, 1, [0, 0])));
+    }
+    let observer = [(gap + (cols - 1) * spacing / 2) * q, ((rows - 1) * spacing / 2) * q];
+    (out, observer)
 }

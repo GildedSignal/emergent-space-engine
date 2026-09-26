@@ -2,7 +2,7 @@
 //! centre passes the initial extent in some direction, that direction's extent never
 //! shrinks again. Hence the extent over any interval is the hull of the extents at its ends.
 use emergent_allocator::{geom::Aabb, scenes};
-use emergent_lattice::{chronon::Chronon, law::{Response, World}, worlds, Stepper};
+use emergent_lattice::{chronon::Chronon, law::{Law, Response, World}, worlds, Stepper};
 
 fn extents(w: &World) -> [i64; 4] {
     let b = Aabb::of(w.bodies.iter().map(|b| &b.x));
@@ -44,7 +44,11 @@ fn outward_extent_is_monotone_after_it_grows() {
         for b in w.bodies.iter_mut() {
             b.mass = if b.id % 2 == 0 { 64 } else { 1 };
         }
-        contacts += check(w, 400, "mass ratio 64");
+        contacts += check(w.clone(), 400, "mass ratio 64");
+        // The relativistic bounce reflects 4-momenta across a normal whose spatial part lies
+        // along the line of centres: the kick's sign argument is the same, magnitudes differ.
+        contacts += check(w.with_law(Law::Relativistic).unwrap(), 400, "relativistic mass ratio 64");
+        contacts += check(scenes::loose_gas(300, 256, 180, seed, 1, [0, 0]).with_law(Law::Relativistic).unwrap(), 300, "relativistic fast gas");
     }
     assert!(contacts > 2000, "the check must see many responses, saw {contacts}");
 }

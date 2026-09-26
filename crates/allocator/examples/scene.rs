@@ -16,7 +16,17 @@ fn main() {
     // ~3,000 chronons of light delay.
     let c0 = emergent_allocator::geom::Aabb::of(scene[0].bodies.iter().map(|b| &b.x));
     let observer = [(c0.lo[0] + c0.hi[0]) / 2, (c0.lo[1] + c0.hi[1]) / 2];
-    let cfg = Config { p_workers: 3, e_workers: 4, observer, view_radius: 150 * q, ..Config::default() };
+    // `scene round2` runs the round-2 scheduler in the same build (before/after).
+    // `scene noaimd` keeps fixed 32-chronon strides with every other round-3 change.
+    let has = |m: &str| std::env::args().any(|a| a == m);
+    let base = if has("round2") {
+        Config::round2()
+    } else if has("noaimd") {
+        Config { aimd: false, stride: 2, ..Config::default() }
+    } else {
+        Config::default()
+    };
+    let cfg = Config { p_workers: 3, e_workers: 4, observer, view_radius: 150 * q, ..base };
     let factory: emergent_allocator::Factory<Chronon> = Arc::new(|w| Chronon::new(w, false).expect("valid region world"));
     let mut a = Allocator::new(scene, factory, cfg).expect("scene");
     eprintln!("{bodies} bodies in {} regions; 3 performance + 4 efficiency workers; frame thread at user-interactive QoS", a.regions());

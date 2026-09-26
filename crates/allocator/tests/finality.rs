@@ -62,6 +62,10 @@ fn light_cone_finality_publishes_ahead_and_never_revises() {
     }
     let p = worlds::packed(36, 4, 1, q, 1, 9);
     parts.push(scenes::world(&p, scenes::place(&p, 9001, [1200, 1200], 1, 2, [0, 0])));
+    // A heavy, distant cluster: its large light delay lets it lag (causal slack), holding the
+    // global frontier back while the near regions become final ahead of it.
+    let heavy = worlds::random(1500, 30, q, 1, 77, Response::Pass);
+    parts.push(scenes::world(&heavy, scenes::place(&heavy, 20_001, [6000, 6000], 1, 2, [0, 0])));
     let hard = scenes::union(&parts).bodies.iter().map(|b| b.k[0].abs().max(b.k[1].abs())).max().unwrap();
     let cfg = Config { p_workers: 2, e_workers: 2, speed_margin: 0.0, sabotage: Some(5), hard_speed: Some(hard), view_radius: 100 * q, ..Config::default() };
     let mut a = Allocator::new(parts.clone(), factory(), cfg).unwrap();
@@ -107,4 +111,32 @@ fn rollback_is_scoped_to_the_conflict() {
         assert!(r.rolled_back_regions <= 3 * r.rollbacks, "a rollback restores the colliding lineages, not the scene");
         assert!(r.last >= 6, "far islands stay separate regions");
     }
+}
+
+#[test]
+fn relativistic_scene_is_final_ahead_of_the_frontier() {
+    // Under the relativistic law |k| < c at every tick: that bound (c − 1 quantum per axis)
+    // gives per-region light-cone finality with bouncing bodies, no hard speed configured.
+    // A dense gas far away needs ~75 ms of one core per 32-chronon stride, so it cannot finish
+    // its first stride before the light islands finish theirs: the global frontier is held at
+    // its clock while the islands, thousands of light-chronons away, are final ahead of it.
+    let q = 256;
+    let mut parts = Vec::new();
+    for (i, off) in [[0, 0], [400, 0], [0, 400], [400, 400]].into_iter().enumerate() {
+        let w = if i % 2 == 0 { scenes::loose_mixed(36, q, 30 + i as u64) } else { worlds::random(40, 300, q, 1, 30 + i as u64, Response::Bounce) };
+        parts.push(scenes::world(&w, scenes::place(&w, 1 + 1000 * i as u64, off, 1, 1, [0, 0])));
+    }
+    parts.push(scenes::loose_gas(4096, q, q / 4, 8, 100_000, [6000, 6000]));
+    let parts = scenes::with_law(parts, emergent_lattice::law::Law::Relativistic);
+    let cfg = Config { p_workers: 2, e_workers: 2, view_radius: 100 * q, sabotage: Some(11), ..Config::default() };
+    let mut a = Allocator::new(parts.clone(), factory(), cfg).unwrap();
+    let rep = a.run_frames(&FrameConfig { hz: 240.0, seconds: 1.0, rate: 500.0, ahead_seconds: 0.5, record: true });
+    let n = audit(&parts, a.drawn());
+    let f = rep.frames.as_ref().unwrap();
+    eprintln!(
+        "relativistic: {n} drawn parts audited, light cone {}, final lead p50/max {:.0}/{:.0}, rollbacks {}, violations {}, present {:.0}, frontier {}",
+        rep.finality.light_cone, f.final_lead_chronons.p50, f.final_lead_chronons.max, rep.regions.rollbacks, rep.finality.hard_speed_violations, rep.sim.present_end, rep.finality.frontier
+    );
+    assert!(rep.finality.light_cone && rep.finality.hard_speed_violations == 0);
+    assert!(f.final_lead_chronons.max > 0.0, "some part must be final ahead of the global frontier");
 }

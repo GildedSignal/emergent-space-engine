@@ -120,3 +120,56 @@ fn contained_world_is_one_region_and_exact() {
     }
     assert!(Allocator::new(vec![w.clone(), scenes::islands(256, 1)[0].clone()], factory(), Config::default()).is_err());
 }
+
+/// Every round-3 switch, alone and all together, and other window grids: same digests.
+#[test]
+fn scheduler_switches_do_not_change_results() {
+    let scene = scenes::islands(256, 6);
+    let expected = reference(&scene, 900);
+    let full = Config::default();
+    let variants: Vec<(&str, Config)> = vec![
+        ("round2", Config::round2()),
+        ("no lanes", Config { lanes: false, ..full.clone() }),
+        ("no queues", Config { queues: false, ..full.clone() }),
+        ("no aimd", Config { aimd: false, ..full.clone() }),
+        ("no eligibility", Config { eligibility: false, ..full.clone() }),
+        ("no hysteresis", Config { hysteresis: false, ..full.clone() }),
+        ("bisection finality", Config { fast_finality: false, ..full.clone() }),
+        ("micro", Config { min_region: 8, ..full.clone() }),
+        ("window 8, stride ≤ 32", Config { window: 8, stride: 1, stride_max: 32, ..full.clone() }),
+        ("window 64 fixed", Config { window: 64, stride: 1, aimd: false, ..full.clone() }),
+    ];
+    for (name, cfg) in variants {
+        for n in [1, 8] {
+            for sabotage in [None, Some(99)] {
+                let (p, e) = workers(n);
+                let (got, rep) = run(&scene, 900, Config { p_workers: p, e_workers: e, sabotage, ..cfg.clone() });
+                assert_eq!(got, expected, "{name}: workers {n}, sabotage {sabotage:?} (rollbacks {})", rep.regions.rollbacks);
+            }
+        }
+    }
+}
+
+/// A dense relativistic gas region beside many small islands, under both schedulers.
+#[test]
+fn heavy_tail_equals_one_chronon() {
+    let (scene, observer) = scenes::heavy_tail(256, 1024, 4, 6, 40, 400, 900, 3);
+    let scene = scenes::with_law(scene, emergent_lattice::law::Law::Relativistic);
+    let expected = reference(&scene, 320);
+    for (name, cfg) in [("full", Config::default()), ("round2", Config::round2())] {
+        for n in [1, 8] {
+            for sabotage in [None, Some(7)] {
+                let (p, e) = workers(n);
+                let (got, rep) = run(&scene, 320, Config { p_workers: p, e_workers: e, sabotage, observer, ..cfg.clone() });
+                eprintln!(
+                    "heavy tail {name} workers {n} sabotage {}: regions {} (giants {}), rollbacks {}, lat small p99 {:.3} ms, {:.0} ms",
+                    sabotage.is_some(), rep.regions.initial, rep.sched.giant_regions_last, rep.regions.rollbacks, rep.sched.latency_small_ms.p99, rep.wall_seconds * 1e3
+                );
+                assert_eq!(got, expected, "{name}: workers {n}, sabotage {sabotage:?}");
+                if sabotage.is_none() {
+                    assert!(rep.regions.initial >= 20, "the islands are separate regions");
+                }
+            }
+        }
+    }
+}

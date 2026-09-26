@@ -31,12 +31,18 @@
 //! finality and with it causal slack on screen.
 //!
 //! **Scheduling.** Least slack first: slack = (region tick + light delay to the observer −
-//! present) / time acceleration − forecast cost of its next window (kinetic theory
+//! present) / time acceleration − forecast cost of its next stride (kinetic theory
 //! ½·n²·σ·v̄_rel fitted online to measured ops). Regions others wait for inherit their
-//! deadline. Units are `advance(target, budget)` with the budget from a measured ops→time
-//! calibration (≈ 0.5 ms), on performance (user-interactive QoS) and efficiency (utility QoS)
-//! workers pulling from one shared queue. Frames never simulate: they read one published
-//! pointer. Forecasts and sabotage change speed, never results.
+//! deadline. Round 3 (each behind a `Config` switch, `Config::round2` turns all off):
+//! SITA lanes pin regions costing more than a fair share of the workers to performance
+//! workers; per-worker least-slack queues with stealing and event-driven bookkeeping replace
+//! the scan of every region under the lock; certificate strides grow by one window per
+//! accepted stride and halve on a rollback (AIMD), always stopping on a sync grid so every
+//! region keeps a complete snapshot there; EEVDF-style eligibility keeps a stride from
+//! starting while a lagging region could still reach it; hysteresis keeps a worker on its
+//! region unless another is clearly more urgent. Units are `advance(target, budget)` with the
+//! budget from a measured ops→time calibration (≈ 0.5 ms). Frames never simulate: they read
+//! one published pointer. Forecasts, sabotage and scheduling change speed, never results.
 mod alloc;
 pub mod forecast;
 pub mod geom;

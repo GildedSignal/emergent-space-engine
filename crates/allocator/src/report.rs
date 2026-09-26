@@ -115,6 +115,8 @@ pub struct FrameReport {
     pub interval_ms: Pcts,
     /// Region-frames whose committed tick + light delay was behind the desired present.
     pub deadline_misses: u64,
+    /// The same, counting only parts of small (non-giant-lane) regions.
+    pub small_deadline_misses: u64,
     /// Frames where the present advanced less than the target rate (last-resort sacrifice).
     pub acceleration_drops: u64,
     pub target_rate: f64,
@@ -143,6 +145,32 @@ pub struct RegionReport {
     pub speculation_horizon: f64,
 }
 
+/// Scheduling: which round-3 changes ran, and what they are meant to move.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct SchedReport {
+    pub lanes: bool,
+    pub queues: bool,
+    pub aimd: bool,
+    pub eligibility: bool,
+    pub hysteresis: bool,
+    pub fast_finality: bool,
+    pub min_region: usize,
+    /// Time from a region becoming runnable to its unit's commit, by lane.
+    pub latency_small_ms: Pcts,
+    pub latency_giant_ms: Pcts,
+    /// State-lock hold per critical section (pick + commit + publish).
+    pub lock_hold_ms: Pcts,
+    /// Units run from another worker's queue, and units that switched region on a worker.
+    pub steals: u64,
+    pub switches: u64,
+    /// Strides refused because a lagging region could still reach them (EEVDF eligibility).
+    pub ineligible: u64,
+    pub giant_regions_last: usize,
+    pub giant_workers_last: usize,
+    /// Certificate stride of each region at the end, in chronons.
+    pub stride_chronons: Pcts,
+}
+
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct FinalityReport {
     /// Per-region light-cone finality in force (needs a law-given hard speed).
@@ -159,6 +187,7 @@ pub struct Report {
     pub mode: String,
     pub stepper: String,
     pub finality: FinalityReport,
+    pub sched: SchedReport,
     pub wall_seconds: f64,
     pub bodies: usize,
     pub window: i64,
