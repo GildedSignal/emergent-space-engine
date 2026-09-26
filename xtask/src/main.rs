@@ -7,6 +7,7 @@ mod ladder;
 mod ladder5;
 mod lattice;
 mod proxy;
+mod tick_scale;
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -69,6 +70,12 @@ fn run() -> Result<u8> {
             println!("{} {}", if pass { "EQUAL" } else { "DIFFERENT" }, v);
         }
         return Ok(if ok { 0 } else { 1 });
+    }
+    if task == "tick-scale" {
+        // The same physical gas at chronons 1..32 times longer. Args: bodies (default 16384).
+        let n = args.next().and_then(|v| v.parse().ok()).unwrap_or(16384);
+        tick_scale::run_all(n, &["chronon", "event", "metal"]);
+        return Ok(0);
     }
     if task == "hevc-proxy" {
         // Args: out-dir [frames] [ticks-per-frame]

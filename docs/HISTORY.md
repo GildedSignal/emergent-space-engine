@@ -2502,3 +2502,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [hybrid](../artifacts/evidence/scale-ladder-v6-20260926/hybrid/ladder.json), [metal](../artifacts/evidence/scale-ladder-v6-20260926/metal/ladder.json), [event](../artifacts/evidence/scale-ladder-v6-20260926/event/ladder.json), [chronon](../artifacts/evidence/scale-ladder-v6-20260926/chronon/ladder.json), [context](../artifacts/evidence/scale-ladder-v6-20260926/context.txt)
 - Limitations: The 1M gas under the relativistic law fails because Metal resolves relativistic contacts on the CPU; the 7.3 s result of H0168 is for the Newtonian law. Hybrid units reach 158 ms at 1M (mode switches and Metal round trips inside units), so the hybrid needs to run under the allocator, off the frame thread. The load came from other processes on the machine, so timings may shift by about 30% (thermals and load).
 - Next: relativistic response on the GPU (Metal round 4); the allocator over hybrid regions with the scheduler lessons; Julien's decisions on the contact-chain rule and the length of a chronon in game time.
+
+## H0170 — How long should a chronon be: tick length only costs tick loops, and fidelity follows v·Δt/r
+
+- Date: 2026-09-26
+- Kind: experiment
+- Status: measured
+- Revisions: `5c1e397`; this entry's commit
+- Scope: the meaning and length of a chronon; `xtask tick-scale` ([tick_scale.rs](../xtask/src/tick_scale.rs)); no law or engine change
+- Changed: Julien asked what ticks are for and whether coarser ticks with interpolated display would give a large speed-up. The same physical gas (16,384 ships, 10% fill, speeds up to 0.35c, fixed physical duration) was simulated with chronons from 1/4 to 32 times the ladder gas's. Coarsening a chronon by s shrinks every length in light-chronons by s, so the run takes 1/s as many chronons and ships move s times further per chronon (CFL number v_max·Δt/r = 0.35·s).
+- Why: the discussion logs set the principle "discretize time, but never create a tick loop": the chronon is the quantum of causal ordering, not an update rate. This measures what tick length actually costs and what it does to physics.
+- Validation: Contacts over the fixed physical duration: 355,082 (s = 1/4), 352,574 (1/2), 349,551 (1), 338,571 (2), 323,817 (4), 308,279 (8), 299,808 (16), 296,606 (32); walls and wall momentum fall similarly, from 5,637 to 4,702 walls. Energy ledgers are exact at every s. Cost: the CPU chronon loop scales with chronon count (23.7 s at s = 1/4, 7.7 s at 1, 2.5 s at 8, then worse). The event core is nearly insensitive to fine ticks (2.0 s at 1/4, 1.0 s at 1) and gets slower with coarse ones (13.4 s at 32, larger simultaneous batches). Metal falls from 0.84 s at s = 1/4 to a floor of about 0.16 s from s = 2 on (fixed per-chronon costs).
+- Evidence: [summary](../artifacts/evidence/tick-scale-20260926/summary.txt)
+- Limitations: One world, one seed; timings were measured while two specialists ran; collision fidelity is judged by counts and wall momentum only. Relative to the finest run, collisions drop about 1.6% at CFL 0.35 (the ladder gas), 5% at 0.7, 9% at 1.4 and 13% at 2.8.
+- Next: define the chronon from what the game must order (which signal or shot came first) and a CFL target for dense combat; add a realistic-scale ladder track (small ships, speeds far below c) to replace the abstract radius = one light-chronon gas as the main collision benchmark.

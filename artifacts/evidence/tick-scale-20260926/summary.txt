@@ -1,0 +1,26 @@
+s= 0.25 chronon chronons  4096   23.668 s  contacts 355082 walls  5637 ledger True |wall p| 534994
+s= 0.25 event   chronons  4096    1.953 s  contacts 355082 walls  5637 ledger True |wall p| 534994
+s= 0.25 metal   chronons  4096    0.838 s  contacts 355082 walls  5637 ledger True |wall p| 534994
+s= 0.50 chronon chronons  2048   14.396 s  contacts 352574 walls  5612 ledger True |wall p| 551592
+s= 0.50 event   chronons  2048    1.326 s  contacts 352574 walls  5612 ledger True |wall p| 551592
+s= 0.50 metal   chronons  2048    0.569 s  contacts 352574 walls  5612 ledger True |wall p| 551592
+s= 1.00 chronon chronons  1024    7.748 s  contacts 349551 walls  5404 ledger True |wall p| 555884
+s= 1.00 event   chronons  1024    0.976 s  contacts 349551 walls  5404 ledger True |wall p| 555884
+s= 1.00 metal   chronons  1024    0.297 s  contacts 349551 walls  5404 ledger True |wall p| 555884
+s= 2.00 chronon chronons   512    5.397 s  contacts 338571 walls  5244 ledger True |wall p| 509956
+s= 2.00 event   chronons   512    1.076 s  contacts 338571 walls  5244 ledger True |wall p| 509956
+s= 2.00 metal   chronons   512    0.165 s  contacts 338571 walls  5244 ledger True |wall p| 509956
+s= 4.00 chronon chronons   256    3.355 s  contacts 323817 walls  4997 ledger True |wall p| 491068
+s= 4.00 event   chronons   256    1.744 s  contacts 323817 walls  4997 ledger True |wall p| 491068
+s= 4.00 metal   chronons   256    0.155 s  contacts 323817 walls  4997 ledger True |wall p| 491068
+s= 8.00 chronon chronons   128    2.466 s  contacts 308279 walls  4847 ledger True |wall p| 447258
+s= 8.00 event   chronons   128    3.421 s  contacts 308279 walls  4847 ledger True |wall p| 447258
+s= 8.00 metal   chronons   128    0.179 s  contacts 308279 walls  4847 ledger True |wall p| 447258
+s=16.00 chronon chronons    64    2.673 s  contacts 299808 walls  4741 ledger True |wall p| 428074
+s=16.00 event   chronons    64    7.240 s  contacts 299808 walls  4741 ledger True |wall p| 428074
+s=16.00 metal   chronons    64    0.155 s  contacts 299808 walls  4741 ledger True |wall p| 428074
+s=32.00 chronon chronons    32    3.387 s  contacts 296606 walls  4702 ledger True |wall p| 437254
+s=32.00 event   chronons    32   13.436 s  contacts 296606 walls  4702 ledger True |wall p| 437254
+s=32.00 metal   chronons    32    0.210 s  contacts 296606 walls  4702 ledger True |wall p| 437254
+
+Command: ./target/release/xtask tick-scale 16384 (xtask/src/tick_scale.rs). Same physical gas (16,384 ships, 10% fill, speeds up to 0.35c, fixed physical duration); s = chronon length relative to the ladder gas. Machine: M1, allocator and Metal specialists running concurrently, so timings are indicative. CFL number v_max*chronon/radius = 0.35*s.
