@@ -1,0 +1,38 @@
+{
+  "head": "254ba1f718771ec1d0a25bf59d0d555f7e57993e",
+  "tree": "dirty and changing through concurrent project work",
+  "last_history_entry": "H0045",
+  "source_sha256": {
+    "crates/law-lab/src/evolving_patch.rs": "d547674f3c4436d95789cc72b1eae1c146c74b79ac099513e7d46a933a48afdc",
+    "docs/laws/evolving-spacetime-patch-v0.md": "3470dbc657dc9bd67a9ad4f809f4d1c889eb4d35d43b171b56cf58afae90f730",
+    "docs/spacetime-geometry-unification-20260912.md": "e0fe5e7a7d85a06daf8357505621f50f897d0d328795254c53a8e9c90cff4039",
+    "crates/engine/src/response.rs": "48d96b304cdf0a6f91172761f7f540d6ad11435fa6ebd46db398bf141059f236"
+  },
+  "scope": "Read-only source assessment; no new performance or physical qualification",
+  "findings": [
+    {
+      "id": "cached_path_still_ticks",
+      "status": "CONFIRMED_SOURCE",
+      "source": "crates/law-lab/src/evolving_patch.rs:1287-1334",
+      "meaning": "Both advance_patch and advance_from_cache loop one step at a time."
+    },
+    {
+      "id": "geometry_compile_retains_sources",
+      "status": "CONFIRMED_SOURCE",
+      "source": "crates/law-lab/src/evolving_patch.rs:499-570",
+      "meaning": "compile stores histories and digest; phi_xi traverses sources and evaluates contributions per query."
+    },
+    {
+      "id": "history_copy_growth",
+      "status": "DERIVED_COMPLEXITY_NOT_BENCHMARK",
+      "source": "crates/law-lab/src/evolving_patch.rs:845-854,1150-1256",
+      "meaning": "Cloning retained histories every tick produces quadratic cumulative copy work in step count on an untruncated run."
+    },
+    {
+      "id": "cache_parity_not_amortization",
+      "status": "CONFIRMED_SOURCE",
+      "source": "crates/law-lab/src/evolving_patch.rs:1499-1525",
+      "meaning": "Fixtures check result parity; no construction/application/break-even cost comparison is established by these fixtures."
+    }
+  ]
+}

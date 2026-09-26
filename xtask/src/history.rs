@@ -112,6 +112,37 @@ fn validate(document: &str, previous: Option<&str>) -> Result<usize> {
     Ok(current.len())
 }
 
+/// Repository-relative form of a link target written relative to docs/.
+fn normalize(target: &str) -> String {
+    let mut parts: Vec<&str> = vec!["docs"];
+    for part in target.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            p => parts.push(p),
+        }
+    }
+    parts.join("/")
+}
+
+/// Evidence lost after its entry was committed (docs/history-evidence-map.json, H0166):
+/// a recovered copy that must exist, or a path recorded as lost for good. Any other
+/// missing path still fails the check.
+fn accounted(target: &str) -> Result<bool> {
+    let Ok(text) = fs::read_to_string("docs/history-evidence-map.json") else { return Ok(false) };
+    let map: serde_json::Value = serde_json::from_str(&text)?;
+    let key = normalize(target);
+    if let Some(to) = map["relocated"][&key]["to"].as_str() {
+        if !Path::new(to).exists() {
+            return Err(format!("relocated history evidence missing: {key} -> {to}").into());
+        }
+        return Ok(true);
+    }
+    Ok(map["lost"].get(&key).is_some())
+}
+
 fn check_links(document: &str) -> Result<()> {
     // Local Markdown evidence links are relative to docs/HISTORY.md.
     for tail in document.split("](").skip(1) {
@@ -126,7 +157,7 @@ fn check_links(document: &str) -> Result<()> {
         if target.is_empty() || target.contains("://") {
             continue;
         }
-        if !Path::new("docs").join(target).exists() {
+        if !Path::new("docs").join(target).exists() && !accounted(target)? {
             return Err(format!("missing history evidence path: {target}").into());
         }
     }
