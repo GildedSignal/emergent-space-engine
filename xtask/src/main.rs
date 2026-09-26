@@ -1,6 +1,7 @@
 mod bench;
 mod gas;
 mod gas_rel;
+mod gr_oracle;
 mod history;
 mod hybrid;
 mod ladder;
@@ -86,6 +87,15 @@ fn run() -> Result<u8> {
         let tpf = rest.get(2).and_then(|v| v.parse().ok()).unwrap_or(4);
         proxy::run(&out, frames, tpf)?;
         return Ok(0);
+    }
+    if task == "gr-oracle" {
+        // Independent weak/strong-field GR oracle (G = c = M = 1): two methods per quantity.
+        let (ok, rows) = gr_oracle::run();
+        for r in rows.as_array().into_iter().flatten() {
+            println!("{r}");
+        }
+        println!("{}", if ok { "ORACLE AGREES" } else { "ORACLE DISAGREES" });
+        return Ok(if ok { 0 } else { 1 });
     }
     if task == "lattice-check-rel" {
         // The relativistic chronon reference against the independent relativistic gas reference.

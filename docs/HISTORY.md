@@ -2614,3 +2614,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: this entry; tests and example named above
 - Limitations: The 217k galaxy is still 9× Metal. The clustered world's per-op cost is 82 ns against the gas's 34 ns (memory locality suspected). The worst unit time with an all-sparse grid is not measured. In debug builds `dispersal_regrows_the_cells` exceeds the 60 s cap, at HEAD as well.
 - Next: Climb v7. Find the per-op cost of clustered worlds.
+
+## H0178 — An independent GR oracle: periapsis advance, light bending, geodetic precession and clock rates, each from two methods
+
+- Date: 2026-09-27
+- Kind: implementation
+- Status: verified
+- Revisions: `8e43cb2`; this entry's commit
+- Scope: [gr_oracle.rs](../xtask/src/gr_oracle.rs), `xtask gr-oracle`; no engine change
+- Changed: The first step of the GR path (H0164's condition for resuming gravity) is the benchmark any gravity law will be judged against. It shares no code with crates/ and uses G = c = M = 1. The game plane is the equatorial slice of 3+1 Schwarzschild, not 2+1 GR: in 2+1 GR a point mass makes only a conical deficit (no Newtonian attraction), while one mass's orbits and light rays are planar in 3+1. Each quantity comes from two independent methods plus its weak-field series: periapsis advance: the complete elliptic integral (AGM, written without cancellation as 4(√(p/d)(K − π/2) + (π/2)(√(p/d) − 1))) against RK4 on u'' + u = 1/L² + 3u²; light deflection: Gauss–Legendre quadrature with the root factored out exactly and the flat integral subtracted analytically, against RK4 on u'' + u = 3u²; geodetic precession per circular orbit: the closed form 2π(1 − √(1 − 3/r)) against RK4 parallel transport of a spin with the Schwarzschild Christoffel symbols; clock rates: static √(1 − 2/r) and circular-orbit √(1 − 3/r).
+- Why: Julien: GR is the goal. The approved order is an independent weak-field benchmark before any gravity law (H0164, handoff next step 3).
+- Validation: `xtask gr-oracle` prints ORACLE AGREES. The two methods agree to 3×10⁻¹² to 1.6×10⁻⁹ relative, below the frozen bands (10⁻⁸; 10⁻⁷ for spin transport). The series agree within their frozen O(1/p²), O(1/b²) and O(1/r) bands. Mercury (p = 3.75×10⁷, e = 0.2056) gives 0.10368″ per orbit, which is 43.0″ per century. The Sun's limb (b = 4.71×10⁵) gives 1.75173″, and its difference from the two-term series is 4.8×10⁻¹¹, the known third-order term 128/(3b³). Gravity Probe B (r = 1.58×10⁹) gives 5.965×10⁻⁹ rad per orbit, about 6.6″ per year. Correction during development: the first run hung on a circular orbit (no periapsis for the ODE to find), and the next failed three weak-field rows through cancellation in the oracle's own methods. Both are fixed by method changes (loop caps, the ODE skipped for e = 0, cancellation-free forms), with the bands unchanged.
+- Evidence: [rows](../artifacts/evidence/gr-oracle-20260927/rows.jsonl)
+- Limitations: Single-mass Schwarzschild only: no Shapiro delay yet, no two-body 1PN dynamics or radiation, no frame dragging. Weak-field rows beyond the ODE's range rest on one exact method plus the series.
+- Next: Add the Shapiro delay and the Newtonian-limit Kepler period. Freeze the lattice-gravity comparison bands before any gravity law runs. Julien chooses the field representation for the first prototype.
