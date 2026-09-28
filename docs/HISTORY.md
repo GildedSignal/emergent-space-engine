@@ -2818,3 +2818,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [GLM results](../artifacts/evidence/premise-probe-20260928/GLM_RESULTS.md)
 - Limitations: 2D, circular Moon and Sun, float, orders of magnitude only.
 - Next: Step 3's parent formula includes J2 and averaged tides; binaries get a two-body parent.
+
+
+## H0191 — Operating architecture adopted in its lean form, after GLM's red-team and pre-mortem; Sonnet joins as the default builder
+
+- Date: 2026-09-28
+- Kind: decision
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: AGENTS.md team section; [CARD.md](CARD.md), now in git and symlinked from Cursor; HANDOFF "In flight"
+- Changed: Julien approved the architecture. GLM's red-team and pre-mortem found the full version would spend the scarce constraint on itself ("the project occupied itself"). Adopted: physics first (≥ 60% of windows, no process change in a week without a physics merge); tiers Opus ≈ Astra, Sonnet, Sol, GLM; lower-tier patches may add or delete lines, never reword; Julien owns his principles; one GLM red-team plus the cheapest falsifier before any freeze; pull-based GLM loops; job files in `artifacts/runs/`. Deferred: six-run panels, weekly drills, a separate board, the twelve-loop menu, auto-merging machine verdicts.
+- Why: Constraint math, and Julien's steer that Sonnet 5.5 is strong and cheap.
+- Validation: AGENTS.md is 52 lines; history check PASS.
+- Evidence: `artifacts/runs/architecture-20260928/` (brief, red-team, pre-mortem; on disk)
+- Limitations: The meaning guard is a rule, not yet a parser.
+- Next: judge → geodesic → G2.
