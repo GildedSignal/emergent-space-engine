@@ -1,6 +1,6 @@
 # Emergent Space — handoff
 
-Current as of 28 September 2026 (H0182). The previous handoff, with the old engine's status (H0100–H0164), is in git history and in `~/Research/emergent-space-archive/old-lineage/docs/HANDOFF.md`.
+Current as of 28 September 2026 (H0187). The previous handoff, with the old engine's status (H0100–H0164), is in git history and in `~/Research/emergent-space-archive/old-lineage/docs/HANDOFF.md`.
 
 ## First ten minutes
 
@@ -27,67 +27,29 @@ Only surprises. The state is certified generators, compute follows entropy, and 
 
 ## The plan: engine and GR
 
-Every step has gates frozen before its first run, every test stays under 60 s, and speed is reported as a real-time factor at physical scale.
+Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). Work runs one job at a time; parallel work is limited to read-only briefs and independent judges.
 
-0. **Clean countertop (done, H0182).** One checkout outside iCloud, the old line archived, 55 tests, ladder rungs identical to v7 evidence.
-1. **Finish the oracle (partial, H0183).** Added Shapiro delay, bound-orbit periods and 1PN two-body motion, 66 rows. Everything single-mass passes. All 12 e = 0.5 two-body period rows fail their frozen band: the residual is a clean next-order p⁻² term, and the failure is kept. Before step 3 uses two-body rows, freeze a new protocol (2PN on both sides, or a convergence-order gate) on cases never run before. Remaining here: freeze the lattice-gravity comparison bands against the Schwarzschild rows.
-2. **Integer geodesic formulas plus kicks, around one mass, in the lab.** The contract and frozen gates are in [gravity-law.md](gravity-law.md) (river / Painlevé–Gullstrand coordinates). Astra builds `crates/geodesic`; Sol builds the independent reference and the gate.
-   - A body's formula is the geodesic of its parent: the source that dominates by a dimensionless ratio, never a label. With no parent, the formula is a straight line (today's law).
-   - Near one mass it is a closed-form Schwarzschild geodesic, evaluated by one fixed integer algorithm (elliptic functions by arithmetic–geometric mean), so it is canonical. The interface keeps a spin parameter.
-   - Kicks carry only the acceleration the formula doesn't know. It accumulates in carries and is applied as an integer kick each time it reaches one velocity quantum.
-   - Horizon crossing is an absorption event. Light follows null geodesics.
-   - Gates: agreement with the oracle; no secular drift over 10⁴ orbits; the same bits from one jump or many steps; kicks per orbit.
-   - Why this formula (Fermi, at a 0.27 mm/s quantum): a ship in low orbit needs about 33,000 kicks/s with straight lines, and one every few minutes with its orbit as the formula.
-   - The old osculating-Kepler rejection (H0133) used Newtonian conics at a = 4M, inside the innermost stable orbit, with coarse kicks. This design starts from the exact geodesic instead.
-3. **Many bodies.**
-   - The parent hierarchy is the cell tree.
-   - Tides come from multipole moments stored as polynomials in time, read at the retarded time t − D/c.
-   - The tree is symmetric so momentum stays exact (Dehnen).
-   - Handoff between parents is canonical, with hysteresis.
-   - The aggregate mass of fleets acts as a source.
-   - Oracle: a direct 1PN N-body integrator.
-4. **Law `es-lattice-gravity-v0` in the engine.**
-   - Contacts between curved worldlines: in a shared falling frame, relative motion is a straight line inside a tidal tube, so the existing exact first-hit test works with a certified margin.
-   - Thrust enters as kicks.
-   - All modes stay bit-identical, and Metal evaluates formulas and kicks in fixed point.
-   - This needs wide coordinates: i128 origins with narrow local arithmetic.
-5. **Entropy forecast and least-slack scheduling.** It can start after step 0, in parallel with steps 1–3.
-   - One surprise rate per region: collision entropy for contacts, unknown acceleration ÷ quantum for gravity.
-   - That rate drives five things: priority (slack = time until needed − forecast work ÷ throughput), the batch window (from event-driven to lockstep, replacing the mode split), cell size, hardware placement, and storage (store high entropy, recompute low).
-   - Metal moves from one-chronon lockstep to multi-chronon windows.
-   - The forecast steers cost only, never outcomes.
-6. **The player.** Commands as kicks; signals and observation along null geodesics; save and replay; a viewer. Port the old engine's contracts, not its code.
-7. **Physics v1.**
-   - Kerr: equatorial orbits are closed form, with one more constant.
-   - Inspiral: the Peters–Mathews drift of the orbit's constants, as kicks.
-   - Merger: a single event whose outcome comes from numerical-relativity fitted formulas written as exact integer law.
-8. **Ladder v8.** Physically scaled scenes, all reported as real-time factors:
-   - 1M ships orbiting a spinning black hole at ≥ 1× real time with no frame over budget;
-   - the same scene plus a far dense battle that least-slack scheduling must keep caught up;
-   - a galaxy of 10⁹ bodies where only the player's region is current, reporting the maximum sustained time acceleration and memory.
+0. **Clean countertop (done, H0182).**
+1. **The oracle (partial, H0183).** Every single-mass row passes. The e = 0.5 two-body period rows fail with a clean p⁻² residual; the failure is kept. Before step 3 uses them, freeze a new protocol on unseen cases.
+2. **One mass, in the lab** (running). The contract is [gravity-law.md](gravity-law.md): river coordinates, the canonical ladder, and gates G2.1–G2.5, with rungs R0–R5, planted bugs and ranges up to galactic nuclei (H0184, H0187).
+   - Astra builds `crates/geodesic`.
+   - The judge's reference floors come from python-flint/Arb (`.venv`), precomputed and frozen.
+   - Sol's harness is paused.
+3. **Premise probe, before any more building.** A float probe with frozen kill criteria: star, planet and moon, low orbits, a Hill-sphere transfer, a near-equal binary, one oblate parent. It measures kicks per orbit, `position` calls per second, handoff jumps, and what averaging known tides saves.
+4. **The player slice** right after step 2: one mass, one ship, thrust as kicks, a float viewer, save and replay. Julien predicts before each run.
+5. **Many bodies:** parent hierarchy, the kick rule (continuous integral, error-feedback re-anchoring, averaged tides), retarded tides with source-velocity terms, canonical handoff. Oracle: 1PN N-body.
+6. **Collapse the modes, then put the law in the engine.** Keep the chronon judge plus one production engine (regions with a per-region batch-window dial; Metal only for dense contacts; canonical formulas on the CPU). Then add `es-lattice-gravity-v0`, thrust as kicks, and contacts in the flow frame.
+7. **Scheduling from surprise:** least slack, fed by measured surprise rates (the formula's residual plus entropy).
+8. **The player, fully:** commands, signals and observation on null geodesics, and the viewer.
+9. **Physics v1:** Kerr, inspiral, merger.
+10. **Ladder v8:** physically scaled scenes reporting real-time factors.
 
-**Before Astra resumes, from the questioner:**
-- **The ranges are wrong.** At Q = 2^40, M ≤ 2^40 is about 6 Earth masses, and |x| ≤ 2^62 is 105 km. A solar-mass hole needs M ≈ 2^56, and 2MQ² ≈ 2^137 overflows i128. Write a units table for the v8 scenes, then amend the ranges before the arithmetic widths are fixed. An amendment before any run is not a weakening.
-- **The kick rule is the weakest joint, and it is unspecified:** the carry integral and cadence (which are law), the new anchor, and the rounding remainder (Anchor's integer k may need a remainder). Claude writes it on one page and Astra reviews it. HANDOFF step 2 promises kicks, which the contract excludes: align them.
-- **Tides from known sources** may belong in the formula as orbit-averaged drift, with kicks kept for true surprises.
-- **The reference** is the Arb spike (python-flint 0.9.0 in `.venv`). Precompute the reference floors, hash them and freeze them before the evaluator runs. Add the baby-spartan rungs 0–5 and one planted bug per gate.
-
-**From the math researcher** (probe scripts in `artifacts/evidence/reanchor-probe-20260928/`):
-- **Re-anchoring rounding.** Plain rounding makes E random-walk: 200 km off after 1,000 low-orbit orbits. Floor rounding makes L drift secularly. Error feedback on carried E and L (sigma-delta, 5×5 candidates) stays bounded at 0.7 quanta. So the kick rule uses error-feedback rounding, as law.
-- **Kicks come from the continuous integral** of the unknown acceleration along the exact formula, not from a per-chronon sum.
-- **Averaging known tides into the formula** (Lie–Deprit) is estimated to cut kicks about 500×. In the plane, J2 fits the same cubic machinery with no kicks.
-- **A canonicity gap.** A fallback defined as a function of the final interval is canonical only with a single evaluator. Make a fixed Ziv ladder the law: a fast path (double-double, about 75–95 bits) answers only when its enclosure, widened by the ladder's proven final width, excludes every integer. Tell Astra before it resumes.
-- **Retarded multipoles need source-velocity terms,** or they produce Laplace aberration drift.
-
-**Changes from the viewpoint review (H0186).**
-- **Next action:** a float probe, non-canonical and under 60 s, at orders-of-magnitude precision, with kill criteria frozen first. The scene is physically scaled: a star, a planet and a moon, ships in low orbit, a transfer that crosses a Hill sphere, a near-equal binary, and one oblate parent. It measures kicks per orbit, `position` calls per second from every source, and the jumps at a parent handoff. This tests the premises behind "a kick every few minutes", "0.3 core" and "10–100× real time" before we build more on them.
-- **Before G2's first run, freeze two additions:** cases that force the fallback rule, with what is accepted there, and a G2.5 row for the worst-case cost at maximum precision.
-- **Collapse the modes before step 4, not after:** keep the chronon reference and one production path. Canonical formulas run on the CPU (the plan's own arithmetic says about 0.3 core), and Metal keeps the dense contacts.
-- **The player slice moves up to right after step 2:** one mass, one ship, thrust as kicks, a float viewer, save and replay. Julien writes his predictions before each run.
-- **Step 5's scheduler waits** until a gravity workload exists to schedule. The probe measures the surprise rates it will use.
-- **The independent reference uses a proven ball-arithmetic library** (Arb/FLINT) instead of a hand-written certifier. Installing it needs Julien's OK.
-- **Kerr, inspiral and merger stay deferred.**
-
+**Candidates from the polymath scan** (GLM, 28 September):
+- commutative-monoid messages between regions;
+- largest-remainder splits;
+- choosing the error-feedback kernel by its low-frequency error;
+- a replay-bisect tool for divergences;
+- an LSM or CRAM-style body store for the memory floor.
 
 ## Standing decisions
 

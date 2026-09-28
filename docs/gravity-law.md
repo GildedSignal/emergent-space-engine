@@ -1,6 +1,6 @@
 # Gravity law `es-lattice-gravity-v0`: design and the step 2 contract
 
-Status: design. The step 2 gates below were frozen on 28 September 2026 (H0184), before any gravity code ran. Plan context: [HANDOFF.md](HANDOFF.md), steps 2–4.
+Status: design. The step 2 gates below were frozen on 28 September 2026 (H0184) and amended before any gate run (H0187). Plan context: [HANDOFF.md](HANDOFF.md), steps 2–4.
 
 ## Space flows: river coordinates
 
@@ -39,7 +39,23 @@ One static source of mass M at the origin, and test bodies and light rays (no ba
       ds² = −Q² dT² + |dX − β dT|²,   β = −Q √(2M/r) · X/r  (quanta per chronon),
 
   with r in quanta. A velocity k corresponds to v/c = k/Q.
-- Ranges: |x| ≤ 2^62, 1 ≤ M ≤ 2^40, Q ≤ 2^40, and |T − T0| ≤ 2^62. Use i128 internally.
+- **Ranges** (amended before any gate run, H0187): |x| ≤ 2^96, 1 ≤ M ≤ 2^80, Q ≤ 2^40, and |T − T0| ≤ 2^80. The interface stays i128. Intermediate products exceed i128, so evaluators use arbitrary-width integers.
+- **Scale table,** at Q = 2^40 (chronon 83 ps, quantum 2.27·10⁻¹⁴ m):
+
+  | Object | Exponent (base 2) |
+  |---|---|
+  | Earth: M | 37.5 |
+  | Earth: low orbit | 68 |
+  | Sun: M | 56 |
+  | Sun: 1 AU | 82.4 |
+  | Sun: Neptune's orbit | 87 |
+  | 10 M☉ hole: M | 59 |
+  | Sgr A*: M | 78 |
+  | Sgr A*: r = 100M | 85 |
+  | 1 year | 58.4 |
+  | 1 Myr | 78 |
+
+  Galactic distances (about 2^115) are beyond a single parent's formula. They belong to the step 3 hierarchy with wide origins.
 
 **The canonical position:**
 
@@ -83,6 +99,8 @@ impl Geodesic {
 
 This contract was corrected twice before any implementation, after Astra's preflights. No threshold changed (H0184).
 
+**Second evaluators** (GPU, fast paths). The canonical rule is the ladder written in `crates/geodesic/README.md`: a fixed precision schedule, fixed operations and rounding directions, fixed iteration limits, and a final-midpoint rule. It is therefore a fixed function of the integer inputs. Any other evaluator must either reproduce it operation for operation, or return a floor only when its own certified enclosure, widened by the ladder's proven maximum final width W, contains no integer. The crate states W and its proof. Otherwise it defers to the ladder.
+
 ## Step 2 gates (frozen)
 
 Every test runs in under 60 s, on the M1, in release.
@@ -97,6 +115,21 @@ Every test runs in under 60 s, on the M1, in release.
     - orbits near the horizon;
     - T up to 10^4 radial periods ahead.
   - Pass: 100% agreement. A case the reference cannot settle counts as a failure of the gate, not as an exclusion.
+  - **Climb, don't jump** (amended before any run). Rungs run in order, and each must pass before the next:
+    - R0, exact answers: T = T0; motion along an axis; far-field hops whose proven deviation from the straight line is below the straight line's distance to the nearest integer, which must floor to the straight line;
+    - R1: radial infall and circular cases;
+    - R2: an exhaustive small world (Q = 25, M = 1, x ∈ [−8, 8]², k ∈ [−4, 4]², T − T0 ∈ 1..8, every valid anchor);
+    - R3: 100 random cases per class;
+    - R4: the ≥ 1,000 near-integer cases;
+    - R5: the full set.
+  - **Reference answers are precomputed** by the judge (python-flint/Arb ball arithmetic), hashed and frozen as evidence before the evaluator's first gate run. The 60 s cap applies to the comparison, not to the precomputation.
+  - **Fallback cases.** A test-only reduced schedule (16/32/64 bits) forces the final-midpoint rule on near-integer cases. There the result must be one of the two integers adjacent to the true value's nearest integer boundary, and identical across 3 runs and across thread counts.
+  - **Planted bugs.** Before a gate counts, it must fail on its planted bug in a throwaway branch:
+    - G2.1: a flipped outward rounding in one chart;
+    - G2.2: the river-time correction's sign flipped;
+    - G2.3: a stateful cache;
+    - G2.4: an off-by-one absorption chronon.
+
 - **G2.2 Oracle agreement.** The diagnostics must agree with the H0178/H0183 oracle functions evaluated at the anchor's own (p, e) or impact parameter:
   - periapsis advance per orbit, radial period in coordinate time and radial period in proper time: relative difference ≤ 10^-9;
   - static and circular clock rates: ≤ 10^-12;
@@ -107,7 +140,10 @@ Every test runs in under 60 s, on the M1, in release.
 - **G2.4 Horizon.**
   - Radial infall from rest (k0 = 0) at r0 ∈ {10M, 100M} is absorbed at ⌈T_h⌉, with T_h from the closed-form infall time the reference computes.
   - For timelike E = 1 anchors moving inward on the radial branch connected to infinity (outside the potential barrier): |L| ≤ 4M·(1 − 10^-6) is absorbed, and |L| ≥ 4M·(1 + 10^-6) escapes.
-- **G2.5 Cost.** Over the G2.1 set, on one M1 performance core: median ≤ 50 µs and p99 ≤ 500 µs per `position` call. Reason: 1M orbiting ships, each kicked by tides every few minutes, then cost ≤ 0.3 core at 1× real time. Rendering uses non-canonical floats and does not count against this. Measure under the conditions the player will actually have, with heat and load included, and record the thermal, power, swap and load state (fanless MacBook Air M1, 7-core GPU).
+- **G2.5 Cost**, on one M1 performance core:
+  - **G2.5a, natural anchors** (the random classes of G2.1): median ≤ 50 µs and p99 ≤ 500 µs per `position` call. Reason: 1M orbiting ships, each kicked by tides every few minutes, then cost ≤ 0.3 core at 1× real time.
+  - **G2.5b, every case including near-integer ones:** max ≤ 5 ms.
+  - Rendering uses non-canonical floats and does not count. Measure under the conditions the player will actually have, with heat and load included, and record the thermal, power, swap and load state (fanless MacBook Air M1, 7-core GPU).
 
 ## Division of the work
 
@@ -121,4 +157,10 @@ Every test runs in under 60 s, on the M1, in release.
   - The parent is the dominant source, chosen by a dimensionless ratio with hysteresis.
   - A body follows its parent's river; a moving parent carries its river along.
   - Other sources act as tides: multipole moments stored as polynomials in time and read at the retarded time. The tides accumulate in carries, and an integer kick is applied each time one velocity quantum builds up.
+- **Step 3: the kick rule**, measured by the math researcher's probe (`artifacts/evidence/reanchor-probe-20260928/`):
+  - The unknown acceleration is integrated continuously along the exact formula. A kick falls at the first integer chronon where its rounded integral changes.
+  - Re-anchoring rounds by error feedback on the carried E and L. This stayed bounded at 0.7 quanta, where plain rounding random-walks and floor rounding drifts L secularly.
+  - Known tides are averaged into the formula (Lie–Deprit).
+  - Integer splits between bodies use largest-remainder apportionment.
+  - Messages between regions are commutative monoids: carries under +, frontiers under min.
 - **Step 4: the law in the engine.** Per chronon, x(T) comes from the formula. Contacts are resolved in the flow frame, with a canonical integer β at the contact (exact isqrt of 2MQ²/r). The speed limit becomes |k − βQ| ≤ Q, and finality uses c + |β|.

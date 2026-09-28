@@ -2751,3 +2751,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: this entry
 - Limitations: The J2 and Moon-tide kick figures are the panel's estimates, which the probe must measure.
 - Next: When budgets reset, resume Astra and Sol, freeze the G2 additions, then run the probe.
+
+
+## H0187 — Step 2 contract amended before any gate run: real-scale ranges, second-evaluator rule, climbing rungs, split cost gate
+
+- Date: 2026-09-28
+- Kind: decision
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: [gravity-law.md](gravity-law.md), [HANDOFF.md](HANDOFF.md)
+- Changed: Ranges were |x| ≤ 2^62 and M ≤ 2^40 (105 km, 6 Earth masses); they are now |x| ≤ 2^96, M ≤ 2^80 and |T − T0| ≤ 2^80, covering solar systems and galactic nuclei. Astra's ladder (128/256/512 bits, final midpoint) is law; second evaluators match it or defer unless an enclosure widened by the proven W excludes every integer. G2.1 climbs R0–R5 against Arb reference floors frozen in advance, with forced-fallback cases and a planted bug per gate. G2.5 is split: natural median/p99, and max ≤ 5 ms on every case. The step 3 kick rule is recorded. The handoff plan is rewritten (120 → 82 lines).
+- Why: From the questioner, the math researcher, the panel, and GLM's sweep, which also confirmed the range arithmetic.
+- Validation: Every threshold predates any run; history check PASS with budgets.
+- Evidence: [contract](gravity-law.md)
+- Limitations: W is not yet proven. Sol's harness still targets the old ranges.
+- Next: GLM red-teams the amended contract, then Astra resumes.
