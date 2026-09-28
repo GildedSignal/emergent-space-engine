@@ -1,7 +1,7 @@
 # Step 2 reference floors (G2.1–G2.4), frozen 28 September 2026
 
 These are the independent Arb reference answers for `es-lattice-gravity-v0`, step 2 scope ([contract](../../../docs/gravity-law.md)). The judge and generator live in `xtask/judge/` (branch `wt/judge`).
-- Answers were computed by the judge at `84cff29`; R2 was computed at `ab712de`.
+- Answers were computed by the judge at `84cff29`; R2 was computed at `ab712de`, and G24edge, FB and R5 at `2057ee1`.
 - Later commits change only the case generators, the driver's priority handling, caching and a rigorous speed bound. None changes the mathematics.
 - Everything was computed before any evaluator gate run. Nothing was compared with `crates/geodesic`.
 
@@ -98,8 +98,19 @@ The seeds are in `cases.SEEDS`: 20260928x, with a per-rung suffix.
   - The integer test proves E = 1 for every anchor. For all 120 anchors, the judge's class matched the side: plunging (absorbed) for |L| ≤ 4M(1 − 10^-6), unbound (escapes) for |L| ≥ 4M(1 + 10^-6).
   - Here |L|/4M − 1 lies between 8.5·10^-5 and 10^-2. `G24edge` (below) covers 10^-6 to 10^-5.
   - The generator also found the exact separatrix (Q, k0) = (14, (−3, 6)) at r0 = 8M, where E = 1 and L = 4M. The judge answers UNSETTLED there, so it is not in the set.
+- **G24edge (band edge):** 59 exact E = 1 anchors on the same conics with 1.5·10^-6 ≤ | |L|/4M − 1 | ≤ 9.9·10^-6, taken from lines close to the tangent plane at the base point. There are 29 on the absorbed side and 30 on the escape side, and all behave as their side requires. In 11 of them ⌈T_h⌉ = T0 + 1, so the case has no free query before absorption.
+- **FB (fallback, |X| ≤ 2^12):**
+  - **Circular (150):** x0 = (r, 0), r = Mw², Q = w and k0 = (0, ±1), so X = r(cos, sin)(ΔT/r) exactly.
+    - ΔT is chosen by LLL (a Kannan embedding) so that ΔT/r ≡ ±arccos(n/r) mod 2π. That puts X_x between 2^-35 and 2^-53 of the integer n (median 2^-43), above or below it.
+    - The phase is kept below about 2^47·2π, so a 64-bit enclosure stays narrow.
+  - **Other charts (150):** the nearest of a 1,500-anchor random search (2^-2.5 to 2^-16).
+  - **`FB.widths`** records, per case, the boundary n, the side, the log2 distance, the two admissible results {n − 1, n} for the coordinate, and the judge's own certified width of X at 64 and at 128 bits:
+    - the width is below 1/4 quantum for 298 of 300 cases, the eligible fallback cases (FB-0016 and FB-0098 are not eligible);
+    - in 146 of them (all circular) the distance is below that width, so a 64-bit evaluation can straddle n and force the final-midpoint rule;
+    - the 150 other-chart cases are small-magnitude near-integers that a 64-bit evaluation still decides.
+- **R5 (secondary):** the pinned sampler, with 4,000 anchors in each of bound, unbound, plunging, radial and light (20,000), plus 300 in each of the eight constructed classes (2,400). `R5.cases` holds all 22,400. Slice i is cases i, i + 10, …, so every slice spans every class. Only slice 0 has answers here (`R5-slice0.answers`). The full R5 of G2.1 is the union of R0–R4, G2.4 and this file.
 
-## Results (first freeze: R0–R4, G2.2, G2.4)
+## Results
 
 | File | Cases | Queries | Free | Absorbed | OutOfRange | Before | UNSETTLED | Share with some \|x_c\| ≥ 2^62 |
 |---|---|---|---|---|---|---|---|---|
@@ -110,10 +121,13 @@ The seeds are in `cases.SEEDS`: 20260928x, with a per-rung suffix.
 | R4 | 1,500 | 1,500 | 1,500 | 0 | 0 | 0 | 0 | 0.57 |
 | G2.2 | 510 | 8,160 | 8,138 | 0 | 22 | 0 | 0 | 0.44 |
 | G2.4 | 200 | 716 | 350 | 360 | 6 | 0 | 0 | 0.27 |
+| G24edge | 59 | 136 | 78 | 58 | 0 | 0 | 0 | 0.23 |
+| FB | 300 | 300 | 300 | 0 | 0 | 0 | 0 | 0 |
+| R5 slice 0 | 2,240 of 22,400 | 2,240 | 2,068 | 97 | 45 | 30 | 0 | 0.59 |
 
 - R2's counts were verified: 22,092 valid anchors out of 23,409. Of the rest, 1,053 have r ≤ 2M and 264 are not below c relative to the flow.
 - The R3 classes are those of G2.1: bound, unbound, plunging, radial, light, near-circular, near-ISCO, near-separatrix/whirl, near-horizon, T = T0, long-T (10^3–10^4 periods), range exit near ±2^96 and T < T0.
-- **Two precisions.** Every rung was re-solved from a 512-bit start. Every settled answer is identical: 0 differences out of 189,572 queries.
+- **Two precisions.** R0–R4, G2.2, G2.4 and FB were re-solved from a 512-bit start. Every settled answer is identical: 0 differences out of 189,872 queries. G24edge: 0 differences out of 136.
 - **Two revisions.** R0, R2, R3, G2.2 and G2.4 were also solved by an earlier judge revision. That revision used a different phase formula, u = m − h cos χ, and a different cache. It gave 0 differences.
 - **Compute.**
   - Per-case sums at the primary schedule: R2 543 s, G2.4 546 s, G2.2 102 s, R3 93 s, R4 80 s, R0 30 s, R1 20 s.
@@ -139,4 +153,11 @@ The seeds are in `cases.SEEDS`: 20260928x, with a per-rung suffix.
 
 - **The judge is not a proof assistant.** Its rigour rests on Arb's ball arithmetic and on the formulas above, which match an independent RK4, the closed forms and the oracle. An error shared by these formulas and all three checks would go unnoticed.
 - **Exact degeneracies that no integer test covers end as UNSETTLED.** One example is the exact separatrix, E = 1 and L = 4M. The frozen set contains none.
-- **The fallback cases (`FB`)** and the G2.4 band-edge file (`G24edge`) come in a follow-up commit. R5 is secondary, and only its finished slices are frozen (see `R5-STATUS`, when present).
+- **R5 is incomplete.** Only the slices with answer files are frozen.
+  - Slice 1 contains R5s-00711, a near-separatrix bound orbit: margin 6·10^-10, M = 9 and Q = 2^40, so one chronon spans 7.5·10^7 whirl periods.
+  - With `acb.integral`'s default evaluation limit, its period integral comes back as a finite but wide ball (14,670 ± 89). The case then escalates slowly towards UNSETTLED.
+  - Raising `eval_limit` to 10^7 gives 14,644.283… ± 2·10^-54 in 29 s. The next step is to raise the limit, or to split chart-A integrals at χ ≡ π.
+  - Neither change touches the mathematics of any frozen answer.
+  - To finish R5: `geodesic_judge.py solve` on each missing slice (cases i::10 of `R5.cases`), then hash the result.
+- **FB is weak outside the circle.** Only the circular fallback cases force the midpoint rule at 64 bits. The other charts reach 2^-16 at best at |X| ≤ 2^12, so a 64-bit evaluation still decides them.
+- **The "reduced final width" is the judge's own** 64-bit Arb width. The crate's width W is still unproven.
