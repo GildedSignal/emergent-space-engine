@@ -528,11 +528,12 @@ class Geo:
                 z0 = -self.rdot0 / (Lab * (2 * M * qf(u0)).sqrt())
             self.turns = [arb(0)]
             ut_pos = (R0sign < 0) if region == "C" else True   # u3 > 0 always
-            if ut_pos or sgn(z0, "escape direction") > 0:
+            # sign(sigma0) = -sign(dr/dT), decided exactly from the integers.
+            if ut_pos or A.rdot_sign < 0:
                 self.horizon = True
                 self.zh = (self.uh - ut).sqrt()
                 self.info.update(kind="plunging")
-                if sgn(z0, "plunge direction") < 0 or (A.rdot_sign == 0):
+                if A.rdot_sign >= 0:
                     self.r_future_max = 1 / ut
                 else:
                     self.r_future_max = self.r0
@@ -690,6 +691,7 @@ class Geo:
 
     def solve(self, y):
         """(k, Z): the phase ball Z (k whole periods) where the time since the anchor is y."""
+        ctx.prec = self.prec
         if self.chart == "circular":
             return 0, y
         if self.period:
@@ -1010,6 +1012,7 @@ class Geo:
     # --- the query ----------------------------------------------------------------------
 
     def query(self, T):
+        ctx.prec = self.prec
         A = self.A
         if T < A.t0:
             return {"at": "Before"}
@@ -1058,6 +1061,7 @@ class Geo:
     # --- diagnostics --------------------------------------------------------------------
 
     def diagnostics(self):
+        ctx.prec = self.prec
         A = self.A
         s = lambda v, d=40: v.mid().str(d, radius=False)
         out = {"chart": self.chart, "kind": self.info.get("kind"), "E": s(self.E),
@@ -1078,6 +1082,12 @@ class Geo:
         if A.null and not A.radial:
             out["b_quanta"] = s(self.Lab / self.E, 80)
             out["b_over_M"] = s(self.Lab / (self.E * M), 80)
+        if self.escape and self.chart == "three-root" and self.region == "A":
+            # whole scattering orbit from infinity to infinity; periapsis 1/u2
+            chi_inf = 2 * arb.pi() - self.zinf
+            defl = self.Gprim.at_ball(self.zinf) - self.Gprim.at_ball(chi_inf) - arb.pi()
+            out["deflection_rad"] = s(defl, 40)
+            out["r_min_over_M"] = s(1 / (self.roots[1] * M), 40)
         if self.horizon:
             out["T_h"] = (A.t0 + self.dTh / self.Qb).mid().str(40, radius=False)
             out["tau_h"] = s(self.dHh / self.Qb, 30)
@@ -1138,11 +1148,50 @@ class Judge:
         return {"unsettled": last}
 
 
+def closed_form_infall_from_rest(M, Q, r0, prec=512):
+    """Closed-form river time (chronons) from rest (dX/dT = 0) at r0 to the horizon.
+
+    Cycloid r = r0 cos^2(eta/2); Schwarzschild t(eta) (MTW 31.10) plus the river correction
+    f(r) = 2 sqrt(2Mr) + 2M ln((sqrt r - sqrt 2M)/(sqrt r + sqrt 2M)). The two logarithms
+    diverge at the horizon; combined analytically their sum tends to 2M ln(1 - 2M/r0).
+    Independent of the quadrature used by the judge."""
+    ctx.prec = prec
+    M, Q, r0 = arb(M), arb(Q), arb(r0)
+    a = (r0 / (2 * M) - 1).sqrt()
+    eh = 2 * a.atan()
+    t_nl = 2 * M * a * (eh + r0 / (4 * M) * (eh + eh.sin()))
+    s0, s2 = r0.sqrt(), (2 * M).sqrt()
+    f0 = 2 * (2 * M * r0).sqrt() + 2 * M * ((s0 - s2) / (s0 + s2)).log()
+    dT = t_nl + 2 * M * (1 - 2 * M / r0).log() + 4 * M - f0
+    return dT / Q
+
+
+def closed_form_flow_rest(M, Q, r0, prec=512):
+    """River time (chronons) to the horizon for a body at rest in the flow (E = 1, radial):
+    dr/dT = -sqrt(2M/r) gives (2 / (3 sqrt(2M))) (r0^(3/2) - (2M)^(3/2))."""
+    ctx.prec = prec
+    M, Q, r0 = arb(M), arb(Q), arb(r0)
+    return 2 / (3 * (2 * M).sqrt()) * (r0 * r0.sqrt() - 2 * M * (2 * M).sqrt()) / Q
+
+
+def _stringify(r):
+    """Answers carry integers as decimal strings (they exceed 64 bits)."""
+    if "x" in r:
+        r["x"] = [str(v) for v in r["x"]]
+    if "chronon" in r:
+        r["chronon"] = str(r["chronon"])
+    return r
+
+
 def solve_case(case, start=0, diag=False):
-    j = Judge(case["M"], case["Q"], case["t0"], case["x"], case["k"], case["motion"] == "null", start)
+    I = int
+    j = Judge(I(case["M"]), I(case["Q"]), I(case["t0"]), [I(v) for v in case["x"]],
+              [I(v) for v in case["k"]], case["motion"] == "null", start)
     out = []
     for T in case["T"]:
-        out.append(j.query(T))
+        r = _stringify(j.query(I(T)))
+        r["T"] = str(T)
+        out.append(r)
     res = {"id": case["id"], "answers": out}
     if diag:
         res["diag"] = j.diagnostics()
@@ -1162,6 +1211,66 @@ def _worker(args):
     return res
 
 
+def r2_anchor_list():
+    """R2 anchors: every valid timelike anchor with Q = 25, M = 1, t0 = 0, x in [-8, 8]^2,
+    k in [-4, 4]^2, in lexicographic order of (x, y, kx, ky)."""
+    out = []
+    for a in range(-8, 9):
+        for b in range(-8, 9):
+            for kx in range(-4, 5):
+                for ky in range(-4, 5):
+                    try:
+                        Geo(Anchor(1, 25, 0, (a, b), (kx, ky), False), 256)
+                    except Invalid:
+                        continue
+                    out.append((a, b, kx, ky))
+    return out
+
+
+def _r2_worker(args):
+    anchors, start = args
+    if hasattr(os, "nice"):
+        os.nice(10)
+    res = []
+    for (a, b, kx, ky) in anchors:
+        j = Judge(1, 25, 0, (a, b), (kx, ky), False, start)
+        ans = []
+        for T in range(1, 9):
+            r = j.query(T)
+            if r["at"] == "Free":
+                ans.append([int(r["x"][0]), int(r["x"][1])])
+            elif r["at"] in ("Absorbed", "OutOfRange"):
+                ans.append({"Absorbed": "A", "OutOfRange": "O"}[r["at"]] + str(r["chronon"]))
+            else:
+                ans.append(r["at"] + ":" + str(r.get("why")))
+        res.append(json.dumps([a, b, kx, ky, ans], separators=(",", ":")))
+    return res
+
+
+def solve_r2(dst, start=0, workers=1):
+    t = time.time()
+    anchors = r2_anchor_list()
+    print(f"R2 anchors {len(anchors)}, cases {8 * len(anchors)}", file=sys.stderr)
+    chunks = [(anchors[i:i + 200], start) for i in range(0, len(anchors), 200)]
+    with gzip.open(dst, "wt") as out:
+        out.write(json.dumps({"rung": "R2", "M": 1, "Q": 25, "t0": 0, "T": list(range(1, 9)),
+                              "format": "[x, y, kx, ky, [answer for T = 1..8]]; answer = [floor x, floor y] "
+                                        "| 'A<chronon>' Absorbed | 'O<chronon>' OutOfRange",
+                              "anchors": len(anchors), "start_prec": PRECS[start]}) + "\n")
+        if workers > 1:
+            import multiprocessing as mp
+            with mp.Pool(workers) as pool:
+                for res in pool.imap(_r2_worker, chunks):
+                    for r in res:
+                        out.write(r + "\n")
+        else:
+            for ch in chunks:
+                for r in _r2_worker(ch):
+                    out.write(r + "\n")
+    print(f"R2 solved in {time.time() - t:.1f} s", file=sys.stderr)
+    return 0
+
+
 def main(argv):
     if len(argv) >= 2 and argv[1] == "one":
         M, Q, t0, x, y, kx, ky = map(int, argv[2:9])
@@ -1171,6 +1280,9 @@ def main(argv):
                 "motion": motion, "T": Ts}
         print(json.dumps(solve_case(case, 0, True), indent=1))
         return 0
+    if len(argv) >= 3 and argv[1] == "r2":
+        return solve_r2(argv[2], "--prec-index" in argv and int(argv[argv.index("--prec-index") + 1]) or 0,
+                        int(argv[argv.index("--workers") + 1]) if "--workers" in argv else 1)
     if len(argv) >= 4 and argv[1] == "solve":
         src, dst = argv[2], argv[3]
         start = 0
