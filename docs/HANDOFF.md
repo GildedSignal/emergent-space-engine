@@ -66,6 +66,12 @@ Every step has gates frozen before its first run, every test stays under 60 s, a
    - the same scene plus a far dense battle that least-slack scheduling must keep caught up;
    - a galaxy of 10⁹ bodies where only the player's region is current, reporting the maximum sustained time acceleration and memory.
 
+**Before Astra resumes, from the questioner:**
+- **The ranges are wrong.** At Q = 2^40, M ≤ 2^40 is about 6 Earth masses, and |x| ≤ 2^62 is 105 km. A solar-mass hole needs M ≈ 2^56, and 2MQ² ≈ 2^137 overflows i128. Write a units table for the v8 scenes, then amend the ranges before the arithmetic widths are fixed. An amendment before any run is not a weakening.
+- **The kick rule is the weakest joint, and it is unspecified:** the carry integral and cadence (which are law), the new anchor, and the rounding remainder (Anchor's integer k may need a remainder). Claude writes it on one page and Astra reviews it. HANDOFF step 2 promises kicks, which the contract excludes: align them.
+- **Tides from known sources** may belong in the formula as orbit-averaged drift, with kicks kept for true surprises.
+- **The reference** is the Arb spike (python-flint 0.9.0 in `.venv`). Precompute the reference floors, hash them and freeze them before the evaluator runs. Add the baby-spartan rungs 0–5 and one planted bug per gate.
+
 **Changes from the viewpoint review (H0186).**
 - **Next action:** a float probe, non-canonical and under 60 s, at orders-of-magnitude precision, with kill criteria frozen first. The scene is physically scaled: a star, a planet and a moon, ships in low orbit, a transfer that crosses a Hill sphere, a near-equal binary, and one oblate parent. It measures kicks per orbit, `position` calls per second from every source, and the jumps at a parent handoff. This tests the premises behind "a kick every few minutes", "0.3 core" and "10–100× real time" before we build more on them.
 - **Before G2's first run, freeze two additions:** cases that force the fallback rule, with what is accepted there, and a G2.5 row for the worst-case cost at maximum precision.
