@@ -18,6 +18,8 @@
 //!   region clocks will be compared with them).
 use serde_json::{json, Value};
 use std::f64::consts::PI;
+#[path = "gr_oracle_extended.rs"]
+mod extended;
 
 // Frozen before the first extended-oracle run.  The strong-field series is diagnostic only:
 // its omitted powers are not bounded by a weak-field truncation estimate there.
@@ -313,5 +315,6 @@ pub fn run() -> (bool, Value) {
         rows.push(json!({"case": "clock_rate", "r": r, "static_dtau_dt": (1.0 - 2.0 / r).sqrt(),
             "circular_orbit_dtau_dt": if r > 3.0 { Some((1.0 - 3.0 / r).sqrt()) } else { None }}));
     }
+    extended::run(&mut rows, &mut ok);
     (ok, json!(rows))
 }
