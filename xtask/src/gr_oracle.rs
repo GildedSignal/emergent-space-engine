@@ -18,6 +18,31 @@
 //!   region clocks will be compared with them).
 use serde_json::{json, Value};
 use std::f64::consts::PI;
+#[path = "gr_oracle_extended.rs"]
+mod extended;
+
+// Frozen before the first extended-oracle run.  The strong-field series is diagnostic only:
+// its omitted powers are not bounded by a weak-field truncation estimate there.
+const SHAPIRO_METHOD_REL_BAND: f64 = 2e-5;
+const SHAPIRO_SERIES_REL_COEFF: f64 = 100.0; // /r0², r0 >= 30
+const PERIOD_METHOD_REL_BAND: f64 = 2e-7;
+const PERIOD_SERIES_REL_COEFF: f64 = 300.0; // /p², p >= 100
+const EIH_ADVANCE_REL_COEFF: f64 = 20.0; // /p, finite 2PN residual of 1PN dynamics
+const EIH_PERIOD_REL_COEFF: f64 = 100.0; // /p², finite 2PN residual
+const TEST_MASS_1PN_REL_COEFF: f64 = 20.0; // /p, 2PN residual relative to 1PN advance
+
+const SHAPIRO_CASES: &[(f64, f64, f64)] = &[
+    (4.71e5, 1.0e8, 8.0e8), // Cassini-like Earth/Saturn ranges, solar limb
+    (10.0, 1000.0, 1200.0),
+    (30.0, 3000.0, 3600.0),
+    (100.0, 10000.0, 12000.0),
+]; // first entry is r0; the other three are b, converted to r0 by the null turning root
+const BOUND_PERIOD_CASES: &[(f64, f64)] = &[
+    (20.0, 0.2), (30.0, 0.5), (100.0, 0.2), (1000.0, 0.5), (10000.0, 0.2),
+];
+const EIH_P: &[f64] = &[100.0, 300.0, 1000.0];
+const EIH_E: &[f64] = &[0.2, 0.5];
+const EIH_NU: &[f64] = &[0.0, 0.05, 0.1, 0.25];
 
 /// K(m) = ∫₀^{π/2} dθ/√(1 − m sin²θ) by the arithmetic–geometric mean.
 fn ellip_k(m: f64) -> f64 {
@@ -290,5 +315,6 @@ pub fn run() -> (bool, Value) {
         rows.push(json!({"case": "clock_rate", "r": r, "static_dtau_dt": (1.0 - 2.0 / r).sqrt(),
             "circular_orbit_dtau_dt": if r > 3.0 { Some((1.0 - 3.0 / r).sqrt()) } else { None }}));
     }
+    extended::run(&mut rows, &mut ok);
     (ok, json!(rows))
 }
