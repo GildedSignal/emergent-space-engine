@@ -45,12 +45,19 @@ One static source of mass M at the origin, and test bodies and light rays (no ba
 
     x(T) = ⌊X(T)⌋ component-wise,
 
-where X(T) is the exact position at time T, in quanta, of the timelike or null geodesic with X(T0) = x0 and dX/dT(T0) = k0 (quanta per chronon). It must satisfy these conventions:
+where X(T) is the exact position at time T, in quanta, of the geodesic with X(T0) = x0 and:
+
+- **timelike:** dX/dT(T0) = k0, in quanta per chronon, with |k0 − β(x0)| < Q decided exactly;
+- **null:** k0 is a nonzero integer direction of the velocity relative to the flow, so dX/dT(T0) = β(x0) + Q·k0/|k0|. A whole-number k0 can almost never sit exactly at c relative to an irrational flow, so a light ray's anchor gives a direction rather than a velocity.
+
+It must satisfy these conventions:
 
 - x(T0) = x0 exactly.
 - **Symmetries hold for the continuous X, before flooring.** A radial anchor (x0 × k0 = 0) keeps X on its line through the origin, but the floored integers may leave that line (for example M = 1, Q = 25, x0 = (30, 40), k0 = (−3, −4), T = 1 gives (26, 35)). Motion along a coordinate axis keeps the other coordinate exactly 0.
 - **The floor must be a fixed function of the anchor, and it must always terminate.** The canonical value is the mathematical floor when a specified certified evaluation decides it. That evaluation uses a fixed precision schedule, fixed operations and fixed rounding directions, and ends at a stated maximum precision. If the maximum precision cannot decide, the value is a stated deterministic function of that final certified interval. The implementer writes this rule down exactly in the crate docs, before the gate run. The rule is part of the law. Refusals are not allowed.
-- **Absorption:** the first integer T > T0 with r(T) ≤ 2M, decided by the same scheme. After it, `position` returns `Absorbed`.
+- **Absorption.** Let T_h be the continuous time at which the geodesic first crosses r = 2M. For every integer T ≥ T_h, `position` returns `Absorbed { chronon: ⌈T_h⌉ }`, decided by the same certified scheme. This definition is needed because the geodesic can reach the singularity before the next integer time: M = 1, Q = 25, x0 = (30, 40), k0 = (−3, −4) crosses at T_h = 496/75 and ends at 20/3. After T_h, `proper_time` stays at its value at T_h.
+- **Leaving the range.** From the first integer T at which a coordinate of X(T) exceeds ±2^62, `position` returns `OutOfRange { chronon }`. In the engine, a body is handed to another region or parent long before that.
+- **Before the anchor.** Queries with T < T0 return `Before`. Evolution is forward only.
 - **Chord velocity for contact bins** (used in step 4): k(T) = x(T) − x(T − 1).
 
 **The interface** (crate `emergent-geodesic`, no dependency on other workspace crates). Validation happens once, at construction. Queries cannot fail:
@@ -59,7 +66,7 @@ where X(T) is the exact position at time T, in quanta, of the timelike or null g
 pub struct Field { pub m: i128 }                                   // static source at the origin, spin 0
 pub struct Anchor { pub t: i128, pub x: [i128; 2], pub k: [i128; 2] }
 pub enum Motion { Timelike, Null }
-pub enum At { Free([i128; 2]), Absorbed { chronon: i128 } }
+pub enum At { Free([i128; 2]), Absorbed { chronon: i128 }, OutOfRange { chronon: i128 }, Before }
 pub enum AnchorError { /* out of range, r ≤ 2M, timelike not below c or null not at c relative to the flow, … */ }
 /// Opaque and immutable. It holds the validated anchor and its certified invariants.
 pub struct Geodesic { /* private */ }
@@ -78,6 +85,12 @@ impl Geodesic {
 - The public free functions could not enforce validity. They are replaced by a validated opaque `Geodesic`.
 - "Radial anchors stay on their line" is true for the continuous X, not for the floored integers.
 - The anchor velocity mixed units ("dX/dT = k0/Q"). It is k0 in quanta per chronon.
+
+**Second corrections, 28 September 2026, still before any implementation.** Astra's second preflight found two more defects; the integrator fixed those and three that would have come next. The gate thresholds are unchanged:
+- G2.4's capture test only holds for E = 1 anchors moving inward on the branch connected to infinity. Astra's counterexamples: an outward anchor at L = 0 escapes; an inward anchor inside the barrier is captured with L > 4M.
+- Absorption is defined from the continuous crossing time T_h. The singularity can come before the next integer.
+- Null anchors give a direction.
+- `OutOfRange` and `Before` make `position` total.
 
 ## Step 2 gates (frozen)
 
@@ -100,7 +113,9 @@ Every test runs in under 60 s, on the M1, in release.
   - Shapiro delay: ≤ 10^-7.
   - Measured from integer positions alone, the advance per orbit must fall within ±4/r_p radians of the oracle, where r_p is in position units.
 - **G2.3 Observation invariance.** On 1,000 cases, `position` at T_final is bitwise equal whether or not 100 intermediate queries are made first.
-- **G2.4 Horizon.** Radial infall from rest at r0 ∈ {10M, 100M} is absorbed at the chronon the reference computes from the closed-form infall time. At E = 1, L ≤ 4M·(1 − 10^-6) is absorbed and L ≥ 4M·(1 + 10^-6) escapes.
+- **G2.4 Horizon.**
+  - Radial infall from rest (k0 = 0) at r0 ∈ {10M, 100M} is absorbed at ⌈T_h⌉, with T_h from the closed-form infall time the reference computes.
+  - For timelike E = 1 anchors moving inward on the radial branch connected to infinity (outside the potential barrier): |L| ≤ 4M·(1 − 10^-6) is absorbed, and |L| ≥ 4M·(1 + 10^-6) escapes.
 - **G2.5 Cost.** Over the G2.1 set, on one M1 performance core: median ≤ 50 µs and p99 ≤ 500 µs per `position` call. Reason: 1M orbiting ships, each kicked by tides every few minutes, then cost ≤ 0.3 core at 1× real time. Rendering uses non-canonical floats and does not count against this.
 
 ## Division of the work
