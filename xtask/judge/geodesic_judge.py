@@ -126,9 +126,17 @@ class Prim:
     def at(self, z):
         # Start from the nearest cached point lying between the base and z, so a value is
         # never derived from a larger one (whose absolute error would be inherited).
+        # Exact comparisons: near an asymptote distinct points share the same float.
         zf = fl(z)
-        lo, hi = min(self.base, zf), max(self.base, zf)
-        best = min((p for p in self.pts if lo <= p[1] <= hi), key=lambda p: abs(p[1] - zf))
+        b0 = self.pts[0][0]
+        up = z >= b0
+        best, bd = None, None
+        for p in self.pts:
+            pz = p[0]
+            if (pz >= b0 and pz <= z) if up else (pz <= b0 and pz >= z):
+                dist = abs(fl(z - pz))
+                if best is None or dist < bd:
+                    best, bd = p, dist
         if best[0] == z:
             return best[2]
         v = best[2] + integ(self.f, best[0], z)
@@ -965,6 +973,10 @@ class Geo:
             return None
         rmax = self.r_future_max
         if rmax is not None and rmax <= LIM:
+            return None
+        # Coordinate speed |dX/dT| <= |u| + |beta| < 2c = 2Q quanta per chronon, so no
+        # coordinate can exceed 2^96 before (2^96 - r0) / (2Q) chronons have passed.
+        if arb(Tmax - A.t0) * 2 * A.Q < LIM - self.r0:
             return None
         if self.period:
             return self._first_exit_periodic(Tmax)

@@ -333,6 +333,20 @@ def gen_R1(rng):
         cases.append(mk(f"R1-{len(cases):04d}", "R1", ["circular", "stable" if rM > 6 else "unstable"],
                         M, Q, t0, x, k, False, [t0 + dt]))
         n += 1
+    # exact unstable circles at r = 4M (w = 2, h = 1; E = 1 exactly): a double root of R(u)
+    n = 0
+    while n < 20:
+        M = max(1, int(round(2 ** rng.uniform(0, 70))))
+        t = rng.randint(1, 2 ** 20)
+        Q, x, k = circular_anchor(rng, M, 2, t, HCHOICES[0], rng.choice([1, -1]), rng.randint(0, 3))
+        g = geo(M, Q, x, k, False)
+        if g is None or g.chart != "circular" or not g.A.E_one:
+            raise SystemExit("r = 4M circle construction failed")
+        dt = draw_dt(rng, time_scale(g))
+        t0 = rng.randint(-2 ** 40, 2 ** 40)
+        cases.append(mk(f"R1-{len(cases):04d}", "R1", ["circular", "unstable", "r=4M"], M, Q, t0, x, k, False,
+                        [t0 + dt]))
+        n += 1
     return cases
 
 
