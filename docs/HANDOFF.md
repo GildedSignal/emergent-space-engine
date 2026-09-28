@@ -15,8 +15,9 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`) | Stopped at the Codex limit after 348b332 (certified elliptic primitives, radial and circular charts). Resume at the next Codex reset with `codex exec resume 01a0e7c6-12d9-7370-83e2-bd8010175218` or a fresh session | Review; run G2 against the frozen floors; merge or return |
+| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`) | Resumes 22:57 (Codex reset) via `artifacts/runs/astra-geodesic/launch.sh`, session 01a0e7c6-12d9-7370-83e2-bd8010175218; output `result-5.md` there | Review; run G2 against the frozen floors; merge or return |
 | Arb judge and frozen case set | Claude Opus sub-agent, `/private/tmp/emergent-wt-judge` (`wt/judge`) | Resumed 21:30 | Review the self-checks and hashes; merge before any G2 run |
+| Review of Astra's crate | GLM, read-only, sandboxed | Running | Pass rank-1 findings to Astra as reports (`artifacts/runs/glm-review-geodesic/out.md`) |
 | Gate harness | Sonnet, after the judge lands (Sol's `wt/gravity-gate` is superseded) | Waiting | Compare the evaluator with the frozen floors, plus timings; then delete `wt/gravity-gate` |
 
 ## What the engine computes
