@@ -93,6 +93,16 @@ Finish clean: once GR works in the engine, collapse the modes into one engine wi
 - Contacts between curved generators.
 - Retarded tides across very different scales.
 
+## The machine
+
+A fanless MacBook Air M1, macOS 26.5.2:
+- 4 performance cores (12 MB L2) and 4 efficiency cores (4 MB L2);
+- a binned 7-core GPU;
+- 8 GB of unified memory, with 16 KB pages;
+- about 10 GB of disk free.
+
+Swap runs near its 10 GB limit in daily use, and timing swings about 30% with heat. Timed evidence needs AC power, a quiet machine and a recorded thermal, swap and load state. Eight probes of at most 60 s each are pending for a quiet machine: i128 throughput on performance versus efficiency cores, GPU u32/u64/u128 cost, memory bandwidth, SSD streaming, the GPU round-trip floor, Accelerate/AMX exactness and throughput, Neural Engine latency, and a thermal metronome.
+
 ## Where things are
 
 - Frozen evidence: `artifacts/evidence/`. The map for relocated or archived journal paths: [history-evidence-map.json](history-evidence-map.json).

@@ -116,7 +116,7 @@ Every test runs in under 60 s, on the M1, in release.
 - **G2.4 Horizon.**
   - Radial infall from rest (k0 = 0) at r0 ∈ {10M, 100M} is absorbed at ⌈T_h⌉, with T_h from the closed-form infall time the reference computes.
   - For timelike E = 1 anchors moving inward on the radial branch connected to infinity (outside the potential barrier): |L| ≤ 4M·(1 − 10^-6) is absorbed, and |L| ≥ 4M·(1 + 10^-6) escapes.
-- **G2.5 Cost.** Over the G2.1 set, on one M1 performance core: median ≤ 50 µs and p99 ≤ 500 µs per `position` call. Reason: 1M orbiting ships, each kicked by tides every few minutes, then cost ≤ 0.3 core at 1× real time. Rendering uses non-canonical floats and does not count against this.
+- **G2.5 Cost.** Over the G2.1 set, on one M1 performance core: median ≤ 50 µs and p99 ≤ 500 µs per `position` call. Reason: 1M orbiting ships, each kicked by tides every few minutes, then cost ≤ 0.3 core at 1× real time. Rendering uses non-canonical floats and does not count against this. Measurement conditions (procedure, not threshold): run on AC power, with no agent builds running, and record `pmset -g therm`, `vm.swapusage` and the load average. This is a fanless MacBook Air M1 with a 7-core GPU. A cost result measured under other conditions is marked provisional.
 
 ## Division of the work
 
