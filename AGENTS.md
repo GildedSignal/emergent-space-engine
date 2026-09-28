@@ -17,7 +17,7 @@ Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Liv
 
 ## Workspace
 
-- **One checkout, one line.** `~/Research/emergent-space` on `main`.
+- **One checkout, one line.** `~/Research/emergent-space` on `main`, pushed at milestones to the private remote `GildedSignal/emergent-space-engine`. Temporary `wt/` branches are never pushed. `GildedSignal/Emergent-Space` is the untouched February 2025 prototype.
   - A specialist gets a temporary worktree `/private/tmp/emergent-wt-<task>` on branch `wt/<task>`. The integrator merges it and removes both when the task ends.
   - No other clones, branches or copies.
   - Never put the repo in iCloud-synced folders: evicted git objects stall git.

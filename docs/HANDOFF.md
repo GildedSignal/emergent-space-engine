@@ -96,5 +96,6 @@ Finish clean: once GR works in the engine, collapse the modes into one engine wi
 ## Where things are
 
 - Frozen evidence: `artifacts/evidence/`. The map for relocated or archived journal paths: [history-evidence-map.json](history-evidence-map.json).
+- Remote (private): https://github.com/GildedSignal/emergent-space-engine, `main` only.
 - Retired code and the old repository: `~/Research/emergent-space-archive`.
 - Original conversations, research and aesthetic references: [reference/](reference/README.md) and `assets/reference/`.
