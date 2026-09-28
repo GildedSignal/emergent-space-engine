@@ -32,7 +32,7 @@ It computes the universe's events: the points where a prediction breaks, and wha
   - gas_one_million and galaxy_one_million (at the cap);
   - useful_work for event (0.48);
   - smooth for metal, hybrid and regions.
-- **GR oracle** (H0178). Periapsis advance, light bending, geodetic precession and clock rates, two methods each. It shares no code with `crates/`.
+- **GR oracle** (H0178, H0183). Periapsis advance, light bending, geodetic precession, clock rates, Shapiro delay, bound periods and 1PN two-body motion, two methods each. It shares no code with `crates/` and currently exits 1 because of the retained e = 0.5 two-body failure.
 - **Real-time factors.**
   - The ladder gas is a stress test: about 10⁻⁸× real time at 83 ps chronons.
   - A realistic 1M-ship battle is estimated at 10–100× real time. That is a Fermi estimate, not yet measured.
@@ -42,7 +42,7 @@ It computes the universe's events: the points where a prediction breaks, and wha
 Every step has gates frozen before its first run, every test stays under 60 s, and speed is reported as a real-time factor at physical scale.
 
 0. **Clean countertop (done, H0182).** One checkout outside iCloud, the old line archived, 55 tests, ladder rungs identical to v7 evidence.
-1. **Finish the oracle** (Sol specialist, running). Shapiro delay, the periods of bound geodesics, 1PN two-body motion (Damour–Deruelle against direct EIH integration). Then freeze the lattice-gravity comparison bands.
+1. **Finish the oracle (partial, H0183).** Added Shapiro delay, bound-orbit periods and 1PN two-body motion, 66 rows. Everything single-mass passes. All 12 e = 0.5 two-body period rows fail their frozen band: the residual is a clean next-order p⁻² term, and the failure is kept. Before step 3 uses two-body rows, freeze a new protocol (2PN on both sides, or a convergence-order gate) on cases never run before. Remaining here: freeze the lattice-gravity comparison bands against the Schwarzschild rows.
 2. **Integer geodesic formulas plus kicks, around one mass, in the lab.**
    - A body's formula is the geodesic of its parent: the source that dominates by a dimensionless ratio, never a label. With no parent, the formula is a straight line (today's law).
    - Near one mass it is a closed-form Schwarzschild geodesic, evaluated by one fixed integer algorithm (elliptic functions by arithmetic–geometric mean), so it is canonical. The interface keeps a spin parameter.
