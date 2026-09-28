@@ -451,18 +451,18 @@ class Geo:
             self.m, self.h, self.u3 = m, h, u3
 
             def uz(z):
-                return m - h * z.cos()
+                return u1 + 2 * h * (z / 2).sin() ** 2
 
             def fphi(z, an):
-                u = m - h * z.cos()
+                u = u1 + 2 * h * (z / 2).sin() ** 2
                 return 1 / (2 * M * (u3 - u)).sqrt(analytic=an)
 
             def ftau(z, an):
-                u = m - h * z.cos()
+                u = u1 + 2 * h * (z / 2).sin() ** 2
                 return 1 / (Lab * u * u * (2 * M * (u3 - u)).sqrt(analytic=an))
 
             def fT(z, an):
-                u = m - h * z.cos()
+                u = u1 + 2 * h * (z / 2).sin() ** 2
                 sq = (2 * M * (u3 - u)).sqrt(analytic=an)
                 rdot = -Lab * h * z.sin() * sq
                 return dTdtau(u, rdot, an) / (Lab * u * u * sq)
@@ -487,7 +487,7 @@ class Geo:
                 if A.E_one:
                     self.zinf = 2 * arb.pi()
                 else:
-                    self.zinf = 2 * arb.pi() - (m / h).acos()
+                    self.zinf = 2 * arb.pi() - 2 * ((-u1) / (2 * h)).sqrt().asin()   # u = 0
                 self.r_future_max = None
         else:
             if region == "B":
@@ -546,6 +546,10 @@ class Geo:
         self.z0 = z0
         if self.eps == 0:
             self.ftau = None
+
+    def _phase_of_u(self, u):
+        """Chart A phase in [0, pi] where u(chi) = u1 + 2h sin^2(chi/2) equals u."""
+        return 2 * ((u - self.roots[0]) / (2 * self.h)).sqrt().asin()
 
     def _roots(self, P, dP, nroots):
         """Certified enclosures of the real roots of the monic cubic, ascending."""
@@ -871,7 +875,7 @@ class Geo:
         if outside:
             # every point of the piece exceeds; the first integer is an exit if it lies in
             # the piece for certain, otherwise decide it pointwise.
-            if ta < first:
+            if ta < first and first <= tb:
                 return first
         if last - first <= 3 or depth > 400:
             for T in range(first, last + 1):
@@ -925,16 +929,14 @@ class Geo:
             # unbound, chi in (chi_inf, 2pi - chi_inf)
             m, h = self.m, self.h
             z0 = exact(self.z0)
-            if self.A.E_one:
-                raise Undecided("far pieces for E=1 two-root orbit")
-            al = ((m - uL) / h).acos()        # r >= LIM for chi <= al (incoming side)
+            al = self._phase_of_u(uL)            # r >= LIM for chi <= al (incoming side)        # r >= LIM for chi <= al (incoming side)
             zin = up(al)
             if z0 < zin:
                 yield (0, z0, zin)
             twopi = 2 * arb.pi()
             za = exact(twopi - al) - arb(2) ** (-self.prec + 20)
             u97 = arb(1) / (4 * LIM)
-            zb = exact(twopi - ((m - u97) / h).acos())
+            zb = exact(twopi - self._phase_of_u(u97))
             a = za if za > z0 else z0
             yield (0, a, zb)
             return
@@ -986,7 +988,7 @@ class Geo:
             if u1 > uL:
                 return None
             raise Undecided("apoapsis at the range")
-        al = exact(((self.m - uL) / self.h).acos()) + arb(2) ** (-self.prec + 30)
+        al = exact(self._phase_of_u(uL)) + arb(2) ** (-self.prec + 30)
         twopi = 2 * arb.pi()
         # periods are measured from phase 0 (apoapsis); the anchor sits at z0 in [0, 2pi).
         kk = 0

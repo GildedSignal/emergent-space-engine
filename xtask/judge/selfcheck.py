@@ -242,7 +242,135 @@ def check_closed_forms():
     return out
 
 
+def _load(path):
+    import gzip
+    with gzip.open(path, "rt") as f:
+        return [json.loads(l) for l in f if l.strip()]
+
+
+def _key(a):
+    """Canonical content of an answer (what the gate compares)."""
+    if isinstance(a, list):                       # R2 compact form
+        return json.dumps(a)
+    if isinstance(a, str):
+        return a
+    at = a["at"]
+    if at == "Free":
+        return "F" + ",".join(a["x"])
+    if at in ("Absorbed", "OutOfRange"):
+        return at[0] + a["chronon"]
+    return at
+
+
+def _settled(a):
+    if isinstance(a, list):
+        return True
+    if isinstance(a, str):
+        return a[0] in "AO"
+    return a["at"] not in ("UNSETTLED",)
+
+
+def compare(pa, pb):
+    """Identical canonical answers on every case settled in both runs."""
+    A, B = _load(pa), _load(pb)
+    if A and "rung" in A[0] and A[0].get("rung") == "R2":
+        A, B = A[1:], B[1:]
+        rows_a = {tuple(r[:4]): r[4] for r in A}
+        rows_b = {tuple(r[:4]): r[4] for r in B}
+        pairs = [(rows_a[k][i], rows_b[k][i]) for k in rows_a for i in range(8)]
+    else:
+        ia = {r["id"]: r["answers"] for r in A}
+        ib = {r["id"]: r["answers"] for r in B}
+        pairs = [(x, y) for k in ia for x, y in zip(ia[k], ib[k])]
+    both = [(x, y) for x, y in pairs if _settled(x) and _settled(y)]
+    diff = [(x, y) for x, y in both if _key(x) != _key(y)]
+    return {"compare": [os.path.basename(pa), os.path.basename(pb)], "answers": len(pairs),
+            "settled_in_both": len(both), "differences": len(diff), "first": diff[:3],
+            "pass": not diff}
+
+
+def summary(cases_path, answers_path):
+    import collections
+    C = _load(cases_path)
+    A = {r["id"]: r for r in _load(answers_path)}
+    by_class = collections.Counter()
+    by_at = collections.Counter()
+    unsettled = []
+    big = 0
+    near = []
+    for c in C:
+        by_class[" / ".join(str(v) for v in c["class"] if v)] += len(c["T"])
+        if max(abs(int(v)) for v in c["x"]) >= 2 ** 62:
+            big += len(c["T"])
+        for a in A[c["id"]]["answers"]:
+            by_at[a["at"]] += 1
+            if a["at"] == "UNSETTLED":
+                unsettled.append((c["id"], a.get("why")))
+            if a["at"] == "Free" and a.get("dist"):
+                ds = [d for d in a["dist"] if d is not None]
+                if ds:
+                    near.append(min(ds))
+    n = sum(by_at.values())
+    near.sort()
+    return {"file": os.path.basename(cases_path), "cases": len(C), "queries": n, "by_result": dict(by_at),
+            "by_class": dict(by_class), "unsettled": len(unsettled), "unsettled_ids": unsettled[:20],
+            "share_with_|x_c|>=2^62": round(big / max(n, 1), 4),
+            "within_2^-40": sum(1 for d in near if d < -40),
+            "min_log2_dist": near[0] if near else None}
+
+
+def fallback_widths(cases_path, out_path):
+    """For each fallback case: the true value's nearest integer boundary n and distance (from a
+    512-bit evaluation) and the judge's own certified width of X at 64 and 128 bits, which must be
+    below 1/4 quantum for the 'one of the two integers adjacent to n' rule to be meaningful."""
+    import gzip
+    rows = []
+    for c in _load(cases_path):
+        I = int
+        A = gj.Anchor(I(c["M"]), I(c["Q"]), I(c["t0"]), [I(v) for v in c["x"]], [I(v) for v in c["k"]],
+                      c["motion"] == "null")
+        T = I(c["T"][0])
+        g = gj.Geo(A, 512)
+        k, Z = g.solve(arb(A.Q * (T - A.t0)))
+        X = g.X_at(k, Z)
+        coord = min((0, 1), key=lambda i: abs(float((X[i] - (X[i] + arb(1) / 2).floor()).mid())))
+        xc = X[coord]
+        n = int((xc + arb(1) / 2).mid().floor().unique_fmpz())
+        dist = xc - n
+        row = {"id": c["id"], "coord": coord, "boundary_n": str(n),
+               "log2_dist": float((abs(dist).mid().log() / arb(2).log())) if not dist.contains(0) else None,
+               "side": "above" if dist > 0 else ("below" if dist < 0 else "undecided"),
+               "allowed": [str(n - 1), str(n)]}
+        for p in (64, 128):
+            try:
+                gp = gj.Geo(A, p)
+                kp, Zp = gp.solve(arb(A.Q * (T - A.t0)))
+                w = 2 * gp.X_at(kp, Zp)[coord].rad()
+                row[f"width_{p}"] = float(w)
+            except gj.Undecided:
+                row[f"width_{p}"] = None
+        w64 = row["width_64"]
+        row["width_64_below_quarter"] = (w64 is not None and w64 < 0.25)
+        rows.append(row)
+    with gzip.open(out_path, "wt") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+    ok = sum(r["width_64_below_quarter"] for r in rows)
+    return {"fallback_cases": len(rows), "width_64_below_quarter": ok,
+            "log2_dist_max": max(r["log2_dist"] for r in rows if r["log2_dist"] is not None)}
+
+
 def main(argv):
+    if len(argv) >= 4 and argv[1] == "fallback":
+        print(json.dumps(fallback_widths(argv[2], argv[3])))
+        return 0
+    if len(argv) >= 4 and argv[1] == "compare":
+        r = compare(argv[2], argv[3])
+        print(json.dumps(r))
+        return 0 if r["pass"] else 1
+    if len(argv) >= 4 and argv[1] == "summary":
+        print(json.dumps(summary(argv[2], argv[3])))
+        return 0
     here = os.path.dirname(os.path.abspath(__file__))
     path = argv[1] if len(argv) > 1 else os.path.join(here, "..", "..", "artifacts", "evidence",
                                                       "gr-oracle-20260928", "rows.jsonl")

@@ -198,6 +198,7 @@ def gen_R0(rng):
     # exactly those (see PROVENANCE.md, R0 interpretation).
     want = {"axis": 200, "general": 300}
     got = {"axis": 0, "general": 0}
+    tiny_hops = []
     while got["axis"] < want["axis"] or got["general"] < want["general"]:
         axis = got["axis"] < want["axis"]
         M = max(1, int(round(2 ** rng.uniform(0, 40))))
@@ -231,7 +232,7 @@ def gen_R0(rng):
             X = g.X_at(kk, Z)
         except gj.Undecided:
             continue
-        ok = True
+        ok, tiny = True, False
         for c in range(2):
             line = x[c] + k[c] * dt
             if (x[c] == 0 and k[c] == 0):
@@ -239,14 +240,22 @@ def gen_R0(rng):
             dev = X[c] - line
             if not (dev >= 0 and dev < 1):
                 ok = False
+            elif not (dev > arb(2) ** -30 and dev < 1 - arb(2) ** -30):
+                tiny = True
         if not ok:
             continue
         t0 = rng.randint(-2 ** 40, 2 ** 40)
         kind = "axis" if axis else "general"
+        line = [S(x[0] + k[0] * dt), S(x[1] + k[1] * dt)]
+        if tiny:
+            # a deviation within 2^-30 of an integer is a near-integer case, not a control
+            if len(tiny_hops) < 300:
+                tiny_hops.append((M, Q, t0, x, k, t0 + dt, line, kind))
+            continue
         got[kind] += 1
         cases.append(mk(f"R0-{len(cases):04d}", "R0", ["far-field-hop", kind], M, Q, t0, x, k,
-                        False, [t0 + dt], straight_line=[S(x[0] + k[0] * dt), S(x[1] + k[1] * dt)]))
-    return cases
+                        False, [t0 + dt], straight_line=line))
+    return cases, tiny_hops
 
 
 # ----------------------------------------------------------------------------------------
@@ -857,7 +866,7 @@ def main(argv):
     for rung in rungs:
         rng = random.Random(SEEDS.get(rung, 0))
         if rung == "R0":
-            cs = gen_R0(rng)
+            cs, _ = gen_R0(rng)
         elif rung == "R1":
             cs = gen_R1(rng)
         elif rung == "R3":
@@ -865,6 +874,12 @@ def main(argv):
             r3 = cs
         elif rung == "R4":
             cs = gen_R4(rng)
+            # plus the far-field hops whose certified deviation from the integer straight
+            # line is below 2^-30 (set aside while generating R0 with R0's seed)
+            _, tiny = gen_R0(random.Random(SEEDS["R0"]))
+            for (M, Q, t0, x, k, T, line, kind) in tiny:
+                cs.append(mk(f"R4-{len(cs):05d}", "R4", ["near-integer", "far-field-hop", kind], M, Q, t0,
+                             x, k, False, [T], straight_line=line))
         elif rung == "G22":
             if r3 is None:
                 with gzip.open(os.path.join(out, "R3.cases.jsonl.gz"), "rt") as f:
