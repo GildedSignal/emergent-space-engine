@@ -43,7 +43,7 @@ Every step has gates frozen before its first run, every test stays under 60 s, a
 
 0. **Clean countertop (done, H0182).** One checkout outside iCloud, the old line archived, 55 tests, ladder rungs identical to v7 evidence.
 1. **Finish the oracle (partial, H0183).** Added Shapiro delay, bound-orbit periods and 1PN two-body motion, 66 rows. Everything single-mass passes. All 12 e = 0.5 two-body period rows fail their frozen band: the residual is a clean next-order p⁻² term, and the failure is kept. Before step 3 uses two-body rows, freeze a new protocol (2PN on both sides, or a convergence-order gate) on cases never run before. Remaining here: freeze the lattice-gravity comparison bands against the Schwarzschild rows.
-2. **Integer geodesic formulas plus kicks, around one mass, in the lab.**
+2. **Integer geodesic formulas plus kicks, around one mass, in the lab.** The contract and frozen gates are in [gravity-law.md](gravity-law.md) (river / Painlevé–Gullstrand coordinates). Astra builds `crates/geodesic`; Sol builds the independent reference and the gate.
    - A body's formula is the geodesic of its parent: the source that dominates by a dimensionless ratio, never a label. With no parent, the formula is a straight line (today's law).
    - Near one mass it is a closed-form Schwarzschild geodesic, evaluated by one fixed integer algorithm (elliptic functions by arithmetic–geometric mean), so it is canonical. The interface keeps a spin parameter.
    - Kicks carry only the acceleration the formula doesn't know. It accumulates in carries and is applied as an integer kick each time it reaches one velocity quantum.

@@ -26,7 +26,7 @@ Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Liv
   - During it, build what is needed.
   - Once it works, simplify and remove what stopped being useful. Never set line-count targets.
 - **The archive.** Retired code and repositories live in `~/Research/emergent-space-archive` (see its README). Never build or edit it there. Bring something back deliberately, as new work with a journal entry.
-- **Specialists.** Claude sub-agents, or Codex with gpt-6-sol through the CLI bundled in ChatGPT.app.
+- **Specialists.** Claude sub-agents, or Codex through the CLI bundled in ChatGPT.app: gpt-6-sol for well-specified work, gpt-6-astra for the really arduous problems.
   - They share `CARGO_TARGET_DIR=~/Research/emergent-space/target`. Cargo's lock serializes builds.
   - They return draft journal entries; the integrator verifies them and appends.
   - Heavy work that needs neither Metal nor timing on this M1 may run in a cloud session.
