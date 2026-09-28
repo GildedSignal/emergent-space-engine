@@ -4,6 +4,7 @@ Current as of 28 September 2026 (H0187). The previous handoff, with the old engi
 
 ## First ten minutes
 
+0. Read "In flight" below first: what is running, where its output lands, and what to do when it finishes.
 1. Read [AGENTS.md](../AGENTS.md), then this file. Run `cargo xtask history list` and search for entries related to your task.
 2. Read the heading-check card `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight.
 3. Run `git status --short` and `git log -8 --oneline`. There is one checkout, `~/Research/emergent-space`, on `main`.
@@ -17,7 +18,7 @@ Prompts and outputs are in `/private/tmp/claude-501/-Users-julien-laurent-Docume
 | Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`); auto-resumes 17:50 via `astra-launch.sh` | `astra-geodesic-result-4.md` | Review; run G2 against the judge's frozen floors; merge or return |
 | Arb judge and frozen case set | Claude Opus sub-agent, `/private/tmp/emergent-wt-judge` (`wt/judge`) | `xtask/judge/`, `artifacts/evidence/g2-reference-20260928/` | Review self-checks and hashes; merge before any G2 run |
 | Premise probe K1–K5 | GLM, sandboxed, `/private/tmp/emergent-glm-clone` + `/private/tmp/glm-scratch` | `glm-probe-out.md` | Judge PASS or KILL against `artifacts/evidence/premise-probe-20260928/KILL_CRITERIA.md`; adjust steps 3–5 |
-| Team operating architecture | Claude Opus sub-agent (read-only) | Its final message | Present to Julien; fold the adopted parts into AGENTS.md and this file |
+| Team operating architecture | Done; brief at `artifacts/runs/architecture-20260928/arch-v3.txt` (on disk, not in git) | — | Julien decides what to adopt; GLM red-teams the brief first |
 | Gate harness | Sol, `/private/tmp/emergent-wt-gravity-gate`, paused | — | After the judge lands: compare the evaluator with frozen floors, plus timings |
 
 ## What the engine computes

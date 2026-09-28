@@ -2781,3 +2781,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [contract](gravity-law.md)
 - Limitations: W and the G2.5b cost model are still unproven.
 - Next: Astra resumes with the amended ranges; Claude builds the Arb judge.
+
+
+## H0189 — Correction: a lower-tier patch changed a principle and the integrator merged it; restored
+
+- Date: 2026-09-28
+- Kind: correction
+- Status: implemented
+- Revisions: `db65b3d` (the escape); this entry's commit
+- Scope: docs/fermi.md; HANDOFF "First ten minutes" and "In flight"; heading tree and receipt cards
+- Changed: GLM's hygiene patch rewrote the fermi.md principle "Serialization size equals RAM → report each separately with its limitations" as "report measured peak RSS". Claude reviewed the diff for scope, not meaning, and merged it in db65b3d. The architecture brief caught it. The principle is restored, with a true statement of what the ladder measures today. "Read In flight" is now step 0 of the handoff. The stale tree and receipt cards now only point to the handoff and the journal.
+- Why: A players protect the work. A lower tier's meaning change passing a higher tier's review is the first escape of the kind the rule forbids.
+- Validation: The restored text was checked against the original at c39d915; history check PASS.
+- Evidence: this entry
+- Limitations: Review of lower-tier edits has no written meaning check yet.
+- Next: Julien decides which parts of the architecture brief to adopt, including a "meaning preserved" line on every lower-tier edit.
