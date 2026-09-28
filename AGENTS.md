@@ -15,17 +15,21 @@ Start: `docs/HANDOFF.md` (state and plan), then `cargo xtask history list` and s
 
 ## Team
 
-- **Comparative advantage, and spend every provider's usage.** Check it with `get_usage` for Claude and the rollout `rate_limits` for Codex.
-  - **Claude**, the integrator: judgement, integration, the journal.
-  - **gpt-6-astra:** the hardest specifics, meaning exact algorithms, proofs and audits.
-  - **gpt-6-sol:** well-specified builds and harnesses.
-  - **GLM 5.3** (`omp`): linting and breadth.
-  - **Read-only thinking agents** before big decisions: a questioner reading Readwise, a viewpoint panel, a math researcher, a polymath and a machine expert. Their briefs stay outside the repo; only conclusions enter.
+- **Physics first.** At least 60% of each Claude and Astra window goes to the plan's steps. There is one process change per week, and none in a week with no physics merge.
+- **Comparative advantage, and spend every provider's usage.** Check it with `get_usage` for Claude, the rollout `rate_limits` for Codex, and `omp usage` for GLM.
+  - **Claude Opus**, the integrator: judgement, contracts, adjudication, merges, the journal, the hard problems.
+  - **gpt-6-astra:** the hardest exact specifics: algorithms, proofs, audits.
+  - **Claude Sonnet**, as sub-agents: the default builder for well-scoped builds, harnesses, fixes and fast iteration.
+  - **gpt-6-sol:** the overflow builder.
+  - **GLM 5.3** (`omp`, in a sandboxed clone): volume without authority. It runs red-teams, probes, sweeps and mutants. Its loops are pull-based: one launches only when at most one finding is waiting.
+  - **Read-only thinking agents,** before one-way doors only. Their briefs stay outside the repo.
 - **A players protect the work.**
-  - Whoever builds a module, contract or gate owns it. The tiers, highest first: Claude ≈ Astra, then Sol, then GLM.
-  - Lower tiers never edit higher-tier work. They report findings that name the invariant at stake, and the owner or the integrator decides.
-  - A judge (a reference, an oracle) is built by a strong model from a different family than what it judges. Judge-versus-judged disagreements are adjudicated, never auto-fixed.
-- **Specialists** work in `/private/tmp/emergent-wt-<task>` on `wt/<task>` and share `CARGO_TARGET_DIR=~/Research/emergent-space/target`. The integrator merges, then deletes the branch and worktree. Heavy work that needs neither Metal nor timing may run in a cloud session.
+  - The tiers, highest first: Opus ≈ Astra, then Sonnet, then Sol, then GLM. Whoever builds a module, contract or gate owns it.
+  - Lower tiers report findings that name the invariant at stake, and never edit higher-tier work. Their doc patches may add or delete lines but never reword existing ones.
+  - Julien owns his principles: models propose changes and never reword them.
+  - A judge is built by a strong model from a different family than what it judges. Disagreements are adjudicated, never auto-fixed.
+- **Before any freeze,** one GLM red-team and the cheapest falsifying probe must have run.
+- **Specialists** work in `/private/tmp/emergent-wt-<task>` on `wt/<task>`, and job files live in `artifacts/runs/<id>/`. The integrator merges, then deletes the branch and worktree. Heavy work that needs neither Metal nor timing may run in a cloud session.
 
 ## Workspace
 

@@ -11,15 +11,13 @@ Current as of 28 September 2026 (H0187). The previous handoff, with the old engi
 
 ## In flight (overwrite when jobs change; the first thing to read after a compaction)
 
-Prompts and outputs are in `/private/tmp/claude-501/-Users-julien-laurent-Documents-ChatGPT-Emergent-space/3cb5f6e5-821c-4ee2-b72f-493db869d774/scratchpad/` (session scratch; lost on reboot, so copy anything worth keeping).
+Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outputs are in `/private/tmp/claude-501/-Users-julien-laurent-Documents-ChatGPT-Emergent-space/3cb5f6e5-821c-4ee2-b72f-493db869d774/scratchpad/` (lost on reboot).
 
-| Job | Who, where | Output | When done |
+| Job | Who, where | State | When done |
 |---|---|---|---|
-| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`); auto-resumes 17:50 via `astra-launch.sh` | `astra-geodesic-result-4.md` | Review; run G2 against the judge's frozen floors; merge or return |
-| Arb judge and frozen case set | Claude Opus sub-agent, `/private/tmp/emergent-wt-judge` (`wt/judge`) | `xtask/judge/`, `artifacts/evidence/g2-reference-20260928/` | Review self-checks and hashes; merge before any G2 run |
-| Premise probe K1–K5 | GLM, sandboxed, `/private/tmp/emergent-glm-clone` + `/private/tmp/glm-scratch` | `glm-probe-out.md` | Judge PASS or KILL against `artifacts/evidence/premise-probe-20260928/KILL_CRITERIA.md`; adjust steps 3–5 |
-| Team operating architecture | Done; brief at `artifacts/runs/architecture-20260928/arch-v3.txt` (on disk, not in git) | — | Julien decides what to adopt; GLM red-teams the brief first |
-| Gate harness | Sol, `/private/tmp/emergent-wt-gravity-gate`, paused | — | After the judge lands: compare the evaluator with frozen floors, plus timings |
+| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`) | Stopped at the Codex limit after 348b332 (certified elliptic primitives, radial and circular charts). Resume at the next Codex reset with `codex exec resume 01a0e7c6-12d9-7370-83e2-bd8010175218` or a fresh session | Review; run G2 against the frozen floors; merge or return |
+| Arb judge and frozen case set | Claude Opus sub-agent, `/private/tmp/emergent-wt-judge` (`wt/judge`) | Resumed 21:30 | Review the self-checks and hashes; merge before any G2 run |
+| Gate harness | Sonnet, after the judge lands (Sol's `wt/gravity-gate` is superseded) | Waiting | Compare the evaluator with the frozen floors, plus timings; then delete `wt/gravity-gate` |
 
 ## What the engine computes
 
@@ -48,7 +46,7 @@ Gates are frozen before their first run, tests take ≤ 60 s, and speed is repor
    - Astra builds `crates/geodesic`.
    - The judge's reference floors come from python-flint/Arb (`.venv`), precomputed and frozen.
    - Sol's harness is paused.
-3. **Premise probe, before any more building.** A float probe with frozen kill criteria: star, planet and moon, low orbits, a Hill-sphere transfer, a near-equal binary, one oblate parent. It measures kicks per orbit, `position` calls per second, handoff jumps, and what averaging known tides saves.
+3. **Premise probe (passed, H0190).** Every premise holds: 32 kicks per low orbit; averaging tides cuts that 114×; J2 must be in the formula; handoff carries stay bounded. Binaries need a two-body parent formula, and lunar-transfer legs need averaged tides or an early handoff.
 4. **The player slice** right after step 2: one mass, one ship, thrust as kicks, a float viewer, save and replay. Julien predicts before each run.
 5. **Many bodies:** parent hierarchy, the kick rule (continuous integral, error-feedback re-anchoring, averaged tides), retarded tides with source-velocity terms, canonical handoff. Oracle: 1PN N-body.
 6. **Collapse the modes, then put the law in the engine.** Keep the chronon judge plus one production engine (regions with a per-region batch-window dial; Metal only for dense contacts; canonical formulas on the CPU). Then add `es-lattice-gravity-v0`, thrust as kicks, and contacts in the flow frame.

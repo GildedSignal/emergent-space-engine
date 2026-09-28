@@ -2796,3 +2796,25 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: this entry
 - Limitations: Review of lower-tier edits has no written meaning check yet.
 - Next: Julien decides which parts of the architecture brief to adopt, including a "meaning preserved" line on every lower-tier edit.
+
+
+## H0190 — Premise probe: every step 3 premise holds; J2 belongs in the formula, binaries need a two-body parent
+
+- Date: 2026-09-28
+- Kind: experiment
+- Status: measured
+- Revisions: `7eb031f` (criteria frozen first); this entry's commit
+- Scope: [kill criteria and scripts](../artifacts/evidence/premise-probe-20260928/KILL_CRITERIA.md); no engine change
+- Changed: GLM 5.3, sandboxed, ran float probes against the frozen criteria:
+  - K1: 32.5 kicks per low orbit with a Kepler parent and Moon/Sun tides as kicks (threshold 10³).
+  - K2: first-order quadrupole averaging cuts that 114×, not the claimed 500×; the octupole limits it.
+  - K3: J2 in the formula costs 1.00× K1, but 3.3·10⁵ kicks per orbit as kicks.
+  - K4: carries over 100 handoffs are bounded (growth exponent ≈ ±0.07).
+  - K5: a binary parent takes 3.4·10⁷ kicks per orbit.
+  - One million low-orbit ships cost 0.6 core, or 0.01 with averaging.
+  - Aside: a lunar-transfer leg needs averaged tides or an early handoff.
+- Why: Measure the premises before building on them (H0186).
+- Validation: The integrator reran K1 (32.48) and K3 (3.276·10⁵, 32.34) and reproduced both.
+- Evidence: [GLM results](../artifacts/evidence/premise-probe-20260928/GLM_RESULTS.md)
+- Limitations: 2D, circular Moon and Sun, float, orders of magnitude only.
+- Next: Step 3's parent formula includes J2 and averaged tides; binaries get a two-body parent.
