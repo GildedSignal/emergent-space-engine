@@ -10,19 +10,7 @@ Current as of 28 September 2026 (H0182). The previous handoff, with the old engi
 
 ## What the engine computes
 
-It computes the universe's events: the points where a prediction breaks, and what happens there.
-
-**The state is certified generators.** Each generator has three parts:
-- a formula (a worldline, a field, a region);
-- a certificate: how long the formula stays exact;
-- its dependencies: who could break it, limited by c.
-
-**There is one operation.** Resolve the earliest broken certificate that something needs, exactly with the integer law. Then issue new formulas and notify the dependents.
-
-**Costs follow surprise.**
-- Cost is the entropy the demanded part of the world produces. For contacts that is about collision rate × log₂(2λ/r) bits; H0173 measured 4 bits per collision.
-- Memory is the entropy accumulated.
-- Every mode is an evaluation order of the same event graph, so all modes must be bit-identical.
+Only surprises. The state is certified generators, compute follows entropy, and priority is least slack. See [engine.md](engine.md).
 
 ## Where we are
 
@@ -78,7 +66,15 @@ Every step has gates frozen before its first run, every test stays under 60 s, a
    - the same scene plus a far dense battle that least-slack scheduling must keep caught up;
    - a galaxy of 10⁹ bodies where only the player's region is current, reporting the maximum sustained time acceleration and memory.
 
-Finish clean: once GR works in the engine, collapse the modes into one engine with the batch window, and remove what stopped being useful.
+**Changes from the viewpoint review (H0186).**
+- **Next action:** a float probe, non-canonical and under 60 s, at orders-of-magnitude precision, with kill criteria frozen first. The scene is physically scaled: a star, a planet and a moon, ships in low orbit, a transfer that crosses a Hill sphere, a near-equal binary, and one oblate parent. It measures kicks per orbit, `position` calls per second from every source, and the jumps at a parent handoff. This tests the premises behind "a kick every few minutes", "0.3 core" and "10–100× real time" before we build more on them.
+- **Before G2's first run, freeze two additions:** cases that force the fallback rule, with what is accepted there, and a G2.5 row for the worst-case cost at maximum precision.
+- **Collapse the modes before step 4, not after:** keep the chronon reference and one production path. Canonical formulas run on the CPU (the plan's own arithmetic says about 0.3 core), and Metal keeps the dense contacts.
+- **The player slice moves up to right after step 2:** one mass, one ship, thrust as kicks, a float viewer, save and replay. Julien writes his predictions before each run.
+- **Step 5's scheduler waits** until a gravity workload exists to schedule. The probe measures the surprise rates it will use.
+- **The independent reference uses a proven ball-arithmetic library** (Arb/FLINT) instead of a hand-written certifier. Installing it needs Julien's OK.
+- **Kerr, inspiral and merger stay deferred.**
+
 
 ## Standing decisions
 
@@ -101,7 +97,7 @@ A fanless MacBook Air M1, macOS 26.5.2:
 - 8 GB of unified memory, with 16 KB pages;
 - about 10 GB of disk free.
 
-Swap runs near its 10 GB limit in daily use, and timing swings about 30% with heat. Timed evidence needs AC power, a quiet machine and a recorded thermal, swap and load state. Eight probes of at most 60 s each are pending for a quiet machine: i128 throughput on performance versus efficiency cores, GPU u32/u64/u128 cost, memory bandwidth, SSD streaming, the GPU round-trip floor, Accelerate/AMX exactness and throughput, Neural Engine latency, and a thermal metronome.
+Swap runs near its 10 GB limit in daily use, and timing swings about 30% with heat. Measure in real conditions, with the state recorded. Eight probes of at most 60 s each are pending for a quiet machine: i128 throughput on performance versus efficiency cores, GPU u32/u64/u128 cost, memory bandwidth, SSD streaming, the GPU round-trip floor, Accelerate/AMX exactness and throughput, Neural Engine latency, and a thermal metronome.
 
 ## Where things are
 

@@ -81,16 +81,7 @@ impl Geodesic {
 }
 ```
 
-**Corrections, 28 September 2026, before any implementation.** Astra's preflight found three defects in the first version of this contract. They are fixed above; no gate changed:
-- The public free functions could not enforce validity. They are replaced by a validated opaque `Geodesic`.
-- "Radial anchors stay on their line" is true for the continuous X, not for the floored integers.
-- The anchor velocity mixed units ("dX/dT = k0/Q"). It is k0 in quanta per chronon.
-
-**Second corrections, 28 September 2026, still before any implementation.** Astra's second preflight found two more defects; the integrator fixed those and three that would have come next. The gate thresholds are unchanged:
-- G2.4's capture test only holds for E = 1 anchors moving inward on the branch connected to infinity. Astra's counterexamples: an outward anchor at L = 0 escapes; an inward anchor inside the barrier is captured with L > 4M.
-- Absorption is defined from the continuous crossing time T_h. The singularity can come before the next integer.
-- Null anchors give a direction.
-- `OutOfRange` and `Before` make `position` total.
+This contract was corrected twice before any implementation, after Astra's preflights. No threshold changed (H0184).
 
 ## Step 2 gates (frozen)
 
@@ -116,7 +107,7 @@ Every test runs in under 60 s, on the M1, in release.
 - **G2.4 Horizon.**
   - Radial infall from rest (k0 = 0) at r0 ∈ {10M, 100M} is absorbed at ⌈T_h⌉, with T_h from the closed-form infall time the reference computes.
   - For timelike E = 1 anchors moving inward on the radial branch connected to infinity (outside the potential barrier): |L| ≤ 4M·(1 − 10^-6) is absorbed, and |L| ≥ 4M·(1 + 10^-6) escapes.
-- **G2.5 Cost.** Over the G2.1 set, on one M1 performance core: median ≤ 50 µs and p99 ≤ 500 µs per `position` call. Reason: 1M orbiting ships, each kicked by tides every few minutes, then cost ≤ 0.3 core at 1× real time. Rendering uses non-canonical floats and does not count against this. Measurement conditions (procedure, not threshold): run on AC power, with no agent builds running, and record `pmset -g therm`, `vm.swapusage` and the load average. This is a fanless MacBook Air M1 with a 7-core GPU. A cost result measured under other conditions is marked provisional.
+- **G2.5 Cost.** Over the G2.1 set, on one M1 performance core: median ≤ 50 µs and p99 ≤ 500 µs per `position` call. Reason: 1M orbiting ships, each kicked by tides every few minutes, then cost ≤ 0.3 core at 1× real time. Rendering uses non-canonical floats and does not count against this. Measure under the conditions the player will actually have, with heat and load included, and record the thermal, power, swap and load state (fanless MacBook Air M1, 7-core GPU).
 
 ## Division of the work
 

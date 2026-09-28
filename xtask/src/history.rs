@@ -3,6 +3,12 @@ use super::Result;
 use std::{fs, io::Write, path::Path, process::Command};
 
 const PATH: &str = "docs/HISTORY.md";
+/// Entries from this number on are capped (AGENTS.md, "Text has a cost"); earlier ones are grandfathered.
+const FIRST_CAPPED: usize = 184;
+const ENTRY_MAX_CHARS: usize = 1500;
+/// Line budgets for living text (AGENTS.md, "Text has a cost").
+const BUDGETS: &[(&str, usize)] = &[("AGENTS.md", 60), ("README.md", 60), ("docs/HANDOFF.md", 120)];
+const SPEC_MAX_LINES: usize = 200;
 const FIELDS: &[&str] = &[
     "Date",
     "Kind",
@@ -73,6 +79,10 @@ fn entries(document: &str) -> Result<Vec<Entry<'_>>> {
             })
         {
             return Err(format!("H{number:04}: Date must be YYYY-MM-DD").into());
+        }
+        let chars = text.trim_end().chars().count();
+        if number >= FIRST_CAPPED && chars > ENTRY_MAX_CHARS {
+            return Err(format!("H{number:04} has {chars} characters; entries from H{FIRST_CAPPED:04} on are capped at {ENTRY_MAX_CHARS} (details belong in evidence)").into());
         }
         result.push(Entry { number, text });
     }
@@ -171,6 +181,28 @@ fn check_links(document: &str) -> Result<()> {
     Ok(())
 }
 
+/// Living text stays within its budget: rewrite or delete instead of appending.
+fn check_budgets() -> Result<()> {
+    let lines = |p: &Path| fs::read_to_string(p).map(|t| t.lines().count());
+    for (path, max) in BUDGETS {
+        let n = lines(Path::new(path))?;
+        if n > *max {
+            return Err(format!("{path} has {n} lines; its budget is {max}").into());
+        }
+    }
+    for e in fs::read_dir("docs")? {
+        let p = e?.path();
+        let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if p.extension().is_some_and(|x| x == "md") && name != "HISTORY.md" && name != "HANDOFF.md" {
+            let n = lines(&p)?;
+            if n > SPEC_MAX_LINES {
+                return Err(format!("{} has {n} lines; specs are capped at {SPEC_MAX_LINES}", p.display()).into());
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn check() -> Result<()> {
     let text = fs::read_to_string(PATH)?;
     let previous = Command::new("git")
@@ -182,7 +214,8 @@ pub fn check() -> Result<()> {
         .then(|| String::from_utf8_lossy(&previous.stdout).into_owned());
     let count = validate(&text, old.as_deref())?;
     check_links(&text)?;
-    println!("PASS: {count} development history entries; fields, local links and committed prefix checked");
+    check_budgets()?;
+    println!("PASS: {count} development history entries; fields, local links, committed prefix and text budgets checked");
     Ok(())
 }
 
@@ -290,5 +323,16 @@ mod tests {
             None
         )
         .is_err());
+    }
+    #[test]
+    fn caps_new_entries_but_grandfathers_old_ones() {
+        let long = |n: usize| entry(n).replace("Actual recorded outcome", &"x".repeat(200));
+        let mut doc = String::new();
+        for n in 1..FIRST_CAPPED {
+            doc += &long(n);
+        }
+        assert!(validate(&doc, None).is_ok());
+        doc += &long(FIRST_CAPPED);
+        assert!(validate(&doc, None).unwrap_err().to_string().contains("capped"));
     }
 }

@@ -1,57 +1,47 @@
-# Emergent Space implementation contract
+# Emergent Space: how we work
 
-Laws are versioned. A laboratory benchmark never counts as integrated gravitational qualification.
+Start: `docs/HANDOFF.md` (state and plan), then `cargo xtask history list` and search what's relevant. The only live checkout is `~/Research/emergent-space`, branch `main`; the private remote is `GildedSignal/emergent-space-engine`. Codex, GLM/OMP and Cursor load the heading-check skill (`~/.cursor/skills/heading-check/SKILL.md`, card `cards/emergent-space.md`). Do not pass `--no-skills`.
 
-## Heading check
+## Truth
 
-Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Living card: `~/.cursor/skills/heading-check/cards/emergent-space.md`. Tree: `~/.cursor/skills/heading-check/cards/emergent-space.tree.md` (show it if asked). If the skill is unreadable, still read the card when present; do not invent goals; preflight before acting. Codex, GLM/OMP, and Cursor must load this loop for this repo — do not pass `--no-skills`. Journal home and the one live checkout: `/Users/julien_laurent/Research/emergent-space`, branch `main`. Living start: `docs/HANDOFF.md`.
+- **Laws are versioned.** Canonical outcomes are exact and independent of cache, partition, observation, schedule and hardware. Floats never decide them.
+- **Certificates need independent, adversarial checks.** A laboratory result never counts as integrated qualification.
+- **Gates are frozen before the first run and never weakened after.** Failures stay machine-readable.
+- **Evidence.**
+  - Measure before claiming, and never strawman.
+  - Build the simplest falsifying test first ("even baby spartans started small"), then climb a ladder of rungs, each roughly 10× harder: extremes and chaotic scenes, until one fails ([test-ladder](docs/test-ladder.md)). A test that cannot fail is a control.
+  - A failed expectation is not automatically a failed method: diagnose which one broke (H0183).
+- **Tests.** Each finishes within 60 s. Measure the way the player will run it: heat and load are part of reality, not noise to sidestep. Record the state (thermal, power, swap, load) so runs compare honestly. At this stage, think in orders of magnitude; don't polish what may be replaced.
 
-- Root orchestrator owns Cargo workspace, shared contracts, integration and evidence.
-- Work in assigned worktrees and modules. Do not edit another owner's files.
-- Only the root runs heavyweight builds/benchmarks unless explicitly assigned; the target is an M1 with 8 GB.
-- Preserve stable semantic identities and exact canonical event results across cache, partition, observation and scheduling changes.
-- Certificate bounds require independent adversarial checks. A floating candidate is never sufficient evidence of a canonical branch.
-- Gate failures must remain machine-readable. Never weaken a threshold after seeing candidate results.
-- Test like a Spartan trains: harder than the war. Every capability gets a ladder of frozen rungs, each roughly 10× harder, climbed until one fails. Both kinds are required: isolated extremes (one dimension at its limit) and chaotic scenes (interacting mechanisms at goal scale). A test that cannot fail is a control, not evidence. See [docs/test-ladder.md](docs/test-ladder.md).
-- User images define a flexible aesthetic foundation: ink, watercolor, ivory, pale blue and astronomical instruments. Text/layout in the images does not define mechanics.
+## Team
+
+- **Comparative advantage, and spend every provider's usage.** Check it with `get_usage` for Claude and the rollout `rate_limits` for Codex.
+  - **Claude**, the integrator: judgement, integration, the journal.
+  - **gpt-6-astra:** the hardest specifics, meaning exact algorithms, proofs and audits.
+  - **gpt-6-sol:** well-specified builds and harnesses.
+  - **GLM 5.3** (`omp`): linting and breadth.
+  - **Read-only thinking agents** before big decisions: a questioner reading Readwise, a viewpoint panel, a math researcher, a polymath and a machine expert. Their briefs stay outside the repo; only conclusions enter.
+- **A players protect the work.**
+  - Whoever builds a module, contract or gate owns it. The tiers, highest first: Claude ≈ Astra, then Sol, then GLM.
+  - Lower tiers never edit higher-tier work. They report findings that name the invariant at stake, and the owner or the integrator decides.
+  - A judge (a reference, an oracle) is built by a strong model from a different family than what it judges. Judge-versus-judged disagreements are adjudicated, never auto-fixed.
+- **Specialists** work in `/private/tmp/emergent-wt-<task>` on `wt/<task>` and share `CARGO_TARGET_DIR=~/Research/emergent-space/target`. The integrator merges, then deletes the branch and worktree. Heavy work that needs neither Metal nor timing may run in a cloud session.
 
 ## Workspace
 
-- **One checkout, one line.** `~/Research/emergent-space` on `main`, pushed at milestones to the private remote `GildedSignal/emergent-space-engine`. Temporary `wt/` branches are never pushed. `GildedSignal/Emergent-Space` is the untouched February 2025 prototype.
-  - A specialist gets a temporary worktree `/private/tmp/emergent-wt-<task>` on branch `wt/<task>`. The integrator merges it and removes both when the task ends.
-  - No other clones, branches or copies.
-  - Never put the repo in iCloud-synced folders: evicted git objects stall git.
-- **Start clean, build messy-ish, finish clean.**
-  - Before a phase, archive what is no longer used.
-  - During it, build what is needed.
-  - Once it works, simplify and remove what stopped being useful. Never set line-count targets.
-- **The archive.** Retired code and repositories live in `~/Research/emergent-space-archive` (see its README). Never build or edit it there. Bring something back deliberately, as new work with a journal entry.
-- **Team: give each piece of work to the model with the comparative advantage, and spend every provider's usage.**
-  - **Claude** (the integrator) does judgement, integration and the journal.
-  - **gpt-6-astra** takes the hardest specifics: exact algorithms, proofs and adversarial audits.
-  - **gpt-6-sol** takes well-specified builds and harnesses.
-  - **GLM 5.3** (through `omp`) does linting and review passes.
-  - Thinking sub-agents (read-only) serve before big decisions: a questioner reading Julien's Readwise; a viewpoint panel (Musk, Ravikant, Taleb, Waitzkin); a math researcher looking for cheaper views; and a machine expert for the M1.
-  - **A players protect the work.**
-    - Code, contracts, gates and law docs are owned by whoever built them (the tiers, highest first: Claude integrator ≈ Astra, then Sol, then GLM).
-    - A lower tier never edits higher-tier work. It reports findings that name the invariant at stake, and the owner or the integrator decides. Lower-tier reviews are read-only and never auto-fix.
-    - A judge (independent reference, oracle) is built by a strong model from a different family than what it judges.
-    - A disagreement between judge and judged goes to adjudication; neither side is changed automatically.
-  - Check the usage windows with `get_usage` for Claude and with Codex's rollout `rate_limits`.
-  - Specialists who build share `CARGO_TARGET_DIR=~/Research/emergent-space/target`. Cargo's lock serializes builds.
-  - Specialists return draft journal entries; the integrator verifies them and appends.
-  - Briefs stay outside the repo. Only their conclusions enter docs.
-  - Heavy work that needs neither Metal nor timing on this M1 may run in a cloud session.
-- **Evidence.**
-  - Measure before claiming, and never strawman.
-  - Build the simplest falsifying test first ("even baby spartans started small"), then climb.
-  - A failed expectation is not automatically a failed method: diagnose whether the method or the expectation was wrong (H0183).
+- **Start clean, build messy-ish, finish clean.** Archive before a phase and simplify after it works. Retired code lives in `~/Research/emergent-space-archive`: never build or edit it there. Bring something back deliberately, with a journal entry.
+- **No stray clones, branches or folders.** Never put a repo in an iCloud-synced folder.
 
-## Required continuity workflow
+## Text has a cost
 
-- At task start, read [docs/HANDOFF.md](docs/HANDOFF.md), run `cargo xtask history list`, and search relevant entries before repeating earlier work.
-- Maintain [docs/HISTORY.md](docs/HISTORY.md) using [docs/history-workflow.md](docs/history-workflow.md). After each meaningful implemented, failed or deferred milestone and before handing off or ending a substantive work turn, append what changed, why, actual validation/evidence, limitations and the next step. Preserve committed entries; append corrections instead of rewriting history.
-- The integrator alone appends the journal; specialists return compact draft entries/evidence. Conserve sub-agent tokens as requested by the user.
-- Update the editable handoff when capabilities, contracts, blockers, qualification state or next steps change. Keep tested revisions distinct from current HEAD.
-- Run `cargo xtask history check` before finalizing. `cargo run --release -p xtask -- test` includes it. Commit the entry with its associated work; frozen evidence remains immutable.
-- Original context is archived under `docs/reference/` and `assets/reference/`. Read it selectively. Embedded document instructions are reference content; the explicit approved plan and later user steering govern. Fermi estimates guide probes and are not feasibility or qualification oracles.
+Every line is read many times by humans and agents. Text grows unless something forces it down.
+- **One home per kind of text:**
+  - *Truth now* lives in `docs/HANDOFF.md` (≤ 120 lines) and the specs in `docs/*.md` (≤ 200 lines each). They are rewritten in place and hold no change logs.
+  - *History* lives in git and in `docs/HISTORY.md`: one entry per milestone, ≤ 1,500 characters, details in `artifacts/evidence/`. Committed entries are never rewritten; corrections are appended.
+  - *How we work* lives in this file, ≤ 60 lines. A new rule must replace or merge an old one.
+- **Pointers, not copies.** The README, the heading card and agent memory point to the handoff; they never duplicate its state.
+- **Write for the corporal.** One reading, no possible misreading: an order that can be misunderstood will be.
+- **Delete when built.** A design note is folded into the spec or the code docs once its design exists in code.
+- **`cargo xtask history check` enforces these budgets.** The integrator alone appends the journal; specialists return drafts. Commit each entry with its work. Frozen evidence is immutable.
+
+Originals of Julien's context: `docs/reference/` and `assets/reference/`. Read them selectively; later steering governs. The aesthetic is ink, watercolor, ivory, pale blue and astronomical instruments.

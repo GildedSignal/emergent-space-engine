@@ -2700,3 +2700,54 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [rows](../artifacts/evidence/gr-oracle-20260928/rows.jsonl)
 - Limitations: The failing gate means the two-body oracle cannot yet qualify anything at e = 0.5. The p⁻² convergence diagnoses the gap but does not qualify it. No 2PN comparison, no radiation reaction, no spin. Step 2 (test bodies around one mass) relies only on the Schwarzschild rows, which all pass.
 - Next: Before step 3 uses two-body rows, freeze a new two-body protocol and run it on cases never run before: either 2PN on both sides (the Damour–Schäfer generalized quasi-Keplerian form against 2PN harmonic equations of motion), or a convergence-order gate. Step 2 now: freeze the lattice-gravity comparison bands against the Schwarzschild rows, then build integer geodesic formulas plus kicks around one mass.
+
+
+## H0184 — Step 2 gravity contract frozen: river coordinates, canonical geodesic floors, gates G2.1–G2.5
+
+- Date: 2026-09-28
+- Kind: decision
+- Status: implemented
+- Revisions: `9410031`, corrected in `36f429f` and `a5b23d5`
+- Scope: [gravity-law.md](gravity-law.md); no code yet
+- Changed: Free motion is the exact geodesic of the parent in Painlevé–Gullstrand (river) coordinates. Flow-relative velocities reuse the lattice's SR law. The canonical position is a certified floor with a fixed, terminating rule. Gates were frozen before any code, then corrected twice after Astra's preflights: a validated Geodesic object, symmetry before flooring, units, the G2.4 domain, absorption at ⌈T_h⌉, null anchors as directions, and a total `position`. No threshold changed.
+- Why: The formula is the bottleneck (HANDOFF step 2). Rivers make clocks, contacts and horizons fall out of existing SR.
+- Validation: Astra's exact rational counterexamples (radial (26,35); E = 1 capture/escape; T_h = 496/75 < 20/3).
+- Evidence: [contract](gravity-law.md)
+- Limitations: Nothing is implemented; the gates are unrun.
+- Next: Astra builds crates/geodesic; a certified independent reference; run G2.1–G2.5.
+
+
+## H0185 — Operating model: model team, A-player ownership, text budgets, machine facts
+
+- Date: 2026-09-28
+- Kind: decision
+- Status: implemented
+- Revisions: `32bd151`, `5cb1092`, `301eef9`; this entry's commit
+- Scope: AGENTS.md rewritten (57 → 47 lines); [engine.md](engine.md) replaces the two work-allocation docs; history check
+- Changed: Work goes by comparative advantage (Claude, Astra, Sol, GLM, read-only thinking agents); lower tiers report and never edit higher-tier work; judges come from another model family. Text budgets are enforced by `history check`: AGENTS/README ≤ 60 lines, HANDOFF ≤ 120, specs ≤ 200, entries from H0184 on ≤ 1,500 characters. Living docs went from 1,015 to 629 lines. Machine: fanless Air, 7-core GPU, heavy swap; timed evidence needs AC and a quiet machine.
+- Why: Julien: lean like a startup, watch growth dynamics. Journal entries were growing (2.2k → 3.2k median characters), and state was copied in five places.
+- Validation: xtask builds warning-free; history tests 3/3 including the new cap test; history check PASS with budgets.
+- Evidence: [contract](../AGENTS.md), [check](../xtask/src/history.rs)
+- Limitations: The heading card and memory still duplicate some state; a shared target lets worktrees overwrite each other's xtask binary.
+- Next: One target dir per worktree; trim the heading card to four lines.
+
+
+## H0186 — The viewpoint review reorders the plan: measure the premises first, delete before building
+
+- Date: 2026-09-28
+- Kind: decision
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: [HANDOFF.md](HANDOFF.md) plan; measurement doctrine in AGENTS.md and G2.5
+- Changed: A read-only panel (Musk, Ravikant, Taleb, Waitzkin, grounded in Julien's Readwise) found:
+  - untested premises: kick rates, the handoff tail, oblate parents;
+  - a fallback rule G2.1 never exercises;
+  - five modes to port;
+  - a premature scheduler;
+  - the player arriving too late.
+  The plan now: a float probe first; fallback and worst-case cost rows frozen before G2 runs; modes collapsed before step 4; the player slice right after step 2; step 5 waiting for a gravity workload. Julien: measure like the player, heat included, with the state recorded; think in orders of magnitude.
+- Why: Early questions compound; don't polish what the premises may kill.
+- Validation: The panel read the plan and the logs. Its incidental finding held: Codex hit its usage limit at 13:48, stopping Astra and Sol mid-task.
+- Evidence: this entry
+- Limitations: The J2 and Moon-tide kick figures are the panel's estimates, which the probe must measure.
+- Next: When budgets reset, resume Astra and Sol, freeze the G2 additions, then run the probe.
