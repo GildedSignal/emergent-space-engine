@@ -54,9 +54,19 @@ fn run() -> Result<u8> {
     }
     if task == "gr-oracle" {
         // Independent weak/strong-field GR oracle (G = c = M = 1): two methods per quantity.
+        let out_dir = args.next().map(PathBuf::from);
+        if args.next().is_some() {
+            return Err("usage: gr-oracle [out-dir]".into());
+        }
         let (ok, rows) = gr_oracle::run();
+        let mut jsonl = String::new();
         for r in rows.as_array().into_iter().flatten() {
             println!("{r}");
+            jsonl.push_str(&format!("{r}\n"));
+        }
+        if let Some(dir) = out_dir {
+            fs::create_dir_all(&dir)?;
+            fs::write(dir.join("rows.jsonl"), jsonl)?;
         }
         println!("{}", if ok { "ORACLE AGREES" } else { "ORACLE DISAGREES" });
         return Ok(if ok { 0 } else { 1 });
@@ -132,6 +142,6 @@ fn run() -> Result<u8> {
         println!("PASS: history check and workspace tests ({})", out.join("test-output.txt").display());
         return Ok(0);
     }
-    println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle                           independent GR oracle\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
+    println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
     Ok(0)
 }
