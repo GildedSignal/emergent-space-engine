@@ -72,6 +72,13 @@ Every step has gates frozen before its first run, every test stays under 60 s, a
 - **Tides from known sources** may belong in the formula as orbit-averaged drift, with kicks kept for true surprises.
 - **The reference** is the Arb spike (python-flint 0.9.0 in `.venv`). Precompute the reference floors, hash them and freeze them before the evaluator runs. Add the baby-spartan rungs 0–5 and one planted bug per gate.
 
+**From the math researcher** (probe scripts in `artifacts/evidence/reanchor-probe-20260928/`):
+- **Re-anchoring rounding.** Plain rounding makes E random-walk: 200 km off after 1,000 low-orbit orbits. Floor rounding makes L drift secularly. Error feedback on carried E and L (sigma-delta, 5×5 candidates) stays bounded at 0.7 quanta. So the kick rule uses error-feedback rounding, as law.
+- **Kicks come from the continuous integral** of the unknown acceleration along the exact formula, not from a per-chronon sum.
+- **Averaging known tides into the formula** (Lie–Deprit) is estimated to cut kicks about 500×. In the plane, J2 fits the same cubic machinery with no kicks.
+- **A canonicity gap.** A fallback defined as a function of the final interval is canonical only with a single evaluator. Make a fixed Ziv ladder the law: a fast path (double-double, about 75–95 bits) answers only when its enclosure, widened by the ladder's proven final width, excludes every integer. Tell Astra before it resumes.
+- **Retarded multipoles need source-velocity terms,** or they produce Laplace aberration drift.
+
 **Changes from the viewpoint review (H0186).**
 - **Next action:** a float probe, non-canonical and under 60 s, at orders-of-magnitude precision, with kill criteria frozen first. The scene is physically scaled: a star, a planet and a moon, ships in low orbit, a transfer that crosses a Hill sphere, a near-equal binary, and one oblate parent. It measures kicks per orbit, `position` calls per second from every source, and the jumps at a parent handoff. This tests the premises behind "a kick every few minutes", "0.3 core" and "10–100× real time" before we build more on them.
 - **Before G2's first run, freeze two additions:** cases that force the fallback rule, with what is accepted there, and a G2.5 row for the worst-case cost at maximum precision.
