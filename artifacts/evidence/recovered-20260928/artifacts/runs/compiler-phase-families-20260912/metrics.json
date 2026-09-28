@@ -1,0 +1,53 @@
+{
+  "exception_1000_32": {
+    "skipped": "not remeasured; H0013 27.8 vs frozen 18.5 ms remains unresolved; do not claim a 1,000-exception speedup"
+  },
+  "extracted_equivalent_burns": {
+    "extracted_ships": 256,
+    "n": 256,
+    "note": "anti-pattern: N per-ship SetVelocity. 1e6 extract exceeds resident cap 100_000; not the range-IR path",
+    "wall_ns": 2988916
+  },
+  "family_phase_burn_1e6": {
+    "extracted_ships": 0,
+    "extracted_ships_over_logical_ships": "0/1000000",
+    "ir": "SetCourseRange",
+    "logical_ships": 1000000,
+    "serialized_bytes": 1706,
+    "wall_ns": 13458
+  },
+  "fixture_16": {
+    "compressed_search_operations": 82,
+    "compressed_wall_ns": 861125,
+    "contacts": [
+      [
+        56,
+        1,
+        100
+      ],
+      [
+        79,
+        1,
+        101
+      ]
+    ],
+    "event_facts_match_materialized": true,
+    "extracted_ships": 1,
+    "extracted_ships_over_logical_ships": "1/17",
+    "history_digest_compressed": "0b82ec64a8c5664c4e66994df6a0bfd08b82a744e8637ea3d71b7b4ec163fe49",
+    "logical_ships": 17,
+    "materialized_search_operations": 406,
+    "materialized_wall_ns": 475000,
+    "serialized_bytes": 3155,
+    "serialized_bytes_are_not_ram": true
+  },
+  "interaction": "scripted-interaction-v1",
+  "law": "es-inertial-causal-v1",
+  "profile": "release",
+  "range_ir": {
+    "command": "SetCourseRange",
+    "exists": true,
+    "not": "a clique of per-ship SetCourse commands",
+    "object": "one scheduled_range_course / range_burn hyperedge over {lo..=hi}"
+  }
+}

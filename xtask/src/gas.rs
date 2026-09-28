@@ -1,4 +1,4 @@
-//! Trapped gas (H0159): the engine's elastic law against an independent integer reference.
+//! Trapped gas (H0159): an independent integer reference for the lattice's elastic law.
 //!
 //! The reference shares no code with the engine. It steps every tick over every pair in
 //! integers scaled by the response quantum Q (positions ×Q, velocities ×Q, energies ×2Q²)
@@ -7,12 +7,6 @@
 //! resolved one pair at a time from the velocities earlier pairs left (sequential impulses),
 //! momentum rounded to the lcm(m_a, m_b)/Q lattice with the energy carry, and a contact is
 //! consumed for the pair's post-batch revisions.
-use emergent_engine::{
-    math::{r, Rational, Vec2},
-    propagator::Inertial,
-    runtime::{Body, Container},
-    Engine,
-};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub struct Gas {
@@ -50,27 +44,6 @@ pub fn world(n: u64, fill: f64, q: i128, vmax_units: i128, seed: u64) -> Gas {
         })
         .collect();
     Gas { q, side, radius, bodies }
-}
-
-pub fn engine(g: &Gas, seed: u64, quantum: Option<i128>) -> Result<Engine, Box<dyn std::error::Error>> {
-    let bodies = g
-        .bodies
-        .iter()
-        .enumerate()
-        .map(|(i, (p, v))| {
-            let mut b = Body::new(
-                i as u64 + 1,
-                "gas",
-                Inertial::new(0, Vec2::new(p[0], p[1]), Vec2 { x: r(v[0]) / r(g.q), y: r(v[1]) / r(g.q) })?,
-                r(g.radius),
-                r(1),
-            );
-            b.bounce = true;
-            Ok(b)
-        })
-        .collect::<Result<Vec<_>, Box<dyn std::error::Error>>>()?;
-    let container = Container { min: Vec2::new(0, 0), max: Vec2::new(g.side, g.side) };
-    Ok(Engine::new(seed, bodies, vec![])?.with_elastic(Some(container), quantum)?)
 }
 
 #[derive(Clone)]
@@ -270,88 +243,5 @@ pub fn reference(g: &Gas, horizon: i128) -> Reference {
         events,
         finals: ps.iter().map(|p| (p.x, p.k, p.residual, p.rev)).collect(),
         wall_momentum,
-    }
-}
-
-fn to_i128(x: &Rational) -> Option<i128> {
-    if x.is_integer() { i128::try_from(x.to_integer()).ok() } else { None }
-}
-
-/// Engine-side view in the reference's integer units, or None if a value is off-lattice.
-pub fn engine_view(e: &Engine, q: i128, horizon: i128) -> Option<Reference> {
-    let mut events: Vec<(i128, String, Vec<u64>)> = e
-        .sorted_events()
-        .into_iter()
-        .filter(|ev| ev.kind == "contact" || ev.kind == "wall")
-        .map(|ev| (ev.tick, ev.kind.clone(), ev.subjects.clone()))
-        .collect();
-    events.sort();
-    let (rq, e2) = (r(q), r(2 * q * q));
-    let mut finals = Vec::new();
-    for b in e.state.bodies.values() {
-        let p = b.at(horizon);
-        let v = b.velocity_at(horizon);
-        finals.push((
-            [to_i128(&(p.x * &rq))?, to_i128(&(p.y * &rq))?],
-            [to_i128(&(v.x * &rq))?, to_i128(&(v.y * &rq))?],
-            to_i128(&(&b.energy_residual * &e2))?,
-            b.revision,
-        ));
-    }
-    let wm = e.state.elastic.as_ref().map(|el| el.wall_momentum.clone()).unwrap_or_else(Vec2::zero);
-    Some(Reference { events, finals, wall_momentum: [to_i128(&(wm.x * &rq))?, to_i128(&(wm.y * &rq))?] })
-}
-
-/// Conservation and containment checks that scale to any size (exact rationals).
-pub struct Invariants {
-    pub contained: bool,
-    pub momentum_ledger_exact: bool,
-    pub energy_ledger_exact: bool,
-    pub energy_drift_relative: f64,
-    pub max_residual: f64,
-    pub residual_bound: f64,
-    pub max_velocity_bits: u64,
-}
-
-pub fn invariants(e: &Engine, g: &Gas, horizon: i128) -> Invariants {
-    let side = r(g.side);
-    let (mut p0, mut p1) = (Vec2::zero(), Vec2::zero());
-    let (mut e0, mut e1, mut res) = (r(0), r(0), r(0));
-    let mut contained = true;
-    let mut max_res = r(0);
-    let mut bits = 0u64;
-    for (id, b) in &e.state.bodies {
-        let g0 = &e.state.genesis_bodies[id];
-        let (v0, v1) = (g0.velocity_at(0), b.velocity_at(horizon));
-        p0 = p0 + v0.clone() * b.mass.clone();
-        p1 = p1 + v1.clone() * b.mass.clone();
-        e0 += &b.mass * v0.norm_squared() / r(2);
-        e1 += &b.mass * v1.norm_squared() / r(2);
-        res += &b.energy_residual;
-        let a = num_traits::Signed::abs(&b.energy_residual);
-        if a > max_res {
-            max_res = a;
-        }
-        let pos = b.at(horizon);
-        if pos.x < r(0) || pos.y < r(0) || pos.x > side || pos.y > side {
-            contained = false;
-        }
-        for c in [&v1.x, &v1.y] {
-            bits = bits.max(c.numer().bits()).max(c.denom().bits());
-        }
-    }
-    let wm = e.state.elastic.as_ref().map(|el| el.wall_momentum.clone()).unwrap_or_else(Vec2::zero);
-    let f = |x: &Rational| x.numer().to_string().parse::<f64>().unwrap_or(f64::NAN) / x.denom().to_string().parse::<f64>().unwrap_or(f64::NAN);
-    // Frozen before any run: each body may owe at most four one-quantum energy errors
-    // (4·v_max/Q for mass 1), so the carry's error cannot grow with the number of bounces.
-    let vmax = g.bodies.iter().map(|(_, v)| v[0].abs().max(v[1].abs())).max().unwrap_or(0) as f64 * std::f64::consts::SQRT_2 / g.q as f64;
-    Invariants {
-        contained,
-        momentum_ledger_exact: p1 - p0 + wm == Vec2::zero(),
-        energy_ledger_exact: &e1 - &e0 == res,
-        energy_drift_relative: f(&(&e1 - &e0)) / f(&e0),
-        max_residual: f(&max_res),
-        residual_bound: 4.0 * vmax / g.q as f64,
-        max_velocity_bits: bits,
     }
 }

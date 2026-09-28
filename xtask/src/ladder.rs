@@ -1,14 +1,10 @@
-//! Scale ladder (docs/test-ladder.md): frozen rungs, each run in its own child process.
-//! Correctness is checked against references that do not use the engine's search:
-//! an exact integer pair oracle, analytic zero-contact constructions, the engine's
-//! exhaustive per-tick predicate audit, replay, and slice-budget invariance.
-use emergent_engine::{
-    math::{r, Vec2},
-    population::Family,
-    propagator::Inertial,
-    runtime::Body,
-    Engine, WorkBudget,
-};
+//! Scale ladder v7 (scenarios/scale-ladder-v7.json): every lattice mode climbs the frozen rungs
+//! under es-lattice-relativistic-v1. Each (mode, track, rung) runs in its own child process.
+//! Every advance runs in units of `unit_ops` charged operations and every unit is timed.
+//! Correctness: exact oracles (pair oracle, independent gas reference, all-pairs audit),
+//! ledgers, mode invariance against the chronon reference, and budget invariance.
+use crate::{gas, lattice};
+use emergent_lattice::{chronon::Chronon, relativity, worlds, Body, Kind, Law, Response, Stepper, World};
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
@@ -19,7 +15,7 @@ use std::{
 };
 type Result<T> = super::Result<T>;
 
-const MANIFEST: &[u8] = include_bytes!("../../scenarios/scale-ladder-v4.json");
+const MANIFEST: &[u8] = include_bytes!("../../scenarios/scale-ladder-v7.json");
 
 fn manifest() -> Result<Value> {
     Ok(serde_json::from_slice(MANIFEST)?)
@@ -98,24 +94,6 @@ pub(crate) struct Disc {
     pub(crate) n: [i128; 2],
 }
 
-fn body(id: u64, d: &Disc, den: i128, radius: i128, stop: bool) -> Result<Body> {
-    let mut b = Body::new(
-        id,
-        "ladder",
-        Inertial::new(
-            0,
-            Vec2::new(d.p[0], d.p[1]),
-            Vec2 {
-                x: r(d.n[0]) / r(den),
-                y: r(d.n[1]) / r(den),
-            },
-        )?,
-        r(radius),
-        r(1),
-    );
-    b.stop_on_contact = stop;
-    Ok(b)
-}
 
 /// Exact: does |dp + dn t / D| <= R for some real t in [0, T]?
 fn pair_contact(a: &Disc, b: &Disc, den: i128, reach: i128, horizon: i128) -> bool {
@@ -192,557 +170,505 @@ pub(crate) fn brute_pairs(discs: &[Disc], den: i128, reach: i128, horizon: i128)
     out
 }
 
-fn engine_pairs(e: &Engine) -> Vec<(u64, u64)> {
-    let mut v: Vec<_> = e
-        .sorted_events()
-        .into_iter()
-        .filter(|ev| ev.kind == "contact")
-        .map(|ev| {
-            let (a, b) = (ev.subjects[0], ev.subjects[1]);
-            (a.min(b), a.max(b))
-        })
-        .collect();
+/// The execution modes. A mode that is not built yet reports NOT_ATTEMPTED.
+fn make(mode: &str, w: World, keep: bool) -> std::result::Result<Box<dyn Stepper>, String> {
+    match mode {
+        "chronon" => Chronon::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
+        "event" => emergent_lattice_event::EventCore::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
+        "metal" => emergent_lattice_metal::MetalChronon::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>).map_err(|e| e.to_string()),
+        "hybrid" => crate::hybrid::Hybrid::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>),
+        "regions" => crate::regions::Regions::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>),
+        _ => Err(format!("mode {mode} not built yet")),
+    }
+}
+
+struct Drive {
+    complete: bool,
+    limiter: Option<String>,
+    advance_ms: f64,
+    cpu_s: f64,
+    units_ms: Vec<f64>,
+}
+
+fn drive(s: &mut dyn Stepper, horizon: i64, unit_ops: u64, wall_s: f64, rss_cap: u64) -> Drive {
+    let (start, cpu0) = (Instant::now(), cpu_seconds());
+    let mut units_ms = Vec::new();
+    let mut limiter = None;
+    while s.tick() < horizon {
+        let t = Instant::now();
+        s.advance(horizon, unit_ops);
+        units_ms.push(t.elapsed().as_secs_f64() * 1e3);
+        if units_ms.len() % 256 == 0 {
+            if start.elapsed().as_secs_f64() > wall_s {
+                limiter = Some(format!("wall cap {wall_s} s at tick {} of {horizon}", s.tick()));
+                break;
+            }
+            if peak_rss() > rss_cap {
+                limiter = Some("peak RSS cap".into());
+                break;
+            }
+        }
+    }
+    // The cap binds whether or not a check boundary fell inside it ("complete within caps").
+    if limiter.is_none() && start.elapsed().as_secs_f64() > wall_s {
+        limiter = Some(format!("wall cap {wall_s} s (reached tick {} of {horizon} in {:.1} s)", s.tick(), start.elapsed().as_secs_f64()));
+    }
+    Drive { complete: limiter.is_none(), limiter, advance_ms: start.elapsed().as_secs_f64() * 1e3, cpu_s: cpu_seconds() - cpu0, units_ms }
+}
+
+fn discs_of(w: &World) -> Vec<Disc> {
+    w.bodies.iter().map(|b| Disc { p: [(b.x[0] / w.q) as i128, (b.x[1] / w.q) as i128], n: [b.k[0] as i128, b.k[1] as i128] }).collect()
+}
+
+/// v4's X3 generator (ladder.rs x_crowded) as a lattice world.
+fn crowded(n: u64, track: &Value, m: &Value) -> (World, i64) {
+    let den = m["velocity_denominator"].as_i64().unwrap_or(1024);
+    let radius = track["radius"].as_i64().unwrap_or(1);
+    let s = track["spacing"].as_i64().unwrap_or(16) as i128;
+    let half = (n / 2) as i128;
+    let width = half * s;
+    let speed = (den / 4) as i64;
+    let mut rng = Rng(m["seed"].as_u64().unwrap_or(1) ^ n ^ 0xC0);
+    let mut bodies = Vec::new();
+    let mut push = |p: [i128; 2], k: [i64; 2]| {
+        let id = bodies.len() as u64 + 1;
+        bodies.push(Body::new(id, [p[0] as i64 * den, p[1] as i64 * den], k, 1, radius * den, Response::Pass));
+    };
+    for i in 0..half {
+        let p = [i * s, rng.range(0, width)];
+        push(p, [0, -speed]);
+    }
+    for j in 0..half {
+        let dir = if rng.next() % 2 == 0 { 1 } else { -1 };
+        let p = [rng.range(0, width), 2 * width + j * s];
+        push(p, [dir * speed, 0]);
+    }
+    (World::new(den, None, bodies).expect("crowded world"), (4 * width) as i64)
+}
+
+/// Genesis world, horizon and the gas description (for the independent reference).
+fn setup(track: &Value, i: usize, m: &Value) -> Result<(World, i64, Option<gas::Gas>)> {
+    let seed = m["seed"].as_u64().unwrap_or(1);
+    let den = m["velocity_denominator"].as_i64().unwrap_or(1024);
+    let size = |k: &str| track[k][i].as_u64().ok_or("rung index");
+    let (w, h, g) = match track["id"].as_str().unwrap_or("") {
+        "X1-relative-motion" => {
+            let area = track["area_per_body"].as_i64().unwrap_or(1_000_000);
+            (worlds::random(size("bodies")?, area, den, track["radius"].as_i64().unwrap_or(1), seed, Response::Pass), track["horizon"].as_i64().unwrap_or(4096), None)
+        }
+        "X2-horizon" => {
+            let area = track["area_per_body"].as_i64().unwrap_or(1_000_000);
+            let n = track["bodies"].as_u64().unwrap_or(4096);
+            (worlds::random(n, area, den, track["radius"].as_i64().unwrap_or(1), seed, Response::Pass), size("horizons")? as i64, None)
+        }
+        "X3-crowded-axes" => {
+            let (w, h) = crowded(size("bodies")?, track, m);
+            (w, h, None)
+        }
+        "C1-packed-stop-cascade" => (
+            worlds::packed(size("bodies")?, track["grid_spacing"].as_i64().unwrap_or(8), track["jitter"].as_i64().unwrap_or(2), den, track["radius"].as_i64().unwrap_or(1), seed),
+            track["horizon"].as_i64().unwrap_or(128),
+            None,
+        ),
+        "C2-trapped-gas" | "X5-carry-endurance" => {
+            let n = if track["id"] == "C2-trapped-gas" { size("bodies")? } else { track["bodies"].as_u64().unwrap_or(64) };
+            let h = if track["id"] == "C2-trapped-gas" { track["horizon"].as_i64().unwrap_or(1024) } else { size("horizons")? as i64 };
+            let (fill, q, vmax) = (track["fill"].as_f64().unwrap_or(0.1), track["quantum"].as_i64().unwrap_or(1024), track["vmax_units"].as_i64().unwrap_or(256));
+            (worlds::gas(n, fill, q, vmax, seed), h, Some(gas::world(n, fill, q as i128, vmax as i128, seed)))
+        }
+        "C3-mixed-invariance" => (worlds::mixed(size("bodies")?, track["quantum"].as_i64().unwrap_or(512), seed), track["horizon"].as_i64().unwrap_or(2048), None),
+        "C4-near-c-mixed" => {
+            let q = track["quantum"].as_i64().unwrap_or(512);
+            let mut w = worlds::mixed(size("bodies")?, q, seed);
+            let lim = (95 * q / 100) as i128;
+            for b in &mut w.bodies {
+                b.response = Response::Bounce;
+                b.k = [b.k[0] * 19 / 10, b.k[1] * 19 / 10];
+                while (b.k[0] as i128).pow(2) + (b.k[1] as i128).pow(2) > lim * lim {
+                    b.k = [b.k[0] * 9 / 10, b.k[1] * 9 / 10];
+                }
+            }
+            (w, track["horizon"].as_i64().unwrap_or(2048), None)
+        }
+        "G1-galaxy-clusters" | "G2-galaxy-span" => {
+            let g1 = track["id"] == "G1-galaxy-clusters";
+            let n = if g1 { size("bodies")? } else { track["bodies"].as_u64().unwrap_or(65536) };
+            let clusters = if g1 { size("clusters")? } else { track["clusters"].as_u64().unwrap_or(64) };
+            let span = if g1 { track["span_bits"].as_u64().unwrap_or(30) } else { size("spans")? } as u32;
+            let q = track["quantum"].as_i64().unwrap_or(256);
+            let w = worlds::galaxy(n, clusters, span, q, seed).map_err(|e| format!("RANGE: {}", e.0))?;
+            (w, track["horizon"].as_i64().unwrap_or(1024), None)
+        }
+        other => return Err(format!("track {other} has no lattice generator").into()),
+    };
+    let w = match m["law"].as_str() {
+        Some("Relativistic") => w.with_law(Law::Relativistic)?,
+        Some("RelativisticV1") => w.with_law(Law::RelativisticV1)?,
+        _ => w,
+    };
+    Ok((w, h, g))
+}
+
+fn contact_pairs(s: &dyn Stepper) -> Vec<(u64, u64)> {
+    let mut v: Vec<_> = s.log().events.iter().filter(|e| e.kind == Kind::Contact).map(|e| (e.a, e.b)).collect();
     v.sort_unstable();
     v.dedup();
     v
 }
 
-fn random_world(n: u64, area_per_body: i128, den: i128, reach: i128, seed: u64) -> Vec<Disc> {
-    let side = ((n as f64 * area_per_body as f64).sqrt()).ceil() as i128;
-    let mut rng = Rng(seed ^ n);
-    let mut discs: Vec<Disc> = Vec::with_capacity(n as usize);
-    // Reject genesis overlaps with a coarse grid (cell = 4 * reach).
-    let cell = 4 * reach;
-    let mut occupied: HashMap<(i128, i128), Vec<usize>> = HashMap::new();
-    while discs.len() < n as usize {
-        let d = Disc {
-            p: [rng.range(0, side), rng.range(0, side)],
-            n: [rng.range(-den / 2, den / 2), rng.range(-den / 2, den / 2)],
-        };
-        let key = (d.p[0].div_euclid(cell), d.p[1].div_euclid(cell));
-        let clash = (-1..=1).any(|dx| {
-            (-1..=1).any(|dy| {
-                occupied.get(&(key.0 + dx, key.1 + dy)).is_some_and(|v| {
-                    v.iter().any(|&k| {
-                        let o = &discs[k];
-                        let (x, y) = (o.p[0] - d.p[0], o.p[1] - d.p[1]);
-                        x * x + y * y <= (2 * reach) * (2 * reach)
-                    })
-                })
-            })
-        });
-        if !clash {
-            occupied.entry(key).or_default().push(discs.len());
-            discs.push(d);
-        }
-    }
-    discs
-}
-
-struct Run {
-    complete: bool,
-    limiter: Option<String>,
-    setup_ms: f64,
-    advance_ms: f64,
-    worst_slice_ms: f64,
-    slices: u64,
-    ops: usize,
-    events: usize,
-    cpu_s: f64,
-    smooth: Value,
-}
-
-/// Advance to `target`. With `smooth`, every call uses the observatory's frame budget and
-/// every frame is timed (smoothness over the whole run); otherwise `slice_ops` per call.
-fn drive(e: &mut Engine, target: i128, slice_ops: usize, caps: &Value, smooth: Option<&Value>, setup_ms: f64) -> Run {
-    let wall = caps["wall_seconds_per_rung"].as_f64().unwrap_or(120.0);
-    let rss_cap = caps["peak_rss_bytes"].as_u64().unwrap_or(u64::MAX);
-    let ops = smooth.and_then(|s| s["slice_operations"].as_u64()).map_or(slice_ops, |o| o as usize);
-    let t0 = Instant::now();
-    let cpu0 = cpu_seconds();
-    let mut run = Run {
-        complete: false,
-        limiter: None,
-        setup_ms,
-        advance_ms: 0.0,
-        worst_slice_ms: 0.0,
-        slices: 0,
-        ops: 0,
-        events: 0,
-        cpu_s: 0.0,
-        smooth: Value::Null,
-    };
-    let mut frames_us: Vec<f32> = Vec::new();
-    loop {
-        let s = Instant::now();
-        match e.advance(target, WorkBudget::new(ops)) {
-            Ok(res) => {
-                let us = s.elapsed().as_secs_f64() * 1e6;
-                run.worst_slice_ms = run.worst_slice_ms.max(us / 1e3);
-                if smooth.is_some() {
-                    frames_us.push(us as f32);
-                }
-                run.slices += 1;
-                run.ops += res.operations;
-                run.events += res.events;
-                if res.complete {
-                    run.complete = true;
-                    break;
-                }
-            }
-            Err(err) => {
-                run.limiter = Some(format!("engine error: {err}"));
-                break;
-            }
-        }
-        if run.slices % 64 == 0 {
-            if t0.elapsed().as_secs_f64() > wall {
-                run.limiter = Some(format!("wall cap {wall} s"));
-                break;
-            }
-            if peak_rss() > rss_cap {
-                run.limiter = Some("memory cap".into());
-                break;
-            }
-        }
-    }
-    run.advance_ms = t0.elapsed().as_secs_f64() * 1e3;
-    run.cpu_s = cpu_seconds() - cpu0;
-    if let Some(s) = smooth {
-        let mut ms: Vec<f64> = frames_us.iter().map(|&u| u as f64 / 1e3).collect();
-        ms.sort_by(|a, b| a.total_cmp(b));
-        let target_ms = s["target_p99_ms"].as_f64().unwrap_or(5.0);
-        let p99 = percentile(&ms, 0.99);
-        let over = ms.iter().filter(|&&x| x > target_ms).count();
-        run.smooth = json!({"frame_operations": ops, "frames": ms.len(),
-            "p50_ms": percentile(&ms, 0.5), "p95_ms": percentile(&ms, 0.95), "p99_ms": p99,
-            "max_ms": ms.last().copied().unwrap_or(0.0), "frames_over_target": over,
-            "verdict": if ms.is_empty() { "NONE" } else if p99 <= target_ms { "SMOOTH" } else { "JANK" }});
-    }
-    run
-}
-
-fn metric(e: &Engine, name: &str) -> u64 {
-    serde_json::to_value(&e.metrics)
-        .ok()
-        .and_then(|m| m.get(name).and_then(Value::as_u64))
-        .unwrap_or(0)
-}
-
-fn row(track: &str, param: Value, e: &Engine, run: &Run, correct: Value, pass_extra: bool) -> Value {
-    let k = (e.state.bodies.len() + e.state.families.len()).max(1) as u64;
-    let compares = metric(e, "aabb_compares");
-    let rss = peak_rss();
-    let pass = run.complete && pass_extra;
-    json!({
-        "track": track, "param": param,
-        "status": if pass { "PASS" } else { "FAIL" },
-        "limiter": run.limiter.clone().or_else(|| if pass { None } else { Some("correctness".into()) }),
-        "correctness": correct,
-        "descriptions": k, "events": run.events, "operations": run.ops,
-        "aabb_compares": compares, "certified_rejections": metric(e, "certified_rejections"),
-        "pairs_per_description": compares as f64 / k as f64,
-        "setup_ms": run.setup_ms, "advance_ms": run.advance_ms,
-        "worst_slice_ms": run.worst_slice_ms, "slices": run.slices, "smoothness": run.smooth,
-        "cores_used": run.cpu_s / (run.advance_ms / 1e3).max(1e-9),
-        "cores_available": std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
-        "peak_rss_bytes": rss, "rss_per_description": rss as f64 / k as f64,
-        "engine_metrics": serde_json::to_value(&e.metrics).unwrap_or(Value::Null),
-    })
-}
-
-fn pairs_check(engine: &[(u64, u64)], oracle: &[(u64, u64)]) -> (bool, Value) {
-    let missing: Vec<_> = oracle.iter().filter(|p| engine.binary_search(p).is_err()).take(5).collect();
-    let extra: Vec<_> = engine.iter().filter(|p| oracle.binary_search(p).is_err()).take(5).collect();
-    let ok = engine == oracle;
-    (ok, json!({"engine_contacts": engine.len(), "oracle_contacts": oracle.len(), "equal": ok,
-                "first_missing": missing, "first_extra": extra}))
-}
-
-fn x_random(track: &Value, n: u64, horizon: i128, m: &Value) -> Result<Value> {
-    let den = m["velocity_denominator"].as_i64().unwrap_or(1024) as i128;
-    let radius = track["radius"].as_i64().unwrap_or(1) as i128;
-    let area = track["area_per_body"].as_i64().unwrap_or(1_000_000) as i128;
-    let seed = m["seed"].as_u64().unwrap_or(1);
-    let t = Instant::now();
-    let discs = random_world(n, area, den, 2 * radius, seed);
-    let bodies = discs
-        .iter()
-        .enumerate()
-        .map(|(i, d)| body(i as u64 + 1, d, den, radius, false))
-        .collect::<Result<Vec<_>>>()?;
-    let mut e = Engine::new(seed, bodies, vec![])?;
-    let setup = t.elapsed().as_secs_f64() * 1e3;
-    let run = drive(&mut e, horizon, m["caps"]["slice_operations"].as_u64().unwrap_or(100_000) as usize, &m["caps"], Some(&m["smoothness"]), setup);
-    let t = Instant::now();
-    let oracle = oracle_pairs(&discs, den, 2 * radius, horizon);
-    let oracle_ms = t.elapsed().as_secs_f64() * 1e3;
-    let brute_agrees = if n <= 4096 { Some(brute_pairs(&discs, den, 2 * radius, horizon) == oracle) } else { None };
-    let (ok, mut c) = pairs_check(&engine_pairs(&e), &oracle);
-    c["oracle_ms"] = json!(oracle_ms);
-    c["grid_oracle_equals_brute_force"] = json!(brute_agrees);
-    let param = json!({"bodies": n, "horizon": horizon});
-    Ok(row(track["id"].as_str().unwrap_or("?"), param, &e, &run, c, ok && brute_agrees != Some(false)))
-}
-
-fn x_crowded(track: &Value, n: u64, m: &Value) -> Result<Value> {
-    let den = m["velocity_denominator"].as_i64().unwrap_or(1024) as i128;
-    let radius = track["radius"].as_i64().unwrap_or(1) as i128;
-    let s = track["spacing"].as_i64().unwrap_or(16) as i128;
-    let half = (n / 2) as i128;
-    let width = half * s; // extent of the vertical strips along x
-    let speed = den / 4;
-    let horizon = 4 * width; // sideways movers sweep at least the whole width
-    let height = width;
-    let mut rng = Rng(m["seed"].as_u64().unwrap_or(1) ^ n ^ 0xC0);
-    let mut discs = Vec::new();
-    for i in 0..half {
-        // Thin vertical strips moving down, below y = height.
-        discs.push(Disc { p: [i * s, rng.range(0, height)], n: [0, -speed] });
-    }
-    for j in 0..half {
-        // Thin horizontal strips above y = 2 * height, moving left or right across the whole width.
-        let dir = if rng.next() % 2 == 0 { 1 } else { -1 };
-        discs.push(Disc { p: [rng.range(0, width), 2 * height + j * s], n: [dir * speed, 0] });
-    }
-    let t = Instant::now();
-    let bodies = discs
-        .iter()
-        .enumerate()
-        .map(|(i, d)| body(i as u64 + 1, d, den, radius, false))
-        .collect::<Result<Vec<_>>>()?;
-    let mut e = Engine::new(m["seed"].as_u64().unwrap_or(1), bodies, vec![])?;
-    let setup = t.elapsed().as_secs_f64() * 1e3;
-    let run = drive(&mut e, horizon, m["caps"]["slice_operations"].as_u64().unwrap_or(100_000) as usize, &m["caps"], Some(&m["smoothness"]), setup);
-    let actual = engine_pairs(&e);
-    let oracle_ok = if n <= 4096 { Some(brute_pairs(&discs, den, 2 * radius, horizon).is_empty()) } else { None };
-    let ok = actual.is_empty() && oracle_ok != Some(false);
-    let c = json!({"expected_contacts": 0, "engine_contacts": actual.len(), "brute_force_confirms_zero": oracle_ok});
-    Ok(row(track["id"].as_str().unwrap_or("?"), json!({"bodies": n, "horizon": horizon}), &e, &run, c, ok))
-}
-
-fn x_lattice(track: &Value, lanes: i128, m: &Value) -> Result<Value> {
-    let members = track["members_per_lane"].as_u64().unwrap_or(1_000_000);
-    let gap = track["lane_spacing"].as_i64().unwrap_or(64_000) as i128;
-    let horizon = track["horizon"].as_i64().unwrap_or(4096) as i128;
-    let radius = track["radius"].as_i64().unwrap_or(1) as i128;
-    let half = 32 * members as i128; // 64 * members / 2
-    let quarter = r(1) / r(4);
-    let mut families = Vec::new();
-    let mut first = 1u64;
-    for h in 0..lanes {
-        // x0 = 3 - 32M keeps (x0 - X + Y - y0) = 3 (mod 64): every crossing misses at 3/sqrt(2).
-        families.push(Family::affine(format!("H{h}"), first, members, 0,
-            Inertial::new(0, Vec2::new(3 - half, gap * h), Vec2 { x: quarter.clone(), y: r(0) })?,
-            Vec2::new(64, 0), r(radius), r(1)));
-        first += members;
-    }
-    for v in 0..lanes {
-        families.push(Family::affine(format!("V{v}"), first, members, 0,
-            Inertial::new(0, Vec2::new(gap * v, -half), Vec2 { x: r(0), y: quarter.clone() })?,
-            Vec2::new(0, 64), r(radius), r(1)));
-        first += members;
-    }
-    let t = Instant::now();
-    let mut e = Engine::new(m["seed"].as_u64().unwrap_or(1), vec![], families)?;
-    let setup = t.elapsed().as_secs_f64() * 1e3;
-    let run = drive(&mut e, horizon, m["caps"]["slice_operations"].as_u64().unwrap_or(100_000) as usize, &m["caps"], Some(&m["smoothness"]), setup);
-    let actual = engine_pairs(&e);
-    let c = json!({"expected_contacts": 0, "engine_contacts": actual.len(),
-                   "member_crossings_in_horizon_per_lane_pair": horizon / 4 / 64 * 2});
-    Ok(row(track["id"].as_str().unwrap_or("?"), json!({"lanes_per_axis": lanes, "members_per_lane": members}), &e, &run, c, actual.is_empty()))
-}
-
-pub(crate) fn packed(n: u64, track: &Value, m: &Value) -> Result<(Vec<Body>, i128)> {
-    let den = m["velocity_denominator"].as_i64().unwrap_or(1024) as i128;
-    let g = track["grid_spacing"].as_i64().unwrap_or(8) as i128;
-    let jitter = track["jitter"].as_i64().unwrap_or(2) as i128;
-    let radius = track["radius"].as_i64().unwrap_or(1) as i128;
-    let side = (n as f64).sqrt().ceil() as i128;
-    let mut rng = Rng(m["seed"].as_u64().unwrap_or(1) ^ n ^ 0xC1);
-    let mut out = Vec::new();
-    for i in 0..n as i128 {
-        let d = Disc {
-            p: [(i % side) * g + rng.range(-jitter, jitter), (i / side) * g + rng.range(-jitter, jitter)],
-            n: [rng.range(-den / 2, den / 2), rng.range(-den / 2, den / 2)],
-        };
-        out.push(body(i as u64 + 1, &d, den, radius, true)?);
-    }
-    Ok((out, track["horizon"].as_i64().unwrap_or(128) as i128))
-}
-
-fn c_packed(track: &Value, n: u64, m: &Value) -> Result<Value> {
-    let seed = m["seed"].as_u64().unwrap_or(1);
-    let slice = m["caps"]["slice_operations"].as_u64().unwrap_or(100_000) as usize;
-    let t = Instant::now();
-    let (bodies, horizon) = packed(n, track, m)?;
-    let mut e = Engine::new(seed, bodies, vec![])?;
-    let setup = t.elapsed().as_secs_f64() * 1e3;
-    let run = drive(&mut e, horizon, slice, &m["caps"], Some(&m["smoothness"]), setup);
-    let mut c = json!({});
-    let mut ok = run.complete;
-    if run.complete {
-        let digest = e.history_digest(horizon)?;
-        let replayed = e.replay()?.history_digest(horizon)?;
-        c["replay_equal"] = json!(digest == replayed);
-        ok &= digest == replayed;
-        if n <= m["caps"]["budget_invariance_max_bodies"].as_u64().unwrap_or(1024) {
-            let (bodies, _) = packed(n, track, m)?;
-            let mut small = Engine::new(seed, bodies, vec![])?;
-            let r2 = drive(&mut small, horizon, 64, &m["caps"], None, 0.0);
-            let same = r2.complete && small.history_digest(horizon)? == digest;
-            c["budget_64_digest_equal"] = json!(same);
-            ok &= same;
-        }
-        if n <= m["caps"]["audit_max_bodies"].as_u64().unwrap_or(256) {
-            let audit = e.independent_inertial_facts(horizon)?;
-            let mut actual: Vec<_> = e
-                .sorted_events()
-                .into_iter()
-                .filter(|ev| ev.kind == "contact")
-                .map(|ev| (ev.tick, ev.subjects[0].min(ev.subjects[1]), ev.subjects[0].max(ev.subjects[1])))
-                .collect();
-            actual.sort_unstable();
-            actual.dedup();
-            c["audit_contacts"] = json!(audit.contacts.len());
-            c["engine_contacts"] = json!(actual.len());
-            c["audit_equal"] = json!(audit.contacts == actual);
-            ok &= audit.contacts == actual;
-        }
-        c["stopped_bodies"] = json!(e.state.bodies.values().filter(|b| b.segments.len() > 1).count());
-    }
-    Ok(row(track["id"].as_str().unwrap_or("?"), json!({"bodies": n, "horizon": horizon}), &e, &run, c, ok))
-}
-
-
-fn c_gas(track: &Value, n: u64, horizon: i128, m: &Value) -> Result<Value> {
-    let seed = m["seed"].as_u64().unwrap_or(1);
-    let quantum = track["quantum"].as_i64().map(|q| q as i128);
-    let q = quantum.unwrap_or(track["velocity_quantum_for_setup"].as_i64().unwrap_or(1024) as i128);
-    let g = super::gas::world(n, track["fill"].as_f64().unwrap_or(0.1), q, track["vmax_units"].as_i64().unwrap_or(256) as i128, seed);
-    let t = Instant::now();
-    let mut e = super::gas::engine(&g, seed, quantum)?;
-    let setup = t.elapsed().as_secs_f64() * 1e3;
-    let run = drive(&mut e, horizon, 64, &m["caps"], Some(&m["smoothness"]), setup);
-    let mut c = json!({});
-    let mut ok = run.complete;
-    if run.complete {
-        let inv = super::gas::invariants(&e, &g, horizon);
-        let events = e.sorted_events();
-        c["contacts"] = json!(events.iter().filter(|x| x.kind == "contact").count());
-        c["wall_hits"] = json!(events.iter().filter(|x| x.kind == "wall").count());
-        c["contained"] = json!(inv.contained);
-        c["momentum_ledger_exact"] = json!(inv.momentum_ledger_exact);
-        c["energy_ledger_exact"] = json!(inv.energy_ledger_exact);
-        c["energy_drift_relative"] = json!(inv.energy_drift_relative);
-        c["max_velocity_bits"] = json!(inv.max_velocity_bits);
-        ok &= inv.contained && inv.momentum_ledger_exact && inv.energy_ledger_exact;
-        if quantum.is_some() {
-            c["max_residual"] = json!(inv.max_residual);
-            c["residual_bound"] = json!(inv.residual_bound);
-            ok &= inv.max_residual <= inv.residual_bound;
-            let pair_ticks = (n as f64) * (n as f64) / 2.0 * horizon as f64;
-            if pair_ticks <= m["caps"]["reference_max_pair_ticks"].as_f64().unwrap_or(5e7) {
-                let t = Instant::now();
-                let reference = super::gas::reference(&g, horizon);
-                c["reference_ms"] = json!(t.elapsed().as_secs_f64() * 1e3);
-                match super::gas::engine_view(&e, q, horizon) {
-                    None => {
-                        c["reference_equal"] = json!(false);
-                        c["reference_note"] = json!("engine state off the integer lattice");
-                        ok = false;
-                    }
-                    Some(view) => {
-                        let ev = view.events == reference.events;
-                        let fin = view.finals == reference.finals;
-                        let wm = view.wall_momentum == reference.wall_momentum;
-                        c["reference_equal"] = json!(ev && fin && wm);
-                        c["reference_events"] = json!(reference.events.len());
-                        if !ev {
-                            let i = view.events.iter().zip(reference.events.iter()).position(|(a, b)| a != b).unwrap_or(view.events.len().min(reference.events.len()));
-                            c["first_event_difference"] = json!({"index": i, "engine": format!("{:?}", view.events.get(i)), "reference": format!("{:?}", reference.events.get(i))});
-                        }
-                        if !fin {
-                            let i = view.finals.iter().zip(reference.finals.iter()).position(|(a, b)| a != b).unwrap_or(0);
-                            c["first_body_difference"] = json!({"body": i + 1, "engine": format!("{:?}", view.finals.get(i)), "reference": format!("{:?}", reference.finals.get(i))});
-                        }
-                        ok &= ev && fin && wm;
-                    }
-                }
-            }
-        }
-        let digest = e.history_digest(horizon)?;
-        let replayed = e.replay()?.history_digest(horizon)?;
-        c["replay_equal"] = json!(digest == replayed);
-        ok &= digest == replayed;
-        if n <= m["caps"]["budget_invariance_max_bodies"].as_u64().unwrap_or(256) {
-            let mut other = super::gas::engine(&g, seed, quantum)?;
-            let r2 = drive(&mut other, horizon, 64, &m["caps"], None, 0.0);
-            let same = r2.complete && other.history_digest(horizon)? == digest;
-            c["budget_64_digest_equal"] = json!(same);
-            ok &= same;
-        }
-    }
-    Ok(row(track["id"].as_str().unwrap_or("?"), json!({"bodies": n, "horizon": horizon}), &e, &run, c, ok))
-}
-
-/// Diagnostic, not a rung: the packed stop cascade under several slice budgets.
-fn c1_budgets(n: u64, m: &Value) -> Result<Value> {
-    let track = m["tracks"].as_array().ok_or("tracks")?.iter().find(|t| t["id"] == "C1-packed-stop-cascade").ok_or("C1")?;
-    let seed = m["seed"].as_u64().unwrap_or(1);
-    let mut out = Vec::new();
-    let mut reference: Option<Vec<(i128, String, Vec<u64>)>> = None;
-    for budget in [1_000_000_000usize, 100_000, 1000, 64, 8] {
-        let (bodies, horizon) = packed(n, track, m)?;
-        let mut e = Engine::new(seed, bodies, vec![])?;
-        let run = drive(&mut e, horizon, budget, &m["caps"], None, 0.0);
-        let events: Vec<_> = e.sorted_events().into_iter().map(|ev| (ev.tick, ev.kind.clone(), ev.subjects.clone())).collect();
-        let first_diff = reference.as_ref().and_then(|r| {
-            r.iter().zip(events.iter()).position(|(a, b)| a != b).map(|i| json!({"index": i, "reference": format!("{:?}", r[i]), "this": format!("{:?}", events[i])}))
-        });
-        let audit = if run.complete && n <= 256 {
-            let a = e.independent_inertial_facts(horizon)?;
-            let mut mine: Vec<_> = events.iter().filter(|x| x.1 == "contact").map(|x| (x.0, x.2[0].min(x.2[1]), x.2[0].max(x.2[1]))).collect();
-            mine.sort_unstable();
-            mine.dedup();
-            let missing: Vec<_> = a.contacts.iter().filter(|c| mine.binary_search(c).is_err()).take(3).collect();
-            let extra: Vec<_> = mine.iter().filter(|c| a.contacts.binary_search(c).is_err()).take(3).collect();
-            json!({"audit_contacts": a.contacts.len(), "equal": a.contacts == mine, "first_missing": missing, "first_extra": extra})
-        } else {
-            Value::Null
-        };
-        out.push(json!({"budget": budget, "audit": audit, "complete": run.complete, "slices": run.slices, "events": events.len(),
-            "contacts": events.iter().filter(|e| e.1 == "contact").count(),
-            "digest": if run.complete { e.history_digest(horizon)? } else { String::new() }, "first_diff_vs_largest_budget": first_diff}));
-        if reference.is_none() {
-            reference = Some(events);
-        }
-    }
-    Ok(json!(out))
-}
-
-/// Child process: run one rung and print its JSON row as the last stdout line.
+/// Child: one (mode, track, rung). Prints the JSON row as the last stdout line.
 pub fn rung(args: Vec<String>) -> Result<()> {
     let mut m = manifest()?;
-    let profile = args.get(2).map(String::as_str).unwrap_or("quick");
-    m["caps"] = caps(&m, profile);
-    let track_id = args.first().ok_or("track id required")?;
-    if track_id == "C1-budgets" {
-        let n: u64 = args.get(1).ok_or("bodies")?.parse()?;
-        println!("{}", serde_json::to_string_pretty(&c1_budgets(n, &m)?)?);
+    let (mode, track_id) = (args.first().ok_or("mode")?.clone(), args.get(1).ok_or("track")?.clone());
+    let i: usize = args.get(2).ok_or("rung index")?.parse()?;
+    let profile = args.get(3).map(String::as_str).unwrap_or("quick");
+    let c = caps(&m, profile);
+    m["caps"] = c.clone();
+    let track = m["tracks"].as_array().ok_or("tracks")?.iter().find(|t| t["id"] == track_id.as_str()).ok_or("unknown track")?.clone();
+    if track_id == "X4-near-miss-lattice" {
+        println!("{}", json!({"status": "NOT_SUPPORTED", "limiter": "groups (families) are not in the lattice laws yet"}));
         return Ok(());
     }
-    let index: usize = args.get(1).ok_or("rung index required")?.parse()?;
-    let track = m["tracks"].as_array().ok_or("tracks")?.iter().find(|t| t["id"] == track_id.as_str()).ok_or("unknown track")?;
-    let value = match track_id.as_str() {
-        "X1-relative-motion" => x_random(track, track["bodies"][index].as_u64().ok_or("rung")?, track["horizon"].as_i64().unwrap_or(4096) as i128, &m)?,
-        "X2-horizon" => x_random(track, track["bodies"].as_u64().unwrap_or(4096), track["horizons"][index].as_i64().ok_or("rung")? as i128, &m)?,
-        "X3-crowded-axes" => x_crowded(track, track["bodies"][index].as_u64().ok_or("rung")?, &m)?,
-        "X4-near-miss-lattice" => x_lattice(track, track["lanes_per_axis"][index].as_i64().ok_or("rung")? as i128, &m)?,
-        "C1-packed-stop-cascade" => c_packed(track, track["bodies"][index].as_u64().ok_or("rung")?, &m)?,
-        "C2-trapped-gas" | "X6-exact-fraction-gas" => c_gas(track, track["bodies"][index].as_u64().ok_or("rung")?, track["horizon"].as_i64().unwrap_or(1024) as i128, &m)?,
-        "X5-carry-endurance" => c_gas(track, track["bodies"].as_u64().unwrap_or(64), track["horizons"][index].as_i64().ok_or("rung")? as i128, &m)?,
-        _ => return Err("unknown track".into()),
+    let t = Instant::now();
+    let (w0, horizon, g) = match setup(&track, i, &m) {
+        Ok(v) => v,
+        Err(e) if e.to_string().starts_with("RANGE: ") => {
+            let why = e.to_string();
+            println!("{}", json!({"status": "NOT_SUPPORTED", "limiter": format!("coordinate range: {} (needs wide region origins, docs/universe-quanta.md stage 3)", &why[7..])}));
+            return Ok(());
+        }
+        Err(e) => return Err(e),
     };
-    println!("{}", serde_json::to_string(&value)?);
+    let n = w0.bodies.len() as u64;
+    let unit_ops = m["units"]["unit_ops"].as_u64().unwrap_or(4096);
+    let pair_ticks = n as f64 * n as f64 / 2.0 * horizon as f64;
+    let reference_ok = g.is_some() && pair_ticks <= c["reference_max_pair_ticks"].as_f64().unwrap_or(5e7);
+    let pass_track = track["response"] == "Pass";
+    let keep = pass_track || reference_ok || (track_id == "C1-packed-stop-cascade" && n <= 1024);
+    let mut s = match make(&mode, w0.clone(), keep) {
+        Ok(s) => s,
+        Err(e) => {
+            println!("{}", json!({"status": "NOT_ATTEMPTED", "limiter": e}));
+            return Ok(());
+        }
+    };
+    let setup_ms = t.elapsed().as_secs_f64() * 1e3;
+    let wall = c["wall_seconds_per_rung"].as_f64().unwrap_or(120.0);
+    let d = drive(s.as_mut(), horizon, unit_ops, wall, c["peak_rss_bytes"].as_u64().unwrap_or(u64::MAX));
+    let mut units = d.units_ms.clone();
+    units.sort_by(|a, b| a.total_cmp(b));
+    let max_unit = units.last().copied().unwrap_or(0.0);
+    let target = m["units"]["target_max_unit_ms"].as_f64().unwrap_or(5.0);
+    let met = s.metrics().clone();
+    let mut correct = json!({});
+    let mut ok = d.complete;
+    if d.complete {
+        let w = s.world();
+        let den = w0.q as i128;
+        match track["response"].as_str().unwrap_or("") {
+            "Pass" => {
+                let discs = discs_of(&w0);
+                let reach = 2 * track["radius"].as_i64().unwrap_or(1) as i128;
+                let mine = contact_pairs(s.as_ref());
+                let oracle = if track_id == "X3-crowded-axes" { vec![] } else { oracle_pairs(&discs, den, reach, horizon as i128) };
+                let brute = if n <= 4096 { Some(brute_pairs(&discs, den, reach, horizon as i128) == oracle) } else { None };
+                ok &= mine == oracle && brute != Some(false);
+                correct = json!({"contacts": mine.len(), "oracle_contacts": oracle.len(), "equal": mine == oracle, "brute_force_agrees": brute});
+            }
+            "Stop" => {
+                correct["contacts"] = json!(s.log().contacts);
+                if mode == "chronon" && n <= c["audit_max_bodies"].as_u64().unwrap_or(64) {
+                    let (bw, blog) = lattice::all_pairs(w0.clone(), horizon);
+                    let eq = bw == w && blog.sorted() == s.log().sorted();
+                    correct["all_pairs_audit_equal"] = json!(eq);
+                    ok &= eq;
+                }
+            }
+            "Bounce" if w.law.subluminal() => {
+                let (t0, t1, cr) = (relativity::total(&w0), relativity::total(&w), relativity::carried(&w));
+                let energy_ok = t1[0] - t0[0] == cr[0];
+                let momentum_ok = (0..2).all(|a| t1[1 + a] - t0[1 + a] + w.wall_momentum[a] as i128 == cr[1 + a]);
+                let q2 = (w.q as i128).pow(2);
+                let below_c = w.bodies.iter().all(|b| (b.k[0] as i128).pow(2) + (b.k[1] as i128).pow(2) < q2);
+                let gmax = w0.bodies.iter().chain(&w.bodies).map(|b| relativity::gamma(b.k, w.q)).max().unwrap_or(relativity::F);
+                let mmax = w.bodies.iter().map(|b| b.mass).max().unwrap_or(1);
+                // The law's 4-momentum scale: F in v0, 2Q in v1 (carry_bound in the manifest).
+                let scale = if w.law == Law::RelativisticV1 { 2.0 * w.q as f64 } else { relativity::F as f64 };
+                let bound = 64.0 * scale * mmax as f64 * (gmax as f64 / relativity::F as f64).powi(3);
+                let max_carry = w.bodies.iter().flat_map(|b| [b.residual, b.carry[0], b.carry[1]]).map(|v| v.unsigned_abs()).max().unwrap_or(0) as f64;
+                let contained = w.container.is_none_or(|cont| {
+                    let kmax1 = w.bodies.iter().map(|b| b.k[0].abs().max(b.k[1].abs())).max().unwrap_or(0);
+                    w.bodies.iter().all(|b| (0..2).all(|a| b.x[a] >= cont.min[a] - kmax1 && b.x[a] <= cont.max[a] + kmax1))
+                });
+                ok &= energy_ok && momentum_ok && below_c && max_carry <= bound && contained;
+                correct = json!({"contacts": s.log().contacts, "walls": s.log().walls, "energy_ledger_exact": energy_ok, "momentum_ledger_exact": momentum_ok,
+                    "below_c": below_c, "max_carry": max_carry, "carry_bound": bound, "gamma_max": gmax as f64 / relativity::F as f64, "contained": contained});
+                if reference_ok {
+                    let (eq, detail) = lattice::gas_rel_equal(g.as_ref().expect("gas"), horizon, &w, s.log());
+                    correct["reference_equal"] = json!(eq);
+                    correct["reference"] = detail;
+                    ok &= eq;
+                }
+            }
+            "Bounce" => {
+                let (e0, e1) = (w0.energy(), w.energy());
+                let (p0, p1) = (w0.momentum(), w.momentum());
+                let energy_ok = e1 - e0 == w.residual();
+                let momentum_ok = p1[0] - p0[0] + w.wall_momentum[0] as i128 == 0 && p1[1] - p0[1] + w.wall_momentum[1] as i128 == 0;
+                let kmax0 = w0.bodies.iter().map(|b| b.k[0].abs().max(b.k[1].abs())).max().unwrap_or(0) as i128;
+                let max_res = w.bodies.iter().map(|b| (b.residual as i128).abs()).max().unwrap_or(0);
+                let residual_ok = max_res * max_res <= 128 * kmax0 * kmax0;
+                let kmax1 = w.bodies.iter().map(|b| b.k[0].abs().max(b.k[1].abs())).max().unwrap_or(0);
+                let cont = w.container.expect("gas box");
+                let contained = w.bodies.iter().all(|b| (0..2).all(|a| b.x[a] >= cont.min[a] - kmax1 && b.x[a] <= cont.max[a] + kmax1));
+                let v4_inside = w.bodies.iter().all(|b| (0..2).all(|a| b.x[a] >= cont.min[a] && b.x[a] <= cont.max[a]));
+                ok &= energy_ok && momentum_ok && residual_ok && contained;
+                correct = json!({"contacts": s.log().contacts, "walls": s.log().walls, "energy_ledger_exact": energy_ok, "momentum_ledger_exact": momentum_ok,
+                    "max_residual": max_res as f64, "residual_bound": (128.0 * (kmax0 * kmax0) as f64).sqrt(), "contained": contained, "centres_inside_box": v4_inside,
+                    "energy_drift_relative": (e1 - e0) as f64 / e0 as f64});
+                if reference_ok {
+                    let (eq, detail) = lattice::gas_reference_equal(g.as_ref().expect("gas"), horizon, &w, s.log());
+                    correct["reference_equal"] = json!(eq);
+                    correct["reference"] = detail;
+                    ok &= eq;
+                }
+            }
+            _ => correct["contacts"] = json!(s.log().contacts),
+        }
+        // Mode invariance against the chronon reference.
+        if mode != "chronon" && n as f64 * horizon as f64 <= c["mode_invariance_max_body_ticks"].as_f64().unwrap_or(2e7) {
+            let mut r = Chronon::new(w0.clone(), false)?;
+            r.run_to(horizon);
+            let eq = r.outcome() == s.outcome();
+            correct["chronon_digests_equal"] = json!(eq);
+            ok &= eq;
+        }
+        // Budget invariance.
+        if n <= c["budget_invariance_max_bodies"].as_u64().unwrap_or(1024) {
+            let mut all = true;
+            for b in m["budget_invariance_unit_ops"].as_array().into_iter().flatten() {
+                let b = b.as_u64().unwrap_or(64);
+                if b == unit_ops {
+                    continue;
+                }
+                let mut r = make(&mode, w0.clone(), false)?;
+                while r.tick() < horizon {
+                    r.advance(horizon, b);
+                }
+                all &= r.outcome() == s.outcome();
+            }
+            correct["budget_invariance"] = json!(all);
+            ok &= all;
+        }
+    }
+    let fired = met.fired.max(1) as f64;
+    let row = json!({
+        "mode": mode, "status": if ok { "PASS" } else { "FAIL" },
+        "limiter": d.limiter.clone().or_else(|| if ok { None } else { Some("correctness".into()) }),
+        "bodies": n, "horizon": horizon, "correctness": correct,
+        "setup_ms": setup_ms, "advance_ms": d.advance_ms, "ticks_reached": s.tick(),
+        "chronons_per_second": s.tick() as f64 / (d.advance_ms / 1e3).max(1e-9),
+        "units": d.units_ms.len(), "unit_ops": unit_ops,
+        "unit_ms_p50": percentile(&units, 0.5), "unit_ms_p99": percentile(&units, 0.99), "unit_ms_max": max_unit,
+        "units_over_target": units.iter().filter(|&&u| u > target).count(),
+        "smoothness": if max_unit <= target { "SMOOTH" } else { "JANK" },
+        "ops": met.ops, "predicates": met.predicates, "fired": met.fired,
+        "ops_per_event": met.ops as f64 / fired, "predicates_per_op": met.predicates as f64 / met.ops.max(1) as f64,
+        "metrics": serde_json::to_value(&met)?,
+        "cores_used": d.cpu_s / (d.advance_ms / 1e3).max(1e-9),
+        "cores_available": std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
+        "peak_rss_bytes": peak_rss(),
+    });
+    println!("{}", serde_json::to_string(&row)?);
     Ok(())
 }
 
 fn rung_count(track: &Value) -> usize {
-    for key in ["bodies", "horizons", "lanes_per_axis"] {
-        if let Some(a) = track[key].as_array() {
-            return a.len();
-        }
-    }
-    0
+    ["bodies", "horizons", "lanes_per_axis", "spans"].iter().find_map(|k| track[*k].as_array().map(Vec::len)).unwrap_or(0)
 }
 
 fn rung_size(track: &Value, i: usize) -> f64 {
-    ["bodies", "horizons", "lanes_per_axis"]
-        .iter()
-        .find_map(|k| track[*k].as_array().and_then(|a| a[i].as_f64()))
-        .unwrap_or(0.0)
+    ["bodies", "horizons", "lanes_per_axis", "spans"].iter().find_map(|k| track[*k].as_array().and_then(|a| a[i].as_f64())).unwrap_or(0.0)
 }
 
-/// Parent: climb every track in its own child processes until a rung fails.
-pub fn run(out: &Path, only: Option<&str>, profile: &str) -> Result<Value> {
+/// Frozen track gates (step exit criteria) over the climbed rows.
+fn gates(m: &Value, rows: &[Value]) -> Value {
+    let g = &m["track_gates"];
+    let mut out = serde_json::Map::new();
+    let passing = |mode: &str, track: &str| -> Vec<&Value> {
+        rows.iter().filter(|r| r["mode"] == mode && r["track"] == track && r["status"] == "PASS").collect()
+    };
+    let mut flat = vec![];
+    for mode in g["cost_per_event_flat"]["modes"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        for track in g["cost_per_event_flat"]["tracks"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+            let p = passing(mode, track);
+            let v = match (p.first(), p.last()) {
+                (Some(a), Some(b)) if p.len() >= 2 => {
+                    let growth = b["ops_per_event"].as_f64().unwrap_or(f64::MAX) / a["ops_per_event"].as_f64().unwrap_or(1.0);
+                    json!({"mode": mode, "track": track, "growth": growth, "status": if growth <= g["cost_per_event_flat"]["max_growth"].as_f64().unwrap_or(2.0) { "PASS" } else { "FAIL" }})
+                }
+                _ => json!({"mode": mode, "track": track, "status": "NOT_ATTEMPTED", "limiter": "fewer than two passing rungs"}),
+            };
+            flat.push(v);
+        }
+    }
+    out.insert("cost_per_event_flat".into(), json!(flat));
+    let mut useful = vec![];
+    for mode in g["useful_work"]["modes"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        let min = g["useful_work"]["min_predicates_per_op"].as_f64().unwrap_or(0.5);
+        let rs: Vec<&Value> = rows.iter().filter(|r| r["mode"] == mode && r["status"] == "PASS" && r["fired"].as_u64().unwrap_or(0) >= 1000).collect();
+        let worst = rs.iter().map(|r| r["predicates_per_op"].as_f64().unwrap_or(0.0)).fold(f64::MAX, f64::min);
+        useful.push(if rs.is_empty() {
+            json!({"mode": mode, "status": "NOT_ATTEMPTED"})
+        } else {
+            json!({"mode": mode, "worst_predicates_per_op": worst, "status": if worst >= min { "PASS" } else { "FAIL" }})
+        });
+    }
+    out.insert("useful_work".into(), json!(useful));
+    let mut smooth = vec![];
+    for mode in g["smooth"]["modes"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        let rs: Vec<&Value> = rows.iter().filter(|r| r["mode"] == mode && r["status"] == "PASS").collect();
+        let jank: Vec<String> = rs.iter().filter(|r| r["smoothness"] != "SMOOTH").map(|r| format!("{} {}", r["track"].as_str().unwrap_or("?"), r["size"])).collect();
+        smooth.push(if rs.is_empty() {
+            json!({"mode": mode, "status": "NOT_ATTEMPTED"})
+        } else {
+            json!({"mode": mode, "status": if jank.is_empty() { "PASS" } else { "FAIL" }, "jank_rungs": jank})
+        });
+    }
+    out.insert("smooth".into(), json!(smooth));
+    if let Some(gm) = g.get("gas_one_million") {
+        let n = gm["bodies"].as_f64().unwrap_or(1048576.0);
+        let hit: Vec<&str> = rows.iter().filter(|r| r["track"] == gm["track"] && r["size"].as_f64() == Some(n) && r["status"] == "PASS").filter_map(|r| r["mode"].as_str()).collect();
+        out.insert("gas_one_million".into(), json!({"status": if hit.is_empty() { "FAIL" } else { "PASS" }, "passing_modes": hit}));
+    }
+    if let Some(gm) = g.get("galaxy_one_million") {
+        let n = gm["bodies"].as_f64().unwrap_or(1048576.0);
+        let hit: Vec<&str> = rows.iter().filter(|r| r["track"] == gm["track"] && r["size"].as_f64() == Some(n) && r["status"] == "PASS").filter_map(|r| r["mode"].as_str()).collect();
+        out.insert("galaxy_one_million".into(), json!({"status": if hit.is_empty() { "FAIL" } else { "PASS" }, "passing_modes": hit}));
+    }
+    if let Some(es) = g.get("empty_space_free") {
+        let mut v = vec![];
+        for mode in es["modes"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+            let p = passing(mode, es["track"].as_str().unwrap_or(""));
+            v.push(match (p.first(), p.last()) {
+                (Some(a), Some(b)) if p.len() >= 2 => {
+                    let growth = b["advance_ms"].as_f64().unwrap_or(f64::MAX) / a["advance_ms"].as_f64().unwrap_or(1.0).max(1e-9);
+                    json!({"mode": mode, "spans": [a["size"], b["size"]], "growth": growth, "status": if growth <= es["max_growth"].as_f64().unwrap_or(1.5) { "PASS" } else { "FAIL" }})
+                }
+                _ => json!({"mode": mode, "status": "NOT_ATTEMPTED", "limiter": "fewer than two passing spans"}),
+            });
+        }
+        out.insert("empty_space_free".into(), json!(v));
+    }
+    Value::Object(out)
+}
+
+/// Parent: for each mode, climb every track until a rung fails.
+pub fn run(out: &Path, modes: &[String], only: Option<&str>, profile: &str) -> Result<Value> {
     let m = manifest()?;
     let c = caps(&m, profile);
     let exe = std::env::current_exe()?;
     let wall = c["wall_seconds_per_rung"].as_f64().unwrap_or(120.0);
     let rss_cap = c["peak_rss_bytes"].as_f64().unwrap_or(f64::MAX);
-    let ladder_budget = c["ladder_seconds"].as_f64().unwrap_or(f64::MAX);
-    let ladder_start = Instant::now();
-    let mut rows = Vec::new();
-    for track in m["tracks"].as_array().ok_or("tracks")? {
-        let id = track["id"].as_str().unwrap_or("?");
-        if only.is_some_and(|o| o != id) {
-            continue;
-        }
-        let mut previous: Option<(f64, f64)> = None; // (size, peak rss)
-        let mut failed = false;
-        for i in 0..rung_count(track) {
-            let size = rung_size(track, i);
-            if failed {
-                rows.push(json!({"track": id, "rung": i, "size": size, "status": "NOT_ATTEMPTED", "limiter": "an earlier rung failed"}));
+    let budget = c["ladder_seconds"].as_f64().unwrap_or(f64::MAX);
+    let start = Instant::now();
+    let mut rows: Vec<Value> = Vec::new();
+    for mode in modes {
+        for track in m["tracks"].as_array().ok_or("tracks")? {
+            let id = track["id"].as_str().unwrap_or("?");
+            if only.is_some_and(|o| o != id) {
                 continue;
             }
-            if ladder_start.elapsed().as_secs_f64() > ladder_budget {
-                rows.push(json!({"track": id, "rung": i, "size": size, "status": "NOT_ATTEMPTED", "limiter": format!("ladder time budget {ladder_budget} s ({profile} profile)")}));
-                continue;
-            }
-            if let (Some((ps, prss)), true) = (previous, m["caps"]["skip_if_projected_rss_over_cap"].as_bool().unwrap_or(false)) {
-                if track["bodies"].is_array() && prss * size / ps > rss_cap {
-                    rows.push(json!({"track": id, "rung": i, "size": size, "status": "NOT_ATTEMPTED",
-                                     "limiter": format!("projected peak RSS {:.0} MB over cap", prss * size / ps / 1e6)}));
-                    failed = true;
+            let mut previous: Option<(f64, f64)> = None;
+            let mut failed: Option<String> = None;
+            for i in 0..rung_count(track) {
+                let size = rung_size(track, i);
+                let base = json!({"mode": mode, "track": id, "rung": i, "size": size});
+                let skip = |limiter: String| {
+                    let mut r = base.clone();
+                    r["status"] = json!("NOT_ATTEMPTED");
+                    r["limiter"] = json!(limiter);
+                    r
+                };
+                if let Some(f) = &failed {
+                    rows.push(skip(f.clone()));
                     continue;
                 }
-            }
-            eprintln!("rung {id} #{i} (size {size})");
-            let started = Instant::now();
-            let mut child = Process::new(&exe)
-                .args(["ladder-rung", id, &i.to_string(), profile])
-                .stdout(Stdio::piped())
-                .stderr(Stdio::inherit())
-                .spawn()?;
-            let kill_after = Duration::from_secs_f64(wall * 3.0 + 20.0);
-            let status = loop {
-                if let Some(s) = child.try_wait()? {
-                    break Some(s);
+                if start.elapsed().as_secs_f64() > budget {
+                    rows.push(skip(format!("ladder time budget {budget} s ({profile} profile)")));
+                    continue;
                 }
-                if started.elapsed() > kill_after {
-                    child.kill()?;
-                    child.wait()?;
-                    break None;
+                if let Some((ps, prss)) = previous {
+                    if track["bodies"].is_array() && prss * size / ps > rss_cap {
+                        rows.push(skip(format!("projected peak RSS {:.0} MB over cap", prss * size / ps / 1e6)));
+                        failed = Some("an earlier rung failed".into());
+                        continue;
+                    }
                 }
-                std::thread::sleep(Duration::from_millis(50));
-            };
-            let output = child.wait_with_output()?;
-            let text = String::from_utf8_lossy(&output.stdout);
-            let mut value = match (status, text.lines().last().and_then(|l| serde_json::from_str::<Value>(l).ok())) {
-                (Some(s), Some(v)) if s.success() => v,
-                (None, _) => json!({"status": "FAIL", "limiter": format!("killed after {:.0} s (setup, oracle or checks exceeded the outer limit)", kill_after.as_secs_f64())}),
-                (Some(s), _) => json!({"status": "FAIL", "limiter": format!("child exited {s}")}),
-            };
-            value["track"] = json!(id);
-            value["rung"] = json!(i);
-            value["size"] = json!(size);
-            value["child_wall_s"] = json!(started.elapsed().as_secs_f64());
-            if value["status"] != "PASS" {
-                failed = true;
+                eprintln!("v7 {mode} {id} #{i} (size {size})");
+                let started = Instant::now();
+                let mut child = Process::new(&exe).args(["ladder7-rung", mode, id, &i.to_string(), profile]).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn()?;
+                let kill_after = Duration::from_secs_f64(wall * 3.0 + 20.0);
+                let status = loop {
+                    if let Some(s) = child.try_wait()? {
+                        break Some(s);
+                    }
+                    if started.elapsed() > kill_after {
+                        child.kill()?;
+                        child.wait()?;
+                        break None;
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                };
+                let output = child.wait_with_output()?;
+                let text = String::from_utf8_lossy(&output.stdout);
+                let mut value = match (status, text.lines().last().and_then(|l| serde_json::from_str::<Value>(l).ok())) {
+                    (Some(s), Some(v)) if s.success() => v,
+                    (None, _) => json!({"status": "FAIL", "limiter": format!("killed after {:.0} s (setup, oracle or checks exceeded the outer limit)", kill_after.as_secs_f64())}),
+                    (Some(s), _) => json!({"status": "FAIL", "limiter": format!("child exited {s}")}),
+                };
+                for (k, v) in base.as_object().into_iter().flatten() {
+                    value[k] = v.clone();
+                }
+                value["child_wall_s"] = json!(started.elapsed().as_secs_f64());
+                match value["status"].as_str() {
+                    Some("PASS") => {}
+                    Some("NOT_ATTEMPTED") | Some("NOT_SUPPORTED") => failed = Some(value["limiter"].as_str().unwrap_or("not attempted").to_string()),
+                    _ => failed = Some("an earlier rung failed".into()),
+                }
+                previous = value["peak_rss_bytes"].as_f64().map(|rss| (size, rss));
+                rows.push(value);
+                fs::write(out.join("rows.partial.json"), serde_json::to_vec_pretty(&rows)?)?;
             }
-            previous = value["peak_rss_bytes"].as_f64().map(|rss| (size, rss));
-            fs::write(out.join("rows.partial.json"), serde_json::to_vec_pretty(&rows)?)?;
-            rows.push(value);
         }
     }
     Ok(json!({
-        "schema": 4, "manifest": "scenarios/scale-ladder-v4.json", "profile": profile,
-        "ladder_seconds": ladder_start.elapsed().as_secs_f64(),
+        "schema": 7, "manifest": "scenarios/scale-ladder-v7.json", "profile": profile, "modes": modes,
+        "ladder_seconds": start.elapsed().as_secs_f64(),
         "manifest_blake3": blake3::hash(MANIFEST).to_hex().to_string(),
-        "provenance": super::bench::provenance(),
+        "provenance": provenance(),
+        "gates": gates(&m, &rows),
         "rows": rows,
-        "accounting": "Each rung ran in a fresh child process; peak RSS is that process's getrusage maximum. Wall times are single runs. Oracle and correctness checks run after the timed advance and are excluded from advance_ms.",
+        "accounting": "Each (mode, track, rung) ran in a fresh child process; peak RSS is that process's getrusage maximum. Every unit of unit_ops charged operations was timed. Oracles, audits and invariance reruns run after the timed advance and are excluded from advance_ms.",
     }))
+}
+
+/// Revision, working-tree state and machine of a ladder run.
+pub fn provenance() -> Value {
+    let shell = |program: &str, args: &[&str]| {
+        Process::new(program)
+            .args(args)
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_default()
+    };
+    let diff = Process::new("git").args(["diff", "HEAD"]).output().map(|o| o.stdout).unwrap_or_default();
+    json!({"revision": shell("git", &["rev-parse", "HEAD"]), "working_tree_status": shell("git", &["status", "--porcelain"]),
+        "working_tree_diff_hash": blake3::hash(&diff).to_hex().to_string(),
+        "profile": if cfg!(debug_assertions) { "debug" } else { "release" },
+        "unix_seconds": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0),
+        "rustc": shell("rustc", &["--version"]), "hardware": shell("sysctl", &["-n", "machdep.cpu.brand_string"]),
+        "memory_bytes": shell("sysctl", &["-n", "hw.memsize"]), "manifest_hash": blake3::hash(MANIFEST).to_hex().to_string()})
 }

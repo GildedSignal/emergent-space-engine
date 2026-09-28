@@ -54,7 +54,7 @@ Do not invent a commit hash for work not yet committed. A record committed with 
 2. Append the milestone. If a previous decision is wrong, add a correction citing its history ID and evidence. State what is superseded and why; leave the original intact.
 3. Update `HANDOFF.md` if supported capabilities, numerical semantics, gate state, blockers, operating instructions or recommended next steps changed. Preserve the distinction between snapshot/tested revision and current Git HEAD.
 4. Update `orchestration/tasks.json` for changed dependencies/ownership/acceptance. A dependency graph or passing scaffold is not proof of completion.
-5. Run `cargo xtask history check` and checks appropriate to the actual change. `cargo xtask test` and `qualify` perform the history check automatically before tests. Standard `cargo test` bypasses this documentation check, so the explicit check remains necessary when using it directly.
+5. Run `cargo xtask history check` and checks appropriate to the actual change. `cargo run --release -p xtask -- test` performs the history check automatically before the tests. Standard `cargo test` bypasses this documentation check, so the explicit check remains necessary when using it directly.
 6. Commit code, the corresponding journal entry, any updated handoff and relevant evidence together when possible. Report the real result and unresolved next step.
 
 ## Protect interpretation

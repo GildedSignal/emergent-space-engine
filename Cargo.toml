@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/engine", "crates/law-lab", "crates/observatory", "crates/lattice", "crates/lattice-event", "crates/lattice-metal", "crates/allocator", "xtask"]
-default-members = ["crates/engine", "crates/law-lab", "crates/lattice", "crates/lattice-event", "crates/lattice-metal", "crates/allocator", "xtask"]
+members = ["crates/lattice", "crates/lattice-event", "crates/lattice-metal", "crates/allocator", "xtask"]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,11 +12,8 @@ license = "MIT OR Apache-2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
 num-bigint = { version = "0.4", features = ["serde"] }
-num-rational = { version = "0.4", features = ["serde"] }
 num-traits = "0.2"
-num-integer = "0.1"
 blake3 = "1.5"
-thiserror = "2.0"
 
 [profile.dev]
 debug = 1

@@ -127,9 +127,10 @@ fn normalize(target: &str) -> String {
     parts.join("/")
 }
 
-/// Evidence lost after its entry was committed (docs/history-evidence-map.json, H0166):
-/// a recovered copy that must exist, or a path recorded as lost for good. Any other
-/// missing path still fails the check.
+/// Evidence no longer in the working tree (docs/history-evidence-map.json): a recovered copy
+/// that must exist (H0166), a path archived out of the tree that must exist in git at the
+/// archive revision, an ancestor of HEAD (H0182), or a path recorded as lost for good. Any
+/// other missing path still fails the check.
 fn accounted(target: &str) -> Result<bool> {
     let Ok(text) = fs::read_to_string("docs/history-evidence-map.json") else { return Ok(false) };
     let map: serde_json::Value = serde_json::from_str(&text)?;
@@ -139,6 +140,12 @@ fn accounted(target: &str) -> Result<bool> {
             return Err(format!("relocated history evidence missing: {key} -> {to}").into());
         }
         return Ok(true);
+    }
+    if let Some(rev) = map["archived"]["revision"].as_str() {
+        let at = |args: &[&str]| Command::new("git").args(args).output().map(|o| o.status.success()).unwrap_or(false);
+        if at(&["merge-base", "--is-ancestor", rev, "HEAD"]) && at(&["cat-file", "-e", &format!("{rev}:{key}")]) {
+            return Ok(true);
+        }
     }
     Ok(map["lost"].get(&key).is_some())
 }
