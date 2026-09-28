@@ -26,10 +26,21 @@ Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Liv
   - During it, build what is needed.
   - Once it works, simplify and remove what stopped being useful. Never set line-count targets.
 - **The archive.** Retired code and repositories live in `~/Research/emergent-space-archive` (see its README). Never build or edit it there. Bring something back deliberately, as new work with a journal entry.
-- **Specialists.** Claude sub-agents, or Codex through the CLI bundled in ChatGPT.app: gpt-6-sol for well-specified work, gpt-6-astra for the really arduous problems.
-  - They share `CARGO_TARGET_DIR=~/Research/emergent-space/target`. Cargo's lock serializes builds.
-  - They return draft journal entries; the integrator verifies them and appends.
+- **Team: give each piece of work to the model with the comparative advantage, and spend every provider's usage.**
+  - **Claude** (the integrator) does judgement, integration and the journal.
+  - **gpt-6-astra** takes the hardest specifics: exact algorithms, proofs and adversarial audits.
+  - **gpt-6-sol** takes well-specified builds and harnesses.
+  - **GLM 5.3** (through `omp`) does linting and review passes.
+  - Thinking sub-agents (read-only) serve before big decisions: a questioner reading Julien's Readwise; a viewpoint panel (Musk, Ravikant, Taleb, Waitzkin); a math researcher looking for cheaper views; and a machine expert for the M1.
+  - Check the usage windows with `get_usage` for Claude and with Codex's rollout `rate_limits`.
+  - Specialists who build share `CARGO_TARGET_DIR=~/Research/emergent-space/target`. Cargo's lock serializes builds.
+  - Specialists return draft journal entries; the integrator verifies them and appends.
+  - Briefs stay outside the repo. Only their conclusions enter docs.
   - Heavy work that needs neither Metal nor timing on this M1 may run in a cloud session.
+- **Evidence.**
+  - Measure before claiming, and never strawman.
+  - Build the simplest falsifying test first ("even baby spartans started small"), then climb.
+  - A failed expectation is not automatically a failed method: diagnose whether the method or the expectation was wrong (H0183).
 
 ## Required continuity workflow
 
