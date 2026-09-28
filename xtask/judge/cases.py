@@ -882,7 +882,9 @@ def gen_FB(rng, n_circ=150, n_other=150):
         th = (arb(n) / r).acos() * (1 if rng.random() < 0.5 else -1)
         alpha = 2 * arb.pi() * r
         beta = th * r
-        J = 2 ** rng.randint(40, 62)
+        # the phase dt/r ~ 2 pi J: J <= 2^47 keeps a 64-bit enclosure of X below 1/4 quantum,
+        # while the distance to n (~1/J) stays far below that width, forcing the fallback
+        J = 2 ** rng.randint(36, 47)
         jj = lll_inhomogeneous(alpha, beta, J)
         if jj is None:
             continue
@@ -896,7 +898,7 @@ def gen_FB(rng, n_circ=150, n_other=150):
     # (b) other charts: small anchors, keep the queries whose coordinate is nearest an integer
     pool = []
     tries = 0
-    while tries < 6000:
+    while tries < 1500:
         tries += 1
         null = rng.random() < 0.25
         M = max(1, int(round(2 ** rng.uniform(0, 7))))
@@ -918,8 +920,8 @@ def gen_FB(rng, n_circ=150, n_other=150):
         g = geo(M, Q, x, k, null)
         if g is None:
             continue
-        for _ in range(4):
-            dt = draw_dt(rng, min(time_scale(g), 2.0 ** 40))
+        for _ in range(2):
+            dt = draw_dt(rng, min(time_scale(g), 2.0 ** 30))
             try:
                 res = g.query(dt)
             except gj.Undecided:

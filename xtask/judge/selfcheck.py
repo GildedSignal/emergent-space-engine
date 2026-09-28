@@ -351,12 +351,16 @@ def fallback_widths(cases_path, out_path):
                 row[f"width_{p}"] = None
         w64 = row["width_64"]
         row["width_64_below_quarter"] = (w64 is not None and w64 < 0.25)
+        # a 64-bit enclosure this wide around the true value can straddle n
+        row["may_force_fallback_at_64"] = (row["log2_dist"] is not None and w64 is not None and w64 > 0
+                                           and row["log2_dist"] < math.log2(w64))
         rows.append(row)
     with gzip.open(out_path, "wt") as f:
         for r in rows:
             f.write(json.dumps(r) + "\n")
     ok = sum(r["width_64_below_quarter"] for r in rows)
     return {"fallback_cases": len(rows), "width_64_below_quarter": ok,
+            "may_force_fallback_at_64": sum(r["may_force_fallback_at_64"] for r in rows),
             "log2_dist_max": max(r["log2_dist"] for r in rows if r["log2_dist"] is not None)}
 
 
