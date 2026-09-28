@@ -30,38 +30,54 @@ This one choice makes the lattice's special relativity serve unchanged as the lo
 One static source of mass M at the origin, and test bodies and light rays (no back-reaction) in the equatorial plane. No contacts, kicks or other sources yet.
 
 **Units.** These are the lattice's units:
-- Positions are integers in 1/Q light-chronon.
-- A velocity k is in position units per chronon, with c = Q.
+- Positions X are in position quanta (1/Q light-chronon).
 - Time T is an integer number of chronons.
-- M is an integer: GM/c² in position units.
+- Velocities are in quanta per chronon, and c = Q.
+- M is an integer: GM/c² in quanta.
+- In these units the metric reads
+
+      ds² = −Q² dT² + |dX − β dT|²,   β = −Q √(2M/r) · X/r  (quanta per chronon),
+
+  with r in quanta. A velocity k corresponds to v/c = k/Q.
 - Ranges: |x| ≤ 2^62, 1 ≤ M ≤ 2^40, Q ≤ 2^40, and |T − T0| ≤ 2^62. Use i128 internally.
 
 **The canonical position:**
 
     x(T) = ⌊X(T)⌋ component-wise,
 
-where X(T) is the exact position at time T of the geodesic with X(T0) = x0 and dX/dT(T0) = k0/Q, a timelike or null anchor. It must satisfy these conventions:
+where X(T) is the exact position at time T, in quanta, of the timelike or null geodesic with X(T0) = x0 and dX/dT(T0) = k0 (quanta per chronon). It must satisfy these conventions:
 
 - x(T0) = x0 exactly.
-- Radial anchors (x0 × k0 = 0) stay exactly on their line through the origin.
+- **Symmetries hold for the continuous X, before flooring.** A radial anchor (x0 × k0 = 0) keeps X on its line through the origin, but the floored integers may leave that line (for example M = 1, Q = 25, x0 = (30, 40), k0 = (−3, −4), T = 1 gives (26, 35)). Motion along a coordinate axis keeps the other coordinate exactly 0.
 - **The floor must be a fixed function of the anchor, and it must always terminate.** The canonical value is the mathematical floor when a specified certified evaluation decides it. That evaluation uses a fixed precision schedule, fixed operations and fixed rounding directions, and ends at a stated maximum precision. If the maximum precision cannot decide, the value is a stated deterministic function of that final certified interval. The implementer writes this rule down exactly in the crate docs, before the gate run. The rule is part of the law. Refusals are not allowed.
 - **Absorption:** the first integer T > T0 with r(T) ≤ 2M, decided by the same scheme. After it, `position` returns `Absorbed`.
 - **Chord velocity for contact bins** (used in step 4): k(T) = x(T) − x(T − 1).
 
-**The interface** (crate `emergent-geodesic`, no dependency on other workspace crates):
+**The interface** (crate `emergent-geodesic`, no dependency on other workspace crates). Validation happens once, at construction. Queries cannot fail:
 
 ```rust
 pub struct Field { pub m: i128 }                                   // static source at the origin, spin 0
 pub struct Anchor { pub t: i128, pub x: [i128; 2], pub k: [i128; 2] }
 pub enum Motion { Timelike, Null }
 pub enum At { Free([i128; 2]), Absorbed { chronon: i128 } }
-/// Canonical: exact floors under the documented rule. Never refuses, never uses floats to decide.
-pub fn position(f: &Field, q: i128, a: &Anchor, m: Motion, t: i128) -> At;
-/// Diagnostics (f64, not canonical): E, L, orbit class, p, e, radial period in T and in τ,
-/// periapsis advance per radial period, proper time elapsed at t.
-pub fn orbit(f: &Field, q: i128, a: &Anchor, m: Motion) -> Orbit;
-pub fn proper_time(f: &Field, q: i128, a: &Anchor, t: i128) -> f64;
+pub enum AnchorError { /* out of range, r ≤ 2M, timelike not below c or null not at c relative to the flow, … */ }
+/// Opaque and immutable. It holds the validated anchor and its certified invariants.
+pub struct Geodesic { /* private */ }
+impl Geodesic {
+    pub fn new(field: Field, q: i128, anchor: Anchor, motion: Motion) -> Result<Geodesic, AnchorError>;
+    /// Canonical: exact floors under the documented rule. Floats never decide it.
+    pub fn position(&self, t: i128) -> At;
+    /// Diagnostics (f64, not canonical): E, L, orbit class, p, e, radial period in T and in τ,
+    /// periapsis advance per radial period.
+    pub fn orbit(&self) -> Orbit;
+    pub fn proper_time(&self, t: i128) -> f64;
+}
 ```
+
+**Corrections, 28 September 2026, before any implementation.** Astra's preflight found three defects in the first version of this contract. They are fixed above; no gate changed:
+- The public free functions could not enforce validity. They are replaced by a validated opaque `Geodesic`.
+- "Radial anchors stay on their line" is true for the continuous X, not for the floored integers.
+- The anchor velocity mixed units ("dX/dT = k0/Q"). It is k0 in quanta per chronon.
 
 ## Step 2 gates (frozen)
 
