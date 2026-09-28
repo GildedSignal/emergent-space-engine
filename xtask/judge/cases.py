@@ -25,7 +25,8 @@ import geodesic_judge as gj
 LIM = 2 ** 96
 TWO80 = 2 ** 80
 SEEDS = {"R0": 20260928_0, "R1": 20260928_1, "R3": 20260928_3, "R4": 20260928_4,
-         "G22": 20260928_22, "G24": 20260928_24, "FB": 20260928_9, "R5": 20260928_5}
+         "G22": 20260928_22, "G24": 20260928_24, "FB": 20260928_9, "R5": 20260928_5,
+         "G24edge": 20260928_25}
 R3_CLASSES = ["bound", "unbound", "plunging", "radial", "null", "near-circular", "near-isco",
               "near-separatrix", "near-horizon", "T=T0", "long-T", "range-exit", "T<T0"]
 
@@ -565,11 +566,13 @@ def base_for_chart(rng, chart):
         else:
             null = chart == "null"
             M, Q, x, k, g0 = pinned_anchor(rng, null, lm_range=(0, 20), rmax_log=48)
+            if chart == "three-root-bound" and not g0.period:
+                continue
         g = geo(M, Q, x, k, null, 512)
         if g is None:
             continue
         ch = "null" if null else g.chart
-        if ch != chart:
+        if ch != chart and not (chart == "three-root-bound" and ch == "three-root" and g.period):
             continue
         ts = time_scale(g)
         dt = draw_dt(rng, min(ts, 2.0 ** 30))
@@ -591,10 +594,14 @@ def radial_anchor_small(rng):
 
 def gen_R4(rng, per_chart=200):
     cases = []
-    for chart in ("radial", "circular", "three-root", "one-root", "null"):
+    for chart in ("radial", "circular", "three-root", "one-root", "null", "three-root-bound"):
         n = 0
         while n < per_chart:
             M, Q, x, k, null, g, dt = base_for_chart(rng, chart)
+            if chart == "three-root-bound":
+                chart_label = "three-root"
+            else:
+                chart_label = chart
             kk, Z = g.solve(arb(Q * dt))
             X = g.X_at(kk, Z)
             c = rng.randint(0, 1)
@@ -614,7 +621,7 @@ def gen_R4(rng, per_chart=200):
                 continue
             t0 = rng.randint(-2 ** 60, 2 ** 60)
             Ms, xs = lam * M, (lam * x[0], lam * x[1])
-            cases.append(mk(f"R4-{len(cases):05d}", "R4", ["near-integer", chart, g.info.get("kind")],
+            cases.append(mk(f"R4-{len(cases):05d}", "R4", ["near-integer", chart_label, g.info.get("kind")],
                             Ms, Q, t0, xs, k, null, [t0 + lam * dt],
                             construction={"base": {"M": S(M), "x": [S(x[0]), S(x[1])], "dt": S(dt)},
                                           "scale": S(lam), "coord": c}))
@@ -764,6 +771,75 @@ def gen_G24(rng):
     return cases
 
 
+def gen_G24edge(rng, per_side=15):
+    """Exact E = 1 anchors with 1e-6 <= | |L|/4M - 1 | <= 1e-5: points of the same conic near
+    its base point, from lines close to the tangent plane B(base, D) = 0."""
+    import itertools
+    cases = []
+    for j, base in ((2, (14, 3, 6)), (3, (111, 28, 24))):
+        F = lambda v, j=j: v[0] * v[0] * (j * j - 1) + 2 * v[1] * v[0] * j - v[1] * v[1] * j * j * (j * j + 1) - v[2] * v[2] * j ** 4
+        B = lambda u, v, j=j: (u[0] * v[0] * (j * j - 1) + j * (u[1] * v[0] + u[0] * v[1])
+                               - u[1] * v[1] * j * j * (j * j + 1) - u[2] * v[2] * j ** 4)
+        ratio = lambda Q, a, kk, j=j: 2 * j ** 4 * abs(kk) / (Q * j * j + a * j - Q) / 4
+        g = [B(base, e) for e in ((1, 0, 0), (0, 1, 0), (0, 0, 1))]      # B(base, D) = g . D
+        # integer basis of the tangent plane g . D = 0
+        t1 = (g[1], -g[0], 0)
+        t2 = (g[2], 0, -g[0])
+        found = {"absorbed": [], "escapes": []}
+        tries = 0
+        while min(len(v) for v in found.values()) < per_side and tries < 400000:
+            tries += 1
+            s1, s2 = rng.randint(-2 ** 10, 2 ** 10), rng.randint(-2 ** 10, 2 ** 10)
+            e = [rng.randint(-3, 3) for _ in range(3)]
+            D = [s1 * t1[i] + s2 * t2[i] + e[i] for i in range(3)]
+            fd = F(D)
+            if fd == 0:
+                continue
+            b = B(list(base), D)
+            P = [fd * base[i] - 2 * b * D[i] for i in range(3)]
+            gg = math.gcd(math.gcd(abs(P[0]), abs(P[1])), abs(P[2]))
+            if gg == 0:
+                continue
+            P = [v // gg for v in P]
+            if P[0] < 0:
+                P = [-v for v in P]
+            Q, a, kk = P
+            if Q <= 0 or a <= 0 or Q > 2 ** 40:
+                continue
+            rt = ratio(Q, a, kk)
+            side = "absorbed" if rt < 1 else "escapes"
+            if 1e-6 * 1.001 <= abs(rt - 1) <= 1e-5 and len(found[side]) < per_side:
+                found[side].append((Q, a, kk))
+        for side, pts in found.items():
+            for (Q, a, kk) in pts:
+                M = max(1, int(round(2 ** rng.uniform(0, 70))))
+                r0 = 2 * M * j * j
+                x, k = (r0, 0), (-a, kk if rng.random() < 0.5 else -kk)
+                for _ in range(rng.randint(0, 3)):
+                    x, k = (-x[1], x[0]), (-k[1], k[0])
+                A = gj.Anchor(M, Q, 0, x, k, False)
+                if not A.E_one:
+                    raise SystemExit("E = 1 construction failed")
+                g_ = geo(M, Q, x, k, False, 512)
+                if g_ is None:
+                    continue
+                exact_ratio = g_.Lab / (4 * g_.Mb)
+                expect = "plunging" if side == "absorbed" else "unbound"
+                if g_.info["kind"] != expect:
+                    raise SystemExit(f"G2.4 edge class mismatch {g_.info['kind']} {side}")
+                t0 = rng.randint(-2 ** 40, 2 ** 40)
+                if g_.horizon:
+                    ch = gj.ceil_int(t0 + g_.dTh / g_.Qb, "g24e")
+                    Ts = [ch - 1, ch, ch + 2 ** 30]
+                else:
+                    ts = time_scale(g_)
+                    Ts = [t0 + max(1, int(ts / 2 ** 20)), t0 + max(2, int(ts / 1000))]
+                Ts = sorted({T for T in Ts if T > t0})
+                cases.append(mk(f"G24e-{len(cases):04d}", "G24", ["G2.4", "E=1", side, f"j={j}", "band-edge"],
+                                M, Q, t0, x, k, False, Ts, L_over_4M=exact_ratio.mid().str(30, radius=False)))
+    return cases
+
+
 # ----------------------------------------------------------------------------------------
 # Fallback cases at |X| <= 2^12
 
@@ -901,6 +977,8 @@ def main(argv):
             cs = gen_G22(rng, r3)
         elif rung == "G24":
             cs = gen_G24(rng)
+        elif rung == "G24edge":
+            cs = gen_G24edge(rng)
         elif rung == "FB":
             cs = gen_FB(rng)
         elif rung == "R5":

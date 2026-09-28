@@ -1214,7 +1214,10 @@ def solve_case(case, start=0, diag=False):
 
 def _worker(args):
     lines, start, diag = args
-    os.nice(10) if hasattr(os, "nice") else None
+    try:
+        os.nice(10)             # lower priority on a shared machine; may already be niced
+    except (AttributeError, OSError):
+        pass
     res = []
     for line in lines:
         case = json.loads(line)
@@ -1243,8 +1246,10 @@ def r2_anchor_list():
 
 def _r2_worker(args):
     anchors, start = args
-    if hasattr(os, "nice"):
+    try:
         os.nice(10)
+    except (AttributeError, OSError):
+        pass
     res = []
     for (a, b, kx, ky) in anchors:
         j = Judge(1, 25, 0, (a, b), (kx, ky), False, start)
