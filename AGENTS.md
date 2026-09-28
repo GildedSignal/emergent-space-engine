@@ -32,6 +32,11 @@ Run `~/.cursor/skills/heading-check/SKILL.md`. Do not restate the card here. Liv
   - **gpt-6-sol** takes well-specified builds and harnesses.
   - **GLM 5.3** (through `omp`) does linting and review passes.
   - Thinking sub-agents (read-only) serve before big decisions: a questioner reading Julien's Readwise; a viewpoint panel (Musk, Ravikant, Taleb, Waitzkin); a math researcher looking for cheaper views; and a machine expert for the M1.
+  - **A players protect the work.**
+    - Code, contracts, gates and law docs are owned by whoever built them (the tiers, highest first: Claude integrator ≈ Astra, then Sol, then GLM).
+    - A lower tier never edits higher-tier work. It reports findings that name the invariant at stake, and the owner or the integrator decides. Lower-tier reviews are read-only and never auto-fix.
+    - A judge (independent reference, oracle) is built by a strong model from a different family than what it judges.
+    - A disagreement between judge and judged goes to adjudication; neither side is changed automatically.
   - Check the usage windows with `get_usage` for Claude and with Codex's rollout `rate_limits`.
   - Specialists who build share `CARGO_TARGET_DIR=~/Research/emergent-space/target`. Cargo's lock serializes builds.
   - Specialists return draft journal entries; the integrator verifies them and appends.
