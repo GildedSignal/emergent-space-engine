@@ -39,6 +39,7 @@ Every line is read many times by humans and agents. Text grows unless something 
   - *Truth now* lives in `docs/HANDOFF.md` (≤ 120 lines) and the specs in `docs/*.md` (≤ 200 lines each). They are rewritten in place and hold no change logs.
   - *History* lives in git and in `docs/HISTORY.md`: one entry per milestone, ≤ 1,500 characters, details in `artifacts/evidence/`. Committed entries are never rewritten; corrections are appended.
   - *How we work* lives in this file, ≤ 60 lines. A new rule must replace or merge an old one.
+- **Survive compaction.** Context windows get summarized, so anything that isn't written durably is lost. The integrator keeps HANDOFF's "In flight" table current whenever a job starts or ends: owner, worktree, output path, next action. Intent lives in the handoff and this file, never only in a conversation.
 - **Pointers, not copies.** The README, the heading card and agent memory point to the handoff; they never duplicate its state.
 - **Write for the corporal.** One reading, no possible misreading: an order that can be misunderstood will be.
 - **Delete when built.** A design note is folded into the spec or the code docs once its design exists in code.
