@@ -1,4 +1,4 @@
-//! The lattice contract shared by every execution mode (docs/work-allocation-design.md).
+//! The lattice contract shared by every execution mode (docs/engine.md).
 //!
 //! - [`law`]: `es-lattice-elastic-v0`, state and the exact per-chronon rule.
 //! - [`relativity`]: the relativistic bounce (`es-lattice-relativistic-v0`): exact 4-momentum,

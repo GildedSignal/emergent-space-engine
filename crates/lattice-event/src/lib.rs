@@ -1,4 +1,4 @@
-//! Event mode for `es-lattice-elastic-v0` (step 1 of docs/work-allocation-design.md §3, §7).
+//! Event mode for `es-lattice-elastic-v0` (docs/engine.md).
 //!
 //! [`EventCore`] reproduces [`emergent_lattice::chronon::Chronon`] bit for bit (world and log
 //! digests, every budget slicing) while touching only bodies that have something to do.

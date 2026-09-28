@@ -2766,3 +2766,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [contract](gravity-law.md)
 - Limitations: W is not yet proven. Sol's harness still targets the old ranges.
 - Next: GLM red-teams the amended contract, then Astra resumes.
+
+
+## H0188 — GLM red-team fixes the step 2 contract before any run; GLM's hygiene patch applied
+
+- Date: 2026-09-28
+- Kind: correction
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: [gravity-law.md](gravity-law.md), docs/fermi.md, docs/history-workflow.md, seven crate/xtask doc headers
+- Changed: GLM 5.3 (read-only) found 22 issues, three of rank 1: fallback cases unsatisfiable at large magnitudes; range exit left at 2^62 after anchors widened to 2^96; no case exercising range exit. Fixed: range exit at ±2^96, per component, absorption first; fallback cases at |X| ≤ 2^12 with the reduced width verified; range-exit and T < T0 classes; pinned sampler; ≥ 100 near-integer cases per chart; well-defined planted bugs; G2.2 limited to bound, non-separatrix anchors; proper_time checked; the ill-posed integer-advance row withdrawn as implied by G2.1+G2.2. GLM also verified the scale table and counted R2 (22,092 anchors, 176,736 cases). Its doc patch, from a remote-less clone, was reviewed and applied.
+- Why: A correct evaluator must not fail a gate, nor a wrong one pass. Cheap red-teaming before a run avoids multiplying by zero.
+- Validation: history check PASS with budgets; no run yet.
+- Evidence: [contract](gravity-law.md)
+- Limitations: W and the G2.5b cost model are still unproven.
+- Next: Astra resumes with the amended ranges; Claude builds the Arb judge.

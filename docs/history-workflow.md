@@ -53,13 +53,12 @@ Do not invent a commit hash for work not yet committed. A record committed with 
 1. Preserve raw relevant outputs and failures under a unique run directory. For durable qualification, commit evidence under a new `artifacts/evidence/<revision-or-run>/` directory, with commands, revision/law/manifest hashes, seeds, hardware, workload denominators, resource measurements and failures. Do not mutate `artifacts/evidence/1dac658/`.
 2. Append the milestone. If a previous decision is wrong, add a correction citing its history ID and evidence. State what is superseded and why; leave the original intact.
 3. Update `HANDOFF.md` if supported capabilities, numerical semantics, gate state, blockers, operating instructions or recommended next steps changed. Preserve the distinction between snapshot/tested revision and current Git HEAD.
-4. Update `orchestration/tasks.json` for changed dependencies/ownership/acceptance. A dependency graph or passing scaffold is not proof of completion.
-5. Run `cargo xtask history check` and checks appropriate to the actual change. `cargo run --release -p xtask -- test` performs the history check automatically before the tests. Standard `cargo test` bypasses this documentation check, so the explicit check remains necessary when using it directly.
-6. Commit code, the corresponding journal entry, any updated handoff and relevant evidence together when possible. Report the real result and unresolved next step.
+4. Run `cargo xtask history check` and checks appropriate to the actual change. `cargo run --release -p xtask -- test` performs the history check automatically before the tests. Standard `cargo test` bypasses this documentation check, so the explicit check remains necessary when using it directly.
+5. Commit code, the corresponding journal entry, any updated handoff and relevant evidence together when possible. Report the real result and unresolved next step.
 
 ## Protect interpretation
 
-Record single-run versus repeated measurements, cold engine versus cold process, serialized bytes versus RAM, and CPU-only versus GPU-inclusive costs. Preserve both passing correctness tests and failed physical-law gates. Do not relabel current qualification exit 2 as a successful release or as a broken test runner.
+Record single-run versus repeated measurements, cold engine versus cold process, serialized bytes versus RAM, and CPU-only versus GPU-inclusive costs. Preserve both passing correctness tests and failed physical-law gates.
 
 Fermi reasoning should name assumptions, select a cheap probe and record how measured structure changed the estimate. Distinct ships may share generators and responses. A compressed inertial mechanism is useful evidence for that structure but does not qualify integrated gravitational evolution.
 

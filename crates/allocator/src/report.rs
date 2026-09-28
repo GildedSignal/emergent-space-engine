@@ -1,4 +1,4 @@
-//! Monitoring, serialised as JSON (docs/work-allocation-design.md §5).
+//! Monitoring, serialised as JSON (docs/engine.md, "One frame").
 use crate::qos::Class;
 use serde::Serialize;
 

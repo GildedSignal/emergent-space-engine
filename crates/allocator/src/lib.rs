@@ -1,5 +1,5 @@
-//! Work allocation (steps 2–4 of docs/work-allocation-design.md §7; rules in
-//! docs/work-allocation-principles.md), generic over any [`emergent_lattice::Stepper`].
+//! Work allocation (design and rules in docs/engine.md), generic over any
+//! [`emergent_lattice::Stepper`].
 //!
 //! **Regions.** A containerless scene is cut into islands; each island is a region: a stepper
 //! with its own clock. Regions merge (union of their worlds at a common accepted tick: whole

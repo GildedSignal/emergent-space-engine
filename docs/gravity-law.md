@@ -1,6 +1,6 @@
 # Gravity law `es-lattice-gravity-v0`: design and the step 2 contract
 
-Status: design. The step 2 gates below were frozen on 28 September 2026 (H0184) and amended before any gate run (H0187). Plan context: [HANDOFF.md](HANDOFF.md), steps 2–4.
+Status: design. The step 2 gates below were frozen on 28 September 2026 (H0184) and amended before any gate run (H0187, H0188). Plan context: [HANDOFF.md](HANDOFF.md), steps 2–4.
 
 ## Space flows: river coordinates
 
@@ -72,7 +72,7 @@ It must satisfy these conventions:
 - **Symmetries hold for the continuous X, before flooring.** A radial anchor (x0 × k0 = 0) keeps X on its line through the origin, but the floored integers may leave that line (for example M = 1, Q = 25, x0 = (30, 40), k0 = (−3, −4), T = 1 gives (26, 35)). Motion along a coordinate axis keeps the other coordinate exactly 0.
 - **The floor must be a fixed function of the anchor, and it must always terminate.** The canonical value is the mathematical floor when a specified certified evaluation decides it. That evaluation uses a fixed precision schedule, fixed operations and fixed rounding directions, and ends at a stated maximum precision. If the maximum precision cannot decide, the value is a stated deterministic function of that final certified interval. The implementer writes this rule down exactly in the crate docs, before the gate run. The rule is part of the law. Refusals are not allowed.
 - **Absorption.** Let T_h be the continuous time at which the geodesic first crosses r = 2M. For every integer T ≥ T_h, `position` returns `Absorbed { chronon: ⌈T_h⌉ }`, decided by the same certified scheme. This definition is needed because the geodesic can reach the singularity before the next integer time: M = 1, Q = 25, x0 = (30, 40), k0 = (−3, −4) crosses at T_h = 496/75 and ends at 20/3. After T_h, `proper_time` stays at its value at T_h.
-- **Leaving the range.** From the first integer T at which a coordinate of X(T) exceeds ±2^62, `position` returns `OutOfRange { chronon }`. In the engine, a body is handed to another region or parent long before that.
+- **Leaving the range.** Anchor bounds are per component: |x_c| ≤ 2^96. From the first integer T > T0 at which a coordinate of X(T) exceeds ±2^96, `position` returns `OutOfRange { chronon }`, permanently. If absorption and range exit fall on the same chronon, absorption wins. Queries beyond |T − T0| = 2^80 are still answered. In the engine, a body is handed to another region or parent long before any of this.
 - **Before the anchor.** Queries with T < T0 return `Before`. Evolution is forward only.
 - **Chord velocity for contact bins** (used in step 4): k(T) = x(T) − x(T − 1).
 
@@ -83,7 +83,7 @@ pub struct Field { pub m: i128 }                                   // static sou
 pub struct Anchor { pub t: i128, pub x: [i128; 2], pub k: [i128; 2] }
 pub enum Motion { Timelike, Null }
 pub enum At { Free([i128; 2]), Absorbed { chronon: i128 }, OutOfRange { chronon: i128 }, Before }
-pub enum AnchorError { /* out of range, r ≤ 2M, timelike not below c or null not at c relative to the flow, … */ }
+pub enum AnchorError { /* out of range, r ≤ 2M, timelike not below c relative to the flow, zero null direction, … */ }
 /// Opaque and immutable. It holds the validated anchor and its certified invariants.
 pub struct Geodesic { /* private */ }
 impl Geodesic {
@@ -113,37 +113,49 @@ Every test runs in under 60 s, on the M1, in release.
     - near-circular orbits;
     - orbits near the innermost stable circular orbit and near the separatrix (whirl orbits);
     - orbits near the horizon;
-    - T up to 10^4 radial periods ahead.
+    - T up to 10^4 radial periods ahead;
+    - range exit (anchors near ±2^96 moving outward);
+    - T < T0.
+  - **The sampler is pinned before the run:**
+    - fixed seeds;
+    - r/M log-uniform over the ranges;
+    - speed relative to the flow uniform in [0, 0.95c];
+    - T − T0 log-uniform up to 10^4 radial periods, or past range exit;
+    - ≥ 10% of cases with some |x_c| ≥ 2^62.
+  - **Near-integer cases** number ≥ 100 per chart: radial, circular, three-root, one-root, null.
+  - **The judge** must not construct an exactly-integer truth unless its integrality is proven symbolically. It combines the horizon logarithms analytically, as the crate does.
   - Pass: 100% agreement. A case the reference cannot settle counts as a failure of the gate, not as an exclusion.
   - **Climb, don't jump** (amended before any run). Rungs run in order, and each must pass before the next:
-    - R0, exact answers: T = T0; motion along an axis; far-field hops whose proven deviation from the straight line is below the straight line's distance to the nearest integer, which must floor to the straight line;
+    - R0, exact answers: T = T0; motion along an axis; far-field timelike hops whose proven per-component deviation from the straight line is below the straight line's distance to the nearest integer, which must floor to the straight line. R0 is a control rung: a straight-line implementation passes it.
     - R1: radial infall and circular cases;
-    - R2: an exhaustive small world (Q = 25, M = 1, x ∈ [−8, 8]², k ∈ [−4, 4]², T − T0 ∈ 1..8, every valid anchor);
+    - R2: an exhaustive small world (Q = 25, M = 1, x ∈ [−8, 8]², k ∈ [−4, 4]², T − T0 ∈ {1, …, 8} inclusive, every valid timelike anchor): 22,092 anchors and 176,736 cases, run in chunks of under 60 s each;
     - R3: 100 random cases per class;
     - R4: the ≥ 1,000 near-integer cases;
     - R5: the full set.
   - **Reference answers are precomputed** by the judge (python-flint/Arb ball arithmetic), hashed and frozen as evidence before the evaluator's first gate run. The 60 s cap applies to the comparison, not to the precomputation.
-  - **Fallback cases.** A test-only reduced schedule (16/32/64 bits) forces the final-midpoint rule on near-integer cases. There the result must be one of the two integers adjacent to the true value's nearest integer boundary, and identical across 3 runs and across thread counts.
+  - **Fallback cases.** A test-only reduced schedule (16/32/64 bits) forces the final-midpoint rule on near-integer cases, chosen at small magnitudes (|X| ≤ 2^12) where the judge verifies that the reduced final width is below 1/4 quantum. There the result must be one of the two integers adjacent to the true value's nearest integer boundary, and identical across 3 runs and across thread counts.
   - **Planted bugs.** Before a gate counts, it must fail on its planted bug in a throwaway branch:
     - G2.1: a flipped outward rounding in one chart;
     - G2.2: the river-time correction's sign flipped;
-    - G2.3: a stateful cache;
-    - G2.4: an off-by-one absorption chronon.
+    - G2.3: a corrupting cache that reuses precision or bracket state across distinct T (a pure memo is correct and is not a bug);
+    - G2.4: an off-by-one absorption chronon;
+    - range exit: the bound shifted by one bit.
 
-- **G2.2 Oracle agreement.** The diagnostics must agree with the H0178/H0183 oracle functions evaluated at the anchor's own (p, e) or impact parameter:
+- **G2.2 Oracle agreement.** On the bound R3 anchors with (p − p_sep)/p ≥ 10^-4, and on null anchors for light, the diagnostics must agree with the H0178/H0183 oracle functions. Each is evaluated at the anchor's own (p, e) or impact parameter, which the judge computes from the integer anchor at ≥ 256 bits:
   - periapsis advance per orbit, radial period in coordinate time and radial period in proper time: relative difference ≤ 10^-9;
   - static and circular clock rates: ≤ 10^-12;
   - light deflection: ≤ 10^-8;
   - Shapiro delay: ≤ 10^-7.
-  - Measured from integer positions alone, the advance per orbit must fall within ±4/r_p radians of the oracle, where r_p is in position units.
-- **G2.3 Observation invariance.** On 1,000 cases, `position` at T_final is bitwise equal whether or not 100 intermediate queries are made first.
+  - `proper_time` at 16 sampled T per case: ≤ 10^-9 relative to the judge, and equal to τ(T_h) at and after absorption.
+  - The earlier integer-position advance row is withdrawn as ill-posed (H0188): G2.1 exact floors together with G2.2 invariants imply it.
+- **G2.3 Observation invariance.** On 1,000 cases, `position` at T_final is bitwise equal whether or not 100 intermediate queries are made first. The intermediates are distinct, in the working domain (not `Before` or `Absorbed`), and include repeats.
 - **G2.4 Horizon.**
   - Radial infall from rest (k0 = 0) at r0 ∈ {10M, 100M} is absorbed at ⌈T_h⌉, with T_h from the closed-form infall time the reference computes.
   - For timelike E = 1 anchors moving inward on the radial branch connected to infinity (outside the potential barrier): |L| ≤ 4M·(1 − 10^-6) is absorbed, and |L| ≥ 4M·(1 + 10^-6) escapes.
 - **G2.5 Cost**, on one M1 performance core:
   - **G2.5a, natural anchors** (the random classes of G2.1): median ≤ 50 µs and p99 ≤ 500 µs per `position` call. Reason: 1M orbiting ships, each kicked by tides every few minutes, then cost ≤ 0.3 core at 1× real time.
   - **G2.5b, every case including near-integer ones:** max ≤ 5 ms.
-  - Rendering uses non-canonical floats and does not count. Measure under the conditions the player will actually have, with heat and load included, and record the thermal, power, swap and load state (fanless MacBook Air M1, 7-core GPU).
+  - Rendering uses non-canonical floats and does not count. Measure under the conditions the player will actually have, with heat and load included. The verdict is taken as measured, and the thermal, power, swap and load state is recorded with it (fanless MacBook Air M1, 7-core GPU).
 
 ## Division of the work
 
