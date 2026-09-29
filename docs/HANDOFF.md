@@ -30,10 +30,17 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 **Decided by Julien (29 September):** merge the five modes into one production engine. The chronon reference stays only as a test judge.
 
-**Proposed to Julien, awaiting his go:** re-ground gravity on first principles (explained in chat on 29 September; journal it once decided).
-- The law becomes a fixed integer algorithm, like the rest of the lattice, instead of the floor of the exact continuum value.
-- The engine is a local tilted-sheet (river) drift with kicks at step boundaries (a Wisdom–Holman splitting). Steps are sized to behaviour, not to one velocity quantum.
-- Gates move to behaviours and error type. The exact-geodesic work becomes the behaviour oracle.
+**Proposed to Julien, 29 September, awaiting his go:** re-ground gravity on first principles.
+- **Separate the oracle from the implementation.** Exact GR, the judge and Astra's exact geodesics are the oracle. The implementation is the cheapest law with the right behaviours: a fixed integer algorithm.
+- **Treat gravity as a field held by cells:** particle-mesh and fast-multipole style.
+  - Bodies deposit mass into a hierarchy of cells, whose integer sums are exact and independent of order.
+  - The field (the tilt β of each cell's sheet) is solved hierarchically and cached with certificates.
+  - A body drifts inside its cell's field, analytically, and pays only at events: a cell crossing, a field-certificate expiry, a contact or a command.
+  - A body moving inside its cell changes no far field, so billions of moving objects cost nothing until they cross or cluster.
+- **Derive observables on demand, never evolve them:** clocks (proper time), redshift, lensing.
+- **Gate on behaviours and error type.**
+
+This returns to the original cells-as-frames design (Regge-like flat pieces).
 
 ## What the engine computes
 
