@@ -56,6 +56,15 @@
 //! [`Stepper::world`] and the log agree with [`Stepper::tick`], and one component's
 //! response (the law's response is indivisible).
 //!
+//! **External kicks** ([`Kickable`]). At a committed tick the caller may add integer velocity
+//! kicks (the free-fall frame's tide). A kicked body is re-anchored at the tick, revises
+//! (`rev + 1`), and goes through the same upkeep a contact's bodies do: re-home, then
+//! re-predict over everything it covers. That is enough because a pair is covered by at least
+//! the body whose velocity changed (the completeness argument above); a partner's stale slot
+//! only costs a spurious wake-up. A kick past the cells' velocity bound re-forms the grids,
+//! as an elastic tail does. The core must be quiescent: run to the kick's tick, never lower
+//! the target afterwards.
+//!
 //! **Metrics.** `ops` charges 1 per neighbourhood lookup, neighbour visited (a predicate or
 //! a consumed-pair skip), wall predicate, crossing or entry time, calendar update and pop,
 //! re-index check, cell unlink and link, rebuild sketch step (2), box step and density
@@ -64,7 +73,7 @@
 //! resolved pair, consumed entry kept or pruned, and published body, pair or wall.
 //! `predicates` counts exact pair and wall predicates only.
 use emergent_lattice::law::{self, Body, Consumed, Response, Tick, World};
-use emergent_lattice::{Event, Kind, Log, Metrics, Stepper};
+use emergent_lattice::{Event, Kickable, Kind, Log, Metrics, Motion, Stepper};
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hasher};
 
@@ -1475,6 +1484,60 @@ impl Stepper for EventCore {
 
     fn metrics(&self) -> &Metrics {
         &self.metrics
+    }
+}
+
+impl Kickable for EventCore {
+    fn motions(&self, out: &mut Vec<Motion>) {
+        let t = self.tick;
+        out.clear();
+        out.extend(self.hot.iter().map(|h| Motion { x: h.at(t), k: h.k }));
+    }
+
+    fn kick(&mut self, dk: &[[i64; 2]]) -> Result<(), law::LawError> {
+        if dk.len() != self.hot.len() {
+            return Err(law::LawError(format!("{} kicks for {} bodies", dk.len(), self.hot.len())));
+        }
+        let (which, q) = (self.meta.law, self.meta.q);
+        for (h, d) in self.hot.iter().zip(dk) {
+            emergent_lattice::kicked(which, q, h.k, *d)?;
+        }
+        // Finish any upkeep or rebuild left pending at the committed tick (none of it moves time).
+        while matches!(self.stage, Stage::Rebuild(..) | Stage::Upkeep(..)) {
+            self.step(self.tick);
+        }
+        assert!(matches!(self.stage, Stage::Idle), "kick needs a quiescent core: run to the kick's tick and never lower the target");
+        let t = self.tick;
+        self.epoch = self.epoch.wrapping_add(1);
+        self.b.touched.clear();
+        let mut kmax = 0;
+        for (i, d) in dk.iter().enumerate().filter(|(_, d)| **d != [0, 0]) {
+            let h = &mut self.hot[i];
+            let k = [h.k[0] + d[0], h.k[1] + d[1]];
+            (h.x, h.k, h.t0) = (h.at(t), k, t);
+            h.rev += 1;
+            // The prediction that follows is event-triggered for the density feedback.
+            h.cand = self.epoch;
+            kmax = kmax.max(kinf(k));
+            self.b.touched.push(i as u32);
+        }
+        if self.b.touched.is_empty() {
+            return Ok(());
+        }
+        self.metrics.ops += self.b.touched.len() as u64;
+        if kmax > self.kcap {
+            // Faster than the cells allow: grow every frame (2× margin) and re-form, as an elastic tail does.
+            self.kseen = self.kseen.max(kmax);
+            let valid = self.reach_max + 4 * self.kseen;
+            for f in &mut self.frames {
+                f.next_side = f.next_side.max(valid);
+            }
+            self.begin_rebuild();
+        } else {
+            self.kseen = self.kseen.max(kmax);
+            self.stage = Stage::Upkeep(false, 0);
+        }
+        Ok(())
     }
 }
 

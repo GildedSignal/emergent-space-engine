@@ -3,7 +3,7 @@
 //! reference every other mode must reproduce bit for bit, and itself checked against the
 //! independent integer reference in `xtask/src/gas.rs`.
 use crate::law::{self, Body, Consumed, Response, Tick, World};
-use crate::{Event, Kind, Log, Metrics, Stepper};
+use crate::{Event, Kickable, Kind, Log, Metrics, Motion, Stepper};
 use std::collections::HashMap;
 
 pub struct Chronon {
@@ -180,5 +180,31 @@ impl Stepper for Chronon {
 
     fn metrics(&self) -> &Metrics {
         &self.metrics
+    }
+}
+
+impl Kickable for Chronon {
+    fn motions(&self, out: &mut Vec<Motion>) {
+        out.clear();
+        out.extend(self.w.bodies.iter().map(|b| Motion { x: b.x, k: b.k }));
+    }
+
+    /// Between chronons, so the next one sees the new velocities. Revised bodies invalidate
+    /// their consumed contacts through `rev`; nothing else is indexed.
+    fn kick(&mut self, dk: &[[i64; 2]]) -> Result<(), law::LawError> {
+        if dk.len() != self.w.bodies.len() {
+            return Err(law::LawError(format!("{} kicks for {} bodies", dk.len(), self.w.bodies.len())));
+        }
+        let mut next = Vec::with_capacity(dk.len());
+        for (b, d) in self.w.bodies.iter().zip(dk) {
+            next.push(crate::kicked(self.w.law, self.w.q, b.k, *d)?);
+        }
+        for ((b, d), k) in self.w.bodies.iter_mut().zip(dk).zip(next) {
+            if *d != [0, 0] {
+                b.k = k;
+                b.rev += 1;
+            }
+        }
+        Ok(())
     }
 }

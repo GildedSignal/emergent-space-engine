@@ -146,6 +146,41 @@ impl Metrics {
     }
 }
 
+/// One body's motion at the committed tick: position (1/Q units) and the velocity that
+/// holds for the next chronon (1/Q units per chronon).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Motion {
+    pub x: [i64; 2],
+    pub k: [i64; 2],
+}
+
+/// The velocity `k + dk` an external kick may give a body under `which`, or the reason it may
+/// not: the law's exactness ranges and, for the relativistic laws, |k|² < Q². Both steppers'
+/// kick hooks call this, so they refuse the same kicks.
+pub fn kicked(which: Law, q: i64, k: [i64; 2], dk: [i64; 2]) -> Result<[i64; 2], law::LawError> {
+    let nk = [k[0] + dk[0], k[1] + dk[1]];
+    let kk = nk[0] as i128 * nk[0] as i128 + nk[1] as i128 * nk[1] as i128;
+    if nk.iter().any(|c| c.abs() > law::MAX_SPEED) || (which.subluminal() && kk >= q as i128 * q as i128) {
+        return Err(law::LawError(format!("kick {dk:?} takes velocity {k:?} to {nk:?}, outside the law")));
+    }
+    Ok(nk)
+}
+
+/// A stepper that accepts external velocity kicks at its committed tick: the hook the
+/// free-fall frame (`crates/engine`) uses to apply its tide. A kick is an event of the frame,
+/// not of the lattice law: the caller runs the stepper to the kick's tick (`run_to`, never
+/// lowering the target afterwards), reads [`Kickable::motions`], and calls [`Kickable::kick`].
+/// Bodies whose velocity changes revise (`rev + 1`), exactly as a contact would; a
+/// consumed contact is therefore live again if the pair is still approaching.
+pub trait Kickable: Stepper {
+    /// Position and velocity of every body (id order) at [`Stepper::tick`].
+    fn motions(&self, out: &mut Vec<Motion>);
+
+    /// Add `dk[i]` to body i's velocity (id order, one entry per body; zero leaves it alone).
+    /// Nothing is applied unless every kicked velocity is legal ([`kicked`]).
+    fn kick(&mut self, dk: &[[i64; 2]]) -> Result<(), law::LawError>;
+}
+
 /// An execution mode for one region of the lattice law.
 pub trait Stepper {
     /// Last fully committed tick: every event at or before it is final and [`Stepper::world`]
