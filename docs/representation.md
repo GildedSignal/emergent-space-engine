@@ -29,11 +29,12 @@ Everything below follows from these three, and so does its cost (§6).
   - Rings are floating point. The octave is the exponent, and the ring is the top mantissa bits, so a point's ring comes from the bits of the integer r².
   - The ring index *is* the gradient: a doll stores only its mass, centre and motion.
   - Crossing a ring conserves E and L; crossing a spoke carries no gravity event.
+  - **Binet cells (the primary in-cell solution).** With u = 1/r, the orbit inside band k obeys u″ + (1 − 6M·u_k)·u = M/L² − 3M·u_k². That is a rotation, two additions in integers (Minsky), and it preserves area. Precession, the innermost stable orbit (where 1 − 6M·u_k < 0) and plunges all emerge. Light is the same equation without the M/L² term.
 - **Where no mass dominates, the coordinates are Cartesian,** with the same grid.
   - Any further map (for example the bipolar map, for binaries) earns its place only by turning a class of motion into exact repetition. It is chosen by dimensionless numbers.
 - **Matter and geometry, the loop of GR, as a local rule.**
   - Cells hold integer mass moments of everything, ships' aggregates included.
-  - The potential (the clock rate) adds across sources, and flow² = 2 × potential.
+  - **Two bodies are one doll.** At 1PN, the effective-one-body map makes their relative motion a test body in Schwarzschild with M = m₁ + m₂; the mass ratio ν enters only through the energy map. Hierarchical systems are therefore dolls all the way down. Non-hierarchical regions (cluster cores) go to the dense order. Mass moments source the kicks and the aggregates.
   - A change travels at most one cell per cell-update. Kerr in the plane keeps rotational symmetry (Doran's flow adds a twist).
 - **Time.** c = 1 cell per cell-update, so a cell's time unit is its light-crossing time. Each doll orders events in its own far time, and each cell keeps an epoch. There is no global clock.
 - **Algebra.** 2D space is complex numbers. 2+1 spacetime is split-quaternions: the event (t, x, y) is t·i + x·j + y·k, with norm t² − x² − y² (the interval). Rotations and boosts are the unit split-quaternions. Geometric algebra is the language underneath; each job uses the smallest subalgebra.
@@ -52,7 +53,7 @@ Everything below follows from these three, and so does its cost (§6).
 - **Observables are emergent.**
   - A clock reads its tube's length.
   - A photon carries its momentum. At the moment of observation, −p·u *is* the colour: gravitational redshift, Doppler shift and time dilation at once. Its direction in the observer's frame *is* the aberration.
-- **Light is gathered at the observer, never broadcast.**
+- **Light is gathered at the observer, never broadcast.** An AI's perception is the same gather at its own past light cone: one component.
   - Each visible tube crosses the observer's past light cone once; Newton's method finds the crossing, starting from the previous frame's. Lensing adds crossings, from each doll's memoized deflection(b).
   - An emitter carries a spectral type. A blackbody is seen at k·T with beaming k⁴, which in log form are additions. A type × log k table gives the sprite.
   - Aggregates are one sample each, and the screen caps the work at about one sample per pixel. Nothing bounces.
@@ -88,6 +89,7 @@ Everything below follows from these three, and so does its cost (§6).
   - Floors per body: about 2–5 bytes for a structured body given its family; about 12–16 bytes for an individual in a doll. Today's `Body` takes 88 bytes.
 - **Carries are sigma-delta modulators** (Inose and Yasuda, 1962). Rounding error is pushed within an orbit, where it averages out, so stored numbers can be narrow. Bresenham's error term (1962) is the same trick, so tubes at rational speeds and carries are one mechanism. Minsky's circle (HAKMEM, 1972) keeps an orbit closed with two additions, because the map preserves area.
 - **The virtual comma is explicit:** block floating point, with the cell level as the shared exponent.
+- **The split between law and implementation.** Number forms and widths are law, fixed from rung r2. SWAR, NEON, AMX and bundles give the same bits, so they are implementation, deferred until B10 profiles on the M1.
 - **Native per bundle, not per number.**
   - Several fields are packed into one word with guard bits, operated on once, and unpacked (SWAR).
   - Packing x + y·2³² gives two products from one multiply.
@@ -116,24 +118,21 @@ Bresenham, the DDA integrators of the 1950s, sigma-delta, CORDIC (shift-and-add 
 
 The same things on the current path cost 340–120,000 steps per orbit, 20,000–77,000 steps per light path (probe 2), and 88 bytes per body (the current `Body`).
 
-## 7. The falsifier ladder (cheapest first; kill criteria frozen before each run)
+## 7. The falsifier ladder
 
-1. **Rings.** One static mass: E and L conserved at rings, m swept, the cycle's periodicity checked, a square grid as the control. It is judged by the behaviour gates of [gravity-law.md](gravity-law.md):
-   - precession at 20M and 1000M;
-   - capture at L = 4M;
-   - light from 10⁴ M;
-   - E and L over 10⁴ orbits;
-   - crossings per cycle.
-2. **Carry width.** How narrow E and L can be under noise-shaped carries, with behaviours held fixed.
-3. **Many sources.** The potential adds and the flow is derived; it must pass 1PN for two bodies. Handoffs between dolls stay bounded.
-4. **Crossings between levels** and **moving sources:** energy exchange must be physical (gravity assists).
-5. **The dense order.** A Clohessy–Wiltshire battle frame with lattice contacts, bit-identical to the sparse order.
-6. **The view.** Gathered retarded positions, the blackbody table and lensing, per pixel within the frame budget.
+Kill criteria are frozen in [lab/rungs/](../lab/rungs/). Each rung is run in the cloud by the GLM lab, gets a mechanical verdict, and has a negative control that must be killed. Only r1–r3 gate the law.
+
+1. **r1 rings.** One static mass. Binet cells and river refraction, with m swept; a square grid and a tilt-only kick as negative controls. Judged on precession, periods, deflection, capture, the innermost stable orbit, shape over 10⁴ cycles, exact cycle repetition, and crossings per cycle.
+2. **r2 carry width.** Sigma-delta storage of the per-cycle increments and of kicks, at 16, 24 and 32 bits.
+3. **r3 two-body doll.** The effective-one-body map at 1PN, handoffs between dolls, and gravity assists.
+4. **r5 dense order.** A Clohessy–Wiltshire frame with lattice contacts, bit-identical between the sparse and dense orders (integer, on the existing crates).
+5. **r6 view.** Newton iterations and samples per frame for the gather.
+6. **r7 AI cost.** A float faction toy: the recompute rate against the perception threshold, and the memo hit rate.
 
 ## Merge candidates (for Julien)
 
-1. **The view and AI perception are one gather:** an AI sees its past light cone exactly as the player does.
-2. **The frontier and the allocator are one component:** the slack queue is the min-plus frontier, ordered by deadline.
+1. **Adopted:** the view and AI perception are one gather: an AI sees its past light cone exactly as the player does.
+2. **Adopted:** the frontier and the allocator are one component: the slack queue is the min-plus frontier, ordered by deadline.
 3. **Fleets, battles and families are one kind of doll:** a free-fall frame with members.
 4. **Kicks are the non-symmetric remainder** of the same moments that set the field.
 5. **Dolls and cells may be one spacetime tree** in per-doll coordinates.

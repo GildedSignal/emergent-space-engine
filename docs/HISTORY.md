@@ -2951,3 +2951,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [lab/README.md](../lab/README.md)
 - Limitations: Not yet run: the cloud environment needs Julien's ZAI_API_KEY.
 - Next: Routines: one trial lens, then all.
+
+## H0200 — The pivot: a compiled causal automaton on symmetric spacetime; v0 gravity archived; rungs r1–r3 frozen
+
+- Date: 2026-09-29
+- Kind: correction
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: [representation.md](representation.md) (the design); lab/rungs (r1–r3); HANDOFF; archive
+- Changed: Julien approved the pivot plan (GLM in the cloud and OpenAI build; Claude integrates and builds the judges). The design: free-fall dolls; rings with Binet cells (u″ + (1 − 6Mu_k)u as a rotation); two bodies as one doll (1PN effective one body); tubes stored by invariants; one resolver; memoized cycles and kicks; the min-plus frontier as the slack queue; the view and AI perception as one gather; sparse and dense orders with identical bits. Number forms and widths are law; SWAR, NEON and AMX are deferred. Rungs r1–r3 frozen with negative controls and mechanical verdicts. Branches wt/geodesic and wt/g2run bundled to the archive; the local GLM clone deleted.
+- Why: probes 1 and 2 killed step-based gravity; "symmetry is compression".
+- Validation: history check PASS; bundle verified.
+- Evidence: [lab/rungs](../lab/rungs/r1-rings.md); `~/Research/emergent-space-archive/retired-v0-gravity-20260929.bundle`
+- Limitations: Nothing runs until Julien sets the routine environment; all design numbers are estimates.
+- Next: Canaries, then r1–r3 in the cloud; the law by 5 October.
