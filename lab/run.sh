@@ -57,6 +57,11 @@ P
   git add -N . && git diff "$base" -- . ':(exclude)lab/results' > "$out/work/checker-patch.diff"; restore
 
   grade=$(head -1 "$out/check.md" 2>/dev/null || echo "Grade: missing")
+  if [ "$grade" = "Grade: gold" ]; then  # gold needs a second, blind checker (arch-v3: precision = found by two)
+    sed "s#Write \$out/check.md#Write $out/check2.md; do not read check.md#; s#Write $out/check.md#Write $out/check2.md; do not read check.md#" "$out/checker-prompt.md" > "$out/checker2-prompt.md"
+    "${GLM[@]}" --max-time="$((min / 2))m" @"$out/checker2-prompt.md" > "$out/checker2-final.md" 2>&1; restore
+    [ "$(head -1 "$out/check2.md" 2>/dev/null)" = "Grade: gold" ] || grade="Grade: silver (second checker disagreed)"
+  fi
   find "$out" -type f -size +5M -print -delete > "$out/dropped-large-files.txt"
   git checkout -q -b "claude/lab-$id"
   git add "$out" && git commit -q -m "lab $id: $grade" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"

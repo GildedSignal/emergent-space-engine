@@ -15,7 +15,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Float re-probe of cell-owned step rules (C1 shell-constant, C2 time-symmetric switching, C3 fixed control) | GLM, sandboxed; prompt `artifacts/runs/gravity-v1-reprobe/prompt.md`, output `.../out.md` | Running | The integrator folds the winning configuration into `gravity-law.md`; then freeze v1 |
+| Probe 2, the float re-probe of cell-owned steps | GLM (local, the last local run); output `artifacts/runs/gravity-v1-reprobe/out.md`, data `/private/tmp/glm-scratch/gv1b/` | **Done:** no configuration passes; shell crossings inject energy error; a fixed step costs 3–300× too much | Freeze the evidence; re-derive step 2 around generators with multipole kicks (the lab's first question) |
 | Prior-art scout: how others own time steps by cell, not body (block steps, asynchronous variational integrators, Wisdom–Holman, patched conics) | GLM, sandboxed; prompt `artifacts/runs/prior-art-timestep/prompt.md`, output `.../out.md` | Running | Read with probe 2's result before choosing the step rule |
 | GLM lab (`lab/`): lenses, runner, independent checker | Integrator; cloud routines once Julien's cloud environment holds `ZAI_API_KEY` | Built; waiting for the environment | Create one routine per lens (host model Haiku, `lab/run.sh start <lens>`); read gold abstracts only; log decisions in `lab/board.md` |
 | Julien's yes on CARD.md, and his choice on world coordinates (answered 29 September: exact integers set no distance limit; hierarchical local coordinates proposed) | Julien | Asked 29 September | Record it in the register; fold it into universe-quanta.md |

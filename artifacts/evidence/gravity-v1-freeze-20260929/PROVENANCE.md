@@ -4,3 +4,4 @@ Byte-identical copies from `artifacts/runs/gravity-v1-freeze/` and GLM's scratch
 
 - `redteam-prompt.md`, `redteam-out.md`: the red-team of the draft contract.
 - `probe-prompt.md`, `probe-out.md`, `probe-scripts/`: the float premise probe. Verdict: three of four kill criteria pass; the energy-growth criterion kills the per-body step rule Δ = η·r^{3/2}(current state), while a fixed-Δ control stays flat.
+- probe2/: the float re-probe of cell-owned steps (C1 shell-constant, C2 symmetrized, C3 fixed), GLM, 29 September; prompt, final message, scripts and raw results. prior-art-*.md: the GLM prior-art scout on cell-owned time steps.
