@@ -1,193 +1,145 @@
-# Representation: one structure, one law, one number system
+# The design: a compiled causal automaton on symmetric spacetime
 
-Status: **DRAFT** (29 September 2026). It synthesizes Julien's direction from 29 September; see the [register](PRINCIPLES.md) and bottleneck 0 on the [lab board](../lab/board.md). It supersedes nothing until its cheapest falsifier has run and Julien says yes.
+Status: **DRAFT** (29 September 2026). It synthesizes Julien's direction from 29 September ([register](PRINCIPLES.md); bottleneck 0 on the [lab board](../lab/board.md)). It supersedes nothing until the falsifiers in §7 have run and Julien says yes. Once adopted, it replaces [gravity-law.md](gravity-law.md) and [universe-quanta.md](universe-quanta.md), and it absorbs [engine.md](engine.md).
 
-**The idea.** Choose, for every quantity and every region, the representation in which its work is trivial:
-- **Spacetime** is nested dolls whose grid follows the local field's symmetry. Orbits therefore repeat, and are paid for once.
-- **The law** is tubes that refract at joints, with c native. Decisions are the only kinks.
-- **Numbers** hold only the information their behaviour needs, in the form their operations want (linear or logarithmic), at native widths.
-- **Evaluation** has two orders: sparse certificates where little happens, dense lockstep where much does.
+## The thesis
 
-Booleans answer "whether", additions carry motion, lookups carry repetition, and multiplications happen only at surprises. Compute follows entropy (principle 3).
+1. **Compute is the information the universe creates.** Predictable evolution costs nothing. Surprises (the player, AI decisions, chaos) cost in proportion to what they create.
+2. **Predictability comes from symmetry.** Where a frame makes a symmetry explicit, its invariants are exact, motion repeats, and the repetition is stored once, as a generator. *Symmetry is compression.*
+3. **Every quantity is kept in the form in which its change is an addition.**
+   - Coordinates are chosen so that the symmetry is a translation.
+   - Logarithms are used where things multiply.
+   - Bits are used where the only question is "whether".
 
-## 1. Spacetime: nested dolls, one grid, coordinates per doll
+   Multiplications, roots and wide integers remain only at surprises.
 
-- **Coordinates and grid are one choice.** Pick the coordinates in which the field's symmetry becomes a translation. There, the grid is always a uniform lattice of fixed-bit cells.
-  - Boundaries then follow the symmetry, so each crossing conserves exactly what the field conserves (Noether).
-  - The precedent: square lattice gases failed isotropy, and the hexagonal FHP lattice (1986) fixed it.
-- **Around a dominant mass the doll is log-polar:** ln z = ln r + iθ. In the 2D plane, z is a complex number, and rotating and zooming (multiplications) become additions.
-  - The rings are r_0·2^(k/m), and N spokes with N ≈ 2πm/ln 2 keep cells nearly square (m = 16, N = 128).
-  - The map is conformal, so cells have the same shape at every scale, and fixed bits give the same relative precision everywhere.
+Everything below follows from these three, and so does its cost (§6).
+
+## 1. Spacetime: frames that make symmetry explicit
+
+- **Nested dolls.** Each dominant mass carries a doll: its freely falling frame, a disc running from its surface or horizon out to its sphere of influence.
+  - Inside a doll, the parent's gravity is only tides (the equivalence principle).
+  - Dolls nest as overset discs (Chimera grids, Steger, 1983). A child slides over its parent's grid and masks it, and a body crossing the edge is handed over.
+  - A dense region with no central mass (a battle, a fleet) is also a doll: the free-fall frame of its centre of mass. Inside it, tides are linear, and relative motion has an exact closed form (Clohessy–Wiltshire, 1960). No mode ever freezes gravity.
+- **One grid; the coordinates are chosen per doll.** In coordinates where the field's symmetry is a translation, the grid is always a uniform lattice of fixed-bit cells.
+  - Boundaries then follow the symmetry, so each crossing conserves exactly what the field conserves (Noether). The precedent is the FHP lattice gas (1986): isotropy came from lattice symmetry.
+- **Around a dominant mass, the coordinates are ln z = ln r + iθ: rings.**
+  - In 2D, z is complex, and rotation and zoom become additions.
+  - Rings are r₀·2^(k/m), cut by N ≈ 2πm/ln 2 spokes (m = 16, N = 128). The map is conformal: every cell has the same shape at every scale, and fixed bits give constant relative precision.
+  - Rings are floating point. The octave is the exponent, and the ring is the top mantissa bits, so a point's ring comes from the bits of the integer r².
   - The ring index *is* the gradient: a doll stores only its mass, centre and motion.
-  - Rings are floating point: the octave is the exponent, and the ring within the octave is the top mantissa bits. The ring of a point comes from the bits of the integer r² (a leading-zero count plus a shift), with no root and no log.
-- **Crossing a ring conserves E and L** (to one quantum in integers, with carries). A spoke carries no gravity event.
-- **So the future repeats.** The radial crossings repeat every cycle, and φ, t and τ advance by fixed amounts.
-  - One cycle is computed once, then memoized: identical invariants share it, an exact shortcut as in Hashlife.
-  - Perturbations are kicks on E and L. H0190 measured 32 per low orbit, and 0.3 with averaging.
-- **Dolls nest as overset discs,** as fluid simulations do for moving bodies (Chimera grids).
-  - A doll runs from its central body (surface or horizon) to its sphere of influence.
-  - It is that body's freely falling frame, so the parent's gravity reduces to tides inside it.
-  - It slides over its parent's grid and masks it. Handoffs happen at its edge; H0190 K4 found them bounded.
-- **Where no mass dominates, the coordinates are Cartesian,** with the same grid. The grid holds the field, and tubes move in any direction.
-  - A new map, such as the bipolar map ln((z−a)/(z+a)) for binaries, earns its place only by turning a class of motion into exact repetition.
-  - Maps are chosen by dimensionless numbers, never by categories.
-- **Cells hold integer mass moments,** ships' aggregates included. Geometry is a local rule of the moments: the potential adds, and flow² = 2 × potential. Changes travel at most one cell per update.
-- **The natural algebra of 2+1 spacetime is the split-quaternions.**
-  - The event (t, x, y) is t·i + x·j + y·k, whose norm t² − x² − y² is the interval.
-  - Rotations and boosts are the unit split-quaternions.
-  - Geometric algebra is the one language underneath: each job uses its smallest subalgebra.
+  - Crossing a ring conserves E and L; crossing a spoke carries no gravity event.
+- **Where no mass dominates, the coordinates are Cartesian,** with the same grid.
+  - Any further map (for example the bipolar map, for binaries) earns its place only by turning a class of motion into exact repetition. It is chosen by dimensionless numbers.
+- **Matter and geometry, the loop of GR, as a local rule.**
+  - Cells hold integer mass moments of everything, ships' aggregates included.
+  - The potential (the clock rate) adds across sources, and flow² = 2 × potential.
+  - A change travels at most one cell per cell-update. Kerr in the plane keeps rotational symmetry (Doran's flow adds a twist).
+- **Time.** c = 1 cell per cell-update, so a cell's time unit is its light-crossing time. Each doll orders events in its own far time, and each cell keeps an epoch. There is no global clock.
+- **Algebra.** 2D space is complex numbers. 2+1 spacetime is split-quaternions: the event (t, x, y) is t·i + x·j + y·k, with norm t² − x² − y² (the interval). Rotations and boosts are the unit split-quaternions. Geometric algebra is the language underneath; each job uses the smallest subalgebra.
 
-## 2. The law
+## 2. The law: one law, GR native
 
-- **c is native.** An influence moves at most one cell per cell-update, and a cell's time unit is its light-crossing time. Light cones are adjacency, and they spread as bits: a shift and an OR move light one cell for 64 cells at once.
 - **Bodies are tubes in their doll's frame.**
   - Inside a cell, a tube follows the cell's exact local solution.
-  - At a joint, the tube refracts, conserving what the symmetry conserves. Contacts use the same interface resolver: conserve, solve one quadratic, carry the rounding.
-  - Orbits, turning points, precession, lensing and horizons emerge.
-- **Light is gathered at the observer, never broadcast.** Light nobody sees costs nothing. There is no bouncing.
-  - For each visible body, the one intersection of its tube with the observer's past light cone is found, by Newton's method from the previous frame's solution. Lensing adds intersections from the doll's memoized deflection(b).
-  - An emitter carries a spectral type. A blackbody seen through a Doppler factor k is again a blackbody, at temperature k·T, and beaming scales intensity as k⁴. In logarithmic form both are additions to log k, and a 2D table (type × log k) gives the sprite's colour and brightness.
-  - Far populations are gathered as aggregates, one sample per family, like unresolved galaxies. The screen caps the work at about one sample per pixel.
-  - Light that matters for gameplay (lasers, messages) is a null tube, with one event per hit.
-- **Observables are emergent, never computed.**
-  - A clock's reading is the length of its tube.
-  - A photon carries its momentum, and an observer is a tube with a velocity. Where they meet, the one operation of observation, −p·u, *is* the colour: gravitational redshift, Doppler and time dilation together. The photon's direction in the observer's frame *is* the aberration.
-  - Lensing is photon tubes refracting at rings. Multiple images are multiple tubes.
-- **Decisions are the only kinks.** AIs are deterministic parts of the law, recomputed when what they see crosses a threshold. The player is the only seed.
+  - At a joint, it refracts, conserving what the symmetry conserves.
+  - Orbits, turning points, precession, lensing and horizons emerge; none is imposed.
+- **One interface resolver.** A ring crossing and a contact are the same operation: conserve what the interface conserves, solve one quadratic, and carry the rounding. Contacts use the exact integer special-relativity law (`es-lattice-relativistic-v1`), in the frame of one of the two bodies.
+- **Decisions are the only kinks.**
+  - Thrust grows the rapidity linearly in proper time; in a field, E and L change by the work done.
+  - AIs are deterministic parts of the law. An AI is recomputed only when what it sees crosses its perception threshold, and identical situations share a memo.
+  - The player is the only seed.
+- **Observables are emergent.**
+  - A clock reads its tube's length.
+  - A photon carries its momentum. At the moment of observation, −p·u *is* the colour: gravitational redshift, Doppler shift and time dilation at once. Its direction in the observer's frame *is* the aberration.
+- **Light is gathered at the observer, never broadcast.**
+  - Each visible tube crosses the observer's past light cone once; Newton's method finds the crossing, starting from the previous frame's. Lensing adds crossings, from each doll's memoized deflection(b).
+  - An emitter carries a spectral type. A blackbody is seen at k·T with beaming k⁴, which in log form are additions. A type × log k table gives the sprite.
+  - Aggregates are one sample each, and the screen caps the work at about one sample per pixel. Nothing bounces.
+- **The error model.** The law is the integer algorithm, and exact GR is only the oracle that judges behaviours. There is one error budget: at most one floor unit per event, carried forward so that it never compounds. Shortcuts reproduce the law exactly, so they add speed, never error.
 
-## 3. Steps are certificates, evaluated in two orders
+## 3. The compiler: what is compiled, what is paid
 
 - **A step is a certificate:** the interval over which a description reproduces the law.
-  - The error budget is at most one floor unit at each event, carried forward so that it never compounds.
-  - Shortcuts reproduce the law exactly wherever possible, so simplifications add speed, never error.
-- **The sparse order** is where little happens: certificates, the causal frontier, and one queue ordered by slack, on the CPU.
-- **The dense order** is for chaos, which is normal: many necessary interactions in a short time.
-  - The selector is events per cell per light-crossing, a Knudsen-like number.
-  - Near 1, cells run in lockstep, in cache, on the GPU and NEON. A tick wastes nothing there, because everything changes every tick.
-  - No mode freezes gravity. A dense region is a doll with no central mass: the freely falling frame of its centre of mass. Inside it, gravity is the linear tidal term, whose relative motion has an exact closed form (Clohessy–Wiltshire, 1960, the rendezvous mathematics of Gemini and Apollo). The lattice law resolves contacts in that frame.
-  - The broad phase is bits (occupancy bitmaps, an AND for overlaps, a radix sort of cell keys). The narrow phase is exact predicates on narrow, cell-relative numbers.
-  - Events farther apart than c × the window resolve in parallel waves.
-  - The burst stays in cache (the 12 MB L2 of the performance cores, GPU threadgroup memory), so it is compute-bound, not memory-bound.
-  - Its floor is the entropy it produces: H0173 measured about 4 bits per collision. The log of surprises is kept; the rest replays.
-- **Both orders give identical bits** (engine.md rule 12).
+- **Generators.**
+  - A doll orbit is a cycle: its radial crossings repeat, and each cycle adds constants to φ, t and τ. Identical invariants share one memoized cycle, as in Hashlife.
+  - Perturbations (tides, neighbours, inspiral by Peters' formula) are kicks on E and L. A cycle's derivatives are stored with it, so a kick updates the cycle by a multiply-add.
+  - Fleets are families. Stars and asteroids stay a seed until an event singles one out (Elite, 1984).
+- **Two evaluation orders of the same event graph, with identical bits.**
+  - **Sparse:** where events per cell per light-crossing (a Knudsen-like number) ≪ 1. Certificates, the causal frontier, and one queue ordered by slack, on the CPU.
+  - **Dense:** where that number is near 1, which is chaos, the normal case of many necessary interactions in a short time.
+    - Cells run in lockstep, in cache (on the GPU and NEON). A tick wastes nothing when everything changes every tick.
+    - The broad phase is bits (occupancy maps, an AND, a radix sort of cell keys); the narrow phase is exact predicates on narrow numbers.
+    - Events farther apart than c × the window resolve in parallel waves.
+    - Its floor is the entropy it produces (about 4 bits per collision, H0173). Only the surprises are logged; the rest replays.
+- **Causality is min-plus (tropical) algebra,** the logarithm of arithmetic (Maslov). Arrival times compose by + and are chosen by min. Light-cone spread is bit-parallel: a shift and an OR move light one cell for 64 cells at once.
+- **The allocator** is that one queue. Priority is slack; the view has the hardest deadline; idle time computes ahead and recompresses.
 
-## 4. Numbers as information
+## 4. Numbers: information-theoretic and native
 
-Each stored number holds the information its behaviour needs, in the form its operations want, at a width the silicon handles natively.
 - **The form follows the dominant operation.**
-  - Quantities mainly added are linear fixed point: positions within a cell, times, E and L under kicks.
-  - Quantities mainly multiplied are logarithmic (a logarithmic number system): potentials M/r, clock rates, Doppler factors (whose logarithm, the rapidity, adds up under boosts, as in Bondi's k-calculus), scales and radii. There, multiplication is addition, a power is a shift, and **a square root is a one-bit shift.**
-  - A float's bit pattern already approximates its log₂ (Mitchell, 1962), and a 16-entry table corrects it.
-  - Converting between the two forms is a lookup, done only at interfaces.
-- **Squared forms elsewhere.** Compare r² and τ². Contact tests are sign tests on the quadratic. A root is taken only for an exact event time, with a few Newton multiply-adds.
+  - Quantities that are added are linear fixed point: in-cell positions, times, E and L.
+  - Quantities that are multiplied are logarithmic: potentials, clock rates, Doppler factors, scales. There, a product is an addition and a square root is a one-bit shift. A float's bits already approximate log₂ (Mitchell, 1962), and a 16-entry table corrects them.
+  - Converting between the two forms is a table lookup, done only at interfaces.
+- **Squared forms elsewhere.** Compare r² and τ². Contact tests are sign tests. A root is taken only for an exact event time.
 - **The width follows the information.**
-  - Store invariants and epochs. Phases are derived exactly from time. Fine positions are computed from exact invariants only when an interaction needs them.
-  - Orbits indistinguishable at the stored width are one record: the quantization merges what the player cannot tell apart.
-  - Floors per body: about 2–5 bytes for a structured body given its family (a fleet member, a belt asteroid); about 12–16 bytes for an individual in a doll. Today's `Body` takes 88 bytes.
-- **Noise shaping lets stored numbers be narrow.** The carries are sigma-delta modulators. A 1-bit audio converter reaches 20+ bits in band by pushing rounding error to high frequency. Our carries push it within an orbit, where it averages out. How narrow E and L can be is a measurement.
-- **The silicon.**
-  - 32-bit words, and 32×32 → 64-bit products as hi/lo pairs.
-  - 16-bit halves: NEON runs 8 lanes per instruction, and the GPU keeps more threads in flight.
-  - Leading-zero count and popcount are single instructions. A 128-byte line holds one cell summary.
-  - Block floating point: the cell level is the shared exponent, which is the "virtual comma" made explicit.
-  - Wide numbers only at rare events, on the CPU.
-- **One floor is chosen:** the finest spatial distinction the player can see (the early-cinema frame rate). The time floor follows from c = 1.
+  - Store invariants and epochs. Derive phases and fine positions, and only when needed.
+  - Orbits that are indistinguishable at the stored width become one record.
+  - Floors per body: about 2–5 bytes for a structured body given its family; about 12–16 bytes for an individual in a doll. Today's `Body` takes 88 bytes.
+- **Carries are sigma-delta modulators** (Inose and Yasuda, 1962). Rounding error is pushed within an orbit, where it averages out, so stored numbers can be narrow. Bresenham's error term (1962) is the same trick, so tubes at rational speeds and carries are one mechanism. Minsky's circle (HAKMEM, 1972) keeps an orbit closed with two additions, because the map preserves area.
+- **The virtual comma is explicit:** block floating point, with the cell level as the shared exponent.
+- **Native per bundle, not per number.**
+  - Several fields are packed into one word with guard bits, operated on once, and unpacked (SWAR).
+  - Packing x + y·2³² gives two products from one multiply.
+  - The M1's one-step operations to design around: add, logic and shifts; bit-field extract and insert; conditional select; leading-zero count; high-half multiply; CRC32.
+  - On NEON: 16-lane add and min, TBL lookups, CNT, saturating adds, SDOT.
+  - On the GPU: SIMD-group min, sum and prefix.
+  - On AMX: outer products, for many kicks at once.
+  - Wide integers only at rare events, on the CPU.
+- **Memory.** Cells lie along a space-filling curve in causal order, and a cell's bodies are contiguous packets (128-byte lines, 16 KB pages). The frontier streams through memory, as Crash Bandicoot did.
+- **One floor is chosen:** the finest spatial distinction the player can see, like the early-cinema frame rate. Time follows from c = 1.
 
-**Bundles and single instructions.** The width must be native per bundle, not per number.
-- Pack several narrow fields into one word with guard bits (SWAR), operate once, then unpack. Packing x and y as x + y·2³² gives a·x and a·y from a single multiply.
-- The M1's one-step operations to design around: add, AND/OR/XOR and shifts; bit-field extract and insert (UBFX, BFI) for packed addresses; conditional select (CSEL) for branch-free min, max and absolute value; leading-zero count (CLZ) for the ring index; high-half multiply (UMULH); CRC32 for memo keys.
-- On NEON:
-  - 16 lanes of 8-bit add and min: tropical relaxation;
-  - TBL, 16 table lookups in one instruction, for log↔linear conversion;
-  - CNT for occupancy;
-  - saturating adds;
-  - SDOT, 16 int8 multiply-accumulates.
-- On the GPU: SIMD-group min, sum and prefix across 32 lanes; popcount; bit-field extract.
+## 5. Stolen from the compute-starved
 
-**Stolen from the compute-starved,** who had skin in the game:
-- Bresenham (1962): lines by additions and an error term; tubes crossing cells at rational speeds.
-- The DDA integrators of the 1950s: differential equations by additions and overflow carries.
-- Sigma-delta (Inose and Yasuda, 1962): noise-shaped carries. Bresenham's error term is first-order sigma-delta, so our tubes and our carries are the same trick.
-- CORDIC (Volder, 1959): rotation by shifts and adds.
-- Minsky's circle (HAKMEM, 1972): x −= εy, y += εx, two additions that keep a closed orbit forever, because the map preserves area.
-- Mitchell (1962): logarithmic multiplication.
-- The Apollo Guidance Computer: a hand-chosen scale per variable, which is the virtual comma.
-- Elite (1984): a galaxy from a seed.
-- Wolfenstein 3D (1992): rays cast from the observer through a 2D map.
-- Crash Bandicoot: memory laid out in the order it is traversed.
-- Hashlife (Gosper, 1984).
+Bresenham, the DDA integrators of the 1950s, sigma-delta, CORDIC (shift-and-add rotation), Minsky's circle, Mitchell's logarithms, the Apollo Guidance Computer's per-variable scaling, Clohessy–Wiltshire, Elite's seeded galaxy, Wolfenstein's observer rays, Crash Bandicoot's traversal-ordered memory, Hashlife. They had skin in the game (principle 26).
 
-## 5. Hard operations made cheap
+## 6. Where compute goes (estimates, 10⁹ ships)
 
-| Hard operation | Representation | What remains |
+| Work | Rate | Cost |
 |---|---|---|
-| Rotation, zoom | log coordinates (rings) | +1 on indices |
-| Changing scale | levels as a shared exponent | a shift |
-| Gravity on a body | a freely falling doll | tides only |
-| An orbit | symmetric rings, E and L exact | per cycle: φ, t, τ += constants (one vector add) |
-| Perturbations, inspiral (Peters' ΔE, ΔL) | kicks on the invariants | + on E and L |
-| Boosts, square roots, potentials | logarithmic numbers | additions and shifts |
-| Causality, arrival times, scheduling | c native; min-plus (tropical) algebra, the logarithm of arithmetic (Maslov) | bits, + and min |
-| Repetition | memoization | a lookup |
-| Memory | cells along a space-filling curve in causal order; families until an event singles one out | streaming |
+| Undisturbed orbits | only when looked at | ≈ 0 |
+| Tidal kicks, with averaging | ~6×10⁴ per game-second | ~50 ns each, incremental: < 1% of a core |
+| A cycle's first computation | new invariants only | tens of crossings, then memoized |
+| The view | ≤ 1 sample per pixel per frame | GPU |
+| Chaos and contacts | bursts | the dense order: entropy, the p99 risk |
+| AI decisions | when their view changes | likely the largest total, and unknown |
 
-## 6. Stored once, or not at all
+The same things on the current path cost 340–120,000 steps per orbit, 20,000–77,000 steps per light path (probe 2), and 88 bytes per body (the current `Body`).
 
-- **Invariants over conventions.** Coordinates are conventions, used locally and converted only at surprises. The invariants are rest mass, proper time, the interval, E and L in a doll, a photon's b = L/E, and γ_rel = −u₁·u₂ (a dot product).
-- **Merged:**
-  - potential and flow;
-  - time dilation, redshift and Shapiro delay: one lapse, emergent;
-  - tides and multipoles;
-  - a photon is a massless body;
-  - a step is a certificate;
-  - a contact and a crossing are one resolver.
-- **Derived from something else:**
-  - a doll's edge, from its mass ratio;
-  - a cell's time unit, from its size;
-  - an anonymous body's identity, from its slot;
-  - mass and radius, from a type table.
+## 7. The falsifier ladder (cheapest first; kill criteria frozen before each run)
 
-## 7. Interactions
+1. **Rings.** One static mass: E and L conserved at rings, m swept, the cycle's periodicity checked, a square grid as the control. It is judged by the behaviour gates of [gravity-law.md](gravity-law.md):
+   - precession at 20M and 1000M;
+   - capture at L = 4M;
+   - light from 10⁴ M;
+   - E and L over 10⁴ orbits;
+   - crossings per cycle.
+2. **Carry width.** How narrow E and L can be under noise-shaped carries, with behaviours held fixed.
+3. **Many sources.** The potential adds and the flow is derived; it must pass 1PN for two bodies. Handoffs between dolls stay bounded.
+4. **Crossings between levels** and **moving sources:** energy exchange must be physical (gravity assists).
+5. **The dense order.** A Clohessy–Wiltshire battle frame with lattice contacts, bit-identical to the sparse order.
+6. **The view.** Gathered retarded positions, the blackbody table and lensing, per pixel within the frame budget.
 
-| Interaction | Where it lives | Cost |
-|---|---|---|
-| Orbits; Kerr in the plane (still symmetric, with Doran twist); inspiral | doll cycles | additions per cycle |
-| Tides, dynamical friction, fleets as sources | kicks from moments | per kick |
-| Comparable masses: binaries, three-body encounters, clusters | Cartesian cells, stepping in the dense order | real entropy |
-| Thrust (relativistic rockets) | rapidity linear in proper time; in a field, the cell's local solution, with E and L changed by the work done | per crossing while burning |
-| Orientation, spin, geodetic precession | an angle carried across crossings | additions |
-| Contacts, near-c collisions, fragmentation, explosions | the lattice law in the dense order; expanding shells at ≤ c | entropy (debris is open) |
-| Tidal stress (Roche limit, spaghettification) | tidal term against strength | a threshold test |
-| The view: retarded positions, aberration, beaming, lensing | past light cone per visible body; deflection(b) memoized per doll | per visible body per frame, on the GPU |
-| Signals; horizon absorption; accretion | photons with 1/r² fall-off; the doll's mass ledger | at events |
-
-## 8. What carries over from what we built
+## 8. What carries over
 
 | Built | Role here |
 |---|---|
-| `es-lattice-relativistic-v1` (exact integer special relativity, carries, walls) | the contact resolver; its carries become the rounding rule everywhere |
-| `lattice-event` (event core, queue) | the sparse order. Its density-sized cells give way to dolls plus on-demand contact bins |
-| `lattice-metal` (GPU lockstep, 32-bit cell-relative) | the dense order |
-| `allocator` (regions, least slack) | the one queue, fed by surprise rates |
-| chronon mode | the test judge. The hybrid and regions modes merge into the two orders |
-| `gr-oracle`, the Arb judge, `gravity-gate`, ladder v7 | the behaviour and cost judges. The chaos rungs exercise the dense order |
+| `es-lattice-relativistic-v1` | the contact resolver; its carries become the rounding rule everywhere |
+| `lattice-event` | the sparse order; its density cells give way to dolls and on-demand contact bins |
+| `lattice-metal` | the dense order (already 32-bit and cell-relative) |
+| `allocator` | the one queue, ordered by slack |
+| chronon mode | the test judge; the hybrid and regions modes merge into the two orders |
+| `gr-oracle`, the Arb judge, `gravity-gate`, ladder v7 | the judges of behaviour and cost |
 | H0190 (kicks, averaging, handoffs) | the dolls' perturbation layer |
-| families (archived H0182); the hyperedge IR (archived H0016) | fleets sharing frames and invariants; the causal event graph |
-| [universe-quanta.md](universe-quanta.md) (a global Q = 2^40) | replaced by per-cell block floating point and one floor |
-| gravity v0 (exact geodesics); the v1 drift-kick draft | oracle material; superseded by dolls |
-
-## 9. Weakest joints, and the cheapest falsifier
-
-1. **Accuracy per crossing.** Weak-field precession and turning points against m, the rings per octave. The error is systematic and the same every orbit (the right type); its size is unmeasured.
-2. **The many-source rule.** The potential adds and the flow is derived; it must pass 1PN for two bodies.
-3. **Crossings between levels,** within the error budget.
-4. **Moving sources.** Energy exchange must be physical (gravity assists), not numerical.
-5. **How narrow the invariants can be** under noise-shaped carries.
-
-**The falsifier** (float, one static mass, each script under 60 s, kill criteria frozen before the run):
-- log-polar rings, with m swept;
-- E and L conserved at each ring;
-- the cycle's periodicity checked;
-- a dyadic square grid as the control.
-
-It is judged by the behaviour gates of [gravity-law.md](gravity-law.md): precession at p = 20M and 1000M, E = 1 capture at L = 4M, deflection from r = 10⁴ M, E and L over 10⁴ orbits, and crossings per cycle.
+| families (H0182), the hyperedge IR (H0016) | fleets sharing frames, and the causal event graph |
+| gravity v0; the v1 drift-kick draft | oracle material; superseded |
