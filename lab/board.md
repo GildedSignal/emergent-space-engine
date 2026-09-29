@@ -11,7 +11,16 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
    - "we want to guess in a way that is perfect how the simulation will run to bypass it"; "steps are there to solve a problem of how much error we are ok with… we want them consistent across the different types of simplifications… We need to expand what steps mean".
    - "rethink our units from scratch, time and spatial ones", "tied to hardware and end goal"; the number representation from first principles; "how we travel [memory] limiting useless movement".
 
+   - Later the same day he added:
+     - "We need to make this whole thing GR native that's THE unlock"; "GR is just one thing".
+     - Sheets as nested dolls of a fixed bit size, whose size is linked to the spacetime gradient ("we can infer it from the size").
+     - AI and player decisions as the seeds of change.
+     - "the floor is what the player can differentiate like frame rate in early cinema"; units from the hardware.
    Derive it from the requirements (the goal, the behaviours, the M1) before any known method. Candidates to test, not adopt:
+   - fixed-bit cells in a dyadic tree, where the level acts as a shared exponent (block floating point, OCP microscaling);
+   - geometry partly encoded by the tree's shape;
+   - AIs as part of the deterministic law, recomputed only when what they see changes, so the player is the only seed;
+   - one chosen floor (spatial), with time derived through c = 1 and velocity precision derived from the certificate's length;
    - each cell a freely falling local frame, with bodies stored as small offsets from it;
    - c as one cell per update, so each cell's time unit is its light-crossing time;
    - exact shortcuts in the spirit of Hashlife;
