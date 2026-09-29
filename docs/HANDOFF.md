@@ -15,8 +15,9 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | At 1855340: rule, anchors, interval arithmetic, elliptic primitives, radial and circular charts, orbit classification in progress. Resumes 03:59 via `artifacts/runs/astra-geodesic/launch.sh` (the note includes GLM's rank-1 report). Codex weekly is at 47%, about 15% per Astra window; above 75%, the remaining crate work moves to Claude Opus, with Astra reviewing | Review; run G2 rung by rung; merge |
+| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | At 202e9f7 (range history, whirl inversion, exact event midpoint). Resumes 09:00 via `artifacts/runs/astra-geodesic/launch.sh`, public API first. Codex weekly 64%, about two windows left; the Opus handover rule applies above 75% | Wire the harness adapter; climb R0→R5; merge |
 | Gate harness `xtask gravity-gate` | Merged (H0193): echo passes literally, planted fails | Ready | Wire `xtask/src/gate/adapter.rs` once Astra exposes `Geodesic` (its resume note lists the needed diagnostics); climb R0→R5 |
+| Re-review of Astra's 3 newest commits | GLM, read-only, sandboxed; session saved in `artifacts/runs/glm-sessions` (tokens countable with `omp stats`) | Running | Pass rank-1 findings to Astra's next note |
 
 ## What the engine computes
 
