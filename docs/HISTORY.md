@@ -2979,3 +2979,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: `~/.claude/plans/whimsical-snuggling-graham.md`
 - Limitations: None.
 - Next: Julien reviews the plan; nothing merges before his go.
+
+## H0202 — The cloud lab validated by canaries; the behaviour judge built; v0 gate code retired
+
+- Date: 2026-09-29
+- Kind: tooling
+- Status: implemented
+- Revisions: a3d40e9 (rung mode), 4b9daf1 (behave), this entry's commit
+- Scope: lab/run.sh (rung mode), lab/verdict.py, lab/canaries; xtask behave, measure.rs; xtask/src/gate and xtask/judge retired
+- Changed: GLM now runs only in the cloud: Claude Code routines on environment glm-lab with a Haiku host. Its first run failed with a Z.ai 401, because the stored key kept its angle brackets. Once fixed, the canaries graded correctly: kepler-pass gave PASS, confirmed by the blind second checker, and kepler-kill gave KILL of euler. Rung verdicts are mechanical (PASS, KILL, DISPUTED, VOID) against frozen, hash-stamped criteria, and a negative control that passes voids the rung. `xtask behave`, built by Claude to judge OpenAI's future core, runs gates G1–G6: echo passes all six, and each planted law fails exactly its own gate. About 6,000 lines of v0 gate and judge code were removed; gr-oracle output is byte-identical and ladder7 matches.
+- Why: the approved pivot plan, Phase 0.
+- Validation: canary DONE lines on claude/lab-20260929-1832-*; 13 verdict tests; workspace tests pass; history check PASS.
+- Evidence: [lab/canaries](../lab/canaries/README.md)
+- Limitations: The lab's free-question mode is untested until the red-team returns.
+- Next: Read r1–r3 and red-team verdicts; the law.
