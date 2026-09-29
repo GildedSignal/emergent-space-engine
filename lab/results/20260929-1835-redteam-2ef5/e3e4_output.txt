@@ -1,0 +1,17 @@
+E3: exact Schwarzschild precession vs 1PN (6*pi/p), e = 0.3
+  p=   20  exact advance 1.618528  1PN 0.942478  rel diff +71.73%
+  p=   50  exact advance 0.446921  1PN 0.376991  rel diff +18.55%
+  p=  200  exact advance 0.098001  1PN 0.094248  rel diff +3.98%
+  p= 1000  exact advance 0.018994  1PN 0.018850  rel diff +0.77%
+
+E4: Minsky (forward-Euler mutual update) rotation, intended angle eps per step:
+  effective angle theta = arccos(1 - eps^2/2); relative bias = theta/eps - 1 ~ eps^2/24
+  requirement for r1's 1% precession gate: bias * Phi_cycle <= 0.01 * Dvarpi,
+  with Dvarpi = 6*pi*M/r (e=0), Phi_cycle = 2*pi + Dvarpi
+
+  r/M      eps_max   steps/cycle   (vs 512-crossing budget of r1)
+         6  2.83e-01          33
+        20  1.77e-01          41
+       100  8.36e-02          77
+      1000  2.68e-02         235
+     1e+06  8.49e-04        7405

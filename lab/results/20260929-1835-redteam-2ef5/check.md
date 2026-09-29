@@ -1,0 +1,38 @@
+Grade: silver
+
+**Abstract for the integrator.** Claim: representation.md §6's costed layer "tidal kicks, with averaging" cannot represent mean-motion resonance. Reproduced bit-identically (35.7 s); truth converged (max e1 0.1751/0.1750/0.1751 at 600/1200/2400 steps/orbit); phase-shifted 2:1 also kills it (truth concentration 0.867, averaged model 0.005); E3 verified independently to 1e-11 (+71.7% at p=20; +74% at e=0.6), and r3's frozen `prec` gate confirmed contaminated (no truncation exclusion, unlike `period` — adoptable now). Not gold: model "B phase-kept" integrates full forces over the *entire* synodic period (~0.7× truth's step count), not the design's per-conjunction kick layer, so "kicks survive" is unmeasured; E4's step-count cost dies to the free reparameterization eps = 2·sin(θ/2); and the resonance-kills-averaging rule already appears in docs/reference/original-conversation.md (~line 7600).
+
+## Reasons
+
+**1. Reproduction.** Clean tree, empty `work/patch.diff` (0 B; the author touched nothing outside the run folder). `python3 e1_resonance.py` → 35.7 s, output **byte-identical** to `e1_output.txt`; `python3 e3_e4_checks.py` → byte-identical to `e3e4_output.txt`. No number differed.
+
+**2. Predictions.** `predictions.md` mtime 18:43:55 < script 18:52:22 < output 18:52:59 — written before the decisive run. The decisive predictions held (A misses the pumping by ≥2×: observed 2.1–2.6×; B tracks; A's resonant angle erased), and the misses are disclosed honestly (no clean libration — 0.27 vs predicted >0.9; E3 72% vs predicted 2–8%). One undisclosed deviation: the predicted control ratio was 2.30; the shipped controls are 2.15 and 2.55.
+
+**3. My attacks (7 run, all in /tmp scratch).**
+- **Truth convergence** (600/1200/2400 steps/orbit, 2:1 m=3e-3): max e1 0.1751/0.1750/0.1751, drift 2.48e-3→2.49e-3. The kill is not a resolution artifact; B's ~1% agreement with truth exceeds B's own step sensitivity (0.0008 between nsub 800/1600).
+- **H0190-scope control, ratio 5.0**: truth's secular e1 is flat-with-wobble (max 0.0728), A tracks the secular part (0.0507) — the no-strawman claim holds. Note the author cited only the 2.55 control (29% low); the 2.15 control is 46% low (0.0625 vs 0.1153) — selective.
+- **Phase robustness, 2:1 with w2=4.0**: truth pumps to 0.114 with clean libration (concentration 0.867), B 0.855, A 0.005. Cleaner than the author's own case.
+- **3:2 at m=3e-3**: truth's Verlet drift 9.95e-1 — unusable as truth; the author's 2:1 choice was sound.
+- **E3 independent** (own RK4, bisection periapsis, steps refined to 1e-11): +71.73/+18.55/+3.98% at p=20/50/200, e=0.3 — matches the author to all printed digits; at e=0.6 (r3's e range): +74.25% at p=20. The r3 gate bug is real: I verified in `lab/rungs/r3-two-body-doll.md` that `prec behaviour precession_pass_fraction >= 0.99` has no truncation exclusion while `period` explicitly excludes the 2PN-sized part, and seeds reach p=20.
+- **E4**: the bias identity is exact (measured 4.171e-4 vs eps²/24 = 4.167e-4 at eps=0.1). But the *cost* conclusion is an artifact: with eps = 2·sin(θ/2) the two-addition map's angle is exactly θ (identity holds to 15 digits), at zero extra cost; integer-quantized eps residuals are DC errors, which the doc's own sigma-delta carries (§4, rung r2) exist to cancel. The 235–7405 steps/cycle numbers describe a naive parameterization the design need not use.
+- **CW**: at dr/R=0.01, released at rest, the CW error after one reference period is 0.077 ≈ **7.7× the offset itself**, matching the quadratic coupling (12π·dr)²/2R. Attack 2 verified and sharpened: "exact closed form" fails Newtonianly with a large coefficient, not just by (dr/R)²-of-the-tide.
+
+**4. The decisive silver reason: model B is not the kick layer.** `run_modelB` integrates full N-body forces over the *entire* synodic period (nsub=800 steps of h=Tsyn/nsub ≈ 1/400 orbit at 2:1), carrying osculating elements between windows; Kepler motion is used only to resample *output*. There are no Kepler-cycle stretches and no per-conjunction kicks in B's dynamics; its cost is ~0.7× truth's (0.83M vs 1.2M steps in case 1). So the demonstrated statement is "dense integration sees the resonance; the averaged layer does not" — the headline "the same kick layer with the conjunction phase kept matches truth to ~0.5–2%" was not measured. `predictions.md` itself describes B as "per-conjunction kicks computed along undisturbed Kepler cycles", which the code is not. "Kills the configuration, not the method" (H0183) therefore asserts the method's survival on evidence that never exercised the method's cheap path. The A-vs-truth kill stands regardless (it needs only A and truth).
+
+**5. Novelty.** No HISTORY entry and no git commit covers resonance-vs-averaging; I confirmed the rung-gap claim against the frozen files (only r1–r3 exist; r1 is one mass, r3 two bodies, r2 synthetic non-resonant streams; r5/r6 unfrozen). But `docs/reference/original-conversation.md` (~line 7600) already states the rule — "resonance is the enemy of aggressive averaging… far from resonance: orbit averaged… approaching resonance: retain resonant angle" — and `original-research-report.md` (~line 602) warns of resonance-seeking residuals; this is also the classical small-denominator problem of averaging theory. The dossier cites none of it. New here: the quantification against the specific §6 cost line, the rung-gap audit, and E3's frozen-gate contamination (the last is genuinely new and verified).
+
+**6. Goal fit.** Board 0/2. Respects "Behaviours matter, not continuum fidelity: error type over error size" (2) — an averaged layer has no error budget that can represent a locked angle; the H0183 discipline is applied correctly *in form*, though not in evidence for the surviving half. Cost-of-adoption is honest (one rung criterion, the r3 exclusion fix, an r5 GR-tide case, deleting "exact" from CW). The r2-bits-vs-§4-floor arithmetic check (320 bits = 40 B vs 12–16 B) is real.
+
+## The one experiment that would make it gold
+
+Implement the design's actual event layer for the same cases: exact Kepler cycles between conjunctions plus an analytic phase-dependent (quadrupole) kick applied *at* each conjunction — no dense integration anywhere — and show it reproduces truth's 2:1 pumping envelope and angle libration (my phase-shifted case gives the clean target: conc 0.867). If it tracks within ~10–20%, "averaging dies, kicks survive" is measured, the fallback's cost is known, and the proposed rung criterion (`resonance behaviour e_pump_ratio >= 0.8` plus libration) can be frozen from measured behaviour. If it fails, the finding is *bigger* than claimed and the doc's §3 kick machinery joins averaging on the kill list.
+
+## What the author missed
+
+- Model B's dynamics is dense integration; the claim's second half rests on an unrun model (above).
+- The free fix eps = 2·sin(θ/2) (and the doc's sigma-delta carries) void E4's steps-per-cycle cost; what remains of E4 is only "don't parameterize naively" — a note, not an attack.
+- The two-addition map is S·R·S⁻¹, not a rotation: orbits are ellipses with a bounded radial ripple (2.5% half-width at eps=0.1). Doc and dossier both say "rotation"; r1's shape gate will see the ripple and should be told to expect it.
+- CW's Newtonian failure is larger than stated for free-drifting members (7.7× the offset after one period at dr/R=0.01), which strengthens their own attack 2.
+- Prior art in-repo (reference conversation) for the resonance rule goes uncited.
+- The 2.15 control's 46% miss is not reported; only the milder 2.55 number is quoted.
+- The predicted control ratio (2.30) silently became 2.15/2.55.
