@@ -1,0 +1,1 @@
+Forward EulForward Euler at h = T/200 unbinds the e = 0.5 Kepler orbit after just 3.48 revolutions (bound_fraction 0.00777, fails B1) while the frozen control fails R1 with 0 revolutions — KILL as designed, and notably energy_growth_exponent passes (−0.0003) because all 20 windows sit on the flat post-escape plateau, so bound_fraction is the tooth that kills.
