@@ -146,7 +146,7 @@ Kill criteria are frozen in [lab/rungs/](../lab/rungs/). Each rung is run in the
 | `lattice-metal` | the dense order (already 32-bit and cell-relative) |
 | `allocator` | the one queue, ordered by slack |
 | chronon mode | the test judge; the hybrid and regions modes merge into the two orders |
-| `gr-oracle`, the Arb judge, `gravity-gate`, ladder v7 | the judges of behaviour and cost |
+| `gr-oracle`, `xtask behave` (G1–G6, planted laws), ladder v7 | the judges of behaviour and cost (the Arb judge retired; recoverable at fa4b547) |
 | H0190 (kicks, averaging, handoffs) | the dolls' perturbation layer |
 | families (H0182), the hyperedge IR (H0016) | fleets sharing frames, and the causal event graph |
 | gravity v0; the v1 drift-kick draft | oracle material; superseded |

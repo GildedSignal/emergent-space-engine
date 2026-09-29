@@ -94,7 +94,7 @@ Every test runs in under 60 s, measured the way the player runs it, with the the
 ## Division of the work
 
 - **The law's author** owns the written law and `crates/gravity`: cells, multipoles, the β rule, the in-cell solution and the Metal path. Astra, or Claude Opus while Codex's weekly usage is above 75% (80% on 29 September), with Astra reviewing.
-- **Sonnet:** `xtask gravity-behave` against the oracle, with the seed sampler and the B10 scenes. It reuses `gravity-gate`'s watchdog and machine-state recording.
+- **Sonnet:** `xtask behave` (built; gates G1–G6 with planted laws). This contract is superseded by `docs/law.md` once that exists.
 - **GLM:** the red-team and probe 1 (done), probe 2 (running), then mutants.
 - **The integrator:** this contract and its freeze, adjudication, merges and the journal. Julien can veto the gates before the first run.
 
