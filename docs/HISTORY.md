@@ -2937,3 +2937,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [minings](../artifacts/evidence/philosophy-mining-20260929/PROVENANCE.md); [red-team and probe 1](../artifacts/evidence/gravity-v1-freeze-20260929/PROVENANCE.md)
 - Limitations: The many-source β rule and B10's reference scene are open.
 - Next: Fold probe 2 and the prior-art scout; freeze v1.
+
+## H0199 — The GLM lab: many lenses with autonomy of inquiry, an independent checker, gold not pass/fail, cloud only
+
+- Date: 2026-09-29
+- Kind: process
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: [lab/](../lab/README.md) (new: charter, board, nine lenses, run.sh, setup.sh); AGENTS (GLM line); PRINCIPLES register; HANDOFF
+- Changed: Julien: GLM gets autonomy over what it experiments on, not over what it changes; never on his machine; "a good system that make sure it propose gold"; an independent GLM checks. Built: authors with lenses (dynamics, system, components, scout, autoresearch; quant, SpaceX and Taleb from his Readwise) choose their own experiments toward a ranked bottleneck board; they write held-out predictions before the decisive run; a fresh GLM reproduces, attacks, checks novelty and grades gold, silver or lead with reasons. The integrator reads only gold, at most three a day, and logs its decisions in a taste log every author reads. Runs in cloud routines; results live on claude/lab-* branches, never main. Supersedes pull-based loops.
+- Why: "Our goal is to make the fastest and most robust engine/compiler ever for that type of physics".
+- Validation: run.sh plumbing tested with a stand-in agent in a scratch clone (patch captured, tree restored, branch pushed); refuses macOS.
+- Evidence: [lab/README.md](../lab/README.md)
+- Limitations: Not yet run: the cloud environment needs Julien's ZAI_API_KEY.
+- Next: Routines: one trial lens, then all.
