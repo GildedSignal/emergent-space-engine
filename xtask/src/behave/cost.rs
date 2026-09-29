@@ -52,7 +52,7 @@ pub fn b9(law: &dyn Law) -> Gate {
     ns.sort_by(f64::total_cmp);
     let detail = format!(
         "cost per body: median {median:.1} crossings per cycle (limit {CROSSINGS_MAX}), p95 {:.1}, max {:.1}{}; advance_per_cycle after the first call: median {:.0} ns, p95 {:.0} ns over {} seeds (reported)",
-        percentile(&counts, 0.95),
+        if counts.is_empty() { f64::NAN } else { percentile(&counts, 0.95) },
         counts.last().copied().unwrap_or(f64::NAN),
         if unanswered > 0 { format!(", {unanswered} of {} unanswered", orbits.len()) } else { String::new() },
         percentile(&ns, 0.5),
