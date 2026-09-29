@@ -25,10 +25,28 @@ Status: **DRAFT** (29 September 2026). This synthesizes Julien's direction from 
 - **Spacetime is 2+1 dimensional, and its natural algebra is the split-quaternions.**
   - An event (t, x, y) is the pure split-quaternion t·i + x·j + y·k, whose norm t² − x² − y² is the interval.
   - Rotations and boosts are the unit split-quaternions, the 2×2 real matrices with determinant 1.
-  - Lead: integer matrices with determinant 1 (SL(2,Z)) give exact, exactly reversible frame changes, but only for a discrete set of velocities. Untested.
+  - Lead: integer matrices with determinant 1 give exact, reversible frame changes, but the slowest boost among them is already about 0.75c. With dyadic fractions every speed becomes reachable, but exact composition grows the denominators, and rounding them back costs exact reversibility. Untested.
 - **Cells hold the integer mass moments of what they contain,** ships' aggregates included.
   - Geometry is a local rule of the moments: the clock rate (the potential) adds up, and the flow is derived from it.
   - A change travels at most one cell per update.
+
+## How computation becomes cheap: turn hard operations into additions
+
+| Hard operation | Representation | What remains |
+|---|---|---|
+| Rotation and zoom (multiplication) | log coordinates (rings) | +1 on integer indices |
+| Changing scale (doll or level) | dyadic levels as a shared exponent | a bit shift |
+| Gravity on a body | a freely falling doll frame | nothing but tides |
+| An orbit | rings aligned with its symmetry, with E and L exact | per cycle: φ += Δφ, t += T, τ += Δτ |
+| Perturbations | kicks on the invariants | + on E and L |
+| Free motion | tubes | one multiply-add, or counting at rational speeds |
+| Causality and light cones | c native | cell adjacency |
+| Earliest arrival, light-cone spread, scheduling | min-plus (tropical) algebra, the logarithm of ordinary arithmetic (Maslov) | + and min |
+| Identical situations (orbits, regions, AI inputs) | memoization (Hashlife) | a lookup |
+| Memory | causal order | sequential streaming |
+| Numbers | 32-bit words with shared exponents | native on every unit |
+
+Real multiplications, square roots and wide integers remain only at surprises: handoffs, a cycle's first computation, contacts and decisions. Compute then equals entropy (principle 3).
 
 ## One law
 
