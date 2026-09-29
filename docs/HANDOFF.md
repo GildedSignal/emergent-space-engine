@@ -15,7 +15,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | At 1855340: rule, anchors, interval arithmetic, elliptic primitives, radial and circular charts, orbit classification in progress. Resumes 03:48 via `artifacts/runs/astra-geodesic/launch.sh` (the note includes GLM's rank-1 report) | Review; run G2 rung by rung; merge |
+| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | At 1855340: rule, anchors, interval arithmetic, elliptic primitives, radial and circular charts, orbit classification in progress. Resumes 03:59 via `artifacts/runs/astra-geodesic/launch.sh` (the note includes GLM's rank-1 report). Codex weekly is at 47%, about 15% per Astra window; above 75%, the remaining crate work moves to Claude Opus, with Astra reviewing | Review; run G2 rung by rung; merge |
 | Gate harness `xtask gravity-gate` | Claude Sonnet sub-agent, `/private/tmp/emergent-wt-gate` (`wt/gate`), target `/private/tmp/emergent-target-gate` | Building, with `echo` and `planted` evaluators proving it can fail | Review; merge; wire Astra's `Geodesic` once it exists; climb R0→R5 |
 
 ## What the engine computes
