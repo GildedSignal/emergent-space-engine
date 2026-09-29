@@ -2878,3 +2878,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: `artifacts/runs/gravity-gate/first-climb/` (on disk)
 - Limitations: The stop at the first timeout hides the rest; a diagnostic mode is being added.
 - Next: Full diagnosis across every rung; Astra's 14:00 window works from it.
+
+
+## H0195 — Gravity re-grounded: the law is a cheap local algorithm held by cells; exact GR becomes the oracle
+
+- Date: 2026-09-29
+- Kind: decision
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: the gravity plan (HANDOFF, gravity-law.md next); law es-lattice-gravity-v0's exact-floor definition retired to oracle use
+- Changed: I had made the exact continuum geodesic the canonical law (certified floors, 512-bit ladders, quantum-level kicks), which is continuum fidelity, against behaviour-first. His "go": the law is a fixed integer algorithm. Bodies deposit mass into cells (exact integer sums); cells hold the flow field β with certificates; bodies drift analytically inside their cell and pay only at events (cell crossing, certificate expiry, contact, command). Observables such as clocks, redshift and lensing are derived on demand, never evolved. Gates judge behaviours and error type against the oracle (gr_oracle, the Arb judge, the exact geodesics). The modes merge into one engine.
+- Why: Less is more. Cost follows change. This is the original cells-as-frames design, and the particle-mesh and FMM codes that solve billions of particles.
+- Validation: The exact evaluator agreed exactly where it answered (all of R2's 176,736 queries), but ran 1,600× over budget (H0194; diagnosis in ).
+- Evidence: this entry
+- Limitations: The new law is not designed yet.
+- Next: new contract, then GLM red-team and float probe, then freeze, then Astra builds.
