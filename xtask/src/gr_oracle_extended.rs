@@ -112,7 +112,7 @@ fn shapiro_ode_leg(r0: f64, r: f64) -> f64 {
     r0 * (shapiro_ode_time(1.0 / r0, target) - shapiro_ode_time(0.0, target))
 }
 
-fn bound_constants(p: f64, e: f64) -> (f64, f64) {
+pub(crate) fn bound_constants(p: f64, e: f64) -> (f64, f64) {
     let energy = (((p - 2.0).powi(2) - 4.0 * e * e) / (p * (p - 3.0 - e * e))).sqrt();
     let angular = p / (p - 3.0 - e * e).sqrt();
     (energy, angular)
@@ -199,7 +199,7 @@ fn bound_series(p: f64, e: f64) -> (f64, f64, f64) {
     (newton, newton * (1.0 + 3.0 / a), newton * (1.0 + 1.5 / a))
 }
 
-fn eih_invariants(p: f64, e: f64, nu: f64) -> (f64, f64, f64, f64) {
+pub(crate) fn eih_invariants(p: f64, e: f64, nu: f64) -> (f64, f64, f64, f64) {
     let rp = p / (1.0 + e);
     let ra = p / (1.0 - e);
     let j0 = p.sqrt();
@@ -226,7 +226,7 @@ fn eih_invariants(p: f64, e: f64, nu: f64) -> (f64, f64, f64, f64) {
     (rp, vt, energy, angular)
 }
 
-fn damour_deruelle(energy: f64, angular: f64, nu: f64) -> (f64, f64) {
+pub(crate) fn damour_deruelle(energy: f64, angular: f64, nu: f64) -> (f64, f64) {
     // Damour & Deruelle, Ann. Inst. H. Poincaré 43, 107 (1985), 1PN
     // quasi-Keplerian solution; original source:
     // https://numdam.org/item/AIHPA_1985__43_1_107_0/
