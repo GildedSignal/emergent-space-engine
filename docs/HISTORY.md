@@ -2893,3 +2893,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: this entry
 - Limitations: The new law is not designed yet.
 - Next: new contract, then GLM red-team and float probe, then freeze, then Astra builds.
+
+
+## H0196 — Post-mortem: FMM never built, and gravity drifted through four framings, despite Julien's repeated steering
+
+- Date: 2026-09-29
+- Kind: correction
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: [post-mortem](../artifacts/evidence/postmortem-gravity-fmm-20260929/POSTMORTEM.md); no code change
+- Changed: Julien asked for multipoles as the core mechanism again and again (18 FMM and 45 multipole mentions in the original conversation), yet about 40 gravity entries built no FMM. Root causes: FMM always came after prerequisites defined by continuum fidelity, which kept expanding; gravity was framed per body, not per field; an agent-written kill card blocked FMM until "assigned"; one quadrupole failure (0.478 against 0.05) was generalized into a ban on the method; Gall's law was misapplied; nothing durable held the gravity principle, so summaries carried "designed, not built" with no owner. Correction to H0195: its diagnosis path is `artifacts/runs/gravity-gate/diagnose-1/`, lost to a shell backtick.
+- Why: Julien: "that's a big issue especially given the big drift".
+- Validation: Evidence from the journal, docs/reference and the archived kill card.
+- Evidence: [post-mortem](../artifacts/evidence/postmortem-gravity-fmm-20260929/POSTMORTEM.md)
+- Limitations: Five corrective actions are proposed and await Julien's approval.
+- Next: On approval: update the card and AGENTS, add tracked requirements, reorder so FMM follows v1's one-mass rung.
