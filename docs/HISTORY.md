@@ -2993,3 +2993,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [lab/canaries](../lab/canaries/README.md)
 - Limitations: The lab's free-question mode is untested until the red-team returns.
 - Next: Read r1–r3 and red-team verdicts; the law.
+
+## H0203 — First GLM premise red-team: silver. Resonance kills averaging; r3's precession oracle was contaminated; r3 v2 and r4 frozen
+
+- Date: 2026-09-29
+- Kind: correction
+- Status: implemented
+- Revisions: e4ac90d (r3 v2), 61d5b73 (design, r4), this entry's commit
+- Scope: representation.md §1 and §3; lab/rungs r3 v2 and r4; lab/board.md taste log
+- Changed: The red-team found that orbit-averaged tidal kicks erase mean-motion resonance. At 2:1 the truth pumps e₁ to 0.175 while the averaged model misses it by 2.1–2.6×. The design now averages only away from resonance and keeps the conjunction phase near it; r4 tests that per-conjunction layer, with no dense integration allowed. r3 v1's precession gate compared the law to a 1PN oracle at p = 20, where the oracle's own truncation is about 72%, so it was contaminated. r3 v2 was frozen at 19:39 UTC, before any r3 verdict, and v1's precession outcome is void by record. Also: Clohessy–Wiltshire is first order only; Minsky's map is a conjugated rotation. Silver, not gold, because the "kicks survive" half used dense integration.
+- Why: premise first; this kills a configuration (averaging near resonance), not the method.
+- Validation: checker reproduction byte-identical; E3 re-derived independently to 1e-11.
+- Evidence: branch claude/lab-20260929-1835-redteam-2ef5
+- Limitations: The resonance rule was already in docs/reference; the mining missed it.
+- Next: The verdicts of r1, r2, r3 v2 and r4.
