@@ -3035,3 +3035,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: branches claude/lab-20260929-1857-rung-r1-rings-cae4, -r3-two-body-doll-453e, claude/lab-20260929-1940-rung-r4-resonance-3530
 - Limitations: r1 needs a clean PASS (re-run at 120 min).
 - Next: The r1 re-run, r3 v2 and r4 v2 verdicts.
+
+## H0206 — GLM's 5-hour window is the binding limit; r3 v2 unjudgeable by the integrator's error; r3 v3 frozen; runs paced
+
+- Date: 2026-09-29
+- Kind: correction
+- Status: implemented
+- Revisions: 054527a (r3 v3), this entry's commit
+- Scope: lab pacing (README); r3 v3; routine schedule
+- Changed: About 12 parallel GLM sessions exhausted Z.ai's 5-hour token quota in under 2 hours; the monthly quota is at 1%. Every later run got a 429 and came back VOID (r1 re-run ×2, r4 v2 ×2). The limit is now three rung runs per window. r3 v2 was DISPUTED: the author timed out; the checker reproduced exactly. Period passes (652/652); ν misses by 7 seeds (0.98996); precession was unjudgeable, because the v2 exclusion left 0 seeds (the 1PN oracle's next term is about 8·M/p), which is the integrator's error and one a positive control would have caught. The assist reference was unconverged. r3 v3: precession band of 1% + 2τ, a mandatory converged reference, a positive control; ν unchanged. r1, r3 v3 and r4 v2 are scheduled for just after the reset.
+- Why: measure before claiming; tests must be passable by an ideal law.
+- Validation: omp usage (5-hour window 100%); checker reproductions.
+- Evidence: branches claude/lab-20260929-1940-rung-r3-two-body-doll-v2-9c52, claude/lab-20260929-2040-*
+- Limitations: Author timeouts recur on heavy rungs; budgets are now 90–120 minutes.
+- Next: Verdicts after the reset.

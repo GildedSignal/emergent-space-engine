@@ -39,6 +39,7 @@ Many GLMs, each with a lens, get **autonomy of inquiry and no authority.** They 
 
 ## Running (cloud only)
 
+- **Pacing:** GLM's binding limit is its 5-hour token window, not its month. About 12 parallel sessions exhausted it in under 2 hours (29 September), and every later run got a 429 and came back VOID. So run at most 3 rung runs per window, and schedule second authors for the next window.
 - A routine runs `lab/run.sh <lens> [minutes]` in a cloud environment that has `ZAI_API_KEY`. `lab/setup.sh` installs omp, pinned by hash.
 - The lenses are in [lenses/](lenses/). The integrator owns [board.md](board.md), `checker.md` and this file.
 
