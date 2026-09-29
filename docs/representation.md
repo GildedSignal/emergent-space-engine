@@ -44,6 +44,11 @@ Booleans answer "whether", additions carry motion, lookups carry repetition, and
   - Inside a cell, a tube follows the cell's exact local solution.
   - At a joint, the tube refracts, conserving what the symmetry conserves. Contacts use the same interface resolver: conserve, solve one quadratic, carry the rounding.
   - Orbits, turning points, precession, lensing and horizons emerge.
+- **Light is gathered at the observer, never broadcast.** Light nobody sees costs nothing. There is no bouncing.
+  - For each visible body, the one intersection of its tube with the observer's past light cone is found, by Newton's method from the previous frame's solution. Lensing adds intersections from the doll's memoized deflection(b).
+  - An emitter carries a spectral type. A blackbody seen through a Doppler factor k is again a blackbody, at temperature k·T, and beaming scales intensity as k⁴. In logarithmic form both are additions to log k, and a 2D table (type × log k) gives the sprite's colour and brightness.
+  - Far populations are gathered as aggregates, one sample per family, like unresolved galaxies. The screen caps the work at about one sample per pixel.
+  - Light that matters for gameplay (lasers, messages) is a null tube, with one event per hit.
 - **Observables are emergent, never computed.**
   - A clock's reading is the length of its tube.
   - A photon carries its momentum, and an observer is a tube with a velocity. Where they meet, the one operation of observation, −p·u, *is* the colour: gravitational redshift, Doppler and time dilation together. The photon's direction in the observer's frame *is* the aberration.
@@ -59,7 +64,7 @@ Booleans answer "whether", additions carry motion, lookups carry repetition, and
 - **The dense order** is for chaos, which is normal: many necessary interactions in a short time.
   - The selector is events per cell per light-crossing, a Knudsen-like number.
   - Near 1, cells run in lockstep, in cache, on the GPU and NEON. A tick wastes nothing there, because everything changes every tick.
-  - Time scales separate: during a burst, the field's certificates hold, so the burst is pure special relativity in one frame, the lattice law's home.
+  - No mode freezes gravity. A dense region is a doll with no central mass: the freely falling frame of its centre of mass. Inside it, gravity is the linear tidal term, whose relative motion has an exact closed form (Clohessy–Wiltshire, 1960, the rendezvous mathematics of Gemini and Apollo). The lattice law resolves contacts in that frame.
   - The broad phase is bits (occupancy bitmaps, an AND for overlaps, a radix sort of cell keys). The narrow phase is exact predicates on narrow, cell-relative numbers.
   - Events farther apart than c × the window resolve in parallel waves.
   - The burst stays in cache (the 12 MB L2 of the performance cores, GPU threadgroup memory), so it is compute-bound, not memory-bound.
@@ -87,6 +92,30 @@ Each stored number holds the information its behaviour needs, in the form its op
   - Block floating point: the cell level is the shared exponent, which is the "virtual comma" made explicit.
   - Wide numbers only at rare events, on the CPU.
 - **One floor is chosen:** the finest spatial distinction the player can see (the early-cinema frame rate). The time floor follows from c = 1.
+
+**Bundles and single instructions.** The width must be native per bundle, not per number.
+- Pack several narrow fields into one word with guard bits (SWAR), operate once, then unpack. Packing x and y as x + y·2³² gives a·x and a·y from a single multiply.
+- The M1's one-step operations to design around: add, AND/OR/XOR and shifts; bit-field extract and insert (UBFX, BFI) for packed addresses; conditional select (CSEL) for branch-free min, max and absolute value; leading-zero count (CLZ) for the ring index; high-half multiply (UMULH); CRC32 for memo keys.
+- On NEON:
+  - 16 lanes of 8-bit add and min: tropical relaxation;
+  - TBL, 16 table lookups in one instruction, for log↔linear conversion;
+  - CNT for occupancy;
+  - saturating adds;
+  - SDOT, 16 int8 multiply-accumulates.
+- On the GPU: SIMD-group min, sum and prefix across 32 lanes; popcount; bit-field extract.
+
+**Stolen from the compute-starved,** who had skin in the game:
+- Bresenham (1962): lines by additions and an error term; tubes crossing cells at rational speeds.
+- The DDA integrators of the 1950s: differential equations by additions and overflow carries.
+- Sigma-delta (Inose and Yasuda, 1962): noise-shaped carries. Bresenham's error term is first-order sigma-delta, so our tubes and our carries are the same trick.
+- CORDIC (Volder, 1959): rotation by shifts and adds.
+- Minsky's circle (HAKMEM, 1972): x −= εy, y += εx, two additions that keep a closed orbit forever, because the map preserves area.
+- Mitchell (1962): logarithmic multiplication.
+- The Apollo Guidance Computer: a hand-chosen scale per variable, which is the virtual comma.
+- Elite (1984): a galaxy from a seed.
+- Wolfenstein 3D (1992): rays cast from the observer through a 2D map.
+- Crash Bandicoot: memory laid out in the order it is traversed.
+- Hashlife (Gosper, 1984).
 
 ## 5. Hard operations made cheap
 
