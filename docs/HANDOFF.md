@@ -15,14 +15,14 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Cloud lab host routine `glm-lab-host` (trigger `trig_012YxdRn25mf2h673Uu1NVDs`, environment `env_01BCjo9H1taF3eduHZyyN6L9`, Haiku host) | Integrator, via RemoteTrigger `update` / `run` / `get_run_log`; results on `claude/lab-*` branches | Canaries running (session `cse_0152VcGgEUdgCTDhyGWkuDDY`), from the unmerged `wt/labrung` | Expect PASS for kepler-pass and KILL for kepler-kill. Then rungs r1–r3 after Julien's go |
-| Lab rung mode, `lab/verdict.py`, canaries | Claude Sonnet, `/private/tmp/emergent-wt-labrung` (`wt/labrung`, commits 6b22aee, 63738de) | **Built:** 13 verdict tests pass; the uncommitted-rung refusal works; both canaries give the right verdict on throwaway numbers; the cloud flow is untested | Merge only after Julien's go; the first cloud run is the canaries; delete the worktree |
-| Rung criteria r1–r3 (frozen) | Integrator, `lab/rungs/` | Written; part of the proposed plan | r5–r7 next; no rung runs before the canaries grade correctly |
+| Cloud lab host routine `glm-lab-host` (trigger `trig_012YxdRn25mf2h673Uu1NVDs`, environment `env_01BCjo9H1taF3eduHZyyN6L9`, Haiku host) | Integrator, via RemoteTrigger `update` / `run` / `get_run_log`; results on `claude/lab-*` branches | Canaries running (session `cse_0152VcGgEUdgCTDhyGWkuDDY`), from the unmerged `wt/labrung` | Expect PASS for kepler-pass and KILL for kepler-kill. Then rungs r1–r3, two authors each on r1 and r3 |
+| Lab rung mode, `lab/verdict.py`, canaries | Merged (a3d40e9) | Done | Delete `/private/tmp/emergent-wt-labrung` once the canaries grade correctly |
+| Rung criteria r1–r3 (frozen) | Integrator, `lab/rungs/` | Written and frozen | r5–r7 next; no rung runs before the canaries grade correctly |
 | Retired v0 gravity (`wt/geodesic`, `wt/g2run`) | Archived: `~/Research/emergent-space-archive/retired-v0-gravity-20260929.bundle` | Done | The dead `xtask/src/gate/*` code goes with `xtask behave` (Sonnet), which reuses its planted-evaluator pattern |
 
-## Headed next (in order; proposed, awaiting Julien)
+## Headed next (in order; approved by Julien)
 
-The proposed pivot plan: `~/.claude/plans/whimsical-snuggling-graham.md`. An earlier approval was accidental, so nothing merges until Julien says go. The design is [representation.md](representation.md) (DRAFT). Budgets are per phase; an overrun means re-deriving the phase from the goal. No calendar dates.
+The pivot plan, approved by Julien: `~/.claude/plans/whimsical-snuggling-graham.md`. The design is [representation.md](representation.md) (DRAFT). Budgets are per phase; an overrun means re-deriving the phase from the goal. No calendar dates.
 0. **The lab** (half a day): the environment, the rung mode, canaries that must give PASS and KILL correctly.
 1. **The float falsifier ladder** (at most a day per rung, all in parallel on GLM, a premise red-team first). r1–r3 gate the law; r5–r7 may finish later.
 2. **The written integer law** `docs/law.md` (`es-space-v2`) and gates B0–B10 (2–3 days). The freeze comes once r1–r3 pass and the red-team is answered. Opus writes the law; Astra's one window before the Codex reset takes the integer cycle compiler and its bound; GLM runs the law red-team.
