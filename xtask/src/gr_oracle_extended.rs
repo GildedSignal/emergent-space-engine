@@ -14,7 +14,7 @@ fn integrate_gl<F: Fn(f64) -> f64>(lo: f64, hi: f64, pieces: usize, n: usize, f:
     sum
 }
 
-fn null_turning_radius(b: f64) -> f64 {
+pub(crate) fn null_turning_radius(b: f64) -> f64 {
     // The outer root of b²=r0²/(1-2/r0); b>3√3.
     let mut r = b - 1.0;
     for _ in 0..40 {
@@ -29,7 +29,7 @@ fn null_turning_radius(b: f64) -> f64 {
     r
 }
 
-fn shapiro_quad_leg(r0: f64, r: f64) -> f64 {
+pub(crate) fn shapiro_quad_leg(r0: f64, r: f64) -> f64 {
     // η=acosh(r/r0), u=(1/r0) sech η removes the square-root turning singularity.
     // Integrate dt/dη - d[sqrt(r²-r0²)]/dη directly, rationalizing the subtraction.
     let eps = 1.0 / r0;
@@ -118,7 +118,7 @@ fn bound_constants(p: f64, e: f64) -> (f64, f64) {
     (energy, angular)
 }
 
-fn bound_period_quad(p: f64, e: f64) -> (f64, f64) {
+pub(crate) fn bound_period_quad(p: f64, e: f64) -> (f64, f64) {
     // Darwin's r=p/(1+e cos χ). From dφ/dχ=√[p/(p-6-2e cosχ)] and
     // dτ/dφ=r²/L, dt/dτ=E/(1-2/r); E,L are the exact Schwarzschild first integrals.
     let (energy, angular) = bound_constants(p, e);

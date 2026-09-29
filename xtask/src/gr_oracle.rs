@@ -19,7 +19,7 @@
 use serde_json::{json, Value};
 use std::f64::consts::PI;
 #[path = "gr_oracle_extended.rs"]
-mod extended;
+pub(crate) mod extended;
 
 // Frozen before the first extended-oracle run.  The strong-field series is diagnostic only:
 // its omitted powers are not bounded by a weak-field truncation estimate there.
@@ -80,7 +80,7 @@ fn ellip_k_minus_half_pi(m: f64) -> f64 {
 /// Periapsis-to-periapsis angle minus 2π for a bound Schwarzschild orbit of semi-latus
 /// rectum p and eccentricity e: Δφ = 4·√(p/d)·K(4e/d) − 2π with d = p − 6 + 2e, written as
 /// 4·(√(p/d)·(K − π/2) + (π/2)·(√(p/d) − 1)) so the weak field loses no digits to the 2π.
-fn periapsis_elliptic(p: f64, e: f64) -> f64 {
+pub(crate) fn periapsis_elliptic(p: f64, e: f64) -> f64 {
     let d = p - 6.0 + 2.0 * e;
     let s = (p / d).sqrt();
     let s_minus_1 = (6.0 - 2.0 * e) / d / (s + 1.0);
@@ -154,7 +154,7 @@ fn gauss_legendre(n: usize) -> Vec<(f64, f64)> {
 /// smooth ∫₀¹ 2√(u0/q) ds, with no cancellation near the turning point. The flat integrand
 /// with the same turning point (q_f = u0 + u) integrates to π/2 exactly, so the deflection
 /// 2(I − π/2) is integrated directly as 4√u0 · r / (√(q·q_f)·(√q_f + √q)), r = q_f − q.
-fn deflection_quadrature(b: f64) -> f64 {
+pub(crate) fn deflection_quadrature(b: f64) -> f64 {
     let mut u0 = 1.0 / b;
     for _ in 0..100 {
         let (h, dh) = (2.0 * u0 * u0 * u0 - u0 * u0 + 1.0 / (b * b), 6.0 * u0 * u0 - 2.0 * u0);
