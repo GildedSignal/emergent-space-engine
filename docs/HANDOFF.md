@@ -16,24 +16,24 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 | Job | Who, where | State | When done |
 |---|---|---|---|
 | **The cloud lab's environment:** the only blocker | Julien: at claude.ai/code/routines open `glm-lab-probe` (trigger `trig_012YxdRn25mf2h673Uu1NVDs`), set its environment to `glm-lab` (holds `ZAI_API_KEY`), save | Waiting | The integrator reads the environment id with RemoteTrigger `get`, runs the canaries, then launches rungs r1–r3 with `lab/run.sh rung lab/rungs/<r>.md` |
-| Lab rung mode, `lab/verdict.py`, canaries | Claude Sonnet, `/private/tmp/emergent-wt-labrung` (`wt/labrung`) | Running | Review; merge; delete the worktree |
-| Rung criteria r1–r3 (frozen) | Integrator, `lab/rungs/` | Written 29 September | r5–r7 next; no rung runs before the canaries grade correctly |
+| Lab rung mode, `lab/verdict.py`, canaries | Claude Sonnet, `/private/tmp/emergent-wt-labrung` (`wt/labrung`) | Running | Review; merge only after Julien's go; delete the worktree |
+| Rung criteria r1–r3 (frozen) | Integrator, `lab/rungs/` | Written; part of the proposed plan | r5–r7 next; no rung runs before the canaries grade correctly |
 | Retired v0 gravity (`wt/geodesic`, `wt/g2run`) | Archived: `~/Research/emergent-space-archive/retired-v0-gravity-20260929.bundle` | Done | The dead `xtask/src/gate/*` code goes with `xtask behave` (Sonnet), which reuses its planted-evaluator pattern |
 
-## Headed next (in order)
+## Headed next (in order; proposed, awaiting Julien)
 
-The approved pivot plan (29 September): `~/.claude/plans/whimsical-snuggling-graham.md`. The design is [representation.md](representation.md) (DRAFT). Budgets are per phase; an overrun means re-deriving the phase from the goal.
-0. **The lab** (30 September): the environment, the rung mode, canaries that must give PASS and KILL correctly.
-1. **The float falsifier ladder** (30 September – 2 October), all rungs in parallel on GLM, with a premise red-team on day 1. r1–r3 gate the law; r5–r7 may finish later.
-2. **The written integer law** `docs/law.md` (`es-space-v2`) and gates B0–B10 (2–4 October; freeze Monday 5 October). Opus writes it. Astra's one pre-reset window takes the integer cycle compiler and its bound. GLM runs the law red-team. `xtask behave`, the judge, is built by Sonnet: Claude builds the judge, OpenAI builds the core.
-3. **`crates/space`, the core as the one engine** (5–16 October). Sol builds, and Astra does the resolver, the carries and order equivalence. The rungs are one mass, two, N, and then B10 on the M1.
-4. **Retirement and ladder v8** (19–21 October), once B8 digests match across orders, threads, CPU/GPU and sabotage.
-5. **The view, then the player slice** (22 October – 4 November).
-6. **AI and populations** (from 5 November).
+The proposed pivot plan: `~/.claude/plans/whimsical-snuggling-graham.md`. An earlier approval was accidental, so nothing merges until Julien says go. The design is [representation.md](representation.md) (DRAFT). Budgets are per phase; an overrun means re-deriving the phase from the goal. No calendar dates.
+0. **The lab** (half a day): the environment, the rung mode, canaries that must give PASS and KILL correctly.
+1. **The float falsifier ladder** (at most a day per rung, all in parallel on GLM, a premise red-team first). r1–r3 gate the law; r5–r7 may finish later.
+2. **The written integer law** `docs/law.md` (`es-space-v2`) and gates B0–B10 (2–3 days). The freeze comes once r1–r3 pass and the red-team is answered. Opus writes the law; Astra's one window before the Codex reset takes the integer cycle compiler and its bound; GLM runs the law red-team.
+3. **`crates/space`, the core as the one engine** (2 weeks). Claude and OpenAI build by module, and each builds the judge (`xtask behave`) of the other's modules. Astra does the resolver, the carries and order equivalence. Rungs: one mass, two, N, then B10 on the M1.
+4. **Retirement and ladder v8** (3 days), once B8 digests match across orders, threads, CPU/GPU and sabotage.
+5. **The view, then the player slice** (2 weeks).
+6. **AI and populations** (2 weeks).
 
 Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). The spine (contracts, builds, merges) runs one job at a time; the GLM lab runs in parallel in the cloud.
 
-**Budgets (29 September, 20:00):** Codex weekly 80% (resets 5 October about 11:30); one Astra window before then. GLM: 1%, cloud only. Claude: lean; the integrator reads verdict lines and gold abstracts only. Check each provider's usage before assigning (AGENTS.md).
+**Budgets:** Codex weekly 80% until its weekly reset; one Astra window before then. GLM: 1%, cloud only. Claude: lean; the integrator reads verdict lines and gold abstracts only. Check each provider's usage before assigning (AGENTS.md).
 
 **Decided by Julien (29 September):**
 - The law is a cheap, local, fixed integer algorithm. Exact GR is the oracle, not the implementation (H0195).

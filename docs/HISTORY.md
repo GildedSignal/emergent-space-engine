@@ -2965,3 +2965,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [lab/rungs](../lab/rungs/r1-rings.md); `~/Research/emergent-space-archive/retired-v0-gravity-20260929.bundle`
 - Limitations: Nothing runs until Julien sets the routine environment; all design numbers are estimates.
 - Next: Canaries, then r1–r3 in the cloud; the law by 5 October.
+
+## H0201 — Correction to H0200: the pivot plan is proposed, not approved; dates removed; Claude builds too
+
+- Date: 2026-09-29
+- Kind: correction
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: HANDOFF plan; representation.md merge candidates; the plan file
+- Changed: H0200 said Julien approved the pivot plan. He accepted it by accident, so the plan is proposed and awaits his go. He also asked for two fixes. First, no calendar dates in the plan: phases keep only their budgets. Second, the work goes to Claude as well as GLM and OpenAI: Claude and OpenAI build the core by module, each building the judge of the other's modules. The planning pass's design changes stay in the draft as proposals. Work already done stays reversible: the retired branches are in the archive bundle, the rung files are only specifications, and the lab rung-mode branch is not merged.
+- Why: "i think i accepted the plan by accident"; "why is there dates in the plan that's bad remove them"; "and you claude too".
+- Validation: history check PASS.
+- Evidence: `~/.claude/plans/whimsical-snuggling-graham.md`
+- Limitations: None.
+- Next: Julien reviews the plan; nothing merges before his go.
