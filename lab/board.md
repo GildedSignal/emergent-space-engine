@@ -16,6 +16,11 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
      - Sheets as nested dolls of a fixed bit size, whose size is linked to the spacetime gradient ("we can infer it from the size").
      - AI and player decisions as the seeds of change.
      - "the floor is what the player can differentiate like frame rate in early cinema"; units from the hardware.
+   - Later still:
+     - The sheets encode GR only: "collisions is just how you move inside them". Contact compute is a separate, on-demand structure that is never stored in the geometry.
+     - The ship-versus-asteroid threshold must be cheap.
+     - AIs create emergence that is hard to predict.
+     - Local laws, but global algorithms are allowed: "make the memory dance tighter from a causal pov".
    Derive it from the requirements (the goal, the behaviours, the M1) before any known method. Candidates to test, not adopt:
    - fixed-bit cells in a dyadic tree, where the level acts as a shared exponent (block floating point, OCP microscaling);
    - geometry partly encoded by the tree's shape;
