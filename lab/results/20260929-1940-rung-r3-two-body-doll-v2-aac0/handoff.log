@@ -1,0 +1,10 @@
+reference crossings: 55
+WARNING: fewer than 100 crossings
+doll crossings: 0
+Traceback (most recent call last):
+  File "/home/user/emergent-space-engine/lab/results/20260929-1940-rung-r3-two-body-doll-v2-aac0/handoff_run.py", line 133, in <module>
+    lam = np.polyfit(k, np.log(dE), 1)[0]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/lib/_polynomial_impl.py", line 645, in polyfit
+    raise TypeError("expected non-empty vector for x")
+TypeError: expected non-empty vector for x

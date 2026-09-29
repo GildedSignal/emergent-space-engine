@@ -1,0 +1,14 @@
+Run incomplCheck complete. Deliverables written: `metrics-check.json` and `check.md` in the run folder. Outcome:
+
+**Verdict: VOID** (`verdict.py`: handoff metric missing) — and that is the truthful state, because the author's run never finished: no `metrics.json`/`dossier.md`/picture, and the handoff experiment **crashed in the author's own log** (55 reference crossings, 0 doll crossings, polyfit on an empty vector). Their `assists.py` re-run was still burning CPU when my window closed.
+
+**What reproduced and what didn't:**
+
+- **Binaries: exact reproduction** (`binaries_summary.json` bit-identical; disclosure: my re-run re-saved it and `binaries.npz` in place, verified identical). `validate.py` crashes as shipped (numpy scalar cast).
+- **A decisive port bug**: `r3lib.schw_cycle:59` uses `K = √(p/(p−6−2e))` — the frozen Rust oracle (`gr_oracle_extended.rs:143`) has `√(p/(p−6−2e·cosχ))`. Verified against an independent Binet-ODE integration (agreement 1e-13 for the corrected form; author's form off up to +7% in T at (p=20, e=0.6)). The bug puts a p-independent `≈e/3` error in the doll's periastron advance — visible in the author's own npz (EPS_PREC 0.0118 at e=0.0066 where the true gap is 0.0081). With the one-term fix: reading-B precession **40/40 pass** (author: 0/40), period 1.0 (645 judged), ν-effect 1.0 (800 judged) — the doll design itself behaves; the negatives still fail as required.
+- **The author's headline rung-design finding stands, now with clean numbers**: even for a correct doll the gap to the frozen oracle is `(8.5+2.25e²)/p ≥ 0.81%` for every seed at p ≤ 1000 → `min_judged_seeds = 0` → `judged ≥ 64` is unmeetable. The 1% precession tolerance at p ≤ 1000 sits below the oracle's own truncation; that is a property of the frozen rung, not the doll.
+- **Oracle verified**: closed-form `eih_EJ` ≡ Rust literal to 4e-15 (and fixes the Rust's e→0 division by zero, which I hit); `damour_derelle` matches line-for-line; my exact-1PN EIH ODE cross-check flags an O(1/p) framing offset inside the *repo's own* oracle (`6π/J²` vs `eih_weak_series`' `6π/p`) — not the author's doing.
+- **Assists**: the stored 64-flyby json (0.047 pass) predates the 20:19 rewrite of `assists.py`; my converged reference (2 resolutions, ~2e-10) contradicts its Δv values by ~20%, and the *current* doll passes 4/4 spot-checked seeds at 0.25–0.66%. `assist ≥ 0.99` is not established in either direction. Also found: an SOI-churn pathology (454,568 legs on one flyby) with no guard.
+- **Predictions** (`predictions.md` 20:12:45, predates all decisive runs ✓): period/ν held; the reading-B precession prediction was right for a correct implementation — the bug betrayed the author's own prediction; handoff prediction failed outright.
+
+eob-doll fails `judged` and `prec` on reproduced numbers alone, independent of the voided legs.
