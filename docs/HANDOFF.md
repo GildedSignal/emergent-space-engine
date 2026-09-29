@@ -17,6 +17,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 |---|---|---|---|
 | Cloud lab routines (environment `env_01BCjo9H1taF3eduHZyyN6L9`, Haiku hosts). Set a prompt with RemoteTrigger `update` `session_request.events`, then `run`, then read with `get_run_log` | `glm-lab-host` canaries `trig_012YxdRn25mf2h673Uu1NVDs` (session `cse_01JhqfDNthmB2u8vrGSjhTVk`); `glm-lab-redteam` `trig_017XTQzxJsZ1WBEy9mGervpA` (session `cse_019bBBmLQwRtnUqyNuZVXUq8`); `glm-lab-r1` `trig_01VfvZpHwu7yZawZ4PvCSkJi`; `-r2` `trig_01TVq7bRzcCEwmVL91LGGm5n`; `-r3` `trig_01LgS8QKML9YV1KNKY72hKAg` | Canaries and red-team running with the new key; GLM authenticates | Canaries PASS and KILL → fire r1 twice, r2 once, r3 twice. Results on `claude/lab-*` branches |
 | Lab rung mode, `lab/verdict.py`, canaries | Merged (a3d40e9); worktree and branch deleted | Done | — |
+| `xtask behave`, the judge (law-independent core: oracle, sampler, growth fit, gates G1–G6, planted laws), plus retirement of the dead `gate/` code and `measure.rs` | Claude Sonnet, `/private/tmp/emergent-wt-behave` (`wt/behave`) | Running | Review; merge; delete the worktree |
 | Rung criteria r1–r3 (frozen) | Integrator, `lab/rungs/` | Written and frozen | r5–r7 next; no rung runs before the canaries grade correctly |
 | Retired v0 gravity (`wt/geodesic`, `wt/g2run`) | Archived: `~/Research/emergent-space-archive/retired-v0-gravity-20260929.bundle` | Done | The dead `xtask/src/gate/*` code goes with `xtask behave` (Sonnet), which reuses its planted-evaluator pattern |
 
