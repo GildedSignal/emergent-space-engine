@@ -18,7 +18,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 | Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | Public API landed (b51fc9a, b830bba); next Codex window 14:00 via `artifacts/runs/astra-geodesic/launch.sh` (retarget the time) | Fix what the climb shows; merge |
 | Gate harness `xtask gravity-gate` | Merged (H0193); the real adapter is wired only in `wt/g2run` | Ready | Merge the adapter with the crate when step 2 lands |
 | v1 contract red-team and float probe | GLM, sandboxed; outputs `artifacts/runs/gravity-v1-freeze/{redteam,probe}-out.md` | Running | Fold into `gravity-law.md`; add multipoles from day one and a cost-versus-N gate; freeze |
-| Philosophy mining | Claude Opus sub-agent and GLM, independent, read-only; corpus and task in `artifacts/runs/philosophy-mining/` | Running | Reconcile both; propose additions to PRINCIPLES.md for Julien (he owns it) |
+| Philosophy mining and doc reconciliation | Mining done (`artifacts/runs/philosophy-mining/opus-out.md`, `glm-out.md`). A Claude Opus sub-agent is reconciling HANDOFF, CARD, engine, AGENTS, PRINCIPLES and the v1 contract in `/private/tmp/emergent-wt-reconcile` (`wt/reconcile`) | Running | Review the diff; merge; Julien approves the proposed principles; then freeze v1 |
 
 ## Headed next (in order)
 
