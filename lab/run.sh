@@ -38,14 +38,14 @@ start)
   guard_linux
   [ -f "lab/lenses/$lens.md" ] || { echo "no lens: $lens"; exit 2; }
   guard_key
-  id=$(date -u +%Y%m%d-%H%M)-$lens
+  id=$(date -u +%Y%m%d-%H%M)-$lens-$(od -An -N2 -tx1 /dev/urandom | tr -d " \n")
   launch _run "$lens" "$min" "$id" ;;
 rung)
   f=${2:?rung file}; f=${f#"$PWD"/}; min=${3:-90}
   { git ls-files --error-unmatch -- "$f" && git diff --quiet HEAD -- "$f"; } >/dev/null 2>&1 \
     || { echo "refused: rung file must be committed and unchanged"; exit 2; }
   guard_linux; guard_key
-  id=$(date -u +%Y%m%d-%H%M)-rung-$(basename "$f" .md)
+  id=$(date -u +%Y%m%d-%H%M)-rung-$(basename "$f" .md)-$(od -An -N2 -tx1 /dev/urandom | tr -d " \n")
   launch _rung "$f" "$min" "$id" "$(git rev-parse "HEAD:$f")" ;;
 wait)
   f=lab/results/${2:?id}/DONE
