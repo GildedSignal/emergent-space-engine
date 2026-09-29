@@ -15,10 +15,9 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`) | Resumes 22:57 (Codex reset) via `artifacts/runs/astra-geodesic/launch.sh`, session 01a0e7c6-12d9-7370-83e2-bd8010175218; output `result-5.md` there | Review; run G2 against the frozen floors; merge or return |
-| Arb judge and frozen case set | Claude Opus sub-agent, `/private/tmp/emergent-wt-judge` (`wt/judge`) | Resumed 21:30 | Review the self-checks and hashes; merge before any G2 run |
-| Review of Astra's crate | GLM, read-only, sandboxed | Running | Pass rank-1 findings to Astra as reports (`artifacts/runs/glm-review-geodesic/out.md`) |
-| Gate harness | Sonnet, after the judge lands (Sol's `wt/gravity-gate` is superseded) | Waiting | Compare the evaluator with the frozen floors, plus timings; then delete `wt/gravity-gate` |
+| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | At 1855340: rule, anchors, interval arithmetic, elliptic primitives, radial and circular charts, orbit classification in progress. Resumes 03:48 via `artifacts/runs/astra-geodesic/launch.sh` (the note includes GLM's rank-1 report) | Review; run G2 rung by rung; merge |
+| Arb judge | Claude Opus sub-agent, `/private/tmp/emergent-wt-judge` (8 commits, not merged) | R0–R4, G2.2, G2.4, band-edge and fallback cases frozen, 0 UNSETTLED; R5 slices 1–9 running via `/private/tmp/emergent-r5/run.sh` (log there) | Hash R5, review the self-checks, merge `wt/judge` |
+| Gate harness | Sonnet, after the judge merges | Waiting | Compare the evaluator with the frozen floors, plus timings; delete `wt/gravity-gate` |
 
 ## What the engine computes
 
