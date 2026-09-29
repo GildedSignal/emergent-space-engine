@@ -2923,3 +2923,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [post-mortem](../artifacts/evidence/postmortem-gravity-fmm-20260929/POSTMORTEM.md)
 - Limitations: The specialist-prompt prefix is a rule, not yet a launcher script.
 - Next: Check the v1 contract against PRINCIPLES; fold the red-team and probe; freeze.
+
+## H0198 — Docs reconciled with Julien's philosophy; the v1 gravity draft rebuilt on events only
+
+- Date: 2026-09-29
+- Kind: correction
+- Status: implemented
+- Revisions: 6759248..37f0d89 (sub-agent) and this entry's commit
+- Scope: HANDOFF, CARD, AGENTS, PRINCIPLES, engine.md, test-ladder.md, gravity-law.md (draft), docs/reference
+- Changed: HANDOFF, CARD and engine.md still aimed at re-climbing G2 with five modes; now they follow H0195: cell fields with multipoles, exact GR as oracle, one engine with its allocator before the player slice, the GPU used heavily. PRINCIPLES: about 60 register rows with his quotes, dropped budgets kept open; 23 proposed principles await his yes. The v1 draft states its equations, drops per-body steps (events at crossings, a cell-owned step, light clipped at cells), and adds error-type, many-seed and cost-to-10^9 gates. Integrator fix: it freezes, Julien vetoes; Codex at 80% weekly, so Opus writes the law.
+- Why: "the philosophy is here"; each statement followed or disproven.
+- Validation: two independent minings; 191 quotes found verbatim; probe 1 killed the per-body step rule (energy exponent 0.47–0.98; fixed step flat); history check PASS.
+- Evidence: [minings](../artifacts/evidence/philosophy-mining-20260929/PROVENANCE.md); [red-team and probe 1](../artifacts/evidence/gravity-v1-freeze-20260929/PROVENANCE.md)
+- Limitations: The many-source β rule and B10's reference scene are open.
+- Next: Fold probe 2 and the prior-art scout; freeze v1.

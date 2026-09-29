@@ -1,6 +1,6 @@
 # Gravity law `es-lattice-gravity-v1`: contract
 
-Status: **DRAFT, not frozen.** Only Julien freezes it, and no gate below binds until he does. Drafted 29 September 2026 (H0195) and amended the same day for his decisions, GLM's red-team and premise probe 1 ([evidence](../artifacts/evidence/gravity-v1-freeze-20260929/PROVENANCE.md)). The v0 contract (exact continuum floors, H0184–H0194) is retired: its evaluator (`crates/geodesic`), the Arb judge (`artifacts/evidence/g2-reference-20260928/`) and `xtask gr-oracle` now serve as the **oracle**, which measures behaviour. None of them is the implementation.
+Status: **DRAFT, not frozen.** The integrator freezes it after probe 2, showing Julien the gates first; no gate below binds until then. Drafted 29 September 2026 (H0195) and amended the same day for his decisions, GLM's red-team and premise probe 1 ([evidence](../artifacts/evidence/gravity-v1-freeze-20260929/PROVENANCE.md)). The v0 contract (exact continuum floors, H0184–H0194) is retired: its evaluator (`crates/geodesic`), the Arb judge (`artifacts/evidence/g2-reference-20260928/`) and `xtask gr-oracle` now serve as the **oracle**, which measures behaviour. None of them is the implementation.
 
 ## Principles
 
@@ -73,7 +73,7 @@ In lattice units (positions in quanta, time in chronons, c = Q):
 
 The integrator folds the cheapest passing configuration into this contract. The red-team's other edges stay unprobed so far: p = 10M, e up to 0.9 and a near-separatrix whirl, periods, horizon timing, the tilt-only negative control, and two masses under the chosen β rule.
 
-## Gates B0–B10 (proposed; Julien freezes them after probe 2)
+## Gates B0–B10 (proposed; frozen after probe 2)
 
 Every test runs in under 60 s, measured the way the player runs it, with the thermal, power, swap and load state recorded. **The cases:** the oracle's G2.2 anchors (bound, (p − p_sep)/p ≥ 10^-4), its G2.4 horizon cases, its light anchors, and the straddling cases below. **Many seeds:** each behaviour gate B2–B6 also draws at least 256 seeds from a frozen sampler over the dimensionless numbers (p/M, e, b/b_c, |L|/4M, M/Q), and passes on the whole distribution, never on one seed's data. **Rungs** within step 1: circular → radial infall → eccentric → light → horizon → long runs.
 
@@ -93,10 +93,10 @@ Every test runs in under 60 s, measured the way the player runs it, with the the
 
 ## Division of the work
 
-- **Astra:** the written law and `crates/gravity`, which Astra owns: cells, multipoles, the β rule, the in-cell solution and the Metal path.
+- **The law's author** owns the written law and `crates/gravity`: cells, multipoles, the β rule, the in-cell solution and the Metal path. Astra, or Claude Opus while Codex's weekly usage is above 75% (80% on 29 September), with Astra reviewing.
 - **Sonnet:** `xtask gravity-behave` against the oracle, with the seed sampler and the B10 scenes. It reuses `gravity-gate`'s watchdog and machine-state recording.
 - **GLM:** the red-team and probe 1 (done), probe 2 (running), then mutants.
-- **The integrator:** this contract, adjudication, merges and the journal. **Julien freezes.**
+- **The integrator:** this contract and its freeze, adjudication, merges and the journal. Julien can veto the gates before the first run.
 
 ## Later (direction, not frozen)
 

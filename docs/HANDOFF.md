@@ -15,15 +15,16 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Float re-probe of cell-owned step rules (C1 shell-constant, C2 time-symmetric switching, C3 fixed control) | GLM, sandboxed; prompt `artifacts/runs/gravity-v1-reprobe/prompt.md`, output `.../out.md` | Running | The integrator folds the winning configuration into `gravity-law.md`; then freeze v1 and hand it to Astra |
-| Doc reconciliation with PRINCIPLES (HANDOFF, CARD, engine, AGENTS, test-ladder, PRINCIPLES, the v1 draft, reference) | Claude Opus sub-agent, `/private/tmp/emergent-wt-reconcile` (`wt/reconcile`) | Done; awaiting review | Review the diff; merge; append the journal entry (the sub-agent's draft); delete the branch and worktree. Julien says yes or no to each proposed principle |
+| Float re-probe of cell-owned step rules (C1 shell-constant, C2 time-symmetric switching, C3 fixed control) | GLM, sandboxed; prompt `artifacts/runs/gravity-v1-reprobe/prompt.md`, output `.../out.md` | Running | The integrator folds the winning configuration into `gravity-law.md`; then freeze v1 |
+| Prior-art scout: how others own time steps by cell, not body (block steps, asynchronous variational integrators, Wisdom–Holman, patched conics) | GLM, sandboxed; prompt `artifacts/runs/prior-art-timestep/prompt.md`, output `.../out.md` | Running | Read with probe 2's result before choosing the step rule |
+| Julien's yes or no on the 23 proposed principles and on CARD.md | Julien | Asked 29 September | Move each yes into the numbered list in his words; record each no in the register |
 | `crates/geodesic`, the exact evaluator (now oracle material, H0195) | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`, parked at 1a8d526) | **Parked, not running.** Window 7 ran 09:00–09:31 and stopped at the Codex limit (`artifacts/runs/astra-geodesic/log-7.txt`) | Not in flight. The integrator decides: keep it as an oracle component or archive it. Do not re-climb G2 |
 | `xtask gravity-gate` (the v0 G2 gates) | Merged (H0193); its throwaway adapter lives in `wt/g2run` | Parked | Reuse its watchdog and state recording in `xtask gravity-behave`; then delete `wt/g2run` |
 
 ## Headed next (in order)
 
-1. **Freeze v1.** The re-probe picks the cheapest passing cell-owned step rule; the integrator folds it into [gravity-law.md](gravity-law.md); Julien freezes gates B0–B10.
-2. **Astra builds `crates/gravity`**, which Astra owns. The written law comes first: the β rule for many sources, κ, the multipole order, the in-cell step. Then rung 1 (one mass), with multipoles in cells from day one. Sonnet builds `xtask gravity-behave` (oracle, seed sampler, B10 scenes) alongside it.
+1. **Freeze v1.** The re-probe picks the cheapest passing cell-owned step rule; the integrator folds it into [gravity-law.md](gravity-law.md); the integrator freezes gates B0–B10, showing them to Julien first.
+2. **`crates/gravity`**, owned by the law's author: Claude Opus while Codex's weekly usage is above 75%, with Astra reviewing; otherwise Astra. The written law comes first: the β rule for many sources, κ, the multipole order, the in-cell step. Then rung 1 (one mass), with multipoles in cells from day one. Sonnet builds `xtask gravity-behave` (oracle, seed sampler, B10 scenes) alongside it.
 3. **Rungs 2–4 in the same code:** two masses (a binary, then a fleet as a source), N bodies, and cost against N up to 10^9 (B10). Oracle: 1PN two-body and N-body. Ship populations as generators (families, archived at H0182) come back deliberately, with a journal entry, if B10 shows per-body cost binding.
 4. **One engine and its allocator,** before the player slice (H0186; Julien: "yes, why not one?"). The five modes collapse into one engine on the batch-window knob, with the chronon kept only as the judge. Least-slack allocation is fed by surprise rates measured on the gravity workload (Julien: "it's the most important one"). The GPU is used heavily. The gravity law enters the engine, with thrust as kicks and contacts in the flow frame.
 5. **The player slice:** one mass, one ship, thrust as kicks, a float viewer, save and replay. Whether Julien predicts before each run is the integrator's proposal, awaiting his yes.
@@ -33,7 +34,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). Work runs one job at a time; parallel work is limited to read-only briefs and independent judges.
 
-**Budgets:** Codex hit its limit at 09:31 in Astra's window 7 (reset 14:00). Check each provider's usage before assigning (AGENTS.md). If Codex runs short, Claude Opus writes the law and Astra reviews it.
+**Budgets (29 September, 14:35):** Codex weekly 80%, past the 75% line (resets 5 October), so Claude Opus writes the law and Astra reviews. GLM: 5% of its 5-hour window, 1% of its month: badly under-used. Check each provider's usage before assigning (AGENTS.md).
 
 **Decided by Julien (29 September):**
 - The law is a cheap, local, fixed integer algorithm. Exact GR is the oracle, not the implementation (H0195).
