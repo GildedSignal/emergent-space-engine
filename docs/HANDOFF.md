@@ -15,9 +15,9 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | At 202e9f7 (range history, whirl inversion, exact event midpoint). Resumes 09:00 via `artifacts/runs/astra-geodesic/launch.sh`, public API first. Codex weekly 64%, about two windows left; the Opus handover rule applies above 75% | Wire the harness adapter; climb R0→R5; merge |
+| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | Public API landed (b51fc9a, b830bba); next Codex window 14:00 via `artifacts/runs/astra-geodesic/launch.sh` (retarget the time) | Fix what the climb shows; merge |
 | Gate harness `xtask gravity-gate` | Merged (H0193): echo passes literally, planted fails | Ready | Wire `xtask/src/gate/adapter.rs` once Astra exposes `Geodesic` (its resume note lists the needed diagnostics); climb R0→R5 |
-| Re-review of Astra's 3 newest commits | GLM, read-only, sandboxed; session saved in `artifacts/runs/glm-sessions` (tokens countable with `omp stats`) | Running | Pass rank-1 findings to Astra's next note |
+| First real G2 climb | Integrator, `/private/tmp/emergent-wt-g2run` (`wt/g2run` = main + `wt/geodesic` + wired adapter; target `/private/tmp/emergent-target-g2run`) | Running G2.1 | Report to Astra; keep the adapter for the merge; delete `wt/g2run` after |
 
 ## What the engine computes
 
