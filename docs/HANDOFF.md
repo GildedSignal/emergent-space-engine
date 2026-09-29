@@ -28,7 +28,12 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 **Budgets:** Codex weekly is about 64% after three Astra windows, roughly 15% per window. Above 75%, Claude Opus takes over the crate and Astra reviews.
 
-**Waiting on Julien:** collapse the five modes into the chronon judge plus one engine before step 6 (explained, not yet approved).
+**Decided by Julien (29 September):** merge the five modes into one production engine. The chronon reference stays only as a test judge.
+
+**Proposed to Julien, awaiting his go:** re-ground gravity on first principles, per H0195.
+- The law becomes a fixed integer algorithm, like the rest of the lattice, instead of the floor of the exact continuum value.
+- The engine is a local tilted-sheet (river) drift with kicks at step boundaries (a Wisdom–Holman splitting). Steps are sized to behaviour, not to one velocity quantum.
+- Gates move to behaviours and error type. The exact-geodesic work becomes the behaviour oracle.
 
 ## What the engine computes
 
