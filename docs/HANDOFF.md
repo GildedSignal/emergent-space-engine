@@ -17,7 +17,8 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 |---|---|---|---|
 | Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | Public API landed (b51fc9a, b830bba); next Codex window 14:00 via `artifacts/runs/astra-geodesic/launch.sh` (retarget the time) | Fix what the climb shows; merge |
 | Gate harness `xtask gravity-gate` | Merged (H0193); the real adapter is wired only in `wt/g2run` | Ready | Merge the adapter with the crate when step 2 lands |
-| First real G2 climb (H0194) and diagnosis | Integrator plus a Sonnet sub-agent, `/private/tmp/emergent-wt-g2run` | 336/600 R0 agree, 0 disagree; R0-0537 (weak field) hangs. Sonnet is adding `--diagnose` and running it across every rung into `artifacts/runs/gravity-gate/diagnose-1/` | Attach DIAGNOSIS.md to Astra's 14:00 note; schedule `launch.sh` |
+| v1 contract red-team and float probe | GLM, sandboxed; outputs `artifacts/runs/gravity-v1-freeze/{redteam,probe}-out.md` | Running | Fold into `gravity-law.md`; add multipoles from day one and a cost-versus-N gate; freeze |
+| Philosophy mining | Claude Opus sub-agent and GLM, independent, read-only; corpus and task in `artifacts/runs/philosophy-mining/` | Running | Reconcile both; propose additions to PRINCIPLES.md for Julien (he owns it) |
 
 ## Headed next (in order)
 
