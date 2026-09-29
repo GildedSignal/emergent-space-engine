@@ -13,6 +13,7 @@ pub mod fit;
 pub mod laws;
 pub mod oracle;
 pub mod sample;
+pub mod space;
 
 use crate::measure::{machine_state, Watch};
 use crate::Result;

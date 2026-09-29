@@ -1,0 +1,62 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling autocfg v1.5.1
+   Compiling libc v0.2.189
+   Compiling syn v3.0.5
+   Compiling num-traits v0.2.19
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.12
+   Compiling cc v1.4.5
+   Compiling serde v1.0.229
+   Compiling serde_derive v1.0.229
+   Compiling blake3 v1.8.7
+   Compiling num-integer v0.1.47
+   Compiling cfg-if v1.0.4
+   Compiling arrayvec v0.7.8
+   Compiling constant_time_eq v0.4.2
+   Compiling paste v1.0.15
+   Compiling core-foundation-sys v0.8.7
+   Compiling zmij v1.0.23
+   Compiling core-foundation v0.10.1
+   Compiling num-bigint v0.4.8
+   Compiling malloc_buf v0.0.6
+   Compiling foreign-types-macros v0.2.4
+   Compiling serde_json v1.0.151
+   Compiling emergent-lattice v0.1.0 (/private/tmp/emergent-wt-cycle/crates/lattice)
+   Compiling foreign-types-shared v0.3.1
+   Compiling bitflags v2.13.2
+   Compiling core-graphics-types v0.2.0
+   Compiling foreign-types v0.5.0
+   Compiling objc v0.2.7
+   Compiling log v0.4.34
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling block v0.1.6
+   Compiling metal v0.33.0
+   Compiling emergent-allocator v0.1.0 (/private/tmp/emergent-wt-cycle/crates/allocator)
+   Compiling emergent-lattice-metal v0.1.0 (/private/tmp/emergent-wt-cycle/crates/lattice-metal)
+   Compiling emergent-lattice-event v0.1.0 (/private/tmp/emergent-wt-cycle/crates/lattice-event)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-cycle/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 35.19s
+     Running `target/release/xtask behave --law space`
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=24969315)\t100%; charged; 0:00 remaining present: true","hardware":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","power_source":"Now drawing from 'AC Power'","swap":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","therm":"Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc","time_utc":"2026-09-29T21:42:56Z","unix":1790718176,"when":"start"}
+G1 PASS advance per cycle: 254/256 within 1e-2, worst 1.69e-2 [0.24 s]
+G2 PASS radial periods: 254/256 within 1e-3, worst 2.22e-3 [0.24 s]
+G3 PASS deflection: 64/64 within 1e-2, worst 3.10e-4 [0.02 s]
+G4 PASS capture: 0 of 10 misclassified [] [0.00 s]
+G5 FAIL long run: 1/32 seeds over 10000 cycles (31 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2) [0.00 s]
+G6 PASS prograde: 256/256 advances positive [0.00 s]
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=24969315)\t100%; charged; 0:00 remaining present: true","hardware":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","power_source":"Now drawing from 'AC Power'","swap":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","therm":"Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc","time_utc":"2026-09-29T21:42:57Z","unix":1790718177,"when":"end"}
+behave space: FAIL G5

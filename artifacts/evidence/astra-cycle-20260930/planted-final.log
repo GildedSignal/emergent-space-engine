@@ -1,0 +1,30 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-cycle/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 24.31s
+     Running unittests src/main.rs (target/release/deps/xtask-608f5919b4ef99fc)
+
+running 1 test
+G1 FAIL advance per cycle: 0/256 within 1e-2, worst inf
+G2 FAIL radial periods: 0/256 within 1e-3, worst inf
+G3 PASS deflection: 64/64 within 1e-2, worst 2.38e-4
+G4 PASS capture: 0 of 10 misclassified []
+G5 FAIL long run: 6/32 seeds over 10000 cycles (26 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2)
+G6 FAIL prograde: 3/256 advances positive
+test behave::space::tests::planted_newtonian_map_fails_precession_gate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 1.37s
+
+     Running tests/behave_cli.rs (target/release/deps/behave_cli-93b3c37da4ab7494)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+

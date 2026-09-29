@@ -1,0 +1,45 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 16.31s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 6 tests
+test tests::bit_band_lookup_agrees_at_every_centre ... ok
+test tests::oscillator_coefficient_and_rounding_bounds ... ok
+test tests::shears_reverse_bit_for_bit_in_both_regimes ... ok
+test exit_tests::first_integer_exit_agrees_with_exhaustive_search ... ok
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agreement.rs (target/release/deps/agreement-7a624881d2a71c92)
+
+running 1 test
+reference cases=262 worst [angle_abs, time_rel, proper_rel, shape_rel]=[0.002602840878607182, 0.000370292218481727, 0.0003702536188989747, 7.728700516351772e-6]
+
+thread 'independent_binet_m16_fixtures' panicked at crates/space/tests/agreement.rs:21:5:
+4 of 262 fail:
+13: p=30.628289341280396 e=0.004798812821439513 errors=[0.002602840878607182, 0.000370292218481727, 0.0003702536188989747, 1.074616643892412e-6] crossings=2/2
+39: p=10.622670656846788 e=0.03140046390716027 errors=[0.0002910890286091927, 2.843578000955027e-5, 2.846098632069971e-5, 3.2719587683693874e-6] crossings=4/4
+78: p=13.581737108740528 e=0.0023018064986223717 errors=[0.00020854733692488026, 3.0800132930441926e-5, 3.1218944487543254e-5, 6.569931050304234e-6] crossings=0/0
+260: p=20 e=0.001 errors=[0.0002390342023890213, 3.313669780535822e-5, 3.327638509265096e-5, 1.3724343339571732e-6] crossings=0/0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test independent_binet_m16_fixtures ... FAILED
+
+failures:
+
+failures:
+    independent_binet_m16_fixtures
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `-p emergent-space --test agreement`
