@@ -2,24 +2,33 @@
 
 Status: **DRAFT** (29 September 2026). This synthesizes Julien's direction from 29 September; see the [register](PRINCIPLES.md) and bottleneck 0 on the [lab board](../lab/board.md). It supersedes nothing until its cheapest falsifier has run and Julien says yes.
 
-## One structure: nested dolls whose grid follows the field's symmetry
+## One structure: one grid, with the coordinates chosen per doll
 
-- **Criterion (Noether): cell boundaries follow the symmetries of the field they hold.** A crossing can then conserve exactly what the field conserves: energy if the field is static, angular momentum if it is rotationally symmetric. Grid symmetry matters wherever the grid carries physics: square lattice gases failed isotropy, and the hexagonal FHP lattice (1986) fixed it.
-- **Around a dominant mass the field is central, so the doll is log-polar.**
-  - Rings sit at r_k = r_0·2^(k/m), with m rings per octave. This is the complex logarithm: conformal, so every cell has the same shape at every scale, and a fixed number of bits per cell gives the same relative precision everywhere.
-  - The ring index *is* the gradient. A doll stores only its mass, centre and motion; its field is a function of k.
-  - Crossing a ring conserves E and L exactly (in integers: to one quantum, with carries). Crossing a ray carries no gravity event.
-- **Symmetry makes the future repeat.** With E and L exact, the sequence of radial crossings repeats every radial cycle, and φ advances by a fixed amount per cycle.
-  - One cycle is computed once; the orbit is then known until something breaks the symmetry.
-  - Nothing forces the orbit: it follows from the law's own symmetry, an exact shortcut like Hashlife's.
-  - Perturbations (tides, neighbours) are kicks on E and L. H0190 measured 32 kicks per low orbit, 0.3 with averaging.
-- **Each doll is the freely falling frame of its central mass.**
-  - A planet's doll falls around its star. Inside it, the star's gravity reduces to tides: the equivalence principle.
-  - A doll ends at its sphere of influence. Handoffs there stayed bounded (H0190 K4).
-- **Where no mass dominates, symmetry breaks** (binaries, clusters, dense fleets, galactic disks). There, general multipole cells hold the field.
-  - Triangles are the candidate: they nest exactly (1 → 4), have 6-fold symmetry, and use integer Eisenstein arithmetic (norm a² + ab + b²).
-  - The fraction of bodies living there sets the cost.
-- **Cells hold the integer mass moments of what they contain,** ships' aggregates included. Geometry is a local rule of the moments: the clock rate (potential) adds, and the flow is derived. Changes travel at most one cell per update.
+- **Coordinates and grid are one choice.** Pick the coordinates in which the local field's symmetry becomes a translation. In them the grid is always the same thing: a uniform square lattice of cells with a fixed number of bits each.
+  - Cell boundaries then follow the symmetry, so each crossing conserves exactly what the field conserves (Noether): energy when the field is static, angular momentum when it is central.
+  - A 2D position is a complex number z. Rotating and zooming multiply z, and the logarithm turns those multiplications into additions.
+- **Around a dominant mass the coordinates are ln z = ln r + iθ, the rings.**
+  - Cell (k, j) spans r_0·2^(k/m) to r_0·2^((k+1)/m) and 2πj/N to 2π(j+1)/N. Choosing N ≈ 2πm/ln 2 makes the cells nearly square (m = 16 gives N = 128).
+  - The map is conformal, so every cell has the same shape at every scale. A fixed number of bits per cell then gives the same relative precision everywhere.
+  - The ring index *is* the gradient. A doll stores only its mass, its centre and its motion.
+  - Crossing a ring conserves E and L. In integers this holds to one quantum, with carries. A ray (a line of constant angle) carries no gravity event.
+- **Symmetry makes the future repeat.**
+  - With E and L exact, the radial crossings repeat every cycle, and φ advances by a fixed amount per cycle. One cycle is computed once, and the orbit is then known until something breaks the symmetry. That is an exact shortcut, like Hashlife's, and nothing is forced.
+  - Perturbations such as tides and neighbours arrive as kicks on E and L. H0190 measured 32 kicks per low orbit, and 0.3 with averaging.
+- **Dolls nest as overset discs.** Overset (Chimera) grids are the technique fluid simulations use for moving bodies.
+  - A doll covers a disc from its central body (surface or horizon) out to its sphere of influence.
+  - It is the freely falling frame of that central body: its parent's gravity reduces to tides inside it (the equivalence principle).
+  - The doll moves over its parent's grid and masks the parent's cells beneath it. A handoff happens when a body crosses the disc's edge; handoffs stayed bounded in H0190 K4.
+- **Where no mass dominates, the coordinates are plain Cartesian,** with the same grid. There is no central symmetry to lose there.
+  - The grid holds the field, and tubes move in any direction. Grid isotropy therefore matters far less than in lattice gases, where the grid carries the motion.
+- **Other maps must earn their place.** One candidate is the bipolar map ln((z−a)/(z+a)) for binaries, where each star is surrounded by circles. A map joins only if it turns a class of motion into exact repetition, and regimes are chosen by dimensionless numbers such as mass ratios.
+- **Spacetime is 2+1 dimensional, and its natural algebra is the split-quaternions.**
+  - An event (t, x, y) is the pure split-quaternion t·i + x·j + y·k, whose norm t² − x² − y² is the interval.
+  - Rotations and boosts are the unit split-quaternions, the 2×2 real matrices with determinant 1.
+  - Lead: integer matrices with determinant 1 (SL(2,Z)) give exact, exactly reversible frame changes, but only for a discrete set of velocities. Untested.
+- **Cells hold the integer mass moments of what they contain,** ships' aggregates included.
+  - Geometry is a local rule of the moments: the clock rate (the potential) adds up, and the flow is derived from it.
+  - A change travels at most one cell per update.
 
 ## One law
 
