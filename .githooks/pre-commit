@@ -1,0 +1,6 @@
+#!/bin/sh
+# Journal and text budgets (AGENTS.md "Text has a cost"). Skipped where xtask is not built, e.g. lab containers.
+x="$(git rev-parse --show-toplevel)/target/release/xtask"
+[ -x "$x" ] || exit 0
+git diff --cached --quiet -- docs AGENTS.md README.md && exit 0
+"$x" history check || { echo "pre-commit: history check failed"; exit 1; }
