@@ -4,6 +4,19 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Bottlenecks, ranked (29 September)
 
+0. **The representation, from scratch** (Julien, 29 September). It is one question, and the others below may be its consequences.
+   - The engine is "a causal cellular automaton that runs as fast as possible or maybe that is guided by light speed".
+   - "we need to make light speed hardware native… light speed is basically how fast the causal chain is updated".
+   - "a 'simple' tube is tracing a straight line through spacetime which means that space time needs to be represented in such a way that it is possible while respecting gr".
+   - "we want to guess in a way that is perfect how the simulation will run to bypass it"; "steps are there to solve a problem of how much error we are ok with… we want them consistent across the different types of simplifications… We need to expand what steps mean".
+   - "rethink our units from scratch, time and spatial ones", "tied to hardware and end goal"; the number representation from first principles; "how we travel [memory] limiting useless movement".
+
+   Derive it from the requirements (the goal, the behaviours, the M1) before any known method. Candidates to test, not adopt:
+   - each cell a freely falling local frame, with bodies stored as small offsets from it;
+   - c as one cell per update, so each cell's time unit is its light-crossing time;
+   - exact shortcuts in the spirit of Hashlife;
+   - a bit-reversible integer law, so errors cannot compound;
+   - asynchronous variational integrators, which keep energy bounded across cells with different steps.
 1. **What cells add for many sources.** Mass moments add; the river flow does not, because β ∝ √M. We need a rule from a cell's multipole expansion to its local β that:
    - is exactly Schwarzschild for one mass;
    - is curl-free for static sources;
