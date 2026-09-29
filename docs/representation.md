@@ -20,7 +20,7 @@ Everything below follows from these three, and so does its cost (§6).
 - **Nested dolls.** Each dominant mass carries a doll: its freely falling frame, a disc running from its surface or horizon out to its sphere of influence.
   - Inside a doll, the parent's gravity is only tides (the equivalence principle).
   - Dolls nest as overset discs (Chimera grids, Steger, 1983). A child slides over its parent's grid and masks it, and a body crossing the edge is handed over.
-  - A dense region with no central mass (a battle, a fleet) is also a doll: the free-fall frame of its centre of mass. Inside it, tides are linear, and relative motion has an exact closed form (Clohessy–Wiltshire, 1960). No mode ever freezes gravity.
+  - A dense region with no central mass (a battle, a fleet) is also a doll: the free-fall frame of its centre of mass. Inside it, tides are linear to first order, with the Clohessy–Wiltshire closed form (1960). That is only first order: members drifting at dr/R = 0.01 are off by 7.7× their offset after one period (red-team, H0203), so members re-anchor to the frame at events or carry the quadratic term. No mode ever freezes gravity.
 - **One grid; the coordinates are chosen per doll.** In coordinates where the field's symmetry is a translation, the grid is always a uniform lattice of fixed-bit cells.
   - Boundaries then follow the symmetry, so each crossing conserves exactly what the field conserves (Noether). The precedent is the FHP lattice gas (1986): isotropy came from lattice symmetry.
 - **Around a dominant mass, the coordinates are ln z = ln r + iθ: rings.**
@@ -29,7 +29,7 @@ Everything below follows from these three, and so does its cost (§6).
   - Rings are floating point. The octave is the exponent, and the ring is the top mantissa bits, so a point's ring comes from the bits of the integer r².
   - The ring index *is* the gradient: a doll stores only its mass, centre and motion.
   - Crossing a ring conserves E and L; crossing a spoke carries no gravity event.
-  - **Binet cells (the primary in-cell solution).** With u = 1/r, the orbit inside band k obeys u″ + (1 − 6M·u_k)·u = M/L² − 3M·u_k². That is a rotation, two additions in integers (Minsky), and it preserves area. Precession, the innermost stable orbit (where 1 − 6M·u_k < 0) and plunges all emerge. Light is the same equation without the M/L² term.
+  - **Binet cells (the primary in-cell solution).** With u = 1/r, the orbit inside band k obeys u″ + (1 − 6M·u_k)·u = M/L² − 3M·u_k². That is a rotation. In integers, Minsky's two-addition map is a rotation conjugated by a shear, so the orbit is a slightly elliptic loop with a bounded ripple; with ε = 2·sin(θ/2) its angle is exactly θ. It preserves area. Precession, the innermost stable orbit (where 1 − 6M·u_k < 0) and plunges all emerge. Light is the same equation without the M/L² term.
 - **Where no mass dominates, the coordinates are Cartesian,** with the same grid.
   - Any further map (for example the bipolar map, for binaries) earns its place only by turning a class of motion into exact repetition. It is chosen by dimensionless numbers.
 - **Matter and geometry, the loop of GR, as a local rule.**
@@ -65,6 +65,7 @@ Everything below follows from these three, and so does its cost (§6).
 - **Generators.**
   - A doll orbit is a cycle: its radial crossings repeat, and each cycle adds constants to φ, t and τ. Identical invariants share one memoized cycle, as in Hashlife.
   - Perturbations (tides, neighbours, inspiral by Peters' formula) are kicks on E and L. A cycle's derivatives are stored with it, so a kick updates the cycle by a multiply-add.
+  - **Averaging only away from resonance.** Near a mean-motion resonance, kicks keep the conjunction phase: one kick per conjunction, never an orbit average, because an averaged layer cannot represent a locked resonant angle. The red-team measured this (H0203), and the original conversation already said it. Rung r4 tests the per-conjunction layer.
   - Fleets are families. Stars and asteroids stay a seed until an event singles one out (Elite, 1984).
 - **Two evaluation orders of the same event graph, with identical bits.**
   - **Sparse:** where events per cell per light-crossing (a Knudsen-like number) ≪ 1. Certificates, the causal frontier, and one queue ordered by slack, on the CPU.
@@ -86,7 +87,7 @@ Everything below follows from these three, and so does its cost (§6).
 - **The width follows the information.**
   - Store invariants and epochs. Derive phases and fine positions, and only when needed.
   - Orbits that are indistinguishable at the stored width become one record.
-  - Floors per body: about 2–5 bytes for a structured body given its family; about 12–16 bytes for an individual in a doll. Today's `Body` takes 88 bytes.
+  - Floors per body: about 2–5 bytes for a structured body given its family; about 12–16 bytes for an individual in a doll. Today's `Body` takes 88 bytes. The per-cycle increments (Δφ, Δt, Δτ) live in the shared cycle memo, not in each body.
 - **Carries are sigma-delta modulators** (Inose and Yasuda, 1962). Rounding error is pushed within an orbit, where it averages out, so stored numbers can be narrow. Bresenham's error term (1962) is the same trick, so tubes at rational speeds and carries are one mechanism. Minsky's circle (HAKMEM, 1972) keeps an orbit closed with two additions, because the map preserves area.
 - **The virtual comma is explicit:** block floating point, with the cell level as the shared exponent.
 - **The split between law and implementation.** Number forms and widths are law, fixed from rung r2. SWAR, NEON, AMX and bundles give the same bits, so they are implementation, deferred until B10 profiles on the M1.

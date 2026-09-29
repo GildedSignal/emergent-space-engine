@@ -64,4 +64,7 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Taste log (the integrator's decisions on gold, newest first)
 
-(none yet)
+- **29 September, premise red-team: silver.**
+  - **Adopted:** the rule that resonance kills averaging (design §3, rung r4); r3 v2's truncation fix; Clohessy–Wiltshire is first order only; Minsky's map is a conjugated rotation.
+  - **Why silver, not gold:** its model B, the half claiming "kicks survive", was a dense integration, not the design's kick layer. Claims must be measured on the design's cheap path.
+  - **Why it was good work:** a converged truth, predictions written before the decisive run, the rung gap audited, and honest misses.
