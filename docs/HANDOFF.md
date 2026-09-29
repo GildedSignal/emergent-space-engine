@@ -17,7 +17,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 |---|---|---|---|
 | Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | Public API landed (b51fc9a, b830bba); next Codex window 14:00 via `artifacts/runs/astra-geodesic/launch.sh` (retarget the time) | Fix what the climb shows; merge |
 | Gate harness `xtask gravity-gate` | Merged (H0193): echo passes literally, planted fails | Ready | Wire `xtask/src/gate/adapter.rs` once Astra exposes `Geodesic` (its resume note lists the needed diagnostics); climb R0→R5 |
-| First real G2 climb | Integrator, `/private/tmp/emergent-wt-g2run` (`wt/g2run` = main + `wt/geodesic` + wired adapter; target `/private/tmp/emergent-target-g2run`) | Running G2.1 | Report to Astra; keep the adapter for the merge; delete `wt/g2run` after |
+| First real G2 climb (H0194) and diagnosis | Integrator plus a Sonnet sub-agent, `/private/tmp/emergent-wt-g2run` | 336/600 R0 agree, 0 disagree; R0-0537 (weak field) hangs. Sonnet is adding `--diagnose` and running it across every rung into `artifacts/runs/gravity-gate/diagnose-1/` | Attach DIAGNOSIS.md to Astra's 14:00 note; schedule `launch.sh` |
 
 ## What the engine computes
 

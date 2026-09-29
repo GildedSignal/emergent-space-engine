@@ -2863,3 +2863,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: `xtask/src/gate/`; runs in `artifacts/runs/gravity-gate/`
 - Limitations: The crate adapter is unwired, and the crate's Orbit lacks the clock rates and Shapiro delay that G2.2 checks.
 - Next: Astra adds the diagnostics and the public Geodesic; wire the adapter; climb R0→R5.
+
+
+## H0194 — First real G2.1 climb: 336 R0 cases agree exactly; a weak-field hop hangs past the 60 s watchdog
+
+- Date: 2026-09-29
+- Kind: experiment
+- Status: measured
+- Revisions: `wt/g2run` = main at 4c21387 + `wt/geodesic` at b830bba + wired adapter
+- Scope: first run of `xtask gravity-gate --gates 1` against the canonical crate; no gate, threshold or crate change
+- Changed: The integrator wired the harness adapter to Astra's public Geodesic API (b51fc9a) in a throwaway branch. A crate panic on an unfinished chart is recorded as a wrong answer, never a crash. The climb reached R0 chunk 4: 336 of 600 R0 cases agreed with the frozen Arb floors, with 0 disagreements. Chunk 3 took 20.9 s for 256 cases (about 80 ms per case, versus the 50 µs G2.5a target). R0-0537 hung past 60 s: a far-field unbound hop, M ≈ 1.5e10, r/M ≈ 1.3e10, 0.4c, dt = 5,764. The watchdog killed it, so the result is GATES FAIL, as the contract requires.
+- Why: Real feedback early beats a finished crate late (H0191).
+- Validation: 31 evidence hashes verified; machine on AC, load 2.7, swap 2.6 GB of 4 GB, no thermal warning.
+- Evidence: `artifacts/runs/gravity-gate/first-climb/` (on disk)
+- Limitations: The stop at the first timeout hides the rest; a diagnostic mode is being added.
+- Next: Full diagnosis across every rung; Astra's 14:00 window works from it.
