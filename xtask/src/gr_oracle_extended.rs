@@ -121,13 +121,29 @@ fn bound_constants(p: f64, e: f64) -> (f64, f64) {
 pub(crate) fn bound_period_quad(p: f64, e: f64) -> (f64, f64) {
     // Darwin's r=p/(1+e cos χ). From dφ/dχ=√[p/(p-6-2e cosχ)] and
     // dτ/dφ=r²/L, dt/dτ=E/(1-2/r); E,L are the exact Schwarzschild first integrals.
+    // Pieces double until the value converges (H0193): near e = 1 the integrand peaks
+    // sharply at apoapsis, which 16 fixed pieces under-resolve (1.8e-5 at e = 0.99996).
     let (energy, angular) = bound_constants(p, e);
-    let t = integrate_gl(0.0, 2.0 * PI, 16, 32, |chi| {
+    let refine = |f: &dyn Fn(f64) -> f64| {
+        let mut pieces = 16;
+        let mut v = integrate_gl(0.0, 2.0 * PI, pieces, 32, f);
+        while pieces < 1 << 14 {
+            pieces *= 2;
+            let w = integrate_gl(0.0, 2.0 * PI, pieces, 32, f);
+            let done = (w - v).abs() <= 1e-14 * w.abs();
+            v = w;
+            if done {
+                break;
+            }
+        }
+        v
+    };
+    let t = refine(&|chi: f64| {
         let r = p / (1.0 + e * chi.cos());
         let dphi = (p / (p - 6.0 - 2.0 * e * chi.cos())).sqrt();
         dphi * r * r / angular * energy / (1.0 - 2.0 / r)
     });
-    let tau = integrate_gl(0.0, 2.0 * PI, 16, 32, |chi| {
+    let tau = refine(&|chi: f64| {
         let r = p / (1.0 + e * chi.cos());
         (p / (p - 6.0 - 2.0 * e * chi.cos())).sqrt() * r * r / angular
     });

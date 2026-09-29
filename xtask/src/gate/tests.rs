@@ -248,14 +248,14 @@ fn echo_passes_r5_with_the_fallback_cases() {
 }
 
 #[test]
-fn echo_passes_g22_once_the_oracle_gap_is_adjudicated() {
-    let r = g22::run(&replay("echo"), fz(), &ctx());
+fn echo_passes_g22_literally() {
+    // The oracle's period quadrature now converges (H0193), so no adjudication is needed:
+    // at G22-0047 (e = 0.99996) its fixed 16x32 rule had been 1.79e-5 off the judge.
+    let r = g22::run(&replay("echo"), fz(), &literal());
     assert!(r.pass, "{}", r.to_json());
     assert_eq!(r.cases, 510);
     assert_eq!(r.tau_queries, 8138);
     assert_eq!(r.tau_skipped_no_reference, 22, "the OutOfRange queries carry no judge tau");
-    assert_eq!(r.adjudications_applied, vec!["G22-0047:radial_period_T", "G22-0047:radial_period_tau"]);
-    assert!(r.unused_adjudications.is_empty());
     for (name, n) in [
         ("periapsis_advance", 415),
         ("radial_period_T", 415),
@@ -270,25 +270,6 @@ fn echo_passes_g22_once_the_oracle_gap_is_adjudicated() {
         assert_eq!(r.checks[name].n, n, "{name}");
         assert_eq!(r.checks[name].fail, 0, "{name}");
     }
-}
-
-#[test]
-fn echo_fails_g22_literally_on_exactly_the_oracle_gap() {
-    // Without the adjudication: no evaluator can be within 1e-9 of both the judge and the oracle
-    // function at G22-0047 (e = 0.99996), where the oracle's 16x32 quadrature is off by 1.79e-5.
-    let r = g22::run(&replay("echo"), fz(), &literal());
-    assert!(!r.pass);
-    assert_eq!(r.failed_cases, 1);
-    for name in ["radial_period_T", "radial_period_tau"] {
-        let t = &r.checks[name];
-        assert_eq!((t.fail, t.reference_gap), (1, 1), "{name}");
-        assert!((1.7e-5..1.9e-5).contains(&t.max_reference_gap), "{name}: {}", t.max_reference_gap);
-    }
-    // every other check agrees with the oracle far inside its tolerance
-    assert!(r.checks["periapsis_advance"].max_rel_oracle < 1e-12);
-    assert!(r.checks["light_deflection"].max_rel_oracle < 1e-12);
-    assert!(r.checks["shapiro_delay"].max_rel_oracle < 1e-12);
-    assert!(r.checks["static_clock"].max_rel_oracle < 1e-14);
 }
 
 #[test]

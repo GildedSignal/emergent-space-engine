@@ -31,11 +31,13 @@ fn echo_ends_gates_pass_with_exit_0_and_writes_every_verdict() {
 }
 
 #[test]
-fn literal_echo_fails_on_the_oracle_gap_and_says_so() {
+fn literal_echo_passes_g22_alone_as_a_partial_run() {
+    // With the oracle's period quadrature converging (H0193), echo passes G2.2 with no adjudication.
+    // A run of one gate may never print GATES PASS.
     let d = out_dir("literal");
     let (code, text) = gate(&d, &["--evaluator", "echo", "--literal", "--gates", "2"]);
-    assert_eq!((code, last(&text)), (1, "GATES FAIL"), "{text}");
-    assert!(text.contains("radial_period_T"), "{text}");
+    assert_eq!(code, 0, "{text}");
+    assert!(last(&text).starts_with("PARTIAL PASS"), "{text}");
     std::fs::remove_dir_all(&d).ok();
 }
 

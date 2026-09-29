@@ -2848,3 +2848,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [provenance](../artifacts/evidence/g2-reference-20260928/PROVENANCE.md)
 - Limitations: FB forces the midpoint only on circles; chart-B whirls are not windowed; W is unproven.
 - Next: A Sonnet harness climbs R0→R5 against these files once Astra's crate exposes Geodesic.
+
+
+## H0193 — Step 2 gate harness merged; the oracle's period quadrature fixed instead of adjudicating a gap
+
+- Date: 2026-09-29
+- Kind: implementation
+- Status: implemented
+- Revisions: `912b51f`, `1ac8007` (Sonnet harness), merged in `0a15762`; oracle fix in this entry's commit
+- Scope: xtask/src/gate/, xtask/tests/gravity_gate_cli.rs, `bound_period_quad` in gr_oracle_extended.rs
+- Changed: Claude Sonnet built `xtask gravity-gate`, which runs G2.1–G2.5 against the frozen floors: an Evaluator trait with a stub crate adapter, echo and planted evaluators, a rung climb with a 60 s watchdog, and machine state recorded with every timing. At G22-0047 (e = 0.99996) the oracle's fixed 16×32 period quadrature was 1.79e-5 off the judge. Refined, it converges onto the judge. Ruling: fix the method (pieces double until convergence), not adjudicate; the proposed adjudication lines were removed.
+- Why: A correct evaluator must be able to pass a literal gate. Fix the method, never the band (H0178).
+- Validation: The oracle's pass/fail is unchanged against the H0183 rows. Echo gives GATES PASS literally (G2.5b max 16.8 µs). Planted fails at R3. 42 unit and 8 CLI tests pass; history check PASS.
+- Evidence: `xtask/src/gate/`; runs in `artifacts/runs/gravity-gate/`
+- Limitations: The crate adapter is unwired, and the crate's Orbit lacks the clock rates and Shapiro delay that G2.2 checks.
+- Next: Astra adds the diagnostics and the public Geodesic; wire the adapter; climb R0→R5.
