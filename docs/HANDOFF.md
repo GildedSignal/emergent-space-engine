@@ -17,6 +17,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 |---|---|---|---|
 | Float re-probe of cell-owned step rules (C1 shell-constant, C2 time-symmetric switching, C3 fixed control) | GLM, sandboxed; prompt `artifacts/runs/gravity-v1-reprobe/prompt.md`, output `.../out.md` | Running | The integrator folds the winning configuration into `gravity-law.md`; then freeze v1 |
 | Prior-art scout: how others own time steps by cell, not body (block steps, asynchronous variational integrators, Wisdom–Holman, patched conics) | GLM, sandboxed; prompt `artifacts/runs/prior-art-timestep/prompt.md`, output `.../out.md` | Running | Read with probe 2's result before choosing the step rule |
+| GLM lab (`lab/`): lenses, runner, independent checker | Integrator; cloud routines once Julien's cloud environment holds `ZAI_API_KEY` | Built; waiting for the environment | Create one routine per lens (host model Haiku, `lab/run.sh start <lens>`); read gold abstracts only; log decisions in `lab/board.md` |
 | Julien's yes or no on the 23 proposed principles and on CARD.md | Julien | Asked 29 September | Move each yes into the numbered list in his words; record each no in the register |
 | `crates/geodesic`, the exact evaluator (now oracle material, H0195) | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`, parked at 1a8d526) | **Parked, not running.** Window 7 ran 09:00–09:31 and stopped at the Codex limit (`artifacts/runs/astra-geodesic/log-7.txt`) | Not in flight. The integrator decides: keep it as an oracle component or archive it. Do not re-climb G2 |
 | `xtask gravity-gate` (the v0 G2 gates) | Merged (H0193); its throwaway adapter lives in `wt/g2run` | Parked | Reuse its watchdog and state recording in `xtask gravity-behave`; then delete `wt/g2run` |
@@ -32,7 +33,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 7. **Physics v1:** Kerr, inspiral, merger.
 8. **Ladder v8:** physically scaled scenes reporting real-time factors.
 
-Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). Work runs one job at a time; parallel work is limited to read-only briefs and independent judges.
+Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). The spine (contracts, builds, merges) runs one job at a time; the GLM lab runs in parallel in the cloud.
 
 **Budgets (29 September, 14:35):** Codex weekly 80%, past the 75% line (resets 5 October), so Claude Opus writes the law and Astra reviews. GLM: 5% of its 5-hour window, 1% of its month: badly under-used. Check each provider's usage before assigning (AGENTS.md).
 

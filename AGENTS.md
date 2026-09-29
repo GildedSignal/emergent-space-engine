@@ -21,7 +21,7 @@
   - **gpt-6-astra:** the hardest exact specifics: algorithms, proofs, audits.
   - **Claude Sonnet**, as sub-agents: the default builder for well-scoped builds, harnesses, fixes and fast iteration.
   - **gpt-6-sol:** the overflow builder.
-  - **GLM 5.3** (`omp`, in a sandboxed clone): volume without authority. It runs red-teams, probes, sweeps and mutants. Its loops are pull-based: one launches only when at most one finding is waiting.
+  - **GLM 5.3,** the [lab](lab/README.md): autonomy of inquiry and no authority. Many GLMs with lenses choose their own experiments, run as cloud routines only (never on Julien's machine), and are each checked by an independent GLM. Only gold reaches the integrator. Pre-freeze red-teams and probes run there too.
   - **Read-only thinking agents,** before one-way doors only. Their briefs stay outside the repo.
 - **A players protect the work.**
   - The tiers, highest first: Opus ≈ Astra, then Sonnet, then Sol, then GLM. Whoever builds a module, contract or gate owns it.

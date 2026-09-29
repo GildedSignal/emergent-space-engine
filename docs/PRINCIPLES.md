@@ -64,6 +64,9 @@ Status words: **Followed** (built, or a rule in force), **Adopted** (decided in 
 | One engine, not five modes: "yes, why not one?" (chronon only as a test judge) | CL 09-29 08:05 | **Adopted, not built:** engine.md is one engine; the code still has five modes |
 | Measure like the player, heat included, with the state recorded | 28 September | **Followed** (AGENTS.md) |
 | Sonnet for well-scoped work, Opus for hard problems and decisions; "You can abuse GLM"; "It's a wildcard that we're underestimating"; GLM for red-teaming and autoresearch | CL 09-28 12:10–18:56 | **Followed** (AGENTS.md). "Volume without authority" and pull-based loops are the integrator's, approved with the architecture (H0191) |
+| "GLM should have more autonomy not what it could change but on what it could experiment on"; "Don't run on my machine use the cloud session"; "I don't like pass/fail we just need a good system that make sure it propose gold"; "an independent GLM that checks its work is good" | CL 09-29 | **Adopted:** [lab/](../lab/README.md) (lenses, independent checker, gold/silver/lead with reasons); it runs once the cloud environment holds the key. Supersedes the pull-based loops |
+| "Our goal is to make the fastest and most robust engine/compiler ever for that type of physics" | CL 09-29 | **Adopted:** the lab board's target. A candidate line for the goal: his call |
+| "we need to think in terms of requirements and from that find out what the best solution is not just based on what is normally done, that's how we got as good as we are now"; "We should tackle bottlenecks as much as possible" | CL 09-29 | **Adopted:** the scout lens and the lab's bottleneck board |
 | Speed is reported as a real-time factor, since effective c depends on it | CL 09-27 10:20 | **Followed** |
 | Every test ≤ 60 s | 26 September | **Followed** |
 | Everything emergent; no scripted events, designed families or central control | 27 September | **Followed** |
