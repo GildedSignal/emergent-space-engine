@@ -46,6 +46,30 @@ Status: **DRAFT** (29 September 2026). This synthesizes Julien's direction from 
 | Memory | causal order | sequential streaming |
 | Numbers | 32-bit words with shared exponents | native on every unit |
 
+**Native forms (29 September, second pass):**
+- **Rings are floating point.**
+  - A float's exponent is the octave, and its top mantissa bits are the ring within that octave.
+  - The ring index of a point is therefore the bits of the integer r², shifted: leading-zero count plus four bits. This needs no square root and no log. Rings then repeat every octave, which is the self-similarity a dyadic tree needs.
+  - Block floating point (a cell level shared as the exponent, an integer mantissa) gives floats' range with integers' determinism. It is "where you put the virtual comma", made explicit.
+- **Light-cone (null) coordinates u = t − x and v = t + x do for boosts what rings do for rotations.**
+  - The interval is the product u·v, so no square root is needed.
+  - A boost is the scaling (u, v) → (k·u, v/k).
+  - In log form, log k (the rapidity) is added: Bondi's k-calculus.
+  - Light moves along grid lines.
+- **Squared forms replace square roots.** Store the potential, 2M/r = |β|², not the flow. Compare r² and τ², not r and τ. Contact tests are sign tests on the quadratic.
+  - A root is taken only where an exact time is needed: a contact that becomes the next event, or a cycle's first computation. It then costs a few Newton multiply-adds.
+- **Bundles:**
+  - an event with its velocity is one split-quaternion, and one product changes both;
+  - (E, L) kicks are one 2-vector add;
+  - (ring, spoke) is one packed 32-bit word, and a single add moves both halves (SWAR);
+  - a cycle update (φ, t, τ) is one vector add (NEON: 4 lanes; the GPU: 32).
+- **Booleans answer "whether"; integers answer "how much".**
+  - Occupancy, validity and overlap are bitmaps.
+  - Light-cone spread is bit-parallel: shift and OR move light one cell for 64 cells at once. Julien, 26 September: "overlap of spacetime occupation which is quite boolean like".
+  - A direction's octant is 3 bits.
+- **Rotation without multiplication:** CORDIC (shifts and adds), where rotations are needed at all.
+- **One language underneath:** geometric algebra. Complex numbers, split-quaternions and the conformal extension, which makes translations multiplicative too, are its subalgebras. Each job uses the smallest one.
+
 Real multiplications, square roots and wide integers remain only at surprises: handoffs, a cycle's first computation, contacts and decisions. Compute then equals entropy (principle 3).
 
 ## One law
