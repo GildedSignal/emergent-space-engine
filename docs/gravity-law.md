@@ -1,12 +1,15 @@
 # Gravity law `es-lattice-gravity-v1`: contract
 
-Status: **draft** (29 September 2026, H0195). The gates freeze only after GLM's red-team and the float premise probe below. The v0 contract (exact continuum floors, H0184–H0194) is retired: its evaluator, the Arb judge (`artifacts/evidence/g2-reference-20260928/`) and `xtask gr-oracle` now serve as the **oracle**, which measures behaviour. None of them is the implementation.
+Status: **DRAFT, not frozen.** Only Julien freezes it, and no gate below binds until he does. Drafted 29 September 2026 (H0195) and amended the same day for his decisions, GLM's red-team and premise probe 1 ([evidence](../artifacts/evidence/gravity-v1-freeze-20260929/PROVENANCE.md)). The v0 contract (exact continuum floors, H0184–H0194) is retired: its evaluator (`crates/geodesic`), the Arb judge (`artifacts/evidence/g2-reference-20260928/`) and `xtask gr-oracle` now serve as the **oracle**, which measures behaviour. None of them is the implementation.
 
 ## Principles
 
-- **The law is a fixed integer algorithm,** like the lattice's collision law. "Exact" means bit-identical on every machine, thread count, partition and event order. It does not mean equal to continuum GR.
+- **The law is a cheap, local, fixed integer algorithm,** like the lattice's collision law. "Exact" means bit-identical on every machine, thread count, work partition, silicon and event order. It does not mean equal to continuum GR.
 - **The oracle is exact GR.** Gates judge behaviours and error type against it, never bitwise continuum floors.
-- **Only changes cost.** A body pays at events. Observables (clocks, redshift, lensing, delays) are derived when queried, never evolved.
+- **Gravity is a field held by cells; multipoles are the mechanism,** including the aggregate mass of ships (Julien: "they have a lot of mass cumulated they can't just be dismissed like that"). One mass, two and N run the same code.
+- **Only changes cost; no per-body clock.** Julien: "you don't advance a ship tick by tick"; "we only care about changes". A body pays only at events: a cell crossing, a certificate expiry, a contact, a command.
+- **Observables are derived on demand.** Clocks, redshift, lensing and delays are computed when queried, never evolved.
+- **Any silicon.** The GPU may run canonical work wherever it is bit-identical to the CPU (B8).
 
 ## Space flows (river coordinates)
 
@@ -16,83 +19,86 @@ In lattice units (positions in quanta, time in chronons, c = Q):
 
 β is the flow of space. For one static mass M: β = −Q √(2M/r) · X/r.
 
-- Let u = v − β, the velocity relative to the flow. Local physics is the lattice's special relativity applied to u: contacts, and the speed limit |u| < Q.
-- **Clocks** follow dτ/dT = √(1 − |u|²/Q²), evaluated on demand.
-- **The horizon** is where |β| = Q.
-- **Coordinate light speeds** fill the disc of radius Q around β, so dependency bounds use Q + max|β|.
-- **With no source,** β = 0 and the law is today's lattice exactly.
+**The equations the law discretizes** (red-team finding 1: without them the gates would test whatever gets written). With u = v − β the velocity relative to the flow, γ_u = Q/√(Q² − |u|²), and p = γ_u·u the momentum per unit mass:
+
+    H = Q √(Q² + |p|²) + β(X)·p        dX/dT = u + β        dp/dT = −(∇β)ᵀ p
+
+- u = Q·p/√(Q² + |p|²), so |u| < Q for every massive body by construction. Light is the null case, H = Q|p| + β·p, with |u| = Q.
+- **Conserved in a static single-source field:** E = H = γ_u (Q² + β·u) and L = X × p. In the weak field, E ≈ Q² + ½|v|² − MQ²/r.
+- **The split probe 1 validated:** H = A + B, with A = Q√(Q² + |p|²) (a straight drift in the flat sheet) and B = β·p (the river: it carries X along β and focuses p by −(∇β)ᵀp). Both integrate exactly for one mass. A kick that only tilts the velocity and keeps u has the wrong limit (no stable circular orbits, zero light deflection); it is a negative control.
+- **Clocks:** dτ/dT = √(1 − |u|²/Q²) = Q/√(Q² + |p|²), on demand.
+- **The horizon** is where |β| = Q (r = 2M). **Coordinate light speeds** fill the disc of radius Q around β, so dependency bounds use Q + max|β|.
+- **With no source,** β = 0 and the law is today's lattice exactly (B0).
 
 ## The law (v1)
 
-**Body state:** integer x and k (quanta per chronon), mass, cell, the error-feedback carries on E and L, and the time of its last event.
+**Cells.** One quadtree, built by a fixed integer rule from the field, never from a body's state. A cell's side is a power of two set by the field's curvature length ℓ at the cell (ℓ ∝ r for one mass) times a fixed dyadic fraction κ: cells are large where the field is flat and small where it bends. These cells are part of the law. A work partition (threads, regions, CPU or GPU) is not.
 
-**Cells** are the event core's density-sized cells. Each holds:
-- the integer mass moments of what it contains, as sums that commute: exact and independent of order;
-- a **field record** with a certificate: "valid until the source moments change by more than ε", with ε a fixed integer threshold.
+**Cell records.** Each cell holds:
+- the integer mass moments (monopole up to a fixed order P) of what it contains, as sums that commute: exact and independent of order. Every body deposits, ships included, so a fleet's aggregate is a source;
+- a **field record**: the local expansion of the field to order P from a hierarchical multipole solve over the cells (moments up, local expansions down), with moments read at the retarded time, and a certificate "valid until the source moments change by more than ε", with ε a fixed integer threshold. With one static mass, the certificate never expires.
 
-In step 2 the field is the single source's analytic flow, so its certificate never expires. In step 5 it comes from a hierarchical multipole solve over the cells, with moments read at the retarded time.
+**Open, the first design question: what the cells add.** Moments and the potential Φ add linearly; the flow does not (β ∝ √M, so β₁ + β₂ is not the two-mass flow). The law text must give the rule from a cell's expansion (Φ and its derivatives) to the local β. It must reduce exactly to the Schwarzschild flow for one mass, and be curl-free for static sources: in the Newtonian limit dv/dT ≈ −∇Φ − v × (∇×β), and static masses exert no such velocity-dependent force. The two-mass rung judges it against the 1PN oracle.
 
-**Motion between events** follows a fixed, time-symmetric integer drift-kick algorithm in the cell's field:
-- A step lasts Δ = a fixed function of the body's integer state: a fraction η of the local dynamical time, clipped to the next cell boundary or certificate expiry.
-- Within a step, the body drifts straight in the local sheet. At the step boundary, the change in tilt is applied as an integer velocity kick.
-- Rounding uses error feedback on the carried E and L. It stayed bounded in H0190.
-- **The implementer writes the exact algorithm in the crate before the first gate run:** the integrator and its order, η, the step rule, the rounding recipe and the horizon test. That text is the law.
+**Motion: events only.**
+- The events are a cell crossing, a field-certificate expiry, a contact (from step 6) and a command. Nothing is scheduled between them.
+- Inside a cell, the path is the A/B split with a **constant step fixed by the cell** (from its side and field record), never by the body. It runs from the entry crossing to the exit crossing, which is found exactly. The sub-steps are the in-cell solution: they are not events, and nothing is stored between them.
+- **Or a generator.** A body in a static single-source field may instead carry an analytic generator (its orbit as a fixed integer formula), re-anchored only at events, if it passes the same gates.
+- At each event, the integer state is re-anchored with error-feedback carries on p, and hence on E and L.
+- **Light** follows the same law with |u| = Q. Its path is clipped at every cell boundary, so no chord can jump over a lens.
+- **The horizon:** a body whose in-cell path reaches r ≤ 2M, tested along the path and not only at sub-step ends, is absorbed at that chronon. Its E and L go to the source's ledger, and nothing is evaluated inside.
+- **Queries** evaluate the path and never change state.
 
-**Events:** a body's own step boundary, a cell crossing, a field-certificate expiry, a contact (step 6 onward), a command.
+**Body state:** integer X and velocity k relative to the flow (as in lattice v1, so β = 0 is today's lattice), mass, cell, the carries on p, and the chronon of its last event. An integer k cannot hold |u| = Q off-axis (red-team finding 5), so the law text states how light is held.
 
-**The horizon:** a body whose step would reach r ≤ 2M is absorbed at that step's chronon. Its E and L go to the source's ledger, and nothing is evaluated inside.
+**The implementer writes the law in the crate before the first gate run:** κ, P, the β rule, the cell's step rule and the in-cell order, the exit-root rule, the rounding recipe, the light representation and the horizon test. That text is the law. It must lie inside the envelope probe 2 measured; otherwise, re-probe first (red-team finding 11).
 
-**Light** follows the same law with |u| = Q, starting from an anchor direction.
+## Rungs (same code at every rung; each passes before the next)
 
-**Queries** never change state. Reading a position between events evaluates the current drift.
+1. **One static mass,** test bodies and light, in the equatorial plane. Ranges: per component |x_c| ≤ 2^96, 1 ≤ M ≤ 2^80, Q ≤ 2^40, |T − T0| ≤ 2^80 ([universe-quanta.md](universe-quanta.md)); intermediates may use wide integers.
+2. **Two masses:** a binary, then a mass and a fleet whose aggregate moments are a source. Oracle: 1PN two-body, after a new protocol on unseen cases replaces the retained e = 0.5 period failure (H0183).
+3. **N bodies:** clusters and galaxy-like populations with ships, moving sources included (retarded moments with source-velocity terms). Oracle: 1PN N-body, and statistics over seeds.
+4. **Scale:** cost against N up to 10^9 (B10).
 
-## Step 2 scope
+## Premise probes (float, GLM)
 
-One static mass, with test bodies and light, in the equatorial plane. No contacts. Ranges: per component |x_c| ≤ 2^96, 1 ≤ M ≤ 2^80, Q ≤ 2^40, |T − T0| ≤ 2^80. Intermediate products use arbitrary-width integers.
+**Probe 1 (done)** tested the H0195 draft's per-body step Δ = η·r^{3/2}(current state). Precession, E = 1 capture and deflection at b = 10M passed at 1% (order 4 with 2–4 orders of magnitude of margin). Energy growth killed it: exponents 0.47–0.98 over 10^3–10^4 orbits, while a fixed-step control stayed flat (1.8×10^-8 at order 2, 2.2×10^-10 at order 4). Distant light jumped the lens in one 15,600-long chord, and orbits took 407–502 steps at η = 1/64, 2% under B9. It kills the state-dependent step rule, never the method (principle 9). [probe-out.md](../artifacts/evidence/gravity-v1-freeze-20260929/probe-out.md)
 
-## Premise probe (float, run by GLM before the freeze)
+**Probe 2 (the cheapest falsifier, required before the freeze; running).** A float re-probe of cell-owned step rules on radial shells [2^k, 2^{k+1}): C1, a shell-constant step with exact advance to each shell boundary; C2, the same with time-symmetric switching; C3, one fixed step as the control. Kill criteria, frozen before the run in `artifacts/runs/gravity-v1-reprobe/prompt.md`:
+- energy: a growth exponent above 0.2, or a maximum |ΔE/E| above 10^-6, over 10^4 orbits at p = 20M (e = 0.2 and 0.5);
+- precession: no η ≤ 1/32 within 1% at both p = 20M and p = 1000M;
+- distant light: photons anchored at r = 10^4 M with b = 10M and 30M more than 1% from GR;
+- capture: any misclassification at L = 4M(1 ± 0.01);
+- cost: more than 512 events per orbit at p ≥ 20M.
 
-This is the cheapest falsifier: a 64-bit-float version of the law with a time-symmetric drift-kick in the Schwarzschild river flow, measured against `gr-oracle`. **Kill criteria,** each on its own:
-- no η at or below 1/64 (with the probe's best integrator order) keeps precession within 1% of GR at p = 20M and p = 1000M;
-- the energy error grows with an exponent above 0.2 over 10^4 orbits;
-- the capture threshold at E = 1 lands more than 1% from L = 4M;
-- deflection at b = 10M lands more than 1% from GR.
+The integrator folds the cheapest passing configuration into this contract. The red-team's other edges stay unprobed so far: p = 10M, e up to 0.9 and a near-separatrix whirl, periods, horizon timing, the tilt-only negative control, and two masses under the chosen β rule.
 
-The probe also reports events per orbit against p.
+## Gates B0–B10 (proposed; Julien freezes them after probe 2)
 
-## Gates B1–B9 (freeze after the red-team and the probe)
-
-Each test runs in under 60 s. Cost is measured the way the player runs it, with the thermal, power, swap and load state recorded. **The cases:** the oracle's G2.2 anchors (bound, (p − p_sep)/p ≥ 10^-4), its G2.4 horizon cases and its light anchors, plus long-run cases.
-
-**Rungs,** each passing before the next runs: circular → radial infall → eccentric → light → horizon → long runs.
+Every test runs in under 60 s, measured the way the player runs it, with the thermal, power, swap and load state recorded. **The cases:** the oracle's G2.2 anchors (bound, (p − p_sep)/p ≥ 10^-4), its G2.4 horizon cases, its light anchors, and the straddling cases below. **Many seeds:** each behaviour gate B2–B6 also draws at least 256 seeds from a frozen sampler over the dimensionless numbers (p/M, e, b/b_c, |L|/4M, M/Q), and passes on the whole distribution, never on one seed's data. **Rungs** within step 1: circular → radial infall → eccentric → light → horizon → long runs.
 
 | Gate | What must hold |
 |---|---|
-| **B1 Error type** | Over 10^4 orbits, E and L have a growth exponent ≤ 0.2 and a maximum relative excursion ≤ 10^-6 |
-| **B2 Precession** | \|Δφ_law − Δφ_GR\| ≤ 1% of Δφ_GR + 10^-6 rad per orbit, for p ∈ [10M, 10^4 M] |
-| **B3 Periods** | Radial period in coordinate time within 0.1% |
-| **B4 Light** | Deflection within 1% for b ≥ 10M; capture iff b < 3√3·M, with a ±1% band |
-| **B5 Capture** | For E = 1 inward anchors: absorbed iff \|L\| < 4M, with a ±1% band |
-| **B6 Horizon** | The absorption chronon lies within one step of the oracle's ⌈T_h⌉, and nothing is evaluated at r < 2M |
-| **B7 Derived clocks** | Static and circular rates at a given state agree with the oracle to 10^-9 |
-| **B8 Determinism** | Bit-identical across 3 runs, 1, 4 and 8 threads, and different cell partitions; queries never change results |
-| **B9 Cost** | At p ≥ 10M, isolated in a static field: ≤ 512 events per orbit and a median ≤ 2 µs per event on the M1. That is about 0.1 core for a million ships in low orbit |
+| **B0 Flat reduction** | With no source, a lattice v1 scene run through the gravity code reproduces lattice v1's digests |
+| **B1 Error type** | Over 10^4 orbits, on at least 8 seeds: the growth exponent of \|ΔE\| and \|ΔL\| is ≤ 0.2 (fitted over log-spaced windows on the last 90% of the run), and no excursion changes a behaviour: bound stays bound, and the law's own periapsis and apoapsis stay within 1% of their first-orbit values |
+| **B2 Precession** | Prograde, and \|Δφ_law − Δφ_GR\| ≤ 1% of Δφ_GR + 10^-6 rad per orbit for p ∈ [10M, 10^4 M]. Below 10M: zoom-whirl present, with the whirl count within ±1 of the oracle's |
+| **B3 Periods** | The radial period in coordinate time is within 0.1%, with periapsis found on the path by a stated rule |
+| **B4 Light** | Deflection within 1% for b ≥ 10M, light anchored at r ≥ 10^4 M included; capture iff b < 3√3·M outside a ±1% band, with cases at b/b_c ∈ {0.9, 0.97, 1.03, 1.1} |
+| **B5 Capture** | E = 1 inward: absorbed iff \|L\| < 4M outside a ±1% band, with cases at \|L\|/4M ∈ {0.5, 0.9, 0.97, 1.03, 1.1, 1.5}. Every old E = 1 anchor sat inside the band |
+| **B6 Horizon** | Absorbed at the first chronon the path reaches r ≤ 2M, and the absorption chronon is within one of that cell's steps of the oracle's ⌈T_h⌉; nothing is evaluated at r < 2M |
+| **B7 Derived clocks** | An identity, not a band: the rate derived at a state equals the oracle's formula at that state (static √(1 − 2M/r), circular √(1 − 3M/r)) to one isqrt rounding. Rates are never evolved |
+| **B8 Determinism** | Bit-identical across 3 runs, 1, 4 and 8 threads, CPU and GPU, different work partitions and event orders. The law's cells are part of the law. Queries never change results |
+| **B9 Cost per body** | Isolated at p ≥ 10M, per azimuthal orbit (2π): events plus in-cell steps ≤ 512, with field evaluations per step stated; median ≤ 2 µs per step on the M1, CPU or GPU |
+| **B10 Cost against N** | Frozen scenes of 10^3 to 10^6 bodies (stars, planets and ships), each under 60 s. Fit cost per game second against N and extrapolate to 10^9: Julien's "a billion", not "a million". Passes iff the fitted exponent is ≤ 1.1 and the 10^9 extrapolation fits the M1 (all cores plus the GPU) at a real-time factor ≥ 1× on the frozen reference scene. Memory per body is reported and extrapolated too; the approved plan's 4 GiB is an open budget |
 
 ## Division of the work
 
-- **Astra:** the integer algorithm and its written law, in a new crate `crates/gravity` that Astra owns.
-- **Sonnet:** the behaviour harness `xtask gravity-behave`, run against the oracle.
-- **GLM:** red-teams this contract and runs the premise probe, both before the freeze.
-- **The integrator:** this contract, the merges and the journal.
+- **Astra:** the written law and `crates/gravity`, which Astra owns: cells, multipoles, the β rule, the in-cell solution and the Metal path.
+- **Sonnet:** `xtask gravity-behave` against the oracle, with the seed sampler and the B10 scenes. It reuses `gravity-gate`'s watchdog and machine-state recording.
+- **GLM:** the red-team and probe 1 (done), probe 2 (running), then mutants.
+- **The integrator:** this contract, adjudication, merges and the journal. **Julien freezes.**
 
-## Later steps (direction, not frozen)
+## Later (direction, not frozen)
 
-- **Step 5, many bodies.**
-  - Cells hold multipole sums, and a hierarchical solve builds the field (FMM on the cells), with moments that are polynomials in time read at the retarded time, including source-velocity terms (Laplace aberration).
-  - Certificates expire only when the moments change beyond ε.
-  - Binaries, transfers, oblate parents and fleets need no special formulas.
-- **Step 6: one engine.**
-  - The modes merge; chronon survives only as a test judge.
-  - The law enters the engine.
-  - Contacts happen in the flow frame, with an integer β at the contact from an exact isqrt of 2MQ²/r.
+- **One engine:** the law enters the engine. Contacts happen in the flow frame, with the local β taken from the cell's field (for one mass, an exact isqrt of 2MQ²/r).
 - **Kerr:** Doran flow, with twist. **Inspiral:** field energy loss. **Merger:** a single event.
