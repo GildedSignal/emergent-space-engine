@@ -24,15 +24,21 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 ## Headed next (in order)
 
-0. **The design, from scratch** ([representation.md](representation.md), DRAFT): a compiled causal automaton on symmetric spacetime (nested free-fall dolls, rings where a mass dominates, tubes refracting at joints, observables emergent, light gathered at the observer, sparse and dense evaluation orders, numbers in the form where change is an addition). Next: its falsifier ladder, rings first. No code and no freeze until the ladder says so.
-1. **Freeze v1** (paused behind step 0). The re-probe picks the cheapest passing cell-owned step rule; the integrator folds it into [gravity-law.md](gravity-law.md); the integrator freezes gates B0–B10, showing them to Julien first.
-2. **`crates/gravity`**, owned by the law's author: Claude Opus while Codex's weekly usage is above 75%, with Astra reviewing; otherwise Astra. The written law comes first: the β rule for many sources, κ, the multipole order, the in-cell step. Then rung 1 (one mass), with multipoles in cells from day one. Sonnet builds `xtask gravity-behave` (oracle, seed sampler, B10 scenes) alongside it.
-3. **Rungs 2–4 in the same code:** two masses (a binary, then a fleet as a source), N bodies, and cost against N up to 10^9 (B10). Oracle: 1PN two-body and N-body. Ship populations as generators (families, archived at H0182) come back deliberately, with a journal entry, if B10 shows per-body cost binding.
-4. **One engine and its allocator,** before the player slice (H0186; Julien: "yes, why not one?"). The five modes collapse into one engine on the batch-window knob, with the chronon kept only as the judge. Least-slack allocation is fed by surprise rates measured on the gravity workload (Julien: "it's the most important one"). The GPU is used heavily. The gravity law enters the engine, with thrust as kicks and contacts in the flow frame.
-5. **The player slice:** one mass, one ship, thrust as kicks, a float viewer, save and replay. Julien's words are the intended behaviours; he does not predict before runs.
-6. **The player, fully:** commands, signals and observation on null geodesics, and the viewer.
-7. **Physics v1:** Kerr, inspiral, merger.
-8. **Ladder v8:** physically scaled scenes reporting real-time factors.
+The design is [representation.md](representation.md) (DRAFT). Each phase has a budget; an overrun means re-deriving the phase from the goal.
+0. **Unblock the cloud lab** (Julien sets the `glm-lab-probe` routine's environment). The lenses then attack the design.
+1. **The float falsifier ladder** (§7 of the design; about a week, at most a day per rung, kill criteria frozen first). GLM lab plus Sonnet, in the cloud:
+   1. rings;
+   2. carry width;
+   3. many sources;
+   4. crossings between levels, and moving sources;
+   5. the dense order in a Clohessy–Wiltshire frame;
+   6. the view's gather.
+2. **The written integer law and its gates** (2–3 days): dolls, rings, the resolver, carries, number forms, with behaviour gates and cost against N up to 10⁹. Claude Opus writes them and Astra reviews while Codex is above 75%.
+3. **The core, in one code base for every rung** (about two weeks): one mass, then two, then N, then scale.
+   - `es-lattice-relativistic-v1` becomes the resolver, `lattice-event` the sparse order, `lattice-metal` the dense order, and `allocator` the queue.
+4. **One engine:** the five modes become the two orders. Ladder v8: physically scaled scenes, the real-time factor, cost against N.
+5. **The view** (gather at the past light cone, the spectral table), then **the player slice** (one ship, thrust, save and replay).
+6. **AI and populations** (families, seeds), then debris, Kerr and inspiral.
 
 Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). The spine (contracts, builds, merges) runs one job at a time; the GLM lab runs in parallel in the cloud.
 

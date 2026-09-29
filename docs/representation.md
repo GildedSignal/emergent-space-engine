@@ -130,6 +130,14 @@ The same things on the current path cost 340–120,000 steps per orbit, 20,000�
 5. **The dense order.** A Clohessy–Wiltshire battle frame with lattice contacts, bit-identical to the sparse order.
 6. **The view.** Gathered retarded positions, the blackbody table and lensing, per pixel within the frame budget.
 
+## Merge candidates (for Julien)
+
+1. **The view and AI perception are one gather:** an AI sees its past light cone exactly as the player does.
+2. **The frontier and the allocator are one component:** the slack queue is the min-plus frontier, ordered by deadline.
+3. **Fleets, battles and families are one kind of doll:** a free-fall frame with members.
+4. **Kicks are the non-symmetric remainder** of the same moments that set the field.
+5. **Dolls and cells may be one spacetime tree** in per-doll coordinates.
+
 ## 8. What carries over
 
 | Built | Role here |
