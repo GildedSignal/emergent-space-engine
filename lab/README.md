@@ -41,3 +41,8 @@ Many GLMs, each with a lens, get **autonomy of inquiry and no authority.** They 
 
 - A routine runs `lab/run.sh <lens> [minutes]` in a cloud environment that has `ZAI_API_KEY`. `lab/setup.sh` installs omp, pinned by hash.
 - The lenses are in [lenses/](lenses/). The integrator owns [board.md](board.md), `checker.md` and this file.
+
+## Directed rungs
+- `lab/run.sh rung <file> [minutes]` runs a rung file that is committed and unchanged: prose, a `configs` block (`<name> candidate|negative`) and a `criteria` block (`<id> behaviour|type|cost <metric> <op> <threshold>`).
+- The author writes `metrics.json`, a checker reproduces it as `metrics-check.json`, and `verdict.py` decides: PASS (after a blind second checker), KILL, VOID or DISPUTED. A KILL kills configurations, never the method.
+- [canaries/](canaries/) holds rung files with known verdicts: a checker lens that misgrades one is rewritten before real rungs count.
