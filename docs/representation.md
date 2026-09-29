@@ -2,24 +2,31 @@
 
 Status: **DRAFT** (29 September 2026). This synthesizes Julien's direction from 29 September; see the [register](PRINCIPLES.md) and bottleneck 0 on the [lab board](../lab/board.md). It supersedes nothing until its cheapest falsifier has run and Julien says yes.
 
-## One structure: spacetime as nested frames
+## One structure: nested dolls whose grid follows the field's symmetry
 
-- **Spacetime is a dyadic tree of cells (sheets).**
-  - A cell's size is a fixed function of the local spacetime gradient only: κ × the curvature length.
-  - Collisions never refine the tree. Its shape therefore encodes the gradient to within a factor of 2, almost for free.
-- **Each cell is a small freely falling frame,** where special relativity is exact.
-  - It stores its connection to its parent: the clock rate (the potential, which adds up across sources) and the flow (the velocity of space, derived locally from the clock rate).
-  - Both are stored as small remainders. The cell's level acts as their shared exponent.
-- **Cells hold the integer mass moments of everything inside them,** ships' aggregates included.
-  - Geometry is a local rule of the moments.
-  - A change travels at most one cell per update.
+- **Criterion (Noether): cell boundaries follow the symmetries of the field they hold.** A crossing can then conserve exactly what the field conserves: energy if the field is static, angular momentum if it is rotationally symmetric. Grid symmetry matters wherever the grid carries physics: square lattice gases failed isotropy, and the hexagonal FHP lattice (1986) fixed it.
+- **Around a dominant mass the field is central, so the doll is log-polar.**
+  - Rings sit at r_k = r_0·2^(k/m), with m rings per octave. This is the complex logarithm: conformal, so every cell has the same shape at every scale, and a fixed number of bits per cell gives the same relative precision everywhere.
+  - The ring index *is* the gradient. A doll stores only its mass, centre and motion; its field is a function of k.
+  - Crossing a ring conserves E and L exactly (in integers: to one quantum, with carries). Crossing a ray carries no gravity event.
+- **Symmetry makes the future repeat.** With E and L exact, the sequence of radial crossings repeats every radial cycle, and φ advances by a fixed amount per cycle.
+  - One cycle is computed once; the orbit is then known until something breaks the symmetry.
+  - Nothing forces the orbit: it follows from the law's own symmetry, an exact shortcut like Hashlife's.
+  - Perturbations (tides, neighbours) are kicks on E and L. H0190 measured 32 kicks per low orbit, 0.3 with averaging.
+- **Each doll is the freely falling frame of its central mass.**
+  - A planet's doll falls around its star. Inside it, the star's gravity reduces to tides: the equivalence principle.
+  - A doll ends at its sphere of influence. Handoffs there stayed bounded (H0190 K4).
+- **Where no mass dominates, symmetry breaks** (binaries, clusters, dense fleets, galactic disks). There, general multipole cells hold the field.
+  - Triangles are the candidate: they nest exactly (1 → 4), have 6-fold symmetry, and use integer Eisenstein arithmetic (norm a² + ab + b²).
+  - The fraction of bodies living there sets the cost.
+- **Cells hold the integer mass moments of what they contain,** ships' aggregates included. Geometry is a local rule of the moments: the clock rate (potential) adds, and the flow is derived. Changes travel at most one cell per update.
 
 ## One law
 
 - **c is native.** An influence moves at most one cell per cell-update, and a cell's time unit is its light-crossing time. Light cones are cell adjacency.
-- **Bodies are tubes relative to their cell's frame.**
-  - Inside a cell, a tube follows the cell's exact local solution: a straight line when the cell's content is a constant flow.
-  - At a joint, the crossing rule conserves what the static field conserves (energy, and momentum along the joint). The crossing is a refraction, not a step.
+- **Bodies are tubes relative to their doll's frame.**
+  - Inside a cell, a tube follows the cell's exact local solution.
+  - At a joint, the crossing rule conserves what the field's symmetry conserves. The crossing is a refraction, not a step.
   - Orbits, turning points, precession, lensing and horizons emerge; none is imposed.
 - **Clocks** read the length of a tube measured against the local flow, derived only when asked.
 - **Decisions are the only kinks in tubes.**
@@ -59,7 +66,7 @@ Contacts get a separate structure, built on demand where the swept regions of tw
 
 1. **Accuracy per crossing.**
    - Weak-field precession and turning points under piecewise cell content: constant, linear, or multipole.
-   - Angular-momentum drift on a Cartesian grid.
+   - How precession error depends on m, the rings per octave. The error is systematic and the same every orbit, which is the right type; its size is unmeasured.
 2. **The many-source rule.** The clock rate adds up and the flow is derived locally; it must pass 1PN for two bodies.
 3. **Crossings between cells of different levels,** within the error budget.
 4. **Moving sources.** Energy exchange must be physical (gravity assists), not numerical.
