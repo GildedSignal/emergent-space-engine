@@ -3021,3 +3021,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: branch claude/lab-20260929-1857-rung-r2-carry-width-e3af
 - Limitations: r3 v2's handoff exponent may share the flaw.
 - Next: r1, r3 v2 and r4 verdicts.
+
+## H0205 — Rings work on reproduction (Binet m16/m32: every r1 criterion, about 38 crossings per cycle); river killed; conjunction kicks killed
+
+- Date: 2026-09-29
+- Kind: experiment
+- Status: implemented
+- Revisions: 42396a1 (r4 v2), this entry's commit
+- Scope: lab rungs r1, r3 v1, r4 v1; r4 v2 frozen
+- Changed: r1 is DISPUTED, not PASS: the author ran out of time and delivered no numbers. After fixing two crashes and aligning the metrics with the frozen rung, the checker found binet-m16 and m32 pass every criterion (precession, periods, deflection, capture, innermost stable orbit, shape over 10⁴ cycles, exact repetition); m16 needs about 38 crossings per radial cycle, against 350–700 fixed steps. binet-m8 is too coarse. River refraction is killed: frozen-β rings reflect orbits at the first ring edge. Both negatives fail. r3 v1 killed eob-doll on precession (void by record, H0203) and on ν (0.981); v2 decides. r4 v1 killed instantaneous conjunction kicks, which over-pump by 2–9× even after the checker fixed the author's sign error; v2 tests kicks integrated along the arc.
+- Why: rung 1 is the design's core claim.
+- Validation: independent checker reproductions; verdict.py.
+- Evidence: branches claude/lab-20260929-1857-rung-r1-rings-cae4, -r3-two-body-doll-453e, claude/lab-20260929-1940-rung-r4-resonance-3530
+- Limitations: r1 needs a clean PASS (re-run at 120 min).
+- Next: The r1 re-run, r3 v2 and r4 v2 verdicts.
