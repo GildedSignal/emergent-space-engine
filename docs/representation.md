@@ -11,7 +11,7 @@ Status: **DRAFT** (29 September 2026). It synthesizes Julien's direction from 29
    - Logarithms are used where things multiply.
    - Bits are used where the only question is "whether".
 
-   Multiplications, roots and wide integers remain only at surprises.
+   Carrying a pattern forward is addition. Building a new one (at a surprise) means solving an equation. Reading one out (when something is observed) takes a multiply-add. So multiplications, roots and wide integers appear only at surprises and observations.
 
 Everything below follows from these three, and so does its cost (§6).
 
