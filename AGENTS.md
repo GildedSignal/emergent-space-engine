@@ -53,4 +53,5 @@ Every line is read many times by humans and agents. Text grows unless something 
 - **Delete when built.** A design note is folded into the spec or the code docs once its design exists in code.
 - **`cargo xtask history check` enforces these budgets.** The integrator alone appends the journal; specialists return drafts. Commit each entry with its work. Frozen evidence is immutable.
 
-Originals of Julien's context: `docs/reference/` and `assets/reference/`. Read them selectively; later steering governs. The aesthetic is ink, watercolor, ivory, pale blue and astronomical instruments.
+Originals of Julien's context: `docs/reference/` and `assets/reference/`. PRINCIPLES.md governs; later steering refines it through its register.
+The aesthetic, in Julien's words: "use real materials, don't make it overly saturated and contrasted use more the color style of sinbad"; "it's moody"; observed versus implied gets a "different patina"; "not steampunk is NOT the goal".
