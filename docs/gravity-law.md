@@ -126,7 +126,7 @@ Every test runs in under 60 s, on the M1, in release.
   - **The judge** must not construct an exactly-integer truth unless its integrality is proven symbolically. It combines the horizon logarithms analytically, as the crate does.
   - Pass: 100% agreement. A case the reference cannot settle counts as a failure of the gate, not as an exclusion.
   - **Climb, don't jump** (amended before any run). Rungs run in order, and each must pass before the next:
-    - R0, exact answers: T = T0; motion along an axis; far-field timelike hops whose proven per-component deviation from the straight line is below the straight line's distance to the nearest integer, which must floor to the straight line. R0 is a control rung: a straight-line implementation passes it.
+    - R0, exact answers: T = T0; motion along an axis; far-field timelike hops whose proven per-component deviation from the straight line (an integer point at integer T) lies in [2^-30, 1 − 2^-30]. Such a floor is fixed by the sign of the deviation. The original wording was empty, since the straight line always lands on an integer; it was clarified before any run (H0192). R0 is a control rung: a straight-line implementation passes it.
     - R1: radial infall and circular cases;
     - R2: an exhaustive small world (Q = 25, M = 1, x ∈ [−8, 8]², k ∈ [−4, 4]², T − T0 ∈ {1, …, 8} inclusive, every valid timelike anchor): 22,092 anchors and 176,736 cases, run in chunks of under 60 s each;
     - R3: 100 random cases per class;

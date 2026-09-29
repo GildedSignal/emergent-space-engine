@@ -2833,3 +2833,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: `artifacts/runs/architecture-20260928/` (brief, red-team, pre-mortem; on disk)
 - Limitations: The meaning guard is a rule, not yet a parser.
 - Next: judge → geodesic → G2.
+
+
+## H0192 — Step 2 Arb reference floors frozen: every rung, 0 UNSETTLED on 212,408 queries
+
+- Date: 2026-09-29
+- Kind: implementation
+- Status: implemented
+- Revisions: `044b76a` (evidence), `2bbd029` (judge), merged in `17f3bab`
+- Scope: xtask/judge (python-flint judge, case generator, self-checks); [reference floors](../artifacts/evidence/g2-reference-20260928/PROVENANCE.md); the R0 wording in gravity-law.md
+- Changed: Claude Opus built a judge independent of Astra's crate: exact integer cases, certified roots, rigorous quadrature in smooth phases, horizon-regular river time, whirl windows, interval-Newton inversion, 256→2048 bits. Frozen: R0 600, R1 560, R2 176,736, R3 1,300, R4 1,500, R5 22,400, G2.2 8,160, G2.4 852 and FB 300 queries. The judge fixed 3 unsettled whirl cases. R0's far-field class was empty as written and was clarified before any run.
+- Why: G2.1 needs floors frozen by another model family before any gate run.
+- Validation: 0 UNSETTLED; a 512-bit restart is identical on 212,408 queries; the whirl fix left R3, R5 slice 0 and G2.2 byte-identical; oracle rows ≤ 2.7e-15; the integrator re-verified 31 SHA-256 hashes and selfcheck all_pass.
+- Evidence: [provenance](../artifacts/evidence/g2-reference-20260928/PROVENANCE.md)
+- Limitations: FB forces the midpoint only on circles; chart-B whirls are not windowed; W is unproven.
+- Next: A Sonnet harness climbs R0→R5 against these files once Astra's crate exposes Geodesic.
