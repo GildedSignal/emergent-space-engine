@@ -15,8 +15,8 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Cloud lab host routine `glm-lab-host` (trigger `trig_012YxdRn25mf2h673Uu1NVDs`, environment `env_01BCjo9H1taF3eduHZyyN6L9`, Haiku host) | Integrator, via RemoteTrigger `update` / `run` / `get_run_log`; results on `claude/lab-*` branches | Canaries running (session `cse_0152VcGgEUdgCTDhyGWkuDDY`), from the unmerged `wt/labrung` | Expect PASS for kepler-pass and KILL for kepler-kill. Then rungs r1–r3, two authors each on r1 and r3 |
-| Lab rung mode, `lab/verdict.py`, canaries | Merged (a3d40e9) | Done | Delete `/private/tmp/emergent-wt-labrung` once the canaries grade correctly |
+| Cloud lab host routine `glm-lab-host` (trigger `trig_012YxdRn25mf2h673Uu1NVDs`, environment `env_01BCjo9H1taF3eduHZyyN6L9`, Haiku host; prompt = run both canaries) | Integrator, via RemoteTrigger `run` / `get_run_log`; results on `claude/lab-*` branches | **Blocked:** the pipeline works end to end, but Z.ai answered 401 "Authentication Failed" (both canaries VOID, branches `claude/lab-20260929-1824-rung-kepler-*`). The key in the environment is wrong or malformed | Julien re-pastes the key (`omp token zai` prints the one that works on his Mac) as `ZAI_API_KEY=<key>`, with no quotes or spaces. Then `run`: expect PASS and KILL |
+| Lab rung mode, `lab/verdict.py`, canaries | Merged (a3d40e9); worktree and branch deleted | Done | — |
 | Rung criteria r1–r3 (frozen) | Integrator, `lab/rungs/` | Written and frozen | r5–r7 next; no rung runs before the canaries grade correctly |
 | Retired v0 gravity (`wt/geodesic`, `wt/g2run`) | Archived: `~/Research/emergent-space-archive/retired-v0-gravity-20260929.bundle` | Done | The dead `xtask/src/gate/*` code goes with `xtask behave` (Sonnet), which reuses its planted-evaluator pattern |
 
