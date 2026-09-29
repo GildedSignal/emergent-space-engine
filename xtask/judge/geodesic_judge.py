@@ -690,7 +690,7 @@ class Geo:
             mid = (fl(p) + fl(q)) / 2
             n = int(math.floor((mid - math.pi) / (2 * math.pi) + 0.5))
             centre = pi + 2 * pi * n
-            if abs(mid - fl(centre)) < 1.5:
+            if abs(mid - fl(centre)) < fl(W):
                 tp = ((p - centre) / 2).sin() / kappa
                 tq = ((q - centre) / 2).sin() / kappa
                 total += integ_ball(g, tp.asinh(), tq.asinh())
