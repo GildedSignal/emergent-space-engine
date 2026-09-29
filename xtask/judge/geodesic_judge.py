@@ -114,12 +114,19 @@ def mv(f, z, zm):
     return fz * (z - zm)
 
 
+def integ_ball(f, a, b):
+    """Rigorous integral of f between the unknown points of balls a and b."""
+    am, bm = exact(a), exact(b)
+    return integ(f, am, bm) + mv(f, b, bm) - mv(f, a, am)
+
+
 class Prim:
     """Primitive of an integrand relative to an exact base point, with a cache of exact
     points so that successive evaluations integrate over short intervals."""
 
-    def __init__(self, f, base):
+    def __init__(self, f, base, integrator=None):
         self.f = f
+        self.integ = integrator or (lambda a, b: integ(f, a, b))
         self.base = fl(base)
         self.pts = [(base, self.base, arb(0))]
 
@@ -139,7 +146,7 @@ class Prim:
                     best, bd = p, dist
         if best[0] == z:
             return best[2]
-        v = best[2] + integ(self.f, best[0], z)
+        v = best[2] + self.integ(best[0], z)
         self.pts.append((z, zf, v))
         return v
 
@@ -484,6 +491,35 @@ class Geo:
                 elif not z0 >= 0:
                     raise Undecided("anchor phase")
             self.turns = "periodic-pi"
+            self.win = None
+            delta = u3 - u2
+            if fl(delta) < fl(h) * 2.0 ** -10:
+                # Near the separatrix u3 - u = delta + 2h sin^2(psi/2), psi = chi - pi (mod 2 pi),
+                # puts a branch point ~sqrt(2 delta/h) from the real axis at every periapsis.
+                # Inside |psi| < WIN use t with sin(psi/2) = kappa sinh t, kappa^2 = delta/(2h):
+                # then u3 - u = delta cosh^2 t exactly and every integrand is smooth in t.
+                if not delta > 0:
+                    raise Undecided("separatrix gap")
+                kappa = (delta / (2 * h)).sqrt()
+                rMh = (M * h).sqrt()
+                sq2Md = (2 * M * delta).sqrt()
+
+                def wing(kind):
+                    def g(t, an):
+                        s_ = kappa * t.sinh()
+                        c_ = (1 - s_ * s_).sqrt(analytic=an)          # cos(psi/2)
+                        gphi = 1 / (rMh * c_)                           # dphi/dt
+                        if kind == "phi":
+                            return gphi
+                        u = u2 - 2 * h * s_ * s_
+                        gtau = gphi / (Lab * u * u)
+                        if kind == "tau":
+                            return gtau
+                        rdot = 2 * Lab * h * s_ * c_ * (sq2Md * t.cosh())
+                        return dTdtau(u, rdot, an) * gtau
+                    return g
+
+                self.win = {"kappa": kappa, "T": wing("T"), "phi": wing("phi"), "tau": wing("tau")}
             bound = (R0sign < 0) if eps else False
             if bound:
                 self.period = True
@@ -629,6 +665,39 @@ class Geo:
             delta = 16 * delta
         raise Undecided("root certification")
 
+    WIN = arb(3) / 2              # half-width of a whirl window in chi (exact)
+
+    def _integ_A(self, kind, f, a, b):
+        """Chart-A integral from exact chi = a to b, using the whirl substitution inside the
+        windows |chi - (pi + 2 pi n)| < WIN and plain chi quadrature elsewhere."""
+        if a == b:
+            return arb(0)
+        if b < a:
+            return -self._integ_A(kind, f, b, a)
+        g, kappa, W = self.win[kind], self.win["kappa"], self.WIN
+        pi = arb.pi()
+        n0 = int(math.floor((fl(a) - math.pi) / (2 * math.pi))) - 1
+        n1 = int(math.ceil((fl(b) - math.pi) / (2 * math.pi))) + 1
+        cuts = []
+        for n in range(n0, n1 + 1):
+            c = exact(pi + 2 * pi * n)
+            for p in (c - W, c + W):
+                if p > a and p < b:
+                    cuts.append((fl(p), p))
+        pts = [a] + [p for _, p in sorted(cuts, key=lambda q: q[0])] + [b]
+        total = arb(0)
+        for p, q in zip(pts[:-1], pts[1:]):
+            mid = (fl(p) + fl(q)) / 2
+            n = int(math.floor((mid - math.pi) / (2 * math.pi) + 0.5))
+            centre = pi + 2 * pi * n
+            if abs(mid - fl(centre)) < 1.5:
+                tp = ((p - centre) / 2).sin() / kappa
+                tq = ((q - centre) / 2).sin() / kappa
+                total += integ_ball(g, tp.asinh(), tq.asinh())
+            else:
+                total += integ(f, p, q)
+        return total
+
     def _finish(self):
         A = self.A
         if self.chart == "circular":
@@ -646,9 +715,11 @@ class Geo:
         else:
             base = exact(self.z0)
         self.base = base
-        self.Tprim = Prim(self.fT, base)
-        self.Gprim = Prim(self.fphi, base) if self.fphi is not None else None
-        self.Hprim = Prim(self.ftau, base) if self.ftau is not None else None
+        win = getattr(self, "win", None)
+        ia = (lambda kind, f: (lambda a, b: self._integ_A(kind, f, a, b))) if win else (lambda kind, f: None)
+        self.Tprim = Prim(self.fT, base, ia("T", self.fT))
+        self.Gprim = Prim(self.fphi, base, ia("phi", self.fphi)) if self.fphi is not None else None
+        self.Hprim = Prim(self.ftau, base, ia("tau", self.ftau)) if self.ftau is not None else None
         self.F0z0 = self.Tprim.at_ball(self.z0)
         self.G0z0 = self.Gprim.at_ball(self.z0) if self.Gprim else arb(0)
         self.H0z0 = self.Hprim.at_ball(self.z0) if self.Hprim else arb(0)
