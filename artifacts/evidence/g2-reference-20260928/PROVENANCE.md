@@ -1,14 +1,17 @@
 # Step 2 reference floors (G2.1–G2.4), frozen 28 September 2026
 
 These are the independent Arb reference answers for `es-lattice-gravity-v0`, step 2 scope ([contract](../../../docs/gravity-law.md)). The judge and generator live in `xtask/judge/` (branch `wt/judge`).
-- Answers were computed by the judge at `84cff29`; R2 was computed at `ab712de`, and G24edge, FB and R5 at `2057ee1`.
-- Later commits change only the case generators, the driver's priority handling, caching and a rigorous speed bound. None changes the mathematics.
+- Answers were computed by the judge at `84cff29`; R2 was computed at `ab712de`, and G24edge, FB and R5 slice 0 at `2057ee1`.
+- R5 slices 1–9 were computed by the integrator with this `solve` at `4dfcd4e`.
+- Three R5 records (R5s-00711, R5s-00763, R5s-00792), UNSETTLED there, were re-solved at `fda6ee0`, which adds the whirl windows below; no other record was touched.
+- The final judge revision is `2bbd029`: its self-checks are identical to `selfcheck.jsonl`, and every file's settled answers match a 512-bit-start re-solve.
+- Later commits change only the case generators, the driver's priority handling, caching, a rigorous speed bound and the whirl windows. None changes a settled answer: R3, R5 slice 0 and G2.2 re-solved at `fda6ee0` are identical record for record apart from timing.
 - Everything was computed before any evaluator gate run. Nothing was compared with `crates/geodesic`.
 
 ## Tools and machine
 
 - Python 3.14.3 and python-flint 0.9.0 (FLINT 3.6.0, Arb ball arithmetic). No other package.
-- MacBook Air M1, 8 GB, fanless, on battery (71 % → 34 %). Swap was 11.4 of 12.3 GB, and other agents kept the load at 5–9. Jobs ran at `nice` 5–15, two to six at a time.
+- MacBook Air M1, 8 GB, fanless. The first freeze ran on battery (71 % → 21 %), the R5 completion and the whirl fix on AC. Swap reached 11.4 of 12.3 GB, and other agents kept the load at 3–9. Jobs ran at `nice` 5–15, two to six at a time.
 
 ## Method, and why it is independent of the crate
 
@@ -31,6 +34,11 @@ The crate evaluates Carlson symmetric integrals in Mino time on an integer inter
   - radial motion: the cycloid η, or w = √r.
 
   dT, dφ and dτ are integrated in that phase by rigorous Gauss–Legendre quadrature (`acb.integral`). The river-time integrand is rationalized, dT/dτ = (E² + 2Mu(ε + L²u²)) / (E − √(2Mu)·dr/dτ), so it stays regular at r = 2M and the two horizon logarithms never appear separately.
+- **Whirl windows (near-separatrix two-root orbits,** u3 − u2 = δ < 2^-10 h):
+  - there u3 − u = δ + 2h sin²(ψ/2), with ψ = χ − π (mod 2π), puts a branch point about √(2δ/h) from the real axis at every periapsis;
+  - inside |ψ| < 3/2 the judge integrates in t, where sin(ψ/2) = κ sinh t and κ² = δ/(2h);
+  - then u3 − u = δ cosh² t exactly, and dφ/dt = 1/(√(Mh) √(1 − κ² sinh² t)), dτ/dt and dT/dt are smooth;
+  - outside the windows the χ quadrature is unchanged.
 - **Inverting T → phase:** safeguarded Newton finds the phase, then the interval Newton operator certifies it. Bound orbits use certified period integrals, times the exact period count.
 - **Range exit:**
   - A branch and bound runs over the phase pieces where r ≥ 2^96, using enclosures of X; each leaf leaves at most 3 candidate chronons, which are evaluated pointwise.
@@ -108,7 +116,7 @@ The seeds are in `cases.SEEDS`: 20260928x, with a per-rung suffix.
     - the width is below 1/4 quantum for 298 of 300 cases, the eligible fallback cases (FB-0016 and FB-0098 are not eligible);
     - in 146 of them (all circular) the distance is below that width, so a 64-bit evaluation can straddle n and force the final-midpoint rule;
     - the 150 other-chart cases are small-magnitude near-integers that a 64-bit evaluation still decides.
-- **R5 (secondary):** the pinned sampler, with 4,000 anchors in each of bound, unbound, plunging, radial and light (20,000), plus 300 in each of the eight constructed classes (2,400). `R5.cases` holds all 22,400. Slice i is cases i, i + 10, …, so every slice spans every class. Only slice 0 has answers here (`R5-slice0.answers`). The full R5 of G2.1 is the union of R0–R4, G2.4 and this file.
+- **R5 (secondary):** the pinned sampler, with 4,000 anchors in each of bound, unbound, plunging, radial and light (20,000), plus 300 in each of the eight constructed classes (2,400). `R5.cases` holds all 22,400. Slice i is cases i, i + 10, …, so every slice spans every class. `R5-slice0.answers` to `R5-slice9.answers` hold all 22,400 answers. The full R5 of G2.1 is the union of R0–R4, G2.4 and this file.
 
 ## Results
 
@@ -123,14 +131,15 @@ The seeds are in `cases.SEEDS`: 20260928x, with a per-rung suffix.
 | G2.4 | 200 | 716 | 350 | 360 | 6 | 0 | 0 | 0.27 |
 | G24edge | 59 | 136 | 78 | 58 | 0 | 0 | 0 | 0.23 |
 | FB | 300 | 300 | 300 | 0 | 0 | 0 | 0 | 0 |
-| R5 slice 0 | 2,240 of 22,400 | 2,240 | 2,068 | 97 | 45 | 30 | 0 | 0.59 |
+| R5 (10 slices) | 22,400 | 22,400 | 20,531 | 1,109 | 460 | 300 | 0 | 0.59 |
 
 - R2's counts were verified: 22,092 valid anchors out of 23,409. Of the rest, 1,053 have r ≤ 2M and 264 are not below c relative to the flow.
 - The R3 classes are those of G2.1: bound, unbound, plunging, radial, light, near-circular, near-ISCO, near-separatrix/whirl, near-horizon, T = T0, long-T (10^3–10^4 periods), range exit near ±2^96 and T < T0.
-- **Two precisions.** R0–R4, G2.2, G2.4 and FB were re-solved from a 512-bit start. Every settled answer is identical: 0 differences out of 189,872 queries. G24edge: 0 differences out of 136.
+- **Two precisions.** Every file was re-solved from a 512-bit start. Every settled answer is identical: 0 differences out of 212,408 queries (R0–R4, G2.2, G2.4, FB and G24edge: 190,008; R5: 22,400, at `fda6ee0`, which for slices 1–9 is also a cross-revision check).
 - **Two revisions.** R0, R2, R3, G2.2 and G2.4 were also solved by an earlier judge revision. That revision used a different phase formula, u = m − h cos χ, and a different cache. It gave 0 differences.
 - **Compute.**
-  - Per-case sums at the primary schedule: R2 543 s, G2.4 546 s, G2.2 102 s, R3 93 s, R4 80 s, R0 30 s, R1 20 s.
+  - Per-case sums at the primary schedule: R5 895 s (22,389 cases decided at 256 bits, 11 at 512), R2 543 s, G2.4 546 s, G2.2 102 s, R3 93 s, R4 80 s, R0 30 s, R1 20 s.
+  - The three whirl cases now take under 1 s each. Before the fix they ran for hours of CPU and ended UNSETTLED.
   - The second-precision runs took about 3× that.
   - Generation took about 25 minutes of CPU.
 
@@ -147,17 +156,20 @@ The seeds are in `cases.SEEDS`: 20260928x, with a per-rung suffix.
   - M = 1, Q = 3, x0 = (9, 0), k0 = (0, 1) is the stable circle at r = 9M, with Ω = 1/9 per chronon.
 - **Newtonian limit:** at r/M = 10^6, 10^8 and 10^10, the deviation from Kepler is 1.0·10^-6, 9.9·10^-9 and 2.3·10^-10 of r (∝ M/r), and (P/P_N − 1)/(3/a) = 1.0000 (1PN).
 - **Closed-form infall from rest:** agreement to 10^-150 at M up to 2^79.
+- **Whirl windows** (verification scripts not stored):
+  - windowed and plain χ quadrature (evaluation limit 10^7) agree on 96 integrals of T, φ and τ over random intervals of four orbits with δ/h from 2·10^-4 to 10^-10: the balls overlap, and the largest relative difference is 1.2·10^-73;
+  - full solves with windows and with plain quadrature give identical floors and 25-digit τ on three whirl orbits (margins 2.4·10^-7 to 2.5·10^-9);
+  - R5s-00711, solved by plain quadrature from a 512-bit start, gives the same floor (−16, 45) and the same 30-digit τ;
+  - an RK4 of the PG Hamilton equations in 160-bit arithmetic converges at 4th order onto the judge (Richardson agreement to 10^-4 quanta at 7·10^6 quanta), at margins 1.5·10^-4 and 2.4·10^-7;
+  - float64 RK4 cannot be used there: its roundoff, amplified by the whirl, moves the position by about 10^-5 relative as the step changes.
+  - the three repaired cases give identical floors at window half-widths 1.5 and 2.5, starting from 256 or 1024 bits (R5s-00792's 30-digit τ is identical too);
+  - plain quadrature cannot settle R5s-00792 at all (a δ/h ≈ 10^-10 whirl, then an escape to 2^75 quanta), so for that case the window width and the precision are the independent variations.
 - **Development cross-checks,** not stored as evidence: float RK4 on Hamilton's equations in PG Cartesian coordinates (an independent derivation) matches every chart to 10^-11–10^-15. That covers bound orbits over 20 periods, scattering, inner and outer plunges, one-root escapes, exact E = 1 orbits, radial motion and light. Range-exit chronons match the straight-line prediction and an independent binary search over integer times.
 
 ## Limitations
 
 - **The judge is not a proof assistant.** Its rigour rests on Arb's ball arithmetic and on the formulas above, which match an independent RK4, the closed forms and the oracle. An error shared by these formulas and all three checks would go unnoticed.
 - **Exact degeneracies that no integer test covers end as UNSETTLED.** One example is the exact separatrix, E = 1 and L = 4M. The frozen set contains none.
-- **R5 is incomplete.** Only the slices with answer files are frozen.
-  - Slice 1 contains R5s-00711, a near-separatrix bound orbit: margin 6·10^-10, M = 9 and Q = 2^40, so one chronon spans 7.5·10^7 whirl periods.
-  - With `acb.integral`'s default evaluation limit, its period integral comes back as a finite but wide ball (14,670 ± 89). The case then escalates slowly towards UNSETTLED.
-  - Raising `eval_limit` to 10^7 gives 14,644.283… ± 2·10^-54 in 29 s. The next step is to raise the limit, or to split chart-A integrals at χ ≡ π.
-  - Neither change touches the mathematics of any frozen answer.
-  - To finish R5: `geodesic_judge.py solve` on each missing slice (cases i::10 of `R5.cases`), then hash the result.
+- **Near-separatrix orbits of the other charts are not windowed.** An inner plunge whirl (σ chart) or a one-root orbit near a complex double root has the same kind of near singularity at σ = 0. No frozen case of that kind failed, but a harder one could escalate towards UNSETTLED.
 - **FB is weak outside the circle.** Only the circular fallback cases force the midpoint rule at 64 bits. The other charts reach 2^-16 at best at |X| ≤ 2^12, so a 64-bit evaluation still decides them.
 - **The "reduced final width" is the judge's own** 64-bit Arb width. The crate's width W is still unproven.
