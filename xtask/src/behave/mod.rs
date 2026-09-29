@@ -2,16 +2,22 @@
 //! the equatorial plane) for behaviours, over many seeds, and compares them with the float64 GR
 //! oracle (docs/PRINCIPLES.md: behaviours over many seeds, error type over error size).
 //! It knows no engine type and imports no physics crate: a law is anything that implements [`Law`].
-//! The gates mirror lab/rungs/r1-rings.md.
+//! G1-G6 mirror lab/rungs/r1-rings.md; B7, B9 and B10 are the law's clock, cost and scaling gates (docs/law.md).
 //!
 //! ```text
-//! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture]
+//! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture|
+//!     planted-clock|planted-steps|planted-quadratic] [--gates G1,B7,...]
 //! ```
-//! One line per gate, `G<n> PASS|FAIL <numbers>`, between two `machine_state` lines. Every phase
-//! is killed and reported as a failure if it runs past 60 s. Exit 0 iff every gate passes.
+//! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
+//! `--gates` picks gates (default: all). Every phase is killed and reported as a failure if it
+//! runs past 60 s. Exit 0 iff every gate that ran passes.
+pub mod clocks;
+pub mod cost;
 pub mod fit;
 pub mod laws;
 pub mod oracle;
+pub mod scale;
+pub mod select;
 pub mod sample;
 
 use crate::measure::{machine_state, Watch};
@@ -32,6 +38,26 @@ pub trait Law {
     /// `cycles` radial cycles of the bound orbit (p, e) from periapsis: after each cycle, that
     /// cycle's (r_min, r_max, energy, angular momentum).
     fn long_run(&self, p: f64, e: f64, cycles: usize) -> Vec<(f64, f64, f64, f64)>;
+    /// B7: dτ/dt of a static observer at r (units of M), derived and not stepped. None: not
+    /// implemented, which fails the gate.
+    fn static_clock_rate(&self, _r: f64) -> Option<f64> {
+        None
+    }
+    /// B7: dτ/dt of a circular orbit at r > 3 (units of M). None: not implemented, which fails.
+    fn circular_clock_rate(&self, _r: f64) -> Option<f64> {
+        None
+    }
+    /// B9: band crossings the law spends on one radial cycle of the bound orbit (p, e). None: not
+    /// implemented, which fails.
+    fn crossings_per_cycle(&self, _p: f64, _e: f64) -> Option<f64> {
+        None
+    }
+    /// B10: CPU seconds the law spends on a frozen scene: `n_bodies` bodies in one doll, orbits
+    /// drawn from the seeds, no events beyond the orbits, advanced `game_seconds` (units of M). The
+    /// cost includes building the scene. None: not implemented, which fails.
+    fn scene_cost(&self, _n_bodies: usize, _game_seconds: f64) -> Option<f64> {
+        None
+    }
 }
 
 const BOUND_SEEDS: usize = 256;
@@ -152,14 +178,26 @@ fn g6(rows: &[Orbit]) -> Gate {
 }
 
 /// Runs every gate on `law`, arming `watch` on each phase and calling `emit` as each gate lands.
-pub fn judge(law: &dyn Law, watch: Option<&Watch>, mut emit: impl FnMut(&Gate)) -> Vec<Gate> {
+#[allow(dead_code)] // the all-gates entry point: the CLI goes through `judge_only`
+pub fn judge(law: &dyn Law, watch: Option<&Watch>, emit: impl FnMut(&Gate)) -> Vec<Gate> {
+    judge_only(law, watch, None, emit)
+}
+
+/// `judge` restricted to the gates named in `only` (None: all); a phase none of whose gates is wanted is skipped.
+pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, mut emit: impl FnMut(&Gate)) -> Vec<Gate> {
+    let want = |id: &str| only.map_or(true, |o| o.contains(&id));
     let mut out = Vec::new();
     let mut phase = |label: &str, work: &mut dyn FnMut() -> Vec<Gate>| {
+        let label = label.split(' ').filter(|id| want(id)).collect::<Vec<_>>().join(" ");
+        if label.is_empty() {
+            return;
+        }
         if let Some(w) = watch {
-            w.arm(label);
+            w.arm(&label);
         }
         let t = Instant::now();
         let mut gates = work();
+        gates.retain(|g| want(g.id));
         let secs = t.elapsed().as_secs_f64();
         if let Some(w) = watch {
             w.disarm();
@@ -179,18 +217,17 @@ pub fn judge(law: &dyn Law, watch: Option<&Watch>, mut emit: impl FnMut(&Gate)) 
     phase("G4", &mut || vec![g4(law)]);
     phase("G5", &mut || vec![g5(law)]);
     phase("G6", &mut || vec![g6(&rows)]);
+    phase("B7", &mut || vec![clocks::b7(law)]);
+    phase("B9", &mut || vec![cost::b9(law)]);
+    phase("B10", &mut || vec![scale::b10(law)]);
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture]";
+const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
-    let name = match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
-        [] => "echo",
-        ["--law", name] => name,
-        [flag] if flag.starts_with("--law=") => &flag["--law=".len()..],
-        _ => return Err(USAGE.into()),
-    };
+    let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
+    let name = cli.law.as_str();
     let law = laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?;
     println!("machine_state {}", machine_state("start"));
     let watch = Watch::spawn(LIMIT, |label, secs| {
@@ -200,10 +237,11 @@ pub fn run(args: Vec<String>) -> Result<u8> {
         println!("machine_state {}", machine_state("end"));
         std::process::exit(1);
     });
-    let gates = judge(&*law, Some(&watch), |g| println!("{} {} {} [{:.2} s]", g.id, if g.pass { "PASS" } else { "FAIL" }, g.detail, g.secs));
+    let gates = judge_only(&*law, Some(&watch), cli.gates.as_deref(), |g| println!("{} {} {} [{:.2} s]", g.id, if g.pass { "PASS" } else { "FAIL" }, g.detail, g.secs));
     println!("machine_state {}", machine_state("end"));
     let failed: Vec<&str> = gates.iter().filter(|g| !g.pass).map(|g| g.id).collect();
-    println!("behave {name}: {}", if failed.is_empty() { "PASS".to_string() } else { format!("FAIL {}", failed.join(" ")) });
+    let picked = cli.gates.as_ref().map_or(String::new(), |g| format!(" ({})", g.join(" ")));
+    println!("behave {name}{picked}: {}", if failed.is_empty() { "PASS".to_string() } else { format!("FAIL {}", failed.join(" ")) });
     Ok(if failed.is_empty() { 0 } else { 1 })
 }
 
@@ -237,12 +275,24 @@ mod tests {
         fn long_run(&self, p: f64, e: f64, cycles: usize) -> Vec<(f64, f64, f64, f64)> {
             Echo.long_run(p, e, cycles)
         }
+        fn static_clock_rate(&self, r: f64) -> Option<f64> {
+            Echo.static_clock_rate(r)
+        }
+        fn circular_clock_rate(&self, r: f64) -> Option<f64> {
+            Echo.circular_clock_rate(r)
+        }
+        fn crossings_per_cycle(&self, p: f64, e: f64) -> Option<f64> {
+            Echo.crossings_per_cycle(p, e)
+        }
+        fn scene_cost(&self, n: usize, game_seconds: f64) -> Option<f64> {
+            Echo.scene_cost(n, game_seconds)
+        }
     }
 
     #[test]
     fn echo_passes_every_gate() {
         let gates = judge(&Echo, None, |_| {});
-        assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), ["G1", "G2", "G3", "G4", "G5", "G6"]);
+        assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10"]);
         for g in &gates {
             assert!(g.pass, "{} {}", g.id, g.detail);
         }
@@ -253,6 +303,43 @@ mod tests {
         assert_eq!(failing(&Planted(Fault::Precession)), ["G1"]);
         assert_eq!(failing(&Planted(Fault::NoCapture)), ["G4"]);
         assert_eq!(failing(&Planted(Fault::Walk)), ["G5"]);
+        assert_eq!(failing(&Planted(Fault::Clock)), ["B7"]);
+        assert_eq!(failing(&Planted(Fault::Steps)), ["B9"]);
+        assert_eq!(failing(&Planted(Fault::Quadratic)), ["B10"]);
+    }
+
+    #[test]
+    fn a_law_that_implements_none_of_the_new_gates_fails_exactly_them() {
+        // The trait defaults are "not implemented": B7, B9 and B10 fail, the six older gates do not.
+        struct Old;
+        impl Law for Old {
+            fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+                Echo.advance_per_cycle(p, e)
+            }
+            fn deflection(&self, b: f64) -> Option<f64> {
+                Echo.deflection(b)
+            }
+            fn captured(&self, energy: f64, angular: f64) -> bool {
+                Echo.captured(energy, angular)
+            }
+            fn photon_captured(&self, b: f64) -> bool {
+                Echo.photon_captured(b)
+            }
+            fn long_run(&self, p: f64, e: f64, cycles: usize) -> Vec<(f64, f64, f64, f64)> {
+                Echo.long_run(p, e, cycles)
+            }
+        }
+        assert_eq!(failing(&Old), ["B7", "B9", "B10"]);
+    }
+
+    #[test]
+    fn gates_can_be_picked_and_only_they_run() {
+        let ids = |only: &[&str]| judge_only(&Echo, None, Some(only), |_| {}).iter().map(|g| g.id).collect::<Vec<_>>();
+        assert_eq!(ids(&["B7"]), ["B7"]);
+        assert_eq!(ids(&["B10", "G3", "B9"]), ["G3", "B9", "B10"]);
+        assert_eq!(ids(&["G6"]), ["G6"]);
+        assert_eq!(ids(&["G1", "G2"]), ["G1", "G2"]);
+        assert_eq!(judge_only(&Planted(Fault::Clock), None, Some(&["B9"]), |_| {}).iter().filter(|g| !g.pass).count(), 0);
     }
 
     #[test]
@@ -271,5 +358,6 @@ mod tests {
     fn the_cli_refuses_unknown_laws_and_arguments() {
         assert!(run(vec!["--law".into(), "newton".into()]).is_err());
         assert!(run(vec!["--verbose".into()]).is_err());
+        assert!(run(vec!["--gates".into(), "B8".into()]).is_err());
     }
 }

@@ -16,11 +16,11 @@ impl Rng {
         lo + (self.next() as u128 % (hi - lo + 1) as u128) as i128
     }
     /// Uniform in [0, 1) with 53 bits.
-    fn unit(&mut self) -> f64 {
+    pub(crate) fn unit(&mut self) -> f64 {
         (self.next() >> 11) as f64 / (1u64 << 53) as f64
     }
     /// Log-uniform in [lo, hi].
-    fn log_uniform(&mut self, lo: f64, hi: f64) -> f64 {
+    pub(crate) fn log_uniform(&mut self, lo: f64, hi: f64) -> f64 {
         lo * (hi / lo).powf(self.unit())
     }
 }
@@ -28,6 +28,8 @@ impl Rng {
 /// Seed of the bound-orbit set (G1, G2, G5, G6) and of the light set (G3).
 pub const BOUND_SEED: u64 = 20260930;
 pub const LIGHT_SEED: u64 = 20260931;
+/// Seed of the clock radii (B7).
+pub const CLOCK_SEED: u64 = 20260932;
 
 /// `n` bound orbits (p, e): p log-uniform in [10, 1000], e uniform in [0, 0.7], redrawn unless
 /// p >= 6.5 + 2e (it never binds for p >= 10; it keeps a wider range safe). The first `k` of `n`
@@ -50,6 +52,19 @@ pub fn light_impacts(n: usize) -> Vec<f64> {
     (0..n).map(|_| rng.log_uniform(10.0, 1000.0)).collect()
 }
 
+/// `n` radii r, log-uniform in [3, 10^4] and strictly above 3 (a circular orbit needs r > 3M).
+pub fn clock_radii(n: usize) -> Vec<f64> {
+    let mut rng = Rng(CLOCK_SEED);
+    let mut out = Vec::with_capacity(n);
+    while out.len() < n {
+        let r = rng.log_uniform(3.0, 1e4);
+        if r > 3.0 {
+            out.push(r);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -67,6 +82,13 @@ mod tests {
         assert_eq!(a[..32], b[..]);
         assert!(a.iter().all(|&(p, e)| (10.0..=1000.0).contains(&p) && (0.0..0.7).contains(&e) && p >= 6.5 + 2.0 * e));
         assert!(light_impacts(64).iter().all(|b| (10.0..=1000.0).contains(b)));
+        let radii = clock_radii(64);
+        assert_eq!(radii.len(), 64);
+        assert!(radii.iter().all(|&r| r > 3.0 && r <= 1e4));
+        assert_eq!(clock_radii(8)[..], radii[..8]);
+        // Log-uniform on [3, 10^4]: about half fall below the geometric middle, sqrt(3 * 10^4) = 173.
+        let low = clock_radii(1024).iter().filter(|&&r| r < 173.2).count();
+        assert!((440..584).contains(&low), "{low} of 1024 below r = 173");
         // Log-uniform: about half the draws fall below the geometric middle, sqrt(10 * 1000) = 100.
         let low = a.iter().filter(|&&(p, _)| p < 100.0).count();
         assert!((100..156).contains(&low), "{low} of 256 below p = 100");

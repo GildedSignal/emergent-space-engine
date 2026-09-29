@@ -41,18 +41,16 @@ fn critical_u(energy: f64) -> f64 {
     (4.0 - 3.0 * energy * energy + energy * (9.0 * energy * energy - 8.0).sqrt()) / 8.0
 }
 
-// The clock rates and the 1PN two-body invariants are the two-body and clock gates' surface
-// (docs/representation.md, r3); no gate of the single-mass core reads them yet.
-/// dτ/dt of a static observer at r (units of M).
-#[allow(dead_code)]
+/// dτ/dt of a static observer at r (units of M): √(1 − 2M/r). B7 reads it.
 pub fn static_clock_rate(r: f64) -> f64 {
     gr_oracle::static_clock_rate(r)
 }
-/// dτ/dt of a circular orbit at r (units of M); NaN at r <= 3.
-#[allow(dead_code)]
+/// dτ/dt of a circular orbit at r (units of M): √(1 − 3M/r); NaN at r <= 3. B7 reads it.
 pub fn circular_clock_rate(r: f64) -> f64 {
     gr_oracle::circular_clock_rate(r)
 }
+// The 1PN two-body invariants are the two-body gate's surface (docs/representation.md, r3); no
+// gate of the single-mass core reads them yet.
 /// 1PN two-body relative motion at Darwin-like (p, e) and symmetric mass ratio ν:
 /// (periapsis radius, periapsis speed, reduced energy, reduced angular momentum).
 #[allow(dead_code)]

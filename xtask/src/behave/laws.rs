@@ -1,7 +1,7 @@
 //! The laws the judge can meet without a physics core. `echo` answers with the oracle, so every
 //! gate must pass. Each planted law has one flaw and must fail exactly the gate that guards it:
 //! together they prove the judge can fail (a test that cannot fail is a control).
-use super::{oracle, Law};
+use super::{cost, oracle, scale, Law};
 
 /// The oracle itself.
 pub struct Echo;
@@ -23,6 +23,18 @@ impl Law for Echo {
         let (energy, angular) = oracle::bound_invariants(p, e);
         vec![(p / (1.0 + e), p / (1.0 - e), energy, angular); cycles]
     }
+    fn static_clock_rate(&self, r: f64) -> Option<f64> {
+        Some(oracle::static_clock_rate(r))
+    }
+    fn circular_clock_rate(&self, r: f64) -> Option<f64> {
+        (r > 3.0).then(|| oracle::circular_clock_rate(r))
+    }
+    fn crossings_per_cycle(&self, p: f64, e: f64) -> Option<f64> {
+        Some(cost::reference_crossings(p, e))
+    }
+    fn scene_cost(&self, n_bodies: usize, game_seconds: f64) -> Option<f64> {
+        scale::echo_scene_cost(n_bodies, game_seconds)
+    }
 }
 
 /// The flaws, by the gate that must catch each.
@@ -34,6 +46,12 @@ pub enum Fault {
     Walk,
     /// G4: nothing is ever captured, massive or light.
     NoCapture,
+    /// B7: both clock rates are off by 1e-6 relative.
+    Clock,
+    /// B9: every orbit costs 512 band crossings per cycle.
+    Steps,
+    /// B10: the scene is all pairs, so its cost grows like n².
+    Quadratic,
 }
 /// The oracle with one planted flaw.
 pub struct Planted(pub Fault);
@@ -60,6 +78,28 @@ impl Law for Planted {
         }
         run
     }
+    fn static_clock_rate(&self, r: f64) -> Option<f64> {
+        let skew = if matches!(self.0, Fault::Clock) { 1.0 + 1e-6 } else { 1.0 };
+        Echo.static_clock_rate(r).map(|x| x * skew)
+    }
+    fn circular_clock_rate(&self, r: f64) -> Option<f64> {
+        let skew = if matches!(self.0, Fault::Clock) { 1.0 + 1e-6 } else { 1.0 };
+        Echo.circular_clock_rate(r).map(|x| x * skew)
+    }
+    fn crossings_per_cycle(&self, p: f64, e: f64) -> Option<f64> {
+        if matches!(self.0, Fault::Steps) {
+            Some(512.0)
+        } else {
+            Echo.crossings_per_cycle(p, e)
+        }
+    }
+    fn scene_cost(&self, n_bodies: usize, game_seconds: f64) -> Option<f64> {
+        if matches!(self.0, Fault::Quadratic) {
+            scale::quadratic_scene_cost(n_bodies, game_seconds)
+        } else {
+            Echo.scene_cost(n_bodies, game_seconds)
+        }
+    }
 }
 
 pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
@@ -68,6 +108,9 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-precession" => Box::new(Planted(Fault::Precession)),
         "planted-walk" => Box::new(Planted(Fault::Walk)),
         "planted-nocapture" => Box::new(Planted(Fault::NoCapture)),
+        "planted-clock" => Box::new(Planted(Fault::Clock)),
+        "planted-steps" => Box::new(Planted(Fault::Steps)),
+        "planted-quadratic" => Box::new(Planted(Fault::Quadratic)),
         _ => return None,
     })
 }
