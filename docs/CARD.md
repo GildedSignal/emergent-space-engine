@@ -2,7 +2,7 @@
 
 The goal and philosophy live in [PRINCIPLES.md](PRINCIPLES.md); state, plan and in-flight work in [HANDOFF.md](HANDOFF.md). This card holds only the current heading. Julien approves changes to it.
 
-- **Where we are:** the flat-space engine is exact special relativity. Step 2 (exact orbits around one mass) is being judged for real: its first gate climb agreed on 336 of 336 answered cases, but the evaluator is too slow and hangs on weak-field orbits (H0194).
-- **Where we're going:** one causal engine that computes only surprises, with GR, running a physically scaled galaxy on a fanless M1 at a measured real-time factor.
-- **We refuse:** weakened gates; floats deciding canonical outcomes; categories; process displacing physics; busywork and stacked documents; polishing before the premises are measured.
-- **Next action:** diagnose every rung, give Astra the map, re-climb until step 2 passes, then the player slice.
+- **Where we are:** the flat-space engine is exact special relativity. Gravity is re-grounded (H0195): the law is a cheap, local, fixed integer algorithm held by cells, and exact GR is only the oracle. The v1 contract is a draft; a float re-probe of cell-owned step rules decides the last open premise before Julien freezes it.
+- **Where we're going:** one causal engine that computes only surprises, with gravity as a field held by cells (multipoles, ships' aggregates included), running a physically scaled galaxy of billions of bodies on a fanless M1 at a measured real-time factor.
+- **We refuse:** weakened gates; floats deciding canonical outcomes; categories; continuum fidelity as a gate; ticks, even per body; process displacing physics; busywork and stacked documents; polishing before the premises are measured.
+- **Next action:** fold the re-probe's winner and freeze v1; Astra builds `crates/gravity` (one mass, then two, then N, in the same code) with a cost-against-N gate up to 10^9; then one engine, then the player slice.

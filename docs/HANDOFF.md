@@ -1,12 +1,12 @@
 # Emergent Space — handoff
 
-Current as of 29 September 2026 (H0194). The previous handoff, with the old engine's status (H0100–H0164), is in git history and in `~/Research/emergent-space-archive/old-lineage/docs/HANDOFF.md`.
+Current as of 29 September 2026 (H0197, plus the doc reconciliation on `wt/reconcile`). The previous handoff, with the old engine's status (H0100–H0164), is in git history and in `~/Research/emergent-space-archive/old-lineage/docs/HANDOFF.md`.
 
 ## First ten minutes
 
 0. Read "In flight" below first: what is running, where its output lands, and what to do when it finishes.
-1. Read [AGENTS.md](../AGENTS.md), then this file. Run `cargo xtask history list` and search for entries related to your task.
-2. Read the heading-check card `~/.cursor/skills/heading-check/cards/emergent-space.md`, then preflight.
+1. Read [PRINCIPLES.md](PRINCIPLES.md), [AGENTS.md](../AGENTS.md), then this file. Run `cargo xtask history list` and search for entries related to your task.
+2. Read the heading card [CARD.md](CARD.md), then preflight.
 3. Run `git status --short` and `git log -8 --oneline`. There is one checkout, `~/Research/emergent-space`, on `main`.
 
 ## In flight (overwrite when jobs change; the first thing to read after a compaction)
@@ -15,33 +15,33 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | Public API landed (b51fc9a, b830bba); next Codex window 14:00 via `artifacts/runs/astra-geodesic/launch.sh` (retarget the time) | Fix what the climb shows; merge |
-| Gate harness `xtask gravity-gate` | Merged (H0193); the real adapter is wired only in `wt/g2run` | Ready | Merge the adapter with the crate when step 2 lands |
-| v1 contract red-team and float probe | GLM, sandboxed; outputs `artifacts/runs/gravity-v1-freeze/{redteam,probe}-out.md` | Running | Fold into `gravity-law.md`; add multipoles from day one and a cost-versus-N gate; freeze |
-| Philosophy mining and doc reconciliation | Mining done (`artifacts/runs/philosophy-mining/opus-out.md`, `glm-out.md`). A Claude Opus sub-agent is reconciling HANDOFF, CARD, engine, AGENTS, PRINCIPLES and the v1 contract in `/private/tmp/emergent-wt-reconcile` (`wt/reconcile`) | Running | Review the diff; merge; Julien approves the proposed principles; then freeze v1 |
+| Float re-probe of cell-owned step rules (C1 shell-constant, C2 time-symmetric switching, C3 fixed control) | GLM, sandboxed; prompt `artifacts/runs/gravity-v1-reprobe/prompt.md`, output `.../out.md` | Running | The integrator folds the winning configuration into `gravity-law.md`; then freeze v1 and hand it to Astra |
+| Doc reconciliation with PRINCIPLES (HANDOFF, CARD, engine, AGENTS, test-ladder, PRINCIPLES, the v1 draft, reference) | Claude Opus sub-agent, `/private/tmp/emergent-wt-reconcile` (`wt/reconcile`) | Done; awaiting review | Review the diff; merge; append the journal entry (the sub-agent's draft); delete the branch and worktree. Julien says yes or no to each proposed principle |
+| `crates/geodesic`, the exact evaluator (now oracle material, H0195) | Astra, `/private/tmp/emergent-wt-geodesic` (`wt/geodesic`, parked at 1a8d526) | **Parked, not running.** Window 7 ran 09:00–09:31 and stopped at the Codex limit (`artifacts/runs/astra-geodesic/log-7.txt`) | Not in flight. The integrator decides: keep it as an oracle component or archive it. Do not re-climb G2 |
+| `xtask gravity-gate` (the v0 G2 gates) | Merged (H0193); its throwaway adapter lives in `wt/g2run` | Parked | Reuse its watchdog and state recording in `xtask gravity-behave`; then delete `wt/g2run` |
 
 ## Headed next (in order)
 
-1. **The diagnosis** (Sonnet) maps every rung and class to agree, disagree, panic or timeout.
-2. **Astra's next Codex window** fixes from that map. The biggest item is a weak-field fast path, where the elliptic machinery reduces to near-Keplerian series.
-3. **Re-climb G2.1**, then G2.2–G2.5, until step 2 passes. Then merge `crates/geodesic` with the adapter, and delete `wt/g2run` and `wt/geodesic`.
-4. **Step 4:** the player slice (one mass, one ship, thrust as kicks, float viewer). Then step 5, many bodies.
+1. **Freeze v1.** The re-probe picks the cheapest passing cell-owned step rule; the integrator folds it into [gravity-law.md](gravity-law.md); Julien freezes gates B0–B10.
+2. **Astra builds `crates/gravity`**, which Astra owns. The written law comes first: the β rule for many sources, κ, the multipole order, the in-cell step. Then rung 1 (one mass), with multipoles in cells from day one. Sonnet builds `xtask gravity-behave` (oracle, seed sampler, B10 scenes) alongside it.
+3. **Rungs 2–4 in the same code:** two masses (a binary, then a fleet as a source), N bodies, and cost against N up to 10^9 (B10). Oracle: 1PN two-body and N-body. Ship populations as generators (families, archived at H0182) come back deliberately, with a journal entry, if B10 shows per-body cost binding.
+4. **One engine and its allocator,** before the player slice (H0186; Julien: "yes, why not one?"). The five modes collapse into one engine on the batch-window knob, with the chronon kept only as the judge. Least-slack allocation is fed by surprise rates measured on the gravity workload (Julien: "it's the most important one"). The GPU is used heavily. The gravity law enters the engine, with thrust as kicks and contacts in the flow frame.
+5. **The player slice:** one mass, one ship, thrust as kicks, a float viewer, save and replay. Whether Julien predicts before each run is the integrator's proposal, awaiting his yes.
+6. **The player, fully:** commands, signals and observation on null geodesics, and the viewer.
+7. **Physics v1:** Kerr, inspiral, merger.
+8. **Ladder v8:** physically scaled scenes reporting real-time factors.
 
-**Budgets:** Codex weekly is about 64% after three Astra windows, roughly 15% per window. Above 75%, Claude Opus takes over the crate and Astra reviews.
+Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). Work runs one job at a time; parallel work is limited to read-only briefs and independent judges.
 
-**Decided by Julien (29 September):** merge the five modes into one production engine. The chronon reference stays only as a test judge.
+**Budgets:** Codex hit its limit at 09:31 in Astra's window 7 (reset 14:00). Check each provider's usage before assigning (AGENTS.md). If Codex runs short, Claude Opus writes the law and Astra reviews it.
 
-**Proposed to Julien, 29 September, awaiting his go:** re-ground gravity on first principles.
-- **Separate the oracle from the implementation.** Exact GR, the judge and Astra's exact geodesics are the oracle. The implementation is the cheapest law with the right behaviours: a fixed integer algorithm.
-- **Treat gravity as a field held by cells:** particle-mesh and fast-multipole style.
-  - Bodies deposit mass into a hierarchy of cells, whose integer sums are exact and independent of order.
-  - The field (the tilt β of each cell's sheet) is solved hierarchically and cached with certificates.
-  - A body drifts inside its cell's field, analytically, and pays only at events: a cell crossing, a field-certificate expiry, a contact or a command.
-  - A body moving inside its cell changes no far field, so billions of moving objects cost nothing until they cross or cluster.
-- **Derive observables on demand, never evolve them:** clocks (proper time), redshift, lensing.
-- **Gate on behaviours and error type.**
-
-This returns to the original cells-as-frames design (Regge-like flat pieces).
+**Decided by Julien (29 September):**
+- The law is a cheap, local, fixed integer algorithm. Exact GR is the oracle, not the implementation (H0195).
+- Gravity is a field held by cells. Multipoles are the mechanism, including aggregates of ships.
+- Observables (clocks, redshift, lensing) are derived on demand, never evolved.
+- One engine, not five modes; the chronon survives only as a test judge.
+- Behaviour and error type over error size.
+- Every statement of his is followed or disproven with evidence ([PRINCIPLES.md](PRINCIPLES.md) register). He owns PRINCIPLES.md.
 
 ## What the engine computes
 
@@ -50,34 +50,20 @@ Only surprises. The state is certified generators, compute follows entropy, and 
 ## Where we are
 
 - **Law.** `es-lattice-relativistic-v1` (H0174): exact integer special relativity with contacts, walls, carries and an exact Newtonian limit. Q ≤ 2^20 today; the target is 2^40 ([universe-quanta.md](universe-quanta.md)). Worldlines are straight between events: no gravity, no thrust, no player input yet.
-- **Modes.** chronon (reference), event (H0177, density-sized cells), metal (H0179: the 1M v1 gas takes 8.0 s per 1,024 chronons), hybrid (H0181) and regions (the allocator, H0176).
+- **Gravity.** The v1 contract is a draft ([gravity-law.md](gravity-law.md)).
+  - GLM's red-team found the draft lacked its own equations, had two vacuous gates (B4 capture, B5) and a determinism clash with cell clipping. All are folded in.
+  - Probe 1 passed precession, capture and deflection at 1%, and killed the per-body step rule on energy growth (evidence: `artifacts/evidence/gravity-v1-freeze-20260929/`).
+  - The v0 exact evaluator agreed exactly wherever it answered, but ran 1,600× over budget (H0194). It is now oracle material.
+- **Modes.** chronon (reference), event, metal (H0179: the 1M v1 gas takes 8.0 s per 1,024 chronons), hybrid (H0181) and regions (H0176). All five are to merge into one engine (step 4).
 - **Ladder v7** (H0180–H0181). No correctness flag is false anywhere. Failing gates:
   - gas_one_million and galaxy_one_million (at the cap);
   - useful_work for event (0.48);
   - smooth for metal, hybrid and regions.
-- **GR oracle** (H0178, H0183). Periapsis advance, light bending, geodetic precession, clock rates, Shapiro delay, bound periods and 1PN two-body motion, two methods each. It shares no code with `crates/` and currently exits 1 because of the retained e = 0.5 two-body failure.
+- **GR oracle** (H0178, H0183). Periapsis advance, light bending, geodetic precession, clock rates, Shapiro delay, bound periods and 1PN two-body motion, two methods each. It shares no code with `crates/`, and currently exits 1 because of the retained e = 0.5 two-body failure. Before rung 2 uses it, a new protocol is frozen on unseen cases.
 - **Real-time factors.**
   - The ladder gas is a stress test: about 10⁻⁸× real time at 83 ps chronons.
   - A realistic 1M-ship battle is estimated at 10–100× real time. That is a Fermi estimate, not yet measured.
-
-## The plan: engine and GR
-
-Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). Work runs one job at a time; parallel work is limited to read-only briefs and independent judges.
-
-0. **Clean countertop (done, H0182).**
-1. **The oracle (partial, H0183).** Every single-mass row passes. The e = 0.5 two-body period rows fail with a clean p⁻² residual; the failure is kept. Before step 3 uses them, freeze a new protocol on unseen cases.
-2. **One mass, in the lab** (running). The contract is [gravity-law.md](gravity-law.md): river coordinates, the canonical ladder, and gates G2.1–G2.5, with rungs R0–R5, planted bugs and ranges up to galactic nuclei (H0184, H0187).
-   - Astra builds `crates/geodesic`.
-   - The judge's reference floors are frozen and merged (H0192): 212,408 queries, 0 unsettled.
-   - Sol's harness is paused.
-3. **Premise probe (passed, H0190).** Every premise holds: 32 kicks per low orbit; averaging tides cuts that 114×; J2 must be in the formula; handoff carries stay bounded. Binaries need a two-body parent formula, and lunar-transfer legs need averaged tides or an early handoff.
-4. **The player slice** right after step 2: one mass, one ship, thrust as kicks, a float viewer, save and replay. Julien predicts before each run.
-5. **Many bodies:** parent hierarchy, the kick rule (continuous integral, error-feedback re-anchoring, averaged tides), retarded tides with source-velocity terms, canonical handoff. Oracle: 1PN N-body.
-6. **Collapse the modes, then put the law in the engine.** Keep the chronon judge plus one production engine (regions with a per-region batch-window dial; Metal only for dense contacts; canonical formulas on the CPU). Then add `es-lattice-gravity-v0`, thrust as kicks, and contacts in the flow frame.
-7. **Scheduling from surprise:** least slack, fed by measured surprise rates (the formula's residual plus entropy).
-8. **The player, fully:** commands, signals and observation on null geodesics, and the viewer.
-9. **Physics v1:** Kerr, inspiral, merger.
-10. **Ladder v8:** physically scaled scenes reporting real-time factors.
+- **Done before this plan:** a clean countertop (H0182), the oracle (H0183), the step 3 premise probe (H0190), and the judge's frozen floors (H0192).
 
 **Candidates from the polymath scan** (GLM, 28 September):
 - commutative-monoid messages between regions;
@@ -89,15 +75,17 @@ Gates are frozen before their first run, tests take ≤ 60 s, and speed is repor
 ## Standing decisions
 
 - **Microstates are canonical.** Entropy only schedules, and observation never changes outcomes.
-- **Everything is emergent** (see the design principles in the reference conversations). There is no central control, and no object categories: regimes are chosen by dimensionless numbers.
+- **Everything is emergent** ([PRINCIPLES.md](PRINCIPLES.md)). There is no central control, and no object categories: regimes are chosen by dimensionless numbers.
 - **The memory floor is information-theoretic** (entropy given shared structure), not bytes × count.
 
 ## Risks to attack first
 
-- Canonical parent handoff without energy leaks.
-- An exact integer elliptic-function algorithm, identical and fast on CPU and Metal.
-- Contacts between curved generators.
-- Retarded tides across very different scales.
+- **What cells add for many sources.** Moments add; the flow does not (β ∝ √M). The β rule must be curl-free for static sources and pass 1PN.
+- **A cell-owned step rule** with bounded energy error that bends distant light: this is the re-probe.
+- **Cost at a billion.** A billion ships all in 90-minute orbits would need about 190 cores at B9's rates (the red-team's 0.19 core per million, times 1,000; a Fermi estimate). B10 must show where a real scene sits, and events per orbit or cost per event may need to fall 10–100×.
+- Contacts between curved paths, and retarded moments across very different scales.
+- The light cone keeps growing (Julien: "there will always be a point where we cannot handle the universe anymore").
+- The approved plan's budgets (4 GiB, 30 FPS at 1080p, one hour, 20 GiB) are open, not dropped. 20 GiB exceeds the free disk.
 
 ## The machine
 
@@ -107,11 +95,11 @@ A fanless MacBook Air M1, macOS 26.5.2:
 - 8 GB of unified memory, with 16 KB pages;
 - about 10 GB of disk free.
 
-Swap runs near its 10 GB limit in daily use, and timing swings about 30% with heat. Measure in real conditions, with the state recorded. Eight probes of at most 60 s each are pending for a quiet machine: i128 throughput on performance versus efficiency cores, GPU u32/u64/u128 cost, memory bandwidth, SSD streaming, the GPU round-trip floor, Accelerate/AMX exactness and throughput, Neural Engine latency, and a thermal metronome.
+Swap runs near its 10 GB limit in daily use, and timing swings about 30% with heat. Measure in real conditions, with the state recorded. Eight probes of at most 60 s each are pending, to be run as the player runs, with the state recorded: i128 throughput on performance versus efficiency cores, GPU u32/u64/u128 cost, memory bandwidth, SSD streaming, the GPU round-trip floor, Accelerate/AMX exactness and throughput, Neural Engine latency, and a thermal metronome.
 
 ## Where things are
 
 - Frozen evidence: `artifacts/evidence/`. The map for relocated or archived journal paths: [history-evidence-map.json](history-evidence-map.json).
 - Remote (private): https://github.com/GildedSignal/emergent-space-engine, `main` only.
 - Retired code and the old repository: `~/Research/emergent-space-archive`.
-- Original conversations, research and aesthetic references: [reference/](reference/README.md) and `assets/reference/`.
+- Original conversations (including the continuation), research and aesthetic references: [reference/](reference/README.md) and `assets/reference/`.

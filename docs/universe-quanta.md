@@ -16,7 +16,7 @@ The engine needs exactly one kind of floor: the canonical grid that stored state
 
 Light moves Q position quanta per chronon, so the velocity quantum is c/Q: Q counts the distinguishable speeds between rest and c, independently of the chronon's length.
 
-- Coasting is exact integer motion. Rounding happens only at interactions (collisions, thrust, and later gravity steps), and leaves a velocity error of at most c/Q.
+- Coasting is exact integer motion. Rounding happens only at interactions (collisions, thrust, and later gravity events), and leaves a velocity error of at most c/Q.
 - After a coast of duration T, the position error is c·T/Q.
 - The tolerance is one light-chronon, by the chronon's own definition: 5% of the smallest object, a 50 cm missile, gives c·δt = 2.5 cm and δt ≈ 83 ps.
 - A coast therefore stays within tolerance while T ≤ Q·δt, which gives:
@@ -34,7 +34,7 @@ Light moves Q position quanta per chronon, so the velocity quantum is c/Q: Q cou
 **Target: Q = 2^40.**
 - 91 s of coherence covers an unguided slug crossing a 1,000 km battle at 10 km/s, or a docking coast. 0.27 mm/s is finer than any docking needs.
 - Earth-orbit speeds span 10⁸ quanta. Mercury's relativistic precession, about 5×10⁻⁷ rad per orbit, is resolvable within one orbit.
-- The carries should keep repeated rounding bounded instead of random-walking, so Q covers one coast between corrections, not a whole voyage. This is to be verified once gravity steps exist.
+- The carries should keep repeated rounding bounded instead of random-walking, so Q covers one coast between corrections, not a whole voyage. This is to be verified once gravity events exist.
 
 ## Widths
 

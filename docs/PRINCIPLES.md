@@ -63,7 +63,7 @@ Status words: **Followed** (built, or a rule in force), **Adopted** (decided in 
 | Clocks and observables are emergent: derived, never computed ahead | 29 September | **Adopted:** principle 3, v1 draft B7; not built |
 | One engine, not five modes: "yes, why not one?" (chronon only as a test judge) | CL 09-29 08:05 | **Adopted, not built:** engine.md is one engine; the code still has five modes |
 | Measure like the player, heat included, with the state recorded | 28 September | **Followed** (AGENTS.md) |
-| Sonnet for well-scoped work, Opus for hard problems and decisions; "You can abuse GLM"; "It's a wildcard that we're underestimating"; GLM for red-teaming and autoresearch | CL 09-28 12:10–18:56 | **Followed** (AGENTS.md). "Volume without authority" and pull-based loops are the integrator's, approved with the architecture (H0192) |
+| Sonnet for well-scoped work, Opus for hard problems and decisions; "You can abuse GLM"; "It's a wildcard that we're underestimating"; GLM for red-teaming and autoresearch | CL 09-28 12:10–18:56 | **Followed** (AGENTS.md). "Volume without authority" and pull-based loops are the integrator's, approved with the architecture (H0191) |
 | Speed is reported as a real-time factor, since effective c depends on it | CL 09-27 10:20 | **Followed** |
 | Every test ≤ 60 s | 26 September | **Followed** |
 | Everything emergent; no scripted events, designed families or central control | 27 September | **Followed** |
