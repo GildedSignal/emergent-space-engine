@@ -1,6 +1,6 @@
 # Intent card: Emergent Space
 
-State, plan and in-flight work live in [HANDOFF.md](HANDOFF.md). This card holds only intent. Julien approves changes to it.
+The goal and philosophy live in [PRINCIPLES.md](PRINCIPLES.md); state, plan and in-flight work in [HANDOFF.md](HANDOFF.md). This card holds only the current heading. Julien approves changes to it.
 
 - **Where we are:** the flat-space engine is exact special relativity. Step 2 (exact orbits around one mass) is being judged for real: its first gate climb agreed on 336 of 336 answered cases, but the evaluator is too slow and hangs on weak-field orbits (H0194).
 - **Where we're going:** one causal engine that computes only surprises, with GR, running a physically scaled galaxy on a fanless M1 at a measured real-time factor.

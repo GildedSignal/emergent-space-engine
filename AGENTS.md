@@ -1,6 +1,6 @@
 # Emergent Space: how we work
 
-Start: `docs/HANDOFF.md` (state and plan), then `cargo xtask history list` and search what's relevant. The only live checkout is `~/Research/emergent-space`, branch `main`; the private remote is `GildedSignal/emergent-space-engine`. Codex, GLM/OMP and Cursor load the heading-check skill (`~/.cursor/skills/heading-check/SKILL.md`, card `cards/emergent-space.md`). Do not pass `--no-skills`.
+**First read [docs/PRINCIPLES.md](docs/PRINCIPLES.md)** (the goal and Julien's philosophy, always on), then `docs/HANDOFF.md` (state, plan, in flight), then `cargo xtask history list`. The only live checkout is `~/Research/emergent-space`, branch `main`; the private remote is `GildedSignal/emergent-space-engine`. Codex, GLM/OMP and Cursor load the heading-check skill (card `docs/CARD.md`). Do not pass `--no-skills`.
 
 ## Truth
 
@@ -28,7 +28,11 @@ Start: `docs/HANDOFF.md` (state and plan), then `cargo xtask history list` and s
   - Lower tiers report findings that name the invariant at stake, and never edit higher-tier work. Their doc patches may add or delete lines but never reword existing ones.
   - Julien owns his principles: models propose changes and never reword them.
   - A judge is built by a strong model from a different family than what it judges. Disagreements are adjudicated, never auto-fixed.
-- **Before any freeze,** one GLM red-team and the cheapest falsifying probe must have run.
+- **Before any freeze,** one GLM red-team and the cheapest falsifying probe must have run. The red-team attacks the premise against PRINCIPLES.md before it attacks the letter.
+- **Guards against drift and sunk cost.**
+  - Every specialist prompt begins with PRINCIPLES.md's goal and philosophy, verbatim.
+  - Every step has a budget in windows or days. When it runs over, stop and re-derive the step from the goal instead of extending it.
+  - Every statement of Julien's enters the register in PRINCIPLES.md, and stays until it is followed or disproven with evidence.
 - **Specialists** work in `/private/tmp/emergent-wt-<task>` on `wt/<task>`, and job files live in `artifacts/runs/<id>/`. The integrator merges, then deletes the branch and worktree. Heavy work that needs neither Metal nor timing may run in a cloud session.
 
 ## Workspace

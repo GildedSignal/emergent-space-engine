@@ -2908,3 +2908,18 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: [post-mortem](../artifacts/evidence/postmortem-gravity-fmm-20260929/POSTMORTEM.md)
 - Limitations: Five corrective actions are proposed and await Julien's approval.
 - Next: On approval: update the card and AGENTS, add tracked requirements, reorder so FMM follows v1's one-mass rung.
+
+
+## H0197 — The philosophy gets a durable home every model reads first: PRINCIPLES.md and a register of Julien's statements
+
+- Date: 2026-09-29
+- Kind: correction
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: [PRINCIPLES.md](PRINCIPLES.md) (new); AGENTS.md (reads it first, drift guards); CARD.md; Claude memory points to it
+- Changed: Julien asked why the philosophy was lost and the work became infinite. Causes: the philosophy lived in the conversation, not in what specialists read, so contracts encoded exactness; compaction keeps facts and drops values; rigor was gated and cheapness was not (Goodhart); the integrator added instead of subtracting and red-teamed the letter, not the premise; sunk cost; his statements had no status, so a narrow failure became a ban on multipoles. Fix: PRINCIPLES.md holds the goal, 11 principles and a register where each statement is followed or disproven with evidence. AGENTS: read it first; every specialist prompt starts with it; red-teams attack the premise first; steps have budgets, and an overrun means re-derive from the goal.
+- Why: The goal is clear. Keep the philosophy on at all times.
+- Validation: history check PASS; AGENTS 56 lines, PRINCIPLES 39.
+- Evidence: [post-mortem](../artifacts/evidence/postmortem-gravity-fmm-20260929/POSTMORTEM.md)
+- Limitations: The specialist-prompt prefix is a rule, not yet a launcher script.
+- Next: Check the v1 contract against PRINCIPLES; fold the red-team and probe; freeze.
