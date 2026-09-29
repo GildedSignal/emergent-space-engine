@@ -3,6 +3,8 @@
 //! Every advance runs in units of `unit_ops` charged operations and every unit is timed.
 //! Correctness: exact oracles (pair oracle, independent gas reference, all-pairs audit),
 //! ledgers, mode invariance against the chronon reference, and budget invariance.
+use crate::behave::sample::Rng;
+use crate::measure::{drive, peak_rss, percentile};
 use crate::{gas, lattice};
 use emergent_lattice::{chronon::Chronon, relativity, worlds, Body, Kind, Law, Response, Stepper, World};
 use serde_json::{json, Value};
@@ -21,38 +23,6 @@ fn manifest() -> Result<Value> {
     Ok(serde_json::from_slice(MANIFEST)?)
 }
 
-pub(crate) fn peak_rss() -> u64 {
-    let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
-    // SAFETY: getrusage initializes the out pointer on success.
-    unsafe {
-        if libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) == 0 {
-            let n = usage.assume_init().ru_maxrss as u64;
-            if cfg!(target_os = "macos") {
-                n
-            } else {
-                n * 1024
-            }
-        } else {
-            0
-        }
-    }
-}
-
-/// Process CPU time (user + system) in seconds; cores used = CPU time / wall time.
-pub(crate) fn cpu_seconds() -> f64 {
-    let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
-    // SAFETY: getrusage initializes the out pointer on success.
-    unsafe {
-        if libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) == 0 {
-            let u = usage.assume_init();
-            let tv = |t: libc::timeval| t.tv_sec as f64 + t.tv_usec as f64 / 1e6;
-            tv(u.ru_utime) + tv(u.ru_stime)
-        } else {
-            0.0
-        }
-    }
-}
-
 /// Manifest caps merged with the chosen profile (quick or full).
 pub(crate) fn caps(m: &Value, profile: &str) -> Value {
     let mut c = m["caps"].clone();
@@ -62,28 +32,6 @@ pub(crate) fn caps(m: &Value, profile: &str) -> Value {
         }
     }
     c
-}
-
-pub(crate) fn percentile(sorted: &[f64], q: f64) -> f64 {
-    if sorted.is_empty() {
-        return 0.0;
-    }
-    sorted[((sorted.len() - 1) as f64 * q).round() as usize]
-}
-
-pub(crate) struct Rng(pub(crate) u64);
-impl Rng {
-    pub(crate) fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-    /// Uniform integer in [lo, hi].
-    pub(crate) fn range(&mut self, lo: i128, hi: i128) -> i128 {
-        lo + (self.next() as u128 % (hi - lo + 1) as u128) as i128
-    }
 }
 
 /// Integer description of an independent inertial disc: position p (units),
@@ -180,40 +128,6 @@ fn make(mode: &str, w: World, keep: bool) -> std::result::Result<Box<dyn Stepper
         "regions" => crate::regions::Regions::new(w, keep).map(|c| Box::new(c) as Box<dyn Stepper>),
         _ => Err(format!("mode {mode} not built yet")),
     }
-}
-
-struct Drive {
-    complete: bool,
-    limiter: Option<String>,
-    advance_ms: f64,
-    cpu_s: f64,
-    units_ms: Vec<f64>,
-}
-
-fn drive(s: &mut dyn Stepper, horizon: i64, unit_ops: u64, wall_s: f64, rss_cap: u64) -> Drive {
-    let (start, cpu0) = (Instant::now(), cpu_seconds());
-    let mut units_ms = Vec::new();
-    let mut limiter = None;
-    while s.tick() < horizon {
-        let t = Instant::now();
-        s.advance(horizon, unit_ops);
-        units_ms.push(t.elapsed().as_secs_f64() * 1e3);
-        if units_ms.len() % 256 == 0 {
-            if start.elapsed().as_secs_f64() > wall_s {
-                limiter = Some(format!("wall cap {wall_s} s at tick {} of {horizon}", s.tick()));
-                break;
-            }
-            if peak_rss() > rss_cap {
-                limiter = Some("peak RSS cap".into());
-                break;
-            }
-        }
-    }
-    // The cap binds whether or not a check boundary fell inside it ("complete within caps").
-    if limiter.is_none() && start.elapsed().as_secs_f64() > wall_s {
-        limiter = Some(format!("wall cap {wall_s} s (reached tick {} of {horizon} in {:.1} s)", s.tick(), start.elapsed().as_secs_f64()));
-    }
-    Drive { complete: limiter.is_none(), limiter, advance_ms: start.elapsed().as_secs_f64() * 1e3, cpu_s: cpu_seconds() - cpu0, units_ms }
 }
 
 fn discs_of(w: &World) -> Vec<Disc> {

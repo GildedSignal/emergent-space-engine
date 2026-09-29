@@ -1,11 +1,12 @@
+mod behave;
 mod gas;
 mod gas_rel;
-mod gate;
 mod gr_oracle;
 mod history;
 mod hybrid;
 mod ladder;
 mod lattice;
+mod measure;
 mod regions;
 use serde_json::Value;
 use std::{
@@ -72,9 +73,9 @@ fn run() -> Result<u8> {
         println!("{}", if ok { "ORACLE AGREES" } else { "ORACLE DISAGREES" });
         return Ok(if ok { 0 } else { 1 });
     }
-    if task == "gravity-gate" {
-        // Step 2 gates G2.1 to G2.5 against the frozen reference answers (docs/gravity-law.md).
-        return gate::run(args.collect());
+    if task == "behave" {
+        // The behaviour judge: gates G1-G6 against the GR oracle (xtask/src/behave/mod.rs).
+        return behave::run(args.collect());
     }
     if task == "lattice-check-rel" {
         // The relativistic chronon reference against the independent relativistic gas reference.
@@ -147,6 +148,6 @@ fn run() -> Result<u8> {
         println!("PASS: history check and workspace tests ({})", out.join("test-output.txt").display());
         return Ok(0);
     }
-    println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  gravity-gate [out-dir] [--rung R0..R5] [--evaluator NAME]  step 2 gates G2.1-G2.5 (see xtask/src/gate/mod.rs)\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
+    println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|planted-precession|planted-walk|planted-nocapture]  behaviour judge, gates G1-G6\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
     Ok(0)
 }

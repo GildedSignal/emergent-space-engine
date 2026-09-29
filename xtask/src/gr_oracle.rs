@@ -262,6 +262,19 @@ fn geodetic_ode(r: f64, steps: usize) -> f64 {
     2.0 * PI + unwrapped
 }
 
+/// dτ/dt of a static observer at r (units of M).
+pub(crate) fn static_clock_rate(r: f64) -> f64 {
+    (1.0 - 2.0 / r).sqrt()
+}
+/// dτ/dt of a circular orbit at r (units of M); NaN at r <= 3, where there is none.
+pub(crate) fn circular_clock_rate(r: f64) -> f64 {
+    if r > 3.0 {
+        (1.0 - 3.0 / r).sqrt()
+    } else {
+        f64::NAN
+    }
+}
+
 fn rel(a: f64, b: f64) -> f64 {
     ((a - b) / b).abs()
 }
@@ -312,8 +325,8 @@ pub fn run() -> (bool, Value) {
     }
     // Clock rates (closed forms: the lattice's region clocks must reproduce them).
     for r in [3.5f64, 6.0, 20.0, 1e3, 1e6] {
-        rows.push(json!({"case": "clock_rate", "r": r, "static_dtau_dt": (1.0 - 2.0 / r).sqrt(),
-            "circular_orbit_dtau_dt": if r > 3.0 { Some((1.0 - 3.0 / r).sqrt()) } else { None }}));
+        rows.push(json!({"case": "clock_rate", "r": r, "static_dtau_dt": static_clock_rate(r),
+            "circular_orbit_dtau_dt": Some(circular_clock_rate(r)).filter(|c| !c.is_nan())}));
     }
     extended::run(&mut rows, &mut ok);
     (ok, json!(rows))
