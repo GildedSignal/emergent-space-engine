@@ -46,3 +46,10 @@ Many GLMs, each with a lens, get **autonomy of inquiry and no authority.** They 
 - `lab/run.sh rung <file> [minutes]` runs a rung file that is committed and unchanged: prose, a `configs` block (`<name> candidate|negative`) and a `criteria` block (`<id> behaviour|type|cost <metric> <op> <threshold>`).
 - The author writes `metrics.json`, a checker reproduces it as `metrics-check.json`, and `verdict.py` decides: PASS (after a blind second checker), KILL, VOID or DISPUTED. A KILL kills configurations, never the method.
 - [canaries/](canaries/) holds rung files with known verdicts: a checker lens that misgrades one is rewritten before real rungs count.
+
+## Writing rung criteria (lessons from r2)
+
+- **Controls on both sides.** Every rung has a `positive` control that must pass (an ideal configuration: the oracle itself, or the law-native exact reference) and a `negative` that must fail. If either misbehaves, the verdict is VOID.
+- **No trajectory identity.** Never demand long-run identity with an external float truth. Rounding makes that a random walk, so the demand is error size in disguise. Judge behaviours and statistics.
+- **Robust growth exponents.** Judge them on the median seed or on an ensemble fit, never on the worst seed of a noisy estimator.
+

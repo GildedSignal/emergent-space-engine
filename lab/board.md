@@ -64,6 +64,11 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Taste log (the integrator's decisions on gold, newest first)
 
+- **29 September, r2 (carry width): KILL of sd16, sd24 and sd32.**
+  - **What it showed:** a 32+32-bit pair holds float64 increments exactly (zero phase error). Carries cannot recover information below their own resolution. Kicks on the law's own grid accumulate exactly at any width.
+  - **Integrator's error:** two criteria demanded trajectory identity with float64 (conjunction order; the worst-seed kick-residual exponent), which the checker proved unpassable.
+  - **Fix:** positive controls in `verdict.py`, and criterion-writing rules in the README.
+  - **Design consequence:** increments and kicks are integers native to the law, so widths are set by behaviour (r1 and the law's gates), not by matching floats.
 - **29 September, premise red-team: silver.**
   - **Adopted:** the rule that resonance kills averaging (design §3, rung r4); r3 v2's truncation fix; Clohessy–Wiltshire is first order only; Minsky's map is a conjugated rotation.
   - **Why silver, not gold:** its model B, the half claiming "kicks survive", was a dense integration, not the design's kick layer. Claims must be measured on the design's cheap path.

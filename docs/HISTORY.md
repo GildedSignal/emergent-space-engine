@@ -3007,3 +3007,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: branch claude/lab-20260929-1835-redteam-2ef5
 - Limitations: The resonance rule was already in docs/reference; the mining missed it.
 - Next: The verdicts of r1, r2, r3 v2 and r4.
+
+## H0204 — Rung r2 (carry width): KILL of sd16, sd24 and sd32; the verdict stands; the lesson is about criteria
+
+- Date: 2026-09-29
+- Kind: correction
+- Status: implemented
+- Revisions: this entry's commit
+- Scope: lab/verdict.py (positive controls), lab/README.md (criterion rules), representation.md §4, taste log
+- Changed: r2's verdict: sd32 passed phase (a 32+32 pair holds float64 increments exactly) but, like every width, failed the kick-residual exponent. sd16 and sd24 also failed phase: the error grows linearly because no carry recovers information below its resolution. The checker reproduced it byte-identically and proved the kick gate unpassable against a float64 kick stream, since rounding random-walks away from float truth. Two of the integrator's criteria asked for trajectory identity with float64, which is error size in disguise. Fixes: `verdict.py` gains positive controls (an ideal configuration that must pass, or the rung is VOID), and the README gains criterion rules. Design: increments and kicks are integers native to the law, exact by construction; widths come from behaviour.
+- Why: a failed experiment kills the configuration; here it also exposed a flaw in how tests are written.
+- Validation: verdict tests 15/15.
+- Evidence: branch claude/lab-20260929-1857-rung-r2-carry-width-e3af
+- Limitations: r3 v2's handoff exponent may share the flaw.
+- Next: r1, r3 v2 and r4 verdicts.

@@ -35,6 +35,17 @@ class Verdicts(unittest.TestCase):
         self.assertIn("weak candidate fail A,B", out)
         self.assertIn("ctrl negative fail A,B", out)
 
+    def test_positive_control_that_passes_is_neutral(self):
+        rung = RUNG.replace("ctrl negative", "ctrl negative\nideal positive")
+        out = verdict.judge(rung, dict(CHK, ideal=OK))
+        self.assertTrue(first(out).startswith("Verdict: PASS; "))
+        self.assertIn("ideal positive pass", out)
+
+    def test_positive_control_that_fails_voids_the_rung(self):
+        rung = RUNG.replace("ctrl negative", "ctrl negative\nideal positive")
+        out = verdict.judge(rung, dict(CHK, ideal=BAD))
+        self.assertTrue(first(out).startswith("Verdict: VOID; a positive control fails"))
+
     def test_kill_names_the_killed_configurations(self):
         out = verdict.judge(RUNG, {"good": {"x": 2.0, "y": 50.0}, "weak": BAD, "ctrl": BAD})
         self.assertTrue(first(out).startswith("Verdict: KILL; "))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verdict for a directed rung: verdict.py <rung.md> <checker-metrics.json> [<author-metrics.json>]. Exit 0, or 2 on usage.
-The rung has a ```configs block (<name> candidate|negative) and a ```criteria block (<id> behaviour|type|cost <metric> <op> <threshold>).
-Metrics files: {"<config>": {"<metric>": number}}. Order: VOID (numbers incomplete, or a negative passes all), DISPUTED (author and
+The rung has a ```configs block (<name> candidate|negative|positive) and a ```criteria block (<id> behaviour|type|cost <metric> <op> <threshold>).
+Metrics files: {"<config>": {"<metric>": number}}. Order: VOID (numbers incomplete, a negative passes all, or a positive control fails one), DISPUTED (author and
 checker differ in a pass/fail outcome), PASS (a candidate passes all), else KILL: it kills configurations, never the method."""
 import json, math, operator, re, sys
 
@@ -12,7 +12,7 @@ def parse(text):
         m = re.search(r"^```" + name + r"[^\n]*\n(.*?)^```", text, re.S | re.M)
         return [l.split() for l in (m.group(1).splitlines() if m else []) if l.strip() and not l.lstrip().startswith("#")]
     cfgs, crit = rows("configs"), rows("criteria")
-    ok = (any(r[1:] == ["candidate"] for r in cfgs) and crit and all(len(r) == 2 and r[1] in ("candidate", "negative") for r in cfgs)
+    ok = (any(r[1:] == ["candidate"] for r in cfgs) and crit and all(len(r) == 2 and r[1] in ("candidate", "negative", "positive") for r in cfgs)
           and all(len(r) == 5 and r[1] in ("behaviour", "type", "cost") and r[3] in OPS for r in crit)
           and len({r[0] for r in cfgs}) == len(cfgs) and len({r[0] for r in crit}) == len(crit))
     if not ok:
@@ -48,6 +48,9 @@ def judge(text, chk, auth=None):
     lines = [f"{c} {r} " + ("fail " + ",".join(failed[c]) if failed[c] else "pass") for c, r in cfgs]
     cand = [c for c, r in cfgs if r == "candidate"]
     stuck = [c for c, r in cfgs if r == "negative" and not failed[c]]
+    unpassable = [c for c, r in cfgs if r == "positive" and failed[c]]
+    if unpassable:
+        return [f"Verdict: VOID; a positive control fails, so the test cannot be passed: {', '.join(unpassable)}"] + lines
     if stuck:
         return [f"Verdict: VOID; negative passes every criterion, so the test cannot fail: {', '.join(stuck)}"] + lines
     if auth is not None:
