@@ -15,7 +15,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 | Job | Who, where | State | When done |
 |---|---|---|---|
-| **The cloud lab's environment:** the only blocker | Julien: at claude.ai/code/routines open `glm-lab-probe` (trigger `trig_012YxdRn25mf2h673Uu1NVDs`), set its environment to `glm-lab` (holds `ZAI_API_KEY`), save | Waiting | The integrator reads the environment id with RemoteTrigger `get`, runs the canaries, then launches rungs r1–r3 with `lab/run.sh rung lab/rungs/<r>.md` |
+| Cloud lab host routine `glm-lab-host` (trigger `trig_012YxdRn25mf2h673Uu1NVDs`, environment `env_01BCjo9H1taF3eduHZyyN6L9`, Haiku host) | Integrator, via RemoteTrigger `update` / `run` / `get_run_log`; results on `claude/lab-*` branches | Canaries running (session `cse_0152VcGgEUdgCTDhyGWkuDDY`), from the unmerged `wt/labrung` | Expect PASS for kepler-pass and KILL for kepler-kill. Then rungs r1–r3 after Julien's go |
 | Lab rung mode, `lab/verdict.py`, canaries | Claude Sonnet, `/private/tmp/emergent-wt-labrung` (`wt/labrung`, commits 6b22aee, 63738de) | **Built:** 13 verdict tests pass; the uncommitted-rung refusal works; both canaries give the right verdict on throwaway numbers; the cloud flow is untested | Merge only after Julien's go; the first cloud run is the canaries; delete the worktree |
 | Rung criteria r1–r3 (frozen) | Integrator, `lab/rungs/` | Written; part of the proposed plan | r5–r7 next; no rung runs before the canaries grade correctly |
 | Retired v0 gravity (`wt/geodesic`, `wt/g2run`) | Archived: `~/Research/emergent-space-archive/retired-v0-gravity-20260929.bundle` | Done | The dead `xtask/src/gate/*` code goes with `xtask behave` (Sonnet), which reuses its planted-evaluator pattern |
