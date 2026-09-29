@@ -1,6 +1,6 @@
 # Emergent Space — handoff
 
-Current as of 28 September 2026 (H0187). The previous handoff, with the old engine's status (H0100–H0164), is in git history and in `~/Research/emergent-space-archive/old-lineage/docs/HANDOFF.md`.
+Current as of 29 September 2026 (H0194). The previous handoff, with the old engine's status (H0100–H0164), is in git history and in `~/Research/emergent-space-archive/old-lineage/docs/HANDOFF.md`.
 
 ## First ten minutes
 
@@ -16,8 +16,19 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 | Job | Who, where | State | When done |
 |---|---|---|---|
 | Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | Public API landed (b51fc9a, b830bba); next Codex window 14:00 via `artifacts/runs/astra-geodesic/launch.sh` (retarget the time) | Fix what the climb shows; merge |
-| Gate harness `xtask gravity-gate` | Merged (H0193): echo passes literally, planted fails | Ready | Wire `xtask/src/gate/adapter.rs` once Astra exposes `Geodesic` (its resume note lists the needed diagnostics); climb R0→R5 |
+| Gate harness `xtask gravity-gate` | Merged (H0193); the real adapter is wired only in `wt/g2run` | Ready | Merge the adapter with the crate when step 2 lands |
 | First real G2 climb (H0194) and diagnosis | Integrator plus a Sonnet sub-agent, `/private/tmp/emergent-wt-g2run` | 336/600 R0 agree, 0 disagree; R0-0537 (weak field) hangs. Sonnet is adding `--diagnose` and running it across every rung into `artifacts/runs/gravity-gate/diagnose-1/` | Attach DIAGNOSIS.md to Astra's 14:00 note; schedule `launch.sh` |
+
+## Headed next (in order)
+
+1. **The diagnosis** (Sonnet) maps every rung and class to agree, disagree, panic or timeout.
+2. **Astra's next Codex window** fixes from that map. The biggest item is a weak-field fast path, where the elliptic machinery reduces to near-Keplerian series.
+3. **Re-climb G2.1**, then G2.2–G2.5, until step 2 passes. Then merge `crates/geodesic` with the adapter, and delete `wt/g2run` and `wt/geodesic`.
+4. **Step 4:** the player slice (one mass, one ship, thrust as kicks, float viewer). Then step 5, many bodies.
+
+**Budgets:** Codex weekly is about 64% after three Astra windows, roughly 15% per window. Above 75%, Claude Opus takes over the crate and Astra reviews.
+
+**Waiting on Julien:** collapse the five modes into the chronon judge plus one engine before step 6 (explained, not yet approved).
 
 ## What the engine computes
 
