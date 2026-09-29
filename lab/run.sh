@@ -27,8 +27,9 @@ phase() {  # phase <name> <minutes> [patch]: one GLM session on $out/<name>-prom
 finish() {  # finish <grade or verdict line> [extra]: commit, push, and write DONE
   find "$out" -type f -size +5M -print -delete > "$out/dropped-large-files.txt"
   git checkout -q -b "claude/lab-$id"
+  cp "$out/run.log" "$out/run-log.txt" 2>/dev/null
   git add "$out" && git commit -q -m "lab $id: $1${2:+ | $2}" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-  git push -q origin "claude/lab-$id" && push=pushed || push="PUSH FAILED"
+  git push -q origin "claude/lab-$id" >/dev/null 2>&1 && push=pushed || push="PUSH FAILED"
   echo "$1${2:+ | $2} | branch claude/lab-$id | $push" > "$out/DONE"
 }
 
