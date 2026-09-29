@@ -53,10 +53,10 @@ A clock reads its tube's length. Colour is −p·u at the observer. Positions ar
 | B4 capture | no misclassification (massive at E = 1, and photons) | G4 |
 | B5 error type | E and L growth exponents ≤ 0.2 on the median seed; shape within 1% over 10⁴ cycles; exact cycle repetition | G5 |
 | B6 prograde | every advance > 0 | G6 |
-| B7 clocks | derived rates equal the oracle's formula to one rounding | `behave` (to add) |
+| B7 clocks | derived rates equal the oracle's formula to one rounding | `behave` B7 |
 | B8 determinism | bit-identical across reruns, 1/4/8 threads, CPU/GPU, sparse and dense orders | engine tests |
-| B9 cost per body | ≤ 64 crossings per cycle at m = 16; after that, zero work per orbit until an event | `behave` (to add) |
-| B10 cost against N | frozen scenes of 10³–10⁶ bodies; fitted exponent ≤ 1.1; the 10⁹ extrapolation fits the M1 at real-time factor ≥ 1 | `behave` (to add) |
+| B9 cost per body | ≤ 64 crossings per cycle at m = 16; after that, zero work per orbit until an event | `behave` B9 |
+| B10 cost against N | frozen scenes of 10³–10⁶ bodies; fitted exponent ≤ 1.1. The real-time factor at 10⁹ is reported, and gated only once a physically scaled reference scene is frozen (ladder v8), because the scene's M/c³ time unit is not physical | `behave` B10 |
 
 Every gate has a positive control that must pass and a planted law that must fail.
 
