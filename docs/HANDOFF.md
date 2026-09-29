@@ -16,8 +16,7 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 | Job | Who, where | State | When done |
 |---|---|---|---|
 | Canonical evaluator `crates/geodesic` | Astra, `/private/tmp/emergent-wt-geodesic` | At 1855340: rule, anchors, interval arithmetic, elliptic primitives, radial and circular charts, orbit classification in progress. Resumes 03:48 via `artifacts/runs/astra-geodesic/launch.sh` (the note includes GLM's rank-1 report) | Review; run G2 rung by rung; merge |
-| Arb judge | Claude Opus sub-agent, `/private/tmp/emergent-wt-judge` (8 commits, not merged) | R0–R4, G2.2, G2.4, band-edge and fallback cases frozen, 0 UNSETTLED; R5 slices 1–9 running via `/private/tmp/emergent-r5/run.sh` (log there) | Hash R5, review the self-checks, merge `wt/judge` |
-| Gate harness | Sonnet, after the judge merges | Waiting | Compare the evaluator with the frozen floors, plus timings; delete `wt/gravity-gate` |
+| Gate harness `xtask gravity-gate` | Claude Sonnet sub-agent, `/private/tmp/emergent-wt-gate` (`wt/gate`), target `/private/tmp/emergent-target-gate` | Building, with `echo` and `planted` evaluators proving it can fail | Review; merge; wire Astra's `Geodesic` once it exists; climb R0→R5 |
 
 ## What the engine computes
 
@@ -44,7 +43,7 @@ Gates are frozen before their first run, tests take ≤ 60 s, and speed is repor
 1. **The oracle (partial, H0183).** Every single-mass row passes. The e = 0.5 two-body period rows fail with a clean p⁻² residual; the failure is kept. Before step 3 uses them, freeze a new protocol on unseen cases.
 2. **One mass, in the lab** (running). The contract is [gravity-law.md](gravity-law.md): river coordinates, the canonical ladder, and gates G2.1–G2.5, with rungs R0–R5, planted bugs and ranges up to galactic nuclei (H0184, H0187).
    - Astra builds `crates/geodesic`.
-   - The judge's reference floors come from python-flint/Arb (`.venv`), precomputed and frozen.
+   - The judge's reference floors are frozen and merged (H0192): 212,408 queries, 0 unsettled.
    - Sol's harness is paused.
 3. **Premise probe (passed, H0190).** Every premise holds: 32 kicks per low orbit; averaging tides cuts that 114×; J2 must be in the formula; handoff carries stay bounded. Binaries need a two-body parent formula, and lunar-transfer legs need averaged tides or an early handoff.
 4. **The player slice** right after step 2: one mass, one ship, thrust as kicks, a float viewer, save and replay. Julien predicts before each run.
