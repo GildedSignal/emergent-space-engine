@@ -1,0 +1,10 @@
+Working...
+Check complete. Deliverables: `metrics-check.json` (bit-identical reproduction) and `check.md` in the run folder; nothing else touched, no git operations.
+
+**Reproduction: exact.** All 24 metrics, the five truth data files, machinery checks and `picture.svg` regenerate byte-identically in a clean tree; truth convergence extended to 4800 steps/orbit (stable to ≤1e-5); `predictions.md` (19:58) provably precedes all metric outputs (20:21–20:24).
+
+**The finding that matters: the candidates run inverted physics.** `rung_r4.py:116` returns −m₂[3(R̂·r)R̂−r]/R³ — the negative of the true tidal field. Verified three ways: numerically against the exact Newtonian perturbation at five geometries (author −1.350e-3 where exact is +5.158e-3); by observable — the layer's C1 apsidal precession is **retrograde** (−1.68e-4) where truth is +1.09e-4 and the author's own `averaged` config gives +9.0e-5; and algebraically (quadrupole and octupole are both negated). The PASS exists only because the frozen metrics are sign-blind: ψ→ψ+π leaves the concentration invariant and pumping scales with |m₂|.
+
+**With the one-line sign corrected, both candidates die:** conj-quad pump_max 1.557, conj-oct pump_min 1.411 (> 1.25), both ctrl 2/3 with the C3 envelope at 0.45× — `verdict.py` on corrected numbers says **DISPUTED**. Ironically, the author's `predictions.md` predicted exactly this over-pumping (1.4–2.2×); their physics was right, their implementation flipped it. Additional adversarial results: ratio 2.02 over-pumps past the gate under either sign (thin margin), μ = 0.03 is outside the rung's domain (truth itself disrupts), and the layer has an unguarded e≥1 crash path.
+
+Everything else was clean: Kepler machinery exact to 1e-13, conjunction residuals ~8e-14·2π, the R2 oracle 0.867 is genuinely unreachable under any reading of "w2 = 4.0" (sweep: conc 0.31–0.51), and the work is novel (first run of frozen r4; H0190 measured rates, not resonance). `verdict.py` prints PASS from the two metric files as they stand — `check.md` states plainly that this PASS measures an anti-Newtonian field and the spec-correct verdict is a kill of both configurations.
