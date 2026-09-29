@@ -1,0 +1,50 @@
+truth r21 steps/orbit   600: N=19099 max_e=0.082153 C=0.0733 dE/E=5.62e-03
+truth r21 steps/orbit  1200: N=38198 max_e=0.080940 C=0.0768 dE/E=2.92e-03
+truth r21 steps/orbit  2400: N=76395 max_e=0.080677 C=0.0771 dE/E=1.94e-03
+truth r21b steps/orbit   600: N=19099 max_e=0.182612 C=0.0731 dE/E=6.27e-03
+truth r21b steps/orbit  1200: N=38198 max_e=0.182811 C=0.0670 dE/E=2.98e-03
+truth r21b steps/orbit  2400: N=76395 max_e=0.183038 C=0.0668 dE/E=2.37e-03
+truth p5 steps/orbit   600: N=4775 max_e=0.073775 C=0.0646 dE/E=2.49e-04
+truth p5 steps/orbit  1200: N=9550 max_e=0.073268 C=0.0664 dE/E=4.49e-04
+truth p5 steps/orbit  2400: N=19099 max_e=0.073007 C=0.0662 dE/E=3.76e-04
+truth p255 steps/orbit   600: N=12322 max_e=0.073791 C=0.0525 dE/E=1.71e-03
+truth p255 steps/orbit  1200: N=24644 max_e=0.073045 C=0.0545 dE/E=3.38e-03
+truth p255 steps/orbit  2400: N=49287 max_e=0.072829 C=0.0545 dE/E=2.23e-03
+truth p215 steps/orbit   600: N=16608 max_e=0.072060 C=0.0534 dE/E=1.24e-03
+truth p215 steps/orbit  1200: N=33215 max_e=0.071555 C=0.0549 dE/E=5.11e-03
+truth p215 steps/orbit  2400: N=66430 max_e=0.071502 C=0.0553 dE/E=6.00e-03
+none       r21: max_e=0.051944 C=0.0037 events=0 ok=1 kicks/orbit=0.000
+none       r21b: max_e=0.051944 C=0.0037 events=0 ok=1 kicks/orbit=0.000
+none       p5: max_e=0.051944 C=0.0001 events=0 ok=1 kicks/orbit=0.000
+none       p255: max_e=0.051944 C=0.0003 events=0 ok=1 kicks/orbit=0.000
+none       p215: max_e=0.051944 C=0.0000 events=0 ok=1 kicks/orbit=0.000
+averaged   r21: max_e=0.058543 C=0.0055 events=201 ok=1 kicks/orbit=0.502
+averaged   r21b: max_e=0.856665 C=0.0606 events=237 ok=0 kicks/orbit=0.593
+averaged   p5: max_e=0.771640 C=0.1534 events=171 ok=1 kicks/orbit=0.684
+averaged   p255: max_e=0.073211 C=0.0814 events=206 ok=1 kicks/orbit=0.626
+averaged   p215: max_e=0.585378 C=0.0276 events=213 ok=0 kicks/orbit=0.570
+conj-quad  r21: max_e=0.882203 C=0.1263 events=198 ok=0 kicks/orbit=0.495
+conj-quad  r21b: max_e=1.033401 C=0.0125 events=164 ok=0 kicks/orbit=0.410
+conj-quad  p5: max_e=1.198566 C=0.0660 events=151 ok=0 kicks/orbit=0.604
+conj-quad  p255: max_e=2.534489 C=0.0560 events=30 ok=0 kicks/orbit=0.091
+conj-quad  p215: max_e=1.352013 C=0.0163 events=128 ok=0 kicks/orbit=0.342
+conj-oct   r21: max_e=0.488495 C=0.1085 events=205 ok=0 kicks/orbit=0.512
+conj-oct   r21b: max_e=0.481340 C=0.1142 events=204 ok=0 kicks/orbit=0.510
+conj-oct   p5: max_e=0.751089 C=0.0941 events=136 ok=0 kicks/orbit=0.544
+conj-oct   p255: max_e=0.845763 C=0.1061 events=172 ok=0 kicks/orbit=0.523
+conj-oct   p215: max_e=0.556475 C=0.1117 events=192 ok=0 kicks/orbit=0.513
+
+metrics.json:
+{
+  "none": {"e_pump_ratio_min": 0.283788, "e_pump_ratio_max": 0.643855, "libration_ratio_min": 0.0486223, "control_pass_fraction": 0, "dense_steps": 0, "kicks_per_orbit": 0},
+  "averaged": {"e_pump_ratio_min": 0.725652, "e_pump_ratio_max": 4.68025, "libration_ratio_min": 0.0715433, "control_pass_fraction": 0.333333, "dense_steps": 0, "kicks_per_orbit": 0.41},
+  "conj-quad": {"e_pump_ratio_min": 5.64581, "e_pump_ratio_max": 10.935, "libration_ratio_min": 0.186521, "control_pass_fraction": 0, "dense_steps": 0, "kicks_per_orbit": 0.41},
+  "conj-oct": {"e_pump_ratio_min": 2.62972, "e_pump_ratio_max": 6.05497, "libration_ratio_min": 1.40687, "control_pass_fraction": 0, "dense_steps": 0, "kicks_per_orbit": 0.41}
+}
+
+case table (truth2400 | laws):
+r21 truth max_e=0.0807 C=0.0771 | conj-oct max_e=0.4885 C=0.1085 | conj-quad max_e=0.8822 C=0.1263 | averaged max_e=0.0585 C=0.0055 | none max_e=0.0519 C=0.0037
+r21b truth max_e=0.1830 C=0.0668 | conj-oct max_e=0.4813 C=0.1142 | conj-quad max_e=1.0334 C=0.0125 | averaged max_e=0.8567 C=0.0606 | none max_e=0.0519 C=0.0037
+p5 truth max_e=0.0730 C=0.0662 | conj-oct max_e=0.7511 C=0.0941 | conj-quad max_e=1.1986 C=0.0660 | averaged max_e=0.7716 C=0.1534 | none max_e=0.0519 C=0.0001
+p255 truth max_e=0.0728 C=0.0545 | conj-oct max_e=0.8458 C=0.1061 | conj-quad max_e=2.5345 C=0.0560 | averaged max_e=0.0732 C=0.0814 | none max_e=0.0519 C=0.0003
+p215 truth max_e=0.0715 C=0.0553 | conj-oct max_e=0.5565 C=0.1117 | conj-quad max_e=1.3520 C=0.0163 | averaged max_e=0.5854 C=0.0276 | none max_e=0.0519 C=0.0000
