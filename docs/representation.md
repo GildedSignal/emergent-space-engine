@@ -72,6 +72,40 @@ Status: **DRAFT** (29 September 2026). This synthesizes Julien's direction from 
 
 Real multiplications, square roots and wide integers remain only at surprises: handoffs, a cycle's first computation, contacts and decisions. Compute then equals entropy (principle 3).
 
+## Invariants over conventions
+
+Coordinates are conventions; behaviour lives in invariants. **Store invariants, and use a convention only locally, only where it makes a task trivial, and convert only at a surprise.**
+- **The invariants** are rest mass (the norm of momentum), proper time, the interval, E and L inside a symmetric doll, a photon's impact parameter b = L/E, and the relative speed of two bodies. The relative speed is γ_rel = −u₁·u₂, a dot product.
+- **A contact is tested in the rest frame of one body,** where it reduces to a line against a circle.
+
+**Merged or derived. Nothing is stored twice:**
+- **Potential and flow.** Flow² = 2 × potential, so only the potential is kept. Inside a doll the potential follows from the ring index, so nothing is stored at all.
+- **Time dilation, redshift and Shapiro delay** are one lapse, derived.
+- **Tides and multipoles** are one object.
+- **A doll's edge** follows from its mass ratio.
+- **A cell's time unit** follows from its size, since c = 1.
+- **A photon** is a body with zero rest mass: one type.
+- **A step** is a certificate.
+- **A body in a doll** is stored as (E, L, phase, type) plus carries on E and L only, about 12–16 bytes. Its position and velocity are derived. Anonymous bodies take their identity from their slot, and their mass and radius from a type table.
+- **A contact and a ring crossing** are one interface resolver: conserve what the interface conserves, solve one quadratic, carry the rounding.
+
+## Interactions: where each lives
+
+| Interaction | Where | Cost |
+|---|---|---|
+| Orbit in a dominant field; Kerr in the plane (still symmetric; Doran twist) | doll cycle | adds per cycle |
+| Tides, dynamical friction, fleets as sources | kicks on invariants from moments | per kick |
+| Inspiral, gravitational waves | Peters' ΔE, ΔL per cycle | adds per cycle |
+| Comparable masses: binaries, three-body encounters, clusters | Cartesian cells, general stepping | real work, and real entropy |
+| Continuous thrust (relativistic rockets) | the rapidity grows linearly in proper time: a straight line in log-null coordinates. In a field, the cell's exact local solution; E and L change by the work done | per crossing while burning |
+| Orientation, spin, geodetic precession | an angle transported across crossings | adds |
+| Contacts, near-c collisions | the exact lattice law, on demand | entropy |
+| Fragmentation, debris, explosions | new bodies and expanding shells at ≤ c | entropy; open (debris) |
+| Tidal stress on extended bodies (Roche limit, spaghettification) | the tidal term against the body's strength | a threshold test |
+| The view: retarded position, aberration, Doppler, beaming, lensing with multiple images | past light cone per visible body; aberration as a Möbius map of directions; deflection(b) memoized per doll | per visible body per frame (GPU) |
+| Signals | photons with inverse-square fall-off | derived |
+| Horizon absorption; accretion | the ledger of the doll's mass | at events |
+
 ## One law
 
 - **c is native.** An influence moves at most one cell per cell-update, and a cell's time unit is its light-crossing time. Light cones are cell adjacency.

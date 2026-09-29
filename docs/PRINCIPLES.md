@@ -93,7 +93,7 @@ Status words: **Followed** (built, or a rule in force), **Adopted** (decided in 
 | "I want black holes because they create very interesting gameplay but i don't care yet about past the event horizon" | CL 09-27 09:08 | **Adopted:** v1 B6; Kerr later |
 | "what if one ship influences the path of an asteroid over time?"; "In tests we also need to see how galaxies and solar systems behave, maybe looking at 3 body problem too" | CL 09-25 12:10; CX 09-14 09:17 | **Adopted:** physics ladders (test-ladder.md) |
 | "can't we \"giggle\"?" (iterate a rough estimate) | CL 09-27 09:08 | **Open** |
-| "wow why?", on Kerr and inspiral being cheap | CL 09-28 09:48 | **Open:** never explained to him |
+| "wow why?", on Kerr and inspiral being cheap | CL 09-28 09:48 | **Answered 29 September:** in the plane, Kerr keeps rotational symmetry, so its orbits still repeat; inspiral is a per-cycle ΔE and ΔL (Peters): additions ([representation.md](representation.md)) |
 | "fair point", on starting from exact GR solutions | CL 09-28 09:48 | **Superseded:** "you've confused a bit oracle and implementation" (CL 09-29 08:24); H0195 |
 | "instead of projecting gravity onto space why not look at the relations between the celestial bodies" | CX 09-14 09:55 | Tried (`es-relational-hierarchy-v0`), archived |
 | "it's simultaneity tolerance of the universe"; "chronon is just the floor more than the ruler" | CL 09-26 09:31 | **Followed** (universe-quanta.md) |
