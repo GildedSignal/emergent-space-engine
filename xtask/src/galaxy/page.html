@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Emergent Space · Galaxy (debug density view)</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;background:#0c141a;color:#9fb0ab;font:11px/1.6 ui-monospace,Menlo,monospace;overflow:hidden}
+canvas{display:block;width:100vw;height:100vh;cursor:grab}
+#hud{position:absolute;left:14px;top:10px;white-space:pre;pointer-events:none;text-shadow:0 0 3px #0c141a}
+#err{position:absolute;left:50%;top:45%;transform:translateX(-50%);background:#302b26;color:#e0bea0;padding:14px;display:none}
+</style>
+<canvas id="c"></canvas><div id="hud"></div><div id="err"></div>
+<script>
+'use strict';
+const cv=document.getElementById('c'),ctx=cv.getContext('2d'),hud=document.getElementById('hud');
+let cfg=null,st=null,busy=false,paused=false,rtf=200,tM=0,last=performance.now(),cx=0,cy=0,scale=1,W=960,H=540;
+const rt=[],fr=[];window.galaxyTelemetry={rt,fr};
+const q=(a,p)=>{if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y);return s[Math.round((s.length-1)*p)]};
+const lut=new Uint32Array(256);
+for(let i=0;i<256;i++){const v=Math.pow(i/255,.9);lut[i]=(255<<24)|(Math.round(26+v*160)<<16)|(Math.round(20+v*190)<<8)|Math.round(12+v*200)}
+function size(){W=Math.min(innerWidth,1024);H=Math.max(16,Math.round(innerHeight*W/innerWidth));cv.width=W;cv.height=H}
+addEventListener('resize',size);size();
+function reset(){cx=0;cy=0;scale=2*cfg.r_far/H}
+function fmt(n){return Number(n).toLocaleString('en-US')}
+async function frame(){
+ if(busy||!cfg)return;busy=true;
+ const now=performance.now();if(!paused)tM+=(now-last)/1000*rtf;last=now;
+ const url=`/frame?w=${W}&h=${H}&cx=${cx}&cy=${cy}&scale=${scale}&t=${Math.round(tM*1048576)}`;
+ try{
+  const r=await fetch(url);if(!r.ok)throw Error((await r.json()).error);
+  const buf=new Uint8Array(await r.arrayBuffer());st=JSON.parse(r.headers.get('X-Galaxy'));
+  const img=ctx.createImageData(W,H),px=new Uint32Array(img.data.buffer);
+  for(let i=0;i<px.length;i++)px[i]=lut[buf[i]];
+  ctx.putImageData(img,0,0);overlay();
+  rt.push(performance.now()-now);if(rt.length>600)rt.shift();fr.push(now);if(fr.length>120)fr.shift();
+  text();
+ }catch(e){const el=document.getElementById('err');el.style.display='block';el.textContent=e.message;paused=true}
+ finally{busy=false}
+}
+function overlay(){
+ const k=1/scale;ctx.lineWidth=1;
+ const ring=(r,c)=>{const p=r*k;if(p<2||p>4*W)return;ctx.strokeStyle=c;ctx.beginPath();ctx.arc(W/2-cx*k,H/2-cy*k,p,0,6.2832);ctx.stroke()};
+ ring(2,'rgba(230,200,150,.9)');ring(10,'rgba(150,170,170,.25)');ring(100,'rgba(150,170,170,.25)');ring(1000,'rgba(150,170,170,.25)');ring(10000,'rgba(150,170,170,.25)');
+}
+function text(){
+ const c=cfg,s=st,f=fr.length>1?1000*(fr.length-1)/(fr[fr.length-1]-fr[0]):0;
+ hud.textContent=
+`SHIPS IN THE SCENE  ${fmt(c.ships)}  (${fmt(c.tubes)} tubes, ${fmt(c.families)} families)
+CYCLES COMPILED     ${fmt(c.keys_compiled)}  ·  memo hit rate ${(c.memo_hit_rate*100).toFixed(3)} %
+IN VIEW             ${fmt(Math.round(s.ships_in_view))} ships · drawn ${fmt(s.samples)} samples (${fmt(s.tube_samples)} tubes, ${fmt(s.fam_samples)} family) · ${fmt(s.materialized)} single ships
+TUBES MATERIALIZED  ${fmt(s.tube_samples)} of ${fmt(s.tubes_in_range)} in range (stride ${s.stride}) · family ships per group ≤ ${fmt(s.m_max)}
+SERVER FRAME        ${s.total_ms.toFixed(1)} ms (plan ${s.plan_ms.toFixed(1)} · splat ${s.splat_ms.toFixed(1)} · tone ${s.tone_ms.toFixed(1)})
+NS PER SHIP DRAWN   ${s.ns_per_sample.toFixed(1)} per sample · ${s.ns_per_ship_in_view.toFixed(3)} per ship in view
+BROWSER ROUNDTRIP   p50 ${q(rt,.5).toFixed(1)} ms · p99 ${q(rt,.99).toFixed(1)} ms · ${f.toFixed(1)} fps
+TIME                t = ${tM.toFixed(0)} M · ${paused?'paused':rtf.toFixed(0)+' M per real second'}  ([ ] to change, space to pause)
+VIEW                ${scale.toPrecision(3)} M per pixel · centre (${cx.toFixed(1)}, ${cy.toFixed(1)}) M · rings: 2, 10, 100, 1000, 10000 M`;
+}
+let drag=null;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,cx,cy};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const r=W/innerWidth;cx=drag.cx-(e.clientX-drag.x)*r*scale;cy=drag.cy-(e.clientY-drag.y)*r*scale});
+cv.addEventListener('pointerup',()=>{drag=null;cv.style.cursor='grab'});
+cv.addEventListener('wheel',e=>{
+ e.preventDefault();const r=W/innerWidth,mx=e.clientX*r,my=e.clientY*r,wx=cx+(mx-W/2)*scale,wy=cy+(my-H/2)*scale;
+ scale=Math.max(.01,Math.min(1e5,scale*Math.exp(e.deltaY*.0015)));cx=wx-(mx-W/2)*scale;cy=wy-(my-H/2)*scale;
+},{passive:false});
+addEventListener('keydown',e=>{
+ if(e.key===' '){paused=!paused;e.preventDefault()}
+ else if(e.key==='['||e.key===']'){rtf=Math.max(1,Math.min(1e6,rtf*(e.key===']'?2:.5)))}
+ else if(e.key==='0'&&cfg)reset();
+});
+fetch('/config').then(r=>r.json()).then(c=>{cfg=c;reset();(function loop(){frame();requestAnimationFrame(loop)})()}).catch(e=>{const el=document.getElementById('err');el.style.display='block';el.textContent=e.message});
+</script></html>
