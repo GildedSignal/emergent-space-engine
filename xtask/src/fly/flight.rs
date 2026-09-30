@@ -49,6 +49,7 @@ pub struct Flight {
     pub seed: u64,
     proper: i128, // proper chronons, Q32; integer accumulation is partition invariant
     clock_tick: i64,
+    clock_rate: i128, // derived once per player velocity event, never per scheduler step
     deadline: Option<i128>,
     drive: [i128; 2], // gamma beta, Q32
     contact_count: u64,
@@ -208,6 +209,7 @@ impl Flight {
             })
             .collect();
         let drive = four(world.bodies[0].k);
+        let clock_rate = rate(world.bodies[0].k);
         Self {
             core: EventCore::new(world, false).unwrap(),
             history,
@@ -218,6 +220,7 @@ impl Flight {
             seed,
             proper: 0,
             clock_tick: 0,
+            clock_rate,
             deadline: None,
             drive,
             contact_count: 0,
@@ -251,6 +254,7 @@ impl Flight {
                     k: b.k,
                 });
                 if i == 0 {
+                    self.clock_rate = rate(b.k);
                     self.drive = four(b.k);
                 }
             }
@@ -262,8 +266,7 @@ impl Flight {
             return Err("flight horizon outside [now, 1024 seconds]".into());
         }
         while self.core.tick() < target {
-            let k = self.history[0].last().unwrap().k;
-            let r = rate(k);
+            let r = self.clock_rate;
             let next = self
                 .deadline
                 .map(|d| self.core.tick() + ((d - self.proper).max(1) + r - 1) as i64 / r as i64)
