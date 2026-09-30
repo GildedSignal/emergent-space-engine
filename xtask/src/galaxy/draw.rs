@@ -155,8 +155,10 @@ impl Renderer {
                 }
             }
         }
-        for lo in (0..scene.families.len()).step_by(64) {
-            jobs.push(Job::Families { lo, hi: (lo + 64).min(scene.families.len()) });
+        // Jobs small enough to balance across the threads even when there are few families.
+        let chunk = (scene.families.len() / (o.threads.max(1) * 8)).clamp(1, 64);
+        for lo in (0..scene.families.len()).step_by(chunk) {
+            jobs.push(Job::Families { lo, hi: (lo + chunk).min(scene.families.len()) });
         }
         st.tubes_in_range = tubes_in_range;
         st.groups_in_range = groups_in_range;
@@ -203,8 +205,11 @@ impl Renderer {
                         }
                         let m = cj.min(plan.m_max);
                         let weight = (cj as f64 / m as f64) as f32;
+                        // One ship per stratum of the group, at a per-group offset (so the groups of a family
+                        // do not all sample the same phases); m == cj draws every ship.
+                        let (step, off) = (cj as f64 / m as f64, unit(h2(fam.seed, 0x51 + j as u64)));
                         for k in 0..m {
-                            let idx = ((2 * k as u128 + 1) * cj as u128 / (2 * m as u128)) as u64;
+                            let idx = (((k as f64 + off) * step) as u64).min(cj - 1);
                             let phase = fam.phase(j, idx, cj, rec.period);
                             let (r, a) = rec.locate(plan.t.wrapping_add(phase));
                             let (c, s) = sincos(sc, a.wrapping_add(fam.omega0));
@@ -273,9 +278,9 @@ impl Renderer {
         out.resize(w * h, 0);
         let rows = h.div_ceil(threads.max(1)).max(1);
         let planes = &self.planes;
-        // ln(1 + d/D0) / ln(1 + DMAX/D0): d is ships per pixel; four decades and more.
-        const D0: f32 = 0.25;
-        let norm = 255.0 / (1.0 + 50000.0 / D0).ln();
+        // ln(1 + d/D0) / ln(1 + DMAX/D0): d is ships per pixel; eight decades (the centre of 10⁹ ships holds ~10⁷ a pixel).
+        const D0: f32 = 0.5;
+        let norm = 255.0 / (1.0 + 2e8 / D0).ln();
         let sums: Vec<f64> = std::thread::scope(|s| {
             let hs: Vec<_> = out
                 .chunks_mut(rows * w)
@@ -311,12 +316,6 @@ impl Renderer {
         st.cpu_ms = (crate::measure::cpu_seconds() - c0) * 1e3;
         st
     }
-}
-
-/// A deterministic sample of `n` distinct-ish tube indices, for tests.
-#[allow(dead_code)]
-pub(crate) fn sample_indices(seed: u64, n: usize, len: usize) -> Vec<usize> {
-    (0..n).map(|i| (unit(h2(seed, i as u64)) * len as f64) as usize % len.max(1)).collect()
 }
 
 #[cfg(test)]

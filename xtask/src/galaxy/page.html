@@ -56,11 +56,12 @@ VIEW                ${scale.toPrecision(3)} M per pixel · centre (${cx.toFixed(
 }
 let drag=null;
 cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,cx,cy};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'});
-cv.addEventListener('pointermove',e=>{if(!drag)return;const r=W/innerWidth;cx=drag.cx-(e.clientX-drag.x)*r*scale;cy=drag.cy-(e.clientY-drag.y)*r*scale});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const r=W/innerWidth,x=drag.cx-(e.clientX-drag.x)*r*scale,y=drag.cy-(e.clientY-drag.y)*r*scale;if(Number.isFinite(x)&&Number.isFinite(y)){cx=x;cy=y}});
 cv.addEventListener('pointerup',()=>{drag=null;cv.style.cursor='grab'});
 cv.addEventListener('wheel',e=>{
- e.preventDefault();const r=W/innerWidth,mx=e.clientX*r,my=e.clientY*r,wx=cx+(mx-W/2)*scale,wy=cy+(my-H/2)*scale;
- scale=Math.max(.01,Math.min(1e5,scale*Math.exp(e.deltaY*.0015)));cx=wx-(mx-W/2)*scale;cy=wy-(my-H/2)*scale;
+ e.preventDefault();const dy=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?400:1);if(!Number.isFinite(dy)||!cfg)return;
+ const r=W/innerWidth,mx=e.clientX*r,my=e.clientY*r,wx=cx+(mx-W/2)*scale,wy=cy+(my-H/2)*scale,s=Math.max(.01,Math.min(1e5,scale*Math.exp(dy*.0015)));
+ if(![mx,my,wx,wy,s].every(Number.isFinite))return;scale=s;cx=wx-(mx-W/2)*scale;cy=wy-(my-H/2)*scale;
 },{passive:false});
 addEventListener('keydown',e=>{
  if(e.key===' '){paused=!paused;e.preventDefault()}
