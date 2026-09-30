@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Emergent Space · Flight</title>
+<style>
+:root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#c3c7bc;background:#10191e}
+*{box-sizing:border-box}body{margin:0;overflow:hidden}canvas{display:block;width:100vw;height:100vh}
+header{position:absolute;top:28px;left:32px;pointer-events:none}h1{font:500 14px Georgia,serif;letter-spacing:.23em;color:#d7d0b9;margin:0 0 9px}.sub{font-size:10px;letter-spacing:.1em;color:#7f969a}
+.clocks{position:absolute;right:32px;top:25px;display:flex;gap:28px;text-align:right;pointer-events:none}.label{font-size:9px;letter-spacing:.15em;color:#8a9a9a}.clock{font-size:22px;font-weight:400;letter-spacing:-.04em;color:#d5d2c2;margin-top:8px}.world .clock{color:#9dadb0}
+.panel{position:absolute;bottom:32px;left:32px;pointer-events:none}.speed{font-size:36px;font-weight:300;color:#c6caba;letter-spacing:-.06em}.speed small{font-size:15px;color:#86999a}.stats{font-size:10px;line-height:1.9;color:#8e9e9b;white-space:pre}
+footer{position:absolute;bottom:32px;right:32px;text-align:right;font-size:10px;line-height:1.9;color:#8a9a98}button{font:inherit;border:1px solid #46595b;background:#17242a;color:#a6b5ad;padding:7px 12px;margin-top:10px;cursor:pointer}button:hover{background:#24363b}#error{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:550px;background:#302b26;padding:18px;color:#e0bea0;display:none;line-height:1.7}
+#hint{position:absolute;left:50%;top:82%;transform:translateX(-50%);font-size:10px;color:#809599;text-align:center;pointer-events:none}
+@media(max-width:700px){header{left:16px;top:18px}.clocks{right:16px;top:66px;gap:14px}.clock{font-size:17px}.panel{bottom:16px;left:16px}footer{bottom:16px;right:16px;font-size:9px}#hint{top:75%}h1{font-size:12px}}
+</style>
+<canvas id="sky" aria-label="Past light cone in the ship's frame"></canvas>
+<header><h1>EMERGENT SPACE</h1><div class="sub">FLAT SPACE · FIRST FLIGHT</div></header>
+<div class="clocks"><div><div class="label">SHIP · PROPER TIME</div><div id="proper" class="clock">00:00:00.000</div></div><div class="world"><div class="label">WORLD · COORDINATE TIME</div><div id="world" class="clock">00:00:00.000</div></div></div>
+<div class="panel"><div class="label">VELOCITY IN THE WORLD FRAME</div><div class="speed"><span id="speed">0.000</span> <small>c</small></div><div id="stats" class="stats"></div></div>
+<div id="hint">Light arriving here, now.<br>Forward is up. Range rings measure light travel in your frame.</div>
+<footer>W / ↑ thrust · S / ↓ reverse<br>A D / ← → turn · space cuts thrust<br>wheel to zoom · <span id="seed"></span><br><button id="save">Download replay</button></footer>
+<div id="error" role="alert"></div>
+<script>
+'use strict';
+const canvas=document.getElementById('sky'),ctx=canvas.getContext('2d'),el=id=>document.getElementById(id);
+let cfg,frame=null,pending=[],held=new Set(),mask=0,busy=false,start=0,base=0,zoom=1,stopped=false,lastDraw=0;
+const telemetry={raf:[],paint:[],roundtrip:[],server:[]};window.flyTelemetry=telemetry;
+function sample(list,n){list.push(n);if(list.length>3600)list.shift()}
+function quantile(list,q){if(!list.length)return 0;const s=[...list].sort((a,b)=>a-b);return s[Math.round((s.length-1)*q)]}
+window.flySummary=()=>Object.fromEntries(Object.entries(telemetry).map(([k,v])=>[k,{n:v.length,median:quantile(v,.5),p99:quantile(v,.99)}]));
+function resize(){const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0)}
+addEventListener('resize',resize);resize();
+function tick(){return base+Math.floor((performance.now()-start)*cfg.tps*cfg.rtf/1000)}
+function setKeys(){if(!cfg||stopped)return;let n=0;if(!held.has('Space')){if(held.has('KeyW')||held.has('ArrowUp'))n|=1;if(held.has('KeyS')||held.has('ArrowDown'))n|=2;if(held.has('KeyA')||held.has('ArrowLeft'))n|=4;if(held.has('KeyD')||held.has('ArrowRight'))n|=8}if(n!==mask){mask=n;pending.push({tick:tick(),keys:n})}}
+const controls=['Space','KeyW','KeyS','KeyA','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
+addEventListener('keydown',e=>{if(controls.includes(e.code)){e.preventDefault();held.add(e.code);setKeys()}});
+addEventListener('keyup',e=>{if(controls.includes(e.code)){e.preventDefault();held.delete(e.code);setKeys()}});
+addEventListener('blur',()=>{held.clear();setKeys()});
+addEventListener('wheel',e=>{zoom=Math.max(.15,Math.min(8,zoom*Math.exp(e.deltaY*.001)));e.preventDefault()},{passive:false});
+function clock(t){const ms=Math.floor(t*1000);return `${String(Math.floor(ms/3600000)).padStart(2,'0')}:${String(Math.floor(ms/60000)%60).padStart(2,'0')}:${String(Math.floor(ms/1000)%60).padStart(2,'0')}.${String(ms%1000).padStart(3,'0')}`}
+function draw(now){
+ const begin=performance.now(),w=innerWidth,h=innerHeight,cx=w/2,cy=h*.48,R=Math.min(w*.43,h*.39);
+ const background=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(w,h)*.7);background.addColorStop(0,'#1b2a30');background.addColorStop(1,'#0c141a');ctx.fillStyle=background;ctx.fillRect(0,0,w,h);
+ ctx.strokeStyle='#36484c';ctx.lineWidth=.5;
+ const radial=r=>R*(1-Math.exp(-r/(6*cfg.c_scale*zoom)));
+ for(const seconds of [1,3,10,30]){const r=radial(seconds*cfg.c_scale);ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#607879';ctx.font='9px monospace';ctx.fillText(`${seconds} light s`,cx+6,cy+r-5)}
+ ctx.beginPath();ctx.moveTo(cx,cy-R-10);ctx.lineTo(cx,cy-R+8);ctx.stroke();ctx.fillStyle='#82958c';ctx.textAlign='center';ctx.fillText('FORWARD',cx,cy-R-19);ctx.textAlign='left';
+ if(frame){
+  const heading=frame.heading,right=[-heading[1],heading[0]];
+  for(const s of [...frame.seen].sort((a,b)=>b.range-a.range)){
+   const r=radial(s.range),x=cx+r*(s.direction[0]*right[0]+s.direction[1]*right[1]),y=cy-r*(s.direction[0]*heading[0]+s.direction[1]*heading[1]);
+   const light=1-Math.exp(-s.intensity*.24),rgb=s.color.map(v=>Math.round(45+v*185)),color=`${rgb[0]},${rgb[1]},${rgb[2]}`;
+   if(s.kind===0){const size=.6+2.1*Math.sqrt(light),glow=ctx.createRadialGradient(x,y,0,x,y,4+size*4);glow.addColorStop(0,`rgba(${color},${light*.4})`);glow.addColorStop(1,`rgba(${color},0)`);ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,4+size*4,0,Math.PI*2);ctx.fill();ctx.fillStyle=`rgba(${color},${.06+.94*light})`;ctx.beginPath();ctx.arc(x,y,size,0,Math.PI*2);ctx.fill()}
+   else {const size=Math.max(1,Math.min(20,s.angular_radius*R)),brightness=Math.min(1,.2+light*2);ctx.fillStyle=`rgba(${color},${brightness})`;ctx.strokeStyle=`rgba(${color},${brightness*.6})`;ctx.beginPath();if(s.kind===2){ctx.moveTo(x,y-size*1.8);ctx.lineTo(x+size,y+size);ctx.lineTo(x-size,y+size);ctx.closePath()}else{for(let k=0;k<7;k++){const a=k*Math.PI*2/7,rough=.75+.25*Math.sin(s.id*17+k*11);const px=x+Math.cos(a)*size*rough,py=y+Math.sin(a)*size*rough;if(k===0)ctx.moveTo(px,py);else ctx.lineTo(px,py)}ctx.closePath()}ctx.fill();ctx.stroke()}
+  }
+  const b=Math.hypot(...frame.beta),proper=frame.proper,world=frame.coordinate;
+  el('proper').textContent=clock(proper);el('world').textContent=clock(world);el('speed').textContent=b.toFixed(3);
+  const elapsed=(now-start)/1000,actual=elapsed>0?(world-base/cfg.tps)/elapsed:0;
+  el('stats').textContent=`CLOCK RATE  ${(Math.sqrt(1-b*b)).toFixed(3)} ship s / world s\nREAL TIME   ${actual.toFixed(2)}× · target ${cfg.rtf.toFixed(2)}×\nCONTACTS    ${frame.contacts}\nFRAME p99   ${quantile(telemetry.raf,.99).toFixed(1)} ms`;
+ }
+ ctx.fillStyle='#b5bdad';ctx.beginPath();ctx.moveTo(cx,cy-8);ctx.lineTo(cx+5,cy+6);ctx.lineTo(cx,cy+3);ctx.lineTo(cx-5,cy+6);ctx.closePath();ctx.fill();
+ if(mask&3){ctx.strokeStyle='#b99870';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx-2,cy+7);ctx.lineTo(cx,cy+14);ctx.lineTo(cx+2,cy+7);ctx.stroke()}
+ sample(telemetry.paint,performance.now()-begin);
+}
+async function poll(){
+ if(busy||stopped)return;busy=true;const target=tick(),inputs=pending.splice(0),t=performance.now();
+ try{const response=await fetch('/frame',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tick:target,inputs})});const result=await response.json();if(!response.ok)throw Error(result.error);frame=result.frame;sample(telemetry.roundtrip,performance.now()-t);sample(telemetry.server,result.server_ms)}catch(e){stopped=true;el('error').style.display='block';el('error').textContent=`Flight stopped: ${e.message}. Reload to reconnect. Your input log is available through Download replay.`}finally{busy=false}
+}
+function animate(now){if(lastDraw&&document.visibilityState==='visible')sample(telemetry.raf,now-lastDraw);lastDraw=now;draw(now);poll();requestAnimationFrame(animate)}
+el('save').onclick=async()=>{const data=await(await fetch('/log')).text();const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`flight-${cfg.seed}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+fetch('/config').then(r=>r.json()).then(c=>{cfg=c;base=c.tick;start=performance.now();el('seed').textContent=`seed ${c.seed}`;pending.push({tick:base,keys:0});requestAnimationFrame(animate)}).catch(e=>{el('error').style.display='block';el('error').textContent=e.message});
+</script></html>
