@@ -228,12 +228,44 @@ fn steady(n: usize, rho: f64, horizons: &[f64]) {
     }
 }
 
-/// Setup cost per pair alone (sections plus the first query), timed on a sample of bodies' ranges.
-fn setup_cost(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) -> (u64, u64, f64, u64) {
+/// Pairs counted without being stored (the implicit set): radial overlap, and the cone.
+fn count_radial(b: &[Body], rho: f64) -> u64 {
+    let mut lo: Vec<(f64, f64)> = b.iter().map(|x| (x.rmin(), x.rmax())).collect();
+    lo.sort_by(|x, y| x.0.total_cmp(&y.0));
+    let mut n = 0u64;
+    for k in 0..lo.len() {
+        let hi = lo[k].1 + 2.0 * rho;
+        n += (lo[k + 1..].partition_point(|z| z.0 <= hi)) as u64;
+    }
+    n
+}
+
+fn count_cone(b: &[Body], sorted: &Sorted, rho: f64) -> (u64, u64) {
+    let parts = par_chunks(sorted.order.len(), 1024, THREADS, |r| {
+        let (mut pairs, mut scanned) = (0u64, 0u64);
+        for k in r {
+            let (u, i) = sorted.order[k];
+            let bi = &b[i as usize];
+            let reach = sorted.reach(bi);
+            for &(uj, j) in &sorted.order[k + 1..] {
+                if uj - u > reach {
+                    break;
+                }
+                scanned += 1;
+                pairs += is_candidate(bi, &b[j as usize], rho) as u64;
+            }
+        }
+        (pairs, scanned)
+    });
+    parts.iter().fold((0, 0), |a, x| (a.0 + x.0, a.1 + x.1))
+}
+
+/// Setup alone (the range scan, the cone test, the sections and one first-hit query per section),
+/// single-threaded on a sample of bodies' full ranges: (pairs, scanned, seconds, qsteps, evals).
+fn setup_cost(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) -> (u64, u64, f64, u64, u64, [u64; 3]) {
     let t = Instant::now();
-    let mut pairs = 0u64;
-    let mut scanned = 0u64;
-    let mut qsteps = 0u64;
+    let (mut pairs, mut scanned, mut qsteps, mut evals) = (0u64, 0u64, 0u64, 0u64);
+    let mut kinds = [0u64; 3];
     for &i in sample {
         let bi = &b[i as usize];
         let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
@@ -247,19 +279,20 @@ fn setup_cost(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) -> (u64, u6
                 continue;
             }
             pairs += 1;
-            for sec in sections(bi, bj, rho, SAFETY, &mut qsteps) {
+            for sec in sections(bi, bj, rho, SAFETY, &mut evals) {
+                kinds[sec.kind as usize] += 1;
                 let (pi, pj) = (bi.period as u128, bj.period as u128);
                 let c = ((sec.ti as i128 - sec.tj as i128 + sec.w1 as i128).rem_euclid(pi as i128)) as u128;
                 let d = (pi - pj % pi) % pi;
-                let w = ((sec.w1 + sec.w2) as u128).min(pi - 1);
+                let w = ((sec.w1 + sec.w2).max(0) as u128).min(pi - 1);
                 std::hint::black_box(dioph::first_hit(c, d, pi, 0, w, &mut qsteps));
             }
         }
     }
-    (pairs, scanned, t.elapsed().as_secs_f64(), qsteps)
+    (pairs, scanned, t.elapsed().as_secs_f64(), qsteps, evals, kinds)
 }
 
-fn scale(which: &str) {
+fn scale(which: &str, only: Option<f64>) {
     let cases: Vec<Spec> = match which {
         "n" => [1_000usize, 3_000, 10_000, 30_000, 100_000]
             .iter()
@@ -272,21 +305,22 @@ fn scale(which: &str) {
         _ => panic!(),
     };
     for sp in cases {
+        if let Some(x) = only {
+            if (which == "n" && sp.n as f64 != x) || (which == "sigma" && sp.sigma_e != x) {
+                continue;
+            }
+        }
         let b = make_belt(&sp);
         let t0 = Instant::now();
         let sorted = Sorted::new(&b, sp.rho);
         let sort_s = t0.elapsed().as_secs_f64();
-        // Count candidate pairs exactly with the implicit scan (upper half-ranges).
         let t1 = Instant::now();
-        let cs = cone_pairs(&b, sp.rho);
+        let (npairs, scanned) = count_cone(&b, &sorted, sp.rho);
         let scan_s = t1.elapsed().as_secs_f64();
-        let npairs = cs.pairs.len();
-        drop(cs);
-        let rp = radial_pairs(&b, sp.rho).len();
-        // Sample up to 400 bodies: setup cost per pair, and hits per pair per orbit over 1000 orbits.
-        let ns = sp.n.min(400);
+        let rp = count_radial(&b, sp.rho);
+        let ns = sp.n.min(150);
         let sample: Vec<u32> = (0..ns).map(|k| (k * sp.n / ns) as u32).collect();
-        let (sp_pairs, sp_scanned, sp_s, sp_q) = setup_cost(&b, &sorted, sp.rho, &sample);
+        let (sp_pairs, sp_scanned, sp_s, sp_q, sp_evals, kinds) = setup_cost(&b, &sorted, sp.rho, &sample);
         let horizon = 1000.0;
         let mut st = Stats::default();
         let mut tmp = Vec::new();
@@ -307,15 +341,17 @@ fn scale(which: &str) {
         let run_s = t2.elapsed().as_secs_f64();
         let cb = 2.0 * npairs as f64 / sp.n as f64;
         let hits_pp_orbit = hits as f64 / (st.pairs as f64 * horizon);
-        let enc_rate = cb * hits_pp_orbit; // encounters per body per orbit
+        let enc_rate = cb * hits_pp_orbit;
         let es_rate = conjunctions(&b, &cone_pairs_sample(&b, &sorted, sp.rho, &sample), TAU) / ns as f64;
         println!(
-            "{{\"exp\":\"scale\",\"which\":\"{}\",\"n\":{},\"sigma_e\":{},\"rho\":{},\"radial_pairs\":{},\"cone_pairs\":{},\"cone_per_body\":{:.2},\"sort_s\":{:.4},\"scan_s\":{:.4},\
-\"sample_bodies\":{},\"sample_pairs\":{},\"sample_scanned\":{},\"setup_ns_per_pair\":{:.1},\"qsteps_per_query\":{:.2},\"hits_per_pair_orbit\":{:.3e},\"enc_per_body_orbit\":{:.4e},\
-\"checks_per_hit\":{:.3},\"run_ns_per_pair_1000_orbits\":{:.1},\"element_sort_swaps_per_body_orbit\":{:.4},\"implicit_bytes_per_body\":32,\"per_pair_bytes_per_body\":{:.1}}}",
-            which, sp.n, sp.sigma_e, sp.rho, rp, npairs, cb, sort_s, scan_s, ns, sp_pairs, sp_scanned,
-            sp_s * 1e9 / sp_pairs.max(1) as f64, sp_q as f64 / st.queries.max(1) as f64 * 0.0 + sp_q as f64 / sp_pairs.max(1) as f64,
-            hits_pp_orbit, enc_rate, st.checks_total() as f64 / hits.max(1) as f64, run_s * 1e9 / st.pairs.max(1) as f64, es_rate, 12.0 * cb / 2.0
+            "{{\"exp\":\"scale\",\"which\":\"{}\",\"n\":{},\"sigma_e\":{},\"rho\":{},\"radial_pairs\":{},\"cone_pairs\":{},\"cone_scanned\":{},\"cone_per_body\":{:.2},\"sort_s\":{:.4},\"count_scan_s\":{:.4},\
+\"sample_bodies\":{},\"sample_pairs\":{},\"sample_scanned\":{},\"setup_ns_per_pair\":{:.1},\"setup_evals_per_pair\":{:.2},\"setup_sections\":{:?},\"qsteps_per_pair\":{:.2},\
+\"hits_per_pair_orbit\":{:.3e},\"enc_per_body_orbit\":{:.4e},\"checks_per_hit\":{:.3},\"run_ns_per_pair_1000_orbits\":{:.1},\"element_sort_swaps_per_body_orbit\":{:.4},\
+\"crossover_orbits\":{:.1},\"per_pair_bytes_per_body\":{:.1}}}",
+            which, sp.n, sp.sigma_e, sp.rho, rp, npairs, scanned, cb, sort_s, scan_s, ns, sp_pairs, sp_scanned,
+            sp_s * 1e9 / sp_pairs.max(1) as f64, sp_evals as f64 / sp_pairs.max(1) as f64, kinds, sp_q as f64 / sp_pairs.max(1) as f64,
+            hits_pp_orbit, enc_rate, st.checks_total() as f64 / hits.max(1) as f64, run_s * 1e9 / st.pairs.max(1) as f64, es_rate,
+            (cb / 2.0) / es_rate, 12.0 * cb / 2.0
         );
     }
 }
@@ -460,7 +496,7 @@ fn main() {
             let hs: Vec<f64> = args[4..].iter().map(|x| x.parse().unwrap()).collect();
             steady(n, rho, &hs)
         }
-        Some("scale") => scale(&args[2]),
+        Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
         Some("kick") => kick(),
         _ => {
             let _ = run_section;

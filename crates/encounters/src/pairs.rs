@@ -246,26 +246,34 @@ fn cross_window(bi: &Body, bj: &Body, th: f64, rho: f64) -> Option<(f64, f64)> {
     }
     let w0 = rho / c;
     let side = |sign: f64| -> Option<f64> {
-        // Bracket D(s) = ρ between 0 and a growing multiple of the linear estimate, then bisect.
-        let mut hi = w0;
+        // D(s) = ρ from the linear estimate by secant steps (D is nearly linear in s here); the
+        // result is rounded up to the first value where D ≥ ρ is confirmed.
+        let f = |w: f64| d2(sign * w) - rho;
+        let (mut x0, mut x1) = (w0, 1.02 * w0);
+        let (mut f0, mut f1) = (f(x0), f(x1));
+        for _ in 0..8 {
+            if (f1 - f0).abs() < 1e-300 {
+                break;
+            }
+            let x2 = (x1 - f1 * (x1 - x0) / (f1 - f0)).clamp(0.2 * w0, 5.0 * w0);
+            x0 = x1;
+            f0 = f1;
+            x1 = x2;
+            f1 = f(x1);
+            if (x1 - x0).abs() < 1e-9 * w0 {
+                break;
+            }
+        }
+        let mut w = x1 * (1.0 + 1e-6);
         let mut k = 0;
-        while d2(sign * hi) < rho {
-            hi *= 1.5;
+        while f(w) < 0.0 {
+            w *= 1.01;
             k += 1;
-            if k > 40 {
+            if k > 200 {
                 return None;
             }
         }
-        let mut lo = 0.0;
-        for _ in 0..40 {
-            let mid = 0.5 * (lo + hi);
-            if d2(sign * mid) < rho {
-                lo = mid;
-            } else {
-                hi = mid;
-            }
-        }
-        Some(hi)
+        Some(w)
     };
     Some((side(-1.0)?, side(1.0)?))
 }
