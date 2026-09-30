@@ -74,6 +74,12 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Taste log (the integrator's decisions on gold, newest first)
 
+- **30 September, r3 v3 (two-body doll): silver; KILL of eob-doll on the handoff criterion only.**
+  - **Confirmed:** ν enters only through the energy map (1PN), with assists at 64/64.
+  - **The kill:** the handoff exponent is 0.233 against 0.2, measured against a chaotic float reference at a 10⁻¹¹ error level. That is the integrator's criterion weakness again: judge a conserved quantity with a noise floor, as B12 does.
+  - **Not gold:** no predictions.md, and an undisclosed redefinition of the assist metric.
+- **30 September, r8 (encounters): VOID** (the author ran out of time). Its pre-registered predictions expect both broad phases to cost orders of magnitude more than the encounters. The integrator questions the premise: see the focus list.
+
 - **30 September, library lens: lead.** Its claim (binary thresholds make faction aggregates 6–17× tighter) inverted under a fair anchored control; the checker was right. Off focus: AI is off the plan. What survives is the count-quantum rule n* = (1/ε)², folded into B5's notes.
 
 - **30 September, r4 v2 (resonance): KILL of arc-integrated kicks (g8, g16, g8-half); silver-quality work.**
