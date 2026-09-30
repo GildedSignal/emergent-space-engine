@@ -66,7 +66,7 @@ Everything below follows from these three, and so does its cost (§6).
   - A doll orbit is a cycle: its radial crossings repeat, and each cycle adds constants to φ, t and τ. Identical invariants share one memoized cycle, as in Hashlife.
   - Perturbations (tides, neighbours, inspiral by Peters' formula) are kicks on E and L. A cycle's derivatives are stored with it, so a kick updates the cycle by a multiply-add.
   - **Averaging only away from resonance.** Near a mean-motion resonance, kicks keep the conjunction phase: one kick per conjunction, never an orbit average, because an averaged layer cannot represent a locked resonant angle. The red-team measured this (H0203), and the original conversation already said it. Rung r4 tests the per-conjunction layer.
-  - Fleets are families. Stars and asteroids stay a seed until an event singles one out (Elite, 1984).
+  - **Every body is real** (Julien, 30 September: "NO ELITE style… it is deterministic. You cannot average a population… averages crush data especially tail events… the goal of this game is emergence and you would kill it"). No body stays a seed, and no population is replaced by its statistics. Bounds and entropy only guide the allocator (what to compute when); they never compute. A fleet may share a frame and a key table, but that is lossless compression by symmetry, not averaging.
 - **Two evaluation orders of the same event graph, with identical bits.**
   - **Sparse:** where events per cell per light-crossing (a Knudsen-like number) ≪ 1. Certificates, the causal frontier, and one queue ordered by slack, on the CPU.
   - **Dense:** where that number is near 1, which is chaos, the normal case of many necessary interactions in a short time.
@@ -104,7 +104,7 @@ Everything below follows from these three, and so does its cost (§6).
 
 ## 5. Stolen from the compute-starved
 
-Bresenham, the DDA integrators of the 1950s, sigma-delta, CORDIC (shift-and-add rotation), Minsky's circle, Mitchell's logarithms, the Apollo Guidance Computer's per-variable scaling, Clohessy–Wiltshire, Elite's seeded galaxy, Wolfenstein's observer rays, Crash Bandicoot's traversal-ordered memory, Hashlife. They had skin in the game (principle 26).
+Bresenham, the DDA integrators of the 1950s, sigma-delta, CORDIC (shift-and-add rotation), Minsky's circle, Mitchell's logarithms, the Apollo Guidance Computer's per-variable scaling, Clohessy–Wiltshire, Wolfenstein's observer rays, Crash Bandicoot's traversal-ordered memory, Hashlife. They had skin in the game (principle 26).
 
 ## 6. Where compute goes (estimates, 10⁹ ships)
 
