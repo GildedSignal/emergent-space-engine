@@ -1,5 +1,6 @@
 mod behave;
 mod engine_judge;
+mod fly;
 mod gas;
 mod gas_rel;
 mod gr_oracle;
@@ -33,6 +34,7 @@ fn write(path: &Path, value: &Value) -> Result<()> {
 fn run() -> Result<u8> {
     let mut args = std::env::args().skip(1);
     let task = args.next().unwrap_or_else(|| "help".into());
+    if task == "fly" { return fly::run(args.collect()); }
     if task == "engine-judge" {
         return engine_judge::run(args.collect());
     }
