@@ -1,0 +1,3 @@
+Arc-integraRun complete. All deliverables in `lab/results/20260930-0732-rung-r4-resonance-v2-0a18/`: `metrics.json` (all six configs × six frozen metrics), `dossier.md`, `predictions.md` (written before the decisive runs), `picture.svg`/`png`, `samples/` (each file ≤ 104 KB), reproduction commands each ≤ 60 s.
+
+The numbers show that arc-integrated conjunction kicks over-pump the 2:1 resonance 2.4–4.5× with a circulating resonant angle (libration ratio 0.02–0.09) and excite spurious resonance at 7.5% detuning — a KILL of the arc-g8/arc-g16/arc-g8-half configuration, with the positive control passing (truth-1200: 1.000/1.000/1.000/1.00) and both negatives failing as required, and the Gauss-rate layer validated to 5 digits so the kill is the method's, not a sign error.
