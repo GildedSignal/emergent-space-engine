@@ -16,8 +16,8 @@ A fixed integer algorithm. Exact means bit-identical on every machine, thread co
 ## Motion in a doll (one dominant mass)
 
 1. **Bands:** r_k = 2^(k/m) in the doll's units, with m = 16 (r1: m = 8 is too coarse; m = 16 and m = 32 pass). The band index comes from integer bit operations on the Binet variable u = 1/r.
-2. **Inside band k:** u″ + (1 − 6M·u_k)·u = M/L² − 3M·u_k², advanced in φ by an exact integer area-preserving map (a rotation for ω² > 0, hyperbolic for ω² < 0). The implementer writes the map's exact text in `crates/space` before the first gate run. That text is part of this law.
-3. **Exits:** the band exit is found exactly in integers. u and u′ are continuous across bands.
+2. **The cycle is compiled once from (E, L)** (law `space-darwin16-v1`, 30 September; it replaced the in-band area-preserving map, whose band-centre tangents carried a first-order slope error in every cell holding a turning point). GR's radial function R = 2(u − u_a)(u_p − u)(u_3 − u) is factored by its roots, found from (E, L) in integers. In Darwin's phase ψ (u = c + A·cos ψ), dφ/dψ = (2(u_3 − u))^(−1/2), and dt/dψ and dτ/dψ are smooth. Band edges are cuts in ψ (integer atan). Each cut interval is integrated with 4-point Gauss–Legendre panels in integers; the outbound half is computed and the inbound half mirrors it. The exact text is in the `crates/space` docs, and that text is part of this law.
+3. **Positions** are derived, never stepped: t mod the period, the mirror, the crossing table, and one Newton solve inside a panel. Precession and period errors are identical every cycle (about 10⁻⁶ at m = 16), the right error type.
 4. **Time:** dt/dφ = E/(L·u²·(1 − 2M·u)) and dτ/dφ = 1/(L·u²), each integrated per band by a rule fixed by the band and by (E, L).
 5. **The cycle:** after one radial cycle the crossing sequence repeats. The tube then advances by Δφ, Δt and Δτ per cycle, which is additions only.
 6. **Light:** the same map without the M/L² term, parameterized by b = L/E.
@@ -66,7 +66,7 @@ Every gate has a positive control that must pass and a planted law that must fai
 
 ## Who builds what
 
-- **Astra:** the in-band map, exits, time rule and cycle compiler (running now), then the resolver's exactness and the carries.
+- **Astra:** the cycle compiler (`space-darwin16-v1`, by Claude Opus while Codex was out; Astra owns it), its speed and bound, then the resolver's exactness and the carries.
 - **Sol** (after the Codex reset): dolls, tubes, handoffs, kicks.
 - **Claude:** the orders (sparse, from `lattice-event`'s `Calendar`; dense, from `lattice-metal`), memory and the queue. Claude also builds the judges of OpenAI's modules (`behave`), and OpenAI builds the judges of Claude's modules.
 - **GLM:** open rungs r3 v3, r4 v2, r5 (dense order), r6 (view), r7 (AI cost), and the red-team of this text.
