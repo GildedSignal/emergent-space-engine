@@ -1539,6 +1539,48 @@ impl Kickable for EventCore {
         }
         Ok(())
     }
+
+    fn masses(&self, out: &mut Vec<i64>) {
+        out.clear();
+        out.extend(self.bodies.iter().map(|b| b.mass));
+    }
+
+    /// A moved frame changes every position, and the cells are keyed by position, so the grids
+    /// are re-formed from the shifted bodies (the same staged rebuild as an elastic tail, O(n)
+    /// in bounded steps); every body whose velocity changed revises and is re-predicted by it.
+    fn rebase(&mut self, dx: &[[i64; 2]], dk: &[[i64; 2]]) -> Result<(), law::LawError> {
+        if dk.len() != self.hot.len() || dx.len() != dk.len() {
+            return Err(law::LawError(format!("{} shifts and {} kicks for {} bodies", dx.len(), dk.len(), self.hot.len())));
+        }
+        let t = self.tick;
+        emergent_lattice::rebased_ok(self.meta.law, self.meta.q, self.meta.container.is_some(), self.hot.iter().map(|h| Motion { x: h.at(t), k: h.k }), dx, dk)?;
+        while matches!(self.stage, Stage::Rebuild(..) | Stage::Upkeep(..)) {
+            self.step(self.tick);
+        }
+        assert!(matches!(self.stage, Stage::Idle), "rebase needs a quiescent core: run to its tick and never lower the target");
+        self.epoch = self.epoch.wrapping_add(1);
+        self.b.touched.clear();
+        let mut kmax = 0;
+        for ((h, d), s) in self.hot.iter_mut().zip(dk).zip(dx) {
+            let x = h.at(t);
+            let k = [h.k[0] + d[0], h.k[1] + d[1]];
+            (h.x, h.k, h.t0) = ([x[0] + s[0], x[1] + s[1]], k, t);
+            if *d != [0, 0] {
+                h.rev += 1;
+                kmax = kmax.max(kinf(k));
+            }
+        }
+        self.metrics.ops += self.hot.len() as u64;
+        self.kseen = self.kseen.max(kmax);
+        if kmax > self.kcap {
+            let valid = self.reach_max + 4 * self.kseen;
+            for f in &mut self.frames {
+                f.next_side = f.next_side.max(valid);
+            }
+        }
+        self.begin_rebuild();
+        Ok(())
+    }
 }
 
 /// The ladder's crowded-axes world (xtask/src/ladder.rs `x_crowded`: spacing 16, radius 1,

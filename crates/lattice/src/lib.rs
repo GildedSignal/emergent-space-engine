@@ -179,6 +179,32 @@ pub trait Kickable: Stepper {
     /// Add `dk[i]` to body i's velocity (id order, one entry per body; zero leaves it alone).
     /// Nothing is applied unless every kicked velocity is legal ([`kicked`]).
     fn kick(&mut self, dk: &[[i64; 2]]) -> Result<(), law::LawError>;
+
+    /// Every body's mass (id order): the weights of a centre of mass.
+    fn masses(&self, out: &mut Vec<i64>);
+
+    /// Re-express the world at [`Stepper::tick`] in a moved frame: body i's position gains `dx[i]`
+    /// and its velocity `dk[i]` (a body whose velocity changes revises, as in [`Kickable::kick`]).
+    /// A frame move is a uniform `dx`, which keeps every pair's separation, so no contact is
+    /// created or lost by the translation itself; a per-body `dx` (a caller settling sub-quantum
+    /// positions) moves pairs by the difference. Refused, and nothing applied, when a velocity
+    /// would be illegal ([`kicked`]), a position would leave the exactness range (|x_c| ≤ 2^39), or
+    /// the world has a container (its walls do not move with the frame).
+    fn rebase(&mut self, dx: &[[i64; 2]], dk: &[[i64; 2]]) -> Result<(), law::LawError>;
+}
+
+/// The legality checks of [`Kickable::rebase`], shared by both steppers so they refuse alike.
+pub fn rebased_ok(which: Law, q: i64, has_container: bool, bodies: impl Iterator<Item = Motion>, dx: &[[i64; 2]], dk: &[[i64; 2]]) -> Result<(), law::LawError> {
+    if has_container {
+        return Err(law::LawError("a world with walls cannot be re-expressed in a moved frame".into()));
+    }
+    for ((m, s), d) in bodies.zip(dx).zip(dk) {
+        if (0..2).any(|c| (m.x[c] as i128 + s[c] as i128).abs() > law::MAX_COORD as i128) {
+            return Err(law::LawError(format!("shift {s:?} takes position {:?} outside 2^39", m.x)));
+        }
+        kicked(which, q, m.k, *d)?;
+    }
+    Ok(())
 }
 
 /// An execution mode for one region of the lattice law.
