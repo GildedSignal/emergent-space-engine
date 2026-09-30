@@ -36,14 +36,14 @@ fn totals(masses: &[i64], v: &[[i128; 2]]) -> ([i128; 2], i128) {
     (p, e)
 }
 /// Invert the change in the axes' angular velocity in one operation on the composed
-/// parent position. Per-component integer roundings are exactly what this gate audits.
+/// parent position in exact 2^-92 units. No inverse rounding can create or hide a deficit.
 fn common_velocity(v: [i128; 2], t: &Tube, x: [i64; 2], old_n: u64) -> [i128; 2] {
     let dn = old_n as i128 - t.n as i128;
     let px = ((t.radius as i128) << 32) + t.x[0] + ((x[0] as i128) << 32);
     let py = t.x[1] + ((x[1] as i128) << 32);
     [
-        v[0] + t.v[0] + rounded(dn * py, 44),
-        v[1] + t.v[1] - rounded(dn * px, 44),
+        ((v[0] + t.v[0]) << 44) + dn * py,
+        ((v[1] + t.v[1]) << 44) - dn * px,
     ]
 }
 fn check<S: Kickable>(s: S) -> (i128, i128, u64, String) {
@@ -79,7 +79,18 @@ fn check<S: Kickable>(s: S) -> (i128, i128, u64, String) {
             .zip(&motions)
             .map(|(&v, m)| common_velocity(v, &t1, m.x, t0.n))
             .collect();
-        let (p1, e1) = totals(&masses, &after);
+        let mut p1 = [0i128; 2];
+        for (&mass, v) in masses.iter().zip(&after) {
+            for c in 0..2 {
+                p1[c] += mass as i128 * v[c];
+            }
+        }
+        let energy_v: Vec<_> = after
+            .iter()
+            .map(|v| [rounded(v[0], 44), rounded(v[1], 44)])
+            .collect();
+        let (_, e1) = totals(&masses, &energy_v);
+        let p0 = [p0[0] << 44, p0[1] << 44];
         let pe = (p1[0] - p0[0]).abs().max((p1[1] - p0[1]).abs());
         // Subtract before rounding; bounding a difference to one energy quantum.
         let ee = (e1 - e0).abs();
@@ -128,7 +139,7 @@ pub fn conservation() -> (bool, String) {
             }
         }
     }
-    (worst_p==0 && worst_e<=ENERGY_SCALE && moves>0,format!("anchors=48 circle_moves={moves} momentum_delta={worst_p} unit=2^-48 required=0 energy_delta_quanta={:.3e} allowed=1 first={first:?}",worst_e as f64/ENERGY_SCALE as f64))
+    (worst_p==0 && worst_e<=ENERGY_SCALE && moves>0,format!("anchors=48 circle_moves={moves} momentum_delta={worst_p} unit=2^-92 required=0 energy_delta_quanta={:.3e} allowed=1 first={first:?}",worst_e as f64/ENERGY_SCALE as f64))
 }
 
 fn ledger_one<S: Kickable>(s: S) -> (bool, usize, String) {

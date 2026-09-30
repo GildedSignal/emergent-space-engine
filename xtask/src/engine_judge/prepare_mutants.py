@@ -8,7 +8,7 @@ scratch = root / 'artifacts/runs/engine-judge/scratch'
 scratch.mkdir(parents=True, exist_ok=True)
 for name in ('Cargo.toml','Cargo.lock'):
     shutil.copy2(root/name, scratch/name)
-for name in ('crates','xtask','.cargo'):
+for name in ('crates','xtask','.cargo','scenarios'):
     shutil.copytree(root/name, scratch/name, dirs_exist_ok=True, ignore=shutil.ignore_patterns('target','__pycache__'))
 
 def change(path, old, new):
@@ -17,7 +17,7 @@ def change(path, old, new):
     assert text.count(old) == 1, (path, old, text.count(old))
     p.write_text(text.replace(old, new))
 
-change('crates/engine/src/frame.rs','            shift: 0,', '''            shift: if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("late") && std::any::type_name::<S>().contains("EventCore") { 1 } else { 0 },''')
+change('crates/engine/src/frame.rs','        self.shift = shift;', '''        self.shift = shift + if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("late") && std::any::type_name::<S>().contains("EventCore") { 1 } else { 0 };''')
 # Drop the velocity rotation, retaining the tide forcing coefficients; this is a
 # missing Coriolis kick, not a reversed gravity sign or a changed scene.
 change('crates/engine/src/frame.rs','        let rx = cc * kx + ss * ky', '''        let (cc, ss) = if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("coriolis") { (1i128 << CARRY_BITS, 0) } else { (cc, ss) };

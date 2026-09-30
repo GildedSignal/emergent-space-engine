@@ -1,4 +1,4 @@
-//! Independent inverse-square float64 oracle: kick-drift-kick velocity Verlet.
+//! Independent inverse-square float64 oracle: symmetric composition of velocity Verlet.
 //! Bands frozen before the first engine run. Numerical refinement is a separate gate
 //! condition, not permission to silently widen a behaviour tolerance.
 use super::scene::{frame, world, Rng, N, Q, R};
@@ -33,6 +33,15 @@ fn verlet(p: &mut [f64; 2], v: &mut [f64; 2], h: f64) {
         v[c] += 0.5 * h * a[c];
     }
 }
+// Composition coefficients solve 2a+b=1 and 2a³+b³=0: the cubic
+// splitting error cancels. This is a fourth-order symplectic integrator, not RK4.
+fn integrate(p: &mut [f64; 2], v: &mut [f64; 2], h: f64) {
+    let a = 1.0 / (2.0 - 2.0_f64.cbrt());
+    let b = 1.0 - 2.0 * a;
+    verlet(p, v, a * h);
+    verlet(p, v, b * h);
+    verlet(p, v, a * h);
+}
 fn oracle(w: &World, stride: i64, samples: usize, substeps: usize) -> Vec<Vec<[f64; 2]>> {
     let n = N as f64 / (1u64 << 60) as f64;
     let h = stride as f64 * n / substeps as f64;
@@ -53,7 +62,7 @@ fn oracle(w: &World, stride: i64, samples: usize, substeps: usize) -> Vec<Vec<[f
                     (-s * p[0] + c * p[1]) * R as f64,
                 ]);
                 for _ in 0..substeps {
-                    verlet(&mut p, &mut v, h);
+                    integrate(&mut p, &mut v, h);
                 }
             }
             out
@@ -196,7 +205,9 @@ pub fn behaviour(anchored: bool) -> (bool, String) {
     let mut worst = 0.0f64;
     let mut shape = 0.0f64;
     let mut refinement = 0.0f64;
+    let mut shape_refinement = 0.0f64;
     let mut first = String::new();
+    let mut rows = Vec::new();
     let mut release_worst = 0.0f64;
     let mut anchors = 0;
     for (eps, mode, seed) in cases {
@@ -207,6 +218,26 @@ pub fn behaviour(anchored: bool) -> (bool, String) {
             for j in 0..=samples {
                 let scale = norm([w.bodies[i].x[0] as f64, w.bodies[i].x[1] as f64]).max(1.0);
                 refinement = refinement.max(norm(sub(coarse[i][j], truth[i][j])) / scale);
+            }
+        }
+        // Check oracle group shape independently too: the marginal off-axis
+        // case must not be decided by a common-mode reference position error.
+        let mass = w.bodies.iter().map(|b| b.mass as f64).sum::<f64>();
+        for j in 0..=samples {
+            let mut cf = [0.0; 2];
+            let mut cc = [0.0; 2];
+            for i in 0..w.bodies.len() {
+                for c in 0..2 {
+                    cf[c] += truth[i][j][c] * w.bodies[i].mass as f64 / mass;
+                    cc[c] += coarse[i][j][c] * w.bodies[i].mass as f64 / mass;
+                }
+            }
+            let spread = (0..w.bodies.len())
+                .map(|i| norm(sub(truth[i][j], cf)))
+                .fold(1.0, f64::max);
+            for i in 0..w.bodies.len() {
+                shape_refinement = shape_refinement
+                    .max(norm(sub(sub(truth[i][j], cf), sub(coarse[i][j], cc))) / spread);
             }
         }
         let results = [
@@ -247,13 +278,27 @@ pub fn behaviour(anchored: bool) -> (bool, String) {
                 && e.position.is_finite()
                 && e.shape.is_finite()
                 && e.leavers == 0;
+            rows.push(serde_json::json!({"eps":eps,"mode":mode,"seed":seed,"order":if order==0 {"lockstep"}else{"sparse"},"pass":pass,"position":e.position,"shape":e.shape,"tolerance":tol,"worst_sample":e.sample,"worst_member":e.member,"stride":stride,"anchors":e.anchors,"leavers":e.leavers}));
             good += pass as usize;
             if !pass && first.is_empty() {
                 first=format!("eps={eps} mode={mode} seed={seed} order={order} sample={} member={} pos={:.6} shape={:.6} tol={tol}",e.sample,e.member,e.position,e.shape);
             }
         }
     }
-    (good==total && refinement<ORACLE_TOL,format!("cases={good}/{total} periods={periods} position={worst:.6} shape={shape:.6} rest={release_worst:.6} tol={} oracle_delta={refinement:.2e} oracle_tol={ORACLE_TOL} anchors={anchors} first={first:?}",if anchored {"0.01(0.03_at_eps0.003)"} else {"0.03"}))
+    let dir =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../artifacts/runs/engine-judge");
+    std::fs::create_dir_all(&dir).expect("judge evidence directory");
+    let text = rows.iter().map(|r| format!("{r}\n")).collect::<String>();
+    std::fs::write(
+        dir.join(if anchored {
+            "behaviour-anchored.jsonl"
+        } else {
+            "behaviour-short.jsonl"
+        }),
+        text,
+    )
+    .expect("write all behaviour cases");
+    (good==total && refinement<ORACLE_TOL && shape_refinement<ORACLE_TOL,format!("cases={good}/{total} periods={periods} position={worst:.6} shape={shape:.6} rest={release_worst:.6} tol={} oracle_delta={refinement:.2e} oracle_shape_delta={shape_refinement:.2e} oracle_tol={ORACLE_TOL} anchors={anchors} first={first:?}",if anchored {"0.01(0.03_at_eps0.003)"} else {"0.03"}))
 }
 
 #[cfg(test)]
@@ -273,6 +318,17 @@ mod tests {
         let a = norm(sub(run(2048), [1.0, 0.0]));
         let b = norm(sub(run(4096), [1.0, 0.0]));
         assert!(a / b > 3.9 && a / b < 4.1);
+        fn composed(steps: usize) -> [f64; 2] {
+            let mut p = [1.0, 0.0];
+            let mut v = [0.0, 1.0];
+            for _ in 0..steps {
+                integrate(&mut p, &mut v, TAU / steps as f64);
+            }
+            p
+        }
+        let a = norm(sub(composed(128), [1.0, 0.0]));
+        let b = norm(sub(composed(256), [1.0, 0.0]));
+        assert!(a / b > 15.5 && a / b < 16.5);
         let mut p = [1.01, 0.03];
         let mut v = [-0.04, 0.97];
         let (p0, v0) = (p, v);
