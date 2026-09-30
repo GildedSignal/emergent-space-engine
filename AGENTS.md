@@ -6,7 +6,7 @@
 
 - **Laws are versioned.** Canonical outcomes are exact and independent of cache, partition, observation, schedule and hardware. Floats never decide them.
 - **Certificates need independent, adversarial checks.** A laboratory result never counts as integrated qualification.
-- **Gates are frozen before the first run and never weakened after.** Failures stay machine-readable.
+- **Gates are frozen before the first run and never weakened after.** Failures stay machine-readable. Gates judge a representation; they never size it: first derive the representation native to the operations at stake (Julien: "we know we have a fish, we need to find its water").
 - **Evidence.**
   - Measure before claiming, and never strawman.
   - Build the simplest falsifying test first ("even baby spartans started small"), then climb a ladder of rungs, each roughly 10× harder: extremes and chaotic scenes, until one fails ([test-ladder](docs/test-ladder.md)). A test that cannot fail is a control.
