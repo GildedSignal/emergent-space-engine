@@ -20,6 +20,10 @@
 //! to follow) stops the buffer; the CPU resolves those components with `law::respond` in i128
 //! or big integers (in parallel) and the loop resumes.
 //!
+//! [`MetalChronon`] is also [`emergent_lattice::Kickable`] (src/gpu/kickable.rs): the free-fall frame of
+//! `crates/engine` kicks and re-anchors it between chronons, with `Chronon`'s semantics, so a battle
+//! runs on the GPU bit for bit as on the CPU or the event core.
+//!
 //! # Exactness
 //! The GPU evaluates `law::hit` in i64. Let C be the cell side, K = max|k_c| over bodies and
 //! R = reach_max ≤ C. Pairs are only tested between adjacent cells, so |d_c| < 2C, |w_c| ≤ 2K,
@@ -158,7 +162,7 @@ pub use stub::{float_floors_probe, v1_momenta, MetalChronon};
 #[cfg(not(target_os = "macos"))]
 mod stub {
     use super::{MetalError, Options, Stats};
-    use emergent_lattice::{law::Tick, Log, Metrics, Stepper, World};
+    use emergent_lattice::{law::Tick, Kickable, Log, Metrics, Motion, Stepper, World};
 
     /// Metal exists only on Apple targets; construction always fails here.
     pub enum MetalChronon {}
@@ -199,6 +203,21 @@ mod stub {
             match *self {}
         }
         fn metrics(&self) -> &Metrics {
+            match *self {}
+        }
+    }
+
+    impl Kickable for MetalChronon {
+        fn motions(&self, _: &mut Vec<Motion>) {
+            match *self {}
+        }
+        fn kick(&mut self, _: &[[i64; 2]]) -> Result<(), emergent_lattice::law::LawError> {
+            match *self {}
+        }
+        fn masses(&self, _: &mut Vec<i64>) {
+            match *self {}
+        }
+        fn rebase(&mut self, _: &[[i64; 2]], _: &[[i64; 2]]) -> Result<(), emergent_lattice::law::LawError> {
             match *self {}
         }
     }
