@@ -1,150 +1,115 @@
-//! Integer Binet generator, `space-binet16-generator-v2`.
-//! A cycle is the canonical object; its rounded return is not the next initial state.
+//! # Law `space-darwin16-v1`: the cycle compiler of one doll (one static mass)
 //!
-//! # Representation
-//! G=c=M=1; another static mass uses M as its length and time unit. In band k,
-//! r edges are 2^(k/16); the actual reciprocal edges are the immutable Q30 table
-//! in `bands.rs`, shifted by the octave. Centres use k+1/2. Tables are generated
-//! with 90-digit Decimal arithmetic in `tests/tables.py`. Leading-zero count
-//! gives the octave; comparison with sixteen entries gives the band. m=16 only.
-//! U,V are signed 32-bit words representing (u,u')=(U,V)*2^exponent. At entry,
-//! the band's shared exponent puts max(u,|u'|,u_hi) in [2^27,2^28) words, leaving
-//! headroom for the shears. Changing that exponent rounds both coordinates;
-//! **this boundary conversion is not reversible**. Canonical E is unsigned Q48,
-//! L is Q32, angle is Q30 and accumulated t,tau are Q20. Quantities needing more
-//! than one word are explicit pairs of u32. Wide temporaries, roots and divisions
-//! occur only during creation; Map::apply/inverse use i64 products of i32 words.
-//! The supported input envelope is 0<E<=16, 1/4<=L<=4096, 2<r, with checked
-//! range errors. Darwin input p is Q16, e Q30, 6+2e<p<=8192 and 0<=e<1.
+//! Units G = c = M = 1. u = 1/r. Q62 means an integer n standing for n/2^62; angles psi are Q61.
+//! Every quantity below is an integer, and every operation is exact integer arithmetic: sums,
+//! products floored by arithmetic right shifts, divisions of nonnegative integers floored (a
+//! signed division truncates toward zero), and `isqrt` = floor of the square root. Floats never
+//! decide anything; they appear only in the adapter and in tests. `num.rs` defines `cos`,
+//! `atan`, `isqrt`, `mul_shr` and `ratio_sqrt`; `tables.rs` holds the constants, generated
+//! with 90-digit Decimal arithmetic by `tests/tables.py`.
 //!
-//! # Initialization and rounding
-//! Darwin input gives L²=p²/(p-3-e²) and E²=((p-2)²-4e²)/(p*(p-3-e²)), evaluated
-//! with sixteen guard bits for E² before its Q48 square root; integer square
-//! roots floor their nonnegative radicands. The periapsis
-//! is the upper bound root of R(u)=(E²-1)/L²+2u/L²-u²+2u³. Its bracket is between
-//! (1-sqrt(1-12/L²))/6 and (1+sqrt(1-12/L²))/6, bisected to one Q48 unit. Invalid
-//! brackets return NoBoundOrbit outside the local-cell rule below.
-//! `rnd(x,d)` rounds to nearest with ties away from zero; shifts into a coarser
-//! word use rnd. Ordinary signed integer divisions in initialization truncate
-//! toward zero; interval bounds instead use floor/ceiling. A shift, coefficient
-//! or state that cannot be represented returns Range; none wraps or saturates.
-//! Float input/output conversion exists only in the adapter and diagnostics.
+//! ## What an orbit is
+//! A tube stores its invariants: E (Q48) and L (Q32), an epoch and a phase. Its radial function
+//! is GR's R(u) = (E² − 1)/L² + 2u/L² − u² + 2u³ = (u′)². A bound orbit has three roots
+//! u_a < u_p < u_3, so R = 2(u − u_a)(u_p − u)(u_3 − u). With c = (u_a + u_p)/2 and
+//! A = (u_p − u_a)/2, Darwin's phase ψ puts u = c + A cos ψ (ψ = 0 at periapsis, π at
+//! apoapsis). Then the two turning-point roots cancel exactly, and along the orbit
+//!   dφ/dψ = g = (2(u_3 − u))^(−1/2),  dτ/dψ = g/(L u²),  dt/dψ = E g/(L u² (1 − 2u)).
+//! These are smooth, so the cycle is a quadrature. Circular orbits (A = 0) are the same
+//! formula: nothing distinguishes them, and no regime is chosen.
 //!
-//! # Small excursions and circular limit
-//! First find C=(1-sqrt(1-12/L²))/6. If the upper energy-root amplitude A obeys
-//! A/C<=1/32, use one orbit-centred cell: u=C+A*cos(w*phi), w²=1-6C. Physical
-//! band edges inside this cell cause no change of generator. E² and the effective
-//! potential (1-2u)(1+L²u²) are compared in Q64. A potential minimum within one
-//! input E quantum plus eight Q64 arithmetic units uses A=0 (epicyclic limit).
-//! This also defines a radial period for an exactly circular orbit. A smaller
-//! energy returns NoBoundOrbit. The root and w are floored integer square roots.
-//! Put D=sqrt(C²-A²), B=sqrt((1-2C)²-4A²). Round phi=2*pi/w to Q30, using
-//! 2*pi=6746518852/2^30. Mean rates are tau=C/(L*D³) and
-//! t=E*(C/(L*D³)+2/(L*D)+4/(L*B)); these follow by partial fractions and the
-//! elementary cosine integrals. Round rates and final periods to Q20. The cell
-//! stores C,A,w as word pairs and needs no band-crossing records. This explicitly
-//! changes the band-centred law in the small-excursion regime; the old m16 float
-//! regression still tests the band compiler, while a separate GR sweep tests it.
+//! ## The roots (from the invariants only)
+//! β = floor(2^127/L²) (2/L², Q62, with L² in Q64); α = (E² − 1)/L² in Q62, rounded toward zero.
+//! A bound orbit needs E < 1 and 12/L² < 1. k₀ = isqrt((2^62 − 6β)·2^62), u_c = (2^62 − k₀)/6
+//! (the circular orbit of this L), k = 2^62 − 6u_c. With y = L·u_c (Q62) and
+//! V = (1 − 2u_c)(1 + y²), D = E² − V and R_c = trunc(D·2^64/L²) (R at u_c, without the
+//! cancellation of evaluating α + βu_c − u_c² + 2u_c³ term by term). With R₁ = 6u_c² − 2u_c + β:
+//!   f(x) = R_c + R₁x − k x² + 2x³ = R(u_c + x), every product floored to Q62.
+//! If R_c ≤ 0: D ≥ −2^16 (one Q48 quantum of E, doubled) is a circular orbit (x₊ = x₋ = 0),
+//! anything lower is `NoBoundOrbit`. Otherwise f(k/3) > 0 (above the barrier) is `NoBoundOrbit`,
+//! and bisection to one unit gives x₊ in (0, k/3] (the last x with f(x) > 0) and x₋ in [−u_c, 0)
+//! (the first x with f(x) > 0). u_p = u_c + x₊, u_a = u_c + x₋, u_3 = u_c + k/2 − x₊ − x₋ (the
+//! roots of f sum to k/2). c = floor((u_a + u_p)/2), A = floor((u_p − u_a)/2), m₃ = u_3 − c.
+//! Envelope: u_a ≥ 2^−28 and 2(u_3 − u_p) ≥ 2^−42, else `Range`.
 //!
-//! # In-band map: the integer algorithm
-//! Let w2=1-6*u_k and f=1/L²-3*u_k² (light drops 1/L²). Each full step is h=1/4
-//! radian; an event can shorten it to an integer H in Q30, 1<=H<=2^28. Put
-//! x=w2*H². In Q60, evaluate by Horner, rounding every multiply and rational
-//! coefficient to nearest:
+//! ## Cells and panels
+//! Band k holds 2^(−(k+1)/16) < u ≤ 2^(−k/16); its edges are `EDGE[j] >> octave`. The outbound
+//! half (ψ from 0 to π) crosses every edge u_e with u_a < u_e < u_p, at
+//!   ψ_e = atan(ratio_sqrt(u_p − u_e, u_e − u_a))       if 2u_e ≥ u_a + u_p,
+//!   ψ_e = π − atan(ratio_sqrt(u_e − u_a, u_p − u_e))    otherwise
+//! (2·atan in Q61 is the Q62 atan's integer). These cuts are the crossing table. Each interval
+//! between cuts splits into ceil(width/(π/4)) equal panels (endpoints floored). Near the
+//! separatrix the first interval is refined first: if 2δ < 64A, with δ = m₃ − A, λ =
+//! isqrt(floor(2δ·2^60/A)·2^60)/2 (a quarter of the peak's width sqrt(2δ/A)), and the panels
+//! [0, λ], [λ, 2λ], [2λ, 4λ], … (each split by π/4 too) run while they end inside the interval.
 //!
-//! ```text
-//! a = H/2 * (1+x/12+x²/120+17x³/20160+31x⁴/362880+691x⁵/79833600)
-//! b = H   * (1-x/6+x²/120-x³/5040+x⁴/362880-x⁵/39916800)
-//! A = round(a*2^30); K = round(w2*b*2^30); J = round(f*b/2^exponent)
-//! U1 = U + round(A*V / 2^30)
-//! V1 = V - round(K*U1 / 2^30) + J
-//! U2 = U1 + round(A*V1 / 2^30)
-//! ```
+//! ## Quadrature (the time rule is the same rule)
+//! Four-point Gauss–Legendre on each panel [a, b]: h = b − a, mid = a + h/2, nodes
+//! mid ± floor(X_i·h/2^63), weights ω_i = floor(W_i·h/2^63). At a node: u = c + floor(A·cos ψ),
+//! d = 2(m₃ − floor(A·cos ψ)) (≥ 2^20, else `Range`), g = isqrt(floor(2^126/d)·2^20) (Q42),
+//! q = floor(u_a·2^62/u), r_τ = floor(q²/2^62), r_t = floor(r_τ·2^62/(2^62 − 2u)). The sums gain
+//! S_φ += ω g (Q103), and with b = floor(ω g/2^63): S_τ += b r_τ, S_t += b r_t (Q102).
+//! P = 1/(L u_a²) is p_m·2^(−p_e): the Q94 product L·u_a is cut to its top 64 bits, times u_a,
+//! cut to its top 64 bits d₂, then p_m = floor(2^127/d₂). Over the half orbit (doubled for the
+//! cycle, one shift less): Δφ = floor(S_φ/2^72) (Q30), Δτ = floor(p_m S_τ / 2^(p_e+81)) and
+//! Δt = floor(floor(p_m S_t/2^64)·E / 2^(p_e+65)) (Q20). The crossing table stores the same
+//! conversions of the partial sums at each cut (one more shift: half-orbit values).
 //!
-//! Reverse the three assignments, subtracting the increments, to recover all
-//! input bits. Each shear is a permutation of integer lattice sites (exact
-//! counting-area preservation). Its unrounded affine determinant is one.
-//! a approximates tan(wH/2)/w and b sin(wH)/w. For w2<0 these same polynomials
-//! approximate tanh(lambda H/2)/lambda and sinh(lambda H)/lambda. There is no
-//! division by w2 at the transition. The affine map's angle is acos(1-A*K/2^60)
-//! when 0<A*K/2^60<4; rounding state words introduces an additional ripple.
-//! Area preservation does NOT imply exact energy conservation or radial closure.
+//! ## The cycle, the tube and a position
+//! The cycle is compiled once per key and memoized by the exact key. It repeats by definition:
+//! after n cycles φ, t and τ have gained n·Δ, and nothing is evolved from one cycle to the next.
+//! The inbound half mirrors the outbound half (R depends on u only): at time T − t it is at the
+//! same u, with angle Δφ − φ(t). A position at time t since periapsis is located by t mod T,
+//! the mirror, a binary search of the crossing table, the same panels rebuilt inside that cell,
+//! and a bracketed Newton solve of the panel's partial quadrature for ψ (the partial quadrature
+//! is the four-point rule on [a, ψ]). It is a derivation, never a state.
 //!
-//! # Exact integer event search
-//! Search H=1..2^28 for the FIRST outgoing edge or velocity-sign event. Outgoing
-//! means U<=u_lo,V<0 or U>=u_hi,V>0. At entry reblocking may displace U by half a
-//! new quantum; the edge behind the motion is not an exit. Velocity sign events
-//! use V<0 to V>=0 (apo) or V>0 to V<=0 (peri). No state is snapped at an event.
-//! Coefficients are monotone over H<=1/4, |w2|<=2. Interval endpoint arithmetic
-//! encloses the three shears. A second enclosure retains the common b factor
-//! in b*(f-w2*U1), with six outward word units covering coefficient/product
-//! rounding; intersecting the enclosures tightens circular cases. Empty event
-//! intervals are excluded; left intervals are searched first; singleton integer
-//! predicates alone accept events. Thus earlier lattice hits cannot be skipped
-//! even when rounded predicates are nonmonotone. 131072 search nodes or 300000
-//! accepted steps exhaust the creation budget and return Budget, not an answer.
+//! ## Light and unbound bodies
+//! β = 0 and α = 1/L² for light (L = b, E = 1); α ≥ 0 for a body from infinity. If 6β ≥ 1 or R is
+//! positive at its local minimum u = (1 + sqrt(1 − 6β))/6, nothing turns it: `Absorbed`. Else the
+//! turning point u_t is the bisection root between the local maximum and minimum, the other
+//! roots come from the quadratic R/(u − u_t) (u_0 ≤ 0 < u_t < u_3), and the same quadrature on
+//! ψ from 0 to ψ_0 (where u = 0) gives the angle from the turning point to infinity.
 //!
-//! # Time, light and records
-//! For each accepted interval use eight-point Gauss-Legendre quadrature, with
-//! nodes/weights in the same Decimal-generated Q30 table. Each node's integer H
-//! is rounded once; u there is this same three-shear map from the interval start.
-//! Round rates to Q20: dt/dphi=E/(L*u²*(1-2u)), dtau/dphi=1/(L*u²). Products for
-//! u² and L*u² are truncated at Q48; accumulate weighted rates with i128 and
-//! round the interval increments to Q20. Light tracing currently returns angle
-//! only, with E=1 and L=b required. Its exterior tail uses 256 integer Simpson panels from u=0 to 1/10000
-//! on 1/sqrt(1/b²-u²+2u³). Absorption is exactly u>=1/2. Horizon time is undefined.
-//! The record contains crossings, integer increments, extrema, work and return
-//! state. Memo keys are exactly (E,L), not nearby floats. The next cycle starts
-//! at the same invariant-derived periapsis. The rounded return is diagnostic,
-//! so the shape and increments repeat exactly. First differences in E,L
-//! are stored as signed word pairs over explicit key steps, rejecting changed
-//! crossing sequences. Their multiply-add is only a predictor: an exact kick
-//! requires recompilation. A discrete, branching function has no global tangent.
+//! ## Error (what is exact, what is bounded)
+//! Exact by construction: E, L, u_a, u_p, the crossing sequence and every cycle's constants;
+//! hence r_min and r_max never drift, and the n-th cycle *is* the compiled one. The only
+//! continuum error is systematic and identical every cycle: it enters Δφ, Δt and Δτ, so it is a
+//! linear phase drift, never a compounding one. Its parts:
+//! - quadrature: on a panel of half-width h whose integrand is analytic inside the Bernstein
+//!   ellipse of parameter ρ, with |f| ≤ M there, four-point Gauss–Legendre errs by at most
+//!   (64/15)·M·h·ρ^(−8)/(ρ² − 1). The singularities are at cos ψ = m₃/A (the branch point of g,
+//!   imaginary distance acosh(m₃/A) ≥ sqrt(2δ/A)), cos ψ = −c/A (u = 0) and cos ψ = (1/2 − c)/A:
+//!   the cap π/4, the band cuts (log-spaced in r, so the u = 0 pole is always many panels away)
+//!   and the refinement keep ρ ≥ 2 on every panel. `tests/near_circular.rs` checks the measured
+//!   error against GR over the envelope;
+//! - rounding: each node's value is exact to a few units of 2^−42 relative (g) and 2^−62 (u, q,
+//!   r), and each sum carries at most one unit per node: below 2^−30 relative per cycle;
+//! - roots: bisection to one Q62 unit, so r_min and r_max are within 2^−62 of the invariants'.
+//! The law differs from continuum GR by these and by the key's quantization of (E, L).
 //!
-//! # Error bound and its limits
-//! For one accepted fixed-band map let q=2^exponent, a=A/2^30, k=K/2^30. Against
-//! the unrounded coefficient map, |delta u'|<=(1+|k|)*q/2 and
-//! |delta u|<=[2+|a|(1+|k|)]*q/2. These follow by propagating the half-quantum
-//! error of each shear. For |w2|<=2,H<=1/4, tan/tanh's first omitted term and
-//! the geometric majorant of its tail bound a's truncation by 5e-13. The omitted
-//! sin/sinh tail bounds b by 2e-16. Q60 Horner arithmetic adds less than 1e-17.
-//! Hence each Q30 coefficient differs from exact oscillator flow by at most
-//! 2^-31+5.1e-13; J adds q/2+|f|*3e-16. The centre table adds
-//! delta<=2^(-31-octave) in u_k and force error <=6*|u-u_k|*delta+3*delta²;
-//! initialization/Q48 truncation is separate. Reblocking adds <=q_new/2.
-//! Conditional on a fixed event sequence, e_next<=|M|*e+d composes these local
-//! bounds (M is the absolute shear matrix; d propagates the stated errors).
-//! **No unconditional orbit, event-time or clock-quadrature bound is proved.**
-//! The independent 262-case regression uses angle error<=2e-4 rad, relative
-//! periods<=5e-4, relative turning radii<=2e-4 and equal crossing counts. Those
-//! are measured checks, not a global error certificate. Global continuum bounds
-//! and exact kick updates require separate qualification.
+//! The planted Newtonian variant (`compile_variant(key, true)`) drops the 2u³ term: g = 1, so
+//! the advance is zero and the precession gate must kill it.
 
-mod bands;
-mod local;
-#[cfg(feature = "profile")]
-pub mod profile;
-pub use local::LocalOscillator;
+mod num;
+mod tables;
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-const Q30: i64 = 1 << 30;
-const Q48: i128 = 1 << 48;
-pub const STEP: u32 = 1 << 28;
-pub const MAX_STEPS: usize = 300_000;
+use num::{atan, cos, isqrt, mul_shr, ratio_sqrt, ONE};
+use tables::{EDGE, PI, W, X};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Error {
     Range,
     NoBoundOrbit,
-    Budget,
-    Horizon,
     NotPeriodic,
     Topology,
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Two explicitly sized storage words; only arithmetic temporaries are u64.
+/// Two explicitly sized storage words; only arithmetic temporaries are wider.
 #[derive(Clone, Copy, Default, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Words(pub [u32; 2]);
 impl Words {
@@ -154,63 +119,21 @@ impl Words {
     pub const fn get(self) -> u64 {
         self.0[0] as u64 | ((self.0[1] as u64) << 32)
     }
-    fn add(&mut self, x: u64) -> Result<()> {
-        *self = Self::new(self.get().checked_add(x).ok_or(Error::Range)?);
-        Ok(())
-    }
 }
-#[inline]
-fn round_shift(x: i64, bits: u32) -> i64 {
-    if x < 0 {
-        -((-x + (1i64 << (bits - 1))) >> bits)
-    } else {
-        (x + (1i64 << (bits - 1))) >> bits
-    }
-}
-fn rnd(x: i128, d: i128) -> i128 {
-    debug_assert!(d > 0);
-    if x < 0 {
-        -((-x + d / 2) / d)
-    } else {
-        (x + d / 2) / d
-    }
-}
-fn shift(x: i128, n: i32) -> Result<i128> {
-    if n >= 0 {
-        x.checked_mul(1i128.checked_shl(n as u32).ok_or(Error::Range)?)
-            .ok_or(Error::Range)
-    } else {
-        Ok(rnd(x, 1i128.checked_shl((-n) as u32).ok_or(Error::Range)?))
-    }
-}
-fn i32c(x: i128) -> Result<i32> {
-    i32::try_from(x).map_err(|_| Error::Range)
-}
-fn u64c(x: i128) -> Result<u64> {
-    u64::try_from(x).map_err(|_| Error::Range)
-}
-fn sqrt(x: u128) -> u128 {
-    if x == 0 {
-        return 0;
-    }
-    let mut a = 1u128 << (128 - x.leading_zeros()).div_ceil(2);
-    loop {
-        let b = (a + x / a) / 2;
-        if b >= a {
-            return a;
-        }
-        a = b;
-    }
+fn words(x: u128) -> Result<Words> {
+    u64::try_from(x).map(Words::new).map_err(|_| Error::Range)
 }
 
+/// The invariants: E in Q48, L in Q32. The memo key.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Key {
     pub energy: Words,
     pub angular: Words,
 }
 impl Key {
-    /// Boundary inputs are p in Q16 and eccentricity in Q30. No float decisions.
+    /// Boundary input: Darwin's p in Q16 and e in Q30. No float decisions.
     pub fn darwin(p: u32, eccentricity: u32) -> Result<Self> {
+        const Q48: i128 = 1 << 48;
         let p = (p as i128) << 32;
         let e = (eccentricity as i128) << 18;
         if e >= Q48 || p <= 6 * Q48 + 2 * e || p > 8192 * Q48 {
@@ -221,20 +144,16 @@ impl Key {
         let l2 = p * p / den;
         let numerator = (p - 2 * Q48) * (p - 2 * Q48) - 4 * e * e;
         let divisor = p * den / Q48;
-        // Retain sixteen guard bits before the square root. Truncating E²
-        // directly to Q48 can lose more than one output quantum of E.
+        // Sixteen guard bits before the square root: flooring E² at Q48 loses a quantum of E.
         let e2 = ((numerator / divisor) << 16) + ((numerator % divisor) << 16) / divisor;
         Ok(Self {
-            energy: Words::new(u64c(sqrt((e2 << 32) as u128) as i128)?),
-            angular: Words::new(u64c(sqrt((l2 << 16) as u128) as i128)?),
+            energy: words(isqrt((e2 << 32) as u128))?,
+            angular: words(isqrt((l2 << 16) as u128))?,
         })
     }
+    /// 0 < E ≤ 16, 1/4 ≤ L ≤ 4096.
     pub fn new(energy_q48: u64, angular_q32: u64) -> Result<Self> {
-        if energy_q48 == 0
-            || angular_q32 < 1 << 30
-            || energy_q48 > 16u64 << 48
-            || angular_q32 > 4096u64 << 32
-        {
+        if energy_q48 == 0 || angular_q32 < 1 << 30 || energy_q48 > 16u64 << 48 || angular_q32 > 4096u64 << 32 {
             return Err(Error::Range);
         }
         Ok(Self {
@@ -242,219 +161,237 @@ impl Key {
             angular: Words::new(angular_q32),
         })
     }
-    fn inverse_l2(self) -> i128 {
-        let l = self.angular.get() as i128;
-        Q48 * Q48 / ((l * l) >> 16)
-    }
-    fn radial(self, u: i128, light: bool) -> i128 {
-        let inv = self.inverse_l2();
-        let e = self.energy.get() as i128;
-        let u2 = u * u / Q48;
+    /// (L² in Q64, β = 2/L² in Q62, α = (E² − 1)/L² in Q62 rounded toward zero, E² in Q96).
+    fn radial(self, light: bool) -> (u128, i128, i128, u128) {
+        let l = self.angular.get() as u128;
+        let l2 = l * l;
+        let e = self.energy.get() as u128;
+        let e2 = e * e;
         if light {
-            inv - u2 + 2 * u2 * u / Q48
-        } else {
-            (e * e / Q48 - Q48) * inv / Q48 + 2 * inv * u / Q48 - u2 + 2 * u2 * u / Q48
+            return (l2, 0, ((1u128 << 126) / l2) as i128, e2);
         }
-    }
-    fn periapsis(self) -> Result<i128> {
-        let inv = self.inverse_l2();
-        if 12 * inv >= Q48 {
-            return Err(Error::NoBoundOrbit);
-        }
-        let d = sqrt(((Q48 - 12 * inv) * Q48) as u128) as i128;
-        let mut lo = (Q48 - d) / 6;
-        let mut hi = (Q48 + d) / 6;
-        if self.radial(lo, false) <= 0 || self.radial(hi, false) >= 0 {
-            return Err(Error::NoBoundOrbit);
-        }
-        while hi - lo > 1 {
-            let mid = (hi + lo) / 2;
-            if self.radial(mid, false) > 0 {
-                lo = mid;
-            } else {
-                hi = mid;
-            }
-        }
-        Ok((lo + hi) / 2)
+        let (negative, num) = if e2 >= 1 << 96 { (false, e2 - (1 << 96)) } else { (true, (1 << 96) - e2) };
+        let mag = ((num / l2) << 30) + (((num % l2) << 30) / l2);
+        (l2, ((1u128 << 127) / l2) as i128, if negative { -(mag as i128) } else { mag as i128 }, e2)
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct State {
-    pub u: i32,
-    pub v: i32,
-    pub exponent: i32,
+/// R(u) = 2u³ − u² + βu + α in Q62, products floored.
+fn radial_at(u: i128, beta: i128, alpha: i128) -> i128 {
+    let u2 = (u * u) >> 62;
+    2 * ((u2 * u) >> 62) - u2 + ((beta * u) >> 62) + alpha
 }
-impl State {
-    pub fn from_q48(u: i128, v: i128) -> Result<Self> {
-        if u <= 0 || u >= Q48 / 2 {
+
+/// The last x in [lo, hi] with pred(x), given pred(lo) and !pred(hi): bisection to one unit.
+fn bisect(mut lo: i128, mut hi: i128, pred: impl Fn(i128) -> bool) -> i128 {
+    while hi - lo > 1 {
+        let mid = (lo + hi) >> 1;
+        if pred(mid) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    lo
+}
+
+/// 2^(−k/16) in Q62, k ≥ 0.
+fn edge(k: i32) -> i128 {
+    EDGE[k.rem_euclid(16) as usize] >> k.div_euclid(16)
+}
+/// The band k with edge(k+1) < u ≤ edge(k), for 0 < u ≤ 1 (Q62).
+pub fn band(u: i128) -> i32 {
+    let octave = 62 - (128 - (u - 1).leading_zeros() as i32);
+    let j = (1..16).take_while(|&j| u <= EDGE[j] >> octave).count() as i32;
+    16 * octave + j
+}
+
+/// The compiled shape of one orbit: everything a position needs besides the crossing table.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Shape {
+    /// Turning points (apoapsis, periapsis), centre, amplitude, u_3 − c: Q62.
+    pub ua: i64,
+    pub up: i64,
+    pub c: i64,
+    pub a: i64,
+    pub m3: i64,
+    newton: bool,
+    /// P = 1/(L u_a²) = pm·2^−pe; E in Q48.
+    pm: u128,
+    pe: u32,
+    e: u64,
+}
+
+const CAP: i128 = PI / 4;
+
+impl Shape {
+    fn bound(key: Key, newton: bool) -> Result<Self> {
+        let (l2, beta, alpha, e2) = key.radial(false);
+        if alpha >= 0 {
+            return Err(Error::NoBoundOrbit);
+        }
+        let (ua, up, m3);
+        if newton {
+            // R = −u² + βu + α: roots β/2 ± sqrt(β²/4 + α); no third root (g = 1).
+            let disc = ((beta * beta) >> 64) + alpha;
+            if disc < -(1 << 16) {
+                return Err(Error::NoBoundOrbit);
+            }
+            let s = isqrt((disc.max(0) as u128) << 62) as i128;
+            (ua, up, m3) = (beta / 2 - s, beta / 2 + s, ONE);
+        } else {
+            if 6 * beta >= ONE {
+                return Err(Error::NoBoundOrbit);
+            }
+            let k0 = isqrt(((ONE - 6 * beta) as u128) << 62) as i128;
+            let uc = (ONE - k0) / 6;
+            let k = ONE - 6 * uc;
+            let l = key.angular.get() as i128;
+            let y = (l * uc) >> 32;
+            let v = ((ONE - 2 * uc) * (ONE + ((y * y) >> 62))) >> 62;
+            let d = (e2 >> 34) as i128 - v;
+            let rc = (d << 64) / l2 as i128;
+            let r1 = 6 * ((uc * uc) >> 62) - 2 * uc + beta;
+            let f = |x: i128| {
+                let x2 = (x * x) >> 62;
+                rc + ((r1 * x) >> 62) - ((k * x2) >> 62) + 2 * ((x2 * x) >> 62)
+            };
+            let (xp, xm) = if rc <= 0 {
+                if d < -(1 << 16) {
+                    return Err(Error::NoBoundOrbit);
+                }
+                (0, 0)
+            } else {
+                if f(k / 3) > 0 {
+                    return Err(Error::NoBoundOrbit);
+                }
+                (bisect(0, k / 3, |x| f(x) > 0), bisect(-uc, 0, |x| f(x) <= 0) + 1)
+            };
+            ua = uc + xm;
+            up = uc + xp;
+            m3 = uc + k / 2 - xp - xm - ((ua + up) >> 1);
+        }
+        let (c, a) = ((ua + up) >> 1, (up - ua) >> 1);
+        if ua < 1 << 34 || 2 * (m3 - a) < 1 << 20 {
             return Err(Error::Range);
         }
-        let max = u.max(v.abs()) as u128;
-        let exponent = 127 - max.leading_zeros() as i32 - 48 - 27;
+        // P = 1/(L u_a²): L·u_a (Q94) cut to 64 bits, times u_a, cut to 64 bits, reciprocal.
+        let den = key.angular.get() as u128 * ua as u128;
+        let sd = (128 - den.leading_zeros()).saturating_sub(64);
+        let den2 = (den >> sd) * ua as u128;
+        let s2 = (128 - den2.leading_zeros()).saturating_sub(64);
+        let pm = (1u128 << 127) / (den2 >> s2);
+        let pe = (s2 + sd).checked_sub(29).ok_or(Error::Range)?;
         Ok(Self {
-            u: i32c(shift(u, -48 - exponent)?)?,
-            v: i32c(shift(v, -48 - exponent)?)?,
-            exponent,
+            ua: ua as i64,
+            up: up as i64,
+            c: c as i64,
+            a: a as i64,
+            m3: m3 as i64,
+            newton,
+            pm,
+            pe,
+            e: key.energy.get(),
         })
     }
-    pub fn u_q48(self) -> i128 {
-        shift(self.u as i128, self.exponent + 48).expect("validated exponent")
-    }
-    pub fn v_q48(self) -> i128 {
-        shift(self.v as i128, self.exponent + 48).expect("validated exponent")
-    }
-    fn reblock(self, exponent: i32) -> Result<Self> {
-        Ok(Self {
-            u: i32c(shift(self.u as i128, self.exponent - exponent)?)?,
-            v: i32c(shift(self.v as i128, self.exponent - exponent)?)?,
-            exponent,
-        })
-    }
-}
 
-/// Three lattice permutations. Their inverse is exact even for hyperbolic K<0.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Map {
-    pub a: i32,
-    pub k: i32,
-    pub j: i32,
-}
-impl Map {
-    fn product(a: i32, b: i32) -> i64 {
-        let p = a as i64 * b as i64;
-        if p < 0 {
-            -((-p + (1 << 29)) >> 30)
+    /// ψ of the edge u_e, u_a < u_e < u_p (Q61).
+    fn cut(&self, ue: i128) -> i128 {
+        let (ua, up) = (self.ua as i128, self.up as i128);
+        if 2 * ue >= ua + up {
+            atan(ratio_sqrt(up - ue, ue - ua))
         } else {
-            (p + (1 << 29)) >> 30
+            PI - atan(ratio_sqrt(ue - ua, up - ue))
         }
     }
-    pub fn apply(self, s: State) -> Result<State> {
-        let u = i32::try_from(s.u as i64 + Self::product(self.a, s.v)).map_err(|_| Error::Range)?;
-        let v = i32::try_from(s.v as i64 - Self::product(self.k, u) + self.j as i64)
-            .map_err(|_| Error::Range)?;
-        let u = i32::try_from(u as i64 + Self::product(self.a, v)).map_err(|_| Error::Range)?;
-        Ok(State { u, v, ..s })
+    /// The outbound half's cuts: (band entered, ψ), in order.
+    fn cuts(&self) -> impl Iterator<Item = (i32, i128)> + '_ {
+        let (ua, up) = (self.ua as i128, self.up as i128);
+        (band(up) + 1..)
+            .take_while(move |&k| edge(k) > ua)
+            .filter(move |&k| edge(k) < up)
+            .map(move |k| (k, self.cut(edge(k))))
     }
-    pub fn inverse(self, s: State) -> Result<State> {
-        let u = i32::try_from(s.u as i64 - Self::product(self.a, s.v)).map_err(|_| Error::Range)?;
-        let v = i32::try_from(s.v as i64 + Self::product(self.k, u) - self.j as i64)
-            .map_err(|_| Error::Range)?;
-        let u = i32::try_from(u as i64 - Self::product(self.a, v)).map_err(|_| Error::Range)?;
-        Ok(State { u, v, ..s })
-    }
-}
 
-pub fn band_index(s: State) -> Result<i32> {
-    if s.u <= 0 {
-        return Err(Error::Range);
-    }
-    let top = 31 - (s.u as u32).leading_zeros() as i32;
-    let power = top + s.exponent;
-    let norm = shift(s.u as i128, 30 - top)? as i64; // [1,2) Q30
-    if norm == Q30 {
-        return Ok(-16 * power);
-    }
-    let half = norm / 2; // (.5,1) Q30
-    let j = (0..16)
-        .find(|&j| half >= bands::EDGES[j + 1])
-        .ok_or(Error::Range)?;
-    Ok(-16 * (power + 1) + j as i32)
-}
-fn edge_q48(k: i32, center: bool) -> Result<i128> {
-    let oct = k.div_euclid(16);
-    let j = k.rem_euclid(16) as usize;
-    let word = if center {
-        bands::CENTERS[j]
-    } else {
-        bands::EDGES[j]
-    };
-    shift(word as i128, 18 - oct)
-}
-
-#[derive(Clone, Debug)]
-struct Band {
-    k: i32,
-    exponent: i32,
-    lo: i32,
-    hi: i32,
-    w2: i128,
-    rhs: i128,
-    full: Map,
-    full_b: i64,
-    force_q30: i64,
-    w2_q30: i32,
-}
-impl Band {
-    fn new(k: i32, s: State, key: Key, light: bool, newton: bool) -> Result<(Self, State)> {
-        let hi = edge_q48(k, false)?;
-        let max = hi.max(s.v_q48().abs());
-        let exponent = 127 - (max as u128).leading_zeros() as i32 - 48 - 27;
-        let s = s.reblock(exponent)?;
-        let uk = edge_q48(k, true)?;
-        let w2 = if newton { Q48 } else { Q48 - 6 * uk };
-        let rhs =
-            if light { 0 } else { key.inverse_l2() } - if newton { 0 } else { 3 * uk * uk / Q48 };
-        let mut b = Self {
-            k,
-            exponent,
-            lo: i32c(shift(edge_q48(k + 1, false)?, -48 - exponent)?)?,
-            hi: i32c(shift(hi, -48 - exponent)?)?,
-            w2,
-            rhs,
-            full: Map { a: 0, k: 0, j: 0 },
-            full_b: 0,
-            force_q30: i64::try_from(shift(rhs, -18 - exponent)?).map_err(|_| Error::Range)?,
-            w2_q30: i32c(rnd(w2, 1 << 18))?,
-        };
-        let full = b.evaluate(STEP)?;
-        b.full = full.0;
-        b.full_b = full.1;
-        Ok((b, s))
-    }
-    fn coefficients(&self, h: u32) -> (i64, i64) {
-        #[cfg(feature = "profile")]
-        profile::add(|s| s.coefficients += 1);
-        // x is Q30, polynomial values Q32. |x|<=1/8, so every
-        // product is below 2^62. The constants are nearest Q32.
-        let h = h as i64;
-        let h2 = round_shift(h * h, 30);
-        let x = round_shift(self.w2_q30 as i64 * h2, 30);
-        let poly = |terms: &[i64]| {
-            let mut p = 0;
-            for &c in terms.iter().rev() {
-                p = round_shift(p * x, 30) + c;
+    /// The node's integrands: (g in Q42, r_τ, r_t in Q62).
+    fn node(&self, psi: i128, clocks: bool) -> Result<(i128, i128, i128)> {
+        let acs = (self.a as i128 * cos(psi)) >> 62;
+        let g = if self.newton {
+            1 << 42
+        } else {
+            let d = 2 * (self.m3 as i128 - acs);
+            if d < 1 << 20 {
+                return Err(Error::Range);
             }
-            p
+            isqrt(((1u128 << 126) / d as u128) << 20) as i128
         };
-        let a = round_shift(
-            h * poly(&[4294967296, 357913941, 35791394, 3621760, 366920, 37168]),
-            31,
-        );
-        let b = round_shift(
-            h * poly(&[4294967296, -715827883, 35791394, -852176, 11836, -108]),
-            30,
-        );
-        (a, b)
+        if !clocks {
+            return Ok((g, 0, 0));
+        }
+        let u = self.c as i128 + acs;
+        let q = ((self.ua as i128) << 62) / u;
+        let rtau = (q * q) >> 62;
+        Ok((g, rtau, (rtau << 62) / (ONE - 2 * u)))
     }
-    fn evaluate(&self, h: u32) -> Result<(Map, i64)> {
-        let (a, b) = self.coefficients(h);
-        Ok((
-            Map {
-                a: i32::try_from(round_shift(a, 2)).map_err(|_| Error::Range)?,
-                k: i32::try_from(round_shift(self.w2_q30 as i64 * b, 32))
-                    .map_err(|_| Error::Range)?,
-                // Q48*Q32 needs up to 80 bits. Creation-only, power-of-two shift.
-                j: i32c(shift(self.rhs * b as i128, -80 - self.exponent)?)?,
-            },
-            b,
-        ))
+    /// Four-point Gauss–Legendre on [lo, hi] into the sums (S_φ Q103, S_τ and S_t Q102).
+    fn quad(&self, lo: i128, hi: i128, clocks: bool, sums: &mut [i128; 3]) -> Result<()> {
+        let h = hi - lo;
+        let mid = lo + (h >> 1);
+        for i in 0..2 {
+            let (dx, w) = ((X[i] * h) >> 63, (W[i] * h) >> 63);
+            for psi in [mid - dx, mid + dx] {
+                let (g, rtau, rt) = self.node(psi, clocks)?;
+                let a = w * g;
+                sums[0] += a;
+                let b = a >> 63;
+                sums[1] += b * rtau;
+                sums[2] += b * rt;
+            }
+        }
+        Ok(())
     }
-    fn map(&self, h: u32) -> Result<Map> {
-        Ok(self.evaluate(h)?.0)
+    /// The panels of the interval [lo, hi] between two cuts, in order.
+    fn panels(&self, lo: i128, hi: i128, first: bool, mut each: impl FnMut(i128, i128) -> Result<bool>) -> Result<()> {
+        let mut a = lo;
+        let mut split = |a: i128, b: i128| -> Result<bool> {
+            let n = (b - a + CAP - 1) / CAP;
+            for i in 0..n {
+                if !each(a + (b - a) * i / n, a + (b - a) * (i + 1) / n)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        };
+        let delta2 = 2 * (self.m3 as i128 - self.a as i128);
+        if first && !self.newton && self.a > 0 && delta2 < 64 * self.a as i128 {
+            let ratio = (delta2 << 60) / self.a as i128;
+            let mut w = ((isqrt((ratio as u128) << 60) >> 1) as i128).max(1);
+            while a + w < hi {
+                if !split(a, a + w)? {
+                    return Ok(());
+                }
+                a += w;
+                w = a;
+            }
+        }
+        split(a, hi).map(|_| ())
     }
-    fn outside(&self, s: State) -> bool {
-        (s.u <= self.lo && s.v < 0) || (s.u >= self.hi && s.v > 0)
+    fn integrate(&self, lo: i128, hi: i128, first: bool, clocks: bool, sums: &mut [i128; 3]) -> Result<()> {
+        self.panels(lo, hi, first, |a, b| self.quad(a, b, clocks, sums).map(|_| true))
+    }
+    /// Sums to (φ Q30, t Q20, τ Q20); `half` adds one shift (half-orbit values).
+    fn convert(&self, sums: &[i128; 3], half: u32) -> Result<Increments> {
+        let pos = |x: i128| u128::try_from(x).map_err(|_| Error::Range);
+        let t = mul_shr(mul_shr(pos(sums[2])?, self.pm, 64)?, self.e as u128, self.pe + 65 + half)?;
+        Ok(Increments {
+            phi: words(pos(sums[0])? >> (72 + half))?,
+            t: words(t)?,
+            tau: words(mul_shr(pos(sums[1])?, self.pm, self.pe + 81 + half)?)?,
+        })
+    }
+    /// u at ψ (Q62).
+    pub fn u(&self, psi: i128) -> i128 {
+        self.c as i128 + ((self.a as i128 * cos(psi)) >> 62)
     }
 }
 
@@ -464,67 +401,133 @@ pub struct Increments {
     pub t: Words,
     pub tau: Words,
 }
+impl Increments {
+    fn add(self, o: Self) -> Result<Self> {
+        let f = |a: Words, b: Words| a.get().checked_add(b.get()).map(Words::new).ok_or(Error::Range);
+        Ok(Self { phi: f(self.phi, o.phi)?, t: f(self.t, o.t)?, tau: f(self.tau, o.tau)? })
+    }
+    fn sub(self, o: Self) -> Result<Self> {
+        let f = |a: Words, b: Words| a.get().checked_sub(b.get()).map(Words::new).ok_or(Error::Range);
+        Ok(Self { phi: f(self.phi, o.phi)?, t: f(self.t, o.t)?, tau: f(self.tau, o.tau)? })
+    }
+}
+/// One band-edge crossing of the outbound half (periapsis to apoapsis).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Crossing {
+    /// The band entered, moving outward.
     pub band: i32,
-    pub state: State,
+    /// Darwin's phase at the crossing, Q61.
+    pub psi: Words,
+    /// Half-orbit values since periapsis: φ Q30, t and τ Q20.
     pub at: Increments,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Cycle {
     pub key: Key,
-    pub start: State,
-    pub end: State,
-    pub start_band: i32,
-    pub end_band: i32,
-    pub apo: State,
+    pub shape: Shape,
+    /// Per radial cycle: φ Q30 (2π plus the advance), t and τ Q20.
     pub increments: Increments,
+    /// The outbound half at apoapsis.
+    pub half: Increments,
     pub crossings: Vec<Crossing>,
-    pub steps: u32,
-    pub local: Option<LocalOscillator>,
 }
-/// Address within the repeated generator. `crossing` is the last completed
-/// crossing, or None before its first crossing (also for a local cell).
+/// Where a tube is: derived from the compiled cycle, never evolved.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Location {
+pub struct Position {
+    /// Completed radial cycles since the epoch's periapsis.
     pub cycle: u64,
-    pub time_in_cycle: Words,
-    pub crossing: Option<usize>,
+    /// Darwin's phase within the outbound half (Q61; the inbound half is mirrored).
+    pub psi: i64,
+    pub outbound: bool,
+    /// u = 1/r, Q62.
+    pub u: i64,
+    pub band: i32,
+    /// Since the epoch's periapsis: φ Q30 and τ Q20.
+    pub phi: Words,
+    pub tau: Words,
 }
+
 impl Cycle {
-    /// The generator repeats by definition; end is a diagnostic first-return value.
-    pub fn periodic(&self) -> bool {
-        self.increments.t.get() > 0 && self.increments.phi.get() > 0
-    }
-    pub fn raw_return_closes(&self) -> bool {
-        self.start == self.end && self.start_band == self.end_band
-    }
-    /// Coordinate time since the tube's epoch, Q20. Quotient/remainder, then
-    /// an integer table search; no previous cycle is evaluated or evolved.
-    pub fn locate(&self, elapsed: Words) -> Result<Location> {
+    /// Coordinate time t since periapsis (Q20) → where the tube is. Quotient and remainder, the
+    /// mirror, a table search and one cell's panels: no previous cycle is evaluated.
+    pub fn position(&self, elapsed: Words) -> Result<Position> {
         let period = self.increments.t.get();
         if period == 0 {
             return Err(Error::NotPeriodic);
         }
-        let time = elapsed.get() % period;
-        let next = self.crossings.partition_point(|c| c.at.t.get() <= time);
-        Ok(Location {
-            cycle: elapsed.get() / period,
-            time_in_cycle: Words::new(time),
-            crossing: next.checked_sub(1),
+        let (n, r) = (elapsed.get() / period, elapsed.get() % period);
+        let outbound = 2 * r <= period;
+        let (psi, at) = self.outbound_at(if outbound { r } else { period - r })?;
+        let at = if outbound { at } else { self.increments.sub(at)? };
+        let base = self.repeat(n)?;
+        let u = self.shape.u(psi);
+        Ok(Position {
+            cycle: n,
+            psi: psi as i64,
+            outbound,
+            u: u as i64,
+            band: band(u),
+            phi: words(base.phi.get() as u128 + at.phi.get() as u128)?,
+            tau: words(base.tau.get() as u128 + at.tau.get() as u128)?,
         })
     }
-    /// Repeat the compiled constants; never evolve a previous cycle's rounded end.
-    pub fn repeat(&self, n: u32) -> Result<Increments> {
-        if !self.periodic() {
-            return Err(Error::NotPeriodic);
+    /// ψ and the half-orbit values at time `target` (Q20) along the outbound half.
+    fn outbound_at(&self, target: u64) -> Result<(i128, Increments)> {
+        if target >= self.half.t.get() {
+            return Ok((PI, self.half));
         }
-        let mul = |w: Words| {
-            w.get()
-                .checked_mul(n as u64)
-                .map(Words::new)
-                .ok_or(Error::Range)
+        let s = &self.shape;
+        let i = self.crossings.partition_point(|c| c.at.t.get() <= target);
+        let (lo, base) = match i {
+            0 => (0, Increments::default()),
+            _ => (self.crossings[i - 1].psi.get() as i128, self.crossings[i - 1].at),
         };
+        let hi = self.crossings.get(i).map_or(PI, |c| c.psi.get() as i128);
+        let time = |sums: &[i128; 3]| -> Result<u64> { Ok(base.t.get() + s.convert(sums, 1)?.t.get()) };
+        let mut sums = [0i128; 3];
+        let mut found = None;
+        s.panels(lo, hi, lo == 0, |a, b| {
+            let mut next = sums;
+            s.quad(a, b, true, &mut next)?;
+            if time(&next)? > target {
+                found = Some((a, b));
+                return Ok(false);
+            }
+            sums = next;
+            Ok(true)
+        })?;
+        let Some((a, b)) = found else {
+            return Ok((hi, base.add(s.convert(&sums, 1)?)?));
+        };
+        // Bracketed Newton for ψ in [a, b] with time(sums + partial(a, ψ)) == target.
+        let partial = |psi: i128| -> Result<[i128; 3]> {
+            let mut p = sums;
+            s.quad(a, psi, true, &mut p)?;
+            Ok(p)
+        };
+        let (mut lo, mut hi, mut psi) = (a, b, a);
+        for _ in 0..200 {
+            let t = time(&partial(psi)?)?;
+            if t == target || hi - lo <= 1 {
+                break;
+            }
+            if t < target {
+                lo = psi;
+            } else {
+                hi = psi;
+            }
+            // dt/dψ per radian in Q20: the node's integrand with a weight of one radian.
+            let (g, _, rt) = s.node(psi, true)?;
+            let rate = s.convert(&[0, 0, (g >> 2) * rt], 1)?.t.get().max(1) as i128;
+            let step = (target as i128 - t as i128) * (1 << 61) / rate;
+            let next = psi + step;
+            psi = if next > lo && next < hi { next } else { lo + ((hi - lo) >> 1) };
+        }
+        Ok((psi, base.add(s.convert(&partial(psi)?, 1)?)?))
+    }
+    /// Repeat the compiled constants; never evolve a previous cycle's end.
+    pub fn repeat(&self, n: u64) -> Result<Increments> {
+        let mul = |w: Words| w.get().checked_mul(n).map(Words::new).ok_or(Error::Range);
         Ok(Increments {
             phi: mul(self.increments.phi)?,
             t: mul(self.increments.t)?,
@@ -533,214 +536,93 @@ impl Cycle {
     }
 }
 
-fn rates(s: State, key: Key) -> Result<(u64, u64)> {
-    let u = s.u_q48();
-    if u <= 0 || u >= Q48 / 2 {
-        return Err(Error::Horizon);
-    }
-    let u2 = u * u / Q48;
-    let den = (key.angular.get() as i128 * u2) >> 32;
-    if den == 0 {
-        return Err(Error::Range);
-    }
-    let tau = rnd(1i128 << 68, den);
-    let t = rnd(tau * key.energy.get() as i128, Q48 - 2 * u);
-    Ok((u64c(t)?, u64c(tau)?))
-}
-fn clock(s: State, _end: State, band: &Band, h: u32, key: Key) -> Result<(u64, u64)> {
-    let (mut t, mut tau) = (0i128, 0i128);
-    for (&node, &weight) in bands::NODES.iter().zip(bands::WEIGHTS.iter()) {
-        let hh = rnd(h as i128 * (Q30 + node) as i128, 2 * Q30 as i128) as u32;
-        let sample = band.map(hh)?.apply(s)?;
-        let (a, b) = rates(sample, key)?;
-        t += a as i128 * weight as i128;
-        tau += b as i128 * weight as i128;
-    }
-    Ok((
-        u64c(rnd(t * h as i128, 2 * (1i128 << 60)))?,
-        u64c(rnd(tau * h as i128, 2 * (1i128 << 60)))?,
-    ))
-}
+/// A body or photon in a doll: its invariants, its epoch (Q20 coordinate time) and the time
+/// since periapsis at that epoch (Q20). Position and clocks are derived when asked.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Outcome {
-    Absorbed,
-    Escaped,
-    AngleReached,
+pub struct Tube {
+    pub key: Key,
+    pub epoch: Words,
+    pub phase: Words,
 }
-
-struct Walker {
-    s: State,
-    band: Band,
-    key: Key,
-    light: bool,
-    newton: bool,
-    at: Increments,
-    steps: u32,
-    crossings: Vec<Crossing>,
-}
-impl Walker {
-    fn new(s: State, key: Key, light: bool, newton: bool) -> Result<Self> {
-        let (band, s) = Band::new(band_index(s)?, s, key, light, newton)?;
-        Ok(Self {
-            s,
-            band,
-            key,
-            light,
-            newton,
-            at: Increments::default(),
-            steps: 0,
-            crossings: vec![],
-        })
-    }
-    // +1 apo (V - to +), -1 peri (V + to -), 0 no turn.
-    fn step(&mut self, times: bool, escape: Option<i128>) -> Result<i32> {
-        let before = self.s;
-        let trial = self.band.full.apply(before)?;
-        let turn = |s: State| (before.v < 0 && s.v >= 0) || (before.v > 0 && s.v <= 0);
-        #[cfg(feature = "profile")]
-        let exit_start = std::time::Instant::now();
-        let found = self.band.first_event(before, 1, STEP, escape, &mut 0)?;
-        #[cfg(feature = "profile")]
-        profile::add(|s| s.exits_ns += exit_start.elapsed().as_nanos());
-        let (h, end) = found.unwrap_or((STEP, trial));
-        if h == 0 {
+impl Tube {
+    pub fn position(&self, cycle: &Cycle, t: Words) -> Result<Position> {
+        if cycle.key != self.key {
             return Err(Error::Range);
         }
-        self.at.phi.add(h as u64)?;
-        if times {
-            #[cfg(feature = "profile")]
-            let clock_start = std::time::Instant::now();
-            let (t, tau) = clock(before, end, &self.band, h, self.key)?;
-            #[cfg(feature = "profile")]
-            profile::add(|s| s.clocks_ns += clock_start.elapsed().as_nanos());
-            self.at.t.add(t)?;
-            self.at.tau.add(tau)?;
-        }
-        self.steps += 1;
-        let turned = if turn(end) {
-            if before.v < 0 {
-                1
-            } else {
-                -1
-            }
-        } else {
-            0
-        };
-        self.s = end;
-        if self.s.u_q48() >= Q48 / 2 {
-            return Err(Error::Horizon);
-        }
-        if self.band.outside(end) {
-            let next = if end.v > 0 {
-                self.band.k - 1
-            } else {
-                self.band.k + 1
-            };
-            let (band, s) = Band::new(next, end, self.key, self.light, self.newton)?;
-            self.s = s;
-            self.band = band;
-            self.crossings.push(Crossing {
-                band: next,
-                state: s,
-                at: self.at,
-            });
-        }
-        Ok(turned)
+        let since = t.get().checked_sub(self.epoch.get()).ok_or(Error::Range)?;
+        cycle.position(words(since as u128 + self.phase.get() as u128)?)
     }
 }
 
 pub fn compile(key: Key) -> Result<Cycle> {
-    Key::new(key.energy.get(), key.angular.get())?;
-    if let Some(c) = local::compile_local(key)? {
-        return Ok(c);
-    }
     compile_variant(key, false)
 }
-/// The planted Newtonian variant shares all integer arithmetic and event rules.
+/// `newton = true` is the planted Newtonian law: the same machinery without the 2u³ term.
 pub fn compile_variant(key: Key, newton: bool) -> Result<Cycle> {
     Key::new(key.energy.get(), key.angular.get())?;
-    let u = key.periapsis()?;
-    let mut w = Walker::new(State::from_q48(u, 0)?, key, false, newton)?;
-    let start = w.s;
-    let start_band = w.band.k;
-    let mut apo = None;
-    for _ in 0..MAX_STEPS {
-        match w.step(true, None)? {
-            1 => apo = Some(w.s),
-            -1 if apo.is_some() => {
-                return Ok(Cycle {
-                    key,
-                    start,
-                    end: w.s,
-                    start_band,
-                    end_band: w.band.k,
-                    apo: apo.unwrap(),
-                    increments: w.at,
-                    crossings: w.crossings,
-                    steps: w.steps,
-                    local: None,
-                });
-            }
-            _ => {}
-        }
+    let shape = Shape::bound(key, newton)?;
+    let mut sums = [0i128; 3];
+    let mut crossings = Vec::new();
+    let mut lo = 0;
+    for (band, psi) in shape.cuts() {
+        shape.integrate(lo, psi, lo == 0, true, &mut sums)?;
+        crossings.push(Crossing { band, psi: Words::new(psi as u64), at: shape.convert(&sums, 1)? });
+        lo = psi;
     }
-    Err(Error::Budget)
+    shape.integrate(lo, PI, lo == 0, true, &mut sums)?;
+    Ok(Cycle {
+        key,
+        shape,
+        increments: shape.convert(&sums, 0)?,
+        half: shape.convert(&sums, 1)?,
+        crossings,
+    })
 }
 
-/// Trace an incoming ray or particle from u=1/10000 (light), u=1/100 (matter).
-/// Stop at absorption or the first outgoing return. No GR capture threshold.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Outcome {
+    Absorbed,
+    Escaped,
+}
+/// A body (`light = false`, E ≥ 1) or photon (`light = true`, E = 1, L = b) from infinity:
+/// absorbed, or escaped with the angle from its turning point to infinity (Q30).
 pub fn scatter(key: Key, light: bool) -> Result<(Outcome, Words)> {
     Key::new(key.energy.get(), key.angular.get())?;
     if light && key.energy.get() != 1 << 48 {
         return Err(Error::Range);
     }
-    let u = Q48 / if light { 10000 } else { 100 };
-    let radial = key.radial(u, light);
-    if radial < 0 {
+    let (_, beta, alpha, _) = key.radial(light);
+    if alpha < 0 {
         return Err(Error::Range);
     }
-    let v = sqrt((radial * Q48) as u128) as i128;
-    let mut w = Walker::new(State::from_q48(u, v)?, key, light, false)?;
-    for _ in 0..MAX_STEPS {
-        match w.step(false, Some(u)) {
-            Err(Error::Horizon) => return Ok((Outcome::Absorbed, w.at.phi)),
-            Err(e) => return Err(e),
-            _ => {}
-        }
-        if w.s.v < 0 && w.s.u_q48() <= u {
-            return Ok((Outcome::Escaped, w.at.phi));
-        }
+    if 6 * beta >= ONE {
+        return Ok((Outcome::Absorbed, Words::default()));
     }
-    Err(Error::Budget)
-}
-
-/// The exterior light tail: integer composite Simpson on u in [0,1/10000].
-/// 256 fixed panels; only used at ray creation. Returns its angle in Q30.
-pub fn light_tail(key: Key) -> Result<u64> {
-    Key::new(key.energy.get(), key.angular.get())?;
-    if key.energy.get() != 1 << 48 {
+    let k0 = isqrt(((ONE - 6 * beta) as u128) << 62) as i128;
+    let (umax, umin) = ((ONE - k0) / 6, (ONE + k0) / 6);
+    if radial_at(umin, beta, alpha) > 0 {
+        return Ok((Outcome::Absorbed, Words::default()));
+    }
+    let ut = bisect(umax, umin, |u| radial_at(u, beta, alpha) > 0);
+    // The other roots: z² − Sz + P = 0 with S = 1/2 − u_t, P = β/2 − u_t S.
+    let sum = (ONE >> 1) - ut;
+    let prod = (beta >> 1) - ((ut * sum) >> 62);
+    let disc = (((sum * sum) >> 62) - 4 * prod).max(0);
+    let sq = isqrt((disc as u128) << 62) as i128;
+    let (u0, u3) = (((sum - sq) >> 1).min(0), (sum + sq) >> 1);
+    let (c, a) = ((ut + u0) >> 1, (ut - u0) >> 1);
+    let shape = Shape { ua: u0 as i64, up: ut as i64, c: c as i64, a: a as i64, m3: (u3 - c) as i64, newton: false, pm: 0, pe: 0, e: 0 };
+    if 2 * (u3 - ut) < 1 << 20 {
         return Err(Error::Range);
     }
-    let n = 256;
-    let end = Q48 / 10000;
-    let mut sum = 0i128;
-    for i in 0..=n {
-        let u = end * i / n;
-        let r = key.radial(u, true);
-        if r <= 0 {
-            return Err(Error::Range);
-        }
-        let v = sqrt((r * Q48) as u128) as i128;
-        let f = (1i128 << 78) / v;
-        sum += f * if i == 0 || i == n {
-            1
-        } else if i % 2 == 0 {
-            2
-        } else {
-            4
-        };
-    }
-    u64c(rnd(sum * end, 3 * n * Q48))
+    let psi0 = match u0 {
+        0 => PI,
+        _ if ut <= -u0 => atan(ratio_sqrt(ut, -u0)),
+        _ => PI - atan(ratio_sqrt(-u0, ut)),
+    };
+    let mut sums = [0i128; 3];
+    shape.integrate(0, psi0, true, false, &mut sums)?;
+    Ok((Outcome::Escaped, words(sums[0] as u128 >> 73)?))
 }
 
 #[derive(Default)]
@@ -764,8 +646,8 @@ impl Memo {
     }
 }
 
-/// Signed first differences of increments, encoded as two's-complement word pairs.
-/// A quotient diff / key_step is a discrete sensitivity, not a real derivative.
+/// Signed first differences of the increments over explicit key steps. A kick's multiply-add
+/// through them is a predictor; the recompiled key is the authority.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Tangent {
     pub energy_step: Words,
@@ -790,30 +672,13 @@ impl Tangent {
         if energy_step == 0 || angular_step == 0 {
             return Err(Error::Range);
         }
-        let e = Key::new(
-            c.key
-                .energy
-                .get()
-                .checked_add(energy_step)
-                .ok_or(Error::Range)?,
-            c.key.angular.get(),
-        )?;
-        let l = Key::new(
-            c.key.energy.get(),
-            c.key
-                .angular
-                .get()
-                .checked_add(angular_step)
-                .ok_or(Error::Range)?,
-        )?;
-        let ce = compile(e)?;
-        let cl = compile(l)?;
-        let topology = |x: &Cycle| {
-            x.crossings
-                .iter()
-                .map(|a| a.band)
-                .eq(c.crossings.iter().map(|a| a.band))
+        let step = |de: u64, dl: u64| {
+            let e = c.key.energy.get().checked_add(de).ok_or(Error::Range)?;
+            let l = c.key.angular.get().checked_add(dl).ok_or(Error::Range)?;
+            compile(Key::new(e, l)?)
         };
+        let (ce, cl) = (step(energy_step, 0)?, step(0, angular_step)?);
+        let topology = |x: &Cycle| x.crossings.iter().map(|a| a.band).eq(c.crossings.iter().map(|a| a.band));
         if !topology(&ce) || !topology(&cl) {
             return Err(Error::Topology);
         }
@@ -824,25 +689,15 @@ impl Tangent {
             angular_diff: differences(c.increments, cl.increments)?,
         })
     }
-    /// Prediction only. Recompile and compare before making any canonical decision.
+    /// Prediction only. Recompile before any canonical decision.
     pub fn predict(&self, base: Increments, de: i64, dl: i64) -> Result<Increments> {
         let mut v = values(base);
         for (i, x) in v.iter_mut().enumerate() {
-            let e = rnd(
-                self.energy_diff[i].get() as i64 as i128 * de as i128,
-                self.energy_step.get() as i128,
-            );
-            let l = rnd(
-                self.angular_diff[i].get() as i64 as i128 * dl as i128,
-                self.angular_step.get() as i128,
-            );
-            *x = u64c(*x as i128 + e + l)?;
+            let e = self.energy_diff[i].get() as i64 as i128 * de as i128 / self.energy_step.get() as i128;
+            let l = self.angular_diff[i].get() as i64 as i128 * dl as i128 / self.angular_step.get() as i128;
+            *x = u64::try_from(*x as i128 + e + l).map_err(|_| Error::Range)?;
         }
-        Ok(Increments {
-            phi: Words::new(v[0]),
-            t: Words::new(v[1]),
-            tau: Words::new(v[2]),
-        })
+        Ok(Increments { phi: Words::new(v[0]), t: Words::new(v[1]), tau: Words::new(v[2]) })
     }
 }
 
@@ -853,46 +708,48 @@ mod tests {
         Key::darwin(20 << 16, 1 << 29).unwrap()
     }
     #[test]
-    fn shears_reverse_bit_for_bit_in_both_regimes() {
-        for k in [17, 30, 41, 100, 200] {
-            let u = edge_q48(k, true).unwrap();
-            let s = State::from_q48(u, u / 3).unwrap();
-            let (b, s) = Band::new(k, s, key(), true, false).unwrap();
-            for h in [1, 13, 1024, STEP / 2, STEP] {
-                let m = b.map(h).unwrap();
-                for (du, dv) in [(0, 0), (123, -33), (-876, 435), (-20000, -100000)] {
-                    let s = State {
-                        u: s.u + du,
-                        v: s.v + dv,
-                        ..s
-                    };
-                    assert_eq!(m.inverse(m.apply(s).unwrap()).unwrap(), s);
-                    assert_eq!(m.apply(m.inverse(s).unwrap()).unwrap(), s);
-                }
-            }
+    fn bands_from_bits_agree_with_the_edges() {
+        for k in 16..400 {
+            assert_eq!(band(edge(k)), k, "at edge {k}");
+            assert_eq!(band(edge(k) - 1), k, "inside {k}");
+            assert_eq!(band(edge(k) + 1), k - 1, "outside {k}");
         }
     }
     #[test]
     fn bit_identical_compilation_and_memo_hits() {
         let a = compile(key()).unwrap();
-        let b = compile(key()).unwrap();
-        assert_eq!(a, b);
+        assert_eq!(a, compile(key()).unwrap());
         let mut memo = Memo::default();
-        let c = memo.get(key()).unwrap();
-        let d = memo.get(key()).unwrap();
+        let (c, d) = (memo.get(key()).unwrap(), memo.get(key()).unwrap());
         assert!(Arc::ptr_eq(&c, &d));
         assert_eq!(memo.len(), 1);
-        assert!(a.periodic());
-        assert_eq!(
-            a.repeat(10000).unwrap().phi.get(),
-            a.increments.phi.get() * 10000
-        );
+        assert_eq!(a.repeat(10000).unwrap().phi.get(), a.increments.phi.get() * 10000);
     }
     #[test]
-    fn bit_band_lookup_agrees_at_every_centre() {
-        for k in 16..320 {
-            let s = State::from_q48(edge_q48(k, true).unwrap(), 0).unwrap();
-            assert_eq!(band_index(s).unwrap(), k);
+    fn the_crossing_table_is_ordered_and_mirrors() {
+        let c = compile(key()).unwrap();
+        assert!(!c.crossings.is_empty());
+        for w in c.crossings.windows(2) {
+            assert_eq!(w[1].band, w[0].band + 1);
+            let g = |x: &Crossing| [x.psi.get(), x.at.phi.get(), x.at.t.get(), x.at.tau.get()];
+            assert!(g(&w[1]).iter().zip(g(&w[0])).all(|(b, a)| *b > a), "{w:?}");
+        }
+        let period = c.increments.t.get();
+        for f in [1u64, 3, 5, 7, 11] {
+            let t = period * f / 23;
+            let (a, b) = (c.position(Words::new(t)).unwrap(), c.position(Words::new(period - t)).unwrap());
+            assert!(a.outbound && !b.outbound);
+            assert_eq!((a.u, a.band), (b.u, b.band));
+            assert_eq!(a.phi.get() + b.phi.get(), c.increments.phi.get());
+        }
+    }
+    #[test]
+    fn a_position_at_a_crossing_time_is_on_its_edge() {
+        let c = compile(key()).unwrap();
+        for x in &c.crossings {
+            let p = c.position(x.at.t).unwrap();
+            let e = edge(x.band);
+            assert!((p.u as i128 - e).abs() < e >> 20, "u {} edge {e}", p.u);
         }
     }
     #[test]
@@ -901,263 +758,25 @@ mod tests {
         let t = Tangent::create(&c, 1 << 24, 1 << 16).unwrap();
         assert_eq!(t.predict(c.increments, 0, 0).unwrap(), c.increments);
         let perturbed = Key::new(c.key.energy.get() + (1 << 24), c.key.angular.get()).unwrap();
-        assert_eq!(
-            t.predict(c.increments, 1 << 24, 0).unwrap(),
-            compile(perturbed).unwrap().increments
-        );
+        assert_eq!(t.predict(c.increments, 1 << 24, 0).unwrap(), compile(perturbed).unwrap().increments);
     }
     #[test]
-    fn oscillator_coefficient_and_rounding_bounds() {
-        for k in [17, 30, 41, 70, 140, 220] {
-            let uk = edge_q48(k, true).unwrap();
-            let s = State::from_q48(uk, uk / 5).unwrap();
-            let (b, s) = Band::new(k, s, key(), true, false).unwrap();
-            let w2 = b.w2 as f64 / Q48 as f64;
-            let f = b.rhs as f64 / Q48 as f64;
-            let h = STEP as f64 / Q30 as f64;
-            let (a, bb) = if w2 > 0.0 {
-                let w = w2.sqrt();
-                ((w * h / 2.0).tan() / w, (w * h).sin() / w)
-            } else {
-                let w = (-w2).sqrt();
-                ((w * h / 2.0).tanh() / w, (w * h).sinh() / w)
-            };
-            let m = b.full;
-            let coef_bound = 0.5 / Q30 as f64 + 5e-13;
-            assert!((m.a as f64 / Q30 as f64 - a).abs() <= coef_bound);
-            assert!((m.k as f64 / Q30 as f64 - w2 * bb).abs() <= coef_bound);
-            let q = 2f64.powi(b.exponent);
-            assert!((m.j as f64 * q - f * bb).abs() <= q / 2.0 + f.abs() * 5e-16);
-            let got = m.apply(s).unwrap();
-            let a = m.a as f64 / Q30 as f64;
-            let k = m.k as f64 / Q30 as f64;
-            let u1 = s.u as f64 + a * s.v as f64;
-            let v1 = s.v as f64 - k * u1 + m.j as f64;
-            let u2 = u1 + a * v1;
-            assert!((got.v as f64 - v1).abs() <= 0.5 * (1.0 + k.abs()) + 1e-6);
-            assert!((got.u as f64 - u2).abs() <= 0.5 * (2.0 + a.abs() * (1.0 + k.abs())) + 1e-6);
-        }
+    fn the_planted_newtonian_law_closes() {
+        let c = compile_variant(key(), true).unwrap();
+        let tau = 6746518852u64; // 2π in Q30
+        assert!(c.increments.phi.get().abs_diff(tau) < 8, "{:?}", c.increments);
     }
-}
-
-/// Outward enclosures use integer endpoint extrema; no floating padding.
-#[derive(Clone, Copy)]
-struct Interval {
-    lo: i64,
-    hi: i64,
-}
-impl Interval {
-    fn point(x: i32) -> Self {
-        Self {
-            lo: x as i64,
-            hi: x as i64,
-        }
-    }
-    fn ends(a: i32, b: i32) -> Self {
-        Self {
-            lo: a.min(b) as i64,
-            hi: a.max(b) as i64,
-        }
-    }
-    fn add(self, b: Self) -> Self {
-        Self {
-            lo: self.lo + b.lo,
-            hi: self.hi + b.hi,
-        }
-    }
-    fn sub(self, b: Self) -> Self {
-        Self {
-            lo: self.lo - b.hi,
-            hi: self.hi - b.lo,
-        }
-    }
-    fn product(self, b: Self) -> Result<Self> {
-        let mut lo = i64::MAX;
-        let mut hi = i64::MIN;
-        for a in [self.lo, self.hi] {
-            for b in [b.lo, b.hi] {
-                let x = round_shift(a.checked_mul(b).ok_or(Error::Range)?, 30);
-                lo = lo.min(x);
-                hi = hi.max(x);
-            }
-        }
-        Ok(Self { lo, hi })
-    }
-}
-impl Band {
-    fn event_possible(
-        &self,
-        s: State,
-        a: Map,
-        b: Map,
-        blo: i64,
-        bhi: i64,
-        escape: Option<i128>,
-    ) -> Result<bool> {
-        let aa = Interval::ends(a.a, b.a);
-        let kk = Interval::ends(a.k, b.k);
-        let jj = Interval::ends(a.j, b.j);
-        let u1 = Interval::point(s.u).add(aa.product(Interval::point(s.v))?);
-        let mut v1 = Interval::point(s.v).sub(kk.product(u1)?).add(jj);
-        // Keep the common H factor: J and K*U nearly cancel on circular orbits.
-        let fl = self.force_q30 - self.w2_q30 as i64 * u1.lo;
-        let fh = self.force_q30 - self.w2_q30 as i64 * u1.hi;
-        let force = Interval {
-            lo: fl.min(fh).div_euclid(Q30),
-            hi: -(-fl.max(fh)).div_euclid(Q30),
-        };
-        let hh = Interval {
-            lo: blo.div_euclid(4),
-            hi: -(-bhi).div_euclid(4),
-        };
-        let acc = hh.product(force)?;
-        let slack = 6; // includes coefficient, force and product rounding (U<2^31).
-        v1.lo = v1.lo.max(s.v as i64 + acc.lo - slack);
-        v1.hi = v1.hi.min(s.v as i64 + acc.hi + slack);
-        let u2 = u1.add(aa.product(v1)?);
-        let turn = (s.v < 0 && v1.hi >= 0) || (s.v > 0 && v1.lo <= 0);
-        let edge = (u2.lo <= self.lo as i64 && v1.lo < 0) || (u2.hi >= self.hi as i64 && v1.hi > 0);
-        let escape = if let Some(u) = escape {
-            v1.lo < 0 && shift(u2.lo as i128, self.exponent + 48)? <= u
-        } else {
-            false
-        };
-        Ok(turn || edge || escape)
-    }
-    fn first_event(
-        &self,
-        s: State,
-        lo: u32,
-        hi: u32,
-        escape: Option<i128>,
-        visits: &mut u32,
-    ) -> Result<Option<(u32, State)>> {
-        let a = self.evaluate(lo)?;
-        let b = if hi == STEP {
-            (self.full, self.full_b)
-        } else {
-            self.evaluate(hi)?
-        };
-        self.search(s, lo, hi, a, b, escape, visits)
-    }
-    #[allow(clippy::too_many_arguments)]
-    fn search(
-        &self,
-        s: State,
-        lo: u32,
-        hi: u32,
-        a: (Map, i64),
-        b: (Map, i64),
-        escape: Option<i128>,
-        visits: &mut u32,
-    ) -> Result<Option<(u32, State)>> {
-        *visits += 1;
-        #[cfg(feature = "profile")]
-        profile::add(|s| s.nodes += 1);
-        if *visits > 131072 {
-            return Err(Error::Budget);
-        }
-        if !self.event_possible(s, a.0, b.0, a.1, b.1, escape)? {
-            return Ok(None);
-        }
-        if lo == hi {
-            let t = a.0.apply(s)?;
-            let event = (s.v < 0 && t.v >= 0)
-                || (s.v > 0 && t.v <= 0)
-                || self.outside(t)
-                || escape.is_some_and(|u| t.v < 0 && t.u_q48() <= u);
-            return Ok(event.then_some((lo, t)));
-        }
-        let mid = (lo + hi) / 2;
-        let m = if mid == lo { a } else { self.evaluate(mid)? };
-        if let Some(hit) = self.search(s, lo, mid, a, m, escape, visits)? {
-            return Ok(Some(hit));
-        }
-        let m = if mid + 1 == hi {
-            b
-        } else {
-            self.evaluate(mid + 1)?
-        };
-        self.search(s, mid + 1, hi, m, b, escape, visits)
-    }
-}
-
-#[cfg(test)]
-mod exit_tests {
-    use super::*;
-    #[test]
-    fn first_integer_exit_agrees_with_exhaustive_search() {
-        let key = Key::darwin(20 << 16, 1 << 29).unwrap();
-        let mut hits = 0;
-        for k in [17, 30, 70, 150] {
-            let s = State::from_q48(edge_q48(k, true).unwrap(), 0).unwrap();
-            let (b, s) = Band::new(k, s, key, false, false).unwrap();
-            for (u, v) in [
-                (b.lo + 1, -5000000),
-                (b.hi - 1, 5000000),
-                (s.u, -1),
-                (s.u, 1),
-                (s.u, 0),
-            ] {
-                let s = State { u, v, ..s };
-                let predicate =
-                    |t: State| b.outside(t) || (s.v < 0 && t.v >= 0) || (s.v > 0 && t.v <= 0);
-                let brute = (1..=4096).find_map(|h| {
-                    let t = b.map(h).unwrap().apply(s).unwrap();
-                    predicate(t).then_some((h, t))
-                });
-                let got = b.first_event(s, 1, 4096, None, &mut 0).unwrap();
-                assert_eq!(got, brute, "k={k} state={s:?}");
-                hits += usize::from(got.is_some());
-            }
-        }
-        assert!(hits >= 8, "only {hits} positive exit cases");
-    }
-}
-
-/// Nonperiodic diagnostic evolution; used to test the two ISCO cases without a
-/// GR stability classifier. Return Budget if the requested angle was not reached.
-pub fn trace_until(key: Key, u_q48: u64, v_q48: i64, phi_q30: u64) -> Result<Outcome> {
-    Key::new(key.energy.get(), key.angular.get())?;
-    let mut w = Walker::new(
-        State::from_q48(u_q48 as i128, v_q48 as i128)?,
-        key,
-        false,
-        false,
-    )?;
-    for _ in 0..1_000_000 {
-        match w.step(false, None) {
-            Err(Error::Horizon) => return Ok(Outcome::Absorbed),
-            Err(e) => return Err(e),
-            _ => {}
-        }
-        if w.at.phi.get() >= phi_q30 {
-            return Ok(Outcome::AngleReached);
-        }
-    }
-    Err(Error::Budget)
-}
-
-#[cfg(test)]
-mod domain_tests {
-    use super::*;
     #[test]
     fn invalid_inputs_are_explicit_errors() {
         assert_eq!(Key::new(1 << 48, 1), Err(Error::Range));
         assert_eq!(Key::new(0, 4 << 32), Err(Error::Range));
-        assert_eq!(
-            scatter(Key::new(2 << 48, 4 << 32).unwrap(), true),
-            Err(Error::Range)
-        );
+        assert_eq!(scatter(Key::new(2 << 48, 4 << 32).unwrap(), true), Err(Error::Range));
         assert_eq!(Key::darwin(u32::MAX, 1 << 29), Err(Error::NoBoundOrbit));
         assert_eq!(Key::darwin(5 << 16, 0), Err(Error::NoBoundOrbit));
-        assert_eq!(
-            compile(Key {
-                energy: Words::new(0),
-                angular: Words::new(0)
-            }),
-            Err(Error::Range)
-        );
+        assert_eq!(compile(Key { energy: Words::new(0), angular: Words::new(0) }), Err(Error::Range));
+        // Unbound and plunging keys are not cycles.
+        assert_eq!(compile(Key::new(1 << 48, 5 << 32).unwrap()).map(|_| ()), Err(Error::NoBoundOrbit));
+        assert_eq!(compile(Key::new((1 << 48) - (1 << 40), 3 << 32).unwrap()).map(|_| ()), Err(Error::NoBoundOrbit));
     }
     #[test]
     fn capture_cases_are_answered_not_errors_disguised_as_escape() {
@@ -1167,11 +786,7 @@ mod domain_tests {
             assert_eq!(out == Outcome::Absorbed, factor < 1.0);
         }
         for factor in [0.9f64, 0.97, 1.03, 1.1] {
-            let key = Key::new(
-                1 << 48,
-                (3.0 * 3f64.sqrt() * factor * 4294967296.0).round() as u64,
-            )
-            .unwrap();
+            let key = Key::new(1 << 48, (3.0 * 3f64.sqrt() * factor * 4294967296.0).round() as u64).unwrap();
             let (out, _) = scatter(key, true).unwrap();
             assert_eq!(out == Outcome::Absorbed, factor < 1.0);
         }
