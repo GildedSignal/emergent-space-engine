@@ -83,6 +83,7 @@ fn rel_err(a: f64, b: f64) -> f64 {
 }
 
 pub fn b13(law: &dyn Law) -> Gate {
+    let _quiet = super::scale::QUIET.read().unwrap_or_else(|e| e.into_inner());
     let scene = JUPITER;
     let (mut ok, mut judged, mut never, mut unconverged) = (0, 0, 0, 0);
     let (mut worst_e, mut worst_l) = (0.0f64, 0.0f64);

@@ -13,9 +13,8 @@
 //!     [--gates G1,B7,...]
 //! ```
 //! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
-//! `--gates` picks gates (default: the nine of the single-mass core, `select::CORE`; B11-B14 are
-//! named). Every phase is killed and reported as a failure if it runs past 60 s. Exit 0 iff every
-//! gate that ran passes.
+//! `--gates` picks gates (default: all thirteen). Every phase is killed and reported as a failure
+//! if it runs past 60 s. Exit 0 iff every gate that ran passes.
 pub mod assist;
 pub mod binary;
 pub mod clocks;
@@ -201,7 +200,7 @@ fn g6(rows: &[Orbit]) -> Gate {
 }
 
 /// Runs the gates of the single-mass core (`select::CORE`) on `law`, arming `watch` on each phase and
-/// calling `emit` as each gate lands. The events layer's gates B11-B14 run through `judge_only`.
+/// calling `emit` as each gate lands. The CLI runs all thirteen through `judge_only`.
 #[allow(dead_code)] // the core entry point: the CLI goes through `judge_only`
 pub fn judge(law: &dyn Law, watch: Option<&Watch>, emit: impl FnMut(&Gate)) -> Vec<Gate> {
     judge_only(law, watch, Some(&select::CORE), emit)
@@ -265,7 +264,7 @@ pub fn run(args: Vec<String>) -> Result<u8> {
         println!("machine_state {}", machine_state("end"));
         std::process::exit(1);
     });
-    let gates = judge_only(&*law, Some(&watch), Some(cli.gates.as_deref().unwrap_or(&select::CORE)), |g| println!("{} {} {} [{:.2} s]", g.id, if g.pass { "PASS" } else { "FAIL" }, g.detail, g.secs));
+    let gates = judge_only(&*law, Some(&watch), cli.gates.as_deref(), |g| println!("{} {} {} [{:.2} s]", g.id, if g.pass { "PASS" } else { "FAIL" }, g.detail, g.secs));
     println!("machine_state {}", machine_state("end"));
     let failed: Vec<&str> = gates.iter().filter(|g| !g.pass).map(|g| g.id).collect();
     let picked = cli.gates.as_ref().map_or(String::new(), |g| format!(" ({})", g.join(" ")));
@@ -444,6 +443,14 @@ mod events_tests {
     fn a_law_that_implements_none_of_the_events_gates_fails_exactly_them() {
         // The trait defaults are "not implemented": B11-B14 fail (the core gates are `Old`'s test above).
         assert_eq!(failing(&Silent), EVENTS);
+    }
+
+    #[test]
+    fn the_default_run_is_all_thirteen_gates_and_a_law_without_the_new_methods_fails_b7_b9_b10_and_b11_to_b14_in_it() {
+        // `--gates` omitted is `only = None`: every gate, in the judge's order.
+        let gates = judge_only(&Silent, None, None, |_| {});
+        assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), select::ALL);
+        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14"]);
     }
 
     #[test]

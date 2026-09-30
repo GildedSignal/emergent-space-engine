@@ -1,5 +1,5 @@
 //! The arguments of `behave`: `--law NAME` and `--gates ID[,ID...]`, each also as `--flag=value`,
-//! in any order. Gate ids are case-insensitive. No `--gates` means the core gates (`CORE`).
+//! in any order. Gate ids are case-insensitive. No `--gates` means every gate.
 
 /// Every gate the judge runs, in the order it runs them. B8 (determinism) is an engine test, not a behaviour.
 pub const ALL: [&str; 13] = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10", "B11", "B12", "B13", "B14"];

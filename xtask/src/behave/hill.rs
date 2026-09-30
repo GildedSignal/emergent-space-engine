@@ -13,6 +13,7 @@
 //! - PASS iff at least 64 seeds are judged and at least 99% of them have the reference's class.
 use super::restricted::{Integrator, Model, Restricted, JUPITER, RTOL, RTOL_FINE};
 use super::{sample, Gate, Law};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
 
 pub const SEEDS: usize = 128;
@@ -66,33 +67,53 @@ pub enum Truth {
     Unconverged,
 }
 
+/// The reference's verdict on moon `i` of the draws: the ship and what the reference makes of it.
+fn assess(scene: &Restricted, times: &[f64], i: usize, (a_hill, phase): (f64, f64)) -> ([f64; 4], Truth) {
+    let (a, prograde) = (a_hill * scene.hill(), i % 2 == 0);
+    let ship = moon(scene, a, phase, prograde);
+    let class = reference_escapes(scene, times, ship, RTOL);
+    let truth = match class {
+        None => Truth::Unconverged,
+        Some(_) if class != reference_escapes(scene, times, ship, RTOL_FINE) => Truth::Unconverged,
+        Some(_) if class != reference_escapes(scene, times, moon(scene, a * (1.0 + NUDGE), phase, prograde), RTOL) => Truth::Chaotic,
+        Some(c) => Truth::Class(c),
+    };
+    (ship, truth)
+}
+
 /// The moons, with the reference's verdict on each. None of this depends on the law, so it is
-/// computed once per process.
+/// computed once per process, on up to four threads (each moon is independent of the others, so
+/// the answer does not depend on the schedule).
 pub fn moons() -> &'static Vec<([f64; 4], Truth)> {
     static MOONS: OnceLock<Vec<([f64; 4], Truth)>> = OnceLock::new();
     MOONS.get_or_init(|| {
         let scene = JUPITER;
-        let times = times(&scene);
-        sample::moons(SEEDS)
-            .into_iter()
-            .enumerate()
-            .map(|(i, (a_hill, phase))| {
-                let (a, prograde) = (a_hill * scene.hill(), i % 2 == 0);
-                let ship = moon(&scene, a, phase, prograde);
-                let class = reference_escapes(&scene, &times, ship, RTOL);
-                let truth = match class {
-                    None => Truth::Unconverged,
-                    Some(_) if class != reference_escapes(&scene, &times, ship, RTOL_FINE) => Truth::Unconverged,
-                    Some(_) if class != reference_escapes(&scene, &times, moon(&scene, a * (1.0 + NUDGE), phase, prograde), RTOL) => Truth::Chaotic,
-                    Some(c) => Truth::Class(c),
-                };
-                (ship, truth)
-            })
-            .collect()
+        let (times, draws, next) = (times(&scene), sample::moons(SEEDS), AtomicUsize::new(0));
+        let threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(4);
+        let mut done: Vec<(usize, ([f64; 4], Truth))> = std::thread::scope(|scope| {
+            let workers: Vec<_> = (0..threads)
+                .map(|_| {
+                    scope.spawn(|| {
+                        let mut mine = Vec::new();
+                        loop {
+                            let i = next.fetch_add(1, Ordering::Relaxed);
+                            if i >= SEEDS {
+                                return mine;
+                            }
+                            mine.push((i, assess(&scene, &times, i, draws[i])));
+                        }
+                    })
+                })
+                .collect();
+            workers.into_iter().flat_map(|w| w.join().expect("a moon's reference panicked")).collect()
+        });
+        done.sort_by_key(|d| d.0);
+        done.into_iter().map(|d| d.1).collect()
     })
 }
 
 pub fn b14(law: &dyn Law) -> Gate {
+    let _quiet = super::scale::QUIET.read().unwrap_or_else(|e| e.into_inner());
     let scene = JUPITER;
     let times = times(&scene);
     let (mut judged, mut agree, mut escapes) = (0, 0, 0);

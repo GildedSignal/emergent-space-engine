@@ -18,7 +18,12 @@
 //!   them (more than 10% of the ships not converged fails the gate) and reports this run's counts.
 //! - The law is asked for the ship's states every P/8. Per ship, err(t) = |C_J(t) − C_J(0)|/|C_J(0)|
 //!   at those samples and its growth exponent is `fit::growth_exponent(err)`.
-//! - PASS iff the median ship's exponent is at most 0.2 and every ship's largest err is at most 1e-4.
+//! - Floor: float64 cannot keep an error below its own rounding, and the window maxima of a pure
+//!   noise series rise with the window width (exponent 0.1 to 0.3 for a perfect law). So a ship
+//!   whose err never exceeds 1e-12 has no growth to measure, and the exponent is judged only on the
+//!   ships that rise above the floor. If none does, the median ship has no growth.
+//! - PASS iff the median exponent among the ships above the floor is at most 0.2 and every ship's
+//!   largest err is at most 1e-4.
 use super::restricted::{self, Integrator, Model, Restricted, JUPITER, RTOL, RTOL_FINE};
 use super::{fit, sample, Gate, Law, GROWTH_MAX};
 use std::sync::OnceLock;
@@ -27,10 +32,13 @@ pub const PERIODS: usize = 200;
 /// Law samples per period, and the finer samples the crossings are counted on.
 pub const COARSE: usize = 8;
 pub const FINE: usize = 256;
+#[cfg(test)]
 pub const CANDIDATES: usize = 256;
 pub const KEEP: usize = 16;
 pub const CROSSINGS_MIN: usize = 20;
 pub const ERR_MAX: f64 = 1e-4;
+/// A ship whose err never exceeds this (relative) has exponent 0 and is not judged on it.
+pub const FLOOR: f64 = 1e-12;
 /// The reference's Jacobi constant must agree between its two tolerances to this, relative.
 pub const CONVERGED: f64 = 1e-9;
 /// The share of kept ships that may be excluded.
@@ -84,9 +92,10 @@ fn assess(scene: &Restricted, ship: [f64; 4]) -> Option<(usize, bool)> {
     Some((crossings, finer.is_some_and(|f| f.iter().zip(&times).zip(&reference).all(|((s, &t), &c)| ((scene.jacobi(t, s) - c) / c0).abs() <= CONVERGED))))
 }
 
-/// The search of the contract, run once to freeze `sample::HANDOFF_KEPT`: the indices of the
+/// The search of the contract, run once to freeze `sample::HANDOFF_KEPT` (only the ignored test runs it): the indices of the
 /// first 16 candidates that cross R_SOI at least 20 times with a converged reference, how many
 /// candidates it drew, and how many crossed enough but were not converged (excluded).
+#[cfg(test)]
 pub fn search() -> (Vec<usize>, usize, usize) {
     let scene = JUPITER;
     let (mut kept, mut tried, mut excluded) = (Vec::new(), 0, 0);
@@ -143,24 +152,31 @@ fn err_series(scene: &Restricted, law: &dyn Law, ship: [f64; 4], times: &[f64]) 
 }
 
 pub fn b12(law: &dyn Law) -> Gate {
+    let _quiet = super::scale::QUIET.read().unwrap_or_else(|e| e.into_inner());
     let scene = JUPITER;
     let kept = kept();
     let times = coarse_times(&scene);
-    let (mut exponents, mut worst_err) = (Vec::new(), 0.0f64);
+    let (mut converged, mut rising, mut worst_err) = (0, Vec::new(), 0.0f64);
     for k in kept.iter().filter(|k| k.converged) {
         let err = err_series(&scene, law, k.ship, &times);
-        exponents.push(fit::growth_exponent(&err));
-        worst_err = err.iter().fold(worst_err, |m, e| if m.is_nan() || e.is_nan() { f64::NAN } else { m.max(*e) });
+        let top = err.iter().fold(0.0f64, |m, e| if m.is_nan() || e.is_nan() { f64::NAN } else { m.max(*e) });
+        converged += 1;
+        worst_err = if worst_err.is_nan() || top.is_nan() { f64::NAN } else { worst_err.max(top) };
+        // NaN is not under the floor: a junk series has an exponent, and it is NaN.
+        if !(top <= FLOOR) {
+            rising.push(fit::growth_exponent(&err));
+        }
     }
-    let excluded = kept.len() - exponents.len();
-    let (median_exp, worst_exp) = (median(exponents.clone()), exponents.iter().fold(f64::NEG_INFINITY, |m, &e| if e.is_nan() { f64::INFINITY } else { m.max(e) }));
+    let excluded = kept.len() - converged;
+    let (median_exp, worst_exp) = (if rising.is_empty() { 0.0 } else { median(rising.clone()) }, if rising.is_empty() { 0.0 } else { rising.iter().fold(f64::NEG_INFINITY, |m: f64, &e| if e.is_nan() { f64::INFINITY } else { m.max(e) }) });
     let pass = kept.len() >= KEEP && excluded as f64 <= EXCLUDED_MAX * kept.len() as f64 && median_exp <= GROWTH_MAX && worst_err <= ERR_MAX;
     let crossings = |f: fn(usize, usize) -> usize| kept.iter().map(|k| k.crossings).reduce(f).unwrap_or(0);
     let detail = format!(
-        "handoffs: {} frozen ships (this run's reference crosses R_SOI {}..{} times, at least {CROSSINGS_MIN} when frozen), {excluded} not converged; median growth exponent {median_exp:.3} (limit {GROWTH_MAX}), worst {worst_exp:.3}; worst err {worst_err:.2e} (limit {ERR_MAX:.0e})",
+        "handoffs: {} frozen ships (this run's reference crosses R_SOI {}..{} times, at least {CROSSINGS_MIN} when frozen), {excluded} not converged; {} of {converged} judged ships rise above the {FLOOR:.0e} floor, median growth exponent among them {median_exp:.3} (limit {GROWTH_MAX}), worst {worst_exp:.3}; worst err {worst_err:.2e} (limit {ERR_MAX:.0e})",
         kept.len(),
         crossings(usize::min),
-        crossings(usize::max)
+        crossings(usize::max),
+        rising.len()
     );
     Gate { id: "B12", pass, detail, secs: 0.0 }
 }
@@ -243,6 +259,28 @@ mod tests {
         let (scene, times) = (JUPITER, coarse_times(&JUPITER));
         let err = err_series(&scene, &leak, kept()[0].ship, &times);
         assert!(err.iter().all(|&e| e < 1e-6) && fit::growth_exponent(&err) > 0.8, "{}", fit::growth_exponent(&err));
+    }
+
+    /// echo with every speed scaled by 1 + eps: a smooth, bounded error of about 2.7·eps.
+    fn scaled(eps: f64) -> Events {
+        events(move |scene, ship, times| Some(Echo.restricted(scene, ship, times)?.into_iter().map(|st| [st[0], st[1], st[2] * (1.0 + eps), st[3] * (1.0 + eps)]).collect()))
+    }
+
+    #[test]
+    fn ships_whose_error_stays_under_the_floor_are_not_judged_on_the_exponent() {
+        // Echo's error is float64's own, 2e-15. A smooth error of 8e-13 is under the floor too.
+        for law in [&Echo as &dyn Law, &scaled(3e-13)] {
+            let g = b12(law);
+            assert!(g.pass && g.detail.contains(" 0 of 16 judged ships rise above the 1e-12 floor") && g.detail.contains("median growth exponent among them 0.000"), "{}", g.detail);
+        }
+    }
+
+    #[test]
+    fn a_smooth_bounded_error_above_the_floor_is_judged_and_passes_and_a_junk_series_is_judged_and_fails() {
+        let g = b12(&scaled(1e-11));
+        assert!(g.pass && g.detail.contains(" 16 of 16 judged ships rise above the 1e-12 floor"), "{}", g.detail);
+        let g = b12(&events(|_, _, times| Some(times.iter().map(|_| [f64::NAN; 4]).collect())));
+        assert!(!g.pass && g.detail.contains(" 16 of 16 judged ships rise above"), "{}", g.detail);
     }
 
     #[test]
