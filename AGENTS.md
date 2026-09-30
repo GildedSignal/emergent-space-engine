@@ -31,7 +31,7 @@
 - **Before any freeze,** one GLM red-team and the cheapest falsifying probe must have run. The red-team attacks the premise against PRINCIPLES.md before it attacks the letter.
 - **Guards against drift and sunk cost.**
   - Every specialist prompt begins with PRINCIPLES.md's goal and philosophy, verbatim.
-  - Every step has a budget in windows or days. When it runs over, stop and re-derive the step from the goal instead of extending it.
+  - No time estimates: progress is a rough % and principles. A step whose builder passes no new gate across two consecutive work windows stops and is re-derived from the goal instead of extended.
   - Every statement of Julien's enters the register in PRINCIPLES.md, and stays until it is followed or disproven with evidence.
 - **Specialists** work in `/private/tmp/emergent-wt-<task>` on `wt/<task>`, and job files live in `artifacts/runs/<id>/`. The integrator merges, then deletes the branch and worktree. Heavy work that needs neither Metal nor timing may run in a cloud session.
 

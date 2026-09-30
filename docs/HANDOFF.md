@@ -29,14 +29,16 @@ Job files: `artifacts/runs/<id>/` (on disk, not in git). Older prompts and outpu
 
 ## Headed next (in order; approved by Julien)
 
-The pivot plan, approved by Julien: `~/.claude/plans/whimsical-snuggling-graham.md`. The design is [representation.md](representation.md) (DRAFT). Budgets are per phase; an overrun means re-deriving the phase from the goal. No calendar dates.
-0. **The lab** (half a day): the environment, the rung mode, canaries that must give PASS and KILL correctly.
-1. **The float falsifier ladder** (at most a day per rung, all in parallel on GLM, a premise red-team first). r1–r3 gate the law; r5–r7 may finish later.
-2. **The written integer law** `docs/law.md` (`es-space-v2`) and gates B0–B10 (2–3 days). The freeze comes once r1–r3 pass and the red-team is answered. Opus writes the law; Astra's one window before the Codex reset takes the integer cycle compiler and its bound; GLM runs the law red-team.
-3. **`crates/space`, the core as the one engine** (2 weeks). Claude and OpenAI build by module, and each builds the judge (`xtask behave`) of the other's modules. Astra does the resolver, the carries and order equivalence. Rungs: one mass, two, N, then B10 on the M1.
-4. **Retirement and ladder v8** (3 days), once B8 digests match across orders, threads, CPU/GPU and sabotage.
-5. **The view, then the player slice** (2 weeks).
-6. **AI and populations** (2 weeks).
+The pivot plan: `~/.claude/plans/whimsical-snuggling-graham.md`, reordered by Julien on 30 September to fly early (Skunk Works: the builders sit by the shop floor, reports are minimal, the builder tests its own product, and the product flies early). The design is [representation.md](representation.md) (DRAFT). **No time estimates, ever** (Julien, 30 September): progress is stated as a rough % and principles. **The guard against drift:** a step whose builder passes no new gate across two consecutive work windows stops and is re-derived from the goal.
+0. **The lab:** done.
+1. **The float falsifier ladder:** r1 and r2 done; r3 v3, r4 v2, r7 running; r8 queued. Only r3 and r4 gate the law.
+2. **The law** `docs/law.md` (`es-space-v2`) and gates B0–B14. The freeze comes once the space law passes its gates, r3 and r4 are judged, and the GLM red-team is answered.
+3. **The core, one mass:** `crates/space`, the exact cycle compiler (Opus now).
+4. **The events layer:** dolls, tubes, one queue, handoffs, tides, binaries, judged by B11–B14 (Sol next).
+5. **The player slice, moved up:** one ship with thrust (rapidity kinks) in a star–planet system, the view gathered at the past light cone, clocks, Doppler, aberration and lensing visible. Julien flies it. The view starts as soon as the cycle compiler merges, in parallel with the events layer.
+6. **Scale,** in parallel with the slice: encounters and contacts (r8), N bodies, B10 on the M1, the dense order on Metal.
+7. **AI and populations** (r7 first).
+8. **Retirement and ladder v8,** last, once B8 digests match across orders, threads, CPU/GPU and sabotage.
 
 Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). The spine (contracts, builds, merges) runs one job at a time; the GLM lab runs in parallel in the cloud.
 
