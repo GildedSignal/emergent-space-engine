@@ -3,25 +3,36 @@
 //! oracle (docs/PRINCIPLES.md: behaviours over many seeds, error type over error size).
 //! It knows no engine type and imports no physics crate: a law is anything that implements [`Law`].
 //! G1-G6 mirror lab/rungs/r1-rings.md; B7, B9 and B10 are the law's clock, cost and scaling gates (docs/law.md).
+//! B11-B14 judge the events layer: binaries (1PN oracle), handoffs (Jacobi constant), assists
+//! (heliocentric energy and angular momentum) and Hill stability, the last three against the
+//! float64 circular restricted three-body problem (`restricted`).
 //!
 //! ```text
 //! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture|
-//!     planted-clock|planted-steps|planted-quadratic] [--gates G1,B7,...]
+//!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift]
+//!     [--gates G1,B7,...]
 //! ```
 //! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
-//! `--gates` picks gates (default: all). Every phase is killed and reported as a failure if it
-//! runs past 60 s. Exit 0 iff every gate that ran passes.
+//! `--gates` picks gates (default: the nine of the single-mass core, `select::CORE`; B11-B14 are
+//! named). Every phase is killed and reported as a failure if it runs past 60 s. Exit 0 iff every
+//! gate that ran passes.
+pub mod assist;
+pub mod binary;
 pub mod clocks;
 pub mod cost;
 pub mod fit;
+pub mod handoff;
+pub mod hill;
 pub mod laws;
 pub mod oracle;
+pub mod restricted;
 pub mod scale;
 pub mod select;
 pub mod sample;
 pub mod space;
 
 use crate::measure::{machine_state, Watch};
+use restricted::Restricted;
 use crate::Result;
 use std::time::{Duration, Instant};
 
@@ -57,6 +68,18 @@ pub trait Law {
     /// drawn from the seeds, no events beyond the orbits, advanced `game_seconds` (units of M). The
     /// cost includes building the scene. None: not implemented, which fails.
     fn scene_cost(&self, _n_bodies: usize, _game_seconds: f64) -> Option<f64> {
+        None
+    }
+    /// B11: one radial cycle of a binary of total mass 1 and symmetric mass ratio nu, given its 1PN
+    /// reduced energy and angular momentum (harmonic gauge, as `eih_invariants` returns them):
+    /// (periapsis advance beyond 2π, radial period). None: not implemented, which fails.
+    fn binary_cycle(&self, _energy: f64, _angular: f64, _nu: f64) -> Option<(f64, f64)> {
+        None
+    }
+    /// B12-B14: a massless ship in the circular restricted three-body problem `scene`. From its
+    /// barycentric inertial state (x, y, vx, vy) at t = 0, its states at each of `times` (ascending,
+    /// all at least 0). None: not implemented, which fails.
+    fn restricted(&self, _scene: &Restricted, _ship: [f64; 4], _times: &[f64]) -> Option<Vec<[f64; 4]>> {
         None
     }
 }
@@ -178,10 +201,11 @@ fn g6(rows: &[Orbit]) -> Gate {
     Gate { id: "G6", pass: ok == rows.len(), detail: format!("prograde: {ok}/{} advances positive", rows.len()), secs: 0.0 }
 }
 
-/// Runs every gate on `law`, arming `watch` on each phase and calling `emit` as each gate lands.
-#[allow(dead_code)] // the all-gates entry point: the CLI goes through `judge_only`
+/// Runs the gates of the single-mass core (`select::CORE`) on `law`, arming `watch` on each phase and
+/// calling `emit` as each gate lands. The events layer's gates B11-B14 run through `judge_only`.
+#[allow(dead_code)] // the core entry point: the CLI goes through `judge_only`
 pub fn judge(law: &dyn Law, watch: Option<&Watch>, emit: impl FnMut(&Gate)) -> Vec<Gate> {
-    judge_only(law, watch, None, emit)
+    judge_only(law, watch, Some(&select::CORE), emit)
 }
 
 /// `judge` restricted to the gates named in `only` (None: all); a phase none of whose gates is wanted is skipped.
@@ -221,10 +245,14 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     phase("B7", &mut || vec![clocks::b7(law)]);
     phase("B9", &mut || vec![cost::b9(law)]);
     phase("B10", &mut || vec![scale::b10(law)]);
+    phase("B11", &mut || vec![binary::b11(law)]);
+    phase("B12", &mut || vec![handoff::b12(law)]);
+    phase("B13", &mut || vec![assist::b13(law)]);
+    phase("B14", &mut || vec![hill::b14(law)]);
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10]";
+const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10,B11,B12,B13,B14]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
@@ -238,7 +266,7 @@ pub fn run(args: Vec<String>) -> Result<u8> {
         println!("machine_state {}", machine_state("end"));
         std::process::exit(1);
     });
-    let gates = judge_only(&*law, Some(&watch), cli.gates.as_deref(), |g| println!("{} {} {} [{:.2} s]", g.id, if g.pass { "PASS" } else { "FAIL" }, g.detail, g.secs));
+    let gates = judge_only(&*law, Some(&watch), Some(cli.gates.as_deref().unwrap_or(&select::CORE)), |g| println!("{} {} {} [{:.2} s]", g.id, if g.pass { "PASS" } else { "FAIL" }, g.detail, g.secs));
     println!("machine_state {}", machine_state("end"));
     let failed: Vec<&str> = gates.iter().filter(|g| !g.pass).map(|g| g.id).collect();
     let picked = cli.gates.as_ref().map_or(String::new(), |g| format!(" ({})", g.join(" ")));
@@ -360,5 +388,68 @@ mod tests {
         assert!(run(vec!["--law".into(), "newton".into()]).is_err());
         assert!(run(vec!["--verbose".into()]).is_err());
         assert!(run(vec!["--gates".into(), "B8".into()]).is_err());
+    }
+}
+
+/// The events layer's gates, B11-B14, judged together (the old tests above are for the core).
+#[cfg(test)]
+mod events_tests {
+    use super::laws::{Echo, Fault, Planted, Silent};
+    use super::*;
+
+    const EVENTS: [&str; 4] = ["B11", "B12", "B13", "B14"];
+
+    fn failing(law: &dyn Law) -> Vec<&'static str> {
+        let gates = judge_only(law, None, Some(&EVENTS), |_| {});
+        assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), EVENTS);
+        gates.iter().filter(|g| !g.pass).map(|g| g.id).collect()
+    }
+
+    #[test]
+    fn echo_passes_the_four_events_gates_with_the_evidence_on_each_line() {
+        let gates = judge_only(&Echo, None, Some(&EVENTS), |_| {});
+        assert_eq!(gates.iter().map(|g| (g.id, g.pass)).collect::<Vec<_>>(), EVENTS.map(|id| (id, true)));
+        let detail = |id: &str| gates.iter().find(|g| g.id == id).unwrap().detail.clone();
+        assert!(detail("B11").contains("precession 1024/1024"));
+        assert!(detail("B12").contains("16 frozen ships") && detail("B12").contains("worst err "), "{}", detail("B12"));
+        assert!(detail("B13").contains("64/64 judged") && detail("B13").contains("0 of 64 excluded"), "{}", detail("B13"));
+        assert!(detail("B14").contains("escape") && !detail("B14").contains("(0 escape") && !detail("B14").contains(", 0 stay"), "{}", detail("B14"));
+    }
+
+    // The failing sets are what the planted laws deterministically do; each contains the gate it is for.
+    #[test]
+    fn planted_newton_fails_b11_and_answers_the_rest_as_echo_does() {
+        assert_eq!(judge_only(&Planted(Fault::Newton), None, Some(&["B11"]), |_| {}).iter().filter(|g| !g.pass).count(), 1);
+        // B12-B14 read only `restricted`, which Newton leaves to echo: the same answers, so the same verdicts.
+        let ship = [1.1 * restricted::JUPITER.sep, 0.0, 0.0, (1.1 * restricted::JUPITER.sep).powf(-0.5)];
+        let times = [1e12, 2e13];
+        assert_eq!(Planted(Fault::Newton).restricted(&restricted::JUPITER, ship, &times), Echo.restricted(&restricted::JUPITER, ship, &times));
+    }
+
+    #[test]
+    fn planted_kick_fails_b12_b13_and_b14() {
+        assert_eq!(failing(&Planted(Fault::Kick)), ["B12", "B13", "B14"]);
+    }
+
+    #[test]
+    fn planted_notide_fails_b12_b13_and_b14() {
+        assert_eq!(failing(&Planted(Fault::NoTide)), ["B12", "B13", "B14"]);
+    }
+
+    #[test]
+    fn planted_drift_fails_b12_alone() {
+        assert_eq!(failing(&Planted(Fault::Drift)), ["B12"]);
+    }
+
+    #[test]
+    fn a_law_that_implements_none_of_the_events_gates_fails_exactly_them() {
+        // The trait defaults are "not implemented": B11-B14 fail (the core gates are `Old`'s test above).
+        assert_eq!(failing(&Silent), EVENTS);
+    }
+
+    #[test]
+    fn the_events_gates_run_only_when_named_and_in_the_judges_order() {
+        let ids = |only: &[&str]| judge_only(&Echo, None, Some(only), |_| {}).iter().map(|g| g.id).collect::<Vec<_>>();
+        assert_eq!(ids(&["B13", "B11"]), ["B11", "B13"]);
     }
 }

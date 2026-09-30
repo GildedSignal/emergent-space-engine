@@ -49,16 +49,13 @@ pub fn static_clock_rate(r: f64) -> f64 {
 pub fn circular_clock_rate(r: f64) -> f64 {
     gr_oracle::circular_clock_rate(r)
 }
-// The 1PN two-body invariants are the two-body gate's surface (docs/representation.md, r3); no
-// gate of the single-mass core reads them yet.
+// The 1PN two-body invariants are the surface of B11 (binaries).
 /// 1PN two-body relative motion at Darwin-like (p, e) and symmetric mass ratio ν:
 /// (periapsis radius, periapsis speed, reduced energy, reduced angular momentum).
-#[allow(dead_code)]
 pub fn eih_invariants(p: f64, e: f64, nu: f64) -> (f64, f64, f64, f64) {
     extended::eih_invariants(p, e, nu)
 }
 /// Damour–Deruelle 1PN (advance per cycle, radial period) from the reduced energy and angular momentum.
-#[allow(dead_code)]
 pub fn damour_deruelle(energy: f64, angular: f64, nu: f64) -> (f64, f64) {
     extended::damour_deruelle(energy, angular, nu)
 }

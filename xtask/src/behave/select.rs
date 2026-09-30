@@ -1,8 +1,10 @@
 //! The arguments of `behave`: `--law NAME` and `--gates ID[,ID...]`, each also as `--flag=value`,
-//! in any order. Gate ids are case-insensitive. No `--gates` means every gate.
+//! in any order. Gate ids are case-insensitive. No `--gates` means the core gates (`CORE`).
 
 /// Every gate the judge runs, in the order it runs them. B8 (determinism) is an engine test, not a behaviour.
-pub const ALL: [&str; 9] = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10"];
+pub const ALL: [&str; 13] = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10", "B11", "B12", "B13", "B14"];
+/// The gates of the single mass (the first nine): what `judge` runs. B11-B14 judge the events layer.
+pub const CORE: [&str; 9] = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10"];
 
 #[derive(Debug, PartialEq)]
 pub struct Args {
@@ -78,5 +80,13 @@ mod tests {
             assert!(parse_all(args).is_err(), "{args:?}");
         }
         assert!(parse_all(&["--gates", "B8"]).unwrap_err().contains("engine tests"));
+    }
+
+    #[test]
+    fn the_events_gates_are_named_in_the_judges_order_and_the_core_is_the_first_nine() {
+        assert_eq!(parse_all(&["--gates", "b14,B11,B13"]), Ok(Args { law: "echo".into(), gates: Some(vec!["B11", "B13", "B14"]) }));
+        assert_eq!(CORE[..], ALL[..9]);
+        assert_eq!(ALL[9..], ["B11", "B12", "B13", "B14"]);
+        assert!(parse_all(&["--law", "planted-kick"]).is_ok());
     }
 }
