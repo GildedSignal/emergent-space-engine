@@ -272,9 +272,25 @@ impl Family {
     /// Member `m` of group `j` (of `cj` members) has its phase in stratum `m` of the window, jittered
     /// by the seed: a stratified necklace along the orbit, the same on every call.
     pub fn phase(&self, j: usize, m: u64, cj: u64, period: u64) -> u64 {
-        let u = unit(h2(self.seed ^ ((j as u64 + 1) << 56), m));
-        let frac = self.ph0 + (m as f64 + u) / cj as f64 * self.width;
-        (frac * period as f64) as u64
+        self.group(j, cj).phase(m, period)
+    }
+    /// The per-group constants of `phase`, hoisted out of the per-ship loop.
+    pub fn group(&self, j: usize, cj: u64) -> Group {
+        Group { salt: self.seed ^ ((j as u64 + 1) << 56), ph0: self.ph0, scale: self.width / cj as f64 }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Group {
+    salt: u64,
+    ph0: f64,
+    scale: f64,
+}
+impl Group {
+    #[inline(always)]
+    pub fn phase(&self, m: u64, period: u64) -> u64 {
+        let u = unit(mix(self.salt ^ m.wrapping_mul(0x9E37_79B9_7F4A_7C15)));
+        ((self.ph0 + (m as f64 + u) * self.scale) * period as f64) as u64
     }
 }
 
@@ -324,6 +340,10 @@ pub(crate) struct Scene {
     pub cell_rec: Vec<u32>,
     pub cell_range: Vec<[f32; 2]>,
     pub cell_groups: Vec<u32>,
+    /// Family groups by orbit (CSR over cells): item = family << 4 | group. The view draws all groups
+    /// that share a compiled orbit together, while its track is hot in cache.
+    pub cell_group_start: Vec<u32>,
+    pub cell_group_items: Vec<u32>,
     pub tube_groups: Vec<TubeGroup>,
     pub tubes: Vec<Tube>,
     pub families: Vec<Family>,
@@ -401,6 +421,19 @@ impl Scene {
             families.push(Family { seed, count, cells, nc: nc as u8, omega0: (h2(seed, 5) >> 32) as u32, ph0, width });
         }
 
+        let mut cell_group_start = vec![0u32; CELLS + 1];
+        for c in 0..CELLS {
+            cell_group_start[c + 1] = cell_group_start[c] + cell_groups[c];
+        }
+        let mut fill = cell_group_start.clone();
+        let mut cell_group_items = vec![0u32; cell_group_start[CELLS] as usize];
+        for (f, fam) in families.iter().enumerate() {
+            for (j, &c) in fam.cells[..fam.nc as usize].iter().enumerate() {
+                cell_group_items[fill[c as usize] as usize] = (f as u32) << 4 | j as u32;
+                fill[c as usize] += 1;
+            }
+        }
+
         // The memo: every orbit that any tube or family group asks for is compiled once.
         let mut used = vec![false; CELLS];
         for (i, &c) in valid.iter().enumerate() {
@@ -470,7 +503,7 @@ impl Scene {
             tubes_wall_s,
             total_wall_s: t0.elapsed().as_secs_f64(),
         };
-        Ok(Scene { cfg: cfg.clone(), keys, cell_rec, cell_range, cell_groups, tube_groups, tubes: all_tubes, families, total_ships, stats })
+        Ok(Scene { cfg: cfg.clone(), keys, cell_rec, cell_range, cell_groups, cell_group_start, cell_group_items, tube_groups, tubes: all_tubes, families, total_ships, stats })
     }
 
     /// Ship `i` of family `f`, from its seed alone (the same on every call).

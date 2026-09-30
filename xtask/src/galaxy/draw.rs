@@ -89,7 +89,8 @@ impl Proj {
 enum Job {
     /// Tubes [lo, hi) of group `g`, every `stride`-th.
     Tubes { g: usize, lo: usize, hi: usize },
-    Families { lo: usize, hi: usize },
+    /// Family groups of the orbits `fam_cells[lo..hi]`.
+    Cells { lo: usize, hi: usize },
 }
 
 struct Plan {
@@ -97,8 +98,7 @@ struct Plan {
     t: u64,
     stride: usize,
     m_max: u64,
-    rlo: f32,
-    rhi: f32,
+    fam_cells: Vec<u32>,
     jobs: Vec<Job>,
 }
 
@@ -155,17 +155,18 @@ impl Renderer {
                 }
             }
         }
-        // Jobs small enough to balance across the threads even when there are few families.
-        let chunk = (scene.families.len() / (o.threads.max(1) * 8)).clamp(1, 64);
-        for lo in (0..scene.families.len()).step_by(chunk) {
-            jobs.push(Job::Families { lo, hi: (lo + chunk).min(scene.families.len()) });
+        // Family groups are drawn by orbit; jobs are small enough to balance across the threads.
+        let fam_cells: Vec<u32> = (0..CELLS).filter(|&c| scene.cell_groups[c] > 0 && in_range(c)).map(|c| c as u32).collect();
+        let chunk = (fam_cells.len() / (o.threads.max(1) * 8)).clamp(1, 64);
+        for lo in (0..fam_cells.len()).step_by(chunk) {
+            jobs.push(Job::Cells { lo, hi: (lo + chunk).min(fam_cells.len()) });
         }
         st.tubes_in_range = tubes_in_range;
         st.groups_in_range = groups_in_range;
         st.stride = stride as u64;
         st.m_max = m_max;
         let proj = Proj { cx: v.cx, cy: v.cy, inv: 1.0 / v.scale, hw: v.w as f64 * 0.5, hh: v.h as f64 * 0.5, w: v.w, h: v.h };
-        Plan { proj, t: v.t, stride, m_max, rlo, rhi, jobs }
+        Plan { proj, t: v.t, stride, m_max, fam_cells, jobs }
     }
 
     fn run_job(&self, scene: &Scene, plan: &Plan, job: &Job, plane: &mut [f32], acc: &mut [u64; 3]) {
@@ -190,15 +191,13 @@ impl Renderer {
                     acc[2] += n as u64;
                 }
             }
-            Job::Families { lo, hi } => {
-                for fam in &scene.families[lo..hi] {
-                    for j in 0..fam.nc as usize {
-                        let cell = fam.cells[j] as usize;
-                        let rr = scene.cell_range[cell];
-                        if rr[1] < plan.rlo || rr[0] > plan.rhi {
-                            continue;
-                        }
-                        let rec = &scene.keys[scene.cell_rec[cell] as usize];
+            Job::Cells { lo, hi } => {
+                for &cell in &plan.fam_cells[lo..hi] {
+                    let cell = cell as usize;
+                    let rec = &scene.keys[scene.cell_rec[cell] as usize];
+                    let (a, b) = (scene.cell_group_start[cell] as usize, scene.cell_group_start[cell + 1] as usize);
+                    for &item in &scene.cell_group_items[a..b] {
+                        let (fam, j) = (&scene.families[(item >> 4) as usize], (item & 15) as usize);
                         let cj = fam.group_count(j);
                         if cj == 0 {
                             continue;
@@ -208,9 +207,10 @@ impl Renderer {
                         // One ship per stratum of the group, at a per-group offset (so the groups of a family
                         // do not all sample the same phases); m == cj draws every ship.
                         let (step, off) = (cj as f64 / m as f64, unit(h2(fam.seed, 0x51 + j as u64)));
+                        let grp = fam.group(j, cj);
                         for k in 0..m {
                             let idx = (((k as f64 + off) * step) as u64).min(cj - 1);
-                            let phase = fam.phase(j, idx, cj, rec.period);
+                            let phase = grp.phase(idx, rec.period);
                             let (r, a) = rec.locate(plan.t.wrapping_add(phase));
                             let (c, s) = sincos(sc, a.wrapping_add(fam.omega0));
                             plan.proj.splat(plane, r, c, s, weight);
