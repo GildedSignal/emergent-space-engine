@@ -2,6 +2,16 @@
 
 Owned by the integrator and rewritten in place. **Target:** the fastest and most robust engine and compiler for relativistic many-body physics at game scale. That means billions of bodies on one fanless 8 GB M1, exact and deterministic, computing only surprises (see [PRINCIPLES](../docs/PRINCIPLES.md)).
 
+## Focus (Julien, 30 September)
+
+"the only goal is the engine/compiler to work with GR natively". **AI and factions are off the plan:** no lens works on decisions, factions or agents until Julien brings them back. The live engine questions, in order:
+- the cycle compiler at every scale;
+- rebinding at handoffs without walking (B12);
+- tides and the τ regime selector near the Hill limit (B14);
+- resonance by the resonant normal form (r4 v3);
+- finding encounters without work per orbit (r8);
+- fitting 10⁹ in 8 GB (families, key width).
+
 ## Bottlenecks, ranked (29 September)
 
 0. **The representation, from scratch** (Julien, 29 September). It is one question, and the others below may be its consequences.
@@ -63,6 +73,8 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 - Julien, 29 September: local sheets and no teleportation make the engine an asynchronous cellular automaton that follows causal chains instead of cataloguing. Positions are re-derived, never global. 32-bit packets per region. Memory laid out in causal order, as Crash Bandicoot laid out its levels. Are the quanta sensible? (see bottleneck 5)
 
 ## Taste log (the integrator's decisions on gold, newest first)
+
+- **30 September, library lens: lead.** Its claim (binary thresholds make faction aggregates 6–17× tighter) inverted under a fair anchored control; the checker was right. Off focus: AI is off the plan. What survives is the count-quantum rule n* = (1/ε)², folded into B5's notes.
 
 - **30 September, r4 v2 (resonance): KILL of arc-integrated kicks (g8, g16, g8-half); silver-quality work.**
   - **What it showed:** the checker refined the kick windows toward zero. The layer converges to the first-order-in-μ solution, which still over-pumps e about 2× and lets the resonant angle circulate. The failure is structural, not a matter of quadrature or window size.
