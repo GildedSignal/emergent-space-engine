@@ -116,6 +116,7 @@
 //! ```
 
 mod num;
+pub mod events;
 #[cfg(feature = "profile")]
 pub mod profile;
 #[cfg(test)]
