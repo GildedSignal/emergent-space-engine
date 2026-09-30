@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20260930-2250-redteam-03c8/`: pre-registered `predictions.md`, the falsifier sources (`falsifier.c`, `isco-scan.c`, ≤ 60 s total runtime) with outputs, and `dossier.md`.
+
+**Claim:** The Binet-band law passes its strongest cheap falsifier almost everywhere (precession ≤ 2×10⁻³ at e = 0.95, plunge classification 0/483 wrong, photon-capture b_crit to 1.5×10⁻⁴) but breaks r1's own 1% gate exactly where r1's sampler never looks — near-circular ISCO skimmers (e ≲ 0.05, r_p ∈ [5.9, 7.4], up to 6.7%, non-monotone in m so "raise m" won't fix it; gradient-linked band width will) and the photon-ring sliver b ∈ (5.196, 5.22] (1.4%) — and two of the six premises under attack, dense/sparse bit-identity and the view gather, have no frozen rung at all despite §7's promise, with same-cell simultaneous contacts already measured to give order-dependent bits.
