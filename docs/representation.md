@@ -5,7 +5,7 @@ Status: **DRAFT** (29 September 2026). It synthesizes Julien's direction from 29
 ## The thesis
 
 1. **Compute is the information the universe creates.** Predictable evolution costs nothing. Surprises (the player, AI decisions, chaos) cost in proportion to what they create.
-2. **Predictability comes from symmetry.** Where a frame makes a symmetry explicit, its invariants are exact, motion repeats, and the repetition is stored once, as a generator. *Symmetry is compression.*
+2. **Predictability comes from symmetry.** Where a frame makes a symmetry explicit, its invariants are exact, motion repeats, and the repetition is stored once, as a generator. *Symmetry is compression.* Symmetry is found by representation, not given (Julien, 30 September). A rotating frame has the Jacobi integral. The Hill problem is the same for every planet in Hill units. A resonance is integrable in its averaged angle. A stationary cluster's distribution depends only on its integrals (Jeans). Even chaos has invariant statistics, and by the shadowing lemma a deterministic law with the right statistics is a true orbit of nearby initial conditions.
 3. **Every quantity is kept in the form in which its change is an addition.**
    - Coordinates are chosen so that the symmetry is a translation.
    - Logarithms are used where things multiply.

@@ -46,7 +46,12 @@ Labels are ours; quotes are his. 12–31 were approved on 29 September ("Otherwi
 
 ## Proposed principles (awaiting Julien)
 
-None pending. Models propose here; Julien approves, rewrites or rejects.
+Models propose here; Julien approves, rewrites or rejects. From his statements of 30 September:
+
+32. **Symmetry is found, not given.** "there are many kinds of symmetries in this world, under the right representation many symmetries can appear, this is a leitmotiv of compute paradigm shifts." Where no symmetry shows, change the representation before paying to simulate.
+33. **Many scales; relevance belongs to the observer.** "we need to think in many scales, self-similarity like you said is powerful. An ant cares about a raindrop but the lion does not." What is individual, and what is a density, depends on who is looking.
+34. **A game is an illusion spectacle; the oracles are guards, not shepherds.** "Like said many times, this is game, a game is an illusion spectacle, the oracles are guards, not shepherds." Oracles reject what the player would see as wrong; they never lead the representation.
+35. **The right question, about the goal.** "basically this whole project is about asking the right questions, specifically about what we're trying to achieve and how can we make it as simple and powerful as possible based on dynamics and requirements." (It may merge into 18.)
 
 ## Register of Julien's statements
 
@@ -80,6 +85,7 @@ Status words: **Followed** (built, or a rule in force), **Adopted** (decided in 
 | "don't focus too much on the visualization though, it's just for debug, the real visualization will be later, for now the only goal is the engine/compiler to work with GR natively" | CL 09-30 | **Followed:** fly v1 stopped; galaxy scoped to a minimal debug tool; Sol moved to the events layer (HANDOFF) |
 | On comparing the new engine with the old one's ship speed, the proposed test "gravity on the v7 galaxy costs at most about the old gravity-free run": "that's an interesting test" | CL 09-30 | **Followed:** frozen as gate B15 (`docs/law.md`) before any run |
 | On the compiler overflowing: "the goal is always first to think of the best representation given the operations at stakes not made up gates, overflow should not have been a thing if it had asked itself that question, the same way we've thought of split quaternions and many other things. We know we have a fish when doing something and we need to find its water"; "the unit should be adapted for what it is doing"; the orbit is a compiled behaviour, "so that compiled behavior should be optimized specifically for it" | CL 09-30 | **Followed:** AGENTS.md (gates judge, never size); Astra's envelope brief rewritten to derive the compiled geodesic's native representation first (action-angle form, scale as an exponent, a dimensionless memo key) |
+| "basically this whole project is about asking the right questions…"; "there are many kinds of symmetries in this world, under the right representation many symmetries can appear, this is a leitmotiv of compute paradigm shifts"; "we need to think in many scales… An ant cares about a raindrop but the lion does not"; "a game is an illusion spectacle, the oracles are guards, not shepherds" | CL 09-30 | **Proposed** as principles 32–35. Applied: the tide selector's strong regime is the Hill problem in Hill units (scale-free, with the Jacobi integral), not the dense order by default |
 | "broken record moment again, but… hypergraphs?"; "can we learn things from wolfram's hypergraphs?" | OCC#12; CL 09-26 09:17 | **Drifted:** a hyperedge IR existed (H0016), archived at H0182, in no living doc |
 | "NO never do that please never dumb down for no reason" (the AI chose Barnes–Hut over FMM "because it's much simpler") | OC#34 | **Drifted** until H0195 (FMM never built, H0196); principle 1 keeps "never dumb down" |
 | "what if we were to push the min-plus idea to the extreme not just on one thing?" (OC#42); ABP: "Use min-plus for admissible arrival-time composition" (ABP line 118) | OC#42; ABP | **Adopted in the draft** [representation.md](representation.md): min-plus composes arrival times, light-cone spread and scheduling, as the logarithm of ordinary arithmetic. Not built |
