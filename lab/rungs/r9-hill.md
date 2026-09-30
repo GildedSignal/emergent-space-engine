@@ -14,10 +14,12 @@ Frozen by the integrator on 30 September 2026. `docs/law.md` (tides and the regi
 
 **Cases** (sampler: Python `random.Random(20261010)`): 256 moons at a/R_H uniform in [0.1, 0.9], half prograde and half retrograde, random phases, run for 50 planet orbits. The tidal ratio τ of each seed is 3·(a/R_H)³ at its apoapsis (the star's tidal acceleration over the planet's).
 
-**Metrics,** one set per configuration:
+**Domains** (each candidate is judged where the law would use it). `kick-avg` and `no-tide` are scored on the clearly hierarchical seeds (a/R_H ≤ 0.3, τ ≤ 0.081). `hill-torus` is scored on the seeds with a/R_H > 0.3 that it declares tori. `truth` is scored on all seeds.
+
+**Metrics,** one set per configuration, over its domain:
 - `class_match_fraction`: over seeds whose truth is not chaotic (the truth's class is unchanged under a 10⁻⁶ relative change of a), the fraction whose bound or escaped class matches the truth's.
 - `precession_match_fraction`: over bound seeds, the fraction whose apsidal precession rate over the run is within 10% of the truth's.
-- `tau0`: for `kick-avg`, the largest τ below which both fractions are ≥ 0.99 (reported, not gated).
+- `tau0`: for `kick-avg`, run on all seeds but reported only: the largest τ below which both fractions are ≥ 0.99.
 - `compiled_fraction`: for `hill-torus`, the fraction of seeds with τ ≥ τ₀ that lie on tori it can follow with class and precession matching (reported, not gated).
 - `dense_steps`: as in r4 (0 for candidates).
 
