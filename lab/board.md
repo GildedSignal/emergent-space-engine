@@ -74,6 +74,13 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Taste log (the integrator's decisions on gold, newest first)
 
+- **30 September, r8 v2 (encounters): KILL of element-sort, shear-grid and hier-bounds; silver-quality work.**
+  - **Measured, and reproduced bit for bit:** every candidate finds every encounter. Work per encounter is 786 for element-sort (1.1 events per body per orbit), 2.6×10⁴ for hier-bounds and 4.9×10⁵ for shear-grid, with exponents about 2 in N at fixed σ_e.
+  - **The premise:** cost follows the candidate set (pairs whose orbits overlap), not ρ.
+  - **The integrator's error:** `cheap` (≤ 10 per encounter) was unpassable over 20 orbits for any algorithm, because touching each candidate pair once (1.7M on belt 0) already dwarfs the encounters (427).
+  - **The checker found the truth leaks:** conjunction-less encounters, about 0.5–6% of the reference's list and 78% in an adversarial belt.
+  - **Next:** judge steady-state work per orbit (→ 0), with each pair paid once per element change. The candidate representation: a pair's miss distance at successive conjunctions is quasi-periodic, so its next close conjunction is a Diophantine approximation (continued fractions), plus group certificates that pay once while envelopes are disjoint.
+
 - **30 September, r3 v3 (two-body doll): silver; KILL of eob-doll on the handoff criterion only.**
   - **Confirmed:** ν enters only through the energy map (1PN), with assists at 64/64.
   - **The kill:** the handoff exponent is 0.233 against 0.2, measured against a chaotic float reference at a 10⁻¹¹ error level. That is the integrator's criterion weakness again: judge a conserved quantity with a noise floor, as B12 does.
