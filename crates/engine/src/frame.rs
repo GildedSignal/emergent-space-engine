@@ -447,7 +447,7 @@ pub struct BattleStats {
 }
 
 /// The canonical outcome of a run: the world and log digests of the lattice law, and the
-/// tide digest (carries, epochs, counters; with re-anchoring also the tube, the circle, who
+/// tide digest (the frame's law, carries, epochs, counters; with re-anchoring also the tube, the circle, who
 /// left and the hand-off records).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Outcome {
@@ -593,6 +593,12 @@ impl<S: Kickable> Battle<S> {
         let (world, log) = self.stepper.outcome();
         let mut h = blake3::Hasher::new();
         h.update(if self.anchoring.is_some() { b"es-frame-tide-v1" } else { b"es-frame-tide-v0" });
+        // The frame's own law decides the future (the next kick's tick and weights), so it is
+        // part of the state: two frames that differ only in it must not share a digest (E7).
+        let f = &self.frame;
+        for v in [f.q as i128, f.radius as i128, f.n as i128, f.e as i128, self.shift as i128] {
+            h.update(&v.to_le_bytes());
+        }
         for v in [self.next, self.stats.changed, self.stats.refused] {
             h.update(&v.to_le_bytes());
         }
