@@ -1,5 +1,5 @@
-//! Candidate integer Binet compiler, `space-binet16-shear-v1`.
-//! **Not qualified: most first-return records do not close exactly.**
+//! Integer Binet generator, `space-binet16-generator-v2`.
+//! A cycle is the canonical object; its rounded return is not the next initial state.
 //!
 //! # Representation
 //! G=c=M=1; another static mass uses M as its length and time unit. In band k,
@@ -19,15 +19,32 @@
 //!
 //! # Initialization and rounding
 //! Darwin input gives L²=p²/(p-3-e²) and E²=((p-2)²-4e²)/(p*(p-3-e²)), evaluated
-//! in Q48; integer square roots floor their nonnegative radicands. The periapsis
+//! with sixteen guard bits for E² before its Q48 square root; integer square
+//! roots floor their nonnegative radicands. The periapsis
 //! is the upper bound root of R(u)=(E²-1)/L²+2u/L²-u²+2u³. Its bracket is between
 //! (1-sqrt(1-12/L²))/6 and (1+sqrt(1-12/L²))/6, bisected to one Q48 unit. Invalid
-//! brackets (including unresolved circular orbits) return NoBoundOrbit.
+//! brackets return NoBoundOrbit outside the local-cell rule below.
 //! `rnd(x,d)` rounds to nearest with ties away from zero; shifts into a coarser
 //! word use rnd. Ordinary signed integer divisions in initialization truncate
 //! toward zero; interval bounds instead use floor/ceiling. A shift, coefficient
 //! or state that cannot be represented returns Range; none wraps or saturates.
 //! Float input/output conversion exists only in the adapter and diagnostics.
+//!
+//! # Small excursions and circular limit
+//! First find C=(1-sqrt(1-12/L²))/6. If the upper energy-root amplitude A obeys
+//! A/C<=1/32, use one orbit-centred cell: u=C+A*cos(w*phi), w²=1-6C. Physical
+//! band edges inside this cell cause no change of generator. E² and the effective
+//! potential (1-2u)(1+L²u²) are compared in Q64. A potential minimum within one
+//! input E quantum plus eight Q64 arithmetic units uses A=0 (epicyclic limit).
+//! This also defines a radial period for an exactly circular orbit. A smaller
+//! energy returns NoBoundOrbit. The root and w are floored integer square roots.
+//! Put D=sqrt(C²-A²), B=sqrt((1-2C)²-4A²). Round phi=2*pi/w to Q30, using
+//! 2*pi=6746518852/2^30. Mean rates are tau=C/(L*D³) and
+//! t=E*(C/(L*D³)+2/(L*D)+4/(L*B)); these follow by partial fractions and the
+//! elementary cosine integrals. Round rates and final periods to Q20. The cell
+//! stores C,A,w as word pairs and needs no band-crossing records. This explicitly
+//! changes the band-centred law in the small-excursion regime; the old m16 float
+//! regression still tests the band compiler, while a separate GR sweep tests it.
 //!
 //! # In-band map: the integer algorithm
 //! Let w2=1-6*u_k and f=1/L²-3*u_k² (light drops 1/L²). Each full step is h=1/4
@@ -77,9 +94,9 @@
 //! only, with E=1 and L=b required. Its exterior tail uses 256 integer Simpson panels from u=0 to 1/10000
 //! on 1/sqrt(1/b²-u²+2u³). Absorption is exactly u>=1/2. Horizon time is undefined.
 //! The record contains crossings, integer increments, extrema, work and return
-//! state. Memo keys are exactly (E,L), not nearby floats. A record can repeat
-//! only if state, exponent and band return bit-identically; otherwise repeat()
-//! returns NotPeriodic. No forced reset hides a seam. First differences in E,L
+//! state. Memo keys are exactly (E,L), not nearby floats. The next cycle starts
+//! at the same invariant-derived periapsis. The rounded return is diagnostic,
+//! so the shape and increments repeat exactly. First differences in E,L
 //! are stored as signed word pairs over explicit key steps, rejecting changed
 //! crossing sequences. Their multiply-add is only a predictor: an exact kick
 //! requires recompilation. A discrete, branching function has no global tangent.
@@ -100,10 +117,14 @@
 //! **No unconditional orbit, event-time or clock-quadrature bound is proved.**
 //! The independent 262-case regression uses angle error<=2e-4 rad, relative
 //! periods<=5e-4, relative turning radii<=2e-4 and equal crossing counts. Those
-//! are measured checks, not a global error certificate. Noncompounding cycles
-//! and exact kick updates remain unfinished.
+//! are measured checks, not a global error certificate. Global continuum bounds
+//! and exact kick updates require separate qualification.
 
 mod bands;
+mod local;
+#[cfg(feature = "profile")]
+pub mod profile;
+pub use local::LocalOscillator;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -136,6 +157,14 @@ impl Words {
     fn add(&mut self, x: u64) -> Result<()> {
         *self = Self::new(self.get().checked_add(x).ok_or(Error::Range)?);
         Ok(())
+    }
+}
+#[inline]
+fn round_shift(x: i64, bits: u32) -> i64 {
+    if x < 0 {
+        -((-x + (1i64 << (bits - 1))) >> bits)
+    } else {
+        (x + (1i64 << (bits - 1))) >> bits
     }
 }
 fn rnd(x: i128, d: i128) -> i128 {
@@ -191,9 +220,12 @@ impl Key {
         let den = p - 3 * Q48 - e2;
         let l2 = p * p / den;
         let numerator = (p - 2 * Q48) * (p - 2 * Q48) - 4 * e * e;
-        let e2 = numerator / (p * den / Q48);
+        let divisor = p * den / Q48;
+        // Retain sixteen guard bits before the square root. Truncating E²
+        // directly to Q48 can lose more than one output quantum of E.
+        let e2 = ((numerator / divisor) << 16) + ((numerator % divisor) << 16) / divisor;
         Ok(Self {
-            energy: Words::new(u64c(sqrt((e2 * Q48) as u128) as i128)?),
+            energy: Words::new(u64c(sqrt((e2 << 32) as u128) as i128)?),
             angular: Words::new(u64c(sqrt((l2 << 16) as u128) as i128)?),
         })
     }
@@ -349,6 +381,9 @@ struct Band {
     w2: i128,
     rhs: i128,
     full: Map,
+    full_b: i64,
+    force_q30: i64,
+    w2_q30: i32,
 }
 impl Band {
     fn new(k: i32, s: State, key: Key, light: bool, newton: bool) -> Result<(Self, State)> {
@@ -368,52 +403,55 @@ impl Band {
             w2,
             rhs,
             full: Map { a: 0, k: 0, j: 0 },
+            full_b: 0,
+            force_q30: i64::try_from(shift(rhs, -18 - exponent)?).map_err(|_| Error::Range)?,
+            w2_q30: i32c(rnd(w2, 1 << 18))?,
         };
-        b.full = b.map(STEP)?;
+        let full = b.evaluate(STEP)?;
+        b.full = full.0;
+        b.full_b = full.1;
         Ok((b, s))
     }
-    fn coefficients(&self, h: u32) -> (i128, i128) {
-        let one = 1i128 << 60;
-        let h = (h as i128) << 30;
-        let x = rnd(self.w2 * rnd(h * h, one), Q48);
-        let poly = |terms: &[(i128, i128)]| {
+    fn coefficients(&self, h: u32) -> (i64, i64) {
+        #[cfg(feature = "profile")]
+        profile::add(|s| s.coefficients += 1);
+        // x is Q30, polynomial values Q32. |x|<=1/8, so every
+        // product is below 2^62. The constants are nearest Q32.
+        let h = h as i64;
+        let h2 = round_shift(h * h, 30);
+        let x = round_shift(self.w2_q30 as i64 * h2, 30);
+        let poly = |terms: &[i64]| {
             let mut p = 0;
-            for &(n, d) in terms.iter().rev() {
-                p = rnd(p * x, one) + rnd(n * one, d);
+            for &c in terms.iter().rev() {
+                p = round_shift(p * x, 30) + c;
             }
             p
         };
-        let a = rnd(
-            h * poly(&[
-                (1, 1),
-                (1, 12),
-                (1, 120),
-                (17, 20160),
-                (31, 362880),
-                (691, 79833600),
-            ]),
-            2 * one,
+        let a = round_shift(
+            h * poly(&[4294967296, 357913941, 35791394, 3621760, 366920, 37168]),
+            31,
         );
-        let b = rnd(
-            h * poly(&[
-                (1, 1),
-                (-1, 6),
-                (1, 120),
-                (-1, 5040),
-                (1, 362880),
-                (-1, 39916800),
-            ]),
-            one,
+        let b = round_shift(
+            h * poly(&[4294967296, -715827883, 35791394, -852176, 11836, -108]),
+            30,
         );
         (a, b)
     }
-    fn map(&self, h: u32) -> Result<Map> {
+    fn evaluate(&self, h: u32) -> Result<(Map, i64)> {
         let (a, b) = self.coefficients(h);
-        Ok(Map {
-            a: i32c(rnd(a, 1i128 << 30))?,
-            k: i32c(rnd(self.w2 * b, Q48 * (1i128 << 30)))?,
-            j: i32c(shift(self.rhs * b, -108 - self.exponent)?)?,
-        })
+        Ok((
+            Map {
+                a: i32::try_from(round_shift(a, 2)).map_err(|_| Error::Range)?,
+                k: i32::try_from(round_shift(self.w2_q30 as i64 * b, 32))
+                    .map_err(|_| Error::Range)?,
+                // Q48*Q32 needs up to 80 bits. Creation-only, power-of-two shift.
+                j: i32c(shift(self.rhs * b as i128, -80 - self.exponent)?)?,
+            },
+            b,
+        ))
+    }
+    fn map(&self, h: u32) -> Result<Map> {
+        Ok(self.evaluate(h)?.0)
     }
     fn outside(&self, s: State) -> bool {
         (s.u <= self.lo && s.v < 0) || (s.u >= self.hi && s.v > 0)
@@ -443,12 +481,40 @@ pub struct Cycle {
     pub increments: Increments,
     pub crossings: Vec<Crossing>,
     pub steps: u32,
+    pub local: Option<LocalOscillator>,
+}
+/// Address within the repeated generator. `crossing` is the last completed
+/// crossing, or None before its first crossing (also for a local cell).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Location {
+    pub cycle: u64,
+    pub time_in_cycle: Words,
+    pub crossing: Option<usize>,
 }
 impl Cycle {
+    /// The generator repeats by definition; end is a diagnostic first-return value.
     pub fn periodic(&self) -> bool {
+        self.increments.t.get() > 0 && self.increments.phi.get() > 0
+    }
+    pub fn raw_return_closes(&self) -> bool {
         self.start == self.end && self.start_band == self.end_band
     }
-    /// No forced reset: only an actually closed record can be repeated.
+    /// Coordinate time since the tube's epoch, Q20. Quotient/remainder, then
+    /// an integer table search; no previous cycle is evaluated or evolved.
+    pub fn locate(&self, elapsed: Words) -> Result<Location> {
+        let period = self.increments.t.get();
+        if period == 0 {
+            return Err(Error::NotPeriodic);
+        }
+        let time = elapsed.get() % period;
+        let next = self.crossings.partition_point(|c| c.at.t.get() <= time);
+        Ok(Location {
+            cycle: elapsed.get() / period,
+            time_in_cycle: Words::new(time),
+            crossing: next.checked_sub(1),
+        })
+    }
+    /// Repeat the compiled constants; never evolve a previous cycle's rounded end.
     pub fn repeat(&self, n: u32) -> Result<Increments> {
         if !self.periodic() {
             return Err(Error::NotPeriodic);
@@ -531,14 +597,22 @@ impl Walker {
         let before = self.s;
         let trial = self.band.full.apply(before)?;
         let turn = |s: State| (before.v < 0 && s.v >= 0) || (before.v > 0 && s.v <= 0);
+        #[cfg(feature = "profile")]
+        let exit_start = std::time::Instant::now();
         let found = self.band.first_event(before, 1, STEP, escape, &mut 0)?;
+        #[cfg(feature = "profile")]
+        profile::add(|s| s.exits_ns += exit_start.elapsed().as_nanos());
         let (h, end) = found.unwrap_or((STEP, trial));
         if h == 0 {
             return Err(Error::Range);
         }
         self.at.phi.add(h as u64)?;
         if times {
+            #[cfg(feature = "profile")]
+            let clock_start = std::time::Instant::now();
             let (t, tau) = clock(before, end, &self.band, h, self.key)?;
+            #[cfg(feature = "profile")]
+            profile::add(|s| s.clocks_ns += clock_start.elapsed().as_nanos());
             self.at.t.add(t)?;
             self.at.tau.add(tau)?;
         }
@@ -576,6 +650,10 @@ impl Walker {
 }
 
 pub fn compile(key: Key) -> Result<Cycle> {
+    Key::new(key.energy.get(), key.angular.get())?;
+    if let Some(c) = local::compile_local(key)? {
+        return Ok(c);
+    }
     compile_variant(key, false)
 }
 /// The planted Newtonian variant shares all integer arithmetic and event rules.
@@ -600,6 +678,7 @@ pub fn compile_variant(key: Key, newton: bool) -> Result<Cycle> {
                     increments: w.at,
                     crossings: w.crossings,
                     steps: w.steps,
+                    local: None,
                 });
             }
             _ => {}
@@ -803,10 +882,11 @@ mod tests {
         let d = memo.get(key()).unwrap();
         assert!(Arc::ptr_eq(&c, &d));
         assert_eq!(memo.len(), 1);
-        // Refusing a reset is part of the contract, not a hidden passing cycle.
-        if !a.periodic() {
-            assert_eq!(a.repeat(10000), Err(Error::NotPeriodic));
-        }
+        assert!(a.periodic());
+        assert_eq!(
+            a.repeat(10000).unwrap().phi.get(),
+            a.increments.phi.get() * 10000
+        );
     }
     #[test]
     fn bit_band_lookup_agrees_at_every_centre() {
@@ -896,8 +976,7 @@ impl Interval {
         let mut hi = i64::MIN;
         for a in [self.lo, self.hi] {
             for b in [b.lo, b.hi] {
-                let x = i64::try_from(rnd(a as i128 * b as i128, Q30 as i128))
-                    .map_err(|_| Error::Range)?;
+                let x = round_shift(a.checked_mul(b).ok_or(Error::Range)?, 30);
                 lo = lo.min(x);
                 hi = hi.max(x);
             }
@@ -911,8 +990,8 @@ impl Band {
         s: State,
         a: Map,
         b: Map,
-        blo: i128,
-        bhi: i128,
+        blo: i64,
+        bhi: i64,
         escape: Option<i128>,
     ) -> Result<bool> {
         let aa = Interval::ends(a.a, b.a);
@@ -921,16 +1000,15 @@ impl Band {
         let u1 = Interval::point(s.u).add(aa.product(Interval::point(s.v))?);
         let mut v1 = Interval::point(s.v).sub(kk.product(u1)?).add(jj);
         // Keep the common H factor: J and K*U nearly cancel on circular orbits.
-        let rhs = shift(self.rhs, -self.exponent)?;
-        let fl = rhs - self.w2 * u1.lo as i128;
-        let fh = rhs - self.w2 * u1.hi as i128;
+        let fl = self.force_q30 - self.w2_q30 as i64 * u1.lo;
+        let fh = self.force_q30 - self.w2_q30 as i64 * u1.hi;
         let force = Interval {
-            lo: i64::try_from(fl.min(fh).div_euclid(Q48)).map_err(|_| Error::Range)?,
-            hi: i64::try_from(-(-fl.max(fh)).div_euclid(Q48)).map_err(|_| Error::Range)?,
+            lo: fl.min(fh).div_euclid(Q30),
+            hi: -(-fl.max(fh)).div_euclid(Q30),
         };
         let hh = Interval {
-            lo: i64::try_from(blo.div_euclid(1 << 30)).map_err(|_| Error::Range)?,
-            hi: i64::try_from(-(-bhi).div_euclid(1 << 30)).map_err(|_| Error::Range)?,
+            lo: blo.div_euclid(4),
+            hi: -(-bhi).div_euclid(4),
         };
         let acc = hh.product(force)?;
         let slack = 6; // includes coefficient, force and product rounding (U<2^31).
@@ -954,24 +1032,36 @@ impl Band {
         escape: Option<i128>,
         visits: &mut u32,
     ) -> Result<Option<(u32, State)>> {
+        let a = self.evaluate(lo)?;
+        let b = if hi == STEP {
+            (self.full, self.full_b)
+        } else {
+            self.evaluate(hi)?
+        };
+        self.search(s, lo, hi, a, b, escape, visits)
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn search(
+        &self,
+        s: State,
+        lo: u32,
+        hi: u32,
+        a: (Map, i64),
+        b: (Map, i64),
+        escape: Option<i128>,
+        visits: &mut u32,
+    ) -> Result<Option<(u32, State)>> {
         *visits += 1;
+        #[cfg(feature = "profile")]
+        profile::add(|s| s.nodes += 1);
         if *visits > 131072 {
             return Err(Error::Budget);
         }
-        let a = self.map(lo)?;
-        let b = if hi == STEP { self.full } else { self.map(hi)? };
-        if !self.event_possible(
-            s,
-            a,
-            b,
-            self.coefficients(lo).1,
-            self.coefficients(hi).1,
-            escape,
-        )? {
+        if !self.event_possible(s, a.0, b.0, a.1, b.1, escape)? {
             return Ok(None);
         }
         if lo == hi {
-            let t = a.apply(s)?;
+            let t = a.0.apply(s)?;
             let event = (s.v < 0 && t.v >= 0)
                 || (s.v > 0 && t.v <= 0)
                 || self.outside(t)
@@ -979,10 +1069,16 @@ impl Band {
             return Ok(event.then_some((lo, t)));
         }
         let mid = (lo + hi) / 2;
-        if let Some(hit) = self.first_event(s, lo, mid, escape, visits)? {
+        let m = if mid == lo { a } else { self.evaluate(mid)? };
+        if let Some(hit) = self.search(s, lo, mid, a, m, escape, visits)? {
             return Ok(Some(hit));
         }
-        self.first_event(s, mid + 1, hi, escape, visits)
+        let m = if mid + 1 == hi {
+            b
+        } else {
+            self.evaluate(mid + 1)?
+        };
+        self.search(s, mid + 1, hi, m, b, escape, visits)
     }
 }
 

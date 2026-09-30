@@ -42,7 +42,7 @@ fn main() {
                 if !c.crossings.is_empty() {
                     cross_ns.push(elapsed / c.crossings.len() as u128);
                 }
-                closes += usize::from(c.periodic());
+                closes += usize::from(c.raw_return_closes());
                 max_return_defect = max_return_defect.max((c.end.u_q48() - c.start.u_q48()).abs());
                 black_box(c);
             }
@@ -58,6 +58,8 @@ fn main() {
     println!("cold_first_return samples={} failures={failures} closed={closes} median_crossings={} median_steps={} median_ns_per_cycle={} p95_ns={} p99_ns={} max_ns={} charged_median_ns_per_crossing={} crossing_denominator={}",
         ns.len(),median(&mut crosses),median(&mut steps),median(&mut ns),percentile(&ns,95),percentile(&ns,99),ns.last().unwrap(),median(&mut cross_ns),cross_ns.len());
     println!("max_return_u_defect_q48={max_return_defect}");
+    #[cfg(feature = "profile")]
+    println!("profile {:?}", profile::take());
     for &k in &keys {
         black_box(memo.get(k).unwrap());
     }

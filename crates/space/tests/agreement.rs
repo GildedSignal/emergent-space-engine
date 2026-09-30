@@ -1,4 +1,5 @@
-//! Fixed regression tolerances for the candidate, not a global certificate.
+//! Frozen regression of the original band-centred map; the new small-excursion
+//! generator is judged independently in near_circular.rs. No global certificate.
 #[path = "fixtures/reference.rs"]
 mod reference;
 use emergent_space::*;
@@ -13,7 +14,7 @@ fn independent_binet_m16_fixtures() {
             (e * 1073741824.0).round() as u32,
         )
         .unwrap();
-        let c = match compile(key) {
+        let c = match compile_variant(key, false) {
             Ok(c) => c,
             Err(err) => {
                 failed.push(format!("{i}: {err:?}"));

@@ -1,5 +1,5 @@
 //! Boundary adapter only: quantize input, invoke the integer core, decode output.
-//! In particular, G5 refuses a first-return record that did not actually close.
+//! Long runs look up the invariant-defined compiled generator.
 use super::Law;
 use emergent_space::{compile_variant, light_tail, scatter, Key, Memo, Outcome};
 use std::cell::RefCell;
