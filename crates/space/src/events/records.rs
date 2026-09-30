@@ -100,8 +100,8 @@ impl Tube {
             phase: u32::try_from(phase).map_err(|_| Error::Range)?,
         })
     }
-    pub fn generator(self, basis: TimeBasis) -> Result<crate::Tube> {
-        Ok(crate::Tube::new(
+    pub fn generator(self, basis: TimeBasis) -> Result<crate::LegacyTube> {
+        Ok(crate::LegacyTube::new(
             Words::new(basis.0.get().checked_add(self.epoch as u64).ok_or(Error::Range)?),
             Words::new(self.phase as u64),
         ))

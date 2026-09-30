@@ -1,7 +1,7 @@
 //! A radial doll-edge certificate for a member of that doll. The integer
 //! outbound cycle is monotone in radius, so one bisection finds the next exit.
 //! Entering another moving doll needs a separate relative-trajectory certificate.
-use crate::{Cycle, Error, Result, Tube, Words};
+use crate::{Cycle, Error, Result, LegacyTube as Tube, Words};
 
 /// First coordinate time >= after at which r >= edge. No band-crossing or
 /// display events are inserted. Radius is in this doll's own Q20 length units.

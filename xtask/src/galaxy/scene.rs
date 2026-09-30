@@ -6,7 +6,7 @@
 //!
 //! Every orbit is a lattice cell: p = 12·2^(ip/32), e = ie/64, so keys repeat and share one
 //! compiled `Cycle` (the memo). The display track below is a derived cache: it decides nothing.
-use emergent_space::{Cycle, Key, Tube, Words};
+use emergent_space::{Cycle, Key, LegacyTube as Tube, Words};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 

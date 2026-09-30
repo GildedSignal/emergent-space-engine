@@ -1,4 +1,12 @@
-//! # Law `space-darwin16-v2`: the cycle compiler of one doll (one static mass)
+//! # Law `space-darwin16-scaled-v3`: the geodesic compiler of one doll
+//!
+//! The scale-free public path is [`orbit::Orbit`], [`orbit::Passage`], [`binding::Rebinding`]
+//! and [`Tube`]. `crates/space/ENVELOPE.md` derives its coordinates, arithmetic and inverse.
+//! The v3 memo boundary retains 12 significant bits each of periapsis radius and the
+//! inverse apoapsis/periapsis ratio, with explicit exponents. Exact inputs remain available.
+//! The following v2 contract describes the retained fixed-unit compatibility API (`Cycle`,
+//! `Key`, `LegacyTube`), still used by the binary and photon adapters. Its limits do not
+//! apply to the v3 path. The legacy events hierarchy awaits the events owner's migration.
 //!
 //! Units G = c = M = 1. u = 1/r. Q62 means an integer n standing for n/2^62; angles psi are Q61.
 //! Every quantity below is an integer, and every operation is exact integer arithmetic: sums,
@@ -102,10 +110,10 @@
 //! never invitations to silently clamp a new key or apply an uncertified kick.
 //!
 //! ```
-//! use emergent_space::{Cycle, Key, Tangent, Tube, Words};
+//! use emergent_space::{Cycle, Key, Tangent, LegacyTube, Words};
 //! let key = Key::darwin(20 << 16, 1 << 29)?; // p=20, e=0.5
 //! let cycle = Cycle::compile(key)?;         // share this, or use Memo::get
-//! let tube = Tube::new(Words::new(0), Words::new(0));
+//! let tube = LegacyTube::new(Words::new(0), Words::new(0));
 //! let state = tube.state(&cycle, cycle.half.t)?;
 //! assert_eq!(state.velocity.radial, 0);     // at apoapsis
 //! let response = Tangent::centered(&cycle, 1 << 25, key.angular.get() >> 11)?;
@@ -116,6 +124,11 @@
 //! ```
 
 mod num;
+pub mod orbit;
+pub mod scaled;
+pub mod binding;
+pub mod tube;
+pub use tube::Tube;
 pub mod events;
 #[cfg(feature = "profile")]
 pub mod profile;
@@ -143,7 +156,8 @@ use num::{atan, cos, isqrt, mul_shr, ratio_sqrt, ONE};
 use tables::{EDGE, PI, W, X};
 
 /// Integer law and boundary-quantization version. Never reuse a memo across law versions.
-pub const LAW_ID: &str = "space-darwin16-v2";
+pub const LAW_ID: &str = "space-darwin16-scaled-v3";
+pub const LEGACY_LAW_ID: &str = "space-darwin16-v2";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Error {
@@ -719,11 +733,11 @@ impl Cycle {
 /// Times before epoch and overflowing accumulated phases return `Range`; no wrapping.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Tube {
+pub struct LegacyTube {
     pub epoch: Words,
     pub phase: Words,
 }
-impl Tube {
+impl LegacyTube {
     pub const fn new(epoch: Words, phase: Words) -> Self {
         Self { epoch, phase }
     }
