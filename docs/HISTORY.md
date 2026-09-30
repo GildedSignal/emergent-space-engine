@@ -3049,3 +3049,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: branches claude/lab-20260929-1940-rung-r3-two-body-doll-v2-9c52, claude/lab-20260929-2040-*
 - Limitations: Author timeouts recur on heavy rungs; budgets are now 90–120 minutes.
 - Next: Verdicts after the reset.
+
+## H0207 — The core starts: law draft, integer cycle compiler, full judge, dense order with re-anchoring, behaviour viewer, autonomous lab
+
+- Date: 2026-09-30
+- Kind: implementation
+- Status: partial
+- Revisions: 5f0d293 (law.md), 7f7ad68 (behave B7/B9/B10), 4837b47 and 542c9e5 (crates/engine), cf3e05e (lab/auto.sh); branches wt/cycle (b35a67b, 6d64903) and wt/view (8566fd8)
+- Scope: docs/law.md; crates/space (Astra, unmerged); crates/engine; xtask behave and view; lab autonomy
+- Changed: The law es-space-v2 is drafted. Astra's integer Binet compiler passes G1–G4 and G6 but fails G5, because it evolved across cycles instead of compiling from the invariants; Opus took over when Codex's week ran out. The viewer found near-circular precession 1–7% off. behave gained clocks, cost per body and cost against N. The dense order runs a battle as a free-fall frame, bit-identical between lockstep and sparse, with re-anchoring holding 0.44% over 10 periods (19.8% without). The GLM lab runs itself. Lessons: GLM's 5-hour window binds, and so does Claude's week, since cloud hosts use it. gpt-6.1-sol is now the default OpenAI builder.
+- Why: Julien: less planning, build.
+- Validation: behave on echo and planted laws; engine tests; Astra's result reproduced locally.
+- Evidence: artifacts/evidence/astra-cycle-20260930/
+- Limitations: G5 is open; the frame's tube is a linear epicycle.
+- Next: G1–G6 on space; Sol 6.1 builds the engine judge, then handoffs, contacts and kicks.
