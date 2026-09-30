@@ -1,0 +1,45 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.90s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 11 tests
+test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
+test tests::bands_from_bits_agree_with_the_edges ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test tests::invalid_inputs_are_explicit_errors ... ok
+test tests::capture_cases_are_answered_not_errors_disguised_as_escape ... ok
+test tests::a_position_at_a_crossing_time_is_on_its_edge ... ok
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::the_planted_newtonian_law_closes ... ok
+test tests::the_crossing_table_is_ordered_and_mirrors ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test num::tests::isqrt_is_the_exact_floor ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/near_circular.rs (target/release/deps/near_circular-ac3ffb1cca6b4578)
+
+running 5 tests
+test every_cycle_is_the_compiled_one ... ok
+test the_whirl_near_the_separatrix ... ok
+test a_position_moves_smoothly_through_the_cycle ... ok
+test near_circular_orbits_across_bands_within_one_percent_of_gr ... ok
+test the_old_regime_boundary_and_eccentric_orbits ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+   Doc-tests emergent_space
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,50 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 17.45s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 11 tests
+test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
+test tests::a_position_at_a_crossing_time_is_on_its_edge ... ok
+test tests::invalid_inputs_are_explicit_errors ... ok
+test tests::bands_from_bits_agree_with_the_edges ... ok
+test tests::capture_cases_are_answered_not_errors_disguised_as_escape ... ok
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test tests::the_crossing_table_is_ordered_and_mirrors ... ok
+test tests::the_planted_newtonian_law_closes ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test num::tests::isqrt_is_the_exact_floor ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/api.rs (target/release/deps/api-1e8e0a6c7fc3619b)
+
+running 3 tests
+test compact_tube_reads_the_same_generator_at_a_rebased_epoch ... ok
+test polar_velocity_matches_the_invariant_equations_and_readout_derivative ... FAILED
+test central_response_accepts_signed_kicks_and_refuses_invalid_probes ... ok
+
+failures:
+
+---- polar_velocity_matches_the_invariant_equations_and_readout_derivative stdout ----
+
+thread 'polar_velocity_matches_the_invariant_equations_and_readout_derivative' panicked at crates/space/tests/api.rs:43:13:
+p=8 i=1: (0.007339545525610447,0.4476360082626343) vs (0.007337460191802511,0.4475049723631975)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    polar_velocity_matches_the_invariant_equations_and_readout_derivative
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-space --test api`

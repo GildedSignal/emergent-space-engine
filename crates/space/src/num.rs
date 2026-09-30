@@ -50,13 +50,22 @@ pub fn mul_shr(a: u128, b: u128, s: u32) -> Result<u128> {
 /// cos(psi) = -sin(x), and sin(x) = x(1 - x^2/(2*3)(1 - x^2/(4*5)(1 - ... x^2/(26*27)))):
 /// thirteen nested factors, innermost first, each product floored (arithmetic shift).
 pub fn cos(psi: i128) -> i128 {
-    let x = 2 * psi - PI;
-    let x2 = (x * x) >> 62;
-    let mut s = ONE;
-    for r in SINE.iter().rev() {
-        s = ONE - ((((x2 * s) >> 62) * r) >> 62);
+    if psi == 0 {
+        return ONE;
     }
-    -((x * s) >> 62)
+    if psi == PI {
+        return -ONE;
+    }
+    // |x|<=pi/2 in Q62 fits i64. x² and each x²*s shift fit u64 (<2.5*2^62).
+    // Make those bounds visible to codegen: one 64×64 product, not a general 128×128.
+    let x = (2 * psi - PI) as i64;
+    let x2 = ((x as i128 * x as i128) >> 62) as u64;
+    let mut s = ONE as u64;
+    for r in SINE.iter().rev() {
+        let y = ((x2 as u128 * s as u128) >> 62) as u64;
+        s = ONE as u64 - ((y as u128 * *r as u64 as u128) >> 62) as u64;
+    }
+    -((x as i128 * s as i128) >> 62)
 }
 
 /// atan(s) in Q62 for s in [0, 1] in Q62. j = round(16 s) (ties up), a = j/16,
@@ -96,7 +105,11 @@ mod tests {
     }
     #[test]
     fn mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow() {
-        for (a, b, s) in [(3u128 << 70, 5u128 << 40, 30u32), (u64::MAX as u128, u64::MAX as u128, 0), (7, 9, 1)] {
+        for (a, b, s) in [
+            (3u128 << 70, 5u128 << 40, 30u32),
+            (u64::MAX as u128, u64::MAX as u128, 0),
+            (7, 9, 1),
+        ] {
             assert_eq!(mul_shr(a, b, s).unwrap(), (a * b) >> s);
         }
         assert_eq!(mul_shr(1 << 127, 1 << 127, 200).unwrap(), 1 << 54);

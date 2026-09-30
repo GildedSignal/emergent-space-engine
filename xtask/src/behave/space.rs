@@ -56,7 +56,7 @@ impl Law for Space {
         let Ok(c) = self.memo.borrow_mut().get(k) else {
             return vec![];
         };
-        let tube = Tube { key: k, epoch: Words::default(), phase: Words::default() };
+        let tube = Tube::new(Words::default(), Words::default());
         let period = c.increments.t.get();
         let r = |u: i64| 4611686018427387904.0 / u as f64;
         let (energy, angular) = (k.energy.get() as f64 / 281474976710656.0, k.angular.get() as f64 / 4294967296.0);

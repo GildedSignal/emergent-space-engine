@@ -1,0 +1,56 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 11 tests
+test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
+test tests::bands_from_bits_agree_with_the_edges ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test tests::a_position_at_a_crossing_time_is_on_its_edge ... ok
+test tests::capture_cases_are_answered_not_errors_disguised_as_escape ... ok
+test tests::invalid_inputs_are_explicit_errors ... ok
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::the_planted_newtonian_law_closes ... ok
+test tests::the_crossing_table_is_ordered_and_mirrors ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test num::tests::isqrt_is_the_exact_floor ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/near_circular.rs (target/release/deps/near_circular-ac3ffb1cca6b4578)
+
+running 5 tests
+test the_whirl_near_the_separatrix ... FAILED
+test every_cycle_is_the_compiled_one ... FAILED
+test a_position_moves_smoothly_through_the_cycle ... FAILED
+test near_circular_orbits_across_bands_within_one_percent_of_gr ... ok
+test the_old_regime_boundary_and_eccentric_orbits ... ok
+
+failures:
+
+---- the_whirl_near_the_separatrix stdout ----
+
+thread 'the_whirl_near_the_separatrix' panicked at crates/space/tests/near_circular.rs:56:57:
+p=6.001 e=0: NoBoundOrbit
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- every_cycle_is_the_compiled_one stdout ----
+
+thread 'every_cycle_is_the_compiled_one' panicked at crates/space/tests/near_circular.rs:104:17:
+assertion `left == right` failed
+  left: 2
+ right: 1
+
+---- a_position_moves_smoothly_through_the_cycle stdout ----
+
+thread 'a_position_moves_smoothly_through_the_cycle' panicked at crates/space/tests/near_circular.rs:131:13:
+p=9 e=0.05 u=0.11666666698385222
+
+
+failures:
+    a_position_moves_smoothly_through_the_cycle
+    every_cycle_is_the_compiled_one
+    the_whirl_near_the_separatrix
+
+test result: FAILED. 2 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.99s
+
+error: test failed, to rerun pass `-p emergent-space --test near_circular`

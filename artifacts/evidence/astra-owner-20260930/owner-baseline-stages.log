@@ -1,0 +1,40 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.96s
+     Running `target/release/examples/measure`
+machine before
+date: 2026-09-30T08:22:27Z
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+uptime: 10:22  1 user, load averages: 2.94 4.78 5.44
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+pmset: Error:Failed to get thermal warning level with error code 0xe00002bc
+Error: Failed to get performance warning level with error code 0xe00002bc
+Error: No CPU power status with error code 0xe00002bc
+pmset: Now drawing from 'AC Power'
+ -InternalBattery-0 (id=24969315)	100%; charged; 0:00 remaining present: true
+sampler=behave BOUND_SEED=20260930 keys=256 rounds=16; ns include allocation and drop; no memo
+compile: n=4096 median_ns=19916 p99_ns=42000 max_ns=100333
+compile_per_outbound_interval: n=4096 median_ns=1065 p99_ns=5292 max_ns=16270
+readout_periapsis: n=4096 median_ns=2375 p99_ns=3084 max_ns=31333
+readout_crossing: n=4048 median_ns=2334 p99_ns=2625 max_ns=29500
+readout_interior: n=4096 median_ns=5292 p99_ns=8125 max_ns=27958
+bytes: key=16 tube=32 cycle_header=176 crossing=36; outbound crossings min=0 max=40
+machine after
+date: 2026-09-30T08:22:27Z
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+uptime: 10:22  1 user, load averages: 2.94 4.78 5.44
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+pmset: Error:Failed to get thermal warning level with error code 0xe00002bc
+Error: Failed to get performance warning level with error code 0xe00002bc
+Error: No CPU power status with error code 0xe00002bc
+pmset: Now drawing from 'AC Power'
+ -InternalBattery-0 (id=24969315)	100%; charged; 0:00 remaining present: true
+profile stage_ns roots,cuts,integration,conversion=[6069504, 9429607, 65079926, 1676073]

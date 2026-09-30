@@ -1,0 +1,20 @@
+    Blocking waiting for file lock on package cache
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.23s
+     Running tests/near_circular.rs (target/release/deps/near_circular-ac3ffb1cca6b4578)
+
+running 1 test
+
+thread 'all_six_response_derivatives_agree_with_the_independent_gr_oracle' panicked at crates/space/tests/near_circular.rs:212:17:
+p=1000 e=0.7 axis=1 component=2: derivative -0.009705479008003698 vs -0.00972607782362716
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test all_six_response_derivatives_agree_with_the_independent_gr_oracle ... FAILED
+
+failures:
+
+failures:
+    all_six_response_derivatives_agree_with_the_independent_gr_oracle
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-space --test near_circular`
