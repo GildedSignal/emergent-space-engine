@@ -1,0 +1,40 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.69s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests/api.rs (target/release/deps/api-1e8e0a6c7fc3619b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/near_circular.rs (target/release/deps/near_circular-ac3ffb1cca6b4578)
+
+running 1 test
+
+thread 'all_six_response_derivatives_agree_with_the_independent_gr_oracle' panicked at crates/space/tests/near_circular.rs:183:17:
+p=1000 e=0.7 axis=1 component=1: derivative -0.04902784526348114 vs -0.04794696256823012
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test all_six_response_derivatives_agree_with_the_independent_gr_oracle ... FAILED
+
+failures:
+
+failures:
+    all_six_response_derivatives_agree_with_the_independent_gr_oracle
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-space --test near_circular`

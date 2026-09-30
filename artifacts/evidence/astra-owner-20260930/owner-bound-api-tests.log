@@ -1,0 +1,42 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 15.47s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 15 tests
+test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
+test quadrature_tests::degree_eight_witness_requires_the_proved_constant ... ok
+test quadrature_tests::sample::tests::draws_are_deterministic_prefix_stable_and_in_range ... ok
+test quadrature_tests::sample::tests::splitmix64_matches_the_reference_vector ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test tests::a_position_at_a_crossing_time_is_on_its_edge ... ok
+
+thread 'quadrature_tests::panel_bound_dominates_independent_refined_quadrature' panicked at crates/space/src/quadrature_tests.rs:117:13:
+integer rounding exceeds diagnostic allowance
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::bands_from_bits_agree_with_the_edges ... ok
+test tests::capture_cases_are_answered_not_errors_disguised_as_escape ... ok
+test tests::invalid_inputs_are_explicit_errors ... ok
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::the_crossing_table_is_ordered_and_mirrors ... ok
+test quadrature_tests::panel_bound_dominates_independent_refined_quadrature ... FAILED
+test tests::the_planted_newtonian_law_closes ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test num::tests::isqrt_is_the_exact_floor ... ok
+
+failures:
+
+failures:
+    quadrature_tests::panel_bound_dominates_independent_refined_quadrature
+
+test result: FAILED. 14 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-space --lib`

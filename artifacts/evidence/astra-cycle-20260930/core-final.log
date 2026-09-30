@@ -1,0 +1,39 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.87s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 8 tests
+test domain_tests::invalid_inputs_are_explicit_errors ... ok
+test tests::oscillator_coefficient_and_rounding_bounds ... ok
+test tests::shears_reverse_bit_for_bit_in_both_regimes ... ok
+test tests::bit_band_lookup_agrees_at_every_centre ... ok
+test exit_tests::first_integer_exit_agrees_with_exhaustive_search ... ok
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test domain_tests::capture_cases_are_answered_not_errors_disguised_as_escape ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/agreement.rs (target/release/deps/agreement-7a624881d2a71c92)
+
+running 1 test
+reference cases=262 worst [angle_abs, time_rel, proper_rel, shape_rel]=[2.1331962637205493e-5, 2.866349164798443e-6, 2.8690555062826917e-6, 7.731529574339646e-7]
+test independent_binet_m16_fixtures ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+   Doc-tests emergent_space
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

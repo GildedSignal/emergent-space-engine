@@ -1,0 +1,39 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 3.27s
+     Running `target/release/examples/measure`
+machine before
+date: 2026-09-30T08:20:59Z
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+uptime: 10:20  1 user, load averages: 3.03 5.37 5.70
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+pmset: Error:Failed to get thermal warning level with error code 0xe00002bc
+Error: Failed to get performance warning level with error code 0xe00002bc
+Error: No CPU power status with error code 0xe00002bc
+pmset: Now drawing from 'AC Power'
+ -InternalBattery-0 (id=24969315)	100%; charged; 0:00 remaining present: true
+sampler=behave BOUND_SEED=20260930 keys=256 rounds=16; ns include allocation and drop; no memo
+compile: n=4096 median_ns=18583 p99_ns=45292 max_ns=51458
+compile_per_outbound_interval: n=4096 median_ns=1020 p99_ns=5000 max_ns=7209
+readout_periapsis: n=4096 median_ns=2375 p99_ns=3458 max_ns=6875
+readout_crossing: n=4048 median_ns=2375 p99_ns=3333 max_ns=14792
+readout_interior: n=4096 median_ns=5375 p99_ns=8334 max_ns=15208
+bytes: key=16 tube=32 cycle_header=176 crossing=36; outbound crossings min=0 max=40
+machine after
+date: 2026-09-30T08:21:00Z
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+uptime: 10:21  1 user, load averages: 3.03 5.37 5.70
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+pmset: Error:Failed to get thermal warning level with error code 0xe00002bc
+Error: Failed to get performance warning level with error code 0xe00002bc
+Error: No CPU power status with error code 0xe00002bc
+pmset: Now drawing from 'AC Power'
+ -InternalBattery-0 (id=24969315)	100%; charged; 0:00 remaining present: true

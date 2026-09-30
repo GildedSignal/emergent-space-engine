@@ -1,0 +1,28 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.43s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 1 test
+
+thread 'quadrature_tests::panel_bound_dominates_independent_refined_quadrature' panicked at crates/space/src/quadrature_tests.rs:117:13:
+integer rounding exceeds diagnostic allowance: [0,0.2913986914049894] component 1, error=5.888761700489908e-13 allowance=1.4128698228443598e-13 value=1.0517064880439635e-1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test quadrature_tests::panel_bound_dominates_independent_refined_quadrature ... FAILED
+
+failures:
+
+failures:
+    quadrature_tests::panel_bound_dominates_independent_refined_quadrature
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-space --lib`

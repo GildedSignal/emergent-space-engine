@@ -19,6 +19,7 @@ pub mod oracle;
 pub mod scale;
 pub mod select;
 pub mod sample;
+pub mod space;
 
 use crate::measure::{machine_state, Watch};
 use crate::Result;

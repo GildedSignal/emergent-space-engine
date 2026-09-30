@@ -1,0 +1,84 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 14.56s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 15 tests
+test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
+test quadrature_tests::degree_eight_witness_requires_the_proved_constant ... ok
+test quadrature_tests::sample::tests::splitmix64_matches_the_reference_vector ... ok
+test quadrature_tests::sample::tests::draws_are_deterministic_prefix_stable_and_in_range ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test tests::a_position_at_a_crossing_time_is_on_its_edge ... ok
+test tests::bands_from_bits_agree_with_the_edges ... ok
+test tests::invalid_inputs_are_explicit_errors ... ok
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::capture_cases_are_answered_not_errors_disguised_as_escape ... ok
+test tests::the_planted_newtonian_law_closes ... ok
+test tests::the_crossing_table_is_ordered_and_mirrors ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test num::tests::isqrt_is_the_exact_floor ... ok
+quadrature: 323 bound shapes, 8185 panels; max error/bound=6.816e-1, max panel relative bound=4.054e4, error=6.762e-5
+test quadrature_tests::panel_bound_dominates_independent_refined_quadrature ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/api.rs (target/release/deps/api-1e8e0a6c7fc3619b)
+
+running 3 tests
+test compact_tube_reads_the_same_generator_at_a_rebased_epoch ... ok
+test central_response_accepts_signed_kicks_and_refuses_invalid_probes ... ok
+test polar_velocity_matches_the_invariant_equations_and_readout_derivative ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/near_circular.rs (target/release/deps/near_circular-ac3ffb1cca6b4578)
+
+running 6 tests
+e=0      p - (6+2e) in [1e-3, 0.5], 5 orbits: worst advance 6.60e-4, worst period 6.51e-4
+e=0.01   p - (6+2e) in [1e-3, 0.5], 5 orbits: worst advance 3.21e-6, worst period 3.06e-6
+
+thread 'all_six_response_derivatives_agree_with_the_independent_gr_oracle' panicked at crates/space/tests/near_circular.rs:176:17:
+p=20 e=0.3 axis=1 component=2: derivative -2.375 vs -2.3672541081905365
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test every_cycle_is_the_compiled_one ... ok
+test all_six_response_derivatives_agree_with_the_independent_gr_oracle ... FAILED
+e=0.1    p - (6+2e) in [1e-3, 0.5], 5 orbits: worst advance 2.24e-5, worst period 1.90e-5
+e=0.3    p - (6+2e) in [1e-3, 0.5], 5 orbits: worst advance 6.67e-8, worst period 4.36e-8
+e=0.5    p - (6+2e) in [1e-3, 0.5], 5 orbits: worst advance 6.57e-8, worst period 3.68e-8
+e=0.7    p - (6+2e) in [1e-3, 0.5], 5 orbits: worst advance 8.73e-5, worst period 3.09e-5
+test the_whirl_near_the_separatrix ... ok
+e=0.032  97 orbits: worst advance 2.12e-7, worst period 3.89e-9
+e=0      97 orbits, p 7..8192: worst advance 1.78e-7, worst period 3.59e-9
+e=0.000001 97 orbits, p 7..8192: worst advance 2.97e-7, worst period 5.91e-7
+e=0.035  97 orbits: worst advance 2.19e-7, worst period 3.54e-9
+test a_position_moves_smoothly_through_the_cycle ... ok
+e=0.001  97 orbits, p 7..8192: worst advance 1.77e-7, worst period 9.62e-9
+e=0.04   97 orbits: worst advance 2.31e-7, worst period 3.20e-9
+e=0.01   97 orbits, p 7..8192: worst advance 1.81e-7, worst period 4.03e-9
+e=0.05   97 orbits: worst advance 2.62e-7, worst period 3.62e-9
+e=0.03   97 orbits, p 7..8192: worst advance 2.08e-7, worst period 3.21e-9
+test near_circular_orbits_across_bands_within_one_percent_of_gr ... ok
+e=0.1    97 orbits: worst advance 2.30e-7, worst period 3.39e-9
+e=0.3    96 orbits: worst advance 2.78e-7, worst period 3.27e-9
+e=0.5    95 orbits: worst advance 3.31e-7, worst period 3.37e-9
+e=0.7    94 orbits: worst advance 2.82e-7, worst period 2.27e-9
+e=0.9    93 orbits: worst advance 3.48e-7, worst period 3.25e-9
+test the_old_regime_boundary_and_eccentric_orbits ... ok
+
+failures:
+
+failures:
+    all_six_response_derivatives_agree_with_the_independent_gr_oracle
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p emergent-space --test near_circular`

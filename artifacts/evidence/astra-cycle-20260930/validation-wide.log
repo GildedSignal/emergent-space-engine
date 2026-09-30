@@ -1,0 +1,37 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 15.40s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 6 tests
+
+thread 'tests::oscillator_coefficient_and_rounding_bounds' panicked at crates/space/src/lib.rs:460:55:
+called `Result::unwrap()` on an `Err` value: Range
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::bit_band_lookup_agrees_at_every_centre ... ok
+test tests::oscillator_coefficient_and_rounding_bounds ... FAILED
+
+thread 'tests::shears_reverse_bit_for_bit_in_both_regimes' panicked at crates/space/src/lib.rs:422:55:
+called `Result::unwrap()` on an `Err` value: Range
+test tests::shears_reverse_bit_for_bit_in_both_regimes ... FAILED
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test exit_tests::first_integer_exit_agrees_with_exhaustive_search ... ok
+
+failures:
+
+failures:
+    tests::oscillator_coefficient_and_rounding_bounds
+    tests::shears_reverse_bit_for_bit_in_both_regimes
+
+test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p emergent-space --lib`

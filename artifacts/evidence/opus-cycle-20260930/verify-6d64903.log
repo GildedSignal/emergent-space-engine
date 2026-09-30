@@ -1,0 +1,86 @@
+# Verification of 6d64903 (Astra window 3), run 2026-09-30 10:05 CEST by Claude Opus (first run 09:36: identical gates; load 15.0, swap 8.9 GB used)
+machine: 10:05  up 21 days, 23:39, 1 user, load averages: 3.82 3.96 4.06
+swap: total = 10240.00M  used = 8768.69M  free = 1471.31M  (encrypted)
+
+## cargo test -p emergent-space --release --no-fail-fast
+test domain_tests::invalid_inputs_are_explicit_errors ... ok
+test tests::bit_band_lookup_agrees_at_every_centre ... ok
+test tests::shears_reverse_bit_for_bit_in_both_regimes ... ok
+test tests::oscillator_coefficient_and_rounding_bounds ... FAILED
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test exit_tests::first_integer_exit_agrees_with_exhaustive_search ... ok
+test domain_tests::capture_cases_are_answered_not_errors_disguised_as_escape ... ok
+thread 'tests::oscillator_coefficient_and_rounding_bounds' panicked at crates/space/src/lib.rs:927:13:
+assertion failed: (m.a as f64 / Q30 as f64 - a).abs() <= coef_bound
+test result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test independent_binet_m16_fixtures ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test circular_and_small_excursions_across_bands ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+## ./target/release/xtask behave --law space
+G1 PASS advance per cycle: 256/256 within 1e-2, worst 1.96e-3 [0.08 s]
+G2 PASS radial periods: 256/256 within 1e-3, worst 4.31e-4 [0.08 s]
+G3 PASS deflection: 64/64 within 1e-2, worst 2.41e-4 [0.04 s]
+G4 PASS capture: 0 of 10 misclassified [] [0.00 s]
+G5 PASS long run: 32/32 seeds over 10000 cycles (0 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2) [0.00 s]
+G6 PASS prograde: 256/256 advances positive [0.00 s]
+behave space: PASS
+
+## examples/measure (compile cost; median, p99)
+cold_first_return samples=256 failures=0 closed=34 median_crossings=38 median_steps=46 median_ns_per_cycle=160709 p95_ns=277125 p99_ns=300042 max_ns=327292 charged_median_ns_per_crossing=4159 crossing_denominator=249
+max_return_u_defect_q48=1572864
+memo_hit samples=256 entries=256 median_ns=42
+
+
+
+
+
+## examples/sweep: band-centred law plus local cell (A/C<=1/32), worst relative error vs Darwin integrals, p from PMIN to 2000 (x1.013)
+PMIN=6.2
+e=0        n=448 fails=0 worst_advance=1.32e-5 (p=6.28) worst_period=8.90e-6 (p=6.28)
+e=0.000001 n=448 fails=0 worst_advance=1.53e-5 (p=6.28) worst_period=1.10e-5 (p=6.20)
+e=0.001    n=448 fails=0 worst_advance=1.00e-4 (p=6.20) worst_period=7.16e-5 (p=6.20)
+e=0.01     n=447 fails=0 worst_advance=9.42e-3 (p=6.22) worst_period=6.61e-3 (p=6.22)
+e=0.03     n=447 fails=0 worst_advance=3.70e-2 (p=6.34) worst_period=2.62e-2 (p=6.34)
+e=0.0315   n=447 fails=0 worst_advance=3.70e-2 (p=6.34) worst_period=2.63e-2 (p=6.34)
+e=0.032    n=447 fails=0 worst_advance=3.68e-2 (p=6.35) worst_period=2.62e-2 (p=6.35)
+e=0.035    n=447 fails=0 worst_advance=3.41e-2 (p=6.35) worst_period=2.42e-2 (p=6.35)
+e=0.04     n=447 fails=0 worst_advance=2.64e-2 (p=6.36) worst_period=1.85e-2 (p=6.36)
+e=0.05     n=446 fails=0 worst_advance=1.64e-2 (p=6.46) worst_period=1.03e-2 (p=6.46)
+e=0.07     n=446 fails=0 worst_advance=1.59e-2 (p=6.34) worst_period=1.05e-2 (p=6.34)
+e=0.1      n=445 fails=0 worst_advance=1.29e-2 (p=6.48) worst_period=7.97e-3 (p=6.48)
+e=0.2      n=443 fails=0 worst_advance=5.57e-3 (p=6.77) worst_period=2.58e-3 (p=6.77)
+e=0.5      n=436 fails=0 worst_advance=2.71e-3 (p=7.39) worst_period=4.18e-4 (p=7.20)
+PMIN=7
+e=0        n=438 fails=0 worst_advance=2.57e-6 (p=7.37) worst_period=7.42e-7 (p=10.86)
+e=0.000001 n=438 fails=0 worst_advance=2.57e-6 (p=7.37) worst_period=7.42e-7 (p=10.86)
+e=0.001    n=438 fails=0 worst_advance=7.36e-6 (p=7.09) worst_period=1.58e-6 (p=7.09)
+e=0.01     n=438 fails=0 worst_advance=6.02e-4 (p=7.00) worst_period=1.32e-4 (p=7.00)
+e=0.03     n=438 fails=0 worst_advance=5.39e-3 (p=7.00) worst_period=1.14e-3 (p=7.00)
+e=0.0315   n=438 fails=0 worst_advance=8.07e-3 (p=7.56) worst_period=3.84e-3 (p=7.56)
+e=0.032    n=438 fails=0 worst_advance=8.35e-3 (p=7.56) worst_period=4.04e-3 (p=7.09)
+e=0.035    n=438 fails=0 worst_advance=8.38e-3 (p=7.28) worst_period=4.58e-3 (p=7.09)
+e=0.04     n=438 fails=0 worst_advance=8.15e-3 (p=7.28) worst_period=4.08e-3 (p=7.28)
+e=0.05     n=438 fails=0 worst_advance=4.39e-3 (p=7.37) worst_period=1.81e-3 (p=7.37)
+e=0.07     n=438 fails=0 worst_advance=3.79e-3 (p=7.18) worst_period=1.45e-3 (p=7.18)
+e=0.1      n=438 fails=0 worst_advance=3.94e-3 (p=7.09) worst_period=1.72e-3 (p=7.09)
+e=0.2      n=438 fails=0 worst_advance=3.02e-3 (p=7.09) worst_period=1.06e-3 (p=7.09)
+e=0.5      n=436 fails=0 worst_advance=2.71e-3 (p=7.39) worst_period=4.18e-4 (p=7.20)
+PMIN=10
+e=0        n=411 fails=0 worst_advance=1.31e-6 (p=10.81) worst_period=7.33e-7 (p=10.81)
+e=0.000001 n=411 fails=0 worst_advance=1.31e-6 (p=10.81) worst_period=7.33e-7 (p=10.81)
+e=0.001    n=411 fails=0 worst_advance=1.58e-6 (p=10.13) worst_period=1.14e-6 (p=11.09)
+e=0.01     n=411 fails=0 worst_advance=6.38e-5 (p=10.00) worst_period=5.23e-5 (p=10.00)
+e=0.03     n=411 fails=0 worst_advance=5.74e-4 (p=10.00) worst_period=4.85e-4 (p=10.00)
+e=0.0315   n=411 fails=0 worst_advance=3.71e-3 (p=10.67) worst_period=1.03e-3 (p=10.67)
+e=0.032    n=411 fails=0 worst_advance=3.70e-3 (p=10.67) worst_period=1.11e-3 (p=10.95)
+e=0.035    n=411 fails=0 worst_advance=4.49e-3 (p=10.26) worst_period=1.38e-3 (p=10.26)
+e=0.04     n=411 fails=0 worst_advance=3.40e-3 (p=10.26) worst_period=1.12e-3 (p=10.00)
+e=0.05     n=411 fails=0 worst_advance=1.48e-3 (p=10.40) worst_period=2.94e-4 (p=11.23)
+e=0.07     n=411 fails=0 worst_advance=9.66e-4 (p=11.09) worst_period=1.16e-4 (p=10.53)
+e=0.1      n=411 fails=0 worst_advance=1.45e-3 (p=10.00) worst_period=3.02e-4 (p=10.67)
+e=0.2      n=411 fails=0 worst_advance=8.31e-4 (p=10.00) worst_period=1.24e-4 (p=11.23)
+e=0.5      n=411 fails=0 worst_advance=6.44e-4 (p=10.00) worst_period=3.09e-4 (p=10.00)

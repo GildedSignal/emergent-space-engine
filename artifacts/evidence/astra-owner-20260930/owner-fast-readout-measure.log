@@ -1,0 +1,39 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cycle/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.68s
+     Running `target/release/examples/measure`
+machine before
+date: 2026-09-30T08:24:54Z
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+uptime: 10:24  1 user, load averages: 3.16 4.23 5.11
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+pmset: Error:Failed to get thermal warning level with error code 0xe00002bc
+Error: Failed to get performance warning level with error code 0xe00002bc
+Error: No CPU power status with error code 0xe00002bc
+pmset: Now drawing from 'AC Power'
+ -InternalBattery-0 (id=24969315)	100%; charged; 0:00 remaining present: true
+sampler=behave BOUND_SEED=20260930 keys=256 rounds=16; ns include allocation and drop; no memo
+compile: n=4096 median_ns=17417 p99_ns=36125 max_ns=87292
+compile_per_outbound_interval: n=4096 median_ns=940 p99_ns=4958 max_ns=5500
+readout_periapsis: n=4096 median_ns=83 p99_ns=125 max_ns=542
+readout_crossing: n=4048 median_ns=125 p99_ns=209 max_ns=375
+readout_interior: n=4096 median_ns=5083 p99_ns=7167 max_ns=32042
+bytes: key=16 tube=32 cycle_header=176 crossing=36; outbound crossings min=0 max=40
+machine after
+date: 2026-09-30T08:24:54Z
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+uptime: 10:24  1 user, load averages: 3.16 4.23 5.11
+sysctl: sysctl: sysctl fmt -1 1024 1: Operation not permitted
+pmset: Error:Failed to get thermal warning level with error code 0xe00002bc
+Error: Failed to get performance warning level with error code 0xe00002bc
+Error: No CPU power status with error code 0xe00002bc
+pmset: Now drawing from 'AC Power'
+ -InternalBattery-0 (id=24969315)	100%; charged; 0:00 remaining present: true

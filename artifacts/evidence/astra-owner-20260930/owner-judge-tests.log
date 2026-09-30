@@ -1,0 +1,38 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-cycle/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.11s
+     Running unittests src/main.rs (target/release/deps/xtask-608f5919b4ef99fc)
+
+running 13 tests
+test behave::oracle::tests::capture_thresholds_are_the_textbook_ones ... ok
+test behave::fit::tests::exact_zero_is_no_growth_and_junk_is_nan ... ok
+test behave::sample::tests::draws_are_deterministic_prefix_stable_and_in_range ... ok
+test behave::fit::tests::ignores_the_first_tenth ... ok
+test behave::sample::tests::splitmix64_matches_the_reference_vector ... ok
+test behave::fit::tests::recovers_exponents_0_half_and_1_on_clean_power_laws ... ok
+test behave::fit::tests::recovers_exponents_through_noise_and_bounded_oscillation ... ok
+test behave::oracle::tests::wrappers_agree_with_their_closed_limits ... ok
+test behave::tests::the_cli_refuses_unknown_laws_and_arguments ... ok
+test behave::space::tests::planted_newtonian_map_fails_precession_gate ... ok
+test behave::tests::echo_passes_every_gate ... ok
+test behave::tests::the_other_gates_can_fail_too ... ok
+test behave::tests::each_planted_law_fails_exactly_its_gate ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.22s
+
+     Running tests/behave_cli.rs (target/release/deps/behave_cli-93b3c37da4ab7494)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+
+wall_seconds=11.183 exit=0
