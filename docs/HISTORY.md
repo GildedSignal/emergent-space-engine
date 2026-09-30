@@ -3063,3 +3063,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/evidence/astra-cycle-20260930/
 - Limitations: G5 is open; the frame's tube is a linear epicycle.
 - Next: G1–G6 on space; Sol 6.1 builds the engine judge, then handoffs, contacts and kicks.
+
+## H0208 — First flight; the one-mass law passes every behaviour gate; the engine judged by the other family; Skunk Works
+
+- Date: 2026-09-30
+- Kind: implementation
+- Status: partial
+- Revisions: ad250ab and a107f24 (xtask fly); 973b050 (engine judge); 815f354 (E7 fix); e144e47 (law.md); 9c461e5 (AGENTS.md); wt/cycle 9b23fb1 (unmerged)
+- Scope: xtask fly; crates/space (space-darwin16-v1); xtask engine-judge; docs/law.md; team rules
+- Changed: Julien flies: `xtask fly` (Sol), flat space, thrust as rapidity kinks, view gathered at the past light cone. Live at 0.89c the sky crowds forward and blueshifts; the ship clock runs at 0.454. The one-mass law now compiles each cycle once from (E, L) by Darwin-phase quadrature (Opus). G1–G6 pass at about 1e-6, closing G5; Astra owns the speed and the bound. Sol's engine judge found three defects: E7 is fixed; E3 and E4 wait for the exact tube. r4 v2 killed first-order resonance kicks (the resonant normal form is next). Julien: no time estimates, Skunk Works, AI off the plan.
+- Why: fly early; the risk is feel, not physics.
+- Validation: fly's 11 tests and a live run; behave G1–G6; engine-judge E1, E7.
+- Evidence: artifacts/runs/sol-fly/, artifacts/evidence/engine-judge-20260930/, artifacts/evidence/opus-cycle-20260930/
+- Limitations: the slice has no gravity yet; its frame p99 showed a 1 s stall; the space law's speed is unmeasured.
+- Next: Julien flies; Astra: speed and API; Sonnet: B11–B14; Sol: the events layer; gravity into the slice.
