@@ -14,7 +14,8 @@
 //! Scenes: the engine's cost scenes (`cost.rs`: 2000 bodies, three epochs), the same battle with
 //! re-anchoring (`reanchor.rs` cost scene), a sweep of body counts over `scenes::battle` (dense
 //! battles: where the GPU should win), and sparse ones (formations that barely meet, or never: where
-//! the event core should win). Each test stays under one minute.
+//! the event core should win), and the range where the GPU path lets go (large Q). Each test stays under
+//! one minute; run them one at a time (`-- --test-threads=1`), since they measure each other's load.
 #![cfg(target_os = "macos")]
 use emergent_engine::{scenes, AnchorPolicy, Battle, Frame, Outcome};
 use emergent_lattice::law::{Tick, World};
@@ -261,6 +262,50 @@ fn sparse_battles() {
         let f = frame_for(extent, q, div, horizon, 11);
         println!("sparse: {n} bodies, {what}, closing at q/{} per chronon, horizon {horizon}", div / 2);
         scene(&format!("{n} bodies, div {div}"), &w, &f, horizon, None, Reps { budget: 3.0, min: 3, max: 9 });
+    }
+    machine_state("after");
+}
+
+/// Where the GPU path lets go: its exactness ranges need C·(K + 1) ≤ 2^28 (cell side C, fastest
+/// body K, in velocity quanta per chronon), so at a large Q any body near a fraction of c sends the
+/// whole battle to the CPU path of `MetalChronon` (exact, tested, and not fast). The same battle
+/// (closing at q/4 per chronon) at growing Q: the chronons the GPU ran, those it handed to the CPU,
+/// and the wall time against the CPU lockstep.
+#[test]
+fn the_gpu_path_needs_small_velocities() {
+    machine_state("before");
+    warm_up();
+    const H: Tick = 192;
+    println!("400 bodies closing at q/4 per chronon, {H} chronons: the GPU path needs C*(K+1) <= 2^28");
+    for lg in [10u32, 13, 14, 15, 16, 18, 20] {
+        let q = 1i64 << lg;
+        let (w, extent) = scenes::battle(400, q, 8, 8, false);
+        let f = frame_for(extent, q, 8, H, 11);
+        let reps = Reps { budget: 1.5, min: 2, max: 5 };
+        let a = measure(&|| Chronon::new(w.clone(), false).unwrap(), &f, H, None, reps);
+        let g = measure(
+            &|| match MetalChronon::new(w.clone(), false) {
+                Ok(m) => m,
+                Err(e) => panic!("{e}"),
+            },
+            &f,
+            H,
+            None,
+            reps,
+        );
+        // One more run to read the stepper's own count of where its chronons went.
+        let mut b = Battle::new(MetalChronon::new(w.clone(), false).unwrap(), f.clone(), 1);
+        b.run_to(H).unwrap();
+        let s = b.stepper().stats().clone();
+        assert_eq!(a.out, g.out, "Q = 2^{lg}: the CPU path and the GPU path give the same bits");
+        println!(
+            "Q = 2^{lg:<2}: GPU ran {:>4} chronons, CPU path {:>4} | lockstep {:>8.1} ms, metal {:>8.1} ms ({:.2}x)",
+            s.gpu_chronons,
+            s.cpu_chronons,
+            quantile(&a.wall, 0.5) * 1e3,
+            quantile(&g.wall, 0.5) * 1e3,
+            quantile(&a.wall, 0.5) / quantile(&g.wall, 0.5)
+        );
     }
     machine_state("after");
 }
