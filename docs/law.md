@@ -9,7 +9,7 @@ A fixed integer algorithm. Exact means bit-identical on every machine, thread co
 ## State
 
 - **Doll:** its mass M (logarithmic form), its parent doll, its centre (a tube in the parent), and its edge radius (the sphere of influence, derived from the mass ratio).
-- **Tube** (one per body or photon): its doll, E and L (integers native to the law), epoch t₀ (relative to the doll's clock), the cycle phase at t₀, and a type index (mass, radius and spectrum come from a table). About 16 bytes. Position and velocity are derived when asked.
+- **Tube** (one per body or photon), 16 bytes: the memo key's index (quantized E and L, 32 bits), the periapsis angle (32 bits), and the periapsis time in the doll's clock (64 bits; epoch and phase collapse into this one time). The doll is where the tube is stored; the type (mass, radius, spectrum) comes from its family's table. Position and velocity are derived when asked. The memo is keyed by (E, L) alone: a rotated orbit is the same cycle, so orientation costs nothing (found by `xtask galaxy`, 30 September: `crates/space`'s `Tube` held only epoch and phase).
 - **Cycle memo,** keyed by quantized (E, L): the band-crossing table of one radial cycle; integer Δφ, Δt and Δτ; and ∂/∂E and ∂/∂L of each. It is shared by every tube with the same key.
 - **Numbers:** 32-bit storage words and 64-bit products. Per band, fixed point with one shared exponent. Wide integers are allowed only at cycle creation. Increments and kicks are integers of the law, exact by construction (r2).
 
