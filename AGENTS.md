@@ -17,10 +17,10 @@
 
 - **Skunk Works, physics first** (Julien, 30 September: the SR-71's way). Speed to the finished product is the measure, and overhead costs the integrator's attention. The integrator reads code and gate output, not reports; reports are minimal; each builder tests its own product; the product flies early (Julien plays the slice as soon as it exists). At least 60% of each Claude and Astra window goes to the plan's steps, and no process change lands without a physics merge since the last one.
 - **Comparative advantage, and spend every provider's usage.** Check it with `get_usage` for Claude, the rollout `rate_limits` for Codex, and `omp usage` for GLM.
-  - **Claude Opus**, the integrator: judgement, contracts, adjudication, merges, the journal, the hard problems.
-  - **gpt-6-astra:** the hardest exact specifics: algorithms, proofs, audits.
-  - **Claude Sonnet**, as sub-agents: the default builder for well-scoped builds, harnesses, fixes and fast iteration.
-  - **gpt-6-sol:** the overflow builder.
+  - **Claude Opus**, the integrator: taste and divergent thinking, judgement, contracts, adjudication, merges, the journal. It never builds as a sub-agent.
+  - **gpt-6.1-sol:** most of the building (close to Astra, about 5× cheaper).
+  - **gpt-6-astra:** reserved for the hard, convergent, math-like work: exact algorithms, proofs, audits. It consumes tokens fastest.
+  - **Claude Sonnet**, as sub-agents: the Claude-side builder, including every judge of OpenAI's modules.
   - **GLM 5.3,** the [lab](lab/README.md): autonomy of inquiry and no authority. Many GLMs with lenses choose their own experiments, run as cloud routines only (never on Julien's machine), and are each checked by an independent GLM. Only gold reaches the integrator. Pre-freeze red-teams and probes run there too.
   - **Read-only thinking agents,** before one-way doors only. Their briefs stay outside the repo.
 - **A players protect the work.**
