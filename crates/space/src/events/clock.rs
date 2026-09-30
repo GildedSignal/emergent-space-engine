@@ -1,7 +1,7 @@
 //! Child proper clock -> parent's coordinate clock. The inverse is the first
 //! integer coordinate time whose derived proper time is at least the deadline.
 //! Whole cycles skip by Δt/Δτ; the crossing table brackets the remaining search.
-use crate::{Cycle, Error, Result, Tube, Words};
+use crate::{Cycle, Error, Result, LegacyTube as Tube, Words};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Clock {

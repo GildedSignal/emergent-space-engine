@@ -1,5 +1,6 @@
 //! Consumer contract: compact records, rebased time, polar velocities, and explicit errors.
 use emergent_space::*;
+use emergent_space::LegacyTube as Tube;
 
 #[test]
 fn compact_tube_reads_the_same_generator_at_a_rebased_epoch() {

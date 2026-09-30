@@ -1,0 +1,6 @@
+sampler=weak seed=0x454e56454c4f5045 p=loguniform[1e4,1e12] e=uniform[0,.9]
+rounds=4096; compile includes construction and drop; mixed compile/crossing/interior loop
+scaled_compile: n=1048576 median_ns=9833 p99_ns=30417 max_ns=440667
+scaled_crossing_state: n=1048576 median_ns=333 p99_ns=583 max_ns=23166
+scaled_interior_state: n=1048576 median_ns=2333 p99_ns=2666 max_ns=130208
+bytes: Tube=16 MemoCode=8 Scalar=16 Orbit_binding=128 shape_header=208 knot=88 Residual=64; catalogue and shapes are additional storage

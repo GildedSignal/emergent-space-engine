@@ -67,7 +67,7 @@ fn child_clock_uses_cycles_and_crossing_brackets_and_never_undershoots() {
         let c = Cycle::compile(Key::darwin(p << 16, e).unwrap()).unwrap();
         let phase = c.increments.t.get() / 7;
         let clock = Clock {
-            centre: emergent_space::Tube::new(Words::new(1234), Words::new(phase)),
+            centre: emergent_space::LegacyTube::new(Words::new(1234), Words::new(phase)),
             proper_epoch: Words::new(987),
         };
         let mut previous = 0;
@@ -280,7 +280,7 @@ fn binary_test_mass_limit_is_exact_and_clock_map_uses_the_same_energy() {
 fn edge_prediction_is_an_exact_first_exit_and_skips_arbitrary_whole_cycles() {
     use emergent_space::events::edge::next_exit;
     let cycle = Cycle::compile(Key::darwin(20 << 16, 1 << 29).unwrap()).unwrap();
-    let tube = emergent_space::Tube::new(Words::new(123), Words::new(0));
+    let tube = emergent_space::LegacyTube::new(Words::new(123), Words::new(0));
     let edge = Words::new(20 << 20);
     let at = next_exit(&cycle, tube, Words::new(123), edge).unwrap().unwrap().get();
     let outside = |t| tube.position(&cycle, Words::new(t)).unwrap().u as u128 * edge.get() as u128 <= 1u128 << 82;
@@ -296,7 +296,7 @@ fn clock_is_monotone_at_mirrors_cuts_and_adjacent_integer_times() {
     for (p, e) in [(8, 1 << 29), (20, 1 << 29), (1000, 3 << 28)] {
         let c = Cycle::compile(Key::darwin(p << 16, e).unwrap()).unwrap();
         let clock = Clock {
-            centre: emergent_space::Tube::new(Words::new(0), Words::new(0)),
+            centre: emergent_space::LegacyTube::new(Words::new(0), Words::new(0)),
             proper_epoch: Words::new(0),
         };
         let period = c.increments.t.get();
