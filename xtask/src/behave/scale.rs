@@ -15,7 +15,7 @@
 //!   factor on 8 cores. Game time is in units of M/c³ (G = c = M = 1), the judge's only time unit.
 use super::{sample, Gate, Law};
 use std::hint::black_box;
-use std::sync::Mutex;
+use std::sync::{Mutex, RwLock};
 use std::time::Instant;
 
 pub const SIZES: [usize; 4] = [1_000, 10_000, 100_000, 1_000_000];
@@ -30,6 +30,10 @@ const MIN_SIZES: usize = 3;
 
 /// Timing gates in one process take turns, so parallel tests do not time each other.
 static TIMING: Mutex<()> = Mutex::new(());
+/// The events gates (B12-B14) hold this for reading while they compute; B10 holds it for writing
+/// while it times. In one process (the tests) B10 then never times against their heavy work, which
+/// would tilt its exponent. The CLI runs one gate at a time, so there it costs nothing.
+pub(super) static QUIET: RwLock<()> = RwLock::new(());
 
 /// `echo`'s frozen scene: the seed-sampled orbits, then zero work per orbit until an event. The
 /// only cost is to exist: O(n).
@@ -87,6 +91,7 @@ fn size(n: usize) -> String {
 
 pub fn b10(law: &dyn Law) -> Gate {
     let _turn = TIMING.lock().unwrap_or_else(|e| e.into_inner());
+    let _quiet = QUIET.write().unwrap_or_else(|e| e.into_inner());
     let start = Instant::now();
     let left = || BUDGET_S - start.elapsed().as_secs_f64();
     let fail = |detail: String| Gate { id: "B10", pass: false, detail, secs: 0.0 };

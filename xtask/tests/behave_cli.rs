@@ -17,7 +17,7 @@ fn gates(lines: &[String]) -> Vec<(String, String)> {
 fn echo_passes_every_gate_between_two_machine_states() {
     let (code, lines) = behave(&["--law", "echo"]);
     assert_eq!(code, 0, "{lines:?}");
-    assert_eq!(gates(&lines).iter().map(|(_, v)| v.as_str()).collect::<Vec<_>>(), ["PASS"; 9]);
+    assert_eq!(gates(&lines).iter().map(|(_, v)| v.as_str()).collect::<Vec<_>>(), ["PASS"; 13]);
     let states: Vec<usize> = (0..lines.len()).filter(|&i| lines[i].starts_with("machine_state {")).collect();
     assert_eq!((states.first(), states.last()), (Some(&0), Some(&(lines.len() - 2))), "{lines:?}");
     assert!(lines[0].contains("\"when\":\"start\"") && lines[lines.len() - 2].contains("\"when\":\"end\""));
@@ -33,15 +33,31 @@ fn a_planted_law_exits_1_and_fails_only_its_gate() {
     assert_eq!(lines.last().unwrap(), "behave planted-walk: FAIL G5");
 }
 
+/// A planted law of the single-mass core fails only its gate. The nine core gates are named: the
+/// default run is all thirteen (30 s or so, and B10 is a timing gate), and three of those at once
+/// would make B10 flaky. `a_planted_law_exits_1_and_fails_only_its_gate` runs a planted law by default.
+fn planted_fails_only(law: &str, gate: &str) {
+    let core = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10"];
+    let (code, lines) = behave(&["--law", law, "--gates", &core.join(",")]);
+    assert_eq!(code, 1, "{lines:?}");
+    let failed: Vec<String> = gates(&lines).into_iter().filter(|(_, v)| v == "FAIL").map(|(g, _)| g).collect();
+    assert_eq!(failed, [gate], "{law}");
+    assert_eq!(lines.last().unwrap(), &format!("behave {law} ({}): FAIL {gate}", core.join(" ")));
+}
+
 #[test]
-fn each_new_planted_law_exits_1_and_fails_only_its_gate() {
-    for (law, gate) in [("planted-clock", "B7"), ("planted-steps", "B9"), ("planted-quadratic", "B10")] {
-        let (code, lines) = behave(&["--law", law]);
-        assert_eq!(code, 1, "{lines:?}");
-        let failed: Vec<String> = gates(&lines).into_iter().filter(|(_, v)| v == "FAIL").map(|(g, _)| g).collect();
-        assert_eq!(failed, [gate], "{law}");
-        assert_eq!(lines.last().unwrap(), &format!("behave {law}: FAIL {gate}"));
-    }
+fn planted_clock_exits_1_and_fails_only_b7() {
+    planted_fails_only("planted-clock", "B7");
+}
+
+#[test]
+fn planted_steps_exits_1_and_fails_only_b9() {
+    planted_fails_only("planted-steps", "B9");
+}
+
+#[test]
+fn planted_quadratic_exits_1_and_fails_only_b10() {
+    planted_fails_only("planted-quadratic", "B10");
 }
 
 #[test]
