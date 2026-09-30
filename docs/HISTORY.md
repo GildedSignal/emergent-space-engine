@@ -3077,3 +3077,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/runs/sol-fly/, artifacts/evidence/engine-judge-20260930/, artifacts/evidence/opus-cycle-20260930/
 - Limitations: the slice has no gravity yet; its frame p99 showed a 1 s stall; the space law's speed is unmeasured.
 - Next: Julien flies; Astra: speed and API; Sonnet: B11–B14; Sol: the events layer; gravity into the slice.
+
+## H0209 — Representation first: events first cut, binaries pass, ships in memory, the compiler's native form, principles 32–35
+
+- Date: 2026-09-30
+- Kind: implementation
+- Status: partial
+- Revisions: 082f352 (events), 08f3561 (B11–B14), 39f2fde (galaxy), 9fd9b33 (shipmem), 7660a67 (principles), wt/envelope 40f0209 (unmerged)
+- Scope: crates/space events; behave B11–B15; crates/shipmem; docs/law.md; PRINCIPLES 32–35
+- Changed: Sol's events layer passes B11 (binaries as one doll, confirmed by r3 v3); B12–B14 fail because the compiler overflowed at planetary scale, having been sized to its gates. Julien: gates judge a representation and never size it. Astra derived the native form (ENVELOPE.md: scale as an exponent, shape (k, q), weak field as a series in q, exact rebinding remainders). Ships in memory (Opus): program plus scars or packed blocks, lossless (a perfect convoy costs 488 B per 10⁶ ships). Every body is real: no seeds, no averaged populations, averaging only for predictable behaviour. B15 freezes "gravity is nearly free". Principles 32–35 are approved.
+- Why: Julien: the engine with native GR is the only goal; views are debug tools.
+- Validation: behave on space (G1–G6, B7, B9–B11 pass); shipmem round-trips; galaxy tests.
+- Evidence: artifacts/runs/sol-events/, opus-shipmem/, sonnet-galaxy/
+- Limitations: the envelope is unverified; B12–B14 fail; r8 was VOID; r4 v2 killed arc kicks.
+- Next: Astra verifies the envelope; Sol does rebinding and tides; r4 v3, r8 v2, r9.
