@@ -37,7 +37,7 @@ A fixed integer algorithm. Exact means bit-identical on every machine, thread co
 
 - c = 1 cell per cell-update. An influence reaches a cell no earlier than its min-plus arrival time over cell crossings.
 - **Sparse order:** jump to the earliest broken certificate, resolve it, notify the dependents. One queue, ordered by slack.
-- **Dense order:** lockstep in cache for regions whose events per cell per light-crossing are near 1, inside a free-fall frame (Clohessy–Wiltshire tides to first order; members re-anchor at events).
+- **Dense order:** lockstep in cache (CPU, or Metal on the GPU) for regions whose events per cell per light-crossing are near 1, inside a free-fall frame. **The frame is Fermi normal coordinates along an exact tube** (30 September, the representation that dissolves engine-judge E3 and E4). Its origin follows the members' centre-of-mass geodesic, compiled in the parent doll, not a linear epicycle about a circle. Its axes are non-rotating (parallel transport, geodetic precession included), so there are no circle moves and no Coriolis terms. Members feel only the tide x″ = −E(τ)·x, where E is the Schwarzschild tidal tensor projected along the tube (Clohessy–Wiltshire is its Newtonian, circular limit), applied as exact integer kicks at epochs. Re-anchoring is recentring plus rebinding the tube to the centre-of-mass state, with the exact remainder.
 - **Both orders give identical bits.**
 
 ## Observation (never evolved)
