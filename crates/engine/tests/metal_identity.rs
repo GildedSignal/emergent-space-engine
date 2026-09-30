@@ -121,7 +121,7 @@ fn same(name: &str, what: &str, a: &Run, b: &Run, metrics: bool) {
 fn three_orders(name: &str, w: &World, f: &Frame, d: &Drive, sweep_threads: bool) -> Option<Run> {
     let a = run(Order::Lockstep, w, f, d)?;
     let b = run(Order::Sparse, w, f, d)?;
-    let Some(g) = run(Order::Gpu, w, f, d) else { return None };
+    let g = run(Order::Gpu, w, f, d)?;
     println!(
         "{name:<4} {:>5} bodies E={:<5} | {} epochs, {} kicked, {} refused, {} anchors ({} circle moves; refused {}+{}), {} handed out | contacts {:<7} | lockstep {:.2}s sparse {:.2}s gpu {:.2}s | digest {}",
         w.bodies.len(),

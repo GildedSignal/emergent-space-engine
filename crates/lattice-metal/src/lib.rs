@@ -20,6 +20,10 @@
 //! to follow) stops the buffer; the CPU resolves those components with `law::respond` in i128
 //! or big integers (in parallel) and the loop resumes.
 //!
+//! [`MetalChronon`] is also [`emergent_lattice::Kickable`] (src/gpu/kickable.rs): the free-fall frame of
+//! `crates/engine` kicks and re-anchors it between chronons, with `Chronon`'s semantics, so a battle
+//! runs on the GPU bit for bit as on the CPU or the event core.
+//!
 //! # Exactness
 //! The GPU evaluates `law::hit` in i64. Let C be the cell side, K = max|k_c| over bodies and
 //! R = reach_max ≤ C. Pairs are only tested between adjacent cells, so |d_c| < 2C, |w_c| ≤ 2K,

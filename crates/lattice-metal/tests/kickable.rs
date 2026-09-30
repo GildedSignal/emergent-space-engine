@@ -68,7 +68,7 @@ fn fuzz(name: &str, w: World, opts: Options, rounds: usize, seed: u64) -> Option
         c.run_to(tick);
         m.run_to(tick);
         agree(&format!("{label} run"), &c, &m);
-        let sparse = |rng: &mut Rng, span: i64| -> Vec<[i64; 2]> { (0..n).map(|_| if rng.next() % 3 == 0 { small(rng, span) } else { [0, 0] }).collect() };
+        let sparse = |rng: &mut Rng, span: i64| -> Vec<[i64; 2]> { (0..n).map(|_| if rng.next().is_multiple_of(3) { small(rng, span) } else { [0, 0] }).collect() };
         match rng.next() % 8 {
             0..=3 => {
                 let dk = sparse(&mut rng, q / 32);
@@ -79,10 +79,10 @@ fn fuzz(name: &str, w: World, opts: Options, rounds: usize, seed: u64) -> Option
                 // A frame move: a uniform shift (no pair changes) plus, half the time, a per-body
                 // settling (pairs move by the difference).
                 let shift = small(&mut rng, 1 << 20);
-                let per_body = rng.next() % 2 == 0;
+                let per_body = rng.next().is_multiple_of(2);
                 let dx: Vec<[i64; 2]> = (0..n)
                     .map(|_| {
-                        if per_body && rng.next() % 2 == 0 {
+                        if per_body && rng.next().is_multiple_of(2) {
                             let e = small(&mut rng, q / 4);
                             [shift[0] + e[0], shift[1] + e[1]]
                         } else {
