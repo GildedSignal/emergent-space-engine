@@ -66,7 +66,7 @@ Everything below follows from these three, and so does its cost (§6).
   - A doll orbit is a cycle: its radial crossings repeat, and each cycle adds constants to φ, t and τ. Identical invariants share one memoized cycle, as in Hashlife.
   - Perturbations (tides, neighbours, inspiral by Peters' formula) are kicks on E and L. A cycle's derivatives are stored with it, so a kick updates the cycle by a multiply-add.
   - **Averaging only away from resonance.** Near a mean-motion resonance, kicks keep the conjunction phase: one kick per conjunction, never an orbit average, because an averaged layer cannot represent a locked resonant angle. The red-team measured this (H0203), and the original conversation already said it. Rung r4 tests the per-conjunction layer.
-  - **Every body is real** (Julien, 30 September: "NO ELITE style… it is deterministic. You cannot average a population… averages crush data especially tail events… the goal of this game is emergence and you would kill it"). No body stays a seed, and no population is replaced by its statistics. Bounds and entropy only guide the allocator (what to compute when); they never compute. A fleet may share a frame and a key table, but that is lossless compression by symmetry, not averaging.
+  - **Every body is real** (Julien, 30 September: "NO ELITE style… it is deterministic. You cannot average a population… averages crush data especially tail events… the goal of this game is emergence and you would kill it"). No body stays a seed, and no population is replaced by its statistics. Bounds and entropy only guide the allocator (what to compute when); they never compute. Ships are grouped by their description, not averaged (Julien: "if i have an orange to my left and one to my right i don't say orange left orange right i say orange left, right"). What members share (type, frame, launch epoch, formation) is written once; what differs is stored at the width its information needs; the layout follows causality and memory, so an event decompresses only what it touches. It is lossless, and every ship stays individual. Averaging is allowed for predictable behaviour (a stable orbit) and never for complex adaptive systems (ships, chaotic N-body regions).
 - **Two evaluation orders of the same event graph, with identical bits.**
   - **Sparse:** where events per cell per light-crossing (a Knudsen-like number) ≪ 1. Certificates, the causal frontier, and one queue ordered by slack, on the CPU.
   - **Dense:** where that number is near 1, which is chaos, the normal case of many necessary interactions in a short time.
@@ -111,7 +111,7 @@ Bresenham, the DDA integrators of the 1950s, sigma-delta, CORDIC (shift-and-add 
 | Work | Rate | Cost |
 |---|---|---|
 | Undisturbed orbits | only when looked at | ≈ 0 |
-| Tidal kicks (harmonic form; averaging suspended) | to be re-estimated | incremental, one quantum at a time |
+| Tidal kicks, orbit-averaged on stable orbits | ~6×10⁴ per game-second | ~50 ns each, incremental: < 1% of a core |
 | A cycle's first computation | new invariants only | tens of crossings, then memoized |
 | The view | ≤ 1 sample per pixel per frame | GPU |
 | Chaos and contacts | bursts | the dense order: entropy, the p99 risk |
