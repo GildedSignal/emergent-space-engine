@@ -45,6 +45,7 @@ fn verify_set(set: &str) -> Vec<Spec> {
             spec("dense-n3000-s1e-2-r3e-4", 3000, 1e-2, 3e-4, 1.0, 1.5, 0, 20.0, s + 14),
         ],
         "long" => vec![spec("long-1000-orbits", 300, 1e-2, 1e-3, 1.0, 1.5, 0, 1000.0, s + 11)],
+        "long10k" => vec![spec("long-10000-orbits", 100, 1e-2, 1e-3, 1.0, 1.5, 0, 10000.0, s + 15)],
         _ => panic!("unknown set"),
     }
 }
@@ -371,7 +372,9 @@ fn cone_pairs_sample(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) -> V
     out
 }
 
-/// A kick: re-scan the kicked body's range and re-set up its pairs; how many certificates change.
+/// A kick: re-scan the kicked body's range and re-set up its pairs. Also: how many certificates a
+/// kick actually changes, and how many a stored slack (the relative period change a silent
+/// certificate absorbs over the horizon) would let the re-certification skip.
 fn kick() {
     let sp = spec("kick", 10_000, 1e-2, 1e-4, 1.0, 1.5, 0, 0.0, 20261050);
     let b = make_belt(&sp);
@@ -379,26 +382,82 @@ fn kick() {
     let horizon = 1000.0 * TAU;
     let tk = 10.0 * TAU;
     let nk = 100;
-    for &eps in &[1e-9, 1e-7, 1e-5, 1e-3] {
-        let mut pairs = 0u64;
-        let mut scanned = 0u64;
-        let mut changed = 0u64;
-        let mut flipped = 0u64;
-        let mut hit_before = 0u64;
+    let epss = [1e-9, 1e-7, 1e-5, 1e-3];
+    // Old certificates of each kicked body's partners: hits, proposal count, slack budget.
+    struct Old {
+        j: u32,
+        hits: Vec<(f64, f64)>,
+        proposals: u64,
+        budget: f64,
+    }
+    let kicked: Vec<usize> = (0..nk).map(|q| (q * 97 + 13) % sp.n).collect();
+    let mut olds: Vec<Vec<Old>> = Vec::new();
+    for &i in &kicked {
+        let old = b[i];
+        let (lo, hi) = sorted.range(old.binet()[0], sorted.reach(&old));
+        let mut v = Vec::new();
+        for &(_, j) in &sorted.order[lo..hi] {
+            let bj = &b[j as usize];
+            if j as usize == i || !is_candidate(&old, bj, sp.rho) {
+                continue;
+            }
+            let mut hits = Vec::new();
+            let mut st = Stats::default();
+            pair_events(&old, bj, sp.rho, SAFETY, tk, tk + horizon, &mut st, &mut hits);
+            let proposals = st.checks_total();
+            let mut budget = f64::INFINITY;
+            if proposals == 0 {
+                for sec in sections(&old, bj, sp.rho, SAFETY, &mut 0) {
+                    let (mut lo_g, mut hi_g) = (0i64, (old.period as i64) / 4);
+                    for _ in 0..40 {
+                        let mid = (lo_g + hi_g) / 2;
+                        let mut s2 = sec.clone();
+                        s2.w1 += mid;
+                        s2.w2 += mid;
+                        let mut st3 = Stats::default();
+                        run_section_proposals(&old, bj, &s2, tk, tk + horizon, &mut st3, &mut Vec::new());
+                        if st3.checks_total() > 0 {
+                            hi_g = mid;
+                        } else {
+                            lo_g = mid;
+                        }
+                    }
+                    budget = budget.min(lo_g as f64 / (horizon * TICKS));
+                }
+            } else {
+                budget = 0.0;
+            }
+            v.push(Old { j, hits, proposals, budget });
+        }
+        olds.push(v);
+    }
+    let mut silent: Vec<f64> = olds.iter().flatten().filter(|o| o.proposals == 0).map(|o| o.budget).collect();
+    silent.sort_by(|x, y| x.total_cmp(y));
+    let per_body_min: Vec<f64> = olds.iter().map(|v| v.iter().map(|o| o.budget).filter(|x| *x > 0.0).fold(f64::INFINITY, f64::min)).collect();
+    let mut pbm = per_body_min.clone();
+    pbm.sort_by(|x, y| x.total_cmp(y));
+    let total: usize = olds.iter().map(|v| v.len()).sum();
+    let with_proposals = olds.iter().flatten().filter(|o| o.proposals > 0).count();
+    let q = |v: &Vec<f64>, f: f64| v[((v.len() as f64 - 1.0) * f) as usize];
+    println!(
+        "{{\"exp\":\"kick-certificates\",\"n\":{},\"rho\":{},\"horizon_orbits\":1000,\"kicked\":{},\"pairs\":{},\"pairs_with_proposals\":{},\"silent_budget_p01\":{:.3e},\"silent_budget_p10\":{:.3e},\
+\"silent_budget_median\":{:.3e},\"per_body_min_budget_median\":{:.3e},\"per_body_min_budget_min\":{:.3e}}}",
+        sp.n, sp.rho, nk, total, with_proposals, q(&silent, 0.01), q(&silent, 0.1), q(&silent, 0.5), q(&pbm, 0.5), pbm[0]
+    );
+    for &eps in &epss {
+        let (mut pairs, mut scanned, mut changed, mut flipped, mut skippable, mut skip_violations) = (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
         let mut secs = 0.0;
-        let mut min_budget = f64::INFINITY;
-        let mut budgets = Vec::new();
-        for q in 0..nk {
-            let i = (q * 97 + 13) % sp.n;
+        for (k, &i) in kicked.iter().enumerate() {
             let old = b[i];
             let lam_k = old.mean_anomaly(tk) + old.pom;
             let a_new = old.a * (1.0 + eps);
             let n_new = a_new.powf(-1.5);
             let new = Body::new(a_new, old.e, old.pom, lam_k - n_new * tk);
-            // The re-certification proper: the range scan and the setups, timed.
+            let rel_dt = (new.period as f64 - old.period as f64).abs() / old.period as f64;
+            // The re-certification proper: range scan, cone tests, setups, hits in the horizon. Timed.
             let t0 = Instant::now();
             let (lo, hi) = sorted.range(new.binet()[0], sorted.reach(&new));
-            let mut after: Vec<(u32, Vec<(f64, f64)>)> = Vec::new();
+            let mut after: HashMap<u32, Vec<(f64, f64)>> = HashMap::new();
             let mut st = Stats::default();
             for &(_, j) in &sorted.order[lo..hi] {
                 if j as usize == i {
@@ -411,58 +470,28 @@ fn kick() {
                 }
                 let mut v = Vec::new();
                 pair_events(&new, bj, sp.rho, SAFETY, tk, tk + horizon, &mut st, &mut v);
-                after.push((j, v));
+                after.insert(j, v);
             }
             secs += t0.elapsed().as_secs_f64();
             pairs += after.len() as u64;
-            // Compare with the old certificates over the same horizon (not timed).
-            for (j, v) in &after {
-                let bj = &b[*j as usize];
-                let mut old_v = Vec::new();
-                let mut st2 = Stats::default();
-                pair_events(&old, bj, sp.rho, SAFETY, tk, tk + horizon, &mut st2, &mut old_v);
-                hit_before += (!old_v.is_empty()) as u64;
-                let same = old_v.len() == v.len() && old_v.iter().zip(v).all(|(x, y)| (x.0 - y.0).abs() < 1e-3);
+            for o in &olds[k] {
+                let empty = Vec::new();
+                let v = after.get(&o.j).unwrap_or(&empty);
+                let same = o.hits.len() == v.len() && o.hits.iter().zip(v).all(|(x, y)| (x.0 - y.0).abs() < 1e-3);
                 changed += (!same) as u64;
-                flipped += (old_v.is_empty() != v.is_empty()) as u64;
-                // Slack of the old certificate: the largest window growth (ticks) that adds no hit in
-                // the horizon, per return, i.e. the relative period change the certificate absorbs.
-                if old_v.is_empty() && eps == 1e-9 {
-                    for sec in sections(&old, bj, sp.rho, SAFETY, &mut 0) {
-                        let returns = horizon * TICKS / bj.period as f64;
-                        let mut lo_g = 0i64;
-                        let mut hi_g = (old.period as i64) / 4;
-                        for _ in 0..40 {
-                            let mid = (lo_g + hi_g) / 2;
-                            let mut s2 = sec.clone();
-                            s2.w1 += mid;
-                            s2.w2 += mid;
-                            let mut st3 = Stats::default();
-                            let mut v3 = Vec::new();
-                            // Count proposals only (checks), without evaluating: use the query loop.
-                            let before = st3.checks_total();
-                            run_section_proposals(&old, bj, &s2, tk, tk + horizon, &mut st3, &mut v3);
-                            if st3.checks_total() > before {
-                                hi_g = mid;
-                            } else {
-                                lo_g = mid;
-                            }
-                        }
-                        let budget = lo_g as f64 / (returns * bj.period as f64);
-                        budgets.push(budget);
-                        min_budget = min_budget.min(budget);
-                    }
+                flipped += (o.hits.is_empty() != v.is_empty()) as u64;
+                // A stored slack would skip this pair iff its budget exceeds the kick's drift rate.
+                if o.budget > rel_dt * 1.5 {
+                    skippable += 1;
+                    skip_violations += (!same) as u64;
                 }
             }
         }
-        budgets.sort_by(|x, y| x.total_cmp(y));
-        let med = if budgets.is_empty() { f64::NAN } else { budgets[budgets.len() / 2] };
-        let p01 = if budgets.is_empty() { f64::NAN } else { budgets[budgets.len() / 100] };
         println!(
-            "{{\"exp\":\"kick\",\"n\":{},\"rho\":{},\"eps\":{},\"kicks\":{},\"pairs_per_kick\":{:.1},\"scanned_per_kick\":{:.1},\"us_per_kick\":{:.1},\"horizon_orbits\":1000,\
-\"pairs_with_hits_before\":{},\"changed_fraction\":{:.4},\"flipped_fraction\":{:.4},\"slack_budget_rel_period_min\":{:.3e},\"slack_budget_p01\":{:.3e},\"slack_budget_median\":{:.3e}}}",
-            sp.n, sp.rho, eps, nk, pairs as f64 / nk as f64, scanned as f64 / nk as f64, secs * 1e6 / nk as f64,
-            hit_before, changed as f64 / pairs as f64, flipped as f64 / pairs as f64, min_budget, p01, med
+            "{{\"exp\":\"kick\",\"n\":{},\"rho\":{},\"eps\":{:e},\"kicks\":{},\"pairs_per_kick\":{:.1},\"scanned_per_kick\":{:.1},\"us_per_kick\":{:.1},\"us_per_pair\":{:.2},\"horizon_orbits\":1000,\
+\"changed_fraction\":{:.4},\"flipped_fraction\":{:.4},\"slack_skippable_fraction\":{:.4},\"slack_skip_violations\":{}}}",
+            sp.n, sp.rho, eps, nk, pairs as f64 / nk as f64, scanned as f64 / nk as f64, secs * 1e6 / nk as f64, secs * 1e6 / pairs as f64,
+            changed as f64 / total as f64, flipped as f64 / total as f64, skippable as f64 / total as f64, skip_violations
         );
     }
 }
