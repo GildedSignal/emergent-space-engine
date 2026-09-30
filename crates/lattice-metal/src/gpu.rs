@@ -13,6 +13,8 @@ use std::marker::PhantomData;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+mod kickable;
+
 /// Consumed-contact slots per body in the GPU table (a contact belongs to its lower index).
 const SLOTS: usize = 8;
 const EMPTY: u32 = u32::MAX;

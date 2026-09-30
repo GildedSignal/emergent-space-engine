@@ -9,3 +9,6 @@ description = "The dense order: a battle as a free-fall frame (Clohessy-Wiltshir
 emergent-lattice = { path = "../lattice" }
 emergent-lattice-event = { path = "../lattice-event" }
 blake3.workspace = true
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+emergent-lattice-metal = { path = "../lattice-metal" }

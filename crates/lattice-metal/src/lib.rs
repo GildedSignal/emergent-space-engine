@@ -158,7 +158,7 @@ pub use stub::{float_floors_probe, v1_momenta, MetalChronon};
 #[cfg(not(target_os = "macos"))]
 mod stub {
     use super::{MetalError, Options, Stats};
-    use emergent_lattice::{law::Tick, Log, Metrics, Stepper, World};
+    use emergent_lattice::{law::Tick, Kickable, Log, Metrics, Motion, Stepper, World};
 
     /// Metal exists only on Apple targets; construction always fails here.
     pub enum MetalChronon {}
@@ -199,6 +199,21 @@ mod stub {
             match *self {}
         }
         fn metrics(&self) -> &Metrics {
+            match *self {}
+        }
+    }
+
+    impl Kickable for MetalChronon {
+        fn motions(&self, _: &mut Vec<Motion>) {
+            match *self {}
+        }
+        fn kick(&mut self, _: &[[i64; 2]]) -> Result<(), emergent_lattice::law::LawError> {
+            match *self {}
+        }
+        fn masses(&self, _: &mut Vec<i64>) {
+            match *self {}
+        }
+        fn rebase(&mut self, _: &[[i64; 2]], _: &[[i64; 2]]) -> Result<(), emergent_lattice::law::LawError> {
             match *self {}
         }
     }
