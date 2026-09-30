@@ -104,8 +104,9 @@ fn receive(stream: &mut TcpStream) -> crate::Result<(String, Vec<u8>)> {
                 .filter(|(k, _)| k.eq_ignore_ascii_case("origin"))
                 .map(|(_, v)| v.trim())
         }) {
-            let expected = format!("http://{}", stream.local_addr()?);
-            if origin != expected {
+            // The page may be opened as 127.0.0.1 or as localhost: both name this loopback port.
+            let port = stream.local_addr()?.port();
+            if origin != format!("http://127.0.0.1:{port}") && origin != format!("http://localhost:{port}") {
                 return Err("cross-origin request refused".into());
             }
         }
