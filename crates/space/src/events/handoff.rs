@@ -1,42 +1,125 @@
-//! Event-only frame translation. This does not certify a newly fitted orbital key:
-//! an authoritative key/phase resolver is still required before committing a tube.
-use crate::{Error, Result};
+//! Exact event-frame conversion. Rebinding retains every Cartesian difference.
+use crate::{
+    binding::{IntegerState, Rebinding},
+    orbit::Scalar,
+    tube::{Catalogue, TubeEvent},
+    Error, Result,
+};
+pub type Cartesian = IntegerState;
 
-/// Cartesian position in a common Q20 length unit, velocity in c Q30.
-/// Different doll mass units must be converted explicitly before translating.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Cartesian {
-    pub position: [i64; 2],
-    pub velocity: [i32; 2],
-}
-impl Cartesian {
-    pub const ZERO: Self = Self {
-        position: [0; 2],
-        velocity: [0; 2],
-    };
-    pub fn slow(self) -> bool {
-        self.velocity.iter().map(|&v| v as i128 * v as i128).sum::<i128>() <= 1i128 << 56
+pub fn slow(state: Cartesian) -> Result<bool> {
+    let square = state
+        .velocity
+        .iter()
+        .map(|&v| (v.unsigned_abs() as u128).pow(2))
+        .sum::<u128>();
+    if square == 0 {
+        return Ok(true);
     }
+    let bits = -4 - 2 * state.velocity_exponent as i32;
+    Ok(if bits < 0 {
+        false
+    } else if bits >= 128 {
+        true
+    } else {
+        square <= 1u128 << bits
+    })
 }
 
-/// Same axes, two origins at the same event. The low-v approximation is refused
-/// if either centre or the input/output body exceeds c/4 (including diagonal speeds).
+/// Same axes, common integer exponents. Intermediate sums use i128; overflow
+/// or a nonmatching unit is refused before any state is changed. c/4 is inclusive.
 pub fn translate(body: Cartesian, old: Cartesian, new: Cartesian) -> Result<Cartesian> {
-    if !body.slow() || !old.slow() || !new.slow() {
+    if (body.length_exponent, body.velocity_exponent)
+        != (old.length_exponent, old.velocity_exponent)
+        || (body.length_exponent, body.velocity_exponent)
+            != (new.length_exponent, new.velocity_exponent)
+        || !slow(body)?
+        || !slow(old)?
+        || !slow(new)?
+    {
         return Err(Error::Range);
     }
-    let mut out = Cartesian::ZERO;
+    let mut out = body;
     for i in 0..2 {
-        out.position[i] = body.position[i]
-            .checked_add(old.position[i])
-            .and_then(|x| x.checked_sub(new.position[i]))
-            .ok_or(Error::Range)?;
-        out.velocity[i] = i32::try_from(body.velocity[i] as i64 + old.velocity[i] as i64 - new.velocity[i] as i64).map_err(|_| Error::Range)?;
+        out.position[i] = i64::try_from(
+            body.position[i] as i128 + old.position[i] as i128 - new.position[i] as i128,
+        )
+        .map_err(|_| Error::Range)?;
+        out.velocity[i] = i64::try_from(
+            body.velocity[i] as i128 + old.velocity[i] as i128 - new.velocity[i] as i128,
+        )
+        .map_err(|_| Error::Range)?;
     }
-    if !out.slow() {
+    if !slow(out)? {
         return Err(Error::Range);
     }
     Ok(out)
+}
+
+/// Reconstruct before converting. The destination fit and its clock quantization
+/// both contribute to the newly retained remainder. The source is never mutated.
+pub fn rebind(
+    source: &TubeEvent,
+    catalogue: &mut Catalogue,
+    old: Cartesian,
+    new: Cartesian,
+    passage_edge: Option<Scalar>,
+) -> Result<TubeEvent> {
+    let exact = translate(source.reconstruct(catalogue)?, old, new)?;
+    bind(
+        exact,
+        source.event_time,
+        source.clock_exponent,
+        passage_edge,
+        catalogue,
+    )
+}
+
+pub fn bind(
+    exact: Cartesian,
+    time: i64,
+    clock_exponent: i16,
+    passage_edge: Option<Scalar>,
+    catalogue: &mut Catalogue,
+) -> Result<TubeEvent> {
+    if !slow(exact)? {
+        return Err(Error::Range);
+    }
+    let fit = Rebinding::from_state(
+        exact,
+        Scalar::raw(time as i128, clock_exponent as i32)?,
+        passage_edge,
+    )?;
+    TubeEvent::bind(fit, catalogue, clock_exponent)
+}
+
+/// The dense order consumes this exact state, evolves it including the remainder,
+/// then calls bind at the next event. Never advance the lossy sample instead.
+pub fn event_state(event: &TubeEvent, catalogue: &Catalogue) -> Result<Cartesian> {
+    event.reconstruct(catalogue)
+}
+
+/// Transport the remainder by consuming the reconstructed state before physical
+/// evolution. The evolution operation owns the force law and returns its exact
+/// integer result; rebinding never evolves or erases a correction separately.
+pub fn advance(
+    source: &TubeEvent,
+    catalogue: &mut Catalogue,
+    next_time: i64,
+    passage_edge: Option<Scalar>,
+    evolve: impl FnOnce(Cartesian) -> Result<Cartesian>,
+) -> Result<TubeEvent> {
+    if next_time < source.event_time {
+        return Err(Error::Range);
+    }
+    let exact = evolve(source.reconstruct(catalogue)?)?;
+    bind(
+        exact,
+        next_time,
+        source.clock_exponent,
+        passage_edge,
+        catalogue,
+    )
 }
 
 /// Native sigma-delta remainder. Exact integer increments may accumulate below
@@ -52,7 +135,10 @@ impl Carry {
         if quantum == 0 || quantum > i64::MAX as u64 {
             return Err(Error::Range);
         }
-        Ok(Self { quantum, remainder: 0 })
+        Ok(Self {
+            quantum,
+            remainder: 0,
+        })
     }
     pub fn remainder(self) -> i64 {
         self.remainder
@@ -66,38 +152,4 @@ impl Carry {
         self.remainder = (total % self.quantum as i128) as i64;
         Ok(out)
     }
-}
-
-/// Derive a same-doll Cartesian readout from the cycle's polar state. No state
-/// is advanced. This accessor relies on the public u/phi and velocity units.
-pub fn cartesian(state: crate::State, clockwise: bool, orientation_q30: i64) -> Result<Cartesian> {
-    use crate::num::{cos, ONE};
-    use crate::tables::PI;
-    // Public states can be constructed by callers; enforce the compiler's u envelope
-    // before a polar-to-Cartesian product, rather than relying on its provenance.
-    if state.position.u < 1 << 34 {
-        return Err(Error::Range);
-    }
-    let direction = if clockwise { -1i128 } else { 1 };
-    let angle = direction * state.position.phi.get() as i128 + orientation_q30 as i128;
-    // Full-turn Q61 representation; reduction happens before trig evaluation.
-    let angle = (angle << 31).rem_euclid(2 * PI);
-    let c = cos(if angle <= PI { angle } else { 2 * PI - angle });
-    let s = if angle <= PI {
-        cos((angle - PI / 2).abs())
-    } else {
-        -cos((angle - 3 * PI / 2).abs())
-    };
-    let r = (1i128 << 82).checked_div(state.position.u as i128).filter(|&r| r > 0).ok_or(Error::Range)?;
-    let (vr, vt) = (state.velocity.radial as i128, direction * state.velocity.transverse as i128);
-    Ok(Cartesian {
-        position: [
-            i64::try_from(r * c / ONE).map_err(|_| Error::Range)?,
-            i64::try_from(r * s / ONE).map_err(|_| Error::Range)?,
-        ],
-        velocity: [
-            i32::try_from((vr * c - vt * s) / ONE).map_err(|_| Error::Range)?,
-            i32::try_from((vr * s + vt * c) / ONE).map_err(|_| Error::Range)?,
-        ],
-    })
 }

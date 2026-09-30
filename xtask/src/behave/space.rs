@@ -23,7 +23,11 @@ fn scalar(x: f64) -> Option<Scalar> {
         return None;
     }
     let exponent = x.log2().floor() as i32;
-    Scalar::raw((x * 2f64.powi(60 - exponent)).round() as i128, exponent - 60).ok()
+    Scalar::raw(
+        (x * 2f64.powi(60 - exponent)).round() as i128,
+        exponent - 60,
+    )
+    .ok()
 }
 fn decoded(x: Scalar) -> f64 {
     x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
@@ -35,16 +39,25 @@ fn native_key(p: f64, e: f64) -> Option<OrbitKey> {
     OrbitKey::bound(scalar(p)?, (e * 2f64.powi(48)).round() as u64).ok()
 }
 fn bound_key(p: f64, e: f64) -> Option<Key> {
-    if !p.is_finite() || !e.is_finite() || !(0.0..65536.0).contains(&p) || !(0.0..1.0).contains(&e) {
+    if !p.is_finite() || !e.is_finite() || !(0.0..65536.0).contains(&p) || !(0.0..1.0).contains(&e)
+    {
         return None;
     }
-    Key::darwin((p * 65536.0).round() as u32, (e * 1073741824.0).round() as u32).ok()
+    Key::darwin(
+        (p * 65536.0).round() as u32,
+        (e * 1073741824.0).round() as u32,
+    )
+    .ok()
 }
 fn key(e: f64, l: f64) -> Option<Key> {
     if !e.is_finite() || !l.is_finite() || e <= 0.0 || l <= 0.0 {
         return None;
     }
-    Key::new((e * 281474976710656.0).round() as u64, (l * 4294967296.0).round() as u64).ok()
+    Key::new(
+        (e * 281474976710656.0).round() as u64,
+        (l * 4294967296.0).round() as u64,
+    )
+    .ok()
 }
 impl Space {
     fn bound_native_key(&self, p: f64, e: f64) -> Option<OrbitKey> {
@@ -78,11 +91,15 @@ impl Law for Space {
             binary.period(&c).ok()?.get() as f64 / 1048576.0,
         ))
     }
-    fn restricted(&self, scene: &super::restricted::Restricted, ship: [f64; 4], times: &[f64]) -> Option<Vec<[f64; 4]>> {
-        // Probe the required centre tube before building an event graph. The
-        // public compiler envelope is checked before any evolution.
-        // Unbound trajectory readout and authoritative state -> key/phase fitting
-        // are not provided by scatter. Refuse rather than substitute the judge.
+    fn restricted(
+        &self,
+        scene: &super::restricted::Restricted,
+        ship: [f64; 4],
+        times: &[f64],
+    ) -> Option<Vec<[f64; 4]>> {
+        // Float conversion is confined to this judge boundary; all evolution and
+        // acceptance decisions are integer and independent of the oracle.
+        use emergent_space::events::dense::{inertial, Scene, Stepper, ONE};
         if !scene.mu.is_finite()
             || !scene.sep.is_finite()
             || !(0.0..0.5).contains(&scene.mu)
@@ -94,12 +111,60 @@ impl Law for Space {
             return None;
         }
         let r = scene.sep / (1.0 - scene.mu);
-        let lapse = 1.0 - 3.0 / r;
-        if lapse <= 0.0 {
+        self.shapes
+            .borrow_mut()
+            .get(self.bound_native_key(r, 0.0)?)
+            .ok()?;
+        let speed_unit = 1.0 / scene.sep.sqrt();
+        let time_unit = scene.sep / speed_unit;
+        let encode = |x: f64| -> Option<i64> {
+            let n = (x * ONE as f64).round();
+            if !n.is_finite() || n < i64::MIN as f64 || n >= i64::MAX as f64 {
+                None
+            } else {
+                Some(n as i64)
+            }
+        };
+        let relative = scene.relative(0.0, &ship);
+        if ship[2].hypot(ship[3]) > 0.25 || relative[2].hypot(relative[3]) > 0.25 {
             return None;
         }
-        self.shapes.borrow_mut().get(self.bound_native_key(r, 0.0)?).ok()?;
-        None // No authoritative three-body generator exists in this layer yet.
+        let initial = [
+            encode(relative[0] / scene.sep)?,
+            encode(relative[1] / scene.sep)?,
+            encode(relative[2] / speed_unit)?,
+            encode(relative[3] / speed_unit)?,
+        ];
+        let native = Scene {
+            mu: encode(scene.mu)?,
+            radius: encode(scene.planet_radius / scene.sep)?,
+            edge: encode(scene.soi() / scene.sep)?,
+            speed_unit: scalar(speed_unit)?,
+        };
+        let mut stepper = Stepper::new(native, initial).ok()?;
+        let mut states = Vec::with_capacity(times.len());
+        for &time in times {
+            let at = encode(time / time_unit)?;
+            let y = inertial(stepper.at(at).ok()?, at).ok()?;
+            let rel = [
+                y[0] as f64 / ONE as f64 * scene.sep,
+                y[1] as f64 / ONE as f64 * scene.sep,
+                y[2] as f64 / ONE as f64 * speed_unit,
+                y[3] as f64 / ONE as f64 * speed_unit,
+            ];
+            states.push(scene.barycentric(time, &rel));
+        }
+        if std::env::var_os("SPACE_EVENTS_TRACE").is_some() {
+            eprintln!(
+                "events_trace samples={} periods={:.6} steps={} forces={} edges={}",
+                times.len(),
+                times.last().copied().unwrap_or(0.0) / scene.period(),
+                stepper.counts.steps,
+                stepper.counts.force_evaluations,
+                stepper.counts.edge_crossings
+            );
+        }
+        Some(states)
     }
     fn static_clock_rate(&self, r: f64) -> Option<f64> {
         rate(r, 2)
@@ -108,10 +173,22 @@ impl Law for Space {
         rate(r, 3)
     }
     fn crossings_per_cycle(&self, p: f64, e: f64) -> Option<f64> {
-        Some(2.0 * self.shapes.borrow_mut().get(self.bound_native_key(p, e)?).ok()?.shape().crossings().len() as f64)
+        Some(
+            2.0 * self
+                .shapes
+                .borrow_mut()
+                .get(self.bound_native_key(p, e)?)
+                .ok()?
+                .shape()
+                .crossings()
+                .len() as f64,
+        )
     }
     fn scene_cost(&self, n: usize, game_seconds: f64) -> Option<f64> {
-        if !game_seconds.is_finite() || game_seconds < 0.0 || game_seconds * 1048576.0 > u64::MAX as f64 {
+        if !game_seconds.is_finite()
+            || game_seconds < 0.0
+            || game_seconds * 1048576.0 > u64::MAX as f64
+        {
             return None;
         }
         let start = std::time::Instant::now();
@@ -131,8 +208,16 @@ impl Law for Space {
     }
     fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
         if !self.newton {
-            let c = self.shapes.borrow_mut().get(self.bound_native_key(p, e)?).ok()?;
-            return Some((decoded(c.advance().ok()?), decoded(c.period().ok()?), decoded(c.proper_period().ok()?)));
+            let c = self
+                .shapes
+                .borrow_mut()
+                .get(self.bound_native_key(p, e)?)
+                .ok()?;
+            return Some((
+                decoded(c.advance().ok()?),
+                decoded(c.period().ok()?),
+                decoded(c.proper_period().ok()?),
+            ));
         }
         let key = bound_key(p, e)?;
         let c = if self.newton {
@@ -176,12 +261,15 @@ impl Law for Space {
             let rp = decoded(key.periapsis);
             let eq = 1.0 / k - 1.0;
             let pq = rp / k;
-            let energy = (((pq - 2.0).powi(2) - 4.0 * eq * eq) / (pq * (pq - 3.0 - eq * eq))).sqrt();
+            let energy =
+                (((pq - 2.0).powi(2) - 4.0 * eq * eq) / (pq * (pq - 3.0 - eq * eq))).sqrt();
             let angular = pq / (pq - 3.0 - eq * eq).sqrt();
             return (0..cycles as u64)
                 .map_while(|n| {
                     let peri = c.crossing_state(0, n, true).ok()?;
-                    let apo = c.crossing_state(c.shape().knots().len() - 1, n, true).ok()?;
+                    let apo = c
+                        .crossing_state(c.shape().knots().len() - 1, n, true)
+                        .ok()?;
                     Some((decoded(peri.radius), decoded(apo.radius), energy, angular))
                 })
                 .collect();
@@ -195,12 +283,17 @@ impl Law for Space {
         let tube = Tube::new(Words::default(), Words::default());
         let period = c.increments.t.get();
         let r = |u: i64| 4611686018427387904.0 / u as f64;
-        let (energy, angular) = (k.energy.get() as f64 / 281474976710656.0, k.angular.get() as f64 / 4294967296.0);
+        let (energy, angular) = (
+            k.energy.get() as f64 / 281474976710656.0,
+            k.angular.get() as f64 / 4294967296.0,
+        );
         (0..cycles as u64)
             .map_while(|n| {
                 let t = n.checked_mul(period)?;
                 let peri = tube.position(&c, Words::new(t)).ok()?;
-                let apo = tube.position(&c, Words::new(t.checked_add(period / 2)?)).ok()?;
+                let apo = tube
+                    .position(&c, Words::new(t.checked_add(period / 2)?))
+                    .ok()?;
                 Some((r(peri.u), r(apo.u), energy, angular))
             })
             .collect()
@@ -224,9 +317,19 @@ mod tests {
             key_bits: Some((11, 12)),
             ..Space::default()
         };
-        let gates = super::super::judge_only(&law, None, Some(&["G1", "G2", "G3", "G4", "G5", "G6"]), |g| {
-            println!("{} {} {}", g.id, if g.pass { "PASS" } else { "FAIL" }, g.detail)
-        });
+        let gates = super::super::judge_only(
+            &law,
+            None,
+            Some(&["G1", "G2", "G3", "G4", "G5", "G6"]),
+            |g| {
+                println!(
+                    "{} {} {}",
+                    g.id,
+                    if g.pass { "PASS" } else { "FAIL" },
+                    g.detail
+                )
+            },
+        );
         assert_eq!(gates.len(), 6);
         assert!(gates.iter().all(|g| g.pass));
     }
@@ -236,9 +339,21 @@ mod tests {
             newton: true,
             ..Space::default()
         };
-        let (advance, _, _) = law.advance_per_cycle(100.0, 0.3).expect("wrong law must answer a real orbit");
-        assert!(advance.abs() < 1e-3, "the planted force must give Newtonian zero advance");
-        let gates = super::super::judge(&law, None, |g| println!("{} {} {}", g.id, if g.pass { "PASS" } else { "FAIL" }, g.detail));
+        let (advance, _, _) = law
+            .advance_per_cycle(100.0, 0.3)
+            .expect("wrong law must answer a real orbit");
+        assert!(
+            advance.abs() < 1e-3,
+            "the planted force must give Newtonian zero advance"
+        );
+        let gates = super::super::judge(&law, None, |g| {
+            println!(
+                "{} {} {}",
+                g.id,
+                if g.pass { "PASS" } else { "FAIL" },
+                g.detail
+            )
+        });
         let g = gates.iter().find(|g| g.id == "G1").unwrap();
         assert!(!g.pass, "the wrong force must be killed: {}", g.detail);
     }

@@ -1,13 +1,12 @@
 //! Lifted from lattice-event Calendar; same 4-ary indexed heap and slot tie order.
-use crate::{Error, Result};
+use crate::{orbit::Scalar, Error, Result};
 const NONE: u32 = u32::MAX;
-const NEVER: u64 = u64::MAX;
 /// Indexed 4-ary heap of (time, body) with one slot per body: the calendar never holds
 /// stale entries and never grows past n, so it is allocated once. Keys are inline and the
 /// four children of a node share a cache line: re-predictions mostly move a slot later, and
 /// that sift-down dominated the calendar's cost at a million bodies.
 pub struct Calendar {
-    heap: Vec<(u64, u32)>,
+    heap: Vec<(Scalar, u32)>,
     pos: Vec<u32>,
 }
 
@@ -22,7 +21,7 @@ impl Calendar {
     }
 
     #[inline]
-    fn place(&mut self, p: usize, x: (u64, u32)) {
+    fn place(&mut self, p: usize, x: (Scalar, u32)) {
         self.heap[p] = x;
         self.pos[x.1 as usize] = p as u32;
     }
@@ -73,19 +72,17 @@ impl Calendar {
     }
 
     /// Set body i's slot; returns whether a live prediction was replaced.
-    fn set_unchecked(&mut self, i: usize, t: u64) -> bool {
+    fn set_unchecked(&mut self, i: usize, t: Option<Scalar>) -> bool {
         let p = self.pos[i];
         if p == NONE {
-            if t != NEVER {
+            if let Some(t) = t {
                 self.heap.push((t, i as u32));
                 self.up(self.heap.len() - 1);
             }
             return false;
         }
         let p = p as usize;
-        if t == NEVER {
-            self.remove_at(p);
-        } else {
+        if let Some(t) = t {
             let old = self.heap[p].0;
             self.heap[p].0 = t;
             if t < old {
@@ -93,15 +90,17 @@ impl Calendar {
             } else {
                 self.down(p);
             }
+        } else {
+            self.remove_at(p);
         }
         true
     }
 
-    pub fn peek(&self) -> Option<(u64, usize)> {
+    pub fn peek(&self) -> Option<(Scalar, usize)> {
         self.heap.first().map(|&(t, i)| (t, i as usize))
     }
 
-    pub fn pop(&mut self) -> Option<(u64, usize)> {
+    pub fn pop(&mut self) -> Option<(Scalar, usize)> {
         let event = self.peek()?;
         self.remove_at(0);
         Some(event)
@@ -109,12 +108,12 @@ impl Calendar {
 }
 
 impl Calendar {
-    /// Times are in the root doll clock. None cancels a slot; max-u64 is reserved.
-    pub fn set(&mut self, slot: usize, time: Option<u64>) -> Result<bool> {
-        if slot >= self.pos.len() || slot >= u32::MAX as usize || time == Some(NEVER) {
+    /// Times are in the root doll clock. None cancels a slot; scale is carried in the exponent.
+    pub fn set(&mut self, slot: usize, time: Option<Scalar>) -> Result<bool> {
+        if slot >= self.pos.len() || slot >= u32::MAX as usize {
             return Err(Error::Range);
         }
-        Ok(self.set_unchecked(slot, time.unwrap_or(NEVER)))
+        Ok(self.set_unchecked(slot, time))
     }
     pub fn len(&self) -> usize {
         self.heap.len()
