@@ -111,7 +111,7 @@ Bresenham, the DDA integrators of the 1950s, sigma-delta, CORDIC (shift-and-add 
 | Work | Rate | Cost |
 |---|---|---|
 | Undisturbed orbits | only when looked at | ≈ 0 |
-| Tidal kicks, with averaging | ~6×10⁴ per game-second | ~50 ns each, incremental: < 1% of a core |
+| Tidal kicks (harmonic form; averaging suspended) | to be re-estimated | incremental, one quantum at a time |
 | A cycle's first computation | new invariants only | tens of crossings, then memoized |
 | The view | ≤ 1 sample per pixel per frame | GPU |
 | Chaos and contacts | bursts | the dense order: entropy, the p99 risk |
