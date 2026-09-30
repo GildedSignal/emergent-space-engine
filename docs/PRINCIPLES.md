@@ -10,7 +10,7 @@ Julien, 29 September: "this is a game with insane requirements because i believe
 
 ## The philosophy (always on)
 
-Labels are ours; quotes are his. 12–31 were approved on 29 September ("Otherwise the principles are correct"). Source keys are under the register.
+Labels are ours; quotes are his. 12–31 were approved on 29 September; 32–35 on 30 September ("the principles are approved") ("Otherwise the principles are correct"). Source keys are under the register.
 
 1. **Less is more.** The cheapest compute is compute not done. Delete before optimizing, and make compute cheap. Simplify, never dumb down.
 2. **It's a game.** Behaviours matter, not continuum fidelity: error type over error size. "Exact" means deterministic and reproducible, not equal to reality. Exact physics is the oracle, not the implementation.
@@ -43,15 +43,14 @@ Labels are ours; quotes are his. 12–31 were approved on 29 September ("Otherwi
 29. **History, not a winner.** "a game that cannot loose by construction if done right" and "history being made and learning from it through space and time while you are influencing it yourself" (OC#4); "emergent such that there's never a sole winner or if so factions can emerge, embracing the chaos" (OC#16).
 30. **What must be perfect.** "what really matters is navigation, knowledge and dynamics those need to be perfect, graphics don't matter" (OC#16); "I want the player to feel what a human would feel in space, it's about immersion" (CL 09-27 09:08); "we need to build towards GR that's the goal that we should not loose track of, the rest are stepping stones" (CL 09-26 08:18).
 31. **The logs hold the philosophy; keep contradictions; check incentives.** "the philosophy is here" (CL 09-29 08:05); "the things that are contradictory should be separated but not necessarily deleted" (CL 09-28 14:34); "if it read about incentives it should look at its own incentives and the ones it created" (CL 09-28 14:49).
-
-## Proposed principles (awaiting Julien)
-
-Models propose here; Julien approves, rewrites or rejects. From his statements of 30 September:
-
 32. **Symmetry is found, not given.** "there are many kinds of symmetries in this world, under the right representation many symmetries can appear, this is a leitmotiv of compute paradigm shifts." Where no symmetry shows, change the representation before paying to simulate.
 33. **Each scale resolves only what matters at that scale.** "we need to think in many scales, self-similarity like you said is powerful. An ant cares about a raindrop but the lion does not." The same law repeats at every scale (self-similarity). But a raindrop is an event for an ant and nothing for a lion, so a body resolves only the influences that are significant at its own scale, and smaller ones enter as an aggregate.
 34. **A game is an illusion spectacle; the oracles are guards, not shepherds.** "Like said many times, this is game, a game is an illusion spectacle, the oracles are guards, not shepherds." Oracles reject what the player would see as wrong; they never lead the representation.
-35. **Start from the goal and the dynamics; aim for the simplest, most powerful form.** "basically this whole project is about asking the right questions, specifically about what we're trying to achieve and how can we make it as simple and powerful as possible based on dynamics and requirements." Every piece of work begins with two questions: what are we trying to achieve (the requirements), and what do the dynamics allow? The answer is the simplest form that does the most. (It may merge into 18.)
+35. **Start from the goal and the dynamics; aim for the simplest, most powerful form.** "basically this whole project is about asking the right questions, specifically about what we're trying to achieve and how can we make it as simple and powerful as possible based on dynamics and requirements." Every piece of work begins with two questions: what are we trying to achieve (the requirements), and what do the dynamics allow? The answer is the simplest form that does the most.
+
+## Proposed principles (awaiting Julien)
+
+None pending. Models propose here; Julien approves, rewrites or rejects.
 
 ## Register of Julien's statements
 
@@ -85,7 +84,7 @@ Status words: **Followed** (built, or a rule in force), **Adopted** (decided in 
 | "don't focus too much on the visualization though, it's just for debug, the real visualization will be later, for now the only goal is the engine/compiler to work with GR natively" | CL 09-30 | **Followed:** fly v1 stopped; galaxy scoped to a minimal debug tool; Sol moved to the events layer (HANDOFF) |
 | On comparing the new engine with the old one's ship speed, the proposed test "gravity on the v7 galaxy costs at most about the old gravity-free run": "that's an interesting test" | CL 09-30 | **Followed:** frozen as gate B15 (`docs/law.md`) before any run |
 | On the compiler overflowing: "the goal is always first to think of the best representation given the operations at stakes not made up gates, overflow should not have been a thing if it had asked itself that question, the same way we've thought of split quaternions and many other things. We know we have a fish when doing something and we need to find its water"; "the unit should be adapted for what it is doing"; the orbit is a compiled behaviour, "so that compiled behavior should be optimized specifically for it" | CL 09-30 | **Followed:** AGENTS.md (gates judge, never size); Astra's envelope brief rewritten to derive the compiled geodesic's native representation first (action-angle form, scale as an exponent, a dimensionless memo key) |
-| "basically this whole project is about asking the right questions…"; "there are many kinds of symmetries in this world, under the right representation many symmetries can appear, this is a leitmotiv of compute paradigm shifts"; "we need to think in many scales… An ant cares about a raindrop but the lion does not"; "a game is an illusion spectacle, the oracles are guards, not shepherds" | CL 09-30 | **Proposed** as principles 32–35. Applied: the tide selector's strong regime is the Hill problem in Hill units (scale-free, with the Jacobi integral), not the dense order by default |
+| "basically this whole project is about asking the right questions…"; "there are many kinds of symmetries in this world, under the right representation many symmetries can appear, this is a leitmotiv of compute paradigm shifts"; "we need to think in many scales… An ant cares about a raindrop but the lion does not"; "a game is an illusion spectacle, the oracles are guards, not shepherds" | CL 09-30 | **Approved** as principles 32–35. Applied: the tide selector's strong regime is the Hill problem in Hill units (scale-free, with the Jacobi integral), not the dense order by default |
 | "broken record moment again, but… hypergraphs?"; "can we learn things from wolfram's hypergraphs?" | OCC#12; CL 09-26 09:17 | **Drifted:** a hyperedge IR existed (H0016), archived at H0182, in no living doc |
 | "NO never do that please never dumb down for no reason" (the AI chose Barnes–Hut over FMM "because it's much simpler") | OC#34 | **Drifted** until H0195 (FMM never built, H0196); principle 1 keeps "never dumb down" |
 | "what if we were to push the min-plus idea to the extreme not just on one thing?" (OC#42); ABP: "Use min-plus for admissible arrival-time composition" (ABP line 118) | OC#42; ABP | **Adopted in the draft** [representation.md](representation.md): min-plus composes arrival times, light-cone spread and scheduling, as the logarithm of ordinary arithmetic. Not built |
