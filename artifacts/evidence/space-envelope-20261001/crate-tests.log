@@ -1,0 +1,100 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-envelope/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 25.10s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-a3a1c44f5ca6324c)
+
+running 18 tests
+test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
+test quadrature_tests::degree_eight_witness_requires_the_proved_constant ... ok
+test quadrature_tests::sample::tests::splitmix64_matches_the_reference_vector ... ok
+test quadrature_tests::sample::tests::draws_are_deterministic_prefix_stable_and_in_range ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test quadrature_tests::sample::tests::the_events_draws_are_deterministic_prefix_stable_and_in_range ... ok
+test scaled::tests::outward_clock_rounding_contains_the_exact_dyadic_for_both_signs ... ok
+test tests::bands_from_bits_agree_with_the_edges ... ok
+test tests::a_position_at_a_crossing_time_is_on_its_edge ... ok
+test tests::invalid_inputs_are_explicit_errors ... ok
+test tests::capture_cases_are_answered_not_errors_disguised_as_escape ... ok
+test scaled::tests::exponents_change_range_without_changing_relative_information ... ok
+test tests::the_planted_newtonian_law_closes ... ok
+test tests::the_crossing_table_is_ordered_and_mirrors ... ok
+test tests::bit_identical_compilation_and_memo_hits ... ok
+test tests::zero_kick_is_identity_and_probe_step_is_its_first_difference ... ok
+test num::tests::isqrt_is_the_exact_floor ... ok
+test quadrature_tests::panel_bound_dominates_independent_refined_quadrature ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/api.rs (target/release/deps/api-1e8e0a6c7fc3619b)
+
+running 4 tests
+test compact_tube_reads_the_same_generator_at_a_rebased_epoch ... ok
+test long_period_mirror_does_not_overflow_twice_the_phase ... ok
+test central_response_accepts_signed_kicks_and_refuses_invalid_probes ... ok
+test polar_velocity_matches_the_invariant_equations_and_readout_derivative ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/envelope.rs (target/release/deps/envelope-f5ac147db268ac77)
+
+running 9 tests
+test exponent_ladder_has_identical_shapes_and_positive_resolved_precession ... ok
+test public_tube_has_key_orientation_and_one_time_and_carries_its_inverse_rounding ... ok
+test unbound_inverse_preserves_incoming_and_outgoing_integer_states ... ok
+test hyperbolic_and_parabolic_passages_have_finite_times_and_symmetric_readouts ... ok
+test packed_keys_round_trip_and_shared_shapes_do_not_alias_different_inputs ... ok
+test strong_field_and_near_separatrix_match_gr_and_velocity ... ok
+test weak_field_sweep_preserves_advance_and_kepler_plus_1pn ... ok
+test strong_passages_match_an_independent_binet_ode_including_time ... ok
+test inverse_with_residual_is_an_exact_identity_through_repeated_event_frame_changes ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/events.rs (target/release/deps/events-13b9232e00d6040f)
+
+running 15 tests
+test binary_test_mass_limit_is_exact_and_clock_map_uses_the_same_energy ... ok
+test frozen_jupiter_scene_is_outside_the_current_compiler_envelope ... ok
+test compact_records_read_the_shared_exact_key_and_refuse_lossy_offsets ... ok
+test kick_key_changes_are_authoritative_and_refusals_are_atomic ... ok
+test linear_tide_stretches_radially_and_compresses_transversely ... ok
+test logarithmic_mass_and_soi_are_integer_and_dimensionless ... ok
+test event_translations_are_reversible_and_refuse_diagonal_high_c ... ok
+test polar_cartesian_accessor_preserves_handedness_and_refuses_invalid_states ... ok
+test edge_prediction_is_an_exact_first_exit_and_skips_arbitrary_whole_cycles ... ok
+test same_scene_twice_has_identical_records_queue_and_readouts ... ok
+test root_queue_composes_nested_clocks_and_has_no_observation_events ... ok
+test signed_sigma_delta_conserves_every_native_increment ... ok
+test heap_matches_an_independent_sorted_calendar_under_replacements_and_ties ... ok
+test child_clock_uses_cycles_and_crossing_brackets_and_never_undershoots ... ok
+test clock_is_monotone_at_mirrors_cuts_and_adjacent_integer_times ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+     Running tests/near_circular.rs (target/release/deps/near_circular-ac3ffb1cca6b4578)
+
+running 6 tests
+test all_six_response_derivatives_agree_with_the_independent_gr_oracle ... ok
+test every_cycle_is_the_compiled_one ... ok
+test the_whirl_near_the_separatrix ... ok
+test a_position_moves_smoothly_through_the_cycle ... ok
+test near_circular_orbits_across_bands_within_one_percent_of_gr ... ok
+test the_old_regime_boundary_and_eccentric_orbits ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+   Doc-tests emergent_space
+
+running 1 test
+test crates/space/src/lib.rs - (line 112) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+

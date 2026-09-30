@@ -11,6 +11,7 @@ const HALF: u64 = 1 << 47;
 const UNIT: u64 = 1 << 48;
 const WEAK_EXPONENT: i16 = -18;
 const CAP: i128 = PI / 4;
+const X2: i128 = 2662558164157085850;
 /// Coarsening measured on the frozen bound seeds and the added weak-field sweep.
 /// One fewer shape bit passes G1/G2 but is not sufficient for the full weak envelope.
 pub const MEMO_SHAPE_BITS: u32 = 12;
@@ -122,9 +123,9 @@ pub struct Knot {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OrbitShape {
-    pub key: ShapeKey,
-    pub knots: Vec<Knot>,
-    pub crossings: Vec<usize>,
+    key: ShapeKey,
+    knots: Vec<Knot>,
+    crossings: Vec<usize>,
     k: i128,
     q: i128,
     t_numerator: Scalar,
@@ -132,10 +133,20 @@ pub struct OrbitShape {
     weak_tau_term: Scalar,
     floor: i128,
     fast: bool,
+    word_root: bool,
     clock_shift: u32,
     clock_factor: [Scalar; 2],
 }
 impl OrbitShape {
+    pub fn key(&self) -> ShapeKey {
+        self.key
+    }
+    pub fn knots(&self) -> &[Knot] {
+        &self.knots
+    }
+    pub fn crossings(&self) -> &[usize] {
+        &self.crossings
+    }
     fn new(key: ShapeKey) -> Result<Self> {
         if key.k == 0 || key.k > UNIT {
             return Err(Error::Range);
@@ -159,7 +170,11 @@ impl OrbitShape {
         let t_numerator = square_root(tn)?;
         let tau_numerator = square_root(d)?;
         let delta = ONE - product(q, 6 * k + 2 * eta);
-        let gmax = ((1u128 << 104) / crate::num::isqrt((delta as u128) << 62)) as u64;
+        let gmax = if delta >= 1 << 30 {
+            ((1u128 << 104) / crate::num::isqrt((delta as u128) << 62)) as u64
+        } else {
+            0
+        };
         let floor2 = f(floor)?.mul(f(floor)?)?;
         Ok(Self {
             key,
@@ -175,6 +190,7 @@ impl OrbitShape {
             weak_tau_term: f(product(3 * k, k) + product(eta, eta))?.div(f(2 * k)?)?,
             floor,
             fast: !key.compactness.is_zero() && delta >= (1 << 30),
+            word_root: !key.compactness.is_zero() && delta >= ONE / 4,
             clock_shift: 55.max(65 - gmax.leading_zeros()),
             clock_factor: [t_numerator.div(floor2)?, tau_numerator.div(floor2)?],
         })
@@ -223,8 +239,8 @@ impl OrbitShape {
         let mid = lo + h / 2;
         let mut sum = Integral::default();
         for j in 0..2 {
-            let dx = X[j] * h >> 63;
-            let weight = Scalar::raw(W[j] * h >> 63, -61)?;
+            let dx = (X[j] * h) >> 63;
+            let weight = Scalar::raw((W[j] * h) >> 63, -61)?;
             for psi in [mid - dx, mid + dx] {
                 let node = self.node(psi)?;
                 for i in 0..5 {
@@ -240,8 +256,8 @@ impl OrbitShape {
         let mut sum = [0i128; 4];
         let term = self.weak_tau_term.fixed(62)?;
         for j in 0..2 {
-            let dx = X[j] * h >> 63;
-            let w = W[j] * h >> 63;
+            let dx = (X[j] * h) >> 63;
+            let w = (W[j] * h) >> 63;
             for psi in [mid - dx, mid + dx] {
                 let ac = product(ONE - self.k, cos(psi));
                 let x = self.k + ac;
@@ -269,18 +285,26 @@ impl OrbitShape {
         let h = hi - lo;
         let mid = lo + h / 2;
         let mut sum = [0u128; 3];
-        for j in 0..2 {
-            let dx = X[j] * h >> 63;
-            let w = (W[j] * h >> 63) as u64;
+        let count = if self.word_root { 1 } else { 2 };
+        for j in 0..count {
+            let dx = ((if self.word_root { X2 } else { X[j] }) * h) >> 63;
+            let w = (((if self.word_root { ONE } else { W[j] }) * h) >> 63) as u64;
             for psi in [mid - dx, mid + dx] {
                 let ac = product(ONE - self.k, cos(psi));
                 let x = self.k + ac;
                 let a = 6 * self.k + 2 * ac;
-                let root = crate::num::isqrt(((ONE - product(self.q, a)) as u128) << 62);
+                let denominator = ONE - product(self.q, a);
+                // When sqrt(d)>=1/2 its Q31 floor has relative error <2^-30.
+                // A single native u64 isqrt replaces the 126-bit square root.
+                let root = if self.word_root {
+                    ((denominator as u64).isqrt() as u128) << 31
+                } else {
+                    crate::num::isqrt((denominator as u128) << 62)
+                };
                 let g = ((1u128 << 104) / root) as u64;
                 let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
                 let ratio = ((self.floor << 62) / x) as u64;
-                let rtau = (ratio as u128 * ratio as u128 >> 62) as u64;
+                let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
                 let rt = (((rtau as u128) << 62) / (ONE - product(2 * self.q, x)) as u128) as u64;
                 sum[0] += w as u128 * g1 as u128;
                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
@@ -359,9 +383,9 @@ impl OrbitShape {
 /// A shared shape plus a binding's scale. The catalogue pays this storage once per key.
 #[derive(Clone, Debug)]
 pub struct Orbit {
-    pub key: OrbitKey,
-    pub shape: Arc<OrbitShape>,
-    pub time_scale: Scalar,
+    key: OrbitKey,
+    shape: Arc<OrbitShape>,
+    time_scale: Scalar,
     q: Scalar,
     speed_scale: Scalar,
     increments: [Scalar; 3],
@@ -382,6 +406,12 @@ pub struct OrbitState {
 }
 
 impl Orbit {
+    pub fn key(&self) -> OrbitKey {
+        self.key
+    }
+    pub fn shape(&self) -> &OrbitShape {
+        &self.shape
+    }
     pub fn compile(key: OrbitKey) -> Result<Self> {
         Self::from_shape(key, Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
     }
@@ -505,10 +535,10 @@ impl Orbit {
         let ta = self.time(base.sum)?;
         let tb = self.time(s.knots[index + 1].sum)?;
         let fraction = target.sub(ta)?.div(tb.sub(ta)?)?.fixed(61)?;
-        let mut psi = a + ((b - a) * fraction >> 61);
+        let mut psi = a + (((b - a) * fraction) >> 61);
         // The panel clocks retain 48 weighted bits on the fast path. Do not
         // solve for phase below that clock's arithmetic information floor.
-        let quantum = target.abs().scale(-40)?.add(if s.fast {
+        let quantum = target.abs().scale(if s.word_root { -28 } else { -40 })?.add(if s.fast {
             s.clock_factor[0].scale(s.clock_shift as i32 - 98)?
         } else {
             Scalar::ZERO
@@ -611,7 +641,7 @@ impl ShapeMemo {
     }
 }
 
-/// Qualified bound memo input in 44 bits (stored in one u64): two implicit leading
+/// Quantized bound memo input in 44 bits (stored in one u64): two implicit leading
 /// bits, 11+11 fraction bits, a six-bit apoapsis-ratio exponent, a signed i16 radius
 /// exponent. The shape identity drops radius altogether on the weak branch.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -653,6 +683,12 @@ pub struct QuantizedMemo {
     pub hits: u64,
 }
 impl QuantizedMemo {
+    pub fn with_capacity(n: usize) -> Self {
+        Self {
+            shapes: HashMap::with_capacity(n),
+            hits: 0,
+        }
+    }
     pub fn get(&mut self, input: OrbitKey) -> Result<Orbit> {
         let code = MemoCode::encode(input)?;
         let key = code.decode()?;
@@ -754,8 +790,8 @@ impl Passage {
             let h = hi - lo;
             let mid = lo + h / 2;
             for j in 0..2 {
-                let dx = X[j] * h >> 63;
-                let weight = Scalar::raw(W[j] * h >> 63, -61)?;
+                let dx = (X[j] * h) >> 63;
+                let weight = Scalar::raw((W[j] * h) >> 63, -61)?;
                 for psi in [mid - dx, mid + dx] {
                     let a = 6 * s.k + 2 * product(ONE - s.k, cos(psi));
                     let root = square_root(ONE - product(s.q, a))?;

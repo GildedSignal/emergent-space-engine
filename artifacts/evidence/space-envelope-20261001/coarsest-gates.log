@@ -1,0 +1,31 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-envelope/crates/space)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-envelope/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 35.13s
+     Running unittests src/main.rs (target/release/deps/xtask-bca8eadc0d427651)
+
+running 1 test
+G1 PASS advance per cycle: 256/256 within 1e-2, worst 6.59e-4
+G2 PASS radial periods: 256/256 within 1e-3, worst 9.26e-4
+G3 PASS deflection: 64/64 within 1e-2, worst 3.44e-7
+G4 PASS capture: 0 of 10 misclassified []
+G5 PASS long run: 32/32 seeds over 10000 cycles (0 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2)
+G6 PASS prograde: 256/256 advances positive
+test behave::space::tests::coarsest_screened_key_passes_all_six_unchanged_behavior_gates ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 104 filtered out; finished in 0.19s
+
+     Running tests/behave_cli.rs (target/release/deps/behave_cli-5bc9021dd1f7d156)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+

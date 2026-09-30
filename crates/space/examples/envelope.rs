@@ -39,7 +39,23 @@ fn reference(p: f64, e: f64) -> [f64; 3] {
     }
     out.map(|x| x * 2.0 * pi / 8192.0)
 }
+fn layout() {
+    println!(
+        "bytes: Tube={} MemoCode={} Scalar={} Orbit_binding={} shape_header={} knot={} Residual={}; catalogue and shapes are additional storage",
+        size_of::<emergent_space::Tube>(),
+        size_of::<emergent_space::orbit::MemoCode>(),
+        size_of::<Scalar>(),
+        size_of::<Orbit>(),
+        size_of::<emergent_space::orbit::OrbitShape>(),
+        size_of::<emergent_space::orbit::Knot>(),
+        size_of::<emergent_space::binding::Residual>()
+    );
+}
 fn main() {
+    if std::env::args().any(|x| x == "--layout") {
+        layout();
+        return;
+    }
     let mut keys: Vec<_> = sample::bound_orbits(256).into_iter().map(|(p, e)| key(p, e)).collect();
     if std::env::args().any(|x| x == "--keys") {
         let want: Vec<_> = sample::bound_orbits(256).into_iter().map(|(p, e)| reference(p, e)).collect();
@@ -100,12 +116,25 @@ fn main() {
     }
     let cycles: Vec<_> = keys.iter().map(|&k| Orbit::compile(k).unwrap()).collect();
     let (mut compile, mut cross, mut inside) = (vec![], vec![], vec![]);
-    for round in 0..16 {
+    let args: Vec<_> = std::env::args().collect();
+    let rounds = args
+        .windows(2)
+        .find(|a| a[0] == "--rounds")
+        .map(|a| a[1].parse::<usize>().expect("round count"))
+        .unwrap_or(16);
+    assert!(rounds > 0);
+    println!("rounds={rounds}; compile includes construction and drop; mixed compile/crossing/interior loop");
+    for round in 0..rounds {
         for (&key, c) in keys.iter().zip(&cycles) {
             let t = Instant::now();
             black_box(Orbit::compile(black_box(key)).unwrap());
             compile.push(t.elapsed().as_nanos());
-            let index = c.shape.crossings.get(round % c.shape.crossings.len().max(1)).copied().unwrap_or(0);
+            let index = c
+                .shape()
+                .crossings()
+                .get(round % c.shape().crossings().len().max(1))
+                .copied()
+                .unwrap_or(0);
             let t = Instant::now();
             black_box(c.crossing_state(black_box(index), 0, true).unwrap());
             cross.push(t.elapsed().as_nanos());
@@ -118,4 +147,5 @@ fn main() {
     report("scaled_compile", compile);
     report("scaled_crossing_state", cross);
     report("scaled_interior_state", inside);
+    layout();
 }

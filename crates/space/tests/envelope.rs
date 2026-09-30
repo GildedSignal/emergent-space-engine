@@ -235,6 +235,23 @@ fn packed_keys_round_trip_and_shared_shapes_do_not_alias_different_inputs() {
         }
     }
     assert_eq!(memo.hits, 10); // five eccentricities, two repeated weak scales
+                               // Exercise every shape exponent and both signs of the full scale exponent.
+                               // Encoding need not compile these shapes: their code is independent of dynamics.
+    for radius_exp in [i16::MIN, -30000, -1, 0, 40, 20000, i16::MAX] {
+        for gap_exp in -47..=0 {
+            for mantissa in [2048, 2049, 3071, 4095] {
+                let gap = Scalar::raw(mantissa, gap_exp - 11).unwrap().fixed(48).unwrap() as u64;
+                if gap > 1 << 48 {
+                    continue;
+                }
+                let raw = OrbitKey::new(Scalar::power_of_two(radius_exp), ((1 << 48) + gap) / 2).unwrap();
+                let quantized = raw.memo_key().unwrap();
+                let code = MemoCode::encode(raw).unwrap();
+                assert!(code.bits() < 1 << 44);
+                assert_eq!(code.decode().unwrap(), quantized);
+            }
+        }
+    }
 }
 
 #[test]
@@ -254,5 +271,59 @@ fn unbound_inverse_preserves_incoming_and_outgoing_integer_states() {
             assert!(matches!(fit.trajectory, Trajectory::Passage(_)));
             assert_eq!(fit.reconstruct().unwrap(), input);
         }
+    }
+}
+
+#[test]
+fn strong_passages_match_an_independent_binet_ode_including_time() {
+    // RK4 in azimuth: u''=1/L²-u+3u². No Darwin phase or compiler helper is used.
+    for (rp, e) in [(3.3, 2.4), (4.5, 1.001), (6.0, 1.5), (10.0, 3.0), (20.0, 10.0)] {
+        let p = rp * (1.0 + e);
+        let l = p / f64::sqrt(p - 3.0 - e * e);
+        let en = f64::sqrt(((p - 2.0) * (p - 2.0) - 4.0 * e * e) / (p * (p - 3.0 - e * e)));
+        let edge = 20.0 * rp;
+        let passage = Passage::compile(
+            OrbitKey::new(encode(rp), (2f64.powi(48) / (1.0 + e)).round() as u64).unwrap(),
+            encode(edge),
+        )
+        .unwrap();
+        let derivative = |s: [f64; 3], clock: bool| {
+            [
+                s[1],
+                1.0 / (l * l) - s[0] + 3.0 * s[0] * s[0],
+                if clock { en / (l * s[0] * s[0] * (1.0 - 2.0 * s[0])) } else { 0.0 },
+            ]
+        };
+        let step = |s: [f64; 3], h: f64, clock: bool| {
+            let a = derivative(s, clock);
+            let b = derivative(std::array::from_fn(|i| s[i] + h * a[i] / 2.0), clock);
+            let c = derivative(std::array::from_fn(|i| s[i] + h * b[i] / 2.0), clock);
+            let d = derivative(std::array::from_fn(|i| s[i] + h * c[i]), clock);
+            std::array::from_fn(|i| s[i] + h * (a[i] + 2.0 * b[i] + 2.0 * c[i] + d[i]) / 6.0)
+        };
+        let h = 2e-5;
+        let mut state = [1.0 / rp, 0.0, 0.0];
+        let mut phi = 0.0;
+        let mut crossing = None;
+        let mut bend = None;
+        for _ in 0..2_000_000 {
+            let next = step(state, h, crossing.is_none());
+            if crossing.is_none() && next[0] <= 1.0 / edge {
+                let f = (state[0] - 1.0 / edge) / (state[0] - next[0]);
+                crossing = Some(state[2] + f * (next[2] - state[2]));
+            }
+            if next[0] <= 0.0 {
+                bend = Some(2.0 * (phi + h * state[0] / (state[0] - next[0])) - PI);
+                break;
+            }
+            state = next;
+            phi += h;
+        }
+        let time = crossing.expect("finite edge crossed");
+        let bend = bend.expect("reached infinity in the Binet coordinate");
+        let got_time = decode(passage.duration().unwrap()) / 2.0;
+        let got_bend = decode(passage.deflection().unwrap());
+        assert!((got_time / time - 1.0).abs() < 1e-5, "rp={rp} e={e} time {got_time} vs {time}");
+        assert!((got_bend / bend - 1.0).abs() < 1e-5, "rp={rp} e={e} bend {got_bend} vs {bend}");
     }
 }

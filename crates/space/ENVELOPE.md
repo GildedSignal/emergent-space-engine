@@ -64,7 +64,12 @@ binary and photon adapters still use v2; they are not evidence for a v3 extensio
 
 The weak expansion is used for q <= 2^-18. Strong panels normalize clock ratios by
 the minimum x and retain 48 weighted bits; a conditioned panel uses normalized
-dyadic arithmetic throughout. Readout solves to that clock's arithmetic quantum,
+dyadic arithmetic throughout. If the minimum angular denominator is at least 1/4,
+its root uses the native u64 square root (Q31, relative error <2^-30) and two-point
+Gauss panels; more conditioned panels retain the wide root and four-point rule.
+For a two-point panel of width h, the continuum remainder is h^5 B4/180, where
+B4 bounds |f''''|/4! on that panel. This is not a claimed global error bound.
+Readout solves to that clock's arithmetic quantum,
 with a bounded bisection fallback. Every branch is integer and defined by input,
 so errors repeat with the same shape; no sampled state advances another sample.
 `at_phase` takes the cycle counter separately, preserving exact shape repetition
@@ -79,8 +84,9 @@ bits. Weak shapes use only the 17 shape bits plus a tag, and share Taylor tables
 This is a measured width in this quantizer family, not a global optimality proof.
 
 Rebinding's residual is four signed differences of i64 readouts (at most 65 bits
-each, held in four i128s). It is 64 additional bytes per live event, plus its units
-and event reference; not an uncharged per-body ledger. The proof applies at the
+each, held in four i128s). It is 64 additional bytes per retained remainder, plus
+its units and event reference; this can become per-body storage and must be charged.
+The proof applies at the
 binding event. Transport through later physical motion is the events owner's
 remaining obligation: discarding the remainder at a handoff voids the proof.
 
@@ -89,5 +95,35 @@ approaches 4M, not 3M; 3M is the photon circular limit. Plunges, radial L=0 path
 unstable circular generators and horizon arrival times are not supplied by this
 periodic compiler. Passage endpoints must be resolvable by the finite phase word;
 an unresolvable radius ratio is refused, never replaced by infinity.
+
+## Exact migration boundary for the events owner
+
+- `events::records`: replace the old E/L `CyclePool` and population Tube with
+  `tube::Catalogue` and the root `Tube`. Doll/type belong to the owning population.
+  `OrbitKey::bound(Scalar p,e_Q48)` accepts orbital input; `Rebinding::from_state`
+  accepts Cartesian integer position/coordinate velocity with explicit exponents.
+- `events::clock`: replace Q20 `Words` periods with `Scalar` and population clock
+  exponents. `Scalar::fixed_ceil` rounds deadlines outward; `fixed_floor` rounds
+  the other endpoint. Never convert a planetary period back through u64 Q20.
+  The child's centre must use the new catalogue's orbit and proper-time readout.
+- `events::edge`: certify relative trajectories in the new units. Native crossings
+  are shape-table indices; they are not the old absolute-Q62 radial band numbers.
+- `events::handoff`: reconstruct `TubeEvent` before translation/boost; fit the new
+  state, then `TubeEvent::bind` accounts for orientation and periapsis-clock rounding.
+  **The remainder is exact at its named event only.** Its transport through future
+  motion is not implemented. It must enter the authoritative dynamics; a constant
+  Cartesian offset is not a proved transport law. The current boost is still the
+  low-speed approximation. B12 remains the independent test of the whole operation.
+- `events::kicks`: change the reconstructed state, preserving the exact momentum
+  ledger; re-fit atomically. The old Q48-E/Q32-L tangent is not a derivative of the
+  new shape key. Derivative prediction never substitutes for authoritative rebinding.
+- B13/B14: `Passage` supplies finite trajectories and asymptotic bend, but the
+  integrated parent tide, Hill/resonant generator and their selector remain missing.
+- B11 and photons still use the preserved v2 compatibility path. Their present
+  passing gates do not certify a large-scale binary/photon extension.
+
+Readout still uses normalized i128 products. The draft law asks for wide integers
+only during compilation; narrowing this path remains open. A 16-byte handle does
+not imply 16-byte total storage per body when catalogue bindings are unique.
 
 This derivation is an implementation proposal, not a new freeze or qualification.

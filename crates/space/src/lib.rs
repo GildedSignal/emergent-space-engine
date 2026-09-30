@@ -95,6 +95,7 @@
 //! - roots: the integer predicate is bisected to one Q62 unit. Its rounded residual is
 //!   amplified by 1/|R′| at simple roots and by a square root near double roots, so this
 //!   does NOT imply one-unit continuum root accuracy. Input E/L quantization is separate.
+//!
 //! The law differs from continuum GR by these and by the key's quantization of (E, L).
 //!
 //! The planted Newtonian variant (`compile_variant(key, true)`) drops the 2u³ term: g = 1, so
@@ -104,8 +105,8 @@
 //! Coordinates are polar around a static mass: r=1/u, positive L is prograde, φ=0 at
 //! periapsis. t is Schwarzschild coordinate time and τ is proper time. To restore a doll's
 //! mass M, multiply r, t, τ and L by M; frames, orientation and retarded handoffs belong
-//! to the caller. `Tube` describes bound massive bodies; use [`scatter`] for unbound/light.
-//! Keys are exact Q48 E / Q32 L; [`Key::darwin`] accepts Q16 p / Q30 e. [`LAW_ID`] includes
+//! to the caller. `LegacyTube` describes bound massive bodies; use [`scatter`] for unbound/light.
+//! Keys are exact Q48 E / Q32 L; [`Key::darwin`] accepts Q16 p / Q30 e. [`LEGACY_LAW_ID`] includes
 //! the boundary conversion convention. `Range`, `NoBoundOrbit` and `Topology` are refusals,
 //! never invitations to silently clamp a new key or apply an uncertified kick.
 //!

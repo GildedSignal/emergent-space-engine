@@ -108,15 +108,15 @@ impl Law for Space {
         rate(r, 3)
     }
     fn crossings_per_cycle(&self, p: f64, e: f64) -> Option<f64> {
-        Some(2.0 * self.shapes.borrow_mut().get(self.bound_native_key(p, e)?).ok()?.shape.crossings.len() as f64)
+        Some(2.0 * self.shapes.borrow_mut().get(self.bound_native_key(p, e)?).ok()?.shape().crossings().len() as f64)
     }
     fn scene_cost(&self, n: usize, game_seconds: f64) -> Option<f64> {
         if !game_seconds.is_finite() || game_seconds < 0.0 || game_seconds * 1048576.0 > u64::MAX as f64 {
             return None;
         }
         let start = std::time::Instant::now();
-        let mut shapes = QuantizedMemo::default();
-        let mut pool = Catalogue::default();
+        let mut shapes = QuantizedMemo::with_capacity(n);
+        let mut pool = Catalogue::with_capacity(n);
         let mut tubes = Vec::with_capacity(n);
         for (p, e) in super::sample::bound_orbits(n) {
             let orbit = shapes.get(self.bound_native_key(p, e)?).ok()?;
@@ -181,7 +181,7 @@ impl Law for Space {
             return (0..cycles as u64)
                 .map_while(|n| {
                     let peri = c.crossing_state(0, n, true).ok()?;
-                    let apo = c.crossing_state(c.shape.knots.len() - 1, n, true).ok()?;
+                    let apo = c.crossing_state(c.shape().knots().len() - 1, n, true).ok()?;
                     Some((decoded(peri.radius), decoded(apo.radius), energy, angular))
                 })
                 .collect();

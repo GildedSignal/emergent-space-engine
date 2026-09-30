@@ -1,0 +1,29 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-envelope/crates/space)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-envelope/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 22.48s
+     Running `target/release/xtask behave --law space`
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=24969315)\t100%; charged; 0:00 remaining present: true","hardware":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","power_source":"Now drawing from 'AC Power'","swap":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","therm":"Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc","time_utc":"2026-09-30T22:53:29Z","unix":1790808809,"when":"start"}
+G1 PASS advance per cycle: 256/256 within 1e-2, worst 6.59e-4 [0.04 s]
+G2 PASS radial periods: 256/256 within 1e-3, worst 5.54e-4 [0.04 s]
+G3 PASS deflection: 64/64 within 1e-2, worst 3.44e-7 [0.00 s]
+G4 PASS capture: 0 of 10 misclassified [] [0.00 s]
+G5 PASS long run: 32/32 seeds over 10000 cycles (0 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2) [0.13 s]
+G6 PASS prograde: 256/256 advances positive [0.00 s]
+B7 PASS clocks: static 64/64 within 1e-12 worst 3.56e-15, circular 64/64 within 1e-12 worst 6.37e-15, radii log-uniform in [3, 1e4] [0.00 s]
+B9 PASS cost per body: median 34.0 crossings per cycle (limit 64), p95 72.0, max 78.0; advance_per_cycle after the first call: median 642 ns, p95 678 ns over 256 seeds (reported) [0.01 s]
+B10 PASS cost against n: n=1e3 11.1 ms, n=1e4 114.1 ms, n=1e5 1.23 s, n=1e6 19.06 s; exponent 1.073 (limit 1.1); n=1e9 extrapolates to 2.8e-1 core-s per game-s, real-time factor 2.9e1 on 8 cores (reported) [20.70 s]
+B11 PASS binaries: precession 1024/1024 within (1% + 16/p), worst 0.86 of the allowance; period 620/620 judged within 1e-3, worst 5.51e-4 (needs 64 judged) [0.02 s]
+B12 FAIL handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..40 times, at least 20 when frozen), 0 not converged; 16 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them inf (limit 0.2), worst inf; worst err inf (limit 1e-4) [1.42 s]
+B13 FAIL assists: 0/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE inf ΔL inf; 0 of 64 excluded (0 never in or out, 0 not converged) [0.03 s]
+B14 FAIL Hill stability: 0/128 judged moons in the reference's class (51 escape, 77 stay); 0 chaotic and 0 not converged of 128 (needs 64 judged) [3.24 s]
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=24969315)\t100%; charged; 0:00 remaining present: true","hardware":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","power_source":"Now drawing from 'AC Power'","swap":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","therm":"Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc","time_utc":"2026-09-30T22:53:54Z","unix":1790808834,"when":"end"}
+behave space: FAIL B12 B13 B14

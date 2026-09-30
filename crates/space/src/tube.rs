@@ -52,6 +52,12 @@ pub struct Catalogue {
     ids: HashMap<(OrbitKey, bool, Option<Scalar>), u32>,
 }
 impl Catalogue {
+    pub fn with_capacity(n: usize) -> Self {
+        Self {
+            entries: Vec::with_capacity(n),
+            ids: HashMap::with_capacity(n),
+        }
+    }
     pub fn insert(&mut self, trajectory: Trajectory, clockwise: bool) -> Result<u32> {
         let edge = match &trajectory {
             Trajectory::Cycle(_) => None,

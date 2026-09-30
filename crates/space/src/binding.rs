@@ -47,7 +47,7 @@ pub enum Trajectory {
 impl Trajectory {
     pub fn key(&self) -> OrbitKey {
         match self {
-            Self::Cycle(c) => c.key,
+            Self::Cycle(c) => c.key(),
             Self::Passage(p) => p.key(),
         }
     }
@@ -82,8 +82,10 @@ impl Residual {
     pub fn reconstruct(self, decoded: IntegerState) -> Result<IntegerState> {
         let mut out = decoded;
         for i in 0..2 {
-            out.position[i] = i64::try_from(decoded.position[i] as i128 + self.position[i]).map_err(|_| Error::Range)?;
-            out.velocity[i] = i64::try_from(decoded.velocity[i] as i128 + self.velocity[i]).map_err(|_| Error::Range)?;
+            out.position[i] =
+                i64::try_from((decoded.position[i] as i128).checked_add(self.position[i]).ok_or(Error::Range)?).map_err(|_| Error::Range)?;
+            out.velocity[i] =
+                i64::try_from((decoded.velocity[i] as i128).checked_add(self.velocity[i]).ok_or(Error::Range)?).map_err(|_| Error::Range)?;
         }
         Ok(out)
     }
@@ -142,7 +144,7 @@ fn phase(state: OrbitState) -> Result<i128> {
         let bits = 62 - turns.exponent() as u32;
         (turns.significand() as i128 % (1i128 << bits)) * (1i128 << 61) / (1i128 << bits)
     };
-    Ok((state.radial_angle as i128 + ((2 * PI) * fractional >> 61)).rem_euclid(2 * PI))
+    Ok((state.radial_angle as i128 + (((2 * PI) * fractional) >> 61)).rem_euclid(2 * PI))
 }
 pub fn cartesian(state: OrbitState, orientation: u32, clockwise: bool, units: (i16, i16)) -> Result<IntegerState> {
     let orientation = (orientation as i128 * (2 * PI)) >> 32;
