@@ -49,9 +49,9 @@ Labels are ours; quotes are his. 12–31 were approved on 29 September ("Otherwi
 Models propose here; Julien approves, rewrites or rejects. From his statements of 30 September:
 
 32. **Symmetry is found, not given.** "there are many kinds of symmetries in this world, under the right representation many symmetries can appear, this is a leitmotiv of compute paradigm shifts." Where no symmetry shows, change the representation before paying to simulate.
-33. **Many scales; relevance belongs to the observer.** "we need to think in many scales, self-similarity like you said is powerful. An ant cares about a raindrop but the lion does not." What is individual, and what is a density, depends on who is looking.
+33. **Each scale resolves only what matters at that scale.** "we need to think in many scales, self-similarity like you said is powerful. An ant cares about a raindrop but the lion does not." The same law repeats at every scale (self-similarity). But a raindrop is an event for an ant and nothing for a lion, so a body resolves only the influences that are significant at its own scale, and smaller ones enter as an aggregate.
 34. **A game is an illusion spectacle; the oracles are guards, not shepherds.** "Like said many times, this is game, a game is an illusion spectacle, the oracles are guards, not shepherds." Oracles reject what the player would see as wrong; they never lead the representation.
-35. **The right question, about the goal.** "basically this whole project is about asking the right questions, specifically about what we're trying to achieve and how can we make it as simple and powerful as possible based on dynamics and requirements." (It may merge into 18.)
+35. **Start from the goal and the dynamics; aim for the simplest, most powerful form.** "basically this whole project is about asking the right questions, specifically about what we're trying to achieve and how can we make it as simple and powerful as possible based on dynamics and requirements." Every piece of work begins with two questions: what are we trying to achieve (the requirements), and what do the dynamics allow? The answer is the simplest form that does the most. (It may merge into 18.)
 
 ## Register of Julien's statements
 
