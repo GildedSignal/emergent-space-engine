@@ -238,9 +238,22 @@ fn benchmark(seed: u64, c_scale: f64) -> crate::Result<u8> {
     // Same step/gather/serialize pipeline as /frame. Browser paint and transport
     // are deliberately excluded and reported separately by the page's telemetry.
     let before = crate::measure::machine_state("before");
+    let extra = |command: &str| {
+        std::process::Command::new(command)
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_else(|e| e.to_string())
+    };
+    let load_before = extra("uptime");
+    let memory_before = extra("vm_stat");
     let mut f = Flight::new(seed);
     let mut samples = Vec::new();
+    let wall = Instant::now();
     for n in 1..=1200 {
+        let due = Duration::from_secs_f64(n as f64 / 60.);
+        if let Some(wait) = due.checked_sub(wall.elapsed()) {
+            std::thread::sleep(wait);
+        }
         let tick = n * TPS / 60;
         let keys = if n == 1 {
             Some(1)
@@ -266,7 +279,84 @@ fn benchmark(seed: u64, c_scale: f64) -> crate::Result<u8> {
     samples.sort_by(f64::total_cmp);
     println!(
         "{}",
-        json!({"scope":"Rust advance + gather + JSON only; no browser or HTTP", "frames":samples.len(),"seed":seed,"median_ms":crate::measure::percentile(&samples,0.5),"p99_ms":crate::measure::percentile(&samples,0.99),"max_ms":samples.last(),"contacts":f.core.log().contacts,"burns":f.burns,"digest":f.digest(),"machine_before":before,"machine_after":crate::measure::machine_state("after")})
+        json!({"scope":"Rust advance + gather + JSON only; paced at 60 Hz; no browser or HTTP", "frames":samples.len(),"wall_seconds":wall.elapsed().as_secs_f64(),"seed":seed,"median_ms":crate::measure::percentile(&samples,0.5),"p99_ms":crate::measure::percentile(&samples,0.99),"max_ms":samples.last(),"contacts":f.core.log().contacts,"burns":f.burns,"digest":f.digest(),"machine_before":before,"machine_after":crate::measure::machine_state("after"),"uptime_before":load_before,"uptime_after":extra("uptime"),"vm_stat_before":memory_before,"vm_stat_after":extra("vm_stat")})
     );
     Ok(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn downloaded_replay_roundtrips_and_tampering_fails() {
+        let mut f = Flight::new(42);
+        step(
+            &mut f,
+            Request {
+                tick: TPS * 3,
+                inputs: vec![
+                    Input { tick: 0, keys: 1 },
+                    Input {
+                        tick: TPS * 2,
+                        keys: 0,
+                    },
+                ],
+            },
+            200.,
+        )
+        .unwrap();
+        let mut replay: Replay =
+            serde_json::from_slice(&serde_json::to_vec(&Replay::of(&f)).unwrap()).unwrap();
+        assert_eq!(f.digest(), replay.execute().unwrap().digest());
+        replay.inputs[0].keys = 2;
+        assert!(replay.execute().is_err());
+        replay.version = "future-law".into();
+        assert!(replay.execute().is_err());
+    }
+
+    #[test]
+    fn invalid_input_batch_cannot_partially_mutate_flight() {
+        let mut f = Flight::new(3);
+        let digest = f.digest();
+        for inputs in [
+            vec![Input { tick: 1, keys: 1 }, Input { tick: 0, keys: 0 }],
+            vec![
+                Input { tick: 1, keys: 1 },
+                Input {
+                    tick: TPS + 1,
+                    keys: 0,
+                },
+            ],
+            vec![Input { tick: 1, keys: 1 }, Input { tick: 2, keys: 16 }],
+        ] {
+            assert!(step(&mut f, Request { tick: TPS, inputs }, 200.).is_err());
+            assert_eq!(digest, f.digest());
+        }
+    }
+
+    #[test]
+    fn wire_frames_are_finite_and_include_both_clocks() {
+        let mut f = Flight::new(17);
+        let wire = step(
+            &mut f,
+            Request {
+                tick: TPS * 5,
+                inputs: vec![Input { tick: 0, keys: 1 }],
+            },
+            200.,
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&wire).unwrap();
+        assert!(
+            value["frame"]["proper"].as_f64().unwrap()
+                < value["frame"]["coordinate"].as_f64().unwrap()
+        );
+        assert_eq!(value["frame"]["seen"].as_array().unwrap().len(), 320);
+        for s in value["frame"]["seen"].as_array().unwrap() {
+            assert!(s["doppler"].as_f64().unwrap() > 0.);
+            assert!(s["intensity"].as_f64().is_some());
+            assert!(s["range"].as_f64().unwrap() > 0.);
+        }
+    }
 }

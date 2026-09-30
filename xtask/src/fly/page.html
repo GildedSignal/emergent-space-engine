@@ -21,19 +21,20 @@ footer{position:absolute;bottom:32px;right:32px;text-align:right;font-size:10px;
 <script>
 'use strict';
 const canvas=document.getElementById('sky'),ctx=canvas.getContext('2d'),el=id=>document.getElementById(id);
-let cfg,frame=null,pending=[],held=new Set(),mask=0,busy=false,start=0,base=0,zoom=1,stopped=false,lastDraw=0;
+let cfg,frame=null,pending=[],held=new Set(),mask=0,busy=false,start=0,base=0,zoom=1,stopped=false,lastDraw=0,hiddenAt=0;
 const telemetry={raf:[],paint:[],roundtrip:[],server:[]};window.flyTelemetry=telemetry;
 function sample(list,n){list.push(n);if(list.length>3600)list.shift()}
 function quantile(list,q){if(!list.length)return 0;const s=[...list].sort((a,b)=>a-b);return s[Math.round((s.length-1)*q)]}
 window.flySummary=()=>Object.fromEntries(Object.entries(telemetry).map(([k,v])=>[k,{n:v.length,median:quantile(v,.5),p99:quantile(v,.99)}]));
 function resize(){const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0)}
 addEventListener('resize',resize);resize();
-function tick(){return base+Math.floor((performance.now()-start)*cfg.tps*cfg.rtf/1000)}
+function tick(){return base+Math.floor(((hiddenAt||performance.now())-start)*cfg.tps*cfg.rtf/1000)}
 function setKeys(){if(!cfg||stopped)return;let n=0;if(!held.has('Space')){if(held.has('KeyW')||held.has('ArrowUp'))n|=1;if(held.has('KeyS')||held.has('ArrowDown'))n|=2;if(held.has('KeyA')||held.has('ArrowLeft'))n|=4;if(held.has('KeyD')||held.has('ArrowRight'))n|=8}if(n!==mask){mask=n;pending.push({tick:tick(),keys:n})}}
 const controls=['Space','KeyW','KeyS','KeyA','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
 addEventListener('keydown',e=>{if(controls.includes(e.code)){e.preventDefault();held.add(e.code);setKeys()}});
 addEventListener('keyup',e=>{if(controls.includes(e.code)){e.preventDefault();held.delete(e.code);setKeys()}});
 addEventListener('blur',()=>{held.clear();setKeys()});
+document.addEventListener('visibilitychange',()=>{if(!cfg)return;if(document.hidden){hiddenAt=performance.now();held.clear();setKeys()}else if(hiddenAt){start+=performance.now()-hiddenAt;hiddenAt=0;lastDraw=0}});
 addEventListener('wheel',e=>{zoom=Math.max(.15,Math.min(8,zoom*Math.exp(e.deltaY*.001)));e.preventDefault()},{passive:false});
 function clock(t){const ms=Math.floor(t*1000);return `${String(Math.floor(ms/3600000)).padStart(2,'0')}:${String(Math.floor(ms/60000)%60).padStart(2,'0')}:${String(Math.floor(ms/1000)%60).padStart(2,'0')}.${String(ms%1000).padStart(3,'0')}`}
 function draw(now){

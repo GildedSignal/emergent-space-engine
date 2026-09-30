@@ -92,6 +92,35 @@ pub struct Seen {
     pub kind: u8,
 }
 
+/// Geometry supplies arriving light; photometry does not know how a worldline
+/// was made. A future curved tube can implement this instead of straight segments.
+pub struct Photon {
+    pub direction: [f64; 2], // outward sky direction in the reference frame
+    pub distance: f64,
+    pub emission: f64,
+    pub frequency: f64, // reference-frame frequency / emitter rest frequency
+}
+
+pub trait LightConeSource {
+    fn photon(&self, observer: [f64; 2], now: f64) -> Photon;
+}
+
+impl LightConeSource for [Segment] {
+    fn photon(&self, observer: [f64; 2], now: f64) -> Photon {
+        let (segment, emission, r) = gather(self, observer, now);
+        let distance = dot(r, r).sqrt().max(1e-12);
+        let direction = r.map(|v| v / distance);
+        let emitter = self[segment].k.map(|k| k as f64 / Q as f64);
+        let d_em = (1. + dot(emitter, direction)) / (1. - dot(emitter, emitter)).sqrt();
+        Photon {
+            direction,
+            distance,
+            emission,
+            frequency: 1. / d_em,
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct Frame {
     pub tick: i64,
@@ -113,23 +142,20 @@ pub fn frame(f: &Flight, c_scale: f64) -> Frame {
     let beta = w.bodies[0].k.map(|k| k as f64 / Q as f64);
     let mut seen = Vec::with_capacity(f.history.len() - 1);
     for i in 1..f.history.len() {
-        let (segment, emission, r) = gather(&f.history[i], observer, now);
-        let distance = dot(r, r).sqrt().max(1e-12);
-        let n = r.map(|v| v / distance);
-        let (direction, d_obs) = aberration(n, beta);
-        let emitter = f.history[i][segment].k.map(|k| k as f64 / Q as f64);
-        let d_em = (1. + dot(emitter, n)) / (1. - dot(emitter, emitter)).sqrt();
-        let doppler = d_obs / d_em;
+        let photon = f.history[i].as_slice().photon(observer, now);
+        let distance = photon.distance;
+        let (direction, d_obs) = aberration(photon.direction, beta);
+        let doppler = d_obs * photon.frequency;
         let m = f.materials[i];
         seen.push(Seen {
             id: i + 1,
             direction,
             range: distance * d_obs * c_scale,
-            angular_radius: (m.radius as f64 / (Q * TPS) as f64 / distance).atan(),
+            angular_radius: (m.radius as f64 / (Q * TPS) as f64 / distance / d_obs).atan(),
             color: blackbody(m.temperature * doppler),
             intensity: m.luminosity * doppler.powi(4) / (1. + distance * distance / 64.),
             doppler,
-            emission,
+            emission: photon.emission,
             kind: m.kind,
         });
     }
@@ -150,6 +176,25 @@ pub fn frame(f: &Flight, c_scale: f64) -> Frame {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn comoving_emitter_has_no_doppler_shift() {
+        for k in [
+            [0, 0],
+            [Q / 2, 0],
+            [-Q * 9 / 10, 0],
+            [Q * 7 / 10, Q * 7 / 10],
+        ] {
+            let h = [Segment {
+                tick: 0,
+                x: [Q * TPS * 3, Q * TPS * 4],
+                k,
+            }];
+            let p = h.as_slice().photon([0., 0.], 2.);
+            let beta = k.map(|k| k as f64 / Q as f64);
+            assert!((aberration(p.direction, beta).1 * p.frequency - 1.).abs() < 1e-12);
+        }
+    }
 
     #[test]
     fn aberration_and_doppler_match_closed_forms() {

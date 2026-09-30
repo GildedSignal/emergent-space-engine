@@ -258,8 +258,8 @@ impl Flight {
     }
 
     pub fn advance(&mut self, target: i64) -> Result<(), String> {
-        if target < self.core.tick() || target > TPS * 86400 {
-            return Err("flight horizon outside [now, one day]".into());
+        if target < self.core.tick() || target > TPS * 1024 {
+            return Err("flight horizon outside [now, 1024 seconds]".into());
         }
         while self.core.tick() < target {
             let k = self.history[0].last().unwrap().k;
