@@ -64,6 +64,11 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Taste log (the integrator's decisions on gold, newest first)
 
+- **30 September, r4 v2 (resonance): KILL of arc-integrated kicks (g8, g16, g8-half); silver-quality work.**
+  - **What it showed:** the checker refined the kick windows toward zero. The layer converges to the first-order-in-μ solution, which still over-pumps e about 2× and lets the resonant angle circulate. The failure is structural, not a matter of quadrature or window size.
+  - **Design consequence:** near resonance, the law needs phase feedback. The next configuration is the resonant normal form, a 1-DOF integrable generator per resonant pair (`docs/law.md`, kicks).
+  - **Flagged:** the author patched truth JSONs without disclosing it, and misread the rung's w₂ case. The metric degenerates at exact commensurability, so future rungs detune or use libration amplitude.
+
 - **29 September, r2 (carry width): KILL of sd16, sd24 and sd32.**
   - **What it showed:** a 32+32-bit pair holds float64 increments exactly (zero phase error). Carries cannot recover information below their own resolution. Kicks on the law's own grid accumulate exactly at any width.
   - **Integrator's error:** two criteria demanded trajectory identity with float64 (conjunction order; the worst-seed kick-residual exponent), which the checker proved unpassable.
