@@ -37,7 +37,7 @@ The pivot plan: `~/.claude/plans/whimsical-snuggling-graham.md`, reordered by Ju
 4. **The events layer:** dolls, tubes, one queue, handoffs, tides, binaries, judged by B11–B14 (Sol next).
 5. **The player slice, moved up:** one ship with thrust (rapidity kinks) in a star–planet system, the view gathered at the past light cone, clocks, Doppler, aberration and lensing visible. Julien flies it. The view starts as soon as the cycle compiler merges, in parallel with the events layer.
 6. **Scale,** in parallel with the slice: encounters and contacts (r8), N bodies, B10 on the M1, the dense order on Metal.
-7. **AI and populations** (r7 first).
+7. **AI: not now.** Julien is still ideating on AI (30 September), so no AI work in this phase. r7, already running, is filed when it lands, and nothing is built from it.
 8. **Retirement and ladder v8,** last, once B8 digests match across orders, threads, CPU/GPU and sabotage.
 
 Gates are frozen before their first run, tests take ≤ 60 s, and speed is reported as a real-time factor, measured like the player (heat included, state recorded). The spine (contracts, builds, merges) runs one job at a time; the GLM lab runs in parallel in the cloud.

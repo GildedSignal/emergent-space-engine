@@ -15,7 +15,7 @@
 
 ## Team
 
-- **Physics first.** At least 60% of each Claude and Astra window goes to the plan's steps. There is one process change per week, and none in a week with no physics merge.
+- **Skunk Works, physics first** (Julien, 30 September: the SR-71's way). Speed to the finished product is the measure, and overhead costs the integrator's attention. The integrator reads code and gate output, not reports; reports are minimal; each builder tests its own product; the product flies early (Julien plays the slice as soon as it exists). At least 60% of each Claude and Astra window goes to the plan's steps, and no process change lands without a physics merge since the last one.
 - **Comparative advantage, and spend every provider's usage.** Check it with `get_usage` for Claude, the rollout `rate_limits` for Codex, and `omp usage` for GLM.
   - **Claude Opus**, the integrator: judgement, contracts, adjudication, merges, the journal, the hard problems.
   - **gpt-6-astra:** the hardest exact specifics: algorithms, proofs, audits.
