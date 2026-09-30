@@ -12,9 +12,9 @@ Frozen by the integrator on 30 September 2026. `docs/law.md` (tides and the regi
 - `truth` (positive): direct integration of the circular restricted three-body problem (the same reference as `behave` B14: planet mass ratio 10⁻³, Dormand–Prince at relative tolerance 10⁻¹², converged). It must pass.
 - `no-tide` (negative): the two-body doll without tides. It must fail.
 
-**Cases** (sampler: Python `random.Random(20261010)`): 256 moons at a/R_H uniform in [0.1, 0.9], half prograde and half retrograde, random phases, run for 50 planet orbits. The tidal ratio τ of each seed is 3·(a/R_H)³ at its apoapsis (the star's tidal acceleration over the planet's).
+**Cases** (sampler: Python `random.Random(20261010)`): 256 moons at a/R_H uniform in [0.1, 0.9], half prograde and half retrograde, random phases, run for 50 planet orbits. The tidal ratio τ of each seed is (2/3)·(r_apo/R_H)³ (the star's radial tidal acceleration 2GM_s·r/D³ over the planet's GM_p/r², with R_H³ = (M_p/3M_s)·D³). This formula was corrected before any run: the first text read 3·(a/R_H)³, which gpt-6.1-sol caught.
 
-**Domains** (each candidate is judged where the law would use it). `kick-avg` and `no-tide` are scored on the clearly hierarchical seeds (a/R_H ≤ 0.3, τ ≤ 0.081). `hill-torus` is scored on the seeds with a/R_H > 0.3 that it declares tori. `truth` is scored on all seeds.
+**Domains** (each candidate is judged where the law would use it). `kick-avg` and `no-tide` are scored on the clearly hierarchical seeds (a/R_H ≤ 0.3, so τ ≤ 0.018). `hill-torus` is scored on the seeds with a/R_H > 0.3 that it declares tori. `truth` is scored on all seeds.
 
 **Metrics,** one set per configuration, over its domain:
 - `class_match_fraction`: over seeds whose truth is not chaotic (the truth's class is unchanged under a 10⁻⁶ relative change of a), the fraction whose bound or escaped class matches the truth's.
