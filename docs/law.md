@@ -57,6 +57,10 @@ A clock reads its tube's length. Colour is −p·u at the observer. Positions ar
 | B8 determinism | bit-identical across reruns, 1/4/8 threads, CPU/GPU, sparse and dense orders | engine tests |
 | B9 cost per body | ≤ 64 crossings per cycle at m = 16; after that, zero work per orbit until an event | `behave` B9 |
 | B10 cost against N | frozen scenes of 10³–10⁶ bodies; fitted exponent ≤ 1.1. The real-time factor at 10⁹ is reported, and gated only once a physically scaled reference scene is frozen (ladder v8), because the scene's M/c³ time unit is not physical | `behave` B10 |
+| B11 binaries | 1024 binaries (p 20–1000, e ≤ 0.6, ν ≤ 0.25), given their 1PN invariants: ≥ 99% precess within (1% + 2·8/p) of the 1PN oracle; ≥ 99% of judged seeds (next-term estimate 5/a² ≤ 5×10⁻⁴) have periods within 0.1% | `behave` B11 |
+| B12 handoffs | Ships crossing a Jupiter-like planet's doll edge ≥ 20 times each (16 seeds, circular restricted three-body): the Jacobi constant's error has growth exponent ≤ 0.2 on the median seed and stays within 10⁻⁴ relative | `behave` B12 |
+| B13 assists | 64 flybys (periapsis 1.2–50 planet radii, v∞ 5–20 km/s): the changes in the ship's heliocentric orbital energy and angular momentum each within 1% of the reference's, for ≥ 99% | `behave` B13 |
+| B14 Hill stability | 128 moons at 0.2–0.9 Hill radii, prograde and retrograde, over 50 planet orbits: bound or escaped as the reference says, for ≥ 99% of the judged (non-chaotic) seeds | `behave` B14 |
 
 Every gate has a positive control that must pass and a planted law that must fail.
 
