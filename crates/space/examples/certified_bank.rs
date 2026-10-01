@@ -43,11 +43,13 @@
 //! Class: a refusal of an inbound state with no turning point reads as "absorbed"; the law
 //! itself returns only `NoBoundOrbit`.
 use emergent_space::{
+    Error,
     binding::{IntegerState, Rebinding, Trajectory},
-    orbit::{OrbitState, Scalar},
-    scatter, Error, Key, Outcome,
+    orbit::{OrbitKey, OrbitState, Passage, Scalar},
 };
-use std::{collections::HashMap, fmt::Write as _, io::Write as _, panic, process::Command, time::Instant};
+use std::{
+    collections::HashMap, fmt::Write as _, io::Write as _, panic, process::Command, time::Instant,
+};
 
 const BANK: &str = "artifacts/evidence/g2-reference-20260928";
 /// `BANK_DIR=/abs/dir` reads `RUNG.cases.jsonl.gz` and `RUNG.answers.jsonl.gz` from that directory instead
@@ -74,18 +76,10 @@ impl J {
         &J::Null
     }
     fn s(&self) -> &str {
-        if let J::Str(s) = self {
-            s
-        } else {
-            ""
-        }
+        if let J::Str(s) = self { s } else { "" }
     }
     fn a(&self) -> &[J] {
-        if let J::Arr(v) = self {
-            v
-        } else {
-            &[]
-        }
+        if let J::Arr(v) = self { v } else { &[] }
     }
     fn i(&self) -> i128 {
         match self {
@@ -181,13 +175,22 @@ fn parse(b: &[u8], i: &mut usize) -> J {
             while *i < b.len() && matches!(b[*i], b'-' | b'+' | b'.' | b'e' | b'E' | b'0'..=b'9') {
                 *i += 1;
             }
-            J::Num(std::str::from_utf8(&b[st..*i]).unwrap().parse().unwrap_or(f64::NAN))
+            J::Num(
+                std::str::from_utf8(&b[st..*i])
+                    .unwrap()
+                    .parse()
+                    .unwrap_or(f64::NAN),
+            )
         }
     }
 }
 fn read_gz(root: &str, name: &str) -> Vec<J> {
     let dir = std::env::var("BANK_DIR").unwrap_or_else(|_| format!("{root}/{BANK}"));
-    let out = Command::new("gzip").arg("-dc").arg(format!("{dir}/{name}")).output().expect("gzip");
+    let out = Command::new("gzip")
+        .arg("-dc")
+        .arg(format!("{dir}/{name}"))
+        .output()
+        .expect("gzip");
     assert!(out.status.success(), "cannot read {name}");
     out.stdout
         .split(|&c| c == b'\n')
@@ -262,7 +265,11 @@ fn kind_of(s: &str) -> Kind {
 fn load(root: &str, rung: &str) -> Vec<Case> {
     let mut out = vec![];
     if rung == "R2" {
-        for (n, rec) in read_gz(root, "R2.answers.jsonl.gz").iter().skip(1).enumerate() {
+        for (n, rec) in read_gz(root, "R2.answers.jsonl.gz")
+            .iter()
+            .skip(1)
+            .enumerate()
+        {
             let a = rec.a();
             let ans = a[4]
                 .a()
@@ -271,10 +278,26 @@ fn load(root: &str, rung: &str) -> Vec<Case> {
                 .map(|(i, v)| {
                     let t = i as i128 + 1;
                     match v {
-                        J::Str(s) if s.starts_with('A') => Ans { t, kind: Kind::Absorbed, x: [0; 2] },
-                        J::Str(_) => Ans { t, kind: Kind::OutOfRange, x: [0; 2] },
-                        J::Arr(p) => Ans { t, kind: Kind::Free, x: [p[0].i(), p[1].i()] },
-                        _ => Ans { t, kind: Kind::Unsettled, x: [0; 2] },
+                        J::Str(s) if s.starts_with('A') => Ans {
+                            t,
+                            kind: Kind::Absorbed,
+                            x: [0; 2],
+                        },
+                        J::Str(_) => Ans {
+                            t,
+                            kind: Kind::OutOfRange,
+                            x: [0; 2],
+                        },
+                        J::Arr(p) => Ans {
+                            t,
+                            kind: Kind::Free,
+                            x: [p[0].i(), p[1].i()],
+                        },
+                        _ => Ans {
+                            t,
+                            kind: Kind::Unsettled,
+                            x: [0; 2],
+                        },
                     }
                 })
                 .collect();
@@ -296,7 +319,9 @@ fn load(root: &str, rung: &str) -> Vec<Case> {
     let cases = read_gz(root, &format!("{rung}.cases.jsonl.gz"));
     let mut answers: HashMap<String, J> = HashMap::new();
     let files: Vec<String> = if rung == "R5" {
-        (0..10).map(|i| format!("R5-slice{i}.answers.jsonl.gz")).collect()
+        (0..10)
+            .map(|i| format!("R5-slice{i}.answers.jsonl.gz"))
+            .collect()
     } else {
         vec![format!("{rung}.answers.jsonl.gz")]
     };
@@ -315,8 +340,16 @@ fn load(root: &str, rung: &str) -> Vec<Case> {
             .iter()
             .map(|a| {
                 let kind = kind_of(a.get("at").s());
-                let x = if kind == Kind::Free { [a.get("x").a()[0].i(), a.get("x").a()[1].i()] } else { [0; 2] };
-                Ans { t: a.get("T").i(), kind, x }
+                let x = if kind == Kind::Free {
+                    [a.get("x").a()[0].i(), a.get("x").a()[1].i()]
+                } else {
+                    [0; 2]
+                };
+                Ans {
+                    t: a.get("T").i(),
+                    kind,
+                    x,
+                }
             })
             .collect::<Vec<_>>();
         assert_eq!(ans.len(), ts.len(), "{id}");
@@ -332,10 +365,20 @@ fn load(root: &str, rung: &str) -> Vec<Case> {
             b_m: d.get("b_over_M").f(),
             roots: {
                 let r = d.get("roots_u_times_M").a();
-                if r.len() == 3 { [r[0].f(), r[1].f(), r[2].f()] } else { [f64::NAN; 3] }
+                if r.len() == 3 {
+                    [r[0].f(), r[1].f(), r[2].f()]
+                } else {
+                    [f64::NAN; 3]
+                }
             },
         });
-        let cat = c.get("class").a().iter().map(|v| v.s().to_string()).collect::<Vec<_>>().join("+");
+        let cat = c
+            .get("class")
+            .a()
+            .iter()
+            .map(|v| v.s().to_string())
+            .collect::<Vec<_>>()
+            .join("+");
         out.push(Case {
             id,
             cat,
@@ -417,7 +460,14 @@ fn convert(c: &Case) -> Result<Conv, &'static str> {
         if !(den > 0.0) {
             return Err("convert");
         }
-        return Ok(Conv { rho, e: den, l: rho * ut, vr: f64::NAN, vt: f64::NAN, inbound: ur < w });
+        return Ok(Conv {
+            rho,
+            e: den,
+            l: rho * ut,
+            vr: f64::NAN,
+            vt: f64::NAN,
+            inbound: ur < w,
+        });
     }
     let q = c.q as f64;
     let (kr, kt) = ((kx * x + ky * y) / (r * q), (x * ky - y * kx) / (r * q));
@@ -445,17 +495,32 @@ fn integer_state(c: &Case, cv: &Conv) -> IntegerState {
     let big = px.abs().max(py.abs());
     let pe = big.log2().floor() as i32 + 1 - 62;
     let (n, t) = ([x / r, y / r], [-y / r, x / r]);
-    let eps: f64 = std::env::var("BANK_PERTURB").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
-    let v = [(cv.vr * n[0] + cv.vt * t[0]) * (1.0 + eps), (cv.vr * n[1] + cv.vt * t[1]) * (1.0 + eps)];
+    let eps: f64 = std::env::var("BANK_PERTURB")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0.0);
+    let v = [
+        (cv.vr * n[0] + cv.vt * t[0]) * (1.0 + eps),
+        (cv.vr * n[1] + cv.vt * t[1]) * (1.0 + eps),
+    ];
     IntegerState {
-        position: [(px / pow2(pe)).round() as i64, (py / pow2(pe)).round() as i64],
-        velocity: [(v[0] * pow2(62)).round() as i64, (v[1] * pow2(62)).round() as i64],
+        position: [
+            (px / pow2(pe)).round() as i64,
+            (py / pow2(pe)).round() as i64,
+        ],
+        velocity: [
+            (v[0] * pow2(62)).round() as i64,
+            (v[1] * pow2(62)).round() as i64,
+        ],
         length_exponent: pe as i16,
         velocity_exponent: -62,
     }
 }
 fn istate_f(s: &IntegerState) -> ([f64; 2], [f64; 2]) {
-    let (pe, ve) = (pow2(s.length_exponent as i32), pow2(s.velocity_exponent as i32));
+    let (pe, ve) = (
+        pow2(s.length_exponent as i32),
+        pow2(s.velocity_exponent as i32),
+    );
     (
         [s.position[0] as f64 * pe, s.position[1] as f64 * pe],
         [s.velocity[0] as f64 * ve, s.velocity[1] as f64 * ve],
@@ -593,14 +658,16 @@ fn process(c: &Case, rows: &mut Rows) {
     let (mut comp_us, mut knots, mut cross) = (f64::NAN, -1i64, -1i64);
     let (mut fitp, mut fitv, mut recon) = (f64::NAN, f64::NAN, -1i32);
     let (mut turn_p, mut turn_a) = (f64::NAN, f64::NAN);
-    let (mut per_rel, mut adv_rel, mut defl_abs, mut defl_rel) = (f64::NAN, f64::NAN, f64::NAN, f64::NAN);
+    let (mut per_rel, mut adv_rel, mut defl_abs, mut defl_rel) =
+        (f64::NAN, f64::NAN, f64::NAN, f64::NAN);
     let (mut e_err, mut l_err) = (f64::NAN, f64::NAN);
     let (mut law_per, mut law_adv) = (f64::NAN, f64::NAN);
     let (mut kper_rel, mut kadv_rel) = (f64::NAN, f64::NAN);
     let mut scat = String::from("-");
     let mut window = f64::NAN;
     let mut ecc = f64::NAN;
-    let (mut margin, mut deltah, mut edge_ratio, mut rp_m) = (f64::NAN, f64::NAN, f64::NAN, f64::NAN);
+    let (mut margin, mut deltah, mut edge_ratio, mut rp_m) =
+        (f64::NAN, f64::NAN, f64::NAN, f64::NAN);
     match convert(c) {
         Err(why) => law = format!("skip:{why}"),
         Ok(cv) => {
@@ -610,12 +677,24 @@ fn process(c: &Case, rows: &mut Rows) {
             inbound = cv.inbound;
             // compile-only error: the law's orbit for the Arb diagnostics' own (p, e), no fit involved
             if let Some(d) = &c.diag {
-                if d.p.is_finite() && d.ecc.is_finite() && d.ecc >= 0.0 && d.ecc < 1.0 && d.period_t.is_finite() {
+                if d.p.is_finite()
+                    && d.ecc.is_finite()
+                    && d.ecc >= 0.0
+                    && d.ecc < 1.0
+                    && d.period_t.is_finite()
+                {
                     if let Some(ps) = to_scalar(d.p) {
-                        if let Ok(o) = emergent_space::orbit::OrbitKey::bound(ps, (d.ecc * pow2(48)).round() as u64).and_then(emergent_space::orbit::Orbit::compile) {
-                            let per = sf(o.period().unwrap_or(Scalar::ZERO)) * c.m as f64 / c.q as f64;
+                        if let Ok(o) = emergent_space::orbit::OrbitKey::bound(
+                            ps,
+                            (d.ecc * pow2(48)).round() as u64,
+                        )
+                        .and_then(emergent_space::orbit::Orbit::compile)
+                        {
+                            let per =
+                                sf(o.period().unwrap_or(Scalar::ZERO)) * c.m as f64 / c.q as f64;
                             kper_rel = (per - d.period_t).abs() / d.period_t;
-                            kadv_rel = (sf(o.advance().unwrap_or(Scalar::ZERO)) - d.advance).abs() / d.advance;
+                            kadv_rel = (sf(o.advance().unwrap_or(Scalar::ZERO)) - d.advance).abs()
+                                / d.advance;
                         }
                     }
                 }
@@ -636,28 +715,31 @@ fn process(c: &Case, rows: &mut Rows) {
                 l_err = (cv.l * c.m as f64 - d.l_quanta).abs() / d.l_quanta.abs();
             }
             if c.light {
-                // The law's photon path: scatter(E = 1, L = b). Class and deflection only.
+                // Native null path; keep the bank's class and deflection contract.
                 let b = cv.l.abs() / cv.e;
-                let q32 = b * pow2(32);
-                law = if !(q32 < 1.8e19) {
-                    "refused:Range".into()
-                } else {
-                    match Key::new(1 << 48, q32.round() as u64).and_then(|k| scatter(k, true)) {
-                        Ok((Outcome::Absorbed, _)) => {
-                            scat = "A".into();
-                            "photon:absorbed".into()
-                        }
-                        Ok((Outcome::Escaped, half)) => {
-                            scat = "E".into();
-                            let defl = 2.0 * half.get() as f64 / pow2(30) - std::f64::consts::PI;
-                            if let Some(d) = &c.diag {
-                                defl_abs = (defl - d.defl).abs();
-                                defl_rel = defl_abs / d.defl.abs();
-                            }
-                            "photon:escaped".into()
-                        }
-                        Err(e) => err_name(e).into(),
+                law = match to_scalar(b)
+                    .ok_or(Error::Range)
+                    .and_then(|b| Passage::photon(b, b.scale(1)?))
+                {
+                    Ok(None) => {
+                        scat = "A".into();
+                        "photon:absorbed".into()
                     }
+                    Ok(Some(p)) => {
+                        scat = "E".into();
+                        match p.deflection() {
+                            Ok(dfl) => {
+                                let defl = sf(dfl);
+                                if let Some(d) = &c.diag {
+                                    defl_abs = (defl - d.defl).abs();
+                                    defl_rel = defl_abs / d.defl.abs();
+                                }
+                                "photon:escaped".into()
+                            }
+                            Err(e) => err_name(e).into(),
+                        }
+                    }
+                    Err(e) => err_name(e).into(),
                 };
             } else {
                 // radial paths: L = 0 exactly (the law has no radial generator)
@@ -679,7 +761,9 @@ fn process(c: &Case, rows: &mut Rows) {
                     // window then read as `range` and are counted as such, not as a refusal of the case.
                     let mut edge_used = edge;
                     let res = loop {
-                        let res = std::panic::catch_unwind(|| Rebinding::from_state(st, Scalar::ZERO, to_scalar(edge_used)));
+                        let res = std::panic::catch_unwind(|| {
+                            Rebinding::from_state(st, Scalar::ZERO, to_scalar(edge_used))
+                        });
                         if matches!(res, Ok(Err(Error::Range))) && edge_used > 4.0 * cv.rho {
                             edge_used = (edge_used / 1024.0).max(2.0 * cv.rho);
                             continue;
@@ -688,19 +772,37 @@ fn process(c: &Case, rows: &mut Rows) {
                     };
                     window = edge_used / edge;
                     if std::env::var_os("BANK_VERBOSE").is_some() {
-                        eprintln!("{} state {:?} edge {:.4e} used {:.4e} -> {}", c.id, st, edge, edge_used, match &res { Ok(Ok(_)) => "ok".to_string(), Ok(Err(e)) => format!("{e:?}"), Err(_) => "panic".into() });
+                        eprintln!(
+                            "{} state {:?} edge {:.4e} used {:.4e} -> {}",
+                            c.id,
+                            st,
+                            edge,
+                            edge_used,
+                            match &res {
+                                Ok(Ok(_)) => "ok".to_string(),
+                                Ok(Err(e)) => format!("{e:?}"),
+                                Err(_) => "panic".into(),
+                            }
+                        );
                     }
                     comp_us = t.elapsed().as_secs_f64() * 1e6;
                     match res {
                         Err(_) => law = "refused:panic".into(),
                         Ok(Err(e)) => {
                             law = err_name(e).into();
-                            // legacy photon-free reading of a refused massive state: scatter(E, L)
-                            if c.diag.is_none() && cv.e >= 1.0 && cv.l.abs() * pow2(32) < 1.8e19 && cv.e * pow2(48) < 1.8e19 {
-                                if let Ok((o, _)) = Key::new((cv.e * pow2(48)) as u64, (cv.l.abs() * pow2(32)) as u64)
-                                    .and_then(|k| scatter(k, false))
-                                {
-                                    scat = if o == Outcome::Absorbed { "A".into() } else { "E".into() };
+                            // Native asymptotic class; a finite-time Free answer is not an escape.
+                            if c.diag.is_none() && cv.e >= 1.0 {
+                                let delta = if cv.e == 1.0 {
+                                    Some(Scalar::ZERO)
+                                } else {
+                                    to_scalar(cv.e - 1.0)
+                                };
+                                if let (Some(d), Some(l)) = (delta, to_scalar(cv.l.abs())) {
+                                    match OrbitKey::from_invariants(d, l) {
+                                        Ok(_) => scat = "E".into(),
+                                        Err(Error::NoBoundOrbit) => scat = "A".into(),
+                                        _ => {}
+                                    }
                                 }
                             }
                         }
@@ -737,7 +839,11 @@ fn process(c: &Case, rows: &mut Rows) {
                             if key.periodic() {
                                 let kf = key.k as f64 / pow2(48);
                                 let ra = rp / (2.0 * kf - 1.0);
-                                let ua = if ua_exact.is_finite() { ua_exact } else { polish(1.0 / ra, cv.e, cv.l) };
+                                let ua = if ua_exact.is_finite() {
+                                    ua_exact
+                                } else {
+                                    polish(1.0 / ra, cv.e, cv.l)
+                                };
                                 turn_a = (ua - 1.0 / ra).abs() * ra;
                             }
                             if let Trajectory::Cycle(o) = &rb.trajectory {
@@ -746,9 +852,12 @@ fn process(c: &Case, rows: &mut Rows) {
                                 knots = o.shape().knots().len() as i64;
                                 cross = o.shape().crossings().len() as i64;
                                 if let Some(d) = &c.diag {
-                                    let per = sf(o.period().unwrap_or(Scalar::ZERO)) * c.m as f64 / c.q as f64;
+                                    let per = sf(o.period().unwrap_or(Scalar::ZERO)) * c.m as f64
+                                        / c.q as f64;
                                     per_rel = (per - d.period_t).abs() / d.period_t;
-                                    adv_rel = (sf(o.advance().unwrap_or(Scalar::ZERO)) - d.advance).abs() / d.advance;
+                                    adv_rel = (sf(o.advance().unwrap_or(Scalar::ZERO)) - d.advance)
+                                        .abs()
+                                        / d.advance;
                                 }
                             }
                             rb_opt = Some(rb);
@@ -769,7 +878,8 @@ fn process(c: &Case, rows: &mut Rows) {
     let h0 = if rho0.is_finite() { hfun(rho0) } else { 0.0 };
     for (i, a) in c.ans.iter().enumerate() {
         let mut res = "-";
-        let (mut ncyc, mut rref, mut dpos, mut rel, mut drr, mut dphi) = (0.0, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN);
+        let (mut ncyc, mut rref, mut dpos, mut rel, mut drr, mut dphi) =
+            (0.0, f64::NAN, f64::NAN, f64::NAN, f64::NAN, f64::NAN);
         let mut floor = '-';
         if a.kind == Kind::Free {
             rref = ((a.x[0] as f64 + 0.5).hypot(a.x[1] as f64 + 0.5)).max(1.0);
@@ -786,7 +896,15 @@ fn process(c: &Case, rows: &mut Rows) {
                     if std::env::var_os("BANK_VERBOSE").is_some() {
                         eprintln!(
                             "{} q{} dT_m {:.6e} s {:.9e} rho_law {:.9e} rho_ref {:.9e} h0 {:.6e} n {:.3e} key {:?}",
-                            c.id, i, dt_m, s, rho, rref / c.m as f64, h0, s / period_m, rb.trajectory.key()
+                            c.id,
+                            i,
+                            dt_m,
+                            s,
+                            rho,
+                            rref / c.m as f64,
+                            h0,
+                            s / period_m,
+                            rb.trajectory.key()
                         );
                     }
                     let az = azimuth(rb, &st);
@@ -801,7 +919,11 @@ fn process(c: &Case, rows: &mut Rows) {
                         ncyc = s / period_m;
                     }
                     if rref < pow2(45) && a.t != c.t0 {
-                        floor = if lx.floor() as i128 == a.x[0] && ly.floor() as i128 == a.x[1] { '1' } else { '0' };
+                        floor = if lx.floor() as i128 == a.x[0] && ly.floor() as i128 == a.x[1] {
+                            '1'
+                        } else {
+                            '0'
+                        };
                     }
                 }
             }
@@ -811,14 +933,61 @@ fn process(c: &Case, rows: &mut Rows) {
         let _ = writeln!(
             rows.q,
             "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.6e}\t{}",
-            c.id, c.cat, law, a.kind.c(), res, i, ncyc, rref, dpos, rel, drr, dphi, floor
+            c.id,
+            c.cat,
+            law,
+            a.kind.c(),
+            res,
+            i,
+            ncyc,
+            rref,
+            dpos,
+            rel,
+            drr,
+            dphi,
+            floor
         );
         rows.nq += 1;
     }
     let _ = write!(
         cm,
         "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.3}\t{}\t{}\t{:.3e}\t{:.3e}\t{}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{}\t{}\t{:.3e}\t{:.3e}\t{:.4e}\t{:.3e}\t{:.6e}\t{:.6e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.3e}\t{:.3e}\t{}",
-        c.id, c.cat, law, nfree, nabs, inbound as u8, e_val, l_val, rho0, comp_us, knots, cross, fitp, fitv, recon, turn_p, turn_a, per_rel, adv_rel, defl_abs, defl_rel, scat, c.diag.is_some() as u8, e_err, l_err, ecc, window, law_per, law_adv, margin, deltah, edge_ratio, rp_m, kper_rel, kadv_rel, c.light as u8
+        c.id,
+        c.cat,
+        law,
+        nfree,
+        nabs,
+        inbound as u8,
+        e_val,
+        l_val,
+        rho0,
+        comp_us,
+        knots,
+        cross,
+        fitp,
+        fitv,
+        recon,
+        turn_p,
+        turn_a,
+        per_rel,
+        adv_rel,
+        defl_abs,
+        defl_rel,
+        scat,
+        c.diag.is_some() as u8,
+        e_err,
+        l_err,
+        ecc,
+        window,
+        law_per,
+        law_adv,
+        margin,
+        deltah,
+        edge_ratio,
+        rp_m,
+        kper_rel,
+        kadv_rel,
+        c.light as u8
     );
     rows.c.push_str(&cm);
     rows.c.push('\n');
@@ -827,7 +996,11 @@ fn process(c: &Case, rows: &mut Rows) {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let rung = args.first().expect("RUNG").clone();
-    let opt = |k: &str| args.iter().position(|a| a == k).map(|i| args[i + 1].clone());
+    let opt = |k: &str| {
+        args.iter()
+            .position(|a| a == k)
+            .map(|i| args[i + 1].clone())
+    };
     let (part, parts) = opt("--part")
         .map(|s| {
             let (a, b) = s.split_once('/').unwrap();
@@ -857,7 +1030,14 @@ fn main() {
     let mut done = 0usize;
     let mut stopped = None;
     let only = opt("--only");
-    for (i, c) in cases.iter().enumerate().filter(|(i, _)| i % parts == part && *i >= from) {
+    for (i, c) in cases
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| i % parts == part && *i >= from)
+    {
+        if args.iter().any(|a| a == "--light-only") && !c.light {
+            continue;
+        }
         if only.as_ref().is_some_and(|o| *o != c.id) {
             continue;
         }
@@ -872,11 +1052,21 @@ fn main() {
         done += 1;
     }
     let run_s = t1.elapsed().as_secs_f64();
-    let tag = if parts > 1 { format!("{rung}.p{part}of{parts}") } else { rung.clone() };
+    let tag = if parts > 1 {
+        format!("{rung}.p{part}of{parts}")
+    } else {
+        rung.clone()
+    };
     if let Some(dir) = out {
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::File::create(format!("{dir}/{tag}.q.tsv")).unwrap().write_all(rows.q.as_bytes()).unwrap();
-        std::fs::File::create(format!("{dir}/{tag}.c.tsv")).unwrap().write_all(rows.c.as_bytes()).unwrap();
+        std::fs::File::create(format!("{dir}/{tag}.q.tsv"))
+            .unwrap()
+            .write_all(rows.q.as_bytes())
+            .unwrap();
+        std::fs::File::create(format!("{dir}/{tag}.c.tsv"))
+            .unwrap()
+            .write_all(rows.c.as_bytes())
+            .unwrap();
     }
     println!(
         "{tag}: {} cases of {} ({} answers) in {run_s:.1} s (load {load_s:.1} s){}",
@@ -884,7 +1074,8 @@ fn main() {
         cases.len(),
         rows.nq,
         match stopped {
-            Some(i) => format!("; STOPPED at case {i} by the {budget} s budget: resume with --from {i}"),
+            Some(i) =>
+                format!("; STOPPED at case {i} by the {budget} s budget: resume with --from {i}"),
             None => String::new(),
         }
     );
