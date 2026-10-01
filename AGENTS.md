@@ -19,7 +19,7 @@
 - **Comparative advantage, and spend every provider's usage.** Check it with `get_usage` for Claude, the rollout `rate_limits` for Codex, and `omp usage` for GLM.
   - **Claude Opus**, the integrator: taste and divergent thinking, judgement, contracts, adjudication, merges, the journal. It never builds as a sub-agent.
   - **gpt-6.1-sol:** most of the building (close to Astra, about 5× cheaper).
-  - **gpt-6-astra:** reserved for the hard, convergent, math-like work: exact algorithms, proofs, audits. It consumes tokens fastest.
+  - **gpt-6-astra:** reserved for the hard, convergent, math-like work: exact algorithms, proofs. It consumes tokens fastest, and every Astra token is one Sol cannot spend (opportunity cost; the same holds for Opus against Sonnet), so reviews and audits go to Sol or Sonnet.
   - **Claude Sonnet**, as sub-agents: the Claude-side builder, including every judge of OpenAI's modules.
   - **GLM 5.3,** the [lab](lab/README.md): autonomy of inquiry and no authority. Many GLMs with lenses choose their own experiments, run as cloud routines only (never on Julien's machine), and are each checked by an independent GLM. Only gold reaches the integrator. Pre-freeze red-teams and probes run there too.
   - **Read-only thinking agents,** before one-way doors only. Their briefs stay outside the repo.
@@ -37,7 +37,7 @@
 
 ## Workspace
 
-- **Start clean, build messy-ish, finish clean.** Archive before a phase and simplify after it works. Retired code lives in `~/Research/emergent-space-archive`: never build or edit it there. Bring something back deliberately, with a journal entry.
+- **Start clean, build messy-ish, finish clean.** Archive before a phase and simplify after it works. Before retiring anything, list what it did well and where that goes. Retired code lives in `~/Research/emergent-space-archive`: never build or edit it there. Bring something back deliberately, with a journal entry.
 - **No stray clones, branches or folders.** Never put a repo in an iCloud-synced folder.
 
 ## Text has a cost
