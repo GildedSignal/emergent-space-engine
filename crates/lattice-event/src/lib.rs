@@ -1561,13 +1561,16 @@ impl Kickable for EventCore {
         self.epoch = self.epoch.wrapping_add(1);
         self.b.touched.clear();
         let mut kmax = 0;
+        let uniform = emergent_lattice::uniform_shift(dx);
         for ((h, d), s) in self.hot.iter_mut().zip(dk).zip(dx) {
             let x = h.at(t);
             let k = [h.k[0] + d[0], h.k[1] + d[1]];
             (h.x, h.k, h.t0) = ([x[0] + s[0], x[1] + s[1]], k, t);
             if *d != [0, 0] {
-                h.rev += 1;
                 kmax = kmax.max(kinf(k));
+            }
+            if emergent_lattice::rebase_revises(uniform, *s, *d) {
+                h.rev += 1;
             }
         }
         self.metrics.ops += self.hot.len() as u64;

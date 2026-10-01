@@ -852,7 +852,6 @@ fn cost_of_a_re_anchor_and_events_per_second() {
 /// and sparse does not (2 against 1); `lattice`/`lattice-event` should revise a body whose shift
 /// differs from the others', after which `revise_settled` is deleted.
 #[test]
-#[ignore = "lattice finding: rebase with per-body shifts and no velocity change does not revise (see revise_settled)"]
 fn a_rebase_with_per_body_shifts_and_no_kick_splits_the_orders() {
     let bodies = vec![Body::new(1, [-150, 0], [3, 0], 1, 100, Response::Pass), Body::new(2, [150, 0], [-3, 0], 1, 100, Response::Pass)];
     let w = World::new(1024, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap();

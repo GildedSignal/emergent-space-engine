@@ -82,6 +82,7 @@ impl Kickable for MetalChronon {
         self.settle_prune();
         let (pos, dy, kq, mask) = (self.gpu.pos.get_mut(), self.gpu.dy.get_mut(), self.gpu.kq.get_mut(), self.gpu.mask.get_mut());
         let mut moved = false;
+        let uniform = emergent_lattice::uniform_shift(dx);
         for (i, (s, d)) in dx.iter().zip(dk).enumerate() {
             if *s != [0, 0] {
                 pos[i] = [pos[i][0] + s[0], pos[i][1] + s[1]];
@@ -90,8 +91,11 @@ impl Kickable for MetalChronon {
             if *d != [0, 0] {
                 let k = [dy[i].k[0] + d[0], dy[i].k[1] + d[1]];
                 dy[i].k = k;
-                dy[i].rev += 1;
                 kq[i] = narrow(k);
+                mask[i] = 0;
+            }
+            if emergent_lattice::rebase_revises(uniform, *s, *d) {
+                dy[i].rev += 1;
                 mask[i] = 0;
             }
         }

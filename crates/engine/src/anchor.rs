@@ -56,10 +56,6 @@
 //!   linear and not exact.
 //! - A handed-out body stays in the stepper with the frame's coordinates and no tide, so it
 //!   can meet the members it left. The hand-off records are what the events layer takes.
-//! - A body moved by the settle is revised by a kick and its inverse ([`Battle`]'s
-//!   `revise_settled`), because the lattice's `rebase` does not revise a body it only shifts and
-//!   the two orders then fire a re-approaching consumed pair differently (an ignored test in
-//!   `reanchor.rs` is the reproduction); delete it when `rebase` does.
 //! - The tube's fit loses its size and eccentricity to the double root of its cubic when the
 //!   state is exactly circular (about 5e-10 of the size per fit, biased by 1e-11): 4,000 rebindings
 //!   of an exact circle move the origin 10,000 lattice units along-track in ten orbits
@@ -459,43 +455,6 @@ impl<S: Kickable> Battle<S> {
         Ok(new)
     }
 
-    /// A body whose position was settled by its own shift (the owed drift, which differs from body
-    /// to body) is a revised body. The steppers key a consumed contact by the two bodies'
-    /// revisions and drop it when its pair separates, each at its own time (lockstep every 64
-    /// chronons, sparse when it walks the list); that is invisible while pairs move continuously,
-    /// and wrong when a rebase teleports one: a pair that was consumed, then overlapped and
-    /// approached by the shifts, fires in one order and not in the other (found by
-    /// `reanchor.rs`: three contacts at the tick after an anchor, 816 against 813). Every anchor used to
-    /// revise every body by accident (the axes' rotation changed every velocity); now a velocity changes
-    /// only by the centre of mass's, often not at all. A kick and its inverse change no velocity and
-    /// revise (the same `rev + 1` in every order).
-    /// (The lattice's `rebase` should revise a body it moves; this is deleted when it does.)
-    fn revise_settled(&mut self, flush: &[[i64; 2]]) -> Result<(), FrameError> {
-        let mut steps = std::mem::take(&mut self.dk);
-        let mut any = false;
-        for (i, (st, f)) in steps.iter_mut().zip(flush).enumerate() {
-            *st = [0, 0];
-            if *f == [0, 0] {
-                continue;
-            }
-            // The unit step that shortens the velocity (the legal one), along its longer axis.
-            let k = self.motions[i].k;
-            let c = if k[0].abs() >= k[1].abs() { 0 } else { 1 };
-            if k[c] == 0 && self.frame.q < 2 {
-                continue;
-            }
-            st[c] = if k[c] > 0 { -1 } else { 1 };
-            any = true;
-        }
-        let result = if any {
-            let back: Vec<[i64; 2]> = steps.iter().map(|s| [-s[0], -s[1]]).collect();
-            self.stepper.kick(&steps).and_then(|()| self.stepper.kick(&back)).map_err(|e| FrameError(e.0))
-        } else {
-            Ok(())
-        };
-        self.dk = steps;
-        result
-    }
 
     /// The event. `weight` is `Some` when it runs before an epoch's kick (the motions are then
     /// the epoch's, and are updated in place for the kick that follows), `None` between epochs.
@@ -624,9 +583,6 @@ impl<S: Kickable> Battle<S> {
                 }
                 self.carries[i] = scratch[i];
             }
-        }
-        if !dissolved {
-            self.revise_settled(&flush)?;
         }
         let a = self.anchoring.as_mut().expect("anchoring is on");
         let mut moved = false;

@@ -193,6 +193,18 @@ pub trait Kickable: Stepper {
     fn rebase(&mut self, dx: &[[i64; 2]], dk: &[[i64; 2]]) -> Result<(), law::LawError>;
 }
 
+/// Whether every shift of a [`Kickable::rebase`] is the same (a frame move, which changes no pair).
+pub fn uniform_shift(dx: &[[i64; 2]]) -> bool {
+    dx.iter().all(|s| *s == dx[0])
+}
+
+/// Whether [`Kickable::rebase`] revises a body: when its velocity changes, or when it is moved by a
+/// shift that is not uniform (its pairs then change, so a consumed contact may come back). A frame
+/// move revises nobody. Every stepper applies this same rule, so the orders agree.
+pub fn rebase_revises(uniform: bool, s: [i64; 2], d: [i64; 2]) -> bool {
+    d != [0, 0] || (!uniform && s != [0, 0])
+}
+
 /// The legality checks of [`Kickable::rebase`], shared by both steppers so they refuse alike.
 pub fn rebased_ok(which: Law, q: i64, has_container: bool, bodies: impl Iterator<Item = Motion>, dx: &[[i64; 2]], dk: &[[i64; 2]]) -> Result<(), law::LawError> {
     if has_container {

@@ -220,10 +220,13 @@ impl Kickable for Chronon {
             return Err(law::LawError(format!("{} shifts and {} kicks for {} bodies", dx.len(), dk.len(), self.w.bodies.len())));
         }
         crate::rebased_ok(self.w.law, self.w.q, self.w.container.is_some(), self.w.bodies.iter().map(|b| Motion { x: b.x, k: b.k }), dx, dk)?;
+        let uniform = crate::uniform_shift(dx);
         for ((b, s), d) in self.w.bodies.iter_mut().zip(dx).zip(dk) {
             b.x = [b.x[0] + s[0], b.x[1] + s[1]];
             if *d != [0, 0] {
                 b.k = [b.k[0] + d[0], b.k[1] + d[1]];
+            }
+            if crate::rebase_revises(uniform, *s, *d) {
                 b.rev += 1;
             }
         }
