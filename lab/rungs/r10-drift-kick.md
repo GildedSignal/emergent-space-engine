@@ -20,7 +20,7 @@ Frozen by the integrator on 1 October 2026, before any run. This is the cheapest
 - `class_match`: the fraction of non-chaotic moons whose bound or escaped class matches the truth.
 - `precession_match`: the fraction of bound moons with a defined apse whose apsidal rate is within 10% of the truth's.
 - `libration_ratio`: over librating resonant cases, the worst of min(r, 1/r) for the libration amplitude.
-- `force_evals_per_orbit`: the median number of force evaluations per orbit of the body's dominant period (the truth reports its own).
+- `force_evals_per_orbit`: the median number of force evaluations per orbit of the body's dominant period. The positive control reports 0 by convention (it is the reference, not a candidate cost), and the dossier reports its true count separately.
 
 **Output.** `metrics.json`, plus one picture: |ΔC_J| against time for each configuration on three ships.
 
