@@ -50,6 +50,8 @@ use emergent_space::{
 use std::{collections::HashMap, fmt::Write as _, io::Write as _, panic, process::Command, time::Instant};
 
 const BANK: &str = "artifacts/evidence/g2-reference-20260928";
+/// `BANK_DIR=/abs/dir` reads `RUNG.cases.jsonl.gz` and `RUNG.answers.jsonl.gz` from that directory instead
+/// (new cases solved by the Arb judge in the archive, same file format).
 
 // ---------------------------------------------------------------- json
 #[derive(Debug, Clone)]
@@ -184,7 +186,8 @@ fn parse(b: &[u8], i: &mut usize) -> J {
     }
 }
 fn read_gz(root: &str, name: &str) -> Vec<J> {
-    let out = Command::new("gzip").arg("-dc").arg(format!("{root}/{BANK}/{name}")).output().expect("gzip");
+    let dir = std::env::var("BANK_DIR").unwrap_or_else(|_| format!("{root}/{BANK}"));
+    let out = Command::new("gzip").arg("-dc").arg(format!("{dir}/{name}")).output().expect("gzip");
     assert!(out.status.success(), "cannot read {name}");
     out.stdout
         .split(|&c| c == b'\n')
@@ -593,6 +596,7 @@ fn process(c: &Case, rows: &mut Rows) {
     let (mut per_rel, mut adv_rel, mut defl_abs, mut defl_rel) = (f64::NAN, f64::NAN, f64::NAN, f64::NAN);
     let (mut e_err, mut l_err) = (f64::NAN, f64::NAN);
     let (mut law_per, mut law_adv) = (f64::NAN, f64::NAN);
+    let (mut kper_rel, mut kadv_rel) = (f64::NAN, f64::NAN);
     let mut scat = String::from("-");
     let mut window = f64::NAN;
     let mut ecc = f64::NAN;
@@ -604,6 +608,18 @@ fn process(c: &Case, rows: &mut Rows) {
             l_val = cv.l;
             rho0 = cv.rho;
             inbound = cv.inbound;
+            // compile-only error: the law's orbit for the Arb diagnostics' own (p, e), no fit involved
+            if let Some(d) = &c.diag {
+                if d.p.is_finite() && d.ecc.is_finite() && d.ecc >= 0.0 && d.ecc < 1.0 && d.period_t.is_finite() {
+                    if let Some(ps) = to_scalar(d.p) {
+                        if let Ok(o) = emergent_space::orbit::OrbitKey::bound(ps, (d.ecc * pow2(48)).round() as u64).and_then(emergent_space::orbit::Orbit::compile) {
+                            let per = sf(o.period().unwrap_or(Scalar::ZERO)) * c.m as f64 / c.q as f64;
+                            kper_rel = (per - d.period_t).abs() / d.period_t;
+                            kadv_rel = (sf(o.advance().unwrap_or(Scalar::ZERO)) - d.advance).abs() / d.advance;
+                        }
+                    }
+                }
+            }
             if !c.light && cv.e < 1.0 {
                 if let Some(r) = roots3(cv.e, cv.l) {
                     let (ua, up) = (r[0], r[1]);
@@ -801,8 +817,8 @@ fn process(c: &Case, rows: &mut Rows) {
     }
     let _ = write!(
         cm,
-        "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.3}\t{}\t{}\t{:.3e}\t{:.3e}\t{}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{}\t{}\t{:.3e}\t{:.3e}\t{:.4e}\t{:.3e}\t{:.6e}\t{:.6e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.4e}",
-        c.id, c.cat, law, nfree, nabs, inbound as u8, e_val, l_val, rho0, comp_us, knots, cross, fitp, fitv, recon, turn_p, turn_a, per_rel, adv_rel, defl_abs, defl_rel, scat, c.diag.is_some() as u8, e_err, l_err, ecc, window, law_per, law_adv, margin, deltah, edge_ratio, rp_m
+        "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.3}\t{}\t{}\t{:.3e}\t{:.3e}\t{}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{}\t{}\t{:.3e}\t{:.3e}\t{:.4e}\t{:.3e}\t{:.6e}\t{:.6e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.3e}\t{:.3e}",
+        c.id, c.cat, law, nfree, nabs, inbound as u8, e_val, l_val, rho0, comp_us, knots, cross, fitp, fitv, recon, turn_p, turn_a, per_rel, adv_rel, defl_abs, defl_rel, scat, c.diag.is_some() as u8, e_err, l_err, ecc, window, law_per, law_adv, margin, deltah, edge_ratio, rp_m, kper_rel, kadv_rel
     );
     rows.c.push_str(&cm);
     rows.c.push('\n');

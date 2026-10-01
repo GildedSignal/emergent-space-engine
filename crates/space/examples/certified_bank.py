@@ -15,7 +15,7 @@ TOL = {"design": 1e-5, "behaviour": 1e-3}
 NMAX = 10.0
 cols_q = "id cat law ref res idx ncyc rref dpos rel drr dphi floor".split()
 cols_c = ("id cat law nfree nabs inbound E L rho comp_us knots cross fitp fitv recon turn_p turn_a "
-          "per_rel adv_rel defl_abs defl_rel scat diag e_err l_err ecc window law_per law_adv margin deltah edge_ratio rp_m").split()
+          "per_rel adv_rel defl_abs defl_rel scat diag e_err l_err ecc window law_per law_adv margin deltah edge_ratio rp_m kper_rel kadv_rel").split()
 
 
 def num(x):
