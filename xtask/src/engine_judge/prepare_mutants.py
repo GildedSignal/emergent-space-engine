@@ -18,15 +18,19 @@ def change(path, old, new):
     p.write_text(text.replace(old, new))
 
 change('crates/engine/src/frame.rs','        self.shift = shift;', '''        self.shift = shift + if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("late") && std::any::type_name::<S>().contains("EventCore") { 1 } else { 0 };''')
-# Drop the velocity rotation, retaining the tide forcing coefficients; this is a
-# missing Coriolis kick, not a reversed gravity sign or a changed scene.
-change('crates/engine/src/frame.rs','        let rx = cc * kx + ss * ky', '''        let (cc, ss) = if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("coriolis") { (1i128 << CARRY_BITS, 0) } else { (cc, ss) };
+# Corrupt the first tidal row with a spurious radial coefficient.
+change('crates/engine/src/frame.rs','        let rx = cc * kx + ss * ky', '''        let (cc, ss) = if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("tide-row") { (1i128 << CARRY_BITS, 0) } else { (cc, ss) };
         let rx = cc * kx + ss * ky''')
 change('crates/engine/src/anchor.rs','                    flush[i][c] = round_shift(self.pcarry[i][c], CARRY_BITS) as i64;', '''                    flush[i][c] = if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("drift") { 0 } else { round_shift(self.pcarry[i][c], CARRY_BITS) as i64 };''')
 # Target only the sparse kick hook, not contact/rebase revisions.
 change('crates/lattice-event/src/lib.rs','''            h.rev += 1;
             // The prediction that follows''','''            if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() != Ok("rev") { h.rev += 1; }
             // The prediction that follows''')
+# E9 defects act on the copied tube's tensor, independently of the row defect.
+change('crates/engine/src/tube.rs', '        let (x, _) = self.readout(units, tick)?;', '''        let tick = if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("static-tide") { 0 } else { tick };
+        let (x, _) = self.readout(units, tick)?;''')
+change('crates/engine/src/tube.rs', '        Ok([[diag(c)?, off], [off, diag(s)?]])', '''        let sign = if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("sign-tide") { -1 } else { 1 };
+        Ok([[sign * diag(c)?, sign * off], [sign * off, sign * diag(s)?]])''')
 # A shared target reuses dependencies. Preserve the running baseline binary first:
 # building scratch replaces target/release/xtask but never the baseline source.
 target = root/'target'
