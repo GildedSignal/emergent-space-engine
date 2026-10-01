@@ -1,0 +1,24 @@
+== 0. Dump self-check: separation control from Rust s16 vs s32 ==
+  ratio=10 e=0.0: position=3.052e-08 shape=1.073e-08 (judge test printed 3.050e-08)
+    dt mine=0.1314222496456076 rust=
+  ratio=10 e=0.6: position=1.614e-06 shape=4.970e-08 (judge test printed 1.610e-09)
+    dt mine=0.6752134258890299 rust=0
+  ratio=1e+06 e=0.0: position=6.350e-09 shape=3.841e-09 (judge test printed 6.350e-09)
+    dt mine=0.1570793970598638 rust=
+== dt cross-check ==
+  ratio=10 e=0.6: my period/40=0.6752134258890299
+  ratio=10 e=0.0: my period/40=0.1314222496456076
+  ratio=1e+06 e=0.0: my period/40=0.1570793970598638
+== P1/P4 ratio=10 e=0.6: my absolute geodesics vs Rust judge truth ==
+  s16: P1 (pred <1e-9): position=1.023e-05 shape=4.372e-07 EL_drift=5.4e-14 wall=108s
+  s1: P4 vs linearized truth (pred <5e-4, band 1e-2): position=3.102e-07 shape=5.317e-08 EL_drift=6.0e-14 wall=111s
+  rust-only s1-vs-s16: position=4.879e-07 shape=2.185e-07 (the engine-extent gap in their own construction)
+== P1/P4 ratio=10 e=0.0: my absolute geodesics vs Rust judge truth ==
+  s16: P1 (pred <1e-9): position=5.500e-07 shape=3.619e-07 EL_drift=8.6e-14 wall=116s
+  s1: P4 vs linearized truth (pred <5e-4, band 1e-2): position=8.674e-08 shape=3.926e-08 EL_drift=6.6e-14 wall=107s
+  rust-only s1-vs-s16: position=6.536e-08 shape=2.304e-08 (the engine-extent gap in their own construction)
+== P1/P4 ratio=1e+06 e=0.0: my absolute geodesics vs Rust judge truth ==
+  s16: P1 (pred <1e-9): position=7.748e-07 shape=5.472e-07 EL_drift=8.9e-14 wall=111s
+  s1: P4 vs linearized truth (pred <5e-4, band 1e-2): position=3.128e-08 shape=1.134e-08 EL_drift=9.9e-14 wall=99s
+  rust-only s1-vs-s16: position=1.846e-08 shape=1.846e-08 (the engine-extent gap in their own construction)
+== done ==

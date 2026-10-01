@@ -1,0 +1,25 @@
+== 1. Killing constants (independent turning-point vs judge's Darwin forms) ==
+  a=0.1 e=0.3: dE/E=1.147e-16 dL/L=0.000e+00
+  a=0.1 e=0.6: dE/E=1.132e-16 dL/L=4.681e-16
+  a=1e-06 e=0.3: dE/E=1.110e-16 dL/L=3.651e-11
+  a=1e-06 e=0.6: dE/E=0.000e+00 dL/L=4.126e-12
+== 2. Mirror fidelity (judge printed, r=10: e=0 -> 3.05e-8, e=0.6 -> 1.61e-6) ==
+  e=0.0: separation position=1.992e-09 shape=4.596e-10 (judge printed 3.050e-08) wall=54s invariant=2.47e-13
+  e=0.6: separation position=3.523e-09 shape=1.059e-09 (judge printed 1.610e-06) wall=52s invariant=1.02e-13
+== 3/5. ratio=10 e=0.6: absolute pairs vs judge oracle ==
+  s=1/16: P1 absolute-vs-difference (pred <1e-9): position=1.079e+00 shape=1.071e+00 EL_drift=8.32e-14
+  s=1/16: P2 Fermi-vs-equal-lambda position=3.319e-03 (pred <1e-7) max|dlambda|=9.67e-07; Fermi-vs-judge-truth=1.079e+00/1.071e+00
+  s=1: P4 full-extent vs linearized truth (pred <5e-4; band 1e-2): position=2.410e+00 shape=2.206e+00 EL_drift=6.19e-14
+  s=1: P2 Fermi-vs-equal-lambda position=7.503e-03 (pred ~<1e-5) max|dlambda|=1.55e-05; Fermi-vs-judge-truth=2.409e+00/2.206e+00
+  timing: judge_oracle=26s my_ref=12s my_members=30s per 10-period run (python)
+== 3/5. ratio=10 e=0.0: absolute pairs vs judge oracle ==
+Traceback (most recent call last):
+  File "/home/runner/work/emergent-space-engine/lab-1/lab/results/20261001-1847-redteam-e9-f0b3/control.py", line 493, in <module>
+    main()
+  File "/home/runner/work/emergent-space-engine/lab-1/lab/results/20261001-1847-redteam-e9-f0b3/control.py", line 384, in main
+    E_i, L_i = independent_EL(a, e)
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/emergent-space-engine/lab-1/lab/results/20261001-1847-redteam-e9-f0b3/control.py", line 332, in independent_EL
+    L2 = (fa - f1) / (a * (f1 - fa / ra ** 2))
+         ~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~
+ZeroDivisionError: float division by zero
