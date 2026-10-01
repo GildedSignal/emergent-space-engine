@@ -1,4 +1,4 @@
-//! # Law `space-darwin16-scaled-v3`: the geodesic compiler of one doll
+//! # Law `space-darwin16-scaled-v4`: the geodesic compiler of one doll
 //!
 //! The scale-free public path is [`orbit::Orbit`], [`orbit::Passage`], [`binding::Rebinding`]
 //! and [`Tube`]. `crates/space/ENVELOPE.md` derives its coordinates, arithmetic and inverse.
@@ -125,6 +125,7 @@
 //! ```
 
 mod num;
+mod inverse;
 pub mod orbit;
 pub mod scaled;
 pub mod binding;
@@ -157,7 +158,7 @@ use num::{atan, cos, isqrt, mul_shr, ratio_sqrt, ONE};
 use tables::{EDGE, PI, W, X};
 
 /// Integer law and boundary-quantization version. Never reuse a memo across law versions.
-pub const LAW_ID: &str = "space-darwin16-scaled-v3";
+pub const LAW_ID: &str = "space-darwin16-scaled-v4";
 pub const LEGACY_LAW_ID: &str = "space-darwin16-v2";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

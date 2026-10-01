@@ -422,6 +422,18 @@ impl Orbit {
         &self.shape
     }
     pub fn compile(key: OrbitKey) -> Result<Self> {
+        // A symbolic circle has no radial instability to integrate. The same
+        // azimuth/clock readout applies on either side of the ISCO, down to r>3M.
+        if key.k == UNIT && key.compactness()? >= Scalar::ONE.div(Scalar::integer(6))? {
+            let q = key.compactness()?;
+            if q >= Scalar::ONE.div(Scalar::integer(3))? { return Err(Error::NoBoundOrbit); }
+            let mut shape = OrbitShape::bound(ShapeKey { k: UNIT, compactness: Scalar::ZERO })?;
+            shape.key = ShapeKey::for_orbit(key)?;
+            let rate = Scalar::ONE.sub(q.mul(Scalar::integer(3))?)?.sqrt()?;
+            shape.knots.last_mut().unwrap().sum = Integral([Scalar::ZERO, Scalar::raw(PI, -61)?,
+                Scalar::raw(PI, -61)?.mul(rate)?, Scalar::ZERO, Scalar::ZERO]);
+            return Self::from_shape(key, Arc::new(shape));
+        }
         Self::from_shape(key, Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
     }
     fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
@@ -430,7 +442,9 @@ impl Orbit {
         }
         let q = key.compactness()?;
         // Validate using actual q too, including when a Taylor shape is shared.
-        let _ = OrbitShape::new(ShapeKey { k: key.k, compactness: q })?;
+        if !(key.k == UNIT && q >= Scalar::ONE.div(Scalar::integer(6))?) {
+            let _ = OrbitShape::new(ShapeKey { k: key.k, compactness: q })?;
+        }
         let k = f((key.k as i128) << 14)?;
         let tn = k
             .mul(Scalar::ONE.sub(q.scale(1)?)?)?
@@ -476,6 +490,17 @@ impl Orbit {
         if normalized_time < Scalar::ZERO {
             return Err(Error::Range);
         }
+        if self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+            if normalized_time > Scalar::raw(2 * PI, -61)? { return Err(Error::Range); }
+            let phi = normalized_time.fixed(61)?.rem_euclid(2 * PI) as u64;
+            return Ok(OrbitState {
+                radius: self.key.periapsis, radial_angle: phi, advance: Scalar::ZERO,
+                proper_time: normalized_time.mul(self.time_scale)?.mul(Scalar::ONE.sub(self.q.mul(Scalar::integer(3))?)?.sqrt()?)?
+                    .add(self.proper_period()?.mul(Scalar::raw(cycles as i128, 0)?)?)?,
+                radial_velocity: Scalar::ZERO, transverse_velocity: self.q.sqrt()?,
+                cycles, outbound: true, psi: phi,
+            });
+        }
         let half = self.time(self.shape.knots.last().unwrap().sum)?;
         let full = half.scale(1)?;
         if normalized_time > full {
@@ -505,6 +530,10 @@ impl Orbit {
         Ok(state)
     }
     pub(crate) fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+        if self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+            if radius != self.key.periapsis { return Err(Error::Range); }
+            return Ok((Scalar::ZERO, self.at_phase(0, Scalar::ZERO)?));
+        }
         let x = self.key.periapsis.div(radius)?.fixed(62)?;
         let low = self.shape.x(self.shape.knots.last().unwrap().psi as i128);
         if x < low - 64 || x > ONE + 64 {
@@ -726,6 +755,7 @@ impl QuantizedMemo {
 pub struct Passage {
     orbit: Orbit,
     pub outer_radius: Scalar,
+    tail: Vec<(Scalar, Integral)>,
 }
 impl Passage {
     pub fn compile(key: OrbitKey, outer_radius: Scalar) -> Result<Self> {
@@ -733,7 +763,11 @@ impl Passage {
             return Err(Error::Topology);
         }
         let mut shape = OrbitShape::new(ShapeKey::for_orbit(key)?)?;
-        let x = key.periapsis.div(outer_radius)?.fixed(62)?;
+        let endpoint = key.periapsis.div(outer_radius)?;
+        // psi is a good phase near the turn, but cancels at infinity. Continue
+        // in x=R/r with its own exponent once that cancellation matters.
+        let join = Scalar::power_of_two(-10);
+        let x = endpoint.max(join).fixed(62)?;
         if x <= 0 {
             return Err(Error::Range);
         } // requested endpoint is below the phase quantum
@@ -751,38 +785,128 @@ impl Passage {
             band += 1;
         }
         shape.append(shape.cut(x))?;
-        Ok(Self {
+        let mut passage = Self {
             orbit: Orbit::from_shape(key, Arc::new(shape))?,
             outer_radius,
-        })
+            tail: vec![],
+        };
+        if endpoint < join {
+            let sum = passage.orbit.shape.knots.last().unwrap().sum;
+            passage.tail.push((join, sum));
+            let mut x = join;
+            // Each radial panel shrinks x by 15/16: work follows its binary exponent.
+            while x > endpoint {
+                let next = x.mul(Scalar::integer(15))?.div(Scalar::integer(16))?.max(endpoint);
+                if next == x { return Err(Error::Range); }
+                let sum = passage.tail.last().unwrap().1.add(passage.tail_quad(next, x)?)?;
+                passage.tail.push((next, sum));
+                x = next;
+            }
+        }
+        Ok(passage)
     }
     pub fn key(&self) -> OrbitKey {
         self.orbit.key
     }
     pub(crate) fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
-        self.orbit.at_radius(radius)
+        let x = self.key().periapsis.div(radius)?;
+        if self.tail.is_empty() || x >= self.tail[0].0 { return self.orbit.at_radius(radius); }
+        if radius > self.outer_radius { return Err(Error::Range); }
+        let i = self.tail.partition_point(|k| k.0 >= x).saturating_sub(1);
+        let (base, sum) = self.tail[i];
+        let sum = sum.add(self.tail_quad(x, base)?)?;
+        Ok((self.orbit.time(sum)?.mul(self.orbit.time_scale)?, self.tail_read(x, sum)?))
     }
     /// Coordinate time between the incoming and outgoing outer-radius crossings.
     pub fn duration(&self) -> Result<Scalar> {
-        self.orbit.period()
+        if let Some((_, sum)) = self.tail.last() {
+            self.orbit.time(*sum)?.mul(self.orbit.time_scale)?.scale(1)
+        } else { self.orbit.period() }
     }
     /// Signed time since periapsis. Incoming times/angles/proper times are negative.
     pub fn state(&self, elapsed: Scalar) -> Result<OrbitState> {
         let t = elapsed.abs().div(self.orbit.time_scale)?;
-        let end = self.orbit.time(self.orbit.shape.knots.last().unwrap().sum)?;
+        let inner_end = self.orbit.time(self.orbit.shape.knots.last().unwrap().sum)?;
+        let end = if let Some((_, sum)) = self.tail.last() { self.orbit.time(*sum)? } else { inner_end };
         if t > end {
             return Err(Error::Range);
         }
-        let (psi, sum) = self.orbit.outbound_at(t)?;
-        let mut state = self.orbit.read(0, psi, true, sum)?;
+        let mut state = if t <= inner_end {
+            let (psi, sum) = self.orbit.outbound_at(t)?;
+            self.orbit.read(0, psi, true, sum)?
+        } else {
+            let i = self.tail.partition_point(|k| self.orbit.time(k.1).is_ok_and(|v| v <= t)).saturating_sub(1);
+            let (base, sum) = self.tail[i];
+            if i + 1 == self.tail.len() { self.tail_read(base, sum)? }
+            else {
+                let (mut lo, mut hi) = (self.tail[i + 1].0, base);
+                let quantum = t.scale(-40)?;
+                let mut answer = None;
+                for _ in 0..80 {
+                    let x = lo.add(hi)?.scale(-1)?;
+                    let here = sum.add(self.tail_quad(x, base)?)?;
+                    let time = self.orbit.time(here)?;
+                    if time.sub(t)?.abs() <= quantum || x == lo || x == hi {
+                        answer = Some(self.tail_read(x, here)?); break;
+                    }
+                    if time > t { lo = x; } else { hi = x; }
+                }
+                answer.ok_or(Error::Range)?
+            }
+        };
         if elapsed < Scalar::ZERO {
-            state.radial_angle = (2 * PI - psi) as u64;
-            state.advance = state.advance.negate();
-            state.proper_time = state.proper_time.negate();
-            state.radial_velocity = state.radial_velocity.negate();
-            state.outbound = false;
+            state.reflect();
         }
         Ok(state)
+    }
+    fn tail_node(&self, x: Scalar) -> Result<Integral> {
+        let s = &self.orbit.shape;
+        let k = f(s.k)?;
+        let ua = k.scale(1)?.sub(Scalar::ONE)?;
+        let slope = Scalar::ONE.sub(x)?.mul(x.sub(ua)?)?.sqrt()?;
+        let a = k.scale(2)?.add(x.scale(1)?)?;
+        let root = Scalar::ONE.sub(s.key.compactness.mul(a)?)?.sqrt()?;
+        let g = root.reciprocal()?;
+        let excess = a.div(root.mul(root.add(Scalar::ONE)?)?)?.div(slope)?;
+        let inv = x.mul(x)?.reciprocal()?.div(slope)?;
+        let t = s.t_numerator.mul(g)?.mul(inv)?.div(Scalar::ONE.sub(self.orbit.q.mul(x)?.scale(1)?)?)?;
+        let tau = s.tau_numerator.mul(g)?.mul(inv)?;
+        // Keep the same first-order weak integrands and the same shared shape.
+        if s.key.compactness.is_zero() {
+            let dt = s.t_numerator.mul(Scalar::integer(3))?.div(x)?.div(slope)?;
+            let dtau = tau.mul(a.scale(-1)?.sub(s.weak_tau_term)?)?;
+            Ok(Integral([excess, t, tau, dt, dtau]))
+        } else { Ok(Integral([excess, t, tau, Scalar::ZERO, Scalar::ZERO])) }
+    }
+    fn tail_quad(&self, lo: Scalar, hi: Scalar) -> Result<Integral> {
+        let h = hi.sub(lo)?;
+        if h.is_zero() { return Ok(Integral::default()); }
+        let mid = lo.add(hi)?.scale(-1)?;
+        let mut sum = Integral::default();
+        for j in 0..2 {
+            let dx = h.mul(f(X[j])?)?.scale(-1)?;
+            let w = h.mul(f(W[j])?)?.scale(-1)?;
+            for x in [mid.sub(dx)?, mid.add(dx)?] {
+                let node = self.tail_node(x)?;
+                for i in 0..5 { sum.0[i] = sum.0[i].add(w.mul(node.0[i])?)?; }
+            }
+        }
+        Ok(sum)
+    }
+    fn tail_read(&self, x: Scalar, sum: Integral) -> Result<OrbitState> {
+        let s = &self.orbit.shape;
+        let psi = s.cut(x.fixed(62)?);
+        let k = f(s.k)?;
+        let a = k.scale(2)?.add(x.scale(1)?)?;
+        let g = if s.key.compactness.is_zero() { Scalar::ONE.add(self.orbit.q.mul(a.scale(-1)?)?)? }
+            else { Scalar::ONE.sub(self.orbit.q.mul(a)?)?.sqrt()?.reciprocal()? };
+        let speed = self.orbit.speed_scale.mul(Scalar::ONE.sub(self.orbit.q.mul(x)?.scale(1)?)?)?;
+        let radial = speed.mul(Scalar::ONE.sub(x)?.mul(x.sub(k.scale(1)?.sub(Scalar::ONE)?)?)?.sqrt()?)?.div(g)?;
+        Ok(OrbitState {
+            radius: self.key().periapsis.div(x)?, radial_angle: psi as u64,
+            advance: self.orbit.q.mul(sum.0[0])?, proper_time: self.orbit.tau(sum)?.mul(self.orbit.time_scale)?,
+            radial_velocity: radial, transverse_velocity: speed.mul(x)?, cycles: 0, outbound: true, psi: psi as u64,
+        })
     }
     /// The asymptotic total bend, evaluated without any clock integrand at infinity.
     pub fn deflection(&self) -> Result<Scalar> {
