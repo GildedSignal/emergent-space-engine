@@ -194,7 +194,7 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
 
 fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
     let ctx = u.ctx();
-    if let Some(c) = cache.as_deref_mut() {
+    if let Some(c) = cache.as_mut() {
         c.readouts = 0;
     }
     let p = u.player()?;
@@ -272,7 +272,11 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
             Kind::Moon => 2,
             _ => 3,
         };
-        push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64);
+        match u.info[i].from {
+            // A member that left its frame is the same ship to the eye (the same id, name and colour).
+            Some((fi, m)) => push(1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64),
+            None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+        }
     }
     if let Some(c) = cache.as_deref_mut() {
         c.readouts = reads;
@@ -291,6 +295,10 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
         f.motions(&mut motions);
         let shift = u.dolls[f.doll as usize].shift as i32;
         for (m, mo) in motions.iter().enumerate() {
+            // a member handed out is a body of the doll now, seen above
+            if !f.is_member(m) {
+                continue;
+            }
             let x = [origin[0] + mo.x[0] as f64 * k, origin[1] + mo.x[1] as f64 * k];
             let v = [cv[0] + ov[0] / q + mo.k[0] as f64 / q, cv[1] + ov[1] / q + mo.k[1] as f64 / q];
             let d = [x[0] - xo[0], x[1] - xo[1]];

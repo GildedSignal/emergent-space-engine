@@ -3,7 +3,8 @@
 //! **The root clock is canonical.** A tick is the same physical time in every doll
 //! ([`crate::world`]). Every entity (a body, a fleet) holds the time of its next certified event;
 //! the queue is a min over entities, with deterministic ties (time, then entity id, ids running
-//! star, planets, moon, ships, player, fleets).
+//! star, planets, moon, ships, player, the members a fleet hands out (in the order it hands them
+//! out), fleets).
 //!
 //! **Resolution is pull-driven, so the outcome cannot depend on the schedule.** An event reads other
 //! bodies' tubes at its own tick and writes only its own body. Before an event at key `(t, id)` is
@@ -19,11 +20,11 @@
 //! deadline is later than the frame is *idle-time* work, done only while the budget lasts.
 //! When the mandatory work does not fit, the horizon stays behind the target: the real-time
 //! factor dips for a frame, smoothly, and nothing hitches or degrades.
-use crate::bind::{bind_exact, Catalogue, Entry};
+use crate::bind::{bind, bind_exact, Binding, Catalogue, Entry};
 use crate::body::{BodyRec, BodyStore, Kind, PlainBodies, Segment, Thrust, What};
 use crate::ctx::{BodyInfo, Config, Ctx};
 use crate::encounter::{Encounter, Encounters, PlayerNeighbourhood};
-use crate::fleet::Fleet;
+use crate::fleet::{Fleet, Leaver};
 use crate::num::{Error, Res, Tick};
 use crate::step::{self, Resolved, Update};
 use crate::world::{pow2, DollRec};
@@ -89,6 +90,9 @@ pub struct Stats {
     pub slices: u64,
     pub encounters: u64,
     pub decisions: u64,
+    /// Members handed out of a frame into a doll, and frames dissolved.
+    pub leavers: u64,
+    pub dissolved: u64,
     /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
     pub cost_ns: [u64; 5],
     pub items: [u64; 5],
@@ -143,6 +147,9 @@ pub struct Universe {
     /// Every item resolved (a refusal or a loss counts: it was work).
     resolved: u64,
     frames: u64,
+    /// Entity ids below this are bodies (those made, and the room for every member a fleet can hand out);
+    /// a fleet's entity id is `body_cap + its index`.
+    body_cap: usize,
 }
 
 #[derive(Default)]
@@ -179,6 +186,7 @@ impl Universe {
             contacts: 0,
             resolved: 0,
             frames: 0,
+            body_cap: 0,
         }
     }
 
@@ -254,7 +262,7 @@ impl Universe {
             fault: None,
         };
         let i = self.bodies.push(rec);
-        self.info.push(BodyInfo { kind, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius });
+        self.info.push(BodyInfo { kind, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: None, born: 0 });
         if kind == Kind::Player {
             self.player = Some(i);
         }
@@ -291,39 +299,57 @@ impl Universe {
             let upd = step::replan(&self.ctx(), i, rec, 0);
             self.apply(i, upd);
         }
-        self.queue = Some(Calendar::new(n + self.fleets.len()));
+        self.body_cap = n + self.fleets.iter().map(|f| f.n_members).sum::<usize>();
+        self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
+        let (ctx, fleets) = self.split();
+        for f in fleets.iter_mut() {
+            f.start(&ctx);
+        }
         self.rekey();
         Ok(())
     }
 
+    /// Add a fleet. One per universe: a member handed out becomes a body with the next id, and ids issued
+    /// in handoff order are canonical only for one fleet (a second would need a range of ids of its own).
     pub fn add_fleet(&mut self, f: Fleet) -> usize {
+        assert!(self.fleets.is_empty(), "one fleet per universe: hand-out ids are issued in hand-out order");
         self.fleets.push(f);
         self.fleets.len() - 1
     }
 
-    fn entities(&self) -> usize {
-        self.bodies.len() + self.fleets.len()
+    /// The read-only context and the fleets, borrowed apart (a fleet's step reads the bodies it kicks against).
+    fn split(&mut self) -> (Ctx<'_>, &mut Vec<Fleet>) {
+        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }, &mut self.fleets)
+    }
+
+    /// The entity id of fleet `f`, and the fleet an entity id names (none for a body).
+    fn fleet_entity(&self, f: usize) -> usize {
+        self.body_cap + f
+    }
+    fn entity_fleet(&self, e: usize) -> Option<usize> {
+        e.checked_sub(self.body_cap)
     }
 
     // ---- the keys -------------------------------------------------------------------------------
 
     /// The `(tick, id)` of an entity's next item.
     pub fn key_of(&self, e: usize) -> Option<(Tick, usize)> {
-        let n = self.bodies.len();
-        if e < n {
+        if e < self.bodies.len() {
             self.bodies.next_time(e).map(|t| (t, e))
         } else {
-            let f = &self.fleets[e - n];
-            f.next_time().map(|t| (t, e))
+            let f = self.entity_fleet(e)?;
+            self.fleets.get(f)?.next_time().map(|t| (t, e))
         }
     }
 
     fn light_distance(&self, e: usize) -> Tick {
-        let n = self.bodies.len();
         if Some(e) == self.player {
             return 0;
         }
-        let p = if e < n { self.pos[e] } else { self.fleets[e - n].root_position() };
+        let p = match self.entity_fleet(e) {
+            Some(f) if e >= self.bodies.len() => self.fleets[f].root_position(),
+            _ => self.pos[e],
+        };
         let (dx, dy) = (p[0] - self.observer[0], p[1] - self.observer[1]);
         (dx * dx + dy * dy).sqrt().min(4e18) as Tick
     }
@@ -347,8 +373,11 @@ impl Universe {
                 self.observer = pos;
             }
         }
-        for e in 0..self.entities() {
+        for e in 0..self.bodies.len() {
             self.requeue(e);
+        }
+        for f in 0..self.fleets.len() {
+            self.requeue(self.fleet_entity(f));
         }
     }
 
@@ -411,6 +440,15 @@ impl Universe {
             self.lanes.moons = moons;
         }
         if kind == Kind::Player {
+            // The player's neighbourhood check reads every body of its doll: the members a frame hands out
+            // before the player's tick must exist, so the fleets run to the tick before it (never to it:
+            // a hand-out at the player's own tick comes after the player in the order of ids, and a
+            // frame never runs past the presented time, which the digest's cut relies on).
+            for f in 0..self.fleets.len() {
+                while self.fleets[f].live() && self.fleets[f].tick() < key.0 - 1 {
+                    self.resolve_fleet(f, key.0 - 1);
+                }
+            }
             let ships = std::mem::take(&mut self.lanes.ships);
             self.pull(&ships, key);
             self.lanes.ships = ships;
@@ -424,20 +462,110 @@ impl Universe {
     }
 
     fn resolve_entity(&mut self, e: usize) {
-        let n = self.bodies.len();
+        match self.entity_fleet(e).filter(|_| e >= self.bodies.len()) {
+            Some(f) => {
+                // The battle may run only as far as the light-delayed deadline of the next entity in
+                // line: its committed tick never passes the presented time (the horizon is at least
+                // that deadline, less one), so a canonical cut finds every frame at the cut.
+                let dist = self.light_distance(e);
+                let second = self.queue.as_mut().and_then(|q| {
+                    let _ = q.set(e, None);
+                    q.peek()
+                });
+                let cap = second.map_or(Tick::MAX, |(d, _)| (d.fixed(0).unwrap_or(i128::MAX) as Tick).saturating_sub(dist));
+                self.resolve_fleet(f, cap);
+            }
+            None => {
+                let t0 = Instant::now();
+                let class = self.info[e].kind as usize;
+                self.resolve_body(e);
+                self.stats.cost_ns[class] += t0.elapsed().as_nanos() as u64;
+                self.stats.items[class] += 1;
+                self.requeue(e);
+            }
+        }
+    }
+
+    /// One step of fleet `f`: the battle runs to its next slice end or planned event (but not past `cap`),
+    /// the origin's kick or boundary due there is resolved, and the members that left the frame become
+    /// bodies of the doll.
+    fn resolve_fleet(&mut self, f: usize, cap: Tick) {
         let t0 = Instant::now();
-        let class = if e < n { self.info[e].kind as usize } else { 4 };
-        if e < n {
-            self.resolve_body(e);
-        } else {
-            let f = e - n;
-            self.resolved += 1;
-            self.stats.slices += self.fleets[f].advance(self.slice, self.target);
+        let e = self.fleet_entity(f);
+        let (slice, limit) = (self.slice, self.target.min(cap));
+        let Some(to) = self.fleets[f].horizon(slice, limit) else { return };
+        // What the origin's kick and a leaver's first plan read: the planets and the moon, up to the tick
+        // the battle runs to.
+        let key = (to + 1, 0);
+        let planets = std::mem::take(&mut self.lanes.planets);
+        self.pull(&planets, key);
+        self.lanes.planets = planets;
+        let moons = std::mem::take(&mut self.lanes.moons);
+        self.pull(&moons, key);
+        self.lanes.moons = moons;
+        let step = {
+            let (ctx, fleets) = self.split();
+            fleets[f].advance(&ctx, slice, limit)
+        };
+        self.resolved += 1;
+        self.stats.slices += step.slices;
+        self.stats.kicks += step.kicks;
+        self.stats.refused += step.refused;
+        for l in &step.leavers {
+            self.spawn_leaver(f, l);
+        }
+        self.stats.dissolved += step.dissolved as u64;
+        if self.fleets[f].live() {
             self.update_fleet_position(f);
         }
-        self.stats.cost_ns[class] += t0.elapsed().as_nanos() as u64;
-        self.stats.items[class] += 1;
+        self.stats.cost_ns[4] += t0.elapsed().as_nanos() as u64;
+        self.stats.items[4] += 1;
         self.requeue(e);
+    }
+
+    /// A member that left a frame becomes a ship of the doll: its exact state at the hand-off tick is bound
+    /// as a tube (the fit's remainder carried), and its first interval is planned. A refusal (a state no
+    /// tube can hold) loses the member, counted.
+    fn spawn_leaver(&mut self, f: usize, l: &Leaver) {
+        let doll = self.fleets[f].doll;
+        let made = (|| -> Res<usize> {
+            let clock_exp = self.dolls[doll as usize].clock_exp();
+            let bound = bind(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll))?;
+            let key = self.cat.insert(bound.entry.clone())?;
+            let mut tube = bound.tube;
+            tube.key = key;
+            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, delta: bound.delta, units: bound.units, clock_exp, event_time: l.tick };
+            let rec = BodyRec {
+                kind: Kind::Ship,
+                b,
+                carry: [0; 2],
+                proper: Scalar::ZERO,
+                step: 0,
+                interval: 0,
+                anchor: l.tick,
+                plan: Vec::new(),
+                thrust: None,
+                alive: true,
+                events: 0,
+                refusals: 0,
+                fault: None,
+            };
+            let radius = Scalar::raw(l.radius as i128, -20 + self.dolls[doll as usize].shift as i32)?;
+            let i = self.bodies.push(rec);
+            self.info.push(BodyInfo { kind: Kind::Ship, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: Some((f as u16, l.member as u16)), born: l.tick });
+            self.pos.push([0.0; 2]);
+            self.lanes.ships.push(i);
+            Ok(i)
+        })();
+        match made {
+            Ok(i) => {
+                let upd = step::replan(&self.ctx(), i, self.bodies.rec(i), l.tick);
+                self.apply(i, upd);
+                self.requeue(i);
+                self.stats.leavers += 1;
+            }
+            Err(_) => self.stats.lost += 1,
+        }
     }
 
     fn update_fleet_position(&mut self, f: usize) {
@@ -716,7 +844,7 @@ impl Universe {
             h.update(format!("{:?}", r.fault).as_bytes());
         }
         for f in &self.fleets {
-            h.update(f.outcome_digest().as_bytes());
+            f.digest_into(&mut h);
         }
         for (t, k) in &self.inputs {
             put(&mut h, *t as i128);

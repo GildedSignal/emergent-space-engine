@@ -94,6 +94,13 @@ fn lcg(seed: &mut u64) -> f64 {
 /// ship in low orbit near the fleet. Every number is a literal or comes from a fixed seeded
 /// generator; nothing is engineered to produce an outcome.
 pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64) -> Res<Plane> {
+    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
+    plane_with(cfg, seed, order, threads, world)
+}
+
+/// [`plane`] with the fleet's world given (lattice bodies in the frame's axes, `crates/engine`'s scenes or
+/// a test's own): the same star, planets, moon, ships and player.
+pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World) -> Res<Plane> {
     use crate::fleet::{Fleet, Q};
     let mut u = Universe::new(s(STAR_RADIUS), cfg);
     u.threads = threads;
@@ -189,7 +196,6 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
     // The fleet: lattice radius of Home's low orbit (7,000 km: 4,740 root units), starting at angle 0.
     let r_lat: i64 = 4_740 * Q;
     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
-    let (world, _) = emergent_engine::scenes::battle(members, Q, seed, 1 << 15, false);
     let fleet = Fleet::new("Armada", home_doll, home, -18, world, r_lat, fleet_angle, order, threads.max(1))?;
     // The player: the same circle, a little ahead of the fleet (about 20 km along the orbit).
     let p_orbit = Scalar::raw(r_lat as i128, -20 + 18)?; // lattice units → root units → Home's units

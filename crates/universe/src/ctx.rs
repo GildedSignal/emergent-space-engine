@@ -20,6 +20,10 @@ pub struct BodyInfo {
     pub doll: Option<u16>,
     /// Surface radius in the units of the doll it sits in.
     pub radius: Scalar,
+    /// A member of a fleet's frame that left it: (fleet, member), so the view keeps its identity.
+    pub from: Option<(u16, u16)>,
+    /// The tick it was handed out at (0 for a body made with the universe): it is there for readers after it.
+    pub born: Tick,
 }
 
 #[derive(Clone, Copy, Debug)]

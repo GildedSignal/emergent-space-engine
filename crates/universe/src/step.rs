@@ -89,7 +89,7 @@ fn rank(w: What) -> u8 {
         What::Boundary => 40,
     }
 }
-fn insert(plan: &mut Vec<Item>, it: Item) {
+pub(crate) fn insert(plan: &mut Vec<Item>, it: Item) {
     let k = (it.t, rank(it.what));
     let at = plan.partition_point(|p| (p.t, rank(p.what)) <= k);
     plan.insert(at, it);
@@ -111,7 +111,7 @@ fn quantize(dv: V2, exp: i16, carry: [i64; 2]) -> Res<([i64; 2], [i64; 2])> {
 
 /// An exact two-vector of i128 at an exponent, fit back into an i64 word (dropping the lowest
 /// bits, toward zero, when it does not fit in 61 bits).
-fn to_word(v: [i128; 2], exp: i32) -> Res<([i64; 2], i16)> {
+pub(crate) fn to_word(v: [i128; 2], exp: i32) -> Res<([i64; 2], i16)> {
     let bits = 128 - (v[0].unsigned_abs().max(v[1].unsigned_abs())).leading_zeros() as i32;
     let shift = (bits - 61).max(0);
     let word = |x: i128| i64::try_from(x / (1i128 << shift)).map_err(|_| Error::Refused("word"));
@@ -219,6 +219,12 @@ pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar
     Ok(tau.scale(-(shift as i32))?)
 }
 
+/// Passage tubes are compiled out to four sphere-of-influence radii: past the edge the ship has
+/// been released long before the tube ends.
+pub(crate) fn passage_edge(ctx: &Ctx, doll: u16) -> Option<Scalar> {
+    (doll != 0).then(|| ctx.dolls[doll as usize].edge.scale(2).ok()).flatten()
+}
+
 struct Work<'a, 'c> {
     ctx: &'a Ctx<'c>,
     i: usize,
@@ -232,10 +238,8 @@ impl Work<'_, '_> {
         &self.ctx.dolls[self.rec.b.doll as usize]
     }
 
-    /// Passage tubes are compiled out to four sphere-of-influence radii: past the edge the ship has
-    /// been released long before the tube ends.
     fn passage_edge(&self, doll: u16) -> Option<Scalar> {
-        (doll != 0).then(|| self.ctx.dolls[doll as usize].edge.scale(2).ok()).flatten()
+        passage_edge(self.ctx, doll)
     }
 
     /// Whether anything can kick this body: a secondary in its doll (other than itself) or a parent.

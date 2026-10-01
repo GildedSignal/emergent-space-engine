@@ -46,7 +46,8 @@ impl Encounters for PlayerNeighbourhood {
             Err(_) => return out,
         };
         for j in 0..ctx.bodies.len() {
-            if j == body || !ctx.bodies.alive(j) {
+            // A member handed out of a frame is there for the ticks after its hand-out.
+            if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
                 continue;
             }
             let Some(other) = ctx.bodies.binding_at(j, t) else { continue };

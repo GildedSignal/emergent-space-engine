@@ -2,7 +2,7 @@
 use emergent_universe::dash::Dash;
 use emergent_universe::fleet::Order;
 use emergent_universe::scenario::{plane, Plane};
-use emergent_universe::view::{gather, View};
+use emergent_universe::view::{gather_cached, View, ViewCache};
 use emergent_universe::{Budget, Config};
 use serde_json::{json, Value};
 use std::time::Instant;
@@ -18,13 +18,15 @@ pub struct Session {
     pub dash: Dash,
     keys: u8,
     names: Vec<String>,
+    /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+    cache: ViewCache,
 }
 
 impl Session {
     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
         let names = p.names.clone();
-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, names })
+        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, names, cache: ViewCache::default() })
     }
 
     pub fn n_bodies(&self) -> usize {
@@ -40,7 +42,7 @@ impl Session {
         self.p.u.rec(self.p.player).alive
     }
     pub fn lost_bodies(&self) -> Vec<String> {
-        (0..self.p.u.n_bodies()).filter(|&i| !self.p.u.rec(i).alive).map(|i| self.names[i].clone()).collect()
+        (0..self.p.u.n_bodies()).filter(|&i| !self.p.u.rec(i).alive).map(|i| self.names.get(i).cloned().unwrap_or_else(|| format!("{} (left its frame)", self.p.u.fleets[0].name))).collect()
     }
     pub fn stats(&self) -> emergent_universe::universe::Stats {
         self.p.u.stats
@@ -57,7 +59,7 @@ impl Session {
         }
         let f = self.p.u.frame(wall_dt, self.rtf, Budget::wall(ENGINE_BUDGET_MS));
         let t1 = Instant::now();
-        let view = match gather(&self.p.u, &self.names) {
+        let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
             Some(v) => v,
             None => {
                 let r = self.p.u.rec(self.p.player);
@@ -102,7 +104,7 @@ impl Session {
         }
         for i in 0..u.n_bodies() {
             let r = u.rec(i);
-            out += &format!("  body {i:>2} {:<10} {:?} in doll {} tube {} bytes\n", self.names[i], r.kind, r.b.doll, std::mem::size_of::<emergent_space::Tube>());
+            out += &format!("  body {i:>2} {:<10} {:?} in doll {} tube {} bytes\n", self.names.get(i).map_or("?", |s| s.as_str()), r.kind, r.b.doll, std::mem::size_of::<emergent_space::Tube>());
         }
         out
     }
