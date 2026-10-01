@@ -2,7 +2,7 @@
 //! gate must pass. Each planted law has one flaw and must fail exactly the gate that guards it:
 //! together they prove the judge can fail (a test that cannot fail is a control).
 use super::restricted::{self, Model, Restricted, RTOL};
-use super::{cost, oracle, scale, Law};
+use super::{cost, hill, lens, memory, oracle, resonance, scale, Law};
 
 /// The oracle itself.
 pub struct Echo;
@@ -42,6 +42,12 @@ impl Law for Echo {
     fn restricted(&self, scene: &Restricted, ship: [f64; 4], times: &[f64]) -> Option<Vec<[f64; 4]>> {
         restricted::conserving_reference(scene, ship, times, RTOL)
     }
+    fn moving_deflection(&self, lens: &lens::MovingLens) -> Option<f64> {
+        Some(lens::composed(lens))
+    }
+    fn bytes_per_body(&self, scene: &memory::MemoryScene) -> Option<f64> {
+        memory::floor_bytes(scene)
+    }
 }
 
 /// The flaws, by the gate that must catch each.
@@ -68,6 +74,19 @@ pub enum Fault {
     /// B12: the reference's own Jacobi drift, from Dormand-Prince at tolerance 1e-12 with nothing
     /// holding the constant.
     Drift,
+    /// B9: bands spaced a sixteenth of the periapsis radius apart in r (linear, not logarithmic): the
+    /// count grows with r_apo/r_peri instead of its logarithm. The old gate's median over e < 0.7 passes it.
+    Linear,
+    /// B14: a moon bound to the planet precesses 20% too fast; its distances (so its class) are the reference's.
+    Apsides,
+    /// B16: the static memo: the lens's own deflection at its own impact parameter, with no aberration.
+    Static,
+    /// B16: the composition with the sign of the aberration flipped (the lens moves at −β).
+    Flipped,
+    /// B17: the first-order orbit average of the planet's pull (Laplace-Lagrange), answered on B17's scenes only.
+    Averaged,
+    /// B18: the 16-byte tube of the contract, uncompressed, on every scene.
+    Fat,
 }
 /// The oracle with one planted flaw.
 pub struct Planted(pub Fault);
@@ -103,10 +122,10 @@ impl Law for Planted {
         Echo.circular_clock_rate(r).map(|x| x * skew)
     }
     fn crossings_per_cycle(&self, p: f64, e: f64) -> Option<f64> {
-        if matches!(self.0, Fault::Steps) {
-            Some(512.0)
-        } else {
-            Echo.crossings_per_cycle(p, e)
+        match self.0 {
+            Fault::Steps => Some(512.0),
+            Fault::Linear => Some(2.0 * cost::BANDS_PER_OCTAVE * (2.0 * e / (1.0 - e))),
+            _ => Echo.crossings_per_cycle(p, e),
         }
     }
     fn scene_cost(&self, n_bodies: usize, game_seconds: f64) -> Option<f64> {
@@ -128,12 +147,49 @@ impl Law for Planted {
             Fault::Kick => restricted::integrate(scene, Model::Kick(1.0 + KICK), RTOL, ship, times),
             Fault::NoTide => restricted::integrate(scene, Model::NoTide, RTOL, ship, times),
             Fault::Drift => restricted::reference(scene, ship, times, RTOL),
+            Fault::Apsides => Echo.restricted(scene, ship, times).map(|states| skew_apsides(scene, ship, times, states)),
+            Fault::Averaged if scene.sep == resonance::SEP => resonance::averaged(scene, ship, times),
             _ => Echo.restricted(scene, ship, times),
+        }
+    }
+    fn moving_deflection(&self, l: &lens::MovingLens) -> Option<f64> {
+        match self.0 {
+            Fault::Static => Some(lens::static_memo(l)),
+            Fault::Flipped => Some(lens::compose(l, oracle::deflection, -1.0)),
+            _ => Echo.moving_deflection(l),
+        }
+    }
+    fn bytes_per_body(&self, scene: &memory::MemoryScene) -> Option<f64> {
+        match self.0 {
+            Fault::Fat => Some(16.0),
+            _ => Echo.bytes_per_body(scene),
         }
     }
 }
 /// The planted kick: the planetocentric velocity grows by this, relative, at each entry into R_SOI.
 const KICK: f64 = 1e-3;
+/// The planted apsides: a bound moon's periapsis longitude advances by this much more, relative.
+const APSIDES_SKEW: f64 = 0.2;
+
+/// `planted-apsides`: a ship bound to the planet at t = 0 has its planetocentric state turned, at each
+/// sample, by APSIDES_SKEW times the periapsis' advance so far. A rotation about the planet keeps every
+/// distance from it (so the class) and turns the apse: the rate is 1.2 times the reference's. A ship
+/// that is not bound to the planet (B12's and B13's, B17's) is left as it is.
+fn skew_apsides(scene: &Restricted, ship: [f64; 4], times: &[f64], states: Vec<[f64; 4]>) -> Vec<[f64; 4]> {
+    let w = scene.relative(0.0, &ship);
+    let bound = 0.5 * (w[2] * w[2] + w[3] * w[3]) - scene.mu / w[0].hypot(w[1]) < 0.0;
+    let Some(varpi) = bound.then(|| hill::apsides_series(scene, times, &states)).flatten() else { return states };
+    states
+        .iter()
+        .zip(times)
+        .zip(&varpi)
+        .map(|((s, &t), v)| {
+            let (sn, c) = (APSIDES_SKEW * (v - varpi[0])).sin_cos();
+            let w = scene.relative(t, s);
+            scene.barycentric(t, &[c * w[0] - sn * w[1], sn * w[0] + c * w[1], c * w[2] - sn * w[3], sn * w[2] + c * w[3]])
+        })
+        .collect()
+}
 
 pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
     Some(match name {
@@ -149,6 +205,12 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-kick" => Box::new(Planted(Fault::Kick)),
         "planted-notide" => Box::new(Planted(Fault::NoTide)),
         "planted-drift" => Box::new(Planted(Fault::Drift)),
+        "planted-linear" => Box::new(Planted(Fault::Linear)),
+        "planted-apsides" => Box::new(Planted(Fault::Apsides)),
+        "planted-static" => Box::new(Planted(Fault::Static)),
+        "planted-flipped" => Box::new(Planted(Fault::Flipped)),
+        "planted-average" => Box::new(Planted(Fault::Averaged)),
+        "planted-fat" => Box::new(Planted(Fault::Fat)),
         _ => return None,
     })
 }

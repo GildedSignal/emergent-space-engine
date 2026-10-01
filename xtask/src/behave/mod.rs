@@ -4,16 +4,20 @@
 //! It knows no engine type and imports no physics crate: a law is anything that implements [`Law`].
 //! G1-G6 mirror lab/rungs/r1-rings.md; B7, B9 and B10 are the law's clock, cost and scaling gates (docs/law.md).
 //! B11-B14 judge the events layer: binaries (1PN oracle), handoffs (Jacobi constant), assists
-//! (heliocentric energy and angular momentum) and Hill stability, the last three against the
-//! float64 circular restricted three-body problem (`restricted`).
+//! (heliocentric energy and angular momentum) and Hill stability (the class, and the apsides of
+//! eccentric births), the last three against the float64 circular restricted three-body problem
+//! (`restricted`). B9 is log-scaled to e = 0.99. B16-B18 come from the law's red-team (1 October):
+//! moving lenses (a boosted Kerr-Schild geodesic oracle), resonance (r4 v3's cases as restricted
+//! scenes) and memory (bytes per body on the shipmem ladder).
 //!
 //! ```text
 //! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture|
-//!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift]
+//!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|
+//!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat]
 //!     [--gates G1,B7,...]
 //! ```
 //! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
-//! `--gates` picks gates (default: all thirteen). Every phase is killed and reported as a failure
+//! `--gates` picks gates (default: all sixteen). Every phase is killed and reported as a failure
 //! if it runs past 60 s. Exit 0 iff every gate that ran passes.
 pub mod assist;
 pub mod binary;
@@ -23,7 +27,10 @@ pub mod fit;
 pub mod handoff;
 pub mod hill;
 pub mod laws;
+pub mod lens;
+pub mod memory;
 pub mod oracle;
+pub mod resonance;
 pub mod restricted;
 pub mod scale;
 pub mod select;
@@ -79,6 +86,17 @@ pub trait Law {
     /// barycentric inertial state (x, y, vx, vy) at t = 0, its states at each of `times` (ascending,
     /// all at least 0). None: not implemented, which fails.
     fn restricted(&self, _scene: &Restricted, _ship: [f64; 4], _times: &[f64]) -> Option<Vec<[f64; 4]>> {
+        None
+    }
+    /// B16: the observed deflection of light passing a lens that moves: the signed angle, in the
+    /// observer's frame, from the light's incoming direction to its outgoing one. None: not
+    /// implemented, which fails the gate.
+    fn moving_deflection(&self, _lens: &lens::MovingLens) -> Option<f64> {
+        None
+    }
+    /// B18: bytes the law holds per live body on a scene of the shipmem population ladder: the tube,
+    /// the catalogue's share, the event records and the remainders. None: not implemented, which fails.
+    fn bytes_per_body(&self, _scene: &memory::MemoryScene) -> Option<f64> {
         None
     }
 }
@@ -201,7 +219,7 @@ fn g6(rows: &[Orbit]) -> Gate {
 }
 
 /// Runs the gates of the single-mass core (`select::CORE`) on `law`, arming `watch` on each phase and
-/// calling `emit` as each gate lands. The CLI runs all thirteen through `judge_only`.
+/// calling `emit` as each gate lands. The CLI runs all sixteen through `judge_only`.
 #[allow(dead_code)] // the core entry point: the CLI goes through `judge_only`
 pub fn judge(law: &dyn Law, watch: Option<&Watch>, emit: impl FnMut(&Gate)) -> Vec<Gate> {
     judge_only(law, watch, Some(&select::CORE), emit)
@@ -248,10 +266,13 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     phase("B12", &mut || vec![handoff::b12(law)]);
     phase("B13", &mut || vec![assist::b13(law)]);
     phase("B14", &mut || vec![hill::b14(law)]);
+    phase("B16", &mut || vec![lens::b16(law)]);
+    phase("B17", &mut || vec![resonance::b17(law)]);
+    phase("B18", &mut || vec![memory::b18(law)]);
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10,B11,B12,B13,B14]";
+const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10,B11,B12,B13,B14,B16,B17,B18]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
@@ -383,6 +404,14 @@ mod tests {
     }
 
     #[test]
+    fn every_planted_law_the_usage_names_resolves() {
+        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat"];
+        for name in names {
+            assert!(laws::by_name(name).is_some() && USAGE.contains(name), "{name}");
+        }
+    }
+
+    #[test]
     fn the_cli_refuses_unknown_laws_and_arguments() {
         assert!(run(vec!["--law".into(), "newton".into()]).is_err());
         assert!(run(vec!["--verbose".into()]).is_err());
@@ -447,16 +476,101 @@ mod events_tests {
     }
 
     #[test]
-    fn the_default_run_is_all_thirteen_gates_and_a_law_without_the_new_methods_fails_b7_b9_b10_and_b11_to_b14_in_it() {
+    fn the_default_run_is_all_sixteen_gates_and_a_law_without_the_new_methods_fails_every_gate_after_g6_in_it() {
         // `--gates` omitted is `only = None`: every gate, in the judge's order.
         let gates = judge_only(&Silent, None, None, |_| {});
         assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), select::ALL);
-        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14"]);
+        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18"]);
     }
 
     #[test]
     fn the_events_gates_run_only_when_named_and_in_the_judges_order() {
         let ids = |only: &[&str]| judge_only(&Echo, None, Some(only), |_| {}).iter().map(|g| g.id).collect::<Vec<_>>();
         assert_eq!(ids(&["B13", "B11"]), ["B11", "B13"]);
+    }
+}
+
+/// The red-team's amendments (1 October): B9 log-scaled to e = 0.99, B14's apsides, and the new gates
+/// B16 (moving lenses), B17 (resonance) and B18 (memory), judged together. Echo passes them and each
+/// planted law fails exactly its gate.
+///
+/// B14 and B17 are the slow gates (they integrate the restricted three-body problem), so a planted law is
+/// run through them only where it touches `restricted`; for the others a test shows its `restricted` is
+/// echo's, so its B14 and B17 verdicts are echo's.
+#[cfg(test)]
+mod amendment_tests {
+    use super::laws::{Echo, Fault, Planted, Silent};
+    use super::*;
+
+    const AMENDED: [&str; 5] = ["B9", "B14", "B16", "B17", "B18"];
+
+    fn failing(law: &dyn Law, only: &[&str]) -> Vec<&'static str> {
+        let gates = judge_only(law, None, Some(only), |_| {});
+        assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), only);
+        gates.iter().filter(|g| !g.pass).map(|g| g.id).collect()
+    }
+    /// A B14 moon and a B17 case's ship, with their times: one of each kind of scene `restricted` is asked about.
+    fn scenes() -> Vec<(restricted::Restricted, [f64; 4], Vec<f64>)> {
+        let case = &resonance::cases()[14];
+        let moon = hill::moons().iter().find(|m| m.rate.is_some()).expect("a moon with an apsidal rate");
+        vec![(restricted::JUPITER, moon.ship, hill::times(&restricted::JUPITER)), (case.scene, resonance::start(case), resonance::times(case))]
+    }
+    fn answers_as_echo_does_on_both_kinds_of_scene(fault: Fault) -> bool {
+        scenes().iter().all(|(scene, ship, times)| Planted(fault).restricted(scene, *ship, times) == Echo.restricted(scene, *ship, times))
+    }
+
+    #[test]
+    fn echo_passes_every_amended_gate_with_its_evidence_on_the_line() {
+        let gates = judge_only(&Echo, None, Some(&AMENDED), |_| {});
+        assert!(gates.iter().all(|g| g.pass), "{:?}", gates.iter().map(|g| (g.id, g.detail.clone())).collect::<Vec<_>>());
+        let detail = |id: &str| gates.iter().find(|g| g.id == id).unwrap().detail.clone();
+        assert!(detail("B9").contains("512/512 orbits") && detail("B9").contains("at e = 0.99"), "{}", detail("B9"));
+        assert!(detail("B14").contains("apsides: ") && detail("B14").contains("e0 up to 0.3"), "{}", detail("B14"));
+        assert!(detail("B16").contains("256/256") && detail("B16").contains("beta up to 0.90"), "{}", detail("B16"));
+        assert!(detail("B17").contains("controls 5/5") && detail("B17").contains("regime 34/34"), "{}", detail("B17"));
+        assert!(detail("B18").contains("12/12") && detail("B18").contains("at 1e9 bodies"), "{}", detail("B18"));
+    }
+
+    #[test]
+    fn each_planted_law_of_the_amendments_fails_exactly_its_gate() {
+        // The cheap gates, for the laws that plant their flaw in them.
+        let cheap = ["B9", "B16", "B18"];
+        assert_eq!(failing(&Planted(Fault::Linear), &cheap), ["B9"]);
+        assert_eq!(failing(&Planted(Fault::Steps), &cheap), ["B9"]);
+        assert_eq!(failing(&Planted(Fault::Static), &cheap), ["B16"]);
+        assert_eq!(failing(&Planted(Fault::Flipped), &cheap), ["B16"]);
+        assert_eq!(failing(&Planted(Fault::Fat), &cheap), ["B18"]);
+        // Those that plant it in the restricted problem, in the slow ones.
+        assert_eq!(failing(&Planted(Fault::Apsides), &["B14"]), ["B14"]);
+        assert_eq!(failing(&Planted(Fault::Averaged), &["B17"]), ["B17"]);
+    }
+
+    #[test]
+    fn a_planted_law_answers_the_restricted_problem_as_echo_does_unless_it_plants_its_flaw_there() {
+        // So its B14 and B17 verdicts are echo's, which pass.
+        for fault in [Fault::Linear, Fault::Steps, Fault::Static, Fault::Flipped, Fault::Fat, Fault::Newton, Fault::Walk, Fault::Clock, Fault::Quadratic, Fault::Precession, Fault::NoCapture] {
+            assert!(answers_as_echo_does_on_both_kinds_of_scene(fault));
+        }
+        // planted-kick and -notide plant theirs inside the planet's sphere of influence, which B17's ships never enter
+        // and a B14 moon at 0.2 to 0.9 Hill radii does.
+        let (_, b17_ship, b17_times) = &scenes()[1];
+        let case = &resonance::cases()[14];
+        // (They integrate the reference without echo's conservation of the Jacobi constant, so their states differ from
+        // echo's by 1e-4 over B17's run; what B17 reads of them is the same, and B17 passes them.)
+        for fault in [Fault::Kick, Fault::NoTide] {
+            assert_eq!(failing(&Planted(fault), &["B17"]), Vec::<&str>::new());
+        }
+        // The two that plant theirs in a kind of scene leave the other as it is: apsides acts on ships bound to the planet,
+        // the average on B17's scenes only.
+        let (jup, ship, times) = &scenes()[0];
+        assert_eq!(Planted(Fault::Averaged).restricted(jup, *ship, times), Echo.restricted(jup, *ship, times));
+        assert_eq!(Planted(Fault::Apsides).restricted(&case.scene, *b17_ship, b17_times), Echo.restricted(&case.scene, *b17_ship, b17_times));
+        assert_ne!(Planted(Fault::Apsides).restricted(jup, *ship, times), Echo.restricted(jup, *ship, times));
+        assert_ne!(Planted(Fault::Averaged).restricted(&case.scene, *b17_ship, b17_times), Echo.restricted(&case.scene, *b17_ship, b17_times));
+    }
+
+    #[test]
+    fn a_law_that_implements_none_of_the_amended_methods_fails_them_all() {
+        assert_eq!(failing(&Silent, &AMENDED), AMENDED);
     }
 }
