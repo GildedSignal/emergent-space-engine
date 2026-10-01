@@ -292,6 +292,11 @@ impl OrbitShape {
             for psi in [mid - dx, mid + dx] {
                 let ac = product(ONE - self.k, cos(psi));
                 let x = self.k + ac;
+                // A node at x <= 0 lies at or beyond infinity (an unbound passage's asymptote):
+                // refuse it as out of range rather than divide by zero (the certified bank's R5-05954).
+                if x <= 0 {
+                    return Err(Error::Range);
+                }
                 let a = 6 * self.k + 2 * ac;
                 let denominator = ONE - product(self.q, a);
                 // When sqrt(d)>=1/2 its Q31 floor has relative error <2^-30.
@@ -301,11 +306,15 @@ impl OrbitShape {
                 } else {
                     crate::num::isqrt((denominator as u128) << 62)
                 };
+                let horizon = ONE - product(2 * self.q, x);
+                if root == 0 || horizon <= 0 {
+                    return Err(Error::Range);
+                }
                 let g = ((1u128 << 104) / root) as u64;
                 let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
                 let ratio = ((self.floor << 62) / x) as u64;
                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
-                let rt = (((rtau as u128) << 62) / (ONE - product(2 * self.q, x)) as u128) as u64;
+                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
                 sum[0] += w as u128 * g1 as u128;
                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
                 sum[1] += weighted * rt as u128;
