@@ -306,7 +306,7 @@ impl OrbitShape {
                 let ac = product(ONE - self.k, cos(psi));
                 let x = self.k + ac;
                 let excess = 3 * self.k + ac;
-                let ratio = (self.floor << 62) / x;
+                let ratio = crate::num::div_word((self.floor as u128) << 62, x as u64) as i128;
                 let rtau = product(ratio, ratio);
                 sum[0] += w * excess;
                 sum[1] += w * rtau;
@@ -528,8 +528,11 @@ impl Orbit {
             return Err(Error::Topology);
         }
         let q = key.compactness()?;
-        // Validate using actual q too, including when a Taylor shape is shared.
-        if !(key.k == UNIT && q >= Scalar::ONE.div(Scalar::integer(6))?) {
+        // Strong shapes were already validated at their actual q. For a bound
+        // Taylor shape, k>1/2 and q<=2^-18 imply 1-qA>0, D>1/2-3q>0
+        // and both clock factors positive. Do not rebuild and discard a shape
+        // to prove those same predicates. Weak passages still need the check.
+        if shape.key.compactness != q && !key.periodic() {
             let _ = OrbitShape::new(ShapeKey {
                 k: key.k,
                 compactness: q,
