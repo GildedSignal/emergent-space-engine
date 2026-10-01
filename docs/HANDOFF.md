@@ -31,7 +31,7 @@ The pivot plan: `~/.claude/plans/whimsical-snuggling-graham.md`, reordered by Ju
 **Now: the plane flies** (f77c660, H0210; [plane.md](plane.md)). Fly it with `cargo run --release -p xtask -- universe --rtf 100` at http://127.0.0.1:8792/, or measure with `--bench`. **The measured bottlenecks, in order, drive the next jobs:**
 1. The fleet battle is stepped forever: leavers are never handed into the doll, and the frame's origin takes no parent tide. Sonnet (`artifacts/runs/sonnet-plane2/`).
 2. The view gather is 83% of a light frame. Cache per emitter: Newton from the last frame's crossing. Sonnet, same job.
-3. A kick costs 29 µs, 15 of them in rebinding fit and compile. Sol (`artifacts/runs/sol-kick/`).
+3. A kick costs 29 µs, 15 of them in rebinding fit and compile. Sol (`artifacts/runs/sol-kick/`, worktree `wt/kick`). It hit an OpenAI "model at capacity" error mid-run, and `resume.sh` retries every 3 minutes. Its uncommitted work also touches `xtask/src/universe/` (a kick bench), so expect a merge with Sonnet's `wt/plane2`.
 4. The player's encounter check costs 190 µs per item. The Binet-cone seam (`crates/encounters`) comes after (3).
 
 Open from the first flight: readouts between kicks carry the pending half kick (Jacobi 6e-3; an ignored test); a doll's far time lacks its centre's rate (about 1e-8); kick sources are a function, not a trait; there is no lensing or retarded gravity.
