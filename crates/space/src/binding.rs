@@ -188,6 +188,9 @@ fn fit_key(state: IntegerState) -> Result<(OrbitKey, Scalar, bool, bool)> {
     }
     let vr = dot(p, v)?.div(r)?;
     let vt = p[0].mul(v[1])?.sub(p[1].mul(v[0])?)?.div(r)?;
+    if crate::inverse::circular(state) {
+        return Ok((OrbitKey::new(r, 1 << 48)?, r, vt < Scalar::ZERO, false));
+    }
     let kinetic = vr.mul(vr)?.div(lapse)?.add(vt.mul(vt)?)?;
     let den = lapse.sub(kinetic)?;
     if !den.is_positive() || vt.is_zero() {
@@ -197,6 +200,12 @@ fn fit_key(state: IntegerState) -> Result<(OrbitKey, Scalar, bool, bool)> {
     let l2 = angular.mul(angular)?.div(den)?;
     let q = l2.reciprocal()?;
     let alpha = kinetic.sub(u.scale(1)?.mul(lapse)?)?.div(den)?.mul(l2)?;
+    // The exact algebraic energy predicate preserves symbolic E=1. It also
+    // defines the boundary quantization when an adapter perturbs E by less
+    // than the retained shape quantum; do not manufacture a radial cycle.
+    if alpha.abs() < Scalar::power_of_two(-48) {
+        return Ok((crate::inverse::fit(state)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
+    }
     let disc = Scalar::ONE.sub(q.mul(Scalar::integer(12))?)?;
     if !disc.is_positive() {
         return Err(Error::NoBoundOrbit);
@@ -208,14 +217,16 @@ fn fit_key(state: IntegerState) -> Result<(OrbitKey, Scalar, bool, bool)> {
     // Divide the barrier predicate by z² before evaluating: its sign is all
     // that is requested, and its absolute magnitude need not be representable.
     let inverse = minimum.reciprocal()?;
-    if alpha
+    let barrier = alpha
         .mul(inverse)?
         .mul(inverse)?
         .add(inverse.scale(1)?)?
         .sub(Scalar::ONE)?
-        .add(q.scale(1)?.mul(minimum)?)?
-        .is_positive()
-    {
+        .add(q.scale(1)?.mul(minimum)?)?;
+    if q > Scalar::power_of_two(-10) && barrier.abs() < Scalar::power_of_two(-24) {
+        return Ok((crate::inverse::fit(state)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
+    }
+    if barrier.is_positive() {
         return Err(Error::NoBoundOrbit);
     }
     let at_c = poly(uc)?;
@@ -255,7 +266,11 @@ fn fit_key(state: IntegerState) -> Result<(OrbitKey, Scalar, bool, bool)> {
     let b = Scalar::ONE.add(compact.scale(1)?)?;
     let discriminant = b.mul(b)?.sub(compact.mul(Scalar::integer(16))?.mul(compact.add(d)?)?)?;
     let k = compact.add(d)?.scale(1)?.div(b.add(discriminant.sqrt()?)?)?;
-    let mut k = u64::try_from(k.fixed(48)?).map_err(|_| Error::Range)?.min(1 << 48);
+    let word = u64::try_from(k.fixed(48)?).map_err(|_| Error::Range)?.min(1 << 48);
+    if k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)? {
+        return Err(Error::Range);
+    }
+    let mut k = word;
     // Classification follows the conserved binding energy, including a parabolic tie.
     if alpha.is_zero() {
         k = 1 << 47;

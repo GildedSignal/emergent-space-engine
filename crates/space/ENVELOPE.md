@@ -90,11 +90,25 @@ The proof applies at the
 binding event. Transport through later physical motion is the events owner's
 remaining obligation: discarding the remainder at a handoff voids the proof.
 
-Bound here means an exterior periodic radial orbit (p>6+2e). Its periapsis
-approaches 4M, not 3M; 3M is the photon circular limit. Plunges, radial L=0 paths,
-unstable circular generators and horizon arrival times are not supplied by this
-periodic compiler. Passage endpoints must be resolvable by the finite phase word;
-an unresolvable radius ratio is refused, never replaced by infinity.
+Bound radial generators satisfy p>6+2e; their periapsis approaches 4M.
+Plunges, radial L=0 paths and horizon arrival times remain outside this compiler.
+
+The v4 boundary supplies exact circular generators down to r>3M, including unstable
+circles: their constant-radius angular clock needs no radial integration. The inverse
+uses exact algebraic energy, discriminant and exterior-branch predicates in
+Q(sqrt(X.X)) for conditioned roots. Compilation alone uses 256 fractional scratch
+bits, takes the root gap's square root before narrowing, and refuses unresolved gaps.
+Symbolic E=1 has k=1/2. Its half-quantum neighbourhood rounds to that even
+parabolic word; other k values are floored to keep the event inside its apoapsis.
+An adapter perturbation below that quantum does not invent asymptotic speed.
+
+For passages, psi remains the inner phase. At x=2^-10 it continues in x=R/r with
+an independent binary exponent. Here dpsi/dx=-1/sqrt((1-x)(x-(2k-1))); panels
+that shrink x by 15/16 preserve relative clock/radius information as
+x tends to zero. Radius and velocity use that x directly, not the rounded angle.
+Infinity still has no finite arrival clock. Q48 k is retained: inverse fits whose
+discarded shape exceeds 2^-20 of k return Range, including the high-e bank cases.
+This is an explicit precision refusal, not a claim to extend that shape envelope.
 
 ## Exact migration boundary for the events owner
 

@@ -327,3 +327,67 @@ fn strong_passages_match_an_independent_binet_ode_including_time() {
         assert!((got_bend / bend - 1.0).abs() < 1e-5, "rp={rp} e={e} bend {got_bend} vs {bend}");
     }
 }
+
+// Frozen Arb NS-0056 (e=.7, separatrix margin 9.9979e-10), including
+// the harness's dyadic event adapter. The former inverse missed its period by .58%.
+#[test]
+fn inverse_resolves_the_certified_whirl_gap() {
+    use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
+    for sign in [-1, 1] {
+        // NS-0056 periapsis and NS-0054 apoapsis: rounding must retain both events.
+        for (position, velocity, exponent, expected) in [
+            (2509299747829841920, 2210387072521338624, -59, 1070.1713718695524),
+            (3554841341419585536, 663116115995525120, -57, 842.6636837175818),
+        ] {
+            let state = IntegerState {
+                position: [position, 0], velocity: [0, sign * velocity],
+                length_exponent: exponent, velocity_exponent: -62,
+            };
+            let fit = Rebinding::from_state(state, Scalar::ZERO, None).unwrap();
+            let Trajectory::Cycle(orbit) = &fit.trajectory else { panic!("whirl lost its turning interval") };
+            assert!((decode(orbit.period().unwrap()) / expected - 1.0).abs() <= 1e-6);
+            assert_eq!(fit.reconstruct().unwrap(), state);
+        }
+    }
+}
+
+#[test]
+fn exact_parabolic_and_unstable_circle_ties_are_generators() {
+    use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
+    // At r=32, v_r=-15/256 and v_t=60/256 give E=1 and L=8 exactly.
+    let parabolic = IntegerState { position: [32, 0], velocity: [-15, 60], length_exponent: 0, velocity_exponent: -8 };
+    let fit = Rebinding::from_state(parabolic, Scalar::ZERO, Some(Scalar::integer(128))).unwrap();
+    assert!(matches!(fit.trajectory, Trajectory::Passage(_)));
+    assert_eq!(fit.trajectory.key().k, 1 << 47);
+    assert_eq!(fit.reconstruct().unwrap(), parabolic);
+    for sign in [-1, 1] {
+        let circle = IntegerState { position: [4, 0], velocity: [0, sign], length_exponent: 0, velocity_exponent: -1 };
+        let fit = Rebinding::from_state(circle, Scalar::ZERO, None).unwrap();
+        let quarter = fit.trajectory.state(Scalar::raw(PI as i128, -61).unwrap().mul(Scalar::integer(4)).unwrap()).unwrap();
+        assert_eq!(quarter.radius, Scalar::integer(4));
+        assert_eq!(quarter.radial_velocity, Scalar::ZERO);
+        assert_eq!(fit.reconstruct().unwrap(), circle);
+    }
+}
+
+#[test]
+fn passage_phase_keeps_relative_information_beyond_a_fixed_word() {
+    for r in [10.0, 1e30] {
+        let key = OrbitKey::new(encode(r), 1 << 46).unwrap(); // e=3 exactly
+        let edge = key.periapsis.scale(100).unwrap();
+        let passage = Passage::compile(key, edge).unwrap();
+        let time = passage.duration().unwrap().scale(-2).unwrap();
+        let state = passage.state(time).unwrap();
+        let mirrored = passage.state(time.negate()).unwrap();
+        assert_eq!(state.radius, mirrored.radius);
+        assert_eq!(state.radial_velocity, mirrored.radial_velocity.negate());
+        // Independent conserved-energy asymptote, E²=(p-2-2e)(p-2+2e)/[p(p-3-e²)].
+        let e = 3.0;
+        let p = 4.0 * r;
+        let energy2 = ((p - 2.0).powi(2) - 4.0 * e * e) / (p * (p - 3.0 - e * e));
+        let vinf = if r > 1e20 { (2.0 / r).sqrt() } else { (1.0 - 1.0 / energy2).sqrt() };
+        assert!((decode(state.radius) / (vinf * decode(time)) - 1.0).abs() < 1e-7);
+        let endpoint = passage.state(passage.duration().unwrap().scale(-1).unwrap()).unwrap();
+        assert!((decode(endpoint.radius) / decode(edge) - 1.0).abs() < 1e-9);
+    }
+}
