@@ -12,9 +12,11 @@ pub struct Dash {
     pub game_seconds: f64,
     pub wall_seconds: f64,
     pub overflow_frames: u64,
-    /// Where a frame's time went: the engine's advance, the view's gather, the wire (serialisation).
+    /// Where a frame's time went: the engine's advance, the view's gather, the JSON tree built from it, the
+    /// wire (serialisation).
     pub engine_ms: Vec<f64>,
     pub view_ms: Vec<f64>,
+    pub json_ms: Vec<f64>,
     pub wire_ms: Vec<f64>,
 }
 
@@ -42,8 +44,8 @@ pub struct Summary {
     pub rtf_low1: f64,
     pub events_per_second: f64,
     pub overflow_frames: u64,
-    /// (p50, p99, share of the summed time, max) of the engine, the view and the wire.
-    pub parts: [(f64, f64, f64, f64); 3],
+    /// (p50, p99, share of the summed time, max) of the engine, the view's gather, the JSON tree and the wire.
+    pub parts: [(f64, f64, f64, f64); 4],
 }
 
 impl Dash {
@@ -57,9 +59,10 @@ impl Dash {
         self.overflow_frames += overflow as u64;
     }
 
-    pub fn parts(&mut self, engine: f64, view: f64, wire: f64) {
+    pub fn parts(&mut self, engine: f64, view: f64, json: f64, wire: f64) {
         self.engine_ms.push(engine);
         self.view_ms.push(view);
+        self.json_ms.push(json);
         self.wire_ms.push(wire);
     }
 
@@ -69,7 +72,7 @@ impl Dash {
             s.sort_by(f64::total_cmp);
             (pct(&s, 0.5), pct(&s, 0.99), if total > 0.0 { v.iter().sum::<f64>() / total } else { 0.0 }, s.last().copied().unwrap_or(0.0))
         };
-        let total: f64 = [&self.engine_ms, &self.view_ms, &self.wire_ms].iter().map(|v| v.iter().sum::<f64>()).sum();
+        let total: f64 = [&self.engine_ms, &self.view_ms, &self.json_ms, &self.wire_ms].iter().map(|v| v.iter().sum::<f64>()).sum();
         let mut f = self.frame_ms.clone();
         f.sort_by(f64::total_cmp);
         let mut r = self.rtf.clone();
@@ -91,7 +94,7 @@ impl Dash {
             rtf_low1: pct(&r, 0.01),
             events_per_second: if self.wall_seconds > 0.0 { self.events as f64 / self.wall_seconds } else { 0.0 },
             overflow_frames: self.overflow_frames,
-            parts: [part(&self.engine_ms, total), part(&self.view_ms, total), part(&self.wire_ms, total)],
+            parts: [part(&self.engine_ms, total), part(&self.view_ms, total), part(&self.json_ms, total), part(&self.wire_ms, total)],
         }
     }
 }

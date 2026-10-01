@@ -95,7 +95,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool) -> crate::Result<u8> {
         "hitches_per_gameplay_hour": {"above_16.7ms": d.hitches_per_hour[0], "above_33ms": d.hitches_per_hour[1], "above_50ms": d.hitches_per_hour[2]},
         "hitch_counts": d.hitch_counts,
         "worst_hitch_ms": d.worst_ms, "worst_hitch_at_frame": d.worst_at_frame,
-        "where_the_time_goes_ms": {"engine": {"p50": d.parts[0].0, "p99": d.parts[0].1, "max": d.parts[0].3, "share": d.parts[0].2}, "view_gather": {"p50": d.parts[1].0, "p99": d.parts[1].1, "max": d.parts[1].3, "share": d.parts[1].2}, "wire": {"p50": d.parts[2].0, "p99": d.parts[2].1, "max": d.parts[2].3, "share": d.parts[2].2}},
+        "where_the_time_goes_ms": {"engine": {"p50": d.parts[0].0, "p99": d.parts[0].1, "max": d.parts[0].3, "share": d.parts[0].2}, "view_gather": {"p50": d.parts[1].0, "p99": d.parts[1].1, "max": d.parts[1].3, "share": d.parts[1].2}, "view_json": {"p50": d.parts[2].0, "p99": d.parts[2].1, "max": d.parts[2].3, "share": d.parts[2].2}, "wire": {"p50": d.parts[3].0, "p99": d.parts[3].1, "max": d.parts[3].3, "share": d.parts[3].2}},
         "rtf": {"median": d.rtf_median, "lowest_1pct": d.rtf_low1, "overflow_frames": d.overflow_frames},
         "events_per_second": d.events_per_second,
         "player_alive": s.player_alive(), "lost_bodies": s.lost_bodies(),

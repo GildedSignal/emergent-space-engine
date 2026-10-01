@@ -66,13 +66,14 @@ impl Session {
                 return Err(format!("no view: the player is {} (fault {:?}, doll {}, tick {})", if r.alive { "alive but unreadable" } else { "lost" }, r.fault, r.b.doll, self.p.u.now).into());
             }
         };
-        let json = view_json(&view);
         let t2 = Instant::now();
+        let json = view_json(&view);
+        let t3 = Instant::now();
         // The cost of putting it on the wire is part of the frame.
         let wire = serde_json::to_vec(&json)?;
         std::hint::black_box(&wire);
         let ms = start.elapsed().as_secs_f64() * 1e3;
-        self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, t2.elapsed().as_secs_f64() * 1e3);
+        self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
         self.dash.record(ms, f.ticks, wall_dt, f.events, f.overflow);
         Ok((json, ms))
     }
