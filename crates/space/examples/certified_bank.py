@@ -15,7 +15,7 @@ TOL = {"design": 1e-5, "behaviour": 1e-3}
 NMAX = 10.0
 cols_q = "id cat law ref res idx ncyc rref dpos rel drr dphi floor".split()
 cols_c = ("id cat law nfree nabs inbound E L rho comp_us knots cross fitp fitv recon turn_p turn_a "
-          "per_rel adv_rel defl_abs defl_rel scat diag e_err l_err ecc window law_per law_adv margin deltah edge_ratio").split()
+          "per_rel adv_rel defl_abs defl_rel scat diag e_err l_err ecc window law_per law_adv margin deltah edge_ratio rp_m").split()
 
 
 def num(x):
@@ -100,7 +100,9 @@ def main():
                 s = f"FREE law {law}"
         elif ref == "A":
             if law == "refused:NoBoundOrbit":
-                s = "ABSORBED, law refuses (no turning point): reads as absorbed"
+                inb = byid.get((r["rung"], r["id"]), {}).get("inbound") == "1"
+                s = ("ABSORBED, inbound, law refuses (no turning point): reads as absorbed, class agrees" if inb
+                     else "ABSORBED, outbound, law refuses (apoapsis then plunge): no class from the law")
             elif law in ("cycle", "passage"):
                 s = "ABSORBED, law returns an orbit: CLASS DISAGREES"
             elif law == "photon:absorbed":
@@ -177,11 +179,27 @@ def main():
             A = num(c["law_adv"])
             pred = n * ((2 * math.pi + A) * eP + A * eA)
             if 0 < pred < 0.3 and n > 1:
-                # 3e-9 rad is the tube's 32-bit orientation (one quantum 1.5e-9 rad), not drift
-                D[group(r["cat"])].append(max(abs(num(r["dphi"])) - 3e-9, 0.0) / pred)
-    print("group                    n  (|dphi|-3e-9)/pred: median   p90    max   (a pure linear drift gives a ratio near or below 1)")
+                # 1e-8 rad covers the tube's 32-bit orientation (quantum 1.5e-9 rad) and the fit residual, not drift
+                D[group(r["cat"])].append(max(abs(num(r["dphi"])) - 1e-8, 0.0) / pred)
+    print("group                    n  (|dphi|-1e-8)/pred: median   p90    max   (a pure linear drift gives a ratio near or below 1)")
     for g, xs in sorted(D.items()):
         print(f"{g:22s}{len(xs):6d}   {fmt(q(xs,.5)):>10s} {fmt(q(xs,.9)):>8s} {fmt(max(xs)):>8s}")
+    # ---- strong-field passages
+    print("\n== passages with e < 1e9 and window/periapsis < 1e9 (outside both resolution limits): error against periapsis ==")
+    S = collections.defaultdict(list)
+    for r in mapped:
+        if r["law"] == "passage":
+            c = byid.get((r["rung"], r["id"]))
+            if c and num(c["ecc"]) < 1e9 and num(c["edge_ratio"]) < 1e9:
+                rp = num(c["rp_m"])
+                b = "R<10M" if rp < 10 else "10-100M" if rp < 100 else "100M-1e4M" if rp < 1e4 else ">=1e4M"
+                S[b].append(r)
+    print("periapsis      n   median      p90      max   design%  behav%")
+    for b in ("R<10M", "10-100M", "100M-1e4M", ">=1e4M"):
+        rs = S.get(b, [])
+        if rs:
+            rel = [num(r["rel"]) for r in rs]
+            print(f"{b:12s}{len(rs):6d} {fmt(q(rel,.5)):>9s} {fmt(q(rel,.9)):>8s} {fmt(max(rel)):>8s} {100*sum(within(r,TOL['design']) for r in rs)/len(rs):7.1f} {100*sum(within(r,TOL['behaviour']) for r in rs)/len(rs):7.1f}")
     # ---- passage error vs window ratio
     print("\n== passages: error against window/periapsis (the phase word x = R/r is Q62: resolution 2^-62 / x) ==")
     W = collections.defaultdict(list)
@@ -245,8 +263,9 @@ def main():
     print("(each cell: n, median, p99, max; * against the Arb roots, G22 only)")
     for name, field in (("photon deflection abs vs Arb", "defl_abs"), ("photon deflection rel vs Arb", "defl_rel"),
                         ("adapter E vs Arb diag (control)", "e_err"), ("adapter L vs Arb diag (control)", "l_err"),
-                        ("fit + compile time, us (loaded M1)", "comp_us"), ("shape knots per bound orbit", "knots"), ("crossings per half orbit", "cross")):
-        xs = [num(c[field]) for c in C if len(c) > 12 and num(c[field]) == num(c[field]) and num(c[field]) >= 0]
+                        ("fit + compile time, us, fitted cases only (loaded M1)", "comp_us"), ("shape knots per bound orbit", "knots"), ("crossings per half orbit", "cross")):
+        xs = [num(c[field]) for c in C if len(c) > 12 and c["law"] in ("cycle", "passage", "photon:absorbed", "photon:escaped") or (len(c) > 12 and field not in ("comp_us",))]
+        xs = [num(c[field]) for c in C if len(c) > 12 and (field != "comp_us" or c["law"] in ("cycle", "passage")) and num(c[field]) == num(c[field]) and num(c[field]) >= 0]
         if xs:
             print(f"{name:38s} n={len(xs):6d} median {fmt(q(xs,.5))} p90 {fmt(q(xs,.9))} p99 {fmt(q(xs,.99))} max {fmt(max(xs))}")
     rec = collections.Counter(c["recon"] for c in C if len(c) > 12 and c["law"] in ("cycle", "passage"))
@@ -266,13 +285,49 @@ def main():
         elif law in ("cycle", "passage"):
             lawc = "turns (" + law + ")"
         elif law.startswith("photon"):
-            lawc = law
+            lawc = law + (" (inbound)" if inbound else " (outbound)")
         else:
             lawc = law
         CAP[(g, "ref absorbs" if refabs else "ref free", lawc)] += 1
     for k, v in sorted(CAP.items()):
         if k[1] == "ref absorbs" or "plunging" in k[0] or "E=1" in k[0] or "horizon" in k[0] or "photon" in k[2] or "null" in k[0]:
             print(f"{v:6d}  {k[0]:34s} {k[1]:12s} law: {k[2]}")
+    # ---- whirl windows (the judge's: u3 - u2 < 2^-10 h)
+    print("\n== near-separatrix whirl windows (delta/h < 2^-10), E < 1 cases that start between the roots or inside ==")
+    cls = lambda c: next((t for t in c["cat"].split("+")[1:] if t in ("bound", "unbound", "plunging")), "")
+    for label, pick in (("whirl, ref bound", lambda c: cls(c) == "bound" and num(c["deltah"]) < 2 ** -10),
+                        ("whirl, ref plunging", lambda c: cls(c) == "plunging" and num(c["deltah"]) < 2 ** -10),
+                        ("not whirl, ref bound, margin<1e-3", lambda c: cls(c) == "bound" and num(c["deltah"]) >= 2 ** -10 and num(c["margin"]) < 1e-3)):
+        cs = [c for c in C if len(c) > 12 and pick(c)]
+        if not cs:
+            continue
+        cnt = collections.Counter(c["law"] for c in cs)
+        ids = {(c["rung"], c["id"]) for c in cs}
+        rs = [r for r in mapped if (r["rung"], r["id"]) in ids and num(r["ncyc"]) <= NMAX]
+        rel = [num(r["rel"]) for r in rs]
+        kn = [num(c["knots"]) for c in cs if c["law"] == "cycle"]
+        print(f"{label:36s} cases {len(cs):4d}  law: " + ", ".join(f"{k} {v}" for k, v in cnt.most_common()) + f" | positions n<=10: {len(rs)} median {fmt(q(rel,.5))} p99 {fmt(q(rel,.99))} max {fmt(max(rel) if rel else float('nan'))}, behaviour {100*sum(within(r, TOL['behaviour']) for r in rs)/max(len(rs),1):.1f}% | knots median {fmt(q(kn,.5))} max {fmt(max(kn) if kn else float('nan'))}")
+    # ---- behaviour differences (class, turning, capture)
+    print("\n== where the law's behaviour differs from the certified class (cases) ==")
+    diffs = collections.defaultdict(list)
+    for c in C:
+        if len(c) < 12 or c["law"].startswith("skip") or c["law"].startswith("photon") or "null" in c["cat"].split("+"):
+            continue
+        k = cls(c)
+        refabs = num(c["nabs"]) > 0
+        if k == "bound" and c["law"] != "cycle":
+            diffs["ref bound orbit, law " + c["law"]].append(c)
+        elif k == "unbound" and c["law"] != "passage" and not (c["law"].startswith("refused:Range") and False):
+            diffs["ref unbound with turning point or escape, law " + c["law"]].append(c)
+        elif k == "plunging" and c["law"] in ("cycle", "passage"):
+            diffs["ref plunging, law returns an orbit (turns)"].append(c)
+        elif refabs and c["law"] in ("cycle", "passage"):
+            diffs["ref absorbs, law returns an orbit (turns)"].append(c)
+        elif k == "plunging" and c["law"].startswith("refused:Range"):
+            diffs["ref plunging, law refuses with Range (no class)"].append(c)
+    for k, cs in sorted(diffs.items(), key=lambda kv: -len(kv[1])):
+        ex = ", ".join(f"{c['id']}(m={fmt(num(c['margin']))})" if num(c['margin']) == num(c['margin']) else c['id'] for c in cs[:5])
+        print(f"{len(cs):6d}  {k}   e.g. {ex}")
     # ---- worst cases
     print("\n== worst mapped positions with n <= 10 (rel error) ==")
     for r in sorted([r for r in mapped if num(r["ncyc"]) <= NMAX], key=lambda r: -num(r["rel"]))[:12]:

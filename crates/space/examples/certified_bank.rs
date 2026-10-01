@@ -442,7 +442,8 @@ fn integer_state(c: &Case, cv: &Conv) -> IntegerState {
     let big = px.abs().max(py.abs());
     let pe = big.log2().floor() as i32 + 1 - 62;
     let (n, t) = ([x / r, y / r], [-y / r, x / r]);
-    let v = [cv.vr * n[0] + cv.vt * t[0], cv.vr * n[1] + cv.vt * t[1]];
+    let eps: f64 = std::env::var("BANK_PERTURB").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
+    let v = [(cv.vr * n[0] + cv.vt * t[0]) * (1.0 + eps), (cv.vr * n[1] + cv.vt * t[1]) * (1.0 + eps)];
     IntegerState {
         position: [(px / pow2(pe)).round() as i64, (py / pow2(pe)).round() as i64],
         velocity: [(v[0] * pow2(62)).round() as i64, (v[1] * pow2(62)).round() as i64],
@@ -595,7 +596,7 @@ fn process(c: &Case, rows: &mut Rows) {
     let mut scat = String::from("-");
     let mut window = f64::NAN;
     let mut ecc = f64::NAN;
-    let (mut margin, mut deltah, mut edge_ratio) = (f64::NAN, f64::NAN, f64::NAN);
+    let (mut margin, mut deltah, mut edge_ratio, mut rp_m) = (f64::NAN, f64::NAN, f64::NAN, f64::NAN);
     match convert(c) {
         Err(why) => law = format!("skip:{why}"),
         Ok(cv) => {
@@ -709,6 +710,7 @@ fn process(c: &Case, rows: &mut Rows) {
                             ecc = pow2(48) / key.k as f64 - 1.0;
                             let rp = sf(key.periapsis);
                             edge_ratio = edge_used / rp;
+                            rp_m = rp;
                             // exact turning points: the Arb roots where the bank has them (G22), else
                             // a float polish of R(u) (unreliable at a double root: circles, separatrix)
                             let (up, ua_exact) = match &c.diag {
@@ -782,7 +784,7 @@ fn process(c: &Case, rows: &mut Rows) {
                     if !period_m.is_nan() {
                         ncyc = s / period_m;
                     }
-                    if rref < pow2(45) {
+                    if rref < pow2(45) && a.t != c.t0 {
                         floor = if lx.floor() as i128 == a.x[0] && ly.floor() as i128 == a.x[1] { '1' } else { '0' };
                     }
                 }
@@ -799,8 +801,8 @@ fn process(c: &Case, rows: &mut Rows) {
     }
     let _ = write!(
         cm,
-        "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.3}\t{}\t{}\t{:.3e}\t{:.3e}\t{}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{}\t{}\t{:.3e}\t{:.3e}\t{:.4e}\t{:.3e}\t{:.6e}\t{:.6e}\t{:.4e}\t{:.4e}\t{:.4e}",
-        c.id, c.cat, law, nfree, nabs, inbound as u8, e_val, l_val, rho0, comp_us, knots, cross, fitp, fitv, recon, turn_p, turn_a, per_rel, adv_rel, defl_abs, defl_rel, scat, c.diag.is_some() as u8, e_err, l_err, ecc, window, law_per, law_adv, margin, deltah, edge_ratio
+        "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.3}\t{}\t{}\t{:.3e}\t{:.3e}\t{}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{}\t{}\t{:.3e}\t{:.3e}\t{:.4e}\t{:.3e}\t{:.6e}\t{:.6e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.4e}",
+        c.id, c.cat, law, nfree, nabs, inbound as u8, e_val, l_val, rho0, comp_us, knots, cross, fitp, fitv, recon, turn_p, turn_a, per_rel, adv_rel, defl_abs, defl_rel, scat, c.diag.is_some() as u8, e_err, l_err, ecc, window, law_per, law_adv, margin, deltah, edge_ratio, rp_m
     );
     rows.c.push_str(&cm);
     rows.c.push('\n');
@@ -828,7 +830,9 @@ fn main() {
             format!("{}/Research/emergent-space", std::env::var("HOME").unwrap())
         }
     });
-    panic::set_hook(Box::new(|_| {}));
+    if std::env::var_os("BANK_VERBOSE").is_none() {
+        panic::set_hook(Box::new(|_| {}));
+    }
     let t0 = Instant::now();
     let cases = load(&root, &rung);
     let load_s = t0.elapsed().as_secs_f64();
