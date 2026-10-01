@@ -35,6 +35,11 @@ pub const BINARY_SEED: u64 = 20261001;
 pub const HANDOFF_SEED: u64 = 20261002;
 pub const ASSIST_SEED: u64 = 20261003;
 pub const HILL_SEED: u64 = 20261004;
+/// Seeds of the amendments from the law's red-team (1 October): B9's extreme orbits, B16's moving
+/// lenses, B14's eccentric births.
+pub const EXTREME_SEED: u64 = 20261005;
+pub const LENS_SEED: u64 = 20261006;
+pub const ECCENTRIC_SEED: u64 = 20261007;
 
 /// `n` bound orbits (p, e): p log-uniform in [10, 1000], e uniform in [0, 0.7], redrawn unless
 /// p >= 6.5 + 2e (it never binds for p >= 10; it keeps a wider range safe). The first `k` of `n`
@@ -49,6 +54,24 @@ pub fn bound_orbits(n: usize) -> Vec<(f64, f64)> {
         }
     }
     out
+}
+
+/// B9's extreme orbits: the first 16 sit at e = 0.99 exactly, p log-spaced over [10, 1000]; the
+/// rest have p log-uniform in [10, 1000] and 1 − e log-uniform in [0.01, 0.3], so e runs from 0.7 to
+/// 0.99. They are appended to `bound_orbits(256)` (e below 0.7), whose draws stay as they were. The
+/// first `k` of `n` are those of any longer draw.
+pub fn extreme_orbits(n: usize) -> Vec<(f64, f64)> {
+    let mut rng = Rng(EXTREME_SEED);
+    (0..n)
+        .map(|i| {
+            let (p, one_minus_e) = (rng.log_uniform(10.0, 1000.0), rng.log_uniform(0.01, 0.3));
+            if i < 16 {
+                (10.0 * 100f64.powf(i as f64 / 15.0), 0.99)
+            } else {
+                (p, 1.0 - one_minus_e)
+            }
+        })
+        .collect()
 }
 
 /// `n` light impact parameters b, log-uniform in [10, 1000].
@@ -118,6 +141,44 @@ pub fn flybys(n: usize) -> Vec<(f64, f64, f64)> {
 pub fn moons(n: usize) -> Vec<(f64, f64)> {
     let mut rng = Rng(HILL_SEED);
     (0..n).map(|_| (0.2 + 0.7 * rng.unit(), std::f64::consts::TAU * rng.unit())).collect()
+}
+
+/// The kinds of moving-lens seed; seed `i` is of kind `lens_kind(i)`: head-on, transverse, oblique.
+pub const LENS_KINDS: [&str; 3] = ["head-on", "transverse", "oblique"];
+pub fn lens_kind(i: usize) -> usize {
+    (i % 4).min(2)
+}
+
+/// `n` moving-lens encounters (β, θ, b): the lens moves along +x at β, the light travels in the
+/// observer's frame at angle θ from +x, and b is the signed impact parameter in the lens frame
+/// (b > 0: the lens is on the light's left). Seed `i` is of kind `LENS_KINDS[lens_kind(i)]`: head-on θ = π
+/// (the lens comes straight at the light), transverse θ = π/2, oblique θ uniform in (0.05π, 0.95π)
+/// (so the lens both approaches and recedes). β is uniform in [0.05, 0.9], and the first four seeds
+/// (one of each kind) are at β = 0.9. |b| is log-uniform in [10, 1000], its sign a coin. The first
+/// `k` of `n` are those of any longer draw.
+pub fn moving_lenses(n: usize) -> Vec<(f64, f64, f64)> {
+    let mut rng = Rng(LENS_SEED);
+    (0..n)
+        .map(|i| {
+            let beta = if i < 4 { 0.9 } else { 0.05 + 0.85 * rng.unit() };
+            let wide = std::f64::consts::PI * (0.05 + 0.9 * rng.unit());
+            let theta = match i % 4 {
+                0 => std::f64::consts::PI,
+                1 => std::f64::consts::FRAC_PI_2,
+                _ => wide,
+            };
+            let b = rng.log_uniform(10.0, 1000.0);
+            (beta, theta, if rng.next() >> 63 == 1 { b } else { -b })
+        })
+        .collect()
+}
+
+/// `n` eccentric births (a, phase, e₀): a uniform in [0.2, 0.9] Hill radii, the periapsis' direction
+/// phase uniform in [0, 2π), e₀ uniform in [0, 0.3]. Even seeds are prograde, odd seeds retrograde.
+/// The first `k` of `n` are those of any longer draw.
+pub fn eccentric_moons(n: usize) -> Vec<(f64, f64, f64)> {
+    let mut rng = Rng(ECCENTRIC_SEED);
+    (0..n).map(|_| (0.2 + 0.7 * rng.unit(), std::f64::consts::TAU * rng.unit(), 0.3 * rng.unit())).collect()
 }
 
 #[cfg(test)]

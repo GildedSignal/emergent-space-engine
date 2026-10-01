@@ -17,7 +17,7 @@ fn gates(lines: &[String]) -> Vec<(String, String)> {
 fn echo_passes_every_gate_between_two_machine_states() {
     let (code, lines) = behave(&["--law", "echo"]);
     assert_eq!(code, 0, "{lines:?}");
-    assert_eq!(gates(&lines).iter().map(|(_, v)| v.as_str()).collect::<Vec<_>>(), ["PASS"; 13]);
+    assert_eq!(gates(&lines).iter().map(|(_, v)| v.as_str()).collect::<Vec<_>>(), ["PASS"; 16]);
     let states: Vec<usize> = (0..lines.len()).filter(|&i| lines[i].starts_with("machine_state {")).collect();
     assert_eq!((states.first(), states.last()), (Some(&0), Some(&(lines.len() - 2))), "{lines:?}");
     assert!(lines[0].contains("\"when\":\"start\"") && lines[lines.len() - 2].contains("\"when\":\"end\""));
@@ -34,7 +34,7 @@ fn a_planted_law_exits_1_and_fails_only_its_gate() {
 }
 
 /// A planted law of the single-mass core fails only its gate. The nine core gates are named: the
-/// default run is all thirteen (30 s or so, and B10 is a timing gate), and three of those at once
+/// default run is all sixteen (45 s or so, and B10 is a timing gate), and three of those at once
 /// would make B10 flaky. `a_planted_law_exits_1_and_fails_only_its_gate` runs a planted law by default.
 fn planted_fails_only(law: &str, gate: &str) {
     let core = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10"];
@@ -77,5 +77,23 @@ fn unknown_laws_and_arguments_are_refused() {
         let (code, lines) = behave(args);
         assert_ne!(code, 0);
         assert!(gates(&lines).is_empty(), "{lines:?}");
+    }
+}
+
+/// The amendments' planted laws that plant their flaw in a cheap gate, through the CLI: the exit code and the last line say
+/// which gate failed. planted-apsides and planted-average plant theirs in the slow gates (B14 and B17, seconds of four
+/// threads each), which would tilt the timing gate B10 of the runs beside them: the unit tests in `behave::amendment_tests` judge them.
+fn amended_fails_only(law: &str, gates_run: &str, gate: &str) {
+    let (code, lines) = behave(&["--law", law, "--gates", gates_run]);
+    assert_eq!(code, 1, "{law}: {lines:?}");
+    let failed: Vec<String> = gates(&lines).into_iter().filter(|(_, v)| v == "FAIL").map(|(g, _)| g).collect();
+    assert_eq!(failed, [gate], "{law}");
+    assert_eq!(lines.last().unwrap(), &format!("behave {law} ({}): FAIL {gate}", gates_run.replace(',', " ")));
+}
+
+#[test]
+fn the_cheap_planted_laws_of_the_amendments_exit_1_and_fail_only_their_gate() {
+    for (law, gate) in [("planted-linear", "B9"), ("planted-static", "B16"), ("planted-flipped", "B16"), ("planted-fat", "B18")] {
+        amended_fails_only(law, "B9,B16,B18", gate);
     }
 }
