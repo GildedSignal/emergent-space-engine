@@ -217,12 +217,12 @@ fn cost_of_the_same_battle_with_re_anchoring() {
     machine_state("after");
 }
 
-/// n bodies closing at 2q/`div` per chronon, tide epoch 32. Contacts start at about chronon 40·div/2.
+/// n bodies closing at 2q/`div` per chronon, tide epoch from the frame's rate. Contacts start at about chronon 40·div/2.
 fn sweep(what: &str, ns: &[u64], div: i64, horizon: Tick, budget: f64, min: usize) {
     machine_state("before");
     warm_up();
     let q = 1024i64;
-    println!("{what}: scenes::battle(n, q = {q}, seed 8, div {div}), horizon {horizon} chronons, E = 32");
+    println!("{what}: scenes::battle(n, q = {q}, seed 8, div {div}), horizon {horizon} chronons");
     for &n in ns {
         let (w, extent) = scenes::battle(n, q, 8, div, false);
         let f = frame_for(extent, q, div, horizon, 11);

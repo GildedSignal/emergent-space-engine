@@ -5,7 +5,7 @@
 //! threads of the kick pass (the steppers themselves are single-threaded); and a kick applied
 //! at a different epoch in one order breaks the equality.
 //!
-//! The scenes climb a ladder: the epoch shrinks from 2048 chronons (a physically valid frame
+//! The scenes climb a ladder: the epoch shrinks from 256 chronons (a physically valid frame
 //! for a small battle: the size rules of `frame.rs` hold) to 1 chronon (a kick and a
 //! re-prediction of every body every chronon, far outside the physics: it exists to break the
 //! sparse order). Scenes whose frame violates the size rules are stress scenes; the flags are
@@ -55,6 +55,9 @@ struct Run {
     epochs: u64,
     refused: u64,
     extent_ok: bool,
+    /// Some body holds a sub-quantum carry: the tide kicked it (a valid frame's tide is far below
+    /// one velocity quantum over a battle, so its kicks live in the carries).
+    carried: bool,
     /// Event core only: grids re-formed (genesis excluded).
     rebuilds: u64,
 }
@@ -65,7 +68,7 @@ fn lockstep(w: &World, f: &Frame, threads: usize, shift: Tick) -> Run {
     b.run_to(HORIZON).unwrap();
     let secs = t.elapsed().as_secs_f64();
     let st = b.stats();
-    Run { out: b.outcome(), contacts: b.stepper().log().contacts, secs, battle_changed: st.changed, epochs: st.epochs, refused: st.refused, extent_ok: f.extent_ok(st.max_r2), rebuilds: 0 }
+    Run { out: b.outcome(), contacts: b.stepper().log().contacts, secs, battle_changed: st.changed, epochs: st.epochs, refused: st.refused, extent_ok: f.extent_ok(st.max_r2), carried: b.carries().iter().any(|c| *c != [0, 0]), rebuilds: 0 }
 }
 
 fn sparse(w: &World, f: &Frame, threads: usize, shift: Tick) -> Run {
@@ -74,7 +77,7 @@ fn sparse(w: &World, f: &Frame, threads: usize, shift: Tick) -> Run {
     b.run_to(HORIZON).unwrap();
     let secs = t.elapsed().as_secs_f64();
     let st = b.stats();
-    Run { out: b.outcome(), contacts: b.stepper().log().contacts, secs, battle_changed: st.changed, epochs: st.epochs, refused: st.refused, extent_ok: f.extent_ok(st.max_r2), rebuilds: b.stepper().rebuilds() }
+    Run { out: b.outcome(), contacts: b.stepper().log().contacts, secs, battle_changed: st.changed, epochs: st.epochs, refused: st.refused, extent_ok: f.extent_ok(st.max_r2), carried: b.carries().iter().any(|c| *c != [0, 0]), rebuilds: b.stepper().rebuilds() }
 }
 
 /// Sweep threads only on the scenes small enough to repeat the runs inside the minute.
@@ -101,13 +104,16 @@ fn scene(s: Scene, sweep_threads: bool) {
         &a.out.world[..12]
     );
     assert_eq!(a.out, b.out, "{}: lockstep and sparse digests", s.name);
-    assert!(a.contacts > 0 && a.battle_changed > 0, "{}: contacts and kicks must happen", s.name);
+    assert!(a.contacts > 0 && a.epochs > 0 && a.carried, "{}: contacts and kicks must happen", s.name);
     assert!(!s.storm || a.refused > 0, "{}: the storm must refuse kicks", s.name);
     assert_eq!((a.contacts, a.epochs), (b.contacts, b.epochs));
 
     // Control: without its kicks (pushed past the horizon) the same battle ends elsewhere, so
-    // the equality above is about the tide, not a scene that ignores it.
-    let unkicked = lockstep(&w, &f, 1, HORIZON + 1);
+    // the equality above is about the tide, not a scene that ignores it. (The same frame about the
+    // non-rotating axes: `Frame::new` also turns the world from the co-rotating axes at genesis,
+    // which is a change of coordinates, not a kick of the tide.)
+    let inertial = Frame::on_orbit(s.q, f.radius(), f.n(), 0, 0, 0).unwrap();
+    let unkicked = lockstep(&w, &inertial, 1, HORIZON + 1);
     assert_eq!(unkicked.epochs, 0);
     assert_ne!(unkicked.out.world, a.out.world, "{}: the tide must change the outcome", s.name);
 
@@ -149,14 +155,14 @@ macro_rules! scenes {
 // battle flies apart and leaves the frame's size rule; from about 4, kicks reach c and are
 // refused. Those rungs are stress scenes: the integer law is defined there, the physics is not.
 scenes! {
-    s0_valid_50_e2048: "s0", 50, 1024, 1, 32, false, 17, false, true;
-    s1_100_e512: "s1", 100, 1024, 2, 8, false, 15, false, true;
-    s2_200_e256: "s2", 200, 512, 3, 8, false, 14, false, true;
-    s3_formation_400_e128: "s3", 400, 1024, 4, 16, true, 13, false, true;
-    s4_800_e64: "s4", 800, 2048, 5, 16, false, 12, false, true;
-    s5_formation_1200_e32: "s5", 1200, 1024, 6, 32, true, 11, false, true;
-    s6_1600_e16: "s6", 1600, 1024, 7, 32, false, 10, false, true;
-    s7_storm_formation_2000_e4: "s7", 2000, 1024, 8, 8, true, 8, true, true;
+    s0_valid_50_e256: "s0", 50, 1024, 1, 32, false, 16, false, true;
+    s1_100_e128: "s1", 100, 1024, 2, 8, false, 15, false, true;
+    s2_200_e64: "s2", 200, 512, 3, 8, false, 14, false, true;
+    s3_formation_400_e32: "s3", 400, 1024, 4, 16, true, 13, false, true;
+    s4_800_e16: "s4", 800, 2048, 5, 16, false, 12, false, true;
+    s5_formation_1200_e8: "s5", 1200, 1024, 6, 32, true, 11, false, true;
+    s6_1600_e4: "s6", 1600, 1024, 7, 32, false, 10, false, true;
+    s7_storm_formation_2000_e1: "s7", 2000, 1024, 8, 8, true, 8, true, true;
 }
 
 /// Control: the formation scenes really form velocity classes in the event core (so the kicks

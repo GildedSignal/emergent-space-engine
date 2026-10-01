@@ -2,15 +2,22 @@
 //! none): a body released in the frame follows the Clohessy–Wiltshire closed form, in both
 //! evaluation orders; a reversed tide fails the same check; and the closed form itself is
 //! checked against the full nonlinear two-body motion, which fixes the first-order limit.
+//! The frame's axes do not rotate: Clohessy–Wiltshire is read in the axes that co-rotate with
+//! the reference circle, so the body's offset is turned by −n·t (what a Hill-frame reading is).
+//! A frame on an eccentric tube is checked against the full two-body motion (Tschauner–Hempel's
+//! limit), and a frame's tube against Kepler's orbit.
 //!
 //! **Scale (stated).** Q = 2^20 (c = 2^20 lattice units per chronon, so one light-chronon is
 //! 2^20 units and the lattice velocity quantum is 2^-20 c). Mean motion n = 2^-14 rad per
-//! chronon (period P = 102,943 chronons); the epoch is E = 256 chronons (402 epochs per
-//! period). The body is released at rest at radial offset dr = 2^22 units (4 light-chronons)
-//! from a parent orbit of radius R = 1000·dr = 4000 light-chronons: dr/R = 10^-3, and the
-//! orbit speed n·R = c/4.1 sits just under the weak-field rule. The tide then moves the body
-//! by hundreds of units per chronon, so the velocity quantum is a 0.1% effect.
+//! chronon (period P = 102,943 chronons); the epoch is E = 64 chronons (1,608 epochs per
+//! period: the leapfrog's secular error in non-rotating axes grows as (n·t)²(n·E)²/24, which
+//! at ten periods asks for n·E ≤ 2^-8). The body is released at rest at radial offset
+//! dr = 2^22 units (4 light-chronons) from a parent orbit of radius R = 1000·dr = 4000
+//! light-chronons: dr/R = 10^-3, and the orbit speed n·R = c/4.1 sits just under the weak-field
+//! rule. The tide then moves the body by hundreds of units per chronon, so the velocity quantum
+//! is a 0.1% effect.
 use emergent_engine::{scenes, Battle, Frame};
+use emergent_lattice::law::{Body, Law, Response, World};
 use emergent_lattice::{chronon::Chronon, Kickable, Motion};
 use emergent_lattice_event::EventCore;
 
@@ -33,12 +40,19 @@ fn cw(n: f64, x0: f64, v0: [f64; 2], t: f64) -> [f64; 2] {
     ]
 }
 
+/// A body's offset in the axes that co-rotate with the reference circle (radial, along-track):
+/// the frame's non-rotating offset turned by −n·t.
+fn hill(x: [i64; 2], n: f64, t: f64) -> [f64; 2] {
+    let (c, s) = ((n * t).cos(), (n * t).sin());
+    [c * x[0] as f64 + s * x[1] as f64, -s * x[0] as f64 + c * x[1] as f64]
+}
+
 struct Track {
     /// Largest |r − r_cw| / |r_cw| over every epoch of one period.
     max_rel: f64,
     epochs: i64,
     /// Final position, integer and closed form.
-    end: ([i64; 2], [f64; 2]),
+    end: ([f64; 2], [f64; 2]),
     /// Largest |x|² of the run, against the extent rule.
     extent_ok: bool,
 }
@@ -49,16 +63,16 @@ fn follow<S: Kickable>(mut battle: Battle<S>, v0: [i64; 2]) -> (Track, emergent_
     let f = battle.frame().clone();
     let (n, e) = (f.n_f64(), f.epoch());
     let mut m: Vec<Motion> = Vec::new();
-    let (mut max_rel, mut end) = (0f64, ([0, 0], [0.0, 0.0]));
+    let (mut max_rel, mut end) = (0f64, ([0.0, 0.0], [0.0, 0.0]));
     let epochs = f.period() / e;
     for j in 1..=epochs {
         battle.run_to(j * e).unwrap();
         battle.stepper().motions(&mut m);
         let want = cw(n, DR as f64, [v0[0] as f64, v0[1] as f64], (j * e) as f64);
-        let got = [m[0].x[0] as f64, m[0].x[1] as f64];
+        let got = hill(m[0].x, n, (j * e) as f64);
         let rel = ((got[0] - want[0]).powi(2) + (got[1] - want[1]).powi(2)).sqrt() / (want[0].powi(2) + want[1].powi(2)).sqrt();
         max_rel = max_rel.max(rel);
-        end = (m[0].x, want);
+        end = (got, want);
     }
     let extent_ok = f.extent_ok(battle.stats().max_r2);
     (Track { max_rel, epochs, end, extent_ok }, battle.outcome())
@@ -77,7 +91,7 @@ fn sparse(f: Frame, v0: [i64; 2]) -> (Track, emergent_engine::Outcome) {
 #[test]
 fn the_frame_is_what_the_scale_says() {
     let f = frame();
-    assert_eq!(f.epoch(), 256, "E is the largest power of two with n·E ≤ 2^-6");
+    assert_eq!(f.epoch(), 64, "E is the largest power of two with n·E ≤ 2^-8");
     assert_eq!(f.period(), 102_943);
     assert!(f.orbit_speed_ok(), "n·R ≤ c/4");
     assert_eq!(R / DR, 1000, "dr/R = 10^-3");
@@ -88,7 +102,7 @@ fn released_at_rest_follows_clohessy_wiltshire_within_one_percent_in_both_orders
     let (a, out_a) = lockstep(frame(), [0, 0]);
     let (b, out_b) = sparse(frame(), [0, 0]);
     println!(
-        "CW behaviour, released at rest, dr/R = 1e-3, one period ({} epochs of {} chronons):\n  lockstep max relative position error {:.3e}\n  sparse   max relative position error {:.3e}\n  end of period: x = {:?}, closed form {:?}; extent rule (|x| ≤ R/32) held: {}",
+        "CW behaviour, released at rest, dr/R = 1e-3, one period ({} epochs of {} chronons):\n  lockstep max relative position error {:.3e}\n  sparse   max relative position error {:.3e}\n  end of period: x = {:.0?}, closed form {:.0?}; extent rule (|x| ≤ R/32) held: {}",
         a.epochs,
         frame().epoch(),
         a.max_rel,
@@ -102,7 +116,7 @@ fn released_at_rest_follows_clohessy_wiltshire_within_one_percent_in_both_orders
     assert_eq!(out_a, out_b, "one body, both orders, the same bits");
     // The drift is real: 12π·dr along the orbit, so the check is not passed by standing still.
     assert!(a.end.1[1] < -30.0 * DR as f64, "the closed form drifts by 12π·dr per period");
-    assert!((a.end.0[1] as f64) < -30.0 * DR as f64, "and so does the body");
+    assert!(a.end.0[1] < -30.0 * DR as f64, "and so does the body");
 }
 
 #[test]
@@ -113,7 +127,7 @@ fn a_steady_shear_release_keeps_its_radius() {
     let (b, out_b) = sparse(frame(), [0, -384]);
     println!("steady shear: max relative error lockstep {:.3e}, sparse {:.3e}", a.max_rel, b.max_rel);
     assert!(a.max_rel < 1e-3 && b.max_rel < 1e-3);
-    assert!((a.end.0[0] - DR).abs() < DR / 1000, "radius {} against {DR}", a.end.0[0]);
+    assert!((a.end.0[0] - DR as f64).abs() < DR as f64 / 1000.0, "radius {} against {DR}", a.end.0[0]);
     assert_eq!(out_b, lockstep(frame(), [0, -384]).1);
 }
 
@@ -176,18 +190,19 @@ fn the_closed_form_is_first_order_and_the_size_rule_says_how_first() {
 }
 
 #[test]
-fn an_epicycle_keeps_its_shape_for_a_period_and_drifts_by_the_quantum_noise_after() {
+fn an_epicycle_keeps_its_shape_and_its_guiding_centre_for_a_thousand_periods() {
     // v_y = −2n·dr = −512 (exact) is the drift-free epicycle: x = dr·cos nt, y = −2·dr·sin nt.
-    // A thousand periods is 4×10^5 epochs of 256 chronons; the sparse order jumps between them
+    // A thousand periods is 1.6×10^6 epochs of 64 chronons; the sparse order jumps between them
     // (lockstep would take a minute, and gives the same bits by the identity tests).
     //
-    // Within the first period (the frame's whole life: see the size rule) the shape holds.
-    // After that the guiding centre moves, and it is a finding. Integer velocities carry a
-    // position error of up to E/2 units per epoch (the lattice drifts at k; the true velocity
-    // is k + c/2^48). That error random-walks the guiding centre x_c = 4x + 2v_y/n, and the
-    // shear turns an error δ of x_c into an along-track drift of 3nδ/2 per chronon: the tide's
-    // own amplification of a sub-quantum error, growing like t^1.5, not exponentially. The
-    // check below is that it stays within the random-walk estimate of the noise.
+    // Integer velocities carry a position error of up to E/2 units per epoch (the lattice drifts at
+    // k; the true velocity is k + c/2^48). Were the tide to act at the lattice position, that error
+    // would random-walk the guiding centre x_c = 4x + 2v_y/n (a constant of the linear motion), and
+    // the shear would turn an error δ of x_c into an along-track drift of 3nδ/2 per chronon: the
+    // tide's own amplification of a sub-quantum error, 1.7·n·√E·t^1.5 (150 dr after a thousand
+    // periods here; it was the old frame's noise floor). The frame owes each body its dropped drift
+    // and kicks it at its true position, lattice position plus the debt, so the error is only a
+    // reading error, bounded by one epoch's drop, and the guiding centre does not move.
     let f = frame();
     let e = f.epoch();
     let per = f.period() / e;
@@ -199,27 +214,119 @@ fn an_epicycle_keeps_its_shape_for_a_period_and_drifts_by_the_quantum_noise_afte
     for j in 1..=periods * per {
         b.run_to(j * e).unwrap();
         b.stepper().motions(&mut m);
+        let h = hill(m[0].x, f.n_f64(), (j * e) as f64);
+        let (hx, hy) = (h[0].round() as i64, h[1].round() as i64);
         let s = &mut span[((j - 1) / per) as usize];
-        *s = (s.0.min(m[0].x[0]), s.1.max(m[0].x[0]), s.2.min(m[0].x[1]), s.3.max(m[0].x[1]));
+        *s = (s.0.min(hx), s.1.max(hx), s.2.min(hy), s.3.max(hy));
     }
     let dr = DR as f64;
     let first = span[0];
     let (xs, ys) = ((first.1 - first.0) as f64 / dr, (first.3 - first.2) as f64 / dr);
     let centre = |s: (i64, i64, i64, i64)| (s.2 + s.3) as f64 / 2.0 / dr;
-    // Random-walk estimate of the along-track drift after t chronons: 3n/2 · (4E/√12)·√(t/E) · t.
-    let estimate = |periods: i64| {
-        let t = (periods * per * e) as f64;
-        1.5 * f.n_f64() * (4.0 * e as f64 / 12f64.sqrt()) * (t / e as f64).sqrt() * t / dr
-    };
     let drift = |p: i64| centre(span[p as usize - 1]);
     println!(
-        "epicycle, first period: peak-to-peak x {xs:.5} dr (2 exact), y {ys:.5} dr (4 exact), centre y offset {:+.4} dr\ncentre y offset after 1, 10, 100, 1000 periods: {:+.3}, {:+.3}, {:+.2}, {:+.1} dr; random-walk estimate of the quantum noise: {:.2}, {:.1}, {:.0}, {:.0} dr",
-        drift(1), drift(1), drift(10), drift(100), drift(1000), estimate(1), estimate(10), estimate(100), estimate(1000)
+        "epicycle, first period: peak-to-peak x {xs:.5} dr (2 exact), y {ys:.5} dr (4 exact), centre y offset {:+.4} dr\ncentre y offset after 1, 10, 100, 1000 periods: {:+.4}, {:+.4}, {:+.4}, {:+.4} dr (the old frame's noise floor: 0.00, 0.1, 5, 149)",
+        drift(1), drift(1), drift(10), drift(100), drift(1000)
     );
-    assert!((xs / 2.0 - 1.0).abs() < 3e-3 && (ys / 4.0 - 1.0).abs() < 3e-3, "the epicycle's shape in its first period: {xs}, {ys}");
-    assert!(drift(1).abs() < 0.02, "within the first period the centre stays within 1% of the epicycle: {} dr", drift(1));
-    for p in [10, 100, 1000] {
-        assert!(drift(p).abs() < 3.0 * estimate(p), "after {p} periods the drift is the quantum noise's: {} dr against {}", drift(p), estimate(p));
+    assert!((xs / 2.0 - 1.0).abs() < 1e-3 && (ys / 4.0 - 1.0).abs() < 1e-3, "the epicycle's shape in its first period: {xs}, {ys}");
+    for p in [1, 10, 100, 1000] {
+        assert!(drift(p).abs() < 0.02, "after {p} periods the centre stays within 1% of the epicycle: {} dr", drift(p));
     }
     assert!(b.carries().iter().flatten().all(|&c| (-(1i64 << 47)..(1i64 << 47)).contains(&c)));
+}
+
+/// Two-body motion about a parent of GM = 1 (units: n = 1 at r = 1): the symplectic fourth-order
+/// composition of velocity Verlet, small steps. Returns the position at each sample.
+fn kepler_track(p0: [f64; 2], v0: [f64; 2], h_sample: f64, samples: usize, sub: usize) -> Vec<[f64; 2]> {
+    let acc = |p: [f64; 2]| {
+        let r3 = (p[0] * p[0] + p[1] * p[1]).powf(1.5);
+        [-p[0] / r3, -p[1] / r3]
+    };
+    let verlet = |p: &mut [f64; 2], v: &mut [f64; 2], h: f64| {
+        let a = acc(*p);
+        for c in 0..2 {
+            v[c] += 0.5 * h * a[c];
+            p[c] += h * v[c];
+        }
+        let a = acc(*p);
+        for c in 0..2 {
+            v[c] += 0.5 * h * a[c];
+        }
+    };
+    let c1 = 1.0 / (2.0 - 2.0_f64.cbrt());
+    let c0 = 1.0 - 2.0 * c1;
+    let (mut p, mut v) = (p0, v0);
+    let h = h_sample / sub as f64;
+    let mut out = vec![p];
+    for _ in 0..samples {
+        for _ in 0..sub {
+            verlet(&mut p, &mut v, c1 * h);
+            verlet(&mut p, &mut v, c0 * h);
+            verlet(&mut p, &mut v, c1 * h);
+        }
+        out.push(p);
+    }
+    out
+}
+
+#[test]
+fn a_frame_on_an_eccentric_tube_feels_the_tide_along_it() {
+    // Tschauner–Hempel's limit: the frame's origin is on a Kepler orbit of eccentricity 0.3 (periapsis R,
+    // so the tide swings by ((1+e)/(1−e))³ = 12 between periapsis and apoapsis and its axis turns
+    // 2.2× faster at periapsis than a circle's), and members released at rest about it (small
+    // offsets, so the linear tide is the whole story) must follow the full two-body motion. The
+    // frame's tube is read from crates/space (the exact orbit), the tide from its r and r̂.
+    let e = 0.3f64;
+    let f = Frame::on_orbit(Q, R, N, (e * 2f64.powi(48)) as u64, 0, 0).unwrap();
+    let n = f.n_f64();
+    let period = 2.0 * std::f64::consts::PI / n * (1.0 - e).powf(-1.5);
+    let stride = f.epoch() * 64;
+    let samples = (2.0 * period / stride as f64) as usize;
+    // Three members, 1e-4·R from the origin, at rest relative to it (same inertial velocity).
+    let offs = [[4.2e5f64, 0.0], [-2.0e5, 3.0e5], [1.0e5, -4.0e5]];
+    let bodies: Vec<Body> = offs.iter().enumerate().map(|(i, o)| Body::new(i as u64 + 1, [o[0] as i64, o[1] as i64], [0, 0], 1 + i as i64, 10, Response::Pass)).collect();
+    let w = World::new(Q, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap();
+    let h = stride as f64 * n;
+    let v_peri = (1.0 + e).sqrt();
+    let origin = kepler_track([1.0, 0.0], [0.0, v_peri], h, samples, 200);
+    let truth: Vec<Vec<[f64; 2]>> = offs
+        .iter()
+        .map(|o| {
+            let p = kepler_track([1.0 + o[0] / R as f64, o[1] / R as f64], [0.0, v_peri], h, samples, 200);
+            p.iter().zip(&origin).map(|(a, b)| [(a[0] - b[0]) * R as f64, (a[1] - b[1]) * R as f64]).collect()
+        })
+        .collect();
+    let mut worst = [0f64; 2];
+    for (k, anchored) in [false, true].into_iter().enumerate() {
+        let mut b = Battle::new(EventCore::new(w.clone(), false).unwrap(), f.clone(), 1);
+        if anchored {
+            b = b.with_anchoring(emergent_engine::AnchorPolicy { age_epochs: 64, enforce_orbit_rule: true }).unwrap();
+        }
+        let mut m: Vec<Motion> = Vec::new();
+        for s in 1..=samples {
+            let tick = s as i64 * stride;
+            b.run_to(tick).unwrap();
+            b.stepper().motions(&mut m);
+            // The offsets from the origin are in the frame's own axes; anchored, the origin moves to the
+            // members' centre of mass, so compare the members' offsets from their own centre of mass.
+            let masses = [1.0, 2.0, 3.0];
+            let mt: f64 = masses.iter().sum();
+            let cm = |g: &dyn Fn(usize) -> [f64; 2]| [(0..3).map(|i| masses[i] * g(i)[0]).sum::<f64>() / mt, (0..3).map(|i| masses[i] * g(i)[1]).sum::<f64>() / mt];
+            let (cg, ct) = (cm(&|i| [m[i].x[0] as f64, m[i].x[1] as f64]), cm(&|i| truth[i][s]));
+            let spread = (0..3).map(|i| ((truth[i][s][0] - ct[0]).powi(2) + (truth[i][s][1] - ct[1]).powi(2)).sqrt()).fold(0.0, f64::max);
+            for i in 0..3 {
+                let d = [(m[i].x[0] as f64 - cg[0]) - (truth[i][s][0] - ct[0]), (m[i].x[1] as f64 - cg[1]) - (truth[i][s][1] - ct[1])];
+                worst[k] = worst[k].max((d[0] * d[0] + d[1] * d[1]).sqrt() / spread);
+            }
+        }
+        assert_eq!(b.stats().anchors_refused, 0, "{:?}", b.last_refusal());
+    }
+    println!(
+        "eccentric tube (e = 0.3, period {:.0} chronons, E = {}), three members released at rest 1e-4·R from the origin, two periods:\n  group shape against the two-body motion: frame without anchors {:.3e}, with {:.3e}",
+        period,
+        f.epoch(),
+        worst[0],
+        worst[1]
+    );
+    assert!(worst[0] < 0.01 && worst[1] < 0.01, "within 1%: {worst:?}");
 }

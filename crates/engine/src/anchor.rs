@@ -41,8 +41,10 @@
 //! An anchor is due (`Battle` looks after each epoch's kick, and fires at the next epoch) when
 //! a member is farther than `r_p/32` from the origin (the size rule: the anchor recentres it,
 //! and whoever is still out of the rule then leaves), or when `AGE_DIV` anchors per period
-//! have not happened (the lattice's owed drift, and the composition, are settled at least every
-//! `P/8`), and once at genesis. The ladder scenes use a shorter age (a policy).
+//! have not happened (the lattice's owed drift, which the reading of positions carries until
+//! it is paid, and the composition, are settled at least every `P/64`), and once at genesis.
+//! The ladder scenes and the judge use a shorter age (a policy: the reading error of a body is
+//! its dropped drift, up to half a unit per chronon since the last anchor).
 //!
 //! # What is still open (measured, not hidden)
 //!
@@ -54,6 +56,14 @@
 //!   linear and not exact.
 //! - A handed-out body stays in the stepper with the frame's coordinates and no tide, so it
 //!   can meet the members it left. The hand-off records are what the events layer takes.
+//! - A body moved by the settle is revised by a kick and its inverse ([`Battle`]'s
+//!   `revise_settled`), because the lattice's `rebase` does not revise a body it only shifts and
+//!   the two orders then fire a re-approaching consumed pair differently (an ignored test in
+//!   `reanchor.rs` is the reproduction); delete it when `rebase` does.
+//! - The tube's fit loses its size and eccentricity to the double root of its cubic when the
+//!   state is exactly circular (about 5e-10 of the size per fit, biased by 1e-11): 4,000 rebindings
+//!   of an exact circle move the origin 10,000 lattice units along-track in ten orbits
+//!   (`tube.rs` tests). An eccentric state (1e-3) moves 21.
 //! - Sparse order: every anchor re-forms the grids (a rebuild, O(n)), about one epoch kick's
 //!   worth of upkeep per body; an anchor per P/8 is 1/50 of the epochs.
 use crate::frame::{round_shift, Battle, BattleStats, FrameError, KickStats, Weight, CARRY_BITS, EPOCH_ANGLE_LOG2, EXTENT_SHIFT};
@@ -63,8 +73,9 @@ use emergent_lattice::{Kickable, Motion};
 use emergent_space::orbit::Scalar;
 use std::time::Instant;
 
-/// The age certificate: at least this many anchors per orbit period.
-pub const AGE_DIV: i64 = 8;
+/// The age certificate: at least this many anchors per orbit period (the lattice's dropped sub-quantum
+/// drift, which the tide shears, grows like t^1.5 between anchors).
+pub const AGE_DIV: i64 = 64;
 /// The largest reference radius the frame's tube arithmetic is validated for (2^40 lattice units).
 pub const MAX_RADIUS: i64 = 1 << 40;
 
@@ -368,9 +379,6 @@ impl<S: Kickable> Battle<S> {
     /// Before an epoch's kick: settle the positions, and re-anchor if one is due.
     pub(crate) fn anchor_epoch(&mut self, weight: Weight) -> Result<(), FrameError> {
         let tick = self.stepper.tick();
-        if self.anchoring.is_some() {
-            self.settle_position_carries(tick);
-        }
         let go = match self.anchoring.as_mut() {
             None => return Ok(()),
             Some(a) => {
@@ -439,14 +447,54 @@ impl<S: Kickable> Battle<S> {
             tick,
         )?;
         let sp = |e: emergent_space::Error| FrameError(format!("crates/space: {e:?}"));
+        // The tide's axis turns by at most twice the epoch angle per epoch (an epoch of one chronon: by up to 2^-5).
         let turn = new.peak_rate(&p.units)?.mul(Scalar::integer(self.frame.epoch())).map_err(sp)?;
-        if turn > Scalar::power_of_two(1 - EPOCH_ANGLE_LOG2 as i16) {
-            return Err(FrameError("the new tube turns the tide's axis by more than twice the epoch angle per epoch".into()));
+        let limit = if self.frame.epoch() == 1 { 5 } else { EPOCH_ANGLE_LOG2 as i16 - 1 };
+        if turn > Scalar::power_of_two(-limit) {
+            return Err(FrameError("the new tube turns the tide's axis by too much per epoch".into()));
         }
         if enforce && new.circular_speed(&p.units)?.scale(2).map_err(sp)? > Scalar::integer(self.frame.q) {
             return Err(FrameError("the new tube's circular speed exceeds c/4: outside the weak-field rule".into()));
         }
         Ok(new)
+    }
+
+    /// A body whose position was settled by its own shift (the owed drift, which differs from body
+    /// to body) is a revised body. The steppers key a consumed contact by the two bodies'
+    /// revisions and drop it when its pair separates, each at its own time (lockstep every 64
+    /// chronons, sparse when it walks the list); that is invisible while pairs move continuously,
+    /// and wrong when a rebase teleports one: a pair that was consumed, then overlapped and
+    /// approached by the shifts, fires in one order and not in the other (found by
+    /// `reanchor.rs`: three contacts at the tick after an anchor, 816 against 813). Every anchor used to
+    /// revise every body by accident (the axes' rotation changed every velocity); now a velocity changes
+    /// only by the centre of mass's, often not at all. A kick and its inverse change no velocity and
+    /// revise (the same `rev + 1` in every order).
+    /// (The lattice's `rebase` should revise a body it moves; this is deleted when it does.)
+    fn revise_settled(&mut self, flush: &[[i64; 2]]) -> Result<(), FrameError> {
+        let mut steps = std::mem::take(&mut self.dk);
+        let mut any = false;
+        for (i, (st, f)) in steps.iter_mut().zip(flush).enumerate() {
+            *st = [0, 0];
+            if *f == [0, 0] {
+                continue;
+            }
+            // The unit step that shortens the velocity (the legal one), along its longer axis.
+            let k = self.motions[i].k;
+            let c = if k[0].abs() >= k[1].abs() { 0 } else { 1 };
+            if k[c] == 0 && self.frame.q < 2 {
+                continue;
+            }
+            st[c] = if k[c] > 0 { -1 } else { 1 };
+            any = true;
+        }
+        let result = if any {
+            let back: Vec<[i64; 2]> = steps.iter().map(|s| [-s[0], -s[1]]).collect();
+            self.stepper.kick(&steps).and_then(|()| self.stepper.kick(&back)).map_err(|e| FrameError(e.0))
+        } else {
+            Ok(())
+        };
+        self.dk = steps;
+        result
     }
 
     /// The event. `weight` is `Some` when it runs before an epoch's kick (the motions are then
@@ -545,8 +593,8 @@ impl<S: Kickable> Battle<S> {
             self.stats.anchor_apply_ns += t_apply.elapsed().as_nanos() as u64;
         }
         self.stats.anchor_plan_ns += (t_plan - t_start).as_nanos() as u64;
-        let a = self.anchoring.as_mut().expect("anchoring is on");
         if !applied {
+            let a = self.anchoring.as_mut().expect("anchoring is on");
             // Refused whole (a velocity past c, out of range, or a tube that is not the frame's):
             // nothing changed anywhere.
             for i in 0..n_all {
@@ -577,6 +625,10 @@ impl<S: Kickable> Battle<S> {
                 self.carries[i] = scratch[i];
             }
         }
+        if !dissolved {
+            self.revise_settled(&flush)?;
+        }
+        let a = self.anchoring.as_mut().expect("anchoring is on");
         let mut moved = false;
         if let Some(new) = rebound {
             moved = !self.reference.as_ref().is_some_and(|old| old.same_orbit(&new));

@@ -83,7 +83,7 @@ impl Units {
         Scalar::integer(tick).mul(self.rate).map_err(sp)
     }
 
-    fn to_state(&self, (x, v): State) -> Result<IntegerState, FrameError> {
+    fn encode(&self, (x, v): State) -> Result<IntegerState, FrameError> {
         let int = |c: i128, bits: i32, unit: Scalar, exp: i16| -> Result<i64, FrameError> {
             let s = Scalar::raw(c, -bits).map_err(sp)?.div(unit).map_err(sp)?.scale(-(exp as i32)).map_err(sp)?;
             i64::try_from(s.fixed(0).map_err(sp)?).map_err(|_| FrameError("state outside the tube's integer range".into()))
@@ -96,7 +96,7 @@ impl Units {
         })
     }
 
-    fn from_state(&self, s: &IntegerState) -> Result<State, FrameError> {
+    fn decode(&self, s: &IntegerState) -> Result<State, FrameError> {
         let fix = |n: i64, exp: i16, unit: Scalar, bits: i32| -> Result<i128, FrameError> {
             Scalar::raw(n as i128, exp as i32).map_err(sp)?.mul(unit).map_err(sp)?.fixed(bits).map_err(sp)
         };
@@ -154,7 +154,7 @@ impl Reference {
     /// Bind the tube to the exact state `exact` at `tick` (rebinding: fit, then the remainder).
     /// Only bound (periodic) orbits are tubes of a frame.
     pub(crate) fn bind(units: &Units, exact: State, tick: Tick) -> Result<Reference, FrameError> {
-        let state = units.to_state(exact)?;
+        let state = units.encode(exact)?;
         let fit = Rebinding::from_state(state, units.time(tick)?, None).map_err(sp)?;
         let Trajectory::Cycle(orbit) = fit.trajectory else {
             return Err(FrameError("the origin's state is not on a bound orbit".into()));
@@ -181,7 +181,7 @@ impl Reference {
         let t = units.time(tick)?.sub(self.spec.peri_time).map_err(sp)?;
         let state = self.orbit.signed_state(t).map_err(sp)?;
         let s = cartesian(state, self.spec.angle, self.spec.clockwise, (POS_EXP, VEL_EXP)).map_err(sp)?;
-        units.from_state(&s)
+        units.decode(&s)
     }
 
     /// The geodesic turned by the remainder's rotation: `(I + δJ)` applied to position and velocity.
@@ -274,5 +274,72 @@ impl Tube {
     pub(crate) fn read(units: &Units, r: &Reference, tick: Tick, radius: i64, n: u64) -> Result<Tube, FrameError> {
         let (x, v) = r.readout(units, tick)?;
         Ok(Tube { x: [x[0] - ((radius as i128) << 32), x[1]], v, azimuth: -(n as i128) * tick as i128, tick, radius, n })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const R: i64 = 1000 << 22;
+    const N: i128 = 1 << 46;
+
+    fn units() -> Units {
+        let n = Scalar::raw(N, -60).unwrap();
+        let r = Scalar::integer(R);
+        Units::newtonian(n.mul(n).unwrap().mul(r).unwrap().mul(r).unwrap().mul(r).unwrap(), R).unwrap()
+    }
+
+    /// The exact circular state at tick 0: (R, 0) and (0, n·R).
+    fn circle() -> State {
+        ([(R as i128) << 32, 0], [0, (N * R as i128 + (1 << 11)) >> 12])
+    }
+
+    /// Binding keeps what the fit discards: at its tick the readout is the exact state, bit for bit,
+    /// for circular, eccentric, retrograde and off-axis states.
+    #[test]
+    fn a_binding_reads_back_the_state_it_was_given() {
+        let u = units();
+        let (x0, v0) = circle();
+        let cases: Vec<(State, Tick)> = vec![
+            ((x0, v0), 0),
+            (([x0[0] + (123_456_789 << 32), 987_654_321 << 20], [v0[0] + (1 << 40) + 12345, v0[1] - (1 << 42) + 777]), 4096),
+            (([-(R as i128) << 32, 1 << 31], [0, -v0[1]]), 1_000_003),
+            (([(R as i128 * 3 / 5) << 32, (R as i128 * 4 / 5) << 32], [-v0[1] * 4 / 5, v0[1] * 3 / 5 + 31]), 77),
+        ];
+        for (exact, tick) in cases {
+            let r = Reference::bind(&u, exact, tick).unwrap();
+            assert_eq!(r.readout(&u, tick).unwrap(), exact, "tick {tick}");
+        }
+    }
+
+    /// Rebinding every few hundred chronons for ten orbits leaves the origin where it was: the part of
+    /// the state a 32-bit orientation cannot hold is carried as a rotation, not as a constant
+    /// offset (which, measured, sent the origin 36,000 lattice units off along-track). The state is
+    /// released at rest 3e-4·R outside the circle, so its orbit has e = 9e-4: for an exactly circular one
+    /// (e < 1e-8) `crates/space`'s fit loses its eccentricity and size to the double root of its cubic
+    /// (about 5e-10 of the size per fit, with a bias of 1e-11), and 4000 rebindings move the origin
+    /// 10,000 units: the cost of rebinding a circle, bounded by rebinding less often.
+    #[test]
+    fn rebinding_every_epoch_for_ten_orbits_does_not_move_the_origin() {
+        let u = units();
+        let eps = 3e-4;
+        let (x0, v0) = circle();
+        let x = [(R as f64 * (1.0 + eps)) as i128, 0];
+        let state: State = ([x[0] << 32, 0], [0, (v0[1] as f64 * (1.0 + eps)) as i128]);
+        let _ = x0;
+        let mut reference = Reference::bind(&u, state, 0).unwrap();
+        let fixed = reference.clone();
+        let (mut worst, step) = (0i128, 256);
+        for j in 1..=4000i64 {
+            let tick = j * step;
+            let state = reference.readout(&u, tick).unwrap();
+            reference = Reference::bind(&u, state, tick).unwrap();
+            if j % 400 == 0 {
+                let (a, b) = (reference.readout(&u, tick).unwrap().0, fixed.readout(&u, tick).unwrap().0);
+                worst = worst.max((a[0] - b[0]).abs().max((a[1] - b[1]).abs()) >> 32);
+            }
+        }
+        assert!(worst < 100, "after 4000 rebindings the origin is {worst} lattice units from the orbit it was bound to (R = {R})");
     }
 }

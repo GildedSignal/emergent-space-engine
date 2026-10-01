@@ -33,15 +33,28 @@
 //! (`h` the interval, `r̂` and `r` the tube's at the kick's tick: the tide frozen at the centre of
 //! its interval), and between kicks the lattice law moves bodies exactly (`x += k` each chronon,
 //! contacts included). `E` is fixed by the frame from the tube's peak angular rate `ω`: the
-//! largest power of two with `ω·E ≤ 2^-6` (the tide's axis turns by at most 1/64 rad per epoch),
-//! so a circular orbit has 400 to 800 epochs per period. With no rotation the velocity subsystem
-//! is a plain sum, so the kick is exact; alternating it with the lattice's exact drift is Strang
-//! splitting, second order in `ω·E`: the frame starts with a **half kick** (`h = E/2`, at
-//! tick 0) and gives a **full kick** (`h = E`) at every later epoch. The lattice velocity `k`
-//! is then the velocity at the middle of its interval: it runs `E/2` chronons ahead of the
-//! position. A frame with no parent mass is [`Frame::flat`]: no tide, no kicks, the lattice's
-//! own digests (gate B0). Every coefficient is an integer computation on the tube's readout
-//! (`crates/space`'s scaled arithmetic), so every machine gets the same bits.
+//! largest power of two with `ω·E ≤ 2^-8` (the tide's axis turns by at most 1/256 rad per epoch,
+//! and `E` is at least one chronon), so a circular orbit has 1,600 to 3,200 epochs per period.
+//! With no rotation the velocity subsystem is a plain sum, so the kick is exact; alternating it
+//! with the lattice's exact drift is Strang splitting, second order in `ω·E`: the frame starts
+//! with a **half kick** (`h = E/2`, at tick 0) and gives a **full kick** (`h = E`) at every later
+//! epoch. The lattice velocity `k` is then the velocity at the middle of its interval: it runs
+//! `E/2` chronons ahead of the position. A frame with no parent mass is [`Frame::flat`]: no
+//! tide, no kicks, the lattice's own digests (gate B0). Every coefficient is an integer
+//! computation on the tube's readout (`crates/space`'s scaled arithmetic), so every machine
+//! gets the same bits.
+//!
+//! **Why 2^-8 (measured).** In non-rotating axes the tide's tensor turns, and Strang's error
+//! against Clohessy–Wiltshire's closed form grows like `(n·t)²·(n·E)²/24`: 4% after ten periods at
+//! `n·E = 2^-6`, the old epoch (a rotating frame had an autonomous system and no such growth);
+//! the leapfrog also splits the shear's double zero into a weak exponential mode (growth
+//! rate ≈ 0.5·`n·E` per radian: a group's 0.1 dr grows e-fold every 80 periods at `n·E = 2^-8`).
+//! Engine-judge E3 (ten periods, 1%) passes at `2^-8` and fails at `2^-7`. Chin's fourth-order
+//! force-gradient scheme (kicks `s/3`, `2s/3` and `4s/3·(A + s²/6·A²)` at spacing `s`, `A` the tidal
+//! acceleration) measured 1.5e-5 against the closed form over ten periods at `n·s = 2^-5` (floats),
+//! so it would allow `n·s = 2^-7` with half the kicks; its long-run stability on this exactly tuned
+//! case is untested, and E3's anchors every 8 epochs then settle too late (the reading error is
+//! the drop since the last anchor), so it waits for an anchor cadence that does not count epochs.
 //!
 //! **Carries.** A body's velocity is `v = k + c/2^48`, with the carry `c ∈ [-2^47, 2^47)`
 //! the sub-quantum part (principle 6: influences below one quantum accumulate). A kick maps
@@ -75,13 +88,17 @@
 //! offsets `dx` shears by `12π·dx` along the orbit per period, so it leaves the bound after
 //! about `P·(r/dx)/1200`. **A valid frame has few epochs.** The radial tide grows like
 //! `exp(√3·n·t)`, so a battle that lasts `T` chronons needs `n·T` of about 1 at most, and there
-//! are only `T/E ∈ [64·nT, 128·nT)` epochs in it.
+//! are only `T/E ∈ [256·nT, 512·nT)` epochs in it.
 //!
-//! **Noise floor.** The lattice drifts at the integer `k`; the true velocity is `k + c/2^48`, so
-//! each epoch leaves a position error of up to `E/2` units. That error random-walks the guiding
-//! centre, and the shear turns it into an along-track drift (about `1.7·n·√E·t^1.5` units after
-//! `t` chronons). It is the tide amplifying a sub-quantum error, not a compounding of the law's;
-//! re-anchoring pays the dropped drift into the positions and restarts it ([`crate::anchor`]).
+//! **Noise floor, and why the tide acts at the true position.** The lattice drifts at the
+//! integer `k`; the true velocity is `k + c/2^48`, so each epoch drops up to `E/2` units of
+//! position. Were the tide to act at the lattice position, that error would random-walk each
+//! body's guiding centre and the shear would turn it into an along-track drift (about
+//! `1.7·n·√E·t^1.5` units after `t` chronons: 150 dr after a thousand periods, the old frame's
+//! floor). The frame keeps what each body is owed (`pcarry`, `Σ c·Δt`, exact in `2^-48` units)
+//! and kicks it at lattice position plus debt, so the error is only a reading error, bounded by
+//! the drop since the last settle, and the guiding centre does not move (0.003 dr after a
+//! thousand periods). Re-anchoring pays the debt into the positions ([`crate::anchor`]).
 //!
 //! # The two orders
 //!
@@ -105,8 +122,11 @@ pub const CARRY_BITS: u32 = 48;
 pub const N_BITS: u32 = 60;
 /// 2π·2^60, rounded: the mean motion of a period of `P` chronons is `TWO_PI_N / P`.
 pub const TWO_PI_N: u64 = 7_244_019_458_077_122_842;
-/// An epoch turns the tide's axis by at most `2^-EPOCH_ANGLE_LOG2` radians.
-pub const EPOCH_ANGLE_LOG2: u32 = 9;
+/// An epoch turns the tide's axis by at most `2^-EPOCH_ANGLE_LOG2` radians (once the epoch is
+/// down to one chronon, by whatever the orbit's rate makes it).
+pub const EPOCH_ANGLE_LOG2: u32 = 8;
+/// The fastest orbit a frame accepts: `n ≤ 2^-MAX_ANGLE_LOG2` radians per chronon.
+pub const MAX_ANGLE_LOG2: u32 = 6;
 /// Extent rule: members within `r_p / 2^EXTENT_SHIFT` of the origin.
 pub const EXTENT_SHIFT: u32 = 5;
 /// Weak-field rule: the orbit speed `n·R` is at most `c / ORBIT_SPEED_DIV`.
@@ -174,8 +194,10 @@ pub struct Frame {
 }
 
 /// One slice of bodies: kick each and update its carry. `active` is empty (every body is in
-/// the frame) or one flag per body; a body handed out of the frame is left alone.
-fn kick_slice(w: &Weights, q2: i128, motions: &[Motion], carries: &mut [[i64; 2]], dk: &mut [[i64; 2]], active: &[bool]) -> KickStats {
+/// the frame) or one flag per body; a body handed out of the frame is left alone. `owed` is empty
+/// or the drift each body's lattice motion has dropped (`2^-48` lattice units): the tide acts at
+/// the body's true position, the lattice position plus what it owes.
+fn kick_slice(w: &Weights, q2: i128, motions: &[Motion], carries: &mut [[i64; 2]], dk: &mut [[i64; 2]], active: &[bool], owed: &[[i128; 2]]) -> KickStats {
     let half = 1i128 << (CARRY_BITS - 1);
     // The matrix rows: (cc, ss) and (tt, uu). The judge's scratch mutant (prepare_mutants.py)
     // patches the line that applies the first row.
@@ -193,6 +215,10 @@ fn kick_slice(w: &Weights, q2: i128, motions: &[Motion], carries: &mut [[i64; 2]
         // v' = v + W·x, in 2^48 fixed point, with v = k + c/2^48.
         let rx = cc * kx + ss * ky;
         let ry = tt * kx + uu * ky;
+        let (rx, ry) = match owed.get(i) {
+            Some(o) => (rx + ((cc * o[0] + ss * o[1]) >> CARRY_BITS), ry + ((tt * o[0] + uu * o[1]) >> CARRY_BITS)),
+            None => (rx, ry),
+        };
         let shift = TIDE_BITS as u32 - CARRY_BITS;
         let (vx, vy) = (((k[0] as i128) << CARRY_BITS) + cx + round_shift(rx, shift), ((k[1] as i128) << CARRY_BITS) + cy + round_shift(ry, shift));
         let (nx, ny) = ((vx + half) >> CARRY_BITS, (vy + half) >> CARRY_BITS);
@@ -244,16 +270,21 @@ impl Frame {
         if radius < 1 {
             return Err(FrameError(format!("orbit radius {radius} below one lattice unit")));
         }
-        let cap = 1u64 << (N_BITS - EPOCH_ANGLE_LOG2);
+        let cap = 1u64 << (N_BITS - MAX_ANGLE_LOG2);
         if n == 0 || n > cap {
-            return Err(FrameError(format!("mean motion {n}/2^60 outside [1, 2^54]: the epoch would be shorter than a chronon")));
+            return Err(FrameError(format!("mean motion {n}/2^60 outside [1, 2^54]: an epoch of one chronon would turn the tide's axis by more than 2^-6")));
         }
         let sp = |e: emergent_space::Error| FrameError(format!("crates/space: {e:?}"));
         let ns = Scalar::raw(n as i128, -60).map_err(sp)?;
         let rs = Scalar::integer(radius);
         let mu = ns.mul(ns).map_err(sp)?.mul(rs).map_err(sp)?.mul(rs).map_err(sp)?.mul(rs).map_err(sp)?;
         let units = Units::newtonian(mu, radius)?;
-        let key = OrbitKey::bound(rs.div(units.length).map_err(sp)?, eccentricity_q48).map_err(sp)?;
+        if eccentricity_q48 >= 1 << 48 {
+            return Err(FrameError("eccentricity 1 or more: the origin's orbit must be bound".into()));
+        }
+        // k = 1/(1+e) in Q48 (the crate's key holds the periapsis and k).
+        let k = ((1u128 << 96) / ((1u128 << 48) + eccentricity_q48 as u128)) as u64;
+        let key = OrbitKey::new(rs.div(units.length).map_err(sp)?, k).map_err(sp)?;
         let spec = Spec { key, angle: orientation, clockwise: false, peri_time: units.time(periapsis_tick)? };
         let orbit = Orbit::compile(key).map_err(sp)?;
         // The origin's exact state at tick 0: the integer circle when there is one, else the readout.
@@ -272,10 +303,11 @@ impl Frame {
             u64::try_from(peak).map_err(|_| FrameError("peak angular rate outside range".into()))?.max(n)
         };
         if n_peak > cap {
-            return Err(FrameError(format!("peak angular rate {n_peak}/2^60 outside [1, 2^54]: the epoch would be shorter than a chronon")));
+            return Err(FrameError(format!("peak angular rate {n_peak}/2^60 outside [1, 2^54]: an epoch of one chronon would turn the tide's axis by more than 2^-6")));
         }
+        let fine = 1u64 << (N_BITS - EPOCH_ANGLE_LOG2);
         let mut e = 0;
-        while (n_peak << (e + 1)) <= cap {
+        while (n_peak << (e + 1)) <= fine {
             e += 1;
         }
         Ok(Frame { q, radius, n, e, tide_sign: 1, parent: Some(Parent { units, spec, genesis, corotating: false }) })
@@ -383,18 +415,20 @@ impl Frame {
     /// The kick of every body: `dk[i]` for body i, its carry updated. Pure per body, so the
     /// result does not depend on `threads` (chunks are contiguous slices).
     pub fn kick_all(&self, w: &Weights, motions: &[Motion], carries: &mut [[i64; 2]], dk: &mut [[i64; 2]], threads: usize) -> KickStats {
-        self.kick_all_masked(w, &[], motions, carries, dk, threads)
+        self.kick_all_masked(w, &[], &[], motions, carries, dk, threads)
     }
 
     /// [`Frame::kick_all`] for the members still in the frame: `active` is empty (all of them)
     /// or one flag per body, and a body handed out (false) is neither kicked nor counted.
-    pub fn kick_all_masked(&self, w: &Weights, active: &[bool], motions: &[Motion], carries: &mut [[i64; 2]], dk: &mut [[i64; 2]], threads: usize) -> KickStats {
+    #[allow(clippy::too_many_arguments)]
+    pub fn kick_all_masked(&self, w: &Weights, active: &[bool], owed: &[[i128; 2]], motions: &[Motion], carries: &mut [[i64; 2]], dk: &mut [[i64; 2]], threads: usize) -> KickStats {
         let (q2, n) = (self.q as i128 * self.q as i128, motions.len());
         assert!(carries.len() == n && dk.len() == n, "one carry and one kick per body");
         assert!(active.is_empty() || active.len() == n, "one flag per body");
+        assert!(owed.is_empty() || owed.len() == n, "one owed drift per body");
         let t = threads.clamp(1, n.max(1));
         if t == 1 {
-            return kick_slice(w, q2, motions, carries, dk, active);
+            return kick_slice(w, q2, motions, carries, dk, active, owed);
         }
         let chunk = n.div_ceil(t);
         let mut total = KickStats::default();
@@ -406,7 +440,8 @@ impl Frame {
                 .enumerate()
                 .map(|(j, ((m, c), d))| {
                     let a = if active.is_empty() { active } else { &active[j * chunk..(j * chunk + m.len())] };
-                    s.spawn(move || kick_slice(w, q2, m, c, d, a))
+                    let o = if owed.is_empty() { owed } else { &owed[j * chunk..(j * chunk + m.len())] };
+                    s.spawn(move || kick_slice(w, q2, m, c, d, a, o))
                 })
                 .collect();
             for j in jobs {
@@ -588,11 +623,12 @@ impl<S: Kickable> Battle<S> {
         let t0 = Instant::now();
         self.stepper.motions(&mut self.motions);
         let t1 = Instant::now();
+        self.settle_position_carries(self.stepper.tick());
         self.anchor_epoch(weight)?;
         let t2 = Instant::now();
         let w = self.frame.weights(self.reference.as_ref().expect("a frame with epochs has a tube"), self.stepper.tick(), weight)?;
         let mask: &[bool] = if self.gone > 0 { &self.active } else { &[] };
-        let k = self.frame.kick_all_masked(&w, mask, &self.motions, &mut self.carries, &mut self.dk, self.threads);
+        let k = self.frame.kick_all_masked(&w, mask, &self.pcarry, &self.motions, &mut self.carries, &mut self.dk, self.threads);
         let t3 = Instant::now();
         self.stepper.kick(&self.dk).map_err(|e| FrameError(e.0))?;
         let t4 = Instant::now();
@@ -640,13 +676,13 @@ impl<S: Kickable> Battle<S> {
             h.update(&c[0].to_le_bytes());
             h.update(&c[1].to_le_bytes());
         }
+        for p in &self.pcarry {
+            h.update(&p[0].to_le_bytes());
+            h.update(&p[1].to_le_bytes());
+        }
+        h.update(&self.ptick.to_le_bytes());
         if let Some(a) = &self.anchoring {
             a.digest_into(&mut h, &self.stats, &self.active, self.frame.parent.as_ref().map(|p| &p.units));
-            for p in &self.pcarry {
-                h.update(&p[0].to_le_bytes());
-                h.update(&p[1].to_le_bytes());
-            }
-            h.update(&self.ptick.to_le_bytes());
         }
         Outcome { world, log, tide: h.finalize().to_hex().to_string() }
     }
@@ -658,11 +694,15 @@ mod tests {
 
     #[test]
     fn epoch_is_the_largest_power_of_two_under_the_angle() {
-        for n in [1u64, 3, 1 << 20, 1 << 46, (1 << 46) + 1, (1 << 54) - 1, 1 << 54] {
+        let fine = 1u128 << (N_BITS - EPOCH_ANGLE_LOG2);
+        for n in [1u64, 3, 1 << 20, 1 << 46, (1 << 46) + 1, (1 << 51) - 1, 1 << 51] {
             let f = Frame::new(1024, 1 << 30, n).unwrap();
-            let cap = 1u64 << 54;
-            assert!((n as u128) << f.epoch_log2() <= cap as u128, "n {n}: E too long");
-            assert!((n as u128) << (f.epoch_log2() + 1) > cap as u128, "n {n}: E could be doubled");
+            assert!((n as u128) << f.epoch_log2() <= fine, "n {n}: E too long");
+            assert!((n as u128) << (f.epoch_log2() + 1) > fine, "n {n}: E could be doubled");
+        }
+        // Faster orbits keep an epoch of one chronon, up to the hard cap of 2^-6 rad per chronon.
+        for n in [(1u64 << 51) + 1, 1 << 52, 1 << 54] {
+            assert_eq!(Frame::new(1024, 1 << 30, n).unwrap().epoch(), 1, "n {n}");
         }
         assert!(Frame::new(1024, 1 << 30, (1 << 54) + 1).is_err());
         assert!(Frame::new(1024, 1 << 30, 0).is_err());
@@ -695,7 +735,7 @@ mod tests {
 
     #[test]
     fn kicks_do_not_depend_on_threads_and_the_carry_stays_in_range() {
-        let f = Frame::new(1 << 10, 1 << 34, 1 << 40).unwrap();
+        let f = Frame::new(1 << 10, 1 << 34, 1 << 46).unwrap();
         let motions: Vec<Motion> = (0..1001i64)
             .map(|i| Motion { x: [(i - 500) * 40_009, (i * 7919) % 100_003 - 50_000], k: [(i % 61) - 30, (i % 43) - 21] })
             .collect();

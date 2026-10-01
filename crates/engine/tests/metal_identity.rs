@@ -56,7 +56,7 @@ impl Drive {
 struct Run {
     out: Outcome,
     /// The frame's counters (the timings of `BattleStats` are left out).
-    counters: [i128; 9],
+    counters: [i128; 7],
     contacts: u64,
     secs: f64,
     active: Vec<bool>,
@@ -65,8 +65,8 @@ struct Run {
     stats: BattleStats,
 }
 
-fn counters(s: &BattleStats) -> [i128; 9] {
-    [s.epochs as i128, s.changed as i128, s.refused as i128, s.max_r2, s.anchors as i128, s.handed_out as i128, s.rebases as i128, s.anchors_refused as i128, s.rebases_refused as i128]
+fn counters(s: &BattleStats) -> [i128; 7] {
+    [s.epochs as i128, s.changed as i128, s.refused as i128, s.max_r2, s.anchors as i128, s.handed_out as i128, s.anchors_refused as i128]
 }
 
 fn battle<S: Kickable>(s: S, f: &Frame, d: &Drive) -> Run {
@@ -123,16 +123,14 @@ fn three_orders(name: &str, w: &World, f: &Frame, d: &Drive, sweep_threads: bool
     let b = run(Order::Sparse, w, f, d)?;
     let g = run(Order::Gpu, w, f, d)?;
     println!(
-        "{name:<4} {:>5} bodies E={:<5} | {} epochs, {} kicked, {} refused, {} anchors ({} circle moves; refused {}+{}), {} handed out | contacts {:<7} | lockstep {:.2}s sparse {:.2}s gpu {:.2}s | digest {}",
+        "{name:<4} {:>5} bodies E={:<5} | {} epochs, {} kicked, {} refused, {} anchors (refused {}), {} handed out | contacts {:<7} | lockstep {:.2}s sparse {:.2}s gpu {:.2}s | digest {}",
         w.bodies.len(),
         f.epoch(),
         a.stats.epochs,
         a.stats.changed,
         a.stats.refused,
         a.stats.anchors,
-        a.stats.rebases,
         a.stats.anchors_refused,
-        a.stats.rebases_refused,
         a.stats.handed_out,
         a.contacts,
         a.secs,
@@ -195,11 +193,14 @@ fn tide_scene(s: Scene) {
     let (w, f) = build(&s);
     let d = Drive::new(HORIZON);
     let Some(a) = three_orders(s.name, &w, &f, &d, true) else { return };
-    assert!(a.contacts > 0 && a.stats.changed > 0, "{}: contacts and kicks must happen", s.name);
+    assert!(a.contacts > 0 && a.stats.epochs > 0, "{}: contacts and kicks must happen", s.name);
     assert!(!s.storm || a.stats.refused > 0, "{}: the storm must refuse kicks", s.name);
 
     // Control: without its kicks the same battle ends elsewhere, so the equality is about the tide.
-    let unkicked = run(Order::Gpu, &w, &f, &Drive { kick_shift: HORIZON + 1, ..d.clone() }).unwrap();
+    // (The frame about the non-rotating axes: `Frame::new` also turns the world from the co-rotating
+    // axes at genesis, a change of coordinates and not a kick.)
+    let inertial = Frame::on_orbit(s.q, f.radius(), f.n(), 0, 0, 0).unwrap();
+    let unkicked = run(Order::Gpu, &w, &inertial, &Drive { kick_shift: HORIZON + 1, ..d.clone() }).unwrap();
     assert_eq!(unkicked.stats.epochs, 0);
     assert_ne!(unkicked.out.world, a.out.world, "{}: the tide must change the outcome", s.name);
     // B0, flat reduction: with the kicks pushed past the horizon, and with no parent mass (a flat
@@ -223,14 +224,14 @@ macro_rules! tide_scenes {
 }
 
 tide_scenes! {
-    s0_valid_50_e2048: "s0", 50, 1024, 1, 32, false, 17, false;
-    s1_100_e512: "s1", 100, 1024, 2, 8, false, 15, false;
-    s2_200_e256: "s2", 200, 512, 3, 8, false, 14, false;
-    s3_formation_400_e128: "s3", 400, 1024, 4, 16, true, 13, false;
-    s4_800_e64: "s4", 800, 2048, 5, 16, false, 12, false;
-    s5_formation_1200_e32: "s5", 1200, 1024, 6, 32, true, 11, false;
-    s6_1600_e16: "s6", 1600, 1024, 7, 32, false, 10, false;
-    s7_storm_formation_2000_e4: "s7", 2000, 1024, 8, 8, true, 8, true;
+    s0_valid_50_e256: "s0", 50, 1024, 1, 32, false, 16, false;
+    s1_100_e128: "s1", 100, 1024, 2, 8, false, 15, false;
+    s2_200_e64: "s2", 200, 512, 3, 8, false, 14, false;
+    s3_formation_400_e32: "s3", 400, 1024, 4, 16, true, 13, false;
+    s4_800_e16: "s4", 800, 2048, 5, 16, false, 12, false;
+    s5_formation_1200_e8: "s5", 1200, 1024, 6, 32, true, 11, false;
+    s6_1600_e4: "s6", 1600, 1024, 7, 32, false, 10, false;
+    s7_storm_formation_2000_e1: "s7", 2000, 1024, 8, 8, true, 8, true;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -285,11 +286,12 @@ macro_rules! anchor_scenes {
 }
 
 anchor_scenes! {
-    r0_valid_200_e2048: "r0", 200, 1024, 11, 32, false, 17, 1, 1, Some(false), false;
-    r1_stress_400_e128: "r1", 400, 1024, 12, 16, true, 13, 1, 3, Some(false), false;
-    r2_squeezed_400_e128: "r2", 400, 1024, 13, 16, false, 13, 8, 3, Some(true), false;
-    r3_squeezed_formation_800_e64: "r3", 800, 2048, 14, 16, true, 12, 16, 4, Some(true), false;
-    r4_storm_1200_e8: "r4", 1200, 1024, 15, 8, false, 9, 4, 8, None, true;
+    r0_valid_200_e512: "r0", 200, 1024, 11, 32, false, 17, 1, 4, Some(false), false;
+    r1_stress_400_e16: "r1", 400, 1024, 12, 16, true, 13, 1, 24, Some(false), false;
+    r2_squeezed_400_e16: "r2", 400, 1024, 13, 16, false, 13, 8, 24, Some(true), false;
+    r3_squeezed_formation_800_e8: "r3", 800, 2048, 14, 16, true, 12, 16, 32, Some(true), false;
+    r4_storm_1200_e2: "r4", 1200, 1024, 15, 8, false, 10, 4, 64, None, true;
+    r5_anchor_every_epoch_200_e512: "r5", 200, 1024, 11, 32, false, 17, 1, 1, Some(false), false;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -324,7 +326,7 @@ fn particles() -> World {
 fn five_particles_over_a_period_anchored_and_not() {
     // reanchor.rs runs ten periods (1.03 million chronons) on the event core. On the GPU a chronon
     // of five bodies costs a command buffer's dispatches (about 85 µs, measured), so this runs half a
-    // period with an anchor every 8 epochs: anchors, circle moves and the tube are all exercised.
+    // period with an anchor every 8 epochs: anchors and the tube's rebindings are all exercised.
     let (w, f) = (particles(), frame());
     // The genesis re-anchor by hand (reanchor.rs: a_re_anchor_conserves_momentum_in_both_orders): the same report,
     // carries and motions in all three orders.
@@ -338,7 +340,7 @@ fn five_particles_over_a_period_anchored_and_not() {
     for (label, d) in [("anchored", Drive { anchor: Some((policy, 0)), ..Drive::new(horizon) }), ("not anchored", Drive::new(horizon))] {
         let Some(a) = three_orders(&format!("5p {label}"), &w, &f, &d, label == "anchored") else { return };
         if label == "anchored" {
-            assert!(a.stats.anchors >= 10 && a.stats.rebases >= 1, "anchors and circle moves happen: {} {}", a.stats.anchors, a.stats.rebases);
+            assert!(a.stats.anchors >= 10, "anchors happen: {}", a.stats.anchors);
         }
     }
 }
