@@ -1,0 +1,18 @@
+//! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
+pub mod bind;
+pub mod body;
+pub mod ctx;
+pub mod encounter;
+pub mod fleet;
+pub mod force;
+pub mod num;
+pub mod observe;
+pub mod scenario;
+pub mod step;
+pub mod thrust;
+pub mod universe;
+pub mod world;
+
+pub use body::Kind;
+pub use ctx::Config;
+pub use universe::{Budget, OrbitSpec, Universe};

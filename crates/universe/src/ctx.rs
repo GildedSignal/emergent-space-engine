@@ -1,0 +1,86 @@
+//! The read-only context an event is resolved in: the dolls, the static facts of each body, and
+//! the bodies' histories. An event reads other bodies' tubes at its own tick and writes only its
+//! own body, so events of independent bodies can be resolved in any order and on any number of
+//! threads, and give the same bits.
+use crate::body::{BodyStore, Kind};
+use crate::force::Secondary;
+use crate::num::{scale2, Res, Tick, V2};
+use crate::world::{pow2, DollRec};
+use emergent_space::orbit::Scalar;
+
+/// What never changes about a body.
+#[derive(Clone, Copy, Debug)]
+pub struct BodyInfo {
+    pub kind: Kind,
+    /// `G·m` in units of the doll the body sits in: its pull as a secondary (zero for a test particle).
+    pub gm: Scalar,
+    /// Its sphere of influence in the units of the doll it sits in (zero for a test particle).
+    pub soi: Scalar,
+    /// The child doll it is the centre of, if any.
+    pub doll: Option<u16>,
+    /// Surface radius in the units of the doll it sits in.
+    pub radius: Scalar,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Config {
+    /// Thrust: rapidity per root time unit, as a power of two (the ship's proper acceleration).
+    pub thrust_log2: i32,
+    /// Turning while a turn key is held: turns per root time unit, as a power of two.
+    pub turn_log2: i32,
+    /// A body farther than this from the star (root units) has left the system.
+    pub leave_log2: i32,
+    /// Kicks per radial period, as a power of two.
+    pub step_log2: i32,
+}
+impl Default for Config {
+    fn default() -> Self {
+        Self { thrust_log2: -40, turn_log2: -30, leave_log2: 40, step_log2: 7 }
+    }
+}
+
+pub struct Ctx<'a> {
+    pub dolls: &'a [DollRec],
+    pub bodies: &'a dyn BodyStore,
+    pub info: &'a [BodyInfo],
+    /// Per doll: the bodies that pull others in it (secondaries), in id order.
+    pub sources: &'a [Vec<usize>],
+    pub cfg: &'a Config,
+}
+
+impl Ctx<'_> {
+    /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+    pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+        let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+        b.cartesian(t)
+    }
+
+    /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
+    pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
+        let mut out = Vec::new();
+        for &j in &self.sources[d as usize] {
+            if j == except {
+                continue;
+            }
+            let (pos, vel) = self.state_of(j, t)?;
+            out.push(Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi });
+        }
+        Ok(out)
+    }
+
+    /// The parent's tide on doll `d`: the parent's mass and the doll centre's position in the
+    /// parent's frame, both in `d`'s units.
+    pub fn tide(&self, d: u16, t: Tick) -> Res<Option<(Scalar, V2)>> {
+        let doll = &self.dolls[d as usize];
+        let (Some(p), Some(c)) = (doll.parent, doll.centre) else { return Ok(None) };
+        let k = pow2(doll.shift as i32 - self.dolls[p as usize].shift as i32);
+        let (pos, _) = self.state_of(c, t)?;
+        Ok(Some((k, scale2(pos, k)?)))
+    }
+
+    /// The centre of doll `d` at `t`, in its parent's units (position, velocity).
+    pub fn centre(&self, d: u16, t: Tick) -> Res<(V2, V2)> {
+        let c = self.dolls[d as usize].centre.ok_or(crate::num::Error::Refused("the root has no centre"))?;
+        self.state_of(c, t)
+    }
+}
