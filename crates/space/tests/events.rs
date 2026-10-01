@@ -1,8 +1,8 @@
 use emergent_space::events::{Calendar, Clock, CyclePool, Doll, LogMass, TimeBasis, Tube};
 use emergent_space::{
-    Error,
     binding::{IntegerState, Trajectory},
     orbit::{OrbitKey, Scalar},
+    Cycle, Error, Key,
 };
 use std::collections::BTreeMap;
 fn s(n: i64) -> Scalar {
@@ -19,12 +19,11 @@ fn compact_records_use_native_shapes_at_planetary_and_extreme_scale() {
         assert_eq!(pool.intern(key).unwrap(), id);
         let tube = Tube::new(id, 0, 0);
         let clock_exponent = (3 * exponent / 2 - 20) as i16;
-        assert!(
-            tube.state(&pool.catalogue, 42, clock_exponent)
-                .unwrap()
-                .radius
-                .is_positive()
-        );
+        assert!(tube
+            .state(&pool.catalogue, 42, clock_exponent)
+            .unwrap()
+            .radius
+            .is_positive());
         assert_eq!(pool.len(), 1);
     }
 }
@@ -167,25 +166,21 @@ fn queue_and_nested_clocks_use_scaled_root_deadlines() {
     for slot in 0..3 {
         assert_eq!(queue.pop_through(root).unwrap().unwrap().slot, slot);
     }
-    assert!(
-        queue
-            .pop_through(Scalar::power_of_two(20000))
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        queue
-            .schedule(Event {
-                time: root,
-                slot: 0,
-                kind: EventKind::Horizon
-            })
-            .is_err()
-    );
+    assert!(queue
+        .pop_through(Scalar::power_of_two(20000))
+        .unwrap()
+        .is_none());
+    assert!(queue
+        .schedule(Event {
+            time: root,
+            slot: 0,
+            kind: EventKind::Horizon
+        })
+        .is_err());
 }
 #[test]
 fn tide_selector_and_full_parent_force_have_the_expected_limits() {
-    use emergent_space::events::kicks::{Regime, parent_tide, regime, tau0, tidal_ratio};
+    use emergent_space::events::kicks::{parent_tide, regime, tau0, tidal_ratio, Regime};
     let tau = tidal_ratio(s(1), s(1).scale(-10).unwrap(), s(1), s(32)).unwrap();
     assert_eq!(tau, s(1).scale(-4).unwrap());
     assert_eq!(regime(tau, true, false).unwrap(), Regime::Averaged);
@@ -235,18 +230,21 @@ fn signed_sigma_delta_conserves_every_native_increment() {
 
 #[test]
 fn binary_test_mass_limit_is_exact_and_clock_map_uses_the_same_energy() {
-    use emergent_space::{events::binary::Binary, orbit::Orbit};
+    use emergent_space::events::binary::Binary;
+    let key = Key::darwin(200 << 16, 1 << 29).unwrap();
     let b = Binary {
-        energy: Scalar::integer(-1).scale(-10).unwrap(),
-        angular: s(20),
+        energy: key.energy.get() as i64 - (1 << 48),
+        angular: key.angular,
         nu: 0,
     };
-    let c = Orbit::compile(b.key().unwrap()).unwrap();
-    assert_eq!(b.period(&c).unwrap(), c.period().unwrap());
+    assert_eq!(b.key().unwrap(), key);
+    let c = Cycle::compile(key).unwrap();
+    assert_eq!(b.period(&c).unwrap(), c.increments.t);
     let equal = Binary { nu: 1 << 28, ..b };
-    assert!(equal.effective_binding().unwrap() > b.effective_binding().unwrap());
-    let cycle = Orbit::compile(equal.key().unwrap()).unwrap();
-    assert!(equal.period(&cycle).unwrap() < cycle.period().unwrap());
+    assert!(equal.key().unwrap().energy.get() > key.energy.get());
+    let cycle = Cycle::compile(equal.key().unwrap()).unwrap();
+    let mapped = equal.period(&cycle).unwrap().get();
+    assert!(mapped < cycle.increments.t.get());
     assert_eq!(equal.period(&c), Err(Error::Topology));
     assert_eq!(
         Binary {
@@ -256,23 +254,11 @@ fn binary_test_mass_limit_is_exact_and_clock_map_uses_the_same_energy() {
         .key(),
         Err(Error::Range)
     );
-    // Much weaker than the former Q48 binding-energy quantum.
-    for exponent in [40, 80, 120, 200] {
-        let weak = Binary {
-            energy: Scalar::integer(-1).scale(-exponent).unwrap(),
-            angular: Scalar::integer(2).scale(exponent / 2 - 2).unwrap(),
-            nu: 1 << 28,
-        };
-        let key = weak.key().unwrap();
-        assert!(key.periapsis.exponent() > exponent as i16 - 4);
-        let c = Orbit::compile(key).unwrap();
-        assert!(weak.period(&c).unwrap().is_positive());
-    }
 }
 
 #[test]
 fn dense_order_is_independent_of_observation_and_keeps_the_full_tide() {
-    use emergent_space::events::dense::{ONE, Scene, Stepper};
+    use emergent_space::events::dense::{Scene, Stepper, ONE};
     let scene = Scene {
         mu: ONE / 1000,
         radius: ONE / 10000,
@@ -329,7 +315,7 @@ fn arc_work_uses_the_compiled_path_and_kicks_preserve_position() {
     use emergent_space::{
         events::{
             handoff::bind,
-            kicks::{Kick, apply, integrate_arc},
+            kicks::{apply, integrate_arc, Kick},
         },
         orbit::Orbit,
         tube::Catalogue,
@@ -389,37 +375,33 @@ fn c_quarter_refusal_keeps_subquantum_transverse_speed_and_overflow_is_explicit(
         velocity_exponent: -62,
     };
     assert!(slow(exact).unwrap());
-    assert!(
-        !slow(IntegerState {
-            velocity: [1 << 60, 1],
-            ..exact
-        })
-        .unwrap()
-    );
+    assert!(!slow(IntegerState {
+        velocity: [1 << 60, 1],
+        ..exact
+    })
+    .unwrap());
     let zero = IntegerState {
         position: [0; 2],
         velocity: [0; 2],
         ..exact
     };
-    assert!(
-        translate(
-            IntegerState {
-                position: [i64::MAX, 0],
-                ..zero
-            },
-            IntegerState {
-                position: [1, 0],
-                ..zero
-            },
-            zero
-        )
-        .is_err()
-    );
+    assert!(translate(
+        IntegerState {
+            position: [i64::MAX, 0],
+            ..zero
+        },
+        IntegerState {
+            position: [1, 0],
+            ..zero
+        },
+        zero
+    )
+    .is_err());
 }
 
 #[test]
 fn dense_readout_reduces_phase_before_rotation_and_preserves_length() {
-    use emergent_space::events::dense::{ONE, inertial};
+    use emergent_space::events::dense::{inertial, ONE};
     for t in [0, 1, 1000, i64::MAX / ONE] {
         let time = t * ONE;
         let want = (t as f64).sin_cos();
@@ -433,7 +415,7 @@ fn dense_readout_reduces_phase_before_rotation_and_preserves_length() {
 
 #[test]
 fn dense_c_quarter_guard_uses_the_exact_dyadic_product() {
-    use emergent_space::events::dense::{ONE, Scene, Stepper};
+    use emergent_space::events::dense::{Scene, Stepper, ONE};
     let scene = Scene {
         mu: ONE / 1000,
         radius: ONE / 10000,

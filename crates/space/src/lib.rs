@@ -1,11 +1,11 @@
-//! # Law `space-darwin16-scaled-v5`: the geodesic compiler of one doll
+//! # Law `space-darwin16-scaled-v4`: the geodesic compiler of one doll
 //!
 //! The scale-free public path is [`orbit::Orbit`], [`orbit::Passage`], [`binding::Rebinding`]
 //! and [`Tube`]. `crates/space/ENVELOPE.md` derives its coordinates, arithmetic and inverse.
 //! The v3 memo boundary retains 12 significant bits each of periapsis radius and the
 //! inverse apoapsis/periapsis ratio, with explicit exponents. Exact inputs remain available.
 //! The following v2 contract describes the retained fixed-unit compatibility API (`Cycle`,
-//! `Key`, `LegacyTube`), still used by the galaxy debug view. Its limits do not
+//! `Key`, `LegacyTube`), still used by the binary and photon adapters. Its limits do not
 //! apply to the v3 path. The legacy events hierarchy awaits the events owner's migration.
 //!
 //! Units G = c = M = 1. u = 1/r. Q62 means an integer n standing for n/2^62; angles psi are Q61.
@@ -105,20 +105,37 @@
 //! Coordinates are polar around a static mass: r=1/u, positive L is prograde, φ=0 at
 //! periapsis. t is Schwarzschild coordinate time and τ is proper time. To restore a doll's
 //! mass M, multiply r, t, τ and L by M; frames, orientation and retarded handoffs belong
-//! to the caller. The live native API is documented in `ENVELOPE.md`.
-//! The retained fixed-unit cycle serves the galaxy debug view only.
+//! to the caller. `LegacyTube` describes bound massive bodies; use [`scatter`] for unbound/light.
+//! Keys are exact Q48 E / Q32 L; [`Key::darwin`] accepts Q16 p / Q30 e. [`LEGACY_LAW_ID`] includes
+//! the boundary conversion convention. `Range`, `NoBoundOrbit` and `Topology` are refusals,
+//! never invitations to silently clamp a new key or apply an uncertified kick.
+//!
+//! ```
+//! use emergent_space::{Cycle, Key, Tangent, LegacyTube, Words};
+//! let key = Key::darwin(20 << 16, 1 << 29)?; // p=20, e=0.5
+//! let cycle = Cycle::compile(key)?;         // share this, or use Memo::get
+//! let tube = LegacyTube::new(Words::new(0), Words::new(0));
+//! let state = tube.state(&cycle, cycle.half.t)?;
+//! assert_eq!(state.velocity.radial, 0);     // at apoapsis
+//! let response = Tangent::centered(&cycle, 1 << 25, key.angular.get() >> 11)?;
+//! let prediction = response.predict(cycle.increments, 1 << 20, -(1 << 10))?;
+//! // Prediction is for scheduling/refinement. Compile the kicked key before committing it.
+//! # let _ = prediction;
+//! # Ok::<(), emergent_space::Error>(())
+//! ```
 
-pub mod binding;
-mod inverse;
-pub mod light;
 mod num;
+mod inverse;
 pub mod orbit;
 pub mod scaled;
+pub mod binding;
 pub mod tube;
 pub use tube::Tube;
 pub mod events;
 #[cfg(feature = "profile")]
 pub mod profile;
+#[cfg(test)]
+mod quadrature_tests;
 mod tables;
 
 macro_rules! stage {
@@ -134,11 +151,14 @@ macro_rules! stage {
     }};
 }
 
-use num::{ONE, atan, cos, isqrt, mul_shr, ratio_sqrt};
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use num::{atan, cos, isqrt, mul_shr, ratio_sqrt, ONE};
 use tables::{EDGE, PI, W, X};
 
 /// Integer law and boundary-quantization version. Never reuse a memo across law versions.
-pub const LAW_ID: &str = "space-darwin16-scaled-v5";
+pub const LAW_ID: &str = "space-darwin16-scaled-v4";
 pub const LEGACY_LAW_ID: &str = "space-darwin16-v2";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -210,11 +230,7 @@ impl Key {
     }
     /// 0 < E ≤ 16, 1/4 ≤ L ≤ 4096.
     pub fn new(energy_q48: u64, angular_q32: u64) -> Result<Self> {
-        if energy_q48 == 0
-            || angular_q32 < 1 << 30
-            || energy_q48 > 16u64 << 48
-            || angular_q32 > 4096u64 << 32
-        {
+        if energy_q48 == 0 || angular_q32 < 1 << 30 || energy_q48 > 16u64 << 48 || angular_q32 > 4096u64 << 32 {
             return Err(Error::Range);
         }
         Ok(Self {
@@ -240,16 +256,19 @@ impl Key {
         (
             l2,
             ((1u128 << 127) / l2) as i128,
-            if negative {
-                -(mag as i128)
-            } else {
-                mag as i128
-            },
+            if negative { -(mag as i128) } else { mag as i128 },
             e2,
         )
     }
 }
 
+/// R(u) = 2u³ − u² + βu + α in Q62, products floored.
+fn radial_at(u: i128, beta: i128, alpha: i128) -> i128 {
+    let u2 = (u * u) >> 62;
+    2 * ((u2 * u) >> 62) - u2 + ((beta * u) >> 62) + alpha
+}
+
+/// The last x in [lo, hi] with pred(x), given pred(lo) and !pred(hi): bisection to one unit.
 fn bisect(mut lo: i128, mut hi: i128, pred: impl Fn(i128) -> bool) -> i128 {
     while hi - lo > 1 {
         let mid = (lo + hi) >> 1;
@@ -350,10 +369,7 @@ impl Shape {
                 if f(k / 3) > 0 {
                     return Err(Error::NoBoundOrbit);
                 }
-                (
-                    bisect(0, k / 3, |x| f(x) > 0),
-                    bisect(-uc, 0, |x| f(x) <= 0) + 1,
-                )
+                (bisect(0, k / 3, |x| f(x) > 0), bisect(-uc, 0, |x| f(x) <= 0) + 1)
             };
             ua = uc + xm;
             up = uc + xp;
@@ -430,11 +446,7 @@ impl Shape {
         let u = self.c as i128 + acs;
         let q = (((self.ua as i128) << 62) / u) as u64;
         let rtau = ((q as u128 * q as u128) >> 62) as u64;
-        Ok((
-            g,
-            rtau,
-            (((rtau as u128) << 62) / (ONE - 2 * u) as u128) as u64,
-        ))
+        Ok((g, rtau, (((rtau as u128) << 62) / (ONE - 2 * u) as u128) as u64))
     }
     /// Four-point GL on [lo, hi]: S_φ Q103, clocks Q(165-clock_shift).
     fn quad(&self, lo: i128, hi: i128, clocks: bool, sums: &mut [i128; 3]) -> Result<()> {
@@ -454,12 +466,7 @@ impl Shape {
         Ok(())
     }
     /// The panels of the interval [lo, hi] between two cuts, in order.
-    fn panels(
-        &self,
-        lo: i128,
-        hi: i128,
-        mut each: impl FnMut(i128, i128) -> Result<bool>,
-    ) -> Result<()> {
+    fn panels(&self, lo: i128, hi: i128, mut each: impl FnMut(i128, i128) -> Result<bool>) -> Result<()> {
         let mut a = lo;
         let mut split = |a: i128, b: i128| -> Result<bool> {
             let n = (b - a + CAP - 1) / CAP;
@@ -508,11 +515,7 @@ impl Shape {
         Ok([
             pos(sums[0])? >> (72 + half - guard),
             t,
-            mul_shr(
-                pos(sums[1])?,
-                self.pm,
-                self.pe + 144 + half - self.clock_shift - guard,
-            )?,
+            mul_shr(pos(sums[1])?, self.pm, self.pe + 144 + half - self.clock_shift - guard)?,
         ])
     }
     /// u at ψ (Q62).
@@ -529,12 +532,7 @@ pub struct Increments {
 }
 impl Increments {
     fn add(self, o: Self) -> Result<Self> {
-        let f = |a: Words, b: Words| {
-            a.get()
-                .checked_add(b.get())
-                .map(Words::new)
-                .ok_or(Error::Range)
-        };
+        let f = |a: Words, b: Words| a.get().checked_add(b.get()).map(Words::new).ok_or(Error::Range);
         Ok(Self {
             phi: f(self.phi, o.phi)?,
             t: f(self.t, o.t)?,
@@ -542,12 +540,7 @@ impl Increments {
         })
     }
     fn sub(self, o: Self) -> Result<Self> {
-        let f = |a: Words, b: Words| {
-            a.get()
-                .checked_sub(b.get())
-                .map(Words::new)
-                .ok_or(Error::Range)
-        };
+        let f = |a: Words, b: Words| a.get().checked_sub(b.get()).map(Words::new).ok_or(Error::Range);
         Ok(Self {
             phi: f(self.phi, o.phi)?,
             t: f(self.t, o.t)?,
@@ -647,11 +640,7 @@ impl Cycle {
         let (n, r) = (elapsed.get() / period, elapsed.get() % period);
         let outbound = r <= period / 2;
         let (psi, at) = self.outbound_at(if outbound { r } else { period - r })?;
-        let at = if outbound {
-            at
-        } else {
-            self.increments.sub(at)?
-        };
+        let at = if outbound { at } else { self.increments.sub(at)? };
         let base = self.repeat(n)?;
         let u = self.shape.u(psi);
         Ok(Position {
@@ -676,17 +665,13 @@ impl Cycle {
         let i = self.crossings.partition_point(|c| c.at.t.get() <= target);
         let (lo, base) = match i {
             0 => (0, Increments::default()),
-            _ => (
-                self.crossings[i - 1].psi.get() as i128,
-                self.crossings[i - 1].at,
-            ),
+            _ => (self.crossings[i - 1].psi.get() as i128, self.crossings[i - 1].at),
         };
         if target == base.t.get() {
             return Ok((lo, base));
         }
         let hi = self.crossings.get(i).map_or(PI, |c| c.psi.get() as i128);
-        let time =
-            |sums: &[i128; 3]| -> Result<u64> { Ok(base.t.get() + s.convert(sums, 1)?.t.get()) };
+        let time = |sums: &[i128; 3]| -> Result<u64> { Ok(base.t.get() + s.convert(sums, 1)?.t.get()) };
         let mut sums = [0i128; 3];
         let mut found = None;
         s.panels(lo, hi, |a, b| {
@@ -722,20 +707,13 @@ impl Cycle {
             // dt/dψ per radian in Q20: the node's integrand with a weight of one radian.
             let (g, _, rt) = s.node(psi, true)?;
             let rate = s
-                .convert(
-                    &[0, 0, (((g as i128) << 61) >> s.clock_shift) * rt as i128],
-                    1,
-                )?
+                .convert(&[0, 0, (((g as i128) << 61) >> s.clock_shift) * rt as i128], 1)?
                 .t
                 .get()
                 .max(1) as i128;
             let step = (target as i128 - t as i128) * (1 << 61) / rate;
             let next = psi + step;
-            psi = if next > lo && next < hi {
-                next
-            } else {
-                lo + ((hi - lo) >> 1)
-            };
+            psi = if next > lo && next < hi { next } else { lo + ((hi - lo) >> 1) };
         }
         Ok((psi, base.add(s.convert(&partial(psi)?, 1)?)?))
     }
@@ -767,10 +745,7 @@ impl LegacyTube {
     }
     fn elapsed(&self, t: Words) -> Result<Words> {
         let since = t.get().checked_sub(self.epoch.get()).ok_or(Error::Range)?;
-        since
-            .checked_add(self.phase.get())
-            .map(Words::new)
-            .ok_or(Error::Range)
+        since.checked_add(self.phase.get()).map(Words::new).ok_or(Error::Range)
     }
     pub fn position(&self, cycle: &Cycle, t: Words) -> Result<Position> {
         cycle.position(self.elapsed(t)?)
@@ -814,4 +789,326 @@ fn compile_sums(key: Key, newton: bool) -> Result<(Cycle, [i128; 3])> {
         },
         sums,
     ))
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Outcome {
+    Absorbed,
+    Escaped,
+}
+/// A body (`light = false`, E ≥ 1) or photon (`light = true`, E = 1, L = b) from infinity:
+/// absorbed, or escaped with the angle from its turning point to infinity (Q30).
+pub fn scatter(key: Key, light: bool) -> Result<(Outcome, Words)> {
+    Key::new(key.energy.get(), key.angular.get())?;
+    if light && key.energy.get() != 1 << 48 {
+        return Err(Error::Range);
+    }
+    let (_, beta, alpha, _) = key.radial(light);
+    if alpha < 0 {
+        return Err(Error::Range);
+    }
+    if 6 * beta >= ONE {
+        return Ok((Outcome::Absorbed, Words::default()));
+    }
+    let k0 = isqrt(((ONE - 6 * beta) as u128) << 62) as i128;
+    let (umax, umin) = ((ONE - k0) / 6, (ONE + k0) / 6);
+    if radial_at(umin, beta, alpha) > 0 {
+        return Ok((Outcome::Absorbed, Words::default()));
+    }
+    let ut = bisect(umax, umin, |u| radial_at(u, beta, alpha) > 0);
+    // The other roots: z² − Sz + P = 0 with S = 1/2 − u_t, P = β/2 − u_t S.
+    let sum = (ONE >> 1) - ut;
+    let prod = (beta >> 1) - ((ut * sum) >> 62);
+    let disc = (((sum * sum) >> 62) - 4 * prod).max(0);
+    let sq = isqrt((disc as u128) << 62) as i128;
+    let (u0, u3) = (((sum - sq) >> 1).min(0), (sum + sq) >> 1);
+    let (c, a) = ((ut + u0) >> 1, (ut - u0) >> 1);
+    let shape = Shape {
+        ua: u0 as i64,
+        up: ut as i64,
+        c: c as i64,
+        a: a as i64,
+        m3: (u3 - c) as i64,
+        newton: false,
+        pm: 0,
+        pe: 0,
+        e: 0,
+        lambda: Shape::refinement_width(a, u3 - c, false),
+        clock_shift: 63,
+    };
+    if 2 * (u3 - ut) < 1 << 20 {
+        return Err(Error::Range);
+    }
+    let psi0 = match u0 {
+        0 => PI,
+        _ if ut <= -u0 => atan(ratio_sqrt(ut, -u0)),
+        _ => PI - atan(ratio_sqrt(-u0, ut)),
+    };
+    let mut sums = [0i128; 3];
+    shape.integrate(0, psi0, false, &mut sums)?;
+    Ok((Outcome::Escaped, words(sums[0] as u128 >> 73)?))
+}
+
+#[derive(Default)]
+pub struct Memo {
+    cycles: BTreeMap<Key, Arc<Cycle>>,
+}
+impl Memo {
+    pub fn get(&mut self, key: Key) -> Result<Arc<Cycle>> {
+        if let Some(c) = self.cycles.get(&key) {
+            return Ok(c.clone());
+        }
+        let c = Arc::new(compile(key)?);
+        self.cycles.insert(key, c.clone());
+        Ok(c)
+    }
+    pub fn len(&self) -> usize {
+        self.cycles.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.cycles.is_empty()
+    }
+}
+
+/// Signed first differences of the increments over explicit key steps. A kick's multiply-add
+/// through them is a predictor; the recompiled key is the authority.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Tangent {
+    pub energy_step: Words,
+    pub angular_step: Words,
+    pub energy_diff: [Words; 3],
+    pub angular_diff: [Words; 3],
+    /// Extra numerator fraction bits: 0 for forward output secants, 16 for central responses.
+    pub guard_bits: u32,
+}
+
+/// A signed rational derivative in encoded output units per encoded key unit.
+/// `difference` is two's-complement i64 in two storage words; `step` is positive.
+/// For physical units multiply by 2^(input_fraction_bits - output_fraction_bits - guard_bits).
+/// Output order is (Δφ Q30, Δt Q20, Δτ Q20); inputs are E Q48 and L Q32.
+/// A quantized law has no infinitesimal derivative: these are explicit finite differences.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Derivative {
+    pub difference: Words,
+    pub step: Words,
+    pub guard_bits: u32,
+}
+impl Derivative {
+    pub const fn numerator(self) -> i64 {
+        self.difference.get() as i64
+    }
+    /// Multiply by a signed key kick and truncate toward zero. 64×64 can require
+    /// 126 signed product bits; this is the reason for the i128 temporary here.
+    pub fn apply(self, kick: i64) -> Result<i128> {
+        if self.guard_bits > 32 || self.step.get() == 0 {
+            return Err(Error::Range);
+        }
+        Ok(self.numerator() as i128 * kick as i128 / ((self.step.get() as i128) << self.guard_bits))
+    }
+}
+fn values(i: Increments) -> [u64; 3] {
+    [i.phi.get(), i.t.get(), i.tau.get()]
+}
+fn differences(a: Increments, b: Increments) -> Result<[Words; 3]> {
+    wide_differences(values(a).map(u128::from), values(b).map(u128::from))
+}
+fn wide_differences(a: [u128; 3], b: [u128; 3]) -> Result<[Words; 3]> {
+    let mut out = [Words::default(); 3];
+    for i in 0..3 {
+        let x = i128::try_from(a[i]).map_err(|_| Error::Range)?;
+        let y = i128::try_from(b[i]).map_err(|_| Error::Range)?;
+        let d = i64::try_from(y - x).map_err(|_| Error::Range)?;
+        out[i] = Words::new(d as u64);
+    }
+    Ok(out)
+}
+impl Tangent {
+    /// Forward secants. A boundary key may have no finite admissible two-sided derivative.
+    pub fn create(c: &Cycle, energy_step: u64, angular_step: u64) -> Result<Self> {
+        if energy_step == 0 || angular_step == 0 {
+            return Err(Error::Range);
+        }
+        let step = |de: u64, dl: u64| {
+            let e = c.key.energy.get().checked_add(de).ok_or(Error::Range)?;
+            let l = c.key.angular.get().checked_add(dl).ok_or(Error::Range)?;
+            compile(Key::new(e, l)?)
+        };
+        let (ce, cl) = (step(energy_step, 0)?, step(0, angular_step)?);
+        let topology = |x: &Cycle| x.crossings.iter().map(|a| a.band).eq(c.crossings.iter().map(|a| a.band));
+        if !topology(&ce) || !topology(&cl) {
+            return Err(Error::Topology);
+        }
+        Ok(Self {
+            energy_step: Words::new(energy_step),
+            angular_step: Words::new(angular_step),
+            energy_diff: differences(c.increments, ce.increments)?,
+            angular_diff: differences(c.increments, cl.increments)?,
+            guard_bits: 0,
+        })
+    }
+    /// Central derivatives over ± the supplied Q48/Q32 steps. Sixteen extra output
+    /// fraction bits prevent subtraction of Q20 clocks from drowning small derivatives.
+    /// All four probes must
+    /// remain bound and have the base crossing topology, else an explicit error.
+    /// Compile once per response tile, not once per Tube. No Hessian/remainder is certified.
+    /// Probe size is part of the derivative: very small steps amplify rounded-root noise.
+    /// The independent oracle checks E steps 2^25 and L steps key.angular/2048 on p=8.2..1000;
+    /// these are not universal safe steps, and a topology refusal requires refinement.
+    pub fn centered(c: &Cycle, energy_step: u64, angular_step: u64) -> Result<Self> {
+        let es = energy_step.checked_mul(2).filter(|&s| s != 0).ok_or(Error::Range)?;
+        let ls = angular_step.checked_mul(2).filter(|&s| s != 0).ok_or(Error::Range)?;
+        let probe = |de: i128, dl: i128| -> Result<[u128; 3]> {
+            let e = u64::try_from(c.key.energy.get() as i128 + de).map_err(|_| Error::Range)?;
+            let l = u64::try_from(c.key.angular.get() as i128 + dl).map_err(|_| Error::Range)?;
+            let (x, sums) = compile_sums(Key::new(e, l)?, false)?;
+            if !x.crossings.iter().map(|a| a.band).eq(c.crossings.iter().map(|a| a.band)) {
+                return Err(Error::Topology);
+            }
+            x.shape.convert_guarded(&sums, 0, 16)
+        };
+        Ok(Self {
+            energy_step: Words::new(es),
+            angular_step: Words::new(ls),
+            energy_diff: wide_differences(probe(-(energy_step as i128), 0)?, probe(energy_step as i128, 0)?)?,
+            angular_diff: wide_differences(probe(0, -(angular_step as i128))?, probe(0, angular_step as i128)?)?,
+            guard_bits: 16,
+        })
+    }
+    pub fn d_energy(&self) -> [Derivative; 3] {
+        self.energy_diff.map(|difference| Derivative {
+            difference,
+            step: self.energy_step,
+            guard_bits: self.guard_bits,
+        })
+    }
+    pub fn d_angular(&self) -> [Derivative; 3] {
+        self.angular_diff.map(|difference| Derivative {
+            difference,
+            step: self.angular_step,
+            guard_bits: self.guard_bits,
+        })
+    }
+    /// Prediction only. Recompile before any canonical decision.
+    pub fn predict(&self, base: Increments, de: i64, dl: i64) -> Result<Increments> {
+        let mut v = values(base);
+        if self.energy_step.get() == 0 || self.angular_step.get() == 0 {
+            return Err(Error::Range);
+        }
+        for (i, x) in v.iter_mut().enumerate() {
+            let e = self.d_energy()[i].apply(de)?;
+            let l = self.d_angular()[i].apply(dl)?;
+            let sum = (*x as i128).checked_add(e).and_then(|s| s.checked_add(l)).ok_or(Error::Range)?;
+            *x = u64::try_from(sum).map_err(|_| Error::Range)?;
+        }
+        Ok(Increments {
+            phi: Words::new(v[0]),
+            t: Words::new(v[1]),
+            tau: Words::new(v[2]),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn key() -> Key {
+        Key::darwin(20 << 16, 1 << 29).unwrap()
+    }
+    #[test]
+    fn bands_from_bits_agree_with_the_edges() {
+        for k in 16..400 {
+            assert_eq!(band(edge(k)), k, "at edge {k}");
+            assert_eq!(band(edge(k) - 1), k, "inside {k}");
+            assert_eq!(band(edge(k) + 1), k - 1, "outside {k}");
+        }
+    }
+    #[test]
+    fn bit_identical_compilation_and_memo_hits() {
+        let a = compile(key()).unwrap();
+        assert_eq!(a, compile(key()).unwrap());
+        let mut memo = Memo::default();
+        let (c, d) = (memo.get(key()).unwrap(), memo.get(key()).unwrap());
+        assert!(Arc::ptr_eq(&c, &d));
+        assert_eq!(memo.len(), 1);
+        assert_eq!(a.repeat(10000).unwrap().phi.get(), a.increments.phi.get() * 10000);
+    }
+    #[test]
+    fn the_crossing_table_is_ordered_and_mirrors() {
+        let c = compile(key()).unwrap();
+        assert!(!c.crossings.is_empty());
+        for w in c.crossings.windows(2) {
+            assert_eq!(w[1].band, w[0].band + 1);
+            let g = |x: &Crossing| [x.psi.get(), x.at.phi.get(), x.at.t.get(), x.at.tau.get()];
+            assert!(g(&w[1]).iter().zip(g(&w[0])).all(|(b, a)| *b > a), "{w:?}");
+        }
+        let period = c.increments.t.get();
+        for f in [1u64, 3, 5, 7, 11] {
+            let t = period * f / 23;
+            let (a, b) = (c.position(Words::new(t)).unwrap(), c.position(Words::new(period - t)).unwrap());
+            assert!(a.outbound && !b.outbound);
+            assert_eq!((a.u, a.band), (b.u, b.band));
+            assert_eq!(a.phi.get() + b.phi.get(), c.increments.phi.get());
+        }
+    }
+    #[test]
+    fn a_position_at_a_crossing_time_is_on_its_edge() {
+        let c = compile(key()).unwrap();
+        for x in &c.crossings {
+            let p = c.position(x.at.t).unwrap();
+            let e = edge(x.band);
+            assert!((p.u as i128 - e).abs() < e >> 20, "u {} edge {e}", p.u);
+        }
+    }
+    #[test]
+    fn zero_kick_is_identity_and_probe_step_is_its_first_difference() {
+        let c = compile(key()).unwrap();
+        let t = Tangent::create(&c, 1 << 24, 1 << 16).unwrap();
+        assert_eq!(t.predict(c.increments, 0, 0).unwrap(), c.increments);
+        let perturbed = Key::new(c.key.energy.get() + (1 << 24), c.key.angular.get()).unwrap();
+        assert_eq!(t.predict(c.increments, 1 << 24, 0).unwrap(), compile(perturbed).unwrap().increments);
+    }
+    #[test]
+    fn the_planted_newtonian_law_closes() {
+        let c = compile_variant(key(), true).unwrap();
+        let tau = 6746518852u64; // 2π in Q30
+        assert!(c.increments.phi.get().abs_diff(tau) < 8, "{:?}", c.increments);
+    }
+    #[test]
+    fn invalid_inputs_are_explicit_errors() {
+        assert_eq!(Key::new(1 << 48, 1), Err(Error::Range));
+        assert_eq!(Key::new(0, 4 << 32), Err(Error::Range));
+        assert_eq!(scatter(Key::new(2 << 48, 4 << 32).unwrap(), true), Err(Error::Range));
+        assert_eq!(Key::darwin(u32::MAX, 1 << 29), Err(Error::NoBoundOrbit));
+        assert_eq!(Key::darwin(5 << 16, 0), Err(Error::NoBoundOrbit));
+        assert_eq!(
+            compile_variant(Key::new((1 << 48) - 1, 1 << 30).unwrap(), true).map(|_| ()),
+            Err(Error::Range)
+        );
+        assert_eq!(
+            compile(Key {
+                energy: Words::new(0),
+                angular: Words::new(0)
+            }),
+            Err(Error::Range)
+        );
+        // Unbound and plunging keys are not cycles.
+        assert_eq!(compile(Key::new(1 << 48, 5 << 32).unwrap()).map(|_| ()), Err(Error::NoBoundOrbit));
+        assert_eq!(
+            compile(Key::new((1 << 48) - (1 << 40), 3 << 32).unwrap()).map(|_| ()),
+            Err(Error::NoBoundOrbit)
+        );
+    }
+    #[test]
+    fn capture_cases_are_answered_not_errors_disguised_as_escape() {
+        for factor in [0.5f64, 0.9, 0.97, 1.03, 1.1, 1.5] {
+            let key = Key::new(1 << 48, (4.0 * factor * 4294967296.0).round() as u64).unwrap();
+            let (out, _) = scatter(key, false).unwrap();
+            assert_eq!(out == Outcome::Absorbed, factor < 1.0);
+        }
+        for factor in [0.9f64, 0.97, 1.03, 1.1] {
+            let key = Key::new(1 << 48, (3.0 * 3f64.sqrt() * factor * 4294967296.0).round() as u64).unwrap();
+            let (out, _) = scatter(key, true).unwrap();
+            assert_eq!(out == Outcome::Absorbed, factor < 1.0);
+        }
+    }
 }

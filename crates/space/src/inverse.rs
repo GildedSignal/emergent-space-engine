@@ -2,9 +2,9 @@
 //! Adapted from retired v0 `algebraic.rs`/`roots.rs`: decide multiplicity before
 //! rounding; carry the small root gap through its square root before narrowing.
 use crate::{
-    Error, Result,
     binding::IntegerState,
     orbit::{OrbitKey, Scalar},
+    Error, Result,
 };
 use num_bigint::BigInt;
 use num_traits::{One, Signed, ToPrimitive, Zero};
@@ -139,10 +139,7 @@ fn scalar(n: &BigInt) -> Result<Scalar> {
         return Ok(Scalar::ZERO);
     }
     let shift = n.bits().saturating_sub(63) as usize;
-    Scalar::raw(
-        (n >> shift).to_i128().ok_or(Error::Range)?,
-        shift as i32 - BITS as i32,
-    )
+    Scalar::raw((n >> shift).to_i128().ok_or(Error::Range)?, shift as i32 - BITS as i32)
 }
 
 struct Cubic {
@@ -205,121 +202,14 @@ impl Cubic {
 pub(crate) fn fit(st: IntegerState) -> Result<OrbitKey> {
     let c = Cubic::new(st)?;
     if c.circular {
-        return OrbitKey::new(
-            scalar(&div(&(BigInt::from(2) << BITS), &c.z.fixed()))?,
-            1 << 48,
-        );
+        return OrbitKey::new(scalar(&div(&(BigInt::from(2) << BITS), &c.z.fixed()))?, 1 << 48);
     }
-    fit_cubic(c)
-}
-
-/// Binding energy E-1 retains its exponent; never round a weak E to unity.
-pub(crate) fn invariants(
-    delta: crate::scaled::Scalar,
-    angular: crate::scaled::Scalar,
-) -> Result<OrbitKey> {
-    if !angular.is_positive() || delta <= crate::scaled::Scalar::integer(-1) {
-        return Err(Error::Range);
-    }
-    let s = BigInt::one();
-    let d = A::dyadic(delta.significand().into(), delta.exponent() as i32 - 62, &s);
-    let l = A::dyadic(
-        angular.significand().into(),
-        angular.exponent() as i32 - 62,
-        &s,
-    );
-    let a = d.n(4).div(&l.square());
-    let b = a.mul(&d.mul(&d.n(2).add(&d)));
-    if angular >= crate::scaled::Scalar::power_of_two(10) && delta < crate::scaled::Scalar::ZERO {
-        // In x=L²/r the two bound roots are O(1), even when their
-        // Schwarzschild u values have disjoint exponents from the third root.
-        // Never materialize the tiny coefficient ε/L² in fixed scratch units.
-        let one = BigInt::one() << BITS;
-        let q = d.n(1).div(&l.square()).fixed();
-        let c = d.mul(&d.n(2).add(&d)).mul(&l.square()).fixed();
-        let vertex = div(&(&one * 2), &(&one + sqrt(&(&one - &q * 12))?));
-        let poly = |x: &BigInt| mul(x, x) - x * 2 - &c - mul(&q, &mul(&mul(x, x), x)) * 2;
-        if poly(&vertex) >= BigInt::zero() || c >= BigInt::zero() {
-            return Err(Error::NoBoundOrbit);
-        }
-        let root = |mut lo: BigInt, mut hi: BigInt, increasing: bool| {
-            while &hi - &lo > BigInt::one() {
-                let mid = (&lo + &hi) >> 1;
-                if (poly(&mid) > BigInt::zero()) == increasing {
-                    hi = mid;
-                } else {
-                    lo = mid;
-                }
-            }
-            (lo + hi) >> 1
-        };
-        let apo = root(BigInt::zero(), vertex.clone(), false);
-        let peri = root(vertex, &one * 4, true);
-        let shape: BigInt = div(&(&peri + apo), &(&peri * 2)) >> (BITS - 48);
-        let radius = angular.mul(angular)?.div(scalar(&peri)?)?;
-        return OrbitKey::new(radius, shape.to_u64().ok_or(Error::Range)?);
-    }
-    fit_cubic(Cubic {
-        a,
-        b,
-        z: d.n(0),
-        circular: false,
-    })
-}
-
-/// Null turn R/b, solved with normalized compilation scratch. Capture is decided
-/// on the exact dyadic b², before any root or shape rounding.
-pub(crate) fn photon(impact: crate::scaled::Scalar) -> Result<Option<OrbitKey>> {
-    use crate::scaled::Scalar;
-    if impact < Scalar::ZERO {
-        return Err(Error::Range);
-    }
-    let s = BigInt::one();
-    let b = A::dyadic(
-        impact.significand().into(),
-        impact.exponent() as i32 - 62,
-        &s,
-    );
-    if b.square().sub(&b.n(27)).sign() <= 0 {
-        return Ok(None);
-    }
-    let one = BigInt::one() << BITS;
-    let inverse = b.n(2).div(&b).fixed();
-    let (mut lo, mut hi) = (sqrt(&(&one / 3))?, one.clone());
-    while &hi - &lo > BigInt::one() {
-        let y = (&lo + &hi) >> 1;
-        let p = mul(&mul(&y, &y), &y) - &y + &inverse;
-        if p > BigInt::zero() {
-            hi = y;
-        } else {
-            lo = y;
-        }
-    }
-    let radius = impact.mul(scalar(&hi)?)?;
-    let q = radius.reciprocal()?;
-    let lapse = Scalar::ONE.sub(q.scale(1)?)?;
-    let root = lapse
-        .mul(Scalar::ONE.add(q.mul(Scalar::integer(6))?)?)?
-        .sqrt()?;
-    let den = root.add(lapse)?;
-    let k = q.scale(2)?.mul(lapse)?.div(den.mul(den)?)?;
-    Ok(Some(OrbitKey {
-        periapsis: radius,
-        k: k.fixed(48)? as u64,
-        null: true,
-    }))
-}
-
-fn fit_cubic(c: Cubic) -> Result<OrbitKey> {
     let one = BigInt::one() << BITS;
     // Exact depressed-cubic discriminant, as in v0. No rounded residual decides
     // whether the two neighbouring roots exist.
     let pp = c.a.sub(&c.a.n(1).div(&c.a.n(3)));
     let rr = c.b.add(&c.a.div(&c.a.n(3))).sub(&c.a.n(2).div(&c.a.n(27)));
-    let discriminant = rr
-        .square()
-        .div(&c.a.n(4))
-        .add(&pp.square().mul(&pp).div(&c.a.n(27)));
+    let discriminant = rr.square().div(&c.a.n(4)).add(&pp.square().mul(&pp).div(&c.a.n(27)));
     if discriminant.sign() >= 0 {
         return Err(Error::NoBoundOrbit);
     }
@@ -353,11 +243,7 @@ fn fit_cubic(c: Cubic) -> Result<OrbitKey> {
             lo = mid;
         }
     }
-    let small = if c.b.sign() == 0 {
-        BigInt::zero()
-    } else {
-        (&lo + &hi) >> 1
-    };
+    let small = if c.b.sign() == 0 { BigInt::zero() } else { (&lo + &hi) >> 1 };
     let center2 = &one - &small;
     // Never narrow the squared gap: its exponent is twice the physical gap's.
     // b=0 is the symbolic E=1 root and needs no division by the zero root.
