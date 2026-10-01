@@ -150,6 +150,12 @@ pub(crate) struct Anchoring {
     scratch: Vec<[i64; 2]>,
     pub(crate) last_refusal: Option<String>,
     flush: Vec<[i64; 2]>,
+    /// A frame with fewer members than this hands the rest out too (0: never).
+    pub(crate) min_members: usize,
+    /// The frame ends when nobody is left in it (set by [`Battle::with_min_members`] and [`Battle::dissolve`]).
+    pub(crate) ends: bool,
+    /// [`Battle::dissolve`] is running its event: everyone leaves.
+    force: bool,
 }
 
 impl Anchoring {
@@ -329,8 +335,71 @@ impl<S: Kickable> Battle<S> {
             scratch: vec![[0; 2]; self.motions.len()],
             last_refusal: None,
             flush: Vec::new(),
+            min_members: 0,
+            ends: false,
+            force: false,
         });
         Ok(self)
+    }
+
+    /// A frame exists to resolve contacts between its members, so one with fewer than `n` of them has
+    /// nothing left to resolve: at the anchor that leaves fewer, the rest are handed out too, the frame
+    /// ends there ([`Battle::is_dissolved`], and [`Battle::run_to`] stops at that tick), and its parent
+    /// (the events layer) takes every hand-off. With `n = 2`, a lone member is a tube of the parent.
+    pub fn with_min_members(mut self, n: usize) -> Self {
+        if let Some(a) = self.anchoring.as_mut() {
+            a.min_members = n;
+            a.ends = n > 0;
+        }
+        self
+    }
+
+    /// The frame ends now: every member still in it is handed out at the committed tick, exactly as it
+    /// stands (an event of the law, like an anchor; nobody is recentred), and the frame is dissolved.
+    pub fn dissolve(&mut self) -> Result<AnchorReport, FrameError> {
+        let Some(a) = self.anchoring.as_mut() else { return Err(FrameError("re-anchoring is off (Battle::with_anchoring)".into())) };
+        a.force = true;
+        a.ends = true;
+        let r = self.do_anchor(None);
+        if let Some(a) = self.anchoring.as_mut() {
+            a.force = false;
+        }
+        r
+    }
+
+    /// Whether the frame has ended: it was asked to end (`with_min_members`, `dissolve`) and nobody is in it.
+    pub fn is_dissolved(&self) -> bool {
+        self.anchoring.as_ref().is_some_and(|a| a.ends) && self.active.iter().all(|&a| !a)
+    }
+
+    /// What a handed-out member's position is still owed, `2^-48` lattice units: the sub-lattice-unit
+    /// remainder of its dropped drift, which the hand-off record's integer position does not hold.
+    pub fn owed(&self, index: usize) -> [i128; 2] {
+        self.pcarry[index]
+    }
+
+    /// The parent's kick on the frame's origin (docs/law.md, "Perturbed motion": the origin is a tube in
+    /// its doll like any other, and the parent's tide, the secondaries and the neighbours act on it as
+    /// kicks): at the committed tick the origin's velocity gains `dv` (`2^-48` lattice units per chronon)
+    /// and the tube is rebound to that state with the exact remainder. The members are *not* kicked: their
+    /// frame is the origin's, in free fall, and feels what the origin does not (the tide, at epochs).
+    /// Refused, and nothing changed, when the new tube is not one the frame can hold (see [`Battle::reanchor`]).
+    pub fn kick_origin(&mut self, dv: [i128; 2]) -> Result<(), FrameError> {
+        if self.frame.is_flat() {
+            return Err(FrameError("a flat frame has no origin tube".into()));
+        }
+        let tick = self.stepper.tick();
+        let enforce = self.anchoring.as_ref().is_some_and(|a| a.enforce);
+        let new = self.rebind(tick, [0, 0], dv, enforce)?;
+        self.reference = Some(new);
+        Ok(())
+    }
+
+    /// `floor(log2)` of the origin tube's radial period, in chronons (the events layer's kick step is a
+    /// fraction of it). `None` for a flat frame.
+    pub fn origin_period_log2(&self) -> Option<i32> {
+        let (p, r) = (self.frame.parent.as_ref()?, self.reference.as_ref()?);
+        r.period_log2(&p.units).ok()
     }
 
     /// Planted law for tests: every re-anchor happens `shift` chronons after the epoch that
@@ -489,7 +558,18 @@ impl<S: Kickable> Battle<S> {
         // 1. Who stays: the centre of mass of the members, without whoever is out of the size rule.
         let mut active = self.active.clone();
         let mut handed: Vec<usize> = Vec::new();
-        let (sums, centre, vel) = loop {
+        let (force, min_members) = self.anchoring.as_ref().map_or((false, 0), |a| (a.force, a.min_members));
+        let (mut sums, centre, vel) = loop {
+            if force {
+                // The frame ends: everyone still in it goes, as they stand.
+                for i in 0..n_all {
+                    if active[i] {
+                        active[i] = false;
+                        handed.push(i);
+                    }
+                }
+                break (Sums::default(), [0, 0], [0, 0]);
+            }
             let s = par_sums(self.threads, &self.masses, &active, &self.motions, &self.carries);
             if s.mass == 0 {
                 break (s, [0, 0], [0, 0]);
@@ -510,6 +590,17 @@ impl<S: Kickable> Battle<S> {
                 break (s, x, v);
             }
         };
+        // Too few members left to touch one another: the rest leave with them, and the frame ends.
+        let left = active.iter().filter(|&&a| a).count();
+        if min_members > 0 && left > 0 && left < min_members {
+            for i in 0..n_all {
+                if active[i] {
+                    active[i] = false;
+                    handed.push(i);
+                }
+            }
+            sums = Sums::default();
+        }
         let dissolved = sums.mass == 0;
         if dissolved {
             // Everyone is out of the rule: nobody is left to recentre on, so nothing moves. The
