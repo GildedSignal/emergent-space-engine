@@ -1,34 +1,6 @@
-//! Re-anchoring: the frame keeps its members near its origin and its tide honest by moving
-//! the origin, the reference circle and the members' rounding, as an event of the law
+//! Re-anchoring: the frame keeps its members near its origin, its rounding honest and its tube
+//! current by moving the origin to the members' centre of mass, as an event of the law
 //! (docs/representation.md §1).
-//!
-//! # What the measurements said
-//!
-//! Members released at rest at dr/R = 1e-3, full two-body motion (RK4, float) as the truth, ten
-//! periods (`tests/reanchor.rs`; the float model of the variants is a throwaway):
-//!
-//! - The frame's output today, (x, y) read as Cartesian offsets from the reference point, is
-//!   2.1% off after one period and 19.8% after ten. Most of that is geometry, not tide: y is
-//!   an arc, and the missing `x = −y²/2R` is 18% of the offset at the azimuth 0.37 rad. Read as
-//!   (radial offset, arc length) the same fixed linear law is within 0.84% for all ten periods.
-//!   So the tide is good to about 1%. What the fixed axes cannot do is turn with the group: the
-//!   tide keeps pointing along x while it rotates with the azimuth, and the group's shape is off
-//!   by 38% after ten periods.
-//! - Re-expressing the members about a new point that drifts with the steady shear (`x' = x − X`,
-//!   `k'_y = k_y + 3nX/2`, `n` unchanged, the first sketch here) is a change of variables of a
-//!   linear system: it resets nothing physical (float model: the same 19.8%).
-//! - Moving the circle, the reference point keeping its azimuth and `n` following Kepler's third
-//!   law (`n' = n·(R/R')^{3/2}`), does it. The circle through the origin's position keeps its
-//!   drift and gave 4.7% (1.8% anchored every P/32); the circle through the origin's guiding
-//!   centre `x_c = 4x + 2v_y/n` gave 0.45% at any cadence, and is built: 0.44% worst position
-//!   error over ten periods (0.24% after the first), group shape 0.97%. The floor is the linear
-//!   epicycle's second-order shape (a Kepler ellipse against it), about 4·dr/R.
-//! - The lattice's rounding is what broke the cadence. The lattice moves a body at the integer
-//!   `k` while the law's velocity is `k + c/2^48`: every epoch drops `c·E/2^48` of position. The
-//!   error feeds the tide and shears, and a scene that re-anchored at the wrong cadence was
-//!   1.4% off at 1e-3 and 15% at 1e-4 (0.44% or 1.1% at the right one). Paying that drift into the
-//!   positions at every anchor removes it: the same 0.44% at every cadence from 8 epochs to
-//!   half a period, and 0.46% at 1e-4.
 //!
 //! # The event
 //!
@@ -40,185 +12,76 @@
 //!    (0.003 dr after one period, 333 dr after a thousand) cannot outlive one anchor's age.
 //! 1. **Members leave.** The centre of mass of the members in the frame is found (exact
 //!    integer weighted means: position rounded to a lattice unit, velocity to `2^-48`). A member
-//!    farther than `R/32` from it (the size rule) is handed out: flagged, no longer kicked or
-//!    counted, its state recorded in a [`Handoff`] (relative to the origin, with the tube).
-//!    The centre is then found again without it, until nobody is out of the rule. For now a
-//!    handed-out body stays a plain lattice body (tube handoffs belong to `crates/space`).
+//!    farther than `r_p/32` from it (the size rule, `r_p` the tube's periapsis distance) is
+//!    handed out: flagged, no longer kicked or counted, its state recorded in a [`Handoff`]
+//!    (relative to the origin, with the tube). The centre is then found again without it, until
+//!    nobody is out of the rule. For now a handed-out body stays a plain lattice body (its
+//!    rebinding into the parent doll is the events layer's job).
 //! 2. **Recentre.** The origin moves to the centre of mass and takes its velocity: every
 //!    position loses `X` and every velocity `V`, exactly in integers. A body's `k + c/2^48` is
 //!    shifted as one number and split again by rounding to nearest, so the carries stay
 //!    consistent and the members' total momentum becomes zero to half a `2^-48` per unit of
 //!    mass: the momentum went, exactly, into the tube (`M·V`).
-//! 3. **The tube.** The frame's own tube in its parent is the origin's state against the
-//!    reference circle: `x`, `v`, in `2^-32` and `2^-48` lattice units, and the azimuth of the
-//!    reference point against the parent's original axes (radians `2^-60`, exact). It absorbs
-//!    `(X, V)`, and between events it is a member of the same law: kicked at every epoch with
-//!    the frame's weights, drifting exactly. It is the stand-in for the parent's own law
-//!    (`crates/space`): it is only as good as a linear epicycle about a circle.
-//! 4. **Move the circle.** The tube's guiding centre (from the velocity at the tick: the
-//!    half-kicked one, the staggered lattice velocity being half an epoch late) is where the
-//!    reference circle goes: `R' = R + x_c`, `n' = n·(R/R')^{3/2}` (integer square root), the
-//!    reference point keeping its azimuth. Members' velocities gain `δn·ẑ×r` and the tube's
-//!    `δn·ẑ×P` (`δn = n − n'`, `P` its position from the parent: the steady shear), and the
-//!    tube's `x` loses `x_c`. The tube then goes round the new circle in a pure epicycle, so
-//!    the frame's axes turn with the tube and the linear error stays where it began. The epoch
-//!    does not change (it is the frame's clock).
+//! 3. **Rebind the tube.** The origin's new state is the tube's readout at the tick plus
+//!    `(X, V)`: an exact integer state. The tube is refitted to it (`crates/space`: a new orbit
+//!    key, orientation and periapsis time) and the difference between the state and the fit's
+//!    readout is kept, exactly, as the remainder ([`crate::tube`]). There is no reference circle
+//!    to move and no Coriolis term to rebuild, so the recentring is one exact Galilean shift and
+//!    the tube's velocity gains exactly what the members lost: total momentum is conserved
+//!    bit for bit.
 //!
 //! The rules bite: the frame is refused when it breaks the weak-field rule (`n·R ≤ c/4`) unless
-//! the policy says stress; a circle move that would break the rule, the epoch angle, or the
-//! extent (`|x_c| ≤ R/32`) is refused and counted; a re-anchor whose new velocities would be
-//! illegal (past c) is refused whole and counted. Refusals are deterministic.
+//! the policy says stress; a rebinding that would break the rule at the new tube, the epoch
+//! angle (the tide's axis turning by more than `2^-5` rad per epoch), or the tube's being bound,
+//! is refused; a re-anchor whose new velocities would be illegal (past c) is refused whole.
+//! Refusals are counted, deterministic and change nothing.
 //!
 //! # Certificates
 //!
 //! An anchor is due (`Battle` looks after each epoch's kick, and fires at the next epoch) when
-//! a member is farther than `R/32` from the origin (the size rule: the anchor recentres it,
+//! a member is farther than `r_p/32` from the origin (the size rule: the anchor recentres it,
 //! and whoever is still out of the rule then leaves), or when `AGE_DIV` anchors per period
-//! have not happened (the lattice's owed drift, and the composition, are settled at least every
-//! `P/8`), and once at genesis. The ladder scenes use a shorter age (a policy).
+//! have not happened (the lattice's owed drift, which the reading of positions carries until
+//! it is paid, and the composition, are settled at least every `P/64`), and once at genesis.
+//! The ladder scenes and the judge use a shorter age (a policy: the reading error of a body is
+//! its dropped drift, up to half a unit per chronon since the last anchor).
 //!
-//! # What is still wrong (measured, not hidden)
+//! # What is still open (measured, not hidden)
 //!
-//! - Members' axes stay on the reference point, not on the tube: the tide direction is off by
-//!   the tube's azimuth against it (an epicycle: 2A/R), and its strength uses the reference
-//!   circle, not the tube's instantaneous radius (±3A/R): the group's shape is 1% off at 1e-3
-//!   and 2.3% at 3e-3.
-//! - The tube is a linear epicycle about a circle. Released on a drift-free epicycle
-//!   (`v_y = −2n·x`) its guiding centre is exactly right in first order, and the true one is
-//!   second order, `−(dr/R)²R`: the true drift is `94·(dr/R)²·R` in ten periods, 10% of the
-//!   offset at 1e-3 (12% measured; 9% at 3e-4, where lattice rounding adds). Using the exact
-//!   semi-major axis (vis-viva) moves the error, not removes it: the linear epicycle's own
-//!   guiding centre is then off at the same order. That is the parent's exact Kepler tube.
+//! - The remainder is a constant offset between two bindings; it is exact at its event and
+//!   small (a few lattice units of position, the quantisation of the fit's orientation), but
+//!   its transport through later motion is not a proved law (`crates/space/ENVELOPE.md`).
 //! - The recentre is Galilean and the lattice law is special-relativistic: a body already near c
-//!   cannot take the velocity shift, and the whole anchor is refused (55 of 65 attempts in the
-//!   storm scene, nT = 8), so a storm never re-anchors. A Lorentz boost is not linear and not
-//!   exact.
+//!   cannot take the velocity shift, and the whole anchor is refused. A Lorentz boost is not
+//!   linear and not exact.
 //! - A handed-out body stays in the stepper with the frame's coordinates and no tide, so it
-//!   can meet the members it left. The hand-off records are what `crates/space` will take.
+//!   can meet the members it left. The hand-off records are what the events layer takes.
+//! - A body moved by the settle is revised by a kick and its inverse ([`Battle`]'s
+//!   `revise_settled`), because the lattice's `rebase` does not revise a body it only shifts and
+//!   the two orders then fire a re-approaching consumed pair differently (an ignored test in
+//!   `reanchor.rs` is the reproduction); delete it when `rebase` does.
+//! - The tube's fit loses its size and eccentricity to the double root of its cubic when the
+//!   state is exactly circular (about 5e-10 of the size per fit, biased by 1e-11): 4,000 rebindings
+//!   of an exact circle move the origin 10,000 lattice units along-track in ten orbits
+//!   (`tube.rs` tests). An eccentric state (1e-3) moves 21.
 //! - Sparse order: every anchor re-forms the grids (a rebuild, O(n)), about one epoch kick's
 //!   worth of upkeep per body; an anchor per P/8 is 1/50 of the epochs.
-use crate::frame::{round_shift, Battle, BattleStats, Frame, FrameError, KickStats, Weight, Weights, CARRY_BITS, EXTENT_SHIFT};
+use crate::frame::{round_shift, Battle, BattleStats, FrameError, KickStats, Weight, CARRY_BITS, EPOCH_ANGLE_LOG2, EXTENT_SHIFT};
+use crate::tube::{Reference, Tube, Units};
 use emergent_lattice::law::Tick;
 use emergent_lattice::{Kickable, Motion};
+use emergent_space::orbit::Scalar;
 use std::time::Instant;
 
-/// Fraction bits of the tube's position (its velocity has [`CARRY_BITS`]).
-pub const TUBE_BITS: u32 = 32;
-/// The age certificate: at least this many anchors per orbit period.
-pub const AGE_DIV: i64 = 8;
-/// The largest reference radius the anchor arithmetic is exact for (2^40 lattice units).
+/// The age certificate: at least this many anchors per orbit period (the lattice's dropped sub-quantum
+/// drift, which the tide shears, grows like t^1.5 between anchors).
+pub const AGE_DIV: i64 = 64;
+/// The largest reference radius the frame's tube arithmetic is validated for (2^40 lattice units).
 pub const MAX_RADIUS: i64 = 1 << 40;
 
 /// `round(num / den)` for `den > 0`, ties up.
 pub(crate) fn div_round(num: i128, den: i128) -> i128 {
     (2 * num + den).div_euclid(2 * den)
-}
-
-/// `floor(sqrt(n))`.
-pub(crate) fn isqrt(n: u128) -> u128 {
-    if n < 2 {
-        return n;
-    }
-    let mut x = 1u128 << (128 - n.leading_zeros()).div_ceil(2);
-    loop {
-        let y = (x + n / x) >> 1;
-        if y >= x {
-            return x;
-        }
-        x = y;
-    }
-}
-
-/// Kepler's third law in integers: `n·(R/R')^{3/2}` for `R' = radius2` (both at most 2^40,
-/// `R'` within a factor 2 of `R`), in 2^-62 fixed point. No floats.
-pub(crate) fn kepler_n(n: u64, radius: i64, radius2: i64) -> u64 {
-    let r = ((radius as u128) << 62) / radius2 as u128;
-    let r2 = (r * r) >> 62;
-    let r3 = (r2 * r) >> 62;
-    let s = isqrt(r3 << 62);
-    ((n as u128 * s + (1 << 61)) >> 62) as u64
-}
-
-/// The frame's own tube in its parent (exact integers): where the origin (the members'
-/// centre of mass) is against the reference circle, and where the circle is against the
-/// parent's original rotating axes.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Tube {
-    /// The origin's position from the reference point, in the frame's axes: `2^-32` lattice units.
-    pub x: [i128; 2],
-    /// Its velocity in those axes: `2^-48` lattice units per chronon.
-    pub v: [i128; 2],
-    /// The reference point's azimuth from the parent's original axes (which turn at `n0`):
-    /// radians · `2^60`, the exact sum of `(n − n0)·Δt`.
-    pub azimuth: i128,
-    /// The tick `x`, `v` and the azimuth are advanced to.
-    pub tick: Tick,
-    /// The reference circle: radius (lattice units) and mean motion (`n/2^60` rad per chronon).
-    pub radius: i64,
-    pub n: u64,
-    /// The parent's original circle: the frame's genesis.
-    pub radius0: i64,
-    pub n0: u64,
-}
-
-impl Tube {
-    fn new(radius: i64, n: u64) -> Tube {
-        Tube { x: [0; 2], v: [0; 2], azimuth: 0, tick: 0, radius, n, radius0: radius, n0: n }
-    }
-
-    /// Drift to `tick` (exact: `x += v·Δt`, rounded once to `2^-32`) and turn the azimuth.
-    pub fn advance_to(&mut self, tick: Tick) {
-        let dt = (tick - self.tick) as i128;
-        assert!(dt >= 0, "a tube only advances");
-        if dt > 0 {
-            for c in 0..2 {
-                self.x[c] += round_shift(self.v[c] * dt, CARRY_BITS - TUBE_BITS);
-            }
-            self.azimuth += (self.n as i128 - self.n0 as i128) * dt;
-            self.tick = tick;
-        }
-    }
-
-    /// The tube at a later tick (nothing changes in the frame).
-    pub fn at(&self, tick: Tick) -> Tube {
-        let mut t = self.clone();
-        t.advance_to(tick);
-        t
-    }
-
-    /// The velocity after one epoch kick (the same law as a member's, in the tube's precision).
-    pub(crate) fn kicked_v(&self, w: &Weights) -> [i128; 2] {
-        let (cc, ss, gx, gy) = (w.c as i128, w.s as i128, w.gx as i128, w.gy as i128);
-        [
-            round_shift(cc * self.v[0] + ss * self.v[1], CARRY_BITS) + round_shift(gx * self.x[0], TUBE_BITS),
-            round_shift(-ss * self.v[0] + cc * self.v[1], CARRY_BITS) + round_shift(gy * self.x[0], TUBE_BITS),
-        ]
-    }
-
-    fn absorb(&mut self, centre: [i64; 2], v: [i128; 2]) {
-        for c in 0..2 {
-            self.x[c] += (centre[c] as i128) << TUBE_BITS;
-            self.v[c] += v[c];
-        }
-    }
-
-    /// `x_c = 4x + 2v_y/n` in `2^-32` lattice units, from the velocity at the tick.
-    fn guiding_centre(&self, v_y_at_tick: i128) -> i128 {
-        4 * self.x[0] + div_round((2 * v_y_at_tick) << (TUBE_BITS + 12), self.n as i128)
-    }
-
-    /// Move the reference circle to `radius2`, `n2` (same azimuth): the origin's `x` loses the
-    /// step, and its velocity gains `δn·ẑ×P` with `P` its position from the parent, the steady
-    /// shear of the new circle against the old.
-    fn rebase(&mut self, radius2: i64, n2: u64) {
-        let dn = self.n as i128 - n2 as i128;
-        let (px, py) = (((self.radius as i128) << TUBE_BITS) + self.x[0], self.x[1]);
-        self.v[0] += round_shift(-dn * py, 60 + TUBE_BITS - CARRY_BITS);
-        self.v[1] += round_shift(dn * px, 60 + TUBE_BITS - CARRY_BITS);
-        self.x[0] -= ((radius2 - self.radius) as i128) << TUBE_BITS;
-        self.radius = radius2;
-        self.n = n2;
-    }
 }
 
 /// A member handed out of the frame: its state as it leaves, relative to the origin in the
@@ -241,7 +104,7 @@ pub struct Handoff {
 pub struct AnchorPolicy {
     /// Anchor when this many epochs have passed since the last one (0: a period / [`AGE_DIV`]).
     pub age_epochs: u64,
-    /// Refuse a frame outside the weak-field rule (`n·R ≤ c/4`), and a circle move that would
+    /// Refuse a frame outside the weak-field rule (`n·R ≤ c/4`), and a rebinding that would
     /// leave it. False is a stress scene: the integer law is defined there, the physics is not.
     pub enforce_orbit_rule: bool,
 }
@@ -264,13 +127,14 @@ pub struct AnchorReport {
     pub mass: i128,
     /// The bodies handed out (indices).
     pub handed_out: Vec<usize>,
-    /// The reference circle after the event, and whether it moved.
+    /// The reference circle's radius and mean motion (the readout convention; they never move).
     pub radius: i64,
     pub n: u64,
+    /// The tube was rebound to a different orbit (record) by this event.
     pub moved: bool,
-    /// The whole event was refused (a velocity past c): nothing changed.
+    /// The whole event was refused (a velocity past c, an unbound or too fast tube): nothing changed.
     pub refused: bool,
-    /// `Σ m·Δv` over every body, `2^-48` units: `−M·V` plus the (small) frame-change term.
+    /// `Σ m·Δv` over every body, `2^-48` units: `−M·V` plus the rounding of the carries.
     pub dp: [i128; 2],
 }
 
@@ -278,7 +142,6 @@ pub struct AnchorReport {
 pub(crate) struct Anchoring {
     pub(crate) age_epochs: u64,
     pub(crate) enforce: bool,
-    pub(crate) tube: Tube,
     /// Expired at the last epoch: fires at the next.
     pub(crate) due: bool,
     /// Planted law: an anchor waiting for its (late) tick.
@@ -294,22 +157,14 @@ pub(crate) struct Anchoring {
 }
 
 impl Anchoring {
-    pub(crate) fn digest_into(&self, h: &mut blake3::Hasher, st: &BattleStats, frame: &Frame, active: &[bool]) {
+    pub(crate) fn digest_into(&self, h: &mut blake3::Hasher, st: &BattleStats, active: &[bool], _units: Option<&Units>) {
         let put = |h: &mut blake3::Hasher, v: i128| {
             h.update(&v.to_le_bytes());
         };
-        for v in [st.anchors, st.handed_out, st.rebases, st.anchors_refused, st.rebases_refused, self.since, self.hold, self.due as u64] {
+        for v in [st.anchors, st.handed_out, st.anchors_refused, self.since, self.hold, self.due as u64] {
             put(h, v as i128);
         }
         put(h, self.pending.map_or(-1, |t| t as i128));
-        put(h, frame.radius as i128);
-        put(h, frame.n as i128);
-        let tube = |h: &mut blake3::Hasher, t: &Tube| {
-            for v in [t.x[0], t.x[1], t.v[0], t.v[1], t.azimuth, t.tick as i128, t.radius as i128, t.n as i128] {
-                put(h, v);
-            }
-        };
-        tube(h, &self.tube);
         for a in active {
             h.update(&[*a as u8]);
         }
@@ -317,7 +172,10 @@ impl Anchoring {
             for v in [ho.index as i128, ho.tick as i128, ho.x[0] as i128, ho.x[1] as i128, ho.v[0], ho.v[1]] {
                 put(h, v);
             }
-            tube(h, &ho.tube);
+            let t = &ho.tube;
+            for v in [t.x[0], t.x[1], t.v[0], t.v[1], t.azimuth, t.tick as i128, t.radius as i128, t.n as i128] {
+                put(h, v);
+            }
         }
     }
 }
@@ -381,21 +239,17 @@ fn par_sums(threads: usize, masses: &[i64], active: &[bool], motions: &[Motion],
     total
 }
 
-/// The frame change applied to every body: origin `centre` and velocity `vel` (`2^-48`) subtracted, and
-/// the change of the axes' rotation `dn` (`2^-60` rad per chronon) as `δn·ẑ×r`.
+/// The frame change applied to every body's velocity: the origin's velocity `vel` (`2^-48`) subtracted.
 struct Change {
-    centre: [i64; 2],
     vel: [i128; 2],
-    dn: i128,
 }
 
 fn transform_slice(ch: &Change, motions: &[Motion], carries: &[[i64; 2]], dk: &mut [[i64; 2]], new_carry: &mut [[i64; 2]]) {
     let half = 1i128 << (CARRY_BITS - 1);
     for (((m, c), d), nc) in motions.iter().zip(carries).zip(dk.iter_mut()).zip(new_carry.iter_mut()) {
-        let (rx, ry) = ((m.x[0] - ch.centre[0]) as i128, (m.x[1] - ch.centre[1]) as i128);
-        // v' = v − V + δn·ẑ×r, one number in 2^-48, then split by rounding to nearest.
-        let vx = ((m.k[0] as i128) << CARRY_BITS) + c[0] as i128 - ch.vel[0] - round_shift(ch.dn * ry, 60 - CARRY_BITS);
-        let vy = ((m.k[1] as i128) << CARRY_BITS) + c[1] as i128 - ch.vel[1] + round_shift(ch.dn * rx, 60 - CARRY_BITS);
+        // v' = v − V, one number in 2^-48, then split by rounding to nearest.
+        let vx = ((m.k[0] as i128) << CARRY_BITS) + c[0] as i128 - ch.vel[0];
+        let vy = ((m.k[1] as i128) << CARRY_BITS) + c[1] as i128 - ch.vel[1];
         let (kx, ky) = ((vx + half) >> CARRY_BITS, (vy + half) >> CARRY_BITS);
         *d = [(kx - m.k[0] as i128) as i64, (ky - m.k[1] as i128) as i64];
         *nc = [(vx - (kx << CARRY_BITS)) as i64, (vy - (ky << CARRY_BITS)) as i64];
@@ -414,47 +268,6 @@ fn par_transform(threads: usize, ch: &Change, motions: &[Motion], carries: &[[i6
             s.spawn(move || transform_slice(ch, m, c, d, nc));
         }
     });
-}
-
-/// `Σ m·δv` of the frame change's rotation term over the members in the frame (`2^-48` units):
-/// the momentum the change adds, which the tube's velocity absorbs so the members' total stays
-/// within half a quantum of zero (the centre is rounded to a lattice unit, so `Σ m·r ≠ 0`).
-fn dv_sum_slice(centre: [i64; 2], dn: i128, masses: &[i64], active: &[bool], motions: &[Motion]) -> [i128; 2] {
-    let mut s = [0i128; 2];
-    for i in 0..masses.len() {
-        if !active[i] {
-            continue;
-        }
-        let (rx, ry) = ((motions[i].x[0] - centre[0]) as i128, (motions[i].x[1] - centre[1]) as i128);
-        s[0] -= masses[i] as i128 * round_shift(dn * ry, 60 - CARRY_BITS);
-        s[1] += masses[i] as i128 * round_shift(dn * rx, 60 - CARRY_BITS);
-    }
-    s
-}
-
-fn par_dv_sum(threads: usize, centre: [i64; 2], dn: i128, masses: &[i64], active: &[bool], motions: &[Motion]) -> [i128; 2] {
-    let n = masses.len();
-    let t = threads.clamp(1, n.max(1));
-    if t == 1 {
-        return dv_sum_slice(centre, dn, masses, active, motions);
-    }
-    let chunk = n.div_ceil(t);
-    let mut total = [0i128; 2];
-    std::thread::scope(|s| {
-        let jobs: Vec<_> = (0..n.div_ceil(chunk))
-            .map(|j| {
-                let r = j * chunk..((j + 1) * chunk).min(n);
-                let (m, a, mo) = (&masses[r.clone()], &active[r.clone()], &motions[r]);
-                s.spawn(move || dv_sum_slice(centre, dn, m, a, mo))
-            })
-            .collect();
-        for j in jobs {
-            let d = j.join().expect("anchor dv thread");
-            total[0] += d[0];
-            total[1] += d[1];
-        }
-    });
-    total
 }
 
 /// The centre of mass of a set (`mx/M`, `mv/M`, each rounded: the position to a lattice unit,
@@ -485,7 +298,7 @@ pub fn recentre(masses: &[i64], motions: &[Motion], carries: &[[i64; 2]], thread
     let (centre, velocity) = centre_of(&s);
     let n = motions.len();
     let (mut dk, mut nc) = (vec![[0i64; 2]; n], vec![[0i64; 2]; n]);
-    par_transform(threads, &Change { centre, vel: velocity, dn: 0 }, motions, carries, &mut dk, &mut nc);
+    par_transform(threads, &Change { vel: velocity }, motions, carries, &mut dk, &mut nc);
     Some(Recentred { centre, velocity, mass: s.mass, dk, carries: nc })
 }
 
@@ -505,13 +318,12 @@ impl<S: Kickable> Battle<S> {
             )));
         }
         if self.frame.radius > MAX_RADIUS {
-            return Err(FrameError(format!("orbit radius {} beyond 2^40 lattice units: the anchor arithmetic is exact up to there", self.frame.radius)));
+            return Err(FrameError(format!("orbit radius {} beyond 2^40 lattice units: the tube's arithmetic is validated up to there", self.frame.radius)));
         }
         let age = if policy.age_epochs == 0 { ((self.frame.period() / self.frame.epoch()) / AGE_DIV).max(1) as u64 } else { policy.age_epochs };
         self.anchoring = Some(Anchoring {
             age_epochs: age,
             enforce: policy.enforce_orbit_rule,
-            tube: Tube::new(self.frame.radius, self.frame.n),
             due: true,
             pending: None,
             shift: 0,
@@ -535,17 +347,13 @@ impl<S: Kickable> Battle<S> {
         self
     }
 
-    /// The frame's own tube in its parent, as of its last update (an epoch or an anchor).
-    pub fn tube(&self) -> Option<&Tube> {
-        self.anchoring.as_ref().map(|a| &a.tube)
+    /// The frame's tube, as a record: the orbit's periapsis (lattice units) and its eccentricity
+    /// (a float, for reporting only). `None` for a flat frame.
+    pub fn orbit(&self) -> Option<(i64, f64)> {
+        self.reference.as_ref().map(|r| (r.size(), 1.0 / (r.spec().key.k as f64 / (1u64 << 48) as f64) - 1.0))
     }
 
-    /// The tube advanced to `tick` (nothing changes in the frame).
-    pub fn tube_at(&self, tick: Tick) -> Option<Tube> {
-        self.tube().map(|t| t.at(tick))
-    }
-
-    /// Why the last refused re-anchor was refused (the stepper's reason).
+    /// Why the last refused re-anchor was refused (the stepper's or the tube's reason).
     pub fn last_refusal(&self) -> Option<&str> {
         self.anchoring.as_ref().and_then(|a| a.last_refusal.as_deref())
     }
@@ -560,8 +368,7 @@ impl<S: Kickable> Battle<S> {
     }
 
     /// Re-anchor now, at the stepper's committed tick (an event of the law that nothing
-    /// scheduled: the caller's own, as in the tests). The tube's guiding centre uses the
-    /// staggered lattice velocity as it is there.
+    /// scheduled: the caller's own, as in the tests).
     pub fn reanchor(&mut self) -> Result<AnchorReport, FrameError> {
         if self.anchoring.is_none() {
             return Err(FrameError("re-anchoring is off (Battle::with_anchoring)".into()));
@@ -569,16 +376,12 @@ impl<S: Kickable> Battle<S> {
         self.do_anchor(None)
     }
 
-    /// Before an epoch's kick: bring the tube to the tick, and re-anchor if one is due.
+    /// Before an epoch's kick: settle the positions, and re-anchor if one is due.
     pub(crate) fn anchor_epoch(&mut self, weight: Weight) -> Result<(), FrameError> {
         let tick = self.stepper.tick();
-        if self.anchoring.is_some() {
-            self.settle_position_carries(tick);
-        }
         let go = match self.anchoring.as_mut() {
             None => return Ok(()),
             Some(a) => {
-                a.tube.advance_to(tick);
                 if a.due && a.hold == 0 {
                     a.due = false;
                     if a.shift == 0 {
@@ -598,17 +401,16 @@ impl<S: Kickable> Battle<S> {
         Ok(())
     }
 
-    /// After an epoch's kick: kick the tube with the same law, count the age, and look at the
-    /// certificates (the extent from this epoch's pass over the members).
-    pub(crate) fn anchor_certificate(&mut self, weight: Weight, k: &KickStats) {
+    /// After an epoch's kick: count the age, and look at the certificates (the extent from this
+    /// epoch's pass over the members).
+    pub(crate) fn anchor_certificate(&mut self, k: &KickStats) {
+        let r = self.reference.as_ref().map_or(self.frame.radius, |r| r.size()) as i128;
         let Some(a) = self.anchoring.as_mut() else { return };
-        a.tube.v = a.tube.kicked_v(self.frame.weights(weight));
         a.since += 1;
         a.hold = a.hold.saturating_sub(1);
         if a.due || a.pending.is_some() || a.hold > 0 {
             return;
         }
-        let r = self.frame.radius as i128;
         if a.since >= a.age_epochs || (k.max_r2 << (2 * EXTENT_SHIFT)) > r * r {
             a.due = true;
         }
@@ -632,6 +434,69 @@ impl<S: Kickable> Battle<S> {
         }
     }
 
+    /// The tube rebound to the origin's new state: the readout at `tick` plus the recentring
+    /// `(centre, vel)`. Refused (and nothing changes) when the new tube is not a bound orbit,
+    /// turns the tide's axis by more than `2^-5` rad per epoch, or, under the weak-field rule,
+    /// has a circular speed above `c/4` at its periapsis.
+    fn rebind(&self, tick: Tick, centre: [i64; 2], vel: [i128; 2], enforce: bool) -> Result<Reference, FrameError> {
+        let (p, old) = (self.frame.parent.as_ref().expect("a frame with a tube has a parent"), self.reference.as_ref().expect("a frame with a parent has a tube"));
+        let (x, v) = old.readout(&p.units, tick)?;
+        let new = Reference::bind(
+            &p.units,
+            ([x[0] + ((centre[0] as i128) << 32), x[1] + ((centre[1] as i128) << 32)], [v[0] + vel[0], v[1] + vel[1]]),
+            tick,
+        )?;
+        let sp = |e: emergent_space::Error| FrameError(format!("crates/space: {e:?}"));
+        // The tide's axis turns by at most twice the epoch angle per epoch (an epoch of one chronon: by up to 2^-5).
+        let turn = new.peak_rate(&p.units)?.mul(Scalar::integer(self.frame.epoch())).map_err(sp)?;
+        let limit = if self.frame.epoch() == 1 { 5 } else { EPOCH_ANGLE_LOG2 as i16 - 1 };
+        if turn > Scalar::power_of_two(-limit) {
+            return Err(FrameError("the new tube turns the tide's axis by too much per epoch".into()));
+        }
+        if enforce && new.circular_speed(&p.units)?.scale(2).map_err(sp)? > Scalar::integer(self.frame.q) {
+            return Err(FrameError("the new tube's circular speed exceeds c/4: outside the weak-field rule".into()));
+        }
+        Ok(new)
+    }
+
+    /// A body whose position was settled by its own shift (the owed drift, which differs from body
+    /// to body) is a revised body. The steppers key a consumed contact by the two bodies'
+    /// revisions and drop it when its pair separates, each at its own time (lockstep every 64
+    /// chronons, sparse when it walks the list); that is invisible while pairs move continuously,
+    /// and wrong when a rebase teleports one: a pair that was consumed, then overlapped and
+    /// approached by the shifts, fires in one order and not in the other (found by
+    /// `reanchor.rs`: three contacts at the tick after an anchor, 816 against 813). Every anchor used to
+    /// revise every body by accident (the axes' rotation changed every velocity); now a velocity changes
+    /// only by the centre of mass's, often not at all. A kick and its inverse change no velocity and
+    /// revise (the same `rev + 1` in every order).
+    /// (The lattice's `rebase` should revise a body it moves; this is deleted when it does.)
+    fn revise_settled(&mut self, flush: &[[i64; 2]]) -> Result<(), FrameError> {
+        let mut steps = std::mem::take(&mut self.dk);
+        let mut any = false;
+        for (i, (st, f)) in steps.iter_mut().zip(flush).enumerate() {
+            *st = [0, 0];
+            if *f == [0, 0] {
+                continue;
+            }
+            // The unit step that shortens the velocity (the legal one), along its longer axis.
+            let k = self.motions[i].k;
+            let c = if k[0].abs() >= k[1].abs() { 0 } else { 1 };
+            if k[c] == 0 && self.frame.q < 2 {
+                continue;
+            }
+            st[c] = if k[c] > 0 { -1 } else { 1 };
+            any = true;
+        }
+        let result = if any {
+            let back: Vec<[i64; 2]> = steps.iter().map(|s| [-s[0], -s[1]]).collect();
+            self.stepper.kick(&steps).and_then(|()| self.stepper.kick(&back)).map_err(|e| FrameError(e.0))
+        } else {
+            Ok(())
+        };
+        self.dk = steps;
+        result
+    }
+
     /// The event. `weight` is `Some` when it runs before an epoch's kick (the motions are then
     /// the epoch's, and are updated in place for the kick that follows), `None` between epochs.
     pub(crate) fn do_anchor(&mut self, weight: Option<Weight>) -> Result<AnchorReport, FrameError> {
@@ -640,11 +505,10 @@ impl<S: Kickable> Battle<S> {
         let n_all = self.motions.len();
         if weight.is_none() {
             self.stepper.motions(&mut self.motions);
-            let a = self.anchoring.as_mut().expect("anchoring is on");
-            a.tube.advance_to(tick);
-            a.pending = None;
+            self.anchoring.as_mut().expect("anchoring is on").pending = None;
         }
         let (radius, n_frame) = (self.frame.radius, self.frame.n);
+        let size = self.reference.as_ref().map_or(radius, |r| r.size());
 
         // 0. Settle the positions. Each body's sub-quantum drift since the last anchor is owed to
         // its position (the lattice moved it at the integer k): pay it, to the nearest lattice
@@ -676,7 +540,7 @@ impl<S: Kickable> Battle<S> {
             for i in 0..n_all {
                 if active[i] {
                     let (dx, dy) = ((self.motions[i].x[0] - x[0]) as i128, (self.motions[i].x[1] - x[1]) as i128);
-                    if (dx * dx + dy * dy) << (2 * EXTENT_SHIFT) > radius as i128 * radius as i128 {
+                    if (dx * dx + dy * dy) << (2 * EXTENT_SHIFT) > size as i128 * size as i128 {
                         active[i] = false;
                         handed.push(i);
                         any = true;
@@ -699,52 +563,26 @@ impl<S: Kickable> Battle<S> {
             flush.iter_mut().for_each(|f| *f = [0, 0]);
         }
 
-        // 2. The tube takes the origin's motion: the members' centre of mass, and its velocity (the
-        // momentum the recentring took from the members goes, exactly, into it).
-        // 3. The circle goes to the tube's guiding centre.
-        let a = self.anchoring.as_ref().expect("anchoring is on");
-        let mut tube = a.tube.clone();
-        let mut circle: Option<(i64, u64, Frame)> = None;
-        let mut circle_refused = false;
+        // 2. The origin takes the members' centre of mass and its velocity (the momentum the
+        // recentring takes from the members goes, exactly, into the tube).
+        // 3. The tube is rebound to that state, with the exact remainder.
+        let enforce = self.anchoring.as_ref().expect("anchoring is on").enforce;
+        let mut rebound: Option<Reference> = None;
+        let mut refusal = None;
         if !dissolved {
-            tube.absorb(centre, vel);
-            let v_y = match weight {
-                Some(Weight::Full) => tube.kicked_v(self.frame.weights(Weight::Half))[1],
-                _ => tube.v[1],
-            };
-            let dr = div_round(tube.guiding_centre(v_y), 1i128 << TUBE_BITS);
-            if dr != 0 {
-                let radius2 = radius as i128 + dr;
-                if radius > MAX_RADIUS || radius2 < 1 || radius2 > MAX_RADIUS as i128 || dr.abs() * 32 > radius as i128 {
-                    circle_refused = true;
-                } else {
-                    let n2 = kepler_n(n_frame, radius, radius2 as i64);
-                    match self.frame.rebased(radius2 as i64, n2) {
-                        Ok(f) if !a.enforce || f.orbit_speed_ok() => circle = Some((radius2 as i64, n2, f)),
-                        _ => circle_refused = true,
-                    }
-                }
+            match self.rebind(tick, centre, vel, enforce) {
+                Ok(r) => rebound = Some(r),
+                Err(e) => refusal = Some(e.0),
             }
-        }
-        // The rotation term of the frame change adds momentum Σ m·δv; the velocity the tube takes
-        // includes it, so the members' total is within half a quantum of zero either way.
-        let dn = circle.as_ref().map_or(0, |c| n_frame as i128 - c.1 as i128);
-        let mut vel = vel;
-        if dn != 0 {
-            let dv = par_dv_sum(self.threads, centre, dn, &self.masses, &active, &self.motions);
-            vel = [div_round(sums.mv[0] + dv[0], sums.mass), div_round(sums.mv[1] + dv[1], sums.mass)];
-            tube = a.tube.clone();
-            tube.absorb(centre, vel);
         }
 
         // 4. New velocities, then the stepper.
-        let change = Change { centre, vel, dn };
+        let change = Change { vel };
         let mut scratch = std::mem::take(&mut self.anchoring.as_mut().expect("anchoring is on").scratch);
         scratch.resize(n_all, [0, 0]);
         let mut applied = dissolved;
-        let mut refusal = None;
         let t_plan = Instant::now();
-        if !dissolved {
+        if !dissolved && refusal.is_none() {
             par_transform(self.threads, &change, &self.motions, &self.carries, &mut self.dk, &mut scratch);
             let dx: Vec<[i64; 2]> = flush.iter().map(|f| [f[0] - centre[0], f[1] - centre[1]]).collect();
             let t_apply = Instant::now();
@@ -755,9 +593,10 @@ impl<S: Kickable> Battle<S> {
             self.stats.anchor_apply_ns += t_apply.elapsed().as_nanos() as u64;
         }
         self.stats.anchor_plan_ns += (t_plan - t_start).as_nanos() as u64;
-        let a = self.anchoring.as_mut().expect("anchoring is on");
         if !applied {
-            // Refused whole (a velocity past c, or out of range): nothing changed anywhere.
+            let a = self.anchoring.as_mut().expect("anchoring is on");
+            // Refused whole (a velocity past c, out of range, or a tube that is not the frame's):
+            // nothing changed anywhere.
             for i in 0..n_all {
                 for c in 0..2 {
                     self.motions[i].x[c] -= flush[i][c];
@@ -786,18 +625,22 @@ impl<S: Kickable> Battle<S> {
                 self.carries[i] = scratch[i];
             }
         }
-        let moved = circle.is_some();
-        if let Some((radius2, n2, frame)) = circle {
-            tube.rebase(radius2, n2);
-            self.frame = frame;
-            self.stats.rebases += 1;
+        if !dissolved {
+            self.revise_settled(&flush)?;
         }
-        self.stats.rebases_refused += circle_refused as u64;
-        for &i in &handed {
-            let v = [((self.motions[i].k[0] as i128) << CARRY_BITS) + self.carries[i][0] as i128, ((self.motions[i].k[1] as i128) << CARRY_BITS) + self.carries[i][1] as i128];
-            a.handoffs.push(Handoff { index: i, tick, x: self.motions[i].x, v, tube: tube.clone() });
+        let a = self.anchoring.as_mut().expect("anchoring is on");
+        let mut moved = false;
+        if let Some(new) = rebound {
+            moved = !self.reference.as_ref().is_some_and(|old| old.same_orbit(&new));
+            self.reference = Some(new);
         }
-        a.tube = tube;
+        if let (Some(p), Some(r)) = (self.frame.parent.as_ref(), self.reference.as_ref()) {
+            for &i in &handed {
+                let v = [((self.motions[i].k[0] as i128) << CARRY_BITS) + self.carries[i][0] as i128, ((self.motions[i].k[1] as i128) << CARRY_BITS) + self.carries[i][1] as i128];
+                let tube = Tube::read(&p.units, r, tick, radius, n_frame).expect("the tube reads at its own binding");
+                a.handoffs.push(Handoff { index: i, tick, x: self.motions[i].x, v, tube });
+            }
+        }
         a.scratch = scratch;
         a.flush = flush;
         a.since = 0;
@@ -806,31 +649,13 @@ impl<S: Kickable> Battle<S> {
         self.stats.handed_out += handed.len() as u64;
         self.gone += handed.len();
         self.active = active;
-        Ok(AnchorReport { tick, centre, velocity: vel, mass: sums.mass, handed_out: handed, radius: self.frame.radius, n: self.frame.n, moved, refused: false, dp })
+        Ok(AnchorReport { tick, centre, velocity: vel, mass: sums.mass, handed_out: handed, radius, n: n_frame, moved, refused: false, dp })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn integer_square_root() {
-        for n in [0u128, 1, 2, 3, 4, 15, 16, 17, 1 << 64, (1 << 64) - 1, (1 << 126) + 12345, u128::MAX] {
-            let r = isqrt(n);
-            assert!(r * r <= n && (r + 1).checked_mul(r + 1).is_none_or(|s| s > n), "isqrt({n}) = {r}");
-        }
-    }
-
-    #[test]
-    fn keplers_third_law_in_integers() {
-        for (n, r, r2) in [(1u64 << 46, 1i64 << 32, (1i64 << 32) + (1 << 24)), (1 << 46, 1 << 32, (1 << 32) - (1 << 26)), (1 << 40, 1 << 40, (1 << 40) + 1), (12345678901, 999_999_937, 1_030_000_003)] {
-            let want = n as f64 * (r as f64 / r2 as f64).powf(1.5);
-            let got = kepler_n(n, r, r2) as f64;
-            assert!((got - want).abs() <= 0.5 + 1e-14 * want, "n {n}: {got} vs {want}");
-        }
-        assert_eq!(kepler_n(1 << 46, 1 << 32, 1 << 32), 1 << 46);
-    }
 
     #[test]
     fn division_rounds_to_nearest_with_ties_up() {

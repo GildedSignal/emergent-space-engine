@@ -47,6 +47,9 @@ struct Phases {
 
 fn drive<S: Kickable>(s: &mut S, f: &Frame, n: usize, upkeep: bool) -> (Phases, f64) {
     let (mut m, mut c, mut d) = (Vec::new(), vec![[0i64; 2]; n], vec![[0i64; 2]; n]);
+    // The drift each body's lattice motion has dropped (the frame kicks it at its true position).
+    let mut owed = vec![[0i128; 2]; n];
+    let mut last = 0;
     let mut p = Phases::default();
     let wall = Instant::now();
     for j in 0..=HORIZON / f.epoch() {
@@ -54,8 +57,14 @@ fn drive<S: Kickable>(s: &mut S, f: &Frame, n: usize, upkeep: bool) -> (Phases, 
         s.run_to(at);
         let t0 = Instant::now();
         s.motions(&mut m);
+        for (o, c) in owed.iter_mut().zip(&c) {
+            o[0] += c[0] as i128 * (at - last) as i128;
+            o[1] += c[1] as i128 * (at - last) as i128;
+        }
+        last = at;
         let t1 = Instant::now();
-        f.kick_all(if j == 0 { Weight::Half } else { Weight::Full }, &m, &mut c, &mut d, 1);
+        let w = f.weights_at(at, if j == 0 { Weight::Half } else { Weight::Full }).unwrap();
+        f.kick_all_masked(&w, &[], &owed, &m, &mut c, &mut d, 1);
         let t2 = Instant::now();
         s.kick(&d).unwrap();
         let t3 = Instant::now();
@@ -84,7 +93,8 @@ fn cost_of_the_epoch_kick_and_of_the_sparse_order() {
     println!("ns per body per epoch-kick (epochs after the first), by phase; sparse upkeep = re-home and re-predict every kicked body (run inside the next chronon):");
     for k in [13u32, 11, 9] {
         let radius = 32 * (extent + 4 * HORIZON * (q / 8));
-        let f = Frame::new(q, radius, 1u64 << (60 - k)).unwrap();
+        // About the non-rotating axes (the genesis rotation of `Frame::new` is the Battle's, not the driver's).
+        let f = Frame::on_orbit(q, radius, 1u64 << (60 - k), 0, 0, 0).unwrap();
         let per = |ns: u64, p: &Phases| ns as f64 / (p.epochs * n) as f64;
 
         let mut lock = Chronon::new(w.clone(), false).unwrap();
@@ -131,9 +141,11 @@ fn cost_of_the_epoch_kick_and_of_the_sparse_order() {
     for threads in [1usize, 4, 8] {
         let (mut c, mut d) = (vec![[0i64; 2]; motions.len()], vec![[0i64; 2]; motions.len()]);
         let iters = 3000;
+        // The weights are one tube readout per kick, outside the per-body pass; the pass alone is timed.
+        let (half, full) = (f.weights_at(0, Weight::Half).unwrap(), f.weights_at(f.epoch(), Weight::Full).unwrap());
         let t = Instant::now();
         for i in 0..iters {
-            f.kick_all(if i == 0 { Weight::Half } else { Weight::Full }, &motions, &mut c, &mut d, threads);
+            f.kick_all(if i == 0 { &half } else { &full }, &motions, &mut c, &mut d, threads);
         }
         println!("kick pass alone, {n} bodies, {threads} threads: {:.1} ns per body-kick", t.elapsed().as_nanos() as f64 / (iters * n) as f64);
     }

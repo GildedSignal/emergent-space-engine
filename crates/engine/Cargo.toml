@@ -3,11 +3,12 @@ name = "emergent-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "The dense order: a battle as a free-fall frame (Clohessy-Wiltshire tide as integer kicks at fixed epochs) over the lattice law, bit-identical in lockstep and sparse evaluation."
+description = "The dense order: a battle as a free-fall (Fermi) frame on an exact crates/space tube, its tide as integer kicks at fixed epochs, over the lattice law, bit-identical in lockstep and sparse evaluation."
 
 [dependencies]
 emergent-lattice = { path = "../lattice" }
 emergent-lattice-event = { path = "../lattice-event" }
+emergent-space = { path = "../space" }
 blake3.workspace = true
 
 [target.'cfg(target_os = "macos")'.dev-dependencies]
