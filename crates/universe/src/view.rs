@@ -3,9 +3,11 @@
 //! and cannot write (the test `observation_never_changes_the_digest` holds it to that).
 //!
 //! For each emitter the emission event is where its worldline crosses the observer's past light
-//! cone: `t_e + |x(t_e) − X| = T` (c = 1; a root length unit is a tick of light). Positions come from
-//! the tubes' readouts at the retarded time through the bodies' histories, up the doll chain to the
-//! root frame. The colour is `−p·u`: the photon's momentum carried between the emitter's and the
+//! cone: the last tick `t_e` with `t_e + |x(t_e) − X| ≤ T` (c = 1; a root length unit is a tick of
+//! light). Positions come from the tubes' readouts at the retarded time through the bodies' histories,
+//! up the doll chain to the root frame. Each tube crosses the cone once, and Newton's method finds the
+//! crossing starting from the previous frame's ([`ViewCache`], a memo owned by the caller: the crossing
+//! is a function of the state alone, so a cold start, a warm one and a stale one find the same tick). The colour is `−p·u`: the photon's momentum carried between the emitter's and the
 //! observer's four-velocities, `ν_obs/ν_em = [(1 − n·β_obs)/rate_obs] / [(1 − n·β_em)/rate_em]`
 //! with each `rate = dτ/dt` derived from the doll clocks (the potential and speed at each level of
 //! the chain), so gravitational redshift, Doppler shift and time dilation arrive as one number.
@@ -13,7 +15,7 @@
 //! (no lensing yet).
 use crate::body::Kind;
 use crate::num::{to_f64, Tick};
-use crate::observe::{clock_rate, root_state};
+use crate::observe::{clock_rate, root_state, state_rate};
 use crate::universe::Universe;
 use emergent_space::orbit::Scalar;
 
@@ -43,7 +45,7 @@ pub fn blackbody(temperature: f64) -> [f64; 3] {
     samples.map(|s| (s / max).powf(1. / 2.2))
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Seen {
     pub id: usize,
     pub name: String,
@@ -64,7 +66,7 @@ pub struct Seen {
     pub angular_radius: f64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct View {
     pub tick: Tick,
     pub coordinate_seconds: f64,
@@ -78,6 +80,97 @@ pub struct View {
     pub seen: Vec<Seen>,
 }
 
+/// What the view remembers about an emitter between frames: where its worldline crossed the observer's
+/// past light cone last time. Only a guess for Newton's method; it never decides the result.
+#[derive(Clone, Copy, Debug)]
+struct Crossing {
+    observed: Tick,
+    /// The root of `g` as a real number (the tick it floors to is the crossing): what the next guess extrapolates.
+    root: f64,
+    /// `d t_e / d T` between the last two frames (1 on a first sight).
+    slope: f64,
+}
+
+/// The view's per-emitter memo (by body id). Create one per observer and pass it to
+/// [`gather_cached`] every frame; any cache, however stale or foreign, gives the same view.
+#[derive(Clone, Debug, Default)]
+pub struct ViewCache {
+    slots: Vec<Option<Crossing>>,
+    /// Readouts spent finding crossings, in the last gather (a measure, not a result).
+    pub readouts: u64,
+}
+
+impl ViewCache {
+    fn guess(&self, i: usize, t_now: Tick) -> Option<Tick> {
+        let c = self.slots.get(i).copied().flatten().filter(|c| c.observed <= t_now)?;
+        Some((c.root + (t_now - c.observed) as f64 * c.slope).floor() as Tick)
+    }
+    fn put(&mut self, i: usize, t_now: Tick, root: f64) {
+        if self.slots.len() <= i {
+            self.slots.resize(i + 1, None);
+        }
+        let slope = match self.slots[i] {
+            Some(c) if t_now > c.observed => ((root - c.root) / (t_now - c.observed) as f64).clamp(0.5, 1.5),
+            _ => 1.0,
+        };
+        self.slots[i] = Some(Crossing { observed: t_now, root, slope });
+    }
+}
+
+/// An emitter's state at one tick: position and velocity in the root frame and its clock rate.
+struct At {
+    x: [f64; 2],
+    v: [f64; 2],
+    rate: f64,
+}
+
+/// The crossing of an emitter's worldline with the past light cone of the event `(t_now, xo)`: the last
+/// integer tick `t` with `t + |x(t) − xo| ≤ t_now`. `g(t) = t + |x(t) − xo| − t_now` rises by about one per
+/// tick (an emitter is slower than light), so the root is unique, and Newton's method on it, started at
+/// `guess`, ends in a bracket `g(t) ≤ 0 < g(t + 1)`: the answer does not depend on where it started. A tick
+/// is certainly past the root when `g(t) > −(1 − speed)`, so a good guess costs one readout. Returns the
+/// tick, its state and the real root (for the next frame's guess). Before the first light (`t` down to 0)
+/// the state at tick 0 is returned.
+fn crossing(reads: &mut u64, eval: &mut dyn FnMut(Tick) -> Option<At>, t_now: Tick, xo: [f64; 2], guess: Tick) -> Option<(Tick, At, f64)> {
+    let mut t = guess.clamp(0, t_now);
+    let (mut lo, mut hi): (Option<(Tick, At, f64)>, Option<Tick>) = (None, None);
+    for _ in 0..64 {
+        *reads += 1;
+        let at = eval(t)?;
+        let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+        let dist = dot(d, d).sqrt();
+        let g = t as f64 + dist - t_now as f64;
+        let speed = dot(at.v, at.v).sqrt();
+        let step = -g / (1.0 + if dist > 0.0 { dot(d, at.v) / dist } else { 0.0 });
+        if g > 0.0 && t == 0 {
+            return Some((0, at, 0.0));
+        }
+        if g <= 0.0 {
+            if g > -(1.0 - speed - 1e-4) || hi == Some(t + 1) {
+                return Some((t, at, t as f64 + step));
+            }
+            lo = Some((t, at, t as f64 + step));
+        } else {
+            hi = Some(t);
+            if lo.as_ref().is_some_and(|l| l.0 + 1 == t) {
+                return lo;
+            }
+        }
+        let mut next = (t as f64 + step).floor() as Tick;
+        if let Some((l, ..)) = &lo {
+            next = next.max(*l);
+        }
+        if let Some(h) = hi {
+            next = next.min(h - 1);
+        }
+        if next == t {
+            next = if g <= 0.0 { t + 1 } else { t - 1 };
+        }
+        t = next.clamp(0, t_now);
+    }
+    None
+}
+
 fn rest(kind: Kind, id: usize, doll_name: &str) -> (f64, f64) {
     // (temperature, luminosity): painted for now; the emergent version is starlight scattered.
     match kind {
@@ -88,9 +181,22 @@ fn rest(kind: Kind, id: usize, doll_name: &str) -> (f64, f64) {
     }
 }
 
-/// Gather everything that arrives at the player's present tick.
+/// Gather everything that arrives at the player's present tick, every crossing found from scratch.
 pub fn gather(u: &Universe, names: &[String]) -> Option<View> {
+    gather_with(u, names, None)
+}
+
+/// [`gather`], each emitter's crossing started from the one `cache` holds from the last frame (and
+/// updated): the same view, in about one readout per emitter instead of two or three.
+pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> Option<View> {
+    gather_with(u, names, Some(cache))
+}
+
+fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
     let ctx = u.ctx();
+    if let Some(c) = cache.as_deref_mut() {
+        c.readouts = 0;
+    }
     let p = u.player()?;
     let t_now = u.now;
     let rec = u.rec(p);
@@ -141,28 +247,19 @@ pub fn gather(u: &Universe, names: &[String]) -> Option<View> {
         let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
     }
-    // Bodies: the retarded fixed point t = T − |x(t) − X|.
+    // Bodies: where each tube crosses the past light cone.
+    let mut reads = 0u64;
     for i in 0..u.n_bodies() {
         if i == p || !u.bodies().alive(i) {
             continue;
         }
         let kind = u.info[i].kind;
-        let mut t = t_now as f64;
-        let mut got = None;
-        for _ in 0..6 {
-            let Ok((x, v)) = root_state(&ctx, i, (t as Tick).max(0)) else { break };
-            let d = [x[0] - xo[0], x[1] - xo[1]];
-            let next = (t_now as f64 - dot(d, d).sqrt()).max(0.0);
-            got = Some((x, v));
-            if (next - t).abs() < 1.0 {
-                t = next;
-                break;
-            }
-            t = next;
+        let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
+        if let Some(c) = cache.as_deref_mut() {
+            c.put(i, t_now, root);
         }
-        let Some((x, v)) = got else { continue };
-        let Ok(rate) = clock_rate(&ctx, i, (t as Tick).max(0)) else { continue };
-        let doll = &u.dolls[u.rec(i).b.doll as usize];
+        let doll = &u.dolls[u.bodies().doll(i) as usize];
         let host_name = match kind {
             Kind::Planet => u.dolls.iter().find(|d| d.centre == Some(i)).map(|d| d.name).unwrap_or("planet"),
             _ => doll.name,
@@ -175,7 +272,10 @@ pub fn gather(u: &Universe, names: &[String]) -> Option<View> {
             Kind::Moon => 2,
             _ => 3,
         };
-        push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, x, v, rate, temp, lum, radius, 0.0, t);
+        push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64);
+    }
+    if let Some(c) = cache.as_deref_mut() {
+        c.readouts = reads;
     }
     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.

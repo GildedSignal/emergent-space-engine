@@ -1,8 +1,10 @@
-//! The view is a pure read of the state, and the keys held show within the frame, not at the next kick.
-//! Every test finishes within a few seconds.
+//! The view is a pure read of the state: the crossing it finds is a property of the state and not of where
+//! the search started, and the keys held show within the frame, not at the next kick. Every test finishes
+//! within a few seconds.
 use emergent_universe::fleet::Order;
+use emergent_universe::observe::root_state;
 use emergent_universe::scenario::{plane, Plane};
-use emergent_universe::view::{gather, View};
+use emergent_universe::view::{gather, gather_cached, View, ViewCache, TICK_SECONDS};
 use emergent_universe::{Budget, Config};
 
 fn angle(v: &View) -> f64 {
@@ -10,6 +12,60 @@ fn angle(v: &View) -> f64 {
 }
 fn wrap(a: f64) -> f64 {
     (a + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI
+}
+
+/// Each emitter's crossing is the last tick whose light has arrived: `g(t) = t + |x(t) − X| − T` is `≤ 0` at
+/// the crossing and `> 0` one tick later (checked here by a second computation, plain readouts), and a cold
+/// search, a warm one and one warmed by an unrelated moment of the universe all end on it: the same view.
+#[test]
+fn a_crossing_is_a_property_of_the_state_and_not_of_the_cache() {
+    let mut p = plane(Config::default(), 3, Order::Sparse, 1, 12).unwrap();
+    let frame = 340_000i64; // one 60 Hz frame at 100x
+    let start = 2_000_000_000i64;
+    p.u.settle(start);
+    let mut stale = ViewCache::default();
+    {
+        // warmed far from where it will be used
+        let mut q = plane(Config::default(), 3, Order::Sparse, 1, 12).unwrap();
+        q.u.settle(500_000_000);
+        gather_cached(&q.u, &q.names, &mut stale).unwrap();
+    }
+    let mut warm = ViewCache::default();
+    let (mut cold_reads, mut warm_reads, mut bodies) = (0u64, 0u64, 0usize);
+    for f in 0..40 {
+        let t = start + f * frame;
+        p.u.settle(t);
+        p.u.now = t;
+        let cold = gather(&p.u, &p.names).unwrap();
+        let hot = gather_cached(&p.u, &p.names, &mut warm).unwrap();
+        assert_eq!(cold, hot, "frame {f}: a warm cache changed the view");
+        let mut c = ViewCache::default();
+        let fresh = gather_cached(&p.u, &p.names, &mut c).unwrap();
+        assert_eq!(cold, fresh, "frame {f}");
+        if f == 0 {
+            cold_reads = c.readouts;
+            warm_reads = warm.readouts;
+            let s = gather_cached(&p.u, &p.names, &mut stale).unwrap();
+            assert_eq!(cold, s, "a cache warmed at another time changed the view");
+        } else {
+            warm_reads = warm_reads.min(warm.readouts);
+        }
+        bodies = cold.seen.iter().filter(|s| s.id < p.u.n_bodies()).count();
+        // The bracket, from plain readouts.
+        let ctx = p.u.ctx();
+        let (xo, _) = root_state(&ctx, p.player, t).unwrap();
+        for s in cold.seen.iter().filter(|s| s.id < p.u.n_bodies()) {
+            let te = (t as f64 - s.age / TICK_SECONDS).round() as i64;
+            let g = |tick: i64| {
+                let (x, _) = root_state(&ctx, s.id, tick).unwrap();
+                tick as f64 + ((x[0] - xo[0]).powi(2) + (x[1] - xo[1]).powi(2)).sqrt() - t as f64
+            };
+            assert!(g(te) <= 1e-5 && g(te + 1) > -1e-5, "frame {f}, {}: g({te}) = {}, g({}) = {}", s.name, g(te), te + 1, g(te + 1));
+        }
+    }
+    println!("{bodies} bodies: {cold_reads} readouts to find every crossing cold, {warm_reads} warm");
+    assert!(cold_reads >= 2 * bodies as u64, "a cold search takes several readouts per body");
+    assert!(warm_reads as f64 <= 1.3 * bodies as f64, "a warm search takes about one: {warm_reads} for {bodies} bodies");
 }
 
 /// Holding a turn key changes the heading the view shows on the very next frame, by the turn the law owes

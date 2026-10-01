@@ -54,6 +54,38 @@ pub fn clock_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<f64> {
     Ok(rate)
 }
 
+/// A body's position and velocity in the root frame and the rate of its clock against the root's, all
+/// at root tick `t`, in one walk up the doll chain: [`root_state`] and [`clock_rate`] share every readout
+/// (the view reads both for each emitter, at the emitter's retarded time).
+pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)> {
+    let (mut pos, mut vel, mut rate) = ([0.0f64; 2], [0.0f64; 2], 1.0f64);
+    let (mut cur, mut below) = (i, None::<[f64; 2]>);
+    loop {
+        let b = ctx.bodies.binding_at(cur, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+        let (p, v) = b.cartesian(t)?;
+        let (p, v) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
+        let doll = &ctx.dolls[b.doll as usize];
+        let k = 2f64.powi(-(doll.shift as i32));
+        pos = [pos[0] + p[0] * k, pos[1] + p[1] * k];
+        vel = [vel[0] + v[0], vel[1] + v[1]];
+        // This level's own rate (see `clock_rate`), then the velocity composition with the level below.
+        let r = (p[0] * p[0] + p[1] * p[1]).sqrt();
+        let f = 1.0 - 2.0 / r;
+        let vr = (p[0] * v[0] + p[1] * v[1]) / r;
+        let vt = (p[0] * v[1] - p[1] * v[0]) / r;
+        rate *= (f - vr * vr / f - vt * vt).max(1e-300).sqrt();
+        if let Some(vb) = below {
+            rate /= 1.0 + v[0] * vb[0] + v[1] * vb[1];
+        }
+        below = Some(v);
+        match doll.centre {
+            Some(c) => cur = c,
+            None => break,
+        }
+    }
+    Ok((pos, vel, rate))
+}
+
 /// What the player's held thrust has made of its state since the last flush, at tick `t`: the heading
 /// (turns, Q32) and the change of velocity (the burn owed), the same a flush at `t` would write. A pure
 /// read, so the view shows the keys within the frame instead of at the next kick.

@@ -96,6 +96,10 @@ pub trait BodyStore: Send + Sync {
     fn event_time(&self, i: usize) -> Tick;
     fn next_time(&self, i: usize) -> Option<Tick>;
     fn alive(&self, i: usize) -> bool;
+    /// The doll the body's current tube is in.
+    fn doll(&self, i: usize) -> u16 {
+        self.rec(i).b.doll
+    }
     /// Bytes held per body (the arrays, the catalogue share of its compiled trajectory, history).
     fn bytes_of(&self, i: usize) -> usize;
 }
@@ -153,6 +157,9 @@ impl BodyStore for PlainBodies {
     }
     fn alive(&self, i: usize) -> bool {
         self.recs[i].alive
+    }
+    fn doll(&self, i: usize) -> u16 {
+        self.recs[i].b.doll
     }
     fn bytes_of(&self, i: usize) -> usize {
         let r = &self.recs[i];
