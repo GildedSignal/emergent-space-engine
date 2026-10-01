@@ -35,7 +35,7 @@ pub struct Config {
 }
 impl Default for Config {
     fn default() -> Self {
-        Self { thrust_log2: -40, turn_log2: -30, leave_log2: 40, step_log2: 7 }
+        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
     }
 }
 

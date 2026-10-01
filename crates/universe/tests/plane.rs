@@ -8,7 +8,9 @@ use emergent_universe::{Budget, Config};
 
 const MEMBERS: u64 = 24;
 const HORIZON: i64 = 2_000_000_000; // 2.7 hours of game time
-const INPUTS: [(i64, u8); 5] = [(10_000_000, 1), (300_000_000, 0), (500_000_000, 9), (900_000_000, 0), (1_200_000_000, 2)];
+/// Short burns (10 s each at 0.35 g): forward, forward and right, reverse, left. A long burn from a low
+/// orbit puts the periapsis under the surface, and a lost player has no clock to read.
+const INPUTS: [(i64, u8); 8] = [(10_000_000, 1), (12_000_000, 0), (300_000_000, 9), (302_000_000, 0), (900_000_000, 2), (902_000_000, 0), (1_200_000_000, 4), (1_201_000_000, 0)];
 
 /// Run a plane to `HORIZON` the way a player's frames would: `step`-tick frames, `budget` events
 /// each, with the scripted inputs at their ticks, and settle at the end (the canonical cut).
@@ -159,4 +161,41 @@ fn work_per_frame_is_bounded_and_overflow_is_a_dip_not_a_hitch() {
     q.u.settle(h);
     p.u.settle(h);
     assert_eq!(p.u.digest(), q.u.digest(), "the budget changed when work was done, never what");
+}
+
+#[test]
+fn encounters_are_exact_and_sit_behind_one_seam() {
+    use emergent_universe::encounter::{Encounter, Encounters};
+    use emergent_universe::num::s;
+    use emergent_universe::scenario::restricted;
+    use emergent_universe::{Kind, OrbitSpec};
+    use emergent_space::orbit::Scalar;
+    let mut w = restricted(-10, 527_000_000, 49_000, &[], 1).unwrap();
+    let edge = emergent_universe::num::to_f64(w.u.dolls[1].edge);
+    let p = s((edge * 0.1) as i64);
+    // Three bodies on one circle about the planet: the player; one 30 km ahead (near, not touching);
+    // one 100 m ahead of that... and one that touches (50 planet-units ≈ 70 m ahead of the player).
+    let r = Scalar::raw(34, 0).unwrap(); // 34 planet units = 49 m
+    let spec = |dq: u32| OrbitSpec { doll: 1, periapsis: p, e_q48: 0, clockwise: false, angle: (1 << 30) + dq, phase: 0 };
+    let me = w.u.add_body(Kind::Player, spec(0), r).unwrap();
+    let near = w.u.add_body(Kind::Ship, spec(4100), r).unwrap();
+    let touching = w.u.add_body(Kind::Ship, spec(1), r).unwrap();
+    w.u.start().unwrap();
+    w.u.settle(40_000_000_000);
+    let (n, contacts) = (w.u.stats.encounters, w.u.contacts);
+    println!("encounters {n}, contacts {contacts}, logged {}", w.u.enc_log.len());
+    assert!(n > 0 && contacts > 0 && contacts < n, "the neighbour is found, and only the touching body is in contact");
+    assert!(w.u.enc_log.iter().any(|e: &Encounter| e.b == near && !e.contact) && w.u.enc_log.iter().any(|e| e.b == touching && e.contact));
+    assert!(w.u.enc_log.iter().all(|e| e.a == me));
+    // The seam: another finder replaces the check without touching the rest.
+    struct Nothing;
+    impl Encounters for Nothing {
+        fn find(&self, _: &emergent_universe::ctx::Ctx, _: usize, _: i64, _: i64) -> Vec<Encounter> {
+            Vec::new()
+        }
+    }
+    let before = w.u.stats.encounters;
+    w.u.set_encounters(Box::new(Nothing));
+    w.u.settle(60_000_000_000);
+    assert_eq!(w.u.stats.encounters, before, "a replaced finder finds what it finds");
 }

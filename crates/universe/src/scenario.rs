@@ -143,7 +143,7 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
                 angle: (lcg(&mut rng) * 4294967296.0) as u32,
                 phase: (lcg(&mut rng) * 4294967296.0) as u32,
             },
-            Scalar::raw(34, -4)?,
+            Scalar::raw(34, -10)?,
         )?;
         ships.push(id);
         names.push(format!("Hauler {}", ships.len()));
@@ -162,7 +162,7 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
                 angle: (lcg(&mut rng) * 4294967296.0) as u32,
                 phase: (lcg(&mut rng) * 4294967296.0) as u32,
             },
-            Scalar::raw(34, -4 + 18)?,
+            Scalar::raw(34, -10 + 18)?,
         )?;
         ships.push(id);
         names.push(format!("Orbiter {}", k + 1));
@@ -181,7 +181,7 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
                 angle: (lcg(&mut rng) * 4294967296.0) as u32,
                 phase: (lcg(&mut rng) * 4294967296.0) as u32,
             },
-            Scalar::raw(34, -4 + 10)?,
+            Scalar::raw(34, -10 + 10)?,
         )?;
         ships.push(id);
         names.push(format!("Skimmer {}", k + 1));
@@ -196,7 +196,7 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
     let player = u.add_body(
         Kind::Player,
         OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
-        Scalar::raw(34, -4 + 18)?,
+        Scalar::raw(34, -10 + 18)?,
     )?;
     names.push("You".into());
     let f = u.add_fleet(fleet);

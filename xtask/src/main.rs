@@ -11,6 +11,7 @@ mod ladder;
 mod lattice;
 mod measure;
 mod regions;
+mod universe;
 use serde_json::Value;
 use std::{
     fs,
@@ -37,6 +38,7 @@ fn run() -> Result<u8> {
     let task = args.next().unwrap_or_else(|| "help".into());
     if task == "fly" { return fly::run(args.collect()); }
     if task == "galaxy" { return galaxy::run(args.collect()); }
+    if task == "universe" { return universe::run(args.collect()); }
     if task == "engine-judge" {
         return engine_judge::run(args.collect());
     }
@@ -156,6 +158,7 @@ fn run() -> Result<u8> {
         println!("PASS: history check and workspace tests ({})", out.join("test-output.txt").display());
         return Ok(0);
     }
-    println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  galaxy [--ships N] [--tubes N] [--bench] [--png FILE]  millions to billions of orbiting ships as a density image (port 8791)\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|space|planted-*] [--gates G1,..,B18]  behaviour judge, gates G1-G6, B7, B9-B18\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
+    println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  universe [--bench] [--rtf R] [--seconds S]  the plane: one star system, whole (port 8792), or its smoothness dashboard
+  galaxy [--ships N] [--tubes N] [--bench] [--png FILE]  millions to billions of orbiting ships as a density image (port 8791)\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|space|planted-*] [--gates G1,..,B18]  behaviour judge, gates G1-G6, B7, B9-B18\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
     Ok(0)
 }

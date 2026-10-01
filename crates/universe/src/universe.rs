@@ -89,6 +89,9 @@ pub struct Stats {
     pub slices: u64,
     pub encounters: u64,
     pub decisions: u64,
+    /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
+    pub cost_ns: [u64; 5],
+    pub items: [u64; 5],
 }
 impl Stats {
     pub fn events(&self) -> u64 {
@@ -422,6 +425,8 @@ impl Universe {
 
     fn resolve_entity(&mut self, e: usize) {
         let n = self.bodies.len();
+        let t0 = Instant::now();
+        let class = if e < n { self.info[e].kind as usize } else { 4 };
         if e < n {
             self.resolve_body(e);
         } else {
@@ -430,6 +435,8 @@ impl Universe {
             self.stats.slices += self.fleets[f].advance(self.slice, self.target);
             self.update_fleet_position(f);
         }
+        self.stats.cost_ns[class] += t0.elapsed().as_nanos() as u64;
+        self.stats.items[class] += 1;
         self.requeue(e);
     }
 
@@ -447,6 +454,7 @@ impl Universe {
     /// the ships' items are pure functions of their own records, and any number of threads gives the
     /// same bits; the updates are applied in key order.
     fn resolve_wave(&mut self, first: usize, target: Tick) {
+        let t0 = Instant::now();
         let cap = self.threads * 4;
         let mut wave = vec![first];
         let _ = self.queue.as_mut().map(|q| q.set(first, None));
@@ -489,10 +497,12 @@ impl Universe {
                 handles.into_iter().flat_map(|h| h.join().expect("a ship's item")).collect()
             })
         };
+        self.stats.items[2] += updates.len() as u64;
         for (e, upd) in updates {
             self.apply(e, upd);
             self.requeue(e);
         }
+        self.stats.cost_ns[2] += t0.elapsed().as_nanos() as u64;
     }
 
     /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.

@@ -93,12 +93,18 @@ pub fn gather(u: &Universe, names: &[String]) -> Option<View> {
     let ctx = u.ctx();
     let p = u.player()?;
     let t_now = u.now;
-    let (xo, vo) = root_state(&ctx, p, t_now).ok()?;
-    let rate_obs = clock_rate(&ctx, p, t_now).ok()?;
     let rec = u.rec(p);
+    // A lost player (a wreck) stays where it was lost: the universe goes on without a clock aboard.
+    let (xo, vo, rate_obs) = if rec.alive {
+        let (x, v) = root_state(&ctx, p, t_now).ok()?;
+        (x, v, clock_rate(&ctx, p, t_now).ok()?)
+    } else {
+        let (x, _) = root_state(&ctx, p, rec.b.event_time).ok()?;
+        (x, [0.0, 0.0], 1.0)
+    };
     let heading = rec.thrust.map(|t| t.heading).unwrap_or(0);
     let h = heading as f64 / 4294967296.0 * std::f64::consts::TAU;
-    let tau = rec.b.orbit_state(t_now).ok().map(|s| {
+    let tau = rec.b.orbit_state(t_now.max(rec.b.event_time)).ok().map(|s| {
         let doll = &u.dolls[rec.b.doll as usize];
         let along = s.proper_time.sub(rec.b.orbit_state(rec.b.event_time).ok()?.proper_time).ok()?;
         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
