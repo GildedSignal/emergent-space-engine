@@ -21,10 +21,20 @@ The galaxy (one more doll level) is the first scope expansion, not part of this 
 4. **Every change is an event, resolved by its exact law:** kicks on (E, L), handoffs by rebinding, contacts by `es-lattice-relativistic-v1`, and the player's thrust (the rapidity grows in proper time; in a field, E and L change by the work done).
 5. **Observation is a pure function of the state:** the gather reads, never writes.
 6. **Seams for better parts, with no rewiring later.** Body storage behind one interface: plain tubes now, `crates/shipmem` population programs later. Encounters behind one interface: an exact per-doll check now, the Binet cone (`crates/encounters`) later. The three-body regime as a doll kind: the binary doll when it qualifies, else the dense fallback.
+7. **Bounded work per presented frame** (1 October, after GPT's point on tails: "make expensive work bounded, movable, predictable, or avoidable"). The frame has a hard deadline (16.67 ms at 60 Hz). The engine gets a budget per frame and spends it in causal-deadline order: an event's deadline is when its light reaches the player's past light cone or another consumer (the slack queue of representation.md §3). Nothing takes an unbounded synchronous claim on the frame, whether a cycle compile, a rebinding burst, a decompression or a gather. Keys about to be needed are compiled ahead in idle time. The budget changes *when* work is done, never *what*: outcomes are independent of schedule, so any budgeted order gives identical bits. Overflow (a burst whose deadlines all fall inside the frame) is pending Julien's call: a brief dip of the real-time factor, or a visible degradation.
 
 ## Measured on the whole, from the first flight
 
-Real-time factor (game-seconds per wall-second), events per second, the p99 frame time, bytes per body, the universe's digest. These are measured like the player: heat included, machine state recorded. Every later change is chosen by the bottleneck these numbers show. The gates (B0–B18, E1–E8) stay as guards on the parts.
+- **Smoothness, as a service level, not as FPS:**
+  - frame time p50, p95, p99 and p99.9;
+  - hitches per gameplay hour above 16.7, 33 and 50 ms;
+  - the worst hitch and its frequency;
+  - the real-time factor's median and its lowest 1%.
+
+  A percentile alone can hide a 200 ms freeze once a minute, which is 0.028% of frames.
+- **Throughput and footprint:** events per second, bytes per body, and the universe's digest.
+
+All of these are measured like the player: heat included, machine state recorded. Every later change is chosen by the bottleneck these numbers show. The gates (B0–B18, E1–E8) stay as guards on the parts.
 
 ## Not in the first flight
 
