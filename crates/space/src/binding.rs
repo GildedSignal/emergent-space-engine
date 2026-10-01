@@ -178,7 +178,7 @@ pub fn cartesian(state: OrbitState, orientation: u32, clockwise: bool, units: (i
 
 /// Inverse invariants without subtracting E from one. The cubic is in z=L²/r,
 /// whose outer turning root is O(1) in the weak field, not in absolute 1/r.
-fn fit_key(state: IntegerState) -> Result<(OrbitKey, Scalar, bool, bool)> {
+fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, bool, bool)> {
     let (p, v) = state.components()?;
     let r = norm(p)?;
     let u = r.reciprocal()?;
@@ -247,12 +247,18 @@ fn fit_key(state: IntegerState) -> Result<(OrbitKey, Scalar, bool, bool)> {
                 return Err(Error::NoBoundOrbit);
             }
         }
+        let witness = if accelerate { root_witness(alpha, q, lo, hi, &poly)? } else { None };
         for _ in 0..128 {
             let mid = lo.add(hi)?.scale(-1)?;
             if mid == lo || mid == hi {
                 break;
             }
-            if poly(mid)?.is_positive() {
+            let positive = match witness {
+                Some((a, _)) if mid < a => true,
+                Some((_, b)) if mid > b => false,
+                _ => poly(mid)?.is_positive(),
+            };
+            if positive {
                 lo = mid;
             } else {
                 hi = mid;
@@ -281,9 +287,71 @@ fn fit_key(state: IntegerState) -> Result<(OrbitKey, Scalar, bool, bool)> {
     }
     Ok((OrbitKey::new(rp, k)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO))
 }
+
+/// A narrow sign witness, never a replacement root. Replay the original midpoint
+/// sequence, including its final rounding, but omit polynomial evaluations outside
+/// this interval. For 1 <= z <= 4, |alpha| <= 4 and 0 <= q <= 2^-18,
+/// P=alpha+2z-z²+2qz³ is strictly concave (P''=-2+12qz<0).
+/// The specified 63-bit operations differ from this exact dyadic polynomial by
+/// less than 2^-55: z² and the two final sums each lose <2^-58; the first sum
+/// loses <2^-59; rounding the cubic term contributes <2^-72. Use 2^-50 as
+/// the outward witness margin, including the derivative's arithmetic error.
+/// Positive endpoints certify every point to their left by concavity; a negative
+/// right endpoint with negative slope certifies every point to its right.
+/// Newton only proposes endpoints. Failure to certify takes the old full search.
+fn root_witness(
+    alpha: Scalar, q: Scalar, lo: Scalar, hi: Scalar,
+    poly: &impl Fn(Scalar) -> Result<Scalar>,
+) -> Result<Option<(Scalar, Scalar)>> {
+    let margin = Scalar::power_of_two(-50);
+    if q > Scalar::power_of_two(-18) || alpha.abs() > Scalar::integer(4)
+        || lo < Scalar::ONE || hi > Scalar::integer(4) || poly(lo)? <= margin {
+        return Ok(None);
+    }
+    let slope = |z: Scalar| -> Result<Scalar> {
+        Scalar::integer(2).sub(z.scale(1)?)?.add(q.mul(Scalar::integer(6))?.mul(z.mul(z)?)?)
+    };
+    let mut z = lo.add(hi)?.scale(-1)?;
+    // Around the critical point the cubic is a quadratic plus 2q·(z-lo)^3.
+    // This seed resolves the root gap even for an almost circular weak orbit;
+    // starting halfway across the whole bracket wastes Newton iterations there.
+    if slope(lo)?.abs() <= margin {
+        let curvature = Scalar::ONE.sub(q.mul(Scalar::integer(6))?.mul(lo)?)?;
+        let seed = lo.add(poly(lo)?.div(curvature)?.sqrt()?)?;
+        if seed > lo && seed < hi {
+            z = seed;
+        }
+    }
+    for _ in 0..8 {
+        let d = slope(z)?;
+        if d >= margin.negate() {
+            return Ok(None);
+        }
+        let f = poly(z)?;
+        if f.abs() <= margin.scale(1)? {
+            break;
+        }
+        let next = z.sub(f.div(d)?)?;
+        if next <= lo || next >= hi {
+            return Ok(None);
+        }
+        z = next;
+    }
+    let d = slope(z)?;
+    if d >= margin.negate() {
+        return Ok(None);
+    }
+    let width = margin.scale(3)?.div(d.abs())?;
+    let a = z.sub(width)?.max(lo);
+    let b = z.add(width)?.min(hi);
+    Ok(if a < b && poly(a)? > margin && poly(b)? < margin.negate()
+        && slope(b)? < margin.negate() {
+        Some((a, b))
+    } else { None })
+}
 impl Rebinding {
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
-        let (key, r, clockwise, incoming) = fit_key(state)?;
+        let (key, r, clockwise, incoming) = fit_key(state, true)?;
         let trajectory = if key.periodic() {
             Trajectory::Cycle(Orbit::compile(key)?)
         } else {
@@ -323,5 +391,67 @@ impl Rebinding {
     }
     pub fn reconstruct(&self) -> Result<IntegerState> {
         self.residual.reconstruct(self.decoded_event()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn root_witness_certifies_skipped_signs_including_small_root_gaps() {
+        for qe in [18, 20, 40, 100, 1000] {
+            let q = Scalar::power_of_two(-qe);
+            let critical = Scalar::integer(2).div(Scalar::ONE.add(
+                Scalar::ONE.sub(q.mul(Scalar::integer(12)).unwrap()).unwrap().sqrt().unwrap()
+            ).unwrap()).unwrap();
+            for ee in [1, 4, 10, 20] {
+                let gap = Scalar::power_of_two(-ee);
+                let alpha = gap.mul(gap).unwrap().sub(critical.scale(1).unwrap()).unwrap()
+                    .add(critical.mul(critical).unwrap()).unwrap()
+                    .sub(q.scale(1).unwrap().mul(critical.mul(critical).unwrap().mul(critical).unwrap()).unwrap()).unwrap();
+                let poly = |z: Scalar| -> Result<Scalar> {
+                    alpha.add(z.scale(1)?)?.sub(z.mul(z)?)?.add(q.scale(1)?.mul(z.mul(z)?.mul(z)?)?)
+                };
+                let mut lo = critical;
+                let mut hi = critical.scale(1).unwrap();
+                let (a, b) = root_witness(alpha, q, lo, hi, &poly).unwrap().expect("weak root witness");
+                let mut skipped = 0;
+                for _ in 0..128 {
+                    let mid = lo.add(hi).unwrap().scale(-1).unwrap();
+                    if mid == lo || mid == hi { break; }
+                    let actual = poly(mid).unwrap().is_positive();
+                    if mid < a { assert!(actual); skipped += 1; }
+                    if mid > b { assert!(!actual); skipped += 1; }
+                    if actual { lo = mid; } else { hi = mid; }
+                }
+                assert!(skipped >= 20);
+            }
+        }
+    }
+
+    #[test]
+    fn witnessed_fit_keeps_the_full_search_key_at_kicks_and_boundaries() {
+        let mut seed = 1u64;
+        for radius_exp in [-1, 8, 17, 18, 19, 30, 60, 120] {
+            for e in [0, 1, 1 << 20, 1 << 32, (1 << 48) / 100,
+                (1 << 48) / 10, (1 << 48) / 2, (1 << 48) - (1 << 28)] {
+                let key = OrbitKey::bound(Scalar::integer(16).scale(radius_exp).unwrap(), e).unwrap();
+                let Ok(orbit) = Orbit::compile(key) else { continue };
+                for j in 0..16 {
+                    let time = orbit.period().unwrap().mul(Scalar::raw(j * 2 + 1, -5).unwrap()).unwrap();
+                    let st = orbit.state(time).unwrap();
+                    let units = (st.radius.exponent() - 60, st.transverse_velocity.abs().exponent() - 60);
+                    let Ok(mut state) = cartesian(st, j as u32 * 0x10000000, j % 2 == 0, units) else { continue };
+                    for _ in 0..8 {
+                        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+                        for c in &mut state.velocity {
+                            *c = c.saturating_add(((seed >> 32) as i32 as i64) * 256);
+                        }
+                        assert_eq!(fit_key(state, true), fit_key(state, false), "{state:?}");
+                    }
+                }
+            }
+        }
     }
 }
