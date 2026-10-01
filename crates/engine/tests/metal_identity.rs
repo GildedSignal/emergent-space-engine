@@ -423,3 +423,58 @@ fn a_wide_group_sheds_members_as_the_tide_shears_it() {
     assert!(x.stats.handed_out > 0 && x.active.iter().any(|&a| a) && x.active.iter().any(|&a| !a), "members leave one by one: {} handed out", x.stats.handed_out);
     println!("wide group after a period: {} of 12 handed out, {} anchors", x.stats.handed_out, x.stats.anchors);
 }
+
+// ---------------------------------------------------------------------------------------
+// The independent judge's crowded scene (engine-judge E1), reproduced here and not imported
+// ---------------------------------------------------------------------------------------
+
+/// The judge's xorshift (xtask/src/engine_judge/scene.rs).
+struct Xor(u64);
+
+impl Xor {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+    fn range(&mut self, lo: i64, hi: i64) -> i64 {
+        lo + (self.next() % (hi - lo + 1) as u64) as i64
+    }
+}
+
+/// The judge's kind 0: 32 bouncers of radius 50 on a grid 130 apart, up to 230 quanta per chronon
+/// in each axis, Q = 1024: 43 contacts fire in the first chronon, more than the 32 threads of the
+/// one threadgroup that detects them. The GPU's detection once reported only the first 32 of them
+/// (a kernel appending a threadgroup's hits strode by 256 whatever the group's size), so the
+/// battle's first frame differed from the CPU's: E1 failed at "seed=1 kind=0 anchor=false
+/// insertion=0 threads=1 order=metal sample=1" (6156/6480). Also the judge's seed 901, which failed too.
+#[test]
+fn the_judges_crowded_scene_gives_the_cpu_frames_on_the_gpu() {
+    for seed in [1u64, 901] {
+        let mut rng = Xor(seed + 0x91e1);
+        let bodies: Vec<Body> = (0..32i64)
+            .map(|i| {
+                let (x, k) = ([(i % 8) * 130 - 450, (i / 8) * 130 - 180], [rng.range(-230, 230), rng.range(-230, 230)]);
+                Body::new(i as u64 + 1, x, k, rng.range(1, 7), 50, Response::Bounce)
+            })
+            .collect();
+        let w = World::new(1024, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap();
+        // The judge's stress frame: epoch 16 chronons, nT = 1/8 (the world is first turned out of the
+        // co-rotating axes, and kicked at tick 0, before the first chronon).
+        let f = Frame::new(1024, 1 << 24, 1 << 50).unwrap();
+        for anchored in [false, true] {
+            let policy = anchored.then_some((AnchorPolicy { age_epochs: 4, enforce_orbit_rule: false }, 0));
+            // The judge's checkpoints, each a battle of its own that stops there.
+            for t in [0, 1, 15, 16, 17, 31, 32, 33, 64, 128] {
+                let d = Drive { anchor: policy, ..Drive::new(t) };
+                let a = run(Order::Lockstep, &w, &f, &d).unwrap();
+                let Some(g) = run(Order::Gpu, &w, &f, &d) else { return };
+                same(&format!("judge seed {seed} anchored {anchored}"), &format!("gpu at tick {t}"), &a, &g, true);
+                if t == 1 && seed == 1 {
+                    assert_eq!(a.contacts, 43, "the first chronon's contacts outnumber the 32 threads that detect them");
+                }
+            }
+        }
+    }
+}

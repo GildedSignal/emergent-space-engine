@@ -386,6 +386,7 @@ kernel void pairs(device Ctl* ctl [[buffer(4)]],
                   threadgroup uint* sh [[threadgroup(0)]],
                   uint s [[thread_position_in_grid]],
                   uint t [[thread_position_in_threadgroup]],
+                  uint T [[threads_per_threadgroup]],
                   uint lane [[thread_index_in_simdgroup]],
                   uint sg [[simdgroup_index_in_threadgroup]],
                   uint nsg [[simdgroups_per_threadgroup]]) {
@@ -452,7 +453,9 @@ kernel void pairs(device Ctl* ctl [[buffer(4)]],
         tgbase = k != 0 ? atomic_fetch_add_explicit(&ctl->npairs, k, memory_order_relaxed) : 0;
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
-    for (uint h = t; h < k; h += 256) {
+    // Stride by the group's real size: dispatch_threads makes the last group partial (n mod 256
+    // threads, the only group below 256 bodies), and up to TGHITS hits are buffered in it.
+    for (uint h = t; h < k; h += T) {
         if (tgbase + h < p.pair_cap) out[tgbase + h] = tgbuf[h];
     }
 }
