@@ -15,7 +15,7 @@ TOL = {"design": 1e-5, "behaviour": 1e-3}
 NMAX = 10.0
 cols_q = "id cat law ref res idx ncyc rref dpos rel drr dphi floor".split()
 cols_c = ("id cat law nfree nabs inbound E L rho comp_us knots cross fitp fitv recon turn_p turn_a "
-          "per_rel adv_rel defl_abs defl_rel scat diag e_err l_err ecc window law_per law_adv margin deltah edge_ratio rp_m kper_rel kadv_rel").split()
+          "per_rel adv_rel defl_abs defl_rel scat diag e_err l_err ecc window law_per law_adv margin deltah edge_ratio rp_m kper_rel kadv_rel light").split()
 
 
 def num(x):
@@ -92,6 +92,8 @@ def main():
                 s = f"FREE law fitted, readout {r['res']} (beyond the window or no root)"
             elif law.startswith("photon"):
                 s = "FREE photon (no position generator; class and deflection only)"
+            elif byid.get((r["rung"], r["id"]), {}).get("light") == "1":
+                s = "FREE photon, scatter refuses (Range: b >~ 1e4 M)"
             elif law.startswith("skip:radial"):
                 s = "FREE skipped: radial path (L=0), not supplied"
             elif law.startswith("skip"):
@@ -311,7 +313,7 @@ def main():
     print("\n== where the law's behaviour differs from the certified class (cases) ==")
     diffs = collections.defaultdict(list)
     for c in C:
-        if len(c) < 12 or c["law"].startswith("skip") or c["law"].startswith("photon") or "null" in c["cat"].split("+"):
+        if len(c) < 12 or c["law"].startswith("skip") or c["law"].startswith("photon") or c["light"] == "1":
             continue
         k = cls(c)
         refabs = num(c["nabs"]) > 0

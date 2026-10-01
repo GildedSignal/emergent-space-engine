@@ -817,8 +817,8 @@ fn process(c: &Case, rows: &mut Rows) {
     }
     let _ = write!(
         cm,
-        "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.3}\t{}\t{}\t{:.3e}\t{:.3e}\t{}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{}\t{}\t{:.3e}\t{:.3e}\t{:.4e}\t{:.3e}\t{:.6e}\t{:.6e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.3e}\t{:.3e}",
-        c.id, c.cat, law, nfree, nabs, inbound as u8, e_val, l_val, rho0, comp_us, knots, cross, fitp, fitv, recon, turn_p, turn_a, per_rel, adv_rel, defl_abs, defl_rel, scat, c.diag.is_some() as u8, e_err, l_err, ecc, window, law_per, law_adv, margin, deltah, edge_ratio, rp_m, kper_rel, kadv_rel
+        "{}\t{}\t{}\t{}\t{}\t{}\t{:.6e}\t{:.6e}\t{:.6e}\t{:.3}\t{}\t{}\t{:.3e}\t{:.3e}\t{}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{:.3e}\t{}\t{}\t{:.3e}\t{:.3e}\t{:.4e}\t{:.3e}\t{:.6e}\t{:.6e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.4e}\t{:.3e}\t{:.3e}\t{}",
+        c.id, c.cat, law, nfree, nabs, inbound as u8, e_val, l_val, rho0, comp_us, knots, cross, fitp, fitv, recon, turn_p, turn_a, per_rel, adv_rel, defl_abs, defl_rel, scat, c.diag.is_some() as u8, e_err, l_err, ecc, window, law_per, law_adv, margin, deltah, edge_ratio, rp_m, kper_rel, kadv_rel, c.light as u8
     );
     rows.c.push_str(&cm);
     rows.c.push('\n');
