@@ -5,6 +5,8 @@
 //! orthonormal frame (`v̂_r = v_r/f`, `v̂_t = v_t/√f`, `f = 1 − 2M/r`), composes the boost there
 //! with the exact relativistic velocity addition, and converts back. Then the state is bound
 //! again: the new `E` and `L` are the old ones changed by the work done, and nothing else.
+use crate::body::Thrust;
+use crate::ctx::Config;
 use crate::num::{add2, dot2, norm2, scale2, Res, V2};
 use emergent_space::orbit::Scalar;
 
@@ -75,4 +77,23 @@ pub fn burn(x: V2, v: V2, eta: Scalar, n: V2) -> Res<V2> {
     let w2 = scale2(u2, Scalar::ONE.div(g2)?)?;
     let (wr, wt) = (dot2(w2, rh)?, dot2(w2, th)?);
     add2(scale2(rh, wr.mul(f)?)?, scale2(th, wt.mul(sf)?)?)
+}
+
+/// The turn and the burn owed to a held thrust over the proper time `dtau` (root units) since its last
+/// flush: the heading at the end and the velocity after the burn at the state `(x, v)` (doll units). Pure:
+/// the kick that flushes the burn uses it, and so does the view, which reads the same state a flush at the
+/// presented tick would write (docs/plane.md, foundation 5: observation is a pure function of the state).
+/// The heading turns by `±turn·Δτ`, and the burn goes along the heading at the midpoint of the turn.
+pub fn owed(cfg: &Config, th: Thrust, dtau: Scalar, x: V2, v: V2) -> Res<(u32, V2)> {
+    let sign = (th.keys & 8 != 0) as i64 - (th.keys & 4 != 0) as i64;
+    let dh = dtau.mul(Scalar::power_of_two(cfg.turn_log2 as i16))?.fixed(32)? as i64 * sign;
+    let mid = th.heading.wrapping_add((dh / 2) as u32);
+    let heading = th.heading.wrapping_add(dh as u32);
+    let dir = (th.keys & 1 != 0) as i64 - (th.keys & 2 != 0) as i64;
+    if dir == 0 {
+        return Ok((heading, v));
+    }
+    let eta = dtau.mul(Scalar::power_of_two(cfg.thrust_log2 as i16))?;
+    let eta = if dir > 0 { eta } else { eta.negate() };
+    Ok((heading, burn(x, v, eta, direction(mid)?)?))
 }

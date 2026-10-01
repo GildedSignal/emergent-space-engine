@@ -1,7 +1,9 @@
 //! Observation: pure functions of the state. Nothing here writes. Floats are allowed (the view is
 //! not an outcome), and every read goes through the bodies' histories at the asked tick.
+use crate::body::BodyRec;
 use crate::ctx::Ctx;
 use crate::num::{to_f64, Res, Tick};
+use crate::{step, thrust};
 
 /// A body's position and velocity in the root frame (root length units, c = 1, so one root length
 /// unit is one tick of light travel) at root tick `t`: its own state in its doll, scaled to root
@@ -50,4 +52,18 @@ pub fn clock_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<f64> {
         }
     }
     Ok(rate)
+}
+
+/// What the player's held thrust has made of its state since the last flush, at tick `t`: the heading
+/// (turns, Q32) and the change of velocity (the burn owed), the same a flush at `t` would write. A pure
+/// read, so the view shows the keys within the frame instead of at the next kick.
+pub fn held_thrust(ctx: &Ctx, rec: &BodyRec, t: Tick) -> Res<Option<(u32, [f64; 2])>> {
+    let Some(th) = rec.thrust else { return Ok(None) };
+    if th.keys == 0 || t <= th.since || t < rec.b.event_time {
+        return Ok(None);
+    }
+    let dtau = step::proper_since(&rec.b, ctx.dolls[rec.b.doll as usize].shift, th.since, t)?;
+    let (x, v) = rec.b.cartesian(t)?;
+    let (heading, v2) = thrust::owed(ctx.cfg, th, dtau, x, v)?;
+    Ok(Some((heading, [to_f64(v2[0]) - to_f64(v[0]), to_f64(v2[1]) - to_f64(v[1])])))
 }

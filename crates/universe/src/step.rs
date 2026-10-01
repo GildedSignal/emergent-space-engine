@@ -212,6 +212,13 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
     Ok(Some(i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("periapsis"))?))
 }
 
+/// The proper time (root units) a binding's tube has run between `since` (or its binding event, if later)
+/// and `t`: a clock reads its tube's length. `shift` is the doll's clock exponent.
+pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar> {
+    let tau = b.orbit_state(t)?.proper_time.sub(b.orbit_state(since.max(b.event_time))?.proper_time)?;
+    Ok(tau.scale(-(shift as i32))?)
+}
+
 struct Work<'a, 'c> {
     ctx: &'a Ctx<'c>,
     i: usize,
@@ -262,9 +269,7 @@ impl Work<'_, '_> {
 
     /// The proper time (root units) the ship's tube has run since `since`, at tick `t`.
     fn proper_since(&self, since: Tick, t: Tick) -> Res<Scalar> {
-        let b = &self.rec.b;
-        let tau = b.orbit_state(t)?.proper_time.sub(b.orbit_state(since.max(b.event_time))?.proper_time)?;
-        Ok(tau.scale(-(self.ctx.dolls[b.doll as usize].shift as i32))?)
+        proper_since(&self.rec.b, self.ctx.dolls[self.rec.b.doll as usize].shift, since, t)
     }
 
     /// The thrust burn owed since the last flush: new velocity (scalars); the heading changes too.
@@ -274,19 +279,9 @@ impl Work<'_, '_> {
             return Ok(v);
         }
         let dtau = self.proper_since(th.since, t)?;
-        let cfg = self.ctx.cfg;
-        // Turning: the heading changes by ±turn·Δτ, and the burn goes along the heading at the midpoint.
-        let sign = (th.keys & 8 != 0) as i64 - (th.keys & 4 != 0) as i64;
-        let dh = dtau.mul(Scalar::power_of_two(cfg.turn_log2 as i16))?.fixed(32)? as i64 * sign;
-        let mid = th.heading.wrapping_add((dh / 2) as u32);
-        self.rec.thrust = Some(crate::body::Thrust { heading: th.heading.wrapping_add(dh as u32), since: t, ..th });
-        let dir = (th.keys & 1 != 0) as i64 - (th.keys & 2 != 0) as i64;
-        if dir == 0 {
-            return Ok(v);
-        }
-        let eta = dtau.mul(Scalar::power_of_two(cfg.thrust_log2 as i16))?;
-        let eta = if dir > 0 { eta } else { eta.negate() };
-        thrust::burn(x, v, eta, thrust::direction(mid)?)
+        let (heading, v2) = thrust::owed(self.ctx.cfg, th, dtau, x, v)?;
+        self.rec.thrust = Some(crate::body::Thrust { heading, since: t, ..th });
+        Ok(v2)
     }
 
     fn velocity_after(&self, st: &IntegerState, v_new: V2) -> Res<[i64; 2]> {
@@ -560,20 +555,28 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
     Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
 }
 
-/// A decision: flush the thrust owed so far (a rebinding at `t`), set the keys, replan from `t`.
+/// A decision: flush the thrust owed so far at `t` (a rebinding when a burn is owed; a turn alone only
+/// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+/// them each frame) only flush, so the kicks keep their cadence.
 pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, keys: u8) -> Update {
     let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
+    let same = w.rec.thrust.is_some_and(|th| th.keys == keys);
     let res = (|| -> Res<()> {
-        if w.rec.thrust.is_some_and(|th| th.keys != 0 && t > th.since) {
+        if let Some(th) = w.rec.thrust.filter(|th| th.keys != 0 && t > th.since) {
             let st = w.rec.b.readout(t)?;
             let (x, v) = scalars(&st)?;
             let v2 = w.burn(x, v, t)?;
-            let next = IntegerState { velocity: w.velocity_after(&st, v2)?, ..st };
-            w.rebind(next, t, w.rec.b.doll)?;
+            if th.keys & 3 != 0 {
+                let next = IntegerState { velocity: w.velocity_after(&st, v2)?, ..st };
+                w.rebind(next, t, w.rec.b.doll)?;
+            }
         }
         if let Some(th) = w.rec.thrust.as_mut() {
             th.keys = keys;
             th.since = t;
+        }
+        if same {
+            return Ok(());
         }
         w.rec.plan.clear();
         w.rec.step = 0;

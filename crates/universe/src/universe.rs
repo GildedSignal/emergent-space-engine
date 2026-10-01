@@ -566,6 +566,16 @@ impl Universe {
     /// spending `budget`; the presented time is the horizon (every item whose light could reach the
     /// player by it is resolved), so an overflow shows only as a lower real-time factor.
     pub fn frame(&mut self, wall_dt: f64, rtf: f64, budget: Budget) -> Frame {
+        // While a control key is held the player decides at every frame: the burn and the turn owed are
+        // flushed at the present tick (a logged decision, so a replay of the input log gives the same
+        // universe). The stored state, the physics and the encounters are then never more than one
+        // frame behind the keys, and the view only derives what is owed within the frame.
+        if let Some(p) = self.player {
+            let held = self.bodies.alive(p).then(|| self.bodies.rec(p).thrust).flatten().filter(|th| th.keys != 0 && th.since < self.now);
+            if let Some(th) = held {
+                let _ = self.input(self.now, th.keys);
+            }
+        }
         let want = (rtf * wall_dt / crate::view::TICK_SECONDS) as Tick;
         let target = self.now + want.max(1);
         let a = self.advance(target, budget);

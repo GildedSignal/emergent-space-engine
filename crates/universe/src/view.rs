@@ -102,7 +102,10 @@ pub fn gather(u: &Universe, names: &[String]) -> Option<View> {
         let (x, _) = root_state(&ctx, p, rec.b.event_time).ok()?;
         (x, [0.0, 0.0], 1.0)
     };
-    let heading = rec.thrust.map(|t| t.heading).unwrap_or(0);
+    // The keys held since the last flush: the turn and the burn owed, as a flush at this tick would write them.
+    let owed = if rec.alive { crate::observe::held_thrust(&ctx, &rec, t_now).ok().flatten() } else { None };
+    let vo = owed.map_or(vo, |(_, dv)| [vo[0] + dv[0], vo[1] + dv[1]]);
+    let heading = owed.map(|o| o.0).or(rec.thrust.map(|t| t.heading)).unwrap_or(0);
     let h = heading as f64 / 4294967296.0 * std::f64::consts::TAU;
     let tau = rec.b.orbit_state(t_now.max(rec.b.event_time)).ok().map(|s| {
         let doll = &u.dolls[rec.b.doll as usize];
