@@ -1,0 +1,4 @@
+Claim: the Run complete. Only `lab/results/` written; no tracked file modified. Deliverables: `predictions.md` (pre-registered), `dossier.md`, `e1_moving_lens.py`, `e4c_tide_layer.py` (+ two superseded probes kept for the trail).
+
+**Claim:** the draft law's frozen gates cannot fail at the failures a player will actually see — the view's static lensing memos are wrong by +336% (head-on) / −56% (transverse) at the β = 0.9 the game sells with no gate covering it, the tide regime below τ₀ ejects moons in truth at τ_apo = 0.0784 < τ₀ within 35 parent orbits yet B14 judges only bound/escaped and excludes chaotic seeds, the resonance branch whose cheap layer r4 v2 killed is gated by nothing, B9's "≤ 64 crossings per cycle" silently means e ≤ 0.6 (136 at e = 0.9), and with no memory gate the 16-byte tube is really ~88 B once the law's own exact remainder is charged.
+tions were written before the decisive runs: `predictions.md`.
