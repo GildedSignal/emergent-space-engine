@@ -6,6 +6,41 @@ use crate::{Error, Result};
 /// 1 in Q62.
 pub const ONE: i128 = 1 << 62;
 
+/// Exact 128/64 division with a word-sized quotient (`n >> 64 < d`).
+/// In base 2^32, each trial digit comes from one native division. The low
+/// divisor digit corrects the trial by at most two; no rounding is introduced.
+#[inline]
+pub(crate) fn div_word(n: u128, d: u64) -> u64 {
+    debug_assert!(d != 0 && (n >> 64) < d as u128);
+    if n <= u64::MAX as u128 {
+        return n as u64 / d;
+    }
+    const B: u64 = 1 << 32;
+    const MASK: u64 = B - 1;
+    let shift = d.leading_zeros();
+    let v = d << shift;
+    let (v1, v0) = (v >> 32, v & MASK);
+    // The quotient precondition also guarantees that this normalization fits.
+    let u = n << shift;
+    let (u1, u0) = ((u >> 64) as u64, u as u64);
+    let digit = |upper: u64, lower: u64| {
+        let mut q = upper / v1;
+        let mut r = upper % v1;
+        while q >= B || q * v0 > (r << 32) + lower {
+            q -= 1;
+            r += v1;
+            if r >= B {
+                break;
+            }
+        }
+        q
+    };
+    let q1 = digit(u1, u0 >> 32);
+    let rem = (u1 << 32).wrapping_add(u0 >> 32).wrapping_sub(q1.wrapping_mul(v));
+    let q0 = digit(rem, u0 & MASK);
+    (q1 << 32) + q0
+}
+
 /// floor(sqrt(x)).
 pub fn isqrt(x: u128) -> u128 {
     if x < 2 {
@@ -91,6 +126,22 @@ pub fn ratio_sqrt(num: i128, den: i128) -> i128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn word_division_matches_wide_division_at_digit_corrections() {
+        let mut x = 1u128;
+        for i in 0..20000 {
+            x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            for d in [1, 3, u32::MAX as u64, 1 << 32, (1 << 32) + 1,
+                (1 << 62) - 1, 1 << 62, (1 << 63) - 1, 1 << 63, u64::MAX,
+                (x as u64).max(1)] {
+                let n = ((x >> 64) % d as u128) << 64 | x as u64 as u128;
+                assert_eq!(div_word(n, d) as u128, n / d as u128, "{i}: {n}/{d}");
+                for n in [0, d as u128 - 1, d as u128, d as u128 * u64::MAX as u128] {
+                    assert_eq!(div_word(n, d) as u128, n / d as u128);
+                }
+            }
+        }
+    }
     #[test]
     fn isqrt_is_the_exact_floor() {
         let mut x: u128 = 1;

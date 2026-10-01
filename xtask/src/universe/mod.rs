@@ -4,10 +4,12 @@
 //! universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]
 //! universe --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced]
 //! universe --describe
+//! universe --kick-bench [--seed N] [--rtf R] [--seconds S]
 //!
 //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
 //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
 mod http;
+mod kick_bench;
 mod session;
 
 use serde_json::json;
@@ -17,6 +19,7 @@ use std::time::{Duration, Instant};
 pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
     let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+    let mut kicks = false;
     let mut it = args.into_iter();
     while let Some(a) = it.next() {
         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
@@ -28,10 +31,11 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
             "--seconds" => seconds = val("--seconds")?.parse()?,
             "--bench" => bench = true,
+            "--kick-bench" => kicks = true,
             "--unpaced" => paced = false,
             "--describe" => describe = true,
             "--help" => {
-                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced]\nuniverse --describe");
+                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
                 return Ok(0);
             }
             _ => return Err(format!("unknown universe argument {a}").into()),
@@ -40,7 +44,10 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
     if !(rtf.is_finite() && (0.01..=1e7).contains(&rtf)) || !(1.0..=55.0).contains(&seconds) {
         return Err("rtf outside [0.01, 1e7], or seconds outside [1, 55] (every test and probe is at most a minute)".into());
     }
-    let mut s = Session::new(seed, threads, members, rtf)?;
+    let s = Session::new(seed, threads, members, rtf)?;
+    if kicks {
+        return kick_bench::run(s, seconds);
+    }
     if describe {
         println!("{}", s.describe());
         return Ok(0);
