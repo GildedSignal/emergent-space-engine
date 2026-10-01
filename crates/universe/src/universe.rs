@@ -57,6 +57,17 @@ impl Budget {
     }
 }
 
+/// What one presented frame did.
+#[derive(Clone, Copy, Debug)]
+pub struct Frame {
+    pub target: Tick,
+    pub presented: Tick,
+    /// Game ticks the frame advanced the presented time by.
+    pub ticks: Tick,
+    pub events: u64,
+    pub overflow: bool,
+}
+
 /// What a call to [`Universe::advance`] did.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Advanced {
@@ -126,6 +137,9 @@ pub struct Universe {
     pub enc_log: Vec<Encounter>,
     enc_digest: [u8; 32],
     pub contacts: u64,
+    /// Every item resolved (a refusal or a loss counts: it was work).
+    resolved: u64,
+    frames: u64,
 }
 
 #[derive(Default)]
@@ -160,6 +174,8 @@ impl Universe {
             enc_log: Vec::new(),
             enc_digest: [0; 32],
             contacts: 0,
+            resolved: 0,
+            frames: 0,
         }
     }
 
@@ -353,6 +369,7 @@ impl Universe {
             Resolved::Lost => self.stats.lost += 1,
             Resolved::Refused => self.stats.refused += 1,
         }
+        self.resolved += 1;
         let t = upd.rec.b.event_time;
         self.bodies.put(i, upd.rec);
         if let Ok((p, _)) = crate::observe::root_state(&self.ctx(), i, t) {
@@ -409,6 +426,7 @@ impl Universe {
             self.resolve_body(e);
         } else {
             let f = e - n;
+            self.resolved += 1;
             self.stats.slices += self.fleets[f].advance(self.slice, self.target);
             self.update_fleet_position(f);
         }
@@ -424,11 +442,64 @@ impl Universe {
         }
     }
 
+    /// Independent ships whose next items are due: resolve them together. Ships read the planets and
+    /// the moon and write only themselves, so once those are resolved up to the latest key of the wave
+    /// the ships' items are pure functions of their own records, and any number of threads gives the
+    /// same bits; the updates are applied in key order.
+    fn resolve_wave(&mut self, first: usize, target: Tick) {
+        let cap = self.threads * 4;
+        let mut wave = vec![first];
+        let _ = self.queue.as_mut().map(|q| q.set(first, None));
+        while wave.len() < cap {
+            let Some((_, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+            let ok = self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) && self.key_of(e).is_some_and(|k| k.0 <= target);
+            if !ok {
+                break;
+            }
+            let _ = self.queue.as_mut().map(|q| q.set(e, None));
+            wave.push(e);
+        }
+        let mut keyed: Vec<((Tick, usize), usize)> = wave.iter().filter_map(|&e| self.key_of(e).map(|k| (k, e))).collect();
+        keyed.sort();
+        let max = keyed.last().map(|k| k.0).unwrap_or((0, 0));
+        let planets = std::mem::take(&mut self.lanes.planets);
+        self.pull(&planets, max);
+        self.lanes.planets = planets;
+        let moons = std::mem::take(&mut self.lanes.moons);
+        self.pull(&moons, max);
+        self.lanes.moons = moons;
+        let recs: Vec<(usize, BodyRec)> = keyed.iter().map(|&(_, e)| (e, self.bodies.rec(e))).collect();
+        let threads = self.threads.min(recs.len()).max(1);
+        let updates: Vec<(usize, Update)> = {
+            let ctx = self.ctx();
+            let per = recs.len().div_ceil(threads);
+            let mut chunks: Vec<Vec<(usize, BodyRec)>> = Vec::new();
+            let mut it = recs.into_iter().peekable();
+            while it.peek().is_some() {
+                chunks.push(it.by_ref().take(per).collect());
+            }
+            std::thread::scope(|sc| {
+                let handles: Vec<_> = chunks
+                    .into_iter()
+                    .map(|chunk| {
+                        let ctx = &ctx;
+                        sc.spawn(move || chunk.into_iter().map(|(i, rec)| (i, step::process(ctx, i, rec))).collect::<Vec<_>>())
+                    })
+                    .collect();
+                handles.into_iter().flat_map(|h| h.join().expect("a ship's item")).collect()
+            })
+        };
+        for (e, upd) in updates {
+            self.apply(e, upd);
+            self.requeue(e);
+        }
+    }
+
     /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.
     pub fn advance(&mut self, target: Tick, budget: Budget) -> Advanced {
         self.target = target;
         self.rekey();
-        let start = self.stats.events();
+        let start = self.resolved;
         let mut done = 0u64;
         let mut deferred: Vec<usize> = Vec::new();
         let mut overflow = false;
@@ -449,8 +520,12 @@ impl Universe {
                 overflow = dl <= target;
                 break;
             }
-            self.resolve_entity(e);
-            done = self.stats.events() - start;
+            if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+                self.resolve_wave(e, target);
+            } else {
+                self.resolve_entity(e);
+            }
+            done = self.resolved - start;
         }
         // The horizon: the smallest deadline still unresolved (the heap's min, and what was set aside).
         let mut horizon = target;
@@ -475,6 +550,23 @@ impl Universe {
             }
         }
         self.now = self.now.max(horizon);
+    }
+
+    /// One presented frame: advance toward `rtf` game seconds per wall second over `wall_dt` seconds,
+    /// spending `budget`; the presented time is the horizon (every item whose light could reach the
+    /// player by it is resolved), so an overflow shows only as a lower real-time factor.
+    pub fn frame(&mut self, wall_dt: f64, rtf: f64, budget: Budget) -> Frame {
+        let want = (rtf * wall_dt / crate::view::TICK_SECONDS) as Tick;
+        let target = self.now + want.max(1);
+        let a = self.advance(target, budget);
+        let before = self.now;
+        self.now = a.horizon.max(self.now);
+        // Histories older than every light cone the view can need are forgotten.
+        self.frames += 1;
+        if self.frames % 64 == 0 {
+            self.prune();
+        }
+        Frame { target, presented: self.now, ticks: self.now - before, events: a.events, overflow: a.overflow }
     }
 
     // ---- decisions ------------------------------------------------------------------------------
@@ -524,12 +616,13 @@ impl Universe {
         self.bodies.rec(i)
     }
 
-    /// Prune histories the view can no longer need (older than the light-time to the farthest thing
-    /// plus a margin, and older than every body that still reads them).
-    pub fn prune(&mut self, keep: Tick) {
-        let watermark = (0..self.bodies.len()).filter_map(|i| self.bodies.next_time(i)).min().unwrap_or(self.now).min(self.now);
+    /// Forget history the view can no longer need: older than twice the body's light distance (plus a
+    /// margin) behind the present, and older than the oldest item any body still has to resolve.
+    pub fn prune(&mut self) {
+        let oldest = (0..self.bodies.len()).filter_map(|i| self.bodies.next_time(i)).min().unwrap_or(self.now).min(self.now);
         for i in 0..self.bodies.len() {
-            self.bodies.prune(i, watermark - keep);
+            let keep = 2 * self.light_distance(i) + (1 << 26);
+            self.bodies.prune(i, (self.now - keep).min(oldest - (1 << 26)));
         }
     }
 

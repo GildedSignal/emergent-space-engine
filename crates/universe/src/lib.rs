@@ -2,6 +2,7 @@
 pub mod bind;
 pub mod body;
 pub mod ctx;
+pub mod dash;
 pub mod encounter;
 pub mod fleet;
 pub mod force;
@@ -11,6 +12,7 @@ pub mod scenario;
 pub mod step;
 pub mod thrust;
 pub mod universe;
+pub mod view;
 pub mod world;
 
 pub use body::Kind;
