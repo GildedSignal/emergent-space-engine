@@ -3091,3 +3091,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/runs/sol-events/, opus-shipmem/, sonnet-galaxy/
 - Limitations: the envelope is unverified; B12–B14 fail; r8 was VOID; r4 v2 killed arc kicks.
 - Next: Astra verifies the envelope; Sol does rebinding and tides; r4 v3, r8 v2, r9.
+
+## H0210 — The plane flies: one star system whole, on the plane's foundations
+
+- Date: 2026-10-01
+- Kind: implementation
+- Status: partial
+- Revisions: f77c660 (crates/universe, xtask universe); 6a1cae7 (native light, B16); dfd5768 (hardening); c1e6079 (Metal pairs fix); 89ff30f (the motion law)
+- Scope: crates/universe; crates/space; crates/lattice-metal; docs/plane.md, law.md
+- Changed: Julien: a crappy plane that flies prevents simulacrum building; simple, not simplest. The star system flies: a doll tree of exact tubes; one clock and one queue in causal-deadline order with a frame budget (one digest across budgets and threads); Wisdom–Holman on the compiled drift with a SyMBA changeover (Jacobi 4.5e-5 over 100 periods); a Fermi-frame battle; thrust as a decision; the light-cone view. At 100× real time, frame p99 is 2.45 ms with no hitch. Also: the binary doll was killed and gave this motion law; light and binaries went native; the compiler was hardened; the engine judge caught a Metal pairs-kernel bug.
+- Why: Julien: fly early, then grow by measured bottleneck.
+- Validation: universe tests; the bench reproduced by the integrator; behave G1–G6, B11, B16; E1 6480/6480 on Metal.
+- Evidence: artifacts/runs/sonnet-plane/
+- Limitations: fleet leavers are never handed out; the view gather is 83% of a light frame; kicks cost 29 µs.
+- Next: fleet lifecycle and the gather cache (Sonnet); kick cost (Sol); r10, E9 red-team, r8 v3.
