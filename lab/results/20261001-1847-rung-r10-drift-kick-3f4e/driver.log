@@ -1,0 +1,118 @@
+  File "/home/runner/work/emergent-space-engine/lab-0/lab/results/20261001-1847-rung-r10-drift-kick-3f4e/stage2.py", line 41
+    kept.append({"idx": i, "sk": list(cands[i]), "crossings": base[0],
+IndentationError: unexpected indent
+stage b12: 4 ships (0 excluded) 45s
+stage b14 truth: 64 answered 526s
+stage res truth: 36/36 answered 455s (fine-tolerance rerun dropped for time: borderline cases are excluded from libration instead)
+concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/concurrent/futures/process.py", line 263, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/process.py", line 212, in _process_chunk
+    return [fn(*args) for args in chunk]
+            ^^^^^^^^^
+  File "/home/runner/work/emergent-space-engine/lab-0/lab/results/20261001-1847-rung-r10-drift-kick-3f4e/run_driver.py", line 130, in w_cand_res
+    out = R.run_candidate(sc, s0, config, times[-1], times)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/emergent-space-engine/lab-0/lab/results/20261001-1847-rung-r10-drift-kick-3f4e/r10.py", line 410, in run_candidate
+    raise RuntimeError(f"sample grid not step-aligned: {t} vs {k * H}")
+RuntimeError: sample grid not step-aligned: 0.39301529177555494 vs 0.39269856642538353
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/runner/work/emergent-space-engine/lab-0/lab/results/20261001-1847-rung-r10-drift-kick-3f4e/stage2.py", line 216, in <module>
+    main()
+  File "/home/runner/work/emergent-space-engine/lab-0/lab/results/20261001-1847-rung-r10-drift-kick-3f4e/stage2.py", line 210, in main
+    stage_candidates(pool)
+  File "/home/runner/work/emergent-space-engine/lab-0/lab/results/20261001-1847-rung-r10-drift-kick-3f4e/stage2.py", line 129, in stage_candidates
+    res = list(pool.map(w_cand_res, [(config, c) for c in cases]))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/process.py", line 642, in _chain_from_iterable_of_lists
+    for element in iterable:
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+RuntimeError: sample grid not step-aligned: 0.39301529177555494 vs 0.39269856642538353
+  candidates symba 48s
+  candidates wh-fixed 78s
+  candidates soi-switch 104s
+{
+ "truth": {
+  "jacobi_exponent": 1.3454955434704858,
+  "class_match": 1.0,
+  "precession_match": 1.0,
+  "libration_ratio": 1.0,
+  "force_evals_per_orbit": 0.0
+ },
+ "symba": {
+  "jacobi_exponent": 0.41317421187471404,
+  "class_match": 1.0,
+  "precession_match": 1.0,
+  "libration_ratio": 0.9972933766758488,
+  "force_evals_per_orbit": 96.00250509343503
+ },
+ "wh-fixed": {
+  "jacobi_exponent": 1.3899986291536959,
+  "class_match": 1.0,
+  "precession_match": 1.0,
+  "libration_ratio": 0.9972933766758488,
+  "force_evals_per_orbit": 66.18943959641504
+ },
+ "soi-switch": {
+  "jacobi_exponent": 0.5859110826425735,
+  "class_match": 1.0,
+  "precession_match": 1.0,
+  "libration_ratio": 0.9972933766758488,
+  "force_evals_per_orbit": 85.83463738485648
+ }
+}
+extra: {"truth": {"jacobi_judged": 4, "nfev_b12": 886625, "nfev_b14": 8275496, "nfev_res": 11894409, "judged_moons": 64, "bound_rated": 0, "librating": 27, "truth_jacobi_max": 1.2944437729106428e-08, "n_ships": 4, "crossings": [10, 10, 14, 18]}, "symba": {"jacobi_judged": 4, "class_n": 64, "prec_n": 0, "lib_n": 27, "b12_maxerr": 2.4117010428116974e-05}, "wh-fixed": {"jacobi_judged": 4, "class_n": 64, "prec_n": 0, "lib_n": 27, "b12_maxerr": 13.583063843658882}, "soi-switch": {"jacobi_judged": 4, "class_n": 64, "prec_n": 0, "lib_n": 27, "b12_maxerr": 8.09368170086864e-05}}
+total 104s
+ecc truth merged 563s
+concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/concurrent/futures/process.py", line 263, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/process.py", line 212, in _process_chunk
+    return [fn(*args) for args in chunk]
+            ^^^^^^^^^
+  File "/home/runner/work/emergent-space-engine/lab-0/lab/results/20261001-1847-rung-r10-drift-kick-3f4e/run_driver.py", line 106, in w_cand_b14
+    config, a_hill, phase, e0, prograde = args
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 5, got 4)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/runner/work/emergent-space-engine/lab-0/lab/results/20261001-1847-rung-r10-drift-kick-3f4e/stage3_ecc.py", line 41, in <module>
+    extra = list(pool.map(w_cand_b14, [(config, *b) for b in births]))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/process.py", line 642, in _chain_from_iterable_of_lists
+    for element in iterable:
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: not enough values to unpack (expected 5, got 4)
