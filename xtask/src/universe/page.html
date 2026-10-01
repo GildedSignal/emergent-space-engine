@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Emergent Space · The plane</title>
+<style>
+:root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#c3c7bc;background:#10191e}
+*{box-sizing:border-box}body{margin:0;overflow:hidden}canvas{display:block;width:100vw;height:100vh}
+header{position:absolute;top:24px;left:28px;pointer-events:none}h1{font:500 14px Georgia,serif;letter-spacing:.23em;color:#d7d0b9;margin:0 0 8px}.sub{font-size:10px;letter-spacing:.1em;color:#7f969a}
+.clocks{position:absolute;right:28px;top:22px;display:flex;gap:26px;text-align:right;pointer-events:none}.label{font-size:9px;letter-spacing:.15em;color:#8a9a9a}.clock{font-size:21px;letter-spacing:-.04em;color:#d5d2c2;margin-top:7px}.world .clock{color:#9dadb0}
+.panel{position:absolute;bottom:26px;left:28px;pointer-events:none;font-size:10px;line-height:1.8;color:#8e9e9b;white-space:pre}.speed{font-size:30px;font-weight:300;color:#c6caba;letter-spacing:-.05em}.speed small{font-size:14px;color:#86999a}
+.list{position:absolute;top:84px;right:28px;font-size:10px;line-height:1.7;color:#8a9a98;white-space:pre;text-align:right;pointer-events:none}
+footer{position:absolute;bottom:26px;right:28px;text-align:right;font-size:10px;line-height:1.8;color:#8a9a98}#error{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:550px;background:#302b26;padding:18px;color:#e0bea0;display:none;line-height:1.7}
+</style>
+<canvas id="sky" aria-label="Past light cone in the ship's frame"></canvas>
+<header><h1>EMERGENT SPACE</h1><div class="sub">THE PLANE · ONE STAR SYSTEM · LIGHT THAT ARRIVES, NOW</div></header>
+<div class="clocks"><div><div class="label">SHIP · PROPER TIME</div><div id="proper" class="clock">0.000 s</div></div><div class="world"><div class="label">WORLD · COORDINATE TIME</div><div id="world" class="clock">0.000 s</div></div></div>
+<div class="list" id="list"></div>
+<div class="panel"><div class="label">SPEED IN THE STAR'S FRAME</div><div class="speed"><span id="speed">0</span> <small>km/s</small></div><div id="stats"></div></div>
+<footer>W / ↑ thrust · S / ↓ reverse<br>A D / ← → turn · space cuts thrust<br>[ ] time factor ÷2 / ×2 · wheel zoom<br><span id="seed"></span></footer>
+<div id="error" role="alert"></div>
+<script>
+'use strict';
+const canvas=document.getElementById('sky'),ctx=canvas.getContext('2d'),el=id=>document.getElementById(id);
+let frame=null,dash=null,held=new Set(),keys=0,busy=false,rtf=1,zoom=1,stopped=false,lastDraw=0;
+const raf=[];function quantile(l,q){if(!l.length)return 0;const s=[...l].sort((a,b)=>a-b);return s[Math.round((s.length-1)*q)]}
+function resize(){const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0)}
+addEventListener('resize',resize);resize();
+const controls=['Space','KeyW','KeyS','KeyA','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
+function setKeys(){let n=0;if(!held.has('Space')){if(held.has('KeyW')||held.has('ArrowUp'))n|=1;if(held.has('KeyS')||held.has('ArrowDown'))n|=2;if(held.has('KeyA')||held.has('ArrowLeft'))n|=4;if(held.has('KeyD')||held.has('ArrowRight'))n|=8}keys=n}
+addEventListener('keydown',e=>{if(controls.includes(e.code)){e.preventDefault();held.add(e.code);setKeys()}if(e.code==='BracketRight')rtf=Math.min(1e7,rtf*2);if(e.code==='BracketLeft')rtf=Math.max(.01,rtf/2)});
+addEventListener('keyup',e=>{if(controls.includes(e.code)){e.preventDefault();held.delete(e.code);setKeys()}});
+addEventListener('blur',()=>{held.clear();setKeys()});
+addEventListener('wheel',e=>{zoom=Math.max(.3,Math.min(5,zoom*Math.exp(-e.deltaY*.001)));e.preventDefault()},{passive:false});
+const LO=-5,HI=3.6;// log10 light-seconds: 10 microseconds to an hour
+function radial(ls,R){const x=(Math.log10(Math.max(ls,1e-6))-LO)/(HI-LO);return R*Math.max(0,Math.min(1,x))**zoom}
+function fmt(ls){return ls<1e-3?(ls*1e6).toFixed(0)+' µs':ls<1?(ls*1e3).toFixed(1)+' ms':ls<120?ls.toFixed(2)+' s':(ls/60).toFixed(1)+' min'}
+function draw(){
+ const w=innerWidth,h=innerHeight,cx=w/2,cy=h*.5,R=Math.min(w*.4,h*.4);
+ const g=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(w,h)*.7);g.addColorStop(0,'#1b2a30');g.addColorStop(1,'#0c141a');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+ ctx.strokeStyle='#2e4044';ctx.lineWidth=.5;ctx.font='9px monospace';
+ for(const ls of [1e-4,1e-3,1e-2,.1,1,10,100,1000]){const r=radial(ls,R);ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#53696b';ctx.fillText(fmt(ls)+' of light',cx+5,cy-r+11)}
+ if(frame){
+  const hd=frame.heading,right=[-hd[1],hd[0]];
+  const items=[...frame.seen].sort((a,b)=>b.light_seconds-a.light_seconds);
+  for(const s of items){
+   const r=radial(s.light_seconds,R),ang=Math.atan2(s.direction[0]*right[0]+s.direction[1]*right[1],s.direction[0]*hd[0]+s.direction[1]*hd[1]);
+   const x=cx+r*Math.sin(ang),y=cy-r*Math.cos(ang);
+   const rgb=s.color.map(v=>Math.round(40+v*200)),col=`${rgb[0]},${rgb[1]},${rgb[2]}`;
+   if(s.kind===0){const gl=ctx.createRadialGradient(x,y,0,x,y,14);gl.addColorStop(0,`rgba(${col},.55)`);gl.addColorStop(1,`rgba(${col},0)`);ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y,14,0,7);ctx.fill();ctx.fillStyle=`rgb(${col})`;ctx.beginPath();ctx.arc(x,y,3,0,7);ctx.fill()}
+   else if(s.kind===4){ctx.fillStyle=`rgba(${col},.8)`;ctx.fillRect(x-1,y-1,2,2)}
+   else{const size=s.kind===1?3.2:s.kind===2?2:2.2;ctx.fillStyle=`rgba(${col},.9)`;ctx.beginPath();if(s.kind===3){ctx.moveTo(x,y-size*1.5);ctx.lineTo(x+size,y+size);ctx.lineTo(x-size,y+size);ctx.closePath()}else ctx.arc(x,y,size,0,7);ctx.fill();if(s.kind<=2&&s.name!=='?'){ctx.fillStyle='#7d9293';ctx.fillText(s.name,x+6,y-4)}}
+  }
+  ctx.strokeStyle='#36484c';ctx.beginPath();ctx.moveTo(cx,cy-R-6);ctx.lineTo(cx,cy-R+8);ctx.stroke();ctx.fillStyle='#82958c';ctx.textAlign='center';ctx.fillText('HEADING',cx,cy-R-12);ctx.textAlign='left';
+  const b=Math.hypot(...frame.beta);
+  el('proper').textContent=frame.proper.toFixed(3)+' s';el('world').textContent=frame.coordinate.toFixed(3)+' s';el('speed').textContent=(b*299792.458).toFixed(2);
+  const near=frame.seen.filter(s=>s.kind!==4).sort((a,b)=>a.light_seconds-b.light_seconds).slice(0,9);
+  const fl=frame.seen.filter(s=>s.kind===4).sort((a,b)=>a.light_seconds-b.light_seconds);
+  let list='NEAREST LIGHT   (shift = ν seen / ν emitted, −p·u)\n';
+  for(const s of near)list+=`${s.name.padEnd(10)} ${fmt(s.light_seconds).padStart(9)}  shift ${((s.shift-1)*1e6).toFixed(1).padStart(9)} ppm\n`;
+  if(fl.length)list+=`FLEET ${fl.length} ships, nearest ${fmt(fl[0].light_seconds)}, shift ${((fl[0].shift-1)*1e6).toFixed(2)} ppm\n`;
+  el('list').textContent=list;
+  const d=dash||{};
+  el('stats').textContent=`IN DOLL      ${frame.doll}\nCLOCK RATE   ${frame.rate.toFixed(12)} ship s / world s\nGAME TIME    target ${rtf}× · ${d.rtf_median?d.rtf_median.toFixed(1):'…'}× median · ${d.rtf_low1?d.rtf_low1.toFixed(1):'…'}× lowest 1%\nFRAME        p50 ${d.p50?d.p50.toFixed(1):'…'} · p95 ${d.p95?d.p95.toFixed(1):'…'} · p99 ${d.p99?d.p99.toFixed(1):'…'} · p99.9 ${d.p999?d.p999.toFixed(1):'…'} ms (engine + view + wire)\nHITCHES/HOUR >16.7 ${d.hitches_per_hour?d.hitches_per_hour[0].toFixed(0):'…'} · >33 ${d.hitches_per_hour?d.hitches_per_hour[1].toFixed(0):'…'} · >50 ${d.hitches_per_hour?d.hitches_per_hour[2].toFixed(0):'…'} · worst ${d.worst?d.worst.toFixed(1):'…'} ms\nEVENTS       ${d.events_per_second?Math.round(d.events_per_second):'…'}/s · overflow frames ${d.overflow_frames||0} · ${d.bytes_per_body||'…'} B per body`;
+ }
+ ctx.fillStyle='#b5bdad';ctx.beginPath();ctx.moveTo(innerWidth/2,innerHeight*.5-8);ctx.lineTo(innerWidth/2+5,innerHeight*.5+6);ctx.lineTo(innerWidth/2,innerHeight*.5+3);ctx.lineTo(innerWidth/2-5,innerHeight*.5+6);ctx.closePath();ctx.fill();
+ if(keys&3){ctx.strokeStyle='#b99870';ctx.beginPath();ctx.moveTo(innerWidth/2-2,innerHeight*.5+7);ctx.lineTo(innerWidth/2,innerHeight*.5+14);ctx.lineTo(innerWidth/2+2,innerHeight*.5+7);ctx.stroke()}
+}
+async function poll(){
+ if(busy||stopped)return;busy=true;
+ try{const r=await fetch('/frame',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keys,rtf})});const j=await r.json();if(!r.ok)throw Error(j.error);frame=j.frame;dash=j.dash}
+ catch(e){stopped=true;el('error').style.display='block';el('error').textContent=`Flight stopped: ${e.message}. Reload to reconnect.`}
+ finally{busy=false}
+}
+function animate(now){lastDraw=now;draw();poll();requestAnimationFrame(animate)}
+fetch('/config').then(r=>r.json()).then(c=>{rtf=c.rtf;el('seed').textContent='seed '+c.seed;requestAnimationFrame(animate)}).catch(e=>{el('error').style.display='block';el('error').textContent=e.message});
+</script></html>
