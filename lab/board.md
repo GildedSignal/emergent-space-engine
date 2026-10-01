@@ -74,6 +74,11 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Taste log (the integrator's decisions on gold, newest first)
 
+- **1 October, the law's red-team: silver, adopted.** Moving lenses (a static memo is off by √((1+β)/(1−β)): B16); no resonance gate (B17); B9 a control beyond e = 0.6 (now log-scaled); B14 classification only (precession and eccentric births added); no memory gate (B18, a requirement from the goal); B15 medians (p99 added); the sense-blind τ selector (replaced by the binary doll). Not gold: one held-out prediction failed (transverse error is second order) and was reported as held.
+- **1 October, r9 (the Hill regime): KILL of kick-avg and hill-torus on precession; valid and decisive.** Averaged tidal kicks get every class right but apsidal precession only below τ₀ = 0.0036 (0.17 Hill radii): Clairaut's first-order problem. Only 4.6% of the strong regime lies on compilable tori.
+- **1 October, r4 v3 (the resonant normal form): KILL of nf1 and nf2.** Libration amplitude 0.28 and pumping off by up to 2×. The checker found that the shipped code could not regenerate the stored series, so the build is suspect, but the kill stands as built. **Consequence for r9, r4 and events3 together:** the non-hierarchical three-body regime takes one representation, the rotating binary doll (`docs/law.md`).
+- **1 October, autonomous lab (22:50 run):** the redteam and taleb lenses reached silver in checking, so the lab stays at once a day.
+
 - **30 September, r8 v2 (encounters): KILL of element-sort, shear-grid and hier-bounds; silver-quality work.**
   - **Measured, and reproduced bit for bit:** every candidate finds every encounter. Work per encounter is 786 for element-sort (1.1 events per body per orbit), 2.6×10⁴ for hier-bounds and 4.9×10⁵ for shear-grid, with exponents about 2 in N at fixed σ_e.
   - **The premise:** cost follows the candidate set (pairs whose orbits overlap), not ρ.
