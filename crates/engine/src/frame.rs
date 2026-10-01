@@ -623,9 +623,10 @@ impl<S: Kickable> Battle<S> {
         let t0 = Instant::now();
         self.stepper.motions(&mut self.motions);
         let t1 = Instant::now();
-        self.settle_position_carries(self.stepper.tick());
         self.anchor_epoch(weight)?;
         let t2 = Instant::now();
+        // What each body is owed up to this tick (an anchor just now has already paid it: no change).
+        self.settle_position_carries(self.stepper.tick());
         let w = self.frame.weights(self.reference.as_ref().expect("a frame with epochs has a tube"), self.stepper.tick(), weight)?;
         let mask: &[bool] = if self.gone > 0 { &self.active } else { &[] };
         let k = self.frame.kick_all_masked(&w, mask, &self.pcarry, &self.motions, &mut self.carries, &mut self.dk, self.threads);
