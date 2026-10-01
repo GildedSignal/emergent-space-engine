@@ -3105,3 +3105,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/runs/sonnet-plane/
 - Limitations: fleet leavers are never handed out; the view gather is 83% of a light frame; kicks cost 29 µs.
 - Next: fleet lifecycle and the gather cache (Sonnet); kick cost (Sol); r10, E9 red-team, r8 v3.
+
+## H0211 — The plane turns when the player turns; GLM carries the off-time on its own host
+
+- Date: 2026-10-01
+- Kind: implementation
+- Status: partial
+- Revisions: 8bc8d1c (the turn); 642e9e8 (the gather cache); 733ed83, 6c8ef3d (the fleet's lifecycle); 987bfee (merge)
+- Scope: crates/universe; crates/engine; xtask universe; lab; .github/workflows
+- Changed: Julien saw no turn while holding a key: the view read a heading flushed only at the next kick. Held keys now show within the frame. The gather finds each crossing by Newton from the last frame's; a battle frame's members leave as tubes and a dissolved battle costs nothing. GLM's hosts were Claude sessions and died with Claude's windows, so the lab moved to GitHub Actions: GLM holds no git credential, and a clean job publishes only lab/results.
+- Why: Julien: fly early, grow by measured bottleneck; use GLM while Claude and Codex are out, without it changing our code.
+- Validation: universe tests including holding_turn_changes_the_heading_on_the_next_frame; engine tests; bench p99 2.72 ms, worst frame 14.5 ms, no hitch.
+- Evidence: artifacts/runs/sonnet-plane2/
+- Limitations: the lab's Actions minutes are finite; kicks still dominate.
+- Next: the GLM queue (r10, E9 red-team, r8 v3, correctors, changeover, skin, Fermi phase-2 tide).

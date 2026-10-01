@@ -24,14 +24,17 @@ phase() {  # phase <name> <minutes> [patch]: one GLM session on $out/<name>-prom
   [ -z "${3:-}" ] || { git add -N . && git diff "$base" -- . ':(exclude)lab/results' > "$out/work/$3"; }
   restore
 }
-finish() {  # finish <grade or verdict line> [extra]: commit, push, and write DONE
+finish() {  # finish <grade or verdict line> [extra]: commit, push, and write DONE (LAB_PUBLISH=none: the host's clean job publishes)
   find "$out" -type f -size +5M -print -delete > "$out/dropped-large-files.txt"
-  git checkout -q -b "claude/lab-$id"
   cp "$out/run.log" "$out/run-log.txt" 2>/dev/null
-  git add "$out" && git commit -q -m "lab $id: $1${2:+ | $2}" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-  git push -q origin "claude/lab-$id" >/dev/null 2>&1 && push=pushed || push="PUSH FAILED"
+  if [ "${LAB_PUBLISH:-}" = none ]; then push="published by the host"; else
+    git checkout -q -b "claude/lab-$id"
+    git add "$out" && git commit -q -m "lab $id: $1${2:+ | $2}" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+    git push -q origin "claude/lab-$id" >/dev/null 2>&1 && push=pushed || push="PUSH FAILED"
+  fi
   echo "$1${2:+ | $2} | branch claude/lab-$id | $push" > "$out/DONE"
 }
+machine() { echo "Linux, $(nproc) vCPU, $(awk '/MemTotal/{printf "%d", $2/1048576}' /proc/meminfo) GB, shared with the window's other runs"; }
 
 case ${1:-} in
 start)
@@ -57,7 +60,7 @@ _run)
   { preamble; cat "lab/lenses/$lens.md"; cat <<P
 ## Your run
 Run id: $id. Your folder: $out/. Time: $min minutes.
-- The machine is a cloud container (Linux, 4 vCPU, 16 GB). Install what you need with pip or cargo.
+- The machine is a cloud container ($(machine)). Install what you need with pip or cargo.
 - For the web, use your search tools if you have them, or else curl: export.arxiv.org/api/query, api.github.com.
 - You may edit any file in this tree to experiment. Your edits are saved as a patch, and the tree is then restored.
 - Before your decisive experiment, write $out/predictions.md. At the end, write $out/dossier.md in the format given in lab/README.md.
@@ -71,7 +74,7 @@ P
   { preamble; cat lab/lenses/checker.md; cat <<P
 ## Your check
 Run id: $id. The author's folder is $out/: dossier.md, predictions.md, its scripts, and work/patch.diff, its edits (apply them with git apply to reproduce).
-- Time: $((min / 2)) minutes. The machine is a cloud container (Linux, 4 vCPU, 16 GB).
+- Time: $((min / 2)) minutes. The machine is a cloud container ($(machine)).
 - Write $out/check.md. Change nothing else in $out/.
 - Never run git commit or git push.
 P
@@ -90,7 +93,7 @@ _rung)  # a directed rung: the frozen file is the question; verdict.py decides, 
   { preamble; cat "$f"; cat <<P
 
 ## Your run (a directed rung)
-Run id: $id. Your folder: $out/. Time: $min minutes. The machine is a cloud container (Linux, 4 vCPU, 16 GB).
+Run id: $id. Your folder: $out/. Time: $min minutes. The machine is a cloud container ($(machine)).
 The rung above is frozen: never edit it, and report what each configuration does, whatever it is.
 - Implement every configuration listed in its configs block, on the cases the rung defines.
 - Write $out/metrics.json as {"<config>": {"<metric>": number}}, with exactly the criteria's metric names, for every configuration.
@@ -105,7 +108,7 @@ P
 ## Your check (a directed rung)
 Run id: $id. The author's folder is $out/: dossier.md, metrics.json, the picture, its scripts, and work/patch.diff, its edits (git apply to reproduce).
 The rung above is frozen, and lab/verdict.py computes the verdict from the metrics files: ignore the Grade line rule above.
-Time: $((min / 2)) minutes. The machine is a cloud container (Linux, 4 vCPU, 16 GB).
+Time: $((min / 2)) minutes. The machine is a cloud container ($(machine)).
 - Reproduce the author's numbers from the author's scripts, and fix nothing silently: report every number that differs.
 - Check the author's implementation independently against the rung's specification, and check each oracle value.
 - Write $out/metrics-check.json in the same shape as metrics.json, from your reproduced numbers.

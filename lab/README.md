@@ -40,7 +40,7 @@ Many GLMs, each with a lens, get **autonomy of inquiry and no authority.** They 
 ## Running (cloud only)
 
 - **Pacing:** GLM's binding limit is its 5-hour token window, not its month. About 12 parallel sessions exhausted it in under 2 hours (29 September), and every later run got a 429 and came back VOID. So run at most 3 rung runs per window, and schedule second authors for the next window.
-- A routine runs `lab/run.sh <lens> [minutes]` in a cloud environment that has `ZAI_API_KEY`. `lab/setup.sh` installs omp, pinned by hash.
+- **The host is GitHub Actions** (`.github/workflows/glm-lab.yml`), every 5 hours, so the lab runs when Claude and Codex are out. It takes three runs from `lab/next.sh`: the integrator's queue `lab/queue.txt` first, then the lens rotation. GLM's job holds a read-only token and no git credential; a separate clean job publishes each finished `lab/results/<id>/` on its own `claude/lab-<id>` branch, and refuses any other path. The secret `ZAI_API_KEY` is Julien's. `lab/setup.sh` installs omp, pinned by hash.
 - The lenses are in [lenses/](lenses/). The integrator owns [board.md](board.md), `checker.md` and this file.
 
 ## Directed rungs

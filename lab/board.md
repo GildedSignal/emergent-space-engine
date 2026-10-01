@@ -4,13 +4,14 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Focus (Julien, 30 September)
 
-"the only goal is the engine/compiler to work with GR natively". **AI and factions are off the plan:** no lens works on decisions, factions or agents until Julien brings them back. The live engine questions, in order:
-- the cycle compiler at every scale;
-- rebinding at handoffs without walking (B12);
-- tides and the τ regime selector near the Hill limit (B14);
-- resonance by the resonant normal form (r4 v3);
-- finding encounters without work per orbit (r8);
-- fitting 10⁹ in 8 GB (families, key width).
+"the only goal is the engine/compiler to work with GR natively". **AI and factions are off the plan:** no lens works on decisions, factions or agents until Julien brings them back. The plane flies (docs/plane.md, H0210), and work goes by its measured bottleneck. The live engine questions, in order (1 October):
+- fewer kicks per orbit at the same behaviour (correctors, higher-order splits): kicks dominate the engine's cost;
+- the changeover near a secondary, reversible and integer (TRACE, JANUS);
+- finding encounters without work per orbit or per element change (the Binet cone, r8 v3, plus a skin);
+- the Schwarzschild tide in the Fermi frame (phase 2, after gate E9);
+- fitting 10⁹ in 8 GB (`crates/shipmem`: population programs plus scars; every body real, never averaged).
+
+The list of 29 September below is background: the pivot (H0200 onwards) answered most of it.
 
 ## Bottlenecks, ranked (29 September)
 
