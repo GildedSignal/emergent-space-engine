@@ -1,0 +1,15 @@
+[package]
+name = "rung"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+emergent-encounters = { path = "../../../../crates/encounters" }
+
+[profile.release]
+debug = false
+opt-level = 3
+codegen-units = 1
+panic = "abort"
+
+[workspace]
