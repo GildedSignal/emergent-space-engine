@@ -1,3 +1,5 @@
+// Jacobi error against the step: ships on circles at 1.5 to 3 Hill radii of a Jupiter, run for N planet periods at
+// 2^step_log2 kicks per period. `jacobi STEP_LOG2 PERIODS SHIPS`; SYNC=1 samples the split's output (the ship's last boundary).
 // Jacobi error against the step: the same six ships for 100 planet periods at 2^step_log2 kicks per period.
 use emergent_universe::observe::root_state;
 use emergent_universe::scenario::restricted_with;

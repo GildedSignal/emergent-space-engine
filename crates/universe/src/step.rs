@@ -18,8 +18,9 @@
 //! remainder kept. When the dominant body changes (a ship deep in a planet's well, or leaving
 //! it) the state is re-expressed in the other doll (a translation and a boost, at this event
 //! only) and rebound there: the changeover levels make the approach smooth, and the handoff
-//! happens deep inside the shells (`R_edge/2`), where the other doll's drift is accurate, and at
-//! the edge (`R_edge`) on the way out, with a two-to-one hysteresis so no ship chatters. A body
+//! happens deep inside the shells (`R_edge/4`, the deepest shell), where the other doll's drift is
+//! accurate, and at the edge (`R_edge`) on the way out, with a four-to-one hysteresis so no ship
+//! chatters. A body
 //! that has nothing to be kicked by (no secondary, no parent) has no events at all.
 use crate::bind::{bind, scalars, Binding, Bound, Entry};
 use crate::body::{BodyRec, Item, Kind, Segment, What};
