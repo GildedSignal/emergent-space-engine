@@ -1,0 +1,19 @@
+[package]
+name = "emergent-encounters"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+
+[[bin]]
+name = "encounters"
+path = "src/main.rs"
+
+[[bin]]
+name = "skin"
+path = "src/skin.rs"
+
+[profile.release]
+debug = false

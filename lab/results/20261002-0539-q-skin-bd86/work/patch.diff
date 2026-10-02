@@ -1,0 +1,24 @@
+diff --git a/crates/encounters/src/pairs.rs b/crates/encounters/src/pairs.rs
+index 2edd247..1704c05 100644
+--- a/crates/encounters/src/pairs.rs
++++ b/crates/encounters/src/pairs.rs
+@@ -159,6 +159,19 @@ struct Arc {
+ /// The pair's sections (0, 1 or 2). `safety` scales the linear window; `evals` counts the exact
+ /// state evaluations spent on numeric windows (setup cost).
+ pub fn sections(bi: &Body, bj: &Body, rho: f64, safety: f64, evals: &mut u64) -> Vec<Section> {
++    sections_pad(bi, bj, rho, safety, 0.0, evals)
++}
++
++/// Sections with the u-tolerance widened by `pad` (Binet units). u(θ) is linear in the Binet point,
++/// so a drift of the two points by δ moves |Δu(θ)| by at most δ for every θ: sections built with
++/// eps + pad stay a superset while the total drift since setup stays below `pad`.
++pub fn sections_pad(bi: &Body, bj: &Body, rho: f64, safety: f64, pad: f64, evals: &mut u64) -> Vec<Section> {
++    let (a, b) = (bi.binet(), bj.binet());
++    let du = a[0] - b[0];
++    let dv = a[1] - b[1];
++    let dw = a[2] - b[2];
++    let r = dv.hypot(dw);
++    let eps = eps_u(bi, bj, rho) + pad;
+     let (a, b) = (bi.binet(), bj.binet());
+     let du = a[0] - b[0];
+     let dv = a[1] - b[1];
