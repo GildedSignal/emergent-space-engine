@@ -1,0 +1,56 @@
+seed  0 k=1.86 b12  passes= 17 medperi=0.780 truthDC=4.2e-12 (5s)
+seed  1 k=2.57 b12  passes= 24 medperi=1.587 truthDC=1.3e-08 (9s)
+seed  2 k=1.69 b12  passes= 15 medperi=1.380 truthDC=9.0e-12 (12s)
+seed  3 k=1.62 b12  passes= 35 medperi=1.031 truthDC=4.6e-12 (18s)
+seed  4 k=2.19 b12  passes= 11 medperi=1.328 truthDC=1.4e-11 (21s)
+seed  5 k=2.83 b12  passes=  3 medperi=2.117 truthDC=8.4e-12 (24s)
+seed  6 k=2.87 b12  passes= 40 medperi=1.385 truthDC=2.3e-11 (33s)
+seed  7 k=1.85 b12  passes= 25 medperi=1.412 truthDC=6.7e-08 (37s)
+seed  8 k=2.22 b12  passes= 18 medperi=1.277 truthDC=1.9e-11 (43s)
+seed  9 k=2.54 b12  passes= 18 medperi=1.934 truthDC=2.2e-11 (49s)
+seed 10 k=2.39 b12  passes= 27 medperi=2.036 truthDC=4.1e-12 (60s)
+seed 11 k=2.52 b12  passes= 27 medperi=1.515 truthDC=7.0e-12 (68s)
+seed 12 k=2.14 b12  passes= 11 medperi=0.824 truthDC=5.5e-12 (74s)
+seed 13 k=1.93 b12  passes= 37 medperi=2.001 truthDC=3.1e-12 (82s)
+seed 14 k=2.84 b12  passes= 63 medperi=2.459 truthDC=9.6e-13 (92s)
+seed 15 k=2.51 b12  passes= 25 medperi=2.006 truthDC=2.8e-11 (99s)
+seed 16 k=2.00 deep passes= 15 medperi=1.049 truthDC=6.6e-12 (105s)
+seed 17 k=2.00 deep passes= 25 medperi=1.116 truthDC=9.1e-12 (113s)
+seed 18 k=2.00 deep passes= 25 medperi=0.173 truthDC=2.1e-12 (119s)
+seed 19 k=2.00 deep passes= 31 medperi=1.838 truthDC=9.0e-12 (128s)
+seed 20 k=2.00 deep passes= 12 medperi=2.239 truthDC=1.5e-11 (134s)
+seed 21 k=2.00 deep passes= 20 medperi=1.109 truthDC=1.7e-12 (140s)
+seed 22 k=2.00 deep passes= 17 medperi=1.723 truthDC=4.9e-12 (147s)
+seed 23 k=2.00 deep passes= 52 medperi=1.114 truthDC=7.5e-12 (160s)
+seed 24 k=2.00 deep passes= 35 medperi=1.397 truthDC=6.1e-12 (171s)
+seed 25 k=2.00 deep passes= 19 medperi=0.793 truthDC=8.8e-12 (178s)
+seed 26 k=2.00 deep passes=  7 medperi=0.867 truthDC=3.1e-12 (183s)
+seed 27 k=2.00 deep passes=  8 medperi=1.814 truthDC=2.0e-11 (188s)
+seed 28 k=2.00 deep passes= 14 medperi=1.235 truthDC=3.9e-12 (195s)
+seed 29 k=2.00 deep passes= 36 medperi=1.200 truthDC=1.2e-11 (204s)
+seed 30 k=2.00 deep passes=  3 medperi=1.459 truthDC=6.4e-13 (214s)
+seed 31 k=2.00 deep passes= 35 medperi=1.185 truthDC=1.0e-11 (225s)
+symba seed  0: expo=0.28 max=3.1e-05 events=38664 kicks/orb=257
+symba seed  1: expo=1.01 max=1.5e-05 events=28596 kicks/orb=207
+symba seed  2: expo=0.54 max=4.0e-05 events=27880 kicks/orb=203
+symba seed 20: expo=10.28 max=1.4e+01 events=9296 kicks/orb=76
+Traceback (most recent call last):
+  File "/home/runner/work/emergent-space-engine/lab-2/lab/results/20261001-2353-q-changeover-e04a/changeover.py", line 523, in <module>
+    r = run_one(scheme, sd["state"])
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/emergent-space-engine/lab-2/lab/results/20261001-2353-q-changeover-e04a/changeover.py", line 485, in run_one
+    S.step()
+  File "/home/runner/work/emergent-space-engine/lab-2/lab/results/20261001-2353-q-changeover-e04a/changeover.py", line 280, in step
+    wh_map(c, c.t, HBASE)
+  File "/home/runner/work/emergent-space-engine/lab-2/lab/results/20261001-2353-q-changeover-e04a/changeover.py", line 202, in wh_map
+    drift(c, h / 2)
+  File "/home/runner/work/emergent-space-engine/lab-2/lab/results/20261001-2353-q-changeover-e04a/changeover.py", line 198, in drift
+    c.x, c.y, c.vx, c.vy = kepler(c.x, c.y, c.vx, c.vy, GMS, dt)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/emergent-space-engine/lab-2/lab/results/20261001-2353-q-changeover-e04a/changeover.py", line 91, in kepler
+    C, S = _CS(z)
+           ^^^^^^
+  File "/home/runner/work/emergent-space-engine/lab-2/lab/results/20261001-2353-q-changeover-e04a/changeover.py", line 79, in _CS
+    return (1 - math.cosh(s)) / z, (math.sinh(s) - s) / (s * s * s)
+                ^^^^^^^^^^^^
+OverflowError: math range error
