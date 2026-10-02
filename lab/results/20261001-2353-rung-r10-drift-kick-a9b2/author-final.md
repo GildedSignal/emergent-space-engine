@@ -1,0 +1,4 @@
+Working...
+All deliverables in place: `metrics.json` (exact criteria names, all four configurations), `dossier.md`, `picture.svg`, pre-registered `predictions.md`, and the one-file reproduction path (`r10.c`, ~4 min total).
+
+**The numbers show a KILL**: the smooth changeover does not hold the Jacobi constant — symba's median growth exponent is +0.43 against the 0.2 limit (each transit of the 1.3 R_H window leaves a 1e-6–1e-5 |ΔC_J/C_J| jump that walks, while errors stay under 5e-5), and it also misses on Hill-moon classes (0.988) and apsidal precession (0.925); wh-fixed fails harder (exponent 1.8, precession 0/53), the negative control behaves (soi-switch +0.33, fails `jacobi` as required), and only resonance libration (0.998, where the changeover never engages) and cost (102 force evals per orbit against the reference's ~3,800) pass for every candidate.
