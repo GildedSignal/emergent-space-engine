@@ -1,0 +1,10 @@
+Working...
+Check complete. `check.md` written; nothing else in the run folder touched.
+
+**Grade: silver** — reproduced fully, central direction correct, but the decisive numbers were corrected by my attack and one experiment remains for gold.
+
+**Reproduction.** `eeff.py` matches (2.29/21.9 naive, 1.56/23.6 measured, 1.17/6.0 einsum); the full 8-scene run reproduced with **zero** JSON field differences vs `probe-decisive.json` (90 s). `predictions.md` (06:12:38) predates the decisive run (06:18:20).
+
+**The attack that mattered.** The dossier's central hedge ("unresolved which side errs") resolves against the author's einsum: probe.py's Riemann template sets R_{r̂φ̂r̂φ̂} = +M/r³, but direct Christoffel computation (R^r_{φrφ} = −M/r, forced also by vacuum + spherical symmetry) gives **−M/r³**. With the sign flipped, the projected tensor equals both the closed form **−w(3γ²−1), +w** and the geodesic measurement to machine precision (−2w×1.5000 vs measured 1.5006 at r=6; ×16.000 vs 16.119 at r=3.1). Meanwhile the geodesic measurement itself is robust (launch-convention invariant, h→0 convergent), so the author's oracle-side conclusion was right — but their quoted magnitudes carry window leakage (+4% at 6M, **+47% at 3.1M**: 23.6 vs true 16.0), and their γ²·7/6 fit is wrong. Re-running two scenes with the corrected kernel halves the member errors (0.335→0.171 at r=6) — part of the claimed "harness floor" was the broken kernel — and the epoch-rule finding survives (2395 vs 16081 at 3.1M).
+
+**Not gold:** P1/P2 held-out predictions failed, the delivered closed form is wrong, and the member-level L1 tables were built from the broken tensor. The gold experiment is fully specified in check.md: corrected kernel, h→0 windows, E9's frozen controls (naive FAILs, corrected projected tensor passes against geodesic pair differences). K2 — gate on geodesic pair differences, never on one's own formula — is vindicated in the most literal way: their own formula was the bug, and only their geodesic construction caught it.
