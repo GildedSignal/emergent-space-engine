@@ -1,0 +1,51 @@
+Results extracted from the run's background-job outputs (the sweeps print; two
+were killed at the wall-cap before their JSON save, so the numbers are
+transcribed here — transcribed lines marked *).
+
+S1 moons (rate = apsidal precession, rad per Home orbit; ref dkd k=10/11:
+moon1 3.849e-3, moon2 8.406e-2, emax 0.056/0.253; 10%/10% bar; moons at 0.6/0.8
+Hill escape in every scheme and in the reference: regime match 100%) *
+
+  dkd    k=3 (8 ko):   3.739e-3 (−2.9%) 8.289e-2 (−1.4%) emax 0.264 (+4.3%)  PASS
+  dkd    k=2 (4 ko):   −8.0%  +5.0%  emax 0.360 (+42%)                        FAIL (e)
+  saba2  k=2 (8 ko):   −0.4%  +0.2%  emax 0.260 (+2.8%)                       PASS
+  saba2  k=1 (4 ko):   +23%   +77%                                                     FAIL
+  saba3  k=2 (12 ko):  0.0%   −1.9%  emax 0.256 (+1.2%)                       PASS
+  saba3  k=1 (6 ko):   −5.3%  −14.5%                                                     FAIL (rate)
+  whc3   k=3 (40 ko):  −0.1%  −0.8%  emax 0.252 (−0.4%)                      PASS
+  whc3   k=2 (20 ko):  −6.1%  −50%   emax 0.395 (+56%)                       FAIL
+  whc3b  k=3 (8 ko):   +0.3%  −0.8%  emax 0.255 (+0.8%)                      PASS
+  (ko = kicks per orbit; k = steps per orbit log2)
+
+validate.py, energy error (mass-weighted, 30 orbits, mu=1e-3/3e-3 pair) *
+  dkd    k: 3→6   1.412e-7 6.72e-9 1.60e-9 1.84e-9   (tau^2 then floor)
+  saba2  k: 3→6   2.03e-8  3.11e-11 8.5e-13 8.3e-12  (tau^4)
+  saba3  k: 3→6   1.97e-9  3.03e-12 7.6e-13 3.8e-12
+  whc3   k: 3→6   7.95e-8  1.37e-10 1.4e-11 2.6e-11  (tau^4+)
+
+S2 resonance 2:1, mu=3e-4 (emax1 of inner; ref k=9 in brackets; band [0.8,1.25]) *
+  dkd   k=2: 8.05e-2 (6.74e-2) +19% | 6.82e-2 (6.31e-2) +8% ... +35% worst  FAIL
+  dkd   k=3: +0.7% worst                                                       PASS (8 ko)
+  saba2 k=2: worst +12%                                                       PASS (8 ko)
+  whc3  k=3: worst +0.8%                                                      PASS (24 ko)
+  (mu=3e-3 and 3:2 families not finished)
+
+S3-A moonlets inside the doll (Jacobi max error / growth slope; stable m1..m3;
+ref k=11: 2.1e-10, 7.2e-10, 6.5e-3-flat; m4 at 0.9 SOI escapes) *
+  dkd   k=3 (8 ko):  1.6e-5 (−0.09) 5.8e-5 (−0.33) 7.5e-3 (−0.10)            PASS
+  dkd   k=2 (4 ko):  2.0e-4 (−0.10) 1.4e-3 (−0.47) 3.2e0 (+5.96)             FAIL
+  saba2 k=2 (8 ko):  2.6e-5 1.4e-4 2.6e0 (+5.78)                              FAIL (m3)
+  saba2 k=3 (12 ko): all pass
+  whc3  k=3 (24 ko): 3.0e-6 2.4e-5 9.6e-3 (+0.25)                            PASS
+  whc3b k=3 (8 ko):  identical to dkd k=3 (1.6e-5 5.8e-5 7.5e-3)             PASS
+  whc3 per-step vs dkd at k=3: 3.0e-6 vs 1.6e-5 (5x better at equal steps);
+  at equal kicks dkd wins (3.6e-6 at 16 ko vs whc3 1.7e-4 at 20 ko).
+
+S4 close passes (worst |e_A end / ref −1| over 8 phases; passes 0.1–8.8 mutual Hill) *
+  dkd  k: 3→7  7.6e-1 8.5e-1 8.7e-1 1.9e-1 6.0e-2
+  whc3 k: 3→7  identical to dkd at every k (telescoping; conjugation invisible
+              in elements); saba2/saba3 same order, chaos-dominated, no gain.
+
+dyadic.json: saba2 with 12-bit dyadic coefficients = exact saba2 to 3 digits
+  (rates 3.832e-3 / 8.423e-2 at k=2, identical); whc3b dyadic (1713/4096,
+  −102/4096) passes with +0.3%/−0.8% rates.
