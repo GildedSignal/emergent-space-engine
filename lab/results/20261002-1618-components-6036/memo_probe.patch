@@ -1,0 +1,305 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..9c0b4c4 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -455,3 +455,300 @@ mod tests {
+         }
+     }
+ }
++
++#[cfg(test)]
++mod memo_probe {
++    //! Run 20261002-1618: the rebind's idiot index and the shared cycle memo (law.md) on a
++    //! dynamic kick sequence. Toy tide a = diag(+w, -w)·x, 64 kicks per radial period, dv
++    //! quantized to the velocity word identically in every arm. Not a physics oracle.
++    use super::*;
++    use std::collections::{HashMap, HashSet};
++    use std::hint::black_box;
++    use std::time::Instant;
++
++    fn sf(x: Scalar) -> f64 {
++        x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++    }
++    fn enc(x: f64) -> Scalar {
++        let e = x.abs().log2().floor() as i32;
++        Scalar::raw((x * 2f64.powi(60 - e)).round() as i128, e - 60).unwrap()
++    }
++    fn key_of(p: f64, e: f64) -> OrbitKey {
++        OrbitKey::bound(enc(p), (e * 2f64.powi(48)).round() as u64).unwrap()
++    }
++    fn state_f64(st: &IntegerState) -> [f64; 2] {
++        let (p, _) = st.components().unwrap();
++        [sf(p[0]), sf(p[1])]
++    }
++    fn pct(v: &mut Vec<u128>, q: f64) -> f64 {
++        v.sort_unstable();
++        let i = ((v.len() as f64 - 1.0) * q).round() as usize;
++        v[i.min(v.len() - 1)] as f64 * 1e-3
++    }
++
++    thread_local! {
++        static W: std::cell::Cell<f64> = const { std::cell::Cell::new(1e-10) };
++    }
++
++    /// The toy kick: dv = diag(+w,-w)·x·h, quantized to the velocity word. Same in every arm.
++    fn apply_tide(st: &mut IntegerState, w: f64, h: f64) {
++        let x = state_f64(st);
++        let s = 2f64.powi(-(st.velocity_exponent as i32));
++        let d = |dv: f64| (dv * s).round() as i64;
++        st.velocity[0] += d(w * x[0] * h);
++        st.velocity[1] += d(-w * x[1] * h);
++    }
++
++    fn compile_entry(key: OrbitKey, r: Scalar) -> Trajectory {
++        if key.periodic() {
++            Trajectory::Cycle(Orbit::compile(key).unwrap())
++        } else {
++            Trajectory::Passage(Passage::compile(key, r.scale(1).unwrap()).unwrap())
++        }
++    }
++
++    /// Sixteen consecutive exact fit keys under the tuned tide: how the key really moves.
++    fn key_trace() {
++        let (st, period) = start_state(100.0, 0.3, 0.137);
++        let h = period / 64.0;
++        let mut cur = Rebinding::from_state(st, enc(0.137), None).unwrap();
++        let mut lastq = None;
++        for j in 0..128 {
++            let t = enc(0.137 + j as f64 * h);
++            let mut s2 = readout_at(&cur.trajectory, cur.periapsis_time, cur.periapsis_angle, cur.clockwise, cur.units, &cur.residual, t).unwrap();
++            apply_tide(&mut s2, 1e-10, h);
++            cur = Rebinding::from_state(s2, t, None).unwrap();
++            let key = cur.trajectory.key();
++            let q10 = key.quantized(10, 10).unwrap();
++            if lastq != Some(q10) {
++                println!(
++                    "KEYS j={j:3} p={:.6} k={:.10} gap={:.10} r={:.2} q10k={:016x} q10p={}",
++                    sf(key.periapsis), key.k as f64 / 2f64.powi(48),
++                    (2.0 * key.k as f64 / 2f64.powi(48) - 1.0),
++                    sf(norm2_of(&s2)), q10.k, sf(q10.periapsis)
++                );
++                lastq = Some(q10);
++            }
++        }
++    }
++    fn norm2_of(st: &IntegerState) -> Scalar {
++        let (p, _) = st.components().unwrap();
++        norm(p).unwrap()
++    }
++    struct Stats {
++        ns: Vec<u128>,
++        clone_ns: Vec<u128>,
++        compiles: usize,
++        fallbacks: usize,
++        hits: u64,
++        kick_changes: u64,
++        pos: Vec<[f64; 2]>,
++        keys: Vec<OrbitKey>,
++    }
++
++    /// The readout between events: decode the tube at `t` and add the residual. No compile.
++    fn readout_at(
++        traj: &Trajectory,
++        peri_t: Scalar,
++        peri_angle: u32,
++        clockwise: bool,
++        units: (i16, i16),
++        resid: &Residual,
++        t: Scalar,
++    ) -> Result<IntegerState> {
++        resid.reconstruct(cartesian(traj.state(t.sub(peri_t)?)?, peri_angle, clockwise, units)?)
++    }
++
++    /// Today's path: readout, kick, `Rebinding::from_state` (fit + compile) per kick.
++    fn arm_exact(st0: IntegerState, t0: f64, h: f64, kicks: usize, w: f64, record: bool) -> Stats {
++        let mut s = Stats { ns: vec![], clone_ns: vec![], compiles: 0, fallbacks: 0, hits: 0, kick_changes: 0, pos: vec![], keys: vec![] };
++        let mut cur = Rebinding::from_state(st0, enc(t0), None).unwrap();
++        for j in 0..kicks {
++            let t = enc(t0 + j as f64 * h);
++            let mut st = readout_at(&cur.trajectory, cur.periapsis_time, cur.periapsis_angle, cur.clockwise, cur.units, &cur.residual, t).unwrap();
++            if record {
++                s.pos.push(state_f64(&st));
++            }
++            apply_tide(&mut st, w, h);
++            let start = Instant::now();
++            cur = Rebinding::from_state(st, t, None).unwrap();
++            s.ns.push(start.elapsed().as_nanos());
++            assert_eq!(cur.reconstruct().unwrap(), st, "from_state exactness");
++            if record {
++                s.keys.push(cur.trajectory.key());
++            }
++        }
++        s
++    }
++
++    /// The memo arm: fit, quantize the key, share the compiled trajectory per bucket; the
++    /// bucket's orbit must still reach the state's radius, else fall back to the exact key.
++    fn arm_memo(st0: IntegerState, t0: f64, h: f64, kicks: usize, kb: u32, pb: u32, w: f64, cache: &mut HashMap<OrbitKey, Trajectory>, record: bool) -> Stats {
++        let mut s = Stats { ns: vec![], clone_ns: vec![], compiles: 0, fallbacks: 0, hits: 0, kick_changes: 0, pos: vec![], keys: vec![] };
++        let mut cur = Rebinding::from_state(st0, enc(t0), None).unwrap();
++        let mut bucket: Option<OrbitKey> = None;
++        let units0 = cur.units;
++        for j in 0..kicks {
++            let t = enc(t0 + j as f64 * h);
++            let mut st = readout_at(&cur.trajectory, cur.periapsis_time, cur.periapsis_angle, cur.clockwise, cur.units, &cur.residual, t).unwrap();
++            if record {
++                s.pos.push(state_f64(&st));
++            }
++            apply_tide(&mut st, w, h);
++            let start = Instant::now();
++            let (key, r, clockwise, incoming) = fit_key(st, true).unwrap();
++            let qk = key.quantized(kb, pb).unwrap();
++            if bucket != Some(qk) {
++                s.kick_changes += 1;
++                bucket = Some(qk);
++            } else {
++                s.hits += 1;
++            }
++            // The entry: the bucket's orbit if it reaches r, else the exact key (never silently).
++            let mut use_key = qk;
++            let mut reaches = match cache.get(&qk) {
++                Some(tr) => tr.at_radius(r).is_ok(),
++                None => {
++                    let traj = compile_entry(qk, r);
++                    let ok = traj.at_radius(r).is_ok();
++                    cache.insert(qk, traj);
++                    s.compiles += 1;
++                    ok
++                }
++            };
++            if !reaches {
++                s.fallbacks += 1;
++                use_key = key;
++                if !cache.contains_key(&use_key) {
++                    let traj = compile_entry(use_key, r);
++                    cache.insert(use_key, traj);
++                    s.compiles += 1;
++                }
++                reaches = cache.get(&use_key).unwrap().at_radius(r).is_ok();
++            }
++            assert!(reaches, "neither the bucket nor the exact key reaches r");
++            let cstart = Instant::now();
++            let traj = cache.get(&use_key).unwrap().clone();
++            s.clone_ns.push(cstart.elapsed().as_nanos());
++            let (mut offset, mut sample) = cache.get(&use_key).unwrap().at_radius(r).unwrap();
++            if incoming {
++                offset = offset.negate();
++                sample.reflect();
++            }
++            let (p, _) = st.components().unwrap();
++            let at = angle(p[0], p[1]).unwrap();
++            let orientation = (at - if clockwise { -phase(sample).unwrap() } else { phase(sample).unwrap() }).rem_euclid(2 * PI);
++            let mut fit = Rebinding {
++                trajectory: traj,
++                periapsis_time: t.sub(offset).unwrap(),
++                periapsis_angle: ((orientation << 32) / (2 * PI)) as u32,
++                clockwise,
++                residual: Residual { position: [0; 2], velocity: [0; 2] },
++                event_time: t,
++                units: units0,
++            };
++            fit.residual = Residual::between(st, fit.decoded_event().unwrap());
++            s.ns.push(start.elapsed().as_nanos());
++            assert_eq!(fit.reconstruct().unwrap(), st, "memo exactness");
++            if record {
++                s.keys.push(key);
++            }
++            cur = fit;
++        }
++        s
++    }
++
++    fn start_state(p: f64, e: f64, t0: f64) -> (IntegerState, f64) {
++        let key = key_of(p, e);
++        let orbit = Orbit::compile(key).unwrap();
++        let period = sf(orbit.period().unwrap());
++        let (apo, vper) = (p / (1.0 - e), (1.0 + e) / (p / (1.0 - e)).sqrt());
++        let le = (apo.log2().ceil() as i32 - 58) as i16;
++        let ve = (vper.log2().ceil() as i32 - 58) as i16;
++        let st = cartesian(orbit.state(enc(t0)).unwrap(), 0, false, (le, ve)).unwrap();
++        (st, period)
++    }
++
++    #[test]
++    fn memo_probe_all() {
++        key_trace();
++        let cases: &[(&str, f64, f64, f64)] = &[
++            ("tuned", 100.0, 0.3, 1e-10),
++            ("strong", 100.0, 0.3, 1e-8),
++            ("weaktide", 100.0, 0.3, 1e-12),
++            ("eccentric", 100.0, 0.6, 1e-10),
++            ("nearcircular", 100.0, 1e-3, 1e-10),
++            ("far", 1000.0, 0.3, 1e-10),
++        ];
++        let orbits = 2usize;
++        for &(name, p, e, w) in cases {
++            let t0 = 0.137;
++            let (st, period) = start_state(p, e, t0);
++            let h = period / 64.0;
++            let kicks = 64 * orbits;
++            let today = arm_exact(st, t0, h, kicks, w, true);
++            let mut comp = vec![];
++            for k in &today.keys {
++                let s = Instant::now();
++                black_box(Orbit::compile(*k)).unwrap();
++                comp.push(s.elapsed().as_nanos());
++            }
++            let mut today_ns = today.ns.clone();
++            let mut comp_ns = comp;
++            for &(kb, pb) in &[(8u32, 8u32), (10, 10), (12, 12), (16, 16), (20, 20)] {
++                let mut cache = HashMap::new();
++                let memo = arm_memo(st, t0, h, kicks, kb, pb, w, &mut cache, false);
++                let mut memo_ns = memo.ns.clone();
++                let mut clone_ns = memo.clone_ns.clone();
++                println!(
++                    "MEMO case={name} p={p} e={e} w={w:e} width=({kb},{pb}) kicks={kicks} \
++                     today_us=[{:.2},{:.2}] compile_us=[{:.2},{:.2}] memo_us=[{:.2},{:.2}] clone_us={:.2} \
++                     hits={}/{} kick_changes={} compiles={} distinct={} fallbacks={} ratio={:.3} ratio_noclone={:.3}",
++                    pct(&mut today_ns, 0.5), pct(&mut today_ns, 0.99),
++                    pct(&mut comp_ns, 0.5), pct(&mut comp_ns, 0.99),
++                    pct(&mut memo_ns, 0.5), pct(&mut memo_ns, 0.99),
++                    pct(&mut clone_ns, 0.5),
++                    memo.hits, kicks, memo.kick_changes, memo.compiles, cache.len(), memo.fallbacks,
++                    pct(&mut memo_ns, 0.5) / pct(&mut today_ns, 0.5),
++                    (pct(&mut memo_ns, 0.5) - pct(&mut clone_ns, 0.5)) / pct(&mut today_ns, 0.5),
++                );
++            }
++            // Behaviour: memo-64 vs exact-64 vs exact-512 over one orbit, same tide.
++            let m64 = arm_memo(st, t0, h, 64, 20, 20, w, &mut HashMap::new(), true);
++            let a64 = arm_exact(st, t0, h, 64, w, true);
++            let fine = arm_exact(st, t0, h / 8.0, 512, w, true);
++            let apo = p / (1.0 - e);
++            let dist = |a: &[[f64; 2]], b: &[[f64; 2]]| {
++                a.iter().zip(b.iter().step_by(8)).take(64)
++                    .map(|(x, y)| ((x[0] - y[0]).powi(2) + (x[1] - y[1]).powi(2)).sqrt())
++                    .fold(0.0f64, f64::max)
++                    / apo
++            };
++            println!(
++                "BEHAV case={name} r_memo={:.3e} r_split={:.3e} memo_changes_1orbit={} memo_fallbacks_1orbit={} exact_distinct_keys_1orbit={}",
++                dist(&m64.pos, &a64.pos),
++                dist(&a64.pos, &fine.pos),
++                m64.kick_changes,
++                m64.fallbacks,
++                a64.keys.iter().collect::<HashSet<_>>().len(),
++            );
++        }
++        // The formation: 32 ships, e spread 1e-6, one shared cache at (10,10).
++        let mut cache = HashMap::new();
++        let (mut compiles, mut fallbacks, mut changes, mut hits) = (0usize, 0usize, 0u64, 0u64);
++        for i in 0..32usize {
++            let t0i = 0.137 + i as f64 * 1e-3;
++            let (st, period) = start_state(100.0, 0.3 * (1.0 + i as f64 * 1e-6), t0i);
++            let h = period / 64.0;
++            let s = arm_memo(st, t0i, h, 64, 10, 10, 1e-10, &mut cache, false);
++            compiles += s.compiles;
++            fallbacks += s.fallbacks;
++            changes += s.kick_changes;
++            hits += s.hits;
++        }
++        println!(
++            "FORMATION ships=32 width=(10,10) kicks=2048 hits={} changes={} compiles={} fallbacks={} distinct_entries={} amortization={:.1}x",
++            hits, changes, compiles, fallbacks, cache.len(), 2048.0 / compiles as f64
++        );
++    }
++}

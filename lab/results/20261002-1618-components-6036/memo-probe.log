@@ -1,0 +1,51 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running unittests src/lib.rs (target/release/deps/emergent_space-dc1d9025fd369bc5)
+
+running 1 test
+KEYS j=  0 p=76.923077 k=0.7692307730 gap=0.5384615461 r=76.92 q10k=0000c4e000000000 q10p=76.875
+KEYS j=111 p=76.873876 k=0.7690521481 gap=0.5381042961 r=121.92 q10k=0000c4e000000000 q10p=76.75
+KEYS j=112 p=76.871729 k=0.7690426633 gap=0.5380853266 r=119.12 q10k=0000c4c000000000 q10p=76.75
+MEMO case=tuned p=100 e=0.3 w=1e-10 width=(8,8) kicks=128 today_us=[25.57,45.97] compile_us=[13.29,14.25] memo_us=[13.71,46.16] clone_us=0.11 hits=82/128 kick_changes=46 compiles=23 distinct=23 fallbacks=9 ratio=0.536 ratio_noclone=0.532
+MEMO case=tuned p=100 e=0.3 w=1e-10 width=(10,10) kicks=128 today_us=[25.57,45.97] compile_us=[13.29,14.25] memo_us=[13.66,43.35] clone_us=0.11 hits=83/128 kick_changes=45 compiles=24 distinct=24 fallbacks=1 ratio=0.534 ratio_noclone=0.530
+MEMO case=tuned p=100 e=0.3 w=1e-10 width=(12,12) kicks=128 today_us=[25.57,45.97] compile_us=[13.29,14.25] memo_us=[13.63,28.61] clone_us=0.11 hits=94/128 kick_changes=34 compiles=26 distinct=26 fallbacks=0 ratio=0.533 ratio_noclone=0.529
+MEMO case=tuned p=100 e=0.3 w=1e-10 width=(16,16) kicks=128 today_us=[25.57,45.97] compile_us=[13.29,14.25] memo_us=[27.32,47.03] clone_us=0.11 hits=16/128 kick_changes=112 compiles=101 distinct=101 fallbacks=0 ratio=1.069 ratio_noclone=1.064
+MEMO case=tuned p=100 e=0.3 w=1e-10 width=(20,20) kicks=128 today_us=[25.57,45.97] compile_us=[13.29,14.25] memo_us=[27.23,47.87] clone_us=0.10 hits=0/128 kick_changes=128 compiles=128 distinct=128 fallbacks=0 ratio=1.065 ratio_noclone=1.061
+BEHAV case=tuned r_memo=1.524e0 r_split=1.228e-5 memo_changes_1orbit=64 memo_fallbacks_1orbit=0 exact_distinct_keys_1orbit=64
+MEMO case=strong p=100 e=0.3 w=1e-8 width=(8,8) kicks=128 today_us=[25.29,30.52] compile_us=[13.19,29.33] memo_us=[28.11,52.17] clone_us=0.11 hits=35/128 kick_changes=93 compiles=93 distinct=93 fallbacks=3 ratio=1.112 ratio_noclone=1.107
+MEMO case=strong p=100 e=0.3 w=1e-8 width=(10,10) kicks=128 today_us=[25.29,30.52] compile_us=[13.19,29.33] memo_us=[28.11,50.77] clone_us=0.10 hits=3/128 kick_changes=125 compiles=126 distinct=126 fallbacks=2 ratio=1.112 ratio_noclone=1.108
+MEMO case=strong p=100 e=0.3 w=1e-8 width=(12,12) kicks=128 today_us=[25.29,30.52] compile_us=[13.19,29.33] memo_us=[28.34,45.72] clone_us=0.11 hits=0/128 kick_changes=128 compiles=129 distinct=129 fallbacks=1 ratio=1.121 ratio_noclone=1.116
+MEMO case=strong p=100 e=0.3 w=1e-8 width=(16,16) kicks=128 today_us=[25.29,30.52] compile_us=[13.19,29.33] memo_us=[27.73,45.08] clone_us=0.11 hits=0/128 kick_changes=128 compiles=128 distinct=128 fallbacks=0 ratio=1.097 ratio_noclone=1.092
+MEMO case=strong p=100 e=0.3 w=1e-8 width=(20,20) kicks=128 today_us=[25.29,30.52] compile_us=[13.19,29.33] memo_us=[27.86,44.54] clone_us=0.11 hits=0/128 kick_changes=128 compiles=128 distinct=128 fallbacks=0 ratio=1.102 ratio_noclone=1.097
+BEHAV case=strong r_memo=1.539e0 r_split=1.158e-3 memo_changes_1orbit=64 memo_fallbacks_1orbit=0 exact_distinct_keys_1orbit=64
+MEMO case=weaktide p=100 e=0.3 w=1e-12 width=(8,8) kicks=128 today_us=[25.38,41.01] compile_us=[13.20,25.77] memo_us=[13.64,30.68] clone_us=0.11 hits=103/128 kick_changes=25 compiles=18 distinct=18 fallbacks=4 ratio=0.538 ratio_noclone=0.533
+MEMO case=weaktide p=100 e=0.3 w=1e-12 width=(10,10) kicks=128 today_us=[25.38,41.01] compile_us=[13.20,25.77] memo_us=[13.66,30.16] clone_us=0.11 hits=112/128 kick_changes=16 compiles=13 distinct=13 fallbacks=0 ratio=0.538 ratio_noclone=0.534
+MEMO case=weaktide p=100 e=0.3 w=1e-12 width=(12,12) kicks=128 today_us=[25.38,41.01] compile_us=[13.20,25.77] memo_us=[13.66,29.45] clone_us=0.11 hits=110/128 kick_changes=18 compiles=10 distinct=10 fallbacks=0 ratio=0.538 ratio_noclone=0.534
+MEMO case=weaktide p=100 e=0.3 w=1e-12 width=(16,16) kicks=128 today_us=[25.38,41.01] compile_us=[13.20,25.77] memo_us=[13.64,28.86] clone_us=0.11 hits=94/128 kick_changes=34 compiles=13 distinct=13 fallbacks=0 ratio=0.538 ratio_noclone=0.533
+MEMO case=weaktide p=100 e=0.3 w=1e-12 width=(20,20) kicks=128 today_us=[25.38,41.01] compile_us=[13.20,25.77] memo_us=[14.49,41.23] clone_us=0.11 hits=68/128 kick_changes=60 compiles=49 distinct=49 fallbacks=0 ratio=0.571 ratio_noclone=0.567
+BEHAV case=weaktide r_memo=1.524e0 r_split=1.224e-7 memo_changes_1orbit=30 memo_fallbacks_1orbit=0 exact_distinct_keys_1orbit=64
+MEMO case=eccentric p=100 e=0.6 w=1e-10 width=(8,8) kicks=128 today_us=[40.60,57.24] compile_us=[28.41,41.59] memo_us=[13.61,62.90] clone_us=0.11 hits=98/128 kick_changes=30 compiles=19 distinct=19 fallbacks=8 ratio=0.335 ratio_noclone=0.332
+MEMO case=eccentric p=100 e=0.6 w=1e-10 width=(10,10) kicks=128 today_us=[40.60,57.24] compile_us=[28.41,41.59] memo_us=[13.70,48.77] clone_us=0.11 hits=86/128 kick_changes=42 compiles=29 distinct=29 fallbacks=0 ratio=0.337 ratio_noclone=0.335
+MEMO case=eccentric p=100 e=0.6 w=1e-10 width=(12,12) kicks=128 today_us=[40.60,57.24] compile_us=[28.41,41.59] memo_us=[42.86,68.26] clone_us=0.11 hits=40/128 kick_changes=88 compiles=87 distinct=87 fallbacks=1 ratio=1.056 ratio_noclone=1.053
+MEMO case=eccentric p=100 e=0.6 w=1e-10 width=(16,16) kicks=128 today_us=[40.60,57.24] compile_us=[28.41,41.59] memo_us=[44.91,65.45] clone_us=0.11 hits=2/128 kick_changes=126 compiles=126 distinct=126 fallbacks=0 ratio=1.106 ratio_noclone=1.103
+MEMO case=eccentric p=100 e=0.6 w=1e-10 width=(20,20) kicks=128 today_us=[40.60,57.24] compile_us=[28.41,41.59] memo_us=[42.93,76.35] clone_us=0.11 hits=0/128 kick_changes=128 compiles=128 distinct=128 fallbacks=0 ratio=1.057 ratio_noclone=1.055
+BEHAV case=eccentric r_memo=1.129e0 r_split=4.980e-5 memo_changes_1orbit=64 memo_fallbacks_1orbit=0 exact_distinct_keys_1orbit=64
+MEMO case=nearcircular p=100 e=0.001 w=1e-10 width=(8,8) kicks=128 today_us=[15.34,30.21] compile_us=[4.37,4.52] memo_us=[17.45,31.32] clone_us=0.11 hits=127/128 kick_changes=1 compiles=129 distinct=129 fallbacks=128 ratio=1.138 ratio_noclone=1.131
+MEMO case=nearcircular p=100 e=0.001 w=1e-10 width=(10,10) kicks=128 today_us=[15.34,30.21] compile_us=[4.37,4.52] memo_us=[12.61,22.46] clone_us=0.11 hits=120/128 kick_changes=8 compiles=11 distinct=11 fallbacks=6 ratio=0.822 ratio_noclone=0.815
+MEMO case=nearcircular p=100 e=0.001 w=1e-10 width=(12,12) kicks=128 today_us=[15.34,30.21] compile_us=[4.37,4.52] memo_us=[12.51,18.68] clone_us=0.11 hits=110/128 kick_changes=18 compiles=11 distinct=11 fallbacks=5 ratio=0.816 ratio_noclone=0.809
+MEMO case=nearcircular p=100 e=0.001 w=1e-10 width=(16,16) kicks=128 today_us=[15.34,30.21] compile_us=[4.37,4.52] memo_us=[17.15,27.10] clone_us=0.10 hits=9/128 kick_changes=119 compiles=113 distinct=113 fallbacks=3 ratio=1.118 ratio_noclone=1.112
+MEMO case=nearcircular p=100 e=0.001 w=1e-10 width=(20,20) kicks=128 today_us=[15.34,30.21] compile_us=[4.37,4.52] memo_us=[17.21,30.90] clone_us=0.10 hits=0/128 kick_changes=128 compiles=129 distinct=129 fallbacks=1 ratio=1.122 ratio_noclone=1.116
+BEHAV case=nearcircular r_memo=1.974e0 r_split=2.032e-5 memo_changes_1orbit=64 memo_fallbacks_1orbit=0 exact_distinct_keys_1orbit=64
+
+thread 'binding::memo_probe::memo_probe_all' panicked at crates/space/src/binding.rs:574:54:
+called `Result::unwrap()` on an `Err` value: NoBoundOrbit
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test binding::memo_probe::memo_probe_all ... FAILED
+
+failures:
+
+failures:
+    binding::memo_probe::memo_probe_all
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.26s
+
+error: test failed, to rerun pass `-p emergent-space --lib`
