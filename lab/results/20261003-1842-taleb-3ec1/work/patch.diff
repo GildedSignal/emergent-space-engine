@@ -1,0 +1,352 @@
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bf..49469bb 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -4,7 +4,7 @@
+ use emergent_encounters::belt::{make_belt, Spec};
+ use emergent_encounters::kepler::{Body, TICKS};
+ use emergent_encounters::method::{pair_events, run_section, Stats};
+-use emergent_encounters::pairs::{cone_pairs, is_candidate, radial_pairs, sections, Sorted};
++use emergent_encounters::pairs::{cone_gap, cone_pairs, eps_u, is_candidate, lazy_sections, radial_pairs, sections, Section, Sorted};
+ use emergent_encounters::truth::{truth_pair, TruthStats};
+ use emergent_encounters::{dioph, par_chunks};
+ use std::collections::HashMap;
+@@ -515,6 +515,259 @@ fn run_section_proposals(bi: &Body, bj: &Body, sec: &emergent_encounters::pairs:
+     }
+ }
+ 
++/// The first tick at which a passage of j through the section's reference longitude has its offset
++/// inside the section window (the engine's own first-hit query, as in setup_cost and run_section).
++fn first_proposal_ticks(bi: &Body, bj: &Body, sec: &Section, qsteps: &mut u64) -> Option<u128> {
++    let (pi, pj) = (bi.period as u128, bj.period as u128);
++    if pi == 0 || pj == 0 {
++        return None;
++    }
++    let c = ((sec.ti as i128 - sec.tj as i128 + sec.w1 as i128).rem_euclid(pi as i128)) as u128;
++    let d = (pi - pj % pi) % pi;
++    let w = ((sec.w1 + sec.w2).max(0) as u128).min(pi - 1);
++    let l = dioph::first_hit(c, d, pi, 0, w, qsteps)?;
++    Some(sec.tj as u128 + l * pj)
++}
++
++fn min_first_proposal_orbits(bi: &Body, bj: &Body, secs: &[Section], qsteps: &mut u64) -> Option<f64> {
++    let mut best: Option<u128> = None;
++    for sec in secs {
++        if let Some(t) = first_proposal_ticks(bi, bj, sec, qsteps) {
++            best = Some(best.map_or(t, |b: u128| b.min(t)));
++        }
++    }
++    best.map(|t| t as f64 / TICKS / TAU)
++}
++
++/// Where the setup cost lands: dormancy, the tangency cliff, per-body concentration, and the
++/// soundness control (no pair with hits in-horizon may be dormant).
++fn fragility(set: &str) {
++    const HS: [f64; 4] = [1.0, 10.0, 100.0, 1000.0];
++    for sp in verify_set(set) {
++        let b = make_belt(&sp);
++        let sorted = Sorted::new(&b, sp.rho);
++        let ns = sp.n.min(120);
++        let sample: Vec<u32> = (0..ns).map(|k| (k * sp.n / ns) as u32).collect();
++        struct Rec {
++            gap_over_eps: f64,
++            evals: u64,
++            eager_fh: Option<f64>,
++            lazy_fh: Option<f64>,
++        }
++        let mut recs: Vec<Rec> = Vec::new();
++        let mut eager_secs = 0.0f64;
++        let mut lazy_secs = 0.0f64;
++        let mut per_body: Vec<(u64, f64)> = Vec::new();
++        let mut qsteps = 0u64;
++        for &i in &sample {
++            let bi = &b[i as usize];
++            let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++            let t_body = Instant::now();
++            let mut cands = 0u64;
++            for &(_, j) in &sorted.order[lo..hi] {
++                if j == i {
++                    continue;
++                }
++                let bj = &b[j as usize];
++                if !is_candidate(bi, bj, sp.rho) {
++                    continue;
++                }
++                cands += 1;
++                let e0 = std::hint::black_box(0u64);
++                let mut ev = e0;
++                let t0 = Instant::now();
++                let secs = sections(bi, bj, sp.rho, SAFETY, &mut ev);
++                eager_secs += t0.elapsed().as_secs_f64();
++                let eager_fh = min_first_proposal_orbits(bi, bj, &secs, &mut qsteps);
++                eager_secs += 0.0; // query cost accounted in qsteps/lazy below
++                let t1 = Instant::now();
++                let lz = lazy_sections(bi, bj, sp.rho);
++                let lazy_fh = min_first_proposal_orbits(bi, bj, &lz, &mut qsteps);
++                lazy_secs += t1.elapsed().as_secs_f64();
++                recs.push(Rec {
++                    gap_over_eps: cone_gap(bi, bj) / eps_u(bi, bj, sp.rho),
++                    evals: ev,
++                    eager_fh,
++                    lazy_fh,
++                });
++            }
++            per_body.push((cands, t_body.elapsed().as_secs_f64()));
++        }
++        let np = recs.len() as f64;
++        let tot_evals: u64 = recs.iter().map(|r| r.evals).sum();
++        let dormant = |h: f64, f: &dyn Fn(&Rec) -> Option<f64>| recs.iter().filter(|r| f(r).map_or(true, |t| t > h)).count() as f64 / np;
++        let eager_f = |r: &Rec| r.eager_fh;
++        let lazy_f = |r: &Rec| r.lazy_fh;
++        let evals_on = |h: f64, f: &dyn Fn(&Rec) -> Option<f64>| recs.iter().filter(|r| f(r).map_or(true, |t| t > h)).map(|r| r.evals).sum::<u64>() as f64 / tot_evals.max(1) as f64;
++        // Tangency cliff: bucket by cone_gap/eps_u (0 = exact tangency inside the candidate skin).
++        let buckets = [(-99.0, -2.0), (-2.0, -0.5), (-0.5, 0.5), (0.5, 2.0), (2.0, 99.0)];
++        let mut bg = Vec::new();
++        for (blo, bhi) in buckets {
++            let sel: Vec<&Rec> = recs.iter().filter(|r| r.gap_over_eps >= blo && r.gap_over_eps < bhi).collect();
++            if sel.is_empty() {
++                bg.push(format!("[0,0,0,0,0]"));
++                continue;
++            }
++            let mut ev: Vec<f64> = sel.iter().map(|r| r.evals as f64).collect();
++            ev.sort_by(|x, y| x.total_cmp(y));
++            let med = ev[ev.len() / 2];
++            let mx = ev[ev.len() - 1];
++            let ev_sum: f64 = ev.iter().sum();
++            bg.push(format!("[{},{},{},{},{}]", sel.len(), med, mx, ev_sum, ev_sum / tot_evals.max(1) as f64));
++        }
++        let mut all_e: Vec<f64> = recs.iter().map(|r| r.evals as f64).collect();
++        all_e.sort_by(|x, y| x.total_cmp(y));
++        let mut body_c: Vec<f64> = per_body.iter().map(|x| x.0 as f64).collect();
++        body_c.sort_by(|x, y| x.total_cmp(y));
++        let top_share = {
++            let mut c: Vec<f64> = per_body.iter().map(|x| x.0 as f64).collect();
++            c.sort_by(|x, y| y.total_cmp(x));
++            c.iter().take((ns / 10).max(1)).sum::<f64>() / c.iter().sum::<f64>().max(1.0)
++        };
++        // Soundness control, both directions: a uniform sample of candidate pairs, run the full
++        // horizon; every pair WITH hits must be non-dormant under the eager timing (formula sanity)
++        // and under the lazy cap window (superset soundness). Violations make the certificate unsound.
++        let hc = 100.0;
++        let mut flat: Vec<(u32, u32)> = Vec::new();
++        for &i in &sample {
++            let bi = &b[i as usize];
++            let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++            for &(_, j) in &sorted.order[lo..hi] {
++                if j != i && is_candidate(bi, &b[j as usize], sp.rho) {
++                    flat.push((i, j));
++                }
++            }
++        }
++        let stride = (flat.len() / 400).max(1);
++        let mut ctrl_tested = 0u64;
++        let mut hit_pairs = 0u64;
++        let mut violations = 0u64;
++        // A/B on the same sample: eager (numeric windows) vs lazy (cap windows, refinement deferred
++        // to check time). Both use run_section's exact checks; the encounter sets must agree.
++        let (mut ev_a, mut ev_b, mut us_a, mut us_b, mut hits_a, mut hits_b, mut diff_pairs) =
++            (0u64, 0u64, 0.0f64, 0.0f64, 0u64, 0u64, 0u64);
++        for k in (0..flat.len()).step_by(stride) {
++            let (i, j) = flat[k];
++            let (bi, bj) = (&b[i as usize], &b[j as usize]);
++            let mut out = Vec::new();
++            let mut st = Stats::default();
++            let t0 = Instant::now();
++            pair_events(bi, bj, sp.rho, SAFETY, 0.0, hc * TAU, &mut st, &mut out);
++            us_a += t0.elapsed().as_secs_f64();
++            ev_a += st.evals;
++            hits_a += out.len() as u64;
++            let mut out_b = Vec::new();
++            let mut st_b = Stats::default();
++            let t1 = Instant::now();
++            for sec in lazy_sections(bi, bj, sp.rho) {
++                run_section(bi, bj, &sec, sp.rho, 0.0, hc * TAU, &mut st_b, &mut out_b);
++            }
++            // the same dedup pass pair_events applies
++            out_b.sort_by(|x, y| x.0.total_cmp(&y.0));
++            out_b.dedup_by(|a, b| (a.0 - b.0).abs() <= 1e-7);
++            us_b += t1.elapsed().as_secs_f64();
++            ev_b += st_b.evals;
++            hits_b += out_b.len() as u64;
++            ctrl_tested += 1;
++            if !out.is_empty() {
++                hit_pairs += 1;
++                let r = &recs[k];
++                violations += (r.eager_fh.map_or(true, |t| t > hc)) as u64;
++                violations += (r.lazy_fh.map_or(true, |t| t > hc)) as u64;
++            }
++            let same = out.len() == out_b.len()
++                && out.iter().zip(&out_b).all(|(x, y)| (x.0 - y.0).abs() < 1e-6);
++            diff_pairs += (!same) as u64;
++        }
++        println!(
++            "{{\"exp\":\"fragility\",\"belt\":\"{}\",\"n\":{},\"sigma_e\":{},\"rho\":{},\"sample_bodies\":{},\"pairs\":{},\
++\"eager_us_per_pair\":{:.3},\"eager_evals_per_pair\":{:.2},\"lazy_us_per_pair\":{:.3},\
++\"dormant_H1\":{:.5},\"dormant_H10\":{:.5},\"dormant_H100\":{:.5},\"dormant_H1000\":{:.5},\
++\"lazy_dormant_H100\":{:.5},\"lazy_dormant_H1000\":{:.5},\
++\"evals_on_dormant_H100\":{:.5},\"evals_on_lazy_dormant_H100\":{:.5},\"evals_on_lazy_dormant_H1000\":{:.5},\
++\"evals_med\":{:.1},\"evals_p99\":{:.1},\"evals_max\":{:.1},\"buckets(n,med,max,sum,share)\":[{}],\
++\"body_cands_med\":{:.1},\"body_cands_p99\":{:.1},\"body_cands_max\":{:.1},\"top10pct_share\":{:.4},\
++\"ctrl_tested\":{},\"ctrl_with_hits\":{},\"violations\":{},\"ab_diff_pairs\":{},\"ab_eager_hits\":{},\"ab_lazy_hits\":{},\"ab_eager_evals\":{},\"ab_lazy_evals\":{},\"ab_eager_ms\":{:.2},\"ab_lazy_ms\":{:.2}}}",
++            sp.name, sp.n, sp.sigma_e, sp.rho, ns, recs.len(),
++            eager_secs * 1e6 / np, tot_evals as f64 / np, lazy_secs * 1e6 / np,
++            dormant(HS[0], &eager_f), dormant(HS[1], &eager_f), dormant(HS[2], &eager_f), dormant(HS[3], &eager_f),
++            dormant(HS[2], &lazy_f), dormant(HS[3], &lazy_f),
++            evals_on(HS[2], &eager_f), evals_on(HS[2], &lazy_f), evals_on(HS[3], &lazy_f),
++            all_e.get(all_e.len() / 2).copied().unwrap_or(0.0), all_e.get(((all_e.len() as f64 * 0.99) as usize).min(all_e.len().saturating_sub(1))).copied().unwrap_or(0.0), all_e.last().copied().unwrap_or(0.0),
++            bg.join(","),
++            body_c[body_c.len() / 2], body_c[((body_c.len() as f64 * 0.99) as usize).min(body_c.len() - 1)], *body_c.last().unwrap_or(&0.0), top_share,
++            ctrl_tested, hit_pairs, violations, diff_pairs, hits_a, hits_b, ev_a, ev_b, us_a * 1e3, us_b * 1e3
++        );
++    }
++}
++
++
++/// The player wildcard: one body kicked to high e at the belt's dense end re-setups O(N) pairs.
++fn kicktail() {
++    for n in [2_500usize, 10_000, 40_000] {
++        let sp = spec("kicktail", n, 1e-2, 1e-4, 1.0, 1.5, 0, 0.0, 20261060 + n as u64);
++        let b = make_belt(&sp);
++        let sorted = Sorted::new(&b, sp.rho);
++        let nm = n.min(200);
++        let msample: Vec<u32> = (0..nm).map(|k| (k * n / nm) as u32).collect();
++        let mut mc: Vec<u64> = Vec::new();
++        for &i in &msample {
++            let bi = &b[i as usize];
++            let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++            let mut c = 0u64;
++            for &(_, j) in &sorted.order[lo..hi] {
++                if j != i && is_candidate(bi, &b[j as usize], sp.rho) {
++                    c += 1;
++                }
++            }
++            mc.push(c);
++        }
++        mc.sort();
++        let med_c = mc[mc.len() / 2];
++        for e_inj in [0.05, 0.1, 0.3, 0.5] {
++            let inj = Body::new(1.02, e_inj, 0.7, 1.3);
++            let (lo, hi) = sorted.range(inj.binet()[0], sorted.reach(&inj));
++            let mut pairs = 0u64;
++            let mut evals = 0u64;
++            let mut qs = 0u64;
++            let t0 = Instant::now();
++            for &(_, j) in &sorted.order[lo..hi] {
++                let bj = &b[j as usize];
++                if !is_candidate(&inj, bj, sp.rho) {
++                    continue;
++                }
++                pairs += 1;
++                for sec in sections(&inj, bj, sp.rho, SAFETY, &mut evals) {
++                    std::hint::black_box(first_proposal_ticks(&inj, bj, &sec, &mut qs));
++                }
++            }
++            let eager_s = t0.elapsed().as_secs_f64();
++            let (mut lpairs, mut lqs) = (0u64, 0u64);
++            let t1 = Instant::now();
++            for &(_, j) in &sorted.order[lo..hi] {
++                let bj = &b[j as usize];
++                if !is_candidate(&inj, bj, sp.rho) {
++                    continue;
++                }
++                lpairs += 1;
++                for sec in lazy_sections(&inj, bj, sp.rho) {
++                    std::hint::black_box(first_proposal_ticks(&inj, bj, &sec, &mut lqs));
++                }
++            }
++            let lazy_s = t1.elapsed().as_secs_f64();
++            println!(
++                "{{\"exp\":\"kicktail\",\"n\":{},\"sigma_e\":1e-2,\"rho\":1e-4,\"e_inject\":{},\"median_body_cands\":{},\"cands\":{},\
++\"eager_ms\":{:.2},\"eager_us_per_pair\":{:.2},\"eager_evals_per_pair\":{:.2},\"lazy_ms\":{:.2},\"lazy_us_per_pair\":{:.2},\
++\"extrap_eager_s_at_1e6\":{:.2},\"extrap_lazy_s_at_1e6\":{:.2}}}",
++                n, e_inj, med_c, pairs,
++                eager_s * 1e3, eager_s * 1e6 / pairs.max(1) as f64, evals as f64 / pairs.max(1) as f64,
++                lazy_s * 1e3, lazy_s * 1e6 / lpairs.max(1) as f64,
++                eager_s * 1e6 as f64 / n as f64, lazy_s * 1e6 as f64 / n as f64
++            );
++        }
++    }
++}
++
+ fn main() {
+     let args: Vec<String> = std::env::args().collect();
+     match args.get(1).map(|s| s.as_str()) {
+@@ -526,7 +779,8 @@ fn main() {
+             steady(n, rho, &hs)
+         }
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
+-        Some("kick") => kick(),
++        Some("fragility") => fragility(&args[2]),
++        Some("kicktail") => kicktail(),
+         _ => {
+             let _ = run_section;
+             eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick");
+diff --git a/crates/encounters/src/pairs.rs b/crates/encounters/src/pairs.rs
+index 2edd247..e57a791 100644
+--- a/crates/encounters/src/pairs.rs
++++ b/crates/encounters/src/pairs.rs
+@@ -194,6 +194,64 @@ pub fn sections(bi: &Body, bj: &Body, rho: f64, safety: f64, evals: &mut u64) ->
+     arcs.into_iter().filter_map(|arc| arc_section(bi, bj, rho, safety, &arc, evals)).collect()
+ }
+ 
++/// Lazy sections for a dormancy certificate: the arcs and their cap (passage-overlap) windows only.
++/// The cap window is a superset of every offset s that can hold an encounter (both bodies must be
++/// inside the arc's longitude span at once), so a first-hit query against it is sound for skipping:
++/// if no passage lands in the cap window within the horizon, none lands in the true window either.
++/// No numeric refinement, no cross windows: cost is a few closed-form Kepler solves per arc.
++pub fn lazy_sections(bi: &Body, bj: &Body, rho: f64) -> Vec<Section> {
++    let (a, b) = (bi.binet(), bj.binet());
++    let du = a[0] - b[0];
++    let dv = a[1] - b[1];
++    let dw = a[2] - b[2];
++    let r = dv.hypot(dw);
++    let eps = eps_u(bi, bj, rho);
++    if du.abs() - r >= eps {
++        return Vec::new();
++    }
++    if r < 1e-300 {
++        return vec![full_section(bi, bj, rho)];
++    }
++    let th0 = dw.atan2(dv);
++    let c_lo = (-eps - du) / r;
++    let c_hi = (eps - du) / r;
++    let merged0 = c_hi >= 1.0;
++    let merged_pi = c_lo <= -1.0;
++    let phi1 = c_hi.min(1.0).acos();
++    let phi2 = c_lo.max(-1.0).acos();
++    let arcs = if merged0 && merged_pi {
++        return vec![full_section(bi, bj, rho)];
++    } else if merged0 {
++        vec![Arc { c: th0, dm: phi2, dp: phi2, cross: false }]
++    } else if merged_pi {
++        vec![Arc { c: th0 + PI, dm: PI - phi1, dp: PI - phi1, cross: false }]
++    } else {
++        let phx = (-du / r).clamp(-1.0, 1.0).acos();
++        vec![
++            Arc { c: th0 + phx, dm: phx - phi1, dp: phi2 - phx, cross: true },
++            Arc { c: th0 - phx, dm: phi2 - phx, dp: phx - phi1, cross: true },
++        ]
++    };
++    arcs.into_iter().map(|arc| lazy_arc_section(bi, bj, &arc)).collect()
++}
++
++fn lazy_arc_section(bi: &Body, bj: &Body, arc: &Arc) -> Section {
++    let th = arc.c.rem_euclid(TAU);
++    let di = (bi.travel(th - arc.dm, th), bi.travel(th, th + arc.dp));
++    let dj = (bj.travel(th - arc.dm, th), bj.travel(th, th + arc.dp));
++    let cap = (dj.0 + di.1, dj.1 + di.0);
++    Section {
++        kind: Kind::Wide,
++        theta: th,
++        ti: bi.passage_tick(th),
++        tj: bj.passage_tick(th),
++        w1: ticks_up(cap.0),
++        w2: ticks_up(cap.1),
++        di,
++        dj,
++    }
++}
++
+ fn ticks_up(x: f64) -> i64 {
+     (x * TICKS).ceil() as i64
+ }
