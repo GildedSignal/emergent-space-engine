@@ -1,0 +1,272 @@
+diff --git a/crates/lattice/src/chronon.rs b/crates/lattice/src/chronon.rs
+index 9bab167..02a7f86 100644
+--- a/crates/lattice/src/chronon.rs
++++ b/crates/lattice/src/chronon.rs
+@@ -5,20 +5,63 @@
+ use crate::law::{self, Body, Consumed, Response, Tick, World};
+ use crate::{Event, Kickable, Kind, Log, Metrics, Motion, Stepper};
+ use std::collections::HashMap;
++use std::hash::{BuildHasher, BuildHasherDefault, Hasher};
++
++/// FxHash for the consumed-contact map: a pure lookup container, so the hash choice
++/// cannot change any outcome, only the cost of the lookups.
++#[derive(Default, Clone, Copy)]
++struct FxHasher(u64);
++impl Hasher for FxHasher {
++    #[inline]
++    fn write(&mut self, bytes: &[u8]) {
++        for &b in bytes {
++            self.0 = (self.0.rotate_left(5) ^ b as u64).wrapping_mul(0x517c_c1b7_2722_0a95);
++        }
++    }
++    #[inline]
++    fn write_u32(&mut self, i: u32) {
++        self.0 = (self.0.rotate_left(5) ^ i as u64).wrapping_mul(0x517c_c1b7_2722_0a95);
++    }
++    #[inline]
++    fn write_u64(&mut self, i: u64) {
++        self.0 = (self.0.rotate_left(5) ^ i).wrapping_mul(0x517c_c1b7_2722_0a95);
++    }
++    #[inline]
++    fn write_usize(&mut self, i: usize) {
++        self.write_u64(i as u64);
++    }
++    #[inline]
++    fn finish(&self) -> u64 {
++        self.0
++    }
++}
++type FxMap<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
+ 
+ pub struct Chronon {
+     w: World,
+     /// (index a, index b), a < b → revisions at which the contact was consumed.
+-    consumed: HashMap<(u32, u32), (u32, u32)>,
++    consumed: FxMap<(u32, u32), (u32, u32)>,
+     log: Log,
+     metrics: Metrics,
+     reach_max: i64,
++    /// Detection scratch, reused across chronons and holding nothing that survives a
++    /// step: per-body cell coordinates, the counting-sort cell table and its ordering.
++    cx: Vec<i64>,
++    cy: Vec<i64>,
++    counts: Vec<u32>,
++    order: Vec<u32>,
++    keys: Vec<u64>,
++    occupied: Vec<u64>,
+ }
+ 
++/// Hard memory cap on the linearized cell table (u32 entries, 64 MiB at 2^24); the
++/// span/n break-even below is what usually decides.
++const TABLE_CAP: u64 = 1 << 24;
++
+ impl Chronon {
+     pub fn new(world: World, keep_events: bool) -> Result<Self, law::LawError> {
+         world.validate()?;
+-        let mut consumed = HashMap::new();
++        let mut consumed = FxMap::default();
+         for c in &world.consumed {
+             let (Some(i), Some(j)) = (world.index_of(c.a), world.index_of(c.b)) else {
+                 return Err(law::LawError(format!("consumed pair ({}, {}) names a missing body", c.a, c.b)));
+@@ -26,7 +69,19 @@ impl Chronon {
+             consumed.insert((i as u32, j as u32), (c.rev_a, c.rev_b));
+         }
+         let reach_max = 2 * world.max_radius();
+-        Ok(Chronon { w: world, consumed, log: Log::new(keep_events), metrics: Metrics::default(), reach_max })
++        Ok(Chronon {
++            w: world,
++            consumed,
++            log: Log::new(keep_events),
++            metrics: Metrics::default(),
++            reach_max,
++            cx: Vec::new(),
++            cy: Vec::new(),
++            counts: Vec::new(),
++            order: Vec::new(),
++            keys: Vec::new(),
++            occupied: Vec::new(),
++        })
+     }
+ 
+     /// One chronon: (tick, tick + 1].
+@@ -36,40 +91,152 @@ impl Chronon {
+         let n = bodies.len();
+         let mut ops = n as u64;
+ 
+-        // 1. Detect with positions at t-1.
++        // 1. Detect with positions at t-1. Cell side reach_max + 2·kmax: any hitting
++        // pair's per-axis separation is at most that, so its cells differ by ≤ 1 and the
++        // 3×3 neighbourhood is closed. Bodies are grouped by cell with a counting sort
++        // over the linearized row-major cell index; worlds whose cell span exceeds the
++        // table cap fall back to sort + hashed ranges. Both paths test the same candidate
++        // pairs, and `pairs` is sorted afterwards, so the bits are identical either way.
+         let kmax = bodies.iter().map(|b| b.k[0].abs().max(b.k[1].abs())).max().unwrap_or(0);
+         let cell = (self.reach_max + 2 * kmax).max(1);
+-        let key = |b: &Body| (b.x[0].div_euclid(cell), b.x[1].div_euclid(cell));
+-        let mut order: Vec<((i64, i64), u32)> = bodies.iter().enumerate().map(|(i, b)| (key(b), i as u32)).collect();
+-        order.sort_unstable();
+-        let mut ranges: HashMap<(i64, i64), (usize, usize)> = HashMap::with_capacity(n);
+-        let mut s = 0;
+-        while s < order.len() {
+-            let mut e = s + 1;
+-            while e < order.len() && order[e].0 == order[s].0 {
+-                e += 1;
+-            }
+-            ranges.insert(order[s].0, (s, e));
+-            s = e;
++        let mut minx = i64::MAX;
++        let mut maxx = i64::MIN;
++        let mut miny = i64::MAX;
++        let mut maxy = i64::MIN;
++        self.cx.clear();
++        self.cy.clear();
++        self.cx.reserve(n);
++        self.cy.reserve(n);
++        for b in bodies.iter() {
++            let cx = b.x[0].div_euclid(cell);
++            let cy = b.x[1].div_euclid(cell);
++            minx = minx.min(cx);
++            maxx = maxx.max(cx);
++            miny = miny.min(cy);
++            maxy = maxy.max(cy);
++            self.cx.push(cx);
++            self.cy.push(cy);
+         }
++        let span_y = (maxy - miny + 3) as u64; // one ghost ring: every real cell has all
++        let span_x = (maxx - minx + 3) as u64; // 9 neighbours in range, border cells stay empty
+         let mut pairs: Vec<(usize, usize)> = Vec::new();
+         let mut predicates = 0u64;
+-        for (&(cx, cy), &(s0, e0)) in &ranges {
+-            for dx in -1..=1 {
+-                for dy in -1..=1 {
+-                    let Some(&(s1, e1)) = ranges.get(&(cx + dx, cy + dy)) else { continue };
+-                    for &(_, i) in &order[s0..e0] {
+-                        for &(_, j) in &order[s1..e1] {
+-                            if i >= j {
+-                                continue;
+-                            }
+-                            let (a, b) = (&bodies[i as usize], &bodies[j as usize]);
+-                            if self.consumed.get(&(i, j)) == Some(&(a.rev, b.rev)) {
+-                                continue;
++        // The table's cost is a·span + b·n against the hashed path's much larger c·n:
++        // measured break-even near span/n ≈ 50, so the table is used while the empty-cell
++        // overhead stays proportional to the bodies, bounded absolutely for memory.
++        let table = span_x
++            .checked_mul(span_y)
++            .map_or(false, |s| s <= (n as u64 * 64).max(1 << 16) && s <= TABLE_CAP)
++            && n < u32::MAX as usize;
++        if table {
++            let span = (span_x * span_y) as usize;
++            // counts[k]: exclusive prefix start of cell k, then its end after placing.
++            // keys[i]: body i's linearized cell, so it is computed once. occupied lists
++            // the cells that hold at least one body (recorded when the count leaves 0),
++            // so the walk below never scans the empty parts of the span.
++            self.counts.clear();
++            self.counts.resize(span + 1, 0);
++            self.keys.clear();
++            self.keys.resize(n, 0);
++            self.occupied.clear();
++            for i in 0..n {
++                let k = (self.cx[i] - minx + 1) as u64 * span_y + (self.cy[i] - miny + 1) as u64;
++                self.keys[i] = k;
++                let c = &mut self.counts[k as usize + 1];
++                if *c == 0 {
++                    self.occupied.push(k);
++                }
++                *c += 1;
++            }
++            for i in 1..=span {
++                self.counts[i] += self.counts[i - 1];
++            }
++            self.order.clear();
++            self.order.resize(n, 0);
++            for i in 0..n {
++                let k = self.keys[i] as usize;
++                let p = self.counts[k] as usize;
++                self.order[p] = i as u32;
++                self.counts[k] += 1;
++            }
++            let start = |k: usize| if k == 0 { 0 } else { self.counts[k - 1] as usize };
++            let end = |k: usize| self.counts[k] as usize;
++            let sy = span_y as u64;
++            self.occupied.sort_unstable();
++            for &occ in &self.occupied {
++                let k = occ as usize;
++                let s0 = start(k);
++                let e0 = end(k);
++                for drow in -1i64..=1 {
++                    for dcol in -1i64..=1 {
++                        // Each unordered cell pair once: forward neighbours only,
++                        // the cell itself triangularly. Both body orderings are
++                        // tested through min/max (the predicate is symmetric under
++                        // a ↔ b: d and w both negate), so the visited pair set, and
++                        // therefore the bits, are those of the plain double walk.
++                        // The ghost ring keeps every k2 inside the table.
++                        let self_cell = drow == 0 && dcol == 0;
++                        let forward = drow > 0 || (drow == 0 && dcol > 0);
++                        if !self_cell && !forward {
++                            continue;
++                        }
++                        let k2 = (occ as i64 + drow * sy as i64 + dcol) as usize;
++                            let s1 = start(k2);
++                            let e1 = end(k2);
++                            for a in s0..e0 {
++                                let i = self.order[a];
++                                let bstart = if self_cell { a + 1 } else { s1 };
++                                for b in bstart..e1 {
++                                    let j = self.order[b];
++                                    let (i, j) = if i < j { (i, j) } else { (j, i) };
++                                    let (ba, bb) = (&bodies[i as usize], &bodies[j as usize]);
++                                    if self.consumed.get(&(i, j)) == Some(&(ba.rev, bb.rev)) {
++                                        continue;
++                                    }
++                                    predicates += 1;
++                                    if law::hit(
++                                        law::sub(bb.x, ba.x),
++                                        law::sub(bb.k, ba.k),
++                                        (ba.radius + bb.radius) as i128,
++                                    ) {
++                                        pairs.push((i as usize, j as usize));
++                                    }
++                                }
+                             }
+-                            predicates += 1;
+-                            if law::hit(law::sub(b.x, a.x), law::sub(b.k, a.k), (a.radius + b.radius) as i128) {
+-                                pairs.push((i as usize, j as usize));
++                    }
++                }
++            }
++        } else {
++            let mut order: Vec<((i64, i64), u32)> =
++                (0..n).map(|i| (self.cx[i], self.cy[i], i as u32)).map(|(a, b, i)| ((a, b), i)).collect();
++            order.sort_unstable();
++            let mut ranges: HashMap<(i64, i64), (usize, usize)> = HashMap::with_capacity(n);
++            let mut s = 0;
++            while s < order.len() {
++                let mut e = s + 1;
++                while e < order.len() && order[e].0 == order[s].0 {
++                    e += 1;
++                }
++                ranges.insert(order[s].0, (s, e));
++                s = e;
++            }
++            for (&(cx, cy), &(s0, e0)) in &ranges {
++                for dx in -1..=1 {
++                    for dy in -1..=1 {
++                        let Some(&(s1, e1)) = ranges.get(&(cx + dx, cy + dy)) else { continue };
++                        for &(_, i) in &order[s0..e0] {
++                            for &(_, j) in &order[s1..e1] {
++                                if i >= j {
++                                    continue;
++                                }
++                                let (a, b) = (&bodies[i as usize], &bodies[j as usize]);
++                                if self.consumed.get(&(i, j)) == Some(&(a.rev, b.rev)) {
++                                    continue;
++                                }
++                                predicates += 1;
++                                if law::hit(law::sub(b.x, a.x), law::sub(b.k, a.k), (a.radius + b.radius) as i128) {
++                                    pairs.push((i as usize, j as usize));
++                                }
+                             }
+                         }
+                     }
