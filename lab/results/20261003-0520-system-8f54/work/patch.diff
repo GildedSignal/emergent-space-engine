@@ -1,0 +1,239 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..75f6632 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -6,6 +6,57 @@ use crate::{
+     tables::PI,
+     Error, Result,
+ };
++// ---- lab diagnostic (run 20261003-0520-system-8f54; the tree is restored after) ----
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::{LazyLock, Mutex};
++
++// ---- lab prototype: the shape memo the design specifies (law.md "compiled once per key"),
++// wired into the rebind path. Bit-identical: the compile is pure and the memo returns the
++// same Arc<OrbitShape> a fresh compile would build. Eviction policy left to the owner.
++static SHAPE_MEMO: LazyLock<Mutex<crate::orbit::ShapeMemo>> =
++    LazyLock::new(|| Mutex::new(crate::orbit::ShapeMemo::default()));
++pub static MEMO_HITS: AtomicU64 = AtomicU64::new(0);
++
++
++#[derive(Default)]
++pub struct RebindDiag {
++    pub calls: AtomicU64,
++    pub fit_ns: AtomicU64,
++    pub compile_ns: AtomicU64,
++    /// consecutive rebinds with the exact same shape inputs (k, periapsis)
++    pub same_shape_exact: AtomicU64,
++    /// consecutive rebinds inside the same 44-bit memo cell
++    pub same_cell: AtomicU64,
++    pub dk_max: AtomicU64,
++    pub dk_sum: AtomicU64,
++}
++pub static REBIND_DIAG: RebindDiag = RebindDiag {
++    calls: AtomicU64::new(0),
++    fit_ns: AtomicU64::new(0),
++    compile_ns: AtomicU64::new(0),
++    same_shape_exact: AtomicU64::new(0),
++    same_cell: AtomicU64::new(0),
++    dk_max: AtomicU64::new(0),
++    dk_sum: AtomicU64::new(0),
++};
++thread_local! {
++    static LAST_KEY: std::cell::RefCell<Option<OrbitKey>> = std::cell::RefCell::new(None);
++}
++pub fn rebind_diag_report() -> String {
++    let d = &REBIND_DIAG;
++    let c = d.calls.load(Ordering::Relaxed).max(1);
++    format!(
++        "rebinds {} | fit {:.1} us avg | compile {:.1} us avg | same exact shape {} | same memo cell {} | dk max {} avg {:.2} | shape-memo hits {}",
++        d.calls.load(Ordering::Relaxed),
++        d.fit_ns.load(Ordering::Relaxed) as f64 / c as f64 / 1e3,
++        d.compile_ns.load(Ordering::Relaxed) as f64 / c as f64 / 1e3,
++        d.same_shape_exact.load(Ordering::Relaxed),
++        d.same_cell.load(Ordering::Relaxed),
++        d.dk_max.load(Ordering::Relaxed),
++        d.dk_sum.load(Ordering::Relaxed) as f64 / c as f64,
++        MEMO_HITS.load(Ordering::Relaxed),
++    )
++}
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct IntegerState {
+@@ -351,11 +402,52 @@ fn root_witness(
+ }
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let t0 = std::time::Instant::now();
++         let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let t1 = std::time::Instant::now();
++        {
++            let d = &REBIND_DIAG;
++            d.calls.fetch_add(1, Ordering::Relaxed);
++            d.fit_ns.fetch_add((t1 - t0).as_nanos() as u64, Ordering::Relaxed);
++            LAST_KEY.with(|l| {
++                let mut last = l.borrow_mut();
++                if let Some(old) = *last {
++                    if old.k == key.k && old.periapsis == key.periapsis {
++                        d.same_shape_exact.fetch_add(1, Ordering::Relaxed);
++                    }
++                    if old.memo_key().ok() == key.memo_key().ok() {
++                        d.same_cell.fetch_add(1, Ordering::Relaxed);
++                    }
++                    let dk = old.k.abs_diff(key.k) as u64;
++                    if dk > d.dk_max.load(Ordering::Relaxed) {
++                        d.dk_max.store(dk, Ordering::Relaxed);
++                    }
++                    d.dk_sum.fetch_add(dk, Ordering::Relaxed);
++                }
++                *last = Some(key);
++            });
++        }
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            let t2 = std::time::Instant::now();
++            let no_memo = std::env::var_os("LAB_NO_MEMO").is_some();
++            let o = if no_memo {
++                Orbit::compile(key)?
++            } else {
++                let mut memo = SHAPE_MEMO.lock().unwrap_or_else(|e| e.into_inner());
++                let before = memo.hits;
++                let orbit = memo.get(key)?;
++                if memo.hits == before {
++                    MEMO_HITS.fetch_add(1, Ordering::Relaxed);
++                }
++                orbit
++            };
++            REBIND_DIAG.compile_ns.fetch_add((std::time::Instant::now() - t2).as_nanos() as u64, Ordering::Relaxed);
++            Trajectory::Cycle(o)
+         } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++            let t2 = std::time::Instant::now();
++            let p = Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?;
++            REBIND_DIAG.compile_ns.fetch_add((std::time::Instant::now() - t2).as_nanos() as u64, Ordering::Relaxed);
++            Trajectory::Passage(p)
+         };
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
+         if incoming {
+diff --git a/crates/universe/examples/cost_split.rs b/crates/universe/examples/cost_split.rs
+index 9c18868..13f8b96 100644
+--- a/crates/universe/examples/cost_split.rs
++++ b/crates/universe/examples/cost_split.rs
+@@ -48,4 +48,6 @@ fn main() {
+     let s = p.u.stats;
+     let ev = s.kicks + s.opens + s.boundaries;
+     println!("whole universe over {h} ticks: {:.1} us per kick/open/boundary ({ev} items), ships {:.1} us per item", t0.elapsed().as_secs_f64() * 1e6 / ev as f64, s.cost_ns[2] as f64 / 1e3 / s.items[2].max(1) as f64);
++    println!("{}", emergent_space::binding::rebind_diag_report());
++    println!("{}", emergent_universe::step::kick_report());
+ }
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 8187bdb..b188b5c 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -23,6 +23,30 @@
+ //! chatters. A body
+ //! that has nothing to be kicked by (no secondary, no parent) has no events at all.
+ use crate::bind::{bind, scalars, Binding, Bound, Entry};
++// ---- lab diagnostic (run 20261003-0520-system-8f54; the tree is restored after) ----
++pub static KICKS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static KICKS_FIRED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static REBINDS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static REBIND_SAME_EXACT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static REBIND_SAME_CELL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static REBIND_DK_MAX: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static REBIND_DK_SUM: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static REBIND_WALL_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub fn kick_report() -> String {
++    use std::sync::atomic::Ordering;
++    format!(
++        "kicks {} | fired {} | per-body rebinds {} same-exact {} same-cell {} | dk max {} avg {:.0} | rebind wall {:.1} us avg",
++        KICKS.load(Ordering::Relaxed),
++        KICKS_FIRED.load(Ordering::Relaxed),
++        REBINDS.load(Ordering::Relaxed),
++        REBIND_SAME_EXACT.load(Ordering::Relaxed),
++        REBIND_SAME_CELL.load(Ordering::Relaxed),
++        REBIND_DK_MAX.load(Ordering::Relaxed),
++        REBIND_DK_SUM.load(Ordering::Relaxed) as f64 / REBINDS.load(Ordering::Relaxed).max(1) as f64,
++        REBIND_WALL_NS.load(Ordering::Relaxed) as f64 / REBINDS.load(Ordering::Relaxed).max(1) as f64 / 1e3,
++    )
++}
++
+ use crate::body::{BodyRec, Item, Kind, Segment, What};
+ use crate::ctx::Ctx;
+ use crate::force::{self, LEVELS, RATIO};
+@@ -237,16 +261,10 @@ impl Work<'_, '_> {
+     fn doll(&self) -> &crate::world::DollRec {
+         &self.ctx.dolls[self.rec.b.doll as usize]
+     }
+-
+     fn passage_edge(&self, doll: u16) -> Option<Scalar> {
+         passage_edge(self.ctx, doll)
+     }
+ 
+-    /// Whether anything can kick this body: a secondary in its doll (other than itself) or a parent.
+-    fn has_forces(&self, doll: u16) -> bool {
+-        self.ctx.dolls[doll as usize].parent.is_some() || self.ctx.sources[doll as usize].iter().any(|&j| j != self.i)
+-    }
+-
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+@@ -257,6 +275,24 @@ impl Work<'_, '_> {
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
++        // ---- lab diagnostic (run 20261003-0520-system-8f54) ----
++        {
++            use std::sync::atomic::Ordering;
++            let ok = old.entry.trajectory.key();
++            let nk = bound.entry.trajectory.key();
++            REBINDS.fetch_add(1, Ordering::Relaxed);
++            if ok == nk {
++                REBIND_SAME_EXACT.fetch_add(1, Ordering::Relaxed);
++            }
++            if ok.memo_key().ok() == nk.memo_key().ok() {
++                REBIND_SAME_CELL.fetch_add(1, Ordering::Relaxed);
++            }
++            let dk = ok.k.abs_diff(nk.k) as u64;
++            if dk > REBIND_DK_MAX.load(Ordering::Relaxed) {
++                REBIND_DK_MAX.store(dk, Ordering::Relaxed);
++            }
++            REBIND_DK_SUM.fetch_add(dk, Ordering::Relaxed);
++        }
+         self.rec.b = Binding {
+             doll,
+             tube: bound.tube,
+@@ -271,6 +307,12 @@ impl Work<'_, '_> {
+         Ok(bound)
+     }
+ 
++    /// Whether anything can kick this body: a secondary in its doll (other than itself) or a parent.
++    fn has_forces(&self, doll: u16) -> bool {
++        self.ctx.dolls[doll as usize].parent.is_some() || self.ctx.sources[doll as usize].iter().any(|&j| j != self.i)
++    }
++
++
+     /// The proper time (root units) the ship's tube has run since `since`, at tick `t`.
+     fn proper_since(&self, since: Tick, t: Tick) -> Res<Scalar> {
+         proper_since(&self.rec.b, self.ctx.dolls[self.rec.b.doll as usize].shift, since, t)
+@@ -310,14 +352,18 @@ impl Work<'_, '_> {
+             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
+         } else {
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
++            KICKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
+                 return Ok(());
+             }
++            KICKS_FIRED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        let _tr = std::time::Instant::now();
++         self.rebind(next, t, d)?;
++        REBIND_WALL_NS.fetch_add(_tr.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+         Ok(())
+     }
+ 

@@ -1,0 +1,12 @@
+# Predictions (written before any measurement in this run)
+
+Context: the plane's kick (`crates/universe/src/step.rs::kick`) reads the exact Cartesian state, adds `Δv = h·a`, then **rebinds**: `Rebinding::from_state` re-fits the invariants and **compiles a whole new geodesic trajectory** (`Orbit::compile`, the Darwin quadrature). The law's design (docs/law.md "a kick updates the cycle by a multiply-add"; representation.md §3) instead lands kicks on the invariants with the memo's derivatives, and the memo ("keyed by quantized (E, L)... shared by every tube with the same key") exists in `crates/space` (`ShapeMemo`, `CyclePool`, tube `Catalogue` interning by `OrbitKey`) but **not** in `crates/universe`'s own `Catalogue`, which the kicks use.
+
+Cases I have not tuned on, and what I expect:
+
+- **P1 (cost split, reproduced on cloud x86):** `cost_split` shows the pure kick resolve at 10–40 µs (the M1 measured 29 µs), and the rebind path (fit + compile + residual decode) is ≥ 40% of it. The readout, secondaries and tide are each single-digit µs.
+- **P2 (key movement, the held-out core):** a firing kick moves the velocity by one word quantum (~2^-60 of the word), so the shape key `k` (Q48) and periapsis radius move ~2^-10 of the **memo cell**. I predict ≥ 90% of a body's consecutive rebinds land in the **same memo cell** (distance 0), and virtually all of the rest in a neighbouring cell (distance ≤ 1). If that holds, the per-kick compile is a no-op at the memo's own resolution.
+- **P3 (firing rate):** sub-quantum kicks (carried) are common but firing kicks are frequent enough to dominate the average — the average rebind share of the kick cost will be ≥ 40% (else the M1's 15 µs/29 µs split would not show).
+- **P4 (prototype, exact-key interning):** the plane scene has co-orbital ships (a fleet on shared orbits); interning compiled trajectories by the exact `OrbitKey` (+ sense + edge) reuses entries across bodies, is bit-identical by construction, and cuts the resolve cost measurably (≥ 10%). The larger prize (same-cell reuse within one body) needs the memo-cell key and changes the drift inside one designed tolerance — judged separately, not claimed bit-identical.
+
+What would make me wrong: if rebinds move the memo key by many cells (kicks are not near-quantum), the compile is doing real work and the memo claim dies; if the fit (not the compile) dominates, the fix is smaller but the boundary diagnosis stands.
