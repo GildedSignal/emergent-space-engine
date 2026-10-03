@@ -1,0 +1,99 @@
+oracle: d_wpi/orbit = 3*pi*J2*(R/p)^2; band: rel<=1%, |de|<=1e-4, 200 orbits
+positive control y6 k=128 (896 kicks/orbit): rel err = 0.0001
+negative control lf2 k=4  (4 kicks/orbit):   rel err = 0.1254 (must fail)
+
+== base e=0.1 J2=1e-3: min kicks/orbit in band (per method)
+   lf2 outer_k=  8 kicks/orbit=  8 PASS rel=0.000 de=2.0e-06 dE=3e-08
+   lf2 outer_k= 12 kicks/orbit= 12 PASS rel=0.000 de=9.2e-07 dE=1e-08
+   lf2 outer_k= 16 kicks/orbit= 16 PASS rel=0.000 de=1.7e-08 dE=6e-09
+   lf2 outer_k= 24 kicks/orbit= 24 PASS rel=0.000 de=6.4e-07 dE=3e-09
+   lf2 outer_k= 32 kicks/orbit= 32 PASS rel=0.000 de=9.5e-07 dE=2e-09
+   lf2 outer_k= 48 kicks/orbit= 48 PASS rel=0.000 de=1.3e-06 dE=7e-10
+   lf2 outer_k= 64 kicks/orbit= 64 PASS rel=0.000 de=1.4e-06 dE=4e-10
+   lf2 outer_k= 96 kicks/orbit= 96 PASS rel=0.000 de=1.5e-06 dE=2e-10
+   lf2 outer_k=128 kicks/orbit=128 PASS rel=0.000 de=1.6e-06 dE=9e-11
+  -> lf2: pass-band = 8.0 kicks/orbit
+   y4 outer_k=  3 kicks/orbit=  9 fail rel=0.303 de=5.3e-06 dE=1e-07
+   y4 outer_k=  4 kicks/orbit= 12 fail rel=0.060 de=4.5e-06 dE=4e-08
+   y4 outer_k=  6 kicks/orbit= 18 PASS rel=0.002 de=2.9e-06 dE=2e-09
+   y4 outer_k=  8 kicks/orbit= 24 PASS rel=0.000 de=1.8e-06 dE=6e-10
+   y4 outer_k= 12 kicks/orbit= 36 PASS rel=0.000 de=8.9e-07 dE=1e-10
+   y4 outer_k= 16 kicks/orbit= 48 PASS rel=0.000 de=1.6e-08 dE=4e-11
+   y4 outer_k= 24 kicks/orbit= 72 PASS rel=0.000 de=6.3e-07 dE=7e-12
+   y4 outer_k= 32 kicks/orbit= 96 PASS rel=0.000 de=9.5e-07 dE=2e-12
+   y4 outer_k= 42 kicks/orbit=126 PASS rel=0.000 de=1.0e-06 dE=7e-13
+  -> y4: pass-band = 18.0 kicks/orbit
+   y6 outer_k=  2 kicks/orbit= 14 PASS rel=0.007 de=7.5e-06 dE=9e-09
+   y6 outer_k=  3 kicks/orbit= 21 PASS rel=0.008 de=6.5e-06 dE=4e-09
+   y6 outer_k=  4 kicks/orbit= 28 PASS rel=0.002 de=5.0e-06 dE=1e-09
+   y6 outer_k=  6 kicks/orbit= 42 PASS rel=0.000 de=2.9e-06 dE=5e-11
+   y6 outer_k=  8 kicks/orbit= 56 PASS rel=0.000 de=1.8e-06 dE=3e-12
+   y6 outer_k= 12 kicks/orbit= 84 PASS rel=0.000 de=8.9e-07 dE=3e-13
+   y6 outer_k= 16 kicks/orbit=112 PASS rel=0.000 de=1.6e-08 dE=2e-13
+   y6 outer_k= 24 kicks/orbit=168 PASS rel=0.000 de=6.3e-07 dE=8e-14
+   y6 outer_k= 36 kicks/orbit=252 PASS rel=0.000 de=7.6e-07 dE=9e-14
+  -> y6: pass-band = 14.0 kicks/orbit
+
+== held-out e=0.6 J2=1e-3: min kicks/orbit in band (per method)
+   lf2 outer_k=  8 kicks/orbit=  8 fail rel=0.993 de=3.4e-05 dE=4e-05
+   lf2 outer_k= 12 kicks/orbit= 12 fail rel=0.534 de=3.8e-05 dE=5e-05
+   lf2 outer_k= 16 kicks/orbit= 16 fail rel=0.236 de=4.9e-05 dE=4e-05
+   lf2 outer_k= 24 kicks/orbit= 24 fail rel=0.035 de=2.3e-05 dE=4e-05
+   lf2 outer_k= 32 kicks/orbit= 32 PASS rel=0.002 de=1.4e-05 dE=2e-05
+   lf2 outer_k= 48 kicks/orbit= 48 PASS rel=0.000 de=1.3e-05 dE=4e-07
+   lf2 outer_k= 64 kicks/orbit= 64 PASS rel=0.000 de=1.5e-05 dE=3e-07
+   lf2 outer_k= 96 kicks/orbit= 96 PASS rel=0.000 de=1.7e-05 dE=1e-07
+   lf2 outer_k=128 kicks/orbit=128 PASS rel=0.000 de=1.8e-05 dE=6e-08
+  -> lf2: pass-band = 32.0 kicks/orbit
+   y4 outer_k=  3 kicks/orbit=  9 fail rel=1.265 de=4.3e-05 dE=3e-05
+   y4 outer_k=  4 kicks/orbit= 12 fail rel=1.085 de=2.7e-05 dE=4e-05
+   y4 outer_k=  6 kicks/orbit= 18 fail rel=0.511 de=3.5e-05 dE=6e-05
+   y4 outer_k=  8 kicks/orbit= 24 fail rel=0.068 de=6.8e-05 dE=5e-05
+   y4 outer_k= 12 kicks/orbit= 36 fail rel=0.093 de=5.8e-05 dE=4e-04
+   y4 outer_k= 16 kicks/orbit= 48 fail rel=0.021 de=9.7e-06 dE=2e-04
+   y4 outer_k= 24 kicks/orbit= 72 PASS rel=0.003 de=5.1e-05 dE=5e-05
+   y4 outer_k= 32 kicks/orbit= 96 PASS rel=0.001 de=2.0e-05 dE=1e-05
+   y4 outer_k= 42 kicks/orbit=126 PASS rel=0.000 de=1.3e-05 dE=7e-07
+  -> y4: pass-band = 72.0 kicks/orbit
+   y6 outer_k=  2 kicks/orbit= 14 fail rel=0.615 de=2.7e-05 dE=5e-05
+   y6 outer_k=  3 kicks/orbit= 21 fail rel=0.077 de=8.3e-05 dE=5e-05
+   y6 outer_k=  4 kicks/orbit= 28 fail rel=0.113 de=5.2e-05 dE=5e-05
+   y6 outer_k=  6 kicks/orbit= 42 fail rel=0.022 de=1.5e-05 dE=2e-04
+   y6 outer_k=  8 kicks/orbit= 56 PASS rel=0.002 de=4.3e-05 dE=1e-04
+   y6 outer_k= 12 kicks/orbit= 84 PASS rel=0.002 de=6.1e-06 dE=2e-05
+   y6 outer_k= 16 kicks/orbit=112 PASS rel=0.002 de=6.3e-06 dE=4e-06
+   y6 outer_k= 24 kicks/orbit=168 PASS rel=0.000 de=3.2e-06 dE=2e-06
+   y6 outer_k= 36 kicks/orbit=252 PASS rel=0.000 de=9.3e-06 dE=1e-07
+  -> y6: pass-band = 56.0 kicks/orbit
+
+== held-out e=0.1 J2=1e-2: min kicks/orbit in band (per method)
+   lf2 outer_k=  8 kicks/orbit=  8 PASS rel=0.000 de=2.0e-05 dE=3e-07
+   lf2 outer_k= 12 kicks/orbit= 12 PASS rel=0.000 de=9.1e-06 dE=1e-07
+   lf2 outer_k= 16 kicks/orbit= 16 PASS rel=0.000 de=1.5e-06 dE=6e-08
+   lf2 outer_k= 24 kicks/orbit= 24 PASS rel=0.000 de=4.6e-06 dE=3e-08
+   lf2 outer_k= 32 kicks/orbit= 32 PASS rel=0.000 de=7.6e-06 dE=2e-08
+   lf2 outer_k= 48 kicks/orbit= 48 PASS rel=0.000 de=1.0e-05 dE=7e-09
+   lf2 outer_k= 64 kicks/orbit= 64 PASS rel=0.000 de=1.2e-05 dE=4e-09
+   lf2 outer_k= 96 kicks/orbit= 96 PASS rel=0.000 de=1.3e-05 dE=2e-09
+   lf2 outer_k=128 kicks/orbit=128 PASS rel=0.000 de=1.4e-05 dE=9e-10
+  -> lf2: pass-band = 8.0 kicks/orbit
+   y4 outer_k=  3 kicks/orbit=  9 fail rel=0.302 de=5.6e-05 dE=1e-05
+   y4 outer_k=  4 kicks/orbit= 12 fail rel=0.060 de=1.2e-05 dE=4e-06
+   y4 outer_k=  6 kicks/orbit= 18 PASS rel=0.002 de=2.7e-05 dE=2e-07
+   y4 outer_k=  8 kicks/orbit= 24 PASS rel=0.000 de=1.8e-05 dE=6e-09
+   y4 outer_k= 12 kicks/orbit= 36 PASS rel=0.000 de=8.7e-06 dE=1e-09
+   y4 outer_k= 16 kicks/orbit= 48 PASS rel=0.000 de=1.5e-06 dE=4e-10
+   y4 outer_k= 24 kicks/orbit= 72 PASS rel=0.000 de=4.6e-06 dE=7e-11
+   y4 outer_k= 32 kicks/orbit= 96 PASS rel=0.000 de=7.6e-06 dE=2e-11
+   y4 outer_k= 42 kicks/orbit=126 PASS rel=0.000 de=8.4e-06 dE=7e-12
+  -> y4: pass-band = 18.0 kicks/orbit
+   y6 outer_k=  2 kicks/orbit= 14 PASS rel=0.007 de=6.7e-05 dE=9e-07
+   y6 outer_k=  3 kicks/orbit= 21 PASS rel=0.008 de=6.8e-05 dE=3e-07
+   y6 outer_k=  4 kicks/orbit= 28 PASS rel=0.002 de=5.1e-05 dE=1e-07
+   y6 outer_k=  6 kicks/orbit= 42 PASS rel=0.000 de=2.9e-05 dE=5e-09
+   y6 outer_k=  8 kicks/orbit= 56 PASS rel=0.000 de=1.8e-05 dE=2e-10
+   y6 outer_k= 12 kicks/orbit= 84 PASS rel=0.000 de=8.7e-06 dE=2e-12
+   y6 outer_k= 16 kicks/orbit=112 PASS rel=0.000 de=1.5e-06 dE=3e-13
+   y6 outer_k= 24 kicks/orbit=168 PASS rel=0.000 de=4.6e-06 dE=1e-13
+   y6 outer_k= 36 kicks/orbit=252 PASS rel=0.000 de=5.9e-06 dE=2e-13
+  -> y6: pass-band = 14.0 kicks/orbit
