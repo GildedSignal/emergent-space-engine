@@ -1,0 +1,261 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..bf1a260 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -6,6 +6,42 @@ use crate::{
+     tables::PI,
+     Error, Result,
+ };
++// Temporary lab instrumentation (run 20261003-1842-spacex-b139): from_state stage accounting.
++type Stages = ([u128; 4], u64, u64, u64, std::collections::HashMap<crate::orbit::ShapeKey, u64>);
++thread_local! {
++    pub static STAGES: std::cell::RefCell<Stages> =
++        std::cell::RefCell::new(([0; 4], 0, 0, 0, std::collections::HashMap::new()));
++}
++/// Lab only: take and reset the from_state stage counters.
++pub fn take_stages() -> ([u128; 4], u64, u64, u64, usize, u64) {
++    STAGES.with(|s| {
++        let mut v = s.borrow_mut();
++        let distinct = v.4.len() as usize;
++        let repeat: u64 = v.4.values().map(|c| c - 1).sum();
++        let out = (v.0, v.1, v.2, v.3, distinct, repeat);
++        *v = ([0; 4], 0, 0, 0, std::collections::HashMap::new());
++        out
++    })
++}
++
++/// Lab A/B switch: when false, `from_state` compiles exactly as before (control arm).
++pub static MEMO_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
++/// Lab seam (20261003-1842-spacex-b139): thread-local for measurement; the production seam
++/// is the resolver's worker context.
++fn shape_memo(key: crate::orbit::OrbitKey) -> Result<crate::orbit::Orbit> {
++    thread_local! {
++        static MEMO: std::cell::RefCell<crate::orbit::ShapeMemo> =
++            std::cell::RefCell::new(crate::orbit::ShapeMemo::default());
++    }
++    const CAP: usize = 4096;
++    MEMO.with(|m| {
++        let mut m = m.borrow_mut();
++        if m.len() >= CAP {
++            *m = crate::orbit::ShapeMemo::default();
++        }
++        m.get(key)
++    })
++}
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct IntegerState {
+@@ -351,13 +387,40 @@ fn root_witness(
+ }
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        let t0 = std::time::Instant::now();
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let t1 = std::time::Instant::now();
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            STAGES.with(|s| {
++                let mut v = s.borrow_mut();
++                v.1 += 1;
++                if let Ok(sk) = crate::orbit::ShapeKey::for_orbit(key) {
++                    *v.4.entry(sk).or_insert(0u64) += 1;
++                }
++                drop(v);
++            });
++            // Circles (k == UNIT) take Orbit::compile's special unstable-circle branch, which
++            // mutates the shape and is outside ShapeMemo: pass them through unmemoized so the
++            // memo stays a pure cache (found by crates/space's unstable-circle test).
++            let orbit = if key.k == 1u64 << 48 {
++                Orbit::compile(key)?
++            } else if MEMO_ON.load(std::sync::atomic::Ordering::Relaxed) {
++                shape_memo(key)?
++            } else {
++                Orbit::compile(key)?
++            };
++            Trajectory::Cycle(orbit)
+         } else {
++            STAGES.with(|s| {
++                let mut v = s.borrow_mut();
++                v.2 += 1;
++                drop(v);
++            });
+             Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+         };
++        let t2 = std::time::Instant::now();
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        let t3 = std::time::Instant::now();
+         if incoming {
+             offset = offset.negate();
+             sample.reflect();
+@@ -379,6 +442,16 @@ impl Rebinding {
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+         fit.residual = Residual::between(state, fit.decoded_event()?);
++        let t4 = std::time::Instant::now();
++        STAGES.with(|s| {
++            let mut v = s.borrow_mut();
++            v.0[0] += t1.saturating_duration_since(t0).as_nanos();
++            v.0[1] += t2.saturating_duration_since(t1).as_nanos();
++            v.0[2] += t3.saturating_duration_since(t2).as_nanos();
++            v.0[3] += t4.saturating_duration_since(t3).as_nanos();
++            v.3 += 1;
++            drop(v);
++        });
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/universe/examples/kick_stages.rs b/crates/universe/examples/kick_stages.rs
+new file mode 100644
+index 0000000..088ccaf
+--- /dev/null
++++ b/crates/universe/examples/kick_stages.rs
+@@ -0,0 +1,149 @@
++//! Lab (20261003-1842-spacex-b139): where a plane kick's microseconds go, stage by stage, on the
++//! plane's own deterministic kick stream (same protocol as `xtask universe --kick-bench`), plus
++//! the from_state stage accounting and shape-key repeat rate from crates/space's instrumentation.
++//! Arg 2 "ab" alternates 150-frame control/memoized blocks in one process (shared-box control).
++use emergent_universe::bind::{bind, scalars};
++use emergent_universe::body::What;
++use emergent_universe::num::{scale2, time_of, Error, Res, V2};
++use emergent_universe::{force, Kind};
++use std::time::Instant;
++
++fn quantize(dv: V2, exp: i16, carry: [i64; 2]) -> Res<([i64; 2], [i64; 2])> {
++    let mut out = [0i64; 2];
++    let mut rem = carry;
++    for c in 0..2 {
++        let inc = dv[c].fixed(16 - exp as i32)?;
++        let total = carry[c] as i128 + inc;
++        out[c] = i64::try_from(total / 65536).map_err(|_| Error::Refused("kick outside the word"))?;
++        rem[c] = (total % 65536) as i64;
++    }
++    Ok((out, rem))
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let seconds: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let ab = args.get(2).map(|s| s == "ab").unwrap_or(false);
++    let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let mut p = emergent_universe::scenario::plane(emergent_universe::Config::default(), seed, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++    let _ = emergent_space::binding::take_stages();
++    let mut samples: Vec<[f64; 8]> = Vec::new();
++    let mut arm_totals: [Vec<f64>; 2] = [vec![], vec![]];
++    let mut arm_stages: [Vec<f64>; 2] = [vec![], vec![]];
++    let mut fired = 0u64;
++    let mut carried = 0u64;
++    let mut digest = blake3::Hasher::new();
++    let wall = Instant::now();
++    for n in 1..=(seconds * 60.0) as usize {
++        if wall.elapsed().as_secs_f64() >= 50.0 {
++            break;
++        }
++        let arm = if ab { ((n / 150) % 2) as usize } else { 0 };
++        emergent_space::binding::MEMO_ON.store(arm == 1, std::sync::atomic::Ordering::Relaxed);
++        let now = p.u.now;
++        let ctx = p.u.ctx();
++        for i in 0..p.u.n_bodies() {
++            let rec = p.u.rec(i);
++            if rec.kind != Kind::Ship || !rec.alive {
++                continue;
++            }
++            let Some(item) = rec.plan.first().copied() else { continue };
++            if !matches!(item.what, What::Kick(_)) {
++                continue;
++            }
++            let t = item.t;
++            let level = match item.what { What::Kick(l) => l, _ => 0 };
++            let m0 = Instant::now();
++            let st = rec.b.readout(t).unwrap();
++            let (x, v) = scalars(&st).unwrap();
++            let m1 = Instant::now();
++            let d = rec.b.doll;
++            let secs = ctx.secondaries(d, t, i).unwrap();
++            let m2 = Instant::now();
++            let tide = ctx.tide(d, t).unwrap();
++            let m3 = Instant::now();
++            let a = force::acceleration(level, x, &secs, tide).unwrap();
++            let m4 = Instant::now();
++            let h = time_of(rec.interval >> (2 * level as i64), rec.b.clock_exp).unwrap();
++            let dv = scale2(a, h).unwrap();
++            let m5 = Instant::now();
++            let (dvq, _c) = quantize(dv, st.velocity_exponent, rec.carry).unwrap();
++            let m6 = Instant::now();
++            if dvq != [0, 0] {
++                let next = emergent_space::binding::IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st };
++                let clock_exp = ctx.dolls[d as usize].clock_exp();
++                let edge = if d != 0 { ctx.dolls[d as usize].edge.scale(2).ok() } else { None };
++                let b = bind(next, t, clock_exp, edge).unwrap();
++                std::hint::black_box(&b);
++                fired += 1;
++            } else {
++                carried += 1;
++            }
++            let m7 = Instant::now();
++            let row = [
++                m1.saturating_duration_since(m0).as_secs_f64() * 1e6,
++                m2.saturating_duration_since(m1).as_secs_f64() * 1e6,
++                m3.saturating_duration_since(m2).as_secs_f64() * 1e6,
++                m4.saturating_duration_since(m3).as_secs_f64() * 1e6,
++                m5.saturating_duration_since(m4).as_secs_f64() * 1e6,
++                m6.saturating_duration_since(m5).as_secs_f64() * 1e6,
++                m7.saturating_duration_since(m6).as_secs_f64() * 1e6,
++                m7.saturating_duration_since(m0).as_secs_f64() * 1e6,
++            ];
++            samples.push(row);
++            arm_totals[arm].push(row[7]);
++            digest.update(format!("{i} {item:?} {dvq:?}").as_bytes());
++            let _ = v;
++        }
++        drop(ctx);
++        p.u.frame(1.0 / 60.0, 1.0, emergent_universe::Budget::unlimited());
++        p.u.settle(p.u.now);
++        let _ = now;
++    }
++    emergent_space::binding::MEMO_ON.store(true, std::sync::atomic::Ordering::Relaxed);
++    let names = ["readout", "secondaries", "tide", "force", "h_x_dv", "quantize", "bind", "total"];
++    let mut med = [0f64; 8];
++    for k in 0..8 {
++        let mut col: Vec<f64> = samples.iter().map(|s| s[k]).collect();
++        col.sort_by(f64::total_cmp);
++        med[k] = col[col.len() / 2];
++    }
++    let (stage_ns, cycles, passages, total_fs, distinct, repeat) = emergent_space::binding::take_stages();
++    let mut col: Vec<f64> = samples.iter().map(|s| s[7]).collect();
++    col.sort_by(f64::total_cmp);
++    let pct = |p: f64| col[((col.len().saturating_sub(1)) as f64 * p).ceil() as usize];
++    println!("frames {:.0} samples {} fired_rebinds {} carried_subquantum {}", seconds * 60.0, samples.len(), fired, carried);
++    if ab {
++        for (arm, name) in [("control (compile each kick)", 0), ("memoized shapes", 1)] {
++            let mut c = arm_totals[name].clone();
++            if c.is_empty() {
++                println!("arm {:12} no samples", name);
++                continue;
++            }
++            c.sort_by(f64::total_cmp);
++            println!(
++                "arm {} n {} median {:.2} p90 {:.2} p99 {:.2} us",
++                name,
++                c.len(),
++                c[c.len() / 2],
++                c[(c.len() as f64 * 0.90) as usize],
++                c[((c.len().saturating_sub(1)) as f64 * 0.99).ceil() as usize]
++            );
++        }
++    }
++    for (k, name) in names.iter().enumerate() {
++        println!("  {:12} median {:7.2} us", name, med[k]);
++    }
++    println!("  kick_total median {:.2} us p99 {:.2} us", pct(0.5), pct(0.99));
++    let per = |ns: u128| ns as f64 / 1e3 / total_fs.max(1) as f64;
++    println!(
++        "from_state calls {} cycles {} passages {} | fit_key {:.2} compile {:.2} at_radius {:.2} residual {:.2} us/call",
++        total_fs, cycles, passages, per(stage_ns[0]), per(stage_ns[1]), per(stage_ns[2]), per(stage_ns[3])
++    );
++    println!(
++        "shape_keys distinct {} repeat_requests {} hit_rate {:.3}",
++        distinct, repeat, repeat as f64 / (repeat + distinct as u64) as f64
++    );
++    println!("replay_digest {}", digest.finalize().to_hex());
++    println!("universe_digest {}", p.u.digest());
++}
