@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered before the decisive experiment, both seeds measured, digests verified, dossier and raw JSONs in `lab/results/20261003-1030-quant-7bc8/`, and the tree patch (stage counters, exact-key intern, memo observation — all additive, digest-identical) is left for `run.sh` to save.
+
+**The claim:** the kick's rebind is not compile-bound — `fit_key` (30–31%) outranks the trajectory compile (30–34%, quadrature 27–31 points) inside `from_state`, an exact-key shape intern can never pay (0 hits in 2×1,912 kicks, both seeds; killed by the frozen rule), while the codebase's own envelope-gated memo width (12+12 bits) recurs on 98.1–98.2% of the kick stream, so compile cost scales with orbit-key diversity (37 distinct keys for the whole plane), not with kicks or population — a replicating edge worth ~15% of the kick today and unbounded amortisation at scale if the law's behaviour gates bless a memo compile.

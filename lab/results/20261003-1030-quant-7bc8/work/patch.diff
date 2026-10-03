@@ -1,0 +1,273 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..78cae93 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -349,15 +349,41 @@ fn root_witness(
+         Some((a, b))
+     } else { None })
+ }
++/// Observe (never act on) whether the fitted key's memo-width quantization
++/// (`OrbitKey::memo_key`, 12+12 bits) has recurred in this stream: the hit rate a
++/// memoised compile would see, priced without changing any outcome.
++fn observe_memo(key: &OrbitKey) {
++    use std::collections::HashSet;
++    use std::sync::Mutex;
++    static SEEN: Mutex<Option<HashSet<OrbitKey>>> = Mutex::new(None);
++    if !crate::prof::armed() {
++        return;
++    }
++    let Ok(mk) = key.memo_key() else { return };
++    let Ok(mut g) = SEEN.lock() else { return };
++    let set = g.get_or_insert_with(HashSet::new);
++    crate::prof::memo_recurrence(set.contains(&mk));
++    set.insert(mk);
++}
++
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
+-        let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
+-        } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+-        };
+-        let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        crate::prof::stage(5, || Self::from_state_staged(state, event_time, passage_edge))
++    }
++    fn from_state_staged(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        let (key, r, clockwise, incoming) = crate::prof::stage(0, || fit_key(state, true))?;
++        observe_memo(&key);
++        let trajectory = crate::prof::stage(1, || -> Result<Trajectory> {
++            if key.periodic() {
++                Ok(Trajectory::Cycle(Orbit::compile(key)?))
++            } else {
++                Ok(Trajectory::Passage(Passage::compile(
++                    key,
++                    passage_edge.unwrap_or(r.scale(1)?),
++                )?))
++            }
++        })?;
++        let (mut offset, mut sample) = crate::prof::stage(3, || trajectory.at_radius(r))?;
+         if incoming {
+             offset = offset.negate();
+             sample.reflect();
+@@ -378,7 +404,7 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+-        fit.residual = Residual::between(state, fit.decoded_event()?);
++        fit.residual = crate::prof::stage(4, || -> Result<Residual> { Ok(Residual::between(state, fit.decoded_event()?)) })?;
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 476d49e..9b66de0 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -120,6 +120,7 @@ pub mod events;
+ #[cfg(feature = "profile")]
+ pub mod profile;
+ mod tables;
++pub mod prof;
+ 
+ macro_rules! stage {
+     ($i:expr, $e:expr) => {{
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..488841d 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -497,7 +497,29 @@ impl Orbit {
+             ]);
+             return Self::from_shape(key, Arc::new(shape));
+         }
+-        Self::from_shape(key, Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
++        let shape_key = ShapeKey::for_orbit(key)?;
++        let shape = crate::prof::stage(2, || Self::shape_intern(shape_key))?;
++        Self::from_shape(key, shape)
++    }
++
++    /// Experimental (quant lab run): `OrbitShape` is a pure function of `ShapeKey`, so
++    /// interning returns exactly what a rebuild would and pays the quadrature once per
++    /// distinct key. Unbounded; adoption depends on the measured hit rate.
++    fn shape_intern(key: ShapeKey) -> Result<Arc<OrbitShape>> {
++        use std::collections::HashMap;
++        use std::sync::{LazyLock, Mutex};
++        static SHAPES: LazyLock<Mutex<HashMap<ShapeKey, Arc<OrbitShape>>>> =
++            LazyLock::new(|| Mutex::new(HashMap::new()));
++        let cache = &*SHAPES;
++        let Ok(mut g) = cache.lock() else { return Err(Error::Range) };
++        if let Some(s) = g.get(&key) {
++            crate::prof::intern_exact(true);
++            return Ok(s.clone());
++        }
++        crate::prof::intern_exact(false);
++        let s = Arc::new(OrbitShape::bound(key)?);
++        g.insert(key, s.clone());
++        Ok(s)
+     }
+     /// Planted Newtonian force for the independent behaviour judge's negative control.
+     pub fn newtonian(key: OrbitKey) -> Result<Self> {
+diff --git a/crates/space/src/prof.rs b/crates/space/src/prof.rs
+new file mode 100644
+index 0000000..b2d21db
+--- /dev/null
++++ b/crates/space/src/prof.rs
+@@ -0,0 +1,96 @@
++//! Stage accounting for the bind path (the kick's latency budget, quant lens).
++//! Relaxed atomics around an armed flag: when disarmed the cost is one load and
++//! a branch. It never touches a value the law computes; outcomes are unchanged.
++
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::time::Instant;
++
++/// 0 fit_key, 1 trajectory build (compile), 2 shape quadrature inside `Orbit::compile`,
++/// 3 orientation (at_radius/angle/phase), 4 residual, 5 `from_state` total.
++pub const STAGES: usize = 6;
++
++static ARMED: AtomicBool = AtomicBool::new(false);
++static NS: [AtomicU64; STAGES] = [
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++];
++static CALLS: [AtomicU64; STAGES] = [
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++    AtomicU64::new(0),
++];
++static EXACT_HITS: AtomicU64 = AtomicU64::new(0);
++static EXACT_MISSES: AtomicU64 = AtomicU64::new(0);
++static MEMO_HITS: AtomicU64 = AtomicU64::new(0);
++static MEMO_MISSES: AtomicU64 = AtomicU64::new(0);
++
++#[inline]
++pub fn armed() -> bool {
++    ARMED.load(Ordering::Relaxed)
++}
++
++pub fn arm(on: bool) {
++    ARMED.store(on, Ordering::Relaxed);
++}
++
++/// Run `f`, charging its wall time to stage `idx` when armed.
++#[inline]
++pub fn stage<R>(idx: usize, f: impl FnOnce() -> R) -> R {
++    if !armed() {
++        return f();
++    }
++    let t0 = Instant::now();
++    let out = f();
++    NS[idx].fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    CALLS[idx].fetch_add(1, Ordering::Relaxed);
++    out
++}
++
++#[inline]
++pub fn intern_exact(hit: bool) {
++    if !armed() {
++        return;
++    }
++    if hit {
++        EXACT_HITS.fetch_add(1, Ordering::Relaxed);
++    } else {
++        EXACT_MISSES.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++#[inline]
++pub fn memo_recurrence(hit: bool) {
++    if !armed() {
++        return;
++    }
++    if hit {
++        MEMO_HITS.fetch_add(1, Ordering::Relaxed);
++    } else {
++        MEMO_MISSES.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// Read and reset everything (the caller takes deltas around its own windows).
++pub fn take() -> ([u64; STAGES], [u64; STAGES], u64, u64, u64, u64) {
++    let mut ns = [0u64; STAGES];
++    let mut calls = [0u64; STAGES];
++    for i in 0..STAGES {
++        ns[i] = NS[i].swap(0, Ordering::Relaxed);
++        calls[i] = CALLS[i].swap(0, Ordering::Relaxed);
++    }
++    (
++        ns,
++        calls,
++        EXACT_HITS.swap(0, Ordering::Relaxed),
++        EXACT_MISSES.swap(0, Ordering::Relaxed),
++        MEMO_HITS.swap(0, Ordering::Relaxed),
++        MEMO_MISSES.swap(0, Ordering::Relaxed),
++    )
++}
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index 93d392a..018dfc1 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -7,6 +7,10 @@ use std::time::Instant;
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let machine_before = crate::measure::machine_state("before");
+     let mut samples = Vec::new();
++    let mut stage_ns = [0u64; 6];
++    let mut stage_calls = [0u64; 6];
++    let (mut exact_hits, mut exact_misses, mut memo_hits, mut memo_misses) = (0u64, 0u64, 0u64, 0u64);
++    let _ = emergent_space::prof::take(); // zero the counters before the stream
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
+     let mut last = vec![None; s.n_bodies()];
+@@ -35,9 +39,21 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
++            emergent_space::prof::arm(true);
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+-            samples.push(t0.elapsed().as_secs_f64() * 1e6);
++            let dt = t0.elapsed();
++            emergent_space::prof::arm(false);
++            samples.push(dt.as_secs_f64() * 1e6);
++            let (ns, calls, eh, em, mh, mm) = emergent_space::prof::take();
++            for j in 0..6 {
++                stage_ns[j] += ns[j];
++                stage_calls[j] += calls[j];
++            }
++            exact_hits += eh;
++            exact_misses += em;
++            memo_hits += mh;
++            memo_misses += mm;
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+         }
+@@ -50,7 +66,23 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+         "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": samples.len(),
++        "stage_us_per_call": {
++            "fit_key": stage_calls[0].checked_div(1).map(|_| stage_ns[0] as f64 / stage_calls[0] as f64 / 1e3),
++            "compile_total": stage_calls[1].checked_div(1).map(|_| stage_ns[1] as f64 / stage_calls[1] as f64 / 1e3),
++            "shape_quadrature": stage_calls[2].checked_div(1).map(|_| stage_ns[2] as f64 / stage_calls[2] as f64 / 1e3),
++            "orientation": stage_calls[3].checked_div(1).map(|_| stage_ns[3] as f64 / stage_calls[3] as f64 / 1e3),
++            "residual": stage_calls[4].checked_div(1).map(|_| stage_ns[4] as f64 / stage_calls[4] as f64 / 1e3),
++            "from_state_total": stage_calls[5].checked_div(1).map(|_| stage_ns[5] as f64 / stage_calls[5] as f64 / 1e3)
++        },
++        "stage_share_of_kick": {
++            "from_state_total": stage_ns[5] as f64 / (samples.iter().sum::<f64>() * 1e3),
++            "shape_quadrature": stage_ns[2] as f64 / (samples.iter().sum::<f64>() * 1e3)
++        },
+         "kick_us": {"median": percentile(0.5), "p99": percentile(0.99)},
++        "stage_calls": stage_calls,
++        "stage_ns_total": stage_ns,
++        "intern_exact": {"hits": exact_hits, "misses": exact_misses},
++        "memo_recurrence_12_12": {"hits": memo_hits, "misses": memo_misses},
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut(), "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()

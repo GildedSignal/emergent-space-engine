@@ -1,0 +1,39 @@
+{
+  "claim": "The kick's rebind is not compile-bound: fit_key is the largest stage, an exact-key shape intern can never hit (0/1912 on both seeds), but the codebase's own memo width (12+12 bits) recurs on 98% of the kick stream, so compile cost is set by orbit-key diversity, not population.",
+  "machine": "cloud container, Linux x86, 2 vCPU shared; orders of magnitude only; integrator re-measures on the M1",
+  "baseline_seed1_unmodified": {
+    "cmd": "./target/release/xtask universe --kick-bench --seconds 55 --rtf 300",
+    "samples": 1912, "kick_us_median": 18.8, "kick_us_p99": 25.1,
+    "replay_digest": "750299527db7c854eb066b768f44249cfd25ba9439e526b24030b846444b717c",
+    "digest": "e9d41fe8a6192ba4bb5e3698ec7cd34aee86dd4d745116f4ba78e3e4ff7d87f7",
+    "refused": 0
+  },
+  "instrumented": {
+    "seed1": {
+      "kick_us_median": 25.6, "kick_us_p99": 37.7, "refused": 0,
+      "digest": "e9d41fe8a6192ba4bb5e3698ec7cd34aee86dd4d745116f4ba78e3e4ff7d87f7",
+      "replay_digest": "750299527db7c854eb066b768f44249cfd25ba9439e526b24030b846444b717c",
+      "digest_identical_to_baseline": true,
+      "from_state_us": 9.8, "from_state_share_of_kick": 0.38,
+      "share_of_from_state": { "fit_key": 0.31, "compile_total": 0.30, "shape_quadrature": 0.27, "orientation": 0.08, "residual": 0.26 },
+      "intern_exact": { "hits": 0, "misses": 1912 },
+      "memo_12_12": { "hits": 1875, "misses": 37 }
+    },
+    "seed7_held_out": {
+      "kick_us_median": 25.8, "kick_us_p99": 38.2, "refused": 0,
+      "digest": "37ba0cecdde37292", "replay_digest": "511acae199ff5d02",
+      "from_state_us": 10.5, "from_state_share_of_kick": 0.39,
+      "share_of_from_state": { "fit_key": 0.30, "compile_total": 0.34, "shape_quadrature": 0.31, "orientation": 0.08, "residual": 0.24 },
+      "intern_exact": { "hits": 0, "misses": 1912 },
+      "memo_12_12": { "hits": 1878, "misses": 34 }
+    }
+  },
+  "capacity_order_of_magnitude": {
+    "kicks_per_s_per_core": "~4e4-5e4 (19-26 us/kick)",
+    "ships_per_core_at_32_kicks_per_orbit_90min": "~5e6-9e6",
+    "cores_for_1e9": "~110-250 (consistent with the board's ~190 Fermi)",
+    "memo_compile_saving_if_adopted": "~15% of the kick (quadrature share x 98% hit rate)"
+  },
+  "files": ["kickbench-seed1.json", "kickbench-seed7.json"],
+  "patch_note": "crates/space: prof.rs (stage counters), staged from_state, shape intern behind Orbit::compile, observe_memo; xtask kick_bench reports stages/hit rates. All additive; digests unchanged."
+}
