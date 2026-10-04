@@ -1,0 +1,412 @@
+diff --git a/crates/shipmem/examples/belt.rs b/crates/shipmem/examples/belt.rs
+new file mode 100644
+index 0000000..f8819d9
+--- /dev/null
++++ b/crates/shipmem/examples/belt.rs
+@@ -0,0 +1,406 @@
++//! The missing rung: a smooth birth population (a belt) as an exact integer program.
++//!
++//! The ladder's populations are convoys (arithmetic programs), Poisson streams and uniform
++//! random — but the game's 10^9-scale content is belts and discs: smooth distributions with
++//! correlations, no majority step. Today those fall to packed blocks at their draw entropy.
++//! Arm A is that: an i.i.d. belt drawn column by column (every draw charged), stored by the
++//! Shelf. Arm B is the same belt *as a program*: ship i is a pure integer function of its
++//! ordinal (a counter mix, or a rank-1 lattice) pushed through dyadic quantile tables and the
++//! law's own `Key::darwin` — every body real and exact, nothing stored but the program.
++//! Kicks land as scars (Elias–Fano ordinals + block-coded zigzag deltas), exactly as form P
++//! seals them. Fidelity is behaviours, not sample identity: KS against the analytic law,
++//! two-sample KS on the stored keys, and a nearest-neighbour statistic in the (p, t_p) plane,
++//! where a lattice shows its stripes.
++//!
++//! `cargo run --release -p emergent-shipmem --example belt -- <m> [out.jsonl]`
++use emergent_shipmem::codec::{Buf, Enc, MAXC};
++use emergent_shipmem::pop::{Pop, Rng};
++use emergent_shipmem::program::{Ef, RB};
++use emergent_shipmem::shelf::{Kind, Shelf, Ship};
++use emergent_space::Key;
++use std::collections::HashMap;
++use std::time::Instant;
++
++const COLS: usize = 5;
++/// Darwin p band [2048, 2560) at the law's 2^16 scale: a belt band, 27 bits of span.
++const PLO: u64 = 2048 << 16;
++const PBITS: u32 = 27;
++/// Eccentricity: Rayleigh sigma = 0.07 on the law's 2^30 grid, truncated at 0.6,
++/// quantized by a dyadic quantile table of 2^12 entries (the belt's own description).
++const ETAB_BITS: u32 = 12;
++const ETRUNC: f64 = 0.6;
++const SIGMA: f64 = 0.07;
++/// Periapsis time: uniform over an epoch window of 2^44 time quanta.
++const TBITS: u32 = 44;
++
++fn e_table() -> Vec<u32> {
++    (0..1usize << ETAB_BITS)
++        .map(|j| {
++            let u = (j as f64 + 0.5) / (1usize << ETAB_BITS) as f64;
++            let q = SIGMA * (-2.0 * (1.0 - u).ln()).sqrt();
++            (q.min(ETRUNC) * (1u64 << 30) as f64) as u32
++        })
++        .collect()
++}
++
++fn belt_ship(p: u32, e: u32, kind: u64, w: u32, t: u64) -> Ship {
++    let k = Key::darwin(p, e).expect("bound orbit");
++    [t, kind, k.energy.get(), k.angular.get(), w as u64, 0, 0, 0]
++}
++
++/// The splitmix-style finalizer (bijective for any odd key): the program's per-column map.
++#[inline]
++fn mix(i: u64, key: u64) -> u64 {
++    let mut z = i
++        .wrapping_add(0x9E37_79B9_7F4A_7C15)
++        .wrapping_mul(key);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    z ^ (z >> 31)
++}
++
++#[derive(Clone, Copy)]
++enum Map {
++    Mix(u64),
++    Lattice(u64),
++}
++impl Map {
++    #[inline]
++    fn u(self, i: u64) -> u64 {
++        match self {
++            Map::Mix(k) => mix(i, k),
++            Map::Lattice(g) => i.wrapping_mul(g),
++        }
++    }
++    fn name(self) -> &'static str {
++        match self {
++            Map::Mix(_) => "mix",
++            Map::Lattice(_) => "lattice",
++        }
++    }
++}
++
++struct ProgBelt {
++    keys: [Map; COLS],
++    etab: Vec<u32>,
++}
++impl ProgBelt {
++    /// Ship i, exactly, from the program alone.
++    #[inline]
++    fn eval(&self, i: u64) -> Ship {
++        let u = |f: usize| self.keys[f].u(i);
++        let p = (PLO + (u(0) >> (64 - PBITS))) as u32;
++        let e = self.etab[(u(1) >> (64 - ETAB_BITS)) as usize];
++        let kind = u(2) >> (64 - 6);
++        let w = (u(3) >> 32) as u32;
++        let t = u(4) >> (64 - TBITS);
++        belt_ship(p, e, kind, w, t)
++    }
++    /// The population description the program stores: keys, tables, parameters.
++    fn bytes(&self) -> usize {
++        8 * COLS + 4 * self.etab.len() + 32
++    }
++}
++
++/// Arm A: the same belt drawn i.i.d., every draw charged to the entropy account.
++fn iid_belt(m: usize, g: u64, etab: &[u32]) -> (Vec<Ship>, Vec<u64>, f64) {
++    let mut r = Rng::new(0x1234_5678_0000_0000u64 ^ g);
++    let mut out = Vec::with_capacity(m);
++    let mut pdraw = Vec::with_capacity(m);
++    for _ in 0..m {
++        let p = r.below(1 << PBITS);
++        let e = etab[r.below(1 << ETAB_BITS) as usize];
++        let kind = r.below(64);
++        let w = r.bitsn(32) as u32;
++        let t = r.bitsn(TBITS);
++        pdraw.push(p);
++        out.push(belt_ship((PLO + p) as u32, e, kind, w, t));
++    }
++    (out, pdraw, r.bits)
++}
++
++/// Two-sample KS statistic.
++fn ks2(a: &mut Vec<f64>, b: &mut Vec<f64>) -> f64 {
++    a.sort_by(|x, y| x.partial_cmp(y).unwrap());
++    b.sort_by(|x, y| x.partial_cmp(y).unwrap());
++    let (mut d, mut i, mut j) = (0.0f64, 0usize, 0usize);
++    while i < a.len() && j < b.len() {
++        let x = if a[i] <= b[j] { a[i] } else { b[j] };
++        while i < a.len() && a[i] == x {
++            i += 1;
++        }
++        while j < b.len() && b[j] == x {
++            j += 1;
++        }
++        d = d.max((i as f64 / a.len() as f64 - j as f64 / b.len() as f64).abs());
++    }
++    d
++}
++
++/// One-sample KS against the Rayleigh CDF (sigma, in units of e).
++fn ks_rayleigh(v: &mut Vec<f64>) -> f64 {
++    v.sort_by(|x, y| x.partial_cmp(y).unwrap());
++    let (mut d, n) = (0.0f64, v.len() as f64);
++    for (i, &e) in v.iter().enumerate() {
++        let f = 1.0 - (-e * e / (2.0 * SIGMA * SIGMA)).exp();
++        d = d.max(((i + 1) as f64 / n - f).abs()).max((f - i as f64 / n).abs());
++    }
++    d
++}
++
++/// One-sample KS against uniform [0,1).
++fn ks_uniform(v: &mut Vec<f64>) -> f64 {
++    v.sort_by(|x, y| x.partial_cmp(y).unwrap());
++    let (mut d, n) = (0.0f64, v.len() as f64);
++    for (i, &u) in v.iter().enumerate() {
++        d = d.max(((i + 1) as f64 / n - u).abs()).max((u - i as f64 / n).abs());
++    }
++    d
++}
++
++/// Nearest-neighbour statistic in the (p, t_p) plane, the phase-space density that sets
++/// encounter rates: median and 1st percentile of NN distance over ~1024 sampled bodies,
++/// in cell units (14-bit grid on each axis).
++fn nn_stats(ps: &[u64], ts: &[u64]) -> (f64, f64) {
++    let mut cells: HashMap<(u64, u64), Vec<usize>> = HashMap::new();
++    for (i, (&p, &t)) in ps.iter().zip(ts).enumerate() {
++        cells
++            .entry(((p >> 13), (t >> 30)))
++            .or_default()
++            .push(i);
++    }
++    let mut dists: Vec<f64> = Vec::new();
++    let stride = (ps.len() / 1024).max(1);
++    for i in (0..ps.len()).step_by(stride) {
++        let (gx, gy) = ((ps[i] >> 13) as i64, (ts[i] >> 30) as i64);
++        let mut best = f64::INFINITY;
++        // Expanding square ring search, up to radius 64 cells: an i.i.d. belt finds its
++        // neighbour at ~1 cell; a lattice's first neighbour can be many cells away.
++        for rad in 0..64 {
++            if best <= rad as f64 {
++                break;
++            }
++            for dy in -(rad as i64)..=(rad as i64) {
++                for dx in -(rad as i64)..=(rad as i64) {
++                    if dx.abs() != rad as i64 && dy.abs() != rad as i64 {
++                        continue; // ring only
++                    }
++                    if let Some(idxs) = cells.get(&(((gx + dx) as u64), ((gy + dy) as u64))) {
++                        for &j in idxs {
++                            if j == i {
++                                continue;
++                            }
++                            let dpx = (ps[j] >> 13) as f64 - gx as f64;
++                            let dpy = (ts[j] >> 30) as f64 - gy as f64;
++                            best = best.min((dpx * dpx + dpy * dpy).sqrt());
++                        }
++                    }
++                }
++            }
++        }
++        if best.is_finite() {
++            dists.push(best);
++        }
++    }
++    dists.sort_by(|x, y| x.partial_cmp(y).unwrap());
++    let n = dists.len();
++    if n < 51 {
++        return (f64::NAN, f64::NAN);
++    }
++    (dists[n / 2], dists[n / 50])
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let m: usize = a.get(1).map(|s| s.parse().unwrap()).unwrap_or(1 << 20);
++    let etab = e_table();
++    let n = m; // fidelity uses the whole population
++
++    // ---- Arm A: i.i.d. belt, today's form (packed blocks). -----------------------------
++    let (mem, pdraw, floor_bits) = iid_belt(m, 0, &etab);
++    let mut enc = Enc::new(true);
++    let t0 = Instant::now();
++    let mut shelf = Shelf::new(COLS, 128, Pop::Convoy.orders(), true);
++    let mut gidx = Vec::new();
++    for chunk in mem.chunks(1 << 16) {
++        gidx.push(shelf.add_group(&mut chunk.to_vec(), Kind::Slot { grid: 0 }));
++    }
++    let build_ns = t0.elapsed().as_nanos() as f64 / m as f64;
++    shelf.shrink();
++    let b_bytes = shelf.bytes();
++    // Round trip bit for bit, block by block, group by group.
++    let mut buf = Buf::default();
++    let (mut bad, mut k) = (0usize, 0usize);
++    let mut buf2 = Buf::default();
++    let _ = &buf2;
++    for r in &gidx {
++        for g in r.clone() {
++            let gr = shelf.groups[g as usize];
++            for bi in gr.first as usize..(gr.first + gr.nb) as usize {
++                shelf.decode_into(bi, &mut buf);
++                for i in 0..buf.n {
++                    bad += (0..COLS).any(|c| buf.col[c][i] != mem[k][c]) as usize;
++                    k += 1;
++                }
++            }
++        }
++    }
++    assert_eq!(k, m, "shipped count");
++    let t1 = Instant::now();
++    for r in &gidx {
++        for g in r.clone() {
++            let gr = shelf.groups[g as usize];
++            for bi in gr.first as usize..(gr.first + gr.nb) as usize {
++                shelf.decode_into(bi, &mut buf);
++            }
++        }
++    }
++    let dec_ns = t1.elapsed().as_nanos() as f64 / m as f64;
++
++    // Arm A's own fidelity (the positive control: drawn from the law, KS must pass too).
++    let mut a_p: Vec<f64> = pdraw.iter().map(|&p| p as f64 / (1u64 << PBITS) as f64).collect();
++    let ks_p_a = ks_uniform(&mut a_p);
++    let mut a_w: Vec<f64> = mem.iter().map(|s| s[4] as f64 / (1u64 << 32) as f64).collect();
++    let ks_w_a = ks_uniform(&mut a_w);
++    let mut a_t: Vec<f64> = mem.iter().map(|s| s[0] as f64 / (1u64 << TBITS) as f64).collect();
++    let ks_t_a = ks_uniform(&mut a_t);
++    let ts_a: Vec<u64> = mem.iter().map(|s| s[0]).collect();
++    let nn_a = nn_stats(&pdraw, &ts_a);
++
++    println!(
++        "{{\"arm\":\"iid-blocks\",\"n\":{},\"floor_bits\":{:.2},\"blocks_bits\":{:.2},\"rt_bad\":{},\"build_ns\":{:.0},\"decode_ns\":{:.0},\"ks_p\":{:.5},\"ks_w\":{:.5},\"ks_t\":{:.5},\"nn_med\":{:.4},\"nn_p1\":{:.4}}}",
++        m,
++        floor_bits / m as f64,
++        b_bytes as f64 * 8.0 / m as f64,
++        bad,
++        build_ns,
++        dec_ns,
++        ks_p_a,
++        ks_w_a,
++        ks_t_a,
++        nn_a.0,
++        nn_a.1
++    );
++
++    // ---- Arm B: the belt as a program (mix and lattice), with kicks and scars. ---------
++    let keysets: [[Map; COLS]; 3] = [
++        [
++            Map::Mix(0x0123_4567_89ab_cdef | 1),
++            Map::Mix(0x243f_6a88_85a3_08d3 | 1),
++            Map::Mix(0x1319_8a2e_0370_7344 | 1),
++            Map::Mix(0xa409_3822_299f_31d0 | 1),
++            Map::Mix(0x082e_fa98_ec4e_6c89 | 1),
++        ],
++        [
++            Map::Mix(0x9e37_79b9_7f4a_7c15 | 1),
++            Map::Mix(0xf00d_cafe_bead_1337 | 1),
++            Map::Mix(0xdead_beef_0bad_c0de | 1),
++            Map::Mix(0x5851_f42d_4c95_7f2d | 1),
++            Map::Mix(0x1405_7b7e_f5d8_9f03 | 1),
++        ],
++        [
++            Map::Lattice(0x9e37_79b9_7f4a_7c15 | 1),
++            Map::Lattice(0xf1ea_5eed_dead_1337 | 1),
++            Map::Lattice(0x2545_f491_4f6c_dd1d | 1),
++            Map::Lattice(0x9e37_79b9_7f4a_7c15 | 1),
++            Map::Lattice(0x865e_3f8c_6c2f_1dab | 1),
++        ],
++    ];
++    for map in keysets {
++        let prog = ProgBelt {
++            keys: map,
++            etab: etab.clone(),
++        };
++        let name = map[0].name();
++
++        // Program decode cost.
++        let t0 = Instant::now();
++        let mut pmem = Vec::with_capacity(m);
++        for i in 0..m as u64 {
++            pmem.push(prog.eval(i));
++        }
++        let eval_ns = t0.elapsed().as_nanos() as f64 / m as f64;
++
++        // Fidelity: one-sample KS on the physical draws (p, e, w, t) and two-sample KS on
++        // the stored key columns (E, L) against arm A.
++        let mut f_p: Vec<f64> = (0..n as u64)
++            .map(|i| (map[0].u(i) >> (64 - PBITS)) as f64 / (1u64 << PBITS) as f64)
++            .collect();
++        let mut f_e: Vec<f64> = (0..n as u64)
++            .map(|i| {
++                let idx = (map[1].u(i) >> (64 - ETAB_BITS)) as usize;
++                etab[idx] as f64 / (1u64 << 30) as f64
++            })
++            .collect();
++        let mut f_w: Vec<f64> = pmem
++            .iter()
++            .map(|s| s[4] as f64 / (1u64 << 32) as f64)
++            .collect();
++        let mut f_t: Vec<f64> = pmem
++            .iter()
++            .map(|s| s[0] as f64 / (1u64 << TBITS) as f64)
++            .collect();
++        let ks_p = ks_uniform(&mut f_p);
++        let ks_e = ks_rayleigh(&mut f_e);
++        let ks_w = ks_uniform(&mut f_w);
++        let ks_t = ks_uniform(&mut f_t);
++        let mut a_E: Vec<f64> = mem.iter().map(|s| s[2] as f64).collect();
++        let mut a_L: Vec<f64> = mem.iter().map(|s| s[3] as f64).collect();
++        let mut b_E: Vec<f64> = pmem.iter().map(|s| s[2] as f64).collect();
++        let mut b_L: Vec<f64> = pmem.iter().map(|s| s[3] as f64).collect();
++        let ks_e2 = ks2(&mut a_E, &mut b_E);
++        let ks_l2 = ks2(&mut a_L, &mut b_L);
++        let ps_b: Vec<u64> = (0..n as u64).map(|i| map[0].u(i) >> (64 - PBITS)).collect();
++        let ts_b: Vec<u64> = pmem.iter().map(|s| s[0]).collect();
++        let nn_b = nn_stats(&ps_b, &ts_b);
++
++        // Degradation: kicks land as scars, sealed exactly as form P does (Elias–Fano
++        // ordinals + block-coded zigzag deltas from the program).
++        let mut lines = Vec::new();
++        for rate in [0.0f64, 1e-4, 1e-3, 1e-2, 1e-1] {
++            let mut r = Rng::new(0xC0FF_EE00);
++            let mut scars: Vec<(u64, Ship)> = Vec::new();
++            for i in 0..m as u64 {
++                if r.bernoulli_p(rate) {
++                    scars.push((i, Pop::Convoy.kick(&prog.eval(i), &mut r)));
++                }
++            }
++            let t0 = Instant::now();
++            let ords: Vec<u64> = scars.iter().map(|s| s.0).collect();
++            let ef = Ef::new(&ords, m as u64);
++            let mut rows: Vec<u8> = Vec::new();
++            let mut sbuf = Buf::default();
++            for chunk in scars.chunks(RB) {
++                sbuf.n = chunk.len();
++                for (j, (o, s)) in chunk.iter().enumerate() {
++                    for f in 0..COLS {
++                        let d = s[f].wrapping_sub(prog.eval(*o)[f]) as i64;
++                        sbuf.col[f][j] = ((d << 1) ^ (d >> 63)) as u64;
++                    }
++                }
++                enc.block(COLS, &sbuf, &[0; MAXC], &mut rows);
++            }
++            let seal_ns = t0.elapsed().as_nanos() as f64 / m as f64;
++            let total_bits = (prog.bytes() + ef.bytes() + rows.len()) as f64 * 8.0;
++            lines.push(format!(
++                "{{\"arm\":\"program-{}\",\"n\":{},\"rate\":{},\"scars\":{},\"total_bits\":{:.5},\"prog_bytes\":{},\"scar_bits\":{:.4},\"eval_ns\":{:.0},\"seal_ns\":{:.3}}}",
++                name,
++                m,
++                rate,
++                scars.len(),
++                total_bits / m as f64,
++                prog.bytes(),
++                (ef.bytes() + rows.len()) as f64 * 8.0 / m as f64,
++                eval_ns,
++                seal_ns
++            ));
++        }
++        for l in lines {
++            println!("{l}");
++        }
++        println!(
++            "{{\"arm\":\"fidelity-{}\",\"n\":{},\"ks_p\":{:.5},\"ks_e\":{:.5},\"ks_w\":{:.5},\"ks_t\":{:.5},\"ks_E_2s\":{:.5},\"ks_L_2s\":{:.5},\"nn_med\":{:.4},\"nn_p1\":{:.4}}}",
++            name, n, ks_p, ks_e, ks_w, ks_t, ks_e2, ks_l2, nn_b.0, nn_b.1
++        );
++    }
++}
