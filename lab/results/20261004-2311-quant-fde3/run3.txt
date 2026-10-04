@@ -1,0 +1,15 @@
+# bodies=4194304 cells=32768 K=128 sweeps=16
+memcpy_ceil   44.2 GB/s (read+write, median)
+i32_sorted   0.98 ns/kick (median sweep; min 0.94)  45.1 GB/s accounted (44 B/kick)
+  i32_sorted   p50=0.99 p99=1.12 p99.9=1.12 max=1.12 ns/event
+i32w_sorted  1.06 ns/kick (median sweep; min 1.02)  45.2 GB/s accounted (48 B/kick)
+f64_sorted   1.90 ns/kick (median sweep; min 1.80)  46.2 GB/s accounted (88 B/kick)
+  f64_sorted   p50=1.74 p99=2.14 p99.9=2.14 max=2.14 ns/event
+i32_shuffled 11.10 ns/kick (median sweep; min 6.14)  4.0 GB/s accounted (44 B/kick)
+  i32_shuffled p50=10.71 p99=12.89 p99.9=12.89 max=12.89 ns/event
+checksums i32=3ffd7d201ab395 f64=ffb932d5b5f4dcb0
+cell s= 0.25 (typ step ~ 1.50 q): always=  95.3 ns/epoch  skip=  95.1 ns/epoch  body-touches deleted=0.0%
+cell s= 1.00 (typ step ~ 0.75 q): always=  88.7 ns/epoch  skip= 102.2 ns/epoch  body-touches deleted=-22.2%
+cell s= 4.00 (typ step ~ 0.19 q): always=  74.6 ns/epoch  skip=  29.4 ns/epoch  body-touches deleted=62.6%
+cell s=16.00 (typ step ~ 0.05 q): always=  74.8 ns/epoch  skip=   6.7 ns/epoch  body-touches deleted=89.7%
+exactness applied == floor(total/quantum): OK (v=53 ref=53 R=990295)
