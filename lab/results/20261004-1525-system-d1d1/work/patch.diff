@@ -1,0 +1,236 @@
+diff --git a/crates/space/examples/memo_bench.rs b/crates/space/examples/memo_bench.rs
+new file mode 100644
+index 0000000..65d6922
+--- /dev/null
++++ b/crates/space/examples/memo_bench.rs
+@@ -0,0 +1,171 @@
++//! The kick path's rebind vs the law's declared quantized memo, on a tide-like kick stream.
++//!
++//! One bound orbit, perturbed by kicks (64 per radial cycle, zero-mean, +1% secular) at a fixed
++//! relative size. Each kick rebinds twice — the engine's current path (exact fit + fresh
++//! compile) and the law's declared path (`law.md` State: the tube keys the *quantized* memo,
++//! remainder carried) — and both are checked against the exact left inverse before the timings
++//! are trusted. The readout cost (decode along the held tube) is timed too: it is the floor of
++//! a kick that holds its tube. Plain text out: this example owns no JSON dependency.
++//!
++//! ```text
++//! cargo run --release -p emergent-space --example memo_bench
++//! ```
++use emergent_space::{
++    binding::{IntegerState, Rebinding, Residual, cartesian},
++    orbit::{MemoCode, Orbit, OrbitKey, QuantizedMemo, Scalar},
++};
++use std::time::Instant;
++
++fn pct(mut s: Vec<f64>, p: f64) -> f64 {
++    s.sort_by(f64::total_cmp);
++    s.get(((s.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied().unwrap_or(f64::NAN)
++}
++
++fn state_at(orbit: &Orbit, elapsed: Scalar, units: (i16, i16)) -> IntegerState {
++    cartesian(orbit.state(elapsed).unwrap(), 0, false, units).unwrap()
++}
++
++struct Stream {
++    name: &'static str,
++    p_log2: i16,
++    e: f64,
++    kick_log2: i32,
++    kicks: usize,
++}
++
++fn initial_state(s: &Stream) -> (IntegerState, i128) {
++    let e_q48 = (s.e * (1u64 << 48) as f64) as u64;
++    let key = if s.e < 1.0 {
++        OrbitKey::bound(Scalar::power_of_two(s.p_log2), e_q48).unwrap()
++    } else {
++        // hyperbolic: k = 1/(1+e) in Q48
++        OrbitKey::new(
++            Scalar::power_of_two(s.p_log2),
++            ((1u128 << 96) / ((1u128 << 48) + e_q48 as u128)) as u64,
++        )
++        .unwrap()
++    };
++    if key.periodic() {
++        let orbit = Orbit::compile(key).unwrap();
++        let peri = orbit.state(Scalar::ZERO).unwrap();
++        let v_hi = peri
++            .radial_velocity
++            .abs()
++            .max(peri.transverse_velocity.abs())
++            .max(Scalar::power_of_two(-10));
++        let units = (key.periapsis.exponent() + 2 - 60, v_hi.exponent() + 2 - 60);
++        let period = orbit.period().unwrap().fixed(40).unwrap() as i128;
++        (state_at(&orbit, orbit.period().unwrap().div(Scalar::integer(4)).unwrap(), units), period)
++    } else {
++        // A passage (flyby): the periapsis state of a passage compiled two periapsides out.
++        let passage =
++            emergent_space::orbit::Passage::compile(key, key.periapsis.scale(2).unwrap()).unwrap();
++        let peri = passage.state(Scalar::ZERO).unwrap();
++        let v_hi = peri
++            .radial_velocity
++            .abs()
++            .max(peri.transverse_velocity.abs())
++            .max(Scalar::power_of_two(-10));
++        let units = (key.periapsis.exponent() + 1 - 60, v_hi.exponent() + 1 - 60);
++        (cartesian(peri, 0, false, units).unwrap(), 1 << 20)
++    }
++}
++
++fn run_stream(s: &Stream) {
++    let (st0, period) = initial_state(s);
++    let mut memo = QuantizedMemo::with_capacity(64);
++    let mut st = st0;
++    let (mut base, mut cut, mut read) = (Vec::new(), Vec::new(), Vec::new());
++    let (mut code_changes, mut refused) = (0usize, 0usize);
++    let (mut max_pos, mut max_vel) = (0i128, 0i128); // first half of the stream
++    let (mut max_pos2, mut max_vel2) = (0i128, 0i128); // second half: a drift shows here
++    let mut last_code: Option<u64> = None;
++    for n in 0..s.kicks {
++        let phase = n as f64 * std::f64::consts::TAU / 64.0;
++        // tide-like: zero-mean over 64 kicks + 1% secular; size relative to the 60-bit velocity word
++        let amp = ((phase.sin() + 0.01) * (1i64 << (60 - s.kick_log2)) as f64) as i64;
++        let mut next = st;
++        next.velocity[0] += amp;
++        next.velocity[1] += amp / 2;
++        let t = Scalar::raw(period * n as i128 / 64, -40).unwrap();
++        let t0 = Instant::now();
++        let a = Rebinding::from_state(next, t, None);
++        let d_base = t0.elapsed();
++        let t1 = Instant::now();
++        let b = Rebinding::from_state_memoized(next, t, None, &mut memo);
++        let d_cut = t1.elapsed();
++        let (a, b) = match (a, b) {
++            (Ok(a), Ok(b)) => (a, b),
++            _ => {
++                refused += 1;
++                break;
++            }
++        };
++        let t2 = Instant::now();
++        let _ = b.decoded_event().unwrap();
++        let d_read = t2.elapsed();
++        base.push(d_base.as_secs_f64() * 1e6);
++        cut.push(d_cut.as_secs_f64() * 1e6);
++        read.push(d_read.as_secs_f64() * 1e6);
++        // Exactness (every kick, both paths): the fit reproduces the bound state bit for bit.
++        assert_eq!(a.reconstruct().unwrap(), next, "{} baseline exact @{}", s.name, n);
++        assert_eq!(b.reconstruct().unwrap(), next, "{} memoized exact @{}", s.name, n);
++        if let Ok(code) = MemoCode::encode(a.trajectory.key()) {
++            let c = code.bits();
++            if last_code != Some(c) {
++                code_changes += 1;
++                last_code = Some(c);
++            }
++        }
++        let Residual { position, velocity } = b.residual;
++        let (p_now, v_now) = (
++            position[0].abs().max(position[1].abs()),
++            velocity[0].abs().max(velocity[1].abs()),
++        );
++        if 2 * n < s.kicks {
++            max_pos = max_pos.max(p_now);
++            max_vel = max_vel.max(v_now);
++        } else {
++            max_pos2 = max_pos2.max(p_now);
++            max_vel2 = max_vel2.max(v_now);
++        }
++        st = next;
++    }
++    let done = base.len();
++    println!(
++        "{:<21} p2^{:>2} e={:<4} rel2^-{:>2} k {:>4} ref {:>2} | rebind {:>6.2}/{:<6.2}us | memo {:>6.2}/{:<6.2}us | read {:>5.2}/{:<5.2}us | codeΔ {:>5.3} hit {:>5.3} sh {:>2} | resid pos {:>11}/{:<11} vel {:>13}/{:<13} q",
++        s.name,
++        s.p_log2,
++        s.e,
++        s.kick_log2,
++        done,
++        refused,
++        pct(base.clone(), 0.5),
++        pct(base.clone(), 0.99),
++        pct(cut.clone(), 0.5),
++        pct(cut.clone(), 0.99),
++        pct(read.clone(), 0.5),
++        pct(read, 0.99),
++        code_changes as f64 / done.max(1) as f64,
++        memo.hits as f64 / done.max(1) as f64,
++        memo.len(),
++        max_pos,
++        max_pos2,
++        max_vel,
++        max_vel2,
++    );
++}
++
++fn main() {
++    println!("stream              key                samples    | exact rebind med/p99 | memoized med/p99 | readout med/p99 | MemoCode    | residual h1/h2 (quanta of the 60-bit word)");
++    for s in [
++        Stream { name: "weak-planet-e05", p_log2: 25, e: 0.05, kick_log2: 24, kicks: 4000 },
++        Stream { name: "weak-planet-e05-k20", p_log2: 25, e: 0.05, kick_log2: 20, kicks: 4000 },
++        Stream { name: "ecc-planet-e60", p_log2: 20, e: 0.6, kick_log2: 24, kicks: 4000 },
++        Stream { name: "ecc-planet-e60-k16", p_log2: 20, e: 0.6, kick_log2: 16, kicks: 4000 },
++        Stream { name: "strong-ship-e60", p_log2: 12, e: 0.6, kick_log2: 24, kicks: 4000 },
++        Stream { name: "flyby-e2", p_log2: 10, e: 2.0, kick_log2: 24, kicks: 2000 },
++    ] {
++        run_stream(&s);
++    }
++}
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..e6e7a34 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -381,6 +381,54 @@ impl Rebinding {
+         fit.residual = Residual::between(state, fit.decoded_event()?);
+         Ok(fit)
+     }
++
++/// The law's declared kick path (`law.md` State: tubes key the *quantized* memo): the fit and
++/// the remainder are identical to [`Self::from_state`]; only the periodic compile goes through
++/// the shared quantized shape, so repeated keys share one quadrature. Passages always compile.
++pub fn from_state_memoized(
++    state: IntegerState,
++    event_time: Scalar,
++    passage_edge: Option<Scalar>,
++    memo: &mut crate::orbit::QuantizedMemo,
++) -> Result<Self> {
++    let (key, r, clockwise, incoming) = fit_key(state, true)?;
++    let trajectory = if key.periodic() {
++        Trajectory::Cycle(memo.get(key)?)
++    } else {
++        Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++    };
++    Self::finish(state, event_time, trajectory, r, clockwise, incoming)
++}
++
++fn finish(
++    state: IntegerState,
++    event_time: Scalar,
++    trajectory: Trajectory,
++    r: Scalar,
++    clockwise: bool,
++    incoming: bool,
++) -> Result<Self> {
++    let (mut offset, mut sample) = trajectory.at_radius(r)?;
++    if incoming {
++        offset = offset.negate();
++        sample.reflect();
++    }
++    let (p, _) = state.components()?;
++    let at = angle(p[0], p[1])?;
++    let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
++    let periapsis_angle = ((orientation << 32) / (2 * PI)) as u32;
++    let mut fit = Self {
++        trajectory,
++        periapsis_time: event_time.sub(offset)?,
++        periapsis_angle,
++        clockwise,
++        residual: Residual { position: [0; 2], velocity: [0; 2] },
++        event_time,
++        units: (state.length_exponent, state.velocity_exponent),
++    };
++    fit.residual = Residual::between(state, fit.decoded_event()?);
++    Ok(fit)
++}
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+         cartesian(
+             self.trajectory.state(self.event_time.sub(self.periapsis_time)?)?,
