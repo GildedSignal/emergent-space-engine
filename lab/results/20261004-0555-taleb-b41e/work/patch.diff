@@ -1,0 +1,261 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..a02570b 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -392,6 +392,43 @@ impl Rebinding {
+     pub fn reconstruct(&self) -> Result<IntegerState> {
+         self.residual.reconstruct(self.decoded_event()?)
+     }
++    /// Lab probe (20261004-0555-taleb-b41e): the memo-quantized twin of [`Rebinding::from_state`].
++    /// Compiles the trajectory from the 12-bit `memo_key` (orbit.rs), so bindings whose quantized
++    /// (E, L) agree share one compiled cycle; the residual carries the difference, exactly.
++    /// Returns the fit and whether the memo key was used (the exact key is the fallback when
++    /// quantization is not representable there).
++    pub fn from_state_memo(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<(Self, bool)> {
++        let (key, r, clockwise, incoming) = fit_key(state, false)?;
++        let (memo, shared) = match key.memo_key() {
++            Ok(m) if m.periodic() == key.periodic() => (m, true),
++            _ => (key, false),
++        };
++        let trajectory = if memo.periodic() {
++            Trajectory::Cycle(Orbit::compile(memo)?)
++        } else {
++            Trajectory::Passage(Passage::compile(memo, passage_edge.unwrap_or(r.scale(1)?))?)
++        };
++        let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        if incoming {
++            offset = offset.negate();
++            sample.reflect();
++        }
++        let (p, _) = state.components()?;
++        let at = angle(p[0], p[1])?;
++        let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
++        let periapsis_angle = ((orientation << 32) / (2 * PI)) as u32;
++        let mut fit = Self {
++            trajectory,
++            periapsis_time: event_time.sub(offset)?,
++            periapsis_angle,
++            clockwise,
++            residual: Residual { position: [0; 2], velocity: [0; 2] },
++            event_time,
++            units: (state.length_exponent, state.velocity_exponent),
++        };
++        fit.residual = Residual::between(state, fit.decoded_event()?);
++        Ok((fit, shared))
++    }
+ }
+ 
+ #[cfg(test)]
+diff --git a/crates/universe/examples/memo_probe.rs b/crates/universe/examples/memo_probe.rs
+new file mode 100644
+index 0000000..5d489a1
+--- /dev/null
++++ b/crates/universe/examples/memo_probe.rs
+@@ -0,0 +1,181 @@
++//! Lab probe (20261004-0555-taleb-b41e): does the law's shared-memo premise pay on the plane?
++//!
++//! law.md's state: "Cycle memo, keyed by quantized (E, L) ... shared by every tube with the same
++//! key." The plane's Catalogue is a keyless arena: every kick rebinds, and every rebind compiles
++//! a fresh trajectory (`Rebinding::from_state` → `Orbit::compile(exact key)`). This probe
++//! replays the plane's own kicks and measures, without changing any engine decision:
++//! key churn, what a keyed memo would remove (paired timings), memory, the exactness control,
++//! and the per-frame kick tail. Deterministic replay; observation never changes outcomes.
++use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use emergent_universe::bind::REBIND_KEYS;
++use emergent_universe::body::{Kind, What};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::{step, Budget, Config};
++use std::collections::{HashMap, HashSet};
++use std::time::Instant;
++
++fn median(v: &mut Vec<f64>) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(f64::total_cmp);
++    v[v.len() / 2]
++}
++fn p99(v: &mut Vec<f64>) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(f64::total_cmp);
++    v[(((v.len() - 1) as f64) * 0.99).ceil() as usize]
++}
++
++fn main() {
++    let members: u64 = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(1024);
++    let frames: usize = std::env::args().nth(2).and_then(|a| a.parse().ok()).unwrap_or(360);
++    let wall = Instant::now();
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, members).unwrap();
++    let n = p.u.n_bodies();
++
++    // ---- replay the plane, one pure resolver call per distinct pending kick -----------------------
++    let mut samples: Vec<f64> = Vec::new();
++    let mut kicks_per_frame: Vec<usize> = Vec::new();
++    let mut seen = vec![None; n];
++    let mut states: Vec<(IntegerState, i64, i16)> = Vec::new();
++    let mut refused = 0usize;
++    let start = REBIND_KEYS.lock().map(|v| v.len()).unwrap_or(0);
++    for f in 1..=frames {
++        if wall.elapsed().as_secs_f64() >= 52.0 {
++            eprintln!("time guard at frame {f}");
++            break;
++        }
++        let now = p.u.now;
++        let mut kf = 0usize;
++        for (i, s) in seen.iter_mut().enumerate() {
++            let rec = p.u.rec(i);
++            if rec.kind != Kind::Ship || !rec.alive {
++                continue;
++            }
++            let Some(item) = rec.plan.first().copied() else { continue };
++            if !matches!(item.what, What::Kick(_)) || *s == Some(item.t) {
++                continue;
++            }
++            *s = Some(item.t);
++            if states.len() < 300 {
++                if let Ok(st) = rec.b.readout(item.t) {
++                    states.push((st, item.t, rec.b.clock_exp));
++                }
++            }
++            let t0 = Instant::now();
++            let upd = step::process(&p.u.ctx(), i, rec);
++            samples.push(t0.elapsed().as_secs_f64() * 1e6);
++            refused += usize::from(!matches!(upd.kind, step::Resolved::Kick));
++            kf += 1;
++        }
++        kicks_per_frame.push(kf);
++        p.u.frame(1.0 / 60.0, 100.0, Budget::unlimited());
++        p.u.settle(p.u.now);
++    }
++    let keys: Vec<OrbitKey> = REBIND_KEYS
++        .lock()
++        .map(|v| v.get(start.min(v.len())..).unwrap_or(&[]).to_vec())
++        .unwrap_or_default();
++
++    // ---- 1. key churn ---------------------------------------------------------------------------
++    let exact_distinct = keys.iter().collect::<HashSet<_>>().len();
++    let memo_keys: Vec<Option<OrbitKey>> = keys.iter().map(|k| k.memo_key().ok()).collect();
++    let memo_representable = memo_keys.iter().flatten().count();
++    let mut memo_counts: HashMap<OrbitKey, usize> = HashMap::new();
++    for mk in memo_keys.iter().flatten() {
++        *memo_counts.entry(*mk).or_insert(0) += 1;
++    }
++    let memo_distinct = memo_counts.len();
++    let mut live: HashSet<OrbitKey> = HashSet::new();
++    let mut hits = 0usize;
++    for mk in memo_keys.iter().flatten() {
++        if !live.insert(*mk) {
++            hits += 1;
++        }
++    }
++    let mut mult: Vec<usize> = memo_counts.values().copied().collect();
++    mult.sort_unstable();
++    mult.reverse();
++
++    // ---- 2. what the memo removes (paired timings on the plane's own rebind states) -------------
++    let mut t_exact: Vec<f64> = Vec::new();
++    let mut t_memo: Vec<f64> = Vec::new();
++    let mut t_compile: Vec<f64> = Vec::new();
++    let mut memo_shared = 0usize;
++    let mut roundtrip_fail = 0usize;
++    let mut max_residual_bits: u32 = 0;
++    for (st, t, clock_exp) in states.iter() {
++        let et = Scalar::raw(*t as i128, *clock_exp as i32).unwrap();
++        let t0 = Instant::now();
++        let _ = Rebinding::from_state(*st, et, None).unwrap();
++        t_exact.push(t0.elapsed().as_secs_f64() * 1e6);
++        let t0 = Instant::now();
++        let (fit, shared) = Rebinding::from_state_memo(*st, et, None).unwrap();
++        t_memo.push(t0.elapsed().as_secs_f64() * 1e6);
++        memo_shared += shared as usize;
++        match fit.reconstruct() {
++            Ok(back) if back == *st => {}
++            _ => roundtrip_fail += 1,
++        }
++        let bits = fit
++            .residual
++            .position
++            .into_iter()
++            .chain(fit.residual.velocity)
++            .map(|c| 128 - (c.unsigned_abs().max(1)).leading_zeros())
++            .max()
++            .unwrap_or(0);
++        max_residual_bits = max_residual_bits.max(bits);
++        let key = fit.trajectory.key();
++        if key.periodic() {
++            let t0 = Instant::now();
++            let _ = Orbit::compile(key).unwrap();
++            t_compile.push(t0.elapsed().as_secs_f64() * 1e6);
++        }
++    }
++    // memo_key + hash insert: the cost that replaces a compile on a hit
++    let mut h: HashSet<OrbitKey> = HashSet::new();
++    let t0 = Instant::now();
++    for i in 0..10_000u32 {
++        if let Some(k) = keys.get((i as usize) % keys.len().max(1)) {
++            if let Ok(mk) = k.memo_key() {
++                h.insert(mk);
++            }
++        }
++    }
++    let lookup_ns = t0.elapsed().as_secs_f64() * 1e9 / 10_000.0;
++
++    // ---- 3. memory ------------------------------------------------------------------------------
++    let live_entries = p.u.catalogue_live();
++    let shallow = std::mem::size_of::<emergent_universe::bind::Entry>();
++    let binding_bytes = std::mem::size_of::<emergent_universe::bind::Binding>();
++    let deep = states.first().and_then(|(st, t, clock_exp)| {
++        let et = Scalar::raw(*t as i128, *clock_exp as i32).ok()?;
++        let (fit, _) = Rebinding::from_state_memo(*st, et, None).ok()?;
++        Some(match &fit.trajectory {
++            Trajectory::Cycle(c) => {
++                let knots = std::mem::size_of_val(c.shape().knots());
++                std::mem::size_of_val(c) + knots
++            }
++            Trajectory::Passage(pg) => std::mem::size_of_val(pg),
++        })
++    });
++
++    // ---- report ---------------------------------------------------------------------------------
++    let kf_f64: Vec<f64> = kicks_per_frame.iter().map(|c| *c as f64).collect();
++    let mut kf2 = kf_f64.clone();
++    println!("replays: kicks_sampled={} refused={} bodies={} members={} frames={}", samples.len(), refused, n, members, kicks_per_frame.len());
++    println!("kick_us: median={:.2} p99={:.2}", median(&mut samples), p99(&mut samples));
++    println!("kicks_per_frame: median={:.1} max={} last_ten={:?}", median(&mut kf2), kicks_per_frame.iter().max().unwrap_or(&0), kicks_per_frame.iter().rev().take(10).rev().collect::<Vec<_>>());
++    println!("keys: rebinds={} distinct_exact={} distinct_memo12={} memo_representable={} memo_quantize_errors={}", keys.len(), exact_distinct, memo_distinct, memo_representable, memo_keys.len() - memo_representable);
++    println!("keys: memo_hitrate_stream={:.4} top_multiplicities={:?}", hits as f64 / memo_representable.max(1) as f64, mult.iter().take(8).collect::<Vec<_>>());
++    println!("cost_us: from_state={:.2} from_state_memo={:.2} orbit_compile_alone={:.2} memo_key_lookup_ns={:.0} memo_shared_fraction={:.3}", median(&mut t_exact.clone()), median(&mut t_memo.clone()), median(&mut t_compile.clone()), lookup_ns, memo_shared as f64 / t_memo.len().max(1) as f64);
++    println!("exactness: memo_reconstruct_bit_identical={} failures={} max_residual_bits={}", t_memo.len() - roundtrip_fail, roundtrip_fail, max_residual_bits);
++    println!("memory: catalogue_live={} entry_shallow_bytes={} binding_bytes={} entry_deep_bytes_estimate={} catalogue_bytes_estimate={} bytes_per_body={:.1}", live_entries, shallow, binding_bytes, deep.unwrap_or(0), live_entries * (shallow + deep.unwrap_or(0)), live_entries as f64 * (shallow + deep.unwrap_or(0)) as f64 / n.max(1) as f64);
++    println!("wall_s: {:.1}", wall.elapsed().as_secs_f64());
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 64cbbf0..decd8dd 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -34,6 +34,11 @@ pub struct Catalogue {
+     slots: Vec<Option<Arc<Entry>>>,
+     free: Vec<u32>,
+ }
++
++/// Lab probe hook (20261004-0555-taleb-b41e): every rebind's trajectory key, in order.
++/// Pure observation; the engine never reads it, and no branch depends on it.
++pub static REBIND_KEYS: std::sync::Mutex<Vec<emergent_space::orbit::OrbitKey>> =
++    std::sync::Mutex::new(Vec::new());
+ impl Catalogue {
+     pub fn insert(&mut self, e: Arc<Entry>) -> Res<u32> {
+         if let Some(id) = self.free.pop() {
+@@ -185,6 +190,9 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>) -
+     let fit = Rebinding::from_state(exact, time_of(t, clock_exp)?, edge)?;
+     let peri = i64::try_from(fit.periapsis_time.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
++    if let Ok(mut seen) = REBIND_KEYS.lock() {
++        seen.push(fit.trajectory.key());
++    }
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise });
+     let units = (exact.length_exponent, exact.velocity_exponent);
+     let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
