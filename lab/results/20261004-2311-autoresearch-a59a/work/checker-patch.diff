@@ -1,0 +1,198 @@
+diff --git a/crates/space/examples/rebind_bench.rs b/crates/space/examples/rebind_bench.rs
+new file mode 100644
+index 0000000..f03bc26
+--- /dev/null
++++ b/crates/space/examples/rebind_bench.rs
+@@ -0,0 +1,150 @@
++//! Kick-path bench: ns per `Orbit::compile` and ns per `Rebinding::from_state`
++//! (the fit+compile the engine pays per kick), plus a golden hash over every
++//! output bit. Optimizations must keep both hashes identical.
++use emergent_space::binding::{cartesian, IntegerState, Rebinding};
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::time::Instant;
++
++fn fnv(state: &mut u64, bytes: &[u8]) {
++    for &b in bytes {
++        *state ^= b as u64;
++        *state = state.wrapping_mul(0x100000001b3);
++    }
++}
++fn h64(state: &mut u64, x: u64) {
++    fnv(state, &x.to_le_bytes());
++}
++fn hi(state: &mut u64, x: i128) {
++    fnv(state, &x.to_le_bytes());
++}
++fn hs(state: &mut u64, s: Scalar) {
++    h64(state, s.significand() as u64);
++    h64(state, (s.exponent() as i16) as u16 as u64);
++}
++
++const PS: [i64; 11] = [8, 10, 16, 30, 60, 120, 300, 1000, 4000, 16000, 65536];
++const ES: [f64; 6] = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9];
++// Held out from tuning: strong-field p=6.5 (generic-quad risk), the weak branch
++// p >= 2^18 (weak_quad + Taylor clocks, never compiled by the tuning corpus),
++// and the near-separatrix e = 0.95 dyadic refinement.
++const PS_HELDOUT: [i64; 7] = [6, 7, 12, 700, 9000, 262144, 1048576];
++const ES_HELDOUT: [f64; 4] = [0.05, 0.2, 0.8, 0.95];
++
++fn corpus() -> Vec<OrbitKey> {
++    let heldout = std::env::var("HELDOUT").is_ok();
++    let (ps, es): (&[i64], &[f64]) = if heldout {
++        (&PS_HELDOUT, &ES_HELDOUT)
++    } else {
++        (&PS, &ES)
++    };
++    let mut keys = Vec::new();
++    for &p in ps.iter() {
++        for &e in es.iter() {
++            if let Ok(key) =
++                OrbitKey::bound(Scalar::integer(p), (e * 2f64.powi(48)).round() as u64)
++            {
++                keys.push(key);
++            }
++        }
++    }
++    keys
++}
++
++fn timed(runs: usize, mut f: impl FnMut()) -> Vec<f64> {
++    let mut out = Vec::with_capacity(runs);
++    for _ in 0..runs {
++        let t = Instant::now();
++        f();
++        out.push(t.elapsed().as_secs_f64());
++    }
++    out.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    out
++}
++
++fn main() {
++    let keys = corpus();
++    let mut states: Vec<(IntegerState, Scalar)> = Vec::new();
++    let mut hash = 0xcbf29ce484222325u64;
++    let mut knots = 0usize;
++    let mut ok_compile = 0;
++    let reps: usize = std::env::var("REPS").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
++    for &key in keys.iter() {
++        let orbit = match Orbit::compile(key) {
++            Ok(o) => o,
++            Err(_) => continue,
++        };
++        ok_compile += 1;
++        knots += orbit.shape().knots().len();
++        hs(&mut hash, key.periapsis);
++        h64(&mut hash, key.k);
++        hs(&mut hash, orbit.advance().unwrap());
++        for k in orbit.shape().knots() {
++            fnv(&mut hash, format!("{k:?}").as_bytes());
++        }
++        for &c in orbit.shape().crossings() {
++            h64(&mut hash, c as u64);
++        }
++        let period = orbit.period().unwrap();
++        for &f in &[0.13f64, 0.61f64] {
++            let t = period
++                .mul(Scalar::raw((f * 2f64.powi(40)) as i128, -40).unwrap())
++                .unwrap();
++            let st = orbit.signed_state(t).unwrap();
++            let int = cartesian(st, 12345, false, (-20, -30)).unwrap();
++            states.push((int, t));
++        }
++    }
++    println!(
++        "corpus: {} keys, {} compiled, {} states, {} knots, compile-hash {hash:016x}",
++        keys.len(),
++        ok_compile,
++        states.len(),
++        knots
++    );
++
++    let runs = timed(9, || {
++        for _ in 0..reps {
++            for &key in keys.iter() {
++                let _ = Orbit::compile(key);
++            }
++        }
++    });
++    let per = |v: &f64| v * 1e9 / (ok_compile as f64 * reps as f64);
++    if reps > 1 {
++        println!(
++            "compile: min {:.0} ns per compile (reps {reps})",
++            per(&runs[0])
++        );
++        return;
++    }
++    let per = |v: &f64| v * 1e9 / ok_compile as f64;
++    println!(
++        "compile: min {:.0} ns  med {:.0} ns per compile",
++        per(&runs[0]),
++        per(&runs[runs.len() / 2])
++    );
++
++    // Rebind latency (fit + compile + readout), whole corpus per run.
++    let mut rhash = 0xcbf29ce484222325u64;
++    let runs = timed(9, || {
++        for (int, t) in states.iter() {
++            let r = Rebinding::from_state(*int, *t, None).unwrap();
++            let key = r.trajectory.key();
++            hs(&mut rhash, key.periapsis);
++            h64(&mut rhash, key.k);
++            hs(&mut rhash, r.periapsis_time);
++            h64(&mut rhash, r.periapsis_angle as u64);
++            h64(&mut rhash, r.clockwise as u64);
++            for i in 0..2 {
++                hi(&mut rhash, r.residual.position[i]);
++                hi(&mut rhash, r.residual.velocity[i]);
++            }
++        }
++    });
++    let per = |v: &f64| v * 1e9 / states.len() as f64;
++    println!(
++        "rebind:  min {:.0} ns  med {:.0} ns per from_state, rebind-hash {rhash:016x}",
++        per(&runs[0]),
++        per(&runs[runs.len() / 2]),
++    );
++}
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8..9b330e7 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -61,6 +61,22 @@ pub fn isqrt(x: u128) -> u128 {
+     }
+ }
+ 
++/// floor(sqrt(x)) for x < 2^62: the correctly rounded f64 root, corrected by at
++/// most one unit. Same bits as u64::isqrt on this range.
++#[inline]
++pub fn isqrt_word(x: u64) -> u64 {
++    let mut y = (x as f64).sqrt() as u64;
++    if y > 0 && y.saturating_mul(y) > x {
++        y -= 1;
++    } else {
++        let z = y + 1;
++        if z.saturating_mul(z) <= x {
++            y = z;
++        }
++    }
++    y
++}
++
+ /// floor(a * b / 2^s) for a, b >= 0, from the exact 256-bit product; Range if it exceeds u128.
+ pub fn mul_shr(a: u128, b: u128, s: u32) -> Result<u128> {
+     const M: u128 = u64::MAX as u128;
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..7b9c9b3 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -345,7 +345,9 @@ impl OrbitShape {
+                 // When sqrt(d)>=1/2 its Q31 floor has relative error <2^-30.
+                 // A single native u64 isqrt replaces the 126-bit square root.
+                 let root = if self.word_root {
+-                    ((denominator as u64).isqrt() as u128) << 31
++                    // denominator < 2^62: the f64 root is within one unit, so the
++                    // correction makes this the exact floor, at u64::isqrt's bits.
++                    (crate::num::isqrt_word(denominator as u64) as u128) << 31
+                 } else {
+                     crate::num::isqrt((denominator as u128) << 62)
+                 };

@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261004-2311-autoresearch-a59a/`: predictions.md (written before the held-out run, all five predictions held), log.md (attribution + kept/reverted table), dossier.md, and an 18-line patch plus the `rebind_bench` harness; 50/50 crate tests pass and all output hashes are bit-identical stock vs changed.
+
+**Claim:** the kick's rebind+compile cost is attributed — cos is 32% of compile, panel glue 24%, square roots 10%, and the 128-bit divisions only 8% — and one exact change (f64-seeded, unit-corrected floor sqrt) cuts `Orbit::compile` by 6.2% tuned / 4.8% held-out with every output bit identical, while the real 10× lever the attribution exposes is that every kick recompiles a shape that depends only on (k, q) and should route through the crate's existing `QuantizedMemo`.
