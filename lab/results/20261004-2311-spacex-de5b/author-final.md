@@ -1,0 +1,4 @@
+Working...
+Run complete: harness validated (drift exact to 2e-14, reference converged <0.05%, euler negative control fails every scene), predictions pre-registered before the held-out rows, dossier written with two-command reproduction (`rustc -O -o kickcorr kickcorr.rs && ./kickcorr && python3 summarize.py`, ~9 s).
+
+**Claim:** neither WHFast symplectic correctors (0× — verified correctly implemented at 5.7e-5 displacement, they repair an O(ε·dt²) term this split's observables never carry) nor a 4th-order Yoshida split (1.33× on the tuning scene, 3× worse on the close pass) buys the hoped-for 4× kick cut for the plane's drift-plus-tide split — the plane's 64 kicks/orbit DKD is already near its own minimum because apsidal precession under e-pumping binds, not the Jacobi error (which alone passes at 16/orbit, a 2–4× deletion available today for bodies nobody tracks), so the lever is the precession gate's representation, not the integrator.
