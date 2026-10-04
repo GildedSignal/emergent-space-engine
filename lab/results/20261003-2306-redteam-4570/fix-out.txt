@@ -1,0 +1,40 @@
+=== P1: warm readouts per emitter per frame (100 frames) ===
+  static           F=  64  mean readouts  1.01  max 2
+  static           F= 670  mean readouts  1.01  max 2
+  slow 0.01 tr     F=  64  mean readouts  1.06  max 3
+  slow 0.01 tr     F= 670  mean readouts  1.04  max 3
+  b9 transverse    F=  64  mean readouts  1.97  max 6
+  b9 transverse    F= 670  mean readouts  1.96  max 6
+  b9 head-on       F=  64  mean readouts  1.02  max 2
+  b9 head-on       F= 670  mean readouts  1.03  max 3
+  b9 receding      F=  64  mean readouts  1.96  max 3
+  b9 receding      F= 670  mean readouts  1.97  max 3
+  b99 transverse   F=  64  mean readouts  2.04  max 6
+  b99 transverse   F= 670  mean readouts  2.05  max 6
+  b99 head-on      F=  64  mean readouts  2.02  max 3
+  b99 head-on      F= 670  mean readouts  2.02  max 3
+  b9999 transverse F=  64  mean readouts  2.05  max 6
+  b9999 transverse F= 670  mean readouts  2.05  max 6
+=== P1b: warm readouts, moving observer (0.9c lateral), b9 transverse ===
+  moving observer F=670: mean readouts 2.02
+=== P2/P4: correctness vs exact tick; cold and foreign (wrong by 1e5) ===
+  cases 270, wrong-or-dropped 0, worst readouts 4, None 0
+=== P2b: acceptance window (analytic) ===
+  speed 0.900000: window +9.99e-02 -> non-empty
+  speed 0.990000: window +9.90e-03 -> non-empty
+  speed 0.999000: window +9.00e-04 -> non-empty
+  speed 0.999900: window -1.10e-17 -> EMPTY (first-readout path unreachable)
+  speed 0.999990: window -9.00e-05 -> EMPTY (first-readout path unreachable)
+=== P3: tick quantization -> apparent angular error (px, 1080p, 90 deg FOV) ===
+  D=1e+03 ticks (1.470e+03 km):    1.1001 px per tick of quantization
+  D=1e+04 ticks (1.470e+04 km):    0.1100 px per tick of quantization
+  D=1e+05 ticks (1.470e+05 km):    0.0110 px per tick of quantization
+  D=1e+08 ticks (1.470e+08 km):    0.0000 px per tick of quantization
+  D* (1 px per tick, v=0.9): 1.100e+03 ticks = 1.617e+03 km
+=== P5: one-crossing monotonicity sweep (1e5 cases) ===
+  min dg/dt over sweep: 0.000262 (must be > 0); violations 0
+=== extra: true root-advance rate vs the [0.5,1.5] clamp, approachers ===
+  approaching 0.5: dt_root/dt_now =      2.000  clamp caps at 1.5
+  approaching 0.9: dt_root/dt_now =     10.000  clamp caps at 1.5
+  approaching 0.99: dt_root/dt_now =    100.000  clamp caps at 1.5
+  approaching 0.999: dt_root/dt_now =   1000.000  clamp caps at 1.5
