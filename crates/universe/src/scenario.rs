@@ -49,6 +49,52 @@ pub fn restricted_with(mu: impl Into<Mass>, sep: i64, planet_radius_root: i64, s
     Ok(Restricted { u, planet, ships: ids })
 }
 
+// ---- relativistic content for the view ------------------------------------------------------------
+
+/// How a stream's emitters move against the line of sight to the observer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stream {
+    /// Perpendicular to the bearing they were made at.
+    Across,
+    /// Toward the observer.
+    Toward,
+    /// Away from it.
+    Away,
+}
+
+/// A player in the star's doll that is at `(R, 0)` (`R = 10^8` root units) at tick `start`, circular about the star
+/// when `beta_obs` is zero and otherwise moving at that speed along `+y`; and `n` emitters that are at `dist` root
+/// units from it then, at evenly spaced bearings, each at speed `beta` in the direction `stream` says. Every one is a
+/// bare tube (nothing pulls it, so nothing happens to it), made at tick 0 from its exact state (the straight line
+/// back from `start`), so the view's cost on content at any speed is measurable on its own: the stream of B15's scene
+/// at 0.9c is the content the game exists for. Tubes end at twice their radius: the scene is good while every
+/// body is within `2·10^8` of the star (ticks of light). Returns the universe, the emitters' ids and the player's.
+pub fn stream(beta_obs: f64, beta: f64, stream: Stream, n: usize, dist: f64, start: i64) -> Res<(Universe, Vec<usize>, usize)> {
+    use crate::num::from_f64;
+    let r = 1.0e8;
+    let mut u = Universe::new(s(STAR_RADIUS), Config::default());
+    let player = if beta_obs == 0.0 {
+        u.add_body(Kind::Player, OrbitSpec { doll: 0, periapsis: from_f64(r), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO)?
+    } else {
+        u.add_body_state(Kind::Player, 0, [from_f64(r), from_f64(-beta_obs * start as f64)], [Scalar::ZERO, from_f64(beta_obs)], Scalar::ZERO)?
+    };
+    let mut ids = Vec::new();
+    for j in 0..n {
+        let th = (j as f64 + 0.5) / n as f64 * std::f64::consts::TAU;
+        let bearing = [th.cos(), th.sin()]; // from the observer to the emitter
+        let dir = match stream {
+            Stream::Across => [-bearing[1], bearing[0]],
+            Stream::Toward => [-bearing[0], -bearing[1]],
+            Stream::Away => bearing,
+        };
+        // where it is at `start`, and the straight line back to tick 0
+        let pos = [r + dist * bearing[0] - beta * dir[0] * start as f64, dist * bearing[1] - beta * dir[1] * start as f64];
+        ids.push(u.add_body_state(Kind::Ship, 0, [from_f64(pos[0]), from_f64(pos[1])], [from_f64(beta * dir[0]), from_f64(beta * dir[1])], Scalar::ZERO)?);
+    }
+    u.start()?;
+    Ok((u, ids, player))
+}
+
 // ---- the star system the plane flies -------------------------------------------------------------
 
 /// A named planet of the system.

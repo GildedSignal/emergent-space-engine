@@ -3,7 +3,7 @@
 //! within a few seconds.
 use emergent_universe::fleet::Order;
 use emergent_universe::observe::root_state;
-use emergent_universe::scenario::{plane, Plane};
+use emergent_universe::scenario::{plane, stream, Plane, Stream};
 use emergent_universe::view::{gather, gather_cached, View, ViewCache, TICK_SECONDS};
 use emergent_universe::{Budget, Config};
 
@@ -150,4 +150,78 @@ fn the_keys_held_are_in_the_input_log_and_replay_to_the_same_universe() {
     q.u.settle(h);
     assert_eq!(q.u.inputs, log, "a decision moved or was dropped");
     assert_eq!(q.u.digest(), want, "the input log did not reproduce the universe");
+}
+
+/// The view's cache on relativistic content (lab run 20261003-2306-redteam-4570: it was Newtonian). An emitter is seen
+/// advancing at `dt_e/dT = (1 + n·β_obs)/(1 + n·β_em)`, ten ticks per tick when it closes on the observer at 0.9c; the
+/// cache's guess clamped that to 1.5 and its one-readout window was `1 − speed`, so content at 0.9c cost two to three
+/// readouts per emitter per frame (measured 1.94 to 2.53 here at 60 Hz of game time at 1x, against 1.00 for slow content).
+///
+/// **Frozen before the first run.** On 12 emitters at 0.9c and 0.99c, across, toward and away, with the observer at rest and at
+/// 0.9c: (1) every crossing is the last tick whose light has arrived, by plain readouts (`g(t) ≤ 0 < g(t + 1)`);
+/// (2) a cold search, a warm one, and one warmed on another stream (any cache, however foreign) give one view; (3) warm,
+/// at 0.9c 1.3 readouts per emitter or fewer across the line of sight and 1.15 toward and away with the observer at rest, 1.7
+/// with it at 0.9c (slow content costs 1.00; the Newtonian cache measured 1.94 to 2.53). At 0.99c only (1) and (2) are asked: the
+/// one-readout window of an emitter closing or crossing at 0.99c is a tenth of a tick, narrower than a prediction's error, and its
+/// cost (about 2, as before) is the cost of that window, no longer of a Newtonian clamp.
+#[test]
+fn relativistic_content_is_found_exactly_and_in_about_one_readout() {
+    let frame = 3383i64; // one 60 Hz frame at 1x
+    let start = 1_200_000_000i64; // the observer is at the middle of the cloud then, and the light of an emitter closing at 0.99c from 10^6 away left it 10^8 ago (see `stream`)
+    let mut stale = ViewCache::default();
+    {
+        let (mut v, _, _) = stream(0.0, 0.99, Stream::Toward, 12, 3.0e6, start).unwrap();
+        v.settle(start);
+        v.now = start;
+        gather_cached(&v, &[], &mut stale).unwrap();
+    }
+    let cases = [
+        (0.0, 1e-4, Stream::Across, 1.1),
+        (0.0, 0.9, Stream::Across, 1.3),
+        (0.0, 0.9, Stream::Toward, 1.15),
+        (0.0, 0.9, Stream::Away, 1.15),
+        (0.0, 0.99, Stream::Across, f64::MAX),
+        (0.0, 0.99, Stream::Toward, f64::MAX),
+        (0.0, 0.99, Stream::Away, f64::MAX),
+        (0.9, 0.9, Stream::Across, 1.7),
+        (0.9, 0.9, Stream::Toward, 1.7),
+        (0.9, 0.9, Stream::Away, 1.7),
+    ];
+    for (bo, b, kind, limit) in cases {
+        let (mut u, _, p) = stream(bo, b, kind, 12, 1.0e6, start).unwrap();
+        let mut warm = ViewCache::default();
+        let (mut reads, mut emitters, mut frames) = (0u64, 0usize, 0u64);
+        for f in 0..60 {
+            let t = start + f * frame;
+            u.settle(t);
+            u.now = t;
+            let cold = gather(&u, &[]).unwrap();
+            let hot = gather_cached(&u, &[], &mut warm).unwrap();
+            assert_eq!(cold, hot, "{bo} {b} {kind:?}, frame {f}: a warm cache changed the view");
+            if f == 0 {
+                let s = gather_cached(&u, &[], &mut stale).unwrap();
+                assert_eq!(cold, s, "{bo} {b} {kind:?}: a cache warmed on another stream changed the view");
+            } else {
+                reads += warm.readouts;
+                frames += 1;
+            }
+            // the bracket, from plain readouts
+            let ctx = u.ctx();
+            let (xo, _) = root_state(&ctx, p, t).unwrap();
+            emitters = 0;
+            for s in cold.seen.iter().filter(|s| s.id < u.n_bodies()) {
+                emitters += 1;
+                let te = (t as f64 - s.age / TICK_SECONDS).round() as i64;
+                let g = |tick: i64| {
+                    let (x, _) = root_state(&ctx, s.id, tick).unwrap();
+                    (tick - t) as f64 + ((x[0] - xo[0]).powi(2) + (x[1] - xo[1]).powi(2)).sqrt()
+                };
+                assert!(g(te) <= 1e-5 && g(te + 1) > -1e-5, "{bo} {b} {kind:?}, frame {f}, emitter {}: g({te}) = {}, g({}) = {}", s.id, g(te), te + 1, g(te + 1));
+            }
+        }
+        let per = reads as f64 / frames as f64 / emitters as f64;
+        println!("observer {bo}c, emitters {b}c {kind:?}: {per:.2} readouts per emitter ({emitters} seen)");
+        assert_eq!(emitters, 12, "every emitter is seen");
+        assert!(per <= limit, "observer {bo}c, emitters {b}c {kind:?}: {per:.2} readouts per emitter, limit {limit}");
+    }
 }

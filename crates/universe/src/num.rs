@@ -66,3 +66,13 @@ pub fn log2_floor(x: Scalar) -> i32 {
 pub fn to_f64(x: Scalar) -> f64 {
     x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
 }
+
+/// A scalar from a float, all 53 bits of it: for scenes made from floats (a state a float oracle gives). The
+/// scalar is then the exact value; no outcome is decided by the float.
+pub fn from_f64(v: f64) -> Scalar {
+    if v == 0.0 || !v.is_finite() {
+        return Scalar::ZERO;
+    }
+    let e = v.abs().log2().floor() as i32;
+    Scalar::raw((v * 2f64.powi(52 - e)) as i128, e - 52).expect("a finite float is in range")
+}

@@ -23,14 +23,7 @@ use emergent_universe::scenario::STAR_RADIUS;
 use emergent_universe::universe::Universe;
 use emergent_universe::{step, Config, Kind, Mass, OrbitSpec};
 
-/// A float as a scalar, all 53 bits of it.
-fn sc(v: f64) -> Scalar {
-    if v == 0.0 {
-        return Scalar::ZERO;
-    }
-    let e = v.abs().log2().floor() as i32;
-    Scalar::raw((v * 2f64.powi(52 - e)) as i128, e - 52).unwrap()
-}
+use emergent_universe::num::from_f64 as sc;
 fn v2(x: f64, y: f64) -> V2 {
     [sc(x), sc(y)]
 }

@@ -87,7 +87,9 @@ struct Crossing {
     observed: Tick,
     /// The root of `g` as a real number (the tick it floors to is the crossing): what the next guess extrapolates.
     root: f64,
-    /// `d t_e / d T` between the last two frames (1 on a first sight).
+    /// The `d t_e / d T` the next guess extrapolates with: the rate the last two frames measured, corrected by how
+    /// it was changing (`2·inst − measured`: the instantaneous rate at this crossing against its average over the
+    /// interval before), or the instantaneous rate on a first sight.
     slope: f64,
 }
 
@@ -105,13 +107,23 @@ impl ViewCache {
         let c = self.slots.get(i).copied().flatten().filter(|c| c.observed <= t_now)?;
         Some((c.root + (t_now - c.observed) as f64 * c.slope).floor() as Tick)
     }
-    fn put(&mut self, i: usize, t_now: Tick, root: f64) {
+    /// Remember the crossing `root` found at `t_now`, with `inst`, the arrival rate at the crossing itself:
+    /// `(1 + n·β_obs)/(1 + n·β_em)`.
+    fn put(&mut self, i: usize, t_now: Tick, root: f64, inst: f64) {
         if self.slots.len() <= i {
             self.slots.resize(i + 1, None);
         }
+        let inst = inst.clamp(1e-3, 1e4);
         let slope = match self.slots[i] {
-            Some(c) if t_now > c.observed => ((root - c.root) / (t_now - c.observed) as f64).clamp(0.5, 1.5),
-            _ => 1.0,
+            // The arrival rate `dt_e/dT = (1 + n·β_obs)/(1 + n·β_em)` is anywhere in `(0, ∞)`: an emitter closing on the
+            // observer at 0.9c is seen advancing ten ticks per tick of the observer's present, and at 0.9999c ten
+            // thousand. The clamp only keeps a noisy measurement from sending the guess to the moon; it is no
+            // physics (a clamp at 1.5 was the Newtonian one: lab run 20261003-2306-redteam-4570).
+            Some(c) if t_now > c.observed => {
+                let avg = ((root - c.root) / (t_now - c.observed) as f64).clamp(1e-3, 1e4);
+                (2.0 * inst - avg).clamp(1e-3, 1e4)
+            }
+            _ => inst,
         };
         self.slots[i] = Some(Crossing { observed: t_now, root, slope });
     }
@@ -128,8 +140,12 @@ struct At {
 /// integer tick `t` with `t + |x(t) − xo| ≤ t_now`. `g(t) = t + |x(t) − xo| − t_now` rises by about one per
 /// tick (an emitter is slower than light), so the root is unique, and Newton's method on it, started at
 /// `guess`, ends in a bracket `g(t) ≤ 0 < g(t + 1)`: the answer does not depend on where it started. A tick
-/// is certainly past the root when `g(t) > −(1 − speed)`, so a good guess costs one readout. Returns the
-/// tick, its state and the real root (for the next frame's guess). Before the first light (`t` down to 0)
+/// is certainly past the root when `g(t) > −(1 + n·β)`, so a good guess costs one readout: `g` is convex along
+/// the worldline (the distance to a fixed point), so `g(t + 1) ≥ g(t) + g'(t)` with `g' = 1 + n·β` the inverse of
+/// the arrival rate (`n` from the observer to the emitter). That rate is the relativistic one: an emitter
+/// receding at 0.9c has a window of 1.9 ticks, one closing at 0.9c a window of 0.1, and the bound `1 − speed`
+/// the Newtonian reading used was 0.1 for all of them (and empty at 0.9999c whichever way they moved). Returns
+/// the tick, its state and the real root (for the next frame's guess). Before the first light (`t` down to 0)
 /// the state at tick 0 is returned.
 fn crossing(reads: &mut u64, eval: &mut dyn FnMut(Tick) -> Option<At>, t_now: Tick, xo: [f64; 2], guess: Tick) -> Option<(Tick, At, f64)> {
     let mut t = guess.clamp(0, t_now);
@@ -139,14 +155,16 @@ fn crossing(reads: &mut u64, eval: &mut dyn FnMut(Tick) -> Option<At>, t_now: Ti
         let at = eval(t)?;
         let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
         let dist = dot(d, d).sqrt();
-        let g = t as f64 + dist - t_now as f64;
-        let speed = dot(at.v, at.v).sqrt();
-        let step = -g / (1.0 + if dist > 0.0 { dot(d, at.v) / dist } else { 0.0 });
+        // The light-travel difference is exact (small integers), where `t` and `t_now` alone would cancel
+        // their last bits at a late tick.
+        let g = (t - t_now) as f64 + dist;
+        let rate = 1.0 + if dist > 0.0 { dot(d, at.v) / dist } else { 0.0 };
+        let step = -g / rate;
         if g > 0.0 && t == 0 {
             return Some((0, at, 0.0));
         }
         if g <= 0.0 {
-            if g > -(1.0 - speed - 1e-4) || hi == Some(t + 1) {
+            if g > -(rate - 1e-4) || hi == Some(t + 1) {
                 return Some((t, at, t as f64 + step));
             }
             lo = Some((t, at, t as f64 + step));
@@ -257,7 +275,11 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
         let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
         if let Some(c) = cache.as_deref_mut() {
-            c.put(i, t_now, root);
+            // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+            let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+            let dist = dot(d, d).sqrt();
+            let inst = if dist > 0.0 { (1.0 + dot(d, vo) / dist) / (1.0 + dot(d, at.v) / dist) } else { 1.0 };
+            c.put(i, t_now, root, inst);
         }
         let doll = &u.dolls[u.bodies().doll(i) as usize];
         let host_name = match kind {
