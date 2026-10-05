@@ -96,6 +96,6 @@ pub fn held_thrust(ctx: &Ctx, rec: &BodyRec, t: Tick) -> Res<Option<(u32, [f64; 
     }
     let dtau = step::proper_since(&rec.b, ctx.dolls[rec.b.doll as usize].shift, th.since, t)?;
     let (x, v) = rec.b.cartesian(t)?;
-    let (heading, v2) = thrust::owed(ctx.cfg, th, dtau, x, v)?;
+    let (heading, v2) = thrust::owed(ctx.cfg, th, dtau, x, v, ctx.dolls[rec.b.doll as usize].unit.mu)?;
     Ok(Some((heading, [to_f64(v2[0]) - to_f64(v[0]), to_f64(v2[1]) - to_f64(v[1])])))
 }

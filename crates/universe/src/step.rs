@@ -284,7 +284,7 @@ impl Work<'_, '_> {
             return Ok(v);
         }
         let dtau = self.proper_since(th.since, t)?;
-        let (heading, v2) = thrust::owed(self.ctx.cfg, th, dtau, x, v)?;
+        let (heading, v2) = thrust::owed(self.ctx.cfg, th, dtau, x, v, self.ctx.dolls[self.rec.b.doll as usize].unit.mu)?;
         self.rec.thrust = Some(crate::body::Thrust { heading, since: t, ..th });
         Ok(v2)
     }
