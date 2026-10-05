@@ -1,0 +1,4 @@
+Working...
+The run is complete. All evidence is saved in `lab/results/20261005-2129-q-candidate-degree-5695/` (dossier.md, predictions.md, `enc/` with the tiered crate copy, and four JSONL evidence files), zero misses at every scale and held-out, and no git operations performed.
+
+**Claim:** A two-tier certificate — the Binet cone lifted to (U,V,W) envelopes plus an analytic integer arming test per candidate — finds every encounter from 10³ to 10⁶ bodies with zero misses, holds the armed set at 4–5× real encounters everywhere and kicks to O(log N), and splits the board's gold criterion in two: at fixed belt distribution candidate work stays proportional to the encounter rate (≈200 arm tests per fire, constant over three decades), while the C·log N form is unreachable for exact discovery — and the real bottleneck relocates to the tangency windows, 0.7% of sections but 91% of all state evaluations at 10⁶.
