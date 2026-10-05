@@ -8,30 +8,39 @@
 //! eccentric births), the last three against the float64 circular restricted three-body problem
 //! (`restricted`). B9 is log-scaled to e = 0.99. B16-B18 come from the law's red-team (1 October):
 //! moving lenses (a boosted Kerr-Schild geodesic oracle), resonance (r4 v3's cases as restricted
-//! scenes) and memory (bytes per body on the shipmem ladder).
+//! scenes) and memory (bytes per body on the shipmem ladder). B18b is the belt case of B18 (a belt born as a
+//! program: `belt.rs`). B19 (5 October) judges rotating holes
+//! against equatorial Kerr geodesics in float64 (`kerr`, cross-checked by `kerr_mpmath.py`).
 //!
 //! ```text
 //! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture|
 //!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|
-//!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat]
+//!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|
+//!     planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|
+//!     planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|
+//!     planted-belt-table20|planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture]
 //!     [--gates G1,B7,...]
 //! ```
 //! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
-//! `--gates` picks gates (default: all sixteen). Every phase is killed and reported as a failure
+//! `--gates` picks gates (default: all eighteen). Every phase is killed and reported as a failure
 //! if it runs past 60 s. Exit 0 iff every gate that ran passes.
 pub mod assist;
+pub mod belt;
 pub mod binary;
 pub mod clocks;
 pub mod cost;
 pub mod fit;
 pub mod handoff;
 pub mod hill;
+pub mod kerr;
 pub mod laws;
 pub mod lens;
 pub mod memory;
+pub mod plane;
 pub mod oracle;
 pub mod resonance;
 pub mod restricted;
+pub mod rotating;
 pub mod scale;
 pub mod select;
 pub mod sample;
@@ -97,6 +106,22 @@ pub trait Law {
     /// B18: bytes the law holds per live body on a scene of the shipmem population ladder: the tube,
     /// the catalogue's share, the event records and the remainders. None: not implemented, which fails.
     fn bytes_per_body(&self, _scene: &memory::MemoryScene) -> Option<f64> {
+        None
+    }
+    /// B18 belt (B18b): a belt of `n` bodies born as a program (or stored as a draw)
+    /// from `spec` and `seed`, behind `belt::Belt`. None: not implemented, which fails the gate.
+    fn belt_birth(&self, _spec: &belt::BeltSpec, _n: u64, _seed: u64) -> Option<Box<dyn belt::Belt>> {
+        None
+    }
+    /// B18 belt: the belt rebuilt from `Belt::store()` bytes alone. None: not implemented, or not a store of this law.
+    fn belt_restore(&self, _store: &[u8]) -> Option<Box<dyn belt::Belt>> {
+        None
+    }
+    /// B19: the law's answer to a question about equatorial geodesics around a hole of spin `chi` (a/M, spinning towards +φ;
+    /// the judge asks 0, 0.5, 0.9 and 0.998): cycles, circular orbits, fates, light, clocks, tubes and the Penrose split
+    /// (`rotating::KerrQuery`). None: not implemented, which fails the gate; `Some(KerrAnswer::Absent)` says there is no such
+    /// orbit, observer or tube.
+    fn kerr(&self, _chi: f64, _query: &rotating::KerrQuery) -> Option<rotating::KerrAnswer> {
         None
     }
 }
@@ -219,7 +244,7 @@ fn g6(rows: &[Orbit]) -> Gate {
 }
 
 /// Runs the gates of the single-mass core (`select::CORE`) on `law`, arming `watch` on each phase and
-/// calling `emit` as each gate lands. The CLI runs all sixteen through `judge_only`.
+/// calling `emit` as each gate lands. The CLI runs all eighteen through `judge_only`.
 #[allow(dead_code)] // the core entry point: the CLI goes through `judge_only`
 pub fn judge(law: &dyn Law, watch: Option<&Watch>, emit: impl FnMut(&Gate)) -> Vec<Gate> {
     judge_only(law, watch, Some(&select::CORE), emit)
@@ -269,15 +294,21 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     phase("B16", &mut || vec![lens::b16(law)]);
     phase("B17", &mut || vec![resonance::b17(law)]);
     phase("B18", &mut || vec![memory::b18(law)]);
+    phase("B18b", &mut || vec![belt::b18_belt(law)]);
+    phase("B19", &mut || vec![rotating::b19(law)]);
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10,B11,B12,B13,B14,B16,B17,B18]";
+const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|planted-belt-table20|planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture] [--gates G1,G2,...,B18,B18b,B19] [--plane-step N]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
     let name = cli.law.as_str();
-    let law = laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?;
+    let law = if name == "plane" {
+        Box::new(plane::Plane::new(cli.plane_step))
+    } else {
+        laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?
+    };
     println!("machine_state {}", machine_state("start"));
     let watch = Watch::spawn(LIMIT, |label, secs| {
         for id in label.split(' ') {
@@ -405,7 +436,7 @@ mod tests {
 
     #[test]
     fn every_planted_law_the_usage_names_resolves() {
-        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat"];
+        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "iid-blocks", "dyadic-belt", "planted-belt-clipped", "planted-belt-winsor", "planted-belt-repeat", "planted-belt-serial", "planted-belt-thread", "planted-belt-fat", "planted-belt-ships", "planted-belt-lattice", "planted-belt-fatscars", "planted-belt-crush", "planted-belt-innerclip", "planted-belt-aligned", "planted-belt-table20", "planted-nodrag", "planted-isco", "planted-penrose", "planted-proonly", "planted-rcapture"];
         for name in names {
             assert!(laws::by_name(name).is_some() && USAGE.contains(name), "{name}");
         }
@@ -476,11 +507,11 @@ mod events_tests {
     }
 
     #[test]
-    fn the_default_run_is_all_sixteen_gates_and_a_law_without_the_new_methods_fails_every_gate_after_g6_in_it() {
+    fn the_default_run_is_all_eighteen_gates_and_a_law_without_the_new_methods_fails_every_gate_after_g6_in_it() {
         // `--gates` omitted is `only = None`: every gate, in the judge's order.
         let gates = judge_only(&Silent, None, None, |_| {});
         assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), select::ALL);
-        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18"]);
+        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18", "B18b", "B19"]);
     }
 
     #[test]
@@ -572,5 +603,289 @@ mod amendment_tests {
     #[test]
     fn a_law_that_implements_none_of_the_amended_methods_fails_them_all() {
         assert_eq!(failing(&Silent, &AMENDED), AMENDED);
+    }
+}
+
+/// B18 belt (B18b, frozen 5 October): the control belts pass, each planted belt fails the criterion it plants, and a belt
+/// that tampers with the interface (ignores a scar, forgets scars in its store, misdeclares its information) is caught.
+/// The plants run on one belt of 2^18 (the statistics are valid from k = 27 up); the full frozen runs are `release` only.
+#[cfg(test)]
+mod belt_tests {
+    use super::belt::{self, Belt, BeltSpec, Body, Flaw, Form, ProgramBelt, Run};
+    use super::laws::{DyadicBelt, Echo, Fault, IidBlocks, Planted, Silent};
+    use super::*;
+
+    const SMALL: [Run; 1] = [Run { log2n: 18, seed: 31337, thorough: true }];
+
+    fn verdict(law: &dyn Law) -> Gate {
+        belt::judge(law, &SMALL)
+    }
+    /// The planted law must fail and its detail must name each of `names`.
+    fn fails_naming(fault: Fault, names: &[&str]) {
+        let g = verdict(&Planted(fault));
+        assert!(!g.pass && g.id == "B18b", "{}", g.detail);
+        for n in names {
+            assert!(g.detail.contains(n), "{n:?} missing: {}", g.detail);
+        }
+    }
+
+    #[test]
+    fn the_reference_belt_and_the_stored_draw_pass_with_the_evidence_on_the_line() {
+        let g = verdict(&Echo);
+        assert!(g.pass && g.detail.contains("bytes at 1e9: 42 B") && g.detail.contains("scarred"), "{}", g.detail);
+        let g = verdict(&IidBlocks);
+        assert!(g.pass && g.detail.contains("a stored sample") && g.detail.contains("sample form"), "{}", g.detail);
+        // A dyadic quantile table passes if it is dyadic in the octaves of the probability (the gold's, in its linear scale, clips).
+        let g = verdict(&DyadicBelt);
+        assert!(g.pass, "{}", g.detail);
+    }
+
+    #[test]
+    fn a_law_with_no_belt_fails() {
+        let g = verdict(&Silent);
+        assert!(!g.pass && g.detail.contains("belt_birth is not implemented"), "{}", g.detail);
+    }
+
+    #[test]
+    fn the_golds_clipped_table_fails_the_tail_count_the_range_and_the_shape_of_e_only() {
+        // 2^12 midpoint quantiles: the top 1e-4 of e is one cell, below the reference's 1 - 1e-4 quantile. (At 2^18 the
+        // count has only k = 27 to lose, z = -3.7: the range and the shape fire; the frozen 2^20 and 2^23 fire the count too.)
+        // (Its bottom end is clipped too: the lowest cell of 2^12 is far above the bottom 1e-4.)
+        fails_naming(Fault::BeltClipped, &["top 1e-4 of e reaches", "tail shape of top 1e-4 of e", "bottom 1e-4 of e reaches"]);
+        let g = verdict(&Planted(Fault::BeltClipped));
+        assert!(!g.detail.contains("of p"), "{}", g.detail);
+    }
+
+    #[test]
+    fn a_winsorized_belt_keeps_the_count_and_loses_the_range() {
+        fails_naming(Fault::BeltWinsor, &["top 1e-4 of e reaches", "top 1e-4 of p reaches", "tail shape of top 1e-4 of e", "tail shape of top 1e-4 of p"]);
+        let g = verdict(&Planted(Fault::BeltWinsor));
+        assert!(!g.detail.contains("count") && !g.detail.contains("chi2") && !g.detail.contains("serial"), "{}", g.detail);
+    }
+
+    #[test]
+    fn repeated_states_are_caught_exactly_and_by_the_chi_square() {
+        fails_naming(Fault::BeltRepeat, &["no two bodies share a state", "chi2"]);
+    }
+
+    #[test]
+    fn serial_structure_is_caught_by_the_lag_correlation_and_nothing_else_fires() {
+        fails_naming(Fault::BeltSerial, &["serial and cross correlation", "t_p lag 1"]);
+        let g = verdict(&Planted(Fault::BeltSerial));
+        assert!(g.detail.starts_with("belt: 1 of ") && !g.detail.contains("share a state"), "{}", g.detail);
+    }
+
+    #[test]
+    fn a_rank_one_lattice_is_caught_by_the_two_dimensional_chi_square() {
+        fails_naming(Fault::BeltLattice, &["chi2 z = -"]);
+    }
+
+    #[test]
+    fn a_thread_order_dependence_is_caught_in_every_order() {
+        fails_naming(Fault::BeltThread, &["bit-identically", "Ascending", "Interleaved", "Descending", "Scrambled", "Chunks"]);
+    }
+
+    #[test]
+    fn an_over_budget_store_fails_at_birth_and_so_do_fat_scars_and_ships() {
+        fails_naming(Fault::BeltFat, &["bytes at birth"]);
+        fails_naming(Fault::BeltFatScars, &["scarred bodies cost 40.00 bytes each"]);
+        fails_naming(Fault::BeltShips, &["sample bytes per body 64.00"]);
+    }
+
+    // The red-team's four holes (GLM run 20261005-1404, F1 to F4): each plant passed the first judge, and fails this one.
+
+    #[test]
+    fn f2_a_hollow_inner_edge_of_p_is_caught_at_the_bottom_end() {
+        // p clipped from below at its 1e-4 quantile: the tests of the top end cannot see it, the mirrored ones do.
+        fails_naming(Fault::BeltInnerClip, &["bottom 1e-4 of p reaches", "bottom 1e-4 of p: conditional log-score mean z = +"]);
+        assert!(!verdict(&Planted(Fault::BeltInnerClip)).detail.contains("top 1e-4"));
+    }
+
+    #[test]
+    fn f3_deep_dippers_aligned_in_one_corridor_are_caught_by_the_other_columns_of_the_tail() {
+        // The top 1e-4 of e all in 1/32 of the omega circle: every column's own KS and the (p, t_p) chi-square are blind to it.
+        fails_naming(Fault::BeltAligned, &["top 1e-4 of e: its bodies' other columns stay uniform", "(omega)"]);
+        assert!(verdict(&Planted(Fault::BeltAligned)).detail.starts_with("belt: 1 of "));
+    }
+
+    #[test]
+    fn f4_a_table_declared_as_information_is_over_the_cap() {
+        // A one-level 2^20-cell quantile table (4 MB) in the store, declared as information: it passes every statistic (the
+        // table resolves the tail to 2^-20) and fails only the cap on the declared information.
+        fails_naming(Fault::BeltTable20, &["declared information 4194345 B is within 64 B"]);
+        assert!(verdict(&Planted(Fault::BeltTable20)).detail.starts_with("belt: 1 of "));
+    }
+
+    /// A law whose belt is the reference program with this flaw (all else echo's).
+    struct FlawLaw(Flaw);
+    impl Law for FlawLaw {
+        fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+            Echo.advance_per_cycle(p, e)
+        }
+        fn deflection(&self, b: f64) -> Option<f64> {
+            Echo.deflection(b)
+        }
+        fn captured(&self, energy: f64, angular: f64) -> bool {
+            Echo.captured(energy, angular)
+        }
+        fn photon_captured(&self, b: f64) -> bool {
+            Echo.photon_captured(b)
+        }
+        fn long_run(&self, p: f64, e: f64, cycles: usize) -> Vec<(f64, f64, f64, f64)> {
+            Echo.long_run(p, e, cycles)
+        }
+        fn belt_birth(&self, spec: &BeltSpec, n: u64, seed: u64) -> Option<Box<dyn Belt>> {
+            Some(Box::new(ProgramBelt::birth(spec, n, seed, self.0)))
+        }
+        fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
+            ProgramBelt::restore(store).map(|b| Box::new(b) as Box<dyn Belt>)
+        }
+    }
+
+    /// F1 on the frozen runs (release only). A 15% crush of the e-tail's spread keeps its count and its reach; the log-score mean
+    /// of the tail sees it in the two 2^23 runs (the exponential mean's best z is 0.15 sqrt(X): 4.4 at X = 850) and pooled over
+    /// all five (7). A 12% crush passes every run on its own and fails the pooled test alone.
+    #[test]
+    #[cfg_attr(debug_assertions, ignore = "release only")]
+    fn f1_a_crush_of_the_e_tails_spread_is_caught_by_the_log_score_mean_alone_or_pooled() {
+        let g = belt::b18_belt(&Planted(Fault::BeltCrush));
+        assert!(!g.pass && g.detail.starts_with("belt: 1 of ") && g.detail.contains("top 1e-4 of e: conditional log-score mean z = -4."), "{}", g.detail);
+        let g = belt::b18_belt(&FlawLaw(Flaw::Crush12));
+        assert!(!g.pass && g.detail.starts_with("belt: 1 of ") && g.detail.contains("top 1e-4 of e: conditional log-score mean pooled over 5 runs: z = -"), "{}", g.detail);
+    }
+
+    /// A belt that wraps the reference and tampers with one part of the interface.
+    #[derive(Clone, Copy, PartialEq)]
+    enum Tamper {
+        IgnoreScar,
+        ForgetScarsInStore,
+        HugeInfo,
+        TinyInfo,
+        FatButHonest,
+        SlowGrowth,
+    }
+    struct Tweaked {
+        inner: ProgramBelt,
+        mode: Tamper,
+        spec: BeltSpec,
+        n: u64,
+        seed: u64,
+    }
+    impl Belt for Tweaked {
+        fn len(&self) -> u64 {
+            self.inner.len()
+        }
+        fn body(&self, i: u64) -> Body {
+            self.inner.body(i)
+        }
+        fn store(&self) -> Vec<u8> {
+            match self.mode {
+                Tamper::ForgetScarsInStore => ProgramBelt::birth(&self.spec, self.n, self.seed, Flaw::None).store(),
+                Tamper::SlowGrowth => [self.inner.store(), vec![0; (self.n >> 13) as usize]].concat(),
+                _ => self.inner.store(),
+            }
+        }
+        fn bytes_used(&self) -> u64 {
+            self.inner.bytes_used()
+        }
+        fn scar(&mut self, i: u64, b: Body) {
+            if self.mode != Tamper::IgnoreScar {
+                self.inner.scar(i, b);
+            }
+        }
+        fn form(&self) -> Form {
+            match self.mode {
+                Tamper::HugeInfo => Form::Program { info_bytes: 1 << 20 },
+                Tamper::TinyInfo => Form::Program { info_bytes: 4 },
+                Tamper::FatButHonest => Form::Program { info_bytes: self.inner.store().len() as u64 },
+                Tamper::SlowGrowth => Form::Program { info_bytes: belt::INFO_CAP },
+                _ => self.inner.form(),
+            }
+        }
+    }
+    struct TweakLaw(Tamper);
+    impl TweakLaw {
+        fn wrap(&self, inner: ProgramBelt, spec: BeltSpec, n: u64, seed: u64) -> Box<dyn Belt> {
+            Box::new(Tweaked { inner, mode: self.0, spec, n, seed })
+        }
+    }
+    impl Law for TweakLaw {
+        fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+            Echo.advance_per_cycle(p, e)
+        }
+        fn deflection(&self, b: f64) -> Option<f64> {
+            Echo.deflection(b)
+        }
+        fn captured(&self, energy: f64, angular: f64) -> bool {
+            Echo.captured(energy, angular)
+        }
+        fn photon_captured(&self, b: f64) -> bool {
+            Echo.photon_captured(b)
+        }
+        fn long_run(&self, p: f64, e: f64, cycles: usize) -> Vec<(f64, f64, f64, f64)> {
+            Echo.long_run(p, e, cycles)
+        }
+        fn belt_birth(&self, spec: &BeltSpec, n: u64, seed: u64) -> Option<Box<dyn Belt>> {
+            let flaw = if self.0 == Tamper::FatButHonest { Flaw::Fat } else { Flaw::None };
+            Some(self.wrap(ProgramBelt::birth(spec, n, seed, flaw), *spec, n, seed))
+        }
+        fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
+            let n = u64::from_le_bytes(store.get(3..11)?.try_into().unwrap());
+            let store = if self.0 == Tamper::SlowGrowth { &store[..store.len() - (n >> 13) as usize] } else { store };
+            let inner = ProgramBelt::restore(store)?;
+            let seed = u64::from_le_bytes(store[11..19].try_into().unwrap());
+            Some(self.wrap(inner, belt::SPEC, n, seed))
+        }
+    }
+
+    #[test]
+    fn a_belt_that_ignores_a_scar_or_forgets_it_in_its_store_is_caught_on_exactness() {
+        let g = verdict(&TweakLaw(Tamper::IgnoreScar));
+        assert!(!g.pass && g.detail.contains("every scarred ordinal returns its scar") && g.detail.contains("scarred bodies cost 0.00 bytes"), "{}", g.detail);
+        let g = verdict(&TweakLaw(Tamper::ForgetScarsInStore));
+        assert!(!g.pass && g.detail.contains("the churned belt restores exactly"), "{}", g.detail);
+    }
+
+    #[test]
+    fn the_declared_information_is_bound_by_the_store_and_by_growth() {
+        // Declaring less than it stores: the store is over 2 x info + 2. More than it stores: not a program's information.
+        let g = verdict(&TweakLaw(Tamper::TinyInfo));
+        assert!(!g.pass && g.detail.contains("bytes at birth 42 within 2 x info 4 + 2 = 10"), "{}", g.detail);
+        let g = verdict(&TweakLaw(Tamper::HugeInfo));
+        assert!(!g.pass && g.detail.contains("and not below the info"), "{}", g.detail);
+        // A store with a byte per body that declares all of it as information passes the 2x rule and fails the cap (F4).
+        let g = verdict(&TweakLaw(Tamper::FatButHonest));
+        assert!(!g.pass && g.detail.contains("declared information 262186 B is within 64 B"), "{}", g.detail);
+        // Under the cap, a store that still grows with n (a byte per 8192 bodies) fails on growth.
+        let runs = [Run { log2n: 18, seed: 5, thorough: false }, Run { log2n: 19, seed: 6, thorough: false }];
+        let g = belt::judge(&TweakLaw(Tamper::SlowGrowth), &runs);
+        assert!(!g.pass && g.detail.starts_with("belt: 1 of ") && g.detail.contains("the store does not grow with n"), "{}", g.detail);
+    }
+
+    #[test]
+    fn the_belt_gate_is_a_default_gate_named_like_the_others() {
+        // B18b follows B18 in the default run (`the_default_run_is_all_eighteen_gates...` pins the whole list); `--gates b18b`
+        // picks it, and it alone runs. A law without a belt (`space`, today) fails it.
+        let at = select::ALL.iter().position(|g| *g == "B18").unwrap();
+        assert_eq!(select::ALL[at + 1], "B18b");
+        assert_eq!(select::parse(&["--gates".into(), "b18b".into()]).unwrap().gates, Some(vec!["B18b"]));
+        let gates = judge_only(&Silent, None, Some(&["B18b"]), |_| {});
+        assert_eq!(gates.iter().map(|g| (g.id, g.pass)).collect::<Vec<_>>(), [("B18b", false)]);
+        assert!(judge_only(&Silent, None, Some(&["B18", "B18b", "B19"]), |_| {}).iter().any(|g| g.id == "B18b"));
+    }
+
+    /// The frozen runs, on the two controls (release only: the debug build is 20 times slower than the gate's 60 s allows).
+    #[test]
+    #[cfg_attr(debug_assertions, ignore = "release only")]
+    fn both_controls_pass_the_frozen_runs_and_every_plant_fails_them() {
+        for law in [&Echo as &dyn Law, &IidBlocks, &DyadicBelt] {
+            let g = belt::b18_belt(law);
+            assert!(g.pass && g.detail.contains("5 runs"), "{}", g.detail);
+        }
+        let g = belt::b18_belt(&Planted(Fault::BeltClipped));
+        assert!(g.detail.contains("top 1e-4 of e: count 0 against the reference's 105 (z = -7"), "{}", g.detail);
+        for fault in [Fault::BeltClipped, Fault::BeltWinsor, Fault::BeltRepeat, Fault::BeltSerial, Fault::BeltThread, Fault::BeltFat, Fault::BeltShips, Fault::BeltLattice, Fault::BeltFatScars, Fault::BeltCrush, Fault::BeltInnerClip, Fault::BeltAligned, Fault::BeltTable20] {
+            assert!(!belt::b18_belt(&Planted(fault)).pass);
+        }
     }
 }

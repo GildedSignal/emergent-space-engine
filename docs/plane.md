@@ -33,6 +33,7 @@ The galaxy (one more doll level) is the first scope expansion, not part of this 
 
   A percentile alone can hide a 200 ms freeze once a minute, which is 0.028% of frames.
 - **Throughput and footprint:** events per second, bytes per body, and the universe's digest.
+- **Distinctions created per game-second:** the bits of live distinguishing information (H_live) the universe gains per unit of simulated time, against what reabsorption removes. This, not the body count, decides whether a billion bodies fit (an outside review, 5 October).
 
 All of these are measured like the player: heat included, machine state recorded. Every later change is chosen by the bottleneck these numbers show. The gates (B0–B18, E1–E8) stay as guards on the parts.
 

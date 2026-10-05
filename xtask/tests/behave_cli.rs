@@ -17,7 +17,7 @@ fn gates(lines: &[String]) -> Vec<(String, String)> {
 fn echo_passes_every_gate_between_two_machine_states() {
     let (code, lines) = behave(&["--law", "echo"]);
     assert_eq!(code, 0, "{lines:?}");
-    assert_eq!(gates(&lines).iter().map(|(_, v)| v.as_str()).collect::<Vec<_>>(), ["PASS"; 16]);
+    assert_eq!(gates(&lines).iter().map(|(_, v)| v.as_str()).collect::<Vec<_>>(), ["PASS"; 18]);
     let states: Vec<usize> = (0..lines.len()).filter(|&i| lines[i].starts_with("machine_state {")).collect();
     assert_eq!((states.first(), states.last()), (Some(&0), Some(&(lines.len() - 2))), "{lines:?}");
     assert!(lines[0].contains("\"when\":\"start\"") && lines[lines.len() - 2].contains("\"when\":\"end\""));
@@ -34,7 +34,7 @@ fn a_planted_law_exits_1_and_fails_only_its_gate() {
 }
 
 /// A planted law of the single-mass core fails only its gate. The nine core gates are named: the
-/// default run is all sixteen (45 s or so, and B10 is a timing gate), and three of those at once
+/// default run is all eighteen (45 s or so, and B10 is a timing gate), and three of those at once
 /// would make B10 flaky. `a_planted_law_exits_1_and_fails_only_its_gate` runs a planted law by default.
 fn planted_fails_only(law: &str, gate: &str) {
     let core = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10"];
@@ -96,4 +96,19 @@ fn the_cheap_planted_laws_of_the_amendments_exit_1_and_fail_only_their_gate() {
     for (law, gate) in [("planted-linear", "B9"), ("planted-static", "B16"), ("planted-flipped", "B16"), ("planted-fat", "B18")] {
         amended_fails_only(law, "B9,B16,B18", gate);
     }
+}
+
+/// The belt case of B18 (B18b, frozen) picked by name: the reference passes it and a planted belt fails only it.
+/// Release only: the debug build is far slower than the gate's 60 s.
+#[test]
+#[cfg_attr(debug_assertions, ignore = "release only")]
+fn the_belt_gate_can_be_picked_and_a_planted_belt_fails_only_it() {
+    let (code, lines) = behave(&["--law", "echo", "--gates", "b18b"]);
+    assert_eq!(code, 0, "{lines:?}");
+    assert_eq!(gates(&lines), [("B18b".to_string(), "PASS".to_string())]);
+    assert_eq!(lines.last().unwrap(), "behave echo (B18b): PASS");
+    let (code, lines) = behave(&["--law", "planted-belt-fat", "--gates", "B18b"]);
+    assert_eq!(code, 1, "{lines:?}");
+    assert_eq!(gates(&lines), [("B18b".to_string(), "FAIL".to_string())]);
+    assert_eq!(lines.last().unwrap(), "behave planted-belt-fat (B18b): FAIL B18b");
 }

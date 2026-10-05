@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install omp (GLM's command-line agent), pinned by version and SHA-256. Cloud only.
+# Install omp (GLM's command-line agent), pinned by version and SHA-256. Linux only (agonbox as glmlab, or GitHub's machines).
 set -euo pipefail
 V=18.1.18
 case $(uname -m) in

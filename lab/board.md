@@ -9,7 +9,8 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 - the changeover near a secondary, reversible and integer (TRACE, JANUS);
 - finding encounters without work per orbit or per element change (the Binet cone, r8 v3, plus a skin);
 - the Schwarzschild tide in the Fermi frame (phase 2, after gate E9);
-- fitting 10⁹ in 8 GB (`crates/shipmem`: population programs plus scars; every body real, never averaged).
+- fitting 10⁹ in 8 GB (`crates/shipmem`: population programs plus scars; every body real, never averaged), decided by distinctions created per game-second;
+- **the top scaling risk (5 October):** candidate pairs per body grow with N at a fixed distribution (O(N²) pairs); candidate work must track real encounters (`q-candidate-degree`).
 
 The list of 29 September below is background: the pivot (H0200 onwards) answered most of it.
 

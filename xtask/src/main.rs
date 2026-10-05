@@ -83,8 +83,12 @@ fn run() -> Result<u8> {
         println!("{}", if ok { "ORACLE AGREES" } else { "ORACLE DISAGREES" });
         return Ok(if ok { 0 } else { 1 });
     }
+    if task == "kerr-oracle" {
+        // B19's float64 Kerr oracle against its mpmath cross-check (behave/kerr_mpmath.py, behave/kerr_mp.json).
+        return Ok(behave::kerr::print_agreement());
+    }
     if task == "behave" {
-        // The behaviour judge: gates G1-G6, B7 and B9-B18 (docs/law.md) against the GR oracles (xtask/src/behave/mod.rs).
+        // The behaviour judge: gates G1-G6, B7 and B9-B19 (docs/law.md) against the GR oracles (xtask/src/behave/mod.rs).
         return behave::run(args.collect());
     }
     if task == "lattice-check-rel" {
@@ -159,6 +163,6 @@ fn run() -> Result<u8> {
         return Ok(0);
     }
     println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  universe [--bench] [--rtf R] [--seconds S]  the plane: one star system, whole (port 8792), or its smoothness dashboard
-  galaxy [--ships N] [--tubes N] [--bench] [--png FILE]  millions to billions of orbiting ships as a density image (port 8791)\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|space|planted-*] [--gates G1,..,B18]  behaviour judge, gates G1-G6, B7, B9-B18\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
+  galaxy [--ships N] [--tubes N] [--bench] [--png FILE]  millions to billions of orbiting ships as a density image (port 8791)\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|space|plane|planted-*] [--gates G1,..,B19] [--plane-step N]  behaviour judge, gates G1-G6, B7, B9-B19\n  kerr-oracle                         B19's Kerr oracle against mpmath\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
     Ok(0)
 }
