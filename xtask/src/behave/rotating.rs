@@ -19,7 +19,10 @@
 //!    momentum L_s of e ∈ {0.2, 0.4, 0.6}, a quarter of the bound window W (between the barrier's energy E_s and the stable circular
 //!    orbit's) below E_s is bound and above it plunges (a body started at its outer turning point); and every E < 1 with L at 0.9
 //!    and 0.5 of the ISCO's plunges; (d) light at b = x·b_c, x ∈ {0.9, 0.97, 1.03, 1.1}, with b_c the critical impact parameter of the
-//!    sense (b₊ prograde, b₋ retrograde): captured iff x < 1.
+//!    sense (b₊ prograde, b₋ retrograde): captured iff x < 1; (e) the same two classifications, densely: for each (χ, sense), 128 values
+//!    of x stratified over [0.5, 1.5] (one per stratum of width 1/128, jittered; |x − 1| is kept at least 0.01 so that the verdict is
+//!    not within a hair of the threshold), for light at b = x·b_c and for massive E = 1 bodies at L = x·L_mb, captured iff x < 1. The
+//!    four-point probes above cannot see a law that misclassifies a band between them (the red-team, 5 October).
 //! 3. **Frame dragging.** 128 states per χ inside the ergosphere (r between the horizon and 2, ZAMO-frame velocities up to rapidity 4
 //!    in every direction), as tubes with constants (E, L): the law must answer them all (not Absent) with dφ/dt > 0 — also for L < 0 —
 //!    and rates equal to the oracle's within 1e-6 (an addition to the row: positivity alone could be faked by a constant); and
@@ -52,6 +55,9 @@ const TUBE_SEEDS: usize = 128;
 const CLOCK_SEEDS: usize = 32;
 const INSIDE_SEEDS: usize = 16;
 const FORGED_PER_NEGATIVE: usize = 1;
+/// Criterion 2(e): seeds per (spin, sense, kind) across the critical band, and the closest to the threshold they come.
+const CAPTURE_DENSE: usize = 128;
+const CAPTURE_MARGIN: f64 = 0.01;
 /// The separatrix margin of criterion 1: p starts at this times p_s(e).
 pub const SEPARATRIX_MARGIN: f64 = 1.1;
 pub const ADVANCE_TOL: f64 = 1e-2;
@@ -208,6 +214,21 @@ pub fn cycle_seeds(spin: usize, sense: Sense, n: usize) -> Vec<(f64, f64)> {
         })
         .collect()
 }
+/// Criterion 2(e)'s dense capture family for one cell: the `CAPTURE_DENSE` values of x = |b|/|b_c| (or L/L_mb), stratified over [0.5, 1.5],
+/// kept at least `CAPTURE_MARGIN` from 1. `massive` picks the stream (null and massive draw different jitters).
+pub fn capture_seeds(spin: usize, sense: Sense, massive: bool) -> Vec<f64> {
+    let mut rng = stream(5 + massive as u64, spin, sense_index(sense));
+    (0..CAPTURE_DENSE)
+        .map(|i| {
+            let x = 0.5 + (i as f64 + rng.unit()) / CAPTURE_DENSE as f64;
+            if (x - 1.0).abs() < CAPTURE_MARGIN {
+                1.0 + CAPTURE_MARGIN * (x - 1.0).signum()
+            } else {
+                x
+            }
+        })
+        .collect()
+}
 /// Criterion 5's signed impact parameters for one cell: |b| log-uniform from 1.05·|b_c| to 300.
 pub fn light_seeds(spin: usize, sense: Sense, n: usize) -> Vec<f64> {
     let k = Kerr::new(CHI[spin]);
@@ -354,8 +375,8 @@ fn cycles(law: &dyn Law) -> Crit {
 
 /// 2: fates, exactly. Returns the criterion and, per group, (wrong, asked).
 fn fates(law: &dyn Law) -> Crit {
-    let groups = ["circular", "E=1 capture", "bound/plunge", "photons"];
-    let (mut asked, mut wrong) = ([0usize; 4], [0usize; 4]);
+    let groups = ["circular", "E=1 capture", "bound/plunge", "photons", "dense capture"];
+    let (mut asked, mut wrong) = ([0usize; 5], [0usize; 5]);
     let mut labels: Vec<String> = Vec::new();
     for (spin, sense) in CELLS {
         let (chi, k, s) = (CHI[spin], Kerr::new(CHI[spin]), sense.sign());
@@ -396,6 +417,15 @@ fn fates(law: &dyn Law) -> Crit {
         for x in [0.9, 0.97, 1.03, 1.1] {
             let want = KerrAnswer::Fate(if x < 1.0 { Fate::Captured } else { Fate::Scattered });
             ask(3, format!("b/bc={x}"), KerrQuery::PhotonFate { b: x * bc }, want);
+        }
+        // (e) the dense capture family, light and massive, across the critical band.
+        for x in capture_seeds(spin, sense, false) {
+            let want = KerrAnswer::Fate(if x < 1.0 { Fate::Captured } else { Fate::Scattered });
+            ask(4, format!("b/bc={x:.4}"), KerrQuery::PhotonFate { b: x * bc }, want);
+        }
+        for x in capture_seeds(spin, sense, true) {
+            let want = KerrAnswer::Fate(if x < 1.0 { Fate::Captured } else { Fate::Scattered });
+            ask(4, format!("L/Lmb={x:.4}"), KerrQuery::Fate { energy: 1.0, angular: x * lmb }, want);
         }
     }
     let total: usize = asked.iter().sum();
@@ -632,7 +662,7 @@ mod tests {
     fn echo_passes_all_six_with_the_evidence_on_the_line() {
         let g = b19(&Echo);
         assert!(g.pass && failing(&Echo).is_empty(), "{}", g.detail);
-        for needle in ["1536 orbits", "6/6 cells pass", "144/144", "dphi/dt > 0 in", "refused", "canonical", "oracle against mpmath"] {
+        for needle in ["1536 orbits", "6/6 cells pass", "1680/1680", "dense capture 1536/1536", "dphi/dt > 0 in", "refused", "canonical", "oracle against mpmath"] {
             assert!(g.detail.contains(needle), "{needle}: {}", g.detail);
         }
     }
@@ -781,7 +811,7 @@ mod tests {
         // A split that conserves but gains nothing inside the ergosphere (the backward photon keeps positive energy) is wrong.
         assert_eq!(
             failing(&Hook(|_, q, a| match (q, a) {
-                (KerrQuery::Split { energy, angular, .. }, Split { forward: (ef, lf), backward: (eb, lb) }) if eb < 0.0 => {
+                (KerrQuery::Split { energy, .. }, Split { forward: (ef, lf), backward: (eb, lb) }) if eb < 0.0 => {
                     let shift = 0.5 * energy.abs().max(1.0) - eb;
                     Split { forward: (ef - shift, lf), backward: (eb + shift, lb) }
                 }
@@ -795,6 +825,37 @@ mod tests {
         assert_eq!(failing(&Hook(|_, q, a| if let (KerrQuery::Tube { r, .. }, Absent) = (q, a) { if *r > ERGOSPHERE { Tube { phi_rate: 0.1, clock_rate: 0.5 } } else { a } } else { a })), [4]);
         // A law that has a static clock inside the ergosphere fails criterion 3 alone.
         assert_eq!(failing(&Hook(|_, q, a| if let (KerrQuery::Clock { observer: Observer::Static, .. }, Absent) = (q, a) { Rate(0.1) } else { a })), [3]);
+    }
+
+    #[test]
+    fn the_dense_capture_family_is_stratified_kept_off_the_threshold_and_agrees_with_the_roots_of_the_potential() {
+        for (spin, sense) in CELLS {
+            let k = Kerr::new(CHI[spin]);
+            let (bc, lmb) = (k.photon_b(sense.sign()), k.marginally_bound(sense.sign()).1);
+            for massive in [false, true] {
+                let xs = capture_seeds(spin, sense, massive);
+                assert_eq!(xs.len(), CAPTURE_DENSE);
+                assert!(xs.iter().all(|x| (0.5..=1.5).contains(x) && (x - 1.0).abs() >= CAPTURE_MARGIN * (1.0 - 1e-12)));
+                // One per stratum of 1/128 (those within the margin of 1 are moved to it): at least 100 distinct strata, both sides of 1 well filled.
+                assert!(xs.iter().filter(|&&x| x < 1.0).count() >= 60 && xs.iter().filter(|&&x| x > 1.0).count() >= 60);
+                for x in xs {
+                    // The closed-form threshold the gate uses and the root analysis of the potential (a different method) agree.
+                    let fate = if massive { k.fate(1.0, x * lmb) } else { k.photon_fate(x * bc) };
+                    assert_eq!(fate == Fate::Captured, x < 1.0, "a = {} {sense:?} massive = {massive} x = {x}", CHI[spin]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_law_that_misses_retrograde_capture_in_a_band_between_the_four_point_probes_is_caught_by_the_dense_family() {
+        let law = Planted(Fault::RetroCapture);
+        let g = b19(&law);
+        // The old probes (light at 0.9, 0.97, 1.03 and 1.1 of b_c) all pass it: 6.3 and 6.78 are not in its band (5.2, 6.2) ...
+        assert!(g.detail.contains("photons 24/24") && g.detail.contains("E=1 capture 24/24"), "{}", g.detail);
+        // ... and the dense family fails it, and nothing else does.
+        assert!(g.detail.contains("dense capture") && !g.detail.contains("dense capture 1536/1536"), "{}", g.detail);
+        assert_eq!(failing(&law), [2]);
     }
 
     #[test]

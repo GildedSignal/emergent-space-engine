@@ -15,7 +15,7 @@
 //! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture|
 //!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|
 //!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|
-//!     planted-nodrag|planted-isco|planted-penrose|planted-proonly]
+//!     planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture]
 //!     [--gates G1,B7,...]
 //! ```
 //! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
@@ -285,7 +285,7 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|planted-nodrag|planted-isco|planted-penrose|planted-proonly] [--gates G1,G2,...,B19] [--plane-step N]";
+const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture] [--gates G1,G2,...,B19] [--plane-step N]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn every_planted_law_the_usage_names_resolves() {
-        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "planted-nodrag", "planted-isco", "planted-penrose", "planted-proonly"];
+        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "planted-nodrag", "planted-isco", "planted-penrose", "planted-proonly", "planted-rcapture"];
         for name in names {
             assert!(laws::by_name(name).is_some() && USAGE.contains(name), "{name}");
         }

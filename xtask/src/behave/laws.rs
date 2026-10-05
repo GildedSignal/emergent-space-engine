@@ -2,6 +2,7 @@
 //! gate must pass. Each planted law has one flaw and must fail exactly the gate that guards it:
 //! together they prove the judge can fail (a test that cannot fail is a control).
 use super::restricted::{self, Model, Restricted, RTOL};
+use super::kerr::Fate;
 use super::rotating::{self, KerrAnswer, KerrQuery, Sense};
 use super::{cost, hill, lens, memory, oracle, resonance, scale, Law};
 
@@ -99,6 +100,9 @@ pub enum Fault {
     PenroseLeak,
     /// B19: correct for prograde orbits only: retrograde questions are answered as their prograde mirror.
     ProgradeOnly,
+    /// B19: right everywhere except that light of χ = 0.998 against the spin at |b| in (5.2, 6.2) (inside b₋ = −7.0, captured) is
+    /// said to scatter: a band between the four-point probes of criterion 2(d), which only the dense capture family sees.
+    RetroCapture,
 }
 /// The oracle with one planted flaw.
 pub struct Planted(pub Fault);
@@ -190,6 +194,10 @@ impl Law for Planted {
                 other => Some(other),
             },
             Fault::ProgradeOnly => Echo.kerr(chi, &prograde_mirror(query)),
+            Fault::RetroCapture => match *query {
+                KerrQuery::PhotonFate { b } if chi == 0.998 && (-6.2..-5.2).contains(&b) => Some(KerrAnswer::Fate(Fate::Scattered)),
+                _ => Echo.kerr(chi, query),
+            },
             _ => Echo.kerr(chi, query),
         }
     }
@@ -258,6 +266,7 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-isco" => Box::new(Planted(Fault::IscoFudge)),
         "planted-penrose" => Box::new(Planted(Fault::PenroseLeak)),
         "planted-proonly" => Box::new(Planted(Fault::ProgradeOnly)),
+        "planted-rcapture" => Box::new(Planted(Fault::RetroCapture)),
         _ => return None,
     })
 }
