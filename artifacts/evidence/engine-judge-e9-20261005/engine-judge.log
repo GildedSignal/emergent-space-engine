@@ -1,0 +1,27 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-lattice-event v0.1.0 (/private/tmp/emergent-wt-judge2/crates/lattice-event)
+   Compiling emergent-engine v0.1.0 (/private/tmp/emergent-wt-judge2/crates/engine)
+   Compiling emergent-universe v0.1.0 (/private/tmp/emergent-wt-judge2/crates/universe)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-judge2/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 26.55s
+     Running `target/release/xtask engine-judge`
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t37%; discharging; 0:51 remaining present: true","hardware":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","power_source":"Now drawing from 'AC Power'","swap":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","therm":"Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc","time_utc":"2026-10-05T09:16:26Z","unix":1791191786,"when":"start"}
+machine_state uptime="11:16  1 user, load averages: 3.39 3.92 4.05"
+E1 FAIL UNSUPPORTED equal=4320/4320 checked=4320/6480 scenes=24 seeds=4 insertion=3 threads=1,4,8 metal=false metal_unavailable=Some("NoDevice") contacts=676 kicks=7222 flat=true first="" seconds=1.393
+E2 PASS cases=10/10 periods=1 position=0.020418 shape=0.039216 rest=0.020418 tol=0.03 oracle_delta=1.25e-9 oracle_shape_delta=2.55e-8 oracle_tol=0.00001 anchors=0 first="" seconds=1.033
+E3 PASS cases=18/18 periods=10 position=0.002806 shape=0.005267 rest=0.002280 tol=0.01(0.03_at_eps0.003) oracle_delta=2.76e-7 oracle_shape_delta=8.64e-8 oracle_tol=0.00001 anchors=36198 first="" seconds=19.563
+E4 PASS anchors=48 circle_moves=48 momentum_delta=0 unit=2^-92 required=0 energy_delta_quanta=0.000e0 allowed=1 first="" seconds=0.006
+E5 PASS handed_out_lockstep=2 sparse=2 mass=55 unique_and_balanced=true first="" seconds=0.004
+E6 FAIL caught=2/4 baseline_controls=false late:E1:SURVIVED tide-row:E2:caught drift:E8:caught rev:E1:SURVIVED seconds=7.026
+E7 PASS future_digest_alias=false futures_diverge=true next_epochs=(Some(64), Some(4096)) empty_anchor_threads8=true required=distinct,no_panic seconds=0.000
+E8 PASS settled=84/84 position_delta=0 unit=2^-32 required=0 seconds=0.001
+E9 FAIL cases=10/21 oracle_valid=true engine_valid=true evidence_saved=true periods=10 band=0.01 e=0:passed=[1000000.0, 100000.0, 10000.0, 1000.0]:failed=[100.0, 30.0, 10.0] e=0.3:passed=[1000000.0, 100000.0, 10000.0]:failed=[1000.0, 100.0, 30.0, 10.0] e=0.6:passed=[1000000.0, 100000.0, 10000.0]:failed=[1000.0, 100.0, 30.0, 10.0] gr_oracle_valid=true gr_positive=true gr_mutants=4/4 gr_evidence_saved=true weak_control=true mutants=2/2 mutant_evidence_saved=true seconds=13.855
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t37%; discharging; 0:51 remaining present: true","hardware":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","power_source":"Now drawing from 'AC Power'","swap":"unavailable: exit exit status: 1 sysctl: sysctl fmt -1 1024 1: Operation not permitted","therm":"Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc","time_utc":"2026-10-05T09:17:09Z","unix":1791191829,"when":"end"}

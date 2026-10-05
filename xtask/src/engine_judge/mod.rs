@@ -8,6 +8,7 @@ mod behaviour;
 mod conservation;
 mod drift;
 mod scene;
+mod schwarzschild;
 use crate::measure::{machine_state, Watch};
 use crate::Result;
 use std::{
@@ -32,7 +33,7 @@ fn gate(id: &str) -> (bool, String) {
 fn mutants(path: PathBuf) -> (bool, String) {
     let plans = [
         ("late", "E1"),
-        ("coriolis", "E2"),
+        ("tide-row", "E2"),
         ("drift", "E8"),
         ("rev", "E1"),
     ];
@@ -68,7 +69,10 @@ fn mutants(path: PathBuf) -> (bool, String) {
                     .unwrap_or("missing_gate");
                 let killed = !o.status.success() && line.starts_with(&format!("{id} FAIL "));
                 // Timeout, panic, missing binary or error is NOT an observed gate kill.
-                let killed = killed && !line.contains("timeout") && !line.contains("panic");
+                let killed = killed
+                    && !line.contains("timeout")
+                    && !line.contains("panic")
+                    && !line.contains("UNSUPPORTED");
                 caught += killed as usize;
                 results.push(format!(
                     "{name}:{id}:{}",
@@ -99,17 +103,22 @@ pub fn run(args: Vec<String>) -> Result<u8> {
     let mut only: Option<Vec<String>> = None;
     let mut binary = None;
     let mut prepare = false;
+    let mut weak_control = false;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
         "--gates"=>{i+=1;only=Some(args.get(i).ok_or("missing --gates value")?.split(',').map(str::to_string).collect());},
         "--mutant-binary"=>{i+=1;binary=Some(PathBuf::from(args.get(i).ok_or("missing --mutant-binary path")?));},
         "--prepare-mutants"=>prepare=true,
-        _=>return Err("usage: engine-judge [--gates E1,E2,E3,E4,E5,E6,E7,E8] [--prepare-mutants] [--mutant-binary PATH]".into())
+        "--e9-weak-control"=>weak_control=true,
+        _=>return Err("usage: engine-judge [--gates E1,E2,E3,E4,E5,E6,E7,E8,E9] [--prepare-mutants] [--mutant-binary PATH]".into())
     }
         i += 1;
     }
-    let ids = ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8"];
+    let ids = ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9"];
+    if weak_control && only.as_ref().is_none_or(|o| o.len() != 1 || o[0] != "E9") {
+        return Err("--e9-weak-control requires --gates E9".into());
+    }
     if only
         .as_ref()
         .is_some_and(|o| o.is_empty() || o.iter().any(|id| !ids.contains(&id.as_str())))
@@ -145,6 +154,9 @@ pub fn run(args: Vec<String>) -> Result<u8> {
         let start = Instant::now();
         let (ok, detail) = if id == "E6" {
             mutants(binary.clone())
+        } else if id == "E9" {
+            std::panic::catch_unwind(|| schwarzschild::run(&binary, weak_control))
+                .unwrap_or_else(|_| (false, "panic public_engine_contract".into()))
         } else {
             std::panic::catch_unwind(|| gate(id))
                 .unwrap_or_else(|_| (false, "panic public_engine_contract".into()))
