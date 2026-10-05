@@ -34,7 +34,7 @@ finish() {  # finish <grade or verdict line> [extra]: commit, push, and write DO
   fi
   echo "$1${2:+ | $2} | branch claude/lab-$id | $push" > "$out/DONE"
 }
-machine() { echo "Linux, $(nproc) vCPU, $(awk '/MemTotal/{printf "%d", $2/1048576}' /proc/meminfo) GB, shared with the window's other runs"; }
+machine() { echo "Linux, $(nproc) vCPU, $(awk '/MemTotal/{printf "%d", $2/1048576}' /proc/meminfo) GB, shared with the window's other runs: keep every process under 3 GB of memory, or it is killed"; }
 
 case ${1:-} in
 start)
