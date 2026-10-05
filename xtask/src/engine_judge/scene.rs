@@ -2,6 +2,8 @@
 use emergent_engine::{AnchorPolicy, Battle, Frame, Outcome};
 use emergent_lattice::{chronon::Chronon, Body, Kickable, Law, Response, Stepper, World};
 use emergent_lattice_event::EventCore;
+#[cfg(target_os = "macos")]
+use emergent_lattice_metal::MetalChronon;
 use std::collections::BTreeMap;
 
 pub const Q: i64 = 1 << 20;
@@ -107,6 +109,13 @@ pub fn trace<S: Kickable>(
 }
 
 pub fn determinism() -> (bool, String) {
+    #[cfg(target_os = "macos")]
+    let metal_error = MetalChronon::new(contact_scene(1, 0, 0), false)
+        .err()
+        .map(|e| format!("{e:?}"));
+    #[cfg(not(target_os = "macos"))]
+    let metal_error: Option<String> = None;
+    let metal_available = cfg!(target_os = "macos") && metal_error.is_none();
     let mut comparisons = 0;
     let mut wrong = 0;
     let mut contacts = 0;
@@ -132,13 +141,26 @@ pub fn determinism() -> (bool, String) {
                             0,
                         );
                         let e = trace(
-                            EventCore::new(w, false).unwrap(),
+                            EventCore::new(w.clone(), false).unwrap(),
                             f.clone(),
                             threads,
                             anchored,
                             0,
                         );
-                        for (order, out) in [("lockstep", c.0), ("sparse", e.0)] {
+                        #[allow(unused_mut)]
+                        let mut orders = vec![("lockstep", c.0), ("sparse", e.0)];
+                        #[cfg(target_os = "macos")]
+                        if metal_available {
+                            let m = trace(
+                                MetalChronon::new(w, false).unwrap(),
+                                f.clone(),
+                                threads,
+                                anchored,
+                                0,
+                            );
+                            orders.push(("metal", m.0));
+                        }
+                        for (order, out) in orders {
                             for (i, (got, want)) in out.iter().zip(&base.0).enumerate() {
                                 comparisons += 1;
                                 if got != want {
@@ -161,12 +183,37 @@ pub fn determinism() -> (bool, String) {
     let mut e = EventCore::new(w.clone(), false).unwrap();
     e.run_to(128);
     let mut b = Battle::new(
-        Chronon::new(w, false).unwrap(),
+        Chronon::new(w.clone(), false).unwrap(),
         Frame::flat(1024).unwrap(),
         1,
     );
     b.run_to(128).unwrap();
     let o = b.outcome();
-    let flat = (o.world, o.log) == c.outcome() && c.outcome() == e.outcome();
-    (wrong==0 && contacts>0 && kicks>0 && flat,format!("equal={}/{comparisons} scenes=24 seeds=4 insertion=3 threads=1,4,8 contacts={contacts} kicks={kicks} flat={flat} first={first:?}",comparisons-wrong))
+    #[allow(unused_mut)]
+    let mut flat = (o.world, o.log) == c.outcome() && c.outcome() == e.outcome();
+    #[cfg(target_os = "macos")]
+    if metal_available {
+        let mut m = MetalChronon::new(w.clone(), false).unwrap();
+        m.run_to(128);
+        let mut b = Battle::new(
+            MetalChronon::new(w, false).unwrap(),
+            Frame::flat(1024).unwrap(),
+            1,
+        );
+        b.run_to(128).unwrap();
+        let o = b.outcome();
+        flat &= (o.world, o.log) == m.outcome() && m.outcome() == c.outcome();
+    }
+    let expected = if cfg!(target_os = "macos") {
+        6480
+    } else {
+        4320
+    };
+    let unsupported = if metal_error.is_some() {
+        "UNSUPPORTED "
+    } else {
+        ""
+    };
+    (wrong==0 && comparisons==expected && contacts>0 && kicks>0 && flat,
+     format!("{unsupported}equal={}/{comparisons} checked={comparisons}/{expected} scenes=24 seeds=4 insertion=3 threads=1,4,8 metal={metal_available} metal_unavailable={metal_error:?} contacts={contacts} kicks={kicks} flat={flat} first={first:?}",comparisons-wrong))
 }
