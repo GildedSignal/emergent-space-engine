@@ -144,37 +144,41 @@ pub(crate) fn to_word(v: [i128; 2], exp: i32) -> Res<([i64; 2], i16)> {
     Ok(([word(v[0])?, word(v[1])?], i16::try_from(exp + shift).map_err(|_| Error::Refused("exponent"))?))
 }
 
-fn lift(a: &IntegerState, c: usize, velocity: bool, el: i32, ev: i32) -> i128 {
-    if velocity {
-        (a.velocity[c] as i128) << (a.velocity_exponent as i32 - ev)
-    } else {
-        (a.position[c] as i128) << (a.length_exponent as i32 - el)
-    }
+/// A position component of `a` as an integer at the length exponent `el` (not above its own).
+fn lift(a: &IntegerState, c: usize, el: i32) -> i128 {
+    (a.position[c] as i128) << (a.length_exponent as i32 - el)
 }
 
 /// Re-express `st` (a state in the doll whose clock exponent is `from`) relative to the doll's
-/// child centre `centre` (a state in the same doll), in the child doll (`to`): subtract, then
-/// relabel the length exponent (one doll unit is `2^(to − from)` of the other). Exact.
+/// child centre `centre` (a state in the same doll), in the child doll (`to`). The position is subtracted and its
+/// length exponent relabelled (one doll unit is `2^(to − from)` of the other): exact. The velocity is the ship's seen
+/// from the centre, the Lorentz composition by nine integer shears on its lifted four-velocity ([`crate::lorentz`]; the
+/// Galilean `v − v_c` was the low-speed approximation), at the finest exponent that holds it. The tick is the same in
+/// both dolls: the position is not boosted (the law's open question: a boost also maps an event's time).
 fn relative(st: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Res<IntegerState> {
-    let (el, ev) = (st.length_exponent.min(centre.length_exponent) as i32, st.velocity_exponent.min(centre.velocity_exponent) as i32);
-    let p = [0, 1].map(|c| lift(st, c, false, el, ev) - lift(centre, c, false, el, ev));
-    let v = [0, 1].map(|c| lift(st, c, true, el, ev) - lift(centre, c, true, el, ev));
+    let el = st.length_exponent.min(centre.length_exponent) as i32;
+    let p = [0, 1].map(|c| lift(st, c, el) - lift(centre, c, el));
     let (pw, pe) = to_word(p, el + (to as i32 - from as i32))?;
-    let (vw, ve) = to_word(v, ev)?;
-    Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: ve })
+    let (vw, ve) = crate::lorentz::seen_from((st.velocity, st.velocity_exponent as i32), (centre.velocity, centre.velocity_exponent as i32), None)?;
+    Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: i16::try_from(ve).map_err(|_| Error::Refused("exponent"))? })
 }
 
-/// The inverse: `rel` in the child doll (`from`) plus the child's centre in the parent (`to`).
-/// The sum is rounded to the parent's word (toward zero): the one carry of a handoff, bounded by
-/// one quantum of the parent's units.
+/// The inverse: `rel` in the child doll (`from`) seen from the child's centre in the parent (`to`). The positions add
+/// (rounded to the parent's word, toward zero: the one carry of a handoff, bounded by one quantum of the parent's
+/// units); the velocity is the child's, composed with the centre's by the inverse shears, at the exponent of the
+/// centre's own words when it fits there (the parent's convention for what leaves a centre) and at the finest that
+/// holds it otherwise.
 fn absolute(rel: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Res<IntegerState> {
     let in_parent = IntegerState { length_exponent: rel.length_exponent - (from - to), ..*rel };
-    let (el, ev) = (in_parent.length_exponent.min(centre.length_exponent) as i32, in_parent.velocity_exponent.min(centre.velocity_exponent) as i32);
-    let p = [0, 1].map(|c| lift(&in_parent, c, false, el, ev) + lift(centre, c, false, el, ev));
-    let v = [0, 1].map(|c| lift(&in_parent, c, true, el, ev) + lift(centre, c, true, el, ev));
+    let el = in_parent.length_exponent.min(centre.length_exponent) as i32;
+    let p = [0, 1].map(|c| lift(&in_parent, c, el) + lift(centre, c, el));
     let (pw, pe) = to_word(p, el)?;
-    let (vw, ve) = to_word(v, ev)?;
-    Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: ve })
+    let (vw, ve) = crate::lorentz::seen_by_parent(
+        (rel.velocity, rel.velocity_exponent as i32),
+        (centre.velocity, centre.velocity_exponent as i32),
+        Some(centre.velocity_exponent as i32),
+    )?;
+    Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: i16::try_from(ve).map_err(|_| Error::Refused("exponent"))? })
 }
 
 /// The first tick at or after `after` where the tube is at or beyond `edge` (outward), if any.
@@ -306,7 +310,7 @@ impl Work<'_, '_> {
             tube: bound.tube,
             entry: bound.entry.clone(),
             residual: bound.residual,
-            delta: bound.delta,
+            turn: bound.turn,
             units: bound.units,
             clock_exp,
             event_time: t,
@@ -719,5 +723,67 @@ mod tests {
         let (dp, dv) = q(&first, &ship);
         let quantum = 1i128 << (200 - 30 + 0).max(0);
         assert!(dp <= quantum && dv <= (1i128 << (200 - 75)), "one round trip loses at most a quantum: {dp} {dv}");
+    }
+
+    /// A ship captured and released at a centre speed of 0.01, 0.3 and 0.9 returns the identical integer state (the
+    /// memo's R3 test; frozen before the first run): a ship that moves with its centre, at any distance in the doll, in the
+    /// state's words and exponents (compared as values). 4000 states each, every direction of the centre's motion.
+    #[test]
+    fn a_ship_captured_and_released_returns_the_identical_integer_state_at_every_speed() {
+        let mut seed = 0x1234_5678_9ABC_DEF1u64;
+        let mut rnd = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let (host, child) = (0i16, 10i16);
+        let value = |st: &IntegerState| -> [i128; 4] {
+            let sh = |x: i64, e: i16| (x as i128) << (e as i32 + 200);
+            [sh(st.position[0], st.length_exponent), sh(st.position[1], st.length_exponent), sh(st.velocity[0], st.velocity_exponent), sh(st.velocity[1], st.velocity_exponent)]
+        };
+        for beta in [0.01f64, 0.3, 0.9] {
+            let ve = beta.log2().floor() as i16 - 61;
+            let mut exact = 0;
+            for _ in 0..4000 {
+                let ang = (rnd() * 2.0 - 1.0) * std::f64::consts::PI;
+                let w = [(beta * ang.cos() / 2f64.powi(ve as i32)).round() as i64, (beta * ang.sin() / 2f64.powi(ve as i32)).round() as i64];
+                let centre = IntegerState { position: [(rnd() * 2e18 - 1e18) as i64, (rnd() * 2e18 - 1e18) as i64], velocity: w, length_exponent: -30, velocity_exponent: ve };
+                // Within the doll: a few million units of the centre's, moving with it at up to a thousandth of its speed.
+                let rel = (rnd() * 0.001 * beta) / 2f64.powi(ve as i32);
+                let a2 = (rnd() * 2.0 - 1.0) * std::f64::consts::PI;
+                let ship = IntegerState {
+                    position: [centre.position[0] + (rnd() * 4e15 - 2e15) as i64, centre.position[1] + (rnd() * 4e15 - 2e15) as i64],
+                    velocity: [w[0] + (rel * a2.cos()).round() as i64, w[1] + (rel * a2.sin()).round() as i64],
+                    length_exponent: -30,
+                    velocity_exponent: ve,
+                };
+                let back = absolute(&relative(&ship, &centre, host, child).unwrap(), &centre, child, host).unwrap();
+                exact += (value(&back) == value(&ship)) as usize;
+            }
+            println!("centre at {beta}c: {exact} of 4000 captured-then-released ships come back as the identical state");
+            assert_eq!(exact, 4000, "centre at {beta}c");
+        }
+    }
+
+    /// The handoff is Lorentz: a ship captured is seen with the relativistic composition of velocities (to the float
+    /// oracle's own precision), where the Galilean difference of the old handoff is off by the order of `β²`.
+    #[test]
+    fn a_captured_ship_is_seen_with_the_relativistic_velocity() {
+        let ve = -62i16;
+        let w = [(0.6f64 * 2f64.powi(62)) as i64, (0.3f64 * 2f64.powi(62)) as i64];
+        let centre = IntegerState { position: [0, 0], velocity: w, length_exponent: -30, velocity_exponent: ve };
+        let v = [(0.1f64 * 2f64.powi(62)) as i64, (-0.2f64 * 2f64.powi(62)) as i64];
+        let ship = IntegerState { position: [1 << 40, 1 << 41], velocity: v, length_exponent: -30, velocity_exponent: ve };
+        let rel = relative(&ship, &centre, 0, 10).unwrap();
+        let f = |x: i64, e: i16| x as f64 * 2f64.powi(e as i32);
+        let (vf, wf) = ([f(v[0], ve), f(v[1], ve)], [f(w[0], ve), f(w[1], ve)]);
+        let (ww, vw) = (wf[0] * wf[0] + wf[1] * wf[1], vf[0] * wf[0] + vf[1] * wf[1]);
+        let g = 1.0 / (1.0 - ww).sqrt();
+        let k = 1.0 / (1.0 - vw);
+        let want = [k * (vf[0] / g - wf[0] + g / (g + 1.0) * vw * wf[0]), k * (vf[1] / g - wf[1] + g / (g + 1.0) * vw * wf[1])];
+        let got = [f(rel.velocity[0], rel.velocity_exponent), f(rel.velocity[1], rel.velocity_exponent)];
+        let miss = (got[0] - want[0]).abs().max((got[1] - want[1]).abs());
+        let galilean = (vf[0] - wf[0] - want[0]).abs().max((vf[1] - wf[1] - want[1]).abs());
+        println!("relativistic composition: miss {miss:.1e}; the Galilean difference misses by {galilean:.1e}");
+        assert!(miss < 1e-15 && galilean > 1e-2);
     }
 }

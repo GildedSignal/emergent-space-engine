@@ -6,6 +6,7 @@ pub mod dash;
 pub mod encounter;
 pub mod fleet;
 pub mod force;
+pub mod lorentz;
 pub mod num;
 pub mod observe;
 pub mod scenario;

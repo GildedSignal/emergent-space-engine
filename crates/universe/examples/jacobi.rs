@@ -48,6 +48,9 @@ fn main() {
         let t = (k as f64 * period / (8.0 * fine as f64)) as i64;
         w.u.settle(t);
         for (i, &sh) in w.ships.iter().enumerate() {
+            if !w.u.rec(sh).alive && std::env::var("ALIVE").is_ok() {
+                continue;
+            }
             let ts = if std::env::var("SYNC").is_ok() { w.u.rec(sh).anchor } else { t };
             let err = ((jac(&w, sh, ts) - c0[i]) * ships[i].0 as f64).abs();
             worst[i] = worst[i].max(err);
@@ -58,6 +61,12 @@ fn main() {
         }
     }
     println!("captures per ship: {passes:?}");
+    for (i, &sh) in w.ships.iter().enumerate() {
+        let r = w.u.rec(sh);
+        if !r.alive {
+            println!("ship {i} is gone: fault {:?}, doll {}, last binding at {}, refusals {}", r.fault, r.b.doll, r.b.event_time, r.refusals);
+        }
+    }
     let s = w.u.stats;
     println!("step 2^-{step_log2}: worst per ship {:?} | {:.1}s kicks {} handoffs {} lost {}", worst.iter().map(|x| format!("{x:.1e}")).collect::<Vec<_>>(), t0.elapsed().as_secs_f64(), s.kicks, s.handoffs, s.lost);
 }

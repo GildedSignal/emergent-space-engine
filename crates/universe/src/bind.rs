@@ -2,17 +2,19 @@
 //! exact. A tube is a key (an index into the catalogue of compiled trajectories), a periapsis
 //! angle (32 bits) and a periapsis time (64 bits, in the doll's clock). A rounded fit is not
 //! injective, so a binding also keeps what the fit discards (the law: "the remainder is carried
-//! and never dropped"): the periapsis angle's 2^-32 turn as a **sub-quantum rotation** `delta`
+//! and never dropped"): the periapsis angle's 2^-32 turn as a **sub-quantum rotation** `turn`
 //! (a constant Cartesian offset cannot carry it: it would send the body along a path whose
 //! velocity is rotated by the quantum at every rebinding, and rebindings would accumulate, the
 //! drift measured in `crates/engine/src/tube.rs`), and an integer **offset** (what is left after
-//! the turn). The readout at any time is `turn(delta)·decode(tube, t) + offset`, and at the
-//! binding event it is the bound state, bit for bit.
+//! the turn). The readout at any time is `turn·decode(tube, t) + offset`, and at the
+//! binding event it is the bound state, bit for bit. The turn is three integer shears
+//! ([`crate::lorentz`]): a bijection of the integer plane, exactly invertible, within two quanta of the rotation.
 //!
 //! The catalogue here is this crate's own: slots with a free list, so a body that rebinds gives
 //! its old slot back (`crates/space`'s `Catalogue` only grows, which a body rebound a million
 //! times cannot afford). A segment of history keeps its own `Arc` of the compiled trajectory, so
 //! the past stays readable for the view after its slot is reused.
+use crate::lorentz::Turn;
 use crate::num::{cross2, dot2, time_of, Error, Res, Tick, V2};
 use crate::world::Unit;
 use emergent_space::{
@@ -90,7 +92,7 @@ pub struct Binding {
     pub entry: Arc<Entry>,
     /// What the fit discarded, exact at `event_time`: an integer offset and a sub-quantum turn.
     pub residual: Residual,
-    pub delta: Scalar,
+    pub turn: Turn,
     /// Exponents of the integer state: positions `n·2^units.0`, velocities `n·2^units.1`.
     pub units: (i16, i16),
     /// The doll's clock quantum (`2^clock_exp` doll time units per tick).
@@ -114,18 +116,6 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
     Ok((cartesian(state, tube.periapsis_angle, entry.clockwise, units)?, state))
 }
 
-/// `(I + δJ − δ²/2)·a`, truncated: the sub-quantum turn applied to an integer vector.
-fn turn(a: [i64; 2], delta: Scalar) -> Res<[i128; 2]> {
-    if delta.is_zero() {
-        return Ok([a[0] as i128, a[1] as i128]);
-    }
-    let half = delta.mul(delta)?.scale(-1)?;
-    let (x, y) = (Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?);
-    let nx = x.sub(delta.mul(y)?)?.sub(half.mul(x)?)?;
-    let ny = y.add(delta.mul(x)?)?.sub(half.mul(y)?)?;
-    Ok([nx.fixed(0)?, ny.fixed(0)?])
-}
-
 impl Binding {
     /// A length or time of the compiled trajectory (in units of the doll's mass) in the doll's own units.
     pub fn to_doll(&self, x: Scalar) -> Res<Scalar> {
@@ -141,7 +131,7 @@ impl Binding {
     /// binding event it equals the bound state.
     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
         let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
-        let (p, v) = (turn(d.position, self.delta)?, turn(d.velocity, self.delta)?);
+        let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
         let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
         Ok(IntegerState {
             position: [fit(p[0], self.residual.position[0])?, fit(p[1], self.residual.position[1])?],
@@ -189,7 +179,7 @@ pub struct Bound {
     pub entry: Arc<Entry>,
     pub tube: Tube,
     pub residual: Residual,
-    pub delta: Scalar,
+    pub turn: Turn,
     pub orbit: OrbitState,
 }
 
@@ -237,13 +227,13 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
     let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
     let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
     let dot = dot2(dp, ep)?;
-    let delta = if dot.is_positive() { cross2(dp, ep)?.div(dot)? } else { Scalar::ZERO };
-    let (tp, tv) = (turn(decoded.position, delta)?, turn(decoded.velocity, delta)?);
+    let turn = if dot.is_positive() { Turn::of_tangent(cross2(dp, ep)?.div(dot)?)? } else { Turn::NONE };
+    let (tp, tv) = (turn.apply(decoded.position)?, turn.apply(decoded.velocity)?);
     let residual = Residual {
         position: [exact.position[0] as i128 - tp[0], exact.position[1] as i128 - tp[1]],
         velocity: [exact.velocity[0] as i128 - tv[0], exact.velocity[1] as i128 - tv[1]],
     };
-    Ok(Bound { units, entry, tube, residual, delta, orbit })
+    Ok(Bound { units, entry, tube, residual, turn, orbit })
 }
 
 /// A binding with an exactly known tube and nothing to carry (a body made from its orbit).
@@ -253,7 +243,7 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
         tube,
         entry,
         residual: Residual { position: [0; 2], velocity: [0; 2] },
-        delta: Scalar::ZERO,
+        turn: Turn::NONE,
         units,
         clock_exp,
         event_time: t,

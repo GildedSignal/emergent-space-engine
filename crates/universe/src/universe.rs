@@ -332,7 +332,7 @@ impl Universe {
         let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
         let mut tube = bound.tube;
         tube.key = self.cat.insert(bound.entry.clone())?;
-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, delta: bound.delta, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
+        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
         let rec = BodyRec {
             kind,
             b,
@@ -679,7 +679,7 @@ impl Universe {
             let key = self.cat.insert(bound.entry.clone())?;
             let mut tube = bound.tube;
             tube.key = key;
-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, delta: bound.delta, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE };
+            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE };
             let rec = BodyRec {
                 kind: Kind::Ship,
                 b,
@@ -1008,7 +1008,8 @@ impl Universe {
             put_s(&mut h, key.periapsis);
             put(&mut h, key.k as i128);
             put(&mut h, r.b.entry.clockwise as i128);
-            put_s(&mut h, r.b.delta);
+            put(&mut h, r.b.turn.a as i128);
+            put(&mut h, r.b.turn.b as i128);
             for c in 0..2 {
                 put(&mut h, r.b.residual.position[c]);
                 put(&mut h, r.b.residual.velocity[c]);
