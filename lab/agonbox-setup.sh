@@ -8,8 +8,8 @@ set -euo pipefail
 U=glmlab
 id "$U" >/dev/null 2>&1 || adduser --disabled-password --gecos "GLM lab runner" "$U"
 chmod 750 /home/julien
-apt-get update -y
-apt-get install -y build-essential pkg-config git curl jq python3-pip python3-venv \
+apt-get -o DPkg::Lock::Timeout=1200 update -y   # waits while unattended-upgrades holds the lock
+apt-get -o DPkg::Lock::Timeout=1200 install -y build-essential pkg-config git curl jq python3-pip python3-venv \
   python3-numpy python3-scipy python3-sympy python3-mpmath python3-matplotlib
 
 # The firewall: glmlab may not reach private, link-local, CGNAT (tailnet) or the home IPv6 prefix.
