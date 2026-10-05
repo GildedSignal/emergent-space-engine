@@ -1,6 +1,6 @@
 //! B18 belt (docs/law.md, row "B18 belt", 5 October; Julien: "ok for the belt"). NOT FROZEN: the integrator
-//! freezes it, after the GLM red-team of the row (`lab/lenses/redteam-b18-belt.md`) has run. Until then the gate
-//! is opt-in (`--gates B18b`, `select::OPT_IN`).
+//! freezes it. The GLM red-team of the row has run (run 20261005-1404: four holes, F1 to F4, all repaired below). Until the
+//! freeze the gate is opt-in (`--gates B18b`, `select::BELT`).
 //!
 //! The thing judged is a belt program: a smooth population (banded p, Rayleigh e, uniform angles) of 2^20 or 2^23
 //! bodies, born as a program (the lab's gold components-98bc: body i is a pure function of its ordinal). The judge
@@ -10,9 +10,10 @@
 //! ## The interface ([`Belt`], on the integers of [`SPEC`])
 //! - `body(i)`: regenerate ordinal i: the draw (p, e, omega, t_p), each on the grid of the spec.
 //! - `store()` and `restore`: the whole store as bytes, and the belt rebuilt from those bytes alone.
-//! - `bytes_used()`: what it holds. The judge charges the larger of this and `store().len()`.
+//! - `bytes_used()`: what it holds that is specific to the population (parameters, scars). The judge charges the larger of
+//!   this and `store().len()`. A table derived from the spec is a working constant, not counted, and not stored.
 //! - `scar(i, body)`: history rewrites one body: afterwards `body(i)` is that body and nothing else changed.
-//! - `form()`: [`Form::Program`] (with the bytes of its tables and parameters, its information) or [`Form::Sample`]
+//! - `form()`: [`Form::Program`] (with the bytes of its parameters, its information: at most [`INFO_CAP`]) or [`Form::Sample`]
 //!   (a stored iid draw, judged under B18's iid floor rule, which this case leaves unchanged).
 //!
 //! ## The row's four criteria, and the statistics that decide them (all thresholds frozen here)
@@ -33,17 +34,30 @@
 //!    - Per-column two-sample KS against the iid reference: D at most [`KS_C`] * sqrt(2/n), the asymptotic critical
 //!      value at alpha = 1e-5.
 //!    - The reference runs through the same tests: if it fails them, the judge is broken, and says so.
-//! 3. *Tails survive*, for e and for p. k = ceil(1e-4 n); thr = the reference's k-th largest.
-//!    - Count: X is the number of belt values at or above thr. With the reference's own count K = k, X - K has
+//! 3. *Tails survive*, at both ends of e and of p (the top and the bottom 1e-4; the bottom ends are the top ones mirrored:
+//!    depth is the distance from the end). k = ceil(1e-4 n); thr = the reference's k-th deepest.
+//!    - Count: X is the number of belt values at least as deep as thr. With the reference's own count K = k, X - K has
 //!      variance 2K (the belt's binomial noise plus the noise of the reference's threshold), so |X - K| / sqrt(2K) is
 //!      at most [`Z_TAIL`]. (Simulated: sd 0.95 to 0.97 over 120 iid pairs at k = 27 and 105.)
-//!    - Range, two exact order-statistic tests, each wrong with probability 2^-20 under iid: the belt's largest value
-//!      reaches the reference's 20th largest (the tail is not clipped), and the belt's 20th largest does not pass the
-//!      reference's largest (nor stretched). Every value lies inside the law's support.
+//!    - Range, two exact order-statistic tests, each wrong with probability 2^-20 under iid: the belt's deepest value
+//!      reaches the reference's 20th deepest (the tail is not clipped), and the belt's 20th deepest does not pass the
+//!      reference's deepest (nor stretched). Every value lies inside the law's support.
 //!    - Shape: two-sample KS between the belt's X tail values and the reference's k, at the KS_C level.
+//!    - Spread (red-team F1): conditional on thr, the belt's tail is exactly the law's tail, so -ln w is exponential with
+//!      mean 1 (w the law's conditional survival score); the sum of (-ln w - 1) over the tail over sqrt(X) is a z, at most
+//!      [`Z_TAIL`], and the same z pooled over the runs (sum over total X). A mean, not a sup: it sees a crush of the tail's
+//!      spread that keeps its count and its reach. Its best possible z for a crush of c is c sqrt(X): 15% gives 4.4 at
+//!      X = 850 (a 2^23 run) and 6.7 pooled over the five runs, so a crush of about 13% and over is the gate's floor.
+//!    - Company (F3): the tail bodies' other three columns stay uniform: one-sample KS of each, D at most KS_C / sqrt(X).
+//!    The reference's own tails run through the spread and company tests as the judge's control. (The angles have no tail:
+//!    the ends of a circle are not special. A hollow in an arc of omega or t_p is the 2-D chi-square's and the company
+//!    test's business, not a tail's.)
 //! 4. *Bytes.*
-//!    - Program form, at birth: charge at most 2 x info + 2 bytes (`memory::limit_bytes`); the declaration is bound
-//!      (charge at least info, and neither grows with n: 2^23 against 2^20, at most 16 bytes more).
+//!    - Program form, at birth: the declared information is at most [`INFO_CAP`] bytes (red-team F4: a program's information
+//!      is its parameters; a table derived from them is not information, so the belt derives it at birth and its store does
+//!      not carry it); charge at most 2 x info + 2 bytes (`memory::limit_bytes`); the declaration is bound (charge at least
+//!      info, and neither grows with n: 2^23 against 2^20, at most 16 bytes more). `bytes_used` counts what is specific to
+//!      the population (parameters, scars); a table derived from the spec is a working constant, not counted.
 //!    - Sample form, at birth: B18's rule, bytes per body in [0.5, 2] x the draw entropy + 2 bytes.
 //!    - After 12 epochs of churn at 1e-2 (replacement kicks of 50 bits, relative to the program): Program, the bytes
 //!      added per scarred body are in [0.5, 2] x the scar's information floor + 2 bytes (the floor is log2 C(n, m) / m
@@ -52,19 +66,21 @@
 //!      ordinal exactly, and round-trips.
 //!    - Reported, not gated: bytes at 1e9, and what 12 epochs of churn cost there.
 //!
-//! The program's information is whatever it declares. It is bound only by sufficiency (the belt restores from its
-//! store), by not growing with n, and by the factor 2. That is the row's own wording ("its tables and parameters") and
-//! the red-team's open question: a belt may declare a big table as information.
+//! The row says "its tables and parameters"; this judge reads it as its parameters (the cap above), because a table
+//! derived from the spec carries no information. The integrator rewords the row at the freeze.
 //!
-//! ## Controls and plants (the gate must pass the first two and fail every other)
+//! ## Controls and plants (the gate must pass the first three and fail every other)
 //! [`ProgramBelt`] with [`Flaw::None`] is the exact in-judge reference belt (a SplitMix64 counter stream through an
-//! integer-reproducible Rayleigh quantile; it passes). [`SampleBelt`] is an iid draw stored as packed blocks (passes
-//! under the iid rule). The plants: [`Flaw::Table12`] (e through the gold's 2^12-entry midpoint quantile table: the
-//! top 1e-4 falls in one cell), [`Flaw::Winsor`] (both columns clipped at their 1 - 1e-4 quantile: the count survives,
-//! the range does not), [`Flaw::Repeat`] (the states repeat every n/4), [`Flaw::Serial`] (a seventh of the odd bodies
-//! copy their neighbour's t_p), [`Flaw::Thread`] (a shared call counter), [`Flaw::Fat`] (one more byte per body in the
-//! store), [`Flaw::Lattice`] (the lab's rank-1 lattice: perfect marginals, structure in the plane), [`Flaw::FatScars`]
-//! (the program right, the scars 40 bytes each), and a [`SampleBelt`] kept as 64-byte ships.
+//! integer-reproducible Rayleigh quantile; it passes), [`Flaw::Dyadic`] a two-level dyadic quantile table (2^12 cells in each
+//! octave of the probability, at both ends; it passes), and [`SampleBelt`] an iid draw stored as packed blocks (passes under
+//! the iid rule). The plants: [`Flaw::Table12`] (e through the gold's 2^12-entry midpoint quantile table: both ends of e fall
+//! in one cell), [`Flaw::Winsor`] (both columns clipped at their 1 - 1e-4 quantile: the count survives, the range does not),
+//! [`Flaw::Repeat`] (the states repeat every n/4), [`Flaw::Serial`] (a seventh of the odd bodies copy their neighbour's t_p),
+//! [`Flaw::Thread`] (a shared call counter), [`Flaw::Fat`] (one more byte per body in the store), [`Flaw::Lattice`] (the lab's
+//! rank-1 lattice: perfect marginals, structure in the plane), [`Flaw::FatScars`] (the program right, the scars 40 bytes
+//! each), a [`SampleBelt`] kept as 64-byte ships; and the red-team's four holes (GLM run 20261005-1404, F1 to F4):
+//! [`Flaw::Crush`] (the e-tail's spread crushed 15%), [`Flaw::InnerClip`] (a hollow inner edge of p), [`Flaw::Aligned`] (the
+//! deep dippers in one 1/32 of the omega circle) and [`Flaw::Table20`] (a 4 MB table in the store, declared as information).
 
 use super::memory::limit_bytes;
 use super::{Gate, Law};
@@ -208,8 +224,12 @@ fn rayleigh_grid(u: u64, spec: &BeltSpec) -> u64 {
     let e = spec.sigma() * (-2.0 * ln_det(v)).sqrt();
     ((e * (1u64 << spec.e_bits) as f64) as u64).min(spec.e_cap)
 }
+/// e on the grid for a given ln v (v uniform; e = sigma sqrt(-2 ln v)), capped.
+fn e_grid_from_ln(ln_v: f64, spec: &BeltSpec) -> u64 {
+    ((spec.sigma() * (-2.0 * ln_v).sqrt() * (1u64 << spec.e_bits) as f64) as u64).min(spec.e_cap)
+}
 /// The e (on the grid) that a fraction `q` of the law lies above.
-fn e_quantile_grid(q: f64, spec: &BeltSpec) -> u64 {
+pub fn e_quantile_grid(q: f64, spec: &BeltSpec) -> u64 {
     ((spec.sigma() * (-2.0 * q.ln()).sqrt() * (1u64 << spec.e_bits) as f64) as u64).min(spec.e_cap)
 }
 
@@ -249,17 +269,28 @@ pub enum Flaw {
     Lattice,
     /// the scars are stored as fixed 40-byte records.
     FatScars,
-    /// A CONTROL, not a plant: e through a two-level dyadic quantile table, 2^12 cells in each octave of the
-    /// probability (indexed by the leading zeros of the draw, then its next 12 bits). It resolves the tail to 2^-53
-    /// and passes: dyadic tables clip only when they are dyadic in the probability's linear scale.
+    /// A CONTROL, not a plant: e through a two-level dyadic quantile table, 2^12 cells in each octave of the probability
+    /// at BOTH ends (indexed by the side, the leading zeros of the draw's distance from that end, then its next 12 bits).
+    /// It resolves both tails of e to 2^-53 and passes. (Dyadic at the top end only clips the bottom 1e-4 of e.)
     Dyadic,
+    /// every e above the 1 - 1e-4 quantile is pulled 15% toward that quantile (the tail's spread crushed; count and
+    /// reach survive).
+    Crush,
+    /// the same crush at 12%: each run passes on its own and only the pooled tail test sees it.
+    Crush12,
+    /// p clipped from below at its 1e-4 quantile (a hollow inner edge).
+    InnerClip,
+    /// the e-tail bodies (the top 1e-4) all take their omega from one 1/32 of the circle.
+    Aligned,
+    /// e through a one-level 2^20-cell midpoint quantile table that the store carries (4 MB) and declares as information.
+    Table20,
 }
 impl Flaw {
     fn code(self) -> u8 {
         self as u8
     }
     fn from_code(c: u8) -> Option<Flaw> {
-        [Flaw::None, Flaw::Table12, Flaw::Winsor, Flaw::Repeat, Flaw::Serial, Flaw::Thread, Flaw::Fat, Flaw::Lattice, Flaw::FatScars, Flaw::Dyadic].get(c as usize).copied()
+        [Flaw::None, Flaw::Table12, Flaw::Winsor, Flaw::Repeat, Flaw::Serial, Flaw::Thread, Flaw::Fat, Flaw::Lattice, Flaw::FatScars, Flaw::Dyadic, Flaw::Crush, Flaw::Crush12, Flaw::InnerClip, Flaw::Aligned, Flaw::Table20].get(c as usize).copied()
     }
 }
 
@@ -300,8 +331,12 @@ pub struct ProgramBelt {
     spec: BeltSpec,
     n: u64,
     seed: u64,
-    /// Table12's quantile table (derived at birth, never stored).
+    /// The quantile table of Table12, Dyadic or Table20 (derived at birth; only Table20's store carries it).
     table: Vec<u64>,
+    /// The e that 1e-4 of the law lies above, and p's 1e-4 quantiles (offsets): the cuts of the tail plants.
+    cut_e: u64,
+    cut_p_lo: u64,
+    cut_p_hi: u64,
     scars: BTreeMap<u64, Body>,
     calls: AtomicU64,
 }
@@ -312,16 +347,20 @@ impl ProgramBelt {
     pub fn birth(spec: &BeltSpec, n: u64, seed: u64, flaw: Flaw) -> ProgramBelt {
         let table = match flaw {
             Flaw::Table12 => (0..4096).map(|j| e_quantile_grid(1.0 - (j as f64 + 0.5) / 4096.0, spec)).collect(),
-            Flaw::Dyadic => (0..53 * 4096)
+            Flaw::Table20 => (0..1u64 << 20).map(|j| e_quantile_grid(1.0 - (j as f64 + 0.5) / (1u64 << 20) as f64, spec)).collect(),
+            Flaw::Dyadic => (0..2 * 53 * 4096)
                 .map(|c| {
-                    let (lz, j) = (c / 4096, c % 4096);
-                    let v = if lz == 52 { 2f64.powi(-53) } else { 2f64.powi(-(lz + 1)) * (1.0 + (j as f64 + 0.5) / 4096.0) };
-                    e_quantile_grid(v, spec)
+                    let (side, lz, j) = (c / (53 * 4096), (c / 4096) % 53, c % 4096);
+                    let dist = if lz == 52 { 2f64.powi(-53) } else { 2f64.powi(-(lz as i32 + 1)) * (1.0 + (j as f64 + 0.5) / 4096.0) };
+                    e_grid_from_ln(if side == 0 { dist.ln() } else { (-dist).ln_1p() }, spec)
                 })
                 .collect(),
             _ => Vec::new(),
         };
-        ProgramBelt { flaw, spec: *spec, n, seed, table, scars: BTreeMap::new(), calls: AtomicU64::new(0) }
+        let cut_e = e_quantile_grid(1e-4, spec);
+        let cut_p_lo = (1e-4 * (1u64 << spec.p_bits) as f64) as u64;
+        let cut_p_hi = ((1.0 - 1e-4) * (1u64 << spec.p_bits) as f64) as u64;
+        ProgramBelt { flaw, spec: *spec, n, seed, table, cut_e, cut_p_lo, cut_p_hi, scars: BTreeMap::new(), calls: AtomicU64::new(0) }
     }
     /// The program's body for ordinal `i`, with the flaw but without scars.
     fn program(&self, i: u64) -> Body {
@@ -338,16 +377,22 @@ impl ProgramBelt {
         let mut b = Body { p: s.p_lo + (wp >> (64 - s.p_bits)), e: rayleigh_grid(we, s), w: ww >> (64 - s.w_bits), t: wt >> (64 - s.t_bits) };
         match self.flaw {
             Flaw::Table12 => b.e = self.table[(we >> 52) as usize],
+            Flaw::Table20 => b.e = self.table[(we >> 44) as usize],
             Flaw::Dyadic => {
                 let u = we >> 12;
-                let lz = u.leading_zeros() as usize - 12;
-                let j = if lz >= 51 { 0 } else { ((u << (13 + lz)) >> 52) as usize };
-                b.e = self.table[lz * 4096 + j];
+                let (side, t) = if u < 1 << 51 { (0usize, u) } else { (1, (1u64 << 52) - 1 - u) };
+                let lz = t.leading_zeros() as usize - 12;
+                let j = if lz >= 51 { 0 } else { ((t << (13 + lz)) >> 52) as usize };
+                b.e = self.table[(side * 53 + lz) * 4096 + j];
             }
             Flaw::Winsor => {
-                b.e = b.e.min(e_quantile_grid(1e-4, s));
-                b.p = b.p.min(s.p_lo + ((1.0 - 1e-4) * (1u64 << s.p_bits) as f64) as u64);
+                b.e = b.e.min(self.cut_e);
+                b.p = b.p.min(s.p_lo + self.cut_p_hi);
             }
+            Flaw::Crush if b.e > self.cut_e => b.e = self.cut_e + (b.e - self.cut_e) * 85 / 100,
+            Flaw::Crush12 if b.e > self.cut_e => b.e = self.cut_e + (b.e - self.cut_e) * 88 / 100,
+            Flaw::InnerClip => b.p = b.p.max(s.p_lo + self.cut_p_lo),
+            Flaw::Aligned if b.e > self.cut_e => b.w >>= 5,
             Flaw::Serial if i % 2 == 1 && at(self.seed ^ 0x5E21A1, i) >> 61 == 0 => {
                 b.t = at(self.seed, (i - 1).wrapping_mul(4) + 3) >> (64 - s.t_bits);
             }
@@ -363,8 +408,9 @@ impl ProgramBelt {
             self.program(i)
         }
     }
+    /// The program's information as it declares it: its parameters, and (Table20) the table its store carries.
     fn info_bytes(&self) -> u64 {
-        HEADER_BYTES as u64
+        HEADER_BYTES as u64 + if self.flaw == Flaw::Table20 { 4 << 20 } else { 0 }
     }
     pub fn restore(bytes: &[u8]) -> Option<ProgramBelt> {
         if bytes.len() < HEADER_BYTES || bytes[0] != b'B' || bytes[1] != 1 {
@@ -400,6 +446,9 @@ impl ProgramBelt {
         }
         if flaw == Flaw::Fat {
             at += belt.n as usize;
+        }
+        if flaw == Flaw::Table20 {
+            at += 4 << 20;
         }
         (at == bytes.len()).then_some(belt)
     }
@@ -444,6 +493,9 @@ impl Belt for ProgramBelt {
         }
         if self.flaw == Flaw::Fat {
             out.extend((0..self.n).map(|i| mix64(i) as u8));
+        }
+        if self.flaw == Flaw::Table20 {
+            out.extend(self.table.iter().flat_map(|&e| (e as u32).to_le_bytes()));
         }
         out
     }
@@ -605,12 +657,14 @@ pub struct Run {
     pub seed: u64,
     pub thorough: bool,
 }
-/// The frozen runs: three belts of 2^20 and one of 2^23 (the row's sizes), each from its own seed.
-pub const RUNS: [Run; 4] = [
+/// The frozen runs: three belts of 2^20 and two of 2^23 (the row's sizes), each from its own seed. (The second 2^23 adds
+/// tail bodies to the pooled test: the best z for a 15% crush of the e-tail's spread is 0.15 sqrt(X), X the tail bodies.)
+pub const RUNS: [Run; 5] = [
     Run { log2n: 20, seed: 20261008, thorough: true },
     Run { log2n: 20, seed: 20261009, thorough: true },
     Run { log2n: 20, seed: 20261010, thorough: true },
     Run { log2n: 23, seed: 20261011, thorough: false },
+    Run { log2n: 23, seed: 20261012, thorough: false },
 ];
 /// The population `bytes at 1e9` is reported for.
 const BILLION: u64 = 1_000_000_000;
@@ -624,6 +678,10 @@ pub const KS_C: f64 = 2.470;
 pub const Z_TAIL: f64 = 4.5;
 /// The reach and overshoot tests compare against this order statistic of the reference (wrong with probability 2^-20).
 const REACH_J: usize = 20;
+/// A program's information is its parameters (the spec's words, n and the seed: 41 bytes in the reference's format); the
+/// cap leaves room for another encoding of them. Tables derived from the spec are not information, so a belt derives them
+/// at birth and its store does not carry them (red-team F4, 5 October: a 4 MB table passed when the allowance was self-declared).
+pub const INFO_CAP: u64 = 64;
 const TAIL_FRACTION: f64 = 1e-4;
 const BINS: usize = 1 << 16;
 const SIDE: usize = 128;
@@ -670,7 +728,7 @@ impl Acc {
         Acc { n: 0, bad: 0, hist: std::array::from_fn(|_| vec![0; BINS]), cells: vec![0; SIDE * SIDE], ring: std::array::from_fn(|_| vec![0.0; RING]), lag: [[0.0; 18]; 4], cross0: [0.0; 6], cross1: [0.0; 12], prev: [0.0; 4] }
     }
     #[inline]
-    fn push(&mut self, b: &Body, s: &BeltSpec) {
+    fn push(&mut self, b: &Body, s: &BeltSpec) -> [f64; 4] {
         let i = self.n as usize;
         if !in_support(b, s) {
             self.bad += 1;
@@ -706,13 +764,74 @@ impl Acc {
         let cell = (((u[0] * SIDE as f64) as usize).min(SIDE - 1)) * SIDE + ((u[3] * SIDE as f64) as usize).min(SIDE - 1);
         self.cells[cell] += 1;
         self.n += 1;
+        u
     }
 }
 // Scores are stored as f32 in the ring: the products are summed in f64 and the rounding (6e-8) is far below the 1/sqrt(n) noise.
 
-/// The top-k values of a column (for the reference) or the tail above a threshold (for the belt).
+/// The four ends the tail tests watch: the top and the bottom 1e-4 of p and of e. The bottom ends are the mirror of the
+/// top ones (depth = distance from that end), so one set of tests serves all four.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Side {
+    PTop,
+    ETop,
+    PBottom,
+    EBottom,
+}
+const SIDES: [Side; 4] = [Side::PTop, Side::ETop, Side::PBottom, Side::EBottom];
+impl Side {
+    fn name(self) -> &'static str {
+        match self {
+            Side::PTop => "top 1e-4 of p",
+            Side::ETop => "top 1e-4 of e",
+            Side::PBottom => "bottom 1e-4 of p",
+            Side::EBottom => "bottom 1e-4 of e",
+        }
+    }
+    /// The column the end belongs to: the one score the tail conditions on.
+    fn col(self) -> usize {
+        match self {
+            Side::PTop | Side::PBottom => 0,
+            _ => 1,
+        }
+    }
+    /// How deep a body lies in this end: larger is deeper. Out-of-support bodies are as deep as they are far out, or 0.
+    #[inline]
+    fn depth(self, b: &Body, s: &BeltSpec) -> u64 {
+        let off = b.p.wrapping_sub(s.p_lo);
+        match self {
+            Side::PTop => off,
+            Side::PBottom => ((1u64 << s.p_bits) - 1).saturating_sub(off),
+            Side::ETop => b.e,
+            Side::EBottom => s.e_cap.saturating_sub(b.e),
+        }
+    }
+    /// The score of a tail body at `depth`, uniform on (0, 1) under the law given that it lies at least as deep as `thr`.
+    fn conditional(self, depth: u64, thr: u64, s: &BeltSpec) -> f64 {
+        let two_sigma2 = 2.0 * s.sigma() * s.sigma();
+        let g = (1u64 << s.e_bits) as f64;
+        match self {
+            Side::PTop | Side::PBottom => (((1u64 << s.p_bits) - depth) as f64 - 0.5) / ((1u64 << s.p_bits) - thr) as f64,
+            Side::ETop => {
+                let (x, xt) = ((depth as f64 + 0.5) / g, thr as f64 / g);
+                (-(x * x - xt * xt) / two_sigma2).exp()
+            }
+            Side::EBottom => {
+                let (x, xt) = (((s.e_cap - depth) as f64 + 0.5) / g, ((s.e_cap - thr) as f64 + 1.0) / g);
+                (-(x * x) / two_sigma2).exp_m1() / (-(xt * xt) / two_sigma2).exp_m1()
+            }
+        }
+    }
+}
+/// A tail body: its depth and its four scores (as u32 fractions).
+type Entry = (u64, [u32; 4]);
+fn quant(u: &[f64; 4]) -> [u32; 4] {
+    u.map(|x| (x * 4_294_967_296.0) as u32)
+}
+
+/// The k deepest bodies of a side in the reference.
 struct RefTail {
-    heap: BinaryHeap<Reverse<u64>>,
+    heap: BinaryHeap<Reverse<Entry>>,
     k: usize,
 }
 impl RefTail {
@@ -720,25 +839,26 @@ impl RefTail {
         RefTail { heap: BinaryHeap::with_capacity(k + 1), k }
     }
     #[inline]
-    fn push(&mut self, v: u64) {
+    fn push(&mut self, e: Entry) {
         if self.heap.len() < self.k {
-            self.heap.push(Reverse(v));
-        } else if v > self.heap.peek().unwrap().0 {
+            self.heap.push(Reverse(e));
+        } else if e.0 > self.heap.peek().unwrap().0 .0 {
             self.heap.pop();
-            self.heap.push(Reverse(v));
+            self.heap.push(Reverse(e));
         }
     }
-    /// The k largest, descending.
-    fn into_sorted(self) -> Vec<u64> {
-        let mut v: Vec<u64> = self.heap.into_iter().map(|r| r.0).collect();
+    /// The k deepest, deepest first.
+    fn into_sorted(self) -> Vec<Entry> {
+        let mut v: Vec<Entry> = self.heap.into_iter().map(|r| r.0).collect();
         v.sort_unstable_by(|a, b| b.cmp(a));
         v
     }
 }
+/// The belt's bodies at least as deep as the reference's threshold, and its 20 deepest.
 struct BeltTail {
     thr: u64,
     count: u64,
-    values: Vec<u64>,
+    values: Vec<Entry>,
     cap: usize,
     top: BinaryHeap<Reverse<u64>>,
 }
@@ -747,20 +867,56 @@ impl BeltTail {
         BeltTail { thr, count: 0, values: Vec::new(), cap, top: BinaryHeap::with_capacity(REACH_J + 1) }
     }
     #[inline]
-    fn push(&mut self, v: u64) {
-        if v >= self.thr {
+    fn push(&mut self, depth: u64, sc: &[u32; 4]) {
+        if depth >= self.thr {
             self.count += 1;
             if self.values.len() < self.cap {
-                self.values.push(v);
+                self.values.push((depth, *sc));
             }
         }
         if self.top.len() < REACH_J {
-            self.top.push(Reverse(v));
-        } else if v > self.top.peek().unwrap().0 {
+            self.top.push(Reverse(depth));
+        } else if depth > self.top.peek().unwrap().0 {
             self.top.pop();
-            self.top.push(Reverse(v));
+            self.top.push(Reverse(depth));
         }
     }
+}
+/// The sum over `bodies` of (-ln w - 1), w the conditional score: under the law -ln w is exponential with mean 1 and
+/// variance 1, so the sum divided by sqrt(X) is a z. A mean, not a sup, so a crush of the tail's spread that keeps its
+/// count and its reach still moves it; and the exponential's mean is its sufficient statistic, the best test of a scale.
+fn conditional_log_sum(side: Side, thr: u64, bodies: &[Entry], spec: &BeltSpec) -> f64 {
+    bodies.iter().map(|b| -side.conditional(b.0, thr, spec).ln() - 1.0).sum()
+}
+fn log_z(sum: f64, x: usize) -> f64 {
+    if x == 0 {
+        f64::INFINITY
+    } else {
+        sum / (x as f64).sqrt()
+    }
+}
+
+/// The worst one-sample KS distance from the uniform, over the three columns the side does not condition on, as a
+/// fraction of its critical value KS_C / sqrt(X), with the name of the column.
+fn other_columns_ks(side: Side, bodies: &[Entry]) -> (f64, &'static str) {
+    let mut worst = (0.0f64, "");
+    if bodies.is_empty() {
+        return (f64::INFINITY, "none");
+    }
+    let x = bodies.len() as f64;
+    for c in (0..4).filter(|&c| c != side.col()) {
+        let mut v: Vec<u32> = bodies.iter().map(|b| b.1[c]).collect();
+        v.sort_unstable();
+        let d = v.iter().enumerate().fold(0.0f64, |d, (i, &u)| {
+            let u = u as f64 / 4_294_967_296.0;
+            d.max(((i + 1) as f64 / x - u).abs()).max((u - i as f64 / x).abs())
+        });
+        let ratio = d / (KS_C / x.sqrt());
+        if ratio > worst.0 {
+            worst = (ratio, ["p", "e", "omega", "t_p"][c]);
+        }
+    }
+    worst
 }
 
 /// The 2-D chi-square statistic against the uniform.
@@ -825,6 +981,8 @@ struct Worst {
     ks: f64,
     tail_count: f64,
     tail_ks: f64,
+    tail_mean: f64,
+    tail_other: f64,
 }
 impl Worst {
     fn max(&mut self, o: &Worst) {
@@ -833,6 +991,8 @@ impl Worst {
         self.ks = self.ks.max(o.ks);
         self.tail_count = self.tail_count.max(o.tail_count);
         self.tail_ks = self.tail_ks.max(o.tail_ks);
+        self.tail_mean = self.tail_mean.max(o.tail_mean);
+        self.tail_other = self.tail_other.max(o.tail_other);
     }
 }
 
@@ -906,6 +1066,8 @@ struct RunOut {
     ns_body: f64,
     scars: Option<(u64, f64, f64)>, // (distinct scarred, bytes per scarred body, floor bits)
     sample_total: Option<f64>,
+    /// Per side: the sum of (-ln w - 1) over the tail and the number of its bodies, for pooling across runs.
+    tail_mean: [(f64, usize); 4],
 }
 
 fn run_one(law: &dyn Law, r: &Run, findings: &mut Vec<Finding>, worst: &mut Worst) -> Option<RunOut> {
@@ -929,24 +1091,27 @@ fn run_one(law: &dyn Law, r: &Run, findings: &mut Vec<Finding>, worst: &mut Wors
     // ---- The iid reference of the same distribution and size.
     let k = (n as f64 * TAIL_FRACTION).ceil() as usize;
     let mut rng = Xoshiro::new(r.seed ^ 0x1D0F_AB1E);
-    let (mut ref_acc, mut ref_tail) = (Acc::new(), [RefTail::new(k), RefTail::new(k)]);
+    let mut ref_acc = Acc::new();
+    let mut ref_tail: Vec<RefTail> = SIDES.iter().map(|_| RefTail::new(k)).collect();
     for _ in 0..n {
         let b = iid_body(&mut rng, &spec);
-        ref_tail[0].push(b.p - spec.p_lo);
-        ref_tail[1].push(b.e);
-        ref_acc.push(&b, &spec);
+        let sc = quant(&ref_acc.push(&b, &spec));
+        for (t, side) in ref_tail.iter_mut().zip(SIDES) {
+            t.push((side.depth(&b, &spec), sc));
+        }
     }
-    let ref_top: Vec<Vec<u64>> = ref_tail.into_iter().map(|t| t.into_sorted()).collect();
+    let ref_top: Vec<Vec<Entry>> = ref_tail.into_iter().map(|t| t.into_sorted()).collect();
     // ---- The belt, one ascending pass: the truth hashes and every statistic.
     let mut acc = Acc::new();
-    let mut tails = [BeltTail::new(ref_top[0][k - 1], 8 * k), BeltTail::new(ref_top[1][k - 1], 8 * k)];
+    let mut tails: Vec<BeltTail> = ref_top.iter().map(|t| BeltTail::new(t[k - 1].0, 8 * k)).collect();
     let mut truth = Vec::with_capacity(n as usize);
     for i in 0..n {
         let b = belt.body(i);
         truth.push(b.hash());
-        tails[0].push(b.p.wrapping_sub(spec.p_lo));
-        tails[1].push(b.e);
-        acc.push(&b, &spec);
+        let sc = quant(&acc.push(&b, &spec));
+        for (t, side) in tails.iter_mut().zip(SIDES) {
+            t.push(side.depth(&b, &spec), &sc);
+        }
     }
     // ---- (1) Determinism: every ordering reproduces the first pass, two births agree, the store round-trips.
     let mut w = Worst::default();
@@ -1024,31 +1189,52 @@ fn run_one(law: &dyn Law, r: &Run, findings: &mut Vec<Finding>, worst: &mut Wors
     // The reference through the same tests: the judge's own control.
     let ref_ser = (0..4).flat_map(|c| LAGS.iter().enumerate().map(move |(j, &l)| (c, j, l))).map(|(c, j, l)| (ref_acc.lag[c][j] * 12.0 / ((n - l as u64) as f64).sqrt()).abs()).fold(0.0f64, f64::max);
     let ref_ks = (0..4).map(|c| ks_hist(&ref_acc.hist[c], &acc.hist[c], n)).fold(0.0f64, f64::max);
-    ok(findings, z_ref.abs() <= Z_CHI && ref_ser <= Z_SERIAL && ref_ks <= crit, format!("{label}: the judge's iid reference passes its own tests (chi2 z {z_ref:+.2}, serial {ref_ser:.2}, KS {ref_ks:.4})"));
-    // ---- (3) Tails.
-    for (c, name) in ["p", "e"].iter().enumerate() {
-        let top = &ref_top[c];
-        let (thr, big_k) = (top[k - 1], k as f64);
-        let t = &mut tails[c];
+    // ... and the reference's own tails through the conditional tests (its k - 1 deepest, given its k-th as the threshold).
+    let (mut ref_mean, mut ref_other) = (0.0f64, 0.0f64);
+    for (si, side) in SIDES.iter().enumerate() {
+        let (thr, above) = (ref_top[si][k - 1].0, &ref_top[si][..k - 1]);
+        ref_mean = ref_mean.max(log_z(conditional_log_sum(*side, thr, above, &spec), above.len()).abs());
+        ref_other = ref_other.max(other_columns_ks(*side, above).0);
+    }
+    ok(
+        findings,
+        z_ref.abs() <= Z_CHI && ref_ser <= Z_SERIAL && ref_ks <= crit && ref_mean <= Z_TAIL && ref_other <= 1.0,
+        format!("{label}: the judge's iid reference passes its own tests (chi2 z {z_ref:+.2}, serial {ref_ser:.2}, KS {ref_ks:.4}, tail mean {ref_mean:.2}, tail other-columns {ref_other:.2} of critical)"),
+    );
+    // ---- (3) Tails: the top and the bottom 1e-4 of p and of e.
+    let mut tail_mean = [(0.0, 0usize); 4];
+    for (si, side) in SIDES.iter().enumerate() {
+        let (top, name) = (&ref_top[si], side.name());
+        let (thr, big_k) = (top[k - 1].0, k as f64);
+        let t = &mut tails[si];
         let x = t.count as f64;
         let z = (x - big_k) / (2.0 * big_k).sqrt();
         let mut belt_top: Vec<u64> = t.top.drain().map(|r| r.0).collect();
         belt_top.sort_unstable_by(|a, b| b.cmp(a));
         let (belt_max, belt_20th) = (belt_top[0], *belt_top.last().unwrap());
-        let reach = belt_max >= top[REACH_J - 1];
-        let over = belt_20th <= top[0];
-        ok(findings, z.abs() <= Z_TAIL, format!("{label}: top 1e-4 of {name}: count {x} against the reference's {k} (z = {z:+.2}, limit {Z_TAIL})"));
-        ok(findings, reach, format!("{label}: top 1e-4 of {name} reaches the reference's 20th largest: belt max {belt_max}, reference {}", top[REACH_J - 1]));
-        ok(findings, over, format!("{label}: top 1e-4 of {name} does not overshoot the reference's max: belt 20th {belt_20th}, reference max {}", top[0]));
+        let reach = belt_max >= top[REACH_J - 1].0;
+        let over = belt_20th <= top[0].0;
+        ok(findings, z.abs() <= Z_TAIL, format!("{label}: {name}: count {x} against the reference's {k} (z = {z:+.2}, limit {Z_TAIL})"));
+        ok(findings, reach, format!("{label}: {name} reaches the reference's 20th deepest: belt deepest {belt_max}, reference {}", top[REACH_J - 1].0));
+        ok(findings, over, format!("{label}: {name} does not overshoot the reference's deepest: belt 20th {belt_20th}, reference deepest {}", top[0].0));
         w.tail_count = w.tail_count.max(z.abs());
-        let mut mine = std::mem::take(&mut t.values);
+        let bodies = std::mem::take(&mut t.values);
+        let mut mine: Vec<u64> = bodies.iter().map(|b| b.0).collect();
         mine.sort_unstable();
-        let mut theirs = top.clone();
-        theirs.reverse();
+        let theirs: Vec<u64> = top.iter().rev().map(|b| b.0).collect();
         let (xx, d) = (mine.len(), if mine.is_empty() { f64::INFINITY } else { ks_sorted(&mine, &theirs) });
         let dcrit = KS_C * ((xx + k) as f64 / (xx.max(1) * k) as f64).sqrt();
         w.tail_ks = w.tail_ks.max(d / dcrit);
         ok(findings, xx >= 8 && d <= dcrit, format!("{label}: tail shape of {name}: KS D = {d:.3} against {dcrit:.3} ({xx} values; thr {thr})"));
+        // The conditional tests: the tail against the law itself (no reference noise), by its mean and by its neighbours.
+        let sum = conditional_log_sum(*side, thr, &bodies, &spec);
+        let zm = log_z(sum, bodies.len());
+        w.tail_mean = w.tail_mean.max(zm.abs());
+        tail_mean[si] = (sum, bodies.len());
+        ok(findings, zm.abs() <= Z_TAIL, format!("{label}: {name}: conditional log-score mean z = {zm:+.2} over {xx} bodies (limit {Z_TAIL})"));
+        let (ratio, col) = other_columns_ks(*side, &bodies);
+        w.tail_other = w.tail_other.max(ratio);
+        ok(findings, ratio <= 1.0, format!("{label}: {name}: its bodies' other columns stay uniform: worst KS {ratio:.2} of critical ({col})"));
     }
     worst.max(&w);
     // ---- (4) Bytes at birth.
@@ -1060,6 +1246,7 @@ fn run_one(law: &dyn Law, r: &Run, findings: &mut Vec<Finding>, worst: &mut Wors
     match form {
         Form::Program { info_bytes } => {
             let limit = limit_bytes(info_bytes as f64);
+            ok(findings, info_bytes <= INFO_CAP, format!("{label}: declared information {info_bytes} B is within {INFO_CAP} B (a program's information is its parameters; a table derived from them is not information)"));
             ok(findings, birth_charge as f64 <= limit && birth_charge >= info_bytes, format!("{label}: bytes at birth {birth_charge} within 2 x info {info_bytes} + 2 = {limit:.0} and not below the info"));
         }
         Form::Sample => {
@@ -1112,7 +1299,7 @@ fn run_one(law: &dyn Law, r: &Run, findings: &mut Vec<Finding>, worst: &mut Wors
             ok(findings, per <= limit_bytes(floor) && per >= 0.5 * floor, format!("{label}: sample bytes per body after churn {per:.2} in [{:.2}, {:.2}]", 0.5 * floor, limit_bytes(floor)));
         }
     }
-    Some(RunOut { n, form, birth_charge, info, ns_body: regen_ns, scars: scars_out, sample_total })
+    Some(RunOut { n, form, birth_charge, info, ns_body: regen_ns, scars: scars_out, sample_total, tail_mean })
 }
 
 /// B18 belt over `runs` (the CLI runs [`RUNS`]; tests run fewer). Stops after the first run with a failing finding.
@@ -1140,6 +1327,16 @@ pub fn judge_findings(law: &dyn Law, runs: &[Run]) -> (Gate, Vec<(bool, String)>
             ok(&mut findings, grew <= 16 && big.info <= small.info + 8, format!("the store does not grow with n: {} B at 2^{}, {} B at 2^{} (info {} and {})", small.birth_charge, small.n.trailing_zeros(), big.birth_charge, big.n.trailing_zeros(), small.info, big.info));
         }
     }
+    // The conditional tail log-score means, pooled over the runs: a spread crush of 15% is 1.6 sigma in a run of 2^20 and 4.4 in 2^23
+    // (the exponential mean's best possible 0.15 sqrt(X)); the pooled tails of the five runs give about 6.7.
+    let mut pooled = 0.0f64;
+    if outs.len() > 1 && findings.iter().all(|f| f.pass) {
+        for (si, side) in SIDES.iter().enumerate() {
+            let z = log_z(outs.iter().map(|o| o.tail_mean[si].0).sum(), outs.iter().map(|o| o.tail_mean[si].1).sum());
+            pooled = pooled.max(z.abs());
+            ok(&mut findings, z.abs() <= Z_TAIL, format!("{}: conditional log-score mean pooled over {} runs: z = {z:+.2} (limit {Z_TAIL})", side.name(), outs.len()));
+        }
+    }
     let failed: Vec<&Finding> = findings.iter().filter(|f| !f.pass).collect();
     let pass = failed.is_empty() && !outs.is_empty();
     let secs_run = t0.elapsed().as_secs_f64();
@@ -1158,13 +1355,15 @@ pub fn judge_findings(law: &dyn Law, runs: &[Run]) -> (Gate, Vec<(bool, String)>
             Form::Sample => format!("sample form: {:.2} B per body, {:.1} GB at 1e9 (extrapolated, reported)", o.sample_total.unwrap_or(0.0), o.sample_total.unwrap_or(0.0)),
         };
         format!(
-            "belt: {} runs, every criterion; worst: chi2 |z| {:.2} (limit {Z_CHI}), serial |z| {:.2} ({Z_SERIAL}), KS {:.2} of critical, tail count |z| {:.2} ({Z_TAIL}), tail KS {:.2} of critical; birth {} B for info {} B; {:.0} ns to regenerate and hash a body; {report}",
+            "belt: {} runs, every criterion; worst: chi2 |z| {:.2} (limit {Z_CHI}), serial |z| {:.2} ({Z_SERIAL}), KS {:.2} of critical; four tail ends: count |z| {:.2} ({Z_TAIL}), shape KS {:.2} of critical, conditional mean |z| {:.2} (pooled {pooled:.2}), other columns {:.2} of critical; birth {} B for info {} B; {:.0} ns to regenerate and hash a body; {report}",
             outs.len(),
             worst.chi,
             worst.serial,
             worst.ks,
             worst.tail_count,
             worst.tail_ks,
+            worst.tail_mean,
+            worst.tail_other,
             outs.last().unwrap().birth_charge,
             outs.last().unwrap().info,
             outs.last().unwrap().ns_body
@@ -1323,5 +1522,62 @@ mod tests {
         }
         println!("{fails} of 60 seeds failed");
         assert_eq!(fails, 0);
+    }
+
+    /// Calibration (not a gate): the conditional log-score z of each tail end is standard normal for an iid belt (here the
+    /// reference program against the judge's xoshiro thresholds, over many seeds at 2^20).
+    #[test]
+    #[ignore]
+    fn calibrate_the_conditional_tail_z_under_iid() {
+        let (n, k) = (1u64 << 20, 105usize);
+        let mut zs: Vec<Vec<f64>> = vec![Vec::new(); 4];
+        for seed in 0..80u64 {
+            let mut rng = Xoshiro::new(900 + seed);
+            let mut refs: Vec<RefTail> = SIDES.iter().map(|_| RefTail::new(k)).collect();
+            for _ in 0..n {
+                let b = iid_body(&mut rng, &SPEC);
+                for (t, side) in refs.iter_mut().zip(SIDES) {
+                    t.push((side.depth(&b, &SPEC), [0; 4]));
+                }
+            }
+            let tops: Vec<Vec<Entry>> = refs.into_iter().map(|t| t.into_sorted()).collect();
+            let belt = ProgramBelt::birth(&SPEC, n, 5000 + seed, Flaw::None);
+            let mut bodies: Vec<Vec<Entry>> = vec![Vec::new(); 4];
+            for i in 0..n {
+                let b = belt.body(i);
+                for (si, side) in SIDES.iter().enumerate() {
+                    let d = side.depth(&b, &SPEC);
+                    if d >= tops[si][k - 1].0 {
+                        bodies[si].push((d, [0; 4]));
+                    }
+                }
+            }
+            for (si, side) in SIDES.iter().enumerate() {
+                zs[si].push(log_z(conditional_log_sum(*side, tops[si][k - 1].0, &bodies[si], &SPEC), bodies[si].len()));
+            }
+        }
+        for (si, side) in SIDES.iter().enumerate() {
+            let m = zs[si].iter().sum::<f64>() / 80.0;
+            let sd = (zs[si].iter().map(|z| (z - m) * (z - m)).sum::<f64>() / 80.0).sqrt();
+            println!("{}: conditional log-score z over 80 seeds: mean {m:+.3}, sd {sd:.3}, max |z| {:.2}", side.name(), zs[si].iter().fold(0.0f64, |a, z| a.max(z.abs())));
+        }
+    }
+
+    /// Not a gate: the crush plant's top-e conditional z in each frozen run on its own, and pooled (`--ignored --nocapture`).
+    #[test]
+    #[ignore]
+    fn show_the_crush_in_each_run_and_pooled() {
+        let law = crate::behave::laws::Planted(crate::behave::laws::Fault::BeltCrush);
+        let (mut sum, mut x) = (0.0, 0usize);
+        for r in RUNS {
+            let (_, f) = judge_findings(&law, &[r]);
+            let line = f.iter().find(|(_, t)| t.contains("top 1e-4 of e: conditional")).unwrap().1.clone();
+            println!("{line}");
+            let z: f64 = line.split("z = ").nth(1).unwrap().split(' ').next().unwrap().parse().unwrap();
+            let xx: usize = line.split("over ").nth(1).unwrap().split(' ').next().unwrap().parse().unwrap();
+            sum += z * (xx as f64).sqrt();
+            x += xx;
+        }
+        println!("pooled z = {:+.2} over {x} bodies", sum / (x as f64).sqrt());
     }
 }

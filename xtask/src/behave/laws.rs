@@ -113,6 +113,14 @@ pub enum Fault {
     BeltLattice,
     /// B18 belt: the program is right and the scars cost 40 bytes each.
     BeltFatScars,
+    /// B18 belt (red-team F1): every e above its 1 - 1e-4 quantile pulled 15% toward that quantile.
+    BeltCrush,
+    /// B18 belt (F2): p clipped from below at its 1e-4 quantile.
+    BeltInnerClip,
+    /// B18 belt (F3): the deepest e-tail bodies take their omega from one 1/32 of the circle.
+    BeltAligned,
+    /// B18 belt (F4): a 4 MB one-level quantile table in the store, declared as information.
+    BeltTable20,
 }
 /// The oracle with one planted flaw.
 pub struct Planted(pub Fault);
@@ -201,6 +209,10 @@ impl Law for Planted {
             Fault::BeltFat => Flaw::Fat,
             Fault::BeltLattice => Flaw::Lattice,
             Fault::BeltFatScars => Flaw::FatScars,
+            Fault::BeltCrush => Flaw::Crush,
+            Fault::BeltInnerClip => Flaw::InnerClip,
+            Fault::BeltAligned => Flaw::Aligned,
+            Fault::BeltTable20 => Flaw::Table20,
             Fault::BeltShips => return Some(Box::new(SampleBelt::birth(spec, n, seed, true))),
             _ => return Echo.belt_birth(spec, n, seed),
         };
@@ -215,7 +227,8 @@ impl Law for Planted {
 }
 
 /// B18 belt's third control: a program whose e comes from a two-level dyadic quantile table (2^12 cells in each octave of the
-/// probability). Dyadic tables do not clip the tail if they are dyadic in the probability's octaves; this one passes.
+/// probability, at both ends). Dyadic tables do not clip a tail if they are dyadic in the probability's octaves at that end;
+/// this one passes.
 pub struct DyadicBelt;
 impl Law for DyadicBelt {
     fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
@@ -324,6 +337,10 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-belt-ships" => Box::new(Planted(Fault::BeltShips)),
         "planted-belt-lattice" => Box::new(Planted(Fault::BeltLattice)),
         "planted-belt-fatscars" => Box::new(Planted(Fault::BeltFatScars)),
+        "planted-belt-crush" => Box::new(Planted(Fault::BeltCrush)),
+        "planted-belt-innerclip" => Box::new(Planted(Fault::BeltInnerClip)),
+        "planted-belt-aligned" => Box::new(Planted(Fault::BeltAligned)),
+        "planted-belt-table20" => Box::new(Planted(Fault::BeltTable20)),
         "iid-blocks" => Box::new(IidBlocks),
         "dyadic-belt" => Box::new(DyadicBelt),
         _ => return None,

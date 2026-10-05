@@ -16,7 +16,7 @@
 //!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|
 //!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|
 //!     planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|
-//!     planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars]
+//!     planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|planted-belt-table20]
 //!     [--gates G1,B7,...]
 //! ```
 //! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn every_planted_law_the_usage_names_resolves() {
-        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "iid-blocks", "dyadic-belt", "planted-belt-clipped", "planted-belt-winsor", "planted-belt-repeat", "planted-belt-serial", "planted-belt-thread", "planted-belt-fat", "planted-belt-ships", "planted-belt-lattice", "planted-belt-fatscars"];
+        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "iid-blocks", "dyadic-belt", "planted-belt-clipped", "planted-belt-winsor", "planted-belt-repeat", "planted-belt-serial", "planted-belt-thread", "planted-belt-fat", "planted-belt-ships", "planted-belt-lattice", "planted-belt-fatscars", "planted-belt-crush", "planted-belt-innerclip", "planted-belt-aligned", "planted-belt-table20"];
         for name in names {
             assert!(laws::by_name(name).is_some() && USAGE.contains(name), "{name}");
         }
@@ -641,14 +641,15 @@ mod belt_tests {
     fn the_golds_clipped_table_fails_the_tail_count_the_range_and_the_shape_of_e_only() {
         // 2^12 midpoint quantiles: the top 1e-4 of e is one cell, below the reference's 1 - 1e-4 quantile. (At 2^18 the
         // count has only k = 27 to lose, z = -3.7: the range and the shape fire; the frozen 2^20 and 2^23 fire the count too.)
-        fails_naming(Fault::BeltClipped, &["top 1e-4 of e reaches", "tail shape of e"]);
+        // (Its bottom end is clipped too: the lowest cell of 2^12 is far above the bottom 1e-4.)
+        fails_naming(Fault::BeltClipped, &["top 1e-4 of e reaches", "tail shape of top 1e-4 of e", "bottom 1e-4 of e reaches"]);
         let g = verdict(&Planted(Fault::BeltClipped));
         assert!(!g.detail.contains("of p"), "{}", g.detail);
     }
 
     #[test]
     fn a_winsorized_belt_keeps_the_count_and_loses_the_range() {
-        fails_naming(Fault::BeltWinsor, &["top 1e-4 of e reaches", "top 1e-4 of p reaches", "tail shape of e", "tail shape of p"]);
+        fails_naming(Fault::BeltWinsor, &["top 1e-4 of e reaches", "top 1e-4 of p reaches", "tail shape of top 1e-4 of e", "tail shape of top 1e-4 of p"]);
         let g = verdict(&Planted(Fault::BeltWinsor));
         assert!(!g.detail.contains("count") && !g.detail.contains("chi2") && !g.detail.contains("serial"), "{}", g.detail);
     }
@@ -682,6 +683,68 @@ mod belt_tests {
         fails_naming(Fault::BeltShips, &["sample bytes per body 64.00"]);
     }
 
+    // The red-team's four holes (GLM run 20261005-1404, F1 to F4): each plant passed the first judge, and fails this one.
+
+    #[test]
+    fn f2_a_hollow_inner_edge_of_p_is_caught_at_the_bottom_end() {
+        // p clipped from below at its 1e-4 quantile: the tests of the top end cannot see it, the mirrored ones do.
+        fails_naming(Fault::BeltInnerClip, &["bottom 1e-4 of p reaches", "bottom 1e-4 of p: conditional log-score mean z = +"]);
+        assert!(!verdict(&Planted(Fault::BeltInnerClip)).detail.contains("top 1e-4"));
+    }
+
+    #[test]
+    fn f3_deep_dippers_aligned_in_one_corridor_are_caught_by_the_other_columns_of_the_tail() {
+        // The top 1e-4 of e all in 1/32 of the omega circle: every column's own KS and the (p, t_p) chi-square are blind to it.
+        fails_naming(Fault::BeltAligned, &["top 1e-4 of e: its bodies' other columns stay uniform", "(omega)"]);
+        assert!(verdict(&Planted(Fault::BeltAligned)).detail.starts_with("belt: 1 of "));
+    }
+
+    #[test]
+    fn f4_a_table_declared_as_information_is_over_the_cap() {
+        // A one-level 2^20-cell quantile table (4 MB) in the store, declared as information: it passes every statistic (the
+        // table resolves the tail to 2^-20) and fails only the cap on the declared information.
+        fails_naming(Fault::BeltTable20, &["declared information 4194345 B is within 64 B"]);
+        assert!(verdict(&Planted(Fault::BeltTable20)).detail.starts_with("belt: 1 of "));
+    }
+
+    /// A law whose belt is the reference program with this flaw (all else echo's).
+    struct FlawLaw(Flaw);
+    impl Law for FlawLaw {
+        fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+            Echo.advance_per_cycle(p, e)
+        }
+        fn deflection(&self, b: f64) -> Option<f64> {
+            Echo.deflection(b)
+        }
+        fn captured(&self, energy: f64, angular: f64) -> bool {
+            Echo.captured(energy, angular)
+        }
+        fn photon_captured(&self, b: f64) -> bool {
+            Echo.photon_captured(b)
+        }
+        fn long_run(&self, p: f64, e: f64, cycles: usize) -> Vec<(f64, f64, f64, f64)> {
+            Echo.long_run(p, e, cycles)
+        }
+        fn belt_birth(&self, spec: &BeltSpec, n: u64, seed: u64) -> Option<Box<dyn Belt>> {
+            Some(Box::new(ProgramBelt::birth(spec, n, seed, self.0)))
+        }
+        fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
+            ProgramBelt::restore(store).map(|b| Box::new(b) as Box<dyn Belt>)
+        }
+    }
+
+    /// F1 on the frozen runs (release only). A 15% crush of the e-tail's spread keeps its count and its reach; the log-score mean
+    /// of the tail sees it in the two 2^23 runs (the exponential mean's best z is 0.15 sqrt(X): 4.4 at X = 850) and pooled over
+    /// all five (7). A 12% crush passes every run on its own and fails the pooled test alone.
+    #[test]
+    #[cfg_attr(debug_assertions, ignore = "release only")]
+    fn f1_a_crush_of_the_e_tails_spread_is_caught_by_the_log_score_mean_alone_or_pooled() {
+        let g = belt::b18_belt(&Planted(Fault::BeltCrush));
+        assert!(!g.pass && g.detail.starts_with("belt: 1 of ") && g.detail.contains("top 1e-4 of e: conditional log-score mean z = -4."), "{}", g.detail);
+        let g = belt::b18_belt(&FlawLaw(Flaw::Crush12));
+        assert!(!g.pass && g.detail.starts_with("belt: 1 of ") && g.detail.contains("top 1e-4 of e: conditional log-score mean pooled over 5 runs: z = -"), "{}", g.detail);
+    }
+
     /// A belt that wraps the reference and tampers with one part of the interface.
     #[derive(Clone, Copy, PartialEq)]
     enum Tamper {
@@ -690,6 +753,7 @@ mod belt_tests {
         HugeInfo,
         TinyInfo,
         FatButHonest,
+        SlowGrowth,
     }
     struct Tweaked {
         inner: ProgramBelt,
@@ -708,6 +772,7 @@ mod belt_tests {
         fn store(&self) -> Vec<u8> {
             match self.mode {
                 Tamper::ForgetScarsInStore => ProgramBelt::birth(&self.spec, self.n, self.seed, Flaw::None).store(),
+                Tamper::SlowGrowth => [self.inner.store(), vec![0; (self.n >> 13) as usize]].concat(),
                 _ => self.inner.store(),
             }
         }
@@ -724,6 +789,7 @@ mod belt_tests {
                 Tamper::HugeInfo => Form::Program { info_bytes: 1 << 20 },
                 Tamper::TinyInfo => Form::Program { info_bytes: 4 },
                 Tamper::FatButHonest => Form::Program { info_bytes: self.inner.store().len() as u64 },
+                Tamper::SlowGrowth => Form::Program { info_bytes: belt::INFO_CAP },
                 _ => self.inner.form(),
             }
         }
@@ -755,8 +821,9 @@ mod belt_tests {
             Some(self.wrap(ProgramBelt::birth(spec, n, seed, flaw), *spec, n, seed))
         }
         fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
+            let n = u64::from_le_bytes(store.get(3..11)?.try_into().unwrap());
+            let store = if self.0 == Tamper::SlowGrowth { &store[..store.len() - (n >> 13) as usize] } else { store };
             let inner = ProgramBelt::restore(store)?;
-            let n = inner.len();
             let seed = u64::from_le_bytes(store[11..19].try_into().unwrap());
             Some(self.wrap(inner, belt::SPEC, n, seed))
         }
@@ -777,10 +844,13 @@ mod belt_tests {
         assert!(!g.pass && g.detail.contains("bytes at birth 42 within 2 x info 4 + 2 = 10"), "{}", g.detail);
         let g = verdict(&TweakLaw(Tamper::HugeInfo));
         assert!(!g.pass && g.detail.contains("and not below the info"), "{}", g.detail);
-        // A store with a byte per body that declares all of it as information passes the 2x rule and fails on growth.
+        // A store with a byte per body that declares all of it as information passes the 2x rule and fails the cap (F4).
+        let g = verdict(&TweakLaw(Tamper::FatButHonest));
+        assert!(!g.pass && g.detail.contains("declared information 262186 B is within 64 B"), "{}", g.detail);
+        // Under the cap, a store that still grows with n (a byte per 8192 bodies) fails on growth.
         let runs = [Run { log2n: 18, seed: 5, thorough: false }, Run { log2n: 19, seed: 6, thorough: false }];
-        let g = belt::judge(&TweakLaw(Tamper::FatButHonest), &runs);
-        assert!(!g.pass && g.detail.contains("the store does not grow with n"), "{}", g.detail);
+        let g = belt::judge(&TweakLaw(Tamper::SlowGrowth), &runs);
+        assert!(!g.pass && g.detail.starts_with("belt: 1 of ") && g.detail.contains("the store does not grow with n"), "{}", g.detail);
     }
 
     #[test]
@@ -798,11 +868,11 @@ mod belt_tests {
     fn both_controls_pass_the_frozen_runs_and_every_plant_fails_them() {
         for law in [&Echo as &dyn Law, &IidBlocks, &DyadicBelt] {
             let g = belt::b18_belt(law);
-            assert!(g.pass && g.detail.contains("4 runs"), "{}", g.detail);
+            assert!(g.pass && g.detail.contains("5 runs"), "{}", g.detail);
         }
         let g = belt::b18_belt(&Planted(Fault::BeltClipped));
         assert!(g.detail.contains("top 1e-4 of e: count 0 against the reference's 105 (z = -7"), "{}", g.detail);
-        for fault in [Fault::BeltClipped, Fault::BeltWinsor, Fault::BeltRepeat, Fault::BeltSerial, Fault::BeltThread, Fault::BeltFat, Fault::BeltShips, Fault::BeltLattice, Fault::BeltFatScars] {
+        for fault in [Fault::BeltClipped, Fault::BeltWinsor, Fault::BeltRepeat, Fault::BeltSerial, Fault::BeltThread, Fault::BeltFat, Fault::BeltShips, Fault::BeltLattice, Fault::BeltFatScars, Fault::BeltCrush, Fault::BeltInnerClip, Fault::BeltAligned, Fault::BeltTable20] {
             assert!(!belt::b18_belt(&Planted(fault)).pass);
         }
     }
