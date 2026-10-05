@@ -3119,3 +3119,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/runs/sonnet-plane2/
 - Limitations: the lab's Actions minutes are finite; kicks still dominate.
 - Next: the GLM queue (r10, E9 red-team, r8 v3, correctors, changeover, skin, Fermi phase-2 tide).
+
+## H0212 — GLM's off-time: 39 checked results, and the plane faces its gates
+
+- Date: 2026-10-05
+- Kind: research
+- Status: partial
+- Revisions: 2906ffd (the host); 33535d0 (the queue refilled; law.md "Ties")
+- Scope: lab; docs/law.md; .github/workflows
+- Changed: while Claude and Codex were out, GLM ran 13 windows on GitHub Actions (39 runs, one gold, no code touched). r10 killed the SyMBA changeover at a fixed base step in float (Jacobi exponent 0.43 against 0.2); q-changeover found no float changeover at the plane's budget that holds; six runs agree correctors buy nothing, so cadence is the lever; five agree the plane ignores its memo on 95–98% of kicks; one found no tie rule behind "any order gives identical bits" (now in law.md), another that the bench's replays use wall ticks. Gold: a smooth belt as a bijective program, 0.126 bits per body.
+- Why: Julien: use the off time with GLM without it changing our code.
+- Validation: every result reproduced by an independent GLM checker; gold by two.
+- Evidence: origin/claude/lab-20261001-1847-* through lab-20261005-0543-*; lab/board.md taste log
+- Limitations: float replicas, not the engine; most silvers miss gold on unregenerable records.
+- Next: the plane judged by B12–B17 (Sol); memo, replays, ties (Sonnet); E9 freeze (Sol); Julien on the belt.
