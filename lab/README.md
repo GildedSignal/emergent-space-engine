@@ -2,7 +2,7 @@
 
 Julien, 29 September: "Our goal is to make the fastest and most robust engine/compiler ever for that type of physics"; "GLM should have more autonomy not what it could change but on what it could experiment on"; "I don't like pass/fail we just need a good system that make sure it propose gold."
 
-Many GLMs, each with a lens, get **autonomy of inquiry and no authority.** They choose what to experiment on, build and run anything in a cloud container, and never change `main`. They run only in the cloud, never on Julien's machine. An independent GLM checks every result. Only gold reaches the integrator.
+Many GLMs, each with a lens, get **autonomy of inquiry and no authority.** They choose what to experiment on, build and run anything on the lab's Linux machine, and never change `main`. They run on agonbox as the isolated user glmlab (no access to Julien's files, no route to his network), or on GitHub's machines, never on his Mac. An independent GLM checks every result. Only gold reaches the integrator.
 
 ## One run
 
@@ -37,7 +37,7 @@ Many GLMs, each with a lens, get **autonomy of inquiry and no authority.** They 
 - Cloud timings are Linux/x86: report orders of magnitude only. The integrator re-measures on the M1.
 - Results live only in `lab/results/<run>/` on the run's own branch. Never edit or push `main`, the docs, the crates or frozen evidence.
 
-## Running (cloud only)
+## Running (never on Julien's Mac)
 
 - **Pacing:** GLM's binding limit is its 5-hour token window, not its month. About 12 parallel sessions exhausted it in under 2 hours (29 September), and every later run got a 429 and came back VOID. So run at most 3 rung runs per window, and schedule second authors for the next window.
 - **The host is GitHub Actions** (`.github/workflows/glm-lab.yml`), every 5 hours, so the lab runs when Claude and Codex are out. It takes three runs from `lab/next.sh`: the integrator's queue `lab/queue.txt` first, then the lens rotation. GLM's job holds a read-only token and no git credential; a separate clean job publishes each finished `lab/results/<id>/` on its own `claude/lab-<id>` branch, and refuses any other path. The secret `ZAI_API_KEY` is Julien's. `lab/setup.sh` installs omp, pinned by hash.

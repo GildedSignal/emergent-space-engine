@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The GLM lab runner (see lab/README.md). Cloud only: never on Julien's machine.
+# The GLM lab runner (see lab/README.md). Linux only: agonbox as glmlab, or GitHub's machines; never Julien's Mac.
 #   lab/run.sh start <lens> [author-minutes]   starts a run in the background and prints its id
 #   lab/run.sh rung <rung.md> [author-minutes] the same for a committed, unchanged rung file (lab/canaries/)
 #   lab/run.sh wait <id>                       waits up to 9 minutes; prints the grade or verdict line when done
@@ -13,7 +13,7 @@ preamble() {  # PRINCIPLES' goal and philosophy, verbatim, then the lab's charte
   printf '\n'; cat lab/README.md; printf '\n'; cat lab/board.md; printf '\n'
 }
 restore() { git reset -q; git checkout -q -- .; git clean -fdq -e lab/results; }
-guard_linux() { [ "$(uname)" = Linux ] || { echo "cloud only: never on Julien's machine"; exit 2; }; }
+guard_linux() { [ "$(uname)" = Linux ] || { echo "Linux only (GitHub's machines or agonbox as glmlab): never on Julien's Mac"; exit 2; }; }
 guard_key() {
   [ -n "${ZAI_API_KEY:-}" ] || { echo "ZAI_API_KEY is not set in this cloud environment"; exit 2; }
   command -v omp >/dev/null || bash lab/setup.sh || exit 2
@@ -60,7 +60,7 @@ _run)
   { preamble; cat "lab/lenses/$lens.md"; cat <<P
 ## Your run
 Run id: $id. Your folder: $out/. Time: $min minutes.
-- The machine is a cloud container ($(machine)). Install what you need with pip or cargo.
+- The machine is a Linux machine ($(machine)). Install what you need with pip or cargo.
 - For the web, use your search tools if you have them, or else curl: export.arxiv.org/api/query, api.github.com.
 - You may edit any file in this tree to experiment. Your edits are saved as a patch, and the tree is then restored.
 - Before your decisive experiment, write $out/predictions.md. At the end, write $out/dossier.md in the format given in lab/README.md.
@@ -74,7 +74,7 @@ P
   { preamble; cat lab/lenses/checker.md; cat <<P
 ## Your check
 Run id: $id. The author's folder is $out/: dossier.md, predictions.md, its scripts, and work/patch.diff, its edits (apply them with git apply to reproduce).
-- Time: $((min / 2)) minutes. The machine is a cloud container ($(machine)).
+- Time: $((min / 2)) minutes. The machine is a Linux machine ($(machine)).
 - Write $out/check.md. Change nothing else in $out/.
 - Never run git commit or git push.
 P
@@ -93,7 +93,7 @@ _rung)  # a directed rung: the frozen file is the question; verdict.py decides, 
   { preamble; cat "$f"; cat <<P
 
 ## Your run (a directed rung)
-Run id: $id. Your folder: $out/. Time: $min minutes. The machine is a cloud container ($(machine)).
+Run id: $id. Your folder: $out/. Time: $min minutes. The machine is a Linux machine ($(machine)).
 The rung above is frozen: never edit it, and report what each configuration does, whatever it is.
 - Implement every configuration listed in its configs block, on the cases the rung defines.
 - Write $out/metrics.json as {"<config>": {"<metric>": number}}, with exactly the criteria's metric names, for every configuration.
@@ -108,7 +108,7 @@ P
 ## Your check (a directed rung)
 Run id: $id. The author's folder is $out/: dossier.md, metrics.json, the picture, its scripts, and work/patch.diff, its edits (git apply to reproduce).
 The rung above is frozen, and lab/verdict.py computes the verdict from the metrics files: ignore the Grade line rule above.
-Time: $((min / 2)) minutes. The machine is a cloud container ($(machine)).
+Time: $((min / 2)) minutes. The machine is a Linux machine ($(machine)).
 - Reproduce the author's numbers from the author's scripts, and fix nothing silently: report every number that differs.
 - Check the author's implementation independently against the rung's specification, and check each oracle value.
 - Write $out/metrics-check.json in the same shape as metrics.json, from your reproduced numbers.
