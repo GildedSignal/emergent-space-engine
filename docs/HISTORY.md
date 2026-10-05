@@ -3147,3 +3147,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/runs/sonnet-plane3/
 - Limitations: a tail regression (hitches 33–51 ms; fleet kicks +38%), being fixed; the quantized memo needs a hook in crates/space.
 - Next: the frame tails (Sonnet); the plane judged by B12–B17 (GLM, reviewed).
+
+## H0214 — Gates before builds: rotating holes and belts frozen; the plane faces its gates and fails them
+
+- Date: 2026-10-05
+- Kind: qualification
+- Status: partial
+- Revisions: 27bb375 (behave --law plane, built by GLM); f9ced9a (B19 frozen at a812521); e4f7627 (B18b frozen at 325803f)
+- Scope: xtask/src/behave; docs/law.md; lab
+- Changed: Julien wants GR's weird effects, rotating holes first, and gravity at c. B19 (equatorial Kerr: frame dragging, ergosphere, direction-dependent fates, the Penrose process) and B18b (the belt; tails kept at both ends) were frozen after GLM red-teams found a wrong physics claim in one judge and four holes in the other. The plane, judged for the first time by the frozen gates through GLM's adapter, fails B12 (Jacobi exponent 1.03), B13 (7 of 64 flybys lost at 1.5–3.2 planet radii) and B17 at every cadence: the encounter representation fails, not the cadence. GLM moved to agonbox as an isolated user.
+- Why: gates are frozen before builds; an outside review warned the research apparatus could become a second cathedral.
+- Validation: echo passes B18b and B19; planted laws fail; the plane's verdicts reproduced on the M1.
+- Evidence: lab runs 20261005-1404-* and 20261005-1540-*; artifacts/runs/sonnet-b19-kerr/, sonnet-b18-belt/
+- Limitations: no Kerr compiler or wired belt yet (Astra and Sol, after 9 October).
+- Next: the plane's readout and Lorentz handoffs, then B12–B13 again; the close-encounter representation.
