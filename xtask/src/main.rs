@@ -159,6 +159,6 @@ fn run() -> Result<u8> {
         return Ok(0);
     }
     println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  universe [--bench] [--rtf R] [--seconds S]  the plane: one star system, whole (port 8792), or its smoothness dashboard
-  galaxy [--ships N] [--tubes N] [--bench] [--png FILE]  millions to billions of orbiting ships as a density image (port 8791)\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|space|planted-*] [--gates G1,..,B18]  behaviour judge, gates G1-G6, B7, B9-B18\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
+  galaxy [--ships N] [--tubes N] [--bench] [--png FILE]  millions to billions of orbiting ships as a density image (port 8791)\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|space|plane|planted-*] [--gates G1,..,B18] [--plane-step N]  behaviour judge, gates G1-G6, B7, B9-B18\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
     Ok(0)
 }

@@ -6,7 +6,7 @@
 //! falls along an exact tube of the planet's doll; contacts happen inside the frame, as the
 //! engine does them. Lattice scale: `c = 2^20` lattice units per tick, so one lattice unit is
 //! `2^-20` of the star's `M`, and a lattice chronon is one tick of the root clock. The planet's
-//! pull in lattice units is `μ = 2^(mass_log2 + 60)`, which fixes the frame's mean motion from its
+//! pull in lattice units is `μ = mass·2^60` (the planet's mass, a mantissa with its exponent), which fixes the frame's mean motion from its
 //! radius.
 //!
 //! **The frame's origin is a tube in its doll like any other**, so it takes the doll's kicks (the
@@ -204,10 +204,11 @@ pub struct Step {
     pub dissolved: bool,
 }
 
-/// The frame's mean motion `n/2^60` rad per tick for a planet of mass `2^mass_log2` (octave of the
-/// root's) at lattice radius `radius`: `n = √(μ/R³)`, `μ = 2^(mass_log2 + 60)` in lattice units.
-pub fn mean_motion(mass_log2: i32, radius: i64) -> Res<u64> {
-    let mu = Scalar::power_of_two((mass_log2 + 60) as i16);
+/// The frame's mean motion `n/2^60` rad per tick for a planet of the given mass (a mantissa with an
+/// octave of the root's; an `i32` is a power of two) at lattice radius `radius`: `n = √(μ/R³)`,
+/// `μ = mass · 2^60` in lattice units.
+pub fn mean_motion(mass: impl Into<crate::world::Mass>, radius: i64) -> Res<u64> {
+    let mu = mass.into().value()?.scale(60)?;
     let r = Scalar::integer(radius);
     let n = mu.div(r.mul(r)?.mul(r)?)?.sqrt()?;
     u64::try_from(n.fixed(60)?).map_err(|_| Error::Refused("mean motion"))
@@ -225,11 +226,11 @@ fn origin_state(ctx: &Ctx, doll: u16, b: &dyn Battlefield, t: Tick) -> Res<(V2, 
 
 impl Fleet {
     /// A fleet of the world `w` (lattice bodies in the frame's axes), on a circular tube of lattice
-    /// radius `radius` about the centre of `doll` (mass `2^mass_log2`), starting at `phase` (turns, Q32)
-    /// of the circle at tick 0.
+    /// radius `radius` about the centre of `doll` (of the given mass, as in [`mean_motion`]), starting at
+    /// `phase` (turns, Q32) of the circle at tick 0.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(name: &'static str, doll: u16, centre: usize, mass_log2: i32, w: World, radius: i64, phase: u32, order: Order, threads: usize) -> Res<Self> {
-        let n = mean_motion(mass_log2, radius)?;
+    pub fn new(name: &'static str, doll: u16, centre: usize, mass: impl Into<crate::world::Mass>, w: World, radius: i64, phase: u32, order: Order, threads: usize) -> Res<Self> {
+        let n = mean_motion(mass, radius)?;
         // Periapsis at the orientation `phase`, at tick 0: the body starts there on a circle.
         let frame = Frame::on_orbit(Q, radius, n, 0, phase, 0).map_err(|_| Error::Refused("frame"))?;
         let policy = AnchorPolicy::default();

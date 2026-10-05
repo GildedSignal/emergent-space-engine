@@ -1,0 +1,7 @@
+# Lens: gravity at c kept by a cursor (a directed falsifier)
+
+Read docs/law.md ("Gravity travels at c") and the Opus math memo (`lab/refs/opus-math/memo.md`, R5), then the result of the lab's `q-gravity-at-c` if it is published (`git for-each-ref refs/remotes/origin/claude/lab-*q-gravity-at-c*`). R5: a source's history is a chain of news events (thrust, contacts, rebinding); a body at event (t, x) sees the prefix k* = max{k : t ≥ t_k and (t − t_k)² ≥ |x − x_k|²} (integer squared forms, no root); k* never decreases along a timelike worldline, so one cursor per (body, source) advances by integer tests, amortized O(1) per source per kick; until the front passes, the field comes from the source's "ghost" (the path it would have followed without the news).
+
+Probe, in your folder: cursor advances per kick (expected about one); exact agreement with a brute-force retarded search on random worldlines, including fast sources (β up to 0.9) and lowered c (v/c 0.1 and 0.3); the Laplace control (a pull toward the retarded position spirals a circular orbit outward, the news law holds it); ghost memory per source (history kept for the influence radius divided by c) in a star system and at galaxy scale, where the memo says a ghost lives 10⁴–10⁵ years and needs its own kicks. Say what that last case requires.
+
+Gold: the cursor agrees with brute force everywhere, costs about one test per kick, and the ghost cost is bounded and stated per scale.

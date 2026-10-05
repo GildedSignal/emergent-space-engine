@@ -33,6 +33,7 @@ pub mod hill;
 pub mod laws;
 pub mod lens;
 pub mod memory;
+pub mod plane;
 pub mod oracle;
 pub mod resonance;
 pub mod restricted;
@@ -289,12 +290,16 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10,B11,B12,B13,B14,B16,B17,B18,B18b]";
+const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|planted-belt-table20] [--gates G1,G2,...,B18b] [--plane-step N]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
     let name = cli.law.as_str();
-    let law = laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?;
+    let law = if name == "plane" {
+        Box::new(plane::Plane::new(cli.plane_step))
+    } else {
+        laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?
+    };
     println!("machine_state {}", machine_state("start"));
     let watch = Watch::spawn(LIMIT, |label, secs| {
         for id in label.split(' ') {

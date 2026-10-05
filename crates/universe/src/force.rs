@@ -15,6 +15,14 @@
 //! with the shells `R_l = 2^(1−l)·R_edge` (`R_edge` the secondary's sphere of influence).
 //! Level `l` kicks `W_l·V` at a step `H/4^l`: far pairs are kicked once per step, a pair inside
 //! the shells is kicked on finer steps, recursively, only while it is inside.
+//!
+//! **The doll's origin falls** (docs/law.md). A doll is centred on its dominant body, which is pulled
+//! by every secondary in the doll: the frame is accelerated, so every member's kick carries the
+//! origin's acceleration with the opposite sign, `−Σ_j gm_j·x_j/|x_j|³`, one uniform vector per kick
+//! epoch (the indirect term of a heliocentric split). It depends on the secondaries' positions alone,
+//! never on the member's, so it is a level-0 kick like the parent's tide (the parent's tide already is
+//! the origin's fall toward the *parent*: the differential pull). Without it a member far from a
+//! secondary feels the secondary's whole pull with nothing to balance it.
 use crate::num::{add2, dot2, norm2, scale2, sub2, Res, V2};
 use emergent_space::{events::kicks::parent_tide, orbit::Scalar};
 
@@ -81,8 +89,22 @@ pub fn pull(gm: Scalar, xj: V2, x: V2) -> Res<(V2, Scalar)> {
     Ok((scale2(d, k)?, r))
 }
 
+/// The origin's acceleration toward the secondaries, `Σ_j gm_j·x_j/|x_j|³`: what a member's kick subtracts.
+pub fn origin_fall(secondaries: &[Secondary]) -> Res<V2> {
+    let mut a = [Scalar::ZERO; 2];
+    for s in secondaries {
+        let r = norm2(s.pos)?;
+        if r.is_zero() {
+            return Err(crate::num::Error::Refused("a secondary on top of its doll's centre"));
+        }
+        a = add2(a, scale2(s.pos, s.gm.div(r.mul(r)?.mul(r)?)?)?)?;
+    }
+    Ok(a)
+}
+
 /// The acceleration a body at `x` feels at the kick of `level`: the changeover share of every
-/// secondary's pull and, at level 0, the parent's tide.
+/// secondary's pull and, at level 0, the origin's fall toward the secondaries and the parent's tide.
+/// `secondaries` are the doll's other sources (the body itself excluded).
 /// `tide` is `(parent mass, centre of the doll in the parent's frame)` in this doll's units.
 pub fn acceleration(level: u8, x: V2, secondaries: &[Secondary], tide: Option<(Scalar, V2)>) -> Res<V2> {
     let mut a = [Scalar::ZERO; 2];
@@ -94,6 +116,7 @@ pub fn acceleration(level: u8, x: V2, secondaries: &[Secondary], tide: Option<(S
         }
     }
     if level == 0 {
+        a = sub2(a, origin_fall(secondaries)?)?;
         if let Some((mass, centre)) = tide {
             a = add2(a, parent_tide(mass, centre, x)?)?;
         }

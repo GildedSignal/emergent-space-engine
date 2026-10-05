@@ -10,6 +10,15 @@
 //!   against the Kepler scale M/a of the ship, sampled every P/8. PASS iff the worst error is at
 //!   most 1e-4 and the growth exponent is at most 0.2 (the median over the ships above a 1e-12
 //!   floor).
+//!   **5 October: the origin falls** (docs/law.md). The doll's centre is accelerated by its secondaries and
+//!   every member's kick carries the opposite acceleration (the indirect term), so the problem the plane
+//!   integrates is the heliocentric one, and its integral gains the indirect potential:
+//!   E = v^2/2 - M/|x| - mu/|x - x_p| + mu*x.x_p/|x_p|^3 (the star fixed in the first version made the
+//!   planet's whole pull a push on every ship, balanced by nothing). The planet's own tube is the relative
+//!   orbit of the two bodies, the Kepler problem of the total mass, so Omega = sqrt(1 + mu)·sep^(-3/2) (with
+//!   the planet a test particle of the star's doll, the star's pull on a ship inside the planet's doll and
+//!   outside it disagreed by the planet's whole pull, and ships that passed the planet jumped by 1e-4).
+//!   The bound, the exponent and the error scale are unchanged; the error now converges with the step.
 //!
 //! **What the first run said, and what was done about it.** First run, with the state read between
 //! kicks: worst error 2.5e-4 to 1.4e-3 (21 for a ship that crashed). Three causes, all in the
@@ -69,13 +78,15 @@ fn an_isolated_orbit_is_the_compiled_tube_and_costs_nothing() {
     println!("isolated orbit: {} events over 1000 periods, still the tube of tick 0", u.stats.events());
 }
 
-/// Jacobi constant of the plane's model, in floats, from root-frame states.
+/// Jacobi constant of the plane's model (the heliocentric restricted problem, indirect term included), in floats,
+/// from root-frame states.
 fn jacobi(u: &Universe, planet: usize, ship: usize, t: i64, mu: f64, omega: f64) -> f64 {
     let (xs, vs) = pf(u, ship, t);
     let (xp, _) = pf(u, planet, t);
     let r = (xs[0] * xs[0] + xs[1] * xs[1]).sqrt();
     let d = ((xs[0] - xp[0]).powi(2) + (xs[1] - xp[1]).powi(2)).sqrt();
-    let e = 0.5 * (vs[0] * vs[0] + vs[1] * vs[1]) - 1.0 / r - mu / d;
+    let rp3 = (xp[0] * xp[0] + xp[1] * xp[1]).powf(1.5);
+    let e = 0.5 * (vs[0] * vs[0] + vs[1] * vs[1]) - 1.0 / r - mu / d + mu * (xs[0] * xp[0] + xs[1] * xp[1]) / rp3;
     let l = xs[0] * vs[1] - xs[1] * vs[0];
     e - omega * l
 }
@@ -154,8 +165,8 @@ fn jacobi_run(n: usize, periods: i64) -> Vec<Pair> {
         .collect();
     let mut w = restricted(mu_log2, sep, 49_000, &ships, 1).unwrap();
     let mu = 2f64.powi(mu_log2);
-    let period = 2.0 * std::f64::consts::PI * (sep as f64).powf(1.5);
-    let omega = 1.0 / (sep as f64).powf(1.5);
+    let omega = (1.0 + mu).sqrt() / (sep as f64).powf(1.5);
+    let period = 2.0 * std::f64::consts::PI / omega;
     let samples = (periods * 8) as usize;
     let mut map: Vec<Vec<f64>> = vec![Vec::new(); n];
     let mut view: Vec<Vec<f64>> = vec![Vec::new(); n];

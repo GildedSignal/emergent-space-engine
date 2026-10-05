@@ -11,3 +11,5 @@ The plane kicks every body at one fixed cadence, `2^step_log2` per radial period
 - The cadence may change only at a body's events, and must be decided exactly (integers), so that the result is independent of schedule.
 
 Gold: a rule, decided from local quantities, that cuts total kicks 4× or more on the mixed scenes with every behaviour held.
+
+Read first the Opus math memo (`lab/refs/opus-math/memo.md`): cadence serves only the part of each body's perturbation that is not integrable (R2, tested by `q-secular`), and a body's state between kicks must be read on a second-order ramp (law.md), or the mid-interval readout's first-order error will be mistaken for the cadence's.

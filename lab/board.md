@@ -9,7 +9,8 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 - the changeover near a secondary, reversible and integer (TRACE, JANUS);
 - finding encounters without work per orbit or per element change (the Binet cone, r8 v3, plus a skin);
 - the Schwarzschild tide in the Fermi frame (phase 2, after gate E9);
-- fitting 10⁹ in 8 GB (`crates/shipmem`: population programs plus scars; every body real, never averaged).
+- fitting 10⁹ in 8 GB (`crates/shipmem`: population programs plus scars; every body real, never averaged), decided by distinctions created per game-second;
+- **the top scaling risk (5 October):** candidate pairs per body grow with N at a fixed distribution (O(N²) pairs); candidate work must track real encounters (`q-candidate-degree`).
 
 The list of 29 September below is background: the pivot (H0200 onwards) answered most of it.
 
@@ -74,6 +75,8 @@ The list of 29 September below is background: the pivot (H0200 onwards) answered
 - Julien, 29 September: local sheets and no teleportation make the engine an asynchronous cellular automaton that follows causal chains instead of cataloguing. Positions are re-derived, never global. 32-bit packets per region. Memory laid out in causal order, as Crash Bandicoot laid out its levels. Are the quanta sensible? (see bottleneck 5)
 
 ## Taste log (the integrator's decisions on gold, newest first)
+
+- **5 October, correction: the memo finding was an artifact.** Five runs agreed that 95–98% of the plane's kicks would hit the memo; the plane's builder found they all re-timed one pending kick every frame. On distinct kicks the exact memo hits 0%; the quantized cell hits 94.5% but changes orbits, so it is a law change. Lesson for every author and checker: agreement between runs is not independence when they share a harness. Check that the measured events are distinct before counting hits.
 
 - **5 October, the off-time lab (39 runs on GitHub Actions, 1–5 October).** One gold, `components-98bc` (a smooth belt as a bijective program: 0.126 bits per body against 157): waiting on Julien ("no Elite style"; B18 needs a belt rung). Adopted from silvers, by convergence: correctors and higher-order splits buy nothing (six runs), so the lever is cadence (q-cadence queued; the engine is measured by `behave --law plane`); the plane recompiles an orbit on about 99% of kicks while the memo would hit 95–98% (five runs; Sonnet wires it); the tie rule (redteam-6254, now in law.md); replays at canonical ticks (taleb-c271). r10: the SyMBA changeover at a fixed base step is KILLED in float (exponent 0.43); q-changeover: no float changeover at the plane's budget reaches 0.2, TRACE is dead, a smooth integer changeover is bit-reversible (JANUS). Most silvers fell short of gold on the record, not the physics: results that the shipped code could not regenerate. Three runs (2 October, 23:47) never started.
 

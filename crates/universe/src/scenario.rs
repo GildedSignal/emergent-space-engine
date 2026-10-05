@@ -3,6 +3,7 @@ use crate::body::Kind;
 use crate::ctx::Config;
 use crate::num::{s, Res};
 use crate::universe::{OrbitSpec, Universe};
+use crate::world::Mass;
 use emergent_space::orbit::Scalar;
 
 /// The sun's `M` is 1.477 km: one root length unit. One astronomical unit in root units.
@@ -10,20 +11,23 @@ pub const AU: i64 = 101_300_000;
 /// The star's radius (the sun's, 6.96e8 m) in root units.
 pub const STAR_RADIUS: i64 = 471_000;
 
-/// A star, one planet on a circle of radius `sep` with mass `2^mu_log2`, and test ships on circular
-/// heliocentric orbits at `(sep + dr)` and angle `alpha` (turns, Q32): the restricted problem the
-/// Jacobi checks use. `dr` and `alpha` come from the caller; nothing here is random.
+/// A star, one planet on a circle of radius `sep` with mass `mu` (a [`Mass`], in the star's: `Mass::ratio(1, 999)`
+/// is the planet of a thousandth of the total; an `i32` is the old call, `2^mu_log2`), and test ships on circular
+/// heliocentric orbits at `(sep + dr)` and angle `alpha` (turns, Q32): the restricted problem the Jacobi
+/// checks use. `dr` and `alpha` come from the caller; nothing here is random. The planet's tube is the relative
+/// orbit of the star and the planet (the Kepler problem of their total mass, so it turns at `√((1 + μ)/sep³)`).
 pub struct Restricted {
     pub u: Universe,
     pub planet: usize,
     pub ships: Vec<usize>,
 }
 
-pub fn restricted(mu_log2: i32, sep: i64, planet_radius_root: i64, ships: &[(i64, u32)], clock_threads: usize) -> Res<Restricted> {
-    restricted_with(mu_log2, sep, planet_radius_root, ships, clock_threads, Config::default())
+pub fn restricted(mu: impl Into<Mass>, sep: i64, planet_radius_root: i64, ships: &[(i64, u32)], clock_threads: usize) -> Res<Restricted> {
+    restricted_with(mu, sep, planet_radius_root, ships, clock_threads, Config::default())
 }
 
-pub fn restricted_with(mu_log2: i32, sep: i64, planet_radius_root: i64, ships: &[(i64, u32)], clock_threads: usize, cfg: Config) -> Res<Restricted> {
+pub fn restricted_with(mu: impl Into<Mass>, sep: i64, planet_radius_root: i64, ships: &[(i64, u32)], clock_threads: usize, cfg: Config) -> Res<Restricted> {
+    let mu = mu.into();
     let mut u = Universe::new(s(STAR_RADIUS), cfg);
     u.threads = clock_threads;
     let planet = u.add_body(
@@ -31,8 +35,8 @@ pub fn restricted_with(mu_log2: i32, sep: i64, planet_radius_root: i64, ships: &
         OrbitSpec { doll: 0, periapsis: s(sep), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
         Scalar::ZERO,
     )?;
-    let surface = Scalar::raw(planet_radius_root as i128, -mu_log2 as i32)?.scale(0)?; // root units → planet units: × 2^-mu_log2
-    u.add_doll("planet", planet, mu_log2, surface)?;
+    let surface = Scalar::raw(planet_radius_root as i128, -mu.octave)?; // root units → planet units: × 2^-octave
+    u.add_doll("planet", planet, mu, surface)?;
     let mut ids = Vec::new();
     for &(r, alpha) in ships {
         ids.push(u.add_body(
@@ -43,6 +47,52 @@ pub fn restricted_with(mu_log2: i32, sep: i64, planet_radius_root: i64, ships: &
     }
     u.start()?;
     Ok(Restricted { u, planet, ships: ids })
+}
+
+// ---- relativistic content for the view ------------------------------------------------------------
+
+/// How a stream's emitters move against the line of sight to the observer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stream {
+    /// Perpendicular to the bearing they were made at.
+    Across,
+    /// Toward the observer.
+    Toward,
+    /// Away from it.
+    Away,
+}
+
+/// A player in the star's doll that is at `(R, 0)` (`R = 10^8` root units) at tick `start`, circular about the star
+/// when `beta_obs` is zero and otherwise moving at that speed along `+y`; and `n` emitters that are at `dist` root
+/// units from it then, at evenly spaced bearings, each at speed `beta` in the direction `stream` says. Every one is a
+/// bare tube (nothing pulls it, so nothing happens to it), made at tick 0 from its exact state (the straight line
+/// back from `start`), so the view's cost on content at any speed is measurable on its own: the stream of B15's scene
+/// at 0.9c is the content the game exists for. Tubes end at twice their radius: the scene is good while every
+/// body is within `2·10^8` of the star (ticks of light). Returns the universe, the emitters' ids and the player's.
+pub fn stream(beta_obs: f64, beta: f64, stream: Stream, n: usize, dist: f64, start: i64) -> Res<(Universe, Vec<usize>, usize)> {
+    use crate::num::from_f64;
+    let r = 1.0e8;
+    let mut u = Universe::new(s(STAR_RADIUS), Config::default());
+    let player = if beta_obs == 0.0 {
+        u.add_body(Kind::Player, OrbitSpec { doll: 0, periapsis: from_f64(r), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO)?
+    } else {
+        u.add_body_state(Kind::Player, 0, [from_f64(r), from_f64(-beta_obs * start as f64)], [Scalar::ZERO, from_f64(beta_obs)], Scalar::ZERO)?
+    };
+    let mut ids = Vec::new();
+    for j in 0..n {
+        let th = (j as f64 + 0.5) / n as f64 * std::f64::consts::TAU;
+        let bearing = [th.cos(), th.sin()]; // from the observer to the emitter
+        let dir = match stream {
+            Stream::Across => [-bearing[1], bearing[0]],
+            Stream::Toward => [-bearing[0], -bearing[1]],
+            Stream::Away => bearing,
+        };
+        // where it is at `start`, and the straight line back to tick 0
+        let pos = [r + dist * bearing[0] - beta * dir[0] * start as f64, dist * bearing[1] - beta * dir[1] * start as f64];
+        ids.push(u.add_body_state(Kind::Ship, 0, [from_f64(pos[0]), from_f64(pos[1])], [from_f64(beta * dir[0]), from_f64(beta * dir[1])], Scalar::ZERO)?);
+    }
+    u.start()?;
+    Ok((u, ids, player))
 }
 
 // ---- the star system the plane flies -------------------------------------------------------------
@@ -133,7 +183,7 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
     let sep = u.rec(m).b.entry.trajectory.key().periapsis;
     let proto = emergent_space::events::Doll::child(emergent_space::events::LogMass((-24) << 24), home_doll, u.rec(m).b.tube);
     let soi = proto.edge_radius(&u.dolls[home_doll as usize].record.clone(), sep)?;
-    u.make_source(m, -6, soi);
+    u.make_source(m, -6, soi)?;
     names.push("Moon".into());
     // Ships about the star: between 0.5 and 8 AU, e up to 0.25.
     let mut ships = Vec::new();
