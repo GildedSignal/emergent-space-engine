@@ -1,0 +1,4 @@
+Working...
+The run is complete: predictions were pre-registered before the decisive experiments (including two pre-run amendments), two falsifying probes plus an independent arbiter were executed, and `dossier.md` reports the held predictions and the four that failed alongside the ones that held.
+
+**Claim:** superposing the sources' contravariant Kerr–Schild fields (`g^{μν} = η^{μν} − Σ fᵢkᵢkᵢ`, rank-1 integer deposits) is a measured candidate for gravity-law.md's open cell-addition rule — exactly Schwarzschild per source (validated against independent Binet references, orbit and light), light-correct at 1PN for two masses (0.036% at b=4000M) and failing measurably at p/d=10 (3.1%) where dolls take over — while velocities gain an exact fixed-bit algebra: collinear Einstein addition is an integer bilinear form, closed and error-free over 10⁶ dyadic thrust quanta where naive snapping is falsified as a random walk and the sigma-delta carry is proven mandatory.
