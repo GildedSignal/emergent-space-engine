@@ -9,3 +9,5 @@ Julien, 5 October: "especially rotating black holes". docs/law.md, "Rotating hol
 - Deliver: the derivation, the reference script, and a JSON of test vectors (inputs and the three increments) to 1e-12 relative.
 
 Gold: a reference that regenerates from the shipped script, agrees with direct integration on every family, and states how the existing representation extends without a special case.
+
+The Opus math memo (`lab/refs/opus-math/memo.md`, "Adequate, confirmed: Kerr") checked symbolically that in Mino time (dτ = r²dλ at the equator) (du/dλ)² is Schwarzschild's cubic with L² → L² − a²(E² − 1) and 2ML² → 2M(L − aE)², with dφ/dλ and dt/dλ rational: so Darwin's ψ carries over and only the integrands change. Start from that and verify it.
