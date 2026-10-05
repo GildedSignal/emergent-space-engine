@@ -63,7 +63,7 @@ jobs:
       - name: Publish each result on its own claude/lab-<id> branch, and nothing else
         run: |
           git config user.name glm-lab; git config user.email glm-lab@users.noreply.github.com
-          base=$(git rev-parse HEAD)
+          git fetch -q origin main && base=$(git rev-parse origin/main)   # main's tip: a branch cut from an older commit would look like a workflow edit
           for d in ../results/*/; do
             [ -d "$d" ] || continue
             id=$(basename "$d")
