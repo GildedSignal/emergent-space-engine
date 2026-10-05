@@ -1,0 +1,4 @@
+Working...
+Run complete. Folder holds `predictions.md` (pre-registered 14:13, before the first decisive run), `probe.py`, `evidence.log` (13 configurations, deterministic), and `dossier.md`. The mirror was calibrated against the real judge (built from `wt/b18-belt` and run on its own controls: `echo` and `dyadic` PASS, z-values match; the lab's original 2¹² table fails with exactly the judge's "0 of 105"), and the worktree was removed.
+
+**The claim:** the B18 belt row's premise survives every loud adversary but has four measured holes before its freeze — a belt crushing 15% of the protected tail's spread passes every frozen run (`crush85`), a hollow inner edge passes (`innerclip`, the game-critical side of p), 10⁵ deep dippers in one periapsis corridor pass (`aligned`), and criterion (4)'s byte allowance is self-declared so a 4 MB table passes it (255× the gold) — each fixable in ≤ 10 judge lines at zero cost to the gold program.
