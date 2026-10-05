@@ -9,7 +9,7 @@ cargo build --offline --release -p xtask
 ./target/release/xtask engine-judge --prepare-mutants
 ```
 
-Compilation prepares the scratch controls before the tests. Every gate has a hard 55 s watchdog. Exit 0 requires every selected gate to pass. Use `--gates E3` (or comma-separated IDs) for a reproducer; E6 requires the prepared mutant binary. Mutable outputs are in `artifacts/runs/engine-judge/`; sealed review evidence is under `artifacts/evidence/engine-judge-20260930/`.
+Compilation prepares the scratch controls in their own target directory before the tests. Every gate has a hard 55 s watchdog. Exit 0 requires every selected gate to pass. Use `--gates E3` (or comma-separated IDs) for a reproducer; E6 requires the prepared mutant binary. Mutable outputs are in `artifacts/runs/engine-judge/`; sealed review evidence is under `artifacts/evidence/engine-judge-20260930/`.
 
 | Gate | Frozen requirement |
 |---|---|
@@ -36,13 +36,13 @@ Machine lines include uptime, power, thermal status and swap. The supplied sandb
 
 The supplied sandbox makes the worktree administrative index read-only. Commits use the permitted common object/ref store and `GIT_INDEX_FILE=artifacts/runs/engine-judge/index`. The integrator should refresh the normal worktree index with `git reset --mixed HEAD` before working here; the branch commits hold the complete changes.
 
-## judge2 adjudication and E9 candidate (not yet frozen)
+## judge2 adjudication and E9 freeze
 
 E1 and E3 retain every existing parameter and tolerance as **Newtonian behaviour tests**. E1's nominal 16c reference and E3's 0.244c reference are mathematical stress fixtures, not relativistic universes. The engine reads their tubes at compactness near 2^-40. Equality qualifies evaluation orders; E3 qualifies the Newtonian tidal approximation. Neither qualifies a Schwarzschild tide. No original scene or band is weakened or removed. A missing Metal device on macOS makes E1 UNSUPPORTED, never a CPU-only PASS. CPU comparisons still run and report their actual denominator; unavailable-device failures never count as mutant kills.
 
-E9's candidate below is written before any E9 engine run. **Admission is blocked:** AGENTS.md requires a cloud GLM premise red-team and the cheapest falsifying probe before a freeze. This session exposes no cloud GLM runner. The independent oracle's analytic and refinement tests are the local probe; they do not replace the GLM. The default E9 fails closed until admission. E1–E8 may still be run separately. The judge source is the reproducible candidate; a source digest and commands are kept in `artifacts/runs/sol-judge2/`.
+E9's requirements below are admitted after the cloud GLM red-team and independent checker (`20261001-1847-redteam-e9-f0b3`), plus the phase-2 kernel/checker records (`20261002-0539-redteam-fermi2-21db`, `20261002-0539-q-fermi2-tide-0dee`). The oracle-only falsifying probe precedes admission; no engine execution precedes the freeze. The immutable source freeze is recorded below; the sandbox denied the commit.
 
-| E9 candidate requirement | Fixed value |
+| E9 frozen requirement | Fixed value |
 |---|---|
 | Reference grid | Periapsis r_p/M = 10, 30, 100, 1,000, 10,000, 100,000, 1,000,000; e = 0, 0.3, 0.6. All 21 retained |
 | Duration and samples | Ten proper radial periods (azimuthal proper periods for circles), 40 samples per period plus genesis |
@@ -51,11 +51,42 @@ E9's candidate below is written before any E9 engine run. **Admission is blocked
 | Engine order | EventCore; on_orbit with inertial axes; anchors every eight epochs plus every observation to settle position debt. Symmetric members keep the origin fixed. Refused anchors, recentring or handed-out bodies fail the case; runtime errors invalidate the physics verdict |
 | Position and shape | E3's 1% bands (the 3% exception remains exclusive to E3's initial dr/R=0.003). Same denominators, mass-weighted centre and worst member/sample; every case must pass |
 | Oracle validity | Step halving 256→512 RK4 substeps/sample and finite-separation scale 1/16→1/32 must each change position and shape by <10^-5. Timelike normalization, axis orthonormality and orthogonality to reference velocity also <10^-5; invalid oracle means no physics verdict |
-| Planted defects | Negate the complete tide; freeze the complete tide at tick zero. Both must fail the otherwise-passing r_p/M=10^6 rung, with the unmutated scratch control passing first. Timeout, panic or build failure is not a kill |
+| Planted defects | Scratch sign/static tide defects must fail r_p/M=10^6 after its positive control passes (wiring only). Independent circular Jacobi GR tide must pass at r_p/M=100 and 10; replacing only its radial stretching by Newtonian 2w or the wrong-Riemann-sign w(γ²+1) must fail each radius. All use the same 1% band, samples, denominators and oracle checks. Timeout, panic, nonfinite result or invalid oracle is not a kill |
 | Output | One JSONL row per case; full passed/failed radii separately for each e. The pass frontier is bracketed by tested radii, never interpolated. E9 stays FAIL if any near-field case fails |
 
-After the required GLM review accepts this unchanged candidate, the judge owner sets `E9_FROZEN` and records that freeze before any engine execution. E9 then runs its full spectrum plus scratch positive/negative controls; `--gates E9 --e9-weak-control` runs only the three large-radius controls with identical bands and oracle checks. This subset never qualifies the full E9.
+The admitted source sets `E9_FROZEN`; its immutable source record must precede any engine execution (the commit is deferred only if the sandbox denies the index). E9 runs its full spectrum, the independent GR tide controls, then scratch positive/negative controls. `--gates E9 --e9-weak-control` runs only the three large-radius controls with identical bands and oracle checks; this subset never qualifies GR or the full E9. The GR controls compare a separate circular Jacobi integrator against geodesic-pair differences; they qualify discrimination, not an integrated engine. In proper-time units the parallel-frame radial axis turns at λ-rate 1, tangential acceleration is −w, and radial acceleration is +w(3γ²−1), γ²=(1−2M/r)/(1−3M/r). Only the tide eigenvalue changes in its mutants, so origin/clock/axes cannot cause their kill.
 
 The float64 oracle derives its own Schwarzschild geodesic ODEs from the diagonal metric and Killing constants. Nearby geodesics begin at the spacelike exponential map of each local offset, with parallel-transported 4-velocities. Two opposite geodesics form a centred finite difference; the reference axes are parallel transported by the metric connection, not by engine tide code. Projection onto those axes removes a first-order shift along the reference velocity. Finite-separation halving checks the remaining nonlinear coordinate/simultaneity error. Factored inverse-power differences prevent cancellation of two galactic positions. The circular radial epicycle and geodetic rotation have independent analytic controls ([geodesic deviation paper](https://arxiv.org/abs/1508.06457)).
 
 **Phase-1 limitation:** the public Frame API still builds its origin at Newtonian compactness, independently of c. E9 therefore judges the public frame's full local evolution against the physically scaled Schwarzschild reference; a near-field discrepancy can include reference motion, clock convention, transported axes and tide. It cannot isolate a GR tidal coefficient until the engine exposes true parent (M,c) units. This is evidence for phase 2, not permission to rescale the Schwarzschild oracle to the engine's hidden 2^-40 compactness.
+
+## Red-team disposition (before freeze)
+
+| Finding / invariant | Disposition |
+|---|---|
+| Independent oracle / mirror vs dump | Reject oracle-unsound implication: checker's mirror agrees at 6.3e-12. Reject dossier's ~1e-9 absolute-construction claim: its final error is 1.02e-5 at r/M=10, e=0.6; not an oracle error |
+| Weak-control GR discrimination | Fix: retain sign/static wiring controls at 10^6 and require GR-positive / Newtonian and wrong-sign tide negatives at 100 and 10 |
+| Strong-end oracle validity margin | Accept: separation error 1.614e-6 at r/M=10,e=0.6, 6.2× below 1e-5. Keep strict refinement/extent/invariant checks; invalid oracle denies a physics verdict |
+| Engine-extent vs odd-pair linearization | Accept bounded gap: 4.88e-7, inside 1% band; retain paired initialization and extent checks |
+| “5/5 tests” / reproducible evidence | Reject unverified count as evidence: checker ran out of build time. Capture six current release unit tests individually with hard 55 s limits and wall times |
+| Killing constants, units, sample grid, quantized velocity | Accept checker confirmation; keep actual compactness and quantized shared genesis. Weak rungs are drop clouds, never claimed moving-member GR tests |
+| Runtime / inferred epoch cost | Replace inference with recorded engine gate wall times and machine-state queries. Compilation is preparation; timeouts never count as mutant kills |
+| Fail closed / validity and determinism | Retain strict admission, oracle-validity and engine-validity checks; retain all 21 cases. Byte-identical dump reproduction supports oracle determinism, not engine qualification |
+| Phase-2 kernel / projected Riemann sign | Reject author's γ²·7/6 fit and inflated 1.56/23.6 values; accept independently checked −w(3γ²−1) curvature eigenvalue. Wrong-sign and Newtonian tide must fail geodesic-pair comparisons |
+| Phase-2 reference provenance / claimed machine precision | Accept checked closed forms, reject unregenerable check-B numbers and derive6 as evidence. Local positive tide comparison supplies reproducible circular evidence; no eccentric/turning-point implementation claim |
+
+Freeze: uncommitted source blob `64c2dfea131e85b0f2e61c08d9f065a146cd6913`; SHA-256 `11ca9ede42fb0163be49f52d217711a78ecee7d986a345e1f08eaa0317cd9451`; base `55d76a669e4ca923eeabe6aff7fce7c7ab6cf9cf`. `git add` was denied at the administrative `index.lock`; the integrator commits these unchanged gate requirements. Immutable pre-engine source/spec snapshots and the freeze manifest are in `artifacts/runs/sol-judge2-freeze/`. Run evidence: `artifacts/runs/sol-judge2-freeze/`; per-case and mutant evidence: `artifacts/runs/engine-judge/`.
+
+This job leaves the normal index untouched after its denial; it does not use the earlier alternative-index method.
+
+## Engine result after the source freeze
+
+E9 **FAIL**, 10/21 cases, all oracle and engine validity checks true. First failing tested periapsis r_p/M=1,000 for e=0.3 (position 2.698%, shape 2.655%) and e=0.6 (5.874%, 5.863%); both pass at 10,000. Circles pass at 1,000 and first fail at 100 (34.394%, 7.784%). These bracketed radii judge the entire phase-1 public frame, not the tide coefficient alone.
+
+Independent circular GR positives pass at 100 and 10 (position 1.45e-8 and 6.97e-8); Newtonian and wrong-Riemann-sign tides fail both (4/4). Scratch weak positive passes 3/3; sign/static mutants fail 3/3 each (2/2 kills). E9 wall 13.855 s; scratch control/sign/static 1.822/0.497/0.334 s.
+
+Full `cargo run --release -p xtask -- engine-judge`: E1 UNSUPPORTED (Metal NoDevice; CPU 4,320/4,320), E2–E5/E7–E8 PASS, E6 FAIL (2/4 kills; its E1 positive control unsupported), E9 FAIL. Gate walls E1–E9: 1.393, 1.033, 19.563, 0.006, 0.004, 7.026, 0.000, 0.001, 13.855 s. Six oracle unit tests PASS individually in 0.008, 0.014, 0.006, 2.162, 0.293, 0.091 s (names and machine records in tests.jsonl). No test exceeded 55 s.
+
+Power/load records are retained (AC; uptime load 3.39/3.92/4.05 at start). Thermal, swap and hardware queries were denied/unavailable; no target-device thermal qualification follows. The first invocation used a scratch-path executable after a shared-target Cargo collision; retain it as an invalid preparation run. `prepare_mutants.py` now isolates scratch build artifacts; the frozen E9 source and bands did not change.
+
+The isolated-build E9 repeat agrees (13.977 s, same 10/21 cases and all controls valid); baseline executable SHA-256 unchanged by preparation. Sealed source/spec snapshots, machine records and gate output: `artifacts/evidence/engine-judge-e9-20261005/manifest.json`.

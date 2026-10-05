@@ -368,7 +368,106 @@ fn engine(n: u64, e: f64, bodies: Vec<Body>, stride: i64) -> Result<Vec<Vec<[f64
     Ok(out)
 }
 
-const E9_FROZEN: bool = false;
+// Independent circular Jacobi control. In a parallel frame the radial direction
+// turns by lambda, not by the Schwarzschild azimuth. The radial stretching is
+// 3 gamma^2 - 1 (minus the curvature eigenvalue); tangential compression is -1.
+// This path shares no geodesic-pair RHS/connection with the oracle above.
+fn circular_tide_trace(
+    offsets: &[Offset],
+    dt: f64,
+    stretch: f64,
+    sign: f64,
+    frozen: bool,
+) -> Vec<Vec<[f64; 2]>> {
+    let mut traces = vec![Vec::new(); SAMPLES + 1];
+    for &(x, v) in offsets {
+        let mut y = [x[0], x[1], v[0], v[1], 0.0];
+        for (j, trace) in traces.iter_mut().enumerate() {
+            let p = [y[0] * R as f64, y[1] * R as f64];
+            trace.push(p);
+            trace.push(p.map(|c| -c));
+            if j == SAMPLES {
+                break;
+            }
+            for _ in 0..SUBSTEPS {
+                rk4(&mut y, dt / SUBSTEPS as f64, |z, dz| {
+                    let (s, c) = if frozen { (0.0, 1.0) } else { z[4].sin_cos() };
+                    dz[0] = z[2];
+                    dz[1] = z[3];
+                    dz[2] = sign
+                        * (((stretch + 1.0) * c * c - 1.0) * z[0] + (stretch + 1.0) * c * s * z[1]);
+                    dz[3] = sign
+                        * ((stretch + 1.0) * c * s * z[0] + ((stretch + 1.0) * s * s - 1.0) * z[1]);
+                    dz[4] = 1.0;
+                });
+            }
+        }
+    }
+    traces
+}
+
+fn gr_discrimination() -> (bool, String) {
+    let mut rows = Vec::new();
+    let mut valid = true;
+    let mut positive = true;
+    let mut killed = 0;
+    // Existing spectrum radii; circle is stable at both. Hold the correct GR
+    // origin, proper clock and parallel axes fixed while replacing only the tide.
+    for ratio in [100.0, 10.0] {
+        let (nword, a, offsets, _) = fixtures(ratio);
+        let n = nword as f64 / (1u64 << 60) as f64;
+        let dt = (period(a, 0.0) / 40.0 / n).round() * n;
+        let coarse = oracle(a, 0.0, &offsets, dt, SUBSTEPS / 2, PAIR_SCALE);
+        let truth = oracle(a, 0.0, &offsets, dt, SUBSTEPS, PAIR_SCALE);
+        let half = oracle(a, 0.0, &offsets, dt, SUBSTEPS, PAIR_SCALE / 2.0);
+        let refine = errors(&coarse.samples, &truth.samples, &offsets);
+        let separation = errors(&half.samples, &truth.samples, &offsets);
+        let invariant = coarse.invariant.max(truth.invariant).max(half.invariant);
+        let oracle_ok = [refine.0, refine.1, separation.0, separation.1, invariant]
+            .into_iter()
+            .all(|v| v.is_finite() && v < ORACLE_TOL);
+        valid &= oracle_ok;
+        let gamma2 = (1.0 - 2.0 * a) / (1.0 - 3.0 * a);
+        for (name, stretch) in [
+            ("GR", 3.0 * gamma2 - 1.0),
+            ("Newtonian-tide", 2.0),
+            ("wrong-Riemann-sign", gamma2 + 1.0),
+        ] {
+            let got = circular_tide_trace(&offsets, dt, stretch, 1.0, false);
+            let (pe, se) = errors(&got, &truth.samples, &offsets);
+            let finite = pe.is_finite() && se.is_finite();
+            let pass = finite && pe <= BAND && se <= BAND;
+            if name == "GR" {
+                positive &= oracle_ok && pass;
+            } else {
+                killed += (oracle_ok && finite && !pass) as usize;
+            }
+            rows.push(
+                json!({"control":name,"scope":"oracle-only circular Jacobi tide",
+                "r_per_M_requested":ratio,"r_per_M_actual":1.0/a,"e":0.0,
+                "periods":10,"samples":401,"members":6,"band":BAND,
+                "position":pe,"shape":se,"pass":pass,"oracle_ok":oracle_ok,
+                "oracle_position":refine.0,"oracle_shape":refine.1,
+                "finite_separation_position":separation.0,"finite_separation_shape":separation.1,
+                "invariant":invariant}),
+            );
+        }
+    }
+    let dir =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../artifacts/runs/engine-judge");
+    let saved = std::fs::create_dir_all(&dir)
+        .and_then(|_| {
+            std::fs::write(
+                dir.join("schwarzschild-gr-controls.jsonl"),
+                rows.iter().map(|v| format!("{v}\n")).collect::<String>(),
+            )
+        })
+        .is_ok();
+    (valid && positive && killed == 4 && saved,
+        format!("gr_oracle_valid={valid} gr_positive={positive} gr_mutants={killed}/4 gr_evidence_saved={saved}"))
+}
+
+const E9_FROZEN: bool = true;
 pub fn run(binary: &std::path::Path, weak_control: bool) -> (bool, String) {
     // A candidate gate must never silently qualify before the required red-team.
     // The freeze digest, when admitted, lives in docs/engine-judge.md.
@@ -379,6 +478,7 @@ pub fn run(binary: &std::path::Path, weak_control: bool) -> (bool, String) {
     if weak_control {
         return (ok, detail);
     }
+    let (gr_ok, gr_detail) = gr_discrimination();
     let mut caught = 0;
     let mut control = false;
     let mut results = Vec::new();
@@ -409,7 +509,11 @@ pub fn run(binary: &std::path::Path, weak_control: bool) -> (bool, String) {
                         (control && !o.status.success() && valid && line.starts_with("E9 FAIL "))
                             as usize;
                 }
-                results.push(format!("{name}:{line}"));
+                results.push(format!(
+                    "{name}:{line}\n{}\n{}",
+                    stdout,
+                    String::from_utf8_lossy(&o.stderr)
+                ));
             }
             Err(e) => results.push(format!("{name}:unavailable:{e}")),
         }
@@ -418,8 +522,8 @@ pub fn run(binary: &std::path::Path, weak_control: bool) -> (bool, String) {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../artifacts/runs/engine-judge");
     let saved = std::fs::write(dir.join("schwarzschild-mutants.txt"), results.join("\n")).is_ok();
     (
-        ok && control && caught == 2 && saved,
-        format!("{detail} weak_control={control} mutants={caught}/2 mutant_evidence_saved={saved}"),
+        ok && gr_ok && control && caught == 2 && saved,
+        format!("{detail} {gr_detail} weak_control={control} mutants={caught}/2 mutant_evidence_saved={saved}"),
     )
 }
 
@@ -485,7 +589,11 @@ fn frozen_run(weak_control: bool) -> (bool, String) {
     let dir =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../artifacts/runs/engine-judge");
     let filename = if weak_control {
-        "schwarzschild-weak.jsonl"
+        match std::env::var("ENGINE_JUDGE_MUTANT").as_deref() {
+            Ok("sign-tide") => "schwarzschild-weak-sign-tide.jsonl",
+            Ok("static-tide") => "schwarzschild-weak-static-tide.jsonl",
+            _ => "schwarzschild-weak.jsonl",
+        }
     } else {
         "schwarzschild.jsonl"
     };
@@ -548,25 +656,7 @@ mod tests {
             ("sign", -1.0, false),
             ("static", 1.0, true),
         ] {
-            let mut traces = vec![Vec::new(); SAMPLES + 1];
-            for &(x, v) in &offsets {
-                let mut y = [x[0], x[1], v[0], v[1], 0.0];
-                for trace in &mut traces {
-                    let p = [y[0] * R as f64, y[1] * R as f64];
-                    trace.push(p);
-                    trace.push(p.map(|c| -c));
-                    for _ in 0..SUBSTEPS {
-                        rk4(&mut y, dt / SUBSTEPS as f64, |z, dz| {
-                            let (s, c) = if frozen { (0.0, 1.0) } else { z[4].sin_cos() };
-                            dz[0] = z[2];
-                            dz[1] = z[3];
-                            dz[2] = sign * ((3.0 * c * c - 1.0) * z[0] + 3.0 * c * s * z[1]);
-                            dz[3] = sign * (3.0 * c * s * z[0] + (3.0 * s * s - 1.0) * z[1]);
-                            dz[4] = 1.0;
-                        });
-                    }
-                }
-            }
+            let traces = circular_tide_trace(&offsets, dt, 2.0, sign, frozen);
             let err = errors(&traces, &truth.samples, &offsets);
             println!("oracle-only {name} position={} shape={}", err.0, err.1);
             if name == "Newtonian" {
@@ -575,6 +665,12 @@ mod tests {
                 assert!(err.0 > BAND || err.1 > BAND);
             }
         }
+    }
+    #[test]
+    fn strong_field_gr_positive_and_planted_wrong_tides() {
+        let (ok, detail) = gr_discrimination();
+        println!("{detail}");
+        assert!(ok, "{detail}");
     }
     #[test]
     fn circular_killing_constants_tetrad_and_radial_epicycle() {

@@ -31,13 +31,11 @@ change('crates/engine/src/tube.rs', '        let (x, _) = self.readout(units, ti
         let (x, _) = self.readout(units, tick)?;''')
 change('crates/engine/src/tube.rs', '        Ok([[diag(c)?, off], [off, diag(s)?]])', '''        let sign = if std::env::var("ENGINE_JUDGE_MUTANT").as_deref() == Ok("sign-tide") { -1 } else { 1 };
         Ok([[sign * diag(c)?, sign * off], [sign * off, sign * diag(s)?]])''')
-# A shared target reuses dependencies. Preserve the running baseline binary first:
-# building scratch replaces target/release/xtask but never the baseline source.
-target = root/'target'
+# Cargo can reuse the scratch executable's embedded manifest path when both
+# workspaces share a target, even after restoring target/release/xtask. Isolate
+# scratch artifacts so the next ordinary cargo run really runs the baseline.
+target = scratch/'target'
 outdir = root/'artifacts/runs/engine-judge'
-baseline = target/'release/xtask'
-if baseline.exists(): shutil.copy2(baseline, outdir/'baseline-xtask')
 subprocess.run(['cargo','build','--offline','--release','-p','xtask','--target-dir',str(target)],cwd=scratch,check=True)
 shutil.copy2(target/'release/xtask',outdir/'mutant-xtask')
-if (outdir/'baseline-xtask').exists(): shutil.copy2(outdir/'baseline-xtask',target/'release/xtask')
 print(outdir/'mutant-xtask')
