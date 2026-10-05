@@ -211,6 +211,11 @@ impl Reference {
         units.rate.div(p32).map_err(sp)?.div(k.sqrt().map_err(sp)?).map_err(sp)
     }
 
+    /// `floor(log2)` of the radial period in chronons.
+    pub(crate) fn period_log2(&self, units: &Units) -> Result<i32, FrameError> {
+        Ok(self.orbit.period().map_err(sp)?.div(units.rate).map_err(sp)?.exponent() as i32)
+    }
+
     /// `√(μ/r_p)`: the circular speed at the periapsis distance, lattice units per chronon.
     pub(crate) fn circular_speed(&self, units: &Units) -> Result<Scalar, FrameError> {
         let rp = self.spec.key.periapsis.mul(units.length).map_err(sp)?;

@@ -3091,3 +3091,31 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/runs/sol-events/, opus-shipmem/, sonnet-galaxy/
 - Limitations: the envelope is unverified; B12–B14 fail; r8 was VOID; r4 v2 killed arc kicks.
 - Next: Astra verifies the envelope; Sol does rebinding and tides; r4 v3, r8 v2, r9.
+
+## H0210 — The plane flies: one star system whole, on the plane's foundations
+
+- Date: 2026-10-01
+- Kind: implementation
+- Status: partial
+- Revisions: f77c660 (crates/universe, xtask universe); 6a1cae7 (native light, B16); dfd5768 (hardening); c1e6079 (Metal pairs fix); 89ff30f (the motion law)
+- Scope: crates/universe; crates/space; crates/lattice-metal; docs/plane.md, law.md
+- Changed: Julien: a crappy plane that flies prevents simulacrum building; simple, not simplest. The star system flies: a doll tree of exact tubes; one clock and one queue in causal-deadline order with a frame budget (one digest across budgets and threads); Wisdom–Holman on the compiled drift with a SyMBA changeover (Jacobi 4.5e-5 over 100 periods); a Fermi-frame battle; thrust as a decision; the light-cone view. At 100× real time, frame p99 is 2.45 ms with no hitch. Also: the binary doll was killed and gave this motion law; light and binaries went native; the compiler was hardened; the engine judge caught a Metal pairs-kernel bug.
+- Why: Julien: fly early, then grow by measured bottleneck.
+- Validation: universe tests; the bench reproduced by the integrator; behave G1–G6, B11, B16; E1 6480/6480 on Metal.
+- Evidence: artifacts/runs/sonnet-plane/
+- Limitations: fleet leavers are never handed out; the view gather is 83% of a light frame; kicks cost 29 µs.
+- Next: fleet lifecycle and the gather cache (Sonnet); kick cost (Sol); r10, E9 red-team, r8 v3.
+
+## H0211 — The plane turns when the player turns; GLM carries the off-time on its own host
+
+- Date: 2026-10-01
+- Kind: implementation
+- Status: partial
+- Revisions: 8bc8d1c (the turn); 642e9e8 (the gather cache); 733ed83, 6c8ef3d (the fleet's lifecycle); 987bfee (merge)
+- Scope: crates/universe; crates/engine; xtask universe; lab; .github/workflows
+- Changed: Julien saw no turn while holding a key: the view read a heading flushed only at the next kick. Held keys now show within the frame. The gather finds each crossing by Newton from the last frame's; a battle frame's members leave as tubes and a dissolved battle costs nothing. GLM's hosts were Claude sessions and died with Claude's windows, so the lab moved to GitHub Actions: GLM holds no git credential, and a clean job publishes only lab/results.
+- Why: Julien: fly early, grow by measured bottleneck; use GLM while Claude and Codex are out, without it changing our code.
+- Validation: universe tests including holding_turn_changes_the_heading_on_the_next_frame; engine tests; bench p99 2.72 ms, worst frame 14.5 ms, no hitch.
+- Evidence: artifacts/runs/sonnet-plane2/
+- Limitations: the lab's Actions minutes are finite; kicks still dominate.
+- Next: the GLM queue (r10, E9 red-team, r8 v3, correctors, changeover, skin, Fermi phase-2 tide).

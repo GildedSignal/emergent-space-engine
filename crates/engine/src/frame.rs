@@ -600,7 +600,8 @@ impl<S: Kickable> Battle<S> {
 
     /// Run to `horizon`: every event at a tick ≤ `horizon`, in order (epoch kicks, and a
     /// re-anchor pending past its epoch), each after the stepper has committed its tick.
-    /// Horizons may only grow.
+    /// Horizons may only grow. A frame that ends ([`Battle::with_min_members`]) stops at the tick of the
+    /// event that ended it.
     pub fn run_to(&mut self, horizon: Tick) -> Result<(), FrameError> {
         loop {
             let epoch = self.next_epoch_tick().filter(|&t| t <= horizon);
@@ -608,12 +609,19 @@ impl<S: Kickable> Battle<S> {
             if let Some(a) = anchor.filter(|&a| epoch.is_none_or(|e| a < e)) {
                 self.stepper.run_to(a);
                 self.do_anchor(None)?;
+                if self.is_dissolved() {
+                    return Ok(());
+                }
                 continue;
             }
             let Some(at) = epoch else { break };
             self.stepper.run_to(at);
             self.epoch_kick(if self.next == 0 { Weight::Half } else { Weight::Full })?;
             self.next += 1;
+            // A frame that ended at this epoch's anchor stops here: its tick is the event's, whatever the horizon.
+            if self.is_dissolved() {
+                return Ok(());
+            }
         }
         self.stepper.run_to(horizon);
         Ok(())

@@ -199,6 +199,53 @@ fn relativistic_worlds_match_reference() {
     }
 }
 
+/// A crowded start: n bouncers of radius 50 on a grid of eight columns 130 apart (reach 100), at up
+/// to 230 quanta per chronon in either axis, so that dozens of contacts fire in the very first
+/// chronons. Law v1 at Q = 1024.
+fn crowded(n: u64, seed: u64) -> World {
+    let mut rng = Rng(seed);
+    let bodies = (0..n as i64)
+        .map(|i| {
+            let (x, k) = ([(i % 8) * 130 - 450, (i / 8) * 130 - 180], [rng.range(-230, 230), rng.range(-230, 230)]);
+            Body::new(i as u64 + 1, x, k, rng.range(1, 7), 50, Response::Bounce)
+        })
+        .collect();
+    World::new(1024, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap()
+}
+
+/// More hits in one chronon than the threads of the last, partial threadgroup of `pairs`
+/// (dispatched over n threads in groups of 256: the last group holds n mod 256; below 256 bodies
+/// that is the only group). The hits a group buffers must be appended by every thread of that
+/// group, whatever its size: a loop that strides by 256 left the rest of the buffer unwritten
+/// (found by the engine judge's E1: battle frames on Metal differed from the CPU at the first
+/// chronon of a crowded 32-body scene, whose 43 hits met 32 threads).
+#[test]
+fn hits_beyond_the_last_threadgroup_size_are_all_reported() {
+    for n in [8, 16, 32, 40, 64, 100, 128] {
+        for seed in [1, 2, 3] {
+            let Some(s) = check(&format!("crowded {n} seed {seed}"), crowded(n, seed), 6, Options::default()) else { return };
+            assert!(s.gpu_chronons == 6, "crowded {n}: every chronon is detected on the GPU: {s:?}");
+        }
+    }
+    // Far more hits than threads in the first chronon, past the 256 a threadgroup buffers (the
+    // rest go to the global list); the crowd's consumed contacts overflow the GPU table, which
+    // only the predicate count shows (check() would refuse it), so compare the outcome alone.
+    for (n, side) in [(100u64, 10), (200, 14)] {
+        let bodies = (0..n as i64)
+            .map(|i| Body::new(i as u64 + 1, [(i % side) * 30, (i / side) * 30], [(i * 7) % 61 - 30, (i * 13) % 59 - 29], 1 + i % 5, 50, Response::Bounce))
+            .collect();
+        let w = World::new(1024, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap();
+        let Some(mut m) = metal(w.clone(), Options::default()) else { return };
+        let mut c = Chronon::new(w, true).unwrap();
+        for t in 1..=4 {
+            c.run_to(t);
+            m.run_to(t);
+            assert_eq!(m.outcome(), c.outcome(), "overlapping crowd of {n}: digests at {t}");
+        }
+        assert!(c.log().contacts > 256, "overlapping crowd of {n}: {} contacts", c.log().contacts);
+    }
+}
+
 /// Rows of eight unit-mass bouncers of radius Q a few hundred quanta apart, at up to 50 quanta
 /// per chronon (slow enough for the GPU's detection at any Q), boxed: contacts from the start.
 fn rows(n: u64, q: i64, seed: u64) -> World {

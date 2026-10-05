@@ -139,3 +139,7 @@ these are tested operating points, not universally certified probe sizes. A kick
 a multiply-add **prediction**; recompilation remains authoritative. Topology
 changes, unbound probes and overflow return errors. A Hessian/remainder bound
 for authoritative kick reuse is future work for the response compiler.
+
+The v5 native panel diagnostic is `orbit::quadrature_tests`; its fast path uses
+the two-point constant h⁵ sup(|f''''|/4!)/180. The bounds above concern the
+real integrands; they do not certify native roots, clocks or the complete law.

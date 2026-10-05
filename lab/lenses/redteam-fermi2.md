@@ -1,0 +1,3 @@
+# Lens: red-team of the Fermi frame's phase 2, before it is built
+
+Attack the premise first, against PRINCIPLES. Is a Fermi frame along one exact tube the right home for a battle under the Schwarzschild tide (docs/law.md, "Dense order"; docs/plane.md, foundation 1)? Where does the frame stop being valid: the tide's size against the battle's extent, near the ISCO, whirl orbits, plunges, a battle that lasts a large fraction of an orbit? What must happen there: split, dissolve, or hand the members out (crates/universe/src/fleet.rs)? Find the cheapest probe that would falsify the premise, run it in your folder (never edit the crates), and return findings named by the invariant at stake, each with a disposition.

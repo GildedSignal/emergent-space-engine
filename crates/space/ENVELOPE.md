@@ -90,11 +90,25 @@ The proof applies at the
 binding event. Transport through later physical motion is the events owner's
 remaining obligation: discarding the remainder at a handoff voids the proof.
 
-Bound here means an exterior periodic radial orbit (p>6+2e). Its periapsis
-approaches 4M, not 3M; 3M is the photon circular limit. Plunges, radial L=0 paths,
-unstable circular generators and horizon arrival times are not supplied by this
-periodic compiler. Passage endpoints must be resolvable by the finite phase word;
-an unresolvable radius ratio is refused, never replaced by infinity.
+Bound radial generators satisfy p>6+2e; their periapsis approaches 4M.
+Plunges, radial L=0 paths and horizon arrival times remain outside this compiler.
+
+The v4 boundary supplies exact circular generators down to r>3M, including unstable
+circles: their constant-radius angular clock needs no radial integration. The inverse
+uses exact algebraic energy, discriminant and exterior-branch predicates in
+Q(sqrt(X.X)) for conditioned roots. Compilation alone uses 256 fractional scratch
+bits, takes the root gap's square root before narrowing, and refuses unresolved gaps.
+Symbolic E=1 has k=1/2. Its half-quantum neighbourhood rounds to that even
+parabolic word; other k values are floored to keep the event inside its apoapsis.
+An adapter perturbation below that quantum does not invent asymptotic speed.
+
+For passages, psi remains the inner phase. At x=2^-10 it continues in x=R/r with
+an independent binary exponent. Here dpsi/dx=-1/sqrt((1-x)(x-(2k-1))); panels
+that shrink x by 15/16 preserve relative clock/radius information as
+x tends to zero. Radius and velocity use that x directly, not the rounded angle.
+Infinity still has no finite arrival clock. Q48 k is retained: inverse fits whose
+discarded shape exceeds 2^-20 of k return Range, including the high-e bank cases.
+This is an explicit precision refusal, not a claim to extend that shape envelope.
 
 ## Exact migration boundary for the events owner
 
@@ -127,3 +141,42 @@ only during compilation; narrowing this path remains open. A 16-byte handle does
 not imply 16-byte total storage per body when catalogue bindings are unique.
 
 This derivation is an implementation proposal, not a new freeze or qualification.
+
+## Native light and binaries (v5; supersedes the v2 paths above)
+
+Null passages use the same `Passage`, `OrbitKey`, shape and exponent-backed tail.
+At periapsis R, q=M/R, the null radial cubic factors as
+(1-x)[(1-2q)(1+x)-2qx²], x=R/r. Its second root gives
+k=4q(1-2q)/(sqrt((1-2q)(1+6q))+1-2q)². Thus the same angular
+integrand applies; the null clock numerator is sqrt(1-2q), its time scale
+is R, its proper-time numerator is zero, and its speed factor is
+1/sqrt(1-2q). Capture is decided on exact dyadic b² <= 27M², before
+rounding roots. `OrbitKey::photon` returns None for capture.
+`light::Capture` compiles the exterior captured arc in r/b, with a binary
+exponent and zero proper time. Its coordinate clock has no finite value at
+the horizon: requested endpoints must stay outside 2M. No horizon chart is
+claimed. Both readouts are pure functions, including at retarded times.
+For q <= 2^-18, the rationalized angular answer is
+4q + (15π/4-4)q²; clocks retain the native null integrand, not massive clocks.
+
+`events::Binary` retains ε and L with exponents, fits the native key from
+E_eff-1 = ε + νε²/2, and reads its period with 1+νε. Weak invariant fits
+use x=L²/r so neither small turning root is lost to fixed scratch precision.
+`light::moving_deflection` aberrates the incoming direction into the lens
+frame, rotates by its native passage bend and aberrates back. The SR formula
+is exact; dyadic products, square roots and trigonometric readout have their
+specified integer rounding. Float conversion belongs only to the judge boundary.
+
+Unused v2 scatter, memo and tangent adapters are deleted. `Cycle` and
+`LegacyTube` remain solely for `xtask galaxy`; `Key::darwin` also supplies
+shipmem's frozen population fixtures. Their owners must migrate those live
+consumers before deletion. Native inverse clocks now resolve the word-root
+panels to 2^-36 relative rather than stopping at 2^-28. The independent real
+panel witness uses the actual two-point remainder, h⁵ sup(|f''''|/4!)/180;
+it is a diagnostic, not a global numerical certificate.
+
+Porting the velocity/derivative guard exposed the two-point partial-clock
+slope error (p=20, e=0.3). V5 strong panels now use four-point Gauss with the
+same native word-root arithmetic and cuts; the native guard keeps its original
+1e-5 derivative tolerance. Weak moving bends are rationalized before direction
+subtraction, retaining their exponent even below the Q61 angle quantum.

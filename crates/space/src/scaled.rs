@@ -99,19 +99,38 @@ impl Scalar {
         self.add(rhs.negate())
     }
     pub fn mul(self, rhs: Self) -> Result<Self> {
-        Self::raw(
-            self.significand as i128 * rhs.significand as i128,
-            self.exponent as i32 + rhs.exponent as i32 - 124,
-        )
+        let product = self.significand as i128 * rhs.significand as i128;
+        if product == 0 {
+            return Ok(Self::ZERO);
+        }
+        // Two normalized 63-bit magnitudes produce 125 or 126 bits. The
+        // binary point moves by exactly zero or one, never a general shift.
+        let carry = i32::from(product.unsigned_abs() >= 1u128 << 125);
+        let magnitude = (product.unsigned_abs() >> (62 + carry)) as i64;
+        Ok(Self {
+            significand: if product < 0 { -magnitude } else { magnitude },
+            exponent: i16::try_from(self.exponent as i32 + rhs.exponent as i32 + carry).map_err(|_| Error::Range)?,
+        })
     }
     pub fn div(self, rhs: Self) -> Result<Self> {
         if rhs.is_zero() {
             return Err(Error::Range);
         }
-        Self::raw(
-            ((self.significand as i128) << 63) / rhs.significand as i128,
-            self.exponent as i32 - rhs.exponent as i32 - 63,
-        )
+        if self.is_zero() {
+            return Ok(Self::ZERO);
+        }
+        // Normalized magnitudes are in [2^62, 2^63), so the exact quotient
+        // has 63 or 64 bits. Its correction and normalization both fit words.
+        let q = crate::num::div_word(
+            (self.significand.unsigned_abs() as u128) << 63,
+            rhs.significand.unsigned_abs(),
+        );
+        let carry = i32::from(q >= 1u64 << 63);
+        let magnitude = (q >> carry) as i64;
+        Ok(Self {
+            significand: if (self.significand < 0) != (rhs.significand < 0) { -magnitude } else { magnitude },
+            exponent: i16::try_from(self.exponent as i32 - rhs.exponent as i32 - 1 + carry).map_err(|_| Error::Range)?,
+        })
     }
     pub fn sqrt(self) -> Result<Self> {
         if self.significand < 0 {
@@ -202,6 +221,40 @@ impl PartialOrd for Scalar {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_products_and_quotients_keep_signed_normalized_words() {
+        let mut n = 3u64;
+        for _ in 0..10000 {
+            n = n.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let a = (n >> 1) | (1 << 62);
+            let b = (n.rotate_left(17) >> 1) | (1 << 62);
+            for sa in [-1i128, 1] {
+                for sb in [-1i128, 1] {
+                    let a = Scalar::raw(sa * a as i128, -75).unwrap();
+                    let b = Scalar::raw(sb * b as i128, 17).unwrap();
+                    let reference = Scalar::raw(((a.significand as i128) << 63) / b.significand as i128,
+                        a.exponent as i32 - b.exponent as i32 - 63).unwrap();
+                    assert_eq!(a.div(b).unwrap(), reference);
+                    let reference = Scalar::raw(a.significand as i128 * b.significand as i128,
+                        a.exponent as i32 + b.exponent as i32 - 124).unwrap();
+                    assert_eq!(a.mul(b).unwrap(), reference);
+                }
+            }
+        }
+        assert_eq!(Scalar::ZERO.div(Scalar::ONE).unwrap(), Scalar::ZERO);
+        for ea in [i16::MIN, -32000, -1, 0, 1, 32000, i16::MAX] {
+            for eb in [i16::MIN, -32000, -1, 0, 1, 32000, i16::MAX] {
+                for n in [0, 1 << 62, (1 << 63) - 1, -((1 << 63) - 1)] {
+                    let a = Scalar::raw(n, ea as i32 - 62).unwrap();
+                    let b = Scalar::raw((1 << 63) - 1, eb as i32 - 62).unwrap();
+                    assert_eq!(a.mul(b), Scalar::raw(a.significand as i128 * b.significand as i128,
+                        a.exponent as i32 + b.exponent as i32 - 124));
+                    assert_eq!(a.div(b), Scalar::raw(((a.significand as i128) << 63) / b.significand as i128,
+                        a.exponent as i32 - b.exponent as i32 - 63));
+                }
+            }
+        }
+    }
     #[test]
     fn exponents_change_range_without_changing_relative_information() {
         for e in [-20000, -100, 0, 100, 20000] {
