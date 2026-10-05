@@ -31,6 +31,15 @@ fn gate(id: &str) -> (bool, String) {
     }
 }
 fn mutants(path: PathBuf) -> (bool, String) {
+    // A retained pre-freeze binary can silently lack one of the planted defects.
+    // Verify the prepared artifact before judging its four mutations.
+    let recipe = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src/engine_judge/prepare_mutants.py");
+    match Command::new("python3").arg(recipe).arg("--verify").arg(&path).output() {
+        Ok(o) if o.status.success() => {}
+        Ok(o) => return (false, format!("UNSUPPORTED scratch_provenance {}", String::from_utf8_lossy(&o.stdout).trim())),
+        Err(e) => return (false, format!("UNSUPPORTED scratch_provenance {e}")),
+    }
     let plans = [
         ("late", "E1"),
         ("tide-row", "E2"),
