@@ -14,6 +14,7 @@
 //! times cannot afford). A segment of history keeps its own `Arc` of the compiled trajectory, so
 //! the past stays readable for the view after its slot is reused.
 use crate::num::{cross2, dot2, time_of, Error, Res, Tick, V2};
+use crate::world::Unit;
 use emergent_space::{
     binding::{cartesian, IntegerState, Rebinding, Residual, Trajectory},
     orbit::{OrbitState, Scalar},
@@ -21,11 +22,14 @@ use emergent_space::{
 };
 use std::sync::Arc;
 
-/// A compiled trajectory and its sense: the entry a tube's key indexes.
+/// A compiled trajectory and its sense: the entry a tube's key indexes. The trajectory is compiled
+/// about a mass of one, in units of the doll's mass; `unit` converts it to the doll's own units (the
+/// mantissa of the doll's mass; the identity when the mass is a power of two).
 #[derive(Debug)]
 pub struct Entry {
     pub trajectory: Trajectory,
     pub clockwise: bool,
+    pub unit: Unit,
 }
 
 /// The catalogue of compiled trajectories behind the tubes' key indexes.
@@ -76,11 +80,17 @@ pub struct Binding {
     pub event_time: Tick,
 }
 
-/// The tube's own readout (no remainder) at `t`, with the orbit state it came from.
+/// The tube's own readout (no remainder) at `t`, with the orbit state it came from, in the doll's units
+/// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+/// the radius and the proper time out; angles and velocities are the same in both).
 fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
-    let elapsed = time_of(t, clock_exp)?.sub(peri)?;
-    let state = entry.trajectory.state(elapsed)?;
+    let elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+    let mut state = entry.trajectory.state(elapsed)?;
+    if !entry.unit.unity {
+        state.radius = entry.unit.to_doll(state.radius)?;
+        state.proper_time = entry.unit.to_doll(state.proper_time)?;
+    }
     Ok((cartesian(state, tube.periapsis_angle, entry.clockwise, units)?, state))
 }
 
@@ -97,6 +107,11 @@ fn turn(a: [i64; 2], delta: Scalar) -> Res<[i128; 2]> {
 }
 
 impl Binding {
+    /// A length or time of the compiled trajectory (in units of the doll's mass) in the doll's own units.
+    pub fn to_doll(&self, x: Scalar) -> Res<Scalar> {
+        self.entry.unit.to_doll(x)
+    }
+
     /// The orbit state at `t` (proper time, radius, velocities of the tube).
     pub fn orbit_state(&self, t: Tick) -> Res<OrbitState> {
         Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
@@ -160,8 +175,8 @@ pub struct Bound {
 
 /// Fit a tube to the exact state `exact` at tick `t` (in a doll whose clock exponent is `clock_exp`),
 /// and keep everything the fit discards. `edge` is the radius a passage is compiled out to.
-pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>) -> Res<Bound> {
-    let bound = bind_in(exact, t, clock_exp, edge)?;
+pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+    let bound = bind_in(exact, t, clock_exp, edge, unit)?;
     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
     // at most one quantum of the new word) and bind again.
@@ -178,14 +193,24 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>) 
         length_exponent: nl as i16,
         velocity_exponent: nv as i16,
     };
-    bind_in(coarser, t, clock_exp, edge)
+    bind_in(coarser, t, clock_exp, edge, unit)
 }
 
-fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>) -> Res<Bound> {
-    let fit = Rebinding::from_state(exact, time_of(t, clock_exp)?, edge)?;
-    let peri = i64::try_from(fit.periapsis_time.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+/// The state in the tube's units (`M_D`): positions divided by `μ`, rounded toward zero at the word (a fit is
+/// not injective, and the remainder taken against the doll's own readout below carries what it discards).
+fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+    if unit.unity {
+        return Ok(st);
+    }
+    let q = |p: i64| -> Res<i64> { i64::try_from(unit.to_tube(Scalar::raw(p as i128, 0)?)?.fixed(0)?).map_err(|_| Error::Refused("state outside the integer word")) };
+    Ok(IntegerState { position: [q(st.position[0])?, q(st.position[1])?], ..st })
+}
+
+fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+    let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
+    let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
     let tube = Tube::new(0, fit.periapsis_angle, peri);
-    let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise });
+    let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
     let units = (exact.length_exponent, exact.velocity_exponent);
     let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
     // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.

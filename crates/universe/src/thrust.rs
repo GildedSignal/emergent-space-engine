@@ -52,11 +52,11 @@ fn cosh_sinh(eta: Scalar) -> Res<(Scalar, Scalar)> {
     Ok((c, eta.mul(sh)?))
 }
 
-/// The coordinate velocity `v` at position `x` (doll units, `M = 1`) after a burn of rapidity
-/// `eta` along the unit vector `n` (the ship's heading in the local frame).
-pub fn burn(x: V2, v: V2, eta: Scalar, n: V2) -> Res<V2> {
+/// The coordinate velocity `v` at position `x` (doll units; the doll's centre has mass `mu` in them) after a burn of
+/// rapidity `eta` along the unit vector `n` (the ship's heading in the local frame).
+pub fn burn(x: V2, v: V2, eta: Scalar, n: V2, mu: Scalar) -> Res<V2> {
     let r = norm2(x)?;
-    let f = Scalar::ONE.sub(Scalar::integer(2).div(r)?)?;
+    let f = Scalar::ONE.sub(Scalar::integer(2).mul(mu)?.div(r)?)?;
     if !f.is_positive() {
         return Err(crate::num::Error::Refused("thrust inside the horizon"));
     }
@@ -84,7 +84,7 @@ pub fn burn(x: V2, v: V2, eta: Scalar, n: V2) -> Res<V2> {
 /// the kick that flushes the burn uses it, and so does the view, which reads the same state a flush at the
 /// presented tick would write (docs/plane.md, foundation 5: observation is a pure function of the state).
 /// The heading turns by `±turn·Δτ`, and the burn goes along the heading at the midpoint of the turn.
-pub fn owed(cfg: &Config, th: Thrust, dtau: Scalar, x: V2, v: V2) -> Res<(u32, V2)> {
+pub fn owed(cfg: &Config, th: Thrust, dtau: Scalar, x: V2, v: V2, mu: Scalar) -> Res<(u32, V2)> {
     let sign = (th.keys & 8 != 0) as i64 - (th.keys & 4 != 0) as i64;
     let dh = dtau.mul(Scalar::power_of_two(cfg.turn_log2 as i16))?.fixed(32)? as i64 * sign;
     let mid = th.heading.wrapping_add((dh / 2) as u32);
@@ -95,5 +95,5 @@ pub fn owed(cfg: &Config, th: Thrust, dtau: Scalar, x: V2, v: V2) -> Res<(u32, V
     }
     let eta = dtau.mul(Scalar::power_of_two(cfg.thrust_log2 as i16))?;
     let eta = if dir > 0 { eta } else { eta.negate() };
-    Ok((heading, burn(x, v, eta, direction(mid)?)?))
+    Ok((heading, burn(x, v, eta, direction(mid)?, mu)?))
 }

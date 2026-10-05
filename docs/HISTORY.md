@@ -3133,3 +3133,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: origin/claude/lab-20261001-1847-* through lab-20261005-0543-*; lab/board.md taste log
 - Limitations: float replicas, not the engine; most silvers miss gold on unregenerable records.
 - Next: the plane judged by B12–B17 (Sol); memo, replays, ties (Sonnet); E9 freeze (Sol); Julien on the belt.
+
+## H0213 — The plane can face its gates: masses with a mantissa, the star falls, replays are exact
+
+- Date: 2026-10-05
+- Kind: implementation
+- Status: partial
+- Revisions: b717d85 (masses, the origin's fall); adba97a (replays); 4bb1133 (ties); b5c817d (relativistic gather); 795c005 (merge)
+- Scope: crates/universe; xtask universe; docs/law.md
+- Changed: Sol's B12 adapter stopped because the plane could not express the gate's scene. Masses now carry a mantissa; every member's kick carries the origin's fall (the indirect term); a secondary's tube is the pair's relative orbit. A physics fix: digests changed, and the Jacobi error now converges with the step (6.7e-5 at 2^-7, 6.4e-6 at 2^-9). Decisions are taken at logged canonical ticks (one digest over five schedules and budgets); ties have a canonical key; the gather cache is relativistic (0.9c: 3.6 → 1.2 readouts per emitter). The lab's "memo hits 95–98%" was one re-timed kick: an exact memo never hits on distinct kicks.
+- Why: law.md (5 October); lab runs taleb-c271, redteam-6254, redteam-4570.
+- Validation: universe tests (origin, replay, ties, view); interleaved A/B bench against main.
+- Evidence: artifacts/runs/sonnet-plane3/
+- Limitations: a tail regression (hitches 33–51 ms; fleet kicks +38%), being fixed; the quantized memo needs a hook in crates/space.
+- Next: the frame tails (Sonnet); the plane judged by B12–B17 (GLM, reviewed).

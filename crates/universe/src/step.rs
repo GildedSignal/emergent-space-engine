@@ -63,12 +63,12 @@ pub enum Resolved {
 /// two of ticks. Inside a planet's doll the orbit that leaves the doll (a flyby, a quasi-parabolic
 /// capture) is resolved over what it spends in the doll: twice the leg from periapsis to the edge.
 pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<i64> {
-    let mut period = match &b.entry.trajectory {
+    let mut period = b.to_doll(match &b.entry.trajectory {
         Trajectory::Cycle(c) => c.period()?,
         Trajectory::Passage(p) => p.duration()?,
-    };
+    })?;
     if let (Some(edge), Some(tp)) = (edge, next_periapsis(b, b.event_time)?) {
-        if b.entry.trajectory.key().periapsis < edge {
+        if b.to_doll(b.entry.trajectory.key().periapsis)? < edge {
             if let Some(out) = next_exit(b, tp, edge)? {
                 let inside = time_of(out - tp, b.clock_exp)?.scale(1)?;
                 if inside < period {
@@ -81,6 +81,8 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
     Ok((1i64 << exp.clamp(1, 50)).clamp(MIN_STEP, MAX_STEP))
 }
 
+/// The kind of an item, the third part of its canonical key (tick, body, kind): a kick before an impact before
+/// an open before the boundary, and a scheduled decision after all of them at its tick.
 fn rank(w: What) -> u8 {
     match w {
         What::Kick(l) => 10 + l,
@@ -153,6 +155,11 @@ fn absolute(rel: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Re
 
 /// The first tick at or after `after` where the tube is at or beyond `edge` (outward), if any.
 fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
+    next_exit_with(b, after, edge, true)
+}
+
+/// [`next_exit`], with or without the passage's analytic guess (the bisection alone is the reference the guess must equal).
+fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Option<Tick>> {
     let outside = |t: Tick| -> Res<bool> { Ok(b.orbit_state(t)?.radius >= edge) };
     if outside(after)? {
         return Ok(Some(after));
@@ -161,10 +168,11 @@ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
     let after_s = time_of(after, b.clock_exp)?;
     let apex = match &b.entry.trajectory {
         Trajectory::Cycle(c) => {
-            let period = c.period()?;
-            if edge > c.signed_state(period.scale(-1)?)?.radius {
+            let tube_period = c.period()?;
+            if edge > b.to_doll(c.signed_state(tube_period.scale(-1)?)?.radius)? {
                 return Ok(None);
             }
+            let period = b.to_doll(tube_period)?;
             let n = after_s.sub(peri)?.div(period)?.fixed_floor(0)?;
             let mut apex = peri.add(period.mul(Scalar::raw(n, 0)?)?)?.add(period.scale(-1)?)?;
             if apex < after_s {
@@ -172,13 +180,25 @@ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
             }
             apex
         }
-        Trajectory::Passage(p) => peri.add(p.duration()?.scale(-1)?)?,
+        Trajectory::Passage(p) => peri.add(b.to_doll(p.duration()?)?.scale(-1)?)?,
     };
     // A passage's last readable tick is one before its window closes: round the end inward.
     let end = if matches!(b.entry.trajectory, Trajectory::Passage(_)) { apex.fixed_floor(-(b.clock_exp as i32))? - 1 } else { apex.fixed_ceil(-(b.clock_exp as i32))? };
     let (mut lo, mut hi) = (after, i64::try_from(end).map_err(|_| Error::Refused("exit"))?);
     if hi < lo || !outside(hi)? {
         return Ok(None);
+    }
+    // A passage knows when it reaches a radius (its inverse, one solve): the tick it names is verified against
+    // the predicate itself (inside one tick before, outside on it), and the bisection below, which finds the same
+    // tick (the predicate is monotone from `after`), is the fallback. A hand-out plans each leaver's passage, and
+    // fifty readouts a bisection took most of the time.
+    if let (true, Trajectory::Passage(p)) = (guess, &b.entry.trajectory) {
+        let guess = b.entry.unit.to_tube(edge).ok().and_then(|e| p.at_radius(e).ok()).and_then(|(off, _)| b.to_doll(off).ok()).and_then(|off| peri.add(off).ok()).and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok()).and_then(|t| i64::try_from(t).ok());
+        if let Some(g) = guess.filter(|&g| g > lo && g <= hi) {
+            if outside(g)? && !outside(g - 1)? {
+                return Ok(Some(g));
+            }
+        }
     }
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
@@ -197,7 +217,7 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
     let after_s = time_of(after, b.clock_exp)?;
     let at = match &b.entry.trajectory {
         Trajectory::Cycle(c) => {
-            let period = c.period()?;
+            let period = b.to_doll(c.period()?)?;
             let ahead = after_s.sub(peri)?;
             let n = if ahead <= Scalar::ZERO { 0 } else { ahead.div(period)?.fixed_ceil(0)? };
             peri.add(period.mul(Scalar::raw(n, 0)?)?)?
@@ -250,7 +270,7 @@ impl Work<'_, '_> {
     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
-        let bound = bind(exact, t, clock_exp, self.passage_edge(doll))?;
+        let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
         let old = &self.rec.b;
         // The tube's length since the last binding is the body's clock reading (root units).
         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
@@ -283,7 +303,7 @@ impl Work<'_, '_> {
             return Ok(v);
         }
         let dtau = self.proper_since(th.since, t)?;
-        let (heading, v2) = thrust::owed(self.ctx.cfg, th, dtau, x, v)?;
+        let (heading, v2) = thrust::owed(self.ctx.cfg, th, dtau, x, v, self.ctx.dolls[self.rec.b.doll as usize].unit.mu)?;
         self.rec.thrust = Some(crate::body::Thrust { heading, since: t, ..th });
         Ok(v2)
     }
@@ -429,7 +449,7 @@ impl Work<'_, '_> {
         insert(&mut self.rec.plan, Item { t: t + h, what: What::Boundary });
         if self.rec.kind != Kind::Planet {
             let key = self.rec.b.entry.trajectory.key();
-            if key.periapsis < self.doll().surface {
+            if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
                 if let Some(tp) = next_periapsis(&self.rec.b, t)? {
                     if tp <= t + h {
                         insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
@@ -599,6 +619,34 @@ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The passage's analytic guess finds the tick the bisection finds: for every member the plane hands out
+    /// (passages and cycles, from every state the frame hands over), from periapsis and from the binding event.
+    #[test]
+    fn a_passages_exit_by_its_inverse_is_the_exit_by_bisection() {
+        use crate::fleet::Order;
+        let mut p = crate::scenario::plane(crate::ctx::Config::default(), 1, Order::Sparse, 1, 48).unwrap();
+        let n0 = p.u.n_bodies();
+        p.u.settle(30_000_000);
+        let (mut passages, mut exits) = (0, 0);
+        for i in n0..p.u.n_bodies() {
+            let born = p.u.info[i].born;
+            let b = p.u.bodies().binding_at(i, born).unwrap();
+            let doll = &p.u.dolls[b.doll as usize];
+            let is_passage = matches!(b.entry.trajectory, Trajectory::Passage(_));
+            let starts = [Some(born), next_periapsis(&b, born).unwrap()];
+            for after in starts.into_iter().flatten() {
+                for edge in [doll.edge, doll.edge.scale(-1).unwrap(), doll.edge.scale(-3).unwrap()] {
+                    let (fast, slow) = (next_exit_with(&b, after, edge, true).unwrap(), next_exit_with(&b, after, edge, false).unwrap());
+                    assert_eq!(fast, slow, "body {i}, from {after}, edge {edge:?}");
+                    exits += fast.is_some() as usize;
+                }
+            }
+            passages += is_passage as usize;
+        }
+        println!("{passages} passages of {} handed out; {exits} exits found, each the same by both ways", p.u.n_bodies() - n0);
+        assert!(passages >= 10 && exits >= 20, "the test must look at passages that exit: {passages} {exits}");
+    }
 
     /// A handoff is a translation and a boost, exact in integers, with one bounded carry (the sum is
     /// rounded to the parent's word): a thousand capture and release round trips return the state to

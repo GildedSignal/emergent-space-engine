@@ -26,8 +26,9 @@
 //!    outside the ergosphere the static clock √(1 − 2/r) and the ZAMO's lapse within 1e-12 (B7's tolerance) at 32 radii per χ, with no
 //!    static clock at all (Absent) at 16 radii between the horizon and 2 ("every timelike tube has dφ/dt > 0": a static one has 0).
 //! 4. **Negative energy and the Penrose process.** The row says "negative-energy cycles". No *bound* future-directed equatorial orbit has
-//!    E < 0 (kerr.rs scans for one: the solutions with E < 0 are all time-reversed), so the judge asks for negative-energy *tubes*, the
-//!    arcs that exist: (a) the tubes of (3) with E < 0 must be answered; (b) the same (E, L) forged at r' in (2.2, 30), outside the
+//!    E < 0 (kerr.rs scans for one: the E < 0 pockets with two turning points are all past-directed, the time reverses of ordinary bound
+//!    orbits). Future-directed negative-energy geodesics do exist inside the ergosphere, and they plunge. So the judge asks for
+//!    negative-energy *tubes*, the arcs that exist: (a) the tubes of (3) with E < 0 must be answered; (b) the same (E, L) forged at r' in (2.2, 30), outside the
 //!    ergosphere, must be refused (Absent): nowhere else; (c) the Penrose split of a unit-mass body at a radial turning point into two
 //!    photons moving along ±φ̂ in the ZAMO frame: r at the horizon + {1/4, 1/2, 3/4} of the way to 2, v_φ ∈ {0.3, 0.6, 0.9} (the
 //!    canonical case is the middle of each: r half way, v = 0.6), conserving E and L to 8 rounding errors, returning more energy than it

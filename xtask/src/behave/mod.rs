@@ -32,6 +32,7 @@ pub mod kerr;
 pub mod laws;
 pub mod lens;
 pub mod memory;
+pub mod plane;
 pub mod oracle;
 pub mod resonance;
 pub mod restricted;
@@ -284,12 +285,16 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|planted-nodrag|planted-isco|planted-penrose|planted-proonly] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10,B11,B12,B13,B14,B16,B17,B18,B19]";
+const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|planted-nodrag|planted-isco|planted-penrose|planted-proonly] [--gates G1,G2,...,B19] [--plane-step N]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
     let name = cli.law.as_str();
-    let law = laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?;
+    let law = if name == "plane" {
+        Box::new(plane::Plane::new(cli.plane_step))
+    } else {
+        laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?
+    };
     println!("machine_state {}", machine_state("start"));
     let watch = Watch::spawn(LIMIT, |label, secs| {
         for id in label.split(' ') {

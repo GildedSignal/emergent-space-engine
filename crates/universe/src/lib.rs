@@ -18,3 +18,4 @@ pub mod world;
 pub use body::Kind;
 pub use ctx::Config;
 pub use universe::{Budget, OrbitSpec, Universe};
+pub use world::{Mass, Unit};

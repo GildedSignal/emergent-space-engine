@@ -12,7 +12,10 @@
 //! r² dφ/dτ = x + aP/Δ,   r² dt/dτ = a·x + (r² + a²)P/Δ.
 //! ```
 //!
-//! Light is the same with E = 1, L = b and no "−1" nor "2r²" terms. A state is future-directed iff P ≥ 0.
+//! Light is the same with E = 1, L = b and no "−1" nor "2r²" terms. A state is future-directed iff dt/dτ > 0, which has the sign of
+//! E − ωL (u^t = A(E − ωL)/(r²Δ), A = (r² + a²)² − a²Δ, ω = 2ar/A), not of P. The oracle tests P ≥ 0, which agrees with it on every
+//! state with R ≥ 0: the band where P > 0 but E − ωL < 0 has R < 0 throughout (GLM red-team, lab run 20261005-1540, 800,000 states;
+//! `future_directed_is_p_nonnegative_on_allowed_states` below). Future-directed geodesics with E < 0 exist inside the ergosphere and plunge.
 //!
 //! - Bound orbits are labelled by Darwin's (p, e) and a sense (+1: with the spin, −1: against it), r = p/(1 + e cos ψ).
 //!   Their (E, L) come in closed form (Glampedakis and Kennefick 2002, re-derived here: a quadratic in x²),
@@ -221,7 +224,8 @@ impl Kerr {
         let c = self.cubic(e, l);
         r * (c[0].abs() * r * r * r + c[1].abs() * r * r + c[2].abs() * r + c[3].abs())
     }
-    /// P(r) = E(r² + a²) − aL: dt/dτ has the sign of P outside the horizon, so the state is future-directed iff P ≥ 0.
+    /// P(r) = E(r² + a²) − aL. dt/dτ has the sign of E − ωL, not of P, but where R ≥ 0 the two agree (module docs), so `allowed` reads
+    /// "future-directed" as P ≥ 0.
     pub fn forward(&self, e: f64, l: f64, r: f64) -> f64 {
         e * (r * r + self.a * self.a) - self.a * l
     }
@@ -748,8 +752,9 @@ mod tests {
     #[test]
     fn no_future_directed_orbit_is_bound_with_negative_energy() {
         // The finding behind B19's "negative-energy tubes": scan (E, L) with E < 0 for three real roots of the potential and a
-        // periapsis outside the horizon (R >= 0 between turning points). Such solutions exist, but every one is past-directed
-        // (P < 0): the time reverse of an ordinary bound orbit. So negative-energy bodies are never bound: they fall in.
+        // periapsis outside the horizon (R >= 0 between turning points). Such pockets exist, but every one is past-directed
+        // (P < 0 at an end): the time reverse (E, L → −E, −L) of an ordinary bound orbit. Future-directed negative-energy
+        // geodesics do exist inside the ergosphere (the Penrose process's fragments); none is bound: they plunge.
         // (E < 0 with L > 0 has P < 0 everywhere.)
         for a in [0.5, 0.9, 0.998] {
             let k = Kerr::new(a);
@@ -766,6 +771,30 @@ mod tests {
                 }
             }
             assert!(bound_type > 0 || a == 0.5, "a = {a}: the scan found nothing to refute");
+        }
+    }
+
+    #[test]
+    fn future_directed_is_p_nonnegative_on_allowed_states() {
+        // dt/dτ has the sign of E − ωL; the oracle reads P ≥ 0. On states with R >= 0 outside the horizon they agree (any E, either L).
+        let mut rng = crate::behave::sample::Rng(11);
+        for a in [0.5, 0.9, 0.998] {
+            let k = Kerr::new(a);
+            let (mut allowed, mut negative) = (0, 0);
+            for _ in 0..200_000 {
+                let r = k.horizon() + (rng.log_uniform(1e-3, 30.0));
+                let e = (rng.unit() - 0.3) * 8.0 * rng.unit();
+                let l = (rng.unit() - 0.5) * 30.0 * rng.unit();
+                let (_, omega, _) = k.zamo(r);
+                let (p, ut) = (k.forward(e, l, r), e - omega * l);
+                if k.radial(e, l, r) < 0.0 || p.abs() < 1e-9 || ut.abs() < 1e-9 {
+                    continue;
+                }
+                allowed += 1;
+                negative += (e < 0.0 && ut > 0.0) as usize;
+                assert_eq!(p > 0.0, ut > 0.0, "a = {a} E = {e} L = {l} r = {r}: P = {p}, E - wL = {ut}");
+            }
+            assert!(allowed > 5_000 && negative > 0, "a = {a}: {allowed} allowed states, {negative} future-directed with E < 0");
         }
     }
 

@@ -121,6 +121,41 @@ fn the_digest_is_the_same_through_a_frames_whole_life() {
     assert_ne!(other, reference);
 }
 
+/// A hand-out is work like any other, budgeted and resumable (docs/plane.md, foundation 7): a frame that hands out
+/// several members in one slice used to make all their tubes in one event (nine passages cost thirteen
+/// milliseconds), and now each member is an item of its own, `(hand-off tick, the id it will have)`, made when the budget
+/// gets to it. With a budget of one event no call makes more than one member, the members wait in the queue, and the
+/// universe at the cut is the one of an unlimited run (same digest), in the same ids and in the same order.
+#[test]
+fn a_hand_out_is_one_item_per_member_and_changes_no_outcome() {
+    let horizon = 6_000_000i64;
+    let mut slow = plane_with(Config::default(), 5, Order::Sparse, 1, flyers()).unwrap();
+    let n0 = slow.u.n_bodies();
+    let (mut most_at_once, mut most_waiting, mut calls) = (0u64, 0usize, 0u64);
+    while slow.u.now < horizon {
+        let before = slow.u.stats.leavers;
+        let a = slow.u.advance(horizon, Budget::events(1));
+        most_at_once = most_at_once.max(slow.u.stats.leavers - before);
+        most_waiting = most_waiting.max(slow.u.pending_handouts());
+        calls += 1;
+        if a.events == 0 {
+            slow.u.now = a.horizon.max(slow.u.now);
+        }
+    }
+    slow.u.settle(horizon);
+    assert_eq!(slow.u.pending_handouts(), 0, "every member handed out by the cut is made");
+    assert_eq!(slow.u.stats.leavers, 4);
+    println!("{calls} calls of one event: at most {most_at_once} member made at once, at most {most_waiting} waiting");
+    assert_eq!(most_at_once, 1, "one member per item");
+    assert!(most_waiting >= 2, "the members of one slice waited in the queue: {most_waiting}");
+    let mut fast = plane_with(Config::default(), 5, Order::Sparse, 1, flyers()).unwrap();
+    fast.u.settle(horizon);
+    assert_eq!(slow.u.digest(), fast.u.digest(), "when the members are made changes nothing");
+    // ids are issued in hand-out order, whatever the budget
+    let froms = |p: &emergent_universe::scenario::Plane| (n0..p.u.n_bodies()).map(|i| (p.u.info[i].from, p.u.info[i].born)).collect::<Vec<_>>();
+    assert_eq!(froms(&slow), froms(&fast));
+}
+
 /// The frame's origin is a tube of its doll like any other, and takes what the doll's kick sources do (the star's
 /// tide, the moon's pull): the push the kicks give it over three quarters of an orbit equals, within 5%, the push
 /// the same kicks give a ship on the same circle (the player, 22 km ahead), each measured against its own
@@ -154,7 +189,10 @@ fn the_origin_takes_the_dolls_kicks_like_a_ship() {
     let (mf, ms) = ((d_fleet[0].powi(2) + d_fleet[1].powi(2)).sqrt(), (d_ship[0].powi(2) + d_ship[1].powi(2)).sqrt());
     let cos = (d_fleet[0] * d_ship[0] + d_fleet[1] * d_ship[1]) / (mf * ms);
     println!("the kicks pushed the origin {mf:.4e} lattice units ({d_fleet:?}) and the ship {ms:.4e} ({d_ship:?}); cos {cos:.5}");
-    assert!(mf > 1e5, "the kicks must move the origin by many lattice units, or the test measures nothing: {mf}");
+    // 1e5 before the origin fell (5 October): the moon's whole pull was then a push on every member that nothing
+    // balanced. What is left is the tide, the differential pull: still thousands of lattice units, and ten
+    // thousand times the rounding of the word.
+    assert!(mf > 1e3, "the kicks must move the origin by many lattice units, or the test measures nothing: {mf}");
     assert!(((mf - ms) / ms).abs() < 0.05 && cos > 0.9986, "the origin's push {mf:e} against the ship's {ms:e}, cos {cos}");
     // the control: without the kicks the frame is still (the unkicked battle is what it was compared to)
     assert!(still[0].hypot(still[1]) > 0.0);
