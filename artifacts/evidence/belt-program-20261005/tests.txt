@@ -1,0 +1,42 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-shipmem v0.1.0 (/private/tmp/emergent-wt-belt/crates/shipmem)
+    Finished `release` profile [optimized + debuginfo] target(s) in 27.47s
+     Running unittests src/lib.rs (target/release/deps/emergent_shipmem-99c610ce39bfabd1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/belt.rs (target/release/deps/belt-20bb38f65e228e3d)
+
+running 5 tests
+test distinct_states_at_both_belt_sizes ... ok
+test dyadic_tail_covers_the_discrete_rayleigh_endpoints ... ok
+test exact_round_trip_with_scars_splits_stream_and_reabsorption ... ok
+test refuses_correlations_and_nonbijective_keys ... ok
+test regeneration_is_bit_identical_across_orders_and_threads ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/roundtrip.rs (target/release/deps/roundtrip-210c3a57d88bfc83)
+
+running 2 tests
+test block_codecs_round_trip_extremes ... ok
+test elias_fano_matches_brute_force ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests emergent_shipmem
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
