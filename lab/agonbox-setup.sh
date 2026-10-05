@@ -40,15 +40,23 @@ WantedBy=multi-user.target
 S
 systemctl daemon-reload && systemctl enable --now glmlab-firewall.service
 
-# Rust and GitHub's runner, for glmlab only.
-sudo -iu "$U" bash -c '
-  set -e
-  curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-  python3 -m pip config set global.break-system-packages true
-  mkdir -p ~/actions-runner && cd ~/actions-runner
+# Rust and GitHub's runner, for glmlab only (a file, because sudo -i flattens a multi-line command).
+cat > /tmp/glmlab-user-setup.sh <<'G'
+set -e
+cd "$HOME"
+command -v cargo >/dev/null || [ -x "$HOME/.cargo/bin/cargo" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+python3 -m pip config set global.break-system-packages true
+mkdir -p "$HOME/actions-runner" && cd "$HOME/actions-runner"
+if [ ! -x ./config.sh ]; then
   v=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | jq -r .tag_name | tr -d v)
   curl -sSL -o r.tgz "https://github.com/actions/runner/releases/download/v$v/actions-runner-linux-x64-$v.tar.gz"
-  tar xzf r.tgz && rm r.tgz'
+  tar xzf r.tgz && rm r.tgz
+fi
+echo "glmlab: rust $("$HOME/.cargo/bin/rustc" --version | cut -d' ' -f2), runner $(./config.sh --version 2>/dev/null || echo installed)"
+G
+chmod 644 /tmp/glmlab-user-setup.sh
+sudo -u "$U" -H bash /tmp/glmlab-user-setup.sh
+rm -f /tmp/glmlab-user-setup.sh
 
 # The isolation check, as glmlab: the router must be unreachable, GitHub reachable.
 if sudo -u "$U" curl -s --max-time 4 -o /dev/null http://192.168.1.1; then echo "FAIL: glmlab reaches the home network"; exit 2; fi
