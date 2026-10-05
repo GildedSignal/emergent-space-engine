@@ -8,16 +8,18 @@
 //! eccentric births), the last three against the float64 circular restricted three-body problem
 //! (`restricted`). B9 is log-scaled to e = 0.99. B16-B18 come from the law's red-team (1 October):
 //! moving lenses (a boosted Kerr-Schild geodesic oracle), resonance (r4 v3's cases as restricted
-//! scenes) and memory (bytes per body on the shipmem ladder).
+//! scenes) and memory (bytes per body on the shipmem ladder). B19 (5 October) judges rotating holes
+//! against equatorial Kerr geodesics in float64 (`kerr`, cross-checked by `kerr_mpmath.py`).
 //!
 //! ```text
 //! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture|
 //!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|
-//!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat]
+//!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|
+//!     planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture]
 //!     [--gates G1,B7,...]
 //! ```
 //! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
-//! `--gates` picks gates (default: all sixteen). Every phase is killed and reported as a failure
+//! `--gates` picks gates (default: all seventeen). Every phase is killed and reported as a failure
 //! if it runs past 60 s. Exit 0 iff every gate that ran passes.
 pub mod assist;
 pub mod binary;
@@ -26,6 +28,7 @@ pub mod cost;
 pub mod fit;
 pub mod handoff;
 pub mod hill;
+pub mod kerr;
 pub mod laws;
 pub mod lens;
 pub mod memory;
@@ -33,6 +36,7 @@ pub mod plane;
 pub mod oracle;
 pub mod resonance;
 pub mod restricted;
+pub mod rotating;
 pub mod scale;
 pub mod select;
 pub mod sample;
@@ -98,6 +102,13 @@ pub trait Law {
     /// B18: bytes the law holds per live body on a scene of the shipmem population ladder: the tube,
     /// the catalogue's share, the event records and the remainders. None: not implemented, which fails.
     fn bytes_per_body(&self, _scene: &memory::MemoryScene) -> Option<f64> {
+        None
+    }
+    /// B19: the law's answer to a question about equatorial geodesics around a hole of spin `chi` (a/M, spinning towards +φ;
+    /// the judge asks 0, 0.5, 0.9 and 0.998): cycles, circular orbits, fates, light, clocks, tubes and the Penrose split
+    /// (`rotating::KerrQuery`). None: not implemented, which fails the gate; `Some(KerrAnswer::Absent)` says there is no such
+    /// orbit, observer or tube.
+    fn kerr(&self, _chi: f64, _query: &rotating::KerrQuery) -> Option<rotating::KerrAnswer> {
         None
     }
 }
@@ -220,7 +231,7 @@ fn g6(rows: &[Orbit]) -> Gate {
 }
 
 /// Runs the gates of the single-mass core (`select::CORE`) on `law`, arming `watch` on each phase and
-/// calling `emit` as each gate lands. The CLI runs all sixteen through `judge_only`.
+/// calling `emit` as each gate lands. The CLI runs all seventeen through `judge_only`.
 #[allow(dead_code)] // the core entry point: the CLI goes through `judge_only`
 pub fn judge(law: &dyn Law, watch: Option<&Watch>, emit: impl FnMut(&Gate)) -> Vec<Gate> {
     judge_only(law, watch, Some(&select::CORE), emit)
@@ -270,10 +281,11 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     phase("B16", &mut || vec![lens::b16(law)]);
     phase("B17", &mut || vec![resonance::b17(law)]);
     phase("B18", &mut || vec![memory::b18(law)]);
+    phase("B19", &mut || vec![rotating::b19(law)]);
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat] [--gates G1,G2,...] [--plane-step N]";
+const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture] [--gates G1,G2,...,B19] [--plane-step N]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
@@ -410,7 +422,7 @@ mod tests {
 
     #[test]
     fn every_planted_law_the_usage_names_resolves() {
-        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat"];
+        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "planted-nodrag", "planted-isco", "planted-penrose", "planted-proonly", "planted-rcapture"];
         for name in names {
             assert!(laws::by_name(name).is_some() && USAGE.contains(name), "{name}");
         }
@@ -481,11 +493,11 @@ mod events_tests {
     }
 
     #[test]
-    fn the_default_run_is_all_sixteen_gates_and_a_law_without_the_new_methods_fails_every_gate_after_g6_in_it() {
+    fn the_default_run_is_all_seventeen_gates_and_a_law_without_the_new_methods_fails_every_gate_after_g6_in_it() {
         // `--gates` omitted is `only = None`: every gate, in the judge's order.
         let gates = judge_only(&Silent, None, None, |_| {});
         assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), select::ALL);
-        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18"]);
+        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18", "B19"]);
     }
 
     #[test]
