@@ -63,6 +63,24 @@ impl Catalogue {
     }
 }
 
+/// The kick that made a binding (docs/law.md, "A body's state between kicks"): the split's impulse stands for a
+/// force spread over its window `[M − len/2, M + len/2)` around the tick `M` it fires at (the binding's
+/// `event_time`). The tube holds the post-kick velocity from `M` on, so it is first order wrong inside the
+/// window; a reader completes it by a linear ramp ([`crate::observe::credit`]). A binding that is not a kick
+/// (a body's creation, a handoff, a burn's flush) has `len == 0`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Kick {
+    /// The window's length in ticks (the step of its level), or zero for a binding that is not a kick.
+    pub len: i64,
+    /// The level of the changeover (0 is the whole step, `len = H >> 2·level`).
+    pub level: u8,
+    /// The velocity the kick added, in quanta of the binding's velocity exponent.
+    pub dv: [i64; 2],
+}
+impl Kick {
+    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2] };
+}
+
 /// Everything needed to read one body's state at any time after its binding event.
 #[derive(Clone, Debug)]
 pub struct Binding {
@@ -78,6 +96,8 @@ pub struct Binding {
     /// The doll's clock quantum (`2^clock_exp` doll time units per tick).
     pub clock_exp: i16,
     pub event_time: Tick,
+    /// The kick that made this binding (zero length if none): what the state between kicks is completed with.
+    pub kick: Kick,
 }
 
 /// The tube's own readout (no remainder) at `t`, with the orbit state it came from, in the doll's units
@@ -237,5 +257,6 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
         units,
         clock_exp,
         event_time: t,
+        kick: Kick::NONE,
     }
 }

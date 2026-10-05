@@ -332,7 +332,7 @@ impl Universe {
         let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
         let mut tube = bound.tube;
         tube.key = self.cat.insert(bound.entry.clone())?;
-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, delta: bound.delta, units: bound.units, clock_exp: d.clock_exp(), event_time: 0 };
+        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, delta: bound.delta, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
         let rec = BodyRec {
             kind,
             b,
@@ -490,7 +490,7 @@ impl Universe {
     /// Recompute every deadline from the player's present position (a scheduling heuristic only).
     pub fn rekey(&mut self) {
         if let Some(p) = self.player {
-            if let Ok((pos, _)) = crate::observe::root_state(&self.ctx(), p, self.bodies.event_time(p).max(self.now)) {
+            if let Ok((pos, _)) = crate::observe::root_state_raw(&self.ctx(), p, self.bodies.event_time(p).max(self.now)) {
                 self.observer = pos;
             }
         }
@@ -526,7 +526,7 @@ impl Universe {
         self.resolved += 1;
         let t = upd.rec.b.event_time;
         self.bodies.put(i, upd.rec);
-        if let Ok((p, _)) = crate::observe::root_state(&self.ctx(), i, t) {
+        if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
             self.pos[i] = p;
         }
     }
@@ -679,7 +679,7 @@ impl Universe {
             let key = self.cat.insert(bound.entry.clone())?;
             let mut tube = bound.tube;
             tube.key = key;
-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, delta: bound.delta, units: bound.units, clock_exp, event_time: l.tick };
+            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, delta: bound.delta, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE };
             let rec = BodyRec {
                 kind: Kind::Ship,
                 b,
@@ -721,7 +721,7 @@ impl Universe {
     fn update_fleet_position(&mut self, f: usize) {
         let t = self.fleets[f].tick();
         let centre = self.fleets[f].centre;
-        if let (Ok((cp, _)), Some((o, _))) = (crate::observe::root_state(&self.ctx(), centre, t.max(self.bodies.event_time(centre))), self.fleets[f].origin(t)) {
+        if let (Ok((cp, _)), Some((o, _))) = (crate::observe::root_state_raw(&self.ctx(), centre, t.max(self.bodies.event_time(centre))), self.fleets[f].origin(t)) {
             let k = 2f64.powi(-20);
             self.fleets[f].pos = [cp[0] + o[0] * k, cp[1] + o[1] * k];
         }

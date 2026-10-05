@@ -36,6 +36,11 @@ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
     Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?])
 }
 
+/// The finder reads the canonical tubes, never the ramp ([`crate::observe::credit`]): it is an outcome (its log is in the
+/// digest), the player's kick at tick `M` reads a body whose own kick at `M` comes later in the order of ids, and the ramp
+/// is a reader's completion of the state between kicks, which at a kick's own tick differs between the bodies that have
+/// fired it and those that have not (by the kick's half, in a body's first window). The tubes are continuous at a kick;
+/// the finder's neighbourhood (`2^ENCOUNTER_LOG2` of the radii) is orders of magnitude above what the ramp adds.
 impl Encounters for PlayerNeighbourhood {
     fn find(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Vec<Encounter> {
         let mut out = Vec::new();

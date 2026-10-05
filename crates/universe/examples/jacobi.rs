@@ -1,7 +1,8 @@
 // Jacobi error against the step: ships on circles at 1.5 to 3 Hill radii of a Jupiter, run for N planet periods at
 // 2^step_log2 kicks per period. `jacobi STEP_LOG2 PERIODS SHIPS`; SYNC=1 samples the split's output (the ship's last boundary).
-// Jacobi error against the step: the same six ships for 100 planet periods at 2^step_log2 kicks per period.
-use emergent_universe::observe::root_state;
+// States are read as every reader reads them, completed by the ramp between kicks (docs/law.md, "A body's state between
+// kicks"); RAW=1 reads the tubes alone (the pending half kick, first order in the step).
+use emergent_universe::observe::{root_state, root_state_raw};
 use emergent_universe::scenario::restricted_with;
 use emergent_universe::Config;
 fn main() {
@@ -26,8 +27,9 @@ fn main() {
     let period = 2.0 * std::f64::consts::PI / omega;
     let jac = |w: &emergent_universe::scenario::Restricted, sh: usize, t: i64| {
         let ctx = w.u.ctx();
-        let (xs, vs) = root_state(&ctx, sh, t).unwrap();
-        let (xp, _) = root_state(&ctx, w.planet, t).unwrap();
+        let read = if std::env::var("RAW").is_ok() { root_state_raw } else { root_state };
+        let (xs, vs) = read(&ctx, sh, t).unwrap();
+        let (xp, _) = read(&ctx, w.planet, t).unwrap();
         let r = (xs[0]*xs[0]+xs[1]*xs[1]).sqrt();
         let d = ((xs[0]-xp[0]).powi(2)+(xs[1]-xp[1]).powi(2)).sqrt();
         let rp3 = (xp[0]*xp[0]+xp[1]*xp[1]).powf(1.5);

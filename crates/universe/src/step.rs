@@ -9,6 +9,10 @@
 //! event at `T + H/2`. A step in *phase* (mean anomaly) and not in time at periapsis: the
 //! perturbations here are tides and distant pulls, which grow with the distance, so the
 //! orbit's slow part carries them and a quasi-parabolic orbit costs no more kicks than a circle.
+//! The step is anchored (block time steps, [`aligned`]): every interval starts on a multiple of its own length, so a body
+//! of a longer step has its boundaries on those of a shorter one's. Between boundaries a reader completes the tube by a
+//! ramp ([`crate::observe::credit`]); each kick leaves in its binding the window it stands for and what it added
+//! ([`crate::bind::Kick`]), and nothing here reads the ramp: kicks, handoffs and certificates read the canonical tubes.
 //! Near a secondary the kick is split across levels (SyMBA, [`crate::force`]): the pair is engaged
 //! on finer sub-intervals, recursively, while it can be inside a shell, by a certificate that
 //! depends on separation and speed only.
@@ -22,7 +26,7 @@
 //! accurate, and at the edge (`R_edge`) on the way out, with a four-to-one hysteresis so no ship
 //! chatters. A body
 //! that has nothing to be kicked by (no secondary, no parent) has no events at all.
-use crate::bind::{bind, scalars, Binding, Bound, Entry};
+use crate::bind::{bind, scalars, Binding, Bound, Entry, Kick};
 use crate::body::{BodyRec, Item, Kind, Segment, What};
 use crate::ctx::Ctx;
 use crate::force::{self, LEVELS, RATIO};
@@ -79,6 +83,26 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
     }
     let exp = log2_floor(period) - per_period_log2 - b.clock_exp as i32;
     Ok((1i64 << exp.clamp(1, 50)).clamp(MIN_STEP, MAX_STEP))
+}
+
+/// **Block time steps** (Aarseth and Makino; docs/law.md, "A body's state between kicks"): the interval of a body
+/// whose step is `step` (a power of two of ticks) and which is at tick `t`. On the grid (a multiple of `step`) it is
+/// `step`; off it (after a handoff or a decision) it is one **stub** to the next multiple of `step` (shorter than a step,
+/// so no less accurate), and every interval after it starts on the grid: every interval of a power of two starts on a
+/// multiple of its own length, a body of a longer step has its boundaries on those of a shorter one's, and every pair
+/// shares boundaries. (The way back by doublings from the tick's own lowest set bit would take a dozen intervals, each
+/// an event, inside one frame: a stub is one.) A stub under `MIN_STEP` ticks is joined to the next interval.
+pub fn aligned(step: i64, t: Tick) -> i64 {
+    let off = t.rem_euclid(step);
+    if off == 0 {
+        return step;
+    }
+    let stub = step - off;
+    if stub < MIN_STEP {
+        stub + step
+    } else {
+        stub
+    }
 }
 
 /// The kind of an item, the third part of its canonical key (tick, body, kind): a kick before an impact before
@@ -286,6 +310,7 @@ impl Work<'_, '_> {
             units: bound.units,
             clock_exp,
             event_time: t,
+            kick: Kick::NONE,
         };
         self.new_entry = Some(bound.entry.clone());
         Ok(bound)
@@ -324,9 +349,12 @@ impl Work<'_, '_> {
         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
         let dv = scale2(a, h)?;
         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+        // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+        let added;
         let next = if thrusting {
             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
             let v2 = self.burn(x, add2(v, dv)?, t)?;
+            added = dv;
             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
         } else {
             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
@@ -335,9 +363,18 @@ impl Work<'_, '_> {
                 // A sub-quantum kick fires nothing: it is carried.
                 return Ok(());
             }
+            added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
         };
         self.rebind(next, t, d)?;
+        // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+        // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+        let ve = self.rec.b.units.1 as i32;
+        let q = |s: Scalar| -> Res<i64> { i64::try_from(s.fixed(-ve)?).map_err(|_| Error::Refused("kick outside the word")) };
+        // (A kick that does not fit the word's quanta leaves no ramp: the rebinding stands either way.)
+        if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
+            self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b] };
+        }
         Ok(())
     }
 
@@ -427,7 +464,7 @@ impl Work<'_, '_> {
             self.rec.step = want;
         }
         self.rec.anchor = t;
-        let mut h = self.rec.step;
+        let mut h = aligned(self.rec.step, t);
         self.rec.interval = h;
         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
         if movable && d != 0 {
@@ -456,6 +493,11 @@ impl Work<'_, '_> {
                     }
                 }
             }
+        }
+        // A stub is split into quarters like any interval (the levels' lengths are `h >> 2l`, floored: a few ticks of the
+        // deepest level's weight are left out of a stub), unless it is too short to split.
+        if h < MIN_STEP {
+            return Ok(());
         }
         self.open(t, 0, h)
     }
