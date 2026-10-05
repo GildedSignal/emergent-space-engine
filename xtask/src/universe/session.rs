@@ -17,6 +17,10 @@ pub struct Session {
     pub rtf: f64,
     pub dash: Dash,
     keys: u8,
+    /// The wall budget of a frame's engine advance, ms (a budget that bites delays work and never moves a decision).
+    pub engine_ms: f64,
+    /// The canonical cut: no frame advances past it, and the digest is taken there (`None`: the flight is open-ended).
+    pub cut: Option<emergent_universe::num::Tick>,
     names: Vec<String>,
     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
     cache: ViewCache,
@@ -26,7 +30,7 @@ impl Session {
     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
         let names = p.names.clone();
-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, names, cache: ViewCache::default() })
+        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, cache: ViewCache::default() })
     }
 
     pub fn n_bodies(&self) -> usize {
@@ -48,16 +52,18 @@ impl Session {
         self.p.u.stats
     }
 
-    /// One presented frame: the player's keys (a decision at the presented tick if they changed), the
-    /// engine's budgeted advance, the view, its serialisation. Returns the view as JSON and the frame's wall time.
-    pub fn step(&mut self, keys: u8, wall_dt: f64) -> crate::Result<(Value, f64)> {
+    /// One presented frame: the player's keys when they are given (a decision, logged at the presented tick
+    /// if they changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
+    /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and
+    /// the frame's wall time.
+    pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<(Value, f64)> {
         let start = Instant::now();
-        if keys != self.keys {
+        if let Some(keys) = keys.filter(|&k| k != self.keys) {
             let now = self.p.u.now;
             self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
             self.keys = keys;
         }
-        let f = self.p.u.frame(wall_dt, self.rtf, Budget::wall(ENGINE_BUDGET_MS));
+        let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
         let t1 = Instant::now();
         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
             Some(v) => v,
@@ -85,15 +91,17 @@ impl Session {
                "bytes_per_body": self.p.u.bytes_per_body()})
     }
 
-    /// The digest at a canonical cut: everything up to the presented tick resolved.
-    pub fn digest_at_cut(&mut self) -> String {
-        let t = self.p.u.now;
+    /// The canonical cut the digest is taken at: the session's cut when it has one (everything up to it is
+    /// resolved and nothing past it was), else the presented tick. Returns the tick with the digest, so the
+    /// two are always printed together.
+    pub fn digest_at_cut(&mut self) -> (emergent_universe::num::Tick, String) {
+        let t = self.cut.unwrap_or(self.p.u.now);
         self.p.u.settle(t);
-        self.p.u.digest()
+        (t, self.p.u.digest())
     }
 
     pub fn log(&self) -> Value {
-        json!({"version": "es-plane-v0", "seed": self.seed, "inputs": self.p.u.inputs, "presented_tick": self.p.u.now})
+        json!({"version": "es-plane-v0", "seed": self.seed, "inputs": self.p.u.inputs, "presented_tick": self.p.u.now, "cut_tick": self.cut})
     }
 
     pub fn describe(&self) -> String {

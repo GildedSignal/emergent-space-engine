@@ -34,6 +34,7 @@ use emergent_space::{
     orbit::{Orbit, OrbitKey, Scalar},
     Tube,
 };
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -136,6 +137,10 @@ pub struct Universe {
     pos: Vec<[f64; 2]>,
     pub stats: Stats,
     pub inputs: Vec<(Tick, u8)>,
+    /// Decisions scheduled at canonical ticks and not yet taken, in order ([`Universe::schedule`]).
+    pending: VecDeque<(Tick, u8)>,
+    /// The tick of the last decision scheduled or taken: the log is written in order.
+    last_decision: Tick,
     /// Threads the resolver may use for independent ships.
     pub threads: usize,
     /// The frame's slice of a fleet's battle, in ticks.
@@ -179,6 +184,8 @@ impl Universe {
             pos: Vec::new(),
             stats: Stats::default(),
             inputs: Vec::new(),
+            pending: VecDeque::new(),
+            last_decision: 0,
             threads: 1,
             slice: 1 << 18,
             lanes: Lanes::default(),
@@ -725,6 +732,7 @@ impl Universe {
         let mut deferred: Vec<usize> = Vec::new();
         let mut overflow = false;
         loop {
+            self.take_due(target);
             let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
             let dl = dl.fixed(0).unwrap_or(i128::MAX) as Tick;
             let Some((t, _)) = self.key_of(e) else {
@@ -777,18 +785,20 @@ impl Universe {
     /// spending `budget`; the presented time is the horizon (every item whose light could reach the
     /// player by it is resolved), so an overflow shows only as a lower real-time factor.
     pub fn frame(&mut self, wall_dt: f64, rtf: f64, budget: Budget) -> Frame {
-        // While a control key is held the player decides at every frame: the burn and the turn owed are
-        // flushed at the present tick (a logged decision, so a replay of the input log gives the same
-        // universe). The stored state, the physics and the encounters are then never more than one
-        // frame behind the keys, and the view only derives what is owed within the frame.
-        if let Some(p) = self.player {
-            let held = self.bodies.alive(p).then(|| self.bodies.rec(p).thrust).flatten().filter(|th| th.keys != 0 && th.since < self.now);
-            if let Some(th) = held {
-                let _ = self.input(self.now, th.keys);
-            }
-        }
+        self.frame_to(wall_dt, rtf, budget, Tick::MAX)
+    }
+
+    /// [`Universe::frame`] that never advances the target past `limit`: a canonical cut (a digest taken after
+    /// [`Universe::settle`]`(limit)` is the same whatever the frames were). Nothing is resolved past `limit`.
+    ///
+    /// No decision is taken here: the keys' changes are decisions at the ticks written in the log
+    /// ([`Universe::schedule`], [`Universe::input`]), and a key held is *not* a decision per frame (that
+    /// would bind the history to the wall's frames). The burn and the turn owed since the last decision or
+    /// kick are what the view derives ([`crate::observe::held_thrust`]), and the player's own kicks, at the
+    /// thrust's canonical step, flush them into the state.
+    pub fn frame_to(&mut self, wall_dt: f64, rtf: f64, budget: Budget, limit: Tick) -> Frame {
         let want = (rtf * wall_dt / crate::view::TICK_SECONDS) as Tick;
-        let target = self.now + want.max(1);
+        let target = self.now.saturating_add(want.max(1)).min(limit.max(self.now));
         let a = self.advance(target, budget);
         let before = self.now;
         self.now = a.horizon.max(self.now);
@@ -802,23 +812,64 @@ impl Universe {
 
     // ---- decisions ------------------------------------------------------------------------------
 
-    /// The player's keys (bit 0 forward, 1 reverse, 2 left, 3 right) change at tick `t`, which must be
-    /// `now` or later and not before the player's committed tick. The change is a decision event.
-    pub fn input(&mut self, t: Tick, keys: u8) -> Res<()> {
+    /// The player's keys (bit 0 forward, 1 reverse, 2 left, 3 right) change at tick `t`: a decision, taken
+    /// **at that tick** whenever the engine gets there (docs/law.md, "Ties": a decision takes effect at its
+    /// logged canonical tick, never at a wall-derived one). The decision waits until the player's own
+    /// items up to `t` are resolved (the frame's presented time cannot pass them), so a budget that
+    /// bites delays it without moving or dropping it. Decisions are written in order: `t` is not before
+    /// the last one, nor before the player's committed tick.
+    pub fn schedule(&mut self, t: Tick, keys: u8) -> Res<()> {
         let p = self.player.ok_or(Error::Refused("no player"))?;
-        if keys > 15 || t < self.now.min(self.bodies.event_time(p)) {
+        if keys > 15 || t < self.last_decision || t < self.now.min(self.bodies.event_time(p)) {
             return Err(Error::Refused("input in the past"));
         }
-        // The player's own past is resolved first (and what it reads, by pulling).
-        while self.key_of(p).is_some_and(|k| k.0 <= t) {
-            self.resolve_body(p);
+        self.last_decision = t;
+        self.pending.push_back((t, keys));
+        Ok(())
+    }
+
+    /// Take every scheduled decision whose tick is within `target` and whose past is resolved: the player's next
+    /// item is after it. (An item at the decision's own tick is resolved first.)
+    fn take_due(&mut self, target: Tick) {
+        let Some(p) = self.player else { return };
+        while let Some(&(t, keys)) = self.pending.front() {
+            if t > target || self.key_of(p).is_some_and(|k| k.0 <= t) {
+                break;
+            }
+            self.pending.pop_front();
+            self.take(p, t, keys);
         }
+    }
+
+    fn take(&mut self, p: usize, t: Tick, keys: u8) {
         let rec = self.bodies.rec(p);
         let upd = step::decide(&self.ctx(), p, rec, t, keys);
         self.apply(p, upd);
         self.stats.decisions += 1;
         self.inputs.push((t, keys));
         self.requeue(p);
+    }
+
+    /// The player's keys change at tick `t`, which must be `now` or later and not before the player's committed
+    /// tick, taken now: the scheduled decisions before it are taken first, then the player's own past is
+    /// resolved (and what it reads, by pulling). The change is a decision event, logged at `t`.
+    pub fn input(&mut self, t: Tick, keys: u8) -> Res<()> {
+        let p = self.player.ok_or(Error::Refused("no player"))?;
+        if keys > 15 || t < self.last_decision || t < self.now.min(self.bodies.event_time(p)) {
+            return Err(Error::Refused("input in the past"));
+        }
+        while let Some(&(pt, pk)) = self.pending.front().filter(|d| d.0 <= t) {
+            while self.key_of(p).is_some_and(|k| k.0 <= pt) {
+                self.resolve_body(p);
+            }
+            self.pending.pop_front();
+            self.take(p, pt, pk);
+        }
+        while self.key_of(p).is_some_and(|k| k.0 <= t) {
+            self.resolve_body(p);
+        }
+        self.last_decision = t;
+        self.take(p, t, keys);
         Ok(())
     }
 

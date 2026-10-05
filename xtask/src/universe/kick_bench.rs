@@ -104,7 +104,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
         "kick_us_all": percentiles(&mut all),
         "memo": shapes.json(),
         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
-        "digest": s.digest_at_cut(), "machine_before": machine_before,
+        "digest": s.digest_at_cut().1, "machine_before": machine_before,
         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
     }))?);
     Ok(u8::from(refused != 0))

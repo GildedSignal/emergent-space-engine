@@ -70,7 +70,8 @@ fn a_crossing_is_a_property_of_the_state_and_not_of_the_cache() {
 
 /// Holding a turn key changes the heading the view shows on the very next frame, by the turn the law owes
 /// (`2^turn_log2` turns per unit of proper time), at 1x and at 100x; holding forward changes the velocity by
-/// the burn owed; and the stored state is never more than one frame behind the keys.
+/// the burn owed. A key held is one decision, at the tick of the press: the view derives what is owed since, and
+/// the state takes it at the player's own kicks (a decision per frame would bind the history to the wall).
 fn hold(rtf: f64, keys: u8) -> (Plane, Vec<View>, Vec<i64>) {
     let mut p = plane(Config::default(), 2, Order::Sparse, 1, 8).unwrap();
     p.u.input(0, keys).unwrap();
@@ -78,11 +79,8 @@ fn hold(rtf: f64, keys: u8) -> (Plane, Vec<View>, Vec<i64>) {
     for _ in 0..30 {
         let f = p.u.frame(1.0 / 60.0, rtf, Budget::unlimited());
         ticks.push(f.ticks);
-        // every key held is re-asserted at the frame's start: the stored state is within a frame
-        let th = p.u.rec(p.player).thrust.unwrap();
-        if keys != 0 {
-            assert!(p.u.now - th.since <= f.ticks + 1, "the stored thrust is {} ticks behind the presented tick (a frame is {})", p.u.now - th.since, f.ticks);
-        }
+        // a key held is not a decision per frame: the log holds the press and nothing else
+        assert_eq!(p.u.inputs.len(), 1, "a key held wrote decisions into the log: {:?}", p.u.inputs);
         views.push(gather(&p.u, &p.names).unwrap());
     }
     (p, views, ticks)
@@ -121,8 +119,8 @@ fn holding_forward_changes_the_velocity_on_the_next_frame() {
     }
 }
 
-/// A pure read: looking at the view writes nothing, and the keys held are in the input log (one decision per
-/// frame), so replaying the log gives the same universe.
+/// A pure read: looking at the view writes nothing, a key held is one decision (the change of keys, at its tick),
+/// and replaying the log, on another schedule of frames and budgets, gives the same universe.
 #[test]
 fn the_keys_held_are_in_the_input_log_and_replay_to_the_same_universe() {
     let mut p = plane(Config::default(), 4, Order::Sparse, 1, 8).unwrap();
@@ -137,15 +135,19 @@ fn the_keys_held_are_in_the_input_log_and_replay_to_the_same_universe() {
         let _ = gather(&p.u, &p.names);
     }
     let log = p.u.inputs.clone();
-    assert!(log.len() >= 26, "a decision at every frame while a key is held (frames 5 to 29), and the three presses: {}", log.len());
+    assert_eq!(log.len(), 3, "the three presses, and no decision per frame while a key is held: {log:?}");
     let h = p.u.now;
     p.u.settle(h);
     let want = p.u.digest();
+    // the replay: the log scheduled at its ticks, frames of another size, another budget
     let mut q = plane(Config::default(), 4, Order::Sparse, 1, 8).unwrap();
     for &(t, keys) in &log {
-        q.u.settle(t);
-        q.u.input(t, keys).unwrap();
+        q.u.schedule(t, keys).unwrap();
+    }
+    while q.u.now < h {
+        q.u.frame_to(1.0 / 37.0, 100.0, Budget::events(3), h);
     }
     q.u.settle(h);
+    assert_eq!(q.u.inputs, log, "a decision moved or was dropped");
     assert_eq!(q.u.digest(), want, "the input log did not reproduce the universe");
 }

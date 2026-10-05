@@ -88,7 +88,7 @@ pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
                     }
                     let dt = last.elapsed().as_secs_f64().min(0.1);
                     last = Instant::now();
-                    let (v, ms) = s.step(keys, dt)?;
+                    let (v, ms) = s.step(Some(keys), dt)?;
                     Ok(("application/json".into(), serde_json::to_vec(&json!({"frame": v, "server_ms": ms, "dash": s.dash_json()}))?))
                 }
                 _ => Err("unknown route".into()),
