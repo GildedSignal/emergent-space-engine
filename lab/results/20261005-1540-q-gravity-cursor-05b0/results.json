@@ -1,0 +1,62 @@
+{
+  "run": "20261005-1540-q-gravity-cursor-05b0",
+  "probe": "cursor.rs (rustc -O cursor.rs -o cursor); outputs in out-all.txt; linux x86 cloud, orders of magnitude only",
+  "exact": {
+    "kicks_checked": 7203000,
+    "mismatches": 0,
+    "cursor_ahead_of_cone": 0,
+    "configs": [
+      {"name": "b_s0.1/c0.1 sparse", "tests_per_kick": 1.189, "adv_per_kick": 0.1973},
+      {"name": "b_s0.3/c0.3 sparse", "tests_per_kick": 1.191, "adv_per_kick": 0.1970},
+      {"name": "b_s0.5/c0.5 mid", "tests_per_kick": 1.191, "adv_per_kick": 0.1954},
+      {"name": "b_s0.9/c0.9 sparse", "tests_per_kick": 1.192, "adv_per_kick": 0.1942},
+      {"name": "b_s0.9/c0.1 dense", "tests_per_kick": 1.036, "adv_per_kick": 0.0364},
+      {"name": "b_s0.1/c0.9 dense", "tests_per_kick": 1.030, "adv_per_kick": 0.0295},
+      {"name": "b_s0.5/c0.5 dense", "tests_per_kick": 1.005, "adv_per_kick": 0.0050},
+      {"name": "photon at c", "kicks": 900000, "mismatches": 0},
+      {"name": "head-on 0.9c", "kicks": 3000, "mismatches": 0, "max_tests_per_kick": 20},
+      {"name": "lightlike ties", "cases": 1999, "correct": 1999}
+    ],
+    "verdict": "cursor == brute force everywhere; >= includes the cone exactly; one quantum outside excludes"
+  },
+  "cost": {
+    "K_sweep_tests_per_kick": {"600": 1.964, "6000": 1.991, "60000": 1.997},
+    "K_sweep_brute_per_kick": {"600": 600, "6000": 6000, "60000": 60000},
+    "rate_sweep": [
+      {"K": 600, "tests_per_kick": 1.099, "adv_per_kick": 0.099},
+      {"K": 4500, "tests_per_kick": 1.997, "adv_per_kick": 0.997},
+      {"K": 45000, "tests_per_kick": 10.942, "adv_per_kick": 9.942},
+      {"K": 400000, "tests_per_kick": 100.368, "adv_per_kick": 99.368}
+    ],
+    "law": "tests/kick = 1 + arrivals-since-last-kick, independent of K",
+    "identity_tests_le_kicks_plus_events": "holds in every configuration",
+    "burst": {"events": 1000, "kicks": 51, "tests": 1034, "max_tests_one_kick": 1000, "identity": "1034 <= 1051"}
+  },
+  "laplace_equal_mass_binary_60_orbits": {
+    "inst": {"beta0.1": {"dE": 2.39e-13}, "beta0.3": {"dE": 2.39e-13}, "beta0.9": {"dE": 2.39e-13}},
+    "ret": {
+      "beta0.1": {"unbound_at": null, "dE": 0.9256, "a_drift": 12.43, "e_fin": 0.3898},
+      "beta0.3": {"unbound_at_orbits": 0.3, "dE": 1.065, "e_fin": 1.1999},
+      "beta0.9": {"unbound_at_orbits": 0.2, "dE": 43.76, "e_fin": 40.71}
+    },
+    "news": {
+      "beta0.1": {"unbound_at": null, "dE": 3.098e-3, "a_drift": 3.108e-3, "e_fin": 1e-4},
+      "beta0.3": {"unbound_at": null, "dE": 8.130e-3, "a_drift": 8.196e-3, "e_fin": 1e-4},
+      "beta0.9": {"unbound_at": null, "dE": 1.690e-2, "a_drift": 1.719e-2, "e_fin": 1e-4}
+    },
+    "news0_frozen_single_version": {
+      "unbound_at_orbits": 5.1, "dE": 310.3, "identical_across_beta": true,
+      "cadence_check_steps_per_orbit": {"100": 3.21, "400": 5.05, "1600": 6.10, "6400": 7.22},
+      "verdict": "structurally unstable (mutual L3), onset only log-delayed by finer integration"
+    },
+    "cursor_vs_brute": {"sel_mismatches": "0/1200 at every beta", "final_state_bit_identical": true},
+    "lag_versions": {"beta0.1": 13.0, "beta0.3": 37.0, "beta0.9": 89.4, "theory_2beta_over_dt": {"beta0.1": 12.7, "beta0.3": 38.2, "beta0.9": 114.6}}
+  },
+  "ghost": {
+    "retention": {"earth_doll": "5 s", "jupiter_doll": "175 s", "sun_doll_50AU": "6.9 h", "star_individual_1pc": "3.3 yr", "galaxy_cell_1kpc": "3260 yr", "galaxy_cell_8kpc": "26080 yr"},
+    "bytes_per_source": "24 B x depth (t,x,y cone tests) + 16 B shared tube + 4 B cursor per (body,source) pair",
+    "depth_rule": "ceil(cadence x light-time-in-orbits): ~1 at real c in a star system; ~10-15 in lowered-c beta=0.9 scenes at cadence 32/orbit",
+    "galaxy_alive_ghosts_per_cell": "1e-5..1e-4 (news rate 1/(5e8 yr) x retention 3e3..2.6e4 yr)",
+    "galaxy_requirement": "ghosts must ride generators (the cell's orbital program, zero kicks); ghost fields are aggregate multipole differences shrinking to zero as cones pass"
+  }
+}

@@ -1,0 +1,74 @@
+== exact: cursor vs brute force on integer worldlines (300 pairs x 3000 kicks each) ==
+ b_s0.1/c0.1 sparse: kicks  900000 mismatch  0 cursor-ahead  0 tests/kick  1.189 advances/kick  0.1973
+ b_s0.3/c0.3 sparse: kicks  900000 mismatch  0 cursor-ahead  0 tests/kick  1.191 advances/kick  0.1970
+    b_s0.5/c0.5 mid: kicks  900000 mismatch  0 cursor-ahead  0 tests/kick  1.191 advances/kick  0.1954
+ b_s0.9/c0.9 sparse: kicks  900000 mismatch  0 cursor-ahead  0 tests/kick  1.192 advances/kick  0.1942
+  b_s0.9/c0.1 dense: kicks  900000 mismatch  0 cursor-ahead  0 tests/kick  1.036 advances/kick  0.0364
+  b_s0.1/c0.9 dense: kicks  900000 mismatch  0 cursor-ahead  0 tests/kick  1.030 advances/kick  0.0295
+  b_s0.5/c0.5 dense: kicks  900000 mismatch  0 cursor-ahead  0 tests/kick  1.005 advances/kick  0.0050
+        photon at c: kicks  900000 mismatch  0 cursor-ahead  0
+       head-on 0.9c: kicks    3000 mismatch  0 cursor-ahead  0 max tests/kick 20
+               ties: 1999 / 1999 tie cases correct (>= includes the cone; +1 quantum excludes it)
+
+TOTAL kicks   7203000  mismatches 0  => CURSOR == BRUTE FORCE EVERYWHERE
+== cost A: history length K sweep, news rate == kick rate (adv/kick ~ 1), 100 pairs each ==
+               K sweep: K     600 kicks    60000 tests/kick   1.964 adv/kick    0.971 p50 2 p99   5 max    8 identity    OK brute/kick     600 mm 0
+               K sweep: K    6000 kicks   600000 tests/kick   1.991 adv/kick    0.993 p50 2 p99   5 max   10 identity    OK brute/kick    6000 mm 0
+               K sweep: K   60000 kicks  6000000 tests/kick   1.997 adv/kick    0.998 p50 2 p99   5 max   11 identity    OK brute/kick   60000 mm 0
+
+== cost B: news rate sweep, fixed kick cadence (mean 45k), K = same duration, 100 pairs each ==
+            rate sweep: K     600 kicks   300000 tests/kick   1.099 adv/kick    0.099 p50 1 p99   2 max    5 identity    OK brute/kick     600 mm 0
+            rate sweep: K    4500 kicks   300000 tests/kick   1.997 adv/kick    0.997 p50 2 p99   5 max    9 identity    OK brute/kick    4500 mm 0
+            rate sweep: K   45000 kicks   300000 tests/kick  10.942 adv/kick    9.942 p50 11 p99  25 max   39 identity    OK brute/kick   45000 mm 0
+            rate sweep: K  400000 kicks   300000 tests/kick 100.368 adv/kick   99.368 p50 99 p99 226 max  278 identity    OK brute/kick  400000 mm 0
+
+cursor cost = 1 + arrivals since last kick (adv/kick), independent of K;
+brute force pays K per kick. Identity: total tests <= total kicks + total events.
+== burst: source emits 1000 news events (a thrust phase), consumer kicks sparsely ==
+events 1000  kicks 51  advances 1000  tests 1034  mean tests/kick 20.2745  max tests/kick 1000
+identity: tests 1034 <= kicks 51 + events 1000 = 1051  => holds
+== Laplace control through the cursor (equal-mass binary, c lowered so v_orb/c = beta) ==
+400 steps/orbit, 60 orbits; 'unbound' = relative energy >= 0; versions every step
+
+beta 0.1: inst unbound_at      -  |dE| 2.390e-13  |a-1| 2.391e-13  e_fin  0.0000
+beta 0.1: ret  unbound_at      -  |dE|  9.256e-1  |a-1|   1.243e1  e_fin  0.3898
+beta 0.1: news unbound_at      -  |dE|  3.098e-3  |a-1|  3.108e-3  e_fin  0.0001
+beta 0.1: ns0  unbound_at    5.1  |dE|   3.103e2  |a-1|   1.003e0  e_fin 108.0417
+ns0 cadence check:   100 steps/orbit -> unbound_at 3.21 |dE| 1.797e0
+ns0 cadence check:   400 steps/orbit -> unbound_at 5.05 |dE| 3.103e2
+ns0 cadence check:  1600 steps/orbit -> unbound_at 6.10 |dE| 4.998e0
+ns0 cadence check:  6400 steps/orbit -> unbound_at 7.22 |dE| 3.153e0
+beta 0.1: news cursor-vs-brute: sel mismatches 0/1200  final state bit-identical: true  lag mean   13.0 versions (max 13)
+
+beta 0.3: inst unbound_at      -  |dE| 2.390e-13  |a-1| 2.391e-13  e_fin  0.0000
+beta 0.3: ret  unbound_at    0.3  |dE|   1.065e0  |a-1|   1.628e1  e_fin  1.1999
+beta 0.3: news unbound_at      -  |dE|  8.130e-3  |a-1|  8.196e-3  e_fin  0.0001
+beta 0.3: ns0  unbound_at    5.1  |dE|   3.103e2  |a-1|   1.003e0  e_fin 108.0417
+beta 0.3: news cursor-vs-brute: sel mismatches 0/1200  final state bit-identical: true  lag mean   37.0 versions (max 37)
+
+beta 0.9: inst unbound_at      -  |dE| 2.390e-13  |a-1| 2.391e-13  e_fin  0.0000
+beta 0.9: ret  unbound_at    0.2  |dE|   4.376e1  |a-1|   1.023e0  e_fin 40.7061
+beta 0.9: news unbound_at      -  |dE|  1.690e-2  |a-1|  1.719e-2  e_fin  0.0001
+beta 0.9: ns0  unbound_at    5.1  |dE|   3.103e2  |a-1|   1.003e0  e_fin 108.0417
+beta 0.9: news cursor-vs-brute: sel mismatches 0/1200  final state bit-identical: true  lag mean   89.4 versions (max 90)
+
+== ghost memory per scale: retention = influence radius / c =
+   how long a source's pre-news path ('ghost') is still felt by someone ==
+        Earth doll   (r_H ~ 0.01 AU):          5 s
+        Jupiter doll (r_H ~ 0.35 AU):        175 s
+         Sun doll     (R    ~ 50 AU):        6.9 h
+   a star, individually (r_H ~ 1 pc):       3.3 yr
+     galaxy cell, consumers at 1 kpc:      3260 yr
+     galaxy cell, consumers at 8 kpc:     26080 yr
+
+news-only history per source = 24 B (t,x,y for the cone test) x depth + 16 B tube (shared)
++ 4 B cursor per (body, source) pair; depth = news events inside the retention window.
+  star system: thrust/contact/rebind news ~ 0 in hours => depth ~1 => ~40 B/source.
+  every-step ring (a237 probe policy): 16 B x cadence x (light time in orbits) per source.
+  galaxy: cell-cell news ~ 1/(5e8 yr); retention 3e3..2.6e4 yr => alive ghosts ~ 1e-5..1e-4/cell.
+
+what the galaxy case requires: the ghost must be a GENERATOR — the cell's orbital program
+in the smooth galactic field, advanced by addition (zero kicks). A stepped ghost would
+cost a second body per news event for 1e4..1e5 yr. Ghost fields enter as aggregate
+multipole differences (old program - new program), shrinking to zero as cones pass;
+ghost-of-ghost branches are second order in the news size and pruned at retention.
