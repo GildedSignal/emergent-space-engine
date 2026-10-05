@@ -1,0 +1,265 @@
+diff --git a/crates/universe/examples/ruin_probe.rs b/crates/universe/examples/ruin_probe.rs
+new file mode 100644
+index 0000000..e167d80
+--- /dev/null
++++ b/crates/universe/examples/ruin_probe.rs
+@@ -0,0 +1,259 @@
++//! The ruin probe (Taleb lens): is the plane's canonical digest really independent of schedule,
++//! budget and threads, as `Universe::digest` claims? Silent nondeterminism is an unrecoverable
++//! state; this example tries to reach it on one machine, one build, one seed.
++//!
++//! Every run replays the same universe to the same canonical tick T, then settles and digests.
++//! What differs is only *how* the work was chopped: one shot, 60 Hz frames, jittered frames
++//! (a loaded machine), starved budgets, chunked settles, and thread counts.
++//!
++//! `ruin_probe [secs] [e1|e2|e3|restricted|nofleet]`
++use emergent_lattice::law::World;
++use emergent_universe::fleet::{Order, Q};
++use emergent_universe::scenario::{plane, plane_with, restricted_with};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config, Universe};
++use std::time::Instant;
++
++/// A deterministic load pattern: frame intervals in [1/240, 1/30] around 1/60 (a machine under
++/// jittery load). Purely a function of the frame index and the pattern seed.
++fn jitter_dt(i: usize, seed: u64) -> f64 {
++    let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(i as u64 * 0xBF58_476D_1CE4_E5B9);
++    x ^= x >> 31;
++    x = x.wrapping_mul(0x94D0_49BB_1331_11EB);
++    x ^= x >> 33;
++    let u = (x >> 11) as f64 / (1u64 << 53) as f64;
++    (0.25 + 1.5 * u) / 60.0
++}
++
++/// The bench's player script (xtask/src/universe/mod.rs): held keys, per frame.
++fn script(frame: usize) -> u8 {
++    let slot = frame / 240;
++    if frame % 240 < 20 {
++        [1, 9, 2, 4, 1, 1 | 4, 2, 8][slot % 8]
++    } else {
++        0
++    }
++}
++
++struct Outcome {
++    digest: String,
++    cut: i64,
++    frames: usize,
++    overflows: u64,
++    events: u64,
++    inputs: usize,
++    kicks: u64,
++    slices: u64,
++    handoffs: u64,
++    leavers: u64,
++    fleet: Option<(i64, u64, u64, u64)>, // tick, contacts, epochs, anchors
++    wall_s: f64,
++}
++
++fn finish(u: &mut Universe, target: i64, frames: usize, overflows: u64, events: u64, wall: Instant) -> Outcome {
++    u.settle(target);
++    assert_eq!(u.now, target, "the cut moved");
++    let fleet = u.fleets.first().map(|f| (f.tick(), f.contacts(), f.epochs(), f.anchors()));
++    let s = u.stats;
++    Outcome {
++        digest: u.digest(),
++        cut: u.now,
++        frames,
++        overflows,
++        events,
++        inputs: u.inputs.len(),
++        kicks: s.kicks,
++        slices: s.slices,
++        handoffs: s.handoffs,
++        leavers: s.leavers,
++        fleet,
++        wall_s: wall.elapsed().as_secs_f64(),
++    }
++}
++
++fn row(name: &str, r: &Outcome, extra: &str) {
++    let fleet = r.fleet.map_or("-".into(), |(t, c, e, a)| format!("{t}/{c}/{e}/{a}"));
++    println!(
++        "{{\"run\":\"{name}\",\"digest\":\"{}\",\"cut\":{},\"frames\":{},\"overflows\":{},\"events\":{},\"inputs\":{},\"kicks\":{},\"slices\":{},\"handoffs\":{},\"leavers\":{},\"fleet\":\"{fleet}\",\"wall_s\":{:.3}{}}}",
++        r.digest, r.cut, r.frames, r.overflows, r.events, r.inputs, r.kicks, r.slices, r.handoffs, r.leavers, r.wall_s, extra
++    );
++}
++
++/// The plane, driven by frames that land exactly on the target tick. `with_log`: a fixed sparse
++/// input log at absolute ticks (a 2 s burn at game second 2), applied upfront in every schedule,
++/// flush-free. `scripted`: the bench's held-key script, frame-relative (what Session::step does).
++fn plane_run(mode: &str, threads: usize, secs: f64, jitter_seed: u64, with_log: bool, scripted: bool, empty_fleet: bool) -> Outcome {
++    let t0 = Instant::now();
++    let mut p = if empty_fleet {
++        let world = World::new(Q, None, vec![]).expect("empty world");
++        plane_with(Config::default(), 1, Order::Sparse, threads, world).expect("the plane")
++    } else {
++        plane(Config::default(), 1, Order::Sparse, threads, 48).expect("the plane")
++    };
++    let target = (secs / TICK_SECONDS) as i64;
++    if with_log {
++        let t1 = (2.0 / TICK_SECONDS) as i64;
++        let t2 = (4.0 / TICK_SECONDS) as i64;
++        p.u.input(t1, 1).expect("press");
++        p.u.input(t2, 0).expect("release");
++    }
++    let mut frames = 0usize;
++    let mut overflows = 0u64;
++    let mut events = 0u64;
++    if mode != "oneshot" {
++        let mut last_keys = 0u8;
++        while p.u.now < target {
++            if frames > 4_000_000 {
++                panic!("runaway frame loop in mode {mode}");
++            }
++            let remaining = target - p.u.now;
++            let full = match mode {
++                "s60" => 1.0 / 60.0,
++                "jitter" => jitter_dt(frames, jitter_seed),
++                "events3" => 1.0 / 60.0,
++                other => panic!("unknown mode {other}"),
++            };
++            // Land exactly on the target: never ask for more ticks than remain.
++            let dt = if (full / TICK_SECONDS).ceil() as i64 >= remaining { remaining as f64 * TICK_SECONDS } else { full };
++            if scripted {
++                let k = script(frames + 1);
++                if k != last_keys {
++                    p.u.input(p.u.now, k).expect("script input");
++                    last_keys = k;
++                }
++            }
++            let budget = match mode {
++                "events3" => Budget::events(3),
++                _ => Budget::unlimited(),
++            };
++            let f = p.u.frame(dt, 1.0, budget);
++            overflows += f.overflow as u64;
++            events += f.events;
++            frames += 1;
++        }
++        assert_eq!(p.u.now, target, "frame loop overshot the canonical cut");
++    }
++    finish(&mut p.u, target, frames, overflows, events, t0)
++}
++
++/// The law alone (the Jacobi world): star, planet, ships, kicks, doll hand-offs. No fleet, no
++/// player. Chunked settle schedules and starved advance budgets must all give one digest.
++fn restricted_run(mode: &str, threads: usize, target: i64) -> Outcome {
++    let t0 = Instant::now();
++    let sep = 527_000_000i64;
++    let mut seed = 0x9E3779B97F4A7C15u64;
++    let mut rnd = || { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 11) as f64 / (1u64 << 53) as f64 };
++    let mut ships = Vec::new();
++    for i in 0..6 {
++        let k = 1.5 + 1.5 * rnd();
++        let side = if i % 2 == 0 { 1.0 } else { -1.0 };
++        let hill = sep as f64 * (2f64.powi(-10) / 3.0).cbrt();
++        let r = sep as f64 + side * hill * k;
++        ships.push((r as i64, ((rnd() * (1u64 << 32) as f64) as u64 % (1 << 32)) as u32));
++    }
++    let cfg = Config { step_log2: 6, ..Config::default() };
++    let mut w = restricted_with(-10, sep, 49_000, &ships, threads, cfg).expect("restricted");
++    let mut frames = 0usize;
++    match mode {
++        "oneshot" => {}
++        "chunks64" => {
++            for k in 1..=64 {
++                w.u.settle(k * target / 64);
++                frames += 1;
++            }
++        }
++        "chunksjit" => {
++            // Jittered chunk boundaries (a loaded machine's settle cadence), landing exactly on target.
++            let mut t = 0i64;
++            let mut i = 0usize;
++            while t < target {
++                let full = (target / 256) as f64;
++                let mut x = 0x1234_5678u64.wrapping_add(i as u64);
++                x ^= x >> 31;
++                x = x.wrapping_mul(0x94D0_49BB_1331_11EB);
++                x ^= x >> 33;
++                let u = (x >> 11) as f64 / (1u64 << 53) as f64;
++                t = ((t as f64 + full * (0.25 + 1.5 * u)) as i64).min(target);
++                w.u.settle(t);
++                frames += 1;
++                i += 1;
++            }
++        }
++        "events3" => loop {
++            let a = w.u.advance(target, Budget::events(3));
++            frames += 1;
++            if a.events == 0 {
++                break;
++            }
++        },
++        "observed" => {
++            // Interleave observation (root_state reads) with settling: observation must not change outcomes.
++            let mut t = 0i64;
++            while t < target {
++                t = (t + target / 32).min(target);
++                w.u.settle(t);
++                let ctx = w.u.ctx();
++                let _ = emergent_universe::observe::root_state(&ctx, w.ships[0], t);
++                frames += 1;
++            }
++        }
++        other => panic!("unknown restricted mode {other}"),
++    }
++    finish(&mut w.u, target, frames, 0, 0, t0)
++}
++
++fn main() {
++    let secs: f64 = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(20.0);
++    let which = std::env::args().nth(2).unwrap_or_else(|| "all".into());
++
++    // E1: the plane, no player at all. Schedule x budget x threads must all give one digest.
++    if which == "all" || which == "e1" {
++        for threads in [1usize, 2, 4] {
++            for mode in ["oneshot", "s60", "jitter", "events3"] {
++                let r = plane_run(mode, threads, secs, 7, false, false, false);
++                row(&format!("e1/{mode}/t{threads}"), &r, &format!(",\"threads\":{threads}"));
++            }
++        }
++    }
++    // E2: one fixed sparse input log (absolute ticks), flush-free. Same invariance demanded.
++    if which == "all" || which == "e2" {
++        for threads in [1usize, 2] {
++            for mode in ["oneshot", "s60", "jitter", "events3"] {
++                let r = plane_run(mode, threads, secs, 7, true, false, false);
++                row(&format!("e2/{mode}/t{threads}"), &r, &format!(",\"threads\":{threads}"));
++            }
++        }
++    }
++    // E3: the bench's held-key script, frame-relative decisions: the shipped benchmark's digest.
++    if which == "all" || which == "e3" {
++        let mut j = 7u64;
++        for mode in ["s60", "s60", "jitter", "jitter", "events3"] {
++            let tag = if mode == "s60" { "s60".to_string() } else if mode == "events3" { "events3".to_string() } else { format!("jitter{j}") };
++            let r = plane_run(mode, 1, secs, if mode == "jitter" { j } else { 0 }, false, true, false);
++            if mode == "jitter" {
++                j += 2;
++            }
++            row(&format!("e3/{tag}"), &r, "");
++        }
++    }
++    // Restricted: the law alone (no fleet, no player).
++    if which == "all" || which == "restricted" {
++        // 8 planet periods, as the Jacobi example counts them.
++        let sep = 527_000_000i64;
++        let period = 2.0 * std::f64::consts::PI * (sep as f64).powf(1.5);
++        let target = (8.0 * period) as i64;
++        for threads in [1usize, 2] {
++            for mode in ["oneshot", "chunks64", "chunksjit", "events3", "observed"] {
++                let r = restricted_run(mode, threads, target);
++                row(&format!("restricted/{mode}/t{threads}"), &r, &format!(",\"threads\":{threads},\"target\":{target}"));
++            }
++        }
++    }
++    // Nofleet: the plane with an empty fleet battle — is the divergence gone?
++    if which == "all" || which == "nofleet" {
++        for mode in ["oneshot", "s60", "jitter", "events3"] {
++            let r = plane_run(mode, 1, secs, 7, false, false, true);
++            row(&format!("nofleet/{mode}"), &r, "");
++        }
++    }
++}
