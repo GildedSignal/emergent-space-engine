@@ -155,6 +155,11 @@ fn absolute(rel: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Re
 
 /// The first tick at or after `after` where the tube is at or beyond `edge` (outward), if any.
 fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
+    next_exit_with(b, after, edge, true)
+}
+
+/// [`next_exit`], with or without the passage's analytic guess (the bisection alone is the reference the guess must equal).
+fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Option<Tick>> {
     let outside = |t: Tick| -> Res<bool> { Ok(b.orbit_state(t)?.radius >= edge) };
     if outside(after)? {
         return Ok(Some(after));
@@ -182,6 +187,18 @@ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
     let (mut lo, mut hi) = (after, i64::try_from(end).map_err(|_| Error::Refused("exit"))?);
     if hi < lo || !outside(hi)? {
         return Ok(None);
+    }
+    // A passage knows when it reaches a radius (its inverse, one solve): the tick it names is verified against
+    // the predicate itself (inside one tick before, outside on it), and the bisection below, which finds the same
+    // tick (the predicate is monotone from `after`), is the fallback. A hand-out plans each leaver's passage, and
+    // fifty readouts a bisection took most of the time.
+    if let (true, Trajectory::Passage(p)) = (guess, &b.entry.trajectory) {
+        let guess = b.entry.unit.to_tube(edge).ok().and_then(|e| p.at_radius(e).ok()).and_then(|(off, _)| b.to_doll(off).ok()).and_then(|off| peri.add(off).ok()).and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok()).and_then(|t| i64::try_from(t).ok());
+        if let Some(g) = guess.filter(|&g| g > lo && g <= hi) {
+            if outside(g)? && !outside(g - 1)? {
+                return Ok(Some(g));
+            }
+        }
     }
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
@@ -602,6 +619,34 @@ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The passage's analytic guess finds the tick the bisection finds: for every member the plane hands out
+    /// (passages and cycles, from every state the frame hands over), from periapsis and from the binding event.
+    #[test]
+    fn a_passages_exit_by_its_inverse_is_the_exit_by_bisection() {
+        use crate::fleet::Order;
+        let mut p = crate::scenario::plane(crate::ctx::Config::default(), 1, Order::Sparse, 1, 48).unwrap();
+        let n0 = p.u.n_bodies();
+        p.u.settle(30_000_000);
+        let (mut passages, mut exits) = (0, 0);
+        for i in n0..p.u.n_bodies() {
+            let born = p.u.info[i].born;
+            let b = p.u.bodies().binding_at(i, born).unwrap();
+            let doll = &p.u.dolls[b.doll as usize];
+            let is_passage = matches!(b.entry.trajectory, Trajectory::Passage(_));
+            let starts = [Some(born), next_periapsis(&b, born).unwrap()];
+            for after in starts.into_iter().flatten() {
+                for edge in [doll.edge, doll.edge.scale(-1).unwrap(), doll.edge.scale(-3).unwrap()] {
+                    let (fast, slow) = (next_exit_with(&b, after, edge, true).unwrap(), next_exit_with(&b, after, edge, false).unwrap());
+                    assert_eq!(fast, slow, "body {i}, from {after}, edge {edge:?}");
+                    exits += fast.is_some() as usize;
+                }
+            }
+            passages += is_passage as usize;
+        }
+        println!("{passages} passages of {} handed out; {exits} exits found, each the same by both ways", p.u.n_bodies() - n0);
+        assert!(passages >= 10 && exits >= 20, "the test must look at passages that exit: {passages} {exits}");
+    }
 
     /// A handoff is a translation and a boost, exact in integers, with one bounded carry (the sum is
     /// rounded to the parent's word): a thousand capture and release round trips return the state to

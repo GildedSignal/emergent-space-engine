@@ -11,6 +11,14 @@ use std::time::Instant;
 /// the serialisation and the browser).
 pub const ENGINE_BUDGET_MS: f64 = 5.0;
 
+/// This thread's CPU time in ms: the work a frame did, without the time it spent descheduled or paged.
+pub fn thread_cpu_ms() -> f64 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    // SAFETY: clock_gettime initializes the out pointer on success.
+    unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut ts) };
+    ts.tv_sec as f64 * 1e3 + ts.tv_nsec as f64 / 1e6
+}
+
 pub struct Session {
     pub p: Plane,
     pub seed: u64,
@@ -57,7 +65,7 @@ impl Session {
     /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and
     /// the frame's wall time.
     pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<(Value, f64)> {
-        let start = Instant::now();
+        let (start, cpu0) = (Instant::now(), thread_cpu_ms());
         if let Some(keys) = keys.filter(|&k| k != self.keys) {
             let now = self.p.u.now;
             self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
@@ -80,7 +88,7 @@ impl Session {
         std::hint::black_box(&wire);
         let ms = start.elapsed().as_secs_f64() * 1e3;
         self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
-        self.dash.record(ms, f.ticks, wall_dt, f.events, f.overflow);
+        self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
         Ok((json, ms))
     }
 

@@ -6,6 +6,9 @@ use crate::view::TICK_SECONDS;
 #[derive(Default, Clone)]
 pub struct Dash {
     pub frame_ms: Vec<f64>,
+    /// The thread's CPU time of each frame: the work, without the waiting (a frame that is slow in wall time and
+    /// not in CPU time was descheduled or paged, not computed). Empty when the caller does not measure it.
+    pub cpu_ms: Vec<f64>,
     pub rtf: Vec<f64>,
     pub events: u64,
     /// Game seconds presented and wall seconds spent.
@@ -38,6 +41,9 @@ pub struct Summary {
     /// Hitches per gameplay hour above 16.7, 33 and 50 ms.
     pub hitches_per_hour: [f64; 3],
     pub hitch_counts: [usize; 3],
+    /// The same frames by their CPU time: (p50, p99, p99.9, worst) and the hitch counts above 16.7, 33 and 50 ms.
+    pub cpu: (f64, f64, f64, f64),
+    pub cpu_hitch_counts: [usize; 3],
     pub worst_ms: f64,
     pub worst_at_frame: usize,
     pub rtf_median: f64,
@@ -49,8 +55,9 @@ pub struct Summary {
 }
 
 impl Dash {
-    pub fn record(&mut self, frame_ms: f64, game_ticks: i64, wall_dt: f64, events: u64, overflow: bool) {
+    pub fn record(&mut self, frame_ms: f64, cpu_ms: f64, game_ticks: i64, wall_dt: f64, events: u64, overflow: bool) {
         self.frame_ms.push(frame_ms);
+        self.cpu_ms.push(cpu_ms);
         let game = game_ticks as f64 * TICK_SECONDS;
         self.rtf.push(game / wall_dt);
         self.game_seconds += game;
@@ -75,6 +82,8 @@ impl Dash {
         let total: f64 = [&self.engine_ms, &self.view_ms, &self.json_ms, &self.wire_ms].iter().map(|v| v.iter().sum::<f64>()).sum();
         let mut f = self.frame_ms.clone();
         f.sort_by(f64::total_cmp);
+        let mut c = self.cpu_ms.clone();
+        c.sort_by(f64::total_cmp);
         let mut r = self.rtf.clone();
         r.sort_by(f64::total_cmp);
         let hours = self.wall_seconds / 3600.0;
@@ -88,6 +97,8 @@ impl Dash {
             p999: pct(&f, 0.999),
             hitches_per_hour: counts.map(|c| if hours > 0.0 { c as f64 / hours } else { 0.0 }),
             hitch_counts: counts,
+            cpu: (pct(&c, 0.5), pct(&c, 0.99), pct(&c, 0.999), c.last().copied().unwrap_or(0.0)),
+            cpu_hitch_counts: [16.7, 33.0, 50.0].map(|th| self.cpu_ms.iter().filter(|&&x| x > th).count()),
             worst_ms: worst,
             worst_at_frame: worst_at,
             rtf_median: pct(&r, 0.5),

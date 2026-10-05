@@ -130,6 +130,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool) -> crate::Result<u8> {
         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
         "frame_ms": {"p50": d.p50, "p95": d.p95, "p99": d.p99, "p99.9": d.p999},
+        "frame_cpu_ms": {"p50": d.cpu.0, "p99": d.cpu.1, "p99.9": d.cpu.2, "worst": d.cpu.3, "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed", "hitch_counts": d.cpu_hitch_counts},
         "hitches_per_gameplay_hour": {"above_16.7ms": d.hitches_per_hour[0], "above_33ms": d.hitches_per_hour[1], "above_50ms": d.hitches_per_hour[2]},
         "hitch_counts": d.hitch_counts,
         "worst_hitch_ms": d.worst_ms, "worst_hitch_at_frame": d.worst_at_frame,

@@ -147,6 +147,9 @@ pub struct Universe {
     pos: Vec<[f64; 2]>,
     pub stats: Stats,
     pub inputs: Vec<(Tick, u8)>,
+    /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
+    /// each is an item of the queue (the front one has the next body id), made when the budget gets to it.
+    handouts: VecDeque<(usize, Leaver)>,
     /// Decisions scheduled at canonical ticks and not yet taken, in order ([`Universe::schedule`]).
     pending: VecDeque<(Tick, u8)>,
     /// The tick of the last decision scheduled or taken: the log is written in order.
@@ -194,6 +197,7 @@ impl Universe {
             pos: Vec::new(),
             stats: Stats::default(),
             inputs: Vec::new(),
+            handouts: VecDeque::new(),
             pending: VecDeque::new(),
             last_decision: 0,
             threads: 1,
@@ -224,6 +228,10 @@ impl Universe {
     }
     pub fn n_bodies(&self) -> usize {
         self.bodies.len()
+    }
+    /// Members the frame has handed out whose tubes are not made yet (each is an item of the queue).
+    pub fn pending_handouts(&self) -> usize {
+        self.handouts.len()
     }
 
     /// Add a child doll centred on an existing body (a tube in the parent doll). `mass` is the doll's
@@ -405,6 +413,11 @@ impl Universe {
         for f in fleets.iter_mut() {
             f.start(&ctx);
         }
+        // Where each frame is, for the deadlines: a frame that starts at the star's centre (its unset position) would
+        // look a hundred million ticks away and be resolved after the player's items that read it.
+        for f in 0..self.fleets.len() {
+            self.update_fleet_position(f);
+        }
         self.rekey();
         Ok(())
     }
@@ -436,6 +449,9 @@ impl Universe {
     pub fn key_of(&self, e: usize) -> Option<(Tick, usize)> {
         if e < self.bodies.len() {
             self.bodies.next_time(e).map(|t| (t, e))
+        } else if e == self.bodies.len() && e < self.body_cap {
+            // The member at the front of the hand-outs is the body that will have this id.
+            self.handouts.front().map(|(_, l)| (l.tick, e))
         } else {
             let f = self.entity_fleet(e)?;
             self.fleets.get(f)?.next_time().map(|t| (t, e))
@@ -446,9 +462,14 @@ impl Universe {
         if Some(e) == self.player {
             return 0;
         }
-        let p = match self.entity_fleet(e) {
-            Some(f) if e >= self.bodies.len() => self.fleets[f].root_position(),
-            _ => self.pos[e],
+        let p = if e >= self.bodies.len() && e < self.body_cap {
+            // A member not made yet is where its frame is.
+            self.fleets[self.handouts.front().map_or(0, |h| h.0)].root_position()
+        } else {
+            match self.entity_fleet(e) {
+                Some(f) if e >= self.bodies.len() => self.fleets[f].root_position(),
+                _ => self.pos[e],
+            }
         };
         let (dx, dy) = (p[0] - self.observer[0], p[1] - self.observer[1]);
         (dx * dx + dy * dy).sqrt().min(4e18) as Tick
@@ -479,6 +500,7 @@ impl Universe {
         for f in 0..self.fleets.len() {
             self.requeue(self.fleet_entity(f));
         }
+        self.requeue(self.bodies.len());
     }
 
     // ---- resolving ------------------------------------------------------------------------------
@@ -549,6 +571,10 @@ impl Universe {
                     self.resolve_fleet(f, key.0 - 1);
                 }
             }
+            // ...and so must the members already handed out, each made before the player reads the doll.
+            while self.handouts.front().is_some_and(|(_, l)| l.tick < key.0) {
+                self.resolve_handout();
+            }
             let ships = std::mem::take(&mut self.lanes.ships);
             self.pull(&ships, key);
             self.lanes.ships = ships;
@@ -562,6 +588,13 @@ impl Universe {
     }
 
     fn resolve_entity(&mut self, e: usize) {
+        if e == self.bodies.len() && self.handouts.front().is_some() {
+            let t0 = Instant::now();
+            self.resolve_handout();
+            // The fleet's cost (a hand-out was inside its item): time, not an item.
+            self.stats.cost_ns[4] += t0.elapsed().as_nanos() as u64;
+            return;
+        }
         match self.entity_fleet(e).filter(|_| e >= self.bodies.len()) {
             Some(f) => {
                 // The battle may run only as far as the light-delayed deadline of the next entity in
@@ -611,9 +644,10 @@ impl Universe {
         self.stats.slices += step.slices;
         self.stats.kicks += step.kicks;
         self.stats.refused += step.refused;
-        for l in &step.leavers {
-            self.spawn_leaver(f, l);
-        }
+        // Whoever left is made a body later, one item each, when the budget gets to it (docs/plane.md, foundation 7:
+        // a hand-out of nine members used to be one event of thirteen milliseconds).
+        self.handouts.extend(step.leavers.into_iter().map(|l| (f, l)));
+        self.requeue(self.bodies.len());
         self.stats.dissolved += step.dissolved as u64;
         if self.fleets[f].live() {
             self.update_fleet_position(f);
@@ -623,10 +657,21 @@ impl Universe {
         self.requeue(e);
     }
 
-    /// A member that left a frame becomes a ship of the doll: its exact state at the hand-off tick is bound
-    /// as a tube (the fit's remainder carried), and its first interval is planned. A refusal (a state no
-    /// tube can hold) loses the member, counted.
-    fn spawn_leaver(&mut self, f: usize, l: &Leaver) {
+    /// The member at the front of the hand-outs becomes a ship of the doll: its exact state at the hand-off tick is
+    /// bound as a tube (the fit's remainder carried), and its first interval is planned. A refusal (a state no tube
+    /// can hold) loses the member, counted. An item like any other of the queue, key `(hand-off tick, the id it
+    /// will have)`: it reads the planets and the moon up to its tick (pulled first) and writes only the new body, so
+    /// when it is made changes no outcome; whoever reads the doll at a later tick (the player's check) makes the
+    /// members handed out before it first.
+    fn resolve_handout(&mut self) {
+        let Some((f, l)) = self.handouts.pop_front() else { return };
+        let key = (l.tick + 1, 0);
+        let planets = std::mem::take(&mut self.lanes.planets);
+        self.pull(&planets, key);
+        self.lanes.planets = planets;
+        let moons = std::mem::take(&mut self.lanes.moons);
+        self.pull(&moons, key);
+        self.lanes.moons = moons;
         let doll = self.fleets[f].doll;
         let made = (|| -> Res<usize> {
             let clock_exp = self.dolls[doll as usize].clock_exp();
@@ -664,8 +709,13 @@ impl Universe {
                 self.requeue(i);
                 self.stats.leavers += 1;
             }
-            Err(_) => self.stats.lost += 1,
+            Err(_) => {
+                self.stats.lost += 1;
+                self.resolved += 1;
+            }
         }
+        // The next member in line has the next id.
+        self.requeue(self.bodies.len());
     }
 
     fn update_fleet_position(&mut self, f: usize) {
@@ -994,6 +1044,10 @@ impl Universe {
         for (t, k) in &self.inputs {
             put(&mut h, *t as i128);
             put(&mut h, *k as i128);
+        }
+        // Members handed out and not made yet (none at a canonical cut: every hand-out is at or before it).
+        if !self.handouts.is_empty() {
+            put(&mut h, self.handouts.len() as i128);
         }
         h.update(&self.enc_digest);
         h.finalize().to_hex().to_string()
