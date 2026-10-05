@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Print one GLM window's three run commands, one per line (`start <lens> <min>` or `rung <file> <min>`):
-# the first entries of lab/queue.txt with no published non-VOID result, then the lens rotation.
+# the first entries of lab/queue.txt with no published verdict (VOID and DISPUTED are retried, twice at most), then the lens rotation.
 cd "$(git rev-parse --show-toplevel)"
 git fetch -q origin '+refs/heads/claude/lab-*:refs/remotes/origin/claude/lab-*' 2>/dev/null || true
-state() {  # state <slug>: "done" if a published result is not VOID, else the number of VOID results
+state() {  # state <slug>: "done" if a published result is not VOID or DISPUTED, else how many were
   local v=0 b
   for b in $(git for-each-ref --format='%(refname:short)' "refs/remotes/origin/claude/lab-*-$1-????"); do
-    git log -1 --format=%s "$b" | grep -q VOID && v=$((v + 1)) || { echo done; return; }
+    git log -1 --format=%s "$b" | grep -qE "VOID|DISPUTED" && v=$((v + 1)) || { echo done; return; }
   done
   echo "$v"
 }

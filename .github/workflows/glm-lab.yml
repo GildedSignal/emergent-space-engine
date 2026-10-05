@@ -10,7 +10,7 @@ concurrency: {group: glm-lab, cancel-in-progress: false}
 jobs:
   runs:
     runs-on: ubuntu-latest
-    timeout-minutes: 250
+    timeout-minutes: 330
     permissions: {contents: read}
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
             (cd "../lab-$j" && bash lab/run.sh "$kind" "$arg" "$min" | tail -1) < /dev/null > "id-$j"; cat "id-$j"
             j=$((j + 1))
           done < next.txt
-          end=$(( $(date +%s) + 230 * 60 ))
+          end=$(( $(date +%s) + 300 * 60 ))
           mkdir -p out
           for i in $(seq 0 $((j - 1))); do
             id=$(cat "id-$i"); d=../lab-$i/lab/results/$id
