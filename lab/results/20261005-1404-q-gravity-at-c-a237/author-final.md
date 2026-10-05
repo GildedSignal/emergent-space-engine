@@ -1,0 +1,4 @@
+Working...
+Run complete. All artifacts in `lab/results/20261005-1404-q-gravity-at-c-a237/` (dossier.md, predictions.md, results.json, `gravc.rs` + runs/, all < 5 MB; final spot-check reproduced the matrix run exactly).
+
+**The claim:** Gravity-as-news — the kick pulls toward the source's tube version that the consumer's past light cone last saw, evaluated at now — keeps every orbital behaviour of instantaneous gravity (flybys match to 10⁻⁷ relative; spurious precession 4.5 orders below the 1PN oracle; bound everywhere) while delivering a source's change of motion exactly at light-travel time (one step), at a measured bounded cost (≈6× an instantaneous kick, ≈16 B × kick-cadence × light-time-in-orbits of tube memory per source), whereas naive retardation spirals binaries apart as Laplace predicted (unbound in 4–12 orbits at β=0.1–0.3; a-growth 0.0072/orbit even at β=3.3×10⁻³).

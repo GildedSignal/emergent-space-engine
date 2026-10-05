@@ -1,0 +1,171 @@
+{
+ "scene_params": {
+  "binary": "m1=m2=0.5, rel orbit: circular a=1 or e0=0.3 (a=1.4286, r_peri=1), T=2pi or 10.65, beta=1/c (rel speed 1, sep 1)",
+  "system": "star 1.0 + planet A m=3e-4 a=1 e=0 + moon 1e-7 @0.30 r_H prograde + planet B m=1e-4 a=2.2 e=0.1; dur 600 = 95 planet-A orbits",
+  "flyby": "planet m=3e-4 a=1 circular; ship m=1e-12 enters at 1.5 r_H, v_inf 0.177-0.225 (2.2-2.8 x sqrt(mp/r_H)), |b| 0.35-1.1 r_H, 16 seeds",
+  "thrust": "planet A m=3e-4 a=1 circular gets tangential dv=0.06 at t_e=8; watcher m=1e-9 at a=6; twin runs, residual of watcher accel from A",
+  "note": "c lowered so beta = v_orb/c in {0.1, 0.3}; beta=3.3e-3 at c=300 as 'realistic tight binary' anchor"
+ },
+ "binary_laplace": {
+  "inst": {
+   "max_dE": 7.8e-11,
+   "a_final": 1.0,
+   "n_orbits": 300
+  },
+  "ret_c10_beta0.1": {
+   "unbound_orbits": 12.1,
+   "a_final": 20.0,
+   "spurious_prec_per_orbit": -0.149
+  },
+  "ret_c3.333_beta0.3": {
+   "unbound_orbits": 4.2,
+   "a_final": 41.4
+  },
+  "ret_c300_beta0.0033": {
+   "a_growth_per_orbit_e3": 0.0072,
+   "unbound_orbits_e3": 173,
+   "a_final_circular": 3.68
+  },
+  "news_c10": {
+   "max_dE": 0.00056,
+   "a_final": 1.0006,
+   "prec_per_orbit": 2.5e-05
+  },
+  "news_c3.333": {
+   "max_dE": 0.0016,
+   "a_final": 1.0016,
+   "prec_per_orbit": 3.7e-06
+  },
+  "news_c300": {
+   "max_dE": 2.3e-05,
+   "prec_per_orbit": 3.4e-05
+  },
+  "onePN_oracle_prec_per_orbit_c10": 0.145,
+  "news_dt_scaling_e3_c3.333": {
+   "dt_0.0084": 0.0027,
+   "dt_0.0042": 0.00067,
+   "dt_0.0021": 0.00017,
+   "law": "quadratic (4.0x per halving)"
+  }
+ },
+ "system": {
+  "inst": {
+   "moon_escaped_at": -1,
+   "max_dE": 3.1e-06,
+   "max_J_err": 0.1
+  },
+  "news_c10": {
+   "moon_escaped_at": -1,
+   "max_dE": 5.9e-05,
+   "max_J_err": 0.048
+  },
+  "news_c3.333": {
+   "moon_escaped_at": -1,
+   "max_dE": 0.0014,
+   "max_J_err": 0.13
+  },
+  "ret_c10": {
+   "moon_escaped_at": 104.5,
+   "max_dE": 0.11
+  },
+  "ret_c3.333": {
+   "moon_escaped_at": 5.9,
+   "max_dE": 0.23
+  }
+ },
+ "flyby_vout_vs_inst": {
+  "news_c10": {
+   "max_abs_dev": 1e-08,
+   "max_rel_dev": 5e-08
+  },
+  "news_c3.333": {
+   "max_abs_dev": 1.3e-07,
+   "max_rel_dev": 6e-07
+  },
+  "ret_c10": {
+   "max_rel_dev": 0.066,
+   "median_rel_dev": 0.029
+  },
+  "ret_c3.333": {
+   "max_rel_dev": 0.214,
+   "median_rel_dev": 0.075
+  },
+  "jacobi_max_err": {
+   "inst": 0.00044,
+   "news_c3.333": 0.00044,
+   "ret_c3.333": 0.0042
+  }
+ },
+ "thrust_arrival": {
+  "news_c10": {
+   "onset": 8.504,
+   "exact_light": 8.5
+  },
+  "news_c3.333": {
+   "onset": 9.504,
+   "exact_light": 9.5,
+   "pre_arrival_residual": 5e-20
+  },
+  "inst_c3.333": {
+   "onset": 8.112,
+   "exact_light": 9.5,
+   "violates_causality_by": 1.39
+  },
+  "ret_c10": {
+   "onset": 8.632,
+   "exact_light": 8.5
+  },
+  "ret_c3.333": {
+   "onset": 10.008,
+   "exact_light": 9.5
+  }
+ },
+ "cost_per_pair_kick_ns_x86_2vcpu": {
+  "inst": {
+   "n64": 543,
+   "n256": 305,
+   "n1024": 298
+  },
+  "ret": {
+   "n64": 1674,
+   "n256": 1545,
+   "n1024": 1545
+  },
+  "news": {
+   "n64": 1981,
+   "n256": 1833,
+   "n1024": 1834
+  },
+  "ratios_n1024": {
+   "ret_over_inst": 5.2,
+   "news_over_inst": 6.1,
+   "news_over_ret": 1.19
+  },
+  "caveat": "probe uses binary-search version lookup; plane would use a per-pair cursor (O(1)); includes two Vec allocs per accel pass"
+ },
+ "memory_tube_versions": {
+  "probe": {
+   "bytes_per_version": 112,
+   "versions_needed_c3.333_dt0.005_D9": 541,
+   "per_source_kB": 59.2
+  },
+  "plane": {
+   "bytes_per_version": 16,
+   "cadence_kicks_per_orbit": 32,
+   "per_source_B": {
+    "0.04_light_orbit": 20,
+    "0.3": 154,
+    "1.0": 512,
+    "4.0": 2048
+   }
+  }
+ },
+ "commands": {
+  "build": "cd lab/results/20261005-1404-q-gravity-at-c-a237 && rustc -O gravc.rs -o gravc",
+  "binary": "./gravc binary_e3 news 3.333 0.0042 1885 runs/x.json  (cfg in {inst,ret,news}; scene in {binary,binary_e3}; c, dt, dur)",
+  "system": "./gravc system news 3.333 0.005 600 runs/x.json",
+  "flyby": "./gravc flyby news 3.333 0.00025 1.5 runs/x.json",
+  "thrust": "./gravc thrust news 3.333 0.004 20 runs/x.json",
+  "bench": "./gravc bench news 3.333 0.002 100 runs/x.json 256 120"
+ }
+}
