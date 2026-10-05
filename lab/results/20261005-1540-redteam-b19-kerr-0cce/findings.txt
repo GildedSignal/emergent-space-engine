@@ -1,0 +1,70 @@
+# P1 anchors: my machinery vs BPT closed forms (worst relative difference per chi)
+  chi=0.5 pro: r_ph=2.347296355334 r_isco=4.233002479531
+  chi=0.5 retro: r_ph=3.532088886238 r_isco=7.554584664512
+  chi=0.5: horizon=1.866025403784; det/omega/lapse identities 2.30e-41; TOTAL 1.18e-08
+  chi=0.9 pro: r_ph=1.557854627423 r_isco=2.320882991762
+  chi=0.9 retro: r_ph=3.910267939103 r_isco=8.717352229606
+  chi=0.9: horizon=1.435889894354; det/omega/lapse identities 2.30e-41; TOTAL 2.15e-08
+  chi=0.998 pro: r_ph=1.073909257680 r_isco=1.236970605175
+  chi=0.998 retro: r_ph=3.998221892848 r_isco=8.994374404804
+  chi=0.998: horizon=1.063213922517; det/omega/lapse identities 2.30e-41; TOTAL 4.04e-08
+  radial polynomials vs metric (timelike and null, 40 digits): worst 1.35e-39
+
+# P2/P3 the disputed states at r = (r_+ + 2)/2 (v_r = 0)
+  chi=0.5 r=1.933013: v_phi=-0.9995: E=-2.608238925 L=-65.130776575
+    u^t: cramer=187.709842917289 A(E-wL)/(r^2D)=187.709842917289 eps/alpha=187.709842917289  P=22.167544  R(mid to horizon)=265.2378 R(r_+)=521.268616
+    roots of R between r_+ and r: [] (empty => the allowed arc reaches the horizon: it plunges)
+    split(v=0.6): E0=0.398920900 Efwd=0.419569647 Eback=-0.020648747 gain=1.051762 consE=0.0e+00 consL=0.0e+00
+    back photon: eps=0.250000>0 future, u^t=1.483791>0, P=0.1752>0, L=-0.5151<0, R(mid)=0.0166 -> plunges; null E<0 FUTURE-DIRECTED exists
+    same split at r=3: Eback=0.119713726 > 0 (no gain outside the ergosphere)
+    forged outside (criterion 4b): r'=2.2:R=-2442.208,u^t=22.806; r'=3.0:R=-13198.017,u^t=-0.877; r'=5.0:R=-61398.943,u^t=-3.481; r'=8.0:R=-181422.114,u^t=-3.308; r'=15.0:R=-531390.051,u^t=-2.987; r'=30.0:R=1182277.266,u^t=-2.792
+  chi=0.9 r=1.717945: v_phi=-0.9995: E=-6.951959194 L=-68.562336881
+    u^t: cramer=120.244174909268 A(E-wL)/(r^2D)=120.244174909268 eps/alpha=120.244174909268  P=35.557457  R(mid to horizon)=949.6598 R(r_+)=1742.361772
+    roots of R between r_+ and r: [] (empty => the allowed arc reaches the horizon: it plunges)
+    split(v=0.6): E0=0.691082516 Efwd=0.746096093 Eback=-0.055013577 gain=1.079605 consE=1.7e-41 consL=1.4e-41
+    back photon: eps=0.250000>0 future, u^t=0.950495>0, P=0.2811>0, L=-0.5422<0, R(mid)=0.0594 -> plunges; null E<0 FUTURE-DIRECTED exists
+    same split at r=3: Eback=0.105056157 > 0 (no gain outside the ergosphere)
+    forged outside (criterion 4b): r'=2.2:R=-4355.536,u^t=9.359; r'=3.0:R=-14782.497,u^t=-8.088; r'=5.0:R=-47910.493,u^t=-9.930; r'=8.0:R=-41398.892,u^t=-8.944; r'=15.0:R=1470224.638,u^t=-7.979; r'=30.0:R=34427794.486,u^t=-7.444
+  chi=0.998 r=1.531607: v_phi=-0.9995: E=-11.371727958 L=-68.109781581
+    u^t: cramer=129.100632252896 A(E-wL)/(r^2D)=129.100632252896 eps/alpha=129.100632252896  P=29.971250  R(mid to horizon)=1134.4211 R(r_+)=1917.774562
+    roots of R between r_+ and r: [] (empty => the allowed arc reaches the horizon: it plunges)
+    split(v=0.6): E0=0.759852001 Efwd=0.849817770 Eback=-0.089965770 gain=1.118399 consE=0.0e+00 consL=0.0e+00
+    back photon: eps=0.250000>0 future, u^t=1.020503>0, P=0.2369>0, L=-0.5387<0, R(mid)=0.0709 -> plunges; null E<0 FUTURE-DIRECTED exists
+    same split at r=3: Eback=0.102119531 > 0 (no gain outside the ergosphere)
+    forged outside (criterion 4b): r'=2.2:R=-4630.865,u^t=-10.354; r'=3.0:R=-10821.910,u^t=-18.996; r'=5.0:R=-112.969,u^t=-17.064; r'=8.0:R=289442.861,u^t=-14.796; r'=15.0:R=5584404.850,u^t=-13.074; r'=30.0:R=100123401.633,u^t=-12.179
+
+# raw RK4 integration from the Christoffel symbols (no first integrals used inside the integrator)
+  chi=0.5: v_phi=-0.9995 body: E0=-2.608239 L0=-65.130777 -> r_final=1.8697; u^t min=187.7110 (future throughout: True); dE/E along path=1.6e-08; dL/L=6.7e-10
+  chi=0.5: backward split photon: E0=-0.082595 L0=-2.060389 -> r_final=1.8698; u^t min=5.9352; dE/E=6.5e-14
+  chi=0.9: v_phi=-0.9995 body: E0=-6.951959 L0=-68.562337 -> r_final=1.4384; u^t min=120.2446 (future throughout: True); dE/E along path=2.1e-04; dL/L=4.7e-05
+  chi=0.9: backward split photon: E0=-0.220054 L0=-2.168945 -> r_final=1.4759; u^t min=3.8020; dE/E=4.1e-13
+  chi=0.998: v_phi=-0.9995 body: E0=-11.371728 L0=-68.109782 -> r_final=1.0651; u^t min=129.1007 (future throughout: True); dE/E along path=5.7e-05; dL/L=2.0e-05
+  chi=0.998: backward split photon: E0=-0.359863 L0=-2.154628 -> r_final=1.2182; u^t min=4.0820; dE/E=2.5e-13
+  control chi=0.9 retrograde circular at r=12: r_final=12.0000 (stays out), dE/E=0.0e+00
+
+# P5 sign equivalence on allowed states: sign(u^t) = sign(E - wL) = sign(P)
+  allowed states sampled: 611608; sign(u^t)!=sign(P): 0; sign(u^t)!=sign(E-wL): 0
+  future-directed E<0 allowed states at r>=2: 0 (prediction: 0)
+
+# P4 the disputed claim: bound (two-turning-point) pockets with E<0, fully future-directed?
+  chi=0.01: timelike bound E<0 pockets: 9; fully future by the builder's P test: 0; by the true u^t test: 0
+  chi=0.1: timelike bound E<0 pockets: 22; fully future by the builder's P test: 0; by the true u^t test: 0
+  chi=0.5: timelike bound E<0 pockets: 104; fully future by the builder's P test: 0; by the true u^t test: 0
+  chi=0.9: timelike bound E<0 pockets: 283; fully future by the builder's P test: 0; by the true u^t test: 0
+  chi=0.998: timelike bound E<0 pockets: 668; fully future by the builder's P test: 0; by the true u^t test: 0
+  chi=0.9999: timelike bound E<0 pockets: 2087; fully future by the builder's P test: 0; by the true u^t test: 0
+
+# P4 null: bound pockets with E<0 (E=-1, L=-lam)?
+  chi=0.1: null bound E<0 pockets: 0; future by P test: 0; by true test: 0
+  chi=0.5: null bound E<0 pockets: 0; future by P test: 0; by true test: 0
+  chi=0.9: null bound E<0 pockets: 0; future by P test: 0; by true test: 0
+  chi=0.998: null bound E<0 pockets: 0; future by P test: 0; by true test: 0
+  chi=0.9999: null bound E<0 pockets: 0; future by P test: 0; by true test: 0
+
+# P6 planted laws vs the row's criteria
+  (a) no frame dragging: at r=1.5316, v_phi=-0.9995: kerr E=-11.371728 vs law E=+7.747832 (>0: no negative-energy tube -> fails 4a); law dphi/dt=-0.113641 (<0 inside the ergosphere -> fails criterion 3)
+  (b) Schwarzschild fudged to the ISCO: b_c = 3*sqrt(3) = 5.196152 both senses;
+      chi=0.5: b_pro=+4.0963, b_retro=-6.1382; retro b=-5.6672: kerr captures vs fudge scatters -> MISCLASSIFIED (fails 2d/5)
+      chi=0.9: b_pro=+2.8444, b_retro=-6.8323; retro b=-6.0142: kerr captures vs fudge scatters -> MISCLASSIFIED (fails 2d/5)
+      chi=0.998: b_pro=+2.1109, b_retro=-6.9967; retro b=-6.0964: kerr captures vs fudge scatters -> MISCLASSIFIED (fails 2d/5)
+  (c) non-conserving split at chi=0.998 r=1.5316: true E_back=-0.089966 (<0); a law returning |E_back|, E_fwd=E0+|E_back| breaks conservation by 0.179932 = 5.3e+13x the 8-ulp bound -> fails 4c
