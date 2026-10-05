@@ -309,7 +309,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
             // The planet's own clock, times the planet's potential at the member's radius.
             let rel = [origin[0] - cp[0] + mo.x[0] as f64 * k, origin[1] - cp[1] + mo.x[1] as f64 * k];
             let r_doll = dot(rel, rel).sqrt() * 2f64.powi(shift);
-            let rate = rate0 * (1.0 - 2.0 / r_doll.max(3.0)).sqrt();
+            let rate = rate0 * (1.0 - 2.0 * u.dolls[f.doll as usize].mu_f64() / r_doll.max(3.0)).sqrt();
             let rad = f.radii.get(m).copied().unwrap_or(0) as f64 * k;
             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
         }

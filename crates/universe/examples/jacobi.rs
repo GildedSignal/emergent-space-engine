@@ -22,15 +22,16 @@ fn main() {
     let cfg = Config { step_log2, ..Config::default() };
     let mut w = restricted_with(-10, sep, 49_000, &ships, 1, cfg).unwrap();
     let mu = 2f64.powi(-10);
-    let omega = 1.0 / (sep as f64).powf(1.5);
-    let period = 2.0 * std::f64::consts::PI * (sep as f64).powf(1.5);
+    let omega = (1.0 + mu).sqrt() / (sep as f64).powf(1.5);
+    let period = 2.0 * std::f64::consts::PI / omega;
     let jac = |w: &emergent_universe::scenario::Restricted, sh: usize, t: i64| {
         let ctx = w.u.ctx();
         let (xs, vs) = root_state(&ctx, sh, t).unwrap();
         let (xp, _) = root_state(&ctx, w.planet, t).unwrap();
         let r = (xs[0]*xs[0]+xs[1]*xs[1]).sqrt();
         let d = ((xs[0]-xp[0]).powi(2)+(xs[1]-xp[1]).powi(2)).sqrt();
-        let e = 0.5*(vs[0]*vs[0]+vs[1]*vs[1]) - 1.0/r - mu/d;
+        let rp3 = (xp[0]*xp[0]+xp[1]*xp[1]).powf(1.5);
+        let e = 0.5*(vs[0]*vs[0]+vs[1]*vs[1]) - 1.0/r - mu/d + if std::env::var("NOIND").is_ok() {0.0} else { mu*(xs[0]*xp[0]+xs[1]*xp[1])/rp3 };
         let l = xs[0]*vs[1]-xs[1]*vs[0];
         e - omega*l
     };
@@ -40,14 +41,16 @@ fn main() {
     let mut last_doll = vec![0u16; ships.len()];
     let mut passes = vec![0u32; ships.len()];
     let t0 = std::time::Instant::now();
-    for k in 1..=(periods * 8) {
-        let t = (k as f64 * period / 8.0) as i64;
+    let fine: i64 = std::env::var("FINE").ok().map(|v| v.parse().unwrap()).unwrap_or(1);
+    for k in 1..=(periods * 8 * fine) {
+        let t = (k as f64 * period / (8.0 * fine as f64)) as i64;
         w.u.settle(t);
         for (i, &sh) in w.ships.iter().enumerate() {
             let ts = if std::env::var("SYNC").is_ok() { w.u.rec(sh).anchor } else { t };
             let err = ((jac(&w, sh, ts) - c0[i]) * ships[i].0 as f64).abs();
             worst[i] = worst[i].max(err);
             series[i].push(err);
+            if let Ok(wi) = std::env::var("WATCH") { if wi.parse::<usize>().unwrap() == i { let ctx = w.u.ctx(); let (xs, _) = root_state(&ctx, sh, t).unwrap(); let (xp, _) = root_state(&ctx, w.planet, t).unwrap(); println!("k {k} t {t} err {err:.2e} doll {} dist/hill {:.2}", w.u.rec(sh).b.doll, ((xs[0]-xp[0]).powi(2)+(xs[1]-xp[1]).powi(2)).sqrt()/hill); } }
             let d = w.u.rec(sh).b.doll;
             if d != last_doll[i] { if d == 1 { passes[i] += 1; } last_doll[i] = d; }
         }

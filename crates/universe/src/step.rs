@@ -63,12 +63,12 @@ pub enum Resolved {
 /// two of ticks. Inside a planet's doll the orbit that leaves the doll (a flyby, a quasi-parabolic
 /// capture) is resolved over what it spends in the doll: twice the leg from periapsis to the edge.
 pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<i64> {
-    let mut period = match &b.entry.trajectory {
+    let mut period = b.to_doll(match &b.entry.trajectory {
         Trajectory::Cycle(c) => c.period()?,
         Trajectory::Passage(p) => p.duration()?,
-    };
+    })?;
     if let (Some(edge), Some(tp)) = (edge, next_periapsis(b, b.event_time)?) {
-        if b.entry.trajectory.key().periapsis < edge {
+        if b.to_doll(b.entry.trajectory.key().periapsis)? < edge {
             if let Some(out) = next_exit(b, tp, edge)? {
                 let inside = time_of(out - tp, b.clock_exp)?.scale(1)?;
                 if inside < period {
@@ -161,10 +161,11 @@ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
     let after_s = time_of(after, b.clock_exp)?;
     let apex = match &b.entry.trajectory {
         Trajectory::Cycle(c) => {
-            let period = c.period()?;
-            if edge > c.signed_state(period.scale(-1)?)?.radius {
+            let tube_period = c.period()?;
+            if edge > b.to_doll(c.signed_state(tube_period.scale(-1)?)?.radius)? {
                 return Ok(None);
             }
+            let period = b.to_doll(tube_period)?;
             let n = after_s.sub(peri)?.div(period)?.fixed_floor(0)?;
             let mut apex = peri.add(period.mul(Scalar::raw(n, 0)?)?)?.add(period.scale(-1)?)?;
             if apex < after_s {
@@ -172,7 +173,7 @@ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
             }
             apex
         }
-        Trajectory::Passage(p) => peri.add(p.duration()?.scale(-1)?)?,
+        Trajectory::Passage(p) => peri.add(b.to_doll(p.duration()?)?.scale(-1)?)?,
     };
     // A passage's last readable tick is one before its window closes: round the end inward.
     let end = if matches!(b.entry.trajectory, Trajectory::Passage(_)) { apex.fixed_floor(-(b.clock_exp as i32))? - 1 } else { apex.fixed_ceil(-(b.clock_exp as i32))? };
@@ -197,7 +198,7 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
     let after_s = time_of(after, b.clock_exp)?;
     let at = match &b.entry.trajectory {
         Trajectory::Cycle(c) => {
-            let period = c.period()?;
+            let period = b.to_doll(c.period()?)?;
             let ahead = after_s.sub(peri)?;
             let n = if ahead <= Scalar::ZERO { 0 } else { ahead.div(period)?.fixed_ceil(0)? };
             peri.add(period.mul(Scalar::raw(n, 0)?)?)?
@@ -250,7 +251,7 @@ impl Work<'_, '_> {
     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
-        let bound = bind(exact, t, clock_exp, self.passage_edge(doll))?;
+        let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
         let old = &self.rec.b;
         // The tube's length since the last binding is the body's clock reading (root units).
         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
@@ -429,7 +430,7 @@ impl Work<'_, '_> {
         insert(&mut self.rec.plan, Item { t: t + h, what: What::Boundary });
         if self.rec.kind != Kind::Planet {
             let key = self.rec.b.entry.trajectory.key();
-            if key.periapsis < self.doll().surface {
+            if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
                 if let Some(tp) = next_periapsis(&self.rec.b, t)? {
                     if tp <= t + h {
                         insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });

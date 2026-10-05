@@ -5,7 +5,7 @@
 use crate::body::{BodyStore, Kind};
 use crate::force::Secondary;
 use crate::num::{scale2, Res, Tick, V2};
-use crate::world::{pow2, DollRec};
+use crate::world::{pow2, DollRec, Unit};
 use emergent_space::orbit::Scalar;
 
 /// What never changes about a body.
@@ -59,6 +59,18 @@ impl Ctx<'_> {
         b.cartesian(t)
     }
 
+    /// The units body `i`'s tube is compiled in, in doll `d`: about the doll's centre alone for a test particle,
+    /// and about the centre plus its own mass for a secondary (two bodies fall toward each other: their relative
+    /// orbit is the Kepler problem of the total mass, which is what makes the doll's origin falling toward the
+    /// secondary, and the secondary's own orbit, one motion).
+    pub fn tube_unit(&self, i: usize, d: u16) -> Res<Unit> {
+        let host = self.dolls[d as usize].unit;
+        if self.info[i].gm.is_zero() {
+            return Ok(host);
+        }
+        Unit::of(host.mu.add(self.info[i].gm)?)
+    }
+
     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
         let mut out = Vec::new();
@@ -72,14 +84,14 @@ impl Ctx<'_> {
         Ok(out)
     }
 
-    /// The parent's tide on doll `d`: the parent's mass and the doll centre's position in the
-    /// parent's frame, both in `d`'s units.
+    /// The parent's tide on doll `d`: the parent's mass (its mantissa included) and the doll centre's
+    /// position in the parent's frame, both in `d`'s units.
     pub fn tide(&self, d: u16, t: Tick) -> Res<Option<(Scalar, V2)>> {
         let doll = &self.dolls[d as usize];
         let (Some(p), Some(c)) = (doll.parent, doll.centre) else { return Ok(None) };
         let k = pow2(doll.shift as i32 - self.dolls[p as usize].shift as i32);
         let (pos, _) = self.state_of(c, t)?;
-        Ok(Some((k, scale2(pos, k)?)))
+        Ok(Some((self.dolls[p as usize].unit.to_doll(k)?, scale2(pos, k)?)))
     }
 
     /// The centre of doll `d` at `t`, in its parent's units (position, velocity).

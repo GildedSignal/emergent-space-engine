@@ -27,7 +27,7 @@ use crate::encounter::{Encounter, Encounters, PlayerNeighbourhood};
 use crate::fleet::{Fleet, Leaver};
 use crate::num::{Error, Res, Tick};
 use crate::step::{self, Resolved, Update};
-use crate::world::{pow2, DollRec};
+use crate::world::{DollRec, Mass, Unit};
 use emergent_space::{
     binding::Trajectory,
     events::Calendar,
@@ -120,6 +120,8 @@ pub struct OrbitSpec {
 pub struct Universe {
     pub dolls: Vec<DollRec>,
     pub info: Vec<BodyInfo>,
+    /// How each body made by `add_body` was specified (a secondary's tube is compiled again when its mass is set).
+    specs: Vec<Option<OrbitSpec>>,
     pub sources: Vec<Vec<usize>>,
     pub cfg: Config,
     bodies: Box<dyn BodyStore>,
@@ -164,6 +166,7 @@ impl Universe {
         Self {
             dolls: vec![DollRec::root("star", star_surface)],
             info: Vec::new(),
+            specs: Vec::new(),
             sources: vec![Vec::new()],
             cfg,
             bodies: Box::<PlainBodies>::default(),
@@ -206,46 +209,58 @@ impl Universe {
         self.bodies.len()
     }
 
-    /// Add a child doll centred on an existing body (a tube in the parent doll). `mass_log2` is
-    /// the doll's mass as an octave of the root's; `surface` the centre's radius in the doll's units.
-    pub fn add_doll(&mut self, name: &'static str, centre: usize, mass_log2: i32, surface: Scalar) -> Res<u16> {
+    /// Add a child doll centred on an existing body (a tube in the parent doll). `mass` is the doll's
+    /// mass as a mantissa with the doll's exponent ([`Mass`], in units of the root's mass; an `i32` is the
+    /// old call, a power of two); `surface` the centre's radius in the doll's units. The centre becomes a
+    /// secondary of its host doll with `G·m` in the host's units, and its sphere of influence (Laplace,
+    /// from the mass ratio) the doll's edge.
+    pub fn add_doll(&mut self, name: &'static str, centre: usize, mass: impl Into<Mass>, surface: Scalar) -> Res<u16> {
+        let mass = mass.into();
         let host = self.bodies.rec(centre).b.doll;
         let tube = self.bodies.rec(centre).b.tube;
-        let sep = self.bodies.rec(centre).b.entry.trajectory.key().periapsis;
+        // The separation in the host's own units (the tube is compiled in units of the host's mass).
+        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.trajectory.key().periapsis)?;
         let parent_rec = self.dolls[host as usize].record.clone();
-        let proto = emergent_space::events::Doll::child(emergent_space::events::LogMass(mass_log2 << 24), host, tube);
+        let rec = DollRec::child(name, host, mass, centre, tube, surface, Scalar::ZERO)?;
         // The sphere of influence from the mass ratio (Laplace): separation · (m/M)^(2/5), in the parent's units.
-        let soi_parent = proto.edge_radius(&parent_rec, sep)?;
+        let soi_parent = rec.record.edge_radius(&parent_rec, sep)?;
         let id = u16::try_from(self.dolls.len()).map_err(|_| Error::Refused("too many dolls"))?;
         let shift_h = self.dolls[host as usize].shift;
-        let edge = soi_parent.scale((-mass_log2) as i32 - shift_h as i32)?;
-        self.dolls.push(DollRec::child(name, host, mass_log2, centre, tube, surface, edge));
+        let edge = soi_parent.scale((-mass.octave) - shift_h as i32)?;
+        self.dolls.push(DollRec { edge, ..rec });
         self.sources.push(Vec::new());
         self.info[centre].doll = Some(id);
         self.info[centre].soi = soi_parent;
-        self.info[centre].gm = pow2(mass_log2 - self.dolls[host as usize].mass_log2);
+        // `G·m` in the host's units: the mass over the host's length unit, `μ·2^(e − e_host)`.
+        self.info[centre].gm = mass.mantissa.scale(mass.octave - self.dolls[host as usize].mass_log2)?;
         self.sources[host as usize].push(centre);
+        self.retune(centre)?;
         Ok(id)
+    }
+
+    /// The exact binding of an orbit spec in `spec.doll`, its trajectory compiled about a central mass of `unit.mu`
+    /// (in the doll's units): the orbit is given in the doll's units, so in the tube's its periapsis is `p/μ`.
+    /// Returns the entry and the tube without a catalogue key.
+    fn spec_binding(&self, spec: &OrbitSpec, unit: Unit) -> Res<(Arc<Entry>, Tube, (i16, i16))> {
+        let doll = &self.dolls[spec.doll as usize];
+        let key = OrbitKey::bound(unit.to_tube(spec.periapsis)?, spec.e_q48)?;
+        let orbit = Orbit::compile(key)?;
+        let period = unit.to_doll(orbit.period()?)?;
+        let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit });
+        // Periapsis `phase` of a period before tick 0.
+        let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
+        let peri = -i64::try_from(behind.fixed(-(doll.clock_exp() as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;
+        let k = Scalar::raw(key.k as i128, -48)?;
+        let r_max = unit.to_doll(key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?)?; // apoapsis: p/(2k − 1)
+        let v_max = Scalar::integer(2).mul(Scalar::ONE.div(key.periapsis)?)?.sqrt()?.scale(1)?;
+        Ok((entry, Tube::new(0, spec.angle, peri), crate::bind::choose_units(r_max, v_max)))
     }
 
     /// Make a body from an orbit: a tube of `spec.doll`, exactly (no remainder to carry).
     pub fn add_body(&mut self, kind: Kind, spec: OrbitSpec, radius: Scalar) -> Res<usize> {
-        let doll = &self.dolls[spec.doll as usize];
-        let key = OrbitKey::bound(spec.periapsis, spec.e_q48)?;
-        let orbit = Orbit::compile(key)?;
-        let period = orbit.period()?;
-        let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise });
-        let clock_exp = doll.clock_exp();
-        // Periapsis `phase` of a period before tick 0.
-        let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
-        let peri = -i64::try_from(behind.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;
-        let k = Scalar::raw(key.k as i128, -48)?;
-        let r_max = key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?; // apoapsis: p/(2k − 1)
-        let v_max = Scalar::integer(2).mul(Scalar::ONE.div(key.periapsis)?)?.sqrt()?.scale(1)?;
-        let units = crate::bind::choose_units(r_max, v_max);
-        let id = self.cat.insert(entry.clone())?;
-        let tube = Tube::new(id, spec.angle, peri);
-        let b = bind_exact(entry, tube, clock_exp, units, 0, spec.doll);
+        let (entry, mut tube, units) = self.spec_binding(&spec, self.dolls[spec.doll as usize].unit)?;
+        tube.key = self.cat.insert(entry.clone())?;
+        let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
         let rec = BodyRec {
             kind,
             b,
@@ -263,21 +278,89 @@ impl Universe {
         };
         let i = self.bodies.push(rec);
         self.info.push(BodyInfo { kind, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: None, born: 0 });
+        self.specs.push(Some(spec));
         if kind == Kind::Player {
             self.player = Some(i);
         }
         Ok(i)
     }
 
-    /// Give a body a pull as a secondary (a planet, the moon): `mass_log2` is its mass as an octave of
-    /// its doll's.
-    pub fn make_source(&mut self, i: usize, gm_log2: i32, soi: Scalar) {
-        self.info[i].gm = pow2(gm_log2);
-        self.info[i].soi = soi;
+    /// Make a body from an exact state at tick 0: `position` and `velocity` (scalars, in the doll's units, `c = 1`),
+    /// rounded once to the integer word the state needs (that integer state is the body's, exactly), then bound
+    /// as any rebinding is: a tube with its remainder carried. For a test particle in `doll` (about the doll's
+    /// centre alone). The way to start a body from a state a float oracle gives (a circular barycentric orbit).
+    pub fn add_body_state(&mut self, kind: Kind, doll: u16, position: [Scalar; 2], velocity: [Scalar; 2], radius: Scalar) -> Res<usize> {
+        let d = &self.dolls[doll as usize];
+        let (x, v) = (crate::num::norm2(position)?, crate::num::norm2(velocity)?);
+        if x.is_zero() || v.is_zero() {
+            return Err(Error::Refused("a state at rest or at the centre has no orbit"));
+        }
+        let (le, ve) = crate::bind::choose_units(x.scale(2)?, v.scale(2)?);
+        let word = |a: Scalar, e: i16| -> Res<i64> { i64::try_from(a.fixed(-(e as i32))?).map_err(|_| Error::Refused("state outside the integer word")) };
+        let exact = emergent_space::binding::IntegerState {
+            position: [word(position[0], le)?, word(position[1], le)?],
+            velocity: [word(velocity[0], ve)?, word(velocity[1], ve)?],
+            length_exponent: le,
+            velocity_exponent: ve,
+        };
+        let edge = (doll != 0).then(|| d.edge.scale(2)).transpose()?;
+        let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
+        let mut tube = bound.tube;
+        tube.key = self.cat.insert(bound.entry.clone())?;
+        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, delta: bound.delta, units: bound.units, clock_exp: d.clock_exp(), event_time: 0 };
+        let rec = BodyRec {
+            kind,
+            b,
+            carry: [0; 2],
+            proper: Scalar::ZERO,
+            step: 0,
+            interval: 0,
+            anchor: 0,
+            plan: Vec::new(),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, heading: 0, since: 0 }),
+            alive: true,
+            events: 0,
+            refusals: 0,
+            fault: None,
+        };
+        let i = self.bodies.push(rec);
+        self.info.push(BodyInfo { kind, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: None, born: 0 });
+        self.specs.push(None);
+        if kind == Kind::Player {
+            self.player = Some(i);
+        }
+        Ok(i)
+    }
+
+    /// The body `i` became a secondary with `G·m = gm`: its own tube is now the relative orbit of two bodies,
+    /// the Kepler problem of their total mass (the origin falls toward the secondary as the secondary falls
+    /// toward the origin), so it is compiled again, as specified, about the host's centre plus `gm`. Before
+    /// the universe starts: a body that has run has no spec to rebuild from.
+    fn retune(&mut self, i: usize) -> Res<()> {
+        let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
+            return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+        };
+        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }.tube_unit(i, spec.doll)?;
+        let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+        let mut rec = self.bodies.rec(i);
+        self.cat.release(rec.b.tube.key);
+        tube.key = self.cat.insert(entry.clone())?;
+        rec.b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
+        self.bodies.put(i, rec);
+        Ok(())
+    }
+
+    /// Give a body a pull as a secondary (the moon): `gm` is its mass as a mantissa with an exponent in units
+    /// of its host doll's mass (an `i32` is the old call, a power of two), so `G·m` in the host's units is
+    /// `gm · μ`, the mass of the host's centre in the host's own length unit.
+    pub fn make_source(&mut self, i: usize, gm: impl Into<Mass>, soi: Scalar) -> Res<()> {
         let d = self.bodies.rec(i).b.doll as usize;
+        self.info[i].gm = self.dolls[d].unit.to_doll(gm.into().value()?)?;
+        self.info[i].soi = soi;
         if !self.sources[d].contains(&i) {
             self.sources[d].push(i);
         }
+        self.retune(i)
     }
 
     /// Replace the encounter finder (the seam): the Binet cone later.
@@ -530,7 +613,7 @@ impl Universe {
         let doll = self.fleets[f].doll;
         let made = (|| -> Res<usize> {
             let clock_exp = self.dolls[doll as usize].clock_exp();
-            let bound = bind(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll))?;
+            let bound = bind(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit)?;
             let key = self.cat.insert(bound.entry.clone())?;
             let mut tube = bound.tube;
             tube.key = key;
@@ -797,6 +880,7 @@ impl Universe {
         };
         for d in &self.dolls {
             put(&mut h, d.mass_log2 as i128);
+            put_s(&mut h, d.unit.mu);
             put(&mut h, d.parent.map_or(-1, |p| p as i128));
             put_s(&mut h, d.edge);
             put_s(&mut h, d.surface);

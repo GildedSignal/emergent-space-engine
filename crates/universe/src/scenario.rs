@@ -3,6 +3,7 @@ use crate::body::Kind;
 use crate::ctx::Config;
 use crate::num::{s, Res};
 use crate::universe::{OrbitSpec, Universe};
+use crate::world::Mass;
 use emergent_space::orbit::Scalar;
 
 /// The sun's `M` is 1.477 km: one root length unit. One astronomical unit in root units.
@@ -10,20 +11,23 @@ pub const AU: i64 = 101_300_000;
 /// The star's radius (the sun's, 6.96e8 m) in root units.
 pub const STAR_RADIUS: i64 = 471_000;
 
-/// A star, one planet on a circle of radius `sep` with mass `2^mu_log2`, and test ships on circular
-/// heliocentric orbits at `(sep + dr)` and angle `alpha` (turns, Q32): the restricted problem the
-/// Jacobi checks use. `dr` and `alpha` come from the caller; nothing here is random.
+/// A star, one planet on a circle of radius `sep` with mass `mu` (a [`Mass`], in the star's: `Mass::ratio(1, 999)`
+/// is the planet of a thousandth of the total; an `i32` is the old call, `2^mu_log2`), and test ships on circular
+/// heliocentric orbits at `(sep + dr)` and angle `alpha` (turns, Q32): the restricted problem the Jacobi
+/// checks use. `dr` and `alpha` come from the caller; nothing here is random. The planet's tube is the relative
+/// orbit of the star and the planet (the Kepler problem of their total mass, so it turns at `√((1 + μ)/sep³)`).
 pub struct Restricted {
     pub u: Universe,
     pub planet: usize,
     pub ships: Vec<usize>,
 }
 
-pub fn restricted(mu_log2: i32, sep: i64, planet_radius_root: i64, ships: &[(i64, u32)], clock_threads: usize) -> Res<Restricted> {
-    restricted_with(mu_log2, sep, planet_radius_root, ships, clock_threads, Config::default())
+pub fn restricted(mu: impl Into<Mass>, sep: i64, planet_radius_root: i64, ships: &[(i64, u32)], clock_threads: usize) -> Res<Restricted> {
+    restricted_with(mu, sep, planet_radius_root, ships, clock_threads, Config::default())
 }
 
-pub fn restricted_with(mu_log2: i32, sep: i64, planet_radius_root: i64, ships: &[(i64, u32)], clock_threads: usize, cfg: Config) -> Res<Restricted> {
+pub fn restricted_with(mu: impl Into<Mass>, sep: i64, planet_radius_root: i64, ships: &[(i64, u32)], clock_threads: usize, cfg: Config) -> Res<Restricted> {
+    let mu = mu.into();
     let mut u = Universe::new(s(STAR_RADIUS), cfg);
     u.threads = clock_threads;
     let planet = u.add_body(
@@ -31,8 +35,8 @@ pub fn restricted_with(mu_log2: i32, sep: i64, planet_radius_root: i64, ships: &
         OrbitSpec { doll: 0, periapsis: s(sep), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
         Scalar::ZERO,
     )?;
-    let surface = Scalar::raw(planet_radius_root as i128, -mu_log2 as i32)?.scale(0)?; // root units → planet units: × 2^-mu_log2
-    u.add_doll("planet", planet, mu_log2, surface)?;
+    let surface = Scalar::raw(planet_radius_root as i128, -mu.octave)?; // root units → planet units: × 2^-octave
+    u.add_doll("planet", planet, mu, surface)?;
     let mut ids = Vec::new();
     for &(r, alpha) in ships {
         ids.push(u.add_body(
@@ -133,7 +137,7 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
     let sep = u.rec(m).b.entry.trajectory.key().periapsis;
     let proto = emergent_space::events::Doll::child(emergent_space::events::LogMass((-24) << 24), home_doll, u.rec(m).b.tube);
     let soi = proto.edge_radius(&u.dolls[home_doll as usize].record.clone(), sep)?;
-    u.make_source(m, -6, soi);
+    u.make_source(m, -6, soi)?;
     names.push("Moon".into());
     // Ships about the star: between 0.5 and 8 AU, e up to 0.25.
     let mut ships = Vec::new();

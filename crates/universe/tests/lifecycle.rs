@@ -154,7 +154,10 @@ fn the_origin_takes_the_dolls_kicks_like_a_ship() {
     let (mf, ms) = ((d_fleet[0].powi(2) + d_fleet[1].powi(2)).sqrt(), (d_ship[0].powi(2) + d_ship[1].powi(2)).sqrt());
     let cos = (d_fleet[0] * d_ship[0] + d_fleet[1] * d_ship[1]) / (mf * ms);
     println!("the kicks pushed the origin {mf:.4e} lattice units ({d_fleet:?}) and the ship {ms:.4e} ({d_ship:?}); cos {cos:.5}");
-    assert!(mf > 1e5, "the kicks must move the origin by many lattice units, or the test measures nothing: {mf}");
+    // 1e5 before the origin fell (5 October): the moon's whole pull was then a push on every member that nothing
+    // balanced. What is left is the tide, the differential pull: still thousands of lattice units, and ten
+    // thousand times the rounding of the word.
+    assert!(mf > 1e3, "the kicks must move the origin by many lattice units, or the test measures nothing: {mf}");
     assert!(((mf - ms) / ms).abs() < 0.05 && cos > 0.9986, "the origin's push {mf:e} against the ship's {ms:e}, cos {cos}");
     // the control: without the kicks the frame is still (the unkicked battle is what it was compared to)
     assert!(still[0].hypot(still[1]) > 0.0);

@@ -35,14 +35,14 @@ pub fn chain(ctx: &Ctx, i: usize, t: Tick) -> Res<Vec<(u16, [f64; 2], [f64; 2])>
 
 /// The rate of a body's clock against the root's, `dτ/dt`, derived from the doll clocks: the
 /// product, up the chain, of each tube's own rate in its doll, `√(f − v_r²/f − v_t²)` with
-/// `f = 1 − 2/r` (the Schwarzschild lapse in the doll's units), corrected for the velocity
+/// `f = 1 − 2μ/r` (the Schwarzschild lapse in the doll's units, `μ` the centre's mass in them), corrected for the velocity
 /// composition between a doll and its centre (`1 + v_centre·v_rel`). Nothing is stored or evolved.
 pub fn clock_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<f64> {
     let ch = chain(ctx, i, t)?;
     let mut rate = 1.0;
-    for (k, (_, p, v)) in ch.iter().enumerate() {
+    for (k, (d, p, v)) in ch.iter().enumerate() {
         let r = (p[0] * p[0] + p[1] * p[1]).sqrt();
-        let f = 1.0 - 2.0 / r;
+        let f = 1.0 - 2.0 * ctx.dolls[*d as usize].mu_f64() / r;
         let vr = (p[0] * v[0] + p[1] * v[1]) / r;
         let vt = (p[0] * v[1] - p[1] * v[0]) / r;
         rate *= (f - vr * vr / f - vt * vt).max(1e-300).sqrt();
@@ -70,7 +70,7 @@ pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)
         vel = [vel[0] + v[0], vel[1] + v[1]];
         // This level's own rate (see `clock_rate`), then the velocity composition with the level below.
         let r = (p[0] * p[0] + p[1] * p[1]).sqrt();
-        let f = 1.0 - 2.0 / r;
+        let f = 1.0 - 2.0 * doll.mu_f64() / r;
         let vr = (p[0] * v[0] + p[1] * v[1]) / r;
         let vt = (p[0] * v[1] - p[1] * v[0]) / r;
         rate *= (f - vr * vr / f - vt * vt).max(1e-300).sqrt();
