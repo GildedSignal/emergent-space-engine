@@ -6,6 +6,16 @@
 //! star, planets, moon, ships, player, the members a fleet hands out (in the order it hands them
 //! out), fleets).
 //!
+//! **The canonical key of an event is (tick, smallest body id, kind)** (docs/law.md, "Ties"). Events that
+//! share no body commute (a body's event writes only that body). Events that share a body are ordered by the key:
+//! an event reads another body at its own tick *after* every event of that body with a smaller key, and
+//! before the rest, so a read at a tied tick is well defined (a segment of a body's history is readable
+//! from its binding event up to, not including, the next); and the kinds of one body at one tick run
+//! kick, impact, open, boundary, then the player's decision ([`crate::step`]'s `rank`, [`Universe::schedule`]). The
+//! fleet's same-epoch contacts are one batch of the lattice law (bodies sorted by id, pairs sorted), inside the
+//! battle. The queue's own order (the light-delayed deadline) is only a schedule: nothing it breaks a tie by
+//! reaches an outcome.
+//!
 //! **Resolution is pull-driven, so the outcome cannot depend on the schedule.** An event reads other
 //! bodies' tubes at its own tick and writes only its own body. Before an event at key `(t, id)` is
 //! resolved, every event it reads from with a smaller key is resolved first (planets for

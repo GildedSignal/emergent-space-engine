@@ -81,6 +81,8 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
     Ok((1i64 << exp.clamp(1, 50)).clamp(MIN_STEP, MAX_STEP))
 }
 
+/// The kind of an item, the third part of its canonical key (tick, body, kind): a kick before an impact before
+/// an open before the boundary, and a scheduled decision after all of them at its tick.
 fn rank(w: What) -> u8 {
     match w {
         What::Kick(l) => 10 + l,

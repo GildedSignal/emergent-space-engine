@@ -6,7 +6,7 @@
 //! falls along an exact tube of the planet's doll; contacts happen inside the frame, as the
 //! engine does them. Lattice scale: `c = 2^20` lattice units per tick, so one lattice unit is
 //! `2^-20` of the star's `M`, and a lattice chronon is one tick of the root clock. The planet's
-//! pull in lattice units is `μ = 2^(mass_log2 + 60)`, which fixes the frame's mean motion from its
+//! pull in lattice units is `μ = mass·2^60` (the planet's mass, a mantissa with its exponent), which fixes the frame's mean motion from its
 //! radius.
 //!
 //! **The frame's origin is a tube in its doll like any other**, so it takes the doll's kicks (the
