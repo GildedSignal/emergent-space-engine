@@ -40,6 +40,8 @@ pub const HILL_SEED: u64 = 20261004;
 pub const EXTREME_SEED: u64 = 20261005;
 pub const LENS_SEED: u64 = 20261006;
 pub const ECCENTRIC_SEED: u64 = 20261007;
+/// B19's rotating holes (5 October): one base seed; `rotating.rs` adds 100 per kind of draw and 10 per spin and sense.
+pub const KERR_SEED: u64 = 20261008;
 
 /// `n` bound orbits (p, e): p log-uniform in [10, 1000], e uniform in [0, 0.7], redrawn unless
 /// p >= 6.5 + 2e (it never binds for p >= 10; it keeps a wider range safe). The first `k` of `n`
