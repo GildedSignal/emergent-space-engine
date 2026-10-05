@@ -75,6 +75,13 @@ jobs:
         if: always()
         env: {GH_TOKEN: '${{ github.token }}'}
         run: |
-          if ls ../results/*/DONE >/dev/null 2>&1 && grep -L "Grade: missing" ../results/*/DONE | grep -q .; then
+          # Julien's account is GitHub Free: 2,000 Actions minutes a month for private repos. Stop cleanly before they run out,
+          # because a job cancelled for lack of minutes loses its window's results.
+          used=$(gh run list --workflow glm-lab.yml --limit 200 --created ">=$(date -u +%Y-%m-01)" --json startedAt,updatedAt \
+            --jq 'map(((.updatedAt|fromdate) - (.startedAt|fromdate))/60 + 2) | add // 0 | floor')
+          echo "glm-lab minutes this month: about $used"
+          if [ "$used" -ge 1750 ]; then
+            gh workflow disable glm-lab.yml && echo "budget reached: workflow disabled (re-enable with: gh workflow enable glm-lab.yml)"
+          elif ls ../results/*/DONE >/dev/null 2>&1 && grep -L "Grade: missing" ../results/*/DONE | grep -q .; then
             gh workflow run glm-lab.yml --ref main && echo "next window started"
           else echo "no healthy result: the hourly backstop retries"; fi
