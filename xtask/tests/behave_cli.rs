@@ -97,3 +97,18 @@ fn the_cheap_planted_laws_of_the_amendments_exit_1_and_fail_only_their_gate() {
         amended_fails_only(law, "B9,B16,B18", gate);
     }
 }
+
+/// The belt case of B18 is not frozen, so it runs only when named; the reference passes it and a planted belt fails only it.
+/// Release only: the debug build is far slower than the gate's 60 s.
+#[test]
+#[cfg_attr(debug_assertions, ignore = "release only")]
+fn the_belt_gate_runs_only_when_named_and_a_planted_belt_fails_only_it() {
+    let (code, lines) = behave(&["--law", "echo", "--gates", "b18b"]);
+    assert_eq!(code, 0, "{lines:?}");
+    assert_eq!(gates(&lines), [("B18b".to_string(), "PASS".to_string())]);
+    assert_eq!(lines.last().unwrap(), "behave echo (B18b): PASS");
+    let (code, lines) = behave(&["--law", "planted-belt-fat", "--gates", "B18b"]);
+    assert_eq!(code, 1, "{lines:?}");
+    assert_eq!(gates(&lines), [("B18b".to_string(), "FAIL".to_string())]);
+    assert_eq!(lines.last().unwrap(), "behave planted-belt-fat (B18b): FAIL B18b");
+}

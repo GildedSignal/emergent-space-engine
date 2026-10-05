@@ -3,6 +3,8 @@
 
 /// Every gate the judge runs, in the order it runs them. B8 (determinism) is an engine test, not a behaviour.
 pub const ALL: [&str; 16] = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18"];
+/// The gate that runs only when named: the belt case of B18 (not frozen; the integrator adds it to `ALL` at its freeze).
+pub const BELT: &str = "B18b";
 /// The gates of the single mass (the first nine): what `judge` runs. B11-B14 judge the events layer;
 /// B16-B18 are the red-team's (moving lenses, resonance, memory).
 pub const CORE: [&str; 9] = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10"];
@@ -16,7 +18,7 @@ pub struct Args {
 
 fn gate(id: &str) -> Result<&'static str, String> {
     let id = id.to_ascii_uppercase();
-    match ALL.iter().find(|g| **g == id) {
+    match ALL.iter().chain([&BELT]).find(|g| g.to_ascii_uppercase() == id) {
         Some(g) => Ok(g),
         None if id == "B8" => Err("B8 is judged by the engine tests, not by behave".into()),
         None => Err(format!("unknown gate {id:?}")),
@@ -50,7 +52,7 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
         }
     }
     // Gates run in the judge's order, whatever order they were named in.
-    let gates = gates.map(|ids| ALL.iter().copied().filter(|g| ids.contains(g)).collect());
+    let gates = gates.map(|ids| ALL.iter().chain([&BELT]).copied().filter(|g| ids.contains(g)).collect());
     Ok(Args { law: law.unwrap_or_else(|| "echo".into()), gates })
 }
 

@@ -2,6 +2,7 @@
 //! gate must pass. Each planted law has one flaw and must fail exactly the gate that guards it:
 //! together they prove the judge can fail (a test that cannot fail is a control).
 use super::restricted::{self, Model, Restricted, RTOL};
+use super::belt::{Belt, BeltSpec, Flaw, ProgramBelt, SampleBelt};
 use super::{cost, hill, lens, memory, oracle, resonance, scale, Law};
 
 /// The oracle itself.
@@ -48,6 +49,13 @@ impl Law for Echo {
     fn bytes_per_body(&self, scene: &memory::MemoryScene) -> Option<f64> {
         memory::floor_bytes(scene)
     }
+    /// The exact in-judge reference belt: a SplitMix64 counter stream through an integer-reproducible Rayleigh quantile.
+    fn belt_birth(&self, spec: &BeltSpec, n: u64, seed: u64) -> Option<Box<dyn Belt>> {
+        Some(Box::new(ProgramBelt::birth(spec, n, seed, Flaw::None)))
+    }
+    fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
+        ProgramBelt::restore(store).map(|b| Box::new(b) as Box<dyn Belt>)
+    }
 }
 
 /// The flaws, by the gate that must catch each.
@@ -87,6 +95,24 @@ pub enum Fault {
     Averaged,
     /// B18: the 16-byte tube of the contract, uncompressed, on every scene.
     Fat,
+    /// B18 belt: e through the gold's 2^12-entry midpoint quantile table, so the top 1e-4 sits in one cell.
+    BeltClipped,
+    /// B18 belt: p and e clipped at their 1 - 1e-4 quantile (the tail count survives, the range does not).
+    BeltWinsor,
+    /// B18 belt: the states repeat every n/4 ordinals.
+    BeltRepeat,
+    /// B18 belt: one odd body in seven copies its neighbour's t_p.
+    BeltSerial,
+    /// B18 belt: the draw depends on a call counter shared by every thread.
+    BeltThread,
+    /// B18 belt: the program's store carries one more byte per body.
+    BeltFat,
+    /// B18 belt: an iid draw kept as 64-byte ships (over B18's iid budget).
+    BeltShips,
+    /// B18 belt: body i is i times a constant per column (a rank-1 lattice: perfect marginals, structure in the plane).
+    BeltLattice,
+    /// B18 belt: the program is right and the scars cost 40 bytes each.
+    BeltFatScars,
 }
 /// The oracle with one planted flaw.
 pub struct Planted(pub Fault);
@@ -165,6 +191,84 @@ impl Law for Planted {
             _ => Echo.bytes_per_body(scene),
         }
     }
+    fn belt_birth(&self, spec: &BeltSpec, n: u64, seed: u64) -> Option<Box<dyn Belt>> {
+        let flaw = match self.0 {
+            Fault::BeltClipped => Flaw::Table12,
+            Fault::BeltWinsor => Flaw::Winsor,
+            Fault::BeltRepeat => Flaw::Repeat,
+            Fault::BeltSerial => Flaw::Serial,
+            Fault::BeltThread => Flaw::Thread,
+            Fault::BeltFat => Flaw::Fat,
+            Fault::BeltLattice => Flaw::Lattice,
+            Fault::BeltFatScars => Flaw::FatScars,
+            Fault::BeltShips => return Some(Box::new(SampleBelt::birth(spec, n, seed, true))),
+            _ => return Echo.belt_birth(spec, n, seed),
+        };
+        Some(Box::new(ProgramBelt::birth(spec, n, seed, flaw)))
+    }
+    fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
+        match self.0 {
+            Fault::BeltShips => SampleBelt::restore(store).map(|b| Box::new(b) as Box<dyn Belt>),
+            _ => Echo.belt_restore(store),
+        }
+    }
+}
+
+/// B18 belt's third control: a program whose e comes from a two-level dyadic quantile table (2^12 cells in each octave of the
+/// probability). Dyadic tables do not clip the tail if they are dyadic in the probability's octaves; this one passes.
+pub struct DyadicBelt;
+impl Law for DyadicBelt {
+    fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+        Echo.advance_per_cycle(p, e)
+    }
+    fn deflection(&self, b: f64) -> Option<f64> {
+        Echo.deflection(b)
+    }
+    fn captured(&self, energy: f64, angular: f64) -> bool {
+        Echo.captured(energy, angular)
+    }
+    fn photon_captured(&self, b: f64) -> bool {
+        Echo.photon_captured(b)
+    }
+    fn long_run(&self, p: f64, e: f64, cycles: usize) -> Vec<(f64, f64, f64, f64)> {
+        Echo.long_run(p, e, cycles)
+    }
+    fn belt_birth(&self, spec: &BeltSpec, n: u64, seed: u64) -> Option<Box<dyn Belt>> {
+        Some(Box::new(ProgramBelt::birth(spec, n, seed, Flaw::Dyadic)))
+    }
+    fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
+        ProgramBelt::restore(store).map(|b| Box::new(b) as Box<dyn Belt>)
+    }
+}
+
+/// B18 belt's second control: a belt that is an iid draw stored as packed blocks. It is judged under B18's iid floor
+/// rule (bytes per body within 2x the draw entropy + 2) and passes; every other method is echo's.
+pub struct IidBlocks;
+impl Law for IidBlocks {
+    fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+        Echo.advance_per_cycle(p, e)
+    }
+    fn deflection(&self, b: f64) -> Option<f64> {
+        Echo.deflection(b)
+    }
+    fn captured(&self, energy: f64, angular: f64) -> bool {
+        Echo.captured(energy, angular)
+    }
+    fn photon_captured(&self, b: f64) -> bool {
+        Echo.photon_captured(b)
+    }
+    fn long_run(&self, p: f64, e: f64, cycles: usize) -> Vec<(f64, f64, f64, f64)> {
+        Echo.long_run(p, e, cycles)
+    }
+    fn bytes_per_body(&self, scene: &memory::MemoryScene) -> Option<f64> {
+        Echo.bytes_per_body(scene)
+    }
+    fn belt_birth(&self, spec: &BeltSpec, n: u64, seed: u64) -> Option<Box<dyn Belt>> {
+        Some(Box::new(SampleBelt::birth(spec, n, seed, false)))
+    }
+    fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
+        SampleBelt::restore(store).map(|b| Box::new(b) as Box<dyn Belt>)
+    }
 }
 /// The planted kick: the planetocentric velocity grows by this, relative, at each entry into R_SOI.
 const KICK: f64 = 1e-3;
@@ -211,6 +315,17 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-flipped" => Box::new(Planted(Fault::Flipped)),
         "planted-average" => Box::new(Planted(Fault::Averaged)),
         "planted-fat" => Box::new(Planted(Fault::Fat)),
+        "planted-belt-clipped" => Box::new(Planted(Fault::BeltClipped)),
+        "planted-belt-winsor" => Box::new(Planted(Fault::BeltWinsor)),
+        "planted-belt-repeat" => Box::new(Planted(Fault::BeltRepeat)),
+        "planted-belt-serial" => Box::new(Planted(Fault::BeltSerial)),
+        "planted-belt-thread" => Box::new(Planted(Fault::BeltThread)),
+        "planted-belt-fat" => Box::new(Planted(Fault::BeltFat)),
+        "planted-belt-ships" => Box::new(Planted(Fault::BeltShips)),
+        "planted-belt-lattice" => Box::new(Planted(Fault::BeltLattice)),
+        "planted-belt-fatscars" => Box::new(Planted(Fault::BeltFatScars)),
+        "iid-blocks" => Box::new(IidBlocks),
+        "dyadic-belt" => Box::new(DyadicBelt),
         _ => return None,
     })
 }
