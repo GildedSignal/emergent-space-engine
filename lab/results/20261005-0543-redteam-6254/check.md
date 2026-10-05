@@ -1,0 +1,30 @@
+Grade: silver
+
+**Abstract.** Claim: the design's "both orders give identical bits" premise has no canonical same-epoch rule behind it. Reproduced exactly: `respond` on two orders of one same-epoch batch inverts a velocity at O(1) (both laws, |dk| = 2|k|, also at true contact geometry); the batch rule exists only in the tick-world crates; `lab/rungs` has no r5/r6; one flipped window diverges 87.7% of a 1500-disc gas. Corrected by my adversarial rerun: with the approach test the law's own detector applies, same-epoch sharing is 5.7–36.8% of firing pairs, not 22–82% — still common at every density. Adoption cost: one ordering sentence in law.md plus two r5 scenes; zero runtime cost. Gain: the replay/digest promise (B8, plane.md §F2) becomes well-defined.
+
+**Reproduction (clean tree, patch applied).**
+- `cargo run --release -p emergent-lattice --example order-falsifier`: identical to the dossier, both laws, worst |dk| = 16384 = 2·|k|. 4.4 s.
+- `python3 exp_gas.py`: all five density rows (22.5/31.2/43.9/58.1/82.3%), the cascade (1.4 → 19.2 → 87.7%), median |Δv|/|v| = 1.230. 5.5 s. No number differed.
+- Doc citations verified: law.md lines 7, 40 ("resolve it … one queue, ordered by slack"), 42; representation.md §1 "There is no global clock", §3, §7; lattice-event lib.rs line 42; gpu.rs lines 555–556. `lab/rungs/` contains no r5 and no r6. All accurate.
+- Timing: predictions.md 05:51:09 < exp_gas.py 05:53:09 < patch 05:55:19; run.log is empty, so log-order evidence is absent — mtimes only, weak-positive.
+
+**Predictions.** P1 held exactly. P2 held (registered ≥ 5%; even my stricter firing-pair measure gives 13% at 0.067 events/cell/window). P3 held in kind, not in speed — honestly reported as partial. P4's uniqueness proof is sound (−c − ṙ < 0 strictly). No misreporting found.
+
+**Adversarial cases (three run, plus doc checks).**
+1. **The 22–82% headline is measured on a detector the design does not use.** `contacts()` counts every overlapping pair; the law's detect stage (`hit`) requires approaching, `resolve` skips separating pairs, and consumed pairs do not re-fire. Re-running with the approach test: same-epoch sharing is 5.7% (sparsest) to 36.8% (densest) of firing pairs — ~2–3× below the dossier's figure. The claim "common at every density" survives; the magnitude does not.
+2. **Realistic geometry.** Re-ran the falsifier with bodies actually within reach (±3, reach 2): same full inversion, both laws. The result is geometry-independent, as `resolve` never checks distance.
+3. **"Two legal orders" is imprecise.** `resolve`'s contract requires `pairs` sorted (law.rs:441); within the law, only canonical order is legal. The order question lives one level up — who collects the batch and by what key when there is no tick — which is exactly the design hole, but the dossier words it as the law itself being under-specified.
+4. **plane.md (the operative doc, H0210) is not addressed.** It reinstates "One clock, one queue. The root clock is canonical … with deterministic ties" and "any budgeted order gives identical bits" — the tick is not abolished there, and ties are *asserted* deterministic. The gap survives (no tie key, no batch rule stated anywhere), but "the design abolished the global tick" argues against the older framing.
+
+**Novelty.** The order-sensitivity of sequential impulses is known in-house: H0159/H0161 measured pre-batch summation vs sequential impulses (chose sequential; the carry telescopes only then), and lattice v1 implements and tests the canonical batch rule (`components_resolve_independently` exercises a three-body same-epoch pile-up under it). P3's cascade is a re-demonstration of H0173 (a one-quantum difference rewrites half a gas's history after ~43 collisions), not cited. What is new: the measured commonness of the case, and the demonstration that none of the three new docs (law.md, representation.md, plane.md) that promise order-independence states the rule that would deliver it — while the plane's first flight (a fleet battle with lattice contacts) puts the case on the critical path.
+
+**Goal fit.** Real and load-bearing: B8 ("bit-identical … evaluation order (sparse or dense)") and plane.md's digest promise are unreachable without a law-owned same-epoch key, and principle 13 ("errors that can compound") and 22 ("the simulation tells us what's next not us") are both at stake. It is a premise hole in the text, not yet a killed configuration: no new-design engine exists to falsify (r5 unbuilt), and the author's own "what would make it wrong" concedes that if lattice-event's batch rule carries over implicitly, the finding reduces to "write the sentence" — silver by the author's own criterion.
+
+**The one experiment for gold.** Build the design's own sparse path as specified — per-entity min-heap of next certified events, one-at-a-time pops feeding `law::respond` — and show on a dense scene that its digest forks from the chronon's tick-batch digest (and that a slack tie between two same-epoch contacts decides which bits come out). That converts "the text is silent" into "the design as specified is wrong", measured on the design's cheap path, in integers.
+
+**What the author missed.**
+- The approach-test inflation (adversarial 1): the load-bearing number was measured on a detector the design never runs.
+- plane.md: the operative doc partially reinstates the clock and asserts deterministic ties; the attack should have targeted its silence, not representation.md's abolition.
+- H0173 owns the cascade result; P3 needed the citation.
+- The fix hand-waves its only hard part: cross-cell pair ownership under asynchronous per-cell epochs (a straddling pair, two cells at different epochs — whose update resolves it?) is called "one rule" but not derived; within one cell-update the batch is trivial, across cells it is not.
+- The law already sorts pairs by index and bodies by id: the canonical key exists and is tested; the missing artefact is one sentence plus r5's two scenes, which bounds the finding's weight.

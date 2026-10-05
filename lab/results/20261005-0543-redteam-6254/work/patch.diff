@@ -1,0 +1,60 @@
+diff --git a/crates/lattice/examples/order-falsifier.rs b/crates/lattice/examples/order-falsifier.rs
+new file mode 100644
+index 0000000..c19da60
+--- /dev/null
++++ b/crates/lattice/examples/order-falsifier.rs
+@@ -0,0 +1,54 @@
++//! Red-team falsifier, run 20261005-0543 (lab/results/20261005-0543-redteam-6254/).
++//!
++//! Question: does the law's own batch resolver give identical bits when the same-epoch
++//! contact pairs on one body are fed in a different order? `law::resolve` is documented
++//! as "sequential impulses (each pair starts from the velocities earlier pairs left)",
++//! so the expectation is NO: the outcome is O(v) different, not a rounding difference.
++//!
++//! Scene: three equal bouncers, body 0 at rest, bodies 1 and 2 approaching from opposite
++//! sides. Both pairs are approaching at the same epoch, so both belong to one batch.
++//!
++//! Usage: cargo run --release -p lattice --example order-falsifier
++use emergent_lattice::law::{respond, Body, Law, Response};
++
++const Q: i64 = 1 << 16;
++
++fn scene() -> Vec<Body> {
++    let v = Q / 8; // |k| = 8192 < Q, subluminal for both relativistic laws
++    vec![
++        Body::new(0, [0, 0], [0, 0], 1000, 1, Response::Bounce),
++        Body::new(1, [-300_000, 0], [v, 0], 1000, 1, Response::Bounce),
++        Body::new(2, [300_000, 0], [-v, 0], 1000, 1, Response::Bounce),
++    ]
++}
++
++fn run(law: Law, pairs: &[(usize, usize)]) -> Vec<[i64; 2]> {
++    let mut bodies = scene();
++    let walls = vec![false; 3];
++    respond(law, Q, &mut bodies, pairs, &walls, None, &mut [0; 2]);
++    bodies.iter().map(|b| b.k).collect()
++}
++
++fn main() {
++    for law in [Law::Newtonian, Law::RelativisticV1] {
++        let a = run(law, &[(0, 1), (0, 2)]); // canonical pair order
++        let b = run(law, &[(0, 2), (0, 1)]); // the other order, same epoch, same batch
++        let identical = a == b;
++        println!("law {:?}: order [(0,1),(0,2)] -> k = {:?}", law, a);
++        println!("law {:?}: order [(0,2),(0,1)] -> k = {:?}", law, b);
++        if identical {
++            println!("law {:?}: IDENTICAL bits across pair orders", law);
++        } else {
++            let worst = a
++                .iter()
++                .zip(&b)
++                .map(|(x, y)| (x[0] - y[0]).abs().max((x[1] - y[1]).abs()))
++                .max()
++                .unwrap();
++            println!(
++                "law {:?}: DIFFERENT bits across pair orders; worst per-component |dk| = {} (velocity quantum = 1, |k| = {})",
++                law, worst, Q / 8
++            );
++        }
++    }
++}
