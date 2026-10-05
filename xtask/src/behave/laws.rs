@@ -3,6 +3,8 @@
 //! together they prove the judge can fail (a test that cannot fail is a control).
 use super::restricted::{self, Model, Restricted, RTOL};
 use super::belt::{Belt, BeltSpec, Flaw, ProgramBelt, SampleBelt};
+use super::kerr::Fate;
+use super::rotating::{self, KerrAnswer, KerrQuery, Sense};
 use super::{cost, hill, lens, memory, oracle, resonance, scale, Law};
 
 /// The oracle itself.
@@ -55,6 +57,9 @@ impl Law for Echo {
     }
     fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn Belt>> {
         ProgramBelt::restore(store).map(|b| Box::new(b) as Box<dyn Belt>)
+    }
+    fn kerr(&self, chi: f64, query: &KerrQuery) -> Option<KerrAnswer> {
+        Some(rotating::oracle_answer(chi, query))
     }
 }
 
@@ -121,6 +126,17 @@ pub enum Fault {
     BeltAligned,
     /// B18 belt (F4): a 4 MB one-level quantile table in the store, declared as information.
     BeltTable20,
+    /// B19: no frame dragging: Schwarzschild (χ = 0) answers every spin.
+    NoDrag,
+    /// B19: Schwarzschild everywhere, with the Kerr ISCO and photon orbit bolted onto the circular orbits.
+    IscoFudge,
+    /// B19: a Penrose split whose forward photon carries 10⁻³ more energy than conservation allows.
+    PenroseLeak,
+    /// B19: correct for prograde orbits only: retrograde questions are answered as their prograde mirror.
+    ProgradeOnly,
+    /// B19: right everywhere except that light of χ = 0.998 against the spin at |b| in (5.2, 6.2) (inside b₋ = −7.0, captured) is
+    /// said to scatter: a band between the four-point probes of criterion 2(d), which only the dense capture family sees.
+    RetroCapture,
 }
 /// The oracle with one planted flaw.
 pub struct Planted(pub Fault);
@@ -223,6 +239,41 @@ impl Law for Planted {
             Fault::BeltShips => SampleBelt::restore(store).map(|b| Box::new(b) as Box<dyn Belt>),
             _ => Echo.belt_restore(store),
         }
+    }
+    fn kerr(&self, chi: f64, query: &KerrQuery) -> Option<KerrAnswer> {
+        match self.0 {
+            Fault::NoDrag => Echo.kerr(0.0, query),
+            Fault::IscoFudge => match *query {
+                // The headline Kerr numbers, copied: circular orbits exist outside the photon orbit and are stable outside the ISCO.
+                KerrQuery::Circular { .. } => Echo.kerr(chi, query),
+                _ => Echo.kerr(0.0, query),
+            },
+            Fault::PenroseLeak => match Echo.kerr(chi, query)? {
+                KerrAnswer::Split { forward: (e, l), backward } => Some(KerrAnswer::Split { forward: (e + PENROSE_LEAK, l), backward }),
+                other => Some(other),
+            },
+            Fault::ProgradeOnly => Echo.kerr(chi, &prograde_mirror(query)),
+            Fault::RetroCapture => match *query {
+                KerrQuery::PhotonFate { b } if chi == 0.998 && (-6.2..-5.2).contains(&b) => Some(KerrAnswer::Fate(Fate::Scattered)),
+                _ => Echo.kerr(chi, query),
+            },
+            _ => Echo.kerr(chi, query),
+        }
+    }
+}
+/// The planted leak: energy the forward photon carries beyond conservation.
+const PENROSE_LEAK: f64 = 1e-3;
+/// A retrograde question asked as its prograde mirror (the law knows only one sense of rotation).
+fn prograde_mirror(query: &KerrQuery) -> KerrQuery {
+    match *query {
+        KerrQuery::Cycle { p, e, .. } => KerrQuery::Cycle { p, e, sense: Sense::Pro },
+        KerrQuery::Circular { r, .. } => KerrQuery::Circular { r, sense: Sense::Pro },
+        KerrQuery::Fate { energy, angular } => KerrQuery::Fate { energy, angular: angular.abs() },
+        KerrQuery::PhotonFate { b } => KerrQuery::PhotonFate { b: b.abs() },
+        KerrQuery::Deflection { b } => KerrQuery::Deflection { b: b.abs() },
+        KerrQuery::Tube { energy, angular, r } => KerrQuery::Tube { energy, angular: angular.abs(), r },
+        KerrQuery::Split { energy, angular, r } => KerrQuery::Split { energy, angular: angular.abs(), r },
+        KerrQuery::Clock { .. } => *query,
     }
 }
 
@@ -343,6 +394,11 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-belt-table20" => Box::new(Planted(Fault::BeltTable20)),
         "iid-blocks" => Box::new(IidBlocks),
         "dyadic-belt" => Box::new(DyadicBelt),
+        "planted-nodrag" => Box::new(Planted(Fault::NoDrag)),
+        "planted-isco" => Box::new(Planted(Fault::IscoFudge)),
+        "planted-penrose" => Box::new(Planted(Fault::PenroseLeak)),
+        "planted-proonly" => Box::new(Planted(Fault::ProgradeOnly)),
+        "planted-rcapture" => Box::new(Planted(Fault::RetroCapture)),
         _ => return None,
     })
 }

@@ -9,18 +9,20 @@
 //! (`restricted`). B9 is log-scaled to e = 0.99. B16-B18 come from the law's red-team (1 October):
 //! moving lenses (a boosted Kerr-Schild geodesic oracle), resonance (r4 v3's cases as restricted
 //! scenes) and memory (bytes per body on the shipmem ladder). B18b is the belt case of B18 (a belt born as a
-//! program: `belt.rs`); it is not frozen, so it runs only when named (`--gates B18b`).
+//! program: `belt.rs`). B19 (5 October) judges rotating holes
+//! against equatorial Kerr geodesics in float64 (`kerr`, cross-checked by `kerr_mpmath.py`).
 //!
 //! ```text
 //! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture|
 //!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|
 //!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|
 //!     planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|
-//!     planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|planted-belt-table20]
+//!     planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|
+//!     planted-belt-table20|planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture]
 //!     [--gates G1,B7,...]
 //! ```
 //! One line per gate, `G<n>` or `B<n> PASS|FAIL <numbers>`, between two `machine_state` lines.
-//! `--gates` picks gates (default: all sixteen). Every phase is killed and reported as a failure
+//! `--gates` picks gates (default: all eighteen). Every phase is killed and reported as a failure
 //! if it runs past 60 s. Exit 0 iff every gate that ran passes.
 pub mod assist;
 pub mod belt;
@@ -30,6 +32,7 @@ pub mod cost;
 pub mod fit;
 pub mod handoff;
 pub mod hill;
+pub mod kerr;
 pub mod laws;
 pub mod lens;
 pub mod memory;
@@ -37,6 +40,7 @@ pub mod plane;
 pub mod oracle;
 pub mod resonance;
 pub mod restricted;
+pub mod rotating;
 pub mod scale;
 pub mod select;
 pub mod sample;
@@ -104,13 +108,20 @@ pub trait Law {
     fn bytes_per_body(&self, _scene: &memory::MemoryScene) -> Option<f64> {
         None
     }
-    /// B18 belt (opt-in, `--gates B18b`, not frozen): a belt of `n` bodies born as a program (or stored as a draw)
+    /// B18 belt (B18b): a belt of `n` bodies born as a program (or stored as a draw)
     /// from `spec` and `seed`, behind `belt::Belt`. None: not implemented, which fails the gate.
     fn belt_birth(&self, _spec: &belt::BeltSpec, _n: u64, _seed: u64) -> Option<Box<dyn belt::Belt>> {
         None
     }
     /// B18 belt: the belt rebuilt from `Belt::store()` bytes alone. None: not implemented, or not a store of this law.
     fn belt_restore(&self, _store: &[u8]) -> Option<Box<dyn belt::Belt>> {
+        None
+    }
+    /// B19: the law's answer to a question about equatorial geodesics around a hole of spin `chi` (a/M, spinning towards +φ;
+    /// the judge asks 0, 0.5, 0.9 and 0.998): cycles, circular orbits, fates, light, clocks, tubes and the Penrose split
+    /// (`rotating::KerrQuery`). None: not implemented, which fails the gate; `Some(KerrAnswer::Absent)` says there is no such
+    /// orbit, observer or tube.
+    fn kerr(&self, _chi: f64, _query: &rotating::KerrQuery) -> Option<rotating::KerrAnswer> {
         None
     }
 }
@@ -233,7 +244,7 @@ fn g6(rows: &[Orbit]) -> Gate {
 }
 
 /// Runs the gates of the single-mass core (`select::CORE`) on `law`, arming `watch` on each phase and
-/// calling `emit` as each gate lands. The CLI runs all sixteen through `judge_only`.
+/// calling `emit` as each gate lands. The CLI runs all eighteen through `judge_only`.
 #[allow(dead_code)] // the core entry point: the CLI goes through `judge_only`
 pub fn judge(law: &dyn Law, watch: Option<&Watch>, emit: impl FnMut(&Gate)) -> Vec<Gate> {
     judge_only(law, watch, Some(&select::CORE), emit)
@@ -283,14 +294,12 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     phase("B16", &mut || vec![lens::b16(law)]);
     phase("B17", &mut || vec![resonance::b17(law)]);
     phase("B18", &mut || vec![memory::b18(law)]);
-    // Opt-in until the integrator freezes it (after the GLM red-team of the row): only when named.
-    if only.is_some_and(|o| o.contains(&select::BELT)) {
-        phase(select::BELT, &mut || vec![belt::b18_belt(law)]);
-    }
+    phase("B18b", &mut || vec![belt::b18_belt(law)]);
+    phase("B19", &mut || vec![rotating::b19(law)]);
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|planted-belt-table20] [--gates G1,G2,...,B18b] [--plane-step N]";
+const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|planted-belt-table20|planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture] [--gates G1,G2,...,B18,B18b,B19] [--plane-step N]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
@@ -427,7 +436,7 @@ mod tests {
 
     #[test]
     fn every_planted_law_the_usage_names_resolves() {
-        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "iid-blocks", "dyadic-belt", "planted-belt-clipped", "planted-belt-winsor", "planted-belt-repeat", "planted-belt-serial", "planted-belt-thread", "planted-belt-fat", "planted-belt-ships", "planted-belt-lattice", "planted-belt-fatscars", "planted-belt-crush", "planted-belt-innerclip", "planted-belt-aligned", "planted-belt-table20"];
+        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "iid-blocks", "dyadic-belt", "planted-belt-clipped", "planted-belt-winsor", "planted-belt-repeat", "planted-belt-serial", "planted-belt-thread", "planted-belt-fat", "planted-belt-ships", "planted-belt-lattice", "planted-belt-fatscars", "planted-belt-crush", "planted-belt-innerclip", "planted-belt-aligned", "planted-belt-table20", "planted-nodrag", "planted-isco", "planted-penrose", "planted-proonly", "planted-rcapture"];
         for name in names {
             assert!(laws::by_name(name).is_some() && USAGE.contains(name), "{name}");
         }
@@ -498,11 +507,11 @@ mod events_tests {
     }
 
     #[test]
-    fn the_default_run_is_all_sixteen_gates_and_a_law_without_the_new_methods_fails_every_gate_after_g6_in_it() {
+    fn the_default_run_is_all_eighteen_gates_and_a_law_without_the_new_methods_fails_every_gate_after_g6_in_it() {
         // `--gates` omitted is `only = None`: every gate, in the judge's order.
         let gates = judge_only(&Silent, None, None, |_| {});
         assert_eq!(gates.iter().map(|g| g.id).collect::<Vec<_>>(), select::ALL);
-        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18"]);
+        assert_eq!(gates.iter().filter(|g| !g.pass).map(|g| g.id).collect::<Vec<_>>(), ["B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18", "B18b", "B19"]);
     }
 
     #[test]
@@ -597,7 +606,7 @@ mod amendment_tests {
     }
 }
 
-/// B18 belt (opt-in, not frozen): the control belts pass, each planted belt fails the criterion it plants, and a belt
+/// B18 belt (B18b, frozen 5 October): the control belts pass, each planted belt fails the criterion it plants, and a belt
 /// that tampers with the interface (ignores a scar, forgets scars in its store, misdeclares its information) is caught.
 /// The plants run on one belt of 2^18 (the statistics are valid from k = 27 up); the full frozen runs are `release` only.
 #[cfg(test)]
@@ -854,12 +863,15 @@ mod belt_tests {
     }
 
     #[test]
-    fn the_belt_gate_is_opt_in_and_named_like_the_others() {
-        // Not in the default run (`the_default_run_is_all_sixteen_gates...` pins the sixteen); `--gates b18b` picks it, and it alone runs.
-        assert!(!select::ALL.contains(&"B18b"));
+    fn the_belt_gate_is_a_default_gate_named_like_the_others() {
+        // B18b follows B18 in the default run (`the_default_run_is_all_eighteen_gates...` pins the whole list); `--gates b18b`
+        // picks it, and it alone runs. A law without a belt (`space`, today) fails it.
+        let at = select::ALL.iter().position(|g| *g == "B18").unwrap();
+        assert_eq!(select::ALL[at + 1], "B18b");
         assert_eq!(select::parse(&["--gates".into(), "b18b".into()]).unwrap().gates, Some(vec!["B18b"]));
         let gates = judge_only(&Silent, None, Some(&["B18b"]), |_| {});
         assert_eq!(gates.iter().map(|g| (g.id, g.pass)).collect::<Vec<_>>(), [("B18b", false)]);
+        assert!(judge_only(&Silent, None, Some(&["B18", "B18b", "B19"]), |_| {}).iter().any(|g| g.id == "B18b"));
     }
 
     /// The frozen runs, on the two controls (release only: the debug build is 20 times slower than the gate's 60 s allows).

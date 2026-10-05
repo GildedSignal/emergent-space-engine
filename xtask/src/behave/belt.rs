@@ -1,6 +1,5 @@
-//! B18 belt (docs/law.md, row "B18 belt", 5 October; Julien: "ok for the belt"). NOT FROZEN: the integrator
-//! freezes it. The GLM red-team of the row has run (run 20261005-1404: four holes, F1 to F4, all repaired below). Until the
-//! freeze the gate is opt-in (`--gates B18b`, `select::BELT`).
+//! B18 belt (docs/law.md, row "B18 belt", 5 October; Julien: "ok for the belt"). FROZEN on 5 October as gate B18b, after the
+//! GLM red-team of the row (run 20261005-1404: four holes, F1 to F4, all repaired below): a default gate of `behave`, after B18.
 //!
 //! The thing judged is a belt program: a smooth population (banded p, Rayleigh e, uniform angles) of 2^20 or 2^23
 //! bodies, born as a program (the lab's gold components-98bc: body i is a pure function of its ordinal). The judge
