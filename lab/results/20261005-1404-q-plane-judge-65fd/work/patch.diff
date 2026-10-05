@@ -1,0 +1,404 @@
+diff --git a/xtask/src/behave/mod.rs b/xtask/src/behave/mod.rs
+index 5e84076..0da9879 100644
+--- a/xtask/src/behave/mod.rs
++++ b/xtask/src/behave/mod.rs
+@@ -29,6 +29,7 @@ pub mod hill;
+ pub mod laws;
+ pub mod lens;
+ pub mod memory;
++pub mod plane;
+ pub mod oracle;
+ pub mod resonance;
+ pub mod restricted;
+@@ -272,12 +273,16 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
+     out
+ }
+ 
+-const USAGE: &str = "usage: behave [--law echo|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat] [--gates G1,G2,G3,G4,G5,G6,B7,B9,B10,B11,B12,B13,B14,B16,B17,B18]";
++const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat] [--gates G1,G2,...] [--plane-step N]";
+ 
+ pub fn run(args: Vec<String>) -> Result<u8> {
+     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
+     let name = cli.law.as_str();
+-    let law = laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?;
++    let law = if name == "plane" {
++        Box::new(plane::Plane::new(cli.plane_step))
++    } else {
++        laws::by_name(name).ok_or_else(|| format!("unknown law {name:?}; {USAGE}"))?
++    };
+     println!("machine_state {}", machine_state("start"));
+     let watch = Watch::spawn(LIMIT, |label, secs| {
+         for id in label.split(' ') {
+diff --git a/xtask/src/behave/plane.rs b/xtask/src/behave/plane.rs
+new file mode 100644
+index 0000000..25ab8c9
+--- /dev/null
++++ b/xtask/src/behave/plane.rs
+@@ -0,0 +1,266 @@
++//! The plane itself as a law: `behave --law plane` answers the restricted problem with the shipped
++//! plane (crates/universe), through its public API only, so the frozen gates B12-B14 and B17 judge
++//! the engine the game flies, not the `space` crate's dense stepper. The scene is the judge's (a
++//! star and a planet of mass ratio μ on a circle, in units of their total mass); the plane's root
++//! unit is the star's mass, so every length and time crosses as `/(1 − μ)` and velocities (β,
++//! c = 1) cross unchanged. Floats appear only at this boundary; everything inside is the plane's
++//! integer law. The star's surface is the shipped plane's (STAR_RADIUS) at the plane's own scale,
++//! scaled down with a scene shrunk below one AU (B17's miniature, sep = 100: the judge's star is a
++//! point, and a surface that could swallow the whole system would decide an outcome nobody asked
++//! for). The kick cadence is `Config::step_log2` (`--plane-step`): a power of two of ticks near
++//! 2^step_log2 kicks per radial period of each tube. With `PLANE_TRACE` set, every answer leaves
++//! one line on stderr: the event counts of the run that produced it, or where a ship the law lost
++//! was lost (a law that kills a ship the judge keeps is a finding, not a gap in the adapter).
++use super::restricted::Restricted;
++use super::Law;
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::{from_f64, to_f64};
++use emergent_universe::observe;
++use emergent_universe::scenario::{AU, STAR_RADIUS};
++use emergent_universe::world::Mass;
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++
++pub struct Plane {
++    pub step_log2: i32,
++}
++
++impl Plane {
++    /// From the CLI's `--plane-step`, the plane's own default when absent.
++    pub fn new(step_log2: Option<i32>) -> Self {
++        Self { step_log2: step_log2.unwrap_or(Config::default().step_log2) }
++    }
++
++    /// The star's surface in root units: the shipped plane's at its own scale, scaled down with a
++    /// scene whose planet orbits within one AU of its star.
++    fn star_surface(scene: &Restricted, to_root: f64) -> Scalar {
++        from_f64(STAR_RADIUS as f64 * (scene.sep * to_root / AU as f64).min(1.0))
++    }
++}
++
++// The single-mass questions the plane does not answer through this boundary: it says so, which
++// fails those gates honestly (`space` answers them through the crates the plane shares).
++impl Law for Plane {
++    fn advance_per_cycle(&self, _: f64, _: f64) -> Option<(f64, f64, f64)> {
++        None
++    }
++    fn deflection(&self, _: f64) -> Option<f64> {
++        None
++    }
++    fn captured(&self, _: f64, _: f64) -> bool {
++        false
++    }
++    fn photon_captured(&self, _: f64) -> bool {
++        false
++    }
++    fn long_run(&self, _: f64, _: f64, _: usize) -> Vec<(f64, f64, f64, f64)> {
++        Vec::new()
++    }
++
++    fn restricted(&self, scene: &Restricted, ship: [f64; 4], times: &[f64]) -> Option<Vec<[f64; 4]>> {
++        if !(0.0..0.5).contains(&scene.mu)
++            || !scene.sep.is_finite()
++            || scene.sep <= 0.0
++            || ship.iter().chain(times.iter()).any(|x| !x.is_finite())
++            || times.iter().any(|&t| t < 0.0)
++            || times.windows(2).any(|w| w[0] > w[1])
++        {
++            return None;
++        }
++        // Judge units (M_total = 1) → root units (M_star = 1): lengths and times × 1/(1 − μ).
++        let mu = scene.mu;
++        let to_root = 1.0 / (1.0 - mu);
++        // The planet's mass in units of the star's: q = μ/(1 − μ), exact for the f64 given
++        // (`Mass::ratio(1, 999)` is the case μ = 1e-3; B17's μ are not).
++        let mass = Mass::of(from_f64(mu / (1.0 - mu))).ok()?;
++        let cfg = Config { step_log2: self.step_log2, ..Config::default() };
++        let trace = std::env::var_os("PLANE_TRACE").is_some();
++        let build = || -> Option<(Universe, usize)> {
++            let mut u = Universe::new(Self::star_surface(scene, to_root), cfg);
++            u.threads = 1;
++            // The planet: a circular tube of the judge's separation about the star (the Kepler
++            // problem of the pair's total mass, as the plane compiles it), at (sep, 0), ccw.
++            let planet = u
++                .add_body(
++                    Kind::Planet,
++                    OrbitSpec { doll: 0, periapsis: from_f64(scene.sep * to_root), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++                    Scalar::ZERO,
++                )
++                .ok()?;
++            // The doll's surface is the planet's radius in the doll's units (root × 2^−octave).
++            let surface = from_f64(scene.planet_radius * to_root).scale(-mass.octave).ok()?;
++            u.add_doll("planet", planet, mass, surface).ok()?;
++            // The ship: an exact heliocentric start (the star's own barycentric state at t = 0).
++            let (sp, sv) = scene.star(0.0);
++            let id = u
++                .add_body_state(
++                    Kind::Ship,
++                    0,
++                    [from_f64((ship[0] - sp[0]) * to_root), from_f64((ship[1] - sp[1]) * to_root)],
++                    [from_f64(ship[2] - sv[0]), from_f64(ship[3] - sv[1])],
++                    Scalar::ZERO,
++                )
++                .ok()?;
++            u.start().ok()?;
++            Some((u, id))
++        };
++        let (mut u, id) = build().or_else(|| {
++            if trace {
++                eprintln!("plane_trace step_log2={} refused: the scene would not build", self.step_log2);
++            }
++            None
++        })?;
++        let mut states = Vec::with_capacity(times.len());
++        for &t in times {
++            let tick = (t * to_root).round() as i64;
++            u.settle(tick);
++            // A ship the plane lost (a surface, the system's edge, a state no tube can hold) has
++            // no answer; extrapolating its last tube would invent one.
++            if !u.bodies().alive(id) {
++                if trace {
++                    eprintln!(
++                        "plane_trace step_log2={} lost at sample {} of {} (kicks={} handoffs={} refused={} lost={})",
++                        self.step_log2,
++                        states.len() + 1,
++                        times.len(),
++                        u.stats.kicks,
++                        u.stats.handoffs,
++                        u.stats.refused,
++                        u.stats.lost
++                    );
++                }
++                return None;
++            }
++            let (pos, vel) = observe::root_state(&u.ctx(), id, tick).ok()?;
++            // Heliocentric root units → barycentric judge units: × (1 − μ), plus the star's own.
++            let (sp, sv) = scene.star(t);
++
++            states.push([
++                pos[0] / to_root + sp[0],
++                pos[1] / to_root + sp[1],
++                vel[0] + sv[0],
++                vel[1] + sv[1],
++            ]);
++        }
++        if trace {
++            eprintln!(
++                "plane_trace step_log2={} samples={} spans={:.4} planet-periods kicks={} handoffs={} boundaries={} opens={} refused={} lost={} events={}",
++                self.step_log2,
++                times.len(),
++                times.last().copied().unwrap_or(0.0) / scene.period(),
++                u.stats.kicks,
++                u.stats.handoffs,
++                u.stats.boundaries,
++                u.stats.opens,
++                u.stats.refused,
++                u.stats.lost,
++                u.stats.events(),
++            );
++        }
++        let _ = to_f64; // observation only; never an outcome
++        Some(states)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::super::restricted::{self, JUPITER, RTOL};
++    use super::*;
++
++    /// A ship at 4.1 sep, far outside the planet's sphere of influence, on a circular orbit.
++    fn far_ship() -> [f64; 4] {
++        let scene = JUPITER;
++        let r = 4.1 * scene.sep;
++        let v = (1.0 - scene.mu).sqrt() * r.powf(-0.5); // circular about the star's mass
++        let (x, y) = (r * 0.6, r * 0.8);
++        let (vx, vy) = (-v * 0.8, v * 0.6);
++        let (p, w) = scene.star(0.0);
++        [p[0] + x, p[1] + y, w[0] + vx, w[1] + vy]
++    }
++
++    fn times() -> Vec<f64> {
++        (1..=40).map(|k| k as f64 * JUPITER.period() / 4.0).collect()
++    }
++
++    /// The worst of the law's states against the reference's, positions against `sep` and
++    /// velocities against the planet's speed `sep·Ω`.
++    fn worst(step: i32, truth: &[[f64; 4]]) -> f64 {
++        let scene = JUPITER;
++        let law = Plane { step_log2: step }.restricted(&scene, far_ship(), &times()).unwrap();
++        let vscale = scene.sep * scene.omega();
++        law.iter()
++            .zip(truth)
++            .flat_map(|(a, b)| (0..4).map(move |k| (a[k] - b[k]).abs() / if k < 2 { scene.sep } else { vscale }))
++            .fold(0.0f64, f64::max)
++    }
++
++    /// The adapter is faithful at the boundary: the state it returns at t = 0 is the state it was
++    /// given (the plane binds the exact integer state), through the whole unit and frame conversion.
++    #[test]
++    fn the_start_comes_back_through_the_conversion() {
++        let ship = far_ship();
++        let back = Plane { step_log2: 7 }.restricted(&JUPITER, ship, &[0.0]).unwrap();
++        for (a, b) in back[0].iter().zip(ship) {
++            assert!((a - b).abs() / b.abs().max(1e-30) < 1e-12, "{back:?} vs {ship:?}");
++        }
++    }
++
++    /// A far ship keeps its orbit: against the judge's own reference (the planet present, float64
++    /// at 1e-12), within the kicks' own error. A conversion bug errs at ~μ·sep per synodic period
++    /// and grows linearly (past 1e-2·sep over this span); the cadence's own error is the 5e-4·sep
++    /// measured here at 2^7, and the next test tells the two apart.
++    #[test]
++    fn a_far_ship_keeps_its_orbit_against_the_reference() {
++        let truth = restricted::reference(&JUPITER, far_ship(), &times(), RTOL).unwrap();
++        let w = worst(7, &truth);
++        assert!(w < 3e-3, "worst {w:.3e}");
++    }
++
++    /// The far ship's error is the kick cadence's, not the conversion's: it falls like H² when the
++    /// cadence doubles twice (a conversion bug would not move).
++    #[test]
++    fn a_far_ships_error_falls_like_the_cadence() {
++        let truth = restricted::reference(&JUPITER, far_ship(), &times(), RTOL).unwrap();
++        let (coarse, fine) = (worst(7, &truth), worst(9, &truth));
++        assert!(coarse > 0.0 && fine < coarse / 8.0, "step 7: {coarse:.3e}, step 9: {fine:.3e}");
++    }
++
++    /// Not the B14 gate (its 768 reference runs cannot fit this machine's 60 s phase limit —
++    /// `echo` itself times out): a probe of the same physics through the public pieces only —
++    /// the gate's own first `N` circular births, one reference run each (no convergence nudge),
++    /// the class from the gate's rule (beyond 1.5 R_H at any sample) and the gate's own
++    /// `apsidal_rate`. `cargo test --release -p xtask moon_probe -- --ignored --nocapture`.
++    #[test]
++    #[ignore]
++    fn moon_probe_b14_physics_not_the_gate() {
++        use super::super::hill;
++        let scene = JUPITER;
++        let times = hill::times(&scene);
++        let escape = |states: &[[f64; 4]]| times.iter().zip(states).any(|(&t, s)| scene.planet_distance(t, s) > 1.5 * scene.hill());
++        for step in [7i32, 3] {
++            let (mut agree, mut answered) = (0, 0);
++            for (i, (a_hill, phase)) in super::super::sample::moons(12).into_iter().enumerate() {
++                let ship = hill::birth(&scene, a_hill * scene.hill(), phase, 0.0, i % 2 == 0);
++                let Some(truth_states) = restricted::reference(&scene, ship, &times, RTOL) else { continue };
++                let truth = escape(&truth_states);
++                answered += 1;
++                match (Plane { step_log2: step }).restricted(&scene, ship, &times) {
++                    None => println!("step {step} moon {i} a={a_hill:.3}R_H retro={}: LOST (reference {})", i % 2 == 1, if truth { "escape" } else { "bound" }),
++                    Some(s) => {
++                        let mine = escape(&s);
++                        agree += (mine == truth) as usize;
++                        let rate = |x: &[[f64; 4]]| hill::apsidal_rate(&scene, &times, x).map(|r| format!("{r:9.4}")).unwrap_or_else(|| "    none".into());
++                        println!(
++                            "step {step} moon {i} a={a_hill:.3}R_H retro={}: class {} (reference {}), apsidal rate law {} reference {}",
++                            i % 2 == 1,
++                            if mine { "escape" } else { "bound" },
++                            if truth { "escape" } else { "bound" },
++                            rate(&s),
++                            rate(&truth_states)
++                        );
++                    }
++                }
++            }
++            println!("step {step}: classes {agree}/{answered} agree");
++        }
++    }
++}
+diff --git a/xtask/src/behave/select.rs b/xtask/src/behave/select.rs
+index 530762e..7873124 100644
+--- a/xtask/src/behave/select.rs
++++ b/xtask/src/behave/select.rs
+@@ -1,5 +1,6 @@
+-//! The arguments of `behave`: `--law NAME` and `--gates ID[,ID...]`, each also as `--flag=value`,
+-//! in any order. Gate ids are case-insensitive. No `--gates` means every gate.
++//! The arguments of `behave`: `--law NAME`, `--gates ID[,ID...]` and `--plane-step N` (the plane's
++//! kick cadence), each also as `--flag=value`, in any order. Gate ids are case-insensitive. No
++//! `--gates` means every gate.
+ 
+ /// Every gate the judge runs, in the order it runs them. B8 (determinism) is an engine test, not a behaviour.
+ pub const ALL: [&str; 16] = ["G1", "G2", "G3", "G4", "G5", "G6", "B7", "B9", "B10", "B11", "B12", "B13", "B14", "B16", "B17", "B18"];
+@@ -12,6 +13,8 @@ pub struct Args {
+     pub law: String,
+     /// None: every gate.
+     pub gates: Option<Vec<&'static str>>,
++    /// The plane's kick cadence, `Config::step_log2` (`--law plane`; None: the plane's default).
++    pub plane_step: Option<i32>,
+ }
+ 
+ fn gate(id: &str) -> Result<&'static str, String> {
+@@ -25,7 +28,7 @@ fn gate(id: &str) -> Result<&'static str, String> {
+ 
+ /// Parses the arguments after `behave`.
+ pub fn parse(args: &[String]) -> Result<Args, String> {
+-    let (mut law, mut gates) = (None, None);
++    let (mut law, mut gates, mut plane_step) = (None, None, None);
+     let mut it = args.iter();
+     while let Some(arg) = it.next() {
+         let (flag, inline) = match arg.split_once('=') {
+@@ -45,13 +48,16 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
+                 }
+                 gates = Some(ids);
+             }
+-            "--law" | "--gates" => return Err(format!("{flag} given twice")),
++            "--plane-step" if plane_step.is_none() => {
++                plane_step = Some(value(&mut it)?.parse().map_err(|_| format!("--plane-step needs an integer, got {flag:?}"))?);
++            }
++            "--law" | "--gates" | "--plane-step" => return Err(format!("{flag} given twice")),
+             _ => return Err(format!("unknown argument {arg:?}")),
+         }
+     }
+     // Gates run in the judge's order, whatever order they were named in.
+     let gates = gates.map(|ids| ALL.iter().copied().filter(|g| ids.contains(g)).collect());
+-    Ok(Args { law: law.unwrap_or_else(|| "echo".into()), gates })
++    Ok(Args { law: law.unwrap_or_else(|| "echo".into()), gates, plane_step })
+ }
+ 
+ #[cfg(test)]
+@@ -64,15 +70,24 @@ mod tests {
+ 
+     #[test]
+     fn the_default_is_echo_and_every_gate() {
+-        assert_eq!(parse_all(&[]), Ok(Args { law: "echo".into(), gates: None }));
++        assert_eq!(parse_all(&[]), Ok(Args { law: "echo".into(), gates: None, plane_step: None }));
+     }
+ 
+     #[test]
+     fn law_and_gates_in_either_spelling_and_order() {
+-        let want = Ok(Args { law: "planted-clock".into(), gates: Some(vec!["B7", "B9"]) });
++        let want = Ok(Args { law: "planted-clock".into(), gates: Some(vec!["B7", "B9"]), plane_step: None });
+         assert_eq!(parse_all(&["--law", "planted-clock", "--gates", "B7,B9"]), want);
+         assert_eq!(parse_all(&["--gates=b9,B7", "--law=planted-clock"]), want);
+-        assert_eq!(parse_all(&["--gates", "B10,g1,B10"]), Ok(Args { law: "echo".into(), gates: Some(vec!["G1", "B10"]) }));
++        assert_eq!(parse_all(&["--gates", "B10,g1,B10"]), Ok(Args { law: "echo".into(), gates: Some(vec!["G1", "B10"]), plane_step: None }));
++    }
++
++    #[test]
++    fn the_plane_step_is_an_integer_in_either_spelling() {
++        let want = Ok(Args { law: "plane".into(), gates: Some(vec!["B12", "B17"]), plane_step: Some(3) });
++        assert_eq!(parse_all(&["--law", "plane", "--gates", "B17,B12", "--plane-step", "3"]), want);
++        assert_eq!(parse_all(&["--law=plane", "--plane-step=3", "--gates=B17,b12"]), want);
++        assert!(parse_all(&["--law", "plane", "--plane-step", "x"]).is_err());
++        assert!(parse_all(&["--law", "plane", "--plane-step", "3", "--plane-step", "4"]).is_err());
+     }
+ 
+     #[test]
+@@ -85,8 +100,8 @@ mod tests {
+ 
+     #[test]
+     fn the_events_gates_are_named_in_the_judges_order_and_the_core_is_the_first_nine() {
+-        assert_eq!(parse_all(&["--gates", "b14,B11,B13"]), Ok(Args { law: "echo".into(), gates: Some(vec!["B11", "B13", "B14"]) }));
+-        assert_eq!(parse_all(&["--gates", "b18,B16,B9,b17"]), Ok(Args { law: "echo".into(), gates: Some(vec!["B9", "B16", "B17", "B18"]) }));
++        assert_eq!(parse_all(&["--gates", "b14,B11,B13"]), Ok(Args { law: "echo".into(), gates: Some(vec!["B11", "B13", "B14"]), plane_step: None }));
++        assert_eq!(parse_all(&["--gates", "b18,B16,B9,b17"]), Ok(Args { law: "echo".into(), gates: Some(vec!["B9", "B16", "B17", "B18"]), plane_step: None }));
+         assert_eq!(CORE[..], ALL[..9]);
+         assert_eq!(ALL[9..], ["B11", "B12", "B13", "B14", "B16", "B17", "B18"]);
+         assert!(parse_all(&["--law", "planted-kick"]).is_ok());
+diff --git a/xtask/src/main.rs b/xtask/src/main.rs
+index 1e1d6d5..5410d6b 100644
+--- a/xtask/src/main.rs
++++ b/xtask/src/main.rs
+@@ -159,6 +159,6 @@ fn run() -> Result<u8> {
+         return Ok(0);
+     }
+     println!("Emergent Space tasks:\n  test [out-dir]                      history check + workspace tests\n  universe [--bench] [--rtf R] [--seconds S]  the plane: one star system, whole (port 8792), or its smoothness dashboard
+-  galaxy [--ships N] [--tubes N] [--bench] [--png FILE]  millions to billions of orbiting ships as a density image (port 8791)\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|space|planted-*] [--gates G1,..,B18]  behaviour judge, gates G1-G6, B7, B9-B18\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
++  galaxy [--ships N] [--tubes N] [--bench] [--png FILE]  millions to billions of orbiting ships as a density image (port 8791)\n  history [list | search TEXT | template | append FILE | check]\n  gr-oracle [out-dir]                 independent GR oracle\n  behave [--law echo|space|plane|planted-*] [--gates G1,..,B18] [--plane-step N]  behaviour judge, gates G1-G6, B7, B9-B18\n  lattice-check [n:h ...]             chronon reference vs the independent gas reference\n  lattice-check-rel                   relativistic reference checks (v0, v1)\n  ladder7 OUT [track] [--full] [--modes=...]\n  ladder7-rung MODE TRACK RUNG PROFILE");
+     Ok(0)
+ }

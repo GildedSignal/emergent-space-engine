@@ -1,0 +1,560 @@
+=== positive controls (echo: the judge itself) ===
+ROW echo-B12 rc=0 wall=3.6
+  out: B12 PASS handoffs: 16 frozen ships (this run's reference crosses R_SOI 6..40 times, at least 20 when frozen), 1 not converged; 0 of 15 judged ships rise above the 1e-12 floor, median growth exponent among them 0.000 (limit 0.2), worst 0.000; worst err 3.75e-15 (limit 1e-4) [3.58 s]
+  out: behave echo (B12): PASS
+ROW echo-B13 rc=0 wall=0.1
+  out: B13 PASS assists: 64/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 7.79e-8 ΔL 1.14e-7; 0 of 64 excluded (0 never in or out, 0 not converged) [0.08 s]
+  out: behave echo (B13): PASS
+ROW echo-B14 rc=1 wall=60.1
+  out: B14 FAIL timeout: 60.1 s over the 60 s limit
+ROW echo-B17 rc=0 wall=22.5
+  out: B17 PASS resonance: e-pump ratio [0.999999, 1.000001] over 35 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 1.000 min over 27 librating (needs 0.8); regime 34/34 matched (1 borderline, not asked); controls 5/5; 0 unanswered, 1 of 41 not converged [22.51 s]
+  out: behave echo (B17): PASS
+=== planted controls (the gates bite) ===
+ROW planted-kick-B12 rc=1 wall=4.5
+  out: B12 FAIL handoffs: 16 frozen ships (this run's reference crosses R_SOI 6..40 times, at least 20 when frozen), 1 not converged; 15 of 15 judged ships rise above the 1e-12 floor, median growth exponent among them 0.766 (limit 0.2), worst 9.037; worst err 3.90e-4 (limit 1e-4) [4.44 s]
+  out: behave planted-kick (B12): FAIL B12
+ROW planted-kick-B13 rc=1 wall=0.1
+  out: B13 FAIL assists: 53/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 6.93e-2 ΔL 5.75e-2; 0 of 64 excluded (0 never in or out, 0 not converged) [0.10 s]
+  out: behave planted-kick (B13): FAIL B13
+ROW planted-notide-B14 rc=1 wall=52.8
+  out: B14 FAIL Hill stability: 167/255 judged moons in the reference's class (100 escape, 155 stay); 0 chaotic and 1 not converged of 256 (128 circular births, 128 with e0 up to 0.3; needs 64 judged); apsides: 0/53 bound moons with a rate within 10% of the reference's, worst 1.00e0 (102 of 155 without a stable rate; needs 32 rated) [52.81 s]
+  out: behave planted-notide (B14): FAIL B14
+ROW planted-apsides-B14 rc=1 wall=57.0
+  out: B14 FAIL Hill stability: 255/255 judged moons in the reference's class (100 escape, 155 stay); 0 chaotic and 1 not converged of 256 (128 circular births, 128 with e0 up to 0.3; needs 64 judged); apsides: 0/53 bound moons with a rate within 10% of the reference's, worst inf (102 of 155 without a stable rate; needs 32 rated) [56.98 s]
+  out: behave planted-apsides (B14): FAIL B14
+ROW planted-average-B17 rc=1 wall=14.3
+  out: B17 FAIL resonance: e-pump ratio [0.106573, 0.963242] over 35 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 0.015 min over 27 librating (needs 0.8); regime 18/34 matched (1 borderline, not asked); controls 5/5; 0 unanswered, 1 of 41 not converged; 35 cases fail a leg, among them 2:1 mu 3e-5 detune -0.33 phase 0, 2:1 mu 3e-5 detune -0.33 phase 1, 2:1 mu 3e-5 detune +0.00 phase 0, 2:1 mu 3e-5 detune +0.00 phase 1 [14.27 s]
+  out: behave planted-average (B17): FAIL B17
+=== the plane ===
+ROW plane-B13-s3 rc=1 wall=0.8
+  out: B13 FAIL assists: 25/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE inf ΔL inf; 0 of 64 excluded (0 never in or out, 0 not converged) [0.83 s]
+  out: behave plane (B13): FAIL B13
+  trace: plane_trace step_log2=3 samples=1 0.0280 planet-periods 39 handoffs=1 boundaries=22 opens=9 refused=0 lost=0 events=71
+  trace: plane_trace step_log2=3 samples=1 0.0364 planet-periods 47 handoffs=1 boundaries=21 opens=12 refused=0 lost=0 events=81
+  trace: plane_trace step_log2=3 samples=1 0.0263 planet-periods 39 handoffs=1 boundaries=16 opens=11 refused=0 lost=0 events=67
+  trace: plane_trace step_log2=3 samples=1 0.0558 planet-periods 0 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=2
+  trace: plane_trace step_log2=3 samples=1 0.0383 planet-periods 35 handoffs=1 boundaries=16 opens=10 refused=0 lost=0 events=62
+  trace: plane_trace step_log2=3 samples=1 0.0558 planet-periods 35 handoffs=1 boundaries=16 opens=12 refused=0 lost=0 events=64
+  trace: plane_trace step_log2=3 samples=1 0.0447 planet-periods 34 handoffs=1 boundaries=16 opens=9 refused=0 lost=0 events=60
+  trace: plane_trace step_log2=3 samples=1 0.0193 planet-periods 36 handoffs=1 boundaries=21 opens=8 refused=0 lost=0 events=66
+  trace: plane_trace step_log2=3 samples=1 0.0228 planet-periods 43 handoffs=1 boundaries=20 opens=10 refused=0 lost=0 events=74
+  trace: plane_trace step_log2=3 samples=1 0.0395 planet-periods 46 handoffs=1 boundaries=18 opens=13 refused=0 lost=0 events=78
+  trace: plane_trace step_log2=3 samples=1 0.0350 planet-periods 43 handoffs=1 boundaries=19 opens=11 refused=0 lost=0 events=74
+  trace: plane_trace step_log2=3 samples=1 0.0497 planet-periods 50 handoffs=1 boundaries=15 opens=19 refused=0 lost=0 events=85
+  trace: plane_trace step_log2=3 samples=1 0.0256 planet-periods 36 handoffs=1 boundaries=16 opens=9 refused=0 lost=0 events=62
+  trace: plane_trace step_log2=3 samples=1 0.0553 planet-periods 130 handoffs=0 boundaries=116 opens=6 refused=0 lost=0 events=252
+  trace: plane_trace step_log2=3 samples=1 0.0277 planet-periods 24 handoffs=1 boundaries=19 opens=3 refused=0 lost=0 events=47
+  trace: plane_trace step_log2=3 samples=1 0.0389 planet-periods 36 handoffs=1 boundaries=20 opens=8 refused=0 lost=0 events=65
+  trace: plane_trace step_log2=3 samples=1 0.0219 planet-periods 29 handoffs=1 boundaries=18 opens=5 refused=0 lost=0 events=53
+  trace: plane_trace step_log2=3 samples=1 0.0540 planet-periods 42 handoffs=1 boundaries=18 opens=9 refused=0 lost=0 events=70
+  trace: plane_trace step_log2=3 samples=1 0.0295 planet-periods 33 handoffs=1 boundaries=16 opens=10 refused=0 lost=0 events=60
+  trace: plane_trace step_log2=3 samples=1 0.0201 planet-periods 37 handoffs=1 boundaries=21 opens=8 refused=0 lost=0 events=67
+  trace: plane_trace step_log2=3 samples=1 0.0236 planet-periods 30 handoffs=1 boundaries=16 opens=5 refused=0 lost=0 events=52
+  trace: plane_trace step_log2=3 samples=1 0.0632 planet-periods 38 handoffs=1 boundaries=16 opens=10 refused=0 lost=0 events=65
+  trace: plane_trace step_log2=3 samples=1 0.0321 planet-periods 39 handoffs=1 boundaries=16 opens=11 refused=0 lost=0 events=67
+  trace: plane_trace step_log2=3 samples=1 0.0237 planet-periods 31 handoffs=1 boundaries=16 opens=5 refused=0 lost=0 events=53
+  trace: plane_trace step_log2=3 samples=1 0.0389 planet-periods 49 handoffs=1 boundaries=21 opens=13 refused=0 lost=0 events=84
+  trace: plane_trace step_log2=3 samples=1 0.0330 planet-periods 28 handoffs=1 boundaries=19 opens=5 refused=0 lost=0 events=53
+  trace: plane_trace step_log2=3 samples=1 0.0196 planet-periods 38 handoffs=1 boundaries=19 opens=7 refused=0 lost=0 events=65
+  trace: plane_trace step_log2=3 samples=1 0.0257 planet-periods 2 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=4
+  trace: plane_trace step_log2=3 samples=1 0.0325 planet-periods 38 handoffs=1 boundaries=13 opens=10 refused=0 lost=0 events=62
+  trace: plane_trace step_log2=3 samples=1 0.0622 planet-periods 46 handoffs=1 boundaries=20 opens=12 refused=0 lost=0 events=79
+  trace: plane_trace step_log2=3 samples=1 0.0254 planet-periods 33 handoffs=1 boundaries=15 opens=10 refused=0 lost=0 events=59
+  trace: plane_trace step_log2=3 samples=1 0.0493 planet-periods 25 handoffs=1 boundaries=18 opens=5 refused=0 lost=0 events=49
+  trace: plane_trace step_log2=3 samples=1 0.0225 planet-periods 45 handoffs=1 boundaries=20 opens=9 refused=0 lost=0 events=75
+  trace: plane_trace step_log2=3 samples=1 0.0612 planet-periods 46 handoffs=1 boundaries=22 opens=11 refused=0 lost=0 events=80
+  trace: plane_trace step_log2=3 samples=1 0.0287 planet-periods 37 handoffs=1 boundaries=18 opens=10 refused=0 lost=0 events=66
+  trace: plane_trace step_log2=3 samples=1 0.0419 planet-periods 4 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=6
+  trace: plane_trace step_log2=3 samples=1 0.0385 planet-periods 53 handoffs=1 boundaries=22 opens=15 refused=0 lost=0 events=91
+  trace: plane_trace step_log2=3 samples=1 0.0297 planet-periods 38 handoffs=1 boundaries=18 opens=11 refused=0 lost=0 events=68
+  trace: plane_trace step_log2=3 samples=1 0.0512 planet-periods 46 handoffs=1 boundaries=20 opens=15 refused=0 lost=0 events=82
+  trace: plane_trace step_log2=3 samples=1 0.0202 planet-periods 37 handoffs=1 boundaries=21 opens=8 refused=0 lost=0 events=67
+  trace: plane_trace step_log2=3 samples=1 0.0198 planet-periods 37 handoffs=1 boundaries=21 opens=8 refused=0 lost=0 events=67
+  trace: plane_trace step_log2=3 samples=1 0.0199 planet-periods 29 handoffs=1 boundaries=13 opens=5 refused=0 lost=0 events=48
+  trace: plane_trace step_log2=3 samples=1 0.0222 planet-periods 40 handoffs=1 boundaries=17 opens=10 refused=0 lost=0 events=68
+  trace: plane_trace step_log2=3 samples=1 0.0443 planet-periods 16 handoffs=0 boundaries=0 opens=5 refused=0 lost=0 events=21
+  trace: plane_trace step_log2=3 samples=1 0.0399 planet-periods 48 handoffs=1 boundaries=22 opens=13 refused=0 lost=0 events=84
+  trace: plane_trace step_log2=3 samples=1 0.0327 planet-periods 48 handoffs=1 boundaries=22 opens=13 refused=0 lost=0 events=84
+  trace: plane_trace step_log2=3 samples=1 0.0283 planet-periods 39 handoffs=1 boundaries=18 opens=11 refused=0 lost=0 events=69
+  trace: plane_trace step_log2=3 samples=1 0.0651 planet-periods 41 handoffs=1 boundaries=21 opens=10 refused=0 lost=0 events=73
+  trace: plane_trace step_log2=3 samples=1 0.0316 planet-periods 35 handoffs=1 boundaries=22 opens=6 refused=0 lost=0 events=64
+  trace: plane_trace step_log2=3 samples=1 0.0412 planet-periods 40 handoffs=1 boundaries=21 opens=11 refused=0 lost=0 events=73
+  trace: plane_trace step_log2=3 samples=1 0.0402 planet-periods 14 handoffs=0 boundaries=1 opens=5 refused=0 lost=0 events=20
+  trace: plane_trace step_log2=3 samples=1 0.0337 planet-periods 32 handoffs=1 boundaries=18 opens=7 refused=0 lost=0 events=58
+  trace: plane_trace step_log2=3 samples=1 0.0310 planet-periods 32 handoffs=1 boundaries=18 opens=6 refused=0 lost=0 events=57
+  trace: plane_trace step_log2=3 samples=1 0.0202 planet-periods 38 handoffs=1 boundaries=22 opens=8 refused=0 lost=0 events=69
+  trace: plane_trace step_log2=3 samples=1 0.0536 planet-periods 51 handoffs=1 boundaries=22 opens=14 refused=0 lost=0 events=88
+  trace: plane_trace step_log2=3 samples=1 0.0447 planet-periods 8 handoffs=0 boundaries=0 opens=3 refused=0 lost=0 events=11
+  trace: plane_trace step_log2=3 samples=1 0.0374 planet-periods 55 handoffs=1 boundaries=26 opens=14 refused=0 lost=0 events=96
+  trace: plane_trace step_log2=3 samples=1 0.0345 planet-periods 13 handoffs=0 boundaries=0 opens=4 refused=0 lost=0 events=17
+  sum: kicks=2133 spans=2.09 planet-periods -> 1021.6 kicks per planet period per ship
+ROW plane-B13-s4 rc=1 wall=0.9
+  out: B13 FAIL assists: 36/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE inf ΔL inf; 0 of 64 excluded (0 never in or out, 0 not converged) [0.91 s]
+  out: behave plane (B13): FAIL B13
+  trace: plane_trace step_log2=4 samples=1 0.0280 planet-periods 49 handoffs=1 boundaries=18 opens=13 refused=0 lost=0 events=81
+  trace: plane_trace step_log2=4 samples=1 0.0364 planet-periods 63 handoffs=1 boundaries=21 opens=19 refused=0 lost=0 events=104
+  trace: plane_trace step_log2=4 samples=1 0.0263 planet-periods 59 handoffs=1 boundaries=21 opens=19 refused=0 lost=0 events=100
+  trace: plane_trace step_log2=4 samples=1 0.0558 planet-periods 0 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=2
+  trace: plane_trace step_log2=4 samples=1 0.0383 planet-periods 57 handoffs=1 boundaries=22 opens=19 refused=0 lost=0 events=99
+  trace: plane_trace step_log2=4 samples=1 0.0558 planet-periods 252 handoffs=0 boundaries=238 opens=6 refused=0 lost=0 events=496
+  trace: plane_trace step_log2=4 samples=1 0.0447 planet-periods 55 handoffs=1 boundaries=24 opens=17 refused=0 lost=0 events=97
+  trace: plane_trace step_log2=4 samples=1 0.0193 planet-periods 48 handoffs=1 boundaries=20 opens=14 refused=0 lost=0 events=83
+  trace: plane_trace step_log2=4 samples=1 0.0228 planet-periods 59 handoffs=1 boundaries=28 opens=17 refused=0 lost=0 events=105
+  trace: plane_trace step_log2=4 samples=1 0.0395 planet-periods 66 handoffs=1 boundaries=21 opens=20 refused=0 lost=0 events=108
+  trace: plane_trace step_log2=4 samples=1 0.0350 planet-periods 55 handoffs=1 boundaries=20 opens=15 refused=0 lost=0 events=91
+  trace: plane_trace step_log2=4 samples=1 0.0256 planet-periods 54 handoffs=1 boundaries=19 opens=17 refused=0 lost=0 events=91
+  trace: plane_trace step_log2=4 samples=1 0.0562 planet-periods 2 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=4
+  trace: plane_trace step_log2=4 samples=1 0.0553 planet-periods 47 handoffs=1 boundaries=25 opens=14 refused=0 lost=0 events=87
+  trace: plane_trace step_log2=4 samples=1 0.0277 planet-periods 37 handoffs=1 boundaries=20 opens=12 refused=0 lost=0 events=70
+  trace: plane_trace step_log2=4 samples=1 0.0389 planet-periods 49 handoffs=1 boundaries=18 opens=15 refused=0 lost=0 events=83
+  trace: plane_trace step_log2=4 samples=1 0.0219 planet-periods 40 handoffs=1 boundaries=19 opens=8 refused=0 lost=0 events=68
+  trace: plane_trace step_log2=4 samples=1 0.0540 planet-periods 49 handoffs=1 boundaries=24 opens=13 refused=0 lost=0 events=87
+  trace: plane_trace step_log2=4 samples=1 0.0295 planet-periods 58 handoffs=1 boundaries=24 opens=15 refused=0 lost=0 events=98
+  trace: plane_trace step_log2=4 samples=1 0.0201 planet-periods 56 handoffs=1 boundaries=25 opens=15 refused=0 lost=0 events=97
+  trace: plane_trace step_log2=4 samples=1 0.0236 planet-periods 41 handoffs=1 boundaries=21 opens=9 refused=0 lost=0 events=72
+  trace: plane_trace step_log2=4 samples=1 0.0632 planet-periods 64 handoffs=2 boundaries=23 opens=20 refused=0 lost=0 events=109
+  trace: plane_trace step_log2=4 samples=1 0.0321 planet-periods 64 handoffs=2 boundaries=24 opens=17 refused=0 lost=0 events=107
+  trace: plane_trace step_log2=4 samples=1 0.0237 planet-periods 41 handoffs=1 boundaries=20 opens=9 refused=0 lost=0 events=71
+  trace: plane_trace step_log2=4 samples=1 0.0389 planet-periods 69 handoffs=1 boundaries=25 opens=20 refused=0 lost=0 events=115
+  trace: plane_trace step_log2=4 samples=1 0.0330 planet-periods 36 handoffs=1 boundaries=19 opens=9 refused=0 lost=0 events=65
+  trace: plane_trace step_log2=4 samples=1 0.0196 planet-periods 48 handoffs=1 boundaries=20 opens=13 refused=0 lost=0 events=82
+  trace: plane_trace step_log2=4 samples=1 0.0257 planet-periods 5 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=7
+  trace: plane_trace step_log2=4 samples=1 0.0325 planet-periods 62 handoffs=2 boundaries=25 opens=14 refused=0 lost=0 events=103
+  trace: plane_trace step_log2=4 samples=1 0.0622 planet-periods 62 handoffs=2 boundaries=22 opens=20 refused=0 lost=0 events=106
+  trace: plane_trace step_log2=4 samples=1 0.0254 planet-periods 58 handoffs=1 boundaries=24 opens=18 refused=0 lost=0 events=101
+  trace: plane_trace step_log2=4 samples=1 0.0493 planet-periods 37 handoffs=1 boundaries=22 opens=8 refused=0 lost=0 events=68
+  trace: plane_trace step_log2=4 samples=1 0.0225 planet-periods 48 handoffs=1 boundaries=19 opens=15 refused=0 lost=0 events=83
+  trace: plane_trace step_log2=4 samples=1 0.0612 planet-periods 58 handoffs=2 boundaries=21 opens=16 refused=0 lost=0 events=97
+  trace: plane_trace step_log2=4 samples=1 0.0287 planet-periods 55 handoffs=1 boundaries=20 opens=15 refused=0 lost=0 events=91
+  trace: plane_trace step_log2=4 samples=1 0.0419 planet-periods 7 handoffs=0 boundaries=0 opens=3 refused=0 lost=0 events=10
+  trace: plane_trace step_log2=4 samples=1 0.0385 planet-periods 68 handoffs=1 boundaries=20 opens=24 refused=0 lost=0 events=113
+  trace: plane_trace step_log2=4 samples=1 0.0297 planet-periods 55 handoffs=1 boundaries=21 opens=18 refused=0 lost=0 events=95
+  trace: plane_trace step_log2=4 samples=1 0.0202 planet-periods 50 handoffs=1 boundaries=19 opens=15 refused=0 lost=0 events=85
+  trace: plane_trace step_log2=4 samples=1 0.0198 planet-periods 50 handoffs=1 boundaries=20 opens=15 refused=0 lost=0 events=86
+  trace: plane_trace step_log2=4 samples=1 0.0199 planet-periods 37 handoffs=1 boundaries=22 opens=8 refused=0 lost=0 events=68
+  trace: plane_trace step_log2=4 samples=1 0.0222 planet-periods 47 handoffs=1 boundaries=16 opens=17 refused=0 lost=0 events=81
+  trace: plane_trace step_log2=4 samples=1 0.0443 planet-periods 35 handoffs=1 boundaries=16 opens=11 refused=0 lost=0 events=63
+  trace: plane_trace step_log2=4 samples=1 0.0399 planet-periods 38 handoffs=1 boundaries=23 opens=8 refused=0 lost=0 events=70
+  trace: plane_trace step_log2=4 samples=1 0.0327 planet-periods 59 handoffs=2 boundaries=18 opens=20 refused=0 lost=0 events=99
+  trace: plane_trace step_log2=4 samples=1 0.0283 planet-periods 53 handoffs=1 boundaries=17 opens=18 refused=0 lost=0 events=89
+  trace: plane_trace step_log2=4 samples=1 0.0651 planet-periods 56 handoffs=2 boundaries=19 opens=14 refused=0 lost=0 events=91
+  trace: plane_trace step_log2=4 samples=1 0.0316 planet-periods 45 handoffs=1 boundaries=22 opens=10 refused=0 lost=0 events=78
+  trace: plane_trace step_log2=4 samples=1 0.0412 planet-periods 51 handoffs=1 boundaries=16 opens=19 refused=0 lost=0 events=87
+  trace: plane_trace step_log2=4 samples=1 0.0402 planet-periods 39 handoffs=1 boundaries=21 opens=10 refused=0 lost=0 events=71
+  trace: plane_trace step_log2=4 samples=1 0.0337 planet-periods 46 handoffs=1 boundaries=18 opens=14 refused=0 lost=0 events=79
+  trace: plane_trace step_log2=4 samples=1 0.0310 planet-periods 46 handoffs=1 boundaries=19 opens=10 refused=0 lost=0 events=76
+  trace: plane_trace step_log2=4 samples=1 0.0202 planet-periods 49 handoffs=1 boundaries=19 opens=15 refused=0 lost=0 events=84
+  trace: plane_trace step_log2=4 samples=1 0.0536 planet-periods 82 handoffs=1 boundaries=26 opens=26 refused=0 lost=0 events=135
+  trace: plane_trace step_log2=4 samples=1 0.0447 planet-periods 16 handoffs=0 boundaries=0 opens=5 refused=0 lost=0 events=21
+  trace: plane_trace step_log2=4 samples=1 0.0374 planet-periods 70 handoffs=1 boundaries=22 opens=23 refused=0 lost=0 events=116
+  trace: plane_trace step_log2=4 samples=1 0.0345 planet-periods 18 handoffs=0 boundaries=0 opens=6 refused=0 lost=0 events=24
+  sum: kicks=2920 spans=2.04 planet-periods -> 1429.1 kicks per planet period per ship
+ROW plane-B13-s5 rc=1 wall=1.3
+  out: B13 FAIL assists: 35/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE inf ΔL inf; 0 of 64 excluded (0 never in or out, 0 not converged) [1.29 s]
+  out: behave plane (B13): FAIL B13
+  trace: plane_trace step_log2=5 samples=1 0.0280 planet-periods 80 handoffs=1 boundaries=26 opens=22 refused=0 lost=0 events=129
+  trace: plane_trace step_log2=5 samples=1 0.0364 planet-periods 102 handoffs=1 boundaries=30 opens=32 refused=0 lost=0 events=165
+  trace: plane_trace step_log2=5 samples=1 0.0263 planet-periods 82 handoffs=1 boundaries=23 opens=28 refused=0 lost=0 events=134
+  trace: plane_trace step_log2=5 samples=1 0.0558 planet-periods 0 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=2
+  trace: plane_trace step_log2=5 samples=1 0.0383 planet-periods 76 handoffs=1 boundaries=23 opens=26 refused=0 lost=0 events=126
+  trace: plane_trace step_log2=5 samples=1 0.0558 planet-periods 52 handoffs=1 boundaries=23 opens=17 refused=0 lost=0 events=93
+  trace: plane_trace step_log2=5 samples=1 0.0447 planet-periods 87 handoffs=1 boundaries=29 opens=28 refused=0 lost=0 events=145
+  trace: plane_trace step_log2=5 samples=1 0.0193 planet-periods 78 handoffs=1 boundaries=34 opens=23 refused=0 lost=0 events=136
+  trace: plane_trace step_log2=5 samples=1 0.0228 planet-periods 86 handoffs=1 boundaries=28 opens=28 refused=0 lost=0 events=143
+  trace: plane_trace step_log2=5 samples=1 0.0395 planet-periods 107 handoffs=1 boundaries=29 opens=36 refused=0 lost=0 events=173
+  trace: plane_trace step_log2=5 samples=1 0.0350 planet-periods 94 handoffs=1 boundaries=28 opens=25 refused=0 lost=0 events=148
+  trace: plane_trace step_log2=5 samples=1 0.0256 planet-periods 74 handoffs=1 boundaries=20 opens=24 refused=0 lost=0 events=119
+  trace: plane_trace step_log2=5 samples=1 0.0562 planet-periods 5 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=7
+  trace: plane_trace step_log2=5 samples=1 0.0553 planet-periods 63 handoffs=1 boundaries=21 opens=21 refused=0 lost=0 events=106
+  trace: plane_trace step_log2=5 samples=1 0.0277 planet-periods 54 handoffs=1 boundaries=25 opens=18 refused=0 lost=0 events=98
+  trace: plane_trace step_log2=5 samples=1 0.0389 planet-periods 79 handoffs=1 boundaries=30 opens=24 refused=0 lost=0 events=134
+  trace: plane_trace step_log2=5 samples=1 0.0219 planet-periods 51 handoffs=1 boundaries=17 opens=13 refused=0 lost=0 events=82
+  trace: plane_trace step_log2=5 samples=1 0.0540 planet-periods 80 handoffs=1 boundaries=27 opens=23 refused=0 lost=0 events=131
+  trace: plane_trace step_log2=5 samples=1 0.0295 planet-periods 81 handoffs=1 boundaries=22 opens=28 refused=0 lost=0 events=132
+  trace: plane_trace step_log2=5 samples=1 0.0201 planet-periods 78 handoffs=1 boundaries=29 opens=24 refused=0 lost=0 events=132
+  trace: plane_trace step_log2=5 samples=1 0.0236 planet-periods 54 handoffs=1 boundaries=19 opens=16 refused=0 lost=0 events=90
+  trace: plane_trace step_log2=5 samples=1 0.0632 planet-periods 100 handoffs=1 boundaries=29 opens=35 refused=0 lost=0 events=165
+  trace: plane_trace step_log2=5 samples=1 0.0321 planet-periods 105 handoffs=1 boundaries=34 opens=32 refused=0 lost=0 events=172
+  trace: plane_trace step_log2=5 samples=1 0.0237 planet-periods 57 handoffs=1 boundaries=22 opens=16 refused=0 lost=0 events=96
+  trace: plane_trace step_log2=5 samples=1 0.0389 planet-periods 104 handoffs=1 boundaries=29 opens=35 refused=0 lost=0 events=169
+  trace: plane_trace step_log2=5 samples=1 0.0330 planet-periods 61 handoffs=1 boundaries=30 opens=16 refused=0 lost=0 events=108
+  trace: plane_trace step_log2=5 samples=1 0.0196 planet-periods 71 handoffs=1 boundaries=26 opens=20 refused=0 lost=0 events=118
+  trace: plane_trace step_log2=5 samples=1 0.0257 planet-periods 9 handoffs=0 boundaries=0 opens=3 refused=0 lost=0 events=12
+  trace: plane_trace step_log2=5 samples=1 0.0325 planet-periods 87 handoffs=1 boundaries=25 opens=27 refused=0 lost=0 events=140
+  trace: plane_trace step_log2=5 samples=1 0.0622 planet-periods 99 handoffs=1 boundaries=27 opens=35 refused=0 lost=0 events=162
+  trace: plane_trace step_log2=5 samples=1 0.0254 planet-periods 87 handoffs=1 boundaries=30 opens=27 refused=0 lost=0 events=145
+  trace: plane_trace step_log2=5 samples=1 0.0493 planet-periods 49 handoffs=1 boundaries=21 opens=14 refused=0 lost=0 events=85
+  trace: plane_trace step_log2=5 samples=1 0.0225 planet-periods 78 handoffs=1 boundaries=25 opens=24 refused=0 lost=0 events=128
+  trace: plane_trace step_log2=5 samples=1 0.0612 planet-periods 89 handoffs=1 boundaries=22 opens=31 refused=0 lost=0 events=143
+  trace: plane_trace step_log2=5 samples=1 0.0287 planet-periods 85 handoffs=1 boundaries=30 opens=27 refused=1 lost=0 events=143
+  trace: plane_trace step_log2=5 samples=1 0.0419 planet-periods 16 handoffs=0 boundaries=0 opens=4 refused=0 lost=0 events=20
+  trace: plane_trace step_log2=5 samples=1 0.0385 planet-periods 115 handoffs=1 boundaries=32 opens=37 refused=0 lost=0 events=185
+  trace: plane_trace step_log2=5 samples=1 0.0297 planet-periods 91 handoffs=1 boundaries=27 opens=31 refused=0 lost=0 events=150
+  trace: plane_trace step_log2=5 samples=1 0.0202 planet-periods 79 handoffs=1 boundaries=30 opens=24 refused=0 lost=0 events=134
+  trace: plane_trace step_log2=5 samples=1 0.0198 planet-periods 80 handoffs=1 boundaries=32 opens=24 refused=0 lost=0 events=137
+  trace: plane_trace step_log2=5 samples=1 0.0199 planet-periods 59 handoffs=1 boundaries=29 opens=15 refused=0 lost=0 events=104
+  trace: plane_trace step_log2=5 samples=1 0.0222 planet-periods 83 handoffs=1 boundaries=31 opens=27 refused=0 lost=0 events=142
+  trace: plane_trace step_log2=5 samples=1 0.0443 planet-periods 42 handoffs=1 boundaries=22 opens=9 refused=0 lost=0 events=74
+  trace: plane_trace step_log2=5 samples=1 0.0399 planet-periods 57 handoffs=1 boundaries=27 opens=15 refused=0 lost=0 events=100
+  trace: plane_trace step_log2=5 samples=1 0.0327 planet-periods 100 handoffs=1 boundaries=28 opens=35 refused=0 lost=0 events=164
+  trace: plane_trace step_log2=5 samples=1 0.0283 planet-periods 94 handoffs=1 boundaries=27 opens=30 refused=0 lost=0 events=152
+  trace: plane_trace step_log2=5 samples=1 0.0651 planet-periods 88 handoffs=2 boundaries=29 opens=24 refused=0 lost=0 events=143
+  trace: plane_trace step_log2=5 samples=1 0.0316 planet-periods 60 handoffs=1 boundaries=24 opens=14 refused=0 lost=0 events=99
+  trace: plane_trace step_log2=5 samples=1 0.0412 planet-periods 84 handoffs=1 boundaries=30 opens=27 refused=0 lost=0 events=142
+  trace: plane_trace step_log2=5 samples=1 0.0402 planet-periods 60 handoffs=1 boundaries=25 opens=19 refused=0 lost=0 events=105
+  trace: plane_trace step_log2=5 samples=1 0.0337 planet-periods 68 handoffs=2 boundaries=27 opens=20 refused=0 lost=0 events=117
+  trace: plane_trace step_log2=5 samples=1 0.0310 planet-periods 58 handoffs=1 boundaries=26 opens=15 refused=0 lost=0 events=100
+  trace: plane_trace step_log2=5 samples=1 0.0202 planet-periods 77 handoffs=1 boundaries=28 opens=24 refused=0 lost=0 events=130
+  trace: plane_trace step_log2=5 samples=1 0.0536 planet-periods 128 handoffs=1 boundaries=28 opens=44 refused=0 lost=0 events=201
+  trace: plane_trace step_log2=5 samples=1 0.0447 planet-periods 40 handoffs=1 boundaries=20 opens=12 refused=0 lost=0 events=73
+  trace: plane_trace step_log2=5 samples=1 0.0374 planet-periods 106 handoffs=1 boundaries=29 opens=36 refused=0 lost=0 events=172
+  trace: plane_trace step_log2=5 samples=1 0.0345 planet-periods 38 handoffs=1 boundaries=21 opens=7 refused=0 lost=0 events=67
+  sum: kicks=4167 spans=2.04 planet-periods -> 2039.3 kicks per planet period per ship
+ROW plane-B13-s7 rc=1 wall=3.7
+  out: B13 FAIL assists: 51/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE inf ΔL inf; 0 of 64 excluded (0 never in or out, 0 not converged) [3.65 s]
+  out: behave plane (B13): FAIL B13
+  trace: plane_trace step_log2=7 samples=1 0.0280 planet-periods 243 handoffs=1 boundaries=58 opens=74 refused=0 lost=0 events=376
+  trace: plane_trace step_log2=7 samples=1 0.0364 planet-periods 325 handoffs=1 boundaries=75 opens=105 refused=0 lost=0 events=506
+  trace: plane_trace step_log2=7 samples=1 0.0263 planet-periods 248 handoffs=1 boundaries=58 opens=81 refused=0 lost=0 events=388
+  trace: plane_trace step_log2=7 samples=1 0.0558 planet-periods 2 handoffs=0 boundaries=0 opens=2 refused=0 lost=0 events=4
+  trace: plane_trace step_log2=7 samples=1 0.0383 planet-periods 222 handoffs=1 boundaries=75 opens=67 refused=0 lost=0 events=365
+  trace: plane_trace step_log2=7 samples=1 0.0558 planet-periods 133 handoffs=1 boundaries=59 opens=40 refused=0 lost=0 events=233
+  trace: plane_trace step_log2=7 samples=1 0.0447 planet-periods 213 handoffs=1 boundaries=48 opens=71 refused=0 lost=0 events=333
+  trace: plane_trace step_log2=7 samples=1 0.0193 planet-periods 216 handoffs=1 boundaries=73 opens=64 refused=0 lost=0 events=354
+  trace: plane_trace step_log2=7 samples=1 0.0228 planet-periods 214 handoffs=1 boundaries=51 opens=70 refused=0 lost=0 events=336
+  trace: plane_trace step_log2=7 samples=1 0.0395 planet-periods 345 handoffs=1 boundaries=80 opens=111 refused=0 lost=0 events=537
+  trace: plane_trace step_log2=7 samples=1 0.0350 planet-periods 295 handoffs=1 boundaries=70 opens=91 refused=0 lost=0 events=457
+  trace: plane_trace step_log2=7 samples=1 0.0256 planet-periods 237 handoffs=2 boundaries=59 opens=74 refused=0 lost=0 events=372
+  trace: plane_trace step_log2=7 samples=1 0.0562 planet-periods 74 handoffs=1 boundaries=42 opens=22 refused=0 lost=0 events=139
+  trace: plane_trace step_log2=7 samples=1 0.0553 planet-periods 167 handoffs=1 boundaries=56 opens=53 refused=0 lost=0 events=277
+  trace: plane_trace step_log2=7 samples=1 0.0277 planet-periods 87 handoffs=1 boundaries=44 opens=23 refused=0 lost=0 events=155
+  trace: plane_trace step_log2=7 samples=1 0.0389 planet-periods 217 handoffs=1 boundaries=75 opens=63 refused=0 lost=0 events=356
+  trace: plane_trace step_log2=7 samples=1 0.0219 planet-periods 192 handoffs=1 boundaries=50 opens=57 refused=0 lost=0 events=300
+  trace: plane_trace step_log2=7 samples=1 0.0540 planet-periods 240 handoffs=1 boundaries=53 opens=78 refused=0 lost=0 events=372
+  trace: plane_trace step_log2=7 samples=1 0.0295 planet-periods 267 handoffs=2 boundaries=65 opens=84 refused=0 lost=0 events=418
+  trace: plane_trace step_log2=7 samples=1 0.0201 planet-periods 226 handoffs=1 boundaries=74 opens=65 refused=0 lost=0 events=366
+  trace: plane_trace step_log2=7 samples=1 0.0236 planet-periods 193 handoffs=1 boundaries=51 opens=52 refused=0 lost=0 events=297
+  trace: plane_trace step_log2=7 samples=1 0.0632 planet-periods 276 handoffs=1 boundaries=66 opens=90 refused=0 lost=0 events=433
+  trace: plane_trace step_log2=7 samples=1 0.0321 planet-periods 292 handoffs=1 boundaries=70 opens=94 refused=0 lost=0 events=457
+  trace: plane_trace step_log2=7 samples=1 0.0237 planet-periods 143 handoffs=1 boundaries=51 opens=41 refused=0 lost=0 events=236
+  trace: plane_trace step_log2=7 samples=1 0.0389 planet-periods 337 handoffs=1 boundaries=73 opens=110 refused=0 lost=0 events=521
+  trace: plane_trace step_log2=7 samples=1 0.0330 planet-periods 137 handoffs=1 boundaries=63 opens=37 refused=0 lost=0 events=238
+  trace: plane_trace step_log2=7 samples=1 0.0196 planet-periods 209 handoffs=1 boundaries=72 opens=59 refused=0 lost=0 events=341
+  trace: plane_trace step_log2=7 samples=1 0.0257 planet-periods 113 handoffs=0 boundaries=99 opens=6 refused=0 lost=0 events=218
+  trace: plane_trace step_log2=7 samples=1 0.0325 planet-periods 256 handoffs=1 boundaries=64 opens=83 refused=0 lost=0 events=404
+  trace: plane_trace step_log2=7 samples=1 0.0622 planet-periods 287 handoffs=1 boundaries=65 opens=96 refused=0 lost=0 events=449
+  trace: plane_trace step_log2=7 samples=1 0.0254 planet-periods 242 handoffs=1 boundaries=60 opens=78 refused=0 lost=0 events=381
+  trace: plane_trace step_log2=7 samples=1 0.0493 planet-periods 102 handoffs=2 boundaries=50 opens=20 refused=0 lost=0 events=174
+  trace: plane_trace step_log2=7 samples=1 0.0225 planet-periods 212 handoffs=1 boundaries=54 opens=67 refused=0 lost=0 events=334
+  trace: plane_trace step_log2=7 samples=1 0.0612 planet-periods 270 handoffs=1 boundaries=60 opens=91 refused=0 lost=0 events=422
+  trace: plane_trace step_log2=7 samples=1 0.0287 planet-periods 266 handoffs=1 boundaries=65 opens=84 refused=0 lost=0 events=416
+  trace: plane_trace step_log2=7 samples=1 0.0419 planet-periods 92 handoffs=1 boundaries=54 opens=26 refused=0 lost=0 events=173
+  trace: plane_trace step_log2=7 samples=1 0.0385 planet-periods 353 handoffs=1 boundaries=82 opens=114 refused=0 lost=0 events=550
+  trace: plane_trace step_log2=7 samples=1 0.0297 planet-periods 271 handoffs=2 boundaries=61 opens=89 refused=0 lost=0 events=423
+  trace: plane_trace step_log2=7 samples=1 0.0202 planet-periods 226 handoffs=1 boundaries=77 opens=65 refused=0 lost=0 events=369
+  trace: plane_trace step_log2=7 samples=1 0.0198 planet-periods 218 handoffs=1 boundaries=73 opens=63 refused=0 lost=0 events=355
+  trace: plane_trace step_log2=7 samples=1 0.0199 planet-periods 155 handoffs=1 boundaries=71 opens=38 refused=0 lost=0 events=265
+  trace: plane_trace step_log2=7 samples=1 0.0222 planet-periods 206 handoffs=1 boundaries=50 opens=68 refused=0 lost=0 events=325
+  trace: plane_trace step_log2=7 samples=1 0.0443 planet-periods 126 handoffs=1 boundaries=53 opens=39 refused=0 lost=0 events=219
+  trace: plane_trace step_log2=7 samples=1 0.0399 planet-periods 155 handoffs=1 boundaries=70 opens=39 refused=0 lost=0 events=265
+  trace: plane_trace step_log2=7 samples=1 0.0327 planet-periods 295 handoffs=1 boundaries=69 opens=97 refused=0 lost=0 events=462
+  trace: plane_trace step_log2=7 samples=1 0.0283 planet-periods 262 handoffs=1 boundaries=60 opens=86 refused=0 lost=0 events=409
+  trace: plane_trace step_log2=7 samples=1 0.0651 planet-periods 281 handoffs=1 boundaries=61 opens=92 refused=0 lost=0 events=435
+  trace: plane_trace step_log2=7 samples=1 0.0316 planet-periods 235 handoffs=1 boundaries=66 opens=56 refused=0 lost=0 events=358
+  trace: plane_trace step_log2=7 samples=1 0.0412 planet-periods 235 handoffs=1 boundaries=75 opens=73 refused=0 lost=0 events=384
+  trace: plane_trace step_log2=7 samples=1 0.0402 planet-periods 156 handoffs=1 boundaries=67 opens=42 refused=0 lost=0 events=266
+  trace: plane_trace step_log2=7 samples=1 0.0337 planet-periods 186 handoffs=2 boundaries=63 opens=55 refused=0 lost=0 events=306
+  trace: plane_trace step_log2=7 samples=1 0.0310 planet-periods 175 handoffs=1 boundaries=62 opens=48 refused=0 lost=0 events=286
+  trace: plane_trace step_log2=7 samples=1 0.0202 planet-periods 225 handoffs=1 boundaries=76 opens=65 refused=0 lost=0 events=367
+  trace: plane_trace step_log2=7 samples=1 0.0536 planet-periods 429 handoffs=1 boundaries=67 opens=150 refused=0 lost=0 events=647
+  trace: plane_trace step_log2=7 samples=1 0.0447 planet-periods 88 handoffs=1 boundaries=45 opens=25 refused=0 lost=0 events=159
+  trace: plane_trace step_log2=7 samples=1 0.0374 planet-periods 342 handoffs=1 boundaries=80 opens=111 refused=0 lost=0 events=534
+  trace: plane_trace step_log2=7 samples=1 0.0345 planet-periods 107 handoffs=1 boundaries=55 opens=26 refused=0 lost=0 events=189
+  sum: kicks=12316 spans=2.04 planet-periods -> 6027.5 kicks per planet period per ship
+ROW plane-B12-s3 rc=1 wall=20.9
+  out: B12 FAIL handoffs: 16 frozen ships (this run's reference crosses R_SOI 6..40 times, at least 20 when frozen), 1 not converged; 15 of 15 judged ships rise above the 1e-12 floor, median growth exponent among them 1.178 (limit 0.2), worst inf; worst err inf (limit 1e-4) [20.94 s]
+  out: behave plane (B12): FAIL B12
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 512 handoffs=1 boundaries=111 opens=252 refused=0 lost=0 events=876
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 1856 handoffs=1 boundaries=729 opens=758 refused=0 lost=0 events=3344
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 121152 handoffs=0 boundaries=119991 opens=753 refused=0 lost=0 events=241896
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 15328 handoffs=7 boundaries=13648 opens=1165 refused=0 lost=0 events=30148
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 3082 handoffs=2 boundaries=1621 opens=1056 refused=0 lost=0 events=5761
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 900 handoffs=2 boundaries=362 opens=339 refused=0 lost=0 events=1603
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 3589 handoffs=4 boundaries=2069 opens=1093 refused=0 lost=0 events=6755
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 14136 handoffs=1 boundaries=13075 opens=785 refused=0 lost=0 events=27997
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 4708 handoffs=0 boundaries=3444 opens=926 refused=0 lost=0 events=9078
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 14595 handoffs=2 boundaries=13584 opens=669 refused=0 lost=0 events=28850
+  trace: plane_trace step_log2=3 samples=1601 200.0000 planet-periods 2593 handoffs=2 boundaries=955 opens=1099 refused=0 lost=0 events=4649
+  sum: kicks=182451 spans=2200.00 planet-periods -> 82.9 kicks per planet period per ship
+ROW plane-B12-s4 rc=1 wall=6.3
+  out: B12 FAIL handoffs: 16 frozen ships (this run's reference crosses R_SOI 6..40 times, at least 20 when frozen), 1 not converged; 15 of 15 judged ships rise above the 1e-12 floor, median growth exponent among them 1.528 (limit 0.2), worst inf; worst err inf (limit 1e-4) [6.25 s]
+  out: behave plane (B12): FAIL B12
+  trace: plane_trace step_log2=4 samples=1601 200.0000 planet-periods 10497 handoffs=7 boundaries=8567 opens=1258 refused=0 lost=0 events=20329
+  trace: plane_trace step_log2=4 samples=1601 200.0000 planet-periods 5061 handoffs=6 boundaries=3629 opens=876 refused=0 lost=0 events=9572
+  trace: plane_trace step_log2=4 samples=1601 200.0000 planet-periods 2358 handoffs=0 boundaries=1766 opens=446 refused=0 lost=0 events=4570
+  trace: plane_trace step_log2=4 samples=1601 200.0000 planet-periods 2554 handoffs=1 boundaries=1865 opens=504 refused=0 lost=0 events=4924
+  trace: plane_trace step_log2=4 samples=1601 200.0000 planet-periods 6978 handoffs=2 boundaries=5866 opens=770 refused=0 lost=0 events=13616
+  trace: plane_trace step_log2=4 samples=1601 200.0000 planet-periods 2176 handoffs=1 boundaries=1265 opens=632 refused=0 lost=0 events=4074
+  trace: plane_trace step_log2=4 samples=1601 200.0000 planet-periods 5752 handoffs=3 boundaries=4565 opens=838 refused=0 lost=0 events=11158
+  trace: plane_trace step_log2=4 samples=1601 200.0000 planet-periods 3274 handoffs=1 boundaries=2166 opens=733 refused=0 lost=0 events=6174
+  sum: kicks=38650 spans=1600.00 planet-periods -> 24.2 kicks per planet period per ship
+ROW plane-B12-s5 rc=1 wall=26.5
+  out: B12 FAIL handoffs: 16 frozen ships (this run's reference crosses R_SOI 6..40 times, at least 20 when frozen), 1 not converged; 15 of 15 judged ships rise above the 1e-12 floor, median growth exponent among them inf (limit 0.2), worst inf; worst err inf (limit 1e-4) [26.39 s]
+  out: behave plane (B12): FAIL B12
+  trace: plane_trace step_log2=5 samples=1601 200.0000 planet-periods 216741 handoffs=1 boundaries=216576 opens=93 refused=0 lost=0 events=433411
+  trace: plane_trace step_log2=5 samples=1601 200.0000 planet-periods 8928 handoffs=8 boundaries=7182 opens=968 refused=0 lost=0 events=17086
+  trace: plane_trace step_log2=5 samples=1601 200.0000 planet-periods 4477 handoffs=3 boundaries=3652 opens=502 refused=0 lost=0 events=8634
+  trace: plane_trace step_log2=5 samples=1601 200.0000 planet-periods 10008 handoffs=8 boundaries=7746 opens=1245 refused=0 lost=0 events=19007
+  trace: plane_trace step_log2=5 samples=1601 200.0000 planet-periods 9282 handoffs=5 boundaries=7086 opens=1309 refused=0 lost=0 events=17682
+  trace: plane_trace step_log2=5 samples=1601 200.0000 planet-periods 10399 handoffs=4 boundaries=8185 opens=1263 refused=0 lost=0 events=19851
+  trace: plane_trace step_log2=5 samples=1601 200.0000 planet-periods 9146 handoffs=0 boundaries=8305 opens=584 refused=0 lost=0 events=18035
+  sum: kicks=268981 spans=1400.00 planet-periods -> 192.1 kicks per planet period per ship
+ROW plane-B12-s7 rc=1 wall=26.6
+  out: B12 FAIL handoffs: 16 frozen ships (this run's reference crosses R_SOI 6..40 times, at least 20 when frozen), 1 not converged; 15 of 15 judged ships rise above the 1e-12 floor, median growth exponent among them 1.026 (limit 0.2), worst inf; worst err inf (limit 1e-4) [26.61 s]
+  out: behave plane (B12): FAIL B12
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 42172 handoffs=4 boundaries=38599 opens=2439 refused=0 lost=0 events=83214
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 45858 handoffs=4 boundaries=41627 opens=2680 refused=0 lost=0 events=90169
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 30000 handoffs=2 boundaries=26905 opens=2009 refused=0 lost=0 events=58916
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 52526 handoffs=8 boundaries=42940 opens=6319 refused=0 lost=0 events=101793
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 11464 handoffs=1 boundaries=10849 opens=388 refused=0 lost=0 events=22702
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 36982 handoffs=2 boundaries=31273 opens=3520 refused=0 lost=0 events=71777
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 22933 handoffs=5 boundaries=19831 opens=1776 refused=0 lost=0 events=44545
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 29152 handoffs=6 boundaries=25112 opens=2646 refused=0 lost=0 events=56916
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 55665 handoffs=11 boundaries=46034 opens=5929 refused=0 lost=0 events=107639
+  trace: plane_trace step_log2=7 samples=1601 200.0000 planet-periods 39949 handoffs=9 boundaries=33851 opens=3514 refused=0 lost=0 events=77323
+  sum: kicks=366701 spans=2000.00 planet-periods -> 183.4 kicks per planet period per ship
+ROW plane-B17-s3 rc=1 wall=20.3
+  out: B17 FAIL resonance: e-pump ratio [0.788665, 8.799947] over 33 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 0.002 min over 25 librating (needs 0.8); regime 9/32 matched (1 borderline, not asked); controls 0/5; 2 unanswered, 1 of 41 not converged; 37 cases fail a leg, among them 2:1 mu 3e-5 detune -0.33 phase 0, 2:1 mu 3e-5 detune -0.33 phase 1, 2:1 mu 3e-5 detune +0.00 phase 0, 2:1 mu 3e-5 detune +0.00 phase 1 [20.26 s]
+  out: behave plane (B17): FAIL B17
+  trace: plane_trace step_log2=3 samples=3203 200.3487 planet-periods 4917 handoffs=0 boundaries=4917 opens=2 refused=0 lost=0 events=9836
+  trace: plane_trace step_log2=3 samples=3203 200.3487 planet-periods 4917 handoffs=0 boundaries=4917 opens=2 refused=0 lost=0 events=9836
+  trace: plane_trace step_log2=3 samples=3200 200.0000 planet-periods 4909 handoffs=0 boundaries=4908 opens=2 refused=0 lost=0 events=9819
+  trace: plane_trace step_log2=3 samples=3200 200.0000 planet-periods 4909 handoffs=0 boundaries=4908 opens=2 refused=0 lost=0 events=9819
+  trace: plane_trace step_log2=3 samples=3198 199.7143 planet-periods 4902 handoffs=0 boundaries=4901 opens=2 refused=0 lost=0 events=9805
+  trace: plane_trace step_log2=3 samples=3198 199.7143 planet-periods 4902 handoffs=0 boundaries=4901 opens=2 refused=0 lost=0 events=9805
+  trace: plane_trace step_log2=3 samples=3213 201.5652 planet-periods 4949 handoffs=0 boundaries=4948 opens=2 refused=0 lost=0 events=9899
+  trace: plane_trace step_log2=3 samples=3213 201.5652 planet-periods 4949 handoffs=0 boundaries=4948 opens=2 refused=0 lost=0 events=9899
+  trace: plane_trace step_log2=3 samples=3200 200.0000 planet-periods 4910 handoffs=0 boundaries=4910 opens=2 refused=0 lost=0 events=9822
+  trace: plane_trace step_log2=3 samples=3200 200.0000 planet-periods 4910 handoffs=0 boundaries=4910 opens=2 refused=0 lost=0 events=9822
+  trace: plane_trace step_log2=3 samples=3189 198.5709 planet-periods 4875 handoffs=0 boundaries=4875 opens=2 refused=0 lost=0 events=9752
+  trace: plane_trace step_log2=3 samples=3189 198.5709 planet-periods 4875 handoffs=0 boundaries=4875 opens=2 refused=0 lost=0 events=9752
+  trace: plane_trace step_log2=3 samples=3258 207.2169 planet-periods 5606 handoffs=1 boundaries=4909 opens=520 refused=2 lost=0 events=11036
+  trace: plane_trace step_log2=3 samples=3258 207.2169 planet-periods 4965 handoffs=0 boundaries=3824 opens=812 refused=0 lost=0 events=9601
+  trace: plane_trace step_log2=3 samples=3200 200.0000 planet-periods 4924 handoffs=0 boundaries=4923 opens=2 refused=0 lost=0 events=9849
+  trace: plane_trace step_log2=3 samples=3200 200.0000 planet-periods 4716 handoffs=2 boundaries=4100 opens=449 refused=0 lost=0 events=9267
+  trace: plane_trace step_log2=3 samples=3147 193.3362 planet-periods 4759 handoffs=0 boundaries=4759 opens=2 refused=0 lost=0 events=9520
+  trace: plane_trace step_log2=3 samples=3147 193.3362 planet-periods 5087 handoffs=1 boundaries=4560 opens=360 refused=0 lost=0 events=10008
+  trace: plane_trace step_log2=3 samples=4808 400.9893 planet-periods 4921 handoffs=0 boundaries=4921 opens=2 refused=0 lost=0 events=9844
+  trace: plane_trace step_log2=3 samples=4808 400.9893 planet-periods 4921 handoffs=0 boundaries=4921 opens=2 refused=0 lost=0 events=9844
+  trace: plane_trace step_log2=3 samples=4801 400.0833 planet-periods 4910 handoffs=0 boundaries=4909 opens=2 refused=0 lost=0 events=9821
+  trace: plane_trace step_log2=3 samples=4801 400.0833 planet-periods 4910 handoffs=0 boundaries=4909 opens=2 refused=0 lost=0 events=9821
+  trace: plane_trace step_log2=3 samples=4793 399.0956 planet-periods 4898 handoffs=0 boundaries=4897 opens=2 refused=0 lost=0 events=9797
+  trace: plane_trace step_log2=3 samples=4793 399.0956 planet-periods 4898 handoffs=0 boundaries=4897 opens=2 refused=0 lost=0 events=9797
+  trace: plane_trace step_log2=3 samples=4837 404.5943 planet-periods 4967 handoffs=0 boundaries=4966 opens=2 refused=0 lost=0 events=9935
+  trace: plane_trace step_log2=3 samples=4837 404.5943 planet-periods 4967 handoffs=0 boundaries=4966 opens=2 refused=0 lost=0 events=9935
+  trace: plane_trace step_log2=3 samples=4801 400.0833 planet-periods 4911 handoffs=0 boundaries=4911 opens=2 refused=0 lost=0 events=9824
+  trace: plane_trace step_log2=3 samples=4801 400.0833 planet-periods 4911 handoffs=0 boundaries=4911 opens=2 refused=0 lost=0 events=9824
+  trace: plane_trace step_log2=3 samples=4765 395.6059 planet-periods 4856 handoffs=0 boundaries=4856 opens=2 refused=0 lost=0 events=9714
+  trace: plane_trace step_log2=3 samples=4765 395.6059 planet-periods 4856 handoffs=0 boundaries=4856 opens=2 refused=0 lost=0 events=9714
+  trace: plane_trace step_log2=3 samples=4976 421.9813 planet-periods 11863 handoffs=0 boundaries=5279 opens=4898 refused=0 lost=0 events=22040
+  trace: plane_trace step_log2=3 samples=4801 400.0833 planet-periods 11381 handoffs=0 boundaries=4924 opens=4844 refused=0 lost=0 events=21149
+  trace: plane_trace step_log2=3 samples=4801 400.0833 planet-periods 10401 handoffs=5 boundaries=4165 opens=4529 refused=29 lost=0 events=19100
+  trace: plane_trace step_log2=3 samples=4642 380.2422 planet-periods 11244 handoffs=0 boundaries=4680 opens=4925 refused=0 lost=0 events=20849
+  trace: plane_trace step_log2=3 samples=2001 50.0250 planet-periods 2456 handoffs=0 boundaries=2456 opens=2 refused=0 lost=0 events=4914
+  trace: plane_trace step_log2=3 samples=2633 129.0686 planet-periods 3169 handoffs=0 boundaries=3168 opens=2 refused=0 lost=0 events=6339
+  trace: plane_trace step_log2=3 samples=2992 173.9535 planet-periods 4427 handoffs=0 boundaries=4270 opens=119 refused=0 lost=0 events=8816
+  trace: plane_trace step_log2=3 samples=2001 50.0250 planet-periods 1953 handoffs=1 boundaries=1823 opens=87 refused=0 lost=0 events=3864
+  trace: plane_trace step_log2=3 samples=2633 129.0686 planet-periods 4003 handoffs=4 boundaries=2625 opens=921 refused=2 lost=0 events=7553
+  sum: kicks=208804 spans=10536.94 planet-periods -> 19.8 kicks per planet period per ship
+ROW plane-B17-s4 rc=1 wall=28.0
+  out: B17 FAIL resonance: e-pump ratio [1.339843, 9.805525] over 27 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 0.003 min over 22 librating (needs 0.8); regime 5/26 matched (1 borderline, not asked); controls 0/4; 9 unanswered, 1 of 41 not converged; 31 cases fail a leg, among them 2:1 mu 3e-5 detune -0.33 phase 0, 2:1 mu 3e-5 detune -0.33 phase 1, 2:1 mu 3e-5 detune +0.00 phase 0, 2:1 mu 3e-5 detune +0.00 phase 1 [28.02 s]
+  out: behave plane (B17): FAIL B17
+  trace: plane_trace step_log2=4 samples=3203 200.3487 planet-periods 9835 handoffs=0 boundaries=9834 opens=2 refused=0 lost=0 events=19671
+  trace: plane_trace step_log2=4 samples=3203 200.3487 planet-periods 9835 handoffs=0 boundaries=9834 opens=2 refused=0 lost=0 events=19671
+  trace: plane_trace step_log2=4 samples=3200 200.0000 planet-periods 9818 handoffs=0 boundaries=9817 opens=2 refused=0 lost=0 events=19637
+  trace: plane_trace step_log2=4 samples=3200 200.0000 planet-periods 9818 handoffs=0 boundaries=9817 opens=2 refused=0 lost=0 events=19637
+  trace: plane_trace step_log2=4 samples=3198 199.7143 planet-periods 9804 handoffs=0 boundaries=9803 opens=2 refused=0 lost=0 events=19609
+  trace: plane_trace step_log2=4 samples=3198 199.7143 planet-periods 9804 handoffs=0 boundaries=9803 opens=2 refused=0 lost=0 events=19609
+  trace: plane_trace step_log2=4 samples=3213 201.5652 planet-periods 9897 handoffs=0 boundaries=9897 opens=2 refused=0 lost=0 events=19796
+  trace: plane_trace step_log2=4 samples=3213 201.5652 planet-periods 9767 handoffs=0 boundaries=9763 opens=5 refused=0 lost=0 events=19535
+  trace: plane_trace step_log2=4 samples=3200 200.0000 planet-periods 9820 handoffs=0 boundaries=9820 opens=2 refused=0 lost=0 events=19642
+  trace: plane_trace step_log2=4 samples=3200 200.0000 planet-periods 9820 handoffs=0 boundaries=9820 opens=2 refused=0 lost=0 events=19642
+  trace: plane_trace step_log2=4 samples=3189 198.5709 planet-periods 9750 handoffs=0 boundaries=9750 opens=2 refused=0 lost=0 events=19502
+  trace: plane_trace step_log2=4 samples=3189 198.5709 planet-periods 9750 handoffs=0 boundaries=9750 opens=2 refused=0 lost=0 events=19502
+  trace: plane_trace step_log2=4 samples=3258 207.2169 planet-periods 6407 handoffs=1 boundaries=5613 opens=556 refused=33 lost=0 events=12577
+  trace: plane_trace step_log2=4 samples=3200 200.0000 planet-periods 9751 handoffs=1 boundaries=9647 opens=71 refused=0 lost=0 events=19470
+  trace: plane_trace step_log2=4 samples=3200 200.0000 planet-periods 7902 handoffs=0 boundaries=7162 opens=557 refused=0 lost=0 events=15621
+  trace: plane_trace step_log2=4 samples=3147 193.3362 planet-periods 9519 handoffs=0 boundaries=9518 opens=2 refused=0 lost=0 events=19039
+  trace: plane_trace step_log2=4 samples=3147 193.3362 planet-periods 7488 handoffs=1 boundaries=7027 opens=267 refused=0 lost=0 events=14783
+  trace: plane_trace step_log2=4 samples=4808 400.9893 planet-periods 9882 handoffs=0 boundaries=9842 opens=32 refused=0 lost=0 events=19756
+  trace: plane_trace step_log2=4 samples=4808 400.9893 planet-periods 9842 handoffs=0 boundaries=9842 opens=2 refused=0 lost=0 events=19686
+  trace: plane_trace step_log2=4 samples=4801 400.0833 planet-periods 9852 handoffs=0 boundaries=9819 opens=26 refused=0 lost=0 events=19697
+  trace: plane_trace step_log2=4 samples=4801 400.0833 planet-periods 9820 handoffs=0 boundaries=9819 opens=2 refused=0 lost=0 events=19641
+  trace: plane_trace step_log2=4 samples=4793 399.0956 planet-periods 9828 handoffs=0 boundaries=9795 opens=26 refused=0 lost=0 events=19649
+  trace: plane_trace step_log2=4 samples=4793 399.0956 planet-periods 9812 handoffs=0 boundaries=9795 opens=14 refused=0 lost=0 events=19621
+  trace: plane_trace step_log2=4 samples=4837 404.5943 planet-periods 9933 handoffs=0 boundaries=9933 opens=2 refused=0 lost=0 events=19868
+  trace: plane_trace step_log2=4 samples=4837 404.5943 planet-periods 9933 handoffs=0 boundaries=9933 opens=2 refused=0 lost=0 events=19868
+  trace: plane_trace step_log2=4 samples=4801 400.0833 planet-periods 9822 handoffs=0 boundaries=9822 opens=2 refused=0 lost=0 events=19646
+  trace: plane_trace step_log2=4 samples=4801 400.0833 planet-periods 9822 handoffs=0 boundaries=9822 opens=2 refused=0 lost=0 events=19646
+  trace: plane_trace step_log2=4 samples=4765 395.6059 planet-periods 9713 handoffs=0 boundaries=9712 opens=2 refused=0 lost=0 events=19427
+  trace: plane_trace step_log2=4 samples=4765 395.6059 planet-periods 9713 handoffs=0 boundaries=9712 opens=2 refused=0 lost=0 events=19427
+  trace: plane_trace step_log2=4 samples=4976 421.9813 planet-periods 8807 handoffs=1 boundaries=8084 opens=491 refused=0 lost=0 events=17383
+  trace: plane_trace step_log2=4 samples=4642 380.2422 planet-periods 9689 handoffs=0 boundaries=9360 opens=248 refused=0 lost=0 events=19297
+  trace: plane_trace step_log2=4 samples=2001 50.0250 planet-periods 2456 handoffs=0 boundaries=2456 opens=2 refused=0 lost=0 events=4914
+  trace: plane_trace step_log2=4 samples=2633 129.0686 planet-periods 6338 handoffs=0 boundaries=6337 opens=2 refused=0 lost=0 events=12677
+  trace: plane_trace step_log2=4 samples=2992 173.9535 planet-periods 8186 handoffs=0 boundaries=7914 opens=143 refused=0 lost=0 events=16243
+  trace: plane_trace step_log2=4 samples=2633 129.0686 planet-periods 5861 handoffs=0 boundaries=4966 opens=599 refused=9 lost=0 events=11426
+  sum: kicks=318094 spans=9479.53 planet-periods -> 33.6 kicks per planet period per ship
+ROW plane-B17-s5 rc=1 wall=36.8
+  out: B17 FAIL resonance: e-pump ratio [1.339843, 17.009306] over 30 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 0.002 min over 24 librating (needs 0.8); regime 6/29 matched (1 borderline, not asked); controls 0/3; 7 unanswered, 1 of 41 not converged; 33 cases fail a leg, among them 2:1 mu 3e-5 detune -0.33 phase 0, 2:1 mu 3e-5 detune -0.33 phase 1, 2:1 mu 3e-5 detune +0.00 phase 0, 2:1 mu 3e-5 detune +0.00 phase 1 [36.76 s]
+  out: behave plane (B17): FAIL B17
+  trace: plane_trace step_log2=5 samples=3203 200.3487 planet-periods 9835 handoffs=0 boundaries=9834 opens=2 refused=0 lost=0 events=19671
+  trace: plane_trace step_log2=5 samples=3203 200.3487 planet-periods 9835 handoffs=0 boundaries=9834 opens=2 refused=0 lost=0 events=19671
+  trace: plane_trace step_log2=5 samples=3200 200.0000 planet-periods 9818 handoffs=0 boundaries=9817 opens=2 refused=0 lost=0 events=19637
+  trace: plane_trace step_log2=5 samples=3200 200.0000 planet-periods 9818 handoffs=0 boundaries=9817 opens=2 refused=0 lost=0 events=19637
+  trace: plane_trace step_log2=5 samples=3198 199.7143 planet-periods 9804 handoffs=0 boundaries=9803 opens=2 refused=0 lost=0 events=19609
+  trace: plane_trace step_log2=5 samples=3198 199.7143 planet-periods 9804 handoffs=0 boundaries=9803 opens=2 refused=0 lost=0 events=19609
+  trace: plane_trace step_log2=5 samples=3213 201.5652 planet-periods 9897 handoffs=0 boundaries=9897 opens=2 refused=0 lost=0 events=19796
+  trace: plane_trace step_log2=5 samples=3213 201.5652 planet-periods 9917 handoffs=0 boundaries=9897 opens=17 refused=0 lost=0 events=19831
+  trace: plane_trace step_log2=5 samples=3200 200.0000 planet-periods 9820 handoffs=0 boundaries=9820 opens=2 refused=0 lost=0 events=19642
+  trace: plane_trace step_log2=5 samples=3200 200.0000 planet-periods 9820 handoffs=0 boundaries=9820 opens=2 refused=0 lost=0 events=19642
+  trace: plane_trace step_log2=5 samples=3189 198.5709 planet-periods 9750 handoffs=0 boundaries=9750 opens=2 refused=0 lost=0 events=19502
+  trace: plane_trace step_log2=5 samples=3189 198.5709 planet-periods 9750 handoffs=0 boundaries=9750 opens=2 refused=0 lost=0 events=19502
+  trace: plane_trace step_log2=5 samples=3258 207.2169 planet-periods 8829 handoffs=1 boundaries=8058 opens=507 refused=0 lost=0 events=17395
+  trace: plane_trace step_log2=5 samples=3258 207.2169 planet-periods 6458 handoffs=0 boundaries=6009 opens=338 refused=0 lost=0 events=12805
+  trace: plane_trace step_log2=5 samples=3200 200.0000 planet-periods 9798 handoffs=1 boundaries=9675 opens=79 refused=0 lost=0 events=19553
+  trace: plane_trace step_log2=5 samples=3200 200.0000 planet-periods 7129 handoffs=1 boundaries=6719 opens=268 refused=0 lost=0 events=14117
+  trace: plane_trace step_log2=5 samples=3147 193.3362 planet-periods 9519 handoffs=0 boundaries=9518 opens=2 refused=0 lost=0 events=19039
+  trace: plane_trace step_log2=5 samples=3147 193.3362 planet-periods 8628 handoffs=0 boundaries=8192 opens=287 refused=0 lost=0 events=17107
+  trace: plane_trace step_log2=5 samples=4808 400.9893 planet-periods 19700 handoffs=0 boundaries=19684 opens=14 refused=0 lost=0 events=39398
+  trace: plane_trace step_log2=5 samples=4808 400.9893 planet-periods 19684 handoffs=0 boundaries=19684 opens=2 refused=0 lost=0 events=39370
+  trace: plane_trace step_log2=5 samples=4801 400.0833 planet-periods 19755 handoffs=2 boundaries=19638 opens=77 refused=0 lost=0 events=39472
+  trace: plane_trace step_log2=5 samples=4801 400.0833 planet-periods 19640 handoffs=0 boundaries=19639 opens=2 refused=0 lost=0 events=39281
+  trace: plane_trace step_log2=5 samples=4793 399.0956 planet-periods 19591 handoffs=0 boundaries=19591 opens=2 refused=0 lost=0 events=39184
+  trace: plane_trace step_log2=5 samples=4793 399.0956 planet-periods 19619 handoffs=0 boundaries=19591 opens=23 refused=0 lost=0 events=39233
+  trace: plane_trace step_log2=5 samples=4837 404.5943 planet-periods 19866 handoffs=0 boundaries=19866 opens=2 refused=0 lost=0 events=39734
+  trace: plane_trace step_log2=5 samples=4837 404.5943 planet-periods 19866 handoffs=0 boundaries=19866 opens=2 refused=0 lost=0 events=39734
+  trace: plane_trace step_log2=5 samples=4801 400.0833 planet-periods 19645 handoffs=0 boundaries=19644 opens=2 refused=0 lost=0 events=39291
+  trace: plane_trace step_log2=5 samples=4801 400.0833 planet-periods 19645 handoffs=0 boundaries=19644 opens=2 refused=0 lost=0 events=39291
+  trace: plane_trace step_log2=5 samples=4765 395.6059 planet-periods 19425 handoffs=0 boundaries=19425 opens=2 refused=0 lost=0 events=38852
+  trace: plane_trace step_log2=5 samples=4765 395.6059 planet-periods 19425 handoffs=0 boundaries=19425 opens=2 refused=0 lost=0 events=38852
+  trace: plane_trace step_log2=5 samples=4801 400.0833 planet-periods 18880 handoffs=1 boundaries=18431 opens=324 refused=0 lost=0 events=37636
+  trace: plane_trace step_log2=5 samples=4801 400.0833 planet-periods 8990 handoffs=2 boundaries=8853 opens=73 refused=0 lost=0 events=17918
+  trace: plane_trace step_log2=5 samples=4642 380.2422 planet-periods 18721 handoffs=0 boundaries=18721 opens=2 refused=0 lost=0 events=37444
+  trace: plane_trace step_log2=5 samples=4642 380.2422 planet-periods 13429 handoffs=1 boundaries=12702 opens=502 refused=3 lost=0 events=26634
+  trace: plane_trace step_log2=5 samples=2001 50.0250 planet-periods 2456 handoffs=0 boundaries=2456 opens=2 refused=0 lost=0 events=4914
+  trace: plane_trace step_log2=5 samples=2633 129.0686 planet-periods 6338 handoffs=0 boundaries=6337 opens=2 refused=0 lost=0 events=12677
+  trace: plane_trace step_log2=5 samples=2992 173.9535 planet-periods 8753 handoffs=0 boundaries=8541 opens=113 refused=0 lost=0 events=17407
+  trace: plane_trace step_log2=5 samples=2633 129.0686 planet-periods 5113 handoffs=1 boundaries=4585 opens=329 refused=1 lost=0 events=10028
+  sum: kicks=486770 spans=10445.17 planet-periods -> 46.6 kicks per planet period per ship
+ROW plane-B17-s7 rc=1 wall=37.0
+  out: B17 FAIL resonance: e-pump ratio [1.339843, 17.009306] over 29 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 0.002 min over 23 librating (needs 0.8); regime 6/28 matched (1 borderline, not asked); controls 0/3; 8 unanswered, 1 of 41 not converged; 32 cases fail a leg, among them 2:1 mu 3e-5 detune -0.33 phase 0, 2:1 mu 3e-5 detune -0.33 phase 1, 2:1 mu 3e-5 detune +0.00 phase 0, 2:1 mu 3e-5 detune +0.00 phase 1 [36.99 s]
+  out: behave plane (B17): FAIL B17
+  trace: plane_trace step_log2=7 samples=3203 200.3487 planet-periods 9835 handoffs=0 boundaries=9834 opens=2 refused=0 lost=0 events=19671
+  trace: plane_trace step_log2=7 samples=3203 200.3487 planet-periods 9835 handoffs=0 boundaries=9834 opens=2 refused=0 lost=0 events=19671
+  trace: plane_trace step_log2=7 samples=3200 200.0000 planet-periods 9818 handoffs=0 boundaries=9817 opens=2 refused=0 lost=0 events=19637
+  trace: plane_trace step_log2=7 samples=3200 200.0000 planet-periods 9818 handoffs=0 boundaries=9817 opens=2 refused=0 lost=0 events=19637
+  trace: plane_trace step_log2=7 samples=3198 199.7143 planet-periods 9804 handoffs=0 boundaries=9803 opens=2 refused=0 lost=0 events=19609
+  trace: plane_trace step_log2=7 samples=3198 199.7143 planet-periods 9804 handoffs=0 boundaries=9803 opens=2 refused=0 lost=0 events=19609
+  trace: plane_trace step_log2=7 samples=3213 201.5652 planet-periods 9897 handoffs=0 boundaries=9897 opens=2 refused=0 lost=0 events=19796
+  trace: plane_trace step_log2=7 samples=3213 201.5652 planet-periods 9917 handoffs=0 boundaries=9897 opens=17 refused=0 lost=0 events=19831
+  trace: plane_trace step_log2=7 samples=3200 200.0000 planet-periods 9820 handoffs=0 boundaries=9820 opens=2 refused=0 lost=0 events=19642
+  trace: plane_trace step_log2=7 samples=3200 200.0000 planet-periods 9820 handoffs=0 boundaries=9820 opens=2 refused=0 lost=0 events=19642
+  trace: plane_trace step_log2=7 samples=3189 198.5709 planet-periods 9750 handoffs=0 boundaries=9750 opens=2 refused=0 lost=0 events=19502
+  trace: plane_trace step_log2=7 samples=3189 198.5709 planet-periods 9750 handoffs=0 boundaries=9750 opens=2 refused=0 lost=0 events=19502
+  trace: plane_trace step_log2=7 samples=3258 207.2169 planet-periods 6612 handoffs=0 boundaries=6307 opens=221 refused=0 lost=0 events=13140
+  trace: plane_trace step_log2=7 samples=3200 200.0000 planet-periods 9868 handoffs=1 boundaries=9746 opens=79 refused=0 lost=0 events=19694
+  trace: plane_trace step_log2=7 samples=3147 193.3362 planet-periods 9519 handoffs=0 boundaries=9518 opens=2 refused=0 lost=0 events=19039
+  trace: plane_trace step_log2=7 samples=3147 193.3362 planet-periods 9097 handoffs=1 boundaries=8578 opens=295 refused=1 lost=0 events=17971
+  trace: plane_trace step_log2=7 samples=4808 400.9893 planet-periods 19700 handoffs=0 boundaries=19684 opens=14 refused=0 lost=0 events=39398
+  trace: plane_trace step_log2=7 samples=4808 400.9893 planet-periods 19684 handoffs=0 boundaries=19684 opens=2 refused=0 lost=0 events=39370
+  trace: plane_trace step_log2=7 samples=4801 400.0833 planet-periods 19755 handoffs=2 boundaries=19638 opens=77 refused=0 lost=0 events=39472
+  trace: plane_trace step_log2=7 samples=4801 400.0833 planet-periods 19640 handoffs=0 boundaries=19639 opens=2 refused=0 lost=0 events=39281
+  trace: plane_trace step_log2=7 samples=4793 399.0956 planet-periods 19591 handoffs=0 boundaries=19591 opens=2 refused=0 lost=0 events=39184
+  trace: plane_trace step_log2=7 samples=4793 399.0956 planet-periods 19619 handoffs=0 boundaries=19591 opens=23 refused=0 lost=0 events=39233
+  trace: plane_trace step_log2=7 samples=4837 404.5943 planet-periods 19866 handoffs=0 boundaries=19866 opens=2 refused=0 lost=0 events=39734
+  trace: plane_trace step_log2=7 samples=4837 404.5943 planet-periods 19866 handoffs=0 boundaries=19866 opens=2 refused=0 lost=0 events=39734
+  trace: plane_trace step_log2=7 samples=4801 400.0833 planet-periods 19645 handoffs=0 boundaries=19644 opens=2 refused=0 lost=0 events=39291
+  trace: plane_trace step_log2=7 samples=4801 400.0833 planet-periods 19645 handoffs=0 boundaries=19644 opens=2 refused=0 lost=0 events=39291
+  trace: plane_trace step_log2=7 samples=4765 395.6059 planet-periods 19425 handoffs=0 boundaries=19425 opens=2 refused=0 lost=0 events=38852
+  trace: plane_trace step_log2=7 samples=4765 395.6059 planet-periods 19425 handoffs=0 boundaries=19425 opens=2 refused=0 lost=0 events=38852
+  trace: plane_trace step_log2=7 samples=4801 400.0833 planet-periods 19489 handoffs=0 boundaries=19048 opens=308 refused=0 lost=0 events=38845
+  trace: plane_trace step_log2=7 samples=4801 400.0833 planet-periods 9163 handoffs=2 boundaries=9054 opens=65 refused=0 lost=0 events=18284
+  trace: plane_trace step_log2=7 samples=4642 380.2422 planet-periods 18721 handoffs=0 boundaries=18721 opens=2 refused=0 lost=0 events=37444
+  trace: plane_trace step_log2=7 samples=4642 380.2422 planet-periods 14329 handoffs=0 boundaries=13873 opens=344 refused=0 lost=0 events=28546
+  trace: plane_trace step_log2=7 samples=2001 50.0250 planet-periods 2456 handoffs=0 boundaries=2456 opens=2 refused=0 lost=0 events=4914
+  trace: plane_trace step_log2=7 samples=2633 129.0686 planet-periods 6338 handoffs=0 boundaries=6337 opens=2 refused=0 lost=0 events=12677
+  trace: plane_trace step_log2=7 samples=2992 173.9535 planet-periods 8753 handoffs=0 boundaries=8541 opens=113 refused=0 lost=0 events=17407
+  trace: plane_trace step_log2=7 samples=2633 129.0686 planet-periods 5258 handoffs=1 boundaries=4730 opens=329 refused=1 lost=0 events=10318
+  sum: kicks=473332 spans=10037.96 planet-periods -> 47.2 kicks per planet period per ship
+ROW plane-B14-s3 rc=1 wall=60.1
+  out: B14 FAIL timeout: 60.1 s over the 60 s limit
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1147 handoffs=2 boundaries=488 opens=392 refused=0 lost=0 events=2029
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1417 handoffs=1 boundaries=885 opens=359 refused=0 lost=0 events=2662
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 40515 handoffs=0 boundaries=477 opens=7157 refused=0 lost=0 events=48149
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 3312 handoffs=1 boundaries=2807 opens=335 refused=0 lost=0 events=6455
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 14692 handoffs=0 boundaries=520 opens=7802 refused=0 lost=0 events=23014
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1484 handoffs=0 boundaries=864 opens=401 refused=0 lost=0 events=2749
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1670 handoffs=3 boundaries=690 opens=673 refused=0 lost=0 events=3036
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 921 handoffs=2 boundaries=565 opens=186 refused=0 lost=0 events=1674
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 37404 handoffs=0 boundaries=440 opens=6602 refused=0 lost=0 events=44446
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1114 handoffs=2 boundaries=533 opens=347 refused=0 lost=0 events=1996
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1361 handoffs=1 boundaries=544 opens=513 refused=0 lost=0 events=2419
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 5220 handoffs=1 boundaries=2801 opens=582 refused=0 lost=0 events=8604
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 37445 handoffs=0 boundaries=440 opens=6610 refused=0 lost=0 events=44495
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 827 handoffs=0 boundaries=430 opens=206 refused=0 lost=0 events=1463
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 35427 handoffs=0 boundaries=527 opens=7915 refused=0 lost=0 events=43869
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 6920 handoffs=0 boundaries=6920 opens=2 refused=0 lost=0 events=13842
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 15867 handoffs=0 boundaries=562 opens=8440 refused=0 lost=0 events=24869
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 10453 handoffs=2 boundaries=308 opens=1946 refused=0 lost=0 events=12709
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 40124 handoffs=0 boundaries=483 opens=7259 refused=0 lost=0 events=47866
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 6920 handoffs=0 boundaries=6920 opens=2 refused=0 lost=0 events=13842
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 11927 handoffs=0 boundaries=5411 opens=1166 refused=0 lost=0 events=18504
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1302 handoffs=0 boundaries=862 opens=302 refused=0 lost=0 events=2466
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 26542 handoffs=3 boundaries=939 opens=7372 refused=0 lost=0 events=34856
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1089 handoffs=1 boundaries=640 opens=239 refused=0 lost=0 events=1969
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 34939 handoffs=0 boundaries=411 opens=6167 refused=0 lost=0 events=41517
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1644 handoffs=1 boundaries=617 opens=637 refused=0 lost=0 events=2899
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 20061 handoffs=0 boundaries=236 opens=3542 refused=0 lost=0 events=23839
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 13081 handoffs=2 boundaries=333 opens=3474 refused=0 lost=0 events=16890
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 834 handoffs=1 boundaries=473 opens=265 refused=0 lost=0 events=1573
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1120 handoffs=0 boundaries=235 opens=608 refused=0 lost=0 events=1963
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 16524 handoffs=0 boundaries=551 opens=8275 refused=0 lost=0 events=25350
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1160 handoffs=1 boundaries=886 opens=200 refused=0 lost=0 events=2247
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 12106 handoffs=0 boundaries=5674 opens=1151 refused=0 lost=0 events=18931
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1506 handoffs=4 boundaries=871 opens=431 refused=0 lost=0 events=2812
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1982 handoffs=4 boundaries=778 opens=732 refused=0 lost=0 events=3496
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 804 handoffs=0 boundaries=219 opens=435 refused=0 lost=0 events=1458
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 18950 handoffs=0 boundaries=521 opens=7817 refused=0 lost=0 events=27288
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1362 handoffs=0 boundaries=862 opens=296 refused=0 lost=0 events=2520
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 9518 handoffs=3 boundaries=465 opens=2589 refused=0 lost=0 events=12575
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 1361 handoffs=1 boundaries=887 opens=345 refused=0 lost=0 events=2594
+  trace: plane_trace step_log2=3 samples=3200 50.0000 planet-periods 11864 handoffs=0 boundaries=528 opens=7580 refused=0 lost=0 events=19972
+  sum: kicks=453916 spans=2050.00 planet-periods -> 221.4 kicks per planet period per ship
+ROW plane-B14-s4 rc=1 wall=60.1
+  out: B14 FAIL timeout: 60.1 s over the 60 s limit
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 2209 handoffs=4 boundaries=1471 opens=495 refused=0 lost=0 events=4179
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 90869 handoffs=0 boundaries=1069 opens=16037 refused=0 lost=0 events=107975
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 2000 handoffs=1 boundaries=1752 opens=170 refused=0 lost=0 events=3923
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 76863 handoffs=0 boundaries=904 opens=13566 refused=0 lost=0 events=91333
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 678 handoffs=0 boundaries=501 opens=134 refused=0 lost=0 events=1313
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 24425 handoffs=0 boundaries=1163 opens=17448 refused=0 lost=0 events=43036
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 2542 handoffs=0 boundaries=1726 opens=557 refused=0 lost=0 events=4825
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 14989 handoffs=1 boundaries=1150 opens=10304 refused=0 lost=0 events=26444
+  trace: plane_trace step_log2=4 samples=3200 50.0000 planet-periods 1569 handoffs=1 boundaries=1022 opens=265 refused=0 lost=0 events=2857
+  sum: kicks=216144 spans=450.00 planet-periods -> 480.3 kicks per planet period per ship
+ROW plane-B14-s5 rc=1 wall=60.1
+  out: B14 FAIL timeout: 60.1 s over the 60 s limit
+  trace: plane_trace step_log2=5 samples=3200 50.0000 planet-periods 4752 handoffs=2 boundaries=3436 opens=796 refused=0 lost=0 events=8986
+  trace: plane_trace step_log2=5 samples=3200 50.0000 planet-periods 176827 handoffs=0 boundaries=2100 opens=31511 refused=0 lost=0 events=210438
+  trace: plane_trace step_log2=5 samples=3200 50.0000 planet-periods 2428 handoffs=3 boundaries=1462 opens=606 refused=0 lost=0 events=4499
+  trace: plane_trace step_log2=5 samples=3200 50.0000 planet-periods 149311 handoffs=0 boundaries=1756 opens=26351 refused=0 lost=0 events=177418
+  trace: plane_trace step_log2=5 samples=3200 50.0000 planet-periods 1114 handoffs=0 boundaries=1018 opens=74 refused=0 lost=0 events=2206
+  trace: plane_trace step_log2=5 samples=3200 50.0000 planet-periods 49321 handoffs=0 boundaries=2348 opens=35231 refused=0 lost=0 events=86900
+  trace: plane_trace step_log2=5 samples=3200 50.0000 planet-periods 4224 handoffs=0 boundaries=3456 opens=503 refused=0 lost=0 events=8183
+  sum: kicks=387977 spans=350.00 planet-periods -> 1108.5 kicks per planet period per ship
+ROW plane-B14-s7 rc=1 wall=60.1
+  out: B14 FAIL timeout: 60.1 s over the 60 s limit
+  trace: plane_trace step_log2=7 samples=3200 50.0000 planet-periods 672624 handoffs=0 boundaries=9452 opens=141796 refused=0 lost=0 events=823872
+  sum: kicks=672624 spans=50.00 planet-periods -> 13452.5 kicks per planet period per ship

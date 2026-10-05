@@ -1,0 +1,32 @@
+# cargo test --release -p xtask moon_probe -- --ignored --nocapture (118 s, this box)
+# The B14 gate's own first 12 circular births (sample::moones(12)), one reference run each,
+# class by the gate's rule (>1.5 R_H at any sample), apsidal rate by the gate's hill::apsidal_rate.
+# NOT the frozen gate (its 768 reference runs + the law do not fit the 60 s phase limit here).
+step 7 moon 0 a=0.773R_H retro=false: LOST (reference escape)
+step 7 moon 1 a=0.447R_H retro=true: class bound (reference bound), apsidal rate law none reference none
+step 7 moon 2 a=0.509R_H retro=false: LOST (reference escape)
+step 7 moon 3 a=0.402R_H retro=true: class bound (reference bound), apsidal rate law none reference none
+step 7 moon 4 a=0.676R_H retro=false: class escape (reference escape)
+step 7 moon 5 a=0.743R_H retro=true: class bound (reference bound)
+step 7 moon 6 a=0.509R_H retro=false: class escape (reference escape)
+step 7 moon 7 a=0.682R_H retro=true: class bound (reference bound)
+step 7 moon 8 a=0.481R_H retro=false: class escape (reference escape)
+step 7 moon 9 a=0.304R_H retro=true: class bound (reference bound)
+step 7 moon 10 a=0.719R_H retro=false: class escape (reference escape)
+step 7 moon 11 a=0.807R_H retro=true: class escape (reference escape)
+step 7: classes 10/12 agree
+step 3 moon 0 a=0.773R_H retro=false: class escape (reference escape)
+step 3 moon 1 a=0.447R_H retro=true: LOST (reference bound)
+step 3 moon 2 a=0.509R_H retro=false: class escape (reference escape)
+step 3 moon 3 a=0.402R_H retro=true: class bound (reference bound)
+step 3 moon 4 a=0.676R_H retro=false: class escape (reference escape)
+step 3 moon 5 a=0.743R_H retro=true: class bound (reference bound)
+step 3 moon 6 a=0.509R_H retro=false: class escape (reference escape)
+step 3 moon 7 a=0.682R_H retro=true: class escape (reference bound)
+step 3 moon 8 a=0.481R_H retro=false: class escape (reference escape)
+step 3 moon 9 a=0.304R_H retro=true: class bound (reference bound)
+step 3 moon 10 a=0.719R_H retro=false: class escape (reference escape)
+step 3 moon 11 a=0.807R_H retro=true: class escape (reference escape)
+step 3: classes 10/12 agree
+# apsidal rates read "none" for the reference too: circular births have no apse. The gate's rated
+# moons come from the eccentric draw, which this probe does not cover.
