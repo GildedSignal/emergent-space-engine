@@ -3,7 +3,7 @@
 # lab/results/<id>/ onto its own claude/lab-<id> branch, and pushes it only if nothing else changed.
 name: glm-lab
 on:
-  schedule: [{cron: '20 */5 * * *'}]   # one window of three runs per GLM 5-hour window
+  schedule: [{cron: '17 * * * *'}]   # a backstop: each window starts the next itself (Julien: "let it work")
   workflow_dispatch:
 concurrency: {group: glm-lab, cancel-in-progress: false}
 
@@ -49,7 +49,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions: {contents: write}
+    permissions: {contents: write, actions: write}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -71,3 +71,10 @@ jobs:
               git push -q origin "claude/lab-$id" && echo "published: $id | $(head -1 "$d/DONE")"
             else echo "refused (paths): $id"; fi
           done
+      - name: Start the next window at once, unless GLM itself failed (all grades missing means its token window is spent)
+        if: always()
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          if ls ../results/*/DONE >/dev/null 2>&1 && grep -L "Grade: missing" ../results/*/DONE | grep -q .; then
+            gh workflow run glm-lab.yml --ref main && echo "next window started"
+          else echo "no healthy result: the hourly backstop retries"; fi
