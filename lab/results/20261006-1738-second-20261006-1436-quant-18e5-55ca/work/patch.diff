@@ -1,0 +1,174 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..7ad3988 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -107,7 +107,25 @@ pub struct Stats {
+     /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
+     pub cost_ns: [u64; 5],
+     pub items: [u64; 5],
++    /// Lab run 20261006-1738-second: the most expensive single item per kind (nanoseconds), and what
++    /// ran inside the most expensive fleet item (battle slices, kicks). Measurement only; no outcome
++    /// reads these. The hand-out item is timed apart (`handout_max_ns`) so a fleet maximum is a battle
++    /// slice, not a hand-out.
++    pub cost_max_ns: [u64; 5],
++    pub handout_max_ns: u64,
++    pub fleet_max_slices: u64,
++    pub fleet_max_kicks: u64,
++    /// The largest player item, split: nested fleet catch-up, hand-out drain, ship-lane pull,
++    /// step+apply, encounters check. Maxima of one call, nanoseconds (measurement only).
++    pub player_handouts_ns: u64,
++    /// Members made bodies inside the largest hand-out drain (see `player_handouts_ns`).
++    pub player_drain_n: u64,
++    pub player_fleets_ns: u64,
++    pub player_pull_ns: u64,
++    pub player_step_ns: u64,
++    pub player_encounters_ns: u64,
+ }
++
+ impl Stats {
+     pub fn events(&self) -> u64 {
+         self.kicks + self.opens + self.boundaries + self.handoffs + self.slices + self.decisions
+@@ -568,25 +586,49 @@ impl Universe {
+             // before the player's tick must exist, so the fleets run to the tick before it (never to it:
+             // a hand-out at the player's own tick comes after the player in the order of ids, and a
+             // frame never runs past the presented time, which the digest's cut relies on).
++            let t0 = Instant::now();
+             for f in 0..self.fleets.len() {
+                 while self.fleets[f].live() && self.fleets[f].tick() < key.0 - 1 {
+                     self.resolve_fleet(f, key.0 - 1);
+                 }
+             }
++            let t_fleets = t0.elapsed().as_nanos() as u64;
+             // ...and so must the members already handed out, each made before the player reads the doll.
++            let t0 = Instant::now();
++            let mut n = 0u64;
+             while self.handouts.front().is_some_and(|(_, l)| l.tick < key.0) {
+                 self.resolve_handout();
++                n += 1;
+             }
++            let t_handouts = t0.elapsed().as_nanos() as u64;
+             let ships = std::mem::take(&mut self.lanes.ships);
++            let t0 = Instant::now();
+             self.pull(&ships, key);
++            let t_pull = t0.elapsed().as_nanos() as u64;
+             self.lanes.ships = ships;
++            let t0 = Instant::now();
++            let rec = self.bodies.rec(i);
++            let upd = step::process(&self.ctx(), i, rec);
++            self.apply(i, upd);
++            let t_step = t0.elapsed().as_nanos() as u64;
++            let t0 = Instant::now();
++            self.encounters_for_player();
++            let t_enc = t0.elapsed().as_nanos() as u64;
++            // Lab run 20261006-1738-second: what one player item is made of (measurement only).
++            let st = &mut self.stats;
++            if t_handouts > st.player_handouts_ns {
++                st.player_handouts_ns = t_handouts;
++                st.player_drain_n = n;
++            }
++            st.player_fleets_ns = st.player_fleets_ns.max(t_fleets);
++            st.player_pull_ns = st.player_pull_ns.max(t_pull);
++            st.player_step_ns = st.player_step_ns.max(t_step);
++            st.player_encounters_ns = st.player_encounters_ns.max(t_enc);
++            return;
+         }
+         let rec = self.bodies.rec(i);
+         let upd = step::process(&self.ctx(), i, rec);
+         self.apply(i, upd);
+-        if kind == Kind::Player {
+-            self.encounters_for_player();
+-        }
+     }
+ 
+     fn resolve_entity(&mut self, e: usize) {
+@@ -594,7 +636,9 @@ impl Universe {
+             let t0 = Instant::now();
+             self.resolve_handout();
+             // The fleet's cost (a hand-out was inside its item): time, not an item.
+-            self.stats.cost_ns[4] += t0.elapsed().as_nanos() as u64;
++            let ns = t0.elapsed().as_nanos() as u64;
++            self.stats.cost_ns[4] += ns;
++            self.stats.handout_max_ns = self.stats.handout_max_ns.max(ns);
+             return;
+         }
+         match self.entity_fleet(e).filter(|_| e >= self.bodies.len()) {
+@@ -614,9 +658,11 @@ impl Universe {
+                 let t0 = Instant::now();
+                 let class = self.info[e].kind as usize;
+                 self.resolve_body(e);
+-                self.stats.cost_ns[class] += t0.elapsed().as_nanos() as u64;
+-                self.stats.items[class] += 1;
+-                self.requeue(e);
++            let ns = t0.elapsed().as_nanos() as u64;
++            self.stats.cost_ns[class] += ns;
++            self.stats.cost_max_ns[class] = self.stats.cost_max_ns[class].max(ns);
++            self.stats.items[class] += 1;
++            self.requeue(e);
+             }
+         }
+     }
+@@ -654,8 +700,14 @@ impl Universe {
+         if self.fleets[f].live() {
+             self.update_fleet_position(f);
+         }
+-        self.stats.cost_ns[4] += t0.elapsed().as_nanos() as u64;
++        let (ns, slices, kicks) = (t0.elapsed().as_nanos() as u64, step.slices, step.kicks);
++        self.stats.cost_ns[4] += ns;
+         self.stats.items[4] += 1;
++        if ns > self.stats.cost_max_ns[4] {
++            self.stats.cost_max_ns[4] = ns;
++            self.stats.fleet_max_slices = slices;
++            self.stats.fleet_max_kicks = kicks;
++        }
+         self.requeue(e);
+     }
+ 
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..baa95d1 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -118,14 +118,34 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
+     }
+     let d = s.dash.summary();
++    // Lab run 20261006-1436-quant: dump the per-frame series the Dash already keeps, for tail
++    // attribution. Off unless PLANE_FRAME_DUMP names a path; changes no measurement.
++    if let Ok(path) = std::env::var("PLANE_FRAME_DUMP") {
++        let mut csv = String::from("frame,engine_ms,view_ms,json_ms,wire_ms,cpu_ms,frame_ms,rtf\n");
++        for i in 0..d.frames {
++            let g = |v: &Vec<f64>| v.get(i).copied().unwrap_or_default();
++            csv.push_str(&format!(
++                "{},{},{},{},{},{},{},{}\n",
++                i, g(&s.dash.engine_ms), g(&s.dash.view_ms), g(&s.dash.json_ms), g(&s.dash.wire_ms),
++                g(&s.dash.cpu_ms), g(&s.dash.frame_ms), g(&s.dash.rtf)
++            ));
++        }
++        std::fs::write(&path, csv)?;
++    }
+     let wall_s = wall.elapsed().as_secs_f64();
+     let presented_at_end = s.p.u.now;
+     let st = s.stats();
+     let cost: Vec<_> = ["planet", "moon", "ship", "player", "fleet"]
+         .iter()
+         .enumerate()
+-        .map(|(i, k)| json!({"kind": k, "items": st.items[i], "total_ms": st.cost_ns[i] as f64 / 1e6, "us_per_item": if st.items[i] > 0 { st.cost_ns[i] as f64 / 1e3 / st.items[i] as f64 } else { 0.0 }}))
++        .map(|(i, k)| json!({"kind": k, "items": st.items[i], "total_ms": st.cost_ns[i] as f64 / 1e6, "us_per_item": if st.items[i] > 0 { st.cost_ns[i] as f64 / 1e3 / st.items[i] as f64 } else { 0.0 }, "max_item_ms": st.cost_max_ns[i] as f64 / 1e6}))
+         .collect();
++    let item_max = json!({
++        "note": "the most expensive single item per kind (the budget is checked between items, so this is the frame tail's quantum); handout is a member made a body, timed apart from the fleet's battle slices",
++        "handout_max_ms": st.handout_max_ns as f64 / 1e6,
++        "fleet_max_item": {"slices": st.fleet_max_slices, "kicks": st.fleet_max_kicks},
++        "player_drain_members": st.player_drain_n, "player_item_phases_max_ms": {"fleets_catchup": st.player_fleets_ns as f64 / 1e6, "handout_drain": st.player_handouts_ns as f64 / 1e6, "ship_lane_pull": st.player_pull_ns as f64 / 1e6, "step_apply": st.player_step_ns as f64 / 1e6, "encounters": st.player_encounters_ns as f64 / 1e6},
++    });
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
+@@ -143,7 +163,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+-        "engine_cost_by_kind": cost,
++        "engine_cost_by_kind": cost, "engine_item_max": item_max,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,

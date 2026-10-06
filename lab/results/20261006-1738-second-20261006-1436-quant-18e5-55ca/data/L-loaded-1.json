@@ -1,0 +1,509 @@
+{
+  "bodies": 428,
+  "bytes_per_body": 6054,
+  "catalogue_live": 428,
+  "cut_tick": 609076340,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        241
+      ],
+      [
+        6429139,
+        240
+      ],
+      [
+        80871803,
+        249
+      ],
+      [
+        87639318,
+        240
+      ],
+      [
+        162081982,
+        242
+      ],
+      [
+        168849497,
+        240
+      ],
+      [
+        243292160,
+        244
+      ],
+      [
+        250059675,
+        240
+      ],
+      [
+        324502339,
+        241
+      ],
+      [
+        331269854,
+        240
+      ],
+      [
+        405712518,
+        245
+      ],
+      [
+        412480033,
+        240
+      ],
+      [
+        486922696,
+        242
+      ],
+      [
+        493690211,
+        240
+      ],
+      [
+        568132875,
+        248
+      ],
+      [
+        574900390,
+        240
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        241
+      ],
+      [
+        6429139,
+        240
+      ],
+      [
+        80871803,
+        249
+      ],
+      [
+        87639318,
+        240
+      ],
+      [
+        162081982,
+        242
+      ],
+      [
+        168849497,
+        240
+      ],
+      [
+        243292160,
+        244
+      ],
+      [
+        250059675,
+        240
+      ],
+      [
+        324502339,
+        241
+      ],
+      [
+        331269854,
+        240
+      ],
+      [
+        405712518,
+        245
+      ],
+      [
+        412480033,
+        240
+      ],
+      [
+        486922696,
+        242
+      ],
+      [
+        493690211,
+        240
+      ],
+      [
+        568132875,
+        248
+      ],
+      [
+        574900390,
+        240
+      ]
+    ]
+  },
+  "digest": "a73ef0f45bd673fc5ffab738f65d736ba16a19ffc6e642277507a40248f1172a",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "max_item_ms": 0.0,
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "max_item_ms": 0.0,
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 15252,
+      "kind": "ship",
+      "max_item_ms": 6.152033,
+      "total_ms": 1908.511438,
+      "us_per_item": 125.13188027799633
+    },
+    {
+      "items": 2135,
+      "kind": "player",
+      "max_item_ms": 66.341884,
+      "total_ms": 1956.214453,
+      "us_per_item": 916.2596969555035
+    },
+    {
+      "items": 14721,
+      "kind": "fleet",
+      "max_item_ms": 6.214076,
+      "total_ms": 817.422706,
+      "us_per_item": 55.52766157190408
+    }
+  ],
+  "engine_item_max": {
+    "fleet_max_item": {
+      "kicks": 0,
+      "slices": 1
+    },
+    "handout_max_ms": 7.185232,
+    "note": "the most expensive single item per kind (the budget is checked between items, so this is the frame tail's quantum); handout is a member made a body, timed apart from the fleet's battle slices",
+    "player_drain_members": 64,
+    "player_item_phases_max_ms": {
+      "encounters": 8.098009,
+      "fleets_catchup": 4.020175,
+      "handout_drain": 57.786739,
+      "ship_lane_pull": 10.995445,
+      "step_apply": 6.638072
+    }
+  },
+  "events_per_second": 1116.2030903570844,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      4,
+      2,
+      1
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 6.652336000001014,
+    "p99": 13.962584999999308,
+    "p99.9": 17.582956000000195,
+    "worst": 56.930920000000015
+  },
+  "frame_ms": {
+    "p50": 9.396879,
+    "p95": 20.308944,
+    "p99": 24.172385000000002,
+    "p99.9": 34.515693
+  },
+  "frames": 1800,
+  "hitch_counts": [
+    232,
+    4,
+    2
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 27840.077078965445,
+    "above_33ms": 480.0013289476801,
+    "above_50ms": 240.00066447384006
+  },
+  "lost_bodies": [
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)"
+  ],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-06T17:55:27Z",
+    "unix": 1791309327,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-06T17:54:57Z",
+    "unix": 1791309297,
+    "when": "before"
+  },
+  "paced": true,
+  "player_alive": true,
+  "presented_tick_at_end": 483953532,
+  "rtf": {
+    "lowest_1pct": 0.0,
+    "median": 99.99980020956185,
+    "overflow_frames": 394
+  },
+  "rtf_target": 100.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 9294, opens: 440, boundaries: 8930, handoffs: 1, lost: 212, refused: 0, slices: 14721, encounters: 178, decisions: 12, leavers: 400, dissolved: 1, cost_ns: [0, 0, 1908511438, 1956214453, 817422706], items: [0, 0, 15252, 2135, 14721], cost_max_ns: [0, 0, 6152033, 66341884, 6214076], handout_max_ns: 7185232, fleet_max_slices: 1, fleet_max_kicks: 0, player_handouts_ns: 57786739, player_drain_n: 64, player_fleets_ns: 4020175, player_pull_ns: 10995445, player_step_ns: 6638072, player_encounters_ns: 8098009 }",
+  "throttle_level": 15,
+  "uptime_after": "17:55:27 up 40 days,  8:58,  0 user,  load average: 4.62, 1.89, 0.96",
+  "uptime_before": "17:54:57 up 40 days,  8:57,  1 user,  load average: 2.19, 1.18, 0.70",
+  "wall_seconds": 30.009195552,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 68.437793,
+      "p50": 1.189406,
+      "p99": 9.646275,
+      "share": 0.25975283646540015
+    },
+    "view_gather": {
+      "max": 30.693614,
+      "p50": 4.294572,
+      "p99": 14.540773999999999,
+      "share": 0.5487843114834652
+    },
+    "view_json": {
+      "max": 7.174786,
+      "p50": 0.765822,
+      "p99": 4.774107,
+      "share": 0.13700360899224504
+    },
+    "wire": {
+      "max": 5.456307,
+      "p50": 0.288069,
+      "p99": 3.463281,
+      "share": 0.0544592430588897
+    }
+  },
+  "worst_hitch_at_frame": 229,
+  "worst_hitch_ms": 87.953374
+}
