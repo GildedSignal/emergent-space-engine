@@ -1,0 +1,254 @@
+{
+ "anchors": {
+  "kick_m1_us": 29.0,
+  "kick_made_x86_us": 36.0,
+  "kick_leavers_x86_us": 92.7,
+  "kick_floor_ns": 24.0,
+  "cad_b9_ceiling": 512,
+  "cad_h0190": 32,
+  "cad_avg": 0.3,
+  "event_us": 2.0,
+  "tube_b": 16,
+  "prog_bits": 0.126,
+  "scar_b": 24,
+  "gather_item_us": 180.0,
+  "enc_item_us": 190.0,
+  "enc_setup_us": 12.0,
+  "T_orbit_adversarial": 5400.0,
+  "T_orbit_year": 31500000.0
+ },
+ "kicks": [
+  {
+   "pairing": "headline arithmetic: B9 ceiling cadence at the 2 us event cost",
+   "cadence_per_orbit": 512,
+   "cost_us": 2.0,
+   "cores_at_1e9": 189.6296,
+   "verdict": "DEAD x47"
+  },
+  {
+   "pairing": "today, honest pairing: H0190 cadence at the M1 kick cost",
+   "cadence_per_orbit": 32,
+   "cost_us": 29.0,
+   "cores_at_1e9": 171.8519,
+   "verdict": "DEAD x43"
+  },
+  {
+   "pairing": "today, x86 fleet members (worst real)",
+   "cadence_per_orbit": 32,
+   "cost_us": 92.7,
+   "cores_at_1e9": 549.3333,
+   "verdict": "DEAD x137"
+  },
+  {
+   "pairing": "designed: averaged cadence at the 2 us event target",
+   "cadence_per_orbit": 0.3,
+   "cost_us": 2.0,
+   "cores_at_1e9": 0.1111,
+   "verdict": "PASS"
+  },
+  {
+   "pairing": "designed, arithmetic floor only (this run)",
+   "cadence_per_orbit": 0.3,
+   "cost_us": 0.024,
+   "cores_at_1e9": 0.0013,
+   "verdict": "PASS"
+  },
+  {
+   "pairing": "designed + re-anchor jet (0.05 compiles/kick, compile 1-30 us)",
+   "cadence_per_orbit": 0.3,
+   "cost_us": 2.0,
+   "cores_at_1e9": 0.1111,
+   "verdict": "PASS"
+  },
+  {
+   "pairing": "re-anchor amortized add-on: 0.05 x compile(1..30 us)",
+   "cadence_per_orbit": 0.3,
+   "cost_us": "0.05..1.5",
+   "cores_at_1e9": 0.0833
+  }
+ ],
+ "encounter_setup": [
+  {
+   "candidates_per_kick": 1,
+   "setup_us": 12.0,
+   "tag": "today's 12 us midpoint",
+   "cores_at_1e9": 0.6667,
+   "verdict": "PASS"
+  },
+  {
+   "candidates_per_kick": 1,
+   "setup_us": 2.0,
+   "tag": "at the 2 us event target",
+   "cores_at_1e9": 0.1111,
+   "verdict": "PASS"
+  },
+  {
+   "candidates_per_kick": 4,
+   "setup_us": 12.0,
+   "tag": "today's 12 us midpoint",
+   "cores_at_1e9": 2.6667,
+   "verdict": "PASS"
+  },
+  {
+   "candidates_per_kick": 4,
+   "setup_us": 2.0,
+   "tag": "at the 2 us event target",
+   "cores_at_1e9": 0.4444,
+   "verdict": "PASS"
+  }
+ ],
+ "memory": [
+  {
+   "form": "stored tubes (16 B each)",
+   "bytes_per_body": 16,
+   "GB_at_1e9": 16.0,
+   "verdict": "DEAD x3.2"
+  },
+  {
+   "form": "population programs (gold components-98bc)",
+   "bytes_per_body": 0.01575,
+   "GB_at_1e9": 0.016,
+   "verdict": "PASS"
+  },
+  {
+   "form": "programs + scars, kicked fraction 0.001",
+   "GB_at_1e9": 0.04,
+   "verdict": "PASS"
+  },
+  {
+   "form": "programs + scars, kicked fraction 0.01",
+   "GB_at_1e9": 0.256,
+   "verdict": "PASS"
+  },
+  {
+   "form": "programs + scars, kicked fraction 0.1",
+   "GB_at_1e9": 2.416,
+   "verdict": "PASS"
+  },
+  {
+   "form": "programs + scars, kicked fraction 1",
+   "GB_at_1e9": 24.016,
+   "verdict": "DEAD x4.8"
+  }
+ ],
+ "max_live_distinctions": 208333333,
+ "bandwidth": [
+  {
+   "cadence": 512,
+   "bytes_per_kick": 128,
+   "GB_s": 12.136,
+   "verdict": "PASS"
+  },
+  {
+   "cadence": 0.3,
+   "bytes_per_kick": 64,
+   "GB_s": 0.004,
+   "verdict": "PASS"
+  }
+ ],
+ "gather": [
+  {
+   "tag": "today's plane gather",
+   "frame_seconds_at_1e9_items": 179999.99999999997,
+   "verdict": "DEAD x35928144 vs 30% of one frame"
+  },
+  {
+   "tag": "a 1 us/item rewrite",
+   "frame_seconds_at_1e9_items": 1000.0,
+   "verdict": "DEAD x199601 vs 30% of one frame"
+  },
+  {
+   "tag": "a 1 ns/item rewrite",
+   "frame_seconds_at_1e9_items": 1.0,
+   "verdict": "DEAD x200 vs 30% of one frame"
+  },
+  {
+   "tag": "aggregated to 10000 visible at 1.0 us each, EVERY frame",
+   "frame_seconds": 0.01,
+   "verdict": "DEAD"
+  },
+  {
+   "tag": "aggregated to 100000 visible at 1.0 us each, EVERY frame",
+   "frame_seconds": 0.09999999999999999,
+   "verdict": "DEAD"
+  },
+  {
+   "tag": "aggregated to 1e+06 visible at 0.001 us each, EVERY frame",
+   "frame_seconds": 0.001,
+   "verdict": "PASS"
+  },
+  {
+   "tag": "incremental: changed visible items per frame (933 at the designed kick rate) x 1 us",
+   "frame_seconds": 0.0009259259259259259,
+   "verdict": "PASS"
+  }
+ ],
+ "reconciliation": {
+  "headline": "0.19 core/M x 1000 = 190 cores",
+  "its_arithmetic": "512 events/orbit x 2.0 us / 5400 s x 1e9 = 190 cores",
+  "today_honest": "32 kicks/orbit x 29.0 us = 172 cores (x86 members: 549)",
+  "note": "the headline pairs the gate-ceiling cadence with the cheap event cost; today's real pairing is the reverse (16x better cadence, 14.5x worse cost); the two errors cancel to within 10%",
+  "designed": "0.3/orbit x 2.0 us = 0.11 core"
+ },
+ "scene_sweep": [
+  {
+   "scene": "adversarial: all 1e9 on 90-min orbits",
+   "cores_kicks_only": 0.11111
+  },
+  {
+   "scene": "goal-shaped: 1e7 in fleets (90 min) + rest on >= year orbits",
+   "cores_kicks_only": 0.00111
+  },
+  {
+   "scene": "goal-shaped: the 9.9e8 remainder",
+   "cores_kicks_only": 2e-05
+  }
+ ],
+ "designed_total": {
+  "kicks": 0.111,
+  "encounter_setup_k4_12us": 2.667,
+  "encounter_setup_k4_2us": 0.444,
+  "gather_incremental": 0.0556,
+  "of_4_cores": "PASS with 1.4x margin at k=4 x 12 us; 13x at k=4 x 2 us",
+  "binding_term": "encounter setup (5-48x the designed kick cost at today's 2.5-24 us per candidate pair)"
+ },
+ "levers": [
+  {
+   "lever": "cadence 32 -> 0.3 (orbit-averaged tides, adopted H0190)",
+   "gain": "107x",
+   "status": "banked in the design"
+  },
+  {
+   "lever": "kill the rebind in the kick (29 -> 14 us)",
+   "gain": "2x",
+   "status": "Sol's wt/kick, measured share 15/29; x86 bench here: 97% of kicks rebind"
+  },
+  {
+   "lever": "kick arithmetic 14 us -> 2 us event target (floor measured here at 24 ns)",
+   "gain": "7x (80x above floor)",
+   "status": "compiler work, not a physics bound"
+  },
+  {
+   "lever": "encounter setup 12 us -> 2 us per candidate pair",
+   "gain": "6x",
+   "status": "the un-banked lever: it is 5-48x the designed kick cost"
+  },
+  {
+   "lever": "gather aggregation + incrementality",
+   "gain": ">= 1e5 x",
+   "status": "mandatory: O(N) gather is dead by 5-7 orders even at 1 ns/item"
+  },
+  {
+   "lever": "scar reabsorption",
+   "gain": "unbounded session length",
+   "status": "0.9 MB/s of distinction bits = 3.3 GB/h if never reclaimed"
+  }
+ ],
+ "h_live": {
+  "kicks_per_game_second_adversarial": 55555.555555555555,
+  "raw_distinction_MB_per_game_second": 0.889,
+  "one_hour_accumulation_GB_if_never_reabsorbed": 3.2,
+  "scar_cap_from_5GB": 208333333,
+  "statement": "the instantaneous footprint passes, but an unreabsorbed 0.9 MB/s of distinction bits is 3.3 GB/h: scar reclamation must run at >= the distinction rate, or every long session dies regardless of N"
+ }
+}
