@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered before the decisive experiments, three probes reproduced from committed scripts, outputs and machine state saved in `lab/results/20261005-2231-m-micro-numbers-13dd/` (`dossier.md`, `predictions.md`, `work/probe_{a,b}.{rs,out}`, `work/probe_c.{py,out}`, `work/machine.txt`), no git commands run, no crates or docs touched.
+
+**Claim:** every update of the law can be one floor-triangular integer shear — exactly accumulated, rounded once at the shear, on a fixed-grid carry — giving the changeover bit-exact invertibility and exact measure preservation by construction (probe A: Jacobi exponent 0.001 vs 0.108 floor / 0.112 adaptive-rescale / 0.154 float64, bit identity out-and-back; probe B: order-independent bits at 0.35× the cost of the plane's software-float chain), with the discovered constraint that a carry whose modulus follows its source is provably non-injective, so denominators must floor onto a fixed grid.
