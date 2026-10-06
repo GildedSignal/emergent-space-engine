@@ -1,0 +1,184 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..dd7cce4 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -349,19 +349,29 @@ fn root_witness(
+         Some((a, b))
+     } else { None })
+ }
++thread_local! {
++    /// Sub-phase timings of the last `from_state` (experiment 20261006-0437).
++    pub static FIT_PHASE: std::cell::RefCell<Option<(u64, u64, u64, u64, u64)>> = const { std::cell::RefCell::new(None) };
++}
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        let __f0 = std::time::Instant::now();
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let __t_fit = __f0.elapsed();
++        let __c0 = std::time::Instant::now();
+         let trajectory = if key.periodic() {
+             Trajectory::Cycle(Orbit::compile(key)?)
+         } else {
+             Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+         };
++        let __t_compile = __c0.elapsed();
++        let __a0 = std::time::Instant::now();
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
+         if incoming {
+             offset = offset.negate();
+             sample.reflect();
+         }
++        let __t_at = __a0.elapsed();
+         let (p, _) = state.components()?;
+         let at = angle(p[0], p[1])?;
+         let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
+@@ -378,7 +388,10 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
++        let __d0 = std::time::Instant::now();
+         fit.residual = Residual::between(state, fit.decoded_event()?);
++        let __t_dec = __d0.elapsed();
++        FIT_PHASE.set(Some((__t_fit.as_nanos() as u64, __t_compile.as_nanos() as u64, __t_at.as_nanos() as u64, __t_dec.as_nanos() as u64, 0)));
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 8aeafae..40f9abf 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -281,6 +281,20 @@ struct Work<'a, 'c> {
+     new_entry: Option<Arc<Entry>>,
+ }
+ 
++/// Per-phase timings of the last resolved kick (experiment 20261006-0437: decomposing the leaver tail).
++#[derive(Clone, Copy, Debug, Default)]
++pub struct PhaseTimes {
++    pub readout_ns: u64,
++    pub secs_ns: u64,
++    pub tide_ns: u64,
++    pub acc_ns: u64,
++    pub bind_ns: u64,
++}
++
++thread_local! {
++    pub static PHASE: std::cell::RefCell<Option<PhaseTimes>> = const { std::cell::RefCell::new(None) };
++}
++
+ impl Work<'_, '_> {
+     fn doll(&self) -> &crate::world::DollRec {
+         &self.ctx.dolls[self.rec.b.doll as usize]
+@@ -342,14 +356,21 @@ impl Work<'_, '_> {
+         Ok([q(0)?, q(1)?])
+     }
+ 
+-    /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let __p0 = std::time::Instant::now();
+         let st = self.rec.b.readout(t)?;
++        let __t_readout = __p0.elapsed();
++        let __p1 = std::time::Instant::now();
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
++        let __t_secs = __p1.elapsed();
++        let __p2 = std::time::Instant::now();
+         let tide = self.ctx.tide(d, t)?;
++        let __t_tide = __p2.elapsed();
++        let __p3 = std::time::Instant::now();
+         let a = force::acceleration(level, x, &secs, tide)?;
++        let __t_acc = __p3.elapsed();
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
+         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+@@ -370,7 +391,17 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        let __p4 = std::time::Instant::now();
++        let __bind_res = self.rebind(next, t, d);
++        let __t_bind = __p4.elapsed();
++        __bind_res?;
++        PHASE.set(Some(PhaseTimes {
++            readout_ns: __t_readout.as_nanos() as u64,
++            secs_ns: __t_secs.as_nanos() as u64,
++            tide_ns: __t_tide.as_nanos() as u64,
++            acc_ns: __t_acc.as_nanos() as u64,
++            bind_ns: __t_bind.as_nanos() as u64,
++        }));
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..29793c4 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -4,7 +4,7 @@ use emergent_space::{
+     binding::Trajectory,
+     orbit::{MemoCode, ShapeKey},
+ };
+-use emergent_universe::{body::What, step, Budget, Kind};
++use emergent_universe::{body::What, step, step::PHASE, Budget, Kind};
+ use serde_json::json;
+ use std::collections::HashSet;
+ use std::time::Instant;
+@@ -44,12 +44,38 @@ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
+     json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
+ }
++fn phase_medians(v: &[emergent_universe::step::PhaseTimes]) -> serde_json::Value {
++    if v.is_empty() { return json!({"samples": 0}); }
++    let med = |f: fn(&emergent_universe::step::PhaseTimes) -> u64| {
++        let mut s: Vec<u64> = v.iter().map(f).collect();
++        s.sort_unstable();
++        json!({"median_us": s[s.len() / 2] as f64 / 1e3, "total_us": s.iter().sum::<u64>() as f64 / 1e3})
++    };
++    json!({
++        "samples": v.len(),
++        "readout": med(|p| p.readout_ns), "secondaries": med(|p| p.secs_ns),
++        "tide": med(|p| p.tide_ns), "acceleration": med(|p| p.acc_ns), "rebind_fit_compile": med(|p| p.bind_ns),
++    })
++}
++fn fit_phase_medians(v: &[Option<(u64, u64, u64, u64, u64)>]) -> serde_json::Value {
++    let v: Vec<_> = v.iter().flatten().copied().collect();
++    if v.is_empty() { return json!({"samples": 0}); }
++    let med = |i: usize| {
++        let mut s: Vec<u64> = v.iter().map(|t| match i { 0 => t.0, 1 => t.1, 2 => t.2, _ => t.3 }).collect();
++        s.sort_unstable();
++        json!({"median_us": s[s.len() / 2] as f64 / 1e3, "total_us": s.iter().sum::<u64>() as f64 / 1e3})
++    };
++    json!({"samples": v.len(), "fit_key_bisect": med(0), "orbit_or_passage_compile": med(1), "at_radius": med(2), "decode_residual": med(3)})
++}
+ 
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let machine_before = crate::measure::machine_state("before");
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+     // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
+     let (mut made, mut leavers) = (Vec::new(), Vec::new());
++    let (mut ph_made, mut ph_leavers): (Vec<emergent_universe::step::PhaseTimes>, Vec<emergent_universe::step::PhaseTimes>) = (Vec::new(), Vec::new());
++    let (mut fit_made, mut fit_leavers): (Vec<Option<(u64, u64, u64, u64, u64)>>, Vec<Option<(u64, u64, u64, u64, u64)>>) = (Vec::new(), Vec::new());
++    use emergent_space::binding::FIT_PHASE;
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+@@ -83,8 +109,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // allocator, application, view and formatting are outside the sample.
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+-            let us = t0.elapsed().as_secs_f64() * 1e6;
+-            if i < made_n { &mut made } else { &mut leavers }.push(us);
++            if i < made_n { &mut fit_made } else { &mut fit_leavers }.push(FIT_PHASE.with(|p| *p.borrow()));
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
+@@ -102,6 +127,9 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
++        "phases_made_us": phase_medians(&ph_made),
++        "fit_phases_made_us": fit_phase_medians(&fit_made),
++        "fit_phases_leavers_us": fit_phase_medians(&fit_leavers),
+         "memo": shapes.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
