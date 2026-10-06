@@ -1,0 +1,21 @@
+Run 20261006-0916-redteam-e84d (premise red-team of docs/representation.md)
+
+Machine: GitHub Actions linux runner, 8 vCPU, numpy 1.26.4. Single-threaded runs.
+
+Reproduction (each command ≤ 60 s):
+  python3 belt_chaos.py --mu 1e-6    --tag calib_control          # threshold calibration (control)
+  python3 belt_chaos.py --mu 3e-5    --tag base_mu3e-5
+  python3 belt_chaos.py --mu 9.54e-4 --tag base_mu9.54e-4         # Jupiter/Sun
+  python3 belt_chaos.py --mu 1e-2    --tag base_mu1e-2
+  python3 belt_chaos.py --mu 9.54e-4 --sigma-e 0.01 --tag cold_mu9.54e-4
+  python3 eob_2pn.py                                              # attack 2 numbers (instant)
+
+Outputs: sweep.jsonl (belt), calib run printed to stdout, eob_2pn.py prints its table.
+
+Instrument notes:
+- The first classifier (renormalized two-particle Lyapunov) counted Kepler epicyclic
+  shear as chaos: pure-Kepler control (mu=0, fixed star) gave fake Lyapunov times of
+  23-115 planet periods. Replaced by semi-major-axis diffusion over six 200-orbit
+  windows (drift = max-min of window means; chaotic iff drift > tau_a = 0.003 a_J,
+  calibrated on the mu=1e-6 control whose bulk drift stays < 0.003 with 6/800 above).
+- Shadow-particle code retained in belt_chaos.py but unused for classification.
