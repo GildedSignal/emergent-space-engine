@@ -1,0 +1,231 @@
+diff --git a/crates/universe/examples/enc_bench.rs b/crates/universe/examples/enc_bench.rs
+new file mode 100644
+index 0000000..4b58a40
+--- /dev/null
++++ b/crates/universe/examples/enc_bench.rs
+@@ -0,0 +1,225 @@
++//! Bench for the player's encounter check (`PlayerNeighbourhood::find`): ns per item on
++//! deterministic scenes, plus the decode and binding shares that make up an item.
++//! Scenes: A sparse belt (tuning), B crossing cluster (tuning), P the plane itself,
++//! HO1/HO2/HO3 the held-out set (see the run's predictions.md).
++//! One key=value line per run; the driver compares digests across variants.
++use emergent_space::orbit::Scalar;
++use emergent_universe::encounter::{Encounters, PlayerNeighbourhood};
++use emergent_universe::scenario;
++use emergent_universe::{Kind, OrbitSpec, Universe};
++use std::time::Instant;
++
++fn raw(v: i64) -> Scalar {
++    Scalar::raw(v as i128, 0).unwrap()
++}
++
++fn f64s(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi(s.exponent() as i32 - 62)
++}
++
++const PHI: u32 = 2654435769; // 2^32/φ: golden-ratio angle spread
++
++fn belt(n: usize, e: u64, clustered: bool) -> Universe {
++    let (r_lo, r_hi) = (1.5e8 as i64, 6.0e8 as i64);
++    let r_player = 3.0e8 as i64;
++    let mut u = Universe::new(raw(471_000), Default::default());
++    let _planet = u
++        .add_body(
++            Kind::Planet,
++            OrbitSpec { doll: 0, periapsis: raw(4.0e8 as i64), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++            raw(2_000_000),
++        )
++        .unwrap();
++    for i in 0..n {
++        let (r, angle) = if clustered {
++            let dr = ((i as i64) % 100 - 50) * 30;
++            (r_player + dr, (i as u32) * 400)
++        } else {
++            let f = (i as f64) / (n as f64);
++            let r = (r_lo as f64 * (r_hi as f64 / r_lo as f64).powf(f)) as i64;
++            (r, (i as u32).wrapping_mul(PHI))
++        };
++        u.add_body(
++            Kind::Ship,
++            OrbitSpec { doll: 0, periapsis: raw(r), e_q48: e, clockwise: false, angle, phase: 0 },
++            raw(2_000),
++        )
++        .unwrap();
++    }
++    u.start().unwrap();
++    u
++}
++
++fn scene(name: &str) -> (Universe, usize, i64) {
++    match name {
++        // sparse: circular, radii over two octaves — the filter's best case
++        "A" => (belt(400, 0, false), 1, 1 << 26),
++        // 50 eccentric crossers near the player (real encounters) over a sparse background
++        "B" => (belt(400, (1u64 << 48) / 5, true), 1, 1 << 26),
++        // the plane itself: the player in Home's doll, real step
++        "P" => {
++            let pl = scenario::plane(Default::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++            let step = pl.u.ctx().bodies.rec(pl.player).step.max(2);
++            (pl.u, pl.player, step)
++        }
++        "HO1" => (belt(4000, 0, false), 1, 1 << 26),
++        "HO2" => (belt(400, 1 << 47, false), 1, 1 << 26),
++        // dense: everyone's band overlaps everyone — the filter's worst case
++        "HO3" => (belt(400, 1 << 47, true), 1, 1 << 26),
++        _ => unreachable!(),
++    }
++}
++
++fn main() {
++    let mut args = std::env::args().skip(1);
++    let name = args.next().unwrap_or_else(|| "A".into());
++    let sweeps: usize = args.next().and_then(|s| s.parse().ok()).unwrap_or(64);
++    let (u, player, interval) = scene(&name);
++    let ctx = u.ctx();
++    let t0 = ctx.bodies.event_time(player);
++    let finder = PlayerNeighbourhood;
++    let n_items = ctx.bodies.len();
++
++    if std::env::var("ENC_DEBUG").is_ok() {
++        let h = emergent_universe::num::time_of(interval, ctx.bodies.binding_at(player, t0).unwrap().clock_exp).unwrap();
++        eprintln!("t0={t0} interval={interval} h_doll={:.3e} n_items={n_items}", f64s(h));
++    }
++    // The original finder, verbatim: same predicate, no pre-filter. For A/B in one binary.
++    let find_orig = |ctx: &emergent_universe::ctx::Ctx, body: usize, t: i64, interval: i64| -> Vec<(usize, bool)> {
++        use emergent_lattice::law::hit;
++        use emergent_space::orbit::Scalar;
++        let mut out = Vec::new();
++        let Some(me) = ctx.bodies.binding_at(body, t) else { return out };
++        let Ok((x, v)) = me.cartesian(t) else { return out };
++        let Ok(h) = emergent_universe::num::time_of(interval, me.clock_exp) else { return out };
++        for j in 0..ctx.bodies.len() {
++            if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
++                continue;
++            }
++            let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++            if other.doll != me.doll {
++                continue;
++            }
++            let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
++            if reach.is_zero() {
++                continue;
++            }
++            let Ok(found) = (|| -> Result<Option<bool>, emergent_universe::num::Error> {
++                let (xj, vj) = other.cartesian(t).map_err(|_| emergent_universe::num::Error::Refused("x"))?;
++                let d = [xj[0].sub(x[0]).map_err(|_| emergent_universe::num::Error::Refused("d"))?, xj[1].sub(x[1]).map_err(|_| emergent_universe::num::Error::Refused("d"))?];
++                let w = [vj[0].sub(v[0]).map_err(|_| emergent_universe::num::Error::Refused("w"))?.mul(h).map_err(|_| emergent_universe::num::Error::Refused("w"))?, vj[1].sub(v[1]).map_err(|_| emergent_universe::num::Error::Refused("w"))?.mul(h).map_err(|_| emergent_universe::num::Error::Refused("w"))?];
++                let q_exp = reach.exponent() as i32 - 20;
++                let di = [d[0].fixed(-q_exp).map_err(|_| emergent_universe::num::Error::Refused("q"))?, d[1].fixed(-q_exp).map_err(|_| emergent_universe::num::Error::Refused("q"))?];
++                let wi = [w[0].fixed(-q_exp).map_err(|_| emergent_universe::num::Error::Refused("q"))?, w[1].fixed(-q_exp).map_err(|_| emergent_universe::num::Error::Refused("q"))?];
++                let near = reach.scale(10).map_err(|_| emergent_universe::num::Error::Refused("n"))?.fixed(-q_exp).map_err(|_| emergent_universe::num::Error::Refused("n"))?;
++                if !hit(di, wi, near) {
++                    return Ok(None);
++                }
++                Ok(Some(hit(di, wi, reach.fixed(-q_exp).map_err(|_| emergent_universe::num::Error::Refused("q"))?)))
++            })() else { continue };
++            if let Some(contact) = found {
++                out.push((j, contact));
++            }
++        }
++        out
++    };
++    let mut digest = blake3::Hasher::new();
++    let mut digest_orig = blake3::Hasher::new();
++    let mut ns = Vec::new();
++    let mut ns_orig = Vec::new();
++    let mut encounters = 0usize;
++    let mut contact = 0usize;
++    let mut encounters_orig = 0usize;
++    for k in 0..sweeps {
++        let t = t0 + interval * k as i64;
++        let (first_new, start) = (k % 2 == 0, Instant::now());
++        let _ = start;
++        let (r_new, r_orig, ns_new, ns_o) = if k % 2 == 0 {
++            let s = Instant::now();
++            let f = finder.find(&ctx, player, t, interval);
++            let n = s.elapsed().as_nanos() as f64;
++            let s = Instant::now();
++            let o = find_orig(&ctx, player, t, interval);
++            let no = s.elapsed().as_nanos() as f64;
++            (f, o, n, no)
++        } else {
++            let s = Instant::now();
++            let o = find_orig(&ctx, player, t, interval);
++            let no = s.elapsed().as_nanos() as f64;
++            let s = Instant::now();
++            let f = finder.find(&ctx, player, t, interval);
++            let n = s.elapsed().as_nanos() as f64;
++            (f, o, n, no)
++        };
++        let _ = first_new;
++        ns.push(ns_new / n_items as f64);
++        ns_orig.push(ns_o / n_items as f64);
++        encounters += r_new.len();
++        contact += r_new.iter().filter(|e| e.contact).count();
++        encounters_orig += r_orig.len();
++        if k == 0 {
++            eprintln!("k=0: new-first encounters={} orig={}", r_new.len(), r_orig.len());
++        }
++        digest.update(&(k as i128).to_le_bytes());
++        digest_orig.update(&(k as i128).to_le_bytes());
++        for e in &r_new {
++            for v in [e.a as i128, e.b as i128, e.t as i128, e.contact as i128] {
++                digest.update(&v.to_le_bytes());
++            }
++        }
++        for (j, c) in &r_orig {
++            for v in [player as i128, *j as i128, t as i128, *c as i128] {
++                digest_orig.update(&v.to_le_bytes());
++            }
++        }
++    }
++    let t = t0 + interval * (sweeps as i64 / 2);
++    let start = Instant::now();
++    let mut _decoded = 0usize;
++    for j in 0..n_items {
++        if ctx.state_of(j, t).is_ok() {
++            _decoded += 1;
++        }
++    }
++    let decode_ns = start.elapsed().as_secs_f64() * 1e9 / n_items as f64;
++    let start = Instant::now();
++    let mut _bound = 0usize;
++    for j in 0..n_items {
++        if ctx.bodies.binding_at(j, t).is_some() {
++            _bound += 1;
++        }
++    }
++    let binding_ns = start.elapsed().as_secs_f64() * 1e9 / n_items as f64;
++
++    let at = |p: f64| {
++        ns.get(((ns.len().saturating_sub(1)) as f64 * p).ceil() as usize)
++            .copied()
++            .unwrap_or(f64::NAN)
++    };
++    ns_orig.sort_by(f64::total_cmp);
++    let at_orig = |p: f64| {
++        ns_orig.get(((ns_orig.len().saturating_sub(1)) as f64 * p).ceil() as usize)
++            .copied()
++            .unwrap_or(f64::NAN)
++    };
++    let (d_new, d_orig) = (digest.finalize().to_hex(), digest_orig.finalize().to_hex());
++    let load = std::fs::read_to_string("/proc/loadavg").unwrap_or_default();
++    println!(
++        "scene={} n_items={} sweeps={} encounters={} encounters_orig={} contacts={} ns_per_item_median={:.1} ns_per_item_p99={:.1} orig_ns_per_item_median={:.1} orig_ns_per_item_p99={:.1} decode_ns_per_item={:.1} binding_ns_per_item={:.1} outputs_identical={} digest={} loadavg={}",
++        name,
++        n_items,
++        ns.len(),
++        encounters,
++        encounters_orig,
++        contact,
++        at(0.5),
++        at(0.99),
++        at_orig(0.5),
++        at_orig(0.99),
++        decode_ns,
++        binding_ns,
++        d_new == d_orig,
++        d_new,
++        load.trim()
++    );
++}
