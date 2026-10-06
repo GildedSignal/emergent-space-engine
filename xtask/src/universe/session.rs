@@ -60,8 +60,8 @@ impl Session {
         self.p.u.stats
     }
 
-    /// One presented frame: the player's keys when they are given (a decision, logged at the presented tick
-    /// if they changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
+    /// One presented frame: the player's decision word when it is given (the keys and the throttle level, one byte:
+    /// [`emergent_universe::thrust::word`]; a decision, logged at the presented tick if it changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
     /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and
     /// the frame's wall time.
     pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<(Value, f64)> {
@@ -90,6 +90,14 @@ impl Session {
         self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
         self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
         Ok((json, ms))
+    }
+
+    /// What the page needs before the first frame: the seed, the time factor, and the throttle's levels (the proper
+    /// acceleration of each, in g).
+    pub fn config(&self) -> Value {
+        let cfg = Config::default();
+        let g: Vec<f64> = (0..=emergent_universe::thrust::MAX_LEVEL).map(|l| emergent_universe::thrust::g_of(&cfg, l)).collect();
+        json!({"seed": self.seed, "rtf": self.rtf, "levels_g": g})
     }
 
     pub fn dash_json(&self) -> Value {
@@ -127,13 +135,16 @@ impl Session {
     }
 }
 
+/// The page's view of the frame. What the page does not draw (an emitter's luminosity, age, lag and angular radius, its
+/// id) stays in [`View`] and out of the wire: each float is serialised every frame.
 fn view_json(v: &View) -> Value {
     json!({
         "tick": v.tick, "coordinate": v.coordinate_seconds, "proper": v.proper_seconds, "rate": v.rate,
-        "beta": v.beta, "position": v.position_light_seconds, "heading": v.heading, "doll": v.doll,
+        "beta": v.beta, "doll_rate": v.doll_rate, "doll_beta": v.doll_beta, "position": v.position_light_seconds,
+        "heading": v.heading, "doll": v.doll, "level": v.level, "burning": v.burning, "alive": v.alive, "refusals": v.refusals,
         "seen": v.seen.iter().map(|s| json!({
-            "id": s.id, "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
-            "color": s.color, "luminosity": s.luminosity, "shift": s.shift, "age": s.age, "lag": s.lag, "angular_radius": s.angular_radius,
+            "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
+            "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift,
         })).collect::<Vec<_>>(),
     })
 }

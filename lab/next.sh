@@ -2,7 +2,7 @@
 # Print one GLM window's run commands, one per line (`start <lens> <min>` or `rung <file> <min>`): at most DIRECTED
 # entries of lab/queue.txt with no published verdict (VOID and DISPUTED are retried, twice at most), then free lenses
 # (each picks its own question) up to SLOTS. Julien, 6 October: "abuse GLM more, more diversity and usefulness".
-SLOTS=${SLOTS:-5}; DIRECTED=${DIRECTED:-3}
+SLOTS=${SLOTS:-4}; DIRECTED=${DIRECTED:-2}   # five spent GLM's 5-hour window in about 4 h 20 (6 October): four fit it
 cd "$(git rev-parse --show-toplevel)"
 git fetch -q origin '+refs/heads/claude/lab-*:refs/remotes/origin/claude/lab-*' 2>/dev/null || true
 state() {  # state <slug>: "done" if a published result is not VOID or DISPUTED, else how many were

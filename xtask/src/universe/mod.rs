@@ -2,7 +2,7 @@
 //! the player's past light cone (port 8792), or prints the smoothness dashboard headless.
 //!
 //! universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]
-//! universe --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS]
+//! universe --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]
 //! universe --describe
 //! universe --kick-bench [--seed N] [--rtf R] [--seconds S]
 //!
@@ -20,7 +20,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
     let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
     let mut engine_ms = session::ENGINE_BUDGET_MS;
-    let mut kicks = false;
+    let (mut kicks, mut level) = (false, 0u8);
     let mut it = args.into_iter();
     while let Some(a) = it.next() {
         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
@@ -35,9 +35,10 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
             "--kick-bench" => kicks = true,
             "--unpaced" => paced = false,
             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+            "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
             "--describe" => describe = true,
             "--help" => {
-                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
+                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
                 return Ok(0);
             }
             _ => return Err(format!("unknown universe argument {a}").into()),
@@ -56,7 +57,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
         return Ok(0);
     }
     if bench {
-        return benchmark(s, seconds, paced);
+        return benchmark(s, seconds, paced, level);
     }
     http::serve(s, port)
 }
@@ -64,7 +65,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
 /// The scripted player of the benchmark: a short burn every four seconds of game time (forward, forward and right,
 /// reverse, left), coasting between. Short, because a long burn from low orbit ends in the planet. The script is a
 /// function of the frame's *nominal* place (60 Hz of game time at the session's rtf), and so becomes a list of
-/// decisions at canonical ticks ([`canonical_log`]): the wall's own frames never move a decision.
+/// decisions at canonical ticks ([`canonical_log`]): the wall's own frames never move a decision. The throttle level
+/// (`--level`, default the base thrust) is part of each decision word.
 fn script(frame: usize) -> u8 {
     let slot = frame / 240;
     if frame % 240 < 20 {
@@ -76,19 +78,20 @@ fn script(frame: usize) -> u8 {
 
 /// The script's decisions at canonical ticks: the key state at nominal frame `n` takes effect at tick `(n−1)·F`, `F`
 /// the ticks of one nominal 60 Hz frame at `rtf`. Written before the run; the run takes them at those ticks.
-fn canonical_log(frames: usize, rtf: f64) -> Vec<(i64, u8)> {
+fn canonical_log(frames: usize, rtf: f64, level: u8) -> Vec<(i64, u8)> {
     let per_frame = rtf / 60.0 / emergent_universe::view::TICK_SECONDS;
-    let (mut log, mut keys) = (Vec::new(), 0u8);
+    let (mut log, mut word) = (Vec::new(), 0u8);
     for n in 1..=frames {
-        if script(n) != keys {
-            keys = script(n);
-            log.push((((n - 1) as f64 * per_frame).round() as i64, keys));
+        let w = emergent_universe::thrust::word(script(n), level);
+        if w != word {
+            word = w;
+            log.push((((n - 1) as f64 * per_frame).round() as i64, w));
         }
     }
     log
 }
 
-fn benchmark(mut s: Session, seconds: f64, paced: bool) -> crate::Result<u8> {
+fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Result<u8> {
     let before = crate::measure::machine_state("before");
     let uptime = |c: &str| std::process::Command::new(c).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
     let load_before = uptime("uptime");
@@ -97,7 +100,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool) -> crate::Result<u8> {
     // the digest is taken there whatever the wall did, and it is printed with the digest.
     let cut = (frames as f64 * s.rtf / 60.0 / emergent_universe::view::TICK_SECONDS).round() as i64;
     s.cut = Some(cut);
-    let log = canonical_log(frames, s.rtf);
+    let log = canonical_log(frames, s.rtf, level);
     for &(t, k) in &log {
         s.p.u.schedule(t, k).map_err(|e| format!("schedule: {e:?}"))?;
     }
@@ -141,7 +144,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool) -> crate::Result<u8> {
         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
         "stats": stats_s,
         "engine_cost_by_kind": cost,
-        "engine_budget_ms": s.engine_ms,
+        "engine_budget_ms": s.engine_ms, "throttle_level": level,
         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
         "presented_tick_at_end": presented_at_end,
         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",

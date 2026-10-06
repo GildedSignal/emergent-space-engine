@@ -295,7 +295,7 @@ impl Universe {
             interval: 0,
             anchor: 0,
             plan: Vec::new(),
-            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, heading: 0, since: 0 }),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
             ext: None,
             alive: true,
             events: 0,
@@ -343,7 +343,7 @@ impl Universe {
             interval: 0,
             anchor: 0,
             plan: Vec::new(),
-            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, heading: 0, since: 0 }),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
             ext: None,
             alive: true,
             events: 0,
@@ -875,7 +875,8 @@ impl Universe {
 
     // ---- decisions ------------------------------------------------------------------------------
 
-    /// The player's keys (bit 0 forward, 1 reverse, 2 left, 3 right) change at tick `t`: a decision, taken
+    /// The player's decision word (bits 0–3 the keys: forward, reverse, left, right; bits 4–7 the throttle level, a
+    /// power of two of the base thrust: [`crate::thrust::word`]) changes at tick `t`: a decision, taken
     /// **at that tick** whenever the engine gets there (docs/law.md, "Ties": a decision takes effect at its
     /// logged canonical tick, never at a wall-derived one). The decision waits until the player's own
     /// items up to `t` are resolved (the frame's presented time cannot pass them), so a budget that
@@ -883,7 +884,7 @@ impl Universe {
     /// the last one, nor before the player's committed tick.
     pub fn schedule(&mut self, t: Tick, keys: u8) -> Res<()> {
         let p = self.player.ok_or(Error::Refused("no player"))?;
-        if keys > 15 || t < self.last_decision || t < self.now.min(self.bodies.event_time(p)) {
+        if t < self.last_decision || t < self.now.min(self.bodies.event_time(p)) {
             return Err(Error::Refused("input in the past"));
         }
         self.last_decision = t;
@@ -918,7 +919,7 @@ impl Universe {
     /// resolved (and what it reads, by pulling). The change is a decision event, logged at `t`.
     pub fn input(&mut self, t: Tick, keys: u8) -> Res<()> {
         let p = self.player.ok_or(Error::Refused("no player"))?;
-        if keys > 15 || t < self.last_decision || t < self.now.min(self.bodies.event_time(p)) {
+        if t < self.last_decision || t < self.now.min(self.bodies.event_time(p)) {
             return Err(Error::Refused("input in the past"));
         }
         while let Some(&(pt, pk)) = self.pending.front().filter(|d| d.0 <= t) {
@@ -1044,6 +1045,9 @@ impl Universe {
             }
             if let Some(t) = r.thrust {
                 put(&mut h, t.keys as i128);
+                if t.level != 0 {
+                    put(&mut h, 1000 + t.level as i128);
+                }
                 put(&mut h, t.heading as i128);
                 put(&mut h, t.since as i128);
             }

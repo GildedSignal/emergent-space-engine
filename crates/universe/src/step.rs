@@ -675,8 +675,8 @@ impl Work<'_, '_> {
         let st = self.rec.b.readout(t)?;
         let (x, v) = scalars(&st)?;
         let speed = norm2(v)?.max(Scalar::ONE.div(norm2(x)?)?.sqrt()?);
-        // α in rapidity per tick: 2^thrust_log2 per root unit, and a tick is 2^0 root units.
-        let alpha = Scalar::power_of_two(self.ctx.cfg.thrust_log2 as i16);
+        // α in rapidity per tick: 2^thrust_log2 per root unit at the throttle's level, and a tick is 2^0 root units.
+        let alpha = Scalar::power_of_two(thrust::alpha_log2(self.ctx.cfg, self.rec.thrust.map_or(0, |t| t.level)));
         let ticks = speed.scale(-THRUST_FRACTION_LOG2)?.div(alpha)?;
         let exp = log2_floor(ticks).clamp(1, 50);
         Ok((1i64 << exp).clamp(MIN_STEP, MAX_STEP))
@@ -805,9 +805,10 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
 /// A decision: flush the thrust owed so far at `t` (a rebinding when a burn is owed; a turn alone only
 /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
 /// them each frame) only flush, so the kicks keep their cadence.
-pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, keys: u8) -> Update {
+pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
     let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
-    let same = w.rec.thrust.is_some_and(|th| th.keys == keys);
+    let (keys, level) = thrust::split(word);
+    let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
     let res = (|| -> Res<()> {
         if let Some(th) = w.rec.thrust.filter(|th| th.keys != 0 && t > th.since) {
             let st = w.rec.b.readout(t)?;
@@ -824,6 +825,7 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, keys: u8) -> Update {
         }
         if let Some(th) = w.rec.thrust.as_mut() {
             th.keys = keys;
+            th.level = level;
             th.since = t;
         }
         if same {

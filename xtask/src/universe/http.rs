@@ -66,7 +66,7 @@ fn respond(stream: &mut TcpStream, status: &str, content_type: &str, body: &[u8]
 pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
     let listener = TcpListener::bind(("127.0.0.1", port))?;
     println!("Universe: http://127.0.0.1:{}/ · seed {} · {}x game time · the star system, whole", listener.local_addr()?.port(), s.seed, s.rtf);
-    println!("W/up thrust · S/down reverse · A D / left right turn · space cuts thrust · [ ] halve and double the time factor");
+    println!("W/up thrust · S/down reverse · A D / left right turn · space cuts thrust · 1-9 or + - throttle · [ ] halve and double the time factor · M map/sky");
     let mut last = Instant::now();
     for stream in listener.incoming() {
         let mut stream = stream?;
@@ -76,11 +76,12 @@ pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
             let (method, path) = (words.next().unwrap_or(""), words.next().unwrap_or("").split('?').next().unwrap_or(""));
             match (method, path) {
                 ("GET", "/") => Ok(("text/html; charset=utf-8".into(), include_bytes!("page.html").to_vec())),
-                ("GET", "/config") => Ok(("application/json".into(), serde_json::to_vec(&json!({"seed": s.seed, "rtf": s.rtf}))?)),
+                ("GET", "/config") => Ok(("application/json".into(), serde_json::to_vec(&s.config())?)),
                 ("GET", "/log") => Ok(("application/json".into(), serde_json::to_vec_pretty(&s.log())?)),
                 ("POST", "/frame") => {
                     let req: serde_json::Value = serde_json::from_slice(&body)?;
-                    let keys = req["keys"].as_u64().unwrap_or(0).min(15) as u8;
+                    // The decision: the keys held and the throttle level, one logged word.
+                    let keys = emergent_universe::thrust::word(req["keys"].as_u64().unwrap_or(0).min(15) as u8, req["throttle"].as_u64().unwrap_or(0).min(15) as u8);
                     if let Some(r) = req["rtf"].as_f64() {
                         if r.is_finite() && (0.01..=1e7).contains(&r) {
                             s.rtf = r;
