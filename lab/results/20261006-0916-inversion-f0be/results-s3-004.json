@@ -1,0 +1,25 @@
+[
+ {
+  "tag": "S3 s=0.04",
+  "n": 512,
+  "e0": 0.9,
+  "esig": 1e-05,
+  "sig_M": 0.04,
+  "candidates": 5110,
+  "contacts": 89,
+  "min_nn_arc_over_orbit": 4.0455792329579857e-10,
+  "nominal_spacing_over_rho": 1.953125,
+  "jam_max": 2,
+  "jam_median": 1.0,
+  "max_rank_lam": 1,
+  "p99_rank_lam": 1.0,
+  "max_rank_dist": 1,
+  "miss_rate_k4": 0.0,
+  "dmin_missed_min": null,
+  "dmin_missed_med": null,
+  "anom_apo_frac_all": 0.23595505617977527,
+  "anom_apo_frac_missed": null,
+  "overtakes_per_orbit": 249040.0,
+  "note": "delivered by the first s3 batch before the 300s job timeout killed the rest; reproduce: python3 -c 'import json,probe; json.dump([probe.run_scene(\"S3 s=0.04\", 512, 0.9, 1e-5, 0.04, report_anom=True)], open(\"results-s3-004.json\",\"w\"))'"
+ }
+]
