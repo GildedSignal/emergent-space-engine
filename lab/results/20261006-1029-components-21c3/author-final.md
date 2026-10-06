@@ -1,0 +1,4 @@
+Working...
+**Claim:** A belt's scar layer grows only logarithmically under real encounter rates (record-kick dominated, ~1/t-falling creation; law.md's "+62/−60" H_live ledger never balances since reabsorption-by-return dies at ~10⁻⁶ of creation), and a two-tier light-cone store — near bodies exact, far bodies at a coarse quantum certified legal by a ~10¹⁵ quadrupole firewall margin — holds 10⁹ belt bodies at a measured 5.6 bits/body (0.7 GB) against 6.5 GB naive at 52-bit state, or ~1.4 GB against 19.6 GB at the real 157-bit state.
+
+Evidence, reproduction commands, prediction outcomes (6 held, 2 missed — both honestly reported, including my own wrong linear-growth prior that flattered the two-tier's necessity at t=100), adoption cost (one far tier in `crates/shipmem`), and lens blind spots are in `lab/results/20261006-1029-components-21c3/dossier.md`; runs took 29 s + 53 s on one core, 84 MB peak, crates untouched (`git status` clean).
