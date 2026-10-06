@@ -1,0 +1,4 @@
+Working...
+Run complete: `lab/results/20261006-0737-scout-b73e/` holds `predictions.md` (pre-registered; digest control held, both work-ahead predictions failed), `evidence.md` (commands + tables), `dossier.md`.
+
+**Claim:** On the real plane, the per-frame budget sits on a measured knee between principle 12's two failure modes — a 5 ms cap gives zero hitches but worst-1% frames presenting nothing (RTF 0.007 of 4.0), a 13 ms cap removes every dip but buys 19–25 hitches/hour — and no session-level discipline beats it (AIMD dominated; work-ahead fails both as presented-lead and as the audio-style frontier/presentation split, because the bursts are resolution cascades longer than any sane lead), while the digest stays bit-identical (87f51de403a4) under every discipline, so the allocator's real lever is engine-side: cheaper kick/rebinding cascades or lookahead into them, not frame-loop policy.

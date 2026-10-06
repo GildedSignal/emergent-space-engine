@@ -1,0 +1,186 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 368669f..4abb2ba 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
+ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
++    let mut policy = session::Policy::Fixed;
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let mut kicks = false;
+     let mut it = args.into_iter();
+@@ -34,8 +35,16 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
+             "--unpaced" => paced = false,
++            "--policy" => {
++                policy = match val("--policy")?.as_str() {
++                    "fixed" => session::Policy::Fixed,
++                    "aimd" => session::Policy::Aimd,
++                    "ahead" => session::Policy::Ahead,
++                    "both" => session::Policy::Both,
++                    p => return Err(format!("unknown policy {p} (fixed|aimd|ahead|both)").into()),
++                };
++            }
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+-            "--describe" => describe = true,
+             "--help" => {
+                 println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
+                 return Ok(0);
+@@ -48,6 +57,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     }
+     let mut s = Session::new(seed, threads, members, rtf)?;
+     s.engine_ms = engine_ms;
++    s.budget_ms = engine_ms;
++    s.policy = policy;
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
+@@ -140,8 +151,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool) -> crate::Result<u8> {
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
++        "engine_budget_policy": s.policy.name(), "engine_budget_ms_final": s.budget_ms,
+         "engine_cost_by_kind": cost,
+-        "engine_budget_ms": s.engine_ms,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index 64d8321..60f4e73 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -11,6 +11,44 @@ use std::time::Instant;
+ /// the serialisation and the browser).
+ pub const ENGINE_BUDGET_MS: f64 = 5.0;
+ 
++/// The frame-budget discipline (the allocator question, principle 12): what the engine's per-frame cap
++/// is, and whether idle frames run the presented time ahead of the wall clock.
++#[derive(Clone, Copy, PartialEq, Debug)]
++pub enum Policy {
++    /// The plane today: one fixed wall cap, no work-ahead.
++    Fixed,
++    /// AIMD cap in [1, 13] ms: grown on overflow (persistent lateness), shrunk after clean frames or
++    /// when a frame's wall time nears the deadline (CoDel's lesson: control the lateness, protect the
++    /// deadline).
++    Aimd,
++    /// Work-ahead: while frames have unspent budget the target runs ahead of the wall clock by up to
++    /// `LEAD_S` of presented (game) time — pro-audio's lookahead buffer — so a later burst presents
++    /// already-resolved state instead of dipping the real-time factor.
++    Ahead,
++    Both,
++}
++
++impl Policy {
++    pub fn adaptive(self) -> bool {
++        matches!(self, Policy::Aimd | Policy::Both)
++    }
++    pub fn ahead(self) -> bool {
++        matches!(self, Policy::Ahead | Policy::Both)
++    }
++    pub fn name(self) -> &'static str {
++        match self {
++            Policy::Fixed => "fixed",
++            Policy::Aimd => "aimd",
++            Policy::Ahead => "ahead",
++            Policy::Both => "aimd+ahead",
++        }
++    }
++}
++
++/// The most presented (game) time the work-ahead policy may lead the wall clock by (three presented
++/// frames): bursts shorter than this are absorbed as latency, not as dips.
++pub const LEAD_S: f64 = 0.050;
++
+ /// This thread's CPU time in ms: the work a frame did, without the time it spent descheduled or paged.
+ pub fn thread_cpu_ms() -> f64 {
+     let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+@@ -27,6 +65,18 @@ pub struct Session {
+     keys: u8,
+     /// The wall budget of a frame's engine advance, ms (a budget that bites delays work and never moves a decision).
+     pub engine_ms: f64,
++    /// The runtime cap the adaptive controller has chosen (starts at [`Session::engine_ms`]).
++    pub budget_ms: f64,
++    /// The frame-budget discipline in force.
++    pub policy: Policy,
++    /// Nominal presented time (game seconds) if no frame had ever led or stalled: the wall's own clock.
++    nom_game_s: f64,
++    /// Unspent engine budget of the previous frame, ms (the work-ahead gate).
++    spare_ms_prev: f64,
++    /// Clean (non-overflow) frames since the last budget change.
++    clean: u32,
++    /// The previous frame's wall time, ms (the deadline guard lags one frame).
++    last_wall_ms: f64,
+     /// The canonical cut: no frame advances past it, and the digest is taken there (`None`: the flight is open-ended).
+     pub cut: Option<emergent_universe::num::Tick>,
+     names: Vec<String>,
+@@ -38,7 +88,8 @@ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, cache: ViewCache::default() })
++        let engine_ms = ENGINE_BUDGET_MS;
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms, budget_ms: engine_ms, policy: Policy::Fixed, nom_game_s: 0.0, spare_ms_prev: 0.0, clean: 0, last_wall_ms: 0.0, cut: None, names, cache: ViewCache::default() })
+     }
+ 
+     pub fn n_bodies(&self) -> usize {
+@@ -71,7 +122,29 @@ impl Session {
+             self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
+             self.keys = keys;
+         }
+-        let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
++        // Work-ahead, done as audio does it (the buffer behind the mixer): idle frames resolve *ahead*
++        // of the wall's clock into inventory (a lead of at most [`LEAD_S`] of game time), but the
++        // presented time follows the wall's own nominal clock (`nom_game_s`) and never the frontier —
++        // a burst then spends inventory instead of stalling the presentation. v1 presented the lead
++        // directly and froze with the frontier all the same (measured); only the split frontier/presentation
++        // is the real transplant.
++        let ts = emergent_universe::view::TICK_SECONDS;
++        let lead_s = self.p.u.now as f64 * ts - self.nom_game_s;
++        let extra_wall = if self.policy.ahead() && self.spare_ms_prev > 0.0 {
++            ((LEAD_S - lead_s).max(0.0) + (0.0 - lead_s).max(0.0)).min(self.spare_ms_prev / 1000.0 / self.rtf.max(1e-9))
++        } else {
++            0.0
++        };
++        self.nom_game_s += wall_dt * self.rtf;
++        let wall_eff = (wall_dt + extra_wall).min(0.15);
++        let f = self.p.u.frame_to(wall_eff, self.rtf, Budget::wall(self.budget_ms), self.cut.unwrap_or(i64::MAX));
++        if self.policy.ahead() {
++            // Hold the presentation on the wall's clock; the resolved lead stays as inventory.
++            let cap = (self.nom_game_s / ts) as emergent_universe::num::Tick;
++            if self.p.u.now > cap {
++                self.p.u.now = cap;
++            }
++        }
+         let t1 = Instant::now();
+         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
+             Some(v) => v,
+@@ -87,6 +160,27 @@ impl Session {
+         let wire = serde_json::to_vec(&json)?;
+         std::hint::black_box(&wire);
+         let ms = start.elapsed().as_secs_f64() * 1e3;
++        // The controller reads only schedule-side signals (overflow, unspent budget, wall time): it
++        // changes when work is done, never what an event resolves to.
++        let engine_ms = (t1 - start).as_secs_f64() * 1e3;
++        let overflow = f.overflow;
++        if self.policy.adaptive() {
++            if self.last_wall_ms > 15.5 || overflow && self.last_wall_ms > 14.0 {
++                self.budget_ms = (self.budget_ms * 0.7).max(1.0);
++                self.clean = 0;
++            } else if overflow {
++                self.budget_ms = (self.budget_ms * 1.5).min(13.0);
++                self.clean = 0;
++            } else {
++                self.clean += 1;
++                if self.clean >= 8 {
++                    self.budget_ms = (self.budget_ms * 0.9).max(1.0).min(13.0);
++                    self.clean = 0;
++                }
++            }
++        }
++        self.spare_ms_prev = if overflow { 0.0 } else { (self.budget_ms - engine_ms).max(0.0) };
++        self.last_wall_ms = ms;
+         self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
+         self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
+         Ok((json, ms))
