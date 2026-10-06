@@ -1,0 +1,427 @@
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index 5c622f3..6a5d1e9 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -33,7 +33,7 @@
+ //! the same way, so the next event's tick is a function of the integer state.
+ use crate::ctx::Ctx;
+ use crate::num::{log2_floor, Error, Res, Tick};
+-use emergent_space::{binding::Trajectory, orbit::Scalar};
++use emergent_space::{binding::Trajectory, orbit::{OrbitKey, Scalar}};
+ 
+ /// `b = B_OVER_C·c`.
+ pub const B_OVER_C: i64 = 30;
+@@ -66,20 +66,39 @@ impl Ext {
+     pub fn pt_value(&self) -> Res<Scalar> {
+         Ok(Scalar::raw(self.pt as i128, self.pt_exp as i32)?)
+     }
+-
+-    /// Set `p_t` to the scalar `v` (toward zero, at its quantum), the carry cleared: the projection onto `K = 0`.
++    /// Set `p_t` to the scalar `v` at the finest quantum that holds it, the carry cleared: the projection
++    /// onto `K = 0`. A body under thrust toward c leaves any exponent chosen at birth (its energy runs to
++    /// γ), so the word's exponent is re-derived here rather than refused: the quantum coarsens only when
++    /// the value has grown past the birth word's range (whole bits, so a value that still fits keeps its
++    /// quantum; the sub-quantum part of one that does not is dropped, once per renormalisation).
+     pub fn set_pt(&mut self, v: Scalar) -> Res<()> {
+-        self.pt = i64::try_from(v.fixed(-(self.pt_exp as i32))?).map_err(|_| Error::Refused("the energy register is outside its word"))?;
++        let mut e = self.pt_exp as i32;
++        let mut w = v.fixed(-e).map_err(|_| Error::Refused("the energy register is outside its word"))?;
++        while w.unsigned_abs() > 1u128 << 62 {
++            w >>= 1;
++            e += 1;
++        }
++        self.pt_exp = i16::try_from(e).map_err(|_| Error::Refused("the energy register is outside its word"))?;
++        self.pt = i64::try_from(w).map_err(|_| Error::Refused("the energy register is outside its word"))?;
+         self.pt_carry = 0;
+         Ok(())
+     }
+ 
+     /// Add `dv` (a scalar, doll units) to `p_t` through the sigma-delta carry; the whole quanta are applied, the rest carried.
++    /// The word renormalises (whole bits up, the pending fraction kept at its old scale: an error below one
++    /// carry unit) rather than refusing when the kicks push it past the word.
+     pub fn add_pt(&mut self, dv: Scalar) -> Res<()> {
+         let total = self.pt_carry as i128 + dv.fixed(-(self.pt_exp as i32) + 16)?;
+         let whole = total.div_euclid(65536);
+         self.pt_carry = total.rem_euclid(65536) as i64;
+-        self.pt = i64::try_from(self.pt as i128 + whole).map_err(|_| Error::Refused("the energy register is outside its word"))?;
++        let mut pt = self.pt as i128 + whole;
++        let mut e = self.pt_exp as i32;
++        while pt.unsigned_abs() > 1u128 << 62 {
++            pt >>= 1;
++            e += 1;
++        }
++        self.pt_exp = i16::try_from(e).map_err(|_| Error::Refused("the energy register is outside its word"))?;
++        self.pt = i64::try_from(pt).map_err(|_| Error::Refused("the energy register is outside its word"))?;
+         Ok(())
+     }
+ 
+@@ -108,6 +127,43 @@ pub fn fprime(y: Scalar, b: Scalar) -> Res<Scalar> {
+     Ok(r.mul(r)?.add(r.div(b)?)?)
+ }
+ 
++/// The tube's own geodesic invariants from its key `(r_p, k)`: the reduced energy `E − 1` (dimensionless,
++/// so the same number in the doll's units) and the angular momentum `L` (tube units, a length; the doll
++/// value is the tube's by the unit's length scale). This is the exact algebra of the fit
++/// (`emergent_space::binding::fit_key`) inverted: the key was built from the periapsis turning point of
++/// the cubic in `z = L²/r`, so with `u = 1/r_p` and `A = 2u − k(1 + 2u)`,
++///
++/// ```text
++///   S = 1 + 4u(1 + 2A) − 12u² + 16k²u²,    d = (k·√S − A − 4k²u)/2
++///   L² = 1/(u·d),                          E² = (1 − 2u)(1 + u/d)
++/// ```
++///
++/// Controls: a circular key (`k = 1`) gives `L² = r²/(r − 3)` and `E = (r − 2)/√(r(r − 3))`, the exact
++/// Schwarzschild circular orbit (M = 1). The drift conserves these exactly — the Kepler form of the
++/// readout state does not (it oscillates along the geodesic), which is why the register reads `E − 1`
++/// and not `force::kepler` (the probe P3': the Kepler register moved J by 6e5–2e8 quanta across a kick).
++pub fn tube_invariants(key: OrbitKey) -> Res<(Scalar, Scalar)> {
++    let u = key.periapsis.reciprocal()?;
++    let two_u = u.scale(1)?;
++    let k = Scalar::raw(key.k as i128, -48)?;
++    let a = two_u.sub(k.mul(Scalar::ONE.add(two_u)?)?)?;
++    let (u2, k2) = (u.mul(u)?, k.mul(k)?);
++    // S = 1 + 4u(1 + 2A) − 12u² + 16k²u²
++    let s = Scalar::ONE
++        .add(u.scale(2)?.mul(Scalar::ONE.add(a.scale(1)?)?)?)?
++        .add(u2.mul(k2.scale(4)?.sub(Scalar::integer(12))?)?)?;
++    let d = k.mul(s.sqrt()?)?.sub(a)?.sub(u.mul(k2)?.scale(2)?)?.scale(-1)?;
++    if !d.is_positive() {
++        return Err(Error::Refused("a key whose periapsis is not a turning point"));
++    }
++    let l2 = u.mul(d)?.reciprocal()?;
++    let e2 = Scalar::ONE.sub(two_u)?.mul(Scalar::ONE.add(u.div(d)?)?)?;
++    if !e2.is_positive() {
++        return Err(Error::Refused("a key outside the geodesic energy's range"));
++    }
++    Ok((e2.sqrt()?.sub(Scalar::ONE)?, l2.sqrt()?))
++}
++
+ /// The cube root of a positive scalar: Newton's iteration from a power of two within a factor two of it, a fixed count
+ /// (an integer algorithm, the same bits everywhere).
+ pub fn cbrt(x: Scalar) -> Res<Scalar> {
+diff --git a/crates/universe/src/force.rs b/crates/universe/src/force.rs
+index 077aff9..6dbfb67 100644
+--- a/crates/universe/src/force.rs
++++ b/crates/universe/src/force.rs
+@@ -190,3 +190,63 @@ pub fn kepler(x: V2, v: V2, mu: Scalar) -> Res<Scalar> {
+     let r = norm2(x)?;
+     Ok(dot2(v, v)?.scale(-1)?.sub(mu.div(r)?)?)
+ }
++
++/// The coordinate velocity after a **canonical** momentum kick `Δp` at the state `(x, v)` of a doll whose
++/// centre has mass `mu` (doll units). The kick is the flow of `−f(U_P + c)` (the motion law v2, `crate::ext`):
++/// Hamilton's equation moves the canonical momentum of the doll's geodesic Hamiltonian at fixed `x`, and
++/// **the coordinate velocity is not canonical in a curved doll**. The pair (per unit mass):
++///
++/// ```text
++///   lapse = 1 − 2·mu/r,   den = lapse − (vr²/lapse + vt²),   E = lapse/√den
++///   p_r = E·vr/lapse²,    p_φ = E·vt/lapse                   (x × p = E·(x × v)/lapse = L_GR)
++///   E′² = lapse·(1 + lapse·p_r′² + p_φ′²/r²),   vr′ = lapse²·p_r′/E′,   vt′ = lapse·p_φ′/(E′·r)
++/// ```
++///
++/// `x×p` is linear in `p`, so a kick `Δp = w·∇U_P` changes `L_GR` by exactly `x×Δp`, which is what
++/// `Δp_t = w·∂_tU_P = −Ω·w·(x×∇U_P)` pairs with (a source on a circle): `J = p_t + Ω·L_GR` is conserved
++/// to the quanta at any kick strength. Kicking the coordinate velocity instead leaves
++/// `ΔJ ≈ (E/lapse − 1)·Ω·(x×Δv)`, small only while the kick is (the probe P3').
++pub fn canonical_kick(x: V2, v: V2, dp: V2, mu: Scalar) -> Res<V2> {
++    let r = norm2(x)?;
++    let lapse = Scalar::ONE.sub(Scalar::integer(2).mul(mu)?.div(r)?)?;
++    if !lapse.is_positive() {
++        return Err(crate::num::Error::Refused("a kick inside the horizon"));
++    }
++    let rh = [x[0].div(r)?, x[1].div(r)?];
++    let th = [rh[1].negate(), rh[0]];
++    let (vr, vt) = (dot2(v, rh)?, dot2(v, th)?);
++    let den = lapse.sub(vr.mul(vr)?.div(lapse)?.add(vt.mul(vt)?)?)?;
++    if !den.is_positive() {
++        return Err(crate::num::Error::Refused("a state off the geodesic mass shell"));
++    }
++    let e = lapse.div(den.sqrt()?)?;
++    // p, kicked, and the new energy and velocity from the mass shell.
++    let pr = e.mul(vr)?.div(lapse.mul(lapse)?)?.add(dot2(dp, rh)?)?;
++    let pp = e.mul(r)?.mul(vt)?.div(lapse)?.add(dot2(dp, th)?)?;
++    let e1 = lapse
++        .mul(Scalar::ONE.add(lapse.mul(pr.mul(pr)?)?.add(pp.mul(pp)?.div(r.mul(r)?)?)?)?)?
++        .sqrt()?;
++    let vr1 = pr.mul(lapse)?.mul(lapse)?.div(e1)?;
++    let vt1 = pp.mul(lapse)?.div(e1.mul(r)?)?;
++    add2(scale2(rh, vr1)?, scale2(th, vt1)?)
++}
++
++/// The geodesic invariants of a state `(x, v)` in a doll whose centre has mass `mu` (doll units): `(E, L)`,
++/// with `E = lapse/√den` and `L = r·vt/√den` on `den = lapse − (vr²/lapse + vt²)` — the fit's own formula
++/// (`emergent_space::binding::fit_key`), read on the exact state and not on the quantised key.
++pub fn geodesic_of(x: V2, v: V2, mu: Scalar) -> Res<(Scalar, Scalar)> {
++    let r = norm2(x)?;
++    let lapse = Scalar::ONE.sub(Scalar::integer(2).mul(mu)?.div(r)?)?;
++    if !lapse.is_positive() {
++        return Err(crate::num::Error::Refused("a state inside the horizon"));
++    }
++    let rh = [x[0].div(r)?, x[1].div(r)?];
++    let vt = crate::num::cross2(x, v)?.div(r)?;
++    let vr = dot2(v, rh)?;
++    let den = lapse.sub(vr.mul(vr)?.div(lapse)?.add(vt.mul(vt)?)?)?;
++    if !den.is_positive() {
++        return Err(crate::num::Error::Refused("a state off the geodesic mass shell"));
++    }
++    let root = den.sqrt()?;
++    Ok((lapse.div(root)?, r.mul(vt)?.div(root)?))
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index dff1337..9228216 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -345,9 +345,20 @@ impl Work<'_, '_> {
+         Ok(v2)
+     }
+ 
+-    fn velocity_after(&self, st: &IntegerState, v_new: V2) -> Res<[i64; 2]> {
+-        let q = |c: usize| -> Res<i64> { i64::try_from(v_new[c].fixed(-(st.velocity_exponent as i32))?).map_err(|_| Error::Refused("velocity outside the word")) };
+-        Ok([q(0)?, q(1)?])
++    fn velocity_after(&self, st: &IntegerState, v_new: V2) -> Res<([i64; 2], i16)> {
++        // A burn toward c moves the velocity past the word's range at its binding's exponent: take the
++        // coarsest exponent that holds it (the rebind re-derives the words from the state anyway).
++        let mut e = st.velocity_exponent as i32;
++        let words = loop {
++            let q = |c: usize| -> Res<i64> {
++                i64::try_from(v_new[c].fixed(-e)?).map_err(|_| Error::Refused("velocity outside the word"))
++            };
++            match (q(0), q(1)) {
++                (Ok(a), Ok(b)) => break [a, b],
++                _ => e += 1,
++            }
++        };
++        Ok((words, i16::try_from(e).map_err(|_| Error::Refused("velocity outside the word"))?))
+     }
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+@@ -367,7 +378,8 @@ impl Work<'_, '_> {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+             added = dv;
+-            IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
++            let (vel, ve) = self.velocity_after(&st, v2)?;
++            IntegerState { velocity: vel, velocity_exponent: ve, ..st }
+         } else {
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+             self.rec.carry = carry;
+@@ -532,19 +544,28 @@ impl Work<'_, '_> {
+         Ok(self.ctx.tube_unit(self.i, self.rec.b.doll)?.mu)
+     }
+ 
+-    /// Project the energy register onto the constraint `K = 0` at the state read at `t`: `p_t = U_P − H_D`.
++    /// Project the energy register onto the constraint `K = 0` at tick `t`: `p_t = U_P − H_D`, with `H_D`
++    /// the doll's geodesic Hamiltonian — **the tube's own invariant energy** (`E − 1`, [`crate::ext::tube_invariants`]),
++    /// not the Kepler form of the readout state. The drift runs the geodesic, which conserves `E` exactly, so
++    /// the register and the drift are one Hamiltonian and `J = p_t + Ω·L` (a source on a circle) moves only
++    /// by the kicks' quanta (the probe P3'; the Kepler register moved it by 6e5–2e8 quanta a kick).
+     fn project(&mut self, t: Tick) -> Res<()> {
+         let st = self.rec.b.readout(t)?;
+-        let (x, v) = scalars(&st)?;
++        let (x, _) = scalars(&st)?;
+         let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
+         let u = force::field(&secs, x)?.potential;
+-        let hd = force::kepler(x, v, self.tube_mu()?)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        ext.set_pt(u.sub(hd)?)?;
++        ext.set_pt(u.sub(self.h_drift()?)?)?;
+         self.rec.ext = Some(ext);
+         Ok(())
+     }
+ 
++    /// The doll's geodesic Hamiltonian `H_D` the drift conserves: the tube's invariant `E − 1` (a constant
++    /// of the binding; the Kepler form of the readout state oscillates along the geodesic).
++    fn h_drift(&self) -> Res<Scalar> {
++        Ok(crate::ext::tube_invariants(self.rec.b.entry.trajectory.key())?.0)
++    }
++
+     /// Begin (or begin again, after a decision or a handoff) the clock at tick `t`, where the state is synchronised: the
+     /// constants of the clock are derived if the body has none, the register is projected onto `K = 0`, and the first kick
+     /// is planned at the middle of the first step.
+@@ -557,10 +578,10 @@ impl Work<'_, '_> {
+             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+         }
+         self.project(t)?;
+-        let st = self.rec.b.readout(t)?;
+-        let (x, v) = scalars(&st)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
++        // The drift's time transformation reads `H_D + p_t`, and `H_D` is the tube's own `E − 1`: a constant
++        // of the binding, exact in advance (the memo, §2.2: `E_tube` is the tube's constant).
++        let y = ext.y(self.h_drift()?.add(ext.pt_value()?)?)?;
+         let half = ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
+         self.rec.ext = Some(ext);
+         self.rec.plan.clear();
+@@ -597,12 +618,18 @@ impl Work<'_, '_> {
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let f = force::field(&secs, x)?;
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+-        let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
++        // The kick is the flow of −f(U_P + c): it moves the **canonical** momentum at fixed x
++        // ([`force::canonical_kick`]), not the coordinate velocity, so that the register's Δp_t = w·∂_tU_P
++        // pairs with ΔL = x×Δp exactly and J = p_t + Ω·L holds at any kick strength (the probe P3').
++        let dp = scale2(f.accel, w)?;
++        let v1 = force::canonical_kick(x, v, dp, self.tube_mu()?)?;
++        let dv = sub2(v1, v)?;
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+-            (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
++            let (vel, ve) = self.velocity_after(&st, v2)?;
++            (IntegerState { velocity: vel, velocity_exponent: ve, ..st }, self.rec.carry)
+         } else {
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+             ext.add_pt(w.mul(f.rate)?)?;
+@@ -618,10 +645,10 @@ impl Work<'_, '_> {
+             self.project(t)?;
+         }
+         // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
+-        // kick share it), and its boundary in the middle.
+-        let (x, v) = scalars(&next)?;
++        // kick share it), and its boundary in the middle. `H_D` is the new tube's own energy: exact, and the constant
++        // the drift conserves.
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
++        let y = ext.y(self.h_drift()?.add(ext.pt_value()?)?)?;
+         let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
+         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+             full = full.min(self.thrust_step(t)?);
+@@ -811,7 +838,8 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+             let (x, v) = scalars(&st)?;
+             let v2 = w.burn(x, v, t)?;
+             if th.keys & 3 != 0 {
+-                let next = IntegerState { velocity: w.velocity_after(&st, v2)?, ..st };
++                let (vel, ve) = w.velocity_after(&st, v2)?;
++                let next = IntegerState { velocity: vel, velocity_exponent: ve, ..st };
+                 w.rebind(next, t, w.rec.b.doll)?;
+                 if w.rec.ext.is_some() {
+                     // A burn is not a flow of the Hamiltonian: the register is projected back onto K = 0.
+diff --git a/crates/universe/tests/motion.rs b/crates/universe/tests/motion.rs
+index 812e9e5..eab0d04 100644
+--- a/crates/universe/tests/motion.rs
++++ b/crates/universe/tests/motion.rs
+@@ -390,7 +390,7 @@ fn a_ships_step_is_the_clocks_step_of_its_state() {
+             }
+             let t_kick = rec.plan.iter().find(|p| matches!(p.what, emergent_universe::body::What::Kick(_))).unwrap().t - rec.interval;
+             let (x, v) = scalars(&rec.b.readout(t_kick).unwrap()).unwrap();
+-            let y = ext.y(emergent_universe::force::kepler(x, v, w.u.dolls[0].unit.mu).unwrap().add(ext.pt_value().unwrap()).unwrap()).unwrap();
++            let y = ext.y(emergent_universe::ext::tube_invariants(rec.b.entry.trajectory.key()).unwrap().0.add(ext.pt_value().unwrap()).unwrap()).unwrap();
+             let want = to_f64(ext.time(y, ext.ds).unwrap());
+             let rel = (rec.interval as f64 - want).abs() / want;
+             worst_rel = worst_rel.max(rel);
+@@ -526,3 +526,114 @@ fn the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_
+     assert!(boundary_x <= 5e-7, "across a boundary the position jumps by {boundary_x:e} of the radius");
+     assert!(boundary_v <= 1e-4, "across a boundary the velocity jumps by {boundary_v:e} of itself");
+ }
++
++/// **P3' — the energy register holds the geodesic's own Jacobi constant** (the Opus motion memo's P3,
++/// adjudicated 6 October to the geodesic's L; frozen before this run, its predictions in the lab's run
++/// folder). `J = p_t + Ω·L` with `L` the geodesic angular momentum of the **exact** state (the tube's
++/// readout, `F(Q(X)) + C`: the rebinding remainder included — the key's own L moves by whole key quanta
++/// at every refit, which is what the old probe measured along a drift), everything in quanta of the
++/// register's word `2^pt_exp`:
++/// 1. across every kick, `|ΔJ| ≤ 2` quanta, and no trend over the run (`|J_last − J_first| ≤ 8`);
++/// 2. along every drift (the binding's own readout, sampled inside its step) `|J − J(at its kick)| ≤ 1`;
++/// 3. the control: the same kick applied to the coordinate velocity (the law before the geodesic
++///    register: the kick not canonical) moves J by `≥ 1e3` quanta — the bounds are not vacuous;
++/// 4. `ext::tube_invariants(key)` is the tube's own invariant: it equals `force::geodesic_of` of the
++///    binding's decoded state, everywhere the run visits, to the key's quantisation.
++#[test]
++fn the_energy_register_holds_the_geodesics_jacobi_constant() {
++    use emergent_space::orbit::Scalar;
++    use emergent_universe::bind::scalars;
++    use emergent_universe::body::What;
++    use emergent_universe::ext::Ext;
++    use emergent_universe::force;
++    use emergent_universe::num::{add2, scale2, to_f64};
++    let (mu_log2, sep) = (-10, 527_000_000i64);
++    let hill = sep as f64 * (2f64.powi(mu_log2) / 3.0).cbrt();
++    let ships: Vec<(i64, u32)> = (0..12).map(|i| ((sep as f64 + if i % 2 == 0 { 1.0 } else { -1.0 } * hill * (1.5 + 0.1 * i as f64)) as i64, (i as u32).wrapping_mul(0x9E37_79B9))).collect();
++    let mut w = emergent_universe::scenario::restricted(mu_log2, sep, 49_000, &ships, 1).unwrap();
++    let mu = 2f64.powi(mu_log2);
++    let omega = (1.0 + mu).sqrt() / (sep as f64).powf(1.5);
++    let period = 2.0 * std::f64::consts::PI / omega;
++    let star_mu = w.u.dolls[0].unit.mu;
++    let omega_s = Scalar::raw((omega * (1u128 << 53) as f64) as i128, -53).unwrap();
++    // (J, the register's quantum) of one record at tick t: the exact state's geodesic L, the register with its carry.
++    let j_of = |b: &emergent_universe::bind::Binding, ext: &Ext, t: i64| -> (f64, f64) {
++        let st = b.readout(t).unwrap();
++        let (x, v) = scalars(&st).unwrap();
++        let (_, l) = force::geodesic_of(x, v, star_mu).unwrap();
++        let pt = Scalar::raw(((ext.pt as i128) << 16) + ext.pt_carry as i128, ext.pt_exp as i32 - 16).unwrap();
++        (to_f64(pt.add(omega_s.mul(l).unwrap()).unwrap()), 2f64.powi(ext.pt_exp as i32))
++    };
++    let (mut kicks, mut worst_kick, mut worst_drift, mut worst_control, mut worst_key) = (0usize, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
++    let mut trend = vec![0.0f64; ships.len()];
++    let mut first = vec![f64::NAN; ships.len()];
++    let end = (20.0 * period) as i64;
++    loop {
++        let before: Vec<_> = w.ships.iter().map(|&s| w.u.rec(s)).collect();
++        // (2) along a drift: the binding's own readout, sampled inside the step it stands for.
++        for (n, &s) in w.ships.iter().enumerate() {
++            let rec = w.u.rec(s);
++            let (Some(ext), Some(next)) = (
++                rec.ext.as_ref(),
++                rec.plan.iter().find(|p| matches!(p.what, What::Kick(_))).map(|p| p.t),
++            ) else { continue };
++            let mid = rec.b.event_time + (next - rec.b.event_time) / 2;
++            if !rec.alive || mid <= rec.b.event_time + 1 || rec.b.event_time < 2 {
++                continue;
++            }
++            let (j0, q) = j_of(&rec.b, ext, rec.b.event_time);
++            worst_drift = worst_drift.max((j_of(&rec.b, ext, mid).0 - j0).abs() / q);
++            trend[n] = j0;
++            if first[n].is_nan() {
++                first[n] = j0;
++            }
++            // (4) the key's invariants are the tube's own: compare with the decoded state's, mid-drift.
++            let st = rec.b.readout(mid).unwrap();
++            let (x, v) = scalars(&st).unwrap();
++            let (e_state, l_state) = force::geodesic_of(x, v, star_mu).unwrap();
++            let (e_key, l_key) = emergent_universe::ext::tube_invariants(rec.b.entry.trajectory.key()).unwrap();
++            let l_key = rec.b.to_doll(l_key).unwrap();
++            let l_key = if rec.b.entry.clockwise { l_key.negate() } else { l_key };
++            worst_key = worst_key.max(to_f64(e_key.sub(e_state.sub(Scalar::ONE).unwrap()).unwrap().abs())).max(to_f64(l_key.sub(l_state).unwrap().abs().div(l_state.abs()).unwrap()));
++        }
++        if w.u.advance(end, emergent_universe::Budget::events(1)).events == 0 {
++            break;
++        }
++        // (1) and (3): every kick, before against after, and the coordinate-kick control.
++        for (n, &s) in w.ships.iter().enumerate() {
++            let rec = w.u.rec(s);
++            if !rec.alive {
++                continue;
++            }
++            let (Some(e0), Some(e1)) = (before[n].ext.as_ref(), rec.ext.as_ref()) else { continue };
++            let kicked = rec.b.event_time != before[n].b.event_time || e1.pt != e0.pt;
++            if !kicked || rec.b.event_time < 2 || before[n].b.event_time > rec.b.event_time {
++                continue;
++            }
++            let t = rec.b.event_time;
++            let (ja, q) = j_of(&rec.b, e1, t);
++            let (jb, _) = j_of(&before[n].b, e0, t);
++            worst_kick = worst_kick.max((ja - jb).abs() / q);
++            kicks += 1;
++            // The control: the same weight on the coordinate velocity (the law before the canonical kick).
++            let st = before[n].b.readout(t).unwrap();
++            let (x, v) = scalars(&st).unwrap();
++            let secs = w.u.ctx().secondaries(0, t, s).unwrap();
++            let f = force::field(&secs, x).unwrap();
++            let wgt = e0.time(e0.y(f.potential).unwrap(), e0.ds).unwrap();
++            let v_coord = add2(v, scale2(f.accel, wgt).unwrap()).unwrap();
++            let (_, l_coord) = force::geodesic_of(x, v_coord, star_mu).unwrap();
++            let (_, l_before) = force::geodesic_of(x, v, star_mu).unwrap();
++            let dpt = to_f64(wgt.mul(f.rate).unwrap());
++            worst_control = worst_control.max((dpt + omega * (to_f64(l_coord) - to_f64(l_before))).abs() / q);
++        }
++    }
++    let drift_of_trend = trend.iter().zip(&first).map(|(j, f)| (j - f).abs()).fold(0.0, f64::max);
++    println!("{kicks} kicks: worst |ΔJ| {worst_kick:.2} quanta, drift {worst_drift:.3}, control (coordinate kick) {worst_control:.2e}, trend {drift_of_trend:.2}, key invariants {worst_key:.2e}");
++    assert!(kicks > 2000, "enough kicks looked at: {kicks}");
++    assert!(worst_kick <= 2.0, "a kick moved J by {worst_kick} quanta");
++    assert!(worst_drift <= 1.0, "a drift moved J by {worst_drift} quanta");
++    assert!(drift_of_trend <= 8.0, "J trended by {drift_of_trend} quanta");
++    assert!(worst_control >= 1e3, "the control: the coordinate kick moves J by only {worst_control} quanta");
++    assert!(worst_key <= 1e-12, "the key's invariants are not the tube's: {worst_key}");
++}
