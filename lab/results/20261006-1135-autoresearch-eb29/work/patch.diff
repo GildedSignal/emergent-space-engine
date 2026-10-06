@@ -1,0 +1,46 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..91481f0 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -351,6 +351,17 @@ fn root_witness(
+ }
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        Self::from_state_inner(state, event_time, passage_edge, true)
++    }
++
++    /// [`Self::from_state`] without the residual: for callers that recompute their own
++    /// remainder against the doll's readout (the universe's `bind`), it is one full decode
++    /// and one `cartesian` per rebind thrown away.
++    pub fn from_state_lean(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        Self::from_state_inner(state, event_time, passage_edge, false)
++    }
++
++    fn from_state_inner(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, residual: bool) -> Result<Self> {
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
+         let trajectory = if key.periodic() {
+             Trajectory::Cycle(Orbit::compile(key)?)
+@@ -378,7 +389,9 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+-        fit.residual = Residual::between(state, fit.decoded_event()?);
++        if residual {
++            fit.residual = Residual::between(state, fit.decoded_event()?);
++        }
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 1724246..188e4de 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -217,7 +217,7 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+ }
+ 
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+-    let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
++    let fit = Rebinding::from_state_lean(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
