@@ -1,0 +1,4 @@
+Working...
+All artifacts verified end-to-end: `reproduce.sh` regenerates every number (law 31/70/140/280 MB with flat counters, flat 19 MB dissolved control, seed spread 279/100/211 MB, three identical cross-process digests plus a differing control, blind instrument 9,019 B × 74). Dossier, pre-registered predictions, raw data and the script are in `lab/results/20261006-0030-taleb-d3fe/`.
+
+**Claim:** the shipped plane has a reachable ruin state — peak memory grows ~linearly in game time through any battle that stays live (~0.2 kB per surviving member per game-second, unbounded under the never-dissolving-battle bug, 2.8× seed spread), while every installed instrument is blind to it (the bench's 55 s ceiling and `bytes_per_body`'s 0.7 MB report against a measured 280 MB peak), so no frozen gate can catch it; determinism, the other ruin axis, held cleanly across processes and threads.
