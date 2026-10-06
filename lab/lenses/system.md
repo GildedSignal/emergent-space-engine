@@ -2,7 +2,7 @@
 
 A complex system is not the sum of its parts; the relationships carry the behaviour. Look at all levels at once.
 
-**Read first:** docs/PRINCIPLES.md, docs/HANDOFF.md, docs/engine.md, docs/gravity-law.md, docs/universe-quanta.md, and the last 20 entries of docs/HISTORY.md.
+**Read first:** docs/PRINCIPLES.md, docs/HANDOFF.md, docs/archive/engine.md, docs/law.md, docs/archive/universe-quanta.md, and the last 20 entries of docs/HISTORY.md.
 
 **Hunt for:**
 - two mechanisms that are secretly one: the certificates, the cells, the light cones and the multipoles may be a single structure;

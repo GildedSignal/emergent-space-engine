@@ -1,4 +1,4 @@
-//! Chronon mode on Metal for the lattice law (docs/engine.md).
+//! Chronon mode on Metal for the lattice law (docs/archive/engine.md).
 //!
 //! [`MetalChronon`] reproduces [`emergent_lattice::chronon::Chronon`] bit for bit under every
 //! law: world digest, log digest, and the `ops`, `predicates`, `fired`, `batches` and

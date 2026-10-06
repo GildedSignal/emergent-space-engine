@@ -1,4 +1,4 @@
-//! Regions mode (docs/engine.md): the allocator (crates/allocator) over
+//! Regions mode (docs/archive/engine.md): the allocator (crates/allocator) over
 //! hybrid regions on the M1's 4 performance and 4 efficiency cores. Independent islands (a
 //! galaxy's fleets) run as separate regions in parallel, each in event or Metal mode by
 //! measured cost; results are bit-identical to one stepper over the scene. One ladder advance

@@ -1,6 +1,6 @@
 # Law `es-space-v2`: contract
 
-Status: **DRAFT.** It freezes when r1 has a clean PASS, r3 v3 and r4 v2 are judged, and GLM has red-teamed this text. On freeze it replaces [gravity-law.md](gravity-law.md) and [universe-quanta.md](universe-quanta.md). The design is [representation.md](representation.md); the judge is `xtask behave`.
+Status: **DRAFT.** It freezes when r1 has a clean PASS, r3 v3 and r4 v2 are judged, and GLM has red-teamed this text. On freeze it replaces [gravity-law.md](archive/gravity-law.md) and [universe-quanta.md](archive/universe-quanta.md). The design is [representation.md](representation.md); the judge is `xtask behave`.
 
 ## What the law is
 

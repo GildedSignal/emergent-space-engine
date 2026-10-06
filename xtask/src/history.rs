@@ -160,6 +160,20 @@ fn accounted(target: &str) -> Result<bool> {
     Ok(map["lost"].get(&key).is_some())
 }
 
+/// Where a spec moved to when it was archived (docs/archive/README.md): a link to the missing
+/// `docs/<name>.md` resolves to `docs/archive/<name>.md`. Only a direct child of docs/ with a
+/// Markdown name has an alias; every other missing path stays missing.
+fn archived_alias(target: &str) -> Option<String> {
+    let name = normalize(target).strip_prefix("docs/")?.to_owned();
+    (name.ends_with(".md") && !name.contains('/')).then(|| format!("docs/archive/{name}"))
+}
+
+/// A history link resolves if its file exists, or if it was archived and the archived file exists.
+fn resolves(target: &str, exists: &dyn Fn(&Path) -> bool) -> bool {
+    exists(&Path::new("docs").join(target))
+        || archived_alias(target).is_some_and(|alias| exists(Path::new(&alias)))
+}
+
 fn check_links(document: &str) -> Result<()> {
     // Local Markdown evidence links are relative to docs/HISTORY.md.
     for tail in document.split("](").skip(1) {
@@ -174,7 +188,7 @@ fn check_links(document: &str) -> Result<()> {
         if target.is_empty() || target.contains("://") {
             continue;
         }
-        if !Path::new("docs").join(target).exists() && !accounted(target)? {
+        if !resolves(target, &|p| p.exists()) && !accounted(target)? {
             return Err(format!("missing history evidence path: {target}").into());
         }
     }
@@ -323,6 +337,27 @@ mod tests {
             None
         )
         .is_err());
+    }
+    #[test]
+    fn archived_specs_still_resolve_and_nothing_else_does() {
+        let archived = |p: &Path| p == Path::new("docs/archive/engine.md");
+        let live = |p: &Path| p == Path::new("docs/law.md");
+        // A link to a spec that moved resolves to its archived copy, however it is written.
+        assert!(resolves("engine.md", &archived));
+        assert!(resolves("./engine.md", &archived));
+        assert!(resolves("../docs/engine.md", &archived));
+        assert!(resolves("archive/engine.md", &archived));
+        // A live file still resolves, and a link to nothing stays missing.
+        assert!(resolves("law.md", &live));
+        assert!(!resolves("engine.md", &live));
+        assert!(!resolves("engine.md", &|_| false));
+        assert!(!resolves("gravity-law.md", &archived));
+        // Only a Markdown file directly in docs/ has an alias.
+        assert_eq!(archived_alias("engine.md").as_deref(), Some("docs/archive/engine.md"));
+        assert_eq!(archived_alias("engine.json"), None);
+        assert_eq!(archived_alias("reference/engine.md"), None);
+        assert_eq!(archived_alias("../lab/engine.md"), None);
+        assert_eq!(archived_alias("../artifacts/evidence/x/engine.md"), None);
     }
     #[test]
     fn caps_new_entries_but_grandfathers_old_ones() {

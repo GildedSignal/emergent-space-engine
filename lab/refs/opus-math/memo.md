@@ -293,7 +293,7 @@ k* is non-decreasing along i's timelike worldline, and the chain is causally ord
 - **Discrete-gradient or projection integrators that conserve the Jacobi constant exactly:** they work only on circular restricted scenes (B12's), which would mean engineering the law for a gate, and projection breaks reversibility unless it is symmetric.
 - **Bit-reversibility as a law-wide requirement** (register: "ooooh"): `q-changeover` measured that reversibility and bounded error are different properties. Take reversibility where it is free (R3) and not as a constraint on kicks.
 - **Higher-order splits and correctors:** killed by six lab runs.
-- **Radix heaps and calendar queues:** already named in the original research report and engine.md. Use them only if the queue shows in a profile. I don't know that it does.
+- **Radix heaps and calendar queues:** already named in the original research report and docs/archive/engine.md. Use them only if the queue shows in a profile. I don't know that it does.
 - **Posits and unums, residue number systems, p-adic positions:**
   - posits are floats, and floats never decide;
   - residue systems cannot compare or divide cheaply, and our predicates are comparisons;

@@ -61,8 +61,8 @@ Open from the first flight: readouts between kicks carry the pending half kick (
 
 ## Where we are
 
-- **Law.** `es-lattice-relativistic-v1` (H0174): exact integer special relativity with contacts, walls, carries and an exact Newtonian limit. Q ≤ 2^20 today; the target is 2^40 ([universe-quanta.md](universe-quanta.md)). Worldlines are straight between events: no gravity, no thrust, no player input yet.
-- **Gravity.** The v1 contract is a draft ([gravity-law.md](gravity-law.md)).
+- **Law.** `es-lattice-relativistic-v1` (H0174): exact integer special relativity with contacts, walls, carries and an exact Newtonian limit. Q ≤ 2^20 today; the target is 2^40 ([universe-quanta.md](archive/universe-quanta.md)). Worldlines are straight between events: no gravity, no thrust, no player input yet.
+- **Gravity.** The v1 contract is a draft ([gravity-law.md](archive/gravity-law.md)).
   - GLM's red-team found the draft lacked its own equations, had two vacuous gates (B4 capture, B5) and a determinism clash with cell clipping. All are folded in.
   - Probe 1 passed precession, capture and deflection at 1%, and killed the per-body step rule on energy growth (evidence: `artifacts/evidence/gravity-v1-freeze-20260929/`).
   - The v0 exact evaluator agreed exactly wherever it answered, but ran 1,600× over budget (H0194). It is now oracle material.

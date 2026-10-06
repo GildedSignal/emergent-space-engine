@@ -22,7 +22,7 @@ Julien: "test like a spartan would train, harder than for the war"; "extremes in
   - Extremes: X1 relative motion, X2 horizon, X3 crowded axes, X4 near-miss lattice and X5 carry endurance.
   - Chaotic: C1 packed stop cascade, C2 trapped gas, C3 mixed invariance and C4 near-c mixed.
   - Galaxy: G1 galaxy clusters and G2 galaxy span.
-- **Modes.** chronon (the reference), event, metal, hybrid and regions, until they merge into one engine ([engine.md](engine.md)). Every mode must reproduce the chronon digests where invariance runs.
+- **Modes.** chronon (the reference), event, metal, hybrid and regions, until they merge into one engine ([engine.md](archive/engine.md)). Every mode must reproduce the chronon digests where invariance runs.
 - **Climb.** `cargo run --release -p xtask -- ladder7 <out-dir> [track] [--modes=...] [--full]`. One rung: `... ladder7-rung <mode> <track> <rung> quick`. Every rung runs in its own child process, under one minute.
 - **Gates.** empty_space_free, cost_per_event_flat, smooth, useful_work, gas_one_million and galaxy_one_million. Last climb: H0180, with H0181 for the hybrid.
 

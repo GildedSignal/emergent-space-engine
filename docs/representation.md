@@ -1,6 +1,6 @@
 # The design: a compiled causal automaton on symmetric spacetime
 
-Status: **DRAFT** (29 September 2026). It synthesizes Julien's direction from 29 September ([register](PRINCIPLES.md); bottleneck 0 on the [lab board](../lab/board.md)). It supersedes nothing until the falsifiers in §7 have run and Julien says yes. Once adopted, it replaces [gravity-law.md](gravity-law.md) and [universe-quanta.md](universe-quanta.md), and it absorbs [engine.md](engine.md).
+Status: **DRAFT** (29 September 2026). It synthesizes Julien's direction from 29 September ([register](PRINCIPLES.md); bottleneck 0 on the [lab board](../lab/board.md)). It supersedes nothing until the falsifiers in §7 have run and Julien says yes. Once adopted, it replaces [gravity-law.md](archive/gravity-law.md) and [universe-quanta.md](archive/universe-quanta.md), and it absorbs [engine.md](archive/engine.md).
 
 ## The thesis
 

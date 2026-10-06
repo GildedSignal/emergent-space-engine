@@ -8,7 +8,7 @@
 //! latency of one epoch segment (`run_to` the next epoch: the frame's unit of work, the nearest thing
 //! to a frame time) with its p50 and p99 over all segments of all repeats. Construction (`setup`) is
 //! timed apart: a `MetalChronon` compiles its shaders when built. A game-second is 1.2·10^10
-//! chronons (docs/universe-quanta.md: δt = 83 ps), so these scenes, whose ships are one light-chronon
+//! chronons (docs/archive/universe-quanta.md: δt = 83 ps), so these scenes, whose ships are one light-chronon
 //! wide, are stress scales and every real-time factor is tiny: the comparison is between steppers.
 //!
 //! Scenes: the engine's cost scenes (`cost.rs`: 2000 bodies, three epochs), the same battle with
