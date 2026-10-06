@@ -10,7 +10,7 @@ GLM=(omp -p --model=zai/glm-5.3 --thinking=high --approval-mode=yolo --no-sessio
 
 preamble() {  # PRINCIPLES' goal and philosophy, verbatim, then the lab's charter and board
   sed -n '/^## The goal/,/^## Proposed/p' docs/PRINCIPLES.md | sed '$d'
-  printf '\n'; cat lab/README.md; printf '\n'; cat lab/board.md; printf '\n'
+  printf '\n'; cat lab/heuristics.md; printf '\n'; cat lab/README.md; printf '\n'; cat lab/board.md; printf '\n'
 }
 restore() { git reset -q; git checkout -q -- .; git clean -fdq -e lab/results; }
 guard_linux() { [ "$(uname)" = Linux ] || { echo "Linux only (GitHub's machines or agonbox as glmlab): never on Julien's Mac"; exit 2; }; }
@@ -34,7 +34,7 @@ finish() {  # finish <grade or verdict line> [extra]: commit, push, and write DO
   fi
   echo "$1${2:+ | $2} | branch claude/lab-$id | $push" > "$out/DONE"
 }
-machine() { echo "Linux, $(nproc) vCPU, $(awk '/MemTotal/{printf "%d", $2/1048576}' /proc/meminfo) GB, shared with the window's other runs: keep every process under 3 GB of memory, or it is killed"; }
+machine() { echo "Linux, $(nproc) vCPU, $(awk '/MemTotal/{printf "%d", $2/1048576}' /proc/meminfo) GB, shared with the window's other runs: keep every process under 2 GB of memory, or it is killed"; }
 
 case ${1:-} in
 start)
