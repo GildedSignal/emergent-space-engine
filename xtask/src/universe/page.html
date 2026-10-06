@@ -10,11 +10,26 @@ header{position:absolute;top:24px;left:28px;pointer-events:none}h1{font:500 14px
 .clocks{position:absolute;right:28px;top:22px;display:flex;gap:26px;text-align:right;pointer-events:none}.clock{font-size:19px;letter-spacing:-.03em;color:#d5d2c2;margin-top:7px}.world .clock{color:#9dadb0}
 #list{top:92px;right:28px;text-align:right}
 #stats{top:92px;left:28px}
-#metric{bottom:46px;left:28px;font-size:11px;line-height:1.85}
-#controls{bottom:46px;right:28px;text-align:right;font-size:11px}
+#metric{bottom:100px;left:28px;font-size:11px;line-height:1.85}
+#controls{bottom:100px;right:28px;text-align:right;font-size:11px}
 #keys{bottom:8px;left:50%;transform:translateX(-50%);text-align:center;font-size:9px;line-height:1.5;color:#6f8486}
 .big{font-size:26px;font-weight:300;color:#c6caba;letter-spacing:-.04em}
 #error{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:550px;background:#302b26;padding:18px;color:#e0bea0;display:none;line-height:1.7}
+#now{top:64px;left:28px;right:28px;white-space:normal;font-size:12px;line-height:1.55;color:#cfd2c4}
+#news{top:112px;left:28px;max-width:46vw;white-space:normal;font-size:11px;line-height:1.6}
+#news div{color:#8e9e9b}#news div.fresh{color:#e8d9a8}
+#stats{top:176px}
+#pads{position:absolute;bottom:72px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;white-space:nowrap}
+.pad{display:inline-block;min-width:76px;margin:0 3px;padding:7px 8px;border:1px solid #33464a;background:rgba(18,30,36,.75);color:#6f8486;font-size:10px;letter-spacing:.08em}
+.pad b{display:block;font-weight:500;font-size:9px;letter-spacing:.14em}.pad i{display:block;font-style:normal;font-size:15px;color:#9fb0ad;margin-top:2px}
+.pad.on{background:#7a6538;border-color:#e0bf80;color:#fff1cf;box-shadow:0 0 14px rgba(224,191,128,.55)}.pad.on i{color:#fff8e6}
+#lastkey{margin-top:7px;font-size:11px;color:#8e9e9b}#lastkey.fresh{color:#e8d9a8}
+#buttons{position:absolute;bottom:8px;right:28px;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:27vw}
+button{font:inherit;font-size:10px;color:#b9c4bf;background:#1b2b31;border:1px solid #38505a;padding:3px 7px;cursor:pointer}button:hover{background:#26404a}button:active{background:#6b5a3a}
+#lossbox{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);width:min(560px,86vw);background:rgba(44,34,28,.94);border:1px solid #b98f4c;padding:18px 22px;color:#e6cfae;line-height:1.7;font-size:12px;display:none;text-align:left}
+#lossbox h2{font:500 15px Georgia,serif;letter-spacing:.2em;margin:0 0 8px;color:#f0d9b0}#lossbox button{margin-top:10px;font-size:12px;padding:6px 14px}
+#help{bottom:10px;left:50%;transform:translateX(-50%);max-width:42vw;text-align:center;white-space:pre-wrap;font-size:9px;line-height:1.5;color:#6f8486}
+.flash{animation:flash .9s ease-out}@keyframes flash{from{color:#fff3cf;text-shadow:0 0 10px #e0bf80}to{}}
 </style>
 <canvas id="sky" aria-label="The ship's surroundings: a map in the star's frame, or the sky in the ship's"></canvas>
 <header><h1>EMERGENT SPACE</h1><div class="sub" id="sub">THE PLANE · ONE STAR SYSTEM · LIGHT THAT ARRIVES, NOW</div></header>
@@ -22,10 +37,18 @@ header{position:absolute;top:24px;left:28px;pointer-events:none}h1{font:500 14px
 <div class="abs" id="list"></div>
 <div class="abs" id="stats"></div>
 <div class="abs" id="metric"></div>
-<div class="abs warn" id="refused" style="top:50px;left:28px"></div>
+<div class="abs" id="now"></div>
+<div class="abs" id="news"></div>
 <div class="abs" id="controls"></div>
-<div class="abs" id="keys">W/↑ thrust · S/↓ reverse · A D/← → turn · space cuts thrust
-1–9 or + − throttle · [ ] time ÷2 / ×2 · M map ↔ sky · wheel zoom · Z reset zoom</div>
+<div id="pads"><div class="pad" id="pad-thrust"><b>THRUST</b><i></i></div><div class="pad" id="pad-reverse"><b>REVERSE</b><i></i></div><div class="pad" id="pad-left"><b>TURN LEFT</b><i></i></div><div class="pad" id="pad-right"><b>TURN RIGHT</b><i></i></div><div class="pad" id="pad-cut"><b>CUT THRUST</b><i></i></div><div id="lastkey">LAST KEY  none yet: press a key and it is named here</div></div>
+<div class="abs" id="help"></div>
+<div id="buttons">
+<button data-act="thr-" title="throttle down one level">THROTTLE −</button><button data-act="thr+" title="throttle up one level">THROTTLE +</button>
+<button data-act="time-" title="time ÷2 ( [ )">TIME ÷2</button><button data-act="time+" title="time ×2 ( ] )">TIME ×2</button>
+<button data-act="mode" title="map / sky ( M )">MAP ↔ SKY</button>
+<button data-act="zoom-" title="zoom out (wheel)">ZOOM −</button><button data-act="zoom+" title="zoom in (wheel)">ZOOM +</button><button data-act="fit" title="fit the nearest body (Home or Backspace)">FIT</button>
+<button data-act="restart" title="restart the flight ( R )">RESTART</button></div>
+<div id="lossbox"></div>
 <div id="error" role="alert"></div>
 <script>
 'use strict';
@@ -33,28 +56,59 @@ const canvas=document.getElementById('sky'),ctx=canvas.getContext('2d'),el=id=>d
 const C_KMS=299792.458,C_MS=299792458,AU_LS=499.004784,LY_LS=31557600;
 // The throttle: the burn is 2^level times the base thrust. Digits 1-8 take every second level, 9 the top one.
 const DIGIT_LEVEL=[0,2,4,6,8,10,12,14,15],MAX_LEVEL=15;
-let frame=null,dash=null,held=new Set(),keys=0,busy=false,rtf=1,zoom=1,stopped=false,levelsG=[],level=8,mode='map',logScale=null,wall=null,rtfNow=0;
+let frame=null,dash=null,held=new Set(),keys=0,busy=false,rtf=1,zoom=1,stopped=false,levelsG=[],level=2,mode='map',viewLog=null,viewTarget=0,wall=null,rtfNow=0,epoch=0,prevDoll=null,prevAlive=true,armed=0;
+const DEFAULT_LEVEL=2;// about 1.4 g: the first thing a player does is not fatal
 let trail=[];// the past positions (the star's frame, light-seconds), thinned as they age
 function resize(){const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0)}
 addEventListener('resize',resize);resize();
-const controls=['Space','KeyW','KeyS','KeyA','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
-function setKeys(){let n=0;if(!held.has('Space')){if(held.has('KeyW')||held.has('ArrowUp'))n|=1;if(held.has('KeyS')||held.has('ArrowDown'))n|=2;if(held.has('KeyA')||held.has('ArrowLeft'))n|=4;if(held.has('KeyD')||held.has('ArrowRight'))n|=8}keys=n}
+// ---- the keyboard ---------------------------------------------------------------------------------------------------------
+// Controls are bound by physical place (e.code), like any game's WASD, and every label printed is read from the player's own
+// layout (navigator.keyboard.getLayoutMap where the browser has it; else the keys pressed teach the labels). The functions that
+// are not flying (map, restart, time, throttle steps) are bound by the character printed on the key (e.key), so what the help says
+// is what the key says. The arrows, the space bar and the buttons work on every layout.
+const layout={},learned={};let layoutKnown=false;
+const MOVE={thrust:{codes:['KeyW','ArrowUp'],bit:1,name:'THRUST'},reverse:{codes:['KeyS','ArrowDown'],bit:2,name:'REVERSE'},left:{codes:['KeyA','ArrowLeft'],bit:4,name:'TURN LEFT'},right:{codes:['KeyD','ArrowRight'],bit:8,name:'TURN RIGHT'}};
+const POS={KeyW:'2nd key, top letter row',KeyA:'1st key, middle letter row',KeyS:'2nd key, middle letter row',KeyD:'3rd key, middle letter row'};
+const SYM={ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',Space:'SPACE'};
+function labelOf(code){if(SYM[code])return SYM[code];const k=layout[code]||learned[code];return k?(k.length===1?k.toUpperCase():k):(POS[code]||code)}
+if(navigator.keyboard&&navigator.keyboard.getLayoutMap)navigator.keyboard.getLayoutMap().then(m=>{m.forEach((v,k)=>{layout[k]=v});layoutKnown=true;relabel()}).catch(()=>{});
+const isMove=c=>c==='Space'||Object.values(MOVE).some(m=>m.codes.includes(c));
+function setKeys(){let n=0;if(!held.has('Space'))for(const m of Object.values(MOVE))if(m.codes.some(c=>held.has(c)))n|=m.bit;keys=n;pads()}
+function pads(){for(const [k,m] of Object.entries(MOVE))el('pad-'+k).classList.toggle('on',m.codes.some(c=>held.has(c)));el('pad-cut').classList.toggle('on',held.has('Space'))}
+function relabel(){for(const [k,m] of Object.entries(MOVE))el('pad-'+k).querySelector('i').textContent=labelOf(m.codes[0])+'  '+labelOf(m.codes[1]);el('pad-cut').querySelector('i').textContent='SPACE';
+ const dg=['1','2','3','4','5','6','7','8','9'].map(d=>layoutKnown?labelOf('Digit'+d):d).join(' ');
+ el('help').textContent=`THROTTLE: the number row ${dg} = levels 0 2 4 6 8 10 12 14 15 · the keys printed + and − step one level\nTIME: the keys printed [ and ] · MAP/SKY: M · RESTART: R · ZOOM: wheel · the arrows fly too · the buttons do all of it${layoutKnown?'':'\n(this browser cannot tell your layout: each key you press is learned and its label shown)'}`}
+const news=[];function say(text){news.unshift({t:performance.now(),text});if(news.length>8)news.pop()}
+let lastKey={t:0,html:''};function echo(code,key,what,ok){const lab=SYM[code]||(key&&key.length===1?key.toUpperCase():key)||code;lastKey={t:performance.now(),html:`LAST KEY  <span class="hi">${lab}</span>  <span style="color:#6f8486">(${code})</span>  →  ${what}`,ok}}
+const levelText=l=>{const g=levelsG[l]||0;return `L${l} · ${g<10?g.toFixed(2):g.toFixed(0)} g`};
+function setLevel(l){const n=Math.max(0,Math.min(MAX_LEVEL,l));if(n===level)return `throttle stays at ${levelText(n)}`;const was=level;level=n;say(`THROTTLE L${was} → ${levelText(n)}`);return `THROTTLE → ${levelText(n)}`}
+function setTime(f){const n=Math.max(.01,Math.min(1e7,rtf*f));if(n===rtf)return 'time is at its limit';rtf=n;say(`TIME ×${rtf>=10?rtf.toFixed(0):rtf.toPrecision(2)} (asked)`);return `TIME → ×${rtf>=10?rtf.toFixed(0):rtf.toPrecision(2)}`}
+function setMode(){mode=mode==='map'?'sky':'map';say(mode==='map'?'MAP: the star\'s frame, north up':'SKY: the ship\'s frame, heading up');return mode.toUpperCase()}
+function zoomBy(d){if(mode==='map')viewTarget+=d;else zoom=Math.max(.3,Math.min(5,zoom*Math.exp(d*2.3)))}
+function act(a){switch(a){case 'thr+':return setLevel(level+1);case 'thr-':return setLevel(level-1);case 'time+':return setTime(2);case 'time-':return setTime(.5);case 'mode':return setMode();
+ case 'zoom+':zoomBy(.15);return 'ZOOM in';case 'zoom-':zoomBy(-.15);return 'ZOOM out';case 'fit':viewTarget=fitLog();zoom=1;say('FIT: the scale follows the nearest body now, once');return 'FIT';case 'restart':restart(false);return 'RESTART'}}
+document.getElementById('buttons').addEventListener('mousedown',e=>e.preventDefault());
+document.getElementById('buttons').addEventListener('click',e=>{const a=e.target.dataset&&e.target.dataset.act;if(a)echo('Mouse',a,act(a))});
 addEventListener('keydown',e=>{
- if(e.metaKey||e.ctrlKey||e.altKey)return;
- if(controls.includes(e.code)){e.preventDefault();held.add(e.code);setKeys();return}
+ if(e.metaKey||e.ctrlKey)return;
+ const code=e.code,key=e.key;if(key&&key.length===1)learned[code]=key;
+ if(isMove(code)){e.preventDefault();if(!held.has(code)){held.add(code);setKeys();const n=code==='Space'?'CUT THRUST':Object.values(MOVE).find(m=>m.codes.includes(code)).name;echo(code,key,`${n} while held`)}return}
  if(e.repeat)return;
- const d=/^(?:Digit|Numpad)([1-9])$/.exec(e.code);
- if(d){level=DIGIT_LEVEL[+d[1]-1];e.preventDefault()}
- else if(e.code==='Equal'||e.code==='NumpadAdd')level=Math.min(MAX_LEVEL,level+1);
- else if(e.code==='Minus'||e.code==='NumpadSubtract')level=Math.max(0,level-1);
- else if(e.code==='BracketRight')rtf=Math.min(1e7,rtf*2);
- else if(e.code==='BracketLeft')rtf=Math.max(.01,rtf/2);
- else if(e.code==='KeyM')mode=mode==='map'?'sky':'map';
- else if(e.code==='KeyZ')zoom=1;
+ const k=key&&key.length===1?key.toLowerCase():key;let what=null;
+ if(k==='[')what=act('time-');else if(k===']')what=act('time+');
+ else if(k==='m')what=act('mode');else if(k==='r')what=act('restart');
+ else if(((k==='+'||k==='=')&&!/^Digit/.test(code))||code==='NumpadAdd')what=act('thr+');
+ else if(((k==='-'||k==='_')&&!/^Digit/.test(code))||code==='NumpadSubtract')what=act('thr-');
+ else if(/^(Digit|Numpad)[1-9]$/.test(code))what=setLevel(DIGIT_LEVEL[+code.slice(-1)-1]);
+ else if(code==='Home'||code==='Backspace')what=act('fit');
+ if(what){e.preventDefault();echo(code,key,what);relabel();return}
+ if(code==='Tab'||code.startsWith('F')||code==='Escape'||code.startsWith('Shift')||code.startsWith('Alt')||code==='CapsLock')return;
+ echo(code,key,`<span class="warn">not a control</span>; thrust is ${labelOf('KeyW')} (or ↑)`,false);relabel();
 });
-addEventListener('keyup',e=>{if(controls.includes(e.code)){e.preventDefault();held.delete(e.code);setKeys()}});
+addEventListener('keyup',e=>{if(isMove(e.code)){e.preventDefault();held.delete(e.code);setKeys()}});
 addEventListener('blur',()=>{held.clear();setKeys()});
-addEventListener('wheel',e=>{zoom=Math.max(.02,Math.min(50,zoom*Math.exp(-e.deltaY*.001)));e.preventDefault()},{passive:false});
+addEventListener('wheel',e=>{zoomBy(-e.deltaY*.0008);e.preventDefault()},{passive:false});
+relabel();
 // ---- formats ------------------------------------------------------------------------------------
 const pad=(n,w=2)=>String(Math.floor(n)).padStart(w,'0');
 function si(v,u){return (v>=100?v.toFixed(0):v>=10?v.toFixed(1):v.toFixed(2))+' '+u}
@@ -95,12 +149,12 @@ function nice(ls){// a bar near `ls`: 1, 2 or 5 of a unit of the distance's own
  const m=ls*C_MS;let u,f,name;
  if(m<1e3){f=1;name='m'}else if(m<1e9){f=1e3;name='km'}else if(ls/AU_LS<.1){f=1e9;name='Gm'}else if(ls/AU_LS<600){f=AU_LS*C_MS;name='AU'}else{f=LY_LS*C_MS;name='ly'}
  const x=m/f,p=Math.pow(10,Math.floor(Math.log10(x))),q=x/p,n=(q>=5?5:q>=2?2:1)*p;return {ls:n*f/C_MS,label:(n>=1?grp(n):String(+n.toPrecision(1)))+' '+name}}
+function fitLog(){const R=Math.min(innerWidth*.4,innerHeight*.4);let near=1e9;for(const s of frame.seen)if(s.kind<=3&&s.light_seconds<near)near=s.light_seconds;return Math.log10(.33*R/Math.max(near,1e-6))}
 function drawMap(w,h,cx,cy,R){
  const items=frame.seen;
- // the scale follows the nearest body (the zoom is the player's multiplier on it), smoothed in log
- let near=1e9;for(const s of items)if(s.kind<=3&&s.light_seconds<near)near=s.light_seconds;
- const want=Math.log10(.33*R/Math.max(near,1e-6)*zoom);logScale=logScale===null?want:logScale+(want-logScale)*.08;
- const S=Math.pow(10,logScale);// pixels per light-second
+ // the camera: the ship at the centre, the scale the player's (fitted once at the start, then only by the wheel and the buttons)
+ if(viewLog===null){viewLog=viewTarget=fitLog()}else{viewLog+=(viewTarget-viewLog)*.3;if(Math.abs(viewTarget-viewLog)<1e-4)viewLog=viewTarget}
+ const S=Math.pow(10,viewLog);// pixels per light-second
  // trail
  const here=frame.position;ctx.lineWidth=1.2;
  for(let i=1;i<trail.length;i++){const a=trail[i-1],b=trail[i],age=i/trail.length;ctx.strokeStyle=`rgba(190,170,130,${.08+.5*age})`;ctx.beginPath();ctx.moveTo(cx+S*(a[0]-here[0]),cy+S*(a[1]-here[1]));ctx.lineTo(cx+S*(b[0]-here[0]),cy+S*(b[1]-here[1]));ctx.stroke()}
@@ -156,7 +210,7 @@ function draw(){
 function text(){
  const f=frame,d=dash||{},bs=len(f.beta),bd=len(f.doll_beta);
  el('proper').textContent=fmtDur(f.proper);el('world').textContent=fmtDur(f.coordinate);
- el('sub').textContent=mode==='map'?'THE MAP · THE STAR\'S FRAME, NORTH UP · BODIES WHERE THEIR LIGHT LEFT':'THE SKY · THE SHIP\'S FRAME, HEADING UP · LIGHT THAT ARRIVES, NOW';
+ el('sub').textContent=(mode==='map'?'THE MAP · THE STAR\'S FRAME, NORTH UP · BODIES WHERE THEIR LIGHT LEFT':'THE SKY · THE SHIP\'S FRAME, HEADING UP · LIGHT THAT ARRIVES, NOW')+(f.doll==='star'?' · IN THE STAR\'S DOLL':' · IN '+f.doll.toUpperCase()+'\'S DOLL (its frame beside the star\'s)');
  const S=frameMetric(bs,f.rate),D=frameMetric(bd,f.doll_rate),same=f.doll==='star';
  const head=Math.atan2(f.heading[1],f.heading[0]),vel=Math.atan2(f.beta[1],f.beta[0]);
  let drift=bs>1e-9?(vel-head)*180/Math.PI:0;drift=((drift+540)%360)-180;
@@ -166,7 +220,7 @@ function text(){
  if(same)m+=`(you are in the star's doll: one frame)\n`;
  m+=`heading ${((head*180/Math.PI+360)%360).toFixed(1)}° · drift from heading ${bs>1e-9?drift.toFixed(1):'–'}°`;
  el('metric').textContent=m;
- el('refused').textContent=!f.alive?'SHIP LOST: crashed or left the system. It stays where it was lost; restart the server to fly again.':f.refusals>0?`ENGINE REFUSED ${f.refusals} KICKS: the state is frozen (the orbit compile cannot take this state: a near-radial fall, or past γ ~ 2000)`:'';
+
  // the nearest bodies
  const near=f.seen.filter(s=>s.kind!==4).sort((a,b)=>a.light_seconds-b.light_seconds).slice(0,8),fl=f.seen.filter(s=>s.kind===4).sort((a,b)=>a.light_seconds-b.light_seconds);
  let list='NEAREST            DISTANCE       CLOSING   SHIFT\n';
@@ -174,6 +228,7 @@ function text(){
  if(fl.length)list+=`FLEET ${String(fl.length).padStart(2)} ${fmtDist(fl[0].light_seconds).padStart(11)} ${fmtSpeed(fl[0].closing).padStart(13)} ${fmtShift(fl[0].shift).padStart(10)}\n`;
  list+=`(closing: the star frame's rate; shift: ν seen/ν emitted)`;
  el('list').textContent=list;
+ feedback(f);
  // the throttle and the time
  const g=levelsG[f.level]||0,bar='▮'.repeat(f.level+1)+'▯'.repeat(MAX_LEVEL-f.level),per=g*9.80665*rtf/1000;
  el('controls').innerHTML=`<span class="label">THROTTLE</span>  ${bar}  <span class="hi">L${f.level}</span> of ${MAX_LEVEL}${f.level!==level?` <span class="warn">(asked L${level})</span>`:''}\n`
@@ -182,11 +237,46 @@ function text(){
   +`<span class="label">TIME</span>  <span class="hi big">×${rtf>=10?rtf.toFixed(0):rtf.toPrecision(2)}</span>  asked · <span class="hi">×${rtfNow>=10?rtfNow.toFixed(0):rtfNow.toPrecision(2)}</span> got\n`;
  el('stats').textContent=`IN DOLL      ${f.doll}\nFRAME        p50 ${d.p50?d.p50.toFixed(1):'…'} · p95 ${d.p95?d.p95.toFixed(1):'…'} · p99 ${d.p99?d.p99.toFixed(1):'…'} ms (engine + view + wire)\nGAME TIME    ${d.rtf_median?d.rtf_median.toFixed(1):'…'}× median · ${d.rtf_low1?d.rtf_low1.toFixed(1):'…'}× lowest 1%\nEVENTS       ${d.events_per_second?Math.round(d.events_per_second):'…'}/s · overflow frames ${d.overflow_frames||0} · ${d.bytes_per_body||'…'} B per body\n${el('seed').textContent}`;
 }
+function describe(f){
+ if(!f.alive)return 'The ship is lost. '+(f.loss||'');
+ const g=levelsG[f.level]||0,acc=g*9.80665,fw=f.keys&1,rv=f.keys&2,lt=f.keys&4,rt=f.keys&8,dolls=f.doll==='star'?"the star's":f.doll+"'s";
+ const per=acc/1000,perWall=per*rtf;
+ let s;
+ if(fw&&rv)s='Thrust and reverse are both held: they cancel, nothing burns';
+ else if(fw||rv)s=`Burning ${fw?'along':'against'} your heading at ${g<10?g.toFixed(2):g.toFixed(0)} g (${acc.toPrecision(3)} m/s²): ${per<1?(per*1e3).toFixed(1)+' m/s':per.toPrecision(3)+' km/s'} more speed per game-second, ${perWall<1?(perWall*1e3).toFixed(1)+' m/s':perWall.toPrecision(3)+' km/s'} per wall-second at ×${rtf>=10?rtf.toFixed(0):rtf.toPrecision(2)}`;
+ else s='Coasting: no burn, your velocity changes only by gravity';
+ if((lt&&!rt)||(rt&&!lt))s+=`, turning ${lt?'left':'right'}`;
+ const bs=len(f.beta),bd=len(f.doll_beta);
+ s+=`. Speed ${fmtSpeed(bs)} against the star`+(f.doll==='star'?'':`, ${fmtSpeed(bd)} against ${f.doll}`)+`; your clock runs at ${near1(f.doll_rate)} of ${dolls}.`;
+ return s}
+function feedback(f){
+ const now=performance.now();
+ el('now').textContent=describe(f);
+ // the news: what changed, newest first, fading
+ let h='',shown=0;for(const n of news){if(shown++>=4)break;const age=(now-n.t)/1e3;if(age>12)continue;h+=`<div class="${age<2.5?'fresh':''}" style="opacity:${age<8?1:1-(age-8)/4}">${n.text}</div>`}
+ el('news').innerHTML=h;
+ const lk=el('lastkey'),age=(now-lastKey.t)/1e3;if(lastKey.html){lk.innerHTML=age<8?lastKey.html:'LAST KEY  none in the last seconds';lk.className=age<1.5?'fresh':''}
+ // the loss
+ const lb=el('lossbox');
+ if(!f.alive){lb.style.display='block';lb.innerHTML=`<h2>SHIP LOST</h2>${f.loss||'the engine has no more to say'}<br><br><span class="label">LAST READINGS</span><br>proper time ${fmtDur(f.proper)} · world time ${fmtDur(f.coordinate)} · β ${fmtBeta(len(f.beta))} · speed ${fmtSpeed(len(f.beta))}<br>The wreck stays where it was lost; the readings are frozen at its last state.<br><button id="restart2">RESTART THE FLIGHT  ( R )</button>`;
+  const b=el('restart2');if(b)b.onclick=()=>restart(true)}
+ else{lb.style.display='none';if(f.refusals>0&&(f.refusals<3||f.refusals%500===0))say(`<span class="warn">ENGINE REFUSED ${f.refusals} kicks: the state is frozen (a near-radial fall, or past γ ≈ 2000)</span>`)}
+}
+async function restart(force){
+ if(frame&&frame.alive&&!force){if(performance.now()-armed<3000){armed=0}else{armed=performance.now();say('<span class="warn">RESTART? press R (or the button) again within 3 s: the flight so far is dropped</span>');return}}
+ epoch++;busy=true;
+ try{await fetch('/restart',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});frame=null;dash=null;trail=[];wall=null;rtfNow=0;viewLog=null;prevDoll=null;prevAlive=true;level=DEFAULT_LEVEL;held.clear();setKeys();el('lossbox').style.display='none';say('RESTARTED: a new flight from the start, throttle '+levelText(level))}
+ catch(e){stopped=true;el('error').style.display='block';el('error').textContent=`Restart failed: ${e.message}.`}
+ finally{busy=false}
+}
 const seed=document.createElement('span');seed.id='seed';seed.hidden=true;document.body.appendChild(seed);
 async function poll(){
- if(busy||stopped)return;busy=true;
+ if(busy||stopped)return;busy=true;const ep=epoch;
  try{const r=await fetch('/frame',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keys,throttle:level,rtf})});const j=await r.json();if(!r.ok)throw Error(j.error);
+  if(ep!==epoch)return;
   frame=j.frame;dash=j.dash;
+  if(prevDoll!==null&&prevDoll!==frame.doll)say(frame.doll==='star'?`<span class="warn">LEFT ${prevDoll.toUpperCase()}'S DOLL</span>: the star's frame is the only one now`:`<span class="warn">ENTERED ${frame.doll.toUpperCase()}'S DOLL</span>: speeds and clock rate also read against ${frame.doll}`);
+  prevDoll=frame.doll;if(prevAlive&&!frame.alive)say(`<span class="warn">SHIP LOST</span>: ${frame.loss||''}`);prevAlive=frame.alive;
   // the time the game got: its coordinate seconds per wall second, smoothed
   const now=performance.now();if(wall){const dt=(now-wall.t)/1e3,dc=frame.coordinate-wall.c;if(dt>0&&dc>=0){const r=dc/dt;rtfNow=rtfNow?rtfNow+(r-rtfNow)*Math.min(1,dt*1.5):r}}wall={t:now,c:frame.coordinate};
   trailPush(frame.position.slice())}
@@ -197,5 +287,5 @@ let lastFrame=0;
 function animate(now){lastFrame=now;draw();poll();requestAnimationFrame(animate)}
 // a pane or tab that pauses animation frames still flies: the fetches go on, slower, and the page draws when it can
 setInterval(()=>{if(performance.now()-lastFrame>120){draw();poll()}},40);
-fetch('/config').then(r=>r.json()).then(c=>{rtf=c.rtf;levelsG=c.levels_g;seed.textContent='seed '+c.seed;requestAnimationFrame(animate)}).catch(e=>{el('error').style.display='block';el('error').textContent=e.message});
+fetch('/config').then(r=>r.json()).then(c=>{rtf=c.rtf;levelsG=c.levels_g;relabel();say(`FLYING at throttle ${levelText(level)}; the throttle is yours: ${labelOf('KeyW')} burns, and the line above says what the ship does`);seed.textContent='seed '+c.seed;requestAnimationFrame(animate)}).catch(e=>{el('error').style.display='block';el('error').textContent=e.message});
 </script></html>
