@@ -1,0 +1,7 @@
+# Lens: second author on the secular-phasor test (fix the reference, then decide)
+
+Run `20261005-2231-q-secular-008e` tested the Opus math memo's R2 (`lab/refs/opus-math/memo.md`): stable belt bodies as zero-kick secular phasors. Its checker found the kill undemonstrated: in `wh_run.py`, `accel()` erases Saturn's kick (`out[j] = 0.0` wipes row j's accumulation from the previous pass), so Saturn coasts on a fixed ellipse for 23.7 kyr (stored |z_S| = 0.0537 against exact 0.054 → 0.007 → 0.040). Read its dossier and check (`git show origin/claude/lab-20261005-2231-q-secular-008e:lab/results/20261005-2231-q-secular-008e/check.md`).
+
+Do exactly this, in your folder: fix that line, verify the Wisdom–Holman truth against an independent exact integration (Saturn's eccentricity history must match), then rerun the decisive comparison as the first author specified it (Jupiter and Saturn with their mutual modes, 1,024 belt bodies on 2.0–3.3 AU, e ≤ 0.25; first-order Laplace–Lagrange, Gauss-ring double averaging, the plane's kick law; 2,000 Jupiter orbits), with its kill criterion unchanged: kill if fewer than 50% are admitted with the rate within 5% and the e-vector within 10% of the free amplitude, or if any admitted body was within a resonance's width. Write predictions.md before the rerun. Keep every process under 2 GB.
+
+Gold: a correct truth, the decisive comparison complete, and the verdict either way.
