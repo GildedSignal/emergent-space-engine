@@ -1,0 +1,233 @@
+{
+  "bodies": 39,
+  "bytes_per_body": 2135,
+  "catalogue_live": 39,
+  "cut_tick": 4060509,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ],
+      [
+        1688495,
+        0
+      ],
+      [
+        2432922,
+        4
+      ],
+      [
+        2500597,
+        0
+      ],
+      [
+        3245023,
+        1
+      ],
+      [
+        3312699,
+        0
+      ],
+      [
+        4057125,
+        5
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ],
+      [
+        1688495,
+        0
+      ],
+      [
+        2432922,
+        4
+      ],
+      [
+        2500597,
+        0
+      ],
+      [
+        3245023,
+        1
+      ],
+      [
+        3312699,
+        0
+      ],
+      [
+        4057125,
+        5
+      ]
+    ]
+  },
+  "digest": "7426fa0109ae37cfc9e567ff65d39677bff414d036ad3279a7955de6ec806bfb",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 1,
+      "kind": "ship",
+      "total_ms": 0.083202,
+      "us_per_item": 83.202
+    },
+    {
+      "items": 1,
+      "kind": "player",
+      "total_ms": 0.267376,
+      "us_per_item": 267.376
+    },
+    {
+      "items": 1204,
+      "kind": "fleet",
+      "total_ms": 25.50581,
+      "us_per_item": 21.18422757475083
+    }
+  ],
+  "events_per_second": 61.40014770726538,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 0.5380470000000059,
+    "p99": 0.7975579999999809,
+    "p99.9": 2.5876990000000433,
+    "worst": 5.715641000000005
+  },
+  "frame_ms": {
+    "p50": 0.537955,
+    "p95": 0.6924089999999999,
+    "p99": 0.797419,
+    "p99.9": 2.587724
+  },
+  "frames": 1200,
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-06T10:40:19Z",
+    "unix": 1791283219,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-06T10:39:59Z",
+    "unix": 1791283199,
+    "when": "before"
+  },
+  "paced": true,
+  "player_alive": true,
+  "rtf_target": 1.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 3, opens: 50, boundaries: 0, handoffs: 0, lost: 0, refused: 0, slices: 1204, encounters: 2, decisions: 11, leavers: 11, dissolved: 0, cost_ns: [0, 0, 83202, 267376, 25505810], items: [0, 0, 1, 1, 1204] }",
+  "throttle_level": 0,
+  "uptime_after": "10:40:19 up 40 days,  1:42,  0 user,  load average: 2.48, 1.66, 1.45",
+  "uptime_before": "10:39:59 up 40 days,  1:42,  0 user,  load average: 2.97, 1.69, 1.45",
+  "view_units": {
+    "readouts_median": 44,
+    "seen_median": 76
+  },
+  "wall_seconds": 20.001012799,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 5.075052,
+      "p50": 0.04435,
+      "p99": 0.087049,
+      "share": 0.09170586693036915
+    },
+    "view_gather": {
+      "max": 0.623147,
+      "p50": 0.313819,
+      "p99": 0.5101370000000001,
+      "share": 0.6052047419127702
+    },
+    "view_json": {
+      "max": 0.234511,
+      "p50": 0.112574,
+      "p99": 0.188502,
+      "share": 0.20842807418761994
+    },
+    "wire": {
+      "max": 0.09266200000000001,
+      "p50": 0.049399,
+      "p99": 0.08171800000000001,
+      "share": 0.09466131696924074
+    }
+  },
+  "worst_hitch_at_frame": 1084,
+  "worst_hitch_ms": 5.715948999999999
+}

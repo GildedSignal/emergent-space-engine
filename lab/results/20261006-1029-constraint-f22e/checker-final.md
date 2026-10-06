@@ -1,0 +1,10 @@
+Working...
+The background `behave` job confirms the same gate set (B14 timeout 60.1 s vs the author's 60.0 s — same failure, noise on a timeout). Nothing in it changes the verdict.
+
+**Check complete: `Grade: silver`** — written to `lab/results/20261006-1029-constraint-f22e/check.md`; tree reverted clean (only `?? lab/results/`).
+
+**What I did:**
+- **Reproduced** everything from the dossier's commands with `work/patch.diff` applied: gather shares 60.4/59.9/60.0% at 39/71/417 bodies (author 60.5/60.6/56.8%); engine p99 6.4 ms over its 5 ms budget at 417 bodies with 367 overflow frames; `view_units` deterministic and bit-identical (44/76, 64/59, 260/271); kick-bench orders agree (60.8 µs distinct, 587.8 leavers, exact memo hit 0.0%); `behave --law plane` gate lines identical. Code shape verified by reading: serial O(N) loop + per-member loop, `view_json` over every seen emitter, foundation 7's "a gather" clause.
+- **Predictions**: existed before the decisive runs (10:36 < 10:38–10:43), honestly reported, but only partially held — #1 missed its range low, #2's mechanism falsified.
+- **Adversarial**: (a) max-scene unpaced run — 5.5 µs/body at 428 bodies, linearity holds; (b) **rtf 1000**: cache still near-perfect (0.64 readouts/body) and gather p50 flat vs rtf 100 at fixed bodies — the "cost grows with swept game time" mechanism is wrong (it's bodies, not rtf), which *strengthens* the O(N) claim but breaks the prediction; (c) at rtf 1000 engine share ≈ gather share — "the view binds at every scale" has an unstated rtf boundary; (d) `--members` clamps to 400, so "m512/m4096" scenes are fictions and the ~2,000-body wall is unreachable extrapolation by this harness.
+- **Why silver, not gold**: fully reproduced and honest, but the lever (bounded view / LOD) is unmeasured — the 10–100× is an estimate, and the held-out predictions only partially held. One experiment to gold: build the budgeted floor-aggregated gather, measure the 428-body scene collapse to O(K), and land the plane's B10 cost hook (the gate exists; the law's hook is what's missing).

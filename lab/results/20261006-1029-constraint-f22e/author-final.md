@@ -1,0 +1,3 @@
+The plane'sRun complete. Deliverables in `lab/results/20261006-1029-constraint-f22e/` (dossier, predictions, six bench JSONs in `work/`); the tree diff is only the `view_units` instrumentation, saved as a patch.
+
+**The claim:** the plane's frame constraint is the unbudgeted O(all-bodies) view path (56–93% of every frame, 6–8 µs per body measured linear to 428 bodies, saturating the 16.7 ms frame near ~2,000 bodies) — the per-emitter crossing cache the current fix targets is already near-perfect at ~1.1 readouts/body, so the lever is bounding the view loop itself, and no frozen gate can see any of this because B10 "cost against n" is not implemented.

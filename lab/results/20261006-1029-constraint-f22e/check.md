@@ -1,0 +1,26 @@
+Grade: silver
+
+The claim: the plane's frame constraint is the unbudgeted O(all-bodies) view path (gather+json+wire, 56–93% of every frame, linear at ~6–8 µs/body), not the engine; the per-emitter crossing cache is already near-perfect (~1.1 readouts/body), so the lever is bounding the view loop, and B10 cannot see it. Reproduced on a shared loaded box (patch applied, `cargo build --release -p xtask`): gather share 60.4%/59.9%/60.0% at 39/71/417 bodies (author 60.5/60.6/56.8%); engine p99 6.4 ms over its 5 ms budget at 417 bodies, 367 overflow frames; readouts/seen reproduce exactly (44/76, 64/59, 260/271); kick-bench 60.8 µs distinct, 587.8 leavers, memo exact-hit 0.0%; `behave --law plane` gates identical (B12 exponent 1.604, B13 ΔE 1.26, B10 "not implemented"). Gain: a redirect, not yet a measured 10×. Cost to adopt: one pass in `view.rs`/`session.rs` (budgeted, floor-aggregated gather) plus the plane's B10 cost hook.
+
+## Reasons
+
+1. **Reproduction: complete.** Every table row matches within the stated noise discipline (shares, not ms). My box ran loaded (1.5–1.8) and reproduced the author's *loaded* rows almost exactly (rtf100: 3.57/9.87 ms, gather 59.9% vs 3.59/9.80, 60.6%), validating "shares stable 60±5%, absolutes 4×". `view_units` is deterministic and reproduced bit-for-bit. Code shape confirmed by reading: `for i in 0..u.n_bodies()` with one Newton `crossing` per body plus a per-fleet-member loop, both serial every frame (`crates/universe/src/view.rs:294`, `:343`); `view_json` maps over every `seen` emitter (`xtask/src/universe/session.rs:151`). plane.md foundation 7 explicitly forbids "a gather" taking an unbounded synchronous claim — the normative anchor is real and pre-existing.
+2. **Predictions: existed before the decisive runs** (10:36 vs instrumented runs 10:38–10:43) and are honestly reported, but only partially held: #3 held (json ~linear in seen, 46% share at the 192-body run), #4 held with the honest refinement (engine breaks budget ≥ ~400 bodies), #1 **missed its range low** (1.1 vs [1.5,4]; direction compatible, number wrong), #2 unverified — and see attack (b): its mechanism is falsified.
+3. **Adversarial cases (mine):**
+   a. *Max-scene linearity*: unpaced `--rtf 100 --members 400 --seconds 30` → 428 bodies, gather p50 2.34 ms = **5.5 µs/body** — the constant-slope claim holds at the largest scene the CLI can build.
+   b. *rtf 1000* (never run by the author): 76 bodies, readouts 49 (0.64/body — cache still near-perfect), gather p50 **0.49 ms vs 0.61 at rtf 100 at the same bodies**. The predictions.md mechanism "readout cost grows with the game time a frame sweeps" is wrong — the growth the author saw (rtf1 39 bodies → rtf100 76) was bodies, not rtf. This *strengthens* the dossier's actual claim (pure per-body constant: the view pays per body regardless of change, the PRINCIPLES #3 inversion, while events/s went 61→1356) but falsifies the stated mechanism.
+   c. *rtf boundary*: at rtf 1000 the gather share falls to 45.6% with the engine at 42.7% — "the view binds at every scale" holds only within the advertised envelope (rtf ≤ 100), which the dossier does not state.
+4. **Novelty:** the view-gather share is known (HANDOFF item 2: "the view gather is 83% of a light frame; cache per emitter"), and the cache's own landing (b5c817d, lab run 20261003-2306) already measured ~1.0–1.2 readouts/emitter on scenario streams. New and real: the in-battle confirmation at every operating point, the measured per-body slope to 428 bodies, the ~2,000-body extrapolation, the B10 gap, and the premise correction that the cache is a spent lever. Also discovered: `--members` clamps to 400 (xtask/src/universe/mod.rs:32), so "members 512/4096" are fictions (both run 400; body counts differ via handouts) and ~440 bodies is the harness ceiling — the 2,000-body wall is extrapolation, unreachable as-is.
+5. **Goal fit:** moves the handoff's plane-bottleneck item with measurements, respects #3/#12/#17 (quotes accurate). Precision nit: "B10 is not implemented" — the gate exists (`xtask/src/behave/scale.rs:92`); it is the *plane law's cost hook* that is missing.
+
+## The one experiment to gold
+
+Build the minimal bound in one pass and measure it: order the gather near-to-far, spend a view budget like the engine's, aggregate emitters below the differentiation floor into per-doll sums, serialise only what changed; then show at the 428-body scene that view work is O(K) (share and per-frame µs collapse, frame p99 under 16.7 ms), and land the plane's B10 hook so the scaling is frozen-gated. That converts the redirect into a measured 10×+ and closes the gate gap.
+
+## What the author missed
+
+- The fixed-scene rtf sweep (rtf 100 vs 1000 at 76 bodies) was one cheap control away from catching the wrong mechanism in their own predictions (#2/#4 framing "cost grows with swept game time").
+- The `--members` clamp: scene labels in the dossier (m512, m4096) do not exist as run; the ~2,000-body wall cannot be reached by this harness, so it is extrapolation only.
+- The rtf boundary of "the view binds at every scale" (engine ≈ gather share at rtf 1000).
+- The instrumentation patch silently drops `presented_tick_at_end` from the bench report.
+- B10 phrasing (above); the integrator's next job depends on knowing it is the law's hook, not the gate, that is missing.
