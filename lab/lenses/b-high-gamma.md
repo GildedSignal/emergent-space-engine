@@ -5,3 +5,5 @@ Flying at the top throttle (11,561 g), kicks start refusing past γ ≈ 2,000 an
 **How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
 
 Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.
+
+Also (6 October): since the motion law v2, a thrusting root-doll ship is lost already at β ≈ 0.05–0.125 (the energy register's i64 word and the kick's range); fix that first (see `b-energy-register` and branch `wt/loss-fix`), then the γ ≈ 2,000 limit.
