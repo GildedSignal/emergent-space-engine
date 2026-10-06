@@ -1,0 +1,4 @@
+Working...
+Run complete: all evidence reproducible bit-identically, each command ≤ 60 s, everything under `lab/results/20261006-1101-scout-183b/` (dossier.md, predictions.md written before the decisive runs, requirements.md with the Fermi estimate, two scripts, eight configs and outputs).
+
+**Claim:** the scar floor of a real stirred belt saturates — a scar is a bounded state-delta, not an event log, plateauing at ~35 bits per scarred body (one 32-bit key word plus index) after ~25 distinguishable encounters, so 10⁹ bodies fit in 8 GB at bits/body ≈ 0.13 + f_x × 35, with f_x the geometric crossing fraction (≲ 3 Hill radii per massive secondary; 4.4 GB worst case, 16 MB for a protected belt) — measured with held-out predictions (3 hit including an exact zero, 2 magnitude misses from one named error, 1 failure that became the finding), which gives B18 its missing floor law and deletes any event-log or periodic-refit machinery from shipmem.
