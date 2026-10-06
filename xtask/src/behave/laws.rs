@@ -108,6 +108,9 @@ pub enum Fault {
     /// planet (a sample inside after one outside) the Jacobi constant takes a random step of 10⁻⁷ of its value (uniform, unit variance, from the
     /// ship's own start), and the error is the sum of the steps so far: a random walk in the number of encounters, with a memory.
     Compound,
+    /// B12 v2 (must FAIL): echo plus a random walk in the handoffs: at each crossing of the doll's edge (seen at the samples) the Jacobi constant takes a random step of
+    /// 10⁻⁷ of its value (uniform, unit variance, from the ship's own start). The ensemble's ships are bound to the planet, so they cross the edge and never leave 3 R_H.
+    Crossing,
     /// B17: the first-order orbit average of the planet's pull (Laplace-Lagrange), answered on B17's scenes only.
     Averaged,
     /// B18: the 16-byte tube of the contract, uncompressed, on every scene.
@@ -217,6 +220,7 @@ impl Law for Planted {
             Fault::Apsides => Echo.restricted(scene, ship, times).map(|states| skew_apsides(scene, ship, times, states)),
             Fault::Bounded => Echo.restricted(scene, ship, times).map(|states| plant_bounded(scene, ship, times, states)),
             Fault::Compound => Echo.restricted(scene, ship, times).map(|states| plant_compound(scene, ship, times, states)),
+            Fault::Crossing => Echo.restricted(scene, ship, times).map(|states| plant_crossing(scene, ship, times, &states, BOUNDED)),
             Fault::Averaged if resonance::is_scene(scene) => resonance::averaged(scene, ship, times),
             _ => Echo.restricted(scene, ship, times),
         }
@@ -386,7 +390,7 @@ const BOUNDED: f64 = 1e-7;
 const AXIS_CAP: f64 = 10.0;
 
 /// The ship's semimajor axis about the star, in separations, from its barycentric state at t (capped at AXIS_CAP; an unbound ship has the cap).
-fn star_axis(scene: &Restricted, t: f64, s: &[f64; 4]) -> f64 {
+pub(super) fn star_axis(scene: &Restricted, t: f64, s: &[f64; 4]) -> f64 {
     let (energy, _) = scene.heliocentric(t, s);
     if energy < 0.0 { ((1.0 - scene.mu) / (-2.0 * energy) / scene.sep).min(AXIS_CAP) } else { AXIS_CAP }
 }
@@ -394,7 +398,7 @@ fn star_axis(scene: &Restricted, t: f64, s: &[f64; 4]) -> f64 {
 /// Each state's velocity, as the planet's frame (the frame in which the Jacobi constant is 2Ũ − |u|²) sees it, is scaled by κ so that the constant
 /// moves by −`shift[i]`: C = 2Ũ − |u|², so scaling u by κ moves C by −|u|²(κ² − 1). Where |u|² is too small to carry the shift (a zero-velocity
 /// point) the velocity is set to the frame's and the shift is what |u|² can carry.
-fn lay(scene: &Restricted, states: Vec<[f64; 4]>, shift: &[f64]) -> Vec<[f64; 4]> {
+pub(super) fn lay(scene: &Restricted, states: Vec<[f64; 4]>, shift: &[f64]) -> Vec<[f64; 4]> {
     let w = scene.omega();
     states
         .into_iter()
@@ -436,6 +440,26 @@ fn plant_compound(scene: &Restricted, ship: [f64; 4], times: &[f64], states: Vec
     lay(scene, states, &shift)
 }
 
+/// `planted-crossing`: the Jacobi constant moves by `amp`·|C₀| times the sum of one unit-variance random step per crossing of the doll's edge so far.
+pub(super) fn plant_crossing(scene: &Restricted, ship: [f64; 4], times: &[f64], states: &[[f64; 4]], amp: f64) -> Vec<[f64; 4]> {
+    let c0 = scene.jacobi(0.0, &ship).abs();
+    let mut rng = super::sample::Rng(ship.iter().fold(0x5EED, |h, x| h.rotate_left(17) ^ x.to_bits()));
+    let (mut sum, mut inside) = (0.0, None);
+    let shift: Vec<f64> = times
+        .iter()
+        .zip(states)
+        .map(|(&t, s)| {
+            let now = scene.planet_distance(t, s) < scene.soi();
+            if inside.is_some_and(|b| b != now) {
+                sum += (rng.unit() - 0.5) * 12f64.sqrt();
+            }
+            inside = Some(now);
+            amp * sum * c0
+        })
+        .collect();
+    lay(scene, states.to_vec(), &shift)
+}
+
 pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
     Some(match name {
         "space" => Box::new(super::space::Space::default()),
@@ -458,6 +482,7 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-average" => Box::new(Planted(Fault::Averaged)),
         "planted-bounded" => Box::new(Planted(Fault::Bounded)),
         "planted-compound" => Box::new(Planted(Fault::Compound)),
+        "planted-crossing" => Box::new(Planted(Fault::Crossing)),
         "planted-fat" => Box::new(Planted(Fault::Fat)),
         "planted-belt-clipped" => Box::new(Planted(Fault::BeltClipped)),
         "planted-belt-winsor" => Box::new(Planted(Fault::BeltWinsor)),

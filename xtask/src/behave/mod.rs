@@ -30,6 +30,8 @@ pub mod binary;
 pub mod clocks;
 pub mod cost;
 pub mod fit;
+#[allow(dead_code)] // a candidate gate, run by its tests: not in the judge's list
+pub mod b12v2;
 pub mod handoff;
 pub mod hill;
 pub mod kerr;
