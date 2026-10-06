@@ -86,6 +86,8 @@ pub struct View {
     /// The throttle level held and whether a burn key is down (the engine's state, not the page's wish).
     pub level: u8,
     pub burning: bool,
+    /// False for a wreck (crashed or left the system): it stays where it was lost, with no clock aboard.
+    pub alive: bool,
     /// Refusals the player's body has met (a nonzero count means the engine could not take a kick: the state is frozen).
     pub refusals: u64,
     pub position_light_seconds: [f64; 2],
@@ -371,6 +373,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
         doll_beta,
         level: rec.thrust.map_or(0, |t| t.level),
         burning: rec.alive && rec.thrust.is_some_and(|t| t.keys & 3 != 0),
+        alive: rec.alive,
         refusals: rec.refusals,
         position_light_seconds: pos,
         heading: [h.cos(), h.sin()],

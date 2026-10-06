@@ -4,72 +4,198 @@
 <style>
 :root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#c3c7bc;background:#10191e}
 *{box-sizing:border-box}body{margin:0;overflow:hidden}canvas{display:block;width:100vw;height:100vh}
+.abs{position:absolute;pointer-events:none;white-space:pre;font-size:10px;line-height:1.75;color:#8e9e9b}
+.label{font-size:9px;letter-spacing:.15em;color:#8a9a9a}.hi{color:#d5d2c2}.warn{color:#d1a874}
 header{position:absolute;top:24px;left:28px;pointer-events:none}h1{font:500 14px Georgia,serif;letter-spacing:.23em;color:#d7d0b9;margin:0 0 8px}.sub{font-size:10px;letter-spacing:.1em;color:#7f969a}
-.clocks{position:absolute;right:28px;top:22px;display:flex;gap:26px;text-align:right;pointer-events:none}.label{font-size:9px;letter-spacing:.15em;color:#8a9a9a}.clock{font-size:21px;letter-spacing:-.04em;color:#d5d2c2;margin-top:7px}.world .clock{color:#9dadb0}
-.panel{position:absolute;bottom:26px;left:28px;pointer-events:none;font-size:10px;line-height:1.8;color:#8e9e9b;white-space:pre}.speed{font-size:30px;font-weight:300;color:#c6caba;letter-spacing:-.05em}.speed small{font-size:14px;color:#86999a}
-.list{position:absolute;top:84px;right:28px;font-size:10px;line-height:1.7;color:#8a9a98;white-space:pre;text-align:right;pointer-events:none}
-footer{position:absolute;bottom:26px;right:28px;text-align:right;font-size:10px;line-height:1.8;color:#8a9a98}#error{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:550px;background:#302b26;padding:18px;color:#e0bea0;display:none;line-height:1.7}
+.clocks{position:absolute;right:28px;top:22px;display:flex;gap:26px;text-align:right;pointer-events:none}.clock{font-size:19px;letter-spacing:-.03em;color:#d5d2c2;margin-top:7px}.world .clock{color:#9dadb0}
+#list{top:92px;right:28px;text-align:right}
+#stats{top:92px;left:28px}
+#metric{bottom:46px;left:28px;font-size:11px;line-height:1.85}
+#controls{bottom:46px;right:28px;text-align:right;font-size:11px}
+#keys{bottom:8px;left:50%;transform:translateX(-50%);text-align:center;font-size:9px;line-height:1.5;color:#6f8486}
+.big{font-size:26px;font-weight:300;color:#c6caba;letter-spacing:-.04em}
+#error{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:550px;background:#302b26;padding:18px;color:#e0bea0;display:none;line-height:1.7}
 </style>
-<canvas id="sky" aria-label="Past light cone in the ship's frame"></canvas>
-<header><h1>EMERGENT SPACE</h1><div class="sub">THE PLANE · ONE STAR SYSTEM · LIGHT THAT ARRIVES, NOW</div></header>
-<div class="clocks"><div><div class="label">SHIP · PROPER TIME</div><div id="proper" class="clock">0.000 s</div></div><div class="world"><div class="label">WORLD · COORDINATE TIME</div><div id="world" class="clock">0.000 s</div></div></div>
-<div class="list" id="list"></div>
-<div class="panel"><div class="label">SPEED IN THE STAR'S FRAME</div><div class="speed"><span id="speed">0</span> <small>km/s</small></div><div id="stats"></div></div>
-<footer>W / ↑ thrust · S / ↓ reverse<br>A D / ← → turn · space cuts thrust<br>[ ] time factor ÷2 / ×2 · wheel zoom<br><span id="seed"></span></footer>
+<canvas id="sky" aria-label="The ship's surroundings: a map in the star's frame, or the sky in the ship's"></canvas>
+<header><h1>EMERGENT SPACE</h1><div class="sub" id="sub">THE PLANE · ONE STAR SYSTEM · LIGHT THAT ARRIVES, NOW</div></header>
+<div class="clocks"><div><div class="label">SHIP · PROPER TIME ELAPSED</div><div id="proper" class="clock">0.000 s</div></div><div class="world"><div class="label">WORLD · COORDINATE TIME ELAPSED</div><div id="world" class="clock">0.000 s</div></div></div>
+<div class="abs" id="list"></div>
+<div class="abs" id="stats"></div>
+<div class="abs" id="metric"></div>
+<div class="abs warn" id="refused" style="top:50px;left:28px"></div>
+<div class="abs" id="controls"></div>
+<div class="abs" id="keys">W/↑ thrust · S/↓ reverse · A D/← → turn · space cuts thrust
+1–9 or + − throttle · [ ] time ÷2 / ×2 · M map ↔ sky · wheel zoom · Z reset zoom</div>
 <div id="error" role="alert"></div>
 <script>
 'use strict';
 const canvas=document.getElementById('sky'),ctx=canvas.getContext('2d'),el=id=>document.getElementById(id);
-let frame=null,dash=null,held=new Set(),keys=0,busy=false,rtf=1,zoom=1,stopped=false,lastDraw=0;
-const raf=[];function quantile(l,q){if(!l.length)return 0;const s=[...l].sort((a,b)=>a-b);return s[Math.round((s.length-1)*q)]}
+const C_KMS=299792.458,C_MS=299792458,AU_LS=499.004784,LY_LS=31557600;
+// The throttle: the burn is 2^level times the base thrust. Digits 1-8 take every second level, 9 the top one.
+const DIGIT_LEVEL=[0,2,4,6,8,10,12,14,15],MAX_LEVEL=15;
+let frame=null,dash=null,held=new Set(),keys=0,busy=false,rtf=1,zoom=1,stopped=false,levelsG=[],level=8,mode='map',logScale=null,wall=null,rtfNow=0;
+let trail=[];// the past positions (the star's frame, light-seconds), thinned as they age
 function resize(){const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0)}
 addEventListener('resize',resize);resize();
 const controls=['Space','KeyW','KeyS','KeyA','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
 function setKeys(){let n=0;if(!held.has('Space')){if(held.has('KeyW')||held.has('ArrowUp'))n|=1;if(held.has('KeyS')||held.has('ArrowDown'))n|=2;if(held.has('KeyA')||held.has('ArrowLeft'))n|=4;if(held.has('KeyD')||held.has('ArrowRight'))n|=8}keys=n}
-addEventListener('keydown',e=>{if(controls.includes(e.code)){e.preventDefault();held.add(e.code);setKeys()}if(e.code==='BracketRight')rtf=Math.min(1e7,rtf*2);if(e.code==='BracketLeft')rtf=Math.max(.01,rtf/2)});
+addEventListener('keydown',e=>{
+ if(e.metaKey||e.ctrlKey||e.altKey)return;
+ if(controls.includes(e.code)){e.preventDefault();held.add(e.code);setKeys();return}
+ if(e.repeat)return;
+ const d=/^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+ if(d){level=DIGIT_LEVEL[+d[1]-1];e.preventDefault()}
+ else if(e.code==='Equal'||e.code==='NumpadAdd')level=Math.min(MAX_LEVEL,level+1);
+ else if(e.code==='Minus'||e.code==='NumpadSubtract')level=Math.max(0,level-1);
+ else if(e.code==='BracketRight')rtf=Math.min(1e7,rtf*2);
+ else if(e.code==='BracketLeft')rtf=Math.max(.01,rtf/2);
+ else if(e.code==='KeyM')mode=mode==='map'?'sky':'map';
+ else if(e.code==='KeyZ')zoom=1;
+});
 addEventListener('keyup',e=>{if(controls.includes(e.code)){e.preventDefault();held.delete(e.code);setKeys()}});
 addEventListener('blur',()=>{held.clear();setKeys()});
-addEventListener('wheel',e=>{zoom=Math.max(.3,Math.min(5,zoom*Math.exp(-e.deltaY*.001)));e.preventDefault()},{passive:false});
-const LO=-5,HI=3.6;// log10 light-seconds: 10 microseconds to an hour
-function radial(ls,R){const x=(Math.log10(Math.max(ls,1e-6))-LO)/(HI-LO);return R*Math.max(0,Math.min(1,x))**zoom}
-function fmt(ls){return ls<1e-3?(ls*1e6).toFixed(0)+' µs':ls<1?(ls*1e3).toFixed(1)+' ms':ls<120?ls.toFixed(2)+' s':(ls/60).toFixed(1)+' min'}
+addEventListener('wheel',e=>{zoom=Math.max(.02,Math.min(50,zoom*Math.exp(-e.deltaY*.001)));e.preventDefault()},{passive:false});
+// ---- formats ------------------------------------------------------------------------------------
+const pad=(n,w=2)=>String(Math.floor(n)).padStart(w,'0');
+function si(v,u){return (v>=100?v.toFixed(0):v>=10?v.toFixed(1):v.toFixed(2))+' '+u}
+const grp=n=>Math.round(n).toLocaleString('en-US');
+// a distance given in light-seconds
+function fmtDist(ls){const m=ls*C_MS;if(m<1e3)return si(m,'m');if(m<1e9)return grp(m/1e3)+' km';const au=ls/AU_LS;if(au<.1)return si(m/1e9,'Gm');if(au<600)return si(au,'AU');return si(ls/LY_LS,'ly')}
+// a duration in seconds
+function fmtDur(s){if(s<60)return s.toFixed(3)+' s';if(s<3600)return pad(s/60)+':'+pad(s%60)+'.'+pad((s%1)*10,1);if(s<86400)return pad(s/3600)+':'+pad(s%3600/60)+':'+pad(s%60);
+ if(s<31557600)return Math.floor(s/86400)+' d '+pad(s%86400/3600)+':'+pad(s%3600/60)+':'+pad(s%60);const y=Math.floor(s/31557600);return y+' y '+Math.floor(s%31557600/86400)+' d'}
+// a speed in units of c
+function fmtSpeed(c){const a=Math.abs(c),s=c<0?'−':'';return a<.1?s+(a*C_KMS).toPrecision(4)+' km/s':s+a.toPrecision(4)+' c'}
+// near-one values keep their four significant digits in the deficit: 0.9999 shows as 1 − 1.000e-4
+function near1(x,low){const d=x-1;if(Math.abs(d)<.01&&d!==0)return '1 '+(d<0?'−':'+')+' '+Math.abs(d).toPrecision(4);return x.toPrecision(4)}
+function fmtBeta(b){return b<.99?b.toPrecision(4):'1 − '+(1-b).toPrecision(4)}
+function frameMetric(b,rate){// beta (a speed), gamma, rapidity, dτ/dt
+ const g1=b*b/(1+Math.sqrt((1-b)*(1+b))),g=1/Math.sqrt((1-b)*(1+b));
+ return {beta:fmtBeta(b),gamma:g1<.01?'1 + '+g1.toPrecision(4):g.toPrecision(4),eta:Math.atanh(b).toPrecision(4),rate:near1(rate),speed:fmtSpeed(b)}}
+function fmtShift(s){return Math.abs(s-1)<.01?((s-1)*1e6).toFixed(1)+' ppm':'×'+s.toPrecision(4)}
+// ---- geometry -----------------------------------------------------------------------------------
+const LO=-5,HI=3.6;// the sky's log10 light-seconds: 10 microseconds to an hour
+function radial(ls,R){const x=(Math.log10(Math.max(ls,1e-6))-LO)/(HI-LO);return R*Math.max(0,Math.min(1,x))**Math.max(.3,Math.min(zoom,5))}
+const len=v=>Math.hypot(v[0],v[1]);
+function arrow(x0,y0,x1,y1,col,w){const a=Math.atan2(y1-y0,x1-x0),h=7;ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1-h*Math.cos(a-.4),y1-h*Math.sin(a-.4));ctx.lineTo(x1-h*Math.cos(a+.4),y1-h*Math.sin(a+.4));ctx.closePath();ctx.fill()}
+function bodyPaint(s,x,y){
+ const rgb=s.color.map(v=>Math.round(40+v*200)),col=`${rgb[0]},${rgb[1]},${rgb[2]}`;
+ if(s.kind===0){const gl=ctx.createRadialGradient(x,y,0,x,y,14);gl.addColorStop(0,`rgba(${col},.55)`);gl.addColorStop(1,`rgba(${col},0)`);ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y,14,0,7);ctx.fill();ctx.fillStyle=`rgb(${col})`;ctx.beginPath();ctx.arc(x,y,3,0,7);ctx.fill()}
+ else if(s.kind===4){ctx.fillStyle=`rgba(${col},.8)`;ctx.fillRect(x-1,y-1,2,2)}
+ else{const size=s.kind===1?3.2:s.kind===2?2:2.2;ctx.fillStyle=`rgba(${col},.9)`;ctx.beginPath();if(s.kind===3){ctx.moveTo(x,y-size*1.5);ctx.lineTo(x+size,y+size);ctx.lineTo(x-size,y+size);ctx.closePath()}else ctx.arc(x,y,size,0,7);ctx.fill();if(s.kind<=2&&s.name!=='?'){ctx.fillStyle='#7d9293';ctx.fillText(s.name,x+6,y-4)}}
+}
+// The speed arrow's length: logarithmic in the speed, so a drift of metres per second and a flight at 0.9 c both show.
+function speedLen(b,R){return b<1e-9?0:Math.min(R*.5,16+24*Math.log10(1+b/1e-6))}
+function trailPush(p){const l=trail[trail.length-1];if(l&&l[0]===p[0]&&l[1]===p[1])return;trail.push(p);
+ if(trail.length>1600){const half=trail.length>>1,k=[];for(let i=0;i<half;i++)if(i%2===0)k.push(trail[i]);trail=k.concat(trail.slice(half))}}
+function background(w,h,cx,cy){const g=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(w,h)*.7);g.addColorStop(0,'#1b2a30');g.addColorStop(1,'#0c141a');ctx.fillStyle=g;ctx.fillRect(0,0,w,h)}
+// ---- the map: the star's frame, north is the page's up, the ship at the centre; the bodies where their light left ---------
+function nice(ls){// a bar near `ls`: 1, 2 or 5 of a unit of the distance's own
+ const m=ls*C_MS;let u,f,name;
+ if(m<1e3){f=1;name='m'}else if(m<1e9){f=1e3;name='km'}else if(ls/AU_LS<.1){f=1e9;name='Gm'}else if(ls/AU_LS<600){f=AU_LS*C_MS;name='AU'}else{f=LY_LS*C_MS;name='ly'}
+ const x=m/f,p=Math.pow(10,Math.floor(Math.log10(x))),q=x/p,n=(q>=5?5:q>=2?2:1)*p;return {ls:n*f/C_MS,label:(n>=1?grp(n):String(+n.toPrecision(1)))+' '+name}}
+function drawMap(w,h,cx,cy,R){
+ const items=frame.seen;
+ // the scale follows the nearest body (the zoom is the player's multiplier on it), smoothed in log
+ let near=1e9;for(const s of items)if(s.kind<=3&&s.light_seconds<near)near=s.light_seconds;
+ const want=Math.log10(.33*R/Math.max(near,1e-6)*zoom);logScale=logScale===null?want:logScale+(want-logScale)*.08;
+ const S=Math.pow(10,logScale);// pixels per light-second
+ // trail
+ const here=frame.position;ctx.lineWidth=1.2;
+ for(let i=1;i<trail.length;i++){const a=trail[i-1],b=trail[i],age=i/trail.length;ctx.strokeStyle=`rgba(190,170,130,${.08+.5*age})`;ctx.beginPath();ctx.moveTo(cx+S*(a[0]-here[0]),cy+S*(a[1]-here[1]));ctx.lineTo(cx+S*(b[0]-here[0]),cy+S*(b[1]-here[1]));ctx.stroke()}
+ if(trail.length){const b=trail[trail.length-1];ctx.strokeStyle='rgba(190,170,130,.58)';ctx.beginPath();ctx.moveTo(cx+S*(b[0]-here[0]),cy+S*(b[1]-here[1]));ctx.lineTo(cx,cy);ctx.stroke()}
+ // bodies, far first; the off-screen planets and the star keep a marker on the edge
+ ctx.font='9px monospace';
+ for(const s of [...items].sort((a,b)=>b.light_seconds-a.light_seconds)){
+  const x=cx+S*s.offset[0],y=cy+S*s.offset[1];
+  if(x>-20&&x<w+20&&y>-20&&y<h+20)bodyPaint(s,x,y);
+  else if(s.kind<=2){const dx=s.offset[0],dy=s.offset[1],m=Math.hypot(dx,dy)||1,k=Math.min((w/2-46)/Math.abs(dx/m||1e-9),(h/2-46)/Math.abs(dy/m||1e-9));const ex=cx+dx/m*k,ey=cy+dy/m*k;
+   ctx.fillStyle='#6f8688';ctx.beginPath();ctx.arc(ex,ey,2.5,0,7);ctx.fill();ctx.textAlign=ex>cx?'right':'left';ctx.fillText(s.name+' '+fmtDist(s.light_seconds),ex+(ex>cx?-7:7),ey+3);ctx.textAlign='left'}
+ }
+ // the velocity (star's frame) and the heading
+ const b=len(frame.beta),hd=frame.heading;
+ if(b>1e-9){const L=speedLen(b,R);arrow(cx,cy,cx+frame.beta[0]/b*L,cy+frame.beta[1]/b*L,'#c9a56a',1.6);ctx.fillStyle='#c9a56a';ctx.fillText('v '+fmtSpeed(b),cx+frame.beta[0]/b*L+8,cy+frame.beta[1]/b*L+(frame.beta[1]>0?12:-6))}
+ arrow(cx,cy,cx+hd[0]*46,cy+hd[1]*46,'#b5bdad',1.3);ctx.fillStyle='#b5bdad';ctx.fillText('heading',cx+hd[0]*46+6,cy+hd[1]*46+(hd[1]>0?12:-6));
+ ship(cx,cy,Math.atan2(hd[1],hd[0])+Math.PI/2);
+ // the scale bar
+ const bar=nice(110/S),px=bar.ls*S,bx=w/2-px/2,by=h-100;
+ ctx.strokeStyle='#8e9e9b';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(bx,by-4);ctx.lineTo(bx,by);ctx.lineTo(bx+px,by);ctx.lineTo(bx+px,by-4);ctx.stroke();
+ ctx.fillStyle='#8e9e9b';ctx.textAlign='center';ctx.fillText(bar.label,w/2,by-8);ctx.textAlign='left';
+}
+function ship(x,y,rot){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.fillStyle='#b5bdad';ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(5,6);ctx.lineTo(0,3);ctx.lineTo(-5,6);ctx.closePath();ctx.fill();
+ if(frame&&frame.burning){ctx.strokeStyle='#b99870';ctx.beginPath();ctx.moveTo(-2,7);ctx.lineTo(0,15);ctx.lineTo(2,7);ctx.stroke()}ctx.restore()}
+// ---- the sky: the ship's frame, its heading up, the distance logarithmic in the light's travel time ------------------------
+function drawSky(w,h,cx,cy,R){
+ ctx.strokeStyle='#2e4044';ctx.lineWidth=.5;ctx.font='9px monospace';
+ for(const ls of [1e-4,1e-3,1e-2,.1,1,10,100,1000]){const r=radial(ls,R);ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#53696b';ctx.fillText(fmtShort(ls)+' of light',cx+5,cy-r+11)}
+ const hd=frame.heading,right=[-hd[1],hd[0]];
+ const place=(d,r)=>{const ang=Math.atan2(d[0]*right[0]+d[1]*right[1],d[0]*hd[0]+d[1]*hd[1]);return [cx+r*Math.sin(ang),cy-r*Math.cos(ang)]};
+ // trail, in the same polar picture: where the ship was, its distance by the light that would cross it
+ const here=frame.position;
+ for(let i=1;i<trail.length;i++){const a=trail[i-1],b=trail[i],age=i/trail.length;
+  const da=[a[0]-here[0],a[1]-here[1]],db=[b[0]-here[0],b[1]-here[1]],la=len(da),lb=len(db);if(la<1e-9||lb<1e-9)continue;
+  const pa=place(da,radial(la,R)),pb=place(db,radial(lb,R));ctx.strokeStyle=`rgba(190,170,130,${.08+.5*age})`;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);ctx.stroke()}
+ for(const s of [...frame.seen].sort((a,b)=>b.light_seconds-a.light_seconds)){const [x,y]=place(s.direction,radial(s.light_seconds,R));bodyPaint(s,x,y)}
+ ctx.strokeStyle='#36484c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx,cy-R-6);ctx.lineTo(cx,cy-R+8);ctx.stroke();ctx.fillStyle='#82958c';ctx.textAlign='center';ctx.fillText('HEADING',cx,cy-R-12);ctx.textAlign='left';
+ // the velocity against the heading, and the heading itself (always up)
+ const b=len(frame.beta);
+ if(b>1e-9){const L=speedLen(b,R),vh=[frame.beta[0]/b,frame.beta[1]/b],[x,y]=place(vh,L);arrow(cx,cy,x,y,'#c9a56a',1.6);ctx.fillStyle='#c9a56a';ctx.fillText('v '+fmtSpeed(b),x+8,y+(y>cy?12:-6))}
+ arrow(cx,cy,cx,cy-46,'#b5bdad',1.3);
+ ship(cx,cy,0);
+}
+function fmtShort(ls){return ls<1e-3?(ls*1e6).toFixed(0)+' µs':ls<1?(ls*1e3).toFixed(1)+' ms':ls<120?ls.toFixed(2)+' s':(ls/60).toFixed(1)+' min'}
 function draw(){
  const w=innerWidth,h=innerHeight,cx=w/2,cy=h*.5,R=Math.min(w*.4,h*.4);
- const g=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(w,h)*.7);g.addColorStop(0,'#1b2a30');g.addColorStop(1,'#0c141a');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
- ctx.strokeStyle='#2e4044';ctx.lineWidth=.5;ctx.font='9px monospace';
- for(const ls of [1e-4,1e-3,1e-2,.1,1,10,100,1000]){const r=radial(ls,R);ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#53696b';ctx.fillText(fmt(ls)+' of light',cx+5,cy-r+11)}
- if(frame){
-  const hd=frame.heading,right=[-hd[1],hd[0]];
-  const items=[...frame.seen].sort((a,b)=>b.light_seconds-a.light_seconds);
-  for(const s of items){
-   const r=radial(s.light_seconds,R),ang=Math.atan2(s.direction[0]*right[0]+s.direction[1]*right[1],s.direction[0]*hd[0]+s.direction[1]*hd[1]);
-   const x=cx+r*Math.sin(ang),y=cy-r*Math.cos(ang);
-   const rgb=s.color.map(v=>Math.round(40+v*200)),col=`${rgb[0]},${rgb[1]},${rgb[2]}`;
-   if(s.kind===0){const gl=ctx.createRadialGradient(x,y,0,x,y,14);gl.addColorStop(0,`rgba(${col},.55)`);gl.addColorStop(1,`rgba(${col},0)`);ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y,14,0,7);ctx.fill();ctx.fillStyle=`rgb(${col})`;ctx.beginPath();ctx.arc(x,y,3,0,7);ctx.fill()}
-   else if(s.kind===4){ctx.fillStyle=`rgba(${col},.8)`;ctx.fillRect(x-1,y-1,2,2)}
-   else{const size=s.kind===1?3.2:s.kind===2?2:2.2;ctx.fillStyle=`rgba(${col},.9)`;ctx.beginPath();if(s.kind===3){ctx.moveTo(x,y-size*1.5);ctx.lineTo(x+size,y+size);ctx.lineTo(x-size,y+size);ctx.closePath()}else ctx.arc(x,y,size,0,7);ctx.fill();if(s.kind<=2&&s.name!=='?'){ctx.fillStyle='#7d9293';ctx.fillText(s.name,x+6,y-4)}}
-  }
-  ctx.strokeStyle='#36484c';ctx.beginPath();ctx.moveTo(cx,cy-R-6);ctx.lineTo(cx,cy-R+8);ctx.stroke();ctx.fillStyle='#82958c';ctx.textAlign='center';ctx.fillText('HEADING',cx,cy-R-12);ctx.textAlign='left';
-  const b=Math.hypot(...frame.beta);
-  el('proper').textContent=frame.proper.toFixed(3)+' s';el('world').textContent=frame.coordinate.toFixed(3)+' s';el('speed').textContent=(b*299792.458).toFixed(2);
-  const near=frame.seen.filter(s=>s.kind!==4).sort((a,b)=>a.light_seconds-b.light_seconds).slice(0,9);
-  const fl=frame.seen.filter(s=>s.kind===4).sort((a,b)=>a.light_seconds-b.light_seconds);
-  let list='NEAREST LIGHT   (shift = ν seen / ν emitted, −p·u)\n';
-  for(const s of near)list+=`${s.name.padEnd(10)} ${fmt(s.light_seconds).padStart(9)}  shift ${((s.shift-1)*1e6).toFixed(1).padStart(9)} ppm\n`;
-  if(fl.length)list+=`FLEET ${fl.length} ships, nearest ${fmt(fl[0].light_seconds)}, shift ${((fl[0].shift-1)*1e6).toFixed(2)} ppm\n`;
-  el('list').textContent=list;
-  const d=dash||{};
-  el('stats').textContent=`IN DOLL      ${frame.doll}\nCLOCK RATE   ${frame.rate.toFixed(12)} ship s / world s\nGAME TIME    target ${rtf}× · ${d.rtf_median?d.rtf_median.toFixed(1):'…'}× median · ${d.rtf_low1?d.rtf_low1.toFixed(1):'…'}× lowest 1%\nFRAME        p50 ${d.p50?d.p50.toFixed(1):'…'} · p95 ${d.p95?d.p95.toFixed(1):'…'} · p99 ${d.p99?d.p99.toFixed(1):'…'} · p99.9 ${d.p999?d.p999.toFixed(1):'…'} ms (engine + view + wire)\nHITCHES/HOUR >16.7 ${d.hitches_per_hour?d.hitches_per_hour[0].toFixed(0):'…'} · >33 ${d.hitches_per_hour?d.hitches_per_hour[1].toFixed(0):'…'} · >50 ${d.hitches_per_hour?d.hitches_per_hour[2].toFixed(0):'…'} · worst ${d.worst?d.worst.toFixed(1):'…'} ms\nEVENTS       ${d.events_per_second?Math.round(d.events_per_second):'…'}/s · overflow frames ${d.overflow_frames||0} · ${d.bytes_per_body||'…'} B per body`;
- }
- ctx.fillStyle='#b5bdad';ctx.beginPath();ctx.moveTo(innerWidth/2,innerHeight*.5-8);ctx.lineTo(innerWidth/2+5,innerHeight*.5+6);ctx.lineTo(innerWidth/2,innerHeight*.5+3);ctx.lineTo(innerWidth/2-5,innerHeight*.5+6);ctx.closePath();ctx.fill();
- if(keys&3){ctx.strokeStyle='#b99870';ctx.beginPath();ctx.moveTo(innerWidth/2-2,innerHeight*.5+7);ctx.lineTo(innerWidth/2,innerHeight*.5+14);ctx.lineTo(innerWidth/2+2,innerHeight*.5+7);ctx.stroke()}
+ background(w,h,cx,cy);
+ if(!frame)return;
+ if(mode==='map')drawMap(w,h,cx,cy,R);else drawSky(w,h,cx,cy,R);
+ text();
 }
+// ---- the text: clocks, the c metric, the nearest bodies, the controls ---------------------------------------------------------
+function text(){
+ const f=frame,d=dash||{},bs=len(f.beta),bd=len(f.doll_beta);
+ el('proper').textContent=fmtDur(f.proper);el('world').textContent=fmtDur(f.coordinate);
+ el('sub').textContent=mode==='map'?'THE MAP · THE STAR\'S FRAME, NORTH UP · BODIES WHERE THEIR LIGHT LEFT':'THE SKY · THE SHIP\'S FRAME, HEADING UP · LIGHT THAT ARRIVES, NOW';
+ const S=frameMetric(bs,f.rate),D=frameMetric(bd,f.doll_rate),same=f.doll==='star';
+ const head=Math.atan2(f.heading[1],f.heading[0]),vel=Math.atan2(f.beta[1],f.beta[0]);
+ let drift=bs>1e-9?(vel-head)*180/Math.PI:0;drift=((drift+540)%360)-180;
+ const row=(k,a,b)=>k.padEnd(20)+a.padStart(15)+(same?'':b.padStart(17))+'\n';
+ let m=`THE c METRIC\n`+row('',"STAR'S FRAME",f.doll.toUpperCase()+"'S FRAME");
+ m+=row('β = v/c',S.beta,D.beta)+row('speed',S.speed,D.speed)+row('γ',S.gamma,D.gamma)+row('rapidity η',S.eta,D.eta)+row('dτ/dt, yours/theirs',S.rate,D.rate);
+ if(same)m+=`(you are in the star's doll: one frame)\n`;
+ m+=`heading ${((head*180/Math.PI+360)%360).toFixed(1)}° · drift from heading ${bs>1e-9?drift.toFixed(1):'–'}°`;
+ el('metric').textContent=m;
+ el('refused').textContent=!f.alive?'SHIP LOST: crashed or left the system. It stays where it was lost; restart the server to fly again.':f.refusals>0?`ENGINE REFUSED ${f.refusals} KICKS: the state is frozen (the orbit compile cannot take this state: a near-radial fall, or past γ ~ 2000)`:'';
+ // the nearest bodies
+ const near=f.seen.filter(s=>s.kind!==4).sort((a,b)=>a.light_seconds-b.light_seconds).slice(0,8),fl=f.seen.filter(s=>s.kind===4).sort((a,b)=>a.light_seconds-b.light_seconds);
+ let list='NEAREST            DISTANCE       CLOSING   SHIFT\n';
+ for(const s of near)list+=`${s.name.padEnd(10)} ${fmtDist(s.light_seconds).padStart(11)} ${fmtSpeed(s.closing).padStart(13)} ${fmtShift(s.shift).padStart(10)}\n`;
+ if(fl.length)list+=`FLEET ${String(fl.length).padStart(2)} ${fmtDist(fl[0].light_seconds).padStart(11)} ${fmtSpeed(fl[0].closing).padStart(13)} ${fmtShift(fl[0].shift).padStart(10)}\n`;
+ list+=`(closing: the star frame's rate; shift: ν seen/ν emitted)`;
+ el('list').textContent=list;
+ // the throttle and the time
+ const g=levelsG[f.level]||0,bar='▮'.repeat(f.level+1)+'▯'.repeat(MAX_LEVEL-f.level),per=g*9.80665*rtf/1000;
+ el('controls').innerHTML=`<span class="label">THROTTLE</span>  ${bar}  <span class="hi">L${f.level}</span> of ${MAX_LEVEL}${f.level!==level?` <span class="warn">(asked L${level})</span>`:''}\n`
+  +`<span class="hi">${g<10?g.toFixed(2):g.toFixed(0)} g</span> · ${(g*9.80665).toPrecision(3)} m/s² proper · ${f.burning?'<span class="warn">BURNING</span>':'coasting'}\n`
+  +`at this time factor: ${per<1?(per*1000).toFixed(1)+' m/s':per.toPrecision(3)+' km/s'} gained per wall-second burning\n\n`
+  +`<span class="label">TIME</span>  <span class="hi big">×${rtf>=10?rtf.toFixed(0):rtf.toPrecision(2)}</span>  asked · <span class="hi">×${rtfNow>=10?rtfNow.toFixed(0):rtfNow.toPrecision(2)}</span> got\n`;
+ el('stats').textContent=`IN DOLL      ${f.doll}\nFRAME        p50 ${d.p50?d.p50.toFixed(1):'…'} · p95 ${d.p95?d.p95.toFixed(1):'…'} · p99 ${d.p99?d.p99.toFixed(1):'…'} ms (engine + view + wire)\nGAME TIME    ${d.rtf_median?d.rtf_median.toFixed(1):'…'}× median · ${d.rtf_low1?d.rtf_low1.toFixed(1):'…'}× lowest 1%\nEVENTS       ${d.events_per_second?Math.round(d.events_per_second):'…'}/s · overflow frames ${d.overflow_frames||0} · ${d.bytes_per_body||'…'} B per body\n${el('seed').textContent}`;
+}
+const seed=document.createElement('span');seed.id='seed';seed.hidden=true;document.body.appendChild(seed);
 async function poll(){
  if(busy||stopped)return;busy=true;
- try{const r=await fetch('/frame',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keys,rtf})});const j=await r.json();if(!r.ok)throw Error(j.error);frame=j.frame;dash=j.dash}
+ try{const r=await fetch('/frame',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keys,throttle:level,rtf})});const j=await r.json();if(!r.ok)throw Error(j.error);
+  frame=j.frame;dash=j.dash;
+  // the time the game got: its coordinate seconds per wall second, smoothed
+  const now=performance.now();if(wall){const dt=(now-wall.t)/1e3,dc=frame.coordinate-wall.c;if(dt>0&&dc>=0){const r=dc/dt;rtfNow=rtfNow?rtfNow+(r-rtfNow)*Math.min(1,dt*1.5):r}}wall={t:now,c:frame.coordinate};
+  trailPush(frame.position.slice())}
  catch(e){stopped=true;el('error').style.display='block';el('error').textContent=`Flight stopped: ${e.message}. Reload to reconnect.`}
  finally{busy=false}
 }
-function animate(now){lastDraw=now;draw();poll();requestAnimationFrame(animate)}
-fetch('/config').then(r=>r.json()).then(c=>{rtf=c.rtf;el('seed').textContent='seed '+c.seed;requestAnimationFrame(animate)}).catch(e=>{el('error').style.display='block';el('error').textContent=e.message});
+let lastFrame=0;
+function animate(now){lastFrame=now;draw();poll();requestAnimationFrame(animate)}
+// a pane or tab that pauses animation frames still flies: the fetches go on, slower, and the page draws when it can
+setInterval(()=>{if(performance.now()-lastFrame>120){draw();poll()}},40);
+fetch('/config').then(r=>r.json()).then(c=>{rtf=c.rtf;levelsG=c.levels_g;seed.textContent='seed '+c.seed;requestAnimationFrame(animate)}).catch(e=>{el('error').style.display='block';el('error').textContent=e.message});
 </script></html>
