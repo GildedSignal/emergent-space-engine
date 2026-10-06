@@ -1,0 +1,440 @@
+diff --git a/crates/universe/examples/ramp_debug.rs b/crates/universe/examples/ramp_debug.rs
+new file mode 100644
+index 0000000..f435265
+--- /dev/null
++++ b/crates/universe/examples/ramp_debug.rs
+@@ -0,0 +1,44 @@
++// One readout between kicks, dissected: the ramp's dv against the exact partial step's, with the
++// stored samples, the step geometry and the units, so a mismatch says where it came from.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::Config;
++use emergent_universe::num::to_f64;
++
++fn main() {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    let ship = p.ships[0];
++    p.u.settle(p.u.now + 4_000_000_000);
++    let ctx = p.u.ctx();
++    let t = p.u.now + 123_456;
++    let b = ctx.bodies.binding_at(ship, t).unwrap();
++    let k = b.kick;
++    println!("binding event_time {}, kick(clock={}, len {}, boundary {}, lead {}), dv {:?}", b.event_time, k.clock, k.len, k.boundary, k.lead, k.dv);
++    let prev = ctx.bodies.binding_at(ship, b.event_time - 1).unwrap();
++    println!("prev event_time {}, kick(clock={}, len {}, boundary {}), dv {:?}", prev.event_time, prev.kick.clock, prev.kick.len, prev.kick.boundary, prev.kick.dv);
++    println!("units b {:?} prev {:?}, clock_exp {}", b.units, prev.units, b.clock_exp);
++    let (base, start) = if t >= k.boundary { (b.clone(), k.boundary) } else { (ctx.bodies.binding_at(ship, b.event_time - 1).unwrap(), b.event_time - k.lead) };
++    let tau = t - start;
++    let mid = start + tau / 2;
++    println!("start {start}, tau {tau}, mid {mid} (mid - base.event_time = {})", mid - base.event_time);
++    // the exact force at mid and at the two kick ticks
++    for tt in [base.event_time, mid, t] {
++        let (x, _) = base.cartesian(tt).unwrap();
++        let f = emergent_universe::force::field(&ctx.secondaries(base.doll, tt, ship).unwrap(), x).unwrap();
++        println!("  exact accel at {tt}: ({:.3e}, {:.3e})", to_f64(f.accel[0]), to_f64(f.accel[1]));
++    }
++    // what the stored words decode to
++    let decode = |w: i64, ve: i16| to_f64(emergent_space::orbit::Scalar::raw(w as i128, ve as i32).unwrap());
++    println!("  base stored a: ({:.3e}, {:.3e})", decode(base.kick.dv[0], base.units.1), decode(base.kick.dv[1], base.units.1));
++    println!("  prev stored a: ({:.3e}, {:.3e})", decode(prev.kick.dv[0], prev.units.1), decode(prev.kick.dv[1], prev.units.1));
++    // the two readouts
++    let (_, pr, vr) = emergent_universe::observe::ramped(&ctx, ship, t).unwrap();
++    let (x_raw, v_raw) = base.cartesian(t).unwrap();
++    let (x_mid, _) = base.cartesian(mid).unwrap();
++    let f_mid = emergent_universe::force::field(&ctx.secondaries(base.doll, mid, ship).unwrap(), x_mid).unwrap();
++    let tau_s = emergent_universe::num::time_of(tau, base.clock_exp).unwrap();
++    let dv_exact = emergent_universe::num::scale2(f_mid.accel, tau_s).unwrap();
++    println!("ramp  dv: ({:.3e}, {:.3e})", to_f64(vr[0]) - to_f64(v_raw[0]), to_f64(vr[1]) - to_f64(v_raw[1]));
++    println!("exact dv: ({:.3e}, {:.3e})", to_f64(dv_exact[0]), to_f64(dv_exact[1]));
++    println!("ramp  dx: ({:.3e}, {:.3e})", to_f64(pr[0]) - to_f64(x_raw[0]), to_f64(pr[1]) - to_f64(x_raw[1]));
++}
+diff --git a/crates/universe/examples/ramp_scan.rs b/crates/universe/examples/ramp_scan.rs
+new file mode 100644
+index 0000000..b62bb6e
+--- /dev/null
++++ b/crates/universe/examples/ramp_scan.rs
+@@ -0,0 +1,58 @@
++// Scan reads between kicks on the Jacobi ensemble: the ramp's departure from the exact partial
++// step, with the geometry of the worst ones (base, samples, step ticks), to say where a mismatch
++// comes from. `ramp_scan [PERIODS]`.
++use emergent_universe::num::{add2, scale2, time_of, to_f64};
++use emergent_universe::bind::scalars;
++
++fn main() {
++    let periods: i64 = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(4);
++    let (mu_log2, sep) = (-10, 527_000_000i64);
++    let hill = sep as f64 * (2f64.powi(mu_log2) / 3.0).cbrt();
++    let ships: Vec<(i64, u32)> = (0..6).map(|i| ((sep as f64 + if i % 2 == 0 { 1.0 } else { -1.0 } * hill * (1.5 + 0.3 * i as f64)) as i64, (i as u32).wrapping_mul(0x9E37_79B9))).collect();
++    let mut w = emergent_universe::scenario::restricted(mu_log2, sep, 49_000, &ships, 1).unwrap();
++    let period = 2.0 * std::f64::consts::PI / ((1.0 + 2f64.powi(mu_log2)).sqrt() / (sep as f64).powf(1.5));
++    let mut worst: Vec<(f64, usize, i64, String)> = Vec::new();
++    for k in 1..=(periods * 8) {
++        let t = (k as f64 * period / 8.0 / 7.0) as i64;
++        w.u.settle(t);
++        for (n, &sh) in w.ships.iter().enumerate() {
++            let ctx = w.u.ctx();
++            let b = match ctx.bodies.binding_at(sh, t) { Some(b) => b, None => continue };
++            let k = b.kick;
++            if !k.clock { continue; }
++            let held;
++            let (base, start) = if t >= k.boundary {
++                (b.clone(), k.boundary)
++            } else if k.lead > 0 {
++                match ctx.bodies.binding_at(sh, b.event_time - 1) {
++                    Some(p) => { held = p; (held.clone(), b.event_time - k.lead) }
++                    None => continue,
++                }
++            } else { continue };
++            let tau = t - start;
++            if tau <= 0 || tau > 2 * k.len.max(1) { continue; }
++            let mid = start + tau / 2;
++            let (x_mid, _) = match base.cartesian(mid) { Ok(x) => x, Err(_) => continue };
++            let field = match emergent_universe::force::field(&ctx.secondaries(base.doll, mid, sh).unwrap(), x_mid) { Ok(f) => f, Err(_) => continue };
++            let tau_s = time_of(tau, base.clock_exp).unwrap();
++            let dv_e = scale2(field.accel, tau_s).unwrap();
++            let dx_e = scale2(dv_e.clone(), tau_s.scale(-1).unwrap()).unwrap();
++            let (p, v) = base.cartesian(t).unwrap();
++            let (pe, ve) = (add2(p, dx_e).unwrap(), add2(v, dv_e).unwrap());
++            let (_, pr, vr) = emergent_universe::observe::ramped(&ctx, sh, t).unwrap();
++            let corr = (to_f64(pe[0]) - to_f64(p[0])).hypot(to_f64(pe[1]) - to_f64(p[1])) + (to_f64(ve[0]) - to_f64(v[0])).hypot(to_f64(ve[1]) - to_f64(v[1]));
++            let miss = (to_f64(pr[0]) - to_f64(pe[0])).hypot(to_f64(pr[1]) - to_f64(pe[1])) + (to_f64(vr[0]) - to_f64(ve[0])).hypot(to_f64(vr[1]) - to_f64(ve[1]));
++            if corr > 0.0 {
++                let share = miss / corr;
++                let note = format!("t {t}, base.et {}, pred.dv {:?}, base.dv {:?}, dm {}, mid-et {}, tau {}, len {}, branch {}", base.event_time, ctx.bodies.binding_at(sh, base.event_time - 1).map(|p| p.kick.dv).unwrap_or_default(), base.kick.dv, base.event_time as i64 - ctx.bodies.binding_at(sh, base.event_time - 1).map(|p| p.event_time).unwrap_or(0), mid - base.event_time, tau, k.len, if t >= k.boundary { "post" } else { "pre" });
++                worst.push((share, n, t, note));
++            }
++        }
++    }
++    worst.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
++    for (s, n, t, note) in worst.iter().take(8) {
++        println!("share {s:.3e} ship {n} {note}");
++    }
++    println!("{} reads; median share {:.2e}", worst.len(), worst[worst.len() / 2].0);
++    let _ = scalars;
++}
+diff --git a/crates/universe/examples/readout_cost.rs b/crates/universe/examples/readout_cost.rs
+new file mode 100644
+index 0000000..ecfbec0
+--- /dev/null
++++ b/crates/universe/examples/readout_cost.rs
+@@ -0,0 +1,75 @@
++// Where the readout between kicks spends its time, on the ships the view gathers: the raw tube
++// against the partial step (`observe::partial`, through `ramped_in`), and the pieces of the
++// partial step (the second decode, the sources, the field). `readout_cost [RTF]`.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn main() {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    // The haulers: ships of the root doll, read by the motion law v2's partial step.
++    let haulers: Vec<usize> = p.ships.iter().copied().take(12).collect();
++    let h0 = p.u.now + 4_000_000_000; // well inside the run, engines warm
++    p.u.settle(h0);
++    let ctx = p.u.ctx();
++    let t = p.u.now + 123_456; // a tick between kicks for most ships
++    let n = 2000;
++
++    fn sum(name: &str, n: u32, mut f: impl FnMut()) {
++        // best of 5 rounds, the plane's own convention
++        let mut best = f64::INFINITY;
++        for _ in 0..5 {
++            let t0 = Instant::now();
++            for _ in 0..n {
++                f();
++            }
++            best = best.min(t0.elapsed().as_secs_f64() * 1e6 / n as f64);
++        }
++        println!("{name:<44} {best:7.2} us");
++    }
++
++    let mut clocked = 0;
++    for &s in &haulers {
++        let b = ctx.bodies.binding_at(s, t).unwrap();
++        if b.kick.clock {
++            clocked += 1;
++        }
++    }
++    println!("{clocked} of {} haulers are on the clock at t", haulers.len());
++    let any = haulers.iter().copied().find(|&s| ctx.bodies.binding_at(s, t).unwrap().kick.clock).unwrap();
++
++    sum("raw tube (b.cartesian)", n, || {
++        let b = ctx.bodies.binding_at(any, t).unwrap();
++        std::hint::black_box(b.cartesian(t).unwrap());
++    });
++    sum("partial step (ramped_in)", n, || {
++        let b = ctx.bodies.binding_at(any, t).unwrap();
++        std::hint::black_box(emergent_universe::observe::ramped_in(&ctx, any, t, &b).unwrap());
++    });
++    sum("root_state (ramped, up the chain)", n, || {
++        std::hint::black_box(emergent_universe::observe::root_state(&ctx, any, t).unwrap());
++    });
++    // the pieces of the partial step
++    let b = ctx.bodies.binding_at(any, t).unwrap();
++    let k = b.kick;
++    let (base, start) = if t >= k.boundary { (b.clone(), k.boundary) } else { (ctx.bodies.binding_at(any, b.event_time - 1).unwrap(), b.event_time - k.lead) };
++    let tau = t - start;
++    let mid = start + tau / 2;
++    sum("  decode at mid (base.cartesian)", n, || {
++        std::hint::black_box(base.cartesian(mid).unwrap());
++    });
++    sum("  secondaries at mid", n, || {
++        std::hint::black_box(ctx.secondaries(base.doll, mid, any).unwrap());
++    });
++    let secs = ctx.secondaries(base.doll, mid, any).unwrap();
++    let (x_mid, _) = base.cartesian(mid).unwrap();
++    sum("  field at mid (potential+rate+accel)", n, || {
++        std::hint::black_box(emergent_universe::force::field(&secs, x_mid).unwrap());
++    });
++    sum("  decode at t", n, || {
++        std::hint::black_box(base.cartesian(t).unwrap());
++    });
++    drop(ctx);
++    println!("sources in the root doll: {}", p.u.sources[0].len());
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f3076..26c6a15 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -76,17 +76,24 @@ pub struct Kick {
+     pub len: i64,
+     /// The level of the changeover (0 is the whole step, `len = H >> 2·level`).
+     pub level: u8,
+-    /// The velocity the kick added, in quanta of the binding's velocity exponent.
++    /// The old law's kick: the velocity it added. The clock's kick: the force it applied at its own
++    /// tick, in the doll's units — what a reader between kicks completes the tube with
++    /// ([`crate::observe::partial`]'s ramp), so no source is decoded and no field summed at read time.
++    /// Zero for a clock's first step (no sample yet: the reader evaluates the field).
+     pub dv: [i64; 2],
++    /// The exponent of `dv`'s quanta: the binding's velocity exponent for the old law's kick, the force's
++    /// own for the clock's (a force is sixteen orders below a velocity; the velocity word's quantum would
++    /// hold it to a few quanta).
++    pub exp: i16,
+     /// The motion law v2's kick or start ([`crate::ext`]): `len` is the physical length of the step it planned, `boundary` the tick
+     /// of the synchronised state the next step starts from, `lead` how long before this binding's tick the step it closes started.
+-    /// A reader between kicks reads the partial step ([`crate::observe`]) and not the ramp.
++    /// A reader between kicks reads the partial step ([`crate::observe::partial`]) and not the ramp.
+     pub clock: bool,
+     pub boundary: i64,
+     pub lead: i64,
+ }
+ impl Kick {
+-    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2], clock: false, boundary: 0, lead: 0 };
++    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2], exp: 0, clock: false, boundary: 0, lead: 0 };
+ }
+ 
+ /// Everything needed to read one body's state at any time after its binding event.
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d..fd743b1 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -50,7 +50,8 @@ pub fn credit(bodies: &dyn BodyStore, i: usize, t: Tick, b: &Binding) -> Res<(V2
+     loop {
+         let cur = held.as_ref().unwrap_or(b);
+         let k = cur.kick;
+-        if k.len == 0 {
++        // A clock binding carries no window (its `dv` is the force it applied, not an impulse): the walk ends there.
++        if k.len == 0 || k.clock {
+             break;
+         }
+         let m = cur.event_time;
+@@ -106,9 +107,16 @@ pub fn credit(bodies: &dyn BodyStore, i: usize, t: Tick, b: &Binding) -> Res<(V2
+ ///
+ /// With `τ = t − B` the time since the boundary `B` (a synchronised state: the tube read there, bit for bit), the step's kick has
+ /// the weight `w = τ·f'(U_P + c)/f'(H_D + p_t + c)`, and `H_D + p_t = U_P` on the constraint the map keeps (to its own second
+-/// order), so `w = τ`: the half drift to `B + τ/2`, the kick `τ·∇U_P` there (one evaluation of the sources, at that tick), the
+-/// half drift to `t`. The drifts are the tube; the kick is the velocity `Δv = τ·a` it adds and, `τ/2` later, the position
+-/// `Δx = Δv·τ/2` (the tube's own response to `Δv` over `τ/2` is a tide's order smaller). At `τ = 0` it is the boundary's state.
++/// order), so `w = τ`: the half drift to `B + τ/2`, the kick `τ·∇U_P` there, the half drift to `t`. The drifts are the tube; the
++/// kick is the velocity `Δv = τ·a` it adds and, `τ/2` later, the position `Δx = Δv·τ/2` (the tube's own response to `Δv` over
++/// `τ/2` is a tide's order smaller). At `τ = 0` it is the boundary's state, bit for bit.
++///
++/// The acceleration at the half-drift point is **read from the kicks' own samples** ([`ramped_accel`]), linear in time through the
++/// force the last two kicks applied — the kick already evaluated it at its own tick, so the reader decodes no source and sums no
++/// field, and the readout costs the raw tube's one decode. The samples' error is the linear fit's, `O(ä·h²)` against the map's own
++/// `O(h²)`; where no sample exists the field is evaluated as the memo defines it. Anchored on the step's base binding, the ramp is
++/// continuous across the kicks that rebind inside a step (the base, the start and `τ` do not change there) and hands over at the
++/// boundaries, where the correction is zero.
+ ///
+ /// The tube is the binding that was current at `B` (the history one back for a reader before the binding's own kick, which the
+ /// partial step replaces), run on past its own end. A binding that is not a clock's (a creation, a handoff, a flush) keeps the
+@@ -139,12 +147,20 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+     if tau <= 0 || tau > 2 * k.len.max(1) {
+         return base.cartesian(t).or_else(|_| raw());
+     }
++    let mid = start + tau / 2;
+     let step = || -> Res<(V2, V2)> {
+-        let mid = start + tau / 2;
+-        let (x_mid, _) = base.cartesian(mid)?;
+-        let field = force::field(&ctx.secondaries(base.doll, mid, i)?, x_mid)?;
+         let tau_s = time_of(tau, base.clock_exp)?;
+-        let dv = scale2(field.accel, tau_s)?;
++        // The force at the half-drift point, from the kicks' own samples ([`ramped_accel`]): no source is
++        // decoded and no field summed at read time. Where no sample exists — the first step of a clock, a
++        // force that did not fit the word — the sources and the field, as before.
++        let dv = match ramped_accel(ctx.bodies, i, base, mid)? {
++            Some(a) => scale2(a, tau_s)?,
++            None => {
++                let (x_mid, _) = base.cartesian(mid)?;
++                let field = force::field(&ctx.secondaries(base.doll, mid, i)?, x_mid)?;
++                scale2(field.accel, tau_s)?
++            }
++        };
+         let dx = scale2(dv, tau_s.scale(-1)?)?;
+         let (p, v) = base.cartesian(t)?;
+         Ok((add2(p, dx)?, add2(v, dv)?))
+@@ -152,6 +168,37 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+     step().or_else(|_| raw())
+ }
+ 
++/// The force a reader completes the tube with, from the kicks' own samples: the kick that made `base`
++/// applied its acceleration at its own tick and stored it ([`Kick::dv`], at its own exponent), and
++/// the kick before it the same, so the force at `t_hat` is read linearly in time through the two. The
++/// pair is anchored on `base`, which does not change across the kicks that rebind inside a step, so the
++/// readout is continuous across a kick and hands over at the boundaries, where the correction is zero.
++///
++/// `None` where no sample exists (the clock's first step, `dv` still zero; a force that did not fit the
++/// word): the caller evaluates the field. A missing predecessor leaves the one sample alone (no slope).
++fn ramped_accel(bodies: &dyn BodyStore, i: usize, base: &Binding, t_hat: Tick) -> Res<Option<V2>> {
++    let k = base.kick;
++    if !k.clock || k.dv == [0, 0] {
++        return Ok(None);
++    }
++    let a1 = [Scalar::raw(k.dv[0] as i128, k.exp as i32)?, Scalar::raw(k.dv[1] as i128, k.exp as i32)?];
++    let Some(prev) = bodies.binding_at(i, base.event_time - 1) else {
++        return Ok(Some(a1));
++    };
++    let dm = base.event_time - prev.event_time;
++    if !prev.kick.clock || prev.kick.dv == [0, 0] || dm <= 0 {
++        return Ok(Some(a1));
++    }
++    let a0 = [Scalar::raw(prev.kick.dv[0] as i128, prev.kick.exp as i32)?, Scalar::raw(prev.kick.dv[1] as i128, prev.kick.exp as i32)?];
++    let dt = Scalar::integer(t_hat - base.event_time);
++    let mut a = a1;
++    for c in 0..2 {
++        let slope = a1[c].sub(a0[c])?.div(Scalar::integer(dm))?;
++        a[c] = slope.mul(dt)?.add(a1[c])?;
++    }
++    Ok(Some(a))
++}
++
+ /// Body `i`'s binding at `t` and its state there, completed between kicks ([`partial`], or the ramp [`credit`]), in the units of its doll.
+ pub fn ramped(ctx: &Ctx, i: usize, t: Tick) -> Res<(Binding, V2, V2)> {
+     let b = ctx.bodies.binding_at(i, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..89b44d5 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -573,7 +573,7 @@ impl Work<'_, '_> {
+         self.rec.interval = 2 * half;
+         self.rec.step = 2 * half;
+         // The synchronised state a reader's partial step starts from, until the first kick: this one.
+-        self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
++        self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], exp: 0, clock: true, boundary: t, lead: 0 };
+         insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
+         Ok(())
+     }
+@@ -634,8 +634,18 @@ impl Work<'_, '_> {
+         self.rec.ext = Some(ext);
+         if fired {
+             // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
+-            // closes had been running.
+-            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
++            // closes had been running. Its `dv` is the force this kick applied, in the doll's units, at its own exponent:
++            // what a reader between kicks completes the tube with ([`crate::observe::partial`]'s ramp), so no source is decoded and
++            // no field summed at read time. Where the word cannot hold it, zero: the reader evaluates the field.
++            let e = (f.accel[0].exponent() as i32).max(f.accel[1].exponent() as i32) - 62;
++            let q = |s: Scalar| -> Res<i64> {
++                i64::try_from(s.fixed(-e)?).map_err(|_| Error::Refused("the kick's force outside the word"))
++            };
++            let (dv, exp) = match (q(f.accel[0]), q(f.accel[1]), i16::try_from(e)) {
++                (Ok(ax), Ok(ay), Ok(ee)) => ([ax, ay], ee),
++                _ => ([0; 2], 0),
++            };
++            self.rec.b.kick = Kick { len: full, level: 0, dv, exp, clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
+         }
+         self.rec.interval = full;
+         self.rec.step = full;
+diff --git a/crates/universe/tests/motion.rs b/crates/universe/tests/motion.rs
+index 812e9e5..216028c 100644
+--- a/crates/universe/tests/motion.rs
++++ b/crates/universe/tests/motion.rs
+@@ -321,6 +321,77 @@ fn the_readout_between_kicks_reads_the_boundarys_error() {
+     assert!(raw_ratios[raw_ratios.len() / 2] > 10.0, "the control: the raw tube's median ratio to the map's error is {:.1} (raw worst {raw:e})", raw_ratios[raw_ratios.len() / 2]);
+ }
+ 
++/// The ramp is the partial step's equal where it replaces it. The readout between kicks reads the force
++/// from the kicks' own samples (linear in time; no source decoded, no field summed at read time), so on
++/// the same ensemble, at between-kick phases across eight planet periods (encounters included), it is
++/// compared against the exact partial step — the sources decoded and the field summed at the half-drift
++/// point, the memo's own definition. The scale is the correction both forms apply, measured against the
++/// base tube they complete (not the current binding's tube, which for a read before the boundary already
++/// carries the kick, and would cancel the correction at the window's end). The bound: the worst departure
++/// at most 1% of that correction (the linear fit's error over one step, against the pending impulse the
++/// correction exists to cancel).
++#[test]
++fn the_ramp_matches_the_partial_step_it_replaces() {
++    use emergent_universe::num::{add2, scale2, time_of, to_f64};
++    let (mu_log2, sep) = (-10, 527_000_000i64);
++    let hill = sep as f64 * (2f64.powi(mu_log2) / 3.0).cbrt();
++    let ships: Vec<(i64, u32)> = (0..6).map(|i| ((sep as f64 + if i % 2 == 0 { 1.0 } else { -1.0 } * hill * (1.5 + 0.3 * i as f64)) as i64, (i as u32).wrapping_mul(0x9E37_79B9))).collect();
++    let mut w = emergent_universe::scenario::restricted(mu_log2, sep, 49_000, &ships, 1).unwrap();
++    let period = 2.0 * std::f64::consts::PI / ((1.0 + 2f64.powi(mu_log2)).sqrt() / (sep as f64).powf(1.5));
++    // (the exact partial step, the base tube it completes), from the public pieces.
++    let exact = |u: &Universe, i: usize, t: i64| -> Option<([f64; 2], [f64; 2], [f64; 2], [f64; 2])> {
++        let ctx = u.ctx();
++        let b = ctx.bodies.binding_at(i, t)?;
++        let k = b.kick;
++        if !k.clock {
++            return None;
++        }
++        let held;
++        let (base, start) = if t >= k.boundary {
++            (&b, k.boundary)
++        } else if k.lead > 0 {
++            held = ctx.bodies.binding_at(i, b.event_time - 1)?;
++            (&held, b.event_time - k.lead)
++        } else {
++            return None;
++        };
++        let tau = t - start;
++        if tau <= 0 || tau > 2 * k.len.max(1) {
++            return None;
++        }
++        let mid = start + tau / 2;
++        let (x_mid, _) = base.cartesian(mid).ok()?;
++        let field = emergent_universe::force::field(&ctx.secondaries(base.doll, mid, i).ok()?, x_mid).ok()?;
++        let tau_s = time_of(tau, base.clock_exp).ok()?;
++        let dv = scale2(field.accel, tau_s).ok()?;
++        let dx = scale2(dv, tau_s.scale(-1).ok()?).ok()?;
++        let (p, v) = base.cartesian(t).ok()?;
++        let (xb, vb) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
++        let (p, v) = (add2(p, dx).ok()?, add2(v, dv).ok()?);
++        Some(([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])], xb, vb))
++    };
++    let (mut looked, mut worst_share) = (0, 0.0f64);
++    for k in 1..=(8 * 8) {
++        let t = (k as f64 * period / 8.0) as i64;
++        w.u.settle(t);
++        for &sh in &w.ships {
++            let ctx = w.u.ctx();
++            let Some((xe, ve, xr, vr)) = exact(&w.u, sh, t) else { continue };
++            let (_, p, v) = emergent_universe::observe::ramped(&ctx, sh, t).unwrap();
++            let (x, v) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
++            let corr = (xe[0] - xr[0]).hypot(xe[1] - xr[1]) + (ve[0] - vr[0]).hypot(ve[1] - vr[1]);
++            let miss = (x[0] - xe[0]).hypot(x[1] - xe[1]) + (v[0] - ve[0]).hypot(v[1] - ve[1]);
++            if corr > 0.0 {
++                looked += 1;
++                worst_share = worst_share.max(miss / corr);
++            }
++        }
++    }
++    println!("{looked} reads between kicks: the ramp's worst departure from the exact partial step is {worst_share:.2e} of the correction");
++    assert!(looked > 200, "enough between-kick reads were compared: {looked}");
++    assert!(worst_share <= 1e-2, "the ramp misses {worst_share:.2e} of the correction it replaces");
++}
++
+ /// And it falls as the step squared. As first frozen: for the ships that stay in the star's doll, 4x finer steps (kicks
+ /// per radial period 2^6 to 2^8) cut the ramped readout's error by at least 8x (the ideal is 16, the raw tube's 4). The
+ /// first run said ship 4 reads 5.8x, and the diagnosis is the map, not the ramp: that ship skims the planet's shells and
