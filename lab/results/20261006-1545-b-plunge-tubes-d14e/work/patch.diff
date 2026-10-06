@@ -1,0 +1,1592 @@
+diff --git a/crates/engine/src/tube.rs b/crates/engine/src/tube.rs
+index aa5babe..69c5e50 100644
+--- a/crates/engine/src/tube.rs
++++ b/crates/engine/src/tube.rs
+@@ -155,7 +155,7 @@ impl Reference {
+     /// Only bound (periodic) orbits are tubes of a frame.
+     pub(crate) fn bind(units: &Units, exact: State, tick: Tick) -> Result<Reference, FrameError> {
+         let state = units.encode(exact)?;
+-        let fit = Rebinding::from_state(state, units.time(tick)?, None).map_err(sp)?;
++        let fit = Rebinding::from_state(state, units.time(tick)?, None, None).map_err(sp)?;
+         let Trajectory::Cycle(orbit) = fit.trajectory else {
+             return Err(FrameError("the origin's state is not on a bound orbit".into()));
+         };
+diff --git a/crates/space/examples/certified_bank.rs b/crates/space/examples/certified_bank.rs
+index de3e97a..f72c4af 100644
+--- a/crates/space/examples/certified_bank.rs
++++ b/crates/space/examples/certified_bank.rs
+@@ -762,7 +762,7 @@ fn process(c: &Case, rows: &mut Rows) {
+                     let mut edge_used = edge;
+                     let res = loop {
+                         let res = std::panic::catch_unwind(|| {
+-                            Rebinding::from_state(st, Scalar::ZERO, to_scalar(edge_used))
++                            Rebinding::from_state(st, Scalar::ZERO, to_scalar(edge_used), None)
+                         });
+                         if matches!(res, Ok(Err(Error::Range))) && edge_used > 4.0 * cv.rho {
+                             edge_used = (edge_used / 1024.0).max(2.0 * cv.rho);
+@@ -807,9 +807,12 @@ fn process(c: &Case, rows: &mut Rows) {
+                             }
+                         }
+                         Ok(Ok(rb)) => {
+-                            law = match rb.trajectory {
++                            law = match &rb.trajectory {
+                                 Trajectory::Cycle(_) => "cycle".into(),
+                                 Trajectory::Passage(_) => "passage".into(),
++                                // No surface is supplied here, so a plunging fit
++                                // stays refused (NoBoundOrbit), as before.
++                                Trajectory::Plunge(_) => "plunge".into(),
+                             };
+                             ok_pos = true;
+                             // fit residual at the event, and the exact left inverse
+@@ -824,7 +827,7 @@ fn process(c: &Case, rows: &mut Rows) {
+                                 Err(_) => -1,
+                             };
+                             // turning points against the exact roots of R(u), polished in f64
+-                            let key = rb.trajectory.key();
++                            let key = rb.trajectory.key().expect("a turning fit");
+                             ecc = pow2(48) / key.k as f64 - 1.0;
+                             let rp = sf(key.periapsis);
+                             edge_ratio = edge_used / rp;
+diff --git a/crates/space/examples/dbg_plunge.rs b/crates/space/examples/dbg_plunge.rs
+new file mode 100644
+index 0000000..f0880aa
+--- /dev/null
++++ b/crates/space/examples/dbg_plunge.rs
+@@ -0,0 +1,22 @@
++use emergent_space::binding::{IntegerState, Rebinding};
++fn main() {
++    let (energy, l, r, inbound) = (0.97f64, 3.6f64, 5.0f64, true);
++    let lapse = 1.0 - 2.0 / r;
++    let v2 = energy * energy - lapse * (1.0 + l * l / (r * r));
++    let vr = -lapse * v2.sqrt() / energy * if inbound { 1.0 } else { -1.0 };
++    let vt = lapse * l / (r * energy);
++    let (le, ve) = (24i32, -30i32);
++    let to_int = |x: f64, e: i32| (x * 2f64.powi(-e)).round() as i64;
++    let state = IntegerState { position: [to_int(r, le), 0], velocity: [to_int(vr, ve), to_int(vt, ve)], length_exponent: le as i16, velocity_exponent: ve as i16 };
++    println!("v2={v2} vr={vr} vt={vt}");
++    match Rebinding::from_state(state, emergent_space::orbit::Scalar::ZERO, None, Some(emergent_space::orbit::Scalar::integer(5).div(emergent_space::orbit::Scalar::integer(2)).unwrap())) {
++        Ok(f) => println!("fit ok: {:?}", f.trajectory.key().is_none()),
++        Err(e) => println!("fit err {e:?}"),
++    }
++    // direct compile
++    let sc = |x: f64| { let e = x.log2().floor() as i32; emergent_space::orbit::Scalar::raw((x * 2f64.powi(60 - e)).round() as i128, e - 60).unwrap() };
++    match emergent_space::plunge::Plunge::from_event(sc(energy), sc(l), sc(0.2), true, sc(2.5)) {
++        Ok(p) => println!("compile ok knots={}", p.knots().len()),
++        Err(e) => println!("compile err {e:?}"),
++    }
++}
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..070cf42 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -43,24 +43,32 @@ impl IntegerState {
+ pub enum Trajectory {
+     Cycle(Orbit),
+     Passage(Passage),
++    /// A one-way plunge arc (no outer turning point, or L = 0), ending at an
++    /// exact terminal event on the doll's surface. It has no periapsis and no
++    /// eccentricity, so it shares no memo key with the turning trajectories.
++    Plunge(crate::plunge::Plunge),
+ }
+ impl Trajectory {
+-    pub fn key(&self) -> OrbitKey {
++    /// The bound-orbit key, if this trajectory has one.
++    pub fn key(&self) -> Option<OrbitKey> {
+         match self {
+-            Self::Cycle(c) => c.key(),
+-            Self::Passage(p) => p.key(),
++            Self::Cycle(c) => Some(c.key()),
++            Self::Passage(p) => Some(p.key()),
++            Self::Plunge(_) => None,
+         }
+     }
+     pub fn state(&self, time: Scalar) -> Result<OrbitState> {
+         match self {
+             Self::Cycle(c) => c.signed_state(time),
+             Self::Passage(p) => p.state(time),
++            Self::Plunge(p) => p.state(time),
+         }
+     }
+     fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
+         match self {
+             Self::Cycle(c) => c.at_radius(r),
+             Self::Passage(p) => p.at_radius(r),
++            Self::Plunge(p) => p.at_radius(r),
+         }
+     }
+ }
+@@ -176,9 +184,19 @@ pub fn cartesian(state: OrbitState, orientation: u32, clockwise: bool, units: (i
+     })
+ }
+ 
+-/// Inverse invariants without subtracting E from one. The cubic is in z=L²/r,
+-/// whose outer turning root is O(1) in the weak field, not in absolute 1/r.
+-fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, bool, bool)> {
++/// What an exact state fits on the doll's dominant mass: a geodesic with a
++/// turning point (a bound cycle or a passage), or a plunge arc — an orbit with
++/// no outer turning point at all (the barrier is positive, L² is below 12), or
++/// none in the physical domain (L = 0), inbound to the doll's surface.
++#[derive(Clone, Copy, Debug, PartialEq)]
++enum Fit {
++    Turn(OrbitKey),
++    /// E and the signed angular momentum of a plunging state.
++    Plunge { energy: Scalar, angular: Scalar },
++}
++
++fn fit_key(state: IntegerState, accelerate: bool) -> Result<(Fit, Scalar, bool, bool)> {
++    if std::env::var_os("PLUNGE_FIT_DEBUG").is_some() { eprintln!("fit_key entry {state:?}"); }
+     let (p, v) = state.components()?;
+     let r = norm(p)?;
+     let u = r.reciprocal()?;
+@@ -189,26 +207,42 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let vr = dot(p, v)?.div(r)?;
+     let vt = p[0].mul(v[1])?.sub(p[1].mul(v[0])?)?.div(r)?;
+     if crate::inverse::circular(state) {
+-        return Ok((OrbitKey::new(r, 1 << 48)?, r, vt < Scalar::ZERO, false));
++        return Ok((Fit::Turn(OrbitKey::new(r, 1 << 48)?), r, vt < Scalar::ZERO, false));
+     }
+     let kinetic = vr.mul(vr)?.div(lapse)?.add(vt.mul(vt)?)?;
+     let den = lapse.sub(kinetic)?;
+-    if !den.is_positive() || vt.is_zero() {
++    if !den.is_positive() {
+         return Err(Error::NoBoundOrbit);
+     }
++    let plunge = |angular: Scalar| -> Result<(Fit, Scalar, bool, bool)> {
++        Ok((
++            Fit::Plunge { energy: lapse.div(den.sqrt()?)?, angular },
++            r,
++            vt < Scalar::ZERO,
++            vr < Scalar::ZERO,
++        ))
++    };
++    if vt.is_zero() {
++        // A radial line: Darwin's phase cannot hold it (L = 0). Inbound it is
++        // a fall to the surface; outbound it rises to its single turn first,
++        // or escapes when E ≥ 1 (refused there, like every outgoing escape).
++        return plunge(Scalar::ZERO);
++    }
+     let angular = r.mul(vt)?;
+     let l2 = angular.mul(angular)?.div(den)?;
+     let q = l2.reciprocal()?;
+     let alpha = kinetic.sub(u.scale(1)?.mul(lapse)?)?.div(den)?.mul(l2)?;
++    if std::env::var_os("PLUNGE_FIT_DEBUG").is_some() { let g = |x: &Scalar| format!("{}e{}", x.significand(), x.exponent()); eprintln!("u={} kinetic={} den={} alpha={}", g(&u), g(&kinetic), g(&den), g(&alpha)); }
+     // The exact algebraic energy predicate preserves symbolic E=1. It also
+     // defines the boundary quantization when an adapter perturbs E by less
+     // than the retained shape quantum; do not manufacture a radial cycle.
+     if alpha.abs() < Scalar::power_of_two(-48) {
+-        return Ok((crate::inverse::fit(state)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
++        return Ok((Fit::Turn(crate::inverse::fit(state)?), r, vt < Scalar::ZERO, vr < Scalar::ZERO));
+     }
+     let disc = Scalar::ONE.sub(q.mul(Scalar::integer(12))?)?;
+     if !disc.is_positive() {
+-        return Err(Error::NoBoundOrbit);
++        // L² ≤ 12: the radial potential has no barrier, no orbit turns.
++        return plunge(angular.div(den.sqrt()?)?);
+     }
+     let root = disc.sqrt()?;
+     let uc = Scalar::integer(2).div(Scalar::ONE.add(root)?)?;
+@@ -223,11 +257,15 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+         .add(inverse.scale(1)?)?
+         .sub(Scalar::ONE)?
+         .add(q.scale(1)?.mul(minimum)?)?;
++    if std::env::var_os("PLUNGE_FIT_DEBUG").is_some() { let g = |x: &Scalar| format!("{}e{}", x.significand(), x.exponent()); eprintln!("alpha={} q={} disc={} barrier={} uc={} min={}", g(&alpha), g(&q), g(&disc), g(&barrier), g(&uc), g(&minimum)); }
+     if q > Scalar::power_of_two(-10) && barrier.abs() < Scalar::power_of_two(-24) {
+-        return Ok((crate::inverse::fit(state)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
++        return Ok((Fit::Turn(crate::inverse::fit(state)?), r, vt < Scalar::ZERO, vr < Scalar::ZERO));
+     }
+     if barrier.is_positive() {
+-        return Err(Error::NoBoundOrbit);
++        // Above the barrier there is no outer turning point: the orbit falls
++        // through, whatever E is (a momentary capture during a close pass, a
++        // plunge after one, or a hyperbolic fall with periapsis inside).
++        return plunge(angular.div(den.sqrt()?)?);
+     }
+     let at_c = poly(uc)?;
+     let zp = if at_c <= Scalar::ZERO {
+@@ -285,7 +323,7 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     } else {
+         k = k.max((1 << 47) + 1);
+     }
+-    Ok((OrbitKey::new(rp, k)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO))
++    Ok((Fit::Turn(OrbitKey::new(rp, k)?), r, vt < Scalar::ZERO, vr < Scalar::ZERO))
+ }
+ 
+ /// A narrow sign witness, never a replacement root. Replay the original midpoint
+@@ -350,15 +388,44 @@ fn root_witness(
+     } else { None })
+ }
+ impl Rebinding {
+-    pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
+-        let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
+-        } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++    pub fn from_state(
++        state: IntegerState,
++        event_time: Scalar,
++        passage_edge: Option<Scalar>,
++        surface: Option<Scalar>,
++    ) -> Result<Self> {
++        let (fit, r, clockwise, incoming) = fit_key(state, true)?;
++        let trajectory = match fit {
++            Fit::Turn(key) => {
++                if key.periodic() {
++                    Trajectory::Cycle(Orbit::compile(key)?)
++                } else {
++                    Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++                }
++            }
++            Fit::Plunge { energy, angular } => {
++                if std::env::var_os("PLUNGE_FIT_DEBUG").is_some() { eprintln!("fit plunge E={energy:?} L={angular:?} r={r:?} incoming={incoming}"); }
++                // A plunge ends at a surface; without one there is no terminal
++                // event to compile to (a horizon has no finite coordinate
++                // arrival), and the fit stays refused.
++                let terminal = surface.ok_or(Error::NoBoundOrbit)?;
++                Trajectory::Plunge(crate::plunge::Plunge::from_event(
++                    energy,
++                    angular.abs(),
++                    r.reciprocal()?,
++                    incoming,
++                    terminal,
++                )?)
++            }
++        };
++        let (mut offset, mut sample) = trajectory.at_radius(r).inspect_err(|e| { if std::env::var_os("PLUNGE_FIT_DEBUG").is_some() { eprintln!("at_radius err {e:?}"); } })?;
++        // A turning trajectory's mirrored leg is its inbound approach; a
++        // plunge's is its outbound rise (the turn lies above the fall).
++        let mirrored = match &trajectory {
++            Trajectory::Plunge(_) => !incoming,
++            _ => incoming,
+         };
+-        let (mut offset, mut sample) = trajectory.at_radius(r)?;
+-        if incoming {
++        if mirrored {
+             offset = offset.negate();
+             sample.reflect();
+         }
+@@ -378,7 +445,8 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+-        fit.residual = Residual::between(state, fit.decoded_event()?);
++        if std::env::var_os("PLUNGE_FIT_DEBUG").is_some() { eprintln!("peri={:?} offset={offset:?}", fit.periapsis_time); }
++        fit.residual = Residual::between(state, fit.decoded_event().inspect_err(|e| { if std::env::var_os("PLUNGE_FIT_DEBUG").is_some() { eprintln!("decoded err {e:?}"); } })?);
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/space/src/events/edge.rs b/crates/space/src/events/edge.rs
+index 1ec8c0c..92caced 100644
+--- a/crates/space/src/events/edge.rs
++++ b/crates/space/src/events/edge.rs
+@@ -9,8 +9,9 @@ pub fn next_exit(
+     clock_exponent: i16,
+     edge: Scalar,
+ ) -> Result<Option<i64>> {
+-    if !edge.is_positive() {
+-        return Err(Error::Range);
++    // A plunge never exits outward: its window ends at the surface.
++    if matches!(trajectory, Trajectory::Plunge(_)) {
++        return Ok(None);
+     }
+     let outside =
+         |t| -> Result<bool> { Ok(tube.state(catalogue, t, clock_exponent)?.radius >= edge) };
+@@ -38,6 +39,8 @@ pub fn next_exit(
+             apex
+         }
+         Trajectory::Passage(p) => peri.add(p.duration()?.scale(-1)?)?,
++        // Unreachable: a plunge returned above; it never exits outward.
++        Trajectory::Plunge(_) => unreachable!("a plunge has no outgoing window"),
+     };
+     let (mut lo, mut hi) = (
+         after,
+diff --git a/crates/space/src/events/handoff.rs b/crates/space/src/events/handoff.rs
+index 619bf04..7ad73fd 100644
+--- a/crates/space/src/events/handoff.rs
++++ b/crates/space/src/events/handoff.rs
+@@ -64,6 +64,7 @@ pub fn rebind(
+     old: Cartesian,
+     new: Cartesian,
+     passage_edge: Option<Scalar>,
++    surface: Option<Scalar>,
+ ) -> Result<TubeEvent> {
+     let exact = translate(source.reconstruct(catalogue)?, old, new)?;
+     bind(
+@@ -71,6 +72,7 @@ pub fn rebind(
+         source.event_time,
+         source.clock_exponent,
+         passage_edge,
++        surface,
+         catalogue,
+     )
+ }
+@@ -80,6 +82,7 @@ pub fn bind(
+     time: i64,
+     clock_exponent: i16,
+     passage_edge: Option<Scalar>,
++    surface: Option<Scalar>,
+     catalogue: &mut Catalogue,
+ ) -> Result<TubeEvent> {
+     if !slow(exact)? {
+@@ -89,6 +92,7 @@ pub fn bind(
+         exact,
+         Scalar::raw(time as i128, clock_exponent as i32)?,
+         passage_edge,
++        surface,
+     )?;
+     TubeEvent::bind(fit, catalogue, clock_exponent)
+ }
+@@ -99,14 +103,12 @@ pub fn event_state(event: &TubeEvent, catalogue: &Catalogue) -> Result<Cartesian
+     event.reconstruct(catalogue)
+ }
+ 
+-/// Transport the remainder by consuming the reconstructed state before physical
+-/// evolution. The evolution operation owns the force law and returns its exact
+-/// integer result; rebinding never evolves or erases a correction separately.
+ pub fn advance(
+     source: &TubeEvent,
+     catalogue: &mut Catalogue,
+     next_time: i64,
+     passage_edge: Option<Scalar>,
++    surface: Option<Scalar>,
+     evolve: impl FnOnce(Cartesian) -> Result<Cartesian>,
+ ) -> Result<TubeEvent> {
+     if next_time < source.event_time {
+@@ -118,6 +120,7 @@ pub fn advance(
+         next_time,
+         source.clock_exponent,
+         passage_edge,
++        surface,
+         catalogue,
+     )
+ }
+diff --git a/crates/space/src/events/kicks.rs b/crates/space/src/events/kicks.rs
+index 296bc5e..00b6ba1 100644
+--- a/crates/space/src/events/kicks.rs
++++ b/crates/space/src/events/kicks.rs
+@@ -134,6 +134,7 @@ pub fn apply(
+     catalogue: &mut crate::tube::Catalogue,
+     kick: Kick,
+     passage_edge: Option<Scalar>,
++    surface: Option<Scalar>,
+ ) -> Result<crate::tube::TubeEvent> {
+     if kick.energy.is_zero() && kick.angular.is_zero() {
+         return Ok(event.clone());
+@@ -165,7 +166,9 @@ pub fn apply(
+     let angular = r.mul(vt)?.div(den.sqrt()?)?.add(kick.angular)?;
+     let next_delta2 = energy.mul(Scalar::integer(2).add(energy)?)?;
+     let e2 = Scalar::ONE.add(next_delta2)?;
+-    if !e2.is_positive() || angular.is_zero() {
++    if !e2.is_positive() {
++        // A kick to L = 0 exactly is a radial line: legal state, held by a
++        // plunge tube when it falls, refused only when it escapes.
+         return Err(Error::NoBoundOrbit);
+     }
+     let next_den = lapse.mul(lapse)?.div(e2)?;
+@@ -194,6 +197,7 @@ pub fn apply(
+         event.event_time,
+         event.clock_exponent,
+         passage_edge,
++        surface,
+         catalogue,
+     )
+ }
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 476d49e..22be58a 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -113,6 +113,7 @@ mod inverse;
+ pub mod light;
+ mod num;
+ pub mod orbit;
++pub mod plunge;
+ pub mod scaled;
+ pub mod tube;
+ pub use tube::Tube;
+diff --git a/crates/space/src/plunge.rs b/crates/space/src/plunge.rs
+new file mode 100644
+index 0000000..6844459
+--- /dev/null
++++ b/crates/space/src/plunge.rs
+@@ -0,0 +1,449 @@
++//! Massive plunge arcs: one-way compiled generators for orbits with no outer
++//! turning point (the barrier is positive, or L² below 12) and for near-radial
++//! falls (L = 0), inbound or riding out to their single turning point, ending
++//! in an exact terminal event on the doll's surface. Null capture is
++//! `light::Capture`; this is the massive counterpart in the same normalized
++//! style: a radial phase with a binary exponent, adaptive Gauss panels, and a
++//! readout that is a pure function of elapsed coordinate time.
++//!
++//! **The phase.** With E and L the invariants (G = c = M = 1) the radial speed
++//! is V²(u) = E² − (1 − 2u)(1 + L²u²) = 2L²u³ − L²u² + 2u + (E² − 1), u = 1/r.
++//! A plunge lives on the band u > u_r, where u_r is the cubic's largest real
++//! root (the band's outer edge; a turn — or negative, for E ≥ 1). Darwin's ψ
++//! needs two real turning roots, which a plunge does not have; the native
++//! substitution here is **w = sqrt(u − u_r)**, which divides the root out of
++//! V² = w²·q(u) exactly, with q(u) = 2L²u² + L²(2u_r − 1)u + (2 + L²u_r(2u_r − 1))
++//! strictly positive on the band. Per unit w, with u = u_r + w² (exact, no
++//! cancellation), all three clock rates are smooth — including at the turning
++//! point w = 0 itself, where 1/V would diverge:
++//!
++//! ```text
++//!   dφ/dw = 2|L|/√q        dt/dw = 2E/((1 − 2u)·u²·√q)        dτ/dw = 2/(u²·√q)
++//! ```
++//!
++//! For E < 1 the window runs from the turn (w = 0) to the terminal surface and
++//! the outbound leg is its exact mirror (`state(t < 0)`, as a passage mirrors
++//! its incoming half). For E ≥ 1 the turning edge is outside the physical
++//! domain (u_r ≤ 0), so the window is anchored at the binding event; an
++//! outbound E ≥ 1 state escapes and is refused. The terminal radius must stay
++//! strictly outside the horizon, exactly as `light::Capture` requires:
++//! Schwarzschild coordinate time has no finite value at r = 2M, and no horizon
++//! chart is claimed here.
++//!
++//! u_r is found with 256-bit dyadic scratch: exact critical points decide a
++//! bracket containing exactly the largest root, then one bisection. The panels
++//! adapt to 2⁻³² agreement; every branch is integer arithmetic fixed by its
++//! inputs, so a compiled arc is bit-identical everywhere.
++use crate::{
++    Error, Result,
++    orbit::{OrbitState, Scalar},
++    tables::{W, X},
++};
++use num_bigint::BigInt;
++use num_traits::{One, Signed, ToPrimitive, Zero};
++
++const BITS: usize = 256;
++
++/// A one-way arc from its turning point (or the binding event, for E ≥ 1) down
++/// to a terminal radius, compiled once from the invariants.
++#[derive(Clone, Debug)]
++pub struct Plunge {
++    energy: Scalar,
++    /// |L|; the compiled arc is prograde, chirality is the binding's.
++    angular: Scalar,
++    /// The cubic's largest real root (the plunge band's outer edge in u).
++    root: Scalar,
++    /// The window's outer edge in u (the turn, or the binding event for E ≥ 1).
++    top: Scalar,
++    /// The terminal radius: the window's inner edge, strictly outside 2M.
++    pub terminal: Scalar,
++    /// (w, [Δφ, Δt, Δτ]) from the window's top inward; the sums are total.
++    knots: Vec<(Scalar, [Scalar; 3])>,
++}
++
++impl Plunge {
++
++    /// Compile the fall of a state at radius-u `event_u` with these invariants
++    /// (`incoming`: falling now, or rising to its turn first), ending at
++    /// `terminal`. The window is anchored at the turn when one exists in the
++    /// physical domain (E < 1); for E ≥ 1 it is anchored at the event, and an
++    /// outbound (escaping) state is refused.
++    pub fn from_event(
++        energy: Scalar,
++        angular: Scalar,
++        event_u: Scalar,
++        incoming: bool,
++        terminal: Scalar,
++    ) -> Result<Self> {
++        let root = largest_root(energy, angular)?;
++        let top = if root.is_positive() {
++            root
++        } else {
++            if !incoming {
++                return Err(Error::NoBoundOrbit);
++            }
++            event_u
++        };
++        Self::compile(energy, angular, top, terminal)
++    }
++    /// Compile the arc of invariants (`energy` = E > 0, `angular` = |L| ≥ 0)
++    /// from `top` (the window's outer edge in u: the turn's u when it is
++    /// physical, else the binding event's u) down to `terminal` (the surface
++    /// radius, strictly outside 2M).
++    pub fn compile(energy: Scalar, angular: Scalar, top: Scalar, terminal: Scalar) -> Result<Self> {
++        if !energy.is_positive() || angular < Scalar::ZERO || !terminal.is_positive() {
++            return Err(Error::Range);
++        }
++        if terminal <= Scalar::integer(2) {
++            // Coordinate time has no finite horizon value; as light::Capture.
++            return Err(Error::Range);
++        }
++        let root = largest_root(energy, angular)?;
++        let u_term = terminal.reciprocal()?;
++        // `top == root` is the turn itself (w = 0); below it is another band.
++        if top < root || u_term <= top {
++            return Err(Error::Range);
++        }
++        let mut p = Self {
++            energy,
++            angular,
++            root,
++            top,
++            terminal,
++            knots: Vec::new(),
++        };
++        let (w_top, w_term) = (p.w(top)?, p.w(u_term)?);
++        // Panel edges: a 15/16 ladder in w preserves relative information over
++        // any window ratio, stopping at the window's top (a turn anchors w = 0;
++        // the last panel down to it is one, the integrands being smooth there).
++        let stop = w_top.max(w_term.div(Scalar::integer(16))?);
++        let mut edges = vec![w_term];
++        loop {
++            let last = *edges.last().unwrap();
++            let next = last
++                .mul(Scalar::integer(15))?
++                .div(Scalar::integer(16))?;
++            if next <= stop || next == last {
++                edges.push(w_top);
++                break;
++            }
++            edges.push(next);
++        }
++        edges.reverse();
++        let mut sum = [Scalar::ZERO; 3];
++        p.knots.push((w_top, sum));
++        for pair in edges.windows(2) {
++            let a = p.integrate(pair[0], pair[1], 0)?;
++            for j in 0..3 {
++                sum[j] = sum[j].add(a[j])?;
++            }
++            p.knots.push((pair[1], sum));
++        }
++        Ok(p)
++    }
++
++    /// The window's outer edge radius (a turn, or the binding event's radius).
++    pub fn outer_radius(&self) -> Result<Scalar> {
++        self.top.reciprocal()
++    }
++    pub fn knots(&self) -> &[(Scalar, [Scalar; 3])] {
++        &self.knots
++    }
++    /// Coordinate time from the window's top to the terminal event.
++    pub fn duration(&self) -> Result<Scalar> {
++        Ok(self.knots.last().unwrap().1[1])
++    }
++    /// The exact terminal event: elapsed coordinate time, azimuth and proper
++    /// time at the surface.
++    pub fn arrival(&self) -> Result<(Scalar, Scalar, Scalar)> {
++        let s = self.knots.last().unwrap().1;
++        Ok((s[1], s[0], s[2]))
++    }
++
++    /// w at radius-u `u` (inside the window).
++    fn w(&self, u: Scalar) -> Result<Scalar> {
++        let gap = u.sub(self.root)?;
++        if gap < Scalar::ZERO {
++            // Outside the plunge band's edge: this state has a turn.
++            return Err(Error::Topology);
++        }
++        // A zero gap is the turn itself (w = 0), a legal window top.
++        gap.sqrt()
++    }
++    /// The invariant E the arc was compiled from.
++    pub fn energy(&self) -> Scalar {
++        self.energy
++    }
++    /// cancellation against a small difference). Strictly positive on the band.
++    fn q(&self, u: Scalar) -> Result<Scalar> {
++        let l2 = self.angular.mul(self.angular)?;
++        let slope = l2.mul(self.root.scale(1)?.sub(Scalar::ONE)?)?;
++        let q = l2
++            .scale(1)?
++            .mul(u.mul(u)?)?
++            .add(slope.mul(u)?)?
++            .add(Scalar::integer(2).add(slope.mul(self.root)?)?)?;
++        if !q.is_positive() {
++            return Err(Error::Range);
++        }
++        Ok(q)
++    }
++
++    /// The clock rates per unit w at phase w.
++    fn node(&self, w: Scalar) -> Result<[Scalar; 3]> {
++        let u = self.root.add(w.mul(w)?)?;
++        let root = self.q(u)?.sqrt()?;
++        let u2 = u.mul(u)?;
++        let lapse = Scalar::ONE.sub(u.scale(1)?)?;
++        if !lapse.is_positive() {
++            return Err(Error::Range);
++        }
++        Ok([
++            self.angular.scale(1)?.div(root)?,
++            self.energy
++                .scale(1)?
++                .div(lapse.mul(u2)?.mul(root)?)?,
++            Scalar::integer(2).div(u2.mul(root)?)?,
++        ])
++    }
++
++    fn quad(&self, lo: Scalar, hi: Scalar) -> Result<[Scalar; 3]> {
++        let h = hi.sub(lo)?;
++        if h.is_zero() {
++            return Ok([Scalar::ZERO; 3]);
++        }
++        let mid = lo.add(hi)?.scale(-1)?;
++        let mut sum = [Scalar::ZERO; 3];
++        for j in 0..2 {
++            let dx = h.mul(Scalar::raw(X[j], -62)?)?.scale(-1)?;
++            let w = h.mul(Scalar::raw(W[j], -62)?)?.scale(-1)?;
++            for x in [mid.sub(dx)?, mid.add(dx)?] {
++                let n = self.node(x)?;
++                for i in 0..3 {
++                    sum[i] = sum[i].add(w.mul(n[i])?)?;
++                }
++            }
++        }
++        Ok(sum)
++    }
++
++    /// Adaptive panels: accept when the halves agree with the whole to 2⁻³².
++    fn integrate(&self, lo: Scalar, hi: Scalar, depth: u8) -> Result<[Scalar; 3]> {
++        let mid = lo.add(hi)?.scale(-1)?;
++        if lo == mid || hi == mid {
++            return self.quad(lo, hi);
++        }
++        let whole = self.quad(lo, hi)?;
++        let a = self.quad(lo, mid)?;
++        let b = self.quad(mid, hi)?;
++        let split = [a[0].add(b[0])?, a[1].add(b[1])?, a[2].add(b[2])?];
++        if (0..3).all(|i| {
++            split[i]
++                .sub(whole[i])
++                .is_ok_and(|e| e.abs() <= split[i].abs().scale(-32).unwrap_or(Scalar::ZERO))
++        }) {
++            return Ok(split);
++        }
++        if depth == 56 {
++            return Err(Error::Range);
++        }
++        let a = self.integrate(lo, mid, depth + 1)?;
++        let b = self.integrate(mid, hi, depth + 1)?;
++        Ok([a[0].add(b[0])?, a[1].add(b[1])?, a[2].add(b[2])?])
++    }
++
++    /// Elapsed coordinate time and the inbound state at radius `r` inside the
++    /// window. The outbound leg is the exact mirror (`reflect`).
++    pub fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
++        let w = self.w(r.reciprocal()?)?;
++        if w < self.knots[0].0 || w > self.knots.last().unwrap().0 {
++            return Err(Error::Range);
++        }
++        let i = self.knots.partition_point(|k| k.0 < w).saturating_sub(1);
++        let (base, sum) = self.knots[i];
++        let mut total = sum;
++        if w > base {
++            let a = self.integrate(base, w, 0)?;
++            for j in 0..3 {
++                total[j] = total[j].add(a[j])?;
++            }
++        }
++        Ok((total[1], self.read(w, total)?))
++    }
++
++    /// The state at elapsed coordinate time from the window's top; negative
++    /// elapsed reads the mirrored outbound leg. Past the terminal event there
++    /// is no state to extrapolate.
++    pub fn state(&self, elapsed: Scalar) -> Result<OrbitState> {
++        let t = elapsed.abs();
++        if t > self.duration()? {
++            return Err(Error::Range);
++        }
++        let i = self
++            .knots
++            .partition_point(|k| k.1[1] <= t)
++            .saturating_sub(1);
++        let (base, sum) = self.knots[i];
++        let (w, total) = if sum[1] == t || i + 1 == self.knots.len() {
++            (base, sum)
++        } else {
++            let (mut lo, mut hi) = (base, self.knots[i + 1].0);
++            let mut answer = None;
++            for _ in 0..80 {
++                let w = lo.add(hi)?.scale(-1)?;
++                let mut here = sum;
++                let a = self.integrate(base, w, 0)?;
++                for j in 0..3 {
++                    here[j] = here[j].add(a[j])?;
++                }
++                if here[1].sub(t)?.abs() <= t.scale(-30)? || w == lo || w == hi {
++                    answer = Some((w, here));
++                    break;
++                }
++                if here[1] > t {
++                    hi = w;
++                } else {
++                    lo = w;
++                }
++            }
++            answer.ok_or(Error::Range)?
++        };
++        let mut out = self.read(w, total)?;
++        if elapsed < Scalar::ZERO {
++            out.reflect();
++        }
++        Ok(out)
++    }
++
++    /// Compose the inbound state at phase `w` with accumulated sums.
++    fn read(&self, w: Scalar, sum: [Scalar; 3]) -> Result<OrbitState> {
++        let u = self.root.add(w.mul(w)?)?;
++        let speed = w.mul(self.q(u)?.sqrt()?)?;
++        let lapse = Scalar::ONE.sub(u.scale(1)?)?;
++        Ok(OrbitState {
++            radius: u.reciprocal()?,
++            radial_angle: 0,
++            advance: sum[0],
++            proper_time: sum[2],
++            // Coordinate velocity components, as every OrbitState carries them.
++            radial_velocity: lapse.mul(speed)?.div(self.energy)?.negate(),
++            transverse_velocity: lapse.mul(self.angular)?.mul(u)?.div(self.energy)?,
++            cycles: 0,
++            outbound: false,
++            psi: 0,
++        })
++    }
++}
++
++/// The largest real root of V²(u) = 2L²u³ − L²u² + 2u + (E²−1) in 256-bit
++/// dyadic scratch. V² is positive on (u_r, ∞): the plunge band's outer edge.
++/// The critical points (when L² ≥ 12) decide a bracket containing exactly the
++/// largest root, so the bisection cannot land on a smaller one.
++pub(crate) fn largest_root(energy: Scalar, angular: Scalar) -> Result<Scalar> {
++    let one = BigInt::one() << BITS;
++    let e2 = dyadic(energy.mul(energy)?)?;
++    let l2 = dyadic(angular.mul(angular)?)?;
++    let eval = |u: &BigInt| -> BigInt {
++        // Every product truncated to the shared scale, as inverse.rs does.
++        let u2 = (u * u) >> BITS;
++        let u3 = (&u2 * u) >> BITS;
++        (((&l2 * u3) >> BITS) << 1) - ((&l2 * u2) >> BITS) + (u << 1) + &e2 - &one
++    };
++    let bisect = |mut lo: BigInt, mut hi: BigInt| -> BigInt {
++        while &hi - &lo > BigInt::one() {
++            let mid = (&lo + &hi) >> 1;
++            if eval(&mid) > BigInt::zero() {
++                hi = mid;
++            } else {
++                lo = mid;
++            }
++        }
++        hi
++    };
++    let walk_out = |start: BigInt| -> (BigInt, BigInt) {
++        let mut hi = start;
++        let mut lo = -hi.clone();
++        while eval(&lo) >= BigInt::zero() {
++            hi = lo.clone();
++            lo <<= 1;
++        }
++        (lo, hi)
++    };
++    // V²(1/2) = E² > 0: the horizon is reachable for every massive orbit.
++    let half: BigInt = &one >> 1;
++    let root = if eval(&BigInt::zero()) < BigInt::zero() {
++        // E < 1: the largest root lies in (0, 1/2), on the increasing stretch.
++        bisect(BigInt::zero(), half.clone())
++    } else if (&l2 << 3) + (&l2 << 2) < one {
++        // L² < 12: V²' > 0 everywhere, so V² is strictly increasing and the
++        // single real root is negative.
++        let (lo, hi) = walk_out(BigInt::zero());
++        bisect(lo, hi)
++    } else {
++        // Critical points u± = (1 ± sqrt(1 − 12/L²))/6, u_max < u_min ≤ 1/3.
++        let c = (&one * 12) / &l2;
++        let d = sqrt(&((&one - c) * &one))?;
++        let six = &one * 6;
++        let umax = (&one - &d) * &one / &six;
++        let umin = (&one + &d) * &one / &six;
++        if eval(&umin) <= BigInt::zero() {
++            // V² ≤ 0 at the local minimum and increases to +∞ from there:
++            // exactly one crossing in [u_min, 1/2), the largest root.
++            bisect(umin, half.clone())
++        } else if eval(&umax) < BigInt::zero() {
++            // One crossing on the decreasing stretch between the critical
++            // points; the third root is complex, so this is the largest.
++            bisect(umax, umin)
++        } else {
++            // V² > 0 at both critical points: the only real root is below
++            // u_max, on a strictly increasing stretch.
++            let (lo, hi) = walk_out(umax);
++            bisect(lo, hi)
++        }
++    };
++    scalar(&root)
++}
++
++/// A positive BigInt square root at the shared dyadic scale (Newton).
++fn sqrt(a: &BigInt) -> Result<BigInt> {
++    if !a.is_positive() {
++        return Err(Error::Range);
++    }
++    let mut x = BigInt::one() << (a.bits() / 2 + 1);
++    for _ in 0..192 {
++        let next = (&x + ((a << BITS) / &x)) >> 1;
++        if next == x {
++            return Ok(x);
++        }
++        x = next;
++    }
++    Err(Error::Range)
++}
++
++/// A Scalar as 256-bit dyadic scratch. Every physical exponent fits.
++fn dyadic(x: Scalar) -> Result<BigInt> {
++    let e = x.exponent() as i32 - 62;
++    if !(-1000..1000).contains(&e) {
++        return Err(Error::Range);
++    }
++    let n = BigInt::from(x.significand());
++    Ok(if e >= 0 {
++        n << (e + BITS as i32) as usize
++    } else {
++        (n << BITS) >> -e as usize
++    })
++}
++
++/// Narrow a 256-bit dyadic integer back to a Scalar, truncating toward zero.
++fn scalar(n: &BigInt) -> Result<Scalar> {
++    let bits = n.bits() as i32;
++    if bits == 0 {
++        return Ok(Scalar::ZERO);
++    }
++    if bits > 300 {
++        return Err(Error::Range);
++    }
++    let shift = (bits - 62).max(0) as usize;
++    let significand = (n >> shift).to_i128().ok_or(Error::Range)?;
++    Scalar::raw(significand, shift as i32 - BITS as i32)
++}
+diff --git a/crates/space/src/tube.rs b/crates/space/src/tube.rs
+index f3c0cd1..449afaa 100644
+--- a/crates/space/src/tube.rs
++++ b/crates/space/src/tube.rs
+@@ -49,7 +49,7 @@ struct Entry {
+ #[derive(Default)]
+ pub struct Catalogue {
+     entries: Vec<Entry>,
+-    ids: HashMap<(OrbitKey, bool, Option<Scalar>), u32>,
++    ids: HashMap<(Option<OrbitKey>, bool, Option<Scalar>), u32>,
+ }
+ impl Catalogue {
+     pub fn with_capacity(n: usize) -> Self {
+@@ -62,14 +62,20 @@ impl Catalogue {
+         let edge = match &trajectory {
+             Trajectory::Cycle(_) => None,
+             Trajectory::Passage(p) => Some(p.outer_radius),
++            // A plunge ends at one body's terminal event: never shared.
++            Trajectory::Plunge(_) => None,
+         };
+         let key = (trajectory.key(), clockwise, edge);
+-        if let Some(&id) = self.ids.get(&key) {
+-            return Ok(id);
++        if key.0.is_some() {
++            if let Some(&id) = self.ids.get(&key) {
++                return Ok(id);
++            }
+         }
+         let id = u32::try_from(self.entries.len()).map_err(|_| Error::Range)?;
+         self.entries.push(Entry { trajectory, clockwise });
+-        self.ids.insert(key, id);
++        if key.0.is_some() {
++            self.ids.insert(key, id);
++        }
+         Ok(id)
+     }
+     pub fn len(&self) -> usize {
+diff --git a/crates/space/tests/envelope.rs b/crates/space/tests/envelope.rs
+index 8dbf067..164df5c 100644
+--- a/crates/space/tests/envelope.rs
++++ b/crates/space/tests/envelope.rs
+@@ -165,7 +165,7 @@ fn inverse_with_residual_is_an_exact_identity_through_repeated_event_frame_chang
+                     let sign = if i % 2 == 0 { 1 } else { -1 };
+                     current = current.translate([sign * 1234567, -sign * 987654], [sign * 4321, sign * 7654]).unwrap();
+                     let fit =
+-                        Rebinding::from_state(current, Scalar::ZERO, None).unwrap_or_else(|err| panic!("p={p} e={e} f={fraction} i={i}: {err:?}"));
++                        Rebinding::from_state(current, Scalar::ZERO, None, None).unwrap_or_else(|err| panic!("p={p} e={e} f={fraction} i={i}: {err:?}"));
+                     assert_eq!(fit.reconstruct().unwrap(), current);
+                     let decoded = fit.decoded_event().unwrap();
+                     // Residuals must also be small: an arbitrary fit plus the whole input
+@@ -206,7 +206,7 @@ fn public_tube_has_key_orientation_and_one_time_and_carries_its_inverse_rounding
+         for clockwise in [false, true] {
+             let state = orbit.state(orbit.period().unwrap().div(Scalar::integer(7)).unwrap()).unwrap();
+             let original = cartesian(state, 0xbeeffeed, clockwise, (state.radius.exponent() - 48, -52)).unwrap();
+-            let fit = Rebinding::from_state(original, Scalar::ZERO, None).unwrap();
++            let fit = Rebinding::from_state(original, Scalar::ZERO, None, None).unwrap();
+             let clock_exp = fit.periapsis_time.abs().exponent() - 50;
+             let mut catalogue = Catalogue::default();
+             let bound = TubeEvent::bind(fit, &mut catalogue, clock_exp).unwrap();
+@@ -267,7 +267,7 @@ fn unbound_inverse_preserves_incoming_and_outgoing_integer_states() {
+             let time = p.duration().unwrap().div(Scalar::integer(7 * sign)).unwrap();
+             let state = p.state(time).unwrap();
+             let input = cartesian(state, 0x198abcdf, sign < 0, (state.radius.exponent() - 48, -52)).unwrap();
+-            let fit = Rebinding::from_state(input, Scalar::ZERO, Some(encode(2e11))).unwrap();
++            let fit = Rebinding::from_state(input, Scalar::ZERO, Some(encode(2e11)), None).unwrap();
+             assert!(matches!(fit.trajectory, Trajectory::Passage(_)));
+             assert_eq!(fit.reconstruct().unwrap(), input);
+         }
+@@ -343,7 +343,7 @@ fn inverse_resolves_the_certified_whirl_gap() {
+                 position: [position, 0], velocity: [0, sign * velocity],
+                 length_exponent: exponent, velocity_exponent: -62,
+             };
+-            let fit = Rebinding::from_state(state, Scalar::ZERO, None).unwrap();
++            let fit = Rebinding::from_state(state, Scalar::ZERO, None, None).unwrap();
+             let Trajectory::Cycle(orbit) = &fit.trajectory else { panic!("whirl lost its turning interval") };
+             assert!((decode(orbit.period().unwrap()) / expected - 1.0).abs() <= 1e-6);
+             assert_eq!(fit.reconstruct().unwrap(), state);
+@@ -356,13 +356,13 @@ fn exact_parabolic_and_unstable_circle_ties_are_generators() {
+     use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
+     // At r=32, v_r=-15/256 and v_t=60/256 give E=1 and L=8 exactly.
+     let parabolic = IntegerState { position: [32, 0], velocity: [-15, 60], length_exponent: 0, velocity_exponent: -8 };
+-    let fit = Rebinding::from_state(parabolic, Scalar::ZERO, Some(Scalar::integer(128))).unwrap();
++    let fit = Rebinding::from_state(parabolic, Scalar::ZERO, Some(Scalar::integer(128)), None).unwrap();
+     assert!(matches!(fit.trajectory, Trajectory::Passage(_)));
+-    assert_eq!(fit.trajectory.key().k, 1 << 47);
++    assert_eq!(fit.trajectory.key().unwrap().k, 1 << 47);
+     assert_eq!(fit.reconstruct().unwrap(), parabolic);
+     for sign in [-1, 1] {
+         let circle = IntegerState { position: [4, 0], velocity: [0, sign], length_exponent: 0, velocity_exponent: -1 };
+-        let fit = Rebinding::from_state(circle, Scalar::ZERO, None).unwrap();
++        let fit = Rebinding::from_state(circle, Scalar::ZERO, None, None).unwrap();
+         let quarter = fit.trajectory.state(Scalar::raw(PI as i128, -61).unwrap().mul(Scalar::integer(4)).unwrap()).unwrap();
+         assert_eq!(quarter.radius, Scalar::integer(4));
+         assert_eq!(quarter.radial_velocity, Scalar::ZERO);
+diff --git a/crates/space/tests/events.rs b/crates/space/tests/events.rs
+index 67a3e04..9ec144a 100644
+--- a/crates/space/tests/events.rs
++++ b/crates/space/tests/events.rs
+@@ -108,7 +108,7 @@ fn native_handoffs_reconstruct_after_repeated_translations_and_kicks() {
+         length_exponent: -20,
+         velocity_exponent: -30,
+     };
+-    let mut event = bind(exact, 0, 10, None, &mut catalogue).unwrap();
++    let mut event = bind(exact, 0, 10, None, None, &mut catalogue).unwrap();
+     let zero = IntegerState {
+         position: [0; 2],
+         velocity: [0; 2],
+@@ -120,18 +120,18 @@ fn native_handoffs_reconstruct_after_repeated_translations_and_kicks() {
+         ..exact
+     };
+     for _ in 0..40 {
+-        event = rebind(&event, &mut catalogue, zero, other, None).unwrap();
+-        event = rebind(&event, &mut catalogue, other, zero, None).unwrap();
++        event = rebind(&event, &mut catalogue, zero, other, None, None).unwrap();
++        event = rebind(&event, &mut catalogue, other, zero, None, None).unwrap();
+         assert_eq!(event.reconstruct(&catalogue).unwrap(), exact);
+         exact.velocity[0] += 1;
+-        event = bind(exact, 0, 10, None, &mut catalogue).unwrap();
++        event = bind(exact, 0, 10, None, None, &mut catalogue).unwrap();
+     }
+     let fast = IntegerState {
+         velocity: [1 << 28, 1 << 28],
+         ..zero
+     };
+     assert!(!slow(fast).unwrap());
+-    assert!(bind(fast, 0, 0, None, &mut catalogue).is_err());
++    assert!(bind(fast, 0, 0, None, None, &mut catalogue).is_err());
+ }
+ #[test]
+ fn queue_and_nested_clocks_use_scaled_root_deadlines() {
+@@ -307,14 +307,14 @@ fn physical_evolution_consumes_the_remainder_before_the_next_binding() {
+         length_exponent: -20,
+         velocity_exponent: -30,
+     };
+-    let mut event = bind(oracle, 0, 10, None, &mut catalogue).unwrap();
++    let mut event = bind(oracle, 0, 10, None, None, &mut catalogue).unwrap();
+     assert!(event.residual.position != [0; 2] || event.residual.velocity != [0; 2]);
+     for time in 1..41 {
+         // A supplied exact drift/kick is an independent transport oracle. The
+         // production force resolver can use the same consuming interface.
+         oracle.position[0] += oracle.velocity[0];
+         oracle.velocity[0] += 3;
+-        event = advance(&event, &mut catalogue, time, None, |mut state| {
++        event = advance(&event, &mut catalogue, time, None, None, |mut state| {
+             state.position[0] += state.velocity[0];
+             state.velocity[0] += 3;
+             Ok(state)
+@@ -361,7 +361,7 @@ fn arc_work_uses_the_compiled_path_and_kicks_preserve_position() {
+         length_exponent: -20,
+         velocity_exponent: -30,
+     };
+-    let event = bind(exact, 0, 10, None, &mut catalogue).unwrap();
++    let event = bind(exact, 0, 10, None, None, &mut catalogue).unwrap();
+     let next = apply(
+         &event,
+         &mut catalogue,
+@@ -370,6 +370,7 @@ fn arc_work_uses_the_compiled_path_and_kicks_preserve_position() {
+             angular: Scalar::ZERO,
+         },
+         None,
++        None,
+     )
+     .unwrap();
+     assert_eq!(
+diff --git a/crates/space/tests/plunge.rs b/crates/space/tests/plunge.rs
+new file mode 100644
+index 0000000..d20dc18
+--- /dev/null
++++ b/crates/space/tests/plunge.rs
+@@ -0,0 +1,231 @@
++//! Plunge arcs against a float64 geodesic oracle. The oracle integrates the
++//! same invariants in u with dense Simpson panels — an independent path from
++//! the compiler's w-phase — plus the closed form of the radial fall from rest.
++//! Nothing here is tuned on the cases it checks.
++use emergent_space::{
++    binding::{IntegerState, Rebinding, Trajectory},
++    orbit::Scalar,
++    plunge::Plunge,
++};
++
++fn scalar(x: f64) -> Scalar {
++    assert!(x.is_finite() && x > 0.0);
++    let exponent = x.log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - exponent)).round() as i128, exponent - 60).unwrap()
++}
++fn f(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++fn rel(a: f64, b: f64) -> f64 {
++    ((a - b) / b).abs()
++}
++
++/// Simpson in u over [u_a, u_b] of the three clock rates (V² > 0 throughout).
++fn oracle(energy: f64, l: f64, u_a: f64, u_b: f64) -> (f64, f64, f64) {
++    let v2 = |u: f64| energy * energy - (1.0 - 2.0 * u) * (1.0 + l * l * u * u);
++    let n = 100_000;
++    let h = (u_b - u_a) / n as f64;
++    let node = |u: f64| -> [f64; 3] {
++        let s = v2(u).sqrt();
++        [l / s, energy / ((1.0 - 2.0 * u) * s), 1.0 / (u * u * s)]
++    };
++    let a = node(u_a);
++    let b = node(u_b);
++    let mut sum = [0.0f64; 3];
++    for i in 1..n {
++        let x = node(u_a + h * i as f64);
++        let w = if i % 2 == 1 { 4.0 } else { 2.0 };
++        for j in 0..3 {
++            sum[j] += w * x[j];
++        }
++    }
++    (
++        h / 3.0 * (a[0] + b[0] + sum[0]),
++        h / 3.0 * (a[1] + b[1] + sum[1]),
++        h / 3.0 * (a[2] + b[2] + sum[2]),
++    )
++}
++
++/// The largest real root of V² in f64 (an independent bisection).
++fn root_of(energy: f64, l: f64) -> f64 {
++    let v2 = |u: f64| energy * energy - (1.0 - 2.0 * u) * (1.0 + l * l * u * u);
++    let (mut lo, mut hi) = if energy < 1.0 {
++        (0.0, 0.5)
++    } else {
++        let mut hi = 0.0;
++        let mut lo = -1.0;
++        while v2(lo) >= 0.0 {
++            hi = lo;
++            lo *= 2.0;
++        }
++        (lo, hi)
++    };
++    for _ in 0..200 {
++        let mid = 0.5 * (lo + hi);
++        if v2(mid) > 0.0 {
++            hi = mid;
++        } else {
++            lo = mid;
++        }
++    }
++    hi
++}
++
++/// The fall of a state at `start` with these invariants: the compiled terminal
++/// event against the oracle's integrals over the same window (anchored at the
++/// turn when one exists, else at the event).
++fn case(energy: f64, l: f64, start: f64, terminal: f64, tol: f64) {
++    let p = Plunge::from_event(scalar(energy), scalar(l), scalar(1.0 / start), true, scalar(terminal))
++        .unwrap_or_else(|e| panic!("E {energy} L {l} r {start}: {e:?}"));
++    let u_top = if energy < 1.0 { root_of(energy, l) } else { 1.0 / start };
++    let (t, phi, tau) = p.arrival().unwrap();
++    let want = oracle(energy, l, u_top, 1.0 / terminal);
++    assert!(rel(f(t), want.1) <= tol, "E {energy} L {l}: t {} vs {}", f(t), want.1);
++    assert!(rel(f(phi), want.0) <= tol, "E {energy} L {l}: phi {} vs {}", f(phi), want.0);
++    assert!(rel(f(tau), want.2) <= tol, "E {energy} L {l}: tau {} vs {}", f(tau), want.2);
++}
++
++#[test]
++fn radial_fall_from_rest_matches_the_closed_form_tau() {
++    for &r0 in &[10.0, 100.0, 1e4] {
++        let energy = (1.0 - 2.0 / r0 as f64).sqrt();
++        let terminal = 2.5;
++        let p = Plunge::from_event(scalar(energy), Scalar::ZERO, scalar(1.0 / r0), true, scalar(terminal)).unwrap();
++        let (t, phi, tau) = p.arrival().unwrap();
++        // τ(r) = sqrt(r0³/8) [acos sqrt(r/r0) + sqrt((r/r0)(1 − r/r0))].
++        let x = terminal / r0;
++        let want_tau = (r0 * r0 * r0 / 8.0).sqrt() * (x.sqrt().acos() + (x * (1.0 - x)).sqrt());
++        assert!(rel(f(tau), want_tau) < 1e-9, "r0 {r0}: tau {} vs {want_tau}", f(tau));
++        assert!(f(phi).abs() < 1e-30, "a radial fall turns by phi {}", f(phi));
++        let want_t = oracle(energy, 0.0, 1.0 / r0, 1.0 / terminal).1;
++        assert!(rel(f(t), want_t) < 1e-9, "r0 {r0}: t {} vs {want_t}", f(t));
++    }
++}
++
++#[test]
++fn plunging_orbits_arrive_as_the_oracle_says() {
++    // Bound-mass plunges below the critical angular momentum.
++    case(0.97, 3.6, 4.0, 2.5, 2e-9);
++    case(0.9, 1.0, 6.0, 2.5, 2e-9);
++    // E = 1 exactly.
++    case(1.0, 3.0, 5.0, 2.5, 2e-9);
++    // E > 1: the fall from a hyperbolic approach.
++    case(1.2, 2.0, 5.0, 2.5, 2e-9);
++    // A long window from far out (only E ≥ 1 reaches it).
++    case(1.001, 3.0, 1e6, 2.5, 2e-9);
++    // Near-radial.
++    case(0.99, 1e-3, 50.0, 2.5, 2e-9);
++}
++
++#[test]
++fn a_skimming_plunge_just_below_the_separatrix_still_converges() {
++    // Held out: the critical L of E = 0.95 where the fall lingers on the lip.
++    let energy = 0.95;
++    let plunge = |l: f64| {
++        if l * l <= 12.0 {
++            return true; // no barrier at all: everything falls through
++        }
++        let umin = (1.0 + (1.0 - 12.0 / (l * l)).sqrt()) / 6.0;
++        energy * energy - (1.0 - 2.0 * umin) * (1.0 + l * l * umin * umin) > 0.0
++    };
++    let (mut lo, mut hi) = (3.4, 3.7);
++    assert!(plunge(lo) && !plunge(hi), "the bracket must straddle the separatrix");
++    for _ in 0..100 {
++        let mid = 0.5 * (lo + hi);
++        if plunge(mid) {
++            lo = mid;
++        } else {
++            hi = mid;
++        }
++    }
++    case(energy, lo - 1e-6, 4.0, 2.5, 1e-7);
++}
++
++#[test]
++fn sampled_states_track_the_arc() {
++    let (energy, l, start, terminal) = (0.97f64, 3.6f64, 5.0f64, 2.5f64);
++    let p = Plunge::from_event(scalar(energy), scalar(l), scalar(1.0 / start), true, scalar(terminal)).unwrap();
++    let r_turn = 1.0 / root_of(energy, l);
++    let (t_end, _, _) = p.arrival().unwrap();
++    for frac in [1e-3, 0.1, 0.3, 0.6, 0.9, 0.999] {
++        let t = f(t_end) * frac;
++        let st = p.state(scalar(t)).unwrap();
++        // r(t): invert the oracle's t(r) by bisection on its own integral.
++        let (mut lo, mut hi) = (terminal, r_turn);
++        for _ in 0..60 {
++            let mid = 0.5 * (lo + hi);
++            if oracle(energy, l, 1.0 / r_turn, 1.0 / mid).1 < t {
++                hi = mid;
++            } else {
++                lo = mid;
++            }
++        }
++        let want_r = 0.5 * (lo + hi);
++        assert!(rel(f(st.radius), want_r) < 1e-6, "t {t}: r {} vs {want_r}", f(st.radius));
++        assert!(f(st.proper_time) > 0.0 && f(st.proper_time) < t);
++    }
++    // The mirrored outbound leg: same radius, opposite radial velocity.
++    let half = p.state(scalar(f(t_end) * 0.5)).unwrap();
++    let mirrored = p.state(scalar(f(t_end) * -0.5)).unwrap();
++    assert!(rel(f(half.radius), f(mirrored.radius)) < 1e-9);
++    assert_eq!(half.radial_velocity, mirrored.radial_velocity.negate());
++    // Past the terminal event there is no state to extrapolate.
++    assert!(p.state(scalar(f(t_end) * 1.0000001)).is_err());
++}
++
++#[test]
++fn from_state_fits_plunges_and_reconstructs_exactly() {
++    // Cartesian states on plunging geodesics, inbound and outbound.
++    for &(energy, l, r, inbound) in &[
++        (0.97f64, 3.6f64, 5.0f64, true),
++        (0.97, 3.6, 5.0, false),
++        (1.0, 3.0, 6.0, true),
++        (1.2, 2.0, 4.0, true),
++        (0.9, 0.0, 8.0, true),  // radial (L = 0 exactly)
++        (0.9, 0.0, 8.0, false), // a radial rise to its single turn
++    ] {
++        let lapse = 1.0 - 2.0 / r;
++        let v2 = energy * energy - lapse * (1.0 + l * l / (r * r));
++        assert!(v2 > 0.0, "the case must sit on an allowed arc");
++        let vr = -lapse * v2.sqrt() / energy * if inbound { 1.0 } else { -1.0 };
++        let vt = lapse * l / (r * energy);
++        let (le, ve) = (24i32, -30i32);
++        let to_int = |x: f64, e: i32| (x * 2f64.powi(-e)).round() as i64;
++        let state = IntegerState {
++            position: [to_int(r, le), 0],
++            velocity: [to_int(vr, ve), to_int(vt, ve)],
++            length_exponent: le as i16,
++            velocity_exponent: ve as i16,
++        };
++        let fit = Rebinding::from_state(state, Scalar::ZERO, None, Some(scalar(2.5)));
++        // An outbound E ≥ 1 state escapes and stays refused.
++        if !inbound && energy >= 1.0 {
++            assert!(fit.is_err(), "escape should refuse: E {energy} L {l}");
++            continue;
++        }
++        let fit = fit.unwrap_or_else(|e| panic!("E {energy} L {l} r {r} inbound {inbound}: {e:?}"));
++        let Trajectory::Plunge(p) = &fit.trajectory else {
++            panic!("E {energy} L {l} inbound {inbound} fitted a turning tube");
++        };
++        assert!(rel(f(p.energy()), energy) < 1e-9, "E {}", f(p.energy()));
++        // The exact left inverse: the fit reconstructs its input bit for bit.
++        assert_eq!(fit.reconstruct().unwrap(), state, "E {energy} L {l} inbound {inbound}");
++        // The terminal event is finite and at the surface.
++        let (t, _, _) = p.arrival().unwrap();
++        assert!(f(t) > 0.0);
++        assert!(rel(f(p.terminal), 2.5) < 1e-12);
++    }
++}
++
++#[test]
++fn compilation_is_deterministic_and_refuses_a_horizon_terminal() {
++    let a = Plunge::compile(scalar(0.97), scalar(3.6), scalar(0.2), scalar(2.5)).unwrap();
++    let b = Plunge::compile(scalar(0.97), scalar(3.6), scalar(0.2), scalar(2.5)).unwrap();
++    assert_eq!(a.knots(), b.knots());
++    // The horizon is not a coordinate-time endpoint.
++    assert!(Plunge::compile(scalar(0.97), scalar(3.6), scalar(0.2), scalar(2.0)).is_err());
++    assert!(Plunge::compile(scalar(0.97), scalar(3.6), scalar(0.2), scalar(1.5)).is_err());
++    // A window with a turning point inside it is not a plunge.
++    // E = 0.97, L = 3.83 turns inside (4, 2.5]; the compiler must say so.
++    assert!(Plunge::compile(scalar(0.97), scalar(3.83), scalar(0.25), scalar(2.5)).is_err());
++}
+diff --git a/crates/universe/examples/cost.rs b/crates/universe/examples/cost.rs
+index 0ea0428..ba75997 100644
+--- a/crates/universe/examples/cost.rs
++++ b/crates/universe/examples/cost.rs
+@@ -22,6 +22,6 @@ fn main() {
+     let s = s.unwrap();
+     println!("{:?}", s);
+     let t0 = Instant::now();
+-    for _ in 0..n { let _ = Rebinding::from_state(s, Scalar::integer(5), None).unwrap(); }
++    for _ in 0..n { let _ = Rebinding::from_state(s, Scalar::integer(5), None, None).unwrap(); }
+     println!("from_state {:.1} us", t0.elapsed().as_secs_f64() * 1e6 / n as f64);
+ }
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f3076..ccb9334 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -169,13 +169,28 @@ pub fn choose_units(r_max: Scalar, v_max: Scalar) -> (i16, i16) {
+ /// The word a tube needs: the smallest exponents (coarsest units) at which its largest radius and its
+ /// periapsis speed (with a factor of two of margin) still fit in 60 bits.
+ pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
+-    let key = entry.trajectory.key();
+-    let k = Scalar::raw(key.k as i128, -48)?;
+-    let r_max = match &entry.trajectory {
+-        Trajectory::Cycle(_) => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
+-        Trajectory::Passage(p) => p.outer_radius,
++    let (r_max, v_max) = match &entry.trajectory {
++        Trajectory::Cycle(c) => {
++            let key = c.key();
++            let k = Scalar::raw(key.k as i128, -48)?;
++            (
++                key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
++                Scalar::ONE.div(key.periapsis.mul(k)?)?.sqrt()?.scale(1)?,
++            )
++        }
++        Trajectory::Passage(p) => {
++            let key = p.key();
++            let k = Scalar::raw(key.k as i128, -48)?;
++            (p.outer_radius, Scalar::ONE.div(key.periapsis.mul(k)?)?.sqrt()?.scale(1)?)
++        }
++        // A plunge is fastest where it ends: the static-observer speed at the
++        // surface, v² = 1 − lapse/E², with the same factor of two of margin.
++        Trajectory::Plunge(p) => {
++            let q = p.terminal.reciprocal()?;
++            let v = Scalar::ONE.sub(Scalar::ONE.sub(q.scale(1)?)?.div(p.energy())?)?.sqrt()?;
++            (p.outer_radius()?, v.scale(1)?)
++        }
+     };
+-    let v_max = Scalar::ONE.div(key.periapsis.mul(k)?)?.sqrt()?.scale(1)?;
+     Ok((r_max.exponent() as i32 - 60, v_max.exponent() as i32 - 60))
+ }
+ 
+@@ -189,10 +204,15 @@ pub struct Bound {
+     pub orbit: OrbitState,
+ }
+ 
+-/// Fit a tube to the exact state `exact` at tick `t` (in a doll whose clock exponent is `clock_exp`),
+-/// and keep everything the fit discards. `edge` is the radius a passage is compiled out to.
+-pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+-    let bound = bind_in(exact, t, clock_exp, edge, unit)?;
++pub fn bind(
++    exact: IntegerState,
++    t: Tick,
++    clock_exp: i16,
++    edge: Option<Scalar>,
++    surface: Option<Scalar>,
++    unit: Unit,
++) -> Res<Bound> {
++    let bound = bind_in(exact, t, clock_exp, edge, surface, unit)?;
+     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
+     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
+     // at most one quantum of the new word) and bind again.
+@@ -209,9 +229,8 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>,
+         length_exponent: nl as i16,
+         velocity_exponent: nv as i16,
+     };
+-    bind_in(coarser, t, clock_exp, edge, unit)
++    bind_in(coarser, t, clock_exp, edge, surface, unit)
+ }
+-
+ /// The state in the tube's units (`M_D`): positions divided by `μ`, rounded toward zero at the word (a fit is
+ /// not injective, and the remainder taken against the doll's own readout below carries what it discards).
+ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+@@ -221,9 +240,13 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+     let q = |p: i64| -> Res<i64> { i64::try_from(unit.to_tube(Scalar::raw(p as i128, 0)?)?.fixed(0)?).map_err(|_| Error::Refused("state outside the integer word")) };
+     Ok(IntegerState { position: [q(st.position[0])?, q(st.position[1])?], ..st })
+ }
+-
+-fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+-    let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
++fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, surface: Option<Scalar>, unit: Unit) -> Res<Bound> {
++    let fit = Rebinding::from_state(
++        in_tube_units(exact, unit)?,
++        unit.to_tube(time_of(t, clock_exp)?)?,
++        edge.map(|e| unit.to_tube(e)).transpose()?,
++        surface.map(|s| unit.to_tube(s)).transpose()?,
++    )?;
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800e..30f2d8b 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -172,6 +172,9 @@ impl BodyStore for PlainBodies {
+         let shape = match &r.b.entry.trajectory {
+             emergent_space::binding::Trajectory::Cycle(o) => o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>() + o.shape().crossings().len() * size_of::<usize>(),
+             emergent_space::binding::Trajectory::Passage(_) => 4096,
++            emergent_space::binding::Trajectory::Plunge(p) => {
++                p.knots().len() * size_of::<(emergent_space::orbit::Scalar, [emergent_space::orbit::Scalar; 3])>()
++            }
+         };
+         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index c026d5f..300e538 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -180,7 +180,7 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+         Scalar::raw(1_176, 18)?,
+     )?;
+     // Its sphere of influence from the mass ratio, in Home's units.
+-    let sep = u.rec(m).b.entry.trajectory.key().periapsis;
++    let sep = u.rec(m).b.entry.trajectory.key().expect("a planet's tube is a bound cycle").periapsis;
+     let proto = emergent_space::events::Doll::child(emergent_space::events::LogMass((-24) << 24), home_doll, u.rec(m).b.tube);
+     let soi = proto.edge_radius(&u.dolls[home_doll as usize].record.clone(), sep)?;
+     u.make_source(m, -6, soi)?;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index dff1337..1a06271 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -78,9 +78,11 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+     let mut period = b.to_doll(match &b.entry.trajectory {
+         Trajectory::Cycle(c) => c.period()?,
+         Trajectory::Passage(p) => p.duration()?,
++        // A plunge is resolved over what is left of its fall.
++        Trajectory::Plunge(p) => p.duration()?,
+     })?;
+     if let (Some(edge), Some(tp)) = (edge, next_periapsis(b, b.event_time)?) {
+-        if b.to_doll(b.entry.trajectory.key().periapsis)? < edge {
++        if b.to_doll(b.entry.trajectory.key().map_or(Scalar::ZERO, |k| k.periapsis))? < edge {
+             if let Some(out) = next_exit(b, tp, edge)? {
+                 let inside = time_of(out - tp, b.clock_exp)?.scale(1)?;
+                 if inside < period {
+@@ -196,6 +198,10 @@ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
+ 
+ /// [`next_exit`], with or without the passage's analytic guess (the bisection alone is the reference the guess must equal).
+ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Option<Tick>> {
++    // A plunge never exits outward: its window ends at the surface.
++    if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
++        return Ok(None);
++    }
+     let outside = |t: Tick| -> Res<bool> { Ok(b.orbit_state(t)?.radius >= edge) };
+     if outside(after)? {
+         return Ok(Some(after));
+@@ -217,6 +223,8 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+             apex
+         }
+         Trajectory::Passage(p) => peri.add(b.to_doll(p.duration()?)?.scale(-1)?)?,
++        // Unreachable: a plunge returned above.
++        Trajectory::Plunge(_) => unreachable!("a plunge has no outgoing window"),
+     };
+     // A passage's last readable tick is one before its window closes: round the end inward.
+     let end = if matches!(b.entry.trajectory, Trajectory::Passage(_)) { apex.fixed_floor(-(b.clock_exp as i32))? - 1 } else { apex.fixed_ceil(-(b.clock_exp as i32))? };
+@@ -247,7 +255,28 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+     Ok(Some(lo))
+ }
+ 
+-/// The tick of the tube's next periapsis passage at or after `after`, if it has one.
++/// The tick of a binding's next surface impact after `after`, within `horizon`
++/// ticks of it, if its tube has one coming: a plunge ends at its terminal
++/// event (anchored at its turn), a turning tube dips below the surface at a
++/// periapsis it reaches in time.
++fn next_impact(b: &Binding, after: Tick, horizon: i64, surface: Scalar) -> Res<Option<Tick>> {
++    if let Trajectory::Plunge(p) = &b.entry.trajectory {
++        let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
++        let at = peri.add(b.to_doll(p.duration()?)?)?;
++        let tick = i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("arrival"))?;
++        return Ok((tick <= after + horizon).then_some(tick));
++    }
++    if let Some(key) = b.entry.trajectory.key() {
++        if b.to_doll(key.periapsis)? < surface {
++            if let Some(tp) = next_periapsis(b, after)? {
++                if tp <= after + horizon {
++                    return Ok(Some(tp));
++                }
++            }
++        }
++    }
++    Ok(None)
++}
+ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+     let after_s = time_of(after, b.clock_exp)?;
+@@ -264,6 +293,8 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+             }
+             peri
+         }
++        // A plunge's anchor is its turn, not a periapsis; its crash is
++        Trajectory::Plunge(_) => return Ok(None),
+     };
+     Ok(Some(i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("periapsis"))?))
+ }
+@@ -306,7 +337,8 @@ impl Work<'_, '_> {
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+-        let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
++        let surface = Some(self.ctx.dolls[doll as usize].surface);
++        let bound = bind(exact, t, clock_exp, self.passage_edge(doll), surface, self.ctx.tube_unit(self.i, doll)?)?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+@@ -502,13 +534,8 @@ impl Work<'_, '_> {
+         insert(&mut self.rec.plan, Item { t: t + h / 2, what: What::Kick(0) });
+         insert(&mut self.rec.plan, Item { t: t + h, what: What::Boundary });
+         if self.rec.kind != Kind::Planet {
+-            let key = self.rec.b.entry.trajectory.key();
+-            if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
+-                if let Some(tp) = next_periapsis(&self.rec.b, t)? {
+-                    if tp <= t + h {
+-                        insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
+-                    }
+-                }
++            if let Some(tp) = next_impact(&self.rec.b, t, h, self.doll().surface)? {
++                insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
+             }
+         }
+         // A stub is split into quarters like any interval (the levels' lengths are `h >> 2l`, floored: a few ticks of the
+@@ -637,13 +664,8 @@ impl Work<'_, '_> {
+         insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
+         insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
+         if self.rec.kind != Kind::Planet {
+-            let key = self.rec.b.entry.trajectory.key();
+-            if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
+-                if let Some(tp) = next_periapsis(&self.rec.b, t)? {
+-                    if tp <= t + full {
+-                        insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
+-                    }
+-                }
++            if let Some(tp) = next_impact(&self.rec.b, t, full, self.doll().surface)? {
++                insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
+             }
+         }
+         Ok(Resolved::Kick)
+@@ -735,11 +757,24 @@ impl Work<'_, '_> {
+         self.handoff_to(t, abs, to)
+     }
+ 
+-    /// A planned impact: the ship is at or below the surface at the periapsis passage.
++    /// A planned impact, re-checked at its tick (a kick may have changed the
++    /// orbit since). A plunge's compiled window ends at the surface: the item
++    /// sits at its arrival tick, where the last readable tick is one before,
++    /// so a window already exhausted reads as the impact it is.
+     fn crash(&mut self, t: Tick) -> Res<Resolved> {
+-        let st = self.rec.b.readout(t)?;
+-        let (x, _) = scalars(&st)?;
+-        if norm2(x)? <= self.doll().surface {
++        let inside = match self.rec.b.readout(t) {
++            Ok(st) => {
++                let (x, _) = scalars(&st)?;
++                norm2(x)? <= self.doll().surface
++            }
++            Err(Error::Space(emergent_space::Error::Range))
++                if matches!(self.rec.b.entry.trajectory, Trajectory::Plunge(_)) =>
++            {
++                true
++            }
++            Err(e) => return Err(e),
++        };
++        if inside {
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 3b272ae..c99daa5 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -244,7 +244,7 @@ impl Universe {
+         let host = self.bodies.rec(centre).b.doll;
+         let tube = self.bodies.rec(centre).b.tube;
+         // The separation in the host's own units (the tube is compiled in units of the host's mass).
+-        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.trajectory.key().periapsis)?;
++        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.trajectory.key().expect("a centre's tube is a bound cycle").periapsis)?;
+         let parent_rec = self.dolls[host as usize].record.clone();
+         let rec = DollRec::child(name, host, mass, centre, tube, surface, Scalar::ZERO)?;
+         // The sphere of influence from the mass ratio (Laplace): separation · (m/M)^(2/5), in the parent's units.
+@@ -330,7 +330,7 @@ impl Universe {
+             velocity_exponent: ve,
+         };
+         let edge = (doll != 0).then(|| d.edge.scale(2)).transpose()?;
+-        let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
++        let bound = bind(exact, 0, d.clock_exp(), edge, Some(d.surface), d.unit)?;
+         let mut tube = bound.tube;
+         tube.key = self.cat.insert(bound.entry.clone())?;
+         let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
+@@ -677,7 +677,7 @@ impl Universe {
+         let doll = self.fleets[f].doll;
+         let made = (|| -> Res<usize> {
+             let clock_exp = self.dolls[doll as usize].clock_exp();
+-            let bound = bind(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit)?;
++            let bound = bind(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), Some(self.dolls[doll as usize].surface), self.dolls[doll as usize].unit)?;
+             let key = self.cat.insert(bound.entry.clone())?;
+             let mut tube = bound.tube;
+             tube.key = key;
+@@ -1008,9 +1008,23 @@ impl Universe {
+             put(&mut h, r.b.event_time as i128);
+             put(&mut h, r.b.tube.periapsis_angle as i128);
+             put(&mut h, r.b.tube.periapsis_time.get() as i64 as i128);
+-            let key = r.b.entry.trajectory.key();
+-            put_s(&mut h, key.periapsis);
+-            put(&mut h, key.k as i128);
++            // A plunge has no orbit key; its invariants and terminal event
++            // are its identity.
++            match &r.b.entry.trajectory {
++                Trajectory::Cycle(c) => {
++                    put_s(&mut h, c.key().periapsis);
++                    put(&mut h, c.key().k as i128);
++                }
++                Trajectory::Passage(p) => {
++                    put_s(&mut h, p.key().periapsis);
++                    put(&mut h, p.key().k as i128);
++                }
++                Trajectory::Plunge(p) => {
++                    put_s(&mut h, p.energy());
++                    put(&mut h, p.terminal.significand() as i128);
++                    put(&mut h, p.terminal.exponent() as i128);
++                }
++            }
+             put(&mut h, r.b.entry.clockwise as i128);
+             put(&mut h, r.b.turn.a as i128);
+             put(&mut h, r.b.turn.b as i128);
