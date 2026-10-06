@@ -86,8 +86,12 @@ pub struct View {
     /// The throttle level held and whether a burn key is down (the engine's state, not the page's wish).
     pub level: u8,
     pub burning: bool,
-    /// False for a wreck (crashed or left the system): it stays where it was lost, with no clock aboard.
+    /// False for a wreck (crashed, left the system, or refused by the engine): its position and readings (β, rates, proper
+    /// time) are frozen at its last state, and `loss` says why.
     pub alive: bool,
+    pub loss: Option<String>,
+    /// The keys the engine holds (bits 0-3: forward, reverse, left, right).
+    pub keys: u8,
     /// Refusals the player's body has met (a nonzero count means the engine could not take a kick: the state is frozen).
     pub refusals: u64,
     pub position_light_seconds: [f64; 2],
@@ -234,26 +238,21 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
     let p = u.player()?;
     let t_now = u.now;
     let rec = u.rec(p);
-    // A lost player (a wreck) stays where it was lost: the universe goes on without a clock aboard.
-    let (xo, vo) = if rec.alive {
-        root_state(&ctx, p, t_now).ok()?
-    } else {
-        let (x, _) = root_state(&ctx, p, rec.b.event_time).ok()?;
-        (x, [0.0, 0.0])
-    };
+    // A lost player (a wreck) stays where it was lost, its readings frozen at its last state: the universe goes on.
+    let t_read = if rec.alive { t_now } else { rec.b.event_time };
+    let (xo, vo) = root_state(&ctx, p, t_read).ok()?;
     // The keys held since the last flush: the turn and the burn owed, as a flush at this tick would write them.
     let owed = if rec.alive { crate::observe::held_thrust(&ctx, &rec, t_now).ok().flatten() } else { None };
     let dv = owed.map_or([0.0, 0.0], |o| o.1);
     let vo = [vo[0] + dv[0], vo[1] + dv[1]];
-    let (rate_obs, doll_rate, doll_beta) = if rec.alive {
-        let c = clocks_with(&ctx, p, t_now, dv).ok()?;
-        (c.root, c.doll, c.doll_velocity)
-    } else {
-        (1.0, 1.0, [0.0, 0.0])
+    let (rate_obs, doll_rate, doll_beta) = match clocks_with(&ctx, p, t_read, dv) {
+        Ok(c) => (c.root, c.doll, c.doll_velocity),
+        Err(_) if !rec.alive => (1.0, 1.0, [0.0, 0.0]),
+        Err(_) => return None,
     };
     let heading = owed.map(|o| o.0).or(rec.thrust.map(|t| t.heading)).unwrap_or(0);
     let h = heading as f64 / 4294967296.0 * std::f64::consts::TAU;
-    let tau = rec.b.orbit_state(t_now.max(rec.b.event_time)).ok().map(|s| {
+    let tau = rec.b.orbit_state(t_read.max(rec.b.event_time)).ok().map(|s| {
         let doll = &u.dolls[rec.b.doll as usize];
         let along = s.proper_time.sub(rec.b.orbit_state(rec.b.event_time).ok()?.proper_time).ok()?;
         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
@@ -374,10 +373,78 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
         level: rec.thrust.map_or(0, |t| t.level),
         burning: rec.alive && rec.thrust.is_some_and(|t| t.keys & 3 != 0),
         alive: rec.alive,
+        loss: (!rec.alive).then(|| loss_cause(u, &rec, t_now)),
+        keys: rec.thrust.map_or(0, |t| t.keys),
         refusals: rec.refusals,
         position_light_seconds: pos,
         heading: [h.cos(), h.sin()],
         doll: rec_doll,
         seen,
     })
+}
+
+/// Why the player was lost, in words: the impact (on the centre of the doll it was in: the first tick its last tube is
+/// below the surface, found by bisection on the tube, with the speed there against the centre), the edge of the system,
+/// or the engine's own refusal. Read only when the player is already lost.
+fn loss_cause(u: &Universe, rec: &crate::body::BodyRec, t_now: Tick) -> String {
+    let doll = &u.dolls[rec.b.doll as usize];
+    let t0 = rec.b.event_time;
+    let r_at = |t: Tick| -> Option<(f64, f64)> {
+        let (x, v) = rec.b.cartesian(t).ok()?;
+        let (x, v) = ([to_f64(x[0]), to_f64(x[1])], [to_f64(v[0]), to_f64(v[1])]);
+        Some((dot(x, x).sqrt(), dot(v, v).sqrt()))
+    };
+    let surface = to_f64(doll.surface);
+    let fmt_speed = |b: f64| if b < 0.1 { format!("{:.2} km/s", b * 299_792.458) } else { format!("{:.4} c", b) };
+    // The first tick at or after the last state whose radius is under the surface.
+    let (mut lo, mut hi) = (t0, None::<Tick>);
+    let mut step = 1i64;
+    while step < 1 << 50 && lo + step <= t_now.saturating_add(1 << 40) {
+        match r_at(lo + step) {
+            Some((r, _)) if r < surface => {
+                hi = Some(lo + step);
+                break;
+            }
+            Some(_) => lo += step,
+            None => break,
+        }
+        step *= 2;
+    }
+    if let Some(mut h) = hi {
+        while h - lo > 1 {
+            let mid = lo + (h - lo) / 2;
+            if r_at(mid).is_some_and(|(r, _)| r < surface) {
+                h = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        if let Some((_, v)) = r_at(h) {
+            let body = if rec.b.doll == 0 { "the star" } else { doll.name };
+            return format!("hit {body} at {} (relative to {body}), at world time {}", fmt_speed(v), clock_text(h as f64 * TICK_SECONDS));
+        }
+    }
+    if rec.b.doll == 0 {
+        if let Some((r, v)) = r_at(t0) {
+            let edge = 2f64.powi(u.cfg.leave_log2);
+            if r > edge * 0.5 {
+                return format!("left the system: past the edge, {:.1} light-days from the star (2^{} ticks of light), at {}", edge * TICK_SECONDS / 86_400.0, u.cfg.leave_log2, fmt_speed(v));
+            }
+        }
+    }
+    let what = rec.fault.as_ref().map(|f| format!("{:?}: {:?}", f.0, f.1)).unwrap_or_else(|| "no fault recorded".into());
+    format!("the engine lost it: {what} ({} refusals), in {} at {}", rec.refusals, if rec.b.doll == 0 { "the star's doll" } else { doll.name }, r_at(t0).map_or("an unreadable state".to_string(), |(_, v)| fmt_speed(v)))
+}
+
+/// A duration in game seconds as the page writes it.
+pub fn clock_text(s: f64) -> String {
+    if s < 60.0 {
+        format!("{s:.3} s")
+    } else if s < 3600.0 {
+        format!("{} min {:02.0} s", (s / 60.0).floor(), s % 60.0)
+    } else if s < 86_400.0 {
+        format!("{} h {:02} min", (s / 3600.0).floor(), ((s % 3600.0) / 60.0).floor())
+    } else {
+        format!("{} d {} h", (s / 86_400.0).floor(), ((s % 86_400.0) / 3600.0).floor())
+    }
 }

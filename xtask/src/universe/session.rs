@@ -30,6 +30,8 @@ pub struct Session {
     /// The canonical cut: no frame advances past it, and the digest is taken there (`None`: the flight is open-ended).
     pub cut: Option<emergent_universe::num::Tick>,
     names: Vec<String>,
+    threads: usize,
+    members: u64,
     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
     cache: ViewCache,
 }
@@ -38,7 +40,14 @@ impl Session {
     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
         let names = p.names.clone();
-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, cache: ViewCache::default() })
+        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
+    }
+
+    /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+    pub fn restarted(&self) -> crate::Result<Self> {
+        let mut s = Self::new(self.seed, self.threads, self.members, self.rtf)?;
+        s.engine_ms = self.engine_ms;
+        Ok(s)
     }
 
     pub fn n_bodies(&self) -> usize {
@@ -141,7 +150,7 @@ fn view_json(v: &View) -> Value {
     json!({
         "tick": v.tick, "coordinate": v.coordinate_seconds, "proper": v.proper_seconds, "rate": v.rate,
         "beta": v.beta, "doll_rate": v.doll_rate, "doll_beta": v.doll_beta, "position": v.position_light_seconds,
-        "heading": v.heading, "doll": v.doll, "level": v.level, "burning": v.burning, "alive": v.alive, "refusals": v.refusals,
+        "heading": v.heading, "doll": v.doll, "level": v.level, "burning": v.burning, "keys": v.keys, "alive": v.alive, "loss": v.loss, "refusals": v.refusals,
         "seen": v.seen.iter().map(|s| json!({
             "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
             "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift,

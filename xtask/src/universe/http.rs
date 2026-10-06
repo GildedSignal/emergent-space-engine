@@ -78,6 +78,11 @@ pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
                 ("GET", "/") => Ok(("text/html; charset=utf-8".into(), include_bytes!("page.html").to_vec())),
                 ("GET", "/config") => Ok(("application/json".into(), serde_json::to_vec(&s.config())?)),
                 ("GET", "/log") => Ok(("application/json".into(), serde_json::to_vec_pretty(&s.log())?)),
+                ("POST", "/restart") => {
+                    s = s.restarted()?;
+                    last = Instant::now();
+                    Ok(("application/json".into(), serde_json::to_vec(&s.config())?))
+                }
                 ("POST", "/frame") => {
                     let req: serde_json::Value = serde_json::from_slice(&body)?;
                     // The decision: the keys held and the throttle level, one logged word.
