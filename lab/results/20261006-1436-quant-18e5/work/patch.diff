@@ -1,0 +1,25 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..0b396b2 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -118,6 +118,20 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
+     }
+     let d = s.dash.summary();
++    // Lab run 20261006-1436-quant: dump the per-frame series the Dash already keeps, for tail
++    // attribution. Off unless PLANE_FRAME_DUMP names a path; changes no measurement.
++    if let Ok(path) = std::env::var("PLANE_FRAME_DUMP") {
++        let mut csv = String::from("frame,engine_ms,view_ms,json_ms,wire_ms,cpu_ms,frame_ms,rtf\n");
++        for i in 0..d.frames {
++            let g = |v: &Vec<f64>| v.get(i).copied().unwrap_or_default();
++            csv.push_str(&format!(
++                "{},{},{},{},{},{},{},{}\n",
++                i, g(&s.dash.engine_ms), g(&s.dash.view_ms), g(&s.dash.json_ms), g(&s.dash.wire_ms),
++                g(&s.dash.cpu_ms), g(&s.dash.frame_ms), g(&s.dash.rtf)
++            ));
++        }
++        std::fs::write(&path, csv)?;
++    }
+     let wall_s = wall.elapsed().as_secs_f64();
+     let presented_at_end = s.p.u.now;
+     let st = s.stats();

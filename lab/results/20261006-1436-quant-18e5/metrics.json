@@ -1,0 +1,20 @@
+{
+  "scope": "xtask universe --bench, 30 s runs, Linux x86 shared runner (orders of magnitude only); all numbers from the shipped bench JSON; per-frame series need the run's PLANE_FRAME_DUMP patch",
+  "paced_rtf100": {
+    "m48_l0":  {"cpu_p50_ms": 3.46, "cpu_p999_ms": 12.17, "worst_ms": 12.46, "engine_share": 0.216, "view_share": 0.630, "json_share": 0.108, "wire_share": 0.046, "overflow": 47, "hitches_gt_16_7": 0, "events_per_s": 240},
+    "m480_l0": {"cpu_p50_ms": 8.82, "cpu_p999_ms": 15.36, "worst_ms": 15.91, "engine_share": 0.225, "view_share": 0.631, "overflow": 447, "hitches_gt_16_7": 0, "events_per_s": 1050},
+    "m4800_l0_seed1": {"cpu_p50_ms": 8.40, "cpu_p999_ms": 17.32, "worst_ms": 19.72, "engine_share": 0.227, "view_share": 0.627, "overflow": 379, "hitches_gt_16_7": 4},
+    "m4800_l0_seed2": {"worst_ms": 12.62, "hitches_gt_16_7": 0},
+    "m4800_l0_seed3": {"worst_ms": 10.48, "hitches_gt_16_7": 0},
+    "m48_l15":  {"cpu_p50_ms": 3.66, "worst_ms": 11.27, "engine_max_ms": 5.75, "rtf_low1pct": 0.30, "overflow": 285, "events_per_s": 489},
+    "m480_l15": {"cpu_p50_ms": 9.06, "cpu_p999_ms": 19.62, "worst_ms": 37.16, "engine_max_ms": 30.48, "hitches_gt_16_7": 3, "hitches_gt_33": 1, "tail_frames_engine_gt_10ms": [76, 102, 373], "burn_nominal_frames": [0, 19, 239, 259, 479, 499]}
+  },
+  "budget_dial_m480_l15": {
+    "engine_ms_5":  {"worst_ms": 37.2, "hitches_gt_16_7": 3, "frames_engine_gt_10ms": 3},
+    "engine_ms_20": {"worst_ms": 49.0, "hitches_gt_16_7": 50, "hitches_gt_33": 1, "frames_engine_gt_10ms": 57, "engine_max_ms": 42.9}
+  },
+  "overload_rtf_1e4_m48_l0": {"engine_p50_ms": 5.06, "engine_max_ms": 7.89, "worst_frame_ms": 11.40, "rtf_median": 8676, "rtf_low1pct": 4.20, "overflow": 1267},
+  "warmth_paced_vs_unpaced_cpu_p50": {"m48": 5.0, "m4800": 2.7},
+  "struct_sizes_bytes": {"Item": 16, "CalendarElem": 24, "Thrust": 16, "Scalar": 16, "DollRec": 144, "Seen": 152, "Segment": 176, "BodyRec": 320, "M1_cache_line": 128},
+  "live_bodies_cap": {"m480": 428, "m4800": 428, "note": "the fleet hands members out at its own rate; members beyond ~500 are invisible in a 30 s run"}
+}
