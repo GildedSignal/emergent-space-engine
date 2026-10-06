@@ -1,0 +1,26 @@
+50000 0.1 256 2718281828 Newtonian -> 308.1 b5735e4b32be3b69
+400000 0.1 256 2718281828 Newtonian -> 553.6 9968b3cc1a28b9a2
+200000 0.05 256 2718281828 Newtonian -> 318.2 e17259faf58bbcee
+200000 0.2 256 2718281828 Newtonian -> 930.1 dd93fdbd384655f6
+200000 0.1 64 2718281828 Newtonian -> 315.6 53dc5cf12f57bd56
+200000 0.1 512 2718281828 Newtonian -> 710.8 db0e76bdaa5fd816
+
+thread 'main' panicked at src/main.rs:14:36:
+called `Result::unwrap()` on an `Err` value: ParseIntError { kind: InvalidDigit }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+Traceback (most recent call last):
+  File "<string>", line 3, in <module>
+  File "/usr/lib/python3.12/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+200000 0.1 256 31415926 Newtonian -> 572.9 77cfcdb39aaf898f
+100000 0.1 256 2718281828 RelativisticV1 -> 585.9 9029d12ff914406a

@@ -1,0 +1,24 @@
+Grade: silver
+
+Reproduced from scratch (patch applied to a clean tree, both binaries built): replacing SipHash with the multiply-xor `FastKey` on the chronon's three maps gives 1.33× at the tuning case (772.9→580.3 ns/body-chronon; author 771→542, 1.42×) and 1.30–1.58× across all eight held-out configs, with `World::digest`+`Log::digest` identical to baseline in every case and all eight of the author's stored held-out digests matching mine exactly. `lattice-check` 3/3 and `lattice-check-rel` all EQUAL (8 cases, ≥ the dossier's 4/4) with the patch. Cost to adopt: ~60 lines, no dependency, no law change. Gain is real but sub-10×: silver, adoptable in one step.
+
+## Reasons
+
+1. **Reproduction.** `git apply work/patch.diff`, built `bench` both ways, author's protocol (`taskset -c 4`, median of 5/3). Tuning digest `af1ddc8f…|81428e3f…` matches bit for bit on base and fast. My ratios vs the author's (same order, no number identical — both boxes are shared runners, and the dossier says orders of magnitude only): n=50k 1.55× (2.12×), n=400k 1.42× (1.48×), fill .05 1.58× (1.78×), fill .2 1.30× (1.41×), vmax 64 1.56× (1.64×), vmax 512 1.38× (1.41×), new seed 1.46× (1.28×), relv1 1.46× (1.07×).
+2. **Digests.** The author's held-out files store 16-char world-digest prefixes at horizon **16**, which the dossier omits; I recovered the horizon from the digests (h=16 at n=50k gives `b5735e4b32be3b69`, exact match) and then all eight stored digests regenerate exactly, base==fast in each.
+3. **Behaviour lock, independently.** With the patch applied, `lattice-check` (all-pairs integer reference) and `lattice-check-rel` both fully EQUAL. The invariance argument also holds structurally: `pairs` is duplicate-free by the `i >= j` guard and re-sorted canonically; `local`/`consumed` are get/insert/retain only; `predicates` is an order-independent count. Any exact hasher preserves outputs.
+4. **Adversarial (mine, four):** fill 0.01 → 1.92×; fill 0.4 → 1.32×; n=5000, h=512, fill 0.3, vmax 512, seed 99 (long-horizon path exercising the `consumed` retain) → 1.40×; relv1 at fill 0.2 → 1.39×. Digests equal in all four. Notably, at extreme dilution the gain *grows* (1.92×), inverting the direction the dossier's "what would make it wrong" predicts; the real shrink axis is dense fill (`hit`/respond domination), which the author's fill-0.2 case already showed.
+5. **Predictions.** `predictions.md` predates the held-out outputs (file times: predictions 17m before heldout files in the run listing). P1–P3 held, including the strongest claim (digests identical on 8 held-out + 11 checker configs + both independent references). P4 (relv1 ratio unchanged) half-missed on the author's box (1.07×); on mine it holds (1.46×), so the "relativistic respond dilutes the savings" reading is load/machine noise, not a mechanism. H2's failure is honestly reported and reverted, with a plausible post-mortem.
+6. **Novelty.** No hasher entry in docs/HISTORY.md; chronon.rs history (aa1c6ea…9b865f9) is contract/kick/rebase work. Swapping SipHash for an integer hasher is folklore elsewhere (rustc's FxHash) but was never tried here; the value is the measured, digest-locked confirmation on this artifact, plus the negative results (scatter table 0.79×, Bloom gate 0.85×) that locate the remaining 77% pair-loop cost in cache misses, not arithmetic.
+7. **Goal fit.** Board #3 "cheaper events" only obliquely (this is the verification reference, not the shipped engine path); the honest lever is P10 iteration speed — every chronon-mode check gets 1.4×. Fits PRINCIPLES P1 ("the cheapest compute is compute not done": the hasher work is deleted, not optimized). The author self-graded silver for the same reason.
+
+## Why not gold
+
+Gold needs a 10× board move, a deleted component, or a killed premise. This is a capped 1.4× micro-optimization with an airtight lock; no single experiment turns it into 10×. The structural ceiling (per-body reach tiers, event-sorted frontier) is correctly named in predictions.md and the dossier as the next run's target — it is a law change, out of this run's scope.
+
+## What the author missed
+
+- The held-out horizon (16) is absent from the dossier; the stored digests are unreproducible without reverse-engineering it. One line would fix it.
+- "The tree carries it" was false at check time (run.sh had restored the tree); harmless — patch.diff applies cleanly — but the sentence should not be there.
+- The dilution prediction is inverted (gain grows toward empty space, 1.92× at fill 0.01), so the patch's wrongness model points away from where it actually weakens (dense fill). Harmless but worth correcting before adoption.
+- My relv1 result (1.46× vs their 1.07×) suggests their P4 "half-miss" was contention, not physics; the honest conclusion is that the ratio is load-sensitive, not that respond dilutes it.

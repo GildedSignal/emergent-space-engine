@@ -1,0 +1,77 @@
+--- /tmp/chronon-orig.rs	2026-10-06 11:05:07.691390815 +0000
++++ crates/lattice/src/chronon.rs	2026-10-06 11:20:53.331900510 +0000
+@@ -5,11 +5,46 @@
+ use crate::law::{self, Body, Consumed, Response, Tick, World};
+ use crate::{Event, Kickable, Kind, Log, Metrics, Motion, Stepper};
+ use std::collections::HashMap;
++use std::hash::BuildHasherDefault;
++
++/// Multiply-xor hasher for the chronon's small integer keys. Hash iteration order never
++/// reaches an output: `pairs` is re-sorted canonically before use, and `consumed` is only
++/// probed and filtered, so any exact hasher preserves digests.
++#[derive(Default)]
++struct FastKey(u64);
++
++impl FastKey {
++    #[inline] fn mix(&mut self, v: u64) { self.0 = (self.0 ^ v).wrapping_mul(0x9E37_79B9_7F4A_7C15).rotate_left(17); }
++}
+ 
++impl std::hash::Hasher for FastKey {
++    #[inline] fn finish(&self) -> u64 {
++        let mut z = self.0;
++        z ^= z >> 33; z = z.wrapping_mul(0xff51_afd7_ed55_8ccd);
++        z ^= z >> 33; z = z.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
++        z ^ (z >> 33)
++    }
++    fn write(&mut self, bytes: &[u8]) { for &b in bytes { self.mix(b as u64) } }
++    #[inline] fn write_u8(&mut self, v: u8) { self.mix(v as u64) }
++    #[inline] fn write_u16(&mut self, v: u16) { self.mix(v as u64) }
++    #[inline] fn write_u32(&mut self, v: u32) { self.mix(v as u64) }
++    #[inline] fn write_u64(&mut self, v: u64) { self.mix(v) }
++    #[inline] fn write_usize(&mut self, v: usize) { self.mix(v as u64) }
++    #[inline] fn write_u128(&mut self, v: u128) { self.mix(v as u64); self.mix((v >> 64) as u64) }
++    #[inline] fn write_i8(&mut self, v: i8) { self.mix(v as u8 as u64) }
++    #[inline] fn write_i16(&mut self, v: i16) { self.mix(v as u16 as u64) }
++    #[inline] fn write_i32(&mut self, v: i32) { self.mix(v as u32 as u64) }
++    #[inline] fn write_i64(&mut self, v: i64) { self.mix(v as u64) }
++    #[inline] fn write_isize(&mut self, v: isize) { self.mix(v as usize as u64) }
++    #[inline] fn write_i128(&mut self, v: i128) { self.write_u128(v as u128) }
++}
++
++type FastMap<K, V> = HashMap<K, V, BuildHasherDefault<FastKey>>;
++
+ pub struct Chronon {
+     w: World,
+     /// (index a, index b), a < b → revisions at which the contact was consumed.
+-    consumed: HashMap<(u32, u32), (u32, u32)>,
++    consumed: FastMap<(u32, u32), (u32, u32)>,
+     log: Log,
+     metrics: Metrics,
+     reach_max: i64,
+@@ -18,7 +53,7 @@
+ impl Chronon {
+     pub fn new(world: World, keep_events: bool) -> Result<Self, law::LawError> {
+         world.validate()?;
+-        let mut consumed = HashMap::new();
++        let mut consumed = FastMap::default();
+         for c in &world.consumed {
+             let (Some(i), Some(j)) = (world.index_of(c.a), world.index_of(c.b)) else {
+                 return Err(law::LawError(format!("consumed pair ({}, {}) names a missing body", c.a, c.b)));
+@@ -42,7 +77,7 @@
+         let key = |b: &Body| (b.x[0].div_euclid(cell), b.x[1].div_euclid(cell));
+         let mut order: Vec<((i64, i64), u32)> = bodies.iter().enumerate().map(|(i, b)| (key(b), i as u32)).collect();
+         order.sort_unstable();
+-        let mut ranges: HashMap<(i64, i64), (usize, usize)> = HashMap::with_capacity(n);
++        let mut ranges: FastMap<(i64, i64), (usize, usize)> = FastMap::with_capacity_and_hasher(n, Default::default());
+         let mut s = 0;
+         while s < order.len() {
+             let mut e = s + 1;
+@@ -104,7 +139,7 @@
+             let mut involved: Vec<usize> = pairs.iter().flat_map(|&(a, b)| [a, b]).chain(walls.iter().copied()).collect();
+             involved.sort_unstable();
+             involved.dedup();
+-            let local: HashMap<usize, usize> = involved.iter().enumerate().map(|(l, &g)| (g, l)).collect();
++            let local: FastMap<usize, usize> = involved.iter().enumerate().map(|(l, &g)| (g, l)).collect();
+             let mut batch: Vec<Body> = involved.iter().map(|&g| self.w.bodies[g].clone()).collect();
+             let lp: Vec<(usize, usize)> = pairs.iter().map(|&(a, b)| (local[&a], local[&b])).collect();
+             let mut lw = vec![false; batch.len()];
