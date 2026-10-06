@@ -48,7 +48,7 @@ The list of 29 September below is background: the pivot (H0200 onwards) answered
    - is curl-free for static sources;
    - is right to 1PN for two masses.
 
-   See "Open" in [gravity-law.md](../docs/gravity-law.md).
+   See "Open" in [gravity-law.md](../docs/archive/gravity-law.md).
 2. **Stepping owned by cells, or no stepping.** Probe 1 killed per-body steps: the energy error walked, and distant light jumped over the lens. We need bounded energy error, correctly bent distant light, and ≤ 512 events per orbit. Probe 2 (29 September) killed cell-owned staircases: every shell crossing injects energy error (up to about 3×10⁻³), as Calvo and Sanz-Serna predict. One fixed step passes the physics at about 350–700 steps per orbit, and light costs 20,000–77,000 steps. The live path is no steps at all: analytic generators in the dominant field, with multipole residuals as kicks (H0190: 32 kicks per orbit, 0.3 with averaging), and integration only where no generator exists.
 3. **Cost at a billion.** 10^9 orbiting bodies at today's rates would need about 190 cores. We need 10–100× less: fewer events per orbit, cheaper events, and never computing what nobody can observe.
 4. **Smoothness and the allocator.** The worst frame and the p99 on a fanless M1 that throttles when hot. Least-slack scheduling fed by surprise rates; five modes to become one engine.
@@ -75,6 +75,8 @@ The list of 29 September below is background: the pivot (H0200 onwards) answered
 - Julien, 29 September: local sheets and no teleportation make the engine an asynchronous cellular automaton that follows causal chains instead of cataloguing. Positions are re-derived, never global. 32-bit packets per region. Memory laid out in causal order, as Crash Bandicoot laid out its levels. Are the quanta sensible? (see bottleneck 5)
 
 ## Taste log (the integrator's decisions on gold, newest first)
+
+- **6 October, overnight (silvers, adopted into the design).** q-candidate-degree: two-tier certificates, zero misses to 10⁶, work per real encounter constant at fixed density (the outside review's O(N²) risk answered for fixed density; strict C·log N is impossible for exact discovery under dilution; drop the "Wide" tightening, which misses 23% at e 0.7–0.9). m-meso-motion: the close encounter as one exact pair event, regime chosen by U/√(μ_p/b); conditional (deep flybys still fail). m-spacetime: superposed contravariant Kerr–Schild fields as rank-1 integer deposits answer how sources add in GR. All three go to the motion law v2 design (Opus, then Astra). The plane-judge correction: B13's lost flybys passed inside the planet in the point-mass reference (an oracle-domain defect), not encounter failures; the lab's reading was wrong there.
 
 - **5 October, correction: the memo finding was an artifact.** Five runs agreed that 95–98% of the plane's kicks would hit the memo; the plane's builder found they all re-timed one pending kick every frame. On distinct kicks the exact memo hits 0%; the quantized cell hits 94.5% but changes orbits, so it is a law change. Lesson for every author and checker: agreement between runs is not independence when they share a harness. Check that the measured events are distinct before counting hits.
 

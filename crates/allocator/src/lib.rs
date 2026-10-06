@@ -1,4 +1,4 @@
-//! Work allocation (design and rules in docs/engine.md), generic over any
+//! Work allocation (design and rules in docs/archive/engine.md), generic over any
 //! [`emergent_lattice::Stepper`].
 //!
 //! **Regions.** A containerless scene is cut into islands; each island is a region: a stepper

@@ -1,6 +1,6 @@
 # Gravity law `es-lattice-gravity-v1`: contract
 
-Status: **DRAFT, not frozen.** The integrator freezes it after probe 2, showing Julien the gates first; no gate below binds until then. Drafted 29 September 2026 (H0195) and amended the same day for his decisions, GLM's red-team and premise probe 1 ([evidence](../artifacts/evidence/gravity-v1-freeze-20260929/PROVENANCE.md)). The v0 contract (exact continuum floors, H0184–H0194) is retired: its evaluator (`crates/geodesic`), the Arb judge (`artifacts/evidence/g2-reference-20260928/`) and `xtask gr-oracle` now serve as the **oracle**, which measures behaviour. None of them is the implementation.
+Status: **DRAFT, not frozen.** The integrator freezes it after probe 2, showing Julien the gates first; no gate below binds until then. Drafted 29 September 2026 (H0195) and amended the same day for his decisions, GLM's red-team and premise probe 1 ([evidence](../../artifacts/evidence/gravity-v1-freeze-20260929/PROVENANCE.md)). The v0 contract (exact continuum floors, H0184–H0194) is retired: its evaluator (`crates/geodesic`), the Arb judge (`artifacts/evidence/g2-reference-20260928/`) and `xtask gr-oracle` now serve as the **oracle**, which measures behaviour. None of them is the implementation.
 
 ## Principles
 
@@ -62,7 +62,7 @@ In lattice units (positions in quanta, time in chronons, c = Q):
 
 ## Premise probes (float, GLM)
 
-**Probe 1 (done)** tested the H0195 draft's per-body step Δ = η·r^{3/2}(current state). Precession, E = 1 capture and deflection at b = 10M passed at 1% (order 4 with 2–4 orders of magnitude of margin). Energy growth killed it: exponents 0.47–0.98 over 10^3–10^4 orbits, while a fixed-step control stayed flat (1.8×10^-8 at order 2, 2.2×10^-10 at order 4). Distant light jumped the lens in one 15,600-long chord, and orbits took 407–502 steps at η = 1/64, 2% under B9. It kills the state-dependent step rule, never the method (principle 9). [probe-out.md](../artifacts/evidence/gravity-v1-freeze-20260929/probe-out.md)
+**Probe 1 (done)** tested the H0195 draft's per-body step Δ = η·r^{3/2}(current state). Precession, E = 1 capture and deflection at b = 10M passed at 1% (order 4 with 2–4 orders of magnitude of margin). Energy growth killed it: exponents 0.47–0.98 over 10^3–10^4 orbits, while a fixed-step control stayed flat (1.8×10^-8 at order 2, 2.2×10^-10 at order 4). Distant light jumped the lens in one 15,600-long chord, and orbits took 407–502 steps at η = 1/64, 2% under B9. It kills the state-dependent step rule, never the method (principle 9). [probe-out.md](../../artifacts/evidence/gravity-v1-freeze-20260929/probe-out.md)
 
 **Probe 2 (the cheapest falsifier, required before the freeze; running).** A float re-probe of cell-owned step rules on radial shells [2^k, 2^{k+1}): C1, a shell-constant step with exact advance to each shell boundary; C2, the same with time-symmetric switching; C3, one fixed step as the control. Kill criteria, frozen before the run in `artifacts/runs/gravity-v1-reprobe/prompt.md`:
 - energy: a growth exponent above 0.2, or a maximum |ΔE/E| above 10^-6, over 10^4 orbits at p = 20M (e = 0.2 and 0.5);

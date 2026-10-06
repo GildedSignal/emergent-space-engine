@@ -1,4 +1,4 @@
-//! Monitoring, serialised as JSON (docs/engine.md, "One frame").
+//! Monitoring, serialised as JSON (docs/archive/engine.md, "One frame").
 use crate::qos::Class;
 use serde::Serialize;
 

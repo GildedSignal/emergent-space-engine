@@ -107,6 +107,6 @@ A code carries only what rebuilds the observable state, given the engine.
 - 1 versus 8 cores, CPU versus Metal, and every point on the batch-window knob.
 - The memory wall.
 
-Each gates on identical digests and reports the frame tail, slack misses, useful work and the real-time factor. See [test-ladder.md](test-ladder.md).
+Each gates on identical digests and reports the frame tail, slack misses, useful work and the real-time factor. See [test-ladder.md](../test-ladder.md).
 
 **Fields to borrow from:** event-driven molecular dynamics, parallel discrete-event simulation (Chandy–Misra–Bryant, Time Warp), real-time garbage collection, game job systems, "The Tail at Scale", self-adjusting computation, queueing and the theory of constraints, self-organised criticality, value of computation, causal invariance.

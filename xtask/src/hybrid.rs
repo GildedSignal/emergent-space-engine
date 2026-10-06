@@ -1,4 +1,4 @@
-//! Hybrid mode (docs/engine.md, rule 9): one region runs in event mode when it is
+//! Hybrid mode (docs/archive/engine.md, rule 9): one region runs in event mode when it is
 //! sparse and in Metal chronon mode when it is dense. The first choice comes from kinetic
 //! theory (κ = predicted collisions per body per chronon); after that the measured wall time
 //! per chronon decides, and the other mode is re-probed now and then. The modes are
