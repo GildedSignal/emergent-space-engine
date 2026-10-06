@@ -1,0 +1,242 @@
+//! The seed sampler: SplitMix64, one fixed seed per gate set, so every run and every law meets
+//! the same cases. Units are G = c = M = 1.
+
+/// SplitMix64 (Steele, Lea and Flood, 2014).
+pub(crate) struct Rng(pub(crate) u64);
+impl Rng {
+    pub(crate) fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+    /// Uniform integer in [lo, hi].
+    pub(crate) fn range(&mut self, lo: i128, hi: i128) -> i128 {
+        lo + (self.next() as u128 % (hi - lo + 1) as u128) as i128
+    }
+    /// Uniform in [0, 1) with 53 bits.
+    pub(crate) fn unit(&mut self) -> f64 {
+        (self.next() >> 11) as f64 / (1u64 << 53) as f64
+    }
+    /// Log-uniform in [lo, hi].
+    pub(crate) fn log_uniform(&mut self, lo: f64, hi: f64) -> f64 {
+        lo * (hi / lo).powf(self.unit())
+    }
+}
+
+/// Seed of the bound-orbit set (G1, G2, G5, G6) and of the light set (G3).
+pub const BOUND_SEED: u64 = 20260930;
+pub const LIGHT_SEED: u64 = 20260931;
+/// Seed of the clock radii (B7).
+pub const CLOCK_SEED: u64 = 20260932;
+/// Seeds of the events layer: binaries (B11), handoffs (B12), assists (B13), Hill moons (B14).
+pub const BINARY_SEED: u64 = 20261001;
+pub const HANDOFF_SEED: u64 = 20261002;
+pub const ASSIST_SEED: u64 = 20261003;
+pub const HILL_SEED: u64 = 20261004;
+/// Seeds of the amendments from the law's red-team (1 October): B9's extreme orbits, B16's moving
+/// lenses, B14's eccentric births.
+pub const EXTREME_SEED: u64 = 20261005;
+pub const LENS_SEED: u64 = 20261006;
+pub const ECCENTRIC_SEED: u64 = 20261007;
+/// B19's rotating holes (5 October): one base seed; `rotating.rs` adds 100 per kind of draw and 10 per spin and sense.
+pub const KERR_SEED: u64 = 20261008;
+
+/// `n` bound orbits (p, e): p log-uniform in [10, 1000], e uniform in [0, 0.7], redrawn unless
+/// p >= 6.5 + 2e (it never binds for p >= 10; it keeps a wider range safe). The first `k` of `n`
+/// are the same orbits as the first `k` of any longer draw.
+pub fn bound_orbits(n: usize) -> Vec<(f64, f64)> {
+    let mut rng = Rng(BOUND_SEED);
+    let mut out = Vec::with_capacity(n);
+    while out.len() < n {
+        let (p, e) = (rng.log_uniform(10.0, 1000.0), 0.7 * rng.unit());
+        if p >= 6.5 + 2.0 * e {
+            out.push((p, e));
+        }
+    }
+    out
+}
+
+/// B9's extreme orbits: the first 16 sit at e = 0.99 exactly, p log-spaced over [10, 1000]; the
+/// rest have p log-uniform in [10, 1000] and 1 − e log-uniform in [0.01, 0.3], so e runs from 0.7 to
+/// 0.99. They are appended to `bound_orbits(256)` (e below 0.7), whose draws stay as they were. The
+/// first `k` of `n` are those of any longer draw.
+pub fn extreme_orbits(n: usize) -> Vec<(f64, f64)> {
+    let mut rng = Rng(EXTREME_SEED);
+    (0..n)
+        .map(|i| {
+            let (p, one_minus_e) = (rng.log_uniform(10.0, 1000.0), rng.log_uniform(0.01, 0.3));
+            if i < 16 {
+                (10.0 * 100f64.powf(i as f64 / 15.0), 0.99)
+            } else {
+                (p, 1.0 - one_minus_e)
+            }
+        })
+        .collect()
+}
+
+/// `n` light impact parameters b, log-uniform in [10, 1000].
+pub fn light_impacts(n: usize) -> Vec<f64> {
+    let mut rng = Rng(LIGHT_SEED);
+    (0..n).map(|_| rng.log_uniform(10.0, 1000.0)).collect()
+}
+
+/// `n` radii r, log-uniform in [3, 10^4] and strictly above 3 (a circular orbit needs r > 3M).
+pub fn clock_radii(n: usize) -> Vec<f64> {
+    let mut rng = Rng(CLOCK_SEED);
+    let mut out = Vec::with_capacity(n);
+    while out.len() < n {
+        let r = rng.log_uniform(3.0, 1e4);
+        if r > 3.0 {
+            out.push(r);
+        }
+    }
+    out
+}
+
+/// `n` binaries (p, e, ν): p log-uniform in [20, 1000], e uniform in [0, 0.6], ν uniform in [0.01, 0.25].
+pub fn binaries(n: usize) -> Vec<(f64, f64, f64)> {
+    let mut rng = Rng(BINARY_SEED);
+    (0..n)
+        .map(|_| {
+            let p = rng.log_uniform(20.0, 1000.0);
+            (p, 0.6 * rng.unit(), 0.01 + 0.24 * rng.unit())
+        })
+        .collect()
+}
+
+/// `n` handoff candidates (side, k, α): side ±1 (outside or inside the planet's orbit), k uniform
+/// in [1.5, 3] (the orbit's distance from the planet's, in Hill radii), and the starting angle from
+/// the planet α uniform in [30°, 330°], radians. The first `k` of `n` are those of any longer draw.
+pub fn handoffs(n: usize) -> Vec<(f64, f64, f64)> {
+    let mut rng = Rng(HANDOFF_SEED);
+    (0..n)
+        .map(|_| {
+            let side = if rng.next() >> 63 == 1 { 1.0 } else { -1.0 };
+            let k = 1.5 + 1.5 * rng.unit();
+            (side, k, (30.0 + 300.0 * rng.unit()).to_radians())
+        })
+        .collect()
+}
+
+/// The 16 handoff candidates the search of `handoff::search` keeps (indices into `handoffs`), frozen
+/// before the first gate run on a law (re-frozen on 6 October for the oracle's domain, below): candidates
+/// 0 to 159 were drawn (160), 44 that crossed R_SOI 20 times were replaced (`HANDOFF_INSIDE`), and none of
+/// the rest had a reference that was not converged. The search is chaotic,
+/// so it can be re-run only on the same arithmetic; the ignored test in `handoff.rs` re-derives this list.
+pub const HANDOFF_KEPT: [usize; 16] = [32, 39, 53, 57, 70, 72, 78, 83, 85, 88, 101, 106, 138, 142, 148, 159];
+
+/// The candidates the search replaced because the judge's reference passes within the planet's radius of
+/// its centre (oracle domain, 5 October, adjudicated: a point-mass reference there tests nothing a law
+/// with a surface can do), each with its closest approach in planet radii, the smaller of the two
+/// tolerances' runs (a chaotic ship's closest approach is not converged: one candidate reads 0.03, 7.9
+/// and 0.07 radii at tolerances 1e-12, 1e-13 and 1e-11). Frozen with `HANDOFF_KEPT`.
+pub const HANDOFF_INSIDE: &[(usize, f64)] = &[(1, 0.91), (2, 0.20), (7, 0.38), (12, 0.03), (14, 0.55), (15, 0.36), (19, 0.56), (22, 0.90), (23, 0.67), (25, 0.60), (30, 0.33), (31, 0.06), (35, 0.25), (44, 0.21), (45, 0.14), (46, 0.01), (49, 0.10), (52, 0.88), (54, 0.28), (56, 0.25), (60, 0.05), (62, 0.13), (65, 0.24), (68, 0.16), (69, 0.40), (79, 0.12), (91, 0.02), (92, 0.70), (93, 0.10), (98, 0.20), (103, 0.32), (110, 0.07), (111, 0.05), (112, 0.35), (118, 0.39), (134, 0.43), (137, 0.89), (140, 0.64), (143, 0.07), (147, 0.85), (150, 0.01), (151, 0.04), (154, 0.12), (158, 0.18)];
+
+/// `n` flybys (q, v∞, ψ): periapsis q log-uniform in [1.2, 50] planet radii, v∞ uniform in
+/// [1.67e-5, 6.7e-5] (5 to 20 km/s in units of c), the asymptote's direction ψ uniform in [0, 2π).
+pub fn flybys(n: usize) -> Vec<(f64, f64, f64)> {
+    let mut rng = Rng(ASSIST_SEED);
+    (0..n)
+        .map(|_| {
+            let q = rng.log_uniform(1.2, 50.0);
+            (q, 1.67e-5 + (6.7e-5 - 1.67e-5) * rng.unit(), std::f64::consts::TAU * rng.unit())
+        })
+        .collect()
+}
+
+/// `n` moons (a, phase): a uniform in [0.2, 0.9] Hill radii, phase uniform in [0, 2π). Even seeds
+/// are prograde, odd seeds retrograde (the caller reads the parity of the index).
+pub fn moons(n: usize) -> Vec<(f64, f64)> {
+    let mut rng = Rng(HILL_SEED);
+    (0..n).map(|_| (0.2 + 0.7 * rng.unit(), std::f64::consts::TAU * rng.unit())).collect()
+}
+
+/// The kinds of moving-lens seed; seed `i` is of kind `lens_kind(i)`: head-on, transverse, oblique.
+pub const LENS_KINDS: [&str; 3] = ["head-on", "transverse", "oblique"];
+pub fn lens_kind(i: usize) -> usize {
+    (i % 4).min(2)
+}
+
+/// `n` moving-lens encounters (β, θ, b): the lens moves along +x at β, the light travels in the
+/// observer's frame at angle θ from +x, and b is the signed impact parameter in the lens frame
+/// (b > 0: the lens is on the light's left). Seed `i` is of kind `LENS_KINDS[lens_kind(i)]`: head-on θ = π
+/// (the lens comes straight at the light), transverse θ = π/2, oblique θ uniform in (0.05π, 0.95π)
+/// (so the lens both approaches and recedes). β is uniform in [0.05, 0.9], and the first four seeds
+/// (one of each kind) are at β = 0.9. |b| is log-uniform in [10, 1000], its sign a coin. The first
+/// `k` of `n` are those of any longer draw.
+pub fn moving_lenses(n: usize) -> Vec<(f64, f64, f64)> {
+    let mut rng = Rng(LENS_SEED);
+    (0..n)
+        .map(|i| {
+            let beta = if i < 4 { 0.9 } else { 0.05 + 0.85 * rng.unit() };
+            let wide = std::f64::consts::PI * (0.05 + 0.9 * rng.unit());
+            let theta = match i % 4 {
+                0 => std::f64::consts::PI,
+                1 => std::f64::consts::FRAC_PI_2,
+                _ => wide,
+            };
+            let b = rng.log_uniform(10.0, 1000.0);
+            (beta, theta, if rng.next() >> 63 == 1 { b } else { -b })
+        })
+        .collect()
+}
+
+/// `n` eccentric births (a, phase, e₀): a uniform in [0.2, 0.9] Hill radii, the periapsis' direction
+/// phase uniform in [0, 2π), e₀ uniform in [0, 0.3]. Even seeds are prograde, odd seeds retrograde.
+/// The first `k` of `n` are those of any longer draw.
+pub fn eccentric_moons(n: usize) -> Vec<(f64, f64, f64)> {
+    let mut rng = Rng(ECCENTRIC_SEED);
+    (0..n).map(|_| (0.2 + 0.7 * rng.unit(), std::f64::consts::TAU * rng.unit(), 0.3 * rng.unit())).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn splitmix64_matches_the_reference_vector() {
+        // The published first outputs of SplitMix64 seeded with 0.
+        let mut r = Rng(0);
+        assert_eq!([r.next(), r.next()], [0xE220_A839_7B1D_CDAF, 0x6E78_9E6A_A1B9_65F4]);
+    }
+
+    #[test]
+    fn draws_are_deterministic_prefix_stable_and_in_range() {
+        let (a, b) = (bound_orbits(256), bound_orbits(32));
+        assert_eq!(a[..32], b[..]);
+        assert!(a.iter().all(|&(p, e)| (10.0..=1000.0).contains(&p) && (0.0..0.7).contains(&e) && p >= 6.5 + 2.0 * e));
+        assert!(light_impacts(64).iter().all(|b| (10.0..=1000.0).contains(b)));
+        let radii = clock_radii(64);
+        assert_eq!(radii.len(), 64);
+        assert!(radii.iter().all(|&r| r > 3.0 && r <= 1e4));
+        assert_eq!(clock_radii(8)[..], radii[..8]);
+        // Log-uniform on [3, 10^4]: about half fall below the geometric middle, sqrt(3 * 10^4) = 173.
+        let low = clock_radii(1024).iter().filter(|&&r| r < 173.2).count();
+        assert!((440..584).contains(&low), "{low} of 1024 below r = 173");
+        // Log-uniform: about half the draws fall below the geometric middle, sqrt(10 * 1000) = 100.
+        let low = a.iter().filter(|&&(p, _)| p < 100.0).count();
+        assert!((100..156).contains(&low), "{low} of 256 below p = 100");
+    }
+
+    #[test]
+    fn the_events_draws_are_deterministic_prefix_stable_and_in_range() {
+        let b = binaries(1024);
+        assert_eq!(b[..64], binaries(64)[..]);
+        assert!(b.iter().all(|&(p, e, nu)| (20.0..=1000.0).contains(&p) && (0.0..0.6).contains(&e) && (0.01..0.25).contains(&nu)));
+        let low = b.iter().filter(|&&(p, _, _)| p < 141.5).count(); // sqrt(20 * 1000)
+        assert!((440..584).contains(&low), "{low} of 1024 below p = 141");
+        let h = handoffs(256);
+        assert_eq!(h[..16], handoffs(16)[..]);
+        assert!(h.iter().all(|&(side, k, a)| side.abs() == 1.0 && (1.5..=3.0).contains(&k) && (30f64.to_radians()..=330f64.to_radians()).contains(&a)));
+        let outside = h.iter().filter(|x| x.0 > 0.0).count();
+        assert!((90..166).contains(&outside), "{outside} of 256 outside");
+        let f = flybys(64);
+        assert!(f.iter().all(|&(q, v, psi)| (1.2..=50.0).contains(&q) && (1.67e-5..=6.7e-5).contains(&v) && (0.0..std::f64::consts::TAU).contains(&psi)));
+        let m = moons(128);
+        assert!(m.iter().all(|&(a, phase)| (0.2..=0.9).contains(&a) && (0.0..std::f64::consts::TAU).contains(&phase)));
+        // The four sets come from four different seeds.
+        assert!(b[0].0 != h[0].1 && f[0].2 != m[0].1 && HANDOFF_SEED == BINARY_SEED + 1 && HILL_SEED == ASSIST_SEED + 1);
+    }
+}
