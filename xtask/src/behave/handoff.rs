@@ -320,6 +320,107 @@ mod tests {
         assert!(!g.pass && g.detail.contains(" 16 of 16 judged ships rise above"), "{}", g.detail);
     }
 
+    /// The exponents B12 reads on the judged ships, for a law.
+    fn exponents(law: &dyn Law) -> Vec<f64> {
+        let (scene, times) = (JUPITER, coarse_times(&JUPITER));
+        kept().iter().filter(|k| k.judged(&scene)).map(|k| fit::growth_exponent(&err_series(&scene, law, k.ship, &times))).collect()
+    }
+
+    #[test]
+    fn the_planted_bounded_law_has_the_planted_error() {
+        // P2's planted law: echo plus a Jacobi error of 1e-7·(a − a₀)/(R_H/sep), a the semimajor axis about the star at that state.
+        let (scene, times) = (JUPITER, coarse_times(&JUPITER));
+        let unit = scene.hill() / scene.sep;
+        let axis = |t: f64, s: &[f64; 4]| (1.0 - scene.mu) / (-2.0 * scene.heliocentric(t, s).0) / scene.sep;
+        // a is capped at 10 separations, where the law stops reading it: the error stays bounded
+        for k in kept().iter().filter(|k| k.judged(&scene)).take(4) {
+            let (err, truth) = (err_series(&scene, &Planted(Fault::Bounded), k.ship, &times), Echo.restricted(&scene, k.ship, &times).unwrap());
+            let a0 = axis(0.0, &k.ship);
+            assert!(err[0] < 1e-13 && err.iter().all(|&e| e < 1e-5), "starts at zero and stays small: {:e}", err.iter().cloned().fold(0.0, f64::max));
+            for (j, (&t, s)) in times.iter().zip(&truth).enumerate().skip(8).step_by(97) {
+                let planted = 1e-7 * (axis(t, s).min(10.0) - a0).abs() / unit;
+                assert!((err[j] - planted).abs() <= 1e-3 * planted + 1e-14, "sample {j}: {:e} against {planted:e}", err[j]);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "probe P2 (6 October), fails today: B12's statistic reads a bounded error that depends only on the state as growth (median exponent 0.49 on these ships, limit 0.2); unignore when the statistic is fixed (law.md B12)"]
+    fn a_bounded_error_that_depends_only_on_the_state_passes() {
+        let g = b12(&Planted(Fault::Bounded));
+        assert!(g.pass, "{}", g.detail);
+        println!("{:.3?}", exponents(&Planted(Fault::Bounded)));
+    }
+
+    #[test]
+    fn a_compounding_error_fails_on_the_exponent_though_it_reads_lower_than_a_bounded_one() {
+        // The other side of P2: a random walk in the encounter count (1e-7 a step) fails, but its median exponent is under the bounded
+        // state-only law's (0.31 and 0.49 today): the exponent cannot tell the two apart, and ranks them the wrong way round.
+        let (walk, bounded) = (b12(&Planted(Fault::Compound)), b12(&Planted(Fault::Bounded)));
+        assert!(!walk.pass && walk.detail.contains("16 of 16 judged ships rise above") && !bounded.pass, "{}\n{}", walk.detail, bounded.detail);
+        assert!(median(exponents(&Planted(Fault::Compound))) < median(exponents(&Planted(Fault::Bounded))));
+    }
+
+    /// Probe, not a gate: the recurrence ratio. Over pairs of far-field samples (planet more than 3 R_H away) of the same ship whose osculating
+    /// (a, e) about the star fall in the same cell (0.02 separations by 0.05), the 90th percentile of the difference of the signed Jacobi error,
+    /// for pairs 64 to 200 periods apart over pairs 2 to 8 apart (each floored at the gate's 1e-12). A Jacobi error that is a function of
+    /// the state is the same when the state comes back, whenever it does: ratio 1. An error with a memory has had time to grow.
+    fn recurrence_ratio(law: &dyn Law) -> f64 {
+        let (scene, times) = (JUPITER, coarse_times(&JUPITER));
+        let (mut near, mut far) = (Vec::new(), Vec::new());
+        for k in kept().iter().filter(|k| k.judged(&scene)) {
+            let c0 = scene.jacobi(0.0, &k.ship);
+            let Some(states) = law.restricted(&scene, k.ship, &times) else { return f64::NAN };
+            let mut cells: std::collections::HashMap<(i64, i64), Vec<(f64, f64)>> = std::collections::HashMap::new();
+            for (j, (&t, s)) in times.iter().zip(&states).enumerate().filter(|(_, (&t, s))| scene.planet_distance(t, s) > 3.0 * scene.hill()) {
+                let (a, e, _, _) = super::super::resonance::elements(&scene, t, s);
+                cells.entry(((a / scene.sep / 0.02).floor() as i64, (e / 0.05).floor() as i64)).or_default().push((j as f64 / COARSE as f64, (scene.jacobi(t, s) - c0) / c0));
+            }
+            for v in cells.values() {
+                for (x, p) in v.iter().enumerate() {
+                    for q in &v[..x] {
+                        let (dt, d) = ((p.0 - q.0).abs(), (p.1 - q.1).abs());
+                        if (2.0..8.0).contains(&dt) {
+                            near.push(d)
+                        } else if (64.0..PERIODS as f64 + 0.1).contains(&dt) {
+                            far.push(d)
+                        }
+                    }
+                }
+            }
+        }
+        let p90 = |mut v: Vec<f64>| {
+            v.sort_by(f64::total_cmp);
+            v.get(v.len() * 9 / 10).copied().unwrap_or(f64::NAN).max(FLOOR)
+        };
+        p90(far) / p90(near)
+    }
+
+    #[test]
+    #[ignore = "probe, 6 October: the recurrence ratio, a candidate B12 statistic (a reply to P2) with the controls on both sides (0.91-1.06 for errors of the state, 1.25 to 4e5 for errors with a memory); red-team it before it is frozen (law.md B12)"]
+    fn the_recurrence_ratio_separates_errors_of_the_state_from_errors_with_a_memory() {
+        let leak = events(|scene, ship, times| {
+            let s = Echo.restricted(scene, ship, times)?;
+            Some(s.iter().zip(times).map(|(st, &t)| [st[0], st[1], st[2] * (1.0 + 1e-12 * t / scene.period()), st[3] * (1.0 + 1e-12 * t / scene.period())]).collect())
+        });
+        let rows: [(&str, &dyn Law, bool); 6] = [
+            ("echo", &Echo, true),
+            ("scaled 1e-11", &scaled(1e-11), true),
+            ("bounded, a", &Planted(Fault::Bounded), true),
+            ("random walk per encounter", &Planted(Fault::Compound), false),
+            ("reference drift", &Planted(Fault::Drift), false),
+            ("leak 1e-12 per period", &leak, false),
+        ];
+        // No threshold is chosen here (it is the red-team's to set before a freeze): the ratios must only separate the two kinds.
+        let (mut state, mut memory) = (f64::NEG_INFINITY, f64::INFINITY);
+        for (name, law, state_only) in rows {
+            let r = recurrence_ratio(law);
+            println!("{name:28} exponent {:.3} recurrence ratio {r:.3}", median(exponents(law)));
+            if state_only { state = state.max(r) } else { memory = memory.min(r) }
+        }
+        assert!(state < memory, "an error of the state reads up to {state:.3}, one with a memory down to {memory:.3}");
+    }
+
     #[test]
     fn the_median_counts_nan_as_infinity_and_takes_the_middle_pair() {
         assert_eq!(median(vec![3.0, 1.0, 2.0]), 2.0);

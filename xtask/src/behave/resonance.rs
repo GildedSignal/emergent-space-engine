@@ -39,10 +39,20 @@ use std::f64::consts::{PI, TAU};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
 
-/// The star-planet separation of every scene (the problem is Newtonian: any value will do). The
-/// planted law of this gate answers only scenes with this separation.
-pub const SEP: f64 = 100.0;
+/// The star-planet separation of every scene: the scene of B12-B14 (5.27e8 M, 5.2 AU of the Sun). The reference is
+/// Newtonian, so the scene must sit where GR is negligible (docs/law.md, oracle domain, 6 October). At the old
+/// separation of 100 M the ship was at 34-54 M, where GR moves the apse by 0.35-0.55 rad per orbit (the Opus motion memo),
+/// and at 10^4 M the apse still moves by 3/(a(1 - e^2)) = 5e-4 of the mean motion, which shifts a resonance's detuning by
+/// 0.2 of the half-width at mu = 3e-5 (W = 2.4e-3). At 10^6 M that shift is 0.002 W, and at 5.27e8 M it is 4e-6 W. The reference
+/// is scale-free (G = M = 1), so its answers do not change; the plane's own cadence is what a weak-field scene finally tests
+/// (its default cadence costs more than 60 s here; see `--plane-step`).
+pub const SEP: f64 = restricted::JUPITER.sep;
 pub const MASS_RATIOS: [f64; 3] = [3e-5, 3e-4, 3e-3];
+/// Whether `scene` is one of this gate's (B12-B14's scene has the same separation and a mass ratio of 1e-3, which is none of these).
+/// The planted law of this gate answers only these.
+pub fn is_scene(scene: &Restricted) -> bool {
+    scene.sep == SEP && MASS_RATIOS.contains(&scene.mu)
+}
 /// Detunings of the period ratio, in units of the resonance half-width.
 pub const DETUNINGS: [f64; 3] = [-1.0 / 3.0, 0.0, 1.0 / 3.0];
 /// The resonance half-width of the period ratio, relative: 2.5·μ^(2/3).

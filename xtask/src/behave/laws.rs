@@ -99,6 +99,15 @@ pub enum Fault {
     Static,
     /// B16: the composition with the sign of the aberration flipped (the lens moves at −β).
     Flipped,
+    /// B12 (probe P2 of the Opus motion memo, 6 October; a control that must PASS): echo plus an error that is bounded and depends only on
+    /// the current state, never on the history: the Jacobi constant moved by 10⁻⁷·(a − a₀)/(R_H/sep) of its value, a the ship's semimajor
+    /// axis about the star in separations (a₀ at t = 0), by scaling the velocity as the planet's frame sees it. A law whose error never
+    /// compounds, so B12 must not call it growth; if it does, B12's statistic is miscalibrated (it reads a chaotic ship's diffusion in a).
+    Bounded,
+    /// B12 (the other side of probe P2, a control that must FAIL): echo plus a compounding error: each time the ship comes within 3 R_H of the
+    /// planet (a sample inside after one outside) the Jacobi constant takes a random step of 10⁻⁷ of its value (uniform, unit variance, from the
+    /// ship's own start), and the error is the sum of the steps so far: a random walk in the number of encounters, with a memory.
+    Compound,
     /// B17: the first-order orbit average of the planet's pull (Laplace-Lagrange), answered on B17's scenes only.
     Averaged,
     /// B18: the 16-byte tube of the contract, uncompressed, on every scene.
@@ -206,7 +215,9 @@ impl Law for Planted {
                 states.filter(|_| it.closest() >= SWOLLEN * scene.planet_radius)
             }
             Fault::Apsides => Echo.restricted(scene, ship, times).map(|states| skew_apsides(scene, ship, times, states)),
-            Fault::Averaged if scene.sep == resonance::SEP => resonance::averaged(scene, ship, times),
+            Fault::Bounded => Echo.restricted(scene, ship, times).map(|states| plant_bounded(scene, ship, times, states)),
+            Fault::Compound => Echo.restricted(scene, ship, times).map(|states| plant_compound(scene, ship, times, states)),
+            Fault::Averaged if resonance::is_scene(scene) => resonance::averaged(scene, ship, times),
             _ => Echo.restricted(scene, ship, times),
         }
     }
@@ -369,6 +380,62 @@ fn skew_apsides(scene: &Restricted, ship: [f64; 4], times: &[f64], states: Vec<[
         .collect()
 }
 
+/// `planted-bounded`: the relative Jacobi error per unit of (a − a₀)/(R_H/sep).
+const BOUNDED: f64 = 1e-7;
+/// The semimajor axis (in separations) past which `planted-bounded` stops reading it: an ejected ship's error stays bounded too.
+const AXIS_CAP: f64 = 10.0;
+
+/// The ship's semimajor axis about the star, in separations, from its barycentric state at t (capped at AXIS_CAP; an unbound ship has the cap).
+fn star_axis(scene: &Restricted, t: f64, s: &[f64; 4]) -> f64 {
+    let (energy, _) = scene.heliocentric(t, s);
+    if energy < 0.0 { ((1.0 - scene.mu) / (-2.0 * energy) / scene.sep).min(AXIS_CAP) } else { AXIS_CAP }
+}
+
+/// Each state's velocity, as the planet's frame (the frame in which the Jacobi constant is 2Ũ − |u|²) sees it, is scaled by κ so that the constant
+/// moves by −`shift[i]`: C = 2Ũ − |u|², so scaling u by κ moves C by −|u|²(κ² − 1). Where |u|² is too small to carry the shift (a zero-velocity
+/// point) the velocity is set to the frame's and the shift is what |u|² can carry.
+fn lay(scene: &Restricted, states: Vec<[f64; 4]>, shift: &[f64]) -> Vec<[f64; 4]> {
+    let w = scene.omega();
+    states
+        .into_iter()
+        .zip(shift)
+        .map(|(s, &want)| {
+            let (ux, uy) = (s[2] + w * s[1], s[3] - w * s[0]);
+            let k = (1.0 + want / (ux * ux + uy * uy)).max(0.0).sqrt();
+            [s[0], s[1], s[2] + (k - 1.0) * ux, s[3] + (k - 1.0) * uy]
+        })
+        .collect()
+}
+
+/// `planted-bounded`: the constant moves by BOUNDED·(a − a₀)/(R_H/sep) of |C₀|, where a is the semimajor axis of the same state. The shift depends on
+/// that one state and nothing before it, so the error is bounded and has no memory.
+fn plant_bounded(scene: &Restricted, ship: [f64; 4], times: &[f64], states: Vec<[f64; 4]>) -> Vec<[f64; 4]> {
+    let (a0, c0, unit) = (star_axis(scene, 0.0, &ship), scene.jacobi(0.0, &ship).abs(), scene.hill() / scene.sep);
+    let shift: Vec<f64> = times.iter().zip(&states).map(|(&t, s)| BOUNDED * (star_axis(scene, t, s) - a0) / unit * c0).collect();
+    lay(scene, states, &shift)
+}
+
+/// `planted-compound`: the constant moves by 10⁻⁷ of |C₀| times the sum of one unit-variance random step per encounter so far (the ship at a
+/// sample within 3 R_H of the planet after a sample outside). The sum is a memory: the error is a random walk in the encounter count.
+fn plant_compound(scene: &Restricted, ship: [f64; 4], times: &[f64], states: Vec<[f64; 4]>) -> Vec<[f64; 4]> {
+    let c0 = scene.jacobi(0.0, &ship).abs();
+    let mut rng = super::sample::Rng(ship.iter().fold(0x5EED, |h, x| h.rotate_left(17) ^ x.to_bits()));
+    let (mut sum, mut inside) = (0.0, false);
+    let shift: Vec<f64> = times
+        .iter()
+        .zip(&states)
+        .map(|(&t, s)| {
+            let now = scene.planet_distance(t, s) < 3.0 * scene.hill();
+            if now && !inside {
+                sum += (rng.unit() - 0.5) * 12f64.sqrt();
+            }
+            inside = now;
+            BOUNDED * sum * c0
+        })
+        .collect();
+    lay(scene, states, &shift)
+}
+
 pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
     Some(match name {
         "space" => Box::new(super::space::Space::default()),
@@ -389,6 +456,8 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-static" => Box::new(Planted(Fault::Static)),
         "planted-flipped" => Box::new(Planted(Fault::Flipped)),
         "planted-average" => Box::new(Planted(Fault::Averaged)),
+        "planted-bounded" => Box::new(Planted(Fault::Bounded)),
+        "planted-compound" => Box::new(Planted(Fault::Compound)),
         "planted-fat" => Box::new(Planted(Fault::Fat)),
         "planted-belt-clipped" => Box::new(Planted(Fault::BeltClipped)),
         "planted-belt-winsor" => Box::new(Planted(Fault::BeltWinsor)),
@@ -466,5 +535,26 @@ impl Law for Events {
     }
     fn restricted(&self, scene: &Restricted, ship: [f64; 4], times: &[f64]) -> Option<Vec<[f64; 4]>> {
         (self.restricted)(scene, ship, times)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::behave::handoff::{coarse_times, kept};
+    use crate::behave::restricted::JUPITER;
+
+    #[test]
+    fn planted_bounded_answers_each_time_from_that_states_alone() {
+        // The error is a function of the one state it is laid on: planting a single sample gives the word the whole run gives, bit for bit.
+        let (scene, times) = (JUPITER, coarse_times(&JUPITER));
+        let ship = kept()[0].ship;
+        let truth = Echo.restricted(&scene, ship, &times).unwrap();
+        let all = plant_bounded(&scene, ship, &times, truth.clone());
+        for j in [0, 1, 17, 800, 1600] {
+            assert_eq!(plant_bounded(&scene, ship, &times[j..=j], vec![truth[j]]), vec![all[j]], "sample {j}");
+        }
+        assert_eq!(all[0], truth[0], "no error where a = a₀");
+        assert!(all.iter().zip(&truth).any(|(p, t)| p != t));
     }
 }
