@@ -1,0 +1,4 @@
+Working...
+Run complete. All artifacts in `lab/results/20261005-2231-q-secular-008e/` (each file < 5 MB): frozen `predictions.md` written before the decisive runs, `selector.py`, `wh_run.py`, `laws.py`, `analyze.py`, `metrics.json`, `dossier.md`.
+
+**Final reply (the claim, one sentence):** R2 is killed at two-planet belt scale by its own pre-registered rule — over 2,000 Jupiter orbits with Jupiter and Saturn, only 20.5% of 1,024 belt bodies pass rate-within-5% and e-vector-within-10% under exact double averaging (0% under Laplace–Lagrange) against converged Wisdom–Holman truth, because the belt's free amplitudes are modulated ±60–280% by nonlinear secular coupling and the planets' own mutual-LL driver ends 5× wrong in Saturn, while the resonance-distance selector itself admits 80% as predicted and the plane's 64-kick law reproduces the 3:1/5:2 depletion exactly.
