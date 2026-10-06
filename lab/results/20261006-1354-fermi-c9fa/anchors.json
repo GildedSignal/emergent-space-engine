@@ -1,0 +1,20 @@
+{
+  "N": {"value": 1e9, "src": "the goal (PRINCIPLES)"},
+  "cores": {"value": 8, "src": "docs/HANDOFF.md 'The machine' (4P+4E)"},
+  "state_cap_bytes": {"value": 4294967296, "src": "scenarios/scale-ladder-v7.json caps.peak_rss_bytes"},
+  "bandwidth": {"value": 6e10, "src": "board bottleneck 5 (60 GB/s)"},
+  "orbit_s_leo": {"value": 5400, "src": "docs/HANDOFF.md risks: '90-minute orbits' billion-ship line"},
+  "kick_us_plane": {"value": 29, "src": "H0210 limitations: 'kicks cost 29 us' (M1, 15 us of it rebind fit+compile)"},
+  "kick_us_probe": {"value": 100, "src": "implied by H0190 K-lines: 0.6 core per 1e6 ships at 32.5 kicks/orbit, 90-min orbit"},
+  "cadence_raw_per_orbit": {"value": 32.5, "src": "H0190 K1 (integrator reran: 32.48)"},
+  "averaging_factor": {"value": 114, "src": "H0190 K2 (first-order quadrupole averaging)"},
+  "hits_per_body_orbit_steady": {"value": 0.00587, "src": "artifacts/evidence/opus-encounters-20260930/steady.jsonl last row (n=3000, rho=1e-4, converged over 1e5 orbits)"},
+  "hits_per_body_orbit_sweep": {"value": 0.0200, "src": "same evidence, scale.jsonl sigma_e=0.01 rows; N-invariant +/-6% over n=1e3..1e5 because the sweep holds rho*N fixed"},
+  "enc_per_body_orbit_sweep": {"value": 0.040, "src": "scale.jsonl enc_per_body_orbit, N-invariant"},
+  "element_sort_swaps_per_body_orbit": {"value": 1.56, "src": "steady.jsonl row 1"},
+  "scar_bits": {"value": 64, "src": "crates/shipmem/src/program.rs doc: Elias-Fano ordinal ~2+log2(n/k) bits (n=2^23 -> ~22-24) + packed delta row; swept 40-96"},
+  "prog_bits_belt": {"value": 0.126, "src": "gold components-98bc (board taste log, 6 Oct); B18b caps declared info at 64 B per belt program"},
+  "prog_bytes_convoy_per_ship": {"value": 0.000488, "src": "H0208: 'a perfect convoy costs 488 B per 1e6 ships'"},
+  "tube_bytes": {"value": 16, "src": "docs/plane.md foundations: 'the 16-byte tube'"},
+  "rtf_target": {"value": 100, "src": "docs/HANDOFF.md: the plane is flown at --rtf 100"}
+}

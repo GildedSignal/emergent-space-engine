@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered, decisive script reproducible from repo root (0.07 s), dossier written with all anchors traced to frozen evidence.
+
+**Claim:** At 10⁹ bodies the 8 GB budget is compute-bound, not memory-bound — measured encounter rates fill the programs-plus-scars store only after 1.7–5.7 days *with zero reabsorption* (92 d at 24-h orbits), while tide kicks need 175 cores even at RTF 1 unaveraged and 153 cores (19× over the M1) at the plane's RTF 100, so the deciding variable is the live set S_live, capped by kicks at 5.2×10⁷ where memory would tolerate 5.4×10⁸: adopt S_live (not N) as B10/B18's independent variable, program-derived (never resident) encounter certificates, and hourly-or-better reabsorption — plus the exactly-quantified 20× kick-cost cut that makes RTF 100 fit.

@@ -1,0 +1,80 @@
+P6: hits/body/orbit vs rho (sigma_e=0.01 sweep, from scale.jsonl)
+  n=   1000  rho=1.0e-03  hits=0.0206  hits/rho vs steady =   0.352
+  n=   3000  rho=3.3e-04  hits=0.0197  hits/rho vs steady =   1.007
+  n=  10000  rho=1.0e-04  hits=0.0198  hits/rho vs steady =   3.373
+  n=  30000  rho=3.3e-05  hits=0.0194  hits/rho vs steady =   9.915
+  n= 100000  rho=1.0e-05  hits=0.0202  hits/rho vs steady =  34.421
+  n=  10000  rho=1.0e-04  hits=0.0201  hits/rho vs steady =   3.433
+  steady (converged 1e5 orbits): hits=0.0059 at rho=1.0e-04
+  sweep hits N-invariant within +/-6% (mean 0.0200), = fixed rho*N; steady belt at same n=3000 but rho/3.33 gives hits/3.34 -> hits ~ rho at fixed n. P6 as written FAILS; carry both rates: 0.0059 and 0.0200
+
+MEMORY: steady scar bits from encounters (the only per-body producer)
+  state cap 4 GiB = 3.44e+10 bit
+          90-min orbit hits=steady 5.9e-3 scar=40b: fills cap in      9.15 days (no reabsorption)
+          90-min orbit hits=steady 5.9e-3 scar=64b: fills cap in      5.72 days (no reabsorption)
+          90-min orbit hits=steady 5.9e-3 scar=96b: fills cap in      3.81 days (no reabsorption)
+          90-min orbit hits=sweep 2.0e-2 scar=40b: fills cap in      2.68 days (no reabsorption)
+          90-min orbit hits=sweep 2.0e-2 scar=64b: fills cap in      1.68 days (no reabsorption)
+          90-min orbit hits=sweep 2.0e-2 scar=96b: fills cap in      1.12 days (no reabsorption)
+            24-h orbit hits=steady 5.9e-3 scar=40b: fills cap in    146.46 days (no reabsorption)
+            24-h orbit hits=steady 5.9e-3 scar=64b: fills cap in     91.54 days (no reabsorption)
+            24-h orbit hits=steady 5.9e-3 scar=96b: fills cap in     61.03 days (no reabsorption)
+            24-h orbit hits=sweep 2.0e-2 scar=40b: fills cap in     42.95 days (no reabsorption)
+            24-h orbit hits=sweep 2.0e-2 scar=64b: fills cap in     26.84 days (no reabsorption)
+            24-h orbit hits=sweep 2.0e-2 scar=96b: fills cap in     17.90 days (no reabsorption)
+    1-AU orbit (~1 yr) hits=steady 5.9e-3 scar=40b: fills cap in  53498.93 days (no reabsorption)
+    1-AU orbit (~1 yr) hits=steady 5.9e-3 scar=64b: fills cap in  33436.83 days (no reabsorption)
+    1-AU orbit (~1 yr) hits=steady 5.9e-3 scar=96b: fills cap in  22291.22 days (no reabsorption)
+    1-AU orbit (~1 yr) hits=sweep 2.0e-2 scar=40b: fills cap in  15688.56 days (no reabsorption)
+    1-AU orbit (~1 yr) hits=sweep 2.0e-2 scar=64b: fills cap in   9805.35 days (no reabsorption)
+    1-AU orbit (~1 yr) hits=sweep 2.0e-2 scar=96b: fills cap in   6536.90 days (no reabsorption)
+  belt programs: 1e+09 x 0.126 bit =    15.0 MiB; convoy form: 0.5 MiB
+  active fleet f=1%: 0.15 GiB in 16-B tubes
+  active fleet f=5%: 0.75 GiB in 16-B tubes
+  S_live cap from MEMORY (scars only): 5.37e+08 bodies (54% of population)
+
+COMPUTE: cores for tide kicks at 1e9 bodies (90-min orbits)
+  RTF   cadence       kick     cores  verdict vs 8-core M1
+    1  raw 32.5 29us plane       175  22x over
+    1  raw 32.5 100us probe       602  75x over
+    1 avg 0.285 29us plane         2  fits
+    1 avg 0.285 100us probe         5  fits
+   10  raw 32.5 29us plane      1745  218x over
+   10  raw 32.5 100us probe      6019  752x over
+   10 avg 0.285 29us plane        15  2x over
+   10 avg 0.285 100us probe        53  7x over
+  100  raw 32.5 29us plane     17454  2182x over
+  100  raw 32.5 100us probe     60185  7523x over
+  100 avg 0.285 29us plane       153  19x over
+  100 avg 0.285 100us probe       528  66x over
+
+P7: 29us x 32.5/orbit at RTF 1 = 175 cores (board ~190; predicted 140-220) -> AGREES
+  H0190's own averaged rate: 10 cores/1e9 at RTF 1 vs mine 1.5 (same order; probe kick heavier)
+
+UNIFIED: the live set S_live (bodies off program form) decides both budgets
+  RTF   1, 29us kicks: compute allows S_live <= 5.23e+09 (523%)
+  RTF  10, 29us kicks: compute allows S_live <= 5.23e+08 (52%)
+  RTF 100, 29us kicks: compute allows S_live <= 5.23e+07 (5%)
+  RTF 100, 1.4us kicks (20x cut): compute allows S_live <= 1.08e+09 (108%)
+  90-min orbits, hits=5.9e-3: feed  1086.1 scars/s -> reabsorb within     13.38 h to hold S_live <= 5.2e+07
+  90-min orbits, hits=2.0e-2: feed  3703.7 scars/s -> reabsorb within      3.92 h to hold S_live <= 5.2e+07
+  24-h orbits, hits=5.9e-3: feed    67.9 scars/s -> reabsorb within    214.02 h to hold S_live <= 5.2e+07
+  24-h orbits, hits=2.0e-2: feed   231.5 scars/s -> reabsorb within     62.76 h to hold S_live <= 5.2e+07
+  1-AU orbits, hits=5.9e-3: feed     0.2 scars/s -> reabsorb within  78175.05 h to hold S_live <= 5.2e+07
+  1-AU orbits, hits=2.0e-2: feed     0.6 scars/s -> reabsorb within  22924.83 h to hold S_live <= 5.2e+07
+  bandwidth RTF100: 5.28e+06 kick-events/s x 32 B touched =   0.3% of 60 GB/s
+  bandwidth RTF100: 5.28e+06 kick-events/s x 256 B touched =   2.3% of 60 GB/s
+  bandwidth RTF100: 5.28e+06 kick-events/s x 4096 B touched =  36.0% of 60 GB/s
+
+P5: resident per-body candidate stores vs the 4 GiB cap (1e9 bodies)
+  measured pair-store, n=  1000:    575.2 B/body ->     536 GiB at 1e9
+  measured pair-store, n=100000:  51587.3 B/body ->   48044 GiB at 1e9
+  hypothetical 16 B/body resident certificate store:    15 GiB (3.7x cap)
+  hypothetical 25 B/body resident certificate store:    23 GiB (5.8x cap)
+  hypothetical 64 B/body resident certificate store:    60 GiB (14.9x cap)
+  -> certificates must be program-derived (ordinal neighbours ~0 B) + per-scar only
+
+BOTTOM LINE
+  S_live: memory cap 5.4e+08 vs compute cap (RTF100, 29us) 5.2e7 -> compute binds 10x before memory
+  at RTF 1 the order flips: compute cap 5.2e9 > population -> memory (5.4e8 scars) binds
+  RTF 10: both ~5e8 — the budgets bind together
