@@ -7,3 +7,4 @@ The motion law v2 keeps p_t as an integer register, but its probe P3' fails: the
 Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.
 
 Also (6 October): under the v2 step a thrusting ship is lost at β ≈ 0.05 (L15, Kick Range) and β ≈ 0.125 (L8, "the energy register is outside its word"), where it reached β 0.999 before v2: the register must hold a body under thrust toward c, exactly. If `wt/loss-fix` already fixes this on main, build on it.
+Fixed on main at 741d05e (6 October): `p_t` is an i128 and a held burn caps the first step after a handoff; an L15 burn reaches β 0.999 (test `a_ship_burning_at_the_top_level_reaches_beta_0_999_without_a_refusal`). Build from there; the open part is the GR register (the drift is GR, the register Kepler's) and γ beyond 2,000.

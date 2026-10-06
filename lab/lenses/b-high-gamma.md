@@ -7,3 +7,4 @@ Flying at the top throttle (11,561 g), kicks start refusing past γ ≈ 2,000 an
 Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.
 
 Also (6 October): since the motion law v2, a thrusting root-doll ship is lost already at β ≈ 0.05–0.125 (the energy register's i64 word and the kick's range); fix that first (see `b-energy-register` and branch `wt/loss-fix`), then the γ ≈ 2,000 limit.
+Fixed on main at 741d05e (6 October): `p_t` is an i128 and a held burn caps the first step after a handoff; an L15 burn reaches β 0.999 (test `a_ship_burning_at_the_top_level_reaches_beta_0_999_without_a_refusal`). Build from there; the open part is the GR register (the drift is GR, the register Kepler's) and γ beyond 2,000.
