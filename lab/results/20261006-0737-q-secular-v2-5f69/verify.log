@@ -1,0 +1,22 @@
+[A] fixed-helio(1e-12) vs bary(1e-14): max|dz_S|=2.12e-09 max|dz_J|=2.27e-09
+    bary |z_S|: min 0.0040 @t=83049 end 0.0403 | |z_J|: max 0.0599 end 0.0528
+    t(|dz_S|>1e-6) = inf
+[B] hand WH h=0.1875 vs bary: max|dz_S|=2.63e-05 max|dz_J|=8.58e-06 t(|dz_S|>5e-3)=inf
+[B] hand WH h=0.125 vs bary: max|dz_S|=1.73e-05 max|dz_J|=5.82e-06 t(|dz_S|>5e-3)=inf
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261006-0737-q-secular-v2-5f69/verify.py", line 74, in <module>
+    main()
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261006-0737-q-secular-v2-5f69/verify.py", line 46, in main
+    print(f"[C] LL g: old = {g_old * ARCSEC:.2f} \"/yr, new = {g_new * ARCSEC:.2f} \"/yr "
+                            ^^^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to numpy.ndarray.__format__
+[C] LL g: old = [ 2.92 14.44] "/yr, new = [ 3.49 22.17] "/yr (real solar system w/ U,N: g5=4.3, g6=28.2)
+    LL-old: max|dz_S|=0.0540 |z_S|(T)=0.0102 max|dz_J|=0.0209 |z_J|(T)=0.0665
+    LL-new: max|dz_S|=0.0212 |z_S|(T)=0.0297 max|dz_J|=0.0095 |z_J|(T)=0.0562
+    exact: |z_S|(T)=0.0403 |z_J|(T)=0.0528
+[E] truth zp vs bary: max|dz_S|=1.93e-05 max|dz_J|=7.53e-06 t(|dz_S|>5e-3)=inf
+    truth |z_S|: min 0.0040 @t=83049 end 0.0403
+[E] conv zp vs bary: max|dz_S|=2.92e-05 max|dz_J|=9.86e-06 t(|dz_S|>5e-3)=inf
+    conv |z_S|: min 0.0040 @t=83049 end 0.0403
+[E] kick zp vs bary: max|dz_S|=4.67e-05 max|dz_J|=1.62e-05 t(|dz_S|>5e-3)=inf
+    kick |z_S|: min 0.0040 @t=83049 end 0.0403
