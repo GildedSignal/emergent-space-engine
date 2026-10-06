@@ -1,0 +1,26 @@
+$ python3 verify.py   (v2, decisive run; 15m55s, exit 0; stdout tail)
+checks passed: 159 / 163
+FAILURES:
+   ('A.mpmath-omega[ecc-e0.9-p10/outbound]', 1.1633842963752237e-09, 1e-09)
+   ('A.mpmath-omega[ecc-e0.1-p10/peri]', 1.1952208516970226e-09, 1e-09)
+   ('B.frame[circ-1000/circ]', 8.535320706263105e-08, 1e-09)
+   ('B.frame[parabolic-E1-L4/far]', 8.036534560614437e-08, 1e-09)
+A.mpmath-C^P     worst = 4.001e-09
+A.mpmath-omega   worst = 1.195e-09
+B.deviation      worst = 8.663e-03
+B.frame          worst = 8.535e-08
+C.finite-diff    worst = 7.894e+04      (diagnostic, not gated)
+D                worst = 3.593e-14
+X                worst = 2.612e-13
+B.coord refinement: {'family': 'parabolic-E1-L4', 'tag': 'far',
+                     'base': 0.0086626, 'refined': 0.0043350, 'ratio': 0.5004}
+(4 failures = tolerance placement on measured-truncation quantities; see
+dossier.md "the four recorded failures": omega flat under nsteps refinement
+(h^4 Richardson residue, floor 1.2e-9, raw was 2.1e-7); B.frame 4th-order in n,
+3.5e-10 at n=4800. RuntimeWarnings are check_C's diagnostic NaN paths.)
+
+baseline (shipped code, base/): 11m08s, exit 0; A 4.00e-9 / omega 4.56e-7 /
+B 8.66e-3; circ-6.01 dropped by the rdot2<0 guard. Reproduces 0dee's checker.
+
+python3 work/derive5.py (2.3 s): omega = E*L*M/(r**2*(E**2*r + 2*M - r));
+emits work/omega_expr2.txt identical to shipped. derive6.py deleted.
