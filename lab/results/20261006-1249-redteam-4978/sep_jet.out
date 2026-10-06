@@ -1,0 +1,31 @@
+== instrument controls ==
+C1 RK pericenter spacings: ['11.856000000']
+C1 quadrature dphi       : 11.855745327
+C2 weak-field dphi-2pi = 0.267746 vs 1PN 6*pi/p = 0.251327
+
+== family A: L = 3.7, E = E_sep*(1-delta), torque kick eps=1e-3 ==
+E_sep(3.7) = 0.964977, whirl radius 4.440 M (bound band: E in (E_stable_circ, E_sep))
+   delta  r_peri/M   r_apo/M       dphi orbits/cyc    err_phi   x floor      err_dt   x floor
+  0.0100     7.272    12.046     10.854       1.73  1.365e-03   1.4e+03   1.269e-02   1.3e+04
+  0.0050     5.789    16.042     11.904       1.89  5.349e-03   5.3e+03   4.978e-02   5.0e+04
+  0.0030     5.357    17.629     12.703       2.02  1.440e-02   1.4e+04   1.342e-01   1.3e+05
+  0.0010     4.896    19.301     14.473       2.30  1.119e-01   1.1e+05   1.044e+00   1.0e+06
+  0.0003     4.671    19.914     16.462       2.62  8.516e-01   8.5e+05   7.956e+00   8.0e+06
+  0.0001     4.569    20.092     18.299       2.91  4.166e+00   4.2e+06   3.894e+01   3.9e+07
+
+== family B: r_peri = 4 M fixed, L = 4*(1-delta), torque kick eps=1e-3 ==
+   delta         E       dphi orbits/cyc    err_phi   x floor
+   0.120  no bound orbit
+   0.050  0.975320     14.615       2.33  2.055e-01   2.1e+05
+   0.010  0.995013     19.014       3.03  2.300e+01   2.3e+07
+   0.003  0.998501     22.358       3.56  3.033e+02   3.0e+08
+   0.001  0.999500     25.440       4.05  2.808e+03   2.8e+09
+
+== controls (must pass) ==
+P3a r_peri=45M e=0.1: dphi=6.702542 err_phi=1.978e-06 (2.0e+00 x floor) err_dt=1.559e-05
+P5  r_peri=50M e=0.98: E=0.99980006 dphi-2pi=2.001e-01 err_phi=7.449e-07 (7.4e-01 x floor)
+
+== P4: bound -> plunge across the separatrix ==
+orbit: E=0.960152 L0=3.7, L_sep(E)=3.654037; applied kick dL/L = -0.0144
+jet predicts next pericenter after dphi_jet = 13.8 rad (2.2 orbits of phase)
+truth: plunge (roots [0.06034485]); horizon reached after 8.85 rad
