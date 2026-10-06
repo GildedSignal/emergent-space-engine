@@ -1,0 +1,71 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..dec654a 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -245,12 +245,16 @@ impl OrbitShape {
+             return Err(Error::Range);
+         }
+         let a = 6 * self.k + 2 * product(ONE - self.k, cs);
+-        let root = square_root(ONE - product(self.q, a))?;
++        // q == 0 (the weak Taylor shape): 1 - q·a is ONE, its root is ONE exactly,
++        // 1/ONE is ONE, and dividing by root·(root+1) = 2 is an exponent shift.
++        // Same bits as the general path below, without its three divisions.
++        let weak = self.q == 0;
++        let root = if weak { Scalar::ONE } else { square_root(ONE - product(self.q, a))? };
+         if !root.is_positive() {
+             return Err(Error::Range);
+         }
+-        let g = root.reciprocal()?;
+-        let excess = f(a)?.div(root.mul(root.add(Scalar::ONE)?)?)?;
++        let g = if weak { Scalar::ONE } else { root.reciprocal()? };
++        let excess = if weak { f(a)?.scale(-1)? } else { f(a)?.div(root.mul(root.add(Scalar::ONE)?)?)? };
+         let x = f(x)?;
+         let inv_x2 = x.mul(x)?.reciprocal()?;
+         let tau = self.tau_numerator.mul(g)?.mul(inv_x2)?;
+@@ -258,7 +262,7 @@ impl OrbitShape {
+             .t_numerator
+             .mul(g)?
+             .mul(inv_x2)?
+-            .div(f(ONE - product(2 * self.q, self.x(psi)))?)?;
++            .div(if weak { Scalar::ONE } else { f(ONE - product(2 * self.q, self.x(psi)))? })?;
+         let (dt, dtau) = if !self.key.null && self.key.compactness.is_zero() {
+             (
+                 self.t_numerator.mul(Scalar::integer(3))?.div(x)?,
+diff --git a/crates/space/src/quadrature_tests.rs b/crates/space/src/quadrature_tests.rs
+index 5487247..78f7a0e 100644
+--- a/crates/space/src/quadrature_tests.rs
++++ b/crates/space/src/quadrature_tests.rs
+@@ -154,3 +154,33 @@ fn native_panels_obey_the_real_two_point_remainder_and_integer_rounding_allowanc
+         }
+     }
+ }
++
++#[test]
++fn quad_bench_weak_hyperbolic_ladder() {
++    // One measured leaver shape: weak (compactness zeroed) and hyperbolic (k<1/2),
++    // the population the kick bench prices. Walks the same band ladder to the same
++    // join floor (2^-10 in Q62) as Passage::compile, times it, hashes every knot.
++    let key = ShapeKey { k: 29676364815277, compactness: Scalar::ZERO, null: false };
++    let mut s = OrbitShape::new(key).unwrap();
++    let x: i128 = 1 << 52;
++    let mut band = 1usize;
++    let mut digest = 0u64;
++    let t = std::time::Instant::now();
++    let mut panels = 0usize;
++    loop {
++        let edge = crate::tables::EDGE[band % 16] >> (band / 16);
++        if edge <= x { break; }
++        s.append(s.cut(edge)).unwrap();
++        s.crossings.push(s.knots.len() - 1);
++        band += 1;
++        panels += 1;
++    }
++    s.append(s.cut(x)).unwrap();
++    let us = t.elapsed().as_secs_f64() * 1e6;
++    for k in &s.knots {
++        for c in k.sum.0 {
++            digest = digest.rotate_left(7) ^ (c.significand() as u64).rotate_left(17) ^ (c.exponent() as u64);
++        }
++    }
++    println!("QUAD_BENCH {us:.1} us for {panels} panels, {} knots, digest {digest:016x}", s.knots.len());
++}

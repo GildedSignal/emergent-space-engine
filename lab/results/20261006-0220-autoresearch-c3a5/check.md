@@ -1,0 +1,20 @@
+Grade: silver
+
+**Abstract.** Claim: q=0 weak-hyperbolic quadrature nodes pay the generic `Scalar` path (`sqrt(1)`, `1/1`, `/2`, `/1`); a 12-line shortcut is bit-identical and cuts the leaver-kick ladder. Reproduced on this host: sentinel digest `c0192de9093e3d5b` both builds, ladder 395→237 µs (−40%); kick seed 1 leavers 405→222 µs (−45%), `digest`/`replay_digest` identical; my held-out seeds 13/21 digests identical, no timing gain (population-specific, as disclosed); both suites green (52; 44+1 ignore); my 720-ladder sweep (69,528 panels, null + extreme k) bit-identical. Gain is 1.4× per affected event, not 10×: silver. Adopt within `wt/kick`: clean apply, no API or law-version change.
+
+**Reasons.**
+- Reproduction: both hunks apply clean to the current tree. Baseline (test-only hunk) vs full patch: `QUAD_BENCH` 353–396 → 221–243 µs, digest `c0192de9093e3d5b` unchanged; kick-bench seed 1 55 s → digests `8283cbe3563c720d…`/`989892a426b5ac4e…` identical to baseline build and to `baseline.json`'s 55 s prediction row; leaver median 404–406 → 222–225 µs; made kicks noise (40–44 both).
+- Theory checked, not just trusted: `Scalar::ONE = {1<<62, 0}`; `raw(1<<62,−62)` normalizes to exactly that; `product(0,·)=0`; `isqrt(2^124)=2^62` exact; power-of-two division ≡ `scale(−1)`. The four identities are structural, host-independent — the M1 only changes the gain, not the bits.
+- Predictions: `predictions.md` (02:39) precedes `best-config.patch` (02:49) and all evidence files (02:50). Digest invariants 4/4 held; the seed-7 dominance prediction failed and was reported as failed, with the claim re-scoped — the honest kind of miss. My seeds 13/21 independently confirm the re-scoping: leaver medians 115/140 µs, no gain, digests identical.
+- Adversarial: my own sweep — 240 q=0 shapes (k from 1 to UNIT, weak_quad boundary from both sides, null flags, three in-domain ladder targets each; errors folded, none occurred) — digest `c2cc0cc3515432de` identical on both builds. Plus two never-run kick seeds.
+- Novelty: no H entry covers the kick resolver's cost or the missing weak-hyperbolic arm; `weak_quad`/`fast_quad` arrived with the envelope commit (40f0209) and the q=0 & k<1/2 gap was never filled. Targets HANDOFF's live line 40 bottleneck ("15 of 29 µs in rebinding fit and compile"). The memo note (exact hit 0%) correctly applies the 5 October taste-log correction.
+- Fit: PRINCIPLES #1 "the cheapest compute is compute not done"; #13 "errors never compound" — nothing numeric moves, certified bank and frozen evidence untouched; #16 regime chosen by the shape's own dimensionless numbers (q, k), not a category.
+- Not gold: 1.4× on the affected events; the plane-level effect exists on 1 of the 3 seeds I measured. The author's self-grade (silver) is correct.
+
+**The gold experiment.** The integer weak-hyperbolic panel — `weak_quad` extended to k < 1/2 with exact accumulation (the dossier's own structural move #1): ~5–10× on this path, at a law-version bump, coordinated with the motion-law owner and Sol's `wt/kick`. This run's measurement map (band ladder = the cost; exact keys all distinct) is the entry point.
+
+**What the author missed.**
+1. The dossier says the bench test "fails if the knots change by one bit" — false as shipped: `quad_bench_weak_hyperbolic_ladder` prints the digest and asserts nothing. The pin was enforced out-of-band (and by me), not by the committed test. One `assert!` makes the claim true.
+2. Bit-identity was evidenced by one pinned shape plus two scene digests; a direct systematic q=0 equivalence sweep (69,528 panels here) was cheap, stronger, and absent.
+3. The headline "leaver kicks −33%" is seed-1-specific; two further seeds show no leaver gain at all. The abstract above carries the caveat; future dossiers should state the population fraction up front.
+4. The "what would make it wrong" section names `div_word`/`isqrt` cost risk but not the one silent assumption a future edit could break silently: `f(ONE) == Scalar::ONE` in the `t` term — true today only because `raw`'s normalization of `1<<62` is fixed.
