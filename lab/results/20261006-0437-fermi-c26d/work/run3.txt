@@ -1,0 +1,13 @@
+== mass x density sweep (horizon 2.5e9 orbits = 10 Gyr at 2.5 AU) ==
+ m_ast kg   N_belt     kappa  coll/body bits q1e-6  GB@1e9
+  2.0e+16    1e+09   2.9e-03   254656.5    92.2|92    11.52
+  2.0e+16    1e+06   9.3e-05      254.7    67.3|67     8.41
+  5.0e+12    1e+06   2.6e-08        1.0    19.9|20     2.49
+  1.6e+08    1e+09   2.9e-11        1.0    19.9|20     2.49
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261006-0437-fermi-c26d/work/belt_heat.py", line 216, in <module>
+    main()
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261006-0437-fermi-c26d/work/belt_heat.py", line 188, in main
+    json.dump(res, f, indent=1)
+    ^^^^
+NameError: name 'json' is not defined. Did you forget to import 'json'?

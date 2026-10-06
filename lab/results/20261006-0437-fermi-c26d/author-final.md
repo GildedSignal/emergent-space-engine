@@ -1,0 +1,4 @@
+Working...
+Run complete. Folder holds `predictions.md` (pre-registered), `work/belt_heat.py` (deterministic, 1.4 s, self-contained), `work/heat.json`, run logs, and `dossier.md`.
+
+**Claim:** the live-information floor of a program+scars belt is a heating trajectory, not the newborn program's 0.126 bits/body — mutual encounters drive scar entropy to ~92 bits/body by the 10-Gyr horizon (11.5 GB at 10⁹ bodies, over the ~6 GB engine share), with the phase column alone pinning ~20 bits/body within ~10⁴ orbits for any belt massive enough to exist; an identity-reassigning repack every ≤1.2×10⁴ orbits holds the floor under any budget, and collision-tame belts produce no encounter scars at all, so the game must choose belts-as-physics (heavy, collisional, repacked) or belts-as-scenery (light, phase-floor only).
