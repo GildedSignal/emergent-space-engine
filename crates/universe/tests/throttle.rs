@@ -186,27 +186,69 @@ fn the_view_shows_the_throttle_and_the_two_frames() {
     assert!((v.rate * g - 1.0).abs() < 1e-4, "rate {} against 1/γ {}", v.rate, 1.0 / g);
 }
 
-/// A ship the engine can no longer carry (a refused kick: the orbit compile's range under the v1 step, the energy register's
-/// word under the v2 step) stays viewable, alive or lost: the view reads its last state when the presented tick cannot be read,
-/// and a lost ship says why, with its readings kept (proper time, β, rate) instead of zeros. (The impact and the edge are worded
-/// by the same function; the page's loss report is flown in the browser.)
+/// A lost ship says why and keeps its readings (proper time, β, rate) instead of zeros: here an impact, the body and the speed
+/// in words. (The edge and the engine's own refusal are worded by the same function; the page's loss report is flown in the
+/// browser.)
 #[test]
 fn a_lost_ship_says_why_and_keeps_its_readings() {
     let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
-    p.u.frame(0.1, 800.0, Budget::wall(5.0));
-    p.u.input(p.u.now, word(1, 15)).unwrap();
+    p.u.frame(0.1, 800.0, Budget::unlimited());
+    p.u.input(p.u.now, word(1, 4)).unwrap();
+    let mut last_b = 0.0;
     for _ in 0..3000 {
-        p.u.frame(0.1, 800.0, Budget::wall(5.0));
-        // Never None: a stuck or lost ship is still a view.
-        let v = gather(&p.u, &p.names).expect("a ship the engine could not carry on is still viewable");
+        p.u.frame(0.1, 800.0, Budget::unlimited());
+        let v = gather(&p.u, &p.names).expect("a lost or stuck ship is still a view");
+        let b = (v.beta[0].powi(2) + v.beta[1].powi(2)).sqrt();
         if !v.alive {
             let loss = v.loss.clone().expect("a wreck says why");
-            let b = (v.beta[0].powi(2) + v.beta[1].powi(2)).sqrt();
-            println!("lost: {loss}; β {b:.9}, proper {:.1} s, rate {:.3e}", v.proper_seconds, v.rate);
-            assert!(loss.starts_with("the engine lost it"), "{loss}");
+            println!("lost: {loss}; β {b:.9}, proper {:.1} s, rate {:.9}", v.proper_seconds, v.rate);
+            assert!(loss.starts_with("hit Home at ") && loss.contains("km/s"), "{loss}");
             assert!(v.proper_seconds > 0.0 && b > 0.0 && v.rate < 1.0, "the readings are frozen at the last state, not zero");
+            assert!(last_b > 0.0);
+            return;
+        }
+        last_b = b;
+    }
+    panic!("the ship should have crashed");
+}
+
+/// A ship the engine could not carry on (a refused kick: stopping dead above a planet is a radial plunge, which the compile
+/// refuses, kick after kick) stays viewable, alive: the view reads its last state when the presented tick cannot be read.
+#[test]
+fn a_stuck_ship_keeps_a_view() {
+    let mut p = plane(Config::default(), 5, Order::Sparse, 1, 8).unwrap();
+    p.u.settle(2_000_000);
+    p.u.input(2_000_000, word(1, 14)).unwrap();
+    p.u.settle(2_300_000);
+    p.u.now = 2_300_000;
+    let v = gather(&p.u, &p.names).expect("a stuck ship is still a view");
+    let rec = p.u.rec(p.player);
+    println!("stuck: {} refusals, alive {}, β {:?}, loss {:?}", rec.refusals, rec.alive, v.beta, v.loss);
+    assert!(rec.refusals > 0, "the scene must refuse (the engine's radial-fall limit)");
+    assert!(v.refusals > 0 && v.proper_seconds > 0.0);
+}
+
+/// Julien's goal is to feel high c: a ship burning at the top level from the plane's start reaches β 0.999 (γ ≈ 22) with
+/// no refusal and no loss, whatever step law carries it. (The motion law v2 refused at β ≈ 0.05: its energy register was a
+/// 64-bit word sized for orbital energies, and the first step after a handoff into the root doll ignored a held burn, so the
+/// burn came in one lump and the velocity left its word.) Frozen before the run; the engine's own events keep up with the
+/// presented tick all along (no wall budget: the outcome is the engine's, not the clock's).
+#[test]
+fn a_ship_burning_at_the_top_level_reaches_beta_0_999_without_a_refusal() {
+    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
+    p.u.input(0, word(1, 15)).unwrap();
+    let mut best = 0.0f64;
+    for _ in 0..3000 {
+        p.u.frame(0.1, 800.0, Budget::unlimited());
+        let v = gather(&p.u, &p.names).unwrap();
+        let b = (v.beta[0].powi(2) + v.beta[1].powi(2)).sqrt();
+        assert!(v.alive && v.refusals == 0, "refused or lost at β {b}: {:?} ({} refusals)", v.loss, v.refusals);
+        let last_event = p.u.rec(p.player).b.event_time;
+        assert!(p.u.now - last_event < 1 << 24, "the engine's last event ({last_event}) lags the presented tick {}: a burn held in one lump", p.u.now);
+        best = best.max(b);
+        if b >= 0.999 {
             return;
         }
     }
-    panic!("the ship should have been lost");
+    panic!("the ship only reached β {best}");
 }

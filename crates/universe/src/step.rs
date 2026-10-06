@@ -561,7 +561,12 @@ impl Work<'_, '_> {
         let (x, v) = scalars(&st)?;
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
-        let half = ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
+        let mut half = ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
+        // A held burn limits the step as it does at every kick (the clock's own step is far longer in the far field: the burn
+        // would be one lump, and the velocity leaves its word): the velocity moves by a small fraction of itself per step.
+        if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+            half = half.min((self.thrust_step(t)? / 2).max(1));
+        }
         self.rec.ext = Some(ext);
         self.rec.plan.clear();
         self.rec.anchor = t;

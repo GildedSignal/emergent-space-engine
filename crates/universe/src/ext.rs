@@ -26,7 +26,8 @@
 //! - `Δs = 2^−k·P_D/f'(c)`, rounded down to a power of two: `2^k` steps (`Config::step_log2`) per period `P_D` of the doll's
 //!   shortest secondary, far from it.
 //!
-//! **The integers.** `p_t` is an `i64` word at the exponent `pt_exp` fixed when the body is born (`2·ve + 64`, `ve` its velocity
+//! **The integers.** `p_t` is an `i128` word (a body under thrust takes its energy toward `c²/2`, far past an orbit's: the word
+//! is wide enough for any speed the law allows) at the exponent `pt_exp` fixed when the body is born (`2·ve + 64`, `ve` its velocity
 //! word's exponent: a quantum 16 times `v_max·δv`, with 2^7 of headroom over `v_max²`). A kick adds the energy its quantized
 //! velocity kick brings: `Δp_t = w·∂_tU_P`, the sub-quantum part carried by sigma-delta like the velocity's, so `J = p_t + Ω·L`
 //! (for a source on a circle) moves by the carries only and never trends. The fractional tick of every physical time is carried
@@ -48,7 +49,7 @@ const TICK_FRACTION: i32 = 16;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Ext {
     /// Minus the body's energy in the doll's frame, perturbations included: `pt·2^pt_exp` (doll units).
-    pub pt: i64,
+    pub pt: i128,
     pub pt_exp: i16,
     /// The sub-quantum part of `p_t`, in `2^-16` of its quantum (sigma-delta).
     pub pt_carry: i64,
@@ -64,12 +65,12 @@ pub struct Ext {
 impl Ext {
     /// `p_t` as a scalar.
     pub fn pt_value(&self) -> Res<Scalar> {
-        Ok(Scalar::raw(self.pt as i128, self.pt_exp as i32)?)
+        Ok(Scalar::raw(self.pt, self.pt_exp as i32)?)
     }
 
     /// Set `p_t` to the scalar `v` (toward zero, at its quantum), the carry cleared: the projection onto `K = 0`.
     pub fn set_pt(&mut self, v: Scalar) -> Res<()> {
-        self.pt = i64::try_from(v.fixed(-(self.pt_exp as i32))?).map_err(|_| Error::Refused("the energy register is outside its word"))?;
+        self.pt = v.fixed(-(self.pt_exp as i32))?;
         self.pt_carry = 0;
         Ok(())
     }
@@ -79,7 +80,7 @@ impl Ext {
         let total = self.pt_carry as i128 + dv.fixed(-(self.pt_exp as i32) + 16)?;
         let whole = total.div_euclid(65536);
         self.pt_carry = total.rem_euclid(65536) as i64;
-        self.pt = i64::try_from(self.pt as i128 + whole).map_err(|_| Error::Refused("the energy register is outside its word"))?;
+        self.pt = self.pt.checked_add(whole).ok_or(Error::Refused("the energy register is outside its word"))?;
         Ok(())
     }
 
