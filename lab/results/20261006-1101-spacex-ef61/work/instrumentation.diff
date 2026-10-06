@@ -1,0 +1,189 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..7c44c56 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -351,12 +351,15 @@ fn root_witness(
+ }
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
+-        let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
+-        } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+-        };
++        let (key, r, clockwise, incoming) = crate::stages::stage(3, || fit_key(state, true))?;
++        let trajectory = crate::stages::stage(4, || -> Result<Trajectory> {
++            if key.periodic() {
++                Ok(Trajectory::Cycle(Orbit::compile(key)?))
++            } else {
++                Ok(Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?))
++            }
++        })?;
++        let mut fit = crate::stages::stage(5, || -> Result<Self> {
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
+         if incoming {
+             offset = offset.negate();
+@@ -380,6 +383,8 @@ impl Rebinding {
+         };
+         fit.residual = Residual::between(state, fit.decoded_event()?);
+         Ok(fit)
++        })?;
++        Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+         cartesian(
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 476d49e..ab5851a 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -119,6 +119,7 @@ pub use tube::Tube;
+ pub mod events;
+ #[cfg(feature = "profile")]
+ pub mod profile;
++pub mod stages;
+ mod tables;
+ 
+ macro_rules! stage {
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..471b5c5 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -434,6 +434,7 @@ impl OrbitShape {
+             band += 1;
+         }
+         s.append(PI)?;
++        crate::stages::tally(8, s.knots.len() as u64);
+         Ok(s)
+     }
+ }
+@@ -977,6 +978,7 @@ impl Passage {
+                 x = next;
+             }
+         }
++        crate::stages::tally(7, passage.tail.len() as u64);
+         Ok(passage)
+     }
+     pub fn key(&self) -> OrbitKey {
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 19d0b78..ee1a3aa 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -344,33 +344,37 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
++        let st = emergent_space::stages::stage(0, || self.rec.b.readout(t))?;
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+-        let secs = self.ctx.secondaries(d, t, self.i)?;
+-        let tide = self.ctx.tide(d, t)?;
+-        let a = force::acceleration(level, x, &secs, tide)?;
++        let (secs, tide, a) = emergent_space::stages::stage(1, || {
++            let secs = self.ctx.secondaries(d, t, self.i)?;
++            let tide = self.ctx.tide(d, t)?;
++            let a = force::acceleration(level, x, &secs, tide)?;
++            Ok::<_, Error>((secs, tide, a))
++        })?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
+         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+-        let added;
+-        let next = if thrusting {
++        let (added, next) = emergent_space::stages::stage(2, || -> Res<(V2, Option<IntegerState>)> {
++        if thrusting {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+-            added = dv;
+-            IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
++            Ok((dv, Some(IntegerState { velocity: self.velocity_after(&st, v2)?, ..st })))
+         } else {
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
+-                return Ok(());
++                return Ok((dv, None));
+             }
+-            added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+-            IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+-        };
+-        self.rebind(next, t, d)?;
++            let added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
++            Ok((added, Some(IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st })))
++        }
++        })?;
++        let Some(next) = next else { return Ok(()) };
++        emergent_space::stages::stage(6, || self.rebind(next, t, d))?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..b706cc8 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -45,6 +45,28 @@ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
+ }
+ 
++/// Mean µs and call counts per stage slot, per replayed kick. Slots: 0 readout, 1 forces,
++/// 2 quantize+ramp, 3 fit_key, 4 compile (cycle or passage), 5 at_radius+residual,
++/// 6 bind whole (rebind), 7 passage tail panels (tally), 8 cycle knots (tally).
++fn stage_json((ns, n): &([u128; 12], [u64; 12]), kicks: usize) -> serde_json::Value {
++    const NAMES: [&str; 12] = ["readout", "forces", "quantize", "fit_key", "compile", "residual", "bind_whole", "tail_panels", "cycle_knots", "", "", ""];
++    let k = kicks.max(1) as f64;
++    let m: serde_json::Map<String, serde_json::Value> = NAMES
++        .iter()
++        .enumerate()
++        .filter(|(i, _)| ns[*i] > 0 || n[*i] > 0)
++        .map(|(i, name)| {
++            let v = if matches!(i, 7 | 8) {
++                json!({ "mean_per_kick": n[i] as f64 / k, "total": n[i] })
++            } else {
++                json!({ "mean_us": ns[i] as f64 / 1e3 / k, "calls_per_kick": n[i] as f64 / k })
++            };
++            (name.to_string(), v)
++        })
++        .collect();
++    json!(m)
++}
++
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let machine_before = crate::measure::machine_state("before");
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+@@ -55,6 +77,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
++    let (mut st_m, mut st_l) = (([0u128; 12], [0u64; 12]), ([0u128; 12], [0u64; 12]));
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
+@@ -81,9 +104,16 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
++            emergent_space::stages::take();
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
++            let snap = emergent_space::stages::take();
++            let acc = if i < made_n { &mut st_m } else { &mut st_l };
++            for s in 0..12 {
++                acc.0[s] += snap.0[s];
++                acc.1[s] += snap.1[s];
++            }
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+@@ -102,6 +132,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
++        "stages_made_us": stage_json(&st_m, made.len()),
++        "stages_leavers_us": stage_json(&st_l, leavers.len()),
+         "memo": shapes.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
