@@ -1,0 +1,7 @@
+# Lens: The belt wired to its frozen gate B18b (a proposal against `wt/belt`) (a directed build)
+
+Julien: "ok for the belt". Sol's belt program is on branch `wt/belt` (crates/shipmem: belt.rs, belt_quantiles.rs); gate B18b is frozen on main (`xtask/src/behave/belt.rs`). Two changes are needed before it can be judged: its quantile tables must be derived at birth from its parameters (B18b caps declared information at 64 bytes), and it must implement the judge's interface (`Law::belt_birth`, `belt_restore`, `Belt::{body, store, bytes_used, scar, form}`). Build against main with `wt/belt`'s files brought in (`git show origin/wt/belt:<path>`). Gates: `behave --gates B18b` with the `space` law wired to the belt, and B18.
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.

@@ -1,0 +1,7 @@
+# Lens: The Fermi frame's phase 2: the Schwarzschild tide (crates/engine; gate E9 is frozen) (a directed build)
+
+E9 fails the phase-1 (Newtonian) tide at r_p/M ≤ 1,000 on eccentric orbits and ≤ 100 on circles. The reference is lab run `20261006-0220-q-fermi2-tide-v2-26a7` (the closed form in Marck's tetrad, rational in E², L², 1/r, M, which regenerates bit for bit; the radial tide −w(3γ² − 1)) and its red-team `20261006-0220-redteam-fermi2-v2-b7a4`. Implement the phase-2 tide in the frame along the exact tube (crates/engine/src/tube.rs, frame.rs), keeping phase 1's results where the tide is Newtonian. Gates: `cargo run --release -p xtask -- engine-judge` (E1–E9: E9 should pass, E1–E8 must hold).
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.

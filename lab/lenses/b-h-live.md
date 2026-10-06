@@ -1,0 +1,7 @@
+# Lens: Distinctions created per game-second on the dashboard (xtask universe) (a directed build)
+
+docs/plane.md now asks the dashboard for distinctions created per game-second: the bits of live distinguishing information (H_live) the universe gains per unit of simulated time, against what reabsorption removes (an outside review: this, not the body count, decides whether a billion bodies fit). Define the measure precisely from the engine's state (kicks, rebinding remainders, scars, decisions), implement it in `xtask universe --bench` and the page, and report it for the plane's scene at several time factors. It must not change any digest.
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.

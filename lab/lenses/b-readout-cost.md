@@ -1,0 +1,7 @@
+# Lens: A cheaper readout between kicks (crates/universe) (a directed build)
+
+The motion law v2's partial-step readout costs 6.7 µs against 2.6 µs for the raw tube, raising the view's gather p50 from 1.13 to 1.47 ms with 12 ships near the star, and it grows with their number. Find a readout that keeps the partial step's accuracy (within about 1.1× of the map's error, the ignored-then-restored readout test in crates/universe) at near the raw tube's cost, for example a linear-force ramp from the last two kicks, or caching the sources' evaluation per frame. Gates: the readout test, B13 (`--law plane`), and `xtask universe --bench` (`frame_cpu_ms`, `view_gather`).
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.

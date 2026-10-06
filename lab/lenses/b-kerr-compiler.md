@@ -1,0 +1,7 @@
+# Lens: Rotating holes in the compiler (crates/space; gate B19 is frozen) (a directed build)
+
+Julien: "especially rotating black holes". The reference is lab run `20261006-0030-q-kerr-compile-0528` (`git show origin/claude/lab-20261006-0030-q-kerr-compile-0528:lab/results/20261006-0030-q-kerr-compile-0528/dossier.md`): the equatorial Kerr cycle compiles in the crate's own representation (Darwin ψ, factored cubic, Gauss–Legendre), only the integrands swapped (L² → L² − a²(E² − μ²), 2ML² → 2M(L − aE)²); Lense–Thirring −8πχk^{3/2}q^{3/2}. Add the doll's spin χ and compile Kerr tubes, prograde and retrograde, bound, unbound, plunging and photons; χ = 0 must keep every Schwarzschild digest bit for bit. Gates: B19 (`behave --gates B19 --law space`), G1–G6, B16.
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.

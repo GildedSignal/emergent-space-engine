@@ -1,0 +1,7 @@
+# Lens: The motion law v2, step 4: events keyed by their image on the root clock (crates/universe) (a directed build)
+
+"One tick is the same time in every doll" is false at a sphere's edge (15, 68 and 1,400 ticks for Cinder, Home and Giant). Implement step 4 of `lab/refs/opus-motion/memo.md` §5: each event's queue key is its exact image on the root clock under the doll's Lorentz shear (law.md "Handoffs are Lorentz"), so a relativistic doll (w = 0.5c) orders its events correctly. Probe P6 as a test: with 1,000 members, every event's root key equals the shear image of its doll event, and the order is identical under 1, 4 and 8 threads and both orders. Gates: B8 (determinism), B13, B17 (`--law plane`).
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.

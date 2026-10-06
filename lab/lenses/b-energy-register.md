@@ -1,0 +1,7 @@
+# Lens: An energy register consistent with the GR drift (crates/universe) (a directed build)
+
+The motion law v2 keeps p_t as an integer register, but its probe P3' fails: the register is Kepler's while the drift is the GR geodesic, so J = p_t + Ω·L moves 6e5–2e8 quanta across a kick (and 3.6e3–1.4e5 along a drift from the Q48 key fit). Make the register the geodesic's own energy (from the tube's invariants), so that J moves by at most a few quanta per kick, and say whether the rebinding remainder (law.md: C = X − F(Q(X))) makes it exact. References: `lab/refs/opus-motion/memo.md` §2, crates/universe/src/ext.rs, step.rs; the ignored test P3' in crates/universe. Gates: B13, B17 (`--law plane`), G1–G6, and P3' made a passing test.
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.
