@@ -3161,3 +3161,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: lab runs 20261005-1404-* and 20261005-1540-*; artifacts/runs/sonnet-b19-kerr/, sonnet-b18-belt/
 - Limitations: no Kerr compiler or wired belt yet (Astra and Sol, after 9 October).
 - Next: the plane's readout and Lorentz handoffs, then B12–B13 again; the close-encounter representation.
+
+## H0215 — The motion law v2 lands; the autopilot for Claude's absence
+
+- Date: 2026-10-06
+- Kind: implementation
+- Status: partial
+- Revisions: c84f578 (motion law v2 steps 1–2); 219626e (B17 weak-field scene); 1aa2f96 (GLM autopilot)
+- Scope: crates/universe; xtask/src/behave; lab; artifacts/runs/codex-week
+- Changed: The Opus design memo diagnosed the plane's compounding error by measurement (the step re-chosen mid-encounter; a lopsided handoff). Steps 1–2 of its law merged: one fictitious clock per root-doll body, exact tube drifts, an integer energy register, the readout as a partial step. Jacobi error 13× lower; B13's failures all marginal. B17 was in the strong field against a Newtonian oracle; in its weak-field scene the plane passes. B12's statistic was shown to rank a bounded error above a compounding one (probe P2) and is being rebuilt. With Claude's week spent, GLM (fourteen directed builds, second authors on silvers) and two Codex lanes (from 9 October) build on branches until review.
+- Why: Julien: move massively in parallel, by bottleneck, toward a full implementation.
+- Validation: universe tests; G1–G6; B13 and B17 on `--law plane`; the Jacobi population.
+- Evidence: artifacts/runs/opus-motion/, sonnet-motion2/, codex-week/
+- Limitations: B12 unusable until rebuilt; plunge orbits have no tube; the register is Kepler's, not the geodesic's.
+- Next: on 12 October, review the branches item by item and merge the best per item.

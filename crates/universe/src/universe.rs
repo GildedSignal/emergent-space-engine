@@ -296,6 +296,7 @@ impl Universe {
             anchor: 0,
             plan: Vec::new(),
             thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+            ext: None,
             alive: true,
             events: 0,
             refusals: 0,
@@ -343,6 +344,7 @@ impl Universe {
             anchor: 0,
             plan: Vec::new(),
             thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+            ext: None,
             alive: true,
             events: 0,
             refusals: 0,
@@ -690,6 +692,7 @@ impl Universe {
                 anchor: l.tick,
                 plan: Vec::new(),
                 thrust: None,
+                ext: None,
                 alive: true,
                 events: 0,
                 refusals: 0,
@@ -1019,6 +1022,15 @@ impl Universe {
             put(&mut h, r.b.units.0 as i128);
             put(&mut h, r.b.units.1 as i128);
             put_s(&mut h, r.proper);
+            if let Some(e) = r.ext {
+                // the extended state of the motion law v2: the register, its carries and the clock's constants
+                for v in [e.pt as i128, e.pt_exp as i128, e.pt_carry as i128, e.dt_carry as i128] {
+                    put(&mut h, v);
+                }
+                for c in [e.ds, e.c, e.b] {
+                    put_s(&mut h, c);
+                }
+            }
             put(&mut h, r.step as i128);
             put(&mut h, r.interval as i128);
             put(&mut h, r.anchor as i128);

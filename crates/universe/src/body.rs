@@ -66,6 +66,10 @@ pub struct BodyRec {
     pub anchor: Tick,
     pub plan: Vec<Item>,
     pub thrust: Option<Thrust>,
+    /// The extended state of the motion law v2 (the energy register and the clock's constants), for a body of the root
+    /// doll that anything can kick: its step is the fictitious clock's tick ([`crate::ext`]). None for the rest (the
+    /// planets and the bodies of a planet's doll keep the split of docs/law.md until the dolls are coordinates).
+    pub ext: Option<crate::ext::Ext>,
     pub alive: bool,
     pub events: u64,
     pub refusals: u64,

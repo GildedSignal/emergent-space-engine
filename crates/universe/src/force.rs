@@ -143,3 +143,50 @@ pub fn relative_speed(v: V2, vj: V2) -> Res<Scalar> {
 pub fn work(v: V2, a: V2) -> Res<Scalar> {
     dot2(v, a)
 }
+
+/// What the motion law v2 reads of the kick sources at a state (docs/law.md, "Perturbed motion"; the Opus motion memo, §2.2):
+/// the perturbing potential `U_P` and its force, and `∂U_P/∂t`, the work of the sources' motion, all from the same sources.
+///
+/// ```text
+///   U_P(x, t) = Σ_j gm_j/|x − x_j(t)| − a_o(t)·x          a_o = Σ_j gm_j·x_j/|x_j|³   (the origin's fall)
+///   a = ∇U_P = Σ_j pull_j − a_o                             (the kick's acceleration, unweighted)
+///   ∂_t U_P = −Σ_j v_j·pull_j − ȧ_o·x                       ȧ_o = Σ_j gm_j·(v_j − 3·x_j·(x_j·v_j)/|x_j|²)/|x_j|³
+/// ```
+///
+/// A kick of weight `w` adds `w·a` to the velocity and `w·∂_tU_P` to `p_t`, the integer energy register, so that the two
+/// are one flow of one Hamiltonian: for a source on a circle `∂_tU_P = −Ω·(x × ∇U_P)`, and `p_t + Ω·L` does not change.
+#[derive(Clone, Copy, Debug)]
+pub struct Field {
+    pub accel: V2,
+    pub potential: Scalar,
+    pub rate: Scalar,
+}
+
+/// The field of `secondaries` at `x` (the doll's origin falls: the root doll has no parent, so no tide).
+pub fn field(secondaries: &[Secondary], x: V2) -> Res<Field> {
+    let (mut pulls, mut fall, mut fall_rate) = ([Scalar::ZERO; 2], [Scalar::ZERO; 2], [Scalar::ZERO; 2]);
+    let (mut u, mut du) = (Scalar::ZERO, Scalar::ZERO);
+    for s in secondaries {
+        let (p, r) = pull(s.gm, s.pos, x)?;
+        pulls = add2(pulls, p)?;
+        u = u.add(s.gm.div(r)?)?;
+        du = du.sub(dot2(s.vel, p)?)?;
+        let rj = norm2(s.pos)?;
+        if rj.is_zero() {
+            return Err(crate::num::Error::Refused("a secondary on top of its doll's centre"));
+        }
+        let k = s.gm.div(rj.mul(rj)?.mul(rj)?)?;
+        fall = add2(fall, scale2(s.pos, k)?)?;
+        // ȧ_o: k·(v − 3·x_j·(x_j·v)/r²)
+        let along = dot2(s.pos, s.vel)?.mul(Scalar::integer(3))?.div(rj.mul(rj)?)?;
+        fall_rate = add2(fall_rate, scale2(sub2(s.vel, scale2(s.pos, along)?)?, k)?)?;
+    }
+    Ok(Field { accel: sub2(pulls, fall)?, potential: u.sub(dot2(fall, x)?)?, rate: du.sub(dot2(fall_rate, x)?)? })
+}
+
+/// The Kepler energy of the drift's dominant mass at a state, `v²/2 − μ/r` (`μ` the mass of the tube's own host in the
+/// doll's units): the weak-field form of the doll's geodesic Hamiltonian `H_D`.
+pub fn kepler(x: V2, v: V2, mu: Scalar) -> Res<Scalar> {
+    let r = norm2(x)?;
+    Ok(dot2(v, v)?.scale(-1)?.sub(mu.div(r)?)?)
+}

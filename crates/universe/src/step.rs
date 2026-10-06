@@ -1,5 +1,12 @@
 //! Motion: the compiled drift plus kicks (docs/law.md, "Perturbed motion").
 //!
+//! **Two clocks, until the dolls are coordinates.** A ship or the player of the *root* doll that anything can kick is stepped
+//! by the motion law v2 ([`crate::ext`]): one fixed tick of its fictitious clock, a physical time set by the perturbing
+//! potential, exact tube drifts, kicks that also update the integer energy register `p_t`; nothing in it chooses a step, and
+//! it is never captured by a planet's doll (a passage is resolved by the time transformation, in the root doll). The
+//! planets and the bodies of a planet's doll keep the split described below (step `H`, changeover levels, handoffs) until the
+//! single-surface handoff on extended coordinates (the memo's step 3) and the secular kicks for stable bodies (step 5) replace it.
+//!
 //! A body's motion is a symmetric, symplectic split (Wisdom–Holman). The drift is exact along
 //! the tube of the doll it sits in (zero work: a tube is read, never stepped); the kicks carry
 //! everything else (the parent's tide, the secondaries' pulls) at a fixed step `H` in the
@@ -29,6 +36,7 @@
 use crate::bind::{bind, scalars, Binding, Bound, Entry, Kick};
 use crate::body::{BodyRec, Item, Kind, Segment, What};
 use crate::ctx::Ctx;
+use crate::ext::Ext;
 use crate::force::{self, LEVELS, RATIO};
 use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, Error, Res, Tick, V2};
 use crate::thrust;
@@ -377,7 +385,7 @@ impl Work<'_, '_> {
         let q = |s: Scalar| -> Res<i64> { i64::try_from(s.fixed(-ve)?).map_err(|_| Error::Refused("kick outside the word")) };
         // (A kick that does not fit the word's quanta leaves no ramp: the rebinding stands either way.)
         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
-            self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b] };
+            self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
         }
         Ok(())
     }
@@ -386,7 +394,9 @@ impl Work<'_, '_> {
     /// takes the ship. Returns whether it did.
     fn maybe_capture(&mut self, t: Tick, st: &IntegerState, x: V2) -> Res<bool> {
         let d = self.rec.b.doll;
-        if !matches!(self.rec.kind, Kind::Ship | Kind::Player) {
+        // The motion law v2: every ship of the root doll stays in it (a passage needs no handoff, the time transformation
+        // resolves it); the handoff of a bound body is the single surface of the memo's step 3.
+        if !matches!(self.rec.kind, Kind::Ship | Kind::Player) || d == 0 {
             return Ok(false);
         }
         for (c, doll) in self.ctx.dolls.iter().enumerate().skip(1) {
@@ -456,6 +466,9 @@ impl Work<'_, '_> {
             self.rec.plan.clear();
             return Ok(());
         }
+        if self.on_clock() {
+            return self.plan_clock(t);
+        }
         let edge = (d != 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player)).then(|| self.doll().edge);
         let want = step_for(&self.rec.b, self.ctx.cfg.step_log2, edge)?;
         // Thrust steps: the burn moves the velocity by a small fraction of the local speed.
@@ -506,6 +519,154 @@ impl Work<'_, '_> {
         self.open(t, 0, h)
     }
 
+    // ---- the motion law v2: the root doll's ships ---------------------------------------------------
+
+    /// Whether the motion law v2 steps this body: a ship or the player of the root doll (it is planned when something can
+    /// kick it; a body that nothing kicks is a tube and has no plan).
+    fn on_clock(&self) -> bool {
+        self.rec.b.doll == 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player)
+    }
+
+    /// The mass of the body's drift in the doll's units: its tube's host.
+    fn tube_mu(&self) -> Res<Scalar> {
+        Ok(self.ctx.tube_unit(self.i, self.rec.b.doll)?.mu)
+    }
+
+    /// Project the energy register onto the constraint `K = 0` at the state read at `t`: `p_t = U_P − H_D`.
+    fn project(&mut self, t: Tick) -> Res<()> {
+        let st = self.rec.b.readout(t)?;
+        let (x, v) = scalars(&st)?;
+        let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
+        let u = force::field(&secs, x)?.potential;
+        let hd = force::kepler(x, v, self.tube_mu()?)?;
+        let mut ext = self.rec.ext.expect("a clock-stepped body");
+        ext.set_pt(u.sub(hd)?)?;
+        self.rec.ext = Some(ext);
+        Ok(())
+    }
+
+    /// Begin (or begin again, after a decision or a handoff) the clock at tick `t`, where the state is synchronised: the
+    /// constants of the clock are derived if the body has none, the register is projected onto `K = 0`, and the first kick
+    /// is planned at the middle of the first step.
+    fn plan_clock(&mut self, t: Tick) -> Res<()> {
+        let d = self.rec.b.doll;
+        if self.rec.ext.is_none() {
+            let st = self.rec.b.readout(t)?;
+            let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+            let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+            self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+        }
+        self.project(t)?;
+        let st = self.rec.b.readout(t)?;
+        let (x, v) = scalars(&st)?;
+        let mut ext = self.rec.ext.expect("a clock-stepped body");
+        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+        let half = ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
+        self.rec.ext = Some(ext);
+        self.rec.plan.clear();
+        self.rec.anchor = t;
+        self.rec.interval = 2 * half;
+        self.rec.step = 2 * half;
+        // The synchronised state a reader's partial step starts from, until the first kick: this one.
+        self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
+        insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
+        Ok(())
+    }
+
+    /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
+    /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+    fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+        let d = self.rec.b.doll;
+        let st = self.rec.b.readout(t)?;
+        let (x, v) = scalars(&st)?;
+        let secs = self.ctx.secondaries(d, t, self.i)?;
+        // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+        let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+        for (s, &j) in secs.iter().zip(sources) {
+            if let Some(radius) = self.ctx.surface_in(j, d)? {
+                if norm2(sub2(s.pos, x)?)? < radius {
+                    self.rec.alive = false;
+                    return Ok(Resolved::Lost);
+                }
+            }
+        }
+        if self.rec.kind != Kind::Planet && norm2(x)? < self.doll().surface {
+            self.rec.alive = false;
+            return Ok(Resolved::Lost);
+        }
+        let mut ext = self.rec.ext.expect("a clock-stepped body");
+        let f = force::field(&secs, x)?;
+        let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+        let dv = scale2(f.accel, w)?;
+        let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+        let (next, carry) = if thrusting {
+            // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+            let v2 = self.burn(x, add2(v, dv)?, t)?;
+            (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
+        } else {
+            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+            ext.add_pt(w.mul(f.rate)?)?;
+            (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+        };
+        let fired = next.velocity != st.velocity;
+        if fired {
+            self.rebind(next, t, d)?;
+        }
+        self.rec.carry = carry;
+        self.rec.ext = Some(ext);
+        if thrusting {
+            self.project(t)?;
+        }
+        // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
+        // kick share it), and its boundary in the middle.
+        let (x, v) = scalars(&next)?;
+        let mut ext = self.rec.ext.expect("a clock-stepped body");
+        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+        let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
+        if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+            full = full.min(self.thrust_step(t)?);
+        }
+        self.rec.ext = Some(ext);
+        if fired {
+            // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
+            // closes had been running.
+            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
+        }
+        self.rec.interval = full;
+        self.rec.step = full;
+        insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
+        insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
+        if self.rec.kind != Kind::Planet {
+            let key = self.rec.b.entry.trajectory.key();
+            if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
+                if let Some(tp) = next_periapsis(&self.rec.b, t)? {
+                    if tp <= t + full {
+                        insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
+                    }
+                }
+            }
+        }
+        Ok(Resolved::Kick)
+    }
+
+    /// The synchronised output of the split, in the middle between two kicks: the certificates (surface, the system's edge),
+    /// and the tick the map's state is read at ([`BodyRec::anchor`]). The next kick is already planned.
+    fn boundary_clock(&mut self, t: Tick) -> Res<Resolved> {
+        let st = self.rec.b.readout(t)?;
+        let (x, _) = scalars(&st)?;
+        let r = norm2(x)?;
+        if self.rec.kind != Kind::Planet && r < self.doll().surface {
+            self.rec.alive = false;
+            return Ok(Resolved::Lost);
+        }
+        if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+            self.rec.alive = false;
+            return Ok(Resolved::Lost);
+        }
+        self.rec.anchor = t;
+        Ok(Resolved::Boundary)
+    }
+
     fn thrust_step(&self, t: Tick) -> Res<i64> {
         let st = self.rec.b.readout(t)?;
         let (x, v) = scalars(&st)?;
@@ -519,6 +680,9 @@ impl Work<'_, '_> {
 
     /// The end of a step: certificates, then the next step's plan.
     fn boundary(&mut self, t: Tick) -> Res<Resolved> {
+        if self.rec.ext.is_some() {
+            return self.boundary_clock(t);
+        }
         let d = self.rec.b.doll;
         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
         let st = self.rec.b.readout(t)?;
@@ -592,6 +756,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
     let t = item.t;
     let h0 = w.rec.interval;
     let result = match item.what {
+        What::Kick(l) if w.rec.ext.is_some() => w.kick_clock(t, l),
         What::Kick(l) => w.kick(t, l).map(|_| Resolved::Kick),
         What::Open(l) => w.open(t, l, h0).map(|_| Resolved::Open),
         What::Crash => w.crash(t),
@@ -607,6 +772,14 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
             if item.what == What::Boundary {
                 w.rec.alive = false;
                 Resolved::Lost
+            } else if w.rec.ext.is_some() && w.rec.alive && !w.rec.plan.iter().any(|p| matches!(p.what, What::Kick(_))) {
+                // A clock-stepped body plans its next kick when it kicks: a refused kick must not leave it without one.
+                if w.plan_clock(t).is_err() {
+                    w.rec.alive = false;
+                    Resolved::Lost
+                } else {
+                    Resolved::Refused
+                }
             } else {
                 Resolved::Refused
             }
@@ -640,6 +813,10 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
             if th.keys & 3 != 0 {
                 let next = IntegerState { velocity: w.velocity_after(&st, v2)?, ..st };
                 w.rebind(next, t, w.rec.b.doll)?;
+                if w.rec.ext.is_some() {
+                    // A burn is not a flow of the Hamiltonian: the register is projected back onto K = 0.
+                    w.project(t)?;
+                }
             }
         }
         if let Some(th) = w.rec.thrust.as_mut() {

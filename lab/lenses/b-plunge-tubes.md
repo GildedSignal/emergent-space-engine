@@ -1,0 +1,7 @@
+# Lens: Plunge and radial orbits as tubes (crates/space) (a directed build)
+
+Kicks are refused with `NoBoundOrbit` when an orbit plunges into the star after a close pass, and in near-radial falls (Julien stopped dead relative to a planet; the motion law v2 refuses 1–11 B13 draws at steps 7–10). Give the compiler tubes for plunging and near-radial orbits (L near 0, periapsis inside the central body), ending in an exact terminal event at the surface or horizon (law.md: exact capture b² ≤ 27M² for the hole). References: crates/space/src/orbit.rs, scaled.rs, ENVELOPE.md; HANDOFF "Julien can feel the flight". Gates: G1–G6 (`behave --law space`), B13 and B17 (`--law plane`), and `xtask engine-judge`.
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.

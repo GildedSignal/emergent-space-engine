@@ -34,13 +34,24 @@ finish() {  # finish <grade or verdict line> [extra]: commit, push, and write DO
   fi
   echo "$1${2:+ | $2} | branch claude/lab-$id | $push" > "$out/DONE"
 }
+lens_text() {  # a lens file, or for second-<run id> a second author on that run's "one experiment to gold"
+  if [ -f "lab/lenses/$1.md" ]; then cat "lab/lenses/$1.md"; return; fi
+  local r=${1#second-}
+  cat <<S
+# Lens: second author on run $r
+
+Read the run's dossier and its checker's verdict: \`git show origin/claude/lab-$r:lab/results/$r/check.md\` and \`dossier.md\` beside it (its scripts are in the same folder). The checker graded it silver and named what kept it from gold: usually one experiment, a record that does not regenerate, or a held-out case never run. Do exactly that, in your folder, starting from the run's own scripts: make the record regenerate from shipped code, run the missing experiment, and report whether the claim then holds. If the checker's named experiment would cost more than your time, run its cheapest decisive part and say so. Never edit the crates, the gates or \`main\`.
+
+Gold: the claim now holds on the shipped record with the named experiment done, or a clean refutation of it.
+S
+}
 machine() { echo "Linux, $(nproc) vCPU, $(awk '/MemTotal/{printf "%d", $2/1048576}' /proc/meminfo) GB, shared with the window's other runs: keep every process under 2 GB of memory, or it is killed"; }
 
 case ${1:-} in
 start)
   lens=${2:?lens}; min=${3:-90}
   guard_linux
-  [ -f "lab/lenses/$lens.md" ] || { echo "no lens: $lens"; exit 2; }
+  [ -f "lab/lenses/$lens.md" ] || [[ $lens == second-* ]] || { echo "no lens: $lens"; exit 2; }
   guard_key
   id=$(date -u +%Y%m%d-%H%M)-$lens-$(od -An -N2 -tx1 /dev/urandom | tr -d " \n")
   launch _run "$lens" "$min" "$id" ;;
@@ -57,7 +68,7 @@ wait)
   echo "RUNNING ${2}"; tail -2 "lab/results/$2/run.log" ;;
 _run)
   lens=$2; min=$3; id=$4; out=lab/results/$id; base=$(git rev-parse HEAD)
-  { preamble; cat "lab/lenses/$lens.md"; cat <<P
+  { preamble; lens_text "$lens"; cat <<P
 ## Your run
 Run id: $id. Your folder: $out/. Time: $min minutes.
 - The machine is a Linux machine ($(machine)). Install what you need with pip or cargo.

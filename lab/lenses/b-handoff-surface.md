@@ -1,0 +1,7 @@
+# Lens: The motion law v2, step 3: the single-surface handoff (crates/universe) (a directed build)
+
+Implement step 3 of `lab/refs/opus-motion/memo.md` §5: bound bodies change doll through one surface crossed the same way in both directions, on extended coordinates, with the Lorentz shears of crates/universe/src/lorentz.rs; passing ships need no handoff. Probes P4 (regular satellites at 0.3, 0.5 and 0.9 R_H, 2,000 planet periods, the decade ratio of the median Jacobi error at most 1.3) and P5 (1,000 captures and releases at β = 0.01, 0.3, 0.9 return the identical integer state) as tests. Gates: B13, B14, B17 (`--law plane`), G1–G6.
+
+**How to build.** Work in this tree against `main`; your edits become `work/patch.diff`, which a reviewer applies later (you never commit, push or merge). Read docs/law.md, docs/HANDOFF.md ("In flight", "Astra's queue") and the references named above before writing code. Ship tests (each under 60 s) and run the named gates before and after; report every gate's detail line both ways. A gate is frozen: never edit a gate, a threshold or frozen evidence; if a gate seems wrong, say why and leave it. Keep every process under 2 GB. If the change cannot pass its gates, a clean measured failure with its diagnosis is a result: say so rather than patch around it.
+
+Gold: the patch applies to main, its tests pass, and the named gates improve or hold, measured, with nothing else regressing.

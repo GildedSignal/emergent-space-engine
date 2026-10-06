@@ -84,6 +84,14 @@ impl Ctx<'_> {
         Ok(out)
     }
 
+    /// The radius of body `j`'s own surface, in the units of the doll `host` it sits in: the surface of the doll it is the
+    /// centre of (in that doll's units), converted. None for a body that is not the centre of a doll.
+    pub fn surface_in(&self, j: usize, host: u16) -> Res<Option<Scalar>> {
+        let Some(c) = self.info[j].doll else { return Ok(None) };
+        let (child, host) = (&self.dolls[c as usize], &self.dolls[host as usize]);
+        Ok(Some(child.surface.scale(host.shift as i32 - child.shift as i32)?))
+    }
+
     /// The parent's tide on doll `d`: the parent's mass (its mantissa included) and the doll centre's
     /// position in the parent's frame, both in `d`'s units.
     pub fn tide(&self, d: u16, t: Tick) -> Res<Option<(Scalar, V2)>> {
