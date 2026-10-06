@@ -10,7 +10,7 @@ concurrency: {group: glm-lab, cancel-in-progress: false}
 jobs:
   runs:
     runs-on: [self-hosted, glm]   # agonbox, as the isolated user glmlab (lab/agonbox-setup.sh; Julien, 5 October)
-    timeout-minutes: 330
+    timeout-minutes: 350
     permissions: {contents: read}
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +28,15 @@ jobs:
           rm -rf ../lab-*; git worktree prune
           for b in $(git for-each-ref --format='%(refname:lstrip=3)' 'refs/remotes/origin/wt/'); do git branch -q "$b" "origin/$b"; done
           bash lab/setup.sh
+          # GLM's 5-hour token window: if it is spent, wait here on agonbox (free) until its stated reset, then run.
+          for attempt in 1 2 3 4 5 6; do
+            probe=$(timeout 120 ~/.local/bin/omp -p --model=zai/glm-5.3 --no-session --max-time=1m "Reply with the single word ok." 2>&1 || true)
+            echo "$probe" | grep -q "rate_limit_error" || break
+            reset=$(echo "$probe" | grep -o 'reset at [0-9-]* [0-9:]*' | head -1 | cut -d' ' -f3-)
+            wait_s=$(( $(TZ=Asia/Shanghai date -d "$reset" +%s 2>/dev/null || echo $(( $(date +%s) + 1800 ))) - $(date +%s) + 60 ))
+            [ "$wait_s" -gt 60 ] || wait_s=600; [ "$wait_s" -lt 18000 ] || wait_s=18000
+            echo "GLM's window is spent (reset $reset China time): waiting $((wait_s / 60)) minutes"; sleep "$wait_s"
+          done
           bash lab/next.sh | tee next.txt
           j=0
           while read -r kind arg min; do
