@@ -1,0 +1,4 @@
+Working...
+Everything is saved (patch, tests, dossier, predictions, gate logs both ways). Final state verified: suite green, B13/B17 bit-identical to baseline, P5 and the moon test passing, P4's one failure documented with its diagnosis.
+
+**The claim:** the single-surface handoff on extended coordinates is built in `crates/universe` — one state-function predicate (`E_p < 0`, `r < R_H/2`) at s-boundaries both ways, the event boosted by R3's nine shears with the child's clock sheared by the exact simultaneity offset, and the clock law extended to planet dolls with the parent-as-source tide — and it holds P5 bit for bit (4000/4000 at β = 0.01 and 0.3, 3999/4000 at 0.9) with B13 and B17 bit-identical to baseline and the born moon never leaving, **but P4 fails on the 0.3 R_H prograde satellite (decade ratio 2.18 > 1.3), so this is silver: the child-doll clock's walk is the one named experiment from gold.**
