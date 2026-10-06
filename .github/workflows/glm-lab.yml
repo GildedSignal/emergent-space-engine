@@ -10,7 +10,7 @@ concurrency: {group: glm-lab, cancel-in-progress: false}
 jobs:
   runs:
     runs-on: [self-hosted, glm]   # agonbox, as the isolated user glmlab (lab/agonbox-setup.sh; Julien, 5 October)
-    timeout-minutes: 350
+    timeout-minutes: 700   # agonbox: up to 5 h waiting for GLM's window, then up to 5 h of runs
     permissions: {contents: read}
     steps:
       - uses: actions/checkout@v4
