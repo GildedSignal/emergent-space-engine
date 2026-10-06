@@ -239,16 +239,23 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
     let t_now = u.now;
     let rec = u.rec(p);
     // A lost player (a wreck) stays where it was lost, its readings frozen at its last state: the universe goes on.
-    let t_read = if rec.alive { t_now } else { rec.b.event_time };
-    let (xo, vo) = root_state(&ctx, p, t_read).ok()?;
+    // A ship the engine could not carry on (refused kicks, possibly still "alive") is read at its last state when its tube or
+    // partial step cannot be read at the presented tick (the motion law v2 refuses a read far past its last boundary).
+    let mut t_read = if rec.alive { t_now } else { rec.b.event_time };
+    let (xo, vo) = match root_state(&ctx, p, t_read) {
+        Ok(x) => x,
+        Err(_) => {
+            t_read = rec.b.event_time;
+            root_state(&ctx, p, t_read).or_else(|_| crate::observe::root_state_raw(&ctx, p, t_read)).ok()?
+        }
+    };
     // The keys held since the last flush: the turn and the burn owed, as a flush at this tick would write them.
     let owed = if rec.alive { crate::observe::held_thrust(&ctx, &rec, t_now).ok().flatten() } else { None };
     let dv = owed.map_or([0.0, 0.0], |o| o.1);
     let vo = [vo[0] + dv[0], vo[1] + dv[1]];
     let (rate_obs, doll_rate, doll_beta) = match clocks_with(&ctx, p, t_read, dv) {
         Ok(c) => (c.root, c.doll, c.doll_velocity),
-        Err(_) if !rec.alive => (1.0, 1.0, [0.0, 0.0]),
-        Err(_) => return None,
+        Err(_) => (1.0, 1.0, [0.0, 0.0]),
     };
     let heading = owed.map(|o| o.0).or(rec.thrust.map(|t| t.heading)).unwrap_or(0);
     let h = heading as f64 / 4294967296.0 * std::f64::consts::TAU;
