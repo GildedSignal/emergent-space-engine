@@ -1,0 +1,38 @@
+== P1: instrument control (quadrature dphi vs exact Darwin elliptic form) ==
+   dphi_exact = 4 K(k) / sqrt(2 (u3-u1)),  k^2 = (u2-u1)/(u3-u1)
+  p=   20 e=0.100  quad=7.510130235402 closed=7.510130235402 rel=8.28e-16
+  p=   50 e=0.100  quad=6.697923990157 closed=6.697923990157 rel=3.98e-16
+  p=   20 e=0.500  quad=7.517047113445 closed=7.517047113445 rel=0.00e+00
+  p=   50 e=0.500  quad=6.698546911622 closed=6.698546911622 rel=1.33e-16
+  p=   20 e=0.900  quad=7.533332365449 closed=7.533332365448 rel=4.72e-16
+  p=   50 e=0.900  quad=6.700001710495 closed=6.700001710495 rel=3.98e-16
+  p=   20 e=0.995  quad=7.538611622282 closed=7.538611622282 rel=1.18e-16
+  p=   50 e=0.995  quad=6.700469781090 closed=6.700469781090 rel=0.00e+00
+  worst rel = 8.28e-16  -> OK (<1e-12)
+  (first run VOIDED: the control had used the precession 2*pi*(1/kappa-1),
+   not the total advance 2*pi/kappa that the quadrature computes)
+
+== C = |f_LL L^2 / 2f| at anchors (P3/P4 input) ==
+  e0=0.5: C(dphi)=1.88  C(dt)=0.103
+  e0=0.995: C(dphi)=2.03  C(dt)=0.000187
+
+== P2/P3/P4/P5: floor crossings (floor=1e-6, N=10^4 cycles) ==
+  p0     e0      eps mode |  n*(dphi)    n*(dt) | err@end dphi   err@end dt | frozen n*(dphi)   frozen n*(dt)
+  20  0.500  1.0e-06  sys |       730      3134 |    1.848e-04    1.002e-05 |               2              30
+  20  0.500  1.0e-06 rand |      None      None |    1.032e-08    5.631e-10 |               2             668
+  20  0.500  1.0e-06    E |      None       755 |    1.189e-07    1.751e-04 |              61               1
+  20  0.500  1.0e-04  sys |         8        32 |    2.119e-02    1.097e-03 |               1               1
+  20  0.500  1.0e-04 rand |        56       674 |    1.059e-04    5.802e-06 |               1               1
+  20  0.500  1.0e-04    E |       290         8 |    1.279e-03    1.000e+00 |               1               1
+  20  0.995  1.0e-06  sys |       702      None |    1.994e-04    1.832e-08 |               2            None
+  20  0.995  1.0e-06 rand |      None      None |    1.116e-08    3.080e-12 |               2            None
+  20  0.995  1.0e-06    E |      None       731 |    4.534e-11    1.867e-04 |            4422               1
+  20  0.995  1.0e-04  sys |         8       793 |    1.038e+00    8.485e-05 |               1             173
+  20  0.995  1.0e-04 rand |        56      None |    1.146e-04    1.102e-08 |               1            None
+  20  0.995  1.0e-04    E |      None         8 |    2.289e-07    1.000e+00 |              45               1
+
+== P6: implied re-anchor cost (38 crossings per n* kicks) ==
+  e0=0.5, eps=1e-06: n*=730, re-anchor cost ~ 38/730 = 0.0521 crossings per kick
+  e0=0.5, eps=1e-04: n*=8, re-anchor cost ~ 38/8 = 4.75 crossings per kick
+  e0=0.995, eps=1e-06: n*=702, re-anchor cost ~ 38/702 = 0.0541 crossings per kick
+  e0=0.995, eps=1e-04: n*=8, re-anchor cost ~ 38/8 = 4.75 crossings per kick
