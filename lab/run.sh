@@ -81,11 +81,11 @@ P
   } > "$out/checker-prompt.md"
   phase checker "$((min / 2))" checker-patch.diff
 
-  grade=$(head -1 "$out/check.md" 2>/dev/null || echo "Grade: missing")
+  grade=$(grep -m1 "^Grade: " "$out/check.md" 2>/dev/null || echo "Grade: missing")   # wherever the checker put it
   if [ "$grade" = "Grade: gold" ]; then  # gold needs a second, blind checker (arch-v3: precision = found by two)
     sed "s#Write \$out/check.md#Write $out/check2.md; do not read check.md#; s#Write $out/check.md#Write $out/check2.md; do not read check.md#" "$out/checker-prompt.md" > "$out/checker2-prompt.md"
     phase checker2 "$((min / 2))"
-    [ "$(head -1 "$out/check2.md" 2>/dev/null)" = "Grade: gold" ] || grade="Grade: silver (second checker disagreed)"
+    [ "$(grep -m1 "^Grade: " "$out/check2.md" 2>/dev/null)" = "Grade: gold" ] || grade="Grade: silver (second checker disagreed)"
   fi
   finish "$grade" ;;
 _rung)  # a directed rung: the frozen file is the question; verdict.py decides, never a grade
