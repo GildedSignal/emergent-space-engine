@@ -385,7 +385,7 @@ impl Work<'_, '_> {
         let q = |s: Scalar| -> Res<i64> { i64::try_from(s.fixed(-ve)?).map_err(|_| Error::Refused("kick outside the word")) };
         // (A kick that does not fit the word's quanta leaves no ramp: the rebinding stands either way.)
         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
-            self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b] };
+            self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
         }
         Ok(())
     }
@@ -567,6 +567,8 @@ impl Work<'_, '_> {
         self.rec.anchor = t;
         self.rec.interval = 2 * half;
         self.rec.step = 2 * half;
+        // The synchronised state a reader's partial step starts from, until the first kick: this one.
+        self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
         insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
         Ok(())
     }
@@ -597,26 +599,18 @@ impl Work<'_, '_> {
         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
         let dv = scale2(f.accel, w)?;
         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
-        // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
-        let (next, carry, added) = if thrusting {
+        let (next, carry) = if thrusting {
             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
             let v2 = self.burn(x, add2(v, dv)?, t)?;
-            (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry, dv)
+            (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
         } else {
             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
             ext.add_pt(w.mul(f.rate)?)?;
-            let added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
-            (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry, added)
+            (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
         };
         let fired = next.velocity != st.velocity;
         if fired {
             self.rebind(next, t, d)?;
-            // The kick the binding is, for a reader between kicks (docs/law.md, "A body's state between kicks").
-            let ve = self.rec.b.units.1 as i32;
-            let q = |s: Scalar| -> Res<i64> { i64::try_from(s.fixed(-ve)?).map_err(|_| Error::Refused("kick outside the word")) };
-            if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
-                self.rec.b.kick = Kick { len: 0, level: 0, dv: [a, b] };
-            }
         }
         self.rec.carry = carry;
         self.rec.ext = Some(ext);
@@ -634,7 +628,9 @@ impl Work<'_, '_> {
         }
         self.rec.ext = Some(ext);
         if fired {
-            self.rec.b.kick.len = full;
+            // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
+            // closes had been running.
+            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
         }
         self.rec.interval = full;
         self.rec.step = full;

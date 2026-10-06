@@ -377,14 +377,47 @@ mod tests {
         let (mut worst_step, mut worst_trend, mut kicks, mut judged) = (0.0f64, 0.0f64, 0usize, 0);
         for (n, k) in handoff::kept().iter().filter(|k| k.closest >= scene.planet_radius).enumerate() {
             let r = j_run(k.ship, 6, 200.0, false);
-            let g = j_run(k.ship, 6, 200.0, true);
             println!(
-                "ship {n}: {} kicks, alive {}; L = x × v: per kick {:.3e} quanta (across the kick {:.1}, over its work {:.1e}; along the drift {:.3e}), trend {:.2e}, reach {:.2e}; L of the geodesic: per kick {:.3e} (across the kick {:.3e}, along the drift {:.3e})",
-                r.kicks, r.alive, r.per_kick, r.across_kick, r.across_kick_over_work, r.along_drift, r.trend, r.reach, g.per_kick, g.across_kick, g.along_drift
+                "ship {n}: {} kicks, alive {}; L = x × v: per kick {:.3e} quanta (across the kick {:.1}, over its work {:.1e}; along the drift {:.3e}), trend {:.2e}, reach {:.2e}",
+                r.kicks, r.alive, r.per_kick, r.across_kick, r.across_kick_over_work, r.along_drift, r.trend, r.reach
             );
             (worst_step, worst_trend, kicks, judged) = (worst_step.max(r.per_kick), worst_trend.max(r.trend), kicks + r.kicks, judged + 1);
         }
         println!("{judged} ships, {kicks} kicks, {:.1} s: worst |ΔJ| per kick {worst_step:.3e} quanta, worst trend {worst_trend:.3e} quanta", wall.elapsed().as_secs_f64());
+        assert!(judged >= 14);
+        assert!(worst_step <= 2.0, "|ΔJ| per kick reaches {worst_step:.3e} quanta (limit 2)");
+        assert!(worst_trend <= 2.0, "J trends by {worst_trend:.3e} quanta (limit 2)");
+    }
+
+    /// **P3', the adjudicated statement of P3** (the integrator, 6 October: P3 as frozen used the memo's Kepler `H_D`, but the plane's
+    /// drift is the GR geodesic, so `J` must use the tube's own invariant `L`, the geodesic's, not `x × v`; a defect in the probe's
+    /// statement, not a loosening). Everything else as in P3: B12's frozen ships, 200 planet periods at 2^-6, `J = p_t + Ω·L` after
+    /// every kick, killed by `|ΔJ|` above 2 quanta of the register between consecutive kicks or a trend of more than 2.
+    ///
+    /// **It fails, and the residual is kept, not patched** (first run, 6 October; 16 ships, 402,043 kicks). Along the drift `J` moves by
+    /// 3.6e3 to 1.4e5 quanta (1e-11 of `ΩL`): the readout of a tube is `turn·decode + offset`, the offset carries what the Q48 key's fit
+    /// discarded, and `L` of that state is the tube's `L` only to the fit. Across a kick `J` moves by 5.8e5 to 2e8 quanta, because
+    /// the register is still the Kepler energy while `L` is the geodesic's: the kick's mismatch is 1e-5 of `Ω|x × Δv|`
+    /// (against 1e-9 for `L = x × v` and the Kepler register), post-Newtonian terms of the kick that I did not isolate. Whether the rebinding's remainder should make `J` exact
+    /// (and the register the geodesic's `E − 1`) is the compiler's exactness question (Astra, after 9 October).
+    #[test]
+    #[ignore = "probe P3' fails (6 October): with the geodesic's L, J moves by 3.6e3-1.4e5 quanta along the drift (the Q48 key's fit) and 5.8e5-2e8 across a kick (a Kepler register against a geodesic L); the compiler's exactness question"]
+    fn p3_prime_the_register_and_the_geodesics_angular_momentum_move_together() {
+        use super::super::handoff;
+        let scene = JUPITER;
+        let wall = std::time::Instant::now();
+        let (mut worst_step, mut worst_trend, mut kicks, mut judged) = (0.0f64, 0.0f64, 0usize, 0);
+        let (mut worst_across, mut worst_along) = (0.0f64, 0.0f64);
+        for (n, k) in handoff::kept().iter().filter(|k| k.closest >= scene.planet_radius).enumerate() {
+            let g = j_run(k.ship, 6, 200.0, true);
+            println!(
+                "ship {n}: {} kicks, alive {}; L of the geodesic: per kick {:.3e} quanta (across the kick {:.3e}, along the drift {:.3e}), trend {:.2e}, reach {:.2e}",
+                g.kicks, g.alive, g.per_kick, g.across_kick, g.along_drift, g.trend, g.reach
+            );
+            (worst_step, worst_trend, kicks, judged) = (worst_step.max(g.per_kick), worst_trend.max(g.trend), kicks + g.kicks, judged + 1);
+            (worst_across, worst_along) = (worst_across.max(g.across_kick), worst_along.max(g.along_drift));
+        }
+        println!("{judged} ships, {kicks} kicks, {:.1} s: worst |ΔJ| per kick {worst_step:.3e} quanta (across a kick {worst_across:.3e}, along a drift {worst_along:.3e}), worst trend {worst_trend:.3e}", wall.elapsed().as_secs_f64());
         assert!(judged >= 14);
         assert!(worst_step <= 2.0, "|ΔJ| per kick reaches {worst_step:.3e} quanta (limit 2)");
         assert!(worst_trend <= 2.0, "J trends by {worst_trend:.3e} quanta (limit 2)");
@@ -412,7 +445,7 @@ mod tests {
         use super::super::assist::{self, Flyby};
         let step: i32 = std::env::var("B13_STEP").ok().and_then(|v| v.parse().ok()).unwrap_or(8);
         let scene = JUPITER;
-        let (mut taken, mut ok) = (0, 0);
+        let (mut taken, mut ok, mut refused_draws) = (0, 0, Vec::new());
         for (i, (q, v_inf, psi)) in super::super::sample::flybys(assist::DRAWS).into_iter().enumerate() {
             if taken == assist::SEEDS {
                 break;
@@ -440,11 +473,15 @@ mod tests {
             };
             if ee <= 1e-2 && el <= 1e-2 {
                 ok += 1;
-            } else {
+            }
+            if u.stats.refused > 0 {
+                refused_draws.push(format!("#{i} ({} refused{})", u.stats.refused, if ee <= 1e-2 && el <= 1e-2 { "" } else { ", fails" }));
+            }
+            if !(ee <= 1e-2 && el <= 1e-2) {
                 println!("draw {i}: q {q:.2} R_p, v_inf {:.1} km/s: dE err {ee:.2e}, dL err {el:.2e}; alive {alive}, kicks {} refused {} lost {}, closest in the reference {:.2} R_p; fault {:?}", v_inf / 3.34e-6, u.stats.kicks, u.stats.refused, u.stats.lost, closest / scene.planet_radius, u.rec(id).fault);
             }
         }
-        println!("step {step}: {ok}/{taken} within 1%");
+        println!("step {step}: {ok}/{taken} within 1%; draws with refused kicks (a heliocentric state with no tube): {}", if refused_draws.is_empty() { "none".to_string() } else { refused_draws.join(", ") });
     }
 
     /// Diagnostic: the first refused kicks of one B13 draw (`B13_DRAW`, `B13_STEP`), with the heliocentric state the kick refused.

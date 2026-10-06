@@ -78,9 +78,15 @@ pub struct Kick {
     pub level: u8,
     /// The velocity the kick added, in quanta of the binding's velocity exponent.
     pub dv: [i64; 2],
+    /// The motion law v2's kick or start ([`crate::ext`]): `len` is the physical length of the step it planned, `boundary` the tick
+    /// of the synchronised state the next step starts from, `lead` how long before this binding's tick the step it closes started.
+    /// A reader between kicks reads the partial step ([`crate::observe`]) and not the ramp.
+    pub clock: bool,
+    pub boundary: i64,
+    pub lead: i64,
 }
 impl Kick {
-    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2] };
+    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2], clock: false, boundary: 0, lead: 0 };
 }
 
 /// Everything needed to read one body's state at any time after its binding event.

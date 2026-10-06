@@ -2,13 +2,16 @@
 //! not an outcome), and every read goes through the bodies' histories at the asked tick.
 //!
 //! **A body's state between kicks** (docs/law.md): the split's state exists at a body's step boundaries; between them
-//! a reader completes the tube by a ramp ([`credit`]), so what it reads is second order in the step (the raw tube alone
-//! carries a pending half kick and is first order). [`root_state`], [`chain`] and [`state_rate`] all read through
-//! [`ramped`]; [`root_state_raw`] is the tube alone, for the scheduler's deadlines, which are never an outcome.
+//! a reader completes the tube, so what it reads is second order in the step (the raw tube alone carries a pending half
+//! kick and is first order). A body of the motion law v2 ([`crate::ext`]) is read through the **partial step** ([`partial`]):
+//! the map run from the last boundary for just the time read; the others through a ramp ([`credit`]). [`root_state`],
+//! [`chain`] and [`state_rate`] all read through [`ramped`]; [`root_state_raw`] is the tube alone, for the scheduler's
+//! deadlines, which are never an outcome.
 use crate::bind::{Binding, Kick};
 use crate::body::{BodyRec, BodyStore};
+use crate::force;
 use crate::ctx::Ctx;
-use crate::num::{add2, to_f64, Res, Tick, V2};
+use crate::num::{add2, scale2, time_of, to_f64, Res, Tick, V2};
 use crate::{step, thrust};
 use emergent_space::orbit::Scalar;
 
@@ -97,17 +100,72 @@ pub fn credit(bodies: &dyn BodyStore, i: usize, t: Tick, b: &Binding) -> Res<(V2
     Ok((dx, dv))
 }
 
-/// Body `i`'s binding at `t` and its state there, completed by the ramp ([`credit`]), in the units of its doll.
-pub fn ramped(bodies: &dyn BodyStore, i: usize, t: Tick) -> Res<(Binding, V2, V2)> {
-    let b = bodies.binding_at(i, t).ok_or(crate::num::Error::Refused("history pruned"))?;
-    let (p, v) = ramped_in(bodies, i, t, &b)?;
+/// **The partial step** (the Opus motion memo, §2.7; the motion law v2): the state a reader sees at `t`, between the step's
+/// boundaries, is the map run from the last boundary for the physical time read, `Φ_σ = D(σ/2)·Kc(σ)·D(σ/2)` with `σ` solving
+/// `t(σ) = t_read`: a pure function of the body's history and of the sources' tubes, second order like the map.
+///
+/// With `τ = t − B` the time since the boundary `B` (a synchronised state: the tube read there, bit for bit), the step's kick has
+/// the weight `w = τ·f'(U_P + c)/f'(H_D + p_t + c)`, and `H_D + p_t = U_P` on the constraint the map keeps (to its own second
+/// order), so `w = τ`: the half drift to `B + τ/2`, the kick `τ·∇U_P` there (one evaluation of the sources, at that tick), the
+/// half drift to `t`. The drifts are the tube; the kick is the velocity `Δv = τ·a` it adds and, `τ/2` later, the position
+/// `Δx = Δv·τ/2` (the tube's own response to `Δv` over `τ/2` is a tide's order smaller). At `τ = 0` it is the boundary's state.
+///
+/// The tube is the binding that was current at `B` (the history one back for a reader before the binding's own kick, which the
+/// partial step replaces), run on past its own end. A binding that is not a clock's (a creation, a handoff, a flush) keeps the
+/// tube alone. Where the step cannot be read (history pruned, a tube that ends, a kick that never fired) the tube alone is read.
+fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+    let raw = || b.cartesian(t);
+    let k = b.kick;
+    if !k.clock {
+        return raw();
+    }
+    let held;
+    let (base, start) = if t >= k.boundary {
+        (b, k.boundary)
+    } else {
+        // before this binding's own kick the step that it closes was running: from `event_time − lead` on the tube before it
+        if k.lead <= 0 {
+            return raw();
+        }
+        match ctx.bodies.binding_at(i, b.event_time - 1) {
+            Some(prev) => {
+                held = prev;
+                (&held, b.event_time - k.lead)
+            }
+            None => return raw(),
+        }
+    };
+    let tau = t - start;
+    if tau <= 0 || tau > 2 * k.len.max(1) {
+        return base.cartesian(t).or_else(|_| raw());
+    }
+    let step = || -> Res<(V2, V2)> {
+        let mid = start + tau / 2;
+        let (x_mid, _) = base.cartesian(mid)?;
+        let field = force::field(&ctx.secondaries(base.doll, mid, i)?, x_mid)?;
+        let tau_s = time_of(tau, base.clock_exp)?;
+        let dv = scale2(field.accel, tau_s)?;
+        let dx = scale2(dv, tau_s.scale(-1)?)?;
+        let (p, v) = base.cartesian(t)?;
+        Ok((add2(p, dx)?, add2(v, dv)?))
+    };
+    step().or_else(|_| raw())
+}
+
+/// Body `i`'s binding at `t` and its state there, completed between kicks ([`partial`], or the ramp [`credit`]), in the units of its doll.
+pub fn ramped(ctx: &Ctx, i: usize, t: Tick) -> Res<(Binding, V2, V2)> {
+    let b = ctx.bodies.binding_at(i, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+    let (p, v) = ramped_in(ctx, i, t, &b)?;
     Ok((b, p, v))
 }
 
 /// [`ramped`] for a binding already in hand (`b` is the one body `i` has at `t`).
-pub fn ramped_in(bodies: &dyn BodyStore, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+pub fn ramped_in(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+    if b.kick.clock {
+        return partial(ctx, i, t, b);
+    }
     let (p, v) = b.cartesian(t)?;
-    let (dx, dv) = credit(bodies, i, t, b)?;
+    let (dx, dv) = credit(ctx.bodies, i, t, b)?;
     Ok((add2(p, dx)?, add2(v, dv)?))
 }
 
@@ -126,7 +184,7 @@ pub fn root_state_raw(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2])>
 
 fn root_state_with(ctx: &Ctx, i: usize, t: Tick, ramp: bool) -> Res<([f64; 2], [f64; 2])> {
     let (b, p, v) = if ramp {
-        ramped(ctx.bodies, i, t)?
+        ramped(ctx, i, t)?
     } else {
         let b = ctx.bodies.binding_at(i, t).ok_or(crate::num::Error::Refused("history pruned"))?;
         let (p, v) = b.cartesian(t)?;
@@ -145,7 +203,7 @@ fn root_state_with(ctx: &Ctx, i: usize, t: Tick, ramp: bool) -> Res<([f64; 2], [
 
 /// The chain of (doll, state in that doll) from the body up to the root, for the clock rate.
 pub fn chain(ctx: &Ctx, i: usize, t: Tick) -> Res<Vec<(u16, [f64; 2], [f64; 2])>> {
-    let (b, p, v) = ramped(ctx.bodies, i, t)?;
+    let (b, p, v) = ramped(ctx, i, t)?;
     let mut out = vec![(b.doll, [to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])])];
     if let Some(c) = ctx.dolls[b.doll as usize].centre {
         out.extend(chain(ctx, c, t)?);
@@ -206,7 +264,7 @@ pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)
     let (mut pos, mut vel, mut rate) = ([0.0f64; 2], [0.0f64; 2], 1.0f64);
     let (mut cur, mut below) = (i, None::<[f64; 2]>);
     loop {
-        let (b, p, v) = ramped(ctx.bodies, cur, t)?;
+        let (b, p, v) = ramped(ctx, cur, t)?;
         let (p, v) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
         let doll = &ctx.dolls[b.doll as usize];
         let k = 2f64.powi(-(doll.shift as i32));
