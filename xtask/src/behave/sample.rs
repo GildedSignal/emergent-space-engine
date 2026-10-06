@@ -121,10 +121,18 @@ pub fn handoffs(n: usize) -> Vec<(f64, f64, f64)> {
 }
 
 /// The 16 handoff candidates the search of `handoff::search` keeps (indices into `handoffs`), frozen
-/// before the first gate run on a law: candidates 0 to 46 were drawn (47), and 2 of them crossed
-/// R_SOI 20 times but had a reference that was not converged. The search is chaotic, so it can be
-/// re-run only on the same arithmetic; the ignored test in `handoff.rs` re-derives this list.
-pub const HANDOFF_KEPT: [usize; 16] = [1, 2, 12, 14, 15, 19, 22, 23, 25, 30, 31, 32, 35, 39, 45, 46];
+/// before the first gate run on a law (re-frozen on 6 October for the oracle's domain, below): candidates
+/// 0 to 159 were drawn (160), 44 that crossed R_SOI 20 times were replaced (`HANDOFF_INSIDE`), and none of
+/// the rest had a reference that was not converged. The search is chaotic,
+/// so it can be re-run only on the same arithmetic; the ignored test in `handoff.rs` re-derives this list.
+pub const HANDOFF_KEPT: [usize; 16] = [32, 39, 53, 57, 70, 72, 78, 83, 85, 88, 101, 106, 138, 142, 148, 159];
+
+/// The candidates the search replaced because the judge's reference passes within the planet's radius of
+/// its centre (oracle domain, 5 October, adjudicated: a point-mass reference there tests nothing a law
+/// with a surface can do), each with its closest approach in planet radii, the smaller of the two
+/// tolerances' runs (a chaotic ship's closest approach is not converged: one candidate reads 0.03, 7.9
+/// and 0.07 radii at tolerances 1e-12, 1e-13 and 1e-11). Frozen with `HANDOFF_KEPT`.
+pub const HANDOFF_INSIDE: &[(usize, f64)] = &[(1, 0.91), (2, 0.20), (7, 0.38), (12, 0.03), (14, 0.55), (15, 0.36), (19, 0.56), (22, 0.90), (23, 0.67), (25, 0.60), (30, 0.33), (31, 0.06), (35, 0.25), (44, 0.21), (45, 0.14), (46, 0.01), (49, 0.10), (52, 0.88), (54, 0.28), (56, 0.25), (60, 0.05), (62, 0.13), (65, 0.24), (68, 0.16), (69, 0.40), (79, 0.12), (91, 0.02), (92, 0.70), (93, 0.10), (98, 0.20), (103, 0.32), (110, 0.07), (111, 0.05), (112, 0.35), (118, 0.39), (134, 0.43), (137, 0.89), (140, 0.64), (143, 0.07), (147, 0.85), (150, 0.01), (151, 0.04), (154, 0.12), (158, 0.18)];
 
 /// `n` flybys (q, v∞, ψ): periapsis q log-uniform in [1.2, 50] planet radii, v∞ uniform in
 /// [1.67e-5, 6.7e-5] (5 to 20 km/s in units of c), the asymptote's direction ψ uniform in [0, 2π).

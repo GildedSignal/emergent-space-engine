@@ -87,6 +87,9 @@ pub enum Fault {
     /// B12: the reference's own Jacobi drift, from Dormand-Prince at tolerance 1e-12 with nothing
     /// holding the constant.
     Drift,
+    /// B13: a surface 50% too wide: a ship whose path passes within 1.5 planet radii of the planet's centre is
+    /// destroyed (no answer), though the reference passes above the real surface (the oracle's domain begins at 1.0).
+    Swollen,
     /// B9: bands spaced a sixteenth of the periapsis radius apart in r (linear, not logarithmic): the
     /// count grows with r_apo/r_peri instead of its logarithm. The old gate's median over e < 0.7 passes it.
     Linear,
@@ -197,6 +200,11 @@ impl Law for Planted {
             Fault::Kick => restricted::integrate(scene, Model::Kick(1.0 + KICK), RTOL, ship, times),
             Fault::NoTide => restricted::integrate(scene, Model::NoTide, RTOL, ship, times),
             Fault::Drift => restricted::reference(scene, ship, times, RTOL),
+            Fault::Swollen => {
+                let mut it = restricted::Integrator::new(scene, Model::Full, RTOL, ship).conserving().tracking();
+                let states = times.iter().map(|&t| it.advance(t)).collect::<Option<Vec<_>>>();
+                states.filter(|_| it.closest() >= SWOLLEN * scene.planet_radius)
+            }
             Fault::Apsides => Echo.restricted(scene, ship, times).map(|states| skew_apsides(scene, ship, times, states)),
             Fault::Averaged if scene.sep == resonance::SEP => resonance::averaged(scene, ship, times),
             _ => Echo.restricted(scene, ship, times),
@@ -336,6 +344,8 @@ impl Law for IidBlocks {
 }
 /// The planted kick: the planetocentric velocity grows by this, relative, at each entry into R_SOI.
 const KICK: f64 = 1e-3;
+/// The surface of `Fault::Swollen`, in planet radii.
+const SWOLLEN: f64 = 1.5;
 /// The planted apsides: a bound moon's periapsis longitude advances by this much more, relative.
 const APSIDES_SKEW: f64 = 0.2;
 
@@ -373,6 +383,7 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
         "planted-kick" => Box::new(Planted(Fault::Kick)),
         "planted-notide" => Box::new(Planted(Fault::NoTide)),
         "planted-drift" => Box::new(Planted(Fault::Drift)),
+        "planted-swollen" => Box::new(Planted(Fault::Swollen)),
         "planted-linear" => Box::new(Planted(Fault::Linear)),
         "planted-apsides" => Box::new(Planted(Fault::Apsides)),
         "planted-static" => Box::new(Planted(Fault::Static)),

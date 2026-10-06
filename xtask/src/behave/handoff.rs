@@ -11,6 +11,14 @@
 //!   constant at the law's samples agrees between the tolerances 1e-12 and 1e-13 to 1e-9 relative.
 //!   Candidates are drawn in order until 16 are kept or 256 are tried; fewer than 16 fail the gate.
 //!   Ships that cross enough but are not converged are excluded and counted.
+//! - Oracle domain (5 October, adjudicated): the reference is a point mass, so a candidate whose
+//!   reference passes within the planet's radius of its centre (closest approach over the 200
+//!   periods, tracked to the periapsis itself) tests nothing a law with a surface can do. Like an
+//!   unconverged one it is excluded and replaced by the next candidate, so 16 are still kept; the
+//!   replaced candidates are frozen in `sample::HANDOFF_INSIDE` and named, with their closest
+//!   approach (the smaller of the two tolerances' runs; a chaotic ship's closest approach is not
+//!   converged), in the detail line. A frozen ship whose reference now passes inside the planet
+//!   (chaos moves with the last bit) is excluded like an unconverged one and counts toward the 10%.
 //! - Frozen: the search is deterministic but chaotic, so its answer moves with the last bit of
 //!   the arithmetic (one ship in 40 of a rerun changes). The 16 kept candidates are therefore
 //!   frozen in `sample::HANDOFF_KEPT`, found by [`search`] (the ignored test re-derives them), and
@@ -24,7 +32,7 @@
 //!   ships that rise above the floor. If none does, the median ship has no growth.
 //! - PASS iff the median exponent among the ships above the floor is at most 0.2 and every ship's
 //!   largest err is at most 1e-4.
-use super::restricted::{self, Integrator, Model, Restricted, JUPITER, RTOL, RTOL_FINE};
+use super::restricted::{Integrator, Model, Restricted, JUPITER, RTOL, RTOL_FINE};
 use super::{fit, sample, Gate, Law, GROWTH_MAX};
 use std::sync::OnceLock;
 
@@ -58,17 +66,33 @@ pub fn coarse_times(scene: &Restricted) -> Vec<f64> {
 }
 
 /// A frozen ship as this run's reference sees it: its state, how often the reference crossed
-/// R_SOI, and whether the reference is converged on it.
+/// R_SOI, whether the reference is converged on it, and its closest approach to the planet's centre.
 pub struct Kept {
     pub ship: [f64; 4],
     pub crossings: usize,
     pub converged: bool,
+    pub closest: f64,
+}
+
+impl Kept {
+    /// Whether the ship is in the oracle's domain and its reference is converged: judged.
+    fn judged(&self, scene: &Restricted) -> bool {
+        self.converged && self.closest >= scene.planet_radius
+    }
+}
+
+/// What the reference makes of a candidate ship.
+struct Assessed {
+    crossings: usize,
+    converged: bool,
+    closest: f64,
 }
 
 /// The judge's reference on `ship` to tolerance `rtol`: the crossings of R_SOI counted at the fine
-/// samples, and the Jacobi constant at the coarse ones. None: the integration gave up.
-fn watch(scene: &Restricted, ship: [f64; 4], rtol: f64) -> Option<(usize, Vec<f64>)> {
-    let mut it = Integrator::new(scene, Model::Full, rtol, ship);
+/// samples, the Jacobi constant at the coarse ones, and the closest approach to the planet's centre.
+/// None: the integration gave up.
+fn watch(scene: &Restricted, ship: [f64; 4], rtol: f64) -> Option<(usize, Vec<f64>, f64)> {
+    let mut it = Integrator::new(scene, Model::Full, rtol, ship).tracking();
     let (mut inside, mut crossings, mut jacobi) = (None, 0, Vec::new());
     for j in 0..=PERIODS * FINE {
         let t = j as f64 * scene.period() / FINE as f64;
@@ -80,37 +104,45 @@ fn watch(scene: &Restricted, ship: [f64; 4], rtol: f64) -> Option<(usize, Vec<f6
             jacobi.push(scene.jacobi(t, &state));
         }
     }
-    Some((crossings, jacobi))
+    Some((crossings, jacobi, it.closest()))
 }
 
-/// The reference's crossings of R_SOI on `ship`, and whether it is converged (None: it gave up).
-fn assess(scene: &Restricted, ship: [f64; 4]) -> Option<(usize, bool)> {
+/// The reference's crossings of R_SOI and closest approach on `ship`, and whether it is converged (None: it gave up).
+fn assess(scene: &Restricted, ship: [f64; 4]) -> Option<Assessed> {
     let times = coarse_times(scene);
-    let (crossings, reference) = watch(scene, ship, RTOL)?;
+    let (crossings, reference, closest) = watch(scene, ship, RTOL)?;
     let c0 = scene.jacobi(0.0, &ship);
-    let finer = restricted::reference(scene, ship, &times, RTOL_FINE);
-    Some((crossings, finer.is_some_and(|f| f.iter().zip(&times).zip(&reference).all(|((s, &t), &c)| ((scene.jacobi(t, s) - c) / c0).abs() <= CONVERGED))))
+    let mut fine = Integrator::new(scene, Model::Full, RTOL_FINE, ship).tracking();
+    let finer = times.iter().map(|&t| fine.advance(t)).collect::<Option<Vec<_>>>();
+    let converged = finer.is_some_and(|f| f.iter().zip(&times).zip(&reference).all(|((s, &t), &c)| ((scene.jacobi(t, s) - c) / c0).abs() <= CONVERGED));
+    // A chaotic ship's closest approach is not converged (one candidate passes at 0.03, 7.9 and 0.07 planet
+    // radii at tolerances 1e-12, 1e-13 and 1e-11), so the reference is outside the planet only if both runs are.
+    Some(Assessed { crossings, converged, closest: closest.min(fine.closest()) })
 }
 
-/// The search of the contract, run once to freeze `sample::HANDOFF_KEPT` (only the ignored test runs it): the indices of the
-/// first 16 candidates that cross R_SOI at least 20 times with a converged reference, how many
-/// candidates it drew, and how many crossed enough but were not converged (excluded).
+/// The search of the contract, run once to freeze `sample::HANDOFF_KEPT` and `HANDOFF_INSIDE` (only the
+/// ignored test runs it): the indices of the first 16 candidates that cross R_SOI at least 20 times
+/// with a converged reference outside the planet; how many candidates it drew; how many crossed
+/// enough but were not converged (excluded); and the indices of those that crossed enough but whose
+/// reference passes within the planet's radius (out of the oracle's domain, replaced), each with its
+/// closest approach in planet radii (the smaller of the two tolerances' runs).
 #[cfg(test)]
-pub fn search() -> (Vec<usize>, usize, usize) {
+pub fn search() -> (Vec<usize>, usize, usize, Vec<(usize, f64)>) {
     let scene = JUPITER;
-    let (mut kept, mut tried, mut excluded) = (Vec::new(), 0, 0);
+    let (mut kept, mut tried, mut excluded, mut inside) = (Vec::new(), 0, 0, Vec::new());
     for (i, (side, k, alpha)) in sample::handoffs(CANDIDATES).into_iter().enumerate() {
         if kept.len() == KEEP {
             break;
         }
         tried += 1;
         match assess(&scene, ship(&scene, side, k, alpha)) {
-            Some((c, true)) if c >= CROSSINGS_MIN => kept.push(i),
-            Some((c, false)) if c >= CROSSINGS_MIN => excluded += 1,
+            Some(a) if a.crossings >= CROSSINGS_MIN && a.closest < scene.planet_radius => inside.push((i, a.closest / scene.planet_radius)),
+            Some(a) if a.crossings >= CROSSINGS_MIN && a.converged => kept.push(i),
+            Some(a) if a.crossings >= CROSSINGS_MIN => excluded += 1,
             _ => {}
         }
     }
-    (kept, tried, excluded)
+    (kept, tried, excluded, inside)
 }
 
 /// The frozen ships, each assessed by this run's reference. None of this depends on the law, so
@@ -124,8 +156,8 @@ pub fn kept() -> &'static Vec<Kept> {
             .iter()
             .map(|&i| {
                 let ship = ship(&scene, draws[i].0, draws[i].1, draws[i].2);
-                let (crossings, converged) = assess(&scene, ship).unwrap_or((0, false));
-                Kept { ship, crossings, converged }
+                let a = assess(&scene, ship).unwrap_or(Assessed { crossings: 0, converged: false, closest: 0.0 });
+                Kept { ship, crossings: a.crossings, converged: a.converged, closest: a.closest }
             })
             .collect()
     })
@@ -157,7 +189,7 @@ pub fn b12(law: &dyn Law) -> Gate {
     let kept = kept();
     let times = coarse_times(&scene);
     let (mut converged, mut rising, mut worst_err) = (0, Vec::new(), 0.0f64);
-    for k in kept.iter().filter(|k| k.converged) {
+    for k in kept.iter().filter(|k| k.judged(&scene)) {
         let err = err_series(&scene, law, k.ship, &times);
         let top = err.iter().fold(0.0f64, |m, e| if m.is_nan() || e.is_nan() { f64::NAN } else { m.max(*e) });
         converged += 1;
@@ -168,15 +200,19 @@ pub fn b12(law: &dyn Law) -> Gate {
         }
     }
     let excluded = kept.len() - converged;
+    let (unconverged, inside_now) = (kept.iter().filter(|k| !k.converged).count(), kept.iter().filter(|k| k.converged && k.closest < scene.planet_radius).count());
     let (median_exp, worst_exp) = (if rising.is_empty() { 0.0 } else { median(rising.clone()) }, if rising.is_empty() { 0.0 } else { rising.iter().fold(f64::NEG_INFINITY, |m: f64, &e| if e.is_nan() { f64::INFINITY } else { m.max(e) }) });
     let pass = kept.len() >= KEEP && excluded as f64 <= EXCLUDED_MAX * kept.len() as f64 && median_exp <= GROWTH_MAX && worst_err <= ERR_MAX;
     let crossings = |f: fn(usize, usize) -> usize| kept.iter().map(|k| k.crossings).reduce(f).unwrap_or(0);
+    let closest = kept.iter().map(|k| k.closest).fold(f64::INFINITY, f64::min) / scene.planet_radius;
+    let replaced = sample::HANDOFF_INSIDE.iter().map(|(i, r)| format!("#{i} {r:.2}")).collect::<Vec<_>>().join(", ");
     let detail = format!(
-        "handoffs: {} frozen ships (this run's reference crosses R_SOI {}..{} times, at least {CROSSINGS_MIN} when frozen), {excluded} not converged; {} of {converged} judged ships rise above the {FLOOR:.0e} floor, median growth exponent among them {median_exp:.3} (limit {GROWTH_MAX}), worst {worst_exp:.3}; worst err {worst_err:.2e} (limit {ERR_MAX:.0e})",
+        "handoffs: {} frozen ships (this run's reference crosses R_SOI {}..{} times, at least {CROSSINGS_MIN} when frozen, and passes no closer than {closest:.2} planet radii), {unconverged} not converged, {inside_now} inside the planet; {} of {converged} judged ships rise above the {FLOOR:.0e} floor, median growth exponent among them {median_exp:.3} (limit {GROWTH_MAX}), worst {worst_exp:.3}; worst err {worst_err:.2e} (limit {ERR_MAX:.0e}); {} candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): {replaced}",
         kept.len(),
         crossings(usize::min),
         crossings(usize::max),
-        rising.len()
+        rising.len(),
+        sample::HANDOFF_INSIDE.len()
     );
     Gate { id: "B12", pass, detail, secs: 0.0 }
 }
@@ -211,15 +247,16 @@ mod tests {
         // The counts move with the last bit of the arithmetic (chaos): all that is asked here is that
         // the ships are still busy, and that the reference is still converged on almost all of them.
         assert!(kept.iter().all(|k| k.crossings >= CROSSINGS_MIN / 2), "{:?}", kept.iter().map(|k| k.crossings).collect::<Vec<_>>());
-        assert!(kept.iter().filter(|k| k.converged).count() * 10 >= 9 * KEEP);
+        assert!(kept.iter().filter(|k| k.judged(&JUPITER)).count() * 10 >= 9 * KEEP);
     }
 
     #[test]
     #[ignore = "re-derives the frozen ships (about 3 s); run it, and update sample::HANDOFF_KEPT, when the reference changes"]
     fn the_frozen_ships_are_what_the_search_finds() {
-        let (found, tried, excluded) = search();
-        println!("HANDOFF_KEPT = {found:?}; {tried} candidates drawn, {excluded} not converged");
+        let (found, tried, excluded, inside) = search();
+        println!("HANDOFF_KEPT = {found:?}; {tried} candidates drawn, {excluded} not converged, HANDOFF_INSIDE = {:?}", inside);
         assert_eq!(found, sample::HANDOFF_KEPT);
+        assert_eq!(inside.iter().map(|x| x.0).collect::<Vec<_>>(), sample::HANDOFF_INSIDE.iter().map(|x| x.0).collect::<Vec<_>>());
     }
 
     #[test]
@@ -227,7 +264,7 @@ mod tests {
         // Float64's own drift is about 1e-10 here: the gate fails such a law on the exponent alone
         // (planted-drift, in the events tests), so the ships must show it, and echo must not.
         let (scene, times) = (JUPITER, coarse_times(&JUPITER));
-        for k in kept().iter().filter(|k| k.converged) {
+        for k in kept().iter().filter(|k| k.judged(&scene)) {
             let raw = err_series(&scene, &Planted(Fault::Drift), k.ship, &times);
             let held = err_series(&scene, &Echo, k.ship, &times);
             assert!(raw.iter().all(|&e| e < 1e-8) && held.iter().all(|&e| e < 1e-13), "raw {:e} held {:e}", raw.iter().cloned().fold(0.0, f64::max), held.iter().cloned().fold(0.0, f64::max));

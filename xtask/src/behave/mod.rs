@@ -14,7 +14,7 @@
 //!
 //! ```text
 //! cargo run --release -p xtask -- behave [--law echo|planted-precession|planted-walk|planted-nocapture|
-//!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|
+//!     planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-swollen|
 //!     planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|
 //!     planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|
 //!     planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|
@@ -299,7 +299,7 @@ pub fn judge_only(law: &dyn Law, watch: Option<&Watch>, only: Option<&[&str]>, m
     out
 }
 
-const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|planted-belt-table20|planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture] [--gates G1,G2,...,B18,B18b,B19] [--plane-step N]";
+const USAGE: &str = "usage: behave [--law echo|space|plane|planted-precession|planted-walk|planted-nocapture|planted-clock|planted-steps|planted-quadratic|planted-newton|planted-kick|planted-notide|planted-drift|planted-swollen|planted-linear|planted-apsides|planted-static|planted-flipped|planted-average|planted-fat|iid-blocks|dyadic-belt|planted-belt-clipped|planted-belt-winsor|planted-belt-repeat|planted-belt-serial|planted-belt-thread|planted-belt-fat|planted-belt-ships|planted-belt-lattice|planted-belt-fatscars|planted-belt-crush|planted-belt-innerclip|planted-belt-aligned|planted-belt-table20|planted-nodrag|planted-isco|planted-penrose|planted-proonly|planted-rcapture] [--gates G1,G2,...,B18,B18b,B19] [--plane-step N]";
 
 pub fn run(args: Vec<String>) -> Result<u8> {
     let cli = select::parse(&args).map_err(|e| format!("{e}; {USAGE}"))?;
@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn every_planted_law_the_usage_names_resolves() {
-        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "iid-blocks", "dyadic-belt", "planted-belt-clipped", "planted-belt-winsor", "planted-belt-repeat", "planted-belt-serial", "planted-belt-thread", "planted-belt-fat", "planted-belt-ships", "planted-belt-lattice", "planted-belt-fatscars", "planted-belt-crush", "planted-belt-innerclip", "planted-belt-aligned", "planted-belt-table20", "planted-nodrag", "planted-isco", "planted-penrose", "planted-proonly", "planted-rcapture"];
+        let names = ["echo", "planted-precession", "planted-walk", "planted-nocapture", "planted-clock", "planted-steps", "planted-quadratic", "planted-newton", "planted-kick", "planted-notide", "planted-drift", "planted-swollen", "planted-linear", "planted-apsides", "planted-static", "planted-flipped", "planted-average", "planted-fat", "iid-blocks", "dyadic-belt", "planted-belt-clipped", "planted-belt-winsor", "planted-belt-repeat", "planted-belt-serial", "planted-belt-thread", "planted-belt-fat", "planted-belt-ships", "planted-belt-lattice", "planted-belt-fatscars", "planted-belt-crush", "planted-belt-innerclip", "planted-belt-aligned", "planted-belt-table20", "planted-nodrag", "planted-isco", "planted-penrose", "planted-proonly", "planted-rcapture"];
         for name in names {
             assert!(laws::by_name(name).is_some() && USAGE.contains(name), "{name}");
         }

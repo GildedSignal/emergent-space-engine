@@ -171,6 +171,10 @@ pub struct Integrator<'a> {
     steps: u64,
     /// The Jacobi constant to hold after every step, when the integrator is asked to conserve it.
     jacobi: Option<f64>,
+    /// Whether to track the closest approach to the planet's centre (see [`Integrator::tracking`]).
+    track: bool,
+    /// The smallest distance from the planet's centre seen so far, when tracking.
+    closest: f64,
 }
 
 /// √(a² + b²): the lengths here are nowhere near overflow, and this is much faster than `hypot`.
@@ -183,7 +187,24 @@ impl<'a> Integrator<'a> {
     pub fn new(scene: &'a Restricted, model: Model, rtol: f64, ship: [f64; 4]) -> Self {
         let rel = scene.relative(0.0, &ship);
         let h = 1e-3 * norm(rel[0], rel[1]) / norm(rel[2], rel[3]).max(f64::MIN_POSITIVE);
-        Integrator { scene, model, omega: scene.omega(), omega_dd: omega_dd(scene.sep), radius: scene.planet_radius, soi: scene.soi(), rtol, t: 0.0, rel, h, k1: None, steps: 0, jacobi: None }
+        Integrator { scene, model, omega: scene.omega(), omega_dd: omega_dd(scene.sep), radius: scene.planet_radius, soi: scene.soi(), rtol, t: 0.0, rel, h, k1: None, steps: 0, jacobi: None, track: false, closest: norm(rel[0], rel[1]) }
+    }
+
+    /// This integrator, but keeping the closest approach to the planet's centre (the oracle's domain:
+    /// B12 and B13 exclude a seed whose reference passes inside the planet). Every accepted step is
+    /// sampled at its end, and a step in which the radial velocity turns from inward to outward (a
+    /// periapsis) is bisected to that turning point, where the distance is stationary, so the result
+    /// is the minimum itself to the last bits and not a sampled bound. Opt-in: a bisection costs
+    /// 64 more Dormand-Prince steps per periapsis, which B14 and B17 do not need.
+    pub fn tracking(mut self) -> Self {
+        self.track = true;
+        self
+    }
+
+    /// The smallest distance from the planet's centre since t = 0 (the start included), when
+    /// [`Integrator::tracking`] is on; otherwise the start's distance.
+    pub fn closest(&self) -> f64 {
+        self.closest
     }
 
     /// This integrator, but holding the Jacobi constant of the initial state: after every step the
@@ -342,6 +363,14 @@ impl<'a> Integrator<'a> {
                 }
                 // A step clipped short of the natural size keeps the natural size for the next one.
                 self.h = if clipped && fac > 1.0 { self.h.max(hs * fac) } else { hs * fac };
+                if self.track {
+                    self.closest = self.closest.min(norm(y5[0], y5[1]));
+                    let radial = |w: &[f64; 4]| w[0] * w[2] + w[1] * w[3];
+                    if radial(&y0) < 0.0 && radial(&y5) >= 0.0 {
+                        let (_, w) = self.crossing(t0, &y0, &k1, hs, |w| radial(w) >= 0.0);
+                        self.closest = self.closest.min(norm(w[0], w[1]));
+                    }
+                }
                 if let Model::Kick(factor) = self.model {
                     if norm(y0[0], y0[1]) >= self.soi && norm(y5[0], y5[1]) < self.soi {
                         let (h, mut w) = self.crossing(t0, &y0, &k1, hs, |w| norm(w[0], w[1]) < self.soi);
@@ -502,6 +531,30 @@ mod tests {
         let w = s.relative(t, &end);
         // Ten turns later the moon is back (the star's tide there is 1e-7 of the planet's pull).
         assert!(w.iter().zip(&w0).enumerate().all(|(i, (x, y))| (x - y).abs() < 1e-4 * if i < 2 { a } else { w0[3] }), "{w:?} against {w0:?}");
+    }
+
+    #[test]
+    fn the_tracked_closest_approach_is_the_periapsis_and_not_a_sample() {
+        // A moon about the planet at a = 7.5 radii with e = 0.5: periapsis a(1 − e) = 3.75 radii, repeated 10 times
+        // (the star's tide there is 1e-7 of the planet's pull). The tracked minimum is that periapsis to 1e-4 (the tide), where
+        // the step ends alone (what a sampler of the states would see) are far off it, and a plain integrator keeps no minimum.
+        let s = JUPITER;
+        let a = 1e-2 * s.hill();
+        let (e, period) = (0.5, std::f64::consts::TAU * (a * a * a / s.mu).sqrt());
+        let r_apo = a * (1.0 + e);
+        let w0 = [r_apo, 0.0, 0.0, (s.mu * (1.0 - e) / (a * (1.0 + e))).sqrt()];
+        let ship = s.barycentric(0.0, &w0);
+        let mut it = Integrator::new(&s, Model::Full, RTOL, ship).tracking();
+        let mut coarse = f64::INFINITY;
+        // Samples every seventh of a period: none lands within a fourteenth of a period of a periapsis.
+        for k in 1..=70 {
+            let state = it.advance(k as f64 * period / 7.0).unwrap();
+            coarse = coarse.min(s.planet_distance(k as f64 * period / 7.0, &state));
+        }
+        assert!((it.closest() / (a * (1.0 - e)) - 1.0).abs() < 1e-4, "{} against {}", it.closest(), a * (1.0 - e));
+        assert!(coarse > 1.05 * it.closest(), "the samples reach {coarse}, the periapsis is {}", it.closest());
+        let plain = Integrator::new(&s, Model::Full, RTOL, ship);
+        assert!((plain.closest() / r_apo - 1.0).abs() < 1e-12);
     }
 
     #[test]

@@ -15,12 +15,20 @@
 //! - Excluded too: a reference that is not converged, meaning ΔE or ΔL differs by more than 1e-4
 //!   relative between the tolerances 1e-12 and 1e-13. More than 10% of the 64 excluded, for any
 //!   reason, fails the gate.
+//! - Oracle domain (5 October, adjudicated): the reference is a point mass, so a seed whose
+//!   reference passes within the planet's radius of its centre (closest approach over the span the
+//!   reference is integrated, tracked to the periapsis itself) tests nothing a law with a surface can
+//!   do. Such a seed is replaced by the next draw (the sampler's stream is prefix-stable, up to
+//!   `DRAWS`), so the gate still judges `SEEDS` flybys; the replaced seeds are named in the detail
+//!   line, and they count toward no exclusion cap (they are outside the domain, not failures of it).
 //! - The law is asked for the ship's state at t_exit. PASS iff at least 99% of the judged flybys
 //!   have both |ΔE_law − ΔE_ref| ≤ 0.01·|ΔE_ref| and |ΔL_law − ΔL_ref| ≤ 0.01·|ΔL_ref|.
 use super::restricted::{Integrator, Model, Restricted, JUPITER, RTOL, RTOL_FINE};
 use super::{sample, Gate, Law};
 
 pub const SEEDS: usize = 64;
+/// The most draws the stream is read to find `SEEDS` flybys inside the oracle's domain; fewer found fails the gate.
+pub const DRAWS: usize = 256;
 /// The ship starts and is followed out to this many sphere-of-influence radii.
 pub const START_SOI: f64 = 1.5;
 pub const ASSIST_TOL: f64 = 1e-2;
@@ -56,13 +64,14 @@ pub enum Flyby {
     Failed,
 }
 
-/// The reference on `ship` to tolerance `rtol`.
-pub fn reference(scene: &Restricted, ship: [f64; 4], rtol: f64) -> Flyby {
-    let mut it = Integrator::new(scene, Model::Full, rtol, ship);
+/// The reference on `ship` to tolerance `rtol`, and its closest approach to the planet's centre over
+/// the span it was integrated (to the exit, or to wherever it stopped).
+pub fn reference(scene: &Restricted, ship: [f64; 4], rtol: f64) -> (Flyby, f64) {
+    let mut it = Integrator::new(scene, Model::Full, rtol, ship).tracking();
     let horizon = scene.period();
     let (soi, before) = (scene.soi(), scene.heliocentric(0.0, &ship));
     let exit = it.until_crossing(soi, false, horizon).and_then(|_| it.until_crossing(START_SOI * soi, true, horizon));
-    match exit {
+    let flyby = match exit {
         Some(t) => {
             let after = scene.heliocentric(t, &it.state());
             Flyby::Exit(t, after.0 - before.0, after.1 - before.1)
@@ -70,7 +79,8 @@ pub fn reference(scene: &Restricted, ship: [f64; 4], rtol: f64) -> Flyby {
         // The step size collapsing shows as a time short of the horizon; running out of time shows as the horizon.
         None if it.time() >= horizon => Flyby::Never,
         None => Flyby::Failed,
-    }
+    };
+    (flyby, it.closest())
 }
 
 /// |a − b|/|b|, and 0 when they are equal (also at 0). NaN in, NaN out.
@@ -87,13 +97,24 @@ pub fn b13(law: &dyn Law) -> Gate {
     let scene = JUPITER;
     let (mut ok, mut judged, mut never, mut unconverged) = (0, 0, 0, 0);
     let (mut worst_e, mut worst_l) = (0.0f64, 0.0f64);
-    for (q, v_inf, psi) in sample::flybys(SEEDS) {
+    // The seeds replaced because their reference passes inside the planet: (draw, closest approach in planet radii).
+    let (mut inside, mut taken) = (Vec::new(), 0);
+    for (i, (q, v_inf, psi)) in sample::flybys(DRAWS).into_iter().enumerate() {
+        if taken == SEEDS {
+            break;
+        }
         let s = ship(&scene, q, v_inf, psi);
-        let Flyby::Exit(t, de, dl) = reference(&scene, s, RTOL) else {
+        let (flyby, closest) = reference(&scene, s, RTOL);
+        if closest < scene.planet_radius {
+            inside.push((i, closest / scene.planet_radius));
+            continue;
+        }
+        taken += 1;
+        let Flyby::Exit(t, de, dl) = flyby else {
             never += 1;
             continue;
         };
-        let converged = matches!(reference(&scene, s, RTOL_FINE), Flyby::Exit(_, e, l) if rel_err(e, de) <= CONVERGED && rel_err(l, dl) <= CONVERGED);
+        let converged = matches!(reference(&scene, s, RTOL_FINE).0, Flyby::Exit(_, e, l) if rel_err(e, de) <= CONVERGED && rel_err(l, dl) <= CONVERGED);
         if !converged {
             unconverged += 1;
             continue;
@@ -106,9 +127,11 @@ pub fn b13(law: &dyn Law) -> Gate {
         (worst_e, worst_l) = (if worst_e.is_nan() || ee.is_nan() { f64::NAN } else { worst_e.max(ee) }, if worst_l.is_nan() || el.is_nan() { f64::NAN } else { worst_l.max(el) });
     }
     let excluded = never + unconverged;
-    let pass = judged > 0 && ok * 100 >= 99 * judged && excluded as f64 <= EXCLUDED_MAX * SEEDS as f64;
+    let pass = taken == SEEDS && judged > 0 && ok * 100 >= 99 * judged && excluded as f64 <= EXCLUDED_MAX * SEEDS as f64;
+    let replaced = if inside.is_empty() { "none".to_string() } else { inside.iter().map(|(i, r)| format!("#{i} at {r:.2}")).collect::<Vec<_>>().join(", ") };
     let detail = format!(
-        "assists: {ok}/{judged} judged flybys within {ASSIST_TOL:.0e} in both ΔE and ΔL, worst ΔE {worst_e:.2e} ΔL {worst_l:.2e}; {excluded} of {SEEDS} excluded ({never} never in or out, {unconverged} not converged)"
+        "assists: {ok}/{judged} judged flybys within {ASSIST_TOL:.0e} in both ΔE and ΔL, worst ΔE {worst_e:.2e} ΔL {worst_l:.2e}; {excluded} of {SEEDS} excluded ({never} never in or out, {unconverged} not converged); {} draws replaced, the reference passing inside the planet (draw at planet radii: {replaced})",
+        inside.len()
     );
     Gate { id: "B13", pass, detail, secs: 0.0 }
 }
@@ -150,7 +173,7 @@ mod tests {
         assert!(g.pass && g.detail.contains("64/64 judged") && g.detail.contains("0 of 64 excluded"), "{}", g.detail);
         let s = JUPITER;
         let (q, v_inf, psi) = sample::flybys(1)[0];
-        let Flyby::Exit(t, de, dl) = reference(&s, ship(&s, q, v_inf, psi), RTOL) else { panic!("no exit") };
+        let (Flyby::Exit(t, de, dl), _) = reference(&s, ship(&s, q, v_inf, psi), RTOL) else { panic!("no exit") };
         assert!(t > 0.0 && t < s.period() && de != 0.0 && dl != 0.0);
     }
 
@@ -177,6 +200,67 @@ mod tests {
         let shifted = events(|scene, ship, times| Some(Echo.restricted(scene, ship, times)?.into_iter().map(|st| [st[0] + scene.planet_radius, st[1], st[2], st[3]]).collect()));
         let g = b13(&shifted);
         assert!(g.pass, "{}", g.detail);
+    }
+
+    /// The first `SEEDS` draws in the oracle's domain, as the gate takes them, and how many it replaced; each with its closest approach.
+    fn domain() -> (Vec<(f64, f64, f64, f64)>, usize) {
+        let s = JUPITER;
+        let (mut taken, mut replaced) = (Vec::new(), 0);
+        for (q, v_inf, psi) in sample::flybys(DRAWS) {
+            let (_, closest) = reference(&s, ship(&s, q, v_inf, psi), RTOL);
+            if closest < s.planet_radius {
+                replaced += 1;
+            } else if taken.len() < SEEDS {
+                taken.push((q, v_inf, psi, closest / s.planet_radius));
+            }
+        }
+        (taken, replaced)
+    }
+
+    #[test]
+    fn a_seed_whose_reference_passes_inside_the_planet_is_replaced_and_named_and_the_count_is_kept() {
+        let s = JUPITER;
+        let g = b13(&Echo);
+        let (mut replaced, mut taken) = (0, Vec::new());
+        for (i, (q, v_inf, psi)) in sample::flybys(DRAWS).into_iter().enumerate() {
+            if taken.len() == SEEDS {
+                break;
+            }
+            let (_, closest) = reference(&s, ship(&s, q, v_inf, psi), RTOL);
+            if closest < s.planet_radius {
+                replaced += 1;
+                // The draw is named with its closest approach in the detail line.
+                let named = format!("#{i} at {:.2}", closest / s.planet_radius);
+                assert!(g.detail.contains(&named), "{named} not in {}", g.detail);
+            } else {
+                taken.push(closest / s.planet_radius);
+            }
+        }
+        // The rule is exercised (the plane's lost flybys are among them), the 64 are kept, and every one judged is outside the planet.
+        assert!(replaced >= 7 && taken.len() == SEEDS && taken.iter().all(|&r| r >= 1.0));
+        assert!(g.pass && g.detail.contains("64/64 judged") && g.detail.contains(&format!("; {replaced} draws replaced")), "{}", g.detail);
+    }
+
+    #[test]
+    fn the_closest_approach_agrees_between_the_two_tolerances_on_every_flyby() {
+        // Unlike B12's chaos, one flyby's closest approach is converged: the replacement does not depend on the tolerance.
+        let s = JUPITER;
+        for (q, v_inf, psi) in sample::flybys(DRAWS).into_iter().take(96) {
+            let (a, b) = (reference(&s, ship(&s, q, v_inf, psi), RTOL).1, reference(&s, ship(&s, q, v_inf, psi), RTOL_FINE).1);
+            assert!((a / b - 1.0).abs() < 1e-6, "{a} against {b}");
+        }
+    }
+
+    #[test]
+    fn a_law_that_destroys_ships_passing_above_the_surface_fails() {
+        // planted-swollen has a surface at 1.5 planet radii; the reference passes the planet at 1.0 to 1.5 radii on some of the 64.
+        let (taken, _) = domain();
+        let thin = taken.iter().filter(|x| x.3 < 1.5).count();
+        assert!(thin >= 1, "no judged flyby passes between 1.0 and 1.5 radii");
+        let g = b13(&Planted(Fault::Swollen));
+        assert!(!g.pass && g.detail.contains(&format!("{}/64 judged", 64 - thin)), "{thin} thin: {}", g.detail);
+        // A law with the true surface (echo) keeps them all.
+        assert!(b13(&Echo).pass);
     }
 
     #[test]
