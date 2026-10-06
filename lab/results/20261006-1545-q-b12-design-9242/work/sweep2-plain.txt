@@ -1,0 +1,35 @@
+[plain] rounding path plain IEEE
+[plain] ensemble: 16 ships in 6.0s
+== judged set (one-ulp replica ensemble, plain path) ==
+ship  cross_med  agree  closest_med  agree  judged
+#0         16.0      2        1.63      0  judged (busy-20: no)
+#1         26.0      3        7.55      0  judged
+#2          8.0      4       77.18      0  judged (busy-20: no)
+#3         14.0      5        6.25      0  judged (busy-20: no)
+#4         16.0      4        6.01      0  judged (busy-20: no)
+#5         30.0      4        3.88      0  judged
+#6         22.0      4       24.14      0  judged
+#7         28.0      1        4.52      0  judged
+#8         18.0      2        2.22      0  judged (busy-20: no)
+#9         28.0      2        0.61      0  EXCLUDED (inside planet)
+#10        26.0      1        2.71      0  judged
+#11         8.0      5        6.88      0  judged (busy-20: no)
+#12        28.0      3        0.64      0  EXCLUDED (inside planet)
+#13        12.0      3       31.09      0  judged (busy-20: no)
+#14        12.0      2       18.43      0  judged (busy-20: no)
+#15        22.0      5       11.58      0  judged
+judged: 14 of 16
+
+== the arrow test (plain) ==
+law                    judged   z_pool    z_med    z_min    z_max worst_err    PASS  margin
+leak 1e-16                 13    -1.66    -0.48    -2.12     1.28  2.31e-15    PASS  z -1.7 under 5 (3.0x) [0.9s]
+leak 1e-15                 13    13.67     3.01    -2.92     6.11  2.60e-15    FAIL  +13.7 over 5 (2.7x) [0.9s]
+leak 1e-14                 13    40.63     7.71     0.00    15.70  1.08e-14    FAIL  +40.6 over 5 (8.1x) [0.9s]
+leak 1e-12                 13    42.09     7.69     0.00    16.24  1.00e-12    FAIL  +42.1 over 5 (8.4x) [0.9s]
+leak 1e-10                 13    42.09     7.69     0.00    16.24  1.00e-10    FAIL  +42.1 over 5 (8.4x) [0.9s]
+leak 1e-8                  13    42.09     7.69     0.00    16.24   1.00e-8    FAIL  +42.1 over 5 (8.4x) [0.9s]
+leak+bounded 1e-12         13     2.65    -0.22    -3.01     3.20   1.27e-5    PASS  z +2.7 under 5 (1.9x) [0.9s]
+leak+bounded 1e-11         13    10.25     1.85    -1.67     5.51   1.27e-5    FAIL  +10.2 over 5 (2.0x) [0.9s]
+leak+bounded 1e-10         13    34.32     5.32     0.00    13.24   1.27e-5    FAIL  +34.3 over 5 (6.9x) [0.9s]
+leak+bounded 1e-9          13    40.74     7.47     0.00    15.85   1.27e-5    FAIL  +40.7 over 5 (8.1x) [0.9s]
+leak+bounded 1e-8          13    41.96     7.69     0.00    16.24   1.27e-5    FAIL  +42.0 over 5 (8.4x) [0.9s]
