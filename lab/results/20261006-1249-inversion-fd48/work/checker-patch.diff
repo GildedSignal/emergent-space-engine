@@ -1,0 +1,398 @@
+diff --git a/crates/encounters/Cargo.toml b/crates/encounters/Cargo.toml
+index 8081275..2651b67 100644
+--- a/crates/encounters/Cargo.toml
++++ b/crates/encounters/Cargo.toml
+@@ -10,3 +10,7 @@ description = "Research: every encounter between orbiting bodies without work pe
+ [[bin]]
+ name = "encounters"
+ path = "src/main.rs"
++
++[[bin]]
++name = "invert"
++path = "src/bin/invert.rs"
+diff --git a/crates/encounters/src/bin/invert.rs b/crates/encounters/src/bin/invert.rs
+new file mode 100644
+index 0000000..1f79437
+--- /dev/null
++++ b/crates/encounters/src/bin/invert.rs
+@@ -0,0 +1,380 @@
++//! inversion-fd48: is the adopted k=4 phase-neighbour train exact inside its own firing domain?
++//!
++//! Gold taleb-09b5 (6 Oct): under co-orbital concentration, every measured encounter sat within
++//! partner rank 4, so a phase-neighbour "train" (watch k=4 neighbours, O(n_c·k)) replaces the
++//! quadratic tier when a dimensionless trigger fires (max pairwise Binet distance / eps_u <= 1).
++//! Inversion: partner rank is a local contact-band multiplicity (bodies inside a rho-disc), which
++//! the Binet-diameter trigger does not bound. Scenes: `echelon` (deterministic radial file),
++//! `jam <sigma_lam> <n> <seed>` (a bunched phalanx inside the firing domain), `table` (trigger
++//! domain, computed). Truth is the crate's own `truth_pair` on every radial pair; ranks are
++//! measured from exact states at each encounter's minimum. One JSON object per line.
++
++use emergent_encounters::kepler::Body;
++use emergent_encounters::pairs::{eps_u, radial_pairs};
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use std::f64::consts::TAU;
++
++const RHO: f64 = 1e-4;
++const THREADS: usize = 4;
++/// The designed instant of each scene (interior to the truth horizon [0, T_END)).
++const T_ALIGN: f64 = 1.0;
++const T_END: f64 = 3.2;
++
++struct Rng(u64);
++impl Rng {
++    fn next(&mut self) -> u64 {
++        let mut x = self.0;
++        x ^= x >> 12;
++        x ^= x << 25;
++        x ^= x >> 27;
++        self.0 = x;
++        x.wrapping_mul(0x2545F4914F6CDD1D)
++    }
++    fn f64(&mut self) -> f64 {
++        (self.next() >> 11) as f64 / (1u64 << 53) as f64
++    }
++    fn gauss(&mut self) -> f64 {
++        let u1 = self.f64().max(1e-300);
++        let u2 = self.f64();
++        (-2.0 * u1.ln()).sqrt() * (TAU * u2).cos()
++    }
++    fn rayleigh(&mut self, s: f64) -> f64 {
++        s * (-2.0 * (1.0 - self.f64()).ln()).sqrt()
++    }
++}
++
++/// Body whose mean longitude is `lam` at t = T_ALIGN.
++fn make_body(a: f64, e: f64, pom: f64, lam: f64) -> Body {
++    let probe = Body::new(a, e, pom, 0.0);
++    Body::new(a, e, pom, lam - probe.n * T_ALIGN)
++}
++
++fn binet_dist(bi: &Body, bj: &Body) -> f64 {
++    let (a, b) = (bi.binet(), bj.binet());
++    let d = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
++    (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
++}
++
++/// The gold's trigger: max pairwise Binet distance / eps_u over the clump (fires if <= 1).
++fn trigger_ratio(b: &[Body]) -> f64 {
++    let mut m = 0.0f64;
++    for i in 0..b.len() {
++        for j in i + 1..b.len() {
++            m = m.max(binet_dist(&b[i], &b[j]) / eps_u(&b[i], &b[j], RHO));
++        }
++    }
++    m
++}
++
++fn truth_all(b: &[Body], pairs: &[(u32, u32)]) -> (Vec<(u32, u32, f64, f64)>, TruthStats) {
++    let parts = emergent_encounters::par_chunks(pairs.len(), 512, THREADS, |r| {
++        let mut st = TruthStats::default();
++        let mut out = Vec::new();
++        for &p in &pairs[r] {
++            let (bi, bj) = (&b[p.0 as usize], &b[p.1 as usize]);
++            let mut v = Vec::new();
++            truth_pair(bi, bj, RHO, T_END, &mut v, &mut st);
++            for (t, d) in v {
++                out.push((p.0, p.1, t, d));
++            }
++        }
++        (out, st)
++    });
++    let mut all = Vec::new();
++    let mut tot = TruthStats::default();
++    for (o, s) in parts {
++        all.extend(o);
++        tot.add(&s);
++    }
++    all.sort_by(|x, y| x.2.total_cmp(&y.2));
++    (all, tot)
++}
++
++/// Directed rank of partner j from body i at time t: by 2-D distance, and by sort position in the
++/// longitude order (the train's own metric: bodies strictly between them along the shorter arc).
++fn ranks(b: &[Body], i: usize, j: usize, t: f64) -> (usize, usize, f64) {
++    let si = b[i].state(t);
++    let sj = b[j].state(t);
++    let dij = (si[0] - sj[0]).hypot(si[1] - sj[1]);
++    let li = si[1].atan2(si[0]);
++    let lj = sj[1].atan2(sj[0]);
++    // signed arc from li to lj, taken the short way
++    let mut dl = (lj - li).rem_euclid(TAU);
++    if dl > std::f64::consts::PI {
++        dl -= TAU;
++    }
++    let (mut rd, mut rl) = (1usize, 1usize);
++    for k in 0..b.len() {
++        if k == i || k == j {
++            continue;
++        }
++        let sk = b[k].state(t);
++        if (si[0] - sk[0]).hypot(si[1] - sk[1]) < dij {
++            rd += 1;
++        }
++        let mut x = (sk[1].atan2(sk[0]) - li).rem_euclid(TAU);
++        if x > std::f64::consts::PI {
++            x -= TAU;
++        }
++        // strictly inside the (li, lj) arc
++        if (x > 0.0 && x < dl) || (x < 0.0 && x > dl) {
++            rl += 1;
++        }
++    }
++    (rd, rl, dij)
++}
++
++struct RankStats {
++    n_enc: usize,
++    max_rd: usize,
++    max_rl: usize,
++    p50_rd: usize,
++    p90_rd: usize,
++    missed_dist_k4: usize,
++    missed_long_k4: usize,
++    missed_either_k4: usize,
++    #[allow(dead_code)]
++    max_rd_pair: (u32, u32, usize, usize),
++}
++
++fn analyse(b: &[Body], enc: &[(u32, u32, f64, f64)]) -> RankStats {
++    let mut rds = Vec::new();
++    let mut rls = Vec::new();
++    let (mut md, mut ml, mut me) = (0usize, 0usize, 0usize);
++    let mut worst = (0u32, 0u32, 0usize, 0usize);
++    for &(i, j, t, _) in enc {
++        let (rdi, rli, _) = ranks(b, i as usize, j as usize, t);
++        let (rdj, rlj, _) = ranks(b, j as usize, i as usize, t);
++        rds.push(rdi);
++        rds.push(rdj);
++        rls.push(rli);
++        rls.push(rlj);
++        // a k-watch catches the pair iff either direction's rank <= k
++        if rdi > 4 && rdj > 4 {
++            md += 1;
++        }
++        if rli > 4 && rlj > 4 {
++            ml += 1;
++        }
++        if (rdi > 4 && rdj > 4) || (rli > 4 && rlj > 4) {
++            me += 1;
++        }
++        if rdi.max(rdj) > worst.2 || rli.max(rlj) > worst.3 {
++            worst = (i.min(j), i.max(j), rdi.max(rdj), rli.max(rlj));
++        }
++    }
++    rds.sort_unstable();
++    rls.sort_unstable();
++    let q = |f: f64, v: &[usize]| v[((f * (v.len() as f64 - 1.0)).round() as usize).min(v.len() - 1)];
++    RankStats {
++        n_enc: enc.len(),
++        max_rd: *rds.last().unwrap_or(&0),
++        max_rl: *rls.last().unwrap_or(&0),
++        p50_rd: q(0.5, &rds),
++        p90_rd: q(0.9, &rds),
++        missed_dist_k4: md,
++        missed_long_k4: ml,
++        missed_either_k4: me,
++        max_rd_pair: worst,
++    }
++}
++
++fn echelon() {
++    // Deterministic radial file at t = T_ALIGN: i, four middles, j; all pairwise <= 0.91 rho.
++    let da = [-0.45f64, -0.2, -0.1, 0.1, 0.2, 0.45]; // in units of rho
++    let arc = [0.0f64, 0.02, 0.04, 0.06, 0.08, 0.10];
++    let b: Vec<Body> = (0..6)
++        .map(|k| make_body(1.0 + da[k] * RHO, 0.0, 0.0, arc[k] * RHO))
++        .collect();
++    let ratio = trigger_ratio(&b);
++    let pairs = radial_pairs(&b, RHO);
++    let (enc, st) = truth_all(&b, &pairs);
++    let s = analyse(&b, &enc);
++    let mut detail = Vec::new();
++    for &(i, j, t, d) in &enc {
++        let (rdi, rli, dist) = ranks(&b, i as usize, j as usize, t);
++        let (rdj, rlj, _) = ranks(&b, j as usize, i as usize, t);
++        detail.push(format!(
++            "{{\"pair\":[{},{}],\"t\":{:.4},\"dmin\":{:.3e},\"d\":{:.3e},\"rd\":[{},{}],\"rl\":[{},{}]}}",
++            i, j, t, d, dist, rdi, rdj, rli, rlj
++        ));
++    }
++    println!(
++        "{{\"exp\":\"echelon\",\"n\":6,\"rho\":{RHO},\"trigger_ratio\":{:.4},\"pairs_truth\":{},\"encounters\":{},\
++\"max_rd\":{},\"max_rl\":{},\"missed_dist_k4\":{},\"missed_long_k4\":{},\"truth_evals\":{},\"detail\":[{}]}}",
++        ratio, pairs.len(), s.n_enc, s.max_rd, s.max_rl, s.missed_dist_k4, s.missed_long_k4, st.evals,
++        detail.join(",")
++    );
++}
++
++fn jam(sigma_lam: f64, n: usize, seed: u64, a_hw: f64, sig_e: f64) {
++    let mut r = Rng(seed);
++    let b: Vec<Body> = (0..n)
++        .map(|_| {
++            let a = 1.0 + (2.0 * r.f64() - 1.0) * a_hw;
++            let e = r.rayleigh(sig_e);
++            let pom = TAU * r.f64();
++            let lam = sigma_lam * r.gauss();
++            make_body(a, e, pom, lam)
++        })
++        .collect();
++    let ratio = trigger_ratio(&b);
++    // measured band multiplicity at the designed instant: bodies within rho of each body
++    let mut m_sum = 0usize;
++    for i in 0..n {
++        let si = b[i].state(T_ALIGN);
++        for j in 0..n {
++            if i == j {
++                continue;
++            }
++            let sj = b[j].state(T_ALIGN);
++            if (si[0] - sj[0]).hypot(si[1] - sj[1]) < RHO {
++                m_sum += 1;
++            }
++        }
++    }
++    let pairs = radial_pairs(&b, RHO);
++    let t0 = std::time::Instant::now();
++    let (enc, st) = truth_all(&b, &pairs);
++    let tt = t0.elapsed().as_secs_f64();
++    let s = analyse(&b, &enc);
++    println!(
++        "{{\"exp\":\"jam\",\"n\":{},\"sigma_lam\":{:.4},\"a_hw\":{:.1e},\"sig_e\":{:.1e},\"seed\":{},\
++\"trigger_ratio\":{:.4},\"mhat_measured\":{:.2},\"pairs_truth\":{},\"encounters\":{},\"truth_s\":{:.2},\
++\"rd_max\":{},\"rd_p50\":{},\"rd_p90\":{},\"rl_max\":{},\"missed_dist_k4\":{},\"missed_long_k4\":{},\
++\"missed_either_k4\":{},\"miss_frac_k4\":{:.4}}}",
++        n, sigma_lam, a_hw, sig_e, seed, ratio, m_sum as f64 / n as f64, pairs.len(), s.n_enc, tt,
++        s.max_rd, s.p50_rd, s.p90_rd, s.max_rl, s.missed_dist_k4, s.missed_long_k4,
++        s.missed_either_k4, s.missed_either_k4 as f64 / s.n_enc.max(1) as f64
++    );
++}
++
++/// Independent second instrument: brute-force all pairs at a dense time grid (motion per sample
++/// << rho), collect pairs ever within rho; compare its pair set with truth_pair's. No shared code
++/// path with truth_pair beyond Body::state.
++fn xcheck(sigma_lam: f64, n: usize, seed: u64, a_hw: f64, sig_e: f64) {
++    let mut r = Rng(seed);
++    let b: Vec<Body> = (0..n)
++        .map(|_| {
++            let a = 1.0 + (2.0 * r.f64() - 1.0) * a_hw;
++            let e = r.rayleigh(sig_e);
++            let pom = TAU * r.f64();
++            make_body(a, e, pom, sigma_lam * r.gauss())
++        })
++        .collect();
++    let pairs = radial_pairs(&b, RHO);
++    let (enc, _) = truth_all(&b, &pairs);
++    let truth_set: std::collections::BTreeSet<(u32, u32)> =
++        enc.iter().map(|&(i, j, _, _)| (i.min(j), i.max(j))).collect();
++    // sample grid: relative speeds here are < 1e-3 per time unit, so 0.01 steps move < 0.1 rho
++    let mut seen = vec![false; pairs.len()];
++    let steps = 321;
++    for s in 0..steps {
++        let t = T_END * s as f64 / (steps - 1) as f64;
++        for (q, &(i, j)) in pairs.iter().enumerate() {
++            if seen[q] {
++                continue;
++            }
++            let si = b[i as usize].state(t);
++            let sj = b[j as usize].state(t);
++            if (si[0] - sj[0]).hypot(si[1] - sj[1]) < RHO {
++                seen[q] = true;
++            }
++        }
++    }
++    let brute: std::collections::BTreeSet<(u32, u32)> = pairs
++        .iter()
++        .enumerate()
++        .filter(|(q, _)| seen[*q])
++        .map(|(_, &p)| (p.0.min(p.1), p.0.max(p.1)))
++        .collect();
++    let only_brute: Vec<_> = brute.difference(&truth_set).collect();
++    let only_truth: Vec<_> = truth_set.difference(&brute).collect();
++    let (mut interior, mut boundary, mut none) = (0usize, 0usize, 0usize);
++    let fine = 640;
++    for &(i, j) in only_brute.iter().copied() {
++        let (bi, bj) = (&b[i as usize], &b[j as usize]);
++        let mut mn = f64::INFINITY;
++        let mut mnt = 0.0;
++        for s in 0..fine {
++            let t = T_END * s as f64 / (fine - 1) as f64;
++            let (si, sj) = (bi.state(t), bj.state(t));
++            let d = (si[0] - sj[0]).hypot(si[1] - sj[1]);
++            if d < mn {
++                mn = d;
++                mnt = t;
++            }
++        }
++        if mn >= RHO {
++            none += 1; // brute's coarse grid saw it; fine grid says no (should not happen)
++        } else if mnt > 0.02 && mnt < T_END - 0.02 {
++            interior += 1;
++        } else {
++            boundary += 1;
++        }
++    }
++    println!(
++        "{{\"exp\":\"xcheck\",\"n\":{},\"sigma_lam\":{:.4},\"seed\":{},\"truth_pairs\":{},\"brute_pairs\":{},\
++\"only_brute\":{},\"only_truth\":{},\"disputes_interior_min\":{},\"disputes_boundary_min\":{},\"disputes_none\":{}}}",
++        n, sigma_lam, seed, truth_set.len(), brute.len(), only_brute.len(), only_truth.len(),
++        interior, boundary, none
++    );
++}
++
++/// Trigger domain: computed, no integration. Where does the train fire at all?
++fn table() {
++    let combos: [(f64, f64, f64, &str); 7] = [
++        (1e-5, 1e-3, 0.1, "gold rank scene a_hw=1e-5 e=1e-3 pom+-0.1"),
++        (1e-3, 1e-3, 0.1, "gold fleet a_hw=1e-3 e=1e-3 pom+-0.1"),
++        (1e-3, 0.0, 0.0, "fleet a_hw=1e-3 e=0"),
++        (1e-5, 0.0, 0.0, "fleet a_hw=1e-5 e=0"),
++        (1.5e-5, 5e-5, TAU, "this run's jam (pom uniform)"),
++        (1e-4, 1e-4, TAU, "looser jam"),
++        (5e-5, 1e-4, 0.1, "gold-style, e=1e-4 pom+-0.1"),
++    ];
++    for (a_hw, sig_e, pom_spread, name) in combos {
++        let mut r = Rng(7);
++        let b: Vec<Body> = (0..400)
++            .map(|_| {
++                let a = 1.0 + (2.0 * r.f64() - 1.0) * a_hw;
++                let e = if sig_e == 0.0 { 0.0 } else { r.rayleigh(sig_e) };
++                let pom = if pom_spread == 0.0 { 0.0 } else { TAU * r.f64() };
++                Body::new(a, e, pom, TAU * r.f64())
++            })
++            .collect();
++        println!(
++            "{{\"exp\":\"table\",\"scene\":\"{}\",\"a_hw\":{:.1e},\"sig_e\":{:.1e},\"trigger_ratio\":{:.3},\"fires\":{}}}",
++            name, a_hw, sig_e, trigger_ratio(&b), trigger_ratio(&b) <= 1.0
++        );
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    match args.get(1).map(String::as_str) {
++        Some("echelon") => echelon(),
++        Some("table") => table(),
++        Some("jam") => {
++            // jam <sigma_lam> <n> <seed> [a_hw] [sig_e]
++            let sig: Vec<f64> = args[2..].iter().map(|x| x.parse().unwrap()).collect();
++            jam(
++                sig[0],
++                sig[1] as usize,
++                sig[2] as u64,
++                if sig.len() > 3 { sig[3] } else { 1.5e-5 },
++                if sig.len() > 4 { sig[4] } else { 1.0e-5 },
++            );
++        }
++        Some("xcheck") => {
++            let sig: Vec<f64> = args[2..].iter().map(|x| x.parse().unwrap()).collect();
++            xcheck(
++                sig[0],
++                sig[1] as usize,
++                sig[2] as u64,
++                if sig.len() > 3 { sig[3] } else { 1.5e-5 },
++                if sig.len() > 4 { sig[4] } else { 1.0e-5 },
++            );
++        }
++        _ => eprintln!("usage: invert echelon|table|jam|xcheck <sigma_lam> <n> <seed> [a_hw] [sig_e]"),
++    }
++}
