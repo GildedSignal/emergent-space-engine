@@ -67,6 +67,7 @@ fn main() {
             println!("ship {i} is gone: fault {:?}, doll {}, last binding at {}, refusals {}", r.fault, r.b.doll, r.b.event_time, r.refusals);
         }
     }
+    println!("refusals per ship: {:?}", w.ships.iter().map(|&sh| w.u.rec(sh).refusals).collect::<Vec<_>>());
     let s = w.u.stats;
     println!("step 2^-{step_log2}: worst per ship {:?} | {:.1}s kicks {} handoffs {} lost {}", worst.iter().map(|x| format!("{x:.1e}")).collect::<Vec<_>>(), t0.elapsed().as_secs_f64(), s.kicks, s.handoffs, s.lost);
 }

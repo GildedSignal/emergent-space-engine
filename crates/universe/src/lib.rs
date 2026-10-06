@@ -4,6 +4,7 @@ pub mod body;
 pub mod ctx;
 pub mod dash;
 pub mod encounter;
+pub mod ext;
 pub mod fleet;
 pub mod force;
 pub mod lorentz;

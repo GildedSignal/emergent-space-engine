@@ -102,17 +102,24 @@ fn the_origin_is_not_accelerated_in_its_own_frame_and_the_fall_has_the_right_sig
     }
 }
 
-/// The first level-0 kick of ship `i`, replayed against the plane's own resolver: the velocity it gives, in the
-/// doll's units, with the time it was at, and the root-frame floats of the ship and the planet then.
+/// The first kick of ship `i`, replayed against the plane's own resolver: the velocity it gives, in the
+/// doll's units, with its weight (the physical time of its tick of the clock) and the root-frame floats of the ship and the planet then.
 fn first_kick(u: &Universe, planet: usize, i: usize) -> ([f64; 2], f64, [f64; 2], [f64; 2]) {
     let mut rec = u.rec(i);
     while !matches!(rec.plan.first().map(|p| p.what), Some(What::Kick(0))) {
         rec.plan.remove(0);
     }
     let t = rec.plan[0].t;
-    let h = rec.interval as f64; // the star's doll: a tick is a unit of its time
     let before = rec.b.readout(t).unwrap();
     let ctx = u.ctx();
+    // The weight of the kick: Δs·f'(U_P + c) at its place and time (the motion law v2: the physical time of one tick of the
+    // fictitious clock), in the star's doll, where a tick is a unit of its time.
+    let h = {
+        let ext = rec.ext.expect("a ship of the root doll is stepped by the clock");
+        let (x, _) = emergent_universe::bind::scalars(&before).unwrap();
+        let f = emergent_universe::force::field(&ctx.secondaries(0, t, i).unwrap(), x).unwrap();
+        to_f64(ext.time(ext.y(f.potential).unwrap(), ext.ds).unwrap())
+    };
     let (x, _) = emergent_universe::observe::root_state(&ctx, i, t).unwrap();
     let (xp, _) = emergent_universe::observe::root_state(&ctx, planet, t).unwrap();
     let upd = step::process(&ctx, i, rec);

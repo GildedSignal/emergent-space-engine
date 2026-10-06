@@ -3,12 +3,15 @@
 //! queue's key is (time, smallest body id, kind), so every schedule, budget and thread count pops the same sequence.
 //!
 //! **Frozen before the first run.** In this crate that is three claims, each on a scene built to tie:
-//! 1. *Independent events commute.* Twelve ships on one orbit shape (the same period, so the same kick step and every
-//!    kick, boundary and open of every ship on the same tick) at twelve places on it, made in six different orders (so
-//!    with twelve different assignments of ids): each ship's whole history is the same record whichever order it
-//!    was made in, whichever other ships exist, on 1 and 4 threads, under any budget and frame size.
-//! 2. *Events that read a body at its own tick read it in the order of their keys.* A ship on the planet's own orbit
-//!    shape ties with the planet at every event. Made after the planet it reads the planet after the planet's event
+//! 1. *Independent events commute.* Twelve ships, six places on one orbit shape each taken twice (two ships in the same
+//!    state have the same physical step under the motion law v2, which is a function of the state, so every kick and
+//!    boundary of the two is on the same tick: the tie is by construction; before v2 an orbit shape was a step, and twelve
+//!    places on it tied), made in six different orders (so with twelve different assignments of ids): each ship's whole
+//!    history is the same record whichever order it was made in, whichever other ships exist, on 1 and 4 threads, under
+//!    any budget and frame size.
+//! 2. *Events that read a body at its own tick read it in the order of their keys.* A third planet (a body stepped by its
+//!    own orbit's period, as the planets are; a ship's step is a function of its state under the motion law v2, so none
+//!    ties with a planet by construction) on the first planet's own orbit shape ties with it at every event. Made after the planet it reads the planet after the planet's event
 //!    (the smaller id goes first); made before, it reads it before: each assignment of ids is one history on every
 //!    schedule, and the two assignments are two histories (the control: the key is observable, so it can fail).
 //! 3. *A same-epoch three-body contact is one batch.* Three members of the fleet's frame, the outer two closing on the
@@ -56,7 +59,8 @@ fn go(u: &mut Universe, cut: i64, dt: f64, budget: Budget, frames: usize) {
 
 #[test]
 fn independent_events_commute() {
-    let places: Vec<(u32, u32)> = (0..12).map(|k| ((k * 357_913_941) as u32, (k * 1_431_655_765u32).wrapping_add(0x1000_0000))).collect();
+    // six places, each twice: the two ships of a place are in one state, so they tie at every event
+    let places: Vec<(u32, u32)> = (0..12).map(|k| ((k / 2 * 715_827_882) as u32, (k / 2 * 1_431_655_765u32).wrapping_add(0x1000_0000))).collect();
     let cut = 500_000_000_000_000i64; // three periods of the ships' orbit
     let mut reference: Option<Vec<String>> = None;
     let orders: [&[usize]; 6] = [
@@ -73,9 +77,9 @@ fn independent_events_commute() {
         let (threads, dt, budget) = schedules[n % 3];
         let (mut u, ids) = scene(&places, order);
         u.threads = threads;
-        // every ship's next item, at the start: they tie (one orbit shape, one step)
+        // every ship's next item, at the start: it ties with its twin's (one state, one step)
         let firsts: Vec<i64> = ids.iter().map(|&i| u.rec(i).plan[0].t).collect();
-        ties += firsts.iter().filter(|&&t| t == firsts[0]).count();
+        ties += firsts.iter().filter(|&&t| firsts.iter().filter(|&&u| u == t).count() >= 2).count();
         go(&mut u, cut, dt, budget, 400);
         // the catalogue slot a tube's key indexes is an allocation, not a history: it is left out, as the digest leaves it out
         let records: Vec<String> = ids
@@ -86,6 +90,10 @@ fn independent_events_commute() {
             })
             .collect();
         assert!(u.rec(ids[0]).events > 300, "the ships were kicked: {}", u.rec(ids[0]).events);
+        for k in (0..12).step_by(2) {
+            let twin = |i: usize| format!("{:?}", u.rec(ids[i]).b.event_time) + &format!("{:?}", u.rec(ids[i]).ext) + &format!("{:?}", u.rec(ids[i]).carry);
+            assert_eq!(twin(k), twin(k + 1), "order {n}: two ships in one state have one history");
+        }
         match &reference {
             None => reference = Some(records),
             Some(r) => {
@@ -102,17 +110,18 @@ fn independent_events_commute() {
 #[test]
 fn a_ship_that_ties_with_a_planet_reads_it_in_the_order_of_their_keys() {
     let cut = 2_000_000_000_000_000i64;
-    // Two planets that pull each other (so they have events), and a ship on the first planet's orbit shape (the same
-    // period, so the same step and every tick) at another place on it; made after the planets, or before.
+    // Two planets that pull each other (so they have events), and a third planet (nothing pulls it, and it pulls nothing) on the
+    // first planet's orbit shape (the same period, so the same step and every tick) at another place on it; made after the
+    // planets, or before.
     let run = |ship_first: bool, threads: usize, dt: f64, budget: Budget, frames: usize| -> String {
         let mut u = Universe::new(s(STAR_RADIUS), Config::default());
         let a_spec = OrbitSpec { doll: 0, periapsis: s(SEP), e_q48: (1u64 << 48) / 20, clockwise: false, angle: 0, phase: 0 };
         let b_spec = OrbitSpec { doll: 0, periapsis: s(3 * SEP), e_q48: 0, clockwise: false, angle: 1 << 30, phase: 1 << 31 };
         let ship_spec = OrbitSpec { phase: 1 << 30, ..a_spec };
-        let ship = if ship_first { Some(u.add_body(Kind::Ship, ship_spec, Scalar::ZERO).unwrap()) } else { None };
+        let ship = if ship_first { Some(u.add_body(Kind::Planet, ship_spec, Scalar::ZERO).unwrap()) } else { None };
         let a = u.add_body(Kind::Planet, a_spec, Scalar::ZERO).unwrap();
         let b = u.add_body(Kind::Planet, b_spec, Scalar::ZERO).unwrap();
-        let ship = ship.unwrap_or_else(|| u.add_body(Kind::Ship, ship_spec, Scalar::ZERO).unwrap());
+        let ship = ship.unwrap_or_else(|| u.add_body(Kind::Planet, ship_spec, Scalar::ZERO).unwrap());
         // each planet pulls a thousandth of the star's pull, and has a doll
         u.add_doll("a", a, -9, Scalar::raw(49_000, 9).unwrap()).unwrap();
         u.add_doll("b", b, -9, Scalar::raw(49_000, 9).unwrap()).unwrap();
