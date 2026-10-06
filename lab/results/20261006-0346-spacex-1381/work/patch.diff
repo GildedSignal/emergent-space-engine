@@ -1,0 +1,178 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..f88a529 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -349,14 +349,49 @@ fn root_witness(
+         Some((a, b))
+     } else { None })
+ }
++thread_local! {
++    /// Exact shape reuse for cycle rebinds. `Orbit::compile`'s general branch is a pure function
++    /// of its key, and `ShapeMemo` shares the compiled shape across keys with the same `ShapeKey`
++    /// (the weak branch drops compactness entirely). Bit-identical by construction; the circle
++    /// special case keeps `Orbit::compile`. Grows with distinct shapes; an owner must add eviction
++    /// before this ships.
++    static CYCLES: std::cell::RefCell<crate::orbit::ShapeMemo> =
++        std::cell::RefCell::new(crate::orbit::ShapeMemo::default());
++}
++
++/// `(hits, distinct shapes)` of the cycle memo on this thread.
++pub fn cycle_memo_stats() -> (u64, usize) {
++    CYCLES.with(|m| {
++        let m = m.borrow();
++        (m.hits, m.len())
++    })
++}
++
++fn memo_compile(key: OrbitKey) -> Result<Orbit> {
++    let circle = key.k == crate::orbit::UNIT
++        && key.compactness()? >= Scalar::ONE.div(Scalar::integer(6))?;
++    if circle {
++        return Orbit::compile(key);
++    }
++    CYCLES.with(|m| m.borrow_mut().get(key))
++}
++
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        let t0 = std::time::Instant::now();
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        crate::prof::add(0, t0.elapsed().as_nanos() as u64);
++        let t1 = std::time::Instant::now();
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            let tr = Trajectory::Cycle(memo_compile(key)?);
++            crate::prof::add(1, t1.elapsed().as_nanos() as u64);
++            tr
+         } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++            let tr = Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?);
++            crate::prof::add(2, t1.elapsed().as_nanos() as u64);
++            tr
+         };
++        let t2 = std::time::Instant::now();
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
+         if incoming {
+             offset = offset.negate();
+@@ -379,6 +414,7 @@ impl Rebinding {
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+         fit.residual = Residual::between(state, fit.decoded_event()?);
++        crate::prof::add(3, t2.elapsed().as_nanos() as u64);
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 476d49e..6e89728 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -815,3 +815,43 @@ fn compile_sums(key: Key, newton: bool) -> Result<(Cycle, [i128; 3])> {
+         sums,
+     ))
+ }
++
++/// Timing counters for the rebind path (measurement only; never affects outcomes).
++pub mod prof {
++    use std::cell::RefCell;
++
++    pub const SLOT_NAMES: [&str; 8] = [
++        "fit_key",
++        "compile_cycle",
++        "compile_passage",
++        "at_radius_and_tail",
++        "u_readout",
++        "u_sources",
++        "u_force_quant",
++        "u_tau_book",
++    ];
++
++    thread_local! {
++        static NS: RefCell<[u64; 8]> = const { RefCell::new([0; 8]) };
++        static CALLS: RefCell<[u64; 8]> = const { RefCell::new([0; 8]) };
++    }
++
++    pub fn add(slot: usize, ns: u64) {
++        NS.with(|n| {
++            let mut b = n.borrow_mut();
++            b[slot] = b[slot].saturating_add(ns);
++        });
++        CALLS.with(|c| c.borrow_mut()[slot] += 1);
++    }
++
++    /// Take (and reset) the counters: `(slot name, total ns, calls)`.
++    pub fn take() -> Vec<(String, u64, u64)> {
++        let ns = NS.with(|n| std::mem::take(&mut *n.borrow_mut()));
++        let calls = CALLS.with(|c| std::mem::take(&mut *c.borrow_mut()));
++        ns.iter()
++            .zip(calls)
++            .enumerate()
++            .map(|(i, (ns, calls))| (SLOT_NAMES[i].to_string(), *ns, calls))
++            .collect()
++    }
++}
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..f506015 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -8,7 +8,7 @@ use crate::{
+ use std::{collections::HashMap, sync::Arc};
+ 
+ const HALF: u64 = 1 << 47;
+-const UNIT: u64 = 1 << 48;
++pub const UNIT: u64 = 1 << 48;
+ const WEAK_EXPONENT: i16 = -18;
+ const CAP: i128 = PI / 4;
+ /// Coarsening measured on the frozen bound seeds and the added weak-field sweep.
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 8aeafae..6030f5a 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -300,10 +300,12 @@ impl Work<'_, '_> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
+         let old = &self.rec.b;
++        let tb = std::time::Instant::now();
+         // The tube's length since the last binding is the body's clock reading (root units).
+         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
++        emergent_space::prof::add(7, tb.elapsed().as_nanos() as u64);
+         self.retired.push(Segment { b: old.clone(), until: t });
+         self.rec.b = Binding {
+             doll,
+@@ -344,14 +346,20 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let tr = std::time::Instant::now();
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
++        emergent_space::prof::add(4, tr.elapsed().as_nanos() as u64);
+         let d = self.rec.b.doll;
++        let ts = std::time::Instant::now();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
++        emergent_space::prof::add(5, ts.elapsed().as_nanos() as u64);
++        let tf = std::time::Instant::now();
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
++        emergent_space::prof::add(6, tf.elapsed().as_nanos() as u64);
+         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+         let added;
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..99d2b07 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -103,6 +103,10 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "cycle_memo": { "hits": emergent_space::binding::cycle_memo_stats().0, "shapes": emergent_space::binding::cycle_memo_stats().1 },
++        "profile_us": emergent_space::prof::take().into_iter()
++            .map(|(slot, ns, calls)| json!({"slot": slot, "us": ns as f64 / 1e3, "calls": calls}))
++            .collect::<Vec<_>>(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()

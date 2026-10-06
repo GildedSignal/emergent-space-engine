@@ -1,0 +1,103 @@
+{
+  "cycle_memo": {
+    "hits": 11,
+    "shapes": 56
+  },
+  "digest": "8283cbe3563c720db86e4b54a16531f96108efb6ee60daca2c9bbcf63e86403c",
+  "frames": 3300,
+  "kick_us": {
+    "median": 40.877,
+    "p99": 78.758,
+    "samples": 25
+  },
+  "kick_us_all": {
+    "median": 44.403999999999996,
+    "p99": 461.853,
+    "samples": 37
+  },
+  "kick_us_leavers": {
+    "median": 365.71299999999997,
+    "p99": 461.853,
+    "samples": 12
+  },
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-06T04:00:17Z",
+    "unix": 1791259217,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-06T04:00:17Z",
+    "unix": 1791259217,
+    "when": "before"
+  },
+  "memo": {
+    "cycle_rebinds": 31,
+    "exact_hit_rate": 0.0,
+    "exact_shapes": 31,
+    "quantized_hit_rate": 0.16129032258064513,
+    "quantized_shapes": 26
+  },
+  "profile_us": [
+    {
+      "calls": 89,
+      "slot": "fit_key",
+      "us": 445.564
+    },
+    {
+      "calls": 67,
+      "slot": "compile_cycle",
+      "us": 586.345
+    },
+    {
+      "calls": 22,
+      "slot": "compile_passage",
+      "us": 8069.605
+    },
+    {
+      "calls": 89,
+      "slot": "at_radius_and_tail",
+      "us": 728.471
+    },
+    {
+      "calls": 50,
+      "slot": "u_readout",
+      "us": 210.96
+    },
+    {
+      "calls": 50,
+      "slot": "u_sources",
+      "us": 400.695
+    },
+    {
+      "calls": 50,
+      "slot": "u_force_quant",
+      "us": 66.792
+    },
+    {
+      "calls": 61,
+      "slot": "u_tau_book",
+      "us": 462.689
+    }
+  ],
+  "refused": 0,
+  "replay_digest": "989892a426b5ac4e7313a9ac3da8ccff8e8a13be7524c4da9e842ed42e927667",
+  "rtf_target": 1.0,
+  "samples": 37,
+  "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+  "seed": 1,
+  "wall_seconds": 0.123830555
+}
