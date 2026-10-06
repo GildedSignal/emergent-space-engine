@@ -1,0 +1,27 @@
+{
+  "machine": {
+    "cpu": "i7-4790 4C/8T DDR3 dual-channel",
+    "load_start": "0.28 0.89 1.22",
+    "load_end": "2.31 1.55 1.35",
+    "package_temp_c": 61,
+    "note": "shared box; other runs joined mid-window (load to 2.75); orders of magnitude only per lab rules"
+  },
+  "headline_events_per_s_allcore_512MiB": {
+    "chase_L4_dependent": 1.74e7,
+    "gather_L4_independent": 4.74e7,
+    "gather_L8_independent": 2.56e7,
+    "stream_bandwidth_cap_GBps": 21.8,
+    "today_29us_kick_8cores": 2.76e5
+  },
+  "single_core_ns_per_line": {"chase_any_L": "81-99", "gather_L4": 25.2, "gather_L8": 17.9, "stream": 4.5},
+  "n_max_1e9_verdicts": {
+    "battle_90min_64perorbit_rtf10": "ALL layouts fail (best gather-4: 4.0e8)",
+    "battle_90min_0.3perorbit_rtf10": "ALL memory layouts pass >=30x; today 29us compute still fails by ~2x",
+    "belt_1yr_64perorbit_rtf10": "passes even at today's 29us/kick (N_max 1.4e10)"
+  },
+  "commands": [
+    "gcc -O2 -march=native -o bench bench.c -lpthread",
+    "./bench <stream|gather|chase> <L> <threads> [512]",
+    "python3 budget.py"
+  ]
+}
