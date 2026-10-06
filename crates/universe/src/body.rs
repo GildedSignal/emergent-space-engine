@@ -43,6 +43,8 @@ pub struct Item {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Thrust {
     pub keys: u8,
+    /// The throttle: the burn is `2^level` times the base thrust (`Config::thrust_log2`). Part of the decision, like the keys.
+    pub level: u8,
     /// Heading in turns, Q32.
     pub heading: u32,
     /// When the thrust now held started counting (the last flush), in ticks.

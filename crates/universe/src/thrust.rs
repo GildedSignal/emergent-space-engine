@@ -10,6 +10,30 @@ use crate::ctx::Config;
 use crate::num::{add2, dot2, norm2, scale2, Res, V2};
 use emergent_space::orbit::Scalar;
 
+/// The throttle's levels: `0..=MAX_LEVEL`, the burn `2^level` times the base thrust (0.35 g at level 0, about 11,500 g at 15).
+pub const MAX_LEVEL: u8 = 15;
+
+/// The player's decision as one logged byte: the keys in bits 0–3 (forward, reverse, left, right) and the throttle level
+/// in bits 4–7. A word with level 0 is the keys alone, as before the throttle existed (every old log replays unchanged).
+pub fn word(keys: u8, level: u8) -> u8 {
+    (keys & 15) | (level.min(MAX_LEVEL) << 4)
+}
+
+/// A decision word's keys and throttle level.
+pub fn split(word: u8) -> (u8, u8) {
+    (word & 15, word >> 4)
+}
+
+/// The base-2 logarithm of the rapidity per root time unit a burn at `level` adds (`Config::thrust_log2 + level`).
+pub fn alpha_log2(cfg: &Config, level: u8) -> i16 {
+    (cfg.thrust_log2 + level.min(MAX_LEVEL) as i32) as i16
+}
+
+/// The proper acceleration of a burn at `level`, in g (a tick is `TICK_SECONDS` of the root clock, `c` metres per second).
+pub fn g_of(cfg: &Config, level: u8) -> f64 {
+    2f64.powi(alpha_log2(cfg, level) as i32) * 299_792_458.0 / crate::view::TICK_SECONDS / 9.806_65
+}
+
 /// Unit vector of a heading in turns (Q32): integer CORDIC (rotation mode), 24 iterations. The
 /// constants are `atan(2^-i)` in turns·2^32 and the inverse gain in Q32.
 pub fn direction(heading: u32) -> Res<V2> {
@@ -93,7 +117,7 @@ pub fn owed(cfg: &Config, th: Thrust, dtau: Scalar, x: V2, v: V2, mu: Scalar) ->
     if dir == 0 {
         return Ok((heading, v));
     }
-    let eta = dtau.mul(Scalar::power_of_two(cfg.thrust_log2 as i16))?;
+    let eta = dtau.mul(Scalar::power_of_two(alpha_log2(cfg, th.level)))?;
     let eta = if dir > 0 { eta } else { eta.negate() };
     Ok((heading, burn(x, v, eta, direction(mid)?, mu)?))
 }

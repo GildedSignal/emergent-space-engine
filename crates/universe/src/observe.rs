@@ -158,20 +158,45 @@ pub fn chain(ctx: &Ctx, i: usize, t: Tick) -> Res<Vec<(u16, [f64; 2], [f64; 2])>
 /// `f = 1 − 2μ/r` (the Schwarzschild lapse in the doll's units, `μ` the centre's mass in them), corrected for the velocity
 /// composition between a doll and its centre (`1 + v_centre·v_rel`). Nothing is stored or evolved.
 pub fn clock_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<f64> {
-    let ch = chain(ctx, i, t)?;
-    let mut rate = 1.0;
+    Ok(rates_of(ctx, &chain(ctx, i, t)?).0)
+}
+
+/// `(the rate against the root's clock, the rate in the body's own doll)` along a chain: the second is the first
+/// level's `√(f − v_r²/f − v_t²)` alone, the body's clock against its doll's far time.
+fn rates_of(ctx: &Ctx, ch: &[(u16, [f64; 2], [f64; 2])]) -> (f64, f64) {
+    let (mut rate, mut own) = (1.0, 1.0);
     for (k, (d, p, v)) in ch.iter().enumerate() {
         let r = (p[0] * p[0] + p[1] * p[1]).sqrt();
         let f = 1.0 - 2.0 * ctx.dolls[*d as usize].mu_f64() / r;
         let vr = (p[0] * v[0] + p[1] * v[1]) / r;
         let vt = (p[0] * v[1] - p[1] * v[0]) / r;
         rate *= (f - vr * vr / f - vt * vt).max(1e-300).sqrt();
+        if k == 0 {
+            own = rate;
+        }
         if let Some((_, _, vc)) = ch.get(k + 1) {
             // the doll's centre moves at `vc` in the parent: composing velocities (1 + vc·v).
             rate /= 1.0 + vc[0] * v[0] + vc[1] * v[1];
         }
     }
-    Ok(rate)
+    (rate, own)
+}
+
+/// The player's own readings, with the burn owed since the last flush (`dv`, in the doll's units: the view shows what a
+/// flush at `t` would write): the clock's rate against the root's (`dτ/dt` in the star's frame), its rate in its own
+/// doll (`dτ/dt` in the doll's frame), and its velocity relative to the doll's centre (`c = 1`; the star's doll's
+/// centre is the star, at rest).
+pub struct Clocks {
+    pub root: f64,
+    pub doll: f64,
+    pub doll_velocity: [f64; 2],
+}
+
+pub fn clocks_with(ctx: &Ctx, i: usize, t: Tick, dv: [f64; 2]) -> Res<Clocks> {
+    let mut ch = chain(ctx, i, t)?;
+    ch[0].2 = [ch[0].2[0] + dv[0], ch[0].2[1] + dv[1]];
+    let (root, doll) = rates_of(ctx, &ch);
+    Ok(Clocks { root, doll, doll_velocity: ch[0].2 })
 }
 
 /// A body's position and velocity in the root frame and the rate of its clock against the root's, all

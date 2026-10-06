@@ -15,7 +15,7 @@
 //! (no lensing yet).
 use crate::body::Kind;
 use crate::num::{to_f64, Tick};
-use crate::observe::{clock_rate, root_state, state_rate};
+use crate::observe::{clock_rate, clocks_with, root_state, state_rate};
 use crate::universe::Universe;
 use emergent_space::orbit::Scalar;
 
@@ -55,6 +55,11 @@ pub struct Seen {
     pub direction: [f64; 2],
     /// Light travel time in seconds, in the root frame.
     pub light_seconds: f64,
+    /// Where the emitter was when the light left, relative to the observer, in the root frame (the page's map).
+    pub offset: [f64; 2],
+    /// The rate the star's frame sees the distance between them shrink (`c = 1`, positive: closing), the emitter's
+    /// velocity at the emission against the observer's now.
+    pub closing: f64,
     pub color: [f64; 3],
     pub luminosity: f64,
     /// `ν_obs/ν_em` from `−p·u`: Doppler, aberration and gravitational redshift together.
@@ -71,9 +76,18 @@ pub struct View {
     pub tick: Tick,
     pub coordinate_seconds: f64,
     pub proper_seconds: f64,
-    /// The observer's clock rate against the root's (`dτ/dt`).
+    /// The observer's clock rate against the root's (`dτ/dt`, the star's frame).
     pub rate: f64,
     pub beta: [f64; 2],
+    /// The same two readings in the frame of the doll the observer is in: its clock against the doll's far time, and its
+    /// velocity relative to the doll's centre (in the star's own doll they equal `rate` and `beta`).
+    pub doll_rate: f64,
+    pub doll_beta: [f64; 2],
+    /// The throttle level held and whether a burn key is down (the engine's state, not the page's wish).
+    pub level: u8,
+    pub burning: bool,
+    /// Refusals the player's body has met (a nonzero count means the engine could not take a kick: the state is frozen).
+    pub refusals: u64,
     pub position_light_seconds: [f64; 2],
     pub heading: [f64; 2],
     pub doll: &'static str,
@@ -219,16 +233,22 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
     let t_now = u.now;
     let rec = u.rec(p);
     // A lost player (a wreck) stays where it was lost: the universe goes on without a clock aboard.
-    let (xo, vo, rate_obs) = if rec.alive {
-        let (x, v) = root_state(&ctx, p, t_now).ok()?;
-        (x, v, clock_rate(&ctx, p, t_now).ok()?)
+    let (xo, vo) = if rec.alive {
+        root_state(&ctx, p, t_now).ok()?
     } else {
         let (x, _) = root_state(&ctx, p, rec.b.event_time).ok()?;
-        (x, [0.0, 0.0], 1.0)
+        (x, [0.0, 0.0])
     };
     // The keys held since the last flush: the turn and the burn owed, as a flush at this tick would write them.
     let owed = if rec.alive { crate::observe::held_thrust(&ctx, &rec, t_now).ok().flatten() } else { None };
-    let vo = owed.map_or(vo, |(_, dv)| [vo[0] + dv[0], vo[1] + dv[1]]);
+    let dv = owed.map_or([0.0, 0.0], |o| o.1);
+    let vo = [vo[0] + dv[0], vo[1] + dv[1]];
+    let (rate_obs, doll_rate, doll_beta) = if rec.alive {
+        let c = clocks_with(&ctx, p, t_now, dv).ok()?;
+        (c.root, c.doll, c.doll_velocity)
+    } else {
+        (1.0, 1.0, [0.0, 0.0])
+    };
     let heading = owed.map(|o| o.0).or(rec.thrust.map(|t| t.heading)).unwrap_or(0);
     let h = heading as f64 / 4294967296.0 * std::f64::consts::TAU;
     let tau = rec.b.orbit_state(t_now.max(rec.b.event_time)).ok().map(|s| {
@@ -252,6 +272,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
             kind,
             direction: dir,
             light_seconds: dist * TICK_SECONDS,
+            offset: [d[0] * TICK_SECONDS, d[1] * TICK_SECONDS],
+            closing: dot(toward, vo) - dot(toward, vel),
             color: blackbody(temp * shift),
             luminosity: lum * shift.powi(4),
             shift,
@@ -345,6 +367,11 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
         proper_seconds: proper,
         rate: rate_obs,
         beta: vo,
+        doll_rate,
+        doll_beta,
+        level: rec.thrust.map_or(0, |t| t.level),
+        burning: rec.alive && rec.thrust.is_some_and(|t| t.keys & 3 != 0),
+        refusals: rec.refusals,
         position_light_seconds: pos,
         heading: [h.cos(), h.sin()],
         doll: rec_doll,
