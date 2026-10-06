@@ -1,0 +1,25 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 1724246..b913172 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -186,6 +186,20 @@ pub struct Bound {
+ /// Fit a tube to the exact state `exact` at tick `t` (in a doll whose clock exponent is `clock_exp`),
+ /// and keep everything the fit discards. `edge` is the radius a passage is compiled out to.
+ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
++    if let Ok(path) = std::env::var("KICK_DUMP") {
++        let s = |x: Scalar| format!("{},{}", x.significand(), x.exponent());
++        let line = format!(
++            "{{\"t\":{t},\"clock_exp\":{clock_exp},\"edge\":{},\"unit\":[{},{},{}],\"le\":{},\"ve\":{},\"p\":[{},{}],\"v\":[{},{}]}}\n",
++            edge.map(|e| format!("\"{}\"", s(e))).unwrap_or("null".into()),
++            s(unit.mu), s(unit.inverse), unit.unity,
++            exact.length_exponent, exact.velocity_exponent,
++            exact.position[0], exact.position[1], exact.velocity[0], exact.velocity[1]
++        );
++        use std::io::Write;
++        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
++            let _ = f.write_all(line.as_bytes());
++        }
++    }
+     let bound = bind_in(exact, t, clock_exp, edge, unit)?;
+     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
+     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
