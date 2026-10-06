@@ -1,0 +1,4 @@
+Working...
+The dossier is complete. Final state: `predictions.md` (pre-registered, held-out cases and kill criteria), `dossier.md` (claim, prior art, evidence, scorecard, adoption cost), `skin/` (standalone falsifier crate on the untouched `crates/encounters`), `scratch/` (all runs, including the disclosed botched H2). No git commands run; no engine files touched.
+
+**Claim:** Broadphase fattening transplanted into Binet element space — a per-pair window cache invalidated by a ~10-flop element-drift check instead of by every kick — cuts encounter-window setups 8.0× (wall 6.8–7.1×) at secular kick strength with zero missed encounters on three held-out seeds (11,905 encounters), while honestly failing at churn strength (κ=1e-3: degenerates to baseline, 1 miss in 3,771), which is exactly the slack/widen-sizing experiment that separates this silver from gold.
