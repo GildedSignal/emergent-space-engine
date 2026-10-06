@@ -1,0 +1,754 @@
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800e..f387a8c 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -65,10 +65,10 @@ pub struct BodyRec {
+     pub interval: i64,
+     pub anchor: Tick,
+     pub plan: Vec<Item>,
++    /// The news cursor per source the body has ever been kicked by ([`crate::news`]): one integer
++    /// test per kick per source, the delivered version's tick and the next undelivered one.
++    pub cursors: Vec<Cursor>,
+     pub thrust: Option<Thrust>,
+-    /// The extended state of the motion law v2 (the energy register and the clock's constants), for a body of the root
+-    /// doll that anything can kick: its step is the fictitious clock's tick ([`crate::ext`]). None for the rest (the
+-    /// planets and the bodies of a planet's doll keep the split of docs/law.md until the dolls are coordinates).
+     pub ext: Option<crate::ext::Ext>,
+     pub alive: bool,
+     pub events: u64,
+@@ -77,13 +77,42 @@ pub struct BodyRec {
+     pub fault: Option<(What, crate::num::Error)>,
+ }
+ 
+-/// A retired binding: readable at any `t` in `[b.event_time, until)`.
++/// A retired binding: readable at any `t` in `[b.event_time, until)`. The version chain of a
++/// source — its segments plus its current binding — is what gravity at c travels along
++/// ([`crate::news`]): every rebinding is a version.
+ #[derive(Clone, Debug)]
+ pub struct Segment {
+     pub b: Binding,
+     pub until: Tick,
+ }
+ 
++/// The next undelivered version of a source, as a kicker's cursor holds it: where and when the
++/// source's motion last changed. `future` marks one the queue has not committed yet at the
++/// kicker's tick; it is cached so the test is not repeated against the store.
++#[derive(Clone, Copy, Debug)]
++pub struct Pending {
++    pub t: Tick,
++    /// The source's position at `t`, in root units at exponent `exp` (a tick of light).
++    pub x: [i64; 2],
++    pub exp: i32,
++    pub future: bool,
++}
++
++/// The news cursor of one (body, source) pair ([`crate::news`]): the tick the source's last
++/// delivered version was bound at, and the next one undelivered. It never moves backward, so
++/// the usual kick is one integer test.
++#[derive(Clone, Copy, Debug)]
++pub struct Cursor {
++    pub source: usize,
++    pub seen: Tick,
++    pub pending: Option<Pending>,
++}
++impl Cursor {
++    pub fn new(source: usize) -> Self {
++        Self { source, seen: Tick::MIN, pending: None }
++    }
++}
++
+ pub trait BodyStore: Send + Sync {
+     fn len(&self) -> usize;
+     fn is_empty(&self) -> bool {
+@@ -98,6 +127,9 @@ pub trait BodyStore: Send + Sync {
+     fn prune(&mut self, i: usize, before: Tick);
+     /// The binding that holds at `t` (current, or a retired one), if still remembered.
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding>;
++    /// The tick of body `i`'s first version (a binding event) after `after`, if any: the news
++    /// cursor's walk over the version chain ([`crate::news`]).
++    fn next_news(&self, i: usize, after: Tick) -> Option<Tick>;
+     /// The current binding's event time (the body's committed tick).
+     fn event_time(&self, i: usize) -> Tick;
+     fn next_time(&self, i: usize) -> Option<Tick>;
+@@ -150,6 +182,17 @@ impl BodyStore for PlainBodies {
+         let k = h.partition_point(|s| s.until <= t);
+         h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
+     }
++    fn next_news(&self, i: usize, after: Tick) -> Option<Tick> {
++        let h = &self.history[i];
++        // Segments ascend in event time: the first bound after `after`…
++        let k = h.partition_point(|s| s.b.event_time <= after);
++        if let Some(s) = h.get(k) {
++            return Some(s.b.event_time);
++        }
++        // …and the current binding is the newest version of all.
++        let t = self.recs[i].b.event_time;
++        (t > after).then_some(t)
++    }
+     fn event_time(&self, i: usize) -> Tick {
+         self.recs[i].b.event_time
+     }
+@@ -173,7 +216,7 @@ impl BodyStore for PlainBodies {
+             emergent_space::binding::Trajectory::Cycle(o) => o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>() + o.shape().crossings().len() * size_of::<usize>(),
+             emergent_space::binding::Trajectory::Passage(_) => 4096,
+         };
+-        size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
++        size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + r.cursors.capacity() * size_of::<Cursor>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
+ }
+ 
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..1875f21 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -36,10 +36,13 @@ pub struct Config {
+     pub leave_log2: i32,
+     /// Kicks per radial period, as a power of two.
+     pub step_log2: i32,
++    /// How kicks read their sources (docs/law.md, "Gravity travels at c"): the law is news;
++    /// the other readings are the tests' and the judge's controls.
++    pub gravity: crate::news::Gravity,
+ }
+ impl Default for Config {
+     fn default() -> Self {
+-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
++        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7, gravity: crate::news::Gravity::default() }
+     }
+ }
+ 
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index afd46ea..f8035b4 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -9,6 +9,7 @@ pub mod fleet;
+ pub mod force;
+ pub mod lorentz;
+ pub mod num;
++pub mod news;
+ pub mod observe;
+ pub mod scenario;
+ pub mod step;
+diff --git a/crates/universe/src/news.rs b/crates/universe/src/news.rs
+new file mode 100644
+index 0000000..db3b0ae
+--- /dev/null
++++ b/crates/universe/src/news.rs
+@@ -0,0 +1,214 @@
++//! Gravity at c in the plane's kicks: **news, kept by a cursor** (docs/law.md, "Gravity travels
++//! at c"; the Opus math memo R5; the lab's `q-gravity-at-c` and `q-gravity-cursor`).
++//!
++//! A kick does not read its sources where they are now: it reads each source **as the kicking
++//! body's past light cone last saw it** — the newest *version* of the source (a binding: every
++//! rebinding, from a kick, a burn or a handoff, is a change of the source's motion) whose
++//! binding event lies inside the body's past light cone — and then evaluates that version's
++//! tube **at the kick's tick**. In free fall the tube places the source where it is now (the
++//! aberration cancels; measured: the lab's news twins agree with instantaneous gravity to
++//! 10⁻⁷ for a free-falling source), so quiet sources cost no behaviour at all; a *change* of
++//! the source's motion (a thrust, a kick, a contact) reaches the body only when its light cone
++//! does. What travels is the generator, not the position.
++//!
++//! The cone is an integer test, `(t − t_k)² ≥ |x − x_k|²` (c = 1: one root length unit is a tick
++//! of light), and it never moves backward along a timelike worldline, so one **cursor** per
++//! (body, source) advances it: the usual kick is one test against the next undelivered version,
++//! cached — the store's own version chain (retired segments plus the current binding, kept for
++//! the view's past-light-cone gathers) *is* the version ring; no new history is stored. A frozen
++//! single version is unstable (the lab's Laplace control: mutual L3), so every rebinding is a
++//! version; the ring a light cone still sees is a light time of cadence — one or two versions
++//! in a star system at the real c.
++//!
++//! The controls (negative, like the judge's planted laws; the shipped default is [`Gravity::News`]):
++//! [`Gravity::Instant`] is yesterday's law — the source read at the kick's tick off its current
++//! binding, cone ignored — and it *reacts before the light cone*, which is the causality failure
++//! this change removes. [`Gravity::Retarded`] pulls toward where the source **was** (the selected
++//! version read at the retarded tick): Laplace's naive retardation, which spirals binaries apart —
++//! the wrong representation, kept so the test can show it.
++use crate::bind::Binding;
++use crate::body::{Cursor, Pending};
++use crate::ctx::Ctx;
++use crate::force::Secondary;
++use crate::num::{Error, Res, Tick};
++use crate::world::pow2;
++use emergent_space::orbit::Scalar;
++
++/// How a kick reads its sources (docs/law.md, "Gravity travels at c"). The law is [`News`];
++/// the other two are the judge's and the tests' controls.
++#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
++pub enum Gravity {
++    /// The source's tube as the kicker's past light cone last saw it, evaluated now.
++    #[default]
++    News,
++    /// The source's current binding at the kick's tick: yesterday's acausal read.
++    Instant,
++    /// The same version read at the retarded tick: Laplace's spiral (the control that must fail).
++    Retarded,
++}
++
++/// Has the version emitted at `t_k` from `x_k` (root units at exponent `ek`) reached a body at
++/// `(t, x)` (root units at exponent `ex`)? `(t − t_k)² ≥ |x − x_k|²` in exact integers: c = 1,
++/// a tick of light is one root unit, so the comparison runs at a fixed quantum of `2^-22` root
++/// units — below a thousandth of a tick of light and above any word's need for range — decided
++/// the same bits on every machine. (`dt` beyond `2^41` ticks is longer than any run: there the
++/// whole unit is the quantum, which the distance in the system cannot approach.)
++pub const CONE_LOG2: i32 = -22;
++
++pub fn arrived(t: Tick, t_k: Tick, x: (&[i64; 2], i32), xk: (&[i64; 2], i32)) -> bool {
++    if t < t_k {
++        return false;
++    }
++    let dt = (t - t_k) as i128;
++    let long = dt >= 1i128 << 41;
++    let q = if long { 0 } else { CONE_LOG2 };
++    // Each word at the quantum: lifted left where the binding is coarser (exact), floored right
++    // where it is finer (the loss is a fraction of the quantum, by construction below a tick).
++    let word = |w: i64, e: i32| -> i128 {
++        if e >= q { (w as i128) << (e - q) } else { (w as i128) >> (q - e) }
++    };
++    let dx = word(x.0[0], x.1) - word(xk.0[0], xk.1);
++    let dy = word(x.0[1], x.1) - word(xk.0[1], xk.1);
++    let side = |d: i128| -> Option<u128> {
++        let a = d.unsigned_abs();
++        (a < 1u128 << 63).then(|| a * a)
++    };
++    // A component beyond 2^63 quanta is farther than any delay this side of `long` certifies.
++    let (Some(dx2), Some(dy2)) = (side(dx), side(dy)) else { return long };
++    let dtq = if long { dt } else { dt << (-CONE_LOG2) };
++    dtq as u128 * dtq as u128 >= dx2 + dy2
++}
++
++/// The exponent of a binding's position words in root units (a tick of light): its own length
++/// exponent, relabelled by the doll's (a doll unit is `2^-shift` root units).
++fn root_exp(ctx: &Ctx, b: &Binding) -> i32 {
++    b.units.0 as i32 - ctx.dolls[b.doll as usize].shift as i32
++}
++
++/// Source `j` as body `i`'s kick at `(t, x)` (root units) reads it, advancing `cur`.
++fn secondary(
++    ctx: &Ctx,
++    j: usize,
++    t: Tick,
++    x: (&[i64; 2], i32),
++    cur: &mut Cursor,
++    mode: Gravity,
++) -> Res<Secondary> {
++    let info = ctx.info[j];
++    let read = |b: &Binding, at: Tick| -> Res<Secondary> {
++        let (pos, vel) = b.cartesian(at)?;
++        Ok(Secondary { gm: info.gm, pos, vel, edge: info.soi })
++    };
++    if mode == Gravity::Instant {
++        let b = ctx.bodies.binding_at(j, t).ok_or(Error::Refused("history pruned"))?;
++        return read(&b, t);
++    }
++    let store = ctx.bodies;
++    // Advance the cursor: one integer test per undelivered version, the next one cached, so the
++    // steady state (no news in flight) is a single comparison. `next_news` walks the version
++    // chain (retired segments, then the current binding); if history the cursor names was pruned,
++    // the walk simply resumes from the oldest remembered version — an older, still-causal read.
++    loop {
++        if cur.pending.is_some_and(|p| p.future && p.t <= t) {
++            // A version the queue had not committed last time is now in play: read where it was emitted.
++            cur.pending = None;
++        }
++        if cur.pending.is_none() {
++            let Some(t_k) = store.next_news(j, cur.seen) else { break };
++            if t_k > t {
++                // Emitted after this kick, as far as the queue's order can tell: not a candidate.
++                cur.pending = Some(Pending { t: t_k, x: [0; 2], exp: 0, future: true });
++                break;
++            }
++            let b = store.binding_at(j, t_k).ok_or(Error::Refused("history pruned"))?;
++            let st = b.readout(t_k)?;
++            cur.pending = Some(Pending { t: t_k, x: st.position, exp: root_exp(ctx, &b), future: false });
++        }
++        let p = cur.pending.expect("set above");
++        if p.future || !arrived(t, p.t, x, (&p.x, p.exp)) {
++            break;
++        }
++        cur.seen = p.t;
++        cur.pending = None;
++    }
++    // The version the cone has delivered: the last one bound at or before `seen`, falling back to
++    // the oldest remembered (a young, distant source: its birth version is all the cone holds)
++    // and, only if even that was pruned away, to the current binding (yesterday's read).
++    let oldest = store.next_news(j, Tick::MIN);
++    let at = if cur.seen == Tick::MIN { oldest } else { Some(cur.seen) };
++    let b = at
++        .and_then(|at| store.binding_at(j, at))
++        .or_else(|| store.binding_at(j, t))
++        .ok_or(Error::Refused("history pruned"))?;
++    match mode {
++        Gravity::News => read(&b, t),
++        Gravity::Retarded => {
++            // Where the source was when its light left: a fixed point on the delivered version's
++            // own path (ticks and root units are the same quantity, c = 1). Three floor iterations
++            // from the emission — the control, not the law.
++            let shift = pow2(-ctx.dolls[b.doll as usize].shift as i32);
++            let xi = [Scalar::raw(x.0[0] as i128, x.1)?, Scalar::raw(x.0[1] as i128, x.1)?];
++            let mut t_r = cur.seen.max(b.event_time);
++            for _ in 0..3 {
++                let (xj, _) = b.cartesian(t_r)?;
++                let d = crate::num::norm2(crate::num::sub2(
++                    xi,
++                    [xj[0].mul(shift)?, xj[1].mul(shift)?],
++                )?)?;
++                let whole = i64::try_from(d.max(Scalar::ZERO).fixed(0)?).unwrap_or(0);
++                t_r = (t - whole).max(b.event_time);
++            }
++            read(&b, t_r)
++        }
++        Gravity::Instant => unreachable!("handled above"),
++    }
++}
++
++/// The secondaries of doll `d` at `t` for body `i` (excluded), each read as `i`'s past light cone
++/// last saw it, with `i`'s state `st` (in `d`'s units) the cone is taken from. `cursors` is the
++/// body's per-source news state, one entry per source of the dolls it has lived in.
++pub fn secondaries(
++    ctx: &Ctx,
++    d: u16,
++    t: Tick,
++    i: usize,
++    st: &emergent_space::binding::IntegerState,
++    cursors: &mut Vec<Cursor>,
++    mode: Gravity,
++) -> Res<Vec<Secondary>> {
++    let x = (st.position, st.length_exponent as i32 - ctx.dolls[d as usize].shift as i32);
++    let mut out = Vec::new();
++    for &j in &ctx.sources[d as usize] {
++        if j == i {
++            continue;
++        }
++        let slot = cursors.partition_point(|c| c.source < j);
++        if cursors.get(slot).map_or(true, |c| c.source != j) {
++            cursors.insert(slot, Cursor::new(j));
++        }
++        out.push(secondary(ctx, j, t, (&x.0, x.1), &mut cursors[slot], mode)?);
++    }
++    Ok(out)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// The cone's boundary in integers: an exact lightlike tie counts as arrived, one tick
++    /// short does not, the past never arrives before `t_k`, and a sub-tick distance (a quarter
++    /// of a tick) is decided exactly at the quantum.
++    #[test]
++    fn the_light_cone_is_exact_integers() {
++        let x = (&[100i64, 0], 0i32);
++        assert!(arrived(10, 0, x, (&[90, 0], 0)));  // exact tie: dt = 10, d = 10
++        assert!(!arrived(9, 0, x, (&[90, 0], 0)));  // one tick short
++        assert!(!arrived(10, 11, x, (&[90, 0], 0))); // not emitted yet
++        assert!(arrived(5, 0, x, (&[103, 4], 0)));  // 3-4-5: 25 = 9 + 16
++        assert!(!arrived(4, 0, x, (&[103, 4], 0)));
++        // A distance of 1.25 ticks of light, words at 2^-3: arrives at the second tick, not the first.
++        assert!(arrived(2, 0, (&[100, 0], -3), (&[90, 0], -3)));
++        assert!(!arrived(1, 0, (&[100, 0], -3), (&[90, 0], -3)));
++    }
++}
++
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..581b8ce 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -332,8 +332,13 @@ impl Work<'_, '_> {
+     fn proper_since(&self, since: Tick, t: Tick) -> Res<Scalar> {
+         proper_since(&self.rec.b, self.ctx.dolls[self.rec.b.doll as usize].shift, since, t)
+     }
++    /// The doll's sources at `t` as this body's past light cone last saw them (docs/law.md,
++    /// "Gravity travels at c"; [`crate::news`]): the read goes through the body's news cursors,
++    /// so a change of a source's motion reaches this body at light speed and never before.
++    fn sources(&mut self, t: Tick, st: &IntegerState) -> Res<Vec<force::Secondary>> {
++        crate::news::secondaries(self.ctx, self.rec.b.doll, t, self.i, st, &mut self.rec.cursors, self.ctx.cfg.gravity)
++    }
+ 
+-    /// The thrust burn owed since the last flush: new velocity (scalars); the heading changes too.
+     fn burn(&mut self, x: V2, v: V2, t: Tick) -> Res<V2> {
+         let Some(th) = self.rec.thrust else { return Ok(v) };
+         if th.keys == 0 || t <= th.since {
+@@ -355,7 +360,7 @@ impl Work<'_, '_> {
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+-        let secs = self.ctx.secondaries(d, t, self.i)?;
++        let secs = self.sources(t, &st)?;
+         let tide = self.ctx.tide(d, t)?;
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+@@ -428,11 +433,10 @@ impl Work<'_, '_> {
+         if l > 0 && self.maybe_capture(t, &st, x)? {
+             return Ok(());
+         }
+-        let d = self.rec.b.doll;
+         let h_ticks = h0 >> (2 * l as i64);
+         let h = time_of(h_ticks, self.rec.b.clock_exp)?;
+         let mut hot = false;
+-        for s in self.ctx.secondaries(d, t, self.i)? {
++        for s in self.sources(t, &st)? {
+             let r = norm2(sub2(s.pos, x)?)?;
+             if force::engaged(l, r, force::relative_speed(v, s.vel)?, h, s.edge)? {
+                 hot = true;
+@@ -536,7 +540,7 @@ impl Work<'_, '_> {
+     fn project(&mut self, t: Tick) -> Res<()> {
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+-        let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
++        let secs = self.sources(t, &st)?;
+         let u = force::field(&secs, x)?.potential;
+         let hd = force::kepler(x, v, self.tube_mu()?)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+@@ -584,7 +588,7 @@ impl Work<'_, '_> {
+         let d = self.rec.b.doll;
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+-        let secs = self.ctx.secondaries(d, t, self.i)?;
++        let secs = self.sources(t, &st)?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+         for (s, &j) in secs.iter().zip(sources) {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..9675d00 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -295,6 +295,7 @@ impl Universe {
+             interval: 0,
+             anchor: 0,
+             plan: Vec::new(),
++            cursors: Vec::new(),
+             thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+             ext: None,
+             alive: true,
+@@ -343,6 +344,7 @@ impl Universe {
+             interval: 0,
+             anchor: 0,
+             plan: Vec::new(),
++            cursors: Vec::new(),
+             thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+             ext: None,
+             alive: true,
+@@ -691,6 +693,7 @@ impl Universe {
+                 interval: 0,
+                 anchor: l.tick,
+                 plan: Vec::new(),
++                cursors: Vec::new(),
+                 thrust: None,
+                 ext: None,
+                 alive: true,
+@@ -1051,6 +1054,17 @@ impl Universe {
+                 put(&mut h, t.heading as i128);
+                 put(&mut h, t.since as i128);
+             }
++            for c in &r.cursors {
++                put(&mut h, c.source as i128);
++                put(&mut h, c.seen as i128);
++                if let Some(p) = c.pending {
++                    put(&mut h, p.t as i128);
++                    put(&mut h, p.x[0] as i128);
++                    put(&mut h, p.x[1] as i128);
++                    put(&mut h, p.exp as i128);
++                    put(&mut h, p.future as i128);
++                }
++            }
+             put(&mut h, r.events as i128);
+             put(&mut h, r.refusals as i128);
+             h.update(format!("{:?}", r.fault).as_bytes());
+diff --git a/crates/universe/tests/news_scenes.rs b/crates/universe/tests/news_scenes.rs
+new file mode 100644
+index 0000000..654c0c9
+--- /dev/null
++++ b/crates/universe/tests/news_scenes.rs
+@@ -0,0 +1,293 @@
++//! The scene tests of gravity at c (run 20261006-1738's missing evidence, second author
++//! 20261006-1931): a **consumer whose cadence resolves a massive source's light delay**, and the
++//! freely-falling pair's three-way control. The cone's integer exactness is pinned in
++//! `src/news.rs`; what was missing is the *behaviour*: news bites, and it bites never before the
++//! cone.
++//!
++//! Scene A (the twins): a massive player-class burner in Home's doll (mass 2^-3 of Home: the API's
++//! player has thrust, and `make_source` gives it pull — the lens's "a thrusting planet's pull
++//! reaches others at light speed", which no shipped scene could express, the first checker's
++//! structural finding) burns at `t_on`..`t_off`, and two ships at 6,000 root units of Home read it
++//! while it sits at 60,000 (light delay ~5.4e4–6.6e4 ticks against kick intervals of ~1.4e3: about
++//! 40 kicks inside the light window). The burn/no-burn twins must be **bit-identical at every poll
++//! outside the source's light cone**, and the first differing poll must be the first one inside it
++//! — the integer cone `news::arrived` evaluated on the measured states, not a float delay. The
++//! Instant control (yesterday's law, exactly "delete the cursor and read the current binding")
++//! must differ *before* the cone: that is the falsifier, the test that fails if the cursor is
++//! deleted. The Retarded control (Laplace's field) must also stay behind the cone.
++//!
++//! Scene B (the pair): two massive moons of Home on eccentric orbits that pass close, each read by
++//! the other. For a freely falling source the delivered tube evaluated now places it where it is
++//! (the aberration cancels: the generator travels, not the position), so News ≡ Instant to ~1e-6;
++//! the retarded read pulls toward where the source *was* (Laplace's wrong field) and the pair
++//! drifts ~100× further. The spiral's e-folding needs a mutual β the API cannot express (members
++//! must stay bound in their own doll; the first checker's cap), so the control pins the split, not
++//! the unbinding.
++use emergent_space::binding::IntegerState;
++use emergent_space::events::{Doll, LogMass};
++use emergent_space::orbit::Scalar;
++use emergent_universe::news::{arrived, Gravity};
++use emergent_universe::num::{s, to_f64, Tick};
++use emergent_universe::thrust::word;
++use emergent_universe::universe::{OrbitSpec, Universe};
++use emergent_universe::{Config, Kind};
++
++/// Home as the plane flies it, alone (no perturber: the planet is a pure tube, as in every gate
++/// scene): a circular orbit at 1 AU, radius 4,313 root units, its doll at mass 2^-18 of the star.
++fn home_system(cfg: Config) -> Res<(Universe, usize, u16)> {
++    let mut u = Universe::new(s(471_000), cfg);
++    let home = u.add_body(
++        Kind::Planet,
++        OrbitSpec { doll: 0, periapsis: s(99_300_000), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++        s(4_313),
++    )?;
++    let doll = u.add_doll("Home", home, -18, Scalar::raw(4_313, 18)?)?;
++    Ok((u, home, doll))
++}
++
++/// Make `i` a secondary of mass 2^`log2` of its host, its sphere of influence from the mass ratio
++/// (the moon's own recipe in `scenario.rs`).
++fn give_mass(u: &mut Universe, i: usize, log2_vs_star: i32, log2_vs_host: i32) -> Res<()> {
++    let sep = u.rec(i).b.entry.trajectory.key().periapsis;
++    let doll = u.rec(i).b.doll;
++    let proto = Doll::child(LogMass((log2_vs_star as i32) << 24), doll, u.rec(i).b.tube);
++    let soi = proto.edge_radius(&u.dolls[doll as usize].record.clone(), sep)?;
++    u.make_source(i, log2_vs_host, soi)
++}
++
++/// One body's exact observable at `t`: the committed tick, the sub-quantum carry and the read
++/// state. Twins that agree here agree everywhere the physics lives (the cursors are plumbing:
++/// after the twins diverge their version chains differ, and a *quiet* rebind can advance the
++/// quiet twin's `seen` without any change in what either side reads).
++fn signature(u: &Universe, i: usize, t: Tick) -> Res<(Tick, [i64; 2], IntegerState)> {
++    let r = u.rec(i);
++    let st = r.b.readout(t)?;
++    Ok((r.b.event_time, r.carry, st))
++}
++/// The root-unit position words of body `i` at `t`, with the exponent `arrived` wants
++/// (doll words relabelled to root units, as `news::secondaries` does).
++fn root_words(u: &Universe, i: usize, t: Tick) -> Res<([i64; 2], i32)> {
++    let r = u.rec(i);
++    let st = r.b.readout(t)?;
++    Ok((st.position, st.length_exponent as i32 - u.dolls[r.b.doll as usize].shift as i32))
++}
++
++/// return (t_e', the emission position in root words, the polls where each side of each assertion
++/// lives, per-poll match flags).
++struct Twins {
++    /// The burn's flush tick (the burner's first rebind the twins disagree on).
++    t_e: Tick,
++    /// The burner's root-unit words at `t_e` (the cone's emission event).
++    xb: ([i64; 2], i32),
++    /// (poll tick, twins match, cone says arrived at that poll).
++    polls: Vec<(Tick, bool, bool)>,
++    /// The first poll where the consumer's cursor has seen the burn (None if never).
++    cursor_arrival: Option<Tick>,
++    /// The consumer the report is taken on.
++    consumer: usize,
++}
++
++fn twins(gravity: Gravity, verbose: bool) -> Res<Twins> {
++    let step_log2 = 20;
++    let mk = |burn: bool| -> Res<(Universe, usize, usize, usize)> {
++        let cfg = Config { step_log2, gravity, ..Config::default() };
++        let (mut u, _home, doll) = home_system(cfg)?;
++        let burner = u.add_body(
++            Kind::Player,
++            OrbitSpec { doll, periapsis: Scalar::raw(60_000, 18)?, e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++            Scalar::raw(34, 8)?,
++        )?;
++        give_mass(&mut u, burner, -21, -3)?;
++        let mut consumers = Vec::new();
++        for phase in [0u32, 0x8000_0000] {
++            consumers.push(u.add_body(
++                Kind::Ship,
++                OrbitSpec { doll, periapsis: Scalar::raw(6_000, 18)?, e_q48: 0, clockwise: false, angle: 0, phase },
++                Scalar::raw(34, 8)?,
++            )?);
++        }
++        u.threads = 1;
++        if burn {
++            // A level-8 hold of 1.6e5 ticks: rapidity 2.3e-6, a third of the burner's escape
++            // speed at 60,000 root units, flushed at the burner's own kicks.
++            u.schedule(100_000, word(1, 8))?;
++            u.schedule(260_000, 0)?;
++        }
++        u.start()?;
++        Ok((u, burner, consumers[0], consumers[1]))
++    };
++    let (mut quiet, burner, c0, c1) = mk(false)?;
++    let (mut hot, _, _, _) = mk(true)?;
++    let mut out = Twins { t_e: 0, xb: ([0; 2], 0), polls: Vec::new(), cursor_arrival: None, consumer: c0 };
++    let poll = 600;
++    let end = 500_000;
++    let mut t = 0;
++    while t < end {
++        t += poll;
++        quiet.settle(t);
++        hot.settle(t);
++        // The consumers' physics: the burner is the emission itself (it differs from t_e' on),
++        // so the twin comparison walks the ships it reads.
++        let mut match_now = true;
++        for &i in &[c0, c1] {
++            if signature(&quiet, i, t)? != signature(&hot, i, t)? {
++                match_now = false;
++            }
++        }
++        // The burn's emission: the first poll where the burner's read state itself differs.
++        if out.t_e == 0 && signature(&quiet, burner, t)?.2.velocity != signature(&hot, burner, t)?.2.velocity {
++            out.t_e = hot.rec(burner).b.event_time;
++            out.xb = root_words(&hot, burner, out.t_e)?;
++            if verbose {
++                println!("[{:?}] emission at t_e'={}", gravity, out.t_e);
++            }
++        }
++        let xc = root_words(&hot, c0, t)?;
++        let a = if out.t_e == 0 { false } else { arrived(t, out.t_e, (&xc.0, xc.1), (&out.xb.0, out.xb.1)) };
++        if out.t_e > 0 && out.cursor_arrival.is_none() {
++            let seen = hot.rec(c0).cursors.iter().find(|c| c.source == burner).map(|c| c.seen);
++            if seen.is_some_and(|tk| tk >= out.t_e) {
++                out.cursor_arrival = Some(t);
++            }
++        }
++        out.polls.push((t, match_now, a));
++    }
++    Ok(out)
++}
++
++/// Scene A: news never bites before the cone, and bites at it; Instant bites immediately.
++#[test]
++fn the_burn_reaches_consumers_at_light_speed_only() -> Res<()> {
++    let news = twins(Gravity::News, true)?;
++    assert!(news.t_e > 0, "the burn flushed");
++    assert!(news.polls.iter().any(|&(_, m, _)| !m), "the twins eventually differ under News");
++    // (1) Bit-identical at every poll outside the cone (the causality property).
++    for &(t, m, a) in &news.polls {
++        if !a {
++            assert!(m, "News: the twins differ at t={t}, before the cone (t_e'={})", news.t_e);
++        }
++    }
++    // (2) The first differing poll is the first one inside the cone.
++    let first = news.polls.iter().position(|&(_, m, _)| !m).unwrap();
++    let (t_star, _, a_star) = news.polls[first];
++    assert!(a_star, "News: the first differing poll t={t_star} is outside the cone");
++    assert!(news.polls[first - 1].1, "it is the first");
++    let arrival = news.cursor_arrival.expect("the cursor saw the burn");
++    assert!(arrival <= t_star, "the cursor delivers before the state fires");
++    assert!(t_star - arrival <= 6 * 600, "the burn fires within a few kicks of its arrival");
++    for &(t, m, _) in &news.polls {
++        if t < arrival {
++            assert!(m, "News: the twins differ at t={t}, before the cursor even saw the burn");
++        }
++    }
++    let delay = t_star - news.t_e;
++    let first_inside = news.polls.iter().position(|&(_, _, a)| a).map_or(0, |k| news.polls[k].0);
++    println!("News: t_e'={} first cone-inside poll={} first difference t*={} (light delay {} ticks)",
++        news.t_e, first_inside, t_star, delay);
++    // The falsifier: with the cursor deleted (the current binding read at the kick's tick), the
++    let instant = twins(Gravity::Instant, true)?;
++    assert!(instant.t_e > 0);
++    let first_i = instant.polls.iter().position(|&(_, m, _)| !m).expect("Instant differs");
++    let (t_i, _, a_i) = instant.polls[first_i];
++    assert!(!a_i, "Instant: the first difference t={t_i} is INSIDE the cone (acausal)");
++    println!("Instant: t_e'={} first difference t={} ({} ticks after the emission, INSIDE the light window of {} ticks)",
++        instant.t_e, t_i, t_i - instant.t_e, t_star - news.t_e);
++
++    // Laplace's read is causal too (it selects the version by the same cone), though its field is
++    // wrong: it must not cross the cone either.
++    let retarded = twins(Gravity::Retarded, true)?;
++    let first_r = retarded.polls.iter().position(|&(_, m, _)| !m);
++    if let Some(k) = first_r {
++        let (t_r, _, a_r) = retarded.polls[k];
++        assert!(a_r, "Retarded: the first difference t={t_r} is outside the cone");
++    }
++    Ok(())
++}
++
++/// Scene B: two massive moons of Home passing close. News vs Instant (the aberration cancels for a
++/// freely falling source) against Retarded (Laplace's field, which drifts the pair).
++#[test]
++fn the_freely_falling_pair_is_news_eq_instant_not_retarded() -> Res<()> {
++    // The pair's light delay (~2e4 ticks at a 2e4-root trailing gap) must exceed the moons' rebind
++    // interval (h = T/2^step_log2 ~ 6.1e3): news bites only then.
++    let step_log2 = 22;
++    let mk = |gravity: Gravity| -> Res<(Universe, [usize; 2])> {
++        let cfg = Config { step_log2, gravity, ..Config::default() };
++        let (mut u, _home, doll) = home_system(cfg)?;
++        let mut moons = [0usize; 2];
++        for (k, (angle, phase)) in [(0u32, 0u32), (0u32, 0x147A_E14A)].into_iter().enumerate() {
++            let m = u.add_body(
++                Kind::Moon,
++                OrbitSpec {
++                    doll,
++                    periapsis: Scalar::raw(20_000, 18)?,
++                    e_q48: (1u64 << 48) / 2,
++                    clockwise: false,
++                    angle,
++                    phase,
++                },
++                Scalar::raw(1_176, 8)?,
++            )?;
++            give_mass(&mut u, m, -24, -6)?;
++            moons[k] = m;
++        }
++        u.threads = 1;
++        u.start()?;
++        Ok((u, moons))
++    };
++    let mut modes: Vec<(Gravity, Universe, [usize; 2])> = [
++        (Gravity::News, mk(Gravity::News)?.0, mk(Gravity::News)?.1),
++        (Gravity::Instant, mk(Gravity::Instant)?.0, mk(Gravity::Instant)?.1),
++        (Gravity::Retarded, mk(Gravity::Retarded)?.0, mk(Gravity::Retarded)?.1),
++    ]
++    .into();
++    let state = |u: &Universe, moons: &[usize; 2], t: Tick| -> Res<[f64; 4]> {
++        let mut out = [0.0; 4];
++        for (k, &m) in moons.iter().enumerate() {
++            let (x, _) = u.rec(m).b.cartesian(t)?;
++            out[2 * k] = to_f64(x[0]);
++            out[2 * k + 1] = to_f64(x[1]);
++        }
++        Ok(out)
++    };
++    let end = 20_000_000_000; // ~0.8 radial periods of a = 4e4 root units
++    let stride = 500_000_000;
++    let mut samples: Vec<(Tick, [f64; 4], [f64; 4], [f64; 4])> = Vec::new();
++    let mut t = 0;
++    while t < end {
++        t += stride;
++        for (_, u, _) in modes.iter_mut() {
++            u.settle(t);
++            // The run is headless: forget the history the cones here can no longer need (the
++            // frame loop's own rule; without it the version ring grows without bound).
++            u.prune();
++        }
++        let mut s: Vec<[f64; 4]> = Vec::new();
++        for (_, u, m) in modes.iter() {
++            s.push(state(u, m, t)?);
++        }
++        samples.push((t, s[0], s[1], s[2]));
++    }
++    let dist = |a: &[f64; 4], b: &[f64; 4]| ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt();
++    let mut worst_pair = 0.0f64;
++    let mut sep_min = f64::MAX;
++    let mut worst_ret = 0.0f64;
++    let mut sep_now = 0.0f64;
++    for &(_t, n, i, r) in &samples {
++        let sep_n = ((n[0] - n[2]).powi(2) + (n[1] - n[3]).powi(2)).sqrt();
++        sep_min = sep_min.min(sep_n);
++        sep_now = sep_n;
++        worst_pair = worst_pair.max(dist(&n, &i) / sep_n);
++        worst_ret = worst_ret.max(dist(&n, &r) / sep_n);
++    }
++    println!(
++        "pair: separation now {:.0} (min {:.0}) Home units; worst relative News-vs-Instant {:.3e}, Retarded-vs-News {:.3e}",
++        sep_now, sep_min, worst_pair, worst_ret
++    );
++    assert!(worst_pair <= 1e-6, "News ≡ Instant for the freely falling pair: {worst_pair:.3e}");
++    assert!(worst_ret >= 10.0 * worst_pair, "Retarded drifts the pair an order further: {worst_ret:.3e} vs {worst_pair:.3e}");
++    Ok(())
++}
++
++/// The lab's result type, as the crate spells it.
++type Res<T> = Result<T, emergent_universe::num::Error>;
