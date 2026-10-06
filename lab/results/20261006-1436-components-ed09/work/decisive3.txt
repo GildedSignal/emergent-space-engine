@@ -1,0 +1,20 @@
+# loadavg_start 1.53 1.56 1.18 3/597 3417200
+belt   n=  100000 heap=   252.9/   253.0ns wheel=    69.4/    66.8ns ratio=  3.78x ORDER-MATCH stale_skips=0
+       negative(wheel-nosort): fails as expected
+churn  n=  100000 heap=   410.9/   384.6ns wheel=    84.9/    85.9ns ratio=  4.53x ORDER-MISMATCH stale_skips=191
+       negative(wheel-nosort): fails as expected
+burst  n=  100000 heap=   249.9/   256.0ns wheel=    44.4/    44.7ns ratio=  5.62x ORDER-MATCH stale_skips=0
+tail   n=  100000 heap=   257.2/   255.5ns wheel=    73.8/    85.5ns ratio=  3.46x ORDER-MATCH stale_skips=7
+belt   n= 1000000 heap=   502.9/   504.3ns wheel=   137.6/   134.9ns ratio=  3.73x ORDER-MATCH stale_skips=0
+       negative(wheel-nosort): fails as expected
+churn  n= 1000000 heap=   864.6/   865.5ns wheel=   415.5/   404.5ns ratio=  2.14x ORDER-MISMATCH stale_skips=467
+       negative(wheel-nosort): fails as expected
+burst  n= 1000000 heap=   512.0/   568.9ns wheel=   112.5/   115.6ns ratio=  4.55x ORDER-MATCH stale_skips=0
+tail   n= 1000000 heap=   619.6/   620.7ns wheel=   144.4/   141.7ns ratio=  4.37x ORDER-MATCH stale_skips=11
+belt   n= 3000000 heap=   738.4/   649.1ns wheel=   151.7/   147.5ns ratio=  4.40x ORDER-MATCH stale_skips=0
+       negative(wheel-nosort): fails as expected
+churn  n= 3000000 heap=  1028.1/  1044.4ns wheel=   464.4/   460.0ns ratio=  2.24x ORDER-MATCH stale_skips=397
+       negative(wheel-nosort): fails as expected
+burst  n= 3000000 heap=   609.5/   595.6ns wheel=   126.0/   126.5ns ratio=  4.73x ORDER-MATCH stale_skips=0
+tail   n= 3000000 heap=   610.4/   604.7ns wheel=   159.0/   152.5ns ratio=  3.96x ORDER-MATCH stale_skips=9
+# loadavg_end 2.19 1.74 1.26 2/602 3418614
