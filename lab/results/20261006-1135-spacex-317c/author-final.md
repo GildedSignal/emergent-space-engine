@@ -1,0 +1,4 @@
+Working...
+Run folder complete: `predictions.md` (written before the decisive runs), `dossier.md`, `results.jsonl` (12 measured lines), `enc/` with the patched harness and `skin_old` preserved for A/B reproduction.
+
+**Claim.** The slack skin's missing window-width term is ρ_eff = ρ + √2⁺·s·r²max (windows are ρ-level sets, so drift pads ρ, never the edges): it makes the deferred certificate exact at s = 4·eps_u everywhere measured (0 missed on the ring truth control, the held-out fleet, and the belt at the plane's eps 1e-6, where the published skin missed 29–102) and the lever survives soundness at the plane regime (setups/kick 14.9 vs always's 188.6, us/kick 2547 vs the published always's 3312) — but at 100× the kicks the same sound certificate costs more than it saves (fleet 37.9k vs 23.8k µs/kick; belt unfinished in 300 s vs 38 s), so the slack skin is a plane-regime lever with a measured economy boundary, not a general one.
