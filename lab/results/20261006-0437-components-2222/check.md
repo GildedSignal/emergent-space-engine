@@ -1,0 +1,38 @@
+# Check — 20261006-0437-components-2222
+
+Grade: silver
+
+**Abstract.** Claim: the Binet cone cannot drop in behind `Encounters` as a per-check query. Reproduced: scan 3.4–4.0 µs per candidate, linear (49 ms at n = 12289, exponent 1.01, 5 ms budget dies at ~1250 members); certificates 3.3–10 ms per check, 93× the scan at the plane's n = 10, break-even near n ≈ 3000, only 5× better at 12289; cone candidates saturate (886→904). Decomposed: the U-sweep + cone test is 243 ns; all cost is per-pair `sections`/`first_hit` re-paid per check — the skin framing is right. One correction: of the two "missed encounters", only one is real (present-inside, minimum in the far future, not the past); the other is a scan phantom contact. The belt control the author discarded was valid and exposes a false-negative class of the scan itself. Kill stands; adopt with the corrected seam contract below.
+
+## Reproduction
+
+Clean tree, `git apply work/patch.diff`, `cargo build --release -p emergent-universe --bin seam` (8.9 s), run (peak 27 MB). Every deterministic field matches bit for bit (scan_pairs `[3, 18]`, cert_pairs `[]`, u_cand 191/765/2532/4849, cone 102/378/886/904, evals 10897/14835/19125/29755/23943, err 1.508e-9/1.054e-8); timings within 5% (plane scan 33.6 µs vs 34.4; cert 3.21 vs 3.29 ms = 93× vs 96×; n=12289 scan 48.9 vs 49.5 ms, cert 8.88 vs 9.30 ms). The 190 µs/item in HANDOFF item 4 is stale: the scan is 3.4 µs/item today, which strengthens the inversion. Predictions existed before the decisive run (mtimes 04:49 vs run header 05:03:29Z; run.log empty, one decisive run saved twice). 3 of 5 predictions falsified and reported — pre-registration looks genuine.
+
+## Attack (probe `seamprobe`, my own binary, same scenes)
+
+1. **Sound-rho control.** Rival explanation for the misses: the bench's sections reach `rho_query = 1.5·max_rho` is below `rho_true = ρ_i + ρ_j ≤ 2·max_rho`. Refuted: for both plane pairs `rho_true < rho_query·1.1` (29.17 < 48.1; 1.65e-3 ≪), and with `rho_query = 2.2·max_rho` the certificates still report none. The miss is not a reach artifact.
+2. **Geometry of the missed pairs (exact cartesian vs Kepler model).** Pair 3: inside ρ now (d(t) = 7.16e10 < ρ_true = 3.16e11 internal), approaching, and **no interior minimum within ±8 step windows** — co-orbital monotone drift, model distance still decreasing at the ×8 edge (+33.6 M ticks). The author's "minimum in the past" is wrong: it is in the far future. The semantic gap is real for this class (present-inside is invisible to interior-minimum enumeration), so the t0-query conclusion survives for it. Pair 18: **193× outside ρ** at t, Kepler minimum stays ~3.43e9 ≫ ρ = 1.78e7 through ±8 windows; the scan's `contact=true` is manufactured by the linear-over-step-window predicate (interval = 2²² ticks, `universe.rs:939` passes `rec(p).step`, so the engine's real path inherits it). The certificates were **right** to report nothing: this "miss" is a scan false positive, not a certificate failure. "Missed both real encounters" is half false.
+3. **The discarded belt control was valid.** Exact distances at t: partners 1–3 are inside ρ_true (4.92e3, 9.01e3, 1.31e4 < 1.64e4 internal) — placement was correct, contradicting the author's "my placement in the bench is wrong". The shipped scan reports none of them: for an inside-reach pair `hit` returns true only if quantized `dot(d,w) < 0`, and these near-stationary co-orbital partners quantize to zero — a false-negative class of the component the dossier calls "the exact scan", missed by the author and by me until probed.
+4. **Cost decomposition.** U-window + cone alone: 243 ns (plane), 4.6 µs (n=193), 176 µs (n=12289) — noise. Full query: 3.14 ms / 3.9 ms / 8.6 ms. All of it is per-pair `pair_events` (`sections` + `first_hit`: evals 10897 at n=10 over 9 cone candidates ≈ 350 µs/pair; 14835 at n=193 over 102 ≈ 38 µs/pair). The author's "~21 µs per U-candidate setup" mis-attributes, but the conclusion (per-pair setup re-paid per check; the skin owns the economy) is confirmed. Sound-rho query costs the same order (5.0 ms at n=193) — the kill is not a tuning artifact.
+
+## Novelty
+
+`docs/HISTORY.md` has no seam measurement; the lab's other runs are not in this checkout. Against the board: q-candidate-degree (taste log, 6 Oct) proved the certificates' fixed-density asymptotics standalone; the board already says "the Binet cone … plus a skin". New here: the seam-level measurement at the plane's real scale (the 96× inversion, break-even n ≈ 3000, the scan's own ~1250-member budget), the first semantics evidence at the seam, and the refutation of `encounter.rs`'s "implements the same trait, with no rewiring" promise — a main-tree comment now known wrong. Distinct from r8 v2/v3 (candidate discovery, not the per-check query).
+
+## Goal fit
+
+Moves HANDOFF item 4. PRINCIPLES 3 ("Nothing is evolved that can be derived when looked at" — the per-check population scan is the evolved-clock mistake) and 9 ("A failed experiment kills that configuration, never the method") — the kill is correctly scoped to the wiring. PRINCIPLES 34 cuts the other way and the author missed it: the scan is not an oracle; over a step-sized window its linear predicate both invents contacts (pair 18) and loses stationary-inside pairs (belt partners 1–3).
+
+## Why silver, not gold
+
+The headline numbers, the kill, and the skin attribution reproduce and are adoptable. But a load-bearing claim — "missed **both** real encounters … pairs already inside ρ at window start, minimum in the past" — does not hold: one pair was never in an encounter (scan phantom), the other's minimum is in the far future. And the honestly-reported "instrument defect" was a misdiagnosis of a valid control that exposed a false-negative class of the shipped scan. This is the 5 October lesson again (count the events as distinct and real before counting misses): adoption text written on the current mechanism ("add the t0 query") under-specifies the seam contract, which must also fix the scan's own two failure classes.
+
+**The one experiment for gold:** merge the geometry classification into `seam.rs` — every scan hit and certificate hit classified against exact Kepler windows as present-inside / interior-minimum / linear-phantom, on scenes containing all three classes (the belt partners and plane pair 18 already do), plus the scan's quantized-zero false negatives. Then the kill and the corrected contract (skin + t0 query + window-size discipline for the linear predicate) stand on verified ground and the run deletes the "no rewiring" comment for the right reasons.
+
+## What the author missed
+
+- Pair 18's encounter/contact is a linear-over-step-window phantom (193× outside, Kepler min 3.43e9 vs ρ 1.78e7), live on the engine's real path (`universe.rs:939` passes the step as interval).
+- The belt partners were correctly placed and inside ρ; the scan itself drops inside-reach pairs whose quantized relative motion gives `dot(d,w) ≥ 0` — a shipped-component false negative, stronger evidence for the seam rework than the vacuous control the author reported.
+- "Minimum in the past" was asserted from an unsaved probe; the measured class is no interior minimum in any bounded window (co-orbital monotone drift) — same conclusion (t0 query needed), wrong mechanism.
+- The bench queries a window 4× beyond simulated time (interval 2²² vs t = 2²⁰) — legitimate for the models, but it should have been stated, since the linear predicate's sanity degrades exactly there.
+- Per-U-candidate cost framing (~21 µs): the U-sweep is 243 ns; the cost is per cone-candidate `pair_events` (~38 µs at n=193, ~350 µs at n=10).

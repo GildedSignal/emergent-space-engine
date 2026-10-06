@@ -1,0 +1,315 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 7ec177b..46bc1bf 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -168,6 +168,7 @@ name = "emergent-universe"
+ version = "0.1.0"
+ dependencies = [
+  "blake3",
++ "emergent-encounters",
+  "emergent-engine",
+  "emergent-lattice",
+  "emergent-lattice-event",
+diff --git a/crates/universe/Cargo.toml b/crates/universe/Cargo.toml
+index b47bf08..d3b9f63 100644
+--- a/crates/universe/Cargo.toml
++++ b/crates/universe/Cargo.toml
+@@ -10,4 +10,5 @@ emergent-space = { path = "../space" }
+ emergent-engine = { path = "../engine" }
+ emergent-lattice = { path = "../lattice" }
+ emergent-lattice-event = { path = "../lattice-event" }
++emergent-encounters = { path = "../encounters" }
+ blake3.workspace = true
+diff --git a/crates/universe/src/bin/seam.rs b/crates/universe/src/bin/seam.rs
+new file mode 100644
+index 0000000..14973aa
+--- /dev/null
++++ b/crates/universe/src/bin/seam.rs
+@@ -0,0 +1,287 @@
++//! The encounter seam, measured: the shipped exact scan (`PlayerNeighbourhood::find`, one full
++//! integer tube readout per candidate per check) against the certificates of `crates/encounters`
++//! (sorted U-window + cone + exact per-pair passages on cached float elements).
++//! Scenes: A the plane's own doll population; B a belt grown at fixed linear density in the root
++//! doll, with sub-ρ partners placed so checks hold real encounters (the adversarial persistent
++//! regime). Not an integrated qualification; a seam measurement (lab run 20261006-0437).
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::{Body as KBody, TICKS};
++use emergent_encounters::method::{self, Stats};
++use emergent_encounters::pairs::{self, Sorted};
++use emergent_space::orbit::Scalar;
++use emergent_universe::body::Kind;
++use emergent_universe::ctx::Config;
++use emergent_universe::encounter::{Encounters, PlayerNeighbourhood, ENCOUNTER_LOG2};
++use emergent_universe::fleet::Order;
++use emergent_universe::num::{s, Tick};
++use emergent_universe::scenario::{plane, AU, STAR_RADIUS};
++use emergent_universe::universe::{Budget, OrbitSpec, Universe};
++
++const SAFETY: f64 = 1.1;
++
++fn f(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
++/// One doll member as a certificate body: float elements from one cartesian readout of its tube.
++struct Ext {
++    id: usize,
++    kb: KBody,
++    /// Encounter reach (2^ENCOUNTER_LOG2 × radius) in internal units.
++    rho: f64,
++}
++
++fn extract(ctx: &emergent_universe::ctx::Ctx, doll: u16, t: Tick) -> Vec<Ext> {
++    let mut out = Vec::new();
++    for j in 0..ctx.bodies.len() {
++        if !ctx.bodies.alive(j) || t <= ctx.info[j].born {
++            continue;
++        }
++        let Some(b) = ctx.bodies.binding_at(j, t) else { continue };
++        if b.doll != doll {
++            continue;
++        }
++        let Ok((p, v)) = b.cartesian(t) else { continue };
++        let (x, y) = (f(p[0]), f(p[1]));
++        let (vx, vy) = (f(v[0]), f(v[1]));
++        let mu = f(ctx.dolls[doll as usize].unit.mu);
++        let r = (x * x + y * y).sqrt();
++        let v2 = vx * vx + vy * vy;
++        if !(r.is_finite() && r > 0.0) || !(v2 < 1.0) || !(mu > 0.0) {
++            continue;
++        }
++        let a = 1.0 / (2.0 / r - v2 / mu);
++        if !(a.is_finite() && a > 0.0) {
++            continue;
++        }
++        let h = x * vy - y * vx;
++        let e2 = 1.0 - h * h / (mu * a);
++        if e2 < -1e-9 || e2 >= 1.0 {
++            continue;
++        }
++        let e = e2.max(0.0).sqrt();
++        let vr = (x * vx + y * vy) / r;
++        let (sn, cs) = if e < 1e-12 {
++            (0.0, 1.0)
++        } else {
++            (vr * h / (mu * e), (a * (1.0 - e * e) / r - 1.0) / e)
++        };
++        let nu = sn.atan2(cs);
++        let ea = 2.0 * ((1.0 - e).sqrt() * (nu / 2.0).sin()).atan2((1.0 + e).sqrt() * (nu / 2.0).cos());
++        let m = ea - e * ea.sin();
++        let th = y.atan2(x);
++        let pom = th - nu;
++        let period_doll = TAU * (a * a * a / mu).sqrt();
++        let period_ticks = period_doll / 2f64.powi(b.clock_exp as i32);
++        if !(period_ticks.is_finite() && period_ticks >= 1.0) {
++            continue;
++        }
++        let period = period_ticks.round() as u64;
++        let n_tick = TAU / period as f64;
++        let lam0 = pom + m - n_tick * t as f64;
++        let kb = KBody::with_period(period, e, pom, lam0);
++        let rho = f(ctx.info[j].radius) * (1u64 << ENCOUNTER_LOG2) as f64;
++        out.push(Ext { id: j, kb, rho });
++    }
++    out
++}
++/// Worst relative position error of the extraction against the tubes it came from; also the scale.
++fn extraction_check(ctx: &emergent_universe::ctx::Ctx, ext: &mut [Ext], t: Tick) -> f64 {
++    // Calibrate L0 per doll by least squares over positions: kb.state(t)·L0 ≈ cartesian(t).
++    let mut num = 0.0f64;
++    let mut den = 0.0f64;
++    for x in ext.iter() {
++        let Ok((p, _)) = ctx.bodies.binding_at(x.id, t).unwrap().cartesian(t) else { continue };
++        let (xe, ye) = (f(p[0]), f(p[1]));
++        let st = x.kb.state(t as f64 / TICKS);
++        num += xe * st[0] + ye * st[1];
++        den += st[0] * st[0] + st[1] * st[1];
++    }
++    let l0 = if den > 0.0 { num / den } else { 1.0 };
++    for x in ext.iter_mut() {
++        x.rho /= l0;
++    }
++    let mut worst = 0.0f64;
++    for x in ext.iter() {
++        let Ok((p, _)) = ctx.bodies.binding_at(x.id, t).unwrap().cartesian(t) else { continue };
++        let (xe, ye) = (f(p[0]), f(p[1]));
++        let st = x.kb.state(t as f64 / TICKS);
++        let (dx, dy) = (st[0] * l0 - xe, st[1] * l0 - ye);
++        let d = (dx * dx + dy * dy).sqrt();
++        let rr = (xe * xe + ye * ye).sqrt();
++        if rr > 0.0 {
++            worst = worst.max(d / rr);
++        }
++    }
++    worst
++}
++
++fn median(v: &mut [u64]) -> u64 {
++    v.sort_unstable();
++    v[v.len() / 2]
++}
++
++struct Report {
++    scene: &'static str,
++    n: usize,
++    scan_ns: u64,
++    cert_build_ns: u64,
++    cert_ns: u64,
++    u_cand: usize,
++    cone_cand: usize,
++    scan_pairs: Vec<usize>,
++    cert_pairs: Vec<usize>,
++    evals: u64,
++    worst_err: f64,
++}
++
++fn compare(ctx: &emergent_universe::ctx::Ctx, p: usize, t: Tick, interval: Tick, scene: &'static str, reps: usize) -> Option<Report> {
++    let me = ctx.bodies.binding_at(p, t)?;
++    let doll = me.doll;
++    let mut ext = extract(ctx, doll, t);
++    let pi = ext.iter().position(|x| x.id == p)?;
++    let worst_err = extraction_check(ctx, &mut ext, t);
++    let rho_query = ext.iter().map(|x| x.rho).fold(0.0f64, f64::max) * 1.5;
++
++    // The shipped exact scan.
++    let nb = PlayerNeighbourhood;
++    let mut scan_t = Vec::new();
++    let mut scan_pairs = Vec::new();
++    for _ in 0..reps {
++        let t0 = Instant::now();
++        let found = nb.find(ctx, p, t, interval);
++        scan_t.push(t0.elapsed().as_nanos() as u64);
++        if scan_pairs.is_empty() {
++            scan_pairs = found.iter().map(|e| e.b).collect();
++        }
++    }
++    scan_pairs.sort_unstable();
++
++    // The certificates: build (per element change, the skin's job) then per-check query.
++    let bodies: Vec<KBody> = ext.iter().map(|x| x.kb).collect();
++    let b0 = Instant::now();
++    let sorted = Sorted::new(&bodies, rho_query);
++    let cert_build_ns = b0.elapsed().as_nanos() as u64;
++    let up = bodies[pi].binet()[0];
++    let mut cert_t = Vec::new();
++    let mut cert_pairs = Vec::new();
++    let mut u_cand = 0usize;
++    let mut cone_cand = 0usize;
++    let mut st = Stats::default();
++    let (ta, tb) = (t as f64 / TICKS, (t + interval) as f64 / TICKS);
++    for rep in 0..reps.max(3) {
++        let mut st1 = Stats::default();
++        let mut hits = Vec::new();
++        let t0 = Instant::now();
++        let (lo, hi) = sorted.range(up, sorted.reach(&bodies[pi]));
++        let mut uc = 0;
++        let mut cc = 0;
++        for k in lo..hi {
++            let j = sorted.order[k].1 as usize;
++            if j == pi {
++                continue;
++            }
++            uc += 1;
++            if !pairs::is_candidate(&bodies[pi], &bodies[j], rho_query) {
++                continue;
++            }
++            cc += 1;
++            let mut v = Vec::new();
++            method::pair_events(&bodies[pi], &bodies[j], rho_query, SAFETY, ta, tb, &mut st1, &mut v);
++            let rho_true = ext[pi].rho + ext[j].rho;
++            if v.iter().any(|&(_, d)| d < rho_true) {
++                hits.push(ext[j].id);
++            }
++        }
++        cert_t.push(t0.elapsed().as_nanos() as u64);
++        if rep == 0 {
++            cert_pairs = hits;
++            u_cand = uc;
++            cone_cand = cc;
++            st = st1;
++        }
++    }
++    cert_pairs.sort_unstable();
++    cert_pairs.dedup();
++    Some(Report { scene, n: ext.len(), scan_ns: median(&mut scan_t), cert_build_ns, cert_ns: median(&mut cert_t), u_cand, cone_cand, scan_pairs, cert_pairs, evals: st.evals, worst_err })
++}
++
++fn print(r: &Report) {
++    let miss: Vec<usize> = r.scan_pairs.iter().copied().filter(|j| !r.cert_pairs.contains(j)).collect();
++    let extra: Vec<usize> = r.cert_pairs.iter().copied().filter(|j| !r.scan_pairs.contains(j)).collect();
++    println!(
++        "SEAM scene={} n={} scan_ns={} scan_per_cand_ns={} cert_build_ns={} cert_ns={} u_cand={} cone_cand={} scan_pairs={:?} cert_pairs={:?} miss={:?} extra={:?} evals={} err={:.3e}",
++        r.scene,
++        r.n,
++        r.scan_ns,
++        if r.n > 0 { r.scan_ns / r.n as u64 } else { 0 },
++        r.cert_build_ns,
++        r.cert_ns,
++        r.u_cand,
++        r.cone_cand,
++        r.scan_pairs,
++        r.cert_pairs,
++        miss,
++        extra,
++        r.evals,
++        r.worst_err
++    );
++}
++
++fn main() {
++    // Scene A: the plane's own population.
++    match plane(Config::default(), 1, Order::Sparse, 1, 48) {
++        Ok(mut pl) => {
++            let _ = pl.u.advance(1 << 20, Budget::wall(5000.0));
++            let t = 1 << 20;
++            if let Some(b) = pl.u.ctx().bodies.binding_at(pl.player, t) {
++                if let Ok((p, v)) = b.cartesian(t) {
++                    eprintln!("diag0: doll={} x={:e} y={:e} vx={:e} vy={:e}", b.doll, f(p[0]), f(p[1]), f(v[0]), f(v[1]));
++                }
++            }
++            let interval = pl.u.rec(pl.player).step.max(2);
++            let ctx = pl.u.ctx();
++            match compare(&ctx, pl.player, t, interval, "plane", 200) {
++                Some(r) => print(&r),
++                None => println!("SEAM scene=plane EXTRACT_FAILED"),
++            }
++        }
++        Err(e) => println!("SEAM scene=plane BUILD_FAILED {:?}", e),
++    }
++
++    // Scene B: a belt at fixed linear density in the root doll, sub-ρ partners included.
++    for n in [192usize, 768, 3072, 12288] {
++        let mut u = Universe::new(s(STAR_RADIUS), Config::default());
++        u.threads = 1;
++        let rship = s(8);
++        let player = u.add_body(Kind::Ship, OrbitSpec { doll: 0, periapsis: s(AU), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, rship).unwrap();
++        let mut rng = Rng(0x9E3779B97F4A7C15 + n as u64);
++        let half = (n * 3000) as f64;
++        for k in 0..n {
++            let a = AU as f64 + (rng.f64() * 2.0 - 1.0) * half;
++            let e = (-2.0 * (1.0 - rng.f64()).ln()).sqrt() * 0.02;
++            let peri = (a * (1.0 - e)) as i64;
++            let spec = if k < 6 {
++                // Sub-ρ partners: same circle, small longitude offsets inside the encounter reach.
++                let d = [0.3f64, 0.55, 0.8, 1.0, 1.2, 1.45][k];
++                OrbitSpec { doll: 0, periapsis: s(AU + k as i64 * 7), e_q48: 0, clockwise: false, angle: 0, phase: ((d * 16384.0 / (TAU * AU as f64)) * u32::MAX as f64) as u32 }
++            } else {
++                OrbitSpec { doll: 0, periapsis: s(peri), e_q48: (e * (1u64 << 48) as f64) as u64, clockwise: false, angle: (rng.f64() * u32::MAX as f64) as u32, phase: (rng.f64() * u32::MAX as f64) as u32 }
++            };
++            u.add_body(Kind::Ship, spec, rship).expect(&format!("belt add {} (n={})", k, n));
++        }
++        u.start().expect("belt start");
++        let _ = u.advance(1 << 20, Budget::wall(5000.0));
++        let t = 1 << 20;
++        let interval = u.rec(player).step.max(2);
++        let ctx = u.ctx();
++        let reps = (400_000_000 / (n as u64 + 1)).clamp(3, 200) as usize;
++        match compare(&ctx, player, t, interval, "belt", reps) {
++            Some(r) => print(&r),
++            None => println!("SEAM scene=belt n={} EXTRACT_FAILED", n),
++        }
++    }
++}

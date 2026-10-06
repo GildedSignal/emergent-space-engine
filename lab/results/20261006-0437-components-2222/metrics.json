@@ -1,0 +1,30 @@
+{
+  "run": "20261006-0437-components-2222",
+  "component": "encounter seam (Encounters trait, crates/universe/src/encounter.rs)",
+  "machine": "GitHub runner, Linux 6.8.0-111-generic, 8 vCPU, load 3.61/3.08/2.51 during the final run; x86 orders of magnitude only, M1 re-measures",
+  "reproduce": "cd repo && cargo build --release -p emergent-universe --bin seam && $CARGO_TARGET_DIR/release/seam  (patch adds crates/universe/src/bin/seam.rs and one dependency line in crates/universe/Cargo.toml)",
+  "raw": "work/seam-final.txt",
+  "extraction_quality": { "worst_relative_position_error_plane": 1.508e-9, "worst_relative_position_error_belt": 1.054e-8 },
+  "scan": {
+    "per_candidate_ns": { "plane": 3443, "belt_n193": 3696, "belt_n769": 3747, "belt_n3073": 3989, "belt_n12289": 4027 },
+    "per_check_ns": { "plane_n10": 34430, "belt_n193": 713432, "belt_n769": 2882006, "belt_n3073": 12259579, "belt_n12289": 49490860 },
+    "scaling_exponent_n193_to_n12289": 1.01,
+    "budget_break_even_members_at_5ms": 1250
+  },
+  "certificates": {
+    "per_check_ns": { "plane_n10": 3290260, "belt_n193": 4086472, "belt_n769": 5886528, "belt_n3073": 10180936, "belt_n12289": 9301141 },
+    "build_ns": { "belt_n193": 11528, "belt_n12289": 959546 },
+    "cone_candidates": { "belt_n193": 102, "belt_n3073": 886, "belt_n12289": 904 },
+    "u_candidates": { "belt_n193": 191, "belt_n12289": 4849 },
+    "per_u_candidate_ns_at_n193": 21342,
+    "crossover_n_where_scan_equals_cert": 3000
+  },
+  "correctness": {
+    "plane_scan_pairs": [3, 18],
+    "plane_cert_pairs": [],
+    "misses": [3, 18],
+    "miss_mechanism_probe_window_x8": "scan still finds 3, certificates still none: pair inside rho at window start, minimum in the past; scan reports present-inside, pair_events reports interior minima only",
+    "belt_control": "DEFECT: the six sub-rho partners were found by neither path (placement bug in the bench, not a pass); the belt zero-miss agreement is vacuous and is not counted as evidence"
+  },
+  "verdict": "KILL of the naive per-check cone wiring (the 'no rewiring' seam swap as stated); the certificates' economy is the skin (pay per element change, defer dormant pairs), not the per-check query"
+}
