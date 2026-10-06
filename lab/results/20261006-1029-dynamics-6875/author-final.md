@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered, controls clean (gm=0 flat, drift exactly 0, Fano ≈ 1), all numbers regenerable from the shipped scripts in `lab/results/20261006-1029-dynamics-6875/`.
+
+**Claim:** the encounter design's assumed steady state does not exist — under endogenous kicks, certificate work per orbit rises ×87 and work per real encounter ×109 over the frozen-element belt, each conjunction re-pays ~60 pair certificates, self-stirring grows the overlap budget ∝ t^¼ without bound while real-encounter yield stays flat and the event process stays Poisson (Fano 0.9–1.3), and a single player relocation leaves a bounded slow wake (+1.5–3%, >200 orbits, no cascade) — so pairs must be re-paid per certificate quantum (or epoch) and belt births must re-absorb the heated tail, not per element change.
