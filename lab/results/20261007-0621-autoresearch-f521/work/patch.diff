@@ -1,0 +1,72 @@
+diff --git a/crates/encounters/src/pairs.rs b/crates/encounters/src/pairs.rs
+index 2edd247..290fb7a 100644
+--- a/crates/encounters/src/pairs.rs
++++ b/crates/encounters/src/pairs.rs
+@@ -287,24 +287,28 @@ fn rel_of(a: [f64; 4], b: [f64; 4]) -> RelState {
+     ([a[0] - b[0], a[1] - b[1]], [a[2] - b[2], a[3] - b[3]], [-a[0] / ra3 + b[0] / rb3, -a[1] / ra3 + b[1] / rb3])
+ }
+ 
++/// (Δr, Δv) only: the scan of D(s) never uses the relative acceleration.
++#[inline]
++fn rel_rv(a: [f64; 4], b: [f64; 4]) -> ([f64; 2], [f64; 2]) {
++    ([a[0] - b[0], a[1] - b[1]], [a[2] - b[2], a[3] - b[3]])
++}
++
+ /// D(s): the pair's minimum distance while j crosses the arc, with i passing θ_c s later than j.
++/// j's states on the arc's fixed tau-grid are passed in precomputed: they do not depend on s.
+ /// Changing s by δ moves i by at most vmax_i·δ, so D is Lipschitz in s with that constant.
+-fn d_of_s(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), s: f64, evals: &mut u64) -> f64 {
+-    let mi = bi.mean_at_longitude(th);
+-    let mj = bj.mean_at_longitude(th);
++fn d_of_s(bi: &Body, bj: &Body, mi: f64, mj: f64, grid: &[[f64; 4]], lo: f64, h: f64, s: f64, evals: &mut u64) -> f64 {
++    let fi = |tau: f64| bi.state_at_mean(mi + bi.n * (tau - s));
+     let f = |tau: f64| rel_of(bi.state_at_mean(mi + bi.n * (tau - s)), bj.state_at_mean(mj + bj.n * tau));
+-    let (lo, hi) = (-dj.0, dj.1);
+-    let k = 32;
+-    let h = (hi - lo) / k as f64;
+-    let (r0, v0, _) = f(lo);
++    let k = grid.len() - 1;
++    let (r0, v0) = rel_rv(fi(lo), grid[0]);
+     *evals += 1;
+     let mut best = norm(r0);
+     let mut gp = dot(r0, v0);
+     for q in 1..=k {
+         let t = lo + h * q as f64;
+-        let (r, v, _) = f(t);
++        let (r, v) = rel_rv(fi(t), grid[q]);
+         *evals += 1;
+-        best = best.min(norm(r));
++            best = best.min(norm(r));
+         let g = dot(r, v);
+         if gp < 0.0 && g >= 0.0 {
+             best = best.min(refine_fn(&f, t - h, t, evals).1);
+@@ -321,12 +325,19 @@ fn numeric_window(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), ab: (f64, f64),
+     let lip = bi.vmax() * 1.001;
+     let stop = rho * 1.05;
+     let (a, b) = ab;
++    let mi = bi.mean_at_longitude(th);
++    let mj = bj.mean_at_longitude(th);
++    let (lo, hi) = (-dj.0, dj.1);
++    let k = 32;
++    let h = (hi - lo) / k as f64;
++    let grid: Vec<[f64; 4]> = (0..=k).map(|q| bj.state_at_mean(mj + bj.n * (lo + h * q as f64))).collect();
++    *evals += k as u64 + 1;
+     let mut s = a;
+     let left = loop {
+         if s > b {
+             return None;
+         }
+-        let d = d_of_s(bi, bj, th, dj, s, evals);
++        let d = d_of_s(bi, bj, mi, mj, &grid, lo, h, s, evals);
+         if d < stop {
+             break s;
+         }
+@@ -334,7 +345,7 @@ fn numeric_window(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), ab: (f64, f64),
+     };
+     let mut s = b;
+     let right = loop {
+-        let d = d_of_s(bi, bj, th, dj, s, evals);
++        let d = d_of_s(bi, bj, mi, mj, &grid, lo, h, s, evals);
+         if d < stop || s <= left {
+             break s.max(left);
+         }
