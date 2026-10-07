@@ -1,0 +1,4 @@
+Working...
+Run complete: `lab/results/20261007-1801-dynamics-532c/` holds `conjmap.py`, `predictions.md` (written 18:04, before the decisive B/C runs at 18:20–18:21), `results_{A,B,C}.json`, `hit_B.npy`, `dossier.md`.
+
+**Claim:** one dimensionless number — the crossing fraction χ_t = Δa/(e₁a₁+e₂a₂) — selects the encounter tier: every physically-encountering coplanar pair has χ_t < 1, and across that whole regime the conjunction longitude jitters by ψ ≈ (4/3)/χ_t rad (measured 1.9–2.5) and conjunction-anchored distance checks (radial or Öpik) miss 40–97 % of true close approaches (the structural cause of r8 v2's "conjunction-less encounters"), while the schedule that survives is a −1.4-slope power-law gap tail with 14 % resonant-sticky pairs — so the synodic continued-fraction certificate pays only in the sparse sub-tier ν = W·ε(R) ≪ 1 events per orbit, and the deep-crossing tier needs the phase-neighbour mechanism, with χ_t as its missing trigger.
