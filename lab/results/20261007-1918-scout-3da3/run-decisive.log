@@ -1,0 +1,116 @@
+{
+ "C_eps1e-6": [
+  {
+   "N": 1000,
+   "eps": 1e-06,
+   "total_rate": 39131.61472539772,
+   "per_body": 19.33380174179729,
+   "kick_rate_ref": 2.5464790894703255,
+   "ratio": 7.592366189748989,
+   "star_share": 0.9995905677034689,
+   "mem_sliding_events": 78.26322945079544,
+   "mem_sliding_MB": 0.0006261058356063635,
+   "naive_pairwise_per_body": 5154.073677087938,
+   "naive_mem_after_T1_events": 10431845.122425988
+  },
+  {
+   "N": 10000,
+   "eps": 1e-06,
+   "total_rate": 39131.61472539772,
+   "per_body": 3.5496747755259177,
+   "kick_rate_ref": 2.5464790894703255,
+   "ratio": 1.3939540246781525,
+   "star_share": 0.999959041677653,
+   "mem_sliding_events": 78.26322945079544,
+   "mem_sliding_MB": 0.0006261058356063635,
+   "naive_pairwise_per_body": 28072.385482320868,
+   "naive_mem_after_T1_events": 309469977.55710524
+  },
+  {
+   "N": 100000,
+   "eps": 1e-06,
+   "total_rate": 39131.61472539772,
+   "per_body": 0.3873496864645799,
+   "kick_rate_ref": 2.5464790894703255,
+   "ratio": 0.15211186617092923,
+   "star_share": 0.9999959040167778,
+   "mem_sliding_events": 78.26322945079544,
+   "mem_sliding_MB": 0.0006261058356063635,
+   "naive_pairwise_per_body": 257255.50353465017,
+   "naive_mem_after_T1_events": 25988979989.0845
+  },
+  {
+   "N": 1000000,
+   "eps": 1e-06,
+   "total_rate": 39131.61472539772,
+   "per_body": 0.039091584942416685,
+   "kick_rate_ref": 2.5464790894703255,
+   "ratio": 0.015351229509034704,
+   "star_share": 0.9999995904001674,
+   "mem_sliding_events": 78.26322945079544,
+   "mem_sliding_MB": 0.0006261058356063635,
+   "naive_pairwise_per_body": 2549086.684057943,
+   "naive_mem_after_T1_events": 2551696948822.4185
+  }
+ ],
+ "exponent_per_body_vs_N": -0.9044787301173504,
+ "eps_sweep_N1e6": [
+  {
+   "N": 1000000,
+   "eps": 0.0001,
+   "total_rate": 30613.350826830796,
+   "per_body": 0.03058203482317187,
+   "kick_rate_ref": 2.5464790894703255,
+   "ratio": 0.012009536991537995,
+   "star_share": 0.9999995904001673,
+   "mem_sliding_events": 61.22670165366159,
+   "mem_sliding_MB": 0.0004898136132292927,
+   "naive_pairwise_per_body": 2549086.684057943,
+   "naive_mem_after_T1_events": 2551696948822.4185
+  },
+  {
+   "N": 1000000,
+   "eps": 1e-06,
+   "total_rate": 39131.61472539772,
+   "per_body": 0.039091584942416685,
+   "kick_rate_ref": 2.5464790894703255,
+   "ratio": 0.015351229509034704,
+   "star_share": 0.9999995904001674,
+   "mem_sliding_events": 78.26322945079544,
+   "mem_sliding_MB": 0.0006261058356063635,
+   "naive_pairwise_per_body": 2549086.684057943,
+   "naive_mem_after_T1_events": 2551696948822.4185
+  },
+  {
+   "N": 1000000,
+   "eps": 1e-08,
+   "total_rate": 39131.61472539772,
+   "per_body": 0.039091584942416685,
+   "kick_rate_ref": 2.5464790894703255,
+   "ratio": 0.015351229509034704,
+   "star_share": 0.9999995904001674,
+   "mem_sliding_events": 78.26322945079544,
+   "mem_sliding_MB": 0.0006261058356063635,
+   "naive_pairwise_per_body": 2549086.684057943,
+   "naive_mem_after_T1_events": 2551696948822.4185
+  }
+ ],
+ "cascade_1sigma": {
+  "dv": 0.03562636778052168,
+  "first": 0.0013941035161261729,
+  "last": 2.3638059063439294,
+  "peak_per_unit_time": 16236.527667942877
+ },
+ "cascade_100x_kick": {
+  "dv": 3.562636778052168,
+  "first": 0.0003109410351612618,
+  "last": 0.025519059063439292,
+  "peak_per_unit_time": 625414.908924507
+ },
+ "memory_vs_T": {
+  "sliding_events": 78.26322945079544,
+  "sliding_MB": 0.0006261058356063635,
+  "naive_events_after_1_unit": 2551696948822.4185,
+  "note": "naive: live(T)=rate*T unbounded; sliding: rate*2R/c flat in T"
+ }
+}
