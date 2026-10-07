@@ -1,0 +1,8 @@
+== before (main, 2026-10-06 22:51 UTC, this machine)
+B18b FAIL belt: 1 of 1 findings fail: 2^20 seed 20261008: belt_birth is not implemented [0.00 s]
+B18 FAIL memory: 0/12 ladder scenes within 2x the information floor + 2 bytes; 12 not answered [0.00 s]
+
+== after (work/patch.diff, 2026-10-06, final code)
+B18b PASS belt: 5 runs, every criterion; worst: chi2 |z| 2.80 (limit 4.5), serial |z| 3.13 (5), KS 0.56 of critical; four tail ends: count |z| 1.46 (4.5), shape KS 0.55 of critical, conditional mean |z| 2.07 (pooled 1.09), other columns 0.77 of critical; birth 31 B for info 31 B; 17 ns to regenerate and hash a body; bytes at 1e9: 32 B (3.2e-8 B/body); after 12 epochs at 1e-2 11.4% are scarred, 9.7 B each (floor 54 bits): 1.10 GB at 1e9 (reported) [16.86 s]
+behave space (B18b): PASS
+B18 FAIL memory: 0/12 ladder scenes within 2x the information floor + 2 bytes; 12 not answered (bytes_per_body/MemoryScene: not this lens's interface; unchanged)

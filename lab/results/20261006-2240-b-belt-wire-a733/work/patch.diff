@@ -1,0 +1,1086 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 7ec177b..e29c906 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -393,6 +393,7 @@ dependencies = [
+  "emergent-lattice",
+  "emergent-lattice-event",
+  "emergent-lattice-metal",
++ "emergent-shipmem",
+  "emergent-space",
+  "emergent-universe",
+  "libc",
+diff --git a/crates/shipmem/examples/ladder.rs b/crates/shipmem/examples/ladder.rs
+index 6bb87f1..30fb54d 100644
+--- a/crates/shipmem/examples/ladder.rs
++++ b/crates/shipmem/examples/ladder.rs
+@@ -195,7 +195,8 @@ fn main() {
+     let mut extra = String::new();
+     if let Some(p0) = &progs[0] {
+         let (mem, _, prog) = ladder(rung, m, 0);
+-        let t_of = |i: u64| prog.unwrap()[0].at(i);
++        let prog0 = prog.as_ref().unwrap();
++        let t_of = |i: u64| prog0[0].at(i);
+         let width = 1000u64 << 12;
+         let arcs: Vec<(u64, u64)> = (0..100_000)
+             .map(|_| {
+diff --git a/crates/shipmem/src/belt.rs b/crates/shipmem/src/belt.rs
+new file mode 100644
+index 0000000..1280f24
+--- /dev/null
++++ b/crates/shipmem/src/belt.rs
+@@ -0,0 +1,264 @@
++//! Independent birth belt: banded Darwin p, Rayleigh e, uniform kind, omega and t_p.
++//! This is a description of individuals, not preservation of an existing iid sample.
++//! Correlated/sculpted belts are unsupported: they require a joint description.
++//! The quantile table is derived at birth from the parameters and never stored (a working
++//! constant of the law); no floating arithmetic decides regeneration.
++use crate::codec::Enc;
++use crate::codec::MAXC;
++use crate::program::Prog;
++use crate::shelf::Ship;
++use emergent_space::Key;
++use std::sync::Arc;
++
++#[path = "belt_quantiles.rs"]
++mod quantiles;
++
++/// Bijective counter finalizer for odd keys. Projection to a column is not injective.
++#[inline]
++pub fn mix(i: u64, key: u64) -> u64 {
++    let mut z = i.wrapping_add(0x9E37_79B9_7F4A_7C15).wrapping_mul(key);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    z ^ (z >> 31)
++}
++
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum Columns {
++    Independent,
++    Correlated,
++}
++
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum BeltError {
++    CorrelatedColumns,
++    InvalidKeys,
++    /// The parameters leave the u32 Darwin p grid, or e off its u32 grid.
++    OutOfRange,
++}
++
++/// The belt's parameters: everything but its keys. p is Darwin's in Q16 (p_lo included),
++/// e Rayleigh of this sigma on the 2^e_bits grid capped at e_cap, the kind uniform over
++/// 2^kind_bits, omega over 2^w_bits and t_p over 2^t_bits quanta.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct Params {
++    pub p_lo: u32,
++    pub p_bits: u32,
++    /// Rayleigh sigma of e, in thousandths (70 is 0.070).
++    pub sigma_milli: u64,
++    pub e_bits: u32,
++    pub e_cap: u64,
++    pub kind_bits: u32,
++    pub w_bits: u32,
++    pub t_bits: u32,
++}
++impl Params {
++    /// The lab's smooth belt (components-98bc): p in [2048, 2560) Q16, e Rayleigh sigma 0.07,
++    /// 64 kinds, omega over 2^32, t_p over 2^44.
++    pub const LAB: Params = Params { p_lo: 2048 << 16, p_bits: 25, sigma_milli: 70, e_bits: 30, e_cap: u32::MAX as u64, kind_bits: 6, w_bits: 32, t_bits: 44 };
++    pub fn sigma(&self) -> f64 {
++        self.sigma_milli as f64 / 1000.0
++    }
++
++    fn check(&self) -> Result<(), BeltError> {
++        let p_fits = (self.p_lo as u64 + (1u64 << self.p_bits)) <= 1 + u32::MAX as u64;
++        if !p_fits || self.e_bits > 32 || self.kind_bits > 64 || self.w_bits > 64 || self.t_bits > 64 || self.kind_bits == 0 {
++            return Err(BeltError::OutOfRange);
++        }
++        Ok(())
++    }
++}
++
++/// The lab's smooth belt as a program: body i is a pure function of (keys, i). The table is
++/// derived at birth (see [`quantiles`]) and shared by every clone; the store of a belt is its
++/// keys and parameters, nothing else.
++#[derive(Clone)]
++pub struct Belt {
++    keys: [u64; 5],
++    params: Params,
++    table: Arc<quantiles::Quantiles>,
++}
++
++/// Two belts are the same program iff their keys and parameters are: the table is derived
++/// from the parameters, never an identity of its own.
++impl std::fmt::Debug for Belt {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("Belt").field("keys", &self.keys).field("params", &self.params).finish_non_exhaustive()
++    }
++}
++impl PartialEq for Belt {
++    fn eq(&self, other: &Self) -> bool {
++        self.keys == other.keys && self.params == other.params
++    }
++}
++impl Eq for Belt {}
++
++impl Belt {
++    pub const LAB_KEYS: [u64; 5] = [
++        0x0123_4567_89ab_cdef,
++        0x243f_6a88_85a3_08d3,
++        0x1319_8a2e_0370_7345,
++        0xa409_3822_299f_31d1,
++        0x082e_fa98_ec4e_6c89,
++    ];
++
++    pub fn new(keys: [u64; 5], columns: Columns, params: Params) -> Result<Self, BeltError> {
++        if columns != Columns::Independent {
++            return Err(BeltError::CorrelatedColumns);
++        }
++        if keys.iter().any(|k| k & 1 == 0) || (0..5).any(|i| keys[..i].contains(&keys[i])) {
++            return Err(BeltError::InvalidKeys);
++        }
++        params.check()?;
++        Ok(Self { keys, params, table: Arc::new(quantiles::derive(&params)) })
++    }
++
++    pub fn params(&self) -> Params {
++        self.params
++    }
++
++    pub fn keys(&self) -> [u64; 5] {
++        self.keys
++    }
++
++    /// The derived table's payload in bytes: a working constant of the law, charged once per
++    /// population and never stored.
++    pub fn table_bytes(&self) -> usize {
++        self.table.bytes()
++    }
++
++    /// Quantile of a uniform u64 draw through the table derived at birth: the middle of the
++    /// distribution at 12-bit resolution, and dyadic octaves at both ends, so no tail is capped.
++    #[inline]
++    pub fn eccentricity(&self, u: u64) -> u32 {
++        let e = &self.table.e;
++        let central = (u >> 52) as usize;
++        if central != 0 && central != 4095 {
++            return e[central - 1];
++        }
++        if central == 0 {
++            // The bottom of e: the CDF v = u/2^64 < 2^-12, in its own octaves. The fraction
++            // takes the 6 bits below the leading one, like the survival at the top end.
++            if u < 64 {
++                return e[4094 + 46 * 64 + u as usize];
++            }
++            let z = u.leading_zeros() as usize;
++            let f = ((u >> (57 - z)) & 63) as usize;
++            return e[4094 + (z - 12) * 64 + f];
++        }
++        // The top of e: the survival s = !u < 2^12 of the probability, in its own octaves.
++        let s = !u;
++        if s < 64 {
++            return e[4094 + 46 * 64 + 64 + 46 * 64 + s as usize];
++        }
++        let z = s.leading_zeros() as usize;
++        let f = ((s >> (57 - z)) & 63) as usize;
++        e[4094 + 46 * 64 + 64 + (z - 12) * 64 + f]
++    }
++
++    /// Physical draws, before the law's exact boundary conversion: (p Q16, e Qe_bits, kind, omega, t_p).
++    #[inline]
++    pub fn draws(&self, i: u64) -> (u32, u32, u64, u32, u64) {
++        let u = |f: usize| mix(i, self.keys[f]);
++        (
++            self.params.p_lo + (u(0) >> (64 - self.params.p_bits)) as u32,
++            self.eccentricity(u(1)),
++            u(2) >> (64 - self.params.kind_bits),
++            (u(3) >> (64 - self.params.w_bits)) as u32,
++            u(4) >> (64 - self.params.t_bits),
++        )
++    }
++
++    /// The engine's ship for ordinal i: the draw through the law's exact (E, L) conversion.
++    #[inline]
++    pub fn eval(&self, i: u64) -> Ship {
++        let (p, e, kind, w, t) = self.draws(i);
++        let key = Key::darwin(p, e).expect("belt's full quantile range is bound");
++        [
++            t,
++            kind,
++            key.energy.get(),
++            key.angular.get(),
++            w as u64,
++            0,
++            0,
++            0,
++        ]
++    }
++
++    pub fn programs(&self) -> [Prog; MAXC] {
++        std::array::from_fn(|column| {
++            if column < 5 {
++                Prog::Belt(BeltColumn {
++                    belt: self.clone(),
++                    column: column as u8,
++                    offset: 0,
++                })
++            } else {
++                Prog::Const(0)
++            }
++        })
++    }
++
++    /// Birth is constant work and stores no generated members.
++    pub fn population(&self, n: u64, enc: &mut Enc) -> crate::program::Program {
++        assert!(n <= u32::MAX as u64, "population hot ordinals are u32");
++        crate::program::Program::seal_from(n, 5, self.programs(), &[], enc)
++    }
++}
++
++/// A column view of the same population program; splitting only shifts its ordinal.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub struct BeltColumn {
++    pub(crate) belt: Belt,
++    pub(crate) column: u8,
++    pub(crate) offset: u64,
++}
++
++impl BeltColumn {
++    #[inline]
++    pub fn at(&self, i: u64) -> u64 {
++        let i = self.offset.wrapping_add(i);
++        let p = &self.belt.params;
++        match self.column {
++            0 => mix(i, self.belt.keys[4]) >> (64 - p.t_bits),
++            1 => mix(i, self.belt.keys[2]) >> (64 - p.kind_bits),
++            4 => (mix(i, self.belt.keys[3]) >> (64 - p.w_bits)) as u64,
++            c => self.belt.eval(i)[c as usize],
++        }
++    }
++    pub(crate) fn shifted(mut self, s: u64) -> Self {
++        self.offset = self.offset.wrapping_add(s);
++        self
++    }
++    pub(crate) fn bounds(&self) -> (i128, i128) {
++        let p = &self.belt.params;
++        match self.column {
++            0 => (0, (1i128 << p.t_bits) - 1),
++            1 => (0, (1i128 << p.kind_bits) - 1),
++            2 => (1, 16i128 << 48),
++            3 => (1 << 30, 4096i128 << 32),
++            4 => (0, (1i128 << p.w_bits) - 1),
++            _ => unreachable!(),
++        }
++    }
++}
++
++/// Recognize a full belt once, so E and L share one Darwin conversion.
++pub(crate) fn base(prog: &[Prog; MAXC], cols: usize, i: u64) -> Option<Ship> {
++    let Prog::Belt(first) = &prog[0] else {
++        return None;
++    };
++    if cols != 5 || first.column != 0 {
++        return None;
++    }
++    if (1..5).any(|c| {
++        &prog[c]
++            != &Prog::Belt(BeltColumn {
++                column: c as u8,
++                ..first.clone()
++            })
++    }) {
++        return None;
++    }
++    Some(first.belt.eval(first.offset.wrapping_add(i)))
++}
+diff --git a/crates/shipmem/src/belt_quantiles.rs b/crates/shipmem/src/belt_quantiles.rs
+new file mode 100644
+index 0000000..31be38d
+--- /dev/null
++++ b/crates/shipmem/src/belt_quantiles.rs
+@@ -0,0 +1,119 @@
++//! The belt's eccentricity quantiles, derived at birth from the parameters.
++//!
++//! No frozen data: the table is a working constant of the law (B18b: "a table derived from the
++//! spec is a working constant, not counted, and not stored"), rebuilt whenever a belt is born.
++//! Only +, -, *, / and IEEE sqrt decide its bits, so every machine derives the same table and
++//! regeneration afterwards is pure integer arithmetic.
++//!
++//! Structure (u the uniform word, v = u/2^64, S = 1 - v the survival, e = sigma*sqrt(-2 ln S)
++//! on the 2^e_bits grid, floored and capped):
++//! - 4094 central midpoint cells for v in [2^-12, 1 - 2^-12] (u's top 12 bits 1..=4094);
++//! - at BOTH ends of e, 46 dyadic octaves of 64 cells each plus the exact last 64 draws, so
++//!   neither tail is capped: the bottom of e (v < 2^-12, e near 0) and the top (S < 2^-12,
++//!   e large) are each resolved in their own probability octaves. A single-level midpoint
++//!   table puts a whole 1e-4 tail in one cell; dyadic in the probability's octaves does not.
++//!
++//! The bottom end resolves octaves of the CDF 1 - S (v itself, near 0), the top end octaves of
++//! the survival S: each octave holds half of the previous one's probability, and within an
++//! octave all 64 cells are equally wide, so the belt's e marginal is the law's, discretized.
++
++use super::Params;
++
++/// Central midpoint cells: u's top 12 bits 1..=4094.
++const MID: usize = 4094;
++/// Octaves at each end: lz of the end's word in [12, 57] (the word in [64, 2^52)).
++const OCTAVES: usize = 46;
++const CELLS: usize = 64;
++
++/// The derived table. Indexed exactly as [`crate::belt::Belt::eccentricity`] reads it:
++/// [central 4094][bottom octaves][bottom exact 64][top octaves][top exact 64].
++pub struct Quantiles {
++    pub e: Vec<u32>,
++}
++
++impl Quantiles {
++    /// The bytes of working constant the executable holds for one belt (charged once per
++    /// population, never stored, never declared as information).
++    pub fn bytes(&self) -> usize {
++        self.e.len() * 4
++    }
++}
++
++/// ln x for a positive normal x from +, -, *, / only: the exponent, then 2 atanh((m-1)/(m+1))
++/// for the mantissa. The same bits on every machine (the truncation error, < 2^-70 here, is a
++/// fixed function of the input bits).
++fn ln_det(x: f64) -> f64 {
++    let bits = x.to_bits();
++    let mut k = ((bits >> 52) & 0x7FF) as i64 - 1023;
++    let mut m = f64::from_bits((bits & 0x000F_FFFF_FFFF_FFFF) | 0x3FF0_0000_0000_0000);
++    if m > std::f64::consts::SQRT_2 {
++        m *= 0.5;
++        k += 1;
++    }
++    let z = (m - 1.0) / (m + 1.0);
++    let z2 = z * z;
++    let (mut sum, mut term, mut j) = (0.0, z, 1.0);
++    for _ in 0..14 {
++        sum += term / j;
++        term *= z2;
++        j += 2.0;
++    }
++    k as f64 * std::f64::consts::LN_2 + 2.0 * sum
++}
++
++/// ln(1 - d) for 0 < d <= 2^-12, from +, -, *, / only (the series; 12 terms leave < 2^-140).
++fn ln_1m(d: f64) -> f64 {
++    let (mut sum, mut term) = (0.0, d);
++    for k in 1..=12 {
++        sum += term / (k as f64);
++        term *= d;
++    }
++    -sum
++}
++
++/// e = sigma * sqrt(-2 ln S) on the 2^e_bits grid, floored and capped.
++fn grid(ln_s: f64, p: &Params) -> u32 {
++    let e = p.sigma() * (-2.0 * ln_s).sqrt() * (1u64 << p.e_bits) as f64;
++    (e as u64).min(p.e_cap) as u32
++}
++
++/// The midpoint survival of central cell j (u's top bits j, j in 1..=4094): 1 - (j + 0.5)/4096,
++/// exact in f64 (13 significant bits).
++fn mid_survival(j: usize) -> f64 {
++    1.0 - (j as f64 + 0.5) / 4096.0
++}
++
++/// The dyadic cell midpoint of word w with lz(w) = z in [12, 57] and fraction f in [0, 64):
++/// (2^(63-z) + (2f+1) 2^(56-z)) / 2^64 = 2^-(z+1) (1 + (f + 0.5)/64), exact in f64.
++fn dyadic(z: u32, f: usize) -> f64 {
++    (1.0 + (f as f64 + 0.5) / 64.0) / ((1u64 << (z + 1)) as f64)
++}
++
++/// Derive the table from the parameters. Deterministic: the same bits for the same params on
++/// every machine (exact arithmetic above; sqrt is IEEE-exact).
++pub fn derive(p: &Params) -> Quantiles {
++    assert!(p.e_bits <= 32, "the table stores e as u32");
++    let mut e = Vec::with_capacity(MID + 2 * (OCTAVES * CELLS + CELLS));
++    for j in 1..=MID {
++        e.push(grid(ln_det(mid_survival(j)), p));
++    }
++    // The bottom of e: u in [0, 2^52), the CDF v = u/2^64 in [0, 2^-12). Octaves of v.
++    for z in 12..12 + OCTAVES as u32 {
++        for f in 0..CELLS {
++            e.push(grid(ln_1m(dyadic(z, f)), p));
++        }
++    }
++    for u in 0..CELLS as u64 {
++        e.push(grid(ln_1m((u as f64 + 0.5) / 18_446_744_073_709_551_616.0), p));
++    }
++    // The top of e: survival s = !u in [0, 2^52). Octaves of s.
++    for z in 12..12 + OCTAVES as u32 {
++        for f in 0..CELLS {
++            e.push(grid(ln_det(dyadic(z, f)), p));
++        }
++    }
++    for s in 0..CELLS as u64 {
++        e.push(grid(ln_det((s as f64 + 0.5) / 18_446_744_073_709_551_616.0), p));
++    }
++    Quantiles { e }
++}
+diff --git a/crates/shipmem/src/lib.rs b/crates/shipmem/src/lib.rs
+index 03f477f..91679a1 100644
+--- a/crates/shipmem/src/lib.rs
++++ b/crates/shipmem/src/lib.rs
+@@ -3,6 +3,7 @@
+ //! Every ship is real: a group writes once what its members share, and each member keeps
+ //! exactly what differs, at the width its information needs.
+ pub mod bits;
++pub mod belt;
+ pub mod codec;
+ pub mod pop;
+ pub mod program;
+diff --git a/crates/shipmem/src/pop.rs b/crates/shipmem/src/pop.rs
+index 8d7ca54..42f8dab 100644
+--- a/crates/shipmem/src/pop.rs
++++ b/crates/shipmem/src/pop.rs
+@@ -300,7 +300,7 @@ pub fn ladder(rung: Rung, m: usize, g: u64) -> (Vec<Ship>, f64, Option<[Prog; MA
+             let kind = r.below(64);
+             let (e, l) = orbit(&mut r);
+             let (w, t0) = (r.bitsn(32), r.bitsn(48));
+-            let mut prog = [Prog::Const(0); MAXC];
++            let mut prog: [Prog; MAXC] = std::array::from_fn(|_| Prog::Const(0));
+             prog[0] = Prog::Affine { a: t0, b: 1 << 12 };
+             (prog[1], prog[2], prog[3], prog[4]) = (
+                 Prog::Const(kind),
+diff --git a/crates/shipmem/src/program.rs b/crates/shipmem/src/program.rs
+index f841f01..adf831c 100644
+--- a/crates/shipmem/src/program.rs
++++ b/crates/shipmem/src/program.rs
+@@ -11,8 +11,9 @@ use crate::bits::*;
+ use crate::codec::*;
+ use crate::shelf::{FxMap, Ship};
+ 
+-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++#[derive(Clone, Debug, PartialEq, Eq)]
+ pub enum Prog {
++    Belt(crate::belt::BeltColumn),
+     Const(u64),
+     /// a + b·i (wrapping).
+     Affine {
+@@ -22,14 +23,16 @@ pub enum Prog {
+ }
+ impl Prog {
+     #[inline]
+-    pub fn at(self, i: u64) -> u64 {
++    pub fn at(&self, i: u64) -> u64 {
+         match self {
+-            Prog::Const(v) => v,
+-            Prog::Affine { a, b } => a.wrapping_add((i as i64).wrapping_mul(b) as u64),
++            Prog::Belt(b) => b.at(i),
++            Prog::Const(v) => *v,
++            Prog::Affine { a, b } => a.wrapping_add((i as i64).wrapping_mul(*b) as u64),
+         }
+     }
+     fn shifted(self, s: u64) -> Self {
+         match self {
++            Prog::Belt(b) => Prog::Belt(b.shifted(s)),
+             Prog::Const(v) => Prog::Const(v),
+             Prog::Affine { a, b } => Prog::Affine {
+                 a: Prog::Affine { a, b }.at(s),
+@@ -59,7 +62,7 @@ fn majority(it: impl Iterator<Item = u64> + Clone, n: usize) -> Option<u64> {
+ /// offset shared by most members. None if some column has no majority program.
+ pub fn infer(m: &[Ship], cols: usize) -> Option<[Prog; MAXC]> {
+     let n = m.len();
+-    let mut prog = [Prog::Const(0); MAXC];
++    let mut prog: [Prog; MAXC] = std::array::from_fn(|_| Prog::Const(0));
+     for (f, p) in prog.iter_mut().enumerate().take(cols) {
+         let b = if n < 2 {
+             0
+@@ -431,10 +434,21 @@ impl Program {
+             + self.rows.capacity()
+             + self.rblocks.capacity() * 8
+             + self.hot.capacity() * 72
++            + self.table_bytes()
+     }
+     pub fn scars(&self) -> usize {
+         self.ef.k
+     }
++    /// The table is shared by all belt columns; count its payload once per population.
++    pub fn table_bytes(&self) -> usize {
++        self.prog[..self.cols]
++            .iter()
++            .find_map(|p| match p {
++                Prog::Belt(b) => Some(b.belt.table_bytes()),
++                _ => None,
++            })
++            .unwrap_or(0)
++    }
+     #[inline]
+     fn row(&self, j: usize, out: &mut Ship, cols: usize) {
+         let (off, n) = self.rblocks[j / RB];
+@@ -455,6 +469,15 @@ impl Program {
+                 return;
+             }
+         }
++        if let Some(mut s) = crate::belt::base(&self.prog, self.cols, i) {
++            if let Some(j) = self.ef.find(i) {
++                let mut d = [0; MAXC];
++                self.row(j, &mut d, self.cols);
++                Scars::apply(&mut s, &d, self.cols);
++            }
++            *out = s;
++            return;
++        }
+         match self.ef.find(i) {
+             Some(j) => {
+                 let mut d = [0u64; MAXC];
+@@ -516,9 +539,8 @@ impl Program {
+         }
+         scars.extend_from_slice(&hot[q..]);
+         let cols = self.cols;
+-        let prog = self.prog;
+-        scars.retain(|(o, s)| (0..cols).any(|f| s[f] != prog[f].at(*o)));
+-        *self = Self::seal_from(self.n, cols, prog, &scars, enc);
++        scars.retain(|(o, s)| (0..cols).any(|f| s[f] != self.prog[f].at(*o)));
++        *self = Self::seal_from(self.n, cols, self.prog.clone(), &scars, enc);
+     }
+     /// Stream every ship in ordinal order, `RB` at a time.
+     pub fn for_each(&self, buf: &mut Buf, rbuf: &mut Buf, mut f: impl FnMut(u64, &Buf)) {
+@@ -530,13 +552,18 @@ impl Program {
+             let n = (self.n - s).min(RB as u64) as usize;
+             buf.n = n;
+             for c in 0..self.cols {
+-                match self.prog[c] {
+-                    Prog::Const(v) => buf.col[c][..n].fill(v),
++                match &self.prog[c] {
++                    Prog::Belt(b) => {
++                        for (i, x) in buf.col[c][..n].iter_mut().enumerate() {
++                            *x = b.at(s + i as u64);
++                        }
++                    }
++                    Prog::Const(v) => buf.col[c][..n].fill(*v),
+                     Prog::Affine { a, b } => {
+-                        let mut v = Prog::Affine { a, b }.at(s);
++                        let mut v = Prog::Affine { a: *a, b: *b }.at(s);
+                         for x in buf.col[c][..n].iter_mut() {
+                             *x = v;
+-                            v = v.wrapping_add(b as u64);
++                            v = v.wrapping_add(*b as u64);
+                         }
+                     }
+                 }
+@@ -604,6 +631,12 @@ impl Program {
+     pub fn bounds(&self, i0: u64, i1: u64) -> [(i128, i128); MAXC] {
+         let mut out = [(0i128, 0i128); MAXC];
+         for f in 0..self.cols {
++            if let Prog::Belt(b) = &self.prog[f] {
++                let (lo, hi) = b.bounds();
++                let d = self.maxdev[f] as i128;
++                out[f] = (lo - d, hi + d);
++                continue;
++            }
+             let (x, y) = (self.prog[f].at(i0) as i128, self.prog[f].at(i1) as i128);
+             let d = self.maxdev[f] as i128;
+             out[f] = (x.min(y) - d, x.max(y) + d);
+@@ -641,12 +674,12 @@ impl Program {
+                 right.push((o - s, sh));
+             }
+         }
+-        let mut rp = self.prog;
++        let mut rp = self.prog.clone();
+         for p in rp.iter_mut().take(self.cols) {
+-            *p = p.shifted(s);
++            *p = p.clone().shifted(s);
+         }
+         (
+-            Self::seal_from(s, self.cols, self.prog, &left, enc),
++            Self::seal_from(s, self.cols, self.prog.clone(), &left, enc),
+             Self::seal_from(self.n - s, self.cols, rp, &right, enc),
+         )
+     }
+diff --git a/crates/shipmem/tests/belt.rs b/crates/shipmem/tests/belt.rs
+new file mode 100644
+index 0000000..de80b34
+--- /dev/null
++++ b/crates/shipmem/tests/belt.rs
+@@ -0,0 +1,169 @@
++//! The belt program: regeneration is a pure function of the ordinal, the derived quantile
++//! table decides no canonical bit on floating point beyond its exact-op derivation, both
++//! tails of e survive, and the population store round-trips with scars.
++use emergent_shipmem::belt::{Belt, BeltError, Columns, Params};
++use emergent_shipmem::codec::{Buf, Enc};
++use emergent_shipmem::program::Program;
++use std::thread;
++
++fn belt() -> Belt {
++    Belt::new(Belt::LAB_KEYS, Columns::Independent, Params::LAB).unwrap()
++}
++
++#[test]
++fn regeneration_is_bit_identical_across_orders_and_threads() {
++    let n = 1 << 16;
++    let b = belt();
++    let expected: Vec<_> = (0..n).map(|i| b.eval(i)).collect();
++    for i in 0..n {
++        let (p, _, _, _, _) = b.draws(i);
++        assert!((2048 << 16..2560 << 16).contains(&p));
++    }
++    let p = b.population(n, &mut Enc::new(true));
++    for threads in [1, 2, 7] {
++        thread::scope(|scope| {
++            for lane in 0..threads {
++                let (expected, p) = (&expected, &p);
++                scope.spawn(move || {
++                    for i in (0..n).rev().filter(|i| i % threads == lane) {
++                        let mut s = [0; 8];
++                        p.eval(i, &mut s);
++                        assert_eq!(s, expected[i as usize]);
++                    }
++                });
++            }
++        });
++    }
++}
++
++#[test]
++fn exact_round_trip_with_scars_splits_stream_and_reabsorption() {
++    let n = 8192;
++    let b = belt();
++    let mut enc = Enc::new(true);
++    let mut expected: Vec<_> = (0..n).map(|i| b.eval(i)).collect();
++    let mut p = Program::with_prog(&expected, 5, b.programs(), &mut enc);
++    assert_eq!(p.scars(), 0);
++    for i in (0..n).step_by(31) {
++        let s = &mut expected[i as usize];
++        s[0] = s[0].wrapping_add(17);
++        s[2] = s[2].wrapping_sub(3);
++        s[3] = s[3].wrapping_add(9);
++        s[4] = s[4].wrapping_add(7);
++        p.update(i, *s);
++    }
++    for i in (0..n).rev() {
++        let mut s = [0; 8];
++        p.eval(i, &mut s);
++        assert_eq!(s, expected[i as usize]);
++    }
++    p.seal(&mut enc);
++    let split = 3907;
++    let (left, right) = p.split(split, &mut enc);
++    let (mut buf, mut rbuf) = (Buf::default(), Buf::default());
++    for (store, offset) in [(&p, 0), (&left, 0), (&right, split)] {
++        let bounds = store.bounds(0, store.n - 1);
++        store.for_each(&mut buf, &mut rbuf, |start, buf| {
++            for j in 0..buf.n {
++                let i = start + j as u64;
++                let mut s = [0; 8];
++                store.eval(i, &mut s);
++                for c in 0..5 {
++                    assert_eq!(buf.col[c][j], expected[(offset + i) as usize][c]);
++                    assert_eq!(s[c], buf.col[c][j]);
++                    assert!((bounds[c].0..=bounds[c].1).contains(&(s[c] as i128)));
++                }
++            }
++        });
++        assert_eq!(store.count_arc(0, u64::MAX), None);
++    }
++    for i in (0..n).step_by(31) {
++        p.update(i, b.eval(i));
++    }
++    p.seal(&mut enc);
++    assert_eq!(p.scars(), 0);
++    assert_eq!(p.bytes(), b.population(n, &mut enc).bytes());
++}
++
++#[test]
++fn distinct_states_at_both_belt_sizes() {
++    // Unique (time, angle, kind) implies unique full states; keep only this exact
++    // projection while sorting, so the 2^23 rung does not materialize 512 MiB.
++    for keys in [Belt::LAB_KEYS, [1, 3, 5, 7, 9]] {
++        let b = Belt::new(keys, Columns::Independent, Params::LAB).unwrap();
++        for n in [1 << 20, 1 << 23] {
++            let mut signatures: Vec<u128> = (0..n)
++                .map(|i| {
++                    let (_, _, kind, angle, time) = b.draws(i);
++                    time as u128 | ((angle as u128) << 44) | ((kind as u128) << 76)
++                })
++                .collect();
++            signatures.sort_unstable();
++            assert!(
++                signatures.windows(2).all(|w| w[0] != w[1]),
++                "n={n} keys={keys:?}"
++            );
++        }
++    }
++}
++
++#[test]
++fn the_derived_table_is_deterministic_and_resolves_both_tails() {
++    // The judge's belt parameters (B18b's SPEC): sigma 0.07, Q30, capped at 0.6.
++    let params = Params { p_lo: 2048 << 16, p_bits: 27, sigma_milli: 70, e_bits: 30, e_cap: 644_245_094, kind_bits: 6, w_bits: 32, t_bits: 44 };
++    let a = Belt::new(Belt::LAB_KEYS, Columns::Independent, params).unwrap();
++    let b = Belt::new(Belt::LAB_KEYS, Columns::Independent, params).unwrap();
++    assert_eq!(a.eccentricity(12345), b.eccentricity(12345));
++    assert_eq!(a.table_bytes(), 40_440);
++
++    // Monotone in u: the bottom octaves climb with u (deeper octave first), then the central
++    // cells, then the top octaves and the exact deepest draws.
++    let mut previous = 0u32;
++    for z in (12..58).rev() {
++        for f in 0..64 {
++            let u = if f == 0 { 1u64 << (63 - z) } else { (1u64 << (63 - z)) | (f as u64) << (57 - z) };
++            let e = a.eccentricity(u);
++            assert!(e >= previous, "u={u:#x} e={e} after {previous}");
++            previous = e;
++        }
++    }
++    for j in 1..4096u64 {
++        let e = a.eccentricity(j << 52);
++        assert!(e >= previous, "central {j}");
++        previous = e;
++    }
++    let s = 1u64 << (63 - 12);
++    let e = a.eccentricity(!s);
++    assert!(e >= previous);
++
++    // The bottom 1e-4 of the law is not one cell: the belt's smallest e values cover it.
++    let q = |cdf: f64| 0.07f64 * (-2.0 * (1.0 - cdf).ln()).sqrt() * (1u64 << 30) as f64;
++    let thr = q(1e-4) as u32;
++    let mut deepest = u32::MAX;
++    for i in 0..(1 << 21) {
++        let e = a.eccentricity(emergent_shipmem::belt::mix(i, 5));
++        deepest = deepest.min(e);
++    }
++    assert!(deepest < thr, "deepest {deepest} not under the law's 1e-4 quantile {thr}");
++    assert_eq!(a.eccentricity(u64::MAX), 644_245_094, "the cap holds at the deepest survival");
++}
++
++#[test]
++fn refuses_correlations_and_nonbijective_keys() {
++    assert_eq!(
++        Belt::new(Belt::LAB_KEYS, Columns::Correlated, Params::LAB),
++        Err(BeltError::CorrelatedColumns)
++    );
++    assert_eq!(
++        Belt::new([2, 3, 5, 7, 9], Columns::Independent, Params::LAB),
++        Err(BeltError::InvalidKeys)
++    );
++    assert_eq!(
++        Belt::new([1, 1, 5, 7, 9], Columns::Independent, Params::LAB),
++        Err(BeltError::InvalidKeys)
++    );
++    assert_eq!(
++        Belt::new([1, 3, 5, 7, 9], Columns::Independent, Params { p_bits: 33, ..Params::LAB }),
++        Err(BeltError::OutOfRange)
++    );
++}
+diff --git a/xtask/Cargo.toml b/xtask/Cargo.toml
+index fe6c1d3..58875af 100644
+--- a/xtask/Cargo.toml
++++ b/xtask/Cargo.toml
+@@ -12,6 +12,7 @@ emergent-lattice = { path = "../crates/lattice" }
+ emergent-lattice-event = { path = "../crates/lattice-event" }
+ emergent-lattice-metal = { path = "../crates/lattice-metal" }
+ emergent-allocator = { path = "../crates/allocator" }
++emergent-shipmem = { path = "../crates/shipmem" }
+ serde.workspace = true
+ serde_json.workspace = true
+ blake3.workspace = true
+diff --git a/xtask/src/behave/mod.rs b/xtask/src/behave/mod.rs
+index a1e9b0a..845967d 100644
+--- a/xtask/src/behave/mod.rs
++++ b/xtask/src/behave/mod.rs
+@@ -45,6 +45,7 @@ pub mod scale;
+ pub mod select;
+ pub mod sample;
+ pub mod space;
++pub mod space_belt;
+ 
+ use crate::measure::{machine_state, Watch};
+ use restricted::Restricted;
+@@ -888,4 +889,15 @@ mod belt_tests {
+             assert!(!belt::b18_belt(&Planted(fault)).pass);
+         }
+     }
++
++    #[test]
++    fn the_space_law_belt_passes_one_judged_run() {
++        let (g, findings) = belt::judge_findings(&space::Space::default(), &[Run { log2n: 20, seed: 20261008, thorough: true }]);
++        for (pass, text) in &findings {
++            if !pass {
++                println!("FAIL: {text}");
++            }
++        }
++        assert!(g.pass, "{}", g.detail);
++    }
+ }
+diff --git a/xtask/src/behave/space.rs b/xtask/src/behave/space.rs
+index 142c23a..dfe22d9 100644
+--- a/xtask/src/behave/space.rs
++++ b/xtask/src/behave/space.rs
+@@ -265,6 +265,12 @@ impl Law for Space {
+             })
+             .collect()
+     }
++    fn belt_birth(&self, spec: &super::belt::BeltSpec, n: u64, seed: u64) -> Option<Box<dyn super::belt::Belt>> {
++        Some(Box::new(super::space_belt::SpaceBelt::birth(spec, n, seed)?))
++    }
++    fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn super::belt::Belt>> {
++        super::space_belt::SpaceBelt::restore(store).map(|b| Box::new(b) as Box<dyn super::belt::Belt>)
++    }
+ }
+ 
+ fn rate(r: f64, k: u32) -> Option<f64> {
+diff --git a/xtask/src/behave/space_belt.rs b/xtask/src/behave/space_belt.rs
+new file mode 100644
+index 0000000..7157ea5
+--- /dev/null
++++ b/xtask/src/behave/space_belt.rs
+@@ -0,0 +1,256 @@
++//! The space law's belt: the shipmem belt program behind the judge's [`Belt`] interface.
++//!
++//! The program is Sol's (wt/belt, `crates/shipmem/src/belt.rs`): body i is a pure function of
++//! its ordinal and the belt's five keys, through a quantile table derived at birth from the
++//! parameters (a working constant, never stored: B18b caps a program's declared information at
++//! its parameters). The keys come from the birth seed, so the whole belt is a function of
++//! (spec, n, seed). History rewrites an ordinal as a scar: the store keeps each scarred body
++//! as its delta against the program's body (varint ordinal gaps, zigzag varint deltas), so a
++//! 50-bit replacement kick costs about ten bytes and nothing else changes.
++
++use super::belt::{Belt, BeltSpec, Body, Form};
++use emergent_shipmem::belt::{Belt as Program, Columns, Params};
++use std::collections::BTreeMap;
++
++/// The five keys of a birth: the SplitMix64 finalizer of the seed and the column, made odd,
++/// with repeats re-mixed until distinct (a collision has probability about 2^-60; the loop is
++/// deterministic, so the same seed always gives the same keys).
++fn keys_from(seed: u64) -> [u64; 5] {
++    let mix = |mut z: u64| {
++        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++        z ^ (z >> 31)
++    };
++    let mut keys = [0u64; 5];
++    for f in 0..5 {
++        let mut k = mix(seed ^ ((f as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15))) | 1;
++        while keys[..f].contains(&k) {
++            k = mix(k) | 1;
++        }
++        keys[f] = k;
++    }
++    keys
++}
++
++fn params_of(spec: &BeltSpec) -> Option<Params> {
++    // The judged belt draws no kind; the program's 6-bit kind column stays for the engine.
++    Some(Params { p_lo: u32::try_from(spec.p_lo).ok()?, p_bits: spec.p_bits, sigma_milli: spec.sigma_milli, e_bits: spec.e_bits, e_cap: spec.e_cap, kind_bits: 6, w_bits: spec.w_bits, t_bits: spec.t_bits })
++}
++
++fn put_varint(out: &mut Vec<u8>, mut v: u64) {
++    loop {
++        let b = (v & 0x7F) as u8;
++        v >>= 7;
++        if v == 0 {
++            out.push(b);
++            return;
++        }
++        out.push(b | 0x80);
++    }
++}
++fn get_varint(b: &[u8], at: &mut usize) -> Option<u64> {
++    let (mut v, mut shift) = (0u64, 0u32);
++    loop {
++        let byte = *b.get(*at)?;
++        *at += 1;
++        v |= ((byte & 0x7F) as u64) << shift;
++        if byte & 0x80 == 0 {
++            return Some(v);
++        }
++        shift += 7;
++    }
++}
++fn zigzag(d: u64) -> u64 {
++    (d << 1) ^ ((d as i64 >> 63) as u64)
++}
++fn unzigzag(z: u64) -> u64 {
++    ((z >> 1) as i64 ^ -((z & 1) as i64)) as u64
++}
++
++/// One belt of the space law: the program, its length, and its scars.
++pub struct SpaceBelt {
++    program: Program,
++    n: u64,
++    seed: u64,
++    scars: BTreeMap<u64, Body>,
++}
++
++impl SpaceBelt {
++    pub fn birth(spec: &BeltSpec, n: u64, seed: u64) -> Option<SpaceBelt> {
++        let program = Program::new(keys_from(seed), Columns::Independent, params_of(spec)?).ok()?;
++        Some(SpaceBelt { program, n, seed, scars: BTreeMap::new() })
++    }
++
++    /// The program's body for ordinal i (the scars' reference).
++    fn program_body(&self, i: u64) -> Body {
++        let (p, e, _kind, w, t) = self.program.draws(i);
++        Body { p: p as u64, e: e as u64, w: w as u64, t }
++    }
++
++    pub fn restore(bytes: &[u8]) -> Option<SpaceBelt> {
++        if bytes.first()? != &b'S' || bytes.get(1)? != &1 {
++            return None;
++        }
++        let mut at = 2usize;
++        let n = get_varint(bytes, &mut at)?;
++        let seed = u64::from_le_bytes(bytes.get(at..at + 8)?.try_into().unwrap());
++        at += 8;
++        let p_lo = get_varint(bytes, &mut at)?;
++        let p_bits = *bytes.get(at)? as u32;
++        at += 1;
++        let sigma_milli = u16::from_le_bytes([*bytes.get(at)?, *bytes.get(at + 1)?]) as u64;
++        at += 2;
++        let e_bits = *bytes.get(at)? as u32;
++        at += 1;
++        let e_cap = get_varint(bytes, &mut at)?;
++        let kind_bits = *bytes.get(at)? as u32;
++        at += 1;
++        let w_bits = *bytes.get(at)? as u32;
++        at += 1;
++        let t_bits = *bytes.get(at)? as u32;
++        at += 1;
++        let params = Params { p_lo: u32::try_from(p_lo).ok()?, p_bits, sigma_milli, e_bits, e_cap, kind_bits, w_bits, t_bits };
++        let program = Program::new(keys_from(seed), Columns::Independent, params).ok()?;
++        let mut belt = SpaceBelt { program, n, seed, scars: BTreeMap::new() };
++        let count = get_varint(bytes, &mut at)?;
++        let mut prev = 0u64;
++        for j in 0..count {
++            let gap = get_varint(bytes, &mut at)?;
++            let i = if j == 0 { gap } else { prev + 1 + gap };
++            let mut d = [0u64; 4];
++            for x in &mut d {
++                *x = unzigzag(get_varint(bytes, &mut at)?);
++            }
++            let base = belt.program_body(i);
++            belt.scars.insert(
++                i,
++                Body {
++                    p: base.p.wrapping_add(d[0]),
++                    e: base.e.wrapping_add(d[1]),
++                    w: base.w.wrapping_add(d[2]),
++                    t: base.t.wrapping_add(d[3]),
++                },
++            );
++            prev = i;
++        }
++        (at == bytes.len() && belt.n == n).then_some(belt)
++    }
++}
++
++impl Belt for SpaceBelt {
++    fn len(&self) -> u64 {
++        self.n
++    }
++    fn body(&self, i: u64) -> Body {
++        if let Some(b) = self.scars.get(&i) {
++            return *b;
++        }
++        self.program_body(i)
++    }
++    fn store(&self) -> Vec<u8> {
++        let mut out = vec![b'S', 1];
++        put_varint(&mut out, self.n);
++        out.extend(self.seed.to_le_bytes());
++        let p = self.program.params();
++        put_varint(&mut out, p.p_lo as u64);
++        out.push(p.p_bits as u8);
++        out.extend((p.sigma_milli as u16).to_le_bytes());
++        out.push(p.e_bits as u8);
++        put_varint(&mut out, p.e_cap);
++        out.push(p.kind_bits as u8);
++        out.push(p.w_bits as u8);
++        out.push(p.t_bits as u8);
++        put_varint(&mut out, self.scars.len() as u64);
++        let mut prev = 0u64;
++        for (j, (&i, b)) in self.scars.iter().enumerate() {
++            let base = self.program_body(i);
++            put_varint(&mut out, if j == 0 { i } else { i - prev - 1 });
++            for (&x, y) in [b.p, b.e, b.w, b.t].iter().zip([base.p, base.e, base.w, base.t]) {
++                put_varint(&mut out, zigzag(x.wrapping_sub(y)));
++            }
++            prev = i;
++        }
++        out
++    }
++    fn bytes_used(&self) -> u64 {
++        // What the belt holds that is specific to the population: its parameters and its scars.
++        // The derived table is a working constant of the law, not counted and not stored.
++        self.store().len() as u64
++    }
++    fn scar(&mut self, i: u64, b: Body) {
++        self.scars.insert(i, b);
++    }
++    fn form(&self) -> Form {
++        Form::Program { info_bytes: self.store().len() as u64 }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::behave::belt::SPEC;
++
++    #[test]
++    fn birth_is_deterministic_and_round_trips() {
++        let mut belt = SpaceBelt::birth(&SPEC, 1 << 14, 20261008).unwrap();
++        let truth: Vec<u64> = (0..1 << 14).map(|i| belt.body(i).hash()).collect();
++        let twin = SpaceBelt::birth(&SPEC, 1 << 14, 20261008).unwrap();
++        assert_eq!(twin.store(), belt.store());
++        assert!((0..1 << 14).all(|i| twin.body(i).hash() == truth[i as usize]));
++        let bytes = belt.store();
++        let back = SpaceBelt::restore(&bytes).unwrap();
++        assert_eq!(back.store(), bytes);
++        assert!((0..1 << 14).all(|i| back.body(i).hash() == truth[i as usize]));
++        // A birth at 1e9 costs constant bytes (the judge reports this number).
++        let billion = SpaceBelt::birth(&SPEC, 1_000_000_000, 7).unwrap();
++        assert!(billion.store().len() <= 64, "{}", billion.store().len());
++    }
++
++    #[test]
++    fn scars_replace_exactly_and_stay_cheap() {
++        let n = 1u64 << 16;
++        let mut belt = SpaceBelt::birth(&SPEC, n, 99).unwrap();
++        let birth = belt.store().len() as u64;
++        let mut kicked = 0;
++        for i in 0..n {
++            if i % 101 == 0 {
++                let mut b = belt.body(i);
++                b.p = b.p.wrapping_add(200);
++                b.e = b.e.wrapping_sub(1000);
++                b.w = b.w.wrapping_add(30000);
++                b.t = b.t.wrapping_add(2);
++                belt.scar(i, b);
++                kicked += 1;
++            }
++        }
++        let pristine = SpaceBelt::birth(&SPEC, n, 99).unwrap();
++        for i in 0..n {
++            let want = pristine.body(i);
++            let want = if i % 101 == 0 {
++                Body { p: want.p.wrapping_add(200), e: want.e.wrapping_sub(1000), w: want.w.wrapping_add(30000), t: want.t.wrapping_add(2) }
++            } else {
++                want
++            };
++            assert_eq!(belt.body(i), want, "ordinal {i}");
++        }
++        let per = (belt.store().len() as u64 - birth) as f64 / kicked as f64;
++        // The floor of a 50-bit kick plus which-ordinal is about 6.8 bytes here; the rule is
++        // [0.5 floor, 2 floor + 2].
++        assert!(per >= 3.0 && per <= 15.5, "{per:.2} bytes per scarred body");
++        let bytes = belt.store();
++        let back = SpaceBelt::restore(&bytes).unwrap();
++        assert_eq!(back.store(), bytes);
++        assert!((0..n).all(|i| back.body(i) == belt.body(i)));
++    }
++
++    #[test]
++    fn keys_are_distinct_odd_and_seed_driven() {
++        assert_eq!(keys_from(1), keys_from(1));
++        assert_ne!(keys_from(1), keys_from(2));
++        for seed in [0u64, 1, 20261008] {
++            let k = keys_from(seed);
++            assert!(k.iter().all(|x| x & 1 == 1));
++            assert!((0..5).all(|i| !k[..i].contains(&k[i])));
++        }
++    }
++}
