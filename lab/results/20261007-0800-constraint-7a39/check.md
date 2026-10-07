@@ -1,0 +1,27 @@
+Grade: silver
+
+The claim's mechanism is real and reproduces: the per-frame `serde_json::Value` tree is pure waste. My side-by-side on main vs patched (same box, minutes apart): view_json p50 0.216→0.0007 ms (share 16.3%→0.07%), m480 json share 50%→0.3%, wire bytes pinned by the passing `wire_bytes_unchanged` test, digests identical on seed 1, on my held-out seed 7 and on m480. Engine is 4–5% of the frame: the board's premise is corrected at frame level. Not reproduced: the 4.6× frame p50 cut — my clean pair gives 1.05→0.81 ms (1.3×); the author's baseline was uniformly ~3× slower including the engine (0.149 vs 0.041 ms), a machine-state confound, and my gather is unchanged (0.709→0.707). Undisclosed regression: the patch deletes `u.input` — steering is dead (six `keys=1` POSTs: keys stays 0, no burn). Adoptable after re-adding input and re-measuring interleaved.
+
+## Reasons
+
+1. **Reproduced (patch applied to a clean tree, `cargo build --release -p xtask`).**
+   - Seed 1 paced 30 s, main: digest `d96acc05…` (= author's), engine 4.4% / gather 72.8% / json 16.3% / wire 6.4% — shares match the author's baseline; frame p50 1.05 ms.
+   - Same command, patched: digest `d96acc05…` identical; view_json p50 0.216→0.0007 ms; wire 0.080→0.054; frame p50 0.81; json share 0.07%.
+   - Held-out seed 7 (never run by the author): digest `d8757a61…` identical main vs patched.
+   - m480 unpaced: my patched digest `8b9f11b6…` = author's before and after; json share 0.3%.
+   - `cargo test --release -p xtask`: `universe::session::wire_tests::wire_bytes_unchanged … ok` (dossier point 6). The 7 failures are behave-gate tests (see point 5), untouched by the patch (it edits only `universe/{session,http,mod}.rs`).
+2. **The 4.6× headline is a confounded comparison.** The author's before-run (08:04, load 0.1–1.1) is uniformly ~3× slower than mine across all four parts, *including the engine* (0.149 vs my 0.041 ms p50) — the engine does no per-frame serialisation, so allocator pollution from the tree cannot explain its 3.6× inflation; machine state (shared runner) can. Their after-run matches my runs' absolute values (p50 0.71/0.81, gather 0.65/0.71). My matched side-by-side shows gather **unchanged** (0.709→0.707), refuting the dossier's "the tree's allocator churn had been charged to the gather": the honest frame-level gain at 76 emitters is ~1.3× p50 (json+wire were 28% of the frame), and ~2.2× at 428 emitters (author's own m480 numbers, shares reproduced). The part-level deletion (json ~300×) and the premise correction stand.
+3. **Undisclosed functional regression: the player cannot steer.** The patch deletes the `if let Some(keys) … self.p.u.input(now, keys)` block from `Session::step` (session.rs:80 on main — the only input call in the serve path; the compiler confirms with `unused variable: keys`). Live probe on the patched build: six POSTs `{"keys":1,"throttle":1}` → `frame.keys` stays 0, `burning:false`, β coasting. The bench passes `None`, so digests cannot see it; dossier point 7 exercised keys=1 but only checked HTTP 200/JSON shape, and the dossier claims "nothing observable changed". PRINCIPLES #5: "The player is the only wildcard". Five lines to fix, but the patch is not adoptable as shipped.
+4. **Predictions discipline held.** predictions.md written 08:08:48, before the decisive after-runs 08:14:24 (file mtimes). Predictions: bytes identical ✓; json+wire ≥5× ✓ (mine 5.5×: 0.296→0.054 ms); m480 share <10% ✓ (0.3%); digests unchanged ✓ (both seeds); constraint moves to the gather ✓ (share 88% after). The predicted frame-p50 range missed low in the informative direction — but for the confounded reason above, not the allocator story the dossier tells.
+5. **Behave anomaly reproduced, not adjudicated (agree with the author).** My full test run shows the same behave/belt gate failures on this host (7 failed, "running for over 60 s" oracle stalls); the patch does not touch that code. Main's recorded gate state cannot be re-verified here; correct to flag rather than fold into the grade.
+6. **Novelty.** No HISTORY entry deletes the tree or measures the readout's frame share; `60d8b54` only split the dashboard's json/wire timings; H3163 names "the plane's readout" as next. The engine-is-5%-of-frame measurement corrects the board's "kicks dominate the engine's cost" at frame level — inside the engine it stays true (kick-bench, 61 µs/distinct kick).
+
+## The one experiment to gold
+
+Re-add the input block (5 lines), then re-measure before/after **interleaved on the same machine state** (alternate A/B/A/B runs, several seeds and emitter counts) so the frame-level gain is honest — expect ~1.3× at 76 seen, ~2× at 428 — plus one live steering check over HTTP. With bytes still pinned and steering alive, it is adoptable in one step.
+
+## What the author missed
+
+- The input deletion (or at least its disclosure) — the deliverable breaks the game's only wildcard while claiming "nothing observable changed".
+- The before/after confound: a uniform ~3× slowdown across all parts (engine included) should have read as machine state, not allocator pollution; one interleaved control pair would have caught it. The "instrument lesson" in the dossier is therefore itself an instrument error.
+- The 2293 B/body memory floor and the 10⁴-emitter extrapolation are asserted from one observer at ≤428 seen; multi-observer/high-zoom readouts unprobed (the lens section admits this).

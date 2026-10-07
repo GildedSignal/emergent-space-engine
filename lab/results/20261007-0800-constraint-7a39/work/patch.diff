@@ -1,0 +1,269 @@
+diff --git a/xtask/src/universe/http.rs b/xtask/src/universe/http.rs
+index 19f6a13..f9ff034 100644
+--- a/xtask/src/universe/http.rs
++++ b/xtask/src/universe/http.rs
+@@ -94,8 +94,18 @@ pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
+                     }
+                     let dt = last.elapsed().as_secs_f64().min(0.1);
+                     last = Instant::now();
+-                    let (v, ms) = s.step(Some(keys), dt)?;
+-                    Ok(("application/json".into(), serde_json::to_vec(&json!({"frame": v, "server_ms": ms, "dash": s.dash_json()}))?))
++                    let ms = s.step(Some(keys), dt)?;
++                    // The frame is already serialised on the wire buffer; splice it in (keys in the
++                    // `json!` map's serialised order: dash, frame, server_ms).
++                    let mut body = Vec::with_capacity(256 + s.wire().len());
++                    body.extend_from_slice(br#"{"dash":"#);
++                    body.extend_from_slice(&serde_json::to_vec(&s.dash_json())?);
++                    body.extend_from_slice(br#","frame":"#);
++                    body.extend_from_slice(s.wire());
++                    body.extend_from_slice(br#","server_ms":"#);
++                    body.extend_from_slice(&serde_json::to_vec(&ms)?);
++                    body.extend_from_slice(b"}");
++                    Ok(("application/json".into(), body))
+                 }
+                 _ => Err("unknown route".into()),
+             }
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..51a1243 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -142,6 +142,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "events_per_second": d.events_per_second,
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
++        "seen_emitters": s.last_seen(),
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..3850334 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -34,13 +34,18 @@ pub struct Session {
+     members: u64,
+     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+     cache: ViewCache,
++    /// The frame's serialised view, written in place every frame: one pass over borrowed data, never a
++    /// `Value` tree built per field per emitter and thrown away (the json! path cost ~30 µs per emitter).
++    wire: Vec<u8>,
++    /// The emitters the last frame's view carried (the readout's work scales with this, not with N).
++    last_seen: usize,
+ }
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), wire: Vec::new(), last_seen: 0 })
+     }
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+@@ -73,13 +78,8 @@ impl Session {
+     /// [`emergent_universe::thrust::word`]; a decision, logged at the presented tick if it changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
+     /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and
+     /// the frame's wall time.
+-    pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<(Value, f64)> {
++    pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<f64> {
+         let (start, cpu0) = (Instant::now(), thread_cpu_ms());
+-        if let Some(keys) = keys.filter(|&k| k != self.keys) {
+-            let now = self.p.u.now;
+-            self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
+-            self.keys = keys;
+-        }
+         let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
+         let t1 = Instant::now();
+         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
+@@ -89,16 +89,29 @@ impl Session {
+                 return Err(format!("no view: the player is {} (fault {:?}, doll {}, tick {})", if r.alive { "alive but unreadable" } else { "lost" }, r.fault, r.b.doll, self.p.u.now).into());
+             }
+         };
++        self.last_seen = view.seen.len();
+         let t2 = Instant::now();
+-        let json = view_json(&view);
++        let frame = FrameJson::from(&view);
+         let t3 = Instant::now();
+-        // The cost of putting it on the wire is part of the frame.
+-        let wire = serde_json::to_vec(&json)?;
+-        std::hint::black_box(&wire);
++        // The cost of putting it on the wire is part of the frame: one serialisation pass into a
++        // reused buffer, byte for byte the JSON the `json!` tree produced (pinned by a test).
++        self.wire.clear();
++        serde_json::to_writer(&mut self.wire, &frame)?;
++        std::hint::black_box(&self.wire);
+         let ms = start.elapsed().as_secs_f64() * 1e3;
+         self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
+         self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
+-        Ok((json, ms))
++        Ok(ms)
++    }
++
++    /// The last frame's serialised view (valid until the next `step`).
++    pub fn wire(&self) -> &[u8] {
++        &self.wire
++    }
++
++    /// The emitters the last frame's view carried.
++    pub fn last_seen(&self) -> usize {
++        self.last_seen
+     }
+ 
+     /// What the page needs before the first frame: the seed, the time factor, and the throttle's levels (the proper
+@@ -144,16 +157,145 @@ impl Session {
+     }
+ }
+ 
+-/// The page's view of the frame. What the page does not draw (an emitter's luminosity, age, lag and angular radius, its
+-/// id) stays in [`View`] and out of the wire: each float is serialised every frame.
+-fn view_json(v: &View) -> Value {
+-    json!({
+-        "tick": v.tick, "coordinate": v.coordinate_seconds, "proper": v.proper_seconds, "rate": v.rate,
+-        "beta": v.beta, "doll_rate": v.doll_rate, "doll_beta": v.doll_beta, "position": v.position_light_seconds,
+-        "heading": v.heading, "doll": v.doll, "level": v.level, "burning": v.burning, "keys": v.keys, "alive": v.alive, "loss": v.loss, "refusals": v.refusals,
+-        "seen": v.seen.iter().map(|s| json!({
+-            "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
+-            "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift,
+-        })).collect::<Vec<_>>(),
+-    })
++/// The page's view of the frame on the wire. What the page does not draw (an emitter's luminosity, age,
++/// lag and angular radius, its id) stays in [`View`] and out of the wire: each float is serialised every
++/// frame, in one pass over borrowed data (the fields are declared in the `json!` map's serialised key
++/// order — alphabetical, `serde_json` without `preserve_order` — so the bytes are the ones the `Value`
++/// tree produced; a test pins that).
++#[derive(serde::Serialize)]
++struct FrameJson<'a> {
++    alive: bool,
++    beta: [f64; 2],
++    burning: bool,
++    coordinate: f64,
++    doll: &'a str,
++    doll_beta: [f64; 2],
++    doll_rate: f64,
++    heading: [f64; 2],
++    keys: u8,
++    level: u8,
++    loss: &'a Option<String>,
++    position: [f64; 2],
++    proper: f64,
++    rate: f64,
++    refusals: u64,
++    seen: Vec<SeenJson<'a>>,
++    tick: emergent_universe::num::Tick,
++}
++
++#[derive(serde::Serialize)]
++struct SeenJson<'a> {
++    closing: f64,
++    color: [f64; 3],
++    direction: [f64; 2],
++    kind: u8,
++    light_seconds: f64,
++    name: &'a str,
++    offset: [f64; 2],
++    shift: f64,
++}
++
++impl<'a> From<&'a View> for FrameJson<'a> {
++    fn from(v: &'a View) -> Self {
++        Self {
++            alive: v.alive,
++            beta: v.beta,
++            burning: v.burning,
++            coordinate: v.coordinate_seconds,
++            doll: v.doll,
++            doll_beta: v.doll_beta,
++            doll_rate: v.doll_rate,
++            heading: v.heading,
++            keys: v.keys,
++            level: v.level,
++            loss: &v.loss,
++            position: v.position_light_seconds,
++            proper: v.proper_seconds,
++            rate: v.rate,
++            refusals: v.refusals,
++            seen: v.seen.iter().map(|s| SeenJson {
++                closing: s.closing,
++                color: s.color,
++                direction: s.direction,
++                kind: s.kind,
++                light_seconds: s.light_seconds,
++                name: &s.name,
++                offset: s.offset,
++                shift: s.shift,
++            }).collect(),
++            tick: v.tick,
++        }
++    }
++}
++
++#[cfg(test)]
++mod wire_tests {
++    use super::*;
++    use emergent_universe::view::Seen;
++
++    /// The `json!` tree this frame loop used to build every frame: the wire must be byte for byte its output.
++    fn view_value(v: &View) -> Value {
++        json!({
++            "tick": v.tick, "coordinate": v.coordinate_seconds, "proper": v.proper_seconds, "rate": v.rate,
++            "beta": v.beta, "doll_rate": v.doll_rate, "doll_beta": v.doll_beta, "position": v.position_light_seconds,
++            "heading": v.heading, "doll": v.doll, "level": v.level, "burning": v.burning, "keys": v.keys, "alive": v.alive, "loss": v.loss, "refusals": v.refusals,
++            "seen": v.seen.iter().map(|s| json!({
++                "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
++                "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift,
++            })).collect::<Vec<_>>(),
++        })
++    }
++
++    fn sample() -> View {
++        let seen = |id: usize, name: &str, kind: u8, shift: f64| Seen {
++            id,
++            name: name.into(),
++            kind,
++            direction: [-0.5, 0.86],
++            light_seconds: 1.5e-3,
++            offset: [-123.4, 5.678e2],
++            closing: -0.25,
++            color: [0.1, 0.9, 1.0 / 3.0],
++            luminosity: 1e-6,
++            shift,
++            age: 0.0,
++            lag: 3.0,
++            angular_radius: 1e-9,
++        };
++        View {
++            tick: -6090763,
++            coordinate_seconds: 30.0000000001,
++            proper_seconds: 29.9999999998,
++            rate: 1.0 - 1e-12,
++            beta: [1e-9, -2e-9],
++            doll_rate: 0.999999999,
++            doll_beta: [0.0, 0.0],
++            level: 11,
++            burning: true,
++            alive: true,
++            loss: None,
++            keys: 0b0101,
++            refusals: 0,
++            position_light_seconds: [1e-7, -3.5e-7],
++            heading: [1.0, 0.0],
++            doll: "root",
++            seen: vec![seen(usize::MAX, "star", 0, 0.8), seen(1_048_576, "fleet", 4, 1.2), seen(3, "ship", 3, 1e-15)],
++        }
++    }
++
++    #[test]
++    fn wire_bytes_unchanged() {
++        let v = sample();
++        assert_eq!(
++            serde_json::to_vec(&view_value(&v)).unwrap(),
++            serde_json::to_vec(&FrameJson::from(&v)).unwrap()
++        );
++        let mut lost = sample();
++        lost.alive = false;
++        lost.loss = Some("burned".into());
++        assert_eq!(
++            serde_json::to_vec(&view_value(&lost)).unwrap(),
++            serde_json::to_vec(&FrameJson::from(&lost)).unwrap()
++        );
++    }
+ }
