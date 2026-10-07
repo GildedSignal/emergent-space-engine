@@ -1,0 +1,4 @@
+Working...
+All artifacts verified: the scope-free patch carries the original deletion byte-identically (universe.rs hunks match, zero prof references), regenerates every number from itself alone, and the cadence lever is priced on both sides.
+
+**The claim:** the silver run's record now regenerates from its own patch — the deletion with every diagnostic scope stripped (`work/scope-free.patch`, clean on HEAD) makes made kicks −18…−20 % and leaver kicks −6…−10 % (m24 −34/−24 %) at bit-identical digests on all twelve interleaved A/B pairs with 104 tests green — and the checker's named cadence experiment holds: kick-resolver work per orbit falls with exponent ≈ 1.05 at flat per-kick cost, so each halving of rebinds per orbit buys ≈ 1.86× less work and costs ≈ 4× error on the frozen assist gate (B13: 60/64 → 41/64 → 15/64 within 1e-2; Jacobi ladder confirms second order), the priced tradeoff the integrator's `q-cadence` decision needs.

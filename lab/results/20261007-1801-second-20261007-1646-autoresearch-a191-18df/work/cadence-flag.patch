@@ -1,0 +1,49 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..71d3fb0 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -21,6 +21,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let mut step_log2: Option<i32> = None;
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -36,7 +37,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+-            "--describe" => describe = true,
++            "--step-log2" => step_log2 = Some(val("--step-log2")?.parse::<i32>()?.clamp(1, 20)),
+             "--help" => {
+                 println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
+                 return Ok(0);
+@@ -47,7 +48,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if !(rtf.is_finite() && (0.01..=1e7).contains(&rtf)) || !(1.0..=55.0).contains(&seconds) {
+         return Err("rtf outside [0.01, 1e7], or seconds outside [1, 55] (every test and probe is at most a minute)".into());
+     }
+-    let mut s = Session::new(seed, threads, members, rtf)?;
++    let cfg = step_log2.map(|l| emergent_universe::Config { step_log2: l, ..emergent_universe::Config::default() });
++    let mut s = match cfg { Some(c) => Session::new_with(seed, threads, members, rtf, c)?, None => Session::new(seed, threads, members, rtf)? };
+     s.engine_ms = engine_ms;
+     if kicks {
+         return kick_bench::run(s, seconds);
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..f8b9861 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -38,7 +38,12 @@ pub struct Session {
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+-        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
++        Self::new_with(seed, threads, members, rtf, Config::default())
++    }
++
++    /// A flight at an explicit engine config (the lab's cadence experiments: `Config::step_log2`).
++    pub fn new_with(seed: u64, threads: usize, members: u64, rtf: f64, cfg: Config) -> crate::Result<Self> {
++        let p = plane(cfg, seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+         Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
+     }

@@ -1,0 +1,235 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f3076..f80dedf 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -90,7 +90,7 @@ impl Kick {
+ }
+ 
+ /// Everything needed to read one body's state at any time after its binding event.
+-#[derive(Clone, Debug)]
++#[derive(Clone)]
+ pub struct Binding {
+     /// The doll whose frame the tube is in (units: that doll's `M = c = G = 1`).
+     pub doll: u16,
+@@ -104,6 +104,10 @@ pub struct Binding {
+     /// The doll's clock quantum (`2^clock_exp` doll time units per tick).
+     pub clock_exp: i16,
+     pub event_time: Tick,
++    /// The tube's proper time (doll units) at `event_time`: what it was when the binding was made,
++    /// cached from the fit's own decode so a rebind's clock bookkeeping needs no second readout.
++    /// `None` (a binding whose event decode failed to exist) falls back to solving it, errors and all.
++    pub proper0: Option<Scalar>,
+     /// The kick that made this binding (zero length if none): what the state between kicks is completed with.
+     pub kick: Kick,
+ }
+@@ -122,6 +126,24 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
+     Ok((cartesian(state, tube.periapsis_angle, entry.clockwise, units)?, state))
+ }
+ 
++/// `proper0` is a cache of the fit's own decode, not physics: the record's debug form (what the
++/// kick bench's replay digest hashes) leaves it out, so the digest reads the same as before it existed.
++impl std::fmt::Debug for Binding {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("Binding")
++            .field("doll", &self.doll)
++            .field("tube", &self.tube)
++            .field("entry", &self.entry)
++            .field("residual", &self.residual)
++            .field("turn", &self.turn)
++            .field("units", &self.units)
++            .field("clock_exp", &self.clock_exp)
++            .field("event_time", &self.event_time)
++            .field("kick", &self.kick)
++            .finish()
++    }
++}
++
+ impl Binding {
+     /// A length or time of the compiled trajectory (in units of the doll's mass) in the doll's own units.
+     pub fn to_doll(&self, x: Scalar) -> Res<Scalar> {
+@@ -132,19 +154,27 @@ impl Binding {
+     pub fn orbit_state(&self, t: Tick) -> Res<OrbitState> {
+         Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
+     }
++    /// The body's exact integer state at `t ≥ event_time` together with the tube's own orbit state at
++    /// `t` (the same decode, so a caller that needs both pays once).
++    pub fn readout_state(&self, t: Tick) -> Res<(IntegerState, OrbitState)> {
++        let (d, state) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
++        let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
++        let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
++        Ok((
++            IntegerState {
++                position: [fit(p[0], self.residual.position[0])?, fit(p[1], self.residual.position[1])?],
++                velocity: [fit(v[0], self.residual.velocity[0])?, fit(v[1], self.residual.velocity[1])?],
++                length_exponent: self.units.0,
++                velocity_exponent: self.units.1,
++            },
++            state,
++        ))
++    }
+ 
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+     /// binding event it equals the bound state.
+     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
+-        let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
+-        let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
+-        let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
+-        Ok(IntegerState {
+-            position: [fit(p[0], self.residual.position[0])?, fit(p[1], self.residual.position[1])?],
+-            velocity: [fit(v[0], self.residual.velocity[0])?, fit(v[1], self.residual.velocity[1])?],
+-            length_exponent: self.units.0,
+-            velocity_exponent: self.units.1,
+-        })
++        Ok(self.readout_state(t)?.0)
+     }
+ 
+     /// Position and velocity as scalars in the doll's units.
+@@ -244,6 +274,9 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+ 
+ /// A binding with an exactly known tube and nothing to carry (a body made from its orbit).
+ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i16), t: Tick, doll: u16) -> Binding {
++    // One decode here (a body's creation, not a per-kick path) so `proper0` is the tube's own
++    // proper time at its event, the same Scalar a later rebind's bookkeeping would solve for.
++    let proper0 = decode(&entry, &tube, clock_exp, units, t).ok().map(|(_, s)| s.proper_time);
+     Binding {
+         doll,
+         tube,
+@@ -253,6 +286,7 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
+         units,
+         clock_exp,
+         event_time: t,
++        proper0,
+         kick: Kick::NONE,
+     }
+ }
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..9a97864 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -42,7 +42,7 @@ use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, Error, Re
+ use crate::thrust;
+ use emergent_space::{
+     binding::{IntegerState, Trajectory},
+-    orbit::Scalar,
++    orbit::{OrbitState, Scalar},
+ };
+ use std::sync::Arc;
+ 
+@@ -304,12 +304,18 @@ impl Work<'_, '_> {
+     }
+ 
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
++    /// `at` is the old binding's orbit state at `t` when the caller already decoded it (a kick reads
++    /// its own state); without it the rebind decodes it here. Either way the bits are the same.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
++        self.rebind_at(exact, t, doll, None)
++    }
++
++    fn rebind_at(&mut self, exact: IntegerState, t: Tick, doll: u16, at: Option<OrbitState>) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
+         let old = &self.rec.b;
+-        // The tube's length since the last binding is the body's clock reading (root units).
+-        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++        let now = match at { Some(s) => s.proper_time, None => old.orbit_state(t)?.proper_time };
++        let tau = match old.proper0 { Some(p0) => now.sub(p0)?, None => now.sub(old.orbit_state(old.event_time)?.proper_time)? };
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
+@@ -322,6 +328,7 @@ impl Work<'_, '_> {
+             units: bound.units,
+             clock_exp,
+             event_time: t,
++            proper0: Some(bound.orbit.proper_time),
+             kick: Kick::NONE,
+         };
+         self.new_entry = Some(bound.entry.clone());
+@@ -352,7 +359,7 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
++        let (st, os) = self.rec.b.readout_state(t)?;
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+@@ -378,7 +385,7 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        self.rebind_at(next, t, d, Some(os))?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..1c5116d 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -333,7 +333,7 @@ impl Universe {
+         let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
+         let mut tube = bound.tube;
+         tube.key = self.cat.insert(bound.entry.clone())?;
+-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
++        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, proper0: Some(bound.orbit.proper_time), kick: crate::bind::Kick::NONE };
+         let rec = BodyRec {
+             kind,
+             b,
+@@ -681,7 +681,7 @@ impl Universe {
+             let key = self.cat.insert(bound.entry.clone())?;
+             let mut tube = bound.tube;
+             tube.key = key;
+-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE };
++            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, proper0: Some(bound.orbit.proper_time), kick: crate::bind::Kick::NONE };
+             let rec = BodyRec {
+                 kind: Kind::Ship,
+                 b,
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..71d3fb0 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -21,6 +21,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let mut step_log2: Option<i32> = None;
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -36,7 +37,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+-            "--describe" => describe = true,
++            "--step-log2" => step_log2 = Some(val("--step-log2")?.parse::<i32>()?.clamp(1, 20)),
+             "--help" => {
+                 println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
+                 return Ok(0);
+@@ -47,7 +48,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if !(rtf.is_finite() && (0.01..=1e7).contains(&rtf)) || !(1.0..=55.0).contains(&seconds) {
+         return Err("rtf outside [0.01, 1e7], or seconds outside [1, 55] (every test and probe is at most a minute)".into());
+     }
+-    let mut s = Session::new(seed, threads, members, rtf)?;
++    let cfg = step_log2.map(|l| emergent_universe::Config { step_log2: l, ..emergent_universe::Config::default() });
++    let mut s = match cfg { Some(c) => Session::new_with(seed, threads, members, rtf, c)?, None => Session::new(seed, threads, members, rtf)? };
+     s.engine_ms = engine_ms;
+     if kicks {
+         return kick_bench::run(s, seconds);
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..f8b9861 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -38,7 +38,12 @@ pub struct Session {
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+-        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
++        Self::new_with(seed, threads, members, rtf, Config::default())
++    }
++
++    /// A flight at an explicit engine config (the lab's cadence experiments: `Config::step_log2`).
++    pub fn new_with(seed: u64, threads: usize, members: u64, rtf: f64, cfg: Config) -> crate::Result<Self> {
++        let p = plane(cfg, seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+         Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
+     }
