@@ -1,0 +1,17 @@
+belt: 1000 ring ships at 527000000+-[1.5,3] Hill + 96 crossers born in the planet's doll, 1 planet periods = 3.742e8 game-s (7.598e13 ticks), build 0.1s
+wall 17.8s (settle 17.4s), peak RSS 0.19 GB
+held after prune: bytes/body 1682 (0.00 GB total)
+engine events: kicks 350288 handoffs 96 opens 1097 boundaries 349762 lost 16 refused 7 slices 0
+
+== rate anchor: per doll binding event, populations apart ==
+sampled 309980 distinct bindings on 1096 ships (282.8/body); by doll {0: 308928, 1: 1052}; 1080/1096 alive at end
+bindings/body/game-s 7.551e-7; kicks/binding 1.1; handoffs/body 0.088; handoffs/crosser 1.00; kicks+handoffs/body/game-s 8.535e-7
+
+== the two residual populations ==
+same-doll deltas: 308856 events, bits/component median 8 p90 12 p99 16 max 32
+  varint stream (first 200000 deltas) 678023 bytes = 3.39 B/event (27.1 bits/event)
+doll-change (handoff) events: 28; new-doll residual bits/4-components median 50 p99 56 (a re-reference, not new information)
+residual bits/component all bindings: median 9 p99 16
+reabsorption: mean residual bits/4-components early 34.6 vs late 36.2 (ratio 1.05; 1.0 = bounded, >1 = leak); early 152269 late 157711
+wall: 49.7 us per engine event (kicks+handoffs, settle only)
+wrote belt_deltas_n1000_s1.bin (200000 deltas)

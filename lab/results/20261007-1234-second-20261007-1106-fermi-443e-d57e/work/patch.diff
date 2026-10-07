@@ -1,0 +1,441 @@
+diff --git a/crates/universe/examples/hlive.rs b/crates/universe/examples/hlive.rs
+new file mode 100644
+index 0000000..9650958
+--- /dev/null
++++ b/crates/universe/examples/hlive.rs
+@@ -0,0 +1,128 @@
++// H_live, measured on the plane: the live distinguishing information the universe creates per game-second.
++// Each body is a tube (the compiled program) plus a residual (the exact integer state less the turned tube,
++// 4 x i128). The binding's residual is what the program cannot absorb; the delta between successive
++// residuals is the new information each event injects. Reabsorption shows as bounded residuals; a leak
++// shows as residual bit-lengths growing with event index. `hlive [GAME_SECONDS] [SEED] [SAMPLES]`
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::Config;
++use std::collections::BTreeSet;
++use std::fs::File;
++use std::io::Write;
++
++fn bits(x: i128) -> usize {
++    128 - x.unsigned_abs().leading_zeros() as usize
++}
++
++fn varint(mut z: u128, out: &mut Vec<u8>) {
++    loop {
++        let b = (z & 0x7f) as u8;
++        z >>= 7;
++        if z == 0 {
++            out.push(b);
++            break;
++        }
++        out.push(b | 0x80);
++    }
++}
++
++fn zigzag(x: i128) -> u128 {
++    ((x << 1) ^ (x >> 127)) as u128
++}
++
++fn pct(v: &mut Vec<usize>, p: f64) -> usize {
++    v.sort_unstable();
++    v[((v.len() - 1) as f64 * p) as usize]
++}
++
++fn main() {
++    let secs: f64 = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(3600.0);
++    let seed: u64 = std::env::args().nth(2).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let samples: usize = std::env::args().nth(3).map(|s| s.parse().unwrap()).unwrap_or(400);
++    let ticks = (secs / 4.926e-6) as i64;
++    let t0 = std::time::Instant::now();
++    let mut p = plane(Config::default(), seed, Order::Sparse, 1, 24).unwrap();
++    let n = p.u.n_bodies();
++    let build = t0.elapsed().as_secs_f64();
++    p.u.settle(ticks);
++    let wall = t0.elapsed().as_secs_f64() - build;
++    let s = p.u.stats;
++    println!(
++        "bodies {n} dolls {} bytes/body {} game {secs}s = {ticks} ticks, wall {wall:.2}s rtf {:.0}",
++        p.u.dolls.len(),
++        p.u.bytes_per_body(),
++        secs / wall
++    );
++    println!(
++        "events: kicks {} handoffs {} opens {} boundaries {} lost {} refused {} slices {}",
++        s.kicks, s.handoffs, s.opens, s.boundaries, s.lost, s.refused, s.slices
++    );
++    let game_events = s.kicks + s.handoffs;
++    println!(
++        "rate: {game_events} kick+handoff events, {:.3} per body per game-second",
++        game_events as f64 / n as f64 / secs
++    );
++
++    let (mut rbits, mut dbits) = (Vec::new(), Vec::new());
++    let (mut early, mut late) = (Vec::new(), Vec::new());
++    let mut raw: Vec<u8> = Vec::new();
++    let mut trend: Vec<(usize, usize)> = Vec::new(); // (event index within body, mean residual bits)
++    let mut bindings = 0usize;
++    let mut per_body = Vec::new();
++     for i in 0..n {
++         let mut seen = BTreeSet::new();
++         let mut prev: Option<([i128; 2], [i128; 2])> = None;
++        let mut seq = 0usize;
++        let mut this_body = 0usize;
++        for k in 0..samples {
++            let t = ticks / samples as i64 * k as i64 + 1;
++            if let Some(b) = p.u.bodies().binding_at(i, t) {
++                if seen.insert(b.event_time) {
++                    bindings += 1;
++                    let r = (b.residual.position, b.residual.velocity);
++                    let mut mean = 0usize;
++                    for c in 0..2 {
++                        mean += bits(r.0[c]) + bits(r.1[c]);
++                        rbits.push(bits(r.0[c]));
++                        rbits.push(bits(r.1[c]));
++                    }
++                    per_body.push((b.event_time, mean));
++                    if b.event_time < ticks / 2 { early.push(mean) } else { late.push(mean) }
++                    if let Some(q) = prev {
++                        for c in 0..2 {
++                            let d0 = r.0[c].wrapping_sub(q.0[c]);
++                            let d1 = r.1[c].wrapping_sub(q.1[c]);
++                            dbits.push(bits(d0));
++                            dbits.push(bits(d1));
++                            varint(zigzag(d0), &mut raw);
++                            varint(zigzag(d1), &mut raw);
++                        }
++                    }
++                    prev = Some(r);
++                }
++            }
++        }
++    }
++    println!("sampled {bindings} distinct bindings across {n} bodies; early {} late {}", early.len(), late.len());
++    println!(
++        "residual bits/component: median {} p90 {} p99 {} max {}",
++        pct(&mut rbits, 0.5),
++        pct(&mut rbits, 0.9),
++        pct(&mut rbits, 0.99),
++        rbits.iter().max().copied().unwrap_or(0)
++    );
++    println!(
++        "delta bits/component (new info per event): median {} p90 {} p99 {} max {}",
++        pct(&mut dbits, 0.5),
++        pct(&mut dbits, 0.9),
++        pct(&mut dbits, 0.99),
++        dbits.iter().max().copied().unwrap_or(0)
++    );
++    let (e, l) = (early.iter().sum::<usize>() as f64 / early.len().max(1) as f64, late.iter().sum::<usize>() as f64 / late.len().max(1) as f64);
++    println!("reabsorption: mean residual bits/4-components early {e:.1} vs late {l:.1} (ratio {:.2}; 1.0 = bounded, >1 = leak)", l / e.max(1.0));
++    let nd = dbits.len() / 4;
++    println!("raw varint delta stream: {} bytes for {nd} events, {:.2} B/event, {:.2} bits/event uncompressed", raw.len(), raw.len() as f64 / nd.max(1) as f64, raw.len() as f64 * 8.0 / nd.max(1) as f64);
++    let path = std::env::var("HLIVE_OUT").unwrap_or_else(|_| "hlive_deltas.bin".into());
++    File::create(&path).unwrap().write_all(&raw).unwrap();
++    println!("wrote {path}");
++}
+diff --git a/crates/universe/examples/hlive_belt.rs b/crates/universe/examples/hlive_belt.rs
+new file mode 100644
+index 0000000..7aeb3f0
+--- /dev/null
++++ b/crates/universe/examples/hlive_belt.rs
+@@ -0,0 +1,301 @@
++// H_live on a concentrated belt with handoffs: run 20261007-1106-fermi-443e's instrument taken to the scene
++// its checker named (B18b scale, 10^3-10^4 bodies here, handoffs present, the restricted scene class).
++// A star, one Jupiter (2^-10 of it) at `sep`, N test ships on circular orbits at `sep ± (1.5..3) Hill radii`
++// (golden-spread in angle: every ship shears past the planet), and M crossers born inside the planet's doll
++// on hyperbolas (the flyby recipe) that leave it — under law v2 a doll-0 ship never hands off (a passage is
++// resolved by the time transformation), so the crossers carry the handoff path.
++// The two event populations are kept apart: same-doll deltas (kick path) and doll-change events (handoff
++// path; the delta is a re-reference, so its cost is the new doll's first-binding residual). Settle is chunked
++// with `prune()` between chunks (the frame path's own rule), so memory is the steady-state cache, and each
++// chunk is sampled before its history is forgotten. `hlive_belt [N] [ORBITS] [SEED] [SAMPLES_PER_ORBIT] [M]`
++use emergent_universe::num::{from_f64, s};
++use emergent_universe::scenario::STAR_RADIUS;
++use emergent_universe::universe::Universe;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Config, Kind, OrbitSpec};
++use emergent_space::orbit::Scalar;
++use std::collections::BTreeSet;
++use std::fs::File;
++use std::io::Write;
++
++fn bits(x: i128) -> usize {
++    128 - x.unsigned_abs().leading_zeros() as usize
++}
++
++fn varint(mut z: u128, out: &mut Vec<u8>) {
++    loop {
++        let b = (z & 0x7f) as u8;
++        z >>= 7;
++        if z == 0 {
++            out.push(b);
++            break;
++        }
++        out.push(b | 0x80);
++    }
++}
++
++fn zigzag(x: i128) -> u128 {
++    ((x << 1) ^ (x >> 127)) as u128
++}
++
++fn lcg(seed: &mut u64) -> f64 {
++    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++    (*seed >> 11) as f64 / (1u64 << 53) as f64
++}
++
++/// Percentile over a bit-length histogram (exact: bit lengths are 0..=128).
++fn hp(h: &[u64; 129], p: f64) -> usize {
++    let total: u64 = h.iter().sum();
++    if total == 0 {
++        return 0;
++    }
++    let want = ((total - 1) as f64 * p) as u64;
++    let mut acc = 0u64;
++    for (b, &c) in h.iter().enumerate() {
++        acc += c;
++        if acc > want {
++            return b;
++        }
++    }
++    128
++}
++
++fn hpush(h: &mut [u64; 129], b: usize) {
++    h[b.min(128)] += 1;
++}
++
++fn rss_hwm() -> u64 {
++    std::fs::read_to_string("/proc/self/status").ok().and_then(|s| {
++        s.lines().find(|l| l.starts_with("VmHWM")).and_then(|l| {
++            l.split_whitespace().nth(1).and_then(|k| k.parse::<u64>().ok())
++        })
++    }).unwrap_or(0)
++}
++
++fn main() {
++    let n_ring: usize = std::env::args().nth(1).map(|a| a.parse().unwrap()).unwrap_or(1000);
++    let orbits: f64 = std::env::args().nth(2).map(|a| a.parse().unwrap()).unwrap_or(5.0);
++    let seed: u64 = std::env::args().nth(3).map(|a| a.parse().unwrap()).unwrap_or(1);
++    let spo: usize = std::env::args().nth(4).map(|a| a.parse().unwrap()).unwrap_or(2048);
++    let m_cross: usize = std::env::args().nth(5).map(|a| a.parse().unwrap()).unwrap_or(96);
++    let (mu_log2, sep) = (-10i32, 527_000_000i64);
++    let hill = sep as f64 * (2f64.powi(mu_log2) / 3.0).cbrt();
++    let period = 2.0 * std::f64::consts::PI / ((1.0 + 2f64.powi(mu_log2)).sqrt() / (sep as f64).powf(1.5));
++    let ticks = (orbits * period) as i64;
++    let game_s = ticks as f64 * TICK_SECONDS;
++    let t0 = std::time::Instant::now();
++    let mut rng = seed | 1;
++    let mut u = Universe::new(s(STAR_RADIUS), Config::default());
++    u.threads = 4;
++    let planet = u
++        .add_body(
++            Kind::Planet,
++            OrbitSpec { doll: 0, periapsis: s(sep), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++            Scalar::ZERO,
++        )
++        .unwrap();
++    let doll = u.add_doll("planet", planet, mu_log2, Scalar::raw(49_000, -mu_log2).unwrap()).unwrap();
++    // The belt: residual_bits' recipe spread over the ring (dr in [1.5, 3] Hill so every ship laps the
++    // planet inside ~7 orbits), sign alternating, angle golden-spread.
++    let mut ring = Vec::new();
++    for i in 0..n_ring {
++        let ur = 1.5 + 1.5 * lcg(&mut rng);
++        let sign = if i % 2 == 0 { 1.0 } else { -1.0 };
++        ring.push(u
++            .add_body(
++                Kind::Ship,
++                OrbitSpec {
++                    doll: 0,
++                    periapsis: s((sep as f64 + sign * hill * ur) as i64),
++                    e_q48: 0,
++                    clockwise: false,
++                    angle: (i as u32).wrapping_mul(0x9E37_79B9),
++                    phase: 0,
++                },
++                Scalar::ZERO,
++            )
++            .unwrap());
++    }
++    // M crossers born in the planet's doll (flyby's hyperbola, r_p over [1.3, 20] planet radii,
++    // v_inf 10 km/s, golden bearings): they leave it, which is the handoff path (law v2: a doll-0
++    // ship never hands off; a passage is resolved by the time transformation).
++    let rad_doll = 49_000.0 * 2f64.powi(-mu_log2);
++    let vinf = 10.0 / 299_792.458;
++    let mut crossers = Vec::new();
++    for j in 0..m_cross {
++        let rp = (1.3 + (20.0f64 - 1.3) * j as f64 / m_cross as f64) * rad_doll;
++        let e = 1.0 + rp * vinf * vinf;
++        let l = (rp * (1.0 + e)).sqrt();
++        let d0 = 100.0 * rp;
++        let v0 = (vinf * vinf + 2.0 / d0).sqrt();
++        let (x0, y0) = (-(d0 * d0 - (l / v0) * (l / v0)).sqrt(), l / v0);
++        let a = j as f64 * std::f64::consts::TAU / m_cross as f64;
++        let (c, sn) = (a.cos(), a.sin());
++        match u.add_body_state(
++            Kind::Ship,
++            doll,
++            [from_f64(x0 * c - y0 * sn), from_f64(x0 * sn + y0 * c)],
++            [from_f64(v0 * c), from_f64(v0 * sn)],
++            Scalar::ZERO,
++        ) {
++            Ok(i) => crossers.push(i),
++            Err(e) => {
++                println!("crosser {j} refused at birth: {e:?}");
++                continue;
++            }
++        }
++    }
++    u.start().unwrap();
++    let n = u.n_bodies();
++    let build = t0.elapsed().as_secs_f64();
++    println!(
++        "belt: {n_ring} ring ships at {sep}+-[1.5,3] Hill + {} crossers born in the planet's doll, {orbits} planet periods = {game_s:.3e} game-s ({ticks:.3e} ticks), build {build:.1}s",
++        crossers.len()
++    );
++    // Chunked settle: sample each chunk's bindings before prune() forgets them (the frame path prunes
++    let sub = 32usize; // sub-chunks per orbit
++    let chunks = ((orbits * sub as f64) as usize).max(1);
++    let mut prev: Vec<Option<(u16, [i128; 2], [i128; 2])>> = vec![None; n];
++    let mut seen: Vec<BTreeSet<i64>> = vec![BTreeSet::new(); n];
++    let mut bindings = 0usize;
++    let mut doll_change = 0usize;
++    let mut hr_bits = [0u64; 129];
++    let mut rbits = [0u64; 129];
++    let mut dbits = [0u64; 129];
++    let mut by_doll = std::collections::BTreeMap::new();
++    let (mut early_n, mut early_sum, mut late_n, mut late_sum) = (0u64, 0u64, 0u64, 0u64);
++    let mut raw: Vec<u8> = Vec::new();
++    let stream_cap = 200_000usize; // deltas; the .bin stays under 2 MB
++    let mut streamed = 0usize;
++    let mut alive_end = 0usize;
++    let mut settle_wall = 0.0f64;
++    for k in 1..=chunks {
++        let t = (ticks / chunks as i64 * k as i64).max(1);
++        let c0 = std::time::Instant::now();
++        u.settle(t);
++        settle_wall += c0.elapsed().as_secs_f64();
++        let per = (spo / sub).max(4);
++        let t_prev = ticks / chunks as i64 * (k - 1) as i64;
++        for &i in ring.iter().chain(crossers.iter()) {
++            for q in 0..per {
++                let ts = t_prev + (t - t_prev) / per as i64 * q as i64 + 1;
++                if let Some(b) = u.bodies().binding_at(i, ts) {
++                    if b.event_time <= t_prev || !seen[i].insert(b.event_time) {
++                        continue;
++                    }
++                    bindings += 1;
++                    *by_doll.entry(b.doll).or_insert(0usize) += 1;
++                    let r = (b.residual.position, b.residual.velocity);
++                    let mut mean = 0usize;
++                    for c in 0..2 {
++                        mean += bits(r.0[c]) + bits(r.1[c]);
++                        hpush(&mut rbits, bits(r.0[c]));
++                        hpush(&mut rbits, bits(r.1[c]));
++                    }
++                    if b.event_time < ticks / 2 {
++                        early_n += 1;
++                        early_sum += mean as u64;
++                    } else {
++                        late_n += 1;
++                        late_sum += mean as u64;
++                    }
++                    match prev[i] {
++                        Some((pd, q0, q1)) if pd == b.doll => {
++                            for c in 0..2 {
++                                let d0 = r.0[c].wrapping_sub(q0[c]);
++                                let d1 = r.1[c].wrapping_sub(q1[c]);
++                                hpush(&mut dbits, bits(d0));
++                                hpush(&mut dbits, bits(d1));
++                                if streamed < stream_cap {
++                                    varint(zigzag(d0), &mut raw);
++                                    varint(zigzag(d1), &mut raw);
++                                    streamed += 1;
++                                }
++                            }
++                        }
++                        Some(_) => {
++                            doll_change += 1;
++                            hpush(&mut hr_bits, mean);
++                        }
++                        None => {}
++                    }
++                    prev[i] = Some((b.doll, r.0, r.1));
++                }
++            }
++        }
++        u.prune();
++    }
++    let wall = t0.elapsed().as_secs_f64() - build;
++    let s = u.stats;
++    println!("wall {wall:.1}s (settle {settle_wall:.1}s), peak RSS {:.2} GB", rss_hwm() as f64 / 1e6);
++    println!(
++        "held after prune: bytes/body {} ({:.2} GB total)",
++        u.bytes_per_body(),
++        u.bytes_per_body() as f64 * n as f64 / 1e9,
++    );
++    println!(
++        "engine events: kicks {} handoffs {} opens {} boundaries {} lost {} refused {} slices {}",
++        s.kicks, s.handoffs, s.opens, s.boundaries, s.lost, s.refused, s.slices
++    );
++    for &i in ring.iter().chain(crossers.iter()) {
++        if u.rec(i).alive {
++            alive_end += 1;
++        }
++    }
++    println!();
++    println!("== rate anchor: per doll binding event, populations apart ==");
++    println!(
++        "sampled {bindings} distinct bindings on {} ships ({:.1}/body); by doll {by_doll:?}; {alive_end}/{} alive at end",
++        ring.len() + crossers.len(),
++        bindings as f64 / (ring.len() + crossers.len()) as f64,
++        ring.len() + crossers.len()
++    );
++    println!(
++        "bindings/body/game-s {:.3e}; kicks/binding {:.1}; handoffs/body {:.3}; handoffs/crosser {:.2}; kicks+handoffs/body/game-s {:.3e}",
++        bindings as f64 / n as f64 / game_s,
++        s.kicks as f64 / bindings as f64,
++        s.handoffs as f64 / n as f64,
++        s.handoffs as f64 / crossers.len().max(1) as f64,
++        (s.kicks + s.handoffs) as f64 / n as f64 / game_s,
++    );
++    println!();
++    println!("== the two residual populations ==");
++    let nd = dbits.iter().sum::<u64>() as usize / 4;
++    println!(
++        "same-doll deltas: {} events, bits/component median {} p90 {} p99 {} max {}",
++        nd,
++        hp(&dbits, 0.5),
++        hp(&dbits, 0.9),
++        hp(&dbits, 0.99),
++        dbits.iter().rposition(|&c| c > 0).unwrap_or(0),
++    );
++    println!(
++        "  varint stream (first {streamed} deltas) {} bytes = {:.2} B/event ({:.1} bits/event)",
++        raw.len(),
++        raw.len() as f64 / streamed.max(1) as f64,
++        raw.len() as f64 * 8.0 / streamed.max(1) as f64,
++    );
++    println!(
++        "doll-change (handoff) events: {doll_change}; new-doll residual bits/4-components median {} p99 {} (a re-reference, not new information)",
++        hp(&hr_bits, 0.5),
++        hp(&hr_bits, 0.99),
++    );
++    println!(
++        "residual bits/component all bindings: median {} p99 {}",
++        hp(&rbits, 0.5),
++        hp(&rbits, 0.99),
++    );
++    let e = early_sum as f64 / early_n.max(1) as f64;
++    let l = late_sum as f64 / late_n.max(1) as f64;
++    println!(
++        "reabsorption: mean residual bits/4-components early {e:.1} vs late {l:.1} (ratio {:.2}; 1.0 = bounded, >1 = leak); early {early_n} late {late_n}",
++        l / e.max(1.0),
++    );
++    let game_events = s.kicks + s.handoffs;
++    if game_events > 0 {
++        println!("wall: {:.1} us per engine event (kicks+handoffs, settle only)", settle_wall / game_events as f64 * 1e6);
++    }
++    let path = std::env::var("HLIVE_BELT_OUT").unwrap_or_else(|_| "hlive_belt_deltas.bin".into());
++    File::create(&path).unwrap().write_all(&raw).unwrap();
++    println!("wrote {path} ({streamed} deltas)");
++}

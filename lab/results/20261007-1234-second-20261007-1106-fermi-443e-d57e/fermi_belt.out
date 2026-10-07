@@ -1,0 +1,17 @@
+term                                                       1e9 bodies     budget
+H_live creation, inner (6.10e-3 b/s, 104 bits)           7.932e+07 B/s 6e+10 B/s        756x under
+H_live creation, belt (7.55e-7 b/s, 27 bits)                  2562 B/s 6e+10 B/s   23417052x under
+H_live creation, belt engine events (kicks+ho)                2896 B/s 6e+10 B/s   20716750x under
+handoff re-references, belt                                  1.463 B/s 6e+10 B/s  41012320000x under
+
+zero-reabsorption fill of 8 GB, all-inner: 101 game-s (measured ratio 1.09/h -> bounded)
+zero-reabsorption fill of 8 GB, all-belt:   3.12e+06 game-s (measured 1.05/12y -> bounded)
+
+belt event compute at belt, measured 49.7 us: 0.042 core.s per game-s
+belt event compute at belt, plane's 12 us: 0.010 core.s per game-s
+inner binding compute at 12 us (the board's '190 cores' cadence): 73 core.s per game-s
+
+stored today, belt steady cache 1,682 B/body: 1.68 TB -> 210x over 8 GB
+stored today, plane 1-hour cache 9,846 B/body: 9.85 TB -> 1231x over 8 GB
+belt program floor 0.126 bit/body: 15.75 MB -> 508x under 8 GB
+unpruned binding history today (belt instrument): ~0.5-2.5 KB/binding, run-length dependent
