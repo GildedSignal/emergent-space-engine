@@ -1,0 +1,10 @@
+Working...
+Check complete. `check.md` written; the run folder is otherwise untouched (stray `__pycache__` from my import removed).
+
+**Verdict: gold**, with one adoption condition.
+
+**What reproduced** (all of it): every digest matches `sweep.log`; demand/counter fields byte-identical across the author's data and my two reruns; `analysis.py`/`addendum.py` regenerate their JSONs byte-for-byte; digest control (budget-1 vs unlimited) extends to a fresh seed (7); every dossier number traced to the artifacts (demand 1/1/13/48 → ratio 3.69; bench-vs-hour 4.49×/6.8×; Gaussian-on-demand 11.05× — recomputed exactly from my rerun; B thinning 2.61 with α̂(1%)=4.54; C bursts 100→328). Pre-registration ordering is genuine (predictions 08:11:12 → sweep 08:12:30 → log 08:14:42), and the author's own P4 inversion ran against their stated prior — the credible direction.
+
+**My strongest attack found a real seam, but not in the decision core.** Rerunning seed 5 under load ~4 (author ~1.8): cost α̂(1%) swung 1.31 → 0.54/9.06, ≥3 ms items 0 → 542/626, hour worst frame 5.0 → 15.9 ms. So the headline α̂ ≈ 1.27, the "8× spread ⇒ no bound" inference, the 25.8× Gaussian-on-work and the ≥3 ms census are engine+machine mixtures — load alone produced 11× on one seed. What survives untouched: the demand stream (digest-pinned, deterministic) alone carries the premise-kill — a median bench's p99.9 misses the hour's worst frame by 4.5–6.8×, Gaussian by 11×; and the engine's cost heterogeneity is real in *composition*: player items (0.15% of the stream, median ≈ 490 µs on held-out seed 777) are 400× over-represented in the few-hundred-µs tail — descheduling flattens to base rates, it can't create that structure.
+
+**Adoption condition written into the check:** define the gate's tail line on the digest-pinned demand stream plus bench-window max (or CPU-time counts), not wall-clock µs — otherwise the gate reads machine load on every CI run. α̂ = 1.27 is re-set on the M1. Misses named: the load-rerun probe wasn't run though it was the obvious falsifier; "contact epochs" aren't distinguishable from slices in lane 4; the demand stream may be construction-capped near m.
