@@ -1,0 +1,22 @@
+Run log — 20261007-1843-second-20261007-1801-fermi-bb60-152f (90 min budget, used ~25)
+
+18:44 read checker verdict + dossier of 20261007-1801-fermi-bb60; named experiment:
+      (a) plane's real per-kick fold cost on DISTINCT kicks (memo hit rate + recompile
+      cost), (b) frontier intersected with the 2.5e8 tube-memory cap.
+18:45 cargo build --release -p xtask (48 s; CARGO_TARGET_DIR=/home/glmlab/lab-target-0)
+18:46 exploratory kick-bench seed 1 RTF 100 (terminal only), then predictions.md 18:46:21
+18:46 full sweep: seeds 1-3 x rtf {100,1} -> kickbench-*.json (each < 1 s; all refused 0)
+18:47-48 compile_bench.rs vs shipped rlib: grid median 34.7 us, p99 171, floor 3.3
+18:49-56 decompose_bench.rs (own replay of the plane, same input script): profile feature
+      has no stages on the rebind path (stage! instruments the legacy Cycle compile only)
+      -> instead time fresh Orbit::compile on each rebind's own key; + exact cadence
+      (ship-game-seconds). made 11% compile, leavers 48-57%, cadence 7.3-8.2e-3.
+18:56 determinism: rerun seed 1 -> byte-identical digests.
+18:57 budget2.py: republished frontier + memory wall + corrections; swing 2.3e3.
+18:58 dossier.md; cleanup (tgt/, binaries removed; nothing outside this folder touched:
+      git status clean except lab/results/).
+No crate, doc, gate or main edits. Machine: shared 8-vCPU Linux container; container
+sysctls unavailable (harness records them as such); all runs single-threaded, < 1 s each.
+18:59 repro.sh verified end-to-end (9.7 s): regenerates every output; digests bit-identical;
+      the repro overwrote the timing outputs with a second sample (compile grid median
+      34.7 -> 37.4 us; kick medians within noise) -- deterministic bits, noisy timings.

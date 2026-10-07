@@ -1,0 +1,73 @@
+==============================================================================
+MEASURED (this box, shipped harness `xtask universe --kick-bench`, distinct kicks)
+
+== the plane's real kick ==
+  whole kick, made ships                                   35 us median (29 us on M1 [H0210])
+  whole kick, fleet leavers                                92 us median, p99 390 us
+  fresh compile on the rebind's own key                    made 3.7 us (11% of kick); leavers 50 us (48-57%; passages extra)
+  compile grid median / p99                                34.7 / 171 us (p = 2^4..2^24 M, e = 0..0.99)
+  cycle-memo hit rate, EXACT key                           0%  (3 seeds x 2 rtf, 3108 distinct rebinds) -> the hot-memo corner is dead
+  cycle-memo hit rate, quantized key                       95.5%  (law change: re-rounding random-walks the orbit [law: Not adopted])
+
+== the two reachable reuse designs (measured ingredients) ==
+  jet + exact re-anchor (adopted [law])                    0.05 x 34.7 us = 1.74 us/kick
+  quantized cell (NOT adopted)                             (1-0.955) x 34.7 us = 1.56 us/kick
+  agreement                                                both land 1.6-1.8 us: the designed fold is ~2 us, NOT the 64 ns hot corner
+
+==============================================================================
+WALLS AT N=1e9 (RTF 100, 5 eff. cores, 4 GB state)
+
+== S1 adversarial: all 1e9 strong-tide, K1, today's kick ==
+  kick compute                                             21064.81 cores  ( 4.21e+03x budget)  [measured 35 us]
+
+== S1c same, K2 averaged, DESIGNED fold 1.74 us ==
+  kick compute                                                 9.16 cores  (     1.83x budget)  [compute 1.8x OVER (was '15x under' at the dead 64 ns corner)]
+
+== S1c-mem same scene, memory-legal pop 2.5e8 ==
+  kick compute                                                 2.29 cores  (    0.458x budget)  [tubes fill the 4 GB budget: memory binds]
+
+== realistic: 1e7 fleet at the plane MEASURED cadence, designed ==
+  kick compute                                                13.88 cores  (     2.78x budget)  [13.9 cores: 2.8x OVER: the realistic fleet does NOT fit at any legal fold]
+
+== realistic capped: 3.6e6 fleet (compute N* at measured cadence) ==
+  kick compute                                                 5.00 cores  (    0.999x budget)  [4.99 cores: exactly budget]
+
+== realistic-hard: 1e7 fleet, LEO cadence K1, designed ==
+  kick compute                                                10.44 cores  (     2.09x budget)  [10.4 cores: 2.1x OVER]
+
+== S2 all 1e9 far bodies at K2-averaged LEO rate, designed fold ==
+  kick compute                                                17.35 cores  (     3.47x budget)  [3.5x OVER: even the absurd upper bound no longer 'fits']
+
+== S2-mem same, memory-legal pop 2.5e8 ==
+  kick compute                                                 4.34 cores  (    0.868x budget)  [0.87 core: fits once memory-legal]
+
+==============================================================================
+FRONTIER: max strong-tide population, compute vs the resident-tube memory wall
+  memory wall: 2.500e+08 bodies (4 GB / 16 B tube)
+  K1 cadence, today's kick (measured 35 us) N* = 2.374e+05   (COMPUTE binds; compute alone said 2.374e+05)
+  K1 cadence, designed fold 1.74 us        N* = 4.788e+06   (COMPUTE binds; compute alone said 4.788e+06)
+  plane MEASURED cadence 8e-3, designed fold N* = 3.602e+06   (COMPUTE binds; compute alone said 3.602e+06)
+  K2 averaged, designed fold 1.74 us       N* = 2.500e+08   (MEMORY binds; compute alone said 5.459e+08)
+  K2 averaged, dead hot corner 64 ns       N* = 2.500e+08   (MEMORY binds; compute alone said 1.480e+10)
+
+==============================================================================
+THE SWING (representation only), at the memory-legal adversarial population 2.5e8
+  today: K1 + 35 us measured kick           5.27e+03 cores ( 1.05e+03x budget)
+  designed: K2 + 1.74 us jet fold               2.29 cores (    0.458x budget)
+  swing = 2.300e+03x  = averaging 114x x kick/fold 20x; the original's 5.2e4x needed the dead 64 ns corner
+
+==============================================================================
+WHAT THE ORIGINAL GOT WRONG, AND WHAT SURVIVES
+
+== corrections ==
+  'hot fold 64 ns' corner                                  dead: exact-key hit rate 0.0 on every distinct-kick run
+  'S1c fits compute 15x under' (all 1e9 strong-tide)       machine-false twice over: 1.8x OVER compute at the reachable fold, and 16 GB of tubes vs 4 GB
+  'recompile-dominated' [H0210]                            11% on made kicks, 48-57% on leavers (this scene); the rest is readout/forces/fit
+  realistic 1e7 fleet 'fits 13x'                           dead: measured plane cadence 8e-3 (> K1!) x reachable fold = 2.8x OVER; compute N* at that cadence is 3.6e6 ships
+  'no wall is set by N'                                    one is: resident tubes cap strong-tide bodies at 2.5e8 whatever the fold costs
+
+== survives (orders unchanged) ==
+  the swing                                                2300x (3 orders), 22x below the original's 5.2e4x: the 64 ns corner was unreachable
+  other walls                                              bandwidth, encounters, belt memory, H_live folding bound: unchanged inputs, unchanged margins
+  tail (principle 12)                                      designed fold p99/kick ~ 0.05 x 171 us = 8.6 us, 5x its mean: the allocator must budget re-anchor bursts
+  determinism                                              shipped harness digests stable per seed; refused 0 everywhere

@@ -1,0 +1,76 @@
+==============================================================================
+CLAIM CHECK - board: '1e9 orbiting bodies at today's rates ~ 190 cores'
+  1e9 x 6.02e-03 kicks/s/body x plane kick 29 us [H0210]     ->    175 cores (RTF 1)
+  1e9 x 6.02e-03 kicks/s/body x probe call 50 us [K6]        ->    301 cores (RTF 1)
+  H0190's own row: 0.6 core/1e6 -> 600 cores; averaged 0.01 -> 10 cores
+  verdict: 175-600 vs 'about 190' -> claim stands (same wall, <2x at its low end).
+
+==============================================================================
+WALLS AT N=1e9 (RTF 100, budget 5 eff. cores, 4 GB state)
+
+== S1 adversarial: all 1e9 strong-tide, K1 cadence, plane 29 us ==
+  kick compute                                             17453.70 cores  ( 3.49e+03x budget)  [unaveraged + today's fold]
+
+== S1b same, free 200 ns fold ==
+  kick compute                                               120.37 cores  (     24.1x budget)  [compute still dead]
+
+== S1c same, K2 averaged, fold 64 ns (hot memo) ==
+  kick compute                                                 0.34 cores  (   0.0676x budget)  [fits with 15x margin]
+
+== S1d same, K2 averaged, fold 1450 ns (cold re-anchor) ==
+  kick compute                                                 7.66 cores  (     1.53x budget)  [1.6x OVER: the cycle memo must be hot]
+
+== S2 all 1e9 charged K2-averaged LEO rate (absurd upper bound for far bodies) ==
+  kick compute                                                 0.64 cores  (    0.128x budget)  [true belt rate unmeasured; a lead]
+
+== galaxy scene: fleet 1e7 strong-tide, K1 cadence, hot fold ==
+  kick compute                                                 0.39 cores  (    0.077x budget)
+
+== galaxy scene: fleet 1e7 strong-tide, K1 cadence, cold re-anchor ==
+  kick compute                                                 8.73 cores  (     1.75x budget)
+
+== random-access: S1 unaveraged ==
+  tube updates/s vs 5-core capacity                        6.019e+08/s vs 2.551e+08/s  ->      2.36x
+
+== random-access: S1c averaged ==
+  tube updates/s vs 5-core capacity                        5.279e+06/s vs 2.551e+08/s  ->    0.0207x
+
+== random-access: S2 K2 all bodies ==
+  tube updates/s vs 5-core capacity                        1.000e+07/s vs 2.551e+08/s  ->    0.0392x
+
+== bandwidth: S2 events (all 1e9, K2 rate) ==
+  bytes/s vs M1 60 GB/s                                    3.200e+08 B/s ->   0.00533x
+
+== bandwidth: full sweep per frame (60 Hz, 1e9 tubes) ==
+  bytes/s vs M1 60 GB/s                                    9.600e+11 B/s ->        16x
+
+== memory (galaxy scene) ==
+  bulk: 1e9 belt programs @0.126 bits                          15.8 MB
+  live tubes: 1% of 1e9 @16 B                                  0.16 GB
+  live tubes: 0.1% of 1e9 @16 B                                0.02 GB
+  convoy floor for 1e6 fleet ships                              0.5 kB
+
+== H_live (galaxy scene, folded kicks) ==
+  encounters/s (wall) at belt-0 density scaled             9.661e-03/s
+  bits/s from encounters @100 bits                         9.661e-01 bits/s
+  encounter compute (786 evals each)                       2.278e-08 cores
+  growth over an hour of play (encounters)                    434.7 B
+
+== H_live if kicks scar (no fold): pop 1e+06, K1 cadence ==
+  growth per hour of play                                      34.7 GB/h  (BREAKS 4 GiB)
+
+== H_live if kicks scar (no fold): pop 1e+07, K1 cadence ==
+  growth per hour of play                                       347 GB/h  (BREAKS 4 GiB)
+
+== H_live if kicks scar (no fold): pop 1e+07, K2 cadence ==
+  growth per hour of play                                      3.04 GB/h  (bounded)
+
+== H_live if kicks scar (no fold): pop 1e+08, K2 cadence ==
+  growth per hour of play                                      30.4 GB/h  (BREAKS 4 GiB)
+
+==============================================================================
+FRONTIER: max strong-tide population N* = CORES_EFF / (cadence x RTF x cost)
+  K1 cadence, hot fold                   N* = 1.298e+08 strong-tide bodies
+  K2 averaged, hot fold                  N* = 1.480e+10 strong-tide bodies
+  K2 averaged, cold re-anchor (1.5 us)   N* = 6.532e+08 strong-tide bodies
+  K1 cadence, plane 29 us                N* = 2.865e+05 strong-tide bodies
