@@ -1,0 +1,616 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..035e48f 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -273,9 +273,14 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let discriminant = b.mul(b)?.sub(compact.mul(Scalar::integer(16))?.mul(compact.add(d)?)?)?;
+     let k = compact.add(d)?.scale(1)?.div(b.add(discriminant.sqrt()?)?)?;
+     let word = u64::try_from(k.fixed(48)?).map_err(|_| Error::Range)?.min(1 << 48);
+-    if k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)? {
+-        return Err(Error::Range);
+-    }
++    let word_k = Scalar::raw(word as i128, -48)?;
++    // The word's own timelike margin (what the compile's realizability check will see), and the
++    // word's faithfulness to the fit's shape. A near-null passage's D = r_p/L² shrinks as 1/γ²;
++    // once it is below the Q48 quantum the floored word lands on the null boundary, and once k
++    // itself nears q the word cannot hold it to 2^-20. Both are the word running out, not the
++    // orbit: the exact margin is carried in the key (an `Option` field), and the compile uses it.
++    let word_d = word_k.sub(compact.mul(word_k.mul(word_k)?.scale(4)?.sub(word_k.scale(2)?)?.add(Scalar::ONE)?)?)?;
++    let near_null = !word_d.is_positive() || k.sub(word_k)?.abs() > k.scale(-20)?;
+     let mut k = word;
+     // Classification follows the conserved binding energy, including a parabolic tie.
+     if alpha.is_zero() {
+@@ -285,7 +290,12 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     } else {
+         k = k.max((1 << 47) + 1);
+     }
+-    Ok((OrbitKey::new(rp, k)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO))
++    let mut key = OrbitKey::new(rp, k)?;
++    if near_null {
++        // D = r_p/L² exactly (Vieta on the radial cubic: the pairwise root sum is q·D = 1/L²).
++        key.margin = Some(rp.div(l2)?);
++    }
++    Ok((key, r, vt < Scalar::ZERO, vr < Scalar::ZERO))
+ }
+ 
+ /// A narrow sign witness, never a replacement root. Replay the original midpoint
+diff --git a/crates/space/src/inverse.rs b/crates/space/src/inverse.rs
+index e7947e2..c99fe58 100644
+--- a/crates/space/src/inverse.rs
++++ b/crates/space/src/inverse.rs
+@@ -307,6 +307,7 @@ pub(crate) fn photon(impact: crate::scaled::Scalar) -> Result<Option<OrbitKey>>
+         periapsis: radius,
+         k: k.fixed(48)? as u64,
+         null: true,
++        margin: None,
+     }))
+ }
+ 
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..ae96e4c 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -34,6 +34,11 @@ pub struct OrbitKey {
+     pub k: u64,
+     /// Zero rest mass uses the same radial shape, with a null clock numerator.
+     pub null: bool,
++    /// The shape's timelike margin `D = k − q(3k²+(1−k)²) = r_p/L²` (Vieta on the radial cubic),
++    /// carried exactly when the Q48 word of `k` cannot resolve it: a near-null passage's `D`
++    /// shrinks as 1/γ², and below the word's quantum the floored `k` lands on the null boundary
++    /// and the compile refuses. `None` keeps the word's own arithmetic, bit for bit.
++    pub margin: Option<Scalar>,
+ }
+ impl OrbitKey {
+     /// Null scattering input in M units. None means capture, with an exact predicate.
+@@ -52,6 +57,7 @@ impl OrbitKey {
+             periapsis,
+             k,
+             null: false,
++            margin: None,
+         })
+     }
+     /// p in M units, e in Q48. Unlike the legacy conversion, p has no absolute cap.
+@@ -113,7 +119,9 @@ impl ShapeKey {
+         let q = key.compactness()?;
+         Ok(Self {
+             k: key.k,
+-            compactness: if !key.null && q <= Scalar::power_of_two(WEAK_EXPONENT) {
++            // A margin-carried shape keeps its real compactness: the exact-q integrands replace
++            // the weak q-Taylor, whose proper-time coefficient blows up as k approaches q.
++            compactness: if !key.null && key.margin.is_none() && q <= Scalar::power_of_two(WEAK_EXPONENT) {
+                 Scalar::ZERO
+             } else {
+                 q
+@@ -175,7 +183,10 @@ impl OrbitShape {
+     pub fn crossings(&self) -> &[usize] {
+         &self.crossings
+     }
+-    fn new(key: ShapeKey) -> Result<Self> {
++    /// `margin` is the shape's timelike margin `D`, when the caller carries it exactly (a
++    /// near-null passage whose `D` is below the Q48 `k` word's quantum); `None` derives it
++    /// from the word as before, bit for bit.
++    fn new(key: ShapeKey, margin: Option<Scalar>) -> Result<Self> {
+         if (key.k == 0 && !key.null) || key.k > UNIT {
+             return Err(Error::Range);
+         }
+@@ -187,7 +198,18 @@ impl OrbitShape {
+         let eta = ONE - k;
+         let d = k - product(q, product(3 * k, k) + product(eta, eta));
+         // A turning orbit must be outside its separatrix; refusal is dynamical, not a size cap.
+-        if q < 0 || ONE - product(q, 6 * k + 2 * eta) <= 0 || (!key.null && d <= 0) {
++        // An exactly carried margin is the realizability witness itself: D = r_p/L² > 0.
++        let d = match margin {
++            Some(m) if m.is_positive() => m,
++            Some(_) => return Err(Error::NoBoundOrbit),
++            None => {
++                if q < 0 || (!key.null && d <= 0) {
++                    return Err(Error::NoBoundOrbit);
++                }
++                f(d)?
++            }
++        };
++        if ONE - product(q, 6 * k + 2 * eta) <= 0 {
+             return Err(Error::NoBoundOrbit);
+         }
+         let tn = if key.null {
+@@ -203,7 +225,7 @@ impl OrbitShape {
+         let tau_numerator = if key.null {
+             Scalar::ZERO
+         } else {
+-            square_root(d)?
++            d.sqrt()?
+         };
+         let delta = ONE - product(q, 6 * k + 2 * eta);
+         let gmax = if delta >= 1 << 30 {
+@@ -421,7 +443,7 @@ impl OrbitShape {
+         if key.k <= HALF {
+             return Err(Error::NotPeriodic);
+         }
+-        let mut s = Self::new(key)?;
++        let mut s = Self::new(key, None)?;
+         let xa = 2 * s.k - ONE;
+         let mut band = 1usize;
+         loop {
+@@ -537,7 +559,7 @@ impl Orbit {
+                 k: key.k,
+                 compactness: q,
+                 null: key.null,
+-            })?;
++            }, None)?;
+         }
+         let k = f((key.k as i128) << 14)?;
+         let tn = k
+@@ -923,7 +945,7 @@ impl Passage {
+         if key.periodic() || outer_radius <= key.periapsis {
+             return Err(Error::Topology);
+         }
+-        let mut shape = OrbitShape::new(ShapeKey::for_orbit(key)?)?;
++        let mut shape = OrbitShape::new(ShapeKey::for_orbit(key)?, key.margin)?;
+         let endpoint = key.periapsis.div(outer_radius)?;
+         // psi is a good phase near the turn, but cancels at infinity. Continue
+         // in x=R/r with its own exponent once that cancellation matters.
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..d3427cf 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -32,14 +32,16 @@ pub struct Config {
+     pub thrust_log2: i32,
+     /// Turning while a turn key is held: turns per root time unit, as a power of two.
+     pub turn_log2: i32,
+-    /// A body farther than this from the star (root units) has left the system.
++    /// A body farther than this from the star (root units) has left the system. 2^54: a top-throttle
++    /// burn to γ = 10⁶ and back reaches about 2^51 (the burn's r ≈ (γ−1)·c²/α), so the edge no longer
++    /// trims the flight the lens asks for (at 2^40 it cut it at γ ≈ 2·10³).
+     pub leave_log2: i32,
+     /// Kicks per radial period, as a power of two.
+     pub step_log2: i32,
+ }
+ impl Default for Config {
+     fn default() -> Self {
+-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
++        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 54, step_log2: 7 }
+     }
+ }
+ 
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..160f1ff 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -678,7 +678,14 @@ impl Work<'_, '_> {
+         let speed = norm2(v)?.max(Scalar::ONE.div(norm2(x)?)?.sqrt()?);
+         // α in rapidity per tick: 2^thrust_log2 per root unit at the throttle's level, and a tick is 2^0 root units.
+         let alpha = Scalar::power_of_two(thrust::alpha_log2(self.ctx.cfg, self.rec.thrust.map_or(0, |t| t.level)));
+-        let ticks = speed.scale(-THRUST_FRACTION_LOG2)?.div(alpha)?;
++        // The step bounds the burn by the **proper velocity** u = γ·|v|, the state that grows like
++        // e^η under thrust (u = sinh η): one step may change u by 1/2^THRUST_FRACTION_LOG2 of itself.
++        // The coordinate speed saturates at 1: bounding by it holds the steps at 2^23·speed/α ticks
++        // however high γ flies, and a burn to γ = 10⁶ would take ~10⁸ kicks. At low speed u ≈ v,
++        // the old bound, bit for bit.
++        let gamma = Scalar::ONE.div(Scalar::ONE.sub(speed.mul(speed)?)?.sqrt()?)?;
++        let u = speed.mul(gamma)?;
++        let ticks = u.scale(-THRUST_FRACTION_LOG2)?.div(alpha)?;
+         let exp = log2_floor(ticks).clamp(1, 50);
+         Ok((1i64 << exp).clamp(MIN_STEP, MAX_STEP))
+     }
+diff --git a/crates/universe/src/thrust.rs b/crates/universe/src/thrust.rs
+index a523bae..d4a8696 100644
+--- a/crates/universe/src/thrust.rs
++++ b/crates/universe/src/thrust.rs
+@@ -65,15 +65,36 @@ pub fn direction(heading: u32) -> Res<V2> {
+ }
+ 
+ fn cosh_sinh(eta: Scalar) -> Res<(Scalar, Scalar)> {
+-    let e2 = eta.mul(eta)?;
++    // Argument reduction first: η = ±f·2^n with f ≤ 1/2, then the double-angle identities
++    // cosh(2x) = 2cosh²x − 1, sinh(2x) = 2·sinh x·cosh x. The Taylor series below is only
++    // inside its convergent range for |η| ≲ 1/2; unreduced it breaks past γ ≈ 10 (a rapidity
++    // applied in one lump), and a burn to γ = 10⁶ has η = 14.5.
++    let mut f = eta.abs();
++    let mut n = 0u32;
++    while f > Scalar::power_of_two(-1) {
++        f = f.scale(-1)?;
++        n += 1;
++    }
++    let e2 = f.mul(f)?;
+     let one = Scalar::ONE;
+-    // cosh = 1 + η²/2 + η⁴/24 + η⁶/720;  sinh = η(1 + η²/6 + η⁴/120 + η⁶/5040)
++    // cosh = 1 + f²/2 + f⁴/24 + f⁶/720;  sinh = f(1 + f²/6 + f⁴/120 + f⁶/5040): |f| ≤ 1/2 keeps the
++    // first dropped term below 6·10⁻¹¹ of the answer.
+     let c = one.add(e2.scale(-1)?)?.add(e2.mul(e2)?.div(Scalar::integer(24))?)?.add(e2.mul(e2)?.mul(e2)?.div(Scalar::integer(720))?)?;
+     let sh = one
+         .add(e2.div(Scalar::integer(6))?)?
+         .add(e2.mul(e2)?.div(Scalar::integer(120))?)?
+         .add(e2.mul(e2)?.mul(e2)?.div(Scalar::integer(5040))?)?;
+-    Ok((c, eta.mul(sh)?))
++    let (mut c, mut s) = (c, f.mul(sh)?);
++    for _ in 0..n {
++        let next = c.mul(c)?.scale(1)?.sub(Scalar::ONE)?;
++        s = s.mul(c)?.scale(1)?;
++        c = next;
++    }
++    if eta.is_positive() || eta.is_zero() {
++        Ok((c, s))
++    } else {
++        Ok((c, s.negate()))
++    }
+ }
+ 
+ /// The coordinate velocity `v` at position `x` (doll units; the doll's centre has mass `mu` in them) after a burn of
+diff --git a/crates/universe/tests/high_gamma.rs b/crates/universe/tests/high_gamma.rs
+new file mode 100644
+index 0000000..e8aa5c8
+--- /dev/null
++++ b/crates/universe/tests/high_gamma.rs
+@@ -0,0 +1,45 @@
++//! Flight past γ ≈ 2,000 (the lens `b-high-gamma`): a ship under the top throttle must reach
++//! γ = 10⁶ and coast there. This file starts as the probe that finds where the range breaks;
++//! it becomes the frozen test once the range is extended.
++use emergent_space::orbit::Scalar;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::gather;
++use emergent_universe::{thrust, Budget, Config};
++
++fn to_f64(s: Scalar) -> f64 {
++    emergent_universe::num::to_f64(s)
++}
++
++#[test]
++fn probe_where_a_top_throttle_burn_breaks() {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++    p.u.input(0, thrust::word(1, 15)).unwrap();
++    let mut target: i64 = 1 << 26;
++    let mut best = 1.0f64;
++    loop {
++        p.u.settle(target);
++        let v = gather(&p.u, &p.names).unwrap();
++        let b = (v.beta[0].powi(2) + v.beta[1].powi(2)).sqrt();
++        let g = 1.0 / (1.0 - b * b).sqrt();
++        let rec = p.u.rec(p.player);
++        let (x, vel) = rec.b.cartesian(rec.b.event_time).unwrap();
++        let r = to_f64(x[0].mul(x[0]).unwrap().add(x[1].mul(x[1]).unwrap()).unwrap().sqrt().unwrap());
++        println!(
++            "t={:>13} event={:>13} r={:11.3e} beta={:.9} gamma={:11.3e} rate={:.9e} alive={} refusals={} fault={:?} loss={:?} events={}",
++            p.u.now, rec.b.event_time, r, b, g, v.rate, rec.alive, rec.refusals, rec.fault, v.loss, p.u.stats.events()
++        );
++        best = best.max(g);
++        if !rec.alive || rec.refusals > 0 {
++            panic!("broke at gamma {g:.3e}: {:?}", rec.fault);
++        }
++        if g >= 1.0e6 {
++            break;
++        }
++        target = target.saturating_mul(2);
++        if target <= 0 {
++            panic!("out of ticks at gamma {g:.3e}");
++        }
++    }
++    println!("reached gamma {best:.3e}");
++}
+diff --git a/xtask/src/behave/assist.rs b/xtask/src/behave/assist.rs
+index 55e80b4..08bd782 100644
+--- a/xtask/src/behave/assist.rs
++++ b/xtask/src/behave/assist.rs
+@@ -141,7 +141,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/binary.rs b/xtask/src/behave/binary.rs
+index e083e79..2d28f6b 100644
+--- a/xtask/src/behave/binary.rs
++++ b/xtask/src/behave/binary.rs
+@@ -53,7 +53,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(binary: impl Fn((f64, f64)) -> Option<(f64, f64)> + 'static) -> Events {
++    fn events(binary: impl Fn((f64, f64)) -> Option<(f64, f64)> + Sync + 'static) -> Events {
+         Events { binary: Box::new(binary), restricted: Box::new(|scene, ship, times| Echo.restricted(scene, ship, times)) }
+     }
+ 
+diff --git a/xtask/src/behave/cost.rs b/xtask/src/behave/cost.rs
+index 2d8b029..13aab9c 100644
+--- a/xtask/src/behave/cost.rs
++++ b/xtask/src/behave/cost.rs
+@@ -104,7 +104,7 @@ mod tests {
+     use super::*;
+ 
+     /// Echo's answers except for the crossings, which come from the closure.
+-    struct Counting(Box<dyn Fn(f64, f64) -> Option<f64>>);
++    struct Counting(Box<dyn Fn(f64, f64) -> Option<f64> + Sync>);
+     impl Law for Counting {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -125,7 +125,7 @@ mod tests {
+             (self.0)(p, e)
+         }
+     }
+-    fn counting(f: impl Fn(f64, f64) -> Option<f64> + 'static) -> Counting {
++    fn counting(f: impl Fn(f64, f64) -> Option<f64> + Sync + 'static) -> Counting {
+         Counting(Box::new(f))
+     }
+ 
+diff --git a/xtask/src/behave/handoff.rs b/xtask/src/behave/handoff.rs
+index fcc2686..36e86a5 100644
+--- a/xtask/src/behave/handoff.rs
++++ b/xtask/src/behave/handoff.rs
+@@ -222,7 +222,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/hill.rs b/xtask/src/behave/hill.rs
+index 411289e..fb047b4 100644
+--- a/xtask/src/behave/hill.rs
++++ b/xtask/src/behave/hill.rs
+@@ -261,7 +261,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/laws.rs b/xtask/src/behave/laws.rs
+index 366f5d7..5a63fb3 100644
+--- a/xtask/src/behave/laws.rs
++++ b/xtask/src/behave/laws.rs
+@@ -509,9 +509,9 @@ impl Law for Silent {
+ #[cfg(test)]
+ pub struct Events {
+     /// Given echo's (advance, period), what the law answers.
+-    pub binary: Box<dyn Fn((f64, f64)) -> Option<(f64, f64)>>,
++    pub binary: Box<dyn Fn((f64, f64)) -> Option<(f64, f64)> + Sync>,
+     /// What the law answers, given the scene, the ship and the times (`Echo.restricted` is echo's answer).
+-    pub restricted: Box<dyn Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>>>,
++    pub restricted: Box<dyn Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync>,
+ }
+ #[cfg(test)]
+ impl Law for Events {
+diff --git a/xtask/src/behave/lens.rs b/xtask/src/behave/lens.rs
+index 9f0cdf5..d8615dc 100644
+--- a/xtask/src/behave/lens.rs
++++ b/xtask/src/behave/lens.rs
+@@ -352,7 +352,7 @@ mod tests {
+         geodesic_deflection(l, START, 1e-11).unwrap()
+     }
+     /// A law that answers only the lens, by echo's composition times a factor chosen by the closure.
+-    struct Skewed(Box<dyn Fn(usize, &MovingLens) -> Option<f64>>, std::cell::Cell<usize>);
++    struct Skewed(Box<dyn Fn(usize, &MovingLens) -> Option<f64> + Sync>, std::sync::atomic::AtomicUsize);
+     impl Law for Skewed {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -370,13 +370,12 @@ mod tests {
+             Echo.long_run(p, e, cycles)
+         }
+         fn moving_deflection(&self, l: &MovingLens) -> Option<f64> {
+-            let i = self.1.get();
+-            self.1.set(i + 1);
++            let i = self.1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             (self.0)(i, l)
+         }
+     }
+-    fn skewed(f: impl Fn(usize, &MovingLens) -> Option<f64> + 'static) -> Skewed {
+-        Skewed(Box::new(f), std::cell::Cell::new(0))
++    fn skewed(f: impl Fn(usize, &MovingLens) -> Option<f64> + Sync + 'static) -> Skewed {
++        Skewed(Box::new(f), std::sync::atomic::AtomicUsize::new(0))
+     }
+ 
+     #[test]
+diff --git a/xtask/src/behave/memory.rs b/xtask/src/behave/memory.rs
+index f729e2d..ef7e5c7 100644
+--- a/xtask/src/behave/memory.rs
++++ b/xtask/src/behave/memory.rs
+@@ -132,7 +132,7 @@ mod tests {
+     use super::*;
+ 
+     /// echo's floors, but the answer for each scene comes from the closure.
+-    struct Bytes(Box<dyn Fn(&MemoryScene, f64) -> Option<f64>>);
++    struct Bytes(Box<dyn Fn(&MemoryScene, f64) -> Option<f64> + Sync>);
+     impl Law for Bytes {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -153,10 +153,9 @@ mod tests {
+             (self.0)(scene, floor_bytes(scene)?)
+         }
+     }
+-    fn bytes(f: impl Fn(&MemoryScene, f64) -> Option<f64> + 'static) -> Bytes {
++    fn bytes(f: impl Fn(&MemoryScene, f64) -> Option<f64> + Sync + 'static) -> Bytes {
+         Bytes(Box::new(f))
+     }
+-
+     #[test]
+     fn the_ladder_is_the_shipmem_ladder_of_twelve_scenes_with_the_measured_floors() {
+         assert_eq!(LADDER.len(), 12);
+diff --git a/xtask/src/behave/mod.rs b/xtask/src/behave/mod.rs
+index a1e9b0a..19af731 100644
+--- a/xtask/src/behave/mod.rs
++++ b/xtask/src/behave/mod.rs
+@@ -52,7 +52,11 @@ use crate::Result;
+ use std::time::{Duration, Instant};
+ 
+ /// What the judge asks of a gravity law. Units G = c = M = 1; angles in radians.
+-pub trait Law {
++///
++/// `Sync` because the judge runs a gate's independent legs (B17's cases) on several threads
++/// over one shared law; a law that needs private state per leg builds it inside the call (the
++/// plane's universe, the reference's steppers), never in the law itself.
++pub trait Law: Sync {
+     /// One radial cycle of the bound orbit with semi-latus rectum p and eccentricity e:
+     /// (periapsis advance, the angle beyond 2π; radial period in coordinate time; in proper time).
+     fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)>;
+diff --git a/xtask/src/behave/resonance.rs b/xtask/src/behave/resonance.rs
+index a073b34..abeef2d 100644
+--- a/xtask/src/behave/resonance.rs
++++ b/xtask/src/behave/resonance.rs
+@@ -305,19 +305,48 @@ pub fn b17(law: &dyn Law) -> Gate {
+     let _quiet = super::scale::QUIET.read().unwrap_or_else(|e| e.into_inner());
+     let all = cases();
+     let truths = truths();
++    // The legs are independent (a law builds its own scene per call), so they run on up to four
++    // threads like the truths above; each worker takes cases from a shared counter, and the
++    // verdicts are read off in case order below, so the schedule never changes them.
++    let asked: Vec<usize> = all
++        .iter()
++        .zip(truths)
++        .enumerate()
++        .filter(|(_, (_, truth))| truth.is_some_and(|t| t.converged))
++        .map(|(i, _)| i)
++        .collect();
++    let next = AtomicUsize::new(0);
++    let threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(4);
++    let mut done: Vec<(usize, Option<Track>)> = std::thread::scope(|scope| {
++        let workers: Vec<_> = (0..threads)
++            .map(|_| {
++                scope.spawn(|| {
++                    let mut mine = Vec::new();
++                    loop {
++                        let i = next.fetch_add(1, Ordering::Relaxed);
++                        if i >= asked.len() {
++                            return mine;
++                        }
++                        let c = &all[asked[i]];
++                        let ts = times(c);
++                        mine.push((asked[i], law.restricted(&c.scene, start(c), &ts).and_then(|s| track(c, &ts, &s))));
++                    }
++                })
++            })
++            .collect();
++        workers.into_iter().flat_map(|w| w.join().expect("a resonance leg panicked")).collect()
++    });
++    done.sort_by_key(|d| d.0);
+     let mut rows: Vec<(usize, Verdict)> = Vec::new();
+-    let (mut unconverged, mut unanswered) = (0, 0);
+-    for (i, (c, truth)) in all.iter().zip(truths).enumerate() {
+-        let Some(truth) = truth.filter(|t| t.converged) else {
+-            unconverged += 1;
+-            continue;
+-        };
+-        let ts = times(c);
+-        match law.restricted(&c.scene, start(c), &ts).and_then(|s| track(c, &ts, &s)) {
+-            Some(l) => rows.push((i, verdict(c, &truth, &l))),
++    let mut unanswered = 0;
++    for (i, answered) in done {
++        let truth = truths[i].filter(|t| t.converged).unwrap();
++        match answered {
++            Some(l) => rows.push((i, verdict(&all[i], &truth, &l))),
+             None => unanswered += 1,
+         }
+     }
++    let unconverged = all.len() - asked.len();
+     let kind = |k: fn(&Kind) -> bool| rows.iter().filter(|r| k(&all[r.0].kind)).collect::<Vec<_>>();
+     let resonant = kind(|k| matches!(k, Kind::Resonant(_)));
+     let controls = kind(|k| *k == Kind::Control);
+@@ -416,7 +445,7 @@ mod tests {
+         let i = cases().iter().position(|c| c.name == name).unwrap_or_else(|| panic!("no case {name}"));
+         truths()[i].unwrap()
+     }
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+     fn tr(e_min: f64, e_max: f64, excursion: f64) -> Track {
+@@ -572,9 +601,10 @@ mod tests {
+ 
+     #[test]
+     fn a_law_that_does_not_answer_a_case_or_leaves_the_stars_orbit_fails_whatever_else_it_gets_right() {
+-        // Echo on every case but the first, which it does not answer.
+-        let first = std::cell::Cell::new(true);
+-        let g = b17(&events(move |s, ship, ts| if first.replace(false) { None } else { Echo.restricted(s, ship, ts) }));
++        // Echo except on one case, which it does not answer (the legs run concurrently, so which
++        // case asks first is not fixed; exactly one answer is missing either way).
++        let first = std::sync::atomic::AtomicBool::new(true);
++        let g = b17(&events(move |s, ship, ts| if first.swap(false, std::sync::atomic::Ordering::Relaxed) { None } else { Echo.restricted(s, ship, ts) }));
+         assert!(!g.pass && g.detail.contains("1 unanswered"), "{}", g.detail);
+         // States that are unbound about the star (a free particle) do not have an eccentricity below one.
+         let g = b17(&events(|s, ship, ts| Some(ts.iter().map(|&t| s.barycentric(t, &[ship[0] + 1e3 * t, ship[1], ship[2] + 10.0, ship[3]])).collect())));
+diff --git a/xtask/src/behave/scale.rs b/xtask/src/behave/scale.rs
+index db631f8..e4e127b 100644
+--- a/xtask/src/behave/scale.rs
++++ b/xtask/src/behave/scale.rs
+@@ -158,7 +158,7 @@ mod tests {
+     use super::*;
+ 
+     /// A law that answers only the scene's cost, from a closure.
+-    struct Scene(Box<dyn Fn(usize) -> Option<f64>>);
++    struct Scene(Box<dyn Fn(usize) -> Option<f64> + Sync>);
+     impl Law for Scene {
+         fn advance_per_cycle(&self, _: f64, _: f64) -> Option<(f64, f64, f64)> {
+             None
+@@ -179,7 +179,7 @@ mod tests {
+             (self.0)(n)
+         }
+     }
+-    fn scene(f: impl Fn(usize) -> Option<f64> + 'static) -> Scene {
++    fn scene(f: impl Fn(usize) -> Option<f64> + Sync + 'static) -> Scene {
+         Scene(Box::new(f))
+     }
+     /// The exponent printed in a detail line.
+diff --git a/xtask/src/behave/space.rs b/xtask/src/behave/space.rs
+index 142c23a..5cdc7f4 100644
+--- a/xtask/src/behave/space.rs
++++ b/xtask/src/behave/space.rs
+@@ -7,11 +7,13 @@ use emergent_space::{
+     orbit::{Orbit, OrbitKey, Passage, QuantizedMemo, Scalar},
+     tube::Catalogue,
+ };
+-use std::cell::RefCell;
++use std::sync::Mutex;
+ 
+ #[derive(Default)]
+ pub struct Space {
+-    shapes: RefCell<QuantizedMemo>,
++    /// The compiled shapes, shared by the judge's parallel legs: a pure cache (one compile per
++    /// key), so a lock changes only which thread waits, never an answer.
++    shapes: Mutex<QuantizedMemo>,
+     pub newton: bool,
+     #[cfg(test)]
+     key_bits: Option<(u32, u32)>,
+@@ -86,7 +88,8 @@ impl Law for Space {
+         }
+         let r = scene.sep / (1.0 - scene.mu);
+         self.shapes
+-            .borrow_mut()
++            .lock()
++            .unwrap_or_else(|e| e.into_inner())
+             .get(self.bound_native_key(r, 0.0)?)
+             .ok()?;
+         let speed_unit = 1.0 / scene.sep.sqrt();
+@@ -150,7 +153,8 @@ impl Law for Space {
+         Some(
+             2.0 * self
+                 .shapes
+-                .borrow_mut()
++                .lock()
++                .unwrap_or_else(|e| e.into_inner())
+                 .get(self.bound_native_key(p, e)?)
+                 .ok()?
+                 .shape()
+@@ -185,7 +189,7 @@ impl Law for Space {
+         let c = if self.newton {
+             Orbit::newtonian(key).ok()?
+         } else {
+-            self.shapes.borrow_mut().get(key).ok()?
++            self.shapes.lock().unwrap_or_else(|e| e.into_inner()).get(key).ok()?
+         };
+         Some((
+             decoded(c.advance().ok()?),
+@@ -245,7 +249,7 @@ impl Law for Space {
+         let Ok(c) = (if self.newton {
+             Orbit::newtonian(key)
+         } else {
+-            self.shapes.borrow_mut().get(key)
++            self.shapes.lock().unwrap_or_else(|e| e.into_inner()).get(key)
+         }) else {
+             return vec![];
+         };
