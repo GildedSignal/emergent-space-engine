@@ -1,0 +1,435 @@
+++ b/crates/encounters/src/bin/taleb.rs
+@@ -0,0 +1,434 @@
+//! Taleb-lens probe: concentration fragility of the candidate system and the train certificate.
+//! Scenarios print one JSON line each. Floats explore; every counted encounter is an exact
+//! distance check (brute force samples at dt with motion < rho/2 per step).
+
+use emergent_encounters::belt::Rng;
+use emergent_encounters::kepler::Body;
+use emergent_encounters::method::{run_section, Stats};
+use emergent_encounters::pairs::{cone_pairs, sections, Kind};
+use std::collections::HashMap;
+use std::f64::consts::TAU;
+use std::time::Instant;
+
+const RHO: f64 = 1e-4;
+const SAFETY: f64 = 1.1;
+const H: f64 = 20.0 * TAU;
+
+fn rayleigh(rng: &mut Rng, s: f64, cap: f64) -> f64 {
+    let u = rng.f64();
+    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
+}
+
+fn pct_u64(v: &mut Vec<u64>, q: f64) -> u64 {
+    if v.is_empty() {
+        return 0;
+    }
+    v.sort_unstable();
+    v[((q * (v.len() - 1) as f64).round() as usize).min(v.len() - 1)]
+}
+
+struct ClassStat {
+    name: &'static str,
+    total: u64,
+    sampled: u64,
+    kinds: [u64; 3],
+    setup_evals: u64,
+    setup_us: u64,
+    setup_pair_p50: u64,
+    setup_pair_p90: u64,
+    setup_pair_max: u64,
+    st: Stats,
+}
+
+fn class_run(b: &[Body], pairs: &[(u32, u32)], name: &'static str, cap: usize) -> ClassStat {
+    let stride = pairs.len().div_ceil(cap).max(1);
+    let mut cs = ClassStat {
+        name,
+        total: pairs.len() as u64,
+        sampled: 0,
+        kinds: [0; 3],
+        setup_evals: 0,
+        setup_us: 0,
+        setup_pair_p50: 0,
+        setup_pair_p90: 0,
+        setup_pair_max: 0,
+        st: Stats::default(),
+    };
+    let mut per_pair = Vec::new();
+    let mut out = Vec::new();
+    for &(i, j) in pairs.iter().step_by(stride) {
+        let (bi, bj) = (&b[i as usize], &b[j as usize]);
+        cs.sampled += 1;
+        let mut ev = 0u64;
+        let t0 = Instant::now();
+        let secs = sections(bi, bj, RHO, SAFETY, &mut ev);
+        cs.setup_us += t0.elapsed().as_micros() as u64;
+        cs.setup_evals += ev;
+        per_pair.push(ev);
+        for sec in &secs {
+            cs.kinds[sec.kind as usize] += 1;
+            out.clear();
+            run_section(bi, bj, sec, RHO, 0.0, H, &mut cs.st, &mut out);
+        }
+    }
+    cs.st.pairs = cs.sampled;
+    cs.setup_pair_p50 = pct_u64(&mut per_pair, 0.5);
+    cs.setup_pair_p90 = pct_u64(&mut per_pair, 0.9);
+    cs.setup_pair_max = per_pair.iter().copied().max().unwrap_or(0);
+    cs
+}
+
+fn print_class(cs: &ClassStat) {
+    let hits = cs.st.hits_total().max(1);
+    println!(
+        "  {{\"class\":\"{}\",\"pairs\":{},\"sampled\":{},\"kinds\":{{\"cross\":{},\"wide\":{},\"full\":{}}},\"setup\":{{\"evals\":{},\"us\":{},\"per_pair_p50\":{},\"per_pair_p90\":{},\"per_pair_max\":{}}},\"run\":{{\"queries\":{},\"qsteps\":{},\"checks\":{},\"hits\":{},\"evals\":{},\"evals_per_hit\":{:.0}}}}}",
+        cs.name, cs.total, cs.sampled, cs.kinds[0], cs.kinds[1], cs.kinds[2],
+        cs.setup_evals, cs.setup_us, cs.setup_pair_p50, cs.setup_pair_p90, cs.setup_pair_max,
+        cs.st.queries, cs.st.qsteps, cs.st.checks_total(), cs.st.hits_total(), cs.st.evals,
+        (cs.setup_evals + cs.st.evals) as f64 / hits as f64,
+    );
+}
+
+/// Belt scenarios: uniform control, a-clumps of width w, and a fleet formation in a sea.
+fn scenario(tag: &str) {
+    let mut rng = Rng(7);
+    let n = 2000usize;
+    let mut b = Vec::with_capacity(n);
+    let mut flags = Vec::with_capacity(n);
+    let (f, w) = match tag {
+        "uniform" => (0.0f64, 0.0f64),
+        t => {
+            let w: f64 = t.strip_prefix("clump:").unwrap().parse().unwrap();
+            (0.25, w)
+        }
+    };
+    for _ in 0..n {
+        let in_clump = f > 0.0 && (rng.next_u64() % 4 == 0);
+        let a = if in_clump {
+            1.0 + (2.0 * rng.f64() - 1.0) * w * 0.5
+        } else {
+            0.9 + 0.2 * rng.f64()
+        };
+        let e = rayleigh(&mut rng, 0.05, 0.5);
+        b.push(Body::new(a, e, TAU * rng.f64(), TAU * rng.f64()));
+        flags.push(in_clump);
+    }
+    let t0 = Instant::now();
+    let cs = cone_pairs(&b, RHO);
+    let scan_us = t0.elapsed().as_micros();
+    let mut deg = vec![0u64; n];
+    let (mut cc, mut cx, mut ss) = (Vec::new(), Vec::new(), Vec::new());
+    for &(i, j) in &cs.pairs {
+        deg[i as usize] += 1;
+        deg[j as usize] += 1;
+        match (flags[i as usize], flags[j as usize]) {
+            (true, true) => cc.push((i, j)),
+            (false, false) => ss.push((i, j)),
+            _ => cx.push((i, j)),
+        }
+    }
+    let mut d_clump: Vec<u64> = (0..n).filter(|&k| flags[k]).map(|k| deg[k]).collect();
+    let mut d_sea: Vec<u64> = (0..n).filter(|&k| !flags[k]).map(|k| deg[k]).collect();
+    println!("{{\"scenario\":\"{}\",\"n\":{},\"pairs\":{},\"scanned\":{},\"scan_us\":{},\"deg_clump\":{{\"p50\":{},\"p90\":{},\"p99\":{},\"max\":{}}},\"deg_sea\":{{\"p50\":{},\"p90\":{},\"p99\":{},\"max\":{}}},\"classes\":[",
+        tag, n, cs.pairs.len(), cs.scanned, scan_us,
+        pct_u64(&mut d_clump, 0.5), pct_u64(&mut d_clump, 0.9), pct_u64(&mut d_clump, 0.99), pct_u64(&mut d_clump, 1.0),
+        pct_u64(&mut d_sea, 0.5), pct_u64(&mut d_sea, 0.9), pct_u64(&mut d_sea, 0.99), pct_u64(&mut d_sea, 1.0));
+    print_class(&class_run(&b, &cc, "clump-clump", 2500));
+    println!(",");
+    print_class(&class_run(&b, &cx, "clump-sea", 2500));
+    println!(",");
+    print_class(&class_run(&b, &ss, "sea-sea", 2500));
+    println!("]}}");
+}
+
+/// A fleet formation: near-identical a, tiny e, clustered apsides, lambda uniform or bunched.
+fn fleet(nc: usize, a_hw: f64, sig_lam: f64, seed: u64) -> Vec<Body> {
+    let mut rng = Rng(seed);
+    let pom0 = TAU * rng.f64();
+    let lam0 = TAU * rng.f64();
+    (0..nc)
+        .map(|_| {
+            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
+            let e = rayleigh(&mut rng, 0.001, 0.01);
+            let pom = pom0 + (2.0 * rng.f64() - 1.0) * 0.1;
+            let lam = if sig_lam <= 0.0 {
+                TAU * rng.f64()
+            } else {
+                let (u1, u2) = (rng.f64(), rng.f64());
+                let z = (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos();
+                lam0 + sig_lam * z
+            };
+            Body::new(a, e, pom, lam)
+        })
+        .collect()
+}
+
+/// The fleet scenario: degree concentration and section economics inside a formation.
+fn fleet_scenario(nc: usize, a_hw: f64, sig_lam: f64, seed: u64) {
+    let fl = fleet(nc, a_hw, sig_lam, seed);
+    let mut rng = Rng(seed ^ 0x5a5a);
+    let mut b = fl.clone();
+    let mut flags = vec![true; nc];
+    for _ in 0..3600 {
+        b.push(Body::new(0.9 + 0.2 * rng.f64(), rayleigh(&mut rng, 0.05, 0.5), TAU * rng.f64(), TAU * rng.f64()));
+        flags.push(false);
+    }
+    let t0 = Instant::now();
+    let cs = cone_pairs(&b, RHO);
+    let scan_us = t0.elapsed().as_micros();
+    let mut deg = vec![0u64; b.len()];
+    let (mut ff, mut fx) = (Vec::new(), Vec::new());
+    for &(i, j) in &cs.pairs {
+        deg[i as usize] += 1;
+        deg[j as usize] += 1;
+        if flags[i as usize] && flags[j as usize] {
+            ff.push((i, j));
+        } else if flags[i as usize] || flags[j as usize] {
+            fx.push((i, j));
+        }
+    }
+    let mut d_fl: Vec<u64> = (0..nc).map(|k| deg[k]).collect();
+    let mut d_sea: Vec<u64> = (nc..b.len()).map(|k| deg[k]).collect();
+    println!("{{\"scenario\":\"fleet\",\"nc\":{},\"a_hw\":{},\"sig_lam\":{},\"n\":{},\"pairs\":{},\"scanned\":{},\"scan_us\":{},\"deg_fleet\":{{\"p50\":{},\"p99\":{},\"max\":{}}},\"deg_sea\":{{\"p50\":{},\"max\":{}}},\"classes\":[",
+        nc, a_hw, sig_lam, b.len(), cs.pairs.len(), cs.scanned, scan_us,
+        pct_u64(&mut d_fl, 0.5), pct_u64(&mut d_fl, 0.99), pct_u64(&mut d_fl, 1.0),
+        pct_u64(&mut d_sea, 0.5), pct_u64(&mut d_sea, 1.0));
+    print_class(&class_run(&b, &ff, "fleet-fleet", 2500));
+    println!(",");
+    print_class(&class_run(&b, &fx, "fleet-sea", 2500));
+    println!("]}}");
+}
+
+fn pos_of(b: &Body, t: f64) -> [f64; 2] {
+    let st = b.state_at_mean(b.mean_anomaly(t));
+    [st[0], st[1]]
+}
+
+fn rank_of(v: &[(f64, usize)], other: usize) -> u64 {
+    let dj = v.iter().find(|x| x.1 == other).map(|x| x.0).unwrap_or(f64::INFINITY);
+    v.iter().filter(|x| x.1 != other && x.0 < dj).count() as u64
+}
+
+/// Brute-force sub-rho encounters of a fleet, and the partner's distance-rank at closest approach.
+fn rank_probe(nc: usize, a_hw: f64, sig_lam: f64, seed: u64, orbits: f64, method_too: bool) {
+    let fl = fleet(nc, a_hw, sig_lam, seed);
+    let dt = 2e-5;
+    let steps = (orbits * TAU / dt) as usize;
+    let nb = 32768usize;
+    let binsz = TAU / nb as f64; // ~ 2 rho in arc at r ~ 1
+    let mut head = vec![-1i64; nb];
+    let mut nxt = vec![-1i64; nc];
+    let mut pos = vec![[0.0f64; 2]; nc];
+    let mut best: HashMap<(u32, u32), (f64, f64)> = HashMap::new(); // pair -> (d, t)
+    let t0 = Instant::now();
+    for s in 0..steps {
+        let t = s as f64 * dt;
+        let mut occupied: Vec<usize> = Vec::with_capacity(nc);
+        for i in 0..nc {
+            let m = fl[i].mean_anomaly(t);
+            let lam = (m + fl[i].pom).rem_euclid(TAU);
+            let st = fl[i].state_at_mean(m);
+            pos[i] = [st[0], st[1]];
+            let bin = ((lam / binsz) as usize).min(nb - 1);
+            if head[bin] < 0 {
+                occupied.push(bin);
+            }
+            nxt[i] = head[bin];
+            head[bin] = i as i64;
+        }
+        for &bin in &occupied {
+            // same-bin pairs
+            let mut p = head[bin];
+            while p >= 0 {
+                let mut q = nxt[p as usize];
+                while q >= 0 {
+                    record(&pos, p as usize, q as usize, t, &mut best);
+                    q = nxt[q as usize];
+                }
+                p = nxt[p as usize];
+            }
+            // forward-adjacent bin pairs
+            let nb2 = (bin + 1) % nb;
+            let mut p = head[bin];
+            while p >= 0 {
+                let mut q = head[nb2];
+                while q >= 0 {
+                    record(&pos, p as usize, q as usize, t, &mut best);
+                    q = nxt[q as usize];
+                }
+                p = nxt[p as usize];
+            }
+        }
+        for &bin in &occupied {
+            head[bin] = -1;
+        }
+    }
+    let brute_us = t0.elapsed().as_micros();
+    // partner rank at closest approach, both directions, min
+    let (mut r1, mut r2, mut r4, mut r8, mut rmax, mut tot) = (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
+    let mut dmin_all = f64::INFINITY;
+    let mut keys: Vec<_> = best.keys().copied().collect();
+    keys.sort_unstable();
+    for &(i, j) in &keys {
+        let (d, t) = best[&(i, j)];
+        tot += 1;
+        dmin_all = dmin_all.min(d);
+        let (pi_, pj_) = (pos_of(&fl[i as usize], t), pos_of(&fl[j as usize], t));
+        let mut vi = Vec::with_capacity(nc);
+        let mut vj = Vec::with_capacity(nc);
+        for k in 0..nc {
+            let p = pos_of(&fl[k], t);
+            vi.push(((p[0] - pi_[0]).hypot(p[1] - pi_[1]), k));
+            vj.push(((p[0] - pj_[0]).hypot(p[1] - pj_[1]), k));
+        }
+        let r = rank_of(&vi, j as usize).min(rank_of(&vj, i as usize));
+        r1 += (r <= 1) as u64;
+        r2 += (r <= 2) as u64;
+        r4 += (r <= 4) as u64;
+        r8 += (r <= 8) as u64;
+        rmax = rmax.max(r);
+    }
+    // the pairwise method on the same fleet, for misses and cost
+    let mut mm = HashMap::<(u32, u32), u64>::new();
+    let mut st = Stats::default();
+    let mut out = Vec::new();
+    let t1 = Instant::now();
+    if method_too {
+        let cs = cone_pairs(&fl, RHO);
+        for &(i, j) in &cs.pairs {
+            let (bi, bj) = (&fl[i as usize], &fl[j as usize]);
+            let mut ev = 0u64;
+            for sec in sections(bi, bj, RHO, SAFETY, &mut ev) {
+                out.clear();
+                run_section(bi, bj, &sec, RHO, 0.0, orbits * TAU, &mut st, &mut out);
+                if !out.is_empty() {
+                    *mm.entry((i, j)).or_insert(0) += out.len() as u64;
+                }
+            }
+            st.evals += ev;
+        }
+    }
+    // Adjudicate disputed pairs by dense unbiased sampling of the true distance.
+    let mut disp: Vec<(u32, u32)> = Vec::new();
+    for k in keys.iter().filter(|k| !mm.contains_key(k)) {
+        disp.push(*k);
+    }
+    for k in mm.keys().filter(|k| !best.contains_key(k)) {
+        disp.push(*k);
+    }
+    disp.sort_unstable();
+    disp.truncate(300);
+    let nsamp = 150_000;
+    let (mut miss_true, mut extra_true, mut extra_false) = (0u64, 0u64, 0u64);
+    let (mut adj_rmax, mut adj_r4) = (0u64, 0u64);
+    let cone_pairs_list = cone_pairs(&fl, RHO).pairs;
+    let cone_set: std::collections::HashSet<(u32, u32)> = cone_pairs_list.iter().copied().collect();
+    let mut samples = Vec::new();
+    for &(i, j) in &disp {
+        let (bi, bj) = (&fl[i as usize], &fl[j as usize]);
+        let mut dmin = f64::INFINITY;
+        let mut tmin = 0.0;
+        for s in 0..nsamp {
+            let t = orbits * TAU * s as f64 / nsamp as f64;
+            let pi = bi.state_at_mean(bi.mean_anomaly(t));
+            let pj = bj.state_at_mean(bj.mean_anomaly(t));
+            let d = (pi[0] - pj[0]).hypot(pi[1] - pj[1]);
+            if d < dmin {
+                dmin = d;
+                tmin = t;
+            }
+        }
+        let was_missed = !mm.contains_key(&(i, j));
+        if was_missed && dmin < RHO {
+            miss_true += 1;
+        }
+        if !was_missed && dmin < RHO {
+            extra_true += 1;
+        }
+        if !was_missed && dmin >= RHO {
+            extra_false += 1;
+        }
+        // distance-rank of the partner at the adjudicated closest approach
+        let (pi, pj) = (pos_of(&fl[i as usize], tmin), pos_of(&fl[j as usize], tmin));
+        let mut vi = Vec::with_capacity(nc);
+        let mut vj = Vec::with_capacity(nc);
+        for k in 0..nc {
+            let p = pos_of(&fl[k], tmin);
+            vi.push(((p[0] - pi[0]).hypot(p[1] - pi[1]), k));
+            vj.push(((p[0] - pj[0]).hypot(p[1] - pj[1]), k));
+        }
+        let r = rank_of(&vi, j as usize).min(rank_of(&vj, i as usize));
+        adj_rmax = adj_rmax.max(r);
+        adj_r4 += (r <= 4) as u64;
+        if samples.len() < 250 {
+            samples.push(format!("{{\"pair\":[{},{}],\"missed\":{},\"cone\":{},\"d_min\":{:.3e},\"rank\":{}}}", i, j, was_missed, cone_set.contains(&(i, j)), dmin, r));
+        }
+    }
+    if !disp.is_empty() {
+        println!("{{\"adjudicate\":{{\"disputed\":{},\"missed_true_sub_rho\":{},\"extra_true_sub_rho\":{},\"extra_false\":{},\"rank_max\":{},\"rank_le_4\":{},\"samples\":[{}]}}}}",
+            disp.len(), miss_true, extra_true, extra_false, adj_rmax, adj_r4, samples.join(","));
+    }
+    let meth_us = t1.elapsed().as_micros();
+    let missed = keys.iter().filter(|k| !mm.contains_key(k)).count();
+    let extra = mm.keys().filter(|k| !best.contains_key(k)).count();
+    println!(
+        "{{\"rank_probe\":{{\"nc\":{},\"a_hw\":{},\"sig_lam\":{},\"orbits\":{},\"encounters\":{},\"r_le_1\":{},\"r_le_2\":{},\"r_le_4\":{},\"r_le_8\":{},\"r_max\":{},\"d_min\":{},\"brute_us\":{},\"method\":{{\"pairs\":{},\"missed\":{},\"extra\":{},\"hits\":{},\"evals\":{},\"us\":{}}}}}",
+        nc, a_hw, sig_lam, orbits, tot, r1, r2, r4, r8, rmax, dmin_all, brute_us,
+        mm.len(), missed, extra, mm.values().sum::<u64>(), st.evals, meth_us);
+}
+
+fn record(pos: &[[f64; 2]], i: usize, j: usize, t: f64, best: &mut HashMap<(u32, u32), (f64, f64)>) {
+    let d = (pos[i][0] - pos[j][0]).hypot(pos[i][1] - pos[j][1]);
+    if d < RHO {
+        let e = best.entry((i.min(j) as u32, i.max(j) as u32)).or_insert((f64::INFINITY, t));
+        if d < e.0 {
+            *e = (d, t);
+        }
+    }
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let which = args.get(1).map(|s| s.as_str()).unwrap_or("all");
+    match which {
+        "belts" | "all" => {
+            scenario("uniform");
+            scenario("clump:0.02");
+            scenario("clump:0.002");
+            scenario("clump:0.0002");
+            scenario("clump:0.00002");
+        }
+        _ => {}
+    }
+    match which {
+        "fleet" | "all" => {
+            fleet_scenario(400, 1e-5, 0.0, 11);
+        }
+        _ => {}
+    }
+    match which {
+        "ranks" | "all" => {
+            rank_probe(200, 1e-3, 0.0, 21, 1.0, true);
+            rank_probe(800, 1e-3, 0.0, 22, 0.5, false);
+            rank_probe(200, 3e-3, 0.0, 23, 1.0, false);
+            rank_probe(200, 1e-5, 0.05, 24, 1.0, false);
+            rank_probe(200, 1e-3, 0.05, 25, 1.0, false);
+        }
+        _ => {}
+    }
+    match which {
+        "ranks2" => {
+            ranks2();
+        }
+        "adj" => {
+            rank_probe(200, 1e-5, 0.01, 27, 1.0, true);
+        }
+        _ => {}
+    }
+}
+
+fn ranks2() {
+    rank_probe(200, 1e-5, 0.02, 26, 1.0, true);
+    rank_probe(200, 1e-5, 0.01, 27, 1.0, true);
+    rank_probe(200, 1e-3, 0.02, 28, 1.0, true);
