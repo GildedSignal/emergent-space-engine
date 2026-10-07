@@ -1,0 +1,72 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..c106ce2 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -230,11 +230,27 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+     gather_with(u, names, Some(cache))
+ }
+ 
+-fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
+-    let ctx = u.ctx();
++pub fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
++    use std::cell::RefCell;
++    thread_local! {
++        static PHASES: RefCell<[u64; 4]> = const { RefCell::new([0; 4]) };
++        static FRAMES: RefCell<u64> = const { RefCell::new(0) };
++    }
++    let t_start = std::time::Instant::now();
++    let _report = FRAMES.with(|f| {
++        let mut f = f.borrow_mut();
++        *f += 1;
++        if *f % 120 == 0 {
++            PHASES.with(|p| eprintln!("VIEWPHASES {} {} setup_us {} bodies_us {} fleet_us {} readouts {}", *f, t_start.elapsed().as_nanos() as u64 / 1000, p.borrow()[0] / 1000, p.borrow()[1] / 1000, p.borrow()[2] / 1000, p.borrow()[3]));
++            PHASES.with(|q| *q.borrow_mut() = [0; 4]);
++        }
++        std::mem::drop(())
++    });
+     if let Some(c) = cache.as_mut() {
+         c.readouts = 0;
+     }
++    let t0 = std::time::Instant::now();
++    let ctx = u.ctx();
+     let p = u.player()?;
+     let t_now = u.now;
+     let rec = u.rec(p);
+@@ -265,6 +281,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
++    PHASES.with(|p| p.borrow_mut()[0] += t0.elapsed().as_nanos() as u64);
++    let t0 = std::time::Instant::now();
+     let mut seen = Vec::new();
+     let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+         let d = [pos[0] - xo[0], pos[1] - xo[1]];
+@@ -295,7 +313,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
+-    // Bodies: where each tube crosses the past light cone.
++    PHASES.with(|p| p.borrow_mut()[1] += t0.elapsed().as_nanos() as u64);
++    let t0 = std::time::Instant::now();
+     let mut reads = 0u64;
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+@@ -333,8 +352,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
+-    // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+-    // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
++    PHASES.with(|p| { p.borrow_mut()[1] += t0.elapsed().as_nanos() as u64; p.borrow_mut()[3] = reads; });
++    let t0 = std::time::Instant::now();
+     let mut motions = Vec::new();
+     for (fi, f) in u.fleets.iter().enumerate() {
+         let tc = f.tick();
+@@ -366,6 +385,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
++    PHASES.with(|p| p.borrow_mut()[2] += t0.elapsed().as_nanos() as u64);
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
