@@ -1,0 +1,4 @@
+Working...
+The run is complete: `predictions.md` was registered before the decisive experiment, the falsifier reproduces bit-identically (27–29 s, < 100 MB), and `dossier.md` carries the ranked attacks with the rung gaps named.
+
+**Claim (one sentence):** Every frozen gate samples light and bound orbits only from p, b = 10 upward, and in that unsampled strong field the design's m=16 Binet budget breaks its own 1% standard exactly where orbits cannot average across bands — near-circular massive precession is off by +9.6% at r = 7M and −6.1% at r = 8M (first order in 1/m) — while my strongest attack instead *confirmed* the design: strong-field light deflection stays within 0.1% down to 1.05·b_crit (−0.9% at 1.003·b_crit, a 5.4-rad nearly-double-loop ray) with exact capture classification, including two separatrix plunges all four models agree on.
