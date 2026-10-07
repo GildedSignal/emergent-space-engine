@@ -1,0 +1,4 @@
+Working...
+Dossier complete and arithmetic re-verified against the JSONL artifacts. All deliverables are in `lab/results/20261007-0800-fermi-a91f/` (predictions.md written before the runs, state.jsonl, shelf-a/b.jsonl, hlive.rs, machine.txt, dossier.md); the tree edit (`crates/shipmem/examples/hlive.rs`) stays for `run.sh` to save as a patch.
+
+**Claim:** H_live is bounded and cheap to reabsorb — a kicked ship costs ~50 bits once plus ~2 bits per doubling of further kicks (not 44 bits per kick; the shipped shelf re-fits by cost and stays ~7 bits above the floor, bit-exact), so at 10⁹ bodies the first wall is memory, not compute: a fully-mixed population (7.9 GB) busts the 8 GB machine at an ever-kicked fraction above ~0.5–0.75, reached in ~1–55 play-hours, while kick hot-path plus compaction costs only ~1.3 µs/kick (≈8% of one core at the board's 6×10⁴ kicks/game-second).
