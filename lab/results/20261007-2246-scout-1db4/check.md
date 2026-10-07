@@ -1,0 +1,36 @@
+Grade: silver
+
+**Abstract.** Claim: a pre-registered 12-case float falsifier kills the single-constant synodic cadence rule and measures a regime-aware surface: far-belt bodies hold B14's 10% precession bar at ~2 kicks/orbit against the plane's uniform 128 (ctx.rs:42 confirmed), moons need far more, and no float truth converges near resonance. Reproduced exactly (bit-identical CSVs, all 12 table rows, μ-invariance pair). My five adversarial cases replicate the load-bearing part: clean belt a=0.44 → N=2 on 8/8 seeds (ctrl 2.7e-3), a=0.47 near 3:1 → 4, e=0.30 → 2, moon f=0.15 → 8 (cross-validates r9's 0.17 R_H cliff); a=0.90 → ctrl 0.75, proving B2's "far from resonance" label wrong (4:3 contamination). Not gold: "moons 16–32" is the rate-bar-only read — the author's own walk bar fails 7–8/8 seeds at every n ≤ 128; the plane's orbit-averaged kicks (law.md) are untested. Gold experiment: same sweep with averaged kicks.
+
+## Reasons
+
+**1. Reproduction: exact.** Compiled `falsifier.c`, reran all 12 cases (deterministic xorshift): `csv_B1/M3/B6/M1` byte-identical to the stored `.gz`. `analyze.py` output matches the dossier table on every cell I compared: M1 128 (per-seed {1:128, 3:128, 4:128, 7:64}, 4 seeds no N), M2 16, M3 16/32, M6 med 8 worst 16 with relerr@8 0.339 vs M1's 0.352 and 0.101 both @16 (μ-invariance as claimed), B1 med 2 worst 4 (7 seeds 2, seed 2 → 4), B2 6 (ctrl 1.0), B3 32 (ctrl 0.86), B4 16 (ctrl 0.96), B5 med 17 (ctrl 1.7), B6 16/worst 128/2-no-N (ctrl 0.11, relerr@16 0.901).
+
+**2. Predictions.** `predictions.md` predates the sweep (file times: predictions 15 min before CSVs; cites only scout-2098/system-27ce; no self-calibration). Held: M5 unstable, B6 refuse, B3 ≥32, B4 ≤16, M2 half, and the error-type prediction (walk ≈1 below N_min — I measured exponent 0.92–1.23 at M1 n=2, bounded ≤0.07 on 7/8 B1 seeds at n=2). Failed: M1, M3, B1, M6-value — exactly the pre-registered kill criterion ("no single (K, s_syn, e) fits both surfaces within an octave"), which fired. The kill is the claim; the failures are its evidence, honestly reported.
+
+**3. My adversarial cases** (author's binary, author's `analyze.py`, all bars enforced):
+- C1 belt a=0.44 (clean, 4:1–3:1 gap): N_min = 2 on 8/8 seeds, ctrl 2.7e-3, no escapes — the belt floor replicates at an independent geometry with a converged reference.
+- C2 a=0.47 (2.2% inside 3:1, second-order): N_min = 4 uniform, ctrl 1.0e-3 — floor degrades gracefully near a weak resonance.
+- C3 a=0.51 e=0.30: N_min = 2, ctrl 6.0e-3 — the e-blindness claim extends to belts.
+- C4 moon f=0.15: N_min = 8 (rate+walk bars) vs 128 at f=0.30 — the cadence cliff sits between 0.15 and 0.30 R_H, independently consistent with r9's τ₀ = 0.0036 (0.17 R_H) kill of averaged kicks on precession.
+- C5 a=0.90 e=0.02: ctrl = 0.75, relerr ~1 everywhere, N_min noise — B2 (a=0.80) is ~3% outside the 4:3 first-order resonance, not "far from all resonances"; its void is resonant-band contamination, which *strengthens* the refuse-near-resonance conclusion and corrects the author's geometry label.
+
+**4. Novelty.** No H entry measures a cadence surface. H0190's K1 already had moons at ≈32.5 kicks/orbit (consistent with my rate-bar reading of 16–32 — the moon magnitude is not new); new here: the belt floor at 2 (refuting system-27ce's floor 8 as contamination), the kill of the single-constant rule, and the truth-side non-convergence void (B2–B5 ctrl 0.7–1.7), the cadence-side view of a9c2's cliff. Taste log (5 Oct) says q-cadence is queued and six runs converged on cadence as the lever — this is its first measured input. Prior art verified: Pham, Rein & Spiegel 2024, "A New Timestep Criterion for N-Body Simulations," Open J. Astrophysics (astro.theoj.org) exists as cited.
+
+**5. Goal fit.** Board focus 1 (kicks dominate; fewer kicks at same behaviour). Plane's uniform 2^7 = 128 confirmed at `crates/universe/src/ctx.rs:42`. The weak-regime 32–64× event cut is real in the probe's representation and full-bar clean. PRINCIPLES: "the cheapest compute is compute not done" (1); "the simulation tells us what's next not us" (22); the refuse branch keeps resonance out of cadence's reach (13). The probe's bars are float stand-ins on a 2-D scene, honestly scoped.
+
+**6. Why silver, not gold.**
+- **The claim's moon number does not survive the author's own full bar set.** "Tide-dominated moons need 16–32" is the precession-rate bar alone (my decomposition: at M1 n=32, rate passes 8/8, walk fails 8/8; M2/M3/M6 fail the walk bar on 7–8/8 seeds at every n ≤ 128, and 4–7 of 8 moon seeds have no N at all). Under the pre-registered bars, moons are unattainable ≤ 128 in this DKD probe — i.e. the moon regime buys nothing over the plane's 128. The table discloses this for M1 only ("rate bar met at 16–32"); the claim and finding 2 ("harmonic: n≈16–32") state the optimistic read as the result.
+- **Three record errors**, none load-bearing, none caught by the author: (a) finding 1 says B1's bar is "met at n=2 (0.4% error)" — actual median relerr at n=2 is 8.6% (seed 2 at 0.101 fails; 0.6% belongs to n=4); the floor survives but its margin is thin and should be quoted as such; (b) finding 3 says "B6: 4–5 of 8 seeds have no n ≤ 128" — the table and my rerun both say 2; (c) B2 described as "far from all resonances" (killed by C5 above).
+- **`analyze.py` bug:** `res_angle` ignores `res_j` and always uses the 2:1 angle, so B5 (3:2) is scored with the wrong resonant angle — its libration/regime bars are vacuous. Moot for the verdict (B5's reference is unconverged and the author marked it unmeasurable), but B5's "17" should not be quoted.
+- **Adoption needs one more experiment:** the plane's weak-regime kicks are orbit-averaged (law.md: "kicks are orbit-averaged on stable orbits away from resonance"), and this probe uses instantaneous DKD kicks. The author names this themselves ("what would make it wrong"). A per-body `step_for` cannot be frozen on the DKD surface.
+
+**The one experiment for gold:** rerun the same sweep with orbit-averaged kicks (the law's actual weak-regime form), full bar set including the walk exponent, plus a resonance-distance criterion from the compiled frequencies (s_syn is not one — C5/B2). If the belt floor 2–4 and the refuse boundary survive, adopt `step_for` and delete the uniform 128; if the floor moves, the probe's DKD numbers were an artifact of the kick form.
+
+## What the author missed
+
+- The walk-exponent bar un-attains every moon case ≤ 128; the claim should say "moons: rate bar 16–32, walk bar unattainable — cadence is not the moons' lever."
+- B2/B5 geometry: resonance distance, not s_syn, separates clean from void (C5: a=0.90, s_syn ≈ 0.47, void). The band is wide: first-order resonances contaminate beyond exact commensurability.
+- The B1 n=2 margin (8.6% against a 10% bar) is one seed from failing on rate and one seed failed on walk — quote margins, not just N_min.
+- M4/M5's "N_med 1–4" are vacuous (both escape → classification trivially matches); correctly excluded from claims but the table column still shows numbers — mark them as void as was done for B2–B5.
+- The `res_j` bug means any future resonant libration bar needs the angle passed in; as written the bar silently passes everything whose 2:1 angle circulates.
