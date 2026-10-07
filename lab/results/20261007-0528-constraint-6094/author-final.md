@@ -1,0 +1,4 @@
+Working...
+All evidence files are in place (`predictions.md` pre-registered, `metrics.json`, `dossier.md`, three bench JSONs, the `gatherbench/` crate). Verification: every number in the dossier traces to a saved run output; no git commands were run; all artifacts are in `lab/results/20261007-0528-constraint-6094/`.
+
+**The claim:** on the flying plane the frame's constraint is not the engine's kicks but the view gather — an unbudgeted, synchronous, linear re-derivation at ~7.2 µs per visible entry that already holds 69% of the median frame at play settings and breaks the 16.7 ms frame at 3,770 visible entries, while only 4.7–8.2% of its output changes beyond perceptible quanta per frame — so the first 10× is deleting the re-derivation (surprise-gated reuse plus the gather budget that plane.md foundation 7 already mandates but the code never implements), not making readouts faster.

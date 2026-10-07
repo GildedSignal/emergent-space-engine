@@ -1,0 +1,37 @@
+{
+  "machine": "GitHub Actions Linux x86, 8 vCPU, shared; cloud timings are orders of magnitude only (lab rules). perf unavailable (perf_event_paranoid=4); instrumentation used instead.",
+  "whole_plane_bench": {
+    "cmd": "/home/glmlab/lab-target-2/release/xtask universe --bench --seconds 30 --rtf 100  (paced, the play mode; seed 1, threads 1, members 48)",
+    "file": "bench-rtf100.json",
+    "frame_ms": {"p50": 4.37, "p99": 10.70, "worst": 12.29},
+    "where_the_time_goes_share": {"view_gather": 0.694, "engine": 0.175, "view_json": 0.092, "wire": 0.038},
+    "engine": {"budget_ms": 5.0, "p50_ms": 0.244, "p99_ms": 5.241, "overflow_frames_per_1800": 45},
+    "bodies": 76, "events_per_second": 240.3
+  },
+  "engine_demand_unbudgeted": {
+    "cmd": "/home/glmlab/lab-target-2/release/xtask universe --bench --seconds 20 --rtf 100 --unpaced --engine-ms 1000",
+    "file": "bench-unbudgeted.json",
+    "engine_ms": {"p50": 0.047, "p99": 1.30, "max": 12.5},
+    "view_gather_ms": {"p50": 0.724, "p99": 0.954},
+    "note": "engine median demand is 5-15x below the gather; the gather's share (67%) is stable paced or not; paced absolute times are ~4.8x higher (frequency/cache), the honest play-mode numbers are the paced ones"
+  },
+  "gather_decomposition": {
+    "cmd": "cd lab/results/20261007-0528-constraint-6094/gatherbench && CARGO_TARGET_DIR=/tmp/gb-target cargo run --release [members frames rtf seed]",
+    "members_48": {"gather_p50_ms": 0.744, "readouts_median": 70, "us_per_readout": 11.5, "entries": 64.2, "changed_fraction_per_frame": 0.047},
+    "members_400": {"gather_p50_ms": 3.00, "readouts_median": 287, "entries": 328.4, "changed_fraction_per_frame": 0.082, "max_rss_mb": 46},
+    "members_4000": {"gather_p50_ms": 27.75, "readouts_median": 2537, "entries": 3770.5, "changed_fraction_per_frame": 0.075, "max_rss_mb": 202},
+    "slope_us_per_entry": 7.2,
+    "readout_share_of_gather": "~1.0 (2537 readouts x ~10.9 us = 27.7 ms of the 27.8 ms p50 at members 4000); the Crossing memo does hold readouts to ~1 per entry per frame",
+    "perceptible_quanta": {"direction_rad": 0.002, "angular_radius_rad": 0.002, "color_channel": 0.0039, "luminosity_rel": 0.01}
+  },
+  "kick_bench": {
+    "cmd": "/home/glmlab/lab-target-2/release/xtask universe --kick-bench --seconds 20 --rtf 100",
+    "file": "kickbench.txt",
+    "kick_us": {"median_distinct": 35.2, "median_all": 76.5, "p99_all": 390.5},
+    "memo": {"exact_hit_rate": 0.0, "quantized_hit_rate": 0.945}
+  },
+  "gates_on_linux": {
+    "cmd": "/home/glmlab/lab-target-2/release/xtask behave --law plane",
+    "result": "G1-G6, B7, B9, B11, B12 return no oracle answers on Linux (worst inf, unanswered); B13 60/64 matches the M1 record; B14 times out at 60 s. This machine cannot judge law gates; only cost/scale measurements here are valid."
+  }
+}
