@@ -1,0 +1,4 @@
+Working...
+Done. The checker's named experiment ran end-to-end: capture reproduces the shipped bench (663 = 663 kicks), the shelf replays are exact (`readback_bad = 0`), and every dossier number regenerates from `work/budget2.py`.
+
+**Claim, one sentence:** The silver's budget claim holds and is now measured — the plane's own kicks cost 39–56 scar bits each on the shipped Shelf (vs 62 for the ladder's synthetic deltas), putting H_live reabsorption at 75–107 MB/game-s and the rtf-1 hot fraction at ~13 % at 10⁹ — but the shipped belt program's column space is killed for game-scale belts (`Key::darwin`'s p ≤ 8192 M domain excludes 100 % of the plane's orbits at p ~ 10⁸ M; the tube's (p, k) basis works), and a fully-kicked belt holds ~70 bits/body, 2.2× the whole 32-bit state budget, so reabsorption must refit programs rather than delete scars.

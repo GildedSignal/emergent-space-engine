@@ -1,0 +1,16 @@
+[workspace]
+
+[package]
+name = "scarkick"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+emergent-space = { path = "../../../../../crates/space" }
+emergent-universe = { path = "../../../../../crates/universe" }
+emergent-shipmem = { path = "../../../../../crates/shipmem" }
+serde_json = "1.0"
+blake3 = "1.5"
+
+[profile.release]
+debug = 0
