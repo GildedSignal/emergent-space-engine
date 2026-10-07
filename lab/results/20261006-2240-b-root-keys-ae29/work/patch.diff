@@ -1,0 +1,491 @@
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..999dbff 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -4,7 +4,7 @@
+ //! threads, and give the same bits.
+ use crate::body::{BodyStore, Kind};
+ use crate::force::Secondary;
+-use crate::num::{scale2, Res, Tick, V2};
++use crate::num::{add2, scale2, Res, Tick, V2};
+ use crate::world::{pow2, DollRec, Unit};
+ use emergent_space::orbit::Scalar;
+ 
+@@ -107,4 +107,49 @@ impl Ctx<'_> {
+         let c = self.dolls[d as usize].centre.ok_or(crate::num::Error::Refused("the root has no centre"))?;
+         self.state_of(c, t)
+     }
++
++    /// The root image of a doll event (docs/law.md, "Handoffs are Lorentz" and "Ties"): the doll's
++    /// tick plus the doll chain's simultaneity shears, in ticks of the root clock. At each edge, from
++    /// the event's doll up to the root, the event's position `x` (in the child's units) becomes the
++    /// parent's, the centre's velocity `w` at `t` — read from its committed tube — makes the
++    /// [`Frame`](crate::lorentz::Frame), and its time shear is `sinh(η)·x̂_axis`: `γ·(w·x)`, the
++    /// relativity of simultaneity the plane builder found at the spheres' edges (15–1,400 ticks).
++    /// The clock's own rate is not touched: a doll's tick is the parent's convention at its centre
++    /// (world.rs), so the centre's own events keep their ticks, a centre at rest leaves every tick
++    /// where it was, and a slow doll's image is its tick to within the shear. The position is carried
++    /// up the chain by the centre's position at `t` (Galilean: the boost's spatial part is `O(β²)`,
++    /// below a tick at every speed a game doll moves at the depths the game has; a deeper chain
++    /// composes the time shears exactly). The root doll's events are their own image: no work.
++    pub fn root_offset(&self, doll: u16, t: Tick, x: V2) -> Res<Tick> {
++        /// Fractional tick bits the chain's shears are accumulated at; one rounding at the end.
++        const BITS: i32 = 64;
++        let mut off = 0i128; // ticks at `2^-BITS`
++        let mut x = x;
++        let mut d = doll;
++        while let Some(p) = self.dolls[d as usize].parent {
++            let (child, parent) = (&self.dolls[d as usize], &self.dolls[p as usize]);
++            let centre = child.centre.expect("a child doll has a centre");
++            let k = pow2(parent.shift as i32 - child.shift as i32); // child units → parent units
++            let Ok((cp, w)) = self.state_of(centre, t) else { break };
++            if let Some(frame) = crate::lorentz::Frame::of(w)? {
++                let xp = scale2(x, k)?;
++                let word = |v: Scalar| -> Res<i128> { Ok(v.fixed(BITS)?) };
++                // The shear, in the parent's time units at `2^-BITS`; a parent time unit is
++                // `2^-parent.shift` ticks (one tick is `2^parent.shift` of them).
++                let shear = frame.shear_time([word(xp[0])?, word(xp[1])?])?;
++                let shift = parent.shift as u32;
++                off = off
++                    .checked_add(if shift >= 127 { shear } else { shear >> shift })
++                    .ok_or(crate::num::Error::Refused("the root image left the word"))?;
++                x = xp;
++            } else {
++                x = scale2(x, k)?;
++            }
++            x = add2(x, cp)?;
++            d = p;
++        }
++        let half = 1i128 << 63;
++        let rounded = if off >= 0 { (off + half) >> 64 } else { -((-off + half) >> 64) };
++        i64::try_from(rounded).map_err(|_| crate::num::Error::Refused("the root image left the tick word"))
++    }
+ }
+diff --git a/crates/universe/src/fleet.rs b/crates/universe/src/fleet.rs
+index e9dee86..06d166a 100644
+--- a/crates/universe/src/fleet.rs
++++ b/crates/universe/src/fleet.rs
+@@ -289,6 +289,14 @@ impl Fleet {
+         let t = self.battle.as_ref()?.tick() + 1;
+         Some(self.plan.first().map_or(t, |i| i.t.min(t)))
+     }
++
++    /// The origin's position in its doll's units at `t` — the event the queue's root key of this
++    /// fleet's next item shears from (the members keep the frame's clock: their events are the
++    /// battle's own, one entity, and the frame's motion relative to the doll is its phase 2).
++    pub fn origin_doll_state(&self, ctx: &Ctx, t: Tick) -> Res<V2> {
++        let b = self.battle.as_ref().ok_or(Error::Refused("a dissolved frame has no origin"))?;
++        Ok(origin_state(ctx, self.doll, &**b, t)?.0)
++    }
+     pub fn root_position(&self) -> [f64; 2] {
+         self.pos
+     }
+diff --git a/crates/universe/src/lorentz.rs b/crates/universe/src/lorentz.rs
+index e234266..8de30a3 100644
+--- a/crates/universe/src/lorentz.rs
++++ b/crates/universe/src/lorentz.rs
+@@ -221,6 +221,21 @@ impl Frame {
+         Ok([gx[0], u[0], u[1]])
+     }
+ 
++    /// The simultaneity shear of an event: how much later than its doll's tick the event sits in the
++    /// parent's time. The event's position `x` (integer words at any common exponent, in the doll's
++    /// units) is rotated onto the motion and sheared by the boost's own coefficient, giving
++    /// `sinh(η)·x̂_axis` as an integer at `x`'s exponent, in the parent's time units (a velocity of the
++    /// centre times a length of the event: a time, `c = 1`). The clock's own rate (`cosh(η)·t`, the
++    /// centre's time dilation) is not touched: the doll's tick *is* the parent's convention at the
++    /// centre (world.rs), so the centre's own events keep their ticks and only simultaneity moves.
++    /// This is the inverse boost's `t` row with the diagonal anchored away — the same shears
++    /// [`Frame::inverse`] applies, so a handoff that maps event times composes with it exactly.
++    pub fn shear_time(&self, x: [i128; 2]) -> Res<i128> {
++        let axis = self.to_axis.apply(x)?;
++        // `bb` is `−sinh(η)·2^N`; the parent's time of the event is `t + sinh(η)·x̂_axis`.
++        mulshr(-self.bb, axis[0], N)
++    }
++
+     /// The exact inverse of [`Frame::forward`]: a four-velocity seen from the centre, back in the parent's frame.
+     pub fn inverse(&self, t: [i128; 3]) -> Res<[i128; 3]> {
+         let u = self.back.undo([t[1], t[2]])?;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..02b5f2e 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1,12 +1,15 @@
+ //! One clock, one queue, one digest.
+ //!
+-//! **The root clock is canonical.** A tick is the same physical time in every doll
+-//! ([`crate::world`]). Every entity (a body, a fleet) holds the time of its next certified event;
++//! **The root clock is canonical.** Every entity (a body, a fleet) holds the time of its next certified event;
+ //! the queue is a min over entities, with deterministic ties (time, then entity id, ids running
+ //! star, planets, moon, ships, player, the members a fleet hands out (in the order it hands them
+ //! out), fleets).
+ //!
+-//! **The canonical key of an event is (tick, smallest body id, kind)** (docs/law.md, "Ties"). Events that
++//! **The canonical key of an event is (its image on the root clock, smallest body id, kind)** (docs/law.md,
++//! "Ties" and "Handoffs are Lorentz"). A body's events are held in its doll's clock; their image is the
++//! tick sheared through the doll chain's simultaneity shears ([`crate::Ctx::root_offset`]: the plane
++//! builder's finding, 15–1,400 ticks at a sphere's edge), frozen per entity at [`Universe::requeue`]
++//! from the state its own item left. For the root doll the image is the tick itself. Events that
+ //! share no body commute (a body's event writes only that body). Events that share a body are ordered by the key:
+ //! an event reads another body at its own tick *after* every event of that body with a smaller key, and
+ //! before the rest, so a read at a tied tick is well defined (a segment of a body's history is readable
+@@ -167,6 +170,11 @@ pub struct Universe {
+     /// Every item resolved (a refusal or a loss counts: it was work).
+     resolved: u64,
+     frames: u64,
++    /// The root image of each entity's next event ([`Universe::key_of`]): frozen at [`Universe::requeue`], after
++    /// the entity's own item, from the committed state (its binding is fixed between its items, and a doll
++    /// centre's tube changes only at the centre's own kicks — 2^33 ticks apart in the plane — so every
++    /// schedule reads one key). `Tick::MAX` when the entity has no next event.
++    root_key: Vec<Tick>,
+     /// Entity ids below this are bodies (those made, and the room for every member a fleet can hand out);
+     /// a fleet's entity id is `body_cap + its index`.
+     body_cap: usize,
+@@ -210,6 +218,7 @@ impl Universe {
+             contacts: 0,
+             resolved: 0,
+             frames: 0,
++            root_key: Vec::new(),
+             body_cap: 0,
+         }
+     }
+@@ -362,9 +371,14 @@ impl Universe {
+     /// The body `i` became a secondary with `G·m = gm`: its own tube is now the relative orbit of two bodies,
+     /// the Kepler problem of their total mass (the origin falls toward the secondary as the secondary falls
+     /// toward the origin), so it is compiled again, as specified, about the host's centre plus `gm`. Before
+-    /// the universe starts: a body that has run has no spec to rebuild from.
++    /// the universe starts: a body that has run has no spec to rebuild from. A body made from an exact
++    /// state ([`Universe::add_body_state`]) has no spec either: its tube is its state's and it stands
++    /// (a passage can be a doll's centre — a relativistic doll).
+     fn retune(&mut self, i: usize) -> Res<()> {
+         let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
++            if self.queue.is_none() && self.specs.get(i).is_some_and(|s| s.is_none()) {
++                return Ok(());
++            }
+             return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+         };
+         let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }.tube_unit(i, spec.doll)?;
+@@ -447,16 +461,55 @@ impl Universe {
+ 
+     // ---- the keys -------------------------------------------------------------------------------
+ 
+-    /// The `(tick, id)` of an entity's next item.
+-    pub fn key_of(&self, e: usize) -> Option<(Tick, usize)> {
++    /// The next event's tick in its own doll's clock, of an entity that has one: a body's plan's
++/// first item, the front hand-out's hand-off tick, or the fleet's next event.
++    fn doll_key(&self, e: usize) -> Option<Tick> {
+         if e < self.bodies.len() {
+-            self.bodies.next_time(e).map(|t| (t, e))
++            self.bodies.next_time(e)
+         } else if e == self.bodies.len() && e < self.body_cap {
+             // The member at the front of the hand-outs is the body that will have this id.
+-            self.handouts.front().map(|(_, l)| (l.tick, e))
++            self.handouts.front().map(|(_, l)| l.tick)
++        } else {
++            let f = self.entity_fleet(e)?;
++            self.fleets.get(f)?.next_time()
++        }
++    }
++
++    /// The root image of an entity's next event: its doll tick sheared through its doll's chain
++    /// ([`crate::Ctx::root_offset`]). A body's event at its own position; a handed-out member's at the
++    /// state the frame handed over; the fleet's at its origin's. The root doll's events are their own
++    /// image (no work, and no doll read at all: the root's key is its plan's tick).
++    fn compute_key(&self, e: usize) -> Option<Tick> {
++        let t = self.doll_key(e)?;
++        let ctx = self.ctx();
++        let doll_x = if e < self.bodies.len() {
++            let b = self.bodies.binding_at(e, t)?;
++            let x = b.cartesian(t).ok()?.0;
++            (b.doll, x)
++        } else if e == self.bodies.len() && e < self.body_cap {
++            let (f, l) = self.handouts.front()?;
++            let doll = self.fleets[*f].doll;
++            let x = [
++                Scalar::raw(l.state.position[0] as i128, l.state.length_exponent as i32).ok()?,
++                Scalar::raw(l.state.position[1] as i128, l.state.length_exponent as i32).ok()?,
++            ];
++            (doll, x)
+         } else {
+             let f = self.entity_fleet(e)?;
+-            self.fleets.get(f)?.next_time().map(|t| (t, e))
++            let fleet = self.fleets.get(f)?;
++            let t = fleet.next_time()?;
++            (fleet.doll, fleet.origin_doll_state(&ctx, t).ok()?)
++        };
++        let off = ctx.root_offset(doll_x.0, t, doll_x.1).ok()?;
++        Some(t.saturating_add(off))
++    }
++
++    /// The `(root image, id)` of an entity's next item: the canonical key, (root-clock time, smallest
++    /// body id, kind), frozen at the entity's last [`Universe::requeue`].
++    pub fn key_of(&self, e: usize) -> Option<(Tick, usize)> {
++        match self.root_key.get(e) {
++            Some(&t) if t != Tick::MAX => Some((t, e)),
++            _ => None,
+         }
+     }
+ 
+@@ -482,7 +535,14 @@ impl Universe {
+         self.key_of(e).map(|(t, _)| t.saturating_add(self.light_distance(e)))
+     }
+ 
++    /// Freeze the entity's next event's root image (its own item just resolved; the committed state
++    /// is what every schedule reads), then place its light-delayed deadline — the schedule, which
++    /// never reaches an outcome.
+     fn requeue(&mut self, e: usize) {
++        if e >= self.root_key.len() {
++            self.root_key.resize(e + 1, Tick::MAX);
++        }
++        self.root_key[e] = self.compute_key(e).unwrap_or(Tick::MAX);
+         let d = self.deadline_of(e);
+         if let Some(q) = self.queue.as_mut() {
+             let _ = q.set(e, d.map(Scalar::integer));
+@@ -528,6 +588,12 @@ impl Universe {
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
++        // The record changed: its next event's root image changes with it (a pull resolves bodies
++        // outside `resolve_entity`, which would otherwise leave the frozen key stale).
++        if i >= self.root_key.len() {
++            self.root_key.resize(i + 1, Tick::MAX);
++        }
++        self.root_key[i] = self.compute_key(i).unwrap_or(Tick::MAX);
+         if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+             self.pos[i] = p;
+         }
+@@ -567,14 +633,16 @@ impl Universe {
+             // The player's neighbourhood check reads every body of its doll: the members a frame hands out
+             // before the player's tick must exist, so the fleets run to the tick before it (never to it:
+             // a hand-out at the player's own tick comes after the player in the order of ids, and a
+-            // frame never runs past the presented time, which the digest's cut relies on).
++            // frame never runs past the presented time, which the digest's cut relies on). The player's
++            // own clock governs this gate: its doll tick, the frame's and the hand-outs' shared clock.
++            let t_doll = self.bodies.next_time(i).unwrap_or(key.0);
+             for f in 0..self.fleets.len() {
+-                while self.fleets[f].live() && self.fleets[f].tick() < key.0 - 1 {
+-                    self.resolve_fleet(f, key.0 - 1);
++                while self.fleets[f].live() && self.fleets[f].tick() < t_doll - 1 {
++                    self.resolve_fleet(f, t_doll - 1);
+                 }
+             }
+             // ...and so must the members already handed out, each made before the player reads the doll.
+-            while self.handouts.front().is_some_and(|(_, l)| l.tick < key.0) {
++            while self.handouts.front().is_some_and(|(_, l)| l.tick < t_doll) {
+                 self.resolve_handout();
+             }
+             let ships = std::mem::take(&mut self.lanes.ships);
+@@ -897,7 +965,7 @@ impl Universe {
+     fn take_due(&mut self, target: Tick) {
+         let Some(p) = self.player else { return };
+         while let Some(&(t, keys)) = self.pending.front() {
+-            if t > target || self.key_of(p).is_some_and(|k| k.0 <= t) {
++            if t > target || self.bodies.next_time(p).is_some_and(|nt| nt <= t) {
+                 break;
+             }
+             self.pending.pop_front();
+@@ -923,13 +991,13 @@ impl Universe {
+             return Err(Error::Refused("input in the past"));
+         }
+         while let Some(&(pt, pk)) = self.pending.front().filter(|d| d.0 <= t) {
+-            while self.key_of(p).is_some_and(|k| k.0 <= pt) {
++            while self.bodies.next_time(p).is_some_and(|nt| nt <= pt) {
+                 self.resolve_body(p);
+             }
+             self.pending.pop_front();
+             self.take(p, pt, pk);
+         }
+-        while self.key_of(p).is_some_and(|k| k.0 <= t) {
++        while self.bodies.next_time(p).is_some_and(|nt| nt <= t) {
+             self.resolve_body(p);
+         }
+         self.last_decision = t;
+@@ -1070,7 +1138,8 @@ impl Universe {
+         h.finalize().to_hex().to_string()
+     }
+ 
+-    /// The canonical time at which a body's next item is, for tests.
++    /// The canonical time of a body's next item — its image on the root clock ([`Universe::key_of`]) —
++    /// for tests.
+     pub fn horizon_of(&self, i: usize) -> Option<Tick> {
+         self.key_of(i).map(|k| k.0)
+     }
+diff --git a/crates/universe/src/world.rs b/crates/universe/src/world.rs
+index d8a3df8..f836848 100644
+--- a/crates/universe/src/world.rs
++++ b/crates/universe/src/world.rs
+@@ -8,10 +8,14 @@
+ //! every state the doll stores is an integer at an exponent. The mantissa enters only where the
+ //! doll's mass does: the compiled tubes (`crates/space` compiles about a mass of exactly 1, so a tube
+ //! is held in units of `M_D` and read back in the doll's: [`Unit`]), the pulls of the centre's
+-//! secondaries and of the parent, and the lapse of the doll's clock. **One tick is the same physical
+-//! time in every doll**: the clock exponent of `D` is `s`, so the integer tick is the doll's time too
+-//! and a queue of ticks needs no conversion. The doll's far time is the root coordinate time; what a
+-//! clock *reads* (the centre's own redshift and speed) is derived from tubes when looked at.
++//! secondaries and of the parent, and the lapse of the doll's clock. **A doll's events are held in
++//! its doll's clock, and their image on the root clock is the tick plus the doll chain's simultaneity
++//! shears** ([`crate::Ctx::root_offset`]): the tick is the parent's convention at the doll's centre
++//! (the clock exponent of `D` is `s`, so the centre's own events keep their ticks), and an event off
++//! the centre maps by `γ·(w·x)` of each centre's motion — 15–1,400 ticks at the plane's spheres'
++//! edges, zero for the root doll. The queue is keyed by that image (docs/law.md, "Ties": events at
++//! the same root-clock time); what a clock *reads* (the centre's own redshift and speed) is derived
++//! from tubes when looked at.
+ use crate::num::Res;
+ use emergent_space::{
+     events::{Doll as SpaceDoll, LogMass},
+diff --git a/crates/universe/tests/rootkeys.rs b/crates/universe/tests/rootkeys.rs
+new file mode 100644
+index 0000000..693a000
+--- /dev/null
++++ b/crates/universe/tests/rootkeys.rs
+@@ -0,0 +1,150 @@
++//! The root image of every event (the Opus memo §5 step 4; docs/law.md, "Handoffs are Lorentz" and
++//! "Ties"): a body's events are held in its doll's clock, and the queue's key is the event's image on
++//! the root clock through the doll chain's simultaneity shears — never "one tick is the same physical
++//! time in every doll".
++//!
++//! **Frozen before the first run** (the memo's P6, plus the tie it implies):
++//! 1. *P6.* A relativistic doll — a planet crossing the system at 0.5 c — with 1,000 members: at a
++//!    settled state, every member's next event has its queue key equal to the shear image of its doll
++//!    event (recomputed here, independently, in floats from the member's position and the planet's
++//!    velocity: the agreement is the map's rounding, half a tick), and the queue's whole order is the
++//!    same under 1, 4 and 8 threads and two orders of making the members (each member's whole history
++//!    is the same record, as in `ties`).
++//! 2. *The order follows the root clock, not the doll's.* Two members of the same doll, one ahead of
++//!    the planet's motion and one behind it, their plans on the same doll ticks: at a cut between
++//!    their root keys the behind one's item has resolved and the ahead one's has not, though their
++//!    doll ticks are equal. Under the old key (the doll tick) both resolve or neither does; the
++//!    control — a cut below both root keys — resolves neither.
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::{from_f64, s, to_f64};
++use emergent_universe::scenario::STAR_RADIUS;
++use emergent_universe::universe::Universe;
++use emergent_universe::{Config, Kind, OrbitSpec};
++
++/// The planet crosses the system on a hyperbolic passage (a state-made tube): in at 5×10^5 root units
++/// moving at 0.5 c along `+y`, so `sinh η = 0.577` for the whole run (the star's pull changes its
++/// speed by 10^-6 over the cut).
++const BETA: f64 = 0.5;
++/// The doll's mass octave: its unit is `2^-10` root units and its edge (the Hill sphere at the
++/// passage's periapsis separation) is `3.2 × 10^7` doll units wide.
++const MASS_LOG2: i32 = -10;
++const MEMBERS: usize = 1000;
++
++/// The star, the planet at 0.5 c (the doll's centre), and `specs` (angle, phase, periapsis in doll
++/// units), made in `make_order` (the k-th body made has the k-th spec; the ids follow the make
++/// order). Returns the universe and the ids in `specs` order.
++fn scene(specs: &[(u32, u32, i64)], make_order: &[usize]) -> (Universe, usize, Vec<usize>) {
++    let mut u = Universe::new(s(STAR_RADIUS), Config::default());
++    let planet = u
++        .add_body_state(Kind::Planet, 0, [s(500_000), s(0)], [Scalar::ZERO, from_f64(BETA)], Scalar::ZERO)
++        .unwrap();
++    let doll = u.add_doll("fast", planet, MASS_LOG2, Scalar::raw(10, 10).unwrap()).unwrap();
++    let mut ids = vec![0usize; specs.len()];
++    for &k in make_order {
++        let (angle, phase, r) = specs[k];
++        ids[k] = u
++            .add_body(
++                Kind::Ship,
++                OrbitSpec { doll, periapsis: Scalar::raw(r as i128, 0).unwrap(), e_q48: 0, clockwise: false, angle, phase },
++                Scalar::ZERO,
++            )
++            .unwrap();
++    }
++    u.start().unwrap();
++    (u, planet, ids)
++}
++
++/// The shear image of a member's next doll event, recomputed independently: the member's position `x`
++/// at the event's tick (its committed tube) and the planet's velocity `w` then (its committed tube),
++/// both in floats, give `γ·(w·x)` in root ticks — what the queue's integer shear rounds.
++fn image(u: &Universe, planet: usize, i: usize) -> Option<(i64, f64)> {
++    let rec = u.rec(i);
++    let t = rec.plan.first()?.t;
++    let b = u.bodies().binding_at(i, t)?;
++    let (x, _) = b.cartesian(t).ok()?;
++    let to_root = 2f64.powi(-(u.dolls[b.doll as usize].shift as i32));
++    let xr = [to_f64(x[0]) * to_root, to_f64(x[1]) * to_root];
++    let pb = u.bodies().binding_at(planet, t)?;
++    let (_, w) = pb.cartesian(t).ok()?;
++    let w2 = to_f64(w[0]) * to_f64(w[0]) + to_f64(w[1]) * to_f64(w[1]);
++    let g = 1.0 / (1.0 - w2).sqrt();
++    Some((t, g * (to_f64(w[0]) * xr[0] + to_f64(w[1]) * xr[1])))
++}
++
++#[test]
++fn p6_every_events_root_key_is_the_shear_image_of_its_doll_event() {
++    // Members spread over the doll: radii from 2^18 to 2^24 doll units (256 to 16,384 root units, all
++    // well inside the edge), every angle, so the shear's key offsets spread over ±9,000 ticks.
++    let specs: Vec<(u32, u32, i64)> = (0..MEMBERS)
++        .map(|k| {
++            let f = k as f64 / MEMBERS as f64;
++            let r = (1u64 << 18) as f64 * (1.0 + 63.0 * f);
++            ((f * 4294967296.0) as u32, (f * 4294967296.0) as u32, r as i64)
++        })
++        .collect();
++    let straight: Vec<usize> = (0..MEMBERS).collect();
++    let mut reversed = straight.clone();
++    reversed.reverse();
++    let cut = 300_000i64;
++    let mut reference: Option<Vec<String>> = None;
++    for (threads, order) in [(1usize, &straight[..]), (4, &reversed[..]), (8, &straight[..])] {
++        let (mut u, planet, ids) = scene(&specs, order);
++        u.threads = threads;
++        u.settle(cut);
++        assert!(u.stats.events() > MEMBERS as u64, "the members were stepped: {}", u.stats.events());
++        // (a) every member's next event: the key is the doll tick plus the shear image, to the rounding.
++        let (mut worst, mut moved) = (0f64, 0i64);
++        let mut spread = (i64::MAX, i64::MIN);
++        for &i in &ids {
++            let (t, image_ticks) = image(&u, planet, i).expect("a live member with a next item");
++            let key = u.horizon_of(i).expect("a next item");
++            let off = (key - t) as f64 - image_ticks;
++            assert!(off.abs() <= 0.5 + 1e-9, "member {i}: key {key} tick {t} image {image_ticks:.9} (off {off:.6})");
++            worst = worst.max(off.abs());
++            moved += (key != t) as i64;
++            spread = (spread.0.min(key - t), spread.1.max(key - t));
++        }
++        assert!(worst <= 0.5, "the key is the rounded shear image: {worst}");
++        assert!(moved > MEMBERS as i64 / 2, "the shear moves most keys: {moved}");
++        assert!(spread.1 - spread.0 > 100, "the doll's spread is visible: {spread:?}");
++        // (b) the order is one: each member's whole history is the same record under every schedule
++        // and both make orders (the catalogue slot is an allocation, not a history).
++        let records: Vec<String> = ids
++            .iter()
++            .map(|&i| {
++                let rec = u.rec(i);
++                format!("{:?}", rec).replace(&format!("Tube {{ key: {},", rec.b.tube.key), "Tube { key: _,")
++            })
++            .collect();
++        match &reference {
++            None => reference = Some(records),
++            Some(r) => assert_eq!(records, *r, "threads {threads}: a member's history depends on the schedule"),
++        }
++        println!("threads {threads}: {} events, worst image miss {worst:.2e}, key offsets {spread:?}", u.stats.events());
++    }
++}
++
++#[test]
++fn the_order_follows_the_root_clock_not_the_dolls() {
++    // Two members on one circle (2^20 doll units), at periapsis ahead of the planet's motion (angle a
++    // quarter turn: the planet moves along +y) and behind it (three quarters). Their plans share
++    // doll ticks; the ahead one's root key is the later by 2·sinh(η)·r. The old key (the doll tick)
++    // orders them together, so a cut between their root keys resolves both or neither.
++    let specs = [(1u32 << 30, 0u32, 1i64 << 20), (3u32 << 30, 0, 1 << 20)];
++    let (mut u, _planet, ids) = scene(&specs, &[0, 1]);
++    let (ahead, behind) = (ids[0], ids[1]);
++    let first = |u: &Universe, i: usize| u.rec(i).plan.first().map(|p| p.t);
++    let t0 = first(&u, ahead).expect("a planned member");
++    assert_eq!(first(&u, behind), Some(t0), "the two share the doll's ticks");
++    let (ka, kb) = (u.horizon_of(ahead).unwrap(), u.horizon_of(behind).unwrap());
++    assert!(ka > kb && ka - kb > 16, "the shear separates the two keys: {ka} {kb}");
++    u.settle((ka + kb) / 2);
++    // The behind member's first item has resolved; the ahead one's has not, at equal doll ticks.
++    assert!(u.rec(behind).b.event_time >= t0, "behind resolved past its first item: {}", u.rec(behind).b.event_time);
++    assert!(u.rec(ahead).b.event_time < t0, "ahead resolved early: {}", u.rec(ahead).b.event_time);
++    // The control: a cut below both root keys resolves neither member's first item.
++    let (mut v, _, ids2) = scene(&specs, &[0, 1]);
++    let (ka, kb) = (v.horizon_of(ids2[0]).unwrap(), v.horizon_of(ids2[1]).unwrap());
++    v.settle(kb.min(ka) - 1);
++    assert!(v.rec(ids2[0]).b.event_time < t0 && v.rec(ids2[1]).b.event_time < t0, "the control cut resolves neither");
++}

@@ -1,0 +1,9 @@
+Working...
+Patch applies clean to a fresh worktree of main. Everything is verified and in place:
+
+- **Implementation** (`work/patch.diff`, 6 files, +313/−22, applies clean to `main`): `Frame::shear_time` (the boost's own integer coefficient on an event's position — the inverse boost's `t` row with the centre's time dilation anchored away), `Ctx::root_offset` (the doll-chain walk, one rounding), and `Universe` keying the queue by the frozen root image — refreshed in `apply`, because a pull resolves bodies outside `resolve_entity` (a stale frozen key there was the one hang found and fixed).
+- **P6** (`--test rootkeys`, 0.9 s): 1,000 members of a 0.5 c doll — every key equals the independently recomputed shear image to the map's rounding (worst 0.500 tick, offsets −8,314..+6,002), identical histories under 1/4/8 threads and both make orders; the order test resolves the behind member and not the ahead one at equal doll ticks; the identity-key control fails both.
+- **Gates both ways**: B13 detail line bit-identical (60/64, worst 2.12e-2); B17 same machine timeout (60.1→60.0 s); the whole universe suite green before (268 s) and after (247 s), digests changed-but-schedule-invariant as predicted in `predictions.md` (all five predictions held).
+- **The plane measured**: the Moon's key now carries its true simultaneity offset of −25 ticks.
+
+**Claim:** the queue's canonical key is now each event's exact image on the root clock — the doll tick plus the doll chain's integer simultaneity shear, frozen per entity — which deletes "one tick is the same physical time in every doll", orders a 0.5 c doll's 1,000 members correctly (measured to the rounding against an independent reference, ±8,314 ticks of spread, one history under every schedule), moves the real plane's Moon key by its measured −25 ticks, and leaves every gate where it was (B8's suite green, B13 bit-identical, B17 unchanged on a box that times it out either way).
