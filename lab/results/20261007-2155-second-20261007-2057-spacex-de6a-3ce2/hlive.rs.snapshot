@@ -1,0 +1,177 @@
+//! Read-only H_live instrumentation for the dense order (lab run
+//! 20261007-2155-second-20261007-2057-spacex-de6a-3ce2, second author on
+//! 20261007-2057-spacex-de6a). Never read by the law; never changes an outcome or a
+//! digest; off unless a caller turns it on.
+//!
+//! Two event kinds are word-instrumented, each at its one funnel:
+//!
+//! - **Contacts** ([`CONTACT`], in [`crate::law::respond`]): per body of a response, the
+//!   integer deltas of the canonical words (k[0], k[1], residual, carry[0], carry[1]).
+//!   `rev` moves by +1 exactly when k moves, so it carries no bits. The pair count of
+//!   the response is recorded with it.
+//! - **Tide epochs** ([`TIDE`], in `Battle::epoch_kick`): each member's kick `dk` (the
+//!   integer velocity quanta applied) and the delta of its tide carry. The position
+//!   carry's per-epoch accumulation is derived state (a deterministic function of the
+//!   carry and dt), not a distinction, so it is not counted.
+//!
+//! Two rates are defined per kind (the checker's horizon-invariance demand):
+//!
+//! - the **entropy rate**: the empirical conditional entropy of the deltas given
+//!   (kind, body, field) — the first author's protocol, reported at a fixed horizon
+//!   (800 game-s). With every delta distinct this saturates at log2(n), so it moves
+//!   with the run's length; it is a compression prospect, not a rate.
+//! - the **scar-width rate**: events/s x mean bits/event, where a word's bits are
+//!   0 for a zero delta and 1 + floor(log2|d|) otherwise. This is bounded by the
+//!   registers (|k| < q, so |dk| < 2q) and its distribution is physical, not
+//!   sample-count-driven: it is the horizon-invariant number.
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+/// Contact events (word deltas at a response, in `law::respond`).
+pub const CONTACT: u8 = 0;
+/// Tide epoch kicks (in `Battle::epoch_kick`).
+pub const TIDE: u8 = 1;
+pub const KINDS: [&str; 2] = ["contact", "tide_epoch"];
+/// Words per event: k[0], k[1], residual (contacts only), carry[0], carry[1].
+pub const WORDS: [&str; 5] = ["k0", "k1", "residual", "carry0", "carry1"];
+
+#[derive(Default)]
+struct Dense {
+    /// (kind, body, field) → delta → count (non-zero deltas only).
+    hist: HashMap<(u8, u64, u8), HashMap<i64, u64>>,
+    /// (kind, body) → body-events (zero-delta included).
+    events: HashMap<(u8, u64), u64>,
+    /// kind → body-events whose deltas are all zero.
+    zero: [u64; 2],
+    /// kind → contact pairs (kind 0) / epochs (kind 1).
+    calls: [u64; 2],
+    /// (kind, field) → (sum of delta bit-lengths, max, non-zero samples).
+    raw: HashMap<(u8, u8), (u64, u32, u64)>,
+    on: bool,
+}
+
+thread_local! {
+    static D: RefCell<Dense> = RefCell::new(Dense::default());
+}
+
+fn bits(d: i64) -> u32 {
+    if d == 0 { 0 } else { 1 + d.unsigned_abs().ilog2() }
+}
+
+/// Whether anything is recorded (the hooks short-circuit to nothing when off).
+pub fn enabled() -> bool {
+    D.with(|d| d.borrow().on)
+}
+
+
+/// Turn the instrumentation on and drop everything recorded so far.
+pub fn reset() {
+    D.with(|d| *d.borrow_mut() = Dense { on: true, ..Default::default() });
+}
+
+/// Turn it off and drop everything recorded.
+pub fn disable() {
+    D.with(|d| *d.borrow_mut() = Dense::default());
+}
+
+/// One body's deltas for one event of `kind` (a response's body, an epoch's member).
+pub fn note(kind: u8, body: u64, delta: [i64; 5]) {
+    D.with(|d| {
+        let d = &mut *d.borrow_mut();
+        if !d.on {
+            return;
+        }
+        let mut all_zero = true;
+        for (f, &v) in delta.iter().enumerate() {
+            if v != 0 {
+                all_zero = false;
+                let e = d.raw.entry((kind, f as u8)).or_insert((0, 0, 0));
+                let b = bits(v);
+                e.0 += b as u64;
+                e.1 = e.1.max(b);
+                e.2 += 1;
+                *d.hist.entry((kind, body, f as u8)).or_default().entry(v).or_insert(0) += 1;
+            }
+        }
+        *d.events.entry((kind, body)).or_insert(0) += 1;
+        if all_zero {
+            d.zero[kind as usize] += 1;
+        }
+    });
+}
+
+/// One call of a kind: a response (its pair count) or an epoch.
+pub fn call(kind: u8, count: u64) {
+    D.with(|d| {
+        let d = &mut *d.borrow_mut();
+        if d.on {
+            d.calls[kind as usize] += count;
+        }
+    });
+}
+
+/// One word's columns.
+pub struct Word {
+    pub name: &'static str,
+    /// Entropy bits per body-event (weighted by each body's event count).
+    pub entropy_bits_per_event: f64,
+    /// Mean scar bits per body-event (zeros free).
+    pub mean_bits: f64,
+    pub max_bits: u32,
+    /// Distinct values seen / non-zero deltas recorded (saturation evidence).
+    pub distinct: u64,
+    pub samples: u64,
+}
+
+/// One row of the report: a kind.
+pub struct Row {
+    pub kind: &'static str,
+    pub body_events: u64,
+    /// Contact pairs (kind 0) or epochs (kind 1).
+    pub calls: u64,
+    pub zero_delta: u64,
+    pub entropy_bits_per_event: f64,
+    pub scar_bits_per_event: f64,
+    pub words: [Word; 5],
+}
+
+/// The report (does not reset; call [`reset`] to start a fresh window).
+pub fn summary() -> Vec<Row> {
+    D.with(|d| {
+        let d = d.borrow();
+        (0..KINDS.len())
+            .filter_map(|k| {
+                let n: u64 = d.events.iter().filter(|((ek, _), _)| *ek as usize == k).map(|(_, &c)| c).sum();
+                if n == 0 && d.calls[k] == 0 {
+                    return None;
+                }
+                let mut entropy = 0.0f64;
+                let mut words = WORDS.map(|w| Word { name: w, entropy_bits_per_event: 0.0, mean_bits: 0.0, max_bits: 0, distinct: 0, samples: 0 });
+                for ((ek, b, f), h) in &d.hist {
+                    if *ek as usize != k {
+                        continue;
+                    }
+                    let n_b = d.events.get(&(*ek, *b)).copied().unwrap_or(0) as f64;
+                    let total: u64 = h.values().sum();
+                    let e: f64 = h.values().map(|&c| { let p = c as f64 / total as f64; -p * p.log2() }).sum();
+                    // The first author's protocol: weight each body's conditional entropy by its share of the kind's events.
+                    entropy += e * n_b / n.max(1) as f64;
+                    words[*f as usize].entropy_bits_per_event += e * n_b / n.max(1) as f64;
+                    words[*f as usize].distinct += h.len() as u64;
+                }
+                let mut scar = 0.0f64;
+                for ((ek, f), (sum, max, nz)) in &d.raw {
+                    if *ek as usize != k {
+                        continue;
+                    }
+                    let s = *sum as f64 / n.max(1) as f64;
+                    scar += s;
+                    words[*f as usize].mean_bits = s;
+                    words[*f as usize].max_bits = words[*f as usize].max_bits.max(*max);
+                    words[*f as usize].samples = *nz;
+                }
+                Some(Row { kind: KINDS[k], body_events: n, calls: d.calls[k], zero_delta: d.zero[k], entropy_bits_per_event: entropy, scar_bits_per_event: scar, words })
+            })
+            .collect()
+    })
+}
