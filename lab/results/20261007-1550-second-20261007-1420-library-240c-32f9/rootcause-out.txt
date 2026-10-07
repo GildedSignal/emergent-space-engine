@@ -1,0 +1,31 @@
+synthetic bounded-chaotic (prev run's class) lag  1: autocorr min -0.030 median +0.022 max +0.044
+synthetic bounded-chaotic (prev run's class) lag  8: autocorr min -0.051 median -0.005 max +0.029
+synthetic bounded-chaotic (prev run's class) lag 64: autocorr min -0.032 median -0.007 max +0.041
+
+planted-bounded (real, state-function)       lag  1: autocorr min +0.260 median +0.979 max +0.999
+planted-bounded (real, state-function)       lag  8: autocorr min +0.202 median +0.941 max +0.990
+planted-bounded (real, state-function)       lag 64: autocorr min -0.004 median +0.643 max +0.915
+
+scaled1e-11 (real, smooth bounded)           lag  1: autocorr min +0.155 median +0.746 max +0.937
+scaled1e-11 (real, smooth bounded)           lag  8: autocorr min -0.534 median -0.056 max +0.220
+scaled1e-11 (real, smooth bounded)           lag 64: autocorr min -0.096 median +0.121 max +0.389
+
+planted-compound (real leak)                 lag  1: autocorr min +0.986 median +0.995 max +1.000
+planted-compound (real leak)                 lag  8: autocorr min +0.885 median +0.961 max +0.997
+planted-compound (real leak)                 lag 64: autocorr min +0.082 median +0.741 max +0.963
+
+ship  scaled1e-11  planted-bounded  planted-compound  leak-per-period   (Allan slope, ship by ship)
+   0       -0.312           -0.113             0.505             0.037 <-- leak reads bounded
+   1       -0.086            0.285             0.284             0.071 <-- bounded reads leak <-- leak reads bounded
+   2       -0.094            0.253             0.364             0.077 <-- bounded reads leak <-- leak reads bounded
+   3       -0.022            0.202             0.441             0.230 <-- bounded reads leak
+   4       -0.074            0.445             0.461             0.091 <-- bounded reads leak <-- leak reads bounded
+   5        0.132            0.346             0.073             0.116 <-- bounded reads leak
+   6       -0.223            0.106             0.444             0.185 <-- bounded reads leak
+   7       -0.043            0.352             0.370             0.111 <-- bounded reads leak
+   8       -0.143           -0.041             0.418             0.092 <-- leak reads bounded
+   9       -0.027            0.586            -0.188             0.074 <-- bounded reads leak <-- leak reads bounded
+  10       -0.172            0.428             0.757             0.046 <-- bounded reads leak <-- leak reads bounded
+  11       -0.006            0.217             0.335             0.104 <-- bounded reads leak
+  12       -0.072            0.382             0.366             0.150 <-- bounded reads leak
+  13        0.056            0.297             0.209             0.214 <-- bounded reads leak

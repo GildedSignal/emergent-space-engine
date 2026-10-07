@@ -1,0 +1,34 @@
+=== the matrix: real series, worst-seed verdict (theta=0.10, floor=1e-12) ===
+law                judged lost slope min  median     max     exp min..max  verdict
+----------------------------------------------------------------------------------------------------
+echo                    0    0        --      --      --  PASS (all under floor: not judged)
+  (echo slopes                    -0.680  -0.530  -0.375                   not judged: under floor
+scaled1e_11            14    0    -0.312  -0.073   0.132  -0.519..0.623    LEAK->FAIL
+planted_bounded        14    0    -0.113   0.291   0.586  -0.067..1.471    LEAK->FAIL
+planted_compound       14    0    -0.188   0.368   0.757  -0.107..1.654    LEAK->FAIL
+planted_drift          14    0     0.308   0.594   0.978  -0.235..3.946    LEAK->FAIL
+leak_per_period        14    0     0.037   0.098   0.230   0.500..1.638    LEAK->FAIL
+plane                   6    8    -0.766  -0.360  -0.037  -0.083..0.744    FAIL (loses 8 ships: no answer); answered ships: bounded
+
+dead band: bounded max 0.586  leak min -0.188  gap -0.774
+P2 per-seed: exponent inversions (bounded>compound) 98/196 ; Allan inversions 71/196
+
+=== adversarials at N=1601 (theta=0.10) ===
+sine 1 period(s)/scene: slope min 0.916 median 0.931 max 0.945 -> false leaks 16/16
+sine 2 period(s)/scene: slope min 0.700 median 0.705 max 0.723 -> false leaks 16/16
+sine 3 period(s)/scene: slope min -0.082 median -0.075 max -0.063 -> false leaks  0/16
+sine 4 period(s)/scene: slope min 0.306 median 0.308 max 0.312 -> false leaks 16/16
+sine 8 period(s)/scene: slope min -0.066 median -0.065 max -0.064 -> false leaks  0/16
+AR(1) rho=0.90 (std 1e-9): slope min -0.430 median -0.282 max -0.184 -> flagged leak  0/16
+AR(1) rho=0.99 (std 1e-9): slope min -0.066 median 0.216 max 0.334 -> flagged leak 13/16
+
+min-detectable-leak ladder (leak-rw added to the 14 real scaled1e-11 series; end magnitude / floor):
+  k= 0.5 (median end 0.29 x floor): flagged  16/224  min slope -0.554
+  k= 1.0 (median end 0.59 x floor): flagged  22/224  min slope -0.355
+  k= 2.0 (median end 1.18 x floor): flagged  47/224  min slope -0.439
+  k= 3.0 (median end 1.77 x floor): flagged  84/224  min slope -0.343
+  k= 4.0 (median end 2.36 x floor): flagged 120/224  min slope -0.273
+  k= 8.0 (median end 4.72 x floor): flagged 185/224  min slope -0.187
+  k=16.0 (median end 9.43 x floor): flagged 213/224  min slope 0.017
+
+N check: gate N=1601 >= 256 (previous run: per-seed misses only below N=256)

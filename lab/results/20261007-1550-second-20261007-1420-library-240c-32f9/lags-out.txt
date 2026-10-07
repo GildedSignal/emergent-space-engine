@@ -1,0 +1,35 @@
+lags [2, 4, 8, 16, 32]
+  scaled1e_11        bounded min -0.657 med -0.461 max -0.325
+  planted_bounded    bounded min -0.242 med +0.383 max +0.515
+  planted_compound   leak    min +0.422 med +0.457 max +0.530
+  planted_drift      leak    min +0.349 med +0.537 max +0.784
+  leak_per_period    leak    min -0.746 med -0.471 max -0.222
+  -> bounded max +0.515  leak min -0.746  gap -1.262
+lags [2, 4, 8]
+  scaled1e_11        bounded min -0.983 med -0.041 max +0.333
+  planted_bounded    bounded min -0.366 med +0.305 max +0.530
+  planted_compound   leak    min +0.441 med +0.460 max +0.463
+  planted_drift      leak    min +0.319 med +0.463 max +0.595
+  leak_per_period    leak    min -1.161 med +0.236 max +0.441
+  -> bounded max +0.530  leak min -1.161  gap -1.691
+lags [4, 8, 16, 32, 64, 128, 256, 512]
+  scaled1e_11        bounded min -0.339 med -0.143 max +0.045
+  planted_bounded    bounded min -0.128 med +0.308 max +0.570
+  planted_compound   leak    min -0.070 med +0.383 max +0.720
+  planted_drift      leak    min +0.349 med +0.595 max +0.951
+  leak_per_period    leak    min -0.075 med +0.001 max +0.146
+  -> bounded max +0.570  leak min -0.075  gap -0.645
+lags [16, 32, 64, 128, 256]
+  scaled1e_11        bounded min -0.183 med +0.020 max +0.440
+  planted_bounded    bounded min -0.089 med +0.343 max +0.614
+  planted_compound   leak    min -0.176 med +0.392 max +0.781
+  planted_drift      leak    min +0.406 med +0.616 max +0.986
+  leak_per_period    leak    min +0.035 med +0.226 max +0.516
+  -> bounded max +0.614  leak min -0.176  gap -0.790
+lags [8, 16, 32, 64, 128, 256, 512]
+  scaled1e_11        bounded min -0.312 med -0.073 max +0.132
+  planted_bounded    bounded min -0.113 med +0.291 max +0.586
+  planted_compound   leak    min -0.188 med +0.368 max +0.757
+  planted_drift      leak    min +0.308 med +0.594 max +0.978
+  leak_per_period    leak    min +0.037 med +0.098 max +0.230
+  -> bounded max +0.586  leak min -0.188  gap -0.774

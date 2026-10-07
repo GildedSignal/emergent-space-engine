@@ -1,0 +1,13 @@
+[package]
+name = "b12dump"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+emergent-universe = { path = "../../../../crates/universe" }
+emergent-space = { path = "../../../../crates/space" }
+
+[profile.release]
+debug = false
