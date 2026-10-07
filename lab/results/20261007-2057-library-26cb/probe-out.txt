@@ -1,0 +1,20 @@
+== control: LL forced-e vs asymptotic (5/4)*alpha*eJ == 0.0540 (expect ~0.05 at alpha~0.5: higher-order alpha terms)
+belt secular L-key changes/orbit/body [16+16]: 2.716e-01; step entropy 2.16 bits
+belt secular L-key changes/orbit/body [8+8]: 1.489e-03; step entropy 0.95 bits
+belt E-key: conjunctions/orbit 0.624; min conjunction gap 0.92 AU vs tidal radius ~0.18 AU; resolved-encounter bodies: 0
+belt E-key naive uncapped impulse would claim 616 bins/orbit: artifact of the two-body formula beyond the tidal radius
+== control: muJ=0 L-key changes (must be 0.0): 0.0 ==
+
+BELT total key-change events/orbit/body: 16+16: 2.716e-01  8+8: 1.489e-03
+bits/orbit/body (16+16, h(r)+rH(step)): 1.430
+bits/s/body: 1.021e-08
+HOT kappa=0.1/orbit: 2.586e-05 bits/s/body; x1e6 bodies = 3.2 B/s
+HOT kappa=1.0/orbit: 2.586e-04 bits/s/body; x1e6 bodies = 32.3 B/s
+HOT kappa=4.0/orbit: 1.034e-03 bits/s/body; x1e6 bodies = 129.3 B/s
+
+== derived budget arithmetic ==
+1e9 belt bodies: 1.276e+00 B/s -> 4.594e-02 GB per 100 play-hr (RTF100)
+f_hot=1e-06 (kappa=1): 3.233e-02 B/s -> 0.00 GB per 100 play-hr
+f_hot=1e-05 (kappa=1): 3.233e-01 B/s -> 0.01 GB per 100 play-hr
+f_hot=1e-04 (kappa=1): 3.233e+00 B/s -> 0.12 GB per 100 play-hr
+f_hot=1e-03 (kappa=1): 3.233e+01 B/s -> 1.16 GB per 100 play-hr
