@@ -1,0 +1,29 @@
+Grade: silver
+
+Abstract: The slack skin is real and now lives in `crates/encounters` (649-line `skin.rs` + bin), additive to the engine path (`sections` → `sections_pad(0.0)`; verify a/b/c byte-identical before/after). Reproduced in a clean tree: 0 missed / 0 false against the independent Halley/conservative-advancement truth on belt ε 1e-8/1e-6/1e-4, ring, fleet, and my adversarial cases (fresh seeds, κ=1.0, ε=1e-2, ring 1e-6); killing terms 3b+6 makes `exact_at_kick_eps_1e4` fail. Setups/kick 142.3→17.1 (8.3×) at the plane's kick size. But total evals/kick rise 1.5× there (4468 vs 2921) and wall gains are ~1.2–1.6×: the 8.3× is a counter, not yet a measured compute cut on the plane. Adoption: one module.
+
+Reasons:
+
+1. **Reproduction (clean tree, patch applied).** All deterministic counters match the stored raw bit-for-bit for belt 1e-6 (0/0 of 63; 17.09 setups/kick), belt 1e-8 (0/0 of 74), belt 1e-4 s16 (0/0; 32.87, sat 0.48, false_cand 0.1003), ring 1e-4 (0/0 of 851; 52.28), fleet 1e-6 (0/0 of 1232; 73.92, false_cand 0.6535). `cargo test -p emergent-encounters`: 7 passed, ~12–16 s. `encounters verify a|b|c` identical to the stored after-files, and baseline==after.
+
+2. **One stale raw file.** `work/belt1e-4.out` and `results.jsonl` line 2–3 record `"missed":1` with a `fresh_finds` diag that the shipped bin cannot print alone (its code always emits `at_miss`+`lib` first) — a pre-final binary. Regenerated, `$T/skin belt 1e-4 0.3 4` gives **0/0 of 73**, setups 54.16, sat 0.05, evals 7160: the dossier's headline holds, but its 54.2 appears in no stored raw, and the stored raw contradicts the claim. Every other number regenerates; this is a record-keeping fault on one case, not fabrication (the shipped code reproduces the claim), but it is exactly the record failure the taste log punishes.
+
+3. **Falsifiability verified both ways.** With term 3b (`raw = 0`) and term 6 (`if false && …`) compiled out, `exact_at_kick_eps_1e4` panics ("skin missed/false events"); restored, 7/7 pass. The two new terms are load-bearing, and the tests defend the contract, not the source.
+
+4. **Adversarial cases (mine).** Fresh seeds (777 at 1e-4: 0/0 of 75; 31337 at 1e-6: 0/0 of 74, 8.2×) — not overfit to the fixed seed. κ=1.0 at 1e-4 (3.3× the kick rate the lens named as untested): 0/0 of 66, 3.4× setups cut. ε=1e-2, 100× beyond the named range: still 0/0 of 67 (economics collapse to 1.13×, as the drift trigger fires 79×/kick — the boundary behaves as designed). Ring at 1e-6 (untested combo): 0/0 of 817, and here total evals *drop* 1.44× (51181→35577) with wall 16.1→10.9 s. The evals inversion is belt-specific (padded-cone rescan churn, `setup_new` 13.76/kick), not universal.
+
+5. **Predictions.** `predictions.md` predates the decisive sweep (file times 21 m vs 2 m before session end) and declares its tuned case. Exactness predictions all held; two economic ones failed and the dossier reports them honestly (belt 1e-8 setups <5 → 17.1; checks ≤ always → 1.08 vs 0.78). The pre-registered falsifiers (miss at ε ≤ 1e-6; setups within 3× of always) did not trigger.
+
+6. **Novelty.** The skin is the integrator's own named lever (board focus line 3; components-4643 gold: "the slack skin (12.6×) stays the lever; nothing to build"; q-skin 20261002-0539 silver had 29 misses at ε=1e-4 and no rule). This is the directed build of it; the crossing-longitude drift (3b) and the empty-certificate re-proof (6), plus the width *inversion* replacing q-skin's pad, are new and correct q-skin's misdiagnosis. Not a redo of any H entry.
+
+7. **Why silver, not gold.** The gold bar needs the bottleneck moved 10× or a premise killed. The measured movement at the plane's kick size on the belt is 8.3× on the *setups counter*, while total evals/kick go **up** 1.5× (4468 vs 2921) and wall improves only ~1.2–1.6× on a shared runner; the dossier discloses the evals inversion only at ε=1e-4, not at 1e-6. Under principle 27 ("the goal, never a proxy"), setups/kick in a synthetic belt harness is edging toward a proxy for the plane's p99; the run's own numbers show the deferral currently converts setup work into check work at a loss on the belt (skin-mode setups cost ~12× more evals each: padded arcs plus 100·TAU horizon queries). Combined with the stale raw on the headline case, gold is not earned on the record or on the measured gain.
+
+The one experiment that would make it gold: measure the skin on the compute the plane actually pays — steady-state total evals and p95/p99 wall per kick on the plane's own kick pattern (or the N=10⁴ belt), including the certificate store's memory — showing total work, not the setups counter, down by the bar; or delete the belt's rescan churn (the 13.76 `setup_new`/kick at the padded-cone edge) so the setups cut converts into an evals cut. Regenerate `work/belt1e-4.out` and `results.jsonl` from the shipped code in the same run.
+
+What the author missed:
+
+- The evals/kick inversion at ε=1e-6 (4468 vs always's 2921) is in the raw but unremarked; only the 1e-4 case is conceded. The ring shows the belt's churn is the culprit — worth naming as the skin's own next term rather than deferring wholesale to the co-orbital certificate.
+- Dossier says "two additive fields on `Section`"; the patch adds one (`kscale`). The other is `sections_pad`'s parameter.
+- The exactness argument mixes current and stored periods in the saturation test (`pi` from the live body vs windows in stored ticks) — conservative in practice, held by the tests, but the module is honest that it is derivation-plus-constants, not a proof.
+- Certificate memory (≈99 k certs at N=1500) and N > 1500 unmeasured — the author flags these; they bind adoption at the 10⁹ scale (bottleneck 5).
+- Cloud wall times on a shared runner under load (my belt runs varied 13–60 s for identical counters); only the deterministic counters and orders of magnitude should be read.

@@ -1,0 +1,1038 @@
+diff --git a/crates/encounters/src/bin/skin.rs b/crates/encounters/src/bin/skin.rs
+new file mode 100644
+index 0000000..63cb35c
+--- /dev/null
++++ b/crates/encounters/src/bin/skin.rs
+@@ -0,0 +1,301 @@
++//! The slack-skin measurements (each run ≤ 60 s): `sweep <case> <eps> <kappa> [s_frac]`.
++//!
++//! Per segment: kicks, then each mode's events, then the independent truth (phase-reanchored
++//! copies, conservative advancement over every radially overlapping pair — r8's truth
++//! construction, dense in time), then the matchup. One JSON object per line.
++
++use emergent_encounters::belt::{make_belt, Rng, Spec};
++use emergent_encounters::kepler::{Body, TICKS};
++use emergent_encounters::kepler::rel;
++use emergent_encounters::pairs::{eps_u, norm, radial_pairs};
++use emergent_encounters::skin::{Mode, Skin, SEG};
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++/// Match tolerance in time units (the crate's verify uses 1e-3).
++const TOL: f64 = 1e-3;
++/// r8 v4's dip quantum: a minimum below ρ is an encounter only if the distance rises by at
++/// least δ = 1e-6·ρ on both flanks (h at 1e-5 time units resolves real minima with dip
++/// ~(v·h)²/2d >> δ while sub-δ terraces drop out).
++const DIP: f64 = 1e-6;
++
++fn schedule(n: usize, segments: usize, kappa: f64, eps: f64, seed: u64) -> Vec<Vec<(usize, f64)>> {
++    let mut r = Rng(seed);
++    let whole = kappa.floor() as usize;
++    let frac = kappa - kappa.floor();
++    (0..segments)
++        .map(|_| {
++            let mut v = Vec::new();
++            for i in 0..n {
++                let mut count = whole + (r.f64() < frac) as usize;
++                while count > 0 {
++                    count -= 1;
++                    let sign = if r.f64() < 0.5 { -1.0 } else { 1.0 };
++                    v.push((i, eps * sign));
++                }
++            }
++            v
++        })
++        .collect()
++}
++
++fn make_case(name: &str, seed: u64) -> (Vec<Body>, f64, f64) {
++    let (sp, orbits) = match name {
++        "belt" => (
++            Spec { name: "belt".into(), n: 1500, sigma_e: 1e-2, rho: 1e-4, a_lo: 1.0, a_hi: 1.5, keys: 0, seed, orbits: 0.0 },
++            16.0,
++        ),
++        "ring" => (
++            Spec { name: "ring".into(), n: 300, sigma_e: 0.025, rho: 3e-3, a_lo: 1.0, a_hi: 1.0025, keys: 0, seed, orbits: 10.0 },
++            10.0,
++        ),
++        "fleet" => {
++            let mut r = Rng(seed);
++            let bodies = (0..400)
++                .map(|_| {
++                    let a = 1.0 + 0.01 * r.f64();
++                    let e = (3e-4 * (-2.0 * (1.0 - r.f64()).ln()).sqrt()).min(0.5);
++                    let pom = 0.2 * (r.f64() - 0.5) * TAU;
++                    let lam = 0.1 * (r.f64() - 0.5) * TAU;
++                    Body::new(a, e, pom, lam)
++                })
++                .collect();
++            return (bodies, 1e-3, 10.0);
++        }
++        _ => panic!("unknown case (belt|ring|fleet)"),
++    };
++    (make_belt(&sp), sp.rho, orbits)
++}
++
++fn median_eps_u(b: &[Body], rho: f64) -> f64 {
++    let mut v: Vec<f64> = b.iter().map(|x| eps_u(x, x, rho)).collect();
++    v.sort_by(|a, c| a.total_cmp(c));
++    v[v.len() / 2]
++}
++
++/// r8 v4's dip quantum. Unused here: this harness matches at TOL = 1e-3 time units (the
++/// crate's `verify` convention), which already merges what a dip-quantum split would separate;
++/// the fixed-h flank test instead drops the ring's real slow encounters (rise ~ (v h)²/2d).
++#[allow(dead_code)]
++fn dip_filter(bi: &Body, bj: &Body, rho: f64, ev: &[(f64, f64)]) -> Vec<(f64, f64)> {
++    ev.iter()
++        .filter(|&&(t, d)| {
++            let h = 1e-5;
++            let (ra, _, _) = rel(bi, bj, t - h, true);
++            let (rb, _, _) = rel(bi, bj, t + h, true);
++            let rise = (norm(ra) - d).min(norm(rb) - d);
++            rise >= DIP * rho || rise <= 0.0
++        })
++        .copied()
++        .collect()
++}
++
++/// Independent dense truth for one segment: phase-reanchored copies, conservative advancement
++/// over every radially overlapping pair (r8's construction).
++fn segment_truth(b: &[Body], rho: f64, t_a: f64, out: &mut Vec<(u32, u32, f64, f64)>) {
++    let shifted: Vec<Body> = b
++        .iter()
++        .map(|x| {
++            let lam = x.mean_anomaly(t_a) + x.pom;
++            Body::new(x.a, x.e, x.pom, lam)
++        })
++        .collect();
++    let pairs = radial_pairs(&shifted, rho);
++    let mut st = TruthStats::default();
++    for &(i, j) in &pairs {
++        let mut v = Vec::new();
++        truth_pair(&shifted[i as usize], &shifted[j as usize], rho, SEG, &mut v, &mut st);
++        for &(t, d) in &v {
++            out.push((i, j, t + t_a, d));
++        }
++    }
++}
++
++/// Per (segment, pair) matchup: (missed, false, truth_n) plus details of the first misses.
++fn compare(
++    truth: &[(usize, u32, u32, f64, f64)],
++    other: &[(usize, u32, u32, f64, f64)],
++) -> (u64, u64, u64, Vec<(usize, u32, u32, f64)>) {
++    let mut by_pair: std::collections::HashMap<(usize, u32, u32), Vec<f64>> = std::collections::HashMap::new();
++    for &(sg, i, j, t, _) in other {
++        by_pair.entry((sg, i, j)).or_default().push(t);
++    }
++    let mut tby: std::collections::HashMap<(usize, u32, u32), Vec<f64>> = std::collections::HashMap::new();
++    for &(sg, i, j, t, _) in truth {
++        tby.entry((sg, i, j)).or_default().push(t);
++    }
++    let mut missed = 0u64;
++    let mut det = Vec::new();
++    for &(sg, i, j, t, _) in truth {
++        if !by_pair.get(&(sg, i, j)).is_some_and(|v| v.iter().any(|&x| (x - t).abs() < TOL)) {
++            missed += 1;
++            if det.len() < 8 {
++                det.push((sg, i, j, t));
++            }
++        }
++    }
++    let mut false_ = 0u64;
++    for &(sg, i, j, t, _) in other {
++        if !tby.get(&(sg, i, j)).is_some_and(|v| v.iter().any(|&x| (x - t).abs() < TOL)) {
++            false_ += 1;
++        }
++    }
++    (missed, false_, truth.len() as u64, det)
++}
++
++struct RunResult {
++    events: Vec<(usize, u32, u32, f64, f64)>,
++    c: emergent_encounters::skin::Counters,
++    wall: f64,
++}
++
++fn run(
++    bodies: &[Body],
++    rho: f64,
++    orbits: f64,
++    mode: Mode,
++    s: f64,
++    eps: f64,
++    kappa: f64,
++    seed: u64,
++) -> RunResult {
++    let segments = (orbits * TAU / SEG).round() as usize;
++    let sched = schedule(bodies.len(), segments, kappa, eps, seed);
++    let mut w = Skin::new(bodies.to_vec(), rho, s, mode);
++    let reach_extra = 4.0 * eps * (kappa + 1.0);
++    let wall = Instant::now();
++    w.initial_scan();
++    let mut all_events = Vec::new();
++    for (sg, seg_kicks) in sched.iter().enumerate() {
++        let t_a = sg as f64 * SEG;
++        let mut ev = Vec::new();
++        w.advance(t_a, t_a + SEG, seg_kicks, reach_extra, &mut ev);
++        for &(i, j, t, d) in &ev {
++            all_events.push((sg, i, j, t, d));
++        }
++    }
++    RunResult { events: all_events, c: w.c, wall: wall.elapsed().as_secs_f64() }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    // sweep <case> <eps> <kappa> [s_frac]
++    let case = args[1].clone();
++    let eps: f64 = args[2].parse().unwrap();
++    let kappa: f64 = args[3].parse().unwrap();
++    let s_frac: f64 = args.get(4).map(|x| x.parse().unwrap()).unwrap_or(4.0);
++    let seed = 20261006u64;
++    let (bodies, rho, orbits) = make_case(&case, seed);
++    let s = s_frac * median_eps_u(&bodies, rho);
++    let segments = (orbits * TAU / SEG).round() as usize;
++    let sched = schedule(bodies.len(), segments, kappa, eps, seed);
++
++    // The truth, once, driven by the same kick schedule; events tagged with their segment.
++    let t0 = Instant::now();
++    let mut truth: Vec<(usize, u32, u32, f64, f64)> = Vec::new();
++    let mut cur = bodies.clone();
++    for (sg, seg_kicks) in sched.iter().enumerate() {
++        let t_a = sg as f64 * SEG;
++        for &(i, frac) in seg_kicks {
++            let old = cur[i];
++            let lam = old.mean_anomaly(t_a) + old.pom;
++            let a_new = old.a * (1.0 + frac);
++            let n_new = a_new.powf(-1.5);
++            cur[i] = Body::new(a_new, old.e, old.pom, lam - n_new * t_a);
++        }
++        let mut seg_ev = Vec::new();
++        segment_truth(&cur, rho, t_a, &mut seg_ev);
++        for &(i, j, t, d) in &seg_ev {
++            truth.push((sg, i, j, t, d));
++        }
++    }
++    let truth_s = t0.elapsed().as_secs_f64();
++
++
++    let kicks_total: u64 = sched.iter().map(|v| v.len() as u64).sum();
++    for (mode, s_val) in [(Mode::Always, 0.0), (Mode::Skin, s)] {
++        let r = run(&bodies, rho, orbits, mode, s_val, eps, kappa, seed);
++        let (missed, false_e, truth_n, det) = compare(&truth, &r.events);
++        let c = &r.c;
++        let kf = c.kicks.max(1) as f64;
++        println!(
++            "{{\"case\":\"{}\",\"mode\":\"{}\",\"eps\":{:.0e},\"kappa\":{},\"s_frac\":{},\"s\":{:.3e},\"kicks\":{},\"truth_n\":{},\"missed\":{},\"false\":{},\
++\"seg_events\":{},\"setups_per_kick\":{:.2},\"setup_new\":{:.2},\"trig\":{:.2},\"sat\":{:.2},\"tang\":{:.2},\"scans_per_kick\":{:.4},\"cone_per_kick\":{:.2},\
++\"checks_per_kick\":{:.2},\"evals_per_kick\":{:.0},\"false_cand_frac\":{:.4},\"wall_s\":{:.1}}}",
++            case,
++            if mode == Mode::Always { "always" } else { "skin" },
++            eps,
++            kappa,
++            s_frac,
++            s_val,
++            c.kicks,
++            truth_n,
++            missed,
++            false_e,
++            r.events.len(),
++            c.setups as f64 / kf,
++            c.setup_new as f64 / kf,
++            c.trig_resets as f64 / kf,
++            c.sat_resets as f64 / kf,
++            c.tangency_resets as f64 / kf,
++            c.scans as f64 / kf,
++            c.cone_tests as f64 / kf,
++            c.st.checks_total() as f64 / kf,
++            c.st.evals as f64 / kf,
++            c.false_cand as f64 / c.cert_samples.max(1) as f64,
++            r.wall
++        );
++        if missed > 0 && mode == Mode::Skin {
++            // Diagnose the first miss per segment: was the encounter's offset outside the
++            // widened window, or inside it (then the check interval is the culprit)?
++            let mut skin_w = Skin::new(bodies.to_vec(), rho, s, Mode::Skin);
++            let rex = 4.0 * eps * (kappa + 1.0);
++            skin_w.initial_scan();
++            for (sg, seg_kicks) in sched.iter().enumerate() {
++                let t_a = sg as f64 * SEG;
++                let mut ev = Vec::new();
++                skin_w.advance(t_a, t_a + SEG, seg_kicks, rex, &mut ev);
++                for &(msg, i, j, t_true) in &det {
++                    if msg != sg {
++                        continue;
++                    }
++                    println!("{{\"diag\":\"at_miss\",\"seg\":{},\"i\":{},\"j\":{},\"t_true\":{:.4},\"n_certs\":{},\"has\":{}}}", msg, i, j, t_true, skin_w.certs.len(), skin_w.certs.contains_key(&(i.min(j), j.max(i))));
++                    let bi = skin_w.b[i as usize];
++                    let bj = skin_w.b[j as usize];
++                    let cert = match skin_w.certs.get(&(i.min(j), j.max(i))) {
++                        Some(c) => c,
++                        None => {
++                            println!("{{\"diag\":\"no cert at miss\"}}");
++                            continue;
++                        }
++                    };
++                    // The library's own widened sections, against the true offset.
++                    let widened = skin_w.widened(cert, i.min(j), j.max(i), t_a + SEG);
++                    let tt = t_true * TICKS;
++                    for (si, sec) in cert.secs.iter().enumerate() {
++                        let pj = bj.period as f64;
++                        let pi = bi.period as f64;
++                        let tp_j = sec.tj as f64 + ((tt - sec.tj as f64) / pj).round() * pj;
++                        let tp_i = sec.ti as f64 + ((tt - sec.ti as f64) / pi).round() * pi;
++                        let s_star = tp_i - tp_j;
++                        let drift = (skin_w.dbin[i as usize] - cert.b0[0]) + (skin_w.dbin[j as usize] - cert.b0[1]);
++                        let wl = match &widened { Some(v) => (v[si].w1, v[si].w2), None => (-1, -1) };
++                        println!(
++                            "{{\"diag\":\"lib\",\"seg\":{},\"i\":{},\"j\":{},\"kind\":\"{}\",\"s_star_ticks\":{:.3e},\"stored_w\":[{},{}],\"drift\":{:.2e},\"g\":{:.2e},\"q\":{:.2e},\"caps\":[{:.2e},{:.2e},{:.2e},{:.2e}],\"widened_ok\":{},\"w_lib\":[{},{}]",
++                            sg, i, j, emergent_encounters::method::kind_name(sec.kind), s_star, sec.w1, sec.w2,
++                            drift, cert.g, cert.q, sec.di.0, sec.di.1, sec.dj.0, sec.dj.1, widened.is_some(), wl.0, wl.1
++                        );
++                    }
++                    let mut fresh_ev = Vec::new();
++                    let mut st = emergent_encounters::method::Stats::default();
++                    emergent_encounters::method::pair_events(&bi, &bj, rho, 1.1, t_a, t_a + SEG, &mut st, &mut fresh_ev);
++                    let found = fresh_ev.iter().any(|&(t, _)| (t - t_true).abs() < TOL);
++                    println!("{{\"diag\":\"fresh_finds\":{}}}", found);
++                }
++            }
++        }
++    }
++    println!("{{\"case\":\"{}\",\"eps\":{:.0e},\"kappa\":{},\"truth_s\":{:.1},\"segments\":{},\"kicks\":{}}}", case, eps, kappa, truth_s, segments, kicks_total);
++    let _ = (TOL, DIP);
++}
+diff --git a/crates/encounters/src/lib.rs b/crates/encounters/src/lib.rs
+index cbbcd89..b953ae7 100644
+--- a/crates/encounters/src/lib.rs
++++ b/crates/encounters/src/lib.rs
+@@ -8,6 +8,7 @@ pub mod dioph;
+ pub mod kepler;
+ pub mod method;
+ pub mod pairs;
++pub mod skin;
+ pub mod truth;
+ 
+ use std::sync::atomic::{AtomicUsize, Ordering};
+diff --git a/crates/encounters/src/pairs.rs b/crates/encounters/src/pairs.rs
+index 2edd247..eba9b34 100644
+--- a/crates/encounters/src/pairs.rs
++++ b/crates/encounters/src/pairs.rs
+@@ -147,6 +147,8 @@ pub struct Section {
+     /// Time from arc entry to θ_c and from θ_c to arc exit, for i and j.
+     pub di: (f64, f64),
+     pub dj: (f64, f64),
++    /// Bracketing steps multiplier (1.0 fresh; grown when a widened window stretches the check).
++    pub kscale: f64,
+ }
+ 
+ struct Arc {
+@@ -159,12 +161,19 @@ struct Arc {
+ /// The pair's sections (0, 1 or 2). `safety` scales the linear window; `evals` counts the exact
+ /// state evaluations spent on numeric windows (setup cost).
+ pub fn sections(bi: &Body, bj: &Body, rho: f64, safety: f64, evals: &mut u64) -> Vec<Section> {
++    sections_pad(bi, bj, rho, safety, 0.0, evals)
++}
++
++/// Sections with the u-tolerance widened by `pad` (Binet units). u(θ) is linear in the Binet
++/// point, so drifting the two points by a total δ moves |Δu(θ)| by at most δ for every θ:
++/// sections built with eps + pad stay a superset while the total drift since setup is < pad.
++pub fn sections_pad(bi: &Body, bj: &Body, rho: f64, safety: f64, pad: f64, evals: &mut u64) -> Vec<Section> {
+     let (a, b) = (bi.binet(), bj.binet());
+     let du = a[0] - b[0];
+     let dv = a[1] - b[1];
+     let dw = a[2] - b[2];
+     let r = dv.hypot(dw);
+-    let eps = eps_u(bi, bj, rho);
++    let eps = eps_u(bi, bj, rho) + pad;
+     if du.abs() - r >= eps {
+         return Vec::new();
+     }
+@@ -219,7 +228,7 @@ fn arc_section(bi: &Body, bj: &Body, rho: f64, safety: f64, arc: &Arc, evals: &m
+         let (l, r) = numeric_window(bi, bj, th, dj, (-cap.0, cap.1), rho, evals)?;
+         w = (-l, r);
+     }
+-    Some(Section { kind, theta: th, ti: bi.passage_tick(th), tj: bj.passage_tick(th), w1: ticks_up(w.0), w2: ticks_up(w.1), di, dj })
++    Some(Section { kind, theta: th, ti: bi.passage_tick(th), tj: bj.passage_tick(th), w1: ticks_up(w.0), w2: ticks_up(w.1), di, dj, kscale: 1.0 })
+ }
+ 
+ /// The window around a transversal crossing point P, to second order. Both bodies at P feel the same
+@@ -371,6 +380,7 @@ fn full_section(bi: &Body, bj: &Body, rho: f64) -> Section {
+         w2: ticks_up(dmax + pad),
+         di: (0.0, 0.0),
+         dj: (0.0, 0.0),
++        kscale: 1.0,
+     }
+ }
+ 
+@@ -384,9 +394,10 @@ pub fn check(bi: &Body, bj: &Body, sec: &Section, tjc: f64, s: f64, rho: f64, ou
+             if !(hi > lo) {
+                 return;
+             }
+-            (lo, hi, if sec.kind == Kind::Cross { 24 } else { 64 })
++            let base = if sec.kind == Kind::Cross { 24.0 } else { 64.0 };
++            (lo, hi, (base * sec.kscale).ceil() as usize)
+         }
+-        Kind::Full => (tjc - 0.02, tjc + bj.period as f64 / TICKS + 0.02, 256),
++        Kind::Full => (tjc - 0.02, tjc + bj.period as f64 / TICKS + 0.02, (256.0 * sec.kscale).ceil() as usize),
+     };
+     scan_minima(bi, bj, lo, hi, k, rho, false, out, evals);
+ }
+diff --git a/crates/encounters/src/skin.rs b/crates/encounters/src/skin.rs
+new file mode 100644
+index 0000000..e073f83
+--- /dev/null
++++ b/crates/encounters/src/skin.rs
+@@ -0,0 +1,649 @@
++//! The slack skin: encounter certificates that absorb kicks, and are re-set up only when a
++//! drift budget breaks (the Verlet-skin idea, in the certificate's own units).
++//!
++//! A pair's certificate is its [`Section`]s (arcs + windows, built once by
++//! [`crate::pairs::sections_pad`]) plus the integer first-hit query that jumps to the next
++//! passage whose offset lies in the window. Re-building it after every kick is the encounter
++//! engine's dominant cost (92% of per-kick evals on the belt; lab 20261006-0737-components).
++//! Between re-setups the kicks move each body's Binet point and period by a bounded amount,
++//! and a *widened* copy of the stored certificate stays a superset for the current orbits.
++//! The exact check always runs on the current orbits, so a superset certificate cannot miss
++//! an encounter; it can only over-propose.
++//!
++//! # Exactness argument (why each widening term is there)
++//!
++//! Track per body: `dbin` = accumulated |δ(Binet point)| and `dper` = accumulated |δperiod|
++//! since the certificate's anchors (both are sums of absolute increments, hence upper bounds).
++//! Let δ = (dbin_i − b0_i) + (dbin_j − b0_j) and dp = the same for periods (ticks). At query
++//! time the trigger below guarantees δ < s (the skin width) and dp < its anchor sum.
++//!
++//! 1. **Arcs (which longitudes).** u(θ) = U + V cos θ + W sin θ is *affine* in the Binet
++//!    point, so |Δu_now(θ) − Δu_setup(θ)| ≤ δ for every θ. Sections are built with the
++//!    tolerance eps_u + s while the trigger fires at δ ≥ s/2, so every longitude where the
++//!    current orbits are within eps_u of each other — a necessary condition for an encounter,
++//!    with eps_u's own 1.5 margin absorbing eps_u's drift under kicks — lies inside a stored
++//!    arc. The arc times `di`/`dj` cover the padded arc, hence cover any encounter longitude.
++//!
++//! 2. **Window edges (which passages).** A section is an integer circle rotation with the
++//!    *stored* periods: offset s_l = (c0 − l·P_j) mod P_i. With the current periods the true
++//!    conjunction offsets differ by at most l·|ΔP_j| + l·(P_j/P_i)·|ΔP_i| ticks after l
++//!    revolutions of j, so both edges widen by W = 1.5·(revs + 1)·dp (revs = revolutions to
++//!    the horizon; the 1.5 covers the P_j/P_i leverage).
++//!
++//! 3. **Window width (the tangential term; q-skin named it, mis-sized it).** At a transversal
++//!    crossing the window is w ≈ ρ/c with c = |v_i × v_j|/|v_i − v_j|. Writing the crossing
++//!    angle α = q/u (q = sqrt(r² − ΔU²), the transversality; tan of the flight-path-angle
++//!    difference is |dΔu/dθ|/u = q/u at the crossing) and the speed mismatch β ≈ |ΔU|/2
++//!    (vis-viva at the common radius), c = V·α/hypot(α, β), so
++//!    w = (ρ/V)·sqrt(1 + (β/α)²). Drift moves q by at most 2rδ/q and with q² = (r − |ΔU|)·
++//!    (r + |ΔU|) = g·(2r − g) ≥ g·r this is dq/q ≤ 2δ/g, where g = r − |ΔU| is the pair's
++//!    tangency gap. In the binding regime (near-tangential, β ≳ α) the width scales as 1/q,
++//!    so the stored width must be *inverted*, not padded:
++//!        w_now ≤ w_setup / (1 − 2δ/g).
++//!    Transversal pairs (β ≪ α) have c ≈ V and are insensitive; for them g ≈ r and the same
++//!    formula is a loose bound, which costs only proposals. When 2δ/g ≥ 1/2 the geometry is
++//!    too stale to widen and the pair is re-set up instead (TANGENCY reset): the skin's
++//!    width is decided by the pair's own tangency, not by a global s.
++//!
++//! 3b. **Crossing-longitude drift (the term q-skin missed).** The crossing longitude moves
++//!    by up to δ·(2/q + 1/r) rad (then time at the Kepler rate r²/√p), shifting the window
++//!    *centre*; both edges (and the check-interval stretch) widen by it, capped at the
++//!    section's arc traversal (the encounter longitude stays inside the padded arc, term 1,
++//!    so beyond the cap nothing new can be proposed). Measured at ε = 1e-4: every miss sat
++//!    at exactly this scale, 2–4× past the old widened window.
++//!
++//! 4. **Check interval.** The encounter time lies within both bodies' passages across the
++//!    stored arc; the caps stretch by the period-drift fraction 2ΔP_j/P_j plus W/TICKS (the
++//!    widened edges in time), and the bracketing step count scales with the stretched
++//!    interval (`kscale`).
++//!
++//! 5. **Saturation.** A widened window that would swallow a quarter of the stored period is
++//!    not a window any more: re-set up (SATURATION reset).
++//!
++//! 6. **The empty certificate.** `numeric_window` can prove the pair *cannot* encounter at
++//!    its setup elements (a None hull). That proof has no slack to widen — any kick breaks
++//!    it — so an empty certificate re-proves at the first maintenance pass after any drift.
++//!    Kicks land at segment starts and elements are constant within a segment, so the
++//!    re-proof precedes that segment's query; nothing can hide in between. This was the
++//!    last miss at ε = 1e-4: adjacent belt indices whose "never" proof was blown by the
++//!    kicks between two drift-trigger resets.
++//!
++//! What is empirical: the 1.1 safety on fresh Cross windows, the 1.5 edge factor, and the
++//! constant 2 in 2δ/g — each derived above at the order-of-magnitude level and held by the
++//! tests (zero misses against the crate's independent conservative-advancement truth across
++//! kick sizes ε = 1e-8…1e-4) and by the killed literal control (cone pad only: 102/159 belt
++//! encounters missed at ε = 1e-4; lab 20261002-0539-q-skin).
++
++use crate::kepler::{Body, TICKS};
++use crate::method::{run_section, Stats};
++use crate::pairs::{cone_gap, eps_u, sections_pad, Kind, Section, Sorted};
++use std::collections::HashMap;
++
++/// Safety factor on fresh linear Cross windows (the crate's `SAFETY`).
++pub const SAFETY: f64 = 1.1;
++/// Horizon of the query done at (re)set up: the pair's next events are certified this far.
++pub const HQ: f64 = 100.0 * std::f64::consts::TAU;
++/// Segment length: kicks are quantized to segment boundaries; elements are constant within.
++pub const SEG: f64 = std::f64::consts::TAU;
++/// Edge-widening leverage factor (term 2).
++const EDGE: f64 = 1.5;
++/// Tangency saturation: widen while 2δ/g < this, else re-set up (term 3).
++const TANGENCY: f64 = 0.5;
++
++/// `always` re-set ups every kicked body's pairs each pass (r8 v3's behaviour, the control);
++/// `skin` defers through the widening above.
++#[derive(Clone, Copy, PartialEq, Eq, Debug)]
++pub enum Mode {
++    Always,
++    Skin,
++}
++
++#[derive(Clone, Debug)]
++pub struct Cert {
++    /// Accumulated |δBinet| and |δperiod| anchors at setup, per body (i, j).
++    pub b0: [f64; 2],
++    pub p0: [f64; 2],
++    /// Setup time (time units).
++    pub t0: f64,
++    /// Tangency gap g of the pair at setup (Binet units); term 3's denominator.
++    pub g: f64,
++    /// Transversality q = sqrt(r² − ΔU²) and transverse separation r (Binet units).
++    pub q: f64,
++    pub rb: f64,
++    /// Kepler time per unit angle at the pair's widest: r_max²/√p_min (time units per rad).
++    pub rate: f64,
++    pub secs: Vec<Section>,
++}
++
++#[derive(Default, Clone, Copy, Debug)]
++pub struct Counters {
++    pub kicks: u64,
++    pub scans: u64,
++    pub cone_tests: u64,
++    /// Setups by origin: new pairs, the drift trigger, saturation, tangency.
++    pub setups: u64,
++    pub setup_new: u64,
++    pub trig_resets: u64,
++    pub sat_resets: u64,
++    pub tangency_resets: u64,
++    /// Empty certificates re-proven (term 6: a None window has no slack).
++    pub empty_resets: u64,
++    /// Certificates sampled per pass and how many were false candidates at query time.
++    pub cert_samples: u64,
++    pub false_cand: u64,
++    pub events: u64,
++    pub st: Stats,
++}
++
++/// One doll of bodies under the skin.
++pub struct Skin {
++    pub b: Vec<Body>,
++    pub rho: f64,
++    /// Skin width s (Binet units).
++    pub s: f64,
++    pub mode: Mode,
++    pub dbin: Vec<f64>,
++    pub dper: Vec<f64>,
++    scan_anchor: Vec<f64>,
++    /// Read-only outside the crate: diagnosis and tests inspect stored certificates.
++    pub certs: HashMap<(u32, u32), Cert>,
++    pub c: Counters,
++}
++
++fn key(i: u32, j: u32) -> (u32, u32) {
++    (i.min(j), i.max(j))
++}
++
++fn dist3(a: [f64; 3], b: [f64; 3]) -> f64 {
++    let d = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
++    (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
++}
++
++impl Skin {
++    pub fn new(b: Vec<Body>, rho: f64, s: f64, mode: Mode) -> Self {
++        let n = b.len();
++        Skin {
++            b,
++            rho,
++            s,
++            mode,
++            dbin: vec![0.0; n],
++            dper: vec![0.0; n],
++            scan_anchor: vec![0.0; n],
++            certs: HashMap::new(),
++            c: Counters::default(),
++        }
++    }
++
++    /// Full (re)setup of one pair: padded sections plus the horizon query. The expensive unit.
++    fn setup(&mut self, i: u32, j: u32, t: f64) {
++        let (i, j) = (i.min(j), i.max(j));
++        let bi = self.b[i as usize];
++        let bj = self.b[j as usize];
++        let pad = if self.mode == Mode::Skin { self.s } else { 0.0 };
++        let mut secs = sections_pad(&bi, &bj, self.rho, SAFETY, pad, &mut self.c.st.evals);
++        let mut ev = Vec::new();
++        for sec in &secs {
++            run_section(&bi, &bj, sec, self.rho, t, t + HQ, &mut self.c.st, &mut ev);
++        }
++        self.c.events += ev.len() as u64;
++        secs.shrink_to_fit();
++        // Term 3's denominator: the tangency gap at setup, from the cone coordinates.
++        let (ai, aj) = (bi.binet(), bj.binet());
++        let r = (ai[1] - aj[1]).hypot(ai[2] - aj[2]);
++        let g = (r - (ai[0] - aj[0]).abs()).max(1e-300);
++        let q = (r * r - (ai[0] - aj[0]) * (ai[0] - aj[0])).max(0.0).sqrt().max(1e-300);
++        let rate = bi.rmax().max(bj.rmax()).powi(2) / bi.p.min(bj.p).sqrt();
++        let cert = Cert {
++            b0: [self.dbin[i as usize], self.dbin[j as usize]],
++            p0: [self.dper[i as usize], self.dper[j as usize]],
++            t0: t,
++            g,
++            q,
++            rb: r,
++            rate,
++            secs,
++        };
++        self.certs.insert((i, j), cert);
++        self.c.setups += 1;
++    }
++
++    /// The certificate's sections widened for the drift accumulated since setup (terms 2–4).
++    /// `None`: saturated (term 5) or tangency-stale (term 3) — the caller re-setups.
++    pub fn widened(&self, cert: &Cert, i: u32, j: u32, t1: f64) -> Option<Vec<Section>> {
++        let dpi = self.dper[i as usize] - cert.p0[0];
++        let dpj = self.dper[j as usize] - cert.p0[1];
++        let dp = (dpi + dpj).max(0.0);
++        let drift = (self.dbin[i as usize] - cert.b0[0]) + (self.dbin[j as usize] - cert.b0[1]);
++        let pj = self.b[j as usize].period as f64;
++        let pi = self.b[i as usize].period as i64;
++        let revs = (((t1 - cert.t0) * TICKS / pj).max(1.0) + 1.0) * EDGE;
++        let w = (revs * dp).ceil() as i64;
++        let f = 2.0 * dp / pj;
++        let wt = w as f64 / TICKS;
++        // Term 3a: the width inversion, for Cross windows only (w ≈ ρ/c scales as 1/q near
++        // tangency). Wide and Full windows are rigorous hulls/spreads, and their pairs
++        // (co-orbital, near-identical) have g ≈ 0 by construction: widening or resetting
++        // them on 2δ/g would degenerate the skin there.
++        let has_cross = cert.secs.iter().any(|s| s.kind == Kind::Cross);
++        let scale = if !has_cross || drift <= 0.0 {
++            1.0
++        } else {
++            let x = 2.0 * drift / cert.g;
++            if x >= TANGENCY {
++                return None;
++            }
++            1.0 / (1.0 - x)
++        };
++        // Term 3b: the crossing-longitude drift. The crossing longitude θ_c solves
++        // cos(θ_c − θ₀) = −ΔU/r with θ₀ = atan2(ΔW, ΔV), so a total Binet drift δ moves
++        // θ_c by at most δ·(r + |ΔU|)/(r·q) + δ/r ≤ δ·(2/q + 1/r) rad (q the
++        // transversality, r the transverse separation), and θ₀ drift also slides the arc's
++        // reference longitude itself. At the Kepler rate dt = r²/√p · dθ (stored as `rate`
++        // for the pair's widest radius), the window *centre* shifts by up to
++        //   wx = δ · (2/q + 1/r) · r_max²/√p_min
++        // time units — while the edge term (term 2) covers only the rotation-lattice drift
++        // l·ΔP. This is the term q-skin missed at ε = 1e-4: its misses sat 2–4× beyond its
++        // widened window, at exactly this scale. Capped at the section's arc traversal: an
++        // encounter longitude cannot leave the padded arc (term 1), so beyond the cap the
++        // widened window already covers every passage whose check interval can hold the
++        // pair. Full sections (q ≈ 0, spread windows) skip it: their offsets drift by the
++        // period term alone.
++        let wx = if cert.q > 1e-12 {
++            let raw = drift * (2.0 / cert.q + 1.0 / cert.rb) * cert.rate;
++            let mut cap = 0.0f64;
++            for sec in &cert.secs {
++                cap = cap.max(sec.di.0 + sec.di.1 + sec.dj.0 + sec.dj.1);
++            }
++            if cap > 1e-9 { raw.min(cap) } else { 0.0 }
++        } else {
++            0.0
++        };
++        let wxt = (wx * TICKS).ceil() as i64;
++        let mut out = Vec::with_capacity(cert.secs.len());
++        for sec in &cert.secs {
++            let mut s2 = sec.clone();
++            if s2.w1 + s2.w2 + 2 * (w + wxt) > pi / 4 {
++                return None;
++            }
++            if s2.kind == Kind::Cross {
++                s2.w1 = (s2.w1 as f64 * scale).ceil() as i64 + w + wxt;
++                s2.w2 = (s2.w2 as f64 * scale).ceil() as i64 + w + wxt;
++            } else {
++                s2.w1 += w + wxt;
++                s2.w2 += w + wxt;
++            }
++            // The drifted conjunction lies within ±(wt + wx) of the proposed offset: the
++            // check interval must stretch with it, and its bracketing resolution with the
++            // interval.
++            let span = s2.di.0 + s2.di.1 + s2.dj.0 + s2.dj.1;
++            let span = if span > 1e-9 { span } else { pj / TICKS };
++            let stretch = wt + wx;
++            s2.kscale = 1.0 + 4.0 * stretch / span;
++            s2.di = (s2.di.0 * (1.0 + f) + stretch, s2.di.1 * (1.0 + f) + stretch);
++            s2.dj = (s2.dj.0 * (1.0 + f) + stretch, s2.dj.1 * (1.0 + f) + stretch);
++            out.push(s2);
++        }
++        Some(out)
++    }
++
++    /// One body's range scan: fresh certs for pairs entering the padded cone, drops for pairs
++    /// that left it. The pad and the scan anchor (s/4 per body) make the padded test at scan
++    /// time a superset of the exact test until the next scan: cone_gap is 2-Lipschitz in the
++    /// Binet difference, and between scans each body drifts < s/4 + one segment of kicks
++    /// (`reach_extra`, passed by the driver).
++    fn scan(&mut self, sorted: &Sorted, i: u32, t: f64, reach_extra: f64) {
++        if self.mode == Mode::Always {
++            let drop: Vec<(u32, u32)> = self.certs.keys().copied().filter(|&k| k.0 == i || k.1 == i).collect();
++            for k in drop {
++                self.certs.remove(&k);
++            }
++        }
++        let bi = self.b[i as usize];
++        let pad = if self.mode == Mode::Always { 0.0 } else { self.s };
++        let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(&bi) + reach_extra + pad);
++        let mut drop_later = Vec::new();
++        let mut setup_later = Vec::new();
++        for &(_, j) in &sorted.order[lo..hi] {
++            if j == i {
++                continue;
++            }
++            self.c.cone_tests += 1;
++            let bj = self.b[j as usize];
++            if cone_gap(&bi, &bj) < eps_u(&bi, &bj, self.rho) + pad {
++                if !self.certs.contains_key(&key(i, j)) {
++                    setup_later.push(j);
++                }
++            } else if self.certs.contains_key(&key(i, j)) {
++                drop_later.push(j);
++            }
++        }
++        self.c.scans += 1;
++        for j in setup_later {
++            self.c.setup_new += 1;
++            self.setup(i, j, t);
++        }
++        for j in drop_later {
++            self.certs.remove(&key(i, j));
++        }
++    }
++
++    /// A kick at time `t`: `a` scaled by `frac`, e, ϖ and mean longitude continuous.
++    pub fn kick(&mut self, i: usize, t: f64, frac: f64) {
++        let old = self.b[i];
++        let lam = old.mean_anomaly(t) + old.pom;
++        let a_new = old.a * (1.0 + frac);
++        let n_new = a_new.powf(-1.5);
++        let new = Body::new(a_new, old.e, old.pom, lam - n_new * t);
++        self.dbin[i] += dist3(new.binet(), old.binet());
++        self.dper[i] += (new.period as f64 - old.period as f64).abs();
++        self.b[i] = new;
++        self.c.kicks += 1;
++    }
++
++    /// Initial pass: build every padded-candidate pair once.
++    pub fn initial_scan(&mut self) {
++        let sorted = Sorted::new(&self.b, self.rho);
++        let pad = if self.mode == Mode::Always { 0.0 } else { self.s };
++        let mut setup_later = Vec::new();
++        for (k, &(u, i)) in sorted.order.iter().enumerate() {
++            let bi = self.b[i as usize];
++            let (lo, hi) = sorted.range(u, sorted.reach(&bi) + pad);
++            for &(_, j) in &sorted.order[lo.max(k + 1)..hi] {
++                self.c.cone_tests += 1;
++                let bj = self.b[j as usize];
++                if cone_gap(&bi, &bj) < eps_u(&bi, &bj, self.rho) + pad {
++                    setup_later.push((i, j));
++                }
++            }
++        }
++        self.c.scans += self.b.len() as u64;
++        for (i, j) in setup_later {
++            self.c.setup_new += 1;
++            self.setup(i, j, 0.0);
++        }
++    }
++
++    /// One segment: apply `kicks` at t0, re-scan kicked bodies whose scan anchor broke, then
++    /// the maintenance pass (triggers, widening, the short query over [t0, t1]). Events land
++    /// in `out` as (i, j, t, dmin). `reach_extra` bounds one segment of Binet drift per body
++    /// (the sorted index is rebuilt once per segment).
++    pub fn advance(&mut self, t0: f64, t1: f64, kicks: &[(usize, f64)], reach_extra: f64, out: &mut Vec<(u32, u32, f64, f64)>) {
++        for &(i, frac) in kicks {
++            self.kick(i, t0, frac);
++        }
++        let sorted = Sorted::new(&self.b, self.rho);
++        let mut done = vec![false; self.b.len()];
++        for &(i, _) in kicks {
++            if done[i] {
++                continue;
++            }
++            done[i] = true;
++            if self.mode == Mode::Always || self.dbin[i] - self.scan_anchor[i] >= self.s / 4.0 {
++                self.scan_anchor[i] = self.dbin[i];
++                self.scan(&sorted, i as u32, t0, reach_extra);
++            }
++        }
++        let keys: Vec<(u32, u32)> = self.certs.keys().copied().collect();
++        for k in keys {
++            let (i, j) = k;
++            let (bi, bj) = (self.b[i as usize], self.b[j as usize]);
++            self.c.cert_samples += 1;
++            self.c.false_cand += (cone_gap(&bi, &bj) >= eps_u(&bi, &bj, self.rho)) as u64;
++            let (secs_empty, b0) = match self.certs.get(&k) {
++                Some(c) => (c.secs.is_empty(), c.b0),
++                None => continue,
++            };
++            let secs = match self.mode {
++                Mode::Always => self.certs.get(&k).map(|c| c.secs.clone()).unwrap_or_default(),
++                Mode::Skin => {
++                    // Term 6 first: a certificate with no sections is a *proof* that the
++                    // pair cannot encounter at its setup elements (numeric_window's None).
++                    // That proof has no slack to widen — any kick breaks it — so it re-proves
++                    // at the first pass after any drift. Kicks land at the segment start and
++                    // elements are constant within the segment, so the re-proof precedes the
++                    // query and no encounter can hide in between.
++                    let drift0 = (self.dbin[i as usize] - b0[0]) + (self.dbin[j as usize] - b0[1]);
++                    if secs_empty && drift0 > 0.0 {
++                        self.c.empty_resets += 1;
++                        self.setup(i, j, t0);
++                    }
++                    // The drift trigger next (keeps δ < s at query time for term 1).
++                    let drift = match self.certs.get(&k) {
++                        None => continue,
++                        Some(c) => (self.dbin[i as usize] - c.b0[0]) + (self.dbin[j as usize] - c.b0[1]),
++                    };
++                    if 2.0 * drift >= self.s {
++                        self.c.trig_resets += 1;
++                        self.setup(i, j, t0);
++                    }
++                    match self.certs.get(&k) {
++                        None => continue,
++                        Some(c) => match self.widened(c, i, j, t1) {
++                            Some(x) => x,
++                            None => {
++                                // Saturation or tangency staleness: which one? (term 5 vs 3;
++                                // term 3 applies to Cross certs only, as in `widened`.)
++                                let drift = (self.dbin[i as usize] - c.b0[0]) + (self.dbin[j as usize] - c.b0[1]);
++                                let has_cross = c.secs.iter().any(|s| s.kind == Kind::Cross);
++                                if has_cross && 2.0 * drift / c.g >= TANGENCY {
++                                    self.c.tangency_resets += 1;
++                                } else {
++                                    self.c.sat_resets += 1;
++                                }
++                                self.setup(i, j, t0);
++                                self.certs.get(&k).map(|c| c.secs.clone()).unwrap_or_default()
++                            }
++                        },
++                    }
++                }
++            };
++            let mut ev = Vec::new();
++            for sec in &secs {
++                run_section(&bi, &bj, sec, self.rho, t0, t1, &mut self.c.st, &mut ev);
++            }
++            self.c.events += ev.len() as u64;
++            for &(t, d) in &ev {
++                out.push((i, j, t, d));
++            }
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::f64::consts::TAU;
++    use crate::belt::{make_belt, Rng, Spec};
++    use crate::pairs::radial_pairs;
++    use crate::truth::truth_pair;
++
++    const TOL: f64 = 1e-3;
++
++    fn belt(n: usize, orbits: f64, seed: u64) -> (Vec<Body>, f64) {
++        let sp = Spec {
++            name: "skin-test".into(),
++            n,
++            sigma_e: 1e-2,
++            rho: 1e-4,
++            a_lo: 1.0,
++            a_hi: 1.5,
++            keys: 0,
++            seed,
++            orbits: 0.0,
++        };
++        (make_belt(&sp), orbits)
++    }
++
++    fn schedule(n: usize, segments: usize, kappa: f64, eps: f64, seed: u64) -> Vec<Vec<(usize, f64)>> {
++        let mut r = Rng(seed);
++        let whole = kappa.floor() as usize;
++        let frac = kappa - kappa.floor();
++        (0..segments)
++            .map(|_| {
++                let mut v = Vec::new();
++                for i in 0..n {
++                    let mut count = whole + (r.f64() < frac) as usize;
++                    while count > 0 {
++                        count -= 1;
++                        let sign = if r.f64() < 0.5 { -1.0 } else { 1.0 };
++                        v.push((i, eps * sign));
++                    }
++                }
++                v
++            })
++            .collect()
++    }
++
++    /// Independent per-segment truth: phase-reanchored copies, conservative advancement over
++    /// every radially overlapping pair (r8's truth construction, dense in time).
++    fn segment_truth(b: &[Body], rho: f64, t_a: f64, out: &mut Vec<(u32, u32, f64, f64)>) {
++        let shifted: Vec<Body> = b
++            .iter()
++            .map(|x| {
++                let lam = x.mean_anomaly(t_a) + x.pom;
++                Body::new(x.a, x.e, x.pom, lam)
++            })
++            .collect();
++        for &(i, j) in &radial_pairs(&shifted, rho) {
++            let mut v = Vec::new();
++            truth_pair(&shifted[i as usize], &shifted[j as usize], rho, SEG, &mut v, &mut Default::default());
++            for &(t, d) in &v {
++                out.push((i, j, t + t_a, d));
++            }
++        }
++    }
++
++    /// (missed, false) of a mode's per-segment events against the truth, per (segment, pair).
++    fn matchup(truth: &[(usize, u32, u32, f64)], got: &[(usize, u32, u32, f64)]) -> (u32, u32) {
++        use std::collections::HashMap;
++        let mut tby: HashMap<(usize, u32, u32), Vec<f64>> = HashMap::new();
++        for &(sg, i, j, t) in truth {
++            tby.entry((sg, i, j)).or_default().push(t);
++        }
++        let mut gby: HashMap<(usize, u32, u32), Vec<f64>> = HashMap::new();
++        for &(sg, i, j, t) in got {
++            gby.entry((sg, i, j)).or_default().push(t);
++        }
++        let missed = truth
++            .iter()
++            .filter(|&&(sg, i, j, t)| !gby.get(&(sg, i, j)).is_some_and(|v| v.iter().any(|&x| (x - t).abs() < TOL)))
++            .count() as u32;
++        let false_ = got
++            .iter()
++            .filter(|&&(sg, i, j, t)| !tby.get(&(sg, i, j)).is_some_and(|v| v.iter().any(|&x| (x - t).abs() < TOL)))
++            .count() as u32;
++        (missed, false_)
++    }
++
++    /// Run one mode over the kicked belt; events tagged with their segment.
++    fn run_mode(
++        bodies: &[Body],
++        rho: f64,
++        orbits: f64,
++        mode: Mode,
++        s: f64,
++        eps: f64,
++        seed: u64,
++    ) -> (Vec<(usize, u32, u32, f64)>, Skin) {
++        let segments = (orbits * TAU / SEG).round() as usize;
++        let sched = schedule(bodies.len(), segments, 0.3, eps, seed);
++        let mut w = Skin::new(bodies.to_vec(), rho, s, mode);
++        let reach_extra = 4.0 * eps * 1.3;
++        w.initial_scan();
++        let mut out = Vec::new();
++        for (sg, kicks) in sched.iter().enumerate() {
++            let t_a = sg as f64 * SEG;
++            let mut ev = Vec::new();
++            w.advance(t_a, t_a + SEG, kicks, reach_extra, &mut ev);
++            for &(i, j, t, _) in &ev {
++                out.push((sg, i, j, t));
++            }
++        }
++        (out, w)
++    }
++
++    fn truth_events(bodies: &[Body], rho: f64, orbits: f64, eps: f64, seed: u64) -> Vec<(usize, u32, u32, f64)> {
++        let segments = (orbits * TAU / SEG).round() as usize;
++        let sched = schedule(bodies.len(), segments, 0.3, eps, seed);
++        let mut cur = bodies.to_vec();
++        let mut truth = Vec::new();
++        for (sg, kicks) in sched.iter().enumerate() {
++            let t_a = sg as f64 * SEG;
++            for &(i, frac) in kicks {
++                let old = cur[i];
++                let lam = old.mean_anomaly(t_a) + old.pom;
++                let a_new = old.a * (1.0 + frac);
++                let n_new = a_new.powf(-1.5);
++                cur[i] = Body::new(a_new, old.e, old.pom, lam - n_new * t_a);
++            }
++            let mut seg_ev = Vec::new();
++            segment_truth(&cur, rho, t_a, &mut seg_ev);
++            for &(i, j, t, _) in &seg_ev {
++                truth.push((sg, i, j, t));
++            }
++        }
++        truth
++    }
++
++    /// The exactness contract at one kick size: the control (`always`, the crate's r8 v3
++    /// behaviour) and the skin both report every truth event and nothing else, and the
++    /// skin's empty certificates all sit at zero drift (term 6's invariant).
++    fn assert_exact(eps: f64) {
++        let (bodies, orbits) = belt(600, 12.0, 2026_1006 + eps.to_bits() % 7);
++        let rho = 1e-4;
++        let mut epsus: Vec<f64> = bodies.iter().map(|x| crate::pairs::eps_u(x, x, rho)).collect();
++        epsus.sort_by(|a, b| a.total_cmp(b));
++        let s = 4.0 * epsus[epsus.len() / 2];
++        let truth = truth_events(&bodies, rho, orbits, eps, 2026_1006);
++        assert!(!truth.is_empty(), "case with no events cannot defend exactness");
++        let (always, _) = run_mode(&bodies, rho, orbits, Mode::Always, 0.0, eps, 2026_1006);
++        let (skin, w) = run_mode(&bodies, rho, orbits, Mode::Skin, s, eps, 2026_1006);
++        let (m_a, f_a) = matchup(&truth, &always);
++        assert_eq!((m_a, f_a), (0, 0), "control (always) is not exact at eps {eps:e}: harness void");
++        let (m_s, f_s) = matchup(&truth, &skin);
++        assert_eq!((m_s, f_s), (0, 0), "skin missed/false events at eps {eps:e}");
++        for (k, cert) in &w.certs {
++            if cert.secs.is_empty() {
++                let drift = (w.dbin[k.0 as usize] - cert.b0[0]) + (w.dbin[k.1 as usize] - cert.b0[1]);
++                assert!(drift == 0.0, "empty certificate held drift {drift:e}: term 6 broken");
++            }
++        }
++    }
++
++    #[test]
++    fn exact_at_kick_eps_1e8() {
++        assert_exact(1e-8);
++    }
++
++    #[test]
++    fn exact_at_kick_eps_1e6() {
++        assert_exact(1e-6);
++    }
++
++    #[test]
++    fn exact_at_kick_eps_1e4() {
++        assert_exact(1e-4);
++    }
++
++    /// The economic point: at the plane's kick size the deferral cuts setups per kick
++    /// (deterministic counts, no timing).
++    #[test]
++    fn skin_cuts_setups_at_plane_kicks() {
++        let (bodies, orbits) = belt(600, 12.0, 2026_1007);
++        let rho = 1e-4;
++        let mut epsus: Vec<f64> = bodies.iter().map(|x| crate::pairs::eps_u(x, x, rho)).collect();
++        epsus.sort_by(|a, b| a.total_cmp(b));
++        let s = 4.0 * epsus[epsus.len() / 2];
++        let (_, wa) = run_mode(&bodies, rho, orbits, Mode::Always, 0.0, 1e-6, 2026_1007);
++        let (_, ws) = run_mode(&bodies, rho, orbits, Mode::Skin, s, 1e-6, 2026_1007);
++        let ka = wa.c.kicks as f64;
++        let ks = ws.c.kicks as f64;
++        let setups_a = wa.c.setups as f64 / ka;
++        let setups_s = ws.c.setups as f64 / ks;
++        assert!(
++            setups_s * 3.0 < setups_a,
++            "skin setups/kick {setups_s:.1} not a >=3x cut vs always {setups_a:.1}"
++        );
++    }
++}
