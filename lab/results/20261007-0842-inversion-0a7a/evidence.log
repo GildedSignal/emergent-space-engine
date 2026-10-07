@@ -1,0 +1,25 @@
+# Evidence log — 20261007-0842-inversion-0a7a
+
+All runs: Linux x86 (GitHub Actions runner, 8 vCPU), release build, single-threaded per process,
+< 100 MB. Binary: `crates/encounters/src/bin/invert.rs` (this run's patch). ρ = 1e-4.
+Fleet: a = 1 ± 1e-5 (the a-clump regime that fires the gold's train trigger), λ bunch σ_λ = 0.05,
+ϖ spread as noted, e ~ Rayleigh(σ_e, cap 3σ_e), nc as noted, 2 orbits (10 for s3-long).
+Brute force: dt = 4e-5 (motion < ρ/2 per step), encounters = min distance < ρ over the run,
+true-longitude bins of 1.9e-4 rad, same-or-adjacent bin pairs distance-checked (unbiased O(n²)
+cross-check in `cone` mode: 64 encounters vs 64 — binning exact after the position-angle fix;
+first version binned by velocity angle and missed 39/64, caught by the O(n²) control).
+
+## Commands (each ≤ 130 s wall; scenarios in parallel are independent processes)
+- build: `CARGO_TARGET_DIR=/home/glmlab/lab-target-1 cargo build --release -p emergent-encounters --bin invert --offline`
+- `invert s0-control` (σ_e=0.001, ϖ clustered — the gold's fleet regime)
+- `invert s1-e005`, `invert s2-e020`, `invert s3-e050` (e-spread ladder; s2/s3 ϖ uniform)
+- `invert s0-nc800` (nc scaling of churn at fixed bunch width; DID NOT COMPLETE — process killed with the parent shell's 300 s timeout, no data; rerun with a longer timeout or in chunks)
+- `invert s3-long` (10 orbits: encounter rate at e=0.05)
+- `invert cone-s0`, `invert cone-s1` (O(n²) brute vs `cone_pairs` coverage)
+- outputs: `s*.json` in this folder, one JSON line per run
+
+## Cone coverage (soundness of the first tier in these regimes)
+- s0-control: 64 encounters, cone candidates 19900/19900 pairs (saturated), missed 0.
+- s1-e005: 50 encounters, cone 19900 (saturated), missed 0.
+(The a-clump saturates the cone tier — every pair is a candidate; nothing is missed by the
+first tier here, so all remaining questions are about the second tier and the train.)

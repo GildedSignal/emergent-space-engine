@@ -1,0 +1,384 @@
+diff --git a/crates/encounters/src/bin/invert.rs b/crates/encounters/src/bin/invert.rs
+new file mode 100644
+index 0000000..b191e35
+--- /dev/null
++++ b/crates/encounters/src/bin/invert.rs
+@@ -0,0 +1,378 @@
++//! Inversion-lens probe: attack the train certificate (gold 20261006-0346-taleb-09b5) at fixed
++//! a-clump with eccentricity spread >> rho. Measures what the gold did not: the standing watch's
++//! churn, lead times and work per real encounter, not just the contact-instant rank.
++//! Floats explore; encounters are brute-forced with motion < rho/2 per step and true-longitude
++//! binning (width ~ 2 rho in arc), same-or-adjacent bins => every sub-rho pair is checked.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::pairs::sections;
++use std::collections::HashMap;
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++const RHO: f64 = 1e-4;
++const SAFETY: f64 = 1.1;
++
++fn rayleigh(rng: &mut Rng, s: f64, cap: f64) -> f64 {
++    let u = rng.f64();
++    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
++}
++
++fn pct_f64(v: &mut Vec<f64>, q: f64) -> f64 {
++    if v.is_empty() { return f64::NAN; }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[((q * (v.len() - 1) as f64).round() as usize).min(v.len() - 1)]
++}
++
++struct Cfg {
++    tag: &'static str,
++    nc: usize,
++    a_hw: f64,
++    sig_e: f64,
++    pom_spread: f64, // full width around a common pom0; >= TAU means uniform
++    sig_lam: f64,
++    seed: u64,
++    orbits: f64,
++}
++
++fn make_fleet(c: &Cfg) -> Vec<Body> {
++    let mut rng = Rng(c.seed);
++    let pom0 = TAU * rng.f64();
++    let lam0 = TAU * rng.f64();
++    (0..c.nc)
++        .map(|_| {
++            let a = 1.0 + (2.0 * rng.f64() - 1.0) * c.a_hw;
++            let e = rayleigh(&mut rng, c.sig_e, (3.0 * c.sig_e).min(0.15));
++            let pom = if c.pom_spread >= TAU { TAU * rng.f64() } else { pom0 + (2.0 * rng.f64() - 1.0) * c.pom_spread * 0.5 };
++            let lam = if c.sig_lam <= 0.0 { TAU * rng.f64() } else {
++                let (u1, u2) = (rng.f64(), rng.f64());
++                lam0 + c.sig_lam * (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos()
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++fn wrap(x: f64) -> f64 { x.rem_euclid(TAU) }
++
++/// snapshot at time t: positions, true longitudes, and each body's position in the cyclic
++/// true-longitude order (the train's order).
++struct Snap {
++    pos: Vec<[f64; 2]>,
++    order: Vec<usize>, // order[p] = body at cyclic position p (sorted by lambda)
++    posn: Vec<usize>,  // posn[i] = cyclic position of body i
++}
++
++fn snap_at(fl: &[Body], t: f64) -> Snap {
++    let n = fl.len();
++    let mut pos = vec![[0.0f64; 2]; n];
++    let mut lams = vec![0.0f64; n];
++    for (i, b) in fl.iter().enumerate() {
++        let m = b.mean_anomaly(t);
++        let st = b.state_at_mean(m);
++        pos[i] = [st[0], st[1]];
++        lams[i] = wrap(st[1].atan2(st[0]));
++    }
++    let mut order: Vec<usize> = (0..n).collect();
++    order.sort_by(|&a, &b| lams[a].partial_cmp(&lams[b]).unwrap());
++    let mut posn = vec![0usize; n];
++    for (p, &b) in order.iter().enumerate() { posn[b] = p; }
++    Snap { pos, order, posn }
++}
++
++/// bodies strictly between i and j on the shorter arc of the cyclic lambda order
++fn lam_rank_between(s: &Snap, i: usize, j: usize) -> u32 {
++    let n = s.order.len();
++    let d = (s.posn[i] + n - s.posn[j]) % n; // cyclic step count, 1..=n-1
++    let d = d.max(1);
++    (d.min(n - d) - 1) as u32
++}
++
++/// the train watch set: bodies within 4 positions on either side of i in the cyclic lambda order
++fn train_set4(s: &Snap, i: usize) -> Vec<usize> {
++    let n = s.order.len();
++    let p = s.posn[i];
++    (1..=5).map(|d| s.order[(p + d) % n]).chain((1..=5).map(|d| s.order[(p + n - d) % n])).collect()
++}
++
++fn in_train4(s: &Snap, i: usize, j: usize) -> bool {
++    let n = s.order.len();
++    let d = ((s.posn[i] + n - s.posn[j]) % n).max(1);
++    d.min(n - d) <= 5
++}
++
++fn dist_rank(s: &Snap, i: usize, j: usize) -> u32 {
++    let dij = (s.pos[i][0] - s.pos[j][0]).hypot(s.pos[i][1] - s.pos[j][1]);
++    let mut ri = 0u32;
++    let mut rj = 0u32;
++    for k in 0..s.pos.len() {
++        if k == i || k == j { continue; }
++        if (s.pos[k][0] - s.pos[i][0]).hypot(s.pos[k][1] - s.pos[i][1]) < dij { ri += 1; }
++        if (s.pos[k][0] - s.pos[j][0]).hypot(s.pos[k][1] - s.pos[j][1]) < dij { rj += 1; }
++    }
++    ri.min(rj)
++}
++
++fn probe(c: &Cfg) {
++    let fl = make_fleet(c);
++    let nc = c.nc;
++    let dt = 4e-5;
++    let steps = (c.orbits * TAU / dt) as usize;
++    let nb = 32768usize;
++    let binsz = TAU / nb as f64; // ~ 2 rho in arc at r ~ 1
++    let mut head = vec![-1i64; nb];
++    let mut nxt = vec![-1i64; nc];
++    let mut pos = vec![[0.0f64; 2]; nc];
++    let mut lams = vec![0.0f64; nc];
++    let mut best: HashMap<(u32, u32), (f64, f64)> = HashMap::new();
++    let t0 = Instant::now();
++    for s in 0..steps {
++        let t = s as f64 * dt;
++        let mut occupied: Vec<usize> = Vec::with_capacity(nc);
++        for i in 0..nc {
++            let m = fl[i].mean_anomaly(t);
++            let st = fl[i].state_at_mean(m);
++            pos[i] = [st[0], st[1]];
++            lams[i] = wrap(st[1].atan2(st[0]));
++            let bin = ((lams[i] / binsz) as usize).min(nb - 1);
++            if head[bin] < 0 { occupied.push(bin); }
++            nxt[i] = head[bin];
++            head[bin] = i as i64;
++        }
++        for &bin in &occupied {
++            let mut p = head[bin];
++            while p >= 0 {
++                let mut q = nxt[p as usize];
++                while q >= 0 {
++                    let (a, b) = (p as usize, q as usize);
++                    let d = (pos[a][0] - pos[b][0]).hypot(pos[a][1] - pos[b][1]);
++                    if d < RHO {
++                        let k = if a < b { (a as u32, b as u32) } else { (b as u32, a as u32) };
++                        let e = best.entry(k).or_insert((f64::INFINITY, t));
++                        if d < e.0 { *e = (d, t); }
++                    }
++                    q = nxt[q as usize];
++                }
++                p = nxt[p as usize];
++            }
++            let nb2 = (bin + 1) % nb;
++            let mut p = head[bin];
++            while p >= 0 {
++                let mut q = head[nb2];
++                while q >= 0 {
++                    let (a, b) = (p as usize, q as usize);
++                    let d = (pos[a][0] - pos[b][0]).hypot(pos[a][1] - pos[b][1]);
++                    if d < RHO {
++                        let k = if a < b { (a as u32, b as u32) } else { (b as u32, a as u32) };
++                        let e = best.entry(k).or_insert((f64::INFINITY, t));
++                        if d < e.0 { *e = (d, t); }
++                    }
++                    q = nxt[q as usize];
++                }
++                p = nxt[p as usize];
++            }
++        }
++        for &bin in &occupied { head[bin] = -1; }
++    }
++    let brute_us = t0.elapsed().as_micros();
++
++    // ---- per-encounter lead and snapshot ranks ----
++    let lead_cap = 0.05 * TAU; // 0.05 orbit
++    let coarse = 4usize;       // stride in steps for presence resolution
++    let mut leads_lam: Vec<f64> = Vec::new();
++    let mut leads_dist: Vec<f64> = Vec::new();
++    let mut lam_contacts: Vec<u32> = Vec::new();
++    let mut dist_contacts: Vec<u32> = Vec::new();
++    let mut churn_events_in_window: u64 = 0;
++    let mut window_with_zero_churn: u64 = 0;
++    let mut keys: Vec<_> = best.keys().copied().collect();
++    keys.sort_unstable();
++    for &(i, j) in &keys {
++        let (i, j) = (i as usize, j as usize);
++        let (_, tstar) = best[&(i as u32, j as u32)];
++        let sstar = snap_at(&fl, tstar);
++        lam_contacts.push(lam_rank_between(&sstar, i, j));
++        dist_contacts.push(dist_rank(&sstar, i, j));
++        // continuous-presence lead by walk-back + bisection (stride-resolution sampling)
++        for lam in [true, false] {
++            let present = |t: f64| -> bool {
++                let s = snap_at(&fl, t);
++                if lam { in_train4(&s, i, j) } else { dist_rank(&s, i, j) <= 4 }
++            };
++            let mut k = coarse;
++            let mut entry = tstar - lead_cap; // capped default
++            while k as f64 * dt <= lead_cap {
++                let t = tstar - k as f64 * dt;
++                if !present(t) { entry = t; break; }
++                k += coarse;
++            }
++            // entry currently = last absent sample; refine by bisection to stride 1
++            let mut hi = tstar - ((k - coarse) as f64 * dt).min(lead_cap); // last present
++            let mut lo = entry;
++            while ((hi - lo) / dt) > 1.0 {
++                let mid = 0.5 * (hi + lo);
++                if present(mid) { hi = mid; } else { lo = mid; }
++            }
++            let v = if lam { &mut leads_lam } else { &mut leads_dist };
++            v.push((tstar - hi) / TAU);
++        }
++        // churn of i's train set inside the lam-entry window: does a rebuild-on-change
++        // watch refresh while the partner is inside?
++        let entry_lam = tstar - leads_lam.last().copied().unwrap_or(0.0) * TAU;
++        let stride = 8usize;
++        let mut kw = ((tstar - entry_lam) / dt) as usize;
++        let mut prev: Option<Vec<usize>> = None;
++        let mut events = 0u64;
++        while kw > 0 {
++            let t = tstar - kw as f64 * dt;
++            let s = snap_at(&fl, t);
++            let set4 = train_set4(&s, i);
++            if let Some(pv) = &prev {
++                if set4 != *pv { events += 1; }
++            }
++            prev = Some(set4);
++            kw = kw.saturating_sub(stride);
++        }
++        churn_events_in_window += events;
++        if events == 0 { window_with_zero_churn += 1; }
++    }
++    let enc = keys.len() as f64;
++    let encounters_per_body_orbit = enc / (nc as f64 * c.orbits);
++
++    // ---- global churn rate of each body's train set over the whole run ----
++    let gstride = 10usize;
++    let mut churn_count = vec![0u64; nc];
++    {
++        let mut prev_sets: Vec<Vec<usize>> = Vec::with_capacity(nc);
++        let s0 = snap_at(&fl, 0.0);
++        for i in 0..nc { prev_sets.push(train_set4(&s0, i)); }
++        let mut s = gstride;
++        while s < steps {
++            let t = s as f64 * dt;
++            let sn = snap_at(&fl, t);
++            for i in 0..nc {
++                if train_set4(&sn, i) != prev_sets[i] { churn_count[i] += 1; }
++                prev_sets[i] = train_set4(&sn, i);
++            }
++            s += gstride;
++        }
++    }
++    let churn_per_orbit: Vec<f64> = churn_count.iter().map(|&x| x as f64 / c.orbits).collect();
++
++    // ---- pairwise section setup cost on this fleet (sample) ----
++    let mut setup_evals: Vec<u64> = Vec::new();
++    let mut rng = Rng(c.seed ^ 0xa1);
++    let mut tried = 0;
++    while setup_evals.len() < 200 && tried < 2000 {
++        tried += 1;
++        let i = (rng.next_u64() % nc as u64) as usize;
++        let j = (rng.next_u64() % nc as u64) as usize;
++        if i == j { continue; }
++        let mut ev = 0u64;
++        let secs = sections(&fl[i], &fl[j], RHO, SAFETY, &mut ev);
++        setup_evals.push(ev);
++        drop(secs);
++    }
++    let se_f: Vec<f64> = setup_evals.iter().map(|&x| x as f64).collect();
++    let mut se = se_f.clone();
++    let ev_p50 = pct_f64(&mut se, 0.5);
++    let mut se2 = se_f.clone();
++    let ev_p90 = pct_f64(&mut se2, 0.9);
++
++    // ---- work arithmetic ----
++    let k_watch = 4.0;
++    let mut cp = churn_per_orbit.clone();
++    let churn_p50 = pct_f64(&mut cp, 0.5);
++    let mut cp2 = churn_per_orbit.clone();
++    let churn_p90 = pct_f64(&mut cp2, 0.9);
++    let train_evals_per_body_orbit = churn_p90 * k_watch * ev_p50;
++    let train_evals_per_enc = if encounters_per_body_orbit > 0.0 { train_evals_per_body_orbit / encounters_per_body_orbit } else { f64::INFINITY };
++    let horizon = 20.0; // orbits, the gold's H
++    let quad_evals_per_enc = if encounters_per_body_orbit > 0.0 {
++        (nc as f64 * (nc as f64 - 1.0) / 2.0 * ev_p50) / (encounters_per_body_orbit * nc as f64 * horizon)
++    } else { f64::INFINITY };
++
++    let mut ld = leads_lam.clone();
++    let lead_lam_p50 = pct_f64(&mut ld, 0.5);
++    let mut ld2 = leads_lam.clone();
++    let lead_lam_p10 = pct_f64(&mut ld2, 0.1);
++    let mut ldd = leads_dist.clone();
++    let lead_dist_p50 = pct_f64(&mut ldd, 0.5);
++    let lam_le4 = lam_contacts.iter().filter(|&&r| r <= 4).count();
++    let dist_le4 = dist_contacts.iter().filter(|&&r| r <= 4).count();
++
++    println!(
++        "{{\"tag\":\"{}\",\"nc\":{},\"sig_e\":{},\"pom_spread\":{},\"orbits\":{},\"encounters\":{},\"enc_per_body_orbit\":{:.4},\"contact_rank\":{{\"lam_max\":{},\"lam_le4\":{}/{},\"dist_max\":{},\"dist_le4\":{}/{}}},\"lead_orbits\":{{\"lam_p50\":{:.5},\"lam_p10\":{:.5},\"dist_p50\":{:.5},\"cap\":0.05}},\"churn_per_body_orbit\":{{\"p50\":{:.1},\"p90\":{:.1}}},\"setup\":{{\"ev_p50\":{:.0},\"ev_p90\":{:.0}}},\"work\":{{\"train_evals_per_enc\":{:.3e},\"quad_evals_per_enc_h20\":{:.3e},\"ratio\":{:.2}}},\"window_churn\":{{\"events\":{},\"zero_churn_windows\":{}/{}}},\"brute_us\":{}}}",
++        c.tag, c.nc, c.sig_e, c.pom_spread, c.orbits, keys.len(), encounters_per_body_orbit,
++        lam_contacts.iter().copied().max().unwrap_or(0), lam_le4, keys.len(),
++        dist_contacts.iter().copied().max().unwrap_or(0), dist_le4, keys.len(),
++        lead_lam_p50, lead_lam_p10, lead_dist_p50,
++        churn_p50, churn_p90, ev_p50, ev_p90,
++        train_evals_per_enc, quad_evals_per_enc, train_evals_per_enc / quad_evals_per_enc,
++        churn_events_in_window, window_with_zero_churn, keys.len(), brute_us
++    );
++}
++
++fn cone_check(c: &Cfg) {
++    use emergent_encounters::pairs::cone_pairs;
++    let fl = make_fleet(c);
++    let nc = c.nc;
++    let dt = 4e-5;
++    let steps = (c.orbits * TAU / dt) as usize;
++    let mut best: HashMap<(u32, u32), (f64, f64)> = HashMap::new();
++    let mut pos = vec![[0.0f64; 2]; nc];
++    for s in 0..steps {
++        let t = s as f64 * dt;
++        for i in 0..nc {
++            let m = fl[i].mean_anomaly(t);
++            let st = fl[i].state_at_mean(m);
++            pos[i] = [st[0], st[1]];
++        }
++        for i in 0..nc {
++            for j in (i + 1)..nc {
++                let d = (pos[i][0] - pos[j][0]).hypot(pos[i][1] - pos[j][1]);
++                if d < RHO {
++                    let e = best.entry((i as u32, j as u32)).or_insert((f64::INFINITY, t));
++                    if d < e.0 { *e = (d, t); }
++                }
++            }
++        }
++    }
++    let cs = cone_pairs(&fl, RHO);
++    let mut missed = 0;
++    let mut samples = Vec::new();
++    for (&k, &(d, _)) in &best {
++        if !cs.pairs.contains(&k) {
++            missed += 1;
++            samples.push(format!("[{},{},d={:.2e}]", k.0, k.1, d));
++        }
++    }
++    println!(
++        "{{\"cone_check\":\"{}\",\"encounters\":{},\"cone_pairs\":{},\"cone_missed\":{},\"missed_samples\":{:?}}}",
++        c.tag, best.len(), cs.pairs.len(), missed, samples
++    );
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let which = args.get(1).map(|s| s.as_str()).unwrap_or("all");
++    let cfgs = [
++        Cfg { tag: "s0-control", nc: 200, a_hw: 1e-5, sig_e: 0.001, pom_spread: 0.1, sig_lam: 0.05, seed: 41, orbits: 2.0 },
++        Cfg { tag: "s1-e005", nc: 200, a_hw: 1e-5, sig_e: 0.005, pom_spread: 0.1, sig_lam: 0.05, seed: 42, orbits: 2.0 },
++        Cfg { tag: "s2-e020", nc: 200, a_hw: 1e-5, sig_e: 0.02, pom_spread: TAU, sig_lam: 0.05, seed: 43, orbits: 2.0 },
++        Cfg { tag: "s3-e050", nc: 200, a_hw: 1e-5, sig_e: 0.05, pom_spread: TAU, sig_lam: 0.05, seed: 44, orbits: 2.0 },
++        Cfg { tag: "s0-nc800", nc: 800, a_hw: 1e-5, sig_e: 0.001, pom_spread: 0.1, sig_lam: 0.05, seed: 45, orbits: 2.0 },
++        Cfg { tag: "s3-long", nc: 200, a_hw: 1e-5, sig_e: 0.05, pom_spread: TAU, sig_lam: 0.05, seed: 44, orbits: 10.0 },
++    ];
++    match which {
++        "cone-s0" => { cone_check(&cfgs[0]); return; }
++        "cone-s1" => { cone_check(&cfgs[1]); return; }
++        _ => {}
++    }
++    for c in &cfgs {
++        if which == "all" || which == c.tag {
++            probe(c);
++        }
++    }
++}
