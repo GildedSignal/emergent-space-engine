@@ -1,0 +1,1746 @@
+{
+ "machine": {
+  "host": "agonbox",
+  "cpu": "x86_64",
+  "nproc": 8,
+  "loadavg1": "1.48",
+  "mem": [
+   "16316708 kB",
+   "14334196 kB"
+  ],
+  "time": "2026-10-07T17:33:22"
+ },
+ "rho": 0.004,
+ "psyn_g6": 15.805,
+ "psyn_g2": 22.76,
+ "results": {
+  "C0_equivalence": {
+   "total": {
+    "misses": 1,
+    "waste": 27,
+    "props": 27,
+    "earliest": 1458.6059965793488
+   },
+   "ok": true
+  },
+  "C1_kepler_baseline": {
+   "g6": {
+    "misses": 0,
+    "waste": 0,
+    "props": 27
+   },
+   "g2": {
+    "misses": 0,
+    "waste": 0,
+    "props": 4
+   }
+  },
+  "C2_rigid_G2": {
+   "misses": 0,
+   "waste": 0,
+   "m0_true": 0.003627814391298531,
+   "m0_frozen": 0.003627814391297579,
+   "ok": true
+  },
+  "E1_scaling_G6": {
+   "ensemble": [
+    {
+     "om": 0.001,
+     "misses": 1,
+     "n_ph_missing": 1,
+     "first_times": [
+      1458.6059965793488
+     ],
+     "waste": 27,
+     "earliest": 1458.6059965793488,
+     "median": 1458.6059965793488,
+     "D_earliest": 1.4586
+    },
+    {
+     "om": 0.002,
+     "misses": 9,
+     "n_ph_missing": 7,
+     "first_times": [
+      742.578841951341,
+      1356.9266059244674,
+      848.5542404476728,
+      881.0416085802187,
+      1276.7106066512151,
+      1382.039426636738,
+      811.8662168173234
+     ],
+     "waste": 27,
+     "earliest": 742.578841951341,
+     "median": 881.0416085802187,
+     "D_earliest": 1.4852
+    },
+    {
+     "om": 0.003,
+     "misses": 5,
+     "n_ph_missing": 4,
+     "first_times": [
+      667.4113902110225,
+      917.0887541250743,
+      1086.5404245063,
+      974.9648910407468
+     ],
+     "waste": 27,
+     "earliest": 667.4113902110225,
+     "median": 974.9648910407468,
+     "D_earliest": 2.0022
+    },
+    {
+     "om": 0.005,
+     "misses": 6,
+     "n_ph_missing": 5,
+     "first_times": [
+      302.74892954513257,
+      1179.8354049692493,
+      999.2809876994475,
+      1104.4976344751694,
+      1198.6937129573053
+     ],
+     "waste": 27,
+     "earliest": 302.74892954513257,
+     "median": 1104.4976344751694,
+     "D_earliest": 1.5137
+    },
+    {
+     "om": 0.01,
+     "misses": 10,
+     "n_ph_missing": 7,
+     "first_times": [
+      1459.0912772579518,
+      340.1636248916326,
+      158.38649082988024,
+      1123.5630558434573,
+      1464.0314707021957,
+      244.91207258016266,
+      145.34054937045698
+     ],
+     "waste": 27,
+     "earliest": 145.34054937045698,
+     "median": 340.1636248916326,
+     "D_earliest": 1.4534
+    }
+   ],
+   "n_rates_with_misses": 4,
+   "exp_earliest": {
+    "slope": -1.0783,
+    "intercept": 0.0404,
+    "n": 4
+   },
+   "exp_median": {
+    "slope": -0.5711,
+    "intercept": 3.4945,
+    "n": 4
+   }
+  },
+  "E2_G4n": {
+   "dstar": 0.7269239135555695,
+   "travel_far": 1.4269239135555694,
+   "travel_near": 0.026923913555569556,
+   "rows": [
+    {
+     "om": 0.001,
+     "phase": 0,
+     "t_tang": 1426.9239135555692,
+     "first": 1980.5977357159304,
+     "delay": 553.6738221603612
+    },
+    {
+     "om": 0.001,
+     "phase": 1,
+     "t_tang": 1426.9239135555692,
+     "first": 1930.340126907353,
+     "delay": 503.41621335178365
+    },
+    {
+     "om": 0.001,
+     "phase": 2,
+     "t_tang": 1426.9239135555692,
+     "first": 1880.080368728211,
+     "delay": 453.1564551726417
+    },
+    {
+     "om": 0.001,
+     "phase": 3,
+     "t_tang": 1426.9239135555692,
+     "first": 1829.818103506805,
+     "delay": 402.89418995123583
+    },
+    {
+     "om": 0.001,
+     "phase": 4,
+     "t_tang": 1426.9239135555692,
+     "first": 2081.107584282023,
+     "delay": 654.1836707264536
+    },
+    {
+     "om": 0.001,
+     "phase": 5,
+     "t_tang": 1426.9239135555692,
+     "first": 1458.394848654781,
+     "delay": 31.47093509921183
+    },
+    {
+     "om": 0.002,
+     "phase": 0,
+     "t_tang": 713.4619567777846,
+     "first": 2858.755662942015,
+     "delay": 2145.2937061642306
+    },
+    {
+     "om": 0.002,
+     "phase": 1,
+     "t_tang": 713.4619567777846,
+     "first": 1157.4080112358229,
+     "delay": 443.94605445803825
+    },
+    {
+     "om": 0.002,
+     "phase": 2,
+     "t_tang": 713.4619567777846,
+     "first": 1345.7574358192255,
+     "delay": 632.2954790414409
+    },
+    {
+     "om": 0.002,
+     "phase": 3,
+     "t_tang": 713.4619567777846,
+     "first": null,
+     "delay": null
+    },
+    {
+     "om": 0.002,
+     "phase": 4,
+     "t_tang": 713.4619567777846,
+     "first": 923.8009893124224,
+     "delay": 210.3390325346378
+    },
+    {
+     "om": 0.002,
+     "phase": 5,
+     "t_tang": 713.4619567777846,
+     "first": 1465.038286189652,
+     "delay": 751.5763294118673
+    },
+    {
+     "om": 0.003,
+     "phase": 0,
+     "t_tang": 475.6413045185231,
+     "first": 2835.050784836162,
+     "delay": 2359.409480317639
+    },
+    {
+     "om": 0.003,
+     "phase": 1,
+     "t_tang": 475.6413045185231,
+     "first": 730.191361089971,
+     "delay": 254.5500565714479
+    },
+    {
+     "om": 0.003,
+     "phase": 2,
+     "t_tang": 475.6413045185231,
+     "first": 597.1223033256067,
+     "delay": 121.48099880708361
+    },
+    {
+     "om": 0.003,
+     "phase": 3,
+     "t_tang": 475.6413045185231,
+     "first": 2922.9197616176834,
+     "delay": 2447.2784570991603
+    },
+    {
+     "om": 0.003,
+     "phase": 4,
+     "t_tang": 475.6413045185231,
+     "first": null,
+     "delay": null
+    },
+    {
+     "om": 0.003,
+     "phase": 5,
+     "t_tang": 475.6413045185231,
+     "first": 2802.3087555390985,
+     "delay": 2326.6674510205753
+    },
+    {
+     "om": 0.005,
+     "phase": 0,
+     "t_tang": 285.38478271111387,
+     "first": 1884.5387552120374,
+     "delay": 1599.1539725009234
+    },
+    {
+     "om": 0.005,
+     "phase": 1,
+     "t_tang": 285.38478271111387,
+     "first": 489.94343663347604,
+     "delay": 204.55865392236217
+    },
+    {
+     "om": 0.005,
+     "phase": 2,
+     "t_tang": 285.38478271111387,
+     "first": null,
+     "delay": null
+    },
+    {
+     "om": 0.005,
+     "phase": 3,
+     "t_tang": 285.38478271111387,
+     "first": null,
+     "delay": null
+    },
+    {
+     "om": 0.005,
+     "phase": 4,
+     "t_tang": 285.38478271111387,
+     "first": 1540.403798386812,
+     "delay": 1255.019015675698
+    },
+    {
+     "om": 0.005,
+     "phase": 5,
+     "t_tang": 285.38478271111387,
+     "first": 352.0987604634357,
+     "delay": 66.71397775232185
+    }
+   ],
+   "n_realized": 20,
+   "n_before_tangency": 0,
+   "linfit_t_first_vs_inv_om": {
+    "slope": 0.5399,
+    "intercept": 1357.24,
+    "n": 20
+   },
+   "linfit_earliest_vs_inv_om": {
+    "slope": 1.3504,
+    "intercept": 146.38,
+    "n": 4
+   },
+   "per_rate": [
+    {
+     "om": 0.001,
+     "n": 6,
+     "t_tang": 1426.9239135555692,
+     "earliest_delay": 31.47093509921183,
+     "median_delay": 503.41621335178365
+    },
+    {
+     "om": 0.002,
+     "n": 5,
+     "t_tang": 713.4619567777846,
+     "earliest_delay": 210.3390325346378,
+     "median_delay": 632.2954790414409
+    },
+    {
+     "om": 0.003,
+     "n": 5,
+     "t_tang": 475.6413045185231,
+     "earliest_delay": 121.48099880708361,
+     "median_delay": 2326.6674510205753
+    },
+    {
+     "om": 0.005,
+     "n": 4,
+     "t_tang": 285.38478271111387,
+     "earliest_delay": 66.71397775232185,
+     "median_delay": 1255.019015675698
+    }
+   ],
+   "delays": [
+    553.7,
+    503.4,
+    453.2,
+    402.9,
+    654.2,
+    31.5,
+    2145.3,
+    443.9,
+    632.3,
+    210.3,
+    751.6,
+    2359.4,
+    254.6,
+    121.5,
+    2447.3,
+    2326.7,
+    1599.2,
+    204.6,
+    1255.0,
+    66.7
+   ]
+  },
+  "E3_theta_sweep_g6": [
+   {
+    "theta": 0.05,
+    "m": 1,
+    "misses": 5,
+    "waste": 11,
+    "props": 11,
+    "rebuilds": 90,
+    "n_ph_missing": 4,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "1": {
+      "misses": 1,
+      "first": 667.4113902110225,
+      "missed": [
+       [
+        667.4113902110225,
+        0.0028151159965511584
+       ]
+      ],
+      "waste": 0,
+      "props": 0,
+      "n_events": 1
+     },
+     "2": {
+      "misses": 2,
+      "first": 917.0887541250743,
+      "missed": [
+       [
+        917.0887541250743,
+        0.0015227902016881655
+       ],
+       [
+        1394.0595820813387,
+        0.00204853041264954
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 2
+     },
+     "3": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "4": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "5": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "6": {
+      "misses": 1,
+      "first": 1086.5404245063,
+      "missed": [
+       [
+        1086.5404245063,
+        0.001875392321201704
+       ]
+      ],
+      "waste": 2,
+      "props": 2,
+      "n_events": 1
+     },
+     "7": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "8": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 3,
+      "props": 3,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "10": {
+      "misses": 1,
+      "first": 974.9648910407468,
+      "missed": [
+       [
+        974.9648910407468,
+        0.0014586118751528637
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "11": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": 0.1,
+    "m": 2,
+    "misses": 5,
+    "waste": 12,
+    "props": 12,
+    "rebuilds": 45,
+    "n_ph_missing": 4,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "1": {
+      "misses": 1,
+      "first": 667.4113902110225,
+      "missed": [
+       [
+        667.4113902110225,
+        0.0028151159965511584
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "2": {
+      "misses": 2,
+      "first": 917.0887541250743,
+      "missed": [
+       [
+        917.0887541250743,
+        0.0015227902016881655
+       ],
+       [
+        1394.0595820813387,
+        0.00204853041264954
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 2
+     },
+     "3": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "4": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "5": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "6": {
+      "misses": 1,
+      "first": 1086.5404245063,
+      "missed": [
+       [
+        1086.5404245063,
+        0.001875392321201704
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "7": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "8": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 3,
+      "props": 3,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "10": {
+      "misses": 1,
+      "first": 974.9648910407468,
+      "missed": [
+       [
+        974.9648910407468,
+        0.0014586118751528637
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "11": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": 0.2,
+    "m": 4,
+    "misses": 5,
+    "waste": 12,
+    "props": 12,
+    "rebuilds": 23,
+    "n_ph_missing": 4,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "1": {
+      "misses": 1,
+      "first": 667.4113902110225,
+      "missed": [
+       [
+        667.4113902110225,
+        0.0028151159965511584
+       ]
+      ],
+      "waste": 2,
+      "props": 2,
+      "n_events": 1
+     },
+     "2": {
+      "misses": 2,
+      "first": 917.0887541250743,
+      "missed": [
+       [
+        917.0887541250743,
+        0.0015227902016881655
+       ],
+       [
+        1394.0595820813387,
+        0.00204853041264954
+       ]
+      ],
+      "waste": 2,
+      "props": 2,
+      "n_events": 2
+     },
+     "3": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "4": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "5": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "6": {
+      "misses": 1,
+      "first": 1086.5404245063,
+      "missed": [
+       [
+        1086.5404245063,
+        0.001875392321201704
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "7": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "8": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "10": {
+      "misses": 1,
+      "first": 974.9648910407468,
+      "missed": [
+       [
+        974.9648910407468,
+        0.0014586118751528637
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "11": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": 0.45,
+    "m": 9,
+    "misses": 5,
+    "waste": 12,
+    "props": 12,
+    "rebuilds": 10,
+    "n_ph_missing": 4,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "1": {
+      "misses": 1,
+      "first": 667.4113902110225,
+      "missed": [
+       [
+        667.4113902110225,
+        0.0028151159965511584
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "2": {
+      "misses": 2,
+      "first": 917.0887541250743,
+      "missed": [
+       [
+        917.0887541250743,
+        0.0015227902016881655
+       ],
+       [
+        1394.0595820813387,
+        0.00204853041264954
+       ]
+      ],
+      "waste": 2,
+      "props": 2,
+      "n_events": 2
+     },
+     "3": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "4": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "5": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "6": {
+      "misses": 1,
+      "first": 1086.5404245063,
+      "missed": [
+       [
+        1086.5404245063,
+        0.001875392321201704
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "7": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "8": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "10": {
+      "misses": 1,
+      "first": 974.9648910407468,
+      "missed": [
+       [
+        974.9648910407468,
+        0.0014586118751528637
+       ]
+      ],
+      "waste": 0,
+      "props": 0,
+      "n_events": 1
+     },
+     "11": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": 0.9,
+    "m": 18,
+    "misses": 5,
+    "waste": 13,
+    "props": 13,
+    "rebuilds": 5,
+    "n_ph_missing": 4,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 3,
+      "props": 3,
+      "n_events": 0
+     },
+     "1": {
+      "misses": 1,
+      "first": 667.4113902110225,
+      "missed": [
+       [
+        667.4113902110225,
+        0.0028151159965511584
+       ]
+      ],
+      "waste": 0,
+      "props": 0,
+      "n_events": 1
+     },
+     "2": {
+      "misses": 2,
+      "first": 917.0887541250743,
+      "missed": [
+       [
+        917.0887541250743,
+        0.0015227902016881655
+       ],
+       [
+        1394.0595820813387,
+        0.00204853041264954
+       ]
+      ],
+      "waste": 2,
+      "props": 2,
+      "n_events": 2
+     },
+     "3": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 3,
+      "props": 3,
+      "n_events": 0
+     },
+     "4": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "5": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "6": {
+      "misses": 1,
+      "first": 1086.5404245063,
+      "missed": [
+       [
+        1086.5404245063,
+        0.001875392321201704
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "7": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "8": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "10": {
+      "misses": 1,
+      "first": 974.9648910407468,
+      "missed": [
+       [
+        974.9648910407468,
+        0.0014586118751528637
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "11": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": null,
+    "m": null,
+    "misses": 5,
+    "waste": 27,
+    "props": 27,
+    "rebuilds": 1,
+    "n_ph_missing": 4,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "1": {
+      "misses": 1,
+      "first": 667.4113902110225,
+      "missed": [
+       [
+        667.4113902110225,
+        0.0028151159965511584
+       ]
+      ],
+      "waste": 3,
+      "props": 3,
+      "n_events": 1
+     },
+     "2": {
+      "misses": 2,
+      "first": 917.0887541250743,
+      "missed": [
+       [
+        917.0887541250743,
+        0.0015227902016881655
+       ],
+       [
+        1394.0595820813387,
+        0.00204853041264954
+       ]
+      ],
+      "waste": 2,
+      "props": 2,
+      "n_events": 2
+     },
+     "3": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "4": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "5": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "6": {
+      "misses": 1,
+      "first": 1086.5404245063,
+      "missed": [
+       [
+        1086.5404245063,
+        0.001875392321201704
+       ]
+      ],
+      "waste": 2,
+      "props": 2,
+      "n_events": 1
+     },
+     "7": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 3,
+      "props": 3,
+      "n_events": 0
+     },
+     "8": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "10": {
+      "misses": 1,
+      "first": 974.9648910407468,
+      "missed": [
+       [
+        974.9648910407468,
+        0.0014586118751528637
+       ]
+      ],
+      "waste": 3,
+      "props": 3,
+      "n_events": 1
+     },
+     "11": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     }
+    }
+   }
+  ],
+  "E3_theta_sweep_g2": [
+   {
+    "theta": 0.05,
+    "m": 1,
+    "misses": 1,
+    "waste": 5,
+    "props": 5,
+    "rebuilds": 90,
+    "n_ph_missing": 1,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     },
+     "3": {
+      "misses": 1,
+      "first": 747.7958482618817,
+      "missed": [
+       [
+        747.7958482618817,
+        0.0026378137332935658
+       ]
+      ],
+      "waste": 0,
+      "props": 0,
+      "n_events": 1
+     },
+     "6": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": 0.1,
+    "m": 2,
+    "misses": 1,
+    "waste": 2,
+    "props": 2,
+    "rebuilds": 45,
+    "n_ph_missing": 1,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "3": {
+      "misses": 1,
+      "first": 747.7958482618817,
+      "missed": [
+       [
+        747.7958482618817,
+        0.0026378137332935658
+       ]
+      ],
+      "waste": 0,
+      "props": 0,
+      "n_events": 1
+     },
+     "6": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": 0.2,
+    "m": 4,
+    "misses": 1,
+    "waste": 1,
+    "props": 1,
+    "rebuilds": 23,
+    "n_ph_missing": 1,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "3": {
+      "misses": 1,
+      "first": 747.7958482618817,
+      "missed": [
+       [
+        747.7958482618817,
+        0.0026378137332935658
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "6": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": 0.45,
+    "m": 9,
+    "misses": 1,
+    "waste": 4,
+    "props": 4,
+    "rebuilds": 10,
+    "n_ph_missing": 1,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "3": {
+      "misses": 1,
+      "first": 747.7958482618817,
+      "missed": [
+       [
+        747.7958482618817,
+        0.0026378137332935658
+       ]
+      ],
+      "waste": 0,
+      "props": 0,
+      "n_events": 1
+     },
+     "6": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 3,
+      "props": 3,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": 0.9,
+    "m": 18,
+    "misses": 1,
+    "waste": 2,
+    "props": 2,
+    "rebuilds": 5,
+    "n_ph_missing": 1,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "3": {
+      "misses": 1,
+      "first": 747.7958482618817,
+      "missed": [
+       [
+        747.7958482618817,
+        0.0026378137332935658
+       ]
+      ],
+      "waste": 1,
+      "props": 1,
+      "n_events": 1
+     },
+     "6": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 0,
+      "props": 0,
+      "n_events": 0
+     }
+    }
+   },
+   {
+    "theta": null,
+    "m": null,
+    "misses": 1,
+    "waste": 4,
+    "props": 4,
+    "rebuilds": 1,
+    "n_ph_missing": 1,
+    "per_phase": {
+     "0": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "3": {
+      "misses": 1,
+      "first": 747.7958482618817,
+      "missed": [
+       [
+        747.7958482618817,
+        0.0026378137332935658
+       ]
+      ],
+      "waste": 0,
+      "props": 0,
+      "n_events": 1
+     },
+     "6": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 1,
+      "props": 1,
+      "n_events": 0
+     },
+     "9": {
+      "misses": 0,
+      "first": null,
+      "missed": [],
+      "waste": 2,
+      "props": 2,
+      "n_events": 0
+     }
+    }
+   }
+  ],
+  "E4_G4n_fix": {
+   "misses": 1,
+   "waste": 4,
+   "props": 4,
+   "n_events": 1,
+   "first_true": 1980.5977357159304,
+   "rebuilds": 15
+  },
+  "E5_regen3": {
+   "n": 12,
+   "mismatches": [],
+   "corrected_t_tang": {
+    "0.0005": 2853.8478271111385,
+    "0.001": 1426.9239135555692,
+    "0.002": 713.4619567777846
+   }
+  },
+  "E6_fold_width": [
+   {
+    "geometry": "g6",
+    "phase": 1,
+    "t_event": 667.4113902110225,
+    "delta_event": 2.00223,
+    "scan": [
+     {
+      "offset": -0.01,
+      "min_d": 0.007143
+     },
+     {
+      "offset": -0.003,
+      "min_d": 0.000287
+     },
+     {
+      "offset": -0.001,
+      "min_d": 0.001851
+     },
+     {
+      "offset": -0.0003,
+      "min_d": 0.00252
+     },
+     {
+      "offset": 0.0,
+      "min_d": 0.002815
+     },
+     {
+      "offset": 0.0003,
+      "min_d": 0.003113
+     },
+     {
+      "offset": 0.001,
+      "min_d": 0.003817
+     },
+     {
+      "offset": 0.003,
+      "min_d": 0.005794
+     },
+     {
+      "offset": 0.01,
+      "min_d": 0.012708
+     }
+    ],
+    "width_below_1p2rho": 0.003
+   },
+   {
+    "geometry": "g6",
+    "phase": 2,
+    "t_event": 917.1,
+    "delta_event": 2.7513,
+    "scan": [
+     {
+      "offset": -0.01,
+      "min_d": 0.008423
+     },
+     {
+      "offset": -0.003,
+      "min_d": 0.003577
+     },
+     {
+      "offset": -0.001,
+      "min_d": 0.002239
+     },
+     {
+      "offset": -0.0003,
+      "min_d": 0.001762
+     },
+     {
+      "offset": 0.0,
+      "min_d": 0.001546
+     },
+     {
+      "offset": 0.0003,
+      "min_d": 0.00133
+     },
+     {
+      "offset": 0.001,
+      "min_d": 0.000827
+     },
+     {
+      "offset": 0.003,
+      "min_d": 0.000615
+     },
+     {
+      "offset": 0.01,
+      "min_d": 0.005457
+     }
+    ],
+    "width_below_1p2rho": 0.003
+   },
+   {
+    "geometry": "g6",
+    "phase": 2,
+    "t_event": 1394.1,
+    "delta_event": 4.1823,
+    "scan": [
+     {
+      "offset": -0.01,
+      "min_d": 0.01035
+     },
+     {
+      "offset": -0.003,
+      "min_d": 0.004473
+     },
+     {
+      "offset": -0.001,
+      "min_d": 0.00279
+     },
+     {
+      "offset": -0.0003,
+      "min_d": 0.002212
+     },
+     {
+      "offset": 0.0,
+      "min_d": 0.001968
+     },
+     {
+      "offset": 0.0003,
+      "min_d": 0.001727
+     },
+     {
+      "offset": 0.001,
+      "min_d": 0.001194
+     },
+     {
+      "offset": 0.003,
+      "min_d": 0.000744
+     },
+     {
+      "offset": 0.01,
+      "min_d": 0.006496
+     }
+    ],
+    "width_below_1p2rho": 0.003
+   },
+   {
+    "geometry": "g6",
+    "phase": 6,
+    "t_event": 1086.5404245063,
+    "delta_event": 3.25962,
+    "scan": [
+     {
+      "offset": -0.01,
+      "min_d": 0.009264
+     },
+     {
+      "offset": -0.003,
+      "min_d": 0.00412
+     },
+     {
+      "offset": -0.001,
+      "min_d": 0.002618
+     },
+     {
+      "offset": -0.0003,
+      "min_d": 0.002097
+     },
+     {
+      "offset": 0.0,
+      "min_d": 0.001875
+     },
+     {
+      "offset": 0.0003,
+      "min_d": 0.001655
+     },
+     {
+      "offset": 0.001,
+      "min_d": 0.001151
+     },
+     {
+      "offset": 0.003,
+      "min_d": 0.000619
+     },
+     {
+      "offset": 0.01,
+      "min_d": 0.005529
+     }
+    ],
+    "width_below_1p2rho": 0.003
+   },
+   {
+    "geometry": "g6",
+    "phase": 10,
+    "t_event": 975.0,
+    "delta_event": 2.925,
+    "scan": [
+     {
+      "offset": -0.01,
+      "min_d": 0.007661
+     },
+     {
+      "offset": -0.003,
+      "min_d": 0.001211
+     },
+     {
+      "offset": -0.001,
+      "min_d": 0.000776
+     },
+     {
+      "offset": -0.0003,
+      "min_d": 0.001388
+     },
+     {
+      "offset": 0.0,
+      "min_d": 0.001629
+     },
+     {
+      "offset": 0.0003,
+      "min_d": 0.001881
+     },
+     {
+      "offset": 0.001,
+      "min_d": 0.002494
+     },
+     {
+      "offset": 0.003,
+      "min_d": 0.004318
+     },
+     {
+      "offset": 0.01,
+      "min_d": 0.010762
+     }
+    ],
+    "width_below_1p2rho": 0.003
+   },
+   {
+    "geometry": "g2",
+    "phase": 3,
+    "t_event": 747.7958482618817,
+    "delta_event": 2.24339,
+    "scan": [
+     {
+      "offset": -0.01,
+      "min_d": 0.003944
+     },
+     {
+      "offset": -0.003,
+      "min_d": 0.000677
+     },
+     {
+      "offset": -0.001,
+      "min_d": 0.001995
+     },
+     {
+      "offset": -0.0003,
+      "min_d": 0.002442
+     },
+     {
+      "offset": 0.0,
+      "min_d": 0.002638
+     },
+     {
+      "offset": 0.0003,
+      "min_d": 0.002836
+     },
+     {
+      "offset": 0.001,
+      "min_d": 0.003305
+     },
+     {
+      "offset": 0.003,
+      "min_d": 0.00462
+     },
+     {
+      "offset": 0.01,
+      "min_d": 0.009245
+     }
+    ],
+    "width_below_1p2rho": 0.01
+   }
+  ]
+ }
+}

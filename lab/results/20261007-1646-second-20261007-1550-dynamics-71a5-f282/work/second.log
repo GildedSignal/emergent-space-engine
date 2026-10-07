@@ -1,0 +1,32 @@
+C0 G6 frozen @1e-3 (author: m=1 w=27 p=27 e=1458.6059965793488): {'misses': 1, 'waste': 27, 'props': 27, 'earliest': 1458.6059965793488} ok= True
+C1 kepler baseline (frozen vs itself): {'g6': {'misses': 0, 'waste': 0, 'props': 27}, 'g2': {'misses': 0, 'waste': 0, 'props': 4}}
+C2 rigid G2: {'misses': 0, 'waste': 0, 'm0_true': 0.003627814391298531, 'm0_frozen': 0.003627814391297579, 'ok': True}
+E1 G6 om=0.001: misses=1 nph=1 earliest=1458.6059965793488 median=1458.6059965793488 D=om*earliest=1.4586
+E1 G6 om=0.002: misses=9 nph=7 earliest=742.578841951341 median=881.0416085802187 D=om*earliest=1.4852
+E1 G6 om=0.003: misses=5 nph=4 earliest=667.4113902110225 median=974.9648910407468 D=om*earliest=2.0022
+E1 G6 om=0.005: misses=6 nph=5 earliest=302.74892954513257 median=1104.4976344751694 D=om*earliest=1.5137
+E1 G6 om=0.01: misses=10 nph=7 earliest=145.34054937045698 median=340.1636248916326 D=om*earliest=1.4534
+E1 fits: {'slope': -1.0783, 'intercept': 0.0404, 'n': 4} {'slope': -0.5711, 'intercept': 3.4945, 'n': 4}
+E2 G4n: dstar=0.726924 travel_far=1.4269 realized=20 before=0 minfit={'slope': 1.3504, 'intercept': 146.38, 'n': 4}
+E2 per_rate: [{'om': 0.001, 'n': 6, 't_tang': 1426.9239135555692, 'earliest_delay': 31.47093509921183, 'median_delay': 503.41621335178365}, {'om': 0.002, 'n': 5, 't_tang': 713.4619567777846, 'earliest_delay': 210.3390325346378, 'median_delay': 632.2954790414409}, {'om': 0.003, 'n': 5, 't_tang': 475.6413045185231, 'earliest_delay': 121.48099880708361, 'median_delay': 2326.6674510205753}, {'om': 0.005, 'n': 4, 't_tang': 285.38478271111387, 'earliest_delay': 66.71397775232185, 'median_delay': 1255.019015675698}]
+E3 g6 theta=0.05: misses=5 waste=11 props=11 rebuilds=90
+E3 g6 theta=0.1: misses=5 waste=12 props=12 rebuilds=45
+E3 g6 theta=0.2: misses=5 waste=12 props=12 rebuilds=23
+E3 g6 theta=0.45: misses=5 waste=12 props=12 rebuilds=10
+E3 g6 theta=0.9: misses=5 waste=13 props=13 rebuilds=5
+E3 g6 theta=None: misses=5 waste=27 props=27 rebuilds=1
+E3 g2 theta=0.05: misses=1 waste=5 props=5 rebuilds=90
+E3 g2 theta=0.1: misses=1 waste=2 props=2 rebuilds=45
+E3 g2 theta=0.2: misses=1 waste=1 props=1 rebuilds=23
+E3 g2 theta=0.45: misses=1 waste=4 props=4 rebuilds=10
+E3 g2 theta=0.9: misses=1 waste=2 props=2 rebuilds=5
+E3 g2 theta=None: misses=1 waste=4 props=4 rebuilds=1
+E4 G4n fix theta=0.2: {'misses': 1, 'waste': 4, 'props': 4, 'n_events': 1, 'first_true': 1980.5977357159304, 'rebuilds': 15}
+E6 g6 ph1 t=667.4: d_event scan [{'offset': -0.01, 'min_d': 0.007143}, {'offset': -0.003, 'min_d': 0.000287}, {'offset': -0.001, 'min_d': 0.001851}, {'offset': -0.0003, 'min_d': 0.00252}, {'offset': 0.0, 'min_d': 0.002815}, {'offset': 0.0003, 'min_d': 0.003113}, {'offset': 0.001, 'min_d': 0.003817}, {'offset': 0.003, 'min_d': 0.005794}, {'offset': 0.01, 'min_d': 0.012708}] width<1.2rho=0.003
+E6 g6 ph2 t=917.1: d_event scan [{'offset': -0.01, 'min_d': 0.008423}, {'offset': -0.003, 'min_d': 0.003577}, {'offset': -0.001, 'min_d': 0.002239}, {'offset': -0.0003, 'min_d': 0.001762}, {'offset': 0.0, 'min_d': 0.001546}, {'offset': 0.0003, 'min_d': 0.00133}, {'offset': 0.001, 'min_d': 0.000827}, {'offset': 0.003, 'min_d': 0.000615}, {'offset': 0.01, 'min_d': 0.005457}] width<1.2rho=0.003
+E6 g6 ph2 t=1394.1: d_event scan [{'offset': -0.01, 'min_d': 0.01035}, {'offset': -0.003, 'min_d': 0.004473}, {'offset': -0.001, 'min_d': 0.00279}, {'offset': -0.0003, 'min_d': 0.002212}, {'offset': 0.0, 'min_d': 0.001968}, {'offset': 0.0003, 'min_d': 0.001727}, {'offset': 0.001, 'min_d': 0.001194}, {'offset': 0.003, 'min_d': 0.000744}, {'offset': 0.01, 'min_d': 0.006496}] width<1.2rho=0.003
+E6 g6 ph6 t=1086.5: d_event scan [{'offset': -0.01, 'min_d': 0.009264}, {'offset': -0.003, 'min_d': 0.00412}, {'offset': -0.001, 'min_d': 0.002618}, {'offset': -0.0003, 'min_d': 0.002097}, {'offset': 0.0, 'min_d': 0.001875}, {'offset': 0.0003, 'min_d': 0.001655}, {'offset': 0.001, 'min_d': 0.001151}, {'offset': 0.003, 'min_d': 0.000619}, {'offset': 0.01, 'min_d': 0.005529}] width<1.2rho=0.003
+E6 g6 ph10 t=975.0: d_event scan [{'offset': -0.01, 'min_d': 0.007661}, {'offset': -0.003, 'min_d': 0.001211}, {'offset': -0.001, 'min_d': 0.000776}, {'offset': -0.0003, 'min_d': 0.001388}, {'offset': 0.0, 'min_d': 0.001629}, {'offset': 0.0003, 'min_d': 0.001881}, {'offset': 0.001, 'min_d': 0.002494}, {'offset': 0.003, 'min_d': 0.004318}, {'offset': 0.01, 'min_d': 0.010762}] width<1.2rho=0.003
+E6 g2 ph3 t=747.8: d_event scan [{'offset': -0.01, 'min_d': 0.003944}, {'offset': -0.003, 'min_d': 0.000677}, {'offset': -0.001, 'min_d': 0.001995}, {'offset': -0.0003, 'min_d': 0.002442}, {'offset': 0.0, 'min_d': 0.002638}, {'offset': 0.0003, 'min_d': 0.002836}, {'offset': 0.001, 'min_d': 0.003305}, {'offset': 0.003, 'min_d': 0.00462}, {'offset': 0.01, 'min_d': 0.009245}] width<1.2rho=0.01
+E5 regen3: 12 rows, mismatches=[]
+wrote results4.json

@@ -1,0 +1,4 @@
+Working...
+Run complete within budget. Folder state: `predictions.md` (pre-registered), `dossier.md`, `work/{jobs.py, extra_jobs.py, second.py, regen3.py, cert.py, cert2.py, results4.json, results3.regen.json, second.log, shard logs, truth/ (1588 files)}` — every file under 5 MB, nothing outside my run folder touched.
+
+**The claim, one sentence:** the original run's aging law now holds fitted and regenerating (first miss = travel-to-tangency/Δϖ̇, exponent −1.08, D ≈ 1.46 = exact travel; 34/34 events post-tangency; results3 bit-identical with the corrected far-tangency column), but its proposed fix is refuted in rebuild-cadence form — the missed encounters are fold events whose depth turns on within ~3×10⁻³ rad of differential rotation, so the miss set is invariant under any re-cut cadence (no kick cadence shadows it) and only evaluating the section at the exact current Δϖ per synodic passage certifies them.
