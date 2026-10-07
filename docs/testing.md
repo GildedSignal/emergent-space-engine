@@ -1,199 +1,160 @@
-# Testing: detecting fast when we fool ourselves
+# Testing: finding out fast that we are wrong
 
-**Draft for Julien's validation (7 October). Not in force until he approves it.** Once approved, it absorbs [test-ladder.md](test-ladder.md), and AGENTS.md's "Evidence" and "Tests" bullets shrink to a pointer here.
+**Draft for Julien's validation (7 October). Not in force until he approves it.** Once approved, it absorbs [test-ladder.md](test-ladder.md), and AGENTS.md's "Evidence" and "Tests" bullets become one pointer here.
 
 Julien, 7 October:
-- tests should "prevent big mistakes or many small ones" and be "on average, amortized";
+- "prevent big mistakes or many small ones", "on average, amortized";
 - "it's really about epistemology … unknown unknowns of interactions so knowing what to test too matters tremendously";
 - tests "reduce the time towards detecting when we're fooling ourselves, not to prevent issues, move fast break fast".
 
-**The purpose.** A test buys a shorter time between fooling ourselves and knowing it. It does not buy the absence of issues.
-- **The metric is detection latency:** from the commit that introduced a mistake to the run that caught it. Every correction entry records it.
-- **The ranking so far:**
-  - The slowest catch was an unknown known: gravity drifted for weeks (H0196).
-  - Next came a tunnelled one: the lab's shared harness went unnoticed overnight.
-  - The fastest are tests that can fail, measured in seconds.
+## The idea
 
-The full study of how critical fields test is in the [dossier](../artifacts/evidence/critical-software-testing-20261007/README.md).
+Everything we already do is a conjecture meeting a refutation: a gate, a rung, a lab run, a red-team, Julien's flight. This protocol is their shared grammar, not a new activity.
 
-## 1. What a test can know
+A check exists to shorten the time between fooling ourselves and knowing it. Its measure is **detection latency**: from the change that introduced a mistake to the check that caught it.
 
-1. **A test refutes; it never proves.** We know what is wrong far better than what is right (Popper, via Taleb and Bevelin). Each test refutes a named conjecture, and its kill criterion is written first. The instrument itself can lie.
-2. **A pass is worth only the test's proven ability to fail** (Novella on absence of evidence). A test that never failed a planted fault proves nothing by passing.
-3. **Risk lies in exposure, not in past bug counts** (Taleb). Aim where an error would cost the most and where the most is built on top.
-4. **A result holds only inside its observed range** (Schmidt-Nielsen).
-   - Every oracle and gate states its domain.
-   - Every claim carries its tested range.
-   - When a regime changes, old evidence expires. Ariane 5 flew Ariane 4's velocity range, and so did our v2 register.
-5. **Agreement is not independence.**
-   - Backups that share a defect fail together (Bevelin).
-   - Independently written versions fail on the same hard inputs (Knight and Leveson). Coding agents repeat this, clustered on ambiguous parts of the spec (2026).
-   - So a judge uses a different method, not only a different model, and an unambiguous spec is itself a test.
-6. **Plans fail by tunnelling** (Taleb). Some inputs must come from outside the plan: random, adversarial, or the player.
-7. **A partial failure that "passed" is a failure** (Challenger: normalisation of deviance). Every surprise is a stop until it is explained. A known red gate is a ratchet that may only improve; it is never described as passing (B13 at 60/64).
+The protocol names no files, mechanisms or number formats. Those change; the protocol does not.
 
-## 2. Knowing what to test
+## The loop
 
-| Quadrant | Here | What it gets |
+It applies to any change, at any scale.
+
+1. **Conjecture.** In one sentence: what does this change make true? If it cannot be said, the change is not understood yet.
+2. **Exposure.** What will be built on it, and how hard is it to undo? This decides the end of the barbell.
+3. **Fastest refuter.** Find the cheapest observation that would come out differently if the conjecture were false. Look where the information is (below).
+   - Prefer a generator to a case.
+   - Prefer a property to an example.
+   - Prefer the existing harness to a new one.
+4. **Proof it can fail.** Plant the fault it is meant to catch. A refuter that misses its plant is a control.
+5. **Placement.**
+   - Cheap: the inner loop.
+   - Expensive: the lab or the background.
+   - One-way: the door.
+6. **Aftermath.**
+   - A surprise stops the work until it is explained.
+   - An escape is named by its family, gets the family's generator, and fixes the process step that let it through. Its latency is recorded.
+
+## What a check can know
+
+1. **It refutes; it never proves.** We know what is wrong far better than what is right (Popper, via Taleb). The instrument can also lie.
+2. **A pass is worth only the check's proven ability to fail** (Novella on absence of evidence).
+3. **Risk lies in exposure, not in past bug counts** (Taleb).
+4. **A result holds only inside the range it was observed in** (Schmidt-Nielsen). When a regime changes, its old evidence expires: Ariane 5 flew on Ariane 4's ranges.
+5. **Agreement is not independence.** Independent authors fail on the same hard inputs (Knight and Leveson). Coding agents do too, clustered where the spec is ambiguous (2026). Independence needs a different method, and an unambiguous spec is itself a check.
+6. **Plans fail by tunnelling** (Taleb). Some inputs must come from outside the plan.
+7. **A partial failure that "passed" is a failure** (Challenger's normalisation of deviance). A known red is a ratchet with an owner. It may only improve, and it is never called a pass.
+
+## Where to look
+
+| Quadrant | What it is | Refuted by |
 |---|---|---|
-| Known knowns | the law's invariants | asserted always, at the source |
-| Known unknowns | named risks: bottlenecks, red-team findings | targeted gates and ladders |
-| Unknown unknowns | interactions nobody named | structure and exposure (section 3) |
-| Unknown knowns | steers ignored (FMM asked 18 times; H0196) | the register; a steer given twice and not followed is a failed test |
+| Known knowns | the law's invariants | assertions at the source, in every run and every flight |
+| Known unknowns | named risks | gates and ladders |
+| Unknown unknowns | interactions nobody named | generators (next section) |
+| Unknown knowns | steers given and not followed | the register: a steer given twice and not followed is a failed check |
 
-Aim at, in order:
+Information concentrates in five places:
+1. **Where behaviour changes kind** (Strogatz's bifurcations). Physics has its edges, such as capture, the last stable orbit, plunges and β → 1. Every finite resource of the representation (a word, a budget, a frame's boundary) is an edge too. Test both sides of each, in dimensionless numbers.
+2. **Where mechanisms meet.** With many parts, almost everything that drives behaviour is interaction (Bevelin). Extremes come from forces combining (Munger's lollapalooza). The unit of a check is a combination.
+3. **Where slow layers meet fast ones.** Slow constrains quick (Brand). Effort scales with how slow a layer is, and checks cross interfaces rather than reading internals, so fast layers stay free to change.
+4. **Where owners meet** (ASML; Mars Climate Orbiter). Interfaces carry their units in types and a contract checked from both sides.
+5. **Where the instrument could lie:** domains, shared harnesses, stale builds.
 
-1. **Where behaviour changes kind** (Strogatz's bifurcations). Our edges:
-   - the innermost stable orbit;
-   - capture;
-   - the ergosphere;
-   - plunges;
-   - e ≈ 1;
-   - β → 1;
-   - a doll's boundary;
-   - ties;
-   - a word's limit.
+## Generators for unknown unknowns
 
-   Test on both sides of each edge, mapped in dimensionless numbers.
-2. **Where mechanisms meet.** With 100 parts per subsystem, 99% of what drives behaviour is interactions (Bevelin). Extremes come from forces combining past a breakpoint (Munger's lollapalooza). The unit of test is a combination.
-3. **Where slow layers meet fast ones.** Slow constrains quick (Brand): the law, then the engine, then the view. Effort scales with how slow a layer is. Test across interfaces, never internals.
-4. **Where owners meet.** Integration is where problems begin (ASML). Units go into types at interfaces (Mars Climate Orbiter). Every interface between two agents' modules gets a contract test from both sides.
-5. **Where the instrument could lie:** domains, shared harnesses, stale binaries.
-6. **Any claim beyond its range:** it becomes a rung.
+None of these needs a prediction.
+1. **Fragility** (Taleb's asymmetry test). Perturb a passing scene by δ and by 2δ. If the harm is convex, the scene is fragile there, pass or not.
+2. **Combinations.** Covering arrays put every pair of mechanism regimes into some scene, in tens of scenes instead of tens of thousands. Field data says most interaction faults involve two or three factors.
+3. **The small scope** (Alloy). Most bugs have small counterexamples, so enumerate every case within a small bound, especially orderings.
+4. **Rare made common** (FoundationDB, SQLite). In checks, shrink every finite resource and force the rare branches, so that limits are hit on every run instead of once a year of play.
+5. **Swarm and symmetry.** Switch random subsets of mechanisms on. Use symmetries, which hold for every input, including inputs nobody imagined.
+6. **Outside the plan.** Random scenes, red-teams, and the player. Replay is exact, so each recorded flight is a regression check for free.
 
-## 3. Unknown unknowns of interactions
+## The barbell
 
-1. **Fragility probes** (Taleb's asymmetry test). Perturb a passing scene by δ and by 2δ along each dimensionless number. If the harm is convex, the scene is fragile there, even though it passes.
-2. **Covering arrays.** Take ten mechanisms with three regimes each:
-   - thrust;
-   - doll transition;
-   - tie;
-   - spin;
-   - gravity's news;
-   - belt;
-   - encounter;
-   - observation;
-   - replay;
-   - partition.
+A check earns its place when p(it catches) × cost(the escape) exceeds its cost. An escape costs more the further it travels: a 1° heading error misses by a mile every 60 miles.
 
-   Pairwise coverage takes about 15–20 scenes instead of 59,049. Field data says most interaction faults involve two or three factors. The 6 October regression was one pair: the v2 clock and a burn held across a handoff.
-3. **The small scope** (Alloy). Most bugs have small counterexamples, so enumerate every ordering of the events of at most four bodies within a bound. The cores that are hairy and sensitive to order get this treatment, where AWS used TLA+: ties, handoffs, gravity's cursor. AWS found a bug whose shortest trace was 35 steps.
-4. **Make rare things common** (FoundationDB's BUGGIFY, SQLite's fault injection). Test knobs force:
-   - ties;
-   - worst-tick handoffs;
-   - registers shrunk to a few bits;
-   - tiny slice budgets.
+**Cheap end.** On every change, in seconds:
+- assertions;
+- replay digests;
+- symmetries;
+- small generators with fresh seeds each run. Failures are shrunk and kept forever, so millions of seeds a week are paid in slices.
 
-   Edges that take years to reach in play are then hit every run.
-5. **Swarm scenes:** random subsets of mechanisms switched on. **Commuting squares:** symmetries that hold for every input.
-6. **From outside the plan:** random scenes, red-teams, and the flight recorder. Each of Julien's flights is a log of decision bytes, and replay is exact, so it becomes a regression test for free.
-7. **Escapes become classes.** Find the family an escape belongs to and add its generator, not the single case. Fix the process step that let it through (the Shuttle group). Log near-misses, not only escapes (ASRS).
+The inner loop stays under a minute on the M1. A check that outgrows a few seconds moves to the lab, or goes.
 
-## 4. Stolen from fields that cannot break
-
-| Field | Their heuristic | Ours |
-|---|---|---|
-| JPL, TigerBeetle, SQLite | dense assertions, on the positive and the negative space, kept on | the law asserts its invariants in every run and every flight; violations refuse with a reason |
-| Toyota, Erlang | stop on the first abnormality; let it crash | never continue on corrupt state; fall back to the last good state |
-| Airbus, trading risk checks | a simple monitor beside the clever channel | an envelope monitor (β < 1, signs, frames, ticks) outside the step |
-| Jane Street | make illegal states unrepresentable | frames, exponents and ticks as types |
-| Csmith, SQLite's SLT | random differential testing | sparse against dense, chronon against engine, on random scenes |
-| TigerBeetle, FoundationDB | deterministic simulation, accelerated time, one seed replays all | overnight simulation fuzzing on agonbox; seeds kept |
-| SQLite | "veryquick" per check-in, full per release | the barbell below |
-| SpaceX | prototypes fly to learn; crewed vehicles do not break | branches and the lab break fast; the law, main and frozen gates do not |
-| Google SRE | error budgets | a fooling budget: when escapes per window rise, test effort rises; otherwise ship |
-| Ariane 5, the 737 MAX | a change of regime or authority voids the old analysis | when a range changes, each affected test's domain is re-checked |
-| Therac-25 | never drop an independent interlock; plain messages | keep the old check when adding a clever one; the loss report is plain |
-
-**Not stolen:** certification paperwork; coverage as a target (it is a tool for finding untested code); whole-system proofs (seL4's cost); N teams using one method; requirements frozen up front.
-
-## 5. The economics: a barbell
-
-A test earns its place when p(it catches) × cost(the escape) exceeds its cost. An escape costs more the further it travels: a 1° heading error misses by a mile every 60 miles.
-
-**Left end: every commit, seconds.**
-- Invariant assertions.
-- Digest replay.
-- Commuting squares.
-- Pairwise scenes.
-- Rare-made-common knobs.
-- Rotating seeds: fresh seeds each run, failures shrunk and kept forever. Millions of seeds a week, paid in slices.
-- The scripted flight (L15 to β 0.999, an orbit, a flyby, a crash with its reason).
-- Mechanical stops:
-  - the merge command refuses on red;
-  - a red main stops the line, revert first;
-  - only a test's owner may weaken it.
-
-**Budget:** at most 60 s on the M1 for the touched crate, build included. A test over 5 s moves right or is cut. Today `motion.rs` (20.5 s) and `plane.rs` (17.7 s) take 80% of the universe suite's 48 s.
-
-**Right end: at one-way doors only.** A one-way door is:
+**Expensive end.** At one-way doors only:
 - freezing a law or a gate;
 - merging a law change;
 - changing a number format or a digest;
 - a build Julien will fly.
 
-What runs there:
-- Gates frozen first, with planted mutants that must fail and controls that must pass.
-- A premise-first red-team and the cheapest probe.
-- The worst case over many seeds.
-- Ladders climbed 10× per rung until one fails.
-- Triple-wise scenes, small-scope enumeration and fragility maps.
-- Judges of another family and another method.
-- Overnight fuzzing on agonbox, with Linux digests equal to the Mac's.
-- Heat-soaked cost gates on the M1.
+There run:
+- frozen gates with planted faults and controls;
+- a premise-first red-team;
+- the worst case over many seeds;
+- ladders climbed until one fails;
+- the bigger generators;
+- judges using another method;
+- cost measured heat-soaked on the M1.
 
 **Cut:**
-- tests that pin implementation;
-- float snapshots and tuned tolerances;
+- checks that pin implementation;
+- float snapshots;
 - golden numbers the code cannot regenerate;
-- tests that cannot fail;
-- coverage targets;
+- checks that cannot fail;
+- coverage as a target;
 - duplicated checks;
-- slow tests in the inner loop;
-- reading one failure as a method's death (H0183, H0196).
+- reading one failure as a method's death (H0183).
 
-**The delete pass, at each phase end:** every test names the mistake it catches and a mutant it kills, or it goes.
+## Stolen from fields that cannot break
 
-## 6. What has actually hurt us
+They have skin in the game, so their heuristics are tested by consequences. The details are in the [dossier](../artifacts/evidence/critical-software-testing-20261007/README.md).
+- **Stop at the first abnormality** (Toyota, Erlang, JPL's assertion density). Never carry on with corrupt state.
+- **A simple monitor beside the clever channel** (Airbus; trading risk checks).
+- **Make illegal states unrepresentable** (Jane Street). The compiler is the fastest check.
+- **Differential checks** between two implementations on random inputs (Csmith; SQLite).
+- **Deterministic simulation, accelerated time, one seed replays all** (TigerBeetle, FoundationDB).
+- **Prototypes break; crewed vehicles do not** (SpaceX). Branches and the lab break fast; the law and main do not.
+- **Error budgets** (Google SRE). When escapes rise, check effort rises; otherwise ship.
+- **A change of regime voids the old analysis** (Ariane 5, the 737 MAX).
+- **Never drop an independent check when adding a clever one** (Therac-25).
+- **Fix the process step that let an escape through** (the Shuttle group). Log near-misses too (ASRS).
 
-| When | Mistake | Pattern | Fast detector |
-|---|---|---|---|
-| H0156 | 10B ships "passed": one shared velocity | a test that could not fail | a planted case |
-| H0189 | A principle was rewritten; the review checked scope only | unforced | the owner reviews meaning |
-| H0196 | One failure read as "FMM banned"; four framings | an unknown known (weeks) | the register; kills name configurations |
-| 5 Oct | The lab's "95–98%": one shared harness | agreement without independence | another method |
-| 5 Oct | E6 judged with a stale mutant binary | the instrument lied | judges print their source hash |
-| 5 Oct | B12 blind to its planted pair | an insensitive gate | controls on both sides |
-| 5 Oct | B12/B13 references inside the planet | outside the domain | the oracle asserts its domain |
-| 6 Oct | The v2 clock meets a held burn at β → 1; the assertion weakened; the merge chained | Ariane 5: a regime change | a pairwise scene; shrunk registers; the merge stops on red |
+**Not stolen:** paperwork, coverage targets, whole-system proofs, N teams on one method, requirements frozen up front.
 
-## 7. If approved, the changes
+## Not busy work
 
-1. An `xtask` merge command that refuses on red.
-2. Detection latency recorded in every correction entry.
-3. Rotating, kept seeds in `behave` and the property tests.
-4. The edge map in dimensionless numbers, each edge tested on both sides.
-5. Pairwise scenes on the left end; triples and swarm on the right.
-6. Small-scope enumeration of event orderings (ties, handoffs, the gravity cursor).
-7. Test knobs that make rare things common: shrunk registers, forced ties, tiny budgets.
-8. Fragility probes in `behave`, reporting convexity next to pass/fail.
-9. An envelope monitor, and types for frames, exponents and ticks.
-10. The flight recorder, so every flight becomes a test.
-11. Contract tests between owners; commuting squares; agonbox digest parity.
-12. Split `motion.rs` and `plane.rs`; a delete pass; test-ladder.md folds in; AGENTS.md gets one pointer.
+- Every check carries one line: its conjecture, its planted fault, and its cost. A check missing any of the three goes.
+- Reports are verdict lines. Nobody writes about checks.
+- One generator replaces a suite of cases.
+- **No retrofit campaign.** The protocol applies to the next gate, merge or escape. An old check is touched only when it fails, slows the loop, or meets the delete pass at a phase's end.
+- Generators and long runs use the lab's and agonbox's time, never the integrator's.
+- **The protocol is itself a conjecture.** If detection latency does not fall, or the inner loop outgrows its minute, the protocol is cut back.
 
-## Sources
+## How it fits what we already do
 
-**Julien's books:**
-- Taleb, *Incerto*.
-- Bevelin, *Seeking Wisdom*.
-- Munger, *Poor Charlie's Almanack*.
-- Strogatz, *Nonlinear Dynamics and Chaos*.
-- Brand, *How Buildings Learn*.
-- Hijink, *Focus: The ASML Way* (the line: "It's not about preventing errors, but how well you manage them").
-- Schmidt-Nielsen, *Scaling*.
-- Juarrero, *Dynamics in Action*.
+| What exists | Its place in the loop |
+|---|---|
+| Frozen gates with planted faults | refuters of the law at one-way doors (steps 3–4) |
+| Ladders | claims of range, climbed until one fails |
+| GLM lenses with independent checkers | where the generators run, out of the integrator's time |
+| Premise-first red-teams | refuters of the premise before a freeze |
+| Judges from another family | independence; from now on, also another method |
+| Julien's flights | the outside-the-plan generator; recorded and replayed |
+| Correction entries in the journal | escape records, now with their latency |
+| The register and the drift rule | the refuter of unknown knowns |
+| HANDOFF's "In flight" | known reds, held as ratchets with owners |
 
-**His highlights:** Novella; Farnam Street; Waitzkin; Feynman; Kahneman; Kaufman; Isaacson's *Musk*.
+## On approval
 
-**The critical fields:** in the [dossier](../artifacts/evidence/critical-software-testing-20261007/README.md), with links.
+Three changes, because each removes work rather than adding it:
+1. Merges stop on red, mechanically.
+2. Correction entries record detection latency.
+3. The generators become lab lenses.
+
+Then test-ladder.md folds in, and AGENTS.md gets one pointer. Everything else applies as the work comes.
+
+**Sources:**
+- Julien's books: Taleb's *Incerto*; Bevelin's *Seeking Wisdom*; *Poor Charlie's Almanack*; Strogatz's *Nonlinear Dynamics and Chaos*; Brand's *How Buildings Learn*; Hijink's *Focus: The ASML Way*; Schmidt-Nielsen's *Scaling*; Juarrero's *Dynamics in Action*.
+- His highlights: Novella; Farnam Street; Waitzkin; Feynman; Kahneman.
+- The critical fields: the [dossier](../artifacts/evidence/critical-software-testing-20261007/README.md).
