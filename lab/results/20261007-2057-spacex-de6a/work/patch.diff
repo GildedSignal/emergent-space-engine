@@ -1,0 +1,237 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..86f2a96 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -118,7 +118,6 @@ impl Stats {
+ #[derive(Clone, Copy, Debug)]
+ pub struct OrbitSpec {
+     pub doll: u16,
+-    /// Periapsis radius in the doll's units, and eccentricity in Q48.
+     pub periapsis: Scalar,
+     pub e_q48: u64,
+     pub clockwise: bool,
+@@ -128,6 +127,130 @@ pub struct OrbitSpec {
+     pub phase: u32,
+ }
+ 
++/// H_live, the live distinguishing information (docs/plane.md, "measured on the whole"; lab run
++/// 20261007-2057-spacex-de6a). An operational proposal: at the one funnel where a body's canonical
++/// record changes (`Universe::apply`), the integer deltas of the stored canonical words — tube key,
++/// periapsis angle (wrapping), periapsis time, the two sub-quantum velocity carries — are histogrammed
++/// per (event kind, body, field). A body's first event is a birth (the program's job, no delta); an
++/// event whose deltas are all zero was predictable from the body's own last state and stores nothing;
++/// otherwise the empirical conditional entropy of the deltas, given (kind, body), is the bits the event
++/// adds. Decisions (the player's words) are counted at `take`. Not counted: the fleet members' internal
++/// lattice carries (the dense order lives in the lattice crates) and the `ext` energy register.
++#[derive(Default)]
++pub struct HLive {
++    /// (kind, body, field) → delta → count. Field 1 (angle) is a wrapping delta.
++    hist: std::collections::HashMap<(u8, usize, u8), std::collections::HashMap<i64, u64>>,
++    events: std::collections::HashMap<(u8, usize), u64>,
++    /// Each body's last canonical words.
++    last: std::collections::HashMap<usize, [i64; 5]>,
++    zero: [u64; 6],
++    births: [u64; 6],
++    decisions: std::collections::HashMap<u8, u64>,
++    /// Bodies removed from the catalogue (a loss): their live distinctions go with them.
++    pub removed: u64,
++}
++
++/// One row of the H_live report: a kind of event.
++pub struct HLiveRow {
++    pub kind: &'static str,
++    pub events: u64,
++    pub births: u64,
++    pub zero_delta: u64,
++    /// Bits per event, averaged over bodies as Σ_bodies n_b · H(·|body) / Σ n_b.
++    pub bits_per_event: f64,
++    /// Per-field bits per event (key, angle, time, carry0, carry1).
++    pub field_bits: [f64; 5],
++}
++
++impl HLive {
++    pub(crate) fn note(&mut self, i: usize, kind: u8, tube: &Tube, carry: &[i64; 2]) {
++        let w = [
++            tube.key as i64,
++            tube.periapsis_angle as i64,
++            tube.periapsis_time.get() as i64,
++            carry[0],
++            carry[1],
++        ];
++        let Some(old) = self.last.get(&i) else {
++            self.last.insert(i, w);
++            self.births[kind as usize] += 1;
++            return;
++        };
++        let mut all_zero = true;
++        for (f, &o) in old.iter().enumerate() {
++            let d = if f == 1 { w[f].wrapping_sub(o) } else { w[f] - o };
++            if d != 0 {
++                all_zero = false;
++            }
++            *self.hist.entry((kind, i, f as u8)).or_default().entry(d).or_insert(0) += 1;
++        }
++        *self.events.entry((kind, i)).or_insert(0) += 1;
++        if all_zero {
++            self.zero[kind as usize] += 1;
++        }
++        self.last.insert(i, w);
++    }
++
++    pub(crate) fn decision(&mut self, keys: u8) {
++        *self.decisions.entry(keys).or_insert(0) += 1;
++    }
++
++    fn entropy(h: &std::collections::HashMap<i64, u64>, n: u64) -> f64 {
++        let mut e = 0.0f64;
++        for &c in h.values() {
++            let p = c as f64 / n as f64;
++            e -= p * p.log2();
++        }
++        e
++    }
++
++    /// The bits gained, per kind; bits per game-second is left to the caller, which knows the
++    /// game-seconds flown. Returns (rows, body events, body bits, decisions, decision bits).
++    pub fn summary(&self) -> (Vec<HLiveRow>, u64, f64, u64, f64) {
++        let names = ["kick", "open", "boundary", "handoff", "lost", "refused"];
++        let mut rows = Vec::new();
++        let mut total_bits = 0.0f64;
++        let mut total_events = 0u64;
++        for (k, &name) in names.iter().enumerate() {
++            let mut bits = 0.0f64;
++            let mut field = [0.0f64; 5];
++            let mut n = 0u64;
++            for ((ek, b), &c) in &self.events {
++                if *ek as usize != k {
++                    continue;
++                }
++                n += c;
++                for f in 0..5u8 {
++                    if let Some(h) = self.hist.get(&(*ek, *b, f)) {
++                        let e = Self::entropy(h, h.values().sum());
++                        bits += e * c as f64;
++                        field[f as usize] += e * c as f64;
++                    }
++                }
++            }
++            if n > 0 {
++                for f in 0..5 {
++                    field[f] /= n as f64;
++                }
++                rows.push(HLiveRow {
++                    kind: name,
++                    events: n,
++                    births: self.births[k],
++                    zero_delta: self.zero[k],
++                    bits_per_event: bits / n as f64,
++                    field_bits: field,
++                });
++            }
++            total_bits += bits;
++            total_events += n;
++        }
++        let dec_n: u64 = self.decisions.values().sum();
++        let dec_map: std::collections::HashMap<i64, u64> = self.decisions.iter().map(|(k, v)| (*k as i64, *v)).collect();
++        let dec_bits = if dec_n > 0 { Self::entropy(&dec_map, dec_n) * dec_n as f64 } else { 0.0 };
++        (rows, total_events, total_bits, dec_n, dec_bits)
++    }
++}
++
+ pub struct Universe {
+     pub dolls: Vec<DollRec>,
+     pub info: Vec<BodyInfo>,
+@@ -146,6 +269,9 @@ pub struct Universe {
+     /// Cached positions in root units (for deadlines only; never an outcome).
+     pos: Vec<[f64; 2]>,
+     pub stats: Stats,
++    /// H_live instrumentation (lab 20261007-2057-spacex-de6a): read-only counting of the canonical-word
++    /// deltas at the `apply` funnel. Never read by the engine; never changes an outcome or the digest.
++    pub h_live: HLive,
+     pub inputs: Vec<(Tick, u8)>,
+     /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
+     /// each is an item of the queue (the front one has the next body id), made when the budget gets to it.
+@@ -211,6 +337,7 @@ impl Universe {
+             resolved: 0,
+             frames: 0,
+             body_cap: 0,
++            h_live: HLive::default(),
+         }
+     }
+ 
+@@ -522,9 +649,21 @@ impl Universe {
+             Resolved::Open => self.stats.opens += 1,
+             Resolved::Boundary => self.stats.boundaries += 1,
+             Resolved::Handoff => self.stats.handoffs += 1,
+-            Resolved::Lost => self.stats.lost += 1,
++            Resolved::Lost => {
++                self.stats.lost += 1;
++                self.h_live.removed += 1;
++            }
+             Resolved::Refused => self.stats.refused += 1,
+         }
++        let kind = match upd.kind {
++            Resolved::Kick => 0,
++            Resolved::Open => 1,
++            Resolved::Boundary => 2,
++            Resolved::Handoff => 3,
++            Resolved::Lost => 4,
++            Resolved::Refused => 5,
++        };
++        self.h_live.note(i, kind, &upd.rec.b.tube, &upd.rec.carry);
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
+@@ -910,6 +1049,7 @@ impl Universe {
+         let upd = step::decide(&self.ctx(), p, rec, t, keys);
+         self.apply(p, upd);
+         self.stats.decisions += 1;
++        self.h_live.decision(keys);
+         self.inputs.push((t, keys));
+         self.requeue(p);
+     }
+@@ -980,9 +1120,15 @@ impl Universe {
+ 
+     // ---- the digest -----------------------------------------------------------------------------
+ 
++    /// The H_live report (see [`HLive`]): rows per event kind, totals, decisions. Read-only.
++    pub fn h_live_summary(&self) -> (Vec<HLiveRow>, u64, f64, u64, f64) {
++        self.h_live.summary()
++    }
++
+     /// One digest of the whole universe: the dolls, every body's exact record, the fleets' battles and
+     /// the player's decisions. Taken after [`Universe::settle`]; independent of schedule, budget,
+     /// threads and observation.
++
+     pub fn digest(&self) -> String {
+         let mut h = blake3::Hasher::new();
+         h.update(b"es-universe-plane-v0");
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..b2b6743 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -129,6 +129,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
++    let (hl_rows, hl_events, hl_bits, hl_dec, hl_dec_bits) = s.p.u.h_live_summary();
++    let hl_seconds = cut_tick as f64 * emergent_universe::view::TICK_SECONDS;
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
+@@ -140,6 +142,15 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "where_the_time_goes_ms": {"engine": {"p50": d.parts[0].0, "p99": d.parts[0].1, "max": d.parts[0].3, "share": d.parts[0].2}, "view_gather": {"p50": d.parts[1].0, "p99": d.parts[1].1, "max": d.parts[1].3, "share": d.parts[1].2}, "view_json": {"p50": d.parts[2].0, "p99": d.parts[2].1, "max": d.parts[2].3, "share": d.parts[2].2}, "wire": {"p50": d.parts[3].0, "p99": d.parts[3].1, "max": d.parts[3].3, "share": d.parts[3].2}},
+         "rtf": {"median": d.rtf_median, "lowest_1pct": d.rtf_low1, "overflow_frames": d.overflow_frames},
+         "events_per_second": d.events_per_second,
++        "h_live": {
++            "note": "bits of live distinguishing information gained per game-second (operational proposal, lab 20261007-2057-spacex-de6a): the empirical conditional entropy of the canonical word deltas (tube key, wrapping angle, periapsis time, two carries) at the apply funnel, per (kind, body); all-zero-delta events store nothing; births are the program's; decisions counted separately; the fleet members' internal lattice carries are not counted",
++            "game_seconds": hl_seconds, "body_events": hl_events, "body_bits": hl_bits,
++            "decisions": hl_dec, "decision_bits": hl_dec_bits,
++            "bits_per_game_second": (hl_bits + hl_dec_bits) / hl_seconds,
++            "bits_per_body_per_game_second": (hl_bits + hl_dec_bits) / hl_seconds / catalogue_live as f64,
++            "removed_bodies": s.p.u.h_live.removed,
++            "rows": hl_rows.iter().map(|r| json!({"kind": r.kind, "events": r.events, "births": r.births, "zero_delta": r.zero_delta, "bits_per_event": r.bits_per_event, "field_bits": {"key": r.field_bits[0], "angle": r.field_bits[1], "time": r.field_bits[2], "carry0": r.field_bits[3], "carry1": r.field_bits[4]}})).collect::<Vec<_>>()
++        },
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
