@@ -1,0 +1,4 @@
+Working...
+Reproduction confirmed (`REPRODUCED`, 69 s: perturber case saturates at 38.8/50.8/62.8 bits against the uniform caps 39.2/51.2/63.2). All artifacts are in `lab/results/20261007-2002-spacex-3b99/`: `predictions.md` (pre-registered, with two wrong predictions disclosed), `dossier.md`, `hlive.py` + `measure_sig.py` (reproduce in ~70 s each), `hlive_results.json`, `hlive_sig.json`.
+
+**Claim:** H_live saturates at the belt's own element entropy — 39/51/63 bits per body at scar widths 2⁻¹⁶/2⁻²⁰/2⁻²⁴, reached by a 10⁹-body Ceres-class belt in ~10 orbits (~30 game-years, ≈ 6×10⁻⁸ bits/body/game-second, flux validated to 0.004%) — so the rate is not the lever and per-body identity scars bust 8 GB at any width finer than ~2⁻¹²; only an exchangeable/occupancy representation (floor ≤ 23 bits/body, seeded-program residual 0.126 below it) keeps a billion real bodies in memory.
