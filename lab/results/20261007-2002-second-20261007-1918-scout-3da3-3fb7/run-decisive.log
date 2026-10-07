@@ -1,0 +1,23 @@
+seed 11 done
+seed 22 done
+seed 33 done
+seed 44 done
+seed 55 done
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261007-2002-second-20261007-1918-scout-3da3-3fb7/consumer-gate.py", line 333, in <module>
+    main()
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261007-2002-second-20261007-1918-scout-3da3-3fb7/consumer-gate.py", line 298, in main
+    agg[key] = float(np.median([all_res[s][key] for s in seeds]))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/numpy/lib/function_base.py", line 3927, in median
+    return _ureduce(a, func=_median, keepdims=keepdims, axis=axis, out=out,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/numpy/lib/function_base.py", line 3823, in _ureduce
+    r = func(a, **kwargs)
+        ^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/numpy/lib/function_base.py", line 3960, in _median
+    part = partition(a, kth, axis=axis)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/numpy/core/fromnumeric.py", line 771, in partition
+    a.partition(kth, axis=axis, kind=kind, order=order)
+TypeError: '<' not supported between instances of 'dict' and 'dict'
