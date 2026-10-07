@@ -1,0 +1,4 @@
+Working...
+Run complete: `predictions.md` written before the decisive benchmarks, `bench.c` + `budget.py` reproducible in <5 s, `dossier.md` filed in `lab/results/20261007-1801-fermi-bb60/`.
+
+**Claim:** at 10⁹ bodies on the M1 no wall is set by N — memory, bandwidth, encounters and folded H_live hold with 1.5–6 orders of margin (H_live ≈ 435 B/hour of play, bounded iff kicks fold, since scars breach 4 GiB at just 10⁶ unaveraged strong-tide ships) — so 10⁹ is decided entirely by the product strong-tide population × kick cadence × fold cost, which today's corner puts 3,500× over budget (the board's "190 cores" re-derives to 175–600) but the designed corner — orbit-averaging where stable plus a hot integer fold, where the shared cycle memo's hit rate is the one design-carrying number to measure next — puts 15× under: a ~50,000× swing from representation alone, with zero hardware change.
