@@ -1,0 +1,4 @@
+Working...
+Done. All commands regenerate bit-identically; predictions.md (07:22) precedes the decisive run (07:31); nothing outside my folder was touched.
+
+**The claim:** the original run's smooth pole does not exist for the belt's real churn — real Jupiter-flyby kicks on B18b's scene, integrated under the plane's own force model, are entropy-typed chaotic for every bounded event program (the original's 12-term basis recaptures 0.0 of 41.4 bits at q24; synodic/Fourier programs up to 840 features ≤ 4.8%), every belt body is kicked every epoch (not 1%), so the belt's scar stock sits at the materialization asymptote from the first epoch — ≈ 5.2 GB per 10⁹ at q24, 3.0 GB at q16 — making the per-population scar quantum or derive-on-read replay a requirement, while the original's stock-vs-flow core stands (its belt line was ≈8× optimistic).
