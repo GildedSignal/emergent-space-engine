@@ -1,0 +1,19 @@
+budget sized by bench p99.9 = 12.80 (all streams)
+stream      p50    p95  p99.9 |  truth/h benchMax    gauss     hill
+light      4.00   4.20  12.48 |     28.4     24.8      6.5    139.2 (sd 25%)
+par30      4.00   4.20  12.18 |     55.4     40.1      6.8    207.0 (sd 26%)
+par15      4.00   4.20  12.81 |    326.8    258.7     11.9    154.0 (sd 18%)
+
+hitch = leftover work at frame end > one full budget (RTF<=50% next frame)
+  light  rho=0.5  hitch/frame=9.50e-05 (per hour=20.52)  miss/frame=2.00e-05
+  light  rho=0.7  hitch/frame=6.35e-04 (per hour=137.16)  miss/frame=1.95e-04
+  light  rho=0.9  hitch/frame=1.89e-03 (per hour=409.32)  miss/frame=7.95e-04
+  par15  rho=0.5  hitch/frame=2.28e-03 (per hour=491.40)  miss/frame=1.86e-03
+  par15  rho=0.7  hitch/frame=4.96e-03 (per hour=1070.28)  miss/frame=4.43e-03
+  par15  rho=0.9  hitch/frame=4.32e-03 (per hour=932.04)  miss/frame=3.24e-03
+
+FIFO vs EDF at rho=0.7
+  light  hitch fifo=6.30e-04 edf=7.35e-04 (16.7%); miss fifo=2.60e-04 edf=1.85e-04 (28.8%)
+  par15  hitch fifo=3.25e-03 edf=3.28e-03 (0.9%); miss fifo=2.54e-03 edf=2.79e-03 (9.6%)
+
+wrote probe_out.json
