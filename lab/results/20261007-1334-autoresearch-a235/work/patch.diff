@@ -1,0 +1,65 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..9f46825 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -25,7 +25,6 @@ fn product(a: i128, b: i128) -> i128 {
+ fn square_root(a: i128) -> Result<Scalar> {
+     f(a)?.sqrt()
+ }
+-
+ /// Exact dimensionless orbit input, with an independent dimensional scale.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+ pub struct OrbitKey {
+@@ -240,8 +239,8 @@ impl OrbitShape {
+     }
+     fn node(&self, psi: i128) -> Result<Integral> {
+         let cs = cos(psi);
+-        let x = self.k + product(ONE - self.k, cs);
+-        if x <= 0 {
++        let xr = self.k + product(ONE - self.k, cs);
++        if xr <= 0 {
+             return Err(Error::Range);
+         }
+         let a = 6 * self.k + 2 * product(ONE - self.k, cs);
+@@ -251,14 +250,14 @@ impl OrbitShape {
+         }
+         let g = root.reciprocal()?;
+         let excess = f(a)?.div(root.mul(root.add(Scalar::ONE)?)?)?;
+-        let x = f(x)?;
++        let x = f(xr)?;
+         let inv_x2 = x.mul(x)?.reciprocal()?;
+         let tau = self.tau_numerator.mul(g)?.mul(inv_x2)?;
+         let t = self
+             .t_numerator
+             .mul(g)?
+             .mul(inv_x2)?
+-            .div(f(ONE - product(2 * self.q, self.x(psi)))?)?;
++            .div(f(ONE - product(2 * self.q, xr))?)?;
+         let (dt, dtau) = if !self.key.null && self.key.compactness.is_zero() {
+             (
+                 self.t_numerator.mul(Scalar::integer(3))?.div(x)?,
+@@ -353,11 +352,20 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                // Word division where the divisor's precondition holds; the exact
++                // wide quotient otherwise. Same bits, no 128-bit hardware division.
++                let wdiv = |n: u128, d: u128| -> u128 {
++                    if (n >> 64) < d {
++                        crate::num::div_word(n, d as u64) as u128
++                    } else {
++                        n / d
++                    }
++                };
++                let g = wdiv(1u128 << 104, root) as u64;
++                let g1 = wdiv(a as u128 * g as u128, ONE as u128 + root) as u64;
++                let ratio = wdiv((self.floor as u128) << 62, x as u128) as u64;
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = wdiv((rtau as u128) << 62, horizon as u128) as u64;
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;
