@@ -1,0 +1,4 @@
+Working...
+Run complete: 18 recorded runs, predictions pre-registered before the grid, digest-identical reproduction, patch limited to a 20-line instrument in `xtask`, all evidence in `lab/results/20261007-0341-quant-24cd/`.
+
+**Claim:** on the plane as shipped, frame cost is member-flat — 4×10⁵ fleet members ride at rtf 100 with frame p99 ≈ 11 ms and zero hitches, because the 5 ms engine budget converts its true ~30 ms p99 tail into a 27–32% silent fleet deferral (68–73% resolution rate) that `rtf_median` — always exactly 100.0 — cannot see, while the throughput knee is in rtf not members (rtf 10⁴ holds at 48 members, floors at 77–310 from 3k members up), and the player's burn costs less than a coast frame (0.73–0.93×) even though his doll's bookkeeping is the single most expensive item (1.9 ms per eval, 30× a ship's).

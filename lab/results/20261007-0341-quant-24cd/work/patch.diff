@@ -1,0 +1,29 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..d881557 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -117,6 +117,24 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         last = Instant::now();
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
+     }
++    if let Ok(path) = std::env::var("PLANE_FRAME_DUMP") {
++        let d = &s.dash;
++        let mut csv = String::from("frame,wall_ms,cpu_ms,engine_ms,view_ms,json_ms,wire_ms,rtf\n");
++        for i in 0..d.frame_ms.len() {
++            csv.push_str(&format!(
++                "{},{},{},{},{},{},{},{}\n",
++                i + 1,
++                d.frame_ms[i],
++                d.cpu_ms.get(i).copied().unwrap_or(0.0),
++                d.engine_ms.get(i).copied().unwrap_or(0.0),
++                d.view_ms.get(i).copied().unwrap_or(0.0),
++                d.json_ms.get(i).copied().unwrap_or(0.0),
++                d.wire_ms.get(i).copied().unwrap_or(0.0),
++                d.rtf.get(i).copied().unwrap_or(0.0)
++            ));
++        }
++        std::fs::write(&path, csv).map_err(|e| format!("frame dump: {e}"))?;
++    }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+     let presented_at_end = s.p.u.now;
