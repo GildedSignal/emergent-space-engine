@@ -1,0 +1,968 @@
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800e..1260cba 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -108,6 +108,11 @@ pub trait BodyStore: Send + Sync {
+     }
+     /// Bytes held per body (the arrays, the catalogue share of its compiled trajectory, history).
+     fn bytes_of(&self, i: usize) -> usize;
++    /// The live distinguishing bits ([`crate::hlive`]) of the body's retained history: each retired
++    /// segment's remainder tuple. The view's dead-but-stored distinctions; zero when nothing is kept.
++    fn scar_bits(&self, _i: usize) -> u64 {
++        0
++    }
+ }
+ 
+ #[derive(Default)]
+@@ -175,6 +180,9 @@ impl BodyStore for PlainBodies {
+         };
+         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
++    fn scar_bits(&self, i: usize) -> u64 {
++        self.history[i].iter().map(|s| crate::hlive::stock_of_binding(&s.b).total()).sum()
++     }
+ }
+ 
+ /// The body's tube record (the law's 16 bytes).
+diff --git a/crates/universe/src/fleet.rs b/crates/universe/src/fleet.rs
+index e9dee86..40e83c4 100644
+--- a/crates/universe/src/fleet.rs
++++ b/crates/universe/src/fleet.rs
+@@ -152,6 +152,8 @@ struct Frozen {
+ }
+ 
+ pub struct Fleet {
++    /// The bits of the origin kick quanta the last applied kick carried ([`crate::hlive`]).
++    last_kick_bits: u64,
+     pub name: &'static str,
+     /// The doll the frame's tube lives in (a planet's).
+     pub doll: u16,
+@@ -194,6 +196,9 @@ pub struct Leaver {
+ /// What one call to [`Fleet::advance`] did.
+ #[derive(Default)]
+ pub struct Step {
++    /// H_live ([`crate::hlive`]): the bits of the origin kick quanta applied (they land in the frame's
++    /// state, not a body's; the universe reports them apart from the body ledger).
++    pub kick_bits: u64,
+     /// Slices of the battle run (0 or 1), kicks of the origin applied and refused.
+     pub slices: u64,
+     pub kicks: u64,
+@@ -250,7 +255,7 @@ impl Fleet {
+                     .with_min_members(MIN_MEMBERS),
+             ),
+         };
+-        Ok(Self { name, doll, centre, battle: Some(battle), done: None, radius, n_members, pos: [0.0; 2], radii, plan: Vec::new(), step: 0, interval: 0, carry: [0; 2], taken: 0, kicks: 0, refused: 0 })
++        Ok(Self { name, doll, centre, battle: Some(battle), done: None, radius, n_members, pos: [0.0; 2], radii, plan: Vec::new(), step: 0, interval: 0, carry: [0; 2], taken: 0, kicks: 0, refused: 0, last_kick_bits: 0 })
+     }
+ 
+     /// The committed tick of the battle (the tick it dissolved at, once dissolved).
+@@ -327,7 +332,10 @@ impl Fleet {
+             let t = it.t;
+             match it.what {
+                 What::Kick(_) => match self.kick(ctx, t) {
+-                    Ok(true) => out.kicks += 1,
++                    Ok(true) => {
++                        out.kicks += 1;
++                        out.kick_bits += self.last_kick_bits;
++                    }
+                     Ok(false) => {}
+                     Err(_) => out.refused += 1,
+                 },
+@@ -428,6 +436,7 @@ impl Fleet {
+             self.carry = carry;
+             return Ok(false);
+         }
++        self.last_kick_bits = crate::hlive::bits(whole[0]) + crate::hlive::bits(whole[1]);
+         b.kick_origin(whole).map_err(|_| Error::Refused("the frame cannot hold the kicked tube"))?;
+         self.carry = carry;
+         Ok(true)
+diff --git a/crates/universe/src/hlive.rs b/crates/universe/src/hlive.rs
+new file mode 100644
+index 0000000..dfe840b
+--- /dev/null
++++ b/crates/universe/src/hlive.rs
+@@ -0,0 +1,243 @@
++//! H_live: the live distinguishing information (docs/plane.md, "Distinctions created per game-second").
++//!
++//! **Definition.** A body's exact state is held as a *compiled description* — its 16-byte tube indexing a
++//! shared compiled trajectory (the catalogue) — plus, only because dynamics has taken the state off that
++//! compiled geodesic, a tuple of integer words the description cannot hold. That tuple is the body's live
++//! distinguishing stock, measured in bits ([`bits`]: a magnitude's length and its sign; zero is free):
++//!
++//! - the **remainder** the fit discarded at the last binding ([`Binding::residual`], four words) and the
++//!   sub-quantum **turn** ([`Binding::turn`], two words);
++//! - the **sigma-delta carries**: the velocity's ([`BodyRec::carry`]) and, for a clock-stepped body, the
++//!   energy register's and the clock's (`pt_carry`, `dt_carry`);
++//! - the **energy register** `p_t` itself ([`crate::ext`]);
++//! - the impulse of the **kick ramp** a binding keeps between kicks ([`crate::bind::Kick::dv`]).
++//!
++//! Excluded, on purpose: the tube (the compiled form's per-body floor, 128 bits — reported beside the
++//! stock, not in it); the plan, step, anchor, heading and proper time (fixed-width scheduling state and
++//! derived accumulators, functions of the event history); the catalogue (generators *shared* by tubes);
++//! and a fleet battle's in-frame member state (`crates/engine`'s, below this instrument today — the seam
++//! `crates/shipmem` fills; a leaver's stock is counted from the tick the doll binds it).
++//!
++//! **The ledger.** Every change of the live stock is one event ([`Ledger::note`]), and the ledger closes
++//! exactly: `created + spill − reabsorbed = H_live(end) − H_live(start)` (tested):
++//! - **created** — bits an event applies to a body from outside it: the velocity quanta a kick or a burn's
++//!   flush applies (counted in [`crate::step`] where the integers are), the changed bits of a decision
++//!   word, and a leaver's birth stock;
++//! - **reabsorbed** — live bits an event removes: an old remainder folded into the new tube by a rebind
++//!   (`created + h_old − h_new > 0`), and a lost body's whole stock;
++//! - **spill** — a re-encoding that grew the stock beyond the payload (`h_new − h_old − created > 0`):
++//!   a fit's discard widening, a handoff's re-expression, a register's projection.
++//!
++//! Sub-quantum kicks that fire nothing are counted ([`Ledger::carried_kicks`]): their energy stays in the
++//! bounded carry — reabsorption by construction. A frame's origin kicks are reported apart
++//! ([`Ledger::frame_kick_bits`]): their bits land in the battle's state, not in any body's stock.
++//!
++//! Observation only: nothing here writes a record, and no digest reads it.
++use crate::bind::Binding;
++use crate::body::BodyRec;
++
++/// The bits it costs to name an integer exactly: the length of its magnitude and its sign. Zero is free.
++#[inline]
++pub fn bits(n: i128) -> u64 {
++    if n == 0 {
++        0
++    } else {
++        n.unsigned_abs().ilog2() as u64 + 2
++    }
++}
++
++/// A live distinguishing stock, decomposed (bits; the components are the module's definition).
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct Stock {
++    /// The fit's remainder (four words) and the sub-quantum turn (two).
++    pub remainder: u64,
++    /// The sigma-delta carries: the velocity's, and a clock-stepped body's register and clock carries.
++    pub carries: u64,
++    /// The energy register `p_t` of a clock-stepped body.
++    pub register: u64,
++    /// The kick ramp's stored impulse.
++    pub ramp: u64,
++}
++
++impl Stock {
++    #[inline]
++    pub fn total(&self) -> u64 {
++        self.remainder + self.carries + self.register + self.ramp
++    }
++    #[inline]
++    pub(crate) fn plus(self, o: Stock) -> Stock {
++        Stock {
++            remainder: self.remainder + o.remainder,
++            carries: self.carries + o.carries,
++            register: self.register + o.register,
++            ramp: self.ramp + o.ramp,
++        }
++    }
++}
++
++/// One binding's distinguishing stock: its remainder, turn and kick ramp.
++pub fn stock_of_binding(b: &Binding) -> Stock {
++    let mut s = Stock::default();
++    for c in 0..2 {
++        s.remainder += bits(b.residual.position[c]) + bits(b.residual.velocity[c]);
++    }
++    s.remainder += bits(b.turn.a as i128) + bits(b.turn.b as i128);
++    if b.kick.len != 0 {
++        s.ramp += bits(b.kick.dv[0] as i128) + bits(b.kick.dv[1] as i128);
++    }
++    s
++}
++
++/// One body's distinguishing stock: the binding's plus the carries and the energy register.
++pub fn stock_of_rec(r: &BodyRec) -> Stock {
++    let mut s = stock_of_binding(&r.b);
++    s.carries += bits(r.carry[0] as i128) + bits(r.carry[1] as i128);
++    if let Some(e) = r.ext {
++        s.register += bits(e.pt);
++        s.carries += bits(e.pt_carry as i128) + bits(e.dt_carry as i128);
++    }
++    s
++}
++
++/// The ledger of distinctions created and reabsorbed. Counters only; it observes and never writes.
++#[derive(Clone, Copy, Debug, Default)]
++pub struct Ledger {
++    /// Bits events applied to bodies from outside them (kick impulses, decision words, births).
++    pub created: u64,
++    /// Live bits events removed (remainders folded into tubes, lost bodies' stock).
++    pub reabsorbed: u64,
++    /// Bits of re-encoding that grew the stock beyond the payload (a fit's discard widening, handoffs).
++    pub spill: u64,
++    /// Bindings rebound (a kick, a burn's flush, a handoff): the stock's encoding was replaced.
++    pub rebinds: u64,
++    /// Sub-quantum kicks that fired nothing: their energy stays in the bounded carry.
++    pub carried_kicks: u64,
++    /// Decisions taken.
++    pub decisions: u64,
++    /// Leavers bound into the doll (births).
++    pub born: u64,
++    /// Bodies lost (their stock left the live set).
++    pub lost: u64,
++    /// A fleet frame's origin kicks, and their bits (they land in the battle's state, not a body's).
++    pub frame_kicks: u64,
++    pub frame_kick_bits: u64,
++}
++
++impl Ledger {
++    /// One resolved item of an existing body: the stock it replaced (`h0`) and left (`h1`), whether it
++    /// rebound, and the payload bits it applied. Keeps `created + spill − reabsorbed = ΔH_live` exactly.
++    pub fn note(&mut self, was_alive: bool, is_alive: bool, rebound: bool, payload: u64, h0: u64, h1: u64) {
++        if !was_alive {
++            return; // a lost body's record no longer changes
++        }
++        self.rebinds += rebound as u64;
++        if !is_alive {
++            self.reabsorbed += h0; // the whole stock leaves the live set
++            self.lost += 1;
++            return;
++        }
++        self.created += payload;
++        let delta = h1 as i64 - h0 as i64;
++        if delta >= payload as i64 {
++            self.spill += (delta - payload as i64) as u64;
++        } else {
++            self.reabsorbed += (payload as i64 - delta) as u64;
++        }
++    }
++
++    /// A sub-quantum kick that fired nothing.
++    pub fn note_carried_kick(&mut self) {
++        self.carried_kicks += 1;
++    }
++
++    /// A decision word: the bits that changed.
++    pub fn note_decision(&mut self, changed: u32) {
++        self.decisions += 1;
++        self.created += changed as u64;
++    }
++
++    /// A leaver bound into the doll, arriving with stock `h` (the frame's copy is not counted).
++    pub fn note_birth(&mut self, h: u64) {
++        self.born += 1;
++        self.created += h;
++    }
++
++    /// A fleet frame's origin kicks (reported apart: their bits land in the battle, not a body stock).
++    pub fn note_frame_kicks(&mut self, kicks: u64, bits: u64) {
++        self.frame_kicks += kicks;
++        self.frame_kick_bits += bits;
++    }
++}
++
++/// The universe's H_live at one moment: the live stock, the history the view still holds, and context.
++#[derive(Clone, Copy, Debug, Default)]
++pub struct Snapshot {
++    pub live: Stock,
++    /// The same stock over the retained history segments: dead-but-stored distinctions the view costs.
++    pub history: u64,
++    pub alive: usize,
++    pub bodies: usize,
++    /// Live compiled trajectories: the generators the tubes share (context, not per-body stock).
++    pub catalogue: usize,
++    /// The tube form's per-body floor, in bits (128 per body, live or not): the compiled description.
++    pub tube_floor_bits: u64,
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn bits_name_an_integer_exactly() {
++        assert_eq!(bits(0), 0);
++        assert_eq!(bits(1), 2); // one magnitude bit and the sign
++        assert_eq!(bits(-1), 2);
++        assert_eq!(bits(2), 3);
++        assert_eq!(bits(-3), 3);
++        assert_eq!(bits(i64::MAX as i128), 65);
++        assert_eq!(bits(i64::MIN as i128), 65);
++        assert_eq!(bits(i128::MAX), 128);
++    }
++
++    #[test]
++    fn the_ledger_closes_over_a_scripted_flight() {
++        use crate::scenario::plane;
++        let (seed, members) = (7u64, 12u64);
++        let mut p = plane(crate::Config::default(), seed, crate::fleet::Order::Sparse, 1, members).expect("the plane");
++        // The ledger and the stock are read at the same moments; both count from `start`, which itself
++        // derives the clock registers (spill), so the compared quantities are their deltas.
++        let (before, l0) = (p.u.h_live(), p.u.h);
++        // A scripted flight: the benchmark's canonical decisions, then a settle to a cut.
++        let cut = 1 << 24;
++        for k in 0..8 {
++            let t = cut / 8 * k + 1000;
++            let word = [1u8, 9, 2, 4, 0, 1 | 4, 2, 0][k as usize];
++            p.u.schedule(t, word).expect("schedule");
++        }
++        p.u.settle(cut);
++        let (after, h) = (p.u.h_live(), p.u.h);
++        let ledger_delta = (h.created + h.spill).saturating_sub(h.reabsorbed) as i64 - (l0.created + l0.spill).saturating_sub(l0.reabsorbed) as i64;
++        let stock_delta = after.live.total() as i64 - before.live.total() as i64;
++        assert_eq!(
++            ledger_delta, stock_delta,
++            "Δ(created + spill − reabsorbed) must equal ΔH_live: ledger {} vs stock {} (created {}, spill {}, reabsorbed {}, born {}, lost {})",
++            ledger_delta, stock_delta, h.created, h.spill, h.reabsorbed, h.born, h.lost
++        );
++        // The run actually distinguished things: kicks fired and decisions were taken.
++        assert!(h.rebinds > l0.rebinds && h.decisions == l0.decisions + 8, "{:?}", h);
++        assert!(after.live.total() > 0, "a kicked universe holds live distinctions");
++    }
++
++    #[test]
++    fn a_body_made_from_its_orbit_holds_no_live_distinction() {
++        use crate::{Config, Kind, OrbitSpec, Universe};
++        use emergent_space::orbit::Scalar;
++        // Before the universe starts, a body made from its orbit is exactly its tube: no remainder, no
++        // carry, no register. The clock's energy register appears when the body is planned (derived from
++        // the exact state, held at exact width): that is a live distinction from then on.
++        let mut u = Universe::new(Scalar::power_of_two(10), Config::default());
++        let spec = OrbitSpec { doll: 0, periapsis: Scalar::integer(1 << 20), e_q48: 0, clockwise: false, angle: 0, phase: 0 };
++        let i = u.add_body(Kind::Ship, spec, Scalar::ZERO).expect("body");
++        assert_eq!(stock_of_rec(&u.rec(i)).total(), 0);
++    }
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index afd46ea..4fd0c5c 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -6,6 +6,7 @@ pub mod dash;
+ pub mod encounter;
+ pub mod ext;
+ pub mod fleet;
++pub mod hlive;
+ pub mod force;
+ pub mod lorentz;
+ pub mod num;
+@@ -19,5 +20,6 @@ pub mod world;
+ 
+ pub use body::Kind;
+ pub use ctx::Config;
++pub use hlive::{Ledger, Snapshot, Stock};
+ pub use universe::{Budget, OrbitSpec, Universe};
+ pub use world::{Mass, Unit};
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..9235b36 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -38,6 +38,7 @@ use crate::body::{BodyRec, Item, Kind, Segment, What};
+ use crate::ctx::Ctx;
+ use crate::ext::Ext;
+ use crate::force::{self, LEVELS, RATIO};
++use crate::hlive;
+ use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, Error, Res, Tick, V2};
+ use crate::thrust;
+ use emergent_space::{
+@@ -59,6 +60,9 @@ pub struct Update {
+     /// A compiled entry to put in the catalogue (the rec's tube key is then set by the owner).
+     pub new_entry: Option<Arc<Entry>>,
+     pub kind: Resolved,
++    /// H_live ([`crate::hlive`]): the bits of the velocity quanta this item applied to the body's own
++    /// word (a kick, a burn's flush), counted where the integers are. Zero for everything else.
++    pub payload_bits: u64,
+ }
+ 
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+@@ -282,6 +286,8 @@ pub(crate) fn passage_edge(ctx: &Ctx, doll: u16) -> Option<Scalar> {
+ }
+ 
+ struct Work<'a, 'c> {
++    /// The payload bits of the item being resolved ([`Update::payload_bits`]).
++    payload_bits: u64,
+     ctx: &'a Ctx<'c>,
+     i: usize,
+     rec: BodyRec,
+@@ -378,6 +384,8 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
++        // H_live (docs/plane.md): the bits this kick applied, in the body's own velocity quanta.
++        self.payload_bits = hlive::bits((next.velocity[0] - st.velocity[0]) as i128) + hlive::bits((next.velocity[1] - st.velocity[1]) as i128);
+         self.rebind(next, t, d)?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+@@ -614,6 +622,8 @@ impl Work<'_, '_> {
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
+         let fired = next.velocity != st.velocity;
++        // H_live: as for any kick, the bits applied to the body's own velocity word.
++        self.payload_bits = hlive::bits((next.velocity[0] - st.velocity[0]) as i128) + hlive::bits((next.velocity[1] - st.velocity[1]) as i128);
+         if fired {
+             self.rebind(next, t, d)?;
+         }
+@@ -755,7 +765,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, payload_bits: 0 };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -790,24 +800,24 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             }
+         }
+     };
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind, payload_bits: w.payload_bits }
+ }
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, payload_bits: 0 };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open, payload_bits: w.payload_bits }
+ }
+ 
+ /// A decision: flush the thrust owed so far at `t` (a rebinding when a burn is owed; a turn alone only
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, payload_bits: 0 };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+@@ -817,6 +827,8 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+             let v2 = w.burn(x, v, t)?;
+             if th.keys & 3 != 0 {
+                 let next = IntegerState { velocity: w.velocity_after(&st, v2)?, ..st };
++                // H_live: the bits the flush applied (the burn's effect crossing into the body's word).
++                w.payload_bits = hlive::bits((next.velocity[0] - st.velocity[0]) as i128) + hlive::bits((next.velocity[1] - st.velocity[1]) as i128);
+                 w.rebind(next, t, w.rec.b.doll)?;
+                 if w.rec.ext.is_some() {
+                     // A burn is not a flow of the Hamiltonian: the register is projected back onto K = 0.
+@@ -839,7 +851,7 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+     if res.is_err() {
+         w.rec.refusals += 1;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open, payload_bits: w.payload_bits }
+ }
+ 
+ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..3ae485d 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -35,6 +35,7 @@ use crate::body::{BodyRec, BodyStore, Kind, PlainBodies, Segment, Thrust, What};
+ use crate::ctx::{BodyInfo, Config, Ctx};
+ use crate::encounter::{Encounter, Encounters, PlayerNeighbourhood};
+ use crate::fleet::{Fleet, Leaver};
++use crate::hlive::{self, Ledger};
+ use crate::num::{Error, Res, Tick};
+ use crate::step::{self, Resolved, Update};
+ use crate::world::{DollRec, Mass, Unit};
+@@ -146,6 +147,9 @@ pub struct Universe {
+     /// Cached positions in root units (for deadlines only; never an outcome).
+     pos: Vec<[f64; 2]>,
+     pub stats: Stats,
++    /// The distinctions ledger (docs/plane.md, "Distinctions created per game-second"; [`crate::hlive`]).
++    /// Observation only: no outcome reads it.
++    pub h: Ledger,
+     pub inputs: Vec<(Tick, u8)>,
+     /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
+     /// each is an item of the queue (the front one has the next body id), made when the budget gets to it.
+@@ -196,6 +200,7 @@ impl Universe {
+             observer: [0.0; 2],
+             pos: Vec::new(),
+             stats: Stats::default(),
++            h: Ledger::default(),
+             inputs: Vec::new(),
+             handouts: VecDeque::new(),
+             pending: VecDeque::new(),
+@@ -508,6 +513,16 @@ impl Universe {
+     // ---- resolving ------------------------------------------------------------------------------
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
++        // H_live (docs/plane.md): the ledger observes the records and never changes one.
++        let old = self.bodies.rec(i);
++        let rebound = upd.rec.b.event_time != old.b.event_time;
++        if old.alive {
++            let (h0, h1) = (hlive::stock_of_rec(&old).total(), hlive::stock_of_rec(&upd.rec).total());
++            self.h.note(old.alive, upd.rec.alive, rebound, upd.payload_bits, h0, h1);
++            if matches!(upd.kind, Resolved::Kick) && !rebound && upd.rec.alive {
++                self.h.note_carried_kick();
++            }
++        }
+         for seg in upd.retired.drain(..) {
+             self.cat.release(seg.b.tube.key);
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+@@ -646,6 +661,7 @@ impl Universe {
+         self.stats.slices += step.slices;
+         self.stats.kicks += step.kicks;
+         self.stats.refused += step.refused;
++        self.h.note_frame_kicks(step.kicks, step.kick_bits);
+         // Whoever left is made a body later, one item each, when the budget gets to it (docs/plane.md, foundation 7:
+         // a hand-out of nine members used to be one event of thirteen milliseconds).
+         self.handouts.extend(step.leavers.into_iter().map(|l| (f, l)));
+@@ -699,6 +715,8 @@ impl Universe {
+                 fault: None,
+             };
+             let radius = Scalar::raw(l.radius as i128, -20 + self.dolls[doll as usize].shift as i32)?;
++            // H_live: a leaver is born with its distinguishing stock (the frame's copy is not counted).
++            self.h.note_birth(hlive::stock_of_rec(&rec).total());
+             let i = self.bodies.push(rec);
+             self.info.push(BodyInfo { kind: Kind::Ship, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: Some((f as u16, l.member as u16)), born: l.tick });
+             self.pos.push([0.0; 2]);
+@@ -910,6 +928,7 @@ impl Universe {
+         let upd = step::decide(&self.ctx(), p, rec, t, keys);
+         self.apply(p, upd);
+         self.stats.decisions += 1;
++        self.h.note_decision(self.inputs.last().map_or(0, |&(_, k)| k ^ keys).count_ones());
+         self.inputs.push((t, keys));
+         self.requeue(p);
+     }
+@@ -972,6 +991,21 @@ impl Universe {
+         }
+     }
+ 
++    /// The H_live snapshot (docs/plane.md, "Distinctions created per game-second"): the live
++    /// distinguishing stock over live bodies, the retained history's, and the compiled form's floor.
++    pub fn h_live(&self) -> hlive::Snapshot {
++        let mut s = hlive::Snapshot { bodies: self.bodies.len(), catalogue: self.catalogue_live(), tube_floor_bits: (self.bodies.len() * crate::body::tube_bytes() * 8) as u64, ..Default::default() };
++        for i in 0..self.bodies.len() {
++            let r = self.bodies.rec(i);
++            if r.alive {
++                s.alive += 1;
++                s.live = s.live.plus(hlive::stock_of_rec(&r));
++            }
++            s.history += self.bodies.scar_bits(i);
++        }
++        s
++    }
++
+     /// Bytes per body (arrays, compiled trajectory share, history), averaged.
+     pub fn bytes_per_body(&self) -> usize {
+         let n = self.bodies.len().max(1);
+diff --git a/xtask/src/behave/assist.rs b/xtask/src/behave/assist.rs
+index 55e80b4..08bd782 100644
+--- a/xtask/src/behave/assist.rs
++++ b/xtask/src/behave/assist.rs
+@@ -141,7 +141,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/binary.rs b/xtask/src/behave/binary.rs
+index e083e79..2d28f6b 100644
+--- a/xtask/src/behave/binary.rs
++++ b/xtask/src/behave/binary.rs
+@@ -53,7 +53,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(binary: impl Fn((f64, f64)) -> Option<(f64, f64)> + 'static) -> Events {
++    fn events(binary: impl Fn((f64, f64)) -> Option<(f64, f64)> + Sync + 'static) -> Events {
+         Events { binary: Box::new(binary), restricted: Box::new(|scene, ship, times| Echo.restricted(scene, ship, times)) }
+     }
+ 
+diff --git a/xtask/src/behave/cost.rs b/xtask/src/behave/cost.rs
+index 2d8b029..13aab9c 100644
+--- a/xtask/src/behave/cost.rs
++++ b/xtask/src/behave/cost.rs
+@@ -104,7 +104,7 @@ mod tests {
+     use super::*;
+ 
+     /// Echo's answers except for the crossings, which come from the closure.
+-    struct Counting(Box<dyn Fn(f64, f64) -> Option<f64>>);
++    struct Counting(Box<dyn Fn(f64, f64) -> Option<f64> + Sync>);
+     impl Law for Counting {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -125,7 +125,7 @@ mod tests {
+             (self.0)(p, e)
+         }
+     }
+-    fn counting(f: impl Fn(f64, f64) -> Option<f64> + 'static) -> Counting {
++    fn counting(f: impl Fn(f64, f64) -> Option<f64> + Sync + 'static) -> Counting {
+         Counting(Box::new(f))
+     }
+ 
+diff --git a/xtask/src/behave/handoff.rs b/xtask/src/behave/handoff.rs
+index fcc2686..36e86a5 100644
+--- a/xtask/src/behave/handoff.rs
++++ b/xtask/src/behave/handoff.rs
+@@ -222,7 +222,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/hill.rs b/xtask/src/behave/hill.rs
+index 411289e..fb047b4 100644
+--- a/xtask/src/behave/hill.rs
++++ b/xtask/src/behave/hill.rs
+@@ -261,7 +261,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/laws.rs b/xtask/src/behave/laws.rs
+index 366f5d7..5a63fb3 100644
+--- a/xtask/src/behave/laws.rs
++++ b/xtask/src/behave/laws.rs
+@@ -509,9 +509,9 @@ impl Law for Silent {
+ #[cfg(test)]
+ pub struct Events {
+     /// Given echo's (advance, period), what the law answers.
+-    pub binary: Box<dyn Fn((f64, f64)) -> Option<(f64, f64)>>,
++    pub binary: Box<dyn Fn((f64, f64)) -> Option<(f64, f64)> + Sync>,
+     /// What the law answers, given the scene, the ship and the times (`Echo.restricted` is echo's answer).
+-    pub restricted: Box<dyn Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>>>,
++    pub restricted: Box<dyn Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync>,
+ }
+ #[cfg(test)]
+ impl Law for Events {
+diff --git a/xtask/src/behave/lens.rs b/xtask/src/behave/lens.rs
+index 9f0cdf5..d8615dc 100644
+--- a/xtask/src/behave/lens.rs
++++ b/xtask/src/behave/lens.rs
+@@ -352,7 +352,7 @@ mod tests {
+         geodesic_deflection(l, START, 1e-11).unwrap()
+     }
+     /// A law that answers only the lens, by echo's composition times a factor chosen by the closure.
+-    struct Skewed(Box<dyn Fn(usize, &MovingLens) -> Option<f64>>, std::cell::Cell<usize>);
++    struct Skewed(Box<dyn Fn(usize, &MovingLens) -> Option<f64> + Sync>, std::sync::atomic::AtomicUsize);
+     impl Law for Skewed {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -370,13 +370,12 @@ mod tests {
+             Echo.long_run(p, e, cycles)
+         }
+         fn moving_deflection(&self, l: &MovingLens) -> Option<f64> {
+-            let i = self.1.get();
+-            self.1.set(i + 1);
++            let i = self.1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             (self.0)(i, l)
+         }
+     }
+-    fn skewed(f: impl Fn(usize, &MovingLens) -> Option<f64> + 'static) -> Skewed {
+-        Skewed(Box::new(f), std::cell::Cell::new(0))
++    fn skewed(f: impl Fn(usize, &MovingLens) -> Option<f64> + Sync + 'static) -> Skewed {
++        Skewed(Box::new(f), std::sync::atomic::AtomicUsize::new(0))
+     }
+ 
+     #[test]
+diff --git a/xtask/src/behave/memory.rs b/xtask/src/behave/memory.rs
+index f729e2d..5bc7b1b 100644
+--- a/xtask/src/behave/memory.rs
++++ b/xtask/src/behave/memory.rs
+@@ -132,7 +132,7 @@ mod tests {
+     use super::*;
+ 
+     /// echo's floors, but the answer for each scene comes from the closure.
+-    struct Bytes(Box<dyn Fn(&MemoryScene, f64) -> Option<f64>>);
++    struct Bytes(Box<dyn Fn(&MemoryScene, f64) -> Option<f64> + Sync>);
+     impl Law for Bytes {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -153,7 +153,7 @@ mod tests {
+             (self.0)(scene, floor_bytes(scene)?)
+         }
+     }
+-    fn bytes(f: impl Fn(&MemoryScene, f64) -> Option<f64> + 'static) -> Bytes {
++    fn bytes(f: impl Fn(&MemoryScene, f64) -> Option<f64> + Sync + 'static) -> Bytes {
+         Bytes(Box::new(f))
+     }
+ 
+diff --git a/xtask/src/behave/mod.rs b/xtask/src/behave/mod.rs
+index a1e9b0a..19af731 100644
+--- a/xtask/src/behave/mod.rs
++++ b/xtask/src/behave/mod.rs
+@@ -52,7 +52,11 @@ use crate::Result;
+ use std::time::{Duration, Instant};
+ 
+ /// What the judge asks of a gravity law. Units G = c = M = 1; angles in radians.
+-pub trait Law {
++///
++/// `Sync` because the judge runs a gate's independent legs (B17's cases) on several threads
++/// over one shared law; a law that needs private state per leg builds it inside the call (the
++/// plane's universe, the reference's steppers), never in the law itself.
++pub trait Law: Sync {
+     /// One radial cycle of the bound orbit with semi-latus rectum p and eccentricity e:
+     /// (periapsis advance, the angle beyond 2π; radial period in coordinate time; in proper time).
+     fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)>;
+diff --git a/xtask/src/behave/resonance.rs b/xtask/src/behave/resonance.rs
+index a073b34..abeef2d 100644
+--- a/xtask/src/behave/resonance.rs
++++ b/xtask/src/behave/resonance.rs
+@@ -305,19 +305,48 @@ pub fn b17(law: &dyn Law) -> Gate {
+     let _quiet = super::scale::QUIET.read().unwrap_or_else(|e| e.into_inner());
+     let all = cases();
+     let truths = truths();
++    // The legs are independent (a law builds its own scene per call), so they run on up to four
++    // threads like the truths above; each worker takes cases from a shared counter, and the
++    // verdicts are read off in case order below, so the schedule never changes them.
++    let asked: Vec<usize> = all
++        .iter()
++        .zip(truths)
++        .enumerate()
++        .filter(|(_, (_, truth))| truth.is_some_and(|t| t.converged))
++        .map(|(i, _)| i)
++        .collect();
++    let next = AtomicUsize::new(0);
++    let threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(4);
++    let mut done: Vec<(usize, Option<Track>)> = std::thread::scope(|scope| {
++        let workers: Vec<_> = (0..threads)
++            .map(|_| {
++                scope.spawn(|| {
++                    let mut mine = Vec::new();
++                    loop {
++                        let i = next.fetch_add(1, Ordering::Relaxed);
++                        if i >= asked.len() {
++                            return mine;
++                        }
++                        let c = &all[asked[i]];
++                        let ts = times(c);
++                        mine.push((asked[i], law.restricted(&c.scene, start(c), &ts).and_then(|s| track(c, &ts, &s))));
++                    }
++                })
++            })
++            .collect();
++        workers.into_iter().flat_map(|w| w.join().expect("a resonance leg panicked")).collect()
++    });
++    done.sort_by_key(|d| d.0);
+     let mut rows: Vec<(usize, Verdict)> = Vec::new();
+-    let (mut unconverged, mut unanswered) = (0, 0);
+-    for (i, (c, truth)) in all.iter().zip(truths).enumerate() {
+-        let Some(truth) = truth.filter(|t| t.converged) else {
+-            unconverged += 1;
+-            continue;
+-        };
+-        let ts = times(c);
+-        match law.restricted(&c.scene, start(c), &ts).and_then(|s| track(c, &ts, &s)) {
+-            Some(l) => rows.push((i, verdict(c, &truth, &l))),
++    let mut unanswered = 0;
++    for (i, answered) in done {
++        let truth = truths[i].filter(|t| t.converged).unwrap();
++        match answered {
++            Some(l) => rows.push((i, verdict(&all[i], &truth, &l))),
+             None => unanswered += 1,
+         }
+     }
++    let unconverged = all.len() - asked.len();
+     let kind = |k: fn(&Kind) -> bool| rows.iter().filter(|r| k(&all[r.0].kind)).collect::<Vec<_>>();
+     let resonant = kind(|k| matches!(k, Kind::Resonant(_)));
+     let controls = kind(|k| *k == Kind::Control);
+@@ -416,7 +445,7 @@ mod tests {
+         let i = cases().iter().position(|c| c.name == name).unwrap_or_else(|| panic!("no case {name}"));
+         truths()[i].unwrap()
+     }
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+     fn tr(e_min: f64, e_max: f64, excursion: f64) -> Track {
+@@ -572,9 +601,10 @@ mod tests {
+ 
+     #[test]
+     fn a_law_that_does_not_answer_a_case_or_leaves_the_stars_orbit_fails_whatever_else_it_gets_right() {
+-        // Echo on every case but the first, which it does not answer.
+-        let first = std::cell::Cell::new(true);
+-        let g = b17(&events(move |s, ship, ts| if first.replace(false) { None } else { Echo.restricted(s, ship, ts) }));
++        // Echo except on one case, which it does not answer (the legs run concurrently, so which
++        // case asks first is not fixed; exactly one answer is missing either way).
++        let first = std::sync::atomic::AtomicBool::new(true);
++        let g = b17(&events(move |s, ship, ts| if first.swap(false, std::sync::atomic::Ordering::Relaxed) { None } else { Echo.restricted(s, ship, ts) }));
+         assert!(!g.pass && g.detail.contains("1 unanswered"), "{}", g.detail);
+         // States that are unbound about the star (a free particle) do not have an eccentricity below one.
+         let g = b17(&events(|s, ship, ts| Some(ts.iter().map(|&t| s.barycentric(t, &[ship[0] + 1e3 * t, ship[1], ship[2] + 10.0, ship[3]])).collect())));
+diff --git a/xtask/src/behave/scale.rs b/xtask/src/behave/scale.rs
+index db631f8..e4e127b 100644
+--- a/xtask/src/behave/scale.rs
++++ b/xtask/src/behave/scale.rs
+@@ -158,7 +158,7 @@ mod tests {
+     use super::*;
+ 
+     /// A law that answers only the scene's cost, from a closure.
+-    struct Scene(Box<dyn Fn(usize) -> Option<f64>>);
++    struct Scene(Box<dyn Fn(usize) -> Option<f64> + Sync>);
+     impl Law for Scene {
+         fn advance_per_cycle(&self, _: f64, _: f64) -> Option<(f64, f64, f64)> {
+             None
+@@ -179,7 +179,7 @@ mod tests {
+             (self.0)(n)
+         }
+     }
+-    fn scene(f: impl Fn(usize) -> Option<f64> + 'static) -> Scene {
++    fn scene(f: impl Fn(usize) -> Option<f64> + Sync + 'static) -> Scene {
+         Scene(Box::new(f))
+     }
+     /// The exponent printed in a detail line.
+diff --git a/xtask/src/behave/space.rs b/xtask/src/behave/space.rs
+index 142c23a..5cdc7f4 100644
+--- a/xtask/src/behave/space.rs
++++ b/xtask/src/behave/space.rs
+@@ -7,11 +7,13 @@ use emergent_space::{
+     orbit::{Orbit, OrbitKey, Passage, QuantizedMemo, Scalar},
+     tube::Catalogue,
+ };
+-use std::cell::RefCell;
++use std::sync::Mutex;
+ 
+ #[derive(Default)]
+ pub struct Space {
+-    shapes: RefCell<QuantizedMemo>,
++    /// The compiled shapes, shared by the judge's parallel legs: a pure cache (one compile per
++    /// key), so a lock changes only which thread waits, never an answer.
++    shapes: Mutex<QuantizedMemo>,
+     pub newton: bool,
+     #[cfg(test)]
+     key_bits: Option<(u32, u32)>,
+@@ -86,7 +88,8 @@ impl Law for Space {
+         }
+         let r = scene.sep / (1.0 - scene.mu);
+         self.shapes
+-            .borrow_mut()
++            .lock()
++            .unwrap_or_else(|e| e.into_inner())
+             .get(self.bound_native_key(r, 0.0)?)
+             .ok()?;
+         let speed_unit = 1.0 / scene.sep.sqrt();
+@@ -150,7 +153,8 @@ impl Law for Space {
+         Some(
+             2.0 * self
+                 .shapes
+-                .borrow_mut()
++                .lock()
++                .unwrap_or_else(|e| e.into_inner())
+                 .get(self.bound_native_key(p, e)?)
+                 .ok()?
+                 .shape()
+@@ -185,7 +189,7 @@ impl Law for Space {
+         let c = if self.newton {
+             Orbit::newtonian(key).ok()?
+         } else {
+-            self.shapes.borrow_mut().get(key).ok()?
++            self.shapes.lock().unwrap_or_else(|e| e.into_inner()).get(key).ok()?
+         };
+         Some((
+             decoded(c.advance().ok()?),
+@@ -245,7 +249,7 @@ impl Law for Space {
+         let Ok(c) = (if self.newton {
+             Orbit::newtonian(key)
+         } else {
+-            self.shapes.borrow_mut().get(key)
++            self.shapes.lock().unwrap_or_else(|e| e.into_inner()).get(key)
+         }) else {
+             return vec![];
+         };
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..04f9f50 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -104,6 +104,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     for &(t, k) in &log {
+         s.p.u.schedule(t, k).map_err(|e| format!("schedule: {e:?}"))?;
+     }
++    let h0 = s.h_live_json();
++    let mut h_samples: Vec<(f64, u64)> = Vec::new();
+     let wall = Instant::now();
+     let mut last = Instant::now();
+     for n in 1..=frames {
+@@ -116,7 +118,15 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        if n % 60 == 0 {
++            // H_live's stock, once per game second of the run (a full sweep; the page samples the same way).
++            h_samples.push((s.dash.game_seconds, s.p.u.h_live().live.total()));
++        }
+     }
++    let hf = s.h_live_json();
++    let ld = |v: &serde_json::Value| (v["ledger_bits"]["created"].as_u64().unwrap_or(0) + v["ledger_bits"]["spill"].as_u64().unwrap_or(0)).saturating_sub(v["ledger_bits"]["reabsorbed"].as_u64().unwrap_or(0)) as i64;
++    let sd = |v: &serde_json::Value| v["stock_bits"]["live"].as_u64().unwrap_or(0) as i64;
++    let closes = ld(&hf) - ld(&h0) == sd(&hf) - sd(&h0);
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+     let presented_at_end = s.p.u.now;
+@@ -143,6 +153,14 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
++        "h_live": {
++            "note": "the distinctions ledger, sampled once per game second; rates divide by canonical game time, so they are independent of pacing and budget",
++            "initial": h0,
++            "final": s.h_live_json(),
++            "samples_game_seconds_bits": h_samples,
++            "closes": closes,
++            "closes_note": "Δ(created + spill − reabsorbed) equals Δ(live stock bits), the ledger's identity, checked on this run's own numbers",
++        },
+         "engine_cost_by_kind": cost,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+diff --git a/xtask/src/universe/page.html b/xtask/src/universe/page.html
+index 25c69b5..b0fbfe7 100644
+--- a/xtask/src/universe/page.html
++++ b/xtask/src/universe/page.html
+@@ -235,7 +235,8 @@ function text(){
+   +`<span class="hi">${g<10?g.toFixed(2):g.toFixed(0)} g</span> · ${(g*9.80665).toPrecision(3)} m/s² proper · ${f.burning?'<span class="warn">BURNING</span>':'coasting'}\n`
+   +`at this time factor: ${per<1?(per*1000).toFixed(1)+' m/s':per.toPrecision(3)+' km/s'} gained per wall-second burning\n\n`
+   +`<span class="label">TIME</span>  <span class="hi big">×${rtf>=10?rtf.toFixed(0):rtf.toPrecision(2)}</span>  asked · <span class="hi">×${rtfNow>=10?rtfNow.toFixed(0):rtfNow.toPrecision(2)}</span> got\n`;
+- el('stats').textContent=`IN DOLL      ${f.doll}\nFRAME        p50 ${d.p50?d.p50.toFixed(1):'…'} · p95 ${d.p95?d.p95.toFixed(1):'…'} · p99 ${d.p99?d.p99.toFixed(1):'…'} ms (engine + view + wire)\nGAME TIME    ${d.rtf_median?d.rtf_median.toFixed(1):'…'}× median · ${d.rtf_low1?d.rtf_low1.toFixed(1):'…'}× lowest 1%\nEVENTS       ${d.events_per_second?Math.round(d.events_per_second):'…'}/s · overflow frames ${d.overflow_frames||0} · ${d.bytes_per_body||'…'} B per body\n${el('seed').textContent}`;
++ const hv=d.h_live;
++ el('stats').textContent=`IN DOLL      ${f.doll}\nFRAME        p50 ${d.p50?d.p50.toFixed(1):'…'} · p95 ${d.p95?d.p95.toFixed(1):'…'} · p99 ${d.p99?d.p99.toFixed(1):'…'} ms (engine + view + wire)\nGAME TIME    ${d.rtf_median?d.rtf_median.toFixed(1):'…'}× median · ${d.rtf_low1?d.rtf_low1.toFixed(1):'…'}× lowest 1%\nEVENTS       ${d.events_per_second?Math.round(d.events_per_second):'…'}/s · overflow frames ${d.overflow_frames||0} · ${d.bytes_per_body||'…'} B per body\n`+(hv?`H_LIVE       ${grp(hv.bits)} bits live · ${hv.per_live_body} b per body · +${hv.created_per_game_second.toFixed(1)} −${hv.reabsorbed_per_game_second.toFixed(1)} bits per game-s\n`:'')+`${el('seed').textContent}`;
+ }
+ function describe(f){
+  if(!f.alive)return 'The ship is lost. '+(f.loss||'');
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..c402209 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -111,9 +111,35 @@ impl Session {
+ 
+     pub fn dash_json(&self) -> Value {
+         let d = self.dash.summary();
++        let h = self.h_live_json();
+         json!({"frames": d.frames, "p50": d.p50, "p95": d.p95, "p99": d.p99, "p999": d.p999, "worst": d.worst_ms, "rtf_median": d.rtf_median, "rtf_low1": d.rtf_low1,
+                "hitches_per_hour": d.hitches_per_hour, "events_per_second": d.events_per_second, "overflow_frames": d.overflow_frames,
+-               "bytes_per_body": self.p.u.bytes_per_body()})
++               "bytes_per_body": self.p.u.bytes_per_body(),
++               "h_live": {"bits": h["stock_bits"]["live"], "per_live_body": h["stock_bits"]["per_live_body"],
++                           "created_per_game_second": h["bits_per_game_second"]["created"], "reabsorbed_per_game_second": h["bits_per_game_second"]["reabsorbed"]}})
++    }
++
++    /// H_live (docs/plane.md, "Distinctions created per game-second"): the live distinguishing stock and
++    /// its ledger, per game-second of canonical time (a tick of the root clock, whatever the wall did).
++    /// Observation only: nothing here writes a record or reaches a digest.
++    pub fn h_live_json(&self) -> Value {
++        let s = self.p.u.h_live();
++        let h = &self.p.u.h;
++        let game_s = (self.cut.unwrap_or(self.p.u.now) as f64) * emergent_universe::view::TICK_SECONDS;
++        let per = |b: f64| if game_s > 0.0 { b / game_s } else { 0.0 };
++        let balance = h.created as i64 + h.spill as i64 - h.reabsorbed as i64;
++        json!({
++            "definition": "live distinguishing bits: the per-body integer words beyond each body's compiled tube (the fit's remainder and sub-quantum turn, the sigma-delta carries, the clock's energy register, the kick ramp's impulse). The tube itself (128 bits per body) is the compiled floor, the catalogue the shared generators, a fleet battle's in-frame member state is below this instrument",
++            "stock_bits": {"live": s.live.total(), "remainder": s.live.remainder, "carries": s.live.carries, "register": s.live.register, "ramp": s.live.ramp,
++                           "per_live_body": if s.alive > 0 { s.live.total() / s.alive as u64 } else { 0 },
++                           "history_retained": s.history, "compiled_floor_bits": s.tube_floor_bits, "catalogue_live": s.catalogue},
++            "counts": {"bodies": s.bodies, "alive": s.alive, "rebinds": h.rebinds, "carried_kicks": h.carried_kicks, "decisions": h.decisions,
++                        "born": h.born, "lost": h.lost, "frame_origin_kicks": h.frame_kicks},
++            "bits_per_game_second": {"created": per(h.created as f64), "reabsorbed": per(h.reabsorbed as f64), "spill": per(h.spill as f64),
++                                     "balance": per(balance as f64), "frame_origin_kick_bits": per(h.frame_kick_bits as f64)},
++            "ledger_bits": {"created": h.created, "reabsorbed": h.reabsorbed, "spill": h.spill},
++            "game_seconds": game_s,
++        })
+     }
+ 
+     /// The canonical cut the digest is taken at: the session's cut when it has one (everything up to it is

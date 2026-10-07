@@ -1,0 +1,324 @@
+diff --git a/xtask/src/behave/assist.rs b/xtask/src/behave/assist.rs
+index 55e80b4..08bd782 100644
+--- a/xtask/src/behave/assist.rs
++++ b/xtask/src/behave/assist.rs
+@@ -141,7 +141,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/binary.rs b/xtask/src/behave/binary.rs
+index e083e79..2d28f6b 100644
+--- a/xtask/src/behave/binary.rs
++++ b/xtask/src/behave/binary.rs
+@@ -53,7 +53,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(binary: impl Fn((f64, f64)) -> Option<(f64, f64)> + 'static) -> Events {
++    fn events(binary: impl Fn((f64, f64)) -> Option<(f64, f64)> + Sync + 'static) -> Events {
+         Events { binary: Box::new(binary), restricted: Box::new(|scene, ship, times| Echo.restricted(scene, ship, times)) }
+     }
+ 
+diff --git a/xtask/src/behave/cost.rs b/xtask/src/behave/cost.rs
+index 2d8b029..13aab9c 100644
+--- a/xtask/src/behave/cost.rs
++++ b/xtask/src/behave/cost.rs
+@@ -104,7 +104,7 @@ mod tests {
+     use super::*;
+ 
+     /// Echo's answers except for the crossings, which come from the closure.
+-    struct Counting(Box<dyn Fn(f64, f64) -> Option<f64>>);
++    struct Counting(Box<dyn Fn(f64, f64) -> Option<f64> + Sync>);
+     impl Law for Counting {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -125,7 +125,7 @@ mod tests {
+             (self.0)(p, e)
+         }
+     }
+-    fn counting(f: impl Fn(f64, f64) -> Option<f64> + 'static) -> Counting {
++    fn counting(f: impl Fn(f64, f64) -> Option<f64> + Sync + 'static) -> Counting {
+         Counting(Box::new(f))
+     }
+ 
+diff --git a/xtask/src/behave/handoff.rs b/xtask/src/behave/handoff.rs
+index fcc2686..36e86a5 100644
+--- a/xtask/src/behave/handoff.rs
++++ b/xtask/src/behave/handoff.rs
+@@ -222,7 +222,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/hill.rs b/xtask/src/behave/hill.rs
+index 411289e..fb047b4 100644
+--- a/xtask/src/behave/hill.rs
++++ b/xtask/src/behave/hill.rs
+@@ -261,7 +261,7 @@ mod tests {
+     use super::super::laws::{Echo, Events, Fault, Planted, Silent};
+     use super::*;
+ 
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+ 
+diff --git a/xtask/src/behave/laws.rs b/xtask/src/behave/laws.rs
+index 366f5d7..5a63fb3 100644
+--- a/xtask/src/behave/laws.rs
++++ b/xtask/src/behave/laws.rs
+@@ -509,9 +509,9 @@ impl Law for Silent {
+ #[cfg(test)]
+ pub struct Events {
+     /// Given echo's (advance, period), what the law answers.
+-    pub binary: Box<dyn Fn((f64, f64)) -> Option<(f64, f64)>>,
++    pub binary: Box<dyn Fn((f64, f64)) -> Option<(f64, f64)> + Sync>,
+     /// What the law answers, given the scene, the ship and the times (`Echo.restricted` is echo's answer).
+-    pub restricted: Box<dyn Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>>>,
++    pub restricted: Box<dyn Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync>,
+ }
+ #[cfg(test)]
+ impl Law for Events {
+diff --git a/xtask/src/behave/lens.rs b/xtask/src/behave/lens.rs
+index 9f0cdf5..d8615dc 100644
+--- a/xtask/src/behave/lens.rs
++++ b/xtask/src/behave/lens.rs
+@@ -352,7 +352,7 @@ mod tests {
+         geodesic_deflection(l, START, 1e-11).unwrap()
+     }
+     /// A law that answers only the lens, by echo's composition times a factor chosen by the closure.
+-    struct Skewed(Box<dyn Fn(usize, &MovingLens) -> Option<f64>>, std::cell::Cell<usize>);
++    struct Skewed(Box<dyn Fn(usize, &MovingLens) -> Option<f64> + Sync>, std::sync::atomic::AtomicUsize);
+     impl Law for Skewed {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -370,13 +370,12 @@ mod tests {
+             Echo.long_run(p, e, cycles)
+         }
+         fn moving_deflection(&self, l: &MovingLens) -> Option<f64> {
+-            let i = self.1.get();
+-            self.1.set(i + 1);
++            let i = self.1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             (self.0)(i, l)
+         }
+     }
+-    fn skewed(f: impl Fn(usize, &MovingLens) -> Option<f64> + 'static) -> Skewed {
+-        Skewed(Box::new(f), std::cell::Cell::new(0))
++    fn skewed(f: impl Fn(usize, &MovingLens) -> Option<f64> + Sync + 'static) -> Skewed {
++        Skewed(Box::new(f), std::sync::atomic::AtomicUsize::new(0))
+     }
+ 
+     #[test]
+diff --git a/xtask/src/behave/memory.rs b/xtask/src/behave/memory.rs
+index f729e2d..5bc7b1b 100644
+--- a/xtask/src/behave/memory.rs
++++ b/xtask/src/behave/memory.rs
+@@ -132,7 +132,7 @@ mod tests {
+     use super::*;
+ 
+     /// echo's floors, but the answer for each scene comes from the closure.
+-    struct Bytes(Box<dyn Fn(&MemoryScene, f64) -> Option<f64>>);
++    struct Bytes(Box<dyn Fn(&MemoryScene, f64) -> Option<f64> + Sync>);
+     impl Law for Bytes {
+         fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)> {
+             Echo.advance_per_cycle(p, e)
+@@ -153,7 +153,7 @@ mod tests {
+             (self.0)(scene, floor_bytes(scene)?)
+         }
+     }
+-    fn bytes(f: impl Fn(&MemoryScene, f64) -> Option<f64> + 'static) -> Bytes {
++    fn bytes(f: impl Fn(&MemoryScene, f64) -> Option<f64> + Sync + 'static) -> Bytes {
+         Bytes(Box::new(f))
+     }
+ 
+diff --git a/xtask/src/behave/mod.rs b/xtask/src/behave/mod.rs
+index a1e9b0a..19af731 100644
+--- a/xtask/src/behave/mod.rs
++++ b/xtask/src/behave/mod.rs
+@@ -52,7 +52,11 @@ use crate::Result;
+ use std::time::{Duration, Instant};
+ 
+ /// What the judge asks of a gravity law. Units G = c = M = 1; angles in radians.
+-pub trait Law {
++///
++/// `Sync` because the judge runs a gate's independent legs (B17's cases) on several threads
++/// over one shared law; a law that needs private state per leg builds it inside the call (the
++/// plane's universe, the reference's steppers), never in the law itself.
++pub trait Law: Sync {
+     /// One radial cycle of the bound orbit with semi-latus rectum p and eccentricity e:
+     /// (periapsis advance, the angle beyond 2π; radial period in coordinate time; in proper time).
+     fn advance_per_cycle(&self, p: f64, e: f64) -> Option<(f64, f64, f64)>;
+diff --git a/xtask/src/behave/resonance.rs b/xtask/src/behave/resonance.rs
+index a073b34..abeef2d 100644
+--- a/xtask/src/behave/resonance.rs
++++ b/xtask/src/behave/resonance.rs
+@@ -305,19 +305,48 @@ pub fn b17(law: &dyn Law) -> Gate {
+     let _quiet = super::scale::QUIET.read().unwrap_or_else(|e| e.into_inner());
+     let all = cases();
+     let truths = truths();
++    // The legs are independent (a law builds its own scene per call), so they run on up to four
++    // threads like the truths above; each worker takes cases from a shared counter, and the
++    // verdicts are read off in case order below, so the schedule never changes them.
++    let asked: Vec<usize> = all
++        .iter()
++        .zip(truths)
++        .enumerate()
++        .filter(|(_, (_, truth))| truth.is_some_and(|t| t.converged))
++        .map(|(i, _)| i)
++        .collect();
++    let next = AtomicUsize::new(0);
++    let threads = std::thread::available_parallelism().map_or(1, |n| n.get()).min(4);
++    let mut done: Vec<(usize, Option<Track>)> = std::thread::scope(|scope| {
++        let workers: Vec<_> = (0..threads)
++            .map(|_| {
++                scope.spawn(|| {
++                    let mut mine = Vec::new();
++                    loop {
++                        let i = next.fetch_add(1, Ordering::Relaxed);
++                        if i >= asked.len() {
++                            return mine;
++                        }
++                        let c = &all[asked[i]];
++                        let ts = times(c);
++                        mine.push((asked[i], law.restricted(&c.scene, start(c), &ts).and_then(|s| track(c, &ts, &s))));
++                    }
++                })
++            })
++            .collect();
++        workers.into_iter().flat_map(|w| w.join().expect("a resonance leg panicked")).collect()
++    });
++    done.sort_by_key(|d| d.0);
+     let mut rows: Vec<(usize, Verdict)> = Vec::new();
+-    let (mut unconverged, mut unanswered) = (0, 0);
+-    for (i, (c, truth)) in all.iter().zip(truths).enumerate() {
+-        let Some(truth) = truth.filter(|t| t.converged) else {
+-            unconverged += 1;
+-            continue;
+-        };
+-        let ts = times(c);
+-        match law.restricted(&c.scene, start(c), &ts).and_then(|s| track(c, &ts, &s)) {
+-            Some(l) => rows.push((i, verdict(c, &truth, &l))),
++    let mut unanswered = 0;
++    for (i, answered) in done {
++        let truth = truths[i].filter(|t| t.converged).unwrap();
++        match answered {
++            Some(l) => rows.push((i, verdict(&all[i], &truth, &l))),
+             None => unanswered += 1,
+         }
+     }
++    let unconverged = all.len() - asked.len();
+     let kind = |k: fn(&Kind) -> bool| rows.iter().filter(|r| k(&all[r.0].kind)).collect::<Vec<_>>();
+     let resonant = kind(|k| matches!(k, Kind::Resonant(_)));
+     let controls = kind(|k| *k == Kind::Control);
+@@ -416,7 +445,7 @@ mod tests {
+         let i = cases().iter().position(|c| c.name == name).unwrap_or_else(|| panic!("no case {name}"));
+         truths()[i].unwrap()
+     }
+-    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + 'static) -> Events {
++    fn events(restricted: impl Fn(&Restricted, [f64; 4], &[f64]) -> Option<Vec<[f64; 4]>> + Sync + 'static) -> Events {
+         Events { binary: Box::new(Some), restricted: Box::new(restricted) }
+     }
+     fn tr(e_min: f64, e_max: f64, excursion: f64) -> Track {
+@@ -572,9 +601,10 @@ mod tests {
+ 
+     #[test]
+     fn a_law_that_does_not_answer_a_case_or_leaves_the_stars_orbit_fails_whatever_else_it_gets_right() {
+-        // Echo on every case but the first, which it does not answer.
+-        let first = std::cell::Cell::new(true);
+-        let g = b17(&events(move |s, ship, ts| if first.replace(false) { None } else { Echo.restricted(s, ship, ts) }));
++        // Echo except on one case, which it does not answer (the legs run concurrently, so which
++        // case asks first is not fixed; exactly one answer is missing either way).
++        let first = std::sync::atomic::AtomicBool::new(true);
++        let g = b17(&events(move |s, ship, ts| if first.swap(false, std::sync::atomic::Ordering::Relaxed) { None } else { Echo.restricted(s, ship, ts) }));
+         assert!(!g.pass && g.detail.contains("1 unanswered"), "{}", g.detail);
+         // States that are unbound about the star (a free particle) do not have an eccentricity below one.
+         let g = b17(&events(|s, ship, ts| Some(ts.iter().map(|&t| s.barycentric(t, &[ship[0] + 1e3 * t, ship[1], ship[2] + 10.0, ship[3]])).collect())));
+diff --git a/xtask/src/behave/scale.rs b/xtask/src/behave/scale.rs
+index db631f8..e4e127b 100644
+--- a/xtask/src/behave/scale.rs
++++ b/xtask/src/behave/scale.rs
+@@ -158,7 +158,7 @@ mod tests {
+     use super::*;
+ 
+     /// A law that answers only the scene's cost, from a closure.
+-    struct Scene(Box<dyn Fn(usize) -> Option<f64>>);
++    struct Scene(Box<dyn Fn(usize) -> Option<f64> + Sync>);
+     impl Law for Scene {
+         fn advance_per_cycle(&self, _: f64, _: f64) -> Option<(f64, f64, f64)> {
+             None
+@@ -179,7 +179,7 @@ mod tests {
+             (self.0)(n)
+         }
+     }
+-    fn scene(f: impl Fn(usize) -> Option<f64> + 'static) -> Scene {
++    fn scene(f: impl Fn(usize) -> Option<f64> + Sync + 'static) -> Scene {
+         Scene(Box::new(f))
+     }
+     /// The exponent printed in a detail line.
+diff --git a/xtask/src/behave/space.rs b/xtask/src/behave/space.rs
+index 142c23a..5cdc7f4 100644
+--- a/xtask/src/behave/space.rs
++++ b/xtask/src/behave/space.rs
+@@ -7,11 +7,13 @@ use emergent_space::{
+     orbit::{Orbit, OrbitKey, Passage, QuantizedMemo, Scalar},
+     tube::Catalogue,
+ };
+-use std::cell::RefCell;
++use std::sync::Mutex;
+ 
+ #[derive(Default)]
+ pub struct Space {
+-    shapes: RefCell<QuantizedMemo>,
++    /// The compiled shapes, shared by the judge's parallel legs: a pure cache (one compile per
++    /// key), so a lock changes only which thread waits, never an answer.
++    shapes: Mutex<QuantizedMemo>,
+     pub newton: bool,
+     #[cfg(test)]
+     key_bits: Option<(u32, u32)>,
+@@ -86,7 +88,8 @@ impl Law for Space {
+         }
+         let r = scene.sep / (1.0 - scene.mu);
+         self.shapes
+-            .borrow_mut()
++            .lock()
++            .unwrap_or_else(|e| e.into_inner())
+             .get(self.bound_native_key(r, 0.0)?)
+             .ok()?;
+         let speed_unit = 1.0 / scene.sep.sqrt();
+@@ -150,7 +153,8 @@ impl Law for Space {
+         Some(
+             2.0 * self
+                 .shapes
+-                .borrow_mut()
++                .lock()
++                .unwrap_or_else(|e| e.into_inner())
+                 .get(self.bound_native_key(p, e)?)
+                 .ok()?
+                 .shape()
+@@ -185,7 +189,7 @@ impl Law for Space {
+         let c = if self.newton {
+             Orbit::newtonian(key).ok()?
+         } else {
+-            self.shapes.borrow_mut().get(key).ok()?
++            self.shapes.lock().unwrap_or_else(|e| e.into_inner()).get(key).ok()?
+         };
+         Some((
+             decoded(c.advance().ok()?),
+@@ -245,7 +249,7 @@ impl Law for Space {
+         let Ok(c) = (if self.newton {
+             Orbit::newtonian(key)
+         } else {
+-            self.shapes.borrow_mut().get(key)
++            self.shapes.lock().unwrap_or_else(|e| e.into_inner()).get(key)
+         }) else {
+             return vec![];
+         };
