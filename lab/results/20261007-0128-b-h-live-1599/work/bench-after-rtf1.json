@@ -1,0 +1,476 @@
+{
+  "bodies": 54,
+  "bytes_per_body": 4120,
+  "catalogue_live": 54,
+  "cut_tick": 6090763,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ],
+      [
+        1688495,
+        0
+      ],
+      [
+        2432922,
+        4
+      ],
+      [
+        2500597,
+        0
+      ],
+      [
+        3245023,
+        1
+      ],
+      [
+        3312699,
+        0
+      ],
+      [
+        4057125,
+        5
+      ],
+      [
+        4124800,
+        0
+      ],
+      [
+        4869227,
+        2
+      ],
+      [
+        4936902,
+        0
+      ],
+      [
+        5681329,
+        8
+      ],
+      [
+        5749004,
+        0
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ],
+      [
+        1688495,
+        0
+      ],
+      [
+        2432922,
+        4
+      ],
+      [
+        2500597,
+        0
+      ],
+      [
+        3245023,
+        1
+      ],
+      [
+        3312699,
+        0
+      ],
+      [
+        4057125,
+        5
+      ],
+      [
+        4124800,
+        0
+      ],
+      [
+        4869227,
+        2
+      ],
+      [
+        4936902,
+        0
+      ],
+      [
+        5681329,
+        8
+      ],
+      [
+        5749004,
+        0
+      ]
+    ]
+  },
+  "digest": "60d6ccd3d66870cdc6bde493557a7992c87cd7ca06506306838231d3453f8bd5",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 11,
+      "kind": "ship",
+      "total_ms": 1.337502,
+      "us_per_item": 121.59109090909091
+    },
+    {
+      "items": 3,
+      "kind": "player",
+      "total_ms": 0.549567,
+      "us_per_item": 183.189
+    },
+    {
+      "items": 1819,
+      "kind": "fleet",
+      "total_ms": 31.536828,
+      "us_per_item": 17.337453545904342
+    }
+  ],
+  "events_per_second": 62.56666666666755,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 0.6774530000000141,
+    "p99": 0.9666910000000826,
+    "p99.9": 4.643373999999994,
+    "worst": 5.448487
+  },
+  "frame_ms": {
+    "p50": 0.677127,
+    "p95": 0.947857,
+    "p99": 0.966396,
+    "p99.9": 4.642702
+  },
+  "frames": 1800,
+  "h_live": {
+    "closes": true,
+    "closes_note": "Δ(created + spill − reabsorbed) equals Δ(live stock bits), the ledger's identity, checked on this run's own numbers",
+    "final": {
+      "bits_per_game_second": {
+        "balance": 223.9333481366521,
+        "created": 184.9000122229844,
+        "frame_origin_kick_bits": 1.6000001057694704,
+        "reabsorbed": 16.63333443289512,
+        "spill": 55.666670346562825
+      },
+      "counts": {
+        "alive": 54,
+        "bodies": 54,
+        "born": 26,
+        "carried_kicks": 0,
+        "decisions": 16,
+        "frame_origin_kicks": 1,
+        "lost": 0,
+        "rebinds": 20
+      },
+      "definition": "live distinguishing bits: the per-body integer words beyond each body's compiled tube (the fit's remainder and sub-quantum turn, the sigma-delta carries, the clock's energy register, the kick ramp's impulse). The tube itself (128 bits per body) is the compiled floor, the catalogue the shared generators, a fleet battle's in-frame member state is below this instrument",
+      "game_seconds": 29.999998016822563,
+      "ledger_bits": {
+        "created": 5547,
+        "reabsorbed": 499,
+        "spill": 1670
+      },
+      "stock_bits": {
+        "carries": 611,
+        "catalogue_live": 54,
+        "compiled_floor_bits": 6912,
+        "history_retained": 2779,
+        "live": 6718,
+        "per_live_body": 124,
+        "ramp": 593,
+        "register": 652,
+        "remainder": 4862
+      }
+    },
+    "initial": {
+      "bits_per_game_second": {
+        "balance": 28.200001864186916,
+        "created": 0.0,
+        "frame_origin_kick_bits": 0.0,
+        "reabsorbed": 0.0,
+        "spill": 28.200001864186916
+      },
+      "counts": {
+        "alive": 28,
+        "bodies": 28,
+        "born": 0,
+        "carried_kicks": 0,
+        "decisions": 0,
+        "frame_origin_kicks": 0,
+        "lost": 0,
+        "rebinds": 0
+      },
+      "definition": "live distinguishing bits: the per-body integer words beyond each body's compiled tube (the fit's remainder and sub-quantum turn, the sigma-delta carries, the clock's energy register, the kick ramp's impulse). The tube itself (128 bits per body) is the compiled floor, the catalogue the shared generators, a fleet battle's in-frame member state is below this instrument",
+      "game_seconds": 29.999998016822563,
+      "ledger_bits": {
+        "created": 0,
+        "reabsorbed": 0,
+        "spill": 846
+      },
+      "stock_bits": {
+        "carries": 194,
+        "catalogue_live": 28,
+        "compiled_floor_bits": 3584,
+        "history_retained": 0,
+        "live": 846,
+        "per_live_body": 30,
+        "ramp": 0,
+        "register": 652,
+        "remainder": 0
+      }
+    },
+    "note": "the distinctions ledger, sampled once per game second; rates divide by canonical game time, so they are independent of pacing and budget",
+    "samples_game_seconds_bits": [
+      [
+        0.9997761524220612,
+        972
+      ],
+      [
+        1.9995523048441173,
+        972
+      ],
+      [
+        2.9993284572661736,
+        972
+      ],
+      [
+        3.9991046096882297,
+        972
+      ],
+      [
+        4.998880762110312,
+        982
+      ],
+      [
+        5.998656914532395,
+        982
+      ],
+      [
+        6.998433066954478,
+        982
+      ],
+      [
+        7.998209219376561,
+        982
+      ],
+      [
+        8.99798537179859,
+        978
+      ],
+      [
+        9.99776152422062,
+        978
+      ],
+      [
+        10.997537676642649,
+        978
+      ],
+      [
+        11.997313829064678,
+        978
+      ],
+      [
+        12.997089981486708,
+        1319
+      ],
+      [
+        13.996866133908737,
+        1319
+      ],
+      [
+        14.996642286330767,
+        1319
+      ],
+      [
+        15.996418438752796,
+        1319
+      ],
+      [
+        16.996194591174827,
+        1323
+      ],
+      [
+        17.995970743596857,
+        1323
+      ],
+      [
+        18.995746896018886,
+        2583
+      ],
+      [
+        19.995523048440916,
+        2659
+      ],
+      [
+        20.995299200862945,
+        4520
+      ],
+      [
+        21.995075353284975,
+        4520
+      ],
+      [
+        22.994851505707004,
+        4520
+      ],
+      [
+        23.994627658129033,
+        6068
+      ],
+      [
+        24.994403810551063,
+        6018
+      ],
+      [
+        25.994179962973092,
+        6250
+      ],
+      [
+        26.99395611539512,
+        6250
+      ],
+      [
+        27.99373226781715,
+        6568
+      ],
+      [
+        28.99350842023918,
+        6568
+      ],
+      [
+        29.99328457266121,
+        6718
+      ]
+    ]
+  },
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-07T02:09:11Z",
+    "unix": 1791338951,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-07T02:09:09Z",
+    "unix": 1791338949,
+    "when": "before"
+  },
+  "paced": false,
+  "player_alive": true,
+  "presented_tick_at_end": 6089400,
+  "rtf": {
+    "lowest_1pct": 0.9997761524220601,
+    "median": 0.9997761524220601,
+    "overflow_frames": 0
+  },
+  "rtf_target": 1.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 5,
+  "stats": "Stats { kicks: 15, opens: 70, boundaries: 2, handoffs: 0, lost: 0, refused: 0, slices: 1819, encounters: 3, decisions: 16, leavers: 26, dissolved: 0, cost_ns: [0, 0, 1337502, 549567, 31536828], items: [0, 0, 11, 3, 1819] }",
+  "throttle_level": 0,
+  "uptime_after": "02:09:11 up 40 days, 17:11,  0 user,  load average: 3.68, 4.47, 4.88",
+  "uptime_before": "02:09:09 up 40 days, 17:11,  0 user,  load average: 3.68, 4.47, 4.88",
+  "wall_seconds": 1.386280111,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 4.5405109999999995,
+      "p50": 0.024249,
+      "p99": 0.063149,
+      "share": 0.04673131878014766
+    },
+    "view_gather": {
+      "max": 0.885503,
+      "p50": 0.491157,
+      "p99": 0.756173,
+      "share": 0.7458144408973758
+    },
+    "view_json": {
+      "max": 0.223569,
+      "p50": 0.1026,
+      "p99": 0.150225,
+      "share": 0.14436809970931963
+    },
+    "wire": {
+      "max": 0.089985,
+      "p50": 0.046646,
+      "p99": 0.06723699999999999,
+      "share": 0.06308614061315686
+    }
+  },
+  "worst_hitch_at_frame": 1239,
+  "worst_hitch_ms": 5.448042
+}

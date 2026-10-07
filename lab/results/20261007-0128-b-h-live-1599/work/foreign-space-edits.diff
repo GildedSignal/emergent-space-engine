@@ -1,0 +1,114 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..5ac33f6 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -175,7 +175,13 @@ pub fn cartesian(state: OrbitState, orientation: u32, clockwise: bool, units: (i
+         velocity_exponent: units.1,
+     })
+ }
+-
++// TODO(debug-high-gamma) remove before shipping: a temporary probe of fit_key's refusals.
++fn dbg_probe(tag: &str, state: &IntegerState) {
++    let (p, v) = state.components().unwrap();
++    let f = |x: Scalar| format!("{}·2^{}", x.significand(), x.exponent());
++    println!("[fit_key {tag}] exps ({}, {}) p ({}, {}) v ({}, {})", state.length_exponent, state.velocity_exponent,
++        f(p[0]), f(p[1]), f(v[0]), f(v[1]));
++}
+ /// Inverse invariants without subtracting E from one. The cubic is in z=L²/r,
+ /// whose outer turning root is O(1) in the weak field, not in absolute 1/r.
+ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, bool, bool)> {
+@@ -184,6 +190,7 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let u = r.reciprocal()?;
+     let lapse = Scalar::ONE.sub(u.scale(1)?)?;
+     if !lapse.is_positive() {
++        dbg_probe("lapse", &state);
+         return Err(Error::NoBoundOrbit);
+     }
+     let vr = dot(p, v)?.div(r)?;
+@@ -194,6 +201,7 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let kinetic = vr.mul(vr)?.div(lapse)?.add(vt.mul(vt)?)?;
+     let den = lapse.sub(kinetic)?;
+     if !den.is_positive() || vt.is_zero() {
++        dbg_probe(if den.is_positive() { "vt" } else { "den" }, &state);
+         return Err(Error::NoBoundOrbit);
+     }
+     let angular = r.mul(vt)?;
+@@ -227,13 +235,14 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+         return Ok((crate::inverse::fit(state)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
+     }
+     if barrier.is_positive() {
++        dbg_probe("barrier", &state);
+         return Err(Error::NoBoundOrbit);
+     }
+     let at_c = poly(uc)?;
+     let zp = if at_c <= Scalar::ZERO {
+         // Cancellation uncertainty: a handful of the 63-bit arithmetic quanta, not
+-        // a bound on physical eccentricity. The residual retains the input exactly.
+         if at_c.abs() > Scalar::power_of_two(-56) {
++            dbg_probe("at_c", &state);
+             return Err(Error::NoBoundOrbit);
+         }
+         uc
+@@ -244,6 +253,7 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+             lo = hi;
+             hi = hi.scale(1)?.min(minimum);
+             if hi == lo {
++                dbg_probe("bisection", &state);
+                 return Err(Error::NoBoundOrbit);
+             }
+         }
+@@ -351,13 +361,13 @@ fn root_witness(
+ }
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let (key, r, clockwise, incoming) = fit_key(state, true).inspect_err(|e| println!("[from_state fit_key {e:?}]"))?;
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            Trajectory::Cycle(Orbit::compile(key).inspect_err(|e| println!("[compile cycle {e:?} k={}]", key.k))?)
+         } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?)).inspect_err(|e| println!("[compile passage {e:?}]"))?)
+         };
+-        let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        let (mut offset, mut sample) = trajectory.at_radius(r).inspect_err(|e| println!("[at_radius {e:?}]"))?;
+         if incoming {
+             offset = offset.negate();
+             sample.reflect();
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..890278a 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -532,11 +532,15 @@ impl Orbit {
+         // Taylor shape, k>1/2 and q<=2^-18 imply 1-qA>0, D>1/2-3q>0
+         // and both clock factors positive. Do not rebuild and discard a shape
+         // to prove those same predicates. Weak passages still need the check.
+-        if shape.key.compactness != q && !key.periodic() {
++        if shape.key.compactness != q && !key.periodic() && std::env::var_os("HIGH_GAMMA_PROBE").is_none() {
+             let _ = OrbitShape::new(ShapeKey {
+                 k: key.k,
+                 compactness: q,
+                 null: key.null,
++            }).inspect_err(|e| {
++                let kf = key.k as f64 / 281474976710656.0;
++                let qf = q.significand() as f64 * 2f64.powi(q.exponent() as i32 - 62);
++                println!("[weak passage {e:?} k={kf:.6e} (1+e)^-1 q={qf:.6e} rp={:.6e}]", 1.0 / qf);
+             })?;
+         }
+         let k = f((key.k as i128) << 14)?;
+@@ -923,7 +927,7 @@ impl Passage {
+         if key.periodic() || outer_radius <= key.periapsis {
+             return Err(Error::Topology);
+         }
+-        let mut shape = OrbitShape::new(ShapeKey::for_orbit(key)?)?;
++        let mut shape = OrbitShape::new(ShapeKey::for_orbit(key)?).inspect_err(|e| println!("[shape new {e:?} k={} rp={}.{:02e} q_zeroed={}]", key.k, key.periapsis.significand(), key.periapsis.exponent(), key.compactness().map(|q| q <= Scalar::power_of_two(WEAK_EXPONENT)).unwrap_or(false)))?;
+         let endpoint = key.periapsis.div(outer_radius)?;
+         // psi is a good phase near the turn, but cancels at infinity. Continue
+         // in x=R/r with its own exponent once that cancellation matters.
+@@ -1180,4 +1184,4 @@ impl Passage {
+ 
+ #[cfg(test)]
+ #[path = "quadrature_tests.rs"]
+-mod quadrature_tests;
++mod quadrature_tests;
+\ No newline at end of file

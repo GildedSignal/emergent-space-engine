@@ -1,0 +1,429 @@
+{
+  "bodies": 76,
+  "bytes_per_body": 4860,
+  "catalogue_live": 76,
+  "cut_tick": 4060508935,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291391,
+        0
+      ],
+      [
+        808718030,
+        9
+      ],
+      [
+        876393178,
+        0
+      ],
+      [
+        1620819817,
+        2
+      ],
+      [
+        1688494966,
+        0
+      ],
+      [
+        2432921604,
+        4
+      ],
+      [
+        2500596753,
+        0
+      ],
+      [
+        3245023391,
+        1
+      ],
+      [
+        3312698540,
+        0
+      ],
+      [
+        4057125178,
+        5
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291391,
+        0
+      ],
+      [
+        808718030,
+        9
+      ],
+      [
+        876393178,
+        0
+      ],
+      [
+        1620819817,
+        2
+      ],
+      [
+        1688494966,
+        0
+      ],
+      [
+        2432921604,
+        4
+      ],
+      [
+        2500596753,
+        0
+      ],
+      [
+        3245023391,
+        1
+      ],
+      [
+        3312698540,
+        0
+      ],
+      [
+        4057125178,
+        5
+      ]
+    ]
+  },
+  "digest": "771694a147a34553565bbb67ed52b9abfb4126283eb370548896c77268ffbbe6",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 10155,
+      "kind": "ship",
+      "total_ms": 485.947239,
+      "us_per_item": 47.8530023633678
+    },
+    {
+      "items": 80,
+      "kind": "player",
+      "total_ms": 28.002447,
+      "us_per_item": 350.0305875
+    },
+    {
+      "items": 2378,
+      "kind": "fleet",
+      "total_ms": 48.208678,
+      "us_per_item": 20.27278301093356
+    }
+  ],
+  "events_per_second": 643.5999999999954,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 1.6570590000001175,
+    "p99": 4.72864899999999,
+    "p99.9": 6.4210460000000005,
+    "worst": 6.4390399999999985
+  },
+  "frame_ms": {
+    "p50": 1.65663,
+    "p95": 2.870818,
+    "p99": 4.728167999999999,
+    "p99.9": 6.419998
+  },
+  "frames": 1200,
+  "h_live": {
+    "closes": true,
+    "closes_note": "Δ(created + spill − reabsorbed) equals Δ(live stock bits), the ledger's identity, checked on this run's own numbers",
+    "final": {
+      "bits_per_game_second": {
+        "balance": 0.5120000000113891,
+        "created": 15.796400000351381,
+        "frame_origin_kick_bits": 0.11790000000262262,
+        "reabsorbed": 15.573400000346421,
+        "spill": 0.2890000000064286
+      },
+      "counts": {
+        "alive": 44,
+        "bodies": 76,
+        "born": 48,
+        "carried_kicks": 34,
+        "decisions": 11,
+        "frame_origin_kicks": 48,
+        "lost": 32,
+        "rebinds": 5220
+      },
+      "definition": "live distinguishing bits: the per-body integer words beyond each body's compiled tube (the fit's remainder and sub-quantum turn, the sigma-delta carries, the clock's energy register, the kick ramp's impulse). The tube itself (128 bits per body) is the compiled floor, the catalogue the shared generators, a fleet battle's in-frame member state is below this instrument",
+      "game_seconds": 19999.99999955511,
+      "ledger_bits": {
+        "created": 315928,
+        "reabsorbed": 311468,
+        "spill": 5780
+      },
+      "stock_bits": {
+        "carries": 1677,
+        "catalogue_live": 76,
+        "compiled_floor_bits": 9728,
+        "history_retained": 83769,
+        "live": 10240,
+        "per_live_body": 232,
+        "ramp": 2038,
+        "register": 652,
+        "remainder": 5873
+      }
+    },
+    "initial": {
+      "bits_per_game_second": {
+        "balance": 0.04230000000094094,
+        "created": 0.0,
+        "frame_origin_kick_bits": 0.0,
+        "reabsorbed": 0.0,
+        "spill": 0.04230000000094094
+      },
+      "counts": {
+        "alive": 28,
+        "bodies": 28,
+        "born": 0,
+        "carried_kicks": 0,
+        "decisions": 0,
+        "frame_origin_kicks": 0,
+        "lost": 0,
+        "rebinds": 0
+      },
+      "definition": "live distinguishing bits: the per-body integer words beyond each body's compiled tube (the fit's remainder and sub-quantum turn, the sigma-delta carries, the clock's energy register, the kick ramp's impulse). The tube itself (128 bits per body) is the compiled floor, the catalogue the shared generators, a fleet battle's in-frame member state is below this instrument",
+      "game_seconds": 19999.99999955511,
+      "ledger_bits": {
+        "created": 0,
+        "reabsorbed": 0,
+        "spill": 846
+      },
+      "stock_bits": {
+        "carries": 194,
+        "catalogue_live": 28,
+        "compiled_floor_bits": 3584,
+        "history_retained": 0,
+        "live": 846,
+        "per_live_body": 30,
+        "ramp": 0,
+        "register": 652,
+        "remainder": 0
+      }
+    },
+    "note": "the distinctions ledger, sampled once per game second; rates divide by canonical game time, so they are independent of pacing and budget",
+    "samples_game_seconds_bits": [
+      [
+        958.4638236766812,
+        9529
+      ],
+      [
+        1958.4636918975477,
+        8838
+      ],
+      [
+        2958.463560118414,
+        9108
+      ],
+      [
+        3958.46342833928,
+        8845
+      ],
+      [
+        4958.4632965601695,
+        8404
+      ],
+      [
+        5958.463164781063,
+        8452
+      ],
+      [
+        6958.463033001956,
+        8475
+      ],
+      [
+        7958.46290122285,
+        8555
+      ],
+      [
+        8958.462769443702,
+        8304
+      ],
+      [
+        9958.462637664541,
+        8245
+      ],
+      [
+        10958.46250588538,
+        8355
+      ],
+      [
+        11958.462374106219,
+        8317
+      ],
+      [
+        12958.462242327058,
+        8496
+      ],
+      [
+        13958.462110547896,
+        9100
+      ],
+      [
+        14958.461978768735,
+        10314
+      ],
+      [
+        15958.461846989574,
+        10259
+      ],
+      [
+        16958.461715210415,
+        10277
+      ],
+      [
+        17958.461583431254,
+        10332
+      ],
+      [
+        18958.461451652092,
+        10208
+      ],
+      [
+        19958.46131987293,
+        10229
+      ]
+    ]
+  },
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [
+    "You",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)"
+  ],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-07T02:09:17Z",
+    "unix": 1791338957,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-07T02:09:15Z",
+    "unix": 1791338955,
+    "when": "before"
+  },
+  "paced": false,
+  "player_alive": false,
+  "presented_tick_at_end": 4052075526,
+  "rtf": {
+    "lowest_1pct": 999.9998682208727,
+    "median": 999.9998682208727,
+    "overflow_frames": 6
+  },
+  "rtf_target": 1000.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 5,
+  "stats": "Stats { kicks: 5293, opens: 132, boundaries: 5115, handoffs: 0, lost: 32, refused: 0, slices: 2378, encounters: 96, decisions: 10, leavers: 48, dissolved: 1, cost_ns: [0, 0, 485947239, 28002447, 48208678], items: [0, 0, 10155, 80, 2378] }",
+  "throttle_level": 0,
+  "uptime_after": "02:09:17 up 40 days, 17:11,  0 user,  load average: 3.90, 4.49, 4.88",
+  "uptime_before": "02:09:15 up 40 days, 17:11,  0 user,  load average: 3.63, 4.45, 4.87",
+  "wall_seconds": 2.15809109,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 5.383461,
+      "p50": 0.366791,
+      "p99": 3.464127,
+      "share": 0.2753819689382609
+    },
+    "view_gather": {
+      "max": 1.776578,
+      "p50": 1.1416849999999998,
+      "p99": 1.642126,
+      "share": 0.6588749060409028
+    },
+    "view_json": {
+      "max": 0.183959,
+      "p50": 0.07635800000000001,
+      "p99": 0.160505,
+      "share": 0.046053522114252295
+    },
+    "wire": {
+      "max": 0.082063,
+      "p50": 0.033253000000000005,
+      "p99": 0.057213,
+      "share": 0.019689602906583805
+    }
+  },
+  "worst_hitch_at_frame": 7,
+  "worst_hitch_ms": 6.438543
+}

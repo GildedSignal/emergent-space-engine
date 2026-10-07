@@ -1,0 +1,504 @@
+{
+  "bodies": 76,
+  "bytes_per_body": 4430,
+  "catalogue_live": 76,
+  "cut_tick": 609076340,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        6429139,
+        0
+      ],
+      [
+        80871803,
+        9
+      ],
+      [
+        87639318,
+        0
+      ],
+      [
+        162081982,
+        2
+      ],
+      [
+        168849497,
+        0
+      ],
+      [
+        243292160,
+        4
+      ],
+      [
+        250059675,
+        0
+      ],
+      [
+        324502339,
+        1
+      ],
+      [
+        331269854,
+        0
+      ],
+      [
+        405712518,
+        5
+      ],
+      [
+        412480033,
+        0
+      ],
+      [
+        486922696,
+        2
+      ],
+      [
+        493690211,
+        0
+      ],
+      [
+        568132875,
+        8
+      ],
+      [
+        574900390,
+        0
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        6429139,
+        0
+      ],
+      [
+        80871803,
+        9
+      ],
+      [
+        87639318,
+        0
+      ],
+      [
+        162081982,
+        2
+      ],
+      [
+        168849497,
+        0
+      ],
+      [
+        243292160,
+        4
+      ],
+      [
+        250059675,
+        0
+      ],
+      [
+        324502339,
+        1
+      ],
+      [
+        331269854,
+        0
+      ],
+      [
+        405712518,
+        5
+      ],
+      [
+        412480033,
+        0
+      ],
+      [
+        486922696,
+        2
+      ],
+      [
+        493690211,
+        0
+      ],
+      [
+        568132875,
+        8
+      ],
+      [
+        574900390,
+        0
+      ]
+    ]
+  },
+  "digest": "6d2edf94e6939d1fb81c533fdc40ac2aaf2f7e66f2b9e8dce5ec6aa743182d22",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 2535,
+      "kind": "ship",
+      "total_ms": 142.986504,
+      "us_per_item": 56.404932544378696
+    },
+    {
+      "items": 297,
+      "kind": "player",
+      "total_ms": 95.783146,
+      "us_per_item": 322.50217508417506
+    },
+    {
+      "items": 2857,
+      "kind": "fleet",
+      "total_ms": 53.241872,
+      "us_per_item": 18.635586979348968
+    }
+  ],
+  "events_per_second": 215.5666666666697,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 0.8708000000000311,
+    "p99": 2.330657000000002,
+    "p99.9": 4.676976,
+    "worst": 5.556950999999998
+  },
+  "frame_ms": {
+    "p50": 0.870492,
+    "p95": 1.784138,
+    "p99": 2.330273,
+    "p99.9": 4.67653
+  },
+  "frames": 1800,
+  "h_live": {
+    "closes": true,
+    "closes_note": "Δ(created + spill − reabsorbed) equals Δ(live stock bits), the ledger's identity, checked on this run's own numbers",
+    "final": {
+      "bits_per_game_second": {
+        "balance": 3.0493333346527858,
+        "created": 35.227000015242794,
+        "frame_origin_kick_bits": 0.7860000003401038,
+        "reabsorbed": 33.66233334789909,
+        "spill": 1.484666667309085
+      },
+      "counts": {
+        "alive": 49,
+        "bodies": 76,
+        "born": 48,
+        "carried_kicks": 1,
+        "decisions": 16,
+        "frame_origin_kicks": 48,
+        "lost": 27,
+        "rebinds": 1789
+      },
+      "definition": "live distinguishing bits: the per-body integer words beyond each body's compiled tube (the fit's remainder and sub-quantum turn, the sigma-delta carries, the clock's energy register, the kick ramp's impulse). The tube itself (128 bits per body) is the compiled floor, the catalogue the shared generators, a fleet battle's in-frame member state is below this instrument",
+      "game_seconds": 2999.999998701894,
+      "ledger_bits": {
+        "created": 105681,
+        "reabsorbed": 100987,
+        "spill": 4454
+      },
+      "stock_bits": {
+        "carries": 1181,
+        "catalogue_live": 76,
+        "compiled_floor_bits": 9728,
+        "history_retained": 47881,
+        "live": 9148,
+        "per_live_body": 186,
+        "ramp": 1977,
+        "register": 652,
+        "remainder": 5338
+      }
+    },
+    "initial": {
+      "bits_per_game_second": {
+        "balance": 0.282000000122022,
+        "created": 0.0,
+        "frame_origin_kick_bits": 0.0,
+        "reabsorbed": 0.0,
+        "spill": 0.282000000122022
+      },
+      "counts": {
+        "alive": 28,
+        "bodies": 28,
+        "born": 0,
+        "carried_kicks": 0,
+        "decisions": 0,
+        "frame_origin_kicks": 0,
+        "lost": 0,
+        "rebinds": 0
+      },
+      "definition": "live distinguishing bits: the per-body integer words beyond each body's compiled tube (the fit's remainder and sub-quantum turn, the sigma-delta carries, the clock's energy register, the kick ramp's impulse). The tube itself (128 bits per body) is the compiled floor, the catalogue the shared generators, a fleet battle's in-frame member state is below this instrument",
+      "game_seconds": 2999.999998701894,
+      "ledger_bits": {
+        "created": 0,
+        "reabsorbed": 0,
+        "spill": 846
+      },
+      "stock_bits": {
+        "carries": 194,
+        "catalogue_live": 28,
+        "compiled_floor_bits": 3584,
+        "history_retained": 0,
+        "live": 846,
+        "per_live_body": 30,
+        "ramp": 0,
+        "register": 652,
+        "remainder": 0
+      }
+    },
+    "note": "the distinctions ledger, sampled once per game second; rates divide by canonical game time, so they are independent of pacing and budget",
+    "samples_game_seconds_bits": [
+      [
+        99.99977995146736,
+        11731
+      ],
+      [
+        199.99955990293444,
+        11077
+      ],
+      [
+        299.99933985440225,
+        10262
+      ],
+      [
+        399.99911980587103,
+        9766
+      ],
+      [
+        499.9988997573398,
+        9524
+      ],
+      [
+        599.9986797088056,
+        9605
+      ],
+      [
+        699.998459660271,
+        9711
+      ],
+      [
+        799.9982396117364,
+        9721
+      ],
+      [
+        899.9980195632018,
+        9847
+      ],
+      [
+        999.9977995146671,
+        10496
+      ],
+      [
+        1099.9975794661377,
+        9796
+      ],
+      [
+        1199.99735941761,
+        9497
+      ],
+      [
+        1299.997139369082,
+        9487
+      ],
+      [
+        1399.9969193205543,
+        9920
+      ],
+      [
+        1499.9966992720265,
+        9647
+      ],
+      [
+        1599.9964792234987,
+        9696
+      ],
+      [
+        1699.9962591749709,
+        9680
+      ],
+      [
+        1799.996039126443,
+        9627
+      ],
+      [
+        1899.9958190779153,
+        9371
+      ],
+      [
+        1999.9955990293874,
+        9070
+      ],
+      [
+        2099.9953789808524,
+        9080
+      ],
+      [
+        2199.995158932311,
+        9133
+      ],
+      [
+        2299.9949388837695,
+        9107
+      ],
+      [
+        2399.994718835228,
+        9076
+      ],
+      [
+        2499.9944987866866,
+        9074
+      ],
+      [
+        2599.994278738145,
+        9140
+      ],
+      [
+        2699.9940586896037,
+        9455
+      ],
+      [
+        2799.993838641062,
+        9499
+      ],
+      [
+        2899.9936185925208,
+        9463
+      ],
+      [
+        2999.9933985439793,
+        9148
+      ]
+    ]
+  },
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)"
+  ],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-07T02:09:14Z",
+    "unix": 1791338954,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-07T02:09:13Z",
+    "unix": 1791338953,
+    "when": "before"
+  },
+  "paced": false,
+  "player_alive": true,
+  "presented_tick_at_end": 609075000,
+  "rtf": {
+    "lowest_1pct": 99.9997799514675,
+    "median": 99.9997799514675,
+    "overflow_frames": 0
+  },
+  "rtf_target": 100.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 5,
+  "stats": "Stats { kicks: 1832, opens: 92, boundaries: 1743, handoffs: 0, lost: 27, refused: 0, slices: 2857, encounters: 132, decisions: 16, leavers: 48, dissolved: 1, cost_ns: [0, 0, 142986504, 95783146, 53241872], items: [0, 0, 2535, 297, 2857] }",
+  "throttle_level": 0,
+  "uptime_after": "02:09:14 up 40 days, 17:11,  0 user,  load average: 3.63, 4.45, 4.87",
+  "uptime_before": "02:09:13 up 40 days, 17:11,  0 user,  load average: 3.63, 4.45, 4.87",
+  "wall_seconds": 1.8746842799999999,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 4.58773,
+      "p50": 0.020441,
+      "p99": 1.3704349999999998,
+      "share": 0.1788621154937912
+    },
+    "view_gather": {
+      "max": 1.058627,
+      "p50": 0.710338,
+      "p99": 0.882992,
+      "share": 0.697556828214037
+    },
+    "view_json": {
+      "max": 0.184972,
+      "p50": 0.083326,
+      "p99": 0.152091,
+      "share": 0.08596282997136068
+    },
+    "wire": {
+      "max": 0.08394399999999999,
+      "p50": 0.036732,
+      "p99": 0.06066,
+      "share": 0.03761822632081118
+    }
+  },
+  "worst_hitch_at_frame": 12,
+  "worst_hitch_ms": 5.55652
+}
