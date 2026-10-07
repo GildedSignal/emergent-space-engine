@@ -1,0 +1,13 @@
+[package]
+name = "hlive-probe"
+version = "0.1.0"
+edition = "2021"
+
+[workspace] # detach from the repo workspace
+
+[dependencies]
+emergent-universe = { path = "../../../../crates/universe" }
+emergent-shipmem = { path = "../../../../crates/shipmem" }
+
+[profile.release]
+debug = false
