@@ -1,0 +1,4 @@
+Working...
+Run complete. Everything measured, pre-registered predictions adjudicated (one honestly failed as written), probe + raw evidence + metrics + dossier saved in `lab/results/20261007-1801-constraint-3126/`; the tree edit (the `viewdrift` example) rides the run's patch.
+
+**The claim:** the plane's one constraint is the readout, not the engine — the view gather is 54–69% of frame CPU at 71–410 bodies (~7.9 µs/body/frame, one light-cone Newton per body per frame while the engine already runs at a scale-free 0.05 events/body/game-second), and 92.9% of that Newton work at rtf 100 (100% at rtf 1, 78.6% at rtf 1000) changes the display by less than one quantum, so a quantum-driven gather (carry; re-solve on quantum crossing, emitter event, or first light) is the ~10× exploit with no new part.

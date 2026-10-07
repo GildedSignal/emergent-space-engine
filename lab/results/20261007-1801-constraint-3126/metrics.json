@@ -1,0 +1,38 @@
+{
+  "run": "20261007-1801-constraint-3126",
+  "lens": "constraint",
+  "machine": "GitHub Actions linux x86, 8 vCPU i7-4790, load 0.6-3.0 during runs; orders of magnitude only (integrator re-measures on M1)",
+  "whole_plane_paced_rtf100_30s": {
+    "frame_ms_p50": 4.44, "frame_ms_p99": 10.72, "hitches_over_16_7ms_per_hour": 0,
+    "shares": {"view_gather": 0.693, "engine": 0.176, "view_json": 0.092, "wire": 0.038},
+    "unpaced_frame_ms_p50": 0.944, "unpaced_ceiling_rtf_approx": 1500,
+    "bodies": 76, "engine_events_per_body_per_game_second": 0.054
+  },
+  "plane_scaling": {
+    "members": [48, 400, "400 (clamped from 4800)"],
+    "bodies": [71, 409],
+    "frame_p50_ms": [1.44, 5.96],
+    "gather_p50_ms": [0.90, 3.56],
+    "engine_p99_ms": [2.03, 5.73],
+    "engine_overflow_frames_of_600": [3, 138],
+    "gather_marginal_us_per_body_per_frame": 7.9,
+    "engine_events_per_body_per_game_second": [0.054, 0.046]
+  },
+  "viewdrift_probe": {
+    "command": "taskset -c 0-3 target/release/examples/viewdrift <rtf> 10 <members>",
+    "rtf_1_members_48": {"bodies": 28, "subquantum_frac_p50": 1.0, "streak_median_frames": 162, "streak_p90": 599, "readouts_p50_per_frame": 44},
+    "rtf_100_members_48": {"bodies": 71, "subquantum_frac_p50": 0.929, "streak_median_frames": 128, "readouts_p50_per_frame": 70},
+    "rtf_100_members_400": {"bodies": 410, "alive": 270, "seen_bodies": 28, "subquantum_frac_p50": 0.929, "streak_median_frames": 2, "streak_p90": 15, "readouts_p50_per_frame": 292, "gather_p50_ms": 2.97},
+    "rtf_1000_members_400": {"bodies": 428, "subquantum_frac_p50": 0.786, "subquantum_frac_p10": 0.679, "readouts_p50_per_frame": 400},
+    "quanta": {"pixel_rad": 0.001636, "colour_step": 0.00392, "shift_rel": 0.01}
+  },
+  "galaxy_readout_billion": {
+    "command": "xtask galaxy --bench --ships 1e9 --tubes 1e6",
+    "frame_median_ms": 32.1, "frames_over_16_7ms_of_200": 200, "ns_per_ship_in_view": 0.032, "ns_per_sample": 18.8, "cores": 3.84, "peak_rss_mb": 225
+  },
+  "gates_behave_law_plane": {
+    "B13": "60/64 (matches handoff; worst 2.12e-2)", "B12": "FAIL (statistic known miscalibrated)",
+    "B14": "FAIL timeout 60.0 s, run exits 1, gates after B14 never ran",
+    "G1_G11_B7": "all 'FAIL ... inf / unanswered': the plane adapter answers none of the old six-gate probes"
+  }
+}
