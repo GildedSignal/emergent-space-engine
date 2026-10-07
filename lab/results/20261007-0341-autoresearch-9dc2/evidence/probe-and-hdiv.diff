@@ -1,0 +1,402 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..b2ffa34 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -349,15 +349,42 @@ fn root_witness(
+         Some((a, b))
+     } else { None })
+ }
++// TEMP-PROBE 9dc2 (autoresearch): sub-phases of from_state. Removed before the patch.
++pub mod subprobe {
++    use std::cell::RefCell;
++    use std::time::Duration;
++    pub const NAMES: [&str; 4] = ["fit_key", "compile", "at_radius", "decoded"];
++    thread_local! {
++        static TOT: RefCell<[Duration; 4]> = const { RefCell::new([Duration::ZERO; 4]) };
++        static CNT: RefCell<[u64; 4]> = const { RefCell::new([0; 4]) };
++    }
++    pub fn add(i: usize, d: Duration) {
++        TOT.with(|t| t.borrow_mut()[i] += d);
++        CNT.with(|c| c.borrow_mut()[i] += 1);
++    }
++    pub fn totals() -> Vec<(u64, f64)> {
++        let (t, c) = (TOT.with(|t| *t.borrow()), CNT.with(|c| *c.borrow()));
++        (0..4).map(|i| (c[i], t[i].as_secs_f64() * 1e6)).collect()
++    }
++}
++macro_rules! sphase {
++    ($i:expr, $e:expr) => {{
++        let t0 = std::time::Instant::now();
++        let v = $e;
++        subprobe::add($i, t0.elapsed());
++        v
++    }};
++}
++
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let (key, r, clockwise, incoming) = sphase!(0, fit_key(state, true))?;
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            sphase!(1, Trajectory::Cycle(Orbit::compile(key)?))
+         } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++            sphase!(1, Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?))
+         };
+-        let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        let (mut offset, mut sample) = sphase!(2, trajectory.at_radius(r))?;
+         if incoming {
+             offset = offset.negate();
+             sample.reflect();
+@@ -378,7 +405,7 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+-        fit.residual = Residual::between(state, fit.decoded_event()?);
++        fit.residual = sphase!(3, Residual::between(state, fit.decoded_event()?));
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..0c2c9d2 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -6,6 +6,29 @@ use crate::{
+     tables::{EDGE, PI, W, X},
+ };
+ use std::{collections::HashMap, sync::Arc};
++// TEMP-PROBE 9dc2 (autoresearch): compile internals. Removed before the patch.
++pub mod cprobe {
++    use std::cell::RefCell;
++    pub const NAMES: [&str; 4] = ["cyc_compile", "bands", "tail", "from_shape"];
++    thread_local! {
++        pub static TOT: RefCell<[f64; 4]> = const { RefCell::new([0.0; 4]) };
++        pub static CNT: RefCell<[u64; 4]> = const { RefCell::new([0; 4]) };
++        pub static KNOTS: RefCell<u64> = const { RefCell::new(0) };
++        pub static TAILP: RefCell<u64> = const { RefCell::new(0) };
++        pub static BINDS: RefCell<u64> = const { RefCell::new(0) };
++        pub static CUT: RefCell<(u64, f64)> = const { RefCell::new((0, 0.0)) };
++        pub static QUA: RefCell<(u64, f64)> = const { RefCell::new((0, 0.0)) };
++    }
++    pub fn add(i: usize, s: f64) {
++        TOT.with(|t| t.borrow_mut()[i] += s);
++        CNT.with(|c| c.borrow_mut()[i] += 1);
++    }
++    pub fn totals() -> Vec<(u64, f64)> {
++        let (t, c) = (TOT.with(|t| *t.borrow()), CNT.with(|c| *c.borrow()));
++        (0..4).map(|i| (c[i], t[i])).collect()
++    }
++}
++
+ 
+ const HALF: u64 = 1 << 47;
+ const UNIT: u64 = 1 << 48;
+@@ -142,6 +165,18 @@ impl Integral {
+     }
+ }
+ 
++/// 9dc2: `n/d` (both u128) through the hardware 64-bit divider whenever the quotient provably
++/// fits u64 (`(n >> 64) < d`, `div_word`'s contract); the wide division otherwise. Identical
++/// bits to `(n / d) as u64`, without `__udivti3` on the hot quadrature path.
++fn hdiv(n: u128, d: u128) -> u64 {
++    if let Ok(d) = u64::try_from(d) {
++        if (n >> 64) < d as u128 {
++            return crate::num::div_word(n, d);
++        }
++    }
++    (n / d) as u64
++}
++
+ /// A panel endpoint. Times are normalized by R^(3/2), never absolute Q20 values.
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct Knot {
+@@ -269,6 +304,16 @@ impl OrbitShape {
+         };
+         Ok(Integral([excess, t, tau, dt, dtau]))
+     }
++    fn quad_timed(&self, lo: i128, hi: i128) -> Result<Integral> {
++        let t0 = std::time::Instant::now();
++        let v = self.quad(lo, hi);
++        cprobe::QUA.with(|q| {
++            let mut q = q.borrow_mut();
++            q.0 += 1;
++            q.1 += t0.elapsed().as_secs_f64() * 1e6;
++        });
++        v
++    }
+     fn quad(&self, lo: i128, hi: i128) -> Result<Integral> {
+         let h = hi - lo;
+         if h == 0 {
+@@ -353,11 +398,11 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                let g = hdiv(1u128 << 104, root);
++                let g1 = hdiv(a as u128 * g as u128, ONE as u128 + root);
++                let ratio = hdiv((self.floor as u128) << 62, x as u128);
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = hdiv((rtau as u128) << 62, horizon as u128);
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;
+@@ -399,7 +444,7 @@ impl OrbitShape {
+             for i in 0..n {
+                 let a = lo + (hi - lo) * i / n;
+                 let b = lo + (hi - lo) * (i + 1) / n;
+-                let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
++                let sum = self.knots.last().unwrap().sum.add(self.quad_timed(a, b)?)?;
+                 self.knots.push(Knot { psi: b as u64, sum });
+             }
+             lo = hi;
+@@ -408,7 +453,16 @@ impl OrbitShape {
+         Ok(())
+     }
+     pub(crate) fn cut(&self, x: i128) -> i128 {
+-        // acos((x-k)/(1-k)) via half-angle. All ratios are O(1), at every scale.
++        let __t = std::time::Instant::now();
++        let __r = self.cut_inner(x);
++        cprobe::CUT.with(|c| {
++            let mut c = c.borrow_mut();
++            c.0 += 1;
++            c.1 += __t.elapsed().as_secs_f64() * 1e6;
++        });
++        __r
++    }
++    fn cut_inner(&self, x: i128) -> i128 {
+         let up = ONE;
+         let ua = 2 * self.k - ONE;
+         if 2 * x >= ua + up {
+@@ -938,6 +992,7 @@ impl Passage {
+             shape.t_numerator.div(floor2)?,
+             shape.tau_numerator.div(floor2)?,
+         ];
++        let __b = std::time::Instant::now();
+         let mut band = 1usize;
+         loop {
+             let edge = EDGE[band % 16] >> (band / 16);
+@@ -949,12 +1004,18 @@ impl Passage {
+             band += 1;
+         }
+         shape.append(shape.cut(x))?;
++        cprobe::add(1, __b.elapsed().as_secs_f64() * 1e6);
++        cprobe::KNOTS.with(|k| *k.borrow_mut() += shape.knots.len() as u64);
++        let __f = std::time::Instant::now();
+         let mut passage = Self {
+             orbit: Orbit::from_shape(key, Arc::new(shape))?,
+             outer_radius,
+             tail: vec![],
+         };
++        cprobe::add(3, __f.elapsed().as_secs_f64() * 1e6);
++        cprobe::BINDS.with(|b| *b.borrow_mut() += 1);
+         if endpoint < join {
++            let __t = std::time::Instant::now();
+             let sum = passage.orbit.shape.knots.last().unwrap().sum;
+             passage.tail.push((join, sum));
+             let mut x = join;
+@@ -965,6 +1026,7 @@ impl Passage {
+                     .div(Scalar::integer(16))?
+                     .max(endpoint);
+                 if next == x {
++                    cprobe::add(2, __t.elapsed().as_secs_f64() * 1e6);
+                     return Err(Error::Range);
+                 }
+                 let sum = passage
+@@ -976,6 +1038,8 @@ impl Passage {
+                 passage.tail.push((next, sum));
+                 x = next;
+             }
++            cprobe::add(2, __t.elapsed().as_secs_f64() * 1e6);
++            cprobe::TAILP.with(|p| *p.borrow_mut() += passage.tail.len() as u64);
+         }
+         Ok(passage)
+     }
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..6d2b9e4 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -46,6 +46,42 @@ use emergent_space::{
+ };
+ use std::sync::Arc;
+ 
++// TEMP-PROBE 9dc2 (autoresearch): per-phase kick timing, read by the kick bench. Removed before the patch.
++pub mod probe {
++    use std::cell::RefCell;
++    use std::time::Duration;
++
++    pub const NAMES: [&str; 6] = ["read", "ctx", "field", "quant", "rebind", "post"];
++    thread_local! {
++        static TOT: RefCell<[Duration; 6]> = const { RefCell::new([Duration::ZERO; 6]) };
++        static MAX: RefCell<[Duration; 6]> = const { RefCell::new([Duration::ZERO; 6]) };
++        static CNT: RefCell<[u64; 6]> = const { RefCell::new([0; 6]) };
++    }
++    pub fn add(i: usize, d: Duration) {
++        TOT.with(|t| t.borrow_mut()[i] += d);
++        MAX.with(|m| {
++            let mut m = m.borrow_mut();
++            if d > m[i] {
++                m[i] = d;
++            }
++        });
++        CNT.with(|c| c.borrow_mut()[i] += 1);
++    }
++    pub fn totals() -> Vec<(u64, f64, f64)> {
++        let (t, m, c) = (TOT.with(|t| *t.borrow()), MAX.with(|m| *m.borrow()), CNT.with(|c| *c.borrow()));
++        (0..6).map(|i| (c[i], t[i].as_secs_f64() * 1e6, m[i].as_secs_f64() * 1e6)).collect()
++    }
++}
++
++macro_rules! phase {
++    ($i:expr, $e:expr) => {{
++        let t0 = std::time::Instant::now();
++        let v = $e;
++        probe::add($i, t0.elapsed());
++        v
++    }};
++}
++
+ pub const MIN_STEP: i64 = 2 * 64;
+ pub const MAX_STEP: i64 = 1 << 50;
+ /// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
+@@ -352,24 +388,24 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
+-        let (x, v) = scalars(&st)?;
++        let st = phase!(0, self.rec.b.readout(t))?;
++        let (x, v) = phase!(0, scalars(&st))?;
+         let d = self.rec.b.doll;
+-        let secs = self.ctx.secondaries(d, t, self.i)?;
+-        let tide = self.ctx.tide(d, t)?;
+-        let a = force::acceleration(level, x, &secs, tide)?;
+-        let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+-        let dv = scale2(a, h)?;
++        let secs = phase!(1, self.ctx.secondaries(d, t, self.i))?;
++        let tide = phase!(1, self.ctx.tide(d, t))?;
++        let a = phase!(2, force::acceleration(level, x, &secs, tide))?;
++        let h = phase!(2, time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp))?;
++        let dv = phase!(2, scale2(a, h))?;
+         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+         let added;
+         let next = if thrusting {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+-            let v2 = self.burn(x, add2(v, dv)?, t)?;
++            let v2 = phase!(3, self.burn(x, add2(v, dv)?, t))?;
+             added = dv;
+-            IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
++            IntegerState { velocity: phase!(3, self.velocity_after(&st, v2))?, ..st }
+         } else {
+-            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
++            let (dvq, carry) = phase!(3, quantize(dv, st.velocity_exponent, self.rec.carry))?;
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
+@@ -378,7 +414,7 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        phase!(4, self.rebind(next, t, d))?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -582,9 +618,9 @@ impl Work<'_, '_> {
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+         let d = self.rec.b.doll;
+-        let st = self.rec.b.readout(t)?;
+-        let (x, v) = scalars(&st)?;
+-        let secs = self.ctx.secondaries(d, t, self.i)?;
++        let st = phase!(0, self.rec.b.readout(t))?;
++        let (x, v) = phase!(0, scalars(&st))?;
++        let secs = phase!(1, self.ctx.secondaries(d, t, self.i))?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+         for (s, &j) in secs.iter().zip(sources) {
+@@ -600,36 +636,36 @@ impl Work<'_, '_> {
+             return Ok(Resolved::Lost);
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        let f = force::field(&secs, x)?;
+-        let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+-        let dv = scale2(f.accel, w)?;
++        let f = phase!(2, force::field(&secs, x))?;
++        let w = phase!(2, ext.time(ext.y(f.potential)?, ext.ds))?;
++        let dv = phase!(2, scale2(f.accel, w))?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+-            let v2 = self.burn(x, add2(v, dv)?, t)?;
+-            (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
++            let v2 = phase!(3, self.burn(x, add2(v, dv)?, t))?;
++            (IntegerState { velocity: phase!(3, self.velocity_after(&st, v2))?, ..st }, self.rec.carry)
+         } else {
+-            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+-            ext.add_pt(w.mul(f.rate)?)?;
++            let (dvq, carry) = phase!(3, quantize(dv, st.velocity_exponent, self.rec.carry))?;
++            phase!(3, ext.add_pt(w.mul(f.rate)?))?;
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
+         let fired = next.velocity != st.velocity;
+         if fired {
+-            self.rebind(next, t, d)?;
++            phase!(4, self.rebind(next, t, d))?;
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+         if thrusting {
+-            self.project(t)?;
++            phase!(5, self.project(t))?;
+         }
+         // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
+         // kick share it), and its boundary in the middle.
+-        let (x, v) = scalars(&next)?;
++        let (x, v) = phase!(5, scalars(&next))?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+-        let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
++        let y = phase!(5, ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?))?;
++        let mut full = phase!(5, ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp()))?;
+         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+-            full = full.min(self.thrust_step(t)?);
++            full = full.min(phase!(5, self.thrust_step(t))?);
+         }
+         self.rec.ext = Some(ext);
+         if fired {
+@@ -644,7 +680,7 @@ impl Work<'_, '_> {
+         if self.rec.kind != Kind::Planet {
+             let key = self.rec.b.entry.trajectory.key();
+             if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
+-                if let Some(tp) = next_periapsis(&self.rec.b, t)? {
++                if let Some(tp) = phase!(5, next_periapsis(&self.rec.b, t))? {
+                     if tp <= t + full {
+                         insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
+                     }
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..56acdcc 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -103,6 +103,17 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "phases": emergent_universe::step::probe::NAMES.iter().zip(emergent_universe::step::probe::totals())
++            .map(|(n, (c, tot, mx))| json!({"name": n, "count": c, "total_us": tot, "max_us": mx})).collect::<Vec<_>>(),
++        "subphases": emergent_space::binding::subprobe::NAMES.iter().zip(emergent_space::binding::subprobe::totals())
++            .map(|(n, (c, tot))| json!({"name": n, "count": c, "total_us": tot})).collect::<Vec<_>>(),
++        "cprobe": emergent_space::orbit::cprobe::NAMES.iter().zip(emergent_space::orbit::cprobe::totals())
++            .map(|(n, (c, tot))| json!({"name": n, "count": c, "total_us": tot})).collect::<Vec<_>>(),
++        "cprobe_counts": {"knots": emergent_space::orbit::cprobe::KNOTS.with(|k| *k.borrow()),
++            "tail_panels": emergent_space::orbit::cprobe::TAILP.with(|p| *p.borrow()),
++            "passages": emergent_space::orbit::cprobe::BINDS.with(|b| *b.borrow())},
++        "cprobe2": {"cut": emergent_space::orbit::cprobe::CUT.with(|c| *c.borrow()),
++            "quad": emergent_space::orbit::cprobe::QUA.with(|q| *q.borrow())},
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
