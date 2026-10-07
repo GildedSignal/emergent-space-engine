@@ -1,0 +1,299 @@
+diff --git a/crates/encounters/examples/phase_probe.rs b/crates/encounters/examples/phase_probe.rs
+new file mode 100644
+index 0000000..04ad9fe
+--- /dev/null
++++ b/crates/encounters/examples/phase_probe.rs
+@@ -0,0 +1,293 @@
++//! Probe (lab run 20261007-2002-taleb-9fa1): the domain of the phase-neighbour certificate.
++//!
++//! Claim under test (gold 20261006-0346-taleb-09b5, feeding the b-coorbital-cert build):
++//! under co-orbital concentration every real encounter lies within partner rank 4 along the
++//! orbit, so an O(n·k) phase tier replaces the quadratic one, gated by a dimensionless
++//! concentration number. This probe sweeps the bundle's radial thickness across the
++//! encounter radius (all else held at the gold's co-orbital scene) and reports, per sort
++//! key, the partner-rank distribution of true encounters and the miss rate at k = 4.
++//!
++//! Truth: every pair through `truth::truth_pair` (rigorous conservative advancement),
++//! with an exact necessary prefilter: two coplanar confocal ellipses whose radial ranges
++//! [q, Q] are disjoint by more than rho can never approach within rho, because the pair
++//! distance is at least |r_i - r_j| >= gap.
++//!
++//! Std only. One JSON object per line on stdout, like the crate's own experiments.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++const THREADS: usize = 4;
++
++struct SceneSpec {
++    name: &'static str,
++    n: usize,
++    da: f64,
++    sigma_e: f64,
++    rho: f64,
++    pom_window: f64,
++    orbits: f64,
++    seed: u64,
++}
++
++fn spec(name: &'static str, n: usize, sigma_e: f64, rho: f64) -> SceneSpec {
++    SceneSpec { name, n, da: 1e-4, sigma_e, rho, pom_window: TAU, orbits: 30.0, seed: 20261007 }
++}
++
++fn scenes(set: &str) -> Vec<SceneSpec> {
++    match set {
++        "smoke" => vec![SceneSpec {
++            name: "smoke",
++            n: 60,
++            da: 1e-4,
++            sigma_e: 3e-3,
++            rho: 1e-3,
++            pom_window: TAU,
++            orbits: 5.0,
++            seed: 999,
++        }],
++        "main" => vec![
++            spec("gold-corner-s3e-4", 300, 3e-4, 1e-3),
++            spec("s1e-3", 300, 1e-3, 1e-3),
++            spec("s3e-3", 300, 3e-3, 1e-3),
++            spec("s1e-2", 300, 1e-2, 1e-3),
++            spec("s3e-2", 300, 3e-2, 1e-3),
++            SceneSpec { // control: same fat e spread, apsides aligned (pom spread = 0)
++                name: "aligned-s3e-2",
++                n: 300,
++                da: 1e-4,
++                sigma_e: 3e-2,
++                rho: 1e-3,
++                pom_window: 0.0,
++                orbits: 30.0,
++                seed: 20261007,
++            },
++            SceneSpec { // control: the gate itself: fat e but encounter radius swallows it
++                name: "gate-s1e-2-r1e-2",
++                n: 300,
++                da: 1e-4,
++                sigma_e: 1e-2,
++                rho: 1e-2,
++                orbits: 30.0,
++                ..spec("x", 300, 1e-2, 1e-2)
++            },
++            SceneSpec { // control: belt-like a spread with thin e (shear, not apse spread)
++                name: "shear-da1e-2-s3e-4",
++                n: 300,
++                da: 1e-2,
++                sigma_e: 3e-4,
++                rho: 1e-3,
++                pom_window: TAU,
++                orbits: 30.0,
++                seed: 20261007,
++            },
++            SceneSpec { seed: 20261008, ..spec("s1e-2-seed2", 300, 1e-2, 1e-3) },
++        ],
++        "scale" => vec![
++            SceneSpec { name: "k1e-2-n300", n: 300, sigma_e: 1e-2, rho: 1e-3, orbits: 20.0, ..spec("x", 300, 1e-2, 1e-3) },
++            SceneSpec { name: "k1e-2-n600", n: 600, sigma_e: 1e-2, rho: 1e-3, orbits: 20.0, ..spec("x", 600, 1e-2, 1e-3) },
++            SceneSpec { name: "k1e-2-n1200", n: 1200, sigma_e: 1e-2, rho: 1e-3, orbits: 20.0, ..spec("x", 1200, 1e-2, 1e-3) },
++        ],
++        _ => panic!("unknown set: smoke|main|scale"),
++    }
++}
++
++fn make_swarm(s: &SceneSpec) -> Vec<Body> {
++    let mut rng = Rng(s.seed);
++    (0..s.n)
++        .map(|_| {
++            let a = 1.0 + s.da * rng.f64();
++            let u = rng.f64();
++            let e = (s.sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = if s.pom_window >= TAU {
++                TAU * rng.f64()
++            } else {
++                s.pom_window * (rng.f64() - 0.5)
++            };
++            let lam = TAU * rng.f64();
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++type Enc = (u32, u32, f64, f64);
++
++fn truth_all(b: &[Body], rho: f64, t_end: f64) -> (Vec<Enc>, TruthStats, u64) {
++    let mut pairs: Vec<(u32, u32)> = Vec::new();
++    let mut skipped = 0u64;
++    for i in 0..b.len() {
++        for j in (i + 1)..b.len() {
++            let (qi, qi2) = (b[i].rmin(), b[i].rmax());
++            let (qj, qj2) = (b[j].rmin(), b[j].rmax());
++            let gap = (qi - qj2).max(qj - qi2); // > 0 iff ranges disjoint
++            if gap > rho {
++                skipped += 1;
++                continue;
++            }
++            pairs.push((i as u32, j as u32));
++        }
++    }
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out: Vec<Enc> = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], rho, t_end, &mut tmp, &mut st);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, st)
++    });
++    let mut enc = Vec::new();
++    let mut st = TruthStats::default();
++    for (o, s) in parts {
++        enc.extend(o);
++        st.add(&s);
++    }
++    (enc, st, skipped)
++}
++
++#[inline]
++fn cd(a: f64) -> f64 {
++    // circular distance of an angle difference
++    let m = a.rem_euclid(TAU);
++    m.min(TAU - m)
++}
++
++/// Ranks in the cyclic order induced by `key`; returns circular rank distance for each encounter.
++fn rank_dist(b: &[(u32, u32, f64, f64)], key: &[f64]) -> Vec<usize> {
++    let n = key.len();
++    let mut ord: Vec<usize> = (0..n).collect();
++    ord.sort_by(|&x, &y| key[x].partial_cmp(&key[y]).unwrap());
++    let mut rank = vec![0usize; n];
++    for (p, &i) in ord.iter().enumerate() {
++        rank[i] = p;
++    }
++    b.iter()
++        .map(|&(i, j, _, _)| {
++            let d = (rank[i as usize] as i64 - rank[j as usize] as i64).unsigned_abs() as usize;
++            d.min(n - d)
++        })
++        .collect()
++}
++
++fn pct(v: &mut [usize], p: f64) -> usize {
++    v.sort_unstable();
++    if v.is_empty() {
++        return 0;
++    }
++    let idx = (((v.len() as f64) * p).ceil() as usize).clamp(1, v.len()) - 1;
++    v[idx]
++}
++
++fn key_json(name: &str, b: &[(u32, u32, f64, f64)], key: &[f64]) -> String {
++    let d = rank_dist(b, key);
++    let n = d.len().max(1);
++    let mut s = Vec::new();
++    for k in [4usize, 8, 16, 32] {
++        let miss = d.iter().filter(|&&x| x > k).count();
++        s.push(format!("\"miss{}\":{:.4}", k, miss as f64 / n as f64));
++    }
++    let med = pct(&mut d.clone(), 0.5);
++    let p95 = pct(&mut d.clone(), 0.95);
++    let mx = d.iter().copied().max().unwrap_or(0);
++    format!(
++        "{{\"{}\":{{{},\"med\":{},\"p95\":{},\"max\":{}}}}}",
++        name,
++        s.join(","),
++        med,
++        p95,
++        mx
++    )
++}
++
++fn run(s: &SceneSpec) {
++    let t0 = Instant::now();
++    let b = make_swarm(s);
++    let t_end = s.orbits * TAU;
++    let (enc, st, skipped) = truth_all(&b, s.rho, t_end);
++    let tt = t0.elapsed().as_secs_f64();
++
++    // Dimensionless numbers of the bundle.
++    let thickness = b.iter().map(|x| x.rmax()).fold(f64::MIN, f64::max)
++        - b.iter().map(|x| x.rmin()).fold(f64::MAX, f64::min);
++    let spacing = TAU / s.n as f64;
++    let big_s = thickness / s.rho;
++    let conc = thickness / spacing;
++    let emax = b.iter().map(|x| x.e).fold(f64::MIN, f64::max);
++    let emean = b.iter().map(|x| x.e).sum::<f64>() / s.n as f64;
++    let statf = |v: &mut Vec<f64>, p: f64| -> f64 {
++        if v.is_empty() {
++            return 0.0;
++        }
++        v.sort_by(|a, c| a.partial_cmp(c).unwrap());
++        let idx = (((v.len() as f64) * p).ceil() as usize).clamp(1, v.len()) - 1;
++        v[idx]
++    };
++
++    // Keys at certificate time t = 0.
++    let lam0: Vec<f64> = b.iter().map(|x| x.pom + x.mean_anomaly(0.0)).collect();
++    let m0: Vec<f64> = b.iter().map(|x| x.mean_anomaly(0.0)).collect();
++    let th0: Vec<f64> = b
++        .iter()
++        .map(|x| {
++            let p = x.state(0.0);
++            p[1].atan2(p[0]).rem_euclid(TAU)
++        })
++        .collect();
++
++    // Encounter-time geometry: the true longitude and mean longitude gaps.
++    let (mut dth, mut dlam) = (Vec::new(), Vec::new());
++    for &(i, j, t, _) in &enc {
++        let (pi, pj) = (b[i as usize].state(t), b[j as usize].state(t));
++        dth.push(cd(
++            pi[1].atan2(pi[0]) - pj[1].atan2(pj[0]),
++        ));
++        let (li, lj) = (
++            b[i as usize].pom + b[i as usize].mean_anomaly(t),
++            b[j as usize].pom + b[j as usize].mean_anomaly(t),
++        );
++        dlam.push(cd(li - lj));
++    }
++    let dth_med = statf(&mut dth.clone(), 0.5);
++    let dth_p95 = statf(&mut dth.clone(), 0.95);
++    let dlam_med = statf(&mut dlam.clone(), 0.5);
++    let dlam_p95 = statf(&mut dlam.clone(), 0.95);
++
++    // Horizon sensitivity: same certificate (t = 0 sort), encounters in the first 5 orbits.
++    let early: Vec<(u32, u32, f64, f64)> = enc
++        .iter()
++        .filter(|e| e.2 < 5.0 * TAU)
++        .copied()
++        .collect();
++
++    println!(
++        "{{\"scene\":\"{}\",\"n\":{},\"da\":{:.0e},\"sigma_e\":{:.0e},\"rho\":{:.0e},\"pom_window\":{:.3},\"orbits\":{},\"seed\":{},\
++\"thickness\":{:.3e},\"spacing\":{:.3e},\"S_thickness_over_rho\":{:.2},\"C_thickness_over_spacing\":{:.2},\"emax\":{:.3e},\"emean\":{:.3e},\
++\"pairs_skipped_radially\":{},\"truth_steps\":{},\"truth_evals\":{},\"truth_s\":{:.1},\
++\"n_enc\":{},\"n_enc_5orbits\":{},\
++\"keys_at_t0\":[{},{},{}],\
++\"early5_keys\":[{},{},{}],\
++\"enc_time_dth_med\":{:.3e},\"enc_time_dth_p95\":{:.3e},\"enc_time_dlam_med\":{:.3e},\"enc_time_dlam_p95\":{:.3e},\
++\"implied_rank_lam_p95\":{:.1}}}",
++        s.name, s.n, s.da, s.sigma_e, s.rho, s.pom_window, s.orbits as i64, s.seed,
++        thickness, spacing, big_s, conc, emax, emean,
++        skipped, st.steps, st.evals, tt,
++        enc.len(), early.len(),
++        key_json("lam", &enc, &lam0), key_json("mean_anomaly", &enc, &m0), key_json("theta0", &enc, &th0),
++        key_json("lam", &early, &lam0), key_json("mean_anomaly", &early, &m0), key_json("theta0", &early, &th0),
++        dth_med, dth_p95, dlam_med, dlam_p95,
++        dlam_p95 / TAU * s.n as f64,
++    );
++}
++
++fn main() {
++    let set = std::env::args().nth(1).unwrap_or_else(|| "smoke".into());
++    for s in scenes(&set) {
++        run(&s);
++    }
++}
