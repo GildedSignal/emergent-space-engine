@@ -1,0 +1,4 @@
+Working...
+Run complete. All artifacts in `lab/results/20261007-2155-fermi-ef1d/` (fermi.md, predictions.md, hlive.py, out/hlive.json, dossier.md).
+
+**Claim:** A 10⁹-body cold belt creates **zero** live distinctions for its first ~2.6×10⁷ years of simulated time (measured: no scars and no quantum crossings in 10⁴ yr, even at 100× density — the first belt scar appears only after ~96 days of play at rtf 10⁶), because every peer kick is sub-quantum (max 0.067 q at contact) and diffusion needs q²/4D to reach one quantum — so H_live never decides whether 10⁹ fit in 8 GB; distinctions come only from chaos (τ_L = 300 orbits: 6.57 bits/body in 10⁴ yr, capped by tube-out) and program re-fitting removes none of them (0.01%), which moves the board's risk from "background distinctions" to "tracked hot populations and kick cadence at galaxy rtfs."
