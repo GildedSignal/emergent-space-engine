@@ -1,0 +1,46 @@
+# All runs Linux x86 (this container), release build, < 100 MB mem, each <= 9 s.
+# Build: CARGO_TARGET_DIR=/tmp/x-target cargo build --release -p emergent-encounters --bin cross
+# Binary: crates/encounters/src/bin/cross.rs (copy: cross.rs in this folder)
+# rho=1e-4, safety=1.5. Swarm A: a=1 hw 1e-5, Rayleigh e~0.001, pom +-0.1, lambda U.
+# Swarm B: a=1.2 e=0.3 pom=0 hw same (pericentre 0.84, apocentre 1.56; crosses r=1 at +-1.259 rad).
+
+$ cross fleet
+fleet control: n_c=200 fleet-fleet candidates=19900 of 19900 (= n_c(n_c-1)/2)
+
+$ cross econ 20 20 2   (smoke, pre-predictions)
+cross-candidates 400/400 (100.0%) sections=800 kinds C/W/F=800/0/0 setup_evals_total=0 method hits=0
+
+$ cross econ 200 200 20
+intra-diameter A=3.43e-3 (max eps_u 1.52e-4) B=5.45e-2 (eps_u 3.90e-4)
+cross Binet sep [2.842e-1,2.906e-1] | cross-candidates 40000/40000 (100.0%)
+sections=80000 kinds C/W/F=80000/0/0 setup_evals_total=0 per-pair p50/p90/p100 = 0/0/0
+method pairs=40000 checks=67 hits=36 evals=1978 | work_per_hit=55
+
+$ cross econ 400 400 20
+cross-candidates 160000/160000 (100.0%) sections=320000 C/W/F=320000/0/0 setup 0
+method pairs=160000 checks=270 hits=145 evals=7980 | work_per_hit=55   [wall 1.39 s for all three runs]
+
+$ CROSS_SEED=7 cross econ 200 200 20
+cross-candidates 40000/40000 (100.0%) sections=80000 hits=34 work_per_hit=52
+$ CROSS_SEED=13 cross econ 200 200 20
+cross-candidates 40000/40000 (100.0%) sections=80000 hits=40 work_per_hit=51
+
+$ cross guard 80 80 8
+true=2 method=2 missed=0 extra=0 | ranks over 2: max=1 | truth_evals=389094
+
+$ cross guard 200 200 20        [full truth audit, 40000 pairs, 8.2 s]
+true=36 method=36 missed=0 extra=0 | node-time ranks over 36 encounters: p50=3 p99=9 max=9
+| truth_evals=5988010 method_evals=1978
+
+$ CROSS_SEED=7 cross guard 200 200 20
+true=34 method=34 missed=0 extra=0 | ranks over 34: p50=4 p99=8 max=8
+
+$ cross guard 200 200 20 (diagnostic build; method count line broken by an edit, missed=0/extra=0 => method=36)
+station diag: partner passage dist p50=6.31e-2 max=1.41e-1 | A passage dist p50=6.48e-2 max=1.48e-1
+node long offset p50=2.39e0 max=2.56e0   [longitude values wrap-bugged (theta1 not normalised); TIME distances clean]
+
+Ruin arithmetic (computed): 10^6 x 10^6 engagement -> 10^12 cross pairs x 2 Cross sections x ~72 B = 1.4e14 B ~ 144 TB
+(store invalidation: every element change during the engagement re-opens every section).
+Per-pair hit rate: 36/40000 pairs per 20 orbits = 9e-4/pair (seeds: 8.5e-4..1.0e-3), flat in n.
+=> two 10^6 fleets crossing generate ~9e8 real encounters per 20 orbits (~45 per body per orbit).
+Dwell fraction in a crossing arc (arithmetic, uniform lambda): (0.15/1.045)/8.25 ~ 1.7% per node, ~3.5% both.
