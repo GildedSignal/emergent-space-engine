@@ -1,0 +1,17 @@
+# Probe: the author's P6 scene (200 members) parameterized by β, on the UNFIXED patch
+# (work/orig/patch.diff). Counts members whose next-event key silently sits at the unsheared
+# doll tick because the centre's committed readout refuses there (the float oracle is blind
+# exactly there too). Source: work/rootkeys_probe.rs (removed from the tree; the either-or
+# invariant is the shipped test in crates/universe/tests/rootkeys.rs).
+# Command: cargo test --release -p emergent-universe --test rootkeys_probe -- --nocapture
+beta 0.5: members 200, readable 200 (worst image miss 0.500), oracle-blind 0, of which key silently unsheared 0
+beta 0.9: members 200, readable 148 (worst image miss 0.499), oracle-blind 52, of which key silently unsheared 52
+beta 0.99: members 200, readable 148 (worst image miss 0.498), oracle-blind 52, of which key silently unsheared 52
+test probe_silent_fallback_by_beta ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+# Readout boundary (work/refusal_domain.rs, cargo run --release -p emergent-universe --example refusal_domain):
+# beta 0.5: planet cartesian readout first refuses at t = 2^21 (last ok 2^20)
+# beta 0.9: first refuses at t = 2^20 (last ok 2^19)
+# beta 0.99: first refuses at t = 2^20 (last ok 2^19)

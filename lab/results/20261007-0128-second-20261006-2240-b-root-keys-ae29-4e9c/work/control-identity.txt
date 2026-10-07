@@ -1,0 +1,18 @@
+# The falsifiability control, archived (the original run left run.log empty): `Ctx::root_offset`
+# forced to `return Ok(0)` (the old convention: one tick is the same time in every doll), both
+# P6 tests and the new high-β test fail. Command:
+#   cargo test --release -p emergent-universe --test rootkeys
+# (patch: insert `let _ = (doll, t, x); return Ok(0);` as root_offset's first statements)
+test the_order_follows_the_root_clock_not_the_dolls ... FAILED
+  panicked at rootkeys.rs:140: the shear separates the two keys (ka > kb && ka - kb > 16)
+  -> the pair is tied under the identity key (author: "tied at 16,384")
+test a_blind_centre_refuses_the_key_never_silently_unshears_it ... FAILED
+  beta 0.9 member 1: key 301056 tick 301056 image 395.259518089 (off 395.259518)
+  -> the unsheared tick, exactly the signature the loud refusal deletes
+test p6_every_events_root_key_is_the_shear_image_of_its_doll_event ... FAILED
+  member 1: key 301056 tick 301056 image 110.523963560 (off -110.523964)
+  -> the author's and both checkers' number (-110.52), now on the record
+
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out
+# ctx.rs restored (the fix) after the run; `cargo test --release -p emergent-universe --test rootkeys`
+# then passes 3/3 (see p6-out.txt).
