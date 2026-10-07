@@ -1,0 +1,19 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..1803f3b 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -423,6 +423,14 @@ impl OrbitShape {
+         }
+         let mut s = Self::new(key)?;
+         let xa = 2 * s.k - ONE;
++        // Every band edge above apoapsis adds one knot and one crossing; the fixed
++        // panels of the last append add at most ceil(pi/(pi/4)) + a dyadic doubling.
++        let mut bands = 0usize;
++        while (EDGE[bands % 16] >> (bands / 16)) > xa {
++            bands += 1;
++        }
++        s.knots.reserve(bands + 8);
++        s.crossings.reserve(bands + 2);
+         let mut band = 1usize;
+         loop {
+             let edge = EDGE[band % 16] >> (band / 16);

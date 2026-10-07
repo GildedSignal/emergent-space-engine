@@ -1,0 +1,17 @@
+[workspace]
+
+[package]
+name = "bench-compile"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+emergent-space = { path = "../../../../crates/space" }
+blake3 = "1.5"
+
+[profile.release]
+debug = 1
+lto = "thin"
+
+[features]
+profile = ["emergent-space/profile"]
