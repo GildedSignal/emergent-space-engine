@@ -1,0 +1,26 @@
+# Run log — 20261007-1032-second-20261007-0933-system-0510-53f6
+
+Machine: Linux x86 cloud, 8 vCPU (3 parallel single-core processes max), each
+run < 60 s and ~40 MB RSS.  All commands from this folder.
+
+1. Port validation (before any edit to physics):
+   git show origin/claude/lab-20261007-0933-system-0510:lab/results/20261007-0933-system-0510/exp.py > exp2.py
+   git show origin/claude/lab-20261007-0933-system-0510:lab/results/20261007-0933-system-0510/decisive.json > orig-decisive.json
+   python3 exp2.py --H 24000 --seed 20261007 --memo on --out portcheck-20261007-on-B.json   # 37 s
+   -> all 15 per-particle physics fields equal to orig-decisive.json (only e0 rounding differs);
+      cadence 0.565, memo hit 0.594; belt rate p90 13.18 / max 22.60 / 7 wrong-sign (the checker's tail).
+
+2. Edits: compiled-frequency detector + tail metrics + --seed/--memo/--law/--out (predictions
+   written after this, before the decisive runs); law B2 added (e-vector impulse).
+
+3. Smoke: python3 exp2.py --H 2000 --seed 20261009 --memo off --law B2   # 2 s, sane
+
+4. Decisive (9 runs, 3 in parallel, each ~35 s), after predictions.md:
+   for S in 20261007 20261008 20261009:
+     python3 exp2.py --H 24000 --seed $S --memo on  --law B  --out run-$S-on-B.json
+     python3 exp2.py --H 24000 --seed $S --memo off --law B  --out run-$S-off-B.json
+     python3 exp2.py --H 24000 --seed $S --memo off --law B2 --out run-$S-off-B2.json
+   Determinism: run-20261007-on-B.json equals portcheck-20261007-on-B.json in every
+   physics field (the rerun adds only the "law" tag the earlier build lacked).
+
+5. Summary: python3 summarize.py   # writes verdict.json, prints per-seed and pooled tables
