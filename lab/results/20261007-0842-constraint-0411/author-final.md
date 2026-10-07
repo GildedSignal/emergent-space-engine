@@ -1,0 +1,4 @@
+Working...
+All quoted numbers verified against the raw JSONs (the one `False` was my own comparison-script bug; the clean pairwise check confirms identical digests). Run complete: predictions were written before the sweep, the dossier records the two that failed and why, and all evidence files are in `lab/results/20261007-0842-constraint-0411/`.
+
+**Claim:** On the plane as it flies (39–428 bodies, rtf 1–1000), the smooth-frame constraint is not the engine's kick cost (engine p50 ≤ 0.92 ms, ≤ 23% of any frame) but the O(bodies) view gather — 70–77% of every frame at ~3.8 ms + ~11 µs/body, a ≈1,100-body ceiling at 60 Hz — plus, for the p99, thread-immune engine bursts (engine p99 5.3–6.3 ms at 1 and 8 threads, 23% of frames over budget and delivered rtf stalling to 0 at 400 members × rtf 100), while engine cost per game-*second* actually falls with rtf because fleet work is retarded-deadline-capped per frame, not per game time.
