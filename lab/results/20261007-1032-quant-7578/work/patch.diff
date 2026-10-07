@@ -1,0 +1,178 @@
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bf..4ddf81f 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -515,9 +515,165 @@ fn run_section_proposals(bi: &Body, bj: &Body, sec: &emergent_encounters::pairs:
+     }
+ }
+ 
++fn pct_f(v: &mut Vec<f64>, p: f64) -> f64 {
++    if v.is_empty() {
++        return 0.0;
++    }
++    v.sort_by(|x, y| x.total_cmp(y));
++    v[((v.len() - 1) as f64 * p) as usize]
++}
++
++fn pct_u(v: &mut Vec<u64>, p: f64) -> u64 {
++    if v.is_empty() {
++        return 0;
++    }
++    v.sort();
++    v[((v.len() - 1) as f64 * p) as usize]
++}
++
++/// The per-body tail of the certificate pipeline at the shipped fixed-degree scaling (rho = 1/n,
++/// sigma_e = 1e-2, a in [1, 1.5]): tier-1 scan width, candidate degree, single-threaded setup time
++/// per body (the cost one kick re-pays), and the numeric window evals per pair. Means hide what
++fn tail(n: usize, seed: u64, sample_n: usize) {
++    let rho = 1.0 / n as f64;
++    tail_run(spec("tail", n, 1e-2, rho, 1.0, 1.5, 0, 0.0, seed), sample_n)
++}
++
++/// The same tail instrument on an adversarial set (co-orbital, narrow, keys) from `verify c`.
++fn tailc(set: &str, seed: u64, sample_n: usize) {
++    let mut sp = verify_set("c").into_iter().find(|s| s.name == set).expect("unknown set");
++    sp.seed = seed;
++    tail_run(sp, sample_n)
++}
++
++fn tail_run(sp: Spec, sample_n: usize) {
++    let n = sp.n;
++    let rho = sp.rho;
++    let seed = sp.seed;
++    let b = make_belt(&sp);
++    let t0 = Instant::now();
++    let sorted = Sorted::new(&b, rho);
++    let sort_s = t0.elapsed().as_secs_f64();
++
++    // Full-population tier-1 scan and candidate degree (counting only, parallel).
++    let t1 = Instant::now();
++    let per_chunk = par_chunks(sorted.order.len(), 8192, THREADS, |r| {
++        let mut v = Vec::with_capacity(r.len());
++        for k in r {
++            let (u, i) = sorted.order[k];
++            let bi = &b[i as usize];
++            let reach = sorted.reach(bi);
++            let (mut sc, mut pr) = (0u32, 0u32);
++            for &(uj, j) in &sorted.order[k + 1..] {
++                if uj - u > reach {
++                    break;
++                }
++                sc += 1;
++                pr += is_candidate(bi, &b[j as usize], rho) as u32;
++            }
++            v.push((i, sc, pr));
++        }
++        v
++    })
++    .concat();
++    let scan_s = t1.elapsed().as_secs_f64();
++    let mut scanned = vec![0u32; n];
++    let mut degree = vec![0u32; n];
++    let mut upper = vec![0u32; n];
++    let mut scanned_total = 0u64;
++    let mut pairs_total = 0u64;
++    for &(i, sc, pr) in &per_chunk {
++        scanned[i as usize] += sc;
++        degree[i as usize] += pr;
++        upper[i as usize] += pr;
++        scanned_total += sc as u64;
++        pairs_total += pr as u64;
++    }
++    // degree (both sides): a body also appears as the upper partner in lower bodies' ranges.
++    let t2 = Instant::now();
++    for k in 0..sorted.order.len() {
++        let (u, i) = sorted.order[k];
++        let bi = &b[i as usize];
++        let reach = sorted.reach(bi);
++        for &(uj, j) in &sorted.order[k + 1..] {
++            if uj - u > reach {
++                break;
++            }
++            if is_candidate(bi, &b[j as usize], rho) {
++                degree[j as usize] += 1;
++            }
++        }
++    }
++    let both_sides_s = t2.elapsed().as_secs_f64();
++
++    let mut deg_f: Vec<f64> = degree.iter().map(|&x| x as f64).collect();
++    let mut sc_f: Vec<f64> = scanned.iter().map(|&x| x as f64).collect();
++
++    // Single-threaded setup timing on a sample: the cost one kicked body re-pays (its own scan,
++    // cone test, sections, one first-hit per section), plus per-pair evals and qsteps.
++    let ns = sample_n.min(n);
++    let sample: Vec<u32> = (0..ns).map(|k| (k * n / ns) as u32).collect();
++    let mut setup_ns_body: Vec<f64> = Vec::with_capacity(ns);
++    let mut setup_pairs: Vec<u64> = Vec::with_capacity(ns);
++    let mut evals_pair: Vec<u64> = Vec::new();
++    let mut qsteps_pair: Vec<u64> = Vec::new();
++    let (mut setup_q, mut setup_evals) = (0u64, 0u64);
++    let t3 = Instant::now();
++    for &i in &sample {
++        let bi = &b[i as usize];
++        let tb = Instant::now();
++        let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++        let mut pr = 0u64;
++        for &(_, j) in &sorted.order[lo..hi] {
++            if j == i {
++                continue;
++            }
++            let bj = &b[j as usize];
++            pr += 1;
++            let mut ev = 0u64;
++            let q0 = setup_q;
++            for sec in sections(bi, bj, rho, SAFETY, &mut ev) {
++                let (pi, pj) = (bi.period as u128, bj.period as u128);
++                let c = ((sec.ti as i128 - sec.tj as i128 + sec.w1 as i128).rem_euclid(pi as i128)) as u128;
++                let d = (pi - pj % pi) % pi;
++                let w = ((sec.w1 + sec.w2).max(0) as u128).min(pi - 1);
++                std::hint::black_box(dioph::first_hit(c, d, pi, 0, w, &mut setup_q));
++            }
++            evals_pair.push(ev);
++            qsteps_pair.push(setup_q - q0);
++            setup_evals += ev;
++        }
++        setup_pairs.push(pr);
++        setup_ns_body.push(tb.elapsed().as_secs_f64() * 1e9);
++    }
++    let sample_s = t3.elapsed().as_secs_f64();
++    let mut qcopy = qsteps_pair.clone();
++
++    println!(
++        "{{\"exp\":\"tail\",\"n\":{},\"seed\":{},\"rho\":{:.3e},\"sort_s\":{:.3},\"scan_s\":{:.3},\"both_sides_s\":{:.3},\
++\"pairs_total\":{},\"pairs_per_body\":{:.3},\"scanned_per_body\":{:.3},\
++\"deg_mean\":{:.2},\"deg_p50\":{:.0},\"deg_p90\":{:.0},\"deg_p99\":{:.0},\"deg_p999\":{:.0},\"deg_max\":{:.0},\
++\"scan_mean\":{:.1},\"scan_p99\":{:.0},\"scan_max\":{:.0},\
++\"sample_bodies\":{},\"sample_pairs\":{},\"setup_ns_per_body_mean\":{:.0},\"setup_ns_per_body_p50\":{:.0},\"setup_ns_per_body_p90\":{:.0},\"setup_ns_per_body_p99\":{:.0},\"setup_ns_per_body_p999\":{:.0},\"setup_ns_per_body_max\":{:.0},\
++\"setup_ns_per_pair\":{:.1},\"evals_per_pair_mean\":{:.2},\"evals_per_pair_p50\":{},\"evals_per_pair_p90\":{},\"evals_per_pair_p99\":{},\"evals_per_pair_p999\":{},\"evals_per_pair_max\":{},\
++\"qsteps_per_pair_p50\":{},\"qsteps_per_pair_p999\":{},\"qsteps_per_pair_max\":{},\"sample_s\":{:.3}}}",
++        n, seed, rho, sort_s, scan_s, both_sides_s,
++        pairs_total, pairs_total as f64 / n as f64, scanned_total as f64 / n as f64,
++        deg_f.iter().sum::<f64>() / n as f64, pct_f(&mut deg_f, 0.50), pct_f(&mut deg_f, 0.90), pct_f(&mut deg_f, 0.99), pct_f(&mut deg_f, 0.999), pct_f(&mut deg_f, 1.0),
++        pct_f(&mut sc_f, 0.5) * 2.0, pct_f(&mut sc_f, 0.99) * 2.0, pct_f(&mut sc_f, 1.0) * 2.0,
++        ns, setup_pairs.iter().sum::<u64>(), 
++        setup_ns_body.iter().sum::<f64>() / ns as f64, pct_f(&mut setup_ns_body, 0.50), pct_f(&mut setup_ns_body, 0.90), pct_f(&mut setup_ns_body, 0.99), pct_f(&mut setup_ns_body, 0.999), pct_f(&mut setup_ns_body, 1.0),
++        setup_ns_body.iter().sum::<f64>() / setup_pairs.iter().sum::<u64>().max(1) as f64,
++        evals_pair.iter().sum::<u64>() as f64 / evals_pair.len().max(1) as f64, pct_u(&mut evals_pair, 0.50), pct_u(&mut evals_pair, 0.90), pct_u(&mut evals_pair, 0.99), pct_u(&mut evals_pair, 0.999), pct_u(&mut evals_pair, 1.0),
++        pct_u(&mut qcopy, 0.50), pct_u(&mut qcopy, 0.999), pct_u(&mut qcopy, 1.0), sample_s
++    );
++}
++
+ fn main() {
+     let args: Vec<String> = std::env::args().collect();
+     match args.get(1).map(|s| s.as_str()) {
++        Some("tail") => tail(args[2].parse().unwrap(), args[3].parse().unwrap(), args.get(4).map(|x| x.parse().unwrap()).unwrap_or(0)),
++        Some("tailc") => tailc(&args[2], args[3].parse().unwrap(), args.get(4).map(|x| x.parse().unwrap()).unwrap_or(0)),
+         Some("verify") => verify(&args[2]),
+         Some("steady") => {
+             let n: usize = args[2].parse().unwrap();
+@@ -525,6 +681,7 @@ fn main() {
+             let hs: Vec<f64> = args[4..].iter().map(|x| x.parse().unwrap()).collect();
+             steady(n, rho, &hs)
+         }
++        Some("tail") => tail(args[2].parse().unwrap(), args[3].parse().unwrap(), args.get(4).map(|x| x.parse().unwrap()).unwrap_or(0)),
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
+         Some("kick") => kick(),
+         _ => {
