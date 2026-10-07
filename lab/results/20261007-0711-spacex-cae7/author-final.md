@@ -1,0 +1,4 @@
+Working...
+Run complete. Evidence in `lab/results/20261007-0711-spacex-cae7/` (predictions written before the runs; probe patch saved by `run.sh`; deterministic md5-verified; the 3 failing universe tests fail identically without the patch).
+
+**Claim:** H_live on the shipped plane reaches a steady state (the light-cone prune reabsorbs; creation is not the problem) but holds **1,245–1,277 B live per belt body** — dominated by compiled trajectories that are *never shared* (`Catalogue::insert` allocates one entry per body; 2,000 ships on one orbit hold 2,000 entries), a 448 B record and a mandatory 192 B segment — so 10⁹ bodies cost ≈1.3 TB (160× over 8 GB), and even at the law's own floor widths a billion individual records is 14–18 GB: the billion must be population programs, with retention ruled by observable distinction rather than light distance alone.

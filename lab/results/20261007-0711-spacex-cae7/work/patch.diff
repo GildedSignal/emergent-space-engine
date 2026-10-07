@@ -1,0 +1,277 @@
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800e..832cbc2 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -94,9 +94,13 @@ pub trait BodyStore: Send + Sync {
+     fn push(&mut self, r: BodyRec) -> usize;
+     /// Retire a binding into body `i`'s history (the view reads the past through it).
+     fn retire(&mut self, i: usize, seg: Segment);
++    /// Live history segments of body `i` (retired bindings still held for the view).
++    fn history_len(&self, _i: usize) -> usize {
++        0
++    }
++
+     /// Forget history that ended before `before`, keeping at least the last segment.
+     fn prune(&mut self, i: usize, before: Tick);
+-    /// The binding that holds at `t` (current, or a retired one), if still remembered.
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding>;
+     /// The current binding's event time (the body's committed tick).
+     fn event_time(&self, i: usize) -> Tick;
+@@ -131,6 +135,9 @@ impl BodyStore for PlainBodies {
+         self.history.push(VecDeque::new());
+         self.recs.len() - 1
+     }
++    fn history_len(&self, i: usize) -> usize {
++        self.history[i].len()
++    }
+     fn retire(&mut self, i: usize, seg: Segment) {
+         self.history[i].push_back(seg);
+     }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..56c64a4 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -978,6 +978,11 @@ impl Universe {
+         (0..self.bodies.len()).map(|i| self.bodies.bytes_of(i)).sum::<usize>() / n
+     }
+ 
++    /// Live history segments of body `i`, and its live bytes (record, plan, trajectory share, history).
++    pub fn live_of(&self, i: usize) -> (usize, usize) {
++        (self.bodies.history_len(i), self.bodies.bytes_of(i))
++    }
++
+     // ---- the digest -----------------------------------------------------------------------------
+ 
+     /// One digest of the whole universe: the dolls, every body's exact record, the fleets' battles and
+diff --git a/xtask/src/universe/hlive_probe.rs b/xtask/src/universe/hlive_probe.rs
+new file mode 100644
+index 0000000..4df67b1
+--- /dev/null
++++ b/xtask/src/universe/hlive_probe.rs
+@@ -0,0 +1,162 @@
++//! `universe --h-live`: the bits of live distinguishing information, measured (docs/plane.md,
++//! "Distinctions created per game-second"). The plane already reabsorbs history beyond every
++//! light cone the view can need (`Universe::prune`), so live state reaches a steady state that
++//! this probe measures directly: settle to a cut, prune, and sample what is still held.
++//!
++//! `--belt N --belt-mode formation|belt` adds N ships about the star (one orbit, spread phases:
++//! the co-orbital case; or N distinct orbits in [1.5, 2.5] AU with e in [0.01, 0.08]: the belt
++//! case), so the per-body live bytes and the catalogue's sharing are measured at scale.
++//!
++//! Outcomes are schedule-independent (the digest contract), so the probe settles unpaced with an
++//! unlimited budget: the same game time, the same bits, no pacing noise.
++use emergent_universe::body::Kind;
++use emergent_universe::fleet::Order;
++use emergent_universe::num::{s, Tick};
++use emergent_universe::scenario::{plane, Plane};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++use serde_json::json;
++use std::time::Instant;
++
++#[derive(Clone, Copy, PartialEq)]
++pub(crate) enum BeltMode {
++    Formation,
++    Belt,
++}
++
++pub(crate) struct Opts {
++    pub seed: u64,
++    pub members: u64,
++    pub belt: usize,
++    pub mode: BeltMode,
++    pub game_seconds: f64,
++    pub stages: usize,
++}
++
++fn lcg(seed: &mut u64) -> f64 {
++    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++    (*seed >> 11) as f64 / (1u64 << 53) as f64
++}
++
++fn add_belt(p: &mut Plane, opts: &Opts) -> usize {
++    let au = emergent_universe::scenario::AU as f64;
++    let mut rng = opts.seed ^ 0x5eed_be17;
++    let mut added = 0;
++    for _ in 0..opts.belt {
++        let (a, e, phase) = match opts.mode {
++            // One orbit, N phases: the co-orbital formation.
++            BeltMode::Formation => (au * 2.0, 0.0, (added as f64 + 0.5) / opts.belt as f64),
++            // N distinct orbits: a belt with spread radii and modest eccentricity.
++            BeltMode::Belt => (au * (1.5 + lcg(&mut rng)), 0.01 + 0.07 * lcg(&mut rng), lcg(&mut rng)),
++        };
++        let spec = emergent_universe::OrbitSpec {
++            doll: 0,
++            periapsis: s((a * (1.0 - e)) as i64),
++            e_q48: (e * (1u64 << 48) as f64) as u64,
++            clockwise: false,
++            angle: 0,
++            phase: (phase * 4294967296.0) as u32,
++        };
++        if p.u.add_body(Kind::Ship, spec, s(34)).is_ok() {
++            added += 1;
++        }
++    }
++    added
++}
++
++fn sample(p: &Plane, t0: &Instant) -> serde_json::Value {
++    let u = &p.u;
++    let n = u.n_bodies();
++    let (mut hist, mut bytes, mut max_hist) = (0usize, 0usize, 0usize);
++    for i in 0..n {
++        let (h, b) = u.live_of(i);
++        hist += h;
++        bytes += b;
++        max_hist = max_hist.max(h);
++    }
++    let st = &u.stats;
++    json!({
++        "tick": u.now,
++        "game_seconds": (u.now as f64 * TICK_SECONDS).round(),
++        "wall_seconds": t0.elapsed().as_secs_f64(),
++        "bodies": n,
++        "events": st.events(),
++        "kicks": st.kicks, "opens": st.opens, "boundaries": st.boundaries,
++        "handoffs": st.handoffs, "slices": st.slices, "encounters": st.encounters,
++        "decisions": st.decisions, "lost": st.lost,
++        "live_bytes_tubes": bytes,
++        "bytes_per_body": bytes / n.max(1),
++        "history_segments": hist,
++        "history_per_body_x1000": (hist as f64 * 1e3 / n.max(1) as f64).round() as u64,
++        "max_history_one_body": max_hist,
++        "catalogue_live": u.catalogue_live(),
++    })
++}
++
++pub(crate) fn run(opts: Opts) -> crate::Result<u8> {
++    let t0 = Instant::now();
++    let mut p = plane(Config::default(), opts.seed, Order::Sparse, 1, opts.members)
++        .map_err(|e| format!("plane: {e:?}"))?;
++    let added = add_belt(&mut p, &opts);
++    p.u.start().map_err(|e| format!("start: {e:?}"))?;
++    let mut samples = Vec::new();
++    samples.push(sample(&p, &t0));
++    // Cuts spread geometrically over the game time: the steady state shows as a flattening.
++    let target = (opts.game_seconds / TICK_SECONDS) as Tick;
++    for k in 1..=opts.stages {
++        let frac = (k as f64 / opts.stages as f64).powi(3);
++        p.u.settle((target as f64 * frac).round() as Tick);
++        p.u.prune();
++        samples.push(sample(&p, &t0));
++        if t0.elapsed().as_secs_f64() > 50.0 {
++            break;
++        }
++    }
++    p.u.settle(target);
++    p.u.prune();
++    samples.push(sample(&p, &t0));
++
++    // The end state, resolved by kind and doll: where the live bytes actually sit.
++    let mut by: std::collections::BTreeMap<String, [u64; 4]> = std::collections::BTreeMap::new();
++    for i in 0..p.u.n_bodies() {
++        let r = p.u.rec(i);
++        let (h, b) = p.u.live_of(i);
++        let key = format!("{:?}/doll{}", r.kind, r.b.doll);
++        let e = by.entry(key).or_insert([0; 4]);
++        e[0] += 1;
++        e[1] += r.events;
++        e[2] += h as u64;
++        e[3] += b as u64;
++    }
++    let by: Vec<_> = by
++        .into_iter()
++        .map(|(k, v)| {
++            json!({"kind": k, "bodies": v[0], "events": v[1], "events_per_body": v[1] / v[0].max(1),
++                   "history_segments": v[2], "history_per_body_x1000": (v[2] as f64 * 1e3 / v[0].max(1) as f64).round() as u64,
++                   "live_bytes": v[3], "bytes_per_body": v[3] / v[0].max(1)})
++        })
++        .collect();
++    let st = &p.u.stats;
++    let report = json!({
++        "scope": "H_live on the shipped plane: settle (unpaced, unlimited budget), prune, sample; outcomes are schedule-independent",
++        "seed": opts.seed, "members": opts.members, "belt_added": added,
++        "belt_mode": match opts.mode { BeltMode::Formation => "formation", BeltMode::Belt => "belt" },
++        "game_seconds_target": opts.game_seconds,
++        "machine": crate::measure::machine_state("run"),
++        "sizes_bytes": {
++            "Tube": std::mem::size_of::<emergent_space::Tube>(),
++            "Binding": std::mem::size_of::<emergent_universe::bind::Binding>(),
++            "Segment": std::mem::size_of::<emergent_universe::body::Segment>(),
++            "BodyRec": std::mem::size_of::<emergent_universe::body::BodyRec>(),
++            "Item": std::mem::size_of::<emergent_universe::body::Item>(),
++            "Knot": std::mem::size_of::<emergent_space::orbit::Knot>(),
++            "Entry": std::mem::size_of::<emergent_universe::bind::Entry>(),
++        },
++        "samples": samples,
++        "end_by_kind": by,
++        "end_total_events": st.events(),
++        "digest_note": "settle(target) then prune; two runs with one seed and one target give one digest (the plane's contract)",
++    });
++    println!("{}", serde_json::to_string_pretty(&report)?);
++    Ok(0)
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..ea4cc62 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -10,8 +10,10 @@
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+ mod http;
+ mod kick_bench;
++mod hlive_probe;
+ mod session;
+ 
++
+ use serde_json::json;
+ use session::Session;
+ use std::time::{Duration, Instant};
+@@ -21,6 +23,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let (mut hlive, mut belt, mut stages) = (false, 0usize, 8usize);
++    let (mut game_seconds, mut belt_mode) = (30.0f64, hlive_probe::BeltMode::Belt);
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -35,11 +39,20 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--kick-bench" => kicks = true,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+-            "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
++            "--h-live" => hlive = true,
++            "--belt" => belt = val("--belt")?.parse::<usize>()?.min(20_000),
++            "--belt-mode" => {
++                belt_mode = match val("--belt-mode")?.as_str() {
++                    "formation" => hlive_probe::BeltMode::Formation,
++                    "belt" => hlive_probe::BeltMode::Belt,
++                    _ => return Err("belt-mode is formation or belt".into()),
++                };
++            }
++            "--game-seconds" => game_seconds = val("--game-seconds")?.parse::<f64>()?.clamp(1.0, 6.0e7),
++            "--stages" => stages = val("--stages")?.parse::<usize>()?.clamp(1, 64),
+             "--describe" => describe = true,
+             "--help" => {
+                 println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
+-                return Ok(0);
+             }
+             _ => return Err(format!("unknown universe argument {a}").into()),
+         }
+@@ -47,6 +60,16 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if !(rtf.is_finite() && (0.01..=1e7).contains(&rtf)) || !(1.0..=55.0).contains(&seconds) {
+         return Err("rtf outside [0.01, 1e7], or seconds outside [1, 55] (every test and probe is at most a minute)".into());
+     }
++    if hlive {
++        return hlive_probe::run(hlive_probe::Opts {
++            seed,
++            members,
++            belt,
++            mode: belt_mode,
++            game_seconds,
++            stages,
++        });
++    }
+     let mut s = Session::new(seed, threads, members, rtf)?;
+     s.engine_ms = engine_ms;
+     if kicks {
