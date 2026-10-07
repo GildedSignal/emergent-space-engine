@@ -1,0 +1,4 @@
+Working...
+Run complete: instrument built and verified (`hlive.rs`, patch-saved), predictions pre-registered (6 held, 2 missed, both disclosed), budget table regenerable via `fermi.py`, dossier written, and the checker's exact command reproduces bit-identically.
+
+**Claim:** Measured on the plane, the unmeasured HANDOFF risk resolves — H_live is not the binding term at 10⁹ (each event injects ~104 near-incompressible bits but reabsorbs, residual ratio 1.09–1.20/hour, worst-case all-inner cadence creates only ~182 MB/s against the M1's 60 GB/s and never fills 8 GB), so what actually decides whether 10⁹ bodies fit is the stored representation (9,846 B/body today = 1,231× over 8 GB, vs the 0.126-bit belt-program floor at 508× under) and inner-scale kick cadence, from which the board's "190 cores" figure re-derives exactly (10⁹ × 0.014 events/body/game-s × 12 µs = 168 cores).
