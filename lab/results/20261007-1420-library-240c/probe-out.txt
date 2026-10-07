@@ -1,0 +1,28 @@
+case             stat       min  median     max   bands(seed majority)
+------------------------------------------------------------------------------
+bounded-white    expo     0.033   0.052   0.076   {'expo 0.05': 5, 'expo 0.06': 3, 'expo 0.08': 1, 'expo 0.07': 2, 'expo 0.04': 4, 'expo 0.03': 1}
+bounded-white    vario    0.843   0.847   0.853   {'leak-rw': 16}
+bounded-white    allan   -0.068  -0.067  -0.066   {'bounded': 16}
+bounded-chaotic  expo     0.000   0.000   0.002   {'expo 0.00': 16}
+bounded-chaotic  vario   -0.011  -0.001   0.009   {'bounded': 16}
+bounded-chaotic  allan   -0.615  -0.523  -0.430   {'bounded': 16}
+leak-rw          expo     0.146   0.481   0.759   {'expo 0.31': 1, 'expo 0.51': 1, 'expo 0.39': 1, 'expo 0.76': 1, 'expo 0.58': 1, 'expo 0.50': 1, 'expo 0.75': 1, 'expo 0.37': 1, 'expo 0.36': 1, 'expo 0.60': 1, 'expo 0.27': 1, 'expo 0.40': 1, 'expo 0.15': 1, 'expo 0.46': 1, 'expo 0.68': 1, 'expo 0.65': 1}
+leak-rw          vario    0.605   0.958   1.253   {'leak-rw': 15, 'ambiguous': 1}
+leak-rw          allan    0.216   0.431   0.668   {'leak-rw': 10, 'ambiguous': 6}
+leak-slow        expo     0.197   0.496   0.800   {'expo 0.20': 1, 'expo 0.50': 2, 'expo 0.46': 1, 'expo 0.80': 1, 'expo 0.54': 1, 'expo 0.68': 1, 'expo 0.35': 2, 'expo 0.42': 1, 'expo 0.58': 1, 'expo 0.34': 1, 'expo 0.21': 1, 'expo 0.56': 2, 'expo 0.60': 1}
+leak-slow        vario    0.667   0.950   1.230   {'leak-rw': 15, 'ambiguous': 1}
+leak-slow        allan    0.193   0.401   0.631   {'leak-rw': 9, 'ambiguous': 7}
+drift            expo     1.004   1.004   1.004   {'expo 1.00': 16}
+drift            vario    2.000   2.000   2.000   {'drift': 16}
+drift            allan    1.000   1.000   1.000   {'drift': 16}
+leak-tiny        expo     0.020   0.022   0.028   {'expo 0.02': 15, 'expo 0.03': 1}
+leak-tiny        vario    0.940   0.940   0.940   {'leak-rw': 16}
+leak-tiny        allan   -0.060  -0.060  -0.060   {'bounded': 16}
+
+fleet-16: median-seed expo = 0.000 -> current gate PASSES (leak certified)
+fleet-16: worst-seed vario = 0.967 / allan = 0.496 (both seed 15) -> tail rule FLAGS the leak
+
+P3 inversions (chaotic expo > leak-slow expo, pairwise): 0 / 256
+P4 controls: chaotic-bounded false leaks: 0/16 ; leak-rw misses: 1/16
+P5 leak-rw vario slope at N=4096: 1.037 (N=2048 median 0.958)
+P5 bounded-chaotic vario slope at N=4096: -0.000 (N=2048 median -0.001)
