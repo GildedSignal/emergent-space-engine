@@ -1,0 +1,14 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..b4965d4 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -865,6 +865,9 @@ impl Universe {
+         let a = self.advance(target, budget);
+         let before = self.now;
+         self.now = a.horizon.max(self.now);
++        if std::env::var_os("UNIVERSE_TRACE").is_some() {
++            eprintln!("trace {} {} {} {}", target, a.horizon, a.events, a.overflow as u8);
++        }
+         // Histories older than every light cone the view can need are forgotten.
+         self.frames += 1;
+         if self.frames % 64 == 0 {
