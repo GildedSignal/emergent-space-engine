@@ -1,0 +1,226 @@
+diff --git a/crates/universe/examples/view_gate.rs b/crates/universe/examples/view_gate.rs
+new file mode 100644
+index 0000000..7f6c1b9
+--- /dev/null
++++ b/crates/universe/examples/view_gate.rs
+@@ -0,0 +1,107 @@
++// The constraint lens, decisive probe: how much of the view's per-frame walk is *surprise* at the
++// instrument's own resolution? Per emitter: the change between consecutive frames of the direction
++// (rad), the frequency shift, and the distance — and the fraction of emitters that moved by more
++// than one quantum (10^-3 rad ~ one pixel at 60° FOV on 1080p; |Δshift| 0.01 ~ half a palette step).
++// Also splits the readout's unit cost: `state_rate` (ramp included) vs `root_state_raw` (tube+chain).
++// `view_gate [frames] [rtf]`
++use emergent_universe::observe::{root_state_raw, state_rate};
++use emergent_universe::scenario::{plane, stream, Stream};
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Config, Budget};
++use std::time::Instant;
++
++fn scene_moves(name: &str, mut v: emergent_universe::Universe, frames: usize, rtf: f64) {
++    let frame = (rtf / 60.0 / TICK_SECONDS) as i64;
++    let mut cache = ViewCache::default();
++    let mut prev: Option<Vec<emergent_universe::view::Seen>> = None;
++    let (mut n_move, mut n_all, mut max_dtheta, mut sum_dtheta, mut n_shift) = (0usize, 0usize, 0.0f64, 0.0f64, 0usize);
++    for f in 0..frames {
++        let t = v.now + frame;
++        let _ = v.frame_to(1.0 / 60.0, rtf, Budget::wall(5.0), i64::MAX);
++        v.now = t;
++        let view = gather_cached(&v, &[], &mut cache).unwrap();
++        let seen = view.seen.clone();
++        if let Some(p) = prev.take() {
++            for (a, b) in p.iter().zip(seen.iter()) {
++                if a.id != b.id || a.id == usize::MAX {
++                    continue;
++                }
++                let dth = ((b.direction[0] - a.direction[0]).powi(2) + (b.direction[1] - a.direction[1]).powi(2)).sqrt();
++                let dsh = (b.shift - a.shift).abs();
++                n_all += 1;
++                sum_dtheta += dth;
++                max_dtheta = max_dtheta.max(dth);
++                if dth > 1e-3 || dsh > 0.01 {
++                    n_move += 1;
++                }
++                if dsh > 0.01 {
++                    n_shift += 1;
++                }
++            }
++        }
++        prev = Some(seen);
++    }
++    println!(
++        "{:<28} emitters/frame {:>4}  moved/quantum {:>5.1}%  shifted {:>5.1}%  mean dtheta ~{:>9.2e}  max {:>9.2e}",
++        name,
++        n_all / frames.max(1),
++        100.0 * n_move as f64 / n_all.max(1) as f64,
++        100.0 * n_shift as f64 / n_all.max(1) as f64,
++        sum_dtheta / n_all.max(1) as f64,
++        max_dtheta
++    );
++}
++
++fn main() {
++    let frames: usize = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(400);
++    let rtf: f64 = std::env::args().nth(2).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    println!("rtf {rtf}, {frames} frames, quantum: 1e-3 rad / 0.01 shift");
++
++    // The plane's own scene, aged 200 frames first so the fleet battle is running.
++    let mut p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++    for _ in 0..200 {
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget::wall(5.0), i64::MAX);
++    }
++    scene_moves("plane (rtf of run)", p.u, frames, rtf);
++
++    // The same at rtf 1 (the player sight-seeing).
++    let mut p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++    for _ in 0..200 {
++        let _ = p.u.frame_to(1.0 / 60.0, 1.0, Budget::wall(5.0), i64::MAX);
++    }
++    scene_moves("plane (rtf 1)", p.u, frames.min(200), 1.0);
++
++    // The 0.9c toward stream at three distances: amortization follows distance, not N.
++    for dist in [1.0e6f64, 1.0e7, 1.0e8] {
++        let start = 1_200_000_000i64;
++        let (v, _ids, _pl) = stream(0.0, 0.9, Stream::Toward, 48, dist, start).unwrap();
++        let mut v = v;
++        v.now = start;
++        scene_moves(&format!("0.9c toward dist {dist:.0e}"), v, frames.min(300), rtf);
++    }
++
++    // Unit split: the readout with the ramp vs the tube+chain alone.
++    println!("\nreadout unit split (plane scene, aged):");
++    let mut p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++    for _ in 0..200 {
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget::wall(5.0), i64::MAX);
++    }
++    let u = &p.u;
++    let ctx = u.ctx();
++    let t = u.now;
++    for ramp in [true, false] {
++        let t0 = Instant::now();
++        let mut n = 0u64;
++        for i in 0..u.n_bodies() {
++            if !u.bodies().alive(i) || i == p.player {
++                continue;
++            }
++            for _ in 0..200 {
++                let r = if ramp { state_rate(&ctx, i, t).map(|s| (s.0, s.1)).ok() } else { root_state_raw(&ctx, i, t).ok() };
++                std::hint::black_box(r);
++                n += 1;
++            }
++        }
++        println!("  {:>12}: {:>6.2} us/call  ({} calls)", if ramp { "state_rate" } else { "raw tube+chain" }, t0.elapsed().as_secs_f64() * 1e6 / n as f64, n);
++    }
++}
+diff --git a/crates/universe/examples/view_scale.rs b/crates/universe/examples/view_scale.rs
+new file mode 100644
+index 0000000..2ba7511
+--- /dev/null
++++ b/crates/universe/examples/view_scale.rs
+@@ -0,0 +1,107 @@
++// The constraint lens (7 October): where does the frame's time go as the sky fills? Two probes.
++//
++// A. Scaling: the stream scene (bare tubes, one doll level) at n emitters, the memo path the page
++//    runs. The view's cost per emitter per frame is the frame's linear coefficient in visible
++//    bodies: measure it at 24..24k emitters, static and 0.9c toward (the worst arrival rate).
++// B. Decomposition on the plane's own scene: per-body `state_rate` cost (one Newton readout unit)
++//    by doll depth, and the gather's readouts per frame. Deep chains multiply the readout's cost.
++//
++// `view_scale [frames]`
++use emergent_universe::observe::state_rate;
++use emergent_universe::scenario::{plane, stream, Stream};
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn main() {
++    let frames: usize = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(60);
++    let rtf = 100.0;
++    let frame = (rtf / 60.0 / TICK_SECONDS) as i64;
++    let start = 1_200_000_000i64;
++    for (n, beta, tag) in [(24usize, 1e-4f64, "slow"), (240, 1e-4, "slow"), (2400, 1e-4, "slow"), (24, 0.9, "toward.9c"), (240, 0.9, "toward.9c"), (2400, 0.9, "toward.9c")] {
++    // ---- A: scaling on bare tubes -------------------------------------------------------------
++    println!("== A. stream scene, memo gather, rtf {rtf} ({frame} ticks/frame) ==");
++    println!("{:>6} {:>10} {:>12} {:>12} {:>11} {:>10}", "n", "us/frame", "us/emitter", "reads/em", "cold us", "n_bodies");
++        let (mut u, _ids, _p) = stream(0.0, beta, Stream::Toward, n, 1.0e6, start).unwrap();
++        let mut cache = ViewCache::default();
++        let (mut memo_us, mut reads, mut count, mut cold_us) = (0.0f64, 0u64, 0u64, 0.0f64);
++        for f in 0..frames {
++            let t = start + f as i64 * frame;
++            u.settle(t);
++            u.now = t;
++            let t0 = Instant::now();
++            let _ = gather_cached(&u, &[], &mut cache);
++            if f >= 3 {
++                memo_us += t0.elapsed().as_secs_f64() * 1e6;
++                reads += cache.readouts;
++                count += 1;
++            }
++            let t0 = Instant::now();
++            let _ = gather_cached(&u, &[], &mut cache);
++            if f >= 3 {
++                cold_us += t0.elapsed().as_secs_f64() * 1e6;
++            }
++        }
++        println!("{:>6} {:>10.1} {:>12.2} {:>12.2} {:>11.1} {:>10}  {tag}", n, memo_us / count as f64, memo_us / count as f64 / n as f64, reads as f64 / count as f64 / n as f64, cold_us / count as f64, u.n_bodies());
++    }
++
++    // ---- B: the plane's own scene, aged like a flight, then one Newton unit by doll depth ------
++    println!("\n== B. the plane's own scene: gather per frame, then state_rate (one readout) by body ==");
++    let mut p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++    let mut cache = ViewCache::default();
++    let names: Vec<String> = Vec::new();
++    let (mut g_us, mut reads, mut frames) = (0.0f64, 0u64, 0u64);
++    for f in 0..600 {
++        let _ = p.u.frame_to(1.0 / 60.0, 100.0, emergent_universe::Budget::wall(5.0), i64::MAX);
++        let t0 = Instant::now();
++        let v = gather_cached(&p.u, &names, &mut cache).unwrap();
++        let g = t0.elapsed().as_secs_f64() * 1e6;
++        std::hint::black_box(&v);
++        if f >= 60 {
++            g_us += g;
++            reads += cache.readouts;
++            frames += 1;
++        }
++    }
++    println!("aged scene: {} bodies, gather {:.0} us/frame, reads/frame {}, {:.1} us/read",
++        p.u.n_bodies(), g_us / frames as f64, reads as f64 / frames as f64, g_us / reads.max(1) as f64);
++    let u = &p.u;
++    let ctx = u.ctx();
++    let t = u.now;
++    let mut by_depth: std::collections::BTreeMap<(u8, String), (f64, usize)> = std::collections::BTreeMap::new();
++    let depth_of = |i: usize| -> u8 {
++        let mut d = 0u8;
++        let mut cur = u.bodies().doll(i) as usize;
++        while let Some(c) = u.dolls[cur].centre {
++            cur = u.bodies().doll(c) as usize;
++            d += 1;
++        }
++        d
++    };
++    for i in 0..u.n_bodies() {
++        if !u.bodies().alive(i) || i == p.player {
++            continue;
++        }
++        let depth = depth_of(i);
++        let kind = format!("{:?}", u.info[i].kind);
++        for _ in 0..16 {
++            std::hint::black_box(state_rate(&ctx, i, t).ok());
++        }
++        let reps = 400;
++        let t0 = Instant::now();
++        for _ in 0..reps {
++            std::hint::black_box(state_rate(&ctx, i, t).ok());
++        }
++        let us = t0.elapsed().as_secs_f64() * 1e6 / reps as f64;
++        let e = by_depth.entry((depth, kind)).or_insert((0.0, 0));
++        e.0 += us;
++        e.1 += 1;
++    }
++    println!("{:>6} {:>8} {:>8} {:>10} {:>9}", "depth", "kind", "bodies", "us/call", "sum_us");
++    let mut total = 0.0;
++    for ((d, k), (sum, n)) in &by_depth {
++        println!("{:>6} {:>8} {:>8} {:>10.2} {:>9.1}", d, k, n, sum / *n as f64, sum);
++        total += sum;
++    }
++    println!("one full readout pass over the scene: {:.0} us", total);
++}

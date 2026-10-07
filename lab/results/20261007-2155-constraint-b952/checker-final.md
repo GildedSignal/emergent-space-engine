@@ -1,0 +1,10 @@
+Working...
+Check complete. **Grade: silver** — written to `lab/results/20261007-2155-constraint-b952/check.md`; tree restored to its pre-check state (patch and my probe removed, nothing committed).
+
+**What I did:**
+- **Reproduced** all three dossier commands from a clean tree with `work/patch.diff` applied: the decisive surprise probe came back **bit-for-bit** (8.1% / 49.7% / 7.7% / 8.6% / 0.0%); the solo bench gives view_gather p50 0.83 ms, **65.4% share**, engine p50 0.091 ms (9.1×); scaling is linear to 2400 emitters; unit split 10.8 vs 7.3 µs. The author's heavier p99 tails did not repeat — load noise, and medians/shares are the claim.
+- **Held-out:** `predictions.md` predates the decisive run; 2 of 3 held, prediction 1 (ramp >70%) failed and is honestly reported with the right consequence.
+- **Attacked** with my own probe: close passes (6.7–6.8% movers — holds), 0.99c toward / 0.9c away (7.3% / 5.5% — holds), and **zoom**: at quantum 10⁻⁴ rad the plane scene's moved fraction jumps 7.9% → **62.9%** (70% at finer) — the near-scene ~12× collapses to ~1.4× at one zoom stop; the far sky stays 0.0% even at 10⁻⁶. This bounds the gate's value to the far sky plus default zoom — the direction was disclosed, the magnitude was not.
+- **Novelty:** the surprise budget and validity-interval gate are new, but the headline constraint isn't a discovery — HISTORY already records "the view gather is 83% of a light frame" (pre-memo) and the memo response (`b5c817d`), and the integrator's queue already holds `b-readout-cost`. Also corrected `author-final.md`'s claim: the cache stores the arrival rate dt_e/dT, not the observable rate dθ/dT the gate needs.
+
+**Silver because:** the diagnosis is measured and reproducible, but the ≥10× gain is projected — no gate was built, and adoption needs more than one step (observable rate bounds, zoom-tracked quantum, aberration overlay, delta serialization). The one experiment to gold: build the minimal gate and measure achieved readouts/frame plus view behaviour on held-out scenes (fresh battle, zoomed near scene, 10⁶ far sky).
