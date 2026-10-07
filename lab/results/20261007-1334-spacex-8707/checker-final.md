@@ -1,0 +1,10 @@
+Working...
+Check complete. `check.md` written to `lab/results/20261007-1334-spacex-8707/` — **Grade: silver**. Nothing else in the run folder was touched; no git operations.
+
+**What I did and found:**
+
+- **Reproduction (bit-identical).** Empty `patch.diff` → all work in-folder; I reran every dossier command in `/tmp/check8707` (author's files untouched). All seven outputs — null, both convergence runs, the three decisive belt seeds, aggregate — regenerate **bit-for-bit** (decisive seeds: 159 s wall vs author's 184 s). That is the exact-regeneration record past silvers lacked.
+- **Predictions.** Registered 13:52, decisive outputs 13:54–13:55. 4/7 held (I verified the session-lag one directly: 0.93% crossed at 2 yr < 5%); 3 failed, all disclosed, one with its pre-registered fallback applied.
+- **Three adversarial cases.** (1) The harness's secular refit uses the full 1000-yr span — an oracle; a causal ≤200-yr refit changes late residual by only +1.2%. (2) A belt made entirely of the 2:1 tail: rate 5× higher, exponent 0.839 — conclusion intact. (3) A 3× heavier, e_p=0.2 perturber: ejections begin (regime change into encounter-class events) at the same order of distinction rate. The 4–5-order memory margin survives everything I threw at it.
+- **Novelty.** First measurement of H_live (HANDOFF: "not measured yet", in the build queue); shipmem/components-98bc measured static store bits, a different quantity.
+- **Why silver, not gold:** 3/7 held-out predictions failed; plus dossier labeling slips (6.2/21.7 "median first-cross" are actually the RMS-crossing `T_cross` times, true medians 10/50 yr; the "200 game-years to fill 4 GB" sentence juxtaposes the early rate with the long-run fill time; "19×" is 21–30× in the stored bins); and the scene is a uniform-in-a float surrogate, not the frozen B18b sampler. **One experiment to gold:** rerun on the plane's actual banded-p belt sampler through the shipmem/`behave` path and relabel the two timing numbers — my pure-2:1 case bounds the scene gap at ~5×.

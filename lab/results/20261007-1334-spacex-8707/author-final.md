@@ -1,0 +1,4 @@
+Working...
+Run complete. Dossier, pre-registered predictions, harness, and all evidence in `lab/results/20261007-1334-spacex-8707/` (232 KB); controls on both sides (null at 1e-12, dt-convergence at 1.3e-5, in/out-of-sample fit split at 0.4%).
+
+**Claim:** For a plane-like belt, H_live is measured for the first time — after one global secular refit (two smooth fields, F(a) and g(a)) the distinction rate is ~10⁻³ scars per body per year at quantum 10⁻³, i.e. at 10⁹ bodies only ~0.03 scars per game-second (~50 B per real second at rtf 100), so secular belt dynamics cannot touch the 8 GB ceiling at session scale; scars saturate on a ~5–7 yr sim scale that sets the program-refit cadence, and the churn tail is the 2:1 resonance zone at the belt's outer edge (19× the inner belt's kick level) — which means the memory question at game scale lives where the board already points: encounters and the player, not planetary dynamics.
