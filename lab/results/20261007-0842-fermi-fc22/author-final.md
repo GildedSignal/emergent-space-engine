@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261007-0842-fermi-fc22/`: `predictions.md` (held out before the decisive run), `ledger.py` → `ledger-out.json` (0.5 s, two embedded Monte Carlos validating the rate machinery), `dossier.md`.
+
+**The claim, in one sentence:** H_live is bounded in steady play because physics, not reabsorption design, kills it — every dynamics-side distinction source at 10⁹ bodies writes ≤ 1 MB per 300-hour game (belt–belt relaxation 2.7×10⁻¹² crossings/body/s at 10¹⁵-kg rocks, 0.31 collisions, ~1.4k fleet flybys), so the term that actually breaks 10⁹-in-8 GB is the store's uniform tube precision (2.35 TB measured today, 16 GB even at the raw 16-byte tube, before any dynamics), making the memory work quantum-tiered materialization with a belt-mass ledger constraint (M_belt ≲ 6×10²⁵ kg at N = 10⁹) and a far-belt certificate churn of only ~3 writes/s.
