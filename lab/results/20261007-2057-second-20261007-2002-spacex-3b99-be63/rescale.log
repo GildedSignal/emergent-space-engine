@@ -1,0 +1,33 @@
+caps: E 15.61 L 15.61 W 20.00  total 51.22 bits at q=2^-20
+
+scan A_fixed_m: slope(log2 sigE / log2 n) = +0.585
+  n=100 sigE=2.049e-05  n=1000 sigE=8.221e-05  n=2000 sigE=1.152e-04  n=10000 sigE=3.064e-04
+
+scan B_fixed_M: slope(log2 sigE / log2 n) = -0.413
+  n=100 sigE=4.097e-04  n=1000 sigE=1.644e-04  n=10000 sigE=6.127e-05
+
+scan C_pert: slope(log2 sigE / log2 n) = +0.234
+  n=100 sigE=4.243e-03  n=1000 sigE=7.450e-03  n=2000 sigE=7.381e-03  n=10000 sigE=1.293e-02
+
+A ratio sigE(10000)/sigE(100) = 14.95  (predict 10 +/- 1)
+B ratio sigE(100)/sigE(10000) = 6.69  (predict 10 +/- 1)
+B sigE*sqrt(n): ['4.097e-03', '5.200e-03', '6.127e-03']
+C max rel spread over n = 2.048  (predict < 0.03)
+C mutual var fraction: {100: '0.0000', 1000: '0.0001', 10000: '0.0006'}
+
+re-anchored:
+  t_ceiling_fixed_m_1e9_orbits           9.081
+  belt_mass_fixed_m_1e9_Msun             0.1
+  t_ceiling_fixedM_1e9_orbits            2.27e+12
+  t_ceiling_fixedM_1e9_years             6.909e+12
+  t_ceiling_fixedM_1e9_seconds           2.18e+20
+  H_live_mutual_fixedM_1e9               2.349e-19
+  H_live_mutual_fixed_m_1e9_INADMISSIBLE 5.872e-08
+  pert_bits_t30_q2m20                    47.68
+  pert_t_orbits_at_90pct_cap             14.45
+  pert_t_orbits_at_50_bits               96.16
+  pert_t_years_at_90pct_cap              43.99
+  H_live_pert_90pct                      3.689e-08
+  m_pert_busting_32bits_in_30yr_Msun     4.661e-09
+  m_pert_in_lunar_masses                 0.1263
+EXIT=0

@@ -1,0 +1,31 @@
+== localization (unfloored pert channel, seed 1, t=30) ==
+ n=  100 sigE=4.266e-03 iqrE=3.477e-03 p99E=1.474e-02 maxE=1.983e-02
+ n=10000 sigE=7.485e-03 iqrE=3.726e-03 p99E=2.771e-02 maxE=1.922e-01
+ first-100 of n=1e4: sigE=8.837e-03 iqrE=3.853e-03  (vs n=100 above)
+
+== floored scans (b >= mutual Hill) ==
+ A_fixed_m slope=+0.525  n=100 1.765e-05  n=1000 6.251e-05  n=10000 1.979e-04  n=2000 8.690e-05
+ B_fixed_M slope=-0.417  n=100 2.913e-04  n=1000 1.209e-04  n=10000 4.265e-05  n=2000 8.690e-05
+ C_pert slope=+0.033  n=100 3.596e-03  n=1000 4.044e-03  n=10000 4.119e-03  n=2000 4.270e-03
+ A ratio(1e4/100) = 11.21   B ratio(100/1e4) = 6.83
+ B sigE*sqrt(n): ['2.913e-03', '3.823e-03', '4.265e-03', '3.886e-03']
+ C max rel spread = 0.187
+
+== re-anchored (floored instrument) ==
+  floored_anchor_sigE_300_n2000              0.0002819
+  unfloored_anchor_sigE_300_n2000            0.0003871
+  t_ceiling_fixed_m_1e9_orbits_INADMISSIBLE  17.12
+  belt_mass_fixed_m_1e9_Msun                 0.1
+  t_ceiling_fixedM_1e9_orbits                4.281e+12
+  t_ceiling_fixedM_1e9_years                 1.303e+13
+  t_ceiling_fixedM_1e9_seconds               4.112e+20
+  H_live_mutual_fixedM_1e9                   1.246e-19
+  pert_sigE30_floored_n2000                  0.00427
+  pert_bits_t30_q2m20                        45.96
+  pert_t_orbits_at_90pct_cap                 31.99
+  pert_t_years_at_90pct_cap                  97.35
+  pert_t_orbits_at_50_bits                   194.5
+  H_live_pert_90pct                          1.667e-08
+  m_pert_busting_32bits_in_30yr_Msun         6.938e-09
+  m_pert_in_lunar_masses                     0.188
+EXIT=0
