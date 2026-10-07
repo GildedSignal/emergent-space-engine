@@ -1,0 +1,4 @@
+Working...
+All deliverables verified: the shipped code regenerates the stored numbers (fresh `heap4` 3×10⁷ run: p50 424 ns vs stored 410–441 ns; identical hash), every file under 5 MB, oracle and cross-structure hashes clean across all 30 configs.
+
+**Claim (one sentence):** The plane's event queue — the engine's 4-ary indexed `Calendar` — sits 2–6× above its memory floor at 10⁵–3×10⁷ live entities (433–577 ns/event vs 23–97 ns median for a hierarchical timing wheel on the same root-clock integer ticks, bit-identical `(tick, id)` pop order proven against an oracle), but the wheel concentrates cost into due-tick batches (worst batch up to 2,707× median) and amortizes to only ~1.8–2.3×, so the honest next rung is the true floor the lens exposed: a phase-ring tier that pays per *surprise* rather than per event, with the wheel only for surprised bodies.
