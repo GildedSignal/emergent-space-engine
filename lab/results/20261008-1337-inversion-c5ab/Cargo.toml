@@ -1,0 +1,12 @@
+[package]
+name = "inversion-coorb"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+emergent-encounters = { path = "../../../crates/encounters" }
+
+[profile.release]
+opt-level = 3
+
+[workspace]

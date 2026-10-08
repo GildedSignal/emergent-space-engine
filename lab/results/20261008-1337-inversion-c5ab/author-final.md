@@ -1,0 +1,4 @@
+Working...
+Run complete. Folder `lab/results/20261008-1337-inversion-c5ab/` holds the experiment (Rust, path-dep on the encounters crate), two independent Python cross-checks, `predictions.md` (pre-registered before the decisive run), `decisive-run.log`, and `dossier.md`.
+
+**The claim, in one sentence:** the gold's phase-neighbour certificate premise ("every real encounter within partner rank 4 along the orbit") silently assumes a zero-dispersion formation — measured on maximally concentrated co-orbital fleets, the required rank grows as ~n·σ_e (k99 ≈ 0.7–1.3·n·σ_e; ranks uniform in n under apsidal spread), a single δe = 10⁻² kick puts 100% of the kicked ship's real encounters outside rank 4, and the sort's maintenance churns O(n²·σ_e) per orbit — so the queued `b-coorbital-cert` build must gate its trigger on the dimensionless product n·σ_e, not concentration alone, or it will silently miss 48–100% of encounters on any realistic fleet.
