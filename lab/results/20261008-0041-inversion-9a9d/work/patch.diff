@@ -1,0 +1,490 @@
+diff --git a/crates/encounters/src/bin/dispute.rs b/crates/encounters/src/bin/dispute.rs
+new file mode 100644
+index 0000000..782e26b
+--- /dev/null
++++ b/crates/encounters/src/bin/dispute.rs
+@@ -0,0 +1,77 @@
++//! Third-party adjudication of brute-vs-truth disputes on the base phalanx (run 20261008-0041).
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::pairs::scan_minima;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use std::f64::consts::TAU;
++
++const RHO: f64 = 1e-4;
++
++fn rayleigh(rng: &mut Rng, s: f64, cap: f64) -> f64 {
++    let u = rng.f64();
++    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
++}
++
++fn fleet(nc: usize, a_hw: f64, sigma_e: f64, pom_half: f64, sig_lam: f64, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let pom0 = TAU * rng.f64();
++    let lam0 = TAU * rng.f64();
++    (0..nc)
++        .map(|_| {
++            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
++            let e = rayleigh(&mut rng, sigma_e, (4.0 * sigma_e).min(0.5));
++            let pom = pom0 + (2.0 * rng.f64() - 1.0) * pom_half;
++            let lam = if sig_lam <= 0.0 {
++                TAU * rng.f64()
++            } else {
++                let (u1, u2) = (rng.f64(), rng.f64());
++                lam0 + sig_lam * (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos()
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++fn main() {
++    let fl = fleet(200, 1e-5, 0.001, 0.1, 0.01, 27);
++    // dense unbiased scan of every pair whose Kepler distance ever dips below 1.5 rho:
++    // recompute the brute's sub-rho set exactly, then settle each against scan_minima + truth.
++    let dt = 1e-5;
++    let steps = (TAU / dt) as usize;
++    let mut cand: Vec<(u32, u32, f64, f64)> = Vec::new(); // (i, j, dmin, t)
++    let mut s = 0usize;
++    while s < steps {
++        let t = s as f64 * dt;
++        for i in 0..fl.len() {
++            for j in (i + 1)..fl.len() {
++                let si = fl[i].state_at_mean(fl[i].mean_anomaly(t));
++                let sj = fl[j].state_at_mean(fl[j].mean_anomaly(t));
++                let d = (si[0] - sj[0]).hypot(si[1] - sj[1]);
++                match cand.iter_mut().find(|c| c.0 == i as u32 && c.1 == j as u32) {
++                    Some(c) => { if d < c.2 { c.2 = d; c.3 = t; } }
++                    None => { if d < 1.5 * RHO { cand.push((i as u32, j as u32, d, t)); } }
++                }
++            }
++        }
++        s += 40; // subsample 1/40: only to find candidates; scan_minima settles exactly
++    }
++    println!("{{\"candidates_1p5rho\":{}}}", cand.len());
++    for (i, j, d, t) in cand {
++        let (bi, bj) = (&fl[i as usize], &fl[j as usize]);
++        let mut out = Vec::new();
++        let mut ev = 0u64;
++        scan_minima(bi, bj, 0.0, TAU, 8000, RHO, true, &mut out, &mut ev);
++        let mut tout = Vec::new();
++        let mut ts = TruthStats::default();
++        truth_pair(bi, bj, RHO, 2.0 * TAU, &mut tout, &mut ts);
++        println!(
++            "{{\"pair\":[{},{}],\"brute_d\":{:.3e},\"brute_t\":{:.4},\"scan_sub_rho\":{},\"scan_best\":{:.3e},\"truth_2orbits_sub_rho\":{},\"truth_best\":{:.3e}}}",
++            i, j, d, t,
++            out.iter().map(|x| x.1).count(),
++            out.iter().map(|x| x.1).min_by(|a, b| a.total_cmp(b)).unwrap_or(f64::NAN),
++            tout.iter().map(|x| x.1).count(),
++            tout.iter().map(|x| x.1).min_by(|a, b| a.total_cmp(b)).unwrap_or(f64::NAN)
++        );
++    }
++}
+diff --git a/crates/encounters/src/bin/invert.rs b/crates/encounters/src/bin/invert.rs
+new file mode 100644
+index 0000000..73bce0f
+--- /dev/null
++++ b/crates/encounters/src/bin/invert.rs
+@@ -0,0 +1,401 @@
++//! Inversion-lens probe (run 20261008-0041): what the co-orbital train certificate's guard
++//! (gold 20261006-0346-taleb-09b5, "partner rank <= 4") silently assumes.
++//! The gold measured **distance-rank**; the deployable certificate is a **longitude-sorted**
++//! train ("sort by longitude, watch k~4 neighbours, rebuild on overtakes" — only a mean-
++//! longitude sort has Diophantine overtakes). Here every adjudicated encounter carries all
++//! three ranks (distance, true longitude, mean longitude), plus the trigger ratio, pairwise
++//! economics under e-spread, and the fleet x crosser seam. One JSON line per probe.
++//! Encounters: truth_pair (Halley + conservative advancement, independent solver path) over
++//! every cone pair, cross-checked by a true-longitude binned brute (step motion < rho/2).
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::method::{pair_events, Stats};
++use emergent_encounters::pairs::{cone_pairs, eps_u, sections};
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use std::collections::{HashMap, HashSet};
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++const RHO: f64 = 1e-4;
++const SAFETY: f64 = 1.1;
++const THREADS: usize = 4;
++
++fn rayleigh(rng: &mut Rng, s: f64, cap: f64) -> f64 {
++    let u = rng.f64();
++    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
++}
++
++fn pct_f(v: &mut Vec<f64>, q: f64) -> f64 {
++    if v.is_empty() { return 0.0; }
++    v.sort_by(|a, b| a.total_cmp(b));
++    v[((q * (v.len() - 1) as f64).round() as usize).min(v.len() - 1)]
++}
++
++fn pct_u(v: &mut Vec<u64>, q: f64) -> u64 {
++    if v.is_empty() { return 0; }
++    v.sort_unstable();
++    v[((q * (v.len() - 1) as f64).round() as usize).min(v.len() - 1)]
++}
++
++/// Tiny JSON object builder (no brace escaping anywhere else).
++fn jobj(kv: &[(&str, String)]) -> String {
++    let inner: Vec<String> = kv.iter().map(|(k, v)| format!("\"{}\":{}", k, v)).collect();
++    format!("{{{}}}", inner.join(","))
++}
++
++/// Fleet: near-identical a, Rayleigh e (sigma_e, cap 4 sigma), apsides within pom_half of a
++/// common pom0 (pom_half = PI: uniform), mean longitude uniform or bunched at sig_lam (> 0).
++fn fleet(nc: usize, a_hw: f64, sigma_e: f64, pom_half: f64, sig_lam: f64, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let pom0 = TAU * rng.f64();
++    let lam0 = TAU * rng.f64();
++    (0..nc)
++        .map(|_| {
++            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
++            let e = rayleigh(&mut rng, sigma_e, (4.0 * sigma_e).min(0.5));
++            let pom = pom0 + (2.0 * rng.f64() - 1.0) * pom_half;
++            let lam = if sig_lam <= 0.0 {
++                TAU * rng.f64()
++            } else {
++                let (u1, u2) = (rng.f64(), rng.f64());
++                lam0 + sig_lam * (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos()
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++#[inline]
++fn lam_mean(b: &Body, t: f64) -> f64 {
++    (b.mean_anomaly(t) + b.pom).rem_euclid(TAU)
++}
++
++#[inline]
++fn circ_d(a: f64, b: f64) -> f64 {
++    let d = (a - b).abs().rem_euclid(TAU);
++    d.min(TAU - d)
++}
++
++fn pos(b: &Body, t: f64) -> [f64; 2] {
++    let st = b.state_at_mean(b.mean_anomaly(t));
++    [st[0], st[1]]
++}
++
++/// Rank of `other` among the anchors' scalars: bodies strictly closer than `other`.
++fn rank_of(vals: &[(f64, usize)], other: usize) -> u64 {
++    let dj = vals.iter().find(|x| x.1 == other).map(|x| x.0).unwrap_or(f64::INFINITY);
++    vals.iter().filter(|x| x.1 != other && x.0 < dj).count() as u64
++}
++
++/// True-longitude binned brute over [0, t_end]: per-pair minimum distance when below 1.5 RHO.
++fn brute(bodies: &[Body], t_end: f64) -> HashMap<(u32, u32), (f64, f64)> {
++    let dt = 2e-5;
++    let steps = (t_end / dt) as usize;
++    let nb = 32768usize;
++    let binsz = TAU / nb as f64;
++    let n = bodies.len();
++    let parts = emergent_encounters::par_chunks(steps, steps / THREADS + 1, THREADS, |rng| {
++        let mut head = vec![-1i64; nb];
++        let mut nxt = vec![-1i64; n];
++        let mut pos = vec![[0.0f64; 2]; n];
++        let mut best: HashMap<(u32, u32), (f64, f64)> = HashMap::new();
++        for s in rng {
++            let t = s as f64 * dt;
++            let mut occupied: Vec<usize> = Vec::with_capacity(n);
++            for i in 0..n {
++                let st = bodies[i].state_at_mean(bodies[i].mean_anomaly(t));
++                pos[i] = [st[0], st[1]];
++                let lam = st[1].atan2(st[0]).rem_euclid(TAU);
++                let bin = ((lam / binsz) as usize).min(nb - 1);
++                if head[bin] < 0 { occupied.push(bin); }
++                nxt[i] = head[bin];
++                head[bin] = i as i64;
++            }
++            let record = |i: usize, j: usize, best: &mut HashMap<(u32, u32), (f64, f64)>| {
++                let d = (pos[i][0] - pos[j][0]).hypot(pos[i][1] - pos[j][1]);
++                if d < 1.5 * RHO {
++                    let k = if i < j { (i as u32, j as u32) } else { (j as u32, i as u32) };
++                    let e = best.entry(k).or_insert((f64::INFINITY, t));
++                    if d < e.0 { *e = (d, t); }
++                }
++            };
++            for &bin in &occupied {
++                let mut p = head[bin];
++                while p >= 0 {
++                    let mut q = nxt[p as usize];
++                    while q >= 0 { record(p as usize, q as usize, &mut best); q = nxt[q as usize]; }
++                    p = nxt[p as usize];
++                }
++                let nb2 = (bin + 1) % nb;
++                let mut p = head[bin];
++                while p >= 0 {
++                    let mut q = head[nb2];
++                    while q >= 0 { record(p as usize, q as usize, &mut best); q = nxt[q as usize]; }
++                    p = nxt[p as usize];
++                }
++            }
++            for &bin in &occupied { head[bin] = -1; }
++        }
++        best
++    });
++    let mut merged: HashMap<(u32, u32), (f64, f64)> = HashMap::new();
++    for p in parts {
++        for (k, v) in p {
++            merged.entry(k).and_modify(|e| { if v.0 < e.0 { *e = v; } }).or_insert(v);
++        }
++    }
++    merged
++}
++
++#[derive(Default)]
++struct RankTally {
++    dist: Vec<u64>,
++    lam_t: Vec<u64>,
++    lam_m: Vec<u64>,
++}
++
++impl RankTally {
++    fn add(&mut self, d: u64, t: u64, m: u64) {
++        self.dist.push(d);
++        self.lam_t.push(t);
++        self.lam_m.push(m);
++    }
++    fn json(&mut self) -> String {
++        let c = |v: &[u64], k: u64| v.iter().filter(|&&x| x <= k).count();
++        format!(
++            "{{\"n\":{},\"dist\":{{\"le4\":{},\"p90\":{},\"max\":{}}},\"lam_true\":{{\"le4\":{},\"p90\":{},\"max\":{}}},\"lam_mean\":{{\"le4\":{},\"le8\":{},\"le16\":{},\"p90\":{},\"max\":{}}}}}",
++            self.dist.len(),
++            c(&self.dist, 4), pct_u(&mut self.dist, 0.9), self.dist.iter().copied().max().unwrap_or(0),
++            c(&self.lam_t, 4), pct_u(&mut self.lam_t, 0.9), self.lam_t.iter().copied().max().unwrap_or(0),
++            c(&self.lam_m, 4), c(&self.lam_m, 8), c(&self.lam_m, 16), pct_u(&mut self.lam_m, 0.9), self.lam_m.iter().copied().max().unwrap_or(0)
++        )
++    }
++}
++
++/// The decisive probe: fleet with e-spread (+ optional crossers); truth over every cone pair;
++/// ranks per encounter; optional method run for misses and cost.
++#[allow(clippy::too_many_arguments)]
++fn probe(tag: &str, nc: usize, a_hw: f64, sigma_e: f64, pom_half: f64, sig_lam: f64, seed: u64, orbits: f64, method_too: bool, crossers: usize) {
++    let fl = fleet(nc, a_hw, sigma_e, pom_half, sig_lam, seed);
++    let mut b = fl.clone();
++    let mut is_crosser = vec![false; nc];
++    if crossers > 0 {
++        let mut rng = Rng(seed ^ 0xc10ff);
++        let lam0 = lam_mean(&fl[0], 0.0); // the fleet's bunch centre
++        for _ in 0..crossers {
++            let a = 1.3 + 0.5 * rng.f64();
++            let q = 1.0 + (2.0 * rng.f64() - 1.0) * 1e-3; // pericentre inside the fleet annulus
++            let e = (1.0 - q / a).min(0.5);
++            // pericentre longitude sweeps the fleet's bunch: every passage strikes the formation
++            let pom = lam0 + (2.0 * rng.f64() - 1.0) * 0.05;
++            b.push(Body::new(a, e, pom, TAU * rng.f64()));
++            is_crosser.push(true);
++        }
++    }
++    let n = b.len();
++    let h = orbits * TAU;
++    let t0 = Instant::now();
++    let cs = cone_pairs(&b, RHO);
++    let cone_us = t0.elapsed().as_micros();
++    let pairs = cs.pairs.clone();
++    let n_ff_pairs = pairs.iter().filter(|&&(i, j)| !is_crosser[i as usize] && !is_crosser[j as usize]).count();
++    let n_fx_pairs = pairs.len() - n_ff_pairs;
++
++    // Truth over every cone pair (independent solver path), chunk-parallel.
++    let t1 = Instant::now();
++    let truth_parts = emergent_encounters::par_chunks(pairs.len(), 512, THREADS, |rng| {
++        let mut tst = TruthStats::default();
++        let mut out = Vec::new();
++        let mut mine = Vec::new();
++        for pi in rng {
++            let (i, j) = pairs[pi];
++            out.clear();
++            truth_pair(&b[i as usize], &b[j as usize], RHO, h, &mut out, &mut tst);
++            if let Some(&(tm, dm)) = out.iter().min_by(|x, y| x.1.total_cmp(&y.1)) {
++                mine.push((i, j, tm, dm));
++            }
++        }
++        (mine, tst)
++    });
++    let mut truth: Vec<(u32, u32, f64, f64)> = Vec::new();
++    let mut tst = TruthStats::default();
++    for (mine, st) in truth_parts {
++        truth.extend(mine);
++        tst.add(&st);
++    }
++    let truth_us = t1.elapsed().as_micros();
++    let truth_pairs: HashSet<(u32, u32)> = truth.iter().map(|&(i, j, _, _)| (i, j)).collect();
++
++    // Brute cross-check (1 orbit): sub-rho pairs the cone set missed (expect 0).
++    let t2 = Instant::now();
++    let bru = brute(&b, h.min(TAU));
++    let brute_us = t2.elapsed().as_micros();
++    let cone_set: HashSet<(u32, u32)> = pairs.iter().copied().collect();
++    let outside_cone = bru.iter().filter(|(k, v)| v.0 < RHO && !cone_set.contains(k)).count();
++    let brute_missed = bru.iter().filter(|(k, v)| v.0 < RHO && cone_set.contains(k) && !truth_pairs.contains(k)).count();
++
++    // Method (setup + Diophantine jumps + exact checks): misses and cost.
++    let (st, meth_pairs, method_us, kinds) = if method_too {
++        let t3 = Instant::now();
++        let parts = emergent_encounters::par_chunks(pairs.len(), 512, THREADS, |rng| {
++            let mut st = Stats::default();
++            let mut kk = [0u64; 3];
++            let mut ev = 0u64;
++            let mut out = Vec::new();
++            let mut mine = HashSet::new();
++            for pi in rng {
++                let (i, j) = pairs[pi];
++                let (bi, bj) = (&b[i as usize], &b[j as usize]);
++                for sec in sections(bi, bj, RHO, SAFETY, &mut ev) {
++                    kk[sec.kind as usize] += 1;
++                }
++                out.clear();
++                pair_events(bi, bj, RHO, SAFETY, 0.0, h, &mut st, &mut out);
++                if !out.is_empty() { mine.insert((i, j)); }
++            }
++            (mine, st, kk)
++        });
++        let mut mp = HashSet::new();
++        let mut st = Stats::default();
++        let mut kk = [0u64; 3];
++        for (mine, s, k) in parts {
++            mp.extend(mine);
++            st.add(&s);
++            for i in 0..3 { kk[i] += k[i]; }
++        }
++        (st, mp, t3.elapsed().as_micros(), kk)
++    } else {
++        (Stats::default(), HashSet::new(), 0, [0u64; 3])
++    };
++    let misses = truth.iter().filter(|(i, j, _, _)| method_too && !meth_pairs.contains(&(*i, *j))).count();
++    let extras = meth_pairs.iter().filter(|p| method_too && !truth_pairs.contains(*p)).count();
++
++    // Ranks per truth encounter. fleet-fleet: both in fleet. fleet-crosser: rank of the
++    // crosser among FLEET members from the fleet member's anchor (is any clump-internal
++    // longitude train watching this encounter?).
++    let fleet_ids: Vec<usize> = (0..n).filter(|&k| !is_crosser[k]).collect();
++    let mut ff = RankTally::default();
++    let mut fx = RankTally::default();
++    let mut dmin = f64::INFINITY;
++    for &(i, j, tm, dm) in &truth {
++        dmin = dmin.min(dm);
++        let mixed = is_crosser[i as usize] || is_crosser[j as usize];
++        let me = if !is_crosser[i as usize] { i as usize } else { j as usize };
++        let other = if !is_crosser[i as usize] { j as usize } else { i as usize };
++        let pm = pos(&b[me], tm);
++        let ltm = pm[1].atan2(pm[0]).rem_euclid(TAU);
++        let lmm = lam_mean(&b[me], tm);
++        let (mut vd, mut vt, mut vm): (Vec<(f64, usize)>, Vec<(f64, usize)>, Vec<(f64, usize)>) =
++            (Vec::with_capacity(fleet_ids.len()), Vec::with_capacity(fleet_ids.len()), Vec::with_capacity(fleet_ids.len()));
++        for &k in &fleet_ids {
++            if k == me { continue; }
++            let pk = pos(&b[k], tm);
++            vd.push(((pk[0] - pm[0]).hypot(pk[1] - pm[1]), k));
++            let pt = pk[1].atan2(pk[0]).rem_euclid(TAU);
++            vt.push((circ_d(pt, ltm), k));
++            vm.push((circ_d(lam_mean(&b[k], tm), lmm), k));
++        }
++        let r = (rank_of(&vd, other), rank_of(&vt, other), rank_of(&vm, other));
++        if mixed { fx.add(r.0, r.1, r.2); } else { ff.add(r.0, r.1, r.2); }
++    }
++
++    println!(
++        "{{\"probe\":\"{}\",\"nc\":{},\"sigma_e\":{},\"pom_half\":{},\"sig_lam\":{},\"crossers\":{},\"orbits\":{},\"d_min\":{:.2e},\"cone\":{{\"pairs\":{},\"ff\":{},\"fx\":{},\"scanned\":{},\"us\":{}}},\"truth\":{{\"encounters\":{},\"evals\":{},\"us\":{}}},\"brute\":{{\"pairs_1p5rho\":{},\"outside_cone\":{},\"subrho_not_in_truth\":{},\"us\":{}}},\"method\":{{\"on\":{},\"kinds\":{{\"cross\":{},\"wide\":{},\"full\":{}}},\"evals\":{},\"checks\":{},\"hits\":{},\"missed\":{},\"extra\":{},\"us\":{}}},\"ranks_ff\":{},\"ranks_fx\":{}",
++        tag, nc, sigma_e, pom_half, sig_lam, crossers, orbits, dmin,
++        pairs.len(), n_ff_pairs, n_fx_pairs, cs.scanned, cone_us,
++        truth.len(), tst.evals, truth_us,
++        bru.len(), outside_cone, brute_missed, brute_us,
++        method_too, kinds[0], kinds[1], kinds[2], st.evals, st.checks_total(), st.hits_total(), misses, extras, method_us,
++        ff.json(), fx.json()
++    );
++}
++
++/// The train's dimensionless trigger: pairwise Binet distance / eps_u (3-D and U-only).
++fn trigger(nc: usize, sigma_e: f64, pom_half: f64) {
++    let fl = fleet(nc, 1e-5, sigma_e, pom_half, 0.0, 33);
++    let mut r3 = Vec::new();
++    let mut ru = Vec::new();
++    for i in 0..fl.len() {
++        for j in (i + 1)..fl.len() {
++            let (a, b) = (fl[i].binet(), fl[j].binet());
++            let d3 = ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt();
++            let du = (a[0] - b[0]).abs();
++            let eps = eps_u(&fl[i], &fl[j], RHO);
++            r3.push(d3 / eps);
++            ru.push(du / eps);
++        }
++    }
++    let j = jobj(&[
++        ("nc", nc.to_string()),
++        ("sigma_e", sigma_e.to_string()),
++        ("binet3_over_eps", jobj(&[
++            ("p50", format!("{:.2}", pct_f(&mut r3, 0.5))),
++            ("p90", format!("{:.2}", pct_f(&mut r3, 0.9))),
++            ("max", format!("{:.2}", pct_f(&mut r3, 1.0))),
++        ])),
++        ("dU_over_eps", jobj(&[
++            ("p50", format!("{:.3}", pct_f(&mut ru, 0.5))),
++            ("max", format!("{:.3}", pct_f(&mut ru, 1.0))),
++        ])),
++    ]);
++    println!("{{\"trigger\":{}}}", j);
++}
++
++/// Pairwise economics under e-spread: cone fraction of nc(n-1)/2 and per-pair setup (sampled).
++fn econ(nc: usize, sigma_e: f64, pom_half: f64) {
++    let fl = fleet(nc, 1e-5, sigma_e, pom_half, 0.0, 44);
++    let cs = cone_pairs(&fl, RHO);
++    let frac = cs.pairs.len() as f64 / (nc * (nc - 1) / 2) as f64;
++    let sample: Vec<(u32, u32)> = cs.pairs.iter().step_by((cs.pairs.len() / 2000).max(1)).copied().collect();
++    let mut per_pair = Vec::new();
++    let mut kk = [0u64; 3];
++    let t0 = Instant::now();
++    for &(i, j) in &sample {
++        let mut e = 0u64;
++        for sec in sections(&fl[i as usize], &fl[j as usize], RHO, SAFETY, &mut e) {
++            kk[sec.kind as usize] += 1;
++        }
++        per_pair.push(e);
++    }
++    let us = t0.elapsed().as_micros();
++    let p50 = pct_u(&mut per_pair, 0.5);
++    let m1e6 = 1e6f64 * 5e5; // n(n-1)/2 at n = 1e6
++    let j = jobj(&[
++        ("nc", nc.to_string()),
++        ("sigma_e", sigma_e.to_string()),
++        ("cone_pairs", cs.pairs.len().to_string()),
++        ("frac_of_nc2", format!("{:.4}", frac)),
++        ("setup_per_pair", jobj(&[
++            ("p50", p50.to_string()),
++            ("p90", pct_u(&mut per_pair, 0.9).to_string()),
++        ])),
++        ("kinds", jobj(&[
++            ("cross", kk[0].to_string()),
++            ("wide", kk[1].to_string()),
++            ("full", kk[2].to_string()),
++        ])),
++        ("sample_us", us.to_string()),
++        ("at_1e6", jobj(&[
++            ("pairs", format!("{:.2e}", m1e6)),
++            ("setup_evals", format!("{:.2e}", m1e6 * p50 as f64)),
++            ("sections_MB", format!("{:.2e}", m1e6 * 1.5 * 72.0 / 1e6)),
++        ])),
++    ]);
++    println!("{{\"econ\":{}}}", j);
++}
++
++fn main() {
++    let cmd = std::env::args().nth(1).unwrap_or_default();
++    match cmd.as_str() {
++        "base" => probe("base-gold-fleet", 200, 1e-5, 0.001, 0.1, 0.01, 27, 1.0, true, 0),
++        "e003" => probe("espread-0.003", 200, 1e-5, 0.003, 0.1, 0.01, 27, 1.0, true, 0),
++        "e010" => probe("espread-0.01", 200, 1e-5, 0.01, 0.1, 0.01, 27, 1.0, true, 0),
++        "e030" => probe("espread-0.03", 200, 1e-5, 0.03, 0.1, 0.01, 27, 1.0, true, 0),
++        "slope" => probe("espread-0.03-nc800", 800, 1e-5, 0.03, 0.1, 0.01, 28, 1.0, false, 0),
++        "cross" => probe("fleet-crossers", 200, 1e-5, 0.001, 0.1, 0.01, 29, 2.0, true, 40),
++        "trigger" => for s in [0.001, 0.003, 0.01, 0.03] { trigger(400, s, 0.1); },
++        "econ" => for s in [0.001, 0.003, 0.01, 0.03] { econ(400, s, 0.1); },
++        _ => eprintln!("usage: invert base|e003|e010|e030|slope|cross|trigger|econ"),
++    }
++}

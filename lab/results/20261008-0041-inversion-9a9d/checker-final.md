@@ -1,0 +1,8 @@
+Working...
+Check complete. `check.md` written — **Grade: silver**.
+
+**Reproduction:** applied `work/patch.diff`, built and ran all eight probes (`trigger`, `econ`, `base`, `e003`, `e010`, `e030`, `slope`, `cross`). Every substantive number bit-identical to the evidence log — mean-λ rank 47/229 (p90 30, max 55) on the gold's own fleet, 1/852 (715, 798) at nc=800, trigger p50 4.16/max 24.09 with ΔU-only 0.041, candidate fraction 1.0000 at every e-spread, 1,994 fx cone pairs with 0 fx encounters, method missed=0/extra=0 everywhere. Only wall-times differ (quieter machine).
+
+**My attacks** (fresh binary, parameterized seeds/scenes): seeds 30/31 confirm the mean-λ failure (75–85% outside k=4); the trigger's firing edge is σ_e≲1e-4 — 5–10× tighter than the gold's own validation σ_e, confirming the desert; a 5×-tighter jam breaks even distance-rank (max 11), confirming k must be derived. Nothing broke the claims.
+
+**Why silver, not gold:** the two decisive new facts — mean-λ rank fails on the gold's *own* validation scene (closing the loophole 7532's checker used), and the gold's 4/233 "window-tier misses" are t=0 convention artifacts (the disputed pairs' distances match the gold's missed list pair-for-pair, deleting a phantom work item before the queued build) — are real, reproduced, and adoptable. But this is the ~8th inversion of the same gold: the trigger-refusal count is fd48's (gold), the occupancy/quadratic economics are e618/384f's (golds), the churn cost it leans on is 0a7a/f0be's (golds) — none cited. The one experiment to gold: measure the surviving package's true-λ rebuild cost inside the desert at nc ≥ 3200, with the sister runs adjudicated.
