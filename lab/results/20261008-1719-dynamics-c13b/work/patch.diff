@@ -1,0 +1,55 @@
+diff --git a/xtask/src/behave/handoff.rs b/xtask/src/behave/handoff.rs
+index fcc2686..4e67bd6 100644
+--- a/xtask/src/behave/handoff.rs
++++ b/xtask/src/behave/handoff.rs
+@@ -428,4 +428,50 @@ mod tests {
+         assert_eq!(median(vec![f64::NAN, f64::NAN, 1.0]), f64::INFINITY);
+         assert_eq!(median(vec![]), f64::INFINITY);
+     }
++
++    /// Lab run 20261008-1719-dynamics-c13b: the signed Jacobi error series X(t) and the state of
++    /// every judged ship for the B12 control laws (echo, two bounded scalings, planted-bounded,
++    /// planted-compound, planted-drift) and three slow leaks (1e-12, 1e-13, 3e-14 per planet
++    /// period), one CSV per law and ship (t, X, E, L, x, y, vx, vy) in $B12_DUMP_DIR, plus a
++    /// scene.json. Not a gate: the statistics are derived and judged outside (the analysis must
++    /// not live in the judged crate).
++    #[test]
++    #[ignore = "lab dump (20261008-1719-dynamics-c13b); writes CSVs to $B12_DUMP_DIR"]
++    fn b12_series_dump() {
++        let dir = std::env::var("B12_DUMP_DIR").expect("B12_DUMP_DIR");
++        std::fs::create_dir_all(&dir).unwrap();
++        let (scene, times) = (JUPITER, coarse_times(&JUPITER));
++        let leak = |rate: f64| {
++            events(move |scene, ship, times| {
++                let s = Echo.restricted(scene, ship, times)?;
++                Some(s.iter().zip(times).map(|(st, &t)| [st[0], st[1], st[2] * (1.0 + rate * t / scene.period()), st[3] * (1.0 + rate * t / scene.period())]).collect())
++            })
++        };
++        let rows: Vec<(&str, Box<dyn Law>)> = vec![
++            ("echo", Box::new(Echo)),
++            ("scaled3e-13", Box::new(scaled(3e-13))),
++            ("scaled1e-11", Box::new(scaled(1e-11))),
++            ("bounded", Box::new(Planted(Fault::Bounded))),
++            ("compound", Box::new(Planted(Fault::Compound))),
++            ("drift", Box::new(Planted(Fault::Drift))),
++            ("leak1e-12", Box::new(leak(1e-12))),
++            ("leak1e-13", Box::new(leak(1e-13))),
++            ("leak3e-14", Box::new(leak(3e-14))),
++        ];
++        let ships: Vec<(usize, [f64; 4])> = kept().iter().enumerate().filter(|(_, k)| k.judged(&scene)).map(|(i, k)| (i, k.ship)).collect();
++        std::fs::write(format!("{dir}/scene.json"), format!("{{\"mu\":{},\"sep\":{},\"planet_radius\":{},\"period\":{},\"hill\":{},\"soi\":{},\"ships\":{}}}\n", scene.mu, scene.sep, scene.planet_radius, scene.period(), scene.hill(), scene.soi(), ships.iter().map(|s| s.0.to_string()).collect::<Vec<_>>().join(","))).unwrap();
++        for (name, law) in rows {
++            for &(i, ship) in &ships {
++                let c0 = scene.jacobi(0.0, &ship);
++                let states = law.restricted(&scene, ship, &times).expect("law answers");
++                let mut out = String::from("t,X,E,L,x,y,vx,vy\n");
++                for (&t, s) in times.iter().zip(&states) {
++                    let (e, l) = scene.heliocentric(t, s);
++                    out.push_str(&format!("{}\n", [t, (scene.jacobi(t, s) - c0) / c0, e, l, s[0], s[1], s[2], s[3]].iter().map(|v| format!("{v:e}")).collect::<Vec<_>>().join(",")));
++                }
++                std::fs::write(format!("{dir}/{name}-{i:02}.csv"), out).unwrap();
++            }
++            println!("dumped {name}");
++        }
++    }
+ }
