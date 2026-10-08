@@ -1,0 +1,123 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..7e46731 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -106,6 +106,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     }
+     let wall = Instant::now();
+     let mut last = Instant::now();
++    // How much of the Seen list a frame re-sends unchanged: the readout's output width as the page
++    // could see it (exact bytes, and after rounding every float to a display quantum of 4 digits).
++    let (mut prev, mut tot, mut same_exact, mut same_quant) = (None::<Vec<serde_json::Value>>, 0u64, 0u64, 0u64);
+     for n in 1..=frames {
+         if paced {
+             let due = Duration::from_secs_f64(n as f64 / 60.0);
+@@ -115,7 +118,44 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         }
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+-        s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        let (frame, _) = s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        if let Some(seen) = frame.get("seen").and_then(|v| v.as_array()) {
++            let quant = |v: &serde_json::Value| -> String {
++                let mut s = serde_json::to_string(v).unwrap_or_default();
++                if let Ok(mut f) = serde_json::from_str::<serde_json::Value>(&s) {
++                    if let Some(obj) = f.as_object_mut() {
++                        for (_k, val) in obj.iter_mut() {
++                            if let Some(x) = val.as_f64() {
++                                *val = serde_json::json!(format!("{x:.2e}"));
++                            } else if let Some(a) = val.as_array_mut() {
++                                for e in a.iter_mut() {
++                                    if let Some(x) = e.as_f64() {
++                                        *e = serde_json::json!(format!("{x:.2e}"));
++                                    }
++                                }
++                            }
++                        }
++                    }
++                    s = serde_json::to_string(&f).unwrap_or(s);
++                }
++                s
++            };
++            let cur: Vec<serde_json::Value> = seen.clone();
++            if let Some(p) = prev.as_ref() {
++                let n = cur.len().min(p.len());
++                tot += n as u64;
++                for i in 0..n {
++                    let (a, b) = (serde_json::to_string(&cur[i]).unwrap_or_default(), serde_json::to_string(&p[i]).unwrap_or_default());
++                    if a == b {
++                        same_exact += 1;
++                    }
++                    if quant(&cur[i]) == quant(&p[i]) {
++                        same_quant += 1;
++                    }
++                }
++            }
++            prev = Some(cur);
++        }
+     }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+@@ -132,6 +172,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
++        "view_readouts_per_frame": s.view_readouts_per_frame(d.frames as u64), "view_seen_max": s.seen_max(),
++        "seen_pair_frames": {"compared": tot, "identical_exact": same_exact, "identical_quantized_4d": same_quant,
++            "note": "entries equal to the previous frame's entry at the same index: exact bytes, and after rounding every float to 4 decimals (a display quantum)"},
+         "frame_ms": {"p50": d.p50, "p95": d.p95, "p99": d.p99, "p99.9": d.p999},
+         "frame_cpu_ms": {"p50": d.cpu.0, "p99": d.cpu.1, "p99.9": d.cpu.2, "worst": d.cpu.3, "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed", "hitch_counts": d.cpu_hitch_counts},
+         "hitches_per_gameplay_hour": {"above_16.7ms": d.hitches_per_hour[0], "above_33ms": d.hitches_per_hour[1], "above_50ms": d.hitches_per_hour[2]},
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..a9b2934 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -34,13 +34,17 @@ pub struct Session {
+     members: u64,
+     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+     cache: ViewCache,
++    /// Tube readouts the view has done, summed over frames (the gather's fundamental work unit).
++    readouts_total: u64,
++    /// The largest Seen list a frame gathered (the readout's output width).
++    seen_max: u64,
+ }
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), readouts_total: 0, seen_max: 0 })
+     }
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+@@ -65,10 +69,20 @@ impl Session {
+     pub fn lost_bodies(&self) -> Vec<String> {
+         (0..self.p.u.n_bodies()).filter(|&i| !self.p.u.rec(i).alive).map(|i| self.names.get(i).cloned().unwrap_or_else(|| format!("{} (left its frame)", self.p.u.fleets[0].name))).collect()
+     }
++
++    /// Tube readouts per frame so far (the gather's fundamental work unit), averaged over frames.
++    pub fn view_readouts_per_frame(&self, frames: u64) -> f64 {
++        if frames > 0 { self.readouts_total as f64 / frames as f64 } else { 0.0 }
++    }
+     pub fn stats(&self) -> emergent_universe::universe::Stats {
+         self.p.u.stats
+     }
+ 
++    /// The largest Seen list a frame gathered.
++    pub fn seen_max(&self) -> u64 {
++        self.seen_max
++    }
++
+     /// One presented frame: the player's decision word when it is given (the keys and the throttle level, one byte:
+     /// [`emergent_universe::thrust::word`]; a decision, logged at the presented tick if it changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
+     /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and
+@@ -89,6 +103,8 @@ impl Session {
+                 return Err(format!("no view: the player is {} (fault {:?}, doll {}, tick {})", if r.alive { "alive but unreadable" } else { "lost" }, r.fault, r.b.doll, self.p.u.now).into());
+             }
+         };
++        self.seen_max = self.seen_max.max(view.seen.len() as u64);
++        self.readouts_total += self.cache.readouts;
+         let t2 = Instant::now();
+         let json = view_json(&view);
+         let t3 = Instant::now();

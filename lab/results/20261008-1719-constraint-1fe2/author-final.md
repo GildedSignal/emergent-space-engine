@@ -1,0 +1,4 @@
+Working...
+Run complete. Dossier, predictions, six evidence JSONs, and an instrumentation-only patch (61 lines, two xtask files, no measured path touched) are in `lab/results/20261008-1719-constraint-1fe2/`.
+
+**The claim:** On the plane as it flies today the frame's constraint is the readout pipeline — gather + JSON + wire holds 71–95% of frame CPU at every measured corner (members 48–400 × rtf 1–100) while the engine holds 5–32% — so the board's engine-first queue optimizes the minority share, and the cheapest proposed fix for that constraint (delta-serializing the Seen list) is dead by measurement, since 86–87% of entries change every frame even at a 3-significant-digit display quantum, leaving *fewer* Seen (a display-quantum visibility gate, "the zoom level is the minimap") as the lever.
