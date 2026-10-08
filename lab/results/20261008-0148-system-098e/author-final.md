@@ -1,0 +1,4 @@
+Working...
+**Claim:** the queued news-gravity cursor per (body, source) is a repair of the never-built cell layer — one structure, per-cell version rings read at a static integer lag table (lag = max cell-pair distance / c, the ring lattice's own light cone), carries gravity-at-c, multipoles and causality certificates together, is never early, and its quantization error is bounded at ≤ 3.4 source-cell light-crossings with orbital behaviour held to 9.4×10⁻⁹ (7 of 8 held-out predictions held; the falsified one corrected relative smear ≈ 2/s into the stronger absolute bound), while deleting 21–165× the state and 83–662× the per-kick tests of the per-pair design at belt scale.
+
+Dossier, predictions, scripts and logs: `lab/results/20261008-0148-system-098e/` (reproduce with `python3 toy_news.py c30|c300|per` and `python3 smear.py`, each ≤ 60 s).
