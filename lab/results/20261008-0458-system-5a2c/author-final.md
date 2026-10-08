@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions held on program-death and cadence-invariance, failed (and reported) on twin-splitting — the failed prediction is the finding. Dossier, predictions, script, and logs are in `lab/results/20261008-0458-system-5a2c/`.
+
+**Claim:** The distinctions that decide 10⁹-in-8 GB are minted by the memo key's shear, not the grain — a belt's birth program dies within ~10² orbits (every body takes a new 12-bit key every ~50–100 orbits; dt-invariant, so no CPU cadence lever touches it), shared records split by a broad power-law shear (89 % in 541 orbits, not resonance-localized, not chaos), so the population program and the kick layer must be one mechanism — a reband loop that re-absorbs the smooth secular flow — and H_live must be defined as reband residue, or the b-h-live instrument reports a saturated, meaningless number on the first belt.
