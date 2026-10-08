@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered, exact streams from the repo's own `truth_pair`, controls clean (Poisson resamples at F=1.00±0.02), dossier written, all artifacts under `lab/results/20261008-0148-dynamics-0a3d/` (raw streams, `reproduce.sh`, analyzer, cascade model).
+
+**Claim.** The belt's encounter stream cannot avalanche — the e↔rate feedback self-regulates at every mass ratio (pumping slope −0.37…0.00) and the rate saturates at a measured ceiling of λ≈0.48 events/body/orbit — but it is not memoryless: half the events are per-pair trains locked to integer multiples of the synodic period (cold-belt Fano 2.25 vs Poisson 1.0 at 10-orbit windows, co-orbital pairs holding 28% of events), so allocator smoothness budgets need a √F multiplier, while exact-period fleets are under-dispersed (F=0.13, p99 below Poisson): concentration threatens candidate-tier setup cost, never stream timing, and no cascade gate is needed.

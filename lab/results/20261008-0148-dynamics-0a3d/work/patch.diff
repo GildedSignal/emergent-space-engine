@@ -1,0 +1,93 @@
+diff --git a/crates/encounters/examples/stream.rs b/crates/encounters/examples/stream.rs
+new file mode 100644
+index 0000000..03e99e4
+--- /dev/null
++++ b/crates/encounters/examples/stream.rs
+@@ -0,0 +1,87 @@
++//! Exact encounter event streams for stream-statistics analysis (lab run 20261008-0148).
++//! Reuses make_belt + truth_pair; pairs pre-filtered by exact radial-annuli overlap
++//! (bodies whose [rmin, rmax] annuli + rho do not intersect can never come within rho).
++//! Args: name n sigma_e rho a_lo a_hi keys orbits seed
++//! Out: header lines "# spec ..." then "# body i a e period_ticks" then "i j t d".
++
++use emergent_encounters::belt::{make_belt, Spec};
++use emergent_encounters::par_chunks;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use std::f64::consts::TAU;
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    if a.len() != 10 {
++        eprintln!("args: name n sigma_e rho a_lo a_hi keys orbits seed");
++        std::process::exit(2);
++    }
++    let spec = Spec {
++        name: a[1].clone(),
++        n: a[2].parse().unwrap(),
++        sigma_e: a[3].parse().unwrap(),
++        rho: a[4].parse().unwrap(),
++        a_lo: a[5].parse().unwrap(),
++        a_hi: a[6].parse().unwrap(),
++        keys: a[7].parse().unwrap(),
++        orbits: a[8].parse().unwrap(),
++        seed: a[9].parse().unwrap(),
++    };
++    let bodies = make_belt(&spec);
++    let t_end = spec.orbits * TAU;
++    let rho = spec.rho;
++
++    // exact prefilter: sort by rmin; pair (i,j) possible only if rmin_j <= rmax_i + rho
++    let mut order: Vec<usize> = (0..bodies.len()).collect();
++    order.sort_by(|&x, &y| bodies[x].rmin().total_cmp(&bodies[y].rmin()));
++    let mut pairs: Vec<(usize, usize)> = Vec::new();
++    for ii in 0..order.len() {
++        let i = order[ii];
++        let lim = bodies[i].rmax() + rho;
++        for jj in ii + 1..order.len() {
++            let j = order[jj];
++            if bodies[j].rmin() > lim {
++                break;
++            }
++            pairs.push((i, j));
++        }
++    }
++    eprintln!(
++        "# spec {} n {} sigma_e {} rho {} a [{},{}] keys {} orbits {} seed {} npairs {}",
++        spec.name, spec.n, spec.sigma_e, rho, spec.a_lo, spec.a_hi, spec.keys, spec.orbits, spec.seed, pairs.len()
++    );
++
++    let out: Vec<Vec<(f64, f64, usize, usize)>> = {
++        let pairs_ref = &pairs;
++        let bodies_ref = &bodies;
++        let chunks: Vec<(Vec<(f64, f64, usize, usize)>, TruthStats)> = par_chunks(pairs.len(), 64, 8, |range| {
++            let mut out = Vec::new();
++            let mut st = TruthStats::default();
++            for k in range {
++                let (i, j) = pairs_ref[k];
++                let mut ev = Vec::new();
++                truth_pair(&bodies_ref[i], &bodies_ref[j], rho, t_end, &mut ev, &mut st);
++                for (t, d) in ev {
++                    out.push((t, d, i, j));
++                }
++            }
++            (out, st)
++        });
++        let mut total = TruthStats::default();
++        let mut outs = Vec::new();
++        for (o, st) in chunks {
++            total.add(&st);
++            outs.push(o);
++        }
++        eprintln!("# stats steps {} fine {} evals {}", total.steps, total.fine, total.evals);
++        outs
++    };
++
++    let mut all: Vec<(f64, f64, usize, usize)> = out.into_iter().flatten().collect();
++    for (ii2, b) in bodies.iter().enumerate() {
++        println!("# body {} {:.12} {:.12}", ii2, b.a, b.e);
++    }
++    println!("# events {}", all.len());
++    for (t, d, i, j) in all {
++        println!("{} {} {:.12} {:.12}", i, j, t, d);
++    }
++}
