@@ -1,0 +1,13 @@
+diff --git a/lab/run.sh b/lab/run.sh
+index 450f506..449bf76 100755
+--- a/lab/run.sh
++++ b/lab/run.sh
+@@ -21,7 +21,7 @@ guard_key() {
+ launch() { mkdir -p "lab/results/$id/work"; nohup bash lab/run.sh "$@" > "lab/results/$id/run.log" 2>&1 & echo "$id"; }
+ phase() {  # phase <name> <minutes> [patch]: one GLM session on $out/<name>-prompt.md; its edits saved as work/<patch>; tree restored
+   "${GLM[@]}" --max-time="${2}m" @"$out/$1-prompt.md" > "$out/$1-final.md" 2>&1
+-  [ -z "${3:-}" ] || { git add -N . && git diff "$base" -- . ':(exclude)lab/results' > "$out/work/$3"; }
++  [ -z "${3:-}" ] || { mkdir -p "$out/work" && git add -N . && git diff "$base" -- . ':(exclude)lab/results' > "$out/work/$3"; }
+   restore
+ }
+ finish() {  # finish <grade or verdict line> [extra]: commit, push, and write DONE (LAB_PUBLISH=none: the host's clean job publishes)

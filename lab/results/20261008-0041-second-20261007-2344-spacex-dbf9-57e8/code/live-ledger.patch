@@ -1,0 +1,368 @@
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index afd46ea..12dd0fa 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -8,6 +8,7 @@ pub mod ext;
+ pub mod fleet;
+ pub mod force;
+ pub mod lorentz;
++pub mod live;
+ pub mod num;
+ pub mod observe;
+ pub mod scenario;
+diff --git a/crates/universe/src/live.rs b/crates/universe/src/live.rs
+new file mode 100644
+index 0000000..34e7d63
+--- /dev/null
++++ b/crates/universe/src/live.rs
+@@ -0,0 +1,196 @@
++//! H_live: the live distinguishing information the universe gains per unit of simulated time
++//! (docs/plane.md, "Measured on the whole"). This, not the body count, decides whether a billion
++//! bodies fit: bodies are stored as generators (tubes), and a body only costs live memory for the
++//! distinctions it has accumulated off its birth generator.
++//!
++//! **The measure is a storage bound, exact and integer.** A body's canonical state is its binding;
++//! its birth binding is the program it was launched on. The live bits of a body are the bits of a
++//! minimal delta encoding of its current binding against its birth binding, field by field:
++//!
++//! - the memo key (quantized E and L): `1 + 32` bits when it moved (the law's own key width,
++//!   docs/law.md "Populations");
++//! - the periapsis angle: `1 + bitlen(min(|Δ|, 2³²−|Δ|))` when it moved (a Q32 turn: the delta is
++//!   circular);
++//! - the periapsis time: `1 + bitlen(|Δ|)` when it moved.
++//!
++//! Every rebind is charged once, as the actual old→new delta of the body it belongs to (the 5 Oct
++//! lesson: distinct events, never re-timed ones). **Created** is the positive part of the change of
++//! a body's live bits, **reabsorbed** the negative part (a body whose bits reach zero sits again on
++//! its birth generator: its scar is deletable). A doll change is a re-expression, not a physical
++//! distinction: the ledger is carried across it (the accumulated bits stay), the new birth anchor is
++//! the re-expressed binding, and the event charges the one flag bit that says "re-expressed".
++//!
++//! The channels: kicks (physical), handoffs (representation), decisions (the player, the only
++//! wildcard: a decision word costs its 8 bits when it *changes*), other (opens and boundaries).
++//! Fleet battles (frame members, not tubes) and sub-quantum residuals (re-derived at every rebind,
++//! bounded) are outside this ledger: see the dossier for the gap.
++//!
++//! Nothing here feeds an outcome: the ledger is a pure read at the point a record is applied, so
++//! digests are unchanged.
++use crate::bind::Binding;
++use emergent_space::orbit::OrbitKey;
++use emergent_space::orbit::Scalar;
++
++pub const KICK: usize = 0;
++pub const HANDOFF: usize = 1;
++pub const DECISION: usize = 2;
++pub const OTHER: usize = 3;
++
++/// The compared fields of one binding.
++#[derive(Clone, Copy, PartialEq, Eq, Debug)]
++struct Fields {
++    doll: u16,
++    key: OrbitKey,
++    angle: u32,
++    time: i64,
++}
++
++impl Default for Fields {
++    fn default() -> Self {
++        Self { doll: 0, key: OrbitKey { periapsis: Scalar::ZERO, k: 1, null: false }, angle: 0, time: 0 }
++    }
++}
++
++impl Fields {
++    fn of(b: &Binding) -> Self {
++        Self {
++            doll: b.doll,
++            key: b.entry.trajectory.key(),
++            angle: b.tube.periapsis_angle,
++            time: b.tube.periapsis_time.get() as i64,
++        }
++    }
++}
++
++/// The bits of a minimal delta encoding of `f` given `g` (same doll; see the module doc).
++fn enc(f: &Fields, g: &Fields) -> u64 {
++    let mut bits = 0u64;
++    if f.key != g.key {
++        bits += 1 + 32;
++    }
++    if f.angle != g.angle {
++        let d = f.angle.wrapping_sub(g.angle).min(g.angle.wrapping_sub(f.angle));
++        bits += 1 + u32::BITS as u64 - d.leading_zeros() as u64;
++    }
++    if f.time != g.time {
++        bits += 1 + (f.time.wrapping_sub(g.time).unsigned_abs() as u64).ilog2() as u64 + 1;
++    }
++    bits
++}
++
++/// One body's ledger entry.
++#[derive(Clone, Copy, Default)]
++struct Body {
++    present: bool,
++    birth: Fields,
++    last: Fields,
++    live: u64,
++}
++
++/// The universe's H_live ledger. All counters are exact integers.
++#[derive(Default)]
++pub struct Live {
++    bodies: Vec<Body>,
++    /// Created and reabsorbed bits, per channel.
++    pub created: [u64; 4],
++    pub reabsorbed: [u64; 4],
++    /// Σ live bits over bodies (bodies at their birth generator contribute zero).
++    pub live_now: u64,
++    /// Rebinds seen (an apply of a body record), and kick rebinds whose tube fields did not move
++    /// at all (the kick was swallowed by the tube's own resolution).
++    pub rebinds: u64,
++    pub swallowed: u64,
++    /// Decision words seen and distinct (the wildcard's own bits: 8 per distinct word).
++    pub words: u64,
++    pub words_distinct: u64,
++    last_word: Option<u8>,
++}
++
++impl Live {
++    /// Charge one applied record against body `i`'s ledger. `ch` is the channel.
++    pub fn note(&mut self, i: usize, ch: usize, b: &Binding) {
++        let f = Fields::of(b);
++        if i >= self.bodies.len() {
++            self.bodies.resize(i + 1, Body::default());
++        }
++        let body = &mut self.bodies[i];
++        if !body.present {
++            body.present = true;
++            body.birth = f;
++            body.last = f;
++            return;
++        }
++        self.rebinds += 1;
++        if ch == KICK && f.key == body.last.key && f.angle == body.last.angle && f.time == body.last.time {
++            self.swallowed += 1;
++        }
++        let before = body.live;
++        let after = if f.doll != body.last.doll {
++            // A re-expression: the physical ledger carries (one flag bit), the anchor is new.
++            body.birth = f;
++            body.live + 1
++        } else {
++            enc(&f, &body.birth)
++        };
++        if after > before {
++            self.created[ch] += after - before;
++        } else {
++            self.reabsorbed[ch] += before - after;
++        }
++        self.live_now = (self.live_now as i128 + after as i128 - before as i128) as u64;
++        body.live = after;
++        body.last = f;
++    }
++
++    /// A decision word: the player's own bits (8 when the word changes, none when it repeats).
++    pub fn decision(&mut self, word: u8) {
++        self.words += 1;
++        if self.last_word != Some(word) {
++            self.words_distinct += 1;
++            self.created[DECISION] += 8;
++            self.live_now += 8;
++        }
++        self.last_word = Some(word);
++    }
++
++    /// Bodies tracked, and how many sit exactly on their birth generator (scar deletable).
++    pub fn tracked(&self) -> (u64, u64) {
++        let (mut n, mut zero) = (0u64, 0u64);
++        for b in &self.bodies {
++            if b.present {
++                n += 1;
++                zero += (b.live == 0) as u64;
++            }
++        }
++        (n, zero)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn key(k: i64) -> OrbitKey {
++        OrbitKey { periapsis: Scalar::integer(k), k: 1 << 47, null: false }
++    }
++
++    fn f(doll: u16, k: i64, angle: u32, time: i64) -> Fields {
++        Fields { doll, key: key(k), angle, time }
++    }
++
++    #[test]
++    fn enc_is_zero_on_the_generator_and_grows_with_the_delta() {
++        let g = f(0, 10, 100, 1000);
++        assert_eq!(enc(&g, &g), 0);
++        assert_eq!(enc(&f(0, 11, 100, 1000), &g), 33, "a moved key is the flag plus the law's 32-bit key width");
++        assert_eq!(enc(&f(0, 10, 101, 1000), &g), 2, "an angle delta of 1 costs a flag and one bit");
++        assert!(enc(&f(0, 10, 100, 2000), &g) > enc(&f(0, 10, 100, 1001), &g));
++        assert_eq!(enc(&f(0, 11, 200, 1), &g), enc(&f(0, 11, 100, 1000), &g) + enc(&f(0, 10, 200, 1), &g));
++    }
++
++    #[test]
++    fn the_circular_angle_takes_the_short_way_round() {
++        let g = f(0, 10, 1, 0);
++        assert_eq!(enc(&f(0, 10, u32::MAX, 0), &g), 3, "2³²−1 turns is 1 step the other way: a flag and two bits");
++    }
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..a848f5a 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -146,6 +146,8 @@ pub struct Universe {
+     /// Cached positions in root units (for deadlines only; never an outcome).
+     pos: Vec<[f64; 2]>,
+     pub stats: Stats,
++    /// The H_live ledger (docs/plane.md): pure counters, never an outcome.
++    pub live: crate::live::Live,
+     pub inputs: Vec<(Tick, u8)>,
+     /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
+     /// each is an item of the queue (the front one has the next body id), made when the budget gets to it.
+@@ -196,6 +198,7 @@ impl Universe {
+             observer: [0.0; 2],
+             pos: Vec::new(),
+             stats: Stats::default(),
++            live: crate::live::Live::default(),
+             inputs: Vec::new(),
+             handouts: VecDeque::new(),
+             pending: VecDeque::new(),
+@@ -525,6 +528,12 @@ impl Universe {
+             Resolved::Lost => self.stats.lost += 1,
+             Resolved::Refused => self.stats.refused += 1,
+         }
++        let ch = match upd.kind {
++            Resolved::Kick => crate::live::KICK,
++            Resolved::Handoff => crate::live::HANDOFF,
++            _ => crate::live::OTHER,
++        };
++        self.live.note(i, ch, &upd.rec.b);
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
+@@ -909,6 +918,7 @@ impl Universe {
+         let rec = self.bodies.rec(p);
+         let upd = step::decide(&self.ctx(), p, rec, t, keys);
+         self.apply(p, upd);
++        self.live.decision(keys);
+         self.stats.decisions += 1;
+         self.inputs.push((t, keys));
+         self.requeue(p);
+diff --git a/crates/universe/tests/h_live.rs b/crates/universe/tests/h_live.rs
+new file mode 100644
+index 0000000..31a3ac0
+--- /dev/null
++++ b/crates/universe/tests/h_live.rs
+@@ -0,0 +1,67 @@
++//! The H_live ledger (docs/plane.md, "Distinctions created per game-second"): an exact integer
++//! account of the live distinguishing information, and a function of the canonical event stream
++//! alone (never of the budget or the threads). Every test finishes within 60 s.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::{Budget, Config};
++
++const MEMBERS: u64 = 24;
++const HORIZON: i64 = 400_000_000; // about 33 minutes of game time
++const INPUTS: [(i64, u8); 4] = [(50_000_000, 1), (52_000_000, 0), (300_000_000, 9), (302_000_000, 0)];
++
++fn run(budget: Budget, step: i64) -> (emergent_universe::universe::Universe, String) {
++    let mut p = plane(Config::default(), 7, Order::Sparse, 1, MEMBERS).unwrap();
++    let mut next = 0;
++    while p.u.now < HORIZON {
++        let mut target = (p.u.now + step).min(HORIZON);
++        if let Some(&(t, _)) = INPUTS.get(next) {
++            target = target.min(t.max(p.u.now + 1));
++        }
++        let a = p.u.advance(target, budget);
++        p.u.now = a.horizon.max(p.u.now);
++        if let Some(&(t, keys)) = INPUTS.get(next) {
++            if p.u.now >= t {
++                p.u.input(t, keys).unwrap();
++                next += 1;
++            }
++        }
++        if a.events == 0 && a.overflow {
++            p.u.settle(target);
++        }
++    }
++    p.u.settle(HORIZON);
++    let d = p.u.digest();
++    (p.u, d)
++}
++
++#[test]
++fn the_ledger_balances_exactly_and_sees_the_stream() {
++    let (u, _) = run(Budget::unlimited(), 20_000_000);
++    let created: u64 = u.live.created.iter().sum();
++    let reabsorbed: u64 = u.live.reabsorbed.iter().sum();
++    assert!(u.live.rebinds > 0, "the ledger must see rebinds");
++    assert!(created > 0, "the ledger must see distinctions created");
++    assert_eq!(
++        created - reabsorbed,
++        u.live.live_now,
++        "created minus reabsorbed is exactly the live bits now (the ledger balances)"
++    );
++    let (tracked, on_generator) = u.live.tracked();
++    assert!(tracked > 0 && tracked <= u.n_bodies() as u64);
++    assert!(on_generator <= tracked);
++    println!(
++        "rebinds {}, swallowed {}, created {created}, reabsorbed {reabsorbed}, live {}, tracked {tracked} (on generator {on_generator})",
++        u.live.rebinds, u.live.swallowed, u.live.live_now
++    );
++}
++
++#[test]
++fn the_ledger_is_a_function_of_the_canonical_stream() {
++    let reference = run(Budget::unlimited(), 20_000_000);
++    let budgeted = run(Budget::events(37), 3_000_000);
++    assert_eq!(reference.1, budgeted.1, "one input log, one seed, one cut: one digest");
++    assert_eq!(reference.0.live.live_now, budgeted.0.live.live_now);
++    assert_eq!(reference.0.live.created, budgeted.0.live.created);
++    assert_eq!(reference.0.live.reabsorbed, budgeted.0.live.reabsorbed);
++    assert_eq!(reference.0.live.swallowed, budgeted.0.live.swallowed);
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..11d9216 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -140,6 +140,20 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "where_the_time_goes_ms": {"engine": {"p50": d.parts[0].0, "p99": d.parts[0].1, "max": d.parts[0].3, "share": d.parts[0].2}, "view_gather": {"p50": d.parts[1].0, "p99": d.parts[1].1, "max": d.parts[1].3, "share": d.parts[1].2}, "view_json": {"p50": d.parts[2].0, "p99": d.parts[2].1, "max": d.parts[2].3, "share": d.parts[2].2}, "wire": {"p50": d.parts[3].0, "p99": d.parts[3].1, "max": d.parts[3].3, "share": d.parts[3].2}},
+         "rtf": {"median": d.rtf_median, "lowest_1pct": d.rtf_low1, "overflow_frames": d.overflow_frames},
+         "events_per_second": d.events_per_second,
++        "h_live": {
++            "note": "the live distinguishing information (docs/plane.md): a storage bound, exact integers; per body, the minimal delta-encoding bits of its binding against its birth binding (a doll re-expression carries the ledger and charges one flag bit); the player's decision words add 8 bits when the word changes. Fleet battles (frame members, not tubes) are outside it.",
++            "game_seconds": cut as f64 * emergent_universe::view::TICK_SECONDS,
++            "created_bits": s.p.u.live.created.iter().sum::<u64>(),
++            "reabsorbed_bits": s.p.u.live.reabsorbed.iter().sum::<u64>(),
++            "live_bits_now": s.p.u.live.live_now,
++            "created_bits_per_game_second": s.p.u.live.created.iter().sum::<u64>() as f64 / (cut as f64 * emergent_universe::view::TICK_SECONDS),
++            "net_bits_per_game_second": s.p.u.live.live_now as f64 / (cut as f64 * emergent_universe::view::TICK_SECONDS),
++            "channels_created_bits": {"kick": s.p.u.live.created[0], "handoff": s.p.u.live.created[1], "decision": s.p.u.live.created[2], "other": s.p.u.live.created[3]},
++            "channels_reabsorbed_bits": {"kick": s.p.u.live.reabsorbed[0], "handoff": s.p.u.live.reabsorbed[1], "decision": s.p.u.live.reabsorbed[2], "other": s.p.u.live.reabsorbed[3]},
++            "rebinds": s.p.u.live.rebinds, "kicks_swallowed_at_tube_resolution": s.p.u.live.swallowed,
++            "bodies_tracked": s.p.u.live.tracked().0, "bodies_on_their_birth_generator": s.p.u.live.tracked().1,
++            "decision_words": s.p.u.live.words, "decision_words_distinct": s.p.u.live.words_distinct,
++        },
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..ca141a4 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -113,7 +113,8 @@ impl Session {
+         let d = self.dash.summary();
+         json!({"frames": d.frames, "p50": d.p50, "p95": d.p95, "p99": d.p99, "p999": d.p999, "worst": d.worst_ms, "rtf_median": d.rtf_median, "rtf_low1": d.rtf_low1,
+                "hitches_per_hour": d.hitches_per_hour, "events_per_second": d.events_per_second, "overflow_frames": d.overflow_frames,
+-               "bytes_per_body": self.p.u.bytes_per_body()})
++               "bytes_per_body": self.p.u.bytes_per_body(),
++               "h_live_bits_now": self.p.u.live.live_now, "h_live_created_bits": self.p.u.live.created.iter().sum::<u64>(), "h_live_reabsorbed_bits": self.p.u.live.reabsorbed.iter().sum::<u64>(), "h_live_bodies_on_generator": self.p.u.live.tracked().1})
+     }
+ 
+     /// The canonical cut the digest is taken at: the session's cut when it has one (everything up to it is

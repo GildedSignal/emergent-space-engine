@@ -1,0 +1,334 @@
+{
+  "bodies": 76,
+  "bytes_per_body": 4901,
+  "catalogue_live": 76,
+  "cut_tick": 6090763403,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291391,
+        0
+      ],
+      [
+        808718030,
+        9
+      ],
+      [
+        876393178,
+        0
+      ],
+      [
+        1620819817,
+        2
+      ],
+      [
+        1688494966,
+        0
+      ],
+      [
+        2432921604,
+        4
+      ],
+      [
+        2500596753,
+        0
+      ],
+      [
+        3245023391,
+        1
+      ],
+      [
+        3312698540,
+        0
+      ],
+      [
+        4057125178,
+        5
+      ],
+      [
+        4124800327,
+        0
+      ],
+      [
+        4869226965,
+        2
+      ],
+      [
+        4936902114,
+        0
+      ],
+      [
+        5681328752,
+        8
+      ],
+      [
+        5749003901,
+        0
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291391,
+        0
+      ],
+      [
+        808718030,
+        9
+      ],
+      [
+        876393178,
+        0
+      ],
+      [
+        1620819817,
+        2
+      ],
+      [
+        1688494966,
+        0
+      ],
+      [
+        2432921604,
+        4
+      ],
+      [
+        2500596753,
+        0
+      ],
+      [
+        3245023391,
+        1
+      ],
+      [
+        3312698540,
+        0
+      ],
+      [
+        4057125178,
+        5
+      ],
+      [
+        4124800327,
+        0
+      ],
+      [
+        4869226965,
+        2
+      ],
+      [
+        4936902114,
+        0
+      ],
+      [
+        5681328752,
+        8
+      ],
+      [
+        5749003901,
+        0
+      ]
+    ]
+  },
+  "digest": "f0684ddbf10a4ac07c13801f9e567c64f1de347ea345b8baa309ce819c476e1c",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 10418,
+      "kind": "ship",
+      "total_ms": 735.847544,
+      "us_per_item": 70.63232328661931
+    },
+    {
+      "items": 80,
+      "kind": "player",
+      "total_ms": 32.167419,
+      "us_per_item": 402.0927375
+    },
+    {
+      "items": 3548,
+      "kind": "fleet",
+      "total_ms": 68.132551,
+      "us_per_item": 19.203086527621196
+    }
+  ],
+  "events_per_second": 476.8000000000067,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 1.6344890000000305,
+    "p99": 5.256854000000004,
+    "p99.9": 6.365008000000003,
+    "worst": 6.727331999999997
+  },
+  "frame_ms": {
+    "p50": 1.6339620000000001,
+    "p95": 3.140218,
+    "p99": 5.254614,
+    "p99.9": 6.363481
+  },
+  "frames": 1800,
+  "h_live": {
+    "bodies_on_their_birth_generator": 5,
+    "bodies_tracked": 76,
+    "channels_created_bits": {
+      "decision": 128,
+      "handoff": 0,
+      "kick": 5178,
+      "other": 4
+    },
+    "channels_reabsorbed_bits": {
+      "decision": 0,
+      "handoff": 0,
+      "kick": 317,
+      "other": 0
+    },
+    "created_bits": 5310,
+    "created_bits_per_game_second": 0.17699999998940708,
+    "decision_words": 16,
+    "decision_words_distinct": 16,
+    "game_seconds": 30000.00000179541,
+    "kicks_swallowed_at_tube_resolution": 127,
+    "live_bits_now": 4993,
+    "net_bits_per_game_second": 0.1664333333233728,
+    "note": "the live distinguishing information (docs/plane.md): a storage bound, exact integers; per body, the minimal delta-encoding bits of its binding against its birth binding (a doll re-expression carries the ledger and charges one flag bit); the player's decision words add 8 bits when the word changes. Fleet battles (frame members, not tubes) are outside it.",
+    "reabsorbed_bits": 317,
+    "rebinds": 10732
+  },
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [
+    "You",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)"
+  ],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-08T00:46:21Z",
+    "unix": 1791420381,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-08T00:46:18Z",
+    "unix": 1791420378,
+    "when": "before"
+  },
+  "paced": false,
+  "player_alive": false,
+  "presented_tick_at_end": 6079994258,
+  "rtf": {
+    "lowest_1pct": 999.9998682208727,
+    "median": 999.9998682208727,
+    "overflow_frames": 4
+  },
+  "rtf_target": 1000.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 5652, opens: 390, boundaries: 4809, handoffs: 0, lost: 31, refused: 0, slices: 3548, encounters: 84, decisions: 16, leavers: 48, dissolved: 1, cost_ns: [0, 0, 735847544, 32167419, 68132551], items: [0, 0, 10418, 80, 3548] }",
+  "throttle_level": 0,
+  "uptime_after": "00:46:21 up 41 days, 15:48,  0 user,  load average: 1.86, 1.49, 2.54",
+  "uptime_before": "00:46:18 up 41 days, 15:48,  0 user,  load average: 1.86, 1.49, 2.54",
+  "wall_seconds": 3.396036085,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 5.469650000000001,
+      "p50": 0.211544,
+      "p99": 3.803748,
+      "share": 0.2607831808351243
+    },
+    "view_gather": {
+      "max": 1.691191,
+      "p50": 1.246133,
+      "p99": 1.4786949999999999,
+      "share": 0.6724464904046238
+    },
+    "view_json": {
+      "max": 0.220327,
+      "p50": 0.08425,
+      "p99": 0.17418,
+      "share": 0.04739266474709087
+    },
+    "wire": {
+      "max": 0.088951,
+      "p50": 0.034924,
+      "p99": 0.059134,
+      "share": 0.01937766401316101
+    }
+  },
+  "worst_hitch_at_frame": 9,
+  "worst_hitch_ms": 6.726152
+}
