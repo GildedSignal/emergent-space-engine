@@ -1,0 +1,21 @@
+[P1-weak-p80] peri=50.000 apo=200.000 dL/Lsep=1.30e+00 relerr dphi=1.507e-09 T_t=9.696e-12
+[P2-strong-p12] peri=7.500 apo=30.000 dL/Lsep=7.69e-02 relerr dphi=1.628e-07 T_t=1.802e-08
+[P3-nearsep-strong-E0.97] peri=4.590 apo=25.124 dL/Lsep=1.00e-03 relerr dphi=4.912e-04 T_t=1.238e-04
+[P5-nearsep-weak-E0.999] peri=4.196 apo=992.468 dL/Lsep=1.00e-03 relerr dphi=4.575e-04 T_t=7.563e-07
+[P4-crossing-plunge] peri=4.590 apo=25.124 dL/Lsep=1.00e-03 truth: PLUNGE; linear update returned finite cycle (dphi=18.8645, T_t=585.4160) -> MISCLASSIFIED
+[scan-d3e-02] peri=6.113 apo=24.342 dL/Lsep=3.00e-02 relerr dphi=9.018e-07 T_t=1.551e-07
+[scan-d1e-02] peri=5.224 apo=24.891 dL/Lsep=1.00e-02 relerr dphi=6.803e-06 T_t=1.372e-06
+[scan-d3e-03] peri=4.788 apo=25.073 dL/Lsep=3.00e-03 relerr dphi=6.390e-05 T_t=1.469e-05
+[scan-d1e-03] peri=4.590 apo=25.124 dL/Lsep=1.00e-03 relerr dphi=4.912e-04 T_t=1.238e-04
+[scan-d3e-04] peri=4.476 apo=25.142 dL/Lsep=3.00e-04 relerr dphi=4.322e-03 T_t=1.175e-03
+
+scan (kick 1e-4 L, E=0.97): delta_L/L_sep, kick/delta -> relerr
+  3.0e-02 3.4e-03 -> dphi 9.018e-07  T_t 1.551e-07
+  1.0e-02 1.0e-02 -> dphi 6.803e-06  T_t 1.372e-06
+  3.0e-03 3.3e-02 -> dphi 6.390e-05  T_t 1.469e-05
+  1.0e-03 1.0e-01 -> dphi 4.912e-04  T_t 1.238e-04
+  3.0e-04 3.3e-01 -> dphi 4.322e-03  T_t 1.175e-03
+
+inspiral (kick -3.859e-06/step): 1% band breaks at step 29125 (delta_L/L_sep=1.2499995846554558e-06); separatrix crossing at step 29127
+
+wrote falsifier-out.json

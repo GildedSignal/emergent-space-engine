@@ -1,0 +1,20 @@
+(1) RK4-Binet p~80: quad dphi=6.533267161 T_t=9002.978983
+    rk4@400k        dphi=6.533267161 T_t=9002.984660
+    relerr dphi=3.95e-12 T_t=6.31e-07; richardson -1.69e-11 5.68e-03
+(2) weak-p80: dphi relerr=1.12e-13 T_t relerr=3.00e-13 events=True
+(2) strong-p12: dphi relerr=1.87e-13 T_t relerr=5.70e-15 events=True
+(2) nearsep-E0.97: dphi relerr=6.22e-13 T_t relerr=1.58e-13 events=True
+(3) predicate vs grid truth: 3600/3600 agree (60 margin-excluded of 3660); disagreements=0
+(4) bound-weak: predicate3=bound   integrated=bound   events=['turn(pr=0)'] r_end=200 ok=True
+(4) bound-strong: predicate3=bound   integrated=bound   events=['turn(pr=0)'] r_end=30 ok=True
+(4) bound-thin-0.999L4.2: predicate3=bound   integrated=bound   events=['turn(pr=0)'] r_end=991.6 ok=True
+(4) escape-E1.02-weakL: predicate3=escape  integrated=escape  events=['escape(r>1e4)'] r_end=1e+04 ok=True
+(4) escape-E1.005-L4.2: predicate3=escape  integrated=escape  events=['escape(r>1e4)'] r_end=1e+04 ok=True
+(4) escape-E1.5-L10: predicate3=escape  integrated=escape  events=['escape(r>1e4)'] r_end=1e+04 ok=True
+(4) escape-E1.0001-L6: predicate3=escape  integrated=escape  events=['escape(r>1e4)'] r_end=1e+04 ok=True
+(4) plunge-E0.97-belowsep: predicate3=plunge  integrated=plunge  events=['plunge(r<2.05)'] r_end=2.05 ok=True
+(4) plunge-E1.005-lowL: predicate3=plunge  integrated=plunge  events=['plunge(r<2.05)'] r_end=2.05 ok=True
+(4) plunge-E1.5-lowL: predicate3=plunge  integrated=plunge  events=['plunge(r<2.05)'] r_end=2.05 ok=True
+(4) plunge-E5-kicked: predicate3=plunge  integrated=plunge  events=['plunge(r<2.05)'] r_end=2.05 ok=True
+
+wrote validate-out.json

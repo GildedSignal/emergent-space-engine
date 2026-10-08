@@ -1,0 +1,256 @@
+{
+ "binet_rk4": {
+  "seed": "from_band(50,200), p~80, e~0.6",
+  "E": 0.9960255046159769,
+  "L": 9.13823324769908,
+  "quad": {
+   "dphi": 6.533267160898211,
+   "T_t": 9002.978983213145
+  },
+  "rk4_200k": {
+   "dphi": 6.5332671609071715,
+   "T_t": 9002.99033690157
+  },
+  "rk4_400k": {
+   "dphi": 6.533267160924025,
+   "T_t": 9002.984660057213
+  },
+  "relerr_400k": {
+   "dphi": 3.951165160467043e-12,
+   "T_t": 6.305517405664323e-07
+  },
+  "richardson_step": {
+   "dphi": -1.6853185513809876e-11,
+   "T_t": 0.005676844357367372
+  }
+ },
+ "dop853_period": {
+  "weak-p80": {
+   "E": 0.9960255046159769,
+   "L": 9.13823324769908,
+   "quad": {
+    "dphi": 6.533267160898211,
+    "T_t": 9002.978983213145
+   },
+   "integ": {
+    "dphi": 6.5332671608974815,
+    "T_t": 9002.978983215846
+   },
+   "relerr": {
+    "dphi": 1.1161253085409587e-13,
+    "T_t": 3.0003394091025017e-13
+   },
+   "events_fired": true
+  },
+  "strong-p12": {
+   "E": 0.9749960430435691,
+   "L": 4.0824829046386295,
+   "quad": {
+    "dphi": 8.953908293749086,
+    "T_t": 638.6570814362018
+   },
+   "integ": {
+    "dphi": 8.953908293750763,
+    "T_t": 638.6570814361982
+   },
+   "relerr": {
+    "dphi": 1.8727920829438277e-13,
+    "T_t": 5.696294479207346e-15
+   },
+   "events_fired": true
+  },
+  "nearsep-E0.97": {
+   "E": 0.97,
+   "L": 3.749966159972909,
+   "quad": {
+    "dphi": 15.643100644632213,
+    "T_t": 556.5789021581742
+   },
+   "integ": {
+    "dphi": 15.643100644641947,
+    "T_t": 556.5789021582623
+   },
+   "relerr": {
+    "dphi": 6.222829924228389e-13,
+    "T_t": 1.5830154339772872e-13
+   },
+   "events_fired": true
+  }
+ },
+ "predicate_sweep": {
+  "n": 3660,
+  "n_margin_excluded": 60,
+  "n_compared": 3600,
+  "n_agree": 3600,
+  "n_disagree": 0,
+  "disagreements": []
+ },
+ "integrated_orbits": [
+  {
+   "name": "bound-weak",
+   "E": 0.9960255046159769,
+   "L": 9.13823324769908,
+   "start_r": 125.00000000000112,
+   "events": [
+    "turn(pr=0)"
+   ],
+   "r_end": 200.00000000027487,
+   "tau_end": 3065.2660430727565,
+   "predicate3": "bound",
+   "observed": "bound",
+   "expect": "bound",
+   "ok": true
+  },
+  {
+   "name": "bound-strong",
+   "E": 0.9749960430435691,
+   "L": 4.0824829046386295,
+   "start_r": 18.750000000000004,
+   "events": [
+    "turn(pr=0)"
+   ],
+   "r_end": 30.000000000266375,
+   "tau_end": 194.80854374084458,
+   "predicate3": "bound",
+   "observed": "bound",
+   "expect": "bound",
+   "ok": true
+  },
+  {
+   "name": "bound-thin-0.999L4.2",
+   "E": 0.999,
+   "L": 4.2,
+   "start_r": 498.72272971828903,
+   "events": [
+    "turn(pr=0)"
+   ],
+   "r_end": 991.6192056405996,
+   "tau_end": 28599.631352561744,
+   "predicate3": "bound",
+   "observed": "bound",
+   "expect": "bound",
+   "ok": true
+  },
+  {
+   "name": "escape-E1.02-weakL",
+   "E": 1.02,
+   "L": 9.13823324769908,
+   "start_r": 25.44319802217775,
+   "events": [
+    "escape(r>1e4)"
+   ],
+   "r_end": 10000.0,
+   "tau_end": 49140.6870229918,
+   "predicate3": "escape",
+   "observed": "escape",
+   "expect": "escape",
+   "ok": true
+  },
+  {
+   "name": "escape-E1.005-L4.2",
+   "E": 1.005,
+   "L": 4.2,
+   "start_r": 5.421309490654434,
+   "events": [
+    "escape(r>1e4)"
+   ],
+   "r_end": 10000.0,
+   "tau_end": 95661.4006955245,
+   "predicate3": "escape",
+   "observed": "escape",
+   "expect": "escape",
+   "ok": true
+  },
+  {
+   "name": "escape-E1.5-L10",
+   "E": 1.5,
+   "L": 10.0,
+   "start_r": 6.751027035141626,
+   "events": [
+    "escape(r>1e4)"
+   ],
+   "r_end": 10000.0,
+   "tau_end": 8940.592243062994,
+   "predicate3": "escape",
+   "observed": "escape",
+   "expect": "escape",
+   "ok": true
+  },
+  {
+   "name": "escape-E1.0001-L6",
+   "E": 1.0001,
+   "L": 6.0,
+   "start_r": 15.69508896669877,
+   "events": [
+    "escape(r>1e4)"
+   ],
+   "r_end": 10000.0,
+   "tau_end": 377665.56828278984,
+   "predicate3": "escape",
+   "observed": "escape",
+   "expect": "escape",
+   "ok": true
+  },
+  {
+   "name": "plunge-E0.97-belowsep",
+   "E": 0.97,
+   "L": 3.7424737200928435,
+   "start_r": 22.657637115803887,
+   "events": [
+    "plunge(r<2.05)"
+   ],
+   "r_end": 2.049999999999999,
+   "tau_end": 176.99686958962704,
+   "predicate3": "plunge",
+   "observed": "plunge",
+   "expect": "plunge",
+   "ok": true
+  },
+  {
+   "name": "plunge-E1.005-lowL",
+   "E": 1.005,
+   "L": 3.996,
+   "start_r": 20.0,
+   "events": [
+    "plunge(r<2.05)"
+   ],
+   "r_end": 2.0499999999999945,
+   "tau_end": 72.034025123856,
+   "predicate3": "plunge",
+   "observed": "plunge",
+   "expect": "plunge",
+   "ok": true
+  },
+  {
+   "name": "plunge-E1.5-lowL",
+   "E": 1.5,
+   "L": 3.9,
+   "start_r": 20.0,
+   "events": [
+    "plunge(r<2.05)"
+   ],
+   "r_end": 2.0500000000000007,
+   "tau_end": 15.568627094112143,
+   "predicate3": "plunge",
+   "observed": "plunge",
+   "expect": "plunge",
+   "ok": true
+  },
+  {
+   "name": "plunge-E5-kicked",
+   "E": 0.971,
+   "L": 3.749966159972909,
+   "start_r": 23.730644534241385,
+   "events": [
+    "plunge(r<2.05)"
+   ],
+   "r_end": 2.0500000000000114,
+   "tau_end": 180.7502129918596,
+   "predicate3": "plunge",
+   "observed": "plunge",
+   "expect": "plunge",
+   "ok": true
+  }
+ ],
+ "integrated_orbits_ok": 11
+}
