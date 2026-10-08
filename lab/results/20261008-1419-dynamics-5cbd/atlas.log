@@ -1,0 +1,21 @@
+mu=1e-05 wall=61s finite=10%
+mu=0.0001 wall=38s finite=19%
+mu=0.0003 wall=53s finite=28%
+mu=0.001 wall=31s finite=44%
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261008-1419-dynamics-5cbd/runs.py", line 178, in <module>
+    do_atlas()
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261008-1419-dynamics-5cbd/runs.py", line 37, in do_atlas
+    json.dump(meta, open(os.path.join(OUT, "atlas_meta.json"), "w"), indent=1, default=float)
+  File "/usr/lib/python3.12/json/__init__.py", line 179, in dump
+    for chunk in iterable:
+  File "/usr/lib/python3.12/json/encoder.py", line 432, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/usr/lib/python3.12/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.12/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.12/json/encoder.py", line 439, in _iterencode
+    o = _default(o)
+        ^^^^^^^^^^^
+TypeError: only length-1 arrays can be converted to Python scalars

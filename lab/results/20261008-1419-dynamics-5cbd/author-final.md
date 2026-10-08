@@ -1,0 +1,4 @@
+Working...
+Run complete. Dossier, predictions (pre-registered), harness, data, and analysis scripts are all in `lab/results/20261008-1419-dynamics-5cbd/`; controls pass (exact drift, μ=0 never diverges, h²-convergent Jacobi) and every number above is regenerable by the commands in the dossier.
+
+**Claim:** In a belt under one planet the surprise-time atlas finds a sharp wall at 1 − a ≈ 1.20·μ^0.236 (leave-one-out prediction within 0.008 over two decades of μ) inside which the frozen Jacobi bar needs 16–32 kicks per orbit set by the local secular rate — not by chaos — while the chaotic annulus and the encounter class (36% of a belt reaching 0.95·a_p at μ=10⁻³) saturate the Jacobi metric on law and truth alike at any cadence ≤ 64, so surprise time does not schedule kicks in the regular belt (the hoped 4× is dead; measured 1.52×) and a Jacobi gate like B12 must classify bodies before judging them.
