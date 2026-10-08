@@ -1,0 +1,68 @@
+{
+ "claim": "P8 (the SEM energy-closure step, the one candidate that could make the Jacobi constant exact by construction in motion law v2) is killed in a faithful float replica: the closure equation has no useful root - sign-definite in the step scale, lever-starved at pericenter and in the far field - solving 0.3-7% of steps while costing 5x and worsening the B13 flyby 2.4x.",
+ "invariants_wiring": {
+  "dH_D_per_kepler_drift": "4.4e-16..6.7e-15",
+  "C_identity_2Jm2K": "4.4e-16",
+  "RK4_continuum_dC_over_0.3": "3.1e-15..7.1e-15",
+  "dJ_per_kick_plus_drift": "3.2e-13 (analytically exact: impulse parallel to x-x_p)"
+ },
+ "k_walking_diagnostic": "K walks to a steady offset ~6.9e-4 within ~10 steps (increments 1.4e-4 decaying to 3e-5) - bounded, state-function (memo section 1.7 class)",
+ "ensemble_12ships_150p_k6": {
+  "base": {
+   "unsolved": 0.0,
+   "evals_per_step": 1.0,
+   "jump_rms": 0.00312,
+   "final_maxerr_far": 0.0141
+  },
+  "kick": {
+   "unsolved": 0.964,
+   "evals_per_step": 5.0,
+   "jump_rms": 0.00646,
+   "final_maxerr_far": 0.023
+  },
+  "step_control_10p": {
+   "unsolved": 0.928
+  },
+  "step": {
+   "unsolved": 0.956,
+   "evals_per_step": 5.0,
+   "jump_rms": 0.00272,
+   "final_maxerr_far": 0.0115
+  }
+ },
+ "flyby_q25Rp_k8_vs_k12_truth": {
+  "base": {
+   "dA_over_a": 0.0142,
+   "dE": 0.00769,
+   "dOmega": 0.0222,
+   "kicks_in_RH": 24
+  },
+  "kick": {
+   "dA_over_a": 0.0338,
+   "dE": 0.027,
+   "dOmega": 0.026,
+   "kicks_in_RH": 11,
+   "unsolved": 0.997
+  },
+  "step": {
+   "dA_over_a": 0.0177,
+   "dE": 0.0215,
+   "dOmega": 0.0327,
+   "kicks_in_RH": 11,
+   "unsolved": 0.996
+  },
+  "truth_k12_kicks_in_RH": 194
+ },
+ "cost": "5 step-evaluations per step (secant, 3 iterations) vs 1.0 for plain v2 - over P7's 1.5x bar",
+ "commands": [
+  "cd lab/results/20261008-1150-scout-2c45/work",
+  "python3 v2sem.py control -k 6 --periods 10 --sem step   (~7 s)",
+  "python3 v2sem.py scan                                     (~56 s, writes flyby_omega.txt)",
+  "python3 v2sem.py flyby -k 12 --periods 6 --out fb_k12_truth.json   (~15 s)",
+  "python3 v2sem.py flyby -k 8 --periods 6 --out fb_k8_base.json      (~4 s)",
+  "python3 v2sem.py flyby -k 8 --periods 6 --sem kick --out fb_k8_kick.json  (~5 s)",
+  "python3 v2sem.py flyby -k 8 --periods 6 --sem step --out fb_k8_step.json  (~5 s)",
+  "python3 v2sem.py ensemble -k 6 --periods 150 --out ens_k6_base.json        (~2-3 min; seed 7, deterministic)",
+  "python3 v2sem.py ensemble -k 6 --periods 150 --sem kick --out ens_k6_kick.json (~3 min)"
+ ]
+}
