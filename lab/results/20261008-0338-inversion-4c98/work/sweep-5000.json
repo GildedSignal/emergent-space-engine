@@ -1,0 +1,468 @@
+{
+  "bodies": 76,
+  "bytes_per_body": 5053,
+  "catalogue_live": 76,
+  "cut_tick": 1015127234,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291391,
+        0
+      ],
+      [
+        808718030,
+        9
+      ],
+      [
+        876393178,
+        0
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291391,
+        0
+      ],
+      [
+        808718030,
+        9
+      ],
+      [
+        876393178,
+        0
+      ]
+    ]
+  },
+  "digest": "a1abf0256a7c2e2de61b160a03a87e2660cd6e554abced1ba44a1c924f983e23",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 2737,
+      "kind": "ship",
+      "total_ms": 192.228836,
+      "us_per_item": 70.23340738034345
+    },
+    {
+      "items": 80,
+      "kind": "player",
+      "total_ms": 36.869747,
+      "us_per_item": 460.8718375
+    },
+    {
+      "items": 3543,
+      "kind": "fleet",
+      "total_ms": 77.578044,
+      "us_per_item": 21.896145639288736
+    }
+  ],
+  "events_per_second": 1320.4000000000033,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 2.0533870000000434,
+    "p99": 6.846323000000005,
+    "p99.9": 6.905849999999987,
+    "worst": 6.905849999999987
+  },
+  "frame_ms": {
+    "p50": 2.051726,
+    "p95": 5.9641210000000004,
+    "p99": 6.844764,
+    "p99.9": 6.903117
+  },
+  "frames": 300,
+  "h_dense": {
+    "body_events": 5377,
+    "entropy_bits": 88621.36599082433,
+    "entropy_bits_per_game_second": 17.724273194194094,
+    "fleet_counters": [
+      {
+        "anchors": 28,
+        "contacts": 77,
+        "epochs": 769,
+        "live": false,
+        "members": 0
+      }
+    ],
+    "game_seconds": 5000.000001120151,
+    "note": "the dense order (the fleet battle's lattice events), lab 20261007-2155-...-3ce2: contacts word-instrumented at the one funnel law::respond (per body of a response: dk[0], dk[1], d residual, d carry x2; rev is +1 iff k moves, 0 bits); tide epochs at Battle::epoch_kick (each member's integer kick dk and its tide carry's move; the position carry's accumulation is derived, not a distinction). entropy = the first author's protocol at this horizon (it saturates at log2 n when every delta is distinct); scar = mean bits to write the deltas (0 for zero), bounded by the registers (|k| < Q so |dk| < 2^21: 22 bits/word). Anchors and the origin's own tube are counted in fleet_counters, not word-instrumented.",
+    "rows": [
+      {
+        "body_events": 154,
+        "calls": 77,
+        "entropy_bits_per_event": 3.4498912696090445,
+        "kind": "contact",
+        "scar_bits_per_event": 11.032467532467534,
+        "words": [
+          {
+            "distinct": 95,
+            "entropy_bits_per_event": 1.2856888970489426,
+            "max_bits": 8,
+            "mean_bits": 2.857142857142857,
+            "name": "k0",
+            "samples": 97
+          },
+          {
+            "distinct": 95,
+            "entropy_bits_per_event": 1.2935933832755673,
+            "max_bits": 7,
+            "mean_bits": 2.6493506493506493,
+            "name": "k1",
+            "samples": 97
+          },
+          {
+            "distinct": 44,
+            "entropy_bits_per_event": 0.6089142807467477,
+            "max_bits": 8,
+            "mean_bits": 1.655844155844156,
+            "name": "residual",
+            "samples": 44
+          },
+          {
+            "distinct": 10,
+            "entropy_bits_per_event": 0.12072389071605485,
+            "max_bits": 23,
+            "mean_bits": 1.577922077922078,
+            "name": "carry0",
+            "samples": 11
+          },
+          {
+            "distinct": 13,
+            "entropy_bits_per_event": 0.1409708178217317,
+            "max_bits": 23,
+            "mean_bits": 2.292207792207792,
+            "name": "carry1",
+            "samples": 16
+          }
+        ],
+        "zero_delta": 51
+      },
+      {
+        "body_events": 5223,
+        "calls": 769,
+        "entropy_bits_per_event": 16.865801787345305,
+        "kind": "tide_epoch",
+        "scar_bits_per_event": 73.3090178058587,
+        "words": [
+          {
+            "distinct": 0,
+            "entropy_bits_per_event": 0.0,
+            "max_bits": 0,
+            "mean_bits": 0.0,
+            "name": "k0",
+            "samples": 0
+          },
+          {
+            "distinct": 12,
+            "entropy_bits_per_event": 0.0,
+            "max_bits": 1,
+            "mean_bits": 0.0022975301550832855,
+            "name": "k1",
+            "samples": 12
+          },
+          {
+            "distinct": 0,
+            "entropy_bits_per_event": 0.0,
+            "max_bits": 0,
+            "mean_bits": 0.0,
+            "name": "residual",
+            "samples": 0
+          },
+          {
+            "distinct": 5223,
+            "entropy_bits_per_event": 8.432900893672656,
+            "max_bits": 42,
+            "mean_bits": 36.720467164464864,
+            "name": "carry0",
+            "samples": 5223
+          },
+          {
+            "distinct": 5223,
+            "entropy_bits_per_event": 8.432900893672654,
+            "max_bits": 48,
+            "mean_bits": 36.586253111238754,
+            "name": "carry1",
+            "samples": 5223
+          }
+        ],
+        "zero_delta": 0
+      }
+    ],
+    "scar_bits": 384592.0,
+    "scar_bits_per_game_second": 76.91839998276795
+  },
+  "h_live": {
+    "bits_per_body_per_game_second": 0.07222322141311241,
+    "bits_per_game_second": 5.4889648273965435,
+    "body_bits": 27438.824143131187,
+    "body_events": 3034,
+    "decision_bits": 6.0,
+    "decisions": 4,
+    "game_seconds": 5000.000001120151,
+    "note": "bits of live distinguishing information gained per game-second (operational proposal, lab 20261007-2057-spacex-de6a): the empirical conditional entropy of the canonical word deltas (tube key, wrapping angle, periapsis time, two carries) at the apply funnel, per (kind, body); all-zero-delta events store nothing; births are the program's; decisions counted separately; the fleet members' internal lattice carries are not counted",
+    "removed_bodies": 28,
+    "rows": [
+      {
+        "births": 0,
+        "bits_per_event": 17.996603768458783,
+        "events": 1524,
+        "field_bits": {
+          "angle": 3.20300936960028,
+          "carry0": 5.857325775406407,
+          "carry1": 5.857325775406407,
+          "key": 0.0,
+          "time": 3.07894284804569
+        },
+        "field_scar": {
+          "angle": 5.219816272965879,
+          "carry0": 14.145669291338583,
+          "carry1": 14.209317585301838,
+          "key": 0.0,
+          "time": 5.007217847769029
+        },
+        "field_scar_max": {
+          "angle": 32,
+          "carry0": 17,
+          "carry1": 17,
+          "key": 0,
+          "time": 34
+        },
+        "kind": "kick",
+        "scar_bits_per_event": 38.58202099737533,
+        "zero_delta": 0
+      },
+      {
+        "births": 76,
+        "bits_per_event": 3.0,
+        "events": 4,
+        "field_bits": {
+          "angle": 1.5,
+          "carry0": 0.0,
+          "carry1": 0.0,
+          "key": 0.0,
+          "time": 1.5
+        },
+        "field_scar": {
+          "angle": 12.25,
+          "carry0": 0.0,
+          "carry1": 0.0,
+          "key": 0.0,
+          "time": 13.25
+        },
+        "field_scar_max": {
+          "angle": 27,
+          "carry0": 0,
+          "carry1": 0,
+          "key": 0,
+          "time": 30
+        },
+        "kind": "open",
+        "scar_bits_per_event": 25.5,
+        "zero_delta": 2
+      },
+      {
+        "births": 0,
+        "bits_per_event": 0.0,
+        "events": 1478,
+        "field_bits": {
+          "angle": 0.0,
+          "carry0": 0.0,
+          "carry1": 0.0,
+          "key": 0.0,
+          "time": 0.0
+        },
+        "field_scar": {
+          "angle": 0.0,
+          "carry0": 0.0,
+          "carry1": 0.0,
+          "key": 0.0,
+          "time": 0.0
+        },
+        "field_scar_max": {
+          "angle": 0,
+          "carry0": 0,
+          "carry1": 0,
+          "key": 0,
+          "time": 0
+        },
+        "kind": "boundary",
+        "scar_bits_per_event": 0.0,
+        "zero_delta": 1478
+      },
+      {
+        "births": 0,
+        "bits_per_event": 0.0,
+        "events": 28,
+        "field_bits": {
+          "angle": 0.0,
+          "carry0": 0.0,
+          "carry1": 0.0,
+          "key": 0.0,
+          "time": 0.0
+        },
+        "field_scar": {
+          "angle": 0.0,
+          "carry0": 0.0,
+          "carry1": 0.0,
+          "key": 0.0,
+          "time": 0.0
+        },
+        "field_scar_max": {
+          "angle": 0,
+          "carry0": 0,
+          "carry1": 0,
+          "key": 0,
+          "time": 0
+        },
+        "kind": "lost",
+        "scar_bits_per_event": 0.0,
+        "zero_delta": 28
+      }
+    ],
+    "scar_bits_per_game_second": 11.780199997360882
+  },
+  "h_scene": {
+    "dense_entropy_bits_per_game_second": 17.724273194194094,
+    "dense_scar_bits_per_game_second": 76.91839998276795,
+    "game_seconds": 5000.000001120151,
+    "note": "the scene's H_live at this horizon: the sparse order (the apply funnel) and the dense order (the battle) together; entropy rates are horizon-dependent (estimator saturation), scar rates are the horizon-invariant widths",
+    "scene_entropy_bits_per_game_second": 23.213238021590637,
+    "scene_scar_bits_per_game_second": 88.69859998012883,
+    "sparse_entropy_bits_per_game_second": 5.4889648273965435,
+    "sparse_scar_bits_per_game_second": 11.780199997360882
+  },
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [
+    "You",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)"
+  ],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-07T22:14:25Z",
+    "unix": 1791411265,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-07T22:14:24Z",
+    "unix": 1791411264,
+    "when": "before"
+  },
+  "paced": false,
+  "player_alive": false,
+  "presented_tick_at_end": 1002479556,
+  "rtf": {
+    "lowest_1pct": 310.0585715056417,
+    "median": 999.9998682208727,
+    "overflow_frames": 6
+  },
+  "rtf_target": 1000.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 1614, opens: 80, boundaries: 1461, handoffs: 0, lost: 28, refused: 0, slices: 3543, encounters: 84, decisions: 4, leavers: 48, dissolved: 1, cost_ns: [0, 0, 192228836, 36869747, 77578044], items: [0, 0, 2737, 80, 3543] }",
+  "throttle_level": 0,
+  "uptime_after": "22:14:25 up 41 days, 13:16,  0 user,  load average: 2.11, 1.74, 1.41",
+  "uptime_before": "22:14:24 up 41 days, 13:16,  0 user,  load average: 2.11, 1.74, 1.41",
+  "wall_seconds": 0.763959261,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 5.649497,
+      "p50": 0.544767,
+      "p99": 5.028905,
+      "share": 0.4183619746519127
+    },
+    "view_gather": {
+      "max": 1.69759,
+      "p50": 1.2845280000000001,
+      "p99": 1.658108,
+      "share": 0.5149846230219878
+    },
+    "view_json": {
+      "max": 0.302004,
+      "p50": 0.10075300000000001,
+      "p99": 0.28763099999999997,
+      "share": 0.04858344691700657
+    },
+    "wire": {
+      "max": 0.096494,
+      "p50": 0.042931,
+      "p99": 0.082877,
+      "share": 0.018069955409092873
+    }
+  },
+  "worst_hitch_at_frame": 17,
+  "worst_hitch_ms": 6.903117
+}
