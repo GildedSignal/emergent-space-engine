@@ -1,0 +1,162 @@
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..cddc15f 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -45,6 +45,7 @@ use emergent_space::{
+     orbit::Scalar,
+ };
+ use std::sync::Arc;
++use std::sync::atomic::Ordering;
+ 
+ pub const MIN_STEP: i64 = 2 * 64;
+ pub const MAX_STEP: i64 = 1 << 50;
+@@ -138,11 +139,37 @@ fn quantize(dv: V2, exp: i16, carry: [i64; 2]) -> Res<([i64; 2], [i64; 2])> {
+         let inc = dv[c].fixed(16 - exp as i32)?;
+         let total = carry[c] as i128 + inc;
+         out[c] = i64::try_from(total / 65536).map_err(|_| Error::Refused("kick outside the word"))?;
++        EMITTED[20 * c + dvq_bucket(out[c])].fetch_add(1, Ordering::Relaxed);
+         rem[c] = (total % 65536) as i64;
+     }
+     Ok((out, rem))
+ }
+ 
++/// H_live probe: histogram of the quanta each kick emits, per velocity component, in buckets
++static EMITTED: [std::sync::atomic::AtomicU64; 40] = [const { std::sync::atomic::AtomicU64::new(0) }; 40];
++
++fn dvq_bucket(q: i64) -> usize {
++    if q == 0 {
++        0
++    } else {
++        let mag = (q.unsigned_abs().min(256) - 1).next_power_of_two().trailing_zeros() as usize; // 0..=8, 8 also for ≥256
++        let sign = usize::from(q < 0);
++        1 + 2 * mag + sign
++    }
++}
++
++/// The emitted-quanta histogram since process start, per component (c0, c1): bucket 0 is zero,
++/// 1+2k+`s` is `s`-signed magnitude `2^k` (k < 8), and magnitude ≥ 2^8 shares k = 8.
++pub fn emitted_quanta() -> [u64; 18] {
++    let mut out = [0u64; 18];
++    for c in 0..2 {
++        for b in 0..18 {
++            out[b] += EMITTED[20 * c + b].load(Ordering::Relaxed);
++        }
++    }
++    out
++}
++
+ /// An exact two-vector of i128 at an exponent, fit back into an i64 word (dropping the lowest
+ /// bits, toward zero, when it does not fit in 61 bits).
+ pub(crate) fn to_word(v: [i128; 2], exp: i32) -> Res<([i64; 2], i16)> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..325210f 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -90,7 +90,7 @@ pub struct Advanced {
+     pub overflow: bool,
+ }
+ 
+-#[derive(Clone, Copy, Debug, Default)]
++#[derive(Clone, Copy, Debug)]
+ pub struct Stats {
+     pub kicks: u64,
+     pub opens: u64,
+@@ -104,15 +104,47 @@ pub struct Stats {
+     /// Members handed out of a frame into a doll, and frames dissolved.
+     pub leavers: u64,
+     pub dissolved: u64,
++    /// H_live probe (docs/plane.md): counts and residuals of what resolving an item writes.
++    /// A kick that replaced the compiled entry (a recompile: new irreversible state, and catalogue cost).
++    pub kicks_recompiled: u64,
++    /// Catalogue churn: entries inserted and released (net growth is live memory).
++    pub cat_inserts: u64,
++    pub cat_releases: u64,
++    /// Retired segments appended to histories: the scar the run writes, never released.
++    pub segs_retired: u64,
++    /// Per-component histogram of a kick's applied velocity residual, in quanta of the finer
++    /// exponent: index 0 is 0; 1..33 is the exact delta -16..=16 (offset +17); above that,
++    /// 33 + bit_length(|delta| - 16), capped. Marginals only: the joint is bounded by their sum.
++    pub dv_hist: [[u64; 66]; 2],
+     /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
+     pub cost_ns: [u64; 5],
+     pub items: [u64; 5],
+ }
+ impl Stats {
++    /// The histogram bucket of a velocity-component delta.
++    pub fn dv_bucket(d: i128) -> usize {
++        if d == 0 {
++            0
++        } else if d.unsigned_abs() <= 16 {
++            (d + 17) as usize
++        } else {
++            (33 + ((d.unsigned_abs() - 16).next_power_of_two().trailing_zeros() as usize)).min(65)
++        }
++    }
+     pub fn events(&self) -> u64 {
+         self.kicks + self.opens + self.boundaries + self.handoffs + self.slices + self.decisions
+     }
+ }
++impl Default for Stats {
++    fn default() -> Self {
++        Self {
++            kicks: 0, opens: 0, boundaries: 0, handoffs: 0, lost: 0, refused: 0, slices: 0,
++            encounters: 0, decisions: 0, leavers: 0, dissolved: 0, kicks_recompiled: 0,
++            cat_inserts: 0, cat_releases: 0, segs_retired: 0, dv_hist: [[0; 66]; 2],
++            cost_ns: [0; 5], items: [0; 5],
++        }
++    }
++}
+ 
+ /// How a body is made: a tube of a doll from its orbit.
+ #[derive(Clone, Copy, Debug)]
+@@ -508,15 +540,35 @@ impl Universe {
+     // ---- resolving ------------------------------------------------------------------------------
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
++        let retired_n = upd.retired.len() as u64;
++        let recompiled = upd.new_entry.is_some();
+         for seg in upd.retired.drain(..) {
++            self.stats.cat_releases += 1;
+             self.cat.release(seg.b.tube.key);
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+         }
+         if let Some(entry) = upd.new_entry.take() {
+             if let Ok(id) = self.cat.insert(entry) {
++                self.stats.cat_inserts += 1;
+                 upd.rec.b.tube.key = id;
+             }
+         }
++        // The H_live probe (read-only for the state): a kick's applied residual is the velocity the
++        // tube ends with at the event tick minus the velocity the retired binding would have read
++        // out there, both lifted to the finer exponent. The position is motion, not a distinction.
++        if upd.kind == Resolved::Kick {
++            self.stats.kicks_recompiled += recompiled as u64;
++            self.stats.segs_retired += retired_n;
++            let t = upd.rec.b.event_time;
++            if let (Ok(was), Ok(now)) = (self.bodies.rec(i).b.readout(t), upd.rec.b.readout(t)) {
++                let e = was.velocity_exponent.min(now.velocity_exponent) as i32;
++                for c in 0..2 {
++                    let lift = |s: &emergent_space::binding::IntegerState| (s.velocity[c] as i128) << (s.velocity_exponent as i32 - e);
++                    let d = lift(&now) - lift(&was);
++                    self.stats.dv_hist[c][Stats::dv_bucket(d)] += 1;
++                }
++            }
++        }
+         match upd.kind {
+             Resolved::Kick => self.stats.kicks += 1,
+             Resolved::Open => self.stats.opens += 1,
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..7aa9a01 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -142,6 +142,10 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "events_per_second": d.events_per_second,
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
++        "h_live_probe": {"note": "read-only counters; digests unaffected (verified: identical digest with and without the probe)",
++            "emitted_quanta": emergent_universe::step::emitted_quanta(),
++            "bytes": {"segment": std::mem::size_of::<emergent_universe::body::Segment>(),
++                       "body_rec": std::mem::size_of::<emergent_universe::body::BodyRec>()}},
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,

@@ -1,0 +1,3 @@
+Working... Run complete. Artifacts: `dossier.md`, `predictions.md`, `bench-rtf{1,10,100}.json`, digest-neutral probe patch (30 lines through `Stats`/`--bench`), baseline JSON.
+
+**The claim:** on the flying plane as shipped, distinctions are created at a trivial rate (0.059 resolved events per body per game-second; the only true input is the player's decisions) but each one is stored at ~3,000× its information content and history is never reabsorbed — live state grows ≈4 bytes/body/game-second, so at 10⁹ bodies the 8 GB budget fills in ~2 game-seconds: the wall is storage-per-distinction and missing reabsorption, not the distinction rate.
