@@ -1,0 +1,9 @@
+Working...
+Check complete. `lab/results/20261008-1150-components-4b84/check.md` written — **Grade: silver**; nothing else in the run folder touched.
+
+**What I did:**
+- **Reproduced** both dossier commands in a clean tree: `scar_floor3_out.json` and `summary_out.json` bit-identical to the stored files (only `wall_s` differs, 3.46→5.11 s). Empty `patch.diff`, all edits inside the run folder.
+- **Predictions:** file predates the decisive v3 run by ~10 min (timestamps + 11:58 UTC header). Held: N-scaling 3.1623 exact, κ in band, phase dominance with the predicted 4.98 bits/decade asymptote, refold bound, bottom line 3.7×10⁻⁶ ≪ 10⁻³. The one σ-level miss (33×) is disclosed and I confirmed the corrected closed form (analytic variance 2.1349×10⁻¹⁹/orbit).
+- **Adversarial Monte Carlo** (2×10⁶ bodies, exact compound-Poisson simulation): the FFT/CF entropy matches to 0.01 bits where σ/q ≳ 3 — the regime carrying every headline number (D1/D2 tables, H_live, refold). Three real defects found, none conclusion-breaking: onset-regime presence is a DFT lattice-leakage artifact (pnz 0.0417 stored vs 0.0053 round-truth vs 2.7×10⁻⁵ accumulator-truth — the design's own PRINCIPLES-6 semantics); the phase weighting constant 0.75 should be 1/√3 (σ 1.30× high, conservative); the folded phase axis drops the sign bit (−1 bit at full presence). Three prose slips (crossing at ~4×10³ not 1.3×10³ orbits; spread ratio 4.6×10⁻⁸ not 10⁻⁹; κ 1.06–1.12 not "1.00") — tables and JSONs are correct.
+- **Novelty:** H_live is a named unmeasured risk in HANDOFF and a queue item; no HISTORY entry measures the floor's growth in time or refold. Builds on gold 98bc's 0.126 bits, correctly cited.
+- **Gold path:** wire ledger+refold into `crates/shipmem` and pass B18 on the belt ladder — fixing the presence semantics, phase constant and sign bit first, since they shift the floor by up to ~1 bit/body exactly in D3's coarse-grid regime.
