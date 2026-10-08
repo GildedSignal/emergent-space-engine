@@ -1,0 +1,80 @@
+diff --git a/crates/universe/examples/stream.rs b/crates/universe/examples/stream.rs
+new file mode 100644
+index 0000000..372f17a
+--- /dev/null
++++ b/crates/universe/examples/stream.rs
+@@ -0,0 +1,74 @@
++// The event-demand stream of the plane, as the player's frames would see it: per frame, every
++// item the engine resolves (by kind), the presented tick, the overflow flag and the wall time.
++// `stream SECONDS RTF SEED MEMBERS BUDGET OUT_CSV` (BUDGET 0 = unlimited). The scripted burns are
++// the plane test's INPUTS; a budget moves when work is done, never what, so the digest is the
++// bench's and comparable across every run of the same (seed, members, inputs).
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::io::Write;
++
++const INPUTS: [(i64, u8); 8] = [
++    (10_000_000, 1),
++    (12_000_000, 0),
++    (300_000_000, 9),
++    (302_000_000, 0),
++    (900_000_000, 2),
++    (902_000_000, 0),
++    (1_200_000_000, 4),
++    (1_201_000_000, 0),
++];
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let seconds: f64 = a.first().map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let rtf: f64 = a.get(1).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let seed: u64 = a.get(2).map(|s| s.parse().unwrap()).unwrap_or(7);
++    let members: u64 = a.get(3).map(|s| s.parse().unwrap()).unwrap_or(48);
++    let budget: u64 = a.get(4).map(|s| s.parse().unwrap()).unwrap_or(0);
++    let out: String = a.get(5).cloned().unwrap_or_else(|| "stream.csv".into());
++    let mut f = std::fs::File::create(&out).unwrap();
++    let mut p = plane(Config::default(), seed, Order::Sparse, 1, members).unwrap();
++    let budget = if budget == 0 { Budget::unlimited() } else { Budget::events(budget) };
++    let frames = (seconds * 60.0) as usize;
++    let want = (rtf / 60.0 / TICK_SECONDS) as i64;
++    writeln!(f, "frame,target,now,events,kicks,opens,boundaries,handoffs,slices,decisions,planet,moon,ship,player,fleet,overflow,us").unwrap();
++    let mut next_input = 0;
++    let ideal0 = p.u.now;
++    for fr in 0..frames {
++        let mut target = ideal0 + (fr as i64 + 1) * want;
++        if let Some(&(t, _)) = INPUTS.get(next_input) {
++            target = target.min(t.max(p.u.now + 1));
++        }
++        let before = p.u.stats;
++        let t0 = std::time::Instant::now();
++        let adv = p.u.advance(target, budget);
++        let us = t0.elapsed().as_secs_f64() * 1e6;
++        let s = p.u.stats;
++        p.u.now = p.u.now.max(adv.horizon);
++        if let Some(&(t, keys)) = INPUTS.get(next_input) {
++            if p.u.now >= t {
++                p.u.input(t, keys).unwrap();
++                next_input += 1;
++            }
++        }
++        writeln!(
++            f,
++            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
++            fr, target, p.u.now, adv.events,
++            s.kicks - before.kicks, s.opens - before.opens, s.boundaries - before.boundaries,
++            s.handoffs - before.handoffs, s.slices - before.slices, s.decisions - before.decisions,
++            s.items[0] - before.items[0], s.items[1] - before.items[1], s.items[2] - before.items[2],
++            s.items[3] - before.items[3], s.items[4] - before.items[4],
++            adv.overflow as u8, us as u64
++        ).unwrap();
++        // A budget that cannot ever finish falls behind without bound: stop when hopeless.
++        if target - p.u.now > 400 * want && fr > 100 {
++            eprintln!("runaway lag at frame {fr}");
++            break;
++        }
++    }
++    p.u.settle(p.u.now);
++    println!("digest {} frames_done {} inputs_fired {}", p.u.digest(), frames, next_input);
++}
