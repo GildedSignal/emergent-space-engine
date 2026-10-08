@@ -1,0 +1,31 @@
+# m=4096 seed=0x5eed1234
+# control e_F inner..outer: 0.0235 .. 0.0342  (predict [0.03,0.15])
+# control g per orbit inner..outer: 1.59e-4 .. 6.00e-4 (cycle 3.9e4 orbits)
+
+thread 'main' panicked at crates/shipmem/examples/hlive.rs:177:33:
+index out of bounds: the len is 1 but the index is 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+Command exited with non-zero status 101
+	Command being timed: "/home/glmlab/lab-target-2/release/examples/hlive 4096 0x5eed1234"
+	User time (seconds): 0.18
+	System time (seconds): 0.00
+	Percent of CPU this job got: 98%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.18
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 3072
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 191
+	Voluntary context switches: 1
+	Involuntary context switches: 1
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 101

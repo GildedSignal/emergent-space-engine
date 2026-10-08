@@ -1,0 +1,328 @@
+diff --git a/crates/shipmem/examples/hlive.rs b/crates/shipmem/examples/hlive.rs
+new file mode 100644
+index 0000000..f0b7c6b
+--- /dev/null
++++ b/crates/shipmem/examples/hlive.rs
+@@ -0,0 +1,322 @@
++//! H_live probe (lab run 20261008-1252-spacex-d4e7): how many bits per body a belt scars
++//! per game-second under the plane's own kind of perturbation (secular, orbit-averaged),
++//! measured in the law's own quanta (E Q48, L Q32, ϖ u32 via `Key::darwin`) and encoded
++//! by the shipped block codec. Three store policies:
++//!   A: scars vs the birth state (no generator).
++//!   B: scars vs an RK4 Laplace–Lagrange generator at one step per reference orbit.
++//!   C: the synthetic kick model (`Pop::kick` magnitudes, random walk).
++//! Truth for A/B: closed-form secular response to one exterior perturber.
++use emergent_shipmem::codec::{Buf, Enc, MAXB};
++use emergent_space::Key;
++
++// ---- scene (predictions.md) ----
++const MU: f64 = 9.55e-4; // a Jupiter
++const AJ: f64 = 5120.0;
++const EJ: f64 = 0.048;
++const WJ: f64 = 1.0;
++const AREF: f64 = 2048.0; // reference orbit (inner edge)
++const SIG: f64 = 0.04; // Rayleigh e0
++const PBAND: (u32, u32) = (2048 << 16, 3072 << 16); // Darwin p, Q16
++
++struct R(u64);
++impl R {
++    fn next(&mut self) -> u64 {
++        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
++        let mut z = self.0;
++        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
++        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
++        z ^ (z >> 31)
++    }
++    fn f64(&mut self) -> f64 {
++        ((self.next() >> 11) as f64) * (1.0 / (1u64 << 53) as f64)
++    }
++    fn below(&mut self, n: u64) -> u64 {
++        (self.next() >> 32) % n
++    }
++}
++
++fn zz(d: i64) -> u64 {
++    ((d << 1) ^ (d >> 63)) as u64
++}
++
++/// b_{3/2}^{(s)}(alpha) by trapezoid (table + lerp), s = 1, 2.
++struct Bs {
++    lo: f64,
++    hi: f64,
++    n: usize,
++    b1: Vec<f64>,
++    b2: Vec<f64>,
++}
++impl Bs {
++    fn new() -> Self {
++        let (lo, hi, n) = (0.30, 0.70, 801usize);
++        let (mut b1, mut b2) = (vec![0.0; n], vec![0.0; n]);
++        let k = 4096;
++        for i in 0..n {
++            let a = lo + (hi - lo) * i as f64 / (n - 1) as f64;
++            let (mut s1, mut s2) = (0.0, 0.0);
++            for j in 0..k {
++                let psi = 2.0 * std::f64::consts::PI * j as f64 / k as f64;
++                let d = (1.0 - 2.0 * a * psi.cos() + a * a).powf(-1.5);
++                s1 += psi.cos() * d;
++                s2 += (2.0 * psi).cos() * d;
++            }
++            let h = 2.0 * std::f64::consts::PI / k as f64;
++            b1[i] = s1 * h / std::f64::consts::PI;
++            b2[i] = s2 * h / std::f64::consts::PI;
++        }
++        Self { lo, hi, n, b1, b2 }
++    }
++    fn at(&self, v: &[f64], a: f64) -> f64 {
++        let x = ((a - self.lo) / (self.hi - self.lo) * (self.n - 1) as f64)
++            .clamp(0.0, (self.n - 1) as f64);
++        let i = x.floor() as usize;
++        let t = x - i as f64;
++        v[i] * (1.0 - t) + v[(i + 1).min(self.n - 1)] * t
++    }
++    fn b1(&self, a: f64) -> f64 {
++        self.at(&self.b1, a)
++    }
++    fn b2(&self, a: f64) -> f64 {
++        self.at(&self.b2, a)
++    }
++}
++
++#[derive(Clone)]
++struct Belt {
++    p: Vec<u32>,  // Darwin p, Q16 (birth order is p-sorted, banded as B18b)
++    e0: Vec<f64>, // birth e
++    w0: Vec<u32>, // birth varpi, u32
++    e_birth: Vec<u64>,
++    l_birth: Vec<u64>,
++}
++
++fn darwin(p: u32, e30: u32) -> (u64, u64) {
++    let k = Key::darwin(p, e30).expect("bound orbit");
++    (k.energy.get(), k.angular.get())
++}
++
++fn belt(m: usize, seed: u64) -> Belt {
++    let mut r = R(seed);
++    let mut rows: Vec<(u32, f64, u32)> = (0..m)
++        .map(|_| {
++            let p = PBAND.0 + r.below((PBAND.1 - PBAND.0) as u64) as u32;
++            let mut e = SIG * (-2.0 * r.f64().max(1e-12).ln()).sqrt();
++            if e > 0.5 {
++                e = 0.5;
++            }
++            (p, e, r.next() as u32)
++        })
++        .collect();
++    rows.sort_by_key(|x| x.0);
++    let mut p = vec![];
++    let mut e0 = vec![];
++    let mut w0 = vec![];
++    let mut eb = vec![];
++    let mut lb = vec![];
++    for &(pi, ei, wi) in &rows {
++        let q = (ei * (1u64 << 30) as f64) as u32;
++        let (x, y) = darwin(pi, q);
++        p.push(pi);
++        e0.push(ei);
++        w0.push(wi);
++        eb.push(x);
++        lb.push(y);
++    }
++    Belt { p, e0, w0, e_birth: eb, l_birth: lb }
++}
++
++/// Closed-form secular state at time t (geometric units, M=1): (e, varpi).
++fn secular(b: &Bs, p: u32, e0: f64, w0: u32, t: f64) -> (f64, f64) {
++    let a = p as f64 / 65536.0;
++    let alpha = a / AJ;
++    let n = 2.0 * std::f64::consts::PI / a.powf(1.5);
++    let g = 0.25 * MU * alpha * b.b1(alpha) * n;
++    let ef = (b.b2(alpha) / b.b1(alpha)) * EJ;
++    let ang = 2.0 * std::f64::consts::PI * w0 as f64 / 2f64.powi(32);
++    let (c0, s0) = (e0 * ang.cos(), e0 * ang.sin());
++    let (cfx, cfy) = (-ef * WJ.cos(), -ef * WJ.sin());
++    let (gt, sgt) = ((g * t).cos(), (g * t).sin());
++    let (dx, dy) = (c0 - cfx, s0 - cfy);
++    let (zx, zy) = (cfx + dx * gt - dy * sgt, cfy + dx * sgt + dy * gt);
++    ((zx * zx + zy * zy).sqrt(), zy.atan2(zx))
++}
++
++fn quant(p: u32, e: f64, w: f64) -> (u64, u64, u64) {
++    let e = e.min(0.5);
++    let e30 = (e * (1u64 << 30) as f64) as u32;
++    let (x, y) = darwin(p, e30);
++    let wu = if w < 0.0 { w + 2.0 * std::f64::consts::PI } else { w };
++    (x, y, (wu / (2.0 * std::f64::consts::PI) * 2f64.powi(32)) as u64)
++}
++
++trait Col {
++    fn f(&self, i: usize) -> &Vec<u64>;
++}
++impl Col for (Vec<u64>, Vec<u64>, Vec<u64>) {
++    fn f(&self, i: usize) -> &Vec<u64> {
++        match i {
++            0 => &self.0,
++            1 => &self.1,
++            _ => &self.2,
++        }
++    }
++}
++
++/// Encode 3 columns in 256-blocks (birth order); returns bits per body per column.
++fn scar_bits(cols: &(Vec<u64>, Vec<u64>, Vec<u64>), m: usize) -> [f64; 3] {
++    let mut bits = [0f64; 3];
++    for f in 0..3 {
++        let mut enc = Enc::new(true);
++        let mut buf = Buf::default();
++        let mut out = Vec::new();
++        let mut i = 0;
++        while i < m {
++            let n = MAXB.min(m - i);
++            buf.n = n;
++            for j in 0..n {
++                buf.col[0][j] = cols.f(f)[i + j];
++            }
++            enc.block(1, &buf, &[0], &mut out);
++            i += n;
++        }
++        bits[f] = out.len() as f64 * 8.0 / m as f64;
++    }
++    bits
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let m = args.get(1).and_then(|x| x.parse().ok()).unwrap_or(4096usize);
++    let seed = args.get(2).and_then(|x| x.parse().ok()).unwrap_or(0x5eed_1234u64);
++    let arms = args.get(3).cloned().unwrap_or_else(|| "ABC".into());
++    let b = Bs::new();
++    let belt = belt(m, seed);
++
++    // controls
++    let efs: Vec<f64> = (0..=10)
++        .map(|i| {
++            let a = 2048.0 + i as f64 * 102.4;
++            (b.b2(a / AJ) / b.b1(a / AJ)) * EJ
++        })
++        .collect();
++    let g_orb = |a: f64| 0.5 * std::f64::consts::PI * MU * (a / AJ) * b.b1(a / AJ); // rad per own orbit
++    eprintln!("# m={} seed={:#x}", m, seed);
++    eprintln!("# control e_F inner..outer: {:.4} .. {:.4}  (predicted [0.03,0.15]; missed low, see dossier)",
++              efs[0], efs[10]);
++    eprintln!("# control g rad/orbit inner..outer: {:.2e} .. {:.2e} (cycle {:.1e}..{:.1e} orbits)",
++              g_orb(2048.0), g_orb(3072.0), 6.2832 / g_orb(2048.0), 6.2832 / g_orb(3072.0));
++
++    // birth base (context): encode the birth columns themselves
++    let w0u: Vec<u64> = belt.w0.iter().map(|&x| x as u64).collect();
++    let base = scar_bits(&(belt.e_birth.clone(), belt.l_birth.clone(), w0u), m);
++    eprintln!("# birth base bits/body: E {:.1}  L {:.1}  w {:.1}", base[0], base[1], base[2]);
++
++    let ts: [u64; 5] = [0, 100, 1_000, 10_000, 100_000];
++    let pref = 2.0 * std::f64::consts::PI * AREF.powf(1.5); // time of one reference orbit
++
++    println!("arm T_orbits bitsE bitsL bitsW totalGB@1e9");
++    for &t_orb in &ts {
++        let t = t_orb as f64 * pref;
++        let (mut ea, mut la, mut wa) = (vec![0u64; m], vec![0u64; m], vec![0u64; m]);
++        for i in 0..m {
++            let (e, w) = secular(&b, belt.p[i], belt.e0[i], belt.w0[i], t);
++            let (x, y, z) = quant(belt.p[i], e, w);
++            (ea[i], la[i], wa[i]) = (x, y, z);
++        }
++        // arm A: scars vs birth
++        let acol = (
++            (0..m).map(|i| zz(ea[i] as i64 - belt.e_birth[i] as i64)).collect::<Vec<_>>(),
++            (0..m).map(|i| zz(la[i] as i64 - belt.l_birth[i] as i64)).collect::<Vec<_>>(),
++            (0..m).map(|i| zz(wa[i].wrapping_sub(belt.w0[i] as u64) as i64)).collect::<Vec<_>>(),
++        );
++        if t_orb == 0 && std::env::var("HLIVE_DBG").is_ok() {
++            for i in 0..8.min(m) {
++                eprintln!("dbg i={} p={} e0={:.3e} w0={:#010x} e={:.3e} w={:.6} wa={:#010x} dw={} de={} dl={}",
++                          i, belt.p[i], belt.e0[i], belt.w0[i],
++                          secular(&b, belt.p[i], belt.e0[i], belt.w0[i], 0.0).0,
++                          secular(&b, belt.p[i], belt.e0[i], belt.w0[i], 0.0).1,
++                          wa[i], wa[i].wrapping_sub(belt.w0[i] as u64) as i64,
++                          ea[i] as i64 - belt.e_birth[i] as i64, la[i] as i64 - belt.l_birth[i] as i64);
++            }
++        }
++        let bits = scar_bits(&acol, m);
++        let tot: f64 = bits.iter().sum();
++        println!("A {} {:.2} {:.2} {:.2} {:.2}", t_orb, bits[0], bits[1], bits[2],
++                 tot * 1e9 / 8.0 / (1u64 << 30) as f64);
++
++        if t_orb == 0 {
++            continue; // T=0 IS the control row for arm A (must be ~0)
++        }
++
++        // arm B: RK4 generator, one shared step per reference orbit
++        if !arms.contains('B') {
++            continue;
++        }
++        let dt = pref;
++        let ang = |w: u32| 2.0 * std::f64::consts::PI * w as f64 / 2f64.powi(32);
++        let mut zx: Vec<f64> = (0..m).map(|i| belt.e0[i] * ang(belt.w0[i]).cos()).collect();
++        let mut zy: Vec<f64> = (0..m).map(|i| belt.e0[i] * ang(belt.w0[i]).sin()).collect();
++        let (mut gx, mut cx, mut cy) = (vec![0f64; m], vec![0f64; m], vec![0f64; m]);
++        for i in 0..m {
++            let a = belt.p[i] as f64 / 65536.0;
++            let al = a / AJ;
++            let n = 2.0 * std::f64::consts::PI / a.powf(1.5);
++            gx[i] = 0.25 * MU * al * b.b1(al) * n;
++            let c = 0.25 * MU * al * b.b2(al) * n * EJ;
++            cx[i] = c * WJ.cos();
++            cy[i] = c * WJ.sin();
++        }
++        for _ in 0..t_orb {
++            for i in 0..m {
++                let (x0, y0) = (zx[i], zy[i]);
++                macro_rules! deriv {
++                    ($x:expr, $y:expr) => {
++                        (-(gx[i] * $y + cy[i]), gx[i] * $x + cx[i])
++                    };
++                }
++                let (k1x, k1y) = deriv!(x0, y0);
++                let (k2x, k2y) = deriv!(x0 + dt / 2.0 * k1x, y0 + dt / 2.0 * k1y);
++                let (k3x, k3y) = deriv!(x0 + dt / 2.0 * k2x, y0 + dt / 2.0 * k2y);
++                let (k4x, k4y) = deriv!(x0 + dt * k3x, y0 + dt * k3y);
++                zx[i] = x0 + dt / 6.0 * (k1x + 2.0 * k2x + 2.0 * k3x + k4x);
++                zy[i] = y0 + dt / 6.0 * (k1y + 2.0 * k2y + 2.0 * k3y + k4y);
++            }
++        }
++        let bcol = (
++            (0..m).map(|i| zz(quant(belt.p[i], (zx[i] * zx[i] + zy[i] * zy[i]).sqrt(), zy[i].atan2(zx[i])).0 as i64 - ea[i] as i64)).collect::<Vec<_>>(),
++            (0..m).map(|i| zz(quant(belt.p[i], (zx[i] * zx[i] + zy[i] * zy[i]).sqrt(), zy[i].atan2(zx[i])).1 as i64 - la[i] as i64)).collect::<Vec<_>>(),
++            (0..m).map(|i| zz(quant(belt.p[i], (zx[i] * zx[i] + zy[i] * zy[i]).sqrt(), zy[i].atan2(zx[i])).2.wrapping_sub(wa[i]) as i64)).collect::<Vec<_>>(),
++        );
++        let bits = scar_bits(&bcol, m);
++        let tot: f64 = bits.iter().sum();
++        println!("B {} {:.2} {:.2} {:.2} {:.2}", t_orb, bits[0], bits[1], bits[2],
++                 tot * 1e9 / 8.0 / (1u64 << 30) as f64);
++
++        // arm C: synthetic kick walk (Pop::kick magnitudes, ±2^10 per own orbit)
++        if !arms.contains('C') {
++            continue;
++        }
++        let mut r2 = R(seed ^ 0xc);
++        let mut ek = belt.e_birth.clone();
++        let mut lk = belt.l_birth.clone();
++        let mut wk: Vec<u64> = belt.w0.iter().map(|&x| x as u64).collect();
++        for i in 0..m {
++            let steps = (((belt.p[i] as f64 / 65536.0) / AREF).powf(1.5) * t_orb as f64).round() as i64;
++            for _ in 0..steps {
++                ek[i] = (ek[i] as i64 + (r2.below(2 << 10) as i64 - (1 << 10))) as u64;
++                lk[i] = (lk[i] as i64 + (r2.below(2 << 10) as i64 - (1 << 10))) as u64;
++                wk[i] = wk[i].wrapping_add(r2.below(2 << 10) as u32 as u64).wrapping_sub(1 << 10);
++            }
++        }
++        let ccol = (
++            (0..m).map(|i| zz(ek[i] as i64 - belt.e_birth[i] as i64)).collect::<Vec<_>>(),
++            (0..m).map(|i| zz(lk[i] as i64 - belt.l_birth[i] as i64)).collect::<Vec<_>>(),
++            (0..m).map(|i| zz(wk[i].wrapping_sub(belt.w0[i] as u64) as i64)).collect::<Vec<_>>(),
++        );
++        let bits = scar_bits(&ccol, m);
++        let tot: f64 = bits.iter().sum();
++        println!("C {} {:.2} {:.2} {:.2} {:.2}", t_orb, bits[0], bits[1], bits[2],
++                 tot * 1e9 / 8.0 / (1u64 << 30) as f64);
++    }
++}
