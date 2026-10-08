@@ -1,0 +1,26 @@
+Grade: gold
+
+Abstract: Second author on 20261008-0041 (B11's precession oracle certifies nothing GR-shaped). Every number regenerates: `falsifier.py` bit-identical to the published prior-run branch (1.4 s); `falsifier2.py` (0.6 s) and the patched `advance_grid` Rust example (3 s) byte-identical. Predictions pre-registered (01:56 < outputs 02:01) and held: the weak-field floor is the nudged start, artifact = nudge/|u″| (my probe: scales exactly with nudge over two decades; e=0.9 reproduces collapse and exact ν-linearity); compiled advance within 4.4e-4 of the exact geodesic. My real-path attack (B11 via `Binary::key()`→`Orbit::compile`, oracle 6π/j²) passes 21/21 but with worst margin 1.07× at p=20 — the gate is nearly saturated by a non-GR invariant-map residue, deepening the hole. Adopt: re-point B11's precession oracle (exact Darwin is in-repo).
+
+Reasons:
+
+1. Reproduction, exact. All three commands regenerate their outputs bit-for-bit: `python3 falsifier.py` → `falsifier-out.json` identical to the published run on `claude/lab-20261008-0041-redteam-ecfd` (cmp passes); `git apply work/patch.diff` + `cargo run --release --example advance_grid -p emergent-space` → `rust-advance.json` identical; `python3 falsifier2.py` → `second-out.json` identical. Timings 1.3/3.0/0.6 s, within the ≤60 s claims.
+
+2. Predictions. `predictions.md` (mtime 01:56:22) predates `falsifier2.py` (01:59:19) and all outputs (02:01:27+). P1 held: artifact_pred vs artifact_meas agree to 7 digits at all 7 p̄; collapse targets −1.73e-6 < 1e-5, −1.73e-5, −4.32e-5 all inside the pre-stated bands; p̄ ≤ 100 control ≤ 9.1e-7. P2 held: max 4.4e-4 < 5e-4, closed-form branch rejected. Both kill criteria verified unfired by me (1.73e-6 < 3e-5; c₂ moved 5.2e-5 < 0.01). C1/C2 corrections recomputed from the shipped JSON: 34.15–717.66 (ν=0.25), 42.5–1819.6 (ν=0.1), min flip margin 2.5534 — the dossier's corrected statements match.
+
+3. Attacks (four, beyond the required three):
+   - Nudge scaling: artifact/(−nudge) constant to 6 digits from 1e-10 to 1e-8 at p̄ ∈ {200, 1000} — the floor identification is mechanistic, not fitted.
+   - Untuned eccentricity e=0.9: artifact-free collapse and exact ν-linearity reproduce (ratios 9.999–10.000 and 2.4996–2.4999 at p̄ ∈ {200, 1000}).
+   - Real B11 path (`crates/space/examples/checker2_realpath.rs`, EIH invariants ported verbatim from `gr_oracle_extended.rs`, law through `Binary::key()`→`Orbit::compile`, oracle 6π/j²): B11 passes at all 21 (p, ν) rows, but worst margin is 1.067× at (p=20, ν=0.01) — dev 0.760 vs tol 0.81 — and the ν-path keys land far outside the measured (p,e) family (law advance 1.509 vs 1.237 at p̄=20, ν=0.25). So "B11 passes the shipped Rust law" is true end-to-end, and the gate's allowance is nearly consumed at strong field by an O(u) invariant-labeling residue, not by anything GR-shaped — the finding deepens.
+   - GR reference: the 2PN EOB D̄ handling is correct. Damour's review (arXiv:1212.3169: D(u)=1+6νu² at 2PN, D⁻¹=1+νd̄(u)) with the mass shell H²_eff = A(1+j²u²)+(A²/D)p_r² gives the pr² coefficient A²(1−6νu²) — the script's s=−1 branch. The code comment mislabels it "D̄" (it is 1/D̄); physics unaffected. The ν→0 control (≤2.3e-6) and H_eff drift (≤9.4e-15) re-verified.
+
+4. Novelty. `docs/HISTORY.md` has no B11-oracle entry; the 1 October law red-team fixed B9/B14/B15/B16/B17/B18, not B11; r3 v3's handoff issue was a rung criterion. The only same-class finding is the B13 plane-judge correction (6 October, taste log). The B11 precession-oracle hole is new with 20261008-0041; this run supplies exactly what that silver lacked (a regenerating record) plus the two named decisive experiments.
+
+5. Goal fit. Directly on the board's live question: motion law v2's binaries are about to be judged by frozen B11. PRINCIPLES: "Certificates need independent, adversarial checks" — this is one, twice over; "Gates are frozen before the first run and never weakened after" — the fix re-points the oracle, it does not weaken the gate. Adoptable within one step: `oracle::periapsis_advance` (exact Darwin) already exists in `xtask/src/behave/oracle.rs`; the 2PN EOB script is 1.5 s.
+
+What the author missed:
+
+- The transfer is compiler-level, not doll-level. `Space::binary_cycle` quantizes the EIH invariants and compiles `binary.key()` directly; it never touches the `QuantizedMemo`/`OrbitKey::bound` family the example measured. My real-path run confirms the disclosed caveat is load-bearing: the ν-path advance differs from the measured family by up to 22% at p̄=20, so the specific "≥2.5× slack" and "34–718×" numbers are properties of the fixed-turning-points convention, not of the gate's actual path. The corrected statement through the real path: the allowance is nearly saturated (1.07×) by a non-GR labeling residue at the strongest seed — a stronger indictment, but a different number.
+- Consequently the sign-flip test through the actual gate path is unmeasured (it needs an invariant-matched 2PN reference); it belongs in the oracle re-point.
+- The example's `QuantizedMemo::get` mirrors the restricted-path boundary, not the binary path it is used to certify; the advance agrees to 4.4e-4 either way, so no conclusion changes.
+- Minor: the "Dbar = 1−6νu²" comment in both falsifiers is the inverse of the review's D; the value used is correct, the label is not.

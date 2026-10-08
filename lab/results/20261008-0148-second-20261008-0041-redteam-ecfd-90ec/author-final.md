@@ -1,0 +1,6 @@
+Working...
+Run complete. Both checker-named corrections done on a fully regenerating record (bit-identical reproduction, 1.4 s), both decisive additions landed as predicted, no gate/crate/main touched; the Rust example (`crates/space/examples/advance_grid.rs`) stays as the patch-recorded experiment.
+
+**Claim:** the corrected record strengthens the original — the two-body doll's premise survives its first 2PN measurement and its +0.36% bound now binds the **shipped integer law** (compiled advance within 0.044% of the exact Schwarzschild geodesic at the same turning points, 8× below the 2PN gap), while B11's frozen precession leg certifies nothing GR-shaped: its 1PN oracle is 34–718× farther from the law than GR is at ν=0.25 (the "5–170×" never regenerated), it passes a sign-flipped-2PN law at every seed with ≥2.5× slack, and it passes the shipped Rust law itself while GR sits 0.36% away — with the original weak-field rows shown to be a now-predicted-and-removed instrument artifact (phase offset 1e-9/|u″(up)|, matched to 3 digits), the c₂ fit and the p̄ ≤ 100 verdict unchanged, and the author's pre-registered <0.5% survival criterion — previously misreported as "held: scale" — honestly fired.
+med
+corrections) done on a fully regenerating record.

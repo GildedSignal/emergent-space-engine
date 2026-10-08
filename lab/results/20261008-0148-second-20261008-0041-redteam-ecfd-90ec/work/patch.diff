@@ -1,0 +1,46 @@
+diff --git a/crates/space/examples/advance_grid.rs b/crates/space/examples/advance_grid.rs
+new file mode 100644
+index 0000000..5990afd
+--- /dev/null
++++ b/crates/space/examples/advance_grid.rs
+@@ -0,0 +1,40 @@
++//! Second-author transfer check (lab run 20261008-0148-second-20261008-0041-redteam-ecfd):
++//! the 2PN bound was measured on the design's float truth (exact Schwarzschild geodesic at
++//! fixed turning points). Does it bind the SHIPPED integer law? Dumps the compiled orbit's
++//! periastron advance for the falsifier's grid, using the same judge-boundary quantization
++//! as xtask's Space adapter (scalar(p): 60-bit significand; e: q48).
++use emergent_space::orbit::{OrbitKey, QuantizedMemo, Scalar};
++
++fn scalar(x: f64) -> Option<Scalar> {
++    if !x.is_finite() || x <= 0.0 {
++        return None;
++    }
++    let exponent = x.log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - exponent)).round() as i128, exponent - 60).ok()
++}
++fn decoded(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
++fn main() {
++    let mut memo = QuantizedMemo::default();
++    let grid = [20.0, 30.0, 50.0, 100.0, 200.0, 500.0, 1000.0];
++    let mut rows: Vec<String> = Vec::new();
++    for &p in &grid {
++        for e in [0.6f64, 0.3] {
++            let row = match (|| {
++                let key = OrbitKey::bound(scalar(p)?, (e * 2f64.powi(48)).round() as u64).ok()?;
++                let c = memo.get(key).ok()?;
++                Some(format!(
++                    "{{\"p\": {p}, \"e\": {e}, \"advance\": {:?}}}",
++                    decoded(c.advance().ok()?)
++                ))
++            })() {
++                Some(r) => r,
++                None => format!("{{\"p\": {p}, \"e\": {e}, \"advance\": null}}"),
++            };
++            rows.push(row);
++        }
++    }
++    println!("[\n{}\n]", rows.join(",\n"));
++}
