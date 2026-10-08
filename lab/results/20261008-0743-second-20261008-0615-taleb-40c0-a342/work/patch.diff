@@ -1,0 +1,441 @@
+diff --git a/crates/universe/src/bin/determinism.rs b/crates/universe/src/bin/determinism.rs
+new file mode 100644
+index 0000000..6d69c20
+--- /dev/null
++++ b/crates/universe/src/bin/determinism.rs
+@@ -0,0 +1,249 @@
++//! Schedule-independence probe (lab run 20261008-0615-taleb-40c0).
++//!
++//! Truth claim under test (AGENTS.md: "Canonical outcomes are exact and independent of cache,
++//! partition, observation, schedule and hardware"; plane.md foundation 2/7): one digest after a
++//! canonical cut, whatever the budget, frame presentation, checkpointing, observation or thread
++//! count on the way. This binary drives the flight scene to the same cut along one named path and
++use emergent_universe::num::Tick;
++
++use emergent_universe::scenario::{plane, Plane};
++use emergent_universe::universe::{Budget, Universe};
++use emergent_universe::Config;
++
++fn scene(seed: u64, threads: usize, members: u64) -> Plane {
++    plane(Config::default(), seed, emergent_universe::fleet::Order::Sparse, threads, members)
++        .expect("scene")
++}
++
++fn line(tag: &str, seed: u64, thr: usize, u: &Universe, wall_ms: u128) {
++    let s = &u.stats;
++    println!(
++        "{tag} seed={seed} thr={thr} digest={} now={} events={} kicks={} handoffs={} slices={} boundaries={} opens={} encounters={} contacts={} decisions={} refused={} handouts={} bpb={} wall_ms={wall_ms}",
++        u.digest(),
++        u.now,
++                s.events(),
++        s.kicks, s.handoffs, s.slices, s.boundaries, s.opens, s.encounters, u.contacts, s.decisions, s.refused,
++        u.pending_handouts(),
++        u.bytes_per_body(),
++    );
++}
++
++fn decisions(u: &mut Universe, t: Tick, player: usize) {
++    let _ = player;
++    // Fixed decision log, identical on every path: three key changes at fixed canonical ticks.
++    let _ = u.schedule(1, 0x01); // forward, base throttle
++    let _ = u.schedule(t / 3, 0x11); // forward, one throttle level up
++    let _ = u.schedule((2 * t) / 3, 0x00); // release
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let case = args.get(1).map(String::as_str).unwrap_or("direct");
++    let seed: u64 = args.get(2).map(|s| s.parse().unwrap()).unwrap_or(11);
++    let threads: usize = args.get(3).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let members: u64 = args.get(4).map(|s| s.parse().unwrap()).unwrap_or(1024);
++    let t_ticks: Tick = args.get(5).map(|s| s.parse().unwrap()).unwrap_or(40_000_000);
++    let rtf: f64 = args.get(6).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let p = scene(seed, threads, members);
++    let player = p.player;
++    let t0 = std::time::Instant::now();
++    match case {
++        // Reference: one unlimited settle to the cut.
++        "direct" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            u.settle(t_ticks);
++            line("direct", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Same cut, but every advance is allowed a single event: maximal queue churn,
++        // deferred/requeue cycles, horizon recomputation.
++        "events1" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            loop {
++                let a = u.advance(t_ticks, Budget::events(1));
++                if a.events == 0 {
++                    break;
++                }
++            }
++            u.now = u.now.max(t_ticks);
++            line("events1", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Starved budgets: 8 events per advance call.
++        "events8" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            loop {
++                let a = u.advance(t_ticks, Budget::events(8));
++                if a.events == 0 {
++                    break;
++                }
++            }
++            u.now = u.now.max(t_ticks);
++            line("events8", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Wall-clock budgets: the split depends on machine speed and load (a schedule perturbation
++        // no two runs of a loaded machine repeat).
++        "wall" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            loop {
++                let a = u.advance(t_ticks, Budget::wall(0.2));
++                if a.events == 0 {
++                    break;
++                }
++            }
++            u.now = u.now.max(t_ticks);
++            line("wall", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Frame-presented: 60 Hz frames at rtf 100 with a budget that bites (4 events/frame),
++        // i.e. chronic overflow, then the same canonical cut.
++        "frame-starve" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            let mut guard = 0u64;
++            while u.now < t_ticks && guard < 40_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::events(4), t_ticks);
++                if f.events == 0 && f.presented >= t_ticks {
++                    break;
++                }
++            }
++            u.settle(t_ticks);
++            line("frame-starve", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Comfortable frames (unlimited budget per frame): presentation and prune() every 64 frames,
++        // no overflow.
++        "frame-rich" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            let mut guard = 0u64;
++            while u.now < t_ticks && guard < 1_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), t_ticks);
++                if f.events == 0 && f.presented >= t_ticks {
++                    break;
++                }
++            }
++            u.settle(t_ticks);
++            line("frame-rich", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Frame path with observation: after every 32nd frame, read every body out at the presented
++        // time (the gather the view does).
++        "frame-obs" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            let n = u.n_bodies();
++            let mut i = 0u64;
++            let mut guard = 0u64;
++            while u.now < t_ticks && guard < 1_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), t_ticks);
++                i += 1;
++                if i % 32 == 0 {
++                    for b in 0..n {
++                        let t = u.now;
++                        let _ = u.rec(b).b.readout(t);
++                    }
++                }
++                if f.events == 0 && f.presented >= t_ticks {
++                    break;
++                }
++            }
++            u.settle(t_ticks);
++            line("frame-obs", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Checkpointed: settle to half the cut, digest is not taken, continue to the cut.
++        "ckpt" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            u.settle(t_ticks / 2);
++            u.settle(t_ticks);
++            line("ckpt", seed, threads, &u, t0.elapsed().as_millis());
++        }
++
++        // The shipped interactive loop (xtask session.rs step). Fixed (default): a key change is
++        // logged at the frame's scheduled tick on the decision quantum (`input_frame`, the fix under
++        // test). `-raw` keeps the old presented-tick log (`input(now, …)`, session.rs before the
++        // fix) so the leak stays reproducible from this patch alone. `play260` moves the first key
++        // change to 0.26 s wall: a decision-quantum boundary straddle (the honest limit of the fix).
++        c if c.starts_with("play") => {
++            let raw = c.ends_with("-raw");
++            let base = c.strip_suffix("-raw").unwrap_or(c);
++            let starve = base.ends_with("starve");
++            let b2 = base.strip_suffix("-starve").unwrap_or(base);
++            let fps: f64 = if b2.contains("144") {
++                144.0
++            } else if b2.ends_with("30") {
++                30.0
++            } else {
++                60.0
++            };
++            let wall_changes: Vec<f64> = if b2.starts_with("play260") { vec![0.26, 1.7, 3.2] } else { vec![0.5, 1.7, 3.2] };
++            let mut u = p.u;
++            let budget = if starve { Budget::events(2) } else { Budget::unlimited() };
++            let keys_at = [0x01u8, 0x11, 0x00];
++            let mut held: Option<u8> = None;
++            let mut wall_t = 0.0f64;
++            let dt = 1.0 / fps;
++            let mut guard = 0u64;
++            while u.now < t_ticks && guard < 1_000_000 {
++                guard += 1;
++                // The frame that first sees the change takes it.
++                for (i, w) in wall_changes.iter().enumerate() {
++                    if wall_t < *w && wall_t + dt >= *w && held != Some(keys_at[i]) {
++                        if raw {
++                            let now = u.now;
++                            let _ = u.input(now, keys_at[i]);
++                        } else {
++                            let _ = u.input_frame(keys_at[i], rtf);
++                        }
++                        held = Some(keys_at[i]);
++                    }
++                }
++                wall_t += dt;
++                let f = u.frame_to(dt, rtf, budget, t_ticks);
++                if f.events == 0 && f.presented >= t_ticks {
++                    break;
++                }
++            }
++            u.settle(t_ticks);
++            let st = u.rec(player).b.readout(t_ticks).ok();
++            let pos = st.map(|s| (s.position[0], s.position[1], s.length_exponent));
++            println!(
++                "{case} seed={seed} thr={threads} rtf={rtf} digest={} now={} events={} kicks={} encounters={} contacts={} decisions={} refused={} ticks={:?} pos={:?} wall_ms={}",
++                u.digest(), u.now, u.stats.events(), u.stats.kicks, u.stats.encounters, u.contacts, u.stats.decisions, u.stats.refused,
++                u.inputs.iter().map(|&(t, _)| t).collect::<Vec<_>>(), pos, t0.elapsed().as_millis()
++            );
++        }
++
++        // Control: the eager input() path itself, at FIXED canonical ticks (the same ticks
++        // `decisions()` schedules). If this equals `direct` at the same cut, the play-case
++        // divergence is the wall-derived tick values alone, not the input() path.
++        "fixed-input" => {
++            let mut u = p.u;
++            let _ = u.input(1, 0x01);
++            let mut guard = 0u64;
++            while u.now < t_ticks / 3 && guard < 1_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), t_ticks / 3);
++                if f.events == 0 && f.presented >= t_ticks / 3 {
++                    break;
++                }
++            }
++            let _ = u.input(t_ticks / 3, 0x11);
++            let mut guard = 0u64;
++            while u.now < (2 * t_ticks) / 3 && guard < 1_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), (2 * t_ticks) / 3);
++                if f.events == 0 && f.presented >= (2 * t_ticks) / 3 {
++                    break;
++                }
++            }
++            let _ = u.input((2 * t_ticks) / 3, 0x00);
++            u.settle(t_ticks);
++            line("fixed-input", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        other => panic!("unknown case {other}"),
++    }
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..4f187c3 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -167,6 +167,10 @@ pub struct Universe {
+     /// Every item resolved (a refusal or a loss counts: it was work).
+     resolved: u64,
+     frames: u64,
++    /// The scheduled game time of the presented frame: every frame's `want` integrated, capped at
++    /// the cut. `sched >= now` always (a budget that bites delays work and never moves it), so a
++    /// decision logged on it ([`Universe::input_frame`]) is independent of load and budget.
++    sched: Tick,
+     /// Entity ids below this are bodies (those made, and the room for every member a fleet can hand out);
+     /// a fleet's entity id is `body_cap + its index`.
+     body_cap: usize,
+@@ -179,6 +183,12 @@ struct Lanes {
+     ships: Vec<usize>,
+ }
+ 
++/// The decision quantum, in wall seconds: the finest timing the player's key changes are logged at.
++/// Below deliberate human timing, above any frame cadence's sampling spread, so two frame rates
++/// that first show the same change log the same tick unless the change straddles a grid boundary
++/// (≤ this much wall time of ambiguity — the declared price of frame-rate-independent logs).
++pub const DECISION_QUANTUM_SECONDS: f64 = 0.25;
++
+ impl Universe {
+     pub fn new(star_surface: Scalar, cfg: Config) -> Self {
+         Self {
+@@ -210,6 +220,7 @@ impl Universe {
+             contacts: 0,
+             resolved: 0,
+             frames: 0,
++            sched: 0,
+             body_cap: 0,
+         }
+     }
+@@ -862,6 +873,7 @@ impl Universe {
+     pub fn frame_to(&mut self, wall_dt: f64, rtf: f64, budget: Budget, limit: Tick) -> Frame {
+         let want = (rtf * wall_dt / crate::view::TICK_SECONDS) as Tick;
+         let target = self.now.saturating_add(want.max(1)).min(limit.max(self.now));
++        self.sched = self.sched.saturating_add(want.max(1)).min(limit.max(self.now).max(self.sched));
+         let a = self.advance(target, budget);
+         let before = self.now;
+         self.now = a.horizon.max(self.now);
+@@ -892,6 +904,24 @@ impl Universe {
+         Ok(())
+     }
+ 
++    /// [`DECISION_QUANTUM_SECONDS`] of wall time through the time factor, in ticks.
++    pub fn decision_quantum(rtf: f64) -> Tick {
++        ((rtf * DECISION_QUANTUM_SECONDS / crate::view::TICK_SECONDS) as Tick).max(1)
++    }
++
++    /// A key change the frame's keys first show, logged at its canonical tick: the scheduled game time
++    /// this frame presents (`frame_to`'s integrated `want` — a budget that bites delays work and never
++    /// moves it), quantized up to [`Self::decision_quantum`]. The tick is a function of the frame's
++    /// scheduled time alone, so load, budget, thread count and frame rate cannot move it (docs/law.md
++    /// "Ties": the tick written in the log is the game's, never the wall's); what a faster frame rate
++    /// samples finer than the quantum is intent the quantum declares indistinguishable. The decision
++    /// rides the calendar ([`Self::schedule`]): a lagging frame delays it, never moves or drops it.
++    pub fn input_frame(&mut self, keys: u8, rtf: f64) -> Res<()> {
++        let q = Self::decision_quantum(rtf);
++        let t = self.sched.saturating_add(q - 1) / q * q;
++        self.schedule(t, keys)
++    }
++
+     /// Take every scheduled decision whose tick is within `target` and whose past is resolved: the player's next
+     /// item is after it. (An item at the decision's own tick is resolved first.)
+     fn take_due(&mut self, target: Tick) {
+diff --git a/crates/universe/tests/decision_tick.rs b/crates/universe/tests/decision_tick.rs
+new file mode 100644
+index 0000000..dec0492
+--- /dev/null
++++ b/crates/universe/tests/decision_tick.rs
+@@ -0,0 +1,71 @@
++//! The live loop's decision log is canonical (lab runs 20261008-0615 and 20261008-0743): the same
++//! physical key timeline writes the same ticks and the same history whatever the frame rate, the
++//! budget (load) or the thread count. AGENTS.md Truth: "Canonical outcomes are exact and
++//! independent of cache, partition, observation, schedule and hardware."
++use emergent_universe::fleet::Order;
++use emergent_universe::num::Tick;
++use emergent_universe::scenario::plane;
++use emergent_universe::universe::{Budget, Universe};
++use emergent_universe::Config;
++
++/// One flight of the shipped loop's shape (`xtask` `session.rs::step`): a fixed key timeline at
++/// wall moments, every change logged through [`Universe::input_frame`], frames at `fps`, optionally
++/// starved (a budget that bites: the load-only form).
++fn play(seed: u64, threads: usize, fps: f64, starve: bool, rtf: f64, cut: Tick) -> (String, Vec<Tick>) {
++    let mut u: Universe = plane(Config::default(), seed, Order::Sparse, threads, 1024).expect("scene").u;
++    let (wall_changes, keys_at) = ([0.5f64, 1.7, 3.2], [0x01u8, 0x11, 0x00]);
++    let (mut held, mut wall_t, mut guard) = (None, 0.0f64, 0u64);
++    let dt = 1.0 / fps;
++    let budget = if starve { Budget::events(2) } else { Budget::unlimited() };
++    while u.now < cut && guard < 1_000_000 {
++        guard += 1;
++        for (i, w) in wall_changes.iter().enumerate() {
++            if wall_t < *w && wall_t + dt >= *w && held != Some(keys_at[i]) {
++                u.input_frame(keys_at[i], rtf).expect("decision in the past");
++                held = Some(keys_at[i]);
++            }
++        }
++        wall_t += dt;
++        let f = u.frame_to(dt, rtf, budget, cut);
++        if f.events == 0 && f.presented >= cut {
++            break;
++        }
++    }
++    u.settle(cut);
++    (u.digest(), u.inputs.iter().map(|&(t, _)| t).collect())
++}
++
++/// Same pace, same history: within one time factor the frame rate, the load (a budget that bites)
++/// and the thread count cannot move the logged ticks or the digest at the cut.
++#[test]
++fn decision_log_survives_frame_rate_budget_and_threads() {
++    let cut = 80_000_000;
++    let paths = [
++        ("60 Hz", 1, 60.0, false),
++        ("30 Hz", 1, 30.0, false),
++        ("144 Hz", 1, 144.0, false),
++        ("60 Hz starved (load-only, the ruin form)", 1, 60.0, true),
++        ("60 Hz starved, 8 threads", 8, 60.0, true),
++    ];
++    let mut want: Option<(String, Vec<Tick>)> = None;
++    for &(name, thr, fps, starve) in &paths {
++        let got = play(11, thr, fps, starve, 100.0, cut);
++        match &want {
++            None => want = Some(got),
++            Some(w) => assert!(w == &got, "{name}: diverged\n  want {w:?}\n  got  {got:?}"),
++        }
++    }
++    let (digest, ticks) = want.expect("paths");
++    assert_eq!(ticks, vec![10151272, 35529452, 65983268], "ticks are the decision-quantum multiples");
++    assert_eq!(digest, "e1da531e2da1079a8a597db44f197a1c3f4608be3ffe389d8fd12008ca613b67");
++}
++
++/// The shipped default pace holds the same property (a different quantum grid, so its own digest).
++#[test]
++fn decision_log_survives_load_at_real_time_pace() {
++    let cut = 80_000_000;
++    let rich = play(11, 1, 60.0, false, 1.0, cut);
++    let starved = play(11, 1, 60.0, true, 1.0, cut);
++    assert_eq!(rich, starved, "same fps, different load: one history");
++    assert_eq!(rich.1, vec![101512, 355292, 659828], "ticks are the decision-quantum multiples");
++}
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..f6ded3b 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -62,10 +62,9 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         if wall.elapsed().as_secs_f64() >= 55.0 {
+             return Err("kick replay exceeded 55 s; no complete result".into());
+         }
+-        let now = s.p.u.now;
+         if keys != script(n) {
+             keys = script(n);
+-            s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
++            s.p.u.input_frame(keys, s.rtf).map_err(|e| format!("input: {e:?}"))?;
+         }
+         last.resize(s.n_bodies(), None);
+         for (i, seen) in last.iter_mut().enumerate() {
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..773857e 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -70,14 +70,14 @@ impl Session {
+     }
+ 
+     /// One presented frame: the player's decision word when it is given (the keys and the throttle level, one byte:
+-    /// [`emergent_universe::thrust::word`]; a decision, logged at the presented tick if it changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
+-    /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and
+-    /// the frame's wall time.
++    /// [`emergent_universe::thrust::word`]; a decision, logged at the frame's scheduled tick on the decision
++    /// quantum — [`emergent_universe::universe::Universe::input_frame`] — if it changed; a scripted run schedules
++    /// its decisions at canonical ticks instead and passes none), the engine's budgeted advance (never past the
++    /// cut), the view, its serialisation. Returns the view as JSON and the frame's wall time.
+     pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<(Value, f64)> {
+         let (start, cpu0) = (Instant::now(), thread_cpu_ms());
+         if let Some(keys) = keys.filter(|&k| k != self.keys) {
+-            let now = self.p.u.now;
+-            self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
++            self.p.u.input_frame(keys, self.rtf).map_err(|e| format!("input: {e:?}"))?;
+             self.keys = keys;
+         }
+         let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));

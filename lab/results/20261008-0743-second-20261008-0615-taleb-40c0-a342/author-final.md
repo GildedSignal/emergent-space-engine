@@ -1,0 +1,1 @@
+Final: gold429 {"type":"error","error":{"type":"rate_limit_error","code":"1308","message":"[1308][Usage limit reached for 5 hour. Your limit will reset at 2026-10-08 17:44:47][20261008161630cf447b1606d34a17]"},"request_id":"20261008161630cf447b1606d34a17"} retry-after-ms=5295000
