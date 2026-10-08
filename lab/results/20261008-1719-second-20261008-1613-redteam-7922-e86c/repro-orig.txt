@@ -1,0 +1,41 @@
+kick dE = 5.000e-08 per orbit (EPS=1e-07), floor 1e-06
+     e  n*_corr  n*_rand cross/cyc comp/kick cost/orbit
+   0.0      543     6027       8.0    0.0018      0.004
+   0.3      428    21374      36.6    0.0023      0.026
+   0.5      342     5515      58.7    0.0029      0.052
+   0.7      243     3338      88.1    0.0041      0.109
+   0.8      186     1634     109.4    0.0054      0.177
+   0.9      117      673     143.9    0.0085      0.369
+  0.95       74     1090     177.1    0.0135      0.718
+  0.99       25      346     252.4    0.0400      3.028
+ 0.995       16       73     284.5    0.0625      5.334
+
+angle channel at each horizon (rel err = (sum dL/L)^2, dL/L = EPS per kick):
+  e=0.0   n*=543     angle err ~ 2.95e-09  (floor 1e-06)
+  e=0.3   n*=428     angle err ~ 1.83e-09  (floor 1e-06)
+  e=0.5   n*=342     angle err ~ 1.17e-09  (floor 1e-06)
+  e=0.7   n*=243     angle err ~ 5.90e-10  (floor 1e-06)
+  e=0.8   n*=186     angle err ~ 3.46e-10  (floor 1e-06)
+  e=0.9   n*=117     angle err ~ 1.37e-10  (floor 1e-06)
+  e=0.95  n*=74      angle err ~ 5.48e-11  (floor 1e-06)
+  e=0.99  n*=25      angle err ~ 6.25e-12  (floor 1e-06)
+  e=0.995 n*=16      angle err ~ 2.56e-12  (floor 1e-06)
+
+belt (Rayleigh s=0.3): fit cost ~ (1-e)^-1.17
+  median cost/orbit 0.027 crossings; p99 0.19 (7x median); p99.9 1.3 (46x)
+  bodies e>0.9 (1.1% of belt) carry 15% of total compile crossings
+  compiles/kick at e=0.99: 0.04 (law.md budget: 0.05)
+  scaling checks: n*(0.99)/n*(0.5) = 0.073 vs (1-e)^(2/3) = 0.074; n*(0)/n*(0.5) = 1.588 vs 2^(2/3) = 1.587
+  random/correlated horizons: e=0.0:11x, e=0.5:16x, e=0.9:5x
+
+A2 deflection alpha(b) = -ln(b/bc-1) + C0, C0 = -0.400
+    b/bc-1 alpha (rad) windings
+     1e-01        1.90     0.30
+     1e-02        4.20     0.67
+     1e-04        8.81     1.40
+     1e-06       13.42     2.14
+     1e-08       18.02     2.87
+image n offset from shadow edge at r_o (1080p, 60deg FOV -> ~1e-3 rad/pixel):
+  r_o= 4.0M: shadow 1164 mrad, 1st relativistic image +1.15 mrad (1.1 px)
+  r_o= 6.0M: shadow 785 mrad, 1st relativistic image +0.88 mrad (0.9 px)
+  r_o=10.0M: shadow 483 mrad, 1st relativistic image +0.58 mrad (0.6 px)

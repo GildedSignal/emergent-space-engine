@@ -1,0 +1,44 @@
+   Compiling jetbench v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1719-second-20261008-1613-redteam-7922-e86c/jetbench)
+    Finished `release` profile [optimized] target(s) in 0.50s
+     Running `/home/glmlab/lab-target-0/release/jetbench`
+== E1: re-anchor horizon on the shipped integer cycles (law space-darwin16-scaled-v5)
+kick = 1e-7 per orbit in g=1-e^2; floor 1e-6; p/a = 2304
+cross-check T(p=2304,e=0.5): integer 1070869.037545 vs Kepler 1069822.396210 (rel 9.78e-4); knots 27
+     e n*_corrE n*_randE n*_corrL   knots   b9form
+ 0.001      540     >cap     1635       6      8.1
+   0.3      519    17992    30604      16     36.6
+   0.5      452    15618    33572      27     58.7
+   0.6      404    10417    37786      33     72.0
+   0.7      350    10735    19240      42     88.1
+   0.8      278     5593    34149      52    109.4
+   0.9      180     1812     8489      69    143.9
+  0.95      116      961     6381      86    177.1
+  0.99       40      189     1126     124    252.4
+ 0.995       25      142      512     140    284.5
+scaling: n*(0.99)/n*(0.5) = 0.088 vs (1-e^2)^(2/3) = 0.089; n*(0+)/n*(0.5) = 1.195 vs (1/0.75)^(2/3) = 1.211
+
+== E1b: kick-size sweep (horizon ~ eps^(-2/3))
+e=0.5: eps=1e-5 n*=21 ratio vs eps=1e-7: 0.0465 (predicted 0.0464)
+e=0.5: eps=1e-8 n*=2121 ratio vs eps=1e-7: 4.6925 (predicted 4.6416)
+e=0.99: eps=1e-5 n*=2 ratio vs eps=1e-7: 0.0500 (predicted 0.0464)
+e=0.99: eps=1e-8 n*=186 ratio vs eps=1e-7: 4.6500 (predicted 4.6416)
+
+== E3: re-anchor triggers (the author's proposed criterion)
+global trigger: K = n*(0.6)/2 = 202 kicks between re-anchors (frozen scene e<=0.6)
+     e   global maxerr/floor (rate) per-cycle maxerr/floor (rate)
+   0.5           0.1x (0.00495/k)           0.5x (0.00272/k)
+   0.9           1.4x (0.00495/k)           0.5x (0.00693/k)
+  0.95           5.5x (0.00495/k)           0.5x (0.01089/k)
+  0.99         135.9x (0.00495/k)           0.5x (0.03168/k)
+ 0.995         563.0x (0.00495/k)           0.6x (0.05025/k)
+
+== E2: belt scenes (0.285 kicks/orbit, H0190 K2; compiles/kick = 1/n*(e); crossings = measured knots)
+knots fit: 22.91*ln((1+e)/(1-e)) + 2.0, max resid 3.98 (B9: 46.17*ln + 8)
+b18b (frozen: sigma 0.07, cap 0.6)  corrE : median 0.00308, p99   2.1x, p99.9   2.5x, share(e>0.9)   0.0% (0.0000% bodies), e=0.99 body  286x
+b18b (frozen: sigma 0.07, cap 0.6)  randE : median 0.00009, p99   2.1x, p99.9   2.4x, share(e>0.9)   0.0% (0.0000% bodies), e=0.99 body 2020x
+encounters (sigma 0.03, cap 0.5)    corrE : median 0.00192, p99   1.7x, p99.9   2.0x, share(e>0.9)   0.0% (0.0000% bodies), e=0.99 body  457x
+encounters (sigma 0.03, cap 0.5)    randE : median 0.00006, p99   1.7x, p99.9   2.0x, share(e>0.9)   0.0% (0.0000% bodies), e=0.99 body 3221x
+hot tail (sigma 0.3, cap 0.995)     corrE : median 0.01070, p99  11.6x, p99.9 148.3x, share(e>0.9)  37.9% (1.1205% bodies), e=0.99 body   82x
+hot tail (sigma 0.3, cap 0.995)     randE : median 0.00031, p99  41.4x, p99.9 904.7x, share(e>0.9)  74.4% (1.1205% bodies), e=0.99 body  602x
+
+wall 17.6 s

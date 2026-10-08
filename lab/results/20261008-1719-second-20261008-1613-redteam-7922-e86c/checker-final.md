@@ -1,0 +1,9 @@
+Working...
+Check complete. `check.md` written to the run folder with **Grade: gold**.
+
+**What I did:**
+- **Reproduced all three commands** in a clean tree (empty patch.diff): `falsifier-orig.py` (3.1 s) regenerates the first run's record byte-identically; `jetbench` (17.5 s) matches every number in E1/E1b/E2/E3 (metrics2.json identical except `wall_s`); `cost` matches within timing jitter.
+- **Verified grounding:** B18b's frozen spec (σ=0.07, cap 0.6, p∈[2048,2560)) in `xtask/src/behave/belt.rs`; encounters cap 0.5; LAW_ID `space-darwin16-scaled-v5`; law.md's 10⁻⁶ floor and 0.05 compiles/kick budget. Predictions.md (17:26:55) predates jetbench (17:29:46) and the decisive run (17:34:30).
+- **Seven adversarial cases** of my own (independent crate, same shipped law): seed sweep of the random channel (≥3.5× corrE everywhere); p-sweep 512–8192 (tail ratio 0.088 p-invariant); beyond-grid tail keeps dying until the fixed-a channel leaves the bound domain (`NoBoundOrbit` at e≈0.999, matching the lens note); **the per-cycle trigger under random-sign kicks — the channel the author never tested — holds at ≤0.54× floor at ~5× lower rates**; the outbound-half knot mirror confirmed; the corrL walk's actual periapsis motion (<1%); the fixed-a GR period variation that drives corrL.
+
+**Key judgment:** premise corrections are genuine (scene-calibrated global-rate trigger fails by 563× with a planted negative control; the first run's σ=0.3-as-B18b scene doesn't exist in the tree; the compile is half-cycle, so the first run's belt arithmetic over-counted ~2×), adoption is one step (law.md sentence, rung criterion, hot-tail scene decision), and honest prediction adjudication including the upward misses. One real defect found — the dossier's "walk takes the periapsis from 1152 M to 11.5 M" sentence misstates what the measured walk does (those are grid endpoints) — flagged in "what the author missed"; it doesn't touch any reproduced number.

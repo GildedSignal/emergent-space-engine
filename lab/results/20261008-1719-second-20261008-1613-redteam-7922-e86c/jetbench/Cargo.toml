@@ -1,0 +1,14 @@
+[package]
+name = "jetbench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+emergent-space = { path = "../../../../crates/space" }
+
+# Standalone workspace: this package lives inside the repo tree but must not
+# join the root workspace (no crate edits, no workspace changes).
+[workspace]
+
+[profile.release]
+debug = 0
