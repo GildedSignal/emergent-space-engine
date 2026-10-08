@@ -1,0 +1,161 @@
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..02a3cdc 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -45,11 +45,24 @@ use emergent_space::{
+     orbit::Scalar,
+ };
+ use std::sync::Arc;
++use std::sync::atomic::AtomicU64;
+ 
+ pub const MIN_STEP: i64 = 2 * 64;
+ pub const MAX_STEP: i64 = 1 << 50;
+ /// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
+ pub const THRUST_FRACTION_LOG2: i32 = 6;
++// LAB 20261008-0234-quant-2300: per-stage ns of the kick paths, read by the kick bench. Not shipped.
++pub static STAGE_V1: [AtomicU64; 6] = [const { AtomicU64::new(0) }; 6];
++pub static STAGE_V2: [AtomicU64; 6] = [const { AtomicU64::new(0) }; 6];
++pub static STAGE_CNT: [AtomicU64; 2] = [const { AtomicU64::new(0) }; 2];
++
++/// LAB: (readout, ctx-reads, force, sigma-delta/burn, rebind/fit, planning) in ns, with counts, for the split (v1) and clock (v2) kick paths.
++pub fn stage_report() -> ([u64; 6], [u64; 6], u64, u64) {
++    let v1 = std::array::from_fn(|i| STAGE_V1[i].load(std::sync::atomic::Ordering::Relaxed));
++    let v2 = std::array::from_fn(|i| STAGE_V2[i].load(std::sync::atomic::Ordering::Relaxed));
++    let (n1, n2) = (STAGE_CNT[0].load(std::sync::atomic::Ordering::Relaxed), STAGE_CNT[1].load(std::sync::atomic::Ordering::Relaxed));
++    (v1, v2, n1, n2)
++}
+ 
+ /// What resolving one item did, for the universe to apply and count.
+ pub struct Update {
+@@ -352,17 +365,26 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        use std::sync::atomic::Ordering::Relaxed;
++        use std::time::Instant;
++        let lab_n = Instant::now();
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
++        STAGE_V1[0].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        let lab_n = Instant::now();
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
++        STAGE_V1[1].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        let lab_n = Instant::now();
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
++        STAGE_V1[2].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
+         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+         let added;
++        let lab_n = Instant::now();
+         let next = if thrusting {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+@@ -378,7 +400,11 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
++        STAGE_V1[3].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        let lab_n = Instant::now();
+         self.rebind(next, t, d)?;
++        STAGE_V1[4].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        let lab_n = Instant::now();
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -387,6 +413,8 @@ impl Work<'_, '_> {
+         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
+             self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
+         }
++        STAGE_V1[5].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        STAGE_CNT[0].fetch_add(1, Relaxed);
+         Ok(())
+     }
+ 
+@@ -581,9 +609,14 @@ impl Work<'_, '_> {
+     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
++        use std::sync::atomic::Ordering::Relaxed;
++        use std::time::Instant;
++        let lab_n = Instant::now();
+         let d = self.rec.b.doll;
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
++        STAGE_V2[0].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        let lab_n = Instant::now();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+@@ -599,11 +632,15 @@ impl Work<'_, '_> {
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
++        STAGE_V2[1].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        let lab_n = Instant::now();
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let f = force::field(&secs, x)?;
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
++        STAGE_V2[2].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
++        let lab_n = Instant::now();
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+@@ -622,6 +659,8 @@ impl Work<'_, '_> {
+         if thrusting {
+             self.project(t)?;
+         }
++        STAGE_V2[3].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        let lab_n = Instant::now();
+         // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
+         // kick share it), and its boundary in the middle.
+         let (x, v) = scalars(&next)?;
+@@ -633,7 +672,7 @@ impl Work<'_, '_> {
+         }
+         self.rec.ext = Some(ext);
+         if fired {
+-            // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
++            // The step the next reader's partial step starts from: from the boundary in the middle, and how long the step this kick
+             // closes had been running.
+             self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
+         }
+@@ -651,6 +690,8 @@ impl Work<'_, '_> {
+                 }
+             }
+         }
++        STAGE_V2[4].fetch_add(lab_n.elapsed().as_nanos() as u64, Relaxed);
++        STAGE_CNT[1].fetch_add(1, Relaxed);
+         Ok(Resolved::Kick)
+     }
+ 
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..d05a439 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -103,9 +103,18 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
+-        "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+-        "digest": s.digest_at_cut().1, "machine_before": machine_before,
+-        "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
++        "refused": refused,
++        "replay_digest": digest.finalize().to_hex().to_string(),
++        "machine_before": machine_before,
++        "machine_after": crate::measure::machine_state("after"),
++        "wall_seconds": wall.elapsed().as_secs_f64(),
+     }))?);
++    let (v1, v2, n1, n2) = emergent_universe::step::stage_report();
++    let pct = |ns: &[u64; 6], n: u64| -> String {
++        let total: u64 = ns.iter().sum();
++        format!("{{per_kick_us:{:.1}, shares_pct:{:?}, kicks:{}}}", total as f64 / n.max(1) as f64 / 1000.0, ns.iter().map(|s| (*s as f64 / total.max(1) as f64 * 1000.0).round() / 10.0).collect::<Vec<_>>(), n)
++    };
++    println!("stages_v1 [readout, ctx_reads, force, sigma_delta, rebind, ramp]: {}", pct(&v1, n1));
++    println!("stages_v2 [readout, ctx_reads+surface, force+time, quantize+rebind+project, planning, -]: {}", pct(&v2, n2));
+     Ok(u8::from(refused != 0))
+ }
