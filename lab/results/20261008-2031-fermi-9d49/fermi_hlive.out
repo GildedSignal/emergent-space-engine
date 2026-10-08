@@ -1,0 +1,46 @@
+budget: 34.4 bits/body (4 GiB for bodies) | 68.7 bits/body (all 8 GB, unusable)
+
+ceilings (fraction of 1e9 bodies, rest on convoy programs):
+  individual (trader-like)    149.7 bits -> f_max <=  12.9%  (128887 per 1e6 bodies)
+  individual (random)         196.6 bits -> f_max <=   9.5%  (95186 per 1e6 bodies)
+  scarred program member       88.0 bits -> f_max <=  24.2%  (241507 per 1e6 bodies)
+  all convoy: 17.3 bits = 2.01 GiB   all formation: 3.45 GiB   all individual(random): 22.89 GiB
+
+A. belt-belt, B18b geometry (8.4e6 rocks, 2.2-3.2 AU, 2D annulus, q_rel=1e-6):
+   mean spacing 2.13e+08 m
+   1-km rocks  b_cross=    16.0 m vs contact radius   2000 m -> contact per body every     71.6 yr game time (belt turnover: every body individual after ~that long)
+   100-m rocks b_cross=     0.0 m vs contact radius    200 m -> contact per body every      716 yr game time (belt turnover: every body individual after ~that long)
+   1-m rocks   b_cross=     0.0 m vs contact radius      2 m -> contact per body every 7.16e+04 yr game time (belt turnover: every body individual after ~that long)
+   gravity between rocks: b_cross < contact radius at every rock size ->
+   all mutual gravitational kicks are sub-quantum (sum exactly, 0 bits until they cross)
+
+A2. embedded masses (planets, protoplanets, heavy fleets) - the movers:
+   turnover of the whole belt in 100 kyr of game time needs M >= 8.17e+18 kg (8.17e+15 t)
+   turnover of the whole belt in 1 Myr   of game time needs M >= 8.17e+17 kg (8.17e+14 t)
+   turnover of the whole belt in 1 Gyr   of game time needs M >= 8.17e+14 kg (8.17e+11 t)
+   one Ceres (9.4e20 kg) embedded: 26 promotions per game-day, belt fully individual after ~869 yr
+   one 1e15 kg fleet (10^9 t): 1.0e-02 promotions/yr: dead term alone, alive only as aggregates (principle 6)
+
+C. resonance chaos (mu=9.5e-04, W=0.024 a, spacing~0.027 a, coverage 91% of axis):
+   f_chaos=0.05  tau_L=1e+02 orb -> crossing at  6.1e+03 yr game time, promotion rate 2.2e-06/s, H_live growth 4.1e-05 B/s
+   f_chaos=0.05  tau_L=1e+04 orb -> crossing at  6.1e+05 yr game time, promotion rate 2.2e-08/s, H_live growth 4.1e-07 B/s
+   f_chaos=0.30  tau_L=1e+02 orb -> crossing at  6.1e+03 yr game time, promotion rate 1.3e-05/s, H_live growth 2.5e-04 B/s
+   f_chaos=0.30  tau_L=1e+04 orb -> crossing at  6.1e+05 yr game time, promotion rate 1.3e-07/s, H_live growth 2.5e-06 B/s
+   (inside a strong zone the first resonant kick per conjunction is already
+    above the quantum: crossing in ~orbits, not tau_L*ln(1/q); bound unchanged)
+   -> monotone, bounded by f_chaos*N_belt once each; 43.9 MB per belt at f=0.3 (a 1e9-body universe of such belts: 5.2 GiB)
+
+D. births: program births emit ~a program per launch (amortized ~0 bits/member);
+   individual births are player-rate (~1/s x 150-197 bits): DEAD TERM at engine scale
+
+E. time to exhaust 4 GiB of body store at 1e9 bodies
+   (assuming the universe's belts carry the 1e9; f_chaos promoted once each)
+   f_indiv=0.05 ->  23.9 bits/body =  2.78 GiB OK
+   f_indiv=0.12 ->  33.2 bits/body =  3.86 GiB OK
+   f_indiv=0.30 ->  57.0 bits/body =  6.64 GiB OVER
+   f_indiv=1.00 -> 149.7 bits/body = 17.43 GiB OVER
+
+F. event rate vs distinction rate (representation.md's 6e4 kicks/game-second):
+   kicks update E,L in place on the law's grid: 0 new bits unless first crossing.
+   In the smooth belt (outside resonance cover), distinction bits / kick < 1e-9.
+   Inside resonance zones the ratio ~ 1 for the first kick per body, 0 after (Tube saturates).

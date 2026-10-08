@@ -1,0 +1,4 @@
+Working...
+Run complete: six exact round-trip measurements, reproducible analytic script, predictions pre-registered (two held misses reported as held: formation width, and the 3D→2D contact flip), all artifacts in `lab/results/20261008-2031-fermi-9d49/`.
+
+**Claim:** H_live per body saturates (measured: program member 17.3–29.6 bits, first scar +71–77, individual 150–197, re-kicks ≈ 0), so 10⁹ bodies in 8 GB is decided by the promotion census — at most ~10–13% may ever be individual (24% scarred) at 4 GiB — and in the game's 2D belts the promoters are contacts (turnover in ~72 yr per 1-km rock) and embedded masses (M ≥ 8×10¹⁷ kg per Myr, with v_rel cancelling), never mutual gravity between rocks, so the engine needs contact-driven fragment-program recycling and retirement as a designed counterweight, and the H_live dashboard must count promotions and retirements, not the ~6×10⁴ kicks/game-second that create ≈ 0 bits.
