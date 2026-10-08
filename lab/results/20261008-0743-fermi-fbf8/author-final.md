@@ -1,0 +1,3 @@
+Author run Run complete; both scripts reproduce clean from scratch (predictions pre-registered before the decisive runs; two of six prediction bands missed and are reported as missed in the dossier).
+
+**Claim (one sentence):** At 10⁹ bodies, belt physics creates only ~0.1 bits of live distinguishing information per game-second and a belt program survives ≥1.4×10⁴ orbits (the first-encounter floor no mass can beat at fixed density), so memory never breaks first at 10⁹ — the binding terms are one-time candidate setup (~3×10⁵–3×10⁶ s single-thread, ~10–100 h on all 8 cores) and the packed-belt trap, where 10⁹ bodies in one belt width saturate 8 GB of scars in 0.06 orbits, the memory-side face of the board's O(N²) packing risk.
