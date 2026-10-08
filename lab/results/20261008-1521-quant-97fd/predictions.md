@@ -1,0 +1,11 @@
+# Predictions (written before the decisive runs)
+
+Tuned on: one 5 s smoke run at the flown point (rtf 100, members 48, seed 1): frame p50 4.9 / p99 11.8 ms, view gather share 61.6%, engine p50 0.31 / p99 8.1 ms, 28/300 overflow frames. Everything below is about cases NOT yet run.
+
+- **P1 (view floor, other seeds).** At the flown point (rtf 100) on fresh seeds 7 and 20261008, the view gather keeps > 50% of summed frame time and its p50 stays within ±30% of 3.4 ms. If it collapses below 30% share or moves > 2×, the smoke run's view share was seed luck.
+- **P2 (capacity in rtf, unpaced).** Per-frame compute grows with rtf through the engine alone; the view gather's p50 is flat in rtf (within ±20% from rtf 30 to 1000). The frame p50 crosses 16.7 ms somewhere in rtf 300–1000 on this Linux box; the engine is the stage that crosses first. If the view grows with rtf too, the gather is re-doing work per game second, not per frame — a different (worse) law.
+- **P3 (engine is bursts).** Across runs at rtf ≥ 100, the top 10% of frames by engine_ms carry > 60% of all engine time (Gini-style concentration; the fleet's slice is a burst, not a dribble). If engine time is spread evenly (top 10% < 40%), cadence work must target the median, not the tail.
+- **P4 (an order's impact is bounded).** At rtf 1 (real time, 30 s), frames inside a burn window (script burns every 240th frame for 20 frames) cost at p99 no more than 3× coasting frames' p99, and the wake decays to coast cost within 3 frames after the burn ends. If a decision frame costs ≥ 5× coast, the player's order is an unbounded burst and the allocator claim (plane.md foundation 7) is falsified at the plane level.
+- **P5 (whose µs).** In every run, the fleet kind's µs-per-item is the largest of the five kinds (planet, moon, ship, player, fleet) — the battle's slice, not root-doll kicks, is the engine's expensive event. If ship/planet kicks dominate instead, the board's "kicks dominate" reads through to the flown plane directly.
+
+Kill criterion for the whole probe: if paced and unpaced runs at rtf 100 disagree on stage shares by more than 2× (scheduling noise swamps compute), the Linux tail numbers are not order-of-magnitude evidence and the run reports that limitation instead of a verdict.

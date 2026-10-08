@@ -1,0 +1,47 @@
+diff --git a/crates/universe/src/dash.rs b/crates/universe/src/dash.rs
+index cd88678..1f484f7 100644
+--- a/crates/universe/src/dash.rs
++++ b/crates/universe/src/dash.rs
+@@ -21,6 +21,9 @@ pub struct Dash {
+     pub view_ms: Vec<f64>,
+     pub json_ms: Vec<f64>,
+     pub wire_ms: Vec<f64>,
++    /// Game ticks and events of each frame (the lab's tail anatomy: what the expensive frames did).
++    pub ticks: Vec<i64>,
++    pub frame_events: Vec<u64>,
+ }
+ 
+ fn pct(sorted: &[f64], q: f64) -> f64 {
+@@ -58,6 +61,8 @@ impl Dash {
+     pub fn record(&mut self, frame_ms: f64, cpu_ms: f64, game_ticks: i64, wall_dt: f64, events: u64, overflow: bool) {
+         self.frame_ms.push(frame_ms);
+         self.cpu_ms.push(cpu_ms);
++        self.ticks.push(game_ticks);
++        self.frame_events.push(events);
+         let game = game_ticks as f64 * TICK_SECONDS;
+         self.rtf.push(game / wall_dt);
+         self.game_seconds += game;
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..b1c86a4 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -129,6 +129,19 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
++    // The lab's per-frame dump: the tail's anatomy (one row per presented frame).
++    if let Ok(path) = std::env::var("FRAME_CSV") {
++        let d = &s.dash;
++        let mut csv = String::from("n,frame_ms,cpu_ms,engine_ms,view_ms,json_ms,wire_ms,ticks,events\n");
++        for i in 0..d.frame_ms.len() {
++            csv.push_str(&format!(
++                "{},{:.4},{:.4},{:.4},{:.4},{:.4},{:.4},{},{}\n",
++                i + 1, d.frame_ms[i], d.cpu_ms[i], d.engine_ms[i], d.view_ms[i], d.json_ms[i], d.wire_ms[i],
++                d.ticks.get(i).copied().unwrap_or(0), d.frame_events.get(i).copied().unwrap_or(0)
++            ));
++        }
++        std::fs::write(&path, csv)?;
++    }
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
