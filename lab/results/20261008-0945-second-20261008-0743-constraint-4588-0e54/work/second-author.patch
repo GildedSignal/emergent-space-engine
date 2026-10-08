@@ -1,0 +1,460 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..2f681ac 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -18,7 +18,7 @@ use crate::num::{to_f64, Tick};
+ use crate::observe::{clock_rate, clocks_with, root_state, state_rate};
+ use crate::universe::Universe;
+ use emergent_space::orbit::Scalar;
+-
++use std::collections::HashMap;
+ /// Seconds in one tick (`G·M_sun/c³`, the star's `M/c`).
+ pub const TICK_SECONDS: f64 = 4.925_490_947e-6;
+ 
+@@ -149,6 +149,291 @@ impl ViewCache {
+     }
+ }
+ 
++/// One display quantum: the floor the player differentiates (PRINCIPLES #28). The sky angle is
++/// one pixel of a 90° FOV (0.05° at 1080p, 0.02° at 4K), the shift one palette step (10⁻³,
++/// 2·10⁻⁴). The row's other fields are gated in their own unit: distances like the shift
++/// (relative), a fleet member's staleness in whole ticks.
++#[derive(Clone, Copy, Debug)]
++pub struct Quantum {
++    /// Degrees of sky angle (one pixel).
++    pub angle_deg: f64,
++    /// Relative shift (one palette step).
++    pub shift_rel: f64,
++}
++
++/// What a held row was computed from: the body's committed tick (its tube — a kick rebuilds it)
++/// or the fleet's committed tick. One integer compare retires a held row when the engine, not a
++/// timer, changed its basis; a member handed out keeps its id but changes basis, so it recomputes.
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub enum Basis {
++    Body(Tick),
++    Fleet(usize, Tick),
++}
++
++/// The display-quantum row cache: a presentation memo beside [`ViewCache`]. Where the crossing
++/// memo holds a guess for Newton's method, this holds the whole computed row and serves it while
++/// its measured drift stays under half a quantum — recomputing (and re-measuring the drift) when
++/// the prediction crosses or the basis is rebuilt. The view reads and never writes (law 5), so no
++/// engine certificate can see it; a served row differs from a full recompute by less than the
++/// quantum it is held at.
++#[derive(Debug, Default)]
++pub struct RowCache {
++    rows: HashMap<usize, Held>,
++    frame: u64,
++    obs: Option<Tick>,
++    last_tc: Vec<Option<Tick>>,
++    /// Rows served (not recomputed) by the last gather, with their ids, for a checker's gate;
++    /// and why the other serves were refused.
++    pub served: u64,
++    pub computed: u64,
++    pub served_ids: Vec<usize>,
++    pub refused_basis: u64,
++    pub refused_body_basis: u64,
++    pub fleet_tc_changes: u64,
++    pub fleet_rows: u64,
++    pub refused_max: u64,
++    pub refused_drift: u64,
++}
++
++#[derive(Clone, Debug)]
++struct Held {
++    row: Seen,
++    basis: Basis,
++    /// The frame the row was computed at, the per-frame drift of the row before it, and the
++    /// worst measured change of that drift (the curvature): a served row is the row extrapolated
++    /// along the drift, and the curvature bounds how far that can run.
++    frame: u64,
++    rate: Option<Deltas>,
++    acc: Option<Deltas>,
++    /// How many adjacent pairs have fed the curvature bound: two before the row may serve.
++    acc_samples: u32,
++}
++
++/// The held row's per-frame drift (first order) and the guard on it (second order): the row is a
++/// smooth function of the observer's now between engine events, so its Taylor form is the cheap
++/// representation — the value itself was the wrong one (age and distance drift every frame by
++/// construction, and a value-hold fights exactly that).
++#[derive(Clone, Copy, Debug)]
++struct Deltas {
++    /// Signed sky rotation in radians per frame.
++    dtheta: f64,
++    offset_d: [f64; 2],
++    ls_d: f64,
++    age_d: f64,
++    closing_d: f64,
++    /// Relative shift per frame (log scale).
++    shift_rel_d: f64,
++    lum_d: f64,
++    color_d: [f64; 3],
++    lag_d: f64,
++    ar_d: f64,
++}
++
++impl Deltas {
++    fn scale(self, k: f64) -> Deltas {
++        Deltas {
++            dtheta: self.dtheta * k,
++            offset_d: [self.offset_d[0] * k, self.offset_d[1] * k],
++            ls_d: self.ls_d * k,
++            age_d: self.age_d * k,
++            closing_d: self.closing_d * k,
++            shift_rel_d: self.shift_rel_d * k,
++            lum_d: self.lum_d * k,
++            color_d: [self.color_d[0] * k, self.color_d[1] * k, self.color_d[2] * k],
++            lag_d: self.lag_d * k,
++            ar_d: self.ar_d * k,
++        }
++    }
++
++    fn sub_abs(self, o: Deltas) -> Deltas {
++        Deltas {
++            dtheta: (self.dtheta - o.dtheta).abs(),
++            offset_d: [(self.offset_d[0] - o.offset_d[0]).abs(), (self.offset_d[1] - o.offset_d[1]).abs()],
++            ls_d: (self.ls_d - o.ls_d).abs(),
++            age_d: (self.age_d - o.age_d).abs(),
++            closing_d: (self.closing_d - o.closing_d).abs(),
++            shift_rel_d: (self.shift_rel_d - o.shift_rel_d).abs(),
++            lum_d: (self.lum_d - o.lum_d).abs(),
++            color_d: [(self.color_d[0] - o.color_d[0]).abs(), (self.color_d[1] - o.color_d[1]).abs(), (self.color_d[2] - o.color_d[2]).abs()],
++            lag_d: (self.lag_d - o.lag_d).abs(),
++            ar_d: (self.ar_d - o.ar_d).abs(),
++        }
++    }
++
++    fn max_with(self, o: Deltas) -> Deltas {
++        Deltas {
++            dtheta: self.dtheta.max(o.dtheta),
++            offset_d: [self.offset_d[0].max(o.offset_d[0]), self.offset_d[1].max(o.offset_d[1])],
++            ls_d: self.ls_d.max(o.ls_d),
++            age_d: self.age_d.max(o.age_d),
++            closing_d: self.closing_d.max(o.closing_d),
++            shift_rel_d: self.shift_rel_d.max(o.shift_rel_d),
++            lum_d: self.lum_d.max(o.lum_d),
++            color_d: [self.color_d[0].max(o.color_d[0]), self.color_d[1].max(o.color_d[1]), self.color_d[2].max(o.color_d[2])],
++            lag_d: self.lag_d.max(o.lag_d),
++            ar_d: self.ar_d.max(o.ar_d),
++        }
++    }
++}
++
++impl RowCache {
++    fn begin(&mut self) {
++        self.frame += 1;
++        self.served = 0;
++        self.computed = 0;
++        self.served_ids.clear();
++        self.refused_basis = 0;
++        self.refused_body_basis = 0;
++        self.refused_max = 0;
++        self.refused_drift = 0;
++    }
++
++    pub fn held_frames(&self, id: usize) -> Option<u64> {
++        self.rows.get(&id).map(|h| self.frame - h.frame)
++    }
++
++    /// Track the fleet's committed tick: how often the battle's basis actually moves.
++    fn fleet_tick(&mut self, fi: usize, tc: Tick) {
++        if self.last_tc.len() <= fi {
++            self.last_tc.resize(fi + 1, None);
++        }
++        if self.last_tc[fi].is_some_and(|t| t != tc) {
++            self.fleet_tc_changes += 1;
++        }
++        self.last_tc[fi] = Some(tc);
++    }
++
++    /// The observer's committed tick and the burn owed: a kick to the player rebuilds every
++    /// row's aberration, and so does a key going down (the owed turn appears at once).
++    fn observe(&mut self, t: Tick, owed: bool) {
++        if self.obs != Some(t) || owed {
++            self.rows.clear();
++            self.obs = Some(t);
++        }
++    }
++
++    fn measure(prev: &Seen, now: &Seen, n: f64) -> Deltas {
++        let dotp = dot(now.direction, prev.direction).clamp(-1.0, 1.0);
++        let cross = prev.direction[0] * now.direction[1] - prev.direction[1] * now.direction[0];
++        Deltas {
++            dtheta: cross.clamp(-1.0, 1.0).asin().atan2(dotp) / n,
++            offset_d: [(now.offset[0] - prev.offset[0]) / n, (now.offset[1] - prev.offset[1]) / n],
++            ls_d: (now.light_seconds - prev.light_seconds) / n,
++            age_d: (now.age - prev.age) / n,
++            closing_d: (now.closing - prev.closing) / n,
++            shift_rel_d: ((now.shift - prev.shift) / prev.shift.abs().max(1e-12)) / n,
++            lum_d: (now.luminosity - prev.luminosity) / n,
++            color_d: [
++                (now.color[0] - prev.color[0]) / n,
++                (now.color[1] - prev.color[1]) / n,
++                (now.color[2] - prev.color[2]) / n,
++            ],
++            lag_d: (now.lag - prev.lag) / n,
++            ar_d: (now.angular_radius - prev.angular_radius) / n,
++        }
++    }
++
++    /// Serve the held row extrapolated along its measured drift, while the worst measured
++    /// curvature keeps the extrapolation's error under a quarter quantum on every channel and
++    /// the row's basis is the one the engine holds now.
++    fn serve(&mut self, id: usize, q: Quantum, basis: Basis) -> Option<Seen> {
++        let h = self.rows.get(&id)?;
++        if h.basis != basis {
++            self.refused_basis += 1;
++            if matches!(basis, Basis::Body(_)) {
++                self.refused_body_basis += 1;
++            }
++            return None;
++        }
++        let r = match h.rate {
++            Some(r) if h.acc.is_some() && h.acc_samples >= 2 => r,
++            _ => {
++                self.refused_max += 1;
++                return None;
++            }
++        };
++        // The curvature bound is a few samples old at best: carry a safety factor.
++        let a = h.acc?.scale(4.0);
++        let n = (self.frame - h.frame) as f64;
++        let w = 0.5 * n * (n + 1.0);
++        // The guard: a stale rate errs by a·n and smooth curvature by a·n²/2, so the bound is
++        // a·n(n+1)/2 against a quarter of each channel's quantum.
++        let (aq, oq) = (q.angle_deg.to_radians(), q.angle_deg.to_radians().tan());
++        let off = (h.row.offset[0] * h.row.offset[0] + h.row.offset[1] * h.row.offset[1]).sqrt().max(1e-12);
++        let lsq = q.shift_rel * h.row.light_seconds.abs().max(1e-12);
++        let held = w * a.dtheta < 0.25 * aq
++            && w * (a.offset_d[0] + a.offset_d[1]) < 0.25 * oq * off
++            && w * a.ls_d.abs() < 0.25 * lsq
++            && w * a.age_d < 0.25 * lsq
++            && w * a.closing_d < 0.25 * q.shift_rel
++            && w * a.shift_rel_d < 0.25 * q.shift_rel
++            && w * a.lum_d < 0.25 * 4.0 * q.shift_rel * h.row.luminosity.abs().max(1e-12)
++            && w * a.color_d[0].max(a.color_d[1]).max(a.color_d[2]) < 0.25 * 1e-2
++            && w * a.lag_d < 0.25
++            && w * a.ar_d < 0.25 * aq;
++        if !held {
++            self.refused_drift += 1;
++            return None;
++        }
++        self.served += 1;
++        self.served_ids.push(id);
++        // The served row: the held row moved along its drift.
++        let th = (r.dtheta * n) as f64;
++        let (c, s) = (th.cos(), th.sin());
++        let mut row = h.row.clone();
++        row.direction = [c * h.row.direction[0] - s * h.row.direction[1], s * h.row.direction[0] + c * h.row.direction[1]];
++        let m = row.direction[0] * row.direction[0] + row.direction[1] * row.direction[1];
++        if m > 0.0 {
++            row.direction = [row.direction[0] / m.sqrt(), row.direction[1] / m.sqrt()];
++        }
++        row.offset = [h.row.offset[0] + r.offset_d[0] * n, h.row.offset[1] + r.offset_d[1] * n];
++        row.light_seconds = h.row.light_seconds + r.ls_d * n;
++        row.age = h.row.age + r.age_d * n;
++        row.closing = h.row.closing + r.closing_d * n;
++        row.shift = h.row.shift * (1.0 + r.shift_rel_d * n);
++        row.luminosity = h.row.luminosity + r.lum_d * n;
++        row.color = [
++            (h.row.color[0] + r.color_d[0] * n).clamp(0.0, 1.0),
++            (h.row.color[1] + r.color_d[1] * n).clamp(0.0, 1.0),
++            (h.row.color[2] + r.color_d[2] * n).clamp(0.0, 1.0),
++        ];
++        row.lag = h.row.lag + r.lag_d * n;
++        row.angular_radius = h.row.angular_radius + r.ar_d * n;
++        Some(row)
++    }
++
++    fn put(&mut self, id: usize, row: Seen, basis: Basis) {
++        self.computed += 1;
++        match self.rows.get_mut(&id) {
++            // The drift is measured between adjacent computed rows only: after a serve window
++            // the average would understate a curving row, so one adjacent recompute re-arms.
++            Some(h) => {
++                let n = self.frame - h.frame;
++                if n == 1 {
++                    let m = Self::measure(&h.row, &row, 1.0);
++                    if let Some(prev_rate) = h.rate {
++                        let acc = prev_rate.sub_abs(m);
++                        h.acc = Some(h.acc.map_or(acc, |p| p.max_with(acc)));
++                        h.acc_samples += 1;
++                    }
++                    h.rate = Some(m);
++                } else {
++                    h.rate = Some(Self::measure(&h.row, &row, n as f64));
++                    h.acc = None;
++                    h.acc_samples = 0;
++                }
++                h.row = row;
++                h.basis = basis;
++                h.frame = self.frame;
++            }
++            None => {
++                self.rows.insert(id, Held { row, basis, frame: self.frame, rate: None, acc: None, acc_samples: 0 });
++            }
++        }
++    }
++}
++
++
+ /// An emitter's state at one tick: position and velocity in the root frame and its clock rate.
+ struct At {
+     x: [f64; 2],
+@@ -221,20 +506,41 @@ fn rest(kind: Kind, id: usize, doll_name: &str) -> (f64, f64) {
+ 
+ /// Gather everything that arrives at the player's present tick, every crossing found from scratch.
+ pub fn gather(u: &Universe, names: &[String]) -> Option<View> {
+-    gather_with(u, names, None)
++    gather_with(u, names, None, None)
+ }
+ 
+ /// [`gather`], each emitter's crossing started from the one `cache` holds from the last frame (and
+ /// updated): the same view, in about one readout per emitter instead of two or three.
+ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> Option<View> {
+-    gather_with(u, names, Some(cache))
++    gather_with(u, names, Some(cache), None)
+ }
+ 
+-fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
++/// [`gather_cached`] with the display-quantum row cache: rows whose measured drift is under half
++/// a quantum are served from `rows` instead of recomputed. Every served row differs from a full
++/// recompute by less than the quantum it is held at.
++pub fn gather_quantized(
++    u: &Universe,
++    names: &[String],
++    cache: &mut ViewCache,
++    rows: &mut RowCache,
++    q: Quantum,
++) -> Option<View> {
++    gather_with(u, names, Some(cache), Some((rows, q)))
++}
++
++fn gather_with(
++    u: &Universe,
++    names: &[String],
++    mut cache: Option<&mut ViewCache>,
++    mut rows: Option<(&mut RowCache, Quantum)>,
++) -> Option<View> {
+     let ctx = u.ctx();
+     if let Some(c) = cache.as_mut() {
+         c.readouts = 0;
+     }
++    if let Some((rc, _)) = rows.as_mut() {
++        rc.begin();
++    }
+     let p = u.player()?;
+     let t_now = u.now;
+     let rec = u.rec(p);
+@@ -252,6 +558,9 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     // The keys held since the last flush: the turn and the burn owed, as a flush at this tick would write them.
+     let owed = if rec.alive { crate::observe::held_thrust(&ctx, &rec, t_now).ok().flatten() } else { None };
+     let dv = owed.map_or([0.0, 0.0], |o| o.1);
++    if let Some((rc, _)) = rows.as_mut() {
++        rc.observe(u.bodies().event_time(p), owed.is_some());
++    }
+     let vo = [vo[0] + dv[0], vo[1] + dv[1]];
+     let (rate_obs, doll_rate, doll_beta) = match clocks_with(&ctx, p, t_read, dv) {
+         Ok(c) => (c.root, c.doll, c.doll_velocity),
+@@ -266,7 +575,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
+     let mut seen = Vec::new();
+-    let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
++    let push = |seen: &mut Vec<Seen>, id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+         let d = [pos[0] - xo[0], pos[1] - xo[1]];
+         let dist = dot(d, d).sqrt().max(1e-9);
+         let toward = [d[0] / dist, d[1] / dist];
+@@ -274,7 +583,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         let n_prop = [-toward[0], -toward[1]];
+         let shift = ((1. - dot(n_prop, vo)) / rate_obs) / ((1. - dot(n_prop, vel)) / rate);
+         let (dir, _) = aberration(toward, vo);
+-        seen.push(Seen {
++        let s = Seen {
+             id,
+             name: name.to_string(),
+             kind,
+@@ -288,12 +597,14 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             age: (t_now as f64 - t_e) * TICK_SECONDS,
+             lag,
+             angular_radius: (radius_root / dist).atan(),
+-        });
++        };
++        seen.push(s.clone());
++        s
+     };
+     // The star.
+     {
+         let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
+-        push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
++        push(&mut seen, usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
+     // Bodies: where each tube crosses the past light cone.
+     let mut reads = 0u64;
+@@ -302,6 +613,19 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             continue;
+         }
+         let kind = u.info[i].kind;
++        // The row's id, stable across a handout (a member that left its frame keeps its fleet id).
++        let rid = match u.info[i].from {
++            Some((fi, m)) => 1_000_000 + fi as usize * 1000 + m as usize,
++            None => i,
++        };
++        // Serve the held row while the quantum holds and the body's committed tick — the tube a
++        // kick rebuilds — has not moved: the simulation, not a timer, retires it.
++        if let Some((rc, q)) = rows.as_mut() {
++            if let Some(s) = rc.serve(rid, *q, Basis::Body(u.bodies().event_time(i))) {
++                seen.push(s);
++                continue;
++            }
++        }
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+         let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
+         if let Some(c) = cache.as_deref_mut() {
+@@ -324,10 +648,13 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             Kind::Moon => 2,
+             _ => 3,
+         };
+-        match u.info[i].from {
++        let row = match u.info[i].from {
+             // A member that left its frame is the same ship to the eye (the same id, name and colour).
+-            Some((fi, m)) => push(1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64),
+-            None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
++            Some((fi, m)) => push(&mut seen, 1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64),
++            None => push(&mut seen, i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
++        };
++        if let Some((rc, _)) = rows.as_mut() {
++            rc.put(rid, row, Basis::Body(u.bodies().event_time(i)));
+         }
+     }
+     if let Some(c) = cache.as_deref_mut() {
+@@ -351,6 +678,15 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             if !f.is_member(m) {
+                 continue;
+             }
++            let rid = 1_000_000 + fi * 1000 + m;
++            if let Some((rc, _)) = rows.as_mut() {
++                rc.fleet_tick(fi, tc);
++                rc.fleet_rows += 1;
++            }
++            // Fleet members are NOT served from the row cache: the battle's committed tick does
++            // not bound the stepper's member states (it moves many times a frame at rtf 100 and
++            // the rows still jump between its moves), so there is no cheap sound basis for them.
++            // Their rows are cheap already (no crossing search: an extrapolation each frame).
+             let x = [origin[0] + mo.x[0] as f64 * k, origin[1] + mo.x[1] as f64 * k];
+             let v = [cv[0] + ov[0] / q + mo.k[0] as f64 / q, cv[1] + ov[1] / q + mo.k[1] as f64 / q];
+             let d = [x[0] - xo[0], x[1] - xo[1]];
+@@ -363,7 +699,10 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             let r_doll = dot(rel, rel).sqrt() * 2f64.powi(shift);
+             let rate = rate0 * (1.0 - 2.0 * u.dolls[f.doll as usize].mu_f64() / r_doll.max(3.0)).sqrt();
+             let rad = f.radii.get(m).copied().unwrap_or(0) as f64 * k;
+-            push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
++            let row = push(&mut seen, rid, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
++            if let Some((rc, _)) = rows.as_mut() {
++                rc.put(rid, row, Basis::Fleet(fi, tc));
++            }
+         }
+     }
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
