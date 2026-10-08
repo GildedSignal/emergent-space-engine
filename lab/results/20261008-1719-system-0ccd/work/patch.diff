@@ -1,0 +1,222 @@
+diff --git a/xtask/src/universe/jet_probe.rs b/xtask/src/universe/jet_probe.rs
+new file mode 100644
+index 0000000..7b10f4b
+--- /dev/null
++++ b/xtask/src/universe/jet_probe.rs
+@@ -0,0 +1,177 @@
++//! `--jet-probe`: decompose the plane's rebinding kicks, and measure the reuse the law's
++//! re-anchored jet would enjoy. Read-only against the resolver: it replays each distinct
++//! pending ship kick through `step::process` (like `--kick-bench`), then times the parts.
++use super::{script, Session};
++use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
++use emergent_space::orbit::{MemoCode, Scalar};
++use emergent_universe::bind::bind;
++use emergent_universe::body::What;
++use emergent_universe::num::time_of;
++use emergent_universe::{step, Kind};
++use serde_json::json;
++use std::collections::HashMap;
++use std::sync::Arc;
++use std::time::Instant;
++
++fn percentiles(mut samples: Vec<f64>) -> serde_json::Value {
++    samples.sort_by(f64::total_cmp);
++    let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
++    json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
++}
++
++fn med(samples: &[f64]) -> f64 {
++    let mut v = samples.to_vec();
++    v.sort_by(f64::total_cmp);
++    v.get(v.len() / 2).copied().unwrap_or(0.0)
++}
++
++pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
++    let mut last: Vec<Option<i64>> = vec![None; s.n_bodies()];
++    let mut keys = 0u8;
++    let mut carried = 0u64; // sub-quantum kicks: no rebind, no compile
++    let mut passages = 0u64; // rebinds onto a Passage (no cycle: the jet does not apply)
++    let mut kick_us: Vec<f64> = Vec::new(); // whole resolver, rebinding kicks
++    let mut bind_us: Vec<f64> = Vec::new(); // the wholesale rebind (`bind`) on the same state
++    let mut fit_us: Vec<f64> = Vec::new(); // `Rebinding::from_state` alone (the compile)
++    let mut read_us: Vec<f64> = Vec::new(); // one readout (proxy for a jet increment's cost)
++    // Per body: the run length of consecutive rebinds inside one quantized memo cell.
++    let mut cell: HashMap<usize, (Option<u64>, u64)> = HashMap::new(); // body -> (code, run)
++    let mut runs: Vec<u64> = Vec::new();
++    let mut cells_seen: HashMap<u64, ()> = HashMap::new();
++    let mut digest = blake3::Hasher::new();
++    let wall = Instant::now();
++    for n in 1..=(seconds * 60.0) as usize {
++        if wall.elapsed().as_secs_f64() >= 55.0 {
++            return Err("jet probe exceeded 55 s; no complete result".into());
++        }
++        let now = s.p.u.now;
++        if keys != script(n) {
++            keys = script(n);
++            s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
++        }
++        last.resize(s.n_bodies(), None);
++        for (i, seen) in last.iter_mut().enumerate() {
++            let rec = s.p.u.rec(i);
++            if rec.kind != Kind::Ship || !rec.alive {
++                continue;
++            }
++            let Some(item) = rec.plan.first().copied() else { continue };
++            if !matches!(item.what, What::Kick(_)) || *seen == Some(item.t) {
++                continue;
++            }
++            *seen = Some(item.t);
++            let old_entry = Arc::clone(&rec.b.entry);
++            let t0 = Instant::now();
++            let upd = step::process(&s.p.u.ctx(), i, rec);
++            let us = t0.elapsed().as_secs_f64() * 1e6;
++            digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
++            if Arc::ptr_eq(&old_entry, &upd.rec.b.entry) {
++                carried += 1;
++                continue;
++            }
++            // A rebind happened: this kick compiled a new trajectory.
++            kick_us.push(us);
++            let b = &upd.rec.b;
++            let t = b.event_time;
++            let st = b.readout(t).map_err(|e| format!("readout: {e:?}"))?;
++            let doll = b.doll;
++            let ctx = s.p.u.ctx();
++            let edge = (doll != 0)
++                .then(|| ctx.dolls[doll as usize].edge.scale(2).ok())
++                .flatten();
++            let t1 = Instant::now();
++            let again = bind(st, t, b.clock_exp, edge, b.entry.unit);
++            bind_us.push(t1.elapsed().as_secs_f64() * 1e6);
++            let again = again.map_err(|e| format!("rebind again: {e:?}"))?;
++            let t2 = Instant::now();
++            let _ = b.readout(t).map_err(|e| format!("readout: {e:?}"))?;
++            read_us.push(t2.elapsed().as_secs_f64() * 1e6);
++            match &again.entry.trajectory {
++                Trajectory::Cycle(c) => {
++                    let t3 = Instant::now();
++                    // The compile alone, on the state the plane compiled (`bind_in`'s call).
++                    let units = b.entry.unit;
++                    let q = |p: i64| -> Option<i64> {
++                        let raw = Scalar::raw(p as i128, 0).ok()?;
++                        let tubed = units.to_tube(raw).ok()?;
++                        let fixed = tubed.fixed(0).ok()?;
++                        i64::try_from(fixed).ok()
++                    };
++                    let (p0, p1) = (q(st.position[0]), q(st.position[1]));
++                    let ev = units.to_tube(time_of(t, b.clock_exp).map_err(|e| format!("time: {e:?}"))?);
++                    let ev = ev.map_err(|e| format!("time: {e:?}"))?;
++                    let ed = edge.map(|e| units.to_tube(e)).transpose().map_err(|e| format!("edge: {e:?}"))?;
++                    if let (Some(p0), Some(p1)) = (p0, p1) {
++                        let st_tube = IntegerState { position: [p0, p1], ..st };
++                        let _ = Rebinding::from_state(st_tube, ev, ed).map_err(|e| format!("fit: {e:?}"))?;
++                        fit_us.push(t3.elapsed().as_secs_f64() * 1e6);
++                    }
++                    // Cell residence across this body's consecutive rebinds.
++                    let code = MemoCode::encode(c.key()).ok().map(|c| c.bits());
++                    if let Some(c) = code {
++                        cells_seen.insert(c, ());
++                    }
++                    let e = cell.entry(i).or_insert((None, 0));
++                    match (code, e.0) {
++                        (Some(c), Some(p)) if c == p => e.1 += 1,
++                        (Some(c), _) => {
++                            if e.0.is_some() {
++                                runs.push(e.1);
++                            }
++                            *e = (Some(c), 1);
++                        }
++                        (None, _) => {
++                            e.0 = None;
++                        }
++                    }
++                }
++                Trajectory::Passage(_) => passages += 1,
++            }
++        }
++        s.p.u.frame(1.0 / 60.0, s.rtf, emergent_universe::Budget::unlimited());
++        s.p.u.settle(s.p.u.now);
++    }
++    for (_, (_, run)) in cell.iter() {
++        runs.push(*run);
++    }
++    runs.sort_unstable();
++    let med_runs = runs.get(runs.len() / 2).copied().unwrap_or(0);
++    let mean_runs = runs.iter().sum::<u64>() as f64 / runs.len().max(1) as f64;
++    let kick_med = med(&kick_us);
++    let fit_med = med(&fit_us);
++    let read_med = med(&read_us);
++    let share = if kick_med > 0.0 { fit_med / kick_med } else { 0.0 };
++    let r = med_runs.max(1) as f64;
++    let optimistic = kick_med - fit_med + fit_med / r;
++    let with_inc = optimistic + read_med;
++    println!(
++        "{}",
++        serde_json::to_string_pretty(&json!({
++            "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; decomposition of rebinding kicks only; pure resolver reads, nothing applied",
++            "seed": s.seed, "rtf_target": s.rtf, "seconds": seconds,
++            "kicks": {"rebinding": kick_us.len(), "carried_subquantum": carried, "passage_rebinds": passages},
++            "kick_us_resolver": percentiles(kick_us),
++            "rebind_us_wholesale": percentiles(bind_us),
++            "compile_us_from_state": percentiles(fit_us),
++            "readout_us": percentiles(read_us),
++            "compile_share_of_kick_median": share,
++            "cell_residence": {
++                "note": "run length of a body's consecutive rebinding kicks inside one quantized 12+12-bit memo cell",
++                "median_run": med_runs, "mean_run": mean_runs, "runs": runs.len(),
++                "distinct_cells": cells_seen.len(), "all_runs": runs,
++            },
++            "jet_ceiling": {
++                "note": "projected rebinding-kick median if the compile happened only on cell exit and the increment cost one readout; R = median cell run",
++                "R": med_runs,
++                "optimistic_us": optimistic,
++                "with_readout_increment_us": with_inc,
++                "factor_optimistic": kick_med / optimistic.max(1e-9),
++                "factor_with_increment": kick_med / with_inc.max(1e-9),
++            },
++            "replay_digest": digest.finalize().to_hex().to_string(),
++            "digest": s.digest_at_cut().1,
++            "wall_seconds": wall.elapsed().as_secs_f64()
++        }))?
++    );
++    Ok(0)
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..45efa92 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -9,6 +9,7 @@
+ //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+ mod http;
++mod jet_probe;
+ mod kick_bench;
+ mod session;
+ 
+@@ -20,7 +21,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+-    let (mut kicks, mut level) = (false, 0u8);
++    let (mut kicks, mut level, mut jet) = (false, 0u8, false);
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -33,6 +34,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
++            "--jet-probe" => jet = true,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+@@ -49,6 +51,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     }
+     let mut s = Session::new(seed, threads, members, rtf)?;
+     s.engine_ms = engine_ms;
++    if jet {
++        return jet_probe::run(s, seconds);
++    }
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
