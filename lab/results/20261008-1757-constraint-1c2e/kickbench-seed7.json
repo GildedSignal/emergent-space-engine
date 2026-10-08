@@ -1,0 +1,79 @@
+{
+  "compile_share": {
+    "note": "sum over samples of Orbit::compile(key) re-run on the entry the kick just compiled; the resolver's own compile cost, measured out-of-line",
+    "samples": 1010,
+    "total_us": 48828.527000000046
+  },
+  "digest": "238cae3a62096a5356a58ab4554c05872b74ca51d8f813e03b575a1667cb3b2b",
+  "frames": 900,
+  "kick_us": {
+    "mean": 42.238067357512946,
+    "median": 38.753,
+    "p99": 79.81,
+    "samples": 193
+  },
+  "kick_us_all": {
+    "mean": 93.14785073170752,
+    "median": 79.406,
+    "p99": 604.1179999999999,
+    "samples": 1025
+  },
+  "kick_us_leavers": {
+    "mean": 104.95745192307706,
+    "median": 83.768,
+    "p99": 608.014,
+    "samples": 832
+  },
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-08T18:10:39Z",
+    "unix": 1791483039,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-08T18:10:39Z",
+    "unix": 1791483039,
+    "when": "before"
+  },
+  "memo": {
+    "cycle_rebinds": 1010,
+    "eccentricity_of_kicks": {
+      "n": 1010,
+      "p10": 0.011767581221567847,
+      "p50": 0.8180760720610201,
+      "p90": 0.9906467370417882,
+      "p99": 0.9994377447550586
+    },
+    "eccentricity_of_kicks_leavers": {
+      "n": 817,
+      "p10": 0.5582899507119912,
+      "p50": 0.8394480318500566,
+      "p90": 0.9906467411767526,
+      "p99": 0.9994377447956362
+    },
+    "exact_hit_rate": 0.0,
+    "exact_shapes": 1010,
+    "quantized_hit_rate": 0.9544554455445544,
+    "quantized_shapes": 46
+  },
+  "refused": 0,
+  "replay_digest": "5a978fb8b8bcc4c1e0ddb96307cec9215681b89fd5dd8c395249c035a6e3c913",
+  "rtf_target": 100.0,
+  "samples": 1025,
+  "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+  "seed": 7,
+  "wall_seconds": 0.497824268
+}

@@ -1,0 +1,162 @@
+diff --git a/crates/space/examples/compile_sweep.rs b/crates/space/examples/compile_sweep.rs
+new file mode 100644
+index 0000000..b9a4d68
+--- /dev/null
++++ b/crates/space/examples/compile_sweep.rs
+@@ -0,0 +1,50 @@
++//! Compile-cost sweep: `Orbit::compile` cost vs eccentricity (and field strength), the plane's
++//! regime. One question: what sets the price of the rebind every kick pays? Run:
++//!   cargo run --release -p emergent-space --example compile_sweep
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::time::Instant;
++
++fn median(v: &mut [f64]) -> f64 {
++    v.sort_by(f64::total_cmp);
++    v[v.len() / 2]
++}
++
++fn sweep(p: Scalar, label: &str) {
++    let mut out = String::new();
++    for &e in &[0.0f64, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 0.99] {
++        let e_q48 = (e * (1u64 << 48) as f64) as u64;
++        let key = match OrbitKey::bound(p, e_q48) {
++            Ok(k) => k,
++            Err(_) => {
++                out.push_str(&format!("{label} e={e}: refused\n"));
++                continue;
++            }
++        };
++        // Warm-up (tables, allocator); then time each compile of the same key.
++        let warm = Orbit::compile(key).expect("compile");
++        let mut knots_checksum = warm.shape().knots().len();
++        let mut us = Vec::with_capacity(201);
++        for _ in 0..201 {
++            let t0 = Instant::now();
++            let o = Orbit::compile(key).expect("compile");
++            us.push(t0.elapsed().as_secs_f64() * 1e6);
++            knots_checksum += o.shape().knots().len();
++        }
++        let log_ratio = ((1.0 + e) / (1.0 - e)).log2();
++        out.push_str(&format!(
++            "{label} e={e:<5} log2(ra/rp)={log_ratio:6.2} knots={} compile_us_median={:.1} knots_per_us={:.2}\n",
++            warm.shape().knots().len(),
++            median(&mut us),
++            warm.shape().knots().len() as f64 / median(&mut us).max(1e-9),
++        ));
++        let _ = knots_checksum; // keeps the loop honest under optimization
++    }
++    print!("{out}");
++}
++
++fn main() {
++    // The plane's ships: weak field (periapsis 2^27 M => q = 2^-27, shape zeroes compactness).
++    sweep(Scalar::power_of_two(27), "weak");
++    // Held out from tuning: strong field (q = 1/8, the Scalar path), same eccentricity grid.
++    sweep(Scalar::power_of_two(3), "strong");
++}
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..e7f3148 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -16,9 +16,11 @@ struct Shapes {
+     cycles: u64,
+     exact: HashSet<ShapeKey>,
+     quantized: HashSet<u64>,
++    es: Vec<f64>,
++    es_leavers: Vec<f64>,
+ }
+ impl Shapes {
+-    fn note(&mut self, t: &Trajectory) {
++    fn note(&mut self, t: &Trajectory, leaver: bool) {
+         let Trajectory::Cycle(c) = t else { return };
+         self.cycles += 1;
+         let key = c.key();
+@@ -28,27 +30,41 @@ impl Shapes {
+         if let Ok(c) = MemoCode::encode(key) {
+             self.quantized.insert(c.bits());
+         }
++        // e = 1/k - 1 with k in Q48 (the module's own doc).
++        let e = (1u128 << 48) as f64 / key.k as f64 - 1.0;
++        self.es.push(e);
++        if leaver {
++            self.es_leavers.push(e);
++        }
+     }
+     fn json(&self) -> serde_json::Value {
+         let hit = |n: usize| if self.cycles == 0 { 0.0 } else { 1.0 - n as f64 / self.cycles as f64 };
++        let pct = |v: &[f64]| {
++            let mut s = v.to_vec();
++            s.sort_by(f64::total_cmp);
++            let at = |p: f64| s.get(((s.len().saturating_sub(1) as f64) * p).ceil() as usize).copied();
++            json!({"n": s.len(), "p10": at(0.1), "p50": at(0.5), "p90": at(0.9), "p99": at(0.99)})
++        };
+         json!({
+             "cycle_rebinds": self.cycles,
+             "exact_shapes": self.exact.len(), "exact_hit_rate": hit(self.exact.len()),
+             "quantized_shapes": self.quantized.len(), "quantized_hit_rate": hit(self.quantized.len()),
++            "eccentricity_of_kicks": pct(&self.es),
++            "eccentricity_of_kicks_leavers": pct(&self.es_leavers),
+         })
+     }
+ }
+-
+ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
++    let mean = samples.iter().sum::<f64>() / samples.len().max(1) as f64;
+     samples.sort_by(f64::total_cmp);
+     let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
+-    json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
++    json!({"mean": mean, "median": at(0.5), "p99": at(0.99), "samples": samples.len()})
+ }
+ 
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let machine_before = crate::measure::machine_state("before");
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+-    // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
++    // and the members a fleet hands out later (they are most of the kicks; the bench once skipped them).
+     let (mut made, mut leavers) = (Vec::new(), Vec::new());
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+@@ -58,6 +74,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
++    let mut compile_us = 0.0f64;
++    let mut compile_samples = 0usize;
+     for n in 1..=(seconds * 60.0) as usize {
+         if wall.elapsed().as_secs_f64() >= 55.0 {
+             return Err("kick replay exceeded 55 s; no complete result".into());
+@@ -84,10 +102,21 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
++            // Out-of-line re-compile of the entry the kick just compiled: the compile share.
++            let mut this_compile_us = 0.0f64;
++            if let Some(e) = &upd.new_entry {
++                if let Trajectory::Cycle(o) = &e.trajectory {
++                    let c0 = Instant::now();
++                    let _ = emergent_space::orbit::Orbit::compile(o.key());
++                    this_compile_us = c0.elapsed().as_secs_f64() * 1e6;
++                }
++            }
++            compile_us += this_compile_us;
++            compile_samples += usize::from(this_compile_us > 0.0);
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+-                shapes.note(&e.trajectory);
++                shapes.note(&e.trajectory, i >= made_n);
+             }
+             digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+         }
+@@ -102,6 +131,11 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
++        "compile_share": {
++            "total_us": compile_us,
++            "samples": compile_samples,
++            "note": "sum over samples of Orbit::compile(key) re-run on the entry the kick just compiled; the resolver's own compile cost, measured out-of-line"
++        },
+         "memo": shapes.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
