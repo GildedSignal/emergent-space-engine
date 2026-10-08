@@ -1,0 +1,353 @@
+diff --git a/crates/universe/src/bin/kickfloor.rs b/crates/universe/src/bin/kickfloor.rs
+new file mode 100644
+index 0000000..358434c
+--- /dev/null
++++ b/crates/universe/src/bin/kickfloor.rs
+@@ -0,0 +1,347 @@
++//! Lab probe 20261008-1419-components-620e (components lens): the kick event's floor, part by part.
++//!
++//! A kick is the engine's dominant event (board: "kicks dominate the engine's cost"). This bench
++//! measures, on one realistic doll scene (the plane's star system: Cinder, Home, Giant at their
++//! real root-unit radii and masses, belt positions between Home and Giant), the cost of every part
++//! of a level-0 kick as the plane runs it today:
++//!   - the secondaries' tube readout (`Ctx::secondaries` runs per kick: K `cartesian` calls + a Vec),
++//!   - the force evaluation in normalized-dyadic `Scalar` arithmetic (`force::acceleration`),
++//!   - the rebind (`bind`: the Kepler fit + tube construction, fired on ~99% of distinct kicks),
++//!   - the state readout (`Binding::readout`),
++//! and an integer-native evaluator of the same acceleration (one shared exponent per band, u64
++//! significands, seed tables plus five Newton steps for r^-3; no `Scalar`, no `Result`), which is
++//! the arithmetic floor of the body-dependent part of a kick. The body-independent part (the
++//! origin's fall) is timed both ways and also alone, since the design can share it per kick epoch.
++//!
++//! Exactness check: max relative deviation of the integer path from the `Scalar` path over a
++//! deterministic position sweep, and that deviation as a fraction of one kick (`h·a` at a 2^-30
++//! velocity word, h = a 32nd of the belt period). f64 appears only in the scene setup (both paths
++//! consume the same Scalar/i64 values); no canonical outcome is decided by a float.
++use emergent_space::binding::IntegerState;
++use emergent_space::orbit::Scalar;
++use emergent_universe::bind::{bind, bind_exact, Binding};
++use emergent_universe::force::{self, Secondary};
++use emergent_universe::num::V2;
++use emergent_universe::world::Unit;
++use std::hint::black_box;
++use std::time::Instant;
++
++/// The plane's planets (scenario.rs): mass as a power of two of the star, periapsis in root units.
++const PLANETS: [(f64, f64); 3] = [
++    (4.76837158203125e-7, 3.56e7), // Cinder
++    (3.814697265625e-6, 9.93e7), // Home
++    (9.765625e-4, 5.0e8),  // Giant
++];
++const CLOCK_EXP: i16 = -16;
++const T0: i64 = 1 << 40;
++const PF: i32 = 20; // positions at 2^-PF (r ~ 2^28.9 → ~49 bits)
++const GF: i32 = 60; // gm at 2^-GF (2^-21 → 39 significant bits)
++const AF: i32 = -80; // the acceleration's own band (a ~ 1e-20 here: the position band swallows it)
++
++fn scalar(x: f64) -> Scalar {
++    Scalar::raw((x * (1u64 << 40) as f64) as i128, -40).expect("scene value")
++}
++
++fn make_secondaries(phase: f64) -> Vec<Secondary> {
++    PLANETS
++        .iter()
++        .enumerate()
++        .map(|(i, &(g, r))| {
++            let th = phase + i as f64 * 1.7;
++            let (c, s) = (th.cos(), th.sin());
++            let v = 1.1 * (1.0f64 / r).sqrt(); // periapsis speed of an e ≈ 0.1 orbit
++            Secondary {
++                gm: scalar(g),
++                pos: [scalar(r * c), scalar(r * s)],
++                vel: [scalar(-v * s), scalar(v * c)],
++                edge: scalar(r * (g / 3.0).cbrt()),
++            }
++        })
++        .collect()
++}
++
++/// Deterministic belt positions between Home and Giant (min gap ~5e7 root units).
++fn belt(n: usize) -> Vec<(V2, V2)> {
++    let mut x = 0x2545F4914F6CDD1Du64;
++    let mut out = Vec::with_capacity(n);
++    for _ in 0..n {
++        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        let a = (x >> 33) as f64 / (1u64 << 31) as f64;
++        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        let b = (x >> 33) as f64 / (1u64 << 31) as f64;
++        let r = 1.5e8 + 0.7e8 * a;
++        let th = b * std::f64::consts::TAU;
++        let v = (0.85 + 0.3 * a) * (1.0f64 / r).sqrt();
++        out.push((
++            [scalar(r * th.cos()), scalar(r * th.sin())],
++            [scalar(-v * th.sin()), scalar(v * th.cos())],
++        ));
++    }
++    out
++}
++
++fn time_ns<F: FnMut(usize) -> R, R>(name: &str, inner: usize, mut f: F) -> f64 {
++    for i in 0..inner / 8 {
++        black_box(f(i % 64));
++    }
++    let t = Instant::now();
++    for i in 0..inner {
++        black_box(f(i % 64));
++    }
++    let ns = t.elapsed().as_secs_f64() * 1e9 / inner as f64;
++    println!("{name:<32} {ns:>9.1}  ns/op");
++    ns
++}
++
++// ---------------------------------------------------------------- the integer-native floor evaluator
++
++/// Seeds for sv = 1/sqrt(Q) at 2^-61. Table A: Q ∈ [1, 2) (significand m ∈ [2^62, 2^63), index
++/// (m >> 58) - 16). Table B: Q ∈ [0.5, 1) (m ∈ [2^61, 2^62), index (m >> 57) - 16).
++/// A[i] = round(2^61·sqrt(32/(32.5+i))), B[i] = round(2^61·sqrt(32/(16.5+i))). Max ~2^61.48 < 2^63.
++const SEED_A: [u64; 16] = [
++    2288037005217618176, 2253628473668062208, 2220727021968381696, 2189225752007465984,
++    2159028088420388608, 2130046531325668864, 2102201588443350528, 2075420856880945152,
++    2049638230412172288, 2024793212469934848, 2000830318586697728, 1977698554836881664,
++    1955350961115201024, 1933744209935963136, 1912838252949154816, 1892596008608110848,
++];
++const SEED_B: [u64; 16] = [
++    3211165968366019584, 3118068847956734976, 3032626044798951424, 2953843072238042624,
++    2880897416587570688, 2813102098532154368, 2749878247490396672, 2690734167475480576,
++    2635249153387078656, 2583060834157720064, 2533855168981881344, 2487358463477921280,
++    2443330940812614144, 2401561522098212864, 2361863556118410240, 2324071300851905536,
++];
++
++/// An i128 magnitude renormalized into [2^60, 2^61), with its exponent (value = m · 2^e).
++#[inline]
++fn norm128(x: i128) -> (i128, i32) {
++    if x == 0 {
++        return (0, 0);
++    }
++    let a = x.unsigned_abs();
++    let l = a.leading_zeros() as i32;
++    let sh = l - 67; // a ∈ [2^(127-l), 2^(128-l)) → result ∈ [2^60, 2^61)
++    let (m, e) = if sh >= 0 { (a << sh, -sh) } else { (a >> (-sh), -sh) };
++    (x.signum() as i128 * m as i128, e)
++}
++
++/// A Scalar as a fixed-point i64 at `frac` binary places (truncating toward zero).
++fn to_fixed(s: Scalar, frac: i32) -> i64 {
++    let shift = (s.exponent() as i32) - 62 + frac;
++    let sig = s.significand() as i128;
++    if shift >= 0 {
++        (sig << shift.min(60)) as i64
++    } else {
++        (sig >> (-shift).min(60)) as i64
++    }
++}
++
++/// A Scalar's value as f64 (reporting only; never a canonical outcome).
++fn to_f64(s: Scalar) -> f64 {
++    s.significand() as f64 * (f64::from(s.exponent() as i32) - 62.0).exp2()
++}
++
++struct SecI {
++    gm: i64,       // 2^-GF
++    x: i64,        // 2^-PF
++    y: i64,        // 2^-PF
++    edge2: u128,   // 2^-(2·PF)
++    half_pf: i64,  // edge/2 at 2^-PF
++    recip_pf: i64, // 2^(2·PF) / half_pf
++}
++
++fn to_ints(s: &Secondary) -> SecI {
++    let half_pf = to_fixed(s.edge, PF + 1) >> 1;
++    let e = to_fixed(s.edge, PF) as i128;
++    SecI {
++        gm: to_fixed(s.gm, GF),
++        x: to_fixed(s.pos[0], PF),
++        y: to_fixed(s.pos[1], PF),
++        edge2: (e * e) as u128,
++        half_pf,
++        recip_pf: if half_pf != 0 { ((1i128 << (2 * PF)) / half_pf as i128) as i64 } else { 0 },
++    }
++}
++
++/// The weighted pull of one secondary on a body at (x0, x1) at 2^-PF, integer-native:
++/// r^-3 from a seeded Newton iteration on Q = r² (five steps saturate u64 precision), and the
++/// changeover weight W_0 with a far certificate (`r ≥ edge` skips the polynomial entirely).
++#[inline]
++fn pull_floor(s: &SecI, x0: i64, x1: i64) -> (i64, i64) {
++    let (dx, dy) = (s.x - x0, s.y - x1); // 2^-PF
++    let q = (dx as i128 * dx as i128 + dy as i128 * dy as i128) as u128; // r² at 2^-2PF
++    if q == 0 {
++        return (0, 0);
++    }
++    // Normalize into m ∈ [2^61, 2^63) with an even shift: value r² = m·2^f, f even.
++    let base = 127 - q.leading_zeros() as i32;
++    let mut sh = 62 - base;
++    if sh & 1 != 0 {
++        sh -= 1;
++    }
++    let (m, f) = if sh >= 0 { ((q << sh) as u64, -2 * PF - sh) } else { ((q >> (-sh)) as u64, -2 * PF - sh) };
++    // sv = 1/sqrt(Q), Q = m·2^-62 ∈ [0.5, 2), sv held at 2^-61 (≤ 2^61.48, fits u64).
++    let mut sv = if m >= (1u64 << 62) { SEED_A[((m >> 58) as usize) - 16] } else { SEED_B[((m >> 57) as usize) - 16] };
++    let mut s2 = 0u128;
++    for _ in 0..5 {
++        s2 = (sv as u128 * sv as u128) >> 61; // sv² at 2^-61
++        let t = (m as u128 * s2) >> 61; // Q·sv² at 2^-62
++        let u3 = (3u128 << 62) - t; // (3 − Q·sv²) at 2^-62
++        sv = ((sv as u128 * u3) >> 63) as u64; // sv·(3 − Q·sv²)/2 at 2^-61
++    }
++    let c3 = (s2 * sv as u128) >> 61; // sv³ at 2^-61
++    let kbits = (s.gm as i128) * (c3 as i128); // k = gm/r³: value = kbits·2^(e3)
++    let e3 = -(GF + 61) - 3 * (f + 62) / 2;
++    let (kk, ek) = norm128(kbits);
++    let shift = ek + e3 - PF - AF; // the pull lands in the acceleration band (bits = value·2^-AF)
++    let apply = |d: i64| -> i128 {
++        let p = kk * d as i128;
++        if shift >= 0 { p << (shift as u32).min(62) } else { p >> ((-shift) as u32).min(126) }
++    };
++    let (mut px, mut py) = (apply(dx), apply(dy));
++    if q < s.edge2 {
++        // Near: W_0 = S((r − E/2)/(E/2)) with S(y) = y²(3 − 2y) on [0,1]; zero well inside.
++        let r_pf = ((q * sv as u128) >> (PF + 61) as u32) as i64; // r at 2^-PF
++        let u = r_pf - s.half_pf;
++        if u <= 0 {
++            return (0, 0);
++        }
++        let uu = ((u as i128 * s.recip_pf as i128) >> PF) as i64; // ∈ (0, 2^PF]
++        let s1 = ((uu as i128 * uu as i128) >> PF) as i64;
++        let w = ((s1 as i128 * (3i128 * (1 << PF) - 2 * uu as i128)) >> PF) as i64;
++        px = px * w as i128 >> PF;
++    }
++    (px as i64, py as i64)
++}
++
++/// The level-0 acceleration at (x0, x1), integer-native, all parts evaluated (apples to apples with
++/// `force::acceleration(0, ..)`: every secondary's weighted pull plus the origin's fall, which is
++/// the same pull at the origin — outside every edge, so its weight is 1).
++fn accel_floor(secs: &[SecI], x0: i64, x1: i64) -> (i64, i64) {
++    let (mut ax, mut ay) = (0i64, 0i64);
++    let (mut fx, mut fy) = (0i64, 0i64);
++    for s in secs {
++        let (px, py) = pull_floor(s, x0, x1);
++        ax += px;
++        ay += py;
++        let (ox, oy) = pull_floor(s, 0, 0);
++        fy += oy;
++    }
++    (ax - fx, ay - fy)
++}
++
++/// The body-dependent part alone (the origin's fall is one uniform vector per kick epoch, shared
++/// by every member of the doll: the floor architecture computes it once per epoch, not per body).
++fn accel_floor_body(secs: &[SecI], x0: i64, x1: i64) -> (i64, i64) {
++    let (mut ax, mut ay) = (0i64, 0i64);
++    for s in secs {
++        let (px, py) = pull_floor(s, x0, x1);
++        ax += px;
++        ay += py;
++    }
++    (ax, ay)
++}
++
++fn main() {
++    let secs = make_secondaries(0.3);
++    let ints: Vec<SecI> = secs.iter().map(to_ints).collect();
++    let pos = belt(64);
++    let xs: Vec<V2> = pos.iter().map(|p| p.0).collect();
++    let states: Vec<IntegerState> = pos
++        .iter()
++        .map(|(p, v)| IntegerState {
++            position: [to_fixed(p[0], PF), to_fixed(p[1], PF)],
++            velocity: [to_fixed(v[0], 30), to_fixed(v[1], 30)],
++            length_exponent: -PF as i16,
++            velocity_exponent: -30,
++        })
++        .collect();
++
++    println!("== the parts of one kick (Linux x86, release, shared machine: orders of magnitude) ==");
++    let n = 200_000;
++    let acc_scalar = time_ns("acceleration (Scalar)", n, |i| force::acceleration(0, xs[i], &secs, None));
++    let _pull = time_ns("pull one secondary", n, |i| force::pull(secs[2].gm, secs[2].pos, xs[i]));
++    let _wfar = time_ns("weight far (W=1)", n, |_| force::weight(0, scalar(3.0e8), secs[0].edge));
++    let _wnear = time_ns("weight near", n, |_| force::weight(0, scalar(2.0e5), secs[2].edge));
++    let _clone = time_ns("secondaries Vec clone", n, |_| secs.clone());
++    let acc_int = time_ns("acceleration (integer)", n, |i| {
++        accel_floor(&ints, to_fixed(xs[i][0], PF), to_fixed(xs[i][1], PF))
++    });
++    let acc_int_body = time_ns("acceleration (integer, no origin)", n, |i| {
++        accel_floor_body(&ints, to_fixed(xs[i][0], PF), to_fixed(xs[i][1], PF))
++    });
++
++    // The planets as bindings, for the readout and secondaries parts.
++    let t = T0;
++    let planets: Vec<Binding> = secs
++        .iter()
++        .map(|s| {
++            let st = IntegerState {
++                position: [to_fixed(s.pos[0], PF), to_fixed(s.pos[1], PF)],
++                velocity: [to_fixed(s.vel[0], 30), to_fixed(s.vel[1], 30)],
++                length_exponent: -PF as i16,
++                velocity_exponent: -30,
++            };
++            let bound = bind(st, t, CLOCK_EXP, None, Unit::ONE).expect("planet bind");
++            bind_exact(bound.entry, bound.tube, CLOCK_EXP, bound.units, t, 0)
++        })
++        .collect();
++    let gm: Vec<Scalar> = secs.iter().map(|s| s.gm).collect();
++    let edge: Vec<Scalar> = secs.iter().map(|s| s.edge).collect();
++    let _readout = time_ns("Binding::readout", n, |i| planets[i % 3].readout(t + (i as i64) * 64));
++    let secondaries_ns = time_ns("secondaries_like (3 planets)", n / 4, |i| {
++        let mut out = Vec::new();
++        for (k, p) in planets.iter().enumerate() {
++            let (pos, vel) = p.cartesian(t + (i as i64) * 64).expect("cartesian");
++            out.push(Secondary { gm: gm[k], pos, vel, edge: edge[k] });
++        }
++        out
++    });
++    let bind_ns = time_ns("bind (the rebind)", 20_000, |i| {
++        bind(black_box(states[i]), t + (i as i64) * 512, CLOCK_EXP, None, Unit::ONE)
++    });
++
++    println!("\n== debug: per-secondary pulls, position 0 ==");
++    {
++        let x = xs[0];
++        let (x0, x1) = (to_fixed(x[0], PF), to_fixed(x[1], PF));
++        for (k, s) in secs.iter().enumerate() {
++            let (p, r) = force::pull(s.gm, s.pos, x).expect("scalar pull");
++            let of = force::origin_fall(&secs).expect("origin");
++            let pi = pull_floor(&ints[k], x0, x1);
++            println!("sec {k}: scalar pull ({:.6e},{:.6e}) r={:.4e} | int ({:.6e},{:.6e})",
++                to_f64(p[0]), to_f64(p[1]), to_f64(r), pi.0 as f64 * (AF as f64).exp2(), pi.1 as f64 * (AF as f64).exp2());
++            if k == 2 {
++                println!("  origin fall scalar: ({:.6e},{:.6e})", to_f64(of[0]), to_f64(of[1]));
++                let o = pull_floor(&ints[2], 0, 0);
++                println!("  giant pull at origin int: ({:.6e},{:.6e})", o.0 as f64 * (AF as f64).exp2(), o.1 as f64 * (AF as f64).exp2());
++            }
++        }
++    }
++
++    println!("\n== exactness: the integer path against the Scalar path (64 belt positions) ==");
++    let h = 4.7e11; // a 32nd of the belt period (root time units)
++    let mut max_rel = 0.0f64;
++    let mut max_quanta = 0.0f64;
++    for &x in xs.iter() {
++        let a = force::acceleration(0, x, &secs, None).expect("scalar path");
++        let b = accel_floor(&ints, to_fixed(x[0], PF), to_fixed(x[1], PF));
++        for c in 0..2 {
++            let av = to_f64(a[c]);
++            let bv = (if c == 0 { b.0 } else { b.1 }) as f64 * (AF as f64).exp2();
++            let denom = av.abs().max(bv.abs()).max(1e-300);
++            max_rel = max_rel.max((av - bv).abs() / denom);
++            // the fired kick is dv = h·a quantized at a 2^-30 velocity word
++            max_quanta = max_quanta.max((av - bv).abs() * h * (1u64 << 30) as f64);
++        }
++    }
++    println!("max relative deviation      {:.3e}", max_rel);
++    println!("max dv deviation, 2^-30 quanta {:.3e}", max_quanta);
++
++    println!("\n== summary (ns per fired level-0 kick, the motion law v2 path) ==");
++    let now = secondaries_ns + acc_scalar + bind_ns;
++    let jet = 0.05 * bind_ns; // shared epoch secondaries; the jet's 0.05 compiles/kick
++    let floor = acc_int_body + jet;
++    println!("plane today : secondaries {:.0} + force {:.0} + rebind {:.0} = {:.0} ns", secondaries_ns, acc_scalar, bind_ns, now);
++    println!("floor       : force {:.0} + 0.05·bind {:.0} + shared epoch ≈ 0 = {:.0} ns", acc_int_body, jet, floor);
++    println!("idiot index : {:.0}x", now / floor);
++}

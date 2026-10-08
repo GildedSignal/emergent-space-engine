@@ -1,0 +1,56 @@
+== the parts of one kick (Linux x86, release, shared machine: orders of magnitude) ==
+acceleration (Scalar)               2256.4  ns/op
+pull one secondary                   312.6  ns/op
+weight far (W=1)                      76.7  ns/op
+weight near                           70.2  ns/op
+secondaries Vec clone                 35.4  ns/op
+acceleration (integer)               434.1  ns/op
+acceleration (integer, no origin)     215.7  ns/op
+Binding::readout                    3427.2  ns/op
+secondaries_like (3 planets)       10544.4  ns/op
+bind (the rebind)                  28452.2  ns/op
+
+== debug: per-secondary pulls, position 0 ==
+sec 0: scalar pull (-4.337804e-25,-1.678532e-23) r=1.6852e8 | int (-8.271806e-25,-1.737079e-23)
+sec 1: scalar pull (-1.793444e-22,-1.996060e-22) r=1.1923e8 | int (-1.794982e-22,-2.001777e-22)
+sec 2: scalar pull (-1.714617e-21,-1.645973e-21) r=6.4099e8 | int (-1.714745e-21,-1.646089e-21)
+  origin fall scalar: (-3.114444e-21,-1.606708e-21)
+  giant pull at origin int: (-3.313686e-21,-2.070433e-21)
+
+== exactness: the integer path against the Scalar path (64 belt positions) ==
+max relative deviation      1.845e0
+max dv deviation, 2^-30 quanta 1.573e0
+
+== summary (ns per fired level-0 kick, the motion law v2 path) ==
+plane today : secondaries 10544 + force 2256 + rebind 28452 = 41253 ns
+floor       : force 216 + 0.05·bind 1423 + shared epoch ≈ 0 = 1638 ns
+idiot index : 25x
+---
+== the parts of one kick (Linux x86, release, shared machine: orders of magnitude) ==
+acceleration (Scalar)               2272.8  ns/op
+pull one secondary                   314.2  ns/op
+weight far (W=1)                      76.7  ns/op
+weight near                           70.2  ns/op
+secondaries Vec clone                 35.2  ns/op
+acceleration (integer)               437.6  ns/op
+acceleration (integer, no origin)     218.6  ns/op
+Binding::readout                    3441.6  ns/op
+secondaries_like (3 planets)       10588.4  ns/op
+bind (the rebind)                  28649.0  ns/op
+
+== debug: per-secondary pulls, position 0 ==
+sec 0: scalar pull (-4.337804e-25,-1.678532e-23) r=1.6852e8 | int (-8.271806e-25,-1.737079e-23)
+sec 1: scalar pull (-1.793444e-22,-1.996060e-22) r=1.1923e8 | int (-1.794982e-22,-2.001777e-22)
+sec 2: scalar pull (-1.714617e-21,-1.645973e-21) r=6.4099e8 | int (-1.714745e-21,-1.646089e-21)
+  origin fall scalar: (-3.114444e-21,-1.606708e-21)
+  giant pull at origin int: (-3.313686e-21,-2.070433e-21)
+
+== exactness: the integer path against the Scalar path (64 belt positions) ==
+max relative deviation      1.845e0
+max dv deviation, 2^-30 quanta 1.573e0
+
+== summary (ns per fired level-0 kick, the motion law v2 path) ==
+plane today : secondaries 10588 + force 2273 + rebind 28649 = 41510 ns
+floor       : force 219 + 0.05·bind 1432 + shared epoch ≈ 0 = 1651 ns
+idiot index : 25x
+---
