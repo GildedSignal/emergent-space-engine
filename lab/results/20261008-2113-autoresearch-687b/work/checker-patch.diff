@@ -1,0 +1,164 @@
+diff --git a/xtask/src/galaxy/draw.rs b/xtask/src/galaxy/draw.rs
+index 74c6d84..3c544ec 100644
+--- a/xtask/src/galaxy/draw.rs
++++ b/xtask/src/galaxy/draw.rs
+@@ -67,20 +67,20 @@ fn sincos(t: &[[f32; 2]], a: u32) -> (f32, f32) {
+ 
+ #[derive(Clone, Copy)]
+ struct Proj {
+-    cx: f64,
+-    cy: f64,
+-    inv: f64,
+-    hw: f64,
+-    hh: f64,
++    cx: f32,
++    cy: f32,
++    inv: f32,
++    hw: f32,
++    hh: f32,
+     w: usize,
+     h: usize,
+ }
+ impl Proj {
+     #[inline(always)]
+     fn splat(&self, plane: &mut [f32], r: f32, cos: f32, sin: f32, weight: f32) {
+-        let px = (r as f64 * cos as f64 - self.cx) * self.inv + self.hw;
+-        let py = (r as f64 * sin as f64 - self.cy) * self.inv + self.hh;
+-        if px >= 0.0 && py >= 0.0 && px < self.w as f64 && py < self.h as f64 {
++        let px = (r * cos - self.cx) * self.inv + self.hw;
++        let py = (r * sin - self.cy) * self.inv + self.hh;
++        if px >= 0.0 && py >= 0.0 && px < self.w as f32 && py < self.h as f32 {
+             plane[py as usize * self.w + px as usize] += weight;
+         }
+     }
+@@ -165,7 +165,7 @@ impl Renderer {
+         st.groups_in_range = groups_in_range;
+         st.stride = stride as u64;
+         st.m_max = m_max;
+-        let proj = Proj { cx: v.cx, cy: v.cy, inv: 1.0 / v.scale, hw: v.w as f64 * 0.5, hh: v.h as f64 * 0.5, w: v.w, h: v.h };
++        let proj = Proj { cx: v.cx as f32, cy: v.cy as f32, inv: (1.0 / v.scale) as f32, hw: v.w as f32 * 0.5, hh: v.h as f32 * 0.5, w: v.w, h: v.h };
+         Plan { proj, t: v.t, stride, m_max, fam_cells, jobs }
+     }
+ 
+diff --git a/xtask/src/galaxy/mod.rs b/xtask/src/galaxy/mod.rs
+index da7e335..cc071d8 100644
+--- a/xtask/src/galaxy/mod.rs
++++ b/xtask/src/galaxy/mod.rs
+@@ -101,6 +101,7 @@ fn bench_run(scene: &Scene, threads: usize, frames: usize, pace: f64, rtf: f64,
+     let mut results = Vec::new();
+     for (name, cx, scale) in views {
+         let (mut ms, mut samples, mut ships, mut mat) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
++        let (mut plan, mut splat, mut tone) = (Vec::new(), Vec::new(), Vec::new());
+         let start = Instant::now();
+         for n in 0..frames {
+             if wall0.elapsed().as_secs_f64() > 52.0 {
+@@ -116,18 +117,23 @@ fn bench_run(scene: &Scene, threads: usize, frames: usize, pace: f64, rtf: f64,
+             let v = View { w, h, cx, cy: 0.0, scale, t };
+             let st = renderer.render(scene, &v, &opts, &mut out);
+             ms.push(st.total_ms);
++            plan.push(st.plan_ms);
++            splat.push(st.splat_ms);
++            tone.push(st.tone_ms);
+             samples.push(st.samples as f64);
+             ships.push(st.ships_in_view);
+             mat.push(st.materialized as f64);
+         }
+         let over = ms.iter().filter(|&&m| m > 1000.0 / 60.0).count();
++        let (med_plan, med_splat, med_tone) = (quantiles(plan).0, quantiles(splat).0, quantiles(tone).0);
+         let (med, p99, max) = quantiles(ms.clone());
+-        let med_samples = quantiles(samples).0;
+-        let med_ships = quantiles(ships).0;
++        let (med_samples, med_ships) = (quantiles(samples).0, quantiles(ships).0);
+         results.push(json!({
+             "view": name, "scale_m_per_px": scale, "frames": ms.len(),
+             "median_ms": med, "p99_ms": p99, "max_ms": max, "over_16_7ms": over,
+             "median_samples": med_samples, "median_single_ships": quantiles(mat).0, "median_ships_in_view": med_ships,
++            "median_plan_ms": med_plan, "median_splat_ms": med_splat, "median_tone_ms": med_tone,
++            "splat_ns_per_sample": med_splat * 1e6 / med_samples.max(1.0),
+             "ns_per_sample": med * 1e6 / med_samples.max(1.0),
+             "ns_per_ship_in_view": med * 1e6 / med_ships.max(1.0),
+         }));
+diff --git a/xtask/src/galaxy/scene.rs b/xtask/src/galaxy/scene.rs
+index 0577f34..672f9ee 100644
+--- a/xtask/src/galaxy/scene.rs
++++ b/xtask/src/galaxy/scene.rs
+@@ -198,6 +198,11 @@ pub(crate) struct KeyRec {
+     pub adv: u64,
+     pub rmin: f32,
+     pub rmax: f32,
++    /// Division by `period` as a multiply: round-down magic, one correction, exact for every u64
++    /// dividend when `period ≥ 2` (Granlund–Montgomery; the error is below 1/2·2^-floor_log2).
++    dmag: u64,
++    /// `floor_log2(period)`.
++    dsh: u32,
+     inv: f64,
+     pad: Vec<[f32; 2]>,
+ }
+@@ -210,13 +215,20 @@ impl KeyRec {
+         let q = 2f64.powi(62);
+         let (rmin, rmax) = ((q / cycle.shape.up as f64) as f32, (q / cycle.shape.ua as f64) as f32);
+         let pad = build_pad(&cycle);
+-        Ok(Self { cell: cell as u32, cycle, period, half, adv, rmin, rmax, inv: KNOTS as f64 / half as f64, pad })
++        let dsh = 63 - period.max(2).leading_zeros();
++        let dmag = ((1u128 << (64 + dsh)) / u128::from(period)) as u64;
++        Ok(Self { cell: cell as u32, cycle, period, half, adv, rmin, rmax, dmag, dsh, inv: KNOTS as f64 / half as f64, pad })
+     }
+     /// Elapsed time since periapsis `e` (Q20) → (r in M, angle in 32-bit turns), without orientation.
+     #[inline(always)]
+     pub fn locate(&self, e: u64) -> (f32, u32) {
+-        let n = e / self.period;
+-        let s = e - n * self.period;
++        let n = (((e as u128 * self.dmag as u128) >> 64) as u64) >> self.dsh;
++        let mut s = e.wrapping_sub(n.wrapping_mul(self.period));
++        let mut n = n;
++        if s >= self.period {
++            n += 1;
++            s -= self.period;
++        }
+         let inbound = s > self.half;
+         let sx = if inbound { self.period - s } else { s };
+         let x = sx as f64 * self.inv;
+@@ -229,6 +241,9 @@ impl KeyRec {
+         let base = ((if inbound { n.wrapping_add(1) } else { n }).wrapping_mul(self.adv) >> 32) as u32;
+         (r, if inbound { base.wrapping_sub(phu) } else { base.wrapping_add(phu) })
+     }
++
++    pub(crate) fn dmagic(&self) -> u64 { self.dmag }
++    pub(crate) fn dshift(&self) -> u32 { self.dsh }
+     /// The exact integer-law readout: (r in M, angle in turns [0, 1)).
+     #[cfg(test)]
+     pub fn exact(&self, e: u64) -> Option<(f64, f64)> {
+diff --git a/xtask/src/galaxy/tests.rs b/xtask/src/galaxy/tests.rs
+index 4430562..39194fb 100644
+--- a/xtask/src/galaxy/tests.rs
++++ b/xtask/src/galaxy/tests.rs
+@@ -187,3 +187,29 @@ fn the_view_query_refuses_what_it_cannot_draw() {
+         assert!(view_of(bad).is_err(), "{bad}");
+     }
+ }
++
++#[test]
++fn magic_division_matches_hardware() {
++    let s = scene(1000, 100_000, 3, 1000, 2);
++    let mut bad = 0u64;
++    let mut seen = 0u64;
++    for rec in &s.keys {
++        let (d, m, l) = (rec.period, rec.dmagic(), rec.dshift());
++        let seed = 0x9E37_79B9_7F4A_7C15u64.wrapping_mul(d);
++        let mut e = seed;
++        for _ in 0..2000 {
++            seen += 1;
++            let q = (((e as u128 * m as u128) >> 64) as u64) >> l;
++            let mut r = e.wrapping_sub(q.wrapping_mul(d));
++            let mut q = q;
++            if r >= d { q += 1; r -= d; }
++            if q != e / d || r != e % d {
++                bad += 1;
++                if bad < 4 { eprintln!("BAD d={d} m={m} l={l} e={e}: got q={q} r={r}, want {}/{}", e, e / d); }
++            }
++            e = e.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        }
++    }
++    assert_eq!(bad, 0, "{bad} of {seen} divisions wrong");
++}
++
