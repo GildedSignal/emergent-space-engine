@@ -1,0 +1,35 @@
+Grade: lead
+
+**Abstract.** Claim: pair encounter timing is an exact rotation (three-gap verified) and the conjunction skin certifies 95–98% of belt pairs "never" while missing 36% of real close pairs at e=0.1. enc.py stages a–f reproduce bit-for-bit, and I verified the rotation identity independently (2.7×10⁻¹⁰). But the headline tables are artifacts: 97.8% of the belt ensemble geometrically crosses, so min g̃ = 0 exactly for ~all pairs — my refined measurement finds 7/12 random belt pairs below 10⁻⁴ against the reported 0.4%, and the g̃-min percentiles coincide with the uniform-sampling floor. The "leak" is the equation of center of the author's own mean-longitude slice (true-longitude separation at deep minima: ~0.001 rad always). gtilde.json/fixups.json have no generating script. Nothing adoptable as measured.
+
+## Reproduction
+
+- All five shipped stages reproduce **bit-for-bit** (seeded RNG): `enc.py a,b,d,e,f` vs `enc_results.json`, `st_{b,d,e,f}/enc_results.json` — identical JSON. Stage timings ≤ 90 s, within budget.
+- `predictions.md` predates every results file (mtimes: predictions 8 m before listing; results 6–1 m before). Pre-registration honest; P5 falsified and reported as such; the v1 wrong-slice bug disclosed mid-run with its own control.
+- **Not regenerable:** `gtilde.json` (the entire corrected-observable table) and `fixups.json` (the per-pair leak 36%/100%, the corrected spot-check) have **no generating script** anywhere in the run; `work/patch.diff` is empty. The two load-bearing tables are exactly the "results the shipped code cannot regenerate" that the taste log records as the silver-killer. Shipped `st_b` even contradicts the dossier: `time_path_agree: 0.0` in stage b's output, the corrected 1.0 existing only in unscripted `fixups.json`.
+
+## What I verified independently (my own code path)
+
+1. **Rotation identity (claim 1): real.** Dense time propagation vs g̃ evaluated at exact period-start phases: max rel error **2.7×10⁻¹⁰** over 6 random pairs × 24 periods (e up to 0.28, minima to 5.9×10⁻⁴). The per-synodic-period minima are exactly rotation samples of a fixed circle function. But this is already the design's assertion (law.md §"Finding encounters": "the pair's timing is an exact integer circle rotation, so the next close conjunction comes from a continued-fraction recursion"), and three-gap on single-interval rotation hits is the three-distance theorem — mathematics, not a measurement.
+2. **Leak pattern (claim 4): the shape reproduces, the mechanism does not.** Per-pair deepest refined dip, 40 pairs per e: off-"conjunction" >0.2 rad = 0% (e=0.05), 59% (e=0.1), 100% (e≥0.2) — the author's 0/36/100% regime. But at every deep minimum the **true** longitude separation is ≈0.001 rad; the median **mean**-longitude separation is 0.15/0.21/0.45/0.59 rad at e=0.05/0.1/0.2/0.3 — exactly the equation-of-center scale 2e. The author's `conj_times`/`g_slice` align **mean** longitudes (M₂−M₁ = ϖ₁−ϖ₂), which is not a physical conjunction. The leak kills the author's own slice; the design's tier already ends in "an exact per-pair distance check" (law.md), so the claim "kills the conjunction skin / deletes the conjunction-evaluation tier" attacks a construction no one but this run proposed.
+
+## What I falsified (adversarial)
+
+3. **Never-certificates (claims 3 and the g̃ table): inverted.** Geometrically, 97.8% of the belt ensemble's pairs cross (radius-vs-longitude sign test, n=2000; tight ensemble 100%) — and for any coplanar crossing pair min_θ g̃(θ) = 0 exactly (true conjunction at a crossing longitude puts both bodies at the same point; the rotation is dense). Measured: with per-θ golden refinement, **7/12 random belt pairs have min g̃ < 10⁻⁴** (min 4.6×10⁻⁶) versus the reported belt window fraction 0.4% at 10⁻⁴; expect ~98% with full refinement. So "95–98% certified never at 10⁻³ (99.6% at 10⁻⁴), candidate set shrinks 20–250×" is backwards: on fixed elements nearly every orbit-overlapping belt pair encounters at any threshold; the honest never-fraction is the non-crossing ~2%. A "certificate" that drops ~98% of eventual encouters is precisely the r8 v2 failure mode.
+4. **The g̃-min scale is a sampling floor.** The reported percentiles (tight median 0.0098, belt 0.0299) match my uniform-S per-period floor (medians 0.04–0.09 at S=96; v_rel·Δt/2); refinement drives minima two-plus orders lower (item 3). The dossier's "~100× below conjunction-slice" also contradicts its own quoted numbers (0.136/0.0098 = 13.9×). Window fractions, k* medians, censoring and equidistribution rows in the g̃ table all inherit the floor; "windows now exist at every threshold down to 1e-4" is false for the tight ensemble at 1e-4 (its own table: 0.0).
+5. **Stage f drift is not evidence.** median_w = −0.598 (negative window widths: `stage_f` sums wrapped interval endpoints without the wrap correction used inside `windows_below`), only 33% of pairs hit at η=0, and the promised g̃ drift experiment (`drift2`) returned n=0/NaN — the run's self-declared missing experiment. The horizon law is confirmed only on the trivial side, as the dossier concedes.
+
+## Novelty
+
+- Rotation + continued fraction at crossings: already in `docs/law.md` ("Finding encounters", r8 v3) and the board's r8 v2 next-step note. The leak was known weaker (r8 v2: 0.5–6% of the reference's list, 78% adversarial). The run's increments — never-certificates and the skin kill — are the parts that do not survive checking.
+
+## Goal fit
+
+Right bottleneck (board item 3, the 5 October scaling risk), and the falsification instinct is correct in kind: candidate work must track real encounters. But the deliverable premise ("most overlapping pairs are certifiably quiet") is wrong at belt scale, and the corrected lesson is the opposite of the dossier's: with crossing geometry and dense rotations, per-pair quietness does not exist; the certificate must be horizon-bounded waiting time (equidistribution/three-gap), which is a weaker pruner.
+
+## What the author missed
+
+- Mean longitude ≠ true longitude (equation of center): the entire leak table measures their own coordinate choice, diagnosed as "radial profiles cross at unequal mean longitudes" without naming or testing the one-line fix (true-longitude conjunctions, leak → 0 by construction).
+- Crossing geometry: never computed. min g̃ = 0 for crossing pairs is a two-line derivation that kills the never-certificates before any sampling.
+- Sampling floors: no convergence check on S or G (S doubled → min percentiles collapse), so the g̃ table reports the instrument, not the sky. The same run that taught "agreement between two slices of one harness is not independence" (disclosed for v1) re-committed it: g̃ "validated as a definition" by the same sampling that floors it.
+- The cost claim ("a few 100 evaluations per element change") is off by orders of magnitude for a sound g̃: sub-10⁻³ dips need ~10⁵–10⁶ samples/period at belt Δa, or the analytic window construction from crossing geometry (crossing longitudes → θ*, width from dg̃/dθ), which is the experiment that would make a future run silver or gold.

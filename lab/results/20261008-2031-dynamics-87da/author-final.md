@@ -1,0 +1,4 @@
+Working...
+Run complete — all artifacts in `lab/results/20261008-2031-dynamics-87da/` (dossier, pre-registered predictions with the disclosed mid-run bug, scripts, JSONs, staircase data).
+
+**Claim:** a candidate pair's per-synodic-period minimum distance is an exact circle rotation of its elements (verified to 4×10⁻¹¹ against independent time propagation, with the three-gap integer signature ≤3 distinct inter-hit gaps on every single-window pair), so the next encounter is Diophantine data computable once per element change instead of polled per orbit — and 95–99% of orbit-overlapping pairs are certified "never" at Hill-scale thresholds — but the conjunction-sampled skin is the wrong observable, missing 36% of real close pairs at e=0.1 and 100% by e=0.2, so the certificate must evaluate the synodic-minimum curve g̃, not conjunction distance.
