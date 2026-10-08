@@ -1,0 +1,148 @@
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261008-1859-scout-141c/news_scaling.py:262: RankWarning: Polyfit may be poorly conditioned
+  b = np.polyfit(x, y, 1)[0]
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261008-1859-scout-141c/news_scaling.py:262: RankWarning: Polyfit may be poorly conditioned
+  b = np.polyfit(x, y, 1)[0]
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/lab/results/20261008-1859-scout-141c/news_scaling.py:262: RankWarning: Polyfit may be poorly conditioned
+  b = np.polyfit(x, y, 1)[0]
+{
+ "smooth_naive_slope_topdecade": -0.008257081579881925,
+ "smooth_agg_slope_topdecade": -0.016089746092299025,
+ "events_Q1_naive_slope": 0.6022201643880385,
+ "events_Q1_quantum_slope": 0.10789096378489586,
+ "events_Q1_quantum_per_shell": 2.0017977921420296,
+ "events_Q2_naive_slope": 0.6022201643880385,
+ "events_Q2_quantum_slope": 0.07570991181106698,
+ "events_Q2_quantum_per_shell": 0.3189802220258763,
+ "events_Q3_naive_slope": 0.6022201643880385,
+ "events_Q3_quantum_slope": 0.19174490685698103,
+ "events_Q3_quantum_per_shell": 10.890780978732636,
+ "m1_agg_slope_topdecade": 0.05811363016840689
+}
+
+[events_Q1]  R  naive_rate  quantum_rate  r_cut  n_shells
+         4      0.5357      0.5357      31.6  24
+         8       1.964       1.964      31.6  24
+        16       8.196       8.196      31.6  24
+        32       32.39       32.39      31.6  24
+        64         129       76.04      31.6  24
+       128       514.1       119.8      31.6  24
+       256        2058         164      31.6  24
+       512        8235       208.8      31.6  24
+      1024   3.294e+04         253      31.6  24
+
+[events_Q2]  R  naive_rate  quantum_rate  r_cut  n_shells
+         4      0.5357      0.5357        10  24
+         8       1.964       1.964        10  24
+        16       8.196       6.196        10  24
+        32       32.39       10.51        10  24
+        64         129       14.76        10  24
+       128       514.1       19.31        10  24
+       256        2058       23.74        10  24
+       512        8235       28.16        10  24
+      1024   3.294e+04       32.62        10  24
+
+[events_Q3]  R  naive_rate  quantum_rate  r_cut  n_shells
+         4      0.5357      0.5357       100  24
+         8       1.964       1.964       100  24
+        16       8.196       8.196       100  24
+        32       32.39       32.39       100  24
+        64         129         129       100  24
+       128       514.1       470.9       100  24
+       256        2058       910.1       100  24
+       512        8235        1355       100  24
+      1024   3.294e+04        1796       100  24
+
+[smooth] {
+ "sweep": [
+  {
+   "R": 4.0,
+   "naive_rate": 1.23733223454507,
+   "agg_rate_rms": 0.6639124708897551
+  },
+  {
+   "R": 16.0,
+   "naive_rate": 1.4543014863062407,
+   "agg_rate_rms": 0.7405805058845922
+  },
+  {
+   "R": 64.0,
+   "naive_rate": 1.2996253700297462,
+   "agg_rate_rms": 0.6579012874255046
+  },
+  {
+   "R": 256.0,
+   "naive_rate": 1.2423346503490666,
+   "agg_rate_rms": 0.5520214314747246
+  },
+  {
+   "R": 1024.0,
+   "naive_rate": 1.3005700983411,
+   "agg_rate_rms": 0.613350750751206
+  }
+ ],
+ "grid_check_R16_tv_rate": 0.7488218354579785
+}
+
+[m1] [
+ {
+  "R": 256.0,
+  "naive_rate": null,
+  "agg_rate": 12.476210394953915,
+  "amplitude": 0.12476210394953914
+ },
+ {
+  "R": 512.0,
+  "naive_rate": null,
+  "agg_rate": 14.248298623248468,
+  "amplitude": 0.14248298623248468
+ },
+ {
+  "R": 1024.0,
+  "naive_rate": null,
+  "agg_rate": 16.072313000161653,
+  "amplitude": 0.16072313000161653
+ }
+]
+
+[cataclysms] [
+ {
+  "R": 256.0,
+  "T": 3584.0,
+  "naive_rate": 0.04799107142857143,
+  "quantum_rate": 0.04799107142857143
+ },
+ {
+  "R": 512.0,
+  "T": 7168.0,
+  "naive_rate": 0.050502232142857144,
+  "quantum_rate": 0.050502232142857144
+ },
+ {
+  "R": 1024.0,
+  "T": 14336.0,
+  "naive_rate": 0.04778180803571429,
+  "quantum_rate": 0.04778180803571429
+ }
+]
+
+[bursty Q1] R naive quantum
+         4      0.5536      0.5536
+         8       2.098       2.098
+        16       8.286       8.286
+        32       32.37       32.37
+        64       129.1       76.03
+       128       515.2       119.9
+       256        2059       164.2
+       512        8237       208.7
+      1024   3.294e+04       253.1
+
+[seed spread Q1] R mean std
+         4      0.4607     0.05463
+         8       1.977      0.1568
+        16       7.987      0.2021
+        32       32.13     0.06554
+        64       75.94      0.2059
+       128       119.9      0.1025
+       256       163.9      0.1123
+       512       208.7     0.03701
+      1024       252.9     0.06761
