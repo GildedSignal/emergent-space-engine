@@ -1,0 +1,209 @@
+diff --git a/crates/lattice-event/tests/avalanche.rs b/crates/lattice-event/tests/avalanche.rs
+new file mode 100644
+index 0000000..da2fa0c
+--- /dev/null
++++ b/crates/lattice-event/tests/avalanche.rs
+@@ -0,0 +1,177 @@
++//! Avalanche probe (lab run 20261008-0458-dynamics-7166, lens: dynamics and attractors).
++//!
++//! Question: on the frozen contact law `es-lattice-relativistic-v1` run by the plane's
++//! battles (`EventCore`), does per-chronon work stay thin-tailed as N and packing grow, or
++//! is there a packing phase where one indivisible batch (a connected contact component,
++//! resolved atomically by the batch rule) scales with N — the p99 frame killer (OC#36)?
++//!
++//! Scenes: `worlds::gas` (walled, steady state, packing fraction `fill`) and `fleets`
++//! (a copy of the engine's `scenes::battle` with the grid spacing as a parameter, two cold
++//! fleets interpenetrating). Instrument: `Metrics` per chronon (ops, fired, max_batch,
++//! max_unit_ops) — no changes to the core, only reads.
++use emergent_lattice::law::{Body, Response, World};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Law, Stepper, worlds};
++use emergent_lattice_event::EventCore;
++use std::time::Instant;
++
++/// The engine's battle scene (`crates/engine/src/scenes.rs`) with spacing and mono/jittered
++/// radii as parameters, so packing is the swept number. No walls.
++fn fleets(n: u64, q: i64, seed: u64, speed_div: i64, spacing_q: i64, mono: bool) -> (World, i64) {
++    let mut rng = Rng(seed ^ (n << 16) ^ 0x00BA_771E);
++    let spacing = spacing_q * q;
++    let gap = 40 * q;
++    let mut bodies: Vec<Body> = Vec::with_capacity(n as usize);
++    let mut extent = 0i64;
++    let sizes = [n / 2, n - n / 2];
++    let per_row: Vec<i64> = sizes.iter().map(|&s| (s as f64).sqrt().ceil() as i64).collect();
++    let offset = rng.range(-per_row[0] * spacing / 2, per_row[0] * spacing / 2);
++    for (f, &size) in sizes.iter().enumerate() {
++        let side = per_row[f] * spacing;
++        let v = q / speed_div;
++        let (x0, vx, y_off) = if f == 0 { (-(gap / 2) - side, v, 0) } else { (gap / 2, -v, offset) };
++        let scatter = (v / 4).max(1);
++        let y0 = y_off - side / 2;
++        for j in 0..size as i64 {
++            let radius = if mono { q / 2 } else { rng.range(q / 2, q) };
++            let x = [
++                x0 + (j % per_row[f]) * spacing + rng.range(-q / 2, q / 2),
++                y0 + (j / per_row[f]) * spacing + rng.range(-q / 2, q / 2),
++            ];
++            let k = [vx + rng.range(-scatter, scatter), rng.range(-scatter, scatter)];
++            let response = match rng.next() % 10 {
++                0 => Response::Pass,
++                1 => Response::Stop,
++                _ => Response::Bounce,
++            };
++            extent = extent.max(x[0].abs()).max(x[1].abs());
++            bodies.push(Body::new(bodies.len() as u64 + 1, x, k, rng.range(1, 4), radius, response));
++        }
++    }
++    let w = World::new(q, None, bodies).expect("battle within the law's ranges").with_law(Law::RelativisticV1).expect("subluminal");
++    (w, extent)
++}
++
++#[derive(Clone, Copy)]
++struct Stat {
++    p50: f64,
++    p99: f64,
++    max: f64,
++    mean: f64,
++    fano: f64,
++}
++
++fn series_stat(xs: &[u64]) -> Stat {
++    let mut s = xs.to_vec();
++    s.sort_unstable();
++    let n = s.len();
++    let mean = s.iter().sum::<u64>() as f64 / n as f64;
++    let var = s.iter().map(|x| (*x as f64 - mean).powi(2)).sum::<f64>() / n as f64;
++    Stat {
++        p50: s[n / 2] as f64,
++        p99: s[(n * 99) / 100] as f64,
++        max: s[n - 1] as f64,
++        mean,
++        fano: if mean > 0.0 { var / mean } else { 0.0 },
++    }
++}
++
++/// Run `ticks` chronons on EventCore: (per-tick ops, per-tick fired, wall secs, final
++/// Metrics, rebuilds, classes).
++fn run(w: World, burn: i64, ticks: i64) -> (Vec<u64>, Vec<u64>, f64, emergent_lattice::Metrics, u64, usize) {
++    let mut core = EventCore::new(w, false).expect("event core");
++    let t0 = Instant::now();
++    core.run_to(burn);
++    let m0 = core.metrics().clone();
++    let (rb, cl) = (core.rebuilds(), core.classes());
++    let mut ops = Vec::with_capacity(ticks as usize);
++    let mut fired = Vec::with_capacity(ticks as usize);
++    let mut prev = m0.clone();
++    for t in 1..=ticks {
++        while core.tick() < burn + t {
++            core.advance(burn + t, u64::MAX);
++        }
++        let m = core.metrics().clone();
++        ops.push(m.ops - prev.ops);
++        fired.push(m.fired - prev.fired);
++        prev = m;
++    }
++    let dt = t0.elapsed().as_secs_f64();
++    (ops, fired, dt, core.metrics().clone(), rb, cl)
++}
++
++#[allow(clippy::too_many_arguments)]
++fn report(tag: &str, n: u64, param: &str, ticks: i64, ops: &[u64], fired: &[u64], dt: f64, m: &emergent_lattice::Metrics, rb: u64, cl: usize) {
++    let o = series_stat(ops);
++    let f = series_stat(fired);
++    println!(
++        "{tag} n={n} {param} ticks={ticks} | ops p50={:.0} p99={:.0} max={:.0} p99/p50={:.2} | fired/tick mean={:.2} fano={:.2} max={:.0} total={} | max_batch={} batches={} max_unit_ops={} units={} rebuilt={rb} classes={cl} | {dt:.1}s",
++        o.p50, o.p99, o.max, if o.p50 > 0.0 { o.p99 / o.p50 } else { f64::NAN },
++        f.mean, f.fano, f.max, fired.iter().sum::<u64>(),
++        m.max_batch, m.batches, m.max_unit_ops, m.units
++    );
++}
++
++/// The steady-state probe: a walled gas at packing `fill`, swept in n. Positive control:
++/// fill 0.05 must be thin (Fano ~ 1). Negative control: fill 0.7 must be clustered or
++/// jammed (if it is not, the phase picture is wrong and the run reports that).
++#[test]
++fn gas_packing_phase() {
++    let q = 1024;
++    for &fill in &[0.05, 0.1, 0.2, 0.4, 0.6] {
++        for &n in &[1024u64, 4096, 16384] {
++            if fill >= 0.4 && n > 4096 { continue; }
++            let w = worlds::gas(n, fill, q, q / 8, 7).with_law(Law::RelativisticV1).expect("subluminal");
++            let (ops, fired, dt, m, rb, cl) = run(w, 200, 1500);
++            report("gas", n, &format!("fill={fill}"), 1500, &ops, &fired, dt, &m, rb, cl);
++        }
++    }
++}
++
++/// The front probe: the engine's stock battle (mixed responses, jittered radii), spacing 5q
++/// as in `scenes::battle`, swept in n. Horizon: the crossing plus dispersal.
++#[test]
++fn battle_front_scaling() {
++    let q = 1024;
++    for &n in &[400u64, 1600, 6400, 25600] {
++        // full sweep; 25600 is the tail case
++        let (w, _extent) = fleets(n, q, 3, 8, 5, false);
++        let per_row = ((n + 1) / 2) as f64;
++        let horizon = (per_row.sqrt() as i64 * 5 + 60) * 4 + 400; // crossing + tail
++        let (ops, fired, dt, m, rb, cl) = run(w, 0, horizon);
++        report("battle5q", n, "spacing=5q mixed", horizon, &ops, &fired, dt, &m, rb, cl);
++    }
++}
++
++/// The packing probe on battles: mono-disperse fleets at fixed n=6400, spacing swept from
++/// dense (3q) to dilute (16q).
++#[test]
++fn battle_packing_sweep() {
++    let q = 1024;
++    let n = 6400u64;
++    for &spacing in &[3i64, 5, 8, 12, 16] {
++        let (w, _) = fleets(n, q, 5, 8, spacing, true);
++        let per_row = ((n + 1) / 2) as f64;
++        let horizon = (per_row.sqrt() as i64 * spacing + 60) * 4 + 400;
++        let (ops, fired, dt, m, rb, cl) = run(w, 0, horizon);
++        report("battleMono", n, &format!("spacing={spacing}q"), horizon, &ops, &fired, dt, &m, rb, cl);
++    }
++}
++
++/// Instrument control: one lone body in a box, nothing to do. Per-tick ops must be O(1)
++/// and flat; max_batch zero. If this spikes, the instrument measures itself, not the law.
++#[test]
++fn instrument_control_lone_body() {
++    let q = 1024;
++    use emergent_lattice::law::Container;
++    let b = Body::new(1, [100 * q, 100 * q], [q / 8, 0], 1, q, Response::Bounce);
++    let w = World::new(q, Some(Container { min: [0, 0], max: [200 * q, 200 * q] }), vec![b])
++        .unwrap()
++        .with_law(Law::RelativisticV1)
++        .unwrap();
++    let (ops, fired, dt, m, rb, cl) = run(w, 0, 500);
++    report("control", 1, "lone", 500, &ops, &fired, dt, &m, rb, cl);
++    let o = series_stat(&ops);
++    assert!(o.max < 20.0, "lone body per-tick ops must be O(1), got {}", o.max);
++    assert_eq!(m.max_batch, 0);
++}
+diff --git a/crates/lattice-event/tests/inst_check.rs b/crates/lattice-event/tests/inst_check.rs
+new file mode 100644
+index 0000000..1b6a0a5
+--- /dev/null
++++ b/crates/lattice-event/tests/inst_check.rs
+@@ -0,0 +1,20 @@
++// Divergence check: EventCore vs Chronon on the same trapped gas, same law, over time.
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::{Law, Stepper, worlds};
++use emergent_lattice_event::EventCore;
++
++#[test]
++fn divergence() {
++    let q = 1024;
++    let mk = || worlds::gas(1024, 0.05, q, q / 8, 7).with_law(Law::RelativisticV1).unwrap();
++    let mut r = Chronon::new(mk(), true).unwrap();
++    let mut e = EventCore::new(mk(), false).unwrap();
++    println!("tick | chronon fired ops | event fired ops | same world digest");
++    for t in [300i64, 600, 900, 1200, 1500, 1700] {
++        r.run_to(t);
++        while e.tick() < t { e.advance(t, u64::MAX); }
++        let (rm, em) = (r.metrics(), e.metrics());
++        let same = r.world().digest() == e.world().digest();
++        println!("{t} | {} {} | {} {} | {same} (event tick {})", rm.fired, rm.ops, em.fired, em.ops, e.tick());
++    }
++}
