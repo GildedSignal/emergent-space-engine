@@ -1,0 +1,4 @@
+Working...
+Done. The run is complete and self-consistent: `predictions.md` (13:40:04) predates every result JSON; all artifacts parse; the gate decides.
+
+**The claim, in one sentence:** with the checker's named experiment done — the ladder rerun inside the bench's real range (members ≤ 400, three seeds: `rtf.lowest_1pct` median 9.96 at 1×, 0.39 at 2×, 0.029 at 4×, 0.000 at 8×), the record regenerating bit-for-bit (digest `77d106d9…`), the clamp (`clamp(4,400)`) and gather share (0.63–0.70) stated, and the service criterion frozen as a rung gate (`rtf_low1_median ≥ 1.0`, verdict **KILL** on the shipped service at 4× with well-behaved controls) — the original claim holds in corrected form: the plane's wall cost saturates (p99 ≤ 14.9 ms) while progress silently stalls to zero from 2× design load on this box, and the canonical digest stays invariant to the engine budget at every real load, so the smoothness gate must move from wall hitches to `rtf.lowest_1pct`.

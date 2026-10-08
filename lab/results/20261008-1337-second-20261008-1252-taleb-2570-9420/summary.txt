@@ -1,0 +1,33 @@
+run | low1 | med | overflow | p50 | p99 | worst | over16 | gather_share | gather_max | engine_max | ev_s | bodies | digest
+m48-s1 | 9.957 | 100.000 | 47 | 4.404 | 10.551 | 14.580 | 0 | 0.695 | 6.177 | 10.839 | 240.269 | 76 | 41343a143a92f956
+m48-s7 | 9.916 | 100.000 | 54 | 4.209 | 10.606 | 14.292 | 0 | 0.658 | 5.735 | 10.766 | 344.704 | 70 | 10851b3f5d1225ae
+m48-s13 | 100.000 | 100.000 | 17 | 4.286 | 9.569 | 14.849 | 0 | 0.697 | 5.332 | 11.445 | 226.302 | 76 | 4a7a483eed903efd
+m96-s1 | 0.361 | 100.000 | 137 | 5.629 | 12.495 | 13.954 | 0 | 0.664 | 6.664 | 8.846 | 379.037 | 124 | 60c22b267561bc37
+m96-s7 | 0.393 | 100.000 | 165 | 6.058 | 12.347 | 15.161 | 0 | 0.660 | 8.512 | 9.132 | 434.704 | 115 | 219aaad6ebf43685
+m96-s13 | 9.625 | 100.000 | 138 | 6.323 | 12.672 | 14.804 | 0 | 0.668 | 7.170 | 8.120 | 372.971 | 119 | cd9834363f57d4e9
+m192-s1 | 0.029 | 100.000 | 346 | 8.552 | 14.580 | 16.143 | 0 | 0.642 | 10.785 | 7.575 | 707.539 | 212 | 77d106d9d172d7b6
+m192-s7 | 0.303 | 100.000 | 290 | 8.383 | 14.845 | 17.936 | 1 | 0.670 | 10.282 | 8.835 | 577.137 | 220 | b92b0a489a45a297
+m192-s13 | 0.021 | 100.000 | 283 | 7.943 | 14.421 | 16.376 | 0 | 0.650 | 9.656 | 7.152 | 646.605 | 209 | dd3715633015c410
+m384-s1 | 0.000 | 100.000 | 431 | 8.781 | 14.522 | 19.410 | 1 | 0.640 | 9.790 | 9.226 | 1132.672 | 406 | dd178af980bf2a4b
+m384-s7 | 0.000 | 100.000 | 440 | 8.564 | 14.612 | 15.192 | 0 | 0.630 | 9.678 | 7.303 | 1264.606 | 405 | 58960d1fe8c05f9a
+m384-s13 | 0.000 | 100.000 | 383 | 8.567 | 14.347 | 17.150 | 1 | 0.632 | 9.832 | 8.289 | 1126.505 | 401 | 85d0a9ea5a5c19bf
+
+== per-members median-of-seeds ==
+m 48: rtf_low1 median    9.9570  seeds [9.957, 9.9165, 99.9997]
+m 96: rtf_low1 median    0.3934  seeds [0.3612, 0.3934, 9.625]
+m192: rtf_low1 median    0.0288  seeds [0.0288, 0.3026, 0.0213]
+m384: rtf_low1 median    0.0000  seeds [0.0, 0.0, 0.0]
+
+== gather share across all ladder runs ==
+min 0.630 max 0.697
+gather max ms: min 5.33 max 10.78
+
+== digest invariance (unpaced 15 s twins, same seed, same cut) ==
+m48-s1: digest 01c9be772aa19b0a vs 01c9be772aa19b0a cut 304538170==304538170 -> SAME ; overflow 200/900 vs 0
+m192-s13: digest 7778da5ca5cccff0 vs 7778da5ca5cccff0 cut 304538170==304538170 -> SAME ; overflow 633/900 vs 0
+m384-s13: digest d5bc8cde1001b2cd vs d5bc8cde1001b2cd cut 304538170==304538170 -> SAME ; overflow 765/900 vs 0
+
+== regeneration vs the original record ==
+regen-m192-s1: digest 77d106d9d172d7b6 cut 609076340 bodies 212 (low1 0.028, non-canonical) -> REGENERATED
+
+metrics.json: {"plane-1x": {"rtf_low1_median": 9.95700489001614, "digest_invariant": 1.0}, "plane-4x": {"rtf_low1_median": 0.028755876656040385, "digest_invariant": 1.0}, "plane-8x": {"rtf_low1_median": 0.0, "digest_invariant": 1.0}}
