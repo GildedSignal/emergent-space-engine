@@ -1,0 +1,26 @@
+{
+  "probe": "P8 (Opus motion memo 4): the SEM step on the v2 fictitious clock",
+  "verdict": "KILL of the SEM configuration (no-solution rate 44-58% of steps, kill line 1%)",
+  "controls": {
+    "dJ_per_kick_float": 5.55e-17,
+    "plain_b12_k8_200p": {"exponent_median": 0.064, "worst_C": 4.97e-07, "lost": 0, "seconds": 84.6},
+    "plain_b12_k6_200p": {"exponent_median": 0.061, "worst_C": 4.46e-06, "lost": 0, "seconds": 23.9}
+  },
+  "sem_b12_k8_200p": {
+    "exponent_median": 0.131, "worst_C": 2.76e-07, "lost": 0, "steps": 54263,
+    "fail_rate": 1.0, "alpha_dev_mean": 2.49, "seconds": 420.1,
+    "note": "the solve never converged; alpha walked to its bracket (no interior root)"
+  },
+  "root_census_300_steps_ship15": {
+    "k6": {"interior_root_pct": 55.7, "one_signed_pct": 44.3, "K_at_alpha1_median": 3.95e-11},
+    "k8": {"interior_root_pct": 42.0, "one_signed_pct": 58.0, "K_at_alpha1_median": 6.11e-13}
+  },
+  "not_run": ["b13 sem fidelity (killed twice by my own process timeouts; not needed for the kill)", "B14 moon apsides (time)"],
+  "reproduce": [
+    "python3 p8.py smoke",
+    "python3 p8.py b12 8 plain 200",
+    "python3 p8.py b12 6 plain 200",
+    "timeout 420 python3 -u p8.py b12 8 sem 200",
+    "root census: see dossier.md commands"
+  ]
+}
