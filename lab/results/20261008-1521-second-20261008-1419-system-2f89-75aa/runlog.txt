@@ -1,0 +1,830 @@
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 465, in <module>
+    run_census(sys.argv[2], int(sys.argv[3]), sys.argv[4],
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 232, in run_census
+    roots, K, finite = roots_of_state(stepf, kres, x, v, p_eval, t, ds)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 197, in roots_of_state
+    K = k_family(stepf, kres, x, v, p_t, t, ds, GRID)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 171, in k_family
+    Ks[i] = kres(x2, v2, p1, t2)
+    ~~^^^
+ValueError: could not broadcast input array from shape (2,2,8,1) into shape (8,1)
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 465, in <module>
+    run_census(sys.argv[2], int(sys.argv[3]), sys.argv[4],
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 232, in run_census
+    roots, K, finite = roots_of_state(stepf, kres, x, v, p_eval, t, ds)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 197, in roots_of_state
+    K = k_family(stepf, kres, x, v, p_t, t, ds, GRID)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 171, in k_family
+    Ks[i] = kres(x2, v2, p1, t2)
+    ~~^^^
+ValueError: could not broadcast input array from shape (2,2,8,1) into shape (8,1)
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 465, in <module>
+    run_census(sys.argv[2], int(sys.argv[3]), sys.argv[4],
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 232, in run_census
+    roots, K, finite = roots_of_state(stepf, kres, x, v, p_eval, t, ds)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 197, in roots_of_state
+    K = k_family(stepf, kres, x, v, p_t, t, ds, GRID)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 171, in k_family
+    Ks[i] = kres(x2, v2, p1, t2)
+    ~~^^^
+ValueError: could not broadcast input array from shape (2,2,8,1) into shape (8,1)
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+Command exited with non-zero status 1
+0.88 s census two 8 zero
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 465, in <module>
+    run_census(sys.argv[2], int(sys.argv[3]), sys.argv[4],
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 232, in run_census
+    roots, K, finite = roots_of_state(stepf, kres, x, v, p_eval, t, ds)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 197, in roots_of_state
+    K = k_family(stepf, kres, x, v, p_t, t, ds, GRID)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 171, in k_family
+    Ks[i] = kres(x2, v2, p1, t2)
+    ~~^^^
+ValueError: could not broadcast input array from shape (2,2,8,1) into shape (8,1)
+Command exited with non-zero status 1
+Command exited with non-zero status 1
+1.061.03  ss  cceennssuuss  ttwwoo  86  pzlearion
+
+Command exited with non-zero status 1
+0.96 s census two 6 plain
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 468, in <module>
+    run_best(sys.argv[2], int(sys.argv[3]),
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 304, in run_best
+    while np.min(t[alive]) < t_end and i < cap:
+                 ~^^^^^^^
+TypeError: 'float' object is not subscriptable
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 468, in <module>
+    run_best(sys.argv[2], int(sys.argv[3]),
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 304, in run_best
+    while np.min(t[alive]) < t_end and i < cap:
+                 ~^^^^^^^
+TypeError: 'float' object is not subscriptable
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 468, in <module>
+    run_best(sys.argv[2], int(sys.argv[3]),
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 304, in run_best
+    while np.min(t[alive]) < t_end and i < cap:
+                 ~^^^^^^^
+TypeError: 'float' object is not subscriptable
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 468, in <module>
+    run_best(sys.argv[2], int(sys.argv[3]),
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 304, in run_best
+    while np.min(t[alive]) < t_end and i < cap:
+                 ~^^^^^^^
+TypeError: 'float' object is not subscriptable
+Command exited with non-zero status 1
+0.77 s best two 8
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 468, in <module>
+    run_best(sys.argv[2], int(sys.argv[3]),
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 304, in run_best
+    while np.min(t[alive]) < t_end and i < cap:
+                 ~^^^^^^^
+TypeError: 'float' object is not subscriptable
+Command exited with non-zero status 1
+0.85 s best flyby 8
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 468, in <module>
+    run_best(sys.argv[2], int(sys.argv[3]),
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/census.py", line 304, in run_best
+    while np.min(t[alive]) < t_end and i < cap:
+                 ~^^^^^^^
+TypeError: 'float' object is not subscriptable
+Command exited with non-zero status 1
+0.94 s best flyby 6
+Command exited with non-zero status 1
+0.97 s best base 8
+Command exited with non-zero status 1
+0.93 s best ecc 8
+Command exited with non-zero status 1
+0.99 s best base 6
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:57: RuntimeWarning: overflow encountered in power
+  gu = -MU * d / r12**3 - MU * xp / sep3
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:58: RuntimeWarning: overflow encountered in power
+  du_dt = MU * np.sum(d * vp, axis=-1, keepdims=True) / r12**3 \
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:71: RuntimeWarning: overflow encountered in multiply
+  c2 = np.where(np.abs(z) < 1e-8, 0.5 - z / 24.0 + z * z / 720.0, np.zeros_like(z))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:72: RuntimeWarning: overflow encountered in multiply
+  c3 = np.where(np.abs(z) < 1e-8, 1.0 / 6.0 - z / 120.0 + z * z / 5040.0, np.zeros_like(z))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in multiply
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: invalid value encountered in divide
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in power
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: invalid value encountered in multiply
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in power
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: invalid value encountered in multiply
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:57: RuntimeWarning: overflow encountered in power
+  gu = -MU * d / r12**3 - MU * xp / sep3
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:58: RuntimeWarning: overflow encountered in power
+  du_dt = MU * np.sum(d * vp, axis=-1, keepdims=True) / r12**3 \
+/usr/lib/python3/dist-packages/numpy/linalg/linalg.py:2582: RuntimeWarning: overflow encountered in multiply
+  s = (x.conj() * x).real
+/usr/lib/python3/dist-packages/numpy/linalg/linalg.py:2582: RuntimeWarning: overflow encountered in multiply
+  s = (x.conj() * x).real
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:95: RuntimeWarning: invalid value encountered in divide
+  chi = chi - F / r
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in multiply
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in multiply
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+{
+ "scene": "seed99",
+ "k": 8,
+ "variant": "plain",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 71,
+ "sens": 217,
+ "runaway_only": 674,
+ "onesigned": 638,
+ "nan": 0,
+ "frac_usable": 0.044375,
+ "frac_onesigned_fullgrid": 0.39875,
+ "median_absK1": 2.895260420299195e-12,
+ "median_absK2": 3.065124543066844e-12,
+ "median_absK8": 3.0569137499103505e-11,
+ "median_absK64": 1.3444462737544072e-08,
+ "median_rmin_usable": 1.5167152801093244,
+ "median_rmin_onesigned": 5.071807652804053,
+ "runaway_median_root_alpha": 15.141800962063524,
+ "runaway_median_K8_over_K1": 4.096868259511782
+}
+118.19 s census seed99 8 plain
+{
+ "scene": "seed99",
+ "k": 8,
+ "variant": "zero",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 17,
+ "sens": 45,
+ "runaway_only": 1378,
+ "onesigned": 160,
+ "nan": 0,
+ "frac_usable": 0.010625,
+ "frac_onesigned_fullgrid": 0.1,
+ "median_absK1": 5.767608612927688e-14,
+ "median_absK2": 4.596115155131031e-13,
+ "median_absK8": 2.9330739226285374e-11,
+ "median_absK64": 1.3445089264152443e-08,
+ "median_rmin_usable": 6.045358251667566,
+ "median_rmin_onesigned": 3.178002510819013,
+ "runaway_median_root_alpha": 19.318136065009973,
+ "runaway_median_K8_over_K1": 490.463988391614
+}
+121.63 s census seed99 8 zero
+{
+ "scene": "base",
+ "k": 8,
+ "variant": "zero",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 16,
+ "sens": 35,
+ "runaway_only": 1339,
+ "onesigned": 210,
+ "nan": 0,
+ "frac_usable": 0.01,
+ "frac_onesigned_fullgrid": 0.13125,
+ "median_absK1": 1.5822065879689262e-13,
+ "median_absK2": 1.2774711843910325e-12,
+ "median_absK8": 8.135575546575069e-11,
+ "median_absK64": 3.8917237966951124e-08,
+ "median_rmin_usable": 1.995197641982323,
+ "median_rmin_onesigned": 6.1266629330479105,
+ "runaway_median_root_alpha": 23.14289398783406,
+ "runaway_median_K8_over_K1": 518.3885620145917
+}
+125.41 s census base 8 zero
+{
+ "scene": "base",
+ "k": 8,
+ "variant": "plain",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 68,
+ "sens": 280,
+ "runaway_only": 765,
+ "onesigned": 487,
+ "nan": 0,
+ "frac_usable": 0.0425,
+ "frac_onesigned_fullgrid": 0.304375,
+ "median_absK1": 7.60777552066827e-12,
+ "median_absK2": 7.949696456677202e-12,
+ "median_absK8": 8.18093301435674e-11,
+ "median_absK64": 3.8908936829396e-08,
+ "median_rmin_usable": 1.4687432312433977,
+ "median_rmin_onesigned": 7.831701142766847,
+ "runaway_median_root_alpha": 12.802364211671058,
+ "runaway_median_K8_over_K1": 5.3352960997458565
+}
+129.56 s census base 8 plain
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:95: RuntimeWarning: invalid value encountered in divide
+  chi = chi - F / r
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in add
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in add
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in multiply
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in multiply
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in add
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in add
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+/usr/lib/python3/dist-packages/numpy/linalg/linalg.py:2583: RuntimeWarning: overflow encountered in reduce
+  return sqrt(add.reduce(s, axis=axis, keepdims=keepdims))
+{
+ "scene": "ecc",
+ "k": 8,
+ "variant": "plain",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 219,
+ "sens": 293,
+ "runaway_only": 808,
+ "onesigned": 280,
+ "nan": 0,
+ "frac_usable": 0.136875,
+ "frac_onesigned_fullgrid": 0.175,
+ "median_absK1": 6.358935600303539e-11,
+ "median_absK2": 7.77643366367542e-11,
+ "median_absK8": 6.154347031994689e-10,
+ "median_absK64": 8940.555724074991,
+ "median_rmin_usable": 4.399810710950005,
+ "median_rmin_onesigned": 7.50043311201828,
+ "runaway_median_root_alpha": 12.15022175551618,
+ "runaway_median_K8_over_K1": 4.829098760621482
+}
+307.34 s census ecc 8 plain
+{
+ "scene": "ecc",
+ "k": 8,
+ "variant": "zero",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 42,
+ "sens": 63,
+ "runaway_only": 1294,
+ "onesigned": 201,
+ "nan": 0,
+ "frac_usable": 0.02625,
+ "frac_onesigned_fullgrid": 0.125625,
+ "median_absK1": 1.1780021402785223e-12,
+ "median_absK2": 9.302947301392805e-12,
+ "median_absK8": 5.836644431655991e-10,
+ "median_absK64": 8936.534845686096,
+ "median_rmin_usable": 4.925831962082819,
+ "median_rmin_onesigned": 7.682532765967095,
+ "runaway_median_root_alpha": 25.30421391733467,
+ "runaway_median_K8_over_K1": 470.431277023642
+}
+311.82 s census ecc 8 zero
+{
+ "scene": "base",
+ "k": 6,
+ "variant": "zero",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 61,
+ "sens": 103,
+ "runaway_only": 1352,
+ "onesigned": 84,
+ "nan": 0,
+ "frac_usable": 0.038125,
+ "frac_onesigned_fullgrid": 0.0525,
+ "median_absK1": 7.1389630318385855e-12,
+ "median_absK2": 5.787832713100016e-11,
+ "median_absK8": 3.6940472972202265e-09,
+ "median_absK64": 3128862.29498082,
+ "median_rmin_usable": 4.741790663186927,
+ "median_rmin_onesigned": 5.243329310071486,
+ "runaway_median_root_alpha": 20.740575129699973,
+ "runaway_median_K8_over_K1": 472.0826369864304
+}
+359.09 s census base 6 zero
+{
+ "scene": "flyby",
+ "k": 8,
+ "variant": "plain",
+ "steps": 300,
+ "ships": 8,
+ "lost": 0,
+ "n": 2400,
+ "usable": 196,
+ "sens": 489,
+ "runaway_only": 974,
+ "onesigned": 741,
+ "nan": 0,
+ "frac_usable": 0.08166666666666667,
+ "frac_onesigned_fullgrid": 0.30875,
+ "median_absK1": 3.6714735418552635e-11,
+ "median_absK2": 4.052945132282382e-11,
+ "median_absK8": 4.5183401464754525e-10,
+ "median_absK64": 3.5152214299810636e-07,
+ "median_rmin_usable": 9.826177417920022,
+ "median_rmin_onesigned": 22.67797672935308,
+ "runaway_median_root_alpha": 15.513558367500936,
+ "runaway_median_K8_over_K1": 5.147828190575039
+}
+363.12 s census flyby 8 plain
+{
+ "scene": "base",
+ "k": 6,
+ "variant": "plain",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 301,
+ "sens": 503,
+ "runaway_only": 782,
+ "onesigned": 14,
+ "nan": 0,
+ "frac_usable": 0.188125,
+ "frac_onesigned_fullgrid": 0.00875,
+ "median_absK1": 7.809212304588087e-11,
+ "median_absK2": 8.45390910053645e-11,
+ "median_absK8": 3.6733727518112325e-09,
+ "median_absK64": 3096252.9234394385,
+ "median_rmin_usable": 4.890547625995907,
+ "median_rmin_onesigned": 7.867410766014538,
+ "runaway_median_root_alpha": 15.283576133863761,
+ "runaway_median_K8_over_K1": 30.70792651145451
+}
+364.00 s census base 6 plain
+{
+ "scene": "flyby",
+ "k": 8,
+ "variant": "zero",
+ "steps": 300,
+ "ships": 8,
+ "lost": 0,
+ "n": 2400,
+ "usable": 34,
+ "sens": 55,
+ "runaway_only": 1612,
+ "onesigned": 699,
+ "nan": 0,
+ "frac_usable": 0.014166666666666666,
+ "frac_onesigned_fullgrid": 0.29125,
+ "median_absK1": 8.014769403708044e-13,
+ "median_absK2": 6.422862242061456e-12,
+ "median_absK8": 4.151345378566873e-10,
+ "median_absK64": 3.515165992694358e-07,
+ "median_rmin_usable": 6.043445005528023,
+ "median_rmin_onesigned": 20.467110203126428,
+ "runaway_median_root_alpha": 31.86910922927106,
+ "runaway_median_K8_over_K1": 491.11542636963037
+}
+367.25 s census flyby 8 zero
+{
+ "scene": "ecc",
+ "k": 6,
+ "variant": "zero",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 164,
+ "sens": 241,
+ "runaway_only": 1169,
+ "onesigned": 26,
+ "nan": 0,
+ "frac_usable": 0.1025,
+ "frac_onesigned_fullgrid": 0.01625,
+ "median_absK1": 5.6877572096603046e-11,
+ "median_absK2": 4.4462413612000873e-10,
+ "median_absK8": 2.822303717814334e-08,
+ "median_absK64": 2186701.793946651,
+ "median_rmin_usable": 4.892960461280046,
+ "median_rmin_onesigned": 3.8953824526585987,
+ "runaway_median_root_alpha": 11.652916076107099,
+ "runaway_median_K8_over_K1": 440.65172157487603
+}
+375.16 s census ecc 6 zero
+{
+ "scene": "ecc",
+ "k": 6,
+ "variant": "plain",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 382,
+ "sens": 348,
+ "runaway_only": 852,
+ "onesigned": 18,
+ "nan": 0,
+ "frac_usable": 0.23875,
+ "frac_onesigned_fullgrid": 0.01125,
+ "median_absK1": 9.734995587429296e-10,
+ "median_absK2": 1.5955453208649217e-09,
+ "median_absK8": 3.3692054320078046e-08,
+ "median_absK64": 2206099.1393392617,
+ "median_rmin_usable": 4.452577320281964,
+ "median_rmin_onesigned": 4.606935465551435,
+ "runaway_median_root_alpha": 10.730431141707152,
+ "runaway_median_K8_over_K1": 8.017848936691575
+}
+375.40 s census ecc 6 plain
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: invalid value encountered in cos
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: invalid value encountered in divide
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: invalid value encountered in sin
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: invalid value encountered in subtract
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: overflow encountered in cosh
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: overflow encountered in sinh
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+{
+ "scene": "base",
+ "k": 6,
+ "variant": "best",
+ "periods": 2.0,
+ "steps_taken": 317,
+ "records": 2536,
+ "usable": 68,
+ "frac_usable": 0.026813880126182965,
+ "frac_usable_after_root": 0.0,
+ "frac_usable_after_noroot": 0.027552674230145867,
+ "median_absK_end": 2.6854726775660254e-11,
+ "worst_absK_end": 2.7696681267896928e-08,
+ "lost": 0,
+ "nan": 0
+}
+61.04 s best base 6
+{
+ "scene": "flyby",
+ "k": 6,
+ "variant": "best",
+ "periods": 2.0,
+ "steps_taken": 225,
+ "records": 1800,
+ "usable": 74,
+ "frac_usable": 0.04111111111111111,
+ "frac_usable_after_root": 0.1388888888888889,
+ "frac_usable_after_noroot": 0.037037037037037035,
+ "median_absK_end": 3.0024625841118535e-10,
+ "worst_absK_end": 1.2551215511358293e-08,
+ "lost": 0,
+ "nan": 0
+}
+77.55 s best flyby 6
+{
+ "scene": "two",
+ "k": 8,
+ "variant": "plain",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 0,
+ "sens": 0,
+ "runaway_only": 369,
+ "onesigned": 1231,
+ "nan": 0,
+ "frac_usable": 0.0,
+ "frac_onesigned_fullgrid": 0.769375,
+ "median_absK1": 1.1963655058289113e-07,
+ "median_absK2": 1.196814519432987e-07,
+ "median_absK8": 1.2007471469899222e-07,
+ "median_absK64": 1.4899075873736622e-07,
+ "median_rmin_usable": null,
+ "median_rmin_onesigned": 7.3505295804581285,
+ "runaway_median_root_alpha": 32.29070224588458,
+ "runaway_median_K8_over_K1": 1.008706592000852
+}
+85.50 s census two 8 plain
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:57: RuntimeWarning: overflow encountered in power
+  gu = -MU * d / r12**3 - MU * xp / sep3
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:58: RuntimeWarning: overflow encountered in power
+  du_dt = MU * np.sum(d * vp, axis=-1, keepdims=True) / r12**3 \
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:57: RuntimeWarning: overflow encountered in power
+  gu = -MU * d / r12**3 - MU * xp / sep3
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:58: RuntimeWarning: overflow encountered in power
+  du_dt = MU * np.sum(d * vp, axis=-1, keepdims=True) / r12**3 \
+/usr/lib/python3/dist-packages/numpy/linalg/linalg.py:2582: RuntimeWarning: overflow encountered in multiply
+  s = (x.conj() * x).real
+/usr/lib/python3/dist-packages/numpy/linalg/linalg.py:2582: RuntimeWarning: overflow encountered in multiply
+  s = (x.conj() * x).real
+{
+ "scene": "two",
+ "k": 8,
+ "variant": "zero",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 15,
+ "sens": 34,
+ "runaway_only": 1337,
+ "onesigned": 214,
+ "nan": 0,
+ "frac_usable": 0.009375,
+ "frac_onesigned_fullgrid": 0.13375,
+ "median_absK1": 1.6527751389716627e-13,
+ "median_absK2": 1.3211237659405128e-12,
+ "median_absK8": 8.448762522927922e-11,
+ "median_absK64": 4.132622352659432e-08,
+ "median_rmin_usable": 2.022516450681957,
+ "median_rmin_onesigned": 6.240590911873065,
+ "runaway_median_root_alpha": 23.839986377340033,
+ "runaway_median_K8_over_K1": 522.097789434245
+}
+106.22 s census two 8 zero
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:95: RuntimeWarning: invalid value encountered in divide
+  chi = chi - F / r
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in multiply
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in multiply
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+{
+ "scene": "two",
+ "k": 8,
+ "variant": "best",
+ "periods": 2.0,
+ "steps_taken": 1226,
+ "records": 9808,
+ "usable": 0,
+ "frac_usable": 0.0,
+ "frac_usable_after_root": 0.0,
+ "frac_usable_after_noroot": 0.0,
+ "median_absK_end": 1.2446615844236009e-07,
+ "worst_absK_end": 1.2688212911907137e-05,
+ "lost": 0,
+ "nan": 0
+}
+{
+ "scene": "flyby",
+ "k": 8,
+ "variant": "best",
+ "periods": 2.0,
+ "steps_taken": 929,
+ "records": 7432,
+ "usable": 80,
+ "frac_usable": 0.010764262648008612,
+ "frac_usable_after_root": 0.025,
+ "frac_usable_after_noroot": 0.010609357997823721,
+ "median_absK_end": 1.9952754726215716e-11,
+ "worst_absK_end": 7.981317273753064e-10,
+ "lost": 0,
+ "nan": 0
+}
+{
+ "scene": "ecc",
+ "k": 8,
+ "variant": "best",
+ "periods": 2.0,
+ "steps_taken": 903,
+ "records": 7224,
+ "usable": 143,
+ "frac_usable": 0.019795127353266887,
+ "frac_usable_after_root": 0.0,
+ "frac_usable_after_noroot": 0.020194887727722072,
+ "median_absK_end": 6.657494000528175e-12,
+ "worst_absK_end": 1.907792672450892e-08,
+ "lost": 0,
+ "nan": 0
+}
+{
+ "scene": "base",
+ "k": 8,
+ "variant": "best",
+ "periods": 2.0,
+ "steps_taken": 1329,
+ "records": 10632,
+ "usable": 68,
+ "frac_usable": 0.006395786305492852,
+ "frac_usable_after_root": 0.0,
+ "frac_usable_after_noroot": 0.006436955698599016,
+ "median_absK_end": 1.7926771178622403e-12,
+ "worst_absK_end": 1.851573575017973e-09,
+ "lost": 0,
+ "nan": 0
+}
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:95: RuntimeWarning: invalid value encountered in divide
+  chi = chi - F / r
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in add
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in add
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in multiply
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in multiply
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:92: RuntimeWarning: overflow encountered in add
+  F = (r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3 + r0 * chi) - tau
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:93: RuntimeWarning: overflow encountered in add
+  r = r0 + r0s * chi**2 * c2 + (1.0 - alpha * r0) * chi**3 * c3  # = dF/dchi
+/usr/lib/python3/dist-packages/numpy/linalg/linalg.py:2583: RuntimeWarning: overflow encountered in reduce
+  return sqrt(add.reduce(s, axis=axis, keepdims=keepdims))
+{
+ "scene": "two",
+ "k": 6,
+ "variant": "plain",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 0,
+ "sens": 23,
+ "runaway_only": 1349,
+ "onesigned": 228,
+ "nan": 0,
+ "frac_usable": 0.0,
+ "frac_onesigned_fullgrid": 0.1425,
+ "median_absK1": 1.224815759579001e-07,
+ "median_absK2": 1.2246376763364042e-07,
+ "median_absK8": 1.2855318336224553e-07,
+ "median_absK64": 3005648.640279046,
+ "median_rmin_usable": null,
+ "median_rmin_onesigned": 7.684618291118788,
+ "runaway_median_root_alpha": 28.40545049268355,
+ "runaway_median_K8_over_K1": 1.0066831127943527
+}
+{
+ "scene": "two",
+ "k": 6,
+ "variant": "zero",
+ "steps": 200,
+ "ships": 8,
+ "lost": 0,
+ "n": 1600,
+ "usable": 66,
+ "sens": 103,
+ "runaway_only": 1358,
+ "onesigned": 73,
+ "nan": 0,
+ "frac_usable": 0.04125,
+ "frac_onesigned_fullgrid": 0.045625,
+ "median_absK1": 8.849365684682198e-12,
+ "median_absK2": 6.971948712797271e-11,
+ "median_absK8": 4.464395290948442e-09,
+ "median_absK64": 2985408.038607671,
+ "median_rmin_usable": 5.011558721034024,
+ "median_rmin_onesigned": 4.413879719056643,
+ "runaway_median_root_alpha": 20.472104700562365,
+ "runaway_median_K8_over_K1": 478.57332013118776
+}
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: invalid value encountered in cos
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:77: RuntimeWarning: invalid value encountered in divide
+  c2[big] = np.where(pos, (1.0 - np.cos(s)) / zb, (np.cosh(s) - 1.0) / (-zb))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: invalid value encountered in sin
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261008-1521-second-20261008-1419-system-2f89-75aa/p8.py:78: RuntimeWarning: invalid value encountered in subtract
+  c3[big] = np.where(pos, (s - np.sin(s)) / (zb * s), (np.sinh(s) - s) / (-zb * s))
+{
+ "scene": "flyby",
+ "k": 6,
+ "variant": "zero",
+ "steps": 300,
+ "ships": 8,
+ "lost": 0,
+ "n": 2235,
+ "usable": 151,
+ "sens": 194,
+ "runaway_only": 1836,
+ "onesigned": 54,
+ "nan": 165,
+ "frac_usable": 0.06756152125279642,
+ "frac_onesigned_fullgrid": 0.024161073825503355,
+ "median_absK1": 8.733376521963265e-11,
+ "median_absK2": 7.260735762626425e-10,
+ "median_absK8": 5.4899619211790096e-08,
+ "median_absK64": 101095.84365854326,
+ "median_rmin_usable": 7.758119678974712,
+ "median_rmin_onesigned": 10.152403807167854,
+ "runaway_median_root_alpha": 19.68098811596364,
+ "runaway_median_K8_over_K1": 456.0106255312494
+}
+{
+ "scene": "flyby",
+ "k": 6,
+ "variant": "plain",
+ "steps": 300,
+ "ships": 8,
+ "lost": 0,
+ "n": 2236,
+ "usable": 311,
+ "sens": 496,
+ "runaway_only": 1423,
+ "onesigned": 6,
+ "nan": 164,
+ "frac_usable": 0.139087656529517,
+ "frac_onesigned_fullgrid": 0.0026833631484794273,
+ "median_absK1": 3.574222251501169e-09,
+ "median_absK2": 3.868085518554665e-09,
+ "median_absK8": 6.689335350917869e-08,
+ "median_absK64": 131340.25198114326,
+ "median_rmin_usable": 28.252007119626306,
+ "median_rmin_onesigned": 9.728444883251129,
+ "runaway_median_root_alpha": 13.4354644117986,
+ "runaway_median_K8_over_K1": 11.94932923918718
+}
