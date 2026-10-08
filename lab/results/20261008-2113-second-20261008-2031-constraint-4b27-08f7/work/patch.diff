@@ -1,0 +1,465 @@
+diff --git a/crates/universe/examples/profile_view.rs b/crates/universe/examples/profile_view.rs
+new file mode 100644
+index 0000000..75f13d4
+--- /dev/null
++++ b/crates/universe/examples/profile_view.rs
+@@ -0,0 +1,161 @@
++//! Lab instrument (run 20261008-2031-constraint-4b27): where the plane frame's view time goes.
++//! Drives the same scene and frame loop as `xtask universe --bench`, times `gather_cached`
++//! per frame and reads the sub-marks view.rs accumulates (player prologue, bodies loop,
++//! fleets loop), plus the readout count and a direct per-`state_rate` timing.
++use emergent_universe::fleet::Order;
++use emergent_universe::observe::state_rate;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::{gather, gather_cached, prof, ViewCache};
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++fn pct(v: &mut [f64], p: f64) -> f64 {
++    v.sort_by(f64::total_cmp);
++    v.get(((v.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied().unwrap_or(0.0)
++}
++
++fn main() {
++    let rtf: f64 = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(100.0);
++    let members: u64 = std::env::args().nth(2).and_then(|a| a.parse().ok()).unwrap_or(48);
++    let frames: usize = std::env::args().nth(3).and_then(|a| a.parse().ok()).unwrap_or(1800);
++    let seed: u64 = std::env::args().nth(4).and_then(|a| a.parse().ok()).unwrap_or(1);
++    let p = plane(Config::default(), seed, Order::Sparse, 1, members).expect("the plane");
++    let names = p.names.clone();
++    let mut u = p.u;
++    let mut cache = ViewCache::default();
++    let (mut tot, mut m0, mut m1, mut m2) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
++    let (mut reads_v, mut seen_v) = (Vec::new(), Vec::new());
++    let (mut worst_dir, mut worst_ls, mut worst_shift, mut diffs) = (0.0f64, 0.0f64, 0.0f64, 0u64);
++    let mut worst_who = String::new();
++    let mut gate_counts = [0u64; 4];
++    let wall = Instant::now();
++    for n in 1..=frames {
++        if wall.elapsed().as_secs_f64() >= 80.0 {
++            eprintln!("stopping at frame {n}");
++            break;
++        }
++        u.frame_to(1.0 / 60.0, rtf, Budget::wall(5.0), i64::MAX);
++        let t0 = Instant::now();
++        let v = gather_cached(&u, &names, &mut cache).expect("view");
++        let us = t0.elapsed().as_secs_f64() * 1e6;
++        let m = prof::take();
++        tot.push(us);
++        m0.push(m[0] as f64);
++        m1.push(m[1] as f64);
++        m2.push(m[2] as f64);
++        reads_v.push(cache.readouts as f64);
++        gate_counts = emergent_universe::view::prof::gate_take();
++        seen_v.push(v.seen.len() as f64);
++        // Every 100 frames: the exact (cold) gather on the same state, diffed against the gated one.
++        if n % 100 == 0 {
++            if let Some(x) = gather(&u, &names) {
++                let xb: std::collections::HashMap<usize, _> = x.seen.iter().map(|s| (s.id, s)).collect();
++                for s in &v.seen {
++                    if let Some(e) = xb.get(&s.id) {
++                        let dd = (s.direction[0] - e.direction[0]).abs().max((s.direction[1] - e.direction[1]).abs());
++                        if dd > worst_dir {
++                            worst_who = format!("frame {n} id {} name {} kind {} ls {:.4} vs {:.4} shift {:.4} vs {:.4}", s.id, s.name, s.kind, s.light_seconds, e.light_seconds, s.shift, e.shift);
++                        }
++                        worst_dir = worst_dir.max(dd);
++                        worst_ls = worst_ls.max((s.light_seconds - e.light_seconds).abs() / e.light_seconds.max(1e-9));
++                        worst_shift = worst_shift.max((s.shift - e.shift).abs() / e.shift.abs().max(1e-9));
++                        diffs += 1;
++                    }
++                }
++            }
++        }
++    }
++    // A cold gather (no memo) on the final state, 30 samples: what the crossing search costs
++    // when the guess is not carried, and how many readouts it needs.
++    let mut cold = Vec::new();
++    let mut cold_reads = 0u64;
++    for _ in 0..30 {
++        let t0 = Instant::now();
++        let _ = gather(&u, &names);
++        cold.push(t0.elapsed().as_secs_f64() * 1e6);
++    }
++    let _ = gather(&u, &names);
++    let _ = &mut cold_reads;
++    // Direct per-readout cost: state_rate over every live body at the presented tick, 30 rounds.
++    let t0 = Instant::now();
++    let mut calls = 0u64;
++    for _ in 0..30 {
++        for i in 0..u.n_bodies() {
++            if u.bodies().alive(i) && state_rate(&u.ctx(), i, u.now).is_ok() {
++                calls += 1;
++            }
++        }
++    }
++    let per_state_rate_us = t0.elapsed().as_secs_f64() * 1e6 / calls as f64;
++    // The atoms of state_rate, timed separately over the same bodies (30 rounds each):
++    let ctx = u.ctx();
++    let (mut t_bind, mut t_cart, mut t_sec, mut t_ramp) = (0u128, 0u128, 0u128, 0u128);
++    let mut n = 0u64;
++    for _ in 0..30 {
++        for i in 0..u.n_bodies() {
++            if !u.bodies().alive(i) {
++                continue;
++            }
++            let b0 = ctx.bodies.binding_at(i, u.now);
++            let t0 = Instant::now();
++            let b = ctx.bodies.binding_at(i, u.now);
++            t_bind += t0.elapsed().as_nanos();
++            if let Some(b) = b {
++                let t0 = Instant::now();
++                let _ = b.cartesian(u.now);
++                t_cart += t0.elapsed().as_nanos();
++                let d = b.doll;
++                let t0 = Instant::now();
++                let _ = ctx.secondaries(d, u.now, i);
++                t_sec += t0.elapsed().as_nanos();
++            }
++            let t0 = Instant::now();
++            let _ = emergent_universe::observe::ramped(&ctx, i, u.now);
++            t_ramp += t0.elapsed().as_nanos();
++            n += 1;
++        }
++    }
++    println!(
++        "atoms (ns each, {n} samples): binding_at {:.0} cartesian {:.0} secondaries {:.0} ramped {:.0}",
++        t_bind as f64 / n as f64,
++        t_cart as f64 / n as f64,
++        t_sec as f64 / n as f64,
++        t_ramp as f64 / n as f64
++    );
++    println!(
++        "rtf {rtf} members {members} frames {} bodies_end {}\n\
++         gather_us p50 {:.1} p99 {:.1}\n\
++         player_prologue_us_p50 {:.1}\n\
++         bodies_loop_us_p50 {:.1}\n\
++         fleets_loop_us_p50 {:.1}\n\
++         readouts_per_frame_p50 {:.1}\n\
++         seen_per_frame_p50 {:.1}\n\
++         gather_cold_us_p50 {:.1}\n\
++         state_rate_us_each {:.3} ({} calls)",
++        tot.len(),
++        u.n_bodies(),
++        pct(&mut tot, 0.5),
++        pct(&mut tot, 0.99),
++        pct(&mut m0, 0.5),
++        pct(&mut m1, 0.5),
++        pct(&mut m2, 0.5),
++        pct(&mut reads_v, 0.5),
++        pct(&mut seen_v, 0.5),
++        pct(&mut cold, 0.5),
++        per_state_rate_us,
++        calls
++    );
++    println!(
++        "display_diff vs exact ({} matched, every 100th frame): max_dir {:.3e} max_rel_ls {:.3e} max_rel_shift {:.3e}",
++        diffs, worst_dir, worst_ls, worst_shift
++    );
++    println!(
++        "gate (median frame): mark_changed {} periapsis_changed {} no_root {} checkpoints {}",
++        gate_counts[0],
++        gate_counts[1],
++        gate_counts[2],
++        gate_counts[3]
++    );
++    println!("worst offender: {worst_who}");
++
++}
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..463fd91 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -19,6 +19,37 @@ use crate::observe::{clock_rate, clocks_with, root_state, state_rate};
+ use crate::universe::Universe;
+ use emergent_space::orbit::Scalar;
+ 
++/// Profiling marks for the gather (lab run 20261008-2031-constraint-4b27): microseconds accumulated
++/// per section of the last gather(s): [0] player prologue, [1] bodies loop, [2] fleets loop, [3] star.
++/// A lab instrument only; nothing here is read by the engine.
++pub mod prof {
++    use std::cell::Cell;
++    thread_local! {
++        static MARKS: [Cell<u64>; 4] = [const { Cell::new(0) }, const { Cell::new(0) }, const { Cell::new(0) }, const { Cell::new(0) }];
++    }
++    pub fn mark(idx: usize, us: u64) {
++        MARKS.with(|m| m[idx].set(m[idx].get() + us));
++    }
++    pub fn take() -> [u64; 4] {
++        MARKS.with(|m| std::array::from_fn(|i| m[i].replace(0)))
++    }
++    thread_local! {
++        pub static GATE: [Cell<u64>; 4] = [const { Cell::new(0) }, const { Cell::new(0) }, const { Cell::new(0) }, const { Cell::new(0) }];
++    }
++    pub fn gate(idx: usize) {
++        GATE.with(|m| m[idx].set(m[idx].get() + 1));
++    }
++    pub fn gate_take() -> [u64; 4] {
++        GATE.with(|m| std::array::from_fn(|i| m[i].replace(0)))
++    }
++}
++
++fn timed<T>(idx: usize, f: impl FnOnce() -> T) -> T {
++    let t0 = std::time::Instant::now();
++    let r = f();
++    prof::mark(idx, t0.elapsed().as_micros() as u64);
++    r
++}
+ /// Seconds in one tick (`G·M_sun/c³`, the star's `M/c`).
+ pub const TICK_SECONDS: f64 = 4.925_490_947e-6;
+ 
+@@ -111,8 +142,50 @@ struct Crossing {
+     /// it was changing (`2·inst − measured`: the instantaneous rate at this crossing against its average over the
+     /// interval before), or the instantaneous rate on a first sight.
+     slope: f64,
++    /// The last **exact** solve (run 20261008-2031, repaired 20261008-2113): the state read at `t_exact`, the
++    /// chain's committed mark and the binding's periapsis time then. Between events the crossing is
++    /// extrapolated from it instead of re-solved (the view pays events, not frames).
++    t_exact: Tick,
++    at: ([f64; 2], [f64; 2], f64),
++    mark: Tick,
++    periapsis: i64,
++    /// The next **checkpoint** (ticks of extrapolation span): when the span crosses it, the true state is
++    /// probed at the current crossing tick (always readable: `t_e + tau ≤ t_now`), the linear model is
++    /// refreshed from the probe and the deviation it measured re-arms the next checkpoint. A checkpoint
++    /// that measures more than half the tolerance re-solves exactly. Measured, not modeled: the run
++    /// 20261008-2031 cap (curvature probed once at `t_e ± 8192`, τ²-scaled) leaked on long arcs.
++    next_cp: f64,
++    /// The emitter distance at the last checkpoint: a halving of it also fires one (the tolerance
++    /// `1e-4·dist` shrinks with it).
++    dist_cp: f64,
+ }
+ 
++fn chain_mark(u: &Universe, i: usize) -> Tick {
++    let b = u.bodies();
++    let mut m = b.event_time(i);
++    let mut cur = i;
++    while let Some(c) = u.dolls[b.doll(cur) as usize].centre {
++        m = m.max(b.event_time(c));
++        cur = c;
++    }
++    m
++}
++
++/// The display quantum: one length tolerance for the extrapolated view. `1e-4` of the emitter's
++/// distance bounds the direction error (rad, `Δpos⊥/dist`) and the relative light-seconds error
++/// (`Δpos∥/dist`) alike; the redshift is second order in it.
++fn tol_len(dist: f64) -> f64 {
++    1e-4 * dist
++}
++
++/// Re-arm the next checkpoint from a measured deviation: aim so that even a quartic growth of the
++/// deviation lands at the tolerance (planets approaching periapsis grow faster than τ²).
++fn arm_checkpoint(tau: f64, dev: f64, dist: f64) -> f64 {
++    let dev = dev.max(1e-12);
++    (tau * (tol_len(dist) * 0.5 / dev).powf(0.25)).clamp(tau * 1.2, tau * 4.0)
++}
++
++
+ /// The view's per-emitter memo (by body id). Create one per observer and pass it to
+ /// [`gather_cached`] every frame; any cache, however stale or foreign, gives the same view.
+ #[derive(Clone, Debug, Default)]
+@@ -128,15 +201,15 @@ impl ViewCache {
+         Some((c.root + (t_now - c.observed) as f64 * c.slope).floor() as Tick)
+     }
+     /// Remember the crossing `root` found at `t_now`, with `inst`, the arrival rate at the crossing itself:
+-    /// `(1 + n·β_obs)/(1 + n·β_em)`.
+-    fn put(&mut self, i: usize, t_now: Tick, root: f64, inst: f64) {
++    /// `(1 + n·β_obs)/(1 + n·β_em)`. The solve was exact: its state and mark are kept for the gate.
++    fn put(&mut self, i: usize, t_now: Tick, root: f64, inst: f64, t_e: Tick, at: ([f64; 2], [f64; 2], f64), mark: Tick, periapsis: i64, next_cp: f64, dist_cp: f64) {
+         if self.slots.len() <= i {
+             self.slots.resize(i + 1, None);
+         }
+         let inst = inst.clamp(1e-3, 1e4);
+         let slope = match self.slots[i] {
+-            // The arrival rate `dt_e/dT = (1 + n·β_obs)/(1 + n·β_em)` is anywhere in `(0, ∞)`: an emitter closing on the
+-            // observer at 0.9c is seen advancing ten ticks per tick of the observer's present, and at 0.9999c ten
++            // The arrival rate `dt_e/dT = (1 + n·β_obs)/(1 + n·β_em)` is anywhere in `(0, ∞)`: an emitter closing on
++            // the observer at 0.9c is seen advancing ten ticks per tick of the observer's present, and at 0.9999c ten
+             // thousand. The clamp only keeps a noisy measurement from sending the guess to the moon; it is no
+             // physics (a clamp at 1.5 was the Newtonian one: lab run 20261003-2306-redteam-4570).
+             Some(c) if t_now > c.observed => {
+@@ -145,7 +218,28 @@ impl ViewCache {
+             }
+             _ => inst,
+         };
+-        self.slots[i] = Some(Crossing { observed: t_now, root, slope });
++        self.slots[i] = Some(Crossing { observed: t_now, root, slope, t_exact: t_e, at, mark, periapsis, next_cp, dist_cp });
++    }
++    /// A checkpoint refreshed the model from a probe at `t_exact + tau`: keep the measured state, re-arm.
++    fn refresh(&mut self, i: usize, t_now: Tick, root: f64, t_e: Tick, at: ([f64; 2], [f64; 2], f64), next_cp: f64, dist_cp: f64) {
++        if let Some(c) = self.slots.get_mut(i).and_then(|s| s.as_mut()) {
++            c.observed = t_now;
++            c.root = root;
++            c.t_exact = t_e;
++            c.at = at;
++            c.next_cp = next_cp;
++            c.dist_cp = dist_cp;
++        }
++    }
++    /// An extrapolated frame: the memo's clock advances, its exact solve is kept.
++    fn advance(&mut self, i: usize, t_now: Tick, root: f64) {
++        if let Some(c) = self.slots.get_mut(i).and_then(|s| s.as_mut()) {
++            c.observed = t_now;
++            c.root = root;
++        }
++    }
++    fn exact(&self, i: usize) -> Option<Crossing> {
++        self.slots.get(i).copied().flatten()
+     }
+ }
+ 
+@@ -241,6 +335,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     // A lost player (a wreck) stays where it was lost, its readings frozen at its last state: the universe goes on.
+     // A ship the engine could not carry on (refused kicks, possibly still "alive") is read at its last state when its tube or
+     // partial step cannot be read at the presented tick (the motion law v2 refuses a read far past its last boundary).
++    let ((xo, vo), (rate_obs, doll_rate, doll_beta), heading, proper) = timed(0, || {
+     let mut t_read = if rec.alive { t_now } else { rec.b.event_time };
+     let (xo, vo) = match root_state(&ctx, p, t_read) {
+         Ok(x) => x,
+@@ -258,13 +353,15 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         Err(_) => (1.0, 1.0, [0.0, 0.0]),
+     };
+     let heading = owed.map(|o| o.0).or(rec.thrust.map(|t| t.heading)).unwrap_or(0);
+-    let h = heading as f64 / 4294967296.0 * std::f64::consts::TAU;
+     let tau = rec.b.orbit_state(t_read.max(rec.b.event_time)).ok().map(|s| {
+         let doll = &u.dolls[rec.b.doll as usize];
+         let along = s.proper_time.sub(rec.b.orbit_state(rec.b.event_time).ok()?.proper_time).ok()?;
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
++    Some(((xo, vo), (rate_obs, doll_rate, doll_beta), heading, proper))
++    })?;
++    let h = heading as f64 / 4294967296.0 * std::f64::consts::TAU;
+     let mut seen = Vec::new();
+     let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+         let d = [pos[0] - xo[0], pos[1] - xo[1]];
+@@ -296,6 +393,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
+     // Bodies: where each tube crosses the past light cone.
++    timed(1, || {
+     let mut reads = 0u64;
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+@@ -303,14 +401,94 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         }
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+-        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
+-        if let Some(c) = cache.as_deref_mut() {
+-            // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+-            let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+-            let dist = dot(d, d).sqrt();
+-            let inst = if dist > 0.0 { (1.0 + dot(d, vo) / dist) / (1.0 + dot(d, at.v) / dist) } else { 1.0 };
+-            c.put(i, t_now, root, inst);
+-        }
++        // The gate (run 20261008-2031, repaired 20261008-2113): between events an emitter's retarded
++        // state drifts on its own tube, and re-solving the crossing every frame pays the phase solve
++        // per emitter per frame for a display whose change is far below its quantum. The crossing of
++        // the linear model `x0 + v0·τ` with the cone is solved in closed form (no readout, no drift);
++        // re-solve exactly when the chain has committed an event since the last exact solve, when the
++        // binding changed, or when a **checkpoint** measures the model's deviation past half the
++        // display quantum `1e-4·dist`. Checkpoints fire when the span crosses the armed tick or the
++        // distance halves, probe the true state at the current crossing tick (readable: it is ≤ t_now),
++        // and refresh the model from the measurement: the bound is measured, not extrapolated from one
++        // local curvature probe (the 20261008-2031 cap leaked 1.7× on the planet's long arc).
++        let mark = chain_mark(u, i);
++        let periapsis = u.rec(i).b.tube.periapsis_time.get() as i64;
++        let gated = cache.as_deref().and_then(|c| c.exact(i)).filter(|c| {
++            if c.mark != mark {
++                prof::gate(0);
++                return false;
++            }
++            if c.periapsis != periapsis {
++                prof::gate(1);
++                return false;
++            }
++            true
++        }).and_then(|c| {
++            let (x0, v0, r0) = c.at;
++            let d = [x0[0] - xo[0], x0[1] - xo[1]];
++            let tt = (t_now - c.t_exact) as f64;
++            // |d + v0·τ| = tt − τ  ⇔  (v0·v0 − 1)τ² + 2(d·v0 + tt)τ + (d·d − tt²) = 0, τ ∈ [0, tt].
++            let (a, b, cc) = (dot(v0, v0) - 1.0, 2.0 * (dot(d, v0) + tt), dot(d, d) - tt * tt);
++            let tau = if a.abs() < 1e-15 {
++                -cc / b
++            } else {
++                let sq = (b * b - 4.0 * a * cc).max(0.0).sqrt();
++                let (r1, r2) = ((-b - sq) / (2.0 * a), (-b + sq) / (2.0 * a));
++                [r1, r2].into_iter().filter(|r| (0.0..=tt).contains(r)).min_by(f64::total_cmp).unwrap_or(f64::NAN)
++            };
++            // Light not yet arrived (`|d| > tt`, no root): the crossing stays at the cached tick,
++            // whose state is what the exact solve showed before the first light (tick 0).
++            let tau = if !tau.is_finite() && cc > 0.0 { 0.0 } else { tau };
++            if !tau.is_finite() {
++                prof::gate(2);
++                return None;
++            }
++            let at = At { x: [x0[0] + v0[0] * tau, x0[1] + v0[1] * tau], v: v0, rate: r0 };
++            let dist = dot([at.x[0] - xo[0], at.x[1] - xo[1]], [at.x[0] - xo[0], at.x[1] - xo[1]]).sqrt();
++            if tau < c.next_cp && dist >= 0.5 * c.dist_cp {
++                return Some((c.t_exact + tau as Tick, at, c.t_exact as f64 + tau));
++            }
++            prof::gate(3);
++            // The checkpoint: measure the true state at the crossing tick the model claims.
++            let t_probe = c.t_exact + tau as Tick;
++            match state_rate(&ctx, i, t_probe) {
++                Ok((xp, vp, rp)) => {
++                    reads += 1;
++                    let dev = ((xp[0] - at.x[0]).powi(2) + (xp[1] - at.x[1]).powi(2)).sqrt();
++                    if dev > 0.5 * tol_len(dist) {
++                        None // past half the quantum: exact solve this frame.
++                    } else {
++                        let t_e = t_probe;
++                        let root = c.t_exact as f64 + tau;
++                        if let Some(cm) = cache.as_deref_mut() {
++                            cm.refresh(i, t_now, root, t_e, (xp, vp, rp), arm_checkpoint(tau, dev, dist), dist);
++                        }
++                        Some((t_e, At { x: xp, v: vp, rate: rp }, root))
++                    }
++                }
++                Err(_) => None, // unreadable at the claimed tick: the exact solve decides.
++            }
++        });
++        let (t_e, at, root) = match gated {
++            Some(g) => {
++                if let Some(c) = cache.as_deref_mut() {
++                    c.advance(i, t_now, g.2);
++                }
++                g
++            }
++            None => {
++                let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++                let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
++                let dist = dot(d, d).sqrt();
++                if let Some(c) = cache.as_deref_mut() {
++                    // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
++                    let inst = if dist > 0.0 { (1.0 + dot(d, vo) / dist) / (1.0 + dot(d, at.v) / dist) } else { 1.0 };
++                    const FIRST_CP: f64 = 8192.0;
++                    c.put(i, t_now, root, inst, t_e, (at.x, at.v, at.rate), mark, periapsis, FIRST_CP, dist);
++                }
++                (t_e, at, root)
++            }
++        };
+         let doll = &u.dolls[u.bodies().doll(i) as usize];
+         let host_name = match kind {
+             Kind::Planet => u.dolls.iter().find(|d| d.centre == Some(i)).map(|d| d.name).unwrap_or("planet"),
+@@ -333,8 +511,10 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
++    });
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
++    timed(2, || {
+     let mut motions = Vec::new();
+     for (fi, f) in u.fleets.iter().enumerate() {
+         let tc = f.tick();
+@@ -366,6 +546,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
++    });
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
