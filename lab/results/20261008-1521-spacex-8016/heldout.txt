@@ -1,0 +1,45 @@
+seed 2: 595 distinct ship kicks (0 thrusting, 12 ext/clock-stepped), entry-heuristic mismatches 0
+       fired:    583 kicks,  239.28 us/kick,  99.34% of kick time
+         ext:     12 kicks,   77.64 us/kick,   0.66% of kick time
+         piece readout:    5.36 us/call over 583 calls (  2.22% of process time)
+     piece secondaries:   21.09 us/call over 583 calls (  8.75% of process time)
+            piece tide:    5.58 us/call over 583 calls (  2.32% of process time)
+     rebind from_state:  127.54 us/call over 583 calls ( 52.95% of process time)
+   rebind compile-only:  121.63 us/call over 569 calls ( 49.28% of process time)
+  shareable context (secondaries+tide): 26.13 us/kick = 11.1% of kick time
+  context dedup: 583 kicks over 202 distinct (doll,tick): 2.9 kicks/context; top [9, 8, 8, 7, 7, 7, 7, 7]
+  |dv| in velocity quanta (log2): p50 24.1 p05 21.7 p95 35.9 (<=0 is sub-quantum)
+  digest f8f522a932e741cd8dfefc0c339938785b6a1d7a4a0bfcfe652ca828e78e4c3e
+===FRAME===
+seed 2 rtf 100 wall 0.42s frames 600 (p50 76us p95 4046us max 50512us) contacts 4
+   planet:       0 items     0.000s   0.00% of event cost,   0.00 us/item
+     moon:       0 items     0.000s   0.00% of event cost,   0.00 us/item
+     ship:     595 items     0.118s  31.41% of event cost, 198.16 us/item
+   player:      96 items     0.107s  28.63% of event cost, 1119.69 us/item
+    fleet:    2191 items     0.150s  39.96% of event cost,  68.46 us/item
+  event cost total 0.375s of wall 0.42s (89.8% of one core); items 2882
+  kinds: kicks 502 opens 70 bounds 442 handoffs 0 slices 2191 leavers 42 dissolved 0 lost 20 refused 0
+  digest 6c5659b22a6057a6b98afc79f6859f776b90a342fdd0bb4b7351a0026dd782be
+seed 3: 771 distinct ship kicks (0 thrusting, 12 ext/clock-stepped), entry-heuristic mismatches 0
+       fired:    758 kicks,  225.69 us/kick,  99.46% of kick time
+     carried:      1 kicks,   27.43 us/kick,   0.02% of kick time
+         ext:     12 kicks,   74.97 us/kick,   0.52% of kick time
+         piece readout:   13.56 us/call over 759 calls (  5.99% of process time)
+     piece secondaries:    9.59 us/call over 759 calls (  4.23% of process time)
+            piece tide:   13.43 us/call over 759 calls (  5.93% of process time)
+     rebind from_state:  162.40 us/call over 758 calls ( 71.57% of process time)
+   rebind compile-only:  118.80 us/call over 737 calls ( 50.90% of process time)
+  shareable context (secondaries+tide): 22.66 us/kick = 10.2% of kick time
+  context dedup: 759 kicks over 281 distinct (doll,tick): 2.7 kicks/context; top [11, 11, 11, 11, 11, 11, 11, 10]
+  |dv| in velocity quanta (log2): p50 22.4 p05 21.9 p95 35.1 (<=0 is sub-quantum)
+  digest 2c5685c620342f8714418465fb044ba05692e01afb468d0ad5032cf50e36a25f
+===FRAME===
+seed 3 rtf 100 wall 0.52s frames 600 (p50 79us p95 4270us max 46731us) contacts 0
+   planet:       0 items     0.000s   0.00% of event cost,   0.00 us/item
+     moon:       0 items     0.000s   0.00% of event cost,   0.00 us/item
+     ship:     916 items     0.164s  35.80% of event cost, 178.55 us/item
+   player:      96 items     0.116s  25.42% of event cost, 1209.73 us/item
+    fleet:    2485 items     0.177s  38.78% of event cost,  71.29 us/item
+  event cost total 0.457s of wall 0.52s (88.4% of one core); items 3497
+  kinds: kicks 668 opens 71 bounds 602 handoffs 0 slices 2485 leavers 43 dissolved 0 lost 18 refused 0
+  digest fc94973576cbff0b024a40097da5f07363061eb002fa2df5d193eb06fc04b6dc
