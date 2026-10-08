@@ -1,0 +1,41 @@
+# 20261007-2344-quant-4211 — decisive outputs (raw, from the run transcript)
+
+Machine: i7-4790 (8 vCPU), Linux, shared. Load at smoke/sweep-small: 1.5 (clean).
+Load during the decisive V0/V4 pairs: 10-14 (other lab runs active; ratios are
+same-window and fair, absolutes inflated ~1.5-2x; the M1 integrator re-measures).
+Reproduce (each <= 60 s): rustc -O bench.rs -o bench, then:
+  ./bench 1000000 0 100 100 40 24 21 0 M1e6 ; ./bench 1000000 2 100 100 40 24 21 0 M1e6 ; ./bench 1000000 4 100 100 40 24 21 0 M1e6
+  ./bench 1000000 0 1000 100 40 24 21 0 Hbeta ; ./bench 1000000 4 1000 100 40 24 21 0 Hbeta
+  ./bench 1000000 0 1000 1000 40 24 21 0 Hrtf1k ; ./bench 1000000 4 1000 1000 40 24 21 0 Hrtf1k
+  ./bench 1000000 0 100 100 40 24 21 1 FLEET ; ./bench 1000000 4 100 100 40 24 21 1 FLEET
+  ./bench 3000000 0 100 100 30 24 21 0 S3M ; ./bench 3000000 4 100 100 30 24 21 0 S3M
+  ./bench 10000000 4 100 100 12 24 21 0 S10M
+args: n variant beta/1000 rtf frames skin_log2 lookahead_log2 fleet [label]
+Scene: bodies uniform on a 30 AU disc (R=3e9 ticks; 1 tick = 4.925e-6 s), steps
+2^19..2^24 ticks (the law's powers of two), player crossing at beta, 60 FPS,
+budget 50k events/frame, q = 2^18 wheel quantum, skin s = 2^24.
+
+## Clean-load sweep (load 1.5), budget on
+n=1e4  V0 p50=1.14ms  (rekey .098 drain .91 defreq .16 resolve .12; sets 2.2N peeks 1.2N)
+n=1e5  V0 p50=24.4ms V2 24.0ms V3 13.1ms
+n=1e6  V0 p50=112.7ms V2 70.3ms V3(L=2^21) 57.6ms
+V3 L-sweep at 1e6 (17/18/19/21): 282/186/152/137ms — smaller lookahead WORSE (park/insert churn + a sqrt per reinsertion). V3 killed as built.
+
+## Decisive pairs (load 10-14; same-window ratios)
+M1e6    beta=.1 rtf=100 : V0 171.4ms  V2 107.3ms  V4 23.1ms   -> V4/V0 = 7.4x    sum_t all = 16289184286667
+Hbeta   beta=1  rtf=100 : V0 244.9ms  V4 18.6ms                -> 13.2x          sum_t = 16289184286667 (both)
+Hrtf1k  beta=1  rtf=1000: V0  67.9ms  V4 28.8ms (rekey 25.9ms; sqrt/fr=514k=51% of N: skin bursts) -> 2.4x   sum_t = 138106832619467 (both)
+FLEET   1e6 on one ring : V0 227.3ms  V4 11.7ms                -> 19.5x          sum_t = 16285934054275 (both)
+S3M     beta=.1 rtf=100 : V0 366.2ms  V4 33.2ms                -> 11.0x          sum_t = 38709709126669 (both)
+S10M    V4 only         : 206.5ms (rekey 90ms=9ns/entity widen stream; sweep 54; resolve 83; peeks 7.1M = overflow backlog re-swept)
+V0 detail at 1e6: rekey 74.8ms (1.29M sqrt + 1M sets), drain 81.9ms, defreq 29.7ms, sets/fr 2.2N.
+V2 rekey at 1e6: 5.9ms (8x under V0's 47.9ms clean-load) but drain unchanged -> frame only 1.6x.
+Skin churn vs beta (V4 sqrt/fr at 1e6): 7,438 (beta=.1) -> 83,535 (beta=1) -> 514,164 (beta=1,rtf=1000): the 2D/s burst math, measured.
+
+## Correctness
+sum_t (canonical settle checksum) bit-identical between V0 and V4 on every case,
+including both held-out scenes and the fleet. Schedule independence verified:
+V3's four lookaheads all converged to 16289184286667.
+Two bugs the checksum caught (kept as findings): settle must drain the FULL heap
+(a dl-keyed heap hides due events behind large deadlines — this is why the ship's
+drain exists), and V4's budget leftovers must sit in an inbox the settle drains.
