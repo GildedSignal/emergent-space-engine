@@ -1,0 +1,4 @@
+# Author fiRun complete. Folder: `lab/results/20261008-1757-second-20261008-1719-system-0ccd-b33f/` (dossier, pre-registered predictions, data, patch); tree edits left for `run.sh` to save and restore; nothing committed or pushed.
+
+**The claim, in one sentence:** the silver's named experiment is done — the re-anchored jet wired behind `ESE_JET` delivers the promised speed (2.75× on the plane's kick median at rtf 100, 84.3→30.7 µs; increment 9.5 µs; 4.8 % compiles/kick; deterministic; flag-off digest identical to shipped) but **refutes the claim's correctness half**: renewing the tube on a frozen cycle cancels the secular effect of correlated kicks (universe-suite invariant 12× off, cos −0.07; B13 assists 60/64 → 41/64 with worst ΔE ∞, not rescued by a 43× tighter re-anchor), so the jet needs the unbuilt key-tracking derivative update — the "stored derivatives" the entry does not carry — before its 2.75× is bankable.
+mmitted or pushed.
