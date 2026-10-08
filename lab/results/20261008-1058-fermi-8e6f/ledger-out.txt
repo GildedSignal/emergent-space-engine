@@ -1,0 +1,42 @@
+[A] candidate pairs: x15.99 over x4 N -> exponent 2.00
+
+[B] per-encounter element change |da|/a and quantum sensitivity
+              mass  median |da|/a  eps where 50% cross
+       ship 1e6 kg       4.93e-18             2.62e-18
+      rock 1e12 kg       4.93e-12             2.62e-12
+   Ceres 9.4e20 kg       4.63e-03             2.46e-03
+
+[ledger] 10^9 bodies, T_orb(belt) = 1.6e+08 s, T_LEO = 5e+03 s
+ (dense-belt gamma: power-law 6.37e+03/orbit, fluid cap 3.20e+03; using 3.20e+03)
+
+--- 1) one dense belt, 1e9 bodies
+ static program store: 15.8 MB (naive tubes 16.0 GB > 8 GB -> programs mandatory)
+ encounters: 1.951e+04/s total; element-sort work 1.534e+07 events/s -> 15.3 cores at 1 us/event, 445 at today's 29 us
+   H_live[ship 1e6 kg, eps=2^-10]: 7.94e-23 bit/s -> 8GB in 8.1e+32 s
+   H_live[ship 1e6 kg, eps=2^-20]: 8.33e-17 bit/s -> 8GB in 7.7e+26 s
+   H_live[ship 1e6 kg, eps=2^-30]: 8.73e-11 bit/s -> 8GB in 7.3e+20 s
+   H_live[rock 1e12 kg, eps=2^-10]: 7.94e-11 bit/s -> 8GB in 8.1e+20 s
+   H_live[rock 1e12 kg, eps=2^-20]: 8.33e-05 bit/s -> 8GB in 7.7e+14 s
+   H_live[rock 1e12 kg, eps=2^-30]: 8.73e+01 bit/s -> 8GB in 7.3e+08 s
+   H_live[Ceres 9.4e20 kg, eps=2^-10]: 7.81e+05 bit/s -> 8GB in 8.2e+04 s
+   H_live[Ceres 9.4e20 kg, eps=2^-20]: 7.81e+05 bit/s -> 8GB in 8.2e+04 s
+   H_live[Ceres 9.4e20 kg, eps=2^-30]: 7.81e+05 bit/s -> 8GB in 8.2e+04 s
+
+--- 2) hierarchical, 1e5 x 1e4 belts (r8 belt-0 local rate)
+ static program store: 15.8 MB (naive tubes 16.0 GB > 8 GB -> programs mandatory)
+ encounters: 1.302e-02/s total; element-sort work 1.023e+01 events/s -> 0.0 cores at 1 us/event, 0 at today's 29 us
+   H_live[ship 1e6 kg, eps=2^-10]: 5.30e-29 bit/s -> 8GB in 1.2e+39 s
+   H_live[ship 1e6 kg, eps=2^-20]: 5.56e-23 bit/s -> 8GB in 1.2e+33 s
+   H_live[ship 1e6 kg, eps=2^-30]: 5.83e-17 bit/s -> 8GB in 1.1e+27 s
+   H_live[rock 1e12 kg, eps=2^-10]: 5.30e-17 bit/s -> 8GB in 1.2e+27 s
+   H_live[rock 1e12 kg, eps=2^-20]: 5.56e-11 bit/s -> 8GB in 1.2e+21 s
+   H_live[rock 1e12 kg, eps=2^-30]: 5.83e-05 bit/s -> 8GB in 1.1e+15 s
+   H_live[Ceres 9.4e20 kg, eps=2^-10]: 5.21e-01 bit/s -> 8GB in 1.2e+11 s
+   H_live[Ceres 9.4e20 kg, eps=2^-20]: 5.21e-01 bit/s -> 8GB in 1.2e+11 s
+   H_live[Ceres 9.4e20 kg, eps=2^-30]: 5.21e-01 bit/s -> 8GB in 1.2e+11 s
+
+--- 3) all-LEO fleets
+ kicks: 6.02e+06/s x 29.0 us = 175 cores (board claims ~190)
+ with 114x averaging: 1.5 cores
+ kicks at 0.3 us needed for 1.8 cores: 1.81 cores
+ bandwidth (24 B random per kick-event): 0.144 GB/s vs 60
