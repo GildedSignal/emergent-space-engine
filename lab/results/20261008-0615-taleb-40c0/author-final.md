@@ -1,0 +1,4 @@
+Working...
+Dossier, predictions, probe source, and raw matrices are in `lab/results/20261008-0615-taleb-40c0/`.
+
+**Claim:** the plane's engine core keeps its truth claim — one bit-identical digest per canonical cut across nine adversarial schedule paths (event-starved, wall-clock, frame-presented with pruning, checkpointed, observed, 8 threads; 3 seeds, repeats) — but the shipped interactive loop logs the player's key changes at the frame's presented tick (`session.rs:80`), so the same physical play writes different canonical histories across frame rates and under load (measured at one cut: encounters 68–102, contacts 0–14, four distinct digests per seed, same machine/fps under starvation), the one reachable wall→canon leak — silent, mechanism isolated by control (`input()` at fixed ticks ≡ `schedule()`), fixable by quantizing the decision tick to the scheduled game time.

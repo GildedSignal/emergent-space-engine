@@ -1,0 +1,243 @@
+diff --git a/crates/universe/src/bin/determinism.rs b/crates/universe/src/bin/determinism.rs
+new file mode 100644
+index 0000000..fd3b406
+--- /dev/null
++++ b/crates/universe/src/bin/determinism.rs
+@@ -0,0 +1,237 @@
++//! Schedule-independence probe (lab run 20261008-0615-taleb-40c0).
++//!
++//! Truth claim under test (AGENTS.md: "Canonical outcomes are exact and independent of cache,
++//! partition, observation, schedule and hardware"; plane.md foundation 2/7): one digest after a
++//! canonical cut, whatever the budget, frame presentation, checkpointing, observation or thread
++//! count on the way. This binary drives the flight scene to the same cut along one named path and
++use emergent_universe::num::Tick;
++
++use emergent_universe::scenario::{plane, Plane};
++use emergent_universe::universe::{Budget, Universe};
++use emergent_universe::Config;
++
++fn scene(seed: u64, threads: usize, members: u64) -> Plane {
++    plane(Config::default(), seed, emergent_universe::fleet::Order::Sparse, threads, members)
++        .expect("scene")
++}
++
++fn line(tag: &str, seed: u64, thr: usize, u: &Universe, wall_ms: u128) {
++    let s = &u.stats;
++    println!(
++        "{tag} seed={seed} thr={thr} digest={} now={} events={} kicks={} handoffs={} slices={} boundaries={} opens={} encounters={} contacts={} decisions={} refused={} handouts={} bpb={} wall_ms={wall_ms}",
++        u.digest(),
++        u.now,
++                s.events(),
++        s.kicks, s.handoffs, s.slices, s.boundaries, s.opens, s.encounters, u.contacts, s.decisions, s.refused,
++        u.pending_handouts(),
++        u.bytes_per_body(),
++    );
++}
++
++fn decisions(u: &mut Universe, t: Tick, player: usize) {
++    let _ = player;
++    // Fixed decision log, identical on every path: three key changes at fixed canonical ticks.
++    let _ = u.schedule(1, 0x01); // forward, base throttle
++    let _ = u.schedule(t / 3, 0x11); // forward, one throttle level up
++    let _ = u.schedule((2 * t) / 3, 0x00); // release
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let case = args.get(1).map(String::as_str).unwrap_or("direct");
++    let seed: u64 = args.get(2).map(|s| s.parse().unwrap()).unwrap_or(11);
++    let threads: usize = args.get(3).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let members: u64 = args.get(4).map(|s| s.parse().unwrap()).unwrap_or(1024);
++    let t_ticks: Tick = args.get(5).map(|s| s.parse().unwrap()).unwrap_or(40_000_000);
++    let mut p = scene(seed, threads, members);
++    let player = p.player;
++    let t0 = std::time::Instant::now();
++    match case {
++        // Reference: one unlimited settle to the cut.
++        "direct" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            u.settle(t_ticks);
++            line("direct", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Same cut, but every advance is allowed a single event: maximal queue churn,
++        // deferred/requeue cycles, horizon recomputation.
++        "events1" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            loop {
++                let a = u.advance(t_ticks, Budget::events(1));
++                if a.events == 0 {
++                    break;
++                }
++            }
++            u.now = u.now.max(t_ticks);
++            line("events1", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Starved budgets: 8 events per advance call.
++        "events8" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            loop {
++                let a = u.advance(t_ticks, Budget::events(8));
++                if a.events == 0 {
++                    break;
++                }
++            }
++            u.now = u.now.max(t_ticks);
++            line("events8", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Wall-clock budgets: the split depends on machine speed and load (a schedule perturbation
++        // no two runs of a loaded machine repeat).
++        "wall" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            loop {
++                let a = u.advance(t_ticks, Budget::wall(0.2));
++                if a.events == 0 {
++                    break;
++                }
++            }
++            u.now = u.now.max(t_ticks);
++            line("wall", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Frame-presented: 60 Hz frames at rtf 100 with a budget that bites (4 events/frame),
++        // i.e. chronic overflow, then the same canonical cut.
++        "frame-starve" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            let mut guard = 0u64;
++            while u.now < t_ticks && guard < 40_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::events(4), t_ticks);
++                if f.events == 0 && f.presented >= t_ticks {
++                    break;
++                }
++            }
++            u.settle(t_ticks);
++            line("frame-starve", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Comfortable frames (unlimited budget per frame): presentation and prune() every 64 frames,
++        // no overflow.
++        "frame-rich" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            let mut guard = 0u64;
++            while u.now < t_ticks && guard < 1_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), t_ticks);
++                if f.events == 0 && f.presented >= t_ticks {
++                    break;
++                }
++            }
++            u.settle(t_ticks);
++            line("frame-rich", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Frame path with observation: after every 32nd frame, read every body out at the presented
++        // time (the gather the view does).
++        "frame-obs" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            let n = u.n_bodies();
++            let mut i = 0u64;
++            let mut guard = 0u64;
++            while u.now < t_ticks && guard < 1_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), t_ticks);
++                i += 1;
++                if i % 32 == 0 {
++                    for b in 0..n {
++                        let t = u.now;
++                        let _ = u.rec(b).b.readout(t);
++                    }
++                }
++                if f.events == 0 && f.presented >= t_ticks {
++                    break;
++                }
++            }
++            u.settle(t_ticks);
++            line("frame-obs", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        // Checkpointed: settle to half the cut, digest is not taken, continue to the cut.
++        "ckpt" => {
++            let mut u = p.u;
++            decisions(&mut u, t_ticks, player);
++            u.settle(t_ticks / 2);
++            u.settle(t_ticks);
++            line("ckpt", seed, threads, &u, t0.elapsed().as_millis());
++        }
++
++        // The shipped interactive loop (xtask session.rs step): a key change is logged by
++        // `input(now, keys)` at the *presented* tick of the frame that first saw it. Same
++        // physical key timeline (wall moments 0.5 s, 1.7 s, 3.2 s), different frame rates or
++        // budgets: does the canonical history at the same cut stay identical?
++        "play60" | "play30" | "play144" | "play60-starve" => {
++            let fps: f64 = match case {
++                "play30" => 30.0,
++                "play144" => 144.0,
++                _ => 60.0,
++            };
++            let starve = case.ends_with("starve");
++            let mut u = p.u;
++            let budget = if starve { Budget::events(2) } else { Budget::unlimited() };
++            let wall_changes = [0.5f64, 1.7, 3.2];
++            let keys_at = [0x01u8, 0x11, 0x00];
++            let mut held: Option<u8> = None;
++            let mut wall_t = 0.0f64;
++            let dt = 1.0 / fps;
++            let mut guard = 0u64;
++            while u.now < t_ticks && guard < 1_000_000 {
++                guard += 1;
++                // The frame that first sees the change takes it, at the presented tick.
++                for (i, w) in wall_changes.iter().enumerate() {
++                    if wall_t < *w && wall_t + dt >= *w && held != Some(keys_at[i]) {
++                        let now = u.now;
++                        let _ = u.input(now, keys_at[i]);
++                        held = Some(keys_at[i]);
++                    }
++                }
++                wall_t += dt;
++                let f = u.frame_to(dt, 100.0, budget, t_ticks);
++                if f.events == 0 && f.presented >= t_ticks {
++                    break;
++                }
++            }
++            u.settle(t_ticks);
++            let st = u.rec(player).b.readout(t_ticks).ok();
++            let pos = st.map(|s| (s.position[0], s.position[1], s.length_exponent));
++            println!(
++                "{case} seed={seed} thr={threads} digest={} now={} events={} kicks={} encounters={} contacts={} decisions={} refused={} pos={:?} wall_ms={}",
++                u.digest(), u.now, u.stats.events(), u.stats.kicks, u.stats.encounters, u.contacts, u.stats.decisions, u.stats.refused, pos, t0.elapsed().as_millis()
++            );
++        }
++
++        // Control: the eager input() path itself, at FIXED canonical ticks (the same ticks
++        // `decisions()` schedules). If this equals `direct` at the same cut, the play-case
++        // divergence is the wall-derived tick values alone, not the input() path.
++        "fixed-input" => {
++            let mut u = p.u;
++            let _ = u.input(1, 0x01);
++            let mut guard = 0u64;
++            while u.now < t_ticks / 3 && guard < 1_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), t_ticks / 3);
++                if f.events == 0 && f.presented >= t_ticks / 3 {
++                    break;
++                }
++            }
++            let _ = u.input(t_ticks / 3, 0x11);
++            let mut guard = 0u64;
++            while u.now < (2 * t_ticks) / 3 && guard < 1_000_000 {
++                guard += 1;
++                let f = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), (2 * t_ticks) / 3);
++                if f.events == 0 && f.presented >= (2 * t_ticks) / 3 {
++                    break;
++                }
++            }
++            let _ = u.input((2 * t_ticks) / 3, 0x00);
++            u.settle(t_ticks);
++            line("fixed-input", seed, threads, &u, t0.elapsed().as_millis());
++        }
++        other => panic!("unknown case {other}"),
++    }
++}
