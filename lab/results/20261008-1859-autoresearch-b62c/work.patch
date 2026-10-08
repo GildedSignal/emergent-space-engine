@@ -1,0 +1,297 @@
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bf..65eb9ec 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -4,7 +4,7 @@
+ use emergent_encounters::belt::{make_belt, Spec};
+ use emergent_encounters::kepler::{Body, TICKS};
+ use emergent_encounters::method::{pair_events, run_section, Stats};
+-use emergent_encounters::pairs::{cone_pairs, is_candidate, radial_pairs, sections, Sorted};
++use emergent_encounters::pairs::{cone_pairs, is_candidate, radial_pairs, sections, Kind, Sorted};
+ use emergent_encounters::truth::{truth_pair, TruthStats};
+ use emergent_encounters::{dioph, par_chunks};
+ use std::collections::HashMap;
+@@ -293,6 +293,89 @@ fn setup_cost(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) -> (u64, u6
+     (pairs, scanned, t.elapsed().as_secs_f64(), qsteps, evals, kinds)
+ }
+ 
++/// Wide-section census: counts are published by `sections` into these globals (instrumentation).
++fn wide_census(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) {
++    {
++        use emergent_encounters::pairs::WIDE_CENSUS;
++        use std::sync::atomic::Ordering;
++        WIDE_CENSUS.iter().for_each(|c| c.store(0, Ordering::Relaxed));
++    }
++    let mut evals = 0u64;
++    for &i in sample {
++        let bi = &b[i as usize];
++        let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++        for &(_, j) in &sorted.order[lo..hi] {
++            if j == i || !is_candidate(bi, &b[j as usize], rho) {
++                continue;
++            }
++            std::hint::black_box(sections(bi, &b[j as usize], rho, SAFETY, &mut evals));
++        }
++    }
++    {
++        use emergent_encounters::pairs::WIDE_CENSUS;
++        use std::sync::atomic::Ordering;
++        let [m0, mp, ni, lt02, l02t05, ge05, crej] = std::array::from_fn(|k| WIDE_CENSUS[k].load(Ordering::Relaxed));
++        println!(
++            "{{\"exp\":\"wide_census\",\"merged0\":{},\"merged_pi\":{},\"near_ident\":{},\"cross_lt02\":{},\"cross_02_05\":{},\"cross_ge05\":{},\"cross_window_rejected\":{}}}",
++            m0, mp, ni, lt02, l02t05, ge05, crej
++        );
++    }
++}
++
++/// Throwaway instrumentation for the autoresearch run: splits setup cost into scan+cone,
++/// analytic cross windows, numeric (Wide) windows, and Diophantine queries.
++fn setup_decompose(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) {
++    let (mut scan_ns, mut cross_ns, mut wide_ns, mut q_ns) = (0u128, 0u128, 0u128, 0u128);
++    let (mut pairs, mut scanned, mut evals, mut qsteps) = (0u64, 0u64, 0u64, 0u64);
++    let mut kinds = [0u64; 3];
++    for &i in sample {
++        let bi = &b[i as usize];
++        let t = Instant::now();
++        let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++        let mut cands: Vec<u32> = Vec::new();
++        for &(_, j) in &sorted.order[lo..hi] {
++            if j == i {
++                continue;
++            }
++            scanned += 1;
++            if is_candidate(bi, &b[j as usize], rho) {
++                cands.push(j);
++            }
++        }
++        scan_ns += t.elapsed().as_nanos();
++        for j in cands {
++            let bj = &b[j as usize];
++            pairs += 1;
++            let t = Instant::now();
++            let secs = sections(bi, bj, rho, SAFETY, &mut evals);
++            let el = t.elapsed().as_nanos();
++            let wide = secs.iter().any(|s| s.kind == Kind::Wide);
++            if wide {
++                wide_ns += el;
++            } else {
++                cross_ns += el;
++            }
++            for sec in secs {
++                kinds[sec.kind as usize] += 1;
++                let t = Instant::now();
++                let (pi, pj) = (bi.period as u128, bj.period as u128);
++                let c = ((sec.ti as i128 - sec.tj as i128 + sec.w1 as i128).rem_euclid(pi as i128)) as u128;
++                let d = (pi - pj % pi) % pi;
++                let w = ((sec.w1 + sec.w2).max(0) as u128).min(pi - 1);
++                std::hint::black_box(dioph::first_hit(c, d, pi, 0, w, &mut qsteps));
++                q_ns += t.elapsed().as_nanos();
++            }
++        }
++    }
++    println!(
++        "{{\"exp\":\"decompose\",\"pairs\":{},\"scanned\":{},\"scan_ns_per_pair\":{:.1},\"cross_ns_per_pair\":{:.1},\"wide_ns_per_pair\":{:.1},\"q_ns_per_pair\":{:.1},\"evals_per_pair\":{:.2},\"qsteps_per_pair\":{:.2},\"kinds\":{:?}}}",
++        pairs, scanned,
++        scan_ns as f64 / pairs as f64, cross_ns as f64 / pairs as f64,
++        wide_ns as f64 / pairs as f64, q_ns as f64 / pairs as f64,
++        evals as f64 / pairs as f64, qsteps as f64 / pairs as f64, kinds
++    );
++}
++
+ fn scale(which: &str, only: Option<f64>) {
+     let cases: Vec<Spec> = match which {
+         "n" => [1_000usize, 3_000, 10_000, 30_000, 100_000]
+@@ -526,6 +609,24 @@ fn main() {
+             steady(n, rho, &hs)
+         }
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
++        Some("decompose") => {
++            let n: usize = args[2].parse().unwrap();
++            let sp = spec("decompose", n, 1e-2, 1e-4 * 1e4 / n as f64, 1.0, 1.5, 0, 0.0, 20261030 + n as u64);
++            let b = make_belt(&sp);
++            let sorted = Sorted::new(&b, sp.rho);
++            let ns = sp.n.min(150);
++            let sample: Vec<u32> = (0..ns).map(|k| (k * sp.n / ns) as u32).collect();
++            setup_decompose(&b, &sorted, sp.rho, &sample)
++        }
++        Some("census") => {
++            let n: usize = args[2].parse().unwrap();
++            let sp = spec("census", n, 1e-2, 1e-4 * 1e4 / n as f64, 1.0, 1.5, 0, 0.0, 20261030 + n as u64);
++            let b = make_belt(&sp);
++            let sorted = Sorted::new(&b, sp.rho);
++            let ns = sp.n.min(150);
++            let sample: Vec<u32> = (0..ns).map(|k| (k * sp.n / ns) as u32).collect();
++            wide_census(&b, &sorted, sp.rho, &sample)
++        }
+         Some("kick") => kick(),
+         _ => {
+             let _ = run_section;
+diff --git a/crates/encounters/src/pairs.rs b/crates/encounters/src/pairs.rs
+index 2edd247..1b6eee5 100644
+--- a/crates/encounters/src/pairs.rs
++++ b/crates/encounters/src/pairs.rs
+@@ -11,12 +11,21 @@
+ 
+ use crate::kepler::{rel, Body, TICKS};
+ use std::f64::consts::{PI, TAU};
++use std::sync::atomic::{AtomicU64, Ordering};
+ 
+ #[inline]
+ pub fn dot(a: [f64; 2], b: [f64; 2]) -> f64 {
+     a[0] * b[0] + a[1] * b[1]
+ }
+ 
++/// Instrumentation (autoresearch run): why each section became Wide. [merged0, merged_pi,
++/// near-identical, cross arc < 0.2 (numeric window directly), cross 0.2–0.5, cross ≥ 0.5,
++/// cross_window rejected by the cap guard].
++pub static WIDE_CENSUS: [AtomicU64; 7] = [
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++];
++
+ #[inline]
+ pub fn norm(a: [f64; 2]) -> f64 {
+     a[0].hypot(a[1])
+@@ -169,6 +178,7 @@ pub fn sections(bi: &Body, bj: &Body, rho: f64, safety: f64, evals: &mut u64) ->
+         return Vec::new();
+     }
+     if r < 1e-300 {
++        WIDE_CENSUS[2].fetch_add(1, Ordering::Relaxed);
+         return vec![full_section(bi, bj, rho)];
+     }
+     let th0 = dw.atan2(dv);
+@@ -205,19 +215,40 @@ fn arc_section(bi: &Body, bj: &Body, rho: f64, safety: f64, arc: &Arc, evals: &m
+     let cap = (dj.0 + di.1, dj.1 + di.0);
+     let mut kind = Kind::Wide;
+     let mut w = cap;
+-    if arc.cross && arc.dm.max(arc.dp) < 0.2 {
++    let span = arc.dm.max(arc.dp);
++    if arc.cross && span < 0.2 {
+         if let Some((sm, sp)) = cross_window(bi, bj, th, rho) {
+             let (wm, wp) = (safety * sm, safety * sp);
+             if wm <= 0.5 * cap.0 && wp <= 0.5 * cap.1 {
+                 kind = Kind::Cross;
+                 w = (wm, wp);
++            } else {
++                WIDE_CENSUS[6].fetch_add(1, Ordering::Relaxed);
+             }
++        } else {
++            WIDE_CENSUS[6].fetch_add(1, Ordering::Relaxed);
+         }
+     }
+     if kind == Kind::Wide {
+-        // Tangency, merged or long arc: the window is computed once, numerically and rigorously.
+-        let (l, r) = numeric_window(bi, bj, th, dj, (-cap.0, cap.1), rho, evals)?;
+-        w = (-l, r);
++        if !arc.cross {
++            // Merged arc (the orbits overlap in u everywhere): |Δn|/n ≤ 1.5·eps·p, so over one
++            // period the mean-longitude difference moves by ≲2e-3 rad and proximity requires the
++            // true longitudes to nearly coincide. With |λ_true − λ_mean| ≤ 2.2e per body
++            // (equation of centre) and chord ≥ r·Δθ/2, an encounter needs
++            //   |Δλ_mean| ≤ 2.1ρ/r_min + 2.2(e_i+e_j) + 2e-3  at the section pairing, i.e. a
++            // window on s = (i's θ_c-passage offset) centred at 0. That necessary condition is a
++            // superset of the true window; the exact per-pair check still decides each proposal.
++            let lam = 1.2 * (2.1 * rho / bi.rmin().min(bj.rmin()) + 2.2 * (bi.e + bj.e)) + 2e-3;
++            let half = (lam / bi.n).min(cap.0).min(cap.1);
++            w = (half, half);
++            WIDE_CENSUS[0].fetch_add(1, Ordering::Relaxed);
++        } else {
++            let idx = if span < 0.2 { 3 } else if span < 0.5 { 4 } else { 5 };
++            WIDE_CENSUS[idx].fetch_add(1, Ordering::Relaxed);
++            // Tangency or long cross arc: the window is computed once, numerically and rigorously.
++            let (l, r) = numeric_window(bi, bj, th, dj, (-cap.0, cap.1), rho, evals)?;
++            w = (-l, r);
++        }
+     }
+     Some(Section { kind, theta: th, ti: bi.passage_tick(th), tj: bj.passage_tick(th), w1: ticks_up(w.0), w2: ticks_up(w.1), di, dj })
+ }
+@@ -289,22 +320,32 @@ fn rel_of(a: [f64; 4], b: [f64; 4]) -> RelState {
+ 
+ /// D(s): the pair's minimum distance while j crosses the arc, with i passing θ_c s later than j.
+ /// Changing s by δ moves i by at most vmax_i·δ, so D is Lipschitz in s with that constant.
+-fn d_of_s(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), s: f64, evals: &mut u64) -> f64 {
++/// j's grid states do not depend on s, so the caller passes them precomputed (`jgrid`, in τ).
++/// The scan stops as soon as the running minimum is below `stop`: the caller only compares D
++/// against thresholds at or above `stop`, so the remaining samples cannot change its decision.
++fn d_of_s(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), s: f64, jgrid: &[[f64; 4]], stop: f64, evals: &mut u64) -> f64 {
+     let mi = bi.mean_at_longitude(th);
+     let mj = bj.mean_at_longitude(th);
+     let f = |tau: f64| rel_of(bi.state_at_mean(mi + bi.n * (tau - s)), bj.state_at_mean(mj + bj.n * tau));
+     let (lo, hi) = (-dj.0, dj.1);
+-    let k = 32;
++    let k = jgrid.len() - 1;
+     let h = (hi - lo) / k as f64;
+-    let (r0, v0, _) = f(lo);
+-    *evals += 1;
++    let rel_at = |q: usize, t: f64, evals: &mut u64| {
++        let sj = jgrid[q];
++        let si = bi.state_at_mean(mi + bi.n * (t - s));
++        *evals += 1;
++        ([si[0] - sj[0], si[1] - sj[1]], [si[2] - sj[2], si[3] - sj[3]])
++    };
++    let (r0, v0) = rel_at(0, lo, evals);
+     let mut best = norm(r0);
+     let mut gp = dot(r0, v0);
+     for q in 1..=k {
+         let t = lo + h * q as f64;
+-        let (r, v, _) = f(t);
+-        *evals += 1;
++        let (r, v) = rel_at(q, t, evals);
+         best = best.min(norm(r));
++        if best < stop {
++            return best;
++        }
+         let g = dot(r, v);
+         if gp < 0.0 && g >= 0.0 {
+             best = best.min(refine_fn(&f, t - h, t, evals).1);
+@@ -321,12 +362,19 @@ fn numeric_window(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), ab: (f64, f64),
+     let lip = bi.vmax() * 1.001;
+     let stop = rho * 1.05;
+     let (a, b) = ab;
++    // j crosses the same arc for every s: solve Kepler for it once, not per advancement step.
++    let mj0 = bj.mean_at_longitude(th);
++    let (lo, hi) = (-dj.0, dj.1);
++    let k = 32;
++    let h = (hi - lo) / k as f64;
++    let jgrid: Vec<[f64; 4]> = (0..=k).map(|q| bj.state_at_mean(mj0 + bj.n * (lo + h * q as f64))).collect();
++    let dos = |s: f64, evals: &mut u64| d_of_s(bi, bj, th, dj, s, &jgrid, stop, evals);
+     let mut s = a;
+     let left = loop {
+         if s > b {
+             return None;
+         }
+-        let d = d_of_s(bi, bj, th, dj, s, evals);
++        let d = dos(s, evals);
+         if d < stop {
+             break s;
+         }
+@@ -334,7 +382,7 @@ fn numeric_window(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), ab: (f64, f64),
+     };
+     let mut s = b;
+     let right = loop {
+-        let d = d_of_s(bi, bj, th, dj, s, evals);
++        let d = dos(s, evals);
+         if d < stop || s <= left {
+             break s.max(left);
+         }
+@@ -384,7 +432,19 @@ pub fn check(bi: &Body, bj: &Body, sec: &Section, tjc: f64, s: f64, rho: f64, ou
+             if !(hi > lo) {
+                 return;
+             }
+-            (lo, hi, if sec.kind == Kind::Cross { 24 } else { 64 })
++            // A Wide bracket that spans a large fraction of a period is a merged (near-identical)
++            // pair: the relative phase drifts by |Δn|·T ≪ 1 rad across it, so the distance has one
++            // slow minimum and a coarse scan with refinement brackets it. Short brackets (tangency
++            // fallbacks) keep the full 64.
++            let span = (hi - lo) / ((bi.period.min(bj.period)) as f64 / TICKS);
++            let k = if sec.kind == Kind::Cross {
++                24
++            } else if span > 0.5 {
++                16
++            } else {
++                64
++            };
++            (lo, hi, k)
+         }
+         Kind::Full => (tjc - 0.02, tjc + bj.period as f64 / TICKS + 0.02, 256),
+     };
