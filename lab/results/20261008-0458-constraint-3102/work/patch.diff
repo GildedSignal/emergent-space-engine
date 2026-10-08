@@ -1,0 +1,27 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..9654110 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -296,11 +296,14 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
+     // Bodies: where each tube crosses the past light cone.
++    let __t_bodies = std::time::Instant::now();
+     let mut reads = 0u64;
++    let mut __alive = 0usize;
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+             continue;
+         }
++        __alive += 1;
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+         let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
+@@ -330,6 +333,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+     }
++    eprintln!("GATHER_SPLIT t_now={} n_bodies={} alive={} reads={} bodies_ms={:.4}", t_now, u.n_bodies(), __alive, reads, __t_bodies.elapsed().as_secs_f64() * 1e3);
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
