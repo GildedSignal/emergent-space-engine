@@ -1,0 +1,13 @@
+Grade: gold**Grade: gold** — written to `check2.md` (120-word abstract) and `checker2-final.md`. Nothing else in the run folder touched; all reproduction ran in `/tmp/check2`.
+
+**What I did (45 min):**
+
+- **Reproduced everything, bit-identical, in a clean tree:** `toy_news` c30/c300/per vs the parent's committed branch record (×3 True), all five `toy2` configs vs the run folder's JSONs, `smear_wide` byte-identical, `bench` identical in every op/state number (82.7×/662× tests, 9.2×/74× state, 1.13 M words, crossover 1.1×10⁵) — wall ms differ only under load. Every dossier number traces to a log I regenerated. Prediction timing checks: `predictions.md` (02:40) predates all decisive outputs (02:42); the pre-prediction regen runs are disclosed as such.
+- **Four adversarial probes, all confirming:**
+  1. **Boundary riders** (apocentre/pericentre on ring edges, e≤0.45; 2,592 arrivals vs 45-iteration bisection ground truth): cellint **never early in every case**; the toy's 12-iter cone fixed point ≡ bisection to 4e-14; the cellint iterate *does* oscillate on engineered orbits (13/288 at c=3) — but even non-converged iterates stayed never-early.
+  2. **β gate:** c=10 under the corrected reference — 6.5e-8, float cell not yet early (vindicates the borrowed number); c=1.5 (β=0.67) — cellint still never-early, float event-time cell **early by 0.294 yr**. Earliness starts below β=0.1 on stressing orbits — the parent's never-early breaks even earlier than the dossier reports.
+  3. **Sub-quantum event spacing** (2–5×10⁻⁴ yr < W0/c): 2.7e-9 behaviour, never early.
+  4. **Smear bound made structural:** exhaustive near-field with 256-pt sampling — lat ≤ diam₁+diam₂ in every pair, cap 3.022 larger-cell widths = the measured 3.02; `smear.py`'s ±5-ring artifact confirmed in source.
+- **Novelty:** the parent's architecture; new here — second-order reference applied to the record, the never-early falsification (shared-reference bug), the integer/arrival-cell mechanism, the structural invariant, measured cost with honest downgrades. The 6 October `b-news-gravity-e300` build already shipped per-pair cursors in crates, so the redirect is urgent and live. The crates build was out of this run's mandate ("Never edit the crates", 90 min) — correctly executed as the cheapest decisive parts.
+
+**Gold legs:** reproduced, predictions held, deletes the shipped per-pair cursor (84 M → 1.13 M words at 2²³) and falsifies two published premises with mechanism; adoptable in one step via the lens patch (taleb-09b5 design-gold precedent). **Residuals named:** fixed-point termination rule, earliness onset vs error gate distinction, single-source scenes, inherited comparable-mass binary failure, and the crates build as the redirected lens's next run.

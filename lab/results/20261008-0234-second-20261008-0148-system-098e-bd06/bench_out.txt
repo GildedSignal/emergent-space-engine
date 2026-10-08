@@ -1,0 +1,8 @@
+doll: 99 rings x 128 spokes = 12672 cells; S=10 sources, depth 4
+        N  cursor words  cell words cell+tab words  state x tests/kick x  cursor ms cell ms
+    65536       655,360     506,880      1,134,144      0.6          5.2       0.13   0.093
+  1048576    10,485,760     506,880      1,134,144      9.2         82.7       4.07   0.099
+  8388608    83,886,080     506,880      1,134,144     74.0        662.0      31.06   0.097
+
+words = 4-byte int32 (table int16). A kick reads its cell's merged
+register inside the field fetch; epochs are the news waves (>=1 apart).

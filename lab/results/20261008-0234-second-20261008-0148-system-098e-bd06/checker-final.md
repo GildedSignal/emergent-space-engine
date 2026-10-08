@@ -1,0 +1,12 @@
+Working...
+Check complete. **Grade: gold** — written to `lab/results/20261008-0234-second-20261008-0148-system-098e-bd06/check.md`.
+
+**What I did:**
+- **Reproduced everything bit-identically** in a clean tree: `toy_news` c30/c300/per vs both the folder's JSONs and the author's branch (×3), all five `toy2` configs (×5), `smear_wide`, `bench` (ratios 82.7×/662×, 9.2×/74×, crossover ≈1.13×10⁵ all confirmed).
+- **Pre-registration verified by mtime**: regen outputs 02:37–02:38 → `predictions.md` 02:40:46 → decisive outputs 02:42. The only post-prediction file touch is `toy_news.py`'s docstring "min"→"max" (the first checker's stale-doc flag); the record JSONs predate it and are byte-identical to the branch.
+- **Four adversarial cases, all in the run's favour**: e=0.3 receiver crossing rings (cellint 3.7e-9, never early); c=10 on cellint itself, filling the gate's lower edge the author borrowed from the checker's float number (9.9e-8); c=2 beyond the gate (error 5.0e-6 grows past the 1e-6 family — the β gate is needed exactly as designed — while never-early holds and the event-time cell is early by 0.147 yr); and 51,200 boundary-dense arrivals probing the dossier's admitted oscillation risk — oscillation is real (up to 7.6% of arrivals at c=2) but the shipped iterate was early **0 times**, and the reason is structural (each iterate's lag uses the cell containing the receiver at that iterate's own time).
+- **Novelty and citations check out**: HISTORY ends at H0215; the four new results exist nowhere in the 6–8 Oct lineage; law.md/HANDOFF/H0196 citations verified.
+
+**Why gold, not silver:** every gap the first checker named that evidence can close is closed on the shipped mechanism; the run corrects a published premise (never-early was a shared first-order-reference artifact — a gold disjunct) with a real design consequence (arrival cell, not event cell); costs are measured with an honest sub-belt crossover; and adoption (the b-news-gravity lens redirect, patch drafted) is one integrator step. The crates build + gates remain the directed lens's own gold — no lab evidence short of it could close that, and this run's brief forbade crate edits outright.
+
+**Misses recorded:** "forbidden to a lab run" is overbroad (the directed lens built in crates via `work/patch.diff` on 6 Oct; correct only for this run's brief); "16 impulsive entries" is 21 for c3; the gate's lower edge cited a float number instead of measuring cellint; comparable-mass binaries and multi-source scenes stay open (disclosed).
