@@ -1,0 +1,94 @@
+{
+  "digest": "13cfe88b452d21161c18073b073782f60e01959b251c83ce6cdd600a48f35b8f",
+  "frames": 600,
+  "jet": {
+    "from_shape_refused": 19,
+    "note": "jet_reuse_from_shape times Orbit::from_shape on the previous shape at its own key (cost is k-independent); same_shape_key counts kicks whose new exact ShapeKey equals the previous one (trivially reusable, no offsets needed)",
+    "prev_binding_cycles": 663,
+    "prev_binding_passages": 19,
+    "same_shape_key_as_previous": 10,
+    "shape_key_changed": 653
+  },
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-08T02:51:13Z",
+    "unix": 1791427873,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-08T02:51:12Z",
+    "unix": 1791427872,
+    "when": "before"
+  },
+  "memo_drift": {
+    "bodies": 45,
+    "cell_change_rate_per_kick": 0.0,
+    "kicks_minus_one_per_body": {
+      "median": 6.0,
+      "p99": 86.0,
+      "samples": 45
+    },
+    "kicks_per_quantized_cell": {
+      "median": 7.0,
+      "p99": 87.0,
+      "samples": 45
+    },
+    "note": "MemoCode = the law's 12+12-bit quantized (E,L) cell; a cell change is the lower bound on when a shape-reuse scheme must at least re-derive its tables"
+  },
+  "parts_us": {
+    "compile_fresh": {
+      "median": 61.375,
+      "p99": 349.769,
+      "samples": 682
+    },
+    "fit_plus_decode_rest": {
+      "median": 8.911999999999999,
+      "p99": 21.718999999999994,
+      "samples": 682
+    },
+    "forces": {
+      "median": 8.477,
+      "p99": 13.429,
+      "samples": 682
+    },
+    "full_kick": {
+      "median": 96.332,
+      "p99": 414.983,
+      "samples": 682
+    },
+    "jet_reuse_from_shape": {
+      "median": 0.464,
+      "p99": null,
+      "samples": 682
+    },
+    "readout": {
+      "median": 3.686,
+      "p99": 8.399999999999999,
+      "samples": 682
+    },
+    "rebind_bind": {
+      "median": 75.78099999999999,
+      "p99": 377.852,
+      "samples": 682
+    }
+  },
+  "refused": 0,
+  "rtf_target": 100.0,
+  "samples": 682,
+  "scope": "per distinct pending ship kick on deterministic 60 Hz plane snapshots; the shipped kick timed whole, then its parts replayed on the same snapshot (pre-kick state); nothing feeds the universe",
+  "seed": 1,
+  "wall_seconds": 0.428832378
+}

@@ -1,0 +1,324 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..c0fd9fc 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -470,6 +470,10 @@ impl Orbit {
+     pub fn shape(&self) -> &OrbitShape {
+         &self.shape
+     }
++    /// The compiled shape this orbit shares (the jet's reuse path: [`Self::from_shape`]).
++    pub fn shape_arc(&self) -> Arc<OrbitShape> {
++        self.shape.clone()
++    }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
+         if key.null {
+             return Err(Error::NotPeriodic);
+@@ -523,7 +527,7 @@ impl Orbit {
+             increments: [Scalar::ZERO, period, period],
+         })
+     }
+-    fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
++    pub fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+         if shape.key != ShapeKey::for_orbit(key)? {
+             return Err(Error::Topology);
+         }
+diff --git a/xtask/src/universe/jet_bench.rs b/xtask/src/universe/jet_bench.rs
+new file mode 100644
+index 0000000..9a3df16
+--- /dev/null
++++ b/xtask/src/universe/jet_bench.rs
+@@ -0,0 +1,246 @@
++//! `xtask universe --jet-bench`: decompose one kick's cost on the plane's own snapshots, and price
++//! the law's jet (docs/law.md, "Not adopted": reuse the compiled shape, exact offset plus stored
++//! derivatives, re-anchored). A measurement, not a law change: nothing here feeds the universe.
++//!
++//! Per distinct pending ship kick (the same dedup and replay discipline as `--kick-bench`), all
++//! against the same deterministic plane snapshot:
++//!   full      `step::process` (the shipped kick: readout + forces + quantize + rebind + plan)
++//!   readout   `Binding::readout` (the exact integer state)
++//!   forces    secondaries + tide + `force::acceleration` (the kick's physics)
++//!   rebind    `bind` on the same state (fit + compile + decode + residual, the shipped path)
++//!   fit_rest  `Rebinding::from_state` minus `compile` (fit_key + at_radius + residual)
++//!   compile   `Orbit::compile` / `Passage::compile` alone (the fresh Darwin quadrature)
++//!   jetcheap  `Orbit::from_shape` over the body's previous compiled shape (the jet's reuse path)
++//! plus the per-body MemoCode drift (how often the quantized shape cell changes between kicks).
++use super::{script, Session};
++use emergent_space::binding::Rebinding;
++use emergent_space::orbit::{MemoCode, Orbit, Passage};
++use emergent_universe::bind::{bind, scalars};
++use emergent_universe::num::time_of;
++use emergent_universe::{body::What, force, step, Budget, Kind};
++use serde_json::json;
++use std::collections::HashMap;
++use std::time::Instant;
++
++fn percentiles(samples: &mut Vec<f64>) -> serde_json::Value {
++    samples.sort_by(f64::total_cmp);
++    let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied().unwrap_or(0.0);
++    json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
++}
++
++struct Acc {
++    full: Vec<f64>,
++    readout: Vec<f64>,
++    forces: Vec<f64>,
++    rebind: Vec<f64>,
++    fit_rest: Vec<f64>,
++    compile: Vec<f64>,
++    jetcheap: Vec<f64>,
++}
++impl Acc {
++    fn note(&mut self, us: &Samples) {
++        self.full.push(us.full);
++        self.readout.push(us.readout);
++        self.forces.push(us.forces);
++        self.rebind.push(us.rebind);
++        self.fit_rest.push(us.fit_rest);
++        self.compile.push(us.compile);
++        self.jetcheap.push(us.jetcheap);
++    }
++    fn json(&mut self) -> serde_json::Value {
++        json!({
++            "full_kick": percentiles(&mut self.full),
++            "readout": percentiles(&mut self.readout),
++            "forces": percentiles(&mut self.forces),
++            "rebind_bind": percentiles(&mut self.rebind),
++            "fit_plus_decode_rest": percentiles(&mut self.fit_rest),
++            "compile_fresh": percentiles(&mut self.compile),
++            "jet_reuse_from_shape": percentiles(&mut self.jetcheap),
++        })
++    }
++}
++struct Samples {
++    full: f64,
++    readout: f64,
++    forces: f64,
++    rebind: f64,
++    fit_rest: f64,
++    compile: f64,
++    jetcheap: f64,
++}
++
++pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
++    let machine_before = crate::measure::machine_state("before");
++    let made_n = s.n_bodies();
++    let mut acc = Acc { full: Vec::new(), readout: Vec::new(), forces: Vec::new(), rebind: Vec::new(), fit_rest: Vec::new(), compile: Vec::new(), jetcheap: Vec::new() };
++    // MemoCode drift: per body, the quantized shape cells its kicks visit, and how often they change.
++    let mut cells: HashMap<usize, Vec<u64>> = HashMap::new();
++    let mut last: Vec<Option<i64>> = vec![None; made_n];
++    let mut refused = 0;
++    let mut passages = 0usize;
++    let mut cycles = 0usize;
++    let mut jet_refused = 0usize;
++    let mut jet_prev_passage = 0usize;
++    let mut jet_shape_changed = 0usize;
++    let mut jet_same_shapekey = 0usize;
++    let mut prev_cycles = 0usize;
++    let wall = Instant::now();
++    let mut frames = 0usize;
++    let mut keys = 0u8;
++
++    for n in 1..=(seconds * 60.0) as usize {
++        if wall.elapsed().as_secs_f64() >= 55.0 {
++            return Err("jet bench exceeded 55 s; no complete result".into());
++        }
++        let now = s.p.u.now;
++        if keys != script(n) {
++            keys = script(n);
++            s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
++        }
++        last.resize(s.n_bodies(), None);
++        for (i, seen) in last.iter_mut().enumerate() {
++            let rec = s.p.u.rec(i);
++            if rec.kind != Kind::Ship || !rec.alive {
++                continue;
++            }
++            let Some(item) = rec.plan.first().copied() else { continue };
++            if !matches!(item.what, What::Kick(_)) || *seen == Some(item.t) {
++                continue;
++            }
++            *seen = Some(item.t);
++            let level = match item.what {
++                What::Kick(l) => l,
++                _ => unreachable!(),
++            };
++            let ctx = s.p.u.ctx();
++            // The shipped kick, timed whole.
++            let t0 = Instant::now();
++            let upd = step::process(&ctx, i, rec.clone());
++            let full = t0.elapsed().as_secs_f64() * 1e6;
++            refused += usize::from(upd.kind != step::Resolved::Kick);
++            // The parts, replayed on the same snapshot against the pre-kick record.
++            let t0 = Instant::now();
++            let st = rec.b.readout(item.t).map_err(|e| format!("readout: {e:?}"))?;
++            let readout_us = t0.elapsed().as_secs_f64() * 1e6;
++            let d = rec.b.doll;
++            let (x, _) = scalars(&st).map_err(|e| format!("{e:?}"))?;
++            let t0 = Instant::now();
++            let secs = ctx.secondaries(d, item.t, i).map_err(|e| format!("{e:?}"))?;
++            let tide = ctx.tide(d, item.t).map_err(|e| format!("{e:?}"))?;
++            let _ = force::acceleration(level, x, &secs, tide).map_err(|e| format!("{e:?}"))?;
++            let forces_us = t0.elapsed().as_secs_f64() * 1e6;
++            let clock_exp = ctx.dolls[d as usize].clock_exp();
++            let edge = (d != 0).then(|| ctx.dolls[d as usize].edge.scale(2)).transpose().map_err(|e| format!("{e:?}"))?;
++            let unit = ctx.tube_unit(i, d).map_err(|e| format!("{e:?}"))?;
++            let t0 = Instant::now();
++            let bound = bind(st, item.t, clock_exp, edge, unit).map_err(|e| format!("{e:?}"))?;
++            let rebind_us = t0.elapsed().as_secs_f64() * 1e6;
++            // The compile inside a rebind of the same state, and the fit/decode around it.
++            let tube_state = {
++                let mut st_t = st;
++                if !unit.unity {
++                    let q = |p: i64| -> crate::Result<i64> {
++                        let raw = emergent_space::orbit::Scalar::raw(p as i128, 0).map_err(|e| format!("{e:?}"))?;
++                        let tube = unit.to_tube(raw).map_err(|e| format!("{e:?}"))?;
++                        let fixed = tube.fixed(0).map_err(|e| format!("{e:?}"))?;
++                        i64::try_from(fixed).map_err(|_| "state outside the integer word".to_owned().into())
++                    };
++                    st_t.position = [q(st.position[0])?, q(st.position[1])?];
++                }
++                st_t
++            };
++            let tube_time = unit.to_tube(time_of(item.t, clock_exp).map_err(|e| format!("{e:?}"))?).map_err(|e| format!("{e:?}"))?;
++            let t0 = Instant::now();
++            let fit = Rebinding::from_state(tube_state, tube_time, edge).map_err(|e| format!("{e:?}"))?;
++            let from_state_us = t0.elapsed().as_secs_f64() * 1e6;
++            let key = fit.trajectory.key();
++            let t0 = Instant::now();
++            if key.periodic() {
++                cycles += 1;
++                let _ = Orbit::compile(key).map_err(|e| format!("{e:?}"))?;
++            } else {
++                passages += 1;
++                let _ = Passage::compile(key, edge.unwrap_or(emergent_space::orbit::Scalar::ONE)).map_err(|e| format!("{e:?}"))?;
++            }
++            let compile_us = t0.elapsed().as_secs_f64() * 1e6;
++            // The jet's cheap path: the body's previous compiled shape, rebound at its own key
++            // (the pure from_shape cost, k-independent), plus whether the *new* key would have
++            // taken it unchanged (the trivially reusable share; a changed key needs the jet's
++            // derivative offsets or a re-anchor).
++            let (jetcheap_us, cause) = if let emergent_space::binding::Trajectory::Cycle(c) = &rec.b.entry.trajectory {
++                prev_cycles += 1;
++                let old_key = rec.b.entry.trajectory.key();
++                let same = Orbit::from_shape(key, c.shape_arc()).is_ok();
++                if same { jet_same_shapekey += 1; }
++                let t0 = Instant::now();
++                let out = match Orbit::from_shape(old_key, c.shape_arc()) {
++                    Ok(_) => t0.elapsed().as_secs_f64() * 1e6,
++                    Err(_) => { jet_refused += 1; jet_shape_changed += 1; f64::NAN }
++                };
++                if !same && out.is_finite() { jet_shape_changed += 1; }
++                (out, 0u8)
++            } else {
++                jet_refused += 1;
++                jet_prev_passage += 1;
++                (f64::NAN, 1u8)
++            };
++            acc.note(&Samples { full, readout: readout_us, forces: forces_us, rebind: rebind_us, fit_rest: (from_state_us - compile_us).max(0.0), compile: compile_us, jetcheap: jetcheap_us });
++            // Drift: the rebound (post-kick) trajectory's quantized cell, per body.
++            let rebound_key = bound.entry.trajectory.key();
++            match MemoCode::encode(rebound_key) {
++                Ok(code) => cells.entry(i).or_default().push(code.bits()),
++                Err(_) => {}
++            }
++        }
++        s.p.u.frame(1.0 / 60.0, s.rtf, Budget::unlimited());
++        s.p.u.settle(s.p.u.now);
++        frames = n;
++    }
++
++    // Cell statistics: kicks per cell, changes per body.
++    let mut kicks_per_cell: Vec<f64> = Vec::new();
++    let mut changes_per_body: Vec<f64> = Vec::new();
++    for (_i, seq) in cells.iter() {
++        let mut run = 1.0f64;
++        for w in seq.windows(2) {
++            if w[0] == w[1] {
++                run += 1.0;
++            } else {
++                kicks_per_cell.push(run);
++                run = 1.0;
++            }
++        }
++        kicks_per_cell.push(run);
++        changes_per_body.push((seq.len().saturating_sub(1)) as f64);
++    }
++    let bodies_with_cells = cells.len();
++    let mut total_changes = 0usize;
++    for seq in cells.values() {
++        for w in seq.windows(2) {
++            total_changes += usize::from(w[0] != w[1]);
++        }
++    }
++    let total_kicks: usize = cells.values().map(|v| v.len()).sum();
++    let change_rate = if total_kicks > 0 { total_changes as f64 / total_kicks as f64 } else { 0.0 };
++    let parts = acc.json();
++    let samples = acc.full.len();
++    println!("{}", serde_json::to_string_pretty(&json!({
++        "scope": "per distinct pending ship kick on deterministic 60 Hz plane snapshots; the shipped kick timed whole, then its parts replayed on the same snapshot (pre-kick state); nothing feeds the universe",
++        "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": samples,
++        "parts_us": parts,
++        "jet": {"from_shape_refused": jet_refused, "prev_binding_cycles": prev_cycles, "prev_binding_passages": jet_prev_passage, "shape_key_changed": jet_shape_changed, "same_shape_key_as_previous": jet_same_shapekey, "note": "jet_reuse_from_shape times Orbit::from_shape on the previous shape at its own key (cost is k-independent); same_shape_key counts kicks whose new exact ShapeKey equals the previous one (trivially reusable, no offsets needed)"},
++        "memo_drift": {
++            "bodies": bodies_with_cells,
++            "kicks_per_quantized_cell": percentiles(&mut kicks_per_cell),
++            "kicks_minus_one_per_body": percentiles(&mut changes_per_body),
++            "cell_change_rate_per_kick": change_rate,
++            "note": "MemoCode = the law's 12+12-bit quantized (E,L) cell; a cell change is the lower bound on when a shape-reuse scheme must at least re-derive its tables"
++        },
++        "refused": refused,
++        "digest": s.digest_at_cut().1,
++        "machine_before": machine_before,
++        "machine_after": crate::measure::machine_state("after"),
++        "wall_seconds": wall.elapsed().as_secs_f64()
++    }))?);
++    Ok(u8::from(refused != 0))
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..810c770 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -9,7 +9,7 @@
+ //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+ mod http;
+-mod kick_bench;
++mod jet_bench;
+ mod session;
+ 
+ use serde_json::json;
+@@ -20,7 +20,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+-    let (mut kicks, mut level) = (false, 0u8);
++    let (mut kicks, mut jets, mut level) = (false, false, 0u8);
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -33,12 +33,13 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
++            "--jet-bench" => jets = true,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+             "--describe" => describe = true,
+             "--help" => {
+-                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
++                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --jet-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
+                 return Ok(0);
+             }
+             _ => return Err(format!("unknown universe argument {a}").into()),
+@@ -49,8 +50,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     }
+     let mut s = Session::new(seed, threads, members, rtf)?;
+     s.engine_ms = engine_ms;
+-    if kicks {
+-        return kick_bench::run(s, seconds);
++    if jets {
++        return jet_bench::run(s, seconds);
+     }
+     if describe {
+         println!("{}", s.describe());
