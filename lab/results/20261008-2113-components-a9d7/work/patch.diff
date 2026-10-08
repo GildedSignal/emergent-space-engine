@@ -1,0 +1,238 @@
+diff --git a/crates/universe/examples/hlive.rs b/crates/universe/examples/hlive.rs
+new file mode 100644
+index 0000000..f02c648
+--- /dev/null
++++ b/crates/universe/examples/hlive.rs
+@@ -0,0 +1,232 @@
++//! H_live, measured on the plane's own law and integers (a lab instrument, 8 October 2026).
++//!
++//! The store component's floor is the rate at which a population's exact state becomes
++//! distinguishable from its program (PRINCIPLES 24: "The memory floor is information"). Here the
++//! program is what a population program already regenerates: each ship's birth tube, advanced by
++//! the star's compiled drift (the drift conserves the tube, so the program's prediction is the
++//! birth binding). Every departure from it enters through the kicks: each binding carries the
++//! integer `kick.dv` that made it, in quanta of that binding's velocity exponent. This example
++//! runs a belt of ships on the plane's own scene (the star and the three planets of
++//! [`emergent_universe::scenario::PLANETS`], no fleet, no player, no moon), and records:
++//!
++//! * one row per kick (body, tick, dv, the velocity exponent of its quanta, level, window);
++//! * the state tuple (events, step, carry, the tube key's periapsis) at sparse sample ticks;
++//! * the missed-kick check (the engine's own per-body item counter against the rows captured).
++//!
++//! Analysis (entropy of the stream and of the accumulated deviation) is offline, exact, in ints.
++use emergent_space::orbit::Scalar;
++use emergent_universe::{scenario::PLANETS, Config, Kind, OrbitSpec, Universe};
++
++fn lcg(seed: &mut u64) -> f64 {
++    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++    (*seed >> 11) as f64 / (1u64 << 53) as f64
++}
++struct Args {
++    n: usize,
++    seed: u64,
++    /// Game seconds to run.
++    seconds: f64,
++    /// Belt style: "spread" = the plane's hauler distribution; "inner"/"outer" = its halves.
++    belt: String,
++    /// Samples whose state tuples are written (evenly spaced).
++    states: usize,
++    out: String,
++}
++
++fn main() {
++    let a = std::env::args().collect::<Vec<_>>();
++    let arg = |i: usize, d: &str| a.get(i).cloned().unwrap_or_else(|| d.to_string());
++    let args = Args {
++        n: arg(1, "1024").parse().unwrap(),
++        seed: arg(2, "1").parse().unwrap(),
++        seconds: arg(3, "3600").parse().unwrap(),
++        belt: arg(4, "spread"),
++        states: arg(5, "24").parse().unwrap(),
++        out: arg(6, "hlive").to_string(),
++    };
++    let wall = std::time::Instant::now();
++    let (mut u, ships) = scene(&args);
++    println!(
++        "# n={} seed={} belt={} seconds={} bodies={} ships={} digest0={}",
++        args.n, args.seed, args.belt, args.seconds, u.n_bodies(), ships.len(), u.digest()
++    );
++
++    let mut kicks = std::fs::File::create(format!("{}-kicks.csv", args.out)).expect("create");
++    let mut states_f = std::fs::File::create(format!("{}-states.csv", args.out)).expect("create");
++    use std::io::Write;
++    writeln!(kicks, "body,tick,dvx,dvy,nexp,oexp,carry0,carry1,len").unwrap();
++    writeln!(states_f, "sample,body,tick,events,step,carry0,carry1,key_sig,key_exp,key_changed").unwrap();
++
++    let horizon = (args.seconds / emergent_universe::view::TICK_SECONDS) as i64;
++    let state_at: Vec<i64> = (1..=args.states)
++        .map(|k| horizon * k as i64 / args.states as i64)
++        .collect();
++    let mut next_state = 0usize;
++    let mut last_evt = vec![0i64; ships.len()];
++    let mut last_items = vec![0u64; ships.len()];
++    let mut birth_key = Vec::with_capacity(ships.len());
++    let (mut rows, mut stray_items, mut captured_items, mut samples) = (0u64, 0u64, 0u64, 0u64);
++    for (k, &i) in ships.iter().enumerate() {
++        let r = u.rec(i);
++        let key = r.b.entry.trajectory.key().periapsis;
++        birth_key.push((key.significand(), key.exponent()));
++        last_evt[k] = r.b.event_time;
++        last_items[k] = r.events;
++    }
++    let mut t = 0i64;
++    while t < horizon {
++        // The sample interval: the smallest step or level-0 interval in the population, so no
++        // body fires two kicks between samples (steps here are not powers of two: the interval
++        // is capped by exits, so the minimum itself is the safe gap).
++        let mut gap = i64::MAX;
++        for &i in &ships {
++            let r = u.rec(i);
++            if !r.alive {
++                continue;
++            }
++            if r.step > 0 {
++                gap = gap.min(r.step);
++            }
++            if r.interval > 0 {
++                gap = gap.min(r.interval);
++            }
++        }
++        if samples < 2 {
++            println!("# sample {samples} gap={gap} t={t}");
++        }
++        t = t.saturating_add(gap).min(horizon);
++        u.settle(t);
++        samples += 1;
++        let write_state = next_state < state_at.len() && t >= state_at[next_state];
++        let si = if write_state { next_state + 1 } else { 0 };
++        for (k, &i) in ships.iter().enumerate() {
++            let r = u.rec(i);
++            if !r.alive {
++                continue;
++            }
++            let items = r.events;
++            if r.b.event_time != last_evt[k] {
++                // The resolver zeroes `b.kick.dv` right after a rebind (the struct then describes
++                // the coming step), so the kick's content is the integer velocity jump between
++                // the retired binding and the new one, read at the same tick. Exponents can
++                // differ; the delta is exact in the finer of the two.
++                let tk = r.b.event_time;
++                let nv = r.b.readout(tk).expect("readout new");
++                let ov = u
++                    .bodies()
++                    .binding_at(i, tk - 1)
++                    .map(|old| old.readout(tk).expect("readout old"));
++                let (ov, oe) = match ov {
++                    Some(s) => (s.velocity, s.velocity_exponent),
++                    None => ([0i64; 2], nv.velocity_exponent),
++                };
++                let (dvx, dvy) = if nv.velocity_exponent <= oe {
++                    let s = (oe - nv.velocity_exponent) as u32;
++                    ((nv.velocity[0] as i128) - ((ov[0] as i128) << s), (nv.velocity[1] as i128) - ((ov[1] as i128) << s))
++                } else {
++                    let s = (nv.velocity_exponent - oe) as u32;
++                    (((nv.velocity[0] as i128) << s) - (ov[0] as i128), ((nv.velocity[1] as i128) << s) - (ov[1] as i128))
++                };
++                writeln!(kicks, "{},{},{},{},{},{},{},{},{}", i, tk, dvx, dvy, nv.velocity_exponent as i32, oe as i32, r.carry[0], r.carry[1], r.b.kick.len).unwrap();
++                rows += 1;
++                last_evt[k] = tk;
++                captured_items += items.saturating_sub(last_items[k]);
++                last_items[k] = items;
++            } else {
++                stray_items += items.saturating_sub(last_items[k]);
++                last_items[k] = items;
++            }
++            if write_state {
++                let e = &r.b.entry.trajectory;
++                let key = e.key().periapsis;
++                let changed = birth_key
++                    .get(k)
++                    .map(|b| *b != (key.significand(), key.exponent()))
++                    .unwrap_or(false);
++                if birth_key.len() == k {
++                    birth_key.push((key.significand(), key.exponent()));
++                }
++                writeln!(
++                    states_f,
++                    "{},{},{},{},{},{},{},{},{},{}",
++                    si, i, t, r.events, r.step, r.carry[0], r.carry[1], key.significand(), key.exponent(), u8::from(changed)
++                )
++                .unwrap();
++            }
++        }
++        if write_state {
++            next_state += 1;
++            u.prune();
++        }
++        if wall.elapsed().as_secs_f64() >= 52.0 {
++            println!("# wall budget hit at t={t} ({} of {} game seconds)", t as f64 * emergent_universe::view::TICK_SECONDS, args.seconds);
++            break;
++        }
++    }
++    let bytes = (0..u.n_bodies()).map(|i| u.bodies().bytes_of(i)).sum::<usize>();
++    let out = format!(
++        "# done t={} game_s={:.1} rows={} samples={} captured_items={} stray_items={} alive={} bytes_total={} bytes_per_body={:.1} digest={} wall_s={:.1}\n",
++        u.now,
++        u.now as f64 * emergent_universe::view::TICK_SECONDS,
++        rows, samples, captured_items, stray_items,
++        ships.iter().filter(|&&i| u.bodies().alive(i)).count(),
++        bytes, bytes as f64 / u.n_bodies() as f64,
++        u.digest(),
++        wall.elapsed().as_secs_f64()
++    );
++    println!("{out}");
++    std::fs::write(format!("{}-summary.txt", args.out), out).unwrap();
++}
++
++/// The plane's star and three planets, plus a belt of ships about the star. No moon, no fleet, no
++/// player: one population on the root doll, kicked by the secondaries, exactly as the haulers are.
++fn scene(a: &Args) -> (Universe, Vec<usize>) {
++    let mut u = Universe::new(Scalar::integer(471_000), Config::default());
++    u.threads = 1;
++    let mut rng = a.seed ^ 0x5DEECE66D;
++    for p in &PLANETS {
++        let b = u
++            .add_body(
++                Kind::Planet,
++                OrbitSpec {
++                    doll: 0,
++                    periapsis: Scalar::integer(p.periapsis),
++                    e_q48: p.e_q48,
++                    clockwise: false,
++                    angle: p.angle,
++                    phase: p.phase,
++                },
++                Scalar::ZERO,
++            )
++            .expect("planet");
++        let surface = Scalar::raw(p.radius as i128, -p.mass_log2).expect("surface");
++        u.add_doll(p.name, b, p.mass_log2, surface).expect("doll");
++    }
++    let mut ships = Vec::with_capacity(a.n);
++    for _ in 0..a.n {
++        let (lo, hi) = match a.belt.as_str() {
++            "inner" => (0.5f64, 3.0),
++            "outer" => (3.0, 8.0),
++            _ => (0.5, 8.0),
++        };
++        let a_ = lo + (hi - lo) * lcg(&mut rng);
++        let e = 0.25 * lcg(&mut rng);
++        let id = u
++            .add_body(
++                Kind::Ship,
++                OrbitSpec {
++                    doll: 0,
++                    periapsis: Scalar::integer((a_ * (1.0 - e) * 101_300_000.0) as i64),
++                    e_q48: (e * (1u64 << 48) as f64) as u64,
++                    clockwise: lcg(&mut rng) < 0.15,
++                    angle: (lcg(&mut rng) * 4294967296.0) as u32,
++                    phase: (lcg(&mut rng) * 4294967296.0) as u32,
++                },
++                Scalar::raw(34, -10).expect("radius"),
++            )
++            .expect("ship");
++        ships.push(id);
++    }
++    u.start().expect("start");
++    (u, ships)
++}
