@@ -1,0 +1,4 @@
+Working...
+Run complete: measured, instrumented (`constraint_view` example), pre-registered predictions (2/4 held; the falsifier caught the pacing artifact), dossier written.
+
+**Claim:** On the plane as the player flies it (≤ a few hundred visible bodies, ~100× time), the frame's constraint is not the engine the board's queue optimizes but the view gather — an unbudgeted every-frame O(N) light-cone walk holding 60–70 % of frame compute at ~6–9 µs per seen row, while 54–83 % of its rows change by less than one display quantum per frame — so the cheapest ~5× is a display-quantum row cache (presentation-only, no law change), and only above ~10³× time does the constraint move back to the engine's kicks, where the queue already aims; along the way, paced cloud dashboards were shown to inflate every segment ~4.8× (wake-path artifact, not work), which the integrator's p95/p99 judgements must not trust.
