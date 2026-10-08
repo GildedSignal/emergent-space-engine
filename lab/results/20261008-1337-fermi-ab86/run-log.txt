@@ -1,0 +1,40 @@
+========================================================================
+PART A — analytic budget, N = 1e9, belt 1.8-3.4 AU, area 5.85e+23 m^2
+orbital period at mid-belt: 1.32e+08 s = 4.19 yr
+
+[stock] budget 4.5 GB -> 36 bits/body; smooth program 0.126 b/b -> 16 MB
+        catalogue at width  8 b/b -> 1.00 GB (22% of budget)
+        catalogue at width 16 b/b -> 2.00 GB (44% of budget)
+        catalogue at width 24 b/b -> 3.00 GB (67% of budget)
+        catalogue at width 36 b/b -> 4.50 GB (100% of budget)
+
+[rate]  Gamma(Dv>q) = 4 n G m / q   (Omega cancels)
+  asteroid 100 m (1e13 kg): n = 1.71e-15 m^-2, r_H = 4.70e+05 m
+    q = v_orb x 1e-04 : Gamma = 2.59e-12 /body/s = 3.43e-04 /body/orbit
+    q = v_orb x 1e-06 : Gamma = 2.59e-10 /body/s = 3.43e-02 /body/orbit
+    q = v_orb x 1e-08 : Gamma = 2.59e-08 /body/s = 3.43e+00 /body/orbit
+  ship 1 kt (1e6 kg): n = 1.71e-15 m^-2, r_H = 2.14e+03 m
+    q = v_orb x 1e-04 : Gamma = 2.47e-19 /body/s = 3.27e-11 /body/orbit
+    q = v_orb x 1e-06 : Gamma = 2.47e-17 /body/s = 3.27e-09 /body/orbit
+    q = v_orb x 1e-08 : Gamma = 2.47e-15 /body/s = 3.27e-07 /body/orbit
+
+[compute] kick load at 32 kicks/orbit (H0190), ~60 ns/kick measured-class
+  rtf 1e+02: 2.42e+04 kicks/game-s -> 0.0 perf-core equivalents
+  rtf 1e+04: 2.42e+06 kicks/game-s -> 0.0 perf-core equivalents
+  rtf 1e+06: 2.42e+08 kicks/game-s -> 3.6 perf-core equivalents
+  legacy rates for comparison: 500 steps/orbit at 1 us -> 47 cores at rtf 5e4
+========================================================================
+PART B — Monte Carlo, 40000 bodies, 3e+04 orbits, b* = 1.03e+06 m (r_H = 4.70e+05 m)
+P1  measured resolvable-encounter rate 3.432e-02 /body/orbit; analytic 3.432e-02
+P2  S(t) = log2(sigma/q) slope vs log2(t/orbit): 0.499  (predicted 0.5)
+    S at 1 orbit 2.7 b/b, at 3e+04 orbits 5.6 b/b
+    macro (b<r_H) events: 7.11e-03 /body/orbit -> O(100) bits each
+
+P3  ceiling: quantized marginal entropy of (a, e, phi), program gone
+    quanta (da/a 2^-10, de 2^-8, dphi 2^-16): H = 33.9 bits/body (a 9.3 + e 6.0 + phi 18.6) -> 4.24 GB at 1e9
+    quanta (da/a 2^-12, de 2^-10, dphi 2^-16): H = 37.9 bits/body (a 11.3 + e 8.0 + phi 18.6) -> 4.74 GB at 1e9
+    quanta (da/a 2^-8, de 2^-6, dphi 2^-14): H = 28.0 bits/body (a 7.3 + e 4.0 + phi 16.6) -> 3.49 GB at 1e9
+
+[write] events/game-s and catalogue write at rtf 1e6 (fastest pace shown):
+    q=1e-6 v,  8-bit delta: 2.59e+05 events/game-s -> 0.26 MB/s
+    q=1e-6 v, 32-bit delta: 2.59e+05 events/game-s -> 1.04 MB/s
