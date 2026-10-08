@@ -1,0 +1,274 @@
+diff --git a/crates/encounters/src/belt.rs b/crates/encounters/src/belt.rs
+index ad8a4d2..a856b9a 100644
+--- a/crates/encounters/src/belt.rs
++++ b/crates/encounters/src/belt.rs
+@@ -35,6 +35,30 @@ pub struct Spec {
+     pub orbits: f64,
+ }
+ 
++/// A radially concentrated belt: dN/da ∝ a^{gamma} on [a_lo, a_hi] (gamma = 0 is `make_belt`;
++/// gamma > 0 concentrates toward a_hi, gamma < 0 toward a_lo — the two edge cases). Same Rayleigh
++/// eccentricities and random angles, so only the radial density profile changes (gamma = -1 is the
++/// logarithmic profile and is not representable).
++pub fn make_cusp(n: usize, sigma_e: f64, a_lo: f64, a_hi: f64, gamma: f64, seed: u64) -> Vec<Body> {
++    make_belt_capped(n, sigma_e, a_lo, a_hi, gamma, 0.5, seed)
++}
++
++/// `make_cusp` with the Rayleigh e-cap exposed (the population model's knob).
++pub fn make_belt_capped(n: usize, sigma_e: f64, a_lo: f64, a_hi: f64, gamma: f64, cap: f64, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let g1 = gamma + 1.0;
++    let lo = a_lo.powf(g1);
++    let w = a_hi.powf(g1) - lo;
++    (0..n)
++        .map(|_| {
++            let a = (lo + rng.f64() * w).powf(1.0 / g1);
++            let u = rng.f64();
++            let e = (sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap);
++            Body::new(a, e, TAU * rng.f64(), TAU * rng.f64())
++        })
++        .collect()
++}
++
+ pub fn make_belt(s: &Spec) -> Vec<Body> {
+     let mut rng = Rng(s.seed);
+     (0..s.n)
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bf..8a61ac7 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -1,7 +1,7 @@
+ //! Experiments (each run ≤ 60 s): `verify <set>`, `steady <n> <horizons..>`, `scale <n|sigma>`, `kick`.
+ //! One JSON object per line on stdout.
+ 
+-use emergent_encounters::belt::{make_belt, Spec};
++use emergent_encounters::belt::{make_belt, make_belt_capped, make_cusp, Spec};
+ use emergent_encounters::kepler::{Body, TICKS};
+ use emergent_encounters::method::{pair_events, run_section, Stats};
+ use emergent_encounters::pairs::{cone_pairs, is_candidate, radial_pairs, sections, Sorted};
+@@ -496,6 +496,211 @@ fn kick() {
+     }
+ }
+ 
++/// Radial concentration (the Taleb probe): dN/da ∝ a^{-gamma} belts. Per-body candidate degree
++/// (what setup and the steady state pay, per pair) against that body's real encounter rate
++/// (exact pair checks over a horizon), binned by radius; the degree tail (max, p99) against its
++/// mean, and where the max lives. `cusp <n> <sigma_e> <rho> <a_lo> <a_hi> <orbits> <truth 0|1> <gamma..>`
++fn cusp(args: &[String]) {
++    let (n, sigma_e, rho, a_lo, a_hi) = (
++        args[0].parse::<usize>().unwrap(),
++        args[1].parse::<f64>().unwrap(),
++        args[2].parse::<f64>().unwrap(),
++        args[3].parse::<f64>().unwrap(),
++        args[4].parse::<f64>().unwrap(),
++    );
++    let horizon: f64 = args[5].parse().unwrap();
++    let truth: bool = args[6].parse::<u8>().unwrap() != 0;
++    for g in &args[7..] {
++        let gamma: f64 = g.parse().unwrap();
++        let wall = Instant::now();
++        let b = make_cusp(n, sigma_e, a_lo, a_hi, gamma, 20261081);
++        let sorted = Sorted::new(&b, rho);
++        // Per-body candidate degree (both sides) and the scan cost.
++        let mut deg = vec![0u32; n];
++        let mut scanned = 0u64;
++        for (d, s) in par_chunks(sorted.order.len(), 1024, THREADS, |r| {
++            let mut d = vec![0u32; n];
++            let mut s = 0u64;
++            for k in r {
++                let (u, i) = sorted.order[k];
++                let bi = &b[i as usize];
++                let reach = sorted.reach(bi);
++                for &(uj, j) in &sorted.order[k + 1..] {
++                    if uj - u > reach {
++                        break;
++                    }
++                    s += 1;
++                    if is_candidate(bi, &b[j as usize], rho) {
++                        d[i as usize] += 1;
++                        d[j as usize] += 1;
++                    }
++                }
++            }
++            (d, s)
++        }) {
++            scanned += s;
++            for (x, y) in deg.iter_mut().zip(d) {
++                *x += y;
++            }
++        }
++        let mut ds = deg.clone();
++        ds.sort_unstable();
++        let q = |p: f64| ds[((n as f64 * p) as usize).min(n - 1)];
++        let deg_mean = ds.iter().sum::<u32>() as f64 / n as f64;
++        let mxi = deg.iter().enumerate().max_by_key(|x| x.1).unwrap().0;
++        let mxe = b.iter().enumerate().max_by(|x, y| x.1.e.total_cmp(&y.1.e)).unwrap().0;
++        // Radial bins: bodies sorted by a, NBINS equal-count; degree mean and (if asked) one
++        // sampled body's real encounters over its whole candidate set.
++        const NB: usize = 10;
++        let mut by_a: Vec<usize> = (0..n).collect();
++        by_a.sort_by(|&x, &y| b[x].a.total_cmp(&b[y].a));
++        let mut bins = String::new();
++        for k in 0..NB {
++            let r = k * n / NB..(k + 1) * n / NB;
++            let bd = r.clone().map(|x| deg[by_a[x]] as f64).sum::<f64>() / r.len() as f64;
++            let mid = by_a[(r.start + r.end) / 2];
++            let mid2 = by_a[r.start + (r.end - r.start) / 3];
++            let (pairs, hits) = if truth && (deg[mid] > 0 || deg[mid2] > 0) {
++                let mut st = Stats::default();
++                let mut tmp = Vec::new();
++                for cand in [mid, mid2] {
++                    if deg[cand] == 0 {
++                        continue;
++                    }
++                    let bi = &b[cand];
++                    let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++                    for &(_, j) in &sorted.order[lo..hi] {
++                        if j != cand as u32 && is_candidate(bi, &b[j as usize], rho) {
++                            pair_events(bi, &b[j as usize], rho, SAFETY, 0.0, horizon * TAU, &mut st, &mut tmp);
++                        }
++                    }
++                }
++                (st.pairs, st.hits_total())
++            } else {
++                (0, 0)
++            };
++            // candidate pairs per real encounter at this radius (1 / per-pair encounter rate).
++            let cpe = if hits > 0 { pairs as f64 * horizon / hits as f64 } else { -1.0 };
++            bins.push_str(&format!(
++                "{{\"a\":{:.4},\"deg\":{:.1},\"pairs\":{},\"hits\":{},\"cand_per_enc\":{:.3e}}},",
++                b[mid].a, bd, pairs, hits, cpe
++            ));
++        }
++        bins.pop();
++        println!(
++            "{{\"exp\":\"cusp\",\"gamma\":{},\"n\":{},\"sigma_e\":{},\"rho\":{},\"a_range\":[{},{}],\"orbits\":{},\
++\"pairs\":{},\"scanned\":{},\"scanned_per_body\":{:.0},\"deg_mean\":{:.1},\"deg_p50\":{},\"deg_p90\":{},\"deg_p99\":{},\"deg_max\":{},\
++\"deg_max_a\":{:.4},\"deg_max_e\":{:.3},\"deg_max_over_mean\":{:.1},\"deg_of_emax\":{},\"a_of_emax\":{:.4},\"e_of_emax\":{:.3},\"bins\":[{}],\"wall_s\":{:.2}}}",
++            gamma, n, sigma_e, rho, a_lo, a_hi, horizon, deg.iter().sum::<u32>() / 2, scanned,
++            scanned as f64 / n as f64, deg_mean, q(0.5), q(0.9), q(0.99), deg[mxi], b[mxi].a, b[mxi].e,
++            deg[mxi] as f64 / deg_mean, deg[mxe], b[mxe].a, b[mxe].e, bins, wall.elapsed().as_secs_f64()
++        );
++    }
++}
++
++/// Per-doll units (the second-author probe): the whole belt scaled by s (same N, same relative
++/// structure and seed, rho -> s·rho so rho/a is fixed), horizon = h_loc·s^1.5 orbits at a = 1,
++/// i.e. h_loc orbits at the belt's own scale. The per-doll work-per-encounter is
++/// cpe_perloc = cand_per_enc / a^1.5: candidates a body holds per encounter it suffers per *local*
++/// orbit (the mean-motion clock a^1.5 divided out). Scale-free physics + cone test ⇒ flat in s.
++/// `doll <n> <sigma_e> <rho0> <a_lo0> <a_hi0> <h_loc> <samples_per_bin> <e_cap> <gamma> <scales..>`
++fn doll(args: &[String]) {
++    let (n, sigma_e, rho0, a_lo0, a_hi0) = (
++        args[0].parse::<usize>().unwrap(),
++        args[1].parse::<f64>().unwrap(),
++        args[2].parse::<f64>().unwrap(),
++        args[3].parse::<f64>().unwrap(),
++        args[4].parse::<f64>().unwrap(),
++    );
++    let h_loc: f64 = args[5].parse().unwrap();
++    let samples: usize = args[6].parse().unwrap();
++    let cap: f64 = args[7].parse().unwrap();
++    let gamma: f64 = args[8].parse().unwrap();
++    for sc in &args[9..] {
++        let s: f64 = sc.parse().unwrap();
++        let (a_lo, a_hi, rho) = (a_lo0 * s, a_hi0 * s, rho0 * s);
++        let horizon = h_loc * s.powf(1.5);
++        let wall = Instant::now();
++        let b = make_belt_capped(n, sigma_e, a_lo, a_hi, gamma, cap, 20261081);
++        let sorted = Sorted::new(&b, rho);
++        let mut deg = vec![0u32; n];
++        for d in par_chunks(sorted.order.len(), 1024, THREADS, |r| {
++            let mut d = vec![0u32; n];
++            for k in r {
++                let (u, i) = sorted.order[k];
++                let bi = &b[i as usize];
++                let reach = sorted.reach(bi);
++                for &(uj, j) in &sorted.order[k + 1..] {
++                    if uj - u > reach {
++                        break;
++                    }
++                    if is_candidate(bi, &b[j as usize], rho) {
++                        d[i as usize] += 1;
++                        d[j as usize] += 1;
++                    }
++                }
++            }
++            d
++        }) {
++            for (x, y) in deg.iter_mut().zip(d) {
++                *x += y;
++            }
++        }
++        let mut ds = deg.clone();
++        ds.sort_unstable();
++        let q = |p: f64| ds[((n as f64 * p) as usize).min(n - 1)];
++        let deg_mean = ds.iter().sum::<u32>() as f64 / n as f64;
++        let mxi = deg.iter().enumerate().max_by_key(|x| x.1).unwrap().0;
++        let mxe = b.iter().enumerate().max_by(|x, y| x.1.e.total_cmp(&y.1.e)).unwrap().0;
++        // Radial bins (equal count by a), `samples` bodies spread by a-rank per bin: exact
++        // encounter checks over each sampled body's whole candidate set.
++        const NB: usize = 10;
++        let mut by_a: Vec<usize> = (0..n).collect();
++        by_a.sort_by(|&x, &y| b[x].a.total_cmp(&b[y].a));
++        let mut bins = String::new();
++        for k in 0..NB {
++            let r = k * n / NB..(k + 1) * n / NB;
++            let bd = r.clone().map(|x| deg[by_a[x]] as f64).sum::<f64>() / r.len() as f64;
++            let mut st = Stats::default();
++            let mut tmp = Vec::new();
++            let mut asum = 0.0;
++            let mut ns = 0usize;
++            if samples > 0 {
++                for t in 0..samples {
++                    let cand = by_a[r.start + (r.len() * (2 * t + 1)) / (2 * samples)];
++                    if deg[cand] == 0 {
++                        continue;
++                    }
++                    let bi = &b[cand];
++                    asum += bi.a;
++                    ns += 1;
++                    let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++                    for &(_, j) in &sorted.order[lo..hi] {
++                        if j != cand as u32 && is_candidate(bi, &b[j as usize], rho) {
++                            pair_events(bi, &b[j as usize], rho, SAFETY, 0.0, horizon * TAU, &mut st, &mut tmp);
++                        }
++                    }
++                }
++            }
++            let (pairs, hits) = (st.pairs, st.hits_total());
++            let a_eff = if ns > 0 { asum / ns as f64 } else { b[by_a[(r.start + r.end) / 2]].a };
++            let cpe = if hits > 0 { pairs as f64 * horizon / hits as f64 } else { -1.0 };
++            let cpl = if hits > 0 { cpe / a_eff.powf(1.5) } else { -1.0 };
++            bins.push_str(&format!(
++                "{{\"a\":{:.5},\"deg\":{:.1},\"pairs\":{},\"hits\":{},\"cand_per_enc\":{:.4e},\"cpe_perloc\":{:.4e},\"loc_orb\":{:.1}}},",
++                a_eff, bd, pairs, hits, cpe, cpl, horizon / a_eff.powf(1.5)
++            ));
++        }
++        bins.pop();
++        println!(
++            "{{\"exp\":\"doll\",\"s\":{},\"n\":{},\"sigma_e\":{},\"rho\":{},\"e_cap\":{},\"a_range\":[{},{}],\"h_loc\":{},\"horizon\":{:.1},\
++\"deg_mean\":{:.1},\"deg_p99\":{},\"deg_max\":{},\"deg_max_over_mean\":{:.2},\"deg_of_emax\":{},\"f\":{:.4},\"bins\":[{}],\"wall_s\":{:.2}}}",
++            s, n, sigma_e, rho, cap, a_lo, a_hi, h_loc, horizon, deg_mean, q(0.99), deg[mxi],
++            deg[mxi] as f64 / deg_mean, deg[mxe], deg_mean / n as f64, bins, wall.elapsed().as_secs_f64()
++        );
++    }
++}
++
+ /// The query loop of a section without the exact checks: counts proposals in [t0, t1].
+ fn run_section_proposals(bi: &Body, bj: &Body, sec: &emergent_encounters::pairs::Section, t0: f64, t1: f64, st: &mut Stats, _v: &mut Vec<(f64, f64)>) {
+     let pi = bi.period as i128;
+@@ -526,10 +731,11 @@ fn main() {
+             steady(n, rho, &hs)
+         }
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
+-        Some("kick") => kick(),
++        Some("doll") => doll(&args[2..]),
++        Some("cusp") => cusp(&args[2..]),
+         _ => {
+             let _ = run_section;
+-            eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick");
++            eprintln!("  | cusp <n> <sigma_e> <rho> <a_lo> <a_hi> <orbits> <truth 0|1> <gamma..> | doll <n> <sigma_e> <rho0> <a_lo0> <a_hi0> <h_loc> <samples> <e_cap> <scales..>");
+         }
+     }
+ }
