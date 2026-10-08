@@ -1,0 +1,684 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..ef8c47e 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -381,6 +381,47 @@ impl Rebinding {
+         fit.residual = Residual::between(state, fit.decoded_event()?);
+         Ok(fit)
+     }
++
++/// Lab experiment hook (run 20261008-0338-second): [`Self::from_state`] with the bound
++/// cycle supplied by the caller (the jet, `crate::orbit::Jet`). Additive only; the shipped
++/// `from_state` never routes through it, and with `Orbit::compile` as the hook it must be
++/// bit-identical to `from_state` (the bench asserts this control).
++pub fn from_state_with(
++    state: IntegerState,
++    event_time: Scalar,
++    passage_edge: Option<Scalar>,
++    cycle: &mut dyn FnMut(OrbitKey) -> Result<Orbit>,
++) -> Result<Self> {
++    let (key, r, clockwise, incoming) = fit_key(state, true)?;
++    let trajectory = if key.periodic() {
++        Trajectory::Cycle(cycle(key)?)
++    } else {
++        Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++    };
++    let (mut offset, mut sample) = trajectory.at_radius(r)?;
++    if incoming {
++        offset = offset.negate();
++        sample.reflect();
++    }
++    let (p, _) = state.components()?;
++    let at = angle(p[0], p[1])?;
++    let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
++    let periapsis_angle = ((orientation << 32) / (2 * PI)) as u32;
++    let mut fit = Self {
++        trajectory,
++        periapsis_time: event_time.sub(offset)?,
++        periapsis_angle,
++        clockwise,
++        residual: Residual {
++            position: [0; 2],
++            velocity: [0; 2],
++        },
++        event_time,
++        units: (state.length_exponent, state.velocity_exponent),
++    };
++    fit.residual = Residual::between(state, fit.decoded_event()?);
++    Ok(fit)
++}
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+         cartesian(
+             self.trajectory.state(self.event_time.sub(self.periapsis_time)?)?,
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..c88b35a 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -6,6 +6,9 @@ use crate::{
+     tables::{EDGE, PI, W, X},
+ };
+ use std::{collections::HashMap, sync::Arc};
++mod jet;
++
++pub use jet::{Jet, JetError};
+ 
+ const HALF: u64 = 1 << 47;
+ const UNIT: u64 = 1 << 48;
+@@ -470,6 +473,10 @@ impl Orbit {
+     pub fn shape(&self) -> &OrbitShape {
+         &self.shape
+     }
++    /// The compiled shape this orbit shares (the jet's reuse path: [`Self::from_shape`]).
++    pub fn shape_arc(&self) -> Arc<OrbitShape> {
++        self.shape.clone()
++    }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
+         if key.null {
+             return Err(Error::NotPeriodic);
+@@ -523,7 +530,7 @@ impl Orbit {
+             increments: [Scalar::ZERO, period, period],
+         })
+     }
+-    fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
++    pub fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+         if shape.key != ShapeKey::for_orbit(key)? {
+             return Err(Error::Topology);
+         }
+diff --git a/crates/space/src/orbit/jet.rs b/crates/space/src/orbit/jet.rs
+new file mode 100644
+index 0000000..92b7cd2
+--- /dev/null
++++ b/crates/space/src/orbit/jet.rs
+@@ -0,0 +1,130 @@
++//! The law's jet (docs/law.md, "Not adopted"), built as a lab experiment only
++//! (run 20261008-0338-second): a body keeps its exactly-compiled weak-branch shape,
++//! and a kick corrects the knot tables by the stored derivative of the knot integrals
++//! (a first-order offset in the dimensionless shape parameter gap = 2k−1), re-anchoring
++//! (exact recompile) when the accumulated offset crosses a bound. The derived fields
++//! (clock numerators, floor, quad parameters) are recomputed exactly at the new key, so
++//! only the cumulative knot sums carry the first-order correction; their residual error
++//! is the second-order term C·(Δgap/gap)² that the re-anchor bound controls.
++//!
++//! Additive only: no shipped path calls this module. The weak branch only (ShapeKey
++//! compactness zero): the plane's whole population; the strong field needs the q
++//! dimension and is out of this experiment's scope (fallback there is the exact compile).
++use super::{Integral, Orbit, OrbitKey, OrbitShape, Scalar, ShapeKey, HALF, UNIT};
++use crate::{Error, Result};
++use std::sync::Arc;
++
++/// Why a jetted read was not produced.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum JetError {
++    /// The accumulated offset crossed the bound (or the jet is unanchored): re-anchor exactly.
++    ReAnchor,
++    /// The key is outside the jet's domain (strong field, circle, passage, refusal).
++    Law(Error),
++}
++
++pub struct Jet {
++    /// The shape key the base tables are exact at (weak branch: compactness zero, k > 1/2).
++    anchor_k: u64,
++    base: Arc<OrbitShape>,
++    /// Cumulated forward difference of the knot sums on the base's fixed psi grid:
++    /// D_i = I(k₀+δ)_i − I(k₀)_i, undivided. The per-kick correction is D_i·(Δgap/δ).
++    diff: Vec<Integral>,
++    delta_raw: i128,
++    /// Cumulated |Δgap| since the anchor, for the error-law record.
++    pub drift_kicks: u64,
++}
++
++impl Jet {
++    /// Anchor at an exactly-compiled shape (the body's own bound cycle), pricing the
++    /// derivative table by one extra quadrature sweep at k₀+δ over the base's grid.
++    /// Refuses anything but weak-branch bound cycles.
++    pub fn anchor(shape: Arc<OrbitShape>) -> Result<Self> {
++        let key = shape.key;
++        if key.null || key.compactness != Scalar::ZERO || key.k <= HALF || key.k >= UNIT {
++            return Err(Error::NotPeriodic);
++        }
++        let gap_raw = 2 * key.k as i128 - UNIT as i128;
++        // A step of gap·2^-24: small enough that the forward-difference truncation
++        // (~δ·f'') sits far below the 10^-6 floor at any drift the bound allows, large
++        // enough to keep ~38 significant bits in the differenced tables.
++        let mut delta = (gap_raw >> 24).max(1);
++        if key.k as i128 + delta > UNIT as i128 {
++            delta = (UNIT as i128 - key.k as i128).max(1);
++        }
++        let plus = OrbitShape::new(ShapeKey {
++            k: (key.k as i128 + delta) as u64,
++            compactness: Scalar::ZERO,
++            null: false,
++        })?;
++        let mut diff = Vec::with_capacity(shape.knots.len());
++        let mut cum = Integral::default();
++        for w in shape.knots.windows(2) {
++            let (a, b) = (w[0].psi as i128, w[1].psi as i128);
++            // The base interval integral is the difference of successive cumulative sums.
++            let base_int = w[1].sum.subtract(w[0].sum)?;
++            let step = plus.quad(a, b)?.subtract(base_int)?;
++            cum = cum.add(step)?;
++            diff.push(cum);
++        }
++        Ok(Self { anchor_k: key.k, base: shape, diff, delta_raw: delta, drift_kicks: 0 })
++    }
++
++    /// The jetted read of `key`: base tables corrected to first order, derived fields
++    /// exact. `bound` > 0 re-anchors (Err(ReAnchor)) once |Δgap|/gap exceeds it; 0 never
++    /// re-anchors (the drift-measurement mode).
++    pub fn orbit(&mut self, key: OrbitKey, bound: f64) -> std::result::Result<Orbit, JetError> {
++        let sk = ShapeKey::for_orbit(key).map_err(JetError::Law)?;
++        if sk.compactness != Scalar::ZERO || key.k <= HALF || key.k >= UNIT {
++            return Err(JetError::Law(Error::NotPeriodic));
++        }
++        let dgap = 2 * key.k as i128 - 2 * self.anchor_k as i128;
++        if bound > 0.0
++            && dgap.abs() as f64 > bound * (2 * self.anchor_k as i128 - UNIT as i128) as f64
++        {
++            return Err(JetError::ReAnchor);
++        }
++        // The derivative table was differenced at k₀+δ (k units); gap = 2k−1, so the
++        // correction is D·(Δgap/2)/δ.
++        let rho = match Scalar::raw(dgap, -48)
++            .and_then(|d| d.div(Scalar::raw(2 * self.delta_raw, -48)?))
++        {
++            Ok(r) => r,
++            Err(e) => return Err(JetError::Law(e)),
++        };
++        let jetted = self.corrected(key, sk, rho).map_err(JetError::Law)?;
++        self.drift_kicks += 1;
++        Ok(jetted)
++    }
++
++    /// |Δgap|/gap since the anchor, the drift the error law is written in.
++    pub fn drift(&self, key: OrbitKey) -> f64 {
++        let dgap = 2 * key.k as i128 - 2 * self.anchor_k as i128;
++        dgap.abs() as f64 / (2 * self.anchor_k as i128 - UNIT as i128) as f64
++    }
++
++    fn corrected(&self, key: OrbitKey, sk: ShapeKey, rho: Scalar) -> Result<Orbit> {
++        let tmpl = OrbitShape::new(sk)?;
++        let mut s = (*self.base).clone();
++        s.k = tmpl.k;
++        s.q = tmpl.q;
++        s.t_numerator = tmpl.t_numerator;
++        s.tau_numerator = tmpl.tau_numerator;
++        s.weak_tau_term = tmpl.weak_tau_term;
++        s.floor = tmpl.floor;
++        s.fast = tmpl.fast;
++        s.word_root = tmpl.word_root;
++        s.clock_shift = tmpl.clock_shift;
++        s.clock_factor = tmpl.clock_factor;
++        s.key = sk;
++        for (knot, d) in s.knots.iter_mut().skip(1).zip(self.diff.iter()) {
++            let mut sum = knot.sum;
++            for i in 0..5 {
++                sum.0[i] = sum.0[i].add(d.0[i].mul(rho)?)?;
++            }
++
++            knot.sum = sum;
++        }
++        Orbit::from_shape(key, Arc::new(s))
++    }
++}
+diff --git a/xtask/src/universe/jet2.rs b/xtask/src/universe/jet2.rs
+new file mode 100644
+index 0000000..4af98bc
+--- /dev/null
++++ b/xtask/src/universe/jet2.rs
+@@ -0,0 +1,417 @@
++//! `xtask universe --jet2`: build the law's minimal jet (docs/law.md, "Not adopted": stored
++//! exact shape + derivative-offset tables + re-anchor at the accumulated-drift bound) and
++//! measure the jetted kick end-to-end against the exact rebind, on the plane's own snapshots.
++//!
++//! Per distinct pending ship kick (the same dedup and replay discipline as `--kick-bench`):
++//!   full        `step::process` (the shipped kick)
++//!   readout/forces   the kick's physics, replayed (same as the 0234 run)
++//!   exact_bind  the shipped `bind` (fit + fresh compile + decode + residual)
++//!   jet_bind    the same rebind with the cycle supplied by the body's jet
++//!               (correction + `from_shape` + decode + residual; anchors priced inside)
++//! plus per-kick errors of the jetted trajectory against the exact one (period, proper
++//! period, advance, and the state a quarter-cycle out), the drift at each jetted read, and
++//! the parity control (`from_state_with(Orbit::compile)` ≡ `from_state`, every 16th kick).
++//! `--bound 0` disables re-anchoring (the drift/error-law measurement).
++//! Nothing here feeds the universe; the digest proves it.
++use super::{script, Session};
++use emergent_space::binding::{cartesian, Rebinding, Trajectory};
++use emergent_space::orbit::{Jet, JetError, Orbit, OrbitKey, OrbitShape, Scalar};
++use emergent_space::tube::Tube;
++use emergent_universe::bind::{bind, scalars, Entry};
++use emergent_universe::lorentz::Turn;
++use emergent_universe::num::{cross2, dot2, time_of};
++use emergent_universe::{body::What, force, step, Budget, Kind};
++use serde_json::json;
++use std::collections::HashMap;
++use std::sync::Arc;
++use std::time::Instant;
++
++fn to_f64(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi(s.exponent() as i32 - 62)
++}
++
++fn percentiles(samples: &mut Vec<f64>) -> serde_json::Value {
++    samples.retain(|x| x.is_finite());
++    samples.sort_by(f64::total_cmp);
++    let at = |p: f64| {
++        samples
++            .get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize)
++            .copied()
++            .unwrap_or(0.0)
++    };
++    json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
++}
++
++pub(super) fn run(mut s: Session, seconds: f64, bound: f64) -> crate::Result<u8> {
++    let machine_before = crate::measure::machine_state("before");
++    let made_n = s.n_bodies();
++    let mut jets: HashMap<usize, Option<Jet>> = HashMap::new();
++    // Timings (µs).
++    let (mut t_full, mut t_readout, mut t_forces, mut t_exact, mut t_jet) =
++        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
++    let mut anchor_us_total = 0.0f64;
++    // Errors and their drifts.
++    let (mut e_period, mut e_proper, mut e_advance, mut e_radius) =
++        (Vec::new(), Vec::new(), Vec::new(), Vec::new());
++    let mut pairs: Vec<(f64, f64)> = Vec::new(); // (drift, period error) for the C fit
++    // Counters.
++    let mut kicks = 0usize;
++    let mut jetted = 0usize;
++    let mut exact_reads = 0usize;
++    let mut anchors_record = 0usize;
++    let mut anchors_compile = 0usize;
++    let mut reanchors = 0usize;
++    let mut passages = 0usize;
++    let mut law_fallbacks = 0usize;
++    let mut control_checks = 0usize;
++    let mut control_mismatch = 0usize;
++    let mut refused = 0usize;
++    let mut last: Vec<Option<i64>> = vec![None; made_n];
++    let wall = Instant::now();
++    let mut frames = 0usize;
++    let mut keys = 0u8;
++
++    for n in 1..=(seconds * 60.0) as usize {
++        if wall.elapsed().as_secs_f64() >= 55.0 {
++            return Err("jet2 bench exceeded 55 s; no complete result".into());
++        }
++        let now = s.p.u.now;
++        if keys != script(n) {
++            keys = script(n);
++            s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
++        }
++        last.resize(s.n_bodies(), None);
++        for (i, seen) in last.iter_mut().enumerate() {
++            let rec = s.p.u.rec(i);
++            if rec.kind != Kind::Ship || !rec.alive {
++                continue;
++            }
++            let Some(item) = rec.plan.first().copied() else { continue };
++            if !matches!(item.what, What::Kick(_)) || *seen == Some(item.t) {
++                continue;
++            }
++            *seen = Some(item.t);
++            kicks += 1;
++            let ctx = s.p.u.ctx();
++            // 1. The shipped kick, timed whole.
++            let t0 = Instant::now();
++            let upd = step::process(&ctx, i, rec.clone());
++            let full = t0.elapsed().as_secs_f64() * 1e6;
++            refused += usize::from(upd.kind != step::Resolved::Kick);
++            // 2. The parts, replayed on the same snapshot against the pre-kick record.
++            let t0 = Instant::now();
++            let st = rec.b.readout(item.t).map_err(|e| format!("readout: {e:?}"))?;
++            let readout_us = t0.elapsed().as_secs_f64() * 1e6;
++            let d = rec.b.doll;
++            let (x, _) = scalars(&st).map_err(|e| format!("{e:?}"))?;
++            let t0 = Instant::now();
++            let secs = ctx.secondaries(d, item.t, i).map_err(|e| format!("{e:?}"))?;
++            let tide = ctx.tide(d, item.t).map_err(|e| format!("{e:?}"))?;
++            let level = match item.what {
++                What::Kick(l) => l,
++                _ => unreachable!(),
++            };
++            let _ = force::acceleration(level, x, &secs, tide).map_err(|e| format!("{e:?}"))?;
++            let forces_us = t0.elapsed().as_secs_f64() * 1e6;
++            let clock_exp = ctx.dolls[d as usize].clock_exp();
++            let edge = (d != 0)
++                .then(|| ctx.dolls[d as usize].edge.scale(2))
++                .transpose()
++                .map_err(|e| format!("{e:?}"))?;
++            let unit = ctx.tube_unit(i, d).map_err(|e| format!("{e:?}"))?;
++            // 3. The shipped rebind, timed whole: the exact reference.
++            let t0 = Instant::now();
++            let exact = bind(st, item.t, clock_exp, edge, unit).map_err(|e| format!("{e:?}"))?;
++            let exact_us = t0.elapsed().as_secs_f64() * 1e6;
++            // 4. The jetted rebind on identical inputs (state in tube units, edge in tube units).
++            let tube_state = {
++                let mut st_t = st;
++                if !unit.unity {
++                    let q = |p: i64| -> crate::Result<i64> {
++                        let raw = Scalar::raw(p as i128, 0).map_err(|e| format!("{e:?}"))?;
++                        let tube = unit.to_tube(raw).map_err(|e| format!("{e:?}"))?;
++                        let fixed = tube.fixed(0).map_err(|e| format!("{e:?}"))?;
++                        i64::try_from(fixed).map_err(|_| "state outside the integer word".to_owned().into())
++                    };
++                    st_t.position = [q(st.position[0])?, q(st.position[1])?];
++                }
++                st_t
++            };
++            let tube_time = unit
++                .to_tube(time_of(item.t, clock_exp).map_err(|e| format!("{e:?}"))?)
++                .map_err(|e| format!("{e:?}"))?;
++            let edge_tube = edge.map(|e| unit.to_tube(e)).transpose().map_err(|e| format!("{e:?}"))?;
++            let mut used_jet = false;
++            let mut last_drift = 0.0f64;
++            let mut hook = |key: OrbitKey| -> emergent_space::Result<Orbit> {
++                let slot = jets.entry(i).or_insert(None);
++                if let Some(j) = slot.as_mut() {
++                    match j.orbit(key, bound) {
++                        Ok(o) => {
++                            used_jet = true;
++                            last_drift = j.drift(key);
++                            return Ok(o);
++                        }
++                        Err(JetError::ReAnchor) => {
++                            // The bound fired: recompile exactly at the body's state,
++                            // and re-anchor the tables there (both inside the timing).
++                            reanchors += 1;
++                            let o = Orbit::compile(key)?;
++                            let t_a = Instant::now();
++                            if let Ok(nj) = Jet::anchor(o.shape_arc()) {
++                                anchor_us_total += t_a.elapsed().as_secs_f64() * 1e6;
++                                *slot = Some(nj);
++                            }
++                            used_jet = true; // the re-anchor kick itself reads exact tables
++                            last_drift = 0.0;
++                            return Ok(o);
++                        }
++                        Err(JetError::Law(_)) => {
++                            law_fallbacks += 1;
++                            return Orbit::compile(key);
++                        }
++                    }
++                }
++                // First anchor for this body: at its own compiled weak cycle when the
++                // record holds one, else at a fresh exact compile (a passage preceded).
++                let shape: Arc<OrbitShape> = match &rec.b.entry.trajectory {
++                    Trajectory::Cycle(c) => {
++                        anchors_record += 1;
++                        c.shape_arc()
++                    }
++                    _ => {
++                        anchors_compile += 1;
++                        Orbit::compile(key)?.shape_arc()
++                    }
++                };
++                let t_a = Instant::now();
++                match Jet::anchor(shape) {
++                    Ok(mut j) => {
++                        anchor_us_total += t_a.elapsed().as_secs_f64() * 1e6;
++                        match j.orbit(key, bound) {
++                            Ok(o) => {
++                                used_jet = true;
++                                last_drift = j.drift(key);
++                                *slot = Some(j);
++                                Ok(o)
++                            }
++                            Err(JetError::ReAnchor) => {
++                                // The record's shape is already too far (an old binding):
++                                // exact compile, anchored there.
++                                reanchors += 1;
++                                let o = Orbit::compile(key)?;
++                                let t_a = Instant::now();
++                                if let Ok(nj) = Jet::anchor(o.shape_arc()) {
++                                    anchor_us_total += t_a.elapsed().as_secs_f64() * 1e6;
++                                    *slot = Some(nj);
++                                }
++                                used_jet = true;
++                                last_drift = 0.0;
++                                Ok(o)
++                            }
++                            Err(JetError::Law(_)) => {
++                                law_fallbacks += 1;
++                                Orbit::compile(key)
++                            }
++                        }
++                    }
++                    Err(_) => {
++                        // Not a weak-branch cycle (strong field, circle): no jet for this
++                        // body; the exact compile is the fallback, paid per kick.
++                        law_fallbacks += 1;
++                        Orbit::compile(key)
++                    }
++                }
++            };
++            let t0 = Instant::now();
++            let fit = Rebinding::from_state_with(tube_state, tube_time, edge_tube, &mut hook)
++                .map_err(|e| format!("jetted fit: {e:?}"))?;
++            // bind_in's remainder (decode, turn, residual), inside the same timing.
++            let peri = i64::try_from(
++                unit.to_doll(fit.periapsis_time)
++                    .map_err(|e| format!("{e:?}"))?
++                    .fixed(-(clock_exp as i32))
++                    .map_err(|e| format!("{e:?}"))?,
++            )
++            .map_err(|_| "periapsis time outside the clock".to_owned())?;
++            let tube = Tube::new(0, fit.periapsis_angle, peri);
++            let entry = Arc::new(Entry { trajectory: fit.trajectory.clone(), clockwise: fit.clockwise, unit });
++            {
++                let units = (st.length_exponent, st.velocity_exponent);
++                let peri_s = time_of(tube.periapsis_time.get() as i64, clock_exp).map_err(|e| format!("{e:?}"))?;
++                let elapsed = entry
++                    .unit
++                    .to_tube(
++                        time_of(item.t, clock_exp)
++                            .map_err(|e| format!("{e:?}"))?
++                            .sub(peri_s)
++                            .map_err(|e| format!("{e:?}"))?,
++                    )
++                    .map_err(|e| format!("{e:?}"))?;
++                let mut state = entry.trajectory.state(elapsed).map_err(|e| format!("{e:?}"))?;
++                if !entry.unit.unity {
++                    state.radius = entry.unit.to_doll(state.radius).map_err(|e| format!("{e:?}"))?;
++                    state.proper_time = entry.unit.to_doll(state.proper_time).map_err(|e| format!("{e:?}"))?;
++                }
++                let decoded =
++                    cartesian(state, tube.periapsis_angle, entry.clockwise, units).map_err(|e| format!("{e:?}"))?;
++                let q = |a: [i64; 2]| -> emergent_universe::num::V2 {
++                    [Scalar::raw(a[0] as i128, 0).unwrap(), Scalar::raw(a[1] as i128, 0).unwrap()]
++                };
++                let (dp, ep) = (q(decoded.position), q(tube_state.position));
++                let dot = dot2(dp, ep).map_err(|e| format!("{e:?}"))?;
++                let turn = if dot.is_positive() {
++                    Turn::of_tangent(
++                        cross2(dp, ep).map_err(|e| format!("{e:?}"))?.div(dot).map_err(|e| format!("{e:?}"))?,
++                    )
++                    .map_err(|e| format!("{e:?}"))?
++                } else {
++                    Turn::NONE
++                };
++                let _ = (turn.apply(decoded.position), turn.apply(decoded.velocity));
++            }
++            let jet_us = t0.elapsed().as_secs_f64() * 1e6;
++            // 5. Errors of the jetted trajectory against the exact one.
++            match (&exact.entry.trajectory, &fit.trajectory) {
++                (Trajectory::Cycle(ex), Trajectory::Cycle(jt)) => {
++                    if used_jet {
++                        jetted += 1;
++                        let (p_ex, tau_ex, a_ex) = (
++                            to_f64(ex.period().unwrap()),
++                            to_f64(ex.proper_period().unwrap()),
++                            to_f64(ex.advance().unwrap()),
++                        );
++                        let (p_j, tau_j, a_j) = (
++                            to_f64(jt.period().unwrap()),
++                            to_f64(jt.proper_period().unwrap()),
++                            to_f64(jt.advance().unwrap()),
++                        );
++                        let ep = (p_j - p_ex).abs() / p_ex.abs().max(1e-300);
++                        e_period.push(ep);
++                        e_proper.push((tau_j - tau_ex).abs() / tau_ex.abs().max(1e-300));
++                        e_advance.push((a_j - a_ex).abs() / (2.0 * std::f64::consts::PI));
++                        // The state a quarter-cycle out: the readout the next frames see.
++                        let t_q = ex
++                            .period()
++                            .unwrap()
++                            .mul(Scalar::raw(1, -2).unwrap())
++                            .unwrap()
++                            .min(jt.period().unwrap());
++                        if let (Ok(a), Ok(b)) = (ex.state(t_q), jt.state(t_q)) {
++                            let scale = to_f64(a.radius).abs().max(1e-300);
++                            e_radius.push((to_f64(b.radius) - to_f64(a.radius)).abs() / scale);
++                        }
++                        pairs.push((last_drift, ep));
++                    } else {
++                        exact_reads += 1;
++                    }
++                }
++                (Trajectory::Passage(_), _) => passages += 1,
++                _ => {}
++            }
++            // 6. Parity control, every 16th kick: with the exact compile as the hook,
++            // from_state_with must equal from_state bit for bit.
++            if kicks % 16 == 0 {
++                control_checks += 1;
++                let a = Rebinding::from_state_with(tube_state, tube_time, edge_tube, &mut Orbit::compile)
++                    .map_err(|e| format!("{e:?}"))?;
++                let b = Rebinding::from_state(tube_state, tube_time, edge_tube).map_err(|e| format!("{e:?}"))?;
++                let same = a.trajectory.key() == b.trajectory.key()
++                    && a.periapsis_time == b.periapsis_time
++                    && a.periapsis_angle == b.periapsis_angle
++                    && a.residual == b.residual;
++                control_mismatch += usize::from(!same);
++            }
++            t_full.push(full);
++            t_readout.push(readout_us);
++            t_forces.push(forces_us);
++            t_exact.push(exact_us);
++            t_jet.push(jet_us);
++        }
++        s.p.u.frame(1.0 / 60.0, s.rtf, Budget::unlimited());
++        s.p.u.settle(s.p.u.now);
++        frames = n;
++    }
++
++    // The C fit on the drift pairs (error ≈ C·drift²), over kicks with meaningful drift.
++    let mut cs: Vec<f64> = pairs
++        .iter()
++        .filter(|(d, _)| *d > 1e-12)
++        .map(|(d, e)| e / (d * d))
++        .collect();
++    cs.sort_by(f64::total_cmp);
++    let c_median = cs.get(cs.len() / 2).copied().unwrap_or(0.0);
++    let c_p90 = cs.get((cs.len().saturating_sub(1) * 9) / 10).copied().unwrap_or(0.0);
++    let floor = 1e-6;
++    let drift_star = if c_median > 0.0 { (floor / c_median).sqrt() } else { f64::INFINITY };
++    // Per-kick drift steps (the error law's ε), for the kick-count form of n*.
++    let mut steps: Vec<f64> = Vec::new();
++    for w in pairs.windows(2) {
++        let s = (w[1].0 - w[0].0).abs();
++        if s > 0.0 {
++            steps.push(s);
++        }
++    }
++    steps.sort_by(f64::total_cmp);
++    let eps_med = steps.get(steps.len() / 2).copied().unwrap_or(0.0);
++    let n_star_corr = if eps_med > 0.0 && c_median > 0.0 {
++        Some(drift_star / eps_med)
++    } else {
++        None
++    };
++    let mut drift_only: Vec<f64> = pairs.iter().map(|(d, _)| *d).collect();
++    // The jetted resolver sum (the comparable "pure resolver" scope of kick_bench).
++    let mut jet_resolver: Vec<f64> = t_readout
++        .iter()
++        .zip(t_forces.iter().zip(t_jet.iter()))
++        .map(|(a, (b, c))| a + b + c)
++        .collect();
++    let anchors_total = anchors_record + anchors_compile;
++    println!(
++        "{}",
++        serde_json::to_string_pretty(&json!({
++            "scope": "per distinct pending ship kick on deterministic 60 Hz plane snapshots; the shipped kick timed whole, its parts and a jetted rebind replayed on the same snapshot; nothing feeds the universe",
++            "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "kicks": kicks,
++            "bound": bound,
++            "timings_us": {
++                "full_kick": percentiles(&mut t_full),
++                "readout": percentiles(&mut t_readout),
++                "forces": percentiles(&mut t_forces),
++                "exact_bind": percentiles(&mut t_exact),
++                "jet_bind_incl_anchors": percentiles(&mut t_jet),
++                "jet_resolver_sum_readout_forces_jetbind": percentiles(&mut jet_resolver),
++            },
++            "anchors": {
++                "from_record_shape": anchors_record, "from_fresh_compile": anchors_compile,
++                "reanchors_bound": reanchors, "total_priced": anchors_total,
++                "anchor_pricing_us_total": anchor_us_total,
++                "anchor_us_amortized_per_kick_in_window": if kicks > 0 { (anchor_us_total + 0.0) / kicks as f64 } else { 0.0 },
++            },
++            "jet_counters": {
++                "jetted_reads": jetted, "exact_reads": exact_reads, "passage_kicks": passages,
++                "law_fallbacks": law_fallbacks,
++                "control_checks": control_checks, "control_mismatch": control_mismatch,
++            },
++            "errors_vs_exact": {
++                "period_rel": percentiles(&mut e_period),
++                "proper_period_rel": percentiles(&mut e_proper),
++                "advance_rel_2pi": percentiles(&mut e_advance),
++                "radius_rel_quarter_cycle": percentiles(&mut e_radius),
++            },
++            "drift": {
++                "drift_at_jetted_read": percentiles(&mut drift_only),
++                "C_fit": {"median": c_median, "p90": c_p90, "samples": cs.len()},
++                "drift_star_at_1e-6_floor": drift_star,
++                "n_star_kicks_correlated_estimate": n_star_corr,
++                "median_per_kick_drift_step": eps_med,
++                "floor": floor,
++            },
++            "refused": refused,
++            "digest": s.digest_at_cut().1,
++            "machine_before": machine_before,
++            "machine_after": crate::measure::machine_state("after"),
++            "wall_seconds": wall.elapsed().as_secs_f64()
++        }))?
++    );
++    Ok(u8::from(refused != 0 || control_mismatch != 0))
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..29e8910 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -8,6 +8,7 @@
+ //!
+ //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
++mod jet2;
+ mod http;
+ mod kick_bench;
+ mod session;
+@@ -22,6 +23,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
+     let mut it = args.into_iter();
++    let (mut jets2, mut bound) = (false, 5e-4f64);
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+         match a.as_str() {
+@@ -32,6 +34,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
++            "--jet2" => jets2 = true,
++            "--bound" => bound = val("--bound")?.parse()?,
+             "--kick-bench" => kicks = true,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+@@ -52,6 +56,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
++    if jets2 {
++        return jet2::run(s, seconds, bound);
++    }
+     if describe {
+         println!("{}", s.describe());
+         return Ok(0);

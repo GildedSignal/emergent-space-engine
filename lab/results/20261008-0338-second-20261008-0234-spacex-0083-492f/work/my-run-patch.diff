@@ -1,0 +1,125 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..ef8c47e 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -381,6 +381,47 @@ impl Rebinding {
+         fit.residual = Residual::between(state, fit.decoded_event()?);
+         Ok(fit)
+     }
++
++/// Lab experiment hook (run 20261008-0338-second): [`Self::from_state`] with the bound
++/// cycle supplied by the caller (the jet, `crate::orbit::Jet`). Additive only; the shipped
++/// `from_state` never routes through it, and with `Orbit::compile` as the hook it must be
++/// bit-identical to `from_state` (the bench asserts this control).
++pub fn from_state_with(
++    state: IntegerState,
++    event_time: Scalar,
++    passage_edge: Option<Scalar>,
++    cycle: &mut dyn FnMut(OrbitKey) -> Result<Orbit>,
++) -> Result<Self> {
++    let (key, r, clockwise, incoming) = fit_key(state, true)?;
++    let trajectory = if key.periodic() {
++        Trajectory::Cycle(cycle(key)?)
++    } else {
++        Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++    };
++    let (mut offset, mut sample) = trajectory.at_radius(r)?;
++    if incoming {
++        offset = offset.negate();
++        sample.reflect();
++    }
++    let (p, _) = state.components()?;
++    let at = angle(p[0], p[1])?;
++    let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
++    let periapsis_angle = ((orientation << 32) / (2 * PI)) as u32;
++    let mut fit = Self {
++        trajectory,
++        periapsis_time: event_time.sub(offset)?,
++        periapsis_angle,
++        clockwise,
++        residual: Residual {
++            position: [0; 2],
++            velocity: [0; 2],
++        },
++        event_time,
++        units: (state.length_exponent, state.velocity_exponent),
++    };
++    fit.residual = Residual::between(state, fit.decoded_event()?);
++    Ok(fit)
++}
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+         cartesian(
+             self.trajectory.state(self.event_time.sub(self.periapsis_time)?)?,
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..c88b35a 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -6,6 +6,9 @@ use crate::{
+     tables::{EDGE, PI, W, X},
+ };
+ use std::{collections::HashMap, sync::Arc};
++mod jet;
++
++pub use jet::{Jet, JetError};
+ 
+ const HALF: u64 = 1 << 47;
+ const UNIT: u64 = 1 << 48;
+@@ -470,6 +473,10 @@ impl Orbit {
+     pub fn shape(&self) -> &OrbitShape {
+         &self.shape
+     }
++    /// The compiled shape this orbit shares (the jet's reuse path: [`Self::from_shape`]).
++    pub fn shape_arc(&self) -> Arc<OrbitShape> {
++        self.shape.clone()
++    }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
+         if key.null {
+             return Err(Error::NotPeriodic);
+@@ -523,7 +530,7 @@ impl Orbit {
+             increments: [Scalar::ZERO, period, period],
+         })
+     }
+-    fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
++    pub fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+         if shape.key != ShapeKey::for_orbit(key)? {
+             return Err(Error::Topology);
+         }
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..29e8910 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -8,6 +8,7 @@
+ //!
+ //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
++mod jet2;
+ mod http;
+ mod kick_bench;
+ mod session;
+@@ -22,6 +23,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
+     let mut it = args.into_iter();
++    let (mut jets2, mut bound) = (false, 5e-4f64);
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+         match a.as_str() {
+@@ -32,6 +34,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
++            "--jet2" => jets2 = true,
++            "--bound" => bound = val("--bound")?.parse()?,
+             "--kick-bench" => kicks = true,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+@@ -52,6 +56,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
++    if jets2 {
++        return jet2::run(s, seconds, bound);
++    }
+     if describe {
+         println!("{}", s.describe());
+         return Ok(0);

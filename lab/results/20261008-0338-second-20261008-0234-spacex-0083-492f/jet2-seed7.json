@@ -1,0 +1,121 @@
+{
+  "anchors": {
+    "anchor_pricing_us_total": 929.2600000000002,
+    "anchor_us_amortized_per_kick_in_window": 1.1250121065375305,
+    "from_fresh_compile": 0,
+    "from_record_shape": 45,
+    "reanchors_bound": 0,
+    "total_priced": 45
+  },
+  "bound": 0.00015,
+  "digest": "6aa53058e88b1c13183d3783540c599d239f27fb6f9826db80b78773da8b856e",
+  "drift": {
+    "C_fit": {
+      "median": 3.299426542634941,
+      "p90": 25.908428795866786,
+      "samples": 785
+    },
+    "drift_at_jetted_read": {
+      "median": 5.102357367767228e-8,
+      "p99": 1.7744166286879414e-6,
+      "samples": 811
+    },
+    "drift_star_at_1e-6_floor": 0.0005505297187811394,
+    "floor": 1e-6,
+    "median_per_kick_drift_step": 7.482248278591652e-8,
+    "n_star_kicks_correlated_estimate": 7357.811426230339
+  },
+  "errors_vs_exact": {
+    "advance_rel_2pi": {
+      "median": 0.0,
+      "p99": 1.0784758441377485e-21,
+      "samples": 811
+    },
+    "period_rel": {
+      "median": 7.57467167300908e-15,
+      "p99": 5.810001612547794e-12,
+      "samples": 811
+    },
+    "proper_period_rel": {
+      "median": 7.574671689517127e-15,
+      "p99": 5.810001626321607e-12,
+      "samples": 811
+    },
+    "radius_rel_quarter_cycle": {
+      "median": 9.14298588658173e-16,
+      "p99": 1.191669018016389e-12,
+      "samples": 811
+    }
+  },
+  "frames": 600,
+  "jet_counters": {
+    "control_checks": 51,
+    "control_mismatch": 0,
+    "exact_reads": 0,
+    "jetted_reads": 811,
+    "law_fallbacks": 0,
+    "passage_kicks": 15
+  },
+  "kicks": 826,
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-08T04:08:59Z",
+    "unix": 1791432539,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-08T04:08:59Z",
+    "unix": 1791432539,
+    "when": "before"
+  },
+  "refused": 0,
+  "rtf_target": 100.0,
+  "scope": "per distinct pending ship kick on deterministic 60 Hz plane snapshots; the shipped kick timed whole, its parts and a jetted rebind replayed on the same snapshot; nothing feeds the universe",
+  "seed": 7,
+  "timings_us": {
+    "exact_bind": {
+      "median": 52.559000000000005,
+      "p99": 337.618,
+      "samples": 826
+    },
+    "forces": {
+      "median": 7.706999999999999,
+      "p99": 13.33,
+      "samples": 826
+    },
+    "full_kick": {
+      "median": 71.506,
+      "p99": 374.317,
+      "samples": 826
+    },
+    "jet_bind_incl_anchors": {
+      "median": 16.721,
+      "p99": 337.404,
+      "samples": 826
+    },
+    "jet_resolver_sum_readout_forces_jetbind": {
+      "median": 27.856,
+      "p99": 353.05800000000005,
+      "samples": 826
+    },
+    "readout": {
+      "median": 3.335,
+      "p99": 7.56,
+      "samples": 826
+    }
+  },
+  "wall_seconds": 0.356433295
+}
