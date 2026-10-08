@@ -1,0 +1,262 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..4be5400 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -31,7 +31,7 @@
+ //! When the mandatory work does not fit, the horizon stays behind the target: the real-time
+ //! factor dips for a frame, smoothly, and nothing hitches or degrades.
+ use crate::bind::{bind, bind_exact, Binding, Catalogue, Entry};
+-use crate::body::{BodyRec, BodyStore, Kind, PlainBodies, Segment, Thrust, What};
++use crate::body::{BodyRec, BodyStore, Item, Kind, PlainBodies, Segment, Thrust, What};
+ use crate::ctx::{BodyInfo, Config, Ctx};
+ use crate::encounter::{Encounter, Encounters, PlayerNeighbourhood};
+ use crate::fleet::{Fleet, Leaver};
+@@ -114,6 +114,82 @@ impl Stats {
+     }
+ }
+ 
++/// One committed event, as the store saw it (the H_live instrument). `dv` is the kick's velocity
++/// add in quanta of the new binding's velocity exponent; zero for events that are not kicks.
++#[derive(Clone, Copy, Debug)]
++pub struct HliveEvent {
++    pub kind: u8,
++    pub body: u32,
++    pub t: i64,
++    /// Retired segments pushed to history (the scar writes).
++    pub retired: u32,
++    /// The `BodyRec` (with its plan) written back, in bytes.
++    pub rec_bytes: u32,
++    /// A trajectory was compiled and inserted into the catalogue.
++    pub compiled: bool,
++    pub dv: [i64; 2],
++    pub level: u8,
++    pub len: i64,
++    pub clock: bool,
++    pub vel_exp: i16,
++}
++
++/// Counts and samples what the resolver commits, so bits per event can be measured off-line.
++/// It reads `Update`s only; it changes no state and appears in no digest.
++#[derive(Default)]
++pub struct Hlive {
++    pub events: Vec<HliveEvent>,
++    /// The sample cap (the totals keep counting past it).
++    pub cap: usize,
++    pub total: u64,
++    /// Committed events by `Resolved` discriminant (Kick, Open, Boundary, Handoff, Lost, Refused).
++    pub by_kind: [u64; 6],
++    /// Retired segments and `BodyRec` bytes by the same discriminant.
++    pub segs_by_kind: [u64; 6],
++    pub bytes_by_kind: [u64; 6],
++    pub compiled_total: u64,
++}
++impl Hlive {
++    pub fn new(cap: usize) -> Self {
++        Self { cap, ..Default::default() }
++    }
++    fn kind_of(k: step::Resolved) -> u8 {
++        match k {
++            step::Resolved::Kick => 0,
++            step::Resolved::Open => 1,
++            step::Resolved::Boundary => 2,
++            step::Resolved::Handoff => 3,
++            step::Resolved::Lost => 4,
++            step::Resolved::Refused => 5,
++        }
++    }
++    pub fn note(&mut self, i: usize, upd: &step::Update) {
++        let k = Self::kind_of(upd.kind) as usize;
++        let rec_bytes =
++            (std::mem::size_of::<BodyRec>() + upd.rec.plan.len() * std::mem::size_of::<Item>()) as u32;
++        self.total += 1;
++        self.by_kind[k] += 1;
++        self.segs_by_kind[k] += upd.retired.len() as u64;
++        self.bytes_by_kind[k] += rec_bytes as u64;
++        self.compiled_total += u64::from(upd.new_entry.is_some());
++        if self.events.len() < self.cap {
++            self.events.push(HliveEvent {
++                kind: k as u8,
++                body: i as u32,
++                t: upd.rec.b.event_time,
++                retired: upd.retired.len() as u32,
++                rec_bytes,
++                compiled: upd.new_entry.is_some(),
++                dv: upd.rec.b.kick.dv,
++                level: upd.rec.b.kick.level,
++                len: upd.rec.b.kick.len,
++                clock: upd.rec.b.kick.clock,
++                vel_exp: upd.rec.b.units.1,
++            });
++        }
++    }
++}
++
+ /// How a body is made: a tube of a doll from its orbit.
+ #[derive(Clone, Copy, Debug)]
+ pub struct OrbitSpec {
+@@ -156,6 +232,8 @@ pub struct Universe {
+     last_decision: Tick,
+     /// Threads the resolver may use for independent ships.
+     pub threads: usize,
++    /// The H_live recorder: a measurement instrument, off (`None`) on every path that takes a digest.
++    pub hlive: Option<Hlive>,
+     /// The frame's slice of a fleet's battle, in ticks.
+     pub slice: Tick,
+     lanes: Lanes,
+@@ -209,6 +287,7 @@ impl Universe {
+             enc_digest: [0; 32],
+             contacts: 0,
+             resolved: 0,
++            hlive: None,
+             frames: 0,
+             body_cap: 0,
+         }
+@@ -508,6 +587,9 @@ impl Universe {
+     // ---- resolving ------------------------------------------------------------------------------
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
++        if let Some(h) = &mut self.hlive {
++            h.note(i, &upd);
++        }
+         for seg in upd.retired.drain(..) {
+             self.cat.release(seg.b.tube.key);
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+diff --git a/xtask/src/universe/hlive.rs b/xtask/src/universe/hlive.rs
+new file mode 100644
+index 0000000..bc1b115
+--- /dev/null
++++ b/xtask/src/universe/hlive.rs
+@@ -0,0 +1,92 @@
++//! `universe --h-live`: what the resolver commits, per game-second, measured as events, written
++//! bytes and the kicks' `dv` streams (the storage component's floor work: bits of live
++//! distinguishing information against bytes of scar). The recorder changes no state and no digest.
++use super::{script, Session};
++use emergent_universe::body::{BodyRec, Item, Segment};
++use emergent_universe::bind::Binding;
++use emergent_universe::universe::Hlive;
++use emergent_universe::view::TICK_SECONDS;
++use serde_json::json;
++use std::io::Write;
++use std::time::Instant;
++
++pub(super) fn run(mut s: Session, seconds: f64, cap: usize, csv: Option<String>) -> crate::Result<u8> {
++    let machine_before = crate::measure::machine_state("before");
++    let made_n = s.n_bodies();
++    s.p.u.hlive = Some(Hlive::new(cap));
++    let wall = Instant::now();
++    let mut frames = 0usize;
++    let mut keys = 0u8;
++    for n in 1..=(seconds * 60.0) as usize {
++        if wall.elapsed().as_secs_f64() >= 55.0 {
++            return Err("h-live run exceeded 55 s; no complete result".into());
++        }
++        let now = s.p.u.now;
++        if keys != script(n) {
++            keys = script(n);
++            s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
++        }
++        s.p.u.frame(1.0 / 60.0, s.rtf, emergent_universe::Budget::unlimited());
++        s.p.u.settle(s.p.u.now);
++        frames = n;
++    }
++    let h = s.p.u.hlive.take().unwrap_or_default();
++    let game_seconds = s.p.u.now as f64 * TICK_SECONDS;
++    let segment_bytes = std::mem::size_of::<Segment>() as u64;
++    let names = ["kick", "open", "boundary", "handoff", "lost", "refused"];
++    let by_kind: Vec<serde_json::Value> = names
++        .iter()
++        .enumerate()
++        .map(|(k, name)| {
++            json!({
++                "kind": name,
++                "events": h.by_kind[k],
++                "events_per_game_second": h.by_kind[k] as f64 / game_seconds,
++                "segments": h.segs_by_kind[k],
++                "segment_bytes": h.segs_by_kind[k] * segment_bytes,
++                "rec_bytes": h.bytes_by_kind[k],
++            })
++        })
++        .collect();
++    // The store's live bytes per body (records, plans, catalogue share of the compiled shape, history).
++    let mut store_bytes = 0u64;
++    for i in 0..s.n_bodies() {
++        store_bytes += s.p.u.bodies().bytes_of(i) as u64;
++    }
++    let out = json!({
++        "scope": "committed resolver events (the persistent-store commit path); fleet-internal battle slices excluded (they write no segments)",
++        "seed": s.seed, "rtf": s.rtf, "frames": frames, "members_made": made_n,
++        "game_seconds": game_seconds, "wall_seconds": wall.elapsed().as_secs_f64(),
++        "events_total": h.total, "events_sampled": h.events.len(),
++        "events_per_game_second": h.total as f64 / game_seconds,
++        "compiled_inserts": h.compiled_total,
++        "sizes": {
++            "segment": segment_bytes,
++            "binding": std::mem::size_of::<Binding>(),
++            "body_rec": std::mem::size_of::<BodyRec>(),
++            "item": std::mem::size_of::<Item>(),
++            "tube": emergent_universe::body::tube_bytes(),
++        },
++        "by_kind": by_kind,
++        "store_bytes_total": store_bytes,
++        "n_bodies_final": s.n_bodies(),
++        "bytes_per_body": s.p.u.bytes_per_body(),
++        "digest": s.digest_at_cut().1,
++        "machine_before": machine_before,
++        "machine_after": crate::measure::machine_state("after"),
++    });
++    println!("{}", serde_json::to_string_pretty(&out)?);
++    if let Some(path) = csv {
++        let mut f = std::fs::File::create(&path)?;
++        writeln!(f, "kind,body,t,retired,rec_bytes,compiled,dv0,dv1,level,len,clock,vel_exp")?;
++        for e in &h.events {
++            writeln!(
++                f,
++                "{},{},{},{},{},{},{},{},{},{},{},{}",
++                e.kind, e.body, e.t, e.retired, e.rec_bytes, u8::from(e.compiled),
++                e.dv[0], e.dv[1], e.level, e.len, u8::from(e.clock), e.vel_exp
++            )?;
++        }
++    }
++    Ok(0)
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..8b05e4b 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -10,6 +10,7 @@
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+ mod http;
+ mod kick_bench;
++mod hlive;
+ mod session;
+ 
+ use serde_json::json;
+@@ -21,6 +22,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let (mut hlive, mut cap, mut csv) = (false, 2_000_000usize, None::<String>);
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -33,7 +35,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
+-            "--unpaced" => paced = false,
++            "--h-live" => hlive = true,
++            "--cap" => cap = val("--cap")?.parse()?,
++            "--csv" => csv = Some(val("--csv")?),
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+             "--describe" => describe = true,
+@@ -52,6 +56,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
++    if hlive {
++        return hlive::run(s, seconds, cap, csv);
++    }
+     if describe {
+         println!("{}", s.describe());
+         return Ok(0);

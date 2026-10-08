@@ -1,0 +1,157 @@
+{
+ "label": "seed1 rtf1e4",
+ "kicks_sampled": 96035,
+ "all": {
+  "support_pairs": 93131,
+  "distinct_share": 0.9698,
+  "distinct_bodies": 399,
+  "kicks_per_body_median": 42,
+  "E_bitlen_dv0": 27.37,
+  "E_bitlen_dv1": 26.49,
+  "H_shape_bits": 6.27,
+  "floor_bits_per_kick_exact": 60.1,
+  "p50_bitlen_dv0": 25,
+  "p99_bitlen_dv0": 41,
+  "zero_dv_share": 0.0017,
+  "kicks_per_body_max": 4831
+ },
+ "leavers": {
+  "support_pairs": 81589,
+  "distinct_share": 0.9661,
+  "distinct_bodies": 372,
+  "kicks_per_body_median": 43,
+  "E_bitlen_dv0": 26.63,
+  "E_bitlen_dv1": 25.75,
+  "H_shape_bits": 5.9,
+  "floor_bits_per_kick_exact": 58.3,
+  "p50_bitlen_dv0": 25,
+  "p99_bitlen_dv0": 41,
+  "zero_dv_share": 0.0014,
+  "kicks_per_body_max": 4831
+ },
+ "zlib_bits_per_kick": 64.33,
+ "meta": {
+  "game_seconds": 100000.0,
+  "events": 188695,
+  "events_per_game_second": 1.887,
+  "kick_rate_per_game_second": 0.9604,
+  "kick_share_of_events": 0.509,
+  "segment_bytes": 192,
+  "bytes_written_per_kick": 659.9,
+  "segment_share": 0.283,
+  "store_bytes_total": 3114784,
+  "store_bytes_growth_per_game_second": 31.15,
+  "bodies_made": 28
+ }
+}
+{
+ "label": "seed7 rtf1e4",
+ "kicks_sampled": 172403,
+ "all": {
+  "support_pairs": 170158,
+  "distinct_share": 0.987,
+  "distinct_bodies": 388,
+  "kicks_per_body_median": 69,
+  "E_bitlen_dv0": 26.2,
+  "E_bitlen_dv1": 25.28,
+  "H_shape_bits": 5.75,
+  "floor_bits_per_kick_exact": 57.2,
+  "p50_bitlen_dv0": 25,
+  "p99_bitlen_dv0": 40,
+  "zero_dv_share": 0.001,
+  "kicks_per_body_max": 4803
+ },
+ "leavers": {
+  "support_pairs": 158616,
+  "distinct_share": 0.9864,
+  "distinct_bodies": 361,
+  "kicks_per_body_median": 69,
+  "E_bitlen_dv0": 25.72,
+  "E_bitlen_dv1": 24.8,
+  "H_shape_bits": 5.45,
+  "floor_bits_per_kick_exact": 56.0,
+  "p50_bitlen_dv0": 25,
+  "p99_bitlen_dv0": 40,
+  "zero_dv_share": 0.0008,
+  "kicks_per_body_max": 4803
+ },
+ "zlib_bits_per_kick": 62.77,
+ "meta": {
+  "game_seconds": 100000.0,
+  "events": 343025,
+  "events_per_game_second": 3.43,
+  "kick_rate_per_game_second": 1.724,
+  "kick_share_of_events": 0.503,
+  "segment_bytes": 192,
+  "bytes_written_per_kick": 657.1,
+  "segment_share": 0.289,
+  "store_bytes_total": 3794808,
+  "store_bytes_growth_per_game_second": 37.95,
+  "bodies_made": 28
+ }
+}
+{
+ "label": "seed1 rtf1e5 (stride-2 file)",
+ "kicks_sampled": 162710,
+ "all": {
+  "support_pairs": 160877,
+  "distinct_share": 0.9887,
+  "distinct_bodies": 387,
+  "kicks_per_body_median": 28,
+  "E_bitlen_dv0": 26.53,
+  "E_bitlen_dv1": 26.35,
+  "H_shape_bits": 6.11,
+  "floor_bits_per_kick_exact": 59.0,
+  "p50_bitlen_dv0": 25,
+  "p99_bitlen_dv0": 40,
+  "zero_dv_share": 0.0054,
+  "kicks_per_body_max": 9781
+ },
+ "leavers": {
+  "support_pairs": 137921,
+  "distinct_share": 0.9875,
+  "distinct_bodies": 360,
+  "kicks_per_body_median": 29,
+  "E_bitlen_dv0": 25.51,
+  "E_bitlen_dv1": 25.32,
+  "H_shape_bits": 5.61,
+  "floor_bits_per_kick_exact": 56.4,
+  "p50_bitlen_dv0": 25,
+  "p99_bitlen_dv0": 40,
+  "zero_dv_share": 0.0056,
+  "kicks_per_body_max": 9781
+ },
+ "zlib_bits_per_kick": 64.86,
+ "meta": {
+  "game_seconds": 400000.0,
+  "events": 648095,
+  "events_per_game_second": 1.62,
+  "kick_rate_per_game_second": 0.8143,
+  "kick_share_of_events": 0.503,
+  "segment_bytes": 192,
+  "bytes_written_per_kick": 657.2,
+  "segment_share": 0.29,
+  "store_bytes_total": 14119808,
+  "store_bytes_growth_per_game_second": 35.3,
+  "bodies_made": 28
+ }
+}
+
+== floor comparison (seed1 rtf1e4) ==
+floor per kick: exact-description 60.1 bits (7.5 B); zlib achieved 64.33 bits; law model 62 bits
+written per kick: 659.9 B -> idiot index 88x (exact floor), 82x (zlib)
+history Segment alone: 192 B = 26x the floor, kept forever (no prune on the flight path)
+
+== projection ==
+leaver bodies seen: 372, median kicks/body in-run: 43
+per-body scar floor at 62 bits and 0.3 kicks/orbit: 2.3 B/orbit; a 16 B tube equals ~7 orbits of scars
+  at the measured per-body kick rate (2.58e-03/game-s): 1.20 B/body after 60 game-s; 10^9 bodies -> 1.12 GiB
+  unpruned Segment accumulation (upper bound; the plane prunes at the light cone): 30 B/body -> 28 GiB at a billion
+  at the measured per-body kick rate (2.58e-03/game-s): 72.03 B/body after 3600 game-s; 10^9 bodies -> 67.08 GiB
+  unpruned Segment accumulation (upper bound; the plane prunes at the light cone): 1784 B/body -> 1662 GiB at a billion
+  at the measured per-body kick rate (2.58e-03/game-s): 1728.72 B/body after 86400 game-s; 10^9 bodies -> 1610.00 GiB
+  unpruned Segment accumulation (upper bound; the plane prunes at the light cone): 42828 B/body -> 39886 GiB at a billion
+
+== instrument checks ==
+constant stream: floor bits would be ~H(shape) = -0.000 (expect 0)
+iid stream order-1 12.29 vs shuffled 12.29 bits (must match: no structure to lose)

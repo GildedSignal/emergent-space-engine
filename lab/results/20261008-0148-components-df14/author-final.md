@@ -1,0 +1,4 @@
+Working...
+Run complete. Dossier at `lab/results/20261008-0148-components-df14/dossier.md`; controls passed (digests bit-identical pristine↔patched and on repeats; entropy tool checked both ways).
+
+**Claim:** measured on the plane's commit path, one kick carries ~60 bits of live distinguishing information — the law's "+62 bits/kick" model is honest to 3%, but the store writes 660 B per kick (88× the floor, mostly re-derivable `BodyRec`/plan rewrites; history itself is already light-cone pruned), and since 8 GB over 10⁹ bodies is 8 B/body, one kick's worth of exact distinction per body is the entire budget — confirming with numbers that distinctions per game-second, not body count, decide scale, and that H_live must be measured as exact description length because frequency entropy saturates (97–99% of kick `dv` pairs are distinct).
