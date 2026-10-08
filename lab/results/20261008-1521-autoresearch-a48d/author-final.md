@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261008-1521-autoresearch-a48d/`: `dossier.md`, `predictions.md` (pre-registered), `log.md`, `work/patch.diff` (2-file change + the stage bench). Verification: replay digest `dac49af3…` identical across all six bench runs (3 baseline, 3 changed); all suites green (160 tests, 0 failures); baseline medians 72.08/73.41/72.27 µs vs 42.06/63.37*/44.99 µs changed (*one contended run on the shared box).
+
+**Claim:** deleting the kick-path rebind's second trajectory decode — `Rebinding::from_state` computed a residual that `bind_in` discards, so a new `fit_only` constructor skips it — cuts the plane's pure kick resolve by ~38% (72.3 → 45.0 µs median, like-for-like; min-of-3 −42%) with bit-identical replays, because for fleet members the deleted decode is a full `Passage::state` solve per kick.
