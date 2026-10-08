@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions frozen before the panel, 14 arms + level sweep + determinism check run, dossier written, all data and the bench (`wake.rs`, `analyze.py`) in `lab/results/20261008-1252-quant-291f/`.
+
+**The claim:** one player order (a held 11,561 g burn at 100× RTF) wakes a bounded ~2,000-event transient — owned by the player's own kicks+boundaries and the fleet's slices, not opens/handoffs — that saturates the 5 ms frame budget for 94–116 frames (coast: 0) and drops instantaneous RTF to ~0.23× (held average 86–94×) without ever exceeding 3.1× the coast p99.9 frame time or breaking exactness: at a fixed canonical cut, repeated budgeted runs are bit-identical, provided player inputs are stamped at canonical ticks rather than schedule-derived "now" — the trap my first bench fell into, and the constraint the root-clock-keys build should own.

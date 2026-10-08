@@ -1,0 +1,11 @@
+Working...
+Check complete: **`Grade: silver`** written to `lab/results/20261008-1252-quant-291f/check.md`; tree restored to its start state (`git apply -R` of the author's patch, my temp probe example removed; only `lab/results/` untracked, as found).
+
+**What I did and found:**
+
+- **Reproduced** from a clean tree: fresh seed-2 panel matches the author within ±1% (wake 1,929 vs 1,921 events; 95 vs 95 overflow frames; owners kick +561 / bound +515 / slice +3,046 / enc +46). `analyze.py` on the stored CSVs regenerates every dossier number, and per-frame re-analysis confirms the 768-ticks/frame stall floor, the 94–116 sub-⅓-rate frames, and slice-dominant worst frames. Digest determinism reproduced exactly (`47dd9c71…` ×3, `6ed7b26b…` ×2).
+- **Extended exactness beyond the claim**: identical fixed-cut digests at 1 ms and 10 ms budgets and at rtf 200 — budget- and schedule-independent, not just repeat-stable.
+- **Two adversarial probes that matter:**
+  1. *Fleet-stripped plane (members 48→4)* — the dossier's own falsifiable next probe, run causally: the event count collapses to 720 (its "player's own 500–1,100" prediction holds), **but the dip does not** — 69 frames still over budget, min rate 0.3%, and the worst frames are pure `c_player` items (5.6–6.6 ms, `c_fleet` = 0). The RTF dip is player-owned; the encounter skin cuts counts, not the dip.
+  2. *Held-out seed 4*: net wake 704 with dslice = −1,681 — the "~2,000 events" headline is the player's ~700-event wake plus fleet-phase noise; ratio 4.34×, so "≤ 3.1×" is baseline-relative. The invariants across seeds 1–4 and both fleet sizes: the ~500–1,100 player kick+bound wake, 69–116 overflow frames, 768–1,024 ticks/frame floor, and exactness.
+- **Why silver, not gold**: three of six held-out predictions failed (P3, P4, P5 — honestly reported), failing the lab's gold bar; the author's own frozen band rule (HOLD needs ≤ 3×) is marginally breached at seed 2. Also, instrument lesson 1 (canonical-tick input stamps) is already adopted ground (H0213, law.md Ties, taleb-c271), uncited. The gold experiment: precompute the burn's own events in idle time and show overflow → 0 at unchanged digest — my fleet-4 probe proves it must cover the player's own items, not just fleet slices.
