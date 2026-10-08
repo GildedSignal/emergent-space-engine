@@ -1,0 +1,4 @@
+Working...
+Clean rebuild reproduces every digest; all artifacts in place; no crate, gate, or `main` touched.
+
+**The claim:** the checker's named gold condition — a digest-identical speedup from wiring the re-anchored jet into the plane's rebind — is unsatisfiable (exact reuse hits 0 of 4,367 fired kicks across five seeds and every real reuse path changes bits on 100% of key steps, ~10⁻⁹ relative ≈ 4×10⁹ Scalar ulps), while the honest prize on the same stream is the crate's own `QuantizedMemo` boundary reusing the compiled shape on 92.5–95.1% of fired kicks at 0.55 µs per use against a 37–55 µs fresh compile (~70×), with the jet's re-anchor never firing in the plane (drift p50 ≈ 7×10⁻⁹/kick, n* ≈ 10⁵ kicks) — a realized ≈1.9× on ship kick items (≈1.25× on the frame), and only as a B-judged law change, never an optimization.

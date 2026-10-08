@@ -1,0 +1,17 @@
+seed 1: fired 891 (player 73 of 73 items), carried 0, mismatches 0
+                 fired:     818 calls,   101.08 us/call
+          fired-player:      73 calls,    34.47 us/call
+                   ext:      12 calls,    50.68 us/call
+     rebind from_state:     818 calls,    66.02 us/call
+   rebind compile-only:     868 calls,    52.15 us/call
+       reuse shape-hit:     891 calls,     0.54 us/call
+       reuse quant-hit:     891 calls,     0.55 us/call
+  per fired ship kick: from_state 66.0 us, compile 55.3 us (84% of from_state), shape-hit reuse 0.6 us
+  recurrence over 839 consecutive-kick pairs: exact key 0, exact ShapeKey 0, MemoCode 834; weak-branch shapes 891/891
+  end-to-end memo feeds: ShapeMemo hits 868 of 891, QuantizedMemo hits 1702 of 891, stored 34
+  MemoCode collisions across all fired kicks: 834 extra kicks sharing a code (34 distinct)
+  per-kick key drift |dln|: p50 6.69e-9 p95 9.90e-8 max 8.85e-6; re-anchors at sqrt(floor/C)=7.3e-4: 0
+  implied jet cadence (correlated worst case): n* = sqrt(floor/C)/eps = 108436 kicks -> 0.000 compiles/kick
+  bit identity across a key step: increments equal 0/839, quarter-period state reads equal 0/839
+  relative period change between consecutive keys: p50 1.29e-9 p95 1.01e-7 (vs Scalar ulp 2^-62 = 2.2e-19)
+  digest ba7a72dd3e7a7b08f1d31fcdc6ec01d2f09d0323079d8dc1f377c31e0cf114c1
