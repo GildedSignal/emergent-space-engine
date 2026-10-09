@@ -1,0 +1,127 @@
+{
+ "rows": [
+  {
+   "name": "M1/x86 factor (frozen M1 anchor 4345.4 us / this run 8071.9 us)",
+   "val": "0.61"
+  },
+  {
+   "name": "pairs/kick law check: a4/g5w/g5W/g6w/g6W/g6Wd measured vs 0.0346*n*(1+X)/(2(X-1))",
+   "val": "866~865 / 8284~8650 / 1975~1977 / 86332~86500 / 18704~17532 / 20926~19771"
+  },
+  {
+   "name": "1e7 case",
+   "val": "not run to completion (>300 s/kick, loaded runner); law extrapolates 1.7e5 pairs/kick"
+  },
+  {
+   "name": "cells soundness (exact candidate-set equality vs global, kicks with mismatches)",
+   "val": "30 kicks, 0 mismatches"
+  },
+  {
+   "name": "kick arithmetic (incremental + 0.05 compiles/kick)",
+   "val": "4.89e-05 cores"
+  },
+  {
+   "name": "cascade per CELL of n=1e+04, two-tier, no skin (M1-implied)",
+   "val": "0.966 cores"
+  },
+  {
+   "name": "cascade per cell, + slack skin 12.6x",
+   "val": "0.0767 cores"
+  },
+  {
+   "name": "cascade per cell, phase-neighbour rank-4",
+   "val": "4.75e-03 cores"
+  },
+  {
+   "name": "local cell index: per-pair gain at equal geometry (n=1e6, X=150: 8.68 -> 3.95 us x86)",
+   "val": "2.20x -> skin cascade 0.0349 cores"
+  },
+  {
+   "name": "SINGLE BELT at 1e9, X=1.5 (law 8.66e7 pairs/kick): cascade",
+   "val": "1.0e+05 cores"
+  },
+  {
+   "name": "SINGLE BELT at 1e9, wide (law 1.75e7 pairs/kick): cascade",
+   "val": "2.1e+04 cores"
+  },
+  {
+   "name": "cascade per cell, UNAVERAGED k=32, +skin / no skin",
+   "val": "8.76 / 110 cores"
+  },
+  {
+   "name": "event queue, WINDOW-level keys, no skin (813 pop+push/kick @ 176 ns)",
+   "val": "0.0318 cores"
+  },
+  {
+   "name": "event queue, window-level, with skin",
+   "val": "0.0017 cores"
+  },
+  {
+   "name": "event queue, CELL-level keys (7.2 updates/kick)",
+   "val": "2.82e-04 cores"
+  },
+  {
+   "name": "queue memory: per-body keys / cell keys (1 per 128-body block)",
+   "val": "12.0 GB (>8) / 94 MB"
+  },
+  {
+   "name": "queue depth at cell keys (1e5 cells) / window keys (per pair)",
+   "val": "1e+05 / 4.3e+16 windows (does not fit; even cell-partitioned: 4.3e+11 x 12 B = 5190.0 GB)"
+  },
+  {
+   "name": "encounter handling (0.04/body/orbit, corrected)",
+   "val": "3.17e-05 cores"
+  },
+  {
+   "name": "program memory",
+   "val": "15.8 MB"
+  },
+  {
+   "name": "scars at live fraction 1% (24 B each)",
+   "val": "0.24 GB"
+  },
+  {
+   "name": "scars at live fraction 10% (24 B each)",
+   "val": "2.40 GB"
+  },
+  {
+   "name": "scars at live fraction 33% (24 B each)",
+   "val": "7.92 GB"
+  },
+  {
+   "name": "global U-index, shipped Sorted layout (16 B/body)",
+   "val": "16.0 GB  (> 8 GB \u2014 cell-local indexes, built on demand, 0.07 s per 1e6 measured)"
+  },
+  {
+   "name": "scar creation vs reabsorption",
+   "val": "222/s vs 5.7e+06/s/core (3e+04x slack)"
+  },
+  {
+   "name": "max rtf on 4 cores: averaged + skin",
+   "val": "5,216"
+  },
+  {
+   "name": "max rtf on 4 cores: averaged, no skin",
+   "val": "414"
+  },
+  {
+   "name": "max rtf on 4 cores: averaged + phase-neighbour",
+   "val": "84,125"
+  },
+  {
+   "name": "re-derivation of board's '190 cores' (k=32, no skin, rtf 100, per cell)",
+   "val": "110 cores"
+  }
+ ],
+ "constants": {
+  "pairs_anchor": 812.8,
+  "us_pair_x86": 8.84,
+  "us_pair_m1": 5.349152787834902,
+  "m1_factor": 0.6051077814292876,
+  "ns_queue": 176,
+  "changed": 0.0024,
+  "skips": 0.9458,
+  "cells_touched": 6.2,
+  "law_k": 0.0346
+ }
+}

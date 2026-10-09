@@ -1,0 +1,15 @@
+[package]
+name = "cascade-bench"
+version = "0.1.0"
+edition = "2021"
+
+# Uses the SHIPPED encounters crate unmodified (path dependency, std only).
+
+# Match the repo workspace release profile so the dependency compiles identically.
+[profile.release]
+lto = "thin"
+[dependencies]
+emergent-encounters = { path = "../../../../crates/encounters" }
+
+# Opt out of the repo workspace; build with CARGO_TARGET_DIR outside the tree.
+[workspace]
