@@ -1,0 +1,166 @@
+diff --git a/crates/shipmem/examples/hlive.rs b/crates/shipmem/examples/hlive.rs
+new file mode 100644
+index 0000000..0f5df15
+--- /dev/null
++++ b/crates/shipmem/examples/hlive.rs
+@@ -0,0 +1,160 @@
++//! H_live trajectory: `hlive <m> <f> <rounds> <seed> [out.jsonl]`.
++//! A convoy born on a perfect program takes f·m fresh kicks per round (the crate's own
++//! `Pop::Convoy.kick` magnitudes); each round seals form P and compacts form B. Every line is
++//! one round: bits/body for P, B and chosen = min, scar count, mean kicks/body, distinct
++//! kicked fraction, whether `infer` still finds the launch program, and update costs.
++//! Controls: f = 0 (program floor, must stay flat) and the `random` rung (incompressible
++//! side) via `hlive random <m>`.
++use emergent_shipmem::codec::{Buf, Enc, MAXC};
++use emergent_shipmem::pop::{ladder, Pop, Rng, Rung};
++use emergent_shipmem::program::{infer, Program};
++use emergent_shipmem::shelf::{Kind, Shelf, Ship};
++use std::io::Write;
++use std::time::Instant;
++
++const COLS: usize = 5;
++
++fn state() -> String {
++    let read = |p: &str| std::fs::read_to_string(p).unwrap_or_default();
++    let load = read("/proc/loadavg").split_whitespace().next().unwrap_or("?").to_string();
++    let mem = read("/proc/meminfo");
++    let free = mem.lines().find(|l| l.starts_with("MemAvailable:")).unwrap_or_default().trim().to_string();
++    format!("load {load} ; {free}")
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let random_control = a[1] == "random";
++    let m: usize = a[if random_control { 2 } else { 1 }].parse().unwrap();
++    let f: f64 = if random_control { 0.0 } else { a[2].parse().unwrap() };
++    let rounds: usize = if random_control { 1 } else { a[3].parse().unwrap() };
++    let seed: u64 = if random_control { 0 } else { a[4].parse().unwrap() };
++    let out_path = a.last().cloned().filter(|s| s.ends_with(".jsonl"));
++    let before = state();
++    let wall = Instant::now();
++    let mut enc = Enc::new(true);
++    let rung = if random_control { Rung::Random } else { Rung::Rate(0.0) };
++
++    let (mut mem, floor_bits, prog0) = ladder(rung, m, seed);
++    let n = mem.len() as f64;
++    let mut prog = prog0.map(|p| Program::with_prog(&mem, COLS, p, &mut enc));
++    let mut shelf = Shelf::new(COLS, 128, Pop::Convoy.orders(), true);
++    let grange = shelf.add_group(&mut mem, Kind::Slot { grid: 0 }).clone();
++    shelf.shrink();
++
++    // Incompressible control: one measurement, no kicks.
++    if random_control {
++        let line = format!(
++            "{{\"case\":\"random\",\"m\":{},\"floor_bits_per\":{:.2},\"b_bits_per\":{:.2},\"p_bits_per\":null,\"mismatches\":0,\"wall_s\":{:.1},\"before\":\"{}\"}}\n",
++            m, floor_bits / n, shelf.bytes() as f64 * 8.0 / n, wall.elapsed().as_secs_f64(), before
++        );
++        print!("{line}");
++        if let Some(p) = out_path { std::fs::write(p, line).unwrap(); }
++        return;
++    }
++
++    let mut krng = Rng::new(seed ^ 0xE7E47);
++    let mut hits = vec![0u8; m]; // saturating kick count per ordinal
++    let mut total_kicks = 0usize;
++    let mut upd_ns = 0u128;
++    let mut seal_ns = 0u128;
++    let mut comp_ns = 0u128;
++    let mut mismatches = 0u64;
++    let per_round = (f * m as f64) as usize;
++    let mut out = String::new();
++
++    for r in 1..=rounds {
++        let t0 = Instant::now();
++        let targets: Vec<usize> = (0..per_round).map(|_| krng.below(m as u64) as usize).collect();
++        for &i in &targets {
++            let s = Pop::Convoy.kick(&mem[i], &mut krng);
++            mem[i] = s;
++            hits[i] = hits[i].saturating_add(1);
++            if let Some(p) = prog.as_mut() {
++                p.update(i as u64, s);
++            }
++            shelf.update(((i / 128) as u32) << 8 | (i % 128) as u32, s);
++        }
++        total_kicks += per_round;
++        upd_ns += t0.elapsed().as_nanos();
++        let t1 = Instant::now();
++        if let Some(p) = prog.as_mut() {
++            p.seal(&mut enc);
++        }
++        seal_ns += t1.elapsed().as_nanos();
++        let t2 = Instant::now();
++        shelf.compact();
++        shelf.tidy();
++        comp_ns += t2.elapsed().as_nanos();
++
++        let p_bits = prog.as_ref().map(|p| p.bytes() as f64 * 8.0);
++        let scars = prog.as_ref().map(|p| p.scars()).unwrap_or(0);
++        let b_bits = shelf.bytes() as f64 * 8.0;
++        let chosen = match p_bits {
++            Some(p) => p.min(b_bits),
++            None => b_bits,
++        };
++        let infer_ok = infer(&mem, COLS).is_some();
++        let distinct = hits.iter().filter(|&&h| h > 0).count() as f64;
++        let kbar = total_kicks as f64 / n;
++
++        // Round-trip proof every 8 rounds and at the end: bit-exact against `mem`.
++        if r % 8 == 0 || r == rounds {
++            let mut buf = Buf::default();
++            let mut rbuf = Buf::default();
++            let mut bad_p = 0u64;
++            if let Some(p) = prog.as_ref() {
++                p.for_each(&mut buf, &mut rbuf, |s0, b| {
++                    for i in 0..b.n {
++                        bad_p += (0..COLS).any(|c| b.col[c][i] != mem[s0 as usize + i][c]) as u64;
++                    }
++                });
++            }
++            let g = shelf.groups[grange.start as usize];
++            let mut k = 0usize;
++            let mut bad_b = 0u64;
++            for bi in g.first as usize..(g.first + g.nb) as usize {
++                shelf.decode_into(bi, &mut buf);
++                for i in 0..buf.n {
++                    bad_b += (0..COLS).any(|c| buf.col[c][i] != mem[k][c]) as u64;
++                    k += 1;
++                }
++            }
++            mismatches += bad_p + bad_b + (k != mem.len()) as u64;
++            eprintln!("verify r={r}: bad_p={bad_p} bad_b={bad_b} decoded={k} of {}", mem.len());
++        }
++
++        out.push_str(&format!(
++            "{{\"round\":{},\"kbar\":{:.3},\"distinct_frac\":{:.4},\"p_bits_per\":{:.2},\"b_bits_per\":{:.2},\"chosen_bits_per\":{:.2},\"scars\":{},\"scar_frac\":{:.4},\"infer_ok\":{},\"upd_ns_per_kick\":{:.0},\"p_seal_ns_per_kick\":{:.0},\"b_compact_ns_per_kick\":{:.0},\"mismatches\":{}}}\n",
++            r, kbar, distinct / n,
++            p_bits.map(|b| b / n).unwrap_or(f64::NAN), b_bits / n, chosen / n,
++            scars, scars as f64 / n, infer_ok,
++            upd_ns as f64 / per_round.max(1) as f64, seal_ns as f64 / per_round.max(1) as f64,
++            comp_ns as f64 / per_round.max(1) as f64,
++            mismatches,
++        ));
++        // Marginal costs reset each round so the line shows the per-round marginal, not the mean.
++        upd_ns = 0; seal_ns = 0; comp_ns = 0;
++    }
++    // Re-family probe: the diffused population re-sorted by t (col 0) and by E (col 2), stored
++    // as fresh shelves (birth-order blocks, dictionaries). If sorting reabsorbs the diffusion,
++    // this lands far below the scar cost; if not, the information is genuinely there.
++    for (name, key) in [("resort_t", 0usize), ("resort_E", 2usize)] {
++        let mut sorted = mem.clone();
++        sorted.sort_unstable_by_key(|s| s[key]);
++        let mut sh = Shelf::new(COLS, 128, Pop::Convoy.orders(), true);
++        sh.add_group(&mut sorted, Kind::Slot { grid: 0 });
++        sh.shrink();
++        let inf = infer(&sorted, COLS).is_some();
++        out.push_str(&format!(
++            "{{\"case\":\"{name}\",\"b_bits_per\":{:.2},\"infer_ok\":{}}}\n",
++            sh.bytes() as f64 * 8.0 / n, inf
++        ));
++    }
++    print!("{out}");
++    if let Some(p) = out_path {
++        let mut f = std::fs::File::create(p).unwrap();
++        f.write_all(out.as_bytes()).unwrap();
++    }
++    eprintln!("wall {:.1}s ; floor {:.2} bits/body ; before: {} ; after: {}", wall.elapsed().as_secs_f64(), floor_bits / n, before, state());
++}
