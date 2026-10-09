@@ -1,0 +1,300 @@
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..793cdbe 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -46,6 +46,65 @@ use emergent_space::{
+ };
+ use std::sync::Arc;
+ 
++/// Coarse wall-clock timers for both kick paths (lab run 20261009-0521: stage shares on the path the
++/// kick bench actually samples — the legacy split `fn kick`, not the register's `kick_clock`).
++/// Thread-local, additive, printed by the kick bench; zero effect when unread. Paths are accumulated
++/// separately (LEGACY = `fn kick`, CLOCK = `kick_clock`, the energy-register path of law v2), and so
++/// are three phases: 0 = the bench's replayed kicks, 1 = the bench's cold-paired replays, 2 = the
++/// engine's own calls while advancing frames. A phase is just a slot key: the caller sets it around
++/// the calls it wants attributed together.
++pub mod stages {
++    pub const N: usize = 6;
++    /// readout, gather (sources+tide), forces+velocity update, rebind, other, total.
++    pub const NAMES: [&str; N] = ["readout", "gather", "forces_quant", "rebind", "other", "total"];
++    pub const LEGACY: u8 = 0;
++    pub const CLOCK: u8 = 1;
++    pub const SLOTS: usize = 6;
++    thread_local! {
++        static NS: std::cell::RefCell<[[u64; N]; SLOTS]> = const { std::cell::RefCell::new([[0; N]; SLOTS]) };
++        static ADDS: std::cell::RefCell<[[u64; N]; SLOTS]> = const { std::cell::RefCell::new([[0; N]; SLOTS]) };
++        static ENTERS: std::cell::RefCell<[u64; SLOTS]> = const { std::cell::RefCell::new([0; SLOTS]) };
++        static PHASE: std::cell::Cell<u8> = const { std::cell::Cell::new(0) };
++    }
++    pub fn set_phase(p: u8) {
++        PHASE.with(|c| c.set(p % 3));
++    }
++    fn slot(path: u8) -> usize {
++        (PHASE.with(|p| p.get()) as usize) * 2 + (path as usize & 1)
++    }
++    pub fn add(path: u8, i: usize, ns: u64) {
++        let s = slot(path);
++        NS.with(|c| c.borrow_mut()[s][i] += ns);
++        ADDS.with(|c| c.borrow_mut()[s][i] += 1);
++    }
++    pub fn enter(path: u8) {
++        ENTERS.with(|c| c.borrow_mut()[slot(path)] += 1);
++    }
++    pub fn report() -> String {
++        NS.with(|ns| ADDS.with(|ad| ENTERS.with(|en| {
++            let (ns, ad, en) = (ns.borrow(), ad.borrow(), en.borrow());
++            let fmt = |tag: &str, k: usize| {
++                let c = &ns[k];
++                let sum: u64 = c[..4].iter().sum();
++                format!(
++                    "{tag}_calls={} {tag}_readout_ns={} {tag}_gather_ns={} {tag}_forces_quant_ns={} \
++                     {tag}_rebind_ns={} {tag}_rebind_calls={} {tag}_other_ns={} {tag}_total_ns={}",
++                    en[k], c[0], c[1], c[2], c[3], ad[k][3], c[5].saturating_sub(sum), c[5]
++                )
++            };
++            format!(
++                "{}\n{}\n{}\n{}\n{}\n{}",
++                fmt("legacy", 0),
++                fmt("clock", 1),
++                fmt("legacy_cold", 2),
++                fmt("clock_cold", 3),
++                fmt("legacy_engine", 4),
++                fmt("clock_engine", 5)
++            )
++        })))
++    }
++}
++
+ pub const MIN_STEP: i64 = 2 * 64;
+ pub const MAX_STEP: i64 = 1 << 50;
+ /// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
+@@ -352,11 +411,18 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let __k0 = std::time::Instant::now();
++        stages::enter(stages::LEGACY);
++        let __t0 = std::time::Instant::now();
+         let st = self.rec.b.readout(t)?;
++        stages::add(stages::LEGACY, 0, __t0.elapsed().as_nanos() as u64);
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
++        let __t1 = std::time::Instant::now();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
++        stages::add(stages::LEGACY, 1, __t1.elapsed().as_nanos() as u64);
++        let __t2 = std::time::Instant::now();
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
+@@ -367,18 +433,23 @@ impl Work<'_, '_> {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+             added = dv;
++            stages::add(stages::LEGACY, 2, __t2.elapsed().as_nanos() as u64);
+             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
+         } else {
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+             self.rec.carry = carry;
++            stages::add(stages::LEGACY, 2, __t2.elapsed().as_nanos() as u64);
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
++                stages::add(stages::LEGACY, 5, __k0.elapsed().as_nanos() as u64);
+                 return Ok(());
+             }
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
++        let __t3 = std::time::Instant::now();
+         self.rebind(next, t, d)?;
++        stages::add(stages::LEGACY, 3, __t3.elapsed().as_nanos() as u64);
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -387,9 +458,9 @@ impl Work<'_, '_> {
+         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
+             self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
+         }
++        stages::add(stages::LEGACY, 5, __k0.elapsed().as_nanos() as u64);
+         Ok(())
+     }
+-
+     /// Deep inside a planet's shell the planet is the dominant body: the child doll of `centre`
+     /// takes the ship. Returns whether it did.
+     fn maybe_capture(&mut self, t: Tick, st: &IntegerState, x: V2) -> Res<bool> {
+@@ -581,10 +652,16 @@ impl Work<'_, '_> {
+     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
++        let __k0 = std::time::Instant::now();
++        stages::enter(stages::CLOCK);
+         let d = self.rec.b.doll;
++        let __t0 = std::time::Instant::now();
+         let st = self.rec.b.readout(t)?;
++        stages::add(stages::CLOCK, 0, __t0.elapsed().as_nanos() as u64);
+         let (x, v) = scalars(&st)?;
++        let __t1 = std::time::Instant::now();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
++        stages::add(stages::CLOCK, 1, __t1.elapsed().as_nanos() as u64);
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+         for (s, &j) in secs.iter().zip(sources) {
+@@ -600,9 +677,11 @@ impl Work<'_, '_> {
+             return Ok(Resolved::Lost);
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
++        let __t2 = std::time::Instant::now();
+         let f = force::field(&secs, x)?;
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
++        stages::add(stages::CLOCK, 2, __t2.elapsed().as_nanos() as u64);
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+@@ -615,7 +694,9 @@ impl Work<'_, '_> {
+         };
+         let fired = next.velocity != st.velocity;
+         if fired {
++            let __t3 = std::time::Instant::now();
+             self.rebind(next, t, d)?;
++            stages::add(stages::CLOCK, 3, __t3.elapsed().as_nanos() as u64);
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+@@ -644,13 +725,11 @@ impl Work<'_, '_> {
+         if self.rec.kind != Kind::Planet {
+             let key = self.rec.b.entry.trajectory.key();
+             if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
+-                if let Some(tp) = next_periapsis(&self.rec.b, t)? {
+-                    if tp <= t + full {
+-                        insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
+-                    }
+-                }
++                self.rec.alive = false;
++                return Ok(Resolved::Lost);
+             }
+         }
++        stages::add(stages::CLOCK, 5, __k0.elapsed().as_nanos() as u64);
+         Ok(Resolved::Kick)
+     }
+ 
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..b81dacf 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -42,7 +42,8 @@ impl Shapes {
+ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     samples.sort_by(f64::total_cmp);
+     let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
+-    json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
++    let mean = if samples.is_empty() { None } else { Some(samples.iter().sum::<f64>() / samples.len() as f64) };
++    json!({"median": at(0.5), "p99": at(0.99), "mean": mean, "samples": samples.len()})
+ }
+ 
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+@@ -50,6 +51,20 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+     // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
+     let (mut made, mut leavers) = (Vec::new(), Vec::new());
++    // Lab run 20261009-0521: each sample is tagged with the path `process` routes it to — the legacy
++    // split `fn kick` (no register) or the register's `kick_clock` (law v2) — and with doll/level, so
++    // stage shares and medians are reported for the population actually sampled.
++    let (mut legacy_made, mut legacy_leavers, mut clock_made, mut clock_leavers) =
++        (Vec::new(), Vec::new(), Vec::new(), Vec::new());
++    let mut dolls: std::collections::BTreeMap<String, usize> = Default::default();
++    // Cold/warm pairing (lab run 20261009-0401). With KICK_COLD set, each pending kick is replayed
++    // twice against the snapshot: once after a 32 MiB sweep that evicts the plane's records from every
++    // cache (cold), once immediately after (warm). `process` is pure — the two replays produce the
++    // same record (the replay digest covers warm calls; the cold ones feed `colds`). Stage timers use
++    // phase 1 for the cold call and phase 0 for the warm call, so the accumulators never mix them.
++    let cold_mode = std::env::var("KICK_COLD").is_ok();
++    let mut flushbuf = vec![1u8; 32 << 20];
++    let (mut colds, mut warms) = (Vec::new(), Vec::new());
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+@@ -58,6 +73,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
++    let mut ship_sum = 0usize;
+     for n in 1..=(seconds * 60.0) as usize {
+         if wall.elapsed().as_secs_f64() >= 55.0 {
+             return Err("kick replay exceeded 55 s; no complete result".into());
+@@ -78,30 +94,74 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+                 continue;
+             }
+             *seen = Some(item.t);
++            // The routing `process` itself applies: a register (ext) makes it a law-v2 `kick_clock`.
++            let clock = rec.ext.is_some();
++            let What::Kick(level) = item.what else { unreachable!("checked above") };
++            *dolls.entry(format!("doll{}/L{}", rec.b.doll, level)).or_default() += 1;
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
++            if cold_mode {
++                for b in flushbuf.iter_mut().step_by(64) {
++                    *b = b.wrapping_add(1);
++                }
++                std::hint::black_box(&flushbuf);
++                step::stages::set_phase(1);
++            }
++            let rec2 = rec.clone();
+             let t0 = Instant::now();
+-            let upd = step::process(&s.p.u.ctx(), i, rec);
++            let upd = step::process(&s.p.u.ctx(), i, rec2);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
+-            if i < made_n { &mut made } else { &mut leavers }.push(us);
++            if cold_mode {
++                colds.push(us);
++            } else if i < made_n {
++                made.push(us);
++                if clock { &mut clock_made } else { &mut legacy_made }.push(us);
++            } else {
++                leavers.push(us);
++                if clock { &mut clock_leavers } else { &mut legacy_leavers }.push(us);
++            }
++            if cold_mode {
++                step::stages::set_phase(0);
++                let t1 = Instant::now();
++                let upd2 = step::process(&s.p.u.ctx(), i, rec);
++                warms.push(t1.elapsed().as_secs_f64() * 1e6);
++                let _ = upd2.kind;
++            }
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
+             }
+             digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+         }
++        ship_sum += (0..s.n_bodies()).filter(|&i| s.p.u.rec(i).kind == Kind::Ship && s.p.u.rec(i).alive).count();
++        // The engine's own kicks while advancing the frame land in phase 2, apart from the bench's replays.
++        step::stages::set_phase(2);
+         s.p.u.frame(1.0 / 60.0, s.rtf, Budget::unlimited());
+         s.p.u.settle(s.p.u.now);
++        step::stages::set_phase(0);
+         frames = n;
+     }
++    let ships_mean = ship_sum as f64 / frames as f64;
++    let game_seconds = frames as f64 / 60.0 * s.rtf;
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+         "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
++        "ships_mean": ships_mean, "game_seconds": game_seconds,
++        "cadence_kicks_per_ship_per_game_s": all.len() as f64 / (ships_mean * game_seconds),
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
++        "paths": {
++            "legacy_fn_kick": {"made": percentiles(&mut legacy_made), "leavers": percentiles(&mut legacy_leavers)},
++            "clock_kick_clock": {"made": percentiles(&mut clock_made), "leavers": percentiles(&mut clock_leavers)},
++        },
++        "doll_histogram": dolls,
++        "cold_mode": cold_mode,
++        "kick_us_cold": percentiles(&mut colds),
++        "kick_us_warm_paired": percentiles(&mut warms),
++        "stages_total": step::stages::report(),
+         "memo": shapes.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
