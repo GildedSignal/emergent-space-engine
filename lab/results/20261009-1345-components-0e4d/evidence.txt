@@ -1,0 +1,42 @@
+Run 20261009-1345-components-0e4d evidence (all numbers from `cargo test -p emergent-space [--release] --test memo_floor -- --nocapture`,
+test file crates/space/tests/memo_floor.rs, part of this run's patch; x86 Linux runner, 8 vCPU).
+
+== A. sharing error: quantized memo key vs exact key, 256 keys/belt (law's own compiler) ==
+belts: A p 2048-3072 M (strong branch), B p 524288-786432 M (weak branch), e Rayleigh sigma 0.03
+scale_bits shape_bits | max dT/T (A / B) | fail B2 1e-3 (A / B) | max dprec/prec (A) | fail B1 1e-2
+ 8  12 : 1.088e-2 / 1.075e-2 | 223/256, 226/256 | 1.08e-5 | 0
+ 9  12 : 5.253e-3 / 5.250e-3 | 175/256, 183/256 | 5.34e-6 | 0
+10  12 : 2.465e-3 / 2.423e-3 | 104/256, 113/256 | 2.75e-6 | 0
+11  12 : 1.027e-3 / 1.099e-3 |   3/256,   3/256 | 1.33e-6 | 0
+12  12 : 3.459e-4 / 3.712e-4 |   0/256,   0/256 | 6.52e-7 | 0
+12   4 : 4.381e-2 (both)     | 256/256          | 4.49e-7 | 0
+12   5 : 4.381e-2            | 256/256          | 4.49e-7 | 0
+12   6 : 6.041e-3            | 256/256          | 6.24e-7 | 0
+12   7 : 6.041e-3            | 256/256          | 6.24e-7 | 0
+12   8 : 6.041e-3            | 256/256          | 6.24e-7 | 0
+12   9 : 1.481e-3            | 213/256          | 6.46e-7 | 0
+12  10 : 1.481e-3            | 213/256          | 6.46e-7 | 0
+12  11 : 3.459e-4            |   0/256          | 6.52e-7 | 0
+=> B2 (periods 0.1%) binds on BOTH axes at 11-12 bits; B1 (precession 1%) never binds (4 decades slack).
+   Plateaus at shape 6-8 and 9-10: truncating (not rounding) quantization + Rayleigh e-range.
+
+== B. QuantizedMemo occupancy / hit rate (N bodies, belts as above) ==
+A (cold, strong):  N=2^16: 61,704 codes = entries, hit 5.8%   N=2^18: 208,018, hit 20.6%
+                    N=2^20: 488,004 entries, hit 53.5%
+                    N=2^21: 610,178 codes  N=2^22: 697,679 codes (ladder, codes only)
+B (weak):           N=2^20: 488,004 codes, 989 entries, hit 99.9%   N=2^21: 610,178 codes, 1,025 entries
+C (hot sigma 0.3, strong): N=2^20: 945,208 codes = entries, hit 9.9%
+crossover at N=2^16: p0=2^17: 61,721 entries | p0=2^18: 5,587 | p0=2^19: 863  (WEAK_EXPONENT=-18 cliff)
+
+== C. entry sizes ==
+size_of: OrbitShape=224 B, Knot=88 B, Orbit=136 B, MemoCode=8 B, OrbitKey=32 B
+knots/orbit: A 6.2, B 6.1, C(sigma .3) 19.1, e=0.9 p=50: 70 ; crossings: 1.2, 1.2, 16.8, 67
+bytes/entry (knots*88 + crossings*8 + 224 + ~150 Arc/HashMap/Vec overhead):
+  A ~0.9 KB, C ~2.1 KB, e~0.9 ~6.6 KB
+
+== Memory at belt scale (entries x bytes/entry) ==
+A at 2^20 measured: 488,004 x ~0.9 KB = ~0.44 GB per million bodies
+A at 10^9: sub-linear growth 488k->610k->698k (2^20->2^22); geometric cell cap = 1.17 M cells ~ 1.05 GB;
+           extrapolated ~0.75-1.0 GB per cold strong-branch belt
+C at 2^20 measured: 945,208 x ~2.1 KB = ~2.0 GB per million bodies; cell cap ~16 M cells ~ 34 GB at 10^9
+B (weak): ~1,025 entries ~ 0.9 MB at any N

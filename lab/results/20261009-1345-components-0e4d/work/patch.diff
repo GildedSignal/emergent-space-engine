@@ -1,0 +1,213 @@
+diff --git a/crates/space/tests/memo_floor.rs b/crates/space/tests/memo_floor.rs
+new file mode 100644
+index 0000000..07a8852
+--- /dev/null
++++ b/crates/space/tests/memo_floor.rs
+@@ -0,0 +1,207 @@
++//! Lab run 20261009-1345-components-0e4d: the cycle memo's quantization floor.
++//! Measures, with the law's own compiler:
++//!  A. the behaviour error of sharing a cycle through a (shape_bits, scale_bits)
++//!     quantized key, against the frozen gates B1 (precession 1%) and B2 (periods 0.1%);
++//!  B. memo occupancy (distinct keys, distinct shape entries) and hit rate for belts,
++//!     with the live `QuantizedMemo`/`MemoCode` path;
++//!  C. bytes per shape entry, from public struct sizes.
++//! Floats are readouts only; all compiled values are the law's integers.
++
++use emergent_space::orbit::{MemoCode, Orbit, OrbitKey, QuantizedMemo, Scalar};
++use std::collections::HashSet;
++use std::time::Instant;
++
++fn lcg(state: &mut u64) -> u64 {
++    let mut x = *state;
++    x ^= x >> 12;
++    x ^= x << 25;
++    x ^= x >> 27;
++    *state = x;
++    x.wrapping_mul(0x2545F4914F6CDD1D)
++}
++fn unit(state: &mut u64) -> f64 {
++    (lcg(state) >> 11) as f64 / (1u64 << 53) as f64
++}
++
++/// Belt key: a uniform in [a0, a1] (doll M units), e Rayleigh(sigma_e). r8's belt shape.
++fn belt_key(state: &mut u64, a0: f64, a1: f64, sigma_e: f64) -> OrbitKey {
++    let a = a0 + (a1 - a0) * unit(state);
++    let e = (sigma_e * (-2.0 * (1.0 - unit(state)).ln()).sqrt()).min(0.99);
++    let p = Scalar::raw((a * 2f64.powi(62)) as i128, -62).unwrap();
++    OrbitKey::bound(p, (e * 2f64.powi(48)).round() as u64).unwrap()
++}
++
++fn f64_at(s: Scalar, fb: i32) -> f64 {
++    s.fixed(fb).unwrap() as f64 / 2f64.powi(fb)
++}
++
++const TWO_PI: f64 = 6.283185307179586476925286766559005768394;
++
++fn readouts(o: &Orbit) -> (f64, f64) {
++    let t = f64_at(o.period().unwrap(), 40);
++    let adv = f64_at(o.advance().unwrap(), 50);
++    (t, adv - TWO_PI)
++}
++
++const BELTS: [(&str, f64, f64, f64); 3] = [
++    ("A_p2048-3072", 2048.0, 3072.0, 0.03),
++    ("B_p524288-786432", 524288.0, 786432.0, 0.03),
++    ("C_p2048-3072_s0.3", 2048.0, 3072.0, 0.3),
++];
++
++#[test]
++fn diag() {
++    let mut s = 0x5EED_u64;
++    let mut es = HashSet::new();
++    let mut ks = HashSet::new();
++    for _ in 0..1000 {
++        let a = 2048.0 + 1024.0 * unit(&mut s);
++        let e = (0.03 * (-2.0 * (1.0 - unit(&mut s)).ln()).sqrt()).min(0.99);
++        es.insert((e * 1e6).round() as i64);
++        let p = Scalar::raw((a * 2f64.powi(62)) as i128, -62).unwrap();
++        let k = OrbitKey::bound(p, (e * 2f64.powi(48)).round() as u64).unwrap();
++        ks.insert(k.k);
++    }
++    println!("distinct e(micro): {} distinct k: {}", es.len(), ks.len());
++}
++
++#[test]
++fn memo_floor() {
++    let mut t0 = Instant::now();
++    // ---------- Part A: behaviour error of a quantized memo key ----------
++    let n = 256u64;
++    let belt = |seed: u64, a0: f64, a1: f64, sig: f64| -> Vec<OrbitKey> {
++        let mut s = seed;
++        (0..n).map(|_| belt_key(&mut s, a0, a1, sig)).collect()
++    };
++    let belts = [
++        ("A_p2048-3072", belt(0xDA1E, 2048.0, 3072.0, 0.03)),
++        ("B_p524288-786432", belt(0xBEEF, 524288.0, 786432.0, 0.03)),
++    ];
++    let mut configs: Vec<(u32, u32)> = vec![];
++    for sb in [8u32, 9, 10, 11, 12] {
++        configs.push((sb, 12));
++    }
++    for gb in [4u32, 5, 6, 7, 8, 9, 10, 11] {
++        configs.push((12, gb));
++    }
++    for c in [(11u32, 6u32), (11, 7), (10, 12)] {
++        if !configs.contains(&c) {
++            configs.push(c);
++        }
++    }
++    println!("== A. sharing error: quantized key vs exact, {} keys/belt ==", n);
++    println!("scale_bits shape_bits | belt | maxdT/T | max dprec/prec | failB2(>1e-3) failB1(>1e-2)");
++    for (sb, gb) in configs {
++        for (name, keys) in &belts {
++            let (mut mt, mut mp, mut fb2, mut fb1) = (0.0f64, 0.0f64, 0u32, 0u32);
++            for k in keys {
++                let oe = Orbit::compile(*k).unwrap();
++                let oq = Orbit::compile(k.quantized(gb, sb).unwrap()).unwrap();
++                let (te, pe) = readouts(&oe);
++                let (tq, pq) = readouts(&oq);
++                let dt = ((tq - te) / te).abs();
++                let dp = if pe.abs() > 1e-12 { ((pq - pe) / pe).abs() } else { f64::NAN };
++                mt = mt.max(dt);
++                if dp.is_finite() {
++                    mp = mp.max(dp);
++                }
++                fb2 += (dt > 1e-3) as u32;
++                fb1 += (dp.is_finite() && dp > 1e-2) as u32;
++            }
++            println!("{:4} {:6} | {:>18} | {:.3e} | {:.3e} | {}/{} {}/{}", sb, gb, name, mt, mp, fb2, n, fb1, n);
++        }
++    }
++    println!("[A took {:.1}s]", t0.elapsed().as_secs_f64());
++
++    // ---------- Part B: occupancy and hit rate with the live QuantizedMemo ----------
++    t0 = Instant::now();
++    println!("\n== B. QuantizedMemo occupancy and hit rate ==");
++    for (name, a0, a1, sig) in BELTS {
++        let mut s = 0x5EED_u64;
++        let mut memo = QuantizedMemo::with_capacity(1024);
++        let mut codes: HashSet<u64> = HashSet::new();
++        let n_bodies = 1usize << 20;
++        for i in 0..n_bodies {
++            let k = belt_key(&mut s, a0, a1, sig);
++            codes.insert(MemoCode::encode(k).unwrap().bits());
++            let _ = memo.get(k).unwrap();
++            if i == (1 << 16) - 1 || i == (1 << 18) - 1 {
++                println!("{} N={:8} distinct_codes={:7} shape_entries={:6} hits={:8}", name, i + 1, codes.len(), memo.len(), memo.hits);
++            }
++        }
++        println!(
++            "{} N={:8} distinct_codes={:7} shape_entries={:6} hits={:8} hit_rate={:.4}",
++            name, n_bodies, codes.len(), memo.len(), memo.hits,
++            memo.hits as f64 / n_bodies as f64
++        );
++    }
++    println!("[B took {:.1}s]", t0.elapsed().as_secs_f64());
++
++    // ---------- Part C: bytes per shape entry ----------
++    println!("\n== C. entry sizes (public struct sizes + measured vec lengths) ==");
++    println!(
++        "size_of: OrbitShape={} Knot={} Orbit={} MemoCode={} OrbitKey={}",
++        std::mem::size_of::<emergent_space::orbit::OrbitShape>(),
++        std::mem::size_of::<emergent_space::orbit::Knot>(),
++        std::mem::size_of::<Orbit>(),
++        std::mem::size_of::<MemoCode>(),
++        std::mem::size_of::<OrbitKey>(),
++    );
++    let mut s = 0xC0FFEE_u64;
++    for (name, a0, a1, sig) in BELTS {
++        let mut knot_tot = 0usize;
++        let mut cross_tot = 0usize;
++        let mut count = 0usize;
++        for _ in 0..64 {
++            let k = belt_key(&mut s, a0, a1, sig);
++            let o = Orbit::compile(k).unwrap();
++            knot_tot += o.shape().knots().len();
++            cross_tot += o.shape().crossings().len();
++            count += 1;
++        }
++        println!(
++            "{}: knots/orbit={:.1} crossings/orbit={:.1}",
++            name,
++            knot_tot as f64 / count as f64,
++            cross_tot as f64 / count as f64
++        );
++    }
++    let o = Orbit::compile(OrbitKey::bound(Scalar::integer(50), (0.9f64 * 2f64.powi(48)).round() as u64).unwrap()).unwrap();
++    println!("e0.9_p50: knots/orbit={} crossings/orbit={}", o.shape().knots().len(), o.shape().crossings().len());
++}
++
++#[test]
++fn heldout() {
++    // Occupancy ladder, belt A, codes only (no shape map: too big at 2^22).
++    for log_n in [21usize, 22] {
++        let mut s = 0x5EED_u64;
++        let mut codes: HashSet<u64> = HashSet::new();
++        for _ in 0..(1usize << log_n) {
++            codes.insert(MemoCode::encode(belt_key(&mut s, 2048.0, 3072.0, 0.03)).unwrap().bits());
++        }
++        println!("LADDER A N=2^{} distinct={}", log_n, codes.len());
++    }
++    // Crossover scan at N = 2^16 with the live memo.
++    for log_p in [17u32, 18, 19] {
++        let p0 = 2f64.powi(log_p as i32);
++        let mut s = 0xABCD_u64;
++        let mut memo = QuantizedMemo::with_capacity(1024);
++        for _ in 0..(1usize << 16) {
++            let _ = memo.get(belt_key(&mut s, p0, 1.5 * p0, 0.03)).unwrap();
++        }
++        println!("CROSS p0=2^{} shape_entries={} hits={}", log_p, memo.len(), memo.hits);
++    }
++    // Weak-branch saturation: belt B codes and entries at 2^21.
++    {
++        let mut s = 0x5EED_u64;
++        let mut memo = QuantizedMemo::with_capacity(1024);
++        let mut codes: HashSet<u64> = HashSet::new();
++        for _ in 0..(1usize << 21) {
++            let k = belt_key(&mut s, 524288.0, 786432.0, 0.03);
++            codes.insert(MemoCode::encode(k).unwrap().bits());
++            let _ = memo.get(k).unwrap();
++        }
++        println!("WEAK B N=2^21 distinct_codes={} shape_entries={}", codes.len(), memo.len());
++    }
++}
