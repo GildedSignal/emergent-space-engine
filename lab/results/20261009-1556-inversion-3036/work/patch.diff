@@ -1,0 +1,370 @@
+diff --git a/crates/encounters/src/bin/inv3036.rs b/crates/encounters/src/bin/inv3036.rs
+new file mode 100644
+index 0000000..6c3ea4b
+--- /dev/null
++++ b/crates/encounters/src/bin/inv3036.rs
+@@ -0,0 +1,364 @@
++//! Inversion probe (lab run 20261009-1556-inversion-3036): does the phase-neighbour certificate
++//! adopted from gold 20261006-0346-taleb-09b5 compose to two formations on crossing orbits?
++//! Scenes S1 (single formation, positive control), S2/S2c/S2b (two crossing formations),
++//! S3 (a lone crosser through a formation). Truth: this crate's `truth_pair` (r8 v2 truth).
++//! Tiers measured: phase cert (rank <= K in mean longitude per group; static sort at t=0 and
++//! maintained order at each encounter time), the cone tier (`is_candidate`), and a
++//! time-sorted node-event certificate as the cure sketch.
++//! One JSON object per line on stdout. INV_DEBUG=1 dumps per-pair diagnostics.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::{Body, TICKS};
++use emergent_encounters::pairs::is_candidate;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::collections::HashSet;
++use std::f64::consts::TAU;
++
++const RHO: f64 = 1e-3;
++const K: usize = 4; // partner rank from the gold
++const THREADS: usize = 4;
++
++fn gauss(rng: &mut Rng, s: f64) -> f64 {
++    let u1 = rng.f64().max(1e-12);
++    let u2 = rng.f64();
++    s * (-2.0 * u1.ln()).sqrt() * (TAU * u2).cos()
++}
++
++/// A fleet in formation: a in [a0, a0+da], e0 + Rayleigh(se), pom + gauss(pom_s),
++/// mean longitude in an arc of width `arc` centred at lam_c.
++fn fleet(
++    rng: &mut Rng, n: usize, a0: f64, da: f64, e0: f64, se: f64,
++    pom: f64, pom_s: f64, lam_c: f64, arc: f64,
++) -> Vec<Body> {
++    (0..n)
++        .map(|_| {
++            let a = a0 + da * rng.f64();
++            let e = e0 + (se * (-2.0 * (1.0 - rng.f64().max(1e-12)).ln()).sqrt());
++            let p = pom + gauss(rng, pom_s);
++            let lam = lam_c + arc * (rng.f64() - 0.5);
++            Body::new(a, e.min(0.7), p, lam)
++        })
++        .collect()
++}
++
++/// Mean longitude at time t (maintained order: lambda(t) = lambda(0) + n t is exact for the
++/// mean longitude of a Kepler orbit).
++fn lam_at(b: &Body, t: f64) -> f64 {
++    (b.mean_anomaly(t) + b.pom).rem_euclid(TAU)
++}
++
++/// Node (r = 1 crossing) data for a template eccentric orbit: the two node true anomalies.
++fn node_fs(e: f64, p: f64) -> Vec<f64> {
++    let c = (p - 1.0) / e;
++    if !(-1.0..=1.0).contains(&c) || e <= 0.0 {
++        return vec![];
++    }
++    let f = c.acos();
++    vec![f, -f]
++}
++
++/// Mean longitude at which a body on the template orbit passes true anomaly f.
++fn lam_at_f(b: &Body, f: f64) -> f64 {
++    b.pom + b.true_to_mean(f)
++}
++
++/// The adopted certificate, taken literally: per group, sort by phase (mean longitude)
++/// and pair each body with its K neighbours either side.
++fn phase_cert_at(bodies: &[Body], idx: &[usize], t: f64) -> HashSet<(usize, usize)> {
++    let mut v: Vec<usize> = idx.to_vec();
++    v.sort_by(|&i, &j| lam_at(&bodies[i], t).partial_cmp(&lam_at(&bodies[j], t)).unwrap());
++    let mut s = HashSet::new();
++    for w in 0..v.len() {
++        for r in 1..=K {
++            if w + r < v.len() {
++                let (i, j) = (v[w], v[w + r]);
++                s.insert((i.min(j), i.max(j)));
++            }
++        }
++    }
++    s
++}
++
++fn mean_body(g: &[Body]) -> Body {
++    let n = g.len() as f64;
++    let a: f64 = g.iter().map(|b| b.a).sum::<f64>() / n;
++    let e: f64 = g.iter().map(|b| b.e).sum::<f64>() / n;
++    // Circular mean (pom is stored rem_euclid(TAU); a linear mean wraps 0/2pi to pi).
++    let (ps, pc) = g.iter().fold((0.0, 0.0), |(s, c), b| (s + b.pom.sin(), c + b.pom.cos()));
++    let pom = ps.atan2(pc);
++    Body::new(a, e, pom, 0.0)
++}
++
++/// Longitudes where two orbits cross (Binet): du + dv cos + dw sin = 0.
++fn cross_longitudes(bi: &Body, bj: &Body) -> Vec<f64> {
++    let ui = bi.binet();
++    let uj = bj.binet();
++    let (du, dv, dw) = (ui[0] - uj[0], ui[1] - uj[1], ui[2] - uj[2]);
++    let r = (dv * dv + dw * dw).sqrt();
++    if r < 1e-15 {
++        return vec![];
++    }
++    let c = -du / r;
++    if !(-1.0..=1.0).contains(&c) {
++        return vec![];
++    }
++    let phi = dw.atan2(dv);
++    let x = c.acos();
++    vec![phi + x, phi - x]
++}
++
++/// Node-event certificate (cure sketch). Each body's events are its exact passage ticks at
++/// ITS OWN crossing longitudes with the other group's mean orbit (closed form, O(1) per
++/// body). The pairing window = safety * rho/|dv| plus the measured longitude-spread margin
++/// (element spread moves each body's crossing longitude; that time error must be paid).
++fn node_cert(a: &[Body], b: &[Body], t_end: f64, safety: f64) -> (HashSet<(usize, usize)>, usize, f64) {
++    let (ma, mb) = (mean_body(a), mean_body(b));
++    // Group-level reference longitudes (for the spread margin).
++    let ref_th = cross_longitudes(&ma, &mb);
++    if std::env::var("INV_DEBUG").is_ok() {
++        println!("  debug ma: a={} e={} pom={} binet={:?}", ma.a, ma.e, ma.pom, ma.binet());
++        println!("  debug mb: a={} e={} pom={} binet={:?}", mb.a, mb.e, mb.pom, mb.binet());
++    }
++    let mut dth_max = 0.0f64;
++    let mut ev: Vec<(f64, bool, usize)> = Vec::new();
++    let mut push_events = |bod: &Body, grp: bool, i: usize, other: &Body, ev: &mut Vec<(f64, bool, usize)>| {
++        for th in cross_longitudes(bod, other) {
++            let near = ref_th
++                .iter()
++                .map(|r| {
++                    let d = (th - r).rem_euclid(TAU);
++                    d.min(TAU - d)
++                })
++                .fold(f64::INFINITY, f64::min);
++            if std::env::var("INV_DEBUG").is_ok() && near > dth_max && near > 0.05 {
++                println!("  debug worst-dth th={th:.5} near={near:.5} grp={grp} e={} pom={} a={}", bod.e, bod.pom, bod.a);
++            }
++            dth_max = dth_max.max(near);
++            let per = bod.period as f64 / TICKS;
++            let mut t = bod.passage_tick(th) as f64 / TICKS;
++            while t < t_end {
++                ev.push((t, grp, i));
++                t += per;
++            }
++        }
++    };
++    for (i, bod) in a.iter().enumerate() {
++        push_events(bod, true, i, &mb, &mut ev);
++    }
++    for (i, bod) in b.iter().enumerate() {
++        push_events(bod, false, i, &ma, &mut ev);
++    }
++    // Relative speed and angular rates at the reference crossings (mean bodies).
++    let mut dvmax = 0.05f64;
++    let mut rate_min = f64::INFINITY;
++    for &th in &ref_th {
++        let sa = ma.at_longitude(th);
++        let sb = mb.at_longitude(th);
++        let dv = (sa[2] - sb[2]).hypot(sa[3] - sb[3]);
++        dvmax = dvmax.max(dv);
++        for s in [sa, sb] {
++            let r = s[0].hypot(s[1]);
++            let vt = (-s[0] * s[3] + s[1] * s[2]) / r; // tangential rate
++            rate_min = rate_min.min(vt.abs().max(0.05) / r);
++        }
++    }
++    if std::env::var("INV_DEBUG").is_ok() {
++        println!("  debug dth_max={dth_max:.6} rate_min={rate_min:.4} dvmax={dvmax:.4} ref={ref_th:?}");
++    }
++    let window = safety * RHO / dvmax + 2.0 * dth_max / rate_min;
++    let events = ev.len();
++    ev.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
++    let mut cands = HashSet::new();
++    for p in 0..ev.len() {
++        let mut q = p + 1;
++        while q < ev.len() && ev[q].0 - ev[p].0 <= window {
++            if ev[p].1 != ev[q].1 {
++                let (i, j) = if ev[p].1 { (ev[p].2, ev[q].2) } else { (ev[q].2, ev[p].2) };
++                cands.insert((i, j));
++            }
++            q += 1;
++        }
++    }
++    (cands, events, window)
++}
++
++fn truth_over(bodies: &[Body], pairs: &[(usize, usize)], t_end: f64) -> (Vec<(usize, usize, f64)>, u64) {
++    let idx: Vec<(u32, u32)> = pairs.iter().map(|&(i, j)| (i as u32, j as u32)).collect();
++    let parts = par_chunks(idx.len(), 256, THREADS, |r| {
++        let mut hits: Vec<(usize, usize, f64)> = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &idx[r] {
++            tmp.clear();
++            truth_pair(&bodies[i as usize], &bodies[j as usize], RHO, t_end, &mut tmp, &mut st);
++            if let Some(&(t, _)) = tmp.first() {
++                hits.push((i as usize, j as usize, t));
++            }
++        }
++        (hits, st.evals)
++    });
++    let mut all = Vec::new();
++    let mut evals = 0u64;
++    for (h, e) in parts {
++        all.extend(h);
++        evals += e;
++    }
++    (all, evals)
++}
++
++#[allow(clippy::too_many_arguments)]
++fn scene(name: &str, a: Vec<Body>, b: Vec<Body>, t_end: f64) {
++    let (n_a, n_b) = (a.len(), b.len());
++    let mut bodies: Vec<Body> = a.clone();
++    bodies.extend(b.clone());
++    let ga: Vec<usize> = (0..n_a).collect();
++    let gb: Vec<usize> = (n_a..n_a + n_b).collect();
++
++    let mut intra: Vec<(usize, usize)> = Vec::new();
++    for g in [&ga, &gb] {
++        for w in 0..g.len() {
++            for v in w + 1..g.len() {
++                intra.push((g[w], g[v]));
++            }
++        }
++    }
++    let mut cross: Vec<(usize, usize)> = Vec::new();
++    for &i in &ga {
++        for &j in &gb {
++            cross.push((i, j));
++        }
++    }
++
++    let (intra_hit, ev1) = truth_over(&bodies, &intra, t_end);
++    let (cross_hit, ev2) = truth_over(&bodies, &cross, t_end);
++
++    // Phase certificate, static sort at t = 0 (as specified: one sort per window).
++    let pc0 = {
++        let mut s = phase_cert_at(&bodies, &ga, 0.0);
++        s.extend(phase_cert_at(&bodies, &gb, 0.0));
++        s
++    };
++    let pc0_intra_miss = intra_hit.iter().filter(|h| !pc0.contains(&(h.0, h.1))).count();
++    let pc0_cross_miss = cross_hit.iter().filter(|h| !pc0.contains(&(h.0, h.1))).count();
++
++    // Phase certificate with maintained order (re-sorted at each encounter's own time):
++    // the pair must be rank <= K apart in lambda(t_enc). Generous to the certificate.
++    let pc_dyn_intra_miss = intra_hit
++        .iter()
++        .filter(|&&(i, j, t)| {
++            let (li, lj) = (lam_at(&bodies[i], t), lam_at(&bodies[j], t));
++            let grp = if i < n_a { &ga } else { &gb };
++            let rank = grp
++                .iter()
++                .filter(|&&k| {
++                    let lk = lam_at(&bodies[k], t);
++                    (lk < li.max(lj)) && (lk > li.min(lj))
++                })
++                .count();
++            rank > K
++        })
++        .count();
++
++    // Cone tier.
++    let mut cone_intra = 0usize;
++    for &(i, j) in &intra {
++        if is_candidate(&bodies[i], &bodies[j], RHO) {
++            cone_intra += 1;
++        }
++    }
++    let mut cone_cross = 0usize;
++    for &(i, j) in &cross {
++        if is_candidate(&bodies[i], &bodies[j], RHO) {
++            cone_cross += 1;
++        }
++    }
++    let cone_cross_miss = cross_hit
++        .iter()
++        .filter(|h| !is_candidate(&bodies[h.0], &bodies[h.1], RHO))
++        .count();
++
++    // Node-event certificate at three safety values (sensitivity).
++    let (mut n3, mut n3ev, mut n3w) = (HashSet::new(), 0usize, 0.0);
++    let (mut n2c, mut n4c) = (0usize, 0usize);
++    if n_b > 0 {
++        let r3 = node_cert(&a, &b, t_end, 3.0);
++        n3 = r3.0;
++        n3ev = r3.1;
++        n3w = r3.2;
++        n2c = node_cert(&a, &b, t_end, 2.0).0.len();
++        n4c = node_cert(&a, &b, t_end, 4.0).0.len();
++    }
++    let node_cross_miss = cross_hit.iter().filter(|h| !n3.contains(&(h.0, h.1 - n_a))).count();
++
++    if std::env::var("INV_DEBUG").is_ok() {
++        for &(i, j, t) in cross_hit.iter().take(3) {
++            println!("  debug {} pair ({i},{j}) t_enc={t:.4}", name);
++        }
++        println!(
++            "  debug {} node window={n3w:.5} events={n3ev} cand={} truth_cross={}",
++            name,
++            n3.len(),
++            cross_hit.len()
++        );
++    }
++
++    println!(
++        "{{\"scene\":\"{name}\",\"n_a\":{n_a},\"n_b\":{n_b},\"t_end\":{t_end:.3},\
++\"truth\":{{\"intra_enc\":{},\"cross_enc\":{},\"evals\":{}}}\
++,\"phase_cert_static\":{{\"intra_miss\":{},\"cross_miss\":{}}}\
++,\"phase_cert_maintained\":{{\"intra_miss\":{}}}\
++,\"cone\":{{\"intra_cand\":{cone_intra},\"cross_cand\":{cone_cross},\"cross_miss\":{cone_cross_miss}}}\
++,\"node_cert\":{{\"s3_cand\":{},\"s2_cand\":{n2c},\"s4_cand\":{n4c},\"events\":{n3ev},\"window\":{n3w:.5},\"cross_miss\":{}}}}}",
++        intra_hit.len(),
++        cross_hit.len(),
++        ev1 + ev2,
++        pc0_intra_miss,
++        pc0_cross_miss,
++        pc_dyn_intra_miss,
++        n3.len(),
++        node_cross_miss
++    );
++}
++
++fn main() {
++    // Node geometry for B (e=0.5, a~1): p = 0.75, cos f_n = -0.5, f_n = +/- 2pi/3.
++    // A's arc is centred at the node true longitude; B's arc at the mean longitude that
++    // puts the fleet at the node at t = 0 (mean anomaly of the node).
++    let tb = Body::new(1.0, 0.5, 0.0, 0.0); // template B orbit
++    let f_n = node_fs(0.5, tb.p)[0];
++    let th_node = f_n; // pom = 0
++    let lam_node_b = lam_at_f(&tb, f_n);
++
++    // S1: the gold's scene (positive control). One formation.
++    let mut rng = Rng(3036);
++    let s1a = fleet(&mut rng, 250, 1.0, 1e-4, 0.0, 3e-4, 0.3, 1e-3, th_node, 0.25);
++    scene("S1-single-formation", s1a, vec![], 2.0 * TAU);
++
++    // S2: two formations on crossing orbits, same period (a=1 both), B e=0.5.
++    // Both arcs centred on the node at t = 0 (a rendezvous).
++    let mut rng = Rng(3037);
++    let s2a = fleet(&mut rng, 250, 1.0, 1e-4, 0.0, 3e-4, 0.3, 1e-3, th_node, 0.25);
++    let s2b = fleet(&mut rng, 250, 1.0, 1e-4, 0.5, 3e-4, 0.0, 1e-3, lam_node_b, 0.25);
++    scene("S2-two-fleets-1to1", s2a, s2b, 2.0 * TAU);
++
++    // S2c: dilution, same n, arcs 10x wider.
++    let mut rng = Rng(3038);
++    let s2ca = fleet(&mut rng, 250, 1.0, 1e-4, 0.0, 3e-4, 0.3, 1e-3, th_node, 2.5);
++    let s2cb = fleet(&mut rng, 250, 1.0, 1e-4, 0.5, 3e-4, 0.0, 1e-3, lam_node_b, 2.5);
++    scene("S2c-diluted-arcs10x", s2ca, s2cb, 2.0 * TAU);
++
++    // S2b: detuned period (a_B ~ 1.05): node phases drift; horizon 20 orbits, n_B=100.
++    let tbb = Body::new(1.05, 0.5, 0.0, 0.0);
++    let f_nb = node_fs(0.5, tbb.p)[0];
++    let mut rng = Rng(3039);
++    let s2ba = fleet(&mut rng, 250, 1.0, 1e-4, 0.0, 3e-4, 0.3, 1e-3, f_nb, 0.25);
++    let s2bb = fleet(&mut rng, 100, 1.05, 1e-4, 0.5, 3e-4, 0.0, 1e-3, lam_at_f(&tbb, f_nb), 0.25);
++    scene("S2b-detuned-20orbits", s2ba, s2bb, 20.0 * TAU);
++
++    // S3: the player as a lone crosser through S1's formation (at the node 0.1 after t=0).
++    let mut rng = Rng(3040);
++    let s3a = fleet(&mut rng, 250, 1.0, 1e-4, 0.0, 3e-4, 0.3, 1e-3, th_node, 0.25);
++    let s3b = vec![Body::new(1.0, 0.5, 0.0, lam_node_b - 0.1)];
++    scene("S3-lone-crosser", s3a, s3b, 2.0 * TAU);
++}
