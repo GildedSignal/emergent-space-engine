@@ -1,0 +1,333 @@
+diff --git a/crates/encounters/src/bin/jam.rs b/crates/encounters/src/bin/jam.rs
+new file mode 100644
+index 0000000..7e369b0
+--- /dev/null
++++ b/crates/encounters/src/bin/jam.rs
+@@ -0,0 +1,327 @@
++//! Inversion probe (run 20261009-0521-inversion-b1c0): where does the adopted k=4 phase-neighbour
++//! ("train") certificate fail? Truth = the crate's own rigorous per-pair scan (truth_pair, every
++//! local minimum below rho). At each encounter we measure the partner's rank in
++//!  (a) the instantaneous true-longitude ordering (the train certificate's sort key), and
++//!  (b) instantaneous 3D distance ordering (a k-nearest-distance watch).
++//! Plus: overtake counts (sorted-order maintenance), NN along-track spacing, the gold's own
++//! trigger number (max pairwise Binet distance / eps_u), and rho/spacing crowding J.
++
++use emergent_encounters::kepler::Body;
++use emergent_encounters::pairs::eps_u;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::TAU;
++use std::time::Instant;
++
++const RHO: f64 = 1e-4;
++const THREADS: usize = 4;
++
++struct Rng(u64);
++impl Rng {
++    fn next(&mut self) -> u64 {
++        self.0 = self.0.wrapping_add(0x9E3779B97F4A7C15);
++        let mut z = self.0;
++        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++        z ^ (z >> 31)
++    }
++    fn u01(&mut self) -> f64 {
++        (self.next() >> 11) as f64 / (1u64 << 53) as f64
++    }
++    fn norm(&mut self) -> f64 {
++        let (a, b) = (self.u01(), self.u01());
++        (-2.0 * a.max(1e-300).ln()).sqrt() * (TAU * b).cos()
++    }
++    fn rayleigh(&mut self, s: f64) -> f64 {
++        s * (-2.0 * (1.0 - self.u01()).ln()).sqrt()
++    }
++}
++
++/// sigma_lam <= 0 means uniform in [0, TAU).
++fn fleet(seed: u64, n: usize, sigma_lam: f64, sigma_e: f64, a_hw: f64) -> Vec<Body> {
++    let mut r = Rng(seed);
++    (0..n)
++        .map(|_| {
++            let a0 = 1.0 + (2.0 * r.u01() - 1.0) * a_hw;
++            let e = r.rayleigh(sigma_e);
++            let pom = (2.0 * r.u01() - 1.0) * 0.1;
++            let lam0 = if sigma_lam > 0.0 { r.norm() * sigma_lam } else { r.u01() * TAU };
++            Body::new(a0, e, pom, lam0)
++        })
++        .collect()
++}
++
++fn truth_all(b: &[Body], t_end: f64) -> (Vec<(u32, u32, f64, f64)>, u64, u64) {
++    let pairs: Vec<(u32, u32)> = (0..b.len() as u32)
++        .flat_map(|i| (i + 1..b.len() as u32).map(move |j| (i, j)))
++        .collect();
++    let parts = par_chunks(pairs.len(), 512, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], RHO, t_end, &mut tmp, &mut st);
++            for &(t, d) in &tmp {
++                out.push((i, j, t, d));
++            }
++        }
++        (out, st)
++    });
++    let mut enc = Vec::new();
++    let (mut steps, mut evals) = (0u64, 0u64);
++    for (o, st) in parts {
++        enc.extend(o);
++        steps += st.steps;
++        evals += st.evals;
++    }
++    (enc, steps, evals)
++}
++
++/// Partner ranks at one encounter time. Returns (rank_long, rank_dist): 1 + number of bodies
++/// between them on the shorter longitude arc; 1 + number of bodies strictly closer to i than j.
++fn ranks_at(b: &[Body], i: u32, j: u32, t: f64) -> (u64, u64) {
++
++    let si = b[i as usize].state(t);
++    let sj = b[j as usize].state(t);
++    let ti = si[1].atan2(si[0]);
++    let tj = sj[1].atan2(sj[0]);
++    let dl = (tj - ti).rem_euclid(TAU);
++    let (lo, len) = if dl <= std::f64::consts::PI { (ti, dl) } else { (tj, TAU - dl) };
++    let dij2 = {
++        let dx = si[0] - sj[0];
++        let dy = si[1] - sj[1];
++        dx * dx + dy * dy
++    };
++    let (mut between, mut closer_i, mut closer_j) = (0u64, 0u64, 0u64);
++    for (k, bk) in b.iter().enumerate() {
++        let k = k as u32;
++        if k == i || k == j {
++            continue;
++        }
++        let s = bk.state(t);
++        let th = s[1].atan2(s[0]);
++        if (th - lo).rem_euclid(TAU) < len {
++            between += 1;
++        }
++        let dxi = s[0] - si[0];
++        let dyi = s[1] - si[1];
++        if dxi * dxi + dyi * dyi < dij2 {
++            closer_i += 1;
++        }
++        let dxj = s[0] - sj[0];
++        let dyj = s[1] - sj[1];
++        if dxj * dxj + dyj * dyj < dij2 {
++            closer_j += 1;
++        }
++    }
++    // distance rank: optimistic (either side's k-nearest watch suffices)
++    (between + 1, closer_i.min(closer_j) + 1)
++}
++
++
++/// Exact pairwise longitude crossings (cyclic overtakes) on an iid subsample of bodies,
++/// scaled to the full set. Counts, per pair, crossings of unwrapped d(theta) through 2*pi*k.
++/// (A linear Kendall-tau on the sorted ring is wrong: the whole ring advances ~2 spacings per
++/// sample and wraparound registers as inversions.)
++fn overtakes(b: &[Body], sub: usize, samples: usize) -> (u64, f64) {
++    let m = sub.min(b.len());
++    let mut total = 0u64;
++    for i in 0..m {
++        for j in (i + 1)..m {
++            let (si, sj) = (&b[i], &b[j]);
++            let th = |t: f64| -> (f64, f64) {
++                let a = si.state(t);
++                let c = sj.state(t);
++                (a[1].atan2(a[0]), c[1].atan2(c[0]))
++            };
++            let (a0, c0) = th(0.0);
++            let mut dprev = c0 - a0; // unwrapped, near 0..TAU-scale
++            let mut acc = 0.0f64;
++
++            for s in 1..=samples {
++                let t = s as f64 / samples as f64 * TAU;
++                let (a, c) = th(t);
++                let mut d = c - a;
++                // continue the unwrapped difference
++                while d - dprev > std::f64::consts::PI {
++                    d -= TAU;
++                }
++                while dprev - d > std::f64::consts::PI {
++                    d += TAU;
++                }
++                // crossings of multiples of TAU between dprev and d (per-sample change << TAU)
++                acc += ((d / TAU).floor() - (dprev / TAU).floor()).abs();
++                dprev = d;
++            }
++            total += acc as u64;
++        }
++    }
++    let scale = (b.len() * (b.len() - 1)) as f64 / (m * (m - 1)) as f64;
++    (total, scale)
++}
++
++/// max over sampled pairs of Binet distance / eps_u (the gold's all-Full trigger; <=1 fires it).
++fn trigger_ratio(b: &[Body], seed: u64) -> f64 {
++    let n = b.len();
++    let npairs = n * (n - 1) / 2;
++    let take = npairs.min(20000);
++    let mut r = Rng(seed ^ 0xC0FFEE);
++    let mut mx = 0f64;
++    for _ in 0..take {
++        let i = (r.next() % n as u64) as usize;
++        let j = (r.next() % n as u64) as usize;
++        if i == j {
++            continue;
++        }
++        let (bi, bj) = (&b[i], &b[j]);
++        let u = bi.binet();
++        let v = bj.binet();
++        let d = ((u[0] - v[0]).powi(2) + (u[1] - v[1]).powi(2) + (u[2] - v[2]).powi(2)).sqrt();
++        mx = mx.max(d / eps_u(bi, bj, RHO));
++    }
++    mx
++}
++
++fn spacing(b: &[Body]) -> (f64, f64) {
++    let mut th: Vec<f64> = b.iter().map(|x| {
++        let s = x.state(0.0);
++        s[1].atan2(s[0])
++    }).collect();
++    th.sort_by(|x, y| x.total_cmp(y));
++    let n = th.len();
++    let mut gaps: Vec<f64> = th.windows(2).map(|w| w[1] - w[0]).collect();
++    gaps.push(th[0] + TAU - th[n - 1]);
++    gaps.sort_by(|x, y| x.total_cmp(y));
++    let p50 = gaps[n / 2];
++    let p10 = gaps[(n as f64 * 0.9) as usize];
++    (p50, p10)
++}
++
++struct Scene {
++    name: &'static str,
++    n: usize,
++    sigma_lam: f64,
++    sigma_e: f64,
++    orbits: f64,
++    seed: u64,
++}
++
++fn run_scene(sc: &Scene, a_hw: f64) -> String {
++    let t0 = Instant::now();
++    let b = fleet(sc.seed, sc.n, sc.sigma_lam, sc.sigma_e, a_hw);
++    let t_end = sc.orbits * TAU;
++    let (enc, steps, evals) = truth_all(&b, t_end);
++    let t_truth = t0.elapsed().as_secs_f64();
++    let n = b.len();
++    let t1 = Instant::now();
++    let mut ranks_l = Vec::with_capacity(enc.len());
++    let mut ranks_d = Vec::with_capacity(enc.len());
++    for &(i, j, t, _) in &enc {
++        let (rl, rd) = ranks_at(&b, i, j, t);
++        ranks_l.push(rl);
++        ranks_d.push(rd);
++    }
++    t1.elapsed();
++    let t2 = Instant::now();
++    let (ov, ov_scale) = overtakes(&b, 64, 7200);
++    let ov_scaled = (ov as f64 * ov_scale) as u64;
++    let t_ov = t2.elapsed().as_secs_f64();
++    ranks_l.sort_unstable();
++    ranks_d.sort_unstable();
++    let (s50, s10) = spacing(&b);
++    let trig = trigger_ratio(&b, sc.seed);
++    let pct = |v: &[u64], q: f64| v[(((v.len() as f64 - 1.0) * q) as usize).min(v.len().saturating_sub(1))];
++    let j50 = RHO / s50;
++    let j10 = RHO / s10;
++    format!(
++        "{{\"name\":\"{}\",\"n\":{},\"sigma_lam\":{:.1e},\"sigma_e\":{:.1e},\"orbits\":{},\"seed\":{},\
++\"pairs\":{},\"encounters\":{},\"enc_per_body_orbit\":{:.4},\
++\"rank_long_max\":{},\"rank_long_p99\":{},\"rank_long_p50\":{},\
++\"rank_dist_max\":{},\"rank_dist_p99\":{},\
++\"miss_k4_long\":{},\"miss_k4_dist\":{},\
++\"spacing_p50\":{:.3e},\"spacing_p10\":{:.3e},\"J50\":{:.2},\"J10\":{:.2},\
++\"trigger_binet_over_eps\":{:.4},\"overtakes_per_orbit\":{},\"overtakes_per_body_orbit\":{:.2},\
++\"truth_steps\":{},\"truth_evals\":{},\"t_truth_s\":{:.1},\"t_ov_s\":{:.1}}}",
++        sc.name, n, sc.sigma_lam, sc.sigma_e, sc.orbits, sc.seed,
++        n * (n - 1) / 2, enc.len(), enc.len() as f64 / n as f64 / sc.orbits,
++        ranks_l.last().copied().unwrap_or(0), if !ranks_l.is_empty() { pct(&ranks_l, 0.99) } else { 0 }, if !ranks_l.is_empty() { pct(&ranks_l, 0.5) } else { 0 },
++        ranks_d.last().copied().unwrap_or(0), if !ranks_d.is_empty() { pct(&ranks_d, 0.99) } else { 0 },
++        ranks_l.iter().filter(|&&x| x > 4).count(), ranks_d.iter().filter(|&&x| x > 4).count(),
++        s50, s10, j50, j10, trig, ov_scaled, ov_scaled as f64 / n as f64, steps, evals, t_truth, t_ov,
++    )
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let group = args.get(1).map(|s| s.as_str()).unwrap_or("help");
++    let scenes: Vec<Scene> = match group {
++        // tuning: anchor to the gold's own scenes (may inspect freely before predictions.md)
++        "tuning" => vec![
++            Scene { name: "G-uniform", n: 400, sigma_lam: 0.0, sigma_e: 1e-3, orbits: 2.0, seed: 11 },
++            Scene { name: "A-phalanx", n: 200, sigma_lam: 1e-2, sigma_e: 1e-3, orbits: 1.0, seed: 27 },
++            Scene { name: "B-espread", n: 200, sigma_lam: 1e-2, sigma_e: 1e-2, orbits: 1.0, seed: 27 },
++        ],
++        // held-out: written in predictions.md before any run
++        "heldout" => vec![
++            Scene { name: "C-jam5", n: 400, sigma_lam: 3e-3, sigma_e: 1e-3, orbits: 1.0, seed: 101 },
++            Scene { name: "D-jam16", n: 400, sigma_lam: 1e-3, sigma_e: 1e-3, orbits: 1.0, seed: 102 },
++            Scene { name: "E-blob", n: 400, sigma_lam: 3e-4, sigma_e: 1e-3, orbits: 1.0, seed: 103 },
++            Scene { name: "F-blob2x", n: 800, sigma_lam: 3e-4, sigma_e: 1e-3, orbits: 1.0, seed: 104 },
++            Scene { name: "H-mixed", n: 800, sigma_lam: 2e-3, sigma_e: 5e-3, orbits: 1.0, seed: 105 },
++            Scene { name: "I-highe", n: 400, sigma_lam: 1e-3, sigma_e: 3e-2, orbits: 1.0, seed: 106 },
++        ],
++        "dbg" => {
++            let b = fleet(11, 400, 0.0, 1e-3, 1e-5);
++            let pairs_dbg = [(0u32, 1u32), (0, 2), (2, 3), (10, 11), (20, 21), (30, 31)];
++            for &(i, j) in &pairs_dbg {
++                let (a0, c0) = (b[i as usize].state(0.0), b[j as usize].state(0.0));
++                let mut dprev = c0[1].atan2(c0[0]) - a0[1].atan2(a0[0]);
++                let mut crossings = 0u64;
++                let mut minabs = dprev.abs();
++                for s in 1..=7200 {
++                    let t = s as f64 / 7200.0 * TAU;
++                    let (a, c) = (b[i as usize].state(t), b[j as usize].state(t));
++                    let mut d = c[1].atan2(c[0]) - a[1].atan2(a[0]);
++                    while d - dprev > std::f64::consts::PI { d -= TAU; }
++                    while dprev - d > std::f64::consts::PI { d += TAU; }
++                    crossings += ((d / TAU).floor() - (dprev / TAU).floor()).abs() as u64;
++                    minabs = minabs.min(d.abs());
++                    dprev = d;
++                }
++                let (bi, bj) = (&b[i as usize], &b[j as usize]);
++                println!("pair ({},{}): e=({:.1e},{:.1e}) crossings={} min|dlam|={:.3e}",
++                    i, j, bi.e, bj.e, crossings, minabs);
++            }
++            return;
++        }
++        "spot" => {
++            // scene D: dump elements and the top-3 highest-rank encounters for external check
++            let b = fleet(102, 400, 1e-3, 1e-3, 1e-5);
++            for (k, x) in b.iter().enumerate() {
++                let lam0 = (x.mean_anomaly(0.0) + x.pom).rem_euclid(TAU);
++                println!("BODY {} {:.17e} {:.17e} {:.17e} {:.17e}", k, x.a, x.e, x.pom, lam0);
++            }
++            let (enc, _, _) = truth_all(&b, TAU);
++            let mut withr: Vec<(u64, u32, u32, f64, f64)> = enc
++                .iter()
++                .map(|&(i, j, t, d)| {
++                    let (rl, _) = ranks_at(&b, i, j, t);
++                    (rl, i, j, t, d)
++                })
++                .collect();
++            withr.sort_by(|x, y| y.0.cmp(&x.0));
++            for &(rl, i, j, t, d) in withr.iter().take(3) {
++                println!("TOP {} {} {} {:.12} {:.12}", i, j, t, d, rl);
++            }
++            return;
++        }
++        _ => {
++            eprintln!("usage: jam tuning|heldout|dbg");
++            std::process::exit(2);
++        }
++    };
++    for sc in &scenes {
++        println!("{}", run_scene(sc, 1e-5));
++    }
++}
