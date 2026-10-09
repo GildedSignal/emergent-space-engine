@@ -1,0 +1,141 @@
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index c026d5f..d666576 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -187,7 +187,8 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+     names.push("Moon".into());
+     // Ships about the star: between 0.5 and 8 AU, e up to 0.25.
+     let mut ships = Vec::new();
+-    for _ in 0..12 {
++    let haulers = std::env::var("PROBE_HAULERS").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(12); // probe, lab 20261009-1210
++    for _ in 0..haulers {
+         let a = (0.5 + 7.5 * lcg(&mut rng)) * AU as f64;
+         let e = 0.25 * lcg(&mut rng);
+         let id = u.add_body(
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..2c40c9c 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -230,12 +230,29 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+     gather_with(u, names, Some(cache))
+ }
+ 
++/// Section timers for the gather (this run's probe, lab 20261009-1210): player readout, per-body
++/// crossing searches, fleet-member extrapolation. Atomic nanos, read by the bench.
++pub static T_PLAYER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static T_BODIES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static T_FLEETS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
++fn add(a: &std::sync::atomic::AtomicU64, t: std::time::Instant) {
++    a.fetch_add(t.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++}
++
++/// The gather's section totals in ms (a probe; not part of the view).
++pub fn gather_timing_ms() -> [f64; 3] {
++    let f = |a: &std::sync::atomic::AtomicU64| a.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e6;
++    [f(&T_PLAYER), f(&T_BODIES), f(&T_FLEETS)]
++}
++
+ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
+     let ctx = u.ctx();
+     if let Some(c) = cache.as_mut() {
+         c.readouts = 0;
+     }
+-    let p = u.player()?;
++    let tp = std::time::Instant::now();
++     let p = u.player()?;
+     let t_now = u.now;
+     let rec = u.rec(p);
+     // A lost player (a wreck) stays where it was lost, its readings frozen at its last state: the universe goes on.
+@@ -264,7 +281,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         let along = s.proper_time.sub(rec.b.orbit_state(rec.b.event_time).ok()?.proper_time).ok()?;
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+-    let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
++    add(&T_PLAYER, tp);
++     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
+     let mut seen = Vec::new();
+     let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+         let d = [pos[0] - xo[0], pos[1] - xo[1]];
+@@ -297,7 +315,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     }
+     // Bodies: where each tube crosses the past light cone.
+     let mut reads = 0u64;
+-    for i in 0..u.n_bodies() {
++     let tb = std::time::Instant::now();
++     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+             continue;
+         }
+@@ -329,11 +348,13 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             Some((fi, m)) => push(1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64),
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+-    }
+-    if let Some(c) = cache.as_deref_mut() {
+-        c.readouts = reads;
+-    }
+-    // Fleets: the battle's committed tick follows the retarded time of its light, so its members
++     }
++    add(&T_BODIES, tb);
++     if let Some(c) = cache.as_deref_mut() {
++         c.readouts = reads;
++     }
++    let tf = std::time::Instant::now();
++     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
+     let mut motions = Vec::new();
+     for (fi, f) in u.fleets.iter().enumerate() {
+@@ -365,7 +386,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             let rad = f.radii.get(m).copied().unwrap_or(0) as f64 * k;
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+-    }
++     }
++    add(&T_FLEETS, tf);
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..e647c46 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -129,6 +129,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
++    let g = emergent_universe::view::gather_timing_ms();
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
+@@ -144,7 +145,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+-        "engine_budget_ms": s.engine_ms, "throttle_level": level,
++         "gather_sections_ms_total": { "note": "probe, lab 20261009-1210: totals over the run", "player_readout": g[0], "body_crossings": g[1], "fleet_members": g[2] },
++        "gather_last_readouts": s.last_readouts(), "members": s.members_count(),
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..9a3c5a5 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -69,6 +69,16 @@ impl Session {
+         self.p.u.stats
+     }
+ 
++    /// Readouts spent by the last gather (a probe: how warm the crossing cache runs).
++    pub fn last_readouts(&self) -> u64 {
++        self.cache.readouts
++    }
++
++    /// The scenario's fleet size (a probe).
++    pub fn members_count(&self) -> u64 {
++        self.members
++    }
++
+     /// One presented frame: the player's decision word when it is given (the keys and the throttle level, one byte:
+     /// [`emergent_universe::thrust::word`]; a decision, logged at the presented tick if it changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
+     /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and

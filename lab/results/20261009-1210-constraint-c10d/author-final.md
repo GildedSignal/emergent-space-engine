@@ -1,0 +1,4 @@
+Working...
+Run complete: dossier, predictions (written before the sweep), and all reproducing JSONs are in `lab/results/20261009-1210-constraint-c10d/`; the probe instrumentation (gather section timers, `PROBE_HAULERS`) is saved as this run's patch.
+
+**The claim:** measured on the whole flown plane, the frame's constraint is not the engine (4.7–23% of frame CPU, falling to 6% as bodies grow) but the view's per-body light-cone crossings — 66–84% of frame CPU, 97% of the gather, ~16 µs per visible body per frame and linear in N (ceiling ≈ 10³ visible bodies per 16.7 ms frame) — so the view must track changes (arrival-rate-carried crossings, re-bracketed on threat, as the fleet loop already proves at ~0.1 µs per emitter) rather than charge per body per frame, and the queued readout-cost fix (2.6×) moves this wall by less than one order of magnitude.
