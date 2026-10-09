@@ -1,0 +1,4 @@
+Working...
+Run complete. Artifacts: `dossier.md`, `predictions.md` (12:14, before the 12:22 decisive runs), `work/{patch.diff, estimate.md, rtf*.json, m5000.json, h_live.rs}`; no commits; tree edits saved as `work/patch.diff`.
+
+**Claim:** H_live — the live distinguishing bits per game-second, now defined from the engine's remainders and decision words and measured on the plane's dashboard (`xtask universe --bench` and the page, digest proven unchanged) — shows a body carrying a remainder holds a stable ~70–90 bits with reabsorption returning 86–97% of creation past the battle transient and 72.7 bits per live body after 15 h even in a scene where every body is individually managed, so the 8 GB / 10⁹ line is drawn by representation width (~600× the live information) and not by H_live's growth.

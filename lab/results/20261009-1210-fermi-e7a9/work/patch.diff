@@ -1,0 +1,264 @@
+diff --git a/crates/universe/src/dash.rs b/crates/universe/src/dash.rs
+index cd88678..4068c90 100644
+--- a/crates/universe/src/dash.rs
++++ b/crates/universe/src/dash.rs
+@@ -15,6 +15,9 @@ pub struct Dash {
+     pub game_seconds: f64,
+     pub wall_seconds: f64,
+     pub overflow_frames: u64,
++    /// The live distinguishing bits ([`crate::universe::Universe::live_bits`]) sampled after each
++    /// frame: what the generators cannot re-derive, per frame, against what reabsorption removes.
++    pub live_bits: Vec<u64>,
+     /// Where a frame's time went: the engine's advance, the view's gather, the JSON tree built from it, the
+     /// wire (serialisation).
+     pub engine_ms: Vec<f64>,
+@@ -31,6 +34,18 @@ fn pct(sorted: &[f64], q: f64) -> f64 {
+     }
+ }
+ 
++/// H_live over the run: the live bits at the ends, and the flows that moved them, per game-second.
++/// Creation is the sum of the rises, reabsorption the sum of the falls; their difference is the net
++/// slope, which must sit near zero in steady play or a billion bodies cannot be promised an hour.
++#[derive(Clone, Copy, Debug, Default)]
++pub struct HLive {
++    pub first: u64,
++    pub last: u64,
++    pub created_per_game_second: f64,
++    pub reabsorbed_per_game_second: f64,
++    pub net_per_game_second: f64,
++}
++
+ #[derive(Clone, Debug)]
+ pub struct Summary {
+     pub frames: usize,
+@@ -49,6 +64,7 @@ pub struct Summary {
+     pub rtf_median: f64,
+     pub rtf_low1: f64,
+     pub events_per_second: f64,
++    pub h_live: HLive,
+     pub overflow_frames: u64,
+     /// (p50, p99, share of the summed time, max) of the engine, the view's gather, the JSON tree and the wire.
+     pub parts: [(f64, f64, f64, f64); 4],
+@@ -89,6 +105,27 @@ impl Dash {
+         let hours = self.wall_seconds / 3600.0;
+         let counts = [16.7, 33.0, 50.0].map(|th| self.frame_ms.iter().filter(|&&x| x > th).count());
+         let (worst_at, worst) = self.frame_ms.iter().cloned().enumerate().fold((0, 0.0), |a, (i, x)| if x > a.1 { (i, x) } else { a });
++        let h_live = {
++            let (mut first, mut last, mut created, mut reabsorbed) = (0u64, 0u64, 0u64, 0u64);
++            for (i, &b) in self.live_bits.iter().enumerate() {
++                if i == 0 {
++                    first = b;
++                } else {
++                    let p = self.live_bits[i - 1];
++                    created += b.saturating_sub(p);
++                    reabsorbed += p.saturating_sub(b);
++                }
++                last = b;
++            }
++            let g = self.game_seconds;
++            HLive {
++                first,
++                last,
++                created_per_game_second: if g > 0.0 { created as f64 / g } else { 0.0 },
++                reabsorbed_per_game_second: if g > 0.0 { reabsorbed as f64 / g } else { 0.0 },
++                net_per_game_second: if g > 0.0 { (last as f64 - first as f64) / g } else { 0.0 },
++            }
++        };
+         Summary {
+             frames: f.len(),
+             p50: pct(&f, 0.5),
+@@ -104,6 +141,7 @@ impl Dash {
+             rtf_median: pct(&r, 0.5),
+             rtf_low1: pct(&r, 0.01),
+             events_per_second: if self.wall_seconds > 0.0 { self.events as f64 / self.wall_seconds } else { 0.0 },
++            h_live,
+             overflow_frames: self.overflow_frames,
+             parts: [part(&self.engine_ms, total), part(&self.view_ms, total), part(&self.json_ms, total), part(&self.wire_ms, total)],
+         }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..3e364c8 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -114,6 +114,36 @@ impl Stats {
+     }
+ }
+ 
++/// The significant bits of one integer of a binding's remainder: what stating it costs a
++/// distinguisher that already knows the tube it was measured against (magnitude bits and a sign;
++/// zero is free — it is the fitted body's own case).
++fn int_bits(v: i128) -> u64 {
++    if v == 0 {
++        0
++    } else {
++        (128 - v.unsigned_abs().leading_zeros() + 1) as u64
++    }
++}
++
++/// The live distinguishing information (docs/plane.md, "Distinctions created per game-second"):
++/// what the generators cannot re-derive. A body on its compiled tube holds none; the bits are the
++/// binding's remainder — what the last fit discarded, live until the next rebinding reabsorbs it —
++/// and the player's decision words, which no law derives. Read-only: sampling it moves no state.
++#[derive(Clone, Copy, Debug, Default)]
++pub struct LiveBits {
++    /// Remainder bits held by live bodies (the four integers of each residual, significant bits).
++    pub residual: u64,
++    /// Live bodies holding a nonzero remainder.
++    pub carried: usize,
++    /// Decision words in the input log, eight bits each.
++    pub decisions: u64,
++}
++impl LiveBits {
++    pub fn bits(&self) -> u64 {
++        self.residual + self.decisions
++    }
++}
++
+ /// How a body is made: a tube of a doll from its orbit.
+ #[derive(Clone, Copy, Debug)]
+ pub struct OrbitSpec {
+@@ -229,6 +259,22 @@ impl Universe {
+     pub fn n_bodies(&self) -> usize {
+         self.bodies.len()
+     }
++
++    /// [`LiveBits`] over the live bodies and the input log. Read-only.
++    pub fn live_bits(&self) -> LiveBits {
++        let mut l = LiveBits { decisions: 8 * self.inputs.len() as u64, ..Default::default() };
++        for i in 0..self.bodies.len() {
++            let r = self.rec(i);
++            if r.alive {
++                let v = &r.b.residual;
++                let b = int_bits(v.position[0]) + int_bits(v.position[1]) + int_bits(v.velocity[0]) + int_bits(v.velocity[1]);
++                l.residual += b;
++                l.carried += (b > 0) as usize;
++            }
++        }
++        l
++    }
++
+     /// Members the frame has handed out whose tubes are not made yet (each is an item of the queue).
+     pub fn pending_handouts(&self) -> usize {
+         self.handouts.len()
+diff --git a/crates/universe/tests/h_live.rs b/crates/universe/tests/h_live.rs
+new file mode 100644
+index 0000000..baf9aba
+--- /dev/null
++++ b/crates/universe/tests/h_live.rs
+@@ -0,0 +1,45 @@
++//! H_live (docs/plane.md, "Distinctions created per game-second"): the live distinguishing bits
++//! the universe holds against its generators. Two contracts: sampling the measure is read-only
++//! (no digest moves — the brief's hard line), and the bits a body carries stay far under the
++//! 64-bit line that 8 GB draws for 10⁹ bodies. Each test finishes within 60 s.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::{Budget, Config};
++
++/// A short flight (about 5 minutes of game time, no player input): the fleet fights, bodies get
++/// kicked, bindings rebind.
++fn flown(sample: bool) -> (String, emergent_universe::universe::LiveBits, usize) {
++    let mut p = plane(Config::default(), 7, Order::Sparse, 1, 8).unwrap();
++    let mut bits = 0u64;
++    let mut t = 0i64;
++    while t < 60_000_000 {
++        t += 500_000;
++        p.u.advance(t, Budget::events(2000));
++        if sample {
++            bits += p.u.live_bits().bits();
++        }
++    }
++    p.u.settle(t);
++    (p.u.digest(), p.u.live_bits(), p.u.n_bodies())
++}
++
++#[test]
++fn sampling_moves_no_digest() {
++    let (quiet, _, _) = flown(false);
++    let (sampled, _, _) = flown(true);
++    assert_eq!(quiet, sampled, "sampling live bits moved the digest");
++}
++
++#[test]
++fn a_kicked_scene_stays_under_the_billion_body_line() {
++    let (_, lb, n) = flown(true);
++    // 8 GB / 10⁹ bodies = 64 bits per body: the whole scene's live distinctions must sit under
++    // that line, or the memory question is not about distinctions at all.
++    assert!(
++        lb.bits() < 64 * n as u64,
++        "live bits {} over {} bodies exceed 64 per body",
++        lb.bits(),
++        n
++    );
++    assert!(lb.decisions == 0, "no player flew, but decision bits appeared");
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..5c89b78 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -129,6 +129,12 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
++    let lb = s.p.u.live_bits();
++    let live = bodies - lost.len();
++    let game_seconds = cut_tick as f64 * emergent_universe::view::TICK_SECONDS;
++    // The impulse side: creation minus the player's words, per kick, is what a body's binding pays
++    // for a surprise in bits.
++    let bits_per_kick = if st.kicks > 0 { (d.h_live.created_per_game_second * game_seconds - 8.0 * st.decisions as f64) / st.kicks as f64 } else { 0.0 };
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
+@@ -139,7 +145,11 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "worst_hitch_ms": d.worst_ms, "worst_hitch_at_frame": d.worst_at_frame,
+         "where_the_time_goes_ms": {"engine": {"p50": d.parts[0].0, "p99": d.parts[0].1, "max": d.parts[0].3, "share": d.parts[0].2}, "view_gather": {"p50": d.parts[1].0, "p99": d.parts[1].1, "max": d.parts[1].3, "share": d.parts[1].2}, "view_json": {"p50": d.parts[2].0, "p99": d.parts[2].1, "max": d.parts[2].3, "share": d.parts[2].2}, "wire": {"p50": d.parts[3].0, "p99": d.parts[3].1, "max": d.parts[3].3, "share": d.parts[3].2}},
+         "rtf": {"median": d.rtf_median, "lowest_1pct": d.rtf_low1, "overflow_frames": d.overflow_frames},
+-        "events_per_second": d.events_per_second,
++        "h_live": {"note": "live distinguishing bits: the remainders the generators cannot re-derive, plus the player's decision words; created sums the rises and reabsorbed the falls, per game-second of simulated time",
++                   "game_seconds": game_seconds, "bits_at_end": lb.bits(), "residual_bits": lb.residual, "decision_bits": lb.decisions,
++                   "carried_by": lb.carried, "live_bodies": live, "bits_per_live_body": if live > 0 { lb.bits() as f64 / live as f64 } else { 0.0 },
++                   "created_per_game_second": d.h_live.created_per_game_second, "reabsorbed_per_game_second": d.h_live.reabsorbed_per_game_second,
++                   "net_per_game_second": d.h_live.net_per_game_second, "bits_per_kick": bits_per_kick},
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+diff --git a/xtask/src/universe/page.html b/xtask/src/universe/page.html
+index 25c69b5..cbb73df 100644
+--- a/xtask/src/universe/page.html
++++ b/xtask/src/universe/page.html
+@@ -235,7 +235,7 @@ function text(){
+   +`<span class="hi">${g<10?g.toFixed(2):g.toFixed(0)} g</span> · ${(g*9.80665).toPrecision(3)} m/s² proper · ${f.burning?'<span class="warn">BURNING</span>':'coasting'}\n`
+   +`at this time factor: ${per<1?(per*1000).toFixed(1)+' m/s':per.toPrecision(3)+' km/s'} gained per wall-second burning\n\n`
+   +`<span class="label">TIME</span>  <span class="hi big">×${rtf>=10?rtf.toFixed(0):rtf.toPrecision(2)}</span>  asked · <span class="hi">×${rtfNow>=10?rtfNow.toFixed(0):rtfNow.toPrecision(2)}</span> got\n`;
+- el('stats').textContent=`IN DOLL      ${f.doll}\nFRAME        p50 ${d.p50?d.p50.toFixed(1):'…'} · p95 ${d.p95?d.p95.toFixed(1):'…'} · p99 ${d.p99?d.p99.toFixed(1):'…'} ms (engine + view + wire)\nGAME TIME    ${d.rtf_median?d.rtf_median.toFixed(1):'…'}× median · ${d.rtf_low1?d.rtf_low1.toFixed(1):'…'}× lowest 1%\nEVENTS       ${d.events_per_second?Math.round(d.events_per_second):'…'}/s · overflow frames ${d.overflow_frames||0} · ${d.bytes_per_body||'…'} B per body\n${el('seed').textContent}`;
++ el('stats').textContent=`IN DOLL      ${f.doll}\nFRAME        p50 ${d.p50?d.p50.toFixed(1):'…'} · p95 ${d.p95?d.p95.toFixed(1):'…'} · p99 ${d.p99?d.p99.toFixed(1):'…'} ms (engine + view + wire)\nGAME TIME    ${d.rtf_median?d.rtf_median.toFixed(1):'…'}× median · ${d.rtf_low1?d.rtf_low1.toFixed(1):'…'}× lowest 1%\nEVENTS       ${d.events_per_second?Math.round(d.events_per_second):'…'}/s · overflow frames ${d.overflow_frames||0} · ${d.bytes_per_body||'…'} B per body\nH_LIVE       ${d.h_live?d.h_live.bits:'…'} bits (${d.h_live?d.h_live.per_live_body.toFixed(1):'…'} per body) · +${d.h_live?d.h_live.created_per_game_second.toFixed(0):'…'} −${d.h_live?d.h_live.reabsorbed_per_game_second.toFixed(0):'…'} bits/game-s\n${el('seed').textContent}`;
+ }
+ function describe(f){
+  if(!f.alive)return 'The ship is lost. '+(f.loss||'');
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..7f8b406 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -98,6 +98,9 @@ impl Session {
+         let ms = start.elapsed().as_secs_f64() * 1e3;
+         self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
+         self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
++        // H_live after the frame: what the generators cannot re-derive (remainders plus the player's
++        // words). Read-only, so the digest cannot move.
++        self.dash.live_bits.push(self.p.u.live_bits().bits());
+         Ok((json, ms))
+     }
+ 
+@@ -111,9 +114,13 @@ impl Session {
+ 
+     pub fn dash_json(&self) -> Value {
+         let d = self.dash.summary();
++        let lb = self.p.u.live_bits();
++        let live = self.n_bodies() - self.lost_bodies().len();
+         json!({"frames": d.frames, "p50": d.p50, "p95": d.p95, "p99": d.p99, "p999": d.p999, "worst": d.worst_ms, "rtf_median": d.rtf_median, "rtf_low1": d.rtf_low1,
+                "hitches_per_hour": d.hitches_per_hour, "events_per_second": d.events_per_second, "overflow_frames": d.overflow_frames,
+-               "bytes_per_body": self.p.u.bytes_per_body()})
++               "bytes_per_body": self.p.u.bytes_per_body(),
++               "h_live": {"bits": lb.bits(), "per_live_body": if live > 0 { lb.bits() as f64 / live as f64 } else { 0.0 }, "carried_by": lb.carried, "of": live,
++                          "created_per_game_second": d.h_live.created_per_game_second, "reabsorbed_per_game_second": d.h_live.reabsorbed_per_game_second, "net_per_game_second": d.h_live.net_per_game_second}})
+     }
+ 
+     /// The canonical cut the digest is taken at: the session's cut when it has one (everything up to it is

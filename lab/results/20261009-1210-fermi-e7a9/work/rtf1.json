@@ -1,0 +1,384 @@
+{
+  "bodies": 39,
+  "bytes_per_body": 2351,
+  "catalogue_live": 39,
+  "cut_tick": 11166400,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ],
+      [
+        1688495,
+        0
+      ],
+      [
+        2432922,
+        4
+      ],
+      [
+        2500597,
+        0
+      ],
+      [
+        3245023,
+        1
+      ],
+      [
+        3312699,
+        0
+      ],
+      [
+        4057125,
+        5
+      ],
+      [
+        4124800,
+        0
+      ],
+      [
+        4869227,
+        2
+      ],
+      [
+        4936902,
+        0
+      ],
+      [
+        5681329,
+        8
+      ],
+      [
+        5749004,
+        0
+      ],
+      [
+        6493431,
+        1
+      ],
+      [
+        6561106,
+        0
+      ],
+      [
+        7305532,
+        9
+      ],
+      [
+        7373207,
+        0
+      ],
+      [
+        8117634,
+        2
+      ],
+      [
+        8185309,
+        0
+      ],
+      [
+        8929736,
+        4
+      ],
+      [
+        8997411,
+        0
+      ],
+      [
+        9741838,
+        1
+      ],
+      [
+        9809513,
+        0
+      ],
+      [
+        10553939,
+        5
+      ],
+      [
+        10621615,
+        0
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ],
+      [
+        1688495,
+        0
+      ],
+      [
+        2432922,
+        4
+      ],
+      [
+        2500597,
+        0
+      ],
+      [
+        3245023,
+        1
+      ],
+      [
+        3312699,
+        0
+      ],
+      [
+        4057125,
+        5
+      ],
+      [
+        4124800,
+        0
+      ],
+      [
+        4869227,
+        2
+      ],
+      [
+        4936902,
+        0
+      ],
+      [
+        5681329,
+        8
+      ],
+      [
+        5749004,
+        0
+      ],
+      [
+        6493431,
+        1
+      ],
+      [
+        6561106,
+        0
+      ],
+      [
+        7305532,
+        9
+      ],
+      [
+        7373207,
+        0
+      ],
+      [
+        8117634,
+        2
+      ],
+      [
+        8185309,
+        0
+      ],
+      [
+        8929736,
+        4
+      ],
+      [
+        8997411,
+        0
+      ],
+      [
+        9741838,
+        1
+      ],
+      [
+        9809513,
+        0
+      ],
+      [
+        10553939,
+        5
+      ],
+      [
+        10621615,
+        0
+      ]
+    ]
+  },
+  "digest": "40cf6013587a297afe28479d6551e9b922dfbd17b6f6ee7c0eba5a09346a1a48",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 7,
+      "kind": "ship",
+      "total_ms": 0.400994,
+      "us_per_item": 57.28485714285715
+    },
+    {
+      "items": 6,
+      "kind": "player",
+      "total_ms": 1.70581,
+      "us_per_item": 284.3016666666667
+    },
+    {
+      "items": 3323,
+      "kind": "fleet",
+      "total_ms": 37.807216,
+      "us_per_item": 11.377434848028889
+    }
+  ],
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 0.8278420000001461,
+    "p99": 1.053038000000015,
+    "p99.9": 1.3964530000002924,
+    "worst": 6.44551100000001
+  },
+  "frame_ms": {
+    "p50": 0.827582,
+    "p95": 0.8902209999999999,
+    "p99": 1.052063,
+    "p99.9": 1.395823
+  },
+  "frames": 3300,
+  "h_live": {
+    "bits_at_end": 1753,
+    "bits_per_kick": 98.34290373397005,
+    "bits_per_live_body": 44.94871794871795,
+    "carried_by": 17,
+    "created_per_game_second": 32.68157074120773,
+    "decision_bits": 224,
+    "game_seconds": 55.0000021105808,
+    "live_bodies": 39,
+    "net_per_game_second": 31.735860291267382,
+    "note": "live distinguishing bits: the remainders the generators cannot re-derive, plus the player's decision words; created sums the rises and reabsorbed the falls, per game-second of simulated time",
+    "reabsorbed_per_game_second": 0.9457104499403461,
+    "residual_bits": 1529
+  },
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-09T12:22:01Z",
+    "unix": 1791548521,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-09T12:21:58Z",
+    "unix": 1791548518,
+    "when": "before"
+  },
+  "paced": false,
+  "player_alive": true,
+  "presented_tick_at_end": 11163378,
+  "rtf": {
+    "lowest_1pct": 0.9997761524220601,
+    "median": 0.9997761524220601,
+    "overflow_frames": 1
+  },
+  "rtf_target": 1.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 16, opens: 67, boundaries: 7, handoffs: 0, lost: 0, refused: 0, slices: 3323, encounters: 10, decisions: 28, leavers: 11, dissolved: 0, cost_ns: [0, 0, 400994, 1705810, 37807216], items: [0, 0, 7, 6, 3323] }",
+  "throttle_level": 0,
+  "uptime_after": "12:22:01 up 43 days,  3:24,  0 user,  load average: 0.99, 0.76, 0.41",
+  "uptime_before": "12:21:58 up 43 days,  3:24,  0 user,  load average: 0.99, 0.76, 0.41",
+  "wall_seconds": 2.634931397,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 5.637600000000001,
+      "p50": 0.023944999999999998,
+      "p99": 0.051444,
+      "share": 0.03597111749236697
+    },
+    "view_gather": {
+      "max": 1.050203,
+      "p50": 0.653665,
+      "p99": 0.794816,
+      "share": 0.7700444278399384
+    },
+    "view_json": {
+      "max": 0.268911,
+      "p50": 0.102135,
+      "p99": 0.14336000000000002,
+      "share": 0.13365406114622821
+    },
+    "wire": {
+      "max": 0.113025,
+      "p50": 0.046461,
+      "p99": 0.06928899999999999,
+      "share": 0.060330393521466436
+    }
+  },
+  "worst_hitch_at_frame": 1084,
+  "worst_hitch_ms": 6.445098
+}
