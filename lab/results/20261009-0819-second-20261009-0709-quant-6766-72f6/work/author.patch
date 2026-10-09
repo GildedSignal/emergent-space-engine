@@ -1,0 +1,219 @@
+diff --git a/crates/universe/examples/quant_events.rs b/crates/universe/examples/quant_events.rs
+new file mode 100644
+index 0000000..8e03541
+--- /dev/null
++++ b/crates/universe/examples/quant_events.rs
+@@ -0,0 +1,112 @@
++//! Quant lens: the plane's per-event latency and the frame's fixed cost as the body count scales.
++//! One restricted universe (a star, one planet at 5.2 AU, N test ships spread over ±6 Hill radii
++//! at seeded angles — the Jacobi-check distribution of tests/motion.rs), no player, threads 1,
++//! budget unlimited: this isolates the kick/queue/drift path every body pays.
++//!
++//! Usage: quant_events <n_ships> [rounds=16] [per_round=20000]
++//! Prints JSON lines: setup, one per round (with the stage profiler's totals), one per empty
++//! frame (with the profiler reset first), end. QUANT_NO_EMPTY=1 skips the empty frames.
++use emergent_universe::scenario::restricted;
++use emergent_universe::Budget;
++use std::time::Instant;
++
++fn lcg(rng: &mut u64) -> f64 {
++    *rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++    (*rng >> 11) as f64 / (1u64 << 53) as f64
++}
++
++fn hwm_kb() -> u64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines().find(|l| l.starts_with("VmHWM")).and_then(|l| {
++                l.split_whitespace().nth(1).and_then(|v| v.parse().ok())
++            })
++        })
++        .unwrap_or(0)
++}
++
++fn prof_line(tag: &str, i: usize) {
++    let p = emergent_universe::universe::prof::read();
++    println!(
++        "{{\"kind\":\"{tag}\",\"i\":{i},\"rekey\":{},\"loop\":{},\"resolve\":{},\"defer\":{},\"pos\":{}}}",
++        p[0], p[2], p[3], p[4], p[5]
++    );
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let n: usize = a.get(1).unwrap().parse().unwrap();
++    let rounds: usize = a.get(2).map(|s| s.parse().unwrap()).unwrap_or(16);
++    let per_round: f64 = a.get(3).map(|s| s.parse().unwrap()).unwrap_or(20_000.0);
++    let (mu_log2, sep) = (-10i32, 527_000_000i64);
++    let hill = sep as f64 * (2f64.powi(mu_log2) / 3.0).cbrt();
++    let mut rng = 0x853c_49e6_748f_ea9bu64;
++    let ships: Vec<(i64, u32)> = (0..n)
++        .map(|_| {
++            let u1 = lcg(&mut rng);
++            let u2 = lcg(&mut rng);
++            let r = sep as f64 + (u1 * 2.0 - 1.0) * hill * 6.0;
++            (r as i64, (u2 * 4294967296.0) as u32)
++        })
++        .collect();
++    let t0 = Instant::now();
++    let mut w = restricted(mu_log2, sep, 49_000, &ships, 1).unwrap();
++    let build_s = t0.elapsed().as_secs_f64();
++    println!(
++        "{{\"kind\":\"setup\",\"n\":{},\"bodies\":{},\"build_s\":{:.3},\"bytes_per_body\":{}}}",
++        n,
++        w.u.n_bodies(),
++        build_s,
++        w.u.bytes_per_body()
++    );
++    // The ships' period in ticks (root units, c = 1), as tests/motion.rs computes it in seconds.
++    let period = 2.0 * std::f64::consts::PI / ((1.0 + 2f64.powi(mu_log2)).sqrt() / (sep as f64).powf(1.5));
++    let kick = period / 128.0; // Config::default().step_log2 = 7
++    let window = (((per_round / n as f64) * kick) as i64).max(1);
++    let mut now = 0i64;
++    let mut total_events = 0u64;
++    for i in 0..rounds {
++        let (k0, o0, b0) = (w.u.stats.kicks, w.u.stats.opens, w.u.stats.boundaries);
++        let t = Instant::now();
++        let adv = w.u.advance(now + window, Budget::unlimited());
++        let ns = t.elapsed().as_nanos() as u64;
++        now = now.max(adv.horizon);
++        total_events += adv.events;
++        if (i + 1) % 8 == 0 {
++            w.u.prune();
++        }
++        let s = &w.u.stats;
++        println!(
++            "{{\"kind\":\"round\",\"i\":{},\"events\":{},\"ns\":{},\"ns_per_event\":{:.1},\"kicks\":{},\"opens\":{},\"boundaries\":{},\"now\":{}}}",
++            i,
++            adv.events,
++            ns,
++            ns as f64 / adv.events.max(1) as f64,
++            s.kicks - k0,
++            s.opens - o0,
++            s.boundaries - b0,
++            now
++        );
++        prof_line("prof", i);
++    }
++    if std::env::var("QUANT_NO_EMPTY").is_err() {
++        // Drain, then measure the empty frame: take_due + rekey (every entity's deadline
++        // recomputed, heap slot reset) + the drain, with no event resolved: the frame's fixed cost.
++        w.u.settle(now);
++        emergent_universe::universe::prof::reset();
++        for i in 0..20 {
++            let t = Instant::now();
++            let adv = w.u.advance(now, Budget::unlimited());
++            let ns = t.elapsed().as_nanos() as u64;
++            println!("{{\"kind\":\"empty\",\"i\":{},\"ns\":{},\"events\":{}}}", i, ns, adv.events);
++            prof_line("profx", i);
++        }
++    }
++    println!(
++        "{{\"kind\":\"end\",\"n\":{},\"total_events\":{},\"hwm_kb\":{}}}",
++        n,
++        total_events,
++        hwm_kb()
++    );
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..4fe0584 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -48,6 +48,28 @@ use std::collections::VecDeque;
+ use std::sync::Arc;
+ use std::time::Instant;
+ 
++// ---- the stage profiler (experiments only; the lab's quant lens) --------------------------------
++/// Wall nanoseconds by stage of `advance`: 0 rekey, 2 the main loop (drain + resolve), 3 resolve
++/// alone, 4 the deferred requeue, 5 the per-event position readback in `apply`. (1 unused.)
++pub mod prof {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    pub static NS: [AtomicU64; 6] = [
++        AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++        AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
++    ];
++    pub fn add(i: usize, t: std::time::Instant) {
++        NS[i].fetch_add(t.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    }
++    pub fn reset() {
++        for v in &NS {
++            v.store(0, Ordering::Relaxed);
++        }
++    }
++    pub fn read() -> [u64; 6] {
++        std::array::from_fn(|i| NS[i].load(Ordering::Relaxed))
++    }
++}
++
+ /// A frame's allowance: a number of events, and optionally a wall-clock instant.
+ #[derive(Clone, Copy, Debug)]
+ pub struct Budget {
+@@ -528,9 +550,11 @@ impl Universe {
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
++        let tp = std::time::Instant::now();
+         if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+             self.pos[i] = p;
+         }
++        prof::add(5, tp);
+     }
+ 
+     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {
+@@ -789,11 +813,14 @@ impl Universe {
+     /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.
+     pub fn advance(&mut self, target: Tick, budget: Budget) -> Advanced {
+         self.target = target;
++        let tp = std::time::Instant::now();
+         self.rekey();
++        prof::add(0, tp);
+         let start = self.resolved;
+         let mut done = 0u64;
+         let mut deferred: Vec<usize> = Vec::new();
+         let mut overflow = false;
++        let tl = std::time::Instant::now();
+         loop {
+             self.take_due(target);
+             let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+@@ -803,11 +830,12 @@ impl Universe {
+                 continue;
+             };
+             if t > target {
+-                // Beyond this frame: set aside until the frame is done.
+-                let _ = self.queue.as_mut().map(|q| q.set(e, None));
+-                deferred.push(e);
+-                continue;
++                // Beyond this frame: the heap is deadline-ordered, so the first too-late head
++                // carries the smallest deadline left; the peek below returns the same horizon
++                // the drain-and-rebuild computed, without touching the other slots.
++                break;
+             }
++            let tr = std::time::Instant::now();
+             if budget.spent(done) {
+                 overflow = dl <= target;
+                 break;
+@@ -817,19 +845,23 @@ impl Universe {
+             } else {
+                 self.resolve_entity(e);
+             }
++            prof::add(3, tr);
+             done = self.resolved - start;
+         }
++        prof::add(2, tl);
+         // The horizon: the smallest deadline still unresolved (the heap's min, and what was set aside).
+         let mut horizon = target;
+         if let Some((dl, _)) = self.queue.as_ref().and_then(|q| q.peek()) {
+             horizon = horizon.min(dl.fixed(0).unwrap_or(i128::MAX) as Tick - 1);
+         }
++        let tp = std::time::Instant::now();
+         for e in deferred {
+             if let Some(d) = self.deadline_of(e) {
+                 horizon = horizon.min(d - 1);
+             }
+             self.requeue(e);
+         }
++        prof::add(4, tp);
+         Advanced { events: done, horizon: horizon.max(self.now), overflow }
+     }
+ 
