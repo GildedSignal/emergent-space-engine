@@ -1,0 +1,30 @@
+Lcrit(0.97)=3.746220 Lcrit(1.2)=5.372799 Lcrit(2000)=10392.304435 (photon lim 5.196152)
+A apoapsis E0.8    E=     0.8 L=      3.8 u1=+0.405004 dPhi=   1.0308 dTau=1.45034 dV=4.87727 | r:1.62e-13 phi:2.37e-11 v:1.46e-11 n=32
+B apoapsis E0.97   E=    0.97 L=    3.372 u1=+0.0366103 dPhi=   5.3042 dTau=215.131 dV=213.478 | r:1.21e-13 phi:1.45e-11 v:3.84e-14 n=32
+C direct E1        E=       1 L=      3.6 u1=+0 dPhi=   4.1521 dTau=58.6913 dV=55.8635 | r:1.09e-13 phi:2.25e-11 v:3.64e-13 n=32
+D direct E1.2      E=     1.2 L=    5.319 u1=-0.0887616 dPhi=   6.3761 dTau=34.6382 dV=42.383 | r:7.94e-13 phi:1.27e-10 v:1.36e-11 n=32
+E gamma2000        E=   2e+03 L=1.029e+04 u1=-0.168162 dPhi=   5.7465 dTau=0.0131593 dV=21.7128 | r:1.12e-12 phi:3.28e-11 v:3.34e-11 n=32
+F radial L0        E=       1 L=        0 u1=+0 dPhi=   0.0000 dTau=40.8304 dV=28.5478 | r:1.47e-13 phi:0.00e+00 v:1.98e-13 n=32
+G photon b=0.9bc   u1=-0.182963 dPhi=   3.3190 dV=9.60083 | r:1.13e-13 v:6.56e-14
+mpmath 40dps spot (C): dPhi=2.31e-14 dTau=3.48e-13 dV=2.91e-13
+== near-critical scan (E=1), L = Lc*(1-10^-k) ==
+ k   DeltaPhi(mp40)      d_k  u1 err (np vs mp50)     pair b 512-panel dPhi err
+ 1           4.1521      nan            0.000e+00  1.211e-01          5.609e-15
+ 2           7.5338    3.382            0.000e+00  3.562e-02          4.902e-15
+ 3          10.8125    3.279            0.000e+00  1.119e-02          5.746e-15
+ 4          14.0722    3.260            0.000e+00  3.536e-03          1.665e-08
+ 5          17.3279    3.256            0.000e+00  1.118e-03          6.295e-05
+ 6          20.2354    2.908            0.000e+00  3.536e-04          1.711e-02
+ 7          21.3465    1.111            0.000e+00  1.118e-04          1.252e-01
+
+== cost, case C (E=1, L=3.6), 512 GL4 panels ==
+compile: 0.550 ms   table readout sample: 3.080 us/sample
+DOP853 rtol=1e-12 whole plunge: 7.322 ms, nfev=782, phi_end=4.152078 (tube 4.152078)
+ k   pair-a relerr   pair-b relerr
+2   1.886e-16      9.483e-15
+3   5.663e-16      3.574e-14
+4   1.888e-16      9.653e-13
+5   5.663e-16      6.142e-12
+6   3.775e-16      1.308e-10
+7   7.551e-16      1.794e-09
+8   5.663e-16      8.036e-09
