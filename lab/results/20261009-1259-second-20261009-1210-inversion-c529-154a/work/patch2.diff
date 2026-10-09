@@ -1,0 +1,406 @@
+diff --git a/crates/encounters/src/bin/inversion2.rs b/crates/encounters/src/bin/inversion2.rs
+new file mode 100644
+index 0000000..99d6752
+--- /dev/null
++++ b/crates/encounters/src/bin/inversion2.rs
+@@ -0,0 +1,400 @@
++//! Second-author probe (run 20261009-1259-second-...-154a): the co-orbital phase-neighbour
++//! watch AS SPECIFIED by the gold ("sort by longitude, watch k~4 neighbours, rebuild on
++//! overtakes"), not the frozen-t0 reading the first author attacked.
++//!
++//! Rebuild-on-overtakes == rank in mean-longitude order at event time: λ(t) is linear in t,
++//! so the sorted order is piecewise-constant and changes exactly at overtake events.
++//! Measured per encounter event (t = refined closest approach from truth_pair):
++//!   rank_lam : symmetric-min rank of the partner in λ(t) order        (the specified watch)
++//!   rank_d   : symmetric-min rank of the partner in TRUE DISTANCE at t (the gold's oracle)
++//! plus the refresh schedule cost (overtakes = λ-crossings, analytic, counted exactly).
++//!
++//! Held-out discriminators (see ../predictions.md):
++//!   G1b : gold fleet shape, random ϖ   — ϖ coherence vs e-vs-spacing as the binding scalar
++//!   G1c : gold fleet shape, e x10      — the gold's clump at E1's epicycle scale
++//!   E3  : E1 with ϖ bunched ±0.1       — does bunching save the watch at E1's e?
++//!   oracle-vs-watch: rank_d on scenes where rank_lam fails (E1, M1-cross)
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::{Body, TICKS};
++use emergent_encounters::pairs::{is_candidate, radial_pairs};
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::TAU;
++
++const THREADS: usize = 4;
++
++fn lam0(b: &Body) -> f64 {
++    (b.mean_anomaly(0.0) + b.pom).rem_euclid(TAU)
++}
++
++fn lam_at(b: &Body, t: f64) -> f64 {
++    (lam0(b) + b.n * t).rem_euclid(TAU)
++}
++
++fn circ_dist(a: f64, b: f64) -> f64 {
++    let d = (a - b).rem_euclid(TAU);
++    d.min(TAU - d)
++}
++
++/// ring(n, a-spread, sigma_e, equal_period, seed) — identical to the first author's probe.
++fn ring(n: usize, spread: f64, sigma_e: f64, equal: bool, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let p0 = (TAU * 1.0_f64.powf(1.5) * TICKS).round() as u64;
++    (0..n)
++        .map(|_| {
++            let a = 1.0 + spread * rng.f64();
++            let u = rng.f64();
++            let e = (sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = TAU * rng.f64();
++            let lam = TAU * rng.f64();
++            if equal {
++                Body::with_period(p0, e, pom, lam)
++            } else {
++                Body::new(a, e, pom, lam)
++            }
++        })
++        .collect()
++}
++
++/// The gold's fleet generator (taleb-09b5, work/patch.diff fn fleet): a = 1 ± a_hw,
++/// e ~ Rayleigh(sigma_e) capped, ϖ = pom0 ± 0.1 (bunched) or uniform, λ uniform.
++fn fleet(nc: usize, a_hw: f64, sigma_e: f64, e_cap: f64, bunch: bool, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let pom0 = TAU * rng.f64();
++    (0..nc)
++        .map(|_| {
++            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
++            let u = rng.f64();
++            let e = (sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(e_cap);
++            let pom = if bunch {
++                pom0 + (2.0 * rng.f64() - 1.0) * 0.1
++            } else {
++                TAU * rng.f64()
++            };
++            Body::new(a, e, pom, TAU * rng.f64())
++        })
++        .collect()
++}
++
++/// rogues(m, seed) — identical to the first author's probe.
++fn rogues(m: usize, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..m)
++        .map(|_| {
++            let a = 1.35 + 0.45 * rng.f64();
++            let rperi = 0.999 + 0.002 * rng.f64();
++            let e = (1.0 - rperi / a).min(0.5);
++            Body::new(a, e, TAU * rng.f64(), TAU * rng.f64())
++        })
++        .collect()
++}
++
++/// E3: equal periods, sigma_e, ϖ bunched ±0.1 (same draw order as ring, bunched ϖ).
++fn ring_bunched(n: usize, sigma_e: f64, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let p0 = (TAU * 1.0_f64.powf(1.5) * TICKS).round() as u64;
++    let pom0 = TAU * rng.f64();
++    (0..n)
++        .map(|_| {
++            let u = rng.f64();
++            let e = (sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = pom0 + (2.0 * rng.f64() - 1.0) * 0.1;
++            Body::with_period(p0, e, pom, TAU * rng.f64())
++        })
++        .collect()
++}
++
++#[derive(Clone)]
++struct Ev {
++    i: u32,
++    j: u32,
++    t: f64,
++    d: f64,
++    rank_lam: u16, // symmetric-min, λ(t) order (the specified watch, refreshed)
++    rank_d: u16,   // symmetric-min, true distance at t (the gold's oracle)
++    intra: bool,
++    cone: bool,
++}
++
++struct Out {
++    name: String,
++    n: usize,
++    rho: f64,
++    orbits: f64,
++    enc: u64,
++    pairs: u64,
++    pairs_miss4: u64,
++    miss_k: [u64; 9], // events with rank_lam > k
++    rank_lam_star: u16,
++    rank_d_star: u16,
++    d_over4: u64, // oracle violations (rank_d > 4)
++    enc_intra: u64,
++    enc_cross: u64,
++    cross_miss4: u64,
++    cross_rank_lam_star: u16,
++    cross_enc_cone: u64,
++    cross_pairs_cone: u64,
++    crossings: u64, // = refresh events (each an O(1) adjacent swap + O(k) watch repair)
++    enc_swaps: u64,
++    silent_swaps: u64,
++    worst: Vec<Ev>,
++    secs: f64,
++}
++
++fn analyse(name: &str, b: &[Body], fleet_n: usize, orbits: f64, rho: f64) -> Out {
++    let t0 = std::time::Instant::now();
++    let n = b.len();
++    let t_end = orbits * TAU;
++    let pairs = radial_pairs(b, rho);
++
++    // truth: every local minimum below rho, over the radial superset
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out: Vec<(u32, u32, f64, f64)> = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], rho, t_end, &mut tmp, &mut st);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, st.evals)
++    });
++    let mut enc: Vec<(u32, u32, f64, f64)> = Vec::new();
++    for (o, _) in parts {
++        enc.extend(o);
++    }
++    enc.sort_by(|x, y| x.0.cmp(&y.0).then(x.1.cmp(&y.1)).then(x.2.total_cmp(&y.2)));
++    enc.dedup_by(|x, y| x.0 == y.0 && x.1 == y.1 && (x.2 - y.2).abs() < 1e-9);
++
++    // refresh events: λ-crossings (analytic; λ linear in t) — the rebuild-on-overtakes schedule
++    let xparts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let (mut cross, mut eswap, mut silent) = (0u64, 0u64, 0u64);
++        for &(i, j) in &pairs[r] {
++            let (bi, bj) = (&b[i as usize], &b[j as usize]);
++            let dn = bi.n - bj.n;
++            if dn.abs() < 1e-14 {
++                continue; // equal periods: order frozen, refresh is a no-op
++            }
++            let dl = (lam0(bi) - lam0(bj)).rem_euclid(TAU);
++            let (mlo, mhi) = if dn > 0.0 {
++                (((dl - 1e-12) / TAU).ceil() as i64, (((dl + dn * t_end) / TAU).floor() as i64))
++            } else {
++                (
++                    ((dl + dn * t_end - 1e-12) / TAU).ceil() as i64,
++                    ((dl + 1e-12) / TAU).floor() as i64,
++                )
++            };
++            for m in mlo..=mhi {
++                let t = (m as f64 * TAU - dl) / dn;
++                if t <= 0.0 || t >= t_end {
++                    continue;
++                }
++                cross += 1;
++                let si = bi.state(t);
++                let sj = bj.state(t);
++                let d = ((si[0] - sj[0]).powi(2) + (si[1] - sj[1]).powi(2)).sqrt();
++                if d < rho {
++                    eswap += 1;
++                } else {
++                    silent += 1;
++                }
++            }
++        }
++        (cross, eswap, silent)
++    });
++    let (mut crossings, mut enc_swaps, mut silent_swaps) = (0u64, 0u64, 0u64);
++    for (c, es, ss) in xparts {
++        crossings += c;
++        enc_swaps += es;
++        silent_swaps += ss;
++    }
++
++    // per-event ranks at the refined closest-approach time
++    let eparts = par_chunks(enc.len(), 256, THREADS, |r| {
++        let mut evs: Vec<Ev> = Vec::new();
++        for &(i, j, t, d) in &enc[r] {
++            let (i, j) = (i as usize, j as usize);
++            let (li, lj) = (lam_at(&b[i], t), lam_at(&b[j], t));
++            let dl_ij = circ_dist(li, lj);
++            let (mut ri, mut rj) = (0u16, 0u16);
++            let (mut rid, mut rjd) = (0u16, 0u16);
++            let pi = b[i].state(t);
++            let pj = b[j].state(t);
++            for k in 0..n {
++                if k == i || k == j {
++                    continue;
++                }
++                let lk = lam_at(&b[k], t);
++                if circ_dist(li, lk) < dl_ij {
++                    ri += 1;
++                }
++                if circ_dist(lj, lk) < dl_ij {
++                    rj += 1;
++                }
++                let pk = b[k].state(t);
++                if (pi[0] - pk[0]).hypot(pi[1] - pk[1]) < d {
++                    rid += 1;
++                }
++                if (pj[0] - pk[0]).hypot(pj[1] - pk[1]) < d {
++                    rjd += 1;
++                }
++            }
++            let rank_lam = 1 + ri.min(rj);
++            let rank_d = 1 + rid.min(rjd);
++            let intra = i < fleet_n && j < fleet_n;
++            let cone = !intra && is_candidate(&b[i], &b[j], rho);
++            evs.push(Ev { i: i as u32, j: j as u32, t, d, rank_lam, rank_d, intra, cone });
++        }
++        evs
++    });
++    let mut evs: Vec<Ev> = Vec::new();
++    for p in eparts {
++        evs.extend(p);
++    }
++    evs.sort_by(|x, y| x.i.cmp(&y.i).then(x.j.cmp(&y.j)).then(x.t.total_cmp(&y.t)));
++
++    let mut miss_k = [0u64; 9];
++    let mut rank_lam_star = 0u16;
++    let mut rank_d_star = 0u16;
++    let mut d_over4 = 0u64;
++    let (mut enc_intra, mut enc_cross, mut cross_miss4, mut cross_cone) = (0u64, 0u64, 0u64, 0u64);
++    let mut cross_star = 0u16;
++    let mut seen = std::collections::HashSet::new();
++    let (mut pairs_total, mut pairs_miss4) = (0u64, 0u64);
++    for e in &evs {
++        rank_lam_star = rank_lam_star.max(e.rank_lam);
++        rank_d_star = rank_d_star.max(e.rank_d);
++        d_over4 += (e.rank_d > 4) as u64;
++        for k in 1..=8usize {
++            if (e.rank_lam as usize) > k {
++                miss_k[k] += 1;
++            }
++        }
++        if e.intra {
++            enc_intra += 1;
++        } else {
++            enc_cross += 1;
++            cross_star = cross_star.max(e.rank_lam);
++            cross_miss4 += (e.rank_lam > 4) as u64;
++            cross_cone += e.cone as u64;
++        }
++        if seen.insert((e.i, e.j)) {
++            pairs_total += 1;
++            pairs_miss4 += (e.rank_lam > 4) as u64;
++        }
++    }
++    // cone candidacy over all radially-overlapping cross pairs (composition coverage)
++    let mut cross_pairs_cone = 0u64;
++    if fleet_n < n {
++        for i in 0..fleet_n {
++            for j in fleet_n..n {
++                if b[i].rmax() + rho < b[j].rmin() || b[j].rmax() + rho < b[i].rmin() {
++                    continue;
++                }
++                if is_candidate(&b[i], &b[j], rho) {
++                    cross_pairs_cone += 1;
++                }
++            }
++        }
++    }
++
++    // worst 3 watch misses at k=4 (for the independent Python audit)
++    let mut worst: Vec<Ev> = evs.iter().filter(|e| e.rank_lam > 4).cloned().collect();
++    worst.sort_by(|a, b| b.rank_lam.cmp(&a.rank_lam));
++    worst.truncate(3);
++
++    Out {
++        name: name.into(),
++        n,
++        rho,
++        orbits,
++        enc: evs.len() as u64,
++        pairs: pairs_total,
++        pairs_miss4,
++        miss_k,
++        rank_lam_star,
++        rank_d_star,
++        d_over4,
++        enc_intra,
++        enc_cross,
++        cross_miss4,
++        cross_rank_lam_star: cross_star,
++        cross_enc_cone: cross_cone,
++        cross_pairs_cone,
++        crossings,
++        enc_swaps,
++        silent_swaps,
++        worst,
++        secs: t0.elapsed().as_secs_f64(),
++    }
++}
++
++fn json(o: &Out, b: &[Body]) -> String {
++    let miss: Vec<String> = (1..=8usize)
++        .map(|k| {
++            format!(
++                "\"k{}\":[{},{}]",
++                k,
++                o.miss_k[k],
++                if o.enc > 0 { o.miss_k[k] as f64 / o.enc as f64 } else { 0.0 }
++            )
++        })
++        .collect();
++    let worst: Vec<String> = o
++        .worst
++        .iter()
++        .map(|e| {
++            let (bi, bj) = (&b[e.i as usize], &b[e.j as usize]);
++            format!(
++                "{{\"i\":{},\"j\":{},\"t\":{:.6},\"d\":{:.3e},\"rank_lam\":{},\"rank_d\":{},\"cone\":{},\"a_i\":{:.9},\"a_j\":{:.9},\"e_i\":{:.4e},\"e_j\":{:.4e},\"pom_i\":{:.6},\"pom_j\":{:.6},\"lam0_i\":{:.6},\"lam0_j\":{:.6}}}",
++                e.i, e.j, e.t, e.d, e.rank_lam, e.rank_d, e.cone, bi.a, bj.a, bi.e, bj.e, bi.pom, bj.pom, lam0(bi), lam0(bj)
++            )
++        })
++        .collect();
++    format!(
++        "{{\"scene\":\"{}\",\"n\":{},\"rho\":{:e},\"orbits\":{},\"enc\":{},\"pairs\":{},\"pairs_miss4\":{},\"miss\":{{{}}},\"rank_lam_star\":{},\"rank_d_star\":{},\"d_rank_over4\":{},\"enc_intra\":{},\"enc_cross\":{},\"cross_miss4\":{},\"cross_rank_lam_star\":{},\"cross_enc_cone\":{},\"cross_pairs_cone\":{},\"crossings\":{},\"crossings_per_orbit\":{:.1},\"enc_swaps\":{},\"silent_swaps\":{},\"worst\":[{}],\"secs\":{:.1}}}",
++        o.name, o.n, o.rho, o.orbits, o.enc, o.pairs, o.pairs_miss4, miss.join(","),
++        o.rank_lam_star, o.rank_d_star, o.d_over4, o.enc_intra, o.enc_cross, o.cross_miss4,
++        o.cross_rank_lam_star, o.cross_enc_cone, o.cross_pairs_cone, o.crossings,
++        o.crossings as f64 / o.orbits, o.enc_swaps, o.silent_swaps, worst.join(","), o.secs
++    )
++}
++
++fn main() {
++    let which = std::env::args().nth(1).unwrap_or_default();
++    let seed = 0xC529u64;
++    // (name, bodies, fleet_n, orbits, rho)
++    let mut scenes: Vec<(String, Vec<Body>, usize, f64, f64)> = Vec::new();
++    match which.as_str() {
++        "a" => {
++            scenes.push(("C1-gold-shape".into(), ring(300, 1e-4, 3e-4, false, seed + 1), 300, 50.0, 1e-3));
++            scenes.push(("H1-horizon500".into(), ring(300, 1e-4, 3e-4, false, seed + 1), 300, 500.0, 1e-3));
++            scenes.push(("E1-equalp-se1e-2".into(), ring(300, 0.0, 1e-2, true, seed + 3), 300, 20.0, 1e-3));
++            scenes.push(("E2-equalp-se3e-3".into(), ring(300, 0.0, 3e-3, true, seed + 4), 300, 20.0, 1e-3));
++            scenes.push(("E3-equalp-se1e-2-pombunched".into(), ring_bunched(300, 1e-2, seed + 8), 300, 20.0, 1e-3));
++            scenes.push(("E1b-equalp-se1e-2-seed13".into(), ring(300, 0.0, 1e-2, true, 13), 300, 20.0, 1e-3));
++        }
++        "b" => {
++            scenes.push(("G1-goldfleet".into(), fleet(300, 1e-5, 1e-3, 0.01, true, seed + 11), 300, 100.0, 1e-4));
++            scenes.push(("G1b-goldfleet-randompom".into(), fleet(300, 1e-5, 1e-3, 0.01, false, seed + 11), 300, 100.0, 1e-4));
++            scenes.push(("G1c-goldfleet-e10x".into(), fleet(300, 1e-5, 1e-2, 0.05, true, seed + 12), 300, 100.0, 1e-4));
++            let mut f = ring(300, 1e-4, 3e-4, false, seed + 1);
++            let mut r = rogues(20, seed + 7);
++            f.append(&mut r);
++            scenes.push(("M1-fleet+rogues".into(), f, 300, 50.0, 1e-3));
++            let mut f2 = ring(300, 1e-4, 3e-4, false, seed + 1);
++            let mut r2 = rogues(20, 11);
++            f2.append(&mut r2);
++            scenes.push(("M1b-fleet+rogues-seed11".into(), f2, 300, 50.0, 1e-3));
++        }
++        _ => {
++            eprintln!("usage: inversion2 a|b");
++            std::process::exit(2);
++        }
++    }
++    for (name, b, fleet_n, orbits, rho) in scenes {
++        let out = analyse(&name, &b, fleet_n, orbits, rho);
++        println!("{}", json(&out, &b));
++    }
++}
