@@ -1,0 +1,671 @@
+diff --git a/crates/encounters/Cargo.toml b/crates/encounters/Cargo.toml
+index 8081275..5a12cf9 100644
+--- a/crates/encounters/Cargo.toml
++++ b/crates/encounters/Cargo.toml
+@@ -10,3 +10,7 @@ description = "Research: every encounter between orbiting bodies without work pe
+ [[bin]]
+ name = "encounters"
+ path = "src/main.rs"
++
++[[bin]]
++name = "coorb"
++path = "src/coorb.rs"
+diff --git a/crates/encounters/src/coorb.rs b/crates/encounters/src/coorb.rs
+new file mode 100644
+index 0000000..18e442f
+--- /dev/null
++++ b/crates/encounters/src/coorb.rs
+@@ -0,0 +1,653 @@
++//! The co-orbital certificate red-team (lab run 20261008-2206-taleb-f965, lens Taleb).
++//!
++//! Question: the phase-neighbour certificate (rank ≤ 4 along the orbit, adopted 6 October for
++//! concentrated workloads) — where does it break, and does a family-level crossing gate keep
++//! candidate work tracking real encounters?
++//!
++//! Methods, all judged against the crate's independent truth (`truth_pair`, Halley states):
++//! - `cone`:      the adopted window tier (Binet cone + section windows) over every candidate;
++//! - `rankk-glb`: the dangerous reading of the trigger: phase rank over ALL bodies by λ(t=0);
++//! - `gate`:      greedy families in Binet space (ε), rank-k inside a family, and for each
++//!                crossing family-pair a time gate at the crossing longitudes
++//!                (window = S·(ρ+ε)/|Δv| from the representatives), then the same exact
++//!                per-pair minimum scan the section machinery uses.
++//!
++//! One JSON object per line on stdout.
++
++use emergent_encounters::belt::{make_belt, Rng, Spec};
++use emergent_encounters::kepler::{Body, TICKS};
++use emergent_encounters::method::{pair_events, Stats};
++use emergent_encounters::pairs::{cone_pairs, norm, radial_pairs, scan_minima};
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::{PI, TAU};
++use std::time::Instant;
++
++const THREADS: usize = 4;
++const SAFETY: f64 = 1.1; // section windows, as in main.rs
++const EPS_FAM: f64 = 2e-3; // family radius in Binet space
++const GATE_S: f64 = 4.0; // gate safety on the time window
++const EPS_FAM_JOIN: f64 = 3e-3; // family JOIN radius (absorbs a fleet's full diameter)
++const K_SIDE: usize = 2; // rank partners each way (4 total, the adopted rank)
++
++type Enc = (u32, u32, f64, f64);
++
++struct Scene {
++    name: String,
++    b: Vec<Body>,
++    rho: f64,
++    t_end: f64,
++}
++
++fn rang(r: &mut Rng, lo: f64, hi: f64) -> f64 {
++    lo + (hi - lo) * r.f64()
++}
++
++fn fleet(n: usize, seed: u64, e0: f64, pom0: f64, lam_lo: f64, lam_hi: f64) -> Vec<Body> {
++    let mut r = Rng(seed);
++    (0..n)
++        .map(|_| {
++            let a = 1.0 + rang(&mut r, -5e-5, 5e-5);
++            let e = e0 + rang(&mut r, -1e-3, 1e-3);
++            let pom = pom0 + rang(&mut r, -1e-3, 1e-3);
++            let lam = rang(&mut r, lam_lo, lam_hi);
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++fn belt_spec(n: usize, sigma_e: f64, rho: f64, a_lo: f64, a_hi: f64, seed: u64, orbits: f64) -> Spec {
++    Spec {
++        name: String::new(),
++        n,
++        sigma_e,
++        rho,
++        a_lo,
++        a_hi,
++        keys: 0,
++        seed,
++        orbits,
++    }
++}
++
++fn build_scenes() -> Vec<Scene> {
++    let s = 20261008u64;
++    let rho = 1e-4;
++    vec![
++        // S1 control: the r8 v3 'coorbital' scene through the same generator (gold's regime).
++        Scene {
++            name: "S1-formation".into(),
++            b: make_belt(&belt_spec(300, 3e-4, rho, 1.0, 1.0001, s + 1, 50.0)),
++            rho,
++            t_end: 50.0 * TAU,
++        },
++        // S1b control: a TRUE fleet (one orbit: tight a, e, ϖ; uniform phase) — the gold's regime.
++        Scene {
++            name: "S1b-truefleet".into(),
++            b: fleet(300, s + 8, 0.0, 0.0, 0.0, TAU),
++            rho,
++            t_end: 50.0 * TAU,
++        },
++        // S2: a fleet (e = 0.2) crossing a spread belt.
++        Scene {
++            name: "S2-fleet-belt".into(),
++            b: {
++                let mut b = fleet(150, s + 2, 0.2, 0.0, 0.0, TAU);
++                b.extend(make_belt(&belt_spec(400, 1e-2, rho, 0.93, 1.07, s + 3, 15.0)));
++                b
++            },
++            rho,
++            t_end: 15.0 * TAU,
++        },
++        // S3: two fleets on crossing ellipses (ϖ = 0 vs π/2), uniform phases.
++        Scene {
++            name: "S3-fleet-fleet".into(),
++            b: {
++                let mut b = fleet(150, s + 4, 0.2, 0.0, 0.0, TAU);
++                b.extend(fleet(150, s + 5, 0.2, PI / 2.0, 0.0, TAU));
++                b
++            },
++            rho,
++            t_end: 20.0 * TAU,
++        },
++        // S4: the wedge — the second fleet arrives together at the crossing (contact storm).
++        Scene {
++            name: "S4-wedge".into(),
++            b: {
++                let mut b = fleet(120, s + 6, 0.2, 0.0, 0.0, TAU);
++                b.extend(fleet(120, s + 7, 0.2, PI / 2.0, 0.0, 0.3));
++                b
++            },
++            rho,
++            t_end: 20.0 * TAU,
++        },
++        // Held out (fresh seeds, written after tuning; never touched during it).
++        Scene {
++            name: "S6-hold-fleetfleet".into(),
++            b: {
++                let mut b = fleet(150, s + 104, 0.2, 0.0, 0.0, TAU);
++                b.extend(fleet(150, s + 105, 0.2, PI / 2.0, 0.0, TAU));
++                b
++            },
++            rho,
++            t_end: 20.0 * TAU,
++        },
++        Scene {
++            name: "S7-hold-wedge".into(),
++            b: {
++                let mut b = fleet(120, s + 106, 0.2, 0.0, 0.0, TAU);
++                b.extend(fleet(120, s + 107, 0.2, PI / 2.0, 0.0, 0.3));
++                b
++            },
++            rho,
++            t_end: 20.0 * TAU,
++        },
++        Scene {
++            name: "S8-hold-fleetbelt".into(),
++            b: {
++                let mut b = fleet(150, s + 108, 0.2, 0.0, 0.0, TAU);
++                b.extend(make_belt(&belt_spec(400, 1e-2, rho, 0.93, 1.07, s + 109, 15.0)));
++                b
++            },
++            rho,
++            t_end: 15.0 * TAU,
++        },
++    ]
++}
++
++fn truth_all(b: &[Body], rho: f64, t_end: f64) -> (Vec<Enc>, u64, u128) {
++    let t0 = Instant::now();
++    let pairs = radial_pairs(b, rho);
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], rho, t_end, &mut tmp, &mut st);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, st)
++    });
++    let mut all = Vec::new();
++    let mut st = TruthStats::default();
++    for (o, s) in parts {
++        all.extend(o);
++        st.add(&s);
++    }
++    (all, st.evals, t0.elapsed().as_millis())
++}
++
++/// (missed, false, matched, dup) against the truth, both restricted to the open horizon.
++fn matchup(truth: &[Enc], meth: &[Enc], t_end: f64, tol: f64) -> (u64, u64, u64, u64) {
++    let inside = |t: f64| t > 0.05 && t < t_end - 0.05;
++    let mut by_pair: std::collections::HashMap<(u32, u32), Vec<f64>> = std::collections::HashMap::new();
++    for e in meth {
++        by_pair.entry((e.0, e.1)).or_default().push(e.2);
++    }
++    let mut tby: std::collections::HashMap<(u32, u32), Vec<f64>> = std::collections::HashMap::new();
++    for e in truth {
++        tby.entry((e.0, e.1)).or_default().push(e.2);
++    }
++    let mut missed = 0u64;
++    let mut matched = 0u64;
++    for e in truth.iter().filter(|e| inside(e.2)) {
++        if by_pair.get(&(e.0, e.1)).is_some_and(|v| v.iter().any(|&t| (t - e.2).abs() < tol)) {
++            matched += 1;
++        } else {
++            missed += 1;
++        }
++    }
++    let mut false_ = 0u64;
++    let mut dup = 0u64;
++    let mut seen: std::collections::HashMap<(u32, u32, i64), u32> = std::collections::HashMap::new();
++    for e in meth.iter().filter(|e| inside(e.2)) {
++        match tby.get(&(e.0, e.1)).and_then(|v| v.iter().find(|&&t| (t - e.2).abs() < tol)) {
++            None => false_ += 1,
++            Some(&t) => {
++                let c = seen.entry((e.0, e.1, (t * 1e6) as i64)).or_insert(0);
++                if *c > 0 {
++                    dup += 1;
++                }
++                *c += 1;
++            }
++        }
++    }
++    (missed, false_, matched, dup)
++}
++
++fn lam0(bd: &Body) -> f64 {
++    (bd.mean_anomaly(0.0) + bd.pom).rem_euclid(TAU)
++}
++
++/// λ at time t.
++fn lam_at(bd: &Body, t: f64) -> f64 {
++    (bd.mean_anomaly(t) + bd.pom).rem_euclid(TAU)
++}
++
++/// Rank partners each way by λ at time t (the certificate's refresh).
++fn rank_pairs_at(b: &[Body], ids: &[u32], k_side: usize, t: f64) -> Vec<(u32, u32)> {
++    let mut v: Vec<(f64, u32)> = ids.iter().map(|&i| (lam_at(&b[i as usize], t), i)).collect();
++    v.sort_by(|x, y| x.0.total_cmp(&y.0));
++    let m = v.len();
++    if m < 2 {
++        return Vec::new();
++    }
++    let k = k_side.min(m - 1);
++    let mut out = Vec::new();
++    for q in 0..m {
++        for d in 1..=k {
++            for &w in &[q + d, q + m - d] {
++                let w = w % m;
++                if v[w].1 != v[q].1 {
++                    out.push((v[q].1.min(v[w].1), v[q].1.max(v[w].1)));
++                }
++            }
++        }
++    }
++    out.sort();
++    out.dedup();
++    out
++}
++
++/// The k_side nearest partners each way by λ(t=0), among `ids`.
++fn rank_pairs(b: &[Body], ids: &[u32], k_side: usize) -> Vec<(u32, u32)> {
++    let mut v: Vec<(f64, u32)> = ids.iter().map(|&i| (lam0(&b[i as usize]), i)).collect();
++    v.sort_by(|x, y| x.0.total_cmp(&y.0));
++    let m = v.len();
++    if m < 2 {
++        return Vec::new();
++    }
++    let k = k_side.min(m - 1);
++    let mut out = Vec::new();
++    for q in 0..m {
++        for d in 1..=k {
++            for &w in &[q + d, q + m - d] {
++                let w = w % m;
++                if v[w].1 != v[q].1 {
++                    out.push((v[q].1.min(v[w].1), v[q].1.max(v[w].1)));
++                }
++            }
++        }
++    }
++    out.sort();
++    out.dedup();
++    out
++}
++
++fn method_pairs_t(b: &[Body], pairs: &[(u32, u32)], rho: f64, t0: f64, t1: f64) -> (Vec<Enc>, Stats, u128) {
++    let ts = Instant::now();
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut st = Stats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, t0, t1, &mut st, &mut tmp);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, st)
++    });
++    let mut all = Vec::new();
++    let mut st = Stats::default();
++    for (o, s) in parts {
++        all.extend(o);
++        st.add(&s);
++    }
++    (all, st, ts.elapsed().as_millis())
++}
++fn method_pairs(b: &[Body], pairs: &[(u32, u32)], rho: f64, t_end: f64) -> (Vec<Enc>, Stats, u128) {
++    let t0 = Instant::now();
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut st = Stats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, t_end, &mut st, &mut tmp);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, st)
++    });
++    let mut all = Vec::new();
++    let mut st = Stats::default();
++    for (o, s) in parts {
++        all.extend(o);
++        st.add(&s);
++    }
++    (all, st, t0.elapsed().as_millis())
++}
++
++struct Fam {
++    members: Vec<u32>,
++    rep: Body,
++    /// Actual radius of this family in Binet space (max member distance to the representative).
++    eps: f64,
++}
++
++/// Greedy leader families in Binet space (no chaining): a body joins the first leader within ε.
++fn families(b: &[Body], eps: f64) -> (Vec<usize>, Vec<Fam>) {
++    let mut order: Vec<u32> = (0..b.len() as u32).collect();
++    order.sort_by(|&i, &j| b[i as usize].binet()[0].total_cmp(&b[j as usize].binet()[0]));
++    let mut assign = vec![usize::MAX; b.len()];
++    let mut fams: Vec<Fam> = Vec::new();
++    for &i in &order {
++        let ui = b[i as usize].binet();
++        let mut found = None;
++        for (fi, f) in fams.iter().enumerate() {
++            let uf = f.rep.binet();
++            let d = (ui[0] - uf[0]).hypot(ui[1] - uf[1]).hypot(ui[2] - uf[2]);
++            if d <= eps {
++                found = Some(fi);
++                break;
++            }
++        }
++        match found {
++            Some(fi) => {
++                assign[i as usize] = fi;
++                fams[fi].members.push(i);
++            }
++            None => {
++                assign[i as usize] = fams.len();
++                fams.push(Fam { members: vec![i], rep: b[i as usize], eps: f64::INFINITY });
++            }
++        }
++    }
++    for f in fams.iter_mut() {
++        let (mut u, mut v, mut w) = (0.0, 0.0, 0.0);
++        for &m in &f.members {
++            let x = b[m as usize].binet();
++            u += x[0];
++            v += x[1];
++            w += x[2];
++        }
++        let n = f.members.len() as f64;
++        (u, v, w) = (u / n, v / n, w / n);
++        let e = v.hypot(w) / u;
++        let a = 1.0 / (u * (1.0 - e * e));
++        f.rep = Body::new(a, e, w.atan2(v), 0.0);
++        f.eps = f
++            .members
++            .iter()
++            .map(|&m| {
++                let x = b[m as usize].binet();
++                (x[0] - u).hypot(x[1] - v).hypot(x[2] - w)
++            })
++            .fold(0.0, f64::max)
++            .max(1e-9);
++        let _ = f.eps;
++    }
++    (assign, fams)
++}
++struct Xing {
++    fa: usize,
++    fb: usize,
++    th: f64,
++    wg: f64,
++    dvv: f64,
++}
++
++/// Crossing longitudes and time-window half-widths per family pair (representatives, widened by ε).
++fn family_crossings(fams: &[Fam], rho: f64, eps: f64) -> Vec<Xing> {
++    let mut xs = Vec::new();
++    for a in 0..fams.len() {
++        for bb in a + 1..fams.len() {
++            let ua = fams[a].rep.binet();
++            let ub = fams[bb].rep.binet();
++            let (du, dv, dw) = (ub[0] - ua[0], ub[1] - ua[1], ub[2] - ua[2]);
++            let r = dv.hypot(dw);
++            if r < 1e-12 || du.abs() - r >= 2.5 * eps {
++                continue; // spacelike-wide with margin: members cannot cross either
++            }
++            let x = (-du / r).clamp(-1.0, 1.0);
++            let base = dw.atan2(dv);
++            for sgn in [1.0, -1.0] {
++                let th = (base + sgn * x.acos()).rem_euclid(TAU);
++                let sa = fams[a].rep.at_longitude(th);
++                let sb = fams[bb].rep.at_longitude(th);
++                let dvv = norm([sa[2] - sb[2], sa[3] - sb[3]]).max(1e-9);
++                let wg = GATE_S * (rho + fams[a].eps + fams[bb].eps) / dvv;
++                xs.push(Xing { fa: a, fb: bb, th, wg, dvv });
++            }
++        }
++    }
++    xs
++}
++
++#[allow(clippy::too_many_arguments)]
++fn gate_method(
++    b: &[Body],
++    rho: f64,
++    t_end: f64,
++    k_side: usize,
++    scans: bool,
++) -> (Vec<Enc>, u64, u64, u64, f64, usize, u128) {
++    let t0 = Instant::now();
++    let (assign, fams) = families(b, EPS_FAM_JOIN);
++    let xs = family_crossings(&fams, rho, EPS_FAM);
++
++    // Intra-family: the phase-rank certificate, re-ranked every orbit (synodic drift moves
++    // partners by ~Δn·T_chunk per chunk; one orbit keeps the drift far below one spacing).
++    let mut ev: Vec<Enc> = Vec::new();
++    let mut st = Stats::default();
++    let mut t0c = 0.0f64;
++    while t0c < t_end {
++        let t1c = (t0c + TAU).min(t_end);
++        let mut intra: Vec<(u32, u32)> = Vec::new();
++        for f in &fams {
++            intra.extend(rank_pairs_at(b, &f.members, k_side, t0c));
++        }
++        let (mut e2, mut s2, _) = method_pairs_t(b, &intra, rho, t0c, t1c);
++        ev.append(&mut e2);
++        st.add(&s2);
++        t0c = t1c;
++    }
++
++    // Inter-family: passage events at each crossing longitude, joined in time.
++    #[derive(Clone, Copy)]
++    struct Ev {
++        xid: u32,
++        t: f64,
++        body: u32,
++        fam: usize,
++    }
++    let mut events: Vec<Ev> = Vec::new();
++    for (xi, x) in xs.iter().enumerate() {
++        for &i in &fams[x.fa].members {
++            let bi = &b[i as usize];
++            let p = bi.period as f64 / TICKS;
++            let tp = bi.passage_tick(x.th) as f64 / TICKS;
++            let mut t = tp;
++            while t <= t_end {
++                events.push(Ev { xid: xi as u32, t, body: i, fam: x.fa });
++                t += p;
++            }
++        }
++        for &i in &fams[x.fb].members {
++            let bi = &b[i as usize];
++            let p = bi.period as f64 / TICKS;
++            let tp = bi.passage_tick(x.th) as f64 / TICKS;
++            let mut t = tp;
++            while t <= t_end {
++                events.push(Ev { xid: xi as u32, t, body: i, fam: x.fb });
++                t += p;
++            }
++        }
++    }
++    events.sort_by(|a, c| (a.xid, a.t, a.fam).partial_cmp(&(c.xid, c.t, c.fam)).unwrap());
++
++    // Time join per crossing: pair bodies of different families within the window.
++    let mut hits: Vec<(u32, u32, f64, f64, f64, f64)> = Vec::new(); // (i, j, t_mid, wg, |dt|, dvv)
++    let mut q = 0usize;
++    while q < events.len() {
++        let xid = events[q].xid;
++        let mut w = q;
++        while w < events.len() && events[w].xid == xid {
++            w += 1;
++        }
++        let wg = xs[xid as usize].wg;
++        let dvv = xs[xid as usize].dvv;
++        for e in q..w {
++            for f in e + 1..w {
++                if events[f].t - events[e].t > wg {
++                    break;
++                }
++                if events[f].fam == events[e].fam {
++                    continue;
++                }
++                let (i, j) = (events[e].body, events[f].body);
++                hits.push((
++                    i.min(j),
++                    i.max(j),
++                    0.5 * (events[e].t + events[f].t),
++                    wg,
++                    (events[f].t - events[e].t).abs(),
++                    dvv,
++                ));
++            }
++        }
++        q = w;
++    }
++
++    // Exact per-pair checks on the gated passages (deduped per pair and time proximity).
++    hits.sort_by(|a, c| (a.0, a.1, a.2).partial_cmp(&(c.0, c.1, c.2)).unwrap());
++    let mut evals = st.evals;
++    let mut max_util = 0.0f64;
++    let mut last: (u32, u32, f64) = (u32::MAX, u32::MAX, f64::NAN);
++    for &(i, j, t, wg, dt, dvv) in &hits {
++        if (i, j) == (last.0, last.1) && (t - last.2).abs() < 2.0 * wg {
++            continue;
++        }
++        last = (i, j, t);
++        if !scans {
++            continue;
++        }
++        let (lo, hi) = ((t - 3.0 * wg).max(0.0), (t + 3.0 * wg).min(t_end));
++        if hi <= lo {
++            continue;
++        }
++        // Resolve near-tangent crossings (large window, slow closing): sample at a quarter of
++        // the encounter duration, capped like the section machinery's Wide/Full sections.
++        let dur = 0.25 * rho / dvv.max(1e-12);
++        let k = (((hi - lo) / dur.max(1e-15)) as usize).clamp(24, 1024);
++        let mut out: Vec<(f64, f64)> = Vec::new();
++        scan_minima(&b[i as usize], &b[j as usize], lo, hi, k, rho, false, &mut out, &mut evals);
++        for &(tm, dm) in &out {
++            ev.push((i, j, tm, dm));
++            max_util = max_util.max(dt / wg);
++        }
++    }
++    ev.sort_by(|a, c| (a.0, a.1, a.2).partial_cmp(&(c.0, c.1, c.2)).unwrap());
++    (
++        ev,
++        evals,
++        events.len() as u64,
++        hits.len() as u64,
++        max_util,
++        fams.len(),
++        t0.elapsed().as_millis(),
++    )
++}
++
++fn report(
++    sc: &Scene,
++    method: &str,
++    fams: usize,
++    cands: u64,
++    events: u64,
++    hits: u64,
++    evals: u64,
++    enc_in: u64,
++    missed: u64,
++    false_: u64,
++    ms: u128,
++) {
++    println!(
++        "{{\"scene\":\"{}\",\"method\":\"{}\",\"n\":{},\"fams\":{},\"cands\":{},\"events\":{},\"hits\":{},\"evals\":{},\"enc\":{},\"missed\":{},\"false\":{},\"ms\":{}}}",
++        sc.name, method, sc.b.len(), fams, cands, events, hits, evals, enc_in, missed, false_, ms
++    );
++}
++
++fn dump_missed(sc: &Scene, truth: &[Enc], ev: &[Enc]) {
++    let (assign, _fams) = families(&sc.b, EPS_FAM);
++    let mut shown = 0;
++    for &(i, j, t, d) in truth.iter() {
++        if !(t > 0.05 && t < sc.t_end - 0.05) {
++            continue;
++        }
++        let found = ev.iter().any(|&(a, c, tm, _)| (a, c) == (i, j) && (tm - t).abs() < 0.05);
++        if !found {
++            let (bi, bj) = (&sc.b[i as usize], &sc.b[j as usize]);
++            eprintln!(
++                "MISS {} ({},{}) t={:.4} d={:.2e} fams=({},{}) lam0=({:.4},{:.4}) a=({:.6},{:.6}) e=({:.5},{:.5}) pom=({:.4},{:.4})",
++                sc.name, i, j, t, d, assign[i as usize], assign[j as usize],
++                lam0(bi), lam0(bj), bi.a, bj.a, bi.e, bj.e, bi.pom, bj.pom
++            );
++            shown += 1;
++            if shown >= 8 {
++                break;
++            }
++        }
++    }
++}
++
++fn run_scene(sc: &Scene) {
++    let rho = sc.rho;
++    let (truth, tevals, tms) = truth_all(&sc.b, rho, sc.t_end);
++    let tin = truth.iter().filter(|e| e.2 > 0.05 && e.2 < sc.t_end - 0.05).count() as u64;
++    report(sc, "truth", 0, 0, 0, 0, tevals, tin, 0, 0, tms);
++
++    // cone: the adopted window tier over every candidate.
++    let t0 = Instant::now();
++    let cs = cone_pairs(&sc.b, rho);
++    let (ev, st, _) = method_pairs(&sc.b, &cs.pairs, rho, sc.t_end);
++    let ms = t0.elapsed().as_millis();
++    let (missed, false_, _, _) = matchup(&truth, &ev, sc.t_end, 0.05);
++    let ein = ev.iter().filter(|e| e.2 > 0.05 && e.2 < sc.t_end - 0.05).count() as u64;
++    report(sc, "cone", 0, cs.pairs.len() as u64, 0, 0, st.evals, ein, missed, false_, ms);
++
++    // rankk-glb: the dangerous trigger reading — phase rank over ALL bodies.
++    let ids: Vec<u32> = (0..sc.b.len() as u32).collect();
++    let glb = rank_pairs(&sc.b, &ids, K_SIDE);
++    let (ev, st, ms) = method_pairs(&sc.b, &glb, rho, sc.t_end);
++    let (missed, false_, _, _) = matchup(&truth, &ev, sc.t_end, 0.05);
++    let ein = ev.iter().filter(|e| e.2 > 0.05 && e.2 < sc.t_end - 0.05).count() as u64;
++    report(sc, "rankk-glb", 0, glb.len() as u64, 0, 0, st.evals, ein, missed, false_, ms);
++    if missed > 0 {
++        dump_missed(sc, &truth, &ev);
++    }
++
++    // gate: families + intra rank + inter crossing gates.
++    let (ev, evals, events, hits, _util, nfam, ms) = gate_method(&sc.b, rho, sc.t_end, K_SIDE, true);
++    let (missed, false_, _, _) = matchup(&truth, &ev, sc.t_end, 0.05);
++    let ein = ev.iter().filter(|e| e.2 > 0.05 && e.2 < sc.t_end - 0.05).count() as u64;
++    report(sc, "gate", nfam, 0, events, hits, evals, ein, missed, false_, ms);
++    if missed > 0 {
++        dump_missed(sc, &truth, &ev);
++    }
++}
++
++/// Scaling without truth: cone candidates vs gate events/hits as both fleets double.
++fn scale_scene() {
++    let rho = 1e-4;
++    for n_side in [37usize, 75, 150] {
++        let s = 20261008u64;
++        let mut b = fleet(n_side, s + 4, 0.2, 0.0, 0.0, TAU);
++        b.extend(fleet(n_side, s + 5, 0.2, PI / 2.0, 0.0, TAU));
++        let t_end = 20.0 * TAU;
++        let cs = cone_pairs(&b, rho);
++        let (_ev, _e, events, hits, _u, nfam, ms) = gate_method(&b, rho, t_end, K_SIDE, false);
++        println!(
++            "{{\"scene\":\"S5-scale-{}\",\"method\":\"cone|gate\",\"n\":{},\"fams\":{},\"cands\":{},\"events\":{},\"hits\":{},\"evals\":0,\"enc\":0,\"missed\":0,\"false\":0,\"ms\":{}}}",
++            n_side, b.len(), nfam, cs.pairs.len(), events, hits, ms
++        );
++    }
++}
++
++fn main() {
++    let scenes = build_scenes();
++    for sc in &scenes {
++        run_scene(sc);
++    }
++    scale_scene();
++}
