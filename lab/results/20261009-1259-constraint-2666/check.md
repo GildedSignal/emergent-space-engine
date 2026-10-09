@@ -1,0 +1,32 @@
+Grade: gold
+
+Abstract: Claim: the flown frame's constraint is the view gather's per-emitter exact tube readout (61–69% of every frame, 96–97% of it light-cone crossings), not kicks (0.3% of wall; kick-bench 32 samples, median 47 µs, reproduces exactly). The gather cache of H0211 has hit its ceiling: ~1 readout/emitter/frame is the cost itself. Measured: skip fails (57–62 of ~64 emitters change above player floors each frame), advance-instead-of-readout works (90–100% within 15 m per frame; 99.8% within 150 m at rtf 100, seeds 1 and 7, 76 and 417 bodies; degrades honestly at rtf 1000). Gain projected 25–40× on the dominant term from measured components (42 µs paced / 10 µs warm readout vs 1.1 µs fleet advance). Adoption: ViewCache refresh cadence, one builder step, no law or gate changes. Cost: floors must be derived per doll scale; fast approachers need per-frame refresh.
+
+Reasons:
+
+1. Reproduction (patch applied to a clean tree, load 0.7–2.5 on 8 vCPU; all dossier commands ≤ 60 s):
+   - 30 s rtf 100: crossing_ms 2.696 of bodies_ms 2.805 (96.1%; author 2.767/2.874, 96%), readouts/frame 63.5 (author 66.5), surprise per_frame 57.2 (author 60.2), extrap lt_15m 0.975 / lt_150m 1.000 (author 0.963/0.999). Same conclusions.
+   - 20 s rtf 100 --members 400: gather share 61.8% (author 61%), frame p50 8.83 ms (author 8.75), gather p50 6.29 ms (author 6.12), overflow_frames 337 (author 338), rtf lowest_1pct 0.0 (author 0), readouts/frame 274.5 (author 295.8), lt_150m 0.999 (author 0.997).
+   - kick-bench: exactly the author's numbers — 32 samples, median 47.3 µs, wall 0.056 s of 20 s = 0.28% ("0.3% of wall").
+   - 10 s rtf 1000: lt_1.5m 0.314 / lt_15m 0.517 / lt_150m 0.715 (author 0.316/0.516/0.716) — near bit-for-bit; gather share 62%.
+   - Shares are the claim, and shares reproduce across every configuration I ran (59.8–69%).
+
+2. Adversarial cases of my own:
+   - Unpaced (`--unpaced`): crossing still 96.8% of the bodies loop at 10.3 µs/readout (author's cache-warm 12.5 µs), gather 64.5% of the frame. The dominance is not a pacing/throttling artifact; the ~4× absolute drop paced→unpaced matches the dossier's own honest split (41.6 vs 12.5 µs).
+   - Unseen seed (--seed 7): gather 59.8%, crossing 95% of bodies loop, lt_150m 0.998, surprise 62.2/frame. Nothing was seed-tuned.
+   - Purity control: `cargo test --release -p emergent-universe` with the probes — green, 54 passed / 0 failed, including `observation_never_changes_the_digest`. In debug the suite fails on this checkout, but identically on the clean tree (overflow panic at `crates/lattice/src/law.rs:346`, plus 3 `step::tests`) — pre-existing, patch-independent; the author's "green" claim holds in release, the profile the bench uses.
+
+3. Predictions: `predictions.md` (14 min before dossier.md; run.log empty, so ordering rests on file times plus content). Prediction 1 held (fixed player part 3–5% < 20%; crossing dominates), prediction 2 held (7.8 µs marginal per fleet member vs 5–10 predicted; ~42 µs paced per readout vs 50–150), prediction 3 refuted and reported as a held-out miss, with the refined exploit then measured. That is the lab's intended behaviour (H0183: a failed expectation is not a failed method), and the final claim does not rest on the refuted form.
+
+4. Novelty: H0210 already recorded "the view gather is 83% of a light frame" and H0211/H0213 shipped the gather cache — so frame-level dominance was known. What is new and measured here: the cache's ceiling (the residual cost is the exact readout itself, one per emitter per frame, not Newton iterations), the refutation of skip-most-emitters by a surprise probe at player floors, the advance-instead-of-readout viability with its horizon scaling, and the reordering of the flown frame (kicks 0.3% of wall) against the board's "kicks dominate" focus item. No HISTORY or docs entry measures the gather's internals or proposes the cadence; the closest prior art is the kick cadence itself (H0190), which the dossier correctly cites as the shape to copy.
+
+5. Goal fit: directly on "work goes by its measured bottleneck" (board, plane). Shows a premise is wrong (the gather memo solved the gather; kicks are the flown frame's constraint) and deletes a concept (the per-frame exact readout as a 60 Hz catalogue scan). PRINCIPLES #3 ("Nothing is evolved that can be derived when looked at (clocks, redshift, views)"), #14 ("no work for no reason, so no ticks ... we only care about changes"), #28 ("The view is an instrument"). The instrument-only change keeps observation pure (release suite green). It inverts the board's assumed ordering with measurements on the whole frame, and the fix reuses the engine's own cadence pattern.
+
+6. Why gold despite the projection: the claim's load-bearing parts are all measured and reproduced — the share, the attribution inside the gather, the surprise refutation, the one-frame advance error at two scales, and the 1.1 µs fleet advance as the replacement's existence proof in shipped code. The 25–40× is an assembly of measured components, stated as expected, and adoption is one builder step with no law or gate changes. This matches the gold precedent of premise-killing measurement runs (e.g. components-4643).
+
+What the author missed:
+
+- The advance probe always restarts from the previous frame's exact crossing, so it measures one-frame error, not the survival distribution of a k-frame refresh cadence (the deployed design). The rtf-1000 run brackets the scaling (error quadratic in horizon) but the steady-state cost of the scheduler itself — refresh churn on fast approachers, cache layout — is unmeasured. The first build step should measure achieved gather share, not trust 25–40×.
+- The player-differentiation floors (4e-4 rad, 3 km, 4e-3 colour...) are asserted, not derived from an actual display or doll scale; the dossier names the floor as load-bearing but leaves it unhinged. "The zoom level is the minimap" (OC#30) wants the floor per doll scale, computed, not chosen.
+- The "green" test claim omits the profile: debug fails on this checkout pre-existing (lattice `law.rs:346` overflow panics inside `observation_never_changes_the_digest`) — worth an integrator note independently of this run, since the purity contract cannot even run in debug here.
+- At 10⁶ emitters the O(catalogue) scan is fatal either way (~10–42 s/frame), but this scene never exceeds 417 bodies; the lens says so, and the next wall (slice cost, 28% overflow at 417) is correctly handed to the board's existing cadence work.

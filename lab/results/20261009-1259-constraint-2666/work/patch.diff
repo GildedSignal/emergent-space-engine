@@ -1,0 +1,180 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..319a417 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -18,6 +18,7 @@ use crate::num::{to_f64, Tick};
+ use crate::observe::{clock_rate, clocks_with, root_state, state_rate};
+ use crate::universe::Universe;
+ use emergent_space::orbit::Scalar;
++use std::time::Instant;
+ 
+ /// Seconds in one tick (`G·M_sun/c³`, the star's `M/c`).
+ pub const TICK_SECONDS: f64 = 4.925_490_947e-6;
+@@ -230,8 +231,26 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+     gather_with(u, names, Some(cache))
+ }
+ 
++/// Probe (lab run 20261009-1259-constraint-2666): where the gather's time goes. Gated by VIEWPROF=1.
++#[derive(Default)]
++pub struct GatherProfile {
++    pub frames: u64,
++    pub player_ns: u64,
++    pub bodies_ns: u64,
++    pub crossing_ns: u64,
++    pub readouts: u64,
++    pub fleets_ns: u64,
++}
++thread_local! {
++    pub static GATHER_PROF: std::cell::RefCell<GatherProfile> = std::cell::RefCell::new(GatherProfile::default());
++}
++fn prof_add(f: impl FnOnce(&mut GatherProfile)) {
++    GATHER_PROF.with(|p| f(&mut p.borrow_mut()));
++}
++
+ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
+-    let ctx = u.ctx();
++    let t0 = Instant::now();
++     let ctx = u.ctx();
+     if let Some(c) = cache.as_mut() {
+         c.readouts = 0;
+     }
+@@ -265,7 +284,10 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
+-    let mut seen = Vec::new();
++    prof_add(|g| g.player_ns += t0.elapsed().as_nanos() as u64);
++    let t_bodies = Instant::now();
++    prof_add(|g| g.frames += 1);
++     let mut seen = Vec::new();
+     let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+         let d = [pos[0] - xo[0], pos[1] - xo[1]];
+         let dist = dot(d, d).sqrt().max(1e-9);
+@@ -303,7 +325,10 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         }
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
++        let t_x = Instant::now();
+         let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++        note_extrap(i, t_e, &at);
++        prof_add(|g| { g.crossing_ns += t_x.elapsed().as_nanos() as u64; });
+         if let Some(c) = cache.as_deref_mut() {
+             // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+             let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+@@ -329,8 +354,11 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             Some((fi, m)) => push(1_000_000 + fi as usize * 1000 + m as usize, "fleet", 4, at.x, at.v, at.rate, 3500., 1e-6, radius, 0.0, t_e as f64),
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+-    }
+-    if let Some(c) = cache.as_deref_mut() {
++     }
++    prof_add(|g| g.readouts += reads);
++     prof_add(|g| g.bodies_ns += t_bodies.elapsed().as_nanos() as u64);
++    let t_fleets = Instant::now();
++     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+@@ -365,10 +393,12 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             let rad = f.radii.get(m).copied().unwrap_or(0) as f64 * k;
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+-    }
++     }
++    prof_add(|g| g.fleets_ns += t_fleets.elapsed().as_nanos() as u64);
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
++    SEEN_DIFF.with(|d| { let mut d = d.borrow_mut(); d.0 += 1; d.1 += seen.iter().filter(|s| seen_surprise(s)).count() as u64; });
+     Some(View {
+         tick: t_now,
+         coordinate_seconds: t_now as f64 * TICK_SECONDS,
+@@ -390,6 +420,74 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     })
+ }
+ 
++/// The probe's report (lab run 20261009-1259-constraint-2666): average per-frame gather split, "k=v" pairs.
++pub fn gather_profile() -> String {
++    GATHER_PROF.with(|p| {
++        let g = p.borrow();
++        let f = g.frames.max(1) as f64;
++        format!("frames={} player_ms={:.3} bodies_ms={:.3} crossing_ms={:.3} readouts_per_frame={:.1} fleets_ms={:.3}",
++            g.frames, g.player_ns as f64 / 1e6 / f, g.bodies_ns as f64 / 1e6 / f, g.crossing_ns as f64 / 1e6 / f, g.readouts as f64 / f, g.fleets_ns as f64 / 1e6 / f)
++    })
++}
++
++/// Probe (lab run 20261009-1259-constraint-2666): the view's surprise rate — how many emitters' Seen
++/// payload changes between consecutive frames by more than a player-differentiation floor.
++thread_local! {
++    static LAST_SEEN: std::cell::RefCell<std::collections::HashMap<usize, Seen>> = std::cell::RefCell::new(std::collections::HashMap::new());
++    static SEEN_DIFF: std::cell::RefCell<(u64, u64)> = std::cell::RefCell::new((0, 0)); // (frames, changed)
++}
++fn seen_surprise(s: &Seen) -> bool {
++    LAST_SEEN.with(|m| {
++        let mut m = m.borrow_mut();
++        let Some(p) = m.get(&s.id) else { m.insert(s.id, s.clone()); return true; };
++        let changed = {
++            let dd = (s.direction[0] - p.direction[0]).hypot(s.direction[1] - p.direction[1]);
++            let doff = (s.offset[0] - p.offset[0]).hypot(s.offset[1] - p.offset[1]);
++            let dls = (s.light_seconds - p.light_seconds).abs();
++            let dcol = (s.color[0] - p.color[0]).abs().max((s.color[1] - p.color[1]).abs()).max((s.color[2] - p.color[2]).abs());
++            let dlum = ((s.luminosity - p.luminosity) / p.luminosity.max(1e-12)).abs();
++            let dshift = ((s.shift - p.shift) / p.shift.max(1e-12)).abs();
++            let dclose = (s.closing - p.closing).abs();
++            dd > 4e-4 || doff > 1e-5 || dls > 1e-5 || dcol > 4e-3 || dlum > 1e-3 || dshift > 1e-3 || dclose > 1e-3
++        };
++        changed
++    })
++}
++
++pub fn surprise_profile() -> String {
++    SEEN_DIFF.with(|d| { let (f, c) = *d.borrow(); format!("frames={} changed_emitters_total={} per_frame={:.1}", f, c, c as f64 / f.max(1) as f64) })
++}
++
++/// Probe part 2 (lab run 20261009-1259-constraint-2666): could the per-frame exact readout be replaced by
++/// advancing the last exact state? For each emitter, compare this frame's exact crossing state against a
++/// linear advance of the previous frame's (x, v) over the ticks the crossing moved. Errors in root units
++/// (1 unit = one light-tick ≈ 1.48 km).
++thread_local! {
++    static LAST_AT: std::cell::RefCell<std::collections::HashMap<usize, (Tick, [f64; 2], [f64; 2])>> = std::cell::RefCell::new(std::collections::HashMap::new());
++    static EXTRAP: std::cell::RefCell<[u64; 5]> = std::cell::RefCell::new([0; 5]); // [crossings, e<1e-3, e<1e-2, e<1e-1, e<1]
++}
++fn note_extrap(id: usize, t_e: Tick, at: &At) {
++    LAST_AT.with(|m| {
++        let mut m = m.borrow_mut();
++        let Some(&(t0, x0, v0)) = m.get(&id) else { m.insert(id, (t_e, at.x, at.v)); return; };
++        let dt = t_e.saturating_sub(t0) as f64;
++        let pred = [x0[0] + v0[0] * dt, x0[1] + v0[1] * dt];
++        let err = (pred[0] - at.x[0]).hypot(pred[1] - at.x[1]);
++        EXTRAP.with(|e| {
++            let mut e = e.borrow_mut();
++            e[0] += 1;
++            if err < 1e-3 { e[1] += 1; }
++            if err < 1e-2 { e[2] += 1; }
++            if err < 1e-1 { e[3] += 1; }
++            if err < 1.0 { e[4] += 1; }
++        });
++        m.insert(id, (t_e, at.x, at.v));
++    });
++}
++pub fn extrap_profile() -> String {
++    EXTRAP.with(|e| { let e = *e.borrow(); format!("crossings={} lt_1.5m={:.3} lt_15m={:.3} lt_150m={:.3} lt_1.5km={:.3}", e[0], e[1] as f64 / e[0].max(1) as f64, e[2] as f64 / e[0].max(1) as f64, e[3] as f64 / e[0].max(1) as f64, e[4] as f64 / e[0].max(1) as f64) })
++}
++
+ /// Why the player was lost, in words: the impact (on the centre of the doll it was in: the first tick its last tube is
+ /// below the surface, found by bisection on the tube, with the speed there against the centre), the edge of the system,
+ /// or the engine's own refusal. Read only when the player is already lost.
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..3bb72ac 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -143,7 +143,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+-        "engine_cost_by_kind": cost,
++        "surprise_profile": emergent_universe::view::surprise_profile(), "extrap_profile": emergent_universe::view::extrap_profile(),
++        "gather_profile": emergent_universe::view::gather_profile(),
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
