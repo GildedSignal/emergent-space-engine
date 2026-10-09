@@ -1,0 +1,16 @@
+=== belt shipped (uniform 7) ===
+belt_bench rtf=20000 frames=3300 n=2000 seed=7 clock_split=false step_log2=7
+kicks 78385 (7.126e-2/game_s) opens 2003 boundaries 77416 handoffs 0 slices 0 decisions 0 lost 0 refused 0
+events 157804 (1.435e-1/game_s) game_seconds 1.100e6 cut 223327988400 alive 2003/2003 digest 138c6b692f829d524661930a9799835865f194052a9170babbfc7a5b7f2083f5 wall_seconds 6.1
+
+real	0m11.964s
+user	0m17.401s
+sys	0m0.386s
+=== belt split ===
+belt_bench rtf=20000 frames=3300 n=2000 seed=7 clock_split=true step_log2=7
+kicks 16732 (1.521e-2/game_s) opens 2003 boundaries 14965 handoffs 0 slices 0 decisions 0 lost 0 refused 0
+events 33700 (3.064e-2/game_s) game_seconds 1.100e6 cut 223327988400 alive 2003/2003 digest 59752da97b97c79112c4a3c9efe06f0376da6084cabdd1c60461897ce35282ba wall_seconds 2.4
+
+real	0m2.585s
+user	0m2.558s
+sys	0m0.040s

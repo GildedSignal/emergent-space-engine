@@ -1,0 +1,282 @@
+diff --git a/crates/universe/examples/belt_bench.rs b/crates/universe/examples/belt_bench.rs
+new file mode 100644
+index 0000000..d053be9
+--- /dev/null
++++ b/crates/universe/examples/belt_bench.rs
+@@ -0,0 +1,81 @@
++//! A belt cost scene (the lab's clock-path cost run, 20261009-0709-second-20261009-0621-system-7f97-1eca):
++//! the plane's star and its three planets, plus a belt of clock bodies (root-doll ships) in the gap between
++//! Home and the Giant — no moon, no fleet, no player. Every belt body is a clock body far from every Hill
++//! shell: the population the doll-wide Δs overpaid for, and the one the per-body rule is for. Reports the
++//! engine's own event counters (`stats`) per game-second and the digest at a canonical cut, for whatever
++//! cadence the environment chose (`Config::default` reads UNIVERSE_STEP_LOG2 / UNIVERSE_CLOCK_SPLIT).
++//!
++//! Usage: `belt_bench [rtf] [frames] [n_belt] [seed]` (defaults 20000 3300 2000 7).
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::from_f64;
++use emergent_universe::scenario::{PlanetSpec, PLANETS, STAR_RADIUS};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config, Kind, OrbitSpec, Universe};
++
++fn lcg(seed: &mut u64) -> f64 {
++    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++    (*seed >> 11) as f64 / (1u64 << 53) as f64
++}
++
++fn main() -> Result<(), String> {
++    let mut it = std::env::args().skip(1);
++    let mut val = |d: &str| it.next().and_then(|s| s.parse::<f64>().ok()).unwrap_or_else(|| d.parse().unwrap());
++    let (rtf, frames, n, seed, a_lo, a_hi, e_max) = (
++        val("20000") as f64,
++        val("3300") as u32 as usize,
++        val("2000") as u32 as usize,
++        val("7") as u32 as u64,
++        val("1.8"),
++        val("3.6"),
++        val("0.25"),
++    );
++    let cfg = Config::default();
++    let au = emergent_universe::scenario::AU as f64;
++    let mut u = Universe::new(Scalar::integer(STAR_RADIUS), cfg);
++    u.threads = 1;
++    for PlanetSpec { name, mass_log2, periapsis, e_q48, angle, phase, radius } in PLANETS {
++        let b = u
++            .add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: Scalar::integer(periapsis), e_q48, clockwise: false, angle, phase }, Scalar::ZERO)
++            .map_err(|e| format!("{e:?}"))?;
++        let surface = Scalar::raw(radius as i128, -mass_log2).map_err(|e| format!("{e:?}"))?;
++        u.add_doll(name, b, mass_log2, surface).map_err(|e| format!("{e:?}"))?;
++    }
++    // The belt: heliocentric ships at 1.8–3.6 AU, e ≤ 0.25, fixed seeded draw (the scenario's own generator).
++    let mut rng = (seed ^ 0x5DEECE66Du64) | 1;
++    for _ in 0..n {
++        let a = (a_lo + (a_hi - a_lo) * lcg(&mut rng)) * au;
++        let e = e_max * lcg(&mut rng);
++        u.add_body(
++            Kind::Ship,
++            OrbitSpec {
++                doll: 0,
++                periapsis: from_f64(a * (1.0 - e)),
++                e_q48: (e * (1u64 << 48) as f64) as u64,
++                clockwise: false,
++                angle: (lcg(&mut rng) * 4294967296.0) as u32,
++                phase: (lcg(&mut rng) * 4294967296.0) as u32,
++            },
++            Scalar::ZERO,
++        )
++        .map_err(|e| format!("{e:?}"))?;
++    }
++    u.start().map_err(|e| format!("{e:?}"))?;
++    let wall = std::time::Instant::now();
++    for _ in 0..frames {
++        u.frame(1.0 / 60.0, rtf, Budget::unlimited());
++    }
++    let cut = u.now;
++    u.settle(cut);
++    let st = &u.stats;
++    let game_s = cut as f64 * TICK_SECONDS;
++    let alive = (0..u.n_bodies()).filter(|&i| u.rec(i).alive).count();
++    let rate = |x: u64| x as f64 / game_s;
++    println!(
++        "belt_bench rtf={rtf} frames={frames} n={n} seed={seed} clock_split={} step_log2={}\
++         \nkicks {} ({:.3e}/game_s) opens {} boundaries {} handoffs {} slices {} decisions {} lost {} refused {}\
++         \nevents {} ({:.3e}/game_s) game_seconds {:.3e} cut {cut} alive {alive}/{} digest {} wall_seconds {:.1}",
++        cfg.clock_split, cfg.step_log2, st.kicks, rate(st.kicks), st.opens, st.boundaries, st.handoffs, st.slices, st.decisions, st.lost, st.refused,
++        st.events(), rate(st.events()), game_s, u.n_bodies(), u.digest(), wall.elapsed().as_secs_f64()
++    );
++    Ok(())
++}
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..f9ee415 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -36,10 +36,18 @@ pub struct Config {
+     pub leave_log2: i32,
+     /// Kicks per radial period, as a power of two.
+     pub step_log2: i32,
++    /// Whether each clock body's Δs follows its own coupling (`ext::split_k`) instead of the doll-wide
++    /// constant. Off (the shipped law): every body of a doll steps at `step_log2`, bit for bit.
++    pub clock_split: bool,
+ }
+ impl Default for Config {
+     fn default() -> Self {
+-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
++        // lab experiment (20261009-0709-second-20261009-0621-system-7f97-1eca): the cadence knobs of this run.
++        // UNIVERSE_STEP_LOG2 overrides the cadence uniformly (the first author's sweep); UNIVERSE_CLOCK_SPLIT=1
++        // turns on the per-body Δs rule. Unset, both give the shipped law, bit for bit.
++        let step_log2 = std::env::var("UNIVERSE_STEP_LOG2").ok().and_then(|s| s.parse().ok()).unwrap_or(7);
++        let clock_split = std::env::var("UNIVERSE_CLOCK_SPLIT").ok().is_some_and(|s| !s.is_empty() && s != "0");
++        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2, clock_split }
+     }
+ }
+ 
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index 63b54c1..8400196 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -42,6 +42,8 @@ pub const B_OVER_C: i64 = 30;
+ pub const FLOOR_FACTOR: i64 = 10;
+ /// `U_P + c` is held at least at `c/2^GUARD_LOG2` (a guard beyond the useful range, see the module docs).
+ pub const GUARD_LOG2: i32 = 3;
++/// The width of the per-body Δs ramp ([`split_k`]): the bulk's floor sits this many octaves of coupling below the anchor.
++pub const RAMP_LOG2: i32 = 3;
+ /// Fractional bits of a carried physical time, in ticks.
+ const TICK_FRACTION: i32 = 16;
+ 
+@@ -57,6 +59,11 @@ pub struct Ext {
+     pub dt_carry: i64,
+     /// The fictitious step `Δs`, a power of two.
+     pub ds: Scalar,
++    /// The unit the step is a power-of-two fraction of: `P_D/f'(c)` floored to a power of two ([`constants`]).
++    pub ds_unit: Scalar,
++    /// The step this clock holds (`split_k` of the strongest coupling its orbit has permitted since the clock began:
++    /// Δs refines on approach and never coarsens within a clock — a modulated cadence pumps a resonant libration).
++    pub k_held: i8,
+     /// The floor of the time transformation and its break: `f'(y) = 1/y² + 1/(b·y)`.
+     pub c: Scalar,
+     pub b: Scalar,
+@@ -142,8 +149,11 @@ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
+     Ok(Source { gm: ctx.info[j].gm, axis: b.to_doll(key.periapsis.mul(k)?.div(den)?)?, period: b.to_doll(c.period()?)? })
+ }
+ 
+-/// The constants of the clock of a body of doll `d` (its secondaries other than `except`), read at `t`: `(Δs, c, b)`.
+-pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) -> Res<(Scalar, Scalar, Scalar)> {
++/// The constants of the clock of a body of doll `d` (its secondaries other than `except`), read at `t`: `(ds_unit, c, b)`,
++/// where `ds_unit = P_D/f'(c)` floored to a power of two — the step is `ds_unit·2^-k` for the body's own `k` ([`split_k`],
++/// or `Config::step_log2` for the doll-wide constant; flooring a power-of-two commutes with the shift, so the two are
++/// the same bits).
++pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize) -> Res<(Scalar, Scalar, Scalar)> {
+     let host = ctx.dolls[d as usize].unit.mu;
+     let (mut c, mut floor, mut period) = (Scalar::ZERO, Scalar::ZERO, None::<Scalar>);
+     for &j in &ctx.sources[d as usize] {
+@@ -160,7 +170,26 @@ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) ->
+     let Some(period) = period else { return Err(Error::Refused("a doll without a source has no clock")) };
+     let c = c.max(floor.mul(Scalar::integer(FLOOR_FACTOR))?);
+     let b = c.mul(Scalar::integer(B_OVER_C))?;
+-    // Δs = 2^-k·P_D/f'(c), rounded down to a power of two.
+-    let ds = period.scale(-kicks_log2)?.div(fprime(c, b)?)?;
+-    Ok((Scalar::power_of_two(log2_floor(ds) as i16), c, b))
++    // ds_unit = P_D/f'(c), rounded down to a power of two.
++    let unit = period.div(fprime(c, b)?)?;
++    Ok((Scalar::power_of_two(log2_floor(unit) as i16), c, b))
++}
++
++/// The body's own exponent `k` for its fictitious step `ds_unit·2^-k`, from a dimensionless coupling
++/// κ = `u`/`c` the caller bounds by the body's own orbit (step.rs `coupling_bound`): one bit of Δs per octave
++/// of κ — Sundman's slope — anchored where κ = 1 at `k_max` (for one source, the doll's edge scale R_H/r), and
++/// floored `RAMP_LOG2` octaves below (the bulk: 16 kicks per P_D at the shipped 7). `k_max` for every κ at
++/// once is the shipped doll-wide constant. Because κ is a property of the orbit, not of the position, the
++/// sequence of steps changes only when the orbit does — a librating moon holds one cadence through every
++/// conjunction (a position-based κ chatters at the synodic frequency and breaks the split's time symmetry).
++pub fn split_k(k_max: i32, u: Scalar, c: Scalar) -> i32 {
++    let bulk = k_max - RAMP_LOG2;
++    if !u.is_positive() {
++        return bulk;
++    }
++    // ceil(log2 κ) = −floor(log2 c/κ), exact on the grid; κ ≥ 1 (an orbit that will encounter) clamps to the anchor.
++    match c.div(u) {
++        Ok(inverse) => k_max + (-log2_floor(inverse)).clamp(-RAMP_LOG2, 0),
++        Err(_) => k_max,
++    }
+ }
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..1e7fd71 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -527,6 +527,49 @@ impl Work<'_, '_> {
+         self.rec.b.doll == 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player)
+     }
+ 
++
++    /// The strongest coupling to its perturbers the body's own orbit permits: the potential at the closest approach
++    /// its trajectory can make to any secondary before it rebinds — the radial gap between its orbit and theirs, zero
++    /// when the bands overlap (the body will encounter). This is the validity claim Δs is sized by ([`crate::ext::split_k`]):
++    /// a bound on what the orbit will do, not on where the body happens to be, so the cadence changes only when the
++    /// orbit does. The unbound case (no cycle) and an overlapping band read as full coupling.
++    fn coupling_bound(&self, t: Tick, c: Scalar) -> Res<Scalar> {
++        let d = self.rec.b.doll;
++        let Trajectory::Cycle(mine) = &self.rec.b.entry.trajectory else { return Ok(c.scale(1)?) };
++        let key = mine.key();
++        let den = Scalar::raw(key.k as i128, -48)?.scale(1)?.sub(Scalar::ONE)?;
++        if !den.is_positive() {
++            return Ok(c.scale(1)?); // unbound about the host: it can meet anything
++        }
++        // My radial span [p, A] in the doll's units (A = 2a − p, a = p·k/(k−1)).
++        let p = self.rec.b.to_doll(key.periapsis)?;
++        let axis = self.rec.b.to_doll(key.periapsis.mul(Scalar::raw(key.k as i128, -48)?)?.div(den)?)?;
++        let apo = axis.scale(1)?.sub(p)?;
++        let mut u = Scalar::ZERO;
++        for &j in &self.ctx.sources[d as usize] {
++            if j == self.i {
++                continue;
++            }
++            let Some(b) = self.ctx.bodies.binding_at(j, t) else { continue };
++            let Trajectory::Cycle(theirs) = &b.entry.trajectory else { return Ok(c.scale(1)?) };
++            let tk = theirs.key();
++            let tden = Scalar::raw(tk.k as i128, -48)?.scale(1)?.sub(Scalar::ONE)?;
++            if !tden.is_positive() {
++                return Ok(c.scale(1)?);
++            }
++            let tp = b.to_doll(tk.periapsis)?;
++            let taxis = b.to_doll(tk.periapsis.mul(Scalar::raw(tk.k as i128, -48)?)?.div(tden)?)?;
++            let tapo = taxis.scale(1)?.sub(tp)?;
++            // The radial gap between the two spans; a non-positive gap is an overlap (an encounter to come).
++            let gap = tp.sub(apo)?.max(p.sub(tapo)?);
++            if !gap.is_positive() {
++                return Ok(c.scale(1)?);
++            }
++            u = u.add(self.ctx.info[j].gm.div(gap)?)?;
++        }
++        Ok(u)
++    }
++
+     /// The mass of the body's drift in the doll's units: its tube's host.
+     fn tube_mu(&self) -> Res<Scalar> {
+         Ok(self.ctx.tube_unit(self.i, self.rec.b.doll)?.mu)
+@@ -552,14 +595,26 @@ impl Work<'_, '_> {
+         let d = self.rec.b.doll;
+         if self.rec.ext.is_none() {
+             let st = self.rec.b.readout(t)?;
+-            let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
++            let (ds_unit, c, b) = crate::ext::constants(self.ctx, d, t, self.i)?;
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+-            self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
++            self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds: ds_unit, ds_unit, k_held: 0, c, b });
+         }
+         self.project(t)?;
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
++        // lab experiment (20261009-0709-second-20261009-0621-system-7f97-1eca): the step this clock starts at is
++        // derived from the body's own orbit's coupling bound (`clock_split`; see `coupling_bound`); off, the
++        // doll-wide constant `step_log2` stands for every body, bit for bit. The clock then refines and never
++        // coarsens within itself (`k_held`): a cadence that modulates with the orbit pumps a resonant libration.
++        let k = if self.ctx.cfg.clock_split {
++            let k = crate::ext::split_k(self.ctx.cfg.step_log2, self.coupling_bound(t, ext.c)?, ext.c);
++            ext.k_held = k as i8;
++            k
++        } else {
++            self.ctx.cfg.step_log2
++        };
++        ext.ds = ext.ds_unit.scale(-k)?;
+         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+         let mut half = ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
+         // A held burn limits the step as it does at every kick (the clock's own step is far longer in the far field: the burn
+@@ -601,6 +656,18 @@ impl Work<'_, '_> {
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let f = force::field(&secs, x)?;
++        // lab experiment (20261009-0709-second-20261009-0621-system-7f97-1eca, v3): with `clock_split`, the requested
++        // cadence comes from the coupling the body's own orbit permits (`coupling_bound` — a validity claim over the
++        // step it sizes), and the clock refines to it and never coarsens within itself: an isolated refinement is a
++        // bounded one-time error, while a cadence that modulates with the orbit — position-based κ at the synodic
++        // frequency, orbit-based κ with the libration — pumps the resonant angle and destroys it (B17's libration:
++        // 0.002, then 0.008).
++        if self.ctx.cfg.clock_split {
++            let asked = crate::ext::split_k(self.ctx.cfg.step_log2, self.coupling_bound(t, ext.c)?, ext.c);
++            let k = asked.max(ext.k_held as i32);
++            ext.k_held = k as i8;
++            ext.ds = ext.ds_unit.scale(-k)?;
++        }
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);

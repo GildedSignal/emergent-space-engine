@@ -1,0 +1,4 @@
+Working...
+Run complete. Everything verified: control bit-identity (`21c73edc…`, held after every code iteration), both falsifications recorded with their data, final gate set and belt costs reproducible from the saved patch and commands.
+
+**The claim, in one sentence:** the checker's named gold experiment is done — the clock-path regime split (per-body Δs from the coupling its own orbit permits, refining only, never coarsening within a clock) is built and validated on the shipped record: B13 and the default path stay bit-identical (60/64, digest `21c73edc…`), B17 passes (libration 0.981) where the naive uniform cut collapses B13 to 3/64, a 2,000-body belt runs 4.7–7.8× fewer kicks, and the run's law-level finding for q-cadence is that a cadence modulating with the orbit pumps resonant libration and destroys it (measured twice: 0.002, 0.008), so refinement-only is a correctness condition, not an optimisation.
