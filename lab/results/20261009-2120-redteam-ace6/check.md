@@ -1,0 +1,28 @@
+Grade: gold
+
+**Abstract.** Claim: the design's view gather has no time-transfer law; flat light-time (t − d/c) misplaces emitters within ~50 M of a compact mass by 2–176° of orbital phase; the strongest deflection-only steelman still leaves 1.8–61°. Reproduced bit-identically (`python3 falsifier.py`, 217 s). Independently confirmed: scipy DOP853 (rtol 1e-11) agrees with the oracle to 3×10⁻⁴ M; the control matches analytic 2M ln(4 r_e r_o/b²); extending to r_e = 6M (ISCO) grows the flat error to 98° median, 135° max. Premise verified in docs: law.md:53 and representation.md:57 name only deflection(b); r6 is speced cost-only; no gate covers emission phase. Fix adoptable in one step: store Δt(b) beside deflection(b) in the doll memo, plus the drafted r6 criterion.
+
+**Reasons.**
+
+1. **Reproduction.** Full rerun in a clean copy (`/tmp`, numpy only, <100 MB, 217 s ≈ the dossier's 213 s): every scene summary, the controls block and the per-scene root counts are identical to the stored `metrics.json`. The dossier's table matches the stored rows (medians under numpy's convention; winding "extra delay" = last winding arrival − first primary arrival: 56/61/38/62/118 M = 0.48/0.43/0.19/0.11/0.05 orbit ✓; lattice ratios 67/55/39/14/3.5/1.6 and 548× at r_o=5000 ✓; the b = 5.574M decomposition 32.7 = 16.8 + 16.0 ✓).
+
+2. **The premise is real, not a strawman.** `docs/reference/original-conversation.md:2724`: "map shows each system at its retarded observation time `t - d/c`" — the flat law, verbatim. `docs/law.md:53` and `docs/representation.md:57` specify the gather as a Newton crossing plus `deflection(b)` from the memo; no arrival-time law anywhere in law.md, representation.md or plane.md. r6 does not exist in `lab/rungs/` and is speced cost-only (representation.md:130, "Newton iterations and samples per frame"); `b-readout-cost` sits in the live queue. B3/B16 judge deflection, B7 clock rates; none gates emission phase. Novelty: HISTORY's only Shapiro mentions (H0027–H0035) are the pre-pivot GEM kernel with "No Shapiro magnitude frozen"; nothing quantifies the view gather.
+
+3. **Predictions.** `predictions.md` mtime 21:29:04; decisive run 21:38:11→21:41:48 (metrics mtime; 217 s runtime matches). Held-out cases were not tuned on: P1 held on the median (50.4° in 25–60) but the max (104°) exceeded the band; P2 failed near the hole (bent/flat 64–66%, not ≥90% at r_e ≤ 10M); P6 half-held (delay overestimated, phase error held); P3, P4, P5, P7 held. All three misses are disclosed and correctly diagnosed (the geometric arc excess rivals the Shapiro log term for grazing rays) — postdiction is excluded by file times, and the misses are on secondary decomposition, not on the premise: the steelman still leaves 38.9°/61.2° (med/max) at r_e = 7M by direct measurement.
+
+4. **My attacks (beyond reproduction).**
+   - Independent oracle: scipy DOP853, rtol 1e-11, on three r_e = 8M roots — t_c and s_c agree to ≤ 3.3×10⁻⁴ M (light times ~540 M), image-condition residual ≤ 1.5×10⁻⁵, err identities reproduce. The result is not an artifact of the author's RK4.
+   - Flat-gather solve: recomputed te_f by bisection from the stored phi_e0 — residual 5.7×10⁻¹⁴; the reported errors are not inflated by a broken solve.
+   - Analytic cross-check: on the control scene, measured (t − D_flat) tracks 2M ln(4 r_e r_o/b²) in magnitude and b-trend, and err_flat = Ω·(t − D) exactly — the oracle's time integration is the known Shapiro delay.
+   - Extreme outside the author's range: r_e = 6M (ISCO; no circular orbit exists below it) → flat median 98.3°, max 135.4°; bent 52.0°/79.2°. The error grows monotonically inward; there is no interior rescue, and the coverage gaps the author disclosed hide larger errors, not smaller ones.
+   - Steelman strength: the arc-length timing is the *largest* plausible bent-path distance (arc ≥ deflected chord), so it lower-bounds the error of any deflection-only reading — "strongest steelman" is correct.
+
+5. **Goal fit.** Shows a premise of a component about to be built (r6 / b-readout-cost) is wrong, before a line of it is written — the cheapest kill there is. It is a behaviour error (principle 30: "what really matters is navigation, knowledge and dynamics those need to be perfect"; the map is knowledge), and principle 34's "oracles are guards" is exactly the gap: no oracle guards the gather's emission event. The fix is representation-native, not a bandaid (principle 19): law.md:22–24 already integrates dt/dφ per band and light uses "the same map… parameterized by b", so one sibling memo entry Δt(b; u_e, u_o) compiles from the same integral, and the view's Newton solve stays O(1) per tube; AI perception (r7) inherits it via the adopted "one gather" merge. Adoption cost: one memo entry plus the drafted r6 criterion — one step.
+
+**What the author missed.**
+
+- Wording: "image 0.64° off the hole's limb" — 0.64° is the angle off the hole's *centre* (alpha); the shadow limb sits at 0.594°, so the image is 0.04° outside it. Immaterial.
+- The winding "extra delay" column uses an unstated definition (last winding arrival − first primary arrival); the stored summary field is a different quantity. A checker must recompute it from the rows.
+- r_e = 6M (the natural floor: below ISCO no circular emitter exists) was untested; I ran it — the error grows further (98°/135° flat). This strengthens the claim.
+- The bent-steelman inequality (arc ≥ chord ⇒ their steelman is the strongest) is true but never argued in the dossier.
+- Still open, as the author lists: eccentric emitters, Kerr χ ≠ 0, a moving observer (aberration mixing), eclipse/occlusion timing — all refinements; none can rescue a flat time law whose error is dominated by Shapiro + arc excess, both verified analytically here.
