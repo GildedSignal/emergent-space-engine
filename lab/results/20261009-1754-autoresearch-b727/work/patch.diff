@@ -1,0 +1,450 @@
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8..1e1dde3 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -51,9 +51,15 @@ pub fn isqrt(x: u128) -> u128 {
+     let top = (x >> shift) as u64;
+     let mut y = top.isqrt() as u128 + 1;
+     y <<= shift / 2;
+-    // Newton from above decreases monotonically to floor(sqrt(x)).
++    // Newton from above decreases monotonically to floor(sqrt(x)). The divisor
++    // always fits u64 (y <= 2^64; the first step from 2^64 brings it below), so the
++    // exact 128/64 word division replaces the multiword one; same quotient bits.
++    if y > u64::MAX as u128 {
++        y = (y + x / y) >> 1;
++    }
+     loop {
+-        let z = (y + x / y) >> 1;
++        let d = y as u64;
++        let z = (y + if (x >> 64) < d as u128 { div_word(x, d) as u128 } else { x / y }) >> 1;
+         if z >= y {
+             return y;
+         }
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..deabfdb 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -22,9 +22,21 @@ fn f(n: i128) -> Result<Scalar> {
+ fn product(a: i128, b: i128) -> i128 {
+     (a * b) >> 62
+ }
++
+ fn square_root(a: i128) -> Result<Scalar> {
+     f(a)?.sqrt()
+ }
++/// Exact floor division of u128 by u128: the word path (`div_word`) when the quotient
++/// provably fits one word and the divisor does too, the native multiword division
++/// otherwise. Same bits as `/` by construction.
++#[inline]
++fn div_exact(n: u128, d: u128) -> u128 {
++    if d <= u64::MAX as u128 && (n >> 64) < d {
++        crate::num::div_word(n, d as u64) as u128
++    } else {
++        n / d
++    }
++}
+ 
+ /// Exact dimensionless orbit input, with an independent dimensional scale.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+@@ -212,13 +224,24 @@ impl OrbitShape {
+             0
+         };
+         let floor2 = f(floor)?.mul(f(floor)?)?;
++        // Every band edge strictly inside (apoapsis, periapsis) adds a knot: bands
++        // shrink by 2^(1/16), so the knot count is near 16*log2(u_p/u_a) with
++        // u_p/u_a ~ 1/(2k-1) in Q48. Capacity only avoids reallocation churn (the
++        // dyadic refinement near the separatrix adds panels inside bands), so take
++        // a generous margin; it never changes values.
++        let mut knots = Vec::with_capacity(8);
++        knots.push(Knot { psi: 0, sum: Integral::default() });
++        let crossings = {
++            let denom = (2 * key.k as u128).saturating_sub(1).max(1);
++            let bitlen = 128 - denom.leading_zeros() as i32;
++            let bands = (16 * (49 - bitlen)).max(8) as usize;
++            knots.reserve(bands);
++            Vec::with_capacity(bands / 2)
++        };
+         Ok(Self {
+             key,
+-            knots: vec![Knot {
+-                psi: 0,
+-                sum: Integral::default(),
+-            }],
+-            crossings: vec![],
++            knots,
++            crossings,
+             k,
+             q,
+             t_numerator,
+@@ -353,11 +376,11 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                let g = div_exact(1u128 << 104, root) as u64;
++                let g1 = div_exact(a as u128 * g as u128, ONE as u128 + root) as u64;
++                let ratio = div_exact((self.floor as u128) << 62, x as u128) as u64;
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = div_exact((rtau as u128) << 62, horizon as u128) as u64;
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;
+@@ -447,6 +470,10 @@ pub struct Orbit {
+     q: Scalar,
+     speed_scale: Scalar,
+     increments: [Scalar; 3],
++    /// `time(last knot)` and its doubling, in normalized time: fixed per shape,
++    /// read on every `state`/`at_phase` call.
++    half_time: Scalar,
++    full_time: Scalar,
+ }
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+@@ -514,6 +541,7 @@ impl Orbit {
+         let period = shape.knots.last().unwrap().sum.0[1]
+             .mul(time_scale)?
+             .scale(1)?;
++        let half_time = shape.knots.last().unwrap().sum.0[1];
+         Ok(Self {
+             key,
+             shape,
+@@ -521,6 +549,8 @@ impl Orbit {
+             q: Scalar::ZERO,
+             speed_scale: key.compactness()?.div(k)?.sqrt()?,
+             increments: [Scalar::ZERO, period, period],
++            half_time,
++            full_time: half_time.scale(1)?,
+         })
+     }
+     fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+@@ -549,6 +579,8 @@ impl Orbit {
+         } else {
+             q.div(tn)?.sqrt()?
+         };
++        let half_sum = shape.knots.last().unwrap().sum;
++        let half_time = Self { key, shape: shape.clone(), time_scale: Scalar::ONE, q, speed_scale, increments: [Scalar::ZERO; 3], half_time: Scalar::ZERO, full_time: Scalar::ZERO }.time(half_sum)?;
+         let mut orbit = Self {
+             key,
+             shape,
+@@ -560,6 +592,8 @@ impl Orbit {
+             q,
+             speed_scale,
+             increments: [Scalar::ZERO; 3],
++            half_time,
++            full_time: half_time.scale(1)?,
+         };
+         let half = orbit.shape.knots.last().unwrap().sum;
+         orbit.increments = [
+@@ -613,8 +647,8 @@ impl Orbit {
+                 psi: phi,
+             });
+         }
+-        let half = self.time(self.shape.knots.last().unwrap().sum)?;
+-        let full = half.scale(1)?;
++        let half = self.half_time;
++        let full = self.full_time;
+         if normalized_time > full {
+             return Err(Error::Range);
+         }
+@@ -632,7 +666,7 @@ impl Orbit {
+             return Err(Error::Range);
+         }
+         let normalized = elapsed.div(self.time_scale)?;
+-        let period = self.time(self.shape.knots.last().unwrap().sum)?.scale(1)?;
++        let period = self.full_time;
+         let cycles = u64::try_from(normalized.div(period)?.fixed(0)?).map_err(|_| Error::Range)?;
+         let rem = normalized.sub(period.mul(Scalar::raw(cycles as i128, 0)?)?)?;
+         self.at_phase(cycles, rem)
+@@ -645,7 +679,7 @@ impl Orbit {
+         }
+         Ok(state)
+     }
+-    pub(crate) fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
++    pub fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+         if self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+             if radius != self.key.periapsis {
+                 return Err(Error::Range);
+diff --git a/crates/space/src/scaled.rs b/crates/space/src/scaled.rs
+index 10cff23..f1535d9 100644
+--- a/crates/space/src/scaled.rs
++++ b/crates/space/src/scaled.rs
+@@ -93,7 +93,48 @@ impl Scalar {
+         if gap > 64 {
+             return Ok(hi);
+         }
+-        Self::raw(((hi.significand as i128) << gap) + lo.significand as i128, lo.exponent as i32 - 62)
++        // Fast path, same bits as `raw(((hi.significand as i128) << gap) + lo.significand as i128, lo.exponent as i32 - 62)`:
++        // same-sign operands cannot cancel, so the normalized significand is
++        // |hi| + (|lo| >> gap) with at most one carry bit (shifted out, exponent raised).
++        // Opposite signs take the original path: cancellation can move the binary point
++        // either way.
++        if (hi.significand < 0) == (lo.significand < 0) {
++            let (h, l) = (hi.significand.unsigned_abs(), lo.significand.unsigned_abs());
++            if gap >= 64 {
++                // gap == 64 (gap > 64 returned above): |lo| < 2^64 contributes
++                // nothing to the normalized 63-bit significand. `l >> 64` is not a
++                // machine shift; the result is exactly `hi`.
++                return Ok(hi);
++            }
++            if gap >= 1 {
++                // |n| = h·2^gap + l has 63+gap bits, or 64+gap when h+(l>>gap)
++                // reaches 2^63 (h and l both near 2^63): one more shift.
++                let mag = h + (l >> gap as u32);
++                let carry = i16::from(mag >= 1 << 63);
++                let mag = mag >> carry;
++                if let Some(exponent) = hi.exponent.checked_add(carry) {
++                    return Ok(Self {
++                        significand: if hi.significand < 0 { -(mag as i64) } else { mag as i64 },
++                        exponent,
++                    });
++                }
++            }
++            // gap == 0: h + l fits u64 (both < 2^63); normalized operands give
++            // h + l >= 2^63, so exactly one carry bit exists.
++            let sum = h + l;
++            let carry = i16::from(sum >= 1 << 63);
++            let mag = sum >> carry;
++            if let Some(exponent) = hi.exponent.checked_add(carry) {
++                return Ok(Self {
++                    significand: if hi.significand < 0 { -(mag as i64) } else { mag as i64 },
++                    exponent,
++                });
++            }
++        }
++        Self::raw(
++            ((hi.significand as i128) << gap) + lo.significand as i128,
++            lo.exponent as i32 - 62,
++        )
+     }
+     pub fn sub(self, rhs: Self) -> Result<Self> {
+         self.add(rhs.negate())
+diff --git a/crates/universe/examples/autoresearch.rs b/crates/universe/examples/autoresearch.rs
+new file mode 100644
+index 0000000..0772698
+--- /dev/null
++++ b/crates/universe/examples/autoresearch.rs
+@@ -0,0 +1,221 @@
++//! Autoresearch harness (run 20261009-1754-autoresearch-b727): ns per kick rebuild on the
++//! law pipeline (`from_state` + `compile` + `state`), behaviours held bit-identical via
++//! full-output digests (not sinks: every field of every answer is hashed).
++//!
++//! ```text
++//! cargo run --release -p emergent-universe --example autoresearch -- [iters] [stage]
++//!   stage: all | from | compile | state | heldout
++//! ```
++use emergent_space::binding::{cartesian, IntegerState, Rebinding};
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::time::Instant;
++
++fn mix(h: u128, x: i128) -> u128 {
++    let mut h = h ^ (x as u128);
++    for _ in 0..2 {
++        h = h.rotate_left(13).wrapping_mul(0x100000001b3);
++    }
++    h
++}
++
++/// Hash every observable of one rebinding answer: reconstruction, trajectory readouts.
++fn hash_rebinding(h: u128, rb: &Rebinding, times: &[Scalar]) -> u128 {
++    let mut h = h;
++    let rec = rb.reconstruct().unwrap();
++    for c in rec.position.iter().chain(rec.velocity.iter()) {
++        h = mix(h, *c as i128);
++    }
++    h = mix(h, rec.length_exponent as i128);
++    h = mix(h, rec.velocity_exponent as i128);
++    let dec = rb.decoded_event().unwrap();
++    for c in dec.position.iter().chain(dec.velocity.iter()) {
++        h = mix(h, *c as i128);
++    }
++    for &t in times {
++        let st = rb.trajectory.state(t).unwrap();
++        h = mix(h, st.radius.significand() as i128);
++        h = mix(h, st.radius.exponent() as i128);
++        h = mix(h, st.radial_angle as i128);
++        h = mix(h, st.advance.significand() as i128);
++        h = mix(h, st.proper_time.significand() as i128);
++        h = mix(h, st.radial_velocity.significand() as i128);
++        h = mix(h, st.transverse_velocity.significand() as i128);
++        h = mix(h, st.psi as i128);
++        h = mix(h, st.cycles as i128);
++        h = mix(h, st.outbound as i128);
++    }
++    h
++}
++
++fn build_states(bank: &[(i64, u64)]) -> (Vec<IntegerState>, Vec<(OrbitKey, Orbit)>) {
++    let mut states = Vec::new();
++    let mut orbit_bank = Vec::new();
++    for &(p, e) in bank {
++        let key = OrbitKey::bound(Scalar::integer(p), e).unwrap();
++        let orbit = Orbit::compile(key).unwrap();
++        let per = orbit.period().unwrap();
++        let mut bank_states = Vec::new();
++        for j in 0..4u64 {
++            let t = per.mul(Scalar::raw((j * 16 + 3) as i128, -7).unwrap()).unwrap();
++            let st = orbit.signed_state(t).unwrap();
++            let units = (st.radius.exponent() - 60, st.transverse_velocity.abs().exponent() - 60);
++            if let Some(s) = cartesian(st, (j * 0x10000000) as u32, j % 2 == 0, units).ok() {
++                bank_states.push(s);
++            }
++        }
++        orbit_bank.push((key, orbit));
++        states.extend(bank_states);
++    }
++    (states, orbit_bank)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let iters: usize = args.get(1).map(|s| s.parse().unwrap()).unwrap_or(2000);
++    let stage = args.get(2).cloned().unwrap_or_else(|| "all".into());
++
++    // Tuning bank.
++    let bank: Vec<(i64, u64)> = vec![
++        (1_200_000_000, (1u64 << 48) / 100),
++        (1_200_000_000, 0),
++        (1_200_000_000, (1u64 << 48) / 10),
++        (1_200_000_000, (1u64 << 48) / 2),
++        (1_200_000_000, (1u64 << 48) - (1u64 << 30)),
++        (16, (1u64 << 48) / 10),
++        (1 << 30, (1u64 << 48) / 10),
++        (1 << 52, (1u64 << 48) / 100),
++    ];
++    // Held-out bank (predictions.md; never tuned on).
++    let heldout_bank: Vec<(i64, u64)> = vec![
++        (3_456_789_001, (1u64 << 48) / 50),
++        (2_000_000_000, (1u64 << 48) / 4),
++        (987_654_321, (1u64 << 48) / 20),
++        (1 << 44, 0),
++        (64, (1u64 << 48) / 3),
++        (1_500_000_000, (1u64 << 48) / 10 * 9),
++    ];
++
++    if stage == "heldout" {
++        let (states, orbits) = build_states(&heldout_bank);
++        // Digest of every observable, then per-case timings.
++        let mut h: u128 = 0x9e3779b97f4a7c15;
++        let times: Vec<Scalar> = [1i64, 7, 31, 101, 997]
++            .iter()
++            .map(|&k| Scalar::integer(k * 1_000_003))
++            .collect();
++        for &s in &states {
++            let rb = Rebinding::from_state(s, Scalar::integer(1_000_000), None).unwrap();
++            h = hash_rebinding(h, &rb, &times);
++        }
++        for (key, orbit) in &orbits {
++            h = mix(h, orbit.period().unwrap().significand() as i128);
++            h = mix(h, orbit.advance().unwrap().significand() as i128);
++            h = mix(h, orbit.proper_period().unwrap().significand() as i128);
++            let per = orbit.period().unwrap();
++            for j in 0..8u64 {
++                let t = per.mul(Scalar::raw((j * 4 + 1) as i128, -5).unwrap()).unwrap();
++                let st = orbit.signed_state(t).unwrap();
++                h = mix(h, st.radius.significand() as i128);
++                h = mix(h, st.radial_angle as i128);
++                h = mix(h, st.proper_time.significand() as i128);
++                h = mix(h, st.psi as i128);
++            }
++        }
++        println!("heldout digest {:x}", h);
++        let n = 200;
++        for (i, &(p, e)) in heldout_bank.iter().enumerate() {
++            let key = OrbitKey::bound(Scalar::integer(p), e).unwrap();
++            let orbit = Orbit::compile(key).unwrap();
++            let per = orbit.period().unwrap();
++            let t0 = Instant::now();
++            for _ in 0..n {
++                let _ = Orbit::compile(key).unwrap();
++            }
++            let d_c = t0.elapsed().as_secs_f64() * 1e9 / n as f64;
++            let mut st_opt = None;
++            let t0 = Instant::now();
++            for k in 0..n {
++                let t = per.mul(Scalar::raw((k * 37 + 11) as i128 % 997, -10).unwrap()).unwrap();
++                st_opt = Some(orbit.signed_state(t).unwrap());
++            }
++            let d_s = t0.elapsed().as_secs_f64() * 1e9 / n as f64;
++            let _ = st_opt.unwrap();
++            // from_state on the i-th built state if it exists (index 4*i within range).
++            let d_f = if let Some(&s) = states.get(4 * i) {
++                let t0 = Instant::now();
++                for _ in 0..n {
++                    let _ = Rebinding::from_state(s, Scalar::integer(1_000_000), None).unwrap();
++                }
++                t0.elapsed().as_secs_f64() * 1e9 / n as f64
++            } else { 0.0 };
++            println!(
++                "HO{} p {:-12} e {:.4}: compile {:7.0} state {:7.0} from {:7.0} ns",
++                i + 1,
++                p,
++                e as f64 / (1u64 << 48) as f64,
++                d_c,
++                d_s,
++                d_f
++            );
++        }
++        return;
++    }
++
++    let (states, orbit_bank) = build_states(&bank);
++    let n = states.len();
++    let mut digest: u128 = 0xcbf29ce484222325;
++
++    let t0 = Instant::now();
++    let mut sink = 0i128;
++    for _ in 0..iters {
++        for &s in &states {
++            let rb = Rebinding::from_state(s, Scalar::integer(1_000_000), None).unwrap();
++            sink ^= rb.reconstruct().unwrap().position[0] as i128;
++        }
++    }
++    let d_from = t0.elapsed();
++    digest = mix(digest, sink);
++
++    let t0 = Instant::now();
++    let mut sink2 = 0i128;
++    for _ in 0..iters {
++        for &(key, _) in &orbit_bank {
++            let o = Orbit::compile(key).unwrap();
++            sink2 ^= o.period().unwrap().significand() as i128;
++        }
++    }
++    let d_compile = t0.elapsed();
++    digest = mix(digest, sink2);
++
++    let t0 = Instant::now();
++    let mut sink3 = 0i128;
++    for i in 0..iters {
++        for (j, &(key, _)) in orbit_bank.iter().enumerate() {
++            let orbit = Orbit::compile(key).unwrap();
++            let t = orbit
++                .period()
++                .unwrap()
++                .mul(Scalar::raw((i as i128 * 8 + j as i128 * 3 + 1) * 997, -20).unwrap())
++                .unwrap();
++            let st = orbit.signed_state(t).unwrap();
++            sink3 ^= st.radius.significand() as i128;
++        }
++    }
++    let d_state = t0.elapsed();
++    digest = mix(digest, sink3);
++
++    let per = |d: std::time::Duration, count: usize| d.as_secs_f64() * 1e9 / count as f64;
++    match stage.as_str() {
++        "from" => println!("from_state {:.0} ns", per(d_from, iters * n)),
++        "compile" => println!("compile {:.0} ns", per(d_compile, iters * bank.len())),
++        "state" => println!("state {:.0} ns", per(d_state, iters * bank.len())),
++        _ => {
++            println!("bank {} states / {} orbits, iters {}", n, bank.len(), iters);
++            println!("from_state {:.0} ns", per(d_from, iters * n));
++            println!("compile   {:.0} ns", per(d_compile, iters * bank.len()));
++            println!("state     {:.0} ns", per(d_state, iters * bank.len()));
++            println!("total     {:.0} ns", per(d_from + d_compile + d_state, iters * (n + 2 * bank.len())));
++            println!("digest {:x}", digest);
++        }
++    }
++}

@@ -1,0 +1,223 @@
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8..1e1dde3 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -51,9 +51,15 @@ pub fn isqrt(x: u128) -> u128 {
+     let top = (x >> shift) as u64;
+     let mut y = top.isqrt() as u128 + 1;
+     y <<= shift / 2;
+-    // Newton from above decreases monotonically to floor(sqrt(x)).
++    // Newton from above decreases monotonically to floor(sqrt(x)). The divisor
++    // always fits u64 (y <= 2^64; the first step from 2^64 brings it below), so the
++    // exact 128/64 word division replaces the multiword one; same quotient bits.
++    if y > u64::MAX as u128 {
++        y = (y + x / y) >> 1;
++    }
+     loop {
+-        let z = (y + x / y) >> 1;
++        let d = y as u64;
++        let z = (y + if (x >> 64) < d as u128 { div_word(x, d) as u128 } else { x / y }) >> 1;
+         if z >= y {
+             return y;
+         }
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..deabfdb 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -22,9 +22,21 @@ fn f(n: i128) -> Result<Scalar> {
+ fn product(a: i128, b: i128) -> i128 {
+     (a * b) >> 62
+ }
++
+ fn square_root(a: i128) -> Result<Scalar> {
+     f(a)?.sqrt()
+ }
++/// Exact floor division of u128 by u128: the word path (`div_word`) when the quotient
++/// provably fits one word and the divisor does too, the native multiword division
++/// otherwise. Same bits as `/` by construction.
++#[inline]
++fn div_exact(n: u128, d: u128) -> u128 {
++    if d <= u64::MAX as u128 && (n >> 64) < d {
++        crate::num::div_word(n, d as u64) as u128
++    } else {
++        n / d
++    }
++}
+ 
+ /// Exact dimensionless orbit input, with an independent dimensional scale.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+@@ -212,13 +224,24 @@ impl OrbitShape {
+             0
+         };
+         let floor2 = f(floor)?.mul(f(floor)?)?;
++        // Every band edge strictly inside (apoapsis, periapsis) adds a knot: bands
++        // shrink by 2^(1/16), so the knot count is near 16*log2(u_p/u_a) with
++        // u_p/u_a ~ 1/(2k-1) in Q48. Capacity only avoids reallocation churn (the
++        // dyadic refinement near the separatrix adds panels inside bands), so take
++        // a generous margin; it never changes values.
++        let mut knots = Vec::with_capacity(8);
++        knots.push(Knot { psi: 0, sum: Integral::default() });
++        let crossings = {
++            let denom = (2 * key.k as u128).saturating_sub(1).max(1);
++            let bitlen = 128 - denom.leading_zeros() as i32;
++            let bands = (16 * (49 - bitlen)).max(8) as usize;
++            knots.reserve(bands);
++            Vec::with_capacity(bands / 2)
++        };
+         Ok(Self {
+             key,
+-            knots: vec![Knot {
+-                psi: 0,
+-                sum: Integral::default(),
+-            }],
+-            crossings: vec![],
++            knots,
++            crossings,
+             k,
+             q,
+             t_numerator,
+@@ -353,11 +376,11 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                let g = div_exact(1u128 << 104, root) as u64;
++                let g1 = div_exact(a as u128 * g as u128, ONE as u128 + root) as u64;
++                let ratio = div_exact((self.floor as u128) << 62, x as u128) as u64;
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = div_exact((rtau as u128) << 62, horizon as u128) as u64;
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;
+@@ -447,6 +470,10 @@ pub struct Orbit {
+     q: Scalar,
+     speed_scale: Scalar,
+     increments: [Scalar; 3],
++    /// `time(last knot)` and its doubling, in normalized time: fixed per shape,
++    /// read on every `state`/`at_phase` call.
++    half_time: Scalar,
++    full_time: Scalar,
+ }
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+@@ -514,6 +541,7 @@ impl Orbit {
+         let period = shape.knots.last().unwrap().sum.0[1]
+             .mul(time_scale)?
+             .scale(1)?;
++        let half_time = shape.knots.last().unwrap().sum.0[1];
+         Ok(Self {
+             key,
+             shape,
+@@ -521,6 +549,8 @@ impl Orbit {
+             q: Scalar::ZERO,
+             speed_scale: key.compactness()?.div(k)?.sqrt()?,
+             increments: [Scalar::ZERO, period, period],
++            half_time,
++            full_time: half_time.scale(1)?,
+         })
+     }
+     fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
+@@ -549,6 +579,8 @@ impl Orbit {
+         } else {
+             q.div(tn)?.sqrt()?
+         };
++        let half_sum = shape.knots.last().unwrap().sum;
++        let half_time = Self { key, shape: shape.clone(), time_scale: Scalar::ONE, q, speed_scale, increments: [Scalar::ZERO; 3], half_time: Scalar::ZERO, full_time: Scalar::ZERO }.time(half_sum)?;
+         let mut orbit = Self {
+             key,
+             shape,
+@@ -560,6 +592,8 @@ impl Orbit {
+             q,
+             speed_scale,
+             increments: [Scalar::ZERO; 3],
++            half_time,
++            full_time: half_time.scale(1)?,
+         };
+         let half = orbit.shape.knots.last().unwrap().sum;
+         orbit.increments = [
+@@ -613,8 +647,8 @@ impl Orbit {
+                 psi: phi,
+             });
+         }
+-        let half = self.time(self.shape.knots.last().unwrap().sum)?;
+-        let full = half.scale(1)?;
++        let half = self.half_time;
++        let full = self.full_time;
+         if normalized_time > full {
+             return Err(Error::Range);
+         }
+@@ -632,7 +666,7 @@ impl Orbit {
+             return Err(Error::Range);
+         }
+         let normalized = elapsed.div(self.time_scale)?;
+-        let period = self.time(self.shape.knots.last().unwrap().sum)?.scale(1)?;
++        let period = self.full_time;
+         let cycles = u64::try_from(normalized.div(period)?.fixed(0)?).map_err(|_| Error::Range)?;
+         let rem = normalized.sub(period.mul(Scalar::raw(cycles as i128, 0)?)?)?;
+         self.at_phase(cycles, rem)
+@@ -645,7 +679,7 @@ impl Orbit {
+         }
+         Ok(state)
+     }
+-    pub(crate) fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
++    pub fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+         if self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+             if radius != self.key.periapsis {
+                 return Err(Error::Range);
+diff --git a/crates/space/src/scaled.rs b/crates/space/src/scaled.rs
+index 10cff23..f1535d9 100644
+--- a/crates/space/src/scaled.rs
++++ b/crates/space/src/scaled.rs
+@@ -93,7 +93,48 @@ impl Scalar {
+         if gap > 64 {
+             return Ok(hi);
+         }
+-        Self::raw(((hi.significand as i128) << gap) + lo.significand as i128, lo.exponent as i32 - 62)
++        // Fast path, same bits as `raw(((hi.significand as i128) << gap) + lo.significand as i128, lo.exponent as i32 - 62)`:
++        // same-sign operands cannot cancel, so the normalized significand is
++        // |hi| + (|lo| >> gap) with at most one carry bit (shifted out, exponent raised).
++        // Opposite signs take the original path: cancellation can move the binary point
++        // either way.
++        if (hi.significand < 0) == (lo.significand < 0) {
++            let (h, l) = (hi.significand.unsigned_abs(), lo.significand.unsigned_abs());
++            if gap >= 64 {
++                // gap == 64 (gap > 64 returned above): |lo| < 2^64 contributes
++                // nothing to the normalized 63-bit significand. `l >> 64` is not a
++                // machine shift; the result is exactly `hi`.
++                return Ok(hi);
++            }
++            if gap >= 1 {
++                // |n| = h·2^gap + l has 63+gap bits, or 64+gap when h+(l>>gap)
++                // reaches 2^63 (h and l both near 2^63): one more shift.
++                let mag = h + (l >> gap as u32);
++                let carry = i16::from(mag >= 1 << 63);
++                let mag = mag >> carry;
++                if let Some(exponent) = hi.exponent.checked_add(carry) {
++                    return Ok(Self {
++                        significand: if hi.significand < 0 { -(mag as i64) } else { mag as i64 },
++                        exponent,
++                    });
++                }
++            }
++            // gap == 0: h + l fits u64 (both < 2^63); normalized operands give
++            // h + l >= 2^63, so exactly one carry bit exists.
++            let sum = h + l;
++            let carry = i16::from(sum >= 1 << 63);
++            let mag = sum >> carry;
++            if let Some(exponent) = hi.exponent.checked_add(carry) {
++                return Ok(Self {
++                    significand: if hi.significand < 0 { -(mag as i64) } else { mag as i64 },
++                    exponent,
++                });
++            }
++        }
++        Self::raw(
++            ((hi.significand as i128) << gap) + lo.significand as i128,
++            lo.exponent as i32 - 62,
++        )
+     }
+     pub fn sub(self, rhs: Self) -> Result<Self> {
+         self.add(rhs.negate())
