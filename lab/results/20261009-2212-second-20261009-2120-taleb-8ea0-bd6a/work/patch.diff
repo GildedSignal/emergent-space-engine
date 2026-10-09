@@ -1,0 +1,127 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..b44c776 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -21,6 +21,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let mut script = Script::Jink;
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -32,8 +33,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+-            "--kick-bench" => kicks = true,
+             "--unpaced" => paced = false,
++            "--script" => script = match val("--script")?.as_str() { "jink" => Script::Jink, "hold" => Script::Hold, "coast" => Script::Coast, s => return Err(format!("unknown script {s} (jink, hold, coast)").into()) },
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+             "--describe" => describe = true,
+@@ -57,10 +58,17 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+         return Ok(0);
+     }
+     if bench {
+-        return benchmark(s, seconds, paced, level);
++        return benchmark(s, seconds, paced, level, script);
+     }
+     http::serve(s, port)
+ }
++/// The scripted player's script. `jink` is the original (its nominal-frame pattern stretches ∝rtf in game time, and a
++/// ∝rtf-longer burn from low orbit ends in the planet, so the jink player is dead past a few game-hours at high rtf —
++/// the cliff of run 20261009-2120). `hold` and `coast` are depth-matched: a function of game time, so the same player
++/// behaviour at any horizon.
++#[derive(Clone, Copy, PartialEq)]
++enum Script { Jink, Hold, Coast }
++
+ 
+ /// The scripted player of the benchmark: a short burn every four seconds of game time (forward, forward and right,
+ /// reverse, left), coasting between. Short, because a long burn from low orbit ends in the planet. The script is a
+@@ -90,8 +98,29 @@ fn canonical_log(frames: usize, rtf: f64, level: u8) -> Vec<(i64, u8)> {
+     }
+     log
+ }
++/// The depth-matched scripts' decisions at canonical ticks, a function of *game* time: the same burns at any rtf
++/// (the jink pattern, a function of nominal frames, stretches ∝rtf in game time). `hold`: forward, reverse, left,
++/// right — one word per 4-game-second slot, each burn 1/3 game-second — so each pair cancels in rapidity
++/// (Δη = α·Δτ along an unturned heading) and the cycle nets zero: station-keeping by symmetry, keeping the living
++/// frame (thrust, kicks, gather) measurable at player-scale horizons. `coast`: no decisions, the pure-orbit control.
++fn game_log(game_seconds: f64, script: Script, level: u8) -> Vec<(i64, u8)> {
++    if script == Script::Coast {
++        return Vec::new();
++    }
++    let period = (4.0 / emergent_universe::view::TICK_SECONDS).round() as i64;
++    let burn = ((20.0 / 60.0) / emergent_universe::view::TICK_SECONDS).round() as i64;
++    let words = [1u8, 2, 4, 8];
++    let slots = (game_seconds / 4.0).ceil() as usize;
++    let mut log = Vec::with_capacity(2 * slots);
++    for i in 0..slots {
++        let t = i as i64 * period;
++        log.push((t, emergent_universe::thrust::word(words[i % 4], level)));
++        log.push((t + burn, 0));
++    }
++    log
++}
+ 
+-fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Result<u8> {
++fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8, script: Script) -> crate::Result<u8> {
+     let before = crate::measure::machine_state("before");
+     let uptime = |c: &str| std::process::Command::new(c).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+     let load_before = uptime("uptime");
+@@ -100,12 +129,14 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // the digest is taken there whatever the wall did, and it is printed with the digest.
+     let cut = (frames as f64 * s.rtf / 60.0 / emergent_universe::view::TICK_SECONDS).round() as i64;
+     s.cut = Some(cut);
+-    let log = canonical_log(frames, s.rtf, level);
++    let game_seconds = frames as f64 * s.rtf / 60.0;
++    let log = if script == Script::Jink { canonical_log(frames, s.rtf, level) } else { game_log(game_seconds, script, level) };
+     for &(t, k) in &log {
+         s.p.u.schedule(t, k).map_err(|e| format!("schedule: {e:?}"))?;
+     }
+     let wall = Instant::now();
+     let mut last = Instant::now();
++    let mut abort: Option<(i64, String)> = None;
+     for n in 1..=frames {
+         if paced {
+             let due = Duration::from_secs_f64(n as f64 / 60.0);
+@@ -115,7 +146,17 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         }
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+-        s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        // A lost (or unreadable) player ends the presented frames, not the run: the engine still resolves to the
++        // canonical cut, and the report says what happened and when (the digest does not move: it is the state at
++        // the cut, whatever the frames were). Before, this aborted the process with no report at all.
++        if let Err(e) = s.step(None, if paced { dt } else { 1.0 / 60.0 }) {
++            let msg = e.to_string();
++            if msg.starts_with("no view") {
++                abort = Some((s.p.u.now, msg));
++                break;
++            }
++            return Err(e);
++        }
+     }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+@@ -141,11 +182,18 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "rtf": {"median": d.rtf_median, "lowest_1pct": d.rtf_low1, "overflow_frames": d.overflow_frames},
+         "events_per_second": d.events_per_second,
+         "player_alive": player_alive, "lost_bodies": lost,
++        "abort": abort.as_ref().map(|(t, m)| json!({"tick": t, "reason": m})), "abort_note": "Some when a frame's view failed (the player lost or unreadable): frames stopped there, the engine still settled to the cut, and the digest is the state at the cut",
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+-        "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
++        "decisions": if log.len() <= 512 && s.p.u.inputs.len() <= 512 {
++            json!({"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"})
++        } else {
++            json!({"logged_count": log.len(), "logged_head": &log[..4.min(log.len())], "taken_count": s.p.u.inputs.len(),
++                   "taken_note": "the engine retains every taken decision (it is canonical state, hashed by the digest); summarised here, not printed",
++                   "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"})
++        },
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+         "cut_tick": cut_tick,
