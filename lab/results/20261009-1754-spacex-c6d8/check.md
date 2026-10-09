@@ -1,0 +1,27 @@
+Grade: silver
+
+**Abstract.** Claim: the plane's universe creates 0.8–1.5 bits/ship/game-s (98–121 bits per rebounded binding, ≥ 98 % innovation), so the 64-bit/ship budget saturates in 43–82 game-seconds and law.md's "+62/−60" ledger is ~2× optimistic. Reproduced bit-for-bit on all four commands in a clean tree (digest 83d96bed… included, < 1 s each); predictions genuinely held out (17:58:54 vs runs 18:03:35; 3/6 held, failures honestly reported). Adversarial: a quiet scene (no fleet, 25 ships) still gives 0.67 → 96 s; 6 000 game-s is stationary. But the `dperi` stream is never fed — "periapsis-time never moved" is an instrument bug (fed: 15.2 bits, p_zero 0.0); corrected 136.6/101.3 bits/binding, 0.93 bits/ship/s, 69 s. The patch also deletes `--kick-bench`. Silver: adopt after two one-line fixes; gold needs the belt-refit experiment.
+
+## Reasons
+
+1. **Reproduction: exact.** `git apply work/patch.diff`, build (22.5 s), all four commands from `commands.md` → JSONs identical to the stored ones field for field (`diff` empty after removing the machine-state timestamp), same digest across builds. Each run < 1 s wall, inside every budget.
+2. **Predictions: held out honestly.** `predictions.md` (17:58:54) precedes the decisive runs (18:03:35–38). Held: cadence, saturation window, robustness (made bits/binding 120.4–121.4 across seed/fleet/rtf; members 94.3–102.9, spread 1.09–1.29× — the dossier's "1.26×" is near enough). Failed and reported as failed: P(dv=0) 0.0, bits/binding 94–121 vs 15–90, bytes_per_body 4786 vs 60–300. The +62 line is falsified as ~2× low, not 10×.
+3. **Adversarial cases (four, mine).**
+   - *Dead stream.* `pop.dperi` is never fed (`snap.peri` goes to the digest only). Feeding it (one line): periapsis-time delta is 15.2 bits/binding for made bodies, p_zero 0.0 — it moves on **every** binding. The dossier's "(never moved)" is false; stored bits/binding are 3–12 % low (136.6/101.3 corrected, rate 0.93, saturation 68.7 s tuned). Direction strengthens the headline; the specific per-stream table does not stand.
+   - *Quiet scene* (`--members 4`: no fleet members at all): rate 0.67 bits/ship/game-s, saturation 95.5 s. The rate is not battle-bound — the player's thrust and the star's tides alone nearly saturate it.
+   - *Long horizon* (`--rtf 400 --seconds 15`, 6 000 game-s): bits/binding stationary (136.0/104.9), no residual diffusion blow-up, rate 0.73.
+   - *Patch regression.* The patch replaces the `"--kick-bench"` match arm with `"--hlive-bench"`, so `--kick-bench` now errors ("unknown universe argument") and `if kicks` is dead code (the unused-mut warning in the author's own build). The cadence instrument is unreachable. The dossier's cost-of-adoption ("adds one bench file and one flag") does not mention deleting a flag.
+4. **Novelty: yes.** HANDOFF: "H_live … not measured yet". law.md's "+62/−60" has no measurement behind it. H0208's shipmem measured static storage (488 B per 10⁶ convoy ships), not live bits created per game-second. No HISTORY entry measures the rate; the queued build `b-h-live` is served early by this instrument.
+5. **Goal fit: direct.** Board: "fitting 10⁹ in 8 GB … decided by distinctions created per game-second". Principle 24 ("The memory floor is information … why do you need so many bytes per entity?") — this prices the floor's live part; principle 3 — the ≥ 98 % innovation fraction shows the kick stream is ~all surprise at the law's own quantum. bytes_per_body 4786 (~600× over 8 B/ship) is the engine's own accounting, reproduced identically.
+6. **Why not gold.** The shipped instrument is not final (dead stream; broken `--kick-bench`), one evidence claim is false, and the decision-grade question — whether refit-based reabsorption can balance the rate — is answered only against a slow EMA (a mean-style refit bound), on one star-system scene with a thrusting player, at 25–207 ships. The claim line states the 43–82 s saturation unconditionally; it is an extrapolation to 10⁹ bodies the run cannot see. Real, reproduced, falsifies a spec number — silver.
+
+## The one experiment that would make it gold
+
+Complete the instrument (feed `dperi`, restore `--kick-bench`) and measure H_live on a quiescent belt scene with true per-body program refits at reabsorption: recompile each body's orbit program when it rebinds and journal only what the body still owes its population. If tens of bits/binding survive, the scar ledger as specified is dead and a law change (refit-per-kick, or coarser velocity words — the run shows part of the dv cost is a representation choice) is the gold conclusion; if refits collapse it toward zero, the plane's rate is scene-bound and the ledger is rescuable.
+
+## What the author missed
+
+- The `dperi` stream is never fed, and a universe property ("never moved") was asserted from a dead instrument.
+- The patch deletes `--kick-bench` — a regression into someone else's instrument, visible as a compiler warning in the author's own build log.
+- The 60 Hz snapshot merges rebounds within a frame at high rtf (items/binding ≈ 1.94): the measured rate is a lower bound, and the rate is rtf-dependent (1.48 at rtf 20 vs 0.73 at rtf 400) — "bits per ship per game-second" is well-defined only below the merge threshold. The direction favours the claim, but it bounds it and should be stated.
+- The saturation headline extrapolates the battle scene's per-ship cadence to all 10⁹ ships; a belt body's cadence is the missing denominator (disclosed in "What would make it wrong", but not in the claim).
