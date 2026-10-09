@@ -1,0 +1,362 @@
+diff --git a/crates/encounters/src/bin/inversion.rs b/crates/encounters/src/bin/inversion.rs
+new file mode 100644
+index 0000000..9a04af7
+--- /dev/null
++++ b/crates/encounters/src/bin/inversion.rs
+@@ -0,0 +1,356 @@
++//! Inversion probe (lab run 20261009-1210-inversion-c529): what the phase-neighbour certificate
++//! silently assumes. Three candidate assumptions, three scene families:
++//!   C/H: a-spread sweep — rank-at-t0 is horizon-bound (orbital shear reorders phase);
++//!   E:   equal periods — the encounter partner set is bound by the epicycle amplitude vs rho
++//!        (wobble reaches past rank k with order frozen, so no re-rank cadence can fix it);
++//!   M:   fleet + crossing rogues — a population-level concentration trigger cannot see mixed
++//!        traffic; per-pair (Binet) classification can.
++//! Truth: truth_pair on every radially overlapping pair (independent of the method). The
++//! certificate under test is rank-in-mean-longitude-at-t0 over the whole population, the liberal
++//! (symmetric-min) reading of "partner rank k along the orbit".
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::{Body, TICKS};
++use emergent_encounters::pairs::{is_candidate, radial_pairs};
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::TAU;
++
++const THREADS: usize = 4;
++const RHO: f64 = 1e-3;
++
++fn lam0(b: &Body) -> f64 {
++    (b.mean_anomaly(0.0) + b.pom).rem_euclid(TAU)
++}
++
++fn circ_dist(a: f64, b: f64) -> f64 {
++    let d = (a - b).rem_euclid(TAU);
++    d.min(TAU - d)
++}
++
++/// ring(n, a-spread, sigma_e, equal_period, seed): bodies a in [1, 1+spread] (or one exact period).
++fn ring(n: usize, spread: f64, sigma_e: f64, equal: bool, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let p0 = (TAU * 1.0_f64.powf(1.5) * TICKS).round() as u64;
++    (0..n)
++        .map(|_| {
++            let a = 1.0 + spread * rng.f64();
++            let u = rng.f64();
++            let e = (sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = TAU * rng.f64();
++            let lam = TAU * rng.f64();
++            if equal {
++                Body::with_period(p0, e, pom, lam)
++            } else {
++                Body::new(a, e, pom, lam)
++            }
++        })
++        .collect()
++}
++
++/// rogues(m, seed): eccentric bodies whose periapsis crosses the fleet annulus [1-0.001, 1+0.001].
++fn rogues(m: usize, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..m)
++        .map(|_| {
++            let a = 1.35 + 0.45 * rng.f64();
++            let rperi = 0.999 + 0.002 * rng.f64();
++            let e = (1.0 - rperi / a).min(0.5);
++            Body::new(a, e, TAU * rng.f64(), TAU * rng.f64())
++        })
++        .collect()
++}
++
++/// symmetric-min rank of j in i's phase order (1 = nearest).
++fn rank_matrix(b: &[Body]) -> Vec<Vec<u16>> {
++    let n = b.len();
++    let lam: Vec<f64> = b.iter().map(lam0).collect();
++    let mut rk = vec![vec![0u16; n]; n];
++    let parts = par_chunks(n, 64, THREADS, |r| {
++        let mut mine = vec![vec![0u16; n]; r.len()];
++        for (ii, i) in r.enumerate() {
++            let mut order: Vec<usize> = (0..n).filter(|&j| j != i).collect();
++            order.sort_by(|&x, &y| {
++                circ_dist(lam[i], lam[x])
++                    .partial_cmp(&circ_dist(lam[i], lam[y]))
++                    .unwrap()
++            });
++            for (r_, &j) in order.iter().enumerate() {
++                mine[ii][j] = (r_ + 1) as u16;
++            }
++        }
++        mine
++    });
++    let mut idx = 0;
++    for p in parts {
++        for row in p {
++            rk[idx] = row;
++            idx += 1;
++        }
++    }
++    rk
++}
++
++struct SceneOut {
++    name: String,
++    n: usize,
++    spread: f64,
++    sigma_e: f64,
++    orbits: f64,
++    enc_total: u64,
++    pairs_total: u64,
++    pairs_miss4: [u64; 2],
++    enc_intra: u64,
++    enc_cross: u64,
++    miss_k: [u64; 9], // index k = 1..8, [0] unused
++    k_star: u16,
++    rank_hist: Vec<(u16, u64)>,
++    crossings: u64,
++    enc_swaps: u64,
++    silent_swaps: u64,
++    cross_covered_by_cone: u64,
++    cross_total_cone: u64,
++    cross_pairs_cone: u64,
++    tau_band: f64,
++    secs: f64,
++}
++
++/// Print (i, j, rank, t, d) for missed and covered encounters of a scene, for external audit.
++fn audit_dump(b: &[Body], name: &str, orbits: f64) {
++    let t_end = orbits * TAU;
++    let pairs = radial_pairs(b, RHO);
++    let rk = rank_matrix(b);
++    let mut enc: Vec<(u32, u32, f64, f64)> = Vec::new();
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], RHO, t_end, &mut tmp, &mut st);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        out
++    });
++    for p in parts {
++        enc.extend(p);
++    }
++    enc.sort_by(|x, y| x.0.cmp(&y.0).then(x.1.cmp(&y.1)).then(x.2.total_cmp(&y.2)));
++    let (mut shown_miss, mut shown_cov) = (0, 0);
++    for &(i, j, t, d) in &enc {
++        let r = rk[i as usize][j as usize].min(rk[j as usize][i as usize]);
++        if r > 4 && shown_miss < 3 {
++            println!("{{\"audit\":\"{}\",\"missed\":true,\"i\":{},\"j\":{},\"rank\":{},\"t\":{:.6},\"d\":{:.3e},\"a_i\":{:.9},\"a_j\":{:.9},\"e_i\":{:.3e},\"e_j\":{:.3e},\"pom_i\":{:.6},\"pom_j\":{:.6},\"lam_i\":{:.6},\"lam_j\":{:.6}}}", name, i, j, r, t, d, b[i as usize].a, b[j as usize].a, b[i as usize].e, b[j as usize].e, b[i as usize].pom, b[j as usize].pom, lam0(&b[i as usize]), lam0(&b[j as usize]));
++            shown_miss += 1;
++        } else if r <= 4 && r > 1 && shown_cov < 2 {
++            shown_cov += 1;
++        }
++    }
++}
++fn analyse(name: &str, b: &[Body], fleet_n: usize, orbits: f64, spread_def: f64, sigma_e: f64, spread: f64) -> SceneOut {
++    let t0 = std::time::Instant::now();
++    let n = b.len();
++    let t_end = orbits * TAU;
++    let pairs = radial_pairs(b, RHO);
++    let rk = rank_matrix(b);
++
++    // truth over the radial superset
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out: Vec<(u32, u32, f64, f64)> = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], RHO, t_end, &mut tmp, &mut st);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, st.evals)
++    });
++    let mut enc: Vec<(u32, u32, f64, f64)> = Vec::new();
++    let mut evals = 0u64;
++    for (o, e) in parts {
++        enc.extend(o);
++        evals += e;
++    }
++    enc.sort_by(|x, y| x.0.cmp(&y.0).then(x.1.cmp(&y.1)).then(x.2.total_cmp(&y.2)));
++    enc.dedup_by(|x, y| x.0 == y.0 && x.1 == y.1 && (x.2 - y.2).abs() < 1e-9);
++
++    // lambda-order crossings and their encounter status (mean longitudes are linear in t)
++    let lam: Vec<f64> = b.iter().map(lam0).collect();
++    let xparts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let (mut cross, mut eswap, mut silent) = (0u64, 0u64, 0u64);
++        for &(i, j) in &pairs[r] {
++            let (bi, bj) = (&b[i as usize], &b[j as usize]);
++            let dn = bi.n - bj.n;
++            if dn.abs() < 1e-14 {
++                continue; // equal periods: order is frozen
++            }
++            let dl = (lam[i as usize] - lam[j as usize]).rem_euclid(TAU);
++            // dl + dn*t = m*TAU  ->  t = (m*TAU - dl)/dn
++            let (mlo, mhi) = if dn > 0.0 {
++                (((dl - 1e-12) / TAU).ceil() as i64, (((dl + dn * t_end) / TAU).floor() as i64))
++            } else {
++                (((dl + dn * t_end - 1e-12) / TAU).ceil() as i64, (((dl + 1e-12) / TAU).floor() as i64))
++            };
++            for m in mlo..=mhi {
++                let t = (m as f64 * TAU - dl) / dn;
++                if t <= 0.0 || t >= t_end {
++                    continue;
++                }
++                cross += 1;
++                let si = bi.state(t);
++                let sj = bj.state(t);
++                let d = ((si[0] - sj[0]).powi(2) + (si[1] - sj[1]).powi(2)).sqrt();
++                if d < RHO {
++                    eswap += 1;
++                } else {
++                    silent += 1;
++                }
++            }
++        }
++        (cross, eswap, silent)
++    });
++    let (mut crossings, mut enc_swaps, mut silent_swaps) = (0u64, 0u64, 0u64);
++    for (c, es, ss) in xparts {
++        crossings += c;
++        enc_swaps += es;
++        silent_swaps += ss;
++    }
++
++    // certificate misses and mixed-scene composition check
++    let mut miss_k = [0u64; 9];
++    let mut k_star = 0u16;
++    let mut rank_hist: std::collections::BTreeMap<u16, u64> = Default::default();
++    let (mut enc_total, mut enc_intra, mut enc_cross, mut cov, mut cone, mut cone_enc) =
++        (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
++    let mut seen_pair: std::collections::HashSet<(u32, u32)> = Default::default();
++    let (mut pairs_total, mut pairs_miss4) = (0u64, [0u64; 2]);
++    for &(i, j, _t, _d) in &enc {
++        let (i, j) = (i as usize, j as usize);
++        let intra = i < fleet_n && j < fleet_n;
++        let r = rk[i][j].min(rk[j][i]);
++        enc_total += 1;
++        if intra {
++            enc_intra += 1;
++        } else {
++            enc_cross += 1;
++            if is_candidate(&b[i], &b[j], RHO) {
++                cone += 1;
++                if r <= 4 {
++                    cov += 1;
++                }
++            }
++        }
++        *rank_hist.entry(r).or_insert(0) += 1;
++        if seen_pair.insert((i as u32, j as u32)) {
++            pairs_total += 1;
++            if r > 4 {
++                pairs_miss4[0] += 1;
++            }
++        }
++        k_star = k_star.max(r);
++        for k in 1..=8usize {
++            if (r as usize) > k {
++                miss_k[k] += 1;
++            }
++        }
++    }
++    // cone candidacy over all cross pairs (composition coverage, not just encountered ones)
++    if fleet_n < n {
++        for i in 0..fleet_n {
++            for j in fleet_n..n {
++                // only radially overlapping pairs matter
++                if b[i].rmax() + RHO < b[j].rmin() || b[j].rmax() + RHO < b[i].rmin() {
++                    continue;
++                }
++                if is_candidate(&b[i], &b[j], RHO) {
++                    cone_enc += 1;
++                }
++            }
++        }
++    }
++
++    let tau_band = b.iter().filter(|x| x.a <= 1.0 + spread_def + 1e-12).count() as f64 / n as f64;
++
++    SceneOut {
++        name: name.into(),
++        n,
++        spread,
++        sigma_e,
++        orbits,
++        enc_total,
++        pairs_total,
++        pairs_miss4,
++        enc_intra,
++        enc_cross,
++        miss_k,
++        k_star,
++        rank_hist: rank_hist.into_iter().collect(),
++        crossings,
++        enc_swaps,
++        silent_swaps,
++        cross_covered_by_cone: cov,
++        cross_total_cone: cone,
++        cross_pairs_cone: cone_enc,
++        tau_band,
++        secs: t0.elapsed().as_secs_f64(),
++    }
++}
++
++fn json(o: &SceneOut) -> String {
++    let miss: Vec<String> = (1..=8usize)
++        .map(|k| {
++            format!(
++                "\"k{}\": [{}, {}]",
++                k,
++                o.miss_k[k],
++                if o.enc_total > 0 { o.miss_k[k] as f64 / o.enc_total as f64 } else { 0.0 }
++            )
++        })
++        .collect();
++    let hist: Vec<String> = o
++        .rank_hist
++        .iter()
++        .map(|(r, c)| format!("[{}, {}]", r, c))
++        .collect();
++    format!(
++        "{{\"scene\":\"{}\",\"n\":{},\"spread\":{:e},\"sigma_e\":{:e},\"orbits\":{},\"enc\":{},\"pairs\":{},\"pairs_miss4\":[{}, {}],\"enc_intra\":{},\"enc_cross\":{},\"miss\":{{{}}},\"k_star\":{},\"rank_hist\":[{}],\"crossings\":{},\"enc_swaps\":{},\"silent_swaps\":{},\"cross_enc_cone\":{},\"cross_enc_rank4_and_cone\":{},\"cross_pairs_cone\":{},\"tau_band\":{:.4},\"secs\":{:.1}}}",
++        o.name, o.n, o.spread, o.sigma_e, o.orbits, o.enc_total, o.pairs_total, o.pairs_miss4[0], if o.pairs_total > 0 { o.pairs_miss4[0] as f64 / o.pairs_total as f64 } else { 0.0 }, o.enc_intra, o.enc_cross, miss.join(","), o.k_star, hist.join(","), o.crossings, o.enc_swaps, o.silent_swaps, o.cross_total_cone, o.cross_covered_by_cone, o.cross_pairs_cone, o.tau_band, o.secs
++    )
++}
++fn main() {
++    let mut args = std::env::args().skip(1);
++    let which = args.next().unwrap_or_default();
++    let seed = 0xC529u64;
++    let mut scenes: Vec<(String, Vec<Body>, usize, f64, f64, f64)> = Vec::new(); // name, bodies, fleet_n, orbits, spread_def, sigma_e
++    if which == "audit" {
++        audit_dump(&ring(300, 0.0, 1e-2, true, 0xC529 + 3), "E1", 20.0);
++        return;
++    }
++    match which.as_str() {
++        "control" => {
++            scenes.push(("C1-gold".into(), ring(300, 1e-4, 3e-4, false, seed + 1), 300, 50.0, 1e-4, 3e-4));
++            scenes.push(("E0-equalp-se3e-4".into(), ring(300, 0.0, 3e-4, true, seed + 2), 300, 20.0, 0.0, 3e-4));
++        }
++        "heldout" => {
++            scenes.push(("H1-horizon500".into(), ring(300, 1e-4, 3e-4, false, seed + 1), 300, 500.0, 1e-4, 3e-4));
++            scenes.push(("E1-equalp-se1e-2".into(), ring(300, 0.0, 1e-2, true, seed + 3), 300, 20.0, 0.0, 1e-2));
++            scenes.push(("E2-equalp-se3e-3".into(), ring(300, 0.0, 3e-3, true, seed + 4), 300, 20.0, 0.0, 3e-3));
++            scenes.push(("B1-belt-n1000".into(), ring(1000, 1e-2, 1e-2, false, seed + 5), 1000, 20.0, 1e-2, 1e-2));
++            scenes.push(("B2-belt-n1000-se3e-4".into(), ring(1000, 1e-2, 3e-4, false, seed + 6), 1000, 20.0, 1e-2, 3e-4));
++            let mut fleet = ring(300, 1e-4, 3e-4, false, seed + 1);
++            let mut rgs = rogues(20, seed + 7);
++            fleet.append(&mut rgs);
++            scenes.push(("M1-fleet+rogues".into(), fleet, 300, 50.0, 1e-4, 3e-4));
++        }
++        _ => {
++            eprintln!("usage: inversion control|heldout");
++            std::process::exit(2);
++        }
++    }
++    for (name, b, fleet_n, orbits, spread_def, sigma_e) in scenes {
++        let spread = b.iter().map(|x| x.a).fold(0.0f64, f64::max) - 1.0;
++        let out = analyse(&name, &b, fleet_n, orbits, spread_def, sigma_e, spread);
++        println!("{}", json(&out));
++    }
++}
