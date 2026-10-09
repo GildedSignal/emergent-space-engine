@@ -1,0 +1,22 @@
+Grade: gold
+
+**Abstract.** Claim: on the flying plane, distinction *creation* is reabsorbed, but each body stands at ~90× the law's 16-byte tube, so 10⁹ bodies cost ~175× the 8 GB budget; the villain is the standing representation (448 B record + 528–968 B compiled shape), not the distinction rate. Reproduced bit-identically in a clean tree (2.91 MiB live, 5,615 B/body engine, median ship 1,456 B, hist 0/11). My adversarials (seed 7, 8× fleet density, 2.5× horizon) leave every claim standing. This measures the HANDOFF risk "H_live … not measured yet" and corrects its premise: distinctions are reabsorbed (P2 ~100%); standing bytes decide. Adoption is one step: redirect the queued `b-h-live` build toward evictable shared shapes and out-of-line records.
+
+**Reproduction.** Applied `work/patch.diff` myself, built, ran: output identical to `hlive.log` line for line (only the wrapper-appended `wall/maxrss` line differs). Every Evidence number regenerates: steady live-after-prune 2.91–3.29 MiB; engine 5,615 B/body; median/max ship 1,456/3,120 B; hist 0/11; steady event mix 55/51/169 (slices 169/275 = 61.5%); 275 events / 98.5 s = 2.8/s; churn 355.2 KiB / 275 events = 1.3 KiB/event; BodyRec 448, Segment 192, Knot 88 B; drop control 1,400 B above baseline. Arithmetic checks: 1,456/16 = 91×; 1.456e12 B / 8 GB ≈ 170–180×; the irreducible 448 B record alone gives 56× — the conclusion survives even perfect shape sharing, so the author's own sharing caveat cannot flip it. Full `emergent-universe` suite green with the patch (54 passed, 1 pre-existing ignore): accessors only, no behavior change.
+
+**Predictions.** `predictions.md` (04:08:19) precedes `hlive.log` (04:13:39); patch and dossier saved after by run.sh. P1 falsified (slices 61% > kicks 20%) and reported as falsified; P2–P5 held, P4 stronger than predicted. P1 is not load-bearing for the central claim; all load-bearing predictions held.
+
+**Adversarial cases (mine).**
+1. *Seed 7, 12 probes:* median ship 1,584–1,648 B, live settles at 3.14 MiB, hist ≤ 11 — same regime, not a seed-1 artifact.
+2. *Fleet ×8 (members 512):* median ship unchanged (1,456–1,584 B); events scale ~8× (k≈400, sl≈700 per probe); retention still windowed. Density strengthens, not weakens, the standing-bytes conclusion.
+3. *Horizon ×2.5 (30 probes, 590 game-s):* live-after-prune drifts *down* 2.91→2.58 MiB; median body_bytes flat 1,456–1,616. Steady state is real. But hist max grows 11→18 and body_bytes max 3,120→4,464: `prune` keeps `2×light_distance(i)+2²⁶`, so a traveling body's retention follows its own light distance — "retention ≤ 11 segments" is the probed horizon's value, not a bound.
+
+**Novelty.** HANDOFF line 70 and plane.md §36 mark H_live "not measured yet"; this is the first measurement. The only prior instrument that could print bytes/body (`examples/plane.rs`) panics (`names` index out of bounds) before its bytes/body line — no recorded number existed. No HISTORY entry measures the plane's standing bytes. `shipmem` (program+scars) is the board's separate, unwired path; this run measures the live engine, and its redirect must be reconciled with that path, not replace it.
+
+**Goal fit.** Shows a premise is wrong, the gold criterion: the board's stated decider ("distinctions created per game-second … not the body count, decides whether a billion bodies fit") is measured false for the plane — creation is reabsorbed, the standing representation decides. PRINCIPLES #24 ("the memory floor is information-theoretic" — measured floor ~80 B standing, not 16), #6 ("store the generator, not the generated" — one compiled shape per body is the generated), #1. No gate, crate behavior or digest touched.
+
+**What the author missed.**
+- The dossier's "~0.43 MiB of the 2.91 MiB" engine attribution is wrong: n_bodies is 28, so 28 × 5,615 = 0.15 MiB (95% of live is unattributed, not 85%). Safe direction — the 175× is even more conservative than claimed — but it is a number the shipped code contradicts.
+- "Retention ≤ 11 segments per body" is horizon-bound (my 30-probe run: 18 and growing with the traveler's window).
+- The lens deliverable (a bit-level H_live in `xtask universe --bench` and the page) was not built; the redirect is a proposal the integrator must decide, and it should be reconciled with `shipmem`'s population programs, which already answer "store the generator".
+- One seed originally; covered here. The pre-existing `plane.rs` example panic is a free lead for the integrator.

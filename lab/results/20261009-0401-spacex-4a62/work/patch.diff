@@ -1,0 +1,182 @@
+diff --git a/crates/universe/examples/hlive.rs b/crates/universe/examples/hlive.rs
+new file mode 100644
+index 0000000..11579e4
+--- /dev/null
++++ b/crates/universe/examples/hlive.rs
+@@ -0,0 +1,129 @@
++// H_live on the flying plane: the distinctions each game-second creates (events, rebinds), the
++// retention they force (history segments pinning compiled trajectories), and the steady live bytes
++// per body that decides whether 10^9 bodies fit in 8 GB. A counting allocator is the instrument
++// (every hidden retention: catalogue, shapes, plans, history, queue); the engine's own
++// `bytes_of`/`history_depth` attribute it. Probe interval 2e7 ticks ≈ 98.5 game-seconds.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Config, Universe};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
++
++static LIVE: AtomicUsize = AtomicUsize::new(0);
++struct Counting;
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        LIVE.fetch_add(l.size(), Relaxed);
++        System.alloc(l)
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        LIVE.fetch_sub(l.size(), Relaxed);
++        System.dealloc(p, l)
++    }
++    unsafe fn alloc_zeroed(&self, l: Layout) -> *mut u8 {
++        LIVE.fetch_add(l.size(), Relaxed);
++        System.alloc_zeroed(l)
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
++        if n >= l.size() {
++            LIVE.fetch_add(n - l.size(), Relaxed);
++        } else {
++            LIVE.fetch_sub(l.size() - n, Relaxed);
++        }
++        System.realloc(p, l, n)
++    }
++}
++#[global_allocator]
++static A: Counting = Counting;
++
++const DT: i64 = 20_000_000;
++const GAME_S_PER_PROBE: f64 = DT as f64 * TICK_SECONDS;
++
++fn ev(u: &Universe) -> [u64; 6] {
++    let s = &u.stats;
++    [s.kicks, s.opens, s.boundaries, s.handoffs, s.slices, s.decisions]
++}
++
++fn main() {
++    let base = LIVE.load(Relaxed);
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 64).expect("plane builds");
++    println!("build: +{} KiB live, {} bytes/body (engine count)", (LIVE.load(Relaxed) - base) / 1024, p.u.bytes_per_body());
++    let ships = p.ships.clone();
++    let mut prev: Vec<u64> = ships.iter().chain(std::iter::once(&p.player)).map(|&i| p.u.rec(i).events).collect();
++
++    println!("probe | game_s | liveMiB_afterprune | bpb_afterprune | created_KiB | reclaimed_KiB | net_KiB | kick open bnd hoff slice dec | ship_ev/s med max | player_ev/s | hist med max | body_bytes med max");
++    let mut t = DT;
++    let mut last_prune_live = 0usize;
++    for k in 0..12usize {
++        let pre = LIVE.load(Relaxed);
++        p.u.prune();
++        let pruned = LIVE.load(Relaxed);
++        if k > 0 {
++            let created = pre.saturating_sub(last_prune_live) as f64 / 1024.0;
++            let reclaimed = (pre - pruned) as f64 / 1024.0;
++            let net = (pruned - last_prune_live) as f64 / 1024.0;
++            println!(
++                "{k:2} | {:7.1} | {:8.2} | {:5} | {:9.1} | {:9.1} | {:8.1} | ...",
++                t as f64 * TICK_SECONDS, pruned as f64 / 1048576.0, p.u.bytes_per_body(), created, reclaimed, net
++            );
++        }
++        last_prune_live = pruned;
++        let e0 = ev(&p.u);
++        p.u.settle(t);
++        let e1 = ev(&p.u);
++        let d: Vec<u64> = e1.iter().zip(&e0).map(|(a, b)| a - b).collect();
++        let mut rates: Vec<f64> = Vec::new();
++        for (j, &i) in ships.iter().chain(std::iter::once(&p.player)).enumerate() {
++            let e = p.u.rec(i).events;
++            rates.push((e - prev[j]) as f64 / GAME_S_PER_PROBE);
++            prev[j] = e;
++        }
++        let player_rate = rates.pop().unwrap();
++        let mut rs = rates.clone();
++        rs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let med = rs[rs.len() / 2];
++        let max = rs[rs.len() - 1];
++        let mut hist: Vec<usize> = ships.iter().map(|&i| p.u.history_depth(i)).collect();
++        hist.sort_unstable();
++        let mut bb: Vec<usize> = ships.iter().map(|&i| p.u.body_bytes(i)).collect();
++        bb.sort_unstable();
++        println!(
++            "     | settle to {t}: kick {} open {} bnd {} hoff {} slice {} dec {} | ship ev/s med {:.3e} max {:.3e} | player {:.3e} | hist {}/{} | body_bytes {}/{} | live {:6.2} MiB bpb(unpruned) {}",
++            d[0], d[1], d[2], d[3], d[4], d[5], med, max, player_rate,
++            hist[hist.len() / 2], hist[hist.len() - 1],
++            bb[bb.len() / 2], bb[bb.len() - 1],
++            LIVE.load(Relaxed) as f64 / 1048576.0, p.u.bytes_per_body()
++        );
++        t += DT;
++    }
++    // steady window: mean of the last 6 probes
++    let live_end = last_prune_live;
++    println!("live after final prune: {:.2} MiB; per-body steady (engine): {} B", live_end as f64 / 1048576.0, p.u.bytes_per_body());
++    // attribution: what makes a median ship's bytes (the compiled shape vs the record itself)
++    println!(
++        "attribution: BodyRec {} B, Segment {} B; ships {}",
++        std::mem::size_of::<emergent_universe::body::BodyRec>(),
++        std::mem::size_of::<emergent_universe::body::Segment>(),
++        ships.len()
++    );
++    for &i in ships.iter().take(3) {
++        let rec = p.u.rec(i);
++        match &rec.b.entry.trajectory {
++            emergent_space::binding::Trajectory::Cycle(o) => println!(
++                "ship {i}: knots {} x {} B = {} B, crossings {}, body_bytes {}",
++                o.shape().knots().len(),
++                std::mem::size_of::<emergent_space::orbit::Knot>(),
++                o.shape().knots().len() * std::mem::size_of::<emergent_space::orbit::Knot>(),
++                o.shape().crossings().len(),
++                p.u.body_bytes(i)
++            ),
++            _ => println!("ship {i}: passage, body_bytes {}", p.u.body_bytes(i)),
++        }
++    }
++    let n = p.u.rec(0).events; // touch to keep alive
++    std::hint::black_box(n);
++    drop(p);
++    let fin = LIVE.load(Relaxed) - base;
++    println!("instrument control: after drop, {} bytes above baseline (must be ~0)", fin);
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800e..8d48e1b 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -108,6 +108,11 @@ pub trait BodyStore: Send + Sync {
+     }
+     /// Bytes held per body (the arrays, the catalogue share of its compiled trajectory, history).
+     fn bytes_of(&self, i: usize) -> usize;
++    /// Retired segments still held for body `i` (the view's window into its past).
++    fn history_depth(&self, i: usize) -> usize {
++        let _ = i;
++        0
++    }
+ }
+ 
+ #[derive(Default)]
+@@ -175,6 +180,9 @@ impl BodyStore for PlainBodies {
+         };
+         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
++    fn history_depth(&self, i: usize) -> usize {
++        self.history[i].len()
++    }
+ }
+ 
+ /// The body's tube record (the law's 16 bytes).
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..035f3e8 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -978,6 +978,16 @@ impl Universe {
+         (0..self.bodies.len()).map(|i| self.bodies.bytes_of(i)).sum::<usize>() / n
+     }
+ 
++    /// Bytes held for body `i` alone (arrays, compiled trajectory share, history).
++    pub fn body_bytes(&self, i: usize) -> usize {
++        self.bodies.bytes_of(i)
++    }
++
++    /// Retired segments still held for body `i`.
++    pub fn history_depth(&self, i: usize) -> usize {
++        self.bodies.history_depth(i)
++    }
++
+     // ---- the digest -----------------------------------------------------------------------------
+ 
+     /// One digest of the whole universe: the dolls, every body's exact record, the fleets' battles and
