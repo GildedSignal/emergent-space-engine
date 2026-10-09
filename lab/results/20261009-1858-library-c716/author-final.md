@@ -1,0 +1,5 @@
+The candidaRun complete. Claim, in one sentence:
+
+**The encounter candidate tier should be a time-priority book — pairs ranked by time-to-next-conjunction τ = gap/|Δn|, with k slots per body sized by the load's tail and validity amortized over events/kicks — because every static key misses ~99% of event mass (element order) or 99.6% (current phase) while the τ-key holds median rank 2–4, N-independent across belt and formation, which deletes the O(N²) pair storage (the 40 TB formation setup) and makes candidate work track real encounters.**
+
+Support: `lab/results/20261009-1858-library-c716/` — dossier.md (claim, evidence, five verbatim-verified library lessons, failures honestly reported), predictions.md (pre-registered; P1/P2/P4 failed and were diagnosed, not buried), probe_index.py / probe_timekey.py (2.8 s each, deterministic, <100 MB), readwise_dump.ndjson (cached highlights). Key numbers: element-order key misses 99.0–99.9% of event mass at rank 4; phase key 0.4% hit in formation; τ-key frac≤4 = 0.59–0.81, frac≤8 = 0.86–0.97, constant from N=2k→16k; mean-sized windows overflow k=4 for 47% of bodies vs 1% at p99 sizing.
