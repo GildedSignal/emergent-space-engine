@@ -1,0 +1,159 @@
+diff --git a/crates/encounters/examples/hlive.rs b/crates/encounters/examples/hlive.rs
+new file mode 100644
+index 0000000..8091e6f
+--- /dev/null
++++ b/crates/encounters/examples/hlive.rs
+@@ -0,0 +1,117 @@
++//! H_live probe (lab run 20261009-0819-taleb-1a92): the tail of distinction creation.
++//! Uses only shipped machinery: make_belt + truth_pair (exact local minima of pair distance).
++//! Emits the raw event stream (CSV: i,j,t,d) plus a determinism hash of the sorted stream.
++//! `intruder` replaces body n-1 by an e=0.9 orbit crossing the whole belt.
++
++use emergent_encounters::belt::{make_belt, Spec};
++use emergent_encounters::kepler::Body;
++use emergent_encounters::par_chunks;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use std::io::Write;
++
++const THREADS: usize = 4;
++
++fn fnv(data: &[(u32, u32, f64, f64)]) -> u64 {
++    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
++    let mut feed = |x: u64| {
++        for b in x.to_le_bytes() {
++            h ^= b as u64;
++            h = h.wrapping_mul(0x1000_0000_01b3);
++        }
++    };
++    for &(i, j, t, d) in data {
++        feed(i as u64);
++        feed(j as u64);
++        feed(t.to_bits() as u64);
++        feed(d.to_bits() as u64);
++    }
++    h
++}
++
++/// Pairs whose Kepler orbits can come within rho: radial apses overlap.
++fn overlapping(b: &[Body], rho: f64) -> Vec<(u32, u32)> {
++    let mut pairs = Vec::new();
++    for i in 0..b.len() {
++        for j in (i + 1)..b.len() {
++            if b[i].rmax() + rho >= b[j].rmin() && b[j].rmax() + rho >= b[i].rmin() {
++                pairs.push((i as u32, j as u32));
++            }
++        }
++    }
++    pairs
++}
++
++fn run(s: &Spec, intruder: bool) -> (Vec<(u32, u32, f64, f64)>, u64, TruthStats, usize) {
++    let mut b = make_belt(s);
++    if intruder {
++        let a = 0.5 * (s.a_lo + s.a_hi);
++        b[s.n - 1] = Body::new(a, 0.9, 0.0, 0.0);
++    }
++    let pairs = overlapping(&b, s.rho);
++    let t_end = s.orbits * std::f64::consts::TAU;
++    let collect = |chunk: usize| -> (Vec<(u32, u32, f64, f64)>, TruthStats) {
++        let parts = par_chunks(pairs.len(), chunk, THREADS, |r| {
++            let mut out = Vec::new();
++            let mut st = TruthStats::default();
++            let mut tmp = Vec::new();
++            for &(i, j) in &pairs[r] {
++                tmp.clear();
++                truth_pair(&b[i as usize], &b[j as usize], s.rho, t_end, &mut tmp, &mut st);
++                out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++            }
++            (out, st)
++        });
++        let mut all = Vec::new();
++        let mut st = TruthStats::default();
++        for (mut o, s2) in parts {
++            all.append(&mut o);
++            st.add(&s2);
++        }
++        all.sort_by(|x, y| {
++            x.2.partial_cmp(&y.2)
++                .unwrap()
++                .then_with(|| x.0.cmp(&y.0))
++                .then_with(|| x.1.cmp(&y.1))
++        });
++        (all, st)
++    };
++    let (ev, st) = collect(256);
++    let (ev2, _) = collect(1024); // determinism control: different parallel decomposition
++    (ev.clone(), fnv(&ev2), st, pairs.len())
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    // name n sigma_e rho a_lo a_hi orbits seed [intruder]
++    let s = Spec {
++        name: a[1].clone(),
++        n: a[2].parse().unwrap(),
++        sigma_e: a[3].parse().unwrap(),
++        rho: a[4].parse().unwrap(),
++        a_lo: a[5].parse().unwrap(),
++        a_hi: a[6].parse().unwrap(),
++        keys: 0,
++        seed: a[8].parse().unwrap(),
++        orbits: a[7].parse().unwrap(),
++    };
++    let intruder = a.len() > 9 && a[9] == "intruder";
++    let t0 = std::time::Instant::now();
++    let (ev, hash, st, npairs) = run(&s, intruder);
++    let dt = t0.elapsed().as_secs_f64();
++    // Distinctness control: per pair, strictly increasing times.
++    let mut dup = 0u64;
++    for w in ev.windows(2) {
++        if w[0].0 == w[1].0 && w[0].1 == w[1].1 && !(w[1].2 > w[0].2) {
++            dup += 1;
++        }
++    }
++    let out_path = a.get(10).cloned().unwrap_or_else(|| format!("{}.csv", s.name));
++    let mut f = std::fs::File::create(&out_path).unwrap();
++    for &(i, j, t, d) in &ev {
++        writeln!(f, "{},{},{},{}", i, j, t, d).unwrap();
++    }
++    println!(
++        "{{\"name\":\"{}\",\"n\":{},\"orbits\":{},\"rho\":{},\"npairs\":{},\"events\":{},\"steps\":{},\"evals\":{},\"fine\":{},\"dup_times\":{},\"hash2\":\"{:016x}\",\"seconds\":{:.2}}}",
++        s.name, s.n, s.orbits, s.rho, npairs, ev.len(), st.steps, st.evals, st.fine, dup, hash, dt
++    );
++}
+diff --git a/crates/encounters/smoke.csv b/crates/encounters/smoke.csv
+new file mode 100644
+index 0000000..7185e09
+--- /dev/null
++++ b/crates/encounters/smoke.csv
+@@ -0,0 +1,30 @@
++154,191,0.5565833860512048,0.0006766901605868585
++1,219,1.7642460407590492,0.0004191293359580642
++91,157,2.6693092650443906,0.0007402670911281462
++72,215,7.172850177911103,0.000567059435732447
++11,142,15.230564316991964,0.00006360920143556542
++10,27,25.360763414023435,0.0006839260649525515
++251,268,27.668798672753983,0.000024954884124846016
++1,166,29.225499650336054,0.0002781490021274842
++84,244,35.50909719991917,0.0004491055052988332
++235,275,35.772538360409044,0.0006692696670956451
++49,206,47.2361293834295,0.0003066404153821135
++81,145,47.66686498576201,0.0009486025319420436
++87,181,50.98756824649547,0.000988207092103214
++29,71,51.50387042968539,0.0007326061905605434
++80,164,54.07920546332237,0.00024148482763599805
++115,162,54.16979106806429,0.0009765288238800231
++169,191,58.18004429231006,0.0003621685133168849
++107,296,58.64776638644672,0.00022830691803547886
++41,260,60.02205573134668,0.0004776930823354581
++81,193,66.9515542964715,0.0006832727490583221
++158,191,80.00251243986474,0.0007929382456374307
++152,218,84.3818803792379,0.0001383538266147771
++134,186,85.78212043910969,0.00041129285108647593
++13,145,91.52308587079423,0.0003310437027569555
++81,212,93.97038498095856,0.0004966352263618385
++5,231,102.91632396763964,0.0003088757596645727
++5,129,104.07732361896971,0.0002681394640876977
++197,248,109.09285393931512,0.0000014442138884509168
++189,256,111.0936709971727,0.00006929235593115547
++72,135,121.95332216720006,0.0007084604844074295
