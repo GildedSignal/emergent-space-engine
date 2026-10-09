@@ -1,0 +1,24 @@
+Grade: gold
+
+**Abstract.** Claim: the adopted phase-neighbour train certificate (gold 20261006-0346-taleb-09b5) is orientation- and sense-blind exactly where its Binet-clump trigger engages it. Reproduced bit-for-bit in a clean tree (35.9 s, metrics identical): a polar formation (i=90°, n=1500, 3 seeds) misses 98–100% of real encounters at any cadence (median longitude-rank 244–363 vs k=4, adjudicated truth exact), and a retro clash forces exactly 2·n_p·n_r = 500,000 longitude order-changes/orbit. My adversarial runs strengthen it: 10% retrograde defectors inside a co-moving phalanx already miss 18–21% at any cadence (~1.6×10⁵ overtakes/orbit at n=1000). Gain: deletes a silent zero-miss hole before the crate. Adoption cost: one guard — but it needs an inclination term (see below), not just orientation-clump ∩ sense.
+
+**Reasons.**
+1. **Reproduction.** `python3 train_probe.py --scene all --json` in a clean copy: all 13 run.log lines and metrics.json identical (diffed, `METRICS-IDENTICAL`), 35.9 s, ~200 MB peak. Analytic truth verified independently: for same-a circular pairs at any orientation/sense the dot product carries only frequencies 0 and 2, so c₀ + A·cos(2t+ψ) from t ∈ {0, π/4, π/2} is exact; dense-sampling adjudication confirmed 150/150 true+false (polar 57/57) and in my own scenes (13/13, 9/9).
+2. **Predictions.** mtime order honest (script 02:33 → predictions 02:34 → run.log 02:35 → metrics 02:38); predictions pre-register the kill criteria and 7/8 held, with the one failure (polar pair count ~3000 vs 41–59) diagnosed, not hidden.
+3. **Adversarial cases (mine).**
+   - *Mixed sense, 10% defectors, n=1000 phalanx:* 18–21% missed at ANY cadence, 99.7% at budget cadence, ~1.5–1.7×10⁵ overtakes/orbit. The retro failure needs no symmetric clash — any sense mixture breaks both zero-miss and O(n·k) maintenance. Broadens the kill.
+   - *Tight-node polar clump (i=90°, ΔΩ ≤ 0.05, n=800):* still 100% missed at any cadence (median rank 91–94). Rank is scale-free within the clump, so clump tightness cannot fix it: at i=90° the longitude is exactly degenerate (λ ∈ {Ω, Ω+π}; (x,y) = cos th·(cos Ω, sin Ω)). The dossier's proposed guard is therefore **necessary but insufficient** — a tight polar clump satisfies "orientation clump ∩ sense" and the train is still blind. Adoption must bound inclination away from 90° (or change phase coordinate), else a residual 100% hole ships.
+   - *Intermediate inclination i=60°, full node spread:* train works (rank 1, zero misses, both seeds). The hole is the polar λ-degeneracy, not a broad basin — the i-threshold (somewhere in 60°–90°) is uncharacterized, which the adoption tolerance needs.
+4. **Novelty.** This machine's HISTORY.md predates the gold (ends ~29 September); docs contain no prior orientation/sense critique of the train certificate. The gold itself flagged only radial spread as unproven. New axis, new evidence.
+5. **Goal fit.** Encounters is the board's focus item and top scaling risk; this deletes a silent zero-miss hole in an adopted design before it reaches the crate — the same class of result that made the gold gold. Principle 9 respected: the configuration (certificate as adopted) is killed, the method (train for genuinely co-moving clumps) survives with a guard.
+
+**Caveats (for the integrator, none demoting).**
+- The dossier attributes to the gold the evidence statistic "3D distance-rank ≤ 4"; the board's phrasing is "partner rank 4 along the orbit" (phase rank). The gold's folder is not on this machine, so the "inferential gap" narrative is unverifiable here. If the gold's statistic was phase rank, the polar scene refutes the gold's evidence directly — the kill gets stronger, not weaker.
+- `overtakes_per_orbit` for retro is hardcoded arithmetic (2·n_p·n_r), labeled "measured" in the dossier. I verified it analytically (each cross-sense pair's λ-difference M₁+M₂+2t wraps twice per orbit), so the number is a theorem, not a fabrication; wording only.
+- e-spread regime untested (admitted in the dossier); polar overtakes (2.19–2.21M) are a displacement-sum lower bound, sound.
+
+**What the author missed.**
+1. The proposed fix is insufficient at high inclination: even a tight orientation clump at i≈90° misses 100% (measured above); the guard needs an inclination-degeneracy condition, and the 60°–90° boundary is unmeasured.
+2. The retro leg is broader than the clash: any defector fraction f costs ~2f(1−f)n² overtakes/orbit and already >k ranks at f=0.1 — worth stating as the adoption-blocking number.
+3. A single-plane polar fleet (ΔΩ=0) degenerates the ring itself (λ takes two values; argsort ties) — the same wrong-water symptom at zero orientation spread, reinforcing that inclination, not spread, is the broken axis.
+4. No rung proposed; the correction is a design gate the encounters rung should carry (polar and mixed-sense scenes with zero-miss criteria) before adoption.
