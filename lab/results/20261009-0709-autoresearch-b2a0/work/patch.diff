@@ -1,0 +1,60 @@
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8..823422a 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -41,6 +41,17 @@ pub(crate) fn div_word(n: u128, d: u64) -> u64 {
+     (q1 << 32) + q0
+ }
+ 
++/// floor(n/d) for any n and d < 2^64: the word path when the precondition holds,
++/// the compiler's 128-bit division otherwise. Bit-identical to `n / d as u128`.
++#[inline]
++pub(crate) fn div_w64(n: u128, d: u64) -> u64 {
++    if (n >> 64) < d as u128 {
++        div_word(n, d)
++    } else {
++        (n / d as u128) as u64
++    }
++}
++
+ /// floor(sqrt(x)).
+ pub fn isqrt(x: u128) -> u128 {
+     if x < 2 {
+@@ -123,6 +134,7 @@ pub fn ratio_sqrt(num: i128, den: i128) -> i128 {
+     ((isqrt((num * den) as u128) as i128) << 62) / den
+ }
+ 
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..5cd0747 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -340,7 +340,8 @@ impl OrbitShape {
+                 if x <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let a = 6 * self.k + 2 * ac;
++                // a = 6k + 2ac and x = k + ac share the integer ac: a = 4k + 2x.
++                let a = 4 * self.k + 2 * x;
+                 let denominator = ONE - product(self.q, a);
+                 // When sqrt(d)>=1/2 its Q31 floor has relative error <2^-30.
+                 // A single native u64 isqrt replaces the 126-bit square root.
+@@ -353,11 +354,11 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                let g = crate::num::div_w64(1u128 << 104, root as u64);
++                let g1 = crate::num::div_w64(a as u128 * g as u128, (ONE as u128 + root) as u64);
++                let ratio = crate::num::div_w64((self.floor as u128) << 62, x as u64);
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = crate::num::div_w64((rtau as u128) << 62, horizon as u64);
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;

@@ -1,0 +1,31 @@
+{
+  "run": "20261009-0709-autoresearch-b2a0",
+  "artifact": "crates/space Orbit::compile (scaled Darwin compiler)",
+  "metric": "ns per Orbit::compile, single thread, release, Linux x86 (i7-4790, shared runner)",
+  "population": {
+    "tune": {"p_exp": [2, 4, 7, 11, 15, 19, 24], "e": [0.0, 0.001, 0.02, 0.1, 0.5, 0.9, 0.97]},
+    "heldout": {"p_exp": [3, 5, 9, 13, 17, 21], "e": [0.0, 0.003, 0.05, 0.2, 0.35, 0.65, 0.8, 0.95, 0.99]}
+  },
+  "fingerprints": {"tune": "f4bd77fc76c8b072", "heldout": "9356db3f24802745", "identical_A_B": true},
+  "baseline_tune_total_ns": [1301204, 1310790, 1329094, 1328795],
+  "patched_tune_total_ns": [1248162, 1225729, 1262064, 1269547],
+  "baseline_heldout_total_ns": [2433419, 2379709],
+  "patched_heldout_total_ns": [2260467, 2296539],
+  "gain": {
+    "tune_total": 0.047, "tune_median": 0.089, "tune_p90": 0.11,
+    "heldout_total": 0.053, "heldout_median": 0.08
+  },
+  "per_compile_profile": {
+    "key": "p=2^4, e=0.9",
+    "cuts": 67, "ns_cut": 13357, "panels": 71, "ns_quad": 57165, "quad_share": 0.93,
+    "ns_per_panel": 805
+  },
+  "tests": "cargo test -p emergent-space: 50 passed in release and debug",
+  "commands": [
+    "cd lab/results/20261009-0709-autoresearch-b2a0/bench && cargo build --release",
+    "/home/glmlab/lab-target-2/release/compile-bench tune 0.3",
+    "/home/glmlab/lab-target-2/release/compile-bench heldout 0.3",
+    "sh lab/results/20261009-0709-autoresearch-b2a0/ab.sh tune",
+    "sh lab/results/20261009-0709-autoresearch-b2a0/ab.sh heldout"
+  ]
+}

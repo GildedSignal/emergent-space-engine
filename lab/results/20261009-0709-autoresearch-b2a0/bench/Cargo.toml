@@ -1,0 +1,16 @@
+[package]
+name = "compile-bench"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+
+[features]
+profile = ["emergent-space/profile"]
+[dependencies]
+emergent-space = { path = "../../../../crates/space" }
+
+[profile.release]
+debug = false
+lto = false
