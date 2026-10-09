@@ -1,0 +1,4 @@
+Working...
+Dossier and predictions are in place, all scripts and data under 5 MB in the run folder, no git touched.
+
+**Claim:** the kick layer's resonance gate and the encounters layer's continued-fraction conjunction predictor are one mechanism — the pair's synodic circle rotation, one pass with per-order constants — which I measured to recall 94–98% of the seeds where orbit-averaging fails (μ 3e-4–3e-3, e₀ 0.02–0.05), while also measuring the unification's two limits: the failure zone is a boundary-less forced-beat cusp (no frozen pair constant can gate it sharply) and at μ = 3e-3, 40% of seeds fall into resonance-overlap chaos that no pairwise gate owns, handing that regime to the dense order — the same crowding selector one tier up (silver: one experiment from gold, a valid libration judge).
