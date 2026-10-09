@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261009-2043-autoresearch-d4f1/`: dossier.md, predictions.md (written before the held-out seeds ran), log.md, and `work/` with the three seed JSONs, the uninstrumented baseline, and the digest-neutral instrumentation patch (behaviour proven unchanged: `replay_digest` identical across builds and repeats, `refused` 0, space-crate tests 40/40).
+
+**Claim:** on the plane's kick resolver (measured with `xtask universe --kick-bench`, behaviours held bit-exact by the replay digest), the orbit-shape compile `Orbit::compile` is the kick — 57–85% of the rebinding and up to ~two-thirds of all resolver compute, concentrated in tail kicks (p99 ≈ 440–900 µs), while the exact root search `fit_key` is 4–12% and the resolver's whole front half is under 19% — so micro-optimization of the resolver caps at ≈ 1.2× and the only ≥ 10× levers left are the shape memo (already Sonnet's) and the compile's heavy tail (the named next rung).

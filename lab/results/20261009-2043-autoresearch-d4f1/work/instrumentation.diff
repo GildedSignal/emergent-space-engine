@@ -1,0 +1,232 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..fba7095 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -178,6 +178,16 @@ pub fn cartesian(state: OrbitState, orientation: u32, clockwise: bool, units: (i
+ 
+ /// Inverse invariants without subtracting E from one. The cubic is in z=L²/r,
+ /// whose outer turning root is O(1) in the weak field, not in absolute 1/r.
++/// Autoresearch probe 20261009-2043: ns spent in the fit's phases. 0 = fit_key total,
++/// 1 = the bisection/witness search inside fit_key, 2 = Orbit/Passage compile, 3 = the rest of from_state.
++pub static FIT_PHASES: [std::sync::atomic::AtomicU64; 4] =
++    [const { std::sync::atomic::AtomicU64::new(0) }; 4];
++
++#[doc(hidden)]
++pub fn fit_hit(i: usize, t: std::time::Instant) {
++    FIT_PHASES[i].fetch_add(t.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++}
++
+ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, bool, bool)> {
+     let (p, v) = state.components()?;
+     let r = norm(p)?;
+@@ -351,12 +361,17 @@ fn root_witness(
+ }
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        let __f0 = std::time::Instant::now();
+         let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        fit_hit(0, __f0);
++        let __f2 = std::time::Instant::now();
+         let trajectory = if key.periodic() {
+             Trajectory::Cycle(Orbit::compile(key)?)
+         } else {
+             Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+         };
++        fit_hit(2, __f2);
++        let __f3 = std::time::Instant::now();
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
+         if incoming {
+             offset = offset.negate();
+@@ -379,6 +394,7 @@ impl Rebinding {
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+         fit.residual = Residual::between(state, fit.decoded_event()?);
++        fit_hit(3, __f3);
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f3076..c479331 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -223,7 +223,7 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+ }
+ 
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+-    let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
++    let fit = crate::step::ph!(6, Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?))?;
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..a012b4d 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -51,6 +51,26 @@ pub const MAX_STEP: i64 = 1 << 50;
+ /// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
+ pub const THRUST_FRACTION_LOG2: i32 = 6;
+ 
++/// Phase timers for the kick resolver (autoresearch probe 20261009-2043; instrumentation only,
++/// never read by the law). Indices: 0 readout, 1 secondaries, 2 tide, 3 force, 4 sigma-delta,
++/// 5 rebind total, 6 the compile inside bind, 7 the clock reads inside rebind.
++pub static PHASES: [std::sync::atomic::AtomicU64; 12] = [const { std::sync::atomic::AtomicU64::new(0) }; 12];
++
++#[doc(hidden)]
++pub fn phase_hit(i: usize, t: std::time::Instant) {
++    PHASES[i].fetch_add(t.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++}
++
++macro_rules! ph {
++    ($i:expr, $e:expr) => {{
++        let __t0 = std::time::Instant::now();
++        let __r = $e;
++        crate::step::phase_hit($i, __t0);
++        __r
++    }};
++}
++pub(crate) use ph;
++
+ /// What resolving one item did, for the universe to apply and count.
+ pub struct Update {
+     pub rec: BodyRec,
+@@ -309,7 +329,7 @@ impl Work<'_, '_> {
+         let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+-        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++        let tau = ph!(7, old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time))?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
+@@ -369,7 +389,7 @@ impl Work<'_, '_> {
+             added = dv;
+             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
+         } else {
+-            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
++            let (dvq, carry) = ph!(4, quantize(dv, st.velocity_exponent, self.rec.carry))?;
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
+@@ -378,7 +398,7 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        ph!(5, self.rebind(next, t, d))?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -582,9 +602,9 @@ impl Work<'_, '_> {
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+         let d = self.rec.b.doll;
+-        let st = self.rec.b.readout(t)?;
++        let st = ph!(0, self.rec.b.readout(t))?;
+         let (x, v) = scalars(&st)?;
+-        let secs = self.ctx.secondaries(d, t, self.i)?;
++        let secs = ph!(1, self.ctx.secondaries(d, t, self.i))?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+         for (s, &j) in secs.iter().zip(sources) {
+@@ -600,8 +620,8 @@ impl Work<'_, '_> {
+             return Ok(Resolved::Lost);
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        let f = force::field(&secs, x)?;
+-        let w = ext.time(ext.y(f.potential)?, ext.ds)?;
++        let f = ph!(3, force::field(&secs, x))?;
++        let w = ph!(8, ext.time(ext.y(f.potential)?, ext.ds))?;
+         let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         let (next, carry) = if thrusting {
+@@ -609,13 +629,13 @@ impl Work<'_, '_> {
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+             (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
+         } else {
+-            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
++            let (dvq, carry) = ph!(4, quantize(dv, st.velocity_exponent, self.rec.carry))?;
+             ext.add_pt(w.mul(f.rate)?)?;
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
+         let fired = next.velocity != st.velocity;
+         if fired {
+-            self.rebind(next, t, d)?;
++            ph!(5, self.rebind(next, t, d))?;
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+@@ -626,11 +646,15 @@ impl Work<'_, '_> {
+         // kick share it), and its boundary in the middle.
+         let (x, v) = scalars(&next)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+-        let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
+-        if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+-            full = full.min(self.thrust_step(t)?);
+-        }
++        let (mut full, ext2) = ph!(10, {
++            let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
++            let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
++            if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
++                full = full.min(self.thrust_step(t)?);
++            }
++            (full, ext)
++        });
++        let ext = ext2;
+         self.rec.ext = Some(ext);
+         if fired {
+             // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..cb64676 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -50,6 +50,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+     // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
+     let (mut made, mut leavers) = (Vec::new(), Vec::new());
++    let mut phase_total = [0u64; 12];
++    let mut fit_total = [0u64; 3];
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+@@ -82,7 +84,15 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
+             let t0 = Instant::now();
++            for p in &step::PHASES { p.store(0, std::sync::atomic::Ordering::Relaxed); }
++            for p in &emergent_space::binding::FIT_PHASES { p.store(0, std::sync::atomic::Ordering::Relaxed); }
+             let upd = step::process(&s.p.u.ctx(), i, rec);
++            for (k, p) in step::PHASES.iter().enumerate() {
++                phase_total[k] += p.load(std::sync::atomic::Ordering::Relaxed);
++            }
++            fit_total[0] += emergent_space::binding::FIT_PHASES[0].load(std::sync::atomic::Ordering::Relaxed);
++            fit_total[1] += emergent_space::binding::FIT_PHASES[2].load(std::sync::atomic::Ordering::Relaxed);
++            fit_total[2] += emergent_space::binding::FIT_PHASES[3].load(std::sync::atomic::Ordering::Relaxed);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+@@ -102,6 +112,24 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
++        "phases_us": {
++            "readout": phase_total[0] as f64 / 1e3 / all.len() as f64,
++            "secondaries": phase_total[1] as f64 / 1e3 / all.len() as f64,
++            "tide": phase_total[2] as f64 / 1e3 / all.len() as f64,
++            "force": phase_total[3] as f64 / 1e3 / all.len() as f64,
++            "sigma_delta": phase_total[4] as f64 / 1e3 / all.len() as f64,
++        },
++        "phases2_us": {
++            "bind_from_state": phase_total[6] as f64 / 1e3 / all.len() as f64,
++            "clock_reads": phase_total[7] as f64 / 1e3 / all.len() as f64,
++            "ext_time": phase_total[8] as f64 / 1e3 / all.len() as f64,
++            "drift_plan": phase_total[10] as f64 / 1e3 / all.len() as f64,
++        },
++        "fit_phases_us": {
++            "fit_key": fit_total[0] as f64 / 1e3 / all.len() as f64,
++            "compile": fit_total[1] as f64 / 1e3 / all.len() as f64,
++            "from_state_rest": fit_total[2] as f64 / 1e3 / all.len() as f64,
++        },
+         "memo": shapes.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
