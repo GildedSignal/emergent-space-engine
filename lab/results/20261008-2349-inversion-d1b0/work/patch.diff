@@ -1,0 +1,267 @@
+diff --git a/crates/encounters/src/bin/inv.rs b/crates/encounters/src/bin/inv.rs
+new file mode 100644
+index 0000000..960c2ee
+--- /dev/null
++++ b/crates/encounters/src/bin/inv.rs
+@@ -0,0 +1,261 @@
++//! Inversion lens, run 20261008-2349: the train (phase-neighbour rank-k) certificate adopted from
++//! gold taleb-09b5 silently assumes e-vector coherence. Scenes: a concentrated clump (the gold's
++//! fleet regime) swept in eccentricity spread and periapsis coherence; truth by conservative
++//! advancement (truth.rs), the two-tier method (method.rs), and the train certificate measured as
++//! the partner's circular longitude rank and distance rank at each true closest approach.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::{Body, TICKS};
++use emergent_encounters::method::{self, Stats as MStats};
++use emergent_encounters::pairs::eps_u;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use std::f64::consts::{PI, TAU};
++
++fn wrap(mut x: f64) -> f64 {
++    x = x.rem_euclid(TAU);
++    if x > PI {
++        x -= TAU;
++    }
++    x
++}
++
++fn clump(n: usize, h_a: f64, sigma_e: f64, sp: f64, sig_lam: f64, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..n)
++        .map(|_| {
++            let a = 1.0 + h_a * (2.0 * rng.f64() - 1.0);
++            let u = rng.f64();
++            let e = (sigma_e * ((-2.0f64 * (1.0 - u).ln())).sqrt()).min(0.3);
++            let pom = if sp >= PI {
++                TAU * rng.f64()
++            } else {
++                (2.0 * rng.f64() - 1.0) * sp
++            };
++            let lam = if sig_lam >= PI {
++                TAU * rng.f64()
++            } else {
++                let g1 = ((-2.0f64 * (1.0 - rng.f64()).ln())).sqrt() * (TAU * rng.f64()).cos();
++                wrap(g1 * sig_lam)
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++#[derive(Clone, Copy)]
++struct Ev {
++    t: f64,
++    d: f64,
++    i: u32,
++    j: u32,
++}
++
++struct SceneOut {
++    truth: Vec<Ev>,
++    meth: Vec<Ev>,
++    tstats: TruthStats,
++    mstats: MStats,
++}
++
++fn run_scene(n: usize, h_a: f64, sigma_e: f64, sp: f64, sig_lam: f64, seed: u64, rho: f64, orbits: f64, threads: usize) -> SceneOut {
++    let b = clump(n, h_a, sigma_e, sp, sig_lam, seed);
++    let t_end = orbits * TAU;
++    let np = n * (n - 1) / 2;
++    let chunk = 512;
++    let parts = emergent_encounters::par_chunks(np, chunk, threads, |range| {
++        let mut truth = Vec::new();
++        let mut meth = Vec::new();
++        let mut tstats = TruthStats::default();
++        let mut mstats = MStats::default();
++        for p in range {
++            let i = ((1.0 + ( 8.0f64 * p as f64 + 1.0 ).sqrt()) / 2.0).floor() as u32;
++            let j = p as u32 - i * (i + 1) / 2 + i + 1;
++            let (bi, bj) = (&b[i as usize], &b[j as usize]);
++            let mut tv = Vec::new();
++            truth_pair(bi, bj, rho, t_end, &mut tv, &mut tstats);
++            for &(t, d) in &tv {
++                truth.push(Ev { t, d, i, j });
++            }
++            let mut mv = Vec::new();
++            method::pair_events(bi, bj, rho, 2.0, 0.0, t_end, &mut mstats, &mut mv);
++            for &(t, d) in &mv {
++                meth.push(Ev { t, d, i, j });
++            }
++        }
++        (truth, meth, tstats, mstats)
++    });
++    let mut out = SceneOut { truth: Vec::new(), meth: Vec::new(), tstats: TruthStats::default(), mstats: MStats::default() };
++    for (tr, me, ts, ms) in parts {
++        out.truth.extend(tr);
++        out.meth.extend(me);
++        out.tstats.add(&ts);
++        out.mstats.add(&ms);
++    }
++    out.truth.sort_by(|x, y| x.t.total_cmp(&y.t));
++    out.meth.sort_by(|x, y| x.t.total_cmp(&y.t));
++    out
++}
++
++fn ranks(b: &[Body], evs: &[Ev]) -> Vec<(f64, f64, u32, u32)> {
++    // (t, d, lam_rank, dist_rank) per truth event; both 1-based, lam rank circular in true longitude.
++    let n = b.len();
++    let mut out = Vec::new();
++    let mut th = vec![0.0f64; n];
++    let mut ord: Vec<u32> = (0..n as u32).collect();
++    for ev in evs {
++        for (k, body) in b.iter().enumerate() {
++            let s = body.state(ev.t);
++            th[k] = s[1].atan2(s[0]);
++        }
++        ord.sort_by(|&x, &y| th[x as usize].total_cmp(&th[y as usize]));
++        let pi = ord.iter().position(|&x| x == ev.i).unwrap() as i32;
++        let pj = ord.iter().position(|&x| x == ev.j).unwrap() as i32;
++        let dl = (pi - pj).abs().min(n as i32 - (pi - pj).abs()) as u32 + 1;
++        let si = b[ev.i as usize].state(ev.t);
++        let mut dists: Vec<(f64, u32)> = (0..n as u32)
++            .filter(|&k| k != ev.i)
++            .map(|k| {
++                let sk = b[k as usize].state(ev.t);
++                (((sk[0] - si[0]).powi(2) + (sk[1] - si[1]).powi(2)).sqrt(), k)
++            })
++            .collect();
++        dists.sort_by(|x, y| x.0.total_cmp(&y.0));
++        let dr = dists.iter().position(|&(_, k)| k == ev.j).unwrap() as u32 + 1;
++        out.push((ev.t, ev.d, dl, dr));
++    }
++    out
++}
++
++fn main() {
++    if std::env::args().nth(1).as_deref() == Some("diag") { diag(); return; }
++    if std::env::args().nth(1).as_deref() == Some("verify") { verify(); return; }
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args.get(1).map(|s| s.as_str()).unwrap_or("grid");
++    let rho = 1e-4;
++    let orbits = if mode == "grid" { 8.0 } else { 20.0 };
++    let threads = 6;
++    let scenes: Vec<(&str, usize, f64, f64, f64, f64)> = match mode {
++        "tiny" => vec![("tiny", 60usize, 1e-5, 0.01, PI, PI)],
++        "grid" => vec![
++            ("A-fleet", 600, 1e-5, 0.001, 0.1, PI),
++            ("B1-e01-rand", 600, 1e-5, 0.01, PI, PI),
++            ("B2-e03-rand", 600, 1e-5, 0.03, PI, PI),
++            ("C1-e01-alig", 600, 1e-5, 0.01, 0.1, PI),
++            ("C2-e03-alig", 600, 1e-5, 0.03, 0.1, PI),
++            ("D-bunch-rand", 600, 1e-5, 0.001, PI, 0.05),
++            ("B1x-n1200", 1200, 1e-5, 0.01, PI, PI),
++        ],
++        _ => {
++            eprintln!("usage: inv [tiny|grid]");
++            return;
++        }
++    };
++    let seeds: Vec<u64> = if mode == "tiny" { vec![3] } else { vec![27] };
++    println!("scene seed n encounters maxLam p90Lam maxDist p90Dist gt4 gt8 lam4cov methPairs truthPairs methMissPair evMiss trigBinet");
++    for (name, n, h_a, sigma_e, sp, sig_lam) in scenes {
++        for seed in seeds.iter().copied() {
++            let b = clump(n, h_a, sigma_e, sp, sig_lam, seed);
++            // trigger number: max pairwise Binet distance / median eps_u
++            let mut maxbin = 0.0f64;
++            let mut eps = Vec::new();
++            for i in 0..b.len() {
++                for j in (i + 1)..b.len().min(i + 33) {
++                    let bi = &b[i].binet();
++                    let bj = &b[j].binet();
++                    let d2 = (bi[0] - bj[0]).powi(2) + (bi[1] - bj[1]).powi(2) + (bi[2] - bj[2]).powi(2);
++                    maxbin = maxbin.max(d2.sqrt());
++                    eps.push(eps_u(&b[i], &b[j], rho));
++                }
++            }
++            eps.sort_by(|x, y| x.total_cmp(y));
++            let med = eps[eps.len() / 2];
++            let trig = maxbin / med;
++            let t0 = std::time::Instant::now();
++            let out = run_scene(n, h_a, sigma_e, sp, sig_lam, seed, rho, orbits, threads);
++            let el = t0.elapsed().as_secs_f64();
++            let rk = ranks(&b, &out.truth);
++            let mut lams: Vec<u32> = rk.iter().map(|r| r.2).collect();
++            let mut dists_r: Vec<u32> = rk.iter().map(|r| r.3).collect();
++            lams.sort_unstable();
++            dists_r.sort_unstable();
++            let maxl = *lams.last().unwrap_or(&0);
++            let maxd = *dists_r.last().unwrap_or(&0);
++            let p90 = |v: &[u32]| if v.is_empty() { 0 } else { v[((v.len() as f64 * 0.9) as usize).min(v.len() - 1)] };
++            let gt4 = lams.iter().filter(|&&x| x > 4).count();
++            let gt8 = lams.iter().filter(|&&x| x > 8).count();
++            // method misses: pairs with truth events but no method event on that pair
++            use std::collections::HashSet;
++            let tp: HashSet<(u32, u32)> = out.truth.iter().map(|e| (e.i, e.j)).collect();
++            let mp: HashSet<(u32, u32)> = out.meth.iter().map(|e| (e.i, e.j)).collect();
++            let miss_pair = tp.difference(&mp).count();
++            // event-level: truth events with no method event within 0.5 time units
++            let mut evmiss = 0usize;
++            for ev in &out.truth {
++                if !out.meth.iter().any(|m| m.i == ev.i && m.j == ev.j && (m.t - ev.t).abs() < 0.5) {
++                    evmiss += 1;
++                }
++            }
++            println!(
++                "{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {:.1}",
++                name, seed, n, out.truth.len(), maxl, p90(&lams), maxd, p90(&dists_r), gt4, gt8,
++                mp.len(), tp.len(), miss_pair, evmiss, trig, el
++            );
++        }
++    }
++    let _ = TICKS;
++}
++
++fn verify() {
++    // third instrument: dense time sampling around truth events (D scene, bunched lambda, random pom)
++    let b = clump(600, 1e-5, 0.001, PI, 0.05, 27);
++    let rho = 1e-4;
++    let t_end = 8.0 * TAU;
++    let mut checked = 0;
++    'outer: for i in 0..b.len() {
++        for j in (i + 1)..b.len() {
++            let mut tv = Vec::new();
++            let mut st = TruthStats::default();
++            truth_pair(&b[i], &b[j], rho, t_end, &mut tv, &mut st);
++            for &(t, d) in &tv {
++                // dense sample +-1.0 around the event
++                let mut m = f64::INFINITY;
++                let mut tm = 0.0;
++                let mut s = t - 1.0;
++                while s < t + 1.0 {
++                    let (r, _, _) = emergent_encounters::kepler::rel(&b[i], &b[j], s, false);
++                    let dd = (r[0] * r[0] + r[1] * r[1]).sqrt();
++                    if dd < m { m = dd; tm = s; }
++                    s += 1e-3;
++                }
++                println!("pair ({},{}) truth t={:.4} d={:.3e} dense min={:.3e} at t={:.4} sub-rho: {}", i, j, t, d, m, tm, m < rho);
++                checked += 1;
++                if checked >= 8 { break 'outer; }
++            }
++        }
++    }
++}
++
++#[allow(dead_code)]
++fn diag() {
++    // dense-sample min distance per pair to validate truth_pair against a dumb instrument
++    let b = clump(60, 1e-5, 0.01, PI, PI, 3);
++    let t_end = 20.0 * TAU;
++    let mut mins: Vec<(f64, u32, u32)> = Vec::new();
++    for i in 0..b.len() {
++        for j in (i + 1)..b.len() {
++            let mut m = f64::INFINITY;
++            let mut t = 0.0;
++            while t < t_end {
++                let (r, _, _) = emergent_encounters::kepler::rel(&b[i], &b[j], t, false);
++                let d = (r[0] * r[0] + r[1] * r[1]).sqrt();
++                if d < m { m = d; }
++                t += 0.002;
++            }
++            mins.push((m, i as u32, j as u32));
++        }
++    }
++    mins.sort_by(|x, y| x.0.total_cmp(&y.0));
++    for k in 0..15 {
++        println!("min {:.3e} pair {:?}", mins[k].0, (mins[k].1, mins[k].2));
++    }
++}

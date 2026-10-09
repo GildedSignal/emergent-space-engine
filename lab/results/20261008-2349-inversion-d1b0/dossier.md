@@ -1,0 +1,37 @@
+# Dossier — inversion-d1b0: the train certificate survives the strongest e-vector attack I could mount; its k is a window (n_c·σ_e), not the constant 4
+
+## Claim (one sentence)
+The co-orbital train certificate adopted from gold taleb-09b5 is much stronger than its evidence — across 7 scenes sweeping σ_e 30×, clump size 2×, periapsis decoherence and a 100×-encounter traffic jam (4,155 encounters, two instruments agreeing, a third confirming to 4 digits), the partner at contact never exceeded longitude-rank 6 or distance-rank 3 — but the bound is not "k ≈ 4": the partner's λ-distance at contact is ~ c·σ_e with c ≈ 1–2 in all three scene families, so the watch-list must be the bodies inside a λ-window of ~ 2σ_e (k ≈ n_c·c·σ_e/W_λ), which at the gold's own 10⁶-ship fleet is k ≈ 200–2,000, still 400× under the quadratic tier.
+
+## Bottleneck
+The board's top scaling risk (candidate work must track real encounters) and the adopted gold taleb-09b5, whose own "what would make it wrong" named the untested hole attacked here (e-spread ≫ ρ breaking phase-order = distance-order; one seed family, n_c ≤ 800). The build `b-coorbital-cert` is queued but not started, so this lands before the one-way door. Expected gain: none measured (this is a de-risking and a spec correction, not a speedup); what it deletes is the risk of shipping a fixed-k=4 certificate that silently drops contacts at fleet scale.
+
+## Evidence (Linux x86, 8 vCPU shared, load 1.1–2.6, < 2 GB; whole grid 90 s wall, verify 4 s)
+Binary `crates/encounters/src/bin/inv.rs` (saved by run.sh as patch). Reproduce: `CARGO_TARGET_DIR=/tmp/glmlab-target cargo build --release -p emergent-encounters --bin inv && /tmp/glmlab-target/release/inv grid && /tmp/glmlab-target/release/inv verify`. ρ = 1e-4, H = 8 orbits of a = 1, seed 27, a ∈ 1±1e-5, λ uniform unless bunched, ϖ uniform in ±s_p. Truth = conservative advancement on every pair (truth.rs); method = the two-tier sections pipeline at safety 2.0; at every true closest approach: partner's circular longitude rank (λ-rank) and distance rank (d-rank), 1-based.
+
+| scene | n | encounters | pairs | max λ-rank | max d-rank | >k=4 | method pair/event misses | Binet trigger |
+|---|---|---|---|---|---|---|---|---|
+| A-fleet σ_e=.001 ϖ±.1 | 600 | 79 | 27 | 2 | 1 | 0 | 0 / 0 | 21.6 |
+| B1 σ_e=.01 ϖ rand | 600 | 116 | 36 | 2 | 1 | 0 | 0 / 0 | 386 |
+| B2 σ_e=.03 ϖ rand | 600 | 123 | 42 | 3 | 1 | 0 | 0 / 0 | 1054 |
+| C1 σ_e=.01 ϖ±.1 | 600 | 80 | 33 | 2 | 1 | 0 | 0 / 0 | 208 |
+| C2 σ_e=.03 ϖ±.1 | 600 | 65 | 32 | 2 | 1 | 0 | 0 / 0 | 571 |
+| D bunched σ_λ=.05, σ_e=.001 ϖ rand | 600 | 3326 | 1310 | 6 | 3 | 10 (0.3%) | 0 / 0 | 44 |
+| B1x σ_e=.01 ϖ rand | 1200 | 365 | 147 | 3 | 1 | 0 | 0 / 0 | 386 |
+
+1. **The attack failed, cleanly.** σ_e 0.001→0.03 (radial breathing 10–300× ρ), ϖ fully decohered, n doubled: max λ-rank 3. The traffic jam (D, 100× the encounter rate) reached 6. Distance-rank ≤ 3 everywhere: at contact the partner is the nearest body.
+2. **The law under the bound.** Partner λ-distance at contact = rank×spacing: B1x 3×(2π/1200)=.0157≈1.6σ_e; B2 3×(2π/600)=.031≈1.0σ_e; D 6×(σ_λ-scaled spacing 3×10⁻⁴)≈2e-3≈2σ_e. One law, c ≈ 1–2: the synodic phase is frozen at Δa→0, so a pair meets only if born with λ-offset ≈ the equation-of-center offset the crossing arcs demand, which is O(σ_e). Hence k = bodies inside a λ-window ~ 2σ_e: k ≈ n_c·2σ_e/W_λ (W_λ = 2π uniform; σ_λ-packed in D). Fixed k=4 covers uniform clumps to n_c·σ_e ≈ 15 rad⁻¹; the 10⁶ fleet at the gold's σ_e=0.001 needs k ≈ 200 median / few ×10³ tail — O(n_c·k) ≈ 10⁹ section-watches vs 5×10¹¹ quadratic pairs: still ~400× under, but k must be *derived at trigger time*, and in a bunched fleet k is amplified by 2π/W_λ.
+3. **The gold's soundness hole did not reproduce.** taleb-09b5 reported the window tier missing 4/233 (1.7%) in a σ_λ=0.01 phalanx. Here: zero pair-level and zero event-level misses over 4,155 encounters, including D (σ_λ=0.05, ϖ random). Either the hole lives only at tighter bunching than tested (σ_λ=0.01, untested here for time) or it needs their exact phalanx geometry; `b-encounter-skin` should target σ_λ ≤ 0.01 specifically.
+4. **Instruments are distinct.** Truth (conservative advancement) and method (Binet arcs + integer first-hit + exact passage checks) agree on every pair and event; a dense unbiased sampler (dt=1e-3, verify mode) reproduces 8/8 checked events' minima to 4 digits at the same times (verify.txt). Machine state recorded above.
+
+## Predictions
+`predictions.md` written before the grid. Held: P1 (control reproduces the gold's domain, 79 ≥ 10 encounters, rank ≤ 4), P3 direction (2→3 at doubled n; the constant is small), P6 second half (method sound in B/C transversal scenes). Failed: P2 (the main prediction — no scene put 20% of encounters beyond k=4; max 0.3% in D), P4 (d-rank never decoupled from λ-rank; ϖ decoherence did not inflate distance rank), P6 first half (no A/D misses at σ_λ=0.05), P5 (moot: the Binet trigger separates the fleet (21.6) from dispersed-e regimes (200–1000) and no blindness consequence materialised). My committed mechanism was right in form (λ-offset ~ O(σ_e)) but the constant is ~1.5, not 2–4, and I under-weighted how strongly the encounter set is selected toward already-aligned pairs.
+
+## What would make this wrong
+One seed (27) per scene, one horizon (8 orbits), max-based rank estimates over ≤ 3.3k events: the c ≈ 1–2 law is measured on three families but its tail constant (what k must cover) is extrapolated from maxima of small samples — a longer horizon with finite Δa (overtakes rebuilding the train) could grow it, and my scenes have Δa → 0 so the rebuild-on-overtake path is never exercised. The 10⁶-fleet k ≈ 200–2,000 is a [INFERENCE] from the law, not a measurement (n measured only to 1,200). The soundness-hole non-reproduction is absence of evidence at σ_λ=0.05, not evidence of absence at 0.01.
+
+## Cost of adoption, fit with PRINCIPLES
+Adoption is a one-line change to the queued `b-coorbital-cert` spec: the watch-list is "bodies within λ-window 2σ_e of me (capped/grown by measured tail margin, rebuild on overtake)", not "k=4 nearest"; k is a computed dimensionless count. No new component; it deletes the fixed-k assumption before it is built. Fit: "regimes are chosen by dimensionless numbers" (#4) — k itself becomes one; "Compute only surprises" (#3) — the watch-list is sized by the geometry that can actually produce contact; "A failed experiment kills that configuration, never the method" (#9) — the attack failed and thereby strengthened the design; "Measure before claiming" — the gold's rank bound is now measured law, not one family's tail.
+
+## The lens (what inversion made me miss)
+Inversion sent me at the gold's named hole with a mechanism prediction tuned to fail loudly (P2); the certificate bent and held, and the useful residue is the scaling law, which a confirmation-seeking run would not have extracted. But the lens' obsession with the kill made me spend the smoke-test budget proving encounters exist (n=60 → 0) instead of pre-testing the rank estimator's variance — the c ≈ 1–2 constant rests on maxima of small samples and would not survive a statistician. A speed lens would have measured the method's cost curve per scene, which I skipped entirely (only misses were counted); the quadratic-setup cost of D's 1,310-pair traffic jam is in the raw stats (`mstats`) but unreported here.
