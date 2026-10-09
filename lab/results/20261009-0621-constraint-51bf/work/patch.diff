@@ -1,0 +1,220 @@
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d..fe4c4c0 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -139,17 +139,26 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+     if tau <= 0 || tau > 2 * k.len.max(1) {
+         return base.cartesian(t).or_else(|_| raw());
+     }
++    let t_all = crate::view::split_on().then(std::time::Instant::now);
+     let step = || -> Res<(V2, V2)> {
+         let mid = start + tau / 2;
++        let t_field = crate::view::split_on().then(std::time::Instant::now);
+         let (x_mid, _) = base.cartesian(mid)?;
+         let field = force::field(&ctx.secondaries(base.doll, mid, i)?, x_mid)?;
++        if let Some(t) = t_field {
++            crate::view::add_split(4, t.elapsed().as_nanos() as u64);
++        }
+         let tau_s = time_of(tau, base.clock_exp)?;
+         let dv = scale2(field.accel, tau_s)?;
+         let dx = scale2(dv, tau_s.scale(-1)?)?;
+         let (p, v) = base.cartesian(t)?;
+         Ok((add2(p, dx)?, add2(v, dv)?))
+     };
+-    step().or_else(|_| raw())
++    let r = step().or_else(|_| raw());
++    if let Some(t) = t_all {
++        crate::view::add_split(5, t.elapsed().as_nanos() as u64);
++    }
++    r
+ }
+ 
+ /// Body `i`'s binding at `t` and its state there, completed between kicks ([`partial`], or the ramp [`credit`]), in the units of its doll.
+@@ -201,6 +210,37 @@ fn root_state_with(ctx: &Ctx, i: usize, t: Tick, ramp: bool) -> Res<([f64; 2], [
+     Ok((pos, vel))
+ }
+ 
++/// [`state_rate`] on the tubes alone: no partial step, so no field evaluation. The readout a crossing
++/// *search* can use when only the crossing tick is wanted (the state shown is then read once, with the
++/// step, at the tick found). First order between kicks, like [`root_state_raw`].
++pub fn state_rate_raw(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)> {
++    let (mut pos, mut vel, mut rate) = ([0.0f64; 2], [0.0f64; 2], 1.0f64);
++    let (mut cur, mut below) = (i, None::<[f64; 2]>);
++    loop {
++        let b = ctx.bodies.binding_at(cur, t).ok_or(crate::num::Error::Refused("history pruned"))?;
++        let (p, v) = b.cartesian(t)?;
++        let (p, v) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
++        let doll = &ctx.dolls[b.doll as usize];
++        let k = 2f64.powi(-(doll.shift as i32));
++        pos = [pos[0] + p[0] * k, pos[1] + p[1] * k];
++        vel = [vel[0] + v[0], vel[1] + v[1]];
++        let r = (p[0] * p[0] + p[1] * p[1]).sqrt();
++        let f = 1.0 - 2.0 * doll.mu_f64() / r;
++        let vr = (p[0] * v[0] + p[1] * v[1]) / r;
++        let vt = (p[0] * v[1] - p[1] * v[0]) / r;
++        rate *= (f - vr * vr / f - vt * vt).max(1e-300).sqrt();
++        if let Some(vb) = below {
++            rate /= 1.0 + v[0] * vb[0] + v[1] * vb[1];
++        }
++        below = Some(v);
++        match doll.centre {
++            Some(c) => cur = c,
++            None => break,
++        }
++    }
++    Ok((pos, vel, rate))
++}
++
+ /// The chain of (doll, state in that doll) from the body up to the root, for the clock rate.
+ pub fn chain(ctx: &Ctx, i: usize, t: Tick) -> Res<Vec<(u16, [f64; 2], [f64; 2])>> {
+     let (b, p, v) = ramped(ctx, i, t)?;
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..a3400c8 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -13,6 +13,37 @@
+ //! the chain), so gravitational redshift, Doppler shift and time dilation arrive as one number.
+ //! The direction in the observer's frame is the aberrated one. Light is straight in the root frame
+ //! (no lensing yet).
++/// Lab instrumentation (env `ES_VIEW_SPLIT=1`, set by the bench): where the gather's nanoseconds go,
++/// accumulated across frames. Buckets: 0 observer setup, 1 bodies' crossings, 2 fleets, 3 the view
++/// build, 4 the field evaluation inside a partial readout, 5 partial readouts total (view and engine).
++static SPLIT_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++static SPLIT: [std::sync::atomic::AtomicU64; 6] = [const { std::sync::atomic::AtomicU64::new(0) }; 6];
++
++/// Turn the gather's split counters on (before the first frame).
++pub fn set_split(v: bool) {
++    SPLIT_ON.store(v, std::sync::atomic::Ordering::Relaxed);
++}
++
++pub(crate) fn split_on() -> bool {
++    SPLIT_ON.load(std::sync::atomic::Ordering::Relaxed)
++}
++
++pub(crate) fn add_split(i: usize, ns: u64) {
++    SPLIT[i].fetch_add(ns, std::sync::atomic::Ordering::Relaxed);
++}
++
++/// The counters so far (empty when the split was never on).
++pub fn split_text() -> String {
++    use std::sync::atomic::Ordering;
++    let ns: Vec<u64> = SPLIT.iter().map(|a| a.load(Ordering::Relaxed)).collect();
++    let total: u64 = ns[..4].iter().sum();
++    let sh = |i: usize| if total > 0 { ns[i] as f64 / total as f64 } else { 0.0 };
++    let field_share = if ns[5] > 0 { ns[4] as f64 / ns[5] as f64 } else { 0.0 };
++    format!(
++        "ns observer_setup={} bodies_crossings={} fleets={} view_build={} field_in_partial={} partial_total={} | gather_shares obs={:.3} bodies={:.3} fleets={:.3} build={:.3} | field_share_of_partial={:.3}",
++        ns[0], ns[1], ns[2], ns[3], ns[4], ns[5], sh(0), sh(1), sh(2), sh(3), field_share
++    )
++}
+ use crate::body::Kind;
+ use crate::num::{to_f64, Tick};
+ use crate::observe::{clock_rate, clocks_with, root_state, state_rate};
+@@ -127,8 +158,6 @@ impl ViewCache {
+         let c = self.slots.get(i).copied().flatten().filter(|c| c.observed <= t_now)?;
+         Some((c.root + (t_now - c.observed) as f64 * c.slope).floor() as Tick)
+     }
+-    /// Remember the crossing `root` found at `t_now`, with `inst`, the arrival rate at the crossing itself:
+-    /// `(1 + n·β_obs)/(1 + n·β_em)`.
+     fn put(&mut self, i: usize, t_now: Tick, root: f64, inst: f64) {
+         if self.slots.len() <= i {
+             self.slots.resize(i + 1, None);
+@@ -229,8 +258,15 @@ pub fn gather(u: &Universe, names: &[String]) -> Option<View> {
+ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> Option<View> {
+     gather_with(u, names, Some(cache))
+ }
+-
+ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
++    let (split, mut t_split) = (split_on(), std::time::Instant::now());
++    let mut mark = |bucket: usize| {
++        if split {
++            add_split(bucket, t_split.elapsed().as_nanos() as u64);
++            t_split = std::time::Instant::now();
++        }
++    };
++    let raw_cross = std::env::var("ES_RAW_CROSSING").is_ok();
+     let ctx = u.ctx();
+     if let Some(c) = cache.as_mut() {
+         c.readouts = 0;
+@@ -265,7 +301,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
+-    let mut seen = Vec::new();
++    mark(0);
++     let mut seen = Vec::new();
+     let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+         let d = [pos[0] - xo[0], pos[1] - xo[1]];
+         let dist = dot(d, d).sqrt().max(1e-9);
+@@ -303,7 +340,14 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         }
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+-        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++        let raw = raw_cross;
++        let mut eval = |t: Tick| -> Option<At> {
++            let r = if raw { crate::observe::state_rate_raw(&ctx, i, t) } else { state_rate(&ctx, i, t) };
++            r.ok().map(|(x, v, rate)| At { x, v, rate })
++        };
++        let Some((t_e, at_search, root)) = crossing(&mut reads, &mut eval, t_now, xo, guess) else { continue };
++        // The state shown is the stepped readout at the tick found, search or not: only the search's path is raw.
++        let at = if raw { state_rate(&ctx, i, t_e).ok().map(|(x, v, rate)| At { x, v, rate }).unwrap_or(at_search) } else { at_search };
+         if let Some(c) = cache.as_deref_mut() {
+             // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+             let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+@@ -330,7 +374,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+     }
+-    if let Some(c) = cache.as_deref_mut() {
++    mark(1);
++     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+@@ -366,7 +411,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
+-    let rec_doll = u.dolls[rec.b.doll as usize].name;
++    mark(2);
++     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+     Some(View {
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..f238552 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -104,6 +104,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     for &(t, k) in &log {
+         s.p.u.schedule(t, k).map_err(|e| format!("schedule: {e:?}"))?;
+     }
++    let mut view_hash = blake3::Hasher::new();
++    let split = std::env::var("ES_VIEW_SPLIT").is_ok();
++    emergent_universe::view::set_split(split);
+     let wall = Instant::now();
+     let mut last = Instant::now();
+     for n in 1..=frames {
+@@ -115,7 +118,10 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         }
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+-        s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        let v = s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        if split {
++            view_hash.update(&serde_json::to_vec(&v.0).unwrap_or_default());
++        }
+     }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+@@ -154,5 +160,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "uptime_before": load_before, "uptime_after": uptime("uptime"),
+     });
+     println!("{}", serde_json::to_string_pretty(&report)?);
++    if split {
++        println!("view_split: {}", emergent_universe::view::split_text());
++        println!("view_digest: {}", view_hash.finalize().to_hex());
++    }
+     Ok(0)
+ }
