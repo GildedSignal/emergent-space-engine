@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions.md held-out before the decisive Öpik Monte-Carlo run, `opik_belt.py` + `opik_out.json` reproducible in 3.5 s, dossier written; held-out scorecard honest (P1 missed low by 2–12× with a mechanism found — narrow belts get a real uplift; P2–P4 held; P5 ambiguous).
+
+**Claim:** at fixed belt density, 10⁹ bodies fit the 8 GB M1 with 2–4 orders of memory margin (encounter-driven H_live creation is 10⁻⁵–2×10⁻³ bits/body/orbit, so even with zero reabsorption the 64-bits/body budget survives 275–1,600 real hours at RTF 100), while the binding term is kick-adjacent compute — candidate re-setup at 0.3 kicks/orbit × ~340–750 pairs × 2.5–24 µs burns 2–4 whole M1s per game-second at day-scale orbits and ~50–100 at hour-scale — so the cheapest next move is not memory machinery but measuring the one hidden constant every one of these numbers swings on: the orbit period in game-seconds.
