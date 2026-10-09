@@ -1,0 +1,28 @@
+Grade: silver
+
+**Abstract.** Claim: the memo's quantized (periapsis, k) buckets are a conservative Binet-cone candidate tier (zero misses, small superset), deleting the encounters crate's own index, and (bucket, bucket, Δϖ-band) section caches amortize per-element-change setup ×43–312 at unaveraged cadence. Reproduced bit-for-bit (`python3 exp.py`, 7 s; patch.diff empty, no repo edits). Crate predicates verified verbatim (pairs.rs `eps_u`/`cone_gap`/`is_candidate`; orbit.rs `quantized(12,12)`). My adversarial cases: zero misses on high-e (σ_e=0.3, cap 0.9, superset ×1.02), thin-cone wide-a (exact 2.9% of pairs, ×1.49), ρ=1e-6, and the shipped chop grid (≤×1.49) — closing risk 1. Not gold: predictions P3/P4 failed (differential precession is 4.4% of absolute, killing fine-band caching at averaged cadence — reported honestly), and ×43–312 is a drift-count model; the tolerated band width (risk 2) and wall-clock are unmeasured. Adoption: one wiring step on plane.md §6's encounters seam, but the win's size rests on that unmeasured band.
+
+**Reasons.**
+
+1. **Reproduction.** Clean copy of `exp.py`: every number identical to `metrics.json` (belt 7,244,639 exact / 8,143,566 tier-2 / 0 misses / ×1.12; belt64 ×1.13; formation one bucket, ×1.0; corners ×1.18; B: 4.4% diff/abs, band residence 1.4/84.5 orbits, radial 1,243, savings 0/43/25/2705; resonant ×312). 7.4 s, ~130 MB peak — within budget. `predictions.md` predates the final `exp.py`/`metrics.json` by ~13 min (mtimes); `run.log` empty; `patch.diff` empty (no container edits claimed, none needed).
+
+2. **The crate identity is verbatim, not paraphrased.** `pairs.rs:45–64` (`eps_u`, `cone_gap`, `is_candidate`) match `exp.py` formula-for-formula; the memo key is `OrbitKey{periapsis, k=1/(1+e)}` coarsened by `quantized(MEMO_SHAPE_BITS=12, MEMO_SCALE_BITS=12)` — so the claimed key space (11–12 bits per coordinate) is the shipped one.
+
+3. **Adversarial cases (mine, `/tmp/check-136a/adv.py`, 13 s).** (a) High-e hazard belt (n=2048, Rayleigh σ_e=0.3 capped 0.9 — the e 0.7–0.9 zone that broke q-candidate-degree's "Wide" tier): exact 2,058,885 of 2,096,128 pairs, tier-2 ×1.02, **0 misses**. (b) Thin cone (a∈[0.5,2], σ_e=0.01, n=4096; exact set only 2.9% of pairs — the regime where the superset factor actually discriminates): **×1.49, 0 misses**. (c) ρ=1e-6: superset unchanged — the tier is geometry-limited, not ρ-limited. (d) The **shipped quantizer** (12-significant-bit chop toward zero on `rp` and on `gap=(1−e)/(1+e)`, corner-exact box envelope): 0 misses on all workloads, superset ×1.12–1.49. The author's disclosed risk 1 (log grid ≠ shipped chop) is real but immaterial: the conservativeness argument is box-shape-agnostic, and the shipped grid measures at least as tight.
+
+4. **The savings model is internally consistent.** Per-kick differential Δϖ ≈ 5.5e-6 ≪ the 2.4e-4 fine band, so kicks do not invalidate — only accumulated drift does (band crossing ~1.4 orbits vs 32 kicks/orbit → ×43). But it is a drift-count model: no wall-clock, no `sections()` measurement, and the tolerated band width (their risk 2: the linear window is ~ρ wide) is unmeasured — if sections tolerate only ~1e-4, even the unaveraged ×43 shrinks toward ×13.
+
+5. **Predictions.** P1, P2, P5-unaveraged, P6 held. P3/P4 failed and are reported as failed in dossier, author-final and abstract — the failure is itself the useful boundary (differential apsidal precession is first-order in Δa/a at 4.4%, not second-order; fine-band caching is dead at the averaged cadence). Honest, but "held-out predictions held" is not met in full.
+
+6. **Novelty.** law.md still carries "candidates stay implicit: bodies sorted by U" with the setup cost open (2.5–24 µs per pair per element change); no H entry unifies the Catalogue key space with the cone; it also subsumes the 6 October gold's dimensionless-number formation trigger (one bucket = the formation detector). Distinct from q-candidate-degree's certificates (element-space certificates vs key-space envelopes). Novel synthesis of two existing structures.
+
+7. **Goal fit.** Board item "finding encounters without work per orbit or per element change"; PRINCIPLES 1 ("The cheapest compute is compute not done" — the second index is never built) and 32 ("under the right representation many symmetries can appear" — one space for storage and discovery). On-goal.
+
+**The one experiment that would make it gold:** measure the Δϖ rotation the crate's `sections()` actually tolerates (drifted ϖ against exact re-setup, plus wall-clock recompute counts at both cadences) on the belt. That converts the ×43–312 from a drift-count model into a measurement, settles risk 2, and fixes the cache's memory shape — the three things adoption actually waits on.
+
+**What the author missed.**
+
+- The headline superset ×1.12 is measured where the cone already admits 86% of all pairs (7.24M/8.39M) — nearly vacuous discrimination. The informative regime (thin cone, 2.9%) gives ×1.49; bounded, but the dossier never runs a thin cone, so its overhead claim was untested where it could have failed.
+- The bucket-pair adjacency and per-pair caches are new **pair** state: ~8M entries at 4096-body belt density, unexamined against B18 (the memory gate). "Zero new per-body bytes" is true but underplays this.
+- Risk 1 (shipped quantizer) was checkable inside the run's own harness and 10× cheaper than the corners workload; leaving it open cost the run its tightest evidence.
+- The top scaling risk (candidate pairs per body growing with N) is untouched: at belt density the cone admits 86–98% of pairs regardless of index — the tier makes each candidate cheaper, never fewer. The dossier could say this plainly; it gestures at it via the lens section only.
