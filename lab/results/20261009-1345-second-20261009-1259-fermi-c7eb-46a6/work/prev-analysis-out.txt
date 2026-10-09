@@ -1,0 +1,42 @@
+== measured: encounter rate per body per orbit (repo belts, toy density) ==
+  s1e-3-r1e-4    r_enc=1.75e-04 /body/orbit
+  s3e-3-r1e-4    r_enc=6.80e-04 /body/orbit
+  s1e-2-r1e-4    r_enc=1.89e-03 /body/orbit
+  s3e-2-r1e-4    r_enc=4.96e-03 /body/orbit
+  s1e-3-r1e-3    r_enc=2.36e-03 /body/orbit
+  s1e-2-r1e-3    r_enc=1.84e-02 /body/orbit
+  dense-n3000    r_enc=1.74e-02 /body/orbit
+  hot-s0.1       r_enc=6.98e-02 /body/orbit
+
+== the law's quantum ==
+  a=1.0: P=2.699e+10 ticks, one period tick = Delta-a = 2.470e-11 AU = 0.0037 km
+  a=2.7: P=1.197e+11 ticks, one period tick = Delta-a = 1.503e-11 AU = 0.0022 km
+
+== deflection per encounter vs the tick quantum ==
+  hyperbolic: theta = 2*atan(mu/(q*v^2)), Delta-a/a = (2/3)*theta
+  ship 1e6 t   m=5.03e-22 Msun  theta=5.43e-15 rad  Delta-a=9.77e-15 AU  =        0.0 period ticks  (below grid)
+  rock r=50 m  m=6.58e-22 Msun  theta=7.11e-15 rad  Delta-a=1.28e-14 AU  =        0.0 period ticks  (below grid)
+  rock r=500 m m=6.58e-19 Msun  theta=7.11e-12 rad  Delta-a=1.28e-11 AU  =        0.9 period ticks  (below grid)
+  rock r=5 km  m=6.58e-16 Msun  theta=7.11e-09 rad  Delta-a=1.28e-08 AU  =      851.0 period ticks  (CROSSES GRID)
+  Ceres        m=9.40e-10 Msun  theta=1.02e-02 rad  Delta-a=1.83e-02 AU  = 1215439244.8 period ticks  (CROSSES GRID)
+  m_crit (1 tick, q=1e-4 AU, sigma=0.1, a=2.7) = 7.73e-19 Msun ~ rock r~500 m
+
+== game-density belt (3D): encounter rate per body per orbit ==
+  thick (i~0.14rad): V=19.2 AU^3, rate = 2.77 encounters/body/orbit (rho=1e-4 AU)
+  thin (i~0.005): V=0.7 AU^3, rate = 77.57 encounters/body/orbit (rho=1e-4 AU)
+
+== individualization at the tick quantum (only for m > m_crit participants) ==
+  conservative: a body individualizes within ~10.0 orbits of crossing-grid encounters
+  thick-belt rate: a body individualizes within ~0.2 orbits of crossing-grid encounters
+
+== but at consumer resolution the program belt IS an attractor ==
+  rock encounters at 0.3/orbit: one pixel (1e-3 rad) of phase noise needs k=1.7e+21 orbits ~ 7.4e+21 yr of game time (never)
+  rock encounters at 2.0/orbit: one pixel (1e-3 rad) of phase noise needs k=2.5e+20 orbits ~ 1.1e+21 yr of game time (never)
+
+== the 10^9 ledger on one 8 GB M1 ==
+  storage: tubes 16B x 1e9         = 14.9 GiB  (binding: 1.9x over 8 GiB)
+  storage: program belt 0.126 bit  = 15 MiB   (545x under)
+  storage: hybrid, 1e8 tubes + rest program = 1.5 GiB + 15 MiB (fits, ~5x headroom)
+  events : all encounters ~ 20 exact pair events/s at 1x; x100 RTF at 10 us/event = 2.0% of one core
+           secular recompiles ~ 2/s at 1x; x100 RTF at 10 us = 0.2% of one core
+  bandwidth: full 16 GiB sweep at 60 GB/s = 0.27 s (16x over one 16.7 ms frame; event-driven touches ~1978 bodies/s ~ 63 KB/s)
