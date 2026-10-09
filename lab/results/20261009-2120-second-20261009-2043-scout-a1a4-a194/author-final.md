@@ -1,0 +1,4 @@
+Working...
+All checker-named items done, record regenerates from shipped code, all commands rerun clean, no commits made.
+
+**The claim, in one sentence:** the scout run's claim — plunge/capture/near-radial/γ≈2000 orbits compile into the same ψ-panel tube with an O(1) readout — now holds on the shipped record: the honest bracket + Newton-in-ψ readout sits at the compiled table's own error floor in every case and across the winding sweep (27 µs pure Python, 0.53 µs compiled, winding-flat at 1.014; the 3 µs headline is retired as a 10⁻⁵-accuracy linear readout), the P3 pair-b column and both prose numbers (b ∝ √δ; 3.95e-8) regenerate, and the near-critical column is restated against a reference now confirmed three independent ways (θ-substitution, split, ODE-oracle), which closes the k=7 dispute non-circularly and yields one new measured requirement: near the coalescence, panel growth must be sized per sample, not from end values.

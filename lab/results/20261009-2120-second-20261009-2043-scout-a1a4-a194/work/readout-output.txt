@@ -1,0 +1,21 @@
+== honest readout vs oracle (floors are the tube's own edge errors) ==
+case                          lin/N3/N4 = us per sample; conv35 = |u(3iter)-u(5iter)|
+A apoapsis E0.8  dPhi=   1.031 | floor r/phi/v 3.8e-13/2.4e-11/1.5e-11 | lin_u 5.5e-07 | newton r/phi/v 4.0e-13/2.2e-11/1.4e-11 |  2.72/25.69/30.37 us (lin/N3/N4) | conv35 0.0e+00 | floor5x=True <20us=False
+B apoapsis E0.97 dPhi=   5.304 | floor r/phi/v 5.8e-13/1.5e-11/4.1e-13 | lin_u 4.2e-05 | newton r/phi/v 1.7e-12/1.4e-11/1.4e-12 |  2.79/27.95/33.26 us (lin/N3/N4) | conv35 0.0e+00 | floor5x=True <20us=False
+C direct E1      dPhi=   4.152 | floor r/phi/v 1.1e-13/2.3e-11/3.6e-13 | lin_u 6.0e-05 | newton r/phi/v 1.1e-13/2.2e-11/3.5e-13 |  2.75/25.31/30.12 us (lin/N3/N4) | conv35 0.0e+00 | floor5x=True <20us=False
+D direct E1.2    dPhi=   6.376 | floor r/phi/v 9.1e-13/1.3e-10/1.4e-11 | lin_u 9.7e-05 | newton r/phi/v 1.3e-12/1.3e-10/1.3e-11 |  2.72/28.03/33.61 us (lin/N3/N4) | conv35 0.0e+00 | floor5x=True <20us=False
+E gamma2000      dPhi=   5.747 | floor r/phi/v 1.1e-12/3.3e-11/3.3e-11 | lin_u 1.2e-04 | newton r/phi/v 2.3e-12/3.2e-11/3.3e-11 |  2.79/28.13/33.28 us (lin/N3/N4) | conv35 0.0e+00 | floor5x=True <20us=False
+F radial L0      dPhi=   0.000 | floor r/phi/v 1.5e-13/0.0e+00/2.0e-13 | lin_u 6.5e-05 | newton r/phi/v 1.4e-13/0.0e+00/2.0e-13 |  2.77/10.46/12.47 us (lin/N3/N4) | conv35 0.0e+00 | floor5x=True <20us=True
+G photon 0.9bc   dPhi=   3.319 | floor r/v 1.1e-13/6.6e-14 | newton r/v 2.1e-13/1.1e-13 | 17.96 us (N3) | conv35 0.0e+00 | floor5x=True <20us=True
+
+== winding sweep, E=1, L = Lc*(1-10^-k) (checker's |1-L/Lc| >= 1e-3) ==
+sweep k=3        dPhi=  10.813 | floor r/phi/v 1.0e-12/1.2e-11/1.5e-12 | lin_u 5.9e-05 | newton r/phi/v 1.3e-12/1.2e-11/1.5e-12 |  2.78/27.55/32.67 us (lin/N3/N4) | conv35 0.0e+00 | floor5x=True <20us=False
+sweep k=4        dPhi=  14.072 | floor r/phi/v 3.8e-12/2.0e-09/1.2e-10 | lin_u 1.1e-04 | newton r/phi/v 3.8e-12/2.0e-09/1.2e-10 |  2.77/27.90/33.15 us (lin/N3/N4) | conv35 8.3e-17 | floor5x=True <20us=False
+sweep k=5        dPhi=  17.329 | floor r/phi/v 9.5e-07/6.0e-04/3.6e-05 | lin_u 3.0e-04 | newton r/phi/v 9.5e-07/5.8e-04/3.5e-05 |  2.76/27.78/33.12 us (lin/N3/N4) | conv35 3.9e-16 | floor5x=True <20us=False
+sweep k=6        dPhi=  20.582 | floor r/phi/v 4.8e-04/4.4e-01/1.9e-02 | lin_u 8.6e-04 | newton r/phi/v 4.8e-04/4.2e-01/1.8e-02 |  2.77/27.82/33.18 us (lin/N3/N4) | conv35 4.6e-10 | floor5x=True <20us=False
+sweep k=7        dPhi=  24.019 | floor r/phi/v 2.3e-02/9.4e-01/4.7e-01 | lin_u 2.3e-02 | newton r/phi/v 2.3e-02/9.3e-01/4.6e-01 |  2.79/27.93/33.34 us (lin/N3/N4) | conv35 4.8e-06 | floor5x=True <20us=False
+
+cost: min 10.46  max 28.13 us over all cases (incl. L=0 and photon special forms)
+winding sweep k=3..7 cost: 27.55..27.93 us (max/min = 1.014)   winding-independence: HOLDS
+all cases at table floor (<=5x): YES
+all pure-Python costs < 20 us: NO   (compiled C form: see plunge_readout_c)
