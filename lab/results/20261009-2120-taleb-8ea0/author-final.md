@@ -1,0 +1,4 @@
+Working...
+**The claim, in one sentence:** the plane carries no growing compute liability with game time — cost per game-second *falls* to 3.5 days of horizon (3×10⁵ game-s in 6.6 s wall), frame tails stay under the 16.7 ms deadline even at 6× fleet size with 550/3 300 budget-overflowing frames, the cut settle never bursts, and the digest is bit-reproducible across processes — but the bench's own scripted player is dead past ~1.5–4 h of game time on every script spacing tried, so nothing currently measures a living player at player-scale horizons, and one 76-body deep rung shows an unexplained +12 MB/decade memory growth (mechanism open).
+
+Full evidence, pre-registered predictions (4 of 6 held, two named misses), and reproduction commands: `lab/results/20261009-2120-taleb-8ea0/dossier.md`.
