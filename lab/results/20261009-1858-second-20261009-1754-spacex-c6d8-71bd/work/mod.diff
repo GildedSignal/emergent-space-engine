@@ -1,0 +1,74 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..e5d1116 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -1,14 +1,13 @@
+ //! `xtask universe`: the plane, flown. One star system, whole: serves a debug view of what arrives at
+ //! the player's past light cone (port 8792), or prints the smoothness dashboard headless.
+ //!
+-//! universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]
+-//! universe --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]
+-//! universe --describe
+-//! universe --kick-bench [--seed N] [--rtf R] [--seconds S]
+-//!
++// universe --kick-bench [--seed N] [--rtf R] [--seconds S]
++// universe --hlive-bench [--seed N] [--rtf R] [--seconds S] [--members N]
++// universe --belt-bench [--seed N] [--belt N] [--rtf R] [--seconds S]
+ //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+ mod http;
++mod hlive_bench;
+ mod kick_bench;
+ mod session;
+ 
+@@ -21,6 +20,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let (mut hlive, mut belt_bench, mut belt) = (false, false, 120usize);
++    let (mut belt_lo, mut belt_hi) = (2.1f64, 3.5f64);
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -29,16 +30,21 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
+             "--seconds" => seconds = val("--seconds")?.parse()?,
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
+             "--bench" => bench = true,
++            "--hlive-bench" => hlive = true,
+             "--kick-bench" => kicks = true,
++            "--belt-bench" => belt_bench = true,
++            "--belt" => belt = val("--belt")?.parse::<usize>()?.clamp(8, 400),
++            "--belt-lo" => belt_lo = val("--belt-lo")?.parse::<f64>()?,
++            "--belt-hi" => belt_hi = val("--belt-hi")?.parse::<f64>()?,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+             "--describe" => describe = true,
+             "--help" => {
+-                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
++                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench | --hlive-bench [--seed N] [--rtf R] [--seconds S] [--members N]\nuniverse --belt-bench [--seed N] [--belt N] [--belt-lo A] [--belt-hi A] [--rtf R] [--seconds S]\nuniverse --describe");
+                 return Ok(0);
+             }
+             _ => return Err(format!("unknown universe argument {a}").into()),
+@@ -47,11 +53,17 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if !(rtf.is_finite() && (0.01..=1e7).contains(&rtf)) || !(1.0..=55.0).contains(&seconds) {
+         return Err("rtf outside [0.01, 1e7], or seconds outside [1, 55] (every test and probe is at most a minute)".into());
+     }
++    if belt_bench {
++        return hlive_bench::run_belt(seed, threads, belt, rtf, seconds, belt_lo, belt_hi);
++    }
+     let mut s = Session::new(seed, threads, members, rtf)?;
+     s.engine_ms = engine_ms;
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
++    if hlive {
++        return hlive_bench::run(s, seconds);
++    }
+     if describe {
+         println!("{}", s.describe());
+         return Ok(0);

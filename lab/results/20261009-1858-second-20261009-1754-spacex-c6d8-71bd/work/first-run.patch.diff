@@ -1,0 +1,267 @@
+diff --git a/xtask/src/universe/hlive_bench.rs b/xtask/src/universe/hlive_bench.rs
+new file mode 100644
+index 0000000..e4034a0
+--- /dev/null
++++ b/xtask/src/universe/hlive_bench.rs
+@@ -0,0 +1,222 @@
++//! H_live bench: the bits of live distinguishing information the plane's universe creates per
++//! game-second (docs/plane.md "Distinctions created per game-second"; docs/law.md "the allocator
++//! reads H_live ... about +62 bits per kick and −60 per reabsorption").
++//!
++//! Journals, for every rebound body of the scripted flight, the state the storage must keep:
++//! the kick's applied whole quanta (`dv`), the binding's exact residual and the sigma-delta carry
++//! (absolute magnitudes), and the deltas of the tube's own fields (shape `k`, periapsis angle,
++//! periapsis time). Each stream is summarised by its magnitude-class entropy (an optimal prefix
++//! code for a two-sided integer of unknown scale: class entropy + in-class bits + sign), which
++//! upper-bounds what any per-field coder needs and is the right order-of-magnitude instrument.
++use super::{script, Session};
++use emergent_universe::{Budget, Kind};
++use serde_json::json;
++use std::time::Instant;
++
++/// One signed integer stream (i128 in, so residuals need no clamping).
++struct Stream {
++    n: u64,
++    classes: [u64; 129],
++}
++impl Default for Stream {
++    fn default() -> Self {
++        Stream { n: 0, classes: [0; 129] }
++    }
++}
++impl Stream {
++    fn add(&mut self, x: i128) {
++        let a = x.unsigned_abs();
++        self.classes[if a == 0 { 0 } else { (128 - a.leading_zeros()) as usize }] += 1;
++        self.n += 1;
++    }
++
++    /// Bits per sample under a class-then-uniform code (class entropy, in-class uniform bits,
++    /// and a sign bit when nonzero: at most one bit over an ideal two-sided geometric coder).
++    fn bits(&self) -> f64 {
++        if self.n == 0 {
++            return 0.0;
++        }
++        let p = |c: u64| c as f64 / self.n as f64;
++        let mut h = 0.0;
++        let mut expect = 0.0;
++        for (i, &c) in self.classes.iter().enumerate() {
++            if c == 0 {
++                continue;
++            }
++            h -= p(c) * p(c).log2();
++            if i > 0 {
++                expect += p(c) * (i as f64 + 1.0);
++            }
++        }
++        h + expect
++    }
++    fn p_zero(&self) -> f64 {
++        if self.n == 0 { f64::NAN } else { self.classes[0] as f64 / self.n as f64 }
++    }
++    fn json(&self) -> serde_json::Value {
++        json!({"n": self.n, "bits": (self.bits() * 1e3).round() / 1e3, "p_zero": (self.p_zero() * 1e3).round() / 1e3})
++    }
++}
++
++/// The six storage streams of one population (made bodies vs fleet members).
++#[derive(Default)]
++struct Pop {
++    dv: Stream,       // kick's applied whole velocity quanta, both components
++    res: Stream,      // binding residual (position and velocity offsets), absolute
++    carry: Stream,    // sigma-delta carry, absolute
++    dk: Stream,       // orbit shape key `k` (Q48 of 1/(1+e)), delta
++    dangle: Stream,   // periapsis angle, signed circular delta
++    dperi: Stream,    // periapsis time, delta
++    dv_innov: Stream, // dv minus a per-body slow EMA: what a program refit cannot absorb
++    dk_innov: Stream, // shape-key delta minus its per-body slow EMA
++    bindings: u64,
++    events: u64,      // all resolved items between bindings (cadence truth)
++    other: u64,       // bindings not made by a kick (creation, handoff, burn flush)
++}
++impl Pop {
++    fn bits_per_binding(&self) -> f64 {
++        self.dv.bits() + self.res.bits() + self.carry.bits() + self.dk.bits() + self.dangle.bits() + self.dperi.bits()
++    }
++}
++
++#[derive(Clone)]
++struct Snap {
++    ev: i64,
++    res: [i128; 4],
++    carry: [i64; 2],
++    k: u64,
++    angle: u32,
++    peri: i64,
++    events: u64,
++    /// Per-body slow exponential means of the dv components and of dk (gain 1/64): the part a
++    /// program refit absorbs. The innovation streams journal what is left.
++    ema_dv: [i64; 2],
++    ema_dk: i64,
++}
++impl Snap {
++    fn of(rec: &emergent_universe::body::BodyRec) -> Self {
++        let b = &rec.b;
++        let key = b.entry.trajectory.key();
++        Snap {
++            ev: b.event_time,
++            res: [
++                b.residual.position[0], b.residual.position[1],
++                b.residual.velocity[0], b.residual.velocity[1],
++            ],
++            carry: rec.carry,
++            k: key.k,
++            angle: b.tube.periapsis_angle,
++            peri: b.tube.periapsis_time.get() as i64,
++            events: rec.events,
++            ema_dv: [0; 2],
++            ema_dk: 0,
++        }
++    }
++}
++
++pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
++    let machine_before = crate::measure::machine_state("before");
++    let made_n = s.n_bodies();
++    let (mut made, mut members) = (Pop::default(), Pop::default());
++    let mut last: Vec<Option<Snap>> = Vec::new();
++    let mut digest = blake3::Hasher::new();
++    let start = s.p.u.now;
++    let mut frames = 0usize;
++    let wall = Instant::now();
++    for n in 1..=(seconds * 60.0) as usize {
++        if wall.elapsed().as_secs_f64() >= 55.0 {
++            return Err("H_live replay exceeded 55 s; no complete result".into());
++        }
++        let now = s.p.u.now;
++        let keys = script(n);
++        s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
++        last.resize(s.n_bodies(), None);
++        for i in 0..s.n_bodies() {
++            let rec = s.p.u.rec(i);
++            if rec.kind != Kind::Ship || !rec.alive {
++                continue;
++            }
++            let snap = Snap::of(&rec);
++            let Some(prev) = &last[i] else {
++                last[i] = Some(snap);
++                continue;
++            };
++            if snap.ev == prev.ev {
++                continue;
++            }
++            let pop = if i < made_n { &mut made } else { &mut members };
++            pop.bindings += 1;
++            pop.events += snap.events - prev.events;
++            pop.other += u64::from(rec.b.kick.len == 0);
++            pop.dv.add(rec.b.kick.dv[0] as i128);
++            pop.dv.add(rec.b.kick.dv[1] as i128);
++            pop.dv_innov.add((rec.b.kick.dv[0] - prev.ema_dv[0]) as i128);
++            pop.dv_innov.add((rec.b.kick.dv[1] - prev.ema_dv[1]) as i128);
++            let mut ema_dv = prev.ema_dv;
++            for c in 0..2 {
++                ema_dv[c] += (rec.b.kick.dv[c] - ema_dv[c]) >> 6;
++            }
++            for j in 0..4 {
++                pop.res.add(snap.res[j]);
++            }
++            pop.carry.add(snap.carry[0] as i128);
++            pop.carry.add(snap.carry[1] as i128);
++            let dk = snap.k.wrapping_sub(prev.k) as i64;
++            pop.dk.add(dk as i128);
++            pop.dk_innov.add((dk - prev.ema_dk) as i128);
++            let mut ema_dk = prev.ema_dk;
++            ema_dk += (dk - ema_dk) >> 6;
++            pop.dangle.add(snap.angle.wrapping_sub(prev.angle) as i32 as i64 as i128);
++            digest.update(
++                format!("{i} {} {:?} {:?} {} {} {}", snap.ev, snap.res, snap.carry, snap.k, snap.angle, snap.peri).as_bytes(),
++            );
++            let mut snap = snap;
++            snap.ema_dv = ema_dv;
++            snap.ema_dk = ema_dk;
++            last[i] = Some(snap);
++        }
++        s.p.u.frame(1.0 / 60.0, s.rtf, Budget::unlimited());
++        s.p.u.settle(s.p.u.now);
++        frames = n;
++    }
++    let game_seconds = (s.p.u.now - start) as f64 * emergent_universe::view::TICK_SECONDS;
++    let ships = (0..s.n_bodies())
++        .filter(|&i| { let r = s.p.u.rec(i); r.kind == Kind::Ship && r.alive })
++        .count();
++    let per_pop = |p: &Pop, n_ships: usize| {
++        let ship_seconds = n_ships as f64 * game_seconds;
++        json!({
++            "ships": n_ships,
++            "bindings": p.bindings,
++            "non_kick_bindings": p.other,
++            "items_per_binding": if p.bindings == 0 { 0.0 } else { p.events as f64 / p.bindings as f64 },
++            "bits_per_binding": (p.bits_per_binding() * 1e2).round() / 1e2,
++            "streams": {
++                "dv_quanta": p.dv.json(), "residual": p.res.json(), "carry": p.carry.json(),
++                "d_shape_k": p.dk.json(), "d_angle": p.dangle.json(), "d_peri_time": p.dperi.json(),
++                "dv_innov": p.dv_innov.json(), "dk_innov": p.dk_innov.json(),
++            },
++            "bits_per_ship_game_second": if ship_seconds > 0.0 { p.bits_per_binding() * p.bindings as f64 / ship_seconds } else { f64::NAN },
++        })
++    };
++    let total_bits = (made.bits_per_binding() * made.bindings as f64 + members.bits_per_binding() * members.bindings as f64);
++    let rate = total_bits / (ships as f64 * game_seconds);
++    println!("{}", serde_json::to_string_pretty(&json!({
++        "scope": "one journal entry per rebound ship at deterministic 60 Hz plane snapshots; storage streams only",
++        "code": "magnitude-class entropy (class + in-class + sign): within ~1 bit/field of an ideal per-field coder",
++        "scene": {"seed": s.seed, "rtf": s.rtf, "frames": frames, "game_seconds": game_seconds,
++                  "bodies": s.n_bodies(), "ships": ships, "bytes_per_body": s.bytes_per_body(),
++                  "stats": {"kicks": s.stats().kicks, "events": s.stats().events()}},
++        "made": per_pop(&made, made_n.min(ships)),
++        "members": per_pop(&members, ships.saturating_sub(made_n)),
++        "hlive": {
++            "bits_total": total_bits,
++            "bits_per_ship_game_second": rate,
++            "game_seconds_to_64_bits": 64.0 / rate,
++            "game_minutes_to_64_bits": 64.0 / rate / 60.0,
++        },
++        "machine": {"before": machine_before},
++        "digest": digest.finalize().to_hex()[..16].to_string(),
++    }))?);
++    Ok(0)
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..c3388c2 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -9,6 +9,7 @@
+ //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+ mod http;
++mod hlive_bench;
+ mod kick_bench;
+ mod session;
+ 
+@@ -21,6 +22,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let mut hlive = false;
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -32,7 +34,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+-            "--kick-bench" => kicks = true,
++            "--hlive-bench" => hlive = true,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+@@ -52,6 +54,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
++    if hlive {
++        return hlive_bench::run(s, seconds);
++    }
+     if describe {
+         println!("{}", s.describe());
+         return Ok(0);
