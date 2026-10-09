@@ -1,0 +1,11 @@
+machine_state {"batt":"unavailable: No such file or directory (os error 2)","hardware":"unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory","kind":"machine","loadavg":"unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory","power_source":"unavailable: No such file or directory (os error 2)","swap":"unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory","therm":"unavailable: No such file or directory (os error 2)","time_utc":"2026-10-09T23:04:06Z","unix":1791587046,"when":"start"}
+G1 FAIL advance per cycle: 0/256 within 1e-2, worst inf [0.06 s]
+G2 FAIL radial periods: 0/256 within 1e-3, worst inf [0.06 s]
+G3 FAIL deflection: 0/64 within 1e-2, worst inf [0.00 s]
+G4 FAIL capture: 5 of 10 misclassified ["L/4=0.5", "L/4=0.9", "L/4=0.97", "b/bc=0.9", "b/bc=0.97"] [0.00 s]
+G5 FAIL long run: 0/32 seeds over 10000 cycles (32 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2) [0.00 s]
+G6 FAIL prograde: 0/256 advances positive [0.00 s]
+B7 FAIL clocks: static 0/64 within 1e-12 worst inf (64 unanswered), circular 0/64 within 1e-12 worst inf (64 unanswered), radii log-uniform in [3, 1e4] [0.00 s]
+B9 FAIL cost per body: 0/512 orbits within 2m·log2(r_apo/r_peri)+8 (worst margin -inf crossings), at e = 0.99 up to NaN crossings against a bound of 252.4; on G1's 256 (e < 0.7) median NaN crossings per cycle (limit 64), p95 NaN, max NaN, 512 of 512 unanswered; advance_per_cycle after the first call: median 5 ns, p95 5 ns over 256 seeds (reported) [0.00 s]
+B10 FAIL cost against n: not implemented, or a NaN or negative cost at n=1e3 [0.00 s]
+B11 FAIL binaries: precession 0/1024 within (1% + 16/p), worst inf of the allowance; period 0/620 judged within 1e-3, worst inf (needs 64 judged) [0.00 s]
