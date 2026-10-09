@@ -1,0 +1,112 @@
+# ordering: predictions.md 2026-10-09 22:59:21 ; first engine run 2026-10-09 22:59:37 ; dossier.md 2026-10-09 23:03:14
+2026-10-09T22:59:33+00:00
+== kick-bench x3 (shipped tree, a838a28) ==
+-- kick-bench run 1
+error: failed to redirect to /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-1.json: No such file or directory (os error 2)
+cat: lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-1.err: No such file or directory
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: 'lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-1.json'
+-- kick-bench run 2
+error: failed to redirect to /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-2.json: No such file or directory (os error 2)
+cat: lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-2.err: No such file or directory
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: 'lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-2.json'
+-- kick-bench run 3
+error: failed to redirect to /home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-3.json: No such file or directory (os error 2)
+cat: lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-3.err: No such file or directory
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+FileNotFoundError: [Errno 2] No such file or directory: 'lab/results/20261009-2257-second-20261009-2212-fermi-a11b-ba64/evidence/kick-bench-3.json'
+(evidence/ dir created; first attempt failed on missing dir, no engine ran)
+-- kick-bench run 1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+KeyError: 'p50'
+-- kick-bench run 2
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+KeyError: 'p50'
+-- kick-bench run 3
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+KeyError: 'p50'
+-- kick-bench runs 4-6 (spread characterisation)
+run 1: median   60.0 us  p99   77.2  samples 23  exact_hit 0.0
+run 2: median   48.8 us  p99   62.0  samples 23  exact_hit 0.0
+run 3: median   46.6 us  p99   62.4  samples 23  exact_hit 0.0
+run 4: median   47.8 us  p99   67.3  samples 23  exact_hit 0.0
+run 5: median   47.7 us  p99   59.0  samples 23  exact_hit 0.0
+run 6: median   48.1 us  p99   60.2  samples 23  exact_hit 0.0
+ 22:59:52 up 43 days, 14:02,  0 user,  load average: 0.80, 0.95, 1.33
+== bench ladder: rtf 100, 10 s, unpaced ==
+-- members 48
+	Maximum resident set size (kbytes): 11776
+bodies 71 bytes/body 5189 events/s 410.1
+-- members 148
+	Maximum resident set size (kbytes): 19944
+bodies 166 bytes/body 5687 events/s 798.8
+-- members 248
+	Maximum resident set size (kbytes): 31712
+bodies 263 bytes/body 5959 events/s 1239.1
+-- members 448
+	Maximum resident set size (kbytes): 48644
+bodies 410 bytes/body 6564 events/s 2022.6
+== consistent full-total aggregation (all Stats event counters / game-s / bodies) ==
+members bodies  B/body  game_s total_ev ev/body/game_s  breakdown
+     48     71    5189    1000     4349      6.125e-02  kicks=736 opens=77 boundaries=667 slices=2680 encounters=123 leavers=43 lost=17 decisions=6
+        subtotal kicks+slices+leavers: 3459  -> 4.872e-02 /body/game-s (the original's 3.9e-2 aggregation)
+    148    166    5687    1000     8322      5.013e-02  kicks=1707 opens=172 boundaries=1580 slices=4536 encounters=121 leavers=138 lost=62 decisions=6
+        subtotal kicks+slices+leavers: 6381  -> 3.844e-02 /body/game-s (the original's 3.9e-2 aggregation)
+    248    263    5959    1000    12801      4.867e-02  kicks=2872 opens=269 boundaries=2732 slices=6466 encounters=117 leavers=235 lost=104 decisions=6
+        subtotal kicks+slices+leavers: 9573  -> 3.640e-02 /body/game-s (the original's 3.9e-2 aggregation)
+    448    410    6564    1000    20792      5.071e-02  kicks=5069 opens=416 boundaries=4805 slices=9836 encounters=108 leavers=382 lost=170 decisions=6
+        subtotal kicks+slices+leavers: 15287  -> 3.729e-02 /body/game-s (the original's 3.9e-2 aggregation)
+== transient regime: rtf 1, 30 game-s, members 48 ==
+== bytes/body stability: m248 repeat ==
+rtf1 transient: bodies 39, game_s 30, total 1907, rate 1.630e+00 /body/game-s
+m248 repeat: bodies 263, bytes/body 5959 (first run: 5959)
+== 0. The record (read from evidence/, nothing hardcoded) ==
+  members  48 ->  71 bodies, 5189 B/body, full-total 6.13e-02 ev/body/game-s (k+s+l subtotal 4.87e-02)
+  members 148 -> 166 bodies, 5687 B/body, full-total 5.01e-02 ev/body/game-s (k+s+l subtotal 3.84e-02)
+  members 248 -> 263 bodies, 5959 B/body, full-total 4.87e-02 ev/body/game-s (k+s+l subtotal 3.64e-02)
+  members 448 -> 410 bodies, 6564 B/body, full-total 5.07e-02 ev/body/game-s (k+s+l subtotal 3.73e-02)
+  kick x6: medians 46.643-59.956 us (run 1 was the 60.0 cold outlier), exact_hit_rate 0.0, 23 samples
+
+== 1. The board's '190 cores' re-derived from its own anchors ==
+  1e9 x 32.5 kicks / 5400 s x 29 us = 175 cores (board: ~190) -> same corner:
+  unaveraged, low-orbit cadence for ALL bodies, rtf 1. A regime, not a property of N.
+  the same bodies at belt cadence: 0.0299 cores (5833x lower).
+
+== 2. Measured on the real engine (this box, shipped tree) ==
+  kick: 46.643-59.956 us median over 6 repeats (M1: 29); memo exact_hit_rate 0.0 -> nothing shared
+  hot event rate (consistent full-total): 6.13e-02 at 71 bodies -> 5.07e-02 at 410; mildly declining, flat 166->410
+    the original's 3.9e-2 at 406 was a kicks+slices+leavers subtotal (here 3.73e-02)
+  transient (rtf 1, 30 game-s, spawn window): 1.63e+00 /body/game-s = 32x steady -> the capacity number is a STEADY-STATE number
+  live store: two-endpoint marginal 6.85 KB/body, 4-pt OLS 6.86 KB/body
+  (bytes/body is read before the cut's settle; stable in-session, ~0.1% cross-session)
+  tube is 16 B -> materialized state is 428x the law's number (OLS 429x)
+  engine per-item: ship 61 us, fleet slice 29.5 us
+
+== 3. Hot-body capacity (the binding pair; steady-state rate) ==
+  today, this box                  N_hot(rtf100, 4 cores) ~ 1.32e+04
+  today, M1 kick cost              N_hot(rtf100, 4 cores) ~ 2.72e+04
+  + slack skin 12.6x               N_hot(rtf100, 4 cores) ~ 3.43e+05
+  + averaging (orbit pops only)    N_hot(rtf100, 4 cores) ~ 3.91e+07
+  memory ceiling today ~6.9 KB/body     1.17e+06 bodies
+  memory ceiling tubes only 16 B        5.00e+08 bodies
+  memory ceiling B18 floor ~4 B/body    2.00e+09 bodies
+
+== 4. Cold-body capacity (programs; the 10^9 lives here) ==
+  1e9 belt bodies as programs: 15.8 MB
+  their kick CPU at rtf 100 (0.28/orbit, 29 us): 2.6e-02 cores
+  horizon bound: 100 h session at rtf 100 = 1.143 belt orbits;
+  even T_Lyapunov = 1e3 orbits -> 1.1e-03 e-foldings: no scar in play.
+  HOLE (named): a persisted universe reloaded across ~1e4 orbits WOULD scar;
+  the bound covers the pitched game, not save/reload archaeology.
+
+== 5. H_live for the plane's scene (measured composition, 71 bodies) ==
+  kicks 0.74/s, encounters 0.123/s, losses 0.060/s -> ~40 bits/game-s (rate measured, bits/event guessed)
+m48: frames 600, frame_ms p50 0.99 p99 2.83 p99.9 6.25, worst 6.44 ms, hitches>16.7ms/hr 0.0, rtf median 100, overflow 3, digest 09e4085904c7, game_ms wall 0.7s
+m448: frames 600, frame_ms p50 4.76 p99 10.08 p99.9 10.41, worst 10.50 ms, hitches>16.7ms/hr 0.0, rtf median 100, overflow 105, digest aadaa1c81e2b, game_ms wall 3.4s
