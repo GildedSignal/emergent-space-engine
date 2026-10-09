@@ -1,0 +1,4 @@
+Working...
+Run complete — dossier, predictions, script and raw evidence in `lab/results/20261009-2212-fermi-a11b/` (the BrokenPipe above is `head` closing the pipe, not a script failure; full output shown earlier).
+
+**Claim:** measured on the real engine, the 10⁹-in-8-GB budget is decided by two hot-side terms — ~7.1 KB of unshared live compiled state per body (446× the law's 16-byte tube, the biggest lever on the board, ahead of the skin's 12.6×) and ~40 µs per hot event (N_hot ≈ 2×10⁴ at rtf 100 today, ladder to ~3×10⁷) — while cold populations are free by the horizon bound (a 100-hour session covers 1.1 belt orbits, so 10⁹ belt bodies cost 16 MB and 0.03 cores and never scar), the board's "190 cores at 10⁹" re-derives as 175 (the unaveraged low-orbit corner at rtf 1, its hidden parameter being the dynamical time silently assigned to every body), and H_live for the plane's scene is ~40 bits/game-second, bounded and irrelevant to the 10⁹ question.
