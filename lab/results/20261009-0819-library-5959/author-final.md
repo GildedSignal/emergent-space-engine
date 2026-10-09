@@ -1,0 +1,4 @@
+Working...
+Run complete: `dossier.md`, `predictions.md`, `skin_probe.py` + reproducible output (0.2 s, bit-for-bit), Readwise export cached and compressed, no git commands run.
+
+**Claim:** The slack skin must be a per-body binary law sized by measured drift — `s_i = sqrt(R·d_i/c_keep)` for quiet bodies, no skin at all for the fast-drifting concentrated minority (≥ R per rebuild) — because one global width loses 1.8–4× in candidate-maintenance work and 2–4.5× in worst-body smoothness on mixed belts (verified on a 20k-body work-rate toy, reproduced bit-for bit), with four further library-derived decision changes for the in-flight builds: B12 judges fragility by the error-exponent's slope against kick size, `b-encounter-skin` deletes the 92% window-setup cost before caching anything, H_live counts distinctions *read* by later events rather than written, and triggers stay binary local rules judged at the adversarial concentration tail.
