@@ -1,0 +1,145 @@
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..6ba9827 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -46,6 +46,29 @@ use emergent_space::{
+ };
+ use std::sync::Arc;
+ 
++/// Coarse wall-clock timers for the kick path (lab run 20261009-0401-quant-ea6b: where one kick's
++/// time goes). Thread-local, additive, printed by the kick bench; zero effect when unread.
++pub mod stages {
++    pub const N: usize = 6;
++    pub const NAMES: [&str; N] = ["readout", "gather", "forces_clock", "rebind", "other", "total"];
++    thread_local! {
++        static NS: std::cell::RefCell<[u64; N]> = const { std::cell::RefCell::new([0; N]) };
++    }
++    pub fn add(i: usize, ns: u64) {
++        NS.with(|c| c.borrow_mut()[i] += ns);
++    }
++    pub fn report() -> String {
++        NS.with(|c| {
++            let c = c.borrow();
++            let sum: u64 = c[..4].iter().sum();
++            format!(
++                "readout_ns={} gather_ns={} forces_clock_ns={} rebind_ns={} other_ns={} total_ns={}",
++                c[0], c[1], c[2], c[3], c[5].saturating_sub(sum), c[5]
++            )
++        })
++    }
++}
++
+ pub const MIN_STEP: i64 = 2 * 64;
+ pub const MAX_STEP: i64 = 1 << 50;
+ /// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
+@@ -577,14 +600,16 @@ impl Work<'_, '_> {
+         insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
+         Ok(())
+     }
+-
+-    /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
+-    /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
++        let __k0 = std::time::Instant::now();
+         let d = self.rec.b.doll;
++        let __t0 = std::time::Instant::now();
+         let st = self.rec.b.readout(t)?;
++        stages::add(0, __t0.elapsed().as_nanos() as u64);
+         let (x, v) = scalars(&st)?;
++        let __t1 = std::time::Instant::now();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
++        stages::add(1, __t1.elapsed().as_nanos() as u64);
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+         for (s, &j) in secs.iter().zip(sources) {
+@@ -600,9 +625,11 @@ impl Work<'_, '_> {
+             return Ok(Resolved::Lost);
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
++        let __t2 = std::time::Instant::now();
+         let f = force::field(&secs, x)?;
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
++        stages::add(2, __t2.elapsed().as_nanos() as u64);
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+@@ -615,7 +642,9 @@ impl Work<'_, '_> {
+         };
+         let fired = next.velocity != st.velocity;
+         if fired {
++            let __t3 = std::time::Instant::now();
+             self.rebind(next, t, d)?;
++            stages::add(3, __t3.elapsed().as_nanos() as u64);
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+@@ -651,6 +680,7 @@ impl Work<'_, '_> {
+                 }
+             }
+         }
++        stages::add(5, __k0.elapsed().as_nanos() as u64);
+         Ok(Resolved::Kick)
+     }
+ 
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..f95b01a 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -50,6 +50,13 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+     // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
+     let (mut made, mut leavers) = (Vec::new(), Vec::new());
++    // Lab run 20261009-0401-quant-ea6b: cold/warm pairing. With KICK_COLD set, each pending kick is
++    // replayed twice against the same snapshot: once after a 32 MiB sweep that evicts the plane's
++    // records from every cache (cold), once immediately after (warm). `process` is pure by contract,
++    // so the second call measures the same work on hot caches.
++    let cold_mode = std::env::var("KICK_COLD").is_ok();
++    let mut flushbuf = vec![1u8; 32 << 20];
++    let (mut colds, mut warms) = (Vec::new(), Vec::new());
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+@@ -81,10 +88,29 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
++            if cold_mode {
++                for b in flushbuf.iter_mut().step_by(64) {
++                    *b = b.wrapping_add(1);
++                }
++                std::hint::black_box(&flushbuf);
++            }
++            let rec2 = rec.clone();
+             let t0 = Instant::now();
+-            let upd = step::process(&s.p.u.ctx(), i, rec);
++            let upd = step::process(&s.p.u.ctx(), i, rec2);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
+-            if i < made_n { &mut made } else { &mut leavers }.push(us);
++            if !cold_mode && i < made_n {
++                &mut made
++            } else if !cold_mode {
++                &mut leavers
++            } else {
++                &mut colds
++            }.push(us);
++            if cold_mode {
++                let t1 = Instant::now();
++                let upd2 = step::process(&s.p.u.ctx(), i, rec);
++                warms.push(t1.elapsed().as_secs_f64() * 1e6);
++                let _ = upd2.kind;
++            }
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
+@@ -102,6 +128,10 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
++        "cold_mode": cold_mode,
++        "kick_us_cold": percentiles(&mut colds),
++        "kick_us_warm_paired": percentiles(&mut warms),
++        "stages_total": step::stages::report(),
+         "memo": shapes.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
