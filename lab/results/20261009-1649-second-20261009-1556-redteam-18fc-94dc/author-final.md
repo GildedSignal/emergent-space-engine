@@ -1,0 +1,4 @@
+Working...
+Run folder complete: `predictions.md` (17:20, pre-decisive), `dossier.md`, and `work/` with the harness source, both rtf tables, the dense log2-20 case, the sweep and the standalone slow measurement — all regenerable by the three dossier commands.
+
+**The claim:** the checker's named experiment is done and the premise holds — kinked tubes at closing β→1 (emitters rebound by the engine's own clock kicks, 10/10 kinks inside the swept emission range at rtf 100, and 12/12 emitters kinked with 244k kicks at `step_log2` 20) still gather with 0 drops, bit-identical cold and memo views, and bisection-oracle agreement on every emission tick at 1.15–1.92 readouts/emitter, while the strong-kink regime the checker feared is unproducible by physics (a relativistic tide deflects ~4e-8 relative; thrusting relativistic emitters do not exist in the engine — only the player thrusts, and the player is the observer).
