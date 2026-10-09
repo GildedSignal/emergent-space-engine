@@ -1,0 +1,24 @@
+Grade: lead
+
+**Abstract.** Claim: the far gravity-news cone saturates — 0–2 events/orbit at every quantum and radius. Not reproduced: the decisive metric is degenerate. `cone_news.py` subtracts `F.mean(axis=1)` per source and then sums: Σ(Fᵢ−F̄)≡0 identically, so W is machine-epsilon residue (|Σ(F−F̄)|≈4×10⁻¹⁷ vs force scale 1.16; identical event counts at ε 10⁻⁴/10⁻⁶; events scale with sample count 14/48/190 at n_t 480/1200/4800). Honest variants (dipole included, or tide relative to the doll origin) give ~3×10⁴ events/orbit at ε 10⁻⁴ in the author's own scene — the toy disk's shot noise dominates and the headline inverts. The static half (naive ∝R²; significant set saturates, 8425→8064 under 10× refinement; clump bills as ~6 aggregate levels) reproduces bit-identically. Cost to adopt: nothing; the scaling fear stays.
+
+## Reasons
+
+**1. Reproduction (clean tree, scratch copy).** `python3 cone.py repro_cone.json && python3 cone_news.py repro_news.json` — both output JSONs **bit-identical** to the stored ones (81 s total, well under 2 GB). Every dossier number regenerates. `predictions.md` mtime (−15 min) precedes scripts (−7/−2 min) and results (−7/−1 min); pre-registration holds. Novelty: no HISTORY entry measures news cost vs causal radius (H0011/H0019 are causal-kernel correctness, a different question); the HANDOFF line-74 risk is real and on the critical path for the queued `b-news-gravity`.
+
+**2. The decisive metric is void.** `cone_news.py:35-37`: `F = F − F.mean(axis=1)` then `.sum(axis=1)`. Summing mean-subtracted rows is **algebraically zero**; measured residual 4.3×10⁻¹⁷ ≈ machine epsilon × scale. The reported "0.99–2.0 events/orbit" is zero-crossings of roundoff: (i) ε-insensitive (stored: exp8192 = 61 events at both ε; my rerun 48 at both); (ii) grows ~linearly with sampling (14/48/190); (iii) not a "t=0 transient" — events spread over the whole run (0/48 before t=9). A measurement that cannot fail is a control. The intended quantity (tide relative to the doll's falling origin) would subtract per-source `F_i(0)`, not the mean over sources at the probe.
+
+**3. Honest replacements invert the headline.** Dipole-included (author's own control, ~10⁵/orbit claimed): 3.1×10⁴ events/orbit at ε 10⁻⁴, maxW/q ≈ 4.7×10⁴. Tide drive Σ[F_i(x_p)−F_i(0)]: same order. Diagnosis: tangential fluctuation RMS 0.067 (unretarded) to 0.14 (retarded) vs mean field 1.16, entirely from d<20 — the 4×10⁴-source toy disk beyond r_doll=2 is shot-noise dominated, so a restricted circular probe is energetically inconsistent at the ~E level. The sub-quantum far field may still hold at 10⁶+ members or under a generator compiled from the *actual* (not idealized σ) source set — neither was measured. The R-invariance of a zero signal carries no information.
+
+**4. Real, reproducible static results (the salvage).** Naive cone 20→40 140 (∝R²); individually-significant count flat in R (unif: 1782 at ε 10⁻⁶) and N-invariant under pareto refinement (8425→8064); clump bills as 17 vs 11 aggregate levels with members adding no individual cursors; exp kept-lines R-invariant (20 755 vs 20 647); flat mass function does not compress (kept 20 701→203 603, ∝N). Undisclosed: pareto kept-lines grow ~7× under 10× refinement (177 870→1 269 463) — the generator's read cost scales with refinement even where the significant set does not.
+
+**5. Secondary honesty nits.** "P1, P2, P4, P5 held … including the constants' orders" — P2 predicted N_sat = O(10²) at ε 10⁻⁶; measured 1782–18 272 (1–2 orders off). "40 orbits" is 61.6. "~2.1 M for N=4×10⁶, equal masses" is extrapolated; the sweep has no 4×10⁶-equal scene (numbers the shipped code cannot regenerate, as written).
+
+## What the author missed
+
+- The doll's free fall absorbs the dipole **as a frame acceleration**; it does not zero the far field's energy exchange with an orbit inside the doll. The tide relative to the origin is the news carrier, and it was never evaluated.
+- An energy-work metric on a fixed circular orbit is blind to eccentricity/angular-momentum pumping (resonances pump e at constant a) — the named leak is invisible to the named instrument even had it worked.
+- Scene representativeness: news rate was never swept against N at fixed mass (the actual scaling question); only R was swept, on a zero signal.
+- All eight rows of `news_results.json` agree because they share the same identically-zero cancellation — agreement is not independence when runs share a harness.
+
+**The experiment that would rehabilitate the claim:** drive = actual discrete far field minus a generator compiled from that same actual configuration; bill quantum crossings of energy *and* eccentricity vector over N ∈ {4×10⁴, 4×10⁶} and R ∈ {32, 8192}, circular and eccentric probes. If the rate is flat in N and R, the wall claim returns with a working instrument.
