@@ -1,0 +1,103 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..b4eb426 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -120,6 +120,10 @@ pub struct ViewCache {
+     slots: Vec<Option<Crossing>>,
+     /// Readouts spent finding crossings, in the last gather (a measure, not a result).
+     pub readouts: u64,
++    /// Profiling of the last gather, nanoseconds by part (a measure, not a result).
++    pub ns_player: u64,
++    pub ns_bodies: u64,
++    pub ns_fleets: u64,
+ }
+ 
+ impl ViewCache {
+@@ -241,6 +245,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     // A lost player (a wreck) stays where it was lost, its readings frozen at its last state: the universe goes on.
+     // A ship the engine could not carry on (refused kicks, possibly still "alive") is read at its last state when its tube or
+     // partial step cannot be read at the presented tick (the motion law v2 refuses a read far past its last boundary).
++    let prof_t0 = std::time::Instant::now();
+     let mut t_read = if rec.alive { t_now } else { rec.b.event_time };
+     let (xo, vo) = match root_state(&ctx, p, t_read) {
+         Ok(x) => x,
+@@ -265,6 +270,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
++    let ns_player = prof_t0.elapsed().as_nanos() as u64;
++    let prof_t1 = std::time::Instant::now();
+     let mut seen = Vec::new();
+     let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+         let d = [pos[0] - xo[0], pos[1] - xo[1]];
+@@ -291,10 +298,9 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         });
+     };
+     // The star.
+-    {
+         let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+-    }
++
+     // Bodies: where each tube crosses the past light cone.
+     let mut reads = 0u64;
+     for i in 0..u.n_bodies() {
+@@ -333,6 +339,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
++    let ns_bodies = prof_t1.elapsed().as_nanos() as u64;
++    let prof_t2 = std::time::Instant::now();
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
+     let mut motions = Vec::new();
+@@ -366,6 +374,12 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
++    let ns_fleets = prof_t2.elapsed().as_nanos() as u64;
++    if let Some(c) = cache.as_deref_mut() {
++        c.ns_player = ns_player;
++        c.ns_bodies = ns_bodies;
++        c.ns_fleets = ns_fleets;
++    }
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..843dad6 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -129,6 +129,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
++    let (gp, gb, gf, gr) = s.gather_profile();
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
+@@ -144,6 +145,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
++        "gather_profile_last": json!({"player_ns": gp, "bodies_ns": gb, "fleets_ns": gf, "readouts": gr, "note": "the last frame's gather, by part; readouts = state evaluations spent on light-cone crossings"}),
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..ce77201 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -69,6 +69,12 @@ impl Session {
+         self.p.u.stats
+     }
+ 
++    /// The last gather's profile: nanoseconds in the player's own reads, the per-body crossings
++    /// and the fleet extrapolations, plus the readouts the crossings spent (a measure, not a result).
++    pub fn gather_profile(&self) -> (u64, u64, u64, u64) {
++        (self.cache.ns_player, self.cache.ns_bodies, self.cache.ns_fleets, self.cache.readouts)
++    }
++
+     /// One presented frame: the player's decision word when it is given (the keys and the throttle level, one byte:
+     /// [`emergent_universe::thrust::word`]; a decision, logged at the presented tick if it changed; a scripted run schedules its decisions at canonical ticks instead and passes none), the
+     /// engine's budgeted advance (never past the cut), the view, its serialisation. Returns the view as JSON and

@@ -1,0 +1,4 @@
+Working...
+Dossier complete and verified against the raw JSONs. Tree diff is the pure instrumentation patch (digests reproduced bit-for-bit against the unpatched binary on three configs); all artifacts are in `lab/results/20261009-2212-constraint-2380/`.
+
+**Claim:** on today's plane the frame's constraint is not the engine but the synchronous, unbudgeted view gather — one light-cone readout costs a seed-stable ~10.5 µs, the gather is O(live bodies) per frame (≈3.2 ms at 405 bodies, 56–78 % of frame compute at every scale tried) while the engine is budgeted and deferrable, so at ~1,600 live bodies the gather alone eats the whole 16.7 ms frame — a violation of the plane's own foundation 7 hidden by the `--members 400` clamp — and, as a by-product, paced-at-60 Hz runs on an idle cloud core inflate per-frame compute ~4× (DVFS wake), a timing trap for every lab number.
