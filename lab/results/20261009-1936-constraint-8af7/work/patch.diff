@@ -1,0 +1,174 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f3076..fc0f09b 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -122,6 +122,21 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
+     Ok((cartesian(state, tube.periapsis_angle, entry.clockwise, units)?, state))
+ }
+ 
++
++/// Readout attribution counters (this run's instrumentation; ns and calls). Accumulate across the
++/// engine and the view alike: the report notes the mix.
++pub static CARTESIAN_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static CARTESIAN_N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static SECONDARIES_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static SECONDARIES_N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
++/// `(cartesian ms, secondaries ms, cartesian calls, secondaries calls)`, then all reset.
++pub fn readout_stats() -> (f64, f64, u64, u64) {
++    use std::sync::atomic::Ordering;
++    let c = CARTESIAN_NS.swap(0, Ordering::Relaxed) as f64 / 1e6;
++    let s = SECONDARIES_NS.swap(0, Ordering::Relaxed) as f64 / 1e6;
++    (c, s, CARTESIAN_N.swap(0, Ordering::Relaxed), SECONDARIES_N.swap(0, Ordering::Relaxed))
++}
+ impl Binding {
+     /// A length or time of the compiled trajectory (in units of the doll's mass) in the doll's own units.
+     pub fn to_doll(&self, x: Scalar) -> Res<Scalar> {
+@@ -149,8 +164,13 @@ impl Binding {
+ 
+     /// Position and velocity as scalars in the doll's units.
+     pub fn cartesian(&self, t: Tick) -> Res<(V2, V2)> {
+-        scalars(&self.readout(t)?)
++        let t0 = std::time::Instant::now();
++        let r = scalars(&self.readout(t)?);
++        CARTESIAN_NS.fetch_add(t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++        CARTESIAN_N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        r
+     }
++
+ }
+ 
+ /// An integer state as scalars (units of the doll, c = 1).
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..8ac3b28 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -73,17 +73,25 @@ impl Ctx<'_> {
+ 
+     /// The secondaries of doll `d` at `t` (excluding `except`), in `d`'s units.
+     pub fn secondaries(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
+-        let mut out = Vec::new();
+-        for &j in &self.sources[d as usize] {
+-            if j == except {
+-                continue;
+-            }
+-            let (pos, vel) = self.state_of(j, t)?;
+-            out.push(Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi });
+-        }
+-        Ok(out)
++        let t0 = std::time::Instant::now();
++        let r = self.secondaries_inner(d, t, except);
++        crate::bind::SECONDARIES_NS.fetch_add(t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++        crate::bind::SECONDARIES_N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        r
+     }
+ 
++    fn secondaries_inner(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
++         let mut out = Vec::new();
++         for &j in &self.sources[d as usize] {
++             if j == except {
++                 continue;
++             }
++             let (pos, vel) = self.state_of(j, t)?;
++             out.push(Secondary { gm: self.info[j].gm, pos, vel, edge: self.info[j].soi });
++         }
++         Ok(out)
++     }
++
+     /// The radius of body `j`'s own surface, in the units of the doll `host` it sits in: the surface of the doll it is the
+     /// centre of (in that doll's units), converted. None for a body that is not the centre of a doll.
+     pub fn surface_in(&self, j: usize, host: u16) -> Res<Option<Scalar>> {
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..5386112 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -18,7 +18,22 @@ use crate::num::{to_f64, Tick};
+ use crate::observe::{clock_rate, clocks_with, root_state, state_rate};
+ use crate::universe::Universe;
+ use emergent_space::orbit::Scalar;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::time::Instant;
+ 
++/// Where the gather's time goes, accumulated across calls (ns): [0] the per-body crossing loop,
++/// [1] the fleet-motions loop, [2] inside `state_rate` (the tube readout through the doll chain).
++/// Counters only: they never touch the view (the digest control holds).
++pub static GATHER_NS: [AtomicU64; 3] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
++
++/// Newton evaluations (`state_rate` calls) the crossings asked for, accumulated across calls.
++pub static GATHER_EVALS: AtomicU64 = AtomicU64::new(0);
++
++/// The three accumulators in ms plus the Newton-eval count, all reset to zero (one call per report).
++pub fn gather_stats() -> ([f64; 3], u64) {
++    let ns = GATHER_NS.each_ref().map(|a| a.swap(0, Ordering::Relaxed) as f64 / 1e6);
++    (ns, GATHER_EVALS.swap(0, Ordering::Relaxed))
++}
+ /// Seconds in one tick (`G·M_sun/c³`, the star's `M/c`).
+ pub const TICK_SECONDS: f64 = 4.925_490_947e-6;
+ 
+@@ -296,6 +311,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
+     // Bodies: where each tube crosses the past light cone.
++    let g0 = Instant::now();
+     let mut reads = 0u64;
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+@@ -303,7 +319,13 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         }
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+-        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| {
++            let e0 = Instant::now();
++            let r = state_rate(&ctx, i, t);
++            GATHER_NS[2].fetch_add(e0.elapsed().as_nanos() as u64, Ordering::Relaxed);
++            GATHER_EVALS.fetch_add(1, Ordering::Relaxed);
++            r.ok().map(|(x, v, rate)| At { x, v, rate })
++        }, t_now, xo, guess) else { continue };
+         if let Some(c) = cache.as_deref_mut() {
+             // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+             let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+@@ -333,8 +355,10 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
++    GATHER_NS[0].fetch_add(g0.elapsed().as_nanos() as u64, Ordering::Relaxed);
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
++    let g1 = Instant::now();
+     let mut motions = Vec::new();
+     for (fi, f) in u.fleets.iter().enumerate() {
+         let tc = f.tick();
+@@ -366,6 +390,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
++    GATHER_NS[1].fetch_add(g1.elapsed().as_nanos() as u64, Ordering::Relaxed);
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..0719d3d 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -128,7 +128,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         .collect();
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+-    let (cut_tick, digest) = s.digest_at_cut();
++    let (cart_ms, sec_ms, cart_n, sec_n) = emergent_universe::bind::readout_stats();
++     let (gparts, gevals) = emergent_universe::view::gather_stats();
++     let (cut_tick, digest) = s.digest_at_cut();
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
+@@ -144,7 +146,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+-        "engine_budget_ms": s.engine_ms, "throttle_level": level,
++        "readout_parts_ms": {"cartesian": cart_ms, "secondaries_total": sec_ms, "cartesian_calls": cart_n, "secondaries_calls": sec_n, "note": "engine and view both included (engine is ~1/8 of the view's time here); cartesian = Binding::cartesian (tube decode), secondaries = the doll's sources read out per call"},
++         "gather_parts_ms": {"bodies_loop": gparts[0], "fleet_loop": gparts[1], "state_rate_inside": gparts[2], "newton_evals": gevals, "note": "accumulated across the run's frames (then reset): the per-body crossing loop, the fleet-motions loop, and time inside state_rate (tube readouts)"},
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",

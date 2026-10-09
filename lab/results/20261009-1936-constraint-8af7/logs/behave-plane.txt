@@ -1,0 +1,25 @@
+machine_state {"time_utc":"2026-10-09T19:45:07Z","when":"start"}
+command: $CARGO_TARGET_DIR/release/xtask behave --law plane   (default gate set; wall 99.5 s)
+G1 FAIL advance per cycle: 0/256 within 1e-2, worst inf [0.05 s]
+G2 FAIL radial periods: 0/256 within 1e-3, worst inf [0.05 s]
+G3 FAIL deflection: 0/64 within 1e-2, worst inf [0.00 s]
+G4 FAIL capture: 5 of 10 misclassified ["L/4=0.5", "L/4=0.9", "L/4=0.97", "b/bc=0.9", "b/bc=0.97"] [0.00 s]
+G5 FAIL long run: 0/32 seeds over 10000 cycles (32 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2) [0.00 s]
+G6 FAIL prograde: 0/256 advances positive [0.00 s]
+B7 FAIL clocks: static 0/64 within 1e-12 worst inf (64 unanswered), circular 0/64 within 1e-12 worst inf (64 unanswered), radii log-uniform in [3, 1e4] [0.00 s]
+B9 FAIL cost per body: 0/512 orbits within 2m·log2(r_apo/r_peri)+8 (worst margin -inf crossings), at e = 0.99 up to NaN crossings against a bound of 252.4; on G1's 256 (e < 0.7) median NaN crossings per cycle (limit 64), p95 NaN, max NaN, 512 of 512 unanswered; advance_per_cycle after the first call: median 5 ns, p95 5 ns over 256 seeds (reported) [0.00 s]
+B10 FAIL cost against n: not implemented, or a NaN or negative cost at n=1e3 [0.00 s]
+B11 FAIL binaries: precession 0/1024 within (1% + 16/p), worst inf of the allowance; period 0/620 judged within 1e-3, worst inf (needs 64 judged) [0.00 s]
+B12 FAIL handoffs: 16 frozen ships (...), 1 not converged, 1 inside the planet; 14 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them inf (limit 0.2), worst inf; 44 candidates replaced at the freeze because the reference passes inside the planet [...]
+B13 FAIL assists: 60/64 judged flybys within 1e-2 in both ΔE and ΔL, worst ΔE 2.12e-2 ΔL 2.12e-2; 0 of 64 excluded; 9 draws replaced, the reference passing inside the planet [...] [2.14 s]
+B14 FAIL timeout: 60.0 s over the 60 s limit
+machine_state {"time_utc":"2026-10-09T19:46:47Z","when":"end"}
+
+Reading (constraint lens): G1–G6, B7, B9–B11 answer "unanswered/inf" through the plane adapter —
+those gates judge the `space` compiler, not the shipped plane (the adapter's own module doc:
+B12–B14 and B17 are the plane's gates), so their FAIL here is by construction, not a regression.
+B12 shows the known miscalibrated statistic (exponent inf on all judged ships). B13 reproduces
+the handoff exactly (60/64, failures marginal at 2.12e-2 against 1e-2). B17 never ran: B14
+consumed its whole 60 s budget and the run ended there. Cost of the suite: ~100 s wall, of which
+B14 alone is 60 s — the plane's behaviour judging is itself paced by one gate's timeout, and the
+default gate list invites this by-construction failure reading.
