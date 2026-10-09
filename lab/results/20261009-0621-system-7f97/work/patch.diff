@@ -1,0 +1,39 @@
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..81b7e79 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -39,7 +39,10 @@ pub struct Config {
+ }
+ impl Default for Config {
+     fn default() -> Self {
+-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
++        // lab experiment (20261009-0621-system-7f97): the kick cadence from UNIVERSE_STEP_LOG2,
++        // defaulting to the shipped 7; behave uses --plane-step, the bench has no flag.
++        let step_log2 = std::env::var("UNIVERSE_STEP_LOG2").ok().and_then(|s| s.parse().ok()).unwrap_or(7);
++        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2 }
+     }
+ }
+ 
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..455ee46 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -469,8 +469,17 @@ impl Work<'_, '_> {
+         if self.on_clock() {
+             return self.plan_clock(t);
+         }
++        // lab experiment (20261009-0621-system-7f97): the base cadence of a body in the root doll
++        // (no dominant secondary nearby) from UNIVERSE_STEP_OUTER, defaulting to the shipped
++        // cadence so the law is unchanged without it. Inside a secondary's doll (d != 0) the
++        // cadence stays cfg.step_log2: the passage regime binds there (B13).
++        let outer = std::env::var("UNIVERSE_STEP_OUTER")
++            .ok()
++            .and_then(|s| s.parse::<i32>().ok())
++            .unwrap_or(self.ctx.cfg.step_log2);
+         let edge = (d != 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player)).then(|| self.doll().edge);
+-        let want = step_for(&self.rec.b, self.ctx.cfg.step_log2, edge)?;
++        let per_period_log2 = if d != 0 { self.ctx.cfg.step_log2 } else { outer };
++        let want = step_for(&self.rec.b, per_period_log2, edge)?;
+         // Thrust steps: the burn moves the velocity by a small fraction of the local speed.
+         let want = match self.rec.thrust {
+             Some(th) if th.keys & 3 != 0 => want.min(self.thrust_step(t)?),
