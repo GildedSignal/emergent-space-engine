@@ -1,0 +1,106 @@
+{
+ "rows": [
+  {
+   "name": "kick arithmetic (incremental + 0.05 compiles/kick)",
+   "val": "4.89e-05"
+  },
+  {
+   "name": "certificate cascade: two-tier, no skin",
+   "val": "9.66e-01"
+  },
+  {
+   "name": "certificate cascade: two-tier + slack skin",
+   "val": "7.67e-02"
+  },
+  {
+   "name": "certificate cascade: phase-neighbour rank-4",
+   "val": "4.76e-03"
+  },
+  {
+   "name": "certificate cascade: fixed-extent belt, two-tier (pairs \u221d N, no cert fix)",
+   "val": "9.7e+04"
+  },
+  {
+   "name": "certificate cascade: two-tier + skin, UNAVERAGED k=32",
+   "val": "8.76e+00"
+  },
+  {
+   "name": "certificate cascade: two-tier, no skin, UNAVERAGED k=32",
+   "val": "1.10e+02"
+  },
+  {
+   "name": "encounter handling (0.00586/body/orbit)",
+   "val": "4.65e-06"
+  },
+  {
+   "name": "scars at live fraction 1% (24 B each)",
+   "val": "0.24 GB"
+  },
+  {
+   "name": "scars at live fraction 10% (24 B each)",
+   "val": "2.40 GB"
+  },
+  {
+   "name": "scars at live fraction 33% (24 B each)",
+   "val": "7.92 GB"
+  },
+  {
+   "name": "per-body event keys (12 B x 1e9)",
+   "val": "12.0 GB  (> 8 GB)"
+  },
+  {
+   "name": "program-level keys (1 per 128-body block)",
+   "val": "94 MB"
+  },
+  {
+   "name": "scar creation (=kick rate) vs reabsorption",
+   "val": "222/s vs 5.7e+06/s per core (3e+04x slack)"
+  },
+  {
+   "name": "live bodies at 1e5 s residence",
+   "val": "2.2e+07 = 0.53 GB"
+  },
+  {
+   "name": "max rtf on 4 cores: averaged + skin",
+   "val": "5,216"
+  },
+  {
+   "name": "max rtf on 4 cores: averaged, no skin",
+   "val": "414"
+  },
+  {
+   "name": "max rtf on 4 cores: unaveraged + skin",
+   "val": "46"
+  },
+  {
+   "name": "max rtf on 4 cores: unaveraged, no skin",
+   "val": "4"
+  },
+  {
+   "name": "max rtf on 4 cores: averaged + phase-neighbour",
+   "val": "84,112"
+  },
+  {
+   "name": "re-derivation of board's '190 cores' (k=32, no skin, rtf 100, fixed density)",
+   "val": "110 cores"
+  },
+  {
+   "name": "same at P=1 yr",
+   "val": "442 cores"
+  }
+ ],
+ "constants": {
+  "N": 1000000000.0,
+  "P": 126000000.0,
+  "RTF": 100,
+  "SKIN": 12.6,
+  "K_AVG": 0.28,
+  "K_FULL": 32.0,
+  "PAIRS_PER_KICK": 812.8,
+  "US_PER_PAIR": 5.35,
+  "COMPILE_US": 3.4,
+  "ENC_PER_BODY_ORBIT": 0.00586,
+  "SCAR_BYTES": 24,
+  "KEY_BYTES": 12
+ }
+}
