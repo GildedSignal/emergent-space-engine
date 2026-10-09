@@ -1,0 +1,4 @@
+Working...
+Run folder complete: `predictions.md` (pre-registered), `falsifier.py` (23 s, self-validating with controls), `falsifier-out.json`, `dossier.md`.
+
+**Claim:** representation.md §2's view gather — "Newton's method finds the crossing, starting from the previous frame's" — is structurally blind to crossings being *born*: in a plain star-transit (truth = backward ray tracing on the design's own Binet photon law), the continuation gather never acquires the caustic-born second image and misses a 41–78 %-as-bright companion at 4.7–5.1° for 100 % of the frames in which it exists, while no rung or gate (r6 is cost-only; B3/B16 judge single-path deflection) would catch it — convergence itself is safe (Fermat monotonicity, ≤ 5 iterations, control passes), so the fix is one design sentence (±b branch enumeration per lensing doll, or a per-pixel gather) plus one behaviour criterion in r6.
