@@ -1,0 +1,222 @@
+diff --git a/crates/universe/examples/twin.rs b/crates/universe/examples/twin.rs
+new file mode 100644
+index 0000000..b1d7433
+--- /dev/null
++++ b/crates/universe/examples/twin.rs
+@@ -0,0 +1,133 @@
++//! Twin universes under the shipped plane: how a one-quantum perturbation of one body
++//! propagates through the law (the dynamics lens, lab run 20261009-0621).
++//!
++//! Three channels, one harness each:
++//!   member — one fleet member's lattice position +perturb (contacts + the frame's origin)
++//!   ship   — one restricted-scene ship's orbit radius +perturb (nothing reads a ship)
++//!   planet — the planet's orbit radius +perturb (every kick reads the planet)
++//!
++//! Prints one CSV line per checkpoint:
++//!   mode,perturb,t,wall_s,nA,nB,ndiff,kind_diff,digest_eq,f_members,f_contacts,f_digest_eq,kicks,events
++use emergent_universe::fleet::{Order, Q};
++use emergent_universe::scenario::{plane_with, restricted};
++use emergent_universe::{Config, Universe};
++use std::collections::hash_map::DefaultHasher;
++use std::hash::{Hash, Hasher};
++use std::time::Instant;
++
++fn rec_hash(u: &Universe, i: usize) -> u64 {
++    let mut h = DefaultHasher::new();
++    format!("{:?}", u.rec(i)).hash(&mut h);
++    h.finish()
++}
++
++fn diff(a: &Universe, b: &Universe) -> (usize, String) {
++    let n = a.n_bodies().min(b.n_bodies());
++    let mut kinds: Vec<&'static str> = Vec::new();
++    for i in 0..n {
++        if rec_hash(a, i) != rec_hash(b, i) {
++            kinds.push(match a.rec(i).kind {
++                emergent_universe::body::Kind::Planet => "planet",
++                emergent_universe::body::Kind::Moon => "moon",
++                emergent_universe::body::Kind::Ship => "ship",
++                emergent_universe::body::Kind::Player => "player",
++            });
++        }
++    }
++    kinds.sort_unstable();
++    let ndiff = kinds.len();
++    (ndiff, if kinds.is_empty() { "-".to_string() } else { kinds.join("+") })
++}
++
++fn checkpoints(max: i64) -> Vec<i64> {
++    let mut ts = Vec::new();
++    let mut t = 100_000i64;
++    while t < max {
++        ts.push(t);
++        t = (t as f64 * 1.8) as i64;
++    }
++    ts.push(max);
++    ts
++}
++
++fn run(mut a: Universe, mut b: Universe, fleet: Option<usize>, mode: &str, perturb: i64, max: i64, wall_s: u64) {
++    let t0 = Instant::now();
++    println!("mode,perturb,t,wall_s,nA,nB,ndiff,kind_diff,digest_eq,f_members,f_contacts,f_digest_eq,kicks,events");
++    for t in checkpoints(max) {
++        a.settle(t);
++        b.settle(t);
++        let (ndiff, kinds) = diff(&a, &b);
++        let (fm, fc, fdeq) = match fleet {
++            Some(f) => {
++                let deq = a.fleets[f].outcome_digest() == b.fleets[f].outcome_digest();
++                (a.fleets[f].members(), a.fleets[f].contacts(), deq)
++            }
++            None => (0, 0, true),
++        };
++        println!(
++            "{mode},{perturb},{t},{:.2},{},{},{},{},{},{},{},{},{},{},{}",
++            t0.elapsed().as_secs_f64(),
++            a.n_bodies(),
++            b.n_bodies(),
++            ndiff,
++            kinds,
++            a.digest() == b.digest(),
++            fm,
++            fc,
++            fdeq,
++            a.stats.kicks,
++            a.stats.events(),
++            a.stats.encounters
++        );
++        if t0.elapsed().as_secs_f64() > wall_s as f64 {
++            eprintln!("wall guard at t={t}");
++            break;
++        }
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mut mode = "member".to_string();
++    let (mut perturb, mut members, mut seed, mut max, mut wall) = (1i64, 48i64, 7u64, 600_000_000i64, 40u64);
++    let mut it = args.into_iter().skip(1);
++    while let Some(a) = it.next() {
++        let mut v = || it.next().expect("value");
++        match a.as_str() {
++            "member" | "ship" | "planet" => mode = a,
++            "--perturb" => perturb = v().parse().unwrap(),
++            "--members" => members = v().parse().unwrap(),
++            "--seed" => seed = v().parse().unwrap(),
++            "--max" => max = v().parse().unwrap(),
++            "--wall" => wall = v().parse().unwrap(),
++            _ => panic!("unknown arg {a}"),
++        }
++    }
++    match mode.as_str() {
++        "member" => {
++            let (mut wa, _) = emergent_engine::scenes::battle(members as u64, Q, seed, 1 << 15, false);
++            let (wb, _) = emergent_engine::scenes::battle(members as u64, Q, seed, 1 << 15, false);
++            let k = wa.bodies.len() / 2;
++            wa.bodies[k].x[0] += perturb;
++            let pa = plane_with(Config::default(), seed, Order::Sparse, 1, wa).unwrap();
++            let pb = plane_with(Config::default(), seed, Order::Sparse, 1, wb).unwrap();
++            run(pa.u, pb.u, Some(pa.fleet), &mode, perturb, max, wall);
++        }
++        "ship" | "planet" => {
++            let base = [3_000_000i64, 5_000_000, 8_000_000, 12_000_000, 20_000_000, 32_000_000, 50_000_000, 80_000_000];
++            let mut ra = Vec::new();
++            for (j, dr) in base.iter().enumerate() {
++                ra.push((*dr, ((j as u64 * (1u64 << 32)) / base.len() as u64) as u32));
++            }
++            let mut rb = ra.clone();
++            if mode == "ship" {
++                ra[0].0 += perturb;
++            }
++            let sep = 527_000_000i64 + if mode == "planet" { perturb } else { 0 };
++            let a = restricted(-10i32, sep, 47_400, &ra, 1).unwrap();
++            let b = restricted(-10i32, 527_000_000, 47_400, &rb, 1).unwrap();
++            run(a.u, b.u, None, &mode, perturb, max, wall);
++        }
++        _ => unreachable!(),
++    }
++}
+diff --git a/crates/universe/examples/twin_check.rs b/crates/universe/examples/twin_check.rs
+new file mode 100644
+index 0000000..bb56e88
+--- /dev/null
++++ b/crates/universe/examples/twin_check.rs
+@@ -0,0 +1,77 @@
++//! Checker variant (not the author's): same twin construction, but prints the *indices* of
++//! differing bodies, so containment (made bodies 0..28 identical) is testable directly.
++use emergent_universe::fleet::{Order, Q};
++use emergent_universe::scenario::{plane_with, restricted};
++use emergent_universe::{Config, Universe};
++use std::collections::hash_map::DefaultHasher;
++use std::hash::{Hash, Hasher};
++
++fn rec_hash(u: &Universe, i: usize) -> u64 {
++    let mut h = DefaultHasher::new();
++    format!("{:?}", u.rec(i)).hash(&mut h);
++    h.finish()
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mut mode = "member".to_string();
++    let (mut perturb, mut members, mut seed, mut max) = (1i64, 48i64, 1u64, 600_000_000i64);
++    let mut it = args.into_iter().skip(1);
++    while let Some(a) = it.next() {
++        let mut v = || it.next().expect("value");
++        match a.as_str() {
++            "member" | "ship" | "planet" => mode = a,
++            "--perturb" => perturb = v().parse().unwrap(),
++            "--members" => members = v().parse().unwrap(),
++            "--seed" => seed = v().parse().unwrap(),
++            "--max" => max = v().parse().unwrap(),
++            _ => panic!("unknown arg {a}"),
++        }
++    }
++    match mode.as_str() {
++        "member" => {
++            let (mut wa, _) = emergent_engine::scenes::battle(members as u64, Q, seed, 1 << 15, false);
++            let (mut wb, _) = emergent_engine::scenes::battle(members as u64, Q, seed, 1 << 15, false);
++            let k = wa.bodies.len() / 2;
++            wa.bodies[k].x[0] += perturb;
++            let pa = plane_with(Config::default(), seed, Order::Sparse, 1, wa).unwrap();
++            let pb = plane_with(Config::default(), seed, Order::Sparse, 1, wb).unwrap();
++            report(&mut pa.u, &mut pb.u, &mode, perturb, max);
++        }
++        "ship" | "planet" => {
++            let base = [3_000_000i64, 5_000_000, 8_000_000, 12_000_000, 20_000_000, 32_000_000, 50_000_000, 80_000_000];
++            let mut ra = Vec::new();
++            for (j, dr) in base.iter().enumerate() {
++                ra.push((*dr, ((j as u64 * (1u64 << 32)) / base.len() as u64) as u32));
++            }
++            let mut rb = ra.clone();
++            if mode == "ship" {
++                ra[0].0 += perturb;
++            }
++            let sep = 527_000_000i64 + if mode == "planet" { perturb } else { 0 };
++            let a = restricted(-10i32, sep, 47_400, &ra, 1).unwrap();
++            let b = restricted(-10i32, 527_000_000, 47_400, &rb, 1).unwrap();
++            report(&mut a.u, &mut b.u, &mode, perturb, max);
++        }
++        _ => unreachable!(),
++    }
++}
++
++fn report(a: &mut Universe, b: &mut Universe, mode: &str, perturb: i64, max: i64) {
++    let mut t = 600_000_000i64.min(max);
++    if max < 600_000_000 {
++        // still walk the checkpoints like the author's harness
++        t = max;
++    }
++    // settle both fully to t (single cut, like the last checkpoint)
++    a.settle(t);
++    b.settle(t);
++    let n = a.n_bodies().min(b.n_bodies());
++    let mut diffs = Vec::new();
++    for i in 0..n {
++        if rec_hash(a, i) != rec_hash(b, i) {
++            diffs.push(i);
++        }
++    }
++    println!("{mode},{perturb},{t},nA={},nB={},ndiff={},indices=[{}],made_diff={}", a.n_bodies(), b.n_bodies(), diffs.len(), diffs.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(","), diffs.iter().filter(|&&i| i < 28).count());
++}
