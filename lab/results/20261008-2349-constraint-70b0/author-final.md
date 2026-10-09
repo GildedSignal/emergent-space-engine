@@ -1,0 +1,4 @@
+Working...
+Dossier complete, all numbers grounded in the saved JSONs. Final folder: `lab/results/20261008-2349-constraint-70b0/` (predictions.md, dossier.md, 6 measurement JSONs; instrumentation left in-tree for `run.sh` to save as the patch — digests verified unchanged across both instrumented builds).
+
+**Claim:** measured on the whole plane, the one constraint at the service level is not the engine but the view's light-cone crossing — an unbudgeted O(bodies)-per-presented-frame synchronous gather holding 66–74% of frame time at every rtf (1/100/1000), 97% of it the ramped readout (60% tube decode, 39% the motion-law-v2 partial step's re-reading of the sources, Binding clone 0.7%), with Newton already at the 1.0-readout-per-emitter floor — so the lever is budgeting/amortizing the gather itself (plane.md §7's own unkept rule), after which the constraint returns to the kick path and, at scale, to encounters and H_live.

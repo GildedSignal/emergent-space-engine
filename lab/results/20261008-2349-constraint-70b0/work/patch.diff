@@ -1,0 +1,196 @@
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d..33a196d 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -10,6 +10,25 @@
+ use crate::bind::{Binding, Kick};
+ use crate::body::{BodyRec, BodyStore};
+ use crate::force;
++use std::sync::atomic::{AtomicU64, Ordering};
++pub static BINDING_NS: AtomicU64 = AtomicU64::new(0);
++pub static CARTESIAN_NS: AtomicU64 = AtomicU64::new(0);
++pub static PARTIAL_NS: AtomicU64 = AtomicU64::new(0);
++
++pub fn binding_ms() -> f64 { BINDING_NS.load(Ordering::Relaxed) as f64 / 1e6 }
++pub fn cartesian_ms() -> f64 { CARTESIAN_NS.load(Ordering::Relaxed) as f64 / 1e6 }
++pub fn partial_ms() -> f64 { PARTIAL_NS.load(Ordering::Relaxed) as f64 / 1e6 }
++
++/// Run-wide counters for the view's profile (lab 20261008-2349): how one gather multiplies into
++/// readouts. Consulted only by the bench.
++pub static READOUTS: AtomicU64 = AtomicU64::new(0);
++pub static RAMPS: AtomicU64 = AtomicU64::new(0);
++pub static FIELDS: AtomicU64 = AtomicU64::new(0);
++
++pub fn readout_count() -> u64 { READOUTS.load(Ordering::Relaxed) }
++pub fn ramp_count() -> u64 { RAMPS.load(Ordering::Relaxed) }
++pub fn field_count() -> u64 { FIELDS.load(Ordering::Relaxed) }
++
+ use crate::ctx::Ctx;
+ use crate::num::{add2, scale2, time_of, to_f64, Res, Tick, V2};
+ use crate::{step, thrust};
+@@ -144,6 +163,7 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+         let (x_mid, _) = base.cartesian(mid)?;
+         let field = force::field(&ctx.secondaries(base.doll, mid, i)?, x_mid)?;
+         let tau_s = time_of(tau, base.clock_exp)?;
++    FIELDS.fetch_add(1, Ordering::Relaxed);
+         let dv = scale2(field.accel, tau_s)?;
+         let dx = scale2(dv, tau_s.scale(-1)?)?;
+         let (p, v) = base.cartesian(t)?;
+@@ -154,7 +174,9 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+ 
+ /// Body `i`'s binding at `t` and its state there, completed between kicks ([`partial`], or the ramp [`credit`]), in the units of its doll.
+ pub fn ramped(ctx: &Ctx, i: usize, t: Tick) -> Res<(Binding, V2, V2)> {
++    let t0 = std::time::Instant::now();
+     let b = ctx.bodies.binding_at(i, t).ok_or(crate::num::Error::Refused("history pruned"))?;
++    BINDING_NS.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
+     let (p, v) = ramped_in(ctx, i, t, &b)?;
+     Ok((b, p, v))
+ }
+@@ -162,11 +184,17 @@ pub fn ramped(ctx: &Ctx, i: usize, t: Tick) -> Res<(Binding, V2, V2)> {
+ /// [`ramped`] for a binding already in hand (`b` is the one body `i` has at `t`).
+ pub fn ramped_in(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+     if b.kick.clock {
+-        return partial(ctx, i, t, b);
++        let t0 = std::time::Instant::now();
++        let r = partial(ctx, i, t, b);
++        PARTIAL_NS.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
++        return r;
+     }
++    let t0 = std::time::Instant::now();
+     let (p, v) = b.cartesian(t)?;
+     let (dx, dv) = credit(ctx.bodies, i, t, b)?;
+-    Ok((add2(p, dx)?, add2(v, dv)?))
++    let r = Ok((add2(p, dx)?, add2(v, dv)?));
++    CARTESIAN_NS.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    r
+ }
+ 
+ /// A body's position and velocity in the root frame (root length units, c = 1, so one root length
+@@ -261,12 +289,15 @@ pub fn clocks_with(ctx: &Ctx, i: usize, t: Tick, dv: [f64; 2]) -> Res<Clocks> {
+ /// at root tick `t`, in one walk up the doll chain: [`root_state`] and [`clock_rate`] share every readout
+ /// (the view reads both for each emitter, at the emitter's retarded time).
+ pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)> {
++    READOUTS.fetch_add(1, Ordering::Relaxed);
+     let (mut pos, mut vel, mut rate) = ([0.0f64; 2], [0.0f64; 2], 1.0f64);
+     let (mut cur, mut below) = (i, None::<[f64; 2]>);
+     loop {
+         let (b, p, v) = ramped(ctx, cur, t)?;
+-        let (p, v) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
++        RAMPS.fetch_add(1, Ordering::Relaxed);
++         let (p, v) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
+         let doll = &ctx.dolls[b.doll as usize];
++
+         let k = 2f64.powi(-(doll.shift as i32));
+         pos = [pos[0] + p[0] * k, pos[1] + p[1] * k];
+         vel = [vel[0] + v[0], vel[1] + v[1]];
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..f222138 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -14,6 +14,39 @@
+ //! The direction in the observer's frame is the aberrated one. Light is straight in the root frame
+ //! (no lensing yet).
+ use crate::body::Kind;
++use std::sync::atomic::Ordering;
++
++/// A one-run profile of the gather (the constraint lens, lab 20261008-2349): where the view's time
++/// goes, in phases, with the readout counts that explain it. Accumulated over the run, read by the
++/// bench, never consulted by the gather itself.
++pub mod prof {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    pub static OBSERVER_NS: AtomicU64 = AtomicU64::new(0);
++    pub static CROSSING_NS: AtomicU64 = AtomicU64::new(0);
++    pub static FLEET_NS: AtomicU64 = AtomicU64::new(0);
++    pub static EMITTERS: AtomicU64 = AtomicU64::new(0);
++    pub static NEWTON_STEPS: AtomicU64 = AtomicU64::new(0);
++}
++use std::time::Instant;
++
++/// The gather's profile so far (ms and counts since process start), as a debug string for the bench.
++pub fn profile_summary() -> String {
++    format!(
++        "observer_ms={:.1} crossing_ms={:.1} fleet_ms={:.1} emitters={} newton_steps={} readouts={} ramps={} fields={}",
++        prof::OBSERVER_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e6,
++        prof::CROSSING_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e6,
++        prof::FLEET_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e6,
++        prof::EMITTERS.load(std::sync::atomic::Ordering::Relaxed),
++        prof::NEWTON_STEPS.load(std::sync::atomic::Ordering::Relaxed),
++        crate::observe::readout_count(),
++        crate::observe::ramp_count(),
++        crate::observe::field_count(),
++    )
++}
++
++pub fn ramp_profile() -> String {
++    format!("binding_ms={:.1} cartesian_ms={:.1} partial_ms={:.1}", crate::observe::binding_ms(), crate::observe::cartesian_ms(), crate::observe::partial_ms())
++}
+ use crate::num::{to_f64, Tick};
+ use crate::observe::{clock_rate, clocks_with, root_state, state_rate};
+ use crate::universe::Universe;
+@@ -231,7 +264,8 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+ }
+ 
+ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
+-    let ctx = u.ctx();
++    let prof_t0 = Instant::now();
++     let ctx = u.ctx();
+     if let Some(c) = cache.as_mut() {
+         c.readouts = 0;
+     }
+@@ -265,6 +299,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
++    prof::OBSERVER_NS.fetch_add(prof_t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
+     let mut seen = Vec::new();
+     let mut push = |id: usize, name: &str, kind: u8, pos: [f64; 2], vel: [f64; 2], rate: f64, temp: f64, lum: f64, radius_root: f64, lag: f64, t_e: f64| {
+         let d = [pos[0] - xo[0], pos[1] - xo[1]];
+@@ -296,7 +331,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
+     // Bodies: where each tube crosses the past light cone.
+-    let mut reads = 0u64;
++    let prof_t1 = Instant::now();
++     let mut reads = 0u64;
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+             continue;
+@@ -330,12 +366,16 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+     }
++    prof::CROSSING_NS.fetch_add(prof_t1.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    prof::EMITTERS.fetch_add(1 + u.n_bodies() as u64, Ordering::Relaxed);
++    prof::NEWTON_STEPS.fetch_add(reads, Ordering::Relaxed);
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
+-    let mut motions = Vec::new();
++    let prof_t2 = Instant::now();
++     let mut motions = Vec::new();
+     for (fi, f) in u.fleets.iter().enumerate() {
+         let tc = f.tick();
+         let (Some((o, ov)), Ok((cp, cv))) = (f.origin(tc), root_state(&ctx, f.centre, tc.max(u.bodies().event_time(f.centre)).min(t_now))) else { continue };
+@@ -366,6 +406,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
++    prof::FLEET_NS.fetch_add(prof_t2.elapsed().as_nanos() as u64, Ordering::Relaxed);
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..3e7bb82 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -144,6 +144,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
++        "view_profile": emergent_universe::view::profile_summary(),
++        "ramp_profile": emergent_universe::view::ramp_profile(),
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
