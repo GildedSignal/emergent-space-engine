@@ -1,0 +1,278 @@
+diff --git a/crates/encounters/Cargo.toml b/crates/encounters/Cargo.toml
+index 8081275..e9078f9 100644
+--- a/crates/encounters/Cargo.toml
++++ b/crates/encounters/Cargo.toml
+@@ -10,3 +10,8 @@ description = "Research: every encounter between orbiting bodies without work pe
+ [[bin]]
+ name = "encounters"
+ path = "src/main.rs"
++
++
++[[bin]]
++name = "rank"
++path = "src/bin/rank.rs"
+\ No newline at end of file
+diff --git a/crates/encounters/src/bin/rank.rs b/crates/encounters/src/bin/rank.rs
+new file mode 100644
+index 0000000..e358121
+--- /dev/null
++++ b/crates/encounters/src/bin/rank.rs
+@@ -0,0 +1,144 @@
++//! Run 20261009-1858-inversion-9d6d (inversion lens): the phase-neighbour certificate's
++//! partner-rank law. A fleet on one orbit (a uniform in [1, 1+band], Rayleigh e, uniform
++//! phase, as in main.rs's `coorbital` scene); the crate's rigorous truth over one window
++//! H; for every real encounter, the partner's rank in the mean-longitude sort at window
++//! start — which is exactly what a rank-k phase-neighbour certificate can see.
++//! One JSON object per line on stdout.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::TAU;
++
++fn fleet(m: usize, band: f64, sigma_e: f64, seed: u64, phase_win: f64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..m)
++        .map(|_| {
++            let a = 1.0 + band * rng.f64();
++            let u = rng.f64();
++            let e = (sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = TAU * rng.f64();
++            // phase_win = 0: uniform over TAU; else uniform in a window of that width (a bunched fleet).
++            let lam = if phase_win <= 0.0 {
++                TAU * rng.f64()
++            } else {
++                rng.f64() * phase_win
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++fn pct(sorted: &[u32], p: f64) -> u32 {
++    if sorted.is_empty() {
++        return 0;
++    }
++    let i = (((sorted.len() as f64) * p).ceil() as usize).saturating_sub(1).min(sorted.len() - 1);
++    sorted[i]
++}
++
++fn main() {
++    // args: m band sigma_e rho orbits seed [threads]
++    let a: Vec<String> = std::env::args().collect();
++    let m: usize = a[1].parse().unwrap();
++    let band: f64 = a[2].parse().unwrap();
++    let sigma_e: f64 = a[3].parse().unwrap();
++    let rho: f64 = a[4].parse().unwrap();
++    let orbits: f64 = a[5].parse().unwrap();
++    let seed: u64 = a[6].parse().unwrap();
++    let threads: usize = a.get(7).map_or(6, |s| s.parse().unwrap());
++    let phase_win: f64 = a.get(8).map_or(0.0, |s| s.parse().unwrap());
++
++    let bodies = fleet(m, band, sigma_e, seed, phase_win);
++    // Mean-longitude sort at window start (t = 0). lam0 as generated.
++    let mut ord: Vec<usize> = (0..m).collect();
++    ord.sort_by(|&i, &j| {
++        let li = (bodies[i].pom + bodies[i].mean_anomaly(0.0)).rem_euclid(TAU);
++        let lj = (bodies[j].pom + bodies[j].mean_anomaly(0.0)).rem_euclid(TAU);
++        li.partial_cmp(&lj).unwrap()
++    });
++    let mut rank_of = vec![0u32; m];
++    for (r, &i) in ord.iter().enumerate() {
++        rank_of[i] = r as u32;
++    }
++
++    let t_end = orbits * TAU;
++    let pairs: Vec<(u32, u32)> = (0..m)
++        .flat_map(|i| ((i + 1)..m).map(move |j| (i as u32, j as u32)))
++        .collect();
++    let npairs = pairs.len();
++
++    let t0 = std::time::Instant::now();
++    let parts = par_chunks(npairs, 128, threads, |r| {
++        let mut out: Vec<(u32, u32, f64, f64)> = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&bodies[i as usize], &bodies[j as usize], rho, t_end, &mut tmp, &mut st);
++            for &(t, d) in &tmp {
++                if t > 0.05 && t < t_end - 0.05 {
++                    out.push((i, j, t, d));
++                }
++            }
++        }
++        (out, st)
++    });
++    let mut enc: Vec<(u32, u32, f64, f64)> = Vec::new();
++    let mut st = TruthStats::default();
++    for (o, s) in &parts {
++        enc.extend(o.iter().copied());
++        st.add(s);
++    }
++    let secs = t0.elapsed().as_secs_f32();
++    let mut ranks: Vec<u32> = enc
++        .iter()
++        .map(|&(i, j, _, _)| {
++            let d = (rank_of[i as usize] as i64 - rank_of[j as usize] as i64).abs() as u32;
++            // Circular rank: the phase sort lives on a circle; the wrap side counts too.
++            d.min(m as u32 - d)
++        })
++        .collect();
++    ranks.sort();
++
++    // The drift law: k_pred = m * E|dn| * H / TAU, with E|dn| = 1.5 * band/3 for a uniform band.
++    let k_pred = m as f64 * 0.5 * band * orbits;
++
++    let ks: [u32; 7] = [1, 2, 4, 8, 16, 32, 64];
++    let miss: Vec<String> = ks
++        .iter()
++        .map(|&k| {
++            let missed = ranks.iter().filter(|&&r| r > k).count();
++            format!("{}:{:.5}", k, missed as f64 / ranks.len().max(1) as f64)
++        })
++        .collect();
++
++    let mean_rank = if ranks.is_empty() {
++        0.0
++    } else {
++        ranks.iter().map(|&r| r as f64).sum::<f64>() / ranks.len() as f64
++    };
++
++    println!(
++        "{{\"m\":{},\"band\":{},\"sigma_e\":{},\"rho\":{},\"orbits\":{},\"seed\":{},\"pairs\":{},\"enc\":{},\"evals\":{},\"secs\":{:.1},\"k_pred\":{:.2},\"rank_p50\":{},\"rank_p90\":{},\"rank_p99\":{},\"rank_max\":{},\"rank_mean\":{:.2},\"miss\":{{{}}},\"tier_pairs_per_enc\":{:.1}}}",
++        m,
++        band,
++        sigma_e,
++        rho,
++        orbits,
++        seed,
++        npairs,
++        enc.len(),
++        st.evals,
++        secs,
++        k_pred,
++        pct(&ranks, 0.50),
++        pct(&ranks, 0.90),
++        pct(&ranks, 0.99),
++        ranks.last().copied().unwrap_or(0),
++        mean_rank,
++        miss.join(","),
++        npairs as f64 / enc.len().max(1) as f64
++    );
++}
+diff --git a/crates/encounters/src/bin/rank2.rs b/crates/encounters/src/bin/rank2.rs
+new file mode 100644
+index 0000000..a4482c0
+--- /dev/null
++++ b/crates/encounters/src/bin/rank2.rs
+@@ -0,0 +1,108 @@
++//! Checker probe (20261009-1858 check): the gold's metric — partner rank at closest approach,
++//! in the mean-longitude order AT THE ENCOUNTER TIME (a dynamically re-sorted train), versus the
++//! author's metric (rank in the t=0 static sort). Same fleet generator and truth as rank.rs.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::TAU;
++
++fn fleet(m: usize, band: f64, sigma_e: f64, seed: u64, phase_win: f64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..m)
++        .map(|_| {
++            let a = 1.0 + band * rng.f64();
++            let u = rng.f64();
++            let e = (sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = TAU * rng.f64();
++            let lam = if phase_win <= 0.0 { TAU * rng.f64() } else { rng.f64() * phase_win };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++/// Mean longitude at time t, O(1), exact from the integer period.
++#[inline]
++fn lam(b: &Body, t: f64) -> f64 {
++    (b.pom + b.mean_anomaly(t)).rem_euclid(TAU)
++}
++
++fn pct(sorted: &mut Vec<u32>, p: f64) -> u32 {
++    if sorted.is_empty() {
++        return 0;
++    }
++    sorted.sort_unstable();
++    let i = (((sorted.len() as f64) * p).ceil() as usize).saturating_sub(1).min(sorted.len() - 1);
++    sorted[i]
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let m: usize = a[1].parse().unwrap();
++    let band: f64 = a[2].parse().unwrap();
++    let sigma_e: f64 = a[3].parse().unwrap();
++    let rho: f64 = a[4].parse().unwrap();
++    let orbits: f64 = a[5].parse().unwrap();
++    let seed: u64 = a[6].parse().unwrap();
++    let threads: usize = a.get(7).map_or(6, |s| s.parse().unwrap());
++    let phase_win: f64 = a.get(8).map_or(0.0, |s| s.parse().unwrap());
++
++    let bodies = fleet(m, band, sigma_e, seed, phase_win);
++    let t_end = orbits * TAU;
++    let pairs: Vec<(u32, u32)> = (0..m)
++        .flat_map(|i| ((i + 1)..m).map(move |j| (i as u32, j as u32)))
++        .collect();
++    let npairs = pairs.len();
++
++    let parts = par_chunks(npairs, 128, threads, |r| {
++        let mut out: Vec<(u32, u32, f64, f64)> = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&bodies[i as usize], &bodies[j as usize], rho, t_end, &mut tmp, &mut st);
++            for &(t, d) in &tmp {
++                if t > 0.05 && t < t_end - 0.05 {
++                    out.push((i, j, t, d));
++                }
++            }
++        }
++        (out, st)
++    });
++    let mut enc: Vec<(u32, u32, f64, f64)> = Vec::new();
++    for (o, _) in &parts {
++        enc.extend(o.iter().copied());
++    }
++
++    // Dynamic rank: for each encounter, count bodies in the mean-longitude arc between the
++    // pair at the encounter time (circular min of the two arcs).
++    let mut lams_t: Vec<f64> = vec![0.0; m];
++    let mut dyn_ranks: Vec<u32> = Vec::with_capacity(enc.len());
++    for &(i, j, t, _) in &enc {
++        let li = lam(&bodies[i as usize], t);
++        let lj = lam(&bodies[j as usize], t);
++        let d = (lj - li).rem_euclid(TAU);
++        let mut c: u32 = 0;
++        for (k, b) in bodies.iter().enumerate() {
++            if k == i as usize || k == j as usize {
++                continue;
++            }
++            let lk = lam(b, t);
++            let dk = (lk - li).rem_euclid(TAU);
++            if dk > 0.0 && dk < d {
++                c += 1;
++            }
++        }
++        let c2 = (m - 2) as u32 - c;
++        dyn_ranks.push(c.min(c2));
++    }
++    let mean = dyn_ranks.iter().map(|&r| r as f64).sum::<f64>() / dyn_ranks.len().max(1) as f64;
++    let mut v = dyn_ranks.clone();
++    println!(
++        "{{\"m\":{},\"band\":{},\"sigma_e\":{},\"orbits\":{},\"seed\":{},\"enc\":{},\"dyn_rank_p50\":{},\"dyn_rank_p90\":{},\"dyn_rank_p99\":{},\"dyn_rank_max\":{},\"dyn_rank_mean\":{:.2}}}",
++        m, band, sigma_e, orbits, seed, enc.len(),
++        pct(&mut v, 0.50), pct(&mut v, 0.90), pct(&mut v, 0.99),
++        dyn_ranks.iter().copied().max().unwrap_or(0), mean,
++    );
++}
