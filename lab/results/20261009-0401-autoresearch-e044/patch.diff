@@ -1,0 +1,52 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..b41741e 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -148,6 +148,13 @@ pub struct Knot {
+     pub psi: u64,
+     sum: Integral,
+ }
++impl Knot {
++    /// The five partial sums at this knot. Read-only bench/bless surface; the
++    /// compiler's exactness checks hash these to compare implementations.
++    pub fn sums(&self) -> [Scalar; 5] {
++        self.sum.0
++    }
++}
+ 
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ pub struct OrbitShape {
+@@ -324,7 +331,6 @@ impl OrbitShape {
+         ]))
+     }
+     // Fixed point inside the normalized panel; the virtual point is moved only at
+-    // its boundary. Ratios floor/x <=1 bound every clock product independently of R.
+     fn fast_quad(&self, lo: i128, hi: i128) -> Result<Integral> {
+         let h = hi - lo;
+         let mid = lo + h / 2;
+@@ -353,11 +359,21 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                // Exact 128/64 division in native digits whenever the quotient is
++                // word-sized; the software 128/128 path stays as the guarded fallback,
++                // so the bits are identical either way.
++                let div64 = |n: u128, d: u128| -> u64 {
++                    if d <= u64::MAX as u128 && (n >> 64) < d {
++                        crate::num::div_word(n, d as u64)
++                    } else {
++                        (n / d) as u64
++                    }
++                };
++                let g = div64(1u128 << 104, root);
++                let g1 = div64(a as u128 * g as u128, ONE as u128 + root);
++                let ratio = div64((self.floor as u128) << 62, x as u128);
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = div64((rtau as u128) << 62, horizon as u128);
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;
