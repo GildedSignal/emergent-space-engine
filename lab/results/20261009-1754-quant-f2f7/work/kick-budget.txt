@@ -1,0 +1,33 @@
+sizes: BodyRec=448 Item=16 Segment=192 Binding=176 Entry=224 Scalar=16 calendar_slot=36
+N=    16 build= 0.00s settle= 0.006s events=    293 (kicks 142 opens 17 bnd 134 | ship-class 276) per_event_all=   19111ns per_event_ship=   20069ns allocs/event=5.96 bytes/event=1657 bytes_of_body~2
+        cadence: 7.325e-12 events/body/tick  (0.000 events per body per game-second)
+N=  1024 build= 0.01s settle= 0.316s events=  18814 (kicks 9137 opens 1025 bnd 8652 | ship-class 17789) per_event_all=   16809ns per_event_ship=   17480ns allocs/event=5.94 bytes/event=1647 bytes_of_body~2
+        cadence: 7.349e-12 events/body/tick  (0.000 events per body per game-second)
+N=  8192 build= 0.08s settle= 2.835s events= 150040 (kicks 72832 opens 8193 bnd 69015 | ship-class 141847) per_event_all=   18898ns per_event_ship=   19485ns allocs/event=5.94 bytes/event=1644 bytes_of_body~2
+        cadence: 7.326e-12 events/body/tick  (0.000 events per body per game-second)
+N= 65536 build= 0.74s settle=23.277s events=1200775 (kicks 582874 opens 65537 bnd 552364 | ship-class 1135238) per_event_all=   19385ns per_event_ship=   19772ns allocs/event=5.94 bytes/event=1644 bytes_of_body~2
+        cadence: 7.329e-12 events/body/tick  (0.000 events per body per game-second)
+pool scene: 16384 ships built in 0.18s
+clone_alone_hot: p50=84ns p99=87ns n=2000
+pure_hot: p50=21709ns p99=24042ns n=2000 kicks=2000/2000
+pure_pool_cold pass1: p50=23099ns p99=25814ns n=16384 kicks=16384 pass_wall=0.381s
+pure_pool_cold pass2: p50=23114ns p99=25879ns n=16384 kicks=16384 pass_wall=0.381s
+pure_clflush_cold: p50=23314ns p99=35046ns n=4096 kicks=4096
+stage readout: p50=2828ns
+stage secondaries: p50=3895ns
+stage tide: p50=24ns
+stage root_state: p50=10343ns
+budget: allowed ns/event = cores*1e9/(N * rate_per_tick * 203252 * rtf=100), rtf from Julien's flight view (--rtf 100)
+  this_scene P~7.6e13t N=1e6: allowed 3739200598 ns/event
+  this_scene P~7.6e13t N=1e9: allowed    3739201 ns/event
+  belt_1AU P=6.42e12t N=1e6: allowed   19741503 ns/event
+  belt_1AU P=6.42e12t N=1e9: allowed      19742 ns/event
+  low_moon P=6.4e10t N=1e6: allowed     196800 ns/event
+  low_moon P=6.4e10t N=1e9: allowed        197 ns/event
+  measured scene cadence: 7.326e-12/body/tick -> at N=1e9 allowed 26863 ns/event; N_max at 1000ns/event = 2.69e10
+machine: "x86_64"
+compile 3.8 us
+state 3.1 us
+cartesian 0.3 us
+IntegerState { position: [1274138011768175682, 64088609140714079], velocity: [-54786647622694175, 1100112659949373346], length_exponent: -30, velocity_exponent: -75 }
+from_state 12.8 us

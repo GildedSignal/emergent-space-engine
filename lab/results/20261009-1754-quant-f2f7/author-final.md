@@ -1,0 +1,4 @@
+Working...
+Run complete. Artifacts: `lab/results/20261009-1754-quant-f2f7/` — `predictions.md` (frozen before the runs, with kill rules), `dossier.md`, `work/kick-budget.txt` (full log), harness in the tree as `crates/universe/examples/kick_budget.rs` (saved as the run's patch).
+
+**The claim, in one sentence:** on the plane's own scene the per-event cost is the law's resolve itself — the rebind `Rebinding::from_state` is ~60 % of every kick (12.8 µs of 21.7 µs hot) while memory, the calendar and the allocator are under ~15 % combined (cold/hot 1.07, flat in N to 65 536, 5.9 allocs/event) — and the derived ns/event budget puts 10⁹ bodies at 1 AU-belt cadence and rtf 100 exactly on the line (19.7 µs allowed vs 19–20 µs measured, p99 already over), so the next 10× must come from an incremental rebind and kicks-per-orbit, not from per-event polish.
