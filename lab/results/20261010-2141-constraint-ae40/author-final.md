@@ -1,0 +1,4 @@
+Working...
+Run complete: six bench JSONs with canonical digests, predictions written before the sweeps, dossier in `lab/results/20261010-2141-constraint-ae40/`.
+
+**The claim:** on the plane as it flies on main, the frame's real constraint is not the kick cadence the board attacks — the median frame is view-bound (the light-cone gather is 65–70% of frame CPU, ~13 µs per emitter per frame, independent of rtf) and the p99 frame is engine-bound by single *player* events that overrun the 5 ms budget (1.3–3.4 ms each, growing with fleet size through an O(doll-bodies) encounter scan), while the engine's median is 0.25–0.4 ms — so the board's "fewer kicks per orbit" work currently optimizes the cheapest 17% of the frame, and the queued b-readout and Binet-cone builds are the levers that move both the median and the tail.
