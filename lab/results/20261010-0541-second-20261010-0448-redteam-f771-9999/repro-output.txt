@@ -1,0 +1,42 @@
+=== Held-out Binet probe: r1 bands applied beyond r1's seed set (e<=0.7) ===
+host: Linux 6.8.0-111-generic, cpus=8, load=0.36
+M=1.0, m=16 bands/octave; candidate = exact in-band rotation, closed-form events; oracle = RK4 exact Binet ODE
+
+--- bound orbits (r1 criteria: prec 1%, period 0.1%, shape 1%, crossings 512) ---
+r_p=  7.0 e= 0.75  prec_err= 5.06e-04 PASS  period_err= 6.71e-04 PASS  shape_err= 5.85e-04 PASS  cross/cyc=  90.0 PASS   (prec_o=2.6114 rad/cyc, L=4.156, E=0.982896)
+r_p=  7.0 e= 0.85  prec_err= 4.76e-04 PASS  period_err= 1.19e-03 FAIL  shape_err= 9.13e-04 PASS  cross/cyc= 116.0 PASS   (prec_o=2.3931 rad/cyc, L=4.263, E=0.989553)
+r_p=  7.0 e=  0.9  prec_err= 4.63e-04 PASS  period_err= 1.83e-03 FAIL  shape_err= 1.33e-03 PASS  cross/cyc= 136.0 PASS   (prec_o=2.2978 rad/cyc, L=4.317, E=0.992975)
+r_p=  7.0 e= 0.95  prec_err= 4.52e-04 PASS  period_err= 3.74e-03 FAIL  shape_err= 2.61e-03 PASS  cross/cyc= 170.0 PASS   (prec_o=2.2103 rad/cyc, L=4.372, E=0.996458)
+r_p=  7.0 e= 0.99  prec_err= 4.45e-04 PASS  period_err= 1.93e-02 FAIL  shape_err= 1.29e-02 FAIL  cross/cyc= 246.0 PASS   (prec_o=2.1452 rad/cyc, L=4.416, E=0.999287)
+r_p=  8.0 e= 0.75  prec_err= 4.10e-04 PASS  period_err= 5.60e-04 PASS  shape_err= 4.69e-04 PASS  cross/cyc=  89.7 PASS   (prec_o=2.0846 rad/cyc, L=4.333, E=0.984916)
+r_p=  8.0 e= 0.85  prec_err= 3.91e-04 PASS  period_err= 9.79e-04 PASS  shape_err= 7.40e-04 PASS  cross/cyc= 117.7 PASS   (prec_o=1.9234 rad/cyc, L=4.447, E=0.990818)
+r_p=  8.0 e=  0.9  prec_err= 3.83e-04 PASS  period_err= 1.51e-03 FAIL  shape_err= 1.08e-03 PASS  cross/cyc= 135.7 PASS   (prec_o=1.8522 rad/cyc, L=4.504, E=0.993835)
+r_p=  8.0 e= 0.95  prec_err= 3.76e-04 PASS  period_err= 3.07e-03 FAIL  shape_err= 2.13e-03 PASS  cross/cyc= 169.7 PASS   (prec_o=1.7865 rad/cyc, L=4.561, E=0.996896)
+r_p=  8.0 e= 0.99  prec_err= 3.71e-04 PASS  period_err= 1.58e-02 FAIL  shape_err= 1.06e-02 FAIL  cross/cyc= 245.7 PASS   (prec_o=1.7373 rad/cyc, L=4.607, E=0.999376)
+r_p= 10.0 e= 0.75  prec_err= 2.54e-04 PASS  period_err= 4.09e-04 PASS  shape_err= 3.35e-04 PASS  cross/cyc=  90.0 PASS   (prec_o=1.4926 rad/cyc, L=4.688, E=0.987818)
+r_p= 10.0 e= 0.85  prec_err= 2.48e-04 PASS  period_err= 7.14e-04 PASS  shape_err= 5.34e-04 PASS  cross/cyc= 116.0 PASS   (prec_o=1.3874 rad/cyc, L=4.813, E=0.992614)
+r_p= 10.0 e=  0.9  prec_err= 2.46e-04 PASS  period_err= 1.10e-03 FAIL  shape_err= 7.87e-04 PASS  cross/cyc= 136.0 PASS   (prec_o=1.3404 rad/cyc, L=4.875, E=0.995050)
+r_p= 10.0 e= 0.95  prec_err= 2.43e-04 PASS  period_err= 2.26e-03 FAIL  shape_err= 1.55e-03 PASS  cross/cyc= 168.0 PASS   (prec_o=1.2966 rad/cyc, L=4.938, E=0.997513)
+r_p= 10.0 e= 0.99  prec_err= 2.41e-04 PASS  period_err= 1.15e-02 FAIL  shape_err= 7.72e-03 PASS  cross/cyc= 244.0 PASS   (prec_o=1.2637 rad/cyc, L=4.988, E=0.999501)
+
+--- P5: exact cycle repetition at e=0.95, r_p=8, 40 cycles (r1 band 1e-12 rel) ---
+cycles=40  max rel dev of dphi/cycle=1.17e-11  of dtime/cycle=8.91e-13
+
+--- P6: massive hyperbolic flybys (light-gate band 1% as reference) ---
+r_p=  8.0 E=  1.05 v_inf=0.305c  defl_exact=  2.2138 rad  defl_banded=  2.2132  err= 2.63e-04 PASS(1%)
+r_p=  8.0 E= 1.155 v_inf=0.500c  defl_exact=  1.3828 rad  defl_banded=  1.3825  err= 2.27e-04 PASS(1%)
+r_p=  8.0 E= 1.414 v_inf=0.707c  defl_exact=  0.9439 rad  defl_banded=  0.9437  err= 2.56e-04 PASS(1%)
+r_p=  8.0 E=   2.0 v_inf=0.866c  defl_exact=  0.7556 rad  defl_banded=  0.7554  err= 2.98e-04 PASS(1%)
+r_p= 10.0 E=  1.05 v_inf=0.305c  defl_exact=  1.7576 rad  defl_banded=  1.7572  err= 2.15e-04 PASS(1%)
+r_p= 10.0 E= 1.155 v_inf=0.500c  defl_exact=  1.0498 rad  defl_banded=  1.0495  err= 2.80e-04 PASS(1%)
+r_p= 10.0 E= 1.414 v_inf=0.707c  defl_exact=  0.7008 rad  defl_banded=  0.7007  err= 1.70e-04 PASS(1%)
+r_p= 10.0 E=   2.0 v_inf=0.866c  defl_exact=  0.5567 rad  defl_banded=  0.5566  err= 2.52e-04 PASS(1%)
+r_p= 15.0 E=  1.05 v_inf=0.305c  defl_exact=  1.1884 rad  defl_banded=  1.1882  err= 1.53e-04 PASS(1%)
+r_p= 15.0 E= 1.155 v_inf=0.500c  defl_exact=  0.6510 rad  defl_banded=  0.6509  err= 1.17e-04 PASS(1%)
+r_p= 15.0 E= 1.414 v_inf=0.707c  defl_exact=  0.4156 rad  defl_banded=  0.4155  err= 2.59e-04 PASS(1%)
+r_p= 15.0 E=   2.0 v_inf=0.866c  defl_exact=  0.3239 rad  defl_banded=  0.3238  err= 4.17e-04 PASS(1%)
+
+--- controls ---
+oracle Richardson h=1e-4 vs 5e-5: rel diff 8.29e-13
+scattering oracle Richardson: rel diff 1.08e-12
+oracle period Richardson: rel diff 7.17e-08

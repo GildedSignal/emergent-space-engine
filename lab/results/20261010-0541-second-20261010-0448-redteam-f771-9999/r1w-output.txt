@@ -1,0 +1,138 @@
+=== r1w: re-frozen r1 end-to-end (sampler widened to e<=0.99, hyperbolic bands, m sweep) ===
+host: Linux 6.8.0-111-generic, cpus=8, load=1.35
+oracle: vectorized RK4 exact Schwarzschild Binet, h=1e-4 (+Richardson controls); candidate: exact in-band solution (rotation | hyperbolic), closed-form events
+
+bound seeds: 256 drawn (Random(20261010), p log-U[10,1000] then e log-U[0.01,0.99], reject unless p>=6.5+2e and bound); 0 attempts rejected
+  seeds with r_p<6M (hyperbolic periapsis bands): 0; e>0.9: 6; e range [0.0101, 0.9344]; r_p range [6.73, 957.37]
+
+--- oracle controls ---
+tie-out (r_p=7.0, e=0.99): dphi vec-vs-shipped 0.00e+00, period 1.33e-08
+tie-out (r_p=8.0, e=0.95): dphi vec-vs-shipped 0.00e+00, period 1.43e-07
+oracle Richardson h=1e-4 vs 5e-5 (32 seeds): max |ddphi| 1.12e-12, max |dperiod| 5.21e-13
+precession vs 1PN 6pi/p (r_p=100, e=0.5, p=150): oracle 0.12962 vs 0.12566 (3.1% = 2PN scale)
+
+--- binet-m16: bound seeds (r1 criteria: prec 1%, period 0.1%, crossings<=512 median) ---
+precession_pass_fraction = 0.9883 (worst err 1.54e-02)
+prograde_fraction        = 1.0000
+period_pass_fraction     = 0.9766 (worst err 3.35e-03, 6 fails)
+    period fail: r_p=   15.70 e=0.0106 err=3.35e-03
+    period fail: r_p=    7.94 e=0.9344 err=2.41e-03
+    period fail: r_p=    6.73 e=0.8622 err=1.34e-03
+    period fail: r_p=   18.52 e=0.0171 err=1.18e-03
+    period fail: r_p=    8.72 e=0.8843 err=1.14e-03
+    period fail: r_p=   32.63 e=0.0121 err=1.10e-03
+    precession fail: r_p=   15.70 e=0.0106 err=1.54e-02
+    precession fail: r_p=   38.88 e=0.0107 err=1.19e-02
+    precession fail: r_p=   32.63 e=0.0121 err=1.12e-02
+crossings_per_cycle median = 10.0, max = 156.0
+
+[binet-m16] low-e strong-field grid (r1 period band 0.1% per point):
+    r_p=  10.9 e= 0.01  period_err=3.27e-03 FAIL
+    r_p=  10.9 e= 0.02  period_err=1.75e-03 FAIL
+    r_p=  12.0 e= 0.01  period_err=1.96e-03 FAIL
+    r_p=  12.0 e= 0.02  period_err=1.28e-03 FAIL
+    r_p=  13.4 e= 0.01  period_err=3.72e-03 FAIL
+    r_p=  13.4 e= 0.02  period_err=1.28e-03 FAIL
+
+--- binet-m32: bound seeds (r1 criteria: prec 1%, period 0.1%, crossings<=512 median) ---
+precession_pass_fraction = 1.0000 (worst err 1.62e-03)
+prograde_fraction        = 1.0000
+period_pass_fraction     = 1.0000 (worst err 5.97e-04, 0 fails)
+crossings_per_cycle median = 18.0, max = 312.0
+
+[binet-m32] low-e strong-field grid (r1 period band 0.1% per point):
+    r_p=  10.9 e= 0.01  period_err=9.94e-04 PASS
+    r_p=  10.9 e= 0.02  period_err=4.28e-04 PASS
+    r_p=  12.0 e= 0.01  period_err=6.33e-04 PASS
+    r_p=  12.0 e= 0.02  period_err=2.08e-04 PASS
+    r_p=  13.4 e= 0.01  period_err=6.71e-04 PASS
+    r_p=  13.4 e= 0.02  period_err=2.52e-04 PASS
+
+--- binet-m64: bound seeds (r1 criteria: prec 1%, period 0.1%, crossings<=512 median) ---
+precession_pass_fraction = 1.0000 (worst err 3.84e-04)
+prograde_fraction        = 1.0000
+period_pass_fraction     = 1.0000 (worst err 1.48e-04, 0 fails)
+crossings_per_cycle median = 38.0, max = 624.0
+
+[binet-m64] low-e strong-field grid (r1 period band 0.1% per point):
+    r_p=  10.9 e= 0.01  period_err=1.86e-05 PASS
+    r_p=  10.9 e= 0.02  period_err=3.79e-05 PASS
+    r_p=  12.0 e= 0.01  period_err=1.10e-04 PASS
+    r_p=  12.0 e= 0.02  period_err=6.23e-05 PASS
+    r_p=  13.4 e= 0.01  period_err=3.06e-05 PASS
+    r_p=  13.4 e= 0.02  period_err=8.92e-06 PASS
+
+--- m-sweep: error scaling on fixed cases (expect m^-2, i.e. ratio ~4 per doubling) ---
+hi-e strong (7,0.99): period 1.93e-02/4.75e-03/1.18e-03 ratios 4.065/4.037 slope -2.018; precession slope -2.159
+hi-e strong (7,0.95): period 3.74e-03/9.37e-04/2.34e-04 ratios 3.992/4.008 slope -2.000; precession slope -2.160
+mid (8,0.9): period 1.51e-03/3.81e-04/9.62e-05 ratios 3.966/3.958 slope -1.986; precession slope -2.063
+weak (10,0.9): period 1.10e-03/2.79e-04/7.18e-05 ratios 3.931/3.886 slope -1.967; precession slope -1.956
+
+low-e grid point (r_p=10.9, e=0.01): period 3.27e-03/9.94e-04/1.86e-05 slope -3.730
+
+--- per-e period-band boundary at m=32: largest e with period_err <= 0.1% ---
+r_p=   7.0: e=0.85:3.0e-04  e=0.90:4.6e-04  e=0.93:6.6e-04  e=0.95:9.4e-04  e=0.97:1.6e-03  e=0.98:2.4e-03  e=0.99:4.7e-03   => e* = 0.95
+r_p=   8.0: e=0.85:2.5e-04  e=0.90:3.8e-04  e=0.93:5.4e-04  e=0.95:7.7e-04  e=0.97:1.3e-03  e=0.98:1.9e-03  e=0.99:3.9e-03   => e* = 0.95
+r_p=  10.0: e=0.85:1.8e-04  e=0.90:2.8e-04  e=0.93:4.0e-04  e=0.95:5.7e-04  e=0.97:9.6e-04  e=0.98:1.4e-03  e=0.99:2.9e-03   => e* = 0.97
+r_p=  15.0: e=0.85:1.2e-04  e=0.90:1.8e-04  e=0.93:2.5e-04  e=0.95:3.6e-04  e=0.97:6.0e-04  e=0.98:9.0e-04  e=0.99:1.8e-03   => e* = 0.98
+r_p=  30.0: e=0.85:6.0e-05  e=0.90:9.0e-05  e=0.93:1.2e-04  e=0.95:1.7e-04  e=0.97:2.8e-04  e=0.98:4.2e-04  e=0.99:8.4e-04   => e* = 0.99
+r_p= 100.0: e=0.85:2.1e-05  e=0.90:2.9e-05  e=0.93:4.1e-05  e=0.95:5.5e-05  e=0.97:8.8e-05  e=0.98:1.3e-04  e=0.99:2.5e-04   => e* = 0.99
+
+--- hyperbolic periapsis bands (r_p<6M), m=32: outcome + errors ---
+r_p=  4.5 e= 0.95: bound  prec_err=2.03e-04 period_err=1.82e-03 cross=338
+r_p=  4.5 e= 0.99: bound  prec_err=1.90e-04 period_err=9.38e-03 cross=490
+r_p=  5.0 e= 0.95: bound  prec_err=1.36e-04 period_err=1.51e-03 cross=338
+r_p=  5.0 e= 0.99: bound  prec_err=1.31e-04 period_err=7.76e-03 cross=488
+r_p=  5.5 e= 0.95: bound  prec_err=1.36e-04 period_err=1.33e-03 cross=338
+r_p=  5.5 e= 0.99: bound  prec_err=1.32e-04 period_err=6.79e-03 cross=490
+r_p= 4.31 e= 0.99: bound  prec_err=2.46e-04 period_err=1.02e-02 cross=490
+
+--- envelope wall at m=32 (e > 0.99; NOT in the re-frozen domain) ---
+r_p=7 e=0.995: bound, period_err=9.56e-03
+r_p=7 e=0.999: bound, period_err=4.94e-02
+r_p=7 e=0.9999: bound, period_err=7.70e-01
+
+--- capture (E=1, r=100) / photon capture / ISCO ---
+m=16 L/4=  0.5: exact=absorbed  banded=absorbed  ok
+m=16 L/4=  0.9: exact=absorbed  banded=absorbed  ok
+m=16 L/4= 0.97: exact=absorbed  banded=absorbed  ok
+m=16 L/4= 1.03: exact=escaped   banded=escaped   ok
+m=16 L/4=  1.1: exact=escaped   banded=escaped   ok
+m=16 L/4=  1.5: exact=escaped   banded=escaped   ok
+m=16 b/(3sqrt3)=  0.9: exact=absorbed  banded=absorbed  ok
+m=16 b/(3sqrt3)= 0.97: exact=absorbed  banded=absorbed  ok
+m=16 b/(3sqrt3)= 1.03: exact=escaped   banded=escaped   ok
+m=16 b/(3sqrt3)=  1.1: exact=escaped   banded=escaped   ok
+m=16 ISCO: bound case bound (100 cycles), plunge banded=absorbed exact=absorbed => isco_correct=1
+
+m=32 L/4=  0.5: exact=absorbed  banded=absorbed  ok
+m=32 L/4=  0.9: exact=absorbed  banded=absorbed  ok
+m=32 L/4= 0.97: exact=absorbed  banded=absorbed  ok
+m=32 L/4= 1.03: exact=escaped   banded=escaped   ok
+m=32 L/4=  1.1: exact=escaped   banded=escaped   ok
+m=32 L/4=  1.5: exact=escaped   banded=escaped   ok
+m=32 b/(3sqrt3)=  0.9: exact=absorbed  banded=absorbed  ok
+m=32 b/(3sqrt3)= 0.97: exact=absorbed  banded=absorbed  ok
+m=32 b/(3sqrt3)= 1.03: exact=escaped   banded=escaped   ok
+m=32 b/(3sqrt3)=  1.1: exact=escaped   banded=escaped   ok
+m=32 ISCO: bound case bound (100 cycles), plunge banded=absorbed exact=absorbed => isco_correct=1
+
+--- light deflection (64 seeds, b log-U[10,1000], swept to r=1e8 + exact tail) ---
+oracle controls: defl(b=947.6)=4.234146e-03 (4/b=4.220977e-03), defl(b=98.7)/defl(b=947.6) = 9.87
+m=16: deflection_pass_fraction = 1.0000 (worst err 2.42e-04)
+m=32: deflection_pass_fraction = 1.0000 (worst err 6.69e-05)
+  tail control: defl(b=947.6) at r=1e8 vs 3e-8: 1.17e-11
+
+--- long runs: first 32 seeds at m=32, 12 cycles + bit-identity + 100-cycle confirmation ---
+100-cycle confirm e=0.9025: bit-identity locks at cycle 0
+100-cycle confirm e=0.4566: bit-identity locks at cycle 3
+shape_kept_fraction = 1.0000
+cycle_repeat_fraction (re-frozen reading: cycles>k bit-identical, k<=4) = 0.5625
+cycle_repeat_fraction (frozen-literal reading: later==cycle1 at 1e-12) = 1.0000 (max first-cycle dev 6.84e-16: passes with 3 orders of margin; the stricter bit-identity reading locks at k<=4 for only 0.5625)
+
+=== criterion verdicts (r1 frozen thresholds) ===
+binet-m16: prec=FAIL  prog=PASS  period=FAIL  defl=PASS  capture=PASS  isco=PASS  cost=PASS
+binet-m32: prec=PASS  prog=PASS  period=PASS  defl=PASS  capture=PASS  isco=PASS  cost=PASS  shape=PASS  repeat=PASS
+binet-m64: prec=PASS  prog=PASS  period=PASS  defl=PASS  capture=PASS  isco=PASS  cost=PASS
+
+metrics.json written

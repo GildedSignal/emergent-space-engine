@@ -1,0 +1,72 @@
+# Controls for r1w_run.py (run 20261010-0541-second-..., same host, load 1.1-1.9)
+
+All commands run from this folder; each finishes in < 60 s. Full snippets inline
+(fixing the hygiene defect the checker noted in the shipped controls.txt).
+
+## C0 — the shipped record regenerates from shipped code
+
+    python3 binet_probe.py > repro-output.txt
+    diff <(grep -v '^host:' shipped-probe-output.txt) <(grep -v '^host:' repro-output.txt)
+
+=> identical except the host line (2.8 s). Third-party check: this was already
+reproduced bit-for-bit by the run's own checker.
+
+## C1 — my event machinery ties to the shipped candidate, bit for bit
+
+Inside r1w-output.txt ("oracle controls" + quick tie-out):
+- vectorized oracle vs shipped scalar oracle, (7,0.99) and (8,0.95): dphi
+  rel diff 0.00e+00 (exact); period 1.3e-8 / 1.4e-7 — the shipped scalar oracle
+  carries an O(ft*h) offset in its final partial step (it subtracts a full-step
+  trapezoid that was never added); my vectorized port replicates the shipped
+  convention exactly, so the difference vs a clean convention is ~1e-8, five
+  orders below every band at stake.
+- banded (7,0.99) at m16: prec_err 4.45e-4, period_err 1.93e-2, crossings 246 —
+  the shipped probe-output.txt row, reproduced exactly.
+
+## C2 — (8,0.95) cycle-repeat deviation, the shipped P5 case
+
+    python3 - <<'EOF'
+    import math, r1w_run as R
+    u0, L2, E = R.setup_bound(8.0, 0.95)
+    s = dict(rp=8.0, e=0.95, u0=u0, L2=L2, E=E, ua=u0*(1-0.95)/1.95)
+    r = R.banded_bound_case(s, 16, n_cycles=40)
+    med = sorted(r['cyc_d'])[len(r['cyc_d'])//2]
+    print(max(abs(x-med)/med for x in r['cyc_d']))
+    EOF
+
+=> 1.17e-11, the shipped probe's number exactly (shipped-controls.txt line 16).
+
+## C3 — oracle convergence
+
+In r1w-output.txt: Richardson h=1e-4 vs 5e-5 over 32 seeds: max |ddphi| 1.12e-12,
+max |dperiod| 5.21e-13 (the clean final-step convention; the shipped scalar's
+7e-8 was its own offset). Precession at r_p=100, e=0.5: 0.12962 vs 6pi/p=0.12566
+(+3.1%, the 2PN-scale excess; the shipped checker measured the same 0.12962).
+
+## C4 — banded period quadrature independence (worst case)
+
+    python3 controls.py   # prints C3/C4/C5 lines
+
+=> banded period (7,0.99) m32: Gauss-8 117541.947847 vs Gauss-16 117541.382293,
+rel diff 4.81e-6 — 1000x below the 4.75e-3 model error at that point.
+
+## C5 — the m16 precession-failing seed follows the convergence law
+
+(r_p=15.70, e=0.0106) at m=16/32/64: precession 1.50e-2/1.67e-3/3.63e-4 and
+period 3.27e-3/3.64e-4/7.74e-05, slopes -2.68/-2.70 — near-circular seeds
+inside 1-2 bands converge FASTER than m^-2 (the low-e grid point showed -3.73).
+The kill at m16 is model error, not arithmetic.
+
+## C6 — determinism
+
+    sha256sum metrics.json
+    python3 r1w_run.py > /dev/null && sha256sum metrics.json
+
+=> ad519e7b69a66f05372a5bdee27b7ce323e470b8533aa97449b6827173d9b754 twice:
+the whole record (256 seeds, 3 m values, all grids) regenerates identically.
+
+## C7 — light-tail and deflection-oracle controls
+
+In r1w-output.txt: oracle deflection at b=947.6 is 4.234146e-3 vs 4/b=4.221e-3
+(+0.3%, the Darwin second term); defl(b~98.7)/defl(b~947.6) = 9.87 (4/b law);
+tail sensitivity u_inf=1e-8 vs 3e-8: 1.17e-11 relative.
