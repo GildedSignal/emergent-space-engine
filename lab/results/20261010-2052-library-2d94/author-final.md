@@ -1,0 +1,4 @@
+Working...
+Run complete. Everything reproducible from the run folder (`readwise-p*.json` cached, `work/` deterministic, predictions written before the probe, lessons.md at 40 lines, dossier in README format).
+
+**Claim:** Practitioners who paid real money for cadence — option desks with zone hedging (Whalley–Wilmott), not clock schedules — say the engine's kick layer should fire on a per-body deviation band rather than a fixed phase step: measured on a float toy under a real third-body tide, that trigger needs 2.8–6.7× fewer kicks at equal worst error (and up to 8–20× at loose tolerances), fires zero kicks when nothing perturbs the body (fixed cadence paid 639), and the band *is* the error certificate — worst error = w by construction — so gates judge a stated bound instead of re-measuring an emergent one; two of five held-out predictions failed and are reported (the win is not intermittency at a smooth tide, and tail-sizing could not be exercised there).

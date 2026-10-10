@@ -1,0 +1,37 @@
+# e=0.6: truth RK4 T/8192, 10 orbits, |dE/E|=4.45e-03
+fixed j=   4: kicks/orbit=   3.90 maxdev=5.281e-03
+fixed j=   8: kicks/orbit=   8.00 maxdev=1.449e-03
+fixed j=  16: kicks/orbit=  16.00 maxdev=3.692e-04
+fixed j=  32: kicks/orbit=  32.00 maxdev=9.267e-05
+fixed j=  64: kicks/orbit=  63.90 maxdev=2.318e-05
+fixed j= 128: kicks/orbit= 128.00 maxdev=5.796e-06
+fixed j= 256: kicks/orbit= 255.90 maxdev=1.449e-06
+fixed j= 512: kicks/orbit= 511.90 maxdev=3.623e-07
+band w=3e-04: kicks/orbit=   5.80 maxdev=3.024e-04 near_conj=0.36
+band w=1e-03: kicks/orbit=   3.10 maxdev=1.002e-03 near_conj=0.32
+band w=3e-03: kicks/orbit=   1.90 maxdev=3.007e-03 near_conj=0.26
+band w=1e-02: kicks/orbit=   1.00 maxdev=1.001e-02 near_conj=0.30
+band w=3e-02: kicks/orbit=   0.50 maxdev=3.005e-02 near_conj=0.40
+band w=1e-01: kicks/orbit=   0.20 maxdev=1.002e-01 near_conj=1.00
+band w=3e-03 [mean-rate check]: maxdev/w=  1.01 kicks/orbit=   1.90
+band w=3e-03 [peak-rate check]: maxdev/w=  1.00 kicks/orbit=   1.90
+# e=0.9: truth RK4 T/8192, 10 orbits, |dE/E|=2.94e-03
+fixed j=   4: kicks/orbit=   3.90 maxdev=1.482e-02
+fixed j=   8: kicks/orbit=   8.00 maxdev=4.442e-03
+fixed j=  16: kicks/orbit=  16.00 maxdev=1.217e-03
+fixed j=  32: kicks/orbit=  32.00 maxdev=3.137e-04
+fixed j=  64: kicks/orbit=  63.90 maxdev=7.900e-05
+fixed j= 128: kicks/orbit= 128.00 maxdev=1.978e-05
+fixed j= 256: kicks/orbit= 255.90 maxdev=4.945e-06
+fixed j= 512: kicks/orbit= 511.90 maxdev=1.236e-06
+band w=3e-04: kicks/orbit=   7.20 maxdev=3.038e-04 near_conj=0.51
+band w=1e-03: kicks/orbit=   4.00 maxdev=1.007e-03 near_conj=0.53
+band w=3e-03: kicks/orbit=   2.40 maxdev=3.050e-03 near_conj=0.46
+band w=1e-02: kicks/orbit=   1.30 maxdev=1.008e-02 near_conj=0.46
+band w=3e-02: kicks/orbit=   0.80 maxdev=3.022e-02 near_conj=0.25
+band w=1e-01: kicks/orbit=   0.40 maxdev=1.012e-01 near_conj=0.50
+band w=3e-03 [mean-rate check]: maxdev/w=  1.05 kicks/orbit=   2.40
+band w=3e-03 [peak-rate check]: maxdev/w=  1.01 kicks/orbit=   2.40
+# control e=0.6 m_p=0: |dE/E|=6.00e-13
+control band: kicks=0 (predict 0); control fixed j=64: kicks=639
+wrote metrics.json
