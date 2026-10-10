@@ -1,0 +1,46 @@
+== measured (reference belt W=0.02, N=1e4) ==
+  [cold] Lambda(1e-4)=0.402 Lambda(1e-3)=4.232/orbit | encounters: P(b<rho/2)=0.372 <v_rel>=0.0106 median=0.0081 n_enc=86
+  [hot] Lambda(1e-4)=0.219 Lambda(1e-3)=1.939/orbit | encounters: P(b<rho/2)=0.571 <v_rel>=0.1319 median=0.1329 n_enc=7
+
+== P5: R(q) integrated over measured (b, v) vs product ==
+  M=1e-07 q=1e-06: R_exact=0.4018 R_product=0.4018 ratio=1.000
+  M=1e-07 q=1e-05: R_exact=0.3996 R_product=0.4018 ratio=0.995
+  M=1e-07 q=1e-04: R_exact=0.1664 R_product=0.07557 ratio=2.202
+  M=1e-05 q=1e-06: R_exact=0.4018 R_product=0.4018 ratio=1.000
+  M=1e-05 q=1e-05: R_exact=0.4018 R_product=0.4018 ratio=1.000
+  M=1e-05 q=1e-04: R_exact=0.4018 R_product=0.4018 ratio=1.000
+
+== closed forms ==
+  Lambda(1e-4) cold: cform 0.425 vs measured 0.402 (ratio 1.058)
+  Lambda(1e-4) hot: cform 0.170 vs measured 0.219 (ratio 0.776)
+  <v_rel|enc>=0.0106; tail cform R=1.7 M sigma_e/(W <v> q_v)
+
+== design table: bits per body per hour (scar 336 bits/enc) ==
+  M_belt     q_v        | 2^20         2^23         1e9          | verdict@1e9
+  1e-07      2.33e-10   | 161          1.29e+03     1.54e+05     | BREAKS
+  1e-07      1.00e-06   | 67.4         67.4         67.4         | BREAKS
+  1e-07      1.00e-05   | 6.74         6.74         6.74         | FITS
+  1e-07      1.00e-04   | 0.674        0.674        0.674        | FITS
+  1e-05      2.33e-10   | 161          1.29e+03     1.54e+05     | BREAKS
+  1e-05      1.00e-06   | 161          1.29e+03     6.74e+03     | BREAKS
+  1e-05      1.00e-05   | 161          674          674          | BREAKS
+  1e-05      1.00e-04   | 67.4         67.4         67.4         | BREAKS
+
+  minimum live quantum q_v* for the 1e9 belt (rtf 100, 1 hr):
+  M=1e-07: q_v* = 1.05e-06 v_K  (0.03139 m/s at 1 AU)
+  M=1e-05: q_v* = 0.000105 v_K  (3.139 m/s at 1 AU)
+
+== re-fit cadence (scars die when the program is re-fit) ==
+  scarred fraction = R*T_refit < 64/168 = 0.38:
+  M=1e-07 q=2e-10: R(1e9)=4.02e+04/orbit T_refit<9.46e-06 orbits (0.00345 sim-days)
+  M=1e-07 q=1e-06: R(1e9)=17.6/orbit T_refit<0.0216 orbits (7.89 sim-days)
+  M=1e-07 q=1e-05: R(1e9)=1.76/orbit T_refit<0.216 orbits (78.9 sim-days)
+  M=1e-05 q=2e-10: R(1e9)=4.02e+04/orbit T_refit<9.46e-06 orbits (0.00345 sim-days)
+  M=1e-05 q=1e-06: R(1e9)=1.76e+03/orbit T_refit<0.000216 orbits (0.0789 sim-days)
+  M=1e-05 q=1e-05: R(1e9)=176/orbit T_refit<0.00216 orbits (0.789 sim-days)
+
+== player-floor check (does q_v erase anything visible?) ==
+  belt at 1 AU: v_K = 29.8 km/s; kicks above q_v are the
+  distinctions kept. Strongest 1-in-400 encounter kick at N=1e4:
+  M=1e-07: ~0.000376 v_K = 0.0112 km/s
+  M=1e-05: ~0.0376 v_K = 1.12 km/s

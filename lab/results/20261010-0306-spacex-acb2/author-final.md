@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered, decisive experiment run, controls passed (blunt-sampler undercount 10×, empty widest bins), outputs regenerate bit-identically, dossier written.
+
+**Claim:** measured on a planar belt, H_live (distinctions per body per game-second) is set by the belt's **mass and live velocity quantum, not body count** — R = corr·1.7·M_belt·σ_e/(W·⟨v_rel⟩·q_v), corr = 2.2 measured — so 10⁹ bodies fit 8 GB iff the belt's live quantum q_v ≥ ~1e-6·v_K (3 cm/s at 1 AU, 370× below any player-differentiable kick), while the tube-key quantum 2⁻³² breaks the budget by ~2,400× and B18b-scale belts already cost 161–1,290 bits/body/hr in per-body scars, forcing dense belts into the aggregate regime and giving the encounters opt-out threshold and the program re-fit cadence (≤ 79 sim-days at q=1e-5) as design numbers.
