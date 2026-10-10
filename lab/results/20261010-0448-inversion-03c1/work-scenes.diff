@@ -1,0 +1,334 @@
+diff --git a/crates/encounters/src/lib.rs b/crates/encounters/src/lib.rs
+index cbbcd89..a073307 100644
+--- a/crates/encounters/src/lib.rs
++++ b/crates/encounters/src/lib.rs
+@@ -8,6 +8,7 @@ pub mod dioph;
+ pub mod kepler;
+ pub mod method;
+ pub mod pairs;
++pub mod train;
+ pub mod truth;
+ 
+ use std::sync::atomic::{AtomicUsize, Ordering};
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bf..8a67759 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -495,6 +495,303 @@ fn kick() {
+         );
+     }
+ }
++// ---- the phase-neighbour (train) certificate experiments (lab run 20261006-1931-b) ----
++
++fn rayleigh(rng: &mut emergent_encounters::belt::Rng, s: f64, cap: f64) -> f64 {
++    let u = rng.f64();
++    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
++}
++
++/// The gold run's formation generator, bit for bit (same RNG draw order as taleb.rs).
++fn fleet(nc: usize, a_hw: f64, sig_lam: f64, seed: u64, e_s: f64, e_cap: f64, pom_s: f64) -> Vec<Body> {
++    let mut rng = emergent_encounters::belt::Rng(seed);
++    let pom0 = TAU * rng.f64();
++    let lam0 = TAU * rng.f64();
++    (0..nc)
++        .map(|_| {
++            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
++            let e = rayleigh(&mut rng, e_s, e_cap);
++            let pom = pom0 + (2.0 * rng.f64() - 1.0) * pom_s;
++            let lam = if sig_lam <= 0.0 {
++                TAU * rng.f64()
++            } else {
++                let (u1, u2) = (rng.f64(), rng.f64());
++                let z = (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos();
++                lam0 + sig_lam * z
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++fn sea(n: usize, seed: u64) -> Vec<Body> {
++    let mut rng = emergent_encounters::belt::Rng(seed ^ 0x5a5a);
++    (0..n)
++        .map(|_| Body::new(0.9 + 0.2 * rng.f64(), rayleigh(&mut rng, 0.05, 0.5), TAU * rng.f64(), TAU * rng.f64()))
++        .collect()
++}
++
++/// One scene: truth over every intra-clump pair of fired clumps (r8's construction), the train,
++/// and the pairwise method on the same pairs, matched up both ways.
++fn train_scene(name: &str, b: &[Body], rho: f64, orbits: f64) {
++    let t_end = orbits * TAU;
++    let srt = Sorted::new(b, rho);
++    let d_c = 8.0 * srt.eps_max;
++    let t0 = Instant::now();
++    let cs = emergent_encounters::train::clumps(b, d_c);
++    let clump_s = t0.elapsed().as_secs_f64();
++    let mut st = emergent_encounters::train::TrainStats::default();
++    let mut train: Vec<Enc> = Vec::new();
++    let mut pairs: Vec<(u32, u32)> = Vec::new();
++    let (mut z_sum, mut z_max, mut fired_nc) = (0.0f64, 0.0f64, 0u64);
++    let t1 = Instant::now();
++    for c in &cs {
++        let z = emergent_encounters::train::zeta(b, c, rho);
++        z_sum += z;
++        z_max = z_max.max(z);
++        if z < 1.0 {
++            st.fired += 1;
++            fired_nc += c.len() as u64;
++            emergent_encounters::train::train_events(b, c, rho, 0.0, t_end, &mut st, &mut train);
++            for w in 0..c.len() {
++                for v in (w + 1)..c.len() {
++                    pairs.push((c[w].min(c[v]), c[w].max(c[v])));
++                }
++            }
++        } else {
++            st.declined += 1;
++        }
++    }
++    let train_s = t1.elapsed().as_secs_f64();
++    let t2 = Instant::now();
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut tst = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], rho, t_end, &mut tmp, &mut tst);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, tst)
++    });
++    let mut truth: Vec<Enc> = Vec::new();
++    let mut tst = TruthStats::default();
++    for (o, s) in parts {
++        truth.extend(o);
++        tst.add(&s);
++    }
++    let truth_s = t2.elapsed().as_secs_f64();
++    let t3 = Instant::now();
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut ms = Stats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, t_end, &mut ms, &mut tmp);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, ms)
++    });
++    let mut meth: Vec<Enc> = Vec::new();
++    let mut ms = Stats::default();
++    for (o, s) in parts {
++        meth.extend(o);
++        ms.add(&s);
++    }
++    let meth_s = t3.elapsed().as_secs_f64();
++    let (tm, tf, _, td) = matchup(&truth, &train, t_end, 1e-3);
++    let (mm, mf, _, md) = matchup(&truth, &meth, t_end, 1e-3);
++    println!(
++        "{{\"exp\":\"train-verify\",\"scene\":\"{}\",\"n\":{},\"rho\":{},\"orbits\":{},\"clumps\":{},\"fired\":{},\"declined\":{},\"fired_nc\":{},\"zeta_mean\":{:.4},\"zeta_max\":{:.4},\"pairs\":{},\"clump_s\":{:.3},\"train\":{{\"watched\":{},\"cone_filtered\":{},\"queries\":{},\"qsteps\":{},\"equal_p\":{},\"windows\":{},\"evals\":{},\"events\":{},\"missed\":{},\"false\":{},\"dup\":{},\"s\":{:.3}}},\"truth\":{{\"enc\":{},\"steps\":{},\"fine\":{},\"evals\":{},\"s\":{:.3}}},\"method\":{{\"events\":{},\"missed\":{},\"false\":{},\"dup\":{},\"evals\":{},\"s\":{:.3}}},\"train_evals_per_enc\":{:.1},\"meth_evals_per_enc\":{:.1}}}",
++        name, b.len(), rho, orbits, cs.len(), st.fired, st.declined, fired_nc, z_sum / cs.len().max(1) as f64, z_max,
++        pairs.len(), clump_s,
++        st.watched, st.cone_filtered, st.queries, st.qsteps, st.equal_p, st.windows, st.evals, st.events, tm.len(), tf.len(), td, train_s,
++        truth.len(), tst.steps, tst.fine, tst.evals, truth_s,
++        meth.len(), mm.len(), mf.len(), md, ms.evals, meth_s,
++        st.evals as f64 / truth.len().max(1) as f64, ms.evals as f64 / truth.len().max(1) as f64
++    );
++    if !tm.is_empty() {
++        println!("  {{\"train_missed_sample\":{:?}}}", &tm[..tm.len().min(4)]);
++    }
++    if !mm.is_empty() {
++        println!("  {{\"method_missed_sample\":{:?}}}", &mm[..mm.len().min(4)]);
++    }
++}
++
++fn lam_of(b: &Body) -> f64 {
++    b.mean_anomaly(0.0) + b.pom
++}
++
++fn train_verify(set: &str) {
++    // the gold run's scenes (same generator, same seeds), plus dense rings and adversarials
++    match set {
++        "phalanx" => {
++            train_scene("phalanx-1e-3-u21", &fleet(200, 1e-3, 0.0, 21, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-5-s05-24", &fleet(200, 1e-5, 0.05, 24, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-3-s05-25", &fleet(200, 1e-3, 0.05, 25, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-5-s02-26", &fleet(200, 1e-5, 0.02, 26, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-5-s01-27", &fleet(200, 1e-5, 0.01, 27, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-3-s02-28", &fleet(200, 1e-3, 0.02, 28, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-3e-3-u23", &fleet(200, 3e-3, 0.0, 23, 0.001, 0.01, 0.1), 1e-4, 1.0);
++        }
++        "rings" => {
++            train_scene("ring-u-31", &fleet(200, 1e-5, 0.0, 31, 0.001, 0.01, 0.1), 1e-4, 2.0);
++            train_scene("ring-u-32", &fleet(300, 1e-5, 0.0, 32, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("ring-mirror-33", &fleet(200, 1e-5, 0.0, 33, 0.001, 0.01, std::f64::consts::PI), 1e-4, 1.0);
++            train_scene("ring-pom-uniform-34", &fleet(200, 1e-5, 0.0, 34, 0.001, 0.01, TAU), 1e-4, 1.0);
++            train_scene("ring-e-1e-3-35", &fleet(200, 1e-5, 0.0, 35, 0.0015, 0.01, 0.1), 1e-4, 1.0);
++        }
++        "equalp" => {
++            // one shared period (the belt's `keys` regime): every pair is equal-period
++            let f = fleet(200, 1e-5, 0.02, 36, 0.001, 0.01, 0.1);
++            let p = f[0].period;
++            let eq: Vec<Body> = f.iter().map(|x| Body::with_period(p, x.e, x.pom, lam_of(x))).collect();
++            train_scene("equalp-s02-36", &eq, 1e-4, 1.0);
++        }
++        "ring600" => {
++            train_scene("ring600-u-37", &fleet(600, 1e-5, 0.0, 37, 0.001, 0.01, 0.1), 1e-4, 1.0);
++        }
++        "disp" => {
++            train_scene("sw001-41", &fleet(300, 1e-5, 0.0, 41, 0.001, 0.01, 0.1), 1e-4, 2.0);
++            train_scene("sw005-42", &fleet(300, 1e-5, 0.0, 42, 0.005, 0.05, 0.1), 1e-4, 2.0);
++            train_scene("sw02-43", &fleet(300, 1e-5, 0.0, 43, 0.02, 0.3, 0.1), 1e-4, 2.0);
++            train_scene("sw05-44", &fleet(300, 1e-5, 0.0, 44, 0.05, 0.6, 0.1), 1e-4, 2.0);
++            train_scene("pom15-45", &fleet(300, 1e-5, 0.0, 45, 0.001, 0.01, 0.2618), 1e-4, 2.0);
++            train_scene("mirror-e05-46", &fleet(300, 1e-5, 0.0, 46, 0.05, 0.6, PI), 1e-4, 2.0);
++            train_scene("hie-47", &fleet(200, 1e-5, 0.0, 47, 0.25, 0.85, 0.1), 1e-4, 2.0);
++        }
++        _ => panic!("unknown set"),
++    }
++}
++
++/// Fragmentation: which share of a fleet's pairs the train actually certifies (inside a fired
++/// clump) versus leaves to the pairwise tier, and what that tier pays on a sample there.
++fn frag(nc: usize, e_s: f64, e_cap: f64, pom_s: f64, seed: u64, orbits: f64) {
++    let rho = 1e-4;
++    let b = fleet(nc, 1e-5, 0.0, seed, e_s, e_cap, pom_s);
++    let srt = Sorted::new(&b, rho);
++    let d_c = 8.0 * srt.eps_max;
++    let cs = emergent_encounters::train::clumps(&b, d_c);
++    let mut in_clump = vec![false; b.len()];
++    let mut intra = 0u64;
++    let mut fired_intra = 0u64;
++    for c in &cs {
++        for &i in c {
++            in_clump[i as usize] = true;
++        }
++        intra += c.len() as u64 * (c.len() as u64 - 1) / 2;
++        if emergent_encounters::train::zeta(&b, c, rho) < 1.0 {
++            fired_intra += c.len() as u64 * (c.len() as u64 - 1) / 2;
++        }
++    }
++    let all = nc as u64 * (nc as u64 - 1) / 2;
++    let cross = all - intra;
++    let mut cand: Vec<(u32, u32)> = Vec::new();
++    for i in 0..nc as u32 {
++        for j in (i + 1)..nc as u32 {
++            if in_clump[i as usize] && in_clump[j as usize] {
++                continue;
++            }
++            cand.push((i, j));
++        }
++    }
++    let admitted: u64 = cand.iter().filter(|&&(i, j)| is_candidate(&b[i as usize], &b[j as usize], rho)).count() as u64;
++    let stride = cand.len().div_ceil(2000).max(1);
++    let sample: Vec<(u32, u32)> = cand.iter().step_by(stride).copied().collect();
++    let t0 = Instant::now();
++    let mut setup_evals = 0u64;
++    let mut kinds = [0u64; 3];
++    for &(i, j) in &sample {
++        let mut ev = 0u64;
++        for sec in sections(&b[i as usize], &b[j as usize], rho, SAFETY, &mut ev) {
++            kinds[sec.kind as usize] += 1;
++        }
++        setup_evals += ev;
++    }
++    let sample_s = t0.elapsed().as_secs_f64();
++    println!(
++        "{{\"exp\":\"frag\",\"n\":{},\"e_s\":{},\"pom_s\":{},\"seed\":{},\"eps_max\":{:.2e},\"d_c\":{:.2e},\"clumps\":{},\"clump_max\":{},\"intra\":{},\"fired_intra\":{},\"cross\":{},\"all\":{},\"certified_share\":{:.6},\"cross_cone_admitted\":{},\"cross_sample\":{{\"pairs\":{},\"setup_evals\":{},\"kinds\":{:?},\"s\":{:.3}}},\"setup_us_per_cross_pair\":{:.3}}}",
++        nc, e_s, pom_s, seed, srt.eps_max, d_c, cs.len(), cs.iter().map(|c| c.len()).max().unwrap_or(0), intra, fired_intra, cross, all,
++        fired_intra as f64 / all as f64, admitted, sample.len(), setup_evals, kinds, sample_s,
++        sample_s * 1e6 / sample.len().max(1) as f64
++    );
++    let _ = cross;
++}
++
++fn frag_all() {
++    frag(600, 0.001, 0.01, 0.1, 51, 2.0);
++    frag(600, 0.005, 0.05, 0.1, 52, 2.0);
++    frag(600, 0.02, 0.3, 0.1, 53, 2.0);
++    frag(600, 0.05, 0.6, 0.1, 54, 2.0);
++    frag(600, 0.25, 0.85, 0.1, 55, 2.0);
++}
++
++/// The gold's fleet scenario: 400-ship formation in a 3600-body sea, 20 orbits. No full truth
++/// (quadratic); the train's cost and the pairwise setup cost on a sample of intra-fleet pairs.
++fn train_cost() {
++    let rho = 1e-4;
++    let orbits = 20.0;
++    let t_end = orbits * TAU;
++    let fl = fleet(400, 1e-5, 0.0, 11, 0.001, 0.01, 0.1);
++    let mut b = fl.clone();
++    b.extend(sea(3600, 11));
++    let srt = Sorted::new(&b, rho);
++    let d_c = 8.0 * srt.eps_max;
++    let t0 = Instant::now();
++    let cs = emergent_encounters::train::clumps(&b, d_c);
++    let clump_s = t0.elapsed().as_secs_f64();
++    let mut st = emergent_encounters::train::TrainStats::default();
++    let mut train: Vec<Enc> = Vec::new();
++    let t1 = Instant::now();
++    for c in &cs {
++        let z = emergent_encounters::train::zeta(&b, c, rho);
++        if z < 1.0 {
++            st.fired += 1;
++            emergent_encounters::train::train_events(&b, c, rho, 0.0, t_end, &mut st, &mut train);
++        } else {
++            st.declined += 1;
++        }
++    }
++    let train_s = t1.elapsed().as_secs_f64();
++    // pairwise setup+run on a sample of the fleet's internal pairs (the gold sampled 2494)
++    let mut ff: Vec<(u32, u32)> = Vec::new();
++    for i in 0..400u32 {
++        for j in (i + 1)..400u32 {
++            ff.push((i, j));
++        }
++    }
++    let stride = ff.len().div_ceil(2500).max(1);
++    let sample: Vec<(u32, u32)> = ff.iter().step_by(stride).copied().collect();
++    let t2 = Instant::now();
++    let mut ms = Stats::default();
++    let mut setup_evals = 0u64;
++    let mut kinds = [0u64; 3];
++    let mut tmp = Vec::new();
++    for &(i, j) in &sample {
++        let mut ev = 0u64;
++        for sec in sections(&fl[i as usize], &fl[j as usize], rho, SAFETY, &mut ev) {
++            kinds[sec.kind as usize] += 1;
++            tmp.clear();
++            run_section(&fl[i as usize], &fl[j as usize], &sec, rho, 0.0, t_end, &mut ms, &mut tmp);
++        }
++        ms.evals += ev;
++        setup_evals += ev;
++    }
++    let meth_s = t2.elapsed().as_secs_f64();
++    let meth_hits = ms.hits_total();
++    println!(
++        "{{\"exp\":\"train-cost\",\"scene\":\"fleet-400-sea-3600\",\"rho\":{},\"orbits\":{},\"clumps\":{},\"clump_s\":{:.3},\"fired\":{},\"declined\":{},\"train\":{{\"watched\":{},\"cone_filtered\":{},\"queries\":{},\"qsteps\":{},\"equal_p\":{},\"windows\":{},\"evals\":{},\"events\":{},\"s\":{:.3}}},\"pairwise_sample\":{{\"pairs\":{},\"of\":{},\"kinds\":{:?},\"setup_evals\":{},\"run_evals\":{},\"hits\":{},\"s\":{:.3}}},\"train_evals_per_event\":{:.1},\"extrapolated_pairwise_evals_per_event\":{:.0},\"watched_vs_all_pairs\":{:.6}}}",
++        rho, orbits, cs.len(), clump_s, st.fired, st.declined,
++        st.watched, st.cone_filtered, st.queries, st.qsteps, st.equal_p, st.windows, st.evals, st.events, train_s,
++        sample.len(), ff.len(), kinds, setup_evals, ms.evals - setup_evals, meth_hits, meth_s,
++        st.evals as f64 / st.events.max(1) as f64,
++        (setup_evals + ms.evals) as f64 * (ff.len() as f64 / sample.len() as f64) / meth_hits.max(1) as f64,
++        st.watched as f64 / ff.len() as f64
++    );
++}
++
+ 
+ /// The query loop of a section without the exact checks: counts proposals in [t0, t1].
+ fn run_section_proposals(bi: &Body, bj: &Body, sec: &emergent_encounters::pairs::Section, t0: f64, t1: f64, st: &mut Stats, _v: &mut Vec<(f64, f64)>) {
+@@ -527,9 +824,12 @@ fn main() {
+         }
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
+         Some("kick") => kick(),
++        Some("train-verify") => train_verify(&args[2]),
++        Some("train-cost") => train_cost(),
++        Some("frag") => frag_all(),
+         _ => {
+             let _ = run_section;
+-            eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick");
++            eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick | train-verify <phalanx|rings|equalp|ring600> | train-cost");
+         }
+     }
+ }

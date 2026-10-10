@@ -1,0 +1,968 @@
+diff --git a/crates/encounters/src/lib.rs b/crates/encounters/src/lib.rs
+index cbbcd89..a073307 100644
+--- a/crates/encounters/src/lib.rs
++++ b/crates/encounters/src/lib.rs
+@@ -8,6 +8,7 @@ pub mod dioph;
+ pub mod kepler;
+ pub mod method;
+ pub mod pairs;
++pub mod train;
+ pub mod truth;
+ 
+ use std::sync::atomic::{AtomicUsize, Ordering};
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bf..8a67759 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -495,6 +495,303 @@ fn kick() {
+         );
+     }
+ }
++// ---- the phase-neighbour (train) certificate experiments (lab run 20261006-1931-b) ----
++
++fn rayleigh(rng: &mut emergent_encounters::belt::Rng, s: f64, cap: f64) -> f64 {
++    let u = rng.f64();
++    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
++}
++
++/// The gold run's formation generator, bit for bit (same RNG draw order as taleb.rs).
++fn fleet(nc: usize, a_hw: f64, sig_lam: f64, seed: u64, e_s: f64, e_cap: f64, pom_s: f64) -> Vec<Body> {
++    let mut rng = emergent_encounters::belt::Rng(seed);
++    let pom0 = TAU * rng.f64();
++    let lam0 = TAU * rng.f64();
++    (0..nc)
++        .map(|_| {
++            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
++            let e = rayleigh(&mut rng, e_s, e_cap);
++            let pom = pom0 + (2.0 * rng.f64() - 1.0) * pom_s;
++            let lam = if sig_lam <= 0.0 {
++                TAU * rng.f64()
++            } else {
++                let (u1, u2) = (rng.f64(), rng.f64());
++                let z = (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos();
++                lam0 + sig_lam * z
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++fn sea(n: usize, seed: u64) -> Vec<Body> {
++    let mut rng = emergent_encounters::belt::Rng(seed ^ 0x5a5a);
++    (0..n)
++        .map(|_| Body::new(0.9 + 0.2 * rng.f64(), rayleigh(&mut rng, 0.05, 0.5), TAU * rng.f64(), TAU * rng.f64()))
++        .collect()
++}
++
++/// One scene: truth over every intra-clump pair of fired clumps (r8's construction), the train,
++/// and the pairwise method on the same pairs, matched up both ways.
++fn train_scene(name: &str, b: &[Body], rho: f64, orbits: f64) {
++    let t_end = orbits * TAU;
++    let srt = Sorted::new(b, rho);
++    let d_c = 8.0 * srt.eps_max;
++    let t0 = Instant::now();
++    let cs = emergent_encounters::train::clumps(b, d_c);
++    let clump_s = t0.elapsed().as_secs_f64();
++    let mut st = emergent_encounters::train::TrainStats::default();
++    let mut train: Vec<Enc> = Vec::new();
++    let mut pairs: Vec<(u32, u32)> = Vec::new();
++    let (mut z_sum, mut z_max, mut fired_nc) = (0.0f64, 0.0f64, 0u64);
++    let t1 = Instant::now();
++    for c in &cs {
++        let z = emergent_encounters::train::zeta(b, c, rho);
++        z_sum += z;
++        z_max = z_max.max(z);
++        if z < 1.0 {
++            st.fired += 1;
++            fired_nc += c.len() as u64;
++            emergent_encounters::train::train_events(b, c, rho, 0.0, t_end, &mut st, &mut train);
++            for w in 0..c.len() {
++                for v in (w + 1)..c.len() {
++                    pairs.push((c[w].min(c[v]), c[w].max(c[v])));
++                }
++            }
++        } else {
++            st.declined += 1;
++        }
++    }
++    let train_s = t1.elapsed().as_secs_f64();
++    let t2 = Instant::now();
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut tst = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], rho, t_end, &mut tmp, &mut tst);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, tst)
++    });
++    let mut truth: Vec<Enc> = Vec::new();
++    let mut tst = TruthStats::default();
++    for (o, s) in parts {
++        truth.extend(o);
++        tst.add(&s);
++    }
++    let truth_s = t2.elapsed().as_secs_f64();
++    let t3 = Instant::now();
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut ms = Stats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            pair_events(&b[i as usize], &b[j as usize], rho, SAFETY, 0.0, t_end, &mut ms, &mut tmp);
++            out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++        }
++        (out, ms)
++    });
++    let mut meth: Vec<Enc> = Vec::new();
++    let mut ms = Stats::default();
++    for (o, s) in parts {
++        meth.extend(o);
++        ms.add(&s);
++    }
++    let meth_s = t3.elapsed().as_secs_f64();
++    let (tm, tf, _, td) = matchup(&truth, &train, t_end, 1e-3);
++    let (mm, mf, _, md) = matchup(&truth, &meth, t_end, 1e-3);
++    println!(
++        "{{\"exp\":\"train-verify\",\"scene\":\"{}\",\"n\":{},\"rho\":{},\"orbits\":{},\"clumps\":{},\"fired\":{},\"declined\":{},\"fired_nc\":{},\"zeta_mean\":{:.4},\"zeta_max\":{:.4},\"pairs\":{},\"clump_s\":{:.3},\"train\":{{\"watched\":{},\"cone_filtered\":{},\"queries\":{},\"qsteps\":{},\"equal_p\":{},\"windows\":{},\"evals\":{},\"events\":{},\"missed\":{},\"false\":{},\"dup\":{},\"s\":{:.3}}},\"truth\":{{\"enc\":{},\"steps\":{},\"fine\":{},\"evals\":{},\"s\":{:.3}}},\"method\":{{\"events\":{},\"missed\":{},\"false\":{},\"dup\":{},\"evals\":{},\"s\":{:.3}}},\"train_evals_per_enc\":{:.1},\"meth_evals_per_enc\":{:.1}}}",
++        name, b.len(), rho, orbits, cs.len(), st.fired, st.declined, fired_nc, z_sum / cs.len().max(1) as f64, z_max,
++        pairs.len(), clump_s,
++        st.watched, st.cone_filtered, st.queries, st.qsteps, st.equal_p, st.windows, st.evals, st.events, tm.len(), tf.len(), td, train_s,
++        truth.len(), tst.steps, tst.fine, tst.evals, truth_s,
++        meth.len(), mm.len(), mf.len(), md, ms.evals, meth_s,
++        st.evals as f64 / truth.len().max(1) as f64, ms.evals as f64 / truth.len().max(1) as f64
++    );
++    if !tm.is_empty() {
++        println!("  {{\"train_missed_sample\":{:?}}}", &tm[..tm.len().min(4)]);
++    }
++    if !mm.is_empty() {
++        println!("  {{\"method_missed_sample\":{:?}}}", &mm[..mm.len().min(4)]);
++    }
++}
++
++fn lam_of(b: &Body) -> f64 {
++    b.mean_anomaly(0.0) + b.pom
++}
++
++fn train_verify(set: &str) {
++    // the gold run's scenes (same generator, same seeds), plus dense rings and adversarials
++    match set {
++        "phalanx" => {
++            train_scene("phalanx-1e-3-u21", &fleet(200, 1e-3, 0.0, 21, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-5-s05-24", &fleet(200, 1e-5, 0.05, 24, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-3-s05-25", &fleet(200, 1e-3, 0.05, 25, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-5-s02-26", &fleet(200, 1e-5, 0.02, 26, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-5-s01-27", &fleet(200, 1e-5, 0.01, 27, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-1e-3-s02-28", &fleet(200, 1e-3, 0.02, 28, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("phalanx-3e-3-u23", &fleet(200, 3e-3, 0.0, 23, 0.001, 0.01, 0.1), 1e-4, 1.0);
++        }
++        "rings" => {
++            train_scene("ring-u-31", &fleet(200, 1e-5, 0.0, 31, 0.001, 0.01, 0.1), 1e-4, 2.0);
++            train_scene("ring-u-32", &fleet(300, 1e-5, 0.0, 32, 0.001, 0.01, 0.1), 1e-4, 1.0);
++            train_scene("ring-mirror-33", &fleet(200, 1e-5, 0.0, 33, 0.001, 0.01, std::f64::consts::PI), 1e-4, 1.0);
++            train_scene("ring-pom-uniform-34", &fleet(200, 1e-5, 0.0, 34, 0.001, 0.01, TAU), 1e-4, 1.0);
++            train_scene("ring-e-1e-3-35", &fleet(200, 1e-5, 0.0, 35, 0.0015, 0.01, 0.1), 1e-4, 1.0);
++        }
++        "equalp" => {
++            // one shared period (the belt's `keys` regime): every pair is equal-period
++            let f = fleet(200, 1e-5, 0.02, 36, 0.001, 0.01, 0.1);
++            let p = f[0].period;
++            let eq: Vec<Body> = f.iter().map(|x| Body::with_period(p, x.e, x.pom, lam_of(x))).collect();
++            train_scene("equalp-s02-36", &eq, 1e-4, 1.0);
++        }
++        "ring600" => {
++            train_scene("ring600-u-37", &fleet(600, 1e-5, 0.0, 37, 0.001, 0.01, 0.1), 1e-4, 1.0);
++        }
++        "disp" => {
++            train_scene("sw001-41", &fleet(300, 1e-5, 0.0, 41, 0.001, 0.01, 0.1), 1e-4, 2.0);
++            train_scene("sw005-42", &fleet(300, 1e-5, 0.0, 42, 0.005, 0.05, 0.1), 1e-4, 2.0);
++            train_scene("sw02-43", &fleet(300, 1e-5, 0.0, 43, 0.02, 0.3, 0.1), 1e-4, 2.0);
++            train_scene("sw05-44", &fleet(300, 1e-5, 0.0, 44, 0.05, 0.6, 0.1), 1e-4, 2.0);
++            train_scene("pom15-45", &fleet(300, 1e-5, 0.0, 45, 0.001, 0.01, 0.2618), 1e-4, 2.0);
++            train_scene("mirror-e05-46", &fleet(300, 1e-5, 0.0, 46, 0.05, 0.6, PI), 1e-4, 2.0);
++            train_scene("hie-47", &fleet(200, 1e-5, 0.0, 47, 0.25, 0.85, 0.1), 1e-4, 2.0);
++        }
++        _ => panic!("unknown set"),
++    }
++}
++
++/// Fragmentation: which share of a fleet's pairs the train actually certifies (inside a fired
++/// clump) versus leaves to the pairwise tier, and what that tier pays on a sample there.
++fn frag(nc: usize, e_s: f64, e_cap: f64, pom_s: f64, seed: u64, orbits: f64) {
++    let rho = 1e-4;
++    let b = fleet(nc, 1e-5, 0.0, seed, e_s, e_cap, pom_s);
++    let srt = Sorted::new(&b, rho);
++    let d_c = 8.0 * srt.eps_max;
++    let cs = emergent_encounters::train::clumps(&b, d_c);
++    let mut in_clump = vec![false; b.len()];
++    let mut intra = 0u64;
++    let mut fired_intra = 0u64;
++    for c in &cs {
++        for &i in c {
++            in_clump[i as usize] = true;
++        }
++        intra += c.len() as u64 * (c.len() as u64 - 1) / 2;
++        if emergent_encounters::train::zeta(&b, c, rho) < 1.0 {
++            fired_intra += c.len() as u64 * (c.len() as u64 - 1) / 2;
++        }
++    }
++    let all = nc as u64 * (nc as u64 - 1) / 2;
++    let cross = all - intra;
++    let mut cand: Vec<(u32, u32)> = Vec::new();
++    for i in 0..nc as u32 {
++        for j in (i + 1)..nc as u32 {
++            if in_clump[i as usize] && in_clump[j as usize] {
++                continue;
++            }
++            cand.push((i, j));
++        }
++    }
++    let admitted: u64 = cand.iter().filter(|&&(i, j)| is_candidate(&b[i as usize], &b[j as usize], rho)).count() as u64;
++    let stride = cand.len().div_ceil(2000).max(1);
++    let sample: Vec<(u32, u32)> = cand.iter().step_by(stride).copied().collect();
++    let t0 = Instant::now();
++    let mut setup_evals = 0u64;
++    let mut kinds = [0u64; 3];
++    for &(i, j) in &sample {
++        let mut ev = 0u64;
++        for sec in sections(&b[i as usize], &b[j as usize], rho, SAFETY, &mut ev) {
++            kinds[sec.kind as usize] += 1;
++        }
++        setup_evals += ev;
++    }
++    let sample_s = t0.elapsed().as_secs_f64();
++    println!(
++        "{{\"exp\":\"frag\",\"n\":{},\"e_s\":{},\"pom_s\":{},\"seed\":{},\"eps_max\":{:.2e},\"d_c\":{:.2e},\"clumps\":{},\"clump_max\":{},\"intra\":{},\"fired_intra\":{},\"cross\":{},\"all\":{},\"certified_share\":{:.6},\"cross_cone_admitted\":{},\"cross_sample\":{{\"pairs\":{},\"setup_evals\":{},\"kinds\":{:?},\"s\":{:.3}}},\"setup_us_per_cross_pair\":{:.3}}}",
++        nc, e_s, pom_s, seed, srt.eps_max, d_c, cs.len(), cs.iter().map(|c| c.len()).max().unwrap_or(0), intra, fired_intra, cross, all,
++        fired_intra as f64 / all as f64, admitted, sample.len(), setup_evals, kinds, sample_s,
++        sample_s * 1e6 / sample.len().max(1) as f64
++    );
++    let _ = cross;
++}
++
++fn frag_all() {
++    frag(600, 0.001, 0.01, 0.1, 51, 2.0);
++    frag(600, 0.005, 0.05, 0.1, 52, 2.0);
++    frag(600, 0.02, 0.3, 0.1, 53, 2.0);
++    frag(600, 0.05, 0.6, 0.1, 54, 2.0);
++    frag(600, 0.25, 0.85, 0.1, 55, 2.0);
++}
++
++/// The gold's fleet scenario: 400-ship formation in a 3600-body sea, 20 orbits. No full truth
++/// (quadratic); the train's cost and the pairwise setup cost on a sample of intra-fleet pairs.
++fn train_cost() {
++    let rho = 1e-4;
++    let orbits = 20.0;
++    let t_end = orbits * TAU;
++    let fl = fleet(400, 1e-5, 0.0, 11, 0.001, 0.01, 0.1);
++    let mut b = fl.clone();
++    b.extend(sea(3600, 11));
++    let srt = Sorted::new(&b, rho);
++    let d_c = 8.0 * srt.eps_max;
++    let t0 = Instant::now();
++    let cs = emergent_encounters::train::clumps(&b, d_c);
++    let clump_s = t0.elapsed().as_secs_f64();
++    let mut st = emergent_encounters::train::TrainStats::default();
++    let mut train: Vec<Enc> = Vec::new();
++    let t1 = Instant::now();
++    for c in &cs {
++        let z = emergent_encounters::train::zeta(&b, c, rho);
++        if z < 1.0 {
++            st.fired += 1;
++            emergent_encounters::train::train_events(&b, c, rho, 0.0, t_end, &mut st, &mut train);
++        } else {
++            st.declined += 1;
++        }
++    }
++    let train_s = t1.elapsed().as_secs_f64();
++    // pairwise setup+run on a sample of the fleet's internal pairs (the gold sampled 2494)
++    let mut ff: Vec<(u32, u32)> = Vec::new();
++    for i in 0..400u32 {
++        for j in (i + 1)..400u32 {
++            ff.push((i, j));
++        }
++    }
++    let stride = ff.len().div_ceil(2500).max(1);
++    let sample: Vec<(u32, u32)> = ff.iter().step_by(stride).copied().collect();
++    let t2 = Instant::now();
++    let mut ms = Stats::default();
++    let mut setup_evals = 0u64;
++    let mut kinds = [0u64; 3];
++    let mut tmp = Vec::new();
++    for &(i, j) in &sample {
++        let mut ev = 0u64;
++        for sec in sections(&fl[i as usize], &fl[j as usize], rho, SAFETY, &mut ev) {
++            kinds[sec.kind as usize] += 1;
++            tmp.clear();
++            run_section(&fl[i as usize], &fl[j as usize], &sec, rho, 0.0, t_end, &mut ms, &mut tmp);
++        }
++        ms.evals += ev;
++        setup_evals += ev;
++    }
++    let meth_s = t2.elapsed().as_secs_f64();
++    let meth_hits = ms.hits_total();
++    println!(
++        "{{\"exp\":\"train-cost\",\"scene\":\"fleet-400-sea-3600\",\"rho\":{},\"orbits\":{},\"clumps\":{},\"clump_s\":{:.3},\"fired\":{},\"declined\":{},\"train\":{{\"watched\":{},\"cone_filtered\":{},\"queries\":{},\"qsteps\":{},\"equal_p\":{},\"windows\":{},\"evals\":{},\"events\":{},\"s\":{:.3}}},\"pairwise_sample\":{{\"pairs\":{},\"of\":{},\"kinds\":{:?},\"setup_evals\":{},\"run_evals\":{},\"hits\":{},\"s\":{:.3}}},\"train_evals_per_event\":{:.1},\"extrapolated_pairwise_evals_per_event\":{:.0},\"watched_vs_all_pairs\":{:.6}}}",
++        rho, orbits, cs.len(), clump_s, st.fired, st.declined,
++        st.watched, st.cone_filtered, st.queries, st.qsteps, st.equal_p, st.windows, st.evals, st.events, train_s,
++        sample.len(), ff.len(), kinds, setup_evals, ms.evals - setup_evals, meth_hits, meth_s,
++        st.evals as f64 / st.events.max(1) as f64,
++        (setup_evals + ms.evals) as f64 * (ff.len() as f64 / sample.len() as f64) / meth_hits.max(1) as f64,
++        st.watched as f64 / ff.len() as f64
++    );
++}
++
+ 
+ /// The query loop of a section without the exact checks: counts proposals in [t0, t1].
+ fn run_section_proposals(bi: &Body, bj: &Body, sec: &emergent_encounters::pairs::Section, t0: f64, t1: f64, st: &mut Stats, _v: &mut Vec<(f64, f64)>) {
+@@ -527,9 +824,12 @@ fn main() {
+         }
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
+         Some("kick") => kick(),
++        Some("train-verify") => train_verify(&args[2]),
++        Some("train-cost") => train_cost(),
++        Some("frag") => frag_all(),
+         _ => {
+             let _ = run_section;
+-            eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick");
++            eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick | train-verify <phalanx|rings|equalp|ring600> | train-cost");
+         }
+     }
+ }
+diff --git a/crates/encounters/src/train.rs b/crates/encounters/src/train.rs
+new file mode 100644
+index 0000000..7e085e4
+--- /dev/null
++++ b/crates/encounters/src/train.rs
+@@ -0,0 +1,628 @@
++//! The phase-neighbour (train) certificate for co-orbital clumps.
++//!
++//! Lab gold `20261006-0346-taleb-09b5`: under co-orbital concentration (a fleet in formation)
++//! the pairwise tier is quadratic in the clump (n_c²/2 sections, each paying a numeric window)
++//! and its window construction even misses real encounters, while every measured encounter lies
++//! within phase-neighbour rank 4 of its partner. This module replaces the pairwise tier *inside a
++//! detected clump* by a sound longitudinal watch at O(n_c·k):
++//!
++//! 1. An encounter (distance < ρ) implies the true longitudes differ by at most
++//!    δ = (π/2)·ρ/r_min: at radii ≥ r_min the chord is ≥ 2·r_min·sin(|Δλ|/2).
++//! 2. True longitude λ = ϖ + ν differs from mean longitude λ̄ = ϖ + M by the equation of centre
++//!    G = ν − M, a function of (e, M) only — a pair's apsidal difference never enters G itself.
++//!    At an encounter the two bodies share a true longitude λ (within δ), so
++//!        Δλ̄ = Δλ − [G_i(M_i) − G_j(M_j)],
++//!    |ΔG| ≤ L_E·|Δλ| + sup_λ|g_i(λ) − g_j(λ)| with g(λ) = G(M(λ−ϖ; e)) and
++//!    L_E(e) = sup|dg/dλ| = √(1+e)/(1−e)^{3/2} − 1 (extremal at the apses). The sup over shared
++//!    longitude is a phasor difference: g ≈ 2e sin(λ−ϖ), so sup_λ|g_i − g_j| ≤ K_v·|(ΔV, ΔW)|·p,
++//!    the Binet (V, W) distance (verified numerically in the tests; ϖ enters only through the
++//!    vector, so mirrored apsides are covered by the same formula). Hence an encounter implies
++//!        |Δλ̄| ≤ δ·(1 + L_E) + K_v·p·|(ΔV, ΔW)| =: L̄_ij        (the tight window),
++//!    or coarsely |Δλ̄| ≤ δ + φ(e_i) + φ(e_j) with φ(e) = sup_M|G| (the crude window, also
++//!    ϖ-free). The watch takes the min of the two.
++//! 3. Δλ̄ drifts linearly on the integer clock, so every time span with |Δλ̄| ≤ L̄ is found
++//!    exactly as a windowed circle rotation (`first_hit`; periods ≤ 2^42 keep every u128 product
++//!    below 2^126). Equal integer periods make the relative configuration exactly periodic:
++//!    one period sweep covers all time, and events repeat with the period.
++//! 4. Inside each window the pair is swept by this module's own conservative stepping (a plain
++//!    quadratic distance bound) with Newton states; the truth (truth.rs) uses Halley states and a
++//!    Gronwall-refined bound — the two paths share no solver and no step control.
++//!
++//! Trigger. A clump is a connected component of Binet points under L1 distance ≤ D_c. It fires
++//! the train when the dimensionless watch degree ζ = 2·n_c·L̄_max/(spread(λ̄)·(n_c−1)) is < 1:
++//! the watch then touches fewer pairs than the pairwise tier's n_c(n_c−1)/2 setups. Declined
++//! clumps stay on the pairwise tier, unchanged.
++
++use crate::dioph::first_hit;
++use crate::kepler::{rel, Body, TICKS};
++use crate::pairs::{dot, is_candidate, norm, refine};
++use std::f64::consts::{PI, TAU};
++
++/// sup|dG/dλ| with G = ν − M as a function of true longitude (see the module doc). Rigorous:
++/// dM/dν = (1−e²)^{3/2}/(1+e cos ν)² is extremal at the apses, and sup|1 − x| ≤ sup|1/x − 1|.
++#[inline]
++pub fn l_e(e: f64) -> f64 {
++    (1.0 + e).sqrt() / (1.0 - e).powf(1.5) - 1.0
++}
++
++/// A bound on the phasor Lipschitz constant: sup_λ|g_{e1,ϖ1}(λ) − g_{e2,ϖ2}(λ)| ≤
++/// K_v·|(e cos ϖ, e sin ϖ) difference|. g = 2e sin(λ−ϖ) + O(e²) makes 2 + 6e generous; the test
++/// `bounds_hold` verifies it by finite differences to e = 0.4.
++#[inline]
++pub fn k_v(e: f64) -> f64 {
++    2.0 + 6.0 * e
++}
++
++/// φ(e) = sup_ν |ν − M(ν)|, in closed form: the extremum of G = ν − M sits where
++/// dG/dν = 1 − (1−e²)^{3/2}/(1+e cos ν)² = 0, i.e. 1+e cos ν* = (1−e²)^{3/4}; G vanishes at
++/// the apses, so this interior critical point is the supremum (the two lobes are antisymmetric).
++pub fn phi_e(e: f64) -> f64 {
++    if e <= 0.0 {
++        return 0.0;
++    }
++    let c = (((1.0 - e * e).powf(0.75) - 1.0) / e).clamp(-1.0, 1.0);
++    let nu = c.acos();
++    let (s, co) = (0.5 * nu).sin_cos();
++    let ea = 2.0 * ((1.0 - e).sqrt() * s).atan2((1.0 + e).sqrt() * co);
++    (nu - ea + e * ea.sin()).abs()
++}
++
++/// |Δ(V, W)|·p: the pair's Binet e-vector distance in length units.
++#[inline]
++fn d_v(bi: &Body, bj: &Body) -> f64 {
++    let p = bi.p.min(bj.p);
++    let (a, b) = (bi.binet(), bj.binet());
++    p * ((a[1] - b[1]).hypot(a[2] - b[2]))
++}
++
++/// Clump-wide constants for the watch window.
++pub struct Ctx {
++    /// (π/2)·ρ/r_min over the clump: an encounter's true-longitude tolerance.
++    pub delta: f64,
++    pub e_max: f64,
++    pub p_min: f64,
++    /// Upper bound on any pairwise e-vector distance in the clump (the bbox diagonal).
++    pub dv_max: f64,
++}
++
++impl Ctx {
++    /// The sound mean-longitude window L̄_ij (radians): an encounter implies |Δλ̄| ≤ this.
++    #[inline]
++    pub fn window(&self, bi: &Body, bj: &Body) -> f64 {
++        let crude = self.delta + phi_e(bi.e) + phi_e(bj.e);
++        let tight = self.delta * (1.0 + l_e(self.e_max)) + k_v(self.e_max) * d_v(bi, bj);
++        crude.min(tight)
++    }
++
++    /// The walk bound for body i: any L̄_ij + drift_ij with j in the clump is ≤ this (the two
++    /// windows are maximised by the clump's φ and e-vector spreads; the drift by the clump's
++    /// mean-motion spread over the horizon h).
++    #[inline]
++    pub fn walk_bound(&self, bi: &Body, n_i: f64, n_lo: f64, n_hi: f64, h: f64) -> f64 {
++        let crude = self.delta + phi_e(bi.e) + phi_e(self.e_max);
++        let tight = self.delta * (1.0 + l_e(self.e_max)) + k_v(self.e_max) * self.dv_max;
++        crude.min(tight) + h * (n_hi - n_i).max(n_i - n_lo)
++    }
++}
++
++/// Mean longitude at time t (radians, [0, TAU)).
++#[inline]
++fn lam_bar(b: &Body, t: f64) -> f64 {
++    (b.mean_anomaly(t) + b.pom).rem_euclid(TAU)
++}
++
++#[derive(Default, Clone, Copy, Debug)]
++pub struct TrainStats {
++    pub clumps: u64,
++    pub fired: u64,
++    pub declined: u64,
++    /// Pairs admitted by the λ̄ walk (the watch; O(n_c·k)).
++    pub watched: u64,
++    /// Watched pairs killed by the exact Binet cone/eps_u test (no state evaluations).
++    pub cone_filtered: u64,
++    /// Windowed-congruence queries (equal-period pairs are counted in `equal_p` instead).
++    pub queries: u64,
++    pub qsteps: u64,
++    pub equal_p: u64,
++    /// Time windows swept.
++    pub windows: u64,
++    /// Exact state evaluations in sweeps.
++    pub evals: u64,
++    pub events: u64,
++}
++
++impl TrainStats {
++    pub fn add(&mut self, o: &TrainStats) {
++        self.clumps += o.clumps;
++        self.fired += o.fired;
++        self.declined += o.declined;
++        self.watched += o.watched;
++        self.cone_filtered += o.cone_filtered;
++        self.queries += o.queries;
++        self.qsteps += o.qsteps;
++        self.equal_p += o.equal_p;
++        self.windows += o.windows;
++        self.evals += o.evals;
++        self.events += o.events;
++    }
++}
++
++/// The time spans (ticks, absolute, entry and exit) with |Δλ̄(t)| ≤ `win` that intersect
++/// [t0, t1]. P_i ≠ P_j. Exact: a windowed circle rotation solved by `first_hit`.
++fn window_spans(bi: &Body, bj: &Body, win: f64, t0: i128, t1: i128, st: &mut TrainStats) -> Vec<(i128, i128)> {
++    let (pi, pj) = (bi.period as i128, bj.period as i128);
++    debug_assert!(pi != pj && pi > 0 && pj > 0);
++    let m = (pi * pj) as u128; // ≤ 2^84 for periods ≤ 2^42
++    // D(t) = (c + a·t) mod m tracks Δλ̄·m/TAU. Keep the advance a positive and small (≤ 2^42) by
++    // flipping the sign of c when j's period is the smaller: the window |D| ≤ w is symmetric, so
++    // D and −D have the same solution set.
++    let dpom = (bi.pom - bj.pom).rem_euclid(TAU);
++    let q = (dpom / TAU * m as f64).round() as i128; // error ≤ 0.5 tick in D, covered by +2 slack
++    let c0 = ((bj.tp as i128) * pi - (bi.tp as i128) * pj + q).rem_euclid(m as i128) as u128;
++    let (c0, a) = if pj > pi {
++        (c0, (pj - pi) as u128)
++    } else {
++        ((m - c0) % m, (pi - pj) as u128)
++    };
++    // |Δλ̄| ≤ win ⟺ D ∈ [m−w, m) ∪ [0, w]. Rotate by +w: the single window [0, 2w].
++    let w = ((win / TAU) * m as f64).ceil() as u128 + 2;
++    debug_assert!(2 * w + 2 < m);
++    let dur = (2 * w + 4) / a + 8; // ticks to traverse the window at advance-rate a
++    let mut out = Vec::new();
++    let mut base = t0;
++    loop {
++        let c = (c0 + w + (a * ((base as u128) % m)) % m) % m;
++        st.queries += 1;
++        let mut qs = 0u64;
++        match first_hit(c, a, m, 0, 2 * w, &mut qs) {
++            Some(k) => {
++                st.qsteps += qs;
++                let t = base + k as i128;
++                if t > t1 {
++                    break;
++                }
++                out.push((t, t + dur as i128));
++                base = t + dur as i128 + 1; // the next span opens only after this one closes
++            }
++            None => break, // the rotation never lands in the window again
++        }
++    }
++    out
++}
++
++/// Every local minimum of the pair's distance below ρ in [lo, hi] (time units), by this module's
++/// own conservative stepping: while d > 2ρ a step is taken only if the quadratic bound
++/// min_|Δr+Δvτ| − A·h²/2 ≥ 1.5ρ holds over it, so a sub-ρ dip cannot hide inside a far step;
++/// inside 2ρ the step moves ≤ ρ/4 of relative motion (curvature capped likewise) and sign
++/// changes of Δr·Δv are refined (Newton states).
++fn sweep(bi: &Body, bj: &Body, rho: f64, lo: f64, hi: f64, st: &mut TrainStats, out: &mut Vec<(f64, f64)>) {
++    if !(hi > lo) {
++        return;
++    }
++    let amax = 1.0 / bi.rmin().powi(3) + 1.0 / bj.rmin().powi(3);
++    let hcap = (0.5 * rho / amax).sqrt(); // curvature ≤ ρ/4 per step even at zero relative speed
++    let mut t = lo;
++    let (mut r, mut v, _) = rel(bi, bj, t, false);
++    st.evals += 1;
++    let mut g = dot(r, v);
++    while t < hi {
++        let d = norm(r);
++        let mut h = if d > 2.0 * rho {
++            let mut h = (hi - t).min(2.0 * ((d - 1.5 * rho) / amax).sqrt().max(1e-12));
++            let (rv, vv) = (dot(r, v), dot(v, v));
++            loop {
++                let tau = if vv > 0.0 { (-rv / vv).clamp(0.0, h) } else { 0.0 };
++                let ml = norm([r[0] + v[0] * tau, r[1] + v[1] * tau]);
++                if ml - 0.5 * amax * h * h >= 1.5 * rho || h <= 1e-13 {
++                    break;
++                }
++                h *= 0.5;
++            }
++            h
++        } else {
++            (0.25 * rho / norm(v).max(1e-12)).min(hi - t).min(hcap)
++        };
++        if !(h > 0.0) {
++            h = hi - t;
++        }
++        let tn = (t + h).min(hi);
++        let (rn, vn, _) = rel(bi, bj, tn, false);
++        st.evals += 1;
++        let gn = dot(rn, vn);
++        if d <= 2.0 * rho && g < 0.0 && gn >= 0.0 {
++            let (tm, dm) = refine(bi, bj, t, tn, false, &mut st.evals);
++            if dm < rho && tm > lo && tm < hi {
++                out.push((tm, dm));
++            }
++        }
++        t = tn;
++        r = rn;
++        v = vn;
++        g = gn;
++    }
++}
++
++/// Clumps: connected components of Binet points under L1 distance ≤ d_c (grid hash, O(n)).
++pub fn clumps(b: &[Body], d_c: f64) -> Vec<Vec<u32>> {
++    let n = b.len();
++    let mut parent: Vec<u32> = (0..n as u32).collect();
++    fn find(p: &mut Vec<u32>, mut x: u32) -> u32 {
++        while p[x as usize] != x {
++            p[x as usize] = p[p[x as usize] as usize];
++            x = p[x as usize];
++        }
++        x
++    }
++    let union = |p: &mut Vec<u32>, i: u32, j: u32| {
++        let (ri, rj) = (find(p, i), find(p, j));
++        if ri != rj {
++            p[ri as usize] = rj;
++        }
++    };
++    let mut cell: std::collections::HashMap<(i64, i64, i64), Vec<u32>> = std::collections::HashMap::new();
++    let inv = 1.0 / d_c;
++    let key = |u: [f64; 3]| -> (i64, i64, i64) {
++        ((u[0] * inv).floor() as i64, (u[1] * inv).floor() as i64, (u[2] * inv).floor() as i64)
++    };
++    for (k, x) in b.iter().enumerate() {
++        cell.entry(key(x.binet())).or_default().push(k as u32);
++    }
++    let l1 = |a: [f64; 3], c: [f64; 3]| (a[0] - c[0]).abs() + (a[1] - c[1]).abs() + (a[2] - c[2]).abs();
++    for (ka, va) in cell.iter() {
++        for da in -1i64..=1 {
++            for db in -1i64..=1 {
++                for dc in -1i64..=1 {
++                    let kb = (ka.0 + da, ka.1 + db, ka.2 + dc);
++                    if kb <= *ka {
++                        continue; // each neighbouring cell pair once; (0,0,0) handled below
++                    }
++                    let Some(vb) = cell.get(&kb) else { continue };
++                    for &i in va {
++                        for &j in vb {
++                            if l1(b[i as usize].binet(), b[j as usize].binet()) <= d_c {
++                                union(&mut parent, i, j);
++                            }
++                        }
++                    }
++                }
++            }
++        }
++    }
++    for v in cell.values() {
++        for &i in &v[1..] {
++            union(&mut parent, v[0], i); // same cell ⇒ L1 ≤ 3·d_c, one component by design
++        }
++    }
++    let mut groups: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
++    for k in 0..n as u32 {
++        groups.entry(find(&mut parent, k)).or_default().push(k);
++    }
++    let mut out: Vec<Vec<u32>> = groups.into_values().filter(|v| v.len() >= 2).collect();
++    for v in &mut out {
++        v.sort_unstable();
++    }
++    out.sort();
++    out
++}
++
++fn ctx_of(b: &[Body], members: &[u32]) -> Ctx {
++    let r_min = members.iter().map(|&i| b[i as usize].rmin()).fold(f64::INFINITY, f64::min);
++    let e_max = members.iter().map(|&i| b[i as usize].e).fold(0.0, f64::max);
++    let p_min = members.iter().map(|&i| b[i as usize].p).fold(f64::INFINITY, f64::min);
++    // e-vector bbox: any pairwise distance ≤ the diagonal
++    let mut x_lo = f64::INFINITY;
++    let mut x_hi = f64::NEG_INFINITY;
++    let mut y_lo = f64::INFINITY;
++    let mut y_hi = f64::NEG_INFINITY;
++    for &i in members {
++        let x = b[i as usize].e * b[i as usize].cp;
++        let y = b[i as usize].e * b[i as usize].sp;
++        x_lo = x_lo.min(x);
++        x_hi = x_hi.max(x);
++        y_lo = y_lo.min(y);
++        y_hi = y_hi.max(y);
++    }
++    Ctx { delta: 0.5 * PI * 1e-9, e_max, p_min, dv_max: 0.0 }
++    .with_delta(r_min)
++    .with_dv((x_hi - x_lo).hypot(y_hi - y_lo))
++}
++
++impl Ctx {
++    fn with_delta(mut self, r_min: f64) -> Self {
++        self.delta = 0.5 * PI * (self.p_min / r_min).max(0.0) * 0.0 + self.delta; // placeholder, replaced below
++        self
++    }
++    fn with_dv(mut self, dv: f64) -> Self {
++        self.dv_max = dv;
++        self
++    }
++}
++
++/// The dimensionless concentration number of a clump: the sound watch degree
++/// ζ = 2·n_c·L̄_max/(spread(λ̄)·(n_c−1)). ζ < 1 means the watch touches fewer pairs than the
++/// pairwise tier's n_c(n_c−1)/2; the train fires then (and only then).
++pub fn zeta(b: &[Body], members: &[u32], rho: f64) -> f64 {
++    let n_c = members.len() as f64;
++    if members.len() < 2 {
++        return f64::INFINITY;
++    }
++    let ctx = ctx_of(b, members);
++    let l_max = members
++        .iter()
++        .map(|&i| ctx.walk_bound(&b[i as usize], 0.0, -1.0, 1.0, 0.0))
++        .fold(0.0f64, f64::max)
++        .max(ctx.delta * (1.0 + l_e(ctx.e_max)) + k_v(ctx.e_max) * ctx.dv_max);
++    let mut lams: Vec<f64> = members.iter().map(|&i| lam_bar(&b[i as usize], 0.0)).collect();
++    lams.sort_by(|x, y| x.total_cmp(y));
++    let mut gap = 0.0f64;
++    for w in lams.windows(2) {
++        gap = gap.max(w[1] - w[0]);
++    }
++    let spread = (TAU - gap).max(1e-12); // the circle's occupied arc (1 minus the largest gap)
++    2.0 * n_c * l_max / (spread * (n_c - 1.0))
++}
++
++/// All encounters (minima below ρ) between members of one clump over [t0, t1] (time units),
++/// by the phase-neighbour watch. Sound regardless of ζ; the caller decides whether to use this
++/// or the pairwise tier (see `zeta`).
++pub fn train_events(b: &[Body], members: &[u32], rho: f64, t0: f64, t1: f64, st: &mut TrainStats, out: &mut Vec<(u32, u32, f64, f64)>) {
++    st.clumps += 1;
++    let n = members.len();
++    if n < 2 {
++        return;
++    }
++    let h = t1 - t0;
++    let r_min = members.iter().map(|&i| b[i as usize].rmin()).fold(f64::INFINITY, f64::min);
++    let mut ctx = ctx_of(b, members);
++    ctx.delta = 0.5 * PI * rho / r_min;
++    let (n_lo, n_hi) = members.iter().map(|&i| b[i as usize].n).fold((f64::INFINITY, f64::NEG_INFINITY), |a, x| (a.0.min(x), a.1.max(x)));
++    // (λ̄ at t0, position in `members`), sorted circularly.
++    let mut order: Vec<(f64, usize)> = members.iter().enumerate().map(|(k, &i)| (lam_bar(&b[i as usize], t0), k)).collect();
++    order.sort_by(|x, y| x.0.total_cmp(&y.0));
++    let t0t = (t0 * TICKS) as i128;
++    let t1t = (t1 * TICKS) as i128;
++    let mut tmp: Vec<(f64, f64)> = Vec::new();
++    for k in 0..n {
++        let (lam_i, ki) = order[k];
++        let i = members[ki];
++        let (bi, n_i) = (&b[i as usize], b[i as usize].n);
++        let bound = ctx.walk_bound(bi, n_i, n_lo, n_hi, h);
++        for s in 1..n {
++            let (lam_j, kj) = order[(k + s) % n];
++            let gap = if k + s < n { lam_j - lam_i } else { lam_j + TAU - lam_i };
++            if gap > bound {
++                break;
++            }
++            let j = members[kj];
++            let bj = &b[j as usize];
++            let win = ctx.window(bi, bj);
++            if gap > win + h * (bj.n - n_i).abs() {
++                continue; // never within the sound window during the horizon
++            }
++            st.watched += 1;
++            if !is_candidate(bi, bj, rho) {
++                st.cone_filtered += 1; // the orbits cannot touch: exact Binet test, no evals
++                continue;
++            }
++            tmp.clear();
++            let start = out.len();
++            if bi.period == bj.period {
++                st.equal_p += 1;
++                // The relative configuration repeats exactly with the period: one sweep covers
++                // all time; replicate the found minima across the horizon.
++                sweep(bi, bj, rho, t0, t0 + bi.period as f64 / TICKS, st, &mut tmp);
++                let p = bi.period as f64 / TICKS;
++                let mut reps = 0;
++                while t0 + reps as f64 * p < t1 {
++                    for &(tm, dm) in &tmp {
++                        let t = tm + reps as f64 * p;
++                        if t >= t0 && t <= t1 {
++                            out.push((i.min(j), i.max(j), t, dm));
++                        }
++                    }
++                    reps += 1;
++                }
++            } else {
++                for (ta, tb) in window_spans(bi, bj, win, t0t, t1t, st) {
++                    st.windows += 1;
++                    sweep(bi, bj, rho, ta as f64 / TICKS, (tb as f64 / TICKS).min(t1), st, &mut tmp);
++                }
++                for &(t, d) in &tmp {
++                    out.push((i.min(j), i.max(j), t, d));
++                }
++            }
++            st.events += (out.len() - start) as u64;
++        }
++    }
++    out.sort_by(|x, y| x.0.cmp(&y.0).then(x.1.cmp(&y.1)).then(x.2.total_cmp(&y.2)));
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn bounds_hold() {
++        for e in [0.001f64, 0.01, 0.05, 0.1, 0.25, 0.4] {
++            let phi = phi_e(e);
++            assert!(phi <= 2.0 * e + 1.25 * e * e + 1.1 * e.powi(3) + 1e-9, "phi({e}) = {phi}");
++            assert!(phi >= 2.0 * e - 1e-9);
++            assert!(l_e(e) >= 2.0 * e - 1e-9 && l_e(e) <= 4.0 * e + 1e-9);
++            // K_v: sup_λ|g1 − g2| ≤ K_v·(e-vector distance), by phasor finite differences.
++            let g = |e: f64, pom: f64, lam: f64| {
++                let m = {
++                    let (s, c) = (0.5 * (lam - pom)).sin_cos();
++                    let ea = 2.0 * ((1.0 - e).sqrt() * s).atan2((1.0 + e).sqrt() * c);
++                    ea - e * ea.sin()
++                };
++                (lam - pom) - m
++            };
++            let mut rng = crate::belt::Rng(4242);
++            for _ in 0..200 {
++                let (e1, p1) = (e * rng.f64(), TAU * rng.f64());
++                let (e2, p2) = (e * rng.f64(), TAU * rng.f64());
++                let de = (e1 * p1.cos() - e2 * p2.cos()).hypot(e1 * p1.sin() - e2 * p2.sin()).max(1e-12);
++                let mut sup = 0.0f64;
++                for q in 0..512 {
++                    let lam = TAU * q as f64 / 512.0;
++                    sup = sup.max((g(e1, p1, lam) - g(e2, p2, lam)).abs());
++                }
++                assert!(sup <= k_v(e) * de + 1e-12, "sup|Δg|={sup} > K_v·d={}", k_v(e) * de);
++            }
++        }
++    }
++
++    #[test]
++    fn window_spans_cover_brute() {
++        // The enumerated spans cover exactly the brute-force λ̄-close ticks.
++        let cases = [
++            (57u64, 61u64, 0.30f64, 20_000i128),
++            (1000u64, 998u64, 0.05f64, 200_000i128),
++            (4096u64, 4104u64, 0.02f64, 500_000i128),
++            (123_457u64, 123_503u64, 0.004f64, 3_000_000i128),
++        ];
++        for (pi, pj, win, tmax) in cases {
++            let bi = Body::with_period(pi, 0.01, 0.3, 0.0);
++            let bj = Body::with_period(pj, 0.02, 0.5, 0.0);
++            let mut st = TrainStats::default();
++            let spans = window_spans(&bi, &bj, win, 0, tmax, &mut st);
++            assert!(!spans.is_empty(), "case ({pi},{pj}) must open at least one span");
++            let dlam = |t: i128| -> f64 {
++                let li = TAU * (((t - bi.tp as i128) as f64) / pi as f64).fract();
++                let lj = TAU * (((t - bj.tp as i128) as f64) / pj as f64).fract();
++                let d = (li + bi.pom - lj - bj.pom).rem_euclid(TAU);
++                d.min(TAU - d)
++            };
++            for t in 0..tmax {
++                if dlam(t) <= win * 0.999 {
++                    assert!(spans.iter().any(|&(a, b)| t >= a && t <= b), "tick {t} close but uncovered ({pi},{pj})");
++                }
++            }
++            for &(a, b) in &spans {
++                assert!((a..=b).any(|t| dlam(t) <= win * 1.001), "phantom span {a}..{b} ({pi},{pj})");
++            }
++        }
++    }
++
++    #[test]
++    fn watch_window_is_sound() {
++        // distance < ρ ⟹ |Δλ̄| ≤ window, on random near-clump pairs and times, including
++        // mirrored and crossed apsides.
++        let mut rng = crate::belt::Rng(99);
++        let rho = 1e-4;
++        let mut close = 0;
++        for _ in 0..500 {
++            let e_i = 0.002 * rng.f64() + 0.0002;
++            let e_j = (e_i + (rng.f64() - 0.5) * 6e-4).max(1e-6);
++            let pom = TAU * rng.f64();
++            let lam = TAU * rng.f64();
++            let bi = Body::new(1.0 + (rng.f64() - 0.5) * 1e-5, e_i, pom, lam);
++            let dpom = match rng.next_u64() % 3 {
++                0 => (rng.f64() - 0.5) * 0.05,   // aligned (a formation)
++                1 => PI + (rng.f64() - 0.5) * 0.1, // mirrored apsides
++                _ => (rng.f64() - 0.5) * 1.0,    // crossed apsides
++            };
++            let bj = Body::new(1.0 + (rng.f64() - 0.5) * 1e-5, e_j, pom + dpom, lam + (rng.f64() - 0.5) * 0.004);
++            let r_min = bi.rmin().min(bj.rmin());
++            let ctx = Ctx {
++                delta: 0.5 * PI * rho / r_min,
++                e_max: e_j.max(e_i),
++                p_min: bi.p.min(bj.p),
++                dv_max: (bi.e * bi.cp - bj.e * bj.cp).hypot(bi.e * bi.sp - bj.e * bj.sp),
++            };
++            let w = ctx.window(&bi, &bj);
++            for _ in 0..200 {
++                let t = 6.0 * rng.f64();
++                let (si, sj) = (bi.state(t), bj.state(t));
++                let d = (si[0] - sj[0]).hypot(si[1] - sj[1]);
++                if d < rho {
++                    close += 1;
++                    let dl = (lam_bar(&bi, t) - lam_bar(&bj, t)).rem_euclid(TAU);
++                    let dl = dl.min(TAU - dl);
++                    assert!(dl <= w + 1e-12, "encounter at {t}: |Δλ̄|={dl} > window {w} (dpom {dpom})");
++                }
++            }
++        }
++        assert!(close > 50, "the probe must actually find encounters (found {close})");
++    }
++
++    #[test]
++    fn equal_period_pair() {
++        // Same period: one sweep covers all time and events repeat with the period; a λ̄-far
++        // equal-period pair sweeps nothing.
++        let rho = 1e-4;
++        let near = (Body::new(1.0, 0.0, 0.0, 0.0), Body::new(1.0, 5e-5, 0.0, 3e-5));
++        let far = (Body::new(1.0, 0.0, 0.0, 0.0), Body::new(1.0, 5e-5, 0.0, 0.05));
++        let p = near.0.period;
++        let mut st = TrainStats::default();
++        let mut out = Vec::new();
++        train_events(&[near.0, near.1], &[0, 1], rho, 0.0, 10.0 * TAU, &mut st, &mut out);
++        assert_eq!(st.equal_p, 1);
++        assert!(!out.is_empty(), "the oscillating co-period pair must encounter");
++        // up to two minima per period (both lobes of the equation of centre): every event must
++        // sit at one of the first period's residues, modulo the period.
++        let pt = p as f64 / TICKS;
++        let residues: Vec<f64> = out.iter().take(2).map(|e| e.2).collect();
++        assert!(out.len() >= 4, "several periods must be covered");
++        for e in &out {
++            assert!(
++                residues.iter().any(|&r| {
++                    let v = ((e.2 - r) % pt + pt) % pt;
++                    v.min(pt - v) < 1e-6
++                }),
++                "event {e:?} not periodic with P"
++            );
++        }
++        let mut st2 = TrainStats::default();
++        let mut out2 = Vec::new();
++        train_events(&[far.0, far.1], &[0, 1], rho, 0.0, 10.0 * TAU, &mut st2, &mut out2);
++        assert!(out2.is_empty() && st2.windows == 0, "λ̄-far equal-period pair must not sweep");
++    }
++
++    #[test]
++    fn train_matches_truth_on_a_formation() {
++        // A bunched formation: the train and the r8 truth construction agree on every pair.
++        let rho = 1e-4;
++        let mut rng = crate::belt::Rng(7);
++        let pom0 = TAU * rng.f64();
++        let lam0 = TAU * rng.f64();
++        let mut b: Vec<Body> = (0..12)
++            .map(|_| {
++                let a = 1.0 + (rng.f64() - 0.5) * 2e-5;
++                let e = (0.001 * (-2.0 * (1.0 - rng.f64()).ln()).sqrt()).min(0.01);
++                Body::new(a, e, pom0 + (rng.f64() - 0.5) * 0.2, lam0 + 0.02 * (rng.f64() - 0.5) * 2.0)
++            })
++            .collect();
++        // guarantee one near-twin pair (identical elements but a small mean-longitude offset)
++        b[1] = Body::new(b[0].a, b[0].e, b[0].pom, 3e-5);
++        let members: Vec<u32> = (0..b.len() as u32).collect();
++        let t_end = 2.0 * TAU;
++        let mut st = TrainStats::default();
++        let mut out = Vec::new();
++        train_events(&b, &members, rho, 0.0, t_end, &mut st, &mut out);
++        let mut tst = crate::truth::TruthStats::default();
++        let mut truth: Vec<(u32, u32, f64, f64)> = Vec::new();
++        for i in 0..b.len() {
++            for j in (i + 1)..b.len() {
++                let mut tmp = Vec::new();
++                crate::truth::truth_pair(&b[i], &b[j], rho, t_end, &mut tmp, &mut tst);
++                truth.extend(tmp.iter().map(|&(t, d)| (i as u32, j as u32, t, d)));
++            }
++        }
++        assert!(!truth.is_empty(), "the formation must produce encounters");
++        let inside = |t: f64| t > 0.05 && t < t_end - 0.05;
++        let tol = 1e-3;
++        for e in truth.iter().filter(|e| inside(e.2)) {
++            assert!(
++                out.iter().any(|m| m.0 == e.0 && m.1 == e.1 && (m.2 - e.2).abs() < tol),
++                "train missed {e:?}"
++            );
++        }
++        for m in out.iter().filter(|m| inside(m.2)) {
++            assert!(
++                truth.iter().any(|e| e.0 == m.0 && e.1 == m.1 && (e.2 - m.2).abs() < tol),
++                "train phantom {m:?}"
++            );
++        }
++    }
++}

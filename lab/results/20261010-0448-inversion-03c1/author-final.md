@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered, 25 scenes executed (all < 60 s, < 100 MB), dossier and reproducible diff in `lab/results/20261010-0448-inversion-03c1/`.
+
+**Claim:** The pending co-orbital train certificate (`b-coorbital-cert-152e`, which died at a 429 before ever running) is sound on first execution — 0 missed, 0 false on all 20 scenes — but its quadratic-tier deletion is a strict-formation oasis: the certified share of fleet pairs falls 100% → 83% → 55% → 0% as dispersion rises σ_e 0.001 → 0.02 → 0.05 → 0.25, the unprotected residue is cone-admitted with 2 Cross sections per pair and zero numeric evals (the engagement-store ruin signature), high-e fleets are declined wholesale, and at the 10⁶ scale the residue store is ~0.7–12.6 TB for σ_e 0.005–0.05 — so only rigid formations (σ_e ≲ 10⁻³) fit the 8 GB machine, and the trigger's `declined` counter silently hides the quadratic load it hands back.
