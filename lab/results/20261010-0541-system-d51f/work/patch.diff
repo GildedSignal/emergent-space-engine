@@ -1,0 +1,242 @@
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d..50fdae4 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -264,9 +264,8 @@ pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)
+     let (mut pos, mut vel, mut rate) = ([0.0f64; 2], [0.0f64; 2], 1.0f64);
+     let (mut cur, mut below) = (i, None::<[f64; 2]>);
+     loop {
+-        let (b, p, v) = ramped(ctx, cur, t)?;
+-        let (p, v) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
+-        let doll = &ctx.dolls[b.doll as usize];
++        let (doll_id, p, v) = lab::ramped_memo(ctx, cur, t)?;
++        let doll = &ctx.dolls[doll_id as usize];
+         let k = 2f64.powi(-(doll.shift as i32));
+         pos = [pos[0] + p[0] * k, pos[1] + p[1] * k];
+         vel = [vel[0] + v[0], vel[1] + v[1]];
+@@ -288,6 +287,78 @@ pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)
+     Ok((pos, vel, rate))
+ }
+ 
++/// Lab instrumentation for run `20261010-0541-system-d51f` (the whole-system lens). Not part of the
++/// law: counters plus an opt-in per-frame memo of `ramped` readouts keyed (body, tick), so every
++/// body of a doll shares its centre's readout. The memo returns exactly what [`ramped`] returns
++/// (same function, same inputs, stored), so arithmetic order and bits are unchanged; with the memo
++/// off (the default, everywhere outside the lab test) `state_rate` is the original loop.
++pub mod lab {
++    use super::{ramped, Ctx, Res, Tick};
++    use std::cell::RefCell;
++    use std::collections::HashMap;
++
++    /// One doll level's readout: the doll (for shift, μ and the centre), the position and the
++    /// velocity, in the doll's units, as floats.
++    pub type Level = (u16, [f64; 2], [f64; 2]);
++
++    #[derive(Default, Clone, Copy)]
++    pub struct Lab {
++        /// `ramped` readouts paid inside `state_rate` walks (one per chain level).
++        pub levels: u64,
++        pub memo_hits: u64,
++        pub memo_misses: u64,
++        /// The scheduler's per-event position update (`Universe::apply`): calls and nanoseconds.
++        pub sched_calls: u64,
++        pub sched_ns: u64,
++    }
++
++    thread_local! {
++        static LAB: RefCell<Lab> = RefCell::default();
++        static MEMO: RefCell<Option<HashMap<(usize, Tick), Level>>> = const { RefCell::new(None) };
++    }
++
++    pub fn memo(on: bool) {
++        MEMO.with_borrow_mut(|m| *m = if on { Some(HashMap::new()) } else { None });
++    }
++    pub fn reset() {
++        LAB.with_borrow_mut(|l| *l = Lab::default());
++        MEMO.with_borrow_mut(|m| if m.is_some() { *m = Some(HashMap::new()) });
++    }
++    pub fn take() -> Lab {
++        LAB.with_borrow_mut(std::mem::take)
++    }
++
++    /// [`ramped`], memoized per (body, tick) while the memo is on. Levels above the emitter are
++    /// shared by every body of the same doll at the same tick; the memo counts what sharing saves.
++    pub fn ramped_memo(ctx: &Ctx, i: usize, t: Tick) -> Res<Level> {
++        let memo_hit = MEMO.with_borrow(|m| m.as_ref().and_then(|m| m.get(&(i, t)).copied()));
++        if let Some(v) = memo_hit {
++            LAB.with_borrow_mut(|l| {
++                l.levels += 1;
++                l.memo_hits += 1;
++            });
++            return Ok(v);
++        }
++        LAB.with_borrow_mut(|l| {
++            l.levels += 1;
++            l.memo_misses += 1;
++        });
++        let (b, p, v) = ramped(ctx, i, t)?;
++        let out = (b.doll, [super::to_f64(p[0]), super::to_f64(p[1])], [super::to_f64(v[0]), super::to_f64(v[1])]);
++        MEMO.with_borrow_mut(|m| if let Some(m) = m.as_mut() { m.insert((i, t), out); });
++        Ok(out)
++    }
++
++    /// Charge the scheduler's per-event position update.
++    pub fn sched(d: u64) {
++        LAB.with_borrow_mut(|l| {
++            l.sched_calls += 1;
++            l.sched_ns += d;
++        });
++    }
++
++}
++
+ /// What the player's held thrust has made of its state since the last flush, at tick `t`: the heading
+ /// (turns, Q32) and the change of velocity (the burn owed), the same a flush at `t` would write. A pure
+ /// read, so the view shows the keys within the frame instead of at the next kick.
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..b7118bd 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -528,9 +528,11 @@ impl Universe {
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
++        let t0 = std::time::Instant::now();
+         if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+             self.pos[i] = p;
+         }
++        crate::observe::lab::sched(t0.elapsed().as_nanos() as u64);
+     }
+ 
+     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {
+diff --git a/crates/universe/tests/lab_arrival.rs b/crates/universe/tests/lab_arrival.rs
+new file mode 100644
+index 0000000..2443e98
+--- /dev/null
++++ b/crates/universe/tests/lab_arrival.rs
+@@ -0,0 +1,125 @@
++//! Lab test for run `20261010-0541-system-d51f` (the whole-system lens): the plane's light-arrival
++//! bookkeeping — the scheduler's per-event deadline position update and the view's per-emitter
++//! retarded reads — recomputes the same doll-chain readouts; a per-frame (body, tick) memo of the
++//! `ramped` readout shares them with bit-identical results.
++//!
++//! Two flights of the same scene (same seed, same frames): memo off, then memo on. Asserts every
++//! frame's gathered view hashes identically and the digest at the same cut matches, then prints the
++//! counters. Run: `cargo test --release -p emergent-universe --test lab_arrival -- --nocapture`.
++use emergent_universe::observe::lab;
++use emergent_universe::scenario::{plane, stream, Stream};
++use emergent_universe::view::{gather_cached, ViewCache};
++use emergent_universe::fleet::Order;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++const FRAMES: usize = 300;
++const RTF: f64 = 100.0;
++
++fn hash_view(v: &emergent_universe::view::View) -> u64 {
++    let mut h = std::collections::hash_map::DefaultHasher::new();
++    use std::hash::{Hash, Hasher};
++    v.tick.hash(&mut h);
++    for s in &v.seen {
++        s.id.hash(&mut h);
++        for f in s.direction {
++            f.to_bits().hash(&mut h);
++        }
++        s.light_seconds.to_bits().hash(&mut h);
++        s.offset[0].to_bits().hash(&mut h);
++        s.offset[1].to_bits().hash(&mut h);
++        s.closing.to_bits().hash(&mut h);
++        for f in s.color { f.to_bits().hash(&mut h); }
++        s.luminosity.to_bits().hash(&mut h);
++        s.shift.to_bits().hash(&mut h);
++        s.age.to_bits().hash(&mut h);
++        s.lag.to_bits().hash(&mut h);
++        s.angular_radius.to_bits().hash(&mut h);
++    }
++    v.rate.to_bits().hash(&mut h);
++    v.beta[0].to_bits().hash(&mut h);
++    v.beta[1].to_bits().hash(&mut h);
++    v.proper_seconds.to_bits().hash(&mut h);
++    h.finish()
++}
++
++struct Flight {
++    gather_ns: Vec<u64>,
++    engine_ns: Vec<u64>,
++    view_hashes: Vec<u64>,
++    digest: String,
++    cut: i64,
++    lab: lab::Lab,
++    events: u64,
++}
++
++fn fly(memo_on: bool) -> Flight {
++    let mut p = plane(Config::default(), 7, Order::Sparse, 1, 48).expect("the plane");
++    let names = p.names.clone();
++    let mut cache = ViewCache::default();
++    let mut out = Flight { gather_ns: Vec::new(), engine_ns: Vec::new(), view_hashes: Vec::new(), digest: String::new(), cut: 0, lab: lab::Lab::default(), events: 0 };
++    lab::memo(memo_on);
++    for n in 0..FRAMES {
++        lab::reset(); // per-frame memo and counters (the gather only; the scheduler counters accumulate per frame too)
++        let t0 = Instant::now();
++        let f = p.u.frame_to(1.0 / 60.0, RTF, Budget::wall(5.0), i64::MAX);
++        let t1 = Instant::now();
++        let v = gather_cached(&p.u, &names, &mut cache).expect("view");
++        let t2 = Instant::now();
++        out.gather_ns.push((t2 - t1).as_nanos() as u64);
++        out.engine_ns.push((t1 - t0).as_nanos() as u64);
++        out.view_hashes.push(hash_view(&v));
++        out.events += f.events;
++        let l = lab::take();
++        out.lab.levels += l.levels;
++        out.lab.memo_hits += l.memo_hits;
++        out.lab.memo_misses += l.memo_misses;
++        out.lab.sched_calls += l.sched_calls;
++        out.lab.sched_ns += l.sched_ns;
++        let _ = n;
++    }
++    lab::memo(false);
++    out.cut = p.u.now;
++    out.digest = p.u.digest();
++    out
++}
++
++fn median(v: &mut Vec<u64>) -> u64 {
++    v.sort();
++    v[v.len() / 2]
++}
++
++#[test]
++fn arrival_bookkeeping_shares_the_doll_chain() {
++    let a = fly(false);
++    let b = fly(true);
++    assert_eq!(a.view_hashes, b.view_hashes, "the memo changed the view's bits");
++    assert_eq!(a.digest, b.digest, "the memo changed the universe digest");
++    assert_eq!(a.cut, b.cut);
++    let share = |l: &lab::Lab| if l.levels > 0 { 100.0 * l.memo_hits as f64 / l.levels as f64 } else { 0.0 };
++    println!(
++        "plane(seed 7, rtf {RTF}, {FRAMES} frames, {} events): levels {} hits {} misses {} hit_share {:.1}% | gather median {:.1} us -> {:.1} us | engine median {:.1} us -> {:.1} us | sched calls {} ({} per event) at {} us each",
++        a.events, b.lab.levels, b.lab.memo_hits, b.lab.memo_misses, share(&b.lab),
++        median(&mut a.gather_ns.clone()) as f64 / 1e3, median(&mut b.gather_ns.clone()) as f64 / 1e3,
++        median(&mut a.engine_ns.clone()) as f64 / 1e3, median(&mut b.engine_ns.clone()) as f64 / 1e3,
++        a.lab.sched_calls, a.lab.sched_calls as f64 / a.events as f64, a.lab.sched_ns as f64 / 1e3 / a.lab.sched_calls as f64,
++    );
++
++    // Control: the stream scene has every emitter in the root doll (depth 1): no shared levels.
++    let (mut u, _ids, _player) = stream(0.0, 0.9, Stream::Toward, 64, 1.0e8, 0).expect("stream");
++    let mut cache = ViewCache::default();
++    lab::memo(true);
++    lab::reset();
++    let names: Vec<String> = (0..u.n_bodies()).map(|i| format!("b{i}")).collect();
++    for _ in 0..60 {
++        let _ = u.frame_to(1.0 / 60.0, RTF, Budget::wall(5.0), i64::MAX);
++        let _ = gather_cached(&u, &names, &mut cache);
++        lab::reset();
++    }
++    let s = lab::take();
++    lab::memo(false);
++    println!(
++        "control stream(64 emitters, root doll): levels {} hits {} hit_share {:.1}%",
++        s.levels, s.memo_hits, share(&s)
++    );
++}
