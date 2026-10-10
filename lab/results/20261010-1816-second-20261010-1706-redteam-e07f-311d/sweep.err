@@ -1,0 +1,12 @@
+warning: value assigned to `law` is never read
+  --> crates/space/examples/isco_second.rs:51:13
+   |
+51 |     let mut law = String::new();
+   |             ^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-space` (example "isco_second") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.09s
+     Running `/home/glmlab/lab-target-0/release/examples/isco_second sweep`

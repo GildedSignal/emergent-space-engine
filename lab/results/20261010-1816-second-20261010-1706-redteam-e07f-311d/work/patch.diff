@@ -1,0 +1,309 @@
+diff --git a/crates/space/examples/isco_second.rs b/crates/space/examples/isco_second.rs
+new file mode 100644
+index 0000000..2d2b1c8
+--- /dev/null
++++ b/crates/space/examples/isco_second.rs
+@@ -0,0 +1,303 @@
++//! Second author on 20261010-1706-redteam-e07f: the checker's one experiment.
++//! Runs the ISCO falsifier on the SHIPPED law (`space-darwin16-scaled-v5`,
++//! crates/space) via the plane's own binding path `Rebinding::from_state`
++//! (engine/src/tube.rs:158), not on r1's frozen band map. No crate file is
++//! modified; this file only reads the public API.
++//!
++//! Usage: cargo run --release --example isco_second -- pilot|probe|sweep|stair|flip
++//!
++//! sweep prints: r0 eps r_s(decode) v_t(decode) law advance memo
++//!   law   = bound | refuse:<Error>          (from_state, exact key)
++//!   memo  = same | FLIP(<Error>)            (OrbitKey::memo_key + compile)
++//! stair prints: p e advance_law advance_gr (exact keys; GL8 Darwin oracle).
++//! flip  prints: (a) memo-grid summary, (b) p e exact memo near 6+2e.
++use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++
++fn decoded(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++fn scalar(x: f64) -> Scalar {
++    let e = x.abs().log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - e)).round() as i128, e - 60).unwrap()
++}
++
++/// The falsifier family of the original run (binet_isco.py::run_exact):
++/// body at r_s = r0/(1+eps) with the circular angular momentum of r0,
++/// zero radial velocity (a turning point). eps>0: the inward class.
++/// L_circ^2(r0) = r0^2/(r0-3); v_t solves L = r v_t/sqrt(1-2/r_s - v_t^2).
++fn state(r0: f64, eps: f64) -> (IntegerState, f64, f64) {
++    const PE: i16 = -40;
++    const VE: i16 = -50;
++    let rs = r0 / (1.0 + eps);
++    let l2 = r0 * r0 / (r0 - 3.0);
++    let vt = (l2 * (1.0 - 2.0 / rs) / (rs * rs + l2)).sqrt();
++    let px = (rs * 2f64.powi(-(PE as i32))).round() as i64;
++    let vy = (vt * 2f64.powi(-(VE as i32))).round() as i64;
++    let st = IntegerState {
++        position: [px, 0],
++        velocity: [0, vy],
++        length_exponent: PE,
++        velocity_exponent: VE,
++    };
++    let rs_d = px as f64 * 2f64.powi(PE as i32);
++    let vt_d = vy as f64 * 2f64.powi(VE as i32);
++    (st, rs_d, vt_d)
++}
++
++fn verdict(r0: f64, eps: f64) {
++    let (st, rs, vt) = state(r0, eps);
++    let mut law = String::new();
++    let mut memo = String::new();
++    let mut adv = String::new();
++    match Rebinding::from_state(st, Scalar::integer(0), None) {
++        Ok(fit) => match &fit.trajectory {
++            Trajectory::Cycle(c) => {
++                let a = decoded(c.advance().unwrap());
++                adv = format!("{a:.9}");
++                law = "bound".into();
++                let key = c.key();
++                match key.memo_key() {
++                    Ok(qk) => match Orbit::compile(qk) {
++                        Ok(_) => memo = "same".into(),
++                        Err(e) => memo = format!("FLIP({e:?})"),
++                    },
++                    Err(e) => memo = format!("FLIPKEY({e:?})"),
++                }
++            }
++            other => law = format!("other:{other:?}"),
++        },
++        Err(e) => law = format!("refuse:{e:?}"),
++    }
++    println!("{r0:.9} {eps:+.1e} {rs:.9} {vt:.12} {} {} {law} {adv} {memo}", st.position[0], st.velocity[1]);
++}
++
++/// GL8 nodes/weights and the Darwin GR oracle for the advance,
++/// ported from crates/space/tests/near_circular.rs (shares no crate code).
++fn gl8() -> [(f64, f64); 8] {
++    let mut out = [(0.0, 0.0); 8];
++    for (i, o) in out.iter_mut().enumerate() {
++        let mut x = (std::f64::consts::PI * (i as f64 + 0.75) / 8.5).cos();
++        for _ in 0..100 {
++            let (mut p0, mut p1) = (1.0, x);
++            for k in 2..=8 {
++                let p2 = ((2 * k - 1) as f64 * x * p1 - (k - 1) as f64 * p0) / k as f64;
++                p0 = p1;
++                p1 = p2;
++            }
++            let dp = 8.0 * (x * p1 - p0) / (x * x - 1.0);
++            x -= p1 / dp;
++            *o = (x, 2.0 / ((1.0 - x * x) * dp * dp));
++        }
++    }
++    out
++}
++fn gr_advance(p: f64, e: f64) -> f64 {
++    use std::f64::consts::PI;
++    let mut cuts = vec![0.0];
++    let mut x = 1e-7;
++    while x < 0.05 {
++        cuts.push(x);
++        x *= 1.25;
++    }
++    cuts.extend((0..=600).map(|i| 0.05 + (PI - 0.05) * i as f64 / 600.0));
++    let mut phi = 0.0f64;
++    for w in cuts.windows(2) {
++        for (x, wt) in gl8() {
++            let chi = 0.5 * (w[0] + w[1]) + 0.5 * (w[1] - w[0]) * x;
++            let h = 0.5 * (w[1] - w[0]) * wt;
++            phi += (p / (p - 6.0 - 2.0 * e * chi.cos())).sqrt() * h;
++        }
++    }
++    2.0 * phi - std::f64::consts::TAU
++}
++
++fn key(p: f64, e: f64) -> OrbitKey {
++    OrbitKey::bound(scalar(p), (e * 2f64.powi(48)).round() as u64).unwrap()
++}
++
++fn main() {
++    let mode = std::env::args().nth(1).unwrap_or_default();
++    match mode.as_str() {
++        "probe" => {
++            for a in std::env::args().skip(2) {
++                let mut it = a.split(',');
++                let r0: f64 = it.next().unwrap().parse().unwrap();
++                let eps: f64 = it.next().map(|s| s.parse().unwrap()).unwrap_or(1e-3);
++                verdict(r0, eps);
++            }
++        }
++        "pilot" => {
++            for (r0, eps) in [
++                (8.0, 0.0),
++                (6.5, 1e-3),
++                (6.05, 1e-3),
++                (5.95, 1e-3),
++                (5.95, -1e-3),
++                (5.5, 0.0),
++                (7.0, 0.0),
++            ] {
++                verdict(r0, eps);
++            }
++        }
++        "sweep" => {
++            let lo = 2f64.powf(40.0 / 16.0);
++            let hi = 2f64.powf(43.0 / 16.0);
++            let n = 2400;
++            for eps in [1e-3, -1e-3, 0.0] {
++                for i in 0..=n {
++                    verdict(lo + (hi - lo) * i as f64 / n as f64, eps);
++                }
++            }
++        }
++        // Epicyclic staircase: exact keys, e = 1e-3, p over (6.002+, 7.0):
++        // advance vs the GR Darwin integral (the 31.5% / cliff measurement).
++        "stair" => {
++            let e = 1e-3;
++            let n = 600;
++            for i in 0..=n {
++                let p = 6.0021 + (7.0 - 6.0021) * i as f64 / n as f64;
++                let c = Orbit::compile(key(p, e)).unwrap();
++                let a = decoded(c.advance().unwrap());
++                println!("{p:.6} {e:.0e} {a:.9} {}", gr_advance(p, e));
++            }
++            // The rim: how does the compiled advance approach the separatrix?
++            for d in [1e-2, 3e-3, 1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6, 1e-6] {
++                let p = 6.0 + 2.0 * e + d;
++                match Orbit::compile(key(p, e)) {
++                    Ok(c) => println!(
++                        "{p:.9} {e:.0e} {} {}",
++                        decoded(c.advance().unwrap()),
++                        gr_advance(p, e)
++                    ),
++                    Err(err) => println!("{p:.9} {e:.0e} refuse:{err:?}"),
++                }
++            }
++        }
++        // Adjacent-key jumps on the memo grid (12+12 bits), p in (6.0, 6.6),
++        // e = 1e-3: the 181.8% adjacent-band jump measurement, on the
++        // coarsest grid the shipped law actually has; plus the flip window.
++        "flip" => {
++            let e = 1e-3;
++            let mut keys: Vec<OrbitKey> = Vec::new();
++            for i in 0..20000 {
++                let p = 6.0 + 0.6 * i as f64 / 20000.0;
++                if let Ok(k) = key(p, e).memo_key() {
++                    keys.push(k);
++                }
++            }
++            keys.sort_by_key(|k| (decoded(k.periapsis).to_bits(), k.k));
++            keys.dedup();
++            let mut advs: Vec<(f64, f64)> = Vec::new(); // (p, advance)
++            let mut flips = 0usize;
++            for k in &keys {
++                match Orbit::compile(*k) {
++                    Ok(c) => advs.push((
++                        decoded(k.periapsis) * (1.0 + e),
++                        decoded(c.advance().unwrap()),
++                    )),
++                    Err(_) => flips += 1,
++                }
++            }
++            let mut worst = (0.0f64, 0.0, 0.0);
++            for w in advs.windows(2) {
++                let jump = ((w[1].1 - w[0].1) / w[0].1).abs();
++                if jump > worst.0 {
++                    worst = (jump, w[0].0, w[0].1);
++                }
++            }
++            let mut worst_s = (0.0f64, 0.0, 0.0);
++            for w in advs.windows(2) {
++                if w[0].0 < 6.01 {
++                    continue;
++                }
++                let jump = ((w[1].1 - w[0].1) / w[0].1).abs();
++                if jump > worst_s.0 {
++                    worst_s = (jump, w[0].0, w[0].1);
++                }
++            }
++            println!(
++                "# memo grid smooth (p>=6.01): worst adjacent jump {:+.4}% at p~{:.6} (advance {:.6})",
++                worst_s.0 * 100.0,
++                worst_s.1,
++                worst_s.2
++            );
++            println!(
++                "# memo grid: {} distinct keys over (6.0,6.6) e=1e-3, {} storage flips; worst adjacent jump {:+.4}% at p~{:.6} (advance {:.6})",
++                keys.len(),
++                flips,
++                worst.0 * 100.0,
++                worst.1,
++                worst.2
++            );
++            for i in 0..=4000 {
++                let p = 6.0010 + 0.0020 * i as f64 / 4000.0;
++                let k = key(p, e);
++                let exact = match Orbit::compile(k) {
++                    Ok(_) => "bound".to_string(),
++                    Err(err) => format!("refuse:{err:?}"),
++                };
++                let memo = match k.memo_key() {
++                    Ok(qk) => match Orbit::compile(qk) {
++                        Ok(_) => "same".to_string(),
++                        Err(err) => format!("FLIP({err:?})"),
++                    },
++                    Err(err) => format!("FLIPKEY({err:?})"),
++                };
++                println!("{p:.7} {e:.0e} {exact} {memo}");
++            }
++        }
++        // All distinct memo keys over (6.0, 6.6), with compiled advance, so the
++        // oracle can check each against its own GR value.
++        "keys" => {
++            let e = 1e-3;
++            let mut keys: Vec<OrbitKey> = Vec::new();
++            for i in 0..20000 {
++                let p = 6.0 + 0.6 * i as f64 / 20000.0;
++                if let Ok(k) = key(p, e).memo_key() {
++                    keys.push(k);
++                }
++            }
++            keys.sort_by_key(|k| (decoded(k.periapsis).to_bits(), k.k));
++            keys.dedup();
++            for k in &keys {
++                let pp = decoded(k.periapsis);
++                let e = 1.0 / (k.k as f64 / 2f64.powi(48)) - 1.0;
++                match Orbit::compile(*k) {
++                    Ok(c) => println!("{pp:.9} {e:.12} {}", decoded(c.advance().unwrap())),
++                    Err(err) => println!("{pp:.9} {e:.12} refuse:{err:?}"),
++                }
++            }
++        }
++        // Diagnose one disputed state: exact (E,L) via from_invariants, and
++        // probe the Range locus width around r0 at fixed eps.
++        "diag" => {
++            let (r0b, eps) = (6.024873192f64, 1e-3f64);
++            // (a) from_invariants on the same state's (E, L)
++            let (st, rs, vt) = state(r0b, eps);
++            let px = st.position[0] as f64 * 2f64.powi(st.length_exponent as i32);
++            let vy = st.velocity[1] as f64 * 2f64.powi(st.velocity_exponent as i32);
++            let u = 1.0 / px;
++            let den = 1.0 - 2.0 * u - vy * vy;
++            let l = px * vy / den.sqrt();
++            let e = (1.0 - 2.0 * u) / den.sqrt();
++            match OrbitKey::from_invariants(scalar(e - 1.0), scalar(l)) {
++                Ok(k) => match Orbit::compile(k) {
++                    Ok(c) => println!("from_invariants: key compiles, advance {}", decoded(c.advance().unwrap())),
++                    Err(err) => println!("from_invariants: key refuses compile: {err:?}"),
++                },
++                Err(err) => println!("from_invariants refuses: {err:?}"),
++            }
++            // (b) locus width: probe r0 +- delta at 5 decades
++            for d in [1e-3, 1e-4, 1e-5, 1e-6, 1e-7] {
++                for s in [-1.0, 0.0, 1.0] {
++                    verdict(r0b + s * d, eps);
++                }
++            }
++        }
++        _ => {
++            eprintln!("usage: isco_second pilot|probe|sweep|stair|keys|flip");
++            std::process::exit(2);
++        }
++    }
++}
