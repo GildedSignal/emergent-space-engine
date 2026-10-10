@@ -48,6 +48,10 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
 
+#[cfg(test)]
+#[path = "root_keys_test.rs"]
+mod root_keys_test;
+
 /// A frame's allowance: a number of events, and optionally a wall-clock instant.
 #[derive(Clone, Copy, Debug)]
 pub struct Budget {

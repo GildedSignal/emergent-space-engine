@@ -1,0 +1,176 @@
+{
+  "status": "FAIL",
+  "goal_achieved": false,
+  "base": "a838a284a27a6813434362cc2adfde946d2085db",
+  "branch": "wt/cx-b-root-keys",
+  "production_queue_changed": false,
+  "retained": [
+    "exact affine EventMap primitive",
+    "three passing primitive tests",
+    "failing first-slice queue acceptance test"
+  ],
+  "candidate": {
+    "status": "REJECTED",
+    "patch": "rejected-candidate.patch",
+    "first_slice": "0/1000 key mismatches and 0/1000 order mismatches in all six combinations",
+    "reanchor_log": "reanchor-candidate.txt",
+    "integer_physical_state_equal": true,
+    "root_key_before": 1154701,
+    "root_key_after": 1000000,
+    "key_jump": -154701
+  },
+  "first_slice": {
+    "before": "996/1000 wrong keys; 998/1000 wrong queue positions",
+    "after": "996/1000 wrong keys; 998/1000 wrong queue positions",
+    "threads": [
+      1,
+      4,
+      8
+    ],
+    "orders": [
+      "ascending insertion",
+      "descending insertion"
+    ],
+    "full_sparse_dense_p6": "NOT BUILT"
+  },
+  "diagnosis": [
+    "The candidate inherited equality of the two anchor ticks from the current binding; that equality is false after a relativistic centre has evolved.",
+    "Doll clock charts need paired persistent event anchors, independent of a tube rebind, and their history must be carried across the event-coordinate handoffs.",
+    "Current step::relative/absolute map velocities, leave positions unboosted and retain the same binding event_time; the memo step-3 event-coordinate handoff is absent.",
+    "Changing key_of alone does not convert fleet horizons, decisions, reads or pruning between root and local clocks; the rejected patch is not integrated qualification."
+  ],
+  "environment": [
+    "Before: sandboxed, AC power, Metal NoDevice; thermal/swap syscalls unavailable.",
+    "Final: unsandboxed, battery power, Metal available; 5.72 GB swap used of 6.14 GB; machine state recorded by each gate.",
+    "The E1 backend and B17 timing changes are environmental; no production queue improvement is claimed."
+  ],
+  "gates": {
+    "B8": {
+      "command": "engine-judge --gates E1",
+      "before": "E1 FAIL UNSUPPORTED equal=4320/4320 checked=4320/6480 scenes=24 seeds=4 insertion=3 threads=1,4,8 metal=false metal_unavailable=Some(\"NoDevice\") contacts=676 kicks=7222 flat=true first=\"\" seconds=1.682",
+      "after": "E1 PASS equal=6480/6480 checked=6480/6480 scenes=24 seeds=4 insertion=3 threads=1,4,8 metal=true metal_unavailable=None contacts=676 kicks=7222 flat=true first=\"\" seconds=10.119",
+      "before_log": "B8-before.txt",
+      "after_log": "B8-after-final.txt",
+      "after_peak_rss_bytes": 62881792
+    },
+    "B13": {
+      "command": "behave --law plane --gates B13",
+      "before": "B13 FAIL assists: 60/64 judged flybys within 1e-2 in both \u0394E and \u0394L, worst \u0394E 2.12e-2 \u0394L 2.12e-2; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [1.61 s]",
+      "after": "B13 FAIL assists: 60/64 judged flybys within 1e-2 in both \u0394E and \u0394L, worst \u0394E 2.12e-2 \u0394L 2.12e-2; 0 of 64 excluded (0 never in or out, 0 not converged); 9 draws replaced, the reference passing inside the planet (draw at planet radii: #6 at 0.53, #12 at 0.49, #13 at 0.87, #15 at 0.46, #24 at 0.54, #32 at 0.36, #36 at 0.62, #44 at 0.01, #67 at 0.13) [1.55 s]",
+      "before_log": "B13-before.txt",
+      "after_log": "B13-after-final.txt",
+      "after_peak_rss_bytes": 16220160
+    },
+    "B17": {
+      "command": "behave --law plane --gates B17",
+      "before": "B17 FAIL timeout: 60.0 s over the 60 s limit",
+      "after": "B17 PASS resonance: e-pump ratio [0.999877, 1.000034] over 35 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 0.999 min over 27 librating (needs 0.8); regime 34/34 matched (1 borderline, not asked); controls 5/5; 0 unanswered, 1 of 41 not converged [58.62 s]",
+      "before_log": "B17-before.txt",
+      "after_log": "B17-after-final.txt",
+      "after_peak_rss_bytes": 165953536
+    },
+    "B17-step6": {
+      "command": "behave --law plane --gates B17 --plane-step 6",
+      "before": "B17 PASS resonance: e-pump ratio [0.999493, 1.000089] over 35 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 0.998 min over 27 librating (needs 0.8); regime 34/34 matched (1 borderline, not asked); controls 5/5; 0 unanswered, 1 of 41 not converged [33.52 s]",
+      "after": "B17 PASS resonance: e-pump ratio [0.999493, 1.000089] over 35 resonant cases (needs [0.8, 1.25]); libration amplitude ratio 0.998 min over 27 librating (needs 0.8); regime 34/34 matched (1 borderline, not asked); controls 5/5; 0 unanswered, 1 of 41 not converged [30.95 s]",
+      "before_log": "B17-step6-before.txt",
+      "after_log": "B17-step6-after-final.txt",
+      "after_peak_rss_bytes": 110067712
+    }
+  },
+  "validation": {
+    "primitive_tests": "3 PASS",
+    "existing_unit_tests": "10 PASS",
+    "new_acceptance_test": "1 FAIL",
+    "integration": [
+      {
+        "suite": "plane",
+        "test": "a_burn_changes_the_energy_by_the_work_done",
+        "exit": 0,
+        "seconds": 0.018872582993935794,
+        "children_maxrss_bytes": 2883584
+      },
+      {
+        "suite": "plane",
+        "test": "encounters_are_exact_and_sit_behind_one_seam",
+        "exit": 0,
+        "seconds": 0.010563166986685246,
+        "children_maxrss_bytes": 2883584
+      },
+      {
+        "suite": "plane",
+        "test": "observation_never_changes_the_digest",
+        "exit": 0,
+        "seconds": 0.6700824170256965,
+        "children_maxrss_bytes": 27148288
+      },
+      {
+        "suite": "plane",
+        "test": "the_fleets_battle_is_bit_identical_across_steppers",
+        "exit": 0,
+        "seconds": 21.42805679095909,
+        "children_maxrss_bytes": 27148288
+      },
+      {
+        "suite": "plane",
+        "test": "the_same_digest_at_every_budget_and_thread_count",
+        "exit": 0,
+        "seconds": 2.1090288749546744,
+        "children_maxrss_bytes": 37797888
+      },
+      {
+        "suite": "plane",
+        "test": "work_per_frame_is_bounded_and_overflow_is_a_dip_not_a_hitch",
+        "exit": 0,
+        "seconds": 0.07733716699294746,
+        "children_maxrss_bytes": 37797888
+      },
+      {
+        "suite": "replay",
+        "test": "a_key_held_for_a_thousand_frames_is_one_decision",
+        "exit": 0,
+        "seconds": 0.13232049997895956,
+        "children_maxrss_bytes": 37797888
+      },
+      {
+        "suite": "replay",
+        "test": "one_log_and_one_cut_give_one_digest_on_any_schedule",
+        "exit": 0,
+        "seconds": 0.6226841249736026,
+        "children_maxrss_bytes": 37797888
+      },
+      {
+        "suite": "replay",
+        "test": "the_controls_can_fail",
+        "exit": 0,
+        "seconds": 0.46246462501585484,
+        "children_maxrss_bytes": 37797888
+      },
+      {
+        "suite": "ties",
+        "test": "a_same_epoch_three_body_contact_is_one_batch",
+        "exit": 0,
+        "seconds": 0.616364750021603,
+        "children_maxrss_bytes": 37797888
+      },
+      {
+        "suite": "ties",
+        "test": "independent_events_commute",
+        "exit": 0,
+        "seconds": 3.885034665989224,
+        "children_maxrss_bytes": 39337984
+      },
+      {
+        "suite": "ties",
+        "test": "a_ship_that_ties_with_a_planet_reads_it_in_the_order_of_their_keys",
+        "exit": 0,
+        "seconds": 2.504301916982513,
+        "children_maxrss_bytes": 39337984
+      }
+    ],
+    "unit_log": "unit-final.txt",
+    "primitive_log": "event-maps-final.txt",
+    "unit_peak_rss_bytes": 6258688,
+    "primitive_peak_rss_bytes": 1982464
+  }
+}

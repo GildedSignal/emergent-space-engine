@@ -1,0 +1,315 @@
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -53,6 +53,35 @@
+ }
+ 
+ impl Ctx<'_> {
++    /// The integer shear image of a doll event, in root light ticks. The local
++    /// timestamp stays on the plan; only its image is used for queue comparisons.
++    /// This candidate uses the centre binding's event as the affine anchor.
++    pub fn root_tick(&self, mut doll: u16, t: Tick, position: V2) -> Res<Tick> {
++        let shift = self.dolls[doll as usize].shift as i32;
++        let mut event = [t as i128, position[0].fixed(-shift)?, position[1].fixed(-shift)?];
++        for _ in 0..self.dolls.len() {
++            let d = &self.dolls[doll as usize];
++            let Some(parent) = d.parent else {
++                return Tick::try_from(event[0]).map_err(|_| crate::num::Error::Refused("root event outside the clock"));
++            };
++            let centre = d.centre.ok_or(crate::num::Error::Refused("a child doll has no centre"))?;
++            let at = Tick::try_from(event[0]).map_err(|_| crate::num::Error::Refused("parent event outside the clock"))?;
++            let binding = self.bodies.binding_at(centre, at).ok_or(crate::num::Error::Refused("clock anchor history pruned"))?;
++            let (origin, _) = binding.cartesian(binding.event_time)?;
++            let (_, velocity) = binding.cartesian(at)?;
++            let ps = self.dolls[parent as usize].shift as i32;
++            let anchor = binding.event_time as i128;
++            let chart = crate::lorentz::EventMap {
++                local_anchor: [anchor, 0, 0],
++                parent_anchor: [anchor, origin[0].fixed(-ps)?, origin[1].fixed(-ps)?],
++                frame: crate::lorentz::Frame::of(velocity)?,
++            };
++            event = chart.to_parent(event)?;
++            doll = parent;
++        }
++        Err(crate::num::Error::Refused("cycle in the clock dolls"))
++    }
++
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+--- a/crates/universe/src/lorentz.rs
++++ b/crates/universe/src/lorentz.rs
+@@ -227,6 +227,44 @@
+         let gx = unboost([t[0], u[0]], self.ba, self.bb, N)?;
+         let u = self.to_axis.undo([gx[1], u[1]])?;
+         Ok([gx[0], u[0], u[1]])
++    }
++}
++
++/// An affine event chart between two dolls. All three coordinates are integer
++/// words at the same caller-chosen light-unit exponent (`c = 1`). The anchors
++/// name one physical event in the two charts; they are not interchangeable ticks.
++/// Keeping them explicit prevents a new boost from reinterpreting the entire
++/// history relative to tick zero when the centre changes velocity.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct EventMap {
++    pub local_anchor: [i128; 3],
++    pub parent_anchor: [i128; 3],
++    pub frame: Option<Frame>,
++}
++
++impl EventMap {
++    /// The exact integer shear image of a local event in the parent's chart.
++    pub fn to_parent(&self, event: [i128; 3]) -> Res<[i128; 3]> {
++        let delta = Self::offset(event, self.local_anchor, false)?;
++        let image = match self.frame { Some(f) => f.inverse(delta)?, None => delta };
++        Self::offset(image, self.parent_anchor, true)
++    }
++
++    /// The inverse, with the same chart and exponent: no projection or rounding
++    /// of the event between these two calls is allowed.
++    pub fn to_local(&self, event: [i128; 3]) -> Res<[i128; 3]> {
++        let delta = Self::offset(event, self.parent_anchor, false)?;
++        let image = match self.frame { Some(f) => f.forward(delta)?, None => delta };
++        Self::offset(image, self.local_anchor, true)
++    }
++
++    fn offset(event: [i128; 3], anchor: [i128; 3], add: bool) -> Res<[i128; 3]> {
++        let mut out = [0; 3];
++        for j in 0..3 {
++            out[j] = if add { event[j].checked_add(anchor[j]) } else { event[j].checked_sub(anchor[j]) }
++                .ok_or_else(overflow)?;
++        }
++        Ok(out)
+     }
+ }
+ 
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -48,6 +48,10 @@
+ use std::sync::Arc;
+ use std::time::Instant;
+ 
++#[cfg(test)]
++#[path = "root_keys_test.rs"]
++mod root_keys_test;
++
+ /// A frame's allowance: a number of events, and optionally a wall-clock instant.
+ #[derive(Clone, Copy, Debug)]
+ pub struct Budget {
+@@ -447,10 +451,19 @@
+ 
+     // ---- the keys -------------------------------------------------------------------------------
+ 
+-    /// The `(tick, id)` of an entity's next item.
++    /// The `(root tick, id)` of an entity's next item. A failed image is fatal:
++    /// dropping that event would silently advance the presentable horizon.
+     pub fn key_of(&self, e: usize) -> Option<(Tick, usize)> {
+         if e < self.bodies.len() {
+-            self.bodies.next_time(e).map(|t| (t, e))
++            self.bodies.next_time(e).map(|t| {
++                let b = self.bodies.rec(e).b;
++                let image = (|| -> Res<Tick> {
++                    if b.doll == 0 { return Ok(t); }
++                    let (p, _) = b.cartesian(t)?;
++                    self.ctx().root_tick(b.doll, t, p)
++                })();
++                (image.expect("a queued event needs a representable root image"), e)
++            })
+         } else if e == self.bodies.len() && e < self.body_cap {
+             // The member at the front of the hand-outs is the body that will have this id.
+             self.handouts.front().map(|(_, l)| (l.tick, e))
+@@ -1075,4 +1088,3 @@
+         self.key_of(i).map(|k| k.0)
+     }
+ }
+-
+--- /dev/null
++++ b/crates/universe/src/root_keys_test.rs
+@@ -0,0 +1,131 @@
++//! Step 4's cheapest falsifier: the first simultaneous slice, before any evolution.
++//! This deliberately exercises Universe::key_of and its actual Calendar. It does not
++//! claim to test the later sparse/dense physical histories: a wrong first key already
++//! fails P6. All positions and the boost are exact integers; no float is an oracle.
++use super::*;
++use crate::body::Item;
++use crate::lorentz::Frame;
++use crate::num::s;
++
++const MEMBERS: usize = 1_000;
++
++fn scene() -> (Universe, Vec<usize>) {
++    let mut u = Universe::new(Scalar::ZERO, Config::default());
++    // A passage with exactly w = (0, 1/2), at its binding event. Building the
++    // coordinate doll directly avoids add_doll's unrelated bound-orbit retune.
++    let centre = u.add_body_state(
++        Kind::Planet, 0, [s(1 << 24), Scalar::ZERO],
++        [Scalar::ZERO, Scalar::raw(1, -1).unwrap()], Scalar::ZERO,
++    ).unwrap();
++    let doll = DollRec::child("P6", 0, Mass::pow2(-10), centre,
++        u.rec(centre).b.tube, Scalar::ZERO, s(1 << 30)).unwrap();
++    u.dolls.push(doll);
++    u.sources.push(Vec::new());
++    let template = u.add_body(Kind::Ship, OrbitSpec {
++        doll: 1, periapsis: s(1 << 24), e_q48: 0,
++        clockwise: false, angle: 0, phase: 0,
++    }, Scalar::ZERO).unwrap();
++    let rec = u.rec(template);
++    let info = u.info[template];
++    let mut ids = vec![template];
++    for _ in 1..MEMBERS {
++        ids.push(u.bodies.push(rec.clone()));
++        u.info.push(info);
++    }
++    // Identical local ticks, distinct places. Pairs share a place to test id ties.
++    // IDs visit the upper semicircle in reverse spatial order, so sorting by the
++    // unchanged local tick cannot accidentally give the Lorentz order.
++    for (n, &i) in ids.iter().enumerate() {
++        let mut r = u.rec(i);
++        r.b.tube.periapsis_angle = ((n / 2) as u64 * (1u64 << 32) / (MEMBERS / 2) as u64) as u32;
++        r.plan = vec![Item { t: 0, what: What::Boundary }];
++        u.bodies.put(i, r);
++    }
++    u.body_cap = u.bodies.len();
++    // Equal light distances isolate canonical event keys from the deadline heuristic.
++    u.pos = vec![[0.0; 2]; u.bodies.len()];
++    u.queue = Some(Calendar::new(u.body_cap));
++    (u, ids)
++}
++
++fn images(u: &Universe, ids: &[usize], threads: usize) -> Vec<(Tick, usize)> {
++    let (_, velocity) = u.ctx().centre(1, 0).unwrap();
++    assert_eq!(velocity, [Scalar::ZERO, Scalar::raw(1, -1).unwrap()]);
++    let boost = Frame::of(velocity).unwrap().unwrap();
++    let ctx = u.ctx();
++    std::thread::scope(|scope| {
++        let handles: Vec<_> = ids.chunks(ids.len().div_ceil(threads)).map(|chunk| {
++            let ctx = &ctx;
++            scope.spawn(move || chunk.iter().map(|&i| {
++                let b = ctx.bodies.rec(i).b;
++                let (position, _) = b.cartesian(0).unwrap();
++                // The common integer event lattice is one root light tick.
++                // At the coincident clock origins no time-translation or clock
++                // integration convention is needed. A spatial translation does
++                // not affect the root time at this first slice.
++                let x = position[0].fixed(-(b.clock_exp as i32)).unwrap();
++                let y = position[1].fixed(-(b.clock_exp as i32)).unwrap();
++                let image = boost.inverse([0, x, y]).unwrap();
++                assert_eq!(boost.forward(image).unwrap(), [0, x, y]);
++                (Tick::try_from(image[0]).unwrap(), i)
++            }).collect::<Vec<_>>())
++        }).collect();
++        handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
++    })
++}
++
++#[test]
++fn p6_first_slice_root_keys_are_the_shear_images() {
++    let (mut u, ids) = scene();
++    let mut reference = images(&u, &ids, 1);
++    reference.sort();
++    assert!(reference.first().unwrap().0 < 0 && reference.last().unwrap().0 > 0,
++        "a simultaneity test must put events on both sides of the root epoch");
++    assert!(reference.windows(2).any(|p| p[0].0 == p[1].0), "actual root-time ties");
++    let mut failures = 0;
++    for threads in [1, 4, 8] {
++        u.threads = threads;
++        let expected = images(&u, &ids, threads);
++        let wrong = expected.iter().filter(|&&(t, i)| u.key_of(i) != Some((t, i))).count();
++        for reverse in [false, true] {
++            let mut order = ids.clone();
++            if reverse { order.reverse(); }
++            for i in order { u.requeue(i); }
++            let mut actual = Vec::new();
++            while let Some((t, i)) = u.queue.as_ref().unwrap().peek() {
++                actual.push((Tick::try_from(t.fixed(0).unwrap()).unwrap(), i));
++                u.queue.as_mut().unwrap().set(i, None).unwrap();
++            }
++            let mut sorted = expected.clone();
++            sorted.sort();
++            assert_eq!(sorted, reference, "the independent shear images depend on threads");
++            let wrong_order = actual.iter().zip(&reference).filter(|(a, b)| a.1 != b.1).count();
++            println!("P6 threads={threads} insertion_reverse={reverse} keys_wrong={wrong}/{MEMBERS} order_wrong={wrong_order}/{MEMBERS}");
++            failures += wrong + wrong_order;
++        }
++    }
++    assert_eq!(failures, 0, "P6: local ticks are not root-clock images (both insertion orders are only the first-slice probe, not sparse/dense evolution)");
++}
++
++#[test]
++fn a_centres_exact_rebind_does_not_change_an_events_root_image() {
++    let (mut u, _) = scene();
++    let at = 1_000_000;
++    let centre = u.dolls[1].centre.unwrap();
++    let mut rec = u.rec(centre);
++    let exact = rec.b.readout(at).unwrap();
++    let before = u.ctx().root_tick(1, at, [Scalar::ZERO; 2]).unwrap();
++    let fitted = bind(exact, at, rec.b.clock_exp, None, rec.b.entry.unit).unwrap();
++    let old = rec.b.clone();
++    rec.b = Binding {
++        doll: 0, tube: fitted.tube, entry: fitted.entry, residual: fitted.residual,
++        turn: fitted.turn, units: fitted.units, clock_exp: old.clock_exp,
++        event_time: at, kick: crate::bind::Kick::NONE,
++    };
++    assert_eq!(rec.b.readout(at).unwrap(), exact, "the physical state did not change");
++    u.bodies.retire(centre, Segment { b: old, until: at });
++    u.bodies.put(centre, rec);
++    let after = u.ctx().root_tick(1, at, [Scalar::ZERO; 2]).unwrap();
++    println!("root image before exact centre rebind={before}, after={after}, jump={}", after-before);
++    assert_eq!(after, before, "queue keys must not depend on the centre's binding allocation");
++}
+--- /dev/null
++++ b/crates/universe/tests/event_maps.rs
+@@ -0,0 +1,53 @@
++//! The event-chart primitive only. P6's production-queue acceptance test is
++//! `universe::root_keys_test::p6_first_slice_root_keys_are_the_shear_images`.
++use emergent_space::orbit::Scalar;
++use emergent_universe::lorentz::{EventMap, Frame};
++
++fn map(local_anchor: [i128; 3], parent_anchor: [i128; 3], velocity: [Scalar; 2]) -> EventMap {
++    EventMap { local_anchor, parent_anchor, frame: Frame::of(velocity).unwrap() }
++}
++
++#[test]
++fn affine_events_round_trip_through_three_dolls() {
++    let half = Scalar::raw(1, -1).unwrap();
++    let zero = Scalar::ZERO;
++    let maps = [
++        map([99, -13, 56], [1 << 60, 991, -77], [half, zero]),
++        map([-234, 51, 100], [675, -815, 700], [zero, half.negate()]),
++        map([346, -11, 23], [-17, 551, -66], [half, half]),
++    ];
++    for n in -500i128..500 {
++        let event = [n << 32, (n * 7 - 39) << 24, (n * n - 500) << 12];
++        let mut image = event;
++        for m in &maps { image = m.to_parent(image).unwrap(); }
++        for m in maps.iter().rev() { image = m.to_local(image).unwrap(); }
++        assert_eq!(image, event);
++    }
++    for m in maps {
++        assert_eq!(m.to_parent(m.local_anchor).unwrap(), m.parent_anchor);
++        assert_eq!(m.to_local(m.parent_anchor).unwrap(), m.local_anchor);
++    }
++}
++
++#[test]
++fn changing_boosts_needs_both_clock_anchors() {
++    let zero = Scalar::ZERO;
++    let old = map([0; 3], [0; 3], [Scalar::raw(1, -1).unwrap(), zero]);
++    let at = [1_000_000, 0, 0];
++    let parent = old.to_parent(at).unwrap();
++    let new = map(at, parent, [zero; 2]);
++    assert_eq!(new.to_parent(at).unwrap(), parent);
++    assert!(new.to_parent([at[0] + 1, 0, 0]).unwrap()[0] > parent[0]);
++    // Resetting the shear at tick zero sends the next event into the past.
++    let reset = map([0; 3], [0; 3], [zero; 2]);
++    assert!(reset.to_parent([at[0] + 1, 0, 0]).unwrap()[0] < parent[0]);
++}
++
++#[test]
++fn a_stationary_chart_is_an_exact_translation_and_overflow_is_refused() {
++    let m = map([10, 20, 30], [-30, -20, -10], [Scalar::ZERO; 2]);
++    assert_eq!(m.to_parent([11, 22, 33]).unwrap(), [-29, -18, -7]);
++    assert_eq!(m.to_local([-29, -18, -7]).unwrap(), [11, 22, 33]);
++    assert!(m.to_parent([i128::MIN, 0, 0]).is_err());
++    assert!(m.to_local([i128::MAX, 0, 0]).is_err());
++}

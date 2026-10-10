@@ -230,6 +230,44 @@ impl Frame {
     }
 }
 
+/// An affine event chart between two dolls. All three coordinates are integer
+/// words at the same caller-chosen light-unit exponent (`c = 1`). The anchors
+/// name one physical event in the two charts; they are not interchangeable ticks.
+/// Keeping them explicit prevents a new boost from reinterpreting the entire
+/// history relative to tick zero when the centre changes velocity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EventMap {
+    pub local_anchor: [i128; 3],
+    pub parent_anchor: [i128; 3],
+    pub frame: Option<Frame>,
+}
+
+impl EventMap {
+    /// The exact integer shear image of a local event in the parent's chart.
+    pub fn to_parent(&self, event: [i128; 3]) -> Res<[i128; 3]> {
+        let delta = Self::offset(event, self.local_anchor, false)?;
+        let image = match self.frame { Some(f) => f.inverse(delta)?, None => delta };
+        Self::offset(image, self.parent_anchor, true)
+    }
+
+    /// The inverse, with the same chart and exponent: no projection or rounding
+    /// of the event between these two calls is allowed.
+    pub fn to_local(&self, event: [i128; 3]) -> Res<[i128; 3]> {
+        let delta = Self::offset(event, self.parent_anchor, false)?;
+        let image = match self.frame { Some(f) => f.forward(delta)?, None => delta };
+        Self::offset(image, self.local_anchor, true)
+    }
+
+    fn offset(event: [i128; 3], anchor: [i128; 3], add: bool) -> Res<[i128; 3]> {
+        let mut out = [0; 3];
+        for j in 0..3 {
+            out[j] = if add { event[j].checked_add(anchor[j]) } else { event[j].checked_sub(anchor[j]) }
+                .ok_or_else(overflow)?;
+        }
+        Ok(out)
+    }
+}
+
 /// `round(num·2^shift / den)` (half away from zero) for `den > 0` and `shift ≥ 0`, by a 256-bit long division: the
 /// velocity a four-velocity makes, to the last bit of a word (a scalar's 62 bits would leave none to round with).
 fn div_shift_round(num: i128, den: i128, shift: u32) -> Res<i128> {

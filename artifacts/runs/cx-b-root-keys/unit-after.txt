@@ -1,0 +1,55 @@
+    Blocking waiting for file lock on build directory
+   Compiling emergent-universe v0.1.0 (/private/tmp/emergent-wt-cx-b-root-keys/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 54.90s
+     Running unittests src/lib.rs (target/release/deps/emergent_universe-1502e76ede904de3)
+
+running 11 tests
+test lorentz::tests::a_centre_is_at_rest_in_its_own_frame ... ok
+test lorentz::tests::a_handoff_out_and_back_is_the_identity ... beta 0.01: 2000 of 2000 comoving ships come back as the same words
+beta 0.01: slow ships come back within 0 words of the parent's on the first round trip, and never more than 0 in 500 (the contraction's bound: 3)
+beta 0.3: 2000 of 2000 comoving ships come back as the same words
+beta 0.3: slow ships come back within 1 words of the parent's on the first round trip, and never more than 1 in 500 (the contraction's bound: 3)
+beta 0.9: 2000 of 2000 comoving ships come back as the same words
+beta 0.9: slow ships come back within 5 words of the parent's on the first round trip, and never more than 5 in 500 (the contraction's bound: 11)
+ok
+test lorentz::tests::mulshr_is_a_floor_of_the_exact_product ... ok
+test lorentz::tests::rotations_round_trip_exactly_through_every_angle ... worst distance to the exact rotation: 4.71e-16 of the vector's size (the coefficients' 62 bits)
+ok
+test lorentz::tests::the_boost_is_exactly_invertible_and_is_lorentz ... beta 0.01: distance to the exact composition 3.4e-16 (of |v|+|w|); the Galilean difference 3.1e-4
+beta 0.3: distance to the exact composition 3.6e-16 (of |v|+|w|); the Galilean difference 1.3e-1
+beta 0.9: distance to the exact composition 2.4e-16 (of |v|+|w|); the Galilean difference 3.4e-1
+beta 0.99: distance to the exact composition 2.3e-16 (of |v|+|w|); the Galilean difference 3.6e-1
+ok
+test lorentz::tests::the_turn_is_exactly_invertible_and_within_two_quanta_of_the_rotation ... worst distance of the turn to the rotation: 3 quanta
+ok
+test step::tests::a_captured_ship_is_seen_with_the_relativistic_velocity ... relativistic composition: miss 0.0e0; the Galilean difference misses by 5.2e-2
+ok
+test step::tests::a_passages_exit_by_its_inverse_is_the_exit_by_bisection ... 21 passages of 42 handed out; 81 exits found, each the same by both ways
+ok
+test step::tests::a_ship_captured_and_released_returns_the_identical_integer_state_at_every_speed ... centre at 0.01c: 4000 of 4000 captured-then-released ships come back as the identical state
+centre at 0.3c: 4000 of 4000 captured-then-released ships come back as the identical state
+centre at 0.9c: 4000 of 4000 captured-then-released ships come back as the identical state
+ok
+test step::tests::a_thousand_handoff_round_trips_do_not_drift ... ok
+test universe::root_keys_test::p6_first_slice_root_keys_are_the_shear_images ... P6 threads=1 insertion_reverse=false keys_wrong=996/1000 order_wrong=998/1000
+P6 threads=1 insertion_reverse=true keys_wrong=996/1000 order_wrong=998/1000
+P6 threads=4 insertion_reverse=false keys_wrong=996/1000 order_wrong=998/1000
+P6 threads=4 insertion_reverse=true keys_wrong=996/1000 order_wrong=998/1000
+P6 threads=8 insertion_reverse=false keys_wrong=996/1000 order_wrong=998/1000
+P6 threads=8 insertion_reverse=true keys_wrong=996/1000 order_wrong=998/1000
+
+thread 'universe::root_keys_test::p6_first_slice_root_keys_are_the_shear_images' panicked at crates/universe/src/root_keys_test.rs:107:5:
+assertion `left == right` failed: P6: local ticks are not root-clock images (both insertion orders are only the first-slice probe, not sparse/dense evolution)
+  left: 11964
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    universe::root_keys_test::p6_first_slice_root_keys_are_the_shear_images
+
+test result: FAILED. 10 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.07s
+
+error: test failed, to rerun pass `-p emergent-universe --lib`

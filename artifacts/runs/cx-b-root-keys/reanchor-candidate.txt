@@ -1,0 +1,31 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-universe v0.1.0 (/private/tmp/emergent-wt-cx-b-root-keys/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 18.24s
+     Running unittests src/lib.rs (target/release/deps/emergent_universe-1502e76ede904de3)
+
+running 1 test
+root image before exact centre rebind=1154701, after=1000000, jump=-154701
+
+thread 'universe::root_keys_test::a_centres_exact_rebind_does_not_change_an_events_root_image' panicked at crates/universe/src/root_keys_test.rs:130:5:
+assertion `left == right` failed: queue keys must not depend on the centre's binding allocation
+  left: 1000000
+ right: 1154701
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test universe::root_keys_test::a_centres_exact_rebind_does_not_change_an_events_root_image ... FAILED
+
+failures:
+
+failures:
+    universe::root_keys_test::a_centres_exact_rebind_does_not_change_an_events_root_image
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p emergent-universe --lib`
