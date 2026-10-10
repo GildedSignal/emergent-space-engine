@@ -1,0 +1,26 @@
+Grade: silver
+
+**Abstract.** Claim: the slack skin's neighbour set must be phase-rank, not metric, and B12's redesign should use window-mean slope, not a max statistic. Both probes reproduce bit-for-bit (`probe_skin.py` 13 s: metric formation 300–809 pair-evals/kick/body vs belt 2.5–16; phase k=4 stays 3.0 everywhere; `probe_b12stat.py`: mean AUC 0.967 vs max 0.920 at T=1000, both ≈0.50 at T=100). My adversarial cases strengthen it: a station-kept formation saturates the metric skin at 996–999 (the author's fleet shears out mid-run, so 300–809 is a transient lower bound), and mean-slope beat max in all six of my B12 variants (rare-large jumps, AR=0.99, 5% actuation). Gain: keeps the named 12.6× lever alive under concentration; kills m-tuning. Cost: small — design rows in `b-encounter-skin`/`b12-v2`, no code. Silver because the phase-rank fix is taleb-09b5's adopted certificate one layer down, two registered predictions were falsified, and nothing touched the engine's real path.
+
+**Reproduction.** Clean tree, empty `patch.diff`; both scripts re-run: every number identical (skin table and B12 table match the dossier and the JSONs). All six "verbatim" quotes found verbatim in `readwise.json` (4,580 highlights). Predictions pre-registered at 10:34, probes run at 10:50 — order verified by mtimes; predictions describe the v1 design (N=2,000, m≤5) while the shipped probe differs (N=1,000, adds m=8), so no retrofit.
+
+**Adversarial cases (mine).**
+1. *Station-kept formation* (re-packed every 5,000 kicks): metric pair-evals 996.2 (m=1.5) and 999.0 (m=8) — full saturation; the author's 300–809 are conservative.
+2. *Slow shear* (σ_u=1e-6): 999.0 at both m — saturation is the steady state, not the transient.
+3. *Mild packing* (σ_φ=SP/5, only 5×): 296 (m=1.5) / 807 (m=8) — the disease needs only fleet width ≲ m·spacings, so even loose fleets saturate at large m. Strengthens the "no m escapes" claim.
+4. *Phase skin under 10× rate churn* (σ_u=1e-3): pair-evals stay 3.0; setups rise ~10× in a belt (3.35e-3), as the dossier predicted qualitatively.
+5. *B12 grid*: mean > max in all six variants, including the case built to flip it (p=0.3%, jump=3.0: 0.891 vs 0.822). At T=100 with 5% actuation (E≈5) AUC is only 0.676 — corroborates the "E[actuations] ≳ 10" sizing rule.
+
+**Novelty.** `docs/HISTORY.md`'s "Verlet" hits are unrelated integration experiments; "phase-rank", "slack skin", "window-mean" appear nowhere. But the board's taste log (6 Oct, taleb-09b5 gold) already adopted the phase-neighbour rank-4 certificate for the *window* tier under the same concentration; this run's increment is the measurement that the skin layer catches the same disease, that no slack size m escapes it, that m-tuning is the wrong knob (belt cost flat-to-rising in m), and the B12 statistic bake-off feeding the in-flight `b12-v2` redesign. Real but secondary relative to the adopted gold.
+
+**Why silver, not gold.** Reproduced and robust, but: (a) the remedy is an already-adopted certificate transplanted one layer down, measured only on a synthetic 1-D phase ring — no `crates/encounters` or gate row; (b) the registered prediction record is mixed (P1.1 ✓, P1.2 letter failed/mechanism held, P1.3 ✗, P2.1 ✗, P2.2 ✗, P2.3 ✓) — honestly reported, but gold's bar is that held-out predictions held; (c) the B12 half is a synthetic AR(1) surrogate; the real leak trace (the plane's Jacobi error) is one adapter away and untested.
+
+**The one experiment for gold.** Run the same comparison on the engine's real encounter path — the taleb-09b5 formation workload in `crates/encounters`' own harness (station-kept, with rate churn and eccentricity dispersion), counting setups **and** pair-evals end-to-end — showing the 12.6× slack-skin lever survives concentration with phase-rank sets. That converts a synthetic probe into the `b-encounter-skin` gate row the dossier proposes.
+
+**What the author missed.**
+- The formation numbers are a decaying transient: at σ_u=1e-4 the fleet shears past W within ~15% of the horizon, so the reported 300–809 average a saturated start against a quasi-belt tail; the steady-state (maintained) value is ~999, and mild 5× packing already saturates. The dossier presents the transient as if steady — conservative here, but the same sloppiness could overstate a cost claim elsewhere.
+- Saturation onset is width ≲ m·spacings, so large m (the natural "safer skin" choice) *lowers* the concentration needed — worth stating because it kills m-tuning from both ends (belt: pair-evals rise; formation: earlier saturation).
+- The docstring's "exact" is overstated: the rebuild interval uses max relative rate over set *members* only; a fast non-member can cross the window uncounted (same distribution ⇒ ~2× interval error, immaterial to the ordering but not "exact").
+- The phase skin's correctness under rank churn (does the k=4 set still contain real partners when the ordering changes faster than the rebuild schedule?) is assumed from taleb-09b5, not measured; only its cost is.
+- "k=4" keeps 3 partners (argpartition includes self): matches "rank 4 along the orbit" but the dossier's "3 candidates" and "k=4" should say k−1.
+- The B12 "always-on" control is trivially separable for every statistic (AUC 0.99+) and so adds no discrimination between them; the informative rows are the rare-actuation ones.

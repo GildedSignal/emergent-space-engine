@@ -1,0 +1,4 @@
+Working...
+Run complete: Readwise export cached (4,580 highlights), predictions pre-registered, both probes run (`python3 probe_skin.py`, `python3 probe_b12stat.py`, each ≤ 12 s), dossier written with five verbatim-quote lessons and two measured probes — one confirming the phase-rank skin, one honestly falsifying my own registered prediction.
+
+**Claim:** the slack skin's neighbour set must be phase-rank rather than metric — measured, a metric skin dies under co-orbital concentration (300–809 candidates per body vs 2.5–16 in a belt, 50–80× rebuild work, with no slack size escaping it) while a k=4 phase-rank skin is immune (3 candidates everywhere, 14× fewer rebuilds than belt) — and the Taleb-motivated max-based statistic for B12 loses, measured, to window-mean slope (AUC 0.920 vs 0.967; all statistics blind below ~10 actuations per window).
