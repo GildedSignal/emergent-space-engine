@@ -1,0 +1,469 @@
+diff --git a/crates/universe/examples/spacex_probe.rs b/crates/universe/examples/spacex_probe.rs
+new file mode 100644
+index 0000000..93237a2
+--- /dev/null
++++ b/crates/universe/examples/spacex_probe.rs
+@@ -0,0 +1,52 @@
++// The per-event idiot index and the scan's two deletions: (a) the foreign-doll slope (a binding
++// clone per body in the universe, per player item) deleted by a clone-free doll test, (b) the
++// same-doll exact tier (a tube decode per pair) deleted by a provably-safe radial-annulus
++// pre-filter. Run twice, once with ESPACEX_PREFILTER / ESPACEX_FASTDOLL unset: the digest and
++// the event counters must match bit for bit, only the time may move.
++//
++//   cargo run --release -p emergent-universe --example spacex_probe -- [cohort] [seed] [ticks] [threads] [place]
++//
++// place: 0 star-doll belt (original), 1 home doll separated annulus, 2 home doll co-radial with
++// the player (the adversarial dense case), 3 home doll wide annuli (e up to 0.3).
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_cohort_at;
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn main() {
++    let mut a = std::env::args().skip(1);
++    let cohort: usize = a.next().and_then(|x| x.parse().ok()).unwrap_or(200);
++    let seed: u64 = a.next().and_then(|x| x.parse().ok()).unwrap_or(1);
++    let ticks: i64 = a.next().and_then(|x| x.parse().ok()).unwrap_or(1_500_000_000);
++    let threads: usize = a.next().and_then(|x| x.parse().ok()).unwrap_or(1);
++    let place: u8 = a.next().and_then(|x| x.parse().ok()).unwrap_or(0);
++    let t0 = Instant::now();
++    let world = emergent_engine::scenes::battle(8, emergent_universe::fleet::Q, seed, 1 << 15, false).0;
++    let mut p = plane_cohort_at(Config::default(), seed, Order::Sparse, threads, world, cohort, place).expect("the plane builds");
++    let build = t0.elapsed();
++    let t0 = Instant::now();
++    p.u.settle(ticks);
++    let run = t0.elapsed();
++    let s = p.u.stats;
++    let ev = s.kicks + s.opens + s.boundaries;
++    let (calls, hits) = (
++        p.u.state_cache.calls.load(std::sync::atomic::Ordering::Relaxed),
++        p.u.state_cache.hits.load(std::sync::atomic::Ordering::Relaxed),
++    );
++    println!("cohort {cohort} seed {seed} threads {threads} ticks {ticks} place {place}");
++    println!("build {:.2}s settle {:.2}s", build.as_secs_f64(), run.as_secs_f64());
++    for (k, name) in ["planet", "moon", "ship", "player", "fleet"].iter().enumerate() {
++        println!("  {name}: {} items, {:.1} us/item", s.items[k], s.cost_ns[k] as f64 / 1e3 / s.items[k].max(1) as f64);
++    }
++    let scan = emergent_universe::universe::SCAN_NS.load(std::sync::atomic::Ordering::Relaxed);
++    println!("player scan: {:.2}s ({:.0}% of settle, {:.1} us per player item)", scan as f64 / 1e9, scan * 100 / (run.as_secs_f64() * 1e9) as u64, scan as f64 / 1e3 / s.items[3].max(1) as f64);
++    println!("per event: {:.2} us", run.as_secs_f64() * 1e6 / ev.max(1) as f64);
++    println!("state_of: {calls} calls, {hits} memo hits ({:.1}%), distinct decodes {}", hits * 100 / calls.max(1), calls - hits);
++    let (same, rej) = (
++        emergent_universe::encounter::PAIRS_SAME.load(std::sync::atomic::Ordering::Relaxed),
++        emergent_universe::encounter::PAIRS_REJECTED.load(std::sync::atomic::Ordering::Relaxed),
++    );
++    println!("prefilter: {same} same-doll pairs, {rej} rejected ({:.1}%), {:.2} us per pair item", rej * 100 / same.max(1), scan as f64 / 1e3 / same.max(1) as f64);
++    println!("digest {}", p.u.digest());
++    println!("encounters {} contacts {}", p.u.enc_log.len(), p.u.contacts);
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800e..3da1326 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -96,6 +96,11 @@ pub trait BodyStore: Send + Sync {
+     fn retire(&mut self, i: usize, seg: Segment);
+     /// Forget history that ended before `before`, keeping at least the last segment.
+     fn prune(&mut self, i: usize, before: Tick);
++    /// The doll of the binding that holds at `t`, without the binding clone ([`Self::binding_at`]'s
++    /// lookup, no copy): `None` exactly when `binding_at` is `None`.
++    fn doll_at(&self, i: usize, t: Tick) -> Option<u16> {
++        self.binding_at(i, t).map(|b| b.doll)
++    }
+     /// The binding that holds at `t` (current, or a retired one), if still remembered.
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding>;
+     /// The current binding's event time (the body's committed tick).
+@@ -140,6 +145,15 @@ impl BodyStore for PlainBodies {
+             h.pop_front();
+         }
+     }
++    fn doll_at(&self, i: usize, t: Tick) -> Option<u16> {
++        let r = &self.recs[i];
++        if t >= r.b.event_time {
++            return Some(r.b.doll);
++        }
++        let h = &self.history[i];
++        let k = h.partition_point(|s| s.until <= t);
++        h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.doll)
++    }
+     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding> {
+         let r = &self.recs[i];
+         if t >= r.b.event_time {
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..00f9a5e 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -7,6 +7,11 @@ use crate::force::Secondary;
+ use crate::num::{scale2, Res, Tick, V2};
+ use crate::world::{pow2, DollRec, Unit};
+ use emergent_space::orbit::Scalar;
++use std::collections::HashMap;
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::sync::{LazyLock, Mutex};
++
++
+ 
+ /// What never changes about a body.
+ #[derive(Clone, Copy, Debug)]
+@@ -42,6 +47,37 @@ impl Default for Config {
+         Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
+     }
+ }
++/// A memo of [`Ctx::state_of`]: every body with an item at tick `t` in a doll reads the same
++/// sources' states at `t`, and a source's state at `t` is final before the first reader (any item
++/// of the source at or below `t` is pulled first), so the memo returns exactly what recomputing
++/// would. It changes the work, never the bits. Shard-locked so the wave's threads do not queue.
++pub struct StateCache {
++    shards: Vec<Mutex<HashMap<(usize, Tick), (V2, V2)>>>,
++    pub calls: AtomicU64,
++    pub hits: AtomicU64,
++}
++
++impl Default for StateCache {
++    fn default() -> Self {
++        Self { shards: (0..16).map(|_| Mutex::new(HashMap::new())).collect(), calls: AtomicU64::new(0), hits: AtomicU64::new(0) }
++    }
++}
++
++impl StateCache {
++    const SHARDS: usize = 16;
++    /// Off switch for A/B measurement (`ESPACEX_NOCACHE`): the memo must be deletable to nothing.
++    pub fn disabled() -> bool {
++        static OFF: LazyLock<bool> = LazyLock::new(|| std::env::var("ESPACEX_NOCACHE").is_ok());
++        *OFF
++    }
++    fn shard(&self, j: usize, t: Tick) -> usize {
++        (j.wrapping_mul(0x9E3779B9).wrapping_add(t as usize)) & (Self::SHARDS - 1)
++    }
++    fn lock_of(&self, j: usize, t: Tick) -> std::sync::MutexGuard<'_, HashMap<(usize, Tick), (V2, V2)>> {
++        // Poisoning needs a panic while held; recover the map regardless, it is only a memo.
++        self.shards[self.shard(j, t)].lock().unwrap_or_else(|p| p.into_inner())
++    }
++}
+ 
+ pub struct Ctx<'a> {
+     pub dolls: &'a [DollRec],
+@@ -50,11 +86,30 @@ pub struct Ctx<'a> {
+     /// Per doll: the bodies that pull others in it (secondaries), in id order.
+     pub sources: &'a [Vec<usize>],
+     pub cfg: &'a Config,
++    /// The memo of source states at shared ticks (work only; never an outcome).
++    pub cache: &'a StateCache,
+ }
+ 
+ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        if StateCache::disabled() {
++            return Self::state_uncached(self, j, t);
++        }
++        self.cache.calls.fetch_add(1, Relaxed);
++        if let Some(v) = self.cache.lock_of(j, t).get(&(j, t)) {
++            self.cache.hits.fetch_add(1, Relaxed);
++            return Ok(*v);
++        }
++        let v = Self::state_uncached(self, j, t)?;
++        let mut g = self.cache.lock_of(j, t);
++        if g.len() >= 1 << 14 {
++            g.clear();
++        }
++        g.insert((j, t), v);
++        Ok(v)
++    }
++    fn state_uncached(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+         b.cartesian(t)
+     }
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index d1c0b1c..53c9d55 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -11,9 +11,93 @@ use crate::ctx::Ctx;
+ use crate::num::{sub2, time_of, Res, Tick, V2};
+ use emergent_lattice::law::hit;
+ use emergent_space::orbit::Scalar;
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::sync::LazyLock;
+ 
+ pub const ENCOUNTER_LOG2: i32 = 10;
+ 
++/// The lab's pre-filter instrument (never an outcome): same-doll pairs tested, and how many the
++pub static EXACT_DBG: AtomicU64 = AtomicU64::new(0);
++pub static PAIRS_SAME: AtomicU64 = AtomicU64::new(0);
++pub static PAIRS_REJECTED: AtomicU64 = AtomicU64::new(0);
++pub static DBGV: AtomicU64 = AtomicU64::new(0);
++
++fn prefilter_on() -> bool {
++    static ON: LazyLock<bool> = LazyLock::new(|| std::env::var("ESPACEX_PREFILTER").is_ok());
++    *ON
++}
++fn fastdoll_on() -> bool {
++    static ON: LazyLock<bool> = LazyLock::new(|| std::env::var("ESPACEX_FASTDOLL").is_ok());
++    *ON
++}
++
++fn norm(a: V2) -> Res<Scalar> {
++    Ok(a[0].mul(a[0])?.add(a[1].mul(a[1])?)?.sqrt()?)
++}
++
++/// A provably-safe rejection, in integers, before the tube decode (rough first, exact on the
++/// borderline, P21): body `j`'s position on this binding stays inside the orbit's radial annulus
++/// `[rp, ra]` — the compiled trajectory's own turning points (apoapsis = periapsis/k, from the
++/// key's Q48 `k = 1/(1+e)`), widened by `m`: the sub-quantum turn's shears (two quanta of the
++/// word, per `crate::lorentz`), plus the fit's residual (an exact integer from the binding),
++/// plus a `2^-40` relative rounding slack. The player's `|x|` and `|v|` are exact (decoded once
++/// per item), and no body is past `c = 1`, so relative motion over `h` moves at most
++/// `(1 + |v|)·h` (same slack). If the annulus and the player's radius are further apart than
++/// that plus the encounter neighbourhood, the exact lattice predicate answers false: skip it.
++/// Any error answers "not rejected" — the exact path decides.
++fn rejects(me_radius: Scalar, me_speed: Scalar, h: Scalar, near: Scalar, other: &crate::bind::Binding) -> bool {
++    (|| -> Res<bool> {
++        let eps = Scalar::raw((1 << 40) + 1, -40)?;
++        // |vj|, airtight from structure alone: the readout is v = turn(word) + residual, the
++        // word i64 at 2^vexp (so |word| ≤ 2^63.5), the turn three shears of coefficients a, b
++        // over 2^NT (growth (1+α)²(1+β), each floor one unit), the residual's velocity integers
++        // held exactly. So |vj| ≤ 2^vexp·(2^64·(1+α)²(1+β) + 3 + |res.v|₁). (The word
++        // *convention* — 60-bit words — was measured NOT to hold after kicks: a 2^61 bound
++        // misses encounters, see the dossier.)
++        let (a, b) = (other.turn.a.unsigned_abs() as i128, other.turn.b.unsigned_abs() as i128);
++        let growth = Scalar::ONE
++            .add(Scalar::raw(2 * a, 64)?)?
++            .mul(Scalar::ONE.add(Scalar::raw(b, 64)?)?)?;
++        let rv = other.residual.velocity;
++        let vmax = Scalar::power_of_two(other.units.1)
++            .scale(64)?
++            .mul(growth)?
++            .add(Scalar::raw(rv[0].abs() as i128 + rv[1].abs() as i128 + 3, other.units.1 as i32)?)?
++            .mul(eps)?;
++        if std::env::var("ESPACEX_DEBUG").is_ok() && DBGV.fetch_add(1, Relaxed) < 12 {
++            let f = |s: Scalar| s.significand() as f64 * 2f64.powi(s.exponent() as i32);
++            eprintln!("vdbg vexp={} a={} b={} resv={} word={:.3e} vmax={:.3e} me_speed={:.3e} h={:.3e}", other.units.1, other.turn.a, other.turn.b, rv[0].abs() + rv[1].abs(), f(Scalar::power_of_two(other.units.1).scale(61)?), f(vmax), f(me_speed), f(h));
++        }
++
++        let slack = me_speed.add(vmax)?.mul(h)?.mul(eps)?;
++        let bound = slack.add(near)?;
++        let key = other.entry.trajectory.key();
++        let res = other.residual.position;
++        let m = Scalar::power_of_two(other.units.0)
++            .scale(2)?
++            .add(Scalar::raw(res[0].abs() as i128 + res[1].abs() as i128, other.units.0 as i32)?)?
++            .mul(eps)?;
++        let lo = other.entry.unit.to_doll(key.periapsis)?.sub(m)?;
++        let gap = if lo.sub(me_radius)?.is_positive() {
++            lo.sub(me_radius)?
++        } else if key.periodic() {
++            let apo = other
++                .entry
++                .unit
++                .to_doll(key.periapsis.div(Scalar::raw(key.k as i128, -48)?)?)?
++                .add(m)?;
++            me_radius.sub(apo)?
++        } else {
++            Scalar::ZERO
++        };
++        Ok(gap.sub(bound)?.is_positive())
++    })()
++    .unwrap_or(false)
++}
++fn key2(b: &crate::bind::Binding) -> Scalar {
++    b.entry.trajectory.key().periapsis
++}
++
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub struct Encounter {
+     pub a: usize,
+@@ -44,17 +128,29 @@ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+ impl Encounters for PlayerNeighbourhood {
+     fn find(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Vec<Encounter> {
+         let mut out = Vec::new();
++        // ESPACEX_NOSCAN: a timing-only probe that finds nothing (outcomes differ); it bounds the
++        // scan's share of a settle without touching the exact path.
++        if std::env::var("ESPACEX_NOSCAN").is_ok() {
++            return out;
++        }
+         let Some(me) = ctx.bodies.binding_at(body, t) else { return out };
+         let Ok((x, v)) = me.cartesian(t) else { return out };
+         let h = match time_of(interval, me.clock_exp) {
+             Ok(h) => h,
+             Err(_) => return out,
+         };
++        // The pre-filter's per-item constants (exact; the decode above is paid anyway).
++        let pre = prefilter_on().then(|| Ok::<_, crate::num::Error>((norm(x)?, norm(v)?)));
++        let fastdoll = fastdoll_on();
+         for j in 0..ctx.bodies.len() {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+             }
++            if fastdoll && ctx.bodies.doll_at(j, t) != Some(me.doll) {
++                // The doll test without the binding clone: the same lookup, no copy.
++                continue;
++            }
+             let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
+             if other.doll != me.doll {
+                 continue;
+@@ -63,10 +159,35 @@ impl Encounters for PlayerNeighbourhood {
+             if reach.is_zero() {
+                 continue;
+             }
++            if let Some(Ok((me_r, me_v))) = pre {
++                PAIRS_SAME.fetch_add(1, Relaxed);
++                if std::env::var("ESPACEX_DEBUG").is_ok() && PAIRS_SAME.load(Relaxed) < 6 {
++                    let key = other.entry.trajectory.key();
++                    eprintln!(
++                        "dbg j={j} doll={} me_r={} me_v={} h={} rp_doll={} apo={} k={} near={}",
++                        other.doll,
++                        me_r.significand() as f64 * 2f64.powi(me_r.exponent() as i32),
++                        me_v.significand() as f64 * 2f64.powi(me_v.exponent() as i32),
++                        h.significand() as f64 * 2f64.powi(h.exponent() as i32),
++                        key.periapsis.significand() as f64 * 2f64.powi(key.periapsis.exponent() as i32),
++                        key.periodic().then(|| key.periapsis.div(Scalar::raw(key.k as i128, -48).unwrap()).unwrap().significand() as f64 * 2f64.powi(key.periapsis.div(Scalar::raw(key.k as i128, -48).unwrap()).unwrap().exponent() as i32)).unwrap_or(0.0),
++                        key.k,
++                        reach.scale(ENCOUNTER_LOG2).map(|n| n.significand() as f64 * 2f64.powi(n.exponent() as i32)).unwrap_or(0.0),
++                    );
++                }
++                if rejects(me_r, me_v, h, reach.scale(ENCOUNTER_LOG2).unwrap_or(Scalar::ZERO), &other) {
++                    PAIRS_REJECTED.fetch_add(1, Relaxed);
++                    continue;
++                }
++            }
+             let found = (|| -> Res<Option<bool>> {
+                 let (xj, vj) = other.cartesian(t)?;
+                 let d = sub2(xj, x)?;
+                 let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
++                if std::env::var("ESPACEX_DEBUG").is_ok() && EXACT_DBG.fetch_add(1, Relaxed) < 6 {
++                    let f = |s: Scalar| s.significand() as f64 * 2f64.powi(s.exponent() as i32);
++                    eprintln!("radii j={j} |xj|={:.6e} rp_tube={:.6e} k={} mu_unity={} turn_a={} turn_b={}", f(norm(xj)?), f(key2(&other)), other.entry.trajectory.key().k, other.entry.unit.unity, other.turn.a, other.turn.b);
++                }
+                 // Integers in units of reach/2^20: the lattice predicate is exact on i128.
+                 let q_exp = reach.exponent() as i32 - 20;
+                 let (di, wi) = (integers(d, q_exp)?, integers(w, q_exp)?);
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index c026d5f..b6ac70f 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -151,6 +151,19 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
+ /// [`plane`] with the fleet's world given (lattice bodies in the frame's axes, `crates/engine`'s scenes or
+ /// a test's own): the same star, planets, moon, ships and player.
+ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World) -> Res<Plane> {
++    plane_cohort(cfg, seed, order, threads, world, 0)
++}
++
++/// [`plane_with`] plus a `cohort` of ships in one tight belt: the probe's stand-in for a belt until
++/// `crates/shipmem` is wired (B18b). Placement 0 is the original star-doll belt (1.9–2.1 AU);
++/// 1–3 put the belt in the player's own doll (Home's) so the scan's exact same-doll tier grows:
++/// 1 a separated annulus (alt 1.5–1.7 Home radii), 2 co-radial with the player (alt 1.08–1.12,
++/// the adversarial dense case), 3 wide annuli (peri alt 1.2–1.6, e up to 0.3).
++pub fn plane_cohort(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, cohort: usize) -> Res<Plane> {
++    plane_cohort_at(cfg, seed, order, threads, world, cohort, 0)
++}
++
++pub fn plane_cohort_at(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, cohort: usize, place: u8) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -255,6 +268,34 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+         Scalar::raw(34, -10 + 18)?,
+     )?;
+     names.push("You".into());
++    // The cohort: one tight belt, placed by `place`.
++    for k in 0..cohort {
++        let (doll, peri, e) = match place {
++            1 => (home_doll, Scalar::raw((4_313.0 * (1.5 + 0.2 * lcg(&mut rng)) * 1024.0) as i128, -10 + 18)?, 0.05 * lcg(&mut rng)),
++            2 => (home_doll, Scalar::raw((4_313.0 * (1.08 + 0.04 * lcg(&mut rng)) * 1024.0) as i128, -10 + 18)?, 0.02 * lcg(&mut rng)),
++            3 => (home_doll, Scalar::raw((4_313.0 * (1.2 + 0.4 * lcg(&mut rng)) * 1024.0) as i128, -10 + 18)?, 0.05 + 0.25 * lcg(&mut rng)),
++            _ => {
++                let a = (1.9 + 0.2 * lcg(&mut rng)) * AU as f64;
++                let e = 0.05 * lcg(&mut rng);
++                (0, s((a * (1.0 - e)) as i64), e)
++            }
++        };
++        let doll_radius = if doll == 0 { Scalar::raw(34, -10)? } else { Scalar::raw(34, -10 + 18)? };
++        let id = u.add_body(
++            Kind::Ship,
++            OrbitSpec {
++                doll,
++                periapsis: peri,
++                e_q48: (e * (1u64 << 48) as f64) as u64,
++                clockwise: false,
++                angle: (lcg(&mut rng) * 4294967296.0) as u32,
++                phase: (lcg(&mut rng) * 4294967296.0) as u32,
++            },
++            doll_radius,
++        )?;
++        ships.push(id);
++        names.push(format!("Belter {k}"));
++    }
+     let f = u.add_fleet(fleet);
+     u.start()?;
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..d44375c 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -161,6 +161,8 @@ pub struct Universe {
+     lanes: Lanes,
+     target: Tick,
+     encounters: Box<dyn Encounters>,
++    /// The memo of shared source states (see [`crate::ctx::StateCache`]); work only, never bits.
++    pub state_cache: crate::ctx::StateCache,
+     pub enc_log: Vec<Encounter>,
+     enc_digest: [u8; 32],
+     pub contacts: u64,
+@@ -179,6 +181,10 @@ struct Lanes {
+     ships: Vec<usize>,
+ }
+ 
++/// Wall time inside the player's neighbourhood scan (the exact check the encounters seam will
++/// replace): the lab's instrument, never an outcome.
++pub static SCAN_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
+ impl Universe {
+     pub fn new(star_surface: Scalar, cfg: Config) -> Self {
+         Self {
+@@ -205,6 +211,7 @@ impl Universe {
+             lanes: Lanes::default(),
+             target: 0,
+             encounters: Box::new(PlayerNeighbourhood),
++            state_cache: crate::ctx::StateCache::default(),
+             enc_log: Vec::new(),
+             enc_digest: [0; 32],
+             contacts: 0,
+@@ -215,7 +222,7 @@ impl Universe {
+     }
+ 
+     pub fn ctx(&self) -> Ctx<'_> {
+-        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }
++        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, cache: &self.state_cache }
+     }
+     pub fn bodies(&self) -> &dyn BodyStore {
+         &*self.bodies
+@@ -367,7 +374,7 @@ impl Universe {
+         let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
+             return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+         };
+-        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }.tube_unit(i, spec.doll)?;
++        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, cache: &self.state_cache }.tube_unit(i, spec.doll)?;
+         let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+@@ -434,7 +441,7 @@ impl Universe {
+ 
+     /// The read-only context and the fleets, borrowed apart (a fleet's step reads the bodies it kicks against).
+     fn split(&mut self) -> (Ctx<'_>, &mut Vec<Fleet>) {
+-        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }, &mut self.fleets)
++        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, cache: &self.state_cache }, &mut self.fleets)
+     }
+ 
+     /// The entity id of fleet `f`, and the fleet an entity id names (none for a body).
+@@ -941,7 +948,10 @@ impl Universe {
+         let Some(p) = self.player else { return };
+         let t = self.bodies.event_time(p);
+         let interval = self.bodies.rec(p).step.max(2);
+-        for e in self.encounters.find(&self.ctx(), p, t, interval) {
++        let s0 = Instant::now();
++        let found = self.encounters.find(&self.ctx(), p, t, interval);
++        SCAN_NS.fetch_add(s0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++        for e in found {
+             self.stats.encounters += 1;
+             self.contacts += e.contact as u64;
+             let mut h = blake3::Hasher::new();
