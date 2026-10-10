@@ -1,0 +1,226 @@
+diff --git a/crates/encounters/src/belt.rs b/crates/encounters/src/belt.rs
+index ad8a4d2..e740100 100644
+--- a/crates/encounters/src/belt.rs
++++ b/crates/encounters/src/belt.rs
+@@ -53,3 +53,20 @@ pub fn make_belt(s: &Spec) -> Vec<Body> {
+         })
+         .collect()
+ }
++
++/// A fleet on one orbit: m bodies, a ∈ [1, 1+da], Rayleigh e, periapses aligned when `aligned`
++/// (a convoy shares its apsidal line), mean longitude uniform in an arc of length `arc`
++/// (arc ≥ TAU: uniform over the whole orbit, a dense ring).
++pub fn make_fleet(m: usize, arc: f64, da: f64, sigma_e: f64, aligned: bool, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    (0..m)
++        .map(|_| {
++            let a = 1.0 + da * rng.f64();
++            let u = rng.f64();
++            let e = (sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++            let pom = if aligned { 0.0 } else { TAU * rng.f64() };
++            let lam = if arc >= TAU { TAU * rng.f64() } else { arc * (rng.f64() - 0.5) };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bf..e34f370 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -1,7 +1,7 @@
+ //! Experiments (each run ≤ 60 s): `verify <set>`, `steady <n> <horizons..>`, `scale <n|sigma>`, `kick`.
+ //! One JSON object per line on stdout.
+ 
+-use emergent_encounters::belt::{make_belt, Spec};
++use emergent_encounters::belt::{make_belt, make_fleet, Spec};
+ use emergent_encounters::kepler::{Body, TICKS};
+ use emergent_encounters::method::{pair_events, run_section, Stats};
+ use emergent_encounters::pairs::{cone_pairs, is_candidate, radial_pairs, sections, Sorted};
+@@ -372,6 +372,167 @@ fn cone_pairs_sample(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) -> V
+     out
+ }
+ 
++// ---- the seam between the certificate tiers (lab run 20261010-0306-taleb-8af8) ----
++//
++// The adopted design routes between the pairwise Binet-cone tier and a phase-neighbour certificate
++// by a concentration number. Its evidence is fleet-only. These scenes hold a fleet (co-orbital,
++// aligned apsides, one arc) inside a belt whose inner bodies cross the fleet's orbit, so both tiers
++// must cooperate on one scene.
++
++fn seam_bodies(m: usize, arc: f64, n_belt: usize, rho: f64, seed: u64) -> Vec<Body> {
++    let mut b = make_fleet(m, arc, 5e-3, 2e-3, true, seed);
++    b.extend(make_belt(&spec("seam-belt", n_belt, 5e-2, rho, 1.02, 1.5, 0, 0.0, seed + 1)));
++    b
++}
++
++fn circd(a: f64, b: f64) -> f64 {
++    let d = (a - b).abs().rem_euclid(TAU);
++    d.min(TAU - d)
++}
++
++fn lam_at(x: &Body, t: f64) -> f64 {
++    (x.mean_anomaly(t) + x.pom).rem_euclid(TAU)
++}
++
++/// The partner's rank among all bodies by circular mean-longitude distance from body i, at time t.
++fn partner_rank(b: &[Body], i: usize, j: usize, t: f64) -> u32 {
++    let li = lam_at(&b[i], t);
++    let dj = circd(lam_at(&b[j], t), li);
++    b.iter()
++        .enumerate()
++        .filter(|&(k, _)| k != i && k != j && circd(lam_at(&b[k], t), li) < dj)
++        .count() as u32
++}
++
++fn pct(v: &mut Vec<u32>) -> (f64, f64, u32, f64) {
++    if v.is_empty() {
++        return (0.0, 0.0, 0, 0.0);
++    }
++    v.sort_unstable();
++    let at = |q: f64| v[((q * (v.len() - 1) as f64).round() as usize).min(v.len() - 1)] as f64;
++    (at(0.5), at(0.95), *v.last().unwrap(), v.iter().filter(|&&r| r <= 4).count() as f64 / v.len() as f64)
++}
++
++/// One scene, judged: truth (radial superset, conservative advancement) vs the method (cone pairs),
++/// misses and false reports by family (0 fleet-fleet, 1 fleet-belt, 2 belt-belt), and the partner
++/// rank of every true encounter, at setup and at the encounter.
++fn seam_scene(tag: &str, m: usize, arc: f64, n_belt: usize, rho: f64, orbits: f64, seed: u64) {
++    let t_wall = Instant::now();
++    let b = seam_bodies(m, arc, n_belt, rho, seed);
++    let t_end = orbits * TAU;
++    let rp = radial_pairs(&b, rho);
++    let (truth, tst) = truth_all(&b, &rp, rho, t_end);
++    let cs = cone_pairs(&b, rho);
++    let (meth, mst) = method_all(&b, &cs.pairs, rho, 0.0, t_end);
++    let (missed, false_, matched, dup) = matchup(&truth, &meth, t_end, 1e-3);
++    let fam = |e: &Enc| {
++        if (e.0 as usize) < m && (e.1 as usize) < m {
++            0
++        } else if (e.0 as usize) < m || (e.1 as usize) < m {
++            1
++        } else {
++            2
++        }
++    };
++    let inside = |t: f64| t > 0.05 && t < t_end - 0.05;
++    let mut t_n = [0u64; 3];
++    for e in truth.iter().filter(|e| inside(e.2)) {
++        t_n[fam(e) as usize] += 1;
++    }
++    let mut m_n = [0u64; 3];
++    for e in missed.iter() {
++        m_n[fam(e) as usize] += 1;
++    }
++    let mut f_n = [0u64; 3];
++    for e in false_.iter() {
++        f_n[fam(e) as usize] += 1;
++    }
++    let (mut c_ff, mut c_fx, mut c_xx) = (0u64, 0u64, 0u64);
++    for &(i, j) in &cs.pairs {
++        match ((i as usize) < m, (j as usize) < m) {
++            (true, true) => c_ff += 1,
++            (true, false) | (false, true) => c_fx += 1,
++            (false, false) => c_xx += 1,
++        }
++    }
++    let outside_cone = truth
++        .iter()
++        .filter(|e| inside(e.2) && !is_candidate(&b[e.0 as usize], &b[e.1 as usize], rho))
++        .count();
++    // Cross pairs that ever held an encounter: the fraction of cross setup that was real work.
++    let mut cross_hit: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
++    for e in meth.iter() {
++        if fam(e) == 1 {
++            cross_hit.insert((e.0.min(e.1), e.0.max(e.1)));
++        }
++    }
++    let mut r_enc = [Vec::new(), Vec::new(), Vec::new()];
++    let mut r_set = [Vec::new(), Vec::new(), Vec::new()];
++    for e in truth.iter().filter(|e| inside(e.2)) {
++        let f = fam(e) as usize;
++        r_enc[f].push(partner_rank(&b, e.0 as usize, e.1 as usize, e.2));
++        r_set[f].push(partner_rank(&b, e.0 as usize, e.1 as usize, 0.0));
++    }
++    let (e0, s0) = (pct(&mut r_enc[0]), pct(&mut r_set[0]));
++    let (e1, s1) = (pct(&mut r_enc[1]), pct(&mut r_set[1]));
++    println!(
++        "{{\"exp\":\"seam\",\"tag\":\"{}\",\"m\":{},\"arc\":{:.4},\"n_belt\":{},\"rho\":{:.0e},\"orbits\":{},\
++\"radial_pairs\":{},\"cone_pairs\":{},\"c_ff\":{},\"c_fx\":{},\"c_xx\":{},\"outside_cone\":{},\
++\"truth\":[{},{},{}],\"missed\":[{},{},{}],\"false\":[{},{},{}],\"matched\":{},\"dup\":{},\
++\"cross_hit\":{},\"cross_waste_frac\":{:.4},\
++\"rank_enc_ff\":{{\"med\":{:.1},\"p95\":{:.1},\"max\":{},\"le4\":{:.3}}},\
++\"rank_set_ff\":{{\"med\":{:.1},\"p95\":{:.1},\"max\":{},\"le4\":{:.3}}},\
++\"rank_enc_fx\":{{\"med\":{:.1},\"p95\":{:.1},\"max\":{},\"le4\":{:.3}}},\
++\"rank_set_fx\":{{\"med\":{:.1},\"p95\":{:.1},\"max\":{},\"le4\":{:.3}}},\
++\"truth_steps\":{},\"truth_fine\":{},\"checks\":{},\"evals\":{},\"wall_s\":{:.2}}}",
++        tag, m, arc, n_belt, rho, orbits, rp.len(), cs.pairs.len(), c_ff, c_fx, c_xx, outside_cone,
++        t_n[0], t_n[1], t_n[2], m_n[0], m_n[1], m_n[2], f_n[0], f_n[1], f_n[2], matched, dup,
++        cross_hit.len(), 1.0 - cross_hit.len() as f64 / c_fx.max(1) as f64,
++        e0.0, e0.1, e0.2, e0.3, s0.0, s0.1, s0.2, s0.3,
++        e1.0, e1.1, e1.2, e1.3, s1.0, s1.1, s1.2, s1.3,
++        tst.steps, tst.fine, mst.checks_total(), mst.evals, t_wall.elapsed().as_secs_f64()
++    );
++}
++
++/// Candidate degree by family against fleet size (no truth): does the fleet's candidate work track
++/// its real encounters, or does the seam pay per cross pair regardless of encounters?
++fn seam_cost() {
++    let n_belt = 1000usize;
++    let rho = 5e-3;
++    for &m in &[100usize, 300, 1000, 3000] {
++        let t0 = Instant::now();
++        let b = seam_bodies(m, 0.1, n_belt, rho, 20261101);
++        let s = Sorted::new(&b, rho);
++        let (mut ff, mut fx, mut xx, mut scanned) = (0u64, 0u64, 0u64, 0u64);
++        for (k, &(u, i)) in s.order.iter().enumerate() {
++            let bi = &b[i as usize];
++            let reach = s.reach(bi);
++            for &(uj, j) in &s.order[k + 1..] {
++                if uj - u > reach {
++                    break;
++                }
++                scanned += 1;
++                if is_candidate(bi, &b[j as usize], rho) {
++                    match ((i as usize) < m, (j as usize) < m) {
++                        (true, true) => ff += 1,
++                        (true, false) | (false, true) => fx += 1,
++                        (false, false) => xx += 1,
++                    }
++                }
++            }
++        }
++        println!(
++            "{{\"exp\":\"seam-cost\",\"m\":{},\"n_belt\":{},\"scanned\":{},\"fleet_fleet\":{},\"cross\":{},\"belt_belt\":{},\
++\"deg_fleet\":{:.1},\"deg_belt\":{:.2},\"cross_per_fleet_body\":{:.1},\"wall_s\":{:.2}}}",
++            m, n_belt, scanned, ff, fx, xx,
++            (2.0 * ff as f64 + fx as f64) / m as f64,
++            (2.0 * xx as f64 + fx as f64) / n_belt as f64,
++            fx as f64 / m as f64,
++            t0.elapsed().as_secs_f64()
++        );
++    }
++}
++
+ /// A kick: re-scan the kicked body's range and re-set up its pairs. Also: how many certificates a
+ /// kick actually changes, and how many a stored slack (the relative period change a silent
+ /// certificate absorbs over the horizon) would let the re-certification skip.
+@@ -519,6 +680,19 @@ fn main() {
+     let args: Vec<String> = std::env::args().collect();
+     match args.get(1).map(|s| s.as_str()) {
+         Some("verify") => verify(&args[2]),
++        Some("seam") => match args.get(2).map(|s| s.as_str()) {
++            Some("cost") => seam_cost(),
++            Some("scene") => {
++                let tag = &args[3];
++                let m: usize = args[4].parse().unwrap();
++                let arc: f64 = args[5].parse().unwrap();
++                let n_belt: usize = args[6].parse().unwrap();
++                let rho: f64 = args[7].parse().unwrap();
++                let orbits: f64 = args[8].parse().unwrap();
++                seam_scene(tag, m, arc, n_belt, rho, orbits, 20261101);
++            }
++            _ => panic!("usage: seam cost | seam scene <tag> <m> <arc> <n_belt> <rho> <orbits>"),
++        },
+         Some("steady") => {
+             let n: usize = args[2].parse().unwrap();
+             let rho: f64 = args[3].parse().unwrap();
