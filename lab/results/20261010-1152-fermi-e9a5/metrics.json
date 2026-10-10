@@ -1,0 +1,335 @@
+{
+ "env": {
+  "nproc": 8,
+  "loadavg1": "1.26",
+  "memfree_kb": "16316708"
+ },
+ "scene": {
+  "a_AU": 2.2,
+  "width_AU": 0.5,
+  "N": 1000000000.0,
+  "belt_kg": 2e+21,
+  "body_kg": 2000000000000.0,
+  "Porb_s": 102967646.69995938,
+  "warp": 100.0
+ },
+ "controls": {
+  "canonical_exact_kernel_relerr": 0.0005553149702019192,
+  "canonical_richardson_relerr": 7.25343264682228e-14,
+  "cold_exact_kernel_relerr": 0.002734719598342864,
+  "cold_impulse_vs_exact_ratio": 14.560439037628406
+ },
+ "lambda_plus_per_body_per_orbit": {
+  "belt": {
+   "1e-06": 354.71137441835583,
+   "1e-05": 35.27243408965124,
+   "0.0001": 3.2379045883602995,
+   "0.001": 0.03652634564258402,
+   "0.01": 0.0,
+   "beta_fit": -1.2998978055285662,
+   "per_body_per_games_at_q1e-6": 0.00034448818224617713
+  },
+  "dense_x2500": {
+   "1e-06": 886778.4360458895,
+   "1e-05": 88181.08522412808,
+   "0.0001": 8094.7614709007485,
+   "0.001": 91.31586410646005,
+   "0.01": 0.0,
+   "beta_fit": -1.2998978055285657,
+   "per_body_per_games_at_q1e-6": 0.8612204556154426
+  },
+  "coldswarm": {
+   "1e-06": 443357.7300065437,
+   "1e-05": 44317.011510185366,
+   "0.0001": 4436.625631299934,
+   "0.001": 449.2588229866412,
+   "0.01": 47.24476916010755,
+   "beta_fit": -0.9938874958374133,
+   "per_body_per_games_at_q1e-6": 0.4305796473123811
+  }
+ },
+ "sigma_linearity_ratio": 1.0,
+ "growth_q1e-6": {
+  "belt": [
+   {
+    "orbits": 1,
+    "sigma_resid_m_per_s": 0.0004422297034205389,
+    "H_bits": 20.036884707061834,
+    "mutation_per_orbit": 375.36343372282886
+   },
+   {
+    "orbits": 2,
+    "sigma_resid_m_per_s": 0.0006271036737338571,
+    "H_bits": 21.16048479412513,
+    "mutation_per_orbit": 375.36343380706313
+   },
+   {
+    "orbits": 4,
+    "sigma_resid_m_per_s": 0.0008943898260992566,
+    "H_bits": 22.222763327099425,
+    "mutation_per_orbit": 375.36343389221264
+   },
+   {
+    "orbits": 8,
+    "sigma_resid_m_per_s": 0.001265934701346958,
+    "H_bits": 23.238869996958762,
+    "mutation_per_orbit": 375.3634340673746
+   },
+   {
+    "orbits": 16,
+    "sigma_resid_m_per_s": 0.001775902530981161,
+    "H_bits": 24.236310324973516,
+    "mutation_per_orbit": 375.3634344130937
+   },
+   {
+    "orbits": 32,
+    "sigma_resid_m_per_s": 0.0025071234296055933,
+    "H_bits": 25.23386357289595,
+    "mutation_per_orbit": 375.3634350812406
+   },
+   {
+    "orbits": 64,
+    "sigma_resid_m_per_s": 0.0035541573170189958,
+    "H_bits": 26.228389324156606,
+    "mutation_per_orbit": 375.3634364301801
+   },
+   {
+    "orbits": 128,
+    "sigma_resid_m_per_s": 0.0050230934372086835,
+    "H_bits": 27.230370356904935,
+    "mutation_per_orbit": 375.3634391636755
+   },
+   {
+    "orbits": 256,
+    "sigma_resid_m_per_s": 0.0071139283114620006,
+    "H_bits": 28.233460540112148,
+    "mutation_per_orbit": 375.36344459048024
+   },
+   {
+    "orbits": 512,
+    "sigma_resid_m_per_s": 0.010138364777108189,
+    "H_bits": 29.26303691197996,
+    "mutation_per_orbit": 375.3634555206026
+   },
+   {
+    "orbits": 1024,
+    "sigma_resid_m_per_s": 0.014329860381417476,
+    "H_bits": 30.259033693218374,
+    "mutation_per_orbit": 375.36347799481285
+   },
+   {
+    "orbits": 2048,
+    "sigma_resid_m_per_s": 0.020246129438336855,
+    "H_bits": 31.260033335155754,
+    "mutation_per_orbit": 375.3635221685955
+   },
+   {
+    "orbits": 4096,
+    "sigma_resid_m_per_s": 0.028654594640784296,
+    "H_bits": 32.2617004795859,
+    "mutation_per_orbit": 375.3636102766405
+   },
+   {
+    "orbits": 8192,
+    "sigma_resid_m_per_s": 0.04016010431764132,
+    "H_bits": 33.21115770247434,
+    "mutation_per_orbit": 375.3637873792202
+   },
+   {
+    "orbits": 16384,
+    "sigma_resid_m_per_s": 0.05689604109604221,
+    "H_bits": 34.22773326117097,
+    "mutation_per_orbit": 375.36412839904665
+   }
+  ],
+  "dense_x2500": [
+   {
+    "orbits": 1,
+    "sigma_resid_m_per_s": 0.02229836554702805,
+    "H_bits": 31.534655470159226,
+    "mutation_per_orbit": 887811.0390111131
+   },
+   {
+    "orbits": 2,
+    "sigma_resid_m_per_s": 0.03156673533471623,
+    "H_bits": 32.52879286880932,
+    "mutation_per_orbit": 887811.5891786744
+   },
+   {
+    "orbits": 4,
+    "sigma_resid_m_per_s": 0.04472437150344851,
+    "H_bits": 33.560497369076046,
+    "mutation_per_orbit": 887812.1415860633
+   },
+   {
+    "orbits": 8,
+    "sigma_resid_m_per_s": 0.0635964920572654,
+    "H_bits": 34.56986010574851,
+    "mutation_per_orbit": 887813.2522943972
+   },
+   {
+    "orbits": 16,
+    "sigma_resid_m_per_s": 0.08947223546995664,
+    "H_bits": 35.54518448014902,
+    "mutation_per_orbit": 887815.5142299746
+   },
+   {
+    "orbits": 32,
+    "sigma_resid_m_per_s": 0.125766877642819,
+    "H_bits": 36.51456640388509,
+    "mutation_per_orbit": 887819.8967619854
+   },
+   {
+    "orbits": 64,
+    "sigma_resid_m_per_s": 0.17836790940808905,
+    "H_bits": 37.54210596434253,
+    "mutation_per_orbit": 887828.5405938973
+   },
+   {
+    "orbits": 128,
+    "sigma_resid_m_per_s": 0.25226264122453734,
+    "H_bits": 38.55527341250756,
+    "mutation_per_orbit": 887846.2415412827
+   },
+   {
+    "orbits": 256,
+    "sigma_resid_m_per_s": 0.35787241242112866,
+    "H_bits": 39.5511562092941,
+    "mutation_per_orbit": 887881.449554008
+   },
+   {
+    "orbits": 512,
+    "sigma_resid_m_per_s": 0.5068174029387664,
+    "H_bits": 40.555729054808246,
+    "mutation_per_orbit": 887952.7393228522
+   },
+   {
+    "orbits": 1024,
+    "sigma_resid_m_per_s": 0.7159908020832579,
+    "H_bits": 41.53583559422844,
+    "mutation_per_orbit": 888095.2118242824
+   },
+   {
+    "orbits": 2048,
+    "sigma_resid_m_per_s": 1.0140448226601555,
+    "H_bits": 42.539301384278495,
+    "mutation_per_orbit": 888378.0939493551
+   },
+   {
+    "orbits": 4096,
+    "sigma_resid_m_per_s": 1.4208622657778993,
+    "H_bits": 43.5342406487465,
+    "mutation_per_orbit": 888948.1034391734
+   },
+   {
+    "orbits": 8192,
+    "sigma_resid_m_per_s": 2.005512102771245,
+    "H_bits": 44.51940020648009,
+    "mutation_per_orbit": 886719.2683774679
+   },
+   {
+    "orbits": 16384,
+    "sigma_resid_m_per_s": 2.8484222798941126,
+    "H_bits": 45.530411412151906,
+    "mutation_per_orbit": 888919.2802627326
+   }
+  ],
+  "coldswarm": [
+   {
+    "orbits": 1,
+    "sigma_resid_m_per_s": 0.09355404847097062,
+    "H_bits": 35.66682099924255,
+    "mutation_per_orbit": 444110.62406120927
+   },
+   {
+    "orbits": 2,
+    "sigma_resid_m_per_s": 0.23911189934202853,
+    "H_bits": 38.37711629158031,
+    "mutation_per_orbit": 444923.28544700536
+   },
+   {
+    "orbits": 4,
+    "sigma_resid_m_per_s": 0.36848871715137255,
+    "H_bits": 39.631002459126776,
+    "mutation_per_orbit": 448482.67845441547
+   },
+   {
+    "orbits": 8,
+    "sigma_resid_m_per_s": 0.49002832486218706,
+    "H_bits": 40.4418692049951,
+    "mutation_per_orbit": 453442.9441848529
+   },
+   {
+    "orbits": 16,
+    "sigma_resid_m_per_s": 0.6303194776703648,
+    "H_bits": 41.180246279942196,
+    "mutation_per_orbit": 459383.5783347392
+   },
+   {
+    "orbits": 32,
+    "sigma_resid_m_per_s": 0.8071636634636692,
+    "H_bits": 41.88408153412868,
+    "mutation_per_orbit": 464252.21306356293
+   },
+   {
+    "orbits": 64,
+    "sigma_resid_m_per_s": 1.0264834222620478,
+    "H_bits": 42.58541810841281,
+    "mutation_per_orbit": 473031.3489057721
+   },
+   {
+    "orbits": 128,
+    "sigma_resid_m_per_s": 1.301685733442289,
+    "H_bits": 43.27661533286705,
+    "mutation_per_orbit": 487070.4800449459
+   },
+   {
+    "orbits": 256,
+    "sigma_resid_m_per_s": 1.647470848956282,
+    "H_bits": 43.93397125714678,
+    "mutation_per_orbit": 508631.32203549176
+   },
+   {
+    "orbits": 512,
+    "sigma_resid_m_per_s": 2.063181799449326,
+    "H_bits": 44.595094090312536,
+    "mutation_per_orbit": 533895.7717312799
+   },
+   {
+    "orbits": 1024,
+    "sigma_resid_m_per_s": 2.587021342464204,
+    "H_bits": 45.26003198811877,
+    "mutation_per_orbit": 567479.7903348196
+   },
+   {
+    "orbits": 2048,
+    "sigma_resid_m_per_s": 3.2637985353442094,
+    "H_bits": 45.93467135744681,
+    "mutation_per_orbit": 608292.7381268495
+   },
+   {
+    "orbits": 4096,
+    "sigma_resid_m_per_s": 4.093914204958909,
+    "H_bits": 46.56496175526556,
+    "mutation_per_orbit": 659529.7575624317
+   },
+   {
+    "orbits": 8192,
+    "sigma_resid_m_per_s": 5.1734998681367195,
+    "H_bits": 47.25616040982774,
+    "mutation_per_orbit": 716978.7898716938
+   },
+   {
+    "orbits": 16384,
+    "sigma_resid_m_per_s": 6.466046849343923,
+    "H_bits": 47.88990456070789,
+    "mutation_per_orbit": 775605.0513612019
+   }
+  ]
+ },
+ "reabsorption": {
+  "creation_bits_per_body_per_orbit": 3367.9256553110927,
+  "live_growth_bits_per_body_per_orbit": 0.0008661406588201376,
+  "reabsorbed_fraction": 0.9999997428266691
+ }
+}

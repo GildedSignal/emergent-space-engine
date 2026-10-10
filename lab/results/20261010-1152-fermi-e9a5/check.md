@@ -1,0 +1,23 @@
+Grade: silver
+
+**Abstract.** Claim: a 10⁹-body belt's live store is log-bounded (~1 bit per time-octave; 20 bits after one orbit, 34 at 16 384), so 8 GB holds with headroom and churn, not memory, binds. Reproduced bit-for-bit from `python3 probe.py` (3.7 s, <100 MB). Kernel verified to ≤0.16 % against direct leapfrog integration at 8 extreme points including t=218 focusing; growth exponents (σ∝t^0.5 belt, t^0.34 cold), Σ-linearity and scene generality (a=0.5 AU, σ0=200) hold; P2/P4/P6 held, P1/P3 honestly failed. Defects: "cold swarm" is undisclosed Σ×2500 — sparse cold stores 40.3 bits (7.6 GB at 3 dof, inside 8 GB); 16 384 orbits is 534 years, not 8.5; absolute H is ~1.4 bits low. First H_live measurement; adoption cost none.
+
+**Reasons.**
+
+*Reproduction.* `python3 probe.py` in a clean tree (empty `work/patch.diff`, no repo edits): controls, λ_+ tables, linearity ratio, full growth MC and reabsorption all byte-identical to `metrics.json`; only `env.loadavg` differs. Timeline honest: `predictions.md` (11:58) precedes the final `probe.py` (12:11) and `metrics.json` (12:12); `run.log` is empty, so mtimes are the only order evidence. P1 failing by 10³ is itself evidence the predictions were not tuned.
+
+*Physics, independently checked.* (i) The flux integral by hand: n·2·σ₀·b_q = 3.455×10⁻⁶/s × P = 356/orbit vs 354.7 stored. (ii) The exact hyperbolic kernel vs the leapfrog at b = BMIN·1.01, 2×10⁴, 3×10⁵, 10⁶, both σ₀ = 20 and 0.01: ≤8×10⁻⁴ everywhere except 1.7 % at the focusing transition (t≈1); the 5.55×10⁻⁴ plateau is the integrator's own error, matching the stored control. (iii) λ_+(q_v=10⁻⁶) = 352.7 at σ₀ = 200 — the dispersion-regime σ₀-independence the code predicts (354.7). (iv) Slopes: hot belt and a=0.5 AU both 1.00 bit/octave; cold-dense 0.68 ≈ 2×(1/3), the self-limiting law predicted. (v) β continuity below the swept range: 9.22 and 6.85 per decade (quadrature crossover physics; no contradiction with the stated clean-range β = −1.02). Churn vs 1/q_v: within ~40 % per decade — "linear" is fair at this stage.
+
+*Novelty.* `docs/HANDOFF.md:70`: H_live "not measured yet"; this run is the queued assignment (HANDOFF:18). Distinct from components-98bc's 0.126 bits/body static program (cited) and r2's carry widths. First measurement.
+
+*Goal fit.* Board focus "fitting 10⁹ in 8 GB … decided by distinctions created per game-second": converts an unmeasured scaling risk into the q_v octave rule and shows the binding constraint is churn (∝1/q_v), not the store. PRINCIPLES 24 ("the memory floor is information-theoretic") and 3 ("compute only surprises") are directly measured: 384 mutations/orbit/body against 10⁹ states; 34 bits/body against the naive 157.
+
+*Why not gold.*
+1. **Undisclosed scene composition.** `coldswarm` in code is Σ×2500 **and** σ₀=0.01; dossier and predictions describe it as "cold" only. At belt density the cold scene stores 40.3 bits after 16 384 orbits (5.0 GB at 2 dof, 7.6 GB at 3) — it does **not** break 8 GB. The quoted 47.9 (6.0/9.0 GB) belongs to a dense-cold swarm the reader cannot reconstruct from the dossier. The main claims (smooth belt fits; *dense* regions are the risk) survive — dense_x2500 is disclosed — but a headline store number depends on an undisclosed parameter.
+2. **Arithmetic slip.** 16 384 orbits = 1.69×10¹⁰ game-s at 100× = 534 years, not "2.7×10⁸ game-s ≈ 8.5 years" (a frames/game-seconds confusion). Conservative direction, but wrong as written.
+3. **Estimator bias.** The shape-entropy estimator under-reports by 1.46 bits on a synthetic Gaussian run through the exact pipeline (nb=10⁴ in 256² bins). Constant in time, so slopes and the octave rule are exact, but every absolute H (20.0, 34.2, 45.5, 47.9) is ~1.4 bits low (~+0.18 GB at 10⁹). Unflagged.
+4. **Digits the shipped commands don't regenerate.** Mutation "384/orbit" vs metrics 375.36; live growth "9.3×10⁻⁴" vs 8.66×10⁻⁴; the floor-invariance triple (0.0050/0.0051/0.0052) regenerates as an effect (0.0051/0.0050/0.0050) but no command in the dossier produces the quoted digits. The main table regenerates bit-for-bit; these secondaries don't.
+
+**The one experiment for gold.** Rerun the cold scene at belt density and disclose the ×2500 (or bracket both: sparse 40.3 bits / dense 47.9), fold the floor-invariance triple and the mutation/live-growth digits into `metrics.json`, and fix the game-second conversion. Everything else already stands.
+
+**What the author missed.** The histogram plug-in bias (item 3) and the cold-swarm disclosure (item 1); the lens self-report flags correlations and dof but not these. Also unexplored: the Lyapunov/resonance channel is argued, not bounded — B18b should pin the resonance fraction, as the dossier itself concedes.
