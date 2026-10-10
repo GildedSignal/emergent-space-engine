@@ -1,0 +1,270 @@
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..5af0811 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -270,6 +270,7 @@ impl OrbitShape {
+         Ok(Integral([excess, t, tau, dt, dtau]))
+     }
+     fn quad(&self, lo: i128, hi: i128) -> Result<Integral> {
++        crate::scaled::budget::bump(crate::scaled::budget::QUAD);
+         let h = hi - lo;
+         if h == 0 {
+             return Ok(Integral::default());
+@@ -295,6 +296,7 @@ impl OrbitShape {
+         Ok(sum)
+     }
+     fn weak_quad(&self, lo: i128, hi: i128) -> Result<Integral> {
++        crate::scaled::budget::bump(crate::scaled::budget::WEAK_QUAD);
+         let h = hi - lo;
+         let mid = lo + h / 2;
+         let mut sum = [0i128; 4];
+@@ -326,6 +328,7 @@ impl OrbitShape {
+     // Fixed point inside the normalized panel; the virtual point is moved only at
+     // its boundary. Ratios floor/x <=1 bound every clock product independently of R.
+     fn fast_quad(&self, lo: i128, hi: i128) -> Result<Integral> {
++        crate::scaled::budget::bump(crate::scaled::budget::FAST_QUAD);
+         let h = hi - lo;
+         let mid = lo + h / 2;
+         let mut sum = [0u128; 3];
+@@ -418,6 +421,7 @@ impl OrbitShape {
+         }
+     }
+     fn bound(key: ShapeKey) -> Result<Self> {
++        crate::scaled::budget::bump(crate::scaled::budget::BOUND);
+         if key.k <= HALF {
+             return Err(Error::NotPeriodic);
+         }
+@@ -1036,6 +1040,7 @@ impl Passage {
+                 let quantum = t.scale(-40)?;
+                 let mut answer = None;
+                 for _ in 0..80 {
++                    crate::scaled::budget::bump(crate::scaled::budget::NEWTON);
+                     let x = lo.add(hi)?.scale(-1)?;
+                     let here = sum.add(self.tail_quad(x, base)?)?;
+                     let time = self.orbit.time(here)?;
+diff --git a/crates/space/src/scaled.rs b/crates/space/src/scaled.rs
+index 10cff23..18d648e 100644
+--- a/crates/space/src/scaled.rs
++++ b/crates/space/src/scaled.rs
+@@ -93,6 +93,7 @@ impl Scalar {
+         if gap > 64 {
+             return Ok(hi);
+         }
++        budget::bump(0);
+         Self::raw(((hi.significand as i128) << gap) + lo.significand as i128, lo.exponent as i32 - 62)
+     }
+     pub fn sub(self, rhs: Self) -> Result<Self> {
+@@ -107,6 +108,7 @@ impl Scalar {
+         // binary point moves by exactly zero or one, never a general shift.
+         let carry = i32::from(product.unsigned_abs() >= 1u128 << 125);
+         let magnitude = (product.unsigned_abs() >> (62 + carry)) as i64;
++        budget::bump(1);
+         Ok(Self {
+             significand: if product < 0 { -magnitude } else { magnitude },
+             exponent: i16::try_from(self.exponent as i32 + rhs.exponent as i32 + carry).map_err(|_| Error::Range)?,
+@@ -127,6 +129,7 @@ impl Scalar {
+         );
+         let carry = i32::from(q >= 1u64 << 63);
+         let magnitude = (q >> carry) as i64;
++        budget::bump(2);
+         Ok(Self {
+             significand: if (self.significand < 0) != (rhs.significand < 0) { -magnitude } else { magnitude },
+             exponent: i16::try_from(self.exponent as i32 - rhs.exponent as i32 - 1 + carry).map_err(|_| Error::Range)?,
+@@ -140,6 +143,7 @@ impl Scalar {
+             return Ok(self);
+         }
+         let odd = self.exponent.rem_euclid(2) as u32;
++        budget::bump(3);
+         Self::raw(
+             isqrt((self.significand as u128) << (62 + odd)) as i128,
+             self.exponent.div_euclid(2) as i32 - 62,
+@@ -286,3 +290,56 @@ mod tests {
+         }
+     }
+ }
++
++/// Lab run 20261010-0920-quant-30e1: counters only, never a value. Not part of the law.
++pub mod budget {
++    use std::cell::RefCell;
++    /// Op classes: 0 add, 1 mul, 2 div, 3 sqrt, then extras (below).
++    pub const QUAD: usize = 4;
++    pub const WEAK_QUAD: usize = 5;
++    pub const FAST_QUAD: usize = 6;
++    pub const NEWTON: usize = 7;
++    pub const BOUND: usize = 8;
++    pub const CBRT: usize = 9;
++    pub const KICK: usize = 10;
++    pub const KICK_CLOCK: usize = 11;
++    pub const N: usize = 12;
++    /// Stage labels (set by the universe's kick path): 0 unlabeled, 1..5 the kick's stages.
++    pub const STAGES: usize = 6;
++    thread_local! {
++        static B: RefCell<Counters> = RefCell::new(Counters::default());
++    }
++    #[derive(Default)]
++    struct Counters {
++        stage: usize,
++        ops: [u64; N],
++        by_stage: [[u64; N]; STAGES],
++        ns: [u128; STAGES],
++    }
++    #[inline]
++    pub fn bump(class: usize) {
++        B.with(|b| {
++            let mut b = b.borrow_mut();
++            let s = b.stage;
++            b.ops[class] += 1;
++            b.by_stage[s][class] += 1;
++        });
++    }
++    pub fn set_stage(s: usize) {
++        B.with(|b| b.borrow_mut().stage = s);
++    }
++    pub fn stage_ns(s: usize, ns: u128) {
++        B.with(|b| b.borrow_mut().ns[s] += ns);
++    }
++    /// Read and reset everything on this thread.
++    pub fn take() -> ([u64; N], [[u64; N]; STAGES], [u128; STAGES]) {
++        B.with(|b| {
++            let mut b = b.borrow_mut();
++            (
++                std::mem::take(&mut b.ops),
++                std::mem::take(&mut b.by_stage),
++                std::mem::take(&mut b.ns),
++            )
++        })
++    }
++}
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index 63b54c1..9349ca5 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -118,6 +118,7 @@ pub fn cbrt(x: Scalar) -> Res<Scalar> {
+     let mut y = Scalar::power_of_two(i16::try_from((x.exponent() as i32).div_euclid(3)).map_err(|_| Error::Refused("range"))?);
+     let three = Scalar::integer(3);
+     for _ in 0..24 {
++        emergent_space::scaled::budget::bump(emergent_space::scaled::budget::CBRT);
+         y = y.scale(1)?.add(x.div(y.mul(y)?)?)?.div(three)?;
+     }
+     Ok(y)
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..21fac06 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -352,6 +352,8 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        emergent_space::scaled::budget::bump(emergent_space::scaled::budget::KICK);
++        emergent_space::scaled::budget::set_stage(0);
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+@@ -581,9 +583,15 @@ impl Work<'_, '_> {
+     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
++        emergent_space::scaled::budget::bump(emergent_space::scaled::budget::KICK_CLOCK);
++        let ts = std::time::Instant::now();
++        emergent_space::scaled::budget::set_stage(1);
+         let d = self.rec.b.doll;
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
++        emergent_space::scaled::budget::stage_ns(1, ts.elapsed().as_nanos());
++        let ts = std::time::Instant::now();
++        emergent_space::scaled::budget::set_stage(2);
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+@@ -601,6 +609,9 @@ impl Work<'_, '_> {
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let f = force::field(&secs, x)?;
++        emergent_space::scaled::budget::stage_ns(2, ts.elapsed().as_nanos());
++        let ts = std::time::Instant::now();
++        emergent_space::scaled::budget::set_stage(3);
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+@@ -613,6 +624,9 @@ impl Work<'_, '_> {
+             ext.add_pt(w.mul(f.rate)?)?;
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
++        emergent_space::scaled::budget::stage_ns(3, ts.elapsed().as_nanos());
++        let ts = std::time::Instant::now();
++        emergent_space::scaled::budget::set_stage(4);
+         let fired = next.velocity != st.velocity;
+         if fired {
+             self.rebind(next, t, d)?;
+@@ -622,6 +636,9 @@ impl Work<'_, '_> {
+         if thrusting {
+             self.project(t)?;
+         }
++        emergent_space::scaled::budget::stage_ns(4, ts.elapsed().as_nanos());
++        let ts = std::time::Instant::now();
++        emergent_space::scaled::budget::set_stage(5);
+         // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
+         // kick share it), and its boundary in the middle.
+         let (x, v) = scalars(&next)?;
+@@ -651,6 +668,8 @@ impl Work<'_, '_> {
+                 }
+             }
+         }
++        emergent_space::scaled::budget::stage_ns(5, ts.elapsed().as_nanos());
++        emergent_space::scaled::budget::set_stage(0);
+         Ok(Resolved::Kick)
+     }
+ 
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..e114e1d 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -55,6 +55,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
++    let mut tot_ops = [[0u64; emergent_space::scaled::budget::N]; 2];
++    let mut tot_ns = [[0u128; emergent_space::scaled::budget::STAGES]; 2];
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
+@@ -81,9 +83,18 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
++            let _ = emergent_space::scaled::budget::take();
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
++            let (ops, _by_stage, st_ns) = emergent_space::scaled::budget::take();
++            let pop = usize::from(i >= made_n);
++            for k in 0..emergent_space::scaled::budget::N {
++                tot_ops[pop][k] += ops[k];
++            }
++            for g in 0..emergent_space::scaled::budget::STAGES {
++                tot_ns[pop][g] += st_ns[g];
++            }
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+@@ -96,12 +107,20 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         frames = n;
+     }
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
++    let n_f = all.len().max(1) as f64;
++    let made_f = made.len().max(1) as f64;
++    let leavers_f = leavers.len().max(1) as f64;
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+         "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
++        "budget": {
++            "note": "per sampled kick by population: made = star-system bodies via kick_clock; leavers = fleet members via fn kick; stages: 0 fn-kick, 1 readout, 2 forces, 3 sigma, 4 fit, 5 plan",
++            "made": {"ns_per_kick_by_stage": {"unlabeled(kick)": tot_ns[0][0] as f64 / made_f, "readout": tot_ns[0][1] as f64 / made_f, "forces": tot_ns[0][2] as f64 / made_f, "sigma": tot_ns[0][3] as f64 / made_f, "fit": tot_ns[0][4] as f64 / made_f, "plan": tot_ns[0][5] as f64 / made_f}, "ops_per_kick": {"add": tot_ops[0][0] as f64 / made_f, "mul": tot_ops[0][1] as f64 / made_f, "div": tot_ops[0][2] as f64 / made_f, "sqrt": tot_ops[0][3] as f64 / made_f, "quad": tot_ops[0][4] as f64 / made_f, "weak_quad": tot_ops[0][5] as f64 / made_f, "fast_quad": tot_ops[0][6] as f64 / made_f, "newton": tot_ops[0][7] as f64 / made_f, "bound": tot_ops[0][8] as f64 / made_f, "cbrt": tot_ops[0][9] as f64 / made_f, "kick": tot_ops[0][10] as f64 / made_f, "kick_clock": tot_ops[0][11] as f64 / made_f}},
++            "leavers": {"ns_per_kick_by_stage": {"unlabeled(kick)": tot_ns[1][0] as f64 / leavers_f, "readout": tot_ns[1][1] as f64 / leavers_f, "forces": tot_ns[1][2] as f64 / leavers_f, "sigma": tot_ns[1][3] as f64 / leavers_f, "fit": tot_ns[1][4] as f64 / leavers_f, "plan": tot_ns[1][5] as f64 / leavers_f}, "ops_per_kick": {"add": tot_ops[1][0] as f64 / leavers_f, "mul": tot_ops[1][1] as f64 / leavers_f, "div": tot_ops[1][2] as f64 / leavers_f, "sqrt": tot_ops[1][3] as f64 / leavers_f, "quad": tot_ops[1][4] as f64 / leavers_f, "weak_quad": tot_ops[1][5] as f64 / leavers_f, "fast_quad": tot_ops[1][6] as f64 / leavers_f, "newton": tot_ops[1][7] as f64 / leavers_f, "bound": tot_ops[1][8] as f64 / leavers_f, "cbrt": tot_ops[1][9] as f64 / leavers_f, "kick": tot_ops[1][10] as f64 / leavers_f, "kick_clock": tot_ops[1][11] as f64 / leavers_f}},
++        },
+         "memo": shapes.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,

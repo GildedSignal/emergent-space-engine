@@ -1,0 +1,108 @@
+{
+  "budget": {
+    "leavers": {
+      "ns_per_kick_by_stage": {
+        "fit": 0.0,
+        "forces": 0.0,
+        "plan": 0.0,
+        "readout": 0.0,
+        "sigma": 0.0,
+        "unlabeled(kick)": 0.0
+      },
+      "ops_per_kick": {
+        "add": 992.0418655894234,
+        "bound": 0.9733749540947484,
+        "cbrt": 0.0,
+        "div": 254.10337862651488,
+        "fast_quad": 2.825927286081528,
+        "kick": 1.0,
+        "kick_clock": 0.0,
+        "mul": 1010.9528094013955,
+        "newton": 0.0,
+        "quad": 93.03470437017995,
+        "sqrt": 45.625780389276535,
+        "weak_quad": 85.93334557473375
+      }
+    },
+    "made": {
+      "ns_per_kick_by_stage": {
+        "fit": 3722.3868613138684,
+        "forces": 1880.3576642335765,
+        "plan": 87.35036496350365,
+        "readout": 512.5474452554745,
+        "sigma": 43.43065693430657,
+        "unlabeled(kick)": 0.0
+      },
+      "ops_per_kick": {
+        "add": 551.4671532846716,
+        "bound": 1.0,
+        "cbrt": 0.0,
+        "div": 166.4890510948905,
+        "fast_quad": 0.0,
+        "kick": 0.9124087591240876,
+        "kick_clock": 0.08759124087591241,
+        "mul": 602.5109489051094,
+        "newton": 0.0,
+        "quad": 26.94160583941606,
+        "sqrt": 28.065693430656935,
+        "weak_quad": 26.94160583941606
+      }
+    },
+    "note": "per sampled kick by population: made = star-system bodies via kick_clock; leavers = fleet members via fn kick; stages: 0 fn-kick, 1 readout, 2 forces, 3 sigma, 4 fit, 5 plan"
+  },
+  "digest": "7162d382e7333ee88447d111c8dfcdc0a18075154f41febe766d33068650418f",
+  "frames": 600,
+  "kick_us": {
+    "median": 39.845,
+    "p99": 77.476,
+    "samples": 137
+  },
+  "kick_us_all": {
+    "median": 86.479,
+    "p99": 420.84000000000003,
+    "samples": 5583
+  },
+  "kick_us_leavers": {
+    "median": 87.84100000000001,
+    "p99": 421.048,
+    "samples": 5446
+  },
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-10T09:35:53Z",
+    "unix": 1791624953,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-10T09:35:51Z",
+    "unix": 1791624951,
+    "when": "before"
+  },
+  "memo": {
+    "cycle_rebinds": 5438,
+    "exact_hit_rate": 0.0,
+    "exact_shapes": 5438,
+    "quantized_hit_rate": 0.9547627804339831,
+    "quantized_shapes": 246
+  },
+  "refused": 0,
+  "replay_digest": "103336b5631e0f802a21b3561f3bb86db1de8fb721bd2ee322c8c18865a662d4",
+  "rtf_target": 100.0,
+  "samples": 5583,
+  "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+  "seed": 1,
+  "wall_seconds": 2.14078102
+}

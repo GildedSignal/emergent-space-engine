@@ -1,0 +1,4 @@
+Working...
+Dossier complete. Verification summary: digests bit-identical between unmodified and instrumented builds on seeds 1/2/7 (counters watched identical work), five seeds reproduce the budget, pre-registered predictions adjudicated (two held, one missed by a hair, one mechanism corrected), controls ran on both sides (near-idle negative control; frame-bench cross-check), all artifacts in `lab/results/20261010-0920-quant-30e1/` (`kb*.json`, `repro.sh`, `predictions.md`, `dossier.md`).
+
+**Claim:** on the shipped plane every kick pays one full orbit compile (`bound` = 1.00/kick, 0 of 5,438 exact reuses, 22:1 quantized reuse door that is a law change), and the compile's uncounted memory churn — not its ~2,300 counted `Scalar` ops (≈ 3–5 µs of an ~86 µs event) — holds ~80% of the event, so the per-kick 10× is the re-anchored jet (fewer compiles per kick) multiplying with cadence and the slack skin, not any layout or arithmetic fix.
