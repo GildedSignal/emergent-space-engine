@@ -1,0 +1,17 @@
+Family A: tight fleet (spreads 1e-6), R_enc=3e-3 AU, T=2P, 3 seeds; medians [range]
+pred enc/body = 2.87*sqrt((1+e)/(1-e));  pred factor = sqrt((1+e)/(1-e))
+    e         enc/body    pred   max_rank   p999
+  0.0       2.87[2.82-2.93]    2.87    7[7-7]    6.0
+  0.3       3.92[3.84-3.97]    3.91    8[7-9]    7.0
+  0.6       5.73[5.64-5.86]    5.74    9[9-11]    8.0
+ 0.77       7.90[7.87-8.10]    7.96   12[11-13]   10.0
+  0.9      12.48[12.47-12.57]   12.51   15[15-16]   13.0
+
+Held-out and controls (medians):
+    B drift regime e=0.0  enc/body=  2.406  max_rank= 13[12-15]
+    B drift regime e=0.6  enc/body=  2.202  max_rank= 13[12-15]
+    B drift regime e=0.9  enc/body=  3.128  max_rank= 15[15-17]
+    H1 e=0.9, R x2 e=0.9  enc/body= 24.947  max_rank= 25[23-26]
+      H2 e=0, n x2 e=0.0  enc/body=  5.717  max_rank= 10[10-11]
+         H3 e=0.95 e=0.95 enc/body= 17.905  max_rank= 20[19-21]
+ NEG e=0.9, R=0.02 e=0.9  enc/body= 83.546  max_rank= 60[59-63]
