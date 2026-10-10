@@ -1,0 +1,34 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-encounters v0.1.0 (/private/tmp/emergent-wt-cx-b-encounter-skin/crates/encounters)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.77s
+     Running unittests src/lib.rs (target/debug/deps/emergent_encounters-50c8abfd9327a8d7)
+
+running 3 tests
+test kepler::tests::closed_forms_match_kepler ... ok
+test dioph::tests::large_moduli_are_exact ... ok
+test dioph::tests::matches_brute_force ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running unittests src/main.rs (target/debug/deps/encounters-4dabdabedce1f39b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests emergent_encounters
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+        1.88 real         1.25 user         0.51 sys
+time: sysctl kern.clockrate: Operation not permitted

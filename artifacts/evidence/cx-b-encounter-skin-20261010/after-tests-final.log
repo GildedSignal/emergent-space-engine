@@ -1,0 +1,134 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-encounters v0.1.0 (/private/tmp/emergent-wt-cx-b-encounter-skin/crates/encounters)
+    Finished `release` profile [optimized + debuginfo] target(s) in 3.90s
+     Running unittests src/lib.rs (target/release/deps/emergent_encounters-830017f0f7025724)
+
+running 3 tests
+test dioph::tests::large_moduli_are_exact ... ok
+test dioph::tests::matches_brute_force ... ok
+test kepler::tests::closed_forms_match_kepler ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running unittests src/main.rs (target/release/deps/encounters-8b53d3531e85c5f5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/r8_truth.rs (target/release/deps/r8_truth-4e4b3c22a069bc16)
+
+running 5 tests
+test belt ... r8-truth scene=belt eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-4 truth=0 missed=0 false=0
+ok
+test equal_period ... r8-truth scene=equal eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-4 truth=0 missed=0 false=0
+ok
+test fleet ... r8-truth scene=fleet eps=1e-8 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-7 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-6 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-5 truth=147 missed=0 false=0
+r8-truth scene=fleet eps=1e-4 truth=143 missed=0 false=0
+ok
+test hot ... r8-truth scene=hot eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-4 truth=0 missed=0 false=0
+ok
+test ring ... r8-truth scene=ring eps=1e-8 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-7 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-6 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-5 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-4 truth=1 missed=0 false=0
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.32s
+
+     Running tests/slack_skin.rs (target/release/deps/slack_skin-cf1cede858ae0129)
+
+running 20 tests
+test belt ... slack-truth scene=belt eps=1e-8 truth=0 missed=0 false=0 setups=120 reused=360 evals=9110
+slack-truth scene=belt eps=1e-7 truth=0 missed=0 false=0 setups=120 reused=360 evals=9132
+slack-truth scene=belt eps=1e-6 truth=0 missed=0 false=0 setups=120 reused=360 evals=9116
+slack-truth scene=belt eps=1e-5 truth=0 missed=0 false=0 setups=120 reused=360 evals=9103
+slack-truth scene=belt eps=1e-4 truth=0 missed=0 false=0 setups=123 reused=357 evals=9493
+ok
+test dense_belt_e4 ... dense-kicked scene=belt eps=1e-4 truth=6 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_belt_e5 ... dense-kicked scene=belt eps=1e-5 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_belt_e6 ... dense-kicked scene=belt eps=1e-6 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_belt_e7 ... dense-kicked scene=belt eps=1e-7 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_belt_e8 ... dense-kicked scene=belt eps=1e-8 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e4 ... dense-kicked scene=ring eps=1e-4 truth=8 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e5 ... dense-kicked scene=ring eps=1e-5 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e6 ... dense-kicked scene=ring eps=1e-6 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e7 ... dense-kicked scene=ring eps=1e-7 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e8 ... dense-kicked scene=ring eps=1e-8 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test displacement_bound_covers_correlated_and_reversing_kicks ... ok
+test empty_certificate_revalidates_before_new_contact ... ok
+test equal_period ... slack-truth scene=equal eps=1e-8 truth=0 missed=0 false=0 setups=120 reused=360 evals=66578
+slack-truth scene=equal eps=1e-7 truth=0 missed=0 false=0 setups=120 reused=360 evals=66534
+slack-truth scene=equal eps=1e-6 truth=0 missed=0 false=0 setups=120 reused=360 evals=66556
+slack-truth scene=equal eps=1e-5 truth=0 missed=0 false=0 setups=120 reused=360 evals=66650
+slack-truth scene=equal eps=1e-4 truth=0 missed=0 false=0 setups=123 reused=357 evals=68329
+ok
+test fleet ... slack-truth scene=fleet eps=1e-8 truth=146 missed=0 false=0 setups=120 reused=360 evals=379747
+slack-truth scene=fleet eps=1e-7 truth=146 missed=0 false=0 setups=120 reused=360 evals=379623
+slack-truth scene=fleet eps=1e-6 truth=146 missed=0 false=0 setups=120 reused=360 evals=379954
+slack-truth scene=fleet eps=1e-5 truth=147 missed=0 false=0 setups=120 reused=360 evals=380382
+slack-truth scene=fleet eps=1e-4 truth=143 missed=0 false=0 setups=123 reused=357 evals=380791
+ok
+test hot ... slack-truth scene=hot eps=1e-8 truth=0 missed=0 false=0 setups=120 reused=360 evals=12259
+slack-truth scene=hot eps=1e-7 truth=0 missed=0 false=0 setups=120 reused=360 evals=12259
+slack-truth scene=hot eps=1e-6 truth=0 missed=0 false=0 setups=120 reused=360 evals=12254
+slack-truth scene=hot eps=1e-5 truth=0 missed=0 false=0 setups=120 reused=360 evals=12250
+slack-truth scene=hot eps=1e-4 truth=0 missed=0 false=0 setups=123 reused=357 evals=12475
+ok
+test literal_skin_negative_control_misses_a_phase_kick ... ok
+test phase_only_and_long_horizon_exhaust_slack ... ok
+test ring ... slack-truth scene=ring eps=1e-8 truth=1 missed=0 false=0 setups=120 reused=360 evals=42107
+slack-truth scene=ring eps=1e-7 truth=1 missed=0 false=0 setups=120 reused=360 evals=42163
+slack-truth scene=ring eps=1e-6 truth=1 missed=0 false=0 setups=120 reused=360 evals=42092
+slack-truth scene=ring eps=1e-5 truth=1 missed=0 false=0 setups=120 reused=360 evals=42101
+slack-truth scene=ring eps=1e-4 truth=1 missed=0 false=0 setups=123 reused=357 evals=43999
+ok
+test setup_cost_is_measured_on_the_crates_kick_workload ... skin-cost eps=1e-8 kicks=256 always_setups=21648 skin_setups=0 setups_per_kick=84.5625->0.0000 reduction=inf always_evals=519374 skin_evals=145 cold_setups=1353 cold_base_evals=32481 cold_skin_evals=26654 checks=6 events=(1, 1)
+skin-cost eps=1e-7 kicks=256 always_setups=21654 skin_setups=1354 setups_per_kick=84.5859->5.2891 reduction=15.993 always_evals=518316 skin_evals=26757 cold_setups=1353 cold_base_evals=32481 cold_skin_evals=26654 checks=7 events=(0, 0)
+skin-cost eps=1e-6 kicks=256 always_setups=21675 skin_setups=4065 setups_per_kick=84.6680->15.8789 reduction=5.332 always_evals=530279 skin_evals=85293 cold_setups=1353 cold_base_evals=32481 cold_skin_evals=26654 checks=5 events=(0, 0)
+skin-cost eps=1e-5 kicks=256 always_setups=21661 skin_setups=15552 setups_per_kick=84.6133->60.7500 reduction=1.393 always_evals=463394 skin_evals=347677 cold_setups=1353 cold_base_evals=32481 cold_skin_evals=26654 checks=2 events=(0, 0)
+skin-cost eps=1e-4 kicks=256 always_setups=21703 skin_setups=21703 setups_per_kick=84.7773->84.7773 reduction=1.000 always_evals=435222 skin_evals=385714 cold_setups=1353 cold_base_evals=32481 cold_skin_evals=26654 checks=6 events=(1, 1)
+ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 41.99s
+
+   Doc-tests emergent_encounters
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

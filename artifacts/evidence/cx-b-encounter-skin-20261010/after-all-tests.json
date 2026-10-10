@@ -1,0 +1,31 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--release",
+    "-p",
+    "emergent-encounters",
+    "--",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "rc": -9,
+  "reason": "timeout",
+  "wall_s": 60.0187827500049,
+  "child_max_rss": 315801600,
+  "before": {
+    "load": [
+      3.6591796875,
+      4.14453125,
+      5.60400390625
+    ],
+    "swap": "sysctl: sysctl fmt -1 1024 1: Operation not permitted",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t26%; discharging; 0:55 remaining present: true",
+    "thermal": "Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc"
+  },
+  "after_load": [
+    3.3828125,
+    3.990234375,
+    5.4462890625
+  ]
+}

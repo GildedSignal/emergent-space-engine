@@ -1,0 +1,47 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-encounters v0.1.0 (/private/tmp/emergent-wt-cx-b-encounter-skin/crates/encounters)
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.87s
+     Running tests/r8_truth.rs (target/release/deps/r8_truth-4e4b3c22a069bc16)
+
+running 5 tests
+test belt ... r8-truth scene=belt eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-4 truth=0 missed=0 false=0
+ok
+test equal_period ... r8-truth scene=equal eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-4 truth=0 missed=0 false=0
+ok
+test fleet ... r8-truth scene=fleet eps=1e-8 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-7 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-6 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-5 truth=147 missed=0 false=0
+r8-truth scene=fleet eps=1e-4 truth=143 missed=0 false=0
+ok
+test hot ... r8-truth scene=hot eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-4 truth=0 missed=0 false=0
+ok
+test ring ... r8-truth scene=ring eps=1e-8 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-7 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-6 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-5 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-4 truth=1 missed=0 false=0
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.55s
+

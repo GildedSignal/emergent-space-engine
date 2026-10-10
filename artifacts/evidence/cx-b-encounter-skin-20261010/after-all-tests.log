@@ -1,0 +1,90 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-encounters v0.1.0 (/private/tmp/emergent-wt-cx-b-encounter-skin/crates/encounters)
+    Finished `release` profile [optimized + debuginfo] target(s) in 17.39s
+     Running unittests src/lib.rs (target/release/deps/emergent_encounters-830017f0f7025724)
+
+running 3 tests
+test dioph::tests::large_moduli_are_exact ... ok
+test dioph::tests::matches_brute_force ... ok
+test kepler::tests::closed_forms_match_kepler ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+     Running unittests src/main.rs (target/release/deps/encounters-8b53d3531e85c5f5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/r8_truth.rs (target/release/deps/r8_truth-4e4b3c22a069bc16)
+
+running 5 tests
+test belt ... r8-truth scene=belt eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=belt eps=1e-4 truth=0 missed=0 false=0
+ok
+test equal_period ... r8-truth scene=equal eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=equal eps=1e-4 truth=0 missed=0 false=0
+ok
+test fleet ... r8-truth scene=fleet eps=1e-8 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-7 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-6 truth=146 missed=0 false=0
+r8-truth scene=fleet eps=1e-5 truth=147 missed=0 false=0
+r8-truth scene=fleet eps=1e-4 truth=143 missed=0 false=0
+ok
+test hot ... r8-truth scene=hot eps=1e-8 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-7 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-6 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-5 truth=0 missed=0 false=0
+r8-truth scene=hot eps=1e-4 truth=0 missed=0 false=0
+ok
+test ring ... r8-truth scene=ring eps=1e-8 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-7 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-6 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-5 truth=1 missed=0 false=0
+r8-truth scene=ring eps=1e-4 truth=1 missed=0 false=0
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.54s
+
+     Running tests/slack_skin.rs (target/release/deps/slack_skin-cf1cede858ae0129)
+
+running 20 tests
+test belt ... slack-truth scene=belt eps=1e-8 truth=0 missed=0 false=0 setups=120 reused=360 evals=9110
+slack-truth scene=belt eps=1e-7 truth=0 missed=0 false=0 setups=120 reused=360 evals=9132
+slack-truth scene=belt eps=1e-6 truth=0 missed=0 false=0 setups=120 reused=360 evals=9116
+slack-truth scene=belt eps=1e-5 truth=0 missed=0 false=0 setups=120 reused=360 evals=9103
+slack-truth scene=belt eps=1e-4 truth=0 missed=0 false=0 setups=123 reused=357 evals=9493
+ok
+test dense_belt_e4 ... dense-kicked scene=belt eps=1e-4 truth=6 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_belt_e5 ... dense-kicked scene=belt eps=1e-5 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_belt_e6 ... dense-kicked scene=belt eps=1e-6 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_belt_e7 ... dense-kicked scene=belt eps=1e-7 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_belt_e8 ... dense-kicked scene=belt eps=1e-8 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e4 ... dense-kicked scene=ring eps=1e-4 truth=8 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e5 ... dense-kicked scene=ring eps=1e-5 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e6 ... dense-kicked scene=ring eps=1e-6 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e7 ... dense-kicked scene=ring eps=1e-7 truth=5 baseline_missed=0 skin_missed=0 extras_vs_baseline=0
+ok
+test dense_ring_e8 ... 

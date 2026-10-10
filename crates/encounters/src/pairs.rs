@@ -377,6 +377,13 @@ fn full_section(bi: &Body, bj: &Body, rho: f64) -> Section {
 /// The exact per-pair check of one proposed passage: every local minimum of the pair's distance below
 /// ρ while both bodies are in the arc (or over j's whole return, for a Full section).
 pub fn check(bi: &Body, bj: &Body, sec: &Section, tjc: f64, s: f64, rho: f64, out: &mut Vec<(f64, f64)>, evals: &mut u64) {
+    check_on(bi, bj, bj, sec, tjc, s, rho, out, evals);
+}
+
+/// Check current trajectories inside the scheduled anchor's interval. The Full interval belongs
+/// to the anchor's period, even when the checked body's period has changed.
+#[allow(clippy::too_many_arguments)]
+pub fn check_on(bi: &Body, bj: &Body, anchor_j: &Body, sec: &Section, tjc: f64, s: f64, rho: f64, out: &mut Vec<(f64, f64)>, evals: &mut u64) {
     let (lo, hi, k) = match sec.kind {
         Kind::Cross | Kind::Wide => {
             let lo = tjc + (-sec.dj.0).max(s - sec.di.0);
@@ -386,7 +393,7 @@ pub fn check(bi: &Body, bj: &Body, sec: &Section, tjc: f64, s: f64, rho: f64, ou
             }
             (lo, hi, if sec.kind == Kind::Cross { 24 } else { 64 })
         }
-        Kind::Full => (tjc - 0.02, tjc + bj.period as f64 / TICKS + 0.02, 256),
+        Kind::Full => (tjc - 0.02, tjc + anchor_j.period as f64 / TICKS + 0.02, 256),
     };
     scan_minima(bi, bj, lo, hi, k, rho, false, out, evals);
 }

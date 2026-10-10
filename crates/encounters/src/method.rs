@@ -4,7 +4,7 @@
 
 use crate::dioph::first_hit;
 use crate::kepler::{Body, TICKS};
-use crate::pairs::{check, sections, Kind, Section};
+use crate::pairs::{check_on, sections, Kind, Section};
 
 #[derive(Default, Clone, Copy, Debug)]
 pub struct Stats {
@@ -65,6 +65,13 @@ pub fn pair_events(bi: &Body, bj: &Body, rho: f64, safety: f64, t0: f64, t1: f64
 
 #[allow(clippy::too_many_arguments)]
 pub fn run_section(bi: &Body, bj: &Body, sec: &Section, rho: f64, t0: f64, t1: f64, st: &mut Stats, out: &mut Vec<(f64, f64)>) {
+    run_section_on(bi, bj, bi, bj, sec, rho, t0, t1, st, out);
+}
+
+/// The integer rotation follows the certificate's anchors; only the final distance check uses
+/// the current trajectories. A slack certificate must prove its anchor interval covers them.
+#[allow(clippy::too_many_arguments)]
+pub fn run_section_on(bi: &Body, bj: &Body, current_i: &Body, current_j: &Body, sec: &Section, rho: f64, t0: f64, t1: f64, st: &mut Stats, out: &mut Vec<(f64, f64)>) {
     let ti = sec.ti as i128;
     let tj = sec.tj as i128;
     let pi = bi.period as i128;
@@ -96,7 +103,7 @@ pub fn run_section(bi: &Body, bj: &Body, sec: &Section, rho: f64, t0: f64, t1: f
         let tjc = (base + l * pj) as f64 / TICKS;
         st.checks[kind] += 1;
         found.clear();
-        check(bi, bj, sec, tjc, s, rho, &mut found, &mut st.evals);
+        check_on(current_i, current_j, bj, sec, tjc, s, rho, &mut found, &mut st.evals);
         for &(t, dm) in &found {
             if t >= t0 && t <= t1 {
                 out.push((t, dm));
