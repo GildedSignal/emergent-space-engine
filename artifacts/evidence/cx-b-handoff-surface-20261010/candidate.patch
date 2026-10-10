@@ -1,0 +1,433 @@
+diff --git a/crates/universe/src/lorentz.rs b/crates/universe/src/lorentz.rs
+index e234266..8ef32fc 100644
+--- a/crates/universe/src/lorentz.rs
++++ b/crates/universe/src/lorentz.rs
+@@ -169,14 +169,14 @@ impl Rotation {
+     }
+ 
+     pub fn apply(&self, v: [i128; 2]) -> Res<[i128; 2]> {
+-        let v = if self.flip { [-v[0], -v[1]] } else { v };
++        let v = if self.flip { [v[0].checked_neg().ok_or_else(overflow)?, v[1].checked_neg().ok_or_else(overflow)?] } else { v };
+         rotate(v, self.a, self.b, N)
+     }
+ 
+     /// The exact inverse of [`Rotation::apply`].
+     pub fn undo(&self, v: [i128; 2]) -> Res<[i128; 2]> {
+         let v = unrotate(v, self.a, self.b, N)?;
+-        Ok(if self.flip { [-v[0], -v[1]] } else { v })
++        Ok(if self.flip { [v[0].checked_neg().ok_or_else(overflow)?, v[1].checked_neg().ok_or_else(overflow)?] } else { v })
+     }
+ }
+ 
+@@ -230,6 +230,55 @@ impl Frame {
+     }
+ }
+ 
++/// Extended coordinates at a handoff. The event is `(t, x, y)` at `event_exp`; the momentum is
++/// `(-p_t, p_x, p_y)` at `momentum_exp`. Neither vector is lowered to velocity words or ticks:
++/// doing so discards exactly the bits an inverse handoff needs. Units have c = 1.
++/// This is scratch for a chart change, not an additional record per body. The energy component
++/// must include rest energy: the current Kepler register in `Ext` is not a four-momentum.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct PhasePoint {
++    pub event: [i128; 3],
++    pub momentum: [i128; 3],
++    pub event_exp: i16,
++    pub momentum_exp: i16,
++}
++
++/// A local chart change at one surface event. `origin` uses the event vector's quantum in the
++/// parent; `unit_shift` is child.shift - parent.shift. Length and time units change together,
++/// by relabelling the exponent, never by discarding bits. Specific momentum is dimensionless.
++/// The same chart, including the same origin and coefficients, must be used in reverse.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct Handoff {
++    pub frame: Option<Frame>,
++    pub origin: [i128; 3],
++    pub unit_shift: i16,
++}
++
++impl Handoff {
++    pub fn capture(&self, point: PhasePoint) -> Res<PhasePoint> {
++        let mut event = [0; 3];
++        for c in 0..3 {
++            event[c] = point.event[c].checked_sub(self.origin[c]).ok_or_else(overflow)?;
++        }
++        let (event, momentum) = match self.frame {
++            Some(frame) => (frame.forward(event)?, frame.forward(point.momentum)?),
++            None => (event, point.momentum),
++        };
++        Ok(PhasePoint { event, momentum, event_exp: point.event_exp.checked_add(self.unit_shift).ok_or_else(overflow)?, ..point })
++    }
++
++    pub fn release(&self, point: PhasePoint) -> Res<PhasePoint> {
++        let (mut event, momentum) = match self.frame {
++            Some(frame) => (frame.inverse(point.event)?, frame.inverse(point.momentum)?),
++            None => (point.event, point.momentum),
++        };
++        for c in 0..3 {
++            event[c] = event[c].checked_add(self.origin[c]).ok_or_else(overflow)?;
++        }
++        Ok(PhasePoint { event, momentum, event_exp: point.event_exp.checked_sub(self.unit_shift).ok_or_else(overflow)?, ..point })
++    }
++}
++
+ /// `round(num·2^shift / den)` (half away from zero) for `den > 0` and `shift ≥ 0`, by a 256-bit long division: the
+ /// velocity a four-velocity makes, to the last bit of a word (a scalar's 62 bits would leave none to round with).
+ fn div_shift_round(num: i128, den: i128, shift: u32) -> Res<i128> {
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..1a8a0f5 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -189,6 +189,24 @@ fn absolute(rel: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Re
+     Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: i16::try_from(ve).map_err(|_| Error::Refused("exponent"))? })
+ }
+ 
++/// The one handoff predicate, in the child's units. The Hill surface is independent of the
++/// Laplace sphere stored as `DollRec::edge`: `r_c = a (m / 3M)^(1/3) / 2`.
++pub fn retained_by_child(x: V2, v: V2, mu: Scalar, radius: Scalar) -> Res<bool> {
++    Ok(norm2(x)? < radius && force::kepler(x, v, mu)? < Scalar::ZERO)
++}
++
++fn capture_radius(ctx: &Ctx, child: u16, t: Tick) -> Res<Scalar> {
++    let doll = &ctx.dolls[child as usize];
++    let parent = doll.parent.ok_or(Error::Refused("the root has no capture surface"))?;
++    let centre = doll.centre.ok_or(Error::Refused("a child without a centre"))?;
++    let b = ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?;
++    let key = b.entry.trajectory.key();
++    let k = Scalar::raw(key.k as i128, -48)?;
++    let axis = b.to_doll(key.periapsis.mul(k)?.div(k.scale(1)?.sub(Scalar::ONE)?)?)?;
++    let ratio = ctx.info[centre].gm.div(ctx.dolls[parent as usize].unit.mu.mul(Scalar::integer(3))?)?;
++    Ok(axis.mul(crate::ext::cbrt(ratio)?)?.scale(doll.shift as i32 - ctx.dolls[parent as usize].shift as i32 - 1)?)
++}
++
+ /// The first tick at or after `after` where the tube is at or beyond `edge` (outward), if any.
+ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
+     next_exit_with(b, after, edge, true)
+@@ -392,11 +410,11 @@ impl Work<'_, '_> {
+ 
+     /// Deep inside a planet's shell the planet is the dominant body: the child doll of `centre`
+     /// takes the ship. Returns whether it did.
+-    fn maybe_capture(&mut self, t: Tick, st: &IntegerState, x: V2) -> Res<bool> {
++    fn maybe_capture(&mut self, t: Tick, st: &IntegerState) -> Res<bool> {
+         let d = self.rec.b.doll;
+         // The motion law v2: every ship of the root doll stays in it (a passage needs no handoff, the time transformation
+         // resolves it); the handoff of a bound body is the single surface of the memo's step 3.
+-        if !matches!(self.rec.kind, Kind::Ship | Kind::Player) || d == 0 {
++        if !matches!(self.rec.kind, Kind::Ship | Kind::Player) {
+             return Ok(false);
+         }
+         for (c, doll) in self.ctx.dolls.iter().enumerate().skip(1) {
+@@ -404,10 +422,12 @@ impl Work<'_, '_> {
+                 continue;
+             }
+             let centre = doll.centre.expect("a child doll has a centre");
+-            let (cx, _) = self.ctx.state_of(centre, t)?;
+-            if norm2(sub2(x, cx)?)? < self.ctx.info[centre].soi.scale(1 - LEVELS as i32)? {
++            let cs = self.ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?.readout(t)?;
++            let rel = relative(st, &cs, self.ctx.dolls[d as usize].shift, doll.shift)?;
++            let (rx, rv) = scalars(&rel)?;
++            if retained_by_child(rx, rv, doll.unit.mu, capture_radius(self.ctx, c as u16, t)?)? {
+                 if let Err(e) = self.capture(t, *st, c as u16) {
+-                    eprintln!("capture refused: {e:?} at t={t} state {st:?} centre {:?}", cx.map(crate::num::to_f64));
++                    eprintln!("capture refused: {e:?} at t={t} state {st:?}");
+                     return Err(e);
+                 }
+                 return Ok(true);
+@@ -425,9 +445,6 @@ impl Work<'_, '_> {
+         }
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+-        if l > 0 && self.maybe_capture(t, &st, x)? {
+-            return Ok(());
+-        }
+         let d = self.rec.b.doll;
+         let h_ticks = h0 >> (2 * l as i64);
+         let h = time_of(h_ticks, self.rec.b.clock_exp)?;
+@@ -481,24 +498,8 @@ impl Work<'_, '_> {
+             self.rec.step = want;
+         }
+         self.rec.anchor = t;
+-        let mut h = aligned(self.rec.step, t);
++        let h = aligned(self.rec.step, t);
+         self.rec.interval = h;
+-        let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+-        if movable && d != 0 {
+-            if let Some(exit) = next_exit(&self.rec.b, t, self.doll().edge)? {
+-                // The interval must end at or before the exit, so the release is checked there.
+-                let room = exit - t;
+-                while h > room && h > MIN_STEP {
+-                    h >>= 1;
+-                }
+-                if h > room {
+-                    insert(&mut self.rec.plan, Item { t: t + room.max(1), what: What::Boundary });
+-                    self.rec.interval = 0;
+-                    return Ok(());
+-                }
+-                self.rec.interval = h;
+-            }
+-        }
+         insert(&mut self.rec.plan, Item { t: t + h / 2, what: What::Kick(0) });
+         insert(&mut self.rec.plan, Item { t: t + h, what: What::Boundary });
+         if self.rec.kind != Kind::Planet {
+@@ -669,6 +670,9 @@ impl Work<'_, '_> {
+             return Ok(Resolved::Lost);
+         }
+         self.rec.anchor = t;
++        if self.maybe_capture(t, &st)? {
++            return Ok(Resolved::Handoff);
++        }
+         Ok(Resolved::Boundary)
+     }
+ 
+@@ -691,7 +695,7 @@ impl Work<'_, '_> {
+         let d = self.rec.b.doll;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         let st = self.rec.b.readout(t)?;
+-        let (x, _) = scalars(&st)?;
++        let (x, v) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
+@@ -703,10 +707,10 @@ impl Work<'_, '_> {
+                     self.rec.alive = false;
+                     return Ok(Resolved::Lost);
+                 }
+-                if self.maybe_capture(t, &st, x)? {
++                if self.maybe_capture(t, &st)? {
+                     return Ok(Resolved::Handoff);
+                 }
+-            } else if r > self.doll().edge {
++            } else if !retained_by_child(x, v, self.doll().unit.mu, capture_radius(self.ctx, d, t)?)? {
+                 self.release(t, st)?;
+                 return Ok(Resolved::Handoff);
+             }
+@@ -720,6 +724,7 @@ impl Work<'_, '_> {
+         self.rec.carry = [0, 0];
+         self.rec.plan.clear();
+         self.rec.step = 0;
++        self.rec.ext = None;
+         self.plan_interval(t)
+     }
+ 
+@@ -850,6 +855,51 @@ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+ mod tests {
+     use super::*;
+ 
++    /// P5 through the runtime's actual rebinding path, with no evolution between the chart
++    /// changes. Unlike a shear-only test, this also detects dropped energy/carry words and an
++    /// unchanged child event time. The three speeds are synthetic local moving dolls, not
++    /// stable circular geodesics about the root (there is no such orbit at 0.9c).
++    #[test]
++    fn p5_runtime_handoff_keeps_the_extended_state() {
++        use crate::{Config, Universe};
++        use crate::num::from_f64 as sc;
++        let mut failures = 0;
++        for beta in [0.01, 0.3, 0.9] {
++            let mut u = Universe::new(Scalar::ZERO, Config::default());
++            let centre = u.add_body_state(Kind::Planet, 0, [sc(1e8), Scalar::ZERO], [Scalar::ZERO, sc(beta)], Scalar::ZERO).unwrap();
++            // add_doll accepts circular source births; this local chart fixture has a
++            // passing centre, so construct its chart without retuning a source orbit.
++            let child = 1;
++            let doll = crate::world::DollRec::child("moving doll", 0, crate::world::Mass::pow2(-10), centre, u.rec(centre).b.tube, Scalar::ZERO, sc(1e10)).unwrap();
++            u.dolls.push(doll);
++            u.sources.push(Vec::new());
++            let cs = u.rec(centre).b.readout(0).unwrap();
++            let local = IntegerState { position: [1_000_000, 1_000_000], velocity: [-1i64 << 39, 1i64 << 39], length_exponent: 10, velocity_exponent: -55 };
++            let host = absolute(&local, &cs, 10, 0).unwrap();
++            let (x, v) = scalars(&host).unwrap();
++            let ship = u.add_body_state(Kind::Ship, 0, x, v, Scalar::ZERO).unwrap();
++            // Isolate the coordinate change: no sources are evolved or kicked in this probe.
++            u.sources[0].clear();
++            let ctx = u.ctx();
++            let original_ext = Ext { pt: -(1i128 << 79) + 37, pt_exp: -80, pt_carry: 17, dt_carry: 29, ds: Scalar::ONE, c: Scalar::ONE, b: Scalar::integer(30) };
++            let mut w = Work { ctx: &ctx, i: ship, rec: u.rec(ship), retired: Vec::new(), new_entry: None };
++            let (mut dropped, mut unchanged_time, mut refused) = (0, 0, 0);
++            for _ in 0..1000 {
++                w.rec.ext = Some(original_ext);
++                let before = w.rec.b.readout(0).unwrap();
++                if w.capture(0, before, child).is_err() { refused += 1; continue; }
++                unchanged_time += (w.rec.b.event_time == 0) as usize;
++                let st = w.rec.b.readout(0).unwrap();
++                if w.release(0, st).is_err() { refused += 1; continue; }
++                dropped += (w.rec.ext != Some(original_ext)) as usize;
++                w.retired.clear();
++            }
++            println!("P5 runtime beta={beta}: dropped_register={dropped}/1000 unchanged_child_time={unchanged_time}/1000 refused={refused}/1000");
++            failures += dropped + unchanged_time + refused;
++        }
++        assert_eq!(failures, 0, "P5 FAIL: runtime handoffs discard the extended state or leave the event time unboosted");
++    }
++
+     /// The passage's analytic guess finds the tick the bisection finds: for every member the plane hands out
+     /// (passages and cycles, from every state the frame hands over), from periapsis and from the binding event.
+     #[test]
+diff --git a/crates/universe/tests/handoff_surface.rs b/crates/universe/tests/handoff_surface.rs
+new file mode 100644
+index 0000000..9089956
+--- /dev/null
++++ b/crates/universe/tests/handoff_surface.rs
+@@ -0,0 +1,163 @@
++//! Motion memo §5 step 3. These probes exercise the shipped universe, not a float replica.
++use emergent_space::orbit::Scalar;
++use emergent_universe::{num::from_f64 as sc, observe, Budget, Config, Kind, OrbitSpec, Universe};
++use std::time::{Duration, Instant};
++
++fn satellite(fraction: f64, retrograde: bool) -> (Universe, usize, usize, f64, f64) {
++    let (sep, mu) = (527_000_000.0f64, 2f64.powi(-10));
++    let hill = sep * (mu / 3.0).cbrt();
++    let omega = (1.0 + mu).sqrt() / sep.powf(1.5);
++    let mut u = Universe::new(sc(471_000.0), Config::default());
++    let planet = u.add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: sc(sep), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
++    let doll = u.add_doll("planet", planet, -10, sc(49_000.0 / mu)).unwrap();
++    let ship = u.add_body(Kind::Ship, OrbitSpec { doll, periapsis: sc(fraction * hill / mu), e_q48: 0, clockwise: retrograde, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
++    u.start().unwrap();
++    (u, planet, ship, omega, sep)
++}
++
++fn jacobi(u: &Universe, planet: usize, ship: usize, t: i64, omega: f64) -> f64 {
++    let ((x, v), (p, _)) = (observe::root_state(&u.ctx(), ship, t).unwrap(), observe::root_state(&u.ctx(), planet, t).unwrap());
++    let mu = 2f64.powi(-10);
++    let r = x[0].hypot(x[1]);
++    let d = (x[0] - p[0]).hypot(x[1] - p[1]);
++    let e = 0.5 * (v[0]*v[0] + v[1]*v[1]) - 1.0/r - mu/d + mu*(x[0]*p[0]+x[1]*p[1])/p[0].hypot(p[1]).powi(3);
++    -2.0 * (e - omega * (x[0]*v[1] - x[1]*v[0]))
++}
++
++fn median(xs: &mut [f64]) -> f64 {
++    xs.sort_by(f64::total_cmp);
++    xs[xs.len()/2]
++}
++
++fn p4(fraction: f64, retrograde: bool) {
++    let start = Instant::now();
++    let (mut u, planet, ship, omega, sep) = satellite(fraction, retrograde);
++    let c0 = jacobi(&u, planet, ship, 0, omega);
++    let period = std::f64::consts::TAU / omega;
++    let mut errors = [Vec::new(), Vec::new(), Vec::new()];
++    for sample in 1..=2000*8 {
++        let t = (sample as f64 * period / 8.0).round() as i64;
++        loop {
++            assert!(start.elapsed() < Duration::from_secs(55), "P4 FAIL timeout before sample {sample}/16000; kicks={} handoffs={}", u.stats.kicks, u.stats.handoffs);
++            if u.advance(t, Budget::events(128)).events == 0 { break; }
++        }
++        u.now = t;
++        u.prune();
++        let rec = u.rec(ship);
++        assert!(rec.alive && rec.refusals == 0, "P4 FAIL f={fraction} retro={retrograde} sample={sample}: alive={} fault={:?}", rec.alive, rec.fault);
++        let err = (jacobi(&u, planet, ship, t, omega) - c0).abs() * sep;
++        let bin = if sample <= 20*8 { 0 } else if sample <= 200*8 { 1 } else { 2 };
++        errors[bin].push(err);
++        if sample == 20*8 || sample == 200*8 || sample == 2000*8 {
++            let med = median(&mut errors[bin]);
++            let previous = if bin > 0 { Some(median(&mut errors[bin-1])) } else { None };
++            let ratio = previous.map(|p| med/p);
++            println!("P4 f={fraction} retro={retrograde} periods={} median={med:e} decade_ratio={ratio:?} kicks={} handoffs={} seconds={:.3}", sample/8, u.stats.kicks, u.stats.handoffs, start.elapsed().as_secs_f64());
++            assert!(ratio.is_none_or(|r| r.is_finite() && r <= 1.3), "P4 FAIL: decade ratio exceeds 1.3 at period {} of 2000", sample/8);
++        }
++    }
++    let med = errors.each_mut().map(|xs| median(xs));
++    let ratio = [med[1]/med[0], med[2]/med[1]];
++    println!("P4 f={fraction} retro={retrograde} periods=2000 median={med:?} decade_ratio={ratio:?} kicks={} handoffs={} seconds={:.3}", u.stats.kicks, u.stats.handoffs, start.elapsed().as_secs_f64());
++    assert!(ratio.into_iter().all(|r| r.is_finite() && r <= 1.3), "P4 FAIL: decade ratio exceeds 1.3");
++}
++
++#[test] fn p4_satellite_03_prograde() { p4(0.3, false); }
++#[test] fn p4_satellite_03_retrograde() { p4(0.3, true); }
++#[test] fn p4_satellite_05_prograde() { p4(0.5, false); }
++#[test] fn p4_satellite_05_retrograde() { p4(0.5, true); }
++#[test] fn p4_satellite_09_prograde() { p4(0.9, false); }
++#[test] fn p4_satellite_09_retrograde() { p4(0.9, true); }
++
++/// P5 at the coordinate-map boundary. Energy and event time are nonzero independent integer
++/// components, and survive 1000 captures/releases. This is deliberately distinct from a
++/// universe-level handoff: rebinding and event scheduling must also keep these words.
++#[test]
++fn p5_extended_coordinates_return_identical_words() {
++    use emergent_universe::lorentz::{Frame, Handoff, PhasePoint};
++    for beta in [0.01, 0.3, 0.9] {
++        for angle in [0.0f64, 0.7, 2.1, -2.8] {
++            let chart = Handoff { frame: Frame::of([sc(beta*angle.cos()), sc(beta*angle.sin())]).unwrap(), origin: [7 << 65, -(3 << 63), 1 << 68], unit_shift: 10 };
++            let initial = PhasePoint { event: [13 << 65, (5 << 63)+123, -(1 << 67)-317], momentum: [(1 << 90)+131, -(1 << 85)-17, (1 << 82)+27], event_exp: -40, momentum_exp: -90 };
++            let mut point = initial;
++            for _ in 0..1000 {
++                let child = chart.capture(point).unwrap();
++                assert_ne!(child.event[0], point.event[0]-chart.origin[0], "a moving chart must transform time");
++                assert_ne!(child.momentum[0], point.momentum[0], "the energy register must transform");
++                point = chart.release(child).unwrap();
++                assert_eq!(point, initial, "beta={beta}, angle={angle}");
++            }
++        }
++        println!("P5 coordinate map beta={beta}: 4000 exact extended-state round trips");
++    }
++}
++
++#[test]
++fn an_extended_handoff_refuses_overflow_without_mutating_the_input() {
++    use emergent_universe::lorentz::{Handoff, PhasePoint};
++    let chart = Handoff { frame: None, origin: [-1, 0, 0], unit_shift: 10 };
++    let point = PhasePoint { event: [i128::MAX, 0, 0], momentum: [17, 3, -9], event_exp: 0, momentum_exp: -50 };
++    assert!(chart.capture(point).is_err());
++    let chart = Handoff { origin: [0; 3], unit_shift: 10, ..chart };
++    assert!(chart.capture(PhasePoint { event_exp: i16::MAX, ..point }).is_err());
++    let child = chart.capture(PhasePoint { event: [21, -31, 45], ..point }).unwrap();
++    assert_eq!(chart.release(child).unwrap().event, [21, -31, 45]);
++    let chart = Handoff { frame: emergent_universe::lorentz::Frame::of([sc(-0.3), Scalar::ZERO]).unwrap(), ..chart };
++    assert!(chart.capture(PhasePoint { event: [0, i128::MIN, 0], ..point }).is_err());
++}
++
++#[test]
++fn the_same_surface_rejects_an_unbound_passage_and_keeps_a_bound_body() {
++    use emergent_universe::step::retained_by_child;
++    let (x, radius, mu) = ([sc(100.0), Scalar::ZERO], sc(200.0), Scalar::ONE);
++    assert!(retained_by_child(x, [Scalar::ZERO, sc(0.01)], mu, radius).unwrap());
++    assert!(!retained_by_child(x, [Scalar::ZERO, sc(0.2)], mu, radius).unwrap());
++    assert!(!retained_by_child([radius, Scalar::ZERO], [Scalar::ZERO; 2], mu, radius).unwrap());
++    // E_p = 0 belongs to the parent side, as does r = r_c (one strict predicate).
++    assert!(!retained_by_child([sc(2.0), Scalar::ZERO], [Scalar::ZERO, Scalar::ONE], mu, radius).unwrap());
++}
++
++#[test]
++fn the_extended_map_matches_an_independent_axis_boost() {
++    use emergent_universe::{lorentz::{Frame, Handoff, PhasePoint}, num::to_f64};
++    let q = 1i128 << 70;
++    for beta in [0.01f64, 0.3, 0.9] {
++        let chart = Handoff { frame: Frame::of([sc(beta), Scalar::ZERO]).unwrap(), origin: [0; 3], unit_shift: 10 };
++        let point = PhasePoint { event: [3*q, 2*q, -q], momentum: [5*q, -q, 2*q], event_exp: -70, momentum_exp: -70 };
++        let got = chart.capture(point).unwrap();
++        let gamma = (1.0-beta*beta).sqrt().recip();
++        for (input, output, exponent) in [(point.event, got.event, got.event_exp-10), (point.momentum, got.momentum, got.momentum_exp)] {
++            let f = |n: i128, e: i16| to_f64(Scalar::raw(n, e as i32).unwrap());
++            let a = input.map(|n| f(n,-70));
++            let want = [gamma*(a[0]-beta*a[1]), gamma*(a[1]-beta*a[0]), a[2]];
++            for c in 0..3 { assert!((f(output[c],exponent)-want[c]).abs() < 1e-13); }
++        }
++    }
++}
++
++/// A falsifying control for wiring Ext directly into the Lorentz map: its current register
++/// is minus the Kepler energy, whereas a boost needs total relativistic energy (rest energy
++/// included) and momentum, not coordinate velocity. A comoving body must be at rest after a
++/// boost. The literal `(-p_t, v)` vector fails this even without a handoff or a drift.
++#[test]
++fn the_kepler_register_is_not_a_lorentz_four_momentum() {
++    use emergent_universe::{force, lorentz::Frame, num::to_f64};
++    let mut wrong = 0;
++    for beta in [0.01, 0.3, 0.9] {
++        let v = [sc(beta), Scalar::ZERO];
++        let hd = force::kepler([sc(1e15), Scalar::ZERO], v, Scalar::ONE).unwrap();
++        let frame = Frame::of(v).unwrap().unwrap();
++        let q = 80;
++        let literal = [hd.fixed(q).unwrap(), v[0].fixed(q).unwrap(), 0];
++        let child = frame.forward(literal).unwrap();
++        let p = to_f64(Scalar::raw(child[1], -q).unwrap());
++        println!("Kepler-register control beta={beta}: comoving child's momentum={p:e} (must be zero)");
++        wrong += (p.abs() > 0.5*beta) as usize;
++        // The control with actual four-momentum does come to rest under the same shears.
++        let gamma = Scalar::ONE.sub(v[0].mul(v[0]).unwrap()).unwrap().sqrt().unwrap().reciprocal().unwrap();
++        let physical = [gamma.fixed(q).unwrap(), gamma.mul(v[0]).unwrap().fixed(q).unwrap(), 0];
++        let child = frame.forward(physical).unwrap();
++        assert!(to_f64(Scalar::raw(child[1], -q).unwrap()).abs() < 1e-15);
++    }
++    assert_eq!(wrong, 3, "this control must expose the current register convention at all speeds");
++}

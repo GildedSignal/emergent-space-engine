@@ -189,6 +189,29 @@ fn absolute(rel: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Re
     Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: i16::try_from(ve).map_err(|_| Error::Refused("exponent"))? })
 }
 
+/// The one handoff predicate, in the child's units. The Hill surface is independent of the
+/// Laplace sphere stored as `DollRec::edge`: `r_c = a (m / 3M)^(1/3) / 2`.
+pub fn retained_by_child(x: V2, v: V2, mu: Scalar, radius: Scalar) -> Res<bool> {
+    Ok(norm2(x)? < radius && force::kepler(x, v, mu)? < Scalar::ZERO)
+}
+
+/// Half the Hill radius of a bound centre, read in child units. This selector and
+/// `retained_by_child` are not wired to the runtime until its extended state survives a handoff.
+pub fn capture_radius(ctx: &Ctx, child: u16, t: Tick) -> Res<Scalar> {
+    let doll = &ctx.dolls[child as usize];
+    let parent = doll.parent.ok_or(Error::Refused("the root has no capture surface"))?;
+    let centre = doll.centre.ok_or(Error::Refused("a child without a centre"))?;
+    let b = ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?;
+    if !matches!(b.entry.trajectory, Trajectory::Cycle(_)) {
+        return Err(Error::Refused("a Hill surface requires a bound centre"));
+    }
+    let key = b.entry.trajectory.key();
+    let k = Scalar::raw(key.k as i128, -48)?;
+    let axis = b.to_doll(key.periapsis.mul(k)?.div(k.scale(1)?.sub(Scalar::ONE)?)?)?;
+    let ratio = ctx.info[centre].gm.div(ctx.dolls[parent as usize].unit.mu.mul(Scalar::integer(3))?)?;
+    Ok(axis.mul(crate::ext::cbrt(ratio)?)?.scale(doll.shift as i32 - ctx.dolls[parent as usize].shift as i32 - 1)?)
+}
+
 /// The first tick at or after `after` where the tube is at or beyond `edge` (outward), if any.
 fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
     next_exit_with(b, after, edge, true)
@@ -849,6 +872,56 @@ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// P5 through the runtime's actual rebinding path, with no evolution between the chart
+    /// changes. Unlike a shear-only test, this also detects dropped energy/carry words and an
+    /// unchanged child event time. The three speeds are synthetic local moving dolls, not
+    /// stable circular geodesics about the root (there is no such orbit at 0.9c).
+    #[test]
+    fn p5_runtime_handoff_keeps_the_extended_state() {
+        use crate::{Config, Universe};
+        use crate::num::from_f64 as sc;
+        let mut failures = 0;
+        for beta in [0.01, 0.3, 0.9] {
+            let mut u = Universe::new(Scalar::ZERO, Config::default());
+            let centre = u.add_body_state(Kind::Planet, 0, [sc(1e8), Scalar::ZERO], [Scalar::ZERO, sc(beta)], Scalar::ZERO).unwrap();
+            // add_doll accepts circular source births; this local chart fixture has a
+            // passing centre, so construct its chart without retuning a source orbit.
+            let child = 1;
+            let doll = crate::world::DollRec::child("moving doll", 0, crate::world::Mass::pow2(-10), centre, u.rec(centre).b.tube, Scalar::ZERO, sc(1e10)).unwrap();
+            u.dolls.push(doll);
+            u.sources.push(Vec::new());
+            let cs = u.rec(centre).b.readout(0).unwrap();
+            let local = IntegerState { position: [1_000_000, 1_000_000], velocity: [-1i64 << 39, 1i64 << 39], length_exponent: 10, velocity_exponent: -55 };
+            let host = absolute(&local, &cs, 10, 0).unwrap();
+            let (x, v) = scalars(&host).unwrap();
+            let ship = u.add_body_state(Kind::Ship, 0, x, v, Scalar::ZERO).unwrap();
+            // Isolate the coordinate change: no sources are evolved or kicked in this probe.
+            u.sources[0].clear();
+            let ctx = u.ctx();
+            let original_ext = Ext { pt: -(1i128 << 79) + 37, pt_exp: -80, pt_carry: 17, dt_carry: 29, ds: Scalar::ONE, c: Scalar::ONE, b: Scalar::integer(30) };
+            let mut w = Work { ctx: &ctx, i: ship, rec: u.rec(ship), retired: Vec::new(), new_entry: None };
+            let initial = w.rec.b.readout(0).unwrap();
+            let original_carry = [17, -23];
+            let (mut dropped, mut unchanged_time, mut refused, mut changed_words, mut dropped_carry) = (0, 0, 0, 0, 0);
+            for _ in 0..1000 {
+                w.rec.ext = Some(original_ext);
+                w.rec.carry = original_carry;
+                let before = w.rec.b.readout(0).unwrap();
+                if w.capture(0, before, child).is_err() { refused += 1; continue; }
+                unchanged_time += (w.rec.b.event_time == 0) as usize;
+                let st = w.rec.b.readout(0).unwrap();
+                if w.release(0, st).is_err() { refused += 1; continue; }
+                dropped += (w.rec.ext != Some(original_ext)) as usize;
+                dropped_carry += (w.rec.carry != original_carry) as usize;
+                changed_words += (w.rec.b.readout(0).unwrap() != initial) as usize;
+                w.retired.clear();
+            }
+            println!("P5 runtime beta={beta}: changed_words={changed_words}/1000 dropped_register={dropped}/1000 dropped_carry={dropped_carry}/1000 unchanged_child_time={unchanged_time}/1000 refused={refused}/1000");
+            failures += dropped + dropped_carry + changed_words + unchanged_time + refused;
+        }
+        assert_eq!(failures, 0, "P5 FAIL: runtime handoffs discard the extended state or leave the event time unboosted");
+    }
 
     /// The passage's analytic guess finds the tick the bisection finds: for every member the plane hands out
     /// (passages and cycles, from every state the frame hands over), from periapsis and from the binding event.

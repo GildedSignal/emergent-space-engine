@@ -1,0 +1,11 @@
+machine_state {"load_swap": "vm.loadavg: { 4.41 12.89 9.03 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+37105 boundaries and 37105 kicks looked at: across a kick the largest jump of the position is 7.09e-12 of the radius, of the velocity 3.27e-9 of itself; across a boundary 5.71e-8 of the radius and 1.14e-5 of the velocity
+test the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_does_not_jump ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 3.13s
+
+
+resource {"command": ["target/release/deps/motion-ceac7deb8c6c659b", "the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_does_not_jump", "--exact", "--nocapture"], "exit": 0, "wall": 3.2364133750088513, "peak_rss_bytes": 101318656, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 4.21 12.71 8.98 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

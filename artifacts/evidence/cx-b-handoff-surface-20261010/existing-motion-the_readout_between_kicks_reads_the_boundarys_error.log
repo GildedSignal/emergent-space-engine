@@ -1,0 +1,23 @@
+machine_state {"load_swap": "vm.loadavg: { 4.25 12.44 8.93 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+  ship  0: map 8.96e-7, ramped readout 8.79e-7 (0.98x), raw tube 4.56e-4 (509.0x)
+  ship  1: map 1.22e-7, ramped readout 1.23e-7 (1.00x), raw tube 2.82e-5 (230.6x)
+  ship  2: map 1.06e-6, ramped readout 1.08e-6 (1.01x), raw tube 3.90e-4 (367.2x)
+  ship  3: map 1.63e-7, ramped readout 1.63e-7 (1.00x), raw tube 2.46e-5 (151.1x)
+  ship  4: map 1.35e-6, ramped readout 1.50e-6 (1.11x), raw tube 2.57e-4 (189.7x)
+  ship  5: map 1.24e-7, ramped readout 1.25e-7 (1.00x), raw tube 2.47e-5 (198.6x)
+  ship  6: map 1.31e-7, ramped readout 1.30e-7 (1.00x), raw tube 4.90e-5 (375.2x)
+  ship  7: map 2.12e-7, ramped readout 2.21e-7 (1.04x), raw tube 4.49e-5 (211.5x)
+  ship  8: map 2.83e-7, ramped readout 2.83e-7 (1.00x), raw tube 1.41e-4 (497.3x)
+  ship  9: map 1.46e-7, ramped readout 1.47e-7 (1.01x), raw tube 2.37e-5 (162.3x)
+  ship 10: map 5.29e-6, ramped readout 5.29e-6 (1.00x), raw tube 4.22e-4 (79.9x)
+  ship 11: map 1.75e-7, ramped readout 1.75e-7 (1.00x), raw tube 1.54e-4 (876.1x)
+worst readout 5.29e-6 (raw tube 4.56e-4); worst ratio to the map's error 1.11x (11.3 s)
+test the_readout_between_kicks_reads_the_boundarys_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 11.26s
+
+
+resource {"command": ["target/release/deps/motion-ceac7deb8c6c659b", "the_readout_between_kicks_reads_the_boundarys_error", "--exact", "--nocapture"], "exit": 0, "wall": 11.396581874985714, "peak_rss_bytes": 813432832, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 4.54 12.10 8.87 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

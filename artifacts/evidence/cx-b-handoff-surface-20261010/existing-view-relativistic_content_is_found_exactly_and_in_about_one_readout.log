@@ -1,0 +1,20 @@
+machine_state {"load_swap": "vm.loadavg: { 3.59 10.90 8.58 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+observer 0c, emitters 0.0001c Across: 1.00 readouts per emitter (12 seen)
+observer 0c, emitters 0.9c Across: 1.15 readouts per emitter (12 seen)
+observer 0c, emitters 0.9c Toward: 1.02 readouts per emitter (12 seen)
+observer 0c, emitters 0.9c Away: 1.00 readouts per emitter (12 seen)
+observer 0c, emitters 0.99c Across: 2.01 readouts per emitter (12 seen)
+observer 0c, emitters 0.99c Toward: 1.99 readouts per emitter (12 seen)
+observer 0c, emitters 0.99c Away: 1.00 readouts per emitter (12 seen)
+observer 0.9c, emitters 0.9c Across: 1.39 readouts per emitter (12 seen)
+observer 0.9c, emitters 0.9c Toward: 1.03 readouts per emitter (12 seen)
+observer 0.9c, emitters 0.9c Away: 1.02 readouts per emitter (12 seen)
+test relativistic_content_is_found_exactly_and_in_about_one_readout ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.31s
+
+
+resource {"command": ["target/release/deps/view-604c46d8dc4d7a7a", "relativistic_content_is_found_exactly_and_in_about_one_readout", "--exact", "--nocapture"], "exit": 0, "wall": 0.35821570799453184, "peak_rss_bytes": 4358144, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 3.54 10.77 8.55 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

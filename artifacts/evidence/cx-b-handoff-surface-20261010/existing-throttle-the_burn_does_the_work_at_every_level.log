@@ -1,0 +1,26 @@
+machine_state {"load_swap": "vm.loadavg: { 3.69 11.17 8.65 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+level  0: 4000000 ticks, energy changed by 6.4722e-12, the work done 6.4737e-12 (0 refusals)
+level  1: 4000000 ticks, energy changed by 1.2997e-11, the work done 1.2999e-11 (0 refusals)
+level  2: 4000000 ticks, energy changed by 2.6203e-11, the work done 2.6205e-11 (0 refusals)
+level  3: 4000000 ticks, energy changed by 5.3235e-11, the work done 5.3237e-11 (0 refusals)
+level  4: 4000000 ticks, energy changed by 1.0978e-10, the work done 1.0978e-10 (0 refusals)
+level  5: 4000000 ticks, energy changed by 2.3279e-10, the work done 2.3280e-10 (0 refusals)
+level  6: 4000000 ticks, energy changed by 5.1853e-10, the work done 5.1853e-10 (0 refusals)
+level  7: 4000000 ticks, energy changed by 1.2488e-9, the work done 1.2488e-9 (0 refusals)
+level  8: 4000000 ticks, energy changed by 3.3446e-9, the work done 3.3446e-9 (0 refusals)
+level  9: 4000000 ticks, energy changed by 1.0077e-8, the work done 1.0077e-8 (0 refusals)
+level 10: 3452979 ticks, energy changed by 2.5898e-8, the work done 2.5898e-8 (0 refusals)
+level 11: 1726389 ticks, energy changed by 2.5896e-8, the work done 2.5896e-8 (0 refusals)
+level 12: 863094 ticks, energy changed by 2.5891e-8, the work done 2.5891e-8 (0 refusals)
+level 13: 431547 ticks, energy changed by 2.5891e-8, the work done 2.5891e-8 (0 refusals)
+level 14: 215673 ticks, energy changed by 2.5870e-8, the work done 2.5870e-8 (0 refusals)
+level 15: 107736 ticks, energy changed by 2.5827e-8, the work done 2.5827e-8 (0 refusals)
+test the_burn_does_the_work_at_every_level ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.65s
+
+
+resource {"command": ["target/release/deps/throttle-31ef5fefe37f7adc", "the_burn_does_the_work_at_every_level", "--exact", "--nocapture"], "exit": 0, "wall": 0.6977902079815976, "peak_rss_bytes": 8126464, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 3.69 11.17 8.65 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

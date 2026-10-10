@@ -1,0 +1,13 @@
+machine_state {"load_swap": "vm.loadavg: { 59.52 23.08 10.48 }\nvm.swapusage: total = 3072.00M  used = 1589.06M  free = 1482.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t35%; discharging; 1:21 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+machine_state {"batt":"Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t35%; discharging; 1:21 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 59.52 23.08 10.48 }","power_source":"Now drawing from 'Battery Power'","swap":"total = 3072.00M  used = 1589.06M  free = 1482.94M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-10T19:19:08Z","unix":1791659948,"when":"start"}
+G1 PASS advance per cycle: 256/256 within 1e-2, worst 6.60e-4 [0.03 s]
+G2 PASS radial periods: 256/256 within 1e-3, worst 5.50e-4 [0.03 s]
+G3 PASS deflection: 64/64 within 1e-2, worst 6.40e-12 [0.01 s]
+G4 PASS capture: 0 of 10 misclassified [] [0.00 s]
+G5 PASS long run: 32/32 seeds over 10000 cycles (0 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2) [0.12 s]
+G6 PASS prograde: 256/256 advances positive [0.00 s]
+machine_state {"batt":"Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t35%; discharging; 1:21 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 59.52 23.08 10.48 }","power_source":"Now drawing from 'Battery Power'","swap":"total = 3072.00M  used = 1589.06M  free = 1482.94M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-10T19:19:09Z","unix":1791659949,"when":"end"}
+behave space (G1 G2 G3 G4 G5 G6): PASS
+
+resource {"command": ["target/release/xtask", "behave", "--law", "space", "--gates", "G1,G2,G3,G4,G5,G6"], "exit": 0, "wall": 0.8861012500128709, "peak_rss_bytes": 9289728, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 59.52 23.08 10.48 }\nvm.swapusage: total = 3072.00M  used = 1589.06M  free = 1482.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t35%; discharging; 1:21 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

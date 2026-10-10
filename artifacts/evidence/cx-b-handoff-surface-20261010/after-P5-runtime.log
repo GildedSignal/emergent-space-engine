@@ -1,0 +1,24 @@
+machine_state {"load_swap": "vm.loadavg: { 3.04 3.13 2.71 }\nvm.swapusage: total = 6144.00M  used = 5991.69M  free = 152.31M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t37%; discharging; 1:39 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+P5 runtime beta=0.01: changed_words=0/1000 dropped_register=0/1000 dropped_carry=1000/1000 unchanged_child_time=1000/1000 refused=0/1000
+P5 runtime beta=0.3: changed_words=0/1000 dropped_register=0/1000 dropped_carry=1000/1000 unchanged_child_time=1000/1000 refused=0/1000
+P5 runtime beta=0.9: changed_words=0/1000 dropped_register=0/1000 dropped_carry=1000/1000 unchanged_child_time=1000/1000 refused=0/1000
+
+thread 'step::tests::p5_runtime_handoff_keeps_the_extended_state' panicked at crates/universe/src/step.rs:923:9:
+assertion `left == right` failed: P5 FAIL: runtime handoffs discard the extended state or leave the event time unboosted
+  left: 6000
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test step::tests::p5_runtime_handoff_keeps_the_extended_state ... FAILED
+
+failures:
+
+failures:
+    step::tests::p5_runtime_handoff_keeps_the_extended_state
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.32s
+
+
+resource {"command": ["target/release/deps/emergent_universe-1502e76ede904de3", "step::tests::p5_runtime_handoff_keeps_the_extended_state", "--exact", "--nocapture"], "exit": 101, "wall": 0.3667912079836242, "peak_rss_bytes": 4325376, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 3.04 3.13 2.71 }\nvm.swapusage: total = 6144.00M  used = 5991.69M  free = 152.31M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t37%; discharging; 1:39 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

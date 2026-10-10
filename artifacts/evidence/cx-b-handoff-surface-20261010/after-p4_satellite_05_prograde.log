@@ -1,0 +1,14 @@
+machine_state {"load_swap": "vm.loadavg: { 13.70 17.81 9.95 }\nvm.swapusage: total = 3072.00M  used = 1541.06M  free = 1530.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t34%; discharging; 1:00 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+P4 f=0.5 retro=false periods=20 median=1.7810648496914148e-7 decade_ratio=None kicks=8117 handoffs=1 seconds=0.319
+P4 f=0.5 retro=false periods=200 median=1.8668328890679355e-7 decade_ratio=Some(1.0481554837216516) kicks=69540 handoffs=1 seconds=2.465
+P4 f=0.5 retro=false periods=2000 median=2.1163602243978737e-7 decade_ratio=Some(1.1336634557871548) kicks=577928 handoffs=1 seconds=21.820
+P4 f=0.5 retro=false periods=2000 median=[1.7810648496914148e-7, 1.8668328890679355e-7, 2.1163602243978737e-7] decade_ratio=[1.0481554837216516, 1.1336634557871548] kicks=577928 handoffs=1 seconds=21.820
+test p4_satellite_05_prograde ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 21.82s
+
+
+resource {"command": ["target/release/deps/handoff_surface-6324baf0d17db713", "p4_satellite_05_prograde", "--exact", "--nocapture"], "exit": 0, "wall": 21.88855054101441, "peak_rss_bytes": 6651904, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 10.64 16.85 9.79 }\nvm.swapusage: total = 3072.00M  used = 1541.06M  free = 1530.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t33%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

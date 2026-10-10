@@ -1,0 +1,11 @@
+machine_state {"load_swap": "vm.loadavg: { 4.21 12.71 8.98 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+worst readout error 5.29e-6
+test the_readout_between_kicks_is_bounded ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 11.12s
+
+
+resource {"command": ["target/release/deps/motion-ceac7deb8c6c659b", "the_readout_between_kicks_is_bounded", "--exact", "--nocapture"], "exit": 0, "wall": 11.173461584025063, "peak_rss_bytes": 813416448, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 4.25 12.44 8.93 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

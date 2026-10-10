@@ -1,0 +1,21 @@
+machine_state {"load_swap": "vm.loadavg: { 4.20 2.74 2.42 }\nvm.swapusage: total = 6144.00M  used = 5721.62M  free = 422.38M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t40%; discharging; 2:59 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+P4 f=0.3 retro=true periods=20 median=1.0890456280598643e-7 decade_ratio=None kicks=44225 handoffs=0 seconds=1.560
+P4 f=0.3 retro=true periods=200 median=1.0879107953532245e-7 decade_ratio=Some(0.9989579566940079) kicks=442246 handoffs=0 seconds=15.735
+
+thread 'p4_satellite_03_retrograde' panicked at crates/universe/tests/handoff_surface.rs:41:13:
+P4 FAIL timeout before sample 5583/16000; kicks=1542950 handoffs=0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test p4_satellite_03_retrograde ... FAILED
+
+failures:
+
+failures:
+    p4_satellite_03_retrograde
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 55.00s
+
+
+resource {"command": ["target/release/deps/handoff_surface-6324baf0d17db713", "p4_satellite_03_retrograde", "--exact", "--nocapture"], "exit": 101, "wall": 55.09257683297619, "peak_rss_bytes": 4358144, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 3.52 2.81 2.47 }\nvm.swapusage: total = 6144.00M  used = 5721.62M  free = 422.38M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t39%; discharging; 2:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

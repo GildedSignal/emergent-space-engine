@@ -1,0 +1,10 @@
+machine_state {"load_swap": "vm.loadavg: { 4.41 12.89 9.03 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+test a_ship_passing_a_planet_keeps_its_jacobi_constant_bounded ... ignored, known failure under any perturbation (chaos): one ship in twelve crosses 1e-4 at a close pass; see a_population_of_ships_passing_a_planet_keeps_its_jacobi_constant_bounded
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+
+resource {"command": ["target/release/deps/motion-ceac7deb8c6c659b", "a_ship_passing_a_planet_keeps_its_jacobi_constant_bounded", "--exact", "--nocapture"], "exit": 0, "wall": 0.1904013329767622, "peak_rss_bytes": 4325376, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 4.41 12.89 9.03 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

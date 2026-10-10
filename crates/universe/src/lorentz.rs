@@ -169,14 +169,14 @@ impl Rotation {
     }
 
     pub fn apply(&self, v: [i128; 2]) -> Res<[i128; 2]> {
-        let v = if self.flip { [-v[0], -v[1]] } else { v };
+        let v = if self.flip { [v[0].checked_neg().ok_or_else(overflow)?, v[1].checked_neg().ok_or_else(overflow)?] } else { v };
         rotate(v, self.a, self.b, N)
     }
 
     /// The exact inverse of [`Rotation::apply`].
     pub fn undo(&self, v: [i128; 2]) -> Res<[i128; 2]> {
         let v = unrotate(v, self.a, self.b, N)?;
-        Ok(if self.flip { [-v[0], -v[1]] } else { v })
+        Ok(if self.flip { [v[0].checked_neg().ok_or_else(overflow)?, v[1].checked_neg().ok_or_else(overflow)?] } else { v })
     }
 }
 
@@ -227,6 +227,55 @@ impl Frame {
         let gx = unboost([t[0], u[0]], self.ba, self.bb, N)?;
         let u = self.to_axis.undo([gx[1], u[1]])?;
         Ok([gx[0], u[0], u[1]])
+    }
+}
+
+/// Extended coordinates at a handoff. The event is `(t, x, y)` at `event_exp`; the momentum is
+/// `(-p_t, p_x, p_y)` at `momentum_exp`. Neither vector is lowered to velocity words or ticks:
+/// doing so discards exactly the bits an inverse handoff needs. Units have c = 1.
+/// This is scratch for a chart change, not an additional record per body. The energy component
+/// must include rest energy: the current Kepler register in `Ext` is not a four-momentum.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PhasePoint {
+    pub event: [i128; 3],
+    pub momentum: [i128; 3],
+    pub event_exp: i16,
+    pub momentum_exp: i16,
+}
+
+/// A local chart change at one surface event. `origin` uses the event vector's quantum in the
+/// parent; `unit_shift` is child.shift - parent.shift. Length and time units change together,
+/// by relabelling the exponent, never by discarding bits. Specific momentum is dimensionless.
+/// The same chart, including the same origin and coefficients, must be used in reverse.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Handoff {
+    pub frame: Option<Frame>,
+    pub origin: [i128; 3],
+    pub unit_shift: i16,
+}
+
+impl Handoff {
+    pub fn capture(&self, point: PhasePoint) -> Res<PhasePoint> {
+        let mut event = [0; 3];
+        for c in 0..3 {
+            event[c] = point.event[c].checked_sub(self.origin[c]).ok_or_else(overflow)?;
+        }
+        let (event, momentum) = match self.frame {
+            Some(frame) => (frame.forward(event)?, frame.forward(point.momentum)?),
+            None => (event, point.momentum),
+        };
+        Ok(PhasePoint { event, momentum, event_exp: point.event_exp.checked_add(self.unit_shift).ok_or_else(overflow)?, ..point })
+    }
+
+    pub fn release(&self, point: PhasePoint) -> Res<PhasePoint> {
+        let (mut event, momentum) = match self.frame {
+            Some(frame) => (frame.inverse(point.event)?, frame.inverse(point.momentum)?),
+            None => (point.event, point.momentum),
+        };
+        for c in 0..3 {
+            event[c] = event[c].checked_add(self.origin[c]).ok_or_else(overflow)?;
+        }
+        Ok(PhasePoint { event, momentum, event_exp: point.event_exp.checked_sub(self.unit_shift).ok_or_else(overflow)?, ..point })
     }
 }
 

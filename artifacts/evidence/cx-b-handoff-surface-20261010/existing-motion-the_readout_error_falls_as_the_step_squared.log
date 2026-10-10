@@ -1,0 +1,17 @@
+machine_state {"load_swap": "vm.loadavg: { 4.54 12.10 8.87 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+  ship 0: ramped readout 2.77e-6 -> 1.73e-7 (16.0x), raw tube 7.62e-4 -> 5.93e-5 (12.8x), map output 16.6x
+  ship 1: ramped readout 4.93e-7 -> 3.08e-8 (16.0x), raw tube 4.75e-5 -> 9.58e-6 (5.0x), map output 14.9x
+  ship 2: ramped readout 5.14e-6 -> 2.80e-7 (18.3x), raw tube 6.93e-4 -> 1.24e-4 (5.6x), map output 16.9x
+  ship 3: ramped readout 6.45e-7 -> 4.02e-8 (16.0x), raw tube 4.79e-5 -> 1.09e-5 (4.4x), map output 16.1x
+  ship 4: ramped readout 9.98e-7 -> 6.29e-8 (15.9x), raw tube 9.88e-5 -> 5.35e-5 (1.8x), map output 15.9x
+  ship 5: ramped readout 4.97e-7 -> 3.11e-8 (16.0x), raw tube 3.68e-5 -> 1.04e-5 (3.5x), map output 16.1x
+6 ships judged, 6 with a second-order map (4.1 s); the raw tube falls at most 12.8x
+test the_readout_error_falls_as_the_step_squared ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 4.09s
+
+
+resource {"command": ["target/release/deps/motion-ceac7deb8c6c659b", "the_readout_error_falls_as_the_step_squared", "--exact", "--nocapture"], "exit": 0, "wall": 4.246967292041518, "peak_rss_bytes": 245399552, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 4.54 12.10 8.87 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:54 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

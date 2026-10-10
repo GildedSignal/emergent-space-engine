@@ -1,0 +1,17 @@
+machine_state {"load_swap": "vm.loadavg: { 3.84 11.33 8.69 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+reference 1ae7c407af7da1cd: 6 decisions
+Budget { events: 18446744073709551615, until: None }, 1 threads, 100000 frames: 1ae7c407af7da1cd
+Budget { events: 18446744073709551615, until: None }, 4 threads, 100000 frames: 1ae7c407af7da1cd
+Budget { events: 40, until: None }, 2 threads, 100000 frames: 1ae7c407af7da1cd
+Budget { events: 5, until: None }, 1 threads, 300 frames: 1ae7c407af7da1cd
+Budget { events: 1, until: None }, 3 threads, 50 frames: 1ae7c407af7da1cd
+Budget { events: 0, until: None }, 1 threads, 40 frames: 1ae7c407af7da1cd
+test one_log_and_one_cut_give_one_digest_on_any_schedule ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.52s
+
+
+resource {"command": ["target/release/deps/replay-d42fa33a93ea9460", "one_log_and_one_cut_give_one_digest_on_any_schedule", "--exact", "--nocapture"], "exit": 0, "wall": 0.6973424579482526, "peak_rss_bytes": 7946240, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 3.84 11.33 8.69 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

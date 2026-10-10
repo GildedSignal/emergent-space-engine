@@ -1,0 +1,64 @@
+[
+  {
+    "test": "p4_satellite_03_prograde",
+    "exit": 101,
+    "log": "after-p4_satellite_03_prograde.log",
+    "detail": [
+      "P4 f=0.3 retro=false periods=20 median=7.89068621401505e-8 decade_ratio=None kicks=44225 handoffs=0 seconds=1.690",
+      "P4 f=0.3 retro=false periods=200 median=7.512358165114749e-8 decade_ratio=Some(0.9520538469482751) kicks=442246 handoffs=0 seconds=19.829",
+      "P4 FAIL timeout before sample 4490/16000; kicks=1240969 handoffs=0"
+    ]
+  },
+  {
+    "test": "p4_satellite_03_retrograde",
+    "exit": 101,
+    "log": "after-p4_satellite_03_retrograde.log",
+    "detail": [
+      "P4 f=0.3 retro=true periods=20 median=1.0890456280598643e-7 decade_ratio=None kicks=44225 handoffs=0 seconds=1.844",
+      "P4 f=0.3 retro=true periods=200 median=1.0879107953532245e-7 decade_ratio=Some(0.9989579566940079) kicks=442246 handoffs=0 seconds=18.728",
+      "P4 FAIL timeout before sample 4848/16000; kicks=1339985 handoffs=0"
+    ]
+  },
+  {
+    "test": "p4_satellite_05_prograde",
+    "exit": 0,
+    "log": "after-p4_satellite_05_prograde.log",
+    "detail": [
+      "P4 f=0.5 retro=false periods=20 median=1.7810648496914148e-7 decade_ratio=None kicks=8117 handoffs=1 seconds=0.319",
+      "P4 f=0.5 retro=false periods=200 median=1.8668328890679355e-7 decade_ratio=Some(1.0481554837216516) kicks=69540 handoffs=1 seconds=2.465",
+      "P4 f=0.5 retro=false periods=2000 median=2.1163602243978737e-7 decade_ratio=Some(1.1336634557871548) kicks=577928 handoffs=1 seconds=21.820",
+      "P4 f=0.5 retro=false periods=2000 median=[1.7810648496914148e-7, 1.8668328890679355e-7, 2.1163602243978737e-7] decade_ratio=[1.0481554837216516, 1.1336634557871548] kicks=577928 handoffs=1 seconds=21.820"
+    ]
+  },
+  {
+    "test": "p4_satellite_05_retrograde",
+    "exit": 101,
+    "log": "after-p4_satellite_05_retrograde.log",
+    "detail": [
+      "P4 f=0.5 retro=true periods=20 median=3.101916235228881e-7 decade_ratio=None kicks=22112 handoffs=0 seconds=0.856",
+      "P4 f=0.5 retro=true periods=200 median=3.048014192586784e-7 decade_ratio=Some(0.982622985743482) kicks=221123 handoffs=0 seconds=8.519",
+      "P4 FAIL timeout before sample 10399/16000; kicks=1437151 handoffs=0"
+    ]
+  },
+  {
+    "test": "p4_satellite_09_prograde",
+    "exit": 0,
+    "log": "after-p4_satellite_09_prograde.log",
+    "detail": [
+      "P4 f=0.9 retro=false periods=20 median=3.7134013193886756e-8 decade_ratio=None kicks=5247 handoffs=1 seconds=0.171",
+      "P4 f=0.9 retro=false periods=200 median=3.667389303930414e-8 decade_ratio=Some(0.9876091993563905) kicks=57513 handoffs=1 seconds=1.910",
+      "P4 f=0.9 retro=false periods=2000 median=4.49574952434429e-8 decade_ratio=Some(1.2258719082607636) kicks=531154 handoffs=1 seconds=18.236",
+      "P4 f=0.9 retro=false periods=2000 median=[3.7134013193886756e-8, 3.667389303930414e-8, 4.49574952434429e-8] decade_ratio=[0.9876091993563905, 1.2258719082607636] kicks=531154 handoffs=1 seconds=18.237"
+    ]
+  },
+  {
+    "test": "p4_satellite_09_retrograde",
+    "exit": 101,
+    "log": "after-p4_satellite_09_retrograde.log",
+    "detail": [
+      "P4 f=0.9 retro=true periods=20 median=2.7093581083445695e-7 decade_ratio=None kicks=23065 handoffs=1 seconds=0.752",
+      "P4 f=0.9 retro=true periods=200 median=2.6904818065651317e-7 decade_ratio=Some(0.9930329247649837) kicks=230670 handoffs=1 seconds=7.560",
+      "P4 FAIL timeout before sample 11455/16000; kicks=1651188 handoffs=1"
+    ]
+  }
+]

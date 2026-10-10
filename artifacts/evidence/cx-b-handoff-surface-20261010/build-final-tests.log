@@ -1,0 +1,26 @@
+machine_state {"load_swap": "vm.loadavg: { 2.87 3.10 2.70 }\nvm.swapusage: total = 6144.00M  used = 5991.69M  free = 152.31M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t37%; discharging; 1:39 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-universe v0.1.0 (/private/tmp/emergent-wt-cx-b-handoff-surface/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 2m 51s
+  Executable unittests src/lib.rs (target/release/deps/emergent_universe-1502e76ede904de3)
+  Executable tests/handoff_surface.rs (target/release/deps/handoff_surface-6324baf0d17db713)
+  Executable tests/lifecycle.rs (target/release/deps/lifecycle-e195ea66f5533520)
+  Executable tests/memo.rs (target/release/deps/memo-fce2f78ada59a6e5)
+  Executable tests/motion.rs (target/release/deps/motion-ceac7deb8c6c659b)
+  Executable tests/origin.rs (target/release/deps/origin-0ef809932257930d)
+  Executable tests/plane.rs (target/release/deps/plane-7d0e4bcc602e34e9)
+  Executable tests/replay.rs (target/release/deps/replay-d42fa33a93ea9460)
+  Executable tests/throttle.rs (target/release/deps/throttle-31ef5fefe37f7adc)
+  Executable tests/ties.rs (target/release/deps/ties-9930adf51d1f5613)
+  Executable tests/view.rs (target/release/deps/view-604c46d8dc4d7a7a)
+
+resource {"command": ["env", "CARGO_BUILD_JOBS=1", "cargo", "test", "--release", "-p", "emergent-universe", "--tests", "--no-run"], "exit": 0, "wall": 171.7939080419601, "peak_rss_bytes": 256819200, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 19.21 19.10 10.16 }\nvm.swapusage: total = 3072.00M  used = 1541.06M  free = 1530.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t34%; discharging; 1:06 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

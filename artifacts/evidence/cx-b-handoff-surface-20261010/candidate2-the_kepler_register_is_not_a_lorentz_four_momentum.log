@@ -1,0 +1,13 @@
+machine_state {"load_swap": "vm.loadavg: { 2.58 2.26 2.25 }\nvm.swapusage: total = 6144.00M  used = 5721.62M  free = 422.38M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t40%; discharging; 3:09 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+Kepler-register control beta=0.01: comoving child's momentum=1.000000001250126e-2 (must be zero)
+Kepler-register control beta=0.3: comoving child's momentum=3.003336057208299e-1 (must be zero)
+Kepler-register control beta=0.9: comoving child's momentum=1.2285212548768605e0 (must be zero)
+test the_kepler_register_is_not_a_lorentz_four_momentum ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+
+resource {"command": ["target/release/deps/handoff_surface-6324baf0d17db713", "the_kepler_register_is_not_a_lorentz_four_momentum", "--exact", "--nocapture"], "exit": 0, "wall": 0.19634333299472928, "peak_rss_bytes": 4325376, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 2.58 2.26 2.25 }\nvm.swapusage: total = 6144.00M  used = 5721.62M  free = 422.38M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t40%; discharging; 3:09 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}

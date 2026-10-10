@@ -1,0 +1,10 @@
+machine_state {"load_swap": "vm.loadavg: { 3.69 11.17 8.65 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
+
+running 1 test
+test a_log_with_throttle_changes_replays_to_one_digest ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 1.46s
+
+
+resource {"command": ["target/release/deps/throttle-31ef5fefe37f7adc", "a_log_with_throttle_changes_replays_to_one_digest", "--exact", "--nocapture"], "exit": 0, "wall": 1.5487469999934547, "peak_rss_bytes": 23265280, "rss_cap_bytes": 2147483648, "limiter": null}
+machine_state {"load_swap": "vm.loadavg: { 3.69 11.17 8.65 }\nvm.swapusage: total = 3072.00M  used = 1533.06M  free = 1538.94M  (encrypted)\n", "power": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25034851)\t32%; discharging; 0:49 remaining present: true\n", "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}
