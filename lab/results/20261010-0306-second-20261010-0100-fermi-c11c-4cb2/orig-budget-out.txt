@@ -1,0 +1,23 @@
+t_kick (distinct, median)      = 63.4 us   (leavers 386 us)
+memo hit on distinct kicks     = exact 0.0, quantized 0.0  (3 seeds)
+bytes/body shipped plane       = 5077
+events/s whole plane @rtf100   = 328 on 71 bodies; frame cpu p50 4.6 ms, rtf lowest 1% 9.7
+
+--- kick compute at 1e9 bodies, rtf 100 ---
+all low orbit, unaveraged (32.5/orbit)       6.02e+08 kicks/s    3.81e+04 core-s/s   4.77e+03 machine
+all low orbit, averaged (0.285/orbit)        5.28e+06 kicks/s         334 core-s/s      41.8 machine
+belt 3 AU, unaveraged (32/orbit)             1.95e+04 kicks/s        1.24 core-s/s     0.155 machine
+belt 3 AU, averaged (0.3/orbit)                   183 kicks/s      0.0116 core-s/s   0.00145 machine
+
+affordable distinct kicks/s on 8 cores = 1.26e+05
+  -> low-orbit population cap at that cost, averaged: 2.39e+07 bodies
+  -> t_kick needed for 1e9 low-orbit averaged on 8 cores: 1.52e+03 ns/kick
+
+--- storage at 1e9 bodies ---
+tube floor (law.md)                16 B/body ->    14.9 GiB  (+1.86x of 8 GB, +3.73x of 4 GiB budget)
+shipped plane store              5077 B/body -> 4.73e+03 GiB  (+591.04x of 8 GB, +1182.08x of 4 GiB budget)
+population program (gold)     0.01575 B/body ->      15 MiB  (+0.00x of 8 GB)
+
+--- H_live, belt creation at 1e9 (bits per game-second) ---
+scar  32 bits:     2.34 bits/game-s (2.93e-05 MB per real second at rtf 100)
+scar 128 bits:     9.37 bits/game-s (0.000117 MB per real second at rtf 100)

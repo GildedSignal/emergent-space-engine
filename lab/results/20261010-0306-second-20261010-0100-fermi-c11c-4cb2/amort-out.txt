@@ -1,0 +1,31 @@
+t_kick needed, 1e9 low-orbit averaged @rtf100, 8 cores = 1516 ns
+the claim's bar: gain >= 42x  (63.4 us record / 1.52 us)
+
+--- this run's bench, min-of-5 per bucket (apples-to-apples) ---
+plane made ships, seed 1 (55 s)           52.9 us  compile   5.62 (10.6%)  hit 0.83  -> amortized   48.1 us  gain  1.10x  vs bar 1.52 us:   31.7x over
+plane leavers, seed 1 (55 s)             136.7 us  compile  89.08 (65.2%)  hit 0.84  -> amortized   48.5 us  gain  2.82x  vs bar 1.52 us:   32.0x over
+plane made ships, seed 2 (55 s)           52.4 us  compile   4.95 ( 9.4%)  hit 0.80  -> amortized   48.3 us  gain  1.09x  vs bar 1.52 us:   31.9x over
+plane leavers, seed 2 (55 s)             115.4 us  compile  66.75 (57.8%)  hit 0.76  -> amortized   49.4 us  gain  2.34x  vs bar 1.52 us:   32.6x over
+plane made ships, seed 3 (55 s)           51.2 us  compile   5.14 (10.0%)  hit 0.81  -> amortized   46.9 us  gain  1.09x  vs bar 1.52 us:   30.9x over
+plane leavers, seed 3 (55 s)             565.6 us  compile 476.60 (84.3%)  hit 0.82  -> amortized   89.8 us  gain  6.30x  vs bar 1.52 us:   59.3x over
+co-orbital 400 @rtf100                    32.9 us  compile   4.92 (15.0%)  hit 0.83  -> amortized   28.8 us  gain  1.14x  vs bar 1.52 us:   19.0x over
+co-orbital 400 @rtf1000                   20.8 us  compile   3.54 (17.0%)  hit 0.55  -> amortized   17.8 us  gain  1.17x  vs bar 1.52 us:   11.8x over
+co-orbital 64 @rtf1000                    20.8 us  compile   3.52 (16.9%)  hit 0.56  -> amortized   17.9 us  gain  1.17x  vs bar 1.52 us:   11.8x over
+co-orbital 400 near-star                  19.8 us  compile   3.39 (17.1%)  hit 0.50  -> amortized   16.9 us  gain  1.17x  vs bar 1.52 us:   11.2x over
+
+--- the shipped record's own totals as the base (single-shot, generous to the claim) ---
+made, shipped 55 s total                  59.2 us  compile   5.62 ( 9.5%)  hit 0.83  -> amortized   54.4 us  gain  1.09x  vs bar 1.52 us:   35.9x over
+leavers, shipped 55 s total              376.1 us  compile  89.08 (23.7%)  hit 0.83  -> amortized  287.8 us  gain  1.31x  vs bar 1.52 us:  189.9x over
+
+verdict: best measured gain 6.30x  (bar: >= 40x)  -> REFUTED
+
+--- first-breaker table, low-orbit rows with the made-ship amortization (x1.09) applied ---
+low orbit unaveraged   today (63.4 us)          4.77e+03 machine
+low orbit unaveraged   amortized x1.09          4.36e+03 machine
+low orbit averaged     today (63.4 us)              41.8 machine
+low orbit averaged     amortized x1.09              38.3 machine
+
+made-ship resolver floor with the WHOLE rebind deleted (fit included), warm hit kept:
+  28.4 us/kick = 19x the 1.52 us bar
+  (reaching the bar needs the per-kick rebind itself gone for dense populations:
+   a formation-level generator or secular law, not a shared compile)
