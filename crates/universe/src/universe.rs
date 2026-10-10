@@ -30,7 +30,7 @@
 //! deadline is later than the frame is *idle-time* work, done only while the budget lasts.
 //! When the mandatory work does not fit, the horizon stays behind the target: the real-time
 //! factor dips for a frame, smoothly, and nothing hitches or degrades.
-use crate::bind::{bind, bind_exact, Binding, Catalogue, Entry};
+use crate::bind::{bind_surface, bind_exact, Binding, Catalogue, Entry};
 use crate::body::{BodyRec, BodyStore, Kind, PlainBodies, Segment, Thrust, What};
 use crate::ctx::{BodyInfo, Config, Ctx};
 use crate::encounter::{Encounter, Encounters, PlayerNeighbourhood};
@@ -244,7 +244,7 @@ impl Universe {
         let host = self.bodies.rec(centre).b.doll;
         let tube = self.bodies.rec(centre).b.tube;
         // The separation in the host's own units (the tube is compiled in units of the host's mass).
-        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.trajectory.key().periapsis)?;
+        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.trajectory.key().ok_or(Error::Refused("a doll centre needs a turning orbit"))?.periapsis)?;
         let parent_rec = self.dolls[host as usize].record.clone();
         let rec = DollRec::child(name, host, mass, centre, tube, surface, Scalar::ZERO)?;
         // The sphere of influence from the mass ratio (Laplace): separation · (m/M)^(2/5), in the parent's units.
@@ -318,10 +318,10 @@ impl Universe {
     pub fn add_body_state(&mut self, kind: Kind, doll: u16, position: [Scalar; 2], velocity: [Scalar; 2], radius: Scalar) -> Res<usize> {
         let d = &self.dolls[doll as usize];
         let (x, v) = (crate::num::norm2(position)?, crate::num::norm2(velocity)?);
-        if x.is_zero() || v.is_zero() {
-            return Err(Error::Refused("a state at rest or at the centre has no orbit"));
+        if x.is_zero() {
+            return Err(Error::Refused("a state at the centre has no exterior orbit"));
         }
-        let (le, ve) = crate::bind::choose_units(x.scale(2)?, v.scale(2)?);
+        let (le, ve) = crate::bind::choose_units(x.scale(2)?, if v.is_zero() { Scalar::ONE } else { v.scale(2)? });
         let word = |a: Scalar, e: i16| -> Res<i64> { i64::try_from(a.fixed(-(e as i32))?).map_err(|_| Error::Refused("state outside the integer word")) };
         let exact = emergent_space::binding::IntegerState {
             position: [word(position[0], le)?, word(position[1], le)?],
@@ -330,7 +330,7 @@ impl Universe {
             velocity_exponent: ve,
         };
         let edge = (doll != 0).then(|| d.edge.scale(2)).transpose()?;
-        let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
+        let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface))?;
         let mut tube = bound.tube;
         tube.key = self.cat.insert(bound.entry.clone())?;
         let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
@@ -677,7 +677,7 @@ impl Universe {
         let doll = self.fleets[f].doll;
         let made = (|| -> Res<usize> {
             let clock_exp = self.dolls[doll as usize].clock_exp();
-            let bound = bind(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit)?;
+            let bound = bind_surface(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit, Some(self.dolls[doll as usize].surface))?;
             let key = self.cat.insert(bound.entry.clone())?;
             let mut tube = bound.tube;
             tube.key = key;
@@ -1008,9 +1008,14 @@ impl Universe {
             put(&mut h, r.b.event_time as i128);
             put(&mut h, r.b.tube.periapsis_angle as i128);
             put(&mut h, r.b.tube.periapsis_time.get() as i64 as i128);
-            let key = r.b.entry.trajectory.key();
-            put_s(&mut h, key.periapsis);
-            put(&mut h, key.k as i128);
+            if let Some(key) = r.b.entry.trajectory.key() {
+                put_s(&mut h, key.periapsis);
+                put(&mut h, key.k as i128);
+            } else if let Trajectory::Plunge(p) = &r.b.entry.trajectory {
+                put(&mut h, -1);
+                for coefficient in p.coefficients() { put_s(&mut h, coefficient); }
+                put_s(&mut h, p.arrival().end.radius());
+            }
             put(&mut h, r.b.entry.clockwise as i128);
             put(&mut h, r.b.turn.a as i128);
             put(&mut h, r.b.turn.b as i128);
@@ -1075,4 +1080,3 @@ impl Universe {
         self.key_of(i).map(|k| k.0)
     }
 }
-

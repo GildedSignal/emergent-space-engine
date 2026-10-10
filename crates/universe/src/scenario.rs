@@ -180,7 +180,7 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
         Scalar::raw(1_176, 18)?,
     )?;
     // Its sphere of influence from the mass ratio, in Home's units.
-    let sep = u.rec(m).b.entry.trajectory.key().periapsis;
+    let sep = u.rec(m).b.entry.trajectory.key().ok_or(crate::num::Error::Refused("moon without turning orbit"))?.periapsis;
     let proto = emergent_space::events::Doll::child(emergent_space::events::LogMass((-24) << 24), home_doll, u.rec(m).b.tube);
     let soi = proto.edge_radius(&u.dolls[home_doll as usize].record.clone(), sep)?;
     u.make_source(m, -6, soi)?;

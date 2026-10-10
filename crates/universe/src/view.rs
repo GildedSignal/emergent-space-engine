@@ -403,6 +403,12 @@ fn loss_cause(u: &Universe, rec: &crate::body::BodyRec, t_now: Tick) -> String {
     };
     let surface = to_f64(doll.surface);
     let fmt_speed = |b: f64| if b < 0.1 { format!("{:.2} km/s", b * 299_792.458) } else { format!("{:.4} c", b) };
+    if let Ok(Some(at)) = rec.b.terminal_tick() {
+        if let Some((_, v)) = (at <= t_now && rec.plan.is_empty()).then(|| r_at(at)).flatten() {
+            let body = if rec.b.doll == 0 { "the star" } else { doll.name };
+            return format!("hit {body} at {} (relative to {body}), at world time {}", fmt_speed(v), clock_text(at as f64 * TICK_SECONDS));
+        }
+    }
     // The first tick at or after the last state whose radius is under the surface.
     let (mut lo, mut hi) = (t0, None::<Tick>);
     let mut step = 1i64;
