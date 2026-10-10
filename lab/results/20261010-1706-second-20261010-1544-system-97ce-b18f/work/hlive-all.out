@@ -1,0 +1,31 @@
+running 5 tests
+seed 3 jupiter: ref kicks 202904 vs anchored 201041; |dx|/r med 3.987e-2 p99 2.376e-1 max 5.480e-1 | da/a med 1.526e-3 p99 5.986e-3 max 8.679e-3 | de med 6.404e-4 max 8.174e-3 | alive-diff 0 | anchored wall 5.14s, compiles/kick 0.01501
+seed 4 jupiter: ref kicks 202920 vs anchored 203225; |dx|/r med 3.702e-2 p99 2.126e-1 max 5.151e-1 | da/a med 1.516e-3 p99 6.688e-3 max 4.631e-2 | de med 6.302e-4 max 5.581e-2 | alive-diff 0 | anchored wall 5.21s, compiles/kick 0.01603
+seed 5 jupiter: ref kicks 202957 vs anchored 196684; |dx|/r med 4.135e-2 p99 2.219e-1 max 5.153e-1 | da/a med 1.508e-3 p99 6.931e-3 max 8.534e-3 | de med 6.057e-4 max 1.179e-2 | alive-diff 0 | anchored wall 5.02s, compiles/kick 0.01498
+seed 6 jupiter: ref kicks 202991 vs anchored 199014; |dx|/r med 4.607e-2 p99 2.577e-1 max inf | da/a med 1.653e-3 p99 8.212e-3 max inf | de med 6.954e-4 max inf | alive-diff 1 | anchored wall 5.23s, compiles/kick 0.02073
+seed 2 saturn: ref kicks 179188 vs anchored 178513; |dx|/r med 9.491e-4 p99 4.597e-3 max 6.683e-3 | da/a med 5.844e-5 p99 2.976e-4 max 6.089e-4 | de med 1.305e-5 max 8.333e-5 | alive-diff 0 | anchored wall 4.52s, compiles/kick 0.00000
+seed 3 saturn: ref kicks 179171 vs anchored 178629; |dx|/r med 8.626e-4 p99 3.562e-3 max 4.626e-3 | da/a med 5.829e-5 p99 3.098e-4 max 3.654e-4 | de med 1.521e-5 max 1.036e-4 | alive-diff 0 | anchored wall 4.55s, compiles/kick 0.00000
+seed 4 saturn: ref kicks 179195 vs anchored 178502; |dx|/r med 9.320e-4 p99 3.255e-3 max 3.710e-3 | da/a med 5.637e-5 p99 2.948e-4 max 4.102e-4 | de med 1.281e-5 max 8.529e-5 | alive-diff 0 | anchored wall 4.57s, compiles/kick 0.00000
+determinism: seed 7 twice, kicks 204495 and readouts bit-identical
+ok
+   194.7 events/body/ship-orbit; wall 5.39 s = 13.4 us/event; rebinds 200544 (compiles 3204, re-anchors 197340), rekeys 3204 (0.0160/kick), compiles/kick 0.01598
+   fired |dv| quanta: mean 9.769e12 max 2.034e14 (over 200544 fired kicks); dv classes [0,1,2,3-4,>=5]: [0, 0, 0, 0, 200544]
+max |carried| since anchor: 599413792061526 quanta; smallest recompile threshold on the belt: 3.093e14 quanta; headroom 5.160e-1x
+ok
+   196.6 events/body/ship-orbit; wall 9.99 s = 24.6 us/event; rebinds 203017 (compiles 203017, re-anchors 0), rekeys 203017 (1.0000/kick), compiles/kick 1.00000
+   fired |dv| quanta: mean 9.596e12 max 2.032e14 (over 203017 fired kicks); dv classes [0,1,2,3-4,>=5]: [0, 0, 0, 0, 203017]
+== step_log2 7 ANCHORED (threshold 48/2^16): events 401292 (kicks 200544, opens 385, boundaries 200363), refused 0, lost 0 | 7.485e8 game-s ==
+   194.7 events/body/ship-orbit; wall 5.18 s = 12.9 us/event; rebinds 200544 (compiles 3204, re-anchors 197340), rekeys 3204 (0.0160/kick), compiles/kick 0.01598
+   fired |dv| quanta: mean 9.769e12 max 2.034e14 (over 200544 fired kicks); dv classes [0,1,2,3-4,>=5]: [0, 0, 0, 0, 200544]
+== step_log2 4 REFERENCE (always compile): events 50939 (kicks 25401, opens 385, boundaries 25153), refused 0, lost 0 | 7.485e8 game-s ==
+   24.6 events/body/ship-orbit; wall 1.12 s = 21.9 us/event; rebinds 25401 (compiles 25401, re-anchors 0), rekeys 25401 (1.0000/kick), compiles/kick 1.00000
+   fired |dv| quanta: mean 7.680e13 max 1.621e15 (over 25401 fired kicks); dv classes [0,1,2,3-4,>=5]: [0, 0, 0, 0, 25401]
+== step_log2 4 ANCHORED (threshold 48/2^16): events 52494 (kicks 26148, opens 385, boundaries 25961), refused 0, lost 0 | 7.485e8 game-s ==
+   25.5 events/body/ship-orbit; wall 0.71 s = 13.6 us/event; rebinds 26148 (compiles 2859, re-anchors 23289), rekeys 2859 (0.1093/kick), compiles/kick 0.10934
+   fired |dv| quanta: mean 7.903e13 max 1.630e15 (over 26148 fired kicks); dv classes [0,1,2,3-4,>=5]: [0, 0, 0, 0, 26148]
+ok
+   dv histogram of fired kicks, reference (0,1,2,3-4,>=5 quanta... at the fired word): [0, 0, 0, 0, 397]
+   co-orbital |dx|/r vs reference: med 8.967e-4 max 9.880e-4
+   alive-diff 0
+ok
+ok

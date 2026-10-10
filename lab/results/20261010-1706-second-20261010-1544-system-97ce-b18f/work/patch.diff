@@ -1,0 +1,594 @@
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800e..d6750f6 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -57,6 +57,12 @@ pub struct BodyRec {
+     pub b: Binding,
+     /// The sub-quantum velocity carry (sigma-delta), in `2^-16` of the velocity quantum.
+     pub carry: [i64; 2],
++    /// The velocity carried by re-anchors since the last compile (docs/law.md, "re-anchored"),
++    /// in quanta of the binding's velocity word: what the offset has absorbed since the anchor.
++    pub carried: [i128; 2],
++    /// Probe (lab 20261010-1706): the quanta the last fired kick moved the velocity by (the
++    /// clock path records no ramp, so `b.kick.dv` is blind there; this is the fired size).
++    pub fired_dv: [i64; 2],
+     /// Proper time accumulated along the tubes, in root units (a clock reads its tube's length).
+     pub proper: Scalar,
+     /// The kick step `H`, in ticks (a power of two), and the origin of its grid.
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..821f714 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -34,12 +34,21 @@ pub struct Config {
+     pub turn_log2: i32,
+     /// A body farther than this from the star (root units) has left the system.
+     pub leave_log2: i32,
++    /// The re-anchor of docs/law.md ("re-anchored"): a fired kick below this offset keeps the
++    /// compiled cycle and is carried in the binding's residual (exact at the event); a compile
++    /// happens when the accumulated offset reaches it. The number is a numerator over 2^16 of the
++    /// velocity carried since the last compile over the speed: `48` is √(floor/C) ≈ 7.3×10⁻⁴ for
++    /// the law's 10⁻⁶ floor and C = 1.88 (lab 20261006-0346-redteam-df81). The default `0`
++    /// always compiles — today's law: lab 20261010-1706 measured that at `48` the offset-carry
++    /// (no stored derivatives) moves the belt's elements ~1.5×10⁻³ per 24 game-years, a law
++    /// change rather than a memo, so the lever ships wired but off.
++    pub reanchor_num: u32,
+     /// Kicks per radial period, as a power of two.
+     pub step_log2: i32,
+ }
+ impl Default for Config {
+     fn default() -> Self {
+-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
++        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7, reanchor_num: 0 }
+     }
+ }
+ 
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..3de5a67 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -41,7 +41,7 @@ use crate::force::{self, LEVELS, RATIO};
+ use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, Error, Res, Tick, V2};
+ use crate::thrust;
+ use emergent_space::{
+-    binding::{IntegerState, Trajectory},
++    binding::{IntegerState, Residual, Trajectory},
+     orbit::Scalar,
+ };
+ use std::sync::Arc;
+@@ -325,9 +325,56 @@ impl Work<'_, '_> {
+             kick: Kick::NONE,
+         };
+         self.new_entry = Some(bound.entry.clone());
++        // A compile re-anchors: the offset starts empty.
++        self.rec.carried = [0, 0];
+         Ok(bound)
+     }
+ 
++    /// A fired kick's rebinding, re-anchored (docs/law.md, "re-anchored"): below the accumulated
++    /// offset `√(floor/C)` of the motion's own speed the compiled cycle is kept and the kick is
++    /// carried in the binding's residual — the readout at the event is the kicked state exactly,
++    /// the units are unchanged, and no fit or compile is paid; past it (or when disabled) the
++    /// cycle is recompiled exactly at the body's state, as before. The test is integer: the
++    /// carried velocity in quanta against `reanchor_num` sixteenths-of-2^16 of the L1 speed.
++    /// A burn is the player's own seed of change, never a flow to defer: it always compiles.
++    fn anchor_or_rebind(&mut self, t: Tick, st: &IntegerState, next: IntegerState, thrusting: bool) -> Res<()> {
++        let dv = [next.velocity[0] as i128 - st.velocity[0] as i128, next.velocity[1] as i128 - st.velocity[1] as i128];
++        self.rec.fired_dv = [dv[0] as i64, dv[1] as i64];
++        let cand = [self.rec.carried[0] + dv[0], self.rec.carried[1] + dv[1]];
++        let num = self.ctx.cfg.reanchor_num as u128;
++        let speed = (next.velocity[0].unsigned_abs() + next.velocity[1].unsigned_abs()) as u128;
++        let largest = cand[0].unsigned_abs().max(cand[1].unsigned_abs());
++        let d = self.rec.b.doll;
++        if thrusting || num == 0 || speed == 0 || largest * 65536 > num * speed {
++            self.rebind(next, t, d)?;
++            return Ok(());
++        }
++        // Keep the compiled cycle: the old binding retires with its readout frozen, the new one
++        // is the same tube and entry with the kick in the residual. The proper-time bookkeeping
++        // is `rebind`'s (the tube is the same, so the clock it reads is).
++        let old = self.rec.b.clone();
++        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++        let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
++        self.rec.proper = self.rec.proper.add(root_tau)?;
++        self.retired.push(Segment { b: old.clone(), until: t });
++        self.rec.b = Binding {
++            doll: old.doll,
++            tube: old.tube,
++            entry: old.entry,
++            residual: Residual {
++                position: old.residual.position,
++                velocity: [old.residual.velocity[0] + dv[0], old.residual.velocity[1] + dv[1]],
++            },
++            turn: old.turn,
++            units: old.units,
++            clock_exp: old.clock_exp,
++            event_time: t,
++            kick: Kick::NONE,
++        };
++        self.rec.carried = cand;
++        Ok(())
++    }
++
+     /// The proper time (root units) the ship's tube has run since `since`, at tick `t`.
+     fn proper_since(&self, since: Tick, t: Tick) -> Res<Scalar> {
+         proper_since(&self.rec.b, self.ctx.dolls[self.rec.b.doll as usize].shift, since, t)
+@@ -353,6 +400,7 @@ impl Work<'_, '_> {
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+         let st = self.rec.b.readout(t)?;
++        self.rec.fired_dv = [0, 0];
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+@@ -378,7 +426,7 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        self.anchor_or_rebind(t, &st, next, thrusting)?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -583,6 +631,7 @@ impl Work<'_, '_> {
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+         let d = self.rec.b.doll;
+         let st = self.rec.b.readout(t)?;
++        self.rec.fired_dv = [0, 0];
+         let (x, v) = scalars(&st)?;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+@@ -615,7 +664,7 @@ impl Work<'_, '_> {
+         };
+         let fired = next.velocity != st.velocity;
+         if fired {
+-            self.rebind(next, t, d)?;
++            self.anchor_or_rebind(t, &st, next, thrusting)?;
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..6eec9ca 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -107,6 +107,21 @@ pub struct Stats {
+     /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
+     pub cost_ns: [u64; 5],
+     pub items: [u64; 5],
++    /// Probe (lab 20261010-1544): kicks whose rounded `dv` changed a velocity quantum, and
++    /// rebinding events (a binding replaced, its old self retired into history).
++    pub kicks_dv: u64,
++    /// Probe: kicks whose rebind moved the body to a new quantized orbit key.
++    pub rekeys: u64,
++    pub rebinds: u64,
++    /// Probe: kicks by the size of their rounded `dv` in quanta: 0, 1, 2, 3–4, ≥5.
++    pub dv_class: [u64; 5],
++    /// Probe (lab 20261010-1706): rebinding events that compiled a fresh trajectory, and those
++    /// that kept the compiled cycle (re-anchors, law.md "re-anchored").
++    pub compiles: u64,
++    pub anchors: u64,
++    /// Probe: the sum and max of fired |dv| in quanta of each body's velocity word.
++    pub dv_total: u64,
++    pub dv_max: u64,
+ }
+ impl Stats {
+     pub fn events(&self) -> u64 {
+@@ -290,6 +305,8 @@ impl Universe {
+             kind,
+             b,
+             carry: [0; 2],
++            carried: [0; 2],
++            fired_dv: [0; 2],
+             proper: Scalar::ZERO,
+             step: 0,
+             interval: 0,
+@@ -338,6 +355,8 @@ impl Universe {
+             kind,
+             b,
+             carry: [0; 2],
++            carried: [0; 2],
++            fired_dv: [0; 2],
+             proper: Scalar::ZERO,
+             step: 0,
+             interval: 0,
+@@ -508,8 +527,43 @@ impl Universe {
+     // ---- resolving ------------------------------------------------------------------------------
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
++        let was_rebind = !upd.retired.is_empty();
++        if matches!(upd.kind, Resolved::Kick) {
++            let dv = upd.rec.fired_dv;
++            if dv != [0, 0] {
++                self.stats.kicks_dv += 1;
++            }
++            let m = dv[0].unsigned_abs().max(dv[1].unsigned_abs());
++            self.stats.dv_class[m.min(4) as usize] += 1;
++            self.stats.dv_total = self.stats.dv_total.saturating_add(m);
++            self.stats.dv_max = self.stats.dv_max.max(m);
++            // The memo key (quantized E, L) of the binding this kick replaces, against the new
++            // one: a rekey is a distinction (the program's tube no longer predicts the body).
++            if let (Some(seg), emergent_space::binding::Trajectory::Cycle(nc)) =
++                (upd.retired.last(), &upd.rec.b.entry.trajectory)
++            {
++                if let emergent_space::binding::Trajectory::Cycle(oc) = &seg.b.entry.trajectory {
++                    if oc.key() != nc.key() {
++                        self.stats.rekeys += 1;
++                    }
++                }
++            }
++        }
++        if was_rebind {
++            self.stats.rebinds += 1;
++            if upd.new_entry.is_some() {
++                self.stats.compiles += 1;
++            } else {
++                // A re-anchor: the compiled cycle is kept and the kick rides the offset.
++                self.stats.anchors += 1;
++            }
++        }
+         for seg in upd.retired.drain(..) {
+-            self.cat.release(seg.b.tube.key);
++            // A re-anchored binding reuses its predecessor's tube and catalogue slot: the slot is
++            // freed only when the incoming binding does not keep it (a compile always gets a new one).
++            if upd.new_entry.is_some() || seg.b.tube.key != upd.rec.b.tube.key {
++                self.cat.release(seg.b.tube.key);
++            }
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+         }
+         if let Some(entry) = upd.new_entry.take() {
+@@ -686,6 +740,8 @@ impl Universe {
+                 kind: Kind::Ship,
+                 b,
+                 carry: [0; 2],
++            carried: [0; 2],
++            fired_dv: [0; 2],
+                 proper: Scalar::ZERO,
+                 step: 0,
+                 interval: 0,
+diff --git a/crates/universe/tests/hlive.rs b/crates/universe/tests/hlive.rs
+new file mode 100644
+index 0000000..7d6aa49
+--- /dev/null
++++ b/crates/universe/tests/hlive.rs
+@@ -0,0 +1,342 @@
++//! Lab probe 20261010-1706-second (second author on 20261010-1544-system-97ce): the re-anchor wired.
++//!
++//! The first run measured that the belt's every fired kick rebinds (1.000/kick) and priced the
++//! designed fix (law.md, "re-anchored"); the checker held gold on wiring it. This file wires it
++//! (Config::reanchor_num, `anchor_or_rebind`): below the law's accumulated-offset threshold
++//! √(floor/C) ≈ 7.3×10⁻⁴ of the motion's own speed, a fired kick keeps the compiled cycle and
++//! rides the binding's residual (exact at the event); past it, or under thrust, it compiles as
++//! before. What is measured: compiles per kick against the design's 0.05, the belt's wall
++//! (the checker's attribution says ≈1.7×), and behaviour against the reference law
++//! (`reanchor_num: 0`, always compile) on held-out seeds and a second perturber.
++//!
++//! Belt scene unchanged from the first run (B18's generator shape, fixed LCG): banded periapsis
++//! 2.1–3.3 AU, Rayleigh e σ=0.1 clamped at 0.3, uniform angle and phase, one Jupiter analog
++//! (5.27e8, 2⁻¹⁰) — here seedable, and with a Saturn analog (9.58e8, 2⁻¹²) for the weak-field row.
++
++use emergent_space::orbit::Scalar;
++use emergent_universe::body::{BodyRec, Segment};
++use emergent_universe::bind::Binding;
++use emergent_universe::num::{s, to_f64};
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++
++/// A Jupiter analog: 5.2 AU, mass 2^-10 of the star. A Saturn analog: 9.58 AU, 2^-12.
++const SEP: i64 = 527_000_000;
++const P_LO: i64 = 212_730_000;
++const P_HI: i64 = 333_900_000;
++const N: usize = 384;
++/// Two planet periods.
++const PERIODS: i32 = 2;
++
++struct Lcg(u64);
++impl Lcg {
++    fn f(&mut self) -> f64 {
++        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        (self.0 >> 11) as f64 / (1u64 << 53) as f64
++    }
++}
++
++/// The belt: `seed` drives the LCG, `planet` is (periapsis, mass log2).
++fn belt(cfg: Config, seed: u64, planet: (i64, i32)) -> (Universe, usize, Vec<usize>) {
++    let mut u = Universe::new(s(emergent_universe::scenario::STAR_RADIUS), cfg);
++    let (sep, mlog2) = planet;
++    let planet = u
++        .add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s(sep), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO)
++        .unwrap();
++    u.add_doll("planet", planet, mlog2, Scalar::raw(36_000_000, 0).unwrap()).unwrap();
++    let mut g = Lcg(seed);
++    let ships = (0..N)
++        .map(|_| {
++            let p = P_LO as f64 + g.f() * (P_HI - P_LO) as f64;
++            // Rayleigh(0.1), clamped at 0.3: the belt's eccentricity distribution.
++            let e = (0.1 * (-2.0 * (1.0 - g.f()).ln()).sqrt()).min(0.3);
++            u.add_body(
++                Kind::Ship,
++                OrbitSpec {
++                    doll: 0,
++                    periapsis: s(p as i64),
++                    e_q48: ((1u64 << 48) as f64 * e) as u64,
++                    clockwise: false,
++                    angle: (g.f() * u32::MAX as f64) as u32,
++                    phase: (g.f() * u32::MAX as f64) as u32,
++                },
++                Scalar::ZERO,
++            )
++            .unwrap()
++        })
++        .collect();
++    u.start().unwrap();
++    (u, planet, ships)
++}
++
++fn planet_period_ticks(u: &Universe, planet: usize) -> f64 {
++    let b = &u.rec(planet).b;
++    let emergent_space::binding::Trajectory::Cycle(c) = &b.entry.trajectory else { unreachable!() };
++    to_f64(b.to_doll(c.period().unwrap()).unwrap()) * 2f64.powi(-(u.dolls[b.doll as usize].shift as i32))
++}
++
++fn ship_period_ticks(u: &Universe, ship: usize) -> f64 {
++    let b = &u.rec(ship).b;
++    let emergent_space::binding::Trajectory::Cycle(c) = &b.entry.trajectory else { unreachable!() };
++    to_f64(b.to_doll(c.period().unwrap()).unwrap()) * 2f64.powi(-(u.dolls[b.doll as usize].shift as i32))
++}
++
++/// One settled belt run; returns (universe, wall seconds, horizon).
++fn run_belt(cfg: Config, seed: u64, planet: (i64, i32)) -> (Universe, f64, i64) {
++    let (mut u, planet, _ships) = belt(cfg, seed, planet);
++    let pp = planet_period_ticks(&u, planet);
++    let horizon = (pp * PERIODS as f64) as i64;
++    let t0 = std::time::Instant::now();
++    u.settle(horizon);
++    (u, t0.elapsed().as_secs_f64(), horizon)
++}
++
++fn report(u: &Universe, wall: f64, horizon: i64, tag: &str) {
++    let st = &u.stats;
++    let game_s = horizon as f64 * emergent_universe::view::TICK_SECONDS;
++    let events = st.events();
++    let sp = ship_period_ticks(u, 1);
++    let per_body_orbit = events as f64 / N as f64 / (horizon as f64 / sp);
++    println!(
++        "== {tag}: events {events} (kicks {}, opens {}, boundaries {}), refused {}, lost {} | {game_s:.3e} game-s ==",
++        st.kicks, st.opens, st.boundaries, st.refused, st.lost
++    );
++    println!(
++        "   {:.1} events/body/ship-orbit; wall {wall:.2} s = {:.1} us/event; rebinds {} (compiles {}, re-anchors {}), rekeys {} ({:.4}/kick), compiles/kick {:.5}",
++        per_body_orbit,
++        wall * 1e6 / events.max(1) as f64,
++        st.rebinds,
++        st.compiles,
++        st.anchors,
++        st.rekeys,
++        st.rekeys as f64 / st.kicks.max(1) as f64,
++        st.compiles as f64 / st.kicks.max(1) as f64,
++    );
++    println!(
++        "   fired |dv| quanta: mean {:.3e} max {:.3e} (over {} fired kicks); dv classes [0,1,2,3-4,>=5]: {:?}",
++        st.dv_total as f64 / st.kicks_dv.max(1) as f64,
++        st.dv_max,
++        st.kicks_dv,
++        st.dv_class
++    );
++}
++
++/// The first run's record, then the same belt with the re-anchor wired, at both cadences.
++#[test]
++fn belt_reference_vs_anchored() {
++    for step_log2 in [7, 4] {
++        let (u, wall, h) = run_belt(Config { step_log2, reanchor_num: 0, ..Config::default() }, 0x5EED_97CE_0000_0001, (SEP, -10));
++        report(&u, wall, h, &format!("step_log2 {step_log2} REFERENCE (always compile)"));
++        let (u, wall, h) = run_belt(Config { step_log2, reanchor_num: 48, ..Config::default() }, 0x5EED_97CE_0000_0001, (SEP, -10));
++        report(&u, wall, h, &format!("step_log2 {step_log2} ANCHORED (threshold 48/2^16)"));
++    }
++}
++
++/// How far the belt ever gets from a recompile, and the dv the fires carry.
++#[test]
++fn belt_offset_headroom() {
++    let (u, wall, h) = run_belt(Config { reanchor_num: 48, ..Config::default() }, 0x5EED_97CE_0000_0001, (SEP, -10));
++    report(&u, wall, h, "ANCHORED headroom");
++    let mut max_carried: f64 = 0.0;
++    let mut min_threshold: f64 = f64::INFINITY;
++    for i in 0..u.n_bodies() {
++        let rec = u.rec(i);
++        if rec.kind != Kind::Ship {
++            continue;
++        }
++        let carried = rec.carried[0].unsigned_abs().max(rec.carried[1].unsigned_abs());
++        let st = rec.b.readout(h).unwrap();
++        let speed = (st.velocity[0].unsigned_abs() + st.velocity[1].unsigned_abs()) as f64;
++        max_carried = max_carried.max(carried as f64);
++        min_threshold = min_threshold.min(48.0 * speed / 65536.0);
++    }
++    println!(
++        "max |carried| since anchor: {max_carried:.0} quanta; smallest recompile threshold on the belt: {min_threshold:.3e} quanta; headroom {:.3e}x",
++        min_threshold / max_carried.max(1.0)
++    );
++}
++
++/// Behaviour against the reference law on held-out seeds and both perturbers: per-ship final
++/// state deviation, semi-major axis and eccentricity drift, event counts, and determinism of
++/// the anchored path itself.
++#[test]
++fn behaviour_vs_reference_many_seeds() {
++    let cases: Vec<(u64, (i64, i32), &str)> = vec![
++        (2, (SEP, -10), "jupiter"),
++        (3, (SEP, -10), "jupiter"),
++        (4, (SEP, -10), "jupiter"),
++        (5, (SEP, -10), "jupiter"),
++        (6, (SEP, -10), "jupiter"),
++        (2, (958_000_000, -12), "saturn"),
++        (3, (958_000_000, -12), "saturn"),
++        (4, (958_000_000, -12), "saturn"),
++    ];
++    for (seed, planet, name) in cases {
++        let (ru, _rw, h) = run_belt(Config { reanchor_num: 0, ..Config::default() }, seed, planet);
++        let (au, aw, h2) = run_belt(Config { reanchor_num: 48, ..Config::default() }, seed, planet);
++        assert_eq!(h, h2, "the horizon must not depend on the law's memo");
++        let mut devs = Vec::with_capacity(N);
++        let mut da_rel = Vec::with_capacity(N);
++        let mut de = Vec::with_capacity(N);
++        let mut lost_diff = 0usize;
++        for i in 0..ru.n_bodies() {
++            if ru.rec(i).kind != Kind::Ship {
++                continue;
++            }
++            lost_diff += (ru.rec(i).alive != au.rec(i).alive) as usize;
++            let (Ok(rst), Ok(ast)) = (ru.rec(i).b.readout(h), au.rec(i).b.readout(h)) else {
++                // A readout outside the word is itself the deviation: count it, don't die on it.
++                devs.push(f64::INFINITY);
++                da_rel.push(f64::INFINITY);
++                de.push(f64::INFINITY);
++                continue;
++            };
++            let r0 = (rst.position[0].unsigned_abs().max(rst.position[1].unsigned_abs()) as f64) * 2f64.powi(rst.length_exponent as i32);
++            let dx = (rst.position[0] - ast.position[0]).unsigned_abs().max((rst.position[1] - ast.position[1]).unsigned_abs()) as f64
++                * 2f64.powi(rst.length_exponent as i32);
++            devs.push(dx / r0);
++            // Elements in the doll's units (mu = 1): a = 1/(2/r - v^2), e from the eccentricity vector.
++            let el = |st: &emergent_space::binding::IntegerState| -> (f64, f64) {
++                let k = 2f64.powi(st.length_exponent as i32);
++                let lv = 2f64.powi(st.velocity_exponent as i32);
++                let x = [st.position[0] as f64 * k, st.position[1] as f64 * k];
++                let v = [st.velocity[0] as f64 * lv, st.velocity[1] as f64 * lv];
++                let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
++                let v2 = v[0] * v[0] + v[1] * v[1];
++                let a = 1.0 / (2.0 / r - v2);
++                let rv = x[0] * v[0] + x[1] * v[1];
++                let ev = [(v2 - 1.0 / r) * x[0] - rv * v[0], (v2 - 1.0 / r) * x[1] - rv * v[1]];
++                (a, (ev[0] * ev[0] + ev[1] * ev[1]).sqrt())
++            };
++            let (ra, re) = el(&rst);
++            let (aa, ae) = el(&ast);
++            da_rel.push((aa - ra).abs() / ra);
++            de.push((ae - re).abs());
++        }
++        devs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        da_rel.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        de.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let q = |v: &Vec<f64>, p: f64| v[(((v.len() as f64) * p) as usize).min(v.len() - 1)];
++        println!(
++            "seed {seed} {name}: ref kicks {} vs anchored {}; |dx|/r med {:.3e} p99 {:.3e} max {:.3e} | da/a med {:.3e} p99 {:.3e} max {:.3e} | de med {:.3e} max {:.3e} | alive-diff {lost_diff} | anchored wall {aw:.2}s, compiles/kick {:.5}",
++            ru.stats.kicks,
++            au.stats.kicks,
++            q(&devs, 0.5),
++            q(&devs, 0.99),
++            devs[devs.len() - 1],
++            q(&da_rel, 0.5),
++            q(&da_rel, 0.99),
++            da_rel[da_rel.len() - 1],
++            q(&de, 0.5),
++            de[de.len() - 1],
++            au.stats.compiles as f64 / au.stats.kicks.max(1) as f64,
++        );
++        println!();
++    }
++    // Determinism of the anchored path: the same seed twice is the same universe.
++    let (a, _, h) = run_belt(Config { reanchor_num: 48, ..Config::default() }, 7, (SEP, -10));
++    let (b, _, _) = run_belt(Config { reanchor_num: 48, ..Config::default() }, 7, (SEP, -10));
++    assert_eq!(a.stats.kicks, b.stats.kicks, "anchored kick count must be deterministic");
++    for i in 0..a.n_bodies() {
++        let (ra, rb) = (a.rec(i).b.readout(h), b.rec(i).b.readout(h));
++        assert_eq!(ra.is_ok(), rb.is_ok(), "readout failure must be deterministic too");
++        if let (Ok(ra), Ok(rb)) = (&ra, &rb) {
++            assert_eq!(ra.position, rb.position, "anchored positions must be bit-identical");
++        }
++    }
++    println!("determinism: seed 7 twice, kicks {} and readouts bit-identical", a.stats.kicks);
++}
++
++/// The trade-off falsifier: the same held-out seed at a 48× tighter threshold (num 1/2^16 =
++/// 1.53e-5). If the anchored law's error is first-order in the window's carried drift (the
++/// offset-carry has no derivative terms), tightening 48× cuts the per-window error ~48² and the
++/// total ~48×, while compiles/kick rise ~48× toward 1 — i.e. no threshold reaches the law's
++/// 10⁻⁶ floor at a compile rate below always-compile. Measured on seed 2, both laws against the
++/// reference.
++#[test]
++fn threshold_tightening_tradeoff() {
++    let (ru, _rw, h) = run_belt(Config { reanchor_num: 0, ..Config::default() }, 2, (SEP, -10));
++    let (au, aw, _) = run_belt(Config { reanchor_num: 1, ..Config::default() }, 2, (SEP, -10));
++    let mut da = Vec::new();
++    let mut unreadable = 0usize;
++    for i in 0..ru.n_bodies() {
++        if ru.rec(i).kind != Kind::Ship {
++            continue;
++        }
++        let (Ok(rst), Ok(ast)) = (ru.rec(i).b.readout(h), au.rec(i).b.readout(h)) else {
++            unreadable += 1;
++            continue;
++        };
++        let el = |st: &emergent_space::binding::IntegerState| -> f64 {
++            let k = 2f64.powi(st.length_exponent as i32);
++            let lv = 2f64.powi(st.velocity_exponent as i32);
++            let x = [st.position[0] as f64 * k, st.position[1] as f64 * k];
++            let v = [st.velocity[0] as f64 * lv, st.velocity[1] as f64 * lv];
++            let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
++            let v2 = v[0] * v[0] + v[1] * v[1];
++            1.0 / (2.0 / r - v2)
++        };
++        let (ra, aa) = (el(&rst), el(&ast));
++        da.push((aa - ra).abs() / ra);
++    }
++    da.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    println!(
++        "seed 2, threshold 1/2^16 (48x tighter): compiles/kick {:.3}, da/a med {:.3e} max {:.3e}, unreadable {unreadable}, wall {aw:.2}s",
++        au.stats.compiles as f64 / au.stats.kicks.max(1) as f64,
++        da[da.len() / 2],
++        da[da.len() - 1],
++    );
++}
++/// Control for the instrument, and the strong field under the re-anchor: ships co-orbital with
++/// the planet (sep ± 1.5–3 Hill radii), where kicks are strongest on this scene. The first run's
++/// control showed every kick rekeying when every kick compiles; here the re-anchor is ON, so what
++/// must hold is different: kicks still fire (the instrument is alive), and the anchored evolution
++/// stays with the reference law within the same bounds as the belt.
++#[test]
++fn control_coorbital_kicks_are_quantum_large() {
++    let mk = |reanchor: u32| {
++        let cfg = Config { reanchor_num: reanchor, ..Config::default() };
++        let mut u = Universe::new(s(emergent_universe::scenario::STAR_RADIUS), cfg);
++        let planet = u
++            .add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s(SEP), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO)
++            .unwrap();
++        u.add_doll("planet", planet, -10, Scalar::raw(36_000_000, 0).unwrap()).unwrap();
++        let hill = 36_000_000i64;
++        let ships: Vec<usize> = [1.5f64, 2.0, 2.5, 3.0]
++            .iter()
++            .flat_map(|h| [SEP + (*h as i64) * hill / 3, SEP - (*h as i64) * hill / 3])
++            .map(|r| {
++                u.add_body(Kind::Ship, OrbitSpec { doll: 0, periapsis: s(r), e_q48: 0, clockwise: false, angle: 0x2000_0000, phase: 0 }, Scalar::ZERO).unwrap()
++            })
++            .collect();
++        u.start().unwrap();
++        let pp = planet_period_ticks(&u, planet);
++        let horizon = (pp * 0.2) as i64;
++        let t0 = std::time::Instant::now();
++        u.settle(horizon);
++        (u, ships, horizon, t0.elapsed().as_secs_f64())
++    };
++    let (ru, rships, h, _rw) = mk(0);
++    let (au, aships, h2, aw) = mk(48);
++    assert_eq!(h, h2);
++    let (rs, st2) = (&ru.stats, &au.stats);
++    println!(
++        "control (8 co-orbital ships, 0.2 planet periods): REFERENCE kicks {} rekeys {}; ANCHORED kicks {} (compiles {} = {:.3}/kick, re-anchors {}), wall {aw:.2}s",
++        rs.kicks, rs.rekeys, st2.kicks, st2.compiles, st2.compiles as f64 / st2.kicks.max(1) as f64, st2.anchors
++    );
++    println!("   dv histogram of fired kicks, reference (0,1,2,3-4,>=5 quanta... at the fired word): {:?}", rs.dv_class);
++    assert!(rs.rekeys > 0, "instrument control failed: co-orbital kicks must fire and rekey under the reference law");
++    // Behaviour: the anchored co-orbital evolution against the reference law.
++    let mut devs = Vec::new();
++    for (&i, &j) in rships.iter().zip(aships.iter()) {
++        let (rst, ast) = (ru.rec(i).b.readout(h).unwrap(), au.rec(j).b.readout(h).unwrap());
++        let r0 = (rst.position[0].unsigned_abs().max(rst.position[1].unsigned_abs()) as f64) * 2f64.powi(rst.length_exponent as i32);
++        let dx = (rst.position[0] - ast.position[0]).unsigned_abs().max((rst.position[1] - ast.position[1]).unsigned_abs()) as f64
++            * 2f64.powi(rst.length_exponent as i32);
++        devs.push(dx / r0);
++    }
++    devs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    println!("   co-orbital |dx|/r vs reference: med {:.3e} max {:.3e}", devs[devs.len() / 2], devs[devs.len() - 1]);
++    let alive_diff = rships.iter().zip(aships.iter()).filter(|(&i, &j)| ru.rec(i).alive != au.rec(j).alive).count();
++    println!("   alive-diff {alive_diff}");
++    let _ = std::mem::size_of::<(Binding, Segment, BodyRec)>();
++}
