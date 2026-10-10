@@ -1,0 +1,107 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..1e4c11d 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -120,6 +120,15 @@ pub struct ViewCache {
+     slots: Vec<Option<Crossing>>,
+     /// Readouts spent finding crossings, in the last gather (a measure, not a result).
+     pub readouts: u64,
++    /// Lab measurement (run 20261010-0814): nanoseconds in the last gather's three phases —
++    /// the observer's own state and clocks, the per-body light-cone crossings, the fleet extrapolations.
++    pub t_observer_ns: u64,
++    pub t_bodies_ns: u64,
++    pub t_fleets_ns: u64,
++    pub d1_ns: u64,
++    pub d1_n: u64,
++    pub deep_ns: u64,
++    pub deep_n: u64,
+ }
+ 
+ impl ViewCache {
+@@ -232,9 +241,8 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+ 
+ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
+     let ctx = u.ctx();
+-    if let Some(c) = cache.as_mut() {
+-        c.readouts = 0;
+-    }
++    let (mut t_obs, mut t_bod, mut t_fle) = (0u64, 0u64, 0u64);
++    let sw = std::time::Instant::now();
+     let p = u.player()?;
+     let t_now = u.now;
+     let rec = u.rec(p);
+@@ -295,15 +303,23 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
++    t_obs = sw.elapsed().as_nanos() as u64;
++    let sw_b = std::time::Instant::now();
+     // Bodies: where each tube crosses the past light cone.
+     let mut reads = 0u64;
++    let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
++    let (mut d1_ns, mut d1_n, mut deep_ns, mut deep_n) = (0u64, 0u64, 0u64, 0u64);
++    let depth = |mut doll: u16| -> u32 { let mut d = 1; while let Some(c) = ctx.dolls[doll as usize].centre { doll = u.bodies().doll(c); d += 1; } d };
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+             continue;
+         }
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
++        let (sw_i, dep) = (std::time::Instant::now(), depth(u.bodies().doll(i)));
+         let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++        let el = sw_i.elapsed().as_nanos() as u64;
++        if dep <= 1 { d1_ns += el; d1_n += 1; } else { deep_ns += el; deep_n += 1; }
+         if let Some(c) = cache.as_deref_mut() {
+             // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+             let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+@@ -330,6 +346,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+     }
++    t_bod = sw_b.elapsed().as_nanos() as u64;
++    let sw_f = std::time::Instant::now();
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
+@@ -366,8 +384,12 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
++    t_fle = sw_f.elapsed().as_nanos() as u64;
++    if let Some(c) = cache.as_deref_mut() {
++        (c.t_observer_ns, c.t_bodies_ns, c.t_fleets_ns) = (t_obs, t_bod, t_fle);
++        (c.d1_ns, c.d1_n, c.deep_ns, c.deep_n) = (d1_ns, d1_n, deep_ns, deep_n);
++    }
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+-    let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+     Some(View {
+         tick: t_now,
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..8de22fe 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -142,6 +142,10 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "events_per_second": d.events_per_second,
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
++        "gather_depth_split_last_frame": {"root_doll_bodies": {"n": s.cache.d1_n, "ms": s.cache.d1_ns as f64 / 1e6}, "deep_bodies": {"n": s.cache.deep_n, "ms": s.cache.deep_ns as f64 / 1e6}, "note": "lab run 20261010-0814: crossing time by doll-chain depth (1 = root doll)"},
++        "gather_split_last_frame_ms": {"observer": s.cache.t_observer_ns as f64 / 1e6, "bodies": s.cache.t_bodies_ns as f64 / 1e6, "fleets": s.cache.t_fleets_ns as f64 / 1e6, "readouts_last_gather": s.cache.readouts, "note": "lab run 20261010-0814: the last frame's gather decomposition"},
++        "gather_ms_series": s.dash.view_ms.iter().step_by(60).map(|v| (v * 1000.0).round() / 1000.0).collect::<Vec<f64>>(),
++        "frame_ms_series": s.dash.frame_ms.iter().step_by(60).map(|v| (v * 1000.0).round() / 1000.0).collect::<Vec<f64>>(),
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..2b95ba0 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -33,7 +33,7 @@ pub struct Session {
+     threads: usize,
+     members: u64,
+     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+-    cache: ViewCache,
++    pub cache: ViewCache,
+ }
+ 
+ impl Session {
