@@ -1,0 +1,28 @@
+kick cost: this box 46.7 us median, M1 anchor 29 us
+  a= 1.0 AU rtf100: today    2.99  skin(12.6x)   0.24  avg0.3/orbit   0.028 core-s/real-s
+  a= 0.5 AU rtf100: today    8.45  skin(12.6x)   0.67  avg0.3/orbit   0.078 core-s/real-s
+  a=0.25 AU rtf100: today   23.89  skin(12.6x)   1.90  avg0.3/orbit   0.221 core-s/real-s
+  a= 0.1 AU rtf100: today   94.44  skin(12.6x)   7.50  avg0.3/orbit   0.872 core-s/real-s
+  a* (break radius, rtf100, 4.0 core-s): today 0.82 AU, skin 0.15 AU, avg 0.036 AU
+
+bytes/body today (plane, N=28): 1203 B -> 1203.00 GB at 1e9
+  16B tubes: 16.00 GB at 1e9
+  6B line (8GB/1e9, OS paid): 6.00 GB at 1e9
+  populations 0.126 bit/body (components-98bc): 15.8 MB at 1e9
+
+kick rate 1e9 @1AU: 1030/game-s; if every kick stays distinct: 24.7 KB per game-s = 8.9 GB per real hour at rtf100
+  f_scar threshold for 1 GB over 10h... per hour: f_scar < 11.2%
+  f_scar threshold for 6 GB over 10h... per hour: f_scar < 67.4%
+
+encounters (measured):
+  r8like-s1e-3-r1e-4         n= 1000    200orbits enc=   35 -> 1.7e-04/body/orbit; evals/enc=17791
+  r8like-s3e-3-r1e-4         n= 1000    100orbits enc=   68 -> 6.8e-04/body/orbit; evals/enc=8400
+  r8like-s1e-2-r1e-4         n= 1000    100orbits enc=  189 -> 1.9e-03/body/orbit; evals/enc=4189
+  r8like-s3e-2-r1e-4         n= 1000     50orbits enc=  248 -> 5.0e-03/body/orbit; evals/enc=5828
+  hot-s0.1-r1e-3             n=  500     50orbits enc= 1744 -> 7.0e-02/body/orbit; evals/enc=1378
+  mixed-a0.5-3-s0.2-r1e-3    n=  400     50orbits enc=  463 -> 2.3e-02/body/orbit; evals/enc=5255
+  dense-n3000-s1e-2-r3e-4    n= 3000     20orbits enc= 1042 -> 1.7e-02/body/orbit; evals/enc=15132
+  at 1e9 bodies, 1 AU: 0.32 bits/s of encounter distinctions (negligible vs kick term)
+
+claim check: 1e9 @1AU rtf100 today = 3.0 core-s/real-s (~3 cores), not 190
+  190 core-s needs a = 0.0629 AU at rtf100 (inside the star), or rtf ~6300 at 1 AU
