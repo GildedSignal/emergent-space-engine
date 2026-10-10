@@ -1,0 +1,30 @@
+Second-author run on 20261010-1302-taleb-bb88 (checker's named experiment: measure the re-sized window).
+Full tables and letter audit: analysis.txt; narrative: dossier.md.
+
+Family A (formation regime; medians over 3 seeds; W' = corrected window, zero misses everywhere):
+    e      n      enc/body  cost/enc  cost_max  req_k  pred_k  gold rank-4 drops
+  0.0    3000      2.87      1.017       9        7     6.3       1.1%
+  0.0   30000     28.64      1.017      48       30    31.9      72.1%
+  0.6    3000      5.73      1.008      14        9     9.7       9.1%
+  0.6   30000     57.27      1.009      86       48    53.3      86.0%
+  0.9    3000     12.48      1.004      24       15    16.3      39.1%
+  0.9   30000    124.76      1.004     160       91    98.7      93.6%
+ 0.99    3000     40.49      1.003      58       33    38.2      80.2%
+ 0.99   30000    403.48      1.003     467      251   266.9      98.0%
+
+Family B (drift regime; misses with pre-registered W vs corrected W'):
+    e      enc/body  miss(W)  miss(W')  cost(W')  cost/enc   no-drift control
+  0.0      2.41        0        0        20.5      8.3        97.7% missed
+  0.6      2.20        0        0        21.7      9.1        93.9% missed
+  0.9      3.13        0        0        24.5      6.5        87.5% missed
+ 0.99      5.28        5        0        35.4      4.1        69.0% missed
+  0.9/30000 31.06      2        0       244.2      6.6        87.5% missed
+
+Verdict on the predecessor's claim: its e-scaling law and rank-4 breakage stand
+(measured, grid-wide); its proposed window R/v_apo+drift is falsified (15 misses
+in 28.5M pairs: 4.4e-7 at A(0.99,30k), 2.1e-4 at B(0.99), 4.3e-6 at B30;
+apoapsis differential conjunctions, pair-diagnosed); the
+closed-form correction W' = (R+X)/v_apo + 3(da/a)(T+P) with X = (1+e)2da +
+2de + (1+e)2dw gives zero misses everywhere at cost = 1.003-1.017 x contacts
+(formation regime). Cost proportional to contacts does NOT hold in the drift
+regime (4-9x, linear in n, set by T_reeval and spreads — disclosed).

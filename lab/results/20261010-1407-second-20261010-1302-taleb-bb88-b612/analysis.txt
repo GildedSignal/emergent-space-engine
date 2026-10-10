@@ -1,0 +1,32 @@
+=== FAMILY A (cost/enc under pre-registered W; W' zero-miss check in dtau/W' col) ===
+e      n      enc/body  cost_mean cost/enc  cost_max [rng]   req_k [rng]  pred_k  tight  dtau/W'  gold_drop  miss(W) miss(W')
+0.0    3000      2.866     2.915   1.0170    9 [8-10 ]    7 [7-7  ]     6.3  0.9957  0.9938   0.011      0   0
+0.0    30000    28.639    29.114   1.0166   48 [47-50 ]   30 [30-31 ]    31.9  0.9987  0.9968   0.721      0   0
+0.6    3000      5.729     5.784   1.0082   14 [14-15 ]    9 [9-11 ]     9.7  0.9970  0.9943   0.091      0   0
+0.6    30000    57.272    57.777   1.0089   86 [84-87 ]   48 [47-50 ]    53.3  0.9985  0.9957   0.860      0   0
+0.9    3000     12.478    12.528   1.0039   24 [22-26 ]   15 [15-16 ]    16.3  0.9985  0.9953   0.391      0   0
+0.9    30000   124.755   125.285   1.0042  160 [157-169]   91 [89-92 ]    98.7  0.9993  0.9962   0.936      0   0
+0.99   3000     40.489    40.608   1.0029   58 [57-61 ]   33 [33-34 ]    38.2  0.9995  0.9962   0.802      0   0
+0.99   30000   403.475   404.588   1.0028  467 [464-473]  251 [241-258]   266.9  1.0006  0.9973   0.980      8   0
+
+=== K-control: famA(0.99, seed 11), K=480 vs K=240 ===
+pairs 60734 -> 60800 (+0.109%), misses 0->0, cost_mean 40.608->40.608, cost_max 61->61, req_k 34->34
+
+=== FAMILY B (both windows) ===
+e      n      enc/body  | W: miss cost/enc | W': miss cost_mean_c cost_max_c tight'_c W0-missfrac
+0.0    3000      2.406  |  0    8.29 |  0    20.507   37  0.842  0.9765
+0.6    3000      2.202  |  0    9.11 |  0    21.715   37  0.808  0.9390
+0.9    3000      3.128  |  0    6.52 |  0    24.462   40  0.741  0.8745
+0.99   3000      5.277  |  5    4.14 |  0    35.350   52  0.669  0.6903
+0.9    30000    31.062  |  2    6.58 |  0   244.155  290  0.846  0.8752
+
+=== Letter audit ===
+Z1  zero misses, pre-registered W, 38 runs:      FAILED (A(0.99,30k): 8; B30: 2; B(0.99): 5 — all diagnosed, see addendum)
+Z1' zero misses, corrected W', everywhere:       HELD (B runs measured directly; A via dtau_max <= W', col above)
+CA  A cost/enc in [0.98,1.08] every run:         HELD (range 1.0027-1.0172)
+MA  sub-letter cost_max>=1.5x mean every run:    FAILED (fails at n=30000 e>=0.9 where sqrt-tail/mean < 0.5; all 8 range letters held)
+KA  req_k<=pred_k in 20/24 (letter >=21); pred_k<=1.6req_k in 24/24
+TA  A tightness >= 0.9 at e>=0.6:                HELD
+NEG B miss_frac >= 0.9 without drift term:       FAILED (e=0: .977, e=0.6: .939, e=0.9: .875, e=0.99: .688 — mechanism confirmed, letter too strict)
+G(0,3000) drop 0.011 (letter [.02,.20]: FAILED low); G(0.99,3000) 0.803 (letter [.50,.80]: FAILED by .003)
+All other G range letters held: (0.9,3k)=.391 [.30,.50]; (0,30k)=.721 [.60,.80]; (0.9,30k)=.936 [.90,.99]; (0.99,30k)=.980 [.97,1.0]
