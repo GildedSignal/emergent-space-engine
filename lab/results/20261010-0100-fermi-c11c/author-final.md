@@ -1,0 +1,4 @@
+Working...
+**Claim:** At the shipped law's measured 63 µs per distinct kick — a cycle compile on which the memo hits 0% at both the exact and the quantized key (3 seeds) — the 10⁹ budget breaks first on kick compute in dense regimes (42× over an 8-core machine even with fully averaged tides, 4,800× unaveraged), while belt-scale compute (1.5×10⁻³ machine), H_live (≤ 10 bits per game-second per billion bodies) and population-program storage (15 MiB) fit with 2–3 orders to spare — so the lever worth a rung is amortizing or batching the per-kick cycle compile (must buy ≥ 40×), not more sparsity, and B18b's real target is the plane's 5,077 B/body working store (591× over at 10⁹), not the 16 B tube.
+
+*(Dossier, pre-registered predictions — P1/P2 failed informatively in the direction of the result — and the regenerable budget table are in `lab/results/20261010-0100-fermi-c11c/`: `kick-bench.json`, `bench-rtf100.json`, `budget.py`.)*
