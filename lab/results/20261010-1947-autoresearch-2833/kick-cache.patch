@@ -1,0 +1,129 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f3076..c0edd91 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -104,6 +104,10 @@ pub struct Binding {
+     /// The doll's clock quantum (`2^clock_exp` doll time units per tick).
+     pub clock_exp: i16,
+     pub event_time: Tick,
++    /// The tube's proper time readout at `event_time`, cached at the binding's creation: it is
++    /// fixed for the binding's life, and every rebind's clock reading needs it (the same bits the
++    /// decode at `event_time` returns; `bind_in` already computes it for the fit).
++    pub proper_at_event: Scalar,
+     /// The kick that made this binding (zero length if none): what the state between kicks is completed with.
+     pub kick: Kick,
+ }
+@@ -111,7 +115,9 @@ pub struct Binding {
+ /// The tube's own readout (no remainder) at `t`, with the orbit state it came from, in the doll's units
+ /// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+ /// the radius and the proper time out; angles and velocities are the same in both).
+-fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++/// The orbit state alone (the tube's proper time, radius and velocities): the same readout as
++/// [`decode`] without the integer word, for readers that never ask where the body is.
++fn decode_orbit(entry: &Entry, tube: &Tube, clock_exp: i16, t: Tick) -> Res<OrbitState> {
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+     let mut state = entry.trajectory.state(elapsed)?;
+@@ -119,6 +125,11 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
+         state.radius = entry.unit.to_doll(state.radius)?;
+         state.proper_time = entry.unit.to_doll(state.proper_time)?;
+     }
++    Ok(state)
++}
++
++fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++    let state = decode_orbit(entry, tube, clock_exp, t)?;
+     Ok((cartesian(state, tube.periapsis_angle, entry.clockwise, units)?, state))
+ }
+ 
+@@ -130,7 +141,7 @@ impl Binding {
+ 
+     /// The orbit state at `t` (proper time, radius, velocities of the tube).
+     pub fn orbit_state(&self, t: Tick) -> Res<OrbitState> {
+-        Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
++        decode_orbit(&self.entry, &self.tube, self.clock_exp, t)
+     }
+ 
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+@@ -243,8 +254,9 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+ }
+ 
+ /// A binding with an exactly known tube and nothing to carry (a body made from its orbit).
+-pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i16), t: Tick, doll: u16) -> Binding {
+-    Binding {
++pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i16), t: Tick, doll: u16) -> Res<Binding> {
++    let proper_at_event = decode(&entry, &tube, clock_exp, units, t)?.1.proper_time;
++    Ok(Binding {
+         doll,
+         tube,
+         entry,
+@@ -253,6 +265,7 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
+         units,
+         clock_exp,
+         event_time: t,
++        proper_at_event,
+         kick: Kick::NONE,
+-    }
++    })
+ }
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..9c4dc28 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -309,7 +309,7 @@ impl Work<'_, '_> {
+         let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+-        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++        let tau = old.orbit_state(t)?.proper_time.sub(old.proper_at_event)?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
+@@ -322,6 +322,7 @@ impl Work<'_, '_> {
+             units: bound.units,
+             clock_exp,
+             event_time: t,
++            proper_at_event: bound.orbit.proper_time,
+             kick: Kick::NONE,
+         };
+         self.new_entry = Some(bound.entry.clone());
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..d0a0ad9 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -285,7 +285,7 @@ impl Universe {
+     pub fn add_body(&mut self, kind: Kind, spec: OrbitSpec, radius: Scalar) -> Res<usize> {
+         let (entry, mut tube, units) = self.spec_binding(&spec, self.dolls[spec.doll as usize].unit)?;
+         tube.key = self.cat.insert(entry.clone())?;
+-        let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
++        let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll)?;
+         let rec = BodyRec {
+             kind,
+             b,
+@@ -333,7 +333,7 @@ impl Universe {
+         let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
+         let mut tube = bound.tube;
+         tube.key = self.cat.insert(bound.entry.clone())?;
+-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
++        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, proper_at_event: bound.orbit.proper_time, kick: crate::bind::Kick::NONE };
+         let rec = BodyRec {
+             kind,
+             b,
+@@ -372,7 +372,7 @@ impl Universe {
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+         tube.key = self.cat.insert(entry.clone())?;
+-        rec.b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
++        rec.b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll)?;
+         self.bodies.put(i, rec);
+         Ok(())
+     }
+@@ -681,7 +681,7 @@ impl Universe {
+             let key = self.cat.insert(bound.entry.clone())?;
+             let mut tube = bound.tube;
+             tube.key = key;
+-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE };
++            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, proper_at_event: bound.orbit.proper_time, kick: crate::bind::Kick::NONE };
+             let rec = BodyRec {
+                 kind: Kind::Ship,
+                 b,
