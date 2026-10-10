@@ -1,0 +1,210 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..2f3f979 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -107,6 +107,14 @@ pub struct Stats {
+     /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
+     pub cost_ns: [u64; 5],
+     pub items: [u64; 5],
++    /// Probe (lab 20261010-1544): kicks whose rounded `dv` changed a velocity quantum, and
++    /// rebinding events (a binding replaced, its old self retired into history).
++    pub kicks_dv: u64,
++    /// Probe: kicks whose rebind moved the body to a new quantized orbit key.
++    pub rekeys: u64,
++    pub rebinds: u64,
++    /// Probe: kicks by the size of their rounded `dv` in quanta: 0, 1, 2, 3–4, ≥5.
++    pub dv_class: [u64; 5],
+ }
+ impl Stats {
+     pub fn events(&self) -> u64 {
+@@ -508,6 +516,29 @@ impl Universe {
+     // ---- resolving ------------------------------------------------------------------------------
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
++        let was_rebind = !upd.retired.is_empty();
++        if matches!(upd.kind, Resolved::Kick) {
++            let dv = upd.rec.b.kick.dv;
++            if dv != [0, 0] {
++                self.stats.kicks_dv += 1;
++            }
++            let m = dv[0].unsigned_abs().max(dv[1].unsigned_abs());
++            self.stats.dv_class[m.min(4) as usize] += 1;
++            // The memo key (quantized E, L) of the binding this kick replaces, against the new
++            // one: a rekey is a distinction (the program's tube no longer predicts the body).
++            if let (Some(seg), emergent_space::binding::Trajectory::Cycle(nc)) =
++                (upd.retired.last(), &upd.rec.b.entry.trajectory)
++            {
++                if let emergent_space::binding::Trajectory::Cycle(oc) = &seg.b.entry.trajectory {
++                    if oc.key() != nc.key() {
++                        self.stats.rekeys += 1;
++                    }
++                }
++            }
++        }
++        if was_rebind {
++            self.stats.rebinds += 1;
++        }
+         for seg in upd.retired.drain(..) {
+             self.cat.release(seg.b.tube.key);
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+diff --git a/crates/universe/tests/hlive.rs b/crates/universe/tests/hlive.rs
+new file mode 100644
+index 0000000..a3e266e
+--- /dev/null
++++ b/crates/universe/tests/hlive.rs
+@@ -0,0 +1,155 @@
++//! Lab probe 20261010-1544-system-97ce: the belt's event stream vs its distinction stream.
++//!
++//! A smooth belt (banded periapsis, Rayleigh e, uniform angle and phase — B18's generator
++//! shape, a fixed LCG, nothing chosen by outcomes) of test ships in the star's doll, kicked
++//! by one Jupiter-like planet. The same belt at two kick cadences (step_log2 7 and 4).
++//! What is measured: events per body (work), kicks that changed a velocity quantum
++//! (distinctions), their size histogram, wall cost, and the engine's per-body live record.
++
++use emergent_space::orbit::Scalar;
++use emergent_universe::body::{BodyRec, Segment};
++use emergent_universe::bind::Binding;
++use emergent_universe::num::{s, to_f64};
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++
++/// A Jupiter analog: 5.2 AU, mass 2^-10 of the star.
++const SEP: i64 = 527_000_000;
++/// The belt: periapsis banded 2.1–3.3 AU.
++const P_LO: i64 = 212_730_000;
++const P_HI: i64 = 333_900_000;
++const N: usize = 384;
++/// Two planet periods.
++const PERIODS: i64 = 2;
++
++struct Lcg(u64);
++impl Lcg {
++    fn f(&mut self) -> f64 {
++        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        (self.0 >> 11) as f64 / (1u64 << 53) as f64
++    }
++}
++
++fn belt(cfg: Config) -> (Universe, usize, Vec<usize>) {
++    let mut u = Universe::new(s(emergent_universe::scenario::STAR_RADIUS), cfg);
++    let planet = u
++        .add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s(SEP), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO)
++        .unwrap();
++    u.add_doll("planet", planet, -10, Scalar::raw(36_000_000, 0).unwrap()).unwrap();
++    let mut g = Lcg(0x5EED_97CE_0000_0001);
++    let ships = (0..N)
++        .map(|_| {
++            let p = P_LO as f64 + g.f() * (P_HI - P_LO) as f64;
++            // Rayleigh(0.1), clamped at 0.3: the belt's eccentricity distribution.
++            let e = (0.1 * (-2.0 * (1.0 - g.f()).ln()).sqrt()).min(0.3);
++            u.add_body(
++                Kind::Ship,
++                OrbitSpec {
++                    doll: 0,
++                    periapsis: s(p as i64),
++                    e_q48: ((1u64 << 48) as f64 * e) as u64,
++                    clockwise: false,
++                    angle: (g.f() * u32::MAX as f64) as u32,
++                    phase: (g.f() * u32::MAX as f64) as u32,
++                },
++                Scalar::ZERO,
++            )
++            .unwrap()
++        })
++        .collect();
++    u.start().unwrap();
++    (u, planet, ships)
++}
++
++fn planet_period_ticks(u: &Universe, planet: usize) -> f64 {
++    let b = &u.rec(planet).b;
++    let emergent_space::binding::Trajectory::Cycle(c) = &b.entry.trajectory else { unreachable!() };
++    to_f64(b.to_doll(c.period().unwrap()).unwrap()) * 2f64.powi(-(u.dolls[b.doll as usize].shift as i32))
++}
++
++fn ship_period_ticks(u: &Universe, ship: usize) -> f64 {
++    let b = &u.rec(ship).b;
++    let emergent_space::binding::Trajectory::Cycle(c) = &b.entry.trajectory else { unreachable!() };
++    to_f64(b.to_doll(c.period().unwrap()).unwrap()) * 2f64.powi(-(u.dolls[b.doll as usize].shift as i32))
++}
++
++fn run(step_log2: i32) {
++    let cfg = Config { step_log2, ..Config::default() };
++    let (mut u, planet, ships) = belt(cfg);
++    let pp = planet_period_ticks(&u, planet);
++    let sp = ship_period_ticks(&u, ships[0]);
++    let horizon = (pp * PERIODS as f64) as i64;
++    let t0 = std::time::Instant::now();
++    u.settle(horizon);
++    let wall = t0.elapsed().as_secs_f64();
++    let st = &u.stats;
++    let game_s = horizon as f64 * emergent_universe::view::TICK_SECONDS;
++    let events = st.events();
++    let per_body_events = events as f64 / N as f64;
++    let per_body_orbit = per_body_events / (horizon as f64 / sp);
++    let dv = st.kicks_dv as f64;
++    let ks = st.kicks as f64;
++    println!("== step_log2 {step_log2} (2^{step_log2} kicks per period), horizon {PERIODS} planet periods = {game_s:.3e} game-s ==");
++    println!(
++        "belt of {N}: events {events} (kicks {}, opens {}, boundaries {}), refused {}, lost {}",
++        st.kicks, st.opens, st.boundaries, st.refused, st.lost
++    );
++    println!(
++        "per body: {per_body_events:.1} events over the horizon ({per_body_orbit:.1} per ship orbit, ship orbit {:.3e} ticks = {:.3e} game-s); wall {wall:.2} s = {:.0} ns/event",
++        sp, sp * emergent_universe::view::TICK_SECONDS, wall * 1e9 / events.max(1) as f64
++    );
++    println!(
++        "distinctions: kicks with dv != 0: {}/{} = {:.4} (per body per ship orbit {:.2}; per game-second per body {:.3e})",
++        st.kicks_dv,
++        st.kicks,
++        dv / ks.max(1.0),
++        dv / N as f64 / (horizon as f64 / sp),
++        dv / N as f64 / game_s
++    );
++    println!("dv histogram (0,1,2,3-4,>=5 quanta): {:?}; rekeys {} (a kick moved the body to a new quantized orbit)", st.dv_class, st.rekeys);
++    println!("rebinds {} (per kick {:.3}), cost_ns by lane {:?} items {:?}", st.rebinds, st.rebinds as f64 / ks.max(1.0), st.cost_ns, st.items);
++    let sample: Vec<u64> = ships.iter().take(5).map(|&i| u.rec(i).events).collect();
++    println!("sample per-body events: {sample:?}; sizeof: Binding {} Segment {} BodyRec {}", std::mem::size_of::<Binding>(), std::mem::size_of::<Segment>(), std::mem::size_of::<BodyRec>());
++    // A ship that never diverged from its program is still on its birth orbit: count how many
++    // ships' kick stream ever changed a quantum at all is above; here we check zero-event ships.
++    let quiet = ships.iter().filter(|&&i| u.rec(i).events == 0).count();
++    println!("ships with zero events: {quiet}/{N}");
++}
++
++#[test]
++fn belt_event_stream_vs_distinction_stream() {
++    run(7);
++    run(4);
++}
++
++/// Control for the instrument: ships co-orbital with the planet (sep ± 1.5–3 Hill radii),
++/// where the planet's kicks are quantum-large. If dv≠0 stays 0 here the probe is broken,
++/// not the belt.
++#[test]
++fn control_coorbital_kicks_are_quantum_large() {
++    let cfg = Config::default();
++    let mut u = Universe::new(s(emergent_universe::scenario::STAR_RADIUS), cfg);
++    let planet = u
++        .add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s(SEP), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO)
++        .unwrap();
++    u.add_doll("planet", planet, -10, Scalar::raw(36_000_000, 0).unwrap()).unwrap();
++    let hill = 36_000_000i64;
++    let ships: Vec<usize> = [1.5f64, 2.0, 2.5, 3.0]
++        .iter()
++        .flat_map(|h| [SEP + (*h as i64) * hill / 3, SEP - (*h as i64) * hill / 3])
++        .map(|r| {
++            u.add_body(Kind::Ship, OrbitSpec { doll: 0, periapsis: s(r), e_q48: 0, clockwise: false, angle: 0x2000_0000, phase: 0 }, Scalar::ZERO).unwrap()
++        })
++        .collect();
++    u.start().unwrap();
++    let pp = planet_period_ticks(&u, planet);
++    u.settle((pp * 0.2) as i64);
++    let st = &u.stats;
++    println!(
++        "control (8 co-orbital ships, 0.2 planet periods): kicks {}, dv!=0: {}, rekeys {}, histogram {:?}",
++        st.kicks,
++        st.kicks_dv,
++        st.rekeys,
++        st.dv_class
++    );
++    assert!(st.rekeys > 0 || st.kicks_dv > 0, "instrument control failed: co-orbital kicks must change quanta or rekey");
++}
