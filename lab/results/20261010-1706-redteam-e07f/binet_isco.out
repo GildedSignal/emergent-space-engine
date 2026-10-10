@@ -1,0 +1,31 @@
+=== A. ISCO strip: band stability vs true stability (r0=1) ===
+m=16 centre     : misclassified r in [5.9073, 6.0000) width 0.0927 M = 1.54% of 6M; effective ISCO 5.9073 (-1.54%)
+m=16 inner-edge : misclassified r in [6.0000, 6.1688) width 0.1688 M = 2.81% of 6M; effective ISCO 6.1688 (+2.81%)
+m=32 centre     : misclassified r in [6.0000, 6.0367) width 0.0367 M = 0.61% of 6M; effective ISCO 6.0000 (+0.00%)
+m=32 inner-edge : misclassified r in [6.0000, 6.0367) width 0.0367 M = 0.61% of 6M; effective ISCO 6.0367 (+0.61%)
+m=64 centre     : misclassified r in [5.9716, 6.0000) width 0.0284 M = 0.47% of 6M; effective ISCO 5.9716 (-0.47%)
+m=64 inner-edge : misclassified r in [6.0000, 6.0367) width 0.0367 M = 0.61% of 6M; effective ISCO 6.0367 (+0.61%)
+
+=== B. doll ring phase r0=1.3, m=16, centre ===
+r0=1.0: strip [5.9073, 6.0000) width 0.0927 M = 1.54% of 6M
+r0=1.3: strip [5.9217, 6.0000) width 0.0783 M = 1.31% of 6M
+
+=== C. exact Binet vs band dynamics (RK4, dphi=1e-3) ===
+r=5.95: exact->plunge (u range [0.5002,0.1682]) | band m=16 centre     ->bound  (u range [0.1621,0.1682])   <-- DISAGREE
+r=6.05: exact->bound  (u range [0.1651,0.1655]) | band m=16 inner-edge ->bound  (u range [0.1595,0.1655])
+r=5.95: exact->plunge (u range [0.5002,0.1682]) | band m=32 centre     ->bound  (u range [0.1633,0.1682])   <-- DISAGREE
+
+=== D. r1's frozen ISCO probes are blind ===
+r=7.0: true=stable; band(centre)=stable; band(edge)=stable  -> isco_correct criterion passes
+r=5.5: true=unstable; band(centre)=unstable; band(edge)=unstable  -> isco_correct criterion passes
+
+=== E. epicyclic frequency staircase ===
+max |w_band-w_true|/w_true over (6.17,7.0): 31.5% at r=6.172
+max adjacent-band jump over (6.0,6.6): 181.8% at r=6.168 (0.078 -> 0.220)
+true w_r at 6.05M: 0.0909; first stable band (centre, m=16) gives 0.2196 -- cliff, no smooth ->0
+
+=== F. view at high c: Doppler sweep factor k = 1/(gamma(1-beta)) ===
+beta=0.5: k = 1.7
+beta=0.9: k = 4.4
+beta=0.99: k = 14.1
+beta=0.999: k = 44.7
