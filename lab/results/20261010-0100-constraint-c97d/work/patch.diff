@@ -1,0 +1,93 @@
+diff --git a/crates/universe/src/constraint_lab.rs b/crates/universe/src/constraint_lab.rs
+new file mode 100644
+index 0000000..4f1fa40
+--- /dev/null
++++ b/crates/universe/src/constraint_lab.rs
+@@ -0,0 +1,33 @@
++//! Lab-only measure (constraint lens, run 20261010-0100): per-gather counts, so the readout path's
++//! scaling with bodies-in-view is a measurement, not an inference. Deleted with the run's patch.
++use std::cell::Cell;
++use std::sync::atomic::{AtomicU64, Ordering};
++
++static GATHERS: AtomicU64 = AtomicU64::new(0);
++static BODIES: AtomicU64 = AtomicU64::new(0);
++static SEEN: AtomicU64 = AtomicU64::new(0);
++static READS: AtomicU64 = AtomicU64::new(0);
++thread_local! {
++    static LAST_SEEN: Cell<u64> = const { Cell::new(0) };
++}
++
++pub fn record_gather(n_bodies: usize, seen: usize, reads: u64) {
++    GATHERS.fetch_add(1, Ordering::Relaxed);
++    BODIES.fetch_add(n_bodies as u64, Ordering::Relaxed);
++    SEEN.fetch_add(seen as u64, Ordering::Relaxed);
++    READS.fetch_add(reads, Ordering::Relaxed);
++    LAST_SEEN.set(seen as u64);
++}
++
++pub fn last_seen() -> u64 {
++    LAST_SEEN.get()
++}
++
++pub fn report() -> (u64, u64, u64, u64) {
++    (
++        GATHERS.load(Ordering::Relaxed),
++        BODIES.load(Ordering::Relaxed),
++        SEEN.load(Ordering::Relaxed),
++        READS.load(Ordering::Relaxed),
++    )
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index afd46ea..17102a8 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,6 +1,7 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
+ pub mod bind;
+ pub mod body;
++pub mod constraint_lab;
+ pub mod ctx;
+ pub mod dash;
+ pub mod encounter;
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..7bfe123 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -333,6 +333,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
++
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
+     let mut motions = Vec::new();
+@@ -367,6 +368,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         }
+     }
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
++    // Lab measure (constraint lens): how the readout cost scales with what is in view.
++    crate::constraint_lab::record_gather(u.n_bodies(), seen.len(), reads);
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+     Some(View {
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..6d398a1 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -127,6 +127,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         .map(|(i, k)| json!({"kind": k, "items": st.items[i], "total_ms": st.cost_ns[i] as f64 / 1e6, "us_per_item": if st.items[i] > 0 { st.cost_ns[i] as f64 / 1e3 / st.items[i] as f64 } else { 0.0 }}))
+         .collect();
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
++    let (g0, g1, g2, g3) = emergent_universe::constraint_lab::report();
++    let g0 = if g0 == 0 { 1 } else { g0 };
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
+     let report = json!({
+@@ -142,6 +144,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "events_per_second": d.events_per_second,
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
++        "gather_measure": { "note": "lab measure (constraint lens): per-gather totals of universe bodies, view entries pushed, and light-cone crossing readouts", "gathers": g0, "avg_bodies": g1 as f64 / g0 as f64, "avg_seen": g2 as f64 / g0 as f64, "avg_reads": g3 as f64 / g0 as f64 },
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
