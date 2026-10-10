@@ -1,0 +1,192 @@
+{
+  "digest": "1b5647f36b57bc0d2a894327e14a5168db4036a11051f7776f876b953c20522e",
+  "events_by_kind": {
+    "boundary": 782,
+    "handoff": 0,
+    "kick": 827,
+    "lost": 15,
+    "open": 0,
+    "refused": 0
+  },
+  "fired_vs_carried": {
+    "carried": [
+      0,
+      0
+    ],
+    "fire_rate": 1.0,
+    "fired": [
+      365,
+      462
+    ]
+  },
+  "frames": 180,
+  "game_seconds": 3000.0,
+  "information": {
+    "bits_per_ship_s": {
+      "coarse": 0.0014286583252681997,
+      "exact_p50_bracket": 0.07562513476669015
+    },
+    "clock_kicks_excluded": 12,
+    "dv_context_log2_p50": 25.689080056666533,
+    "dv_context_log2_p99": 36.39310277882947,
+    "exact_key_first_difference": {
+      "bits_p50_sum": 18.19453564781841,
+      "distinct": 746,
+      "log2_dk_bits_p50": 18.19453564781841,
+      "log2_dk_p99": 25.06857136641816,
+      "log2_dp_bits_p50": 0.0,
+      "samples": 746
+    },
+    "quantized_key": {
+      "distinct_pairs": 80,
+      "entropy_bits_per_rebind_conditional": 0.3437187240437689,
+      "note": "H(next|prev) over the 24-bit memo key per body; the plug-in estimate with few samples per pair biases down, magnitudes cross-check it",
+      "transitions": 794
+    }
+  },
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-10T21:13:03Z",
+    "unix": 1791666783,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-10T21:13:03Z",
+    "unix": 1791666783,
+    "when": "before"
+  },
+  "memo": {
+    "cycles": 794,
+    "exact_shapes": 794,
+    "quantized_shapes": 49
+  },
+  "rates": {
+    "carried_kicks_per_ship_s": [
+      0.0,
+      0.0
+    ],
+    "catalogue_entries_per_ship_s": [
+      0.0018344781370413755,
+      0.0023219969844194945
+    ],
+    "rebind_kicks_per_ship_s": [
+      0.0018344781370413755,
+      0.0023219969844194945
+    ],
+    "rebinds_per_ship_s": [
+      0.0018344781370413755,
+      0.0023219969844194945
+    ],
+    "segments_per_ship_s": [
+      0.0018344781370413755,
+      0.0023219969844194945
+    ]
+  },
+  "removal": {
+    "coarse": {
+      "blocks_rewritten": 3,
+      "bytes_added_admits": 984,
+      "bytes_added_compact": 0,
+      "bytes_added_rebinds": 2430,
+      "bytes_now": 2262,
+      "bytes_per_member_now": 31.859154929577464,
+      "bytes_removed_compact": 1152,
+      "bytes_removed_per_compact_us": 31.30009509577503,
+      "bytes_removed_per_game_s": 0.384,
+      "bytes_removed_per_ship_s": 0.005789914558552506,
+      "cols": 2,
+      "compact_trace_us_rows_repacks": [
+        [
+          36.805,
+          14,
+          3
+        ]
+      ],
+      "compact_us_p50": 36.805,
+      "compact_us_total": 36.805,
+      "compacts": 1,
+      "created_bits_per_ship_s_same_run": 0.0014286583252681997,
+      "duty_cores_at_1e9_from_created_bits_capacity": 0.0057054871594505304,
+      "duty_cores_at_1e9_ships_linear_scene_scaling": 0.18498073379125432,
+      "duty_scene_us_per_game_s": 0.012268333333333332,
+      "members": 71,
+      "rebinds_seen": 827,
+      "repacks": 3,
+      "skipped_no_handle": 58,
+      "unchanged_skipped": 745,
+      "updates": 24,
+      "us_per_rebind_amortized": 1.5335416666666666
+    },
+    "exact": {
+      "blocks_rewritten": 3,
+      "bytes_added_admits": 1664,
+      "bytes_added_compact": 0,
+      "bytes_added_rebinds": 7416,
+      "bytes_now": 4391,
+      "bytes_per_member_now": 61.84507042253521,
+      "bytes_removed_compact": 4689,
+      "bytes_removed_per_compact_us": 33.22162629390051,
+      "bytes_removed_per_game_s": 1.563,
+      "bytes_removed_per_ship_s": 0.023566761601608244,
+      "cols": 5,
+      "compact_trace_us_rows_repacks": [
+        [
+          141.143,
+          34,
+          3
+        ]
+      ],
+      "compact_us_p50": 141.143,
+      "compact_us_total": 141.143,
+      "compacts": 1,
+      "created_bits_per_ship_s_same_run": 0.07562513476669015,
+      "duty_cores_at_1e9_from_created_bits_capacity": 0.28454783526271454,
+      "duty_cores_at_1e9_ships_linear_scene_scaling": 0.709380130675153,
+      "duty_scene_us_per_game_s": 0.04704766666666667,
+      "members": 71,
+      "rebinds_seen": 827,
+      "repacks": 3,
+      "skipped_no_handle": 70,
+      "unchanged_skipped": 0,
+      "updates": 757,
+      "us_per_rebind_amortized": 0.18645046235138704
+    },
+    "memo_fallbacks": [
+      0,
+      54
+    ],
+    "model_replaced": "the dossier's duty model assumed one kick-resolver rebind (72 us median) per recompile; us_per_rebind_amortized is the measured replacement",
+    "note": "one Shelf per level; every rebind updates the ship's slot (hot tier, O(1)); compact() every 120 frames seals scars and repacks groups whose scars cost more than a quarter of their blocks; bytes/counts deterministic, us host-dependent"
+  },
+  "replay_digest": "791819dc6a34316895c138320a591a02cef133b73decc98f80411c2c90e86041",
+  "rtf": 1000.0,
+  "scope": "H_live creation side (distinct pending ship items resolved by pure replay on deterministic plane snapshots; resolver cost excluded from rates) plus the removal side: the same rebind stream into two real shipmem shelves (128-member blocks), compacted every 120 frames",
+  "seed": 1,
+  "ship_seconds": 198966.6666666672,
+  "store_samples": [
+    {
+      "bodies": 76,
+      "bytes_per_body": 5465,
+      "catalogue_live": 76,
+      "frame": 120,
+      "game_s": 2000.0,
+      "shelf_coarse_bytes": 1110,
+      "shelf_exact_bytes": 2087,
+      "ships": 71
+    }
+  ],
+  "wall_seconds": 0.437387758
+}

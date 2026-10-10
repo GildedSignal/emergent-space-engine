@@ -1,0 +1,472 @@
+{
+  "digest": "10a790ffbe32e67836ddef966eceb3b3d005345dbc4e86d963e42dbcb4a79fd3",
+  "events_by_kind": {
+    "boundary": 1457,
+    "handoff": 0,
+    "kick": 1507,
+    "lost": 25,
+    "open": 1,
+    "refused": 0
+  },
+  "fired_vs_carried": {
+    "carried": [
+      0,
+      1
+    ],
+    "fire_rate": 0.9993364299933643,
+    "fired": [
+      365,
+      1141
+    ]
+  },
+  "frames": 1800,
+  "game_seconds": 3000.0,
+  "information": {
+    "bits_per_ship_s": {
+      "coarse": 0.0013334722701011947,
+      "exact_p50_bracket": 0.1360436494745965
+    },
+    "clock_kicks_excluded": 12,
+    "dv_context_log2_p50": 23.850058231374174,
+    "dv_context_log2_p99": 35.43338183047541,
+    "exact_key_first_difference": {
+      "bits_p50_sum": 17.480916393533324,
+      "distinct": 1428,
+      "log2_dk_bits_p50": 17.480916393533324,
+      "log2_dk_p99": 25.41608924118395,
+      "log2_dp_bits_p50": 0.0,
+      "samples": 1440
+    },
+    "quantized_key": {
+      "distinct_pairs": 80,
+      "entropy_bits_per_rebind_conditional": 0.17134439833655613,
+      "note": "H(next|prev) over the 24-bit memo key per body; the plug-in estimate with few samples per pair biases down, magnitudes cross-check it",
+      "transitions": 1485
+    }
+  },
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-10T21:13:03Z",
+    "unix": 1791666783,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-10T21:13:02Z",
+    "unix": 1791666782,
+    "when": "before"
+  },
+  "memo": {
+    "cycles": 1485,
+    "exact_shapes": 1485,
+    "quantized_shapes": 46
+  },
+  "rates": {
+    "carried_kicks_per_ship_s": [
+      0.0,
+      5.1676025769110656e-6
+    ],
+    "catalogue_entries_per_ship_s": [
+      0.0018861749405725387,
+      0.005896234540255525
+    ],
+    "rebind_kicks_per_ship_s": [
+      0.0018861749405725387,
+      0.005896234540255525
+    ],
+    "rebinds_per_ship_s": [
+      0.0018861749405725387,
+      0.005896234540255525
+    ],
+    "segments_per_ship_s": [
+      0.0018861749405725387,
+      0.005896234540255525
+    ]
+  },
+  "removal": {
+    "coarse": {
+      "blocks_rewritten": 5,
+      "bytes_added_admits": 1240,
+      "bytes_added_compact": 0,
+      "bytes_added_rebinds": 1215,
+      "bytes_now": 1303,
+      "bytes_per_member_now": 20.046153846153846,
+      "bytes_removed_compact": 1152,
+      "bytes_removed_per_compact_us": 15.006057132436268,
+      "bytes_removed_per_game_s": 0.384,
+      "bytes_removed_per_ship_s": 0.005953078168601547,
+      "cols": 2,
+      "compact_trace_us_rows_repacks": [
+        [
+          1.174,
+          0,
+          0
+        ],
+        [
+          1.089,
+          0,
+          0
+        ],
+        [
+          1.133,
+          0,
+          0
+        ],
+        [
+          21.148,
+          2,
+          2
+        ],
+        [
+          1.543,
+          0,
+          0
+        ],
+        [
+          1.448,
+          0,
+          0
+        ],
+        [
+          14.109,
+          1,
+          1
+        ],
+        [
+          1.537,
+          0,
+          0
+        ],
+        [
+          1.384,
+          0,
+          0
+        ],
+        [
+          1.447,
+          0,
+          0
+        ],
+        [
+          1.639,
+          0,
+          0
+        ],
+        [
+          1.496,
+          0,
+          0
+        ],
+        [
+          1.494,
+          0,
+          0
+        ],
+        [
+          24.763,
+          7,
+          2
+        ],
+        [
+          1.365,
+          0,
+          0
+        ]
+      ],
+      "compact_us_p50": 1.494,
+      "compact_us_total": 76.769,
+      "compacts": 15,
+      "created_bits_per_ship_s_same_run": 0.0013334722701011947,
+      "duty_cores_at_1e9_from_created_bits_capacity": 0.011107783496462525,
+      "duty_cores_at_1e9_ships_linear_scene_scaling": 0.39671168222688563,
+      "duty_scene_us_per_game_s": 0.025589666666666667,
+      "members": 65,
+      "rebinds_seen": 1506,
+      "repacks": 5,
+      "skipped_no_handle": 57,
+      "unchanged_skipped": 1439,
+      "updates": 10,
+      "us_per_rebind_amortized": 7.676900000000001
+    },
+    "exact": {
+      "blocks_rewritten": 70,
+      "bytes_added_admits": 1912,
+      "bytes_added_compact": 0,
+      "bytes_added_rebinds": 31608,
+      "bytes_now": 2306,
+      "bytes_per_member_now": 35.47692307692308,
+      "bytes_removed_compact": 31214,
+      "bytes_removed_per_compact_us": 14.553949018748455,
+      "bytes_removed_per_game_s": 10.404666666666667,
+      "bytes_removed_per_ship_s": 0.161301546835702,
+      "cols": 5,
+      "compact_trace_us_rows_repacks": [
+        [
+          142.992,
+          26,
+          4
+        ],
+        [
+          169.724,
+          31,
+          5
+        ],
+        [
+          160.071,
+          21,
+          5
+        ],
+        [
+          153.66,
+          24,
+          5
+        ],
+        [
+          149.686,
+          20,
+          5
+        ],
+        [
+          143.139,
+          17,
+          5
+        ],
+        [
+          148.577,
+          19,
+          5
+        ],
+        [
+          143.902,
+          16,
+          5
+        ],
+        [
+          145.501,
+          19,
+          5
+        ],
+        [
+          146.156,
+          19,
+          5
+        ],
+        [
+          120.898,
+          15,
+          4
+        ],
+        [
+          125.49300000000001,
+          18,
+          4
+        ],
+        [
+          118.501,
+          14,
+          4
+        ],
+        [
+          154.129,
+          24,
+          5
+        ],
+        [
+          122.28099999999999,
+          17,
+          4
+        ]
+      ],
+      "compact_us_p50": 145.501,
+      "compact_us_total": 2144.71,
+      "compacts": 15,
+      "created_bits_per_ship_s_same_run": 0.1360436494745965,
+      "duty_cores_at_1e9_from_created_bits_capacity": 1.1684427479042332,
+      "duty_cores_at_1e9_ships_linear_scene_scaling": 11.08300892272693,
+      "duty_scene_us_per_game_s": 0.7149033333333333,
+      "members": 65,
+      "rebinds_seen": 1506,
+      "repacks": 70,
+      "skipped_no_handle": 73,
+      "unchanged_skipped": 0,
+      "updates": 1433,
+      "us_per_rebind_amortized": 1.4966573621772505
+    },
+    "memo_fallbacks": [
+      0,
+      41
+    ],
+    "model_replaced": "the dossier's duty model assumed one kick-resolver rebind (72 us median) per recompile; us_per_rebind_amortized is the measured replacement",
+    "note": "one Shelf per level; every rebind updates the ship's slot (hot tier, O(1)); compact() every 120 frames seals scars and repacks groups whose scars cost more than a quarter of their blocks; bytes/counts deterministic, us host-dependent"
+  },
+  "replay_digest": "7de9fe8671d04bcb64ab02a56c7940625826651486b13bb86f64bed744bad346",
+  "rtf": 100.0,
+  "scope": "H_live creation side (distinct pending ship items resolved by pure replay on deterministic plane snapshots; resolver cost excluded from rates) plus the removal side: the same rebind stream into two real shipmem shelves (128-member blocks), compacted every 120 frames",
+  "seed": 7,
+  "ship_seconds": 193513.33333333657,
+  "store_samples": [
+    {
+      "bodies": 70,
+      "bytes_per_body": 4629,
+      "catalogue_live": 70,
+      "frame": 120,
+      "game_s": 200.0,
+      "shelf_coarse_bytes": 1240,
+      "shelf_exact_bytes": 1973,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 5196,
+      "catalogue_live": 70,
+      "frame": 240,
+      "game_s": 400.0,
+      "shelf_coarse_bytes": 1240,
+      "shelf_exact_bytes": 2264,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4954,
+      "catalogue_live": 70,
+      "frame": 360,
+      "game_s": 600.0,
+      "shelf_coarse_bytes": 1240,
+      "shelf_exact_bytes": 2273,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4714,
+      "catalogue_live": 70,
+      "frame": 480,
+      "game_s": 800.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 2300,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4557,
+      "catalogue_live": 70,
+      "frame": 600,
+      "game_s": 1000.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 3600,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4518,
+      "catalogue_live": 70,
+      "frame": 720,
+      "game_s": 1200.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 3600,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4456,
+      "catalogue_live": 70,
+      "frame": 840,
+      "game_s": 1400.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 2303,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4423,
+      "catalogue_live": 70,
+      "frame": 960,
+      "game_s": 1600.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 2303,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4538,
+      "catalogue_live": 70,
+      "frame": 1080,
+      "game_s": 1800.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 2303,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4530,
+      "catalogue_live": 70,
+      "frame": 1200,
+      "game_s": 2000.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 2303,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4490,
+      "catalogue_live": 70,
+      "frame": 1320,
+      "game_s": 2200.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 2303,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4460,
+      "catalogue_live": 70,
+      "frame": 1440,
+      "game_s": 2400.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 3606,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4428,
+      "catalogue_live": 70,
+      "frame": 1560,
+      "game_s": 2600.0,
+      "shelf_coarse_bytes": 1267,
+      "shelf_exact_bytes": 3606,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4406,
+      "catalogue_live": 70,
+      "frame": 1680,
+      "game_s": 2800.0,
+      "shelf_coarse_bytes": 1303,
+      "shelf_exact_bytes": 2306,
+      "ships": 65
+    },
+    {
+      "bodies": 70,
+      "bytes_per_body": 4397,
+      "catalogue_live": 70,
+      "frame": 1800,
+      "game_s": 3000.0,
+      "shelf_coarse_bytes": 1303,
+      "shelf_exact_bytes": 2306,
+      "ships": 65
+    }
+  ],
+  "wall_seconds": 0.771261188
+}
