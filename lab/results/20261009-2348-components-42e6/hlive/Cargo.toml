@@ -1,0 +1,13 @@
+[workspace]
+
+[package]
+name = "hlive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+emergent-universe = { path = "../../../../crates/universe" }
+emergent-space = { path = "../../../../crates/space" }
+
+[profile.release]
+debug = false
