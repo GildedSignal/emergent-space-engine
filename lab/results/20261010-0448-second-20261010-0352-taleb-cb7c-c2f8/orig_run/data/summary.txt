@@ -1,0 +1,43 @@
+== E0 determinism (digest at the canonical cut) ==
+  det_repeat     f8b75cece1a7216f EQUAL  (load 'ge: 1.51, 1.18, 1.37')
+  det_threads8   f8b75cece1a7216f EQUAL  (load 'ge: 1.39, 1.16, 1.36')
+  det_unpaced    f8b75cece1a7216f EQUAL  (load 'ge: 1.25, 1.14, 1.35')
+  det_budget     f8b75cece1a7216f EQUAL  (load 'ge: 1.25, 1.14, 1.35')
+  det_seed2      d38063b3a906cabf DIFFERENT  (load 'ge: 1.23, 1.13, 1.35')
+
+== E1 state growth: game time vs wall time (members 48, 30 s wall each) ==
+  rtf=     1 game_s=      30 rss 412->6264 kB  d= +5852  kB/game-s= 195.054  kB/wall-s= 207.0  majflt=0
+  rtf=    10 game_s=     300 rss 392->9992 kB  d= +9600  kB/game-s=  31.998  kB/wall-s= 340.0  majflt=0
+  rtf=   100 game_s=    3000 rss 372->12064 kB  d=+11692  kB/game-s=   3.897  kB/wall-s= 414.1  majflt=0
+  rtf=  1000 game_s=   30003 rss 4304->12732 kB  d= +8428  kB/game-s=   0.281  kB/wall-s= 297.9  majflt=0
+  rtf100: drift over last third: +0 kB (saturated)
+  rtf1000: drift over last third: +0 kB (saturated)
+  mem768: drift over last third: +4 kB (saturated)
+
+== E2 frame cost vs run length (rtf 100, members 48) ==
+  len10   T= 10.0s game_s=  1001 p50=2.28 p99=6.25 p99.9=7.75 worst=8.17 ovfl=6
+  rtf100  T= 30.0s game_s=  3000 p50=1.43 p99=4.54 p99.9=6.88 worst=10.04 ovfl=6
+  len55   T= 55.0s game_s=  5500 p50=1.99 p99=4.55 p99.9=6.82 worst=7.99 ovfl=6
+
+== E3 load (rtf 100, 30 s; the battle scene caps at ~400 members) ==
+  rtf100   N=  76 p50= 1.43 p99= 4.54 worst=10.04 ovfl=   6 hitch16.7/hr=    0 engine p99= 2.4 gather p99= 3.4 gather share=0.68
+  mem96    N= 124 p50= 6.22 p99=12.98 worst=16.20 ovfl= 211 hitch16.7/hr=    0 engine p99= 6.1 gather p99= 6.5 gather share=0.66
+  mem192   N= 213 p50= 4.04 p99= 9.57 worst=11.32 ovfl=  88 hitch16.7/hr=    0 engine p99= 5.2 gather p99= 3.7 gather share=0.55
+  mem384   N= 406 p50= 8.68 p99=14.62 worst=17.50 ovfl= 413 hitch16.7/hr=  120 engine p99= 5.5 gather p99= 8.1 gather share=0.64
+  mem768   N= 428 p50= 7.01 p99=14.75 worst=16.47 ovfl= 336 hitch16.7/hr= 1920 engine p99= 5.7 gather p99= 9.5 gather share=0.58
+  mem3072  N= 428 p50= 4.28 p99=10.98 worst=12.25 ovfl= 177 hitch16.7/hr=    0 engine p99= 5.3 gather p99= 4.9 gather share=0.60
+  mem768 vs mem3072: same digest True, overflow 336 vs 177 (schedule noise)
+
+== E5 seed spread (rtf 100, members 48, 30 s, thread-CPU metrics) ==
+  rtf100  p50=1.43 p99=4.54 worst=10.04 ovfl=  6 load='rage: 2.38, 1.41, 1.43'
+  seed2   p50=4.30 p99=8.97 worst=10.90 ovfl= 18 load='rage: 1.28, 2.31, 2.18'
+  seed3   p50=1.30 p99=10.31 worst=12.43 ovfl= 30 load='rage: 1.03, 2.16, 2.13'
+  seed4   p50=1.09 p99=2.53 worst=7.67 ovfl=  4 load='rage: 1.02, 2.04, 2.09'
+  seed5   p50=1.10 p99=2.68 worst=5.73 ovfl=  0 load='rage: 1.18, 1.99, 2.07'
+  seed6   p50=1.15 p99=2.46 worst=7.33 ovfl=  4 load='rage: 1.38, 1.96, 2.06'
+  seed7   p50=1.44 p99=2.96 worst=6.39 ovfl=  2 load='rage: 1.30, 1.88, 2.03'
+  seed8   p50=1.49 p99=3.36 worst=6.86 ovfl=  4 load='rage: 2.32, 2.06, 2.08'
+  worst: median=7.50 max=12.43 max/median=1.66
+  p50: median=1.37 max=4.30 max/median=3.15
+  p99: median=3.16 max=10.31 max/median=3.26
+  overflow: median=4.00 max=30.00 max/median=7.50

@@ -1,0 +1,61 @@
+== E0 provenance (pinned rerun of the author's det_repeat) ==
+  digest f8b75cece1a7216f vs author f8b75cece1a7216f -> EQUAL
+
+== P2 attribution validity: frame wall vs frame CPU, quiet ladder ==
+  40 runs; interior-stalled (wall worst - cpu worst > 1.5 ms): 6 [('q_M256_s4', 1.62), ('q_M384_s5', 3.62), ('q_M384_s6', 1.95), ('q_M384_s7', 3.13), ('q_M400_s4', 2.79), ('q_M96_s2', 5.03)]
+  gather-max frame stalled (gather_max > cpu_worst + 1.5): 0 []
+
+== E1 the ladder (quiet, pinned core 6, paced, rtf 100, 30 s, 8 seeds/point) ==
+  point      N(bodies) | cpu_p50 cpu_p99 cpu_worst cpuH16 | wall_worst wallH/hr | gather_p99 gather_max sh | eng_p99 | ovfl
+  M 96 N~121 med |   5.43  11.97   13.56     0 |   14.01       0 |   5.90    8.80 0.67 |   5.5 |   98
+           range      |   4.96  11.69   12.98     0 |   18.00     120 |   5.32   12.30 [0.66,0.68] |   6.1 |  134
+           cpuH16 per seed: [0, 0, 0, 0]  (median 0, max 0)
+  M192 N~212 med |   8.65  14.34   16.59     0 |   16.59      60 |   7.67    9.23 0.65 |   6.1 |  346
+           range      |   8.31  14.00   15.99     0 |   17.12     120 |   7.46    9.89 [0.64,0.66] |   6.4 |  373
+           cpuH16 per seed: [1, 0, 1, 0]  (median 0, max 1)
+  M256 N~284 med |   8.13  14.49   17.42     1 |   17.51     120 |   8.17   10.46 0.64 |   5.7 |  317
+           range      |   3.59  11.70   12.98     0 |   18.73     600 |   5.87   14.38 [0.61,0.67] |   6.2 |  417
+           cpuH16 per seed: [0, 5, 1, 0, 1, 1, 2, 0]  (median 1, max 5)
+  M320 N~344 med |   5.98  14.08   15.22     0 |   15.23       0 |   7.53    9.29 0.61 |   5.5 |  258
+           range      |   2.87   9.03    9.64     0 |   17.66     240 |   3.30   12.79 [0.60,0.68] |   6.0 |  395
+           cpuH16 per seed: [2, 0, 0, 0, 0, 0, 1, 1]  (median 0, max 2)
+  M384 N~407 med |   8.30  14.44   15.62     0 |   16.37      60 |   7.84    9.34 0.63 |   5.7 |  366
+           range      |   3.31   9.75   10.29     0 |   18.03     360 |   3.79   11.31 [0.61,0.66] |   6.1 |  475
+           cpuH16 per seed: [1, 0, 0, 1, 0, 0, 0, 3]  (median 0, max 3)
+  M400 N~424 med |   4.87  13.39   14.57     0 |   15.37       0 |   6.70    9.03 0.62 |   5.4 |  229
+           range      |   3.54   9.87   10.41     0 |   18.95     240 |   4.03   10.76 [0.57,0.64] |   6.1 |  498
+           cpuH16 per seed: [2, 0, 0, 0, 0, 0, 0, 0]  (median 0, max 2)
+
+== gather CPU share of frame (share of summed terms) and cpu_hitch spread at M400 ==
+  cp50  median=    4.87 min=    3.54 max=    8.74 max/med=  1.79
+  cp99  median=   13.39 min=    9.87 max=   14.70 max/med=  1.10
+  cw    median=   14.57 min=   10.41 max=   18.95 max/med=  1.30
+  g99   median=    6.70 min=    4.03 max=    8.19 max/med=  1.22
+  gm    median=    9.03 min=    6.21 max=   10.76 max/med=  1.19
+  gs    median=    0.62 min=    0.57 max=    0.64 max/med=  1.04
+  ww    median=   15.37 min=   11.57 max=   18.95 max/med=  1.23
+  wh    median=    0.00 min=    0.00 max=  240.00 max/med=240000983572.03
+  ch    median=    0.00 min=    0.00 max=    2.00 max/med=2000000000.00
+== u30: unpaced 30 s vs paced 30 s, same cut ==
+  digest dd178af980bf2a4b vs dd178af980bf2a4b -> EQUAL (author stored mem384: dd178af980bf2a4b)
+  paced:   wall 30.0s cpu_p50 8.06 cpu_worst 17.63 engine_p50 0.42 gather_p50 4.09 ovfl 371
+  unpaced: wall 7.9s cpu_p50 3.23 cpu_worst 10.54 engine_p50 0.13 gather_p50 2.57 ovfl 108
+  cadence cost: cpu_p50 x2.49, engine x3.1, gather x1.59 (same frames, same digest)
+  M256 s1 N=284 wall_p50= 2.30 cpu_p50= 2.30 cpu_worst=  8.42 gather_p99= 2.55 max=  2.67 share=0.61
+  M256 s4 N=284 wall_p50= 2.27 cpu_p50= 2.27 cpu_worst=  9.22 gather_p99= 2.59 max=  3.45 share=0.59
+  M256 s8 N=277 wall_p50= 2.65 cpu_p50= 2.65 cpu_worst=  8.80 gather_p99= 2.67 max=  3.75 share=0.56
+  M320 s1 N=348 wall_p50= 2.92 cpu_p50= 2.92 cpu_worst=  9.32 gather_p99= 3.11 max=  3.87 share=0.59
+  M320 s4 N=335 wall_p50= 2.99 cpu_p50= 2.99 cpu_worst=  9.18 gather_p99= 3.17 max=  3.67 share=0.58
+  M320 s8 N=340 wall_p50= 3.15 cpu_p50= 3.15 cpu_worst=  9.85 gather_p99= 3.21 max=  3.88 share=0.55
+  M384 s1 N=404 wall_p50= 3.54 cpu_p50= 3.54 cpu_worst= 12.38 gather_p99= 3.83 max=  5.28 share=0.59
+  M384 s4 N=412 wall_p50= 3.45 cpu_p50= 3.45 cpu_worst= 10.88 gather_p99= 3.90 max=  4.69 share=0.57
+  M384 s8 N=412 wall_p50= 3.50 cpu_p50= 3.50 cpu_worst= 10.05 gather_p99= 3.67 max=  3.89 share=0.60
+  M400 s1 N=428 wall_p50= 3.56 cpu_p50= 3.56 cpu_worst= 10.73 gather_p99= 3.90 max=  4.19 share=0.59
+  M400 s4 N=412 wall_p50= 3.58 cpu_p50= 3.59 cpu_worst= 10.07 gather_p99= 3.85 max=  4.04 share=0.60
+  M400 s8 N=428 wall_p50= 3.87 cpu_p50= 3.87 cpu_worst= 10.48 gather_p99= 4.15 max=  4.70 share=0.57
+
+== E3 controlled contention (same-core spinner) vs quiet same-seed ==
+  s1 quiet  N=428 wall_worst= 18.95 cpu_worst= 18.95 gather_max=  9.98 gather_p99= 8.19 share=0.64 wallH/hr=    240 cpuH=[2, 0, 0] digest-vs-quiet=EQUAL
+  s1 spin   N=428 wall_worst= 17.96 cpu_worst=  9.82 gather_max= 12.73 gather_p99= 9.59 share=0.55 wallH/hr=   1320 cpuH=[0, 0, 0] digest-vs-quiet=EQUAL
+  s2 quiet  N=428 wall_worst= 14.17 cpu_worst= 14.18 gather_max=  8.36 gather_p99= 5.07 share=0.57 wallH/hr=      0 cpuH=[0, 0, 0] digest-vs-quiet=EQUAL
+  s2 spin   N=428 wall_worst= 20.90 cpu_worst= 11.91 gather_max= 13.57 gather_p99= 8.97 share=0.53 wallH/hr=   1200 cpuH=[0, 0, 0] digest-vs-quiet=EQUAL
