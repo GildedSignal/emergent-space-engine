@@ -1,0 +1,134 @@
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8..cbd78df 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -84,6 +84,35 @@ pub fn mul_shr(a: u128, b: u128, s: u32) -> Result<u128> {
+ /// cos(psi) in Q62 for psi in [0, pi] in Q61. With x = psi - pi/2 in Q62 (|x| <= pi/2),
+ /// cos(psi) = -sin(x), and sin(x) = x(1 - x^2/(2*3)(1 - x^2/(4*5)(1 - ... x^2/(26*27)))):
+ /// thirteen nested factors, innermost first, each product floored (arithmetic shift).
++/// Four cosines at once, one Horner chain per lane interleaved: each lane performs
++/// exactly the operations of [`cos`] on its own input, so the bits are identical;
++/// the four independent chains overlap their latencies (lab 20261010-0656).
++pub fn cos4(psi: [i128; 4]) -> [i128; 4] {
++    let x = psi.map(|p| (2 * p - PI) as i64);
++    let x2 = x.map(|v| ((v as i128 * v as i128) >> 62) as u64);
++    let mut s = [ONE as u64; 4];
++    for r in SINE.iter().rev() {
++        let mut y = [0u64; 4];
++        for l in 0..4 {
++            y[l] = ((x2[l] as u128 * s[l] as u128) >> 62) as u64;
++        }
++        for l in 0..4 {
++            s[l] = ONE as u64 - ((y[l] as u128 * *r as u64 as u128) >> 62) as u64;
++        }
++    }
++    let mut out = [0i128; 4];
++    for l in 0..4 {
++        out[l] = if psi[l] == 0 {
++            ONE
++        } else if psi[l] == PI {
++            -ONE
++        } else {
++            -((x[l] as i128 * s[l] as i128) >> 62)
++        };
++    }
++    out
++}
++
+ pub fn cos(psi: i128) -> i128 {
+     if psi == 0 {
+         return ONE;
+@@ -126,6 +155,34 @@ pub fn ratio_sqrt(num: i128, den: i128) -> i128 {
+ #[cfg(test)]
+ mod tests {
+     use super::*;
++    #[test]
++    fn cos4_returns_cos_exact_bits_per_lane() {
++        let mut x = 1u128;
++        let mut next = move || {
++            x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            x
++        };
++        let mut quads = 0;
++        for _ in 0..200_000 {
++            let quad: [i128; 4] =
++                std::array::from_fn(|_| (next() as i128).rem_euclid(PI));
++            let got = cos4(quad);
++            for l in 0..4 {
++                assert_eq!(got[l], cos(quad[l]), "lane {l} of {quad:?}");
++            }
++            quads += 1;
++        }
++        // Boundaries the guards special-case.
++        for quad in [[0, 0, 0, 0], [PI, PI, PI, PI], [0, PI, 1, PI - 1]] {
++            let got = cos4(quad);
++            for l in 0..4 {
++                assert_eq!(got[l], cos(quad[l]));
++            }
++            quads += 1;
++        }
++        assert!(quads > 200_000);
++    }
++
+     #[test]
+     fn word_division_matches_wide_division_at_digit_corrections() {
+         let mut x = 1u128;
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..26a03b8 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -239,7 +239,11 @@ impl OrbitShape {
+         self.k + product(ONE - self.k, cos(psi))
+     }
+     fn node(&self, psi: i128) -> Result<Integral> {
+-        let cs = cos(psi);
++        self.node_at(psi, cos(psi))
++    }
++    /// [`node`] with the node's cosine already computed (the panel quadrature gets
++    /// all four at once from [`cos4`], which returns `cos`'s exact bits per lane).
++    fn node_at(&self, psi: i128, cs: i128) -> Result<Integral> {
+         let x = self.k + product(ONE - self.k, cs);
+         if x <= 0 {
+             return Err(Error::Range);
+@@ -282,14 +286,13 @@ impl OrbitShape {
+         }
+         let mid = lo + h / 2;
+         let mut sum = Integral::default();
+-        for j in 0..2 {
+-            let dx = (X[j] * h) >> 63;
+-            let weight = Scalar::raw((W[j] * h) >> 63, -61)?;
+-            for psi in [mid - dx, mid + dx] {
+-                let node = self.node(psi)?;
+-                for i in 0..5 {
+-                    sum.0[i] = sum.0[i].add(weight.mul(node.0[i])?)?;
+-                }
++        let dx: [i128; 2] = [(X[0] * h) >> 63, (X[1] * h) >> 63];
++        let cs = crate::num::cos4([mid - dx[0], mid + dx[0], mid - dx[1], mid + dx[1]]);
++        for (j, psi) in [mid - dx[0], mid + dx[0], mid - dx[1], mid + dx[1]].into_iter().enumerate() {
++            let weight = Scalar::raw((W[j / 2] * h) >> 63, -61)?;
++            let node = self.node_at(psi, cs[j])?;
++            for i in 0..5 {
++                sum.0[i] = sum.0[i].add(weight.mul(node.0[i])?)?;
+             }
+         }
+         Ok(sum)
+@@ -299,11 +302,14 @@ impl OrbitShape {
+         let mid = lo + h / 2;
+         let mut sum = [0i128; 4];
+         let term = self.weak_tau_term.fixed(62)?;
+-        for j in 0..2 {
+-            let dx = (X[j] * h) >> 63;
+-            let w = (W[j] * h) >> 63;
+-            for psi in [mid - dx, mid + dx] {
+-                let ac = product(ONE - self.k, cos(psi));
++        {
++            let dx: [i128; 2] = [(X[0] * h) >> 63, (X[1] * h) >> 63];
++            let w: [i128; 2] = [(W[0] * h) >> 63, (W[1] * h) >> 63];
++            let psis = [mid - dx[0], mid + dx[0], mid - dx[1], mid + dx[1]];
++            let cs4 = crate::num::cos4(psis);
++            for (j, _psi) in psis.into_iter().enumerate() {
++                let (w, cs) = (w[j / 2], cs4[j]);
++                let ac = product(ONE - self.k, cs);
+                 let x = self.k + ac;
+                 let excess = 3 * self.k + ac;
+                 let ratio = crate::num::div_word((self.floor as u128) << 62, x as u64) as i128;
