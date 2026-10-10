@@ -1,0 +1,9 @@
+{"command": ["target/release/deps/phase_truth-711e384372cbd03c", "dense_ring", "--exact", "--nocapture", "--test-threads=1"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t91%; charging; 0:45 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}, "load": {"rc": 0, "text": "{ 6.71 4.14 3.75 }\n"}, "swap": {"rc": 0, "text": "total = 5120.00M  used = 3879.31M  free = 1240.69M  (encrypted)\n"}}}
+
+running 1 test
+test dense_ring ... GATE dense-ring truth=768 misses=0 false=0 setups=256 checks=1024 candidate_work=256 max_k=1 oracle_evals=952101 seconds=3.182
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 3.18s
+
+{"exit": 0, "seconds": 3.2066276670084335, "max_rss_bytes": 4325376}

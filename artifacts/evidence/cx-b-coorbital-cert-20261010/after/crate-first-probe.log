@@ -1,0 +1,30 @@
+{"command": ["target/release/deps/emergent_encounters-830017f0f7025724", "--nocapture", "--test-threads=1"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t91%; charging; 0:41 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}, "load": {"rc": 0, "text": "{ 3.48 3.09 3.37 }\n"}, "swap": {"rc": 0, "text": "total = 5120.00M  used = 3825.50M  free = 1294.50M  (encrypted)\n"}}}
+
+running 10 tests
+test dioph::tests::large_moduli_are_exact ... ok
+test dioph::tests::matches_brute_force ... ok
+test kepler::tests::closed_forms_match_kepler ... ok
+test phase::tests::a_crowded_phase_window_never_assumes_rank_four ... ok
+test phase::tests::fixed_density_ring_visits_linear_work_to_a_million ... GATE phase-scale n=1000 neighbours=1000 max_k=1
+GATE phase-scale n=10000 neighbours=10000 max_k=1
+GATE phase-scale n=100000 neighbours=100000 max_k=1
+GATE phase-scale n=1000000 neighbours=1000000 max_k=1
+ok
+test phase::tests::frequency_spread_expiring_the_horizon_uses_general_tiers ... ok
+test phase::tests::instantaneous_query_reports_existing_overlap_once ... ok
+test phase::tests::seam_overtake_and_ties_are_not_lost_or_duplicated ... ok
+test tier::tests::envelope_tree_equals_brute_cone_with_unbalanced_radii_and_id_order ... ok
+test tier::tests::wide_arming_keeps_the_full_passage_overlap_cap_at_high_e ... 
+thread 'tier::tests::wide_arming_keeps_the_full_passage_overlap_cap_at_high_e' panicked at crates/encounters/src/tier.rs:589:9:
+probe must exercise Wide
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    tier::tests::wide_arming_keeps_the_full_passage_overlap_cap_at_high_e
+
+test result: FAILED. 9 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+{"exit": 101, "seconds": 0.7234984160168096, "max_rss_bytes": 109150208}

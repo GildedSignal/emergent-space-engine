@@ -1,0 +1,21 @@
+{"command": ["cargo", "test", "-p", "emergent-encounters", "--lib", "--", "--nocapture"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t100%; charged; 0:00 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc\n"}, "load": {"rc": 1, "text": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"}, "swap": {"rc": 1, "text": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"}}}
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.93s
+     Running unittests src/lib.rs (target/debug/deps/emergent_encounters-50c8abfd9327a8d7)
+
+running 3 tests
+test kepler::tests::closed_forms_match_kepler ... ok
+test dioph::tests::large_moduli_are_exact ... ok
+test dioph::tests::matches_brute_force ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+{"exit": 0, "seconds": 1.3884716660249978, "max_rss_bytes": 27164672}

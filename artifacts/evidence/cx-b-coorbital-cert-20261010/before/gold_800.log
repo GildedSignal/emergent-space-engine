@@ -1,0 +1,20 @@
+{"command": ["target/release/deps/phase_truth-711e384372cbd03c", "gold_800", "--exact", "--nocapture", "--test-threads=1"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t91%; charging; 0:41 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}, "load": {"rc": 0, "text": "{ 3.48 3.09 3.37 }\n"}, "swap": {"rc": 0, "text": "total = 5120.00M  used = 3825.50M  free = 1294.50M  (encrypted)\n"}}}
+
+running 1 test
+test gold_800 ... GATE gold-800 truth=11 misses=2 false=0 setups=319600 checks=60 candidate_work=319600 max_k=0 oracle_evals=2131105 seconds=22.421
+
+thread 'gold_800' panicked at crates/encounters/tests/phase_truth.rs:77:5:
+assertion `left == right` failed: gold-800: truth contacts lost
+  left: 2
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    gold_800
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 22.42s
+
+{"exit": 101, "seconds": 22.837363667029422, "max_rss_bytes": 4358144}

@@ -1,0 +1,20 @@
+{"command": ["target/release/deps/phase_truth-711e384372cbd03c", "gold_adj", "--nocapture", "--test-threads=1"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t100%; charged; 0:00 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc\n"}, "load": {"rc": 1, "text": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"}, "swap": {"rc": 1, "text": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"}}}
+
+running 1 test
+test gold_adj ... GATE gold-adj truth=253 misses=20 false=0 setups=19900 checks=1060 oracle_evals=2434890 seconds=7.786
+
+thread 'gold_adj' panicked at crates/encounters/tests/phase_truth.rs:68:5:
+assertion `left == right` failed: gold-adj: truth contacts lost
+  left: 20
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    gold_adj
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 7.79s
+
+{"exit": 101, "seconds": 8.35020137502579, "max_rss_bytes": 4308992}
