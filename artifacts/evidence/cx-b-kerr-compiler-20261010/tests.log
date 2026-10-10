@@ -1,0 +1,118 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/crates/space)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.69s
+     Running unittests src/lib.rs (target/debug/deps/emergent_space-83103c51de7edc38)
+
+running 10 tests
+test num::tests::mul_shr_agrees_with_u128_where_it_fits_and_refuses_overflow ... ok
+test scaled::tests::exponents_change_range_without_changing_relative_information ... ok
+test binding::tests::root_witness_certifies_skipped_signs_including_small_root_gaps ... ok
+test num::tests::cos_and_atan_match_their_functions_to_a_few_units ... ok
+test scaled::tests::outward_clock_rounding_contains_the_exact_dyadic_for_both_signs ... ok
+test orbit::quadrature_tests::native_panels_obey_the_real_two_point_remainder_and_integer_rounding_allowance ... ok
+test num::tests::isqrt_is_the_exact_floor ... ok
+test scaled::tests::native_products_and_quotients_keep_signed_normalized_words ... ok
+test num::tests::word_division_matches_wide_division_at_digit_corrections ... ok
+test binding::tests::witnessed_fit_keeps_the_full_search_key_at_kicks_and_boundaries ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/api.rs (target/debug/deps/api-39d756cc173c0926)
+
+running 1 test
+test polar_velocity_matches_invariants_and_the_readout_derivative ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/envelope.rs (target/debug/deps/envelope-aae8ae005fba08d0)
+
+running 12 tests
+test public_tube_has_key_orientation_and_one_time_and_carries_its_inverse_rounding ... ok
+test exponent_ladder_has_identical_shapes_and_positive_resolved_precession ... ok
+test exact_parabolic_and_unstable_circle_ties_are_generators ... ok
+test unbound_inverse_preserves_incoming_and_outgoing_integer_states ... ok
+test packed_keys_round_trip_and_shared_shapes_do_not_alias_different_inputs ... ok
+test strong_field_and_near_separatrix_match_gr_and_velocity ... ok
+test hyperbolic_and_parabolic_passages_have_finite_times_and_symmetric_readouts ... ok
+test passage_phase_keeps_relative_information_beyond_a_fixed_word ... ok
+test inverse_resolves_the_certified_whirl_gap ... ok
+test weak_field_sweep_preserves_advance_and_kepler_plus_1pn ... ok
+test inverse_with_residual_is_an_exact_identity_through_repeated_event_frame_changes ... ok
+test strong_passages_match_an_independent_binet_ode_including_time ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/events.rs (target/debug/deps/events-cb98800c62e3778d)
+
+running 17 tests
+test dense_readout_reduces_phase_before_rotation_and_preserves_length ... ok
+test dense_c_quarter_guard_uses_the_exact_dyadic_product ... ok
+test c_quarter_refusal_keeps_subquantum_transverse_speed_and_overflow_is_explicit ... ok
+test compact_records_use_native_shapes_at_planetary_and_extreme_scale ... ok
+test arc_work_uses_the_compiled_path_and_kicks_preserve_position ... ok
+test edge_is_the_first_outgoing_population_tick ... ok
+test logarithmic_mass_and_soi_do_not_have_an_absolute_radius_cap ... ok
+test resonance_comes_from_the_compiled_frequencies ... ok
+test dense_order_is_independent_of_observation_and_keeps_the_full_tide ... ok
+test queue_and_nested_clocks_use_scaled_root_deadlines ... ok
+test derived_clock_never_undershoots_at_planetary_scale ... ok
+test tide_selector_and_full_parent_force_have_the_expected_limits ... ok
+test signed_sigma_delta_conserves_every_native_increment ... ok
+test physical_evolution_consumes_the_remainder_before_the_next_binding ... ok
+test native_handoffs_reconstruct_after_repeated_translations_and_kicks ... ok
+test binary_test_mass_limit_is_exact_and_clock_map_uses_the_same_energy ... ok
+test calendar_matches_an_independent_sorted_map_across_scales ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/kerr.rs (target/debug/deps/kerr-5d39f3e45136d170)
+
+running 9 tests
+test small_spin_near_circular_and_near_separatrix_limits_are_continuous ... ok
+test circular_stability_and_critical_capture_are_dynamical ... ok
+test windowed_plunges_match_direct_coordinate_time_integration ... ok
+test spin_reflection_lt_scaling_and_memo_identity ... ok
+test bound_cycles_match_direct_hamiltonian_vectors ... ok
+test zero_spin_reuses_every_old_cycle_readout_bit ... ok
+test negative_energy_is_future_directed_only_inside_and_split_conserves ... ok
+test cycle_readout_obeys_metric_and_repeats_without_evolution ... ok
+test finite_massive_photon_and_plunge_readouts_share_the_metric ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/light.rs (target/debug/deps/light-6df45bf39720f4a6)
+
+running 5 tests
+test moving_lenses_do_not_erase_subquantum_bends ... ok
+test captured_light_has_native_exterior_readout_and_the_radial_schwarzschild_clock ... ok
+test photons_have_zero_length_and_follow_the_null_metric_at_retarded_times ... ok
+test capture_and_weak_bending_retain_information_across_exponents ... ok
+test aberration_is_a_reversible_lorentz_map_and_preserves_null_directions ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/near_circular.rs (target/debug/deps/near_circular-e61ee6eec7f6d6d7)
+
+running 5 tests
+test every_cycle_is_the_compiled_one ... ok
+test the_whirl_near_the_separatrix ... ok
+test a_position_moves_smoothly_through_the_cycle ... ok
+test near_circular_orbits_across_bands_within_one_percent_of_gr ... ok
+test the_old_regime_boundary_and_eccentric_orbits ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+   Doc-tests emergent_space
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

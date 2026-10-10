@@ -71,13 +71,30 @@ pub struct TimeBasis {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Doll {
     pub mass: LogMass,
+    pub spin: crate::kerr::Spin,
     pub parent: Option<u16>,
     pub centre: Option<Tube>,
 }
 impl Doll {
+    /// Spin is shared by every tube in the doll. The native Kerr catalogue is
+    /// separate from the legacy events pool until its resolver supports spin.
+    pub fn with_spin(mut self, spin: crate::kerr::Spin) -> Self {
+        self.spin = spin;
+        self
+    }
+    pub fn compile_cycle(
+        &self,
+        memo: &mut crate::kerr::Memo,
+        p: Scalar,
+        eccentricity_q48: u64,
+        retrograde: bool,
+    ) -> Result<std::sync::Arc<crate::kerr::Cycle>> {
+        memo.bound(self.spin, p, eccentricity_q48, retrograde)
+    }
     pub fn root(mass: LogMass) -> Self {
         Self {
             mass,
+            spin: crate::kerr::Spin::ZERO,
             parent: None,
             centre: None,
         }
@@ -85,6 +102,7 @@ impl Doll {
     pub fn child(mass: LogMass, parent: u16, centre: Tube) -> Self {
         Self {
             mass,
+            spin: crate::kerr::Spin::ZERO,
             parent: Some(parent),
             centre: Some(centre),
         }

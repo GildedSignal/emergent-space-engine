@@ -1,0 +1,42 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/crates/space)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.96s
+     Running tests/kerr.rs (target/debug/deps/kerr-5d39f3e45136d170)
+
+running 7 tests
+
+thread 'zero_spin_reuses_every_old_cycle_readout_bit' panicked at crates/space/tests/kerr.rs:33:58:
+called `Result::unwrap()` on an `Err` value: NoBoundOrbit
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test zero_spin_reuses_every_old_cycle_readout_bit ... FAILED
+test circular_stability_and_critical_capture_are_dynamical ... ok
+
+thread 'bound_cycles_match_direct_hamiltonian_vectors' panicked at crates/space/tests/kerr.rs:21:55:
+called `Result::unwrap()` on an `Err` value: NoBoundOrbit
+test bound_cycles_match_direct_hamiltonian_vectors ... FAILED
+test spin_reflection_lt_scaling_and_memo_identity ... ok
+
+thread 'finite_massive_photon_and_plunge_readouts_share_the_metric' panicked at crates/space/tests/kerr.rs:8:31:
+-0.00000000000000001647781945504798 vs 0
+test finite_massive_photon_and_plunge_readouts_share_the_metric ... FAILED
+test negative_energy_is_future_directed_only_inside_and_split_conserves ... ok
+test cycle_readout_obeys_metric_and_repeats_without_evolution ... ok
+
+failures:
+
+failures:
+    bound_cycles_match_direct_hamiltonian_vectors
+    finite_massive_photon_and_plunge_readouts_share_the_metric
+    zero_spin_reuses_every_old_cycle_readout_bit
+
+test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p emergent-space --test kerr`
