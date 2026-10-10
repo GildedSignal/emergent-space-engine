@@ -1,0 +1,52 @@
+== Lambda per body per orbit: 6 seeds, hi-res 4000 pairs/bin ==
+  [cold] rho=0.0001: seeds 0.525 +/- 0.069 [0.445,0.642] | pooled 0.526 bin-JK +/- 0.185 (35%)
+  [cold] rho=0.001: seeds 4.881 +/- 0.226 [4.517,5.169] | pooled 4.884 bin-JK +/- 1.697 (35%)
+  [cold] rho=0.01: seeds 47.229 +/- 1.009 [45.811,48.516] | pooled 47.244 bin-JK +/- 17.262 (37%)
+  [hot] rho=0.0001: seeds 0.291 +/- 0.083 [0.194,0.376] | pooled 0.291 bin-JK +/- 0.132 (45%)
+  [hot] rho=0.001: seeds 3.476 +/- 0.275 [3.099,3.807] | pooled 3.479 bin-JK +/- 1.575 (45%)
+  [hot] rho=0.01: seeds 34.108 +/- 0.676 [33.084,34.865] | pooled 34.108 bin-JK +/- 15.369 (45%)
+
+== rho exponent (3-point log-log fit per seed) ==
+  [cold] exponent 0.979 +/- 0.024 [0.939,1.006]
+  [hot] exponent 1.042 +/- 0.065 [0.972,1.127]
+
+== <v_rel|b<1e-4> per seed + pooled bin-jackknife ==
+  [cold] mean-of-seeds 0.0148 (n_enc/seeds [1260, 1314, 1293, 1326, 1365, 1261]) | rate-weighted pooled 0.0190 bin-JK +/- 0.0007
+  [hot] mean-of-seeds 0.1691 (n_enc/seeds [226, 183, 182, 209, 207, 204]) | rate-weighted pooled 0.1899 bin-JK +/- 0.0130
+
+== tail correlation corr = R_exact/R_product (M=1e-7, q=1e-4) ==
+  seeds: [0.887, 0.788, 0.728, 1.274, 1.626, 1.834]
+  mean 1.189 +/- 0.464 [0.728,1.834]  (shipped seed point: 2.20)
+  seed-mean with bin-JK: 1.189 +/- 0.223
+
+== W-scaling: K(W) = Lambda*W/(N*rho*sigma); closed form says K = 0.85 ==
+  W=0.02: Lambda 0.525+/-0.069 -> K 1.050 [0.890,1.284] (closed form 0.85: OK)
+  W=0.04: Lambda 0.452+/-0.052 -> K 1.806 [1.671,2.045] (closed form 0.85: MISS)
+  W=0.1: Lambda 0.201+/-0.063 -> K 2.011 [1.278,2.381] (closed form 0.85: MISS)
+  K(0.1)/K(0.02) = 1.92  -> 1/W scaling KILLED as an adoption path
+  log-fit K = 0.636 + 0.597*ln(W/sigma): predicts K(0.04)=1.464, measured 1.806 (validated)
+
+== convergence ladder, SAME seed k0 (instrument only changes) ==
+  shipped 128/12/4   Lambda(1e-4) = 0.4018
+  hires 512/24/6     Lambda(1e-4) = 0.4449 (+10.7%)
+  ultra 2048/48/8    Lambda(1e-4) = 0.4987 (+12.1%)
+  xhi 8192/96/10     Lambda(1e-4) = 0.5410 (+8.5%)
+  hi-res 6-seed mean 0.525 +/- 0.069; bin-JK +/-35%
+
+== design table (bits/body/hr at rtf 100): median [min,max] over 6 seeds ==
+  M=1e-07 q=2.33e-10: bits(1e9) 1.21e+05 [6.98e+04,1.68e+05] -> BREAKS (budget 64)
+  M=1e-07 q=1.00e-06: bits(1e9) 24.2 [16.3,39.2] -> FITS (budget 64)
+  M=1e-07 q=1.00e-05: bits(1e9) 2.42 [1.63,3.92] -> FITS (budget 64)
+  M=1e-07 q=1.00e-04: bits(1e9) 0.242 [0.163,0.392] -> FITS (budget 64)
+  M=1e-07: q_v* median 3.78e-07 [2.54e-07,6.12e-07] v_K (0.0113 m/s at 1 AU)
+       re-fit cadence (q=1e-5): median 0.619 orbits = 226 sim-days = 54.23 real h [136,327] sim-days
+  M=1e-05 q=2.33e-10: bits(1e9) 1.99e+05 [1.71e+05,2.46e+05] -> BREAKS (budget 64)
+  M=1e-05 q=1.00e-06: bits(1e9) 3.03e+03 [1.63e+03,5.16e+03] -> BREAKS (budget 64)
+  M=1e-05 q=1.00e-05: bits(1e9) 242 [163,392] -> BREAKS (budget 64)
+  M=1e-05 q=1.00e-04: bits(1e9) 24.2 [16.3,39.2] -> FITS (budget 64)
+  M=1e-05: q_v* median 3.78e-05 [2.54e-05,6.12e-05] v_K (1.13 m/s at 1 AU)
+       re-fit cadence (q=1e-5): median 0.00619 orbits = 2.26 sim-days = 0.54 real h [1.36,3.27] sim-days
+  player floor M=1e-07: strongest 1-in-400 kick 0.00027 v_K = 0.00806 km/s; floor/q_v* = 715x
+  player floor M=1e-05: strongest 1-in-400 kick 0.027 v_K = 0.806 km/s; floor/q_v* = 715x
+
+wrote gold_post.json
