@@ -86,3 +86,5 @@ Every gate has a positive control that must pass and a planted law that must fai
 - **Sol** (after the Codex reset): dolls, tubes, handoffs, kicks.
 - **Claude:** the orders (sparse, from `lattice-event`'s `Calendar`; dense, from `lattice-metal`), memory and the queue. Claude also builds the judges of OpenAI's modules (`behave`), and OpenAI builds the judges of Claude's modules.
 - **GLM:** open rungs r3 v3, r4 v2, r5 (dense order), r6 (view), r7 (AI cost), and the red-team of this text.
+
+**B12 branch proposal (not frozen):** [b12-statistic.md](b12-statistic.md) specifies the conditional state-adjusted detector, exact-input reference corpus, finite horizon and detectable leak. The existing row remains the historical criterion; review and a premise red-team are required before replacing it.

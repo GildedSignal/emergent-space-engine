@@ -394,7 +394,7 @@ fn star_axis(scene: &Restricted, t: f64, s: &[f64; 4]) -> f64 {
 /// Each state's velocity, as the planet's frame (the frame in which the Jacobi constant is 2Ũ − |u|²) sees it, is scaled by κ so that the constant
 /// moves by −`shift[i]`: C = 2Ũ − |u|², so scaling u by κ moves C by −|u|²(κ² − 1). Where |u|² is too small to carry the shift (a zero-velocity
 /// point) the velocity is set to the frame's and the shift is what |u|² can carry.
-fn lay(scene: &Restricted, states: Vec<[f64; 4]>, shift: &[f64]) -> Vec<[f64; 4]> {
+pub(super) fn lay(scene: &Restricted, states: Vec<[f64; 4]>, shift: &[f64]) -> Vec<[f64; 4]> {
     let w = scene.omega();
     states
         .into_iter()

@@ -31,6 +31,7 @@ pub mod clocks;
 pub mod cost;
 pub mod fit;
 pub mod handoff;
+mod b12_stat;
 pub mod hill;
 pub mod kerr;
 pub mod laws;
@@ -470,7 +471,7 @@ mod events_tests {
         assert_eq!(gates.iter().map(|g| (g.id, g.pass)).collect::<Vec<_>>(), EVENTS.map(|id| (id, true)));
         let detail = |id: &str| gates.iter().find(|g| g.id == id).unwrap().detail.clone();
         assert!(detail("B11").contains("precession 1024/1024"));
-        assert!(detail("B12").contains("16 frozen ships") && detail("B12").contains("worst err "), "{}", detail("B12"));
+        assert!(detail("B12").contains("16 recorded ships") && detail("B12").contains("worst err "), "{}", detail("B12"));
         assert!(detail("B13").contains("64/64 judged") && detail("B13").contains("0 of 64 excluded"), "{}", detail("B13"));
         assert!(detail("B14").contains("escape") && !detail("B14").contains("(0 escape") && !detail("B14").contains(", 0 stay"), "{}", detail("B14"));
     }

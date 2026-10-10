@@ -1,0 +1,114 @@
+{
+  "status": "CANDIDATE_NOT_FROZEN",
+  "qualification": "UNVERIFIED_PENDING_PREMISE_REDTEAM",
+  "base_revision": "a838a284a27a6813434362cc2adfde946d2085db",
+  "branch": "wt/cx-b12-v2",
+  "horizon_planet_periods": 200,
+  "ships": 16,
+  "nominal_crossings_range": [
+    20,
+    44
+  ],
+  "minimum_replica_median_crossings": 20,
+  "replicas_per_ship": 9,
+  "stable_surviving_fates": 1,
+  "split_fates": 15,
+  "relative_leak_per_horizon": 2e-10,
+  "relative_absolute_cap": 0.0001,
+  "law_results": [
+    {
+      "law": "echo",
+      "before": "PASS",
+      "after": "PASS",
+      "before_detail": "handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..44 times, at least 20 when frozen, and passes no closer than 1.08 planet radii), 0 not converged, 0 inside the planet; 0 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them 0.000 (limit 0.2), worst 0.000; worst err 1.74e-15 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18 [1.91 s]",
+      "after_detail": "handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 0.000 (limit 5, NOT a correlated-return confidence level); worst err 2.03e-15 (limit 1e-4); pairs 6438 (1312 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 3.09e-16, maximum fitted leak 1.20e-15/horizon; injected leak arrow 52.382, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN"
+    },
+    {
+      "law": "planted-bounded",
+      "before": "FAIL",
+      "after": "PASS",
+      "before_detail": "handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..44 times, at least 20 when frozen, and passes no closer than 1.08 planet radii), 0 not converged, 0 inside the planet; 16 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them 0.493 (limit 0.2), worst 1.074; worst err 8.13e-6 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18 [1.89 s]",
+      "after_detail": "handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow -2.806 (limit 5, NOT a correlated-return confidence level); worst err 5.22e-6 (limit 1e-4); pairs 6439 (0 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 1.24e-11, maximum fitted leak 2.64e-10/horizon; injected leak arrow 49.155, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN"
+    },
+    {
+      "law": "planted-compound",
+      "before": "FAIL",
+      "after": "FAIL",
+      "before_detail": "handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..44 times, at least 20 when frozen, and passes no closer than 1.08 planet radii), 0 not converged, 0 inside the planet; 16 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them 0.305 (limit 0.2), worst 1.122; worst err 7.46e-7 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18 [1.87 s]",
+      "after_detail": "handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 16.714 (limit 5, NOT a correlated-return confidence level); worst err 7.46e-7 (limit 1e-4); pairs 6438 (147 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 3.90e-7, maximum fitted leak 8.41e-7/horizon; injected leak arrow 16.717, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN"
+    },
+    {
+      "law": "planted-drift",
+      "before": "FAIL",
+      "after": "FAIL",
+      "before_detail": "handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..44 times, at least 20 when frozen, and passes no closer than 1.08 planet radii), 0 not converged, 0 inside the planet; 16 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them 0.923 (limit 0.2), worst 2.689; worst err 3.81e-10 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18 [1.84 s]",
+      "after_detail": "handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 51.654 (limit 5, NOT a correlated-return confidence level); worst err 3.81e-10 (limit 1e-4); pairs 7230 (0 exact ties), maximum pair-gap mean 106.9 P, maximum ship median residual 1.46e-10, maximum fitted leak 4.72e-10/horizon; injected leak arrow 68.349, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN"
+    },
+    {
+      "law": "planted-kick",
+      "before": "FAIL",
+      "after": "FAIL",
+      "before_detail": "handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..44 times, at least 20 when frozen, and passes no closer than 1.08 planet radii), 0 not converged, 0 inside the planet; 16 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them 0.651 (limit 0.2), worst 7.477; worst err 2.92e-4 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18 [1.89 s]",
+      "after_detail": "handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 40.934 (limit 5, NOT a correlated-return confidence level); worst err 2.55e-4 (limit 1e-4); pairs 7823 (0 exact ties), maximum pair-gap mean 115.9 P, maximum ship median residual 1.19e-4, maximum fitted leak 2.30e-4/horizon; injected leak arrow 45.085, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN"
+    },
+    {
+      "law": "plane",
+      "before": "FAIL",
+      "after": "FAIL",
+      "before_detail": "handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..44 times, at least 20 when frozen, and passes no closer than 1.08 planet radii), 0 not converged, 0 inside the planet; 16 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them inf (limit 0.2), worst inf; worst err inf (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18 [28.95 s]",
+      "after_detail": "handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow -5.251 (limit 5, NOT a correlated-return confidence level); worst err 3.05e-6 (limit 1e-4); pairs 7524 (0 exact ties), maximum pair-gap mean 120.6 P, maximum ship median residual 4.81e-8, maximum fitted leak 4.07e-8/horizon; injected leak arrow -5.291, sensitivity UNSUPPORTED (0 undelivered injections); candidate, NOT FROZEN [47.15 s]"
+    },
+    {
+      "law": "scaled",
+      "before": "PASS",
+      "after": "PASS",
+      "before_detail": "handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..44 times, at least 20 when frozen, and passes no closer than 1.08 planet radii), 0 not converged, 0 inside the planet; 16 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them 0.155 (limit 0.2), worst 0.476; worst err 1.95e-11 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18",
+      "after_detail": "handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow -1.831 (limit 5, NOT a correlated-return confidence level); worst err 2.01e-11 (limit 1e-4); pairs 6438 (0 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 1.94e-12, maximum fitted leak 1.08e-11/horizon; injected leak arrow 51.401, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN"
+    },
+    {
+      "law": "leak",
+      "before": "FAIL",
+      "after": "FAIL",
+      "before_detail": "handoffs: 16 frozen ships (this run's reference crosses R_SOI 20..44 times, at least 20 when frozen, and passes no closer than 1.08 planet radii), 0 not converged, 0 inside the planet; 16 of 16 judged ships rise above the 1e-12 floor, median growth exponent among them 1.001 (limit 0.2), worst 1.001; worst err 2.00e-10 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18",
+      "after_detail": "handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 52.381 (limit 5, NOT a correlated-return confidence level); worst err 2.00e-10 (limit 1e-4); pairs 6438 (0 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 1.22e-10, maximum fitted leak 2.00e-10/horizon; injected leak arrow 52.381, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN"
+    }
+  ],
+  "additional_controls": {
+    "leak+bounded": "FAIL",
+    "scaled_1e-7_power_blind": "FAIL_SENSITIVITY_UNSUPPORTED"
+  },
+  "plane": {
+    "missing": 0,
+    "worst_relative_error": 3.05e-06,
+    "rank_score": -5.251,
+    "injected_leak_rank_score": -5.291,
+    "sensitivity": "UNSUPPORTED",
+    "elapsed_gate_seconds": 47.15
+  },
+  "tests": {
+    "handoff_final": "4 passed, 1 ignored; 20.53 s",
+    "power_blind": "1 passed; 2.35 s",
+    "exact_rank_variance": "1 passed; 0.00 s",
+    "events": "8 passed; 50.33 s (before sensitivity guard)",
+    "sampler": "3 passed; 0.00 s",
+    "history": "PASS 215 entries",
+    "all_executed_tests_under_60_seconds": true
+  },
+  "remaining": [
+    "Correlated-return rank null has no validated false-positive bound.",
+    "Local-affine slow-state adjustment is an assumption, not every bounded error.",
+    "Point-mass growth histories for split surface fates require oracle-domain review.",
+    "Live control verdicts have not been qualified on Linux."
+  ],
+  "source_sha256": {
+    "xtask/src/behave/handoff.rs": "fafe903f31aaee7b1977f61a5a6a41cfc5b4418f7130d37bd94432cd888aa885",
+    "xtask/src/behave/b12_stat.rs": "82a71088ba6cf8f6c3b161f2fd29e064284788e5d30ab0fef248fa6e7a740a00",
+    "xtask/src/behave/b12_corpus.json": "4473d56e5ff0f6f94760dc668103198170bdd147fcb04b3e0591c63851c01c1a",
+    "xtask/src/behave/laws.rs": "4de42c244289d6b193cb491117171875a463378c7e4dae19031ec7d0ec7bd2d7",
+    "xtask/src/behave/mod.rs": "381407c0ac96361c059221d199c9eb9e3f3e7fc3149eec8b6b444425378622b3",
+    "xtask/src/behave/sample.rs": "160f3275d5fe4184352fef2dc5fbe8f884010c14fc8774055098b13c561f90f2",
+    "docs/b12-statistic.md": "97745d9559e61bec754c129389ef1e29d9c63bdfec95726ec137b0d0bb34e394",
+    "docs/law.md": "708f5a8e21a75fa76b69178ed4c1c037dd376d1a708bcd790aafc45ab5fb06a1",
+    "Cargo.lock": "4a13db31c360afb5a212957bfb7505243a3e3cf1536a9a5806fd5339ab9e0717"
+  }
+}
