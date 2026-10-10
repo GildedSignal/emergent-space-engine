@@ -1,0 +1,604 @@
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d..82f0c8e 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -264,9 +264,8 @@ pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)
+     let (mut pos, mut vel, mut rate) = ([0.0f64; 2], [0.0f64; 2], 1.0f64);
+     let (mut cur, mut below) = (i, None::<[f64; 2]>);
+     loop {
+-        let (b, p, v) = ramped(ctx, cur, t)?;
+-        let (p, v) = ([to_f64(p[0]), to_f64(p[1])], [to_f64(v[0]), to_f64(v[1])]);
+-        let doll = &ctx.dolls[b.doll as usize];
++        let (doll_id, p, v) = lab::ramped_memo(ctx, cur, t)?;
++        let doll = &ctx.dolls[doll_id as usize];
+         let k = 2f64.powi(-(doll.shift as i32));
+         pos = [pos[0] + p[0] * k, pos[1] + p[1] * k];
+         vel = [vel[0] + v[0], vel[1] + v[1]];
+@@ -288,6 +287,108 @@ pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)
+     Ok((pos, vel, rate))
+ }
+ 
++/// Lab instrumentation for run `20261010-0541-system-d51f` (the whole-system lens) and its second
++/// author `20261010-0656`. Not part of the law: counters, an opt-in per-frame memo of `ramped`
++/// readouts keyed (body, tick), and an opt-in **incremental deadline** mode for `Universe::apply`
++/// (no per-event doll-chain walk: the last readout is carried forward by its velocity and
++/// re-anchored only when the extrapolation could drift past a fixed fraction of the light
++/// distance). With both off (the default, everywhere outside the lab tests) the engine is the
++/// original, bit for bit.
++pub mod lab {
++    use super::{ramped, Ctx, Res, Tick};
++    use std::cell::RefCell;
++    use std::collections::HashMap;
++
++    /// One doll level's readout: the doll (for shift, μ and the centre), the position and the
++    /// velocity, in the doll's units, as floats.
++    pub type Level = (u16, [f64; 2], [f64; 2]);
++
++    #[derive(Default, Clone, Copy)]
++    pub struct Lab {
++        /// `ramped` readouts paid inside `state_rate` walks (one per chain level).
++        pub levels: u64,
++        pub memo_hits: u64,
++        pub memo_misses: u64,
++        /// The scheduler's per-event position update (`Universe::apply`): calls and nanoseconds.
++        /// In incremental mode a call is charged only when a re-anchor walk ran.
++        pub sched_calls: u64,
++        pub sched_ns: u64,
++    }
++
++    thread_local! {
++        static LAB: RefCell<Lab> = RefCell::default();
++        static MEMO: RefCell<Option<HashMap<(usize, Tick), Level>>> = const { RefCell::new(None) };
++        static INCREMENTAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
++        static FLOOR: std::cell::Cell<f64> = const { std::cell::Cell::new(1.0e6) };
++    }
++
++    /// The incremental-deadline mode: on, `Universe::apply` stops walking the doll chain per
++    /// event and carries the last readout forward by its velocity (the deadline's own rate
++    /// `1 + n·β`), re-anchoring on a staleness bound. Off (the default) the engine is unchanged.
++    pub fn incremental(on: bool) {
++        INCREMENTAL.with(|f| f.set(on));
++    }
++    pub fn is_incremental() -> bool {
++        INCREMENTAL.with(|f| f.get())
++    }
++
++    /// The staleness bound's distance floor (root units): bodies closer than this to the player
++    /// re-anchor per event, where the relative bound alone would starve the carry. Lab-settable
++    /// (`FLOOR_DEADLINE` is the default), for the cost/error sweep.
++    pub fn floor(f: f64) {
++        FLOOR.with(|c| c.set(f));
++    }
++    pub fn get_floor() -> f64 {
++        FLOOR.with(|c| c.get())
++    }
++
++    pub fn memo(on: bool) {
++        MEMO.with_borrow_mut(|m| *m = if on { Some(HashMap::new()) } else { None });
++    }
++    pub fn reset() {
++        LAB.with_borrow_mut(|l| *l = Lab::default());
++        MEMO.with_borrow_mut(|m| if m.is_some() { *m = Some(HashMap::new()) });
++    }
++    pub fn take() -> Lab {
++        LAB.with_borrow_mut(std::mem::take)
++    }
++
++    /// [`ramped`], memoized per (body, tick) while the memo is on. Levels above the emitter are
++    /// shared by every body of the same doll at the same tick; the memo counts what sharing saves.
++    pub fn ramped_memo(ctx: &Ctx, i: usize, t: Tick) -> Res<Level> {
++        let memo_hit = MEMO.with_borrow(|m| m.as_ref().and_then(|m| m.get(&(i, t)).copied()));
++        if let Some(v) = memo_hit {
++            LAB.with_borrow_mut(|l| {
++                l.levels += 1;
++                l.memo_hits += 1;
++            });
++            return Ok(v);
++        }
++        LAB.with_borrow_mut(|l| {
++            l.levels += 1;
++            l.memo_misses += 1;
++        });
++        let (b, p, v) = ramped(ctx, i, t)?;
++        let out = (b.doll, [super::to_f64(p[0]), super::to_f64(p[1])], [super::to_f64(v[0]), super::to_f64(v[1])]);
++        MEMO.with_borrow_mut(|m| if let Some(m) = m.as_mut() { m.insert((i, t), out); });
++        Ok(out)
++    }
++
++    /// Charge the scheduler's per-event position update. `walked`: the update ran a real
++    /// doll-chain walk (in incremental mode, a re-anchor); without one nothing is charged, so
++    /// `sched_calls` counts walks, not events — the amortization the incremental deadline buys.
++    pub fn sched(d: u64, walked: bool) {
++        if !walked {
++            return;
++        }
++        LAB.with_borrow_mut(|l| {
++            l.sched_calls += 1;
++            l.sched_ns += d;
++        });
++    }
++
++}
++
+ /// What the player's held thrust has made of its state since the last flush, at tick `t`: the heading
+ /// (turns, Q32) and the change of velocity (the burn owed), the same a flush at `t` would write. A pure
+ /// read, so the view shows the keys within the frame instead of at the next kick.
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..0149a2d 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -48,6 +48,16 @@ use std::collections::VecDeque;
+ use std::sync::Arc;
+ use std::time::Instant;
+ 
++/// The incremental deadline's staleness bound (lab): the carried readout is re-anchored by a real
++/// walk once the displacement it could have drifted — `|v|·Δt`, the worst case of the straight
++/// carry against the true worldline — passes this fraction of the light distance it is used for.
++/// The deadline is a scheduling heuristic, never an outcome, so an error of this size reorders
++/// work inside its tolerance and moves no bit of the state.
++const REL_DEADLINE: f64 = 0.125;
++/// The floor under it (root units ≈ ticks of light): bodies at the observer re-anchor per event,
++/// where the relative bound alone would starve the carry.
++const FLOOR_DEADLINE: f64 = 1.0e6;
++
+ /// A frame's allowance: a number of events, and optionally a wall-clock instant.
+ #[derive(Clone, Copy, Debug)]
+ pub struct Budget {
+@@ -145,6 +155,13 @@ pub struct Universe {
+     observer: [f64; 2],
+     /// Cached positions in root units (for deadlines only; never an outcome).
+     pos: Vec<[f64; 2]>,
++    /// The velocity of the last deadline readout, and its tick (lab: incremental deadlines).
++    /// [`Self::body_pos`] carries the readout forward by it — the deadline's own rate `1 + n·β`,
++    /// since the light distance `d(t) = |x(t) − X|` moves at `n·β` along a straight readout —
++    /// and `apply` re-anchors with a real walk only when the carried displacement since the
++    /// anchor could pass [`REL_DEADLINE`] of the distance. `Tick::MIN` marks "never anchored".
++    pos_v: Vec<[f64; 2]>,
++    pos_t: Vec<Tick>,
+     pub stats: Stats,
+     pub inputs: Vec<(Tick, u8)>,
+     /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
+@@ -195,6 +212,8 @@ impl Universe {
+             player: None,
+             observer: [0.0; 2],
+             pos: Vec::new(),
++            pos_v: Vec::new(),
++            pos_t: Vec::new(),
+             stats: Stats::default(),
+             inputs: Vec::new(),
+             handouts: VecDeque::new(),
+@@ -404,6 +423,8 @@ impl Universe {
+             ships: self.kinds(Kind::Ship),
+         };
+         self.pos = vec![[0.0; 2]; n];
++        self.pos_v = vec![[0.0; 2]; n];
++        self.pos_t = vec![Tick::MIN; n];
+         for i in 0..n {
+             let rec = self.bodies.rec(i);
+             let upd = step::replan(&self.ctx(), i, rec, 0);
+@@ -460,7 +481,15 @@ impl Universe {
+         }
+     }
+ 
++    /// The light distance at the presented time (prune, the fleet cap).
+     fn light_distance(&self, e: usize) -> Tick {
++        self.light_distance_at(e, self.now)
++    }
++
++    /// The light distance of an entity's position at tick `t`: when its light reaches the player
++    /// from there. Bodies are read through [`Self::body_pos`] (the last readout, carried forward
++    /// in the lab's incremental mode); fleets and members not made yet from the frame's position.
++    fn light_distance_at(&self, e: usize, t: Tick) -> Tick {
+         if Some(e) == self.player {
+             return 0;
+         }
+@@ -470,16 +499,29 @@ impl Universe {
+         } else {
+             match self.entity_fleet(e) {
+                 Some(f) if e >= self.bodies.len() => self.fleets[f].root_position(),
+-                _ => self.pos[e],
++                _ => self.body_pos(e, t),
+             }
+         };
+         let (dx, dy) = (p[0] - self.observer[0], p[1] - self.observer[1]);
+         (dx * dx + dy * dy).sqrt().min(4e18) as Tick
+     }
+ 
++    /// A body's position for the scheduler's deadlines at tick `t` (never an outcome): the last
++    /// readout's position, walked forward by the last readout's velocity while the lab's
++    /// incremental mode is on — straight, so the light distance moves at exactly `n·β` and the
++    /// deadline at `t + d(t)` advances at the arrival rate `1 + n·β` the view already carries.
++    /// Off (the default) it is the cached readout itself, as it always was.
++    fn body_pos(&self, e: usize, t: Tick) -> [f64; 2] {
++        if !crate::observe::lab::is_incremental() || self.pos_t[e] == Tick::MIN {
++            return self.pos[e];
++        }
++        let dt = t as f64 - self.pos_t[e] as f64;
++        [self.pos[e][0] + self.pos_v[e][0] * dt, self.pos[e][1] + self.pos_v[e][1] * dt]
++    }
++
+     /// The deadline of an entity's next item: when its light reaches the player.
+     fn deadline_of(&self, e: usize) -> Option<Tick> {
+-        self.key_of(e).map(|(t, _)| t.saturating_add(self.light_distance(e)))
++        self.key_of(e).map(|(t, _)| t.saturating_add(self.light_distance_at(e, t)))
+     }
+ 
+     fn requeue(&mut self, e: usize) {
+@@ -528,9 +570,25 @@ impl Universe {
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
+-        if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+-            self.pos[i] = p;
++        // The deadline readout: a walk of the doll chain per event (its position cache for
++        // `light_distance`), or — in the lab's incremental mode — the anchor carried by its
++        // velocity, re-walked only when the carried displacement since the anchor could pass
++        // `REL_DEADLINE` of the light distance (never an outcome either way: scheduling only).
++        let t0 = std::time::Instant::now();
++        let anchored = self.pos_t[i] == Tick::MIN || {
++            let (v, dt) = (self.pos_v[i], t.saturating_sub(self.pos_t[i]) as f64);
++            (v[0] * v[0] + v[1] * v[1]).sqrt() * dt
++                > REL_DEADLINE * (self.light_distance(i) as f64 + crate::observe::lab::get_floor())
++        };
++        let walked = !crate::observe::lab::is_incremental() || anchored;
++        if walked {
++            if let Ok((p, v)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
++                self.pos[i] = p;
++                self.pos_v[i] = v;
++                self.pos_t[i] = t;
++            }
+         }
++        crate::observe::lab::sched(t0.elapsed().as_nanos() as u64, walked);
+     }
+ 
+     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {
+@@ -702,6 +760,8 @@ impl Universe {
+             let i = self.bodies.push(rec);
+             self.info.push(BodyInfo { kind: Kind::Ship, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: Some((f as u16, l.member as u16)), born: l.tick });
+             self.pos.push([0.0; 2]);
++            self.pos_v.push([0.0; 2]);
++            self.pos_t.push(Tick::MIN);
+             self.lanes.ships.push(i);
+             Ok(i)
+         })();
+@@ -1074,5 +1134,11 @@ impl Universe {
+     pub fn horizon_of(&self, i: usize) -> Option<Tick> {
+         self.key_of(i).map(|k| k.0)
+     }
++
++    /// The deadline of an entity's next item (when its light reaches the player), for tests: the
++    /// scheduling heuristic the incremental mode approximates, never an outcome.
++    pub fn next_deadline(&self, e: usize) -> Option<Tick> {
++        self.deadline_of(e)
++    }
+ }
+ 
+diff --git a/crates/universe/tests/lab_arrival.rs b/crates/universe/tests/lab_arrival.rs
+new file mode 100644
+index 0000000..eb58833
+--- /dev/null
++++ b/crates/universe/tests/lab_arrival.rs
+@@ -0,0 +1,323 @@
++//! Lab test for runs `20261010-0541-system-d51f` (the whole-system lens) and its second author
++//! `20261010-0656`: the plane's light-arrival bookkeeping — the scheduler's per-event deadline
++//! position update and the view's per-emitter retarded reads — recomputes the same doll-chain
++//! readouts; a per-frame (body, tick) memo of the `ramped` readout shares them with bit-identical
++//! results (2.9% of levels: retarded ticks differ per emitter), and the scheduler's per-event walk
++//! is deleted by the **incremental deadline**: the last readout carried forward by its velocity
++//! (the arrival rate `1 + n·β` the view already computes), re-anchored by a real walk only when the
++//! carried displacement could pass `REL_DEADLINE` of the light distance.
++//!
++//! The decisive comparison is at a **settle cut** (`frame_to` with `limit`, then `settle`, then
++//! `digest`): the raw flight cuts bite the 5 ms wall budget and diverge by flight timing, not by
++//! behaviour (the first checker's finding). Run with
++//! `cargo test --release -p emergent-universe --test lab_arrival -- --nocapture --test-threads=1`.
++use emergent_universe::observe::lab;
++use emergent_universe::scenario::{plane, stream, Stream};
++use emergent_universe::view::{gather_cached, ViewCache};
++use emergent_universe::fleet::Order;
++use emergent_universe::num::Tick;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++const FRAMES: usize = 300;
++const RTF: f64 = 100.0;
++
++fn hash_view(v: &emergent_universe::view::View) -> u64 {
++    let mut h = std::collections::hash_map::DefaultHasher::new();
++    use std::hash::{Hash, Hasher};
++    v.tick.hash(&mut h);
++    for s in &v.seen {
++        s.id.hash(&mut h);
++        for f in s.direction {
++            f.to_bits().hash(&mut h);
++        }
++        s.light_seconds.to_bits().hash(&mut h);
++        s.offset[0].to_bits().hash(&mut h);
++        s.offset[1].to_bits().hash(&mut h);
++        s.closing.to_bits().hash(&mut h);
++        for f in s.color { f.to_bits().hash(&mut h); }
++        s.luminosity.to_bits().hash(&mut h);
++        s.shift.to_bits().hash(&mut h);
++        s.age.to_bits().hash(&mut h);
++        s.lag.to_bits().hash(&mut h);
++        s.angular_radius.to_bits().hash(&mut h);
++    }
++    v.rate.to_bits().hash(&mut h);
++    v.beta[0].to_bits().hash(&mut h);
++    v.beta[1].to_bits().hash(&mut h);
++    v.proper_seconds.to_bits().hash(&mut h);
++    h.finish()
++}
++
++fn median(v: &mut Vec<u64>) -> f64 {
++    v.sort();
++    v[v.len() / 2] as f64 / 1e3
++}
++fn mean(v: &[u64]) -> f64 {
++    v.iter().sum::<u64>() as f64 / v.len() as f64 / 1e3
++}
++
++struct Flight {
++    gather_ns: Vec<u64>,
++    engine_ns: Vec<u64>,
++    view_hashes: Vec<u64>,
++    digest: String,
++    cut: i64,
++    lab: lab::Lab,
++    events: u64,
++}
++
++fn fly(memo_on: bool) -> Flight {
++    let mut p = plane(Config::default(), 7, Order::Sparse, 1, 48).expect("the plane");
++    let names = p.names.clone();
++    let mut cache = ViewCache::default();
++    let mut out = Flight { gather_ns: Vec::new(), engine_ns: Vec::new(), view_hashes: Vec::new(), digest: String::new(), cut: 0, lab: lab::Lab::default(), events: 0 };
++    lab::memo(memo_on);
++    for n in 0..FRAMES {
++        lab::reset(); // per-frame memo and counters (the gather only; the scheduler counters accumulate per frame too)
++        let t0 = Instant::now();
++        let f = p.u.frame_to(1.0 / 60.0, RTF, Budget::wall(5.0), i64::MAX);
++        let t1 = Instant::now();
++        let v = gather_cached(&p.u, &names, &mut cache).expect("view");
++        let t2 = Instant::now();
++        out.gather_ns.push((t2 - t1).as_nanos() as u64);
++        out.engine_ns.push((t1 - t0).as_nanos() as u64);
++        out.view_hashes.push(hash_view(&v));
++        out.events += f.events;
++        let l = lab::take();
++        out.lab.levels += l.levels;
++        out.lab.memo_hits += l.memo_hits;
++        out.lab.memo_misses += l.memo_misses;
++        out.lab.sched_calls += l.sched_calls;
++        out.lab.sched_ns += l.sched_ns;
++        let _ = n;
++    }
++    lab::memo(false);
++    out.cut = p.u.now;
++    out.digest = p.u.digest();
++    out
++}
++
++#[test]
++fn arrival_bookkeeping_shares_the_doll_chain() {
++    let a = fly(false);
++    let b = fly(true);
++    assert_eq!(a.view_hashes, b.view_hashes, "the memo changed the view's bits");
++    assert_eq!(a.digest, b.digest, "the memo changed the universe digest");
++    assert_eq!(a.cut, b.cut);
++    let share = |l: &lab::Lab| if l.levels > 0 { 100.0 * l.memo_hits as f64 / l.levels as f64 } else { 0.0 };
++    println!(
++        "plane(seed 7, rtf {RTF}, {FRAMES} frames, {} events): levels {} hits {} misses {} hit_share {:.1}% | gather median {:.1} us -> {:.1} us | engine median {:.1} us -> {:.1} us | sched walks {} ({} per event) at {} us each",
++        a.events, b.lab.levels, b.lab.memo_hits, b.lab.memo_misses, share(&b.lab),
++        median(&mut a.gather_ns.clone()), median(&mut b.gather_ns.clone()),
++        median(&mut a.engine_ns.clone()), median(&mut b.engine_ns.clone()),
++        a.lab.sched_calls, a.lab.sched_calls as f64 / a.events as f64, a.lab.sched_ns as f64 / 1e3 / a.lab.sched_calls as f64,
++    );
++
++    // Control (corrected: the counters are reset *before* the gather they measure — the shipped
++    // control reset after reading them, so it measured nothing): the stream scene has every
++    // emitter in the root doll (depth 1), so no level is shared and the memo cannot hit.
++    let (mut u, _ids, _player) = stream(0.0, 0.9, Stream::Toward, 64, 1.0e8, 0).expect("stream");
++    let mut cache = ViewCache::default();
++    let names: Vec<String> = (0..u.n_bodies()).map(|i| format!("b{i}")).collect();
++    lab::memo(true);
++    let mut levels = 0u64;
++    let mut hits = 0u64;
++    for _ in 0..60 {
++        let _ = u.frame_to(1.0 / 60.0, RTF, Budget::wall(5.0), i64::MAX);
++        lab::reset();
++        let _ = gather_cached(&u, &names, &mut cache);
++        let s = lab::take();
++        levels += s.levels;
++        hits += s.memo_hits;
++    }
++    lab::memo(false);
++    let share = if levels > 0 { 100.0 * hits as f64 / levels as f64 } else { 0.0 };
++    println!("control stream(64 emitters, root doll): levels {levels} hits {hits} hit_share {share:.1}%");
++    assert!(levels > 0, "the control measured nothing (the defect the first checker found)");
++    assert!(share < 5.0, "the memo won where no level is shared: an artifact");
++}
++
++// ---- the second author's experiment: the incremental deadline ------------------------------------------------
++//
++// One flight of a scene under one deadline mode, to a canonical cut: `frame_to` never passes
++// `limit`, `settle` finishes everything up to it, and the digest, the view and the deadlines are
++// read at the cut. The budget may bite differently per mode (a different resolution order is the
++// point of the experiment), which is exactly what the settle cut is insensitive to.
++struct DeadFlight {
++    engine_ns: Vec<u64>,
++    events_per_frame: Vec<u64>,
++    events: u64,
++    now_before_settle: Tick,
++    digest: String,
++    view_hash: u64,
++    /// Per body at the cut: the next item's key (canonical) and its deadline as this mode reads it.
++    keys: Vec<Option<Tick>>,
++    deadlines: Vec<Option<Tick>>,
++    lab: lab::Lab,
++}
++
++fn want_ticks(rtf: f64) -> Tick {
++    (rtf * (1.0 / 60.0) / emergent_universe::view::TICK_SECONDS) as Tick
++}
++
++fn flight(u: &mut emergent_universe::Universe, names: &[String], rtf: f64, frames: usize, cut: Tick, incremental: bool) -> DeadFlight {
++    let mut cache = ViewCache::default();
++    let mut out = DeadFlight {
++        engine_ns: Vec::new(),
++        events_per_frame: Vec::new(),
++        events: 0,
++        now_before_settle: 0,
++        digest: String::new(),
++        view_hash: 0,
++        keys: Vec::new(),
++        deadlines: Vec::new(),
++        lab: lab::Lab::default(),
++    };
++    lab::reset();
++    lab::incremental(incremental);
++    for _ in 0..frames {
++        let t0 = Instant::now();
++        let f = u.frame_to(1.0 / 60.0, rtf, Budget::wall(5.0), cut);
++        let t1 = Instant::now();
++        out.engine_ns.push((t1 - t0).as_nanos() as u64);
++        out.events_per_frame.push(f.events);
++        out.events += f.events;
++        let _ = gather_cached(u, names, &mut cache);
++    }
++    out.now_before_settle = u.now;
++    u.settle(cut);
++    out.digest = u.digest();
++    out.view_hash = hash_view(&gather_cached(u, names, &mut cache).expect("view at the cut"));
++    // The keys and the deadlines as this mode reads them (the incremental mode extrapolates; its
++    // flag is still on).
++    out.keys = (0..u.n_bodies()).map(|e| u.horizon_of(e)).collect();
++    out.deadlines = (0..u.n_bodies()).map(|e| u.next_deadline(e)).collect();
++    out.lab = lab::take();
++    lab::incremental(false);
++    out
++}
++
++fn fly_deadline_plane(seed: u64, rtf: f64, frames: usize, incremental: bool) -> DeadFlight {
++    let mut p = plane(Config::default(), seed, Order::Sparse, 1, 48).expect("the plane");
++    let cut = p.u.now + want_ticks(rtf) * frames as Tick;
++    flight(&mut p.u, &p.names, rtf, frames, cut, incremental)
++}
++
++fn fly_deadline_stream(beta_obs: f64, beta: f64, dir: Stream, frames: usize, incremental: bool) -> DeadFlight {
++    let (mut u, _ids, _player) = stream(beta_obs, beta, dir, 64, 1.0e8, 0).expect("stream");
++    let names: Vec<String> = (0..u.n_bodies()).map(|i| format!("b{i}")).collect();
++    let cut = u.now + want_ticks(RTF) * frames as Tick;
++    flight(&mut u, &names, RTF, frames, cut, incremental)
++}
++
++/// The incremental deadlines' error against the walked ones at the cut (the records are the same
++/// there: the digest is equal). Reported as `|d_inc − d_walk|` in ticks: the median and the max,
++/// with the max's walked light distance (which body paid it — near bodies err in hundreds of
++/// ticks, far ones in a bounded fraction of their distance).
++fn deadline_error(a: &DeadFlight, b: &DeadFlight) -> (f64, f64, f64) {
++    let mut abs: Vec<(f64, f64)> = Vec::new(); // (|Δd|, walked dist at the cut)
++    for e in 0..a.deadlines.len() {
++        let (Some(da), Some(db), Some(k)) = (a.deadlines[e], b.deadlines[e], a.keys[e]) else { continue };
++        abs.push(((da as f64 - db as f64).abs(), (da - k).max(0) as f64));
++    }
++    if abs.is_empty() {
++        return (0.0, 0.0, 0.0);
++    }
++    abs.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
++    let med = abs[abs.len() / 2].0;
++    let (m, d) = *abs.last().unwrap();
++    (med, m, d)
++}
++#[test]
++fn incremental_deadline_drops_the_walk_and_keeps_the_bits() {
++    // The plane across seeds and rtfs (seed 7 rtf 100 is the run's own scene; the rest held out).
++    let cases: Vec<(&str, u64, f64, usize)> = vec![
++        ("seed 7", 7, 100.0, FRAMES),
++        ("seed 3", 3, 100.0, FRAMES),
++        ("seed 99", 99, 100.0, FRAMES),
++        ("seed 7, rtf 10", 7, 10.0, FRAMES),
++        ("seed 7, rtf 1000", 7, 1000.0, FRAMES),
++    ];
++    for (name, seed, rtf, frames) in cases {
++        let a = fly_deadline_plane(seed, rtf, frames, false);
++        let b = fly_deadline_plane(seed, rtf, frames, true);
++        assert_eq!(a.digest, b.digest, "{name}: the incremental deadline changed the digest at the settle cut");
++        assert_eq!(a.view_hash, b.view_hash, "{name}: the incremental deadline changed the view at the settle cut");
++        let (emed, emax, edist) = deadline_error(&a, &b);
++        let mut evf = a.events_per_frame.clone();
++        evf.sort();
++        println!(
++            "{name}: events {} (median {}/frame) | engine median {:.1} -> {:.1} us, mean {:.1} -> {:.1} us (sched {} -> {} walks, {:.3} -> {:.3}/event) | presented before settle {:.3e} vs {:.3e} | deadline err ticks med {emed:.3e} max {emax:.3e} (max body's light dist {edist:.3e}; frame = {:.3e} ticks)",
++            a.events, evf[evf.len() / 2],
++            median(&mut a.engine_ns.clone()), median(&mut b.engine_ns.clone()),
++            mean(&a.engine_ns), mean(&b.engine_ns),
++            a.lab.sched_calls, b.lab.sched_calls,
++            a.lab.sched_calls as f64 / a.events as f64, b.lab.sched_calls as f64 / b.events as f64,
++            a.now_before_settle as f64, b.now_before_settle as f64,
++            want_ticks(rtf) as f64,
++        );
++    }
++
++    // The cost knob: the staleness bound's floor. The default (1e6 root units) lets near bodies
++    // (the player's own doll) drift many times their light distance; a smaller floor re-anchors
++    // them more, for walks that are still an order below the per-event tax.
++    for floor in [1.0e6, 1.0e4, 1.0e3] {
++        lab::floor(floor);
++        let a = fly_deadline_plane(7, 100.0, FRAMES, false);
++        let b = fly_deadline_plane(7, 100.0, FRAMES, true);
++        assert_eq!(a.digest, b.digest, "floor {floor}: the incremental deadline changed the digest at the settle cut");
++        let (emed, emax, edist) = deadline_error(&a, &b);
++        println!(
++            "seed 7, floor {floor:.0e}: walks {} -> {} | engine median {:.1} -> {:.1} us, mean {:.1} -> {:.1} | deadline err ticks med {emed:.3e} max {emax:.3e} (max body's light dist {edist:.3e})",
++            a.lab.sched_calls, b.lab.sched_calls,
++            median(&mut a.engine_ns.clone()), median(&mut b.engine_ns.clone()),
++            mean(&a.engine_ns), mean(&b.engine_ns),
++        );
++    }
++    lab::floor(1.0e6);
++
++    // The regime the lens flagged: β → 1. The stream's emitters are inertial at 0.99c: the
++    // carried readout is exact along a straight worldline (measured below), where the rate form
++    // of the deadline (1 + n·β → 0.01 closing, 1.99 receding) is at its worst. The flights then
++    // hold digest and view equality at the settle cut. The shipped scenes have no relativistic
++    // *events* (measured: 0) — the deadline carry under β→1 *kicks* is stated, not run.
++    for (name, obs, beta, dir) in [
++        ("stream 0.99c toward", 0.0, 0.99, Stream::Toward),
++        ("stream 0.99c away", 0.0, 0.99, Stream::Away),
++        ("stream 0.99c toward, observer 0.9c", 0.9, 0.99, Stream::Toward),
++    ] {
++        let a = fly_deadline_stream(obs, beta, dir, 320, false);
++        let b = fly_deadline_stream(obs, beta, dir, 320, true);
++        assert_eq!(a.digest, b.digest, "{name}: the incremental deadline changed the digest at the settle cut");
++        assert_eq!(a.view_hash, b.view_hash, "{name}: the incremental deadline changed the view at the settle cut");
++        println!(
++            "{name}: events {} | engine median {:.1} -> {:.1} us | sched walks {} -> {}",
++            a.events,
++            median(&mut a.engine_ns.clone()), median(&mut b.engine_ns.clone()),
++            a.lab.sched_calls, b.lab.sched_calls,
++        );
++    }
++
++    // The carry itself at β→1: an inertial emitter's walked readout against the carry from tick 0
++    // across the whole flight — the position form does not degrade as the arrival rate goes to
++    // 0.01 (closing) or 1.99 (receding).
++    let (mut u, ids, _player) = stream(0.0, 0.99, Stream::Toward, 8, 1.0e8, 0).expect("stream");
++    u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), 1);
++    let ctx = u.ctx();
++    let mut worst = 0.0f64;
++    for &i in &ids {
++        let Ok((p0, v0)) = emergent_universe::observe::root_state_raw(&ctx, i, 0) else { continue };
++        for t in [1.0e6, 1.0e7, 5.0e7] {
++            let Ok((p, _)) = emergent_universe::observe::root_state_raw(&ctx, i, t as Tick) else { continue };
++            let carried = [p0[0] + v0[0] * t, p0[1] + v0[1] * t];
++            let dist = ((p[0] - carried[0]).powi(2) + (p[1] - carried[1]).powi(2)).sqrt();
++            let scale = 1.0e8 + 1.0; // the emitter's distance scale over the flight
++            worst = worst.max(dist / scale);
++        }
++    }
++    println!("carry vs walk, inertial 0.99c over 5e7 ticks: worst relative error {worst:.2e}");
++    // 5e-8 is f64 noise at 1e8 root units (the tube's own quantized readout); drift would grow
++    // with t², and this is flat in t.
++    assert!(worst < 1.0e-6, "the carry drifts along an inertial 0.99c worldline");
++}

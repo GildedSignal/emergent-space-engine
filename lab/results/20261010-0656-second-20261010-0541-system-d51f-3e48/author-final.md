@@ -1,0 +1,4 @@
+Working...
+Full suite passes (56 tests, 0 failures — default path untouched). The dossier is grounded.
+
+**Claim:** The checker's named experiment is done and the silver's core holds bit for bit — the incremental deadline (readout carried at `1+n·β`, re-anchored on a ⅛-of-light-distance staleness bound) deletes the scheduler's per-event walk (1123→42 walks at seed 7 rtf 100, 4224→42 at rtf 1000) with digests and views identical at settle cuts in all eight flight configurations — but the saving lands in the mean engine frame (−26.6 µs, exactly the walk tax), not the median (median frames carry ~2 events; the median drops −86 µs only at rtf 1000), so both the original's "46% of the median" and the checker's "~26 µs off the median" conflated a per-frame mean with a median frame, while the mechanism itself is adoptable as-is.
