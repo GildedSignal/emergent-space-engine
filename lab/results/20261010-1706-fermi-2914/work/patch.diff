@@ -1,0 +1,175 @@
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..66560e1 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -1,12 +1,12 @@
+ //! Deterministic kick replay on the plane's own scene, without changing its resolver.
+ use super::{script, Session};
+ use emergent_space::{
+-    binding::Trajectory,
++    binding::{Residual, Trajectory},
+     orbit::{MemoCode, ShapeKey},
+ };
+ use emergent_universe::{body::What, step, Budget, Kind};
+ use serde_json::json;
+-use std::collections::HashSet;
++use std::collections::{HashMap, HashSet};
+ use std::time::Instant;
+ 
+ /// The shapes the rebinds of the replayed kicks asked for, under the exact key and under the law's
+@@ -45,6 +45,109 @@ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
+ }
+ 
++/// The live-amendment stream: what each distinct kick changes about a body's program and binding.
++/// game-second). Channels: the Q48 k-axis (1/(1+e)) delta in lattice quanta, the quantized memo
++/// code (12+12 bits) revisit structure, and the binding residual's four i128 components by
++/// magnitude bucket (log2).
++#[derive(Default)]
++struct Amendments {
++    kicks: u64,
++    passages: u64,
++    dk_exact: HashMap<i64, u64>,
++    dk_far: u64,
++    first_kick: u64,
++    revisits: u64,
++    memo_fail: u64,
++    res: [HashMap<i32, u64>; 4],
++    per_body: HashMap<usize, u64>,
++}
++impl Amendments {
++    fn bucket(x: i128) -> i32 {
++        let m = x.unsigned_abs();
++        if m == 0 {
++            -1
++        } else {
++            127 - m.leading_zeros() as i32
++        }
++    }
++    #[allow(clippy::too_many_arguments)]
++    fn note(
++        &mut self,
++        i: usize,
++        t: &Trajectory,
++        residual: Residual,
++        last_k: &mut Vec<Option<u64>>,
++        visited: &mut Vec<Option<HashSet<u64>>>,
++    ) {
++        self.kicks += 1;
++        *self.per_body.entry(i).or_default() += 1;
++        let key = t.key();
++        if !matches!(t, Trajectory::Cycle(_)) {
++            self.passages += 1;
++        }
++        if let Some(prev) = last_k[i] {
++            let dk = key.k as i64 - prev as i64;
++            let bucket = if dk.unsigned_abs() <= 8 {
++                dk
++            } else {
++                dk.signum() * (63 - dk.unsigned_abs().leading_zeros() as i64)
++            };
++            *self.dk_exact.entry(bucket).or_default() += 1;
++        } else {
++            self.first_kick += 1;
++        }
++        last_k[i] = Some(key.k);
++        match MemoCode::encode(key) {
++            Ok(code) => {
++                let bits = code.bits();
++                let seen = visited[i].get_or_insert_with(HashSet::new);
++                if !seen.insert(bits) {
++                    self.revisits += 1;
++                }
++            }
++            Err(_) => self.memo_fail += 1,
++        }
++        for (c, x) in residual
++            .position
++            .iter()
++            .chain(residual.velocity.iter())
++            .enumerate()
++        {
++            *self.res[c].entry(Self::bucket(*x)).or_default() += 1;
++        }
++    }
++    fn entropy<K: std::hash::Hash + Eq>(h: &HashMap<K, u64>) -> f64 {
++        let n: u64 = h.values().sum();
++        if n == 0 {
++            return 0.0;
++        }
++        h.values().map(|&c| {
++            let p = c as f64 / n as f64;
++            -p * p.log2()
++        }).sum()
++    }
++    fn json(&self, bodies_at_risk: usize, game_seconds: f64) -> serde_json::Value {
++        json!({
++            "distinct_kicks": self.kicks,
++            "passages": self.passages,
++            "bodies_that_kicked": self.per_body.len(),
++            "bodies_at_risk": bodies_at_risk,
++            "kicks_per_body_per_game_second": self.per_body.values().map(|&c| c as f64).sum::<f64>()
++                / bodies_at_risk.max(1) as f64 / game_seconds.max(1e-9),
++            "mean_kicks_per_kicking_body": self.kicks as f64 / self.per_body.len().max(1) as f64,
++            "dk_bits_bucket_entropy": Self::entropy(&self.dk_exact),
++            "dk_far_outside_pm4096": self.dk_far,
++            "dk_histogram": self.dk_exact,
++            "memo_revisit_rate": self.revisits as f64 / self.kicks.max(1) as f64,
++            "memo_encode_failures": self.memo_fail,
++            "residual_bucket_entropy_bits": self.res.iter().map(Self::entropy).collect::<Vec<_>>(),
++            "residual_zero_fraction": self.res.iter().map(|h| *h.get(&(-1)).unwrap_or(&0) as f64
++                / h.values().sum::<u64>().max(1) as f64).collect::<Vec<_>>(),
++            "game_seconds": game_seconds,
++        })
++    }
++}
++
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let machine_before = crate::measure::machine_state("before");
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+@@ -53,10 +156,13 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+-    let mut refused = 0;
+-    let mut last: Vec<Option<i64>> = vec![None; made_n];
++    let mut am = Amendments::default();
+     let wall = Instant::now();
+     let mut frames = 0;
++    let mut refused = 0;
++    let mut last: Vec<Option<i64>> = vec![None; made_n];
++    let mut last_k: Vec<Option<u64>> = vec![None; made_n];
++    let mut visited: Vec<Option<HashSet<u64>>> = vec![None; made_n];
+     let mut keys = 0;
+     for n in 1..=(seconds * 60.0) as usize {
+         if wall.elapsed().as_secs_f64() >= 55.0 {
+@@ -68,6 +174,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
+         }
+         last.resize(s.n_bodies(), None);
++        last_k.resize(s.n_bodies(), None);
++        visited.resize_with(s.n_bodies(), || None);
+         for (i, seen) in last.iter_mut().enumerate() {
+             let rec = s.p.u.rec(i);
+             if rec.kind != Kind::Ship || !rec.alive {
+@@ -88,8 +196,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
++                am.note(i, &e.trajectory, upd.rec.b.residual, &mut last_k, &mut visited);
+             }
+-            digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+         }
+         s.p.u.frame(1.0 / 60.0, s.rtf, Budget::unlimited());
+         s.p.u.settle(s.p.u.now);
+@@ -97,9 +205,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     }
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
+     println!("{}", serde_json::to_string_pretty(&json!({
+-        "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+-        "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
+-        "kick_us": percentiles(&mut made),
++        "amendments": am.json(s.n_bodies(), frames as f64 * s.rtf / 60.0),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
