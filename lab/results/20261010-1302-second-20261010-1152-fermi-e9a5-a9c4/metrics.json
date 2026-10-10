@@ -1,0 +1,601 @@
+{
+ "env": {
+  "nproc": 8,
+  "loadavg1": "0.55",
+  "memfree_kb": "16316708"
+ },
+ "scene": {
+  "a_AU": 2.2,
+  "width_AU": 0.5,
+  "N": 1000000000.0,
+  "belt_kg": 2e+21,
+  "body_kg": 2000000000000.0,
+  "Porb_s": 102967646.69995938,
+  "warp": 100.0
+ },
+ "controls": {
+  "canonical_exact_kernel_relerr": 0.0005553149702019192,
+  "canonical_richardson_relerr": 7.25343264682228e-14,
+  "cold_exact_kernel_relerr": 0.002734719598342864,
+  "cold_impulse_vs_exact_ratio": 14.560439037628406
+ },
+ "lambda_plus_per_body_per_orbit": {
+  "belt": {
+   "1e-06": 354.71137441835583,
+   "1e-05": 35.27243408965124,
+   "0.0001": 3.2379045883602995,
+   "0.001": 0.03652634564258402,
+   "0.01": 0.0,
+   "beta_fit": -1.2998978055285662,
+   "per_body_per_real_s_at_warp_q1e-6": 0.00034448818224617713
+  },
+  "dense_x2500": {
+   "1e-06": 886778.4360458895,
+   "1e-05": 88181.08522412808,
+   "0.0001": 8094.7614709007485,
+   "0.001": 91.31586410646005,
+   "0.01": 0.0,
+   "beta_fit": -1.2998978055285657,
+   "per_body_per_real_s_at_warp_q1e-6": 0.8612204556154426
+  },
+  "cold_belt": {
+   "1e-06": 177.3430920026175,
+   "1e-05": 17.72680460407415,
+   "0.0001": 1.7746502525199734,
+   "0.001": 0.17970352919465649,
+   "0.01": 0.018897907664043017,
+   "beta_fit": -0.9938874958374136,
+   "per_body_per_real_s_at_warp_q1e-6": 0.00017223185892495247
+  },
+  "cold_dense_x2500": {
+   "1e-06": 443357.7300065437,
+   "1e-05": 44317.011510185366,
+   "0.0001": 4436.625631299934,
+   "0.001": 449.2588229866412,
+   "0.01": 47.24476916010755,
+   "beta_fit": -0.9938874958374133,
+   "per_body_per_real_s_at_warp_q1e-6": 0.4305796473123811
+  }
+ },
+ "sigma_linearity_ratio": 1.0,
+ "cold_sigma_linearity_ratio": 0.9999999999999998,
+ "estimator_bias": {
+  "mean_bits": 1.4532529511925982,
+  "std_bits": 0.015037726304554874,
+  "sigma_grid": [
+   0.001,
+   0.05,
+   3.0
+  ],
+  "trials": 8,
+  "all_bits": [
+   1.4527727152304024,
+   1.448212083547503,
+   1.5014618845539403,
+   1.4639964523523474,
+   1.4545937899506427,
+   1.456059484625328,
+   1.4529535796606154,
+   1.4447963454561759,
+   1.4509513367515012,
+   1.4441371726487162,
+   1.458671242227119,
+   1.4588276200418804,
+   1.423914467306325,
+   1.4654031009920558,
+   1.4438606736370971,
+   1.4631110789490123,
+   1.4338755062990884,
+   1.4651815987853425,
+   1.4620466047188572,
+   1.458540654823615,
+   1.4579192751595187,
+   1.4257393819870856,
+   1.4484200936006815,
+   1.4426246853175044
+  ]
+ },
+ "growth_q1e-6": {
+  "belt": [
+   {
+    "orbits": 1,
+    "sigma_resid_m_per_s": 0.0004417845585415604,
+    "H_bits": 20.045732506413167,
+    "mutation_per_orbit": 375.36343372282886,
+    "H_bits_corrected": 21.498985457605766
+   },
+   {
+    "orbits": 2,
+    "sigma_resid_m_per_s": 0.0006268129722985174,
+    "H_bits": 21.16509021668697,
+    "mutation_per_orbit": 375.3634338068936,
+    "H_bits_corrected": 22.61834316787957
+   },
+   {
+    "orbits": 4,
+    "sigma_resid_m_per_s": 0.0008909748911803001,
+    "H_bits": 22.205776807069427,
+    "mutation_per_orbit": 375.3634338920556,
+    "H_bits_corrected": 23.659029758262026
+   },
+   {
+    "orbits": 8,
+    "sigma_resid_m_per_s": 0.001250216505908575,
+    "H_bits": 23.192335090209824,
+    "mutation_per_orbit": 375.3634340647485,
+    "H_bits_corrected": 24.645588041402423
+   },
+   {
+    "orbits": 16,
+    "sigma_resid_m_per_s": 0.00178220400408381,
+    "H_bits": 24.24017502634173,
+    "mutation_per_orbit": 375.36343439605923,
+    "H_bits_corrected": 25.69342797753433
+   },
+   {
+    "orbits": 32,
+    "sigma_resid_m_per_s": 0.002513148269731619,
+    "H_bits": 25.241945260258035,
+    "mutation_per_orbit": 375.3634350908979,
+    "H_bits_corrected": 26.695198211450634
+   },
+   {
+    "orbits": 64,
+    "sigma_resid_m_per_s": 0.003559015055623349,
+    "H_bits": 26.24517922369126,
+    "mutation_per_orbit": 375.36343644320783,
+    "H_bits_corrected": 27.69843217488386
+   },
+   {
+    "orbits": 128,
+    "sigma_resid_m_per_s": 0.005015879333750892,
+    "H_bits": 27.219406208066935,
+    "mutation_per_orbit": 375.3634391785584,
+    "H_bits_corrected": 28.672659159259535
+   },
+   {
+    "orbits": 256,
+    "sigma_resid_m_per_s": 0.007109847681557123,
+    "H_bits": 28.236350279457376,
+    "mutation_per_orbit": 375.36344455928656,
+    "H_bits_corrected": 29.689603230649976
+   },
+   {
+    "orbits": 512,
+    "sigma_resid_m_per_s": 0.009991482888006983,
+    "H_bits": 29.21219181933363,
+    "mutation_per_orbit": 375.36345549560286,
+    "H_bits_corrected": 30.66544477052623
+   },
+   {
+    "orbits": 1024,
+    "sigma_resid_m_per_s": 0.01421393321266791,
+    "H_bits": 30.225710088422343,
+    "mutation_per_orbit": 375.3634767213043,
+    "H_bits_corrected": 31.678963039614942
+   },
+   {
+    "orbits": 2048,
+    "sigma_resid_m_per_s": 0.020159477263173155,
+    "H_bits": 31.24518763024952,
+    "mutation_per_orbit": 375.363520743349,
+    "H_bits_corrected": 32.69844058144212
+   },
+   {
+    "orbits": 4096,
+    "sigma_resid_m_per_s": 0.02871526638042321,
+    "H_bits": 32.2718039158944,
+    "mutation_per_orbit": 375.3636087685962,
+    "H_bits_corrected": 33.725056867087
+   },
+   {
+    "orbits": 8192,
+    "sigma_resid_m_per_s": 0.04067041543582544,
+    "H_bits": 33.267002057007815,
+    "mutation_per_orbit": 375.36378887843193,
+    "H_bits_corrected": 34.72025500820041
+   },
+   {
+    "orbits": 16384,
+    "sigma_resid_m_per_s": 0.057414307559962505,
+    "H_bits": 34.26052244165842,
+    "mutation_per_orbit": 375.36414616558176,
+    "H_bits_corrected": 35.71377539285102
+   }
+  ],
+  "dense_x2500": [
+   {
+    "orbits": 1,
+    "sigma_resid_m_per_s": 0.022114318963997952,
+    "H_bits": 31.506620940915184,
+    "mutation_per_orbit": 887811.0390111131,
+    "H_bits_corrected": 32.95987389210778
+   },
+   {
+    "orbits": 2,
+    "sigma_resid_m_per_s": 0.031485976462032376,
+    "H_bits": 32.537799019524265,
+    "mutation_per_orbit": 887811.5801341954,
+    "H_bits_corrected": 33.99105197071686
+   },
+   {
+    "orbits": 4,
+    "sigma_resid_m_per_s": 0.04441517984458776,
+    "H_bits": 33.520653985546446,
+    "mutation_per_orbit": 887812.1359517301,
+    "H_bits_corrected": 34.97390693673904
+   },
+   {
+    "orbits": 8,
+    "sigma_resid_m_per_s": 0.0630056508516757,
+    "H_bits": 34.52704931371518,
+    "mutation_per_orbit": 887813.2217981648,
+    "H_bits_corrected": 35.98030226490778
+   },
+   {
+    "orbits": 16,
+    "sigma_resid_m_per_s": 0.08852890077693396,
+    "H_bits": 35.51670549758205,
+    "mutation_per_orbit": 887815.4314626885,
+    "H_bits_corrected": 36.96995844877465
+   },
+   {
+    "orbits": 32,
+    "sigma_resid_m_per_s": 0.12536080880085732,
+    "H_bits": 36.51618883660987,
+    "mutation_per_orbit": 887819.710967276,
+    "H_bits_corrected": 37.96944178780247
+   },
+   {
+    "orbits": 64,
+    "sigma_resid_m_per_s": 0.1778425009242123,
+    "H_bits": 37.525787128435354,
+    "mutation_per_orbit": 887828.427761251,
+    "H_bits_corrected": 38.97904007962795
+   },
+   {
+    "orbits": 128,
+    "sigma_resid_m_per_s": 0.2537847101755307,
+    "H_bits": 38.55144121141673,
+    "mutation_per_orbit": 887846.0344625221,
+    "H_bits_corrected": 40.004694162609326
+   },
+   {
+    "orbits": 256,
+    "sigma_resid_m_per_s": 0.35878062947886885,
+    "H_bits": 39.548643130632854,
+    "mutation_per_orbit": 887882.3017507186,
+    "H_bits_corrected": 41.00189608182545
+   },
+   {
+    "orbits": 512,
+    "sigma_resid_m_per_s": 0.5039337100411614,
+    "H_bits": 40.5351499898552,
+    "mutation_per_orbit": 887953.4593984676,
+    "H_bits_corrected": 41.988402941047795
+   },
+   {
+    "orbits": 1024,
+    "sigma_resid_m_per_s": 0.7123861199100546,
+    "H_bits": 41.5285380973922,
+    "mutation_per_orbit": 888091.9877580154,
+    "H_bits_corrected": 42.981791048584796
+   },
+   {
+    "orbits": 2048,
+    "sigma_resid_m_per_s": 0.999736689906968,
+    "H_bits": 42.51550477389098,
+    "mutation_per_orbit": 888372.4004052595,
+    "H_bits_corrected": 43.96875772508358
+   },
+   {
+    "orbits": 4096,
+    "sigma_resid_m_per_s": 1.4253414306480234,
+    "H_bits": 43.531330118506624,
+    "mutation_per_orbit": 888916.2617748744,
+    "H_bits_corrected": 44.98458306969922
+   },
+   {
+    "orbits": 8192,
+    "sigma_resid_m_per_s": 2.0021544068060146,
+    "H_bits": 44.50838358912114,
+    "mutation_per_orbit": 886733.2865984765,
+    "H_bits_corrected": 45.961636540313734
+   },
+   {
+    "orbits": 16384,
+    "sigma_resid_m_per_s": 2.8407099112237284,
+    "H_bits": 45.51553958542525,
+    "mutation_per_orbit": 888904.5200481149,
+    "H_bits_corrected": 46.96879253661785
+   }
+  ],
+  "cold_belt": [
+   {
+    "orbits": 1,
+    "sigma_resid_m_per_s": 0.0017862114797698406,
+    "H_bits": 20.91449568189883,
+    "mutation_per_orbit": 192.40097309592966,
+    "H_bits_corrected": 22.36774863309143
+   },
+   {
+    "orbits": 2,
+    "sigma_resid_m_per_s": 0.0025503848626908404,
+    "H_bits": 22.693222561871796,
+    "mutation_per_orbit": 192.40113014484655,
+    "H_bits_corrected": 24.146475513064395
+   },
+   {
+    "orbits": 4,
+    "sigma_resid_m_per_s": 0.003679217093612786,
+    "H_bits": 24.39770399437621,
+    "mutation_per_orbit": 192.4012929269673,
+    "H_bits_corrected": 25.85095694556881
+   },
+   {
+    "orbits": 8,
+    "sigma_resid_m_per_s": 0.005248666879688668,
+    "H_bits": 26.147102714513235,
+    "mutation_per_orbit": 192.40163725416375,
+    "H_bits_corrected": 27.600355665705834
+   },
+   {
+    "orbits": 16,
+    "sigma_resid_m_per_s": 0.007444100399770659,
+    "H_bits": 27.73096021723635,
+    "mutation_per_orbit": 192.4023191750392,
+    "H_bits_corrected": 29.18421316842895
+   },
+   {
+    "orbits": 32,
+    "sigma_resid_m_per_s": 0.010697744784039086,
+    "H_bits": 29.34042543806757,
+    "mutation_per_orbit": 192.40366076021238,
+    "H_bits_corrected": 30.79367838926017
+   },
+   {
+    "orbits": 64,
+    "sigma_resid_m_per_s": 0.015437706600277226,
+    "H_bits": 30.469787172364292,
+    "mutation_per_orbit": 192.40645052480673,
+    "H_bits_corrected": 31.92304012355689
+   },
+   {
+    "orbits": 128,
+    "sigma_resid_m_per_s": 0.022840578565820686,
+    "H_bits": 31.60161015346455,
+    "mutation_per_orbit": 192.41213937551547,
+    "H_bits_corrected": 33.054863104657144
+   },
+   {
+    "orbits": 256,
+    "sigma_resid_m_per_s": 0.035232453643478955,
+    "H_bits": 32.858511934422836,
+    "mutation_per_orbit": 192.42462245579958,
+    "H_bits_corrected": 34.31176488561543
+   },
+   {
+    "orbits": 512,
+    "sigma_resid_m_per_s": 0.05825931598817977,
+    "H_bits": 34.29407081708152,
+    "mutation_per_orbit": 192.45455271490638,
+    "H_bits_corrected": 35.747323768274114
+   },
+   {
+    "orbits": 1024,
+    "sigma_resid_m_per_s": 0.1021721789240117,
+    "H_bits": 35.92627408645769,
+    "mutation_per_orbit": 192.5373253626214,
+    "H_bits_corrected": 37.379527037650284
+   },
+   {
+    "orbits": 2048,
+    "sigma_resid_m_per_s": 0.1748899175562985,
+    "H_bits": 37.47908797015794,
+    "mutation_per_orbit": 192.7816483137852,
+    "H_bits_corrected": 38.93234092135054
+   },
+   {
+    "orbits": 4096,
+    "sigma_resid_m_per_s": 0.2647540216369283,
+    "H_bits": 38.67216216993718,
+    "mutation_per_orbit": 193.4020749081065,
+    "H_bits_corrected": 40.12541512112978
+   },
+   {
+    "orbits": 8192,
+    "sigma_resid_m_per_s": 0.3608698807665225,
+    "H_bits": 39.551679630644855,
+    "mutation_per_orbit": 194.48874539516905,
+    "H_bits_corrected": 41.00493258183745
+   },
+   {
+    "orbits": 16384,
+    "sigma_resid_m_per_s": 0.4657333350776603,
+    "H_bits": 40.28615690436919,
+    "mutation_per_orbit": 195.9908462432593,
+    "H_bits_corrected": 41.73940985556179
+   }
+  ],
+  "cold_dense_x2500": [
+   {
+    "orbits": 1,
+    "sigma_resid_m_per_s": 0.09339438419528097,
+    "H_bits": 35.68314033234162,
+    "mutation_per_orbit": 444110.62406120927,
+    "H_bits_corrected": 37.13639328353422
+   },
+   {
+    "orbits": 2,
+    "sigma_resid_m_per_s": 0.239225676887803,
+    "H_bits": 38.389510110905775,
+    "mutation_per_orbit": 444920.76582224685,
+    "H_bits_corrected": 39.84276306209837
+   },
+   {
+    "orbits": 4,
+    "sigma_resid_m_per_s": 0.36921687115947394,
+    "H_bits": 39.64098373617636,
+    "mutation_per_orbit": 448486.355146557,
+    "H_bits_corrected": 41.094236687368955
+   },
+   {
+    "orbits": 8,
+    "sigma_resid_m_per_s": 0.4906651016649854,
+    "H_bits": 40.44476477917827,
+    "mutation_per_orbit": 453475.0303649873,
+    "H_bits_corrected": 41.89801773037087
+   },
+   {
+    "orbits": 16,
+    "sigma_resid_m_per_s": 0.6344413615816064,
+    "H_bits": 41.20774436371234,
+    "mutation_per_orbit": 459417.66989619454,
+    "H_bits_corrected": 42.66099731490493
+   },
+   {
+    "orbits": 32,
+    "sigma_resid_m_per_s": 0.8065413632986749,
+    "H_bits": 41.895354205310724,
+    "mutation_per_orbit": 464512.5561073903,
+    "H_bits_corrected": 43.34860715650332
+   },
+   {
+    "orbits": 64,
+    "sigma_resid_m_per_s": 1.0190564322838462,
+    "H_bits": 42.56409265043098,
+    "mutation_per_orbit": 472985.66112160496,
+    "H_bits_corrected": 44.017345601623575
+   },
+   {
+    "orbits": 128,
+    "sigma_resid_m_per_s": 1.2882591198664364,
+    "H_bits": 43.24706173258183,
+    "mutation_per_orbit": 486444.60855645745,
+    "H_bits_corrected": 44.70031468377442
+   },
+   {
+    "orbits": 256,
+    "sigma_resid_m_per_s": 1.6276364468175168,
+    "H_bits": 43.910982502586606,
+    "mutation_per_orbit": 507346.04902343417,
+    "H_bits_corrected": 45.3642354537792
+   },
+   {
+    "orbits": 512,
+    "sigma_resid_m_per_s": 2.0422484915700707,
+    "H_bits": 44.567530454752394,
+    "mutation_per_orbit": 531772.6341099084,
+    "H_bits_corrected": 46.02078340594499
+   },
+   {
+    "orbits": 1024,
+    "sigma_resid_m_per_s": 2.5861305091503772,
+    "H_bits": 45.24869428347017,
+    "mutation_per_orbit": 565021.9487499096,
+    "H_bits_corrected": 46.70194723466277
+   },
+   {
+    "orbits": 2048,
+    "sigma_resid_m_per_s": 3.284080455782138,
+    "H_bits": 45.942284488056146,
+    "mutation_per_orbit": 608180.2581563529,
+    "H_bits_corrected": 47.39553743924874
+   },
+   {
+    "orbits": 4096,
+    "sigma_resid_m_per_s": 4.126190540681987,
+    "H_bits": 46.58963964444851,
+    "mutation_per_orbit": 662209.9422946272,
+    "H_bits_corrected": 48.042892595641106
+   },
+   {
+    "orbits": 8192,
+    "sigma_resid_m_per_s": 5.183524726372003,
+    "H_bits": 47.25462817963219,
+    "mutation_per_orbit": 721280.5132075807,
+    "H_bits_corrected": 48.70788113082479
+   },
+   {
+    "orbits": 16384,
+    "sigma_resid_m_per_s": 6.484440205539088,
+    "H_bits": 47.905783933524305,
+    "mutation_per_orbit": 776888.5196658066,
+    "H_bits_corrected": 49.3590368847169
+   }
+  ]
+ },
+ "store_at_1e9_GB_corrected": {
+  "belt": {
+   "H_bits": 34.26052244165842,
+   "H_bits_corrected": 35.71377539285102,
+   "GB_dof2": 4.464221924106377,
+   "GB_dof3": 6.696332886159567,
+   "fits_8GB_dof2": true,
+   "fits_8GB_dof3": true
+  },
+  "dense_x2500": {
+   "H_bits": 45.51553958542525,
+   "H_bits_corrected": 46.96879253661785,
+   "GB_dof2": 5.871099067077232,
+   "GB_dof3": 8.806648600615846,
+   "fits_8GB_dof2": true,
+   "fits_8GB_dof3": false
+  },
+  "cold_belt": {
+   "H_bits": 40.28615690436919,
+   "H_bits_corrected": 41.73940985556179,
+   "GB_dof2": 5.217426231945224,
+   "GB_dof3": 7.826139347917835,
+   "fits_8GB_dof2": true,
+   "fits_8GB_dof3": true
+  },
+  "cold_dense_x2500": {
+   "H_bits": 47.905783933524305,
+   "H_bits_corrected": 49.3590368847169,
+   "GB_dof2": 6.1698796105896125,
+   "GB_dof3": 9.254819415884418,
+   "fits_8GB_dof2": true,
+   "fits_8GB_dof3": false
+  }
+ },
+ "floor_invariance_sigma_m_per_s": {
+  "1e-06": {
+   "1024": 0.014326949001580802,
+   "16384": 0.056918624663669946
+  },
+  "1e-05": {
+   "1024": 0.014037757945463424,
+   "16384": 0.056300564638785765
+  },
+  "0.0001": {
+   "1024": 0.014254388465356775,
+   "16384": 0.057206723669381905
+  }
+ },
+ "time_span": {
+  "1_orbits": {
+   "game_s": 102967646.69995938,
+   "game_yr": 3.262599705321907,
+   "real_s_at_warp": 1029676.4669995938,
+   "real_yr_at_warp": 0.032625997053219065
+  },
+  "16384_orbits": {
+   "game_s": 1687021923532.1345,
+   "game_yr": 53454.43357199412,
+   "real_s_at_warp": 16870219235.321344,
+   "real_yr_at_warp": 534.5443357199412
+  }
+ },
+ "churn": {
+  "mutation_per_body_per_orbit": 375.36414616558176,
+  "per_body_per_game_s": 3.645457172186978e-06,
+  "events_per_game_s_at_1e9": 3645.4571721869784,
+  "events_per_60fps_frame_at_warp": 6075.761953644964
+ },
+ "reabsorption": {
+  "creation_bits_per_body_per_orbit": 3367.9256553110927,
+  "live_growth_bits_per_body_per_orbit": 0.0008676019247586214,
+  "reabsorbed_fraction": 0.999999742392792
+ }
+}
