@@ -1,0 +1,9 @@
+# log.md — hypothesis, change, metric, kept/reverted
+
+Baseline (interleaved A/B, 4 alternations, medians): gas-dense 44.5–45.7 ns/op, gas-sparse 40.6–41.6, crowded 42.0–44.7, random-pass 49.7–51.5. Noise band ≈ ±3%. Stage profile (temporary Instant-per-step, +70% overhead, proportions only): upkeep/predict 55–59%, gather/scan 27–30%, batch 7–13%, rebuild 2–3%, idle ~0%.
+
+| # | Hypothesis | Change | Metric (ns/op, interleaved median) | Verdict |
+|---|---|---|---|---|
+| 1 | i128 exact predicates (`hit`/`first_hit`) dominate predict cost | checked i64 fast path in `law.rs` (bounds D,R ≤ 2^28, D·W,R·W ≤ 2^28; exact i128 fallback), digests identical | gas-dense 44.7 vs base 44.5–45.7; crowded 41.9 vs 41.6–44.7; random 50.3 vs 49.7–51.5 — all inside noise | REVERTED (wash; LLVM's i128 small-operand mults were already cheap)
+| 2 | `entry_time` (per tracked class frame, per prediction) and `law::first_wall` (per prediction in container worlds) pay i128 software divisions (`__divti3`, ~100–300 cyc); `cross_time`'s own comment already records this pitfall but was the only one fixed | bounds-guarded `floor_div`: i64 hardware `div_euclid` when both operands fit i64, exact i128 otherwise (`crates/lattice/src/law.rs`, `crates/lattice-event/src/lib.rs`) | crowded 42.7→36.2 (−15.3%, min of 5 pinned interleaved alternations, every kept run < every baseline run); gas-sparse −6.5%; random −2.9%; gas-dense 0% (visits dominate); digests bit-identical; 38 tests pass | **KEPT** (held-out confirms: h-crowded −15%, h-mixed −4.6%) |
+| 3 | (structural, not attempted — recorded as the next run's lever) 98.4% of `first_hit` calls return None; per-pair "no hit before T" certificates would delete most of the ~20 visits per prediction | — | — | STOP (2 measured rounds; the remaining lever is a law-adjacent rung of its own, and the shared runner's ±25% noise spikes make <10% local rounds unmeasurable in the time left) |

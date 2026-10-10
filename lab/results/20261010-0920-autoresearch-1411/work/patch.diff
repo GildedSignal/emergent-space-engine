@@ -1,0 +1,147 @@
+diff --git a/crates/lattice-event/examples/bench.rs b/crates/lattice-event/examples/bench.rs
+new file mode 100644
+index 0000000..d874613
+--- /dev/null
++++ b/crates/lattice-event/examples/bench.rs
+@@ -0,0 +1,71 @@
++//! Autoresearch bench (run 20261010-0920): wall ns per op of `EventCore` on fixed worlds.
++//!
++//! Behaviour constraint: world + log digests must be identical across code changes.
++//! `--tune` (default) runs the tuning worlds; `--heldout` runs the held-out set once.
++use emergent_lattice::law::{Response, Tick, World};
++use emergent_lattice::Stepper;
++use emergent_lattice::worlds;
++use emergent_lattice_event::{crowded_axes, EventCore};
++use std::time::Instant;
++
++fn tune() -> Vec<(&'static str, World, Tick)> {
++    vec![
++        ("gas-dense", worlds::gas(20_000, 0.10, 1024, 128, 11), 512),
++        ("gas-sparse", worlds::gas(20_000, 0.02, 1024, 128, 22), 512),
++        ("crowded", crowded_axes(20_000, 1024, 33).0, crowded_axes(20_000, 1024, 33).1),
++        ("random-pass", worlds::random(20_000, 64, 1024, 1, 44, Response::Pass), 2048),
++    ]
++}
++
++fn heldout() -> Vec<(&'static str, World, Tick)> {
++    vec![
++        ("h-gas-mid", worlds::gas(40_000, 0.05, 1024, 64, 99), 768),
++        ("h-mixed", worlds::mixed(8_192, 512, 77), 2048),
++        ("h-crowded", crowded_axes(8_000, 1024, 88).0, crowded_axes(8_000, 1024, 88).1),
++        ("h-gas-hot", worlds::gas(5_000, 0.20, 2048, 256, 123), 512),
++    ]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let run_heldout = args.iter().any(|a| a == "--heldout");
++    let reps: usize = args
++        .iter()
++        .position(|a| a == "--reps")
++        .and_then(|p| args.get(p + 1))
++        .and_then(|v| v.parse().ok())
++        .unwrap_or(3);
++    let cases = if run_heldout { heldout() } else { tune() };
++    let total_ns = 0u128;
++    let total_ops = 0u128;
++    for (name, world, horizon) in cases {
++        let n = world.bodies.len();
++        let mut times = Vec::new();
++        let mut digest = (String::new(), String::new());
++        let mut metrics = None;
++        for _ in 0..reps {
++            let mut core = EventCore::new(world.clone(), false).expect("world valid");
++            let t0 = Instant::now();
++            core.run_to(horizon);
++            times.push(t0.elapsed().as_nanos());
++            digest = core.outcome();
++            metrics = Some(core.metrics().clone());
++        }
++        times.sort();
++        let med = times[times.len() / 2];
++        let m = metrics.unwrap();
++        let ns_per_op = med as f64 / m.ops as f64;
++        println!(
++            "{name}\tn={n}\th={horizon}\tms={:.2}\tops={}\tfired={}\tsched={}\tns/op={:.3}\tops/fired={:.1}\t{}:{}",
++            med as f64 / 1e6,
++            m.ops,
++            m.fired,
++            m.scheduled,
++            ns_per_op,
++            m.ops as f64 / m.fired as f64,
++            digest.0,
++            digest.1,
++        );
++    }
++    println!("TOTAL\tmed_ns={total_ns}\tops={total_ops}\tns/op={:.4}", total_ns as f64 / total_ops as f64);
++}
+diff --git a/crates/lattice-event/src/lib.rs b/crates/lattice-event/src/lib.rs
+index 7b82c06..b4ad472 100644
+--- a/crates/lattice-event/src/lib.rs
++++ b/crates/lattice-event/src/lib.rs
+@@ -197,7 +197,18 @@ fn cross_time(y: [i64; 2], v: [i64; 2], cell: [i64; 2], side: i64, t: Tick) -> T
+     e
+ }
+ 
+-/// Smallest s ≥ 1 with y + v·s inside [lo, hi] (inclusive), if any.
++/// `d.div_euclid(w)` for `w > 0`: an i64 hardware divide when the operands fit (an i128
++/// software division was a hot spot: a tracker outside a class box pays this per frame,
++/// per prediction), exact i128 otherwise.
++#[inline]
++fn floor_div(d: i128, w: i128) -> i128 {
++    if let (Ok(a), Ok(b)) = (i64::try_from(d), i64::try_from(w)) {
++        a.div_euclid(b) as i128
++    } else {
++        d.div_euclid(w)
++    }
++}
++
+ fn entry_time(y: [i64; 2], v: [i64; 2], lo: [i64; 2], hi: [i64; 2]) -> Option<i64> {
+     let (mut a, mut b) = (1i128, i128::MAX);
+     for c in 0..2 {
+@@ -209,8 +220,8 @@ fn entry_time(y: [i64; 2], v: [i64; 2], lo: [i64; 2], hi: [i64; 2]) -> Option<i6
+             continue;
+         }
+         let (d0, d1, w) = if v > 0 { (lo - y, hi - y, v) } else { (y - hi, y - lo, -v) };
+-        a = a.max(-(-d0).div_euclid(w));
+-        b = b.min(d1.div_euclid(w));
++        a = a.max(-floor_div(-d0, w));
++        b = b.min(floor_div(d1, w));
+     }
+     (a <= b).then(|| i64::try_from(a).unwrap_or(NEVER))
+ }
+diff --git a/crates/lattice/src/law.rs b/crates/lattice/src/law.rs
+index 9cdffc0..7ff22d2 100644
+--- a/crates/lattice/src/law.rs
++++ b/crates/lattice/src/law.rs
+@@ -388,6 +388,17 @@ pub fn first_hit(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<i64> {
+     i64::try_from(lo).ok()
+ }
+ 
++/// `d.div_euclid(w)` for `w > 0`: an i64 hardware divide when the operands fit (an i128
++/// software division was a hot spot), exact i128 otherwise.
++#[inline]
++fn floor_div(d: i128, w: i128) -> i128 {
++    if let (Ok(a), Ok(b)) = (i64::try_from(d), i64::try_from(w)) {
++        a.div_euclid(b) as i128
++    } else {
++        d.div_euclid(w)
++    }
++}
++
+ /// Smallest s ≥ 1 such that, `s` chronons after the state (x, k), the bouncer is at or
+ /// beyond a wall while moving outward (it joins that chronon's wall set). `lo`/`hi` are
+ /// the container inset by the radius. None if it never reaches a wall.
+@@ -396,10 +407,10 @@ pub fn first_wall(x: [i64; 2], k: [i64; 2], lo: [i64; 2], hi: [i64; 2]) -> Optio
+     for c in 0..2 {
+         let s = if k[c] < 0 {
+             let gap = x[c] as i128 - lo[c] as i128;
+-            Some(((gap + (-k[c] as i128) - 1).div_euclid(-k[c] as i128)).max(1))
++            Some(floor_div(gap + (-k[c] as i128) - 1, -k[c] as i128).max(1))
+         } else if k[c] > 0 {
+             let gap = hi[c] as i128 - x[c] as i128;
+-            Some(((gap + k[c] as i128 - 1).div_euclid(k[c] as i128)).max(1))
++            Some(floor_div(gap + k[c] as i128 - 1, k[c] as i128).max(1))
+         } else {
+             None
+         };
