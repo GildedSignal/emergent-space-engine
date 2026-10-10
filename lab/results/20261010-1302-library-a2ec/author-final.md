@@ -1,0 +1,4 @@
+Working...
+Run complete. Artifacts: `dossier.md`, `predictions.md` (pre-registered), `work/probe.py` (18 s reproduce), `work/probe-out.json`, `work/quotes.json` (verbatim pins), `work/readwise-export.json` (cached export, 4.4 MB).
+
+**Claim:** Julien's own library says the plane's kick cadence should be a per-body certificate — "we stop believing only when the case against our initial assumption becomes definitive" — and a toy probe shows Encke-style certified gating (`t* = √(2q/a_bound)`) cuts kicks 2–2.8× versus a 32/orbit clock, self-tightens with field strength with no retuning, and is only 1.65× conservative in time, though it does not yet match the clock at equal behaviour because the kick applies the instantaneous rather than the averaged tide (that composition is the one experiment away).
