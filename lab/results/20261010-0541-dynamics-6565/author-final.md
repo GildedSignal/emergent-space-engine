@@ -1,0 +1,4 @@
+Working...
+All deliverables in place: `predictions.md` (pre-registered), `dossier.md`, `sim.c`/`post.py`/`run_sweep.sh` (all numbers regenerable by the shipped commands), compressed event streams (each < 2.5 MB), Poisson canary through the same harness.
+
+**Claim:** Belt encounters do not avalanche — up to encounter-disk area fraction τ = 2 the arrival stream is an inhomogeneous Poisson riding the belt's slow temperature convergence (real Fano at/below a drifting-Poisson null in 7 of 8 runs) and an encounter *quenches* its participants (branching ratio ≤ 0 at every τ), so the allocator's p99 danger from encounter physics is slow rate drift rather than cascades and needs no burst reserve — while *elastic* encounter physics, which is what the engine's gravitational encounters are, runs away measurably (e_mean 0.01 → 172, event cap detonated in 60.6 Ω), and that secular heating under player-driven concentration is the gate we currently lack.
