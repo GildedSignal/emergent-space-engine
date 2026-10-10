@@ -1,0 +1,197 @@
+diff --git a/crates/universe/examples/hlive.rs b/crates/universe/examples/hlive.rs
+new file mode 100644
+index 0000000..721de14
+--- /dev/null
++++ b/crates/universe/examples/hlive.rs
+@@ -0,0 +1,165 @@
++//! H_live on the shipped plane: live-state growth per ship per game-second (the ledger the
++//! universe keeps for its bodies: records, compiled trajectories, retired history), what the
++//! light-cone prune saturates it at, and the worst body's share of it. The player's path:
++//! 60 Hz `frame_to`, which prunes every 64 frames. Run:
++//! `hlive [game_seconds] [rtf] [seed] [members]`; snapshots at fixed game-times.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane, Plane};
++use emergent_universe::{Budget, Config, Universe};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::collections::HashSet;
++use std::sync::atomic::{AtomicUsize, Ordering};
++use std::sync::Arc;
++
++static LIVE: AtomicUsize = AtomicUsize::new(0);
++static PEAK: AtomicUsize = AtomicUsize::new(0);
++struct Counting;
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let p = System.alloc(l);
++        if !p.is_null() {
++            let v = LIVE.fetch_add(l.size(), Ordering::Relaxed) + l.size();
++            PEAK.fetch_max(v, Ordering::Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        System.dealloc(p, l);
++        LIVE.fetch_sub(l.size(), Ordering::Relaxed);
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, ns: usize) -> *mut u8 {
++        let q = System.realloc(p, l, ns);
++        if !q.is_null() {
++            let d = ns.wrapping_sub(l.size());
++            let v = LIVE.fetch_add(d, Ordering::Relaxed) + d;
++            PEAK.fetch_max(v, Ordering::Relaxed);
++        }
++        q
++    }
++}
++#[global_allocator]
++static A: Counting = Counting;
++
++const TICK: f64 = 4.925_490_947e-6;
++const STOPS: [f64; 9] = [1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1000.0, 3000.0, 10000.0];
++
++fn game_time(u: &Universe) -> f64 {
++    u.now as f64 * TICK
++}
++
++/// One row: the whole plane's live state, split by class, plus entry churn since the last row.
++fn snap(u: &Universe, p: &Plane, seen: &mut HashSet<usize>) {
++    // star, planet+moon, ship, player, member
++    let mut bytes = [0usize; 5];
++    let mut alive = [0usize; 5];
++    let mut events = [0u64; 5];
++    let mut segs = [0usize; 5];
++    let mut worst = (0usize, usize::MAX);
++    let mut new_entries = 0usize;
++    for i in 0..u.n_bodies() {
++        let r = u.rec(i);
++        if !r.alive {
++            continue;
++        }
++        let k = if i == 0 {
++            0
++        } else if p.planets.contains(&i) || i == p.moon {
++            1
++        } else if p.ships.contains(&i) {
++            2
++        } else if Some(i) == Some(p.player) {
++            3
++        } else {
++            4
++        };
++        bytes[k] += u.bodies().bytes_of(i);
++        alive[k] += 1;
++        events[k] += r.events;
++        segs[k] += u.bodies().history_len(i);
++        let b = bytes[0]; // placeholder to keep borrows simple
++        let _ = b;
++        if k >= 2 && u.bodies().bytes_of(i) > worst.0 {
++            worst = (u.bodies().bytes_of(i), i);
++        }
++        if seen.insert(Arc::as_ptr(&r.b.entry) as usize) {
++            new_entries += 1;
++        }
++    }
++    println!(
++        "ROW t={:.1} live={} ledger={} new_entries={} | ship_b={} ship_n={} ship_ev={} ship_seg={} player_b={} player_ev={} player_seg={} member_b={} member_n={} member_ev={} member_seg={} | star_b={} planet_b={} events_sum={} worst={} worst_b={}",
++        game_time(u),
++        LIVE.load(Ordering::Relaxed),
++        bytes.iter().sum::<usize>(),
++        new_entries,
++        bytes[2], alive[2], events[2], segs[2],
++        bytes[3], events[3], segs[3],
++        bytes[4], alive[4], events[4], segs[4],
++        bytes[0], bytes[1],
++        events.iter().sum::<u64>(),
++        worst.1, worst.0
++    );
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let end: f64 = a.first().map(|s| s.parse().unwrap()).unwrap_or(10000.0);
++    let rtf: f64 = a.get(1).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let seed: u64 = a.get(2).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let members: u64 = a.get(3).map(|s| s.parse().unwrap()).unwrap_or(48);
++    let mut p = plane(Config::default(), seed, Order::Sparse, 1, members).unwrap();
++    let mut seen = HashSet::new();
++    println!(
++        "# members {members} seed {seed}: base live {} bytes, ledger avg {} bytes/body, bodies {}",
++        LIVE.load(Ordering::Relaxed),
++        p.u.bytes_per_body(),
++        p.u.n_bodies()
++    );
++    snap(&p.u, &p, &mut seen);
++    let mut prev = p.u.stats;
++    let mut frames = 0usize;
++    let t_wall = std::time::Instant::now();
++    for &target in STOPS.iter().filter(|&&s| s <= end) {
++        while game_time(&p.u) < target {
++            p.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), i64::MAX);
++            frames += 1;
++        }
++        let s = p.u.stats;
++        println!(
++            "STAT t={:.1} d_kicks={} d_opens={} d_bounds={} d_handoffs={} d_leavers={} d_dissolved={} d_lost={}",
++            game_time(&p.u),
++            s.kicks - prev.kicks,
++            s.opens - prev.opens,
++            s.boundaries - prev.boundaries,
++            s.handoffs - prev.handoffs,
++            s.leavers - prev.leavers,
++            s.dissolved - prev.dissolved,
++            s.lost - prev.lost
++        );
++        prev = s;
++        snap(&p.u, &p, &mut seen);
++    }
++    while game_time(&p.u) < end {
++        p.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), i64::MAX);
++        frames += 1;
++    }
++    let s = p.u.stats;
++    println!(
++        "STAT t={:.1} d_kicks={} d_opens={} d_bounds={} d_handoffs={} d_leavers={} d_dissolved={} d_lost={}",
++        game_time(&p.u),
++        s.kicks - prev.kicks,
++        s.opens - prev.opens,
++        s.boundaries - prev.boundaries,
++        s.handoffs - prev.handoffs,
++        s.leavers - prev.leavers,
++        s.dissolved - prev.dissolved,
++        s.lost - prev.lost
++    );
++    snap(&p.u, &p, &mut seen);
++    p.u.settle(p.u.now);
++    println!(
++        "# frames {frames}, wall {:.1}s, peak {} bytes, digest {}",
++        t_wall.elapsed().as_secs_f64(),
++        PEAK.load(Ordering::Relaxed),
++        p.u.digest()
++    );
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800e..4581b3a 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -108,6 +108,10 @@ pub trait BodyStore: Send + Sync {
+     }
+     /// Bytes held per body (the arrays, the catalogue share of its compiled trajectory, history).
+     fn bytes_of(&self, i: usize) -> usize;
++    /// Retired segments still held for the body (instrumentation: the history the view reads).
++    fn history_len(&self, _i: usize) -> usize {
++        0
++    }
+ }
+ 
+ #[derive(Default)]
+@@ -175,6 +179,10 @@ impl BodyStore for PlainBodies {
+         };
+         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
++    /// Retired segments still held for the body (instrumentation: the history the view reads).
++    fn history_len(&self, i: usize) -> usize {
++        self.history[i].len()
++    }
+ }
+ 
+ /// The body's tube record (the law's 16 bytes).
