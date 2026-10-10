@@ -1,0 +1,94 @@
+{
+  "below_arcmin": {
+    "angular_floor_rad": 0.0002908882086657216,
+    "mean_per_frame": 158.74166666666667,
+    "median_fraction": 0.968609865470852
+  },
+  "below_pixel_1080p_90fov": {
+    "angular_floor_rad": 0.0008181230868723419,
+    "max_fraction": 0.9871244635193133,
+    "mean_per_frame": 188.755,
+    "median_fraction": 0.9828326180257511
+  },
+  "bodies_start": 428,
+  "catalogue_live_end": 428,
+  "digest_at_cut": "9b5e38c6d6c454e18cb2a9e35377b71a52f774f0ece6b58ffdd3f09ffc15f84b",
+  "emitters_alive_bodies": {
+    "bodies_median": 428.0,
+    "seen_max": 428.0,
+    "seen_median": 217.0
+  },
+  "engine_events_per_frame": {
+    "max": 258.0,
+    "median": 50.0,
+    "total": 40181.0
+  },
+  "engine_ms": {
+    "max": 7.645188,
+    "p50": 3.639697,
+    "p99": 6.731395,
+    "sum": 2055.650550000001
+  },
+  "frames": 600,
+  "gather_ms": {
+    "max": 5.774423,
+    "note": "gather wall time; per-emitter attribution uniform (readouts per emitter are tight, see below)",
+    "p50": 5.067046,
+    "p99": 5.474194,
+    "sum": 2724.053244
+  },
+  "gather_us_per_emitter": {
+    "p50": 23.383724770642203,
+    "p99": 26.344741293532337
+  },
+  "invisible_refresh": {
+    "fraction_median": 0.14351851851851852,
+    "halfpixel_only_median": 0.0,
+    "matched_pairs": 155707,
+    "note": "emitters re-gathered at full cost whose direction moved < 0.5 pixel and shift < 1/255 since the previous presented frame"
+  },
+  "kinds_by_id": {
+    "0_star_1_planet_2_moon_3_ship_4_fleet": {
+      "0": {
+        "appearances": 600,
+        "below_arcmin": 0,
+        "below_pixel": 0,
+        "below_pixel_share": 0.0
+      },
+      "1": {
+        "appearances": 1800,
+        "below_arcmin": 1200,
+        "below_pixel": 1200,
+        "below_pixel_share": 0.6666666666666666
+      },
+      "2": {
+        "appearances": 600,
+        "below_arcmin": 0,
+        "below_pixel": 0,
+        "below_pixel_share": 0.0
+      },
+      "3": {
+        "appearances": 13800,
+        "below_arcmin": 13800,
+        "below_pixel": 13800,
+        "below_pixel_share": 1.0
+      },
+      "4": {
+        "appearances": 139335,
+        "below_arcmin": 80245,
+        "below_pixel": 98253,
+        "below_pixel_share": 0.705156636882334
+      }
+    }
+  },
+  "members": 400,
+  "overflow_frames": 270,
+  "readouts_per_emitter": {
+    "p50": 1.9850746268656716,
+    "p99": 1.995049504950495
+  },
+  "readouts_total": 226922,
+  "rtf_target": 1000.0,
+  "scope": "per-frame engine advance + cached view gather (the page's own path), scripted like the benchmark; no json/wire",
+  "seed": 1
+}

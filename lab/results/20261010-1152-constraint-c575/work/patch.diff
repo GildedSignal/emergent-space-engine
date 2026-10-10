@@ -1,0 +1,202 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..7f44e50 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -9,7 +9,7 @@
+ //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+ mod http;
+-mod kick_bench;
++mod view_probe;
+ mod session;
+ 
+ use serde_json::json;
+@@ -21,6 +21,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let mut view_probe = false;
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -32,7 +33,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+-            "--kick-bench" => kicks = true,
++            "--view-probe" => view_probe = true,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+@@ -49,8 +50,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     }
+     let mut s = Session::new(seed, threads, members, rtf)?;
+     s.engine_ms = engine_ms;
+-    if kicks {
+-        return kick_bench::run(s, seconds);
++    if view_probe {
++        return view_probe::run(s, seconds, members);
+     }
+     if describe {
+         println!("{}", s.describe());
+@@ -67,7 +68,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+ /// function of the frame's *nominal* place (60 Hz of game time at the session's rtf), and so becomes a list of
+ /// decisions at canonical ticks ([`canonical_log`]): the wall's own frames never move a decision. The throttle level
+ /// (`--level`, default the base thrust) is part of each decision word.
+-fn script(frame: usize) -> u8 {
++pub(super) fn script(frame: usize) -> u8 {
+     let slot = frame / 240;
+     if frame % 240 < 20 {
+         [1, 9, 2, 4, 1, 1 | 4, 2, 8][slot % 8]
+@@ -78,7 +79,7 @@ fn script(frame: usize) -> u8 {
+ 
+ /// The script's decisions at canonical ticks: the key state at nominal frame `n` takes effect at tick `(n−1)·F`, `F`
+ /// the ticks of one nominal 60 Hz frame at `rtf`. Written before the run; the run takes them at those ticks.
+-fn canonical_log(frames: usize, rtf: f64, level: u8) -> Vec<(i64, u8)> {
++pub(super) fn canonical_log(frames: usize, rtf: f64, level: u8) -> Vec<(i64, u8)> {
+     let per_frame = rtf / 60.0 / emergent_universe::view::TICK_SECONDS;
+     let (mut log, mut word) = (Vec::new(), 0u8);
+     for n in 1..=frames {
+diff --git a/xtask/src/universe/view_probe.rs b/xtask/src/universe/view_probe.rs
+new file mode 100644
+index 0000000..c80e017
+--- /dev/null
++++ b/xtask/src/universe/view_probe.rs
+@@ -0,0 +1,137 @@
++//! The frame's constraint probe: where the per-frame time goes as N (members) and rtf vary,
++//! and what share of the view gather is spent on emitters the player cannot differentiate
++//! (angular radius below one pixel of a 1080p screen at 90° FOV, and below eye acuity).
++//! Same frame loop and canonical decision log as the benchmark; the view is gathered with the
++//! page's own cached gather (`gather_cached`), so its cost is the player's.
++use super::{canonical_log, Session};
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::Budget;
++use serde_json::json;
++use std::time::Instant;
++
++/// One pixel of a 1080p screen across a 90° field of view.
++const PIXEL_1080P_90: f64 = std::f64::consts::FRAC_PI_2 / 1920.0;
++/// Human visual acuity, one arc-minute.
++const ARCMIN: f64 = std::f64::consts::PI / 180.0 / 60.0;
++
++fn pct(v: &mut Vec<f64>, p: f64) -> f64 {
++    v.sort_by(f64::total_cmp);
++    v.get(((v.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied().unwrap_or(0.0)
++}
++
++pub(super) fn run(mut s: Session, seconds: f64, members: u64) -> crate::Result<u8> {
++    let frames = (seconds * 60.0) as usize;
++    let cut = (frames as f64 * s.rtf / 60.0 / TICK_SECONDS).round() as i64;
++    s.cut = Some(cut);
++    let log = canonical_log(frames, s.rtf, 0);
++    for &(t, k) in &log {
++        s.p.u.schedule(t, k).map_err(|e| format!("schedule: {e:?}"))?;
++    }
++    let names = s.p.names.clone();
++    let mut cache = ViewCache::default();
++    let (mut eng, mut gat, mut per_em, mut reads_per_em) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
++    let mut seen_n: Vec<f64> = Vec::new();
++    let mut alive_n: Vec<f64> = Vec::new();
++    let mut events: Vec<f64> = Vec::new();
++    let mut frac_pix: Vec<f64> = Vec::new();
++    let mut frac_arc: Vec<f64> = Vec::new();
++    let (mut inv_frac, mut moved_frac) = (Vec::new(), Vec::new());
++    // What the player could have seen change since the previous frame: an emitter whose direction moved
++    // less than half a pixel and whose colour shift changed less than one 8-bit channel step.
++    let mut last: std::collections::HashMap<usize, ([f64; 2], f64)> = Default::default();
++    let mut matched_total = 0u64;
++    let (mut invisible, mut moved_halfpix, mut matched, mut first) = (0u64, 0u64, 0u64, true);
++    // Per kind: (appearances, below-pixel, below-arcmin).
++    let mut kinds: std::collections::BTreeMap<u8, [u64; 3]> = Default::default();
++    let (mut below_pix_sum, mut below_arc_sum, mut overflow, mut readouts_total) = (0u64, 0u64, 0u64, 0u64);
++    for _n in 1..=frames {
++        let t0 = Instant::now();
++        let f = s.p.u.frame_to(1.0 / 60.0, s.rtf, Budget::wall(s.engine_ms), cut);
++        let t1 = Instant::now();
++        let v = gather_cached(&s.p.u, &names, &mut cache).ok_or("no view")?;
++        let t2 = Instant::now();
++        let (e_ms, g_ms) = ((t1 - t0).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3);
++        overflow += u64::from(f.overflow);
++        readouts_total += cache.readouts;
++        let seen = v.seen.len();
++        let (mut bp, mut ba) = (0u64, 0u64);
++        for e in &v.seen {
++            let k = kinds.entry(e.kind).or_insert([0; 3]);
++            if !first {
++                if let Some((d0, s0)) = last.get(&e.id) {
++                    let dm = ((e.direction[0] - d0[0]).powi(2) + (e.direction[1] - d0[1]).powi(2)).sqrt();
++                    matched += 1;
++                    if dm < 0.5 * PIXEL_1080P_90 && (e.shift - s0).abs() < 1.0 / 255.0 {
++                        invisible += 1;
++                    } else if dm < 0.5 * PIXEL_1080P_90 {
++                        moved_halfpix += 1;
++                    }
++                }
++            }
++            last.insert(e.id, (e.direction, e.shift));
++            k[0] += 1;
++            if e.angular_radius < PIXEL_1080P_90 {
++                k[1] += 1;
++                bp += 1;
++            }
++            if e.angular_radius < ARCMIN {
++                k[2] += 1;
++                ba += 1;
++            }
++        }
++        first = false;
++        below_pix_sum += bp;
++        below_arc_sum += ba;
++        eng.push(e_ms);
++        gat.push(g_ms);
++        seen_n.push(seen as f64);
++        alive_n.push(s.p.u.n_bodies() as f64);
++        events.push(f.events as f64);
++        if seen > 0 {
++            per_em.push(g_ms * 1e3 / seen as f64);
++            reads_per_em.push(cache.readouts as f64 / seen as f64);
++        }
++        inv_frac.push(invisible as f64 / seen.max(1) as f64);
++        frac_pix.push(bp as f64 / seen.max(1) as f64);
++        moved_frac.push(moved_halfpix as f64 / seen.max(1) as f64);
++        frac_arc.push(ba as f64 / seen as f64);
++        matched_total += matched;
++        invisible = 0;
++        moved_halfpix = 0;
++        matched = 0;
++    }
++    let frames_f = frames as f64;
++    let (seen_med, seen_max) = (pct(&mut seen_n.clone(), 0.5), seen_n.iter().cloned().fold(0.0, f64::max));
++    let (inv_med, moved_med) = (pct(&mut inv_frac.clone(), 0.5), pct(&mut moved_frac.clone(), 0.5));
++    let kinds_json: std::collections::BTreeMap<String, serde_json::Value> = kinds
++        .iter()
++        .map(|(k, c)| {
++            (
++                k.to_string(),
++                json!({"appearances": c[0], "below_pixel": c[1], "below_arcmin": c[2], "below_pixel_share": c[1] as f64 / c[0] as f64}),
++            )
++        })
++        .collect();
++    println!(
++        "{}",
++        serde_json::to_string_pretty(&json!({
++            "scope": "per-frame engine advance + cached view gather (the page's own path), scripted like the benchmark; no json/wire",
++            "seed": s.seed, "rtf_target": s.rtf, "members": members, "frames": frames,
++            "engine_ms": {"p50": pct(&mut eng.clone(), 0.5), "p99": pct(&mut eng.clone(), 0.99), "max": eng.iter().cloned().fold(0.0, f64::max), "sum": eng.iter().sum::<f64>()},
++            "gather_ms": {"p50": pct(&mut gat.clone(), 0.5), "p99": pct(&mut gat.clone(), 0.99), "max": gat.iter().cloned().fold(0.0, f64::max), "sum": gat.iter().sum::<f64>(), "note": "gather wall time; per-emitter attribution uniform (readouts per emitter are tight, see below)"},
++            "gather_us_per_emitter": {"p50": pct(&mut per_em.clone(), 0.5), "p99": pct(&mut per_em, 0.99)},
++            "readouts_per_emitter": {"p50": pct(&mut reads_per_em.clone(), 0.5), "p99": pct(&mut reads_per_em, 0.99)},
++            "readouts_total": readouts_total,
++            "emitters_alive_bodies": {"seen_median": seen_med, "seen_max": seen_max, "bodies_median": pct(&mut alive_n, 0.5)},
++            "invisible_refresh": {"note": "emitters re-gathered at full cost whose direction moved < 0.5 pixel and shift < 1/255 since the previous presented frame", "matched_pairs": matched_total, "fraction_median": inv_med, "halfpixel_only_median": moved_med},
++            "below_pixel_1080p_90fov": {"angular_floor_rad": PIXEL_1080P_90, "mean_per_frame": below_pix_sum as f64 / frames_f, "median_fraction": pct(&mut frac_pix.clone(), 0.5), "max_fraction": frac_pix.iter().cloned().fold(0.0, f64::max)},
++            "below_arcmin": {"angular_floor_rad": ARCMIN, "mean_per_frame": below_arc_sum as f64 / frames_f, "median_fraction": pct(&mut frac_arc, 0.5)},
++            "kinds_by_id": {"0_star_1_planet_2_moon_3_ship_4_fleet": kinds_json},
++            "engine_events_per_frame": {"median": pct(&mut events.clone(), 0.5), "max": events.iter().cloned().fold(0.0, f64::max), "total": events.iter().sum::<f64>()},
++            "overflow_frames": overflow,
++            "bodies_start": s.n_bodies(), "catalogue_live_end": s.catalogue_live(),
++            "digest_at_cut": s.digest_at_cut().1,
++        }))?
++    );
++    Ok(0)
++}
