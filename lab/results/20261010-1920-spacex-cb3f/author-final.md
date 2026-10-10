@@ -1,0 +1,3 @@
+Claim: on t**Claim:** on today's plane the per-event cost is ~50 µs against ~3.6 µs of unavoidable physics (idiot index ≈13×) — the player's exact encounter scan holds 32% of the whole settle with a measured 33 ns/body/item O(N) slope (the Binet-cone seam is load-bearing), source-state memoisation is bit-identical 6/6 but deletes <5% (decodes are already 0.1 µs, so the patch should *not* be adopted), and the residue is the per-kick recompile (~16 µs) plus root_state (7 µs/event).
+
+Dossier, predictions (two honest misses: scan share 32% not 60–85%, memo speedup 1.04×), and reproduction commands: `lab/results/20261010-1920-spacex-cb3f/`.

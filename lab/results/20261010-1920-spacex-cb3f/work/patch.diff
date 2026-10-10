@@ -1,0 +1,264 @@
+diff --git a/crates/universe/examples/spacex_probe.rs b/crates/universe/examples/spacex_probe.rs
+new file mode 100644
+index 0000000..cc234a8
+--- /dev/null
++++ b/crates/universe/examples/spacex_probe.rs
+@@ -0,0 +1,42 @@
++// The per-event idiot index: how much of the plane's event cost is shared source state
++// (a planet's tube decode at a tick) re-derived by every reader, and what deleting that
++// redundancy with a (body, tick) memo buys. Run twice, once with ESPACEX_NOCACHE=1:
++// the digest and the event counts must match bit for bit, only the time may move.
++//
++//   cargo run --release -p emergent-universe --example spacex_probe -- [cohort] [seed] [ticks] [threads]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_cohort;
++use emergent_universe::Config;
++use std::time::Instant;
++
++fn main() {
++    let mut a = std::env::args().skip(1);
++    let cohort: usize = a.next().and_then(|x| x.parse().ok()).unwrap_or(200);
++    let seed: u64 = a.next().and_then(|x| x.parse().ok()).unwrap_or(1);
++    let ticks: i64 = a.next().and_then(|x| x.parse().ok()).unwrap_or(1_500_000_000);
++    let threads: usize = a.next().and_then(|x| x.parse().ok()).unwrap_or(1);
++    let t0 = Instant::now();
++    let world = emergent_engine::scenes::battle(8, emergent_universe::fleet::Q, seed, 1 << 15, false).0;
++    let mut p = plane_cohort(Config::default(), seed, Order::Sparse, threads, world, cohort).expect("the plane builds");
++    let build = t0.elapsed();
++    let t0 = Instant::now();
++    p.u.settle(ticks);
++    let run = t0.elapsed();
++    let s = p.u.stats;
++    let ev = s.kicks + s.opens + s.boundaries;
++    let (calls, hits) = (
++        p.u.state_cache.calls.load(std::sync::atomic::Ordering::Relaxed),
++        p.u.state_cache.hits.load(std::sync::atomic::Ordering::Relaxed),
++    );
++    println!("cohort {cohort} seed {seed} threads {threads} ticks {ticks}");
++    println!("build {:.2}s settle {:.2}s", build.as_secs_f64(), run.as_secs_f64());
++    for (k, name) in ["planet", "moon", "ship", "player", "fleet"].iter().enumerate() {
++        println!("  {name}: {} items, {:.1} us/item", s.items[k], s.cost_ns[k] as f64 / 1e3 / s.items[k].max(1) as f64);
++    }
++    let scan = emergent_universe::universe::SCAN_NS.load(std::sync::atomic::Ordering::Relaxed);
++    println!("player scan: {:.2}s ({:.0}% of settle, {:.1} us per player item)", scan as f64 / 1e9, scan * 100 / (run.as_secs_f64() * 1e9) as u64, scan as f64 / 1e3 / s.items[3].max(1) as f64);
++    println!("per event: {:.2} us", run.as_secs_f64() * 1e6 / ev.max(1) as f64);
++    println!("state_of: {calls} calls, {hits} memo hits ({:.1}%), distinct decodes {}", hits * 100 / calls.max(1), calls - hits);
++    println!("digest {}", p.u.digest());
++    println!("encounters {} contacts {}", p.u.enc_log.len(), p.u.contacts);
++}
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6d..00f9a5e 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -7,6 +7,11 @@ use crate::force::Secondary;
+ use crate::num::{scale2, Res, Tick, V2};
+ use crate::world::{pow2, DollRec, Unit};
+ use emergent_space::orbit::Scalar;
++use std::collections::HashMap;
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++use std::sync::{LazyLock, Mutex};
++
++
+ 
+ /// What never changes about a body.
+ #[derive(Clone, Copy, Debug)]
+@@ -42,6 +47,37 @@ impl Default for Config {
+         Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
+     }
+ }
++/// A memo of [`Ctx::state_of`]: every body with an item at tick `t` in a doll reads the same
++/// sources' states at `t`, and a source's state at `t` is final before the first reader (any item
++/// of the source at or below `t` is pulled first), so the memo returns exactly what recomputing
++/// would. It changes the work, never the bits. Shard-locked so the wave's threads do not queue.
++pub struct StateCache {
++    shards: Vec<Mutex<HashMap<(usize, Tick), (V2, V2)>>>,
++    pub calls: AtomicU64,
++    pub hits: AtomicU64,
++}
++
++impl Default for StateCache {
++    fn default() -> Self {
++        Self { shards: (0..16).map(|_| Mutex::new(HashMap::new())).collect(), calls: AtomicU64::new(0), hits: AtomicU64::new(0) }
++    }
++}
++
++impl StateCache {
++    const SHARDS: usize = 16;
++    /// Off switch for A/B measurement (`ESPACEX_NOCACHE`): the memo must be deletable to nothing.
++    pub fn disabled() -> bool {
++        static OFF: LazyLock<bool> = LazyLock::new(|| std::env::var("ESPACEX_NOCACHE").is_ok());
++        *OFF
++    }
++    fn shard(&self, j: usize, t: Tick) -> usize {
++        (j.wrapping_mul(0x9E3779B9).wrapping_add(t as usize)) & (Self::SHARDS - 1)
++    }
++    fn lock_of(&self, j: usize, t: Tick) -> std::sync::MutexGuard<'_, HashMap<(usize, Tick), (V2, V2)>> {
++        // Poisoning needs a panic while held; recover the map regardless, it is only a memo.
++        self.shards[self.shard(j, t)].lock().unwrap_or_else(|p| p.into_inner())
++    }
++}
+ 
+ pub struct Ctx<'a> {
+     pub dolls: &'a [DollRec],
+@@ -50,11 +86,30 @@ pub struct Ctx<'a> {
+     /// Per doll: the bodies that pull others in it (secondaries), in id order.
+     pub sources: &'a [Vec<usize>],
+     pub cfg: &'a Config,
++    /// The memo of source states at shared ticks (work only; never an outcome).
++    pub cache: &'a StateCache,
+ }
+ 
+ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        if StateCache::disabled() {
++            return Self::state_uncached(self, j, t);
++        }
++        self.cache.calls.fetch_add(1, Relaxed);
++        if let Some(v) = self.cache.lock_of(j, t).get(&(j, t)) {
++            self.cache.hits.fetch_add(1, Relaxed);
++            return Ok(*v);
++        }
++        let v = Self::state_uncached(self, j, t)?;
++        let mut g = self.cache.lock_of(j, t);
++        if g.len() >= 1 << 14 {
++            g.clear();
++        }
++        g.insert((j, t), v);
++        Ok(v)
++    }
++    fn state_uncached(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+         b.cartesian(t)
+     }
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index d1c0b1c..c597369 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -44,6 +44,11 @@ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+ impl Encounters for PlayerNeighbourhood {
+     fn find(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Vec<Encounter> {
+         let mut out = Vec::new();
++        // ESPACEX_NOSCAN: a timing-only probe that finds nothing (outcomes differ); it bounds the
++        // scan's share of a settle without touching the exact path.
++        if std::env::var("ESPACEX_NOSCAN").is_ok() {
++            return out;
++        }
+         let Some(me) = ctx.bodies.binding_at(body, t) else { return out };
+         let Ok((x, v)) = me.cartesian(t) else { return out };
+         let h = match time_of(interval, me.clock_exp) {
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index c026d5f..124784a 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -151,6 +151,13 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
+ /// [`plane`] with the fleet's world given (lattice bodies in the frame's axes, `crates/engine`'s scenes or
+ /// a test's own): the same star, planets, moon, ships and player.
+ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World) -> Res<Plane> {
++    plane_cohort(cfg, seed, order, threads, world, 0)
++}
++
++/// [`plane_with`] plus a `cohort` of ships in one tight belt (1.9–2.1 AU, e ≤ 0.05, all direct):
++/// one step class, so their kicks read the sources at shared ticks — the probe's stand-in for a
++/// belt until `crates/shipmem` is wired (B18b).
++pub fn plane_cohort(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, cohort: usize) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -255,6 +262,25 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+         Scalar::raw(34, -10 + 18)?,
+     )?;
+     names.push("You".into());
++    // The cohort: one tight belt at about 2 AU.
++    for k in 0..cohort {
++        let a = (1.9 + 0.2 * lcg(&mut rng)) * AU as f64;
++        let e = 0.05 * lcg(&mut rng);
++        let id = u.add_body(
++            Kind::Ship,
++            OrbitSpec {
++                doll: 0,
++                periapsis: s((a * (1.0 - e)) as i64),
++                e_q48: (e * (1u64 << 48) as f64) as u64,
++                clockwise: false,
++                angle: (lcg(&mut rng) * 4294967296.0) as u32,
++                phase: (lcg(&mut rng) * 4294967296.0) as u32,
++            },
++            Scalar::raw(34, -10)?,
++        )?;
++        ships.push(id);
++        names.push(format!("Belter {k}"));
++    }
+     let f = u.add_fleet(fleet);
+     u.start()?;
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..d44375c 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -161,6 +161,8 @@ pub struct Universe {
+     lanes: Lanes,
+     target: Tick,
+     encounters: Box<dyn Encounters>,
++    /// The memo of shared source states (see [`crate::ctx::StateCache`]); work only, never bits.
++    pub state_cache: crate::ctx::StateCache,
+     pub enc_log: Vec<Encounter>,
+     enc_digest: [u8; 32],
+     pub contacts: u64,
+@@ -179,6 +181,10 @@ struct Lanes {
+     ships: Vec<usize>,
+ }
+ 
++/// Wall time inside the player's neighbourhood scan (the exact check the encounters seam will
++/// replace): the lab's instrument, never an outcome.
++pub static SCAN_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
+ impl Universe {
+     pub fn new(star_surface: Scalar, cfg: Config) -> Self {
+         Self {
+@@ -205,6 +211,7 @@ impl Universe {
+             lanes: Lanes::default(),
+             target: 0,
+             encounters: Box::new(PlayerNeighbourhood),
++            state_cache: crate::ctx::StateCache::default(),
+             enc_log: Vec::new(),
+             enc_digest: [0; 32],
+             contacts: 0,
+@@ -215,7 +222,7 @@ impl Universe {
+     }
+ 
+     pub fn ctx(&self) -> Ctx<'_> {
+-        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }
++        Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, cache: &self.state_cache }
+     }
+     pub fn bodies(&self) -> &dyn BodyStore {
+         &*self.bodies
+@@ -367,7 +374,7 @@ impl Universe {
+         let Some(spec) = self.specs.get(i).copied().flatten().filter(|_| self.queue.is_none()) else {
+             return Err(Error::Refused("a body's mass is set before the universe starts, on a body made by add_body"));
+         };
+-        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }.tube_unit(i, spec.doll)?;
++        let unit = Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, cache: &self.state_cache }.tube_unit(i, spec.doll)?;
+         let (entry, mut tube, units) = self.spec_binding(&spec, unit)?;
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+@@ -434,7 +441,7 @@ impl Universe {
+ 
+     /// The read-only context and the fleets, borrowed apart (a fleet's step reads the bodies it kicks against).
+     fn split(&mut self) -> (Ctx<'_>, &mut Vec<Fleet>) {
+-        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg }, &mut self.fleets)
++        (Ctx { dolls: &self.dolls, bodies: &*self.bodies, info: &self.info, sources: &self.sources, cfg: &self.cfg, cache: &self.state_cache }, &mut self.fleets)
+     }
+ 
+     /// The entity id of fleet `f`, and the fleet an entity id names (none for a body).
+@@ -941,7 +948,10 @@ impl Universe {
+         let Some(p) = self.player else { return };
+         let t = self.bodies.event_time(p);
+         let interval = self.bodies.rec(p).step.max(2);
+-        for e in self.encounters.find(&self.ctx(), p, t, interval) {
++        let s0 = Instant::now();
++        let found = self.encounters.find(&self.ctx(), p, t, interval);
++        SCAN_NS.fetch_add(s0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++        for e in found {
+             self.stats.encounters += 1;
+             self.contacts += e.contact as u64;
+             let mut h = blake3::Hasher::new();
