@@ -1,0 +1,87 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f3076..cc029c9 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -23,6 +23,18 @@ use emergent_space::{
+     Tube,
+ };
+ use std::sync::Arc;
++/// Compile instrumentation (lab run 20261010-2141-system-eea5): nanoseconds and call count of
++/// `Rebinding::from_state`, the trajectory compilation inside every `bind_in`. The kick bench
++/// reads the deltas around a resolver call to split a kick into compile vs the rest.
++pub fn compile_cost() -> (u64, u64) {
++    (
++        COMPILE_NS.load(std::sync::atomic::Ordering::Relaxed),
++        COMPILE_COUNT.load(std::sync::atomic::Ordering::Relaxed),
++    )
++}
++static COMPILE_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static COMPILE_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
+ 
+ /// A compiled trajectory and its sense: the entry a tube's key indexes. The trajectory is compiled
+ /// about a mass of one, in units of the doll's mass; `unit` converts it to the doll's own units (the
+@@ -223,7 +235,10 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+ }
+ 
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
++    let c0 = std::time::Instant::now();
+     let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
++    COMPILE_NS.fetch_add(c0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++    COMPILE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..de50883 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -7,6 +7,7 @@ use emergent_space::{
+ use emergent_universe::{body::What, step, Budget, Kind};
+ use serde_json::json;
+ use std::collections::HashSet;
++use emergent_universe::bind::compile_cost;
+ use std::time::Instant;
+ 
+ /// The shapes the rebinds of the replayed kicks asked for, under the exact key and under the law's
+@@ -58,6 +59,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
++    let mut compile_shares: Vec<f64> = Vec::new();
++    let (mut compile_total_us, mut compile_calls) = (0.0f64, 0u64);
+     for n in 1..=(seconds * 60.0) as usize {
+         if wall.elapsed().as_secs_f64() >= 55.0 {
+             return Err("kick replay exceeded 55 s; no complete result".into());
+@@ -81,10 +84,18 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
++            let c_before = compile_cost();
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
++            let (c_ns, c_n) = compile_cost();
++            let (d_ns, d_n) = (c_ns - c_before.0, c_n - c_before.1);
++            compile_total_us += d_ns as f64 / 1e3;
++            compile_calls += d_n;
++            if us > 0.0 && d_n > 0 {
++                compile_shares.push(d_ns as f64 / 1e3 / us);
++            }
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
+@@ -102,8 +113,10 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+-        "memo": shapes.json(),
+-        "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
++        "compile_share": percentiles(&mut compile_shares),
++        "compiles_per_kick": if all.len() > 0 { compile_calls as f64 / all.len() as f64 } else { 0.0 },
++        "compile_us_total": compile_total_us, "compile_calls": compile_calls,
++        "memo": shapes.json(), "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+     }))?);
