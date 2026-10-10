@@ -1,0 +1,4 @@
+Working...
+Run complete. Dossier, predictions, raw results and the bench are in `lab/results/20261010-0656-quant-d540/`; the bench ships as `crates/universe/examples/nwall.rs` (saved in the run's patch), digest control EQUAL, all commands reproducible.
+
+**Claim:** the plane's presented frame is Ω(N) in bodies even at zero events — ~0.7 µs per body per frame of pure deadline bookkeeping (three Calendar touches per body: `rekey`, defer, requeue) that breaks the 16.67 ms budget at ≈3×10⁴ live tubes (0.72 s at 10⁶), while the exact player-neighbourhood check costs one player item 16.67 ms already at ≈8×10³ bodies (3.0 s at 10⁶) — both stages are scheduling/read-only and digest-invariant, so the queued belt build must first land a ≥700× queue fix (gate rekey on observer movement; compute the horizon from peeked deadlines instead of deferring every far entity), a change of *when* work is done, never *what*.
