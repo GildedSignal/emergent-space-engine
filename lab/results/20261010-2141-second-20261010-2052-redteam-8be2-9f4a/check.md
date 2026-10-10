@@ -1,0 +1,25 @@
+Grade: gold
+
+**Abstract.** The second author closes checker 2's named experiment, and it comes out in the design's favor. Everything regenerates bit-identically from the shipped scripts (only `runtime_s` differs). The corrected Kerr retrograde critical b (6.138/6.832/6.997 M at χ = 0.5/0.9/0.998, kill ratio 3.31× not 2.37×) is confirmed as an exact double root of R by my own from-scratch solver. The winding images the one-argument deflection(b) cannot place measure ≤ 0.084 % of the brightest image at every promised scene (7.7–9.8 mag fainter), so the (b, sense|Q)+delay(b) memo is adoptable without a winding-placement component — a deletion. New measured lead: the Σμ = 1 sum rule fails 8 % → 36 % from 50 → 6 M (my checks: not truncation; 41 % at 5 M, 52 % at 4 M). Adoption: one design-doc edit plus the corrected table.
+
+**Reproduction.** Clean copy of `work/`, no patch (patch.diff empty): `falsifier2.py` → out2 identical to both the original run's record and the author's `out2-repro.json`; `falsifier3.py` → out3 identical; `magnify.py` → magnify.json identical (all modulo `runtime_s`). out3 differs from out2 in exactly the kerr and kerr_verification blocks, as claimed. Total ~22 s, well under budget.
+
+**Predictions.** mtime order confirms `predictions.md` (21:45) predates `falsifier3.py` (21:53) and `magnify.py` (22:00). The decisive held-out prediction — the pre-registered visibility decision rule — held: max single winding ÷ brightest = 0 (weak), 1.19·10⁻⁴ (mid), 8.39·10⁻⁴ (near, < the 0.1 % refutation threshold), 1.39·10⁻³ only in the adversarial 6 M scene. M2, M5, R1–R4 held. M1's Σμ clause and M3 failed and are reported as failures with root-cause — the honest use of predictions.md, not a gold blocker (the board's gold-blocker precedent is *hidden* failures).
+
+**My attacks (beyond the author's).**
+1. *Kerr, independently.* My own R and analytic dR/dr, fsolve for the double root, crude starts: retrograde b = −6.138156/−6.832319/−6.996666, residuals ≤ 1.1·10⁻¹³ — the author's numbers exactly. My crude-start solver also found the inner spurious prograde root inside the horizon, confirming the exterior root is the physical one. Bardeen limits (+2/−7) check out.
+2. *Scenes deeper than the author's deepest.* r_o = 5 and 4 M (static observer far inside any promised scene): winding share still 0.16–0.19 %, branch consistency ≤ 5·10⁻⁸. The "invisible" verdict is robust past the tested range, and the Σμ deficit continues monotonically (0.59 at 5 M, 0.48 at 4 M).
+3. *Instrument.* Σμ changes ≤ 2·10⁻⁶ from k≤1 to k≤2: the deficit is real, not truncation. The weak-scene signed sum is 0.994–0.999 against the point-lens sum rule (=1 exactly): 0.15–0.6 % deficit — a new independent check the author did not run, and it passes. The outgoing-branch bound survives a 4000-point grid (104.9° deep, 110.6° at 5 M < 140°).
+4. *The unrecorded control.* The dossier claims chain-rule μ matches direct finite differences ≤ 1.5 %, but no shipped script emits it. I regenerated it: the naive difference shows 17–20 % — entirely because dβ/d(offset) = 0.824/0.792/0.824 (near/mid/deep geometry), not 1; with the factor applied the residual is 1.1–1.8 %. The claim holds, but the record could not regenerate it (the run's own bar; see below).
+
+**Novelty.** docs/HISTORY.md (this checkout, through H0044) and the board's taste log contain no view-memo, deflection(b), winding-magnification or sum-rule entries; H0023/H0024 are law-lab oracles, different work. The corrected root was supplied by checker 2; this run's new content — the verification, the magnification measurement, the Σμ deficit — is the first of its kind in the visible record.
+
+**Goal fit.** Principle 30 ("navigation, knowledge and dynamics … need to be perfect"): the memo key is fixed before a wrong view component freezes. Principle 17/1: the winding-placement requirement is deleted — the best part is no part. Principle 34: the oracle guarded the view and said the missing images are below the spectacle's floor. Principle 10: the author argued visibility, the checkers demanded the number, the number is now measured.
+
+**What the author missed.**
+- The direct-difference and "two step sizes" control numbers in the dossier are not regenerable from any shipped script — the only reproducibility gap; I closed it (it holds).
+- `exact_b_for_sweep` crashes (brentq ValueError) on unreachable targets (k = 3) and some r_o = 5 branches: NaN from the periastron-degenerate b_hi escapes the `f(b_hi) > 0` guard. Never hit at the shipped scenes, but the next deeper-scene run will trip it.
+- The weak-scene Σμ is quoted at its best row (0.999); the aligned row is 0.994 (0.6 % deficit). Cosmetic.
+- The sum-rule deficit is one measurement family with no independent derivation, and the winding μ have no oracle of their own beyond the 0.2 % textbook bound — both flagged by the author, both correctly ungated.
+
+Gold because: the record regenerates, the decisive held-out rule held, my independent and deeper attacks confirm rather than weaken it, and adoption is one edit that deletes a component and corrects a number about to enter the record.
