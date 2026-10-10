@@ -1,0 +1,105 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3..9a1fc98 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -45,6 +45,14 @@ pub fn blackbody(temperature: f64) -> [f64; 3] {
+     samples.map(|s| (s / max).powf(1. / 2.2))
+ }
+ 
++/// The gather's own instrument (lab 20261010-1407): ns per frame spent in the player block, the bodies
++/// loop (the light-cone crossings) and the fleet loop. Read by the bench; never a result.
++pub static GATHER_NS: [std::sync::atomic::AtomicU64; 3] = [std::sync::atomic::AtomicU64::new(0), std::sync::atomic::AtomicU64::new(0), std::sync::atomic::AtomicU64::new(0)];
++
++fn add_ns(i: usize, from: std::time::Instant) {
++    GATHER_NS[i].fetch_add(from.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++}
++
+ #[derive(Clone, Debug, PartialEq)]
+ pub struct Seen {
+     pub id: usize,
+@@ -295,6 +303,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
++    let t_sections = [std::time::Instant::now(); 3];
+     // Bodies: where each tube crosses the past light cone.
+     let mut reads = 0u64;
+     for i in 0..u.n_bodies() {
+@@ -330,11 +339,13 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+     }
++    add_ns(1, t_sections[0]);
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
++    let t_sections2 = std::time::Instant::now();
+     let mut motions = Vec::new();
+     for (fi, f) in u.fleets.iter().enumerate() {
+         let tc = f.tick();
+@@ -366,6 +377,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
+     }
++    add_ns(2, t_sections2);
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8..aa35bfc 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -128,6 +128,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         .collect();
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
++    let secs_ns: Vec<_> = emergent_universe::view::GATHER_NS.iter().map(|a| a.load(std::sync::atomic::Ordering::Relaxed)).collect();
++    let gather = json!({"readouts_per_frame": if s.gathered > 0 { s.reads as f64 / s.gathered as f64 } else { 0.0 }, "emitters_seen": s.seen, "max_emitters_seen": s.max_seen, "bodies": bodies, "ns_per_frame_bodies_loop": if s.gathered > 0 { secs_ns[1] as f64 / s.gathered as f64 } else { 0.0 }, "ns_per_frame_fleet_loop": if s.gathered > 0 { secs_ns[2] as f64 / s.gathered as f64 } else { 0.0 }});
+     let (cut_tick, digest) = s.digest_at_cut();
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+@@ -138,6 +140,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "hitch_counts": d.hitch_counts,
+         "worst_hitch_ms": d.worst_ms, "worst_hitch_at_frame": d.worst_at_frame,
+         "where_the_time_goes_ms": {"engine": {"p50": d.parts[0].0, "p99": d.parts[0].1, "max": d.parts[0].3, "share": d.parts[0].2}, "view_gather": {"p50": d.parts[1].0, "p99": d.parts[1].1, "max": d.parts[1].3, "share": d.parts[1].2}, "view_json": {"p50": d.parts[2].0, "p99": d.parts[2].1, "max": d.parts[2].3, "share": d.parts[2].2}, "wire": {"p50": d.parts[3].0, "p99": d.parts[3].1, "max": d.parts[3].3, "share": d.parts[3].2}},
++        "gather": gather,
+         "rtf": {"median": d.rtf_median, "lowest_1pct": d.rtf_low1, "overflow_frames": d.overflow_frames},
+         "events_per_second": d.events_per_second,
+         "player_alive": player_alive, "lost_bodies": lost,
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5..6b4b28c 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -34,13 +34,17 @@ pub struct Session {
+     members: u64,
+     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+     cache: ViewCache,
++    /// The gather's instrument (lab 20261010-1407): readouts spent on crossings, frames gathered, emitters seen.
++    pub reads: u64,
++    pub gathered: u64,
++    pub seen: usize,
++    pub max_seen: usize,
+ }
+-
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), reads: 0, gathered: 0, seen: 0, max_seen: 0 })
+     }
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+@@ -89,6 +93,10 @@ impl Session {
+                 return Err(format!("no view: the player is {} (fault {:?}, doll {}, tick {})", if r.alive { "alive but unreadable" } else { "lost" }, r.fault, r.b.doll, self.p.u.now).into());
+             }
+         };
++        self.reads += self.cache.readouts;
++        self.gathered += 1;
++        self.seen = view.seen.len();
++        self.max_seen = self.max_seen.max(view.seen.len());
+         let t2 = Instant::now();
+         let json = view_json(&view);
+         let t3 = Instant::now();
