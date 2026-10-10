@@ -26,15 +26,43 @@
 //! - `Δs = 2^−k·P_D/f'(c)`, rounded down to a power of two: `2^k` steps (`Config::step_log2`) per period `P_D` of the doll's
 //!   shortest secondary, far from it.
 //!
-//! **The integers.** `p_t` is an `i128` word (a body under thrust takes its energy toward `c²/2`, far past an orbit's: the word
-//! is wide enough for any speed the law allows) at the exponent `pt_exp` fixed when the body is born (`2·ve + 64`, `ve` its velocity
-//! word's exponent: a quantum 16 times `v_max·δv`, with 2^7 of headroom over `v_max²`). A kick adds the energy its quantized
-//! velocity kick brings: `Δp_t = w·∂_tU_P`, the sub-quantum part carried by sigma-delta like the velocity's, so `J = p_t + Ω·L`
-//! (for a source on a circle) moves by the carries only and never trends. The fractional tick of every physical time is carried
+//! **The integers.** `p_t` is an `i128` word (under thrust the GR energy grows without bound as the speed approaches c)
+//! at the exponent `pt_exp` fixed when the body is born (`2·ve + 64`, `ve` its velocity
+//! word's exponent: a quantum 16 times `v_max·δv`). A kick adds `Δp_t = w·∂_tU_P`, the sub-quantum part carried by
+//! sigma-delta like the velocity's. This does NOT yet
+//! conserve the GR `J = p_t + Ω·L`: coordinate velocity is not canonical momentum, and the Cartesian rebinding offset does
+//! not preserve the tube's invariants away from its anchor (see the P3' diagnostic). The fractional tick of every physical time is carried
 //! the same way, so the next event's tick is a function of the integer state.
 use crate::ctx::Ctx;
+use crate::bind::Binding;
 use crate::num::{log2_floor, Error, Res, Tick};
-use emergent_space::{binding::Trajectory, orbit::Scalar};
+use emergent_space::{binding::Trajectory, orbit::{OrbitKey, Scalar}};
+
+/// The massive tube's conserved Schwarzschild energy per rest mass, with the
+/// constant rest energy removed. No Cartesian readout (or rebinding offset)
+/// enters this value: it is constant throughout a compiled drift.
+pub fn drift_energy(binding: &Binding) -> Res<Scalar> {
+    key_energy(binding.entry.trajectory.key())
+}
+
+fn key_energy(key: OrbitKey) -> Res<Scalar> {
+    if key.null {
+        return Err(Error::Refused("a null tube has no energy per rest mass"));
+    }
+    let q = key.periapsis.reciprocal()?;
+    let k = Scalar::raw(key.k as i128, -48)?;
+    let eta = Scalar::ONE.sub(k)?;
+    let d = k.sub(q.mul(k.mul(k)?.mul(Scalar::integer(3))?.add(eta.mul(eta)?)?)?)?;
+    if !d.is_positive() {
+        return Err(Error::Refused("a tube without timelike invariants"));
+    }
+    // L²/r_p² = q/d and E² = (1-2q)(1+q/d). Factor E²-1
+    // BEFORE evaluating: subtracting 1 from E loses the weak-field energy.
+    // E²-1 = q(1-2k)(1-4qk)/d; E-1 = (E²-1)/(E+1).
+    let delta = q.mul(Scalar::ONE.sub(k.scale(1)?)?)?
+        .mul(Scalar::ONE.sub(q.mul(k)?.scale(2)?)?)?.div(d)?;
+    Ok(delta.div(Scalar::ONE.add(delta)?.sqrt()?.add(Scalar::ONE)?)?)
+}
 
 /// `b = B_OVER_C·c`.
 pub const B_OVER_C: i64 = 30;
@@ -163,4 +191,55 @@ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) -> 
     // Δs = 2^-k·P_D/f'(c), rounded down to a power of two.
     let ds = period.scale(-kicks_log2)?.div(fprime(c, b)?)?;
     Ok((Scalar::power_of_two(log2_floor(ds) as i16), c, b))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::num::{from_f64, to_f64};
+
+    #[test]
+    fn tube_energy_matches_the_independent_schwarzschild_formula() {
+        for p in [10.0, 20.0, 100.0, 1000.0] {
+            for e in [0.0, 0.2, 0.6] {
+                let key = OrbitKey::bound(from_f64(p), (e * (1u64 << 48) as f64) as u64).unwrap();
+                let expected = (((p - 2.0).powi(2) - 4.0 * e * e) / (p * (p - 3.0 - e * e))).sqrt() - 1.0;
+                assert!((to_f64(key_energy(key).unwrap()) - expected).abs() < 5e-15);
+            }
+        }
+    }
+
+    #[test]
+    fn weak_and_parabolic_energies_do_not_subtract_nearly_equal_words() {
+        for exponent in [30, 80, 300] {
+            for k in [1u64 << 48, 3u64 << 46, 1u64 << 47] {
+                let key = OrbitKey::new(Scalar::power_of_two(exponent), k).unwrap();
+                let got = key_energy(key).unwrap();
+                if k == 1 << 47 {
+                    assert_eq!(got, Scalar::ZERO);
+                } else {
+                    let k = Scalar::raw(k as i128, -48).unwrap();
+                    let weak = Scalar::ONE.sub(k.scale(1).unwrap()).unwrap()
+                        .div(k.scale(1).unwrap()).unwrap().scale(-(exponent as i32)).unwrap();
+                    assert!(to_f64(got.div(weak).unwrap().sub(Scalar::ONE).unwrap()).abs() < 1e-8);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_energy_word_holds_a_tube_with_energy_beyond_one_million() {
+        let k = Scalar::power_of_two(-10);
+        let eta = Scalar::ONE.sub(k).unwrap();
+        let a = k.mul(k).unwrap().mul(Scalar::integer(3)).unwrap().add(eta.mul(eta).unwrap()).unwrap();
+        let periapsis = a.div(k).unwrap().mul(Scalar::ONE.add(Scalar::power_of_two(-40)).unwrap()).unwrap();
+        let energy = key_energy(OrbitKey::new(periapsis, 1 << 38).unwrap()).unwrap();
+        assert!(energy > Scalar::integer(1_000_000));
+        let mut ext = Ext { pt: 0, pt_exp: -80, pt_carry: 0, dt_carry: 0,
+            ds: Scalar::ONE, c: Scalar::ONE, b: Scalar::integer(B_OVER_C) };
+        ext.set_pt(energy.negate()).unwrap();
+        assert!(ext.pt < 0);
+        assert_eq!(ext.pt_value().unwrap(), energy.negate());
+        // This tests the register, not inverse fitting or a thrusting flight at γ=10^6.
+    }
 }

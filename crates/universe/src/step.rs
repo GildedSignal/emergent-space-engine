@@ -527,18 +527,13 @@ impl Work<'_, '_> {
         self.rec.b.doll == 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player)
     }
 
-    /// The mass of the body's drift in the doll's units: its tube's host.
-    fn tube_mu(&self) -> Res<Scalar> {
-        Ok(self.ctx.tube_unit(self.i, self.rec.b.doll)?.mu)
-    }
-
     /// Project the energy register onto the constraint `K = 0` at the state read at `t`: `p_t = U_P − H_D`.
     fn project(&mut self, t: Tick) -> Res<()> {
         let st = self.rec.b.readout(t)?;
-        let (x, v) = scalars(&st)?;
+        let (x, _) = scalars(&st)?;
         let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
         let u = force::field(&secs, x)?.potential;
-        let hd = force::kepler(x, v, self.tube_mu()?)?;
+        let hd = crate::ext::drift_energy(&self.rec.b)?;
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         ext.set_pt(u.sub(hd)?)?;
         self.rec.ext = Some(ext);
@@ -557,10 +552,8 @@ impl Work<'_, '_> {
             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
         }
         self.project(t)?;
-        let st = self.rec.b.readout(t)?;
-        let (x, v) = scalars(&st)?;
         let mut ext = self.rec.ext.expect("a clock-stepped body");
-        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+        let y = ext.y(crate::ext::drift_energy(&self.rec.b)?.add(ext.pt_value()?)?)?;
         let mut half = ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
         // A held burn limits the step as it does at every kick (the clock's own step is far longer in the far field: the burn
         // would be one lump, and the velocity leaves its word): the velocity moves by a small fraction of itself per step.
@@ -624,9 +617,8 @@ impl Work<'_, '_> {
         }
         // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
         // kick share it), and its boundary in the middle.
-        let (x, v) = scalars(&next)?;
         let mut ext = self.rec.ext.expect("a clock-stepped body");
-        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+        let y = ext.y(crate::ext::drift_energy(&self.rec.b)?.add(ext.pt_value()?)?)?;
         let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
             full = full.min(self.thrust_step(t)?);
