@@ -1,0 +1,294 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..93775fb 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -7,6 +7,27 @@ use crate::{
+     Error, Result,
+ };
+ 
++macro_rules! probe {
++    ($i:expr, $e:expr) => {{
++        #[cfg(feature = "profile")]
++        {
++            crate::profile::phase($i, || $e)
++        }
++        #[cfg(not(feature = "profile"))]
++        {
++            $e
++        }
++    }};
++    (count $i:expr) => {{
++        #[cfg(feature = "profile")]
++        {
++            crate::profile::count($i)
++        }
++        #[cfg(not(feature = "profile"))]
++        {}
++    }};
++}
++
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct IntegerState {
+     pub position: [i64; 2],
+@@ -213,7 +234,11 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let root = disc.sqrt()?;
+     let uc = Scalar::integer(2).div(Scalar::ONE.add(root)?)?;
+     let minimum = Scalar::ONE.add(root)?.div(q.mul(Scalar::integer(6))?)?;
+-    let poly = |z: Scalar| -> Result<Scalar> { alpha.add(z.scale(1)?)?.sub(z.mul(z)?)?.add(q.scale(1)?.mul(z.mul(z)?.mul(z)?)?) };
++    let poly = |z: Scalar| -> Result<Scalar> {
++        probe!(count 0);
++        let z2 = z.mul(z)?;
++        alpha.add(z.scale(1)?)?.sub(z2)?.add(q.scale(1)?.mul(z2.mul(z)?)?)
++    };
+     // Divide the barrier predicate by z² before evaluating: its sign is all
+     // that is requested, and its absolute magnitude need not be representable.
+     let inverse = minimum.reciprocal()?;
+@@ -240,22 +265,24 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     } else {
+         let mut lo = uc;
+         let mut hi = uc.scale(1)?.min(minimum);
+-        while poly(hi)?.is_positive() {
++        while { probe!(count 5); poly(hi)?.is_positive() } {
+             lo = hi;
+             hi = hi.scale(1)?.min(minimum);
+             if hi == lo {
+                 return Err(Error::NoBoundOrbit);
+             }
+         }
++        probe!(count 3);
+         let witness = if accelerate { root_witness(alpha, q, lo, hi, &poly)? } else { None };
+         for _ in 0..128 {
++        probe!(count 1);
+             let mid = lo.add(hi)?.scale(-1)?;
+             if mid == lo || mid == hi {
+                 break;
+             }
+             let positive = match witness {
+-                Some((a, _)) if mid < a => true,
+-                Some((_, b)) if mid > b => false,
++                Some((a, _)) if mid < a => { probe!(count 2); true }
++                Some((_, b)) if mid > b => { probe!(count 2); false }
+                 _ => poly(mid)?.is_positive(),
+             };
+             if positive {
+@@ -323,6 +350,7 @@ fn root_witness(
+         }
+     }
+     for _ in 0..8 {
++        probe!(count 4);
+         let d = slope(z)?;
+         if d >= margin.negate() {
+             return Ok(None);
+@@ -351,21 +379,25 @@ fn root_witness(
+ }
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
+-        let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
+-        } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+-        };
+-        let (mut offset, mut sample) = trajectory.at_radius(r)?;
+-        if incoming {
+-            offset = offset.negate();
+-            sample.reflect();
+-        }
+-        let (p, _) = state.components()?;
+-        let at = angle(p[0], p[1])?;
+-        let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
+-        let periapsis_angle = ((orientation << 32) / (2 * PI)) as u32;
++        let (key, r, clockwise, incoming) = probe!(4, fit_key(state, true))?;
++        let trajectory = probe!(5, {
++            if key.periodic() {
++                Ok(Trajectory::Cycle(Orbit::compile(key)?))
++            } else {
++                Ok(Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?))
++            }
++        })?;
++        let (offset, periapsis_angle) = probe!(6, {
++            let (mut offset, mut sample) = trajectory.at_radius(r)?;
++            if incoming {
++                offset = offset.negate();
++                sample.reflect();
++            }
++            let (p, _) = state.components()?;
++            let at = angle(p[0], p[1])?;
++            let orientation = (at - if clockwise { -phase(sample)? } else { phase(sample)? }).rem_euclid(2 * PI);
++            Ok((offset, ((orientation << 32) / (2 * PI)) as u32))
++        })?;
+         let mut fit = Self {
+             trajectory,
+             periapsis_time: event_time.sub(offset)?,
+@@ -378,7 +410,8 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+-        fit.residual = Residual::between(state, fit.decoded_event()?);
++        let decoded = probe!(7, fit.decoded_event())?;
++        fit.residual = Residual::between(state, decoded);
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8..bbaae88 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -2,6 +2,8 @@
+ //! defined by the formula in its comment, so any faster implementation must return the same bits.
+ use crate::tables::{ATAN, ODD, PI, SINE};
+ use crate::{Error, Result};
++#[cfg(feature = "profile")]
++macro_rules! cnt { ($i:expr) => { crate::profile::count($i) } }
+ 
+ /// 1 in Q62.
+ pub const ONE: i128 = 1 << 62;
+@@ -11,6 +13,9 @@ pub const ONE: i128 = 1 << 62;
+ /// divisor digit corrects the trial by at most two; no rounding is introduced.
+ #[inline]
+ pub(crate) fn div_word(n: u128, d: u64) -> u64 {
++    #[cfg(feature = "profile")]
++    cnt!(13);
++
+     debug_assert!(d != 0 && (n >> 64) < d as u128);
+     if n <= u64::MAX as u128 {
+         return n as u64 / d;
+@@ -43,6 +48,9 @@ pub(crate) fn div_word(n: u128, d: u64) -> u64 {
+ 
+ /// floor(sqrt(x)).
+ pub fn isqrt(x: u128) -> u128 {
++    #[cfg(feature = "profile")]
++    cnt!(12);
++
+     if x < 2 {
+         return x;
+     }
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..bd46b3c 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -240,8 +240,8 @@ impl OrbitShape {
+     }
+     fn node(&self, psi: i128) -> Result<Integral> {
+         let cs = cos(psi);
+-        let x = self.k + product(ONE - self.k, cs);
+-        if x <= 0 {
++        let xi = self.k + product(ONE - self.k, cs);
++        if xi <= 0 {
+             return Err(Error::Range);
+         }
+         let a = 6 * self.k + 2 * product(ONE - self.k, cs);
+@@ -251,14 +251,14 @@ impl OrbitShape {
+         }
+         let g = root.reciprocal()?;
+         let excess = f(a)?.div(root.mul(root.add(Scalar::ONE)?)?)?;
+-        let x = f(x)?;
++        let x = f(xi)?;
+         let inv_x2 = x.mul(x)?.reciprocal()?;
+         let tau = self.tau_numerator.mul(g)?.mul(inv_x2)?;
+         let t = self
+             .t_numerator
+             .mul(g)?
+             .mul(inv_x2)?
+-            .div(f(ONE - product(2 * self.q, self.x(psi)))?)?;
++            .div(f(ONE - product(2 * self.q, xi))?)?;
+         let (dt, dtau) = if !self.key.null && self.key.compactness.is_zero() {
+             (
+                 self.t_numerator.mul(Scalar::integer(3))?.div(x)?,
+diff --git a/crates/space/src/profile.rs b/crates/space/src/profile.rs
+index 1adcaf7..70a82d0 100644
+--- a/crates/space/src/profile.rs
++++ b/crates/space/src/profile.rs
+@@ -1,6 +1,7 @@
+ //! Optional compile-stage accounting. Disabled in latency measurements and normal builds.
+ use std::{cell::Cell, time::Instant};
+-thread_local! { static NS: Cell<[u128; 4]> = const { Cell::new([0; 4]) }; }
++thread_local! { static NS: Cell<[u128; 8]> = const { Cell::new([0; 8]) }; }
++thread_local! { static COUNTS: Cell<[u64; 16]> = const { Cell::new([0; 16]) }; }
+ pub(crate) fn stage<T>(i: usize, f: impl FnOnce() -> T) -> T {
+     let start = Instant::now();
+     let result = f();
+@@ -11,7 +12,27 @@ pub(crate) fn stage<T>(i: usize, f: impl FnOnce() -> T) -> T {
+     });
+     result
+ }
+-/// Nanoseconds in roots, cuts, integration and conversion on this thread; resets the counters.
+-pub fn take() -> [u128; 4] {
+-    NS.with(|s| s.replace([0; 4]))
++/// Inverse-path event counters: [0] poly evals, [1] bisection iterations,
++/// [2] evals skipped by the witness, [3] witness attempts, [4] Newton iterations,
++/// [5] bracket doublings; ops from 8: [8] Scalar::mul, [9] Scalar::div,
++/// [10] Scalar::add, [11] Scalar::sqrt, [12] isqrt, [13] div_word.
++#[inline]
++pub(crate) fn count(i: usize) {
++    COUNTS.with(|c| {
++        let mut v = c.get();
++        v[i] += 1;
++        c.set(v);
++    })
++}
++/// Phase timer for stages beyond the old cycle path's 0..=3 (indices 4..=7).
++pub(crate) fn phase<T>(i: usize, f: impl FnOnce() -> T) -> T {
++    stage(i, f)
++}
++/// Nanoseconds per stage on this thread; resets the counters.
++pub fn take() -> [u128; 8] {
++    NS.with(|s| s.replace([0; 8]))
++}
++/// Resets and returns the event counters.
++pub fn take_counts() -> [u64; 16] {
++    COUNTS.with(|c| c.replace([0; 16]))
+ }
+diff --git a/crates/space/src/scaled.rs b/crates/space/src/scaled.rs
+index 10cff23..dd628fb 100644
+--- a/crates/space/src/scaled.rs
++++ b/crates/space/src/scaled.rs
+@@ -3,6 +3,8 @@
+ //! a nonoverlapping operand more than 64 binary places below the larger one; otherwise
+ //! it retains cancellation before truncating. Exponent exhaustion is an explicit error.
+ use crate::{num::isqrt, Error, Result};
++#[cfg(feature = "profile")]
++macro_rules! cnt { ($i:expr) => { crate::profile::count($i) } }
+ use std::cmp::Ordering;
+ 
+ /// `significand * 2^(exponent-62)`. Private fields enforce normalization, including zero.
+@@ -80,6 +82,9 @@ impl Scalar {
+         })
+     }
+     pub fn add(self, rhs: Self) -> Result<Self> {
++        #[cfg(feature = "profile")]
++        cnt!(10);
++
+         if self.is_zero() {
+             return Ok(rhs);
+         }
+@@ -99,6 +104,9 @@ impl Scalar {
+         self.add(rhs.negate())
+     }
+     pub fn mul(self, rhs: Self) -> Result<Self> {
++        #[cfg(feature = "profile")]
++        cnt!(8);
++
+         let product = self.significand as i128 * rhs.significand as i128;
+         if product == 0 {
+             return Ok(Self::ZERO);
+@@ -113,6 +121,9 @@ impl Scalar {
+         })
+     }
+     pub fn div(self, rhs: Self) -> Result<Self> {
++        #[cfg(feature = "profile")]
++        cnt!(9);
++
+         if rhs.is_zero() {
+             return Err(Error::Range);
+         }
+@@ -133,6 +144,9 @@ impl Scalar {
+         })
+     }
+     pub fn sqrt(self) -> Result<Self> {
++        #[cfg(feature = "profile")]
++        cnt!(11);
++
+         if self.significand < 0 {
+             return Err(Error::Range);
+         }

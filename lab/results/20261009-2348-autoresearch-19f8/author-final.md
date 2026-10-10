@@ -1,0 +1,4 @@
+Working...
+Run complete. The tree carries only the two bit-identical dedupes (`work/patch.diff`, 48 lines, applies to HEAD), digests equal baseline on tune and held-out, space 50/50 and universe 37/37 tests green, all artifacts in `lab/results/20261009-2348-autoresearch-19f8/`.
+
+**Claim (one sentence):** The plane's per-kick rebind (`Rebinding::from_state`, ~13 µs p50: compile 47%, fit 25%, orient 9%, residual 19%) sits at its bit-identical floor — five measured rounds (isqrt division swap: exactly 1.00×; add fast-path: noise; two expression dedupes: kept at ~0.7%; witness-tightened bisection: killed by its own control because the rounded cubic's full midpoint sequence defines the root) show ~half the call is an exact wide-division chain that integer semantics forbid shortcutting, so the next 10× must come from fewer rebinds per orbit or a warm-started quadrature, not faster ones.

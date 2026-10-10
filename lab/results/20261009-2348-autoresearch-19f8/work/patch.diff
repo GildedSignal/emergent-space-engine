@@ -1,0 +1,48 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..df28adb 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -213,7 +213,10 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let root = disc.sqrt()?;
+     let uc = Scalar::integer(2).div(Scalar::ONE.add(root)?)?;
+     let minimum = Scalar::ONE.add(root)?.div(q.mul(Scalar::integer(6))?)?;
+-    let poly = |z: Scalar| -> Result<Scalar> { alpha.add(z.scale(1)?)?.sub(z.mul(z)?)?.add(q.scale(1)?.mul(z.mul(z)?.mul(z)?)?) };
++    let poly = |z: Scalar| -> Result<Scalar> {
++        let z2 = z.mul(z)?;
++        alpha.add(z.scale(1)?)?.sub(z2)?.add(q.scale(1)?.mul(z2.mul(z)?)?)
++    };
+     // Divide the barrier predicate by z² before evaluating: its sign is all
+     // that is requested, and its absolute magnitude need not be representable.
+     let inverse = minimum.reciprocal()?;
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..bd46b3c 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -240,8 +240,8 @@ impl OrbitShape {
+     }
+     fn node(&self, psi: i128) -> Result<Integral> {
+         let cs = cos(psi);
+-        let x = self.k + product(ONE - self.k, cs);
+-        if x <= 0 {
++        let xi = self.k + product(ONE - self.k, cs);
++        if xi <= 0 {
+             return Err(Error::Range);
+         }
+         let a = 6 * self.k + 2 * product(ONE - self.k, cs);
+@@ -251,14 +251,14 @@ impl OrbitShape {
+         }
+         let g = root.reciprocal()?;
+         let excess = f(a)?.div(root.mul(root.add(Scalar::ONE)?)?)?;
+-        let x = f(x)?;
++        let x = f(xi)?;
+         let inv_x2 = x.mul(x)?.reciprocal()?;
+         let tau = self.tau_numerator.mul(g)?.mul(inv_x2)?;
+         let t = self
+             .t_numerator
+             .mul(g)?
+             .mul(inv_x2)?
+-            .div(f(ONE - product(2 * self.q, self.x(psi)))?)?;
++            .div(f(ONE - product(2 * self.q, xi))?)?;
+         let (dt, dtau) = if !self.key.null && self.key.compactness.is_zero() {
+             (
+                 self.t_numerator.mul(Scalar::integer(3))?.div(x)?,
