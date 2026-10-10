@@ -1,0 +1,136 @@
+diff --git a/crates/universe/examples/idiot.rs b/crates/universe/examples/idiot.rs
+new file mode 100644
+index 0000000..3fe3b0e
+--- /dev/null
++++ b/crates/universe/examples/idiot.rs
+@@ -0,0 +1,70 @@
++// The idiot-index bench: digests at canonical cuts, per-item cost, and the frame tail,
++// for the lazy position-cache probe (`apply`'s per-event `root_state_raw` refresh).
++// Usage: `idiot [A_HORIZON_TICKS]` — scenarios A (seed 1, Sparse, 48), B (seed 7, Dense, 200), C (600 frames, rtf 100).
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++fn pct(sorted: &[f64], q: f64) -> f64 {
++    sorted[((sorted.len() as f64 - 1.0) * q) as usize]
++}
++
++fn main() {
++    let ha: i64 = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(30_000_000_000);
++    // A: the bench's own scenario, settle to a canonical cut.
++    let t0 = Instant::now();
++    let mut a = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++    let t_build = t0.elapsed();
++    let t0 = Instant::now();
++    a.u.settle(ha);
++    let t_run = t0.elapsed();
++    let s = &a.u.stats;
++    let ev = s.kicks + s.opens + s.boundaries + s.handoffs;
++    println!(
++        "A seed1 Sparse 48: digest {} build {:.2}s run {:.2}s items {} ({:.1} us/item, kicks {} opens {} bounds {} handoffs {})",
++        a.u.digest(),
++        t_build.as_secs_f64(),
++        t_run.as_secs_f64(),
++        ev,
++        t_run.as_secs_f64() * 1e6 / ev.max(1) as f64,
++        s.kicks, s.opens, s.boundaries, s.handoffs
++    );
++    // B: held out — different seed, order and fleet size.
++    let mut b = plane(Config::default(), 7, Order::Sparse, 1, 200).unwrap();
++    let t_build = t0.elapsed();
++    let t0 = Instant::now();
++    b.u.settle(ha.min(3_000_000_000));
++    let s = &b.u.stats;
++    let ev = s.kicks + s.opens + s.boundaries + s.handoffs;
++    println!(
++        "B seed7 Sparse 200: digest {} build {:.2}s run {:.2}s items {} ({:.1} us/item, kicks {} opens {} bounds {} handoffs {})",
++        b.u.digest(),
++        t_build.as_secs_f64(),
++        t_run.as_secs_f64(),
++        ev,
++        t_run.as_secs_f64() * 1e6 / ev.max(1) as f64,
++        s.kicks, s.opens, s.boundaries, s.handoffs
++    );
++    // C: the frame tail at 200 members, rtf 100, 600 frames.
++    let mut c = plane(Config::default(), 7, Order::Sparse, 1, 200).unwrap();
++    let mut ms: Vec<f64> = Vec::new();
++    for _ in 0..600 {
++        let want = (100.0f64 / 60.0 / TICK_SECONDS) as i64;
++        let target = c.u.now + want.max(1);
++        let fr = Instant::now();
++        let adv = c.u.advance(target, Budget::unlimited());
++        c.u.now = adv.horizon.max(c.u.now);
++        ms.push(fr.elapsed().as_secs_f64() * 1e3);
++    }
++    c.u.settle(c.u.now);
++    ms.sort_by(|x, y| x.total_cmp(y));
++    println!(
++        "C frames ms: p50 {:.2} p95 {:.2} p99 {:.2} max {:.2} over16.7 {} over33 {} | digest {}",
++        pct(&ms, 0.5), pct(&ms, 0.95), pct(&ms, 0.99), ms[599],
++        ms.iter().filter(|&&m| m > 16.7).count(),
++        ms.iter().filter(|&&m| m > 33.0).count(),
++        c.u.digest()
++    );
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..02f8086 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -145,6 +145,8 @@ pub struct Universe {
+     observer: [f64; 2],
+     /// Cached positions in root units (for deadlines only; never an outcome).
+     pos: Vec<[f64; 2]>,
++    /// Bodies resolved since the last `rekey`: the only ones whose cached position can have moved.
++    pos_dirty: Vec<usize>,
+     pub stats: Stats,
+     pub inputs: Vec<(Tick, u8)>,
+     /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
+@@ -192,7 +194,7 @@ impl Universe {
+             fleets: Vec::new(),
+             queue: None,
+             now: 0,
+-            player: None,
++            pos_dirty: Vec::new(),
+             observer: [0.0; 2],
+             pos: Vec::new(),
+             stats: Stats::default(),
+@@ -210,6 +212,7 @@ impl Universe {
+             contacts: 0,
+             resolved: 0,
+             frames: 0,
++            player: None,
+             body_cap: 0,
+         }
+     }
+@@ -496,6 +499,16 @@ impl Universe {
+                 self.observer = pos;
+             }
+         }
++        // The position cache refreshes once per advance per *resolved* body (a dirty set), not
++        // once per event and not for every body: it feeds deadlines only (never an outcome),
++        // and outcomes are schedule-independent.
++        self.pos_dirty.sort_unstable();
++        self.pos_dirty.dedup();
++        for e in std::mem::take(&mut self.pos_dirty) {
++            if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), e, self.bodies.event_time(e).max(self.now)) {
++                self.pos[e] = p;
++            }
++        }
+         for e in 0..self.bodies.len() {
+             self.requeue(e);
+         }
+@@ -526,11 +539,8 @@ impl Universe {
+             Resolved::Refused => self.stats.refused += 1,
+         }
+         self.resolved += 1;
+-        let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
+-        if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+-            self.pos[i] = p;
+-        }
++        self.pos_dirty.push(i);
+     }
+ 
+     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {

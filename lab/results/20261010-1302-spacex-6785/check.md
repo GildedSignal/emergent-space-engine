@@ -1,0 +1,29 @@
+Grade: silver
+
+Reproduced exactly, on a clean tree, both sides: all four digests bit-identical across the patch (A `7e4c4380…`, B `2138e8c5…`, C `169e1aa3…`, tail/budget-of-one `e8d0d065…`); ship class 32.0 → 20.4 µs/item (−36%), whole-universe 49.8 → 43.3 µs/item; kick decomposition (root_state 7.0, rebind 11.3, compile 3.4 µs) and `cargo test --release -p emergent-universe` 54 passed / 0 failed. ~14 lines, one file, no API change; the named next lever (the rebind) is measured. Gain is ~1.4×, not 10×, and no component is deleted — real and adoptable, but below the gold bar. Record defects: the baseline's B line (Dense, "4.25 s") is unregenerable (Dense-200@3G takes >90 s on both trees; shipped bench says Sparse, switch undisclosed), and every digest scenario ran threads=1.
+
+## Reasons
+
+**Reproduction (all commands from the dossier, clean tree at a838a28, `git apply` of `work/patch.diff`).**
+- Baseline: `cost_split` — pure kick 34.7 µs, root_state 7.00 µs, own readout 3.31, secondaries 3.28, tide 3.30, whole universe 49.8 µs/item, ships 32.0 µs/item; `cost` — compile 3.4, from_state 11.3 µs. Matches the dossier (6.9 claimed for root_state; 12.3 for from_state — same order, noisy box).
+- Patched: ships 20.4 µs/item (−36%; dossier 20.2–20.4), whole universe 43.3 (dossier 43.0–43.2), root_state cost gone from `apply`. `idiot` A/B/C and `tail 10 100 1 48`: all digests identical to baseline and to the author's files; tail worst item still the fleet open (~2.3 ms), frames >5 ms: 2 → 2.
+- Tests on the patched tree: 54 passed, 0 failed, 1 ignored (per-target counts summed) — as claimed, including budget granularity.
+- Predictions: `predictions.md` (31 m before the artifacts at 22/21/17/1 m) preceded every recorded run. P1 held — the falsifier never fired, including on my cases below; P2 held and overshot honestly (36% vs the predicted 10–15%, with the whole-universe number correctly called unresolvable for noise); P3 held; P4 held (from_state is still the worst ratio). The author's stated miss (naive placement failing P3) is consistent with the arithmetic: O(N) refreshes per `advance` × the tail bench's one-item budget is O(N²) per frame.
+
+**Adversarial cases (mine).**
+1. Extreme rtf with the player (the gap the dossier itself names): 200 frames at rtf 1000, seed 1, 48 members — digest `8b32aa90…` and horizon-derived `now` 676751400 identical on both trees.
+2. Threads=4, 200 members, rtf 500 — this routes ships through `resolve_wave`, the one site where `requeue` reads a stale `pos` immediately after `apply` and which none of the author's scenarios touched (all ran threads=1). Digest `72801ef7…` and `now` 203025360 identical on both trees.
+3. Ordering: B's digest is Dense==Sparse (author's baseline.txt vs my Sparse runs, both `2138e8c5…`), consistent with the suite's digest-across-orderings test.
+4. Controls on the anomalies I hit: Dense-200@3G settle exceeds 90 s **on both trees** (not a patch effect), and a threads=4 deep settle (30 G ticks) stalls >100 s **on both trees** — engine-wide leads, see below.
+
+**Novelty.** Kick cost is a named open lever since H0210 ("kicks cost 29 µs; Next: kick cost (Sol)") and H0211 ("kicks still dominate"), and the board's focus list names "cheaper events"; but no HISTORY entry or doc touches the position-cache refresh, the dirty-set delete, or the kick decomposition. New work, on a ranked bottleneck.
+
+**Goal fit.** Board focus #1 (cheaper events) and #4 (smoothness, tail unchanged). PRINCIPLES #1 ("the cheapest compute is compute not done"), #14 ("no work for no reason"), #28 (the cache is an instrument, not an outcome — its own doc: "for deadlines only; never an outcome"). The mechanism is sound: `pos` is read only by `light_distance` → deadlines (`requeue`, the horizon, the deferred requeue), fleet caps use `root_position`, and the design's promise is that the queue's order never reaches an outcome — which four digest cuts, two orderings, budget-of-one, and my two extra scenarios all confirm empirically.
+
+**Why silver, not gold.** The measured gain is ~1.36× on ship items (~1.15× whole-universe), against gold's bar of 10×, a component deletion, or a falsified premise (this run rather *confirms* the schedule-independence premise). The one experiment that would make it gold: the run's own named next lever — replace the cartesian→elements rebind (`from_state`, 11–12 µs, ~35% of every kick, idiot index ≥100× against an integer Δ(E,L) patch) so the kick path as a whole moves an order of magnitude; that is motion-law territory (higher tier), so this run could only measure it.
+
+**What the author missed.**
+- The B-line record: `baseline.txt` says "seed7 Dense 200 … run 4.25s", but Dense-200 at the bench's 3 G-tick horizon takes >90 s on this box on both trees, and the shipped `idiot.rs` runs Sparse. The switch is undisclosed in the dossier (the table just says "Sparse, held out"). The digest claim survives (regenerated via Sparse on both trees; Dense==Sparse by the ordering-invariance contract), but the B wall-time comparison mixes configurations and the Dense line is not regenerable — the lab's recurring record failure mode.
+- Every digest scenario ran threads=1, so `resolve_wave`'s `apply`→`requeue` staleness (the most immediate deadline divergence the patch introduces) went untested by the author; my rtf-500/t4 case closed it, but the author should have.
+- New lead, found while attacking: threads=4 does not finish a deep settle (30 G ticks) within 100 s on either tree, while threads=1 settles the same scenario in ~4 s. Off this run's claim (present with and without the patch), but it bounds the "one digest across budgets and threads" promise (H0210) and deserves its own run.
+- The naive-placement KILL was not re-run by me (the variant is not shipped); the mechanism is arithmetically consistent, but the 2→106 number is taken on trust.
