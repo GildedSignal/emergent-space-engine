@@ -1,0 +1,20 @@
+# Controls for binet_probe.py (run 20261010-0448-redteam-f771, same host, load ~1.3)
+
+Command: python3 - <<'EOF' (as in dossier evidence; full snippet embedded in dossier)
+Case: e=0.99, r_p=7M (the worst period error).
+
+period banded Gauss8   = 119244.598268
+period banded Gauss8x4 = 119243.292553   rel diff 1.10e-05   (quadrature sensitivity)
+period oracle h=1e-4   = 116986.479998
+period oracle h=2.5e-5 = 116986.481163   rel diff 9.95e-09   (oracle converged)
+period model error (finest vs finest) = 1.929e-02
+
+=> The 1.9% period error is model error, 1.7e3 times larger than the quadrature
+   sensitivity; it is not a numerical artifact of either side.
+
+Repetition trend (e=0.95, r_p=8, 40 cycles), |dphi_i - median|/median:
+first 5: 1.2e-11, 1.6e-13, 5.1e-15, 0.0, 0.0
+last 5 : 0.0, 0.0, 0.0, 0.0, 0.0
+=> Deviation is first-cycle float noise (band-edge state nudge), decaying to
+   exactly zero: the loop retraces bit-identically. Non-compounding by
+   construction, consistent with r1's cycle_repeat PASS.

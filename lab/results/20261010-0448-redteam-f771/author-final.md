@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261010-0448-redteam-f771/`: `predictions.md` (pre-registered), `binet_probe.py` (2.8 s, deterministic), `probe-output.txt`, `controls.txt`, `dossier.md`.
+
+**Claim:** representation.md's Binet cells survive every r1 criterion held out to e = 0.99 and to v∞ = 0.87c slingshots (precession 2000× margin, scattering 25×, repetition exact by retrace symmetry) — but r1's own 0.1% coordinate-time-period band fails from e ≈ 0.85 in strong field, reaching 1.9% at e = 0.99 where shape also fails (a one-line hole in r1's frozen seed envelope, not a kill of the method), and the view-gather premise carries an unpriced bill — retarded reads of dense regions need log replay the design never budgets — that no rung can catch because r5/r6 were never frozen.
