@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions pre-registered (08:25) before the decisive run (08:41), dossier written, everything regenerable from `scarwalk/` + `analyze.py` (20 s), 144 KB total, tree untouched outside the run folder.
+
+**The claim:** the belt population's scar layer (H_live) is a logarithmic crawl, not a walk to ruin — on the shipped `shipmem` store it costs ½·log₂k bits per action column and 1.5·log₂k bits for the phase column (≈3 bits per doubling of kicks absorbed; measured 2.81), so the 10⁹-body memory risk is empty at play horizons (≤2.2 GB at 10 h for a μ=10⁻⁴ belt, 0.2 GB at realistic μ, 8 GB crossed only after 2.4×10⁴ hours of 100× play) — and no re-anchoring machinery is needed, only one rule: keep the phase deviation unwrapped, since wrapping it poisons the store (+1.6 B/body even at near-zero drift).
