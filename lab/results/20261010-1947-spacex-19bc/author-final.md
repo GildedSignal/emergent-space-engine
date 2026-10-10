@@ -1,0 +1,4 @@
+Working...
+Run complete: `--hlive` mode added (resolver untouched, digests replicate bit-for-bit), decisive runs at seeds 1/7 and rtf 100/1000, kick-bench for the cost side, `predictions.md` pre-registered (19:56, before the 20:01 batch), `dossier.md` and all data in `lab/results/20261010-1947-spacex-19bc/`.
+
+**Claim:** measured on the plane's own deterministic replay, a live ship creates distinction at ~0.0014 bits/s at the 24-bit memo-key level but ~0.10 bits/s at the exact Q48 level, so at 10⁹ ships the exact stream alone is ~45 GB per game-hour — 5.6× the whole 8 GB machine — while the quantized stream is 0.65 GB/h with reabsorption at ~2 % of one core: the "10⁹ in 8 GB" premise survives only if the belt's store keeps per-body exact remainders out of the live set, which is the target b-h-live and b-belt-wire must hit.
