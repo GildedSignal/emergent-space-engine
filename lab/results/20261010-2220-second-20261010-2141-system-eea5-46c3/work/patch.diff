@@ -1,0 +1,292 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f3076..cc029c9 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -23,6 +23,18 @@ use emergent_space::{
+     Tube,
+ };
+ use std::sync::Arc;
++/// Compile instrumentation (lab run 20261010-2141-system-eea5): nanoseconds and call count of
++/// `Rebinding::from_state`, the trajectory compilation inside every `bind_in`. The kick bench
++/// reads the deltas around a resolver call to split a kick into compile vs the rest.
++pub fn compile_cost() -> (u64, u64) {
++    (
++        COMPILE_NS.load(std::sync::atomic::Ordering::Relaxed),
++        COMPILE_COUNT.load(std::sync::atomic::Ordering::Relaxed),
++    )
++}
++static COMPILE_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static COMPILE_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
+ 
+ /// A compiled trajectory and its sense: the entry a tube's key indexes. The trajectory is compiled
+ /// about a mass of one, in units of the doll's mass; `unit` converts it to the doll's own units (the
+@@ -223,7 +235,10 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+ }
+ 
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
++    let c0 = std::time::Instant::now();
+     let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
++    COMPILE_NS.fetch_add(c0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
++    COMPILE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d43..3b0d154 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -51,6 +51,14 @@ pub const MAX_STEP: i64 = 1 << 50;
+ /// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
+ pub const THRUST_FRACTION_LOG2: i32 = 6;
+ 
++/// The jet's re-anchor bound (docs/law.md, "strong-field reuse is the jet, re-anchored"): a firing
++/// kick may join the binding's residual while each velocity component of the deviation from the
++/// generator stays within `v >> JET_REL_LOG2` of the body's own speed (a relative drift, the only
++/// unit that transfers between words). Past it the kick rebinds (the re-anchor). The measured
++/// floor of one plane kick is about 2⁻²⁴ of the speed (this run's bench), so the sweep is
++/// 16 (≈ 2⁹ median kicks of drift), 20 (≈ 2⁴) and 24 (≈ 1): the gates pick the bound.
++pub const JET_REL_LOG2: u32 = 62;
++
+ /// What resolving one item did, for the universe to apply and count.
+ pub struct Update {
+     pub rec: BodyRec,
+@@ -58,6 +66,9 @@ pub struct Update {
+     pub retired: Vec<Segment>,
+     /// A compiled entry to put in the catalogue (the rec's tube key is then set by the owner).
+     pub new_entry: Option<Arc<Entry>>,
++    /// The retired binding's tube key is still the live one (a jetted kick kept its entry): the
++    /// owner must not release it.
++    pub jetted: bool,
+     pub kind: Resolved,
+ }
+ 
+@@ -287,6 +298,8 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// Set when the resolved kick jetted (kept its entry): the retired binding's key stays live.
++    jetted: bool,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -302,6 +315,40 @@ impl Work<'_, '_> {
+     fn has_forces(&self, doll: u16) -> bool {
+         self.ctx.dolls[doll as usize].parent.is_some() || self.ctx.sources[doll as usize].iter().any(|&j| j != self.i)
+     }
++    /// The jet (docs/law.md, "strong-field reuse is the jet, re-anchored"): a velocity-only kick
++    /// whose deviation from its generator stays within `v >> JET_REL_LOG2` of the body's own speed
++    /// does not recompile. The quantized impulse joins the binding's residual — the
++    /// deviation-from-generator store — so the readout `turn·decode + offset` stays exact at the
++    /// kick itself; the tube keeps running, and the rebind when the bound is reached is the
++    /// re-anchor, at the jet's compile cost. A kick that moves the position (a handoff, a
++    /// re-wording) is not an offset and always takes [`Work::rebind`], exactly. Returns whether
++    /// the kick jetted.
++    fn jet(&mut self, next: &IntegerState, t: Tick) -> Res<bool> {
++        let st = self.rec.b.readout(t)?;
++        if st.position != next.position || st.length_exponent != next.length_exponent || st.velocity_exponent != next.velocity_exponent {
++            return Ok(false);
++        }
++        let after = [
++            self.rec.b.residual.velocity[0] + (next.velocity[0] - st.velocity[0]) as i128,
++            self.rec.b.residual.velocity[1] + (next.velocity[1] - st.velocity[1]) as i128,
++        ];
++        let scale = st.velocity[0].abs().max(st.velocity[1].abs()).max(1) as i128;
++        let bound = scale >> JET_REL_LOG2;
++        if after[0].abs() > bound || after[1].abs() > bound {
++            return Ok(false); // Past the re-anchor bound: this kick recompiles.
++        }
++        // The clock reading and the history segment, as a rebind does them (the tube is unchanged).
++        let tau = self.rec.b.orbit_state(t)?.proper_time.sub(self.rec.b.orbit_state(self.rec.b.event_time)?.proper_time)?;
++        let root_tau = tau.scale(-(self.ctx.dolls[self.rec.b.doll as usize].shift as i32))?;
++        self.rec.proper = self.rec.proper.add(root_tau)?;
++        let old = self.rec.b.clone();
++        self.retired.push(Segment { b: old, until: t });
++        self.rec.b.residual.velocity = after;
++        self.rec.b.event_time = t;
++        self.rec.b.kick = Kick::NONE;
++        self.jetted = true;
++        Ok(true)
++    }
+ 
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+@@ -378,7 +425,9 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        if !thrusting && !self.jet(&next, t)? {
++            self.rebind(next, t, d)?;
++        }
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -615,7 +664,11 @@ impl Work<'_, '_> {
+         };
+         let fired = next.velocity != st.velocity;
+         if fired {
+-            self.rebind(next, t, d)?;
++            if !thrusting && self.jet(&next, t)? {
++                // Jetted: the tube and its catalogue key survive the kick.
++            } else {
++                self.rebind(next, t, d)?;
++            }
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+@@ -755,7 +808,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, jetted: false };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -790,24 +843,24 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             }
+         }
+     };
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, jetted: w.jetted, kind }
+ }
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, jetted: false };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, jetted: w.jetted, kind: Resolved::Open }
+ }
+ 
+ /// A decision: flush the thrust owed so far at `t` (a rebinding when a burn is owed; a turn alone only
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, jetted: false };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+@@ -839,7 +892,7 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+     if res.is_err() {
+         w.rec.refusals += 1;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, jetted: w.jetted, kind: Resolved::Open }
+ }
+ 
+ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc02..031fa63 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -509,7 +509,10 @@ impl Universe {
+ 
+     fn apply(&mut self, i: usize, mut upd: Update) {
+         for seg in upd.retired.drain(..) {
+-            self.cat.release(seg.b.tube.key);
++            // A jetted kick kept the entry its retired segment indexes: the tube's key stays live.
++            if !upd.jetted {
++                self.cat.release(seg.b.tube.key);
++            }
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+         }
+         if let Some(entry) = upd.new_entry.take() {
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8..2477e18 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -7,6 +7,7 @@ use emergent_space::{
+ use emergent_universe::{body::What, step, Budget, Kind};
+ use serde_json::json;
+ use std::collections::HashSet;
++use emergent_universe::bind::compile_cost;
+ use std::time::Instant;
+ 
+ /// The shapes the rebinds of the replayed kicks asked for, under the exact key and under the law's
+@@ -53,11 +54,15 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
++    let mut jetted = 0;
+     let mut refused = 0;
++    let mut physics: Vec<serde_json::Value> = Vec::new();
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
++    let mut compile_shares: Vec<f64> = Vec::new();
++    let (mut compile_total_us, mut compile_calls) = (0.0f64, 0u64);
+     for n in 1..=(seconds * 60.0) as usize {
+         if wall.elapsed().as_secs_f64() >= 55.0 {
+             return Err("kick replay exceeded 55 s; no complete result".into());
+@@ -81,10 +86,41 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
++            let c_before = compile_cost();
++            let pv = rec.b.readout(item.t).map(|st| (st.velocity, st.velocity_exponent)).ok();
++            let rv = rec.b.residual.velocity;
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
++            jetted += usize::from(upd.jetted);
++            // The physics series (the B5 criterion on the plane's own kicks): the Kepler energy and
++            // angular momentum of the post-kick state about the tube's host, one point per kick.
++            if let (Ok(st), Ok(unit)) = (upd.rec.b.readout(item.t), s.p.u.ctx().tube_unit(i, upd.rec.b.doll)) {
++                if let Ok((x, v)) = emergent_universe::bind::scalars(&st) {
++                    if let (Ok(e), Ok(l)) = (emergent_universe::force::kepler(x, v, unit.mu), emergent_universe::num::cross2(x, v)) {
++                        let (dv0, dv1) = match pv {
++                            Some(([b0, b1], _)) => (st.velocity[0] - b0, st.velocity[1] - b1),
++                            None => (0, 0),
++                        };
++                        let vs = pv.map_or(1, |([b0, b1], _)| b0.abs().max(b1.abs()).max(1));
++                        physics.push(json!({
++                            "i": i, "t": item.t,
++                            "e": emergent_universe::num::to_f64(e),
++                            "l": emergent_universe::num::to_f64(l),
++                            "rv0": rv[0], "rv1": rv[1],
++                            "dv0": dv0, "dv1": dv1, "vs": vs,
++                        }));
++                    }
++                }
++            }
++            let (c_ns, c_n) = compile_cost();
++            let (d_ns, d_n) = (c_ns - c_before.0, c_n - c_before.1);
++            compile_total_us += d_ns as f64 / 1e3;
++            compile_calls += d_n;
++            if us > 0.0 && d_n > 0 {
++                compile_shares.push(d_ns as f64 / 1e3 / us);
++            }
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
+@@ -93,7 +129,6 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         }
+         s.p.u.frame(1.0 / 60.0, s.rtf, Budget::unlimited());
+         s.p.u.settle(s.p.u.now);
+-        frames = n;
+     }
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
+     println!("{}", serde_json::to_string_pretty(&json!({
+@@ -102,8 +137,11 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+-        "memo": shapes.json(),
+-        "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
++        "compile_share": percentiles(&mut compile_shares),
++        "compiles_per_kick": if all.len() > 0 { compile_calls as f64 / all.len() as f64 } else { 0.0 },
++        "compile_us_total": compile_total_us, "compile_calls": compile_calls,
++        "jetted_kicks": jetted, "physics": physics,
++        "memo": shapes.json(), "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+     }))?);
