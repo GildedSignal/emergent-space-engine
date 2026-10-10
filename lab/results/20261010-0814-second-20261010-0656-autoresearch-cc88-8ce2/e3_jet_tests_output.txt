@@ -1,0 +1,90 @@
+warning: methods `jet_table`, `jet_update`, and `weak_quad_jet` are never used
+   --> crates/space/src/orbit.rs:445:19
+    |
+168 | impl OrbitShape {
+    | --------------- methods in this implementation
+...
+445 |     pub(crate) fn jet_table(&self) -> Result<Vec<[i128; 5]>> {
+    |                   ^^^^^^^^^
+...
+503 |     pub(crate) fn jet_update(&self, d: &[[i128; 5]], k1: u64) -> Result<OrbitShape> {
+    |                   ^^^^^^^^^^
+...
+524 |     fn weak_quad_jet(&self, lo: i128, hi: i128) -> Result<([i128; 4], [i128; 4])> {
+    |        ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: method `plus_significand` is never used
+   --> crates/space/src/scaled.rs:153:19
+    |
+ 16 | impl Scalar {
+    | ----------- method in this implementation
+...
+153 |     pub(crate) fn plus_significand(self, term: i128) -> Result<Self> {
+    |                   ^^^^^^^^^^^^^^^^
+
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+warning: `emergent-space` (lib) generated 2 warnings
+warning: variable `done` is assigned to, but never used
+  --> crates/space/src/jet_tests.rs:42:13
+   |
+42 |     let mut done = 0u64;
+   |             ^^^^
+   |
+   = note: consider using `_done` instead
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-space` (lib test) generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 7.02s
+     Running unittests src/lib.rs (/tmp/lab-target-2/release/deps/emergent_space-dc1d9025fd369bc5)
+
+running 4 tests
+quadratic radius: err(1e-5)=1.418e0 err(5e-6)=5.323e-1 ratio=2.7 anchors 1,1
+test orbit::jet_tests::jet_error_is_quadratic_in_drift ... ok
+e=0.3 eps=0.000001: advance_err=7.100e-15 period_err=3.185e-4 radius_err=8.973e-4 anchors=14 jet=1.57us compile=11.31us
+e=0.3: C_r=1674.9 theta_r=2.44e-5 anchors=401 advance=2.982e-15 period=1.072e-5 radius=3.010e-5 jet=1.55us compile=11.30us
+e=0.3 eps=0.0001: advance_err=1.020e-12 period_err=3.497e-4 radius_err=9.847e-4 anchors=329 jet=0.34us compile=1.75us
+frozen e=0.9 eps=1e-6: advance_err=7.297e-4
+test orbit::jet_tests::frozen_table_is_the_negative_control ... ok
+e=0.9 eps=0.000001: advance_err=2.084e-16 period_err=7.087e-3 radius_err=1.495e0 anchors=15 jet=3.50us compile=47.60us
+e=0.9 eps=0.0001: advance_err=1.020e-12 period_err=7.821e-3 radius_err=1.673e0 anchors=811 jet=1.22us compile=10.96us
+e=0.9: C_r=2805919.3 theta_r=5.97e-7 anchors=10002 advance=2.084e-16 period=9.001e-6 radius=2.506e-5 jet=3.47us compile=47.35us
+e=0.99 eps=0.000001: advance_err=2.183e-16 period_err=1.302e-1 radius_err=1.564e2 anchors=16 jet=5.04us compile=75.52us
+e=0.99 eps=0.0001: advance_err=1.025e-12 period_err=1.490e-1 radius_err=1.616e2 anchors=872 jet=1.46us compile=13.80us
+test orbit::jet_tests::jet_holds_df81_criterion_on_the_shipped_compiler ... ok
+e=0.99: C_r=293399187.8 theta_r=5.84e-8 anchors=10003 advance=2.183e-16 period=9.910e-5 radius=5.480e-1 jet=4.95us compile=75.09us
+test orbit::jet_tests::readout_floor_sets_a_tighter_anchor_rule ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 3.33s
+
+     Running tests/api.rs (/tmp/lab-target-2/release/deps/api-bac99a9f68e301ba)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/envelope.rs (/tmp/lab-target-2/release/deps/envelope-9763034b732a4527)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests/events.rs (/tmp/lab-target-2/release/deps/events-2e104ee447af9cac)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests/light.rs (/tmp/lab-target-2/release/deps/light-bb453b53b2900197)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests/near_circular.rs (/tmp/lab-target-2/release/deps/near_circular-511a2fdac6911860)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
