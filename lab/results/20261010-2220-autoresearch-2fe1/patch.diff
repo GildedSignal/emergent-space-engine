@@ -1,0 +1,99 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..fb92d9d 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -213,7 +213,11 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let root = disc.sqrt()?;
+     let uc = Scalar::integer(2).div(Scalar::ONE.add(root)?)?;
+     let minimum = Scalar::ONE.add(root)?.div(q.mul(Scalar::integer(6))?)?;
+-    let poly = |z: Scalar| -> Result<Scalar> { alpha.add(z.scale(1)?)?.sub(z.mul(z)?)?.add(q.scale(1)?.mul(z.mul(z)?.mul(z)?)?) };
++    let twoq = q.scale(1)?;
++    let poly = |z: Scalar| -> Result<Scalar> {
++        let z2 = z.mul(z)?;
++        alpha.add(z.scale(1)?)?.sub(z2)?.add(twoq.mul(z2.mul(z)?)?)
++    };
+     // Divide the barrier predicate by z² before evaluating: its sign is all
+     // that is requested, and its absolute magnitude need not be representable.
+     let inverse = minimum.reciprocal()?;
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8..97fb261 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -49,7 +49,7 @@ pub fn isqrt(x: u128) -> u128 {
+     // Start at or above the root: the root of the top 64 bits (u64 Newton), plus one, rescaled.
+     let shift = (128 - x.leading_zeros()).saturating_sub(64).div_ceil(2) * 2;
+     let top = (x >> shift) as u64;
+-    let mut y = top.isqrt() as u128 + 1;
++    let mut y = isqrt64(top) as u128 + 1;
+     y <<= shift / 2;
+     // Newton from above decreases monotonically to floor(sqrt(x)).
+     loop {
+@@ -61,6 +61,29 @@ pub fn isqrt(x: u128) -> u128 {
+     }
+ }
+ 
++/// floor(sqrt(x)) for u64, f64-seeded then corrected by exact squaring, so the
++/// returned bits are identical to any exact search; the seed error is at most
++/// a few steps (x rounds to 53 bits before the IEEE-exact sqrt).
++#[inline]
++pub fn isqrt64(x: u64) -> u64 {
++    if x < 2 {
++        return x;
++    }
++    let mut r = (x as f64).sqrt() as u64;
++    if r == 0 {
++        r = 1;
++    }
++    while (r as u128) * (r as u128) > x as u128 {
++        r -= 1;
++    }
++    let mut up = r + 1;
++    while (up as u128) * (up as u128) <= x as u128 {
++        r = up;
++        up += 1;
++    }
++    r
++}
++
+ /// floor(a * b / 2^s) for a, b >= 0, from the exact 256-bit product; Range if it exceeds u128.
+ pub fn mul_shr(a: u128, b: u128, s: u32) -> Result<u128> {
+     const M: u128 = u64::MAX as u128;
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..3cdac14 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -345,7 +345,7 @@ impl OrbitShape {
+                 // When sqrt(d)>=1/2 its Q31 floor has relative error <2^-30.
+                 // A single native u64 isqrt replaces the 126-bit square root.
+                 let root = if self.word_root {
+-                    ((denominator as u64).isqrt() as u128) << 31
++                    (crate::num::isqrt64(denominator as u64) as u128) << 31
+                 } else {
+                     crate::num::isqrt((denominator as u128) << 62)
+                 };
+@@ -395,12 +395,19 @@ impl OrbitShape {
+         let mut lo = start;
+         while lo < end {
+             let hi = end.min(cut);
+-            let n = (hi - lo + CAP - 1) / CAP;
+-            for i in 0..n {
+-                let a = lo + (hi - lo) * i / n;
+-                let b = lo + (hi - lo) * (i + 1) / n;
+-                let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
+-                self.knots.push(Knot { psi: b as u64, sum });
++            let span = hi - lo;
++            if span <= CAP {
++                // n == 1 in the general formula: a = lo + span*0/1, b = lo + span*1/1.
++                let sum = self.knots.last().unwrap().sum.add(self.quad(lo, hi)?)?;
++                self.knots.push(Knot { psi: hi as u64, sum });
++            } else {
++                let n = (span + CAP - 1) / CAP;
++                for i in 0..n {
++                    let a = lo + span * i / n;
++                    let b = lo + span * (i + 1) / n;
++                    let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
++                    self.knots.push(Knot { psi: b as u64, sum });
++                }
+             }
+             lo = hi;
+             cut *= 2;

@@ -1,0 +1,263 @@
+diff --git a/crates/space/examples/lab_bench.rs b/crates/space/examples/lab_bench.rs
+new file mode 100644
+index 0000000..75da010
+--- /dev/null
++++ b/crates/space/examples/lab_bench.rs
+@@ -0,0 +1,158 @@
++//! Lab bench 20261010-2220: ns per orbit-compile / rebind event in `crates/space`.
++//! Deterministic: fixed LCG seeds, checksum over outputs.
++//! cargo run --release -p emergent-space --example lab_bench -- [mode] [rounds]
++use emergent_space::{
++    binding::{IntegerState, Rebinding},
++    orbit::{Orbit, OrbitKey},
++    scaled::Scalar,
++};
++use std::time::Instant;
++
++fn lcg(state: &mut u64) -> u64 {
++    *state = state
++        .wrapping_mul(6364136223846793005)
++        .wrapping_add(1442695040888963407);
++    *state >> 11
++}
++
++fn keys_r(n: u64, seed: u64, rlo: f64, rspan: f64, elo: f64, espan: f64) -> Vec<OrbitKey> {
++    let mut s = seed;
++    let mut out = Vec::new();
++    for _ in 0..n {
++        let log_r = rlo + (lcg(&mut s) as f64 / (1u64 << 53) as f64) * rspan;
++        let e = elo + (lcg(&mut s) as f64 / (1u64 << 53) as f64) * espan;
++        let rp = Scalar::integer(1 << 20)
++            .mul(Scalar::power_of_two((log_r - 20.0) as i16))
++            .unwrap();
++        let k = ((1u128 << 96) / ((1u128 << 48) + (e * (1u64 << 48) as f64) as u128)) as u64;
++        out.push(OrbitKey::new(rp, k).unwrap());
++    }
++    out
++}
++
++fn keys(n: u64) -> Vec<OrbitKey> {
++    keys_r(n, 0x853c49e6748fea9b, 4.0, 10.0, 0.0, 0.9)
++}
++
++/// Integer states near bound orbits: r in 2^5..2^13 M, near-circular with radial kick.
++fn states(n: u64) -> Vec<IntegerState> {
++    let mut s = 0x9e3779b97f4a7c15;
++    let mut out = Vec::new();
++    for _ in 0..n {
++        let log_r = 5.0 + (lcg(&mut s) as f64 / (1u64 << 53) as f64) * 8.0;
++        let r = 2f64.powf(log_r);
++        let vc = (1.0f64 / r).sqrt(); // circular coordinate speed, G=c=M=1, weak field
++        let vr = (lcg(&mut s) as f64 / (1u64 << 53) as f64 - 0.5) * 0.6 * vc;
++        let theta = (lcg(&mut s) as f64 / (1u64 << 53) as f64) * std::f64::consts::TAU;
++        let (ct, st) = (theta.cos(), theta.sin());
++        let (vx, vy) = (vc * ct - vr * st, vc * st + vr * ct);
++        let vexp = -24i16;
++        let pexp = -12i16;
++        out.push(IntegerState {
++            position: [
++                (r * ct * (1u64 << (-pexp) as u32) as f64) as i64,
++                (r * st * (1u64 << (-pexp) as u32) as f64) as i64,
++            ],
++            velocity: [
++                (vx * (1u64 << (-vexp) as u32) as f64) as i64,
++                (vy * (1u64 << (-vexp) as u32) as f64) as i64,
++            ],
++            length_exponent: pexp,
++            velocity_exponent: vexp,
++        });
++    }
++    out
++}
++
++fn fold(h: u64, x: u64) -> u64 {
++    (h ^ x).wrapping_mul(0x100000001b3)
++}
++
++fn run_compile(ks: Vec<OrbitKey>, n: u64, rounds: u64, tag: &str) {
++    let n = ks.len() as u64;
++            let mut h = 0xcbf29ce484222325;
++            let mut knots = 0u64;
++            for &key in &ks {
++                let o = Orbit::compile(key).unwrap();
++                for inc in [
++                    o.advance().unwrap(),
++                    o.period().unwrap(),
++                    o.proper_period().unwrap(),
++                ] {
++                    h = fold(h, inc.significand() as u64);
++                    h = fold(h, inc.exponent() as u16 as u64);
++                }
++                knots += o.shape().knots().len() as u64;
++            }
++            let mut best = u128::MAX;
++            let mut times = Vec::new();
++            for _ in 0..rounds {
++                let t = Instant::now();
++                for &key in &ks {
++                    std::hint::black_box(Orbit::compile(key).unwrap());
++                }
++                let d = t.elapsed().as_nanos();
++                times.push(d);
++                best = best.min(d);
++            }
++            times.sort();
++            let med = times[times.len() / 2];
++            println!(
++                "compile-{} n={} med={}ns best={}ns/event med={:.1}ns best={:.1}ns knots/orbit={:.1} ck=0x{:016x}",
++                tag, n, med, best, med as f64 / n as f64, best as f64 / n as f64, knots as f64 / n as f64, h
++            );
++}
++
++fn main() {
++    let mode = std::env::args().nth(1).unwrap_or_else(|| "compile".into());
++    let rounds: u64 = std::env::args()
++        .nth(2)
++        .and_then(|a| a.parse().ok())
++        .unwrap_or(7);
++    let n = 512u64;
++    match mode.as_str() {
++        "compile-deep" => run_compile(keys_r(n, 0xdeadbeefcafe1234, 2.0, 2.0, 0.7, 0.25), n, rounds, "deep"),
++        "compile-circ" => run_compile(keys_r(n, 0x0badc0ffee123456, 4.0, 10.0, 0.0, 0.05), n, rounds, "circ"),
++        "compile" => run_compile(keys(n), n, rounds, "main"),
++        "rebind" => {
++            let sts = states(n);
++            let mut h = 0xcbf29ce484222325;
++            let mut ok = 0u64;
++            for st in &sts {
++                if let Ok(rb) = Rebinding::from_state(*st, Scalar::ZERO, None) {
++                    ok += 1;
++                    h = fold(h, rb.periapsis_angle as u64);
++                    h = fold(h, rb.periapsis_time.significand() as u64);
++                    h = fold(h, rb.residual.position[0] as u64);
++                    h = fold(h, rb.residual.position[1] as u64);
++                    h = fold(h, rb.residual.velocity[0] as u64);
++                    h = fold(h, rb.residual.velocity[1] as u64);
++                }
++            }
++            let mut best = u128::MAX;
++            let mut times = Vec::new();
++            for _ in 0..rounds {
++                let t = Instant::now();
++                for st in &sts {
++                    std::hint::black_box(Rebinding::from_state(*st, Scalar::ZERO, None));
++                }
++                let d = t.elapsed().as_nanos();
++                times.push(d);
++                best = best.min(d);
++            }
++            times.sort();
++            let med = times[times.len() / 2];
++            println!(
++                "rebind n={} ok={} med={}ns best={}ns/event med={:.1}ns best={:.1}ns ck=0x{:016x}",
++                n,
++                ok,
++                med,
++                best,
++                med as f64 / n as f64,
++                best as f64 / n as f64,
++                h
++            );
++        }
++        _ => eprintln!("modes: compile rebind"),
++    }
++}
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf4494..fb92d9d 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -213,7 +213,11 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let root = disc.sqrt()?;
+     let uc = Scalar::integer(2).div(Scalar::ONE.add(root)?)?;
+     let minimum = Scalar::ONE.add(root)?.div(q.mul(Scalar::integer(6))?)?;
+-    let poly = |z: Scalar| -> Result<Scalar> { alpha.add(z.scale(1)?)?.sub(z.mul(z)?)?.add(q.scale(1)?.mul(z.mul(z)?.mul(z)?)?) };
++    let twoq = q.scale(1)?;
++    let poly = |z: Scalar| -> Result<Scalar> {
++        let z2 = z.mul(z)?;
++        alpha.add(z.scale(1)?)?.sub(z2)?.add(twoq.mul(z2.mul(z)?)?)
++    };
+     // Divide the barrier predicate by z² before evaluating: its sign is all
+     // that is requested, and its absolute magnitude need not be representable.
+     let inverse = minimum.reciprocal()?;
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8..97fb261 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -49,7 +49,7 @@ pub fn isqrt(x: u128) -> u128 {
+     // Start at or above the root: the root of the top 64 bits (u64 Newton), plus one, rescaled.
+     let shift = (128 - x.leading_zeros()).saturating_sub(64).div_ceil(2) * 2;
+     let top = (x >> shift) as u64;
+-    let mut y = top.isqrt() as u128 + 1;
++    let mut y = isqrt64(top) as u128 + 1;
+     y <<= shift / 2;
+     // Newton from above decreases monotonically to floor(sqrt(x)).
+     loop {
+@@ -61,6 +61,29 @@ pub fn isqrt(x: u128) -> u128 {
+     }
+ }
+ 
++/// floor(sqrt(x)) for u64, f64-seeded then corrected by exact squaring, so the
++/// returned bits are identical to any exact search; the seed error is at most
++/// a few steps (x rounds to 53 bits before the IEEE-exact sqrt).
++#[inline]
++pub fn isqrt64(x: u64) -> u64 {
++    if x < 2 {
++        return x;
++    }
++    let mut r = (x as f64).sqrt() as u64;
++    if r == 0 {
++        r = 1;
++    }
++    while (r as u128) * (r as u128) > x as u128 {
++        r -= 1;
++    }
++    let mut up = r + 1;
++    while (up as u128) * (up as u128) <= x as u128 {
++        r = up;
++        up += 1;
++    }
++    r
++}
++
+ /// floor(a * b / 2^s) for a, b >= 0, from the exact 256-bit product; Range if it exceeds u128.
+ pub fn mul_shr(a: u128, b: u128, s: u32) -> Result<u128> {
+     const M: u128 = u64::MAX as u128;
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd..3cdac14 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -345,7 +345,7 @@ impl OrbitShape {
+                 // When sqrt(d)>=1/2 its Q31 floor has relative error <2^-30.
+                 // A single native u64 isqrt replaces the 126-bit square root.
+                 let root = if self.word_root {
+-                    ((denominator as u64).isqrt() as u128) << 31
++                    (crate::num::isqrt64(denominator as u64) as u128) << 31
+                 } else {
+                     crate::num::isqrt((denominator as u128) << 62)
+                 };
+@@ -395,12 +395,19 @@ impl OrbitShape {
+         let mut lo = start;
+         while lo < end {
+             let hi = end.min(cut);
+-            let n = (hi - lo + CAP - 1) / CAP;
+-            for i in 0..n {
+-                let a = lo + (hi - lo) * i / n;
+-                let b = lo + (hi - lo) * (i + 1) / n;
+-                let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
+-                self.knots.push(Knot { psi: b as u64, sum });
++            let span = hi - lo;
++            if span <= CAP {
++                // n == 1 in the general formula: a = lo + span*0/1, b = lo + span*1/1.
++                let sum = self.knots.last().unwrap().sum.add(self.quad(lo, hi)?)?;
++                self.knots.push(Knot { psi: hi as u64, sum });
++            } else {
++                let n = (span + CAP - 1) / CAP;
++                for i in 0..n {
++                    let a = lo + span * i / n;
++                    let b = lo + span * (i + 1) / n;
++                    let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
++                    self.knots.push(Knot { psi: b as u64, sum });
++                }
+             }
+             lo = hi;
+             cut *= 2;
