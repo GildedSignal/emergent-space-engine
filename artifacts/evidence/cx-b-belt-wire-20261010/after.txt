@@ -1,0 +1,10 @@
+command: artifacts/runs/cx-b-belt-wire/xtask-complete behave --law space --gates B18,B18b
+timeout=60s; process RSS ceiling=2000000000 bytes
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t80%; AC attached; not charging present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 2.54 2.33 2.10 }","power_source":"Now drawing from 'AC Power'","swap":"total = 8192.00M  used = 7365.88M  free = 826.12M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-10T02:49:08Z","unix":1791600548,"when":"start"}
+B18 PASS memory: 12/12 ladder scenes within 2x the information floor + 2 bytes, worst 0.490 of the limit; at 1e9 bodies 7.93e-4 GB (kicked 0 (1 x 1048576)) to 26.5 GB (random (1 x 1048576)) (reported; one byte per body is one GB) [1.67 s]
+B18b PASS belt: 5 runs, every criterion; worst: chi2 |z| 1.04 (limit 4.5), serial |z| 3.21 (5), KS 0.71 of critical; four tail ends: count |z| 2.25 (4.5), shape KS 0.58 of critical, conditional mean |z| 2.12 (pooled 1.07), other columns 0.62 of critical; birth 64 B for info 34 B; 12 ns to regenerate and hash a body; bytes at 1e9: 42 B (4.2e-8 B/body); after 12 epochs at 1e-2 11.4% are scarred, 12.1 B each (floor 54 bits): 1.38 GB at 1e9 (reported) [10.60 s]
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t80%; AC attached; not charging present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 2.53 2.34 2.10 }","power_source":"Now drawing from 'AC Power'","swap":"total = 8192.00M  used = 7365.88M  free = 826.12M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-10T02:49:20Z","unix":1791600560,"when":"end"}
+behave space (B18 B18b): PASS
+
+peak_observed_process_rss_bytes=376553472
+exit=0; wall_s=12.697

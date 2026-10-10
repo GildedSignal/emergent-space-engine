@@ -1,6 +1,8 @@
 //! Boundary adapter only: quantize input, invoke the integer core, decode output.
 //! Long runs read each cycle's turning points from positions derived from the compiled cycle.
 use super::Law;
+#[path = "space_belt.rs"]
+mod belt_adapter;
 use emergent_space::events::clock_rate;
 use emergent_space::{
     binding::Trajectory,
@@ -47,6 +49,15 @@ impl Space {
     }
 }
 impl Law for Space {
+    fn belt_birth(&self, spec: &super::belt::BeltSpec, n: u64, seed: u64) -> Option<Box<dyn super::belt::Belt>> {
+        belt_adapter::birth(spec,n,seed)
+    }
+    fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn super::belt::Belt>> {
+        belt_adapter::restore(store)
+    }
+    fn bytes_per_body(&self, scene: &super::memory::MemoryScene) -> Option<f64> {
+        belt_adapter::bytes_per_body(scene)
+    }
     fn binary_cycle(&self, energy: f64, angular: f64, nu: f64) -> Option<(f64, f64)> {
         if !energy.is_finite()
             || !angular.is_finite()
