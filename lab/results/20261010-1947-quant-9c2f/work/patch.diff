@@ -1,0 +1,66 @@
+diff --git a/xtask/src/behave/handoff.rs b/xtask/src/behave/handoff.rs
+index fcc2686..a21d91a 100644
+--- a/xtask/src/behave/handoff.rs
++++ b/xtask/src/behave/handoff.rs
+@@ -428,4 +428,47 @@ mod tests {
+         assert_eq!(median(vec![f64::NAN, f64::NAN, 1.0]), f64::INFINITY);
+         assert_eq!(median(vec![]), f64::INFINITY);
+     }
++
++    /// Lab run 20261010-1947-quant-9c2f: the law's own per-sample observables for the B12 statistic
++    /// work — no reference anywhere, only what an adapter could read from the law's answers:
++    /// t, state, C_J(t), a(t), encounters so far (inside 3 R_H after outside), distance in R_H, judged.
++    /// Ten f64 per row, little-endian, 1601 rows per ship, ships concatenated.
++    #[test]
++    #[ignore = "dump for the lab's B12 statistic work: run with B12_DUMP=<dir>"]
++    fn dump_b12_streams() {
++        let dir = std::env::var("B12_DUMP").expect("B12_DUMP=<dir>");
++        let scene = JUPITER;
++        let kept = kept();
++        let times = coarse_times(&scene);
++        for name in ["echo", "planted-bounded", "planted-compound"] {
++            let law = super::super::laws::by_name(name).unwrap();
++            let mut buf = Vec::with_capacity(kept.len() * times.len() * 80);
++            let mut ships = 0;
++            for k in kept.iter() {
++                let Some(states) = law.restricted(&scene, k.ship, &times) else { continue };
++                ships += 1;
++                let (mut inside, mut n) = (false, 0.0f64);
++                for (&t, s) in times.iter().zip(&states) {
++                    let now = scene.planet_distance(t, s) < 3.0 * scene.hill();
++                    if now && !inside {
++                        n += 1.0;
++                    }
++                    inside = now;
++                    let row = [
++                        t, s[0], s[1], s[2], s[3],
++                        scene.jacobi(t, s),
++                        super::super::laws::star_axis(&scene, t, s),
++                        n,
++                        scene.planet_distance(t, s) / scene.hill(),
++                        if k.judged(&scene) { 1.0 } else { 0.0 },
++                    ];
++                    for v in row {
++                        buf.extend_from_slice(&v.to_le_bytes());
++                    }
++                }
++            }
++            std::fs::write(format!("{dir}/{name}.f64"), &buf).unwrap();
++            println!("{name}: {ships} ships, {}/10 f64 rows", buf.len() / 80);
++        }
++    }
+ }
+diff --git a/xtask/src/behave/laws.rs b/xtask/src/behave/laws.rs
+index 366f5d7..66b9fcc 100644
+--- a/xtask/src/behave/laws.rs
++++ b/xtask/src/behave/laws.rs
+@@ -385,8 +385,7 @@ const BOUNDED: f64 = 1e-7;
+ /// The semimajor axis (in separations) past which `planted-bounded` stops reading it: an ejected ship's error stays bounded too.
+ const AXIS_CAP: f64 = 10.0;
+ 
+-/// The ship's semimajor axis about the star, in separations, from its barycentric state at t (capped at AXIS_CAP; an unbound ship has the cap).
+-fn star_axis(scene: &Restricted, t: f64, s: &[f64; 4]) -> f64 {
++pub(crate) fn star_axis(scene: &Restricted, t: f64, s: &[f64; 4]) -> f64 {
+     let (energy, _) = scene.heliocentric(t, s);
+     if energy < 0.0 { ((1.0 - scene.mu) / (-2.0 * energy) / scene.sep).min(AXIS_CAP) } else { AXIS_CAP }
+ }
