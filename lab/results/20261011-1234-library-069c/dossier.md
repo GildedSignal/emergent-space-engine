@@ -1,0 +1,33 @@
+# Dossier — 20261011-1234-library-069c (library lens)
+
+**Claim.** Julien's own library yields five decision-changing practitioner lessons for the queued bottlenecks, and the top one (B12, queue item 1) is carried to a measured candidate: a stationarity verdict (blocked-difference F) that separates a slow leak from bounded error — the case that killed the recurrence-ratio proposal — at 0–1 % false alarms, 94–100 % compounding caught, T = 4096.
+
+**Bottleneck.** B12's redesign ("B12 cannot yet tell bounded from compounding error on chaotic ships", HANDOFF risks) plus the queued slack-skin, belt/H_live and readout items. Gain sought: an instrument the plane can trust, so stability stops being judged by probes. Nothing deleted yet; B12-v2's echo redesign gets its statistic.
+
+**Evidence.** Readwise export cached (`readwise.json`, 4,580 highlights, 770 docs; fetched via API, token present). Probe: `python3 b12probe.py short` (≈2 s, bit-reproducible — stable per-model seeds, numpy only):
+
+```
+T=4096  bounded 100/100 bounded (F med 1.0, p90 ~1.3)   | fcrit 3.5
+        bounded_jumps 99 bounded, 1 void                | false alarms 0-1%
+        diffusive 97 compounding (F med 12.7)           |
+        slow_leak 95 compounding (F med 10.4)  <- the recurrence ratio's killer case
+        ballistic 100 compounding (F med 6.1e4)         |
+T=1024  compounding still 95-100% caught; bounded returns VOID (tau-guard),
+        never wrong: the instrument states its window (tau < 0.2 x segment).
+```
+
+**Predictions.** `predictions.md`: (a)(b)(c)(e) HELD, (d) MISSED (leak detection does not drop at T=1024; the bounded verdict refuses instead — better than predicted, reported as a miss). Disclosure: two estimators failed on tuning models before the final one; held-out models 4–5 saw those iterations, so thresholds are clean but structures were exposed — a checker should re-run with fresh seeds and its own leak/jump sizes.
+
+## The five lessons (each changes a decision)
+
+1. **B12: classify, don't chase — it's a loser's game.** "Amateur tennis is a Loser's Game. 80% of points are lost on unforced errors. You win by avoiding errors and waiting for your opponent to make errors." (Sahil Bloom's Curiosity Chronicle, *Winner's Game vs. Loser's Game*); "The more information you give someone, the more hypotheses they will formulate along the way, and the worse off they will be. They see more random noise and mistake it for information." (Taleb, *The Black Swan*). Mechanism: tracking residual magnitude against an oracle is a winner's game (needs the truth); refusing error-class migration is the winnable one. Change: B12's verdict = stationarity of the energy-register residual (blocked-difference F over 32 segments, τ-guard), class (leak/diffusive/ballistic) as diagnostic only. Measured above; next: wire to the plane's real residuals and echo.
+2. **H_live: the floor is the surprise rate, conditioned on the generator.** "If the words are purely random, picked up from the dictionary in a totally unpredictable way, you will not be able to summarize, transfer, or reduce the dimensions of that book without losing something significant from it." (Farnam Street, *Avoiding Falling Victim to The Narrative Fallacy* — Shannon's incompressibility). Mechanism: a belt is the repeated sentence, the player is the random words; bytes×bodies counts both. Change: measure H_live as the entropy rate of the *residual* stream (events the generator cannot re-derive), not of raw distinctions. Cheapest test: an entropy-rate meter on the belt's distinction stream in the plane, player idle vs. player flying.
+3. **Slack skin: redundancy is the burst absorber, size it by the tail.** "Redundancy is ambiguous because it seems like a waste if nothing unusual happens. Except that something unusual happens—usually." (Taleb, *Antifragile*). Mechanism: queueing delay ∝ 1/(1−ρ); a fixed skin is either waste or tail-break. Change: skin thickness = f(p99/p50 of per-frame surprise work), measured, not a constant. Cheapest test: replay a recorded surprise-rate trace through the allocator, fixed vs. burst-sized skin, compare p99 frame cost.
+4. **Cadence: dose to the certificate, stop at the minimum effective dose.** "The minimum effective dose (MED) is defined simply: the smallest dose that will produce a desired outcome… Anything beyond the MED is wasteful. To boil water, the MED is 100°C… Boiled is boiled." (Tim Ferriss, *The 4-Hour Body*, after Jones). Mechanism: threshold dose-response, not linear payoff — matches the six runs where correctors and higher-order splits bought nothing. Change: kicks per orbit are found by a dose ladder judged by behaviour gates, and never refined past first pass; refine only when a certificate could break (P21). Cheapest test: kick-dose × gate-pass curve per regime from the existing B-runs.
+5. **Readout and gates: the best part is no part.** "The full cost of sensors includes not just their implementation, but also procurement, maintenance, and incorporation into the system. Having more sensors can introduce distractions, noise, and entropy into the system." (Karpathy, Tesla vision, Lex Fridman #333 notes). Change: the readout keeps the minimum instrument set, and every gate that has never failed a candidate is a control that cannot fail — delete it. Audit attempt: crude HISTORY grep was inconclusive (token collisions); the real test is a per-gate fail ledger built from frozen evidence.
+
+**What would make it wrong.** The probe judges synthetic error models, not the plane's real residuals: if the real energy-register residual is nonstationary-but-bounded (e.g. a secular term tied to orbital phase that the register re-absorbs), the F verdict would false-alarm — the wire-up experiment decides. Heavy-tailed jump noise beyond the model could also break the τ-guard's honesty. Cost of adoption: small — one statistic plus a ledger; no law change.
+
+**Fit with PRINCIPLES.** "Errors never compound" is only checkable by an instrument that refuses noise rather than chasing truth (P13, P34: oracles are guards, not shepherds); "Compute only surprises" (P3) is what H_live and the skin both measure; "a test that cannot fail is a control" (evidence rules) is lesson 5's deletion rule.
+
+**The lens.** The strongest practitioner books on the board (Kelly, Boyd, Ignition!, Structures, Shannon) sit unread on the to-read shelf — no highlights exist, so this run used only verifiable quotes; the practitioner mechanisms behind them (Skunk Works' 14 rules, OODA) remain UNVERIFIED here and unused. Second blind spot: analogies are cheap — lessons 2–5 carry named tests but no probe; only lesson 1 is measured. The gate audit (lesson 5) under-delivered: stated as inconclusive rather than fudged.
