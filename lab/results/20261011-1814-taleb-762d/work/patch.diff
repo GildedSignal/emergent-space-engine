@@ -1,0 +1,68 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..fec96dee 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -21,6 +21,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let mut coast = false;
++    let mut series: Option<String> = None;
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -36,6 +38,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
++            "--coast" => coast = true,
++            "--series" => series = Some(val("--series")?),
+             "--describe" => describe = true,
+             "--help" => {
+                 println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
+@@ -57,7 +61,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+         return Ok(0);
+     }
+     if bench {
+-        return benchmark(s, seconds, paced, level);
++        return benchmark(s, seconds, paced, level, series, coast);
+     }
+     http::serve(s, port)
+ }
+@@ -91,7 +95,7 @@ fn canonical_log(frames: usize, rtf: f64, level: u8) -> Vec<(i64, u8)> {
+     log
+ }
+ 
+-fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Result<u8> {
++fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8, series: Option<String>, coast: bool) -> crate::Result<u8> {
+     let before = crate::measure::machine_state("before");
+     let uptime = |c: &str| std::process::Command::new(c).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+     let load_before = uptime("uptime");
+@@ -100,7 +104,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // the digest is taken there whatever the wall did, and it is printed with the digest.
+     let cut = (frames as f64 * s.rtf / 60.0 / emergent_universe::view::TICK_SECONDS).round() as i64;
+     s.cut = Some(cut);
+-    let log = canonical_log(frames, s.rtf, level);
++    let log = if coast { Vec::new() } else { canonical_log(frames, s.rtf, level) };
+     for &(t, k) in &log {
+         s.p.u.schedule(t, k).map_err(|e| format!("schedule: {e:?}"))?;
+     }
+@@ -116,6 +120,18 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++     }
++    if let Some(path) = series {
++        let mut csv = String::from("frame_ms,cpu_ms,rtf,engine_ms,view_ms,json_ms,wire_ms\n");
++        let d = &s.dash;
++        for i in 0..d.frame_ms.len() {
++            let g = |v: &Vec<f64>| v.get(i).copied().unwrap_or(f64::NAN);
++            csv.push_str(&format!(
++                "{:.4},{:.4},{:.4},{:.4},{:.4},{:.4},{:.4}\n",
++                d.frame_ms[i], g(&d.cpu_ms), d.rtf[i], g(&d.engine_ms), g(&d.view_ms), g(&d.json_ms), g(&d.wire_ms)
++            ));
++        }
++        std::fs::write(&path, csv).map_err(|e| format!("series: {e}"))?;
+     }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
