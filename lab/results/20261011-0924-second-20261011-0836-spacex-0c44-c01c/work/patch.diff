@@ -1,0 +1,41 @@
+diff --git a/xtask/src/behave/plane.rs b/xtask/src/behave/plane.rs
+index 0789f30c..25b46aac 100644
+--- a/xtask/src/behave/plane.rs
++++ b/xtask/src/behave/plane.rs
+@@ -521,6 +521,36 @@ mod tests {
+         }
+     }
+ 
++    /// Diagnostic, not a gate: B14's cost split and behaviour verdicts without `behave`'s 60 s
++    /// phase wrapper — the oracle (`hill::moons`, 768 law-independent reference runs) timed
++    /// once, then the gate itself (`hill::b14`) at each cadence in `B14_STEPS` (comma list,
++    /// default 1..=7), each run timing the law's share alone (the oracle stays cached in the
++    /// process, so a `behave --gates B14` phase costs oracle + law). The counts and verdicts
++    /// are exact and machine-independent; the walls are cloud Linux/x86, orders of magnitude
++    /// only. `cargo test --release -p xtask b14_cost_split -- --ignored --nocapture`.
++    #[test]
++    #[ignore]
++    fn b14_cost_split() {
++        use super::super::hill;
++        let steps: Vec<i32> = std::env::var("B14_STEPS")
++            .ok()
++            .map(|s| s.split(',').filter_map(|t| t.trim().parse().ok()).collect())
++            .unwrap_or_else(|| (1..=7).collect());
++        let t0 = std::time::Instant::now();
++        let moons = hill::moons();
++        let oracle = t0.elapsed().as_secs_f64();
++        let judged = moons.iter().filter(|m| matches!(m.truth, hill::Truth::Class(_))).count();
++        let rated = moons.iter().filter(|m| m.rate.is_some()).count();
++        println!("oracle: {oracle:.1} s for {} moons (768 law-independent reference runs on up to 4 threads); {judged} judged, {rated} with a stable apsidal rate", moons.len());
++        for step in steps {
++            let law = Plane { step_log2: step };
++            let t1 = std::time::Instant::now();
++            let gate = hill::b14(&law);
++            let law_secs = t1.elapsed().as_secs_f64();
++            println!("step {step}: law {law_secs:.1} s, a behave phase would cost about {:.1} s; B14 {}: {}", oracle + law_secs, if gate.pass { "PASS" } else { "FAIL" }, gate.detail);
++        }
++    }
++
+     /// Diagnostic, not a gate (the Opus memo's §1 setup, which the coordinator asked B12 to be read on): B12's frozen ships with the
+     /// planet's radius shrunk by `B12_SHRINK` (default 1000), so that no ship is lost to a surface; the exponent of the Jacobi error
+     /// and its worst value, per kick cadence `B12_STEP`. `cargo test --release -p xtask b12_small_planet -- --ignored --nocapture`.
