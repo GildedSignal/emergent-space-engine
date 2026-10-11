@@ -1,0 +1,12 @@
+n_emitters engine_ms_p50 gather_ms_p50 gather_ms_p99 us_per_emitter readouts_per_emitter
+       100         0.002           1.493         2.762         14.93                   1.98
+      1000         0.010          15.026        24.960         15.03                   1.98
+     10000         0.272         154.123       254.250         15.41                   1.98
+     50000         1.385         769.790      1272.002         15.40                   1.98
+    100000         2.910        1540.313      2567.281         15.40                   1.98
+
+Command: cargo run --release -p emergent-universe --example gather_scaling
+(B15's stream scene: bare tubes, so the engine has nothing to do; the gather stands alone.
+ beta 0.9 Across, dist 5e7, start 5e7, 60 frames at rtf 100, warm ViewCache, 1 thread.)
+Machine: 8 vCPU cloud Linux (shared); machine_state fields unavailable on this box (no
+/proc/sys/machdep). Orders of magnitude only; the M1 re-measures.

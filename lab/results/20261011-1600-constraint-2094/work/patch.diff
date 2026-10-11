@@ -1,0 +1,64 @@
+diff --git a/crates/universe/examples/gather_scaling.rs b/crates/universe/examples/gather_scaling.rs
+new file mode 100644
+index 00000000..7104c913
+--- /dev/null
++++ b/crates/universe/examples/gather_scaling.rs
+@@ -0,0 +1,58 @@
++//! The view's gather cost as the emitter count grows: B15's stream scene (bare tubes, so the
++//! engine has nothing to do and the gather stands alone). One warm ViewCache across frames,
++//! exactly as the plane's frame loop runs it.
++use emergent_universe::scenario::{stream, Stream};
++use emergent_universe::view::gather_cached;
++use emergent_universe::view::ViewCache;
++use emergent_universe::Budget;
++use std::time::Instant;
++
++fn main() {
++    // start small enough that every emitter stays within 2e8 root units of the star (the scene's
++    // validity) for the whole run: 60 frames at rtf 100 advance ~2e7 ticks, emitters at 0.9c move
++    // ~1.8e7.
++    let start: i64 = 50_000_000;
++    let dist = 5.0e7;
++    println!("n_emitters engine_ms_p50 gather_ms_p50 gather_ms_p99 us_per_emitter readouts_per_emitter");
++    for &n in &[100usize, 1_000, 10_000, 50_000, 100_000] {
++        let (mut u, ids, _) = stream(0.0, 0.9, Stream::Across, n, dist, start).expect("scene");
++        assert_eq!(ids.len(), n);
++        u.settle(start);
++        let names: Vec<String> = Vec::new();
++        let mut cache = ViewCache::default();
++        let mut engine_ms: Vec<f64> = Vec::new();
++        let mut gather_ms: Vec<f64> = Vec::new();
++        let mut readouts = 0u64;
++        let wall = Instant::now();
++        for _ in 0..60 {
++            let t0 = Instant::now();
++            let _ = u.frame_to(1.0 / 60.0, 100.0, Budget::wall(5.0), i64::MAX);
++            let t1 = Instant::now();
++            let v = gather_cached(&u, &names, &mut cache).expect("view");
++            let t2 = Instant::now();
++            engine_ms.push((t1 - t0).as_secs_f64() * 1e3);
++            gather_ms.push((t2 - t1).as_secs_f64() * 1e3);
++            readouts += cache.readouts;
++            let seen = v.seen.len();
++            assert!(seen * 10 >= (n + 1) * 9, "most emitters must be seen (got {seen} of {})", n + 1);
++        }
++        let total_s = wall.elapsed().as_secs_f64();
++        let med = |v: &mut Vec<f64>| {
++            v.sort_by(f64::total_cmp);
++            v[v.len() / 2]
++        };
++        let (e, mut g) = (med(&mut engine_ms.clone()), med(&mut gather_ms.clone()));
++        let p99 = {
++            gather_ms.sort_by(f64::total_cmp);
++            gather_ms[(gather_ms.len() as f64 * 0.99) as usize]
++        };
++        println!(
++            "{n:>10} {e:>13.3} {:>15.3} {:>13.3} {:>13.2} {:>22.2}",
++            g,
++            p99,
++            g * 1e3 / n as f64,
++            readouts as f64 / (60 * n) as f64
++        );
++        let _ = total_s;
++    }
++}
