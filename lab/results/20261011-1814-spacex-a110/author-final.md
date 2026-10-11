@@ -1,0 +1,4 @@
+Working...
+The run folder is complete and internally consistent (dossier, pre-registered predictions with post-mortem, the falsified instrument kept as evidence, and the brute-force truth script; every number in the dossier regenerates from its listed commands).
+
+**Claim:** the adopted co-orbital phase-neighbour certificate (taleb-09b5, feeding build `b-coorbital-cert`) is a zero-eccentricity-noise statement — any injection e-noise moves fleet encounters to an epicyclic channel (rank-4 at certificate epoch catches 100% of encounters at σ_e=0 but 56% at σ_e=0.03, encounters ×14) that mean-motion/synodic conjunction machinery cannot even enumerate (0 vs 125 on the same swarm), so the certificate's neighbour set and the design's conjunction timing both need an epicyclic band term before the build freezes.
