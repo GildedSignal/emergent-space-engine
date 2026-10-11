@@ -1,0 +1,13 @@
+[package]
+name = "hlive"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+emergent-shipmem = { path = "../../../../../crates/shipmem" }
+emergent-space = { path = "../../../../../crates/space" }
+
+[profile.release]
+debug = 0
