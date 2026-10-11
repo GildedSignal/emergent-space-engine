@@ -1,0 +1,4 @@
+Working...
+Run complete: `predictions.md` written before the decisive run, controls both behaved (C1 floor clean, C2 chaos seen), dt-convergence checked, dossier written with every number traceable to `metrics.json`.
+
+**The claim:** the belt's live information is not the kick rate — away from resonance a body's proper semimajor axis is a bounded attractor (deviation 4.8×10⁻⁶ AU over 5000 Jupiter orbits, at the instrument floor), and only a resonance-localized diffusing minority (12.2%, concentrated at the 3:1, 5:2, 7:3 and 2:1) produces distinctions at a measured steady flux of ~4×10⁻⁴ scar-writes per body per 1000 orbits — 7.7×10⁵× fewer than scarring at the averaged kick law's rate — so at 10⁹ bodies the belt program survives ~10⁴–10⁵ orbits between re-programs and gains only ~2 MB of scars per 1000 orbits, refuting the memo's "every kicked body carries a full scar" and giving B18's floor and the H_live build their first measured physical input.
