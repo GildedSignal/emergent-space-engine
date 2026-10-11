@@ -1,0 +1,185 @@
+diff --git a/crates/universe/tests/h_live.rs b/crates/universe/tests/h_live.rs
+new file mode 100644
+index 00000000..5de39ada
+--- /dev/null
++++ b/crates/universe/tests/h_live.rs
+@@ -0,0 +1,179 @@
++//! H_live of a belt on the plane's own path (run `20261011-0517-spacex-d0ea`).
++//!
++//! **The store the design bets on** (`crates/shipmem`, law.md "Kicks"): a population program
++//! (birth tubes from ordinals, ~0 bits/body) plus the *averaged* generator. The averaged law is
++//! rotation-equivariant: for a group of ships born with the same (p, e, phase) at M orientations
++//! α_i, it predicts identical (p, k) and periapsis time for all M, and periapsis angle α_i +
++//! (shared precession). Any refit absorbs that shared path. The within-group spread of the tube's
++//! words — in the store's own quanta — is therefore exactly the scar bits the store must pay:
++//! the orientation-coupled residual (the planet's true phase at each kick), resonance, chaos,
++//! and the integer rounding of it all. H_live is its growth per orbit.
++//!
++//! Quanta reported: **exact** — p at 2^-24 root units, k at 1 of Q48, angle at 2^-32 turns,
++//! periapsis time at 1 clock word (the tube's own layout); and **memo cell** — the law's
++//! quantized key (12+12 bits, `OrbitKey::quantized`), the store quantum the memo finding left
++//! as a law-level choice. bits(field) = log2(1 + range of mean-centred deviations).
++//!
++//! Scene: star + planet (1/(den-1) of the total) at `sep` AU; belt radii = log grid plus the
++//! exact resonance centres; e0 for every ship; 128 kicks per radial period (the plane default).
++//! Env knobs: HL_RADII, HL_M, HL_ORBITS, HL_SNAPS, HL_THREADS, HL_RMIN, HL_RMAX, HL_SEP,
++//! HL_MU_DEN, HL_E0. CSV on stdout, one line per (snapshot, group).
++use emergent_space::orbit::OrbitKey;
++use emergent_universe::body::Kind;
++use emergent_universe::num::s;
++use emergent_universe::universe::{OrbitSpec, Universe};
++use emergent_universe::{Budget, Config, Mass};
++use std::collections::HashMap;
++
++const AU: f64 = 101_300_000.0;
++
++fn env_f(name: &str, d: f64) -> f64 {
++    std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
++}
++fn env_u(name: &str, d: u64) -> u64 {
++    std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
++}
++
++/// One ship's stored state: the tube's three words plus its key's exact shape and memo cell.
++struct Word {
++    key: u32,
++    p: i128,
++    k: u64,
++    cell: OrbitKey,
++    ang: u32,
++    tp: i64,
++}
++
++fn read(u: &Universe, ids: &[usize]) -> Vec<Word> {
++    ids.iter()
++        .map(|&i| {
++            let rec = u.rec(i);
++            let key = rec.b.entry.trajectory.key();
++            Word {
++                key: rec.b.tube.key,
++                p: key.periapsis.fixed(24).unwrap_or(0),
++                k: key.k,
++                cell: key.quantized(12, 12).unwrap_or(key),
++                ang: rec.b.tube.periapsis_angle,
++                tp: rec.b.tube.periapsis_time.get() as i64,
++            }
++        })
++        .collect()
++}
++
++/// (nonzero fraction, bits = log2(1+range) of mean-centred deviations, range)
++fn spread(devs: &[i64]) -> (f64, f64, i64) {
++    let n = devs.len() as f64;
++    let mean = devs.iter().sum::<i64>() as f64 / n;
++    let c: Vec<i64> = devs.iter().map(|&d| d - mean.round() as i64).collect();
++    let nz = c.iter().filter(|&&d| d != 0).count() as f64 / n;
++    let range = c.iter().copied().max().unwrap_or(0) - c.iter().copied().min().unwrap_or(0);
++    (nz, (1.0 + range as f64).log2(), range)
++}
++
++fn wrap32(d: i64) -> i64 {
++    ((d % (1 << 32)) + (1 << 31)) % (1 << 32) - (1 << 31)
++}
++
++#[test]
++fn belt_h_live() {
++    let (grid_r, m) = (env_u("HL_RADII", 25), env_u("HL_M", 64));
++    let (orbits, snaps) = (env_u("HL_ORBITS", 20), env_u("HL_SNAPS", 20));
++    let threads = env_u("HL_THREADS", 8) as usize;
++    let (r_min, r_max, sep) = (env_f("HL_RMIN", 2.0), env_f("HL_RMAX", 3.5), env_f("HL_SEP", 5.2));
++    let den = env_u("HL_MU_DEN", 999);
++    let e0 = env_f("HL_E0", 0.05);
++    let step_log2 = env_f("HL_STEP", 7.0) as i32;
++
++    // log grid plus the exact resonance centres a_p (j/(j+k))^(2/3) inside [r_min, r_max]
++    let mut rs: Vec<f64> = (0..grid_r)
++        .map(|i| r_min * (r_max / r_min).powf(i as f64 / (grid_r - 1) as f64))
++        .collect();
++    for j in 1..=12u64 {
++        for k in 1..=6u64 {
++            let r = sep * (j as f64 / (j + k) as f64).powf(2.0 / 3.0);
++            if r > r_min * 1.001 && r < r_max * 0.999 {
++                rs.push(r);
++            }
++        }
++    }
++    rs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    rs.dedup_by(|a, b| (*a - *b).abs() / *b < 0.004);
++
++    let mut u = Universe::new(s(471_000), Config { step_log2, ..Config::default() });
++    u.threads = threads;
++    let planet = u
++        .add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s((sep * AU).round() as i64), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, emergent_space::orbit::Scalar::ZERO)
++        .unwrap();
++    let mu = Mass::ratio(1, den).unwrap();
++    let surface = emergent_space::orbit::Scalar::raw(48_400 as i128, -mu.octave).unwrap();
++    u.add_doll("planet", planet, mu, surface).unwrap();
++    let e_q48 = (e0 * (1u64 << 48) as f64) as u64;
++    let mut ids = Vec::new();
++    let mut groups: Vec<(f64, usize, usize)> = Vec::new(); // (r_au, first id, count)
++    for &r in &rs {
++        let first = ids.len();
++        for j in 0..m {
++            let alpha = ((j as u64) << 32) / m as u64;
++            ids.push(u.add_body(Kind::Ship, OrbitSpec { doll: 0, periapsis: s((r * AU).round() as i64), e_q48, clockwise: false, angle: alpha as u32, phase: 0 }, emergent_space::orbit::Scalar::ZERO).unwrap());
++        }
++        groups.push((r, first, m as usize));
++    }
++    u.start().unwrap();
++
++    // the star's M is one root length unit, so GM/c^3 = 1 tick: T_ticks = 2*pi*a^1.5.
++    let r_mid = (r_min * r_max).sqrt();
++    let t_period = 2.0 * std::f64::consts::PI * (r_mid * AU).powf(1.5);
++    let dt = (orbits as f64 * t_period / snaps as f64).round() as i64;
++
++    let birth = read(&u, &ids);
++    println!("t_ticks,orbits,r_au,m,frac_cell_modal,frac_zero_all,distinct_shapes,cells,bits_p,bits_k,bits_ang,bits_tp,bits_exact,bits_cell,distinct_tp");
++    for si in 1..=snaps {
++        let target = (si as f64 * dt as f64).round() as i64;
++        let _ = u.advance(target, Budget::unlimited());
++        u.settle(target);
++        let now = read(&u, &ids);
++        for &(r, first, cnt) in &groups {
++            let mut dp = Vec::new();
++            let mut dk = Vec::new();
++            let mut da = Vec::new();
++            let mut cells: HashMap<OrbitKey, u64> = HashMap::new();
++            let mut shapes: std::collections::HashSet<(i128, u64)> = std::collections::HashSet::new();
++            let g: Vec<usize> = (first..first + cnt).collect();
++            for &ix in &g {
++                let (b, w) = (&birth[ix], &now[ix]);
++                dp.push(i64::try_from(w.p - b.p).unwrap());
++                dk.push(w.k as i64 - b.k as i64);
++                da.push(wrap32(w.ang as i64 - b.ang as i64));
++                *cells.entry(w.cell).or_insert(0) += 1;
++                shapes.insert((w.p, w.k));
++            }
++            // periapsis-time deviations, wrapped at the group's median advance (a body whose
++            // periapsis count differs by one from the median is phase, not a jump)
++            let mut adv: Vec<i64> = g.iter().map(|&ix| now[ix].tp - birth[ix].tp).collect();
++            adv.sort_unstable();
++            let med = adv[cnt / 2];
++            let dtw: Vec<i64> = g.iter().map(|&ix| now[ix].tp - birth[ix].tp - med).collect();
++            let zero_tube = g.iter().filter(|&&ix| now[ix].key == birth[ix].key && now[ix].ang == birth[ix].ang && now[ix].tp == birth[ix].tp).count();
++            let modal = cells.values().copied().max().unwrap_or(0);
++            let (_, bp, _) = spread(&dp);
++            let (_, bk, _) = spread(&dk);
++            let (_, ba, _) = spread(&da);
++            let (_, bt, _) = spread(&dtw);
++            let bits_exact = bp + bk + ba + bt;
++            let bits_cell = (cells.len() as f64).log2().max(0.0) + ba + bt;
++            println!(
++                "{target},{:.2},{:.4},{},{:.4},{:.4},{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{}",
++                target as f64 / t_period,
++                r,
++                cnt,
++                modal as f64 / cnt as f64,
++                zero_tube as f64 / cnt as f64,
++                shapes.len(),
++                cells.len(),
++                bp, bk, ba, bt, bits_exact, bits_cell,
++                adv.iter().copied().max().unwrap() - adv.iter().copied().min().unwrap()
++            );
++        }
++    }
++}

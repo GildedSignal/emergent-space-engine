@@ -1,0 +1,4 @@
+Working...
+All artifacts in place (predictions before the run, decisive CSV, cadence controls, analysis, dossier).
+
+**The claim:** the plane's belt gains its live distinguishing information in the first orbit — a one-time ~146 bits per body at the law's exact quanta (~69 at the memo cell), flat thereafter (+0.08 bit/orbit) and dominated by the orientation-coupled synodic kick scatter, not resonance or rounding (cadence control: identical at 128 and 32 kicks/orbit) — so at 10⁹ bodies the program+scars store costs 8.6–18.3 GB and fails the 4 GiB budget: the belt's generator must carry the first-order short-period epicycles, and the tube's angle/clock word quanta (63 of the 69 cell-store bits) are the memory lever, with resonant radii (the 2:1 and 3:1 complexes, growing 0.3–0.8 bit/orbit) needing full tubes regardless.
