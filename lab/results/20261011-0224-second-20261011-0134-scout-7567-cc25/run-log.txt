@@ -1,0 +1,15 @@
+# run log — 20261011-0224 (second author on 20261011-0134-scout-7567)
+Sun 11 Oct 2026 02:46:59 AM UTC
+1.81 1.36 1.10 1/437 1824310
+model name	: Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz
+
+## shipped-code identity of the harness
+0
+^ 0 = every copied file byte-identical to the shipped tree
+
+## commands (regeneration, from harness/)
+  cargo build --release            # ~6 s
+  ./harness 2000 1600 6            # 10x horizon: 14 s wall (6 threads), md5 d6989c9e1c7425d726b71c765dc25af6, rerun bit-identical
+  ./harness 8000 800 6 1e-7:0      # 40x horizon: 37 s wall
+  ./harness 200 400 6              # 1x probe: 3.8 s
+memory: peak well under 100 MB; states 16001x4 f64 per series

@@ -1,0 +1,22 @@
+[package]
+name = "harness"
+version = "0.1.0"
+edition = "2021"
+
+# Standalone: the behave modules, measure and gr_oracle are verbatim copies of the shipped
+# xtask sources (checked by sha256 in setup.log); only main.rs and composite.rs are new.
+[workspace]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
+num-bigint = { version = "0.4", features = ["serde"] }
+blake3 = "1.5"
+emergent-space = { path = "../../../../crates/space" }
+emergent-universe = { path = "../../../../crates/universe" }
+libc = "0.2"
+emergent-lattice = { path = "../../../../crates/lattice" }
+
+[profile.release]
+debug = 1
+lto = "thin"
