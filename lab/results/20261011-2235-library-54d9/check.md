@@ -1,0 +1,26 @@
+Grade: gold
+
+**Abstract.** Claim: per-body kick cadence fed back from the body's own state makes the bounded second-order kick layer walk, while cadence precomputed from body constants stays on the fixed-cadence curve. Reproduced bit-exact (all 20 runs regenerate the stored JSONs; only the `wall` timing field differs; `jA64b` is the author's determinism re-run, identical). Matched-cost inversion 1,548× (21,668 vs 14 evals/body-orbit at D=1e-5) confirmed. My probes: walk holds at seed 999, μ=1e-4, e≤0.7; D@m=8's slope 0.37 saturates by 300 orbits. One correction: a precomputed *alternating* (state-independent) interval partially walks (slope 0.49, p90 0.73; 16× D at equal rate) — the dangerous property is cadence modulation, not state-feedback alone. Adoption is spec-only: drop state-gated cadence; B12 registers the log-log walk slope.
+
+**Reasons.**
+
+1. **Reproduction.** Full sweep in a clean process, exactly the dossier's commands, 58 s total (each command ≤ 6 s; < 60 s claimed). Every table number matches: A 2.21→141 evals/orb, D 1.19e-3→5.38e-8, slopes 0.03–0.08, fit −2.42; B slopes 0.75–0.98, 21,668 evals for 1e-5; C 0.83–1.00; D on A's curve (1.10e-5 at 11.6 vs A's 14). Behaviour row matches (B@0.1: |dln a| 7.6e-3, dL 1.16 rad vs A@32 8.8e-6, 0.017 rad). The stored JSONs regenerate numerically identical from the shipped `sim.py` (the 22:46 post-run edit added C/D and is bit-compatible — verified before regenerating in place, per the dossier's own commands).
+
+2. **Controls on both sides.** Positive: A converges at second order (per-halving ratios 5.5→4.3→3.9→4.0 asymptotically), 5.4e-8 at 512/orbit. Oracle control: `jacobi2` (no barycentric shift) rejected. I verified the oracle analytically: `jacobi1` is the exact PCR3BP invariant (the heliocentric/rotating velocity identity cancels the barycentric velocity correction exactly for a circular parent). Kepler drift re-verified independently: round-trip error 4.4e-14, energy drift 7.9e-14 over 300 orbits. Gate B spends no extra field evals (reuses last two kicks), as claimed.
+
+3. **Predictions.** `predictions.md` mtime 22:40 precedes the decisive JSONs (22:43+). P1/P5 (the optimistic gains) failed and are reported as failed — for a kill run, the pre-registered optimistic prediction failing *is* the result (H0183). P2's failure for B/C is the discovery; P3 held; P4 moot, and the honest note that the worst bodies were the synodic-slow outer ones.
+
+4. **Adversarial (my own).** (a) Seed 999: B@0.1 slope 0.96 (p90 1.26) vs A 0.06. (b) μ=1e-4: B 0.68 vs A/D ≤ 0.11. (c) e∈[0,0.7] (apocentre to 0.935, near the parent): B 0.65, D 0.06. (d) 3× horizon: D@m=8 slope falls 0.37→0.16 and D saturates (2.97e-4 vs A@16's 2.17e-4 at fewer evals) — the dossier's admitted risk does not materialize. The kill is robust on every axis I attacked.
+
+5. **Novelty.** Probe 1 (29 Sep, H-entry: "probe 1 killed the per-body step rule (energy exponent 0.47–0.98; fixed step flat)") killed per-body *dynamical* steps wholesale; Calvo–Sanz-Serna was already prior art. The new, adoptable delta: the split itself — precomputed-from-constants per-body cadence is *safe* (D rides A's curve), which probe 1 never tested — plus the mechanism (truncation error phase-locked to synodic phase) and the B12 register spec (slope, not magnitude). Queue top is `q-b12-design`; the register suggestion lands on a live redesign.
+
+6. **Goal fit.** Board item 1 (kicks dominate cost; cadence the lever after six runs). Gold by the premise-kill route: the state-gated cadence premise (≥2× gain) is inverted by 10³× with controls, the same shape as gold components-4643. PRINCIPLES: "basically we don't want errors that can compound that's the goal" (13); "error type over error size" (2); "a failed experiment kills that configuration, never the method" (9). Adoption cost: none (spec-level; the slope statistic is free). The author's silver self-grade rests on "no 10× gain was found", but the gold bar's alternative — showing a premise wrong, adoptable in one step — is met with margin.
+
+**What the author missed.**
+
+- **The safe/unsafe boundary is overdrawn.** The dossier's own untested hedge (alternating long/short) resolves *against* the clean causal story: I ran a state-independent precomputed alternating cadence (1.5/0.5 × τ₀, same constants as D) — it partially walks (median slope 0.49, p90 0.73, medD 16× D-scheme at identical rate). State-feedback is *sufficient* for the lock but not *necessary*; the invariant B12 should gate on is cadence **modulation correlated with orbital/synodic phase**, of which state-feedback is the worst case. The adoptable rule should read "uniform precomputed per-body cadence", not "precomputed".
+- The D table row says slopes 0.03–0.07 while D@m=8 measures 0.37 (disclosed only in the wrongness paragraph). Minor, but the table understates its own tail.
+- Single kernel (midpoint quadrature): a higher-order kernel would change the 1,548× number, though not the slope split; the walk is a property of the cadence, not the kernel order.
+- Tide-only regime, no encounters or pair kicks — disclosed, and it is the right regime for the question asked.
+
+**For silver→gold, were it silver:** nothing further — the one experiment that could have demoted it (does the precomputed family walk at longer horizon?) was run here and it does not.
