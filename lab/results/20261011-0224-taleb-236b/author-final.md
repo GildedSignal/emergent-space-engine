@@ -1,0 +1,4 @@
+Working...
+**Claim.** The phase-neighbour certificate (rank ≤ 4, adopted 6 October from gold taleb-09b5 and now queued for two build lanes) holds only for shear dispersion: in co-orbital families with e-vector dispersion — collision families, interceptions, any fleet with ϖ spread — encounters sit at fixed crossing-geometry phase offsets of rank ≈ n·ΔM*/extent, so the certificate silently drops 95–100% of contacts (measured 0–3.9% found across three contact radii, medians 0.24n–0.54n, while the pure-shear control finds 100% at rank ≤ 2), and the fix is cheap and in-representation — partner-offset windows on the same phase ordering, gated by the family's Binet cone fraction (0 vs ~1 separates the regimes exactly).
+
+Dossier, held-out predictions (two numeric sub-predictions honestly missed and reported), and reproducible metrics are in `lab/results/20261011-0224-taleb-236b/` (`python3 probe.py [R]`, 26 s).
