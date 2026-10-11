@@ -1,0 +1,22 @@
+orbit completions per game-second (N=1e+09): 7.2
+  per real second at rtf 100: 720
+
+-- compute (P-core-seconds per real second at rtf 100) --
+  64 kicks/orbit (today)             461 kicks/game-s  ->   1.106 cores
+  0.3/orbit (averaged, H0190)          2 kicks/game-s  ->   0.005 cores
+  0 (phasors, R2 secular)              0 kicks/game-s  ->   0.000 cores
+  encounters (certificates, r8)       0.02/game-s -> 0.00000 cores
+
+-- memory at 1e9 bodies --
+  naive 16-byte tube (law.md)                                 128.000 bits/body ->  16.00 GB
+  belt program (gold 98bc)                                      0.126 bits/body ->   0.02 GB
+  + re-fit scars, measured floor (sweep m=16384)                4.260 bits/body ->   0.53 GB
+  + label perm 3 cols, measured c=4.29+jump (t=8e3 orbits)     34.700 bits/body ->   4.34 GB
+  un-reabsorbed encounter records (62 bits, all hit by t~1e4)   62.000 bits/body ->   7.75 GB
+
+-- birth rate of distinctions, per game-second at 1e9 (rtf 100 per real s) --
+  today's kick law, true info birth :        1383 bit/game-s (  0.14 Mbit per real s)
+  law.md's budget (+62/kick)        :       28575 bit/game-s (  2.86 Mbit per real s)
+  phasor law, real encounters only  :           0 bit/game-s (  0.01 kbit per real s)
+  -> the law choice moves information birth by 10159x
+  tube writes at 64/orbit:     46088/s x 16 B = 0.001 GB/s (ok vs ~60 GB/s)
