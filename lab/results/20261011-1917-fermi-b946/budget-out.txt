@@ -1,0 +1,44 @@
+=== 10^9 bodies on one M1: which term breaks first? ===
+(kick floor 2.32 us = 29.0 us x (1-0.92); averaged kicks 0.285/orbit = 32.5/114)
+
+--- COMPUTE (cores of serial event work) ---
+LEO (worst), today 29us                                              175 cores     vs 4          44x
+LEO (worst), fixed 2.3us                                              14 cores     vs 4          3.5x
+LEO averaged, today 29us                                            1.53 cores     vs 4          0.38x
+LEO averaged, fixed 2.3us                                          0.122 cores     vs 4          0.031x
+belt (typical), today 29us                                        0.0236 cores     vs 4          0.0059x
+belt (typical), fixed 2.3us                                      0.00188 cores     vs 4          0.00047x
+belt averaged, today 29us                                       0.000207 cores     vs 4          5.2e-05x
+belt averaged, fixed 2.3us                                      1.65e-05 cores     vs 4          4.1e-06x
+
+Board's 'about 190 cores' re-derived: 1e9 x 32.5/5400s x 29us = 175 cores  OK
+encounters found+judged (10k ops each, 100x rtf)                5.17e-05 cores     vs 4          
+
+--- BANDWIDTH (60 GB/s) ---
+events/s cap at 64 B/event                                      9.38e+08 ev/s                    
+belt events at 100x rtf (kicks avg + encounters)                     764 ev/s                    clears
+one full read pass                                                  1.07 s                       
+bytes per body per 16.7 ms frame                                       1 B                       => no full-sweep/frame
+
+--- CAPACITY (5 GB usable = 40 bits/body at 1e9) ---
+tube store (16 B/body)                                                16 GB        vs 5 GB       3.2x OVER
+program store (0.126 bits/body)                                   0.0158 GB        vs 5 GB       317x margin
+one pending event per body (16 B)                                     16 GB        vs 5 GB       3.2x OVER -> queue must be sublinear
+queue at 0.1 orbit lookahead (encounters in flight)               0.0331 GB        vs 5 GB       clears
+
+--- H_live: scar arithmetic at the measured belt rate ---
+scar bits created per body per orbit                                2.65 bits                    
+total budget                                                          40 bits/body               
+unreabsorbed scars fill the budget after                            15.1 orbits                  
+  ... = years of game time at a=1.2 AU                                19 years                   
+recompile cadence to hold scars under 10% of budget                 1.51 orbits                  
+scar creation rate at 1x rtf (belt)                                0.517 scars/s                 
+scar creation rate at 100x rtf (belt)                               51.7 scars/s                 
+bytes/s of unreabsorbed scar growth at 100x rtf                      828 B/s                     
+
+--- SENSITIVITY (what must move 10x to change the verdict) ---
+compute: belt scale has >=4 orders of margin; LEO needs the 114x averaging
+         (already measured valid there) else 14 cores vs 4.
+bandwidth: only a per-frame full sweep breaks (64x over) -> 'no ticks' is law.
+capacity: breaks TODAY at 3.2x (tubes) and 3.2x (linear queue); saved only by
+          programs + sublinear queue + reabsorption. THE binding term.
