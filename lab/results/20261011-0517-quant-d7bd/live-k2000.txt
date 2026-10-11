@@ -1,0 +1,23 @@
+live K=2000 — INVALID RUNS, kept so the log cannot be misread
+=============================================================
+
+Run A (10 s, rtf 100): flat player cost (210.8 µs vs 207.8 µs at K=0), digest identical
+to K=0. Cause: a bad edit had deleted the `add_orbiters` call from `live`, so this flew an
+unmodified plane. My bug; the run measures nothing about K.
+
+Run B (after restoring `add_orbiters`, 5 s, rtf 100): panics.
+
+    thread 'main' panicked at crates/universe/src/universe.rs:532:21:
+    index out of bounds: the len is 29 but the index is 2028
+
+`Universe::start()` sizes the deadline-position cache `pos` for the bodies that exist
+then; `add_body` after `start()` never extends it. The player's pull loop runs the fleet
+battle, a member leaves, `resolve_handout` pushes body id 2028, and `apply` indexes
+`pos[2028]` (len 29). Post-`start()` `add_body` is off-label: growth after start is
+supported only through fleet hand-outs. In-situ flight at K > 0 is therefore not
+measurable through the public API; per predictions.md P5 the live claim shrinks to K = 0
+and the direct sweep carries the N-dependence.
+
+The restart control (Run A's third digest) also showed a second `Universe::start()` is
+NOT digest-neutral (the fleet re-keys), so restarting after adding bodies was never a
+valid alternative either.

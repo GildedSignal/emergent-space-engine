@@ -1,0 +1,210 @@
+diff --git a/crates/universe/examples/wake.rs b/crates/universe/examples/wake.rs
+new file mode 100644
+index 00000000..b9299b1a
+--- /dev/null
++++ b/crates/universe/examples/wake.rs
+@@ -0,0 +1,204 @@
++// The player's wake (lab 20261011-0517-quant-d7bd): what one player event costs as the doll fills,
++// and how much of it is the exact neighbourhood scan (`PlayerNeighbourhood::find`, run after every
++// resolved player item) against the kick itself.
++//
++// `wake sweep`              — `find` cost against the number of bodies, on the plane plus K orbiters
++//                             added to the player's doll (the belt/fleet growth path), plus the
++//                             per-body pieces (binding_at, cartesian) and the waste fraction.
++// `wake live K SECONDS RTF` — SECONDS of frames at RTF with a held level-0 burn, one item per
++//                             `advance`, every item timed and attributed by kind; prints per-kind
++//                             percentiles, frame percentiles and the digest at a fixed cut.
++//                             K = 0 without the restart prints `plain` (the restart control).
++use emergent_space::orbit::Scalar;
++use emergent_universe::encounter::{Encounters, PlayerNeighbourhood};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config, Kind, OrbitSpec, Universe};
++use std::time::Instant;
++
++const NAMES: [&str; 5] = ["planet", "moon", "ship", "player", "fleet"];
++
++fn add_orbiters(u: &mut Universe, doll: u16, k: usize) {
++    for i in 0..k {
++        // The scenario's own Home orbiters, spread over altitudes, angles and phases; nothing tuned.
++        let alt = 1.15 + 0.35 * ((i % 40) as f64) + 0.2 * (((i * 7 + 3) % 97) as f64 / 97.0);
++        let p = Scalar::raw((4_313.0 * alt * 1024.0) as i128, -10 + 18).unwrap();
++        u.add_body(
++            Kind::Ship,
++            OrbitSpec {
++                doll,
++                periapsis: p,
++                e_q48: 0,
++                clockwise: i % 3 == 0,
++                angle: (i as u64).wrapping_mul(2_654_435_761) as u32,
++                phase: (i as u64).wrapping_mul(4_050_3) as u32,
++            },
++            Scalar::raw(34, -10 + 18).unwrap(),
++        )
++        .unwrap();
++    }
++}
++
++fn pct(v: &mut Vec<f64>, p: f64) -> f64 {
++    if v.is_empty() {
++        return 0.0;
++    }
++    v.sort_by(|a, b| a.total_cmp(b));
++    v[(((v.len() as f64) * p).ceil() as usize).saturating_sub(1).min(v.len() - 1)]
++}
++
++fn sweep() {
++    let finder = PlayerNeighbourhood;
++    let mut base = 0.0f64;
++    println!("bodies  find_mean_us  find_p50  find_max  us_per_body  binding_us  cartesian_us  hits/20");
++    for k in [0usize, 100, 300, 1000, 3000, 10000, 30000] {
++        let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++        let doll = p.u.rec(p.player).b.doll;
++        add_orbiters(&mut p.u, doll, k);
++        let player = p.player;
++        // A real committed tick: the engine runs the scan at the player's own event times, never at 0
++        // (at t = 0 every body fails the `born` guard and the scan is an empty loop).
++        p.u.settle(20_000_000);
++        let ctx = p.u.ctx();
++        let t = ctx.bodies.event_time(player);
++        let interval = p.u.rec(player).step.max(2);
++        println!("  [t={t} interval={interval}]", );
++        for _ in 0..3 {
++            std::hint::black_box(finder.find(&ctx, player, t, interval));
++        }
++        let mut times = Vec::new();
++        let mut hits = 0;
++        let mut found_n = 0usize;
++        for _ in 0..20 {
++            let t0 = Instant::now();
++            let found = finder.find(&ctx, player, t, interval);
++            times.push(t0.elapsed().as_secs_f64() * 1e6);
++            hits += !found.is_empty() as u32;
++            found_n += found.len();
++        }
++        let n = ctx.bodies.len();
++        let t0 = Instant::now();
++        let mut same = 0usize;
++        for j in 0..n {
++            if let Some(b) = ctx.bodies.binding_at(j, t) {
++                same += (b.doll == doll) as usize;
++            }
++        }
++        let binding_us = t0.elapsed().as_secs_f64() * 1e6 / n as f64;
++        let t0 = Instant::now();
++        for j in 0..n {
++            if let Some(b) = ctx.bodies.binding_at(j, t).filter(|b| b.doll == doll) {
++                let _ = b.cartesian(t);
++            }
++        }
++        let cart_us = t0.elapsed().as_secs_f64() * 1e6 / same.max(1) as f64;
++        let mean = times.iter().sum::<f64>() / times.len() as f64;
++        let per = if k > 0 { (mean - base) / k as f64 } else { f64::NAN };
++        println!("{n:>6}  {mean:>11.1}  {:>8.1}  {:>8.1}  {:>11.3}  {binding_us:>9.3}  {cart_us:>12.3}  {hits}/20 found={found_n}", pct(&mut times, 0.5), times.iter().cloned().fold(0.0, f64::max), per);
++        if k == 0 {
++            base = mean;
++        }
++    }
++}
++
++/// One live flight: `f` frames at `rtf`, one item per `advance`, every item timed and bucketed by
++/// kind; the digest at a fixed cut `CUT`. `budget` is the only difference between the timed run and
++/// its control.
++fn live(k: usize, seconds: f64, rtf: f64, budget: Budget, restarted: bool, print: bool) -> String {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    let doll = p.u.rec(p.player).b.doll;
++    add_orbiters(&mut p.u, doll, k);
++    // Off-label hazard, disclosed: bodies added after `start()` take ids that collide with the
++    // fleet's queue slots (entity id `body_cap`), so at K > 0 the battle freezes (no slices, no
++    // leavers). The player's neighbourhood scan still runs over the whole store — that is the
++    // measurement — but the fleet column at K > 0 is void.
++    let _ = restarted;
++    p.u.input(0, word(1, 0)).unwrap(); // a held prograde burn at the base throttle
++    let frames = (seconds * 60.0) as usize;
++    let want = (rtf / 60.0 / TICK_SECONDS) as i64;
++    let cut = want * frames as i64;
++    let mut items: Vec<Vec<f64>> = (0..5).map(|_| Vec::new()).collect();
++    let mut frame_ms: Vec<f64> = Vec::new();
++    let mut over = 0usize;
++    for _ in 0..frames {
++        let target = (p.u.now + want).min(cut);
++        let fr = Instant::now();
++        let mut horizon = p.u.now;
++        loop {
++            let before = p.u.stats;
++            let t0 = Instant::now();
++            let adv = p.u.advance(target, budget);
++            let us = t0.elapsed().as_secs_f64() * 1e6;
++            horizon = adv.horizon;
++            if adv.events == 0 {
++                break;
++            }
++            for kind in 0..5 {
++                if p.u.stats.items[kind] > before.items[kind] {
++                    items[kind].push(us);
++                }
++            }
++        }
++        p.u.now = horizon.max(p.u.now).min(cut);
++        let ms = fr.elapsed().as_secs_f64() * 1e3;
++        frame_ms.push(ms);
++        over += (ms > 16.7) as usize;
++    }
++    p.u.settle(cut);
++    let s = p.u.stats;
++    let game_s = cut as f64 * TICK_SECONDS;
++    if print {
++        println!("kind    items  mean_us   p50    p95    p99    max     per_game_s");
++        for kind in 0..5 {
++            let mut v = items[kind].clone();
++            let mean = v.iter().sum::<f64>() / v.len().max(1) as f64;
++            println!(
++                "{:<7} {:>6}  {:>7.1}  {:>6.1} {:>6.1} {:>6.1} {:>8.1}  {:>10.2}",
++                NAMES[kind], v.len(), mean, pct(&mut v, 0.5), pct(&mut v, 0.95), pct(&mut v, 0.99),
++                v.iter().cloned().fold(0.0, f64::max), v.len() as f64 / game_s
++            );
++        }
++        println!(
++            "frames {frames}  p50 {:.2} ms  p99 {:.2} ms  max {:.2} ms  over_16.7ms {over}",
++            pct(&mut frame_ms, 0.5), pct(&mut frame_ms, 0.99), frame_ms.iter().cloned().fold(0.0, f64::max)
++        );
++        // Probe: the scan at the digest cut, over the final state (the sweep's condition).
++        let player = p.player;
++        let ctx = p.u.ctx();
++        let t = ctx.bodies.event_time(player);
++        let interval = p.u.rec(player).step.max(2);
++        let t0 = Instant::now();
++        let found = PlayerNeighbourhood.find(&ctx, player, t, interval);
++        let us = t0.elapsed().as_secs_f64() * 1e6;
++        let n = ctx.bodies.len();
++        let alive = (0..n).filter(|&j| ctx.bodies.alive(j)).count();
++        let same = (0..n).filter(|&j| ctx.bodies.binding_at(j, t).map_or(false, |b| b.doll == doll)).count();
++        println!("probe: n={n} alive={alive} same_doll={same} t={t} interval={interval} find={us:.1}us found={}", found.len());
++        println!(
++            "stats kicks {} opens {} boundaries {} handoffs {} decisions {} encounters {} contacts {} leavers {}",
++            s.kicks, s.opens, s.boundaries, s.handoffs, s.decisions, s.encounters, p.u.contacts, s.leavers
++        );
++    }
++    p.u.digest()
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    match a.first().map(String::as_str) {
++        Some("sweep") => sweep(),
++        Some("live") => {
++            let k: usize = a.get(1).map(|s| s.parse().unwrap()).unwrap_or(0);
++            let seconds: f64 = a.get(2).map(|s| s.parse().unwrap()).unwrap_or(10.0);
++            let rtf: f64 = a.get(3).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++            // The timed run: one item per advance.
++            let d1 = live(k, seconds, rtf, Budget::events(1), false, true);
++            println!("digest(events=1) {d1}");
++            // Control: the same flight, unlimited budget, same cut — the budget moves when, never what.
++            let d2 = live(k, seconds, rtf, Budget::unlimited(), false, false);
++            println!("digest(unlimited) {d2}  {}", if d1 == d2 { "MATCH" } else { "MISMATCH" });
++        }
++        _ => println!("usage: wake sweep | wake live [K] [SECONDS] [RTF]"),
++    }
++}
