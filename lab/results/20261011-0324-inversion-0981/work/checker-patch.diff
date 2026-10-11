@@ -1,0 +1,511 @@
+diff --git a/crates/encounters/src/bin/inversion.rs b/crates/encounters/src/bin/inversion.rs
+new file mode 100644
+index 0000000..0988070
+--- /dev/null
++++ b/crates/encounters/src/bin/inversion.rs
+@@ -0,0 +1,313 @@
++//! Inversion run 20261011-0324-inversion-0981: what is "partner rank 4" a function of?
++//!
++//! Tests the gold 20261006-0346-taleb-09b5 claim ("under co-orbital concentration every real
++//! encounter lies within partner rank 4 along the orbit") on held-out scenes: denser fleets at
++//! fixed spreads (S1) and eccentric co-orbital groups with pericentre spread (S3).
++//! Truth: truth_pair (conservative advancement, Halley states), no shared logic with any
++//! certificate. Floats explore; we report behaviour (rank laws, missed fractions), not orbits.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::{PI, TAU};
++
++#[derive(Clone)]
++struct SceneSpec {
++    name: &'static str,
++    n: usize,
++    rho: f64,
++    orbits: f64,
++    da: f64,                       // a = 1 + U(-da, da)
++    e_fixed: Option<f64>,          // if set, all bodies share e
++    e_sigma: f64,                  // Rayleigh sigma otherwise
++    pom_half: Option<f64>,         // U(-h, h); None = full circle
++    lam: Option<(f64, f64)>,       // (center, halfwidth); None = uniform
++    phi_metrics: bool,
++    seed: u64,
++}
++
++fn gen(s: &SceneSpec) -> Vec<Body> {
++    let mut rng = Rng(s.seed);
++    (0..s.n)
++        .map(|_| {
++            let a = 1.0 + s.da * (2.0 * rng.f64() - 1.0);
++            let e = match s.e_fixed {
++                Some(f) => f,
++                None => (s.e_sigma * (-2.0 * (1.0 - rng.f64()).ln()).sqrt()).min(0.9),
++            };
++            let pom = match s.pom_half {
++                Some(h) => h * (2.0 * rng.f64() - 1.0),
++                None => TAU * rng.f64(),
++            };
++            let lam = match s.lam {
++                Some((c, hw)) => c + hw * (2.0 * rng.f64() - 1.0),
++                None => TAU * rng.f64(),
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++#[derive(Clone, Copy)]
++struct Enc {
++    i: u32,
++    j: u32,
++    t: f64,
++    d: f64,
++}
++
++fn truth_all(bodies: &[Body], rho: f64, t_end: f64, threads: usize) -> (Vec<Enc>, TruthStats) {
++    let n = bodies.len();
++    let mut pairs: Vec<(u32, u32)> = Vec::with_capacity(n * (n - 1) / 2);
++    for i in 0..n {
++        for j in (i + 1)..n {
++            // rigorous prune: disjoint radial envelopes cannot approach within rho
++            let (bi, bj) = (&bodies[i], &bodies[j]);
++            if bi.rmax() + rho < bj.rmin() || bj.rmax() + rho < bi.rmin() {
++                continue;
++            }
++            pairs.push((i as u32, j as u32));
++        }
++    }
++    let parts = par_chunks(pairs.len(), 4096, threads, |range| {
++        let mut encs: Vec<Enc> = Vec::new();
++        let mut st = TruthStats::default();
++        let mut buf: Vec<(f64, f64)> = Vec::new();
++        for &p in &pairs[range] {
++            buf.clear();
++            truth_pair(&bodies[p.0 as usize], &bodies[p.1 as usize], rho, t_end, &mut buf, &mut st);
++            for &(t, d) in &buf {
++                encs.push(Enc { i: p.0, j: p.1, t, d });
++            }
++        }
++        (encs, st)
++    });
++    let mut all = Vec::new();
++    let mut st = TruthStats::default();
++    for (e, s) in parts {
++        all.extend(e);
++        st.add(&s);
++    }
++    (all, st)
++}
++
++#[inline]
++fn wrap(x: f64) -> f64 {
++    (x + PI).rem_euclid(TAU) - PI
++}
++
++#[inline]
++fn mean_long(b: &Body, t: f64) -> f64 {
++    b.pom + b.mean_anomaly(t)
++}
++
++#[inline]
++fn true_long(b: &Body, t: f64) -> f64 {
++    let s = b.state(t);
++    s[1].atan2(s[0])
++}
++
++fn pct(sorted: &[f64], q: f64) -> f64 {
++    if sorted.is_empty() {
++        return f64::NAN;
++    }
++    let idx = ((q * (sorted.len() as f64 - 1.0)).round() as usize).min(sorted.len() - 1);
++    sorted[idx]
++}
++
++struct Sample {
++    rank_l: f64,
++    sep_l: f64,      // |lambda separation| at the dip
++    s4: f64,         // lambda distance to the 4th-nearest body
++    pop_w: f64,      // bodies within lambda distance rho
++    dn: f64,
++    tin4: Option<f64>, // time inside rank-4 window before dip (None = never inside)
++    tinw: Option<f64>, // time inside rho window before dip
++    // phi-only (S3):
++    rank_p: f64,
++    pop_pw: f64,
++    tin_pw: f64,
++}
++
++fn measure(bodies: &[Body], encs: &[Enc], rho: f64, phi: bool) -> Vec<Sample> {
++    let n = bodies.len();
++    let stride = encs.len().div_ceil(12000).max(1);
++    let mut out = Vec::new();
++    let mut dl: Vec<f64> = Vec::with_capacity(n);
++    for e in encs.iter().step_by(stride) {
++        let (bi, bj) = (&bodies[e.i as usize], &bodies[e.j as usize]);
++        let t = e.t;
++        let li = mean_long(bi, t);
++        let sep_l = wrap(mean_long(bj, t) - li).abs();
++        dl.clear();
++        for b in bodies {
++            dl.push(wrap(mean_long(b, t) - li).abs());
++        }
++        dl.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        // dl[0] is 0 (self); nearest others follow
++        let s4 = if n >= 5 { dl[4] } else { dl[n - 1] };
++        let mut rank_l = 1.0;
++        let mut pop_w = 0.0;
++        for k in 0..n {
++            if dl[k] > 0.0 && dl[k] < sep_l {
++                rank_l += 1.0;
++            }
++            if dl[k] > 0.0 && dl[k] <= rho {
++                pop_w += 1.0;
++            }
++        }
++        let dn = (bi.n - bj.n).abs();
++        let (tin4, tinw) = if dn < 1e-12 {
++            (if sep_l <= s4 { Some(f64::INFINITY) } else { None },
++             if sep_l <= rho { Some(f64::INFINITY) } else { None })
++        } else {
++            (if sep_l <= s4 { Some((s4 - sep_l) / dn) } else { None },
++             if sep_l <= rho { Some((rho - sep_l) / dn) } else { None })
++        };
++        let (rank_p, pop_pw, tin_pw) = if phi {
++            let pi_ = true_long(bi, t);
++            let sep_p = wrap(true_long(bj, t) - pi_).abs();
++            let mut rank_p = 1.0;
++            let mut pop_pw = 0.0;
++            for b in bodies {
++                let d = wrap(true_long(b, t) - pi_).abs();
++                if d > 1e-12 && d < sep_p {
++                    rank_p += 1.0;
++                }
++                if d <= rho {
++                    pop_pw += 1.0;
++                }
++            }
++            // phi closing rate just before the dip (backward difference)
++            let h = 0.01;
++            let pre = wrap(true_long(bi, t - h) - true_long(bj, t - h)).abs();
++            let rate = ((pre - sep_p) / h).max(1e-12);
++            (rank_p, pop_pw, rho / rate)
++        } else {
++            (f64::NAN, f64::NAN, f64::NAN)
++        };
++        out.push(Sample { rank_l, sep_l, s4, pop_w, dn, tin4, tinw, rank_p, pop_pw, tin_pw });
++    }
++    out
++}
++
++struct WithT {
++    t: f64,
++    tin4: Option<f64>,
++    tinw: Option<f64>,
++}
++
++fn miss_fracs(items: &[WithT], cadence: f64, window: bool) -> f64 {
++    let mut missed = 0usize;
++    for s in items {
++        let tin = if window { s.tinw } else { s.tin4 };
++        let caught = match tin {
++            None => false,
++            Some(t) => !t.is_finite() || t >= cadence || (s.t % cadence) <= t,
++        };
++        if !caught {
++            missed += 1;
++        }
++    }
++    missed as f64 / items.len().max(1) as f64
++}
++
++fn main() {
++    let scenes = vec![
++        // S1: near-circular fleet, fixed spreads, growing n
++        SceneSpec { name: "s1_125",  n: 125,  rho: 2e-3, orbits: 10.0, da: 1e-3, e_fixed: None, e_sigma: 5e-4, pom_half: None, lam: Some((1.0, 0.05)), phi_metrics: false, seed: 1011 },
++        SceneSpec { name: "s1_250",  n: 250,  rho: 2e-3, orbits: 10.0, da: 1e-3, e_fixed: None, e_sigma: 5e-4, pom_half: None, lam: Some((1.0, 0.05)), phi_metrics: false, seed: 1012 },
++        SceneSpec { name: "s1_500",  n: 500,  rho: 2e-3, orbits: 10.0, da: 1e-3, e_fixed: None, e_sigma: 5e-4, pom_half: None, lam: Some((1.0, 0.05)), phi_metrics: false, seed: 1013 },
++        SceneSpec { name: "s1_1000", n: 1000, rho: 2e-3, orbits: 10.0, da: 1e-3, e_fixed: None, e_sigma: 5e-4, pom_half: None, lam: Some((1.0, 0.05)), phi_metrics: false, seed: 1014 },
++        SceneSpec { name: "s1_2000", n: 2000, rho: 2e-3, orbits: 10.0, da: 1e-3, e_fixed: None, e_sigma: 5e-4, pom_half: None, lam: Some((1.0, 0.05)), phi_metrics: false, seed: 1015 },
++        // S3: eccentric co-orbital groups
++        SceneSpec { name: "s3_ring", n: 200, rho: 2e-3, orbits: 20.0, da: 1e-3, e_fixed: Some(0.7), e_sigma: 0.0, pom_half: Some(0.3), lam: None, phi_metrics: true, seed: 1016 },
++        SceneSpec { name: "s3_form", n: 200, rho: 2e-3, orbits: 20.0, da: 1e-3, e_fixed: Some(0.7), e_sigma: 0.0, pom_half: Some(0.15), lam: Some((PI, 0.05)), phi_metrics: true, seed: 1017 },
++    ];
++    let threads = 6;
++    println!("{{\"run\": \"20261011-0324-inversion-0981\", \"scenes\": [");
++    for (k, spec) in scenes.iter().enumerate() {
++        let bodies = gen(spec);
++        let t_end = spec.orbits * TAU;
++        let t0 = std::time::Instant::now();
++        let (encs, st) = truth_all(&bodies, spec.rho, t_end, threads);
++        let dt = t0.elapsed().as_secs_f64();
++        // dip times for cadence math, sampled identically to `measure`
++        let stride = encs.len().div_ceil(12000).max(1);
++        let with_t: Vec<WithT> = encs
++            .iter()
++            .step_by(stride)
++            .map(|e| WithT { t: e.t, tin4: None, tinw: None })
++            .collect();
++        let samples = measure(&bodies, &encs, spec.rho, spec.phi_metrics);
++        // join tin values with times
++        let items: Vec<WithT> = samples
++            .iter()
++            .zip(with_t.iter())
++            .map(|(s, w)| WithT { t: w.t, tin4: s.tin4, tinw: s.tinw })
++            .collect();
++
++        let mut rank_l: Vec<f64> = samples.iter().map(|s| s.rank_l).collect();
++        rank_l.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mut sep_l: Vec<f64> = samples.iter().map(|s| s.sep_l).collect();
++        sep_l.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mut pop_w: Vec<f64> = samples.iter().map(|s| s.pop_w).collect();
++        pop_w.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mut s4: Vec<f64> = samples.iter().map(|s| s.s4).collect();
++        s4.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mut tin4f: Vec<f64> = samples.iter().filter_map(|s| s.tin4).filter(|t| t.is_finite()).collect();
++        tin4f.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mut tinwf: Vec<f64> = samples.iter().filter_map(|s| s.tinw).filter(|t| t.is_finite()).collect();
++        tinwf.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let perm_miss4 = samples.iter().filter(|s| s.tin4.is_none()).count() as f64 / samples.len().max(1) as f64;
++        let perm_missw = samples.iter().filter(|s| s.tinw.is_none()).count() as f64 / samples.len().max(1) as f64;
++
++        let mut line = format!(
++            "  {{\"name\": \"{}\", \"n\": {}, \"rho\": {}, \"orbits\": {}, \"truth_s\": {:.1}, \"truth_steps\": {}, \"truth_evals\": {}, \"pairs\": {}, \"encounters\": {}, \"enc_per_body_per_orbit\": {:.4}, \"sampled\": {}, \
++\"rank_l\": {{\"p50\": {:.2}, \"p90\": {:.2}, \"p99\": {:.2}, \"max\": {:.2}, \"frac_gt4\": {:.4}}}, \
++\"sep_l_at_dip\": {{\"p50\": {:.3e}, \"p99\": {:.3e}, \"max\": {:.3e}}}, \
++\"s4_median\": {:.3e}, \"pop_w\": {{\"p50\": {:.1}, \"p99\": {:.1}, \"max\": {:.1}}}, \
++\"tin4_orbits\": {{\"min\": {:.3e}, \"p50\": {:.3e}}}, \"tinw_orbits\": {{\"min\": {:.3e}, \"p50\": {:.3e}}}, \
++\"perm_miss_rank4\": {:.4}, \"perm_miss_window\": {:.4}, \
++\"missed_rank4\": {{\"c1\": {:.4}, \"c4\": {:.4}, \"c16\": {:.4}, \"c64\": {:.4}}}, \
++\"missed_window\": {{\"c1\": {:.4}, \"c4\": {:.4}, \"c16\": {:.4}, \"c64\": {:.4}}}",
++            spec.name, spec.n, spec.rho, spec.orbits, dt, st.steps, st.evals,
++            bodies.len() * (bodies.len() - 1) / 2,
++            encs.len(), encs.len() as f64 / spec.n as f64 / spec.orbits, samples.len(),
++            pct(&rank_l, 0.5), pct(&rank_l, 0.9), pct(&rank_l, 0.99), rank_l.last().copied().unwrap_or(f64::NAN),
++            samples.iter().filter(|s| s.rank_l > 4.0).count() as f64 / samples.len().max(1) as f64,
++            pct(&sep_l, 0.5), pct(&sep_l, 0.99), sep_l.last().copied().unwrap_or(f64::NAN),
++            pct(&s4, 0.5),
++            pct(&pop_w, 0.5), pct(&pop_w, 0.99), pop_w.last().copied().unwrap_or(f64::NAN),
++            tin4f.first().copied().unwrap_or(f64::NAN) / TAU, pct(&tin4f, 0.5) / TAU,
++            tinwf.first().copied().unwrap_or(f64::NAN) / TAU, pct(&tinwf, 0.5) / TAU,
++            perm_miss4, perm_missw,
++            miss_fracs(&items, TAU, false), miss_fracs(&items, TAU / 4.0, false),
++            miss_fracs(&items, TAU / 16.0, false), miss_fracs(&items, TAU / 64.0, false),
++            miss_fracs(&items, TAU, true), miss_fracs(&items, TAU / 4.0, true),
++            miss_fracs(&items, TAU / 16.0, true), miss_fracs(&items, TAU / 64.0, true)
++        );
++        if spec.phi_metrics {
++            let mut rank_p: Vec<f64> = samples.iter().map(|s| s.rank_p).collect();
++            rank_p.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            let mut pop_pw: Vec<f64> = samples.iter().map(|s| s.pop_pw).collect();
++            pop_pw.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            let mut tinp: Vec<f64> = samples.iter().map(|s| s.tin_pw).filter(|t| t.is_finite()).collect();
++            tinp.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            line.push_str(&format!(
++                ", \"rank_phi\": {{\"p50\": {:.2}, \"p99\": {:.2}, \"max\": {:.2}, \"frac_gt4\": {:.4}}}, \"pop_phi_w\": {{\"p50\": {:.1}, \"max\": {:.1}}}, \"tin_phi_w_orbits\": {{\"p50\": {:.3e}, \"max\": {:.3e}}}",
++                pct(&rank_p, 0.5), pct(&rank_p, 0.99), rank_p.last().copied().unwrap_or(f64::NAN),
++                samples.iter().filter(|s| s.rank_p > 4.0).count() as f64 / samples.len().max(1) as f64,
++                pct(&pop_pw, 0.5), pop_pw.last().copied().unwrap_or(f64::NAN),
++                pct(&tinp, 0.5) / TAU, tinp.last().copied().unwrap_or(f64::NAN) / TAU
++            ));
++        }
++        line.push('}');
++        if k + 1 < scenes.len() {
++            line.push(',');
++        }
++        println!("{}", line);
++    }
++    println!("]}}");
++}
+diff --git a/crates/encounters/src/bin/inversion_adv.rs b/crates/encounters/src/bin/inversion_adv.rs
+new file mode 100644
+index 0000000..de89cc2
+--- /dev/null
++++ b/crates/encounters/src/bin/inversion_adv.rs
+@@ -0,0 +1,186 @@
++//! Checker adversarial probes for run 20261011-0324-inversion-0981 (not the author's code).
++//! A1: seed robustness of the S1 law. A2: onset of the coordinate artifact vs e.
++//! A3: the author's claimed safe case (ϖ-aligned eccentric).
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::f64::consts::{PI, TAU};
++
++struct Spec {
++    name: &'static str,
++    n: usize,
++    rho: f64,
++    orbits: f64,
++    da: f64,
++    e_fixed: Option<f64>,
++    e_sigma: f64,
++    pom_half: Option<f64>,
++    lam: Option<(f64, f64)>,
++    phi: bool,
++    seed: u64,
++}
++
++fn gen(s: &Spec) -> Vec<Body> {
++    let mut rng = Rng(s.seed);
++    (0..s.n)
++        .map(|_| {
++            let a = 1.0 + s.da * (2.0 * rng.f64() - 1.0);
++            let e = match s.e_fixed {
++                Some(f) => f,
++                None => (s.e_sigma * (-2.0 * (1.0 - rng.f64()).ln()).sqrt()).min(0.9),
++            };
++            let pom = match s.pom_half {
++                Some(h) => h * (2.0 * rng.f64() - 1.0),
++                None => TAU * rng.f64(),
++            };
++            let lam = match s.lam {
++                Some((c, hw)) => c + hw * (2.0 * rng.f64() - 1.0),
++                None => TAU * rng.f64(),
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++#[inline]
++fn wrap(x: f64) -> f64 {
++    (x + PI).rem_euclid(TAU) - PI
++}
++
++#[inline]
++fn mean_long(b: &Body, t: f64) -> f64 {
++    b.pom + b.mean_anomaly(t)
++}
++
++#[inline]
++fn true_long(b: &Body, t: f64) -> f64 {
++    let s = b.state(t);
++    s[1].atan2(s[0])
++}
++
++fn main() {
++    let scenes = vec![
++        // A1: author's s1_1000 geometry, held-out seed
++        Spec { name: "a1_s1_1000_seed42", n: 1000, rho: 2e-3, orbits: 10.0, da: 1e-3, e_fixed: None, e_sigma: 5e-4, pom_half: None, lam: Some((1.0, 0.05)), phi: false, seed: 424242 },
++        // A1b: same but wider lambda window (w=0.4): law says pop ~ 2*rho*n/w
++        Spec { name: "a1b_w04_n2000", n: 2000, rho: 2e-3, orbits: 5.0, da: 1e-3, e_fixed: None, e_sigma: 5e-4, pom_half: None, lam: Some((1.0, 0.2)), phi: false, seed: 515151 },
++        // A2: e-onset on the formation geometry (author only tested 5e-4 and 0.7)
++        Spec { name: "a2_form_e01", n: 200, rho: 2e-3, orbits: 20.0, da: 1e-3, e_fixed: Some(0.1), e_sigma: 0.0, pom_half: Some(0.15), lam: Some((PI, 0.05)), phi: true, seed: 616161 },
++        Spec { name: "a2_form_e03", n: 200, rho: 2e-3, orbits: 20.0, da: 1e-3, e_fixed: Some(0.3), e_sigma: 0.0, pom_half: Some(0.15), lam: Some((PI, 0.05)), phi: true, seed: 626262 },
++        // A3: author's claimed safe case: eccentric but pom-aligned
++        Spec { name: "a3_pomalign_e07", n: 200, rho: 2e-3, orbits: 20.0, da: 1e-3, e_fixed: Some(0.7), e_sigma: 0.0, pom_half: Some(0.02), lam: None, phi: true, seed: 636363 },
++    ];
++    let threads = 4;
++    println!("{{\"adv\": \"20261011-0324-inversion-0981-checker\", \"scenes\": [");
++    for (k, spec) in scenes.iter().enumerate() {
++        let bodies = gen(spec);
++        let t_end = spec.orbits * TAU;
++        let n = bodies.len();
++        let mut pairs: Vec<(u32, u32)> = Vec::new();
++        for i in 0..n {
++            for j in (i + 1)..n {
++                let (bi, bj) = (&bodies[i], &bodies[j]);
++                if bi.rmax() + spec.rho < bj.rmin() || bj.rmax() + spec.rho < bi.rmin() {
++                    continue;
++                }
++                pairs.push((i as u32, j as u32));
++            }
++        }
++        let parts = par_chunks(pairs.len(), 4096, threads, |range| {
++            let mut encs: Vec<(u32, u32, f64, f64)> = Vec::new();
++            let mut st = TruthStats::default();
++            let mut buf: Vec<(f64, f64)> = Vec::new();
++            for &p in &pairs[range] {
++                buf.clear();
++                truth_pair(&bodies[p.0 as usize], &bodies[p.1 as usize], spec.rho, t_end, &mut buf, &mut st);
++                for &(t, d) in &buf {
++                    encs.push((p.0, p.1, t, d));
++                }
++            }
++            (encs, st)
++        });
++        let mut encs = Vec::new();
++        for (e, _) in parts {
++            encs.extend(e);
++        }
++        let stride = encs.len().div_ceil(8000).max(1);
++        let mut rank_l = Vec::new();
++        let mut pop_w = Vec::new();
++        let mut rank_p = Vec::new();
++        let mut pop_pw = Vec::new();
++        let mut fracw = 0usize;
++        let mut m = 0usize;
++        for e in encs.iter().step_by(stride) {
++            let (bi, bj) = (&bodies[e.0 as usize], &bodies[e.1 as usize]);
++            let t = e.2;
++            let li = mean_long(bi, t);
++            let sep_l = wrap(mean_long(bj, t) - li).abs();
++            let mut rl = 1.0f64;
++            let mut pw = 0.0f64;
++            for b in &bodies {
++                let dl = wrap(mean_long(b, t) - li).abs();
++                if dl > 0.0 && dl < sep_l {
++                    rl += 1.0;
++                }
++                if dl > 0.0 && dl <= spec.rho {
++                    pw += 1.0;
++                }
++            }
++            let dn = (bi.n - bj.n).abs();
++            let inw = sep_l <= spec.rho;
++            if !inw {
++                fracw += 1;
++            }
++            let _ = dn;
++            rank_l.push(rl);
++            pop_w.push(pw);
++            if spec.phi {
++                let pi_ = true_long(bi, t);
++                let sep_p = wrap(true_long(bj, t) - pi_).abs();
++                let mut rp = 1.0f64;
++                let mut ppw = 0.0f64;
++                for b in &bodies {
++                    let d = wrap(true_long(b, t) - pi_).abs();
++                    if d > 1e-12 && d < sep_p {
++                        rp += 1.0;
++                    }
++                    if d <= spec.rho {
++                        ppw += 1.0;
++                    }
++                }
++                rank_p.push(rp);
++                pop_pw.push(ppw);
++            }
++            m += 1;
++        }
++        rank_l.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        pop_w.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let pct = |v: &[f64], q: f64| v[((q * (v.len() as f64 - 1.0)).round() as usize).min(v.len() - 1)];
++        let mut extra = String::new();
++        if spec.phi {
++            rank_p.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            pop_pw.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            extra = format!(
++                ", \"rank_phi_p50\": {:.1}, \"rank_phi_p99\": {:.1}, \"rank_phi_max\": {:.1}, \"frac_phi_gt4\": {:.4}, \"pop_phi_w_p50\": {:.1}",
++                pct(&rank_p, 0.5), pct(&rank_p, 0.99), rank_p.last().copied().unwrap_or(f64::NAN),
++                rank_p.iter().filter(|x| **x > 4.0).count() as f64 / m.max(1) as f64,
++                pct(&pop_pw, 0.5)
++            );
++        }
++        println!(
++            "  {{\"name\": \"{}\", \"n\": {}, \"encounters\": {}, \"sampled\": {}, \"rank_l_p50\": {:.1}, \"rank_l_p99\": {:.1}, \"rank_l_max\": {:.1}, \"frac_gt4\": {:.4}, \"pop_w_p50\": {:.1}, \"perm_miss_window\": {:.4}{}}}",
++            spec.name, spec.n, encs.len(), m,
++            pct(&rank_l, 0.5), pct(&rank_l, 0.99), rank_l.last().copied().unwrap_or(f64::NAN),
++            rank_l.iter().filter(|x| **x > 4.0).count() as f64 / m.max(1) as f64,
++            pct(&pop_w, 0.5),
++            fracw as f64 / m.max(1) as f64,
++            extra
++        );
++        if k + 1 < scenes.len() {
++            println!(",");
++        }
++    }
++    println!("\n]}}");
++}
