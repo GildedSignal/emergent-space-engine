@@ -1,0 +1,4 @@
+Working...
+Run complete: predictions written before the bench (13:40 < 13:45, timestamps verifiable), one-command reproduction recorded with machine state, dossier in place.
+
+**Claim.** At 10⁹ bodies the binding term is per-event compute at high real-time factor, not memory bulk or bandwidth: the measured per-kick cost ladder of the shipped compiler (3 ns integer update / 0.42 µs memo hit / 4.6 µs state readout / 8.5–25 µs compile) affords real-time factors of about 27,000 / 190 / 17 / 3 at 10⁹ all-active bodies — so today's compile-per-kick path is ~31× short of the plane's rtf 100 and the jet as specified (0.05 compiles/kick) is 1.6× short, while the second binding term is per-active-body cycle memory (~0.75–3.4 KB each, with no memo-key sharing in sparse belts, 1.0× measured vs 37× in formations) capping the sparse active set at ~10⁶–10⁷ bodies across the whole 8 GB.
