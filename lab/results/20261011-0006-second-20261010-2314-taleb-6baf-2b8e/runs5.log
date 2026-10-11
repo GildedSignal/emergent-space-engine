@@ -1,0 +1,13 @@
+ring21_s1: wall 29.9s exited 0.0000 med16 32.062 p99_16 32.277 fit16 1.0040235895441851 hl16 0.07720404443770457
+ring21_s2: wall 23.2s exited 0.0000 med16 32.055 p99_16 32.280 fit16 1.0040175309844936 hl16 0.07720404443770457
+ringoff_s1: wall 31.8s exited 0.0000 med16 31.627 p99_16 31.807 fit16 1.0014809165521115 hl16 0.07720404443770457
+ringoff_s2: wall 29.5s exited 0.0000 med16 31.628 p99_16 31.815 fit16 1.0014213253823068 hl16 0.07720404443770457
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261011-0006-second-20261010-2314-taleb-6baf-2b8e/analyze.py", line 71, in <module>
+    M["wall_s_max"] = max(d["wall_s"] for d in rows.values())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/lab/results/20261011-0006-second-20261010-2314-taleb-6baf-2b8e/analyze.py", line 71, in <genexpr>
+    M["wall_s_max"] = max(d["wall_s"] for d in rows.values())
+                          ~^^^^^^^^^^
+KeyError: 'wall_s'
+RINGS_DONE
