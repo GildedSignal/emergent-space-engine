@@ -1,0 +1,4 @@
+Working...
+Bit-identical regeneration confirmed. Run complete: predictions were frozen before the decisive set, one predicted invariant (miss=0 at 16 bits) failed, was root-caused to a sign slip in the superset bound, fixed, and everything re-run clean; dossier, logs, and code are in `lab/results/20261011-0836-quant-9a7b/`.
+
+**Claim:** the encounter tier's candidate cone, stored as packed u32 Binet records (12 B/body), is a provable superset of today's float cone at ≤ 0.6 % extra candidates on uniform, co-orbital and hot belts (831/831 real encounters covered), and cuts the per-kick re-scan's cost 19–40× (2.5 vs 47–99 ns per scanned body, x86) with no capacity knee through 3×10⁷ bodies — the tier's hot path becomes integer squares over a 12-byte stream, deleting its float arithmetic and random 88-byte `Body` fetches.

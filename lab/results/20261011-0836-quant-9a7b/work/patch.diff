@@ -1,0 +1,672 @@
+diff --git a/crates/encounters/src/lib.rs b/crates/encounters/src/lib.rs
+index cbbcd891..6e37cc13 100644
+--- a/crates/encounters/src/lib.rs
++++ b/crates/encounters/src/lib.rs
+@@ -8,6 +8,7 @@ pub mod dioph;
+ pub mod kepler;
+ pub mod method;
+ pub mod pairs;
++pub mod quant;
+ pub mod truth;
+ 
+ use std::sync::atomic::{AtomicUsize, Ordering};
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bff..005b73c1 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -526,7 +526,7 @@ fn main() {
+             steady(n, rho, &hs)
+         }
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
+-        Some("kick") => kick(),
++        Some("quant") => emergent_encounters::quant::dispatch(&args[2..]),
+         _ => {
+             let _ = run_section;
+             eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick");
+diff --git a/crates/encounters/src/quant.rs b/crates/encounters/src/quant.rs
+new file mode 100644
+index 00000000..16dfc5d4
+--- /dev/null
++++ b/crates/encounters/src/quant.rs
+@@ -0,0 +1,641 @@
++//! The quant lens: the candidate cone as integer arithmetic over packed Binet records.
++//!
++//! Today's tier scans a U-sorted order and pays, per scanned body, a float hypot plus a pair
++//! tolerance (`eps_u`) that reads two 88-byte `Body` records at random. Quantizing (U, V, W) onto a
++//! per-doll integer grid makes the cone test integer squares with no sqrt, and the scan a
++//! sequential stream over 12 bytes per body (SoA u32/i32/i32).
++//!
++//! Safety: floor-quantization puts each integer difference within one quantum of the true one, so
++//! accepting when `du < k` or `(du - k)^2 < dv^2 + dw^2 >> -shift` with `k = E + 1 + sqrt(2)/c`
++//! (E = eps_max in quanta, c = the V-grid's quantum in U-quanta) accepts everything the float cone
++//! accepts: a provable superset. Misses can only be implementation bugs, which is what the checks
++//! count. All decisions are integers; floats only build the grid.
++
++use crate::belt::{make_belt, Rng, Spec};
++use crate::kepler::Body;
++use crate::pairs::{cone_pairs, is_candidate, radial_pairs};
++use crate::par_chunks;
++use crate::truth::{truth_pair, TruthStats};
++use std::collections::HashSet;
++use std::time::Instant;
++
++const THREADS: usize = 4;
++const CLAMP: f64 = (1u32 << 30) as f64;
++
++/// Globals of one doll's belt, gathered in a first pass (streaming-friendly).
++pub struct Globals {
++    umin: f64,
++    umax: f64,
++    vmax: f64,
++    rmin_g: f64,
++    rmax_g: f64,
++    emax: f64,
++    pmin: f64,
++    epmax: f64,
++}
++
++impl Globals {
++    pub fn from_bodies(b: &[Body]) -> Self {
++        let mut g = Globals {
++            umin: f64::INFINITY,
++            umax: f64::NEG_INFINITY,
++            vmax: 0.0,
++            rmin_g: f64::INFINITY,
++            rmax_g: 0.0,
++            emax: 0.0,
++            pmin: f64::INFINITY,
++            epmax: 0.0,
++        };
++        for x in b {
++            g.accum(x);
++        }
++        g
++    }
++
++    fn accum(&mut self, x: &Body) {
++        let t = x.binet();
++        self.umin = self.umin.min(t[0]);
++        self.umax = self.umax.max(t[0]);
++        self.vmax = self.vmax.max(t[1].abs()).max(t[2].abs());
++        self.rmin_g = self.rmin_g.min(x.rmin());
++        self.rmax_g = self.rmax_g.max(x.rmax());
++        self.emax = self.emax.max(x.e);
++        self.pmin = self.pmin.min(x.p);
++        self.epmax = self.epmax.max(x.e / x.p);
++    }
++
++    fn eps_max(&self, rho: f64) -> f64 {
++        1.5 * rho * (1.0 + self.rmax_g * self.rmax_g * self.emax / (self.pmin * self.rmin_g))
++            / (self.rmin_g * self.rmin_g)
++    }
++}
++
++pub struct Packed {
++    pub u: Vec<u32>,
++    pub v: Vec<i32>,
++    pub w: Vec<i32>,
++    /// Per-body scan half-range in U quanta (quantized outward).
++    pub reach: Vec<u32>,
++    /// Slack in quanta. Negative on narrow-span dolls; still a superset.
++    pub k: i64,
++    /// 2^(2*(bv - bits)) as a (non-positive) shift on the V/W side.
++    pub shift: i32,
++    pub bits: u32,
++    pub orig: Vec<u32>,
++    /// Float SoA in the same sorted slot order (empty in the knee build).
++    pub uf: Vec<f64>,
++    pub vf: Vec<f64>,
++    pub wf: Vec<f64>,
++    pub eps_max: f64,
++    pub e_max: f64,
++    pub quanta: f64,
++}
++
++/// The integer hit test for one pair, slot order (u[j] >= u[i]).
++#[inline(always)]
++fn hit_int(u: &[u32], v: &[i32], w: &[i32], i: usize, j: usize, k: i64, shift: i32) -> bool {
++    let du = (u[j] - u[i]) as i64;
++    if du < k {
++        return true;
++    }
++    let t = (du - k) as u64;
++    let dv = (v[j] as i64 - v[i] as i64) as u64;
++    let dw = (w[j] as i64 - w[i] as i64) as u64;
++    let rs = dv * dv + dw * dw;
++    let rs = if shift == 0 {
++        rs
++    } else {
++        // c < 1: scale the V/W side up, rounding up, so the test only widens.
++        (rs + (1u64 << (-shift as u32)) - 1) >> (-shift as u32)
++    };
++    t * t < rs
++}
++
++pub fn pack_from_globals(
++    b: &[Body],
++    g: &Globals,
++    rho: f64,
++    bits: u32,
++    with_float: bool,
++) -> Packed {
++    // Absolute power-of-two scales: the U quantum is 2^-bits in u units, so the V/W quantum in
++    // U quanta, c = 2^(bv - bits), is exactly a power of two and the shift is exact.
++    let su = (1u64 << bits) as f64;
++    let cap = (CLAMP / g.vmax.max(1e-12)).log2().floor();
++    let bv = (bits as f64).min(cap).max(1.0) as u32;
++    let sv = (1u64 << bv) as f64;
++    let c = sv / su; // <= 1, power of two
++    let eps_max = g.eps_max(rho);
++    let e_q = eps_max * su;
++    let k = if e_q < 4.0 {
++        // Degenerate: the tolerance is sub-quantum; accept everything scanned (still a superset).
++        i64::MAX / 4
++    } else {
++        ((e_q + 1.0 + 2f64.sqrt() / c).floor() as i64).max(-(1i64 << 31))
++    };
++    let shift = 2 * (bv as i32 - bits as i32); // <= 0
++    let n = b.len();
++    let r_add = g.epmax + eps_max;
++    let mut u = Vec::with_capacity(n);
++    let mut v = Vec::with_capacity(n);
++    let mut w = Vec::with_capacity(n);
++    let mut reach = Vec::with_capacity(n);
++    for x in b {
++        let t = x.binet();
++        u.push((((t[0] - g.umin) * su).floor().clamp(0.0, su - 1.0)) as u32);
++        v.push(((t[1] * sv).floor().clamp(-CLAMP, CLAMP - 1.0)) as i32);
++        w.push(((t[2] * sv).floor().clamp(-CLAMP, CLAMP - 1.0)) as i32);
++        reach.push(((((x.e / x.p + r_add) * su).ceil() as u64) + 2).min(u32::MAX as u64) as u32);
++    }
++    let mut perm: Vec<u32> = (0..n as u32).collect();
++    perm.sort_unstable_by_key(|&i| u[i as usize]);
++    let (uf, vf, wf) = if with_float {
++        let mut fu = vec![0.0f64; n];
++        let mut fv = vec![0.0f64; n];
++        let mut fw = vec![0.0f64; n];
++        for (i, x) in b.iter().enumerate() {
++            let t = x.binet();
++            fu[i] = t[0];
++            fv[i] = t[1];
++            fw[i] = t[2];
++        }
++        (
++            perm.iter().map(|&i| fu[i as usize]).collect(),
++            perm.iter().map(|&i| fv[i as usize]).collect(),
++            perm.iter().map(|&i| fw[i as usize]).collect(),
++        )
++    } else {
++        (Vec::new(), Vec::new(), Vec::new())
++    };
++    Packed {
++        u: perm.iter().map(|&i| u[i as usize]).collect(),
++        v: perm.iter().map(|&i| v[i as usize]).collect(),
++        w: perm.iter().map(|&i| w[i as usize]).collect(),
++        reach: perm.iter().map(|&i| reach[i as usize]).collect(),
++        k,
++        shift,
++        bits,
++        orig: perm,
++        uf,
++        vf,
++        wf,
++        eps_max,
++        e_max: g.epmax,
++        quanta: 1.0 / su,
++    }
++}
++
++pub fn build(b: &[Body], rho: f64, bits: u32) -> Packed {
++    pack_from_globals(b, &Globals::from_bodies(b), rho, bits, true)
++}
++/// Evenly spaced original body ids (stable across packings).
++fn sample_orig(n: usize, m: usize) -> Vec<u32> {
++    let m = m.min(n).max(1);
++    (0..m).map(|t| (t * n / m) as u32).collect()
++}
++
++fn slot_of(orig: &[u32]) -> Vec<u32> {
++    let mut s = vec![0u32; orig.len()];
++    for (slot, &o) in orig.iter().enumerate() {
++        s[o as usize] = slot as u32;
++    }
++    s
++}
++
++/// Integer scan over slots: (scanned, hits, seconds).
++pub fn scan_int(p: &Packed, slots: &[usize]) -> (u64, u64, f64) {
++    let t0 = Instant::now();
++    let mut scanned = 0u64;
++    let mut hits = 0u64;
++    let (u, v, w) = (&p.u, &p.v, &p.w);
++    for &i in slots {
++        let ui = u[i];
++
++        let bound = (ui as u64 + p.reach[i] as u64).min(u32::MAX as u64) as u32;
++        let hi = u.partition_point(|&x| x <= bound);
++        let mut h = 0u64;
++        for j in i + 1..hi {
++            if hit_int(u, v, w, i, j, p.k, p.shift) {
++                h += 1;
++            }
++        }
++        scanned += (hi - i - 1) as u64;
++        hits += h;
++    }
++    (scanned, hits, t0.elapsed().as_secs_f64())
++}
++
++/// Today's exact float path: a U-sorted (f64, u32) order plus per-pair eps_u through random `Body`
++/// reads. `order` (sorted by U, tie by id) and `opos` (orig id -> position) are built once by the
++/// caller, as the shipped tier maintains its order persistently.
++pub fn scan_body(
++    b: &[Body],
++    p: &Packed,
++    order: &[(f64, u32)],
++    opos: &[u32],
++    sample: &[u32],
++    rho: f64,
++) -> (u64, u64, f64) {
++    let t0 = Instant::now();
++    let mut scanned = 0u64;
++    let mut hits = 0u64;
++    for &o in sample {
++        let k = opos[o as usize] as usize;
++        let bi = &b[o as usize];
++        let reach = bi.e / bi.p + p.e_max + p.eps_max;
++        let u = order[k].0;
++        let hi = order.partition_point(|z| z.0 <= u + reach);
++        let mut h = 0u64;
++        for j in k + 1..hi {
++            let oj = order[j].1;
++            if is_candidate(bi, &b[oj as usize], rho) {
++                h += 1;
++            }
++        }
++        scanned += (hi - k - 1) as u64;
++        hits += h;
++    }
++    (scanned, hits, t0.elapsed().as_secs_f64())
++}
++
++/// Float packed (SoA f64, global eps) over the integer range: isolates arithmetic from layout.
++pub fn scan_fpack(p: &Packed, slots: &[usize]) -> (u64, u64, f64) {
++    let t0 = Instant::now();
++    let (u, v, w) = (&p.uf, &p.vf, &p.wf);
++    let eps = p.eps_max;
++    let mut scanned = 0u64;
++    let mut hits = 0u64;
++    for &i in slots {
++        let ui = u[i];
++        let vi = v[i];
++        let wi = w[i];
++        let bound = (p.u[i] as u64 + p.reach[i] as u64).min(u32::MAX as u64) as u32;
++        let hi = p.u.partition_point(|&x| x <= bound);
++        let mut h = 0u64;
++        for j in i + 1..hi {
++            let du = u[j] - ui;
++            let dv = v[j] - vi;
++            let dw = w[j] - wi;
++            if du - dv.hypot(dw) < eps {
++                h += 1;
++            }
++        }
++        scanned += (hi - i - 1) as u64;
++        hits += h;
++    }
++    (scanned, hits, t0.elapsed().as_secs_f64())
++}
++
++/// Joint correctness pass over the integer range: counts per predicate, and integer misses
++/// against today's exact float pair test.
++pub fn scan_checks(
++    b: &[Body],
++    p: &Packed,
++    sample: &[u32],
++    rho: f64,
++) -> (u64, u64, u64, u64, u64) {
++    let so = slot_of(&p.orig);
++    let mut scanned = 0u64;
++    let mut f_pair = 0u64;
++    let mut f_glob = 0u64;
++    let mut int_hits = 0u64;
++    let mut misses = 0u64;
++    for &o in sample {
++        let i = so[o as usize] as usize;
++        let bi = &b[o as usize];
++        let bound = (p.u[i] as u64 + p.reach[i] as u64).min(u32::MAX as u64) as u32;
++        let hi = p.u.partition_point(|&x| x <= bound);
++        for j in i + 1..hi {
++            let oj = p.orig[j] as usize;
++            scanned += 1;
++            let fp = is_candidate(bi, &b[oj], rho);
++            let fg = p.uf[j] - p.uf[i] - (p.vf[i] - p.vf[j]).hypot(p.wf[i] - p.wf[j]) < p.eps_max;
++            let it = hit_int(&p.u, &p.v, &p.w, i, j, p.k, p.shift);
++            f_pair += fp as u64;
++            f_glob += fg as u64;
++            int_hits += it as u64;
++            misses += (fp && !it) as u64;
++        }
++    }
++    (scanned, f_pair, f_glob, int_hits, misses)
++}
++
++/// Full-sweep integer candidate pairs (original ids), for the truth anchor.
++pub fn sweep_int_pairs(p: &Packed) -> Vec<(u32, u32)> {
++    let mut out = Vec::new();
++    let n = p.u.len();
++    for i in 0..n {
++        let bound = (p.u[i] as u64 + p.reach[i] as u64).min(u32::MAX as u64) as u32;
++        let hi = p.u.partition_point(|&x| x <= bound);
++        for j in i + 1..hi {
++            if hit_int(&p.u, &p.v, &p.w, i, j, p.k, p.shift) {
++                let (a, b) = (p.orig[i], p.orig[j]);
++                out.push((a.min(b), a.max(b)));
++            }
++        }
++    }
++    out
++}
++
++/// Streaming belt generator: the same rng call order as `make_belt`, one body at a time.
++fn stream_bodies(s: &Spec) -> impl Iterator<Item = Body> + '_ {
++    let mut rng = Rng(s.seed);
++    let spec = s.clone();
++    (0..s.n).map(move |_| {
++        let a = if spec.keys > 1 {
++            let k = (rng.next_u64() % spec.keys as u64) as f64;
++            spec.a_lo + (spec.a_hi - spec.a_lo) * k / (spec.keys - 1) as f64
++        } else {
++            spec.a_lo + (spec.a_hi - spec.a_lo) * rng.f64()
++        };
++        let u = rng.f64();
++        let e = (spec.sigma_e * (-2.0 * (1.0 - u).ln()).sqrt()).min(0.5);
++        let pom = std::f64::consts::TAU * rng.f64();
++        let lam = std::f64::consts::TAU * rng.f64();
++        Body::new(a, e, pom, lam)
++    })
++}
++
++pub fn dispatch(args: &[String]) {
++    match args.get(0).map(|s| s.as_str()) {
++        Some("growth") => growth(
++            args[1].parse().unwrap(),
++            args[2].parse().unwrap(),
++            args[3].parse().unwrap(),
++            args[4].parse().unwrap(),
++            args[5].parse().unwrap(),
++            args[6].parse().unwrap(),
++            args[7].parse().unwrap(),
++        ),
++        Some("speed") => speed(
++            args[1].parse().unwrap(),
++            args[2].parse().unwrap(),
++            args[3].parse().unwrap(),
++            args[4].parse().unwrap(),
++            args[5].parse().unwrap(),
++            args[6].parse().unwrap(),
++            args[7].parse().unwrap(),
++        ),
++        Some("knee") => knee(
++            args[1]
++                .split(',')
++                .map(|x| x.parse().unwrap())
++                .collect(),
++            args[2].parse().unwrap(),
++            args[3].parse().unwrap(),
++        ),
++        _ => eprintln!(
++            "usage: quant growth <n> <sigma_e> <rho> <keys> <seed> <m> <orbits> | \
++             quant speed <n> <sigma_e> <rho> <keys> <seed> <m> <reps> | \
++             quant knee <n,csv> <m> <reps>"
++        ),
++    }
++}
++
++fn spec_of(n: usize, sigma_e: f64, rho: f64, keys: usize, seed: u64, orbits: f64) -> Spec {
++    Spec {
++        name: "quant".into(),
++        n,
++        sigma_e,
++        rho,
++        a_lo: 1.0,
++        a_hi: 1.5,
++        keys,
++        seed,
++        orbits,
++    }
++}
++
++/// Work and safety vs the float cone; at n <= 4000 also the truth anchor (real encounters).
++fn growth(n: usize, sigma_e: f64, rho: f64, keys: usize, seed: u64, m: usize, orbits: f64) {
++    let s = spec_of(n, sigma_e, rho, keys, seed, orbits);
++    let b = make_belt(&s);
++    let sample = sample_orig(n, m);
++    let mut line = format!(
++        "{{\"cmd\":\"growth\",\"n\":{n},\"sigma_e\":{sigma_e:e},\"rho\":{rho:e},\"keys\":{keys},\"seed\":{seed},\"m\":{},",
++        sample.len()
++    );
++    for bits in [16u32, 20, 24, 28, 30] {
++        let p = build(&b, rho, bits);
++        let (scanned, f_pair, f_glob, int_hits, misses) = scan_checks(&b, &p, &sample, rho);
++        line.push_str(&format!(
++            "\"b{bits}\":{{\"scanned\":{scanned},\"f_pair\":{f_pair},\"f_glob\":{f_glob},\"int\":{int_hits},\"miss\":{misses},\"growth\":{:.4}}},",
++            int_hits as f64 / f_pair.max(1) as f64
++        ));
++    }
++    // Truth anchor at small n: every real encounter's pair must be an integer candidate.
++    if n <= 4000 {
++        let p30 = build(&b, rho, 30);
++        let int_pairs: HashSet<(u32, u32)> = sweep_int_pairs(&p30).into_iter().collect();
++        let cone = cone_pairs(&b, rho);
++        let float_pairs: HashSet<(u32, u32)> = cone.pairs.iter().copied().collect();
++        let mut float_missing = 0u64;
++        for qp in &float_pairs {
++            if !int_pairs.contains(qp) {
++                float_missing += 1;
++            }
++        }
++        let radial = radial_pairs(&b, rho);
++        let t_end = orbits * std::f64::consts::TAU;
++        let parts = par_chunks(radial.len(), 256, THREADS, |r| {
++            let mut out: Vec<(u32, u32, f64, f64)> = Vec::new();
++            let mut st = TruthStats::default();
++            let mut tmp = Vec::new();
++            for &(i, j) in &radial[r] {
++                tmp.clear();
++                truth_pair(&b[i as usize], &b[j as usize], rho, t_end, &mut tmp, &mut st);
++                out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++            }
++            (out, st)
++        });
++        let mut enc = 0u64;
++        let mut enc_in_int = 0u64;
++        let mut enc_in_float = 0u64;
++        let mut covered: HashSet<(u32, u32)> = HashSet::new();
++        for part in &parts {
++            for &(i, j, _t, _d) in &part.0 {
++                if covered.insert((i, j)) {
++                    enc += 1;
++                    enc_in_int += int_pairs.contains(&(i, j)) as u64;
++                    enc_in_float += float_pairs.contains(&(i, j)) as u64;
++                }
++            }
++        }
++        line.push_str(&format!(
++            "\"anchor\":{{\"orbits\":{orbits},\"enc_pairs\":{enc},\"enc_in_int\":{enc_in_int},\"enc_in_float\":{enc_in_float},\"float_pairs\":{},\"int_pairs\":{},\"float_missing_from_int\":{float_missing}}},",
++            float_pairs.len(),
++            int_pairs.len()
++        ));
++    }
++    line.pop();
++    line.push('}');
++    println!("{line}");
++}
++
++/// Timing of the three hot paths on the same sample (min of reps).
++fn speed(n: usize, sigma_e: f64, rho: f64, keys: usize, seed: u64, m: usize, reps: usize) {
++    let s = spec_of(n, sigma_e, rho, keys, seed, 0.0);
++    let b = make_belt(&s);
++    let p = build(&b, rho, 30);
++    let sample = sample_orig(n, m);
++    let so = slot_of(&p.orig);
++    let slots: Vec<usize> = sample.iter().map(|&o| so[o as usize] as usize).collect();
++
++    let mut best_int = f64::INFINITY;
++    let mut int_sc = 0;
++    let mut int_hit = 0;
++    for _ in 0..reps {
++        let (sc, h, t) = scan_int(&p, &slots);
++        int_sc = sc;
++        int_hit = h;
++        best_int = best_int.min(t);
++    }
++    let mut best_fp = f64::INFINITY;
++    let mut fp_sc = 0;
++    let mut fp_hit = 0;
++    for _ in 0..reps {
++        let (sc, h, t) = scan_fpack(&p, &slots);
++        fp_sc = sc;
++        fp_hit = h;
++        best_fp = best_fp.min(t);
++    }
++    // The float order, built once (the shipped tier maintains it persistently).
++    let mut order: Vec<(f64, u32)> =
++        b.iter().enumerate().map(|(i, x)| (x.binet()[0], i as u32)).collect();
++    order.sort_by(|x, y| x.0.total_cmp(&y.0).then(x.1.cmp(&y.1)));
++    let mut opos = vec![0u32; n];
++    for (k, &(_, o)) in order.iter().enumerate() {
++        opos[o as usize] = k as u32;
++    }
++    let mut best_bd = f64::INFINITY;
++    let mut bd_sc = 0;
++    let mut bd_hit = 0;
++    for _ in 0..reps {
++        let (sc, h, t) = scan_body(&b, &p, &order, &opos, &sample, rho);
++        bd_sc = sc;
++        bd_hit = h;
++        best_bd = best_bd.min(t);
++    }
++    let ns = |t: f64, sc: u64| t * 1e9 / sc.max(1) as f64;
++    println!(
++        "{{\"cmd\":\"speed\",\"n\":{n},\"sigma_e\":{sigma_e:e},\"rho\":{rho:e},\"keys\":{keys},\"seed\":{seed},\"m\":{},\
++         \"int\":{{\"scanned\":{int_sc},\"hits\":{int_hit},\"s\":{:.4},\"ns_per_scanned\":{:.3}}},\
++         \"fpack\":{{\"scanned\":{fp_sc},\"hits\":{fp_hit},\"s\":{:.4},\"ns_per_scanned\":{:.3}}},\
++         \"body\":{{\"scanned\":{bd_sc},\"hits\":{bd_hit},\"s\":{:.4},\"ns_per_scanned\":{:.3}}},\
++         \"speedup_int_vs_body\":{:.2},\"speedup_int_vs_fpack\":{:.2}}}",
++        sample.len(),
++        best_int, ns(best_int, int_sc),
++        best_fp, ns(best_fp, fp_sc),
++        best_bd, ns(best_bd, bd_sc),
++        ns(best_bd, bd_sc) / ns(best_int, int_sc),
++        ns(best_fp, fp_sc) / ns(best_int, int_sc),
++    );
++}
++
++/// Integer-only capacity curve: streaming build (no Body kept), timing to large n.
++fn knee(ns: Vec<usize>, m: usize, reps: usize) {
++    // Self-check: the streaming generator matches make_belt body for body.
++    {
++        let s = spec_of(100_000, 1e-2, 1e-4, 0, 424_242, 0.0);
++        let vb = make_belt(&s);
++        let vs: Vec<Body> = stream_bodies(&s).collect();
++        assert_eq!(vb.len(), vs.len());
++        for (x, y) in vb.iter().zip(vs.iter()) {
++            let (a, b) = (x.binet(), y.binet());
++            assert_eq!(a[0].to_bits(), b[0].to_bits(), "stream mismatch");
++            assert_eq!(a[1].to_bits(), b[1].to_bits());
++            assert_eq!(a[2].to_bits(), b[2].to_bits());
++        }
++    }
++    println!("{{\"cmd\":\"knee\",\"selfcheck\":\"stream==make_belt ok\"}}");
++    for n in ns {
++        let s = spec_of(n, 1e-2, 1e-4, 0, 424_242, 0.0);
++        let t0 = Instant::now();
++        let mut g = Globals {
++            umin: f64::INFINITY,
++            umax: f64::NEG_INFINITY,
++            vmax: 0.0,
++            rmin_g: f64::INFINITY,
++            rmax_g: 0.0,
++            emax: 0.0,
++            pmin: f64::INFINITY,
++            epmax: 0.0,
++        };
++        for x in stream_bodies(&s) {
++            g.accum(&x);
++        }
++        let rho = 1e-4;
++        let bits = 30u32;
++        let cap = (CLAMP / g.vmax.max(1e-12)).log2().floor();
++        let su = (1u64 << bits) as f64;
++        let bv = (bits as f64).min(cap).max(1.0) as u32;
++        let sv = (1u64 << bv) as f64;
++        let c = sv / su;
++        let eps_max = g.eps_max(rho);
++        let e_q = eps_max * su;
++        let k = if e_q < 4.0 {
++            i64::MAX / 4
++        } else {
++            ((e_q + 1.0 + 2f64.sqrt() / c).floor() as i64).max(-(1i64 << 31))
++        };
++        let shift = 2 * (bv as i32 - bits as i32);
++        let r_add = g.epmax + eps_max;
++        let mut u: Vec<u32> = Vec::with_capacity(n);
++        let mut v: Vec<i32> = Vec::with_capacity(n);
++        let mut w: Vec<i32> = Vec::with_capacity(n);
++        let mut reach: Vec<u32> = Vec::with_capacity(n);
++        for x in stream_bodies(&s) {
++            let t = x.binet();
++            u.push((((t[0] - g.umin) * su).floor().clamp(0.0, (1u64 << bits) as f64 - 1.0)) as u32);
++            v.push(((t[1] * sv).floor().clamp(-CLAMP, CLAMP - 1.0)) as i32);
++            w.push(((t[2] * sv).floor().clamp(-CLAMP, CLAMP - 1.0)) as i32);
++            reach.push(((((x.e / x.p + r_add) * su).ceil() as u64) + 2).min(u32::MAX as u64) as u32);
++        }
++        let mut perm: Vec<u32> = (0..n as u32).collect();
++        perm.sort_unstable_by_key(|&i| u[i as usize]);
++        let p = Packed {
++            u: perm.iter().map(|&i| u[i as usize]).collect(),
++            v: perm.iter().map(|&i| v[i as usize]).collect(),
++            w: perm.iter().map(|&i| w[i as usize]).collect(),
++            reach: perm.iter().map(|&i| reach[i as usize]).collect(),
++            k,
++            shift,
++            bits,
++            orig: perm,
++            uf: Vec::new(),
++            vf: Vec::new(),
++            wf: Vec::new(),
++            eps_max,
++            e_max: g.epmax,
++            quanta: 1.0 / su,
++        };
++        drop(u);
++        drop(v);
++        drop(w);
++        drop(reach);
++        let build_s = t0.elapsed().as_secs_f64();
++        let slots: Vec<usize> = {
++            let mm = m.min(n).max(1);
++            (0..mm).map(|t| t * n / mm).collect()
++        };
++        let mut best = f64::INFINITY;
++        let mut scanned = 0u64;
++        let mut hits = 0u64;
++        for _ in 0..reps {
++            let (sc, h, t) = scan_int(&p, &slots);
++            scanned = sc;
++            hits = h;
++            best = best.min(t);
++        }
++        let per_body = scanned as f64 / slots.len() as f64;
++        println!(
++            "{{\"cmd\":\"knee\",\"n\":{n},\"m\":{},\"build_s\":{:.3},\"scan_s\":{:.4},\"scanned\":{scanned},\"hits\":{hits},\
++             \"scanned_per_body\":{per_body:.0},\"ns_per_scanned\":{:.3},\"quanta\":{:.3e},\"k\":{k},\"shift\":{shift}}}",
++            slots.len(),
++            build_s,
++            best,
++            best * 1e9 / scanned.max(1) as f64,
++            p.quanta
++        );
++    }
++}
