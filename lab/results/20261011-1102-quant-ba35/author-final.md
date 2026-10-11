@@ -1,0 +1,4 @@
+Working...
+Run complete. Evidence in `lab/results/20261011-1102-quant-ba35/` (dossier, predictions written before the sweep, all bench JSONs with machine state).
+
+**The claim:** The plane's kick path is compute-bound — every kick is a fresh cycle compile (exact-memo hit 0.0 at every scale; 36–38 µs made, 92–102 µs for handed-out fleet members, flat as the store grows 2.8 MB → 34.5 MB past L3, record round-trip 0.14% of a kick) — so at fleet scale the frame dies elsewhere: between 400 and 4,000 members the flight stalls on one unsplittable 0.95 s fleet battle slice (57 frames' budget in a single event, rtf → 0, 198k hitches/h) plus a 14.9 ms view gather at 2,132 bodies, which redirects the board's kick lever to the slice's granularity and the gather's per-body cost instead of memory layout.

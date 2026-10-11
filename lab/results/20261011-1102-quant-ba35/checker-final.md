@@ -1,0 +1,10 @@
+Working...
+Check complete: **Grade: silver**, written to `lab/results/20261011-1102-quant-ba35/check.md`. Tree restored to clean `a838a284` (only untracked `lab/results/`), instrumented binary replaced with a clean rebuild, no commits.
+
+**What I did:**
+- **Reproduced everything** from the dossier's commands with `work/patch.diff` applied: the sizes test exactly; the kick sweep (made 35.3/37.0/36.7 µs vs author's 41.8/36.2/38.2, leavers and clone rates matching, quantized hit rates identical to 15 digits) with **all digests and replay digests bit-identical**; bench m400/m4000 (gather 14.89 ms p50, 198k hitches/h, rtf 0, `cost_ns[4]` 955 ms on one item); maxrss matches every `.err` file including the 1.55 GB/3.5 GB deaths.
+- **Verified pre-registration**: predictions.md at 11:09:52, first sweep JSON 11:13:42, dossier 11:22:24; scoring honest (P3/P4 failed and reported).
+- **Attacked the headline claim and broke it.** The "0.95 s single unsplittable fleet slice" is an accounting artifact: `cost_ns[4]` folds hand-out time into the fleet counter (universe.rs:597, "time, not an item"). Instrumenting `resolve_fleet` and the hand-out path showed the 180 frames contain **one 20.4 ms slice plus 2,091 hand-out events totalling 926.9 ms at 443 µs each** — work the 5 ms budget already splits across ~12 events/frame. The stall is real (presented tick pinned at 32, zero kicks), but the lever is hand-out cost (12× a kick) and deadline pinning, not slice granularity — the author's own JSON (`items[4]=1` next to `leavers: 2104`) held the tell.
+- **Novelty**: gather wall known since H0210/H0211; exact-memo 0% is H0213/the 5 October correction (self-flagged); new are the made/leaver split, warm-path L3 flatness, and the memory superlinearity — plus the redirect deleting record-packing/clone as levers, which is sound.
+
+Silver, not gold: two of six held-out predictions failed, and the fleet-scale half of the claim names the wrong component. Not lead: reproduced bit-identically, on-goal, and the redirect is adoptable. The gold experiment: re-derive the wall from the 443 µs hand-out path and show a 10× cheaper drain restores flight at ≥4,000 members.

@@ -1,0 +1,85 @@
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800ea..781a0c15 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -191,3 +191,21 @@ pub fn check_dolls(store: &dyn BodyStore, dolls: usize) -> Res<()> {
+     }
+     Ok(())
+ }
++
++#[test]
++fn quant_layout_sizes() {
++    use std::mem::size_of;
++    println!(
++        "SIZES BodyRec={} Item={} Binding={} Kick={} Ext={} Segment={} BodyInfo={} Tube={} Trajectory={} Knot={}",
++        size_of::<BodyRec>(),
++        size_of::<Item>(),
++        size_of::<Binding>(),
++        size_of::<crate::bind::Kick>(),
++        size_of::<crate::ext::Ext>(),
++        size_of::<Segment>(),
++        size_of::<crate::ctx::BodyInfo>(),
++        size_of::<emergent_space::Tube>(),
++        size_of::<emergent_space::binding::Trajectory>(),
++        size_of::<emergent_space::orbit::Knot>()
++    );
++}
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..06c6a5e8 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -50,6 +50,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+     // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
+     let (mut made, mut leavers) = (Vec::new(), Vec::new());
++    let mut clones: Vec<f64> = Vec::new();
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+@@ -81,10 +82,22 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
++            // The clone timing is the record round-trip the engine itself pays
++            // per event (`BodyStore::rec`, the seam's plain implementation).
+             let t0 = Instant::now();
++            let rec = s.p.u.rec(i);
++            let t1 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+-            let us = t0.elapsed().as_secs_f64() * 1e6;
+-            if i < made_n { &mut made } else { &mut leavers }.push(us);
++            let t2 = Instant::now();
++            let clone_us = (t1 - t0).as_secs_f64() * 1e6;
++            let us = (t2 - t1).as_secs_f64() * 1e6;
++            if i < made_n {
++                &mut made
++            } else {
++                &mut leavers
++            }
++            .push(us);
++            clones.push(clone_us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+             if let Some(e) = &upd.new_entry {
+                 shapes.note(&e.trajectory);
+@@ -102,6 +115,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us": percentiles(&mut made),
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
++        "clone_us": percentiles(&mut clones),
++        "bodies_end": s.n_bodies(), "bytes_per_body_end": s.bytes_per_body(),
+         "memo": shapes.json(),
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..7b770994 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -29,7 +29,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 500_000),
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
