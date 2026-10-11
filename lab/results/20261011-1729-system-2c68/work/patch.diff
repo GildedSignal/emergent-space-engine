@@ -1,0 +1,161 @@
+diff --git a/crates/universe/examples/jet_probe.rs b/crates/universe/examples/jet_probe.rs
+new file mode 100644
+index 00000000..4e377ed4
+--- /dev/null
++++ b/crates/universe/examples/jet_probe.rs
+@@ -0,0 +1,155 @@
++// The jet probe: how far apart could the per-kick rebind be? (lab run 20261011-1729-system-2c68)
++//
++// A fired kick today rebinds: `from_state` refits a whole tube (fit_key + compile + at_radius +
++// residual; ~17.5 us of a ~36 us kick). The shadow here carries the kicks exactly against the
++// tube frozen at the last recompile (velocity corrections plus their free-flight position
++// response — the same shape as the reader's ramp, at a wider window) and recompiles only when
++// the shadow's position error crosses a bound. Pure measurement: floats are allowed, nothing
++// writes the universe.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::step;
++use emergent_universe::Config;
++use emergent_space::orbit::Scalar;
++
++fn to_f(x: Scalar) -> f64 {
++    emergent_universe::num::to_f64(x)
++}
++
++struct Case {
++    name: &'static str,
++    id: usize,
++}
++
++fn run(c: &Case, bound_rel: f64, n_kicks: usize) {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    let ctx = p.u.ctx();
++    let mut rec = p.u.rec(c.id);
++    let clock_exp = rec.b.clock_exp;
++    // doll time per tick
++    let tpt = (clock_exp as f64).exp2();
++
++    let mut fired = 0usize;
++    let mut kicks = 0usize;
++    // the shadow
++    let mut b0 = rec.b.clone(); // frozen binding (post-kick at the last recompile)
++    let mut corr: Vec<(f64, [f64; 2])> = Vec::new(); // (doll time of the kick, dv)
++    let mut interval = 0usize;
++    let mut intervals: Vec<(usize, f64)> = Vec::new(); // (kicks, max error reached)
++    let mut err_max = 0.0f64;
++    let mut history: Vec<(usize, f64)> = Vec::new(); // (kick index, rel error) for growth fit
++
++    while kicks < n_kicks {
++        let it = rec.plan.first().copied();
++        let Some(it) = it else { break };
++        let was_kick = matches!(it.what, emergent_universe::body::What::Kick(_));
++        let pre_binding = rec.b.clone();
++        let u = step::process(&ctx, c.id, rec.clone());
++        let refused = !matches!(u.kind, step::Resolved::Kick);
++        rec = u.rec;
++        if !rec.alive {
++            break;
++        }
++        if !was_kick || refused {
++            continue;
++        }
++        let t = rec.b.event_time;
++        // the kick that fired: compare velocities pre/post at t
++        let pre = pre_binding.readout(t).unwrap();
++        let post = rec.b.readout(t).unwrap();
++        let dv = [
++            to_f(Scalar::raw(post.velocity[0] as i128 - pre.velocity[0] as i128, post.velocity_exponent as i32).unwrap()),
++            to_f(Scalar::raw(post.velocity[1] as i128 - pre.velocity[1] as i128, post.velocity_exponent as i32).unwrap()),
++        ];
++        kicks += 1;
++        if post.velocity != pre.velocity {
++            fired += 1;
++        }
++        // exact post state (doll units)
++        let (xe, _) = emergent_universe::bind::scalars(&post).unwrap();
++        let xe = [to_f(xe[0]), to_f(xe[1])];
++        let r = (xe[0] * xe[0] + xe[1] * xe[1]).sqrt();
++        // shadow readout on the frozen tube
++        if let Ok((xf, vf)) = b0.cartesian(t) {
++            let (mut sx, mut sy) = (to_f(xf[0]), to_f(xf[1]));
++            let (mut dvx, mut dvy) = (to_f(vf[0]), to_f(vf[1]));
++            let now = t as f64 * tpt;
++            for (tm, d) in &corr {
++                let w = now - tm;
++                dvx += d[0];
++                dvy += d[1];
++                sx += d[0] * w;
++                sy += d[1] * w;
++            }
++            let err = ((sx - xe[0]).powi(2) + (sy - xe[1]).powi(2)).sqrt();
++            let rel = err / r;
++            err_max = err_max.max(rel);
++            history.push((kicks, rel));
++            interval += 1;
++            if rel > bound_rel {
++                intervals.push((interval, err_max));
++                b0 = rec.b.clone();
++                corr.clear();
++                interval = 0;
++                err_max = 0.0;
++                history.clear();
++            }
++        }
++        // the fired kick joins the carry (quantized dv as the law applied it)
++        if post.velocity != pre.velocity {
++            corr.push((t as f64 * tpt, dv));
++        }
++    }
++    if interval > 0 {
++        intervals.push((interval, err_max));
++    }
++    intervals.sort_by_key(|x| x.0);
++    let med = intervals.get(intervals.len() / 2).map(|x| x.0).unwrap_or(0);
++    let p10 = intervals.get(intervals.len() / 10).map(|x| x.0).unwrap_or(0);
++    let mean: f64 = intervals.iter().map(|x| x.0 as f64).sum::<f64>() / intervals.len().max(1) as f64;
++    // growth exponent within intervals: fit log(err) ~ a·log(k) on the last history if long
++    let mut expo = f64::NAN;
++    if history.len() >= 8 {
++        let n = history.len();
++        let xs: Vec<f64> = history.iter().map(|(k, _)| (*k as f64).ln()).collect();
++        let ys: Vec<f64> = history.iter().map(|(_, e)| e.max(1e-18).ln()).collect();
++        let mx = xs.iter().sum::<f64>() / n as f64;
++        let my = ys.iter().sum::<f64>() / n as f64;
++        let mut num = 0.0;
++        let mut den = 0.0;
++        for i in 0..n {
++            num += (xs[i] - mx) * (ys[i] - my);
++            den += (xs[i] - mx).powi(2);
++        }
++        if den > 0.0 {
++            expo = num / den;
++        }
++    }
++    println!(
++        "{:<10} kicks {kicks:>5} fired {fired:>5} ({:>4.1}%)  bound {bound_rel:.0e}: intervals {} median {med} p10 {p10} mean {mean:.1}  in-interval growth expo {:.2}",
++        c.name,
++        100.0 * fired as f64 / kicks.max(1) as f64,
++        intervals.len(),
++        expo,
++    );
++    // the savings arithmetic, from the measured split (36 us kick, 17.5 us rebind)
++    let per_kick_jet = 36.0 - 17.5 + 17.5 / med.max(1) as f64;
++    println!(
++        "           jet kick ~{per_kick_jet:.1} us vs 36 us ({:.2}x) at median interval",
++        36.0 / per_kick_jet
++    );
++}
++
++fn main() {
++    let cases = [
++        Case { name: "Orbiter 3", id: 14 },
++        Case { name: "Hauler 1", id: 1 },
++        Case { name: "Hauler 6", id: 6 },
++    ];
++    for b in [1e-6f64, 1e-5, 1e-4] {
++        println!("-- bound {b:.0e} relative --");
++        for c in &cases {
++            run(c, b, 3000);
++        }
++    }
++}
