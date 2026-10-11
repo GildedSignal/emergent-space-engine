@@ -1,0 +1,594 @@
+diff --git a/crates/universe/examples/jet_probe2.rs b/crates/universe/examples/jet_probe2.rs
+new file mode 100644
+index 00000000..da6bde59
+--- /dev/null
++++ b/crates/universe/examples/jet_probe2.rs
+@@ -0,0 +1,160 @@
++// The jet's trigger, honestly (lab run 20261011-1814, second author on 20261011-1729-system-2c68).
++//
++// The first probe's shadow recompiled by reading the shipped exact path — the one thing an
++// implementation cannot do. Here the jet is the crate's own kick path (`Config::jet_bound_log2`):
++// kicks are carried against the frozen binding, the rebind fires when the CARRIED OFFSET (the carry
++// itself, maintained anyway) crosses 2^θ of the body's distance, and each kick's acceleration is
++// read at the carried state, so the feedback is in. This probe drives one body's events against a
++// frozen universe (the old protocol) and measures against the shipped jet-off path on the same
++// frozen context: kicks per rebind, and the true error at every kick — the baseline read at the
++// JET's own tick through the shipped reader's convention (its binding's tube plus the pending
++// kick's ramp, `observe::credit`), so a desynchronized kick schedule is not read as error.
++// Floats are measurement only; the law's decisions are the crate's own integers.
++use emergent_space::orbit::Scalar;
++use emergent_universe::bind::Binding;
++use emergent_universe::body::What;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::step::{self, Resolved};
++use emergent_universe::Config;
++
++fn to_f(x: Scalar) -> f64 {
++    emergent_universe::num::to_f64(x)
++}
++
++struct Driven {
++    refused: u64,
++    series: Vec<(i64, [f64; 2], f64)>, // (tick, x, r) of the true state at each resolved kick
++    bindings: Vec<Binding>,            // the binding each kick left (the baseline's reader path)
++    ticks: Vec<i64>,
++    intervals: Vec<usize>,             // resolved kicks per rebind (rebinds close intervals)
++    offsets: Vec<f64>,                 // the carry's position offset at each kick, doll units
++}
++
++/// Drive `id`'s events for `n` resolved kicks (jet per `cfg`), against a frozen universe.
++fn drive(ctx: &emergent_universe::ctx::Ctx, mut rec: emergent_universe::body::BodyRec, id: usize, n: usize) -> Driven {
++    let mut d = Driven { refused: 0, series: Vec::new(), bindings: Vec::new(), ticks: Vec::new(), intervals: Vec::new(), offsets: Vec::new() };
++    let mut since = 0usize;
++    while d.series.len() < n {
++        let Some(it) = rec.plan.first().copied() else { break };
++        let is_kick = matches!(it.what, What::Kick(_));
++        let t = it.t;
++        let u = step::process(&ctx, id, rec.clone());
++        let rebound = !u.retired.is_empty();
++        rec = u.rec;
++        if !rec.alive {
++            break;
++        }
++        if matches!(u.kind, Resolved::Refused) {
++            d.refused += 1;
++        }
++        let resolved_kick = is_kick && matches!(u.kind, Resolved::Kick);
++        if resolved_kick {
++            since += 1;
++        }
++        if rebound {
++            d.intervals.push(since);
++            since = 0;
++        }
++        if !resolved_kick {
++            continue;
++        }
++        let st = step::jet_state(&rec.b, rec.jet, t).unwrap();
++        let (x, _) = emergent_universe::bind::scalars(&st).unwrap();
++        let (xf, r) = (to_f(x[0]), to_f(x[0]) * to_f(x[0]) + to_f(x[1]) * to_f(x[1]));
++        d.series.push((t, [xf, to_f(x[1])], r.sqrt()));
++        d.bindings.push(rec.b.clone());
++        d.ticks.push(t);
++        let off = rec
++            .jet
++            .map(|j| {
++                let dt = to_f(emergent_universe::num::time_of(t.saturating_sub(j.anchor), rec.b.clock_exp).unwrap());
++                let (a, b) = (to_f(j.dx[0]) + to_f(j.dv[0]) * dt, to_f(j.dx[1]) + to_f(j.dv[1]) * dt);
++                (a * a + b * b).sqrt()
++            })
++            .unwrap_or(0.0);
++        d.offsets.push(off);
++    }
++    if since > 0 {
++        d.intervals.push(since);
++    }
++    d
++}
++
++/// The baseline's state at tick `t`, the way the shipped reader completes it between kicks: the
++/// binding's tube plus the pending kick's ramp (`observe::credit`), other bodies from the context.
++fn baseline_at(ctx: &emergent_universe::ctx::Ctx, id: usize, base: &Driven, t: i64) -> Option<[f64; 2]> {
++    // the last baseline kick at or before t (its binding holds from its tick to the next)
++    let mut j = base.bindings.len();
++    while j > 0 && base.ticks[j - 1] > t {
++        j -= 1;
++    }
++    if j == 0 {
++        return None;
++    }
++    let b = &base.bindings[j - 1];
++    let (p, _) = b.cartesian(t).ok()?;
++    let (dx, _) = emergent_universe::observe::credit(ctx.bodies, id, t, b).ok()?;
++    Some([to_f(p[0]) + to_f(dx[0]), to_f(p[1]) + to_f(dx[1])])
++}
++
++fn run(name: &str, id_of: &dyn Fn(&emergent_universe::scenario::Plane) -> usize, theta_log2: i32, n: usize, seed: u64) {
++    let base_cfg = Config { jet_bound_log2: 0, ..Config::default() };
++    let jet_cfg = Config { jet_bound_log2: theta_log2, ..Config::default() };
++    let mut p0 = plane(base_cfg, seed, Order::Sparse, 1, 8).unwrap();
++    let id = id_of(&p0);
++    let ctx0 = p0.u.ctx();
++    let base = drive(&ctx0, p0.u.rec(id), id, n);
++    let mut p1 = plane(jet_cfg, seed, Order::Sparse, 1, 8).unwrap();
++    let ctx1 = p1.u.ctx();
++    let jet = drive(&ctx1, p1.u.rec(id), id, n);
++    let m = base.series.len().min(jet.series.len());
++    let debug = std::env::var_os("JET_DEBUG").is_some();
++    let mut max_err = 0.0f64;
++    let mut c_max = 0.0f64;
++    let mut cmp = 0usize;
++    for i in 0..m {
++        let t = jet.ticks[i];
++        let Some(xb) = baseline_at(&ctx0, id, &base, t) else { continue };
++        cmp += 1;
++        let e = ((jet.series[i].1[0] - xb[0]).powi(2) + (jet.series[i].1[1] - xb[1]).powi(2)).sqrt() / base.series[i].2;
++        if debug && i < 75 {
++            let per = match &jet.bindings[i].entry.trajectory { emergent_space::binding::Trajectory::Cycle(c) => c.period().unwrap(), emergent_space::binding::Trajectory::Passage(p) => p.duration().unwrap() };
++            let t_doll = to_f(jet.bindings[i].to_doll(per).unwrap());
++            let ratio = jet.offsets[i] * 1.0 / (jet.series[i].2 * t_doll) * (t as f64);
++            println!("  kick {i} t {t} err {e:.3e} offset_rel {:.3e} T_doll {t_doll:.3e} ratio {ratio:.3e}", jet.offsets[i] / base.series[i].2);
++        }
++        max_err = max_err.max(e);
++        if jet.offsets[i] > 0.0 {
++            c_max = c_max.max(e / (jet.offsets[i] / base.series[i].2).powi(2));
++        }
++    }
++    let refused = jet.refused;
++    let mut sorted = jet.intervals.clone();
++    sorted.sort_unstable();
++    let med = sorted.get(sorted.len() / 2).copied().unwrap_or(0);
++    let p10 = sorted.get(sorted.len() / 10).copied().unwrap_or(0);
++    println!(
++        "{name:<11} seed {seed} theta 2^{theta_log2}: kicks {m} rebinds {} median-interval {med} p10 {p10} max-rel-err {max_err:.2e} (over {cmp} kicks) C=err/offset^2 max {c_max:.2e} refusals {refused}",
++        jet.intervals.len()
++    );
++}
++
++fn main() {
++    let n: usize = std::env::args().nth(1).and_then(|v| v.parse().ok()).unwrap_or(3000);
++    let thetas: Vec<i32> = std::env::args().nth(2).map(|v| v.split(',').filter_map(|x| x.parse().ok()).collect()).unwrap_or_else(|| vec![-20]);
++    let seeds: Vec<u64> = std::env::args().nth(3).map(|v| v.split(',').filter_map(|x| x.parse().ok()).collect()).unwrap_or_else(|| vec![1]);
++    // The checker's corrected identities: ships[i] is body id i+4 (0-3 are Cinder/Home/Giant/Moon).
++    let cases: [(&str, Option<usize>); 4] = [("Orbiter 3", Some(14)), ("Hauler 2", Some(1)), ("Hauler 7", Some(6)), ("Home", None)];
++    for &seed in &seeds {
++        for &th in &thetas {
++            for (name, idx) in &cases {
++                match idx {
++                    Some(i) => run(name, &|p: &emergent_universe::scenario::Plane| p.ships[*i], th, n, seed),
++                    None => run(name, &|_| 1, th, n, seed),
++                }
++            }
++            println!();
++        }
++    }
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800ea..62e6b924 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -51,6 +51,24 @@ pub struct Thrust {
+     pub since: Tick,
+ }
+ 
++/// The jet's carry (lab run 20261011-1814): the kicks since the last rebind, held exactly against the
++/// frozen binding instead of rebound. The state at `t` is the binding's readout plus `dv` (a step) and
++/// `dx + dv·(t − anchor)` (a ramp): the reader's ramp's shape at the width of the whole interval. All
++/// in the doll's units, at the frozen binding's own exponents. The rebind collapses it and starts it
++/// over (the error type is bounded by construction: each interval resets).
++#[derive(Clone, Copy, Debug)]
++pub struct JetCarry {
++    /// ΣΔv of the carried kicks (velocity units of the doll).
++    pub dv: [Scalar; 2],
++    /// ΣΔvᵢ·(anchor − tᵢ), the position carry stated at `anchor` (length units of the doll).
++    pub dx: [Scalar; 2],
++    /// The tick the position carry is stated at (the last carried kick's).
++    pub anchor: Tick,
++    /// The tick of the first carried kick: the interval's birth, what the rebind trigger's
++    /// window age is measured from.
++    pub born: Tick,
++}
++
+ #[derive(Clone, Debug)]
+ pub struct BodyRec {
+     pub kind: Kind,
+@@ -71,6 +89,9 @@ pub struct BodyRec {
+     /// planets and the bodies of a planet's doll keep the split of docs/law.md until the dolls are coordinates).
+     pub ext: Option<crate::ext::Ext>,
+     pub alive: bool,
++    /// The jet's carry while kicks are carried instead of rebound (None while the jet is off or the
++    /// binding is fresh: [`crate::step`] folds it into every state the law reads).
++    pub jet: Option<JetCarry>,
+     pub events: u64,
+     pub refusals: u64,
+     /// Why the last refusal happened.
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6da..7b495988 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -36,10 +36,21 @@ pub struct Config {
+     pub leave_log2: i32,
+     /// Kicks per radial period, as a power of two.
+     pub step_log2: i32,
++    /// The jet (lab run 20261011-1814, on law.md's adopted design): kicks are carried exactly against the
++    /// frozen binding and the rebind happens only when the carried position offset crosses
++    /// `2^jet_bound_log2` of the body's distance. `0` is off (the shipped law, rebound per kick). An
++    /// experiment: the default reads `UNIVERSE_JET_LOG2` so the behaviour gates can face the jet.
++    pub jet_bound_log2: i32,
+ }
+ impl Default for Config {
+     fn default() -> Self {
+-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
++        Self {
++            thrust_log2: -44,
++            turn_log2: -30,
++            leave_log2: 40,
++            step_log2: 7,
++            jet_bound_log2: std::env::var("UNIVERSE_JET_LOG2").ok().and_then(|v| v.parse().ok()).unwrap_or(0),
++        }
+     }
+ }
+ 
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d435..b04277d6 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -34,7 +34,7 @@
+ //! chatters. A body
+ //! that has nothing to be kicked by (no secondary, no parent) has no events at all.
+ use crate::bind::{bind, scalars, Binding, Bound, Entry, Kick};
+-use crate::body::{BodyRec, Item, Kind, Segment, What};
++use crate::body::{BodyRec, Item, JetCarry, Kind, Segment, What};
+ use crate::ctx::Ctx;
+ use crate::ext::Ext;
+ use crate::force::{self, LEVELS, RATIO};
+@@ -166,10 +166,27 @@ fn lift(a: &IntegerState, c: usize, el: i32) -> i128 {
+ fn relative(st: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Res<IntegerState> {
+     let el = st.length_exponent.min(centre.length_exponent) as i32;
+     let p = [0, 1].map(|c| lift(st, c, el) - lift(centre, c, el));
++
+     let (pw, pe) = to_word(p, el + (to as i32 - from as i32))?;
+     let (vw, ve) = crate::lorentz::seen_from((st.velocity, st.velocity_exponent as i32), (centre.velocity, centre.velocity_exponent as i32), None)?;
+     Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: i16::try_from(ve).map_err(|_| Error::Refused("exponent"))? })
+ }
++/// The state of a jet-carried binding at `t` (lab run 20261011-1814): the frozen tube's readout plus
++/// the carried kicks — `dv` as a velocity step, `dx + dv·(t − anchor)` as the position ramp — folded
++/// back into the readout's own integer words. Exact integer arithmetic; the exponents are the frozen
++/// binding's, so the fold is a plain word add.
++pub fn jet_state(b: &Binding, jet: Option<JetCarry>, t: Tick) -> Res<IntegerState> {
++    let mut st = b.readout(t)?;
++    let Some(j) = jet else { return Ok(st) };
++    let dt = time_of(t.saturating_sub(j.anchor), b.clock_exp)?;
++    for c in 0..2 {
++        let dv = j.dv[c].fixed(-(st.velocity_exponent as i32))?;
++        let dx = j.dx[c].add(j.dv[c].mul(dt)?)?.fixed(-(st.length_exponent as i32))?;
++        st.velocity[c] = i64::try_from(st.velocity[c] as i128 + dv).map_err(|_| Error::Refused("jet outside the word"))?;
++        st.position[c] = i64::try_from(st.position[c] as i128 + dx).map_err(|_| Error::Refused("jet outside the word"))?;
++    }
++    Ok(st)
++}
+ 
+ /// The inverse: `rel` in the child doll (`from`) seen from the child's centre in the parent (`to`). The positions add
+ /// (rounded to the parent's word, toward zero: the one carry of a handoff, bounded by one quantum of the parent's
+@@ -303,6 +320,77 @@ impl Work<'_, '_> {
+         self.ctx.dolls[doll as usize].parent.is_some() || self.ctx.sources[doll as usize].iter().any(|&j| j != self.i)
+     }
+ 
++    /// Whether the jet is on for this body (lab 20261011-1814): kicks carried against the frozen
++    /// binding, the rebind only at the drift bound.
++    fn jet_on(&self) -> bool {
++        self.ctx.cfg.jet_bound_log2 != 0
++    }
++
++    /// The jet's carry at `t` as scalars: (position offset, velocity offset), doll units, exact.
++    /// The kick paths add it to the readout's scalars — never to the words between rebinds (a
++    /// per-kick word fold truncates sub-quantum bits and walks); only a rebind rounds.
++    fn carry_scalars(&self, t: Tick) -> Res<(V2, V2)> {
++        let Some(j) = self.rec.jet else { return Ok(([Scalar::ZERO; 2], [Scalar::ZERO; 2])) };
++        let dt = time_of(t.saturating_sub(j.anchor), self.rec.b.clock_exp)?;
++        Ok(([j.dx[0].add(j.dv[0].mul(dt)?)?, j.dx[1].add(j.dv[1].mul(dt)?)?], j.dv))
++    }
++
++    /// The state at `t` for the paths that read whole words (certificates, handoffs, the clock's
++    /// constants): the readout with the carry folded in (one bounded rounding per event).
++    fn state(&self, t: Tick) -> Res<IntegerState> {
++        jet_state(&self.rec.b, self.rec.jet, t)
++    }
++
++    /// Fold a fired kick `dv` (velocity scalars) at `t` into the jet's carry: the velocity step adds,
++    /// the position ramp re-anchors (a kick contributes no offset at its own tick).
++    fn carry_kick(&mut self, t: Tick, dv: V2) -> Res<()> {
++        let jet = match self.rec.jet {
++            Some(j) => {
++                let dt = time_of(t.saturating_sub(j.anchor), self.rec.b.clock_exp)?;
++                JetCarry {
++                    dv: [j.dv[0].add(dv[0])?, j.dv[1].add(dv[1])?],
++                    dx: [j.dx[0].add(j.dv[0].mul(dt)?)?, j.dx[1].add(j.dv[1].mul(dt)?)?],
++                    anchor: t,
++                    born: j.born,
++                }
++            }
++            None => JetCarry { dv, dx: [Scalar::ZERO; 2], anchor: t, born: t },
++        };
++        self.rec.jet = Some(jet);
++
++        Ok(())
++    }
++    /// Whether the jet rebinds now. The carried offset alone does not bound the error: the frozen
++    /// tube transports each kick's Δv linearly while the true response is Keplerian, so the error
++    /// is the offset times the window's age in orbital turns — `err ≈ ω·Δt·off` (measured here:
++    /// the offset-only trigger overruns its floor by 100× on the split's bodies). So the rebind
++    /// fires when `off·Δt` crosses `2^θ·r·T` — the offset, the age, the radius and the tube's own
++    /// period, all of them already maintained or read from the frozen tube: no exact reference.
++    /// (The clock bodies' error is second order in the carry, so this fires early for them — safe.)
++    fn jet_due_age(&self, t: Tick) -> Res<bool> {
++        let Some(j) = self.rec.jet else { return Ok(false) };
++        let dt = time_of(t.saturating_sub(j.anchor), self.rec.b.clock_exp)?;
++        let off = norm2([j.dx[0].add(j.dv[0].mul(dt)?)?, j.dx[1].add(j.dv[1].mul(dt)?)?])?;
++        let age = time_of(t.saturating_sub(j.born), self.rec.b.clock_exp)?;
++        let r = self.rec.b.cartesian(t).and_then(|(x, _)| norm2(x))?;
++        let period = self.rec.b.to_doll(match &self.rec.b.entry.trajectory {
++            Trajectory::Cycle(c) => c.period()?,
++            Trajectory::Passage(p) => p.duration()?,
++        })?;
++        Ok(off.mul(age)? > r.mul(period)?.scale(self.ctx.cfg.jet_bound_log2)?)
++    }
++
++    /// Whether the jet rebinds now: the carried position offset against `2^jet_bound_log2` of the
++    /// body's distance. Cheap by construction — it reads only the carry (maintained anyway) and the
++    /// frozen tube's own radius; there is no exact reference to cheat with.
++    fn jet_due(&self, t: Tick) -> Res<bool> {
++        let Some(j) = self.rec.jet else { return Ok(false) };
++        let dt = time_of(t.saturating_sub(j.anchor), self.rec.b.clock_exp)?;
++        let off = norm2([j.dx[0].add(j.dv[0].mul(dt)?)?, j.dx[1].add(j.dv[1].mul(dt)?)?])?;
++        let r = self.rec.b.cartesian(t).and_then(|(x, _)| norm2(x))?;
++        Ok(off > r.scale(self.ctx.cfg.jet_bound_log2)?)
++    }
++
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+@@ -324,7 +412,9 @@ impl Work<'_, '_> {
+             event_time: t,
+             kick: Kick::NONE,
+         };
+-        self.new_entry = Some(bound.entry.clone());
++        // A fresh tube carries nothing: the exact state passed in already holds the carry (every
++        // state the Work reads is `state()`, the fold of readout and carry).
++        self.rec.jet = None;
+         Ok(bound)
+     }
+ 
+@@ -339,12 +429,22 @@ impl Work<'_, '_> {
+         if th.keys == 0 || t <= th.since {
+             return Ok(v);
+         }
++
+         let dtau = self.proper_since(th.since, t)?;
+         let (heading, v2) = thrust::owed(self.ctx.cfg, th, dtau, x, v, self.ctx.dolls[self.rec.b.doll as usize].unit.mu)?;
+         self.rec.thrust = Some(crate::body::Thrust { heading, since: t, ..th });
+         Ok(v2)
+     }
+ 
++    /// A position component of the corrected scalars, fit to the state's own words (the jet's
++    /// rebind takes the carried position as well as the carried velocity; one bounded rounding).
++    fn pos_after(&self, st: &IntegerState, x_new: V2) -> Res<[i64; 2]> {
++        // Round to nearest, not toward zero: the jet rebinds often, and a toward-zero truncation
++        // at every rebind is a one-sided walk (B13 lost 8 of 64 flybys to it).
++        let half = Scalar::power_of_two(st.length_exponent - 1);
++        let q = |c: usize| -> Res<i64> { i64::try_from(x_new[c].add(half)?.fixed(-(st.length_exponent as i32))?).map_err(|_| Error::Refused("position outside the word")) };
++        Ok([q(0)?, q(1)?])
++    }
+     fn velocity_after(&self, st: &IntegerState, v_new: V2) -> Res<[i64; 2]> {
+         let q = |c: usize| -> Res<i64> { i64::try_from(v_new[c].fixed(-(st.velocity_exponent as i32))?).map_err(|_| Error::Refused("velocity outside the word")) };
+         Ok([q(0)?, q(1)?])
+@@ -353,7 +453,12 @@ impl Work<'_, '_> {
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+         let st = self.rec.b.readout(t)?;
+-        let (x, v) = scalars(&st)?;
++        let (mut x, mut v) = scalars(&st)?;
++        // The jet's carry joins in the scalars, never in the words between rebinds: a per-kick
++        // word fold truncates sub-quantum bits and walks (principle 13). Only a rebind rounds.
++        let (dx, dvc) = self.carry_scalars(t)?;
++        x = add2(x, dx)?;
++        v = add2(v, dvc)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
+@@ -376,7 +481,20 @@ impl Work<'_, '_> {
+                 return Ok(());
+             }
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+-            IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
++            if self.jet_on() {
++                // The jet (lab 20261011-1814): the fired kick is carried against the frozen binding
++                // (an exact step and ramp, [`carry_kick`]); the rebind — the whole-tube refit —
++                // happens only when the carried offset crosses the bound ([`jet_due`]). At that
++                // rebind the words take the whole carried velocity (one bounded rounding, like any
++                // rebind). A burn always rebinds: it is a decision, not a flow of the Hamiltonian.
++                self.carry_kick(t, added)?;
++                if !self.jet_due_age(t)? {
++                    return Ok(());
++                }
++                IntegerState { position: self.pos_after(&st, x)?, velocity: self.velocity_after(&st, add2(v, added)?)?, ..st }
++            } else {
++                IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
++            }
+         };
+         self.rebind(next, t, d)?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+@@ -423,7 +541,7 @@ impl Work<'_, '_> {
+         if l >= LEVELS {
+             return Ok(());
+         }
+-        let st = self.rec.b.readout(t)?;
++        let st = self.state(t)?;
+         let (x, v) = scalars(&st)?;
+         if l > 0 && self.maybe_capture(t, &st, x)? {
+             return Ok(());
+@@ -534,7 +652,7 @@ impl Work<'_, '_> {
+ 
+     /// Project the energy register onto the constraint `K = 0` at the state read at `t`: `p_t = U_P − H_D`.
+     fn project(&mut self, t: Tick) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
++        let st = self.state(t)?;
+         let (x, v) = scalars(&st)?;
+         let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
+         let u = force::field(&secs, x)?.potential;
+@@ -551,13 +669,13 @@ impl Work<'_, '_> {
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
+         if self.rec.ext.is_none() {
+-            let st = self.rec.b.readout(t)?;
++            let st = self.state(t)?;
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+         }
+         self.project(t)?;
+-        let st = self.rec.b.readout(t)?;
++        let st = self.state(t)?;
+         let (x, v) = scalars(&st)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+@@ -583,7 +701,11 @@ impl Work<'_, '_> {
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+         let d = self.rec.b.doll;
+         let st = self.rec.b.readout(t)?;
+-        let (x, v) = scalars(&st)?;
++        let (mut x, mut v) = scalars(&st)?;
++        // The jet's carry joins in the scalars (exact; the words only round at a rebind).
++        let (dx, dvc) = self.carry_scalars(t)?;
++        x = add2(x, dx)?;
++        v = add2(v, dvc)?;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+@@ -604,17 +726,34 @@ impl Work<'_, '_> {
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+-        let (next, carry) = if thrusting {
++        // The state the kick leaves: the velocity the flow (plus a burn, if any) gives the carried
++        // state, and the words for a rebind (`fired` is whether the flow moved a quantum).
++        let mut carried = [Scalar::ZERO; 2];
++        let (next, v_next, carry, fired) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+-            (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
++            let next = IntegerState { velocity: self.velocity_after(&st, v2)?, ..st };
++            let fired = next.velocity != st.velocity;
++            (next, v2, self.rec.carry, fired)
+         } else {
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+             ext.add_pt(w.mul(f.rate)?)?;
+-            (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
++            carried = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
++            let v_next = add2(v, carried)?;
++            (IntegerState { position: self.pos_after(&st, x)?, velocity: self.velocity_after(&st, v_next)?, ..st }, v_next, carry, dvq != [0, 0])
+         };
+-        let fired = next.velocity != st.velocity;
+-        if fired {
++        // The jet (lab 20261011-1814): a fired kick is carried against the frozen binding; the
++        // rebind happens only at the drift bound. The register's flow (`add_pt`) is exact either
++        // way, and the next step is planned from the carried state, so the clock's own cadence
++        // carries the jet's feedback. A burn always rebinds (a decision, not a flow).
++        let jet = self.jet_on() && fired && !thrusting;
++        let rebound = if jet {
++            self.carry_kick(t, carried)?;
++            self.jet_due_age(t)?
++        } else {
++            fired
++        };
++        if rebound {
+             self.rebind(next, t, d)?;
+         }
+         self.rec.carry = carry;
+@@ -623,8 +762,10 @@ impl Work<'_, '_> {
+             self.project(t)?;
+         }
+         // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
+-        // kick share it), and its boundary in the middle.
+-        let (x, v) = scalars(&next)?;
++        // kick share it), and its boundary in the middle. Planned from the carried scalars, so the
++        // clock's cadence carries the jet.
++        // (jet off: the shipped law plans from the rebound words, bit for bit; jet on: from the carry)
++        let v = if self.jet_on() { v_next } else { scalars(&next)?.1 };
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+         let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
+@@ -657,7 +798,7 @@ impl Work<'_, '_> {
+     /// The synchronised output of the split, in the middle between two kicks: the certificates (surface, the system's edge),
+     /// and the tick the map's state is read at ([`BodyRec::anchor`]). The next kick is already planned.
+     fn boundary_clock(&mut self, t: Tick) -> Res<Resolved> {
+-        let st = self.rec.b.readout(t)?;
++        let st = self.state(t)?;
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+@@ -673,7 +814,7 @@ impl Work<'_, '_> {
+     }
+ 
+     fn thrust_step(&self, t: Tick) -> Res<i64> {
+-        let st = self.rec.b.readout(t)?;
++        let st = self.state(t)?;
+         let (x, v) = scalars(&st)?;
+         let speed = norm2(v)?.max(Scalar::ONE.div(norm2(x)?)?.sqrt()?);
+         // α in rapidity per tick: 2^thrust_log2 per root unit at the throttle's level, and a tick is 2^0 root units.
+@@ -690,7 +831,7 @@ impl Work<'_, '_> {
+         }
+         let d = self.rec.b.doll;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+-        let st = self.rec.b.readout(t)?;
++        let st = self.state(t)?;
+         let (x, _) = scalars(&st)?;
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+@@ -742,7 +883,7 @@ impl Work<'_, '_> {
+ 
+     /// A planned impact: the ship is at or below the surface at the periapsis passage.
+     fn crash(&mut self, t: Tick) -> Res<Resolved> {
+-        let st = self.rec.b.readout(t)?;
++        let st = self.state(t)?;
+         let (x, _) = scalars(&st)?;
+         if norm2(x)? <= self.doll().surface {
+             self.rec.alive = false;
+@@ -812,7 +953,7 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+         if let Some(th) = w.rec.thrust.filter(|th| th.keys != 0 && t > th.since) {
+-            let st = w.rec.b.readout(t)?;
++            let st = w.state(t)?;
+             let (x, v) = scalars(&st)?;
+             let v2 = w.burn(x, v, t)?;
+             if th.keys & 3 != 0 {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc024..684cf687 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -297,6 +297,7 @@ impl Universe {
+             plan: Vec::new(),
+             thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+             ext: None,
++            jet: None,
+             alive: true,
+             events: 0,
+             refusals: 0,
+@@ -345,6 +346,7 @@ impl Universe {
+             plan: Vec::new(),
+             thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+             ext: None,
++            jet: None,
+             alive: true,
+             events: 0,
+             refusals: 0,
+@@ -693,6 +695,7 @@ impl Universe {
+                 plan: Vec::new(),
+                 thrust: None,
+                 ext: None,
++                jet: None,
+                 alive: true,
+                 events: 0,
+                 refusals: 0,
