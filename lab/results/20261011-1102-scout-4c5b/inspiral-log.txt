@@ -1,0 +1,29 @@
+== W1 quadrupole average vs Peters-Mathews ==
+  e=0.0  relerr = 0.00e+00
+  e=0.1  relerr = 2.22e-16
+  e=0.3  relerr = 1.11e-16
+  e=0.5  relerr = 0.00e+00
+  e=0.7  relerr = 7.77e-16
+  e=0.9  relerr = 1.44e-15
+== W2 circular wiring ==
+  t_num/t_closed relerr = 7.99e-08
+== M: generator on the exact tube (eccentric) ==
+  nu=0.25 e0=0.3 a0=100: orbits=1468 a_end=6.3 e_end=0.088 w1e-2=24.7 w1e-3=67.2 inside(w1e-2)=49 max_e=0.3000
+  nu=0.25 e0=0.6 a0=100: orbits=545 a_end=6.8 e_end=0.0 w1e-2=26.1 w1e-3=100.0 inside(w1e-2)=53 max_e=0.6000
+  nu=0.25 e0=0.9 a0=100: orbits=18 a_end=7.2 e_end=0.277 w1e-2=100.0 w1e-3=100.0 inside(w1e-2)=18 max_e=0.9000
+  nu=0.01 e0=0.3 a0=100: orbits=36727 a_end=6.1 e_end=0.0 w1e-2=6.8 w1e-3=17.1 inside(w1e-2)=2 max_e=0.3000
+  nu=0.01 e0=0.6 a0=100: orbits=13651 a_end=6.2 e_end=0.029 w1e-2=6.8 w1e-3=17.4 inside(w1e-2)=2 max_e=0.6000
+  nu=0.01 e0=0.9 a0=100: orbits=453 a_end=9.1 e_end=0.0 w1e-2=100.0 w1e-3=100.0 inside(w1e-2)=453 max_e=0.9000
+  nu=0.001 e0=0.3 a0=30: orbits=15790 a_end=6.2 e_end=0.062 w1e-2=None w1e-3=6.8 inside(w1e-2)=None max_e=0.3000
+  nu=0.001 e0=0.6 a0=30: orbits=5300 a_end=7.8 e_end=0.0 w1e-2=None w1e-3=7.3 inside(w1e-2)=None max_e=0.6000
+  nu=0.001 e0=0.9 a0=30: orbits=974 a_end=8.9 e_end=0.469 w1e-2=None w1e-3=31.9 inside(w1e-2)=None max_e=0.7895
+== M: circular (exact family) ==
+  nu=0.25 a0=100: orbits=1929 a_end=6.00 w1e-2=25.4 w1e-3=62.6 inside(w1e-2)=53 inside(w1e-3)=583
+  nu=0.01 a0=100: orbits=48230 a_end=6.00 w1e-2=8.5 w1e-3=18.0 inside(w1e-2)=23 inside(w1e-3)=488
+  nu=0.001 a0=30: orbits=21088 a_end=6.00 w1e-2=6.3 w1e-3=8.5 inside(w1e-2)=3 inside(w1e-3)=233
+  P9 spurious e (two-flux drift, a0=100, nu=0.25): 8.15e-01
+== PN: merger-time deficit decomposition (nu=0.25, circular) ==
+  a0=20M: odevsN=+0.02% flux1pn +8.2%  geometry -16.7%  both -9.7%
+  a0=100M: odevsN=+0.00% flux1pn +4.1%  geometry -2.2%  both +1.8%
+  a0=600M: odevsN=+0.00% flux1pn +0.9%  geometry -0.3%  both +0.5%
+wrote inspiral-out.json
