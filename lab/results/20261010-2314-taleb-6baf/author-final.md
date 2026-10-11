@@ -1,0 +1,4 @@
+Working...
+**Claim:** Measured for the first time (9 seeded runs, ≤40 s each, controls both sides), the live-distinction rate of a stirred belt shows a frozen population program dies within **0.4 planet orbits at any admissible key width** with churn of **13–32 key-events per ship per planet orbit forever — uniformly across ships, not fat-tailed** — and a mature entropy floor of **~12.7 bits/ship**, so the newborn 0.126-bit belt lasts under one game-year and populations in stirred regions must run the kick law itself as the program with scars re-absorbed continuously, or the billion-body memory budget is sized for a state that evaporates in a year.
+
+Dossier, pre-registered predictions (4 of 8 honestly failed, each failure a number), metrics.json and all reproducing commands are in `lab/results/20261010-2314-taleb-6baf/`.
