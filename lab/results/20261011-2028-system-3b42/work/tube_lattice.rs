@@ -1,0 +1,266 @@
+//! The tube lattice (lab run 20261011-2028-system-3b42, lens: the whole system).
+//!
+//! Claim under test: the encounter index needs no per-body state beyond the law's 16-byte tube
+//! (key index, ϖ, t_p) and one order — the doll's store sorted by (key, phase). Per-key constants
+//! (radial range, e, period) belong to the memo entry. The cone's U-axis is the key order; the
+//! co-orbital phase rank is the within-key phase order. `Body` (80 B/body) + `Sorted` is the
+//! second per-body structure this would delete.
+//!
+//! Modes: `belt` (zero-miss + inflation vs quantum), `coorbital` (phase-rank coverage on the
+//! crate's own adversarial specs), `formation` (one-key concentration: truth at small n, counts at
+//! scale). One JSON object per line.
+
+use emergent_encounters::belt::{make_belt, Rng, Spec};
+use emergent_encounters::kepler::{Body, TICKS};
+use emergent_encounters::pairs::{cone_pairs, radial_pairs};
+use emergent_encounters::truth::{truth_pair, TruthStats};
+use std::f64::consts::TAU;
+use std::time::Instant;
+
+/// One key cell of the memo lattice: conservative constants shared by every member.
+struct KeyCell {
+    rmin: f64,
+    rmax: f64,
+    members: Vec<u32>,
+}
+
+/// Quantize a belt onto the (a-cell, e-cell) key lattice. Returns cells and each body's key.
+fn lattice(b: &[Body], a_lo: f64, a_hi: f64, e_span: f64, nca: usize, nce: usize) -> (Vec<u32>, Vec<KeyCell>) {
+    let da = (a_hi - a_lo) / nca as f64;
+    let de = e_span / nce as f64;
+    let mut keys: Vec<u32> = Vec::with_capacity(b.len());
+    let mut cells: Vec<Option<KeyCell>> = (0..nca * nce).map(|_| None).collect();
+    for (i, x) in b.iter().enumerate() {
+        let ia = (((x.a - a_lo) / da).floor() as usize).min(nca - 1);
+        let ie = ((x.e / de).floor() as usize).min(nce - 1);
+        let k = ia * nce + ie;
+        keys.push(k as u32);
+        let a_c_lo = a_lo + ia as f64 * da;
+        let a_c_hi = a_c_lo + da;
+        let e_c_hi = ((ie + 1) as f64 * de).min(0.99);
+        let cell = cells[k].get_or_insert_with(|| KeyCell {
+            rmin: a_c_lo * (1.0 - e_c_hi),
+            rmax: a_c_hi * (1.0 + e_c_hi),
+            members: Vec::new(),
+        });
+        cell.members.push(i as u32);
+    }
+    let cells: Vec<KeyCell> = cells.into_iter().flatten().collect();
+    (keys, cells)
+}
+
+/// Lattice candidate pairs: cross-key pairs from conservative interval overlap (+2ρ, the truth
+/// tier's margin), plus same-key pairs (the concentrated regime; the spread fallback takes all,
+/// `same_key_rank` > 0 takes phase-rank neighbours instead, the taleb-09b5 certificate).
+fn lattice_pairs(
+    b: &[Body],
+    _keys: &[u32],
+    cells: &[KeyCell],
+    rho: f64,
+    same_key_rank: usize,
+) -> (Vec<(u32, u32)>, u64, u64) {
+    let mut order: Vec<u32> = (0..cells.len() as u32).collect();
+    order.sort_by(|&x, &y| cells[x as usize].rmin.total_cmp(&cells[y as usize].rmin));
+    let mut pairs = Vec::new();
+    let (mut scanned, mut same_key) = (0u64, 0u64);
+    for xi in 0..order.len() {
+        let cx = &cells[order[xi] as usize];
+        // Same-key candidates.
+        if same_key_rank == 0 {
+            same_key += (cx.members.len() as u64) * (cx.members.len() as u64 - 1) / 2;
+            for ai in 0..cx.members.len() {
+                for aj in ai + 1..cx.members.len() {
+                    pairs.push((cx.members[ai], cx.members[aj]));
+                }
+            }
+        } else {
+            // Phase (mean-longitude) order at t = 0, rank-k neighbours: the tube's t_p axis.
+            let mut ph: Vec<(f64, u32)> = cx
+                .members
+                .iter()
+                .map(|&i| (b[i as usize].mean_anomaly(0.0) + b[i as usize].pom, i))
+                .collect();
+            ph.sort_by(|x, y| x.0.total_cmp(&y.0));
+            for k in 0..ph.len() {
+                for d in 1..=same_key_rank {
+                    if k + d < ph.len() {
+                        pairs.push((ph[k].1, ph[k + d].1));
+                        same_key += 1;
+                    }
+                }
+            }
+        }
+        // Cross-key: conservative interval overlap.
+        for yi in xi + 1..order.len() {
+            let cy = &cells[order[yi] as usize];
+            if cy.rmin > cx.rmax + 2.0 * rho {
+                break;
+            }
+            if cx.rmin <= cy.rmax + 2.0 * rho {
+                for &i in &cx.members {
+                    for &j in &cy.members {
+                        pairs.push((i, j));
+                        scanned += 1;
+                    }
+                }
+            }
+        }
+    }
+    (pairs, scanned, same_key)
+}
+
+fn spec(name: &str, n: usize, sigma_e: f64, rho: f64, a_lo: f64, a_hi: f64, keys: usize, orbits: f64, seed: u64) -> Spec {
+    Spec { name: name.into(), n, sigma_e, rho, a_lo, a_hi, keys, seed, orbits }
+}
+
+/// A formation: one key cell's worth of spread (a fleet on one orbit), clustered ϖ, an arc of
+/// phases, tiny period spread so shear closes gaps over the horizon.
+fn formation(n: usize, seed: u64) -> (Vec<Body>, f64, f64) {
+    let mut rng = Rng(seed);
+    let b: Vec<Body> = (0..n)
+        .map(|_| {
+            let a = 1.0 + 2e-5 * rng.f64();
+            let e = (1e-4 * (-2.0 * (1.0 - rng.f64()).ln()).sqrt()).min(0.002);
+            let pom = 0.05 * (rng.f64() - 0.5);
+            let lam = TAU * (0.3 + 0.06 * rng.f64());
+            Body::new(a, e, pom, lam)
+        })
+        .collect();
+    (b, 1e-3, 50.0 * TAU)
+}
+
+fn main() {
+    let mode = std::env::args().nth(1).unwrap_or_else(|| "belt".into());
+    let t_start = Instant::now();
+    match mode.as_str() {
+        "belt" => {
+            // Spread belts: zero-miss of the truth tier (radial_pairs) inside the key lattice,
+            // and candidate inflation against the exact per-body cone, per quantum.
+            let specs = [
+                spec("spread-r1e-3", 600, 1e-3, 1e-3, 1.0, 1.5, 0, 40.0, 20261101),
+                spec("spread-r3e-2", 600, 3e-2, 1e-3, 1.0, 1.5, 0, 40.0, 20261102),
+                spec("hot-s0.1", 600, 0.1, 1e-3, 1.0, 1.5, 0, 40.0, 20261103),
+            ];
+            for sp in &specs {
+                let b = make_belt(sp);
+                let radial = radial_pairs(&b, sp.rho);
+                let cone = cone_pairs(&b, sp.rho).pairs.len();
+                for nca in [256usize, 1024, 4096] {
+                    let (keys, cells) = lattice(&b, sp.a_lo, sp.a_hi, 0.5, nca, 256);
+                    let (lp, _scanned, same_key) = lattice_pairs(&b, &keys, &cells, sp.rho, 0);
+                    let lset: std::collections::HashSet<(u32, u32)> =
+                        lp.iter().map(|&(i, j)| (i.min(j), i.max(j))).collect();
+                    let missed = radial.iter().filter(|&&(i, j)| !lset.contains(&(i.min(j), i.max(j)))).count();
+                    let occupied = cells.iter().filter(|c| !c.members.is_empty()).count();
+                    println!(
+                        "{{\"exp\":\"belt\",\"spec\":\"{}\",\"n\":{},\"rho\":{},\"nca\":{},\"cells\":{},\
+\"radial_pairs\":{},\"cone_pairs\":{},\"lattice_pairs\":{},\"same_key_pairs\":{},\"missed_radial\":{},\
+\"inflate_vs_cone\":{:.3},\"inflate_vs_radial\":{:.3}}}",
+                        sp.name, sp.n, sp.rho, nca, occupied, radial.len(), cone, lp.len(), same_key, missed,
+                        lp.len() as f64 / cone as f64, lp.len() as f64 / radial.len().max(1) as f64
+                    );
+                }
+            }
+        }
+        "coorbital" => {
+            // The crate's own adversarial specs: does every real encounter (truth) lie within
+            // mean-longitude rank K of its partner at encounter time?
+            let specs = [
+                spec("coorbital", 300, 3e-4, 1e-3, 1.0, 1.0001, 0, 50.0, 20261001 + 9),
+                spec("equal-period-keys", 300, 1e-2, 1e-3, 1.0, 1.001, 3, 50.0, 20261001 + 10),
+            ];
+            for sp in &specs {
+                let b = make_belt(sp);
+                let radial = radial_pairs(&b, sp.rho);
+                let t0 = Instant::now();
+                let mut events: Vec<(u32, u32, f64)> = Vec::new();
+                let mut tst = TruthStats::default();
+                let mut tmp = Vec::new();
+                for &(i, j) in &radial {
+                    tmp.clear();
+                    truth_pair(&b[i as usize], &b[j as usize], sp.rho, sp.orbits * TAU, &mut tmp, &mut tst);
+                    events.extend(tmp.iter().map(|&(t, _)| (i, j, t)));
+                }
+                let truth_s = t0.elapsed().as_secs_f64();
+                // Rank in the mean-longitude circle at each encounter time: the number of other
+                // bodies on the shorter arc between the pair (its partners along the orbit).
+                let ranks: Vec<usize> = events
+                    .iter()
+                    .map(|&(i, j, t)| {
+                        let li = b[i as usize].mean_anomaly(t) + b[i as usize].pom;
+                        let lj = b[j as usize].mean_anomaly(t) + b[j as usize].pom;
+                        let d = (li - lj).rem_euclid(TAU).min((lj - li).rem_euclid(TAU));
+                        b.iter()
+                            .enumerate()
+                            .filter(|&(k, _)| k != i as usize && k != j as usize)
+                            .filter(|&(_, x)| (x.mean_anomaly(t) + x.pom - li).rem_euclid(TAU) <= d)
+                            .count()
+                    })
+                    .collect();
+                let worst = ranks.iter().copied().max().unwrap_or(0);
+                let cov = |k: usize| ranks.iter().filter(|&&r| r <= k).count();
+                println!(
+                    "{{\"exp\":\"coorbital\",\"spec\":\"{}\",\"n\":{},\"radial_pairs\":{},\"truth_events\":{},\
+\"truth_s\":{:.2},\"rank_le4\":{},\"rank_le8\":{},\"rank_le16\":{},\"rank_le32\":{},\"worst_rank\":{}}}",
+                    sp.name, sp.n, radial.len(), events.len(), truth_s,
+                    cov(4), cov(8), cov(16), cov(32), worst
+                );
+            }
+        }
+        "formation" => {
+            // Concentration: truth at n=256/512 (all pairs), then candidate counts at scale.
+            for n in [256usize, 512] {
+                let (b, rho, t_end) = formation(n, 20261110);
+                let pairs: Vec<(u32, u32)> = (0..n).flat_map(|i| (i + 1..n).map(move |j| (i as u32, j as u32))).collect();
+                let t0 = Instant::now();
+                let mut events = Vec::new();
+                let mut tst = TruthStats::default();
+                let mut tmp = Vec::new();
+                for &(i, j) in &pairs {
+                    tmp.clear();
+                    truth_pair(&b[i as usize], &b[j as usize], rho, t_end, &mut tmp, &mut tst);
+                    events.extend(tmp.iter().map(|&(t, _)| (i, j, t)));
+                }
+                // Rank coverage on the truth events (same rule as coorbital).
+                let mut le4 = 0usize;
+                for &(i, j, t) in &events {
+                    let li = b[i as usize].mean_anomaly(t) + b[i as usize].pom;
+                    let lj = b[j as usize].mean_anomaly(t) + b[j as usize].pom;
+                    let d = (li - lj).rem_euclid(TAU).min((lj - li).rem_euclid(TAU));
+                    let rank = b.iter().enumerate().filter(|&(k, _)| k != i as usize && k != j as usize)
+                        .filter(|&(_, x)| (x.mean_anomaly(t) + x.pom - li).rem_euclid(TAU) <= d)
+                        .count();
+                    if rank <= 4 {
+                        le4 += 1;
+                    }
+                }
+                println!(
+                    "{{\"exp\":\"formation-truth\",\"n\":{},\"pairs\":{},\"truth_events\":{},\"rank_le4\":{},\
+\"truth_s\":{:.2},\"evals\":{}}}",
+                    n, pairs.len(), events.len(), le4, t0.elapsed().as_secs_f64(), tst.evals
+                );
+            }
+            for n in [1024usize, 4096, 16384] {
+                let (b, rho, _t_end) = formation(n, 20261110);
+                // One engine-scale key cell contains the whole formation (a-quantum coarser than
+                // the spread): the lattice with the engine quantum.
+                let (keys, cells) = lattice(&b, 1.0, 1.0 + 2e-5, 0.01, 1, 1);
+                let (lp_all, _s, same_all) = lattice_pairs(&b, &keys, &cells, rho, 0);
+                let (lp_rank, _s2, same_rank) = lattice_pairs(&b, &keys, &cells, rho, 4);
+                let radial = radial_pairs(&b, rho);
+                let real_rate = 0.0; // from the truth runs above; filled in the dossier
+                println!(
+                    "{{\"exp\":\"formation-scale\",\"n\":{},\"radial_pairs\":{},\"lattice_all\":{},\
+\"lattice_rank4\":{},\"same_key_all\":{},\"same_key_rank4\":{},\"ratio_all\":{:.1},\"ratio_rank4\":{:.1},\
+\"real_rate\":{}}}",
+                    n, radial.len(), lp_all.len(), lp_rank.len(), same_all, same_rank,
+                    radial.len() as f64 / lp_all.len().max(1) as f64,
+                    radial.len() as f64 / lp_rank.len().max(1) as f64, real_rate
+                );
+            }
+        }
+        _ => eprintln!("modes: belt | coorbital | formation"),
+    }
+    eprintln!("total_s: {:.2}", t_start.elapsed().as_secs_f64());
+    let _ = TICKS;
+}
