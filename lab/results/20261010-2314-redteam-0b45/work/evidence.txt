@@ -1,0 +1,29 @@
+== python3 check_oracle.py ==
+== flat closed-form check (same b) ==
+re=  8.0 b= 7.4400 in=0  dphi: int 1.186972776 closed 1.186972776 rel 1.33e-14 | T: int 997.037963 closed 997.031847 rel 6.13e-06
+re=  8.0 b= 7.4400 in=1  dphi: int 1.939739740 closed 1.939739740 rel 2.09e-13 | T: int 1002.920961 closed 1002.912799 rel 8.14e-06
+re=  8.0 b= 4.0000 in=0  dphi: int 0.519598765 closed 0.519598765 rel 1.07e-15 | T: int 993.069913 closed 993.063797 rel 6.16e-06
+re=  8.0 b= 4.0000 in=1  dphi: int 2.613993867 closed 2.613993867 rel 1.07e-13 | T: int 1007.013056 closed 1006.920203 rel 9.22e-05
+re= 20.0 b=13.6000 in=0  dphi: int 0.734162215 closed 0.734162215 rel 1.21e-15 | T: int 985.243427 closed 985.243273 rel 1.56e-07
+re= 20.0 b=13.6000 in=1  dphi: int 2.380229600 closed 2.380229600 rel 1.66e-13 | T: int 1014.572488 closed 1014.571758 rel 7.20e-07
+== curved: RK4 Binet ODE vs quadrature (same b) ==
+re=  8.0 b= 7.3000 in=0  dphi: quad 1.05846902 rk4 1.05848000 rel 1.04e-05 | T: quad 1006.410724 rk4 1006.544424 rel 1.33e-04
+re=  8.0 b= 6.0000 in=1  dphi: quad 4.03243540 rk4 4.03262000 rel 4.58e-05 | T: quad 1029.915859 rk4 1030.416470 rel 4.86e-04
+re= 20.0 b=19.0000 in=0  dphi: quad 1.17238318 rk4 1.17240000 rel 1.44e-05 | T: quad 1000.568453 rk4 1000.928630 rel 3.60e-04
+re= 50.0 b=10.0000 in=0  dphi: quad 0.19131612 rk4 0.19132000 rel 2.03e-05 | T: quad 957.028995 rk4 956.418244 rel 6.39e-04
+re=  6.0 b= 5.4000 in=1  dphi: quad 5.02849364 rk4 5.02874000 rel 4.90e-05 | T: quad 1033.482111 rk4 1033.663158 rel 1.75e-04
+== exact radial anchor (b->0 limit, exact closed form) ==
+r_e=  6.0  T quad 1005.038918  exact 1005.038918  rel 6.26e-10
+r_e= 20.0  T quad 988.030763  exact 988.030763  rel 5.10e-12
+r_e= 50.0  T quad 956.069105  exact 956.069105  rel 2.19e-13
+== grazing reference (leading log; regime-limited, see dossier) ==
+b=  20.0 periapsis=18.913  delay= 21.7862  leading-log= 18.4207  rel= 0.183
+b= 100.0 periapsis=98.985  delay= 14.2059  leading-log= 11.9829  rel= 0.186
+
+== python3 shapiro_gather.py ==
+r_e=  6.0 beta=0.500 n=60 cap=0 min_b=  0.903 | |dt| med= 17.06 max= 22.07 M | phase err med=  66.5 max=  86.0 deg | disp max= 9.010 M (150.2% r_e) | px full= 6.22 zoom=  740.6 | worst row: phi=2.99 b=6.63 inb=1 dt_shap=+15.7 dt=+22.1
+r_e=  8.0 beta=0.408 n=60 cap=0 min_b=  1.206 | |dt| med= 15.85 max= 18.46 M | phase err med=  40.1 max=  46.7 deg | disp max= 6.526 M ( 81.6% r_e) | px full= 6.56 zoom=  585.1 | worst row: phi=2.99 b=7.51 inb=1 dt_shap=+15.1 dt=+18.5
+r_e= 10.0 beta=0.354 n=60 cap=0 min_b=  1.510 | |dt| med= 14.53 max= 16.84 M | phase err med=  26.3 max=  30.5 deg | disp max= 5.326 M ( 53.3% r_e) | px full= 5.84 zoom=  417.2 | worst row: phi=2.99 b=8.31 inb=1 dt_shap=+14.7 dt=+16.8
+r_e= 20.0 beta=0.236 n=60 cap=0 min_b=  3.050 | |dt| med= 10.89 max= 14.55 M | phase err med=   7.0 max=   9.3 deg | disp max= 3.254 M ( 16.3% r_e) | px full= 3.80 zoom=  135.6 | worst row: phi=2.99 b=11.56 inb=1 dt_shap=+13.8 dt=+14.6
+r_e= 50.0 beta=0.144 n=60 cap=0 min_b=  7.861 | |dt| med=  7.67 max= 13.08 M | phase err med=   1.2 max=   2.1 deg | disp max= 1.850 M (  3.7% r_e) | px full= 2.13 zoom=   30.4 | worst row: phi=2.99 b=18.76 inb=1 dt_shap=+12.8 dt=+13.1
+run finished 2026-10-10T23:35:11Z
