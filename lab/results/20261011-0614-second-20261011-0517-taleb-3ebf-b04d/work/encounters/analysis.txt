@@ -1,0 +1,44 @@
+== A: period sweep (n=150/fleet, 300 total) ==
+spread     H     enc   cross  coneX o_cone  kmed  kmax  kp99 c_uc(32) plateau
+q          5    2078    1240  22500      0     1     5     4   1.0000  0.4033
+q         20    8333    4975  22500      0     1     5     4   1.0000  0.4030
+q         80   33353   19915  22500      0     1     5     4   1.0000  0.4029
+q        320  133433   79675  22500      0     1     5     4   1.0000  0.4029
+1e-4       5    1881    1067  22500      0     1     6     5   1.0000  0.4327
+1e-4      20    7995    4870  22500      0     2    14    10   1.0000  0.3909
+1e-4      80   32768   20350  22500      0     6    54    33   0.9884  0.3790
+1e-4     320  114079   69841  22500      0    18   154   112   0.6999  0.3878
+1e-3       5    2082    1188  22500      0     3    27    21   1.0000  0.4294
+1e-3      20    8183    4696  22500      0    10   104    71   0.8537  0.4261
+1e-3      80   25923   14776  22500      0    31   293   212   0.5131  0.4300
+1e-3     320   53990   31836  22500      0    53   293   252   0.3570  0.4103
+1e-2       5     482     271   8126      0     6    44    35   0.9779  0.4378
+1e-2      20    1648     874   8126      0    17   169   118   0.6888  0.4697
+1e-2      80    4350    2340   8126      0    49   289   242   0.3996  0.4621
+1e-2     320    7282    4193   8126      0    62   293   252   0.3263  0.4242
+k         20    5395    2119  22500      0    51   126   119   0.3266  0.6072
+k         80   16265    3160  22500      0    80   283   259   0.2190  0.8057
+
+== A: validity horizon H* (linear interp of kmax between measured horizons) ==
+  spread q     : kmax 5 at H=320 — never crosses 32 (eternal to 320+)
+  spread 1e-4  : kmax crosses 32 at H* ~= 47 orbits
+  spread 1e-3  : kmax crosses 32 at H* ~= 6 orbits
+  spread 1e-2  : already broken at H=5 (kmax 44)
+  spread k     : already broken at H=20 (kmax 126)
+
+== B: merge-join at the crossing epoch (b2, parent seeds; k0 = setup-sort control) ==
+scene               n cross  k0 med/max  km med/max  kt med/max  ke med/max  c32 k0  c32 km  c64 km  c128 km  coneX   cpkm 32/64/128  x@0miss
+b2-intercept-75   150   157    67/100       8/20        8/20        8/20     0.0000  1.0000  1.0000   1.0000   5625 [1461, 3445, 5625]  3.85x@k32
+b2-intercept-150  300   515   166/217      13/44       13/44       13/44     0.0000  0.9515  1.0000   1.0000  22500 [1966, 5445, 13830]  4.13x@k64
+b2-intercept-300  600  2210   284/423      27/97       28/88       27/97     0.0000  0.5986  0.9756   1.0000  90000 [3576, 8514, 23049] 3.90x@k128
+
+== C: the honest number (parent b1 scenes; caught curves from battle.jsonl) ==
+  b1-cross-75: n=150, zero-miss k=8 (caught 1.0000), pairs@k=8: 1164, window sections 11175, cone pairs 11175 -> 9.60x / 9.60x at zero miss
+    pairs@16: 2264 -> 4.94x but caught(16)=1.0000 (0.0% silently missed)
+  b1-cross-150: n=300, zero-miss k=16 (caught 1.0000), pairs@k=16: 4664, window sections 44850, cone pairs 44850 -> 9.62x / 9.62x at zero miss
+    pairs@16: 4664 -> 9.62x but caught(16)=1.0000 (0.0% silently missed)
+  b1-cross-300: n=600, zero-miss k=32 (caught 1.0000), pairs@k=32: 18672, window sections 179701, cone pairs 179700 -> 9.62x / 9.62x at zero miss
+    pairs@16: 9464 -> 18.99x but caught(16)=0.9790 (2.1% silently missed)
+
+== C+: the quantized battle (a-q scenes): pair budget at the measured kmax ==
+  q H=20: kmax=5 (flat to 320), caught_uc(8)=1.0000; pairs@kmax=1485, pairs@8=2364, window sections 44850, cone 44850 -> 19.0x eternal at k=8 (this scene's cone = the b1-150 cone)
