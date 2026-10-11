@@ -1,0 +1,33 @@
+scene: mu 1e-03  R_SOI 0.0631  R_HILL 0.0693  T 1601  tau* 200
+kept 12/80 tried; soi coarse hits [9, 10, 12, 12, 13, 14, 14, 15, 16, 20, 20, 31]
+
+law                                      EXP  pass VR(200)     se VR(100) VR(320)  margin VR verdict   trend t tr-verdict
+echo-conserving                        0.000  True   0.000  0.000   0.000   0.000    +7.8      PASS       0.0   PASS
+echo-float13                           2.092 False   0.976  0.034   0.903   0.954    -7.4      FAIL       7.7   FAIL
+float12                                2.072 False   0.993  0.144   0.873   0.845    -7.7      FAIL      10.5   FAIL
+float11                                1.290 False   0.277  0.105   0.368   0.237    +3.5 INDETERMINATE       9.8   FAIL
+planted-bounded                        0.224 False   0.172  0.064   0.276   0.124    +5.1      PASS       2.0   PASS
+planted-compound                       0.520 False   0.620  0.061   0.810   0.538    -1.9 INDETERMINATE       3.3   FAIL
+planted-kick                           1.058 False   1.583  0.191   1.439   1.447   -16.8      FAIL      11.4   FAIL
+planted-drift                          1.001 False   0.005  0.000   0.010   0.003    +7.7      PASS 100133534241878240.0   FAIL
+leak-1e-12/period                      1.001 False   0.005  0.000   0.010   0.003    +7.7      PASS 563920728942674048.0   FAIL
+noise-1e-11                            0.123  True   0.005  0.000   0.010   0.003    +7.7      PASS       1.2   PASS
+scaled-1e-11                           0.224 False   0.172  0.064   0.276   0.124    +5.1      PASS       2.0   PASS
+leak 1e-13/period on 1e-11             0.297 False   0.005  0.000   0.010   0.003    +7.7      PASS      41.1   FAIL
+leak 3e-13/period on 1e-11             0.491 False   0.005  0.000   0.010   0.003    +7.7      PASS     124.0   FAIL
+leak 1e-12/period on 1e-11             0.745 False   0.005  0.000   0.010   0.003    +7.7      PASS     414.7   FAIL
+leak 3e-12/period on 1e-11             0.908 False   0.005  0.000   0.010   0.003    +7.7      PASS    1244.4   FAIL
+leak 1e-11/period on 1e-11             0.978 False   0.005  0.000   0.010   0.003    +7.7      PASS    4147.7   FAIL
+leak 1e-13/period on 2e-11             0.219 False   0.005  0.000   0.010   0.003    +7.7      PASS      20.4   FAIL
+leak 3e-13/period on 2e-11             0.359 False   0.005  0.000   0.010   0.003    +7.7      PASS      61.7   FAIL
+leak 1e-12/period on 2e-11             0.602 False   0.005  0.000   0.010   0.003    +7.7      PASS     207.0   FAIL
+leak 3e-12/period on 2e-11             0.816 False   0.005  0.000   0.010   0.003    +7.7      PASS     622.3   FAIL
+leak 1e-11/period on 2e-11             0.949 False   0.005  0.000   0.010   0.003    +7.7      PASS    2073.9   FAIL
+
+se_null (max of noise, planted-bounded across-ship): 0.064
+pooled separation of planted-bounded vs planted-compound, in se_null: 7.0
+ulp-nudge verdict flips: [('planted-compound', 'INDETERMINATE', 'FAIL', 0.6196001564542222, 0.7584120036574682)]
+
+real	1m16.084s
+user	1m16.799s
+sys	0m0.187s
