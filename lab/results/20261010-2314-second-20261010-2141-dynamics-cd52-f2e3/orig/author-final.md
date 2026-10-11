@@ -1,0 +1,4 @@
+Working...
+Run complete: instrument, controls, two matrices (buggy one disclosed and kept), forensics, and dossier with predictions judged are in `lab/results/20261010-2141-dynamics-cd52/`.
+
+**Claim:** On the law's own cheap path (exact Kepler drift + fixed shared kick step) a cold belt has no clean operating point — conjunctions with impact parameter below the step's resolution radius b ≲ √(m·dt), a 1-D tail of count ~N²·√(μ·dt)/ē, corrupt it from the first orbit at every cadence (8–128/orbit) and horizon (5–200 orbits) tested, manufacturing λ ≈ 2–14/orbit of fake chaos (even in fallback-free runs) over a derivable, algebraic Kepler-shear floor of 2.303e-2/orbit — so the belt's surprise rate (H_live's floor) is measurable only behind the changeover/encounter tier, with the conjunction criterion itself as the admission gate.
