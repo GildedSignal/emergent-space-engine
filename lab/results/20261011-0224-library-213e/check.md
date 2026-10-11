@@ -1,0 +1,33 @@
+Grade: silver
+
+**Abstract.** Five library lessons aimed at kick cadence (q-cadence) and encounter scheduling (r8 v4). Reproduced byte-identical (13.7 s); predictions pre-registered; all six anchors verbatim. Surviving: the tail-coefficient certificate over-estimates fit error 20–130×, so certificate-sized windows cost 1.5–2.4× the headline — 33/132/704 evals/orbit at e=0/0.3/0.7 (my measurement; the dossier's 22/55/352 are true-error-sized); and miss-distance sequences are not quasi-periodic (2- and 5-frequency fits fail at e≥0.3), firm evidence against r8 v2's Diophantine hope. Over-stated: the gain compares against the dead 350–700 fixed-step baseline, not the live 8–16 kicks; the Sundman kill inverts at e=0.9 (true anomaly wins 4×); B1's metric fails its own circular control; "one event per beat" contradicts its own K counts (1.9–4.7 per beat). Adopt the negatives.
+
+## Reasons
+
+**Reproduction.** `python3 work/probes.py` in a clean tree: byte-identical to `probe-out.txt`, 13.7 s, tens of MB. `probe-rerun.txt` = `probe-out.txt`. No number differs. `readwise-cache.jsonl`: 4,580 highlights; 762 books carry highlights vs the API's 770 (8 books have none) — immaterial. All six anchors found verbatim; the Housel and Munger anchors are AI episode notes (disclosed as secondhand in the dossier).
+
+**Predictions.** Order verified by mtime: `predictions.md` 02:30:24 → `probes.py` 02:32:25 → `probe-out.txt` 02:32:38 → `dossier.md` 02:34:36. `work/probe_cadence.py` (02:30:42) is an abandoned draft with no stored output; the probe design (deg-10, 1e-6, window ladder) was frozen in it, outcomes predicted, then measured — clean pre-registration. Held-out outcomes: A4 passed; A5 and B2 failed; the author disclosed every failure with a diagnosis (H0183 practice). Honest.
+
+**Adversarial cases (five, all with the author's own code).**
+1. **The certified cadence costs more than the headline.** Sizing windows by the certificate (the design's actual rule, cert < 1e-6) instead of true error gives 33/132/704 evals/orbit at e=0/0.3/0.7 (t-windows) — 1.5–2.4× the reported 22/55/352. The claim "20–60/orbit at a certified 1e-6 quantum" is therefore not what the proposed rule delivers. Worse, the comparison baseline is dead: the board's live cadences are 8–64 kicks/orbit (q-cadence lens: 8 holds behaviours, 16 at e=0.3; H0190: 32 averaged). Certified fit-cadence at e=0.3 (132) is a ~8× regression against the 16-kick regime; at e=0.7 (704) it exceeds even the 350–700 fixed-step strawman.
+2. **The Sundman kill fails at the edge.** At e=0.9 the f-parametrization needs 64 windows vs 256 in t (704 vs 2816 evals) — a 4× lever, exactly where the t-cadence collapses. The kill is real only for e ≤ 0.7; "drop change of variable from q-cadence candidates" as stated would discard the one lever that works on hot bodies.
+3. **B1's metric is a broken instrument.** Every case has w1−w2 = 1.0, giving a constant, exactly-known conjunction offset of 1/2π = 0.159 of every beat that the metric never removes. The circular control the author predicted to be "exact" scores 0.159 under their own metric — a control that cannot pass. Corrected (offset removed): e=0.1 wobble is 0.031 of a beat (B1 nearly holds, 3% not 19%); e=0.3 is 0.684 (worse than the reported 0.497). The "0.19–0.5" numbers are artifacts in both directions.
+4. **"One exact pair event inside" the beat is false.** From the author's own output: K/beats = 1.00 (e=0.1), 1.94 (e=0.3), 4.65 (e=0.7); my extension: 6.76 (e=0.9), 13.0 (near-1:1, n2=0.99 — the formation regime the co-orbital gold 20261006-0346-taleb-09b5 already handles with phase-neighbour certificates). Touch-once-per-beat as O(1)/pair cadence survives; "one event per window" does not.
+5. **"Richer spectrum" only half-diagnoses B2.** With 5 frequencies the e=0.1 error improves 0.749→0.246 std (still above the 10% bar); e=0.3 and the 7:6 case stay at ~2.9–3.0. The miss-distance sequence is not low-dimensional quasi-periodic — a firmer negative for the CF/Diophantine point-prediction hope than the dossier claims.
+
+**Novelty.** Lesson 1's mechanism has uncited in-repo prior art: H0102–H0105 (14 September) already shipped Chebyshev compact generators with adaptive bisect when a piece exceeds its band, for compile storage. New here is the application to kick cadence and the cost curve — related, not fresh mechanism. Lesson 5 restates the board's own unexplored arch-v3 lead (gate-bite mutants), as the dossier admits. Probe B's target is the r8 v2 taste log's quasi-periodic hope; its (negative) answer is the genuinely new result. Lesson 4 is an unmeasured framing over components-98bc and the 78% adversarial belt, both prior.
+
+**Goal fit.** Aimed at focus #1 and the 5 Oct scaling risk — right bottlenecks. PRINCIPLES: "Compute only surprises" and "Store the generator, not the generated" are served by the fit idea; "Measure before claiming" is violated by the headline, which was not measured under the certificate rule it proposes (my case 1 supplies those numbers). The lens's own bar — "keep only the lessons that change a decision" — filters out lessons 4 and 5 and forces regime bounds on 2 and 3.
+
+## The one experiment that would make it gold
+
+Re-run fit-cadence on the plane's own kick stream: the real tide (J2, resonant phases, the actual perturbation), windows sized by the certificate rule, physics contacts reported against the live 8/16/64 cadences at equal B12/B14/B17 behaviours — q-cadence's own gold bar (≥4× cut at equal behaviour). The author already named it ("refit the plane's own kick stream and count distinct refits"); my check adds that the certificate, not the true error, must size the windows, and that change-of-variable must be kept as the hot-body branch (4× at e=0.9).
+
+## What the author missed
+
+- The certificate rule's cost was never computed; the headline is true-error-sized (case 1) — the single biggest gap between claim and mechanism.
+- The baseline for the gain claim (350–700 fixed steps) was already replaced by H0190 and the 8–64 kick regime; the gain inverts against the live baseline.
+- The Sundman kill was generalized from e ≤ 0.7 without testing the edge the lab's own heuristics demand (case 2).
+- B1's metric was never validated on its own predicted circular control, which cannot pass it (case 3) — "a control that cannot pass is a broken instrument."
+- The conjunctions-per-beat multiplicity sits in the author's own K counts and contradicts "one exact pair event inside" (case 4); the near-degenerate/formation regime (13 events/beat) is where the co-orbital gold already operates, and is not engaged.
+- H0102–H0105 prior art for fitted-Chebyshev-with-refit is uncited.
