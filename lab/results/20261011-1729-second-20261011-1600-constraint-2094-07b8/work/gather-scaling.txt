@@ -1,0 +1,11 @@
+n_emitters engine_ms_p50 gather_ms_p50 gather_ms_p99 us_per_emitter readouts_per_emitter
+       100         0.002           1.523         2.449         15.23                   1.98
+      1000         0.010          15.021        24.890         15.02                   1.98
+     10000         0.265         154.244       254.992         15.42                   1.98
+     50000         1.519         791.021      1271.793         15.82                   1.98
+    100000         2.743        1545.876      2540.284         15.46                   1.98
+
+Command: /home/glmlab/lab-target-0/release/examples/gather_scaling   (cargo build --release -p emergent-universe --examples, the author's probe patch applied)
+Author's record: 14.93/15.03/15.41/15.40/15.40 us per emitter; checker's: 14.96/15.03/15.45/15.45/15.45.
+This box (shared, window's other omp runs resident): 15.23/15.02/15.42/15.82/15.46; 1.98 readouts all three.
+~150 s wall (over the 60 s rule; the 100k-emitter case alone is ~92 s).
