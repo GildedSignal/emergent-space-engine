@@ -1,0 +1,166 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc024..fd13a1c0 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -114,6 +114,46 @@ impl Stats {
+     }
+ }
+ 
++// ---- the allocator's trace (measurement only: it changes when work happens, never what) ----
++
++/// One resolved item of a frame's advance.
++#[derive(Clone, Copy, Debug)]
++pub struct ItemTrace {
++    pub entity: usize,
++    /// `B` a body's item, `H` a hand-out made a body, `F` a fleet's battle slice.
++    pub kind: char,
++    pub tick: Tick,
++    pub deadline: Tick,
++    pub cost_ns: u64,
++}
++
++/// One call to [`Universe::advance`]: a frame's engine work, item by item.
++#[derive(Clone, Debug, Default)]
++pub struct AdvanceTrace {
++    pub target: Tick,
++    pub now0: Tick,
++    /// The deadline recompute (`rekey`): O(entities) per frame, the allocator's own bookkeeping.
++    pub rekey_ns: u64,
++    pub wall_ns: u64,
++    pub events: u64,
++    pub overflow: bool,
++    pub items: Vec<ItemTrace>,
++}
++
++fn alloc_trace_on() -> bool {
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_ALLOC_TRACE").is_ok_and(|v| !v.is_empty()));
++    *ON
++}
++
++static ALLOC_TRACE: std::sync::Mutex<Vec<AdvanceTrace>> = std::sync::Mutex::new(Vec::new());
++
++/// Take the accumulated advance traces (empty when tracing is off). The frames' own calls only;
++/// a later `settle` (a digest at a canonical cut) accumulates and is dropped.
++pub fn take_alloc_trace() -> Vec<AdvanceTrace> {
++    std::mem::take(&mut *ALLOC_TRACE.lock().unwrap())
++}
++
+ /// How a body is made: a tube of a doll from its orbit.
+ #[derive(Clone, Copy, Debug)]
+ pub struct OrbitSpec {
+@@ -788,12 +828,18 @@ impl Universe {
+ 
+     /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.
+     pub fn advance(&mut self, target: Tick, budget: Budget) -> Advanced {
++        let tracing = alloc_trace_on();
++        let t_adv = Instant::now();
++        let now0 = self.now;
+         self.target = target;
++        let t_rk = Instant::now();
+         self.rekey();
++        let rekey_ns = t_rk.elapsed().as_nanos() as u64;
+         let start = self.resolved;
+         let mut done = 0u64;
+         let mut deferred: Vec<usize> = Vec::new();
+         let mut overflow = false;
++        let mut items: Vec<ItemTrace> = Vec::new();
+         loop {
+             self.take_due(target);
+             let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+@@ -812,11 +858,22 @@ impl Universe {
+                 overflow = dl <= target;
+                 break;
+             }
++            let it0 = Instant::now();
+             if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+                 self.resolve_wave(e, target);
+             } else {
+                 self.resolve_entity(e);
+             }
++            if tracing {
++                let kind = if e == self.bodies.len() && self.handouts.front().is_some() {
++                    'H'
++                } else if self.entity_fleet(e).is_some() {
++                    'F'
++                } else {
++                    'B'
++                };
++                items.push(ItemTrace { entity: e, kind, tick: t, deadline: dl, cost_ns: it0.elapsed().as_nanos() as u64 });
++            }
+             done = self.resolved - start;
+         }
+         // The horizon: the smallest deadline still unresolved (the heap's min, and what was set aside).
+@@ -830,6 +887,17 @@ impl Universe {
+             }
+             self.requeue(e);
+         }
++        if tracing {
++            ALLOC_TRACE.lock().unwrap().push(AdvanceTrace {
++                target,
++                now0,
++                rekey_ns,
++                wall_ns: t_adv.elapsed().as_nanos() as u64,
++                events: done,
++                overflow,
++                items,
++            });
++        }
+         Advanced { events: done, horizon: horizon.max(self.now), overflow }
+     }
+ 
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..e182e91d 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -104,6 +104,42 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     for &(t, k) in &log {
+         s.p.u.schedule(t, k).map_err(|e| format!("schedule: {e:?}"))?;
+     }
++    // The allocator's trace, when asked for (ES_ALLOC_TRACE=<path>): one F row per frame's
++    // advance and one I row per resolved item, written as the run goes. Measurement only:
++    // it changes nothing the law can see, and the digest at the cut is unaffected.
++    let mut trace_w = std::env::var("ES_ALLOC_TRACE").ok().filter(|p| !p.is_empty()).map(|p| {
++        use std::io::Write as _;
++        let mut w = std::io::BufWriter::new(std::fs::File::create(&p).map_err(|e| format!("ES_ALLOC_TRACE: {e}"))?);
++        writeln!(w, "row,frame,target,now0,rekey_ns,wall_ns,events,overflow,entity,kind,tick,deadline,cost_ns,mandatory")
++            .map_err(|e| format!("ES_ALLOC_TRACE: {e}"))?;
++        Ok::<_, Box<dyn std::error::Error>>(w)
++    }).transpose()?;
++    fn trace_out(n: usize, w: &mut Option<std::io::BufWriter<std::fs::File>>) -> crate::Result<()> {
++        use std::io::Write as _;
++        let Some(w) = w.as_mut() else { return Ok(()) };
++        for a in emergent_universe::universe::take_alloc_trace() {
++            writeln!(w, "F,{n},{},{},{},{},{},{}", a.target, a.now0, a.rekey_ns, a.wall_ns, a.events, a.overflow as u8)?;
++            for it in &a.items {
++                writeln!(
++                    w,
++                    "I,{n},{},{},{},{},{},{},{},{},{},{},{},{}",
++                    a.target,
++                    a.now0,
++                    a.rekey_ns,
++                    a.wall_ns,
++                    a.events,
++                    a.overflow as u8,
++                    it.entity,
++                    it.kind,
++                    it.tick,
++                    it.deadline,
++                    it.cost_ns,
++                    (it.deadline <= a.target) as u8
++                )?;
++            }
++        }
++        Ok(())
++    }
+     let wall = Instant::now();
+     let mut last = Instant::now();
+     for n in 1..=frames {
+@@ -116,6 +152,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        trace_out(n, &mut trace_w)?;
+     }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
