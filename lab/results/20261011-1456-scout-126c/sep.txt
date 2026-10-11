@@ -1,0 +1,831 @@
+Beyond the Separatrix: Analytic Continuation of Darwin Variables
+for Plunging Geodesics in Schwarzschild Spacetime
+Francisco M. Blanco 1
+1Max Planck Institute for Gravitational Physics (Albert Einstein Institute), Am M¨ uhlenberg 1, Potsdam, 14476, Germany
+We study geodesic motion of a test particle in Schwarzschild spacetime. Bound and scattering geodesics are
+commonly described using Darwin variables, which provide a convenient parametrization of the radial motion.
+However, this description breaks down at the separatrix and does not extend straightforwardly to plunging
+trajectories. We construct an analytic continuation of Darwin variables that yields a real parametrization of
+bound, scattering, and plunging Schwarzschild geodesics, thereby providing a unified kinematical description
+of all types of test-mass motion. As a proof of concept, we then apply these variables to a simple non-geodesic
+evolution in which the energy and angular momentum are driven by a constant external force. This toy model is
+not intended to represent a physical radiation-reaction model, but rather to illustrate how the extended variables
+can be used to follow an orbit through a transition to plunge using a single orbital phase variable across the
+separatrix.
+I. INTRODUCTION
+The detection of gravitational waves by the LIGO and Virgo
+collaborations [1–3] has opened a new observational window
+onto the strong-field regime of general relativity. Future de-
+tectors such as LISA [4] will extend this reach, making it pos-
+sible to observe long-lived extreme mass-ratio inspirals (EM-
+RIs), in which a stellar-mass object spirals into a supermassive
+black hole. These systems probe the geometry of spacetime
+deep within the strong-field region and provide some of the
+most precise tests of general relativity that will be available in
+the coming decades [5].
+The gravitational waveform from a binary system typically
+proceeds through four phases: inspiral, plunge, merger, and
+ringdown. In the context of extreme mass-ratio inspirals, the
+system evolves adiabatically for most of its inspiral phase [6].
+Hence, it is possible to describe the trajectory of the sec-
+ondary as a geodesic with slowly varying orbital parameters.
+For Schwarzschild and Kerr spacetimes, the Darwin (or “Ke-
+plerian”) coordinates (χ,p,ϵ) have proven particularly con-
+venient for describing this regime: they parameterize bound
+motion in terms of orbital elements and a radial phase vari-
+able that evolves monotonically with proper time [7]. They
+can also describe scattering trajectories.
+However, as the inspiral approaches the separatrix —the
+boundary between bound orbits and plunging trajectories—
+this description breaks down. Near this transition, the radial
+period diverges, the resulting dynamics are no longer well-
+approximated by adiabatic evolution, and the two-timescale
+expansion must be supplemented by a description of the tran-
+sition regime between thelast stable orbitand the onset of
+plunge. Early insight into the transition to plunge of extreme
+mass-ratio inspirals was provided by the classical Ori–Thorne
+model [8], which describes the transition for circular inspirals
+by matching the orbital phase to a local expansion of the ef-
+fective radial potential near the ISCO. Similar work was done
+in the comparable mass regime on [9].
+Within the gravitational self-force framework, several com-
+plementary approaches have recently been developed to char-
+acterize this transition. Lhost and Comp `ere [10] derived an-
+alytic late-time expressions for eccentric inspirals near the
+separatrix in terms of self-force quantities evaluated there.
+Becker and Hughes [11] constructed a smooth continuation
+from the last stable bound geodesic into plunge, highlight-
+ing the weakening of the radial restoring force. K ¨uchler et
+al. [12–14] exploited the hierarchy of orbital, transition, and
+radiation-reaction timescales to build a controlled multiscale
+expansion incorporating the early plunge for quasicircular or-
+bits. Finally, Faggioli et al. [15] studied the waveform imprint
+of critical plunges in Kerr, showing how the dominant modes
+are organized across spin and eccentricity.
+In this work, we take a complementary viewpoint. Rather
+than modeling the dynamics of the transition, we focus on
+the kinematics of the underlying geodesic motion and seek a
+parametrization that remains well defined across all regimes.
+Standard Darwin variables fail when the radial potential
+ceases to admit two real turning points. We show that this ob-
+struction can be overcome by extending the variables (p,ϵ,χ)
+into the complex plane while keeping the physical quantities
+(r,E,L) real. Guided by this observation, we construct anex-
+tended Darwin mapthat provides a real parametrization of
+bound, scattering, and plunging geodesics within a common
+framework. The construction exploits the multivalued rela-
+tion between (p,ϵ) and (E,L), allowing the different geodesic
+sectors to be described continuously within the same set of
+variables.
+When a weak driving force pushes the system into plunge,
+the parametrization develops a nonanalytic behavior at the
+separatrix. This appears as a square-root kink associated with
+the merger of the radial turning points. The kink reflects a
+coordinate artifact rather than a physical singularity. To re-
+move it, we regularize one of the radial roots with a smooth-
+ing function involving a length scalel, which controls only
+the sharpness of the coordinate transition near the separatrix.
+For generic crossings, the resulting motion is insensitive to
+the precise value ofl. Dependence onlarises only in the
+finely tuned case where the crossing occurs parametrically
+close to periapsis. Away from this nongeneric regime, the
+parametrization remains smooth and independent of the ar-
+bitrary parameterl.
+The extended Darwin variables provide a natural descrip-
+tion of motion through both inspiral and plunge, and offer a
+arXiv:2604.28140v1  [gr-qc]  30 Apr 2026
+2
+convenient setting for incorporating radiation-reaction effects
+through fluxes on (p,ϵ). They may also be useful for future
+effective-one-body constructions [9, 16–18] by supplying co-
+ordinates that remain regular through the separatrix.
+The paper is organized as follows. In Section II, we review
+the equations of motion of a test particle in the Schwarzschild
+metric and study the phase space of geodesic motion using
+energy and angular momentum. In Section III, we review the
+use of Darwin variables and their relation to energy and an-
+gular momentum. We construct the phase space in these vari-
+ables and explain their domain of validity. Specifically, we
+show how semi-latus rectum and eccentricity become com-
+plex below the separatrix. In Section IV, we extend Darwin
+variables by analytically continuing the relativistic anomaly
+χ. We show that making all Darwin variables complex pro-
+vides enough freedom to keep the dynamics real. In Section
+V, we define the extended Darwin map and show how it can
+be used to describe all types of geodesic motion. In Sec-
+tion VI, we show how to construct the extended variables in
+a way that transitions smoothly from bound/scattering trajec-
+tories to plunges in the presence of a small driving force. We
+show how the parametrization fails to be smooth if the sep-
+aratrix is crossed too close to the periapsis passage. Finally,
+we model the effect of a constant driving force by evolving
+energy and angular momentum at a fixed rate. We then de-
+scribe the system as evolving through a series of geodesics
+with changing orbital parameters. We emphasize that the con-
+struction provides a generalized orbital phase variable that re-
+mains continuous across the separatrix. This variable extends
+the role played by the relativistic anomaly for bound motion
+and may offer a way to track the evolution of the waveform
+phase through the transition from bound motion to plunge.
+II. THE PHASE SPACE OF SCHW ARZSCHILD
+GEODESICS
+Consider a point particle of massmmoving along a
+geodesic of the Schwarzschild metric with spacetime interval
+ds2 =−(1− 2Mr )dt2 +(1− 2Mr )−1dr2 +r 2dΩ2.(1)
+Here,Mis the mass of the central black hole,dΩ 2 =
+sin2θdφ2 +dθ 2 and we have setG=c=1.
+Using the symmetries of the Schwarzschild metric, we can
+setθ=π/2 and find equations for the remaining variables in
+terms of the conserved energy and angular momentum. We
+use a tilde to define conserved quantities per unit mass so that
+˜r=r/M, ˜τ=τ/M, ˜E=E/mand ˜L=L/(mM). The equations
+of motion are
+d˜t
+d˜τ =
+˜E
+1− 2˜r,(2a)
+dφ
+d˜τ =
+˜L
+˜r2,(2b)
+d˜r
+d˜τ =±
+q
+R(˜r; ˜E, ˜L).(2c)
+Here, we defined the radial function
+R(˜r; ˜E, ˜L)= ˜E2−  1− 2˜r 1+ ˜L2˜r2 
+= ˜E2−V eff(˜r;˜L)
+(3)
+The roots ofR(˜r) are the turning points of radial motion, where
+˜E2 intersectsV eff andd˜r/d˜τ=0. For ˜E2 <1,Rcan have three
+positive real roots
+˜r1 <˜r2 <˜r3.(4)
+If all three roots exist, motion can occur in two ways. The
+particle’s radius can oscillate between [˜r 2,˜r3], which corre-
+sponds to eccentric bound orbits between periapsis and apoap-
+sis. The particle can also be confined to the interval [0,˜r 1],
+which corresponds to plunging motion with a turning point
+at ˜r1. Changing values of energy ˜Eand angular momentum˜Lwill produce one of three transitions. First, ˜r 1 and ˜r2 can
+merge at the unstable circular orbit (UCO) and then become
+complex conjugate roots. Second, ˜r2 and ˜r3 can merge at the
+stable circular orbit (SCO) and then become complex conju-
+gate roots. Third, all three roots merge at the innermost stable
+circular orbit (ISCO), leaving two complex conjugate roots
+and a real root, which becomes the turning point for plunging
+motion. The roots ofR(˜r; ˜E, ˜L) are shown in Fig. 2 for dif-
+ferent values of ˜E2 and ˜L2. Note that these transitions might
+occur multiple times, depending on the physical evolution of
+˜Eand ˜Lwhich can conspire to make the system go back and
+forth between different phases.
+If only one real root exists, then geodesics are always
+plunges. If there are only two real roots ˜r 1 and ˜r2, the par-
+ticle can move in two ways. It can move on a scattering tra-
+jectory, starting at infinity, reaching ˜r2 and then leaving to in-
+finity again or it can also move between [0,˜r 1]. In that case,
+the particle plunges from ˜r1 into the central black hole. We
+note that the effective potentialV eff has a potential barrier for
+all ˜L2 >12, which is necessary for having three real roots.
+Circular orbits are determined by the twofold requirement
+R=∂ ˜rR=0. This determines a curve in the parameter space
+( ˜E, ˜L), defined by ˜E2 =V min( ˜L). Here,V min( ˜L) is the value of
+the potentialVat the SCO radius for a given value of angular
+momentum. Similarly, the curve defined by ˜E2 =V max( ˜L)
+describes unstable circular orbits, situated at the top of the
+potential barrier. Here,V max is the value of the potentialVat
+the UCO. This curve is also known as theseparatrixand it
+separates bound/scattering trajectories from plunges.
+Geodesic motion can be divided into different “phases” de-
+pending on the number of roots ofR(˜r). In Fig. 1, we show all
+possible phases. A typical effective potential showing possi-
+ble orbits and turning points for each region can be seen in Fig.
+2. We classify trajectories as bound, scattering, or plunging.
+Bound trajectories oscillate between ˜r2 and ˜r3, while scatter-
+ing trajectories extend from ˜r2 to infinity. Plunging trajecto-
+ries are further classified as inner, outer, or direct according
+to whether their maximum radius is ˜r1, ˜r3, or infinity, respec-
+tively.
+•TheBound/Plungephase corresponds toV min( ˜L)<˜E2 <V max( ˜L) with ˜E2 <1. There are two distinct
+3
+FIG. 1: Phase space of Schwarzschild geodesics in ( ˜E2, ˜L2)
+variables.
+types of geodesics in this region: Bound orbits that os-
+cillate between the two greater roots ˜r2 and ˜r3, and inner
+plunges that start on the smallest root ˜r 1, to the left of
+the potential barrier.
+•TheScattering/Plungephase corresponds to 1< ˜E2 <
+Vmax( ˜L). There are also two distinct types of geodesics
+in this region: scattering trajectories that start at infinity
+and bounce offat the root ˜r2, and inner plunges that start
+on the smaller root ˜r1, left of the potential barrier.
+•TheDirect Plungephase corresponds to 1< ˜E2 (and
+Vmax( ˜L)< ˜E2 if a potential barrier exists). All geodesics
+in this region are direct plunges that start from infinity.
+Above the dashed blue line, there exists a potential bar-
+rier, but this doesn’t affect the motion since energy is
+greater than it.
+•TheOuter Plungephase corresponds toV max( ˜L)<˜E2 <1 whenever a potential barrier exists, or just
+˜E2 <1 when it does not. All geodesics in this region
+are outer plunges that start at the greater root ˜r3. Simi-
+larly to the previous region, above the dashed blue line,
+there exists a potential barrier, but the energy is always
+greater than it so it doesn’t affect what types of orbits
+we see.
+•TheInner Plungephase corresponds to energies less
+than the minimum of the potential, which means that
+the particle is plunging from the left side of the potential
+barrier. All geodesics are inner plunges.
+III. DARWIN V ARIABLES
+In this section, we review the application of Darwin vari-
+ables to geodesic motion in Schwarzschild spacetimes. The
+direct evaluation of integrals in the variables (r,E,L) can
+present complications sinceris an oscillating variable whose
+rate of change vanishes at each turning point. It is therefore
+convenient to find new coordinates where the evolution be-
+comes monotonic.
+The bound orbits in Fig. 2a and scattering trajectories in
+Fig. 2b can be described in such coordinates usingDarwin
+variables(χ,p,ϵ). These are defined by
+˜r= p1+ϵcosχ .(5)
+Here,χis the relativistic anomaly 1,pis the semi-latus rectum,
+andϵis the eccentricity. These coordinates cover only part of
+phase space: forϵ <1 they describe bound orbits, while for
+ϵ >1 they describe scattering trajectories. In other words,
+they parameterize one of the two possible types of geodesics
+on the bound and scattering regions in Fig. 1.
+Forϵ <1, the radius lies between periapsis and apoapsis:
+˜r+ = p1+ϵ ,(6a)
+˜r− = p1−ϵ .(6b)
+Forϵ >1,r − becomes negative, indicating that the particle
+travels from infinity to ˜r + and then back to infinity. Even
+though ˜r± coincide with the roots defined earlier as ˜r2 and ˜r3,
+we reserve the±notation for roots written in terms of (p,ϵ)
+for reasons that will become clear in Section III C.
+This parametrization is advantageous in thatχis a mono-
+tonically increasing function ofτ
+dχ
+d˜τ= ±
+√
+R
+d˜r/dχ.(7)
+The±in the numerator has to be chosen by hand at each
+branch of Eq. (2c). This exactly cancels with the sign changes
+ind˜r/dχ. Furthermore, both the numerator and denominator
+vanish at turning points, makingdχ/d˜τfinite and monotonic
+throughout the orbit. This is the defining feature of a good
+phasevariable, namely, a parameter that increases continu-
+ously along the trajectory and can therefore be used as an or-
+bital phase variable for the emitted waveform.
+It is important to note that there are multiple alternatives
+to Eq. (5). As long as the phase variable is monotonic and
+produces the correct radial turning points (cf. Eq. (2c)), any
+parametrization is valid. In other words, other than the turn-
+ing points, there is no dynamical information in Eq.(5): It is a
+change of coordinates, not a solution to the equations of mo-
+tion. The dynamics are incorporated once we return to proper
+time by using Eq. (7), where the radial functionRdetermines
+the flow of the phaseχwith proper time ˜τ.
+A. Map between( ˜E, ˜L)and(p,ϵ)
+The relation between ( ˜E, ˜L) and (p,ϵ) follows by substitut-
+ing Eqs. (6) into Eq. (2c) and using that the radial velocity
+1 The name comes from the fact thatχdiffers from the azimuthal angleφ
+in General Relativity, thus representing a measurable “anomaly” that can
+distinguish Newtonian and relativistic dynamics.
+4
+(a) Bound/Plunge Phase.
+ (b) Scattering/Plunge Phase.
+ (c) Direct Plunge Phase.
+(d) Outer Plunge Phase.
+ (e) Inner Plunge Phase.
+FIG. 2: Effective potentialV eff(˜r;˜L) and energy squared ˜E2 for representative points in the different phase space regions in
+Fig. 1. Turning points are depicted in green, while plunge starting points are depicted in red. (a) There are two types of
+geodesics:bound orbitsandinner plunges. The two families of orbits become connected at separatrix. (b) There are two
+types of geodesics:Scattering trajectoriesandinner plunges. The two families of trajectories become connected at
+separatrix. (c) All geodesics aredirect plungesfrom infinity. (d) All geodesics areouter plungesfrom a finite turning point.
+(e) All geodesics areinner plunges. As opposed to the inner plunges in the Bound/Plunge phase, these inner plunges are
+disconnected from bound orbits.
+vanishes at turning points. The mapping is
+˜E2 = (p−2) 2−4ϵ 2
+pp−3−ϵ 2,(8a)
+˜L2 = p2
+p−3−ϵ 2.(8b)
+In what follows, we analyze which values of (p,ϵ) correspond
+to which values of ( ˜E, ˜L).
+As the Darwin variables approachp=3+ϵ 2, both ˜E2 and
+˜L2 approach infinity; and then become negative, which signals
+an unphysical region. The curvep=3+ϵ 2 corresponds to
+the null limit of timelike geodesics, which is why energy and
+angular momentum diverge there. Solving for ˜E2 =1, we
+obtain the condition
+(p−4)(ϵ 2−1)=0 (9)
+which determines the boundaries between bound and scatter-
+ing motion. The curvep=4 is not in the typical domain of
+the Darwin variables, but we add it here for completeness.
+Solving for ˜L2 =12, which determines when the potential
+barrier drops, we find the condition
+p=6±i
+√
+12ϵ.(10)
+Therefore, real Darwin coordinates always parametrize
+geodesics with angular momentum greater than ˜L2 =12, ex-
+cept at the ISCO, wherep=6 andϵ=0.
+The Jacobian of the coordinate transformation ( ˜E, ˜L)→
+(p,ϵ) is
+J= 2ϵp−6−2ϵ p−6+2ϵ p−3−ϵ 23 .(11)
+We see that the Jacobian becomes singular atϵ=0 and atp=
+6±2ϵ. The singularity of the Jacobian reflects a degeneracy
+of the map: different curves in (p,ϵ) space correspond to the
+same values of ( ˜E, ˜L).
+The lineϵ=0 corresponds to circular orbits: forp>6
+these are stable, while for 3<p<6 they are unstable. These
+satisfy ˜E2 =V min( ˜L) and ˜E2 =V max( ˜L), respectively. The
+curvep=6+2ϵcorresponds to the LSO 2. The LSO has the
+same energy and angular momentum as an unstable circular
+orbit (i.e.,ϵ=0 and 3<p<6). In other words, the LSO
+curve and the unstable circular orbit curve are distinct in (p,ϵ)
+space, but they coincide in energy and angular momentum.
+The curvep=6+2ϵis also known as the “separatrix” since it
+splits the dynamics between bound/scattering trajectories and
+plunges. The curvep=6−2ϵis outside the typical domain
+of validity of the Darwin variables, but it corresponds to the
+energy and angular momentum of a stable circular orbit (i.e.,
+ϵ=0 and 6<p).
+2 The last stable orbit is a bound orbit whose periapsis coincides with the
+maximum of the potential barrier. In the study of dynamical systems, these
+are also known as homoclinic curves [19, 20].
+5
+B. Branches for(p,ϵ)
+The mapping in Eq. (8) can be inverted to obtainpandϵin
+terms of ˜E2 and ˜L2. First, we solve Eq. (8b)
+ϵ2 =p− p2
+˜L2−3.(12)
+We can insert this equation into Eq. (8a) to obtain a cubic
+polynomial forp
+˜E2
+˜L2 p3−(1+ 4˜L2 )p2 +8p−16=0.(13)
+Each of the three solutions to Eq. (13) can be inserted into Eq.
+(12) to obtain the three branches ofpandϵ. In other words,
+for any given value of ( ˜E, ˜L) there are three possible branches
+for (p,ϵ).
+If a polynomial with real coefficients has complex roots,
+they must come in conjugate pairs. Therefore, either all three
+branches ofpare real, or one is real and the other two are
+complex conjugates. Note thatϵis derived directly from Eq.
+(12) and not from a cubic polynomial, so all three branches of
+ϵcan be complex. Cubic polynomials have analytic solutions
+in terms of Cardano’s formula, although their details are not
+important here. We note that the discriminant of the cubic
+polynomialDdetermines whether there exist real or complex
+branches. WhenD<0, there exist three distinct real branches
+forp. WhenD=0, there exist three real roots with at least
+two equal (double or triple root). WhenD>0, the branches
+that merged become complex conjugates.D=0 corresponds
+exactly with the separatrix and marks the transition to plunge.
+If we focus on energies and angular momenta correspond-
+ing to bound/scattering trajectories, we see that the three
+branches of (p,ϵ) are organized as follows: Thefirst branch
+satisfiesp>6+2ϵ, which is the typical domain of the Darwin
+variables. Thesecond branch p−2ϵ <p<6+2ϵand the
+third branchof (p,ϵ) satisfiesp<6−2ϵ.
+In Fig. 3, we vary ( ˜E, ˜L) from across the separatrix and
+show the evolution of all three branches of (p,ϵ). The first,
+second and third branches are depicted in red, blue and green,
+respectively. As energy and angular momentum transition
+from the bound/scattering phases into a plunge, thefirstand
+secondbranches ofpbecome complex conjugates, while the
+thirdbranch remains real. All branches ofϵbecome complex
+after the separatrix is crossed. We use constant fluxes of˜Eand
+˜Lin all figures.
+C. Turning points
+By inserting Eqs. (5) and (8) into Eq. (2c), it is easy to
+check that the radial functionR(˜r; ˜E, ˜L), written in Darwin
+variables, possesses three roots.
+˜r∗ = 2pp−4 ,(14a)
+˜r+ = p1+ϵ ,(14b)
+˜r− = p1−ϵ .(14c)
+(a) Evolution of each branch of semi-latus rectump.
+(b) Evolution of each branch of eccentricityϵ.
+FIG. 3: Evolution of all three branches of (p,ϵ) obtained by
+varying energy and angular momentum across the separatrix.
+Note that we avoid naming these roots ˜r1, ˜r2 and ˜r3. The rea-
+son is that we reserve numbers to denote that ˜r 1 <˜r 2 <˜r 3.
+On the contrary, the roots in Eq. (14) can change ordering
+depending on which branch ofp( ˜E, ˜L) andϵ( ˜E, ˜L) one picks.
+In other words, if one picks the branch satisfyingp>6+2ϵ,
+then ˜r∗ <˜r+ <˜r− andr± are the periapsis and apoapsis radii.
+However, if we use a different branch forpandϵthe roles of
+each root will be exchanged.
+We illustrate this in Fig. 4, where we evolved ˜Eand ˜Lfrom
+bound to plunging trajectories using simple constant fluxes.
+We show the three roots ˜r∗, ˜r+ and ˜r− calculated from the val-
+ues of (p,ϵ) on each branch. It is easy to check that the three
+roots ˜r∗, ˜r+ and ˜r− give, numerically, the same values regard-
+less of what branch is chosen forpandϵ. However, which
+root is which changes depending on the branch. We also note
+that switching between thefirstandsecondbranches of (p,ϵ)
+has the effect of exchanging ˜r∗ and ˜r+. This will be important
+in our construction of extended Darwin variables in Section
+6
+V.
+D. Limitations of real Darwin variables
+In the usual application of Darwin variables, the first branch
+for (p,ϵ) is used. These are restricted top>6+2ϵ. As
+the flow of energy and angular momentum drives the system
+across the separatrix,pandϵbecome complex, thus produc-
+ing a complex radius. We propose to solve this issue by an-
+alytically continuing the relativistic anomalyχin a way that
+keeps the radius real whenpandϵalso become complex. In
+the following section, we show that this approach generalizes
+the Darwin variables to describe all phases of geodesic mo-
+tion, not just bound and scattering.
+IV . ANALYTIC CONTINUA TION
+In this section, we extend the domain of validity of Dar-
+win variables by analytically continuing them to the complex
+plane. We use a subscript to denote real and imaginary parts
+p=p R +ip I,(15a)
+ϵ=ϵ R +iϵ I,(15b)
+χ=χ R +iχ I.(15c)
+Replacing the complex variables (15) in Eq. (5) and Eq. (8)
+will generally produce ˜r, ˜E2 and ˜L2 which are complex num-
+bers. Furthermore, we are extending the degrees of freedom
+from three to six. Hence, we demand that ˜r, ˜E2, and ˜L2 re-
+main real and positive to impose three constraints on the ex-
+tended Darwin variables. The reality conditions on ˜E2 and
+˜L2 can be enforced straightforwardly by parameterizing (p,ϵ)
+directly in terms of the physical variables ( ˜E, ˜L); this ensures
+from the outset that the energy and angular momentum remain
+real, reducing the number of free degrees of freedom by two.
+The remaining condition comes from demanding that the ra-
+dius ˜rremains real. We now analyze how this constraints the
+relativistic anomaly.
+A. Reality ofr
+The radiusrin Eq. (5) can be rewritten as
+˜r= p+p¯ϵcos ¯χ|1+ϵcosχ| 2.(16)
+We now impose thatℑ(˜r)=0 to get
+ℑ  ¯pϵcosχ =p I,(17)
+where we applied conjugation to express the final answer in
+terms ofχand not ¯χ. Eq. (17) does not determine the real part
+ofp¯ϵcosχ. We denote the unspecified real part byλ∈R. The
+result is
+cosχ= λ+ip I
+¯pϵ
+= αα2 +β 2λ− βγα2 +β 2 +i βα2 +β 2λ+ αγα2 +β 2. (18)
+Here, we define
+α=p RϵR +p IϵI,(19a)
+β=p IϵR−p RϵI,(19b)
+γ=p I.(19c)
+First, note that all coefficients are finite. Indeed, they can
+only diverge if both|p| 2 =|ϵ| 2 =0, which is not a physical
+state. Second, Eq. (18) successfully parametrizes a curve in
+the complex plane in terms ofλ, thus reducing the dimension-
+ality of the complex phase by one.
+Instead of dealing with a complex phase, it is simpler to
+insert Eq. (18) back into Eq. (5) to get
+˜r= |p|2
+pR +λ (20)
+which is manifestly real. Note that sinceλis undetermined,
+we can simply define
+λ= |p|2
+˜λ −p R (21)
+so that the radius can be parametrized freely by ˜r= ˜λ. This
+should not be surprising, since the phaseχin the Darwin vari-
+ables can be freely reparametrized without affecting the dy-
+namics. Indeed, we are free to reparametrize it as long as it
+produces radial motion satisfying the correct boundary con-
+ditions (i.e. Bound motion between periapsis and apoapsis,
+etc.).
+Eqs. (20) and (21) show that there is enough freedom to
+maintain reality of (˜r, ˜E, ˜L) by using complex (p,ϵ,χ). Moti-
+vated by this, we now construct a real parametrization adapted
+to the different geodesic sectors.
+B. Constructing real variables across the separatrix
+In order to choose a sensible parametrization of the radius
+in terms of (p,ϵ) it will be convenient to construct quantities
+that remain real after crossing the separatrix. We will make
+use of the three roots ˜r∗, ˜r+ and ˜r− defined in Eq. (14). We will
+also make use of switching from the first to the second branch
+of (p,ϵ) (cf. Sec. III B). Importantly, the first branch of (p,ϵ)
+producesr∗ <r + <r−, while the second branch switches the
+identities ofr∗ andr +.
+The average between ˜r∗ and ˜r+ can be easily calculated to
+be
+˜ravg = ˜r∗ +˜r+2
+= p(p+2ϵ−2)2(1+ϵ)(p−4) . (22)
+7
+(a) Evolution of roots for first branch of
+(p,ϵ).
+(b) Evolution of roots for second branch
+of (p,ϵ).
+(c) Evolution of roots for third branch of
+(p,ϵ).
+FIG. 4: We use simple constant fluxes to evolve ( ˜E, ˜L) across the separatrix. We show the evolution of the three roots ˜r∗, ˜r+ and
+˜r− for each branch of (p,ϵ). Note that, numerically, the three roots always give the same values, although they change identities
+depending on the branch.
+Even though ˜ravg depends onpandϵin a complicated way,
+it remains real for complexpandϵuntil the ISCO and is
+smooth across the separatrix. It loosely follows the position
+of the UCO at the top of the potential barrier, although it is
+not exactly it.
+Another quantity of interest is the half-width of the poten-
+tial barrier at the level of ˜E2
+∆˜r2 =  ˜r+−˜r∗
+2
+2
+=
+h p(6+2ϵ−p)
+2(1+ϵ)(p−4)
+i2
+.
+(23)
+∆˜ris purely real above the separatrix and purely imaginary
+below. Furthermore, it behaves like the square root of the dis-
+tance to the separatrix. Hence∆˜r 2 is always real and behaves
+linearly at the crossing.
+It is important to note that our expressions (22) and (23) for
+˜ravg and∆˜rin terms ofpandϵonly correspond to the position
+and half-width of the potential if we restrict to the first two
+branches of (p,ϵ). Switching to the second branch only has
+the effect of switching the sign of∆˜r, which is why it switches
+the positions of ˜r∗ and ˜r+. In fact, after crossing the separatrix
+ℜ(˜r∗)=ℜ(˜r +)=˜r avg andℑ(˜r+)=−ℑ(˜r∗)=±∆˜r.
+Although we won’t use these, we note that similar construc-
+tions can be applied topandϵ. In particular, we can define
+pavg = p1 +p 22 ,(24a)
+∆p= p1−p 2
+2 ,(24b)
+wherep 1 andp 2 are the first and second branches depicted in
+Fig. 3a. Then,p avg and∆p 2 are real across the separatrix. An
+analogous construction works for the eccentricity as well.
+V . EXTENDED DARWIN V ARIABLES ACROSS BOUND,
+SCA TTERING, AND PLUNGING SECTORS
+We now construct an explicit real parametrization that re-
+produces the correct turning-point structure in all sectors of
+motion.
+We parameterize the radius as
+˜r= 1f(p,ϵ)+A(p,ϵ)φ(η) ,(25)
+wherefandAare
+f= 12  1ℜ(˜r+) + 1ℜ(˜r−)!,(26a)
+A= 12  1ℜ(˜r+)− 1ℜ(˜r−)!.(26b)
+The functionφ(η) will change depending on the type of mo-
+tion
+φ(η)=
+cos η for bound/scattering trajectories,cosh η−η d−2 for outer/direct plunges,cosh η−η t for inner plunges.
+(27)
+The initial phasesη d andη t can be freely specified if one is
+parametrizing each phase separately. However, if one includes
+dissipation and the system evolves from one phase to the next,
+the initial phases need to be chosen carefully as to makeφ(η)
+smooth across the separatrix.
+The parametrization in Eq. (25) is not uniquely determined
+by the analytic continuation, but is chosen so as to reproduce
+the correct turning points for bound, scattering and plunging
+trajectories.
+A. Bound and scattering trajectories
+These trajectories correspond to values of ( ˜E, ˜L) above the
+separatrix. We use the first branch of (p,ϵ). On this phase,
+8
+all roots are real. Then, simple algebra reduces our expression
+tof=1/pandA=ϵ/pand we recover the usual Darwin
+variables.
+In this choice of coordinates, the particle passes through
+periapsis atη=2πnand apoapsis atη=(2n+1)π.
+B. Outer and direct plunges
+These trajectories correspond to values of ( ˜E, ˜L) below the
+separatrix. We will use the first branch of (p,ϵ), for which ˜r∗
+and ˜r+ are complex but ˜r− remains real. Taking the real part
+of ˜r+ returns the position of the potential barrier ˜ravg.
+With the parametrization (25), we get that the radius is ˜r=
+˜r− atη=η 0 and then goes to ˜r=0 for eitherη→±∞.
+In the case of direct plunges, ˜r− is negative. This means that
+the physical trajectory won’t start onη 0, but on a later time
+at which ˜r→∞. This is the same behaviour for scattering
+trajectories in the usual Darwin variables, where the negative
+root represents the “turning point at infinity”.
+C. Inner plunges
+These trajectories correspond to values of ( ˜E, ˜L) above the
+separatrix but radii to the left of the potential barrier. All roots
+are real. We use the second branch of (p,ϵ) which flips the
+identities of ˜r∗ and ˜r+ so that ˜r+ becomes the smallest root and
+˜r∗ the periapsis.
+Then, we obtain that the radius starts at ˜r + atη=η 0 and
+then goes to zero for eitherη→±∞. We note the importance
+of changing branches to make this work. Otherwise, the parti-
+cle would start at the periapsis and cross the forbidden region
+where energy ˜Eis lower than the potential barrier.
+D. Plunges below the ISCO
+In the case of quasi-circular inspirals, the system can cross
+the separatrix exactly at the ISCO. After the ISCO is crossed,
+the effective potential no longer exhibits a barrier and the ra-
+dial motion requires a careful treatment. For energies ˜E<1,
+the radial equation admits one real root and two complex-
+conjugate roots. Which one of the three roots remains real
+(and thus represents the turning point) depends on whether
+the turning point is smaller or greater than ˜r ISCO =6. This,
+in turn, depends on the relative strength of the energy and
+angular-momentum fluxes. If the energy flux dominates, the
+turning point moves inward toward the central black hole. In
+this situation, the smallest root ˜r1 remains real and defines the
+turning point. If instead the angular-momentum flux domi-
+nates, the shape of the effective potential is modified so that
+the turning point moves outward. In that case, the largest root
+˜r3 remains real and becomes the turning point.
+Hence, when the turning point moves outwards, the tra-
+jectory behaves as aouter plunge(cf. subsection V B). In-
+stead, when the turning point moves inwards, the motion cor-
+responds to ainner plunge(cf. subsection V C). Therefore, the
+plunges occurring after the ISCO has been crossed can also be
+described by the parametrization given by Eq. (26).
+VI. EVOLUTION UNDER SIMPLE DRIVING FORCE
+We are interested in applying the extended Darwin vari-
+ables for systems where a small driving force evolves the sys-
+tem from one phase to another. Specifically, we want the sys-
+tem to start on a bound trajectory and slowly lose energy and
+angular momentum until it transitions to either an inner or
+outer plunge. The transition occurs when the difference be-
+tween ˜E2 and the maximum of the potential barrier is zero.
+We follow the work in [15] and define this difference as
+∆ = ˜E2−V eff(˜rUCO; ˜L).(28)
+Hence,∆is negative for bound orbits, scattering trajectories
+and inner plunges and positive for outer and direct plunges.
+We note that a bound orbit can connect continuously to an
+inner plunge only in the fine-tuned case where the separatrix
+is crossed while the particle is at periapsis. Otherwise, inner
+plunges remain disconnected from bound and scattering tra-
+jectories.
+Now, let us consider a transition to an outer plunge. Given
+a separatrix crossing phaseη sep, we define the closest passage
+through apoapsis as
+n=
+ηsep
+2π
+
+,(29a)
+ηapo =(2n+1)π.(29b)
+For example, bothη sep =0.1πandη sep =1.1πgiveη apo =π.
+Then,φ(η) is
+φ(η)=
+cos(η)η<η apo,cosh(η−η apo)−2η>η apo. (30)
+This parametrization is continuous up to its second derivative.
+Note that we can switch parametrizations either before or
+after the actual crossing of the separatrix. This will depend on
+whether the particle had positive or negative radial velocity
+at the time of crossing. When the particle has positive radial
+velocity, we are extending the use of the parametrization for
+bound orbits past the crossing of the separatrix. This is not
+a problem since both bound orbits and outer plunges have a
+turning point at ˜r3.
+Consider now the transition to an inner plunge. In this case,
+the crossing of the separatrix must happen at a timeη sep =
+2πn. We simply define
+φ(η)=
+cos(η)η<η sep,cosh(η−η sep)η>η sep. (31)
+We note that this parametrization has a discontinuity on its
+first derivative. This is to be expected as the particle is cross-
+ing a critical point that limits bound and plunging trajecto-
+ries. This can be traced back to the fact that the particle would
+spend an infinite amount of proper time at the critical point,
+9
+unless perturbed by an external force. In fact, there is a more
+serious problem with this transition, as we discuss in the next
+subsection.
+Finally, we also note that it is possible, in theory, for a sys-
+tem to start with∆<0 on a bound orbit, then cross the sep-
+aratrix into an outer plunge with∆>0 and then transition
+back into an inner plunge with∆<0 after crossing the UCO.
+This can occur if the angular momentum flux exceeds the en-
+ergy flux in such a way that the gap∆closes back. Work
+in [15] observed this type of behavior in numerical simula-
+tions, but the presence of this effect in astrophysical systems
+remains unclear. The coordinates defined in Eqs. (26) and
+(27) cannot be made easily continuous in a transition from
+outer to inner plunges. However, this is not necessary. After
+the UCO has been crossed, outer and inner plunges behave in
+the same way: The radius decreases monotonically down to
+the horizon. Hence, even if the system switches between the
+two phases, there is no need to change the parametrization.
+A. Kink at the separatrix crossing
+Even though our parametrization is continuous across
+the separatrix, it depends onℜ(˜r +) which behaves likep|ηsep−η|, as can be seen in Fig. 4a. Hence, its first time
+derivative is infinite at the crossing. This is a problem when
+attempting to do an adiabatic transition from bound/scattering
+to outer/direct plunges, as the change in ˜r+ will dominate over
+the slow changes in ˜Eand ˜L.
+However, note that the parametrization for outer/direct
+plunges continues to have the correct turning point if one
+drops the first term infandAin Eq. (26). Indeed, that term
+is only there for continuity with the bound/scattering trajecto-
+ries. Hence, it is possible to fix this for most realistic situations
+by replacing ˜r+ in Eq. (26) with a smoothed variable
+˜reff+ =˜ravg +σ(∆˜r2).(32)
+Here, the functionσ(∆˜r2) should interpolate between∆˜rand
+zero in a smooth way. We propose
+σl(x)=l
+q
+ln1+e x/l2.(33)
+This expression satisfiesσ l(x)≈ √xforx≫l 2,σ l(0)∝land
+σl(x)≈le x/2l2→0 forx≪−l 2. We show both ˜r+ and ˜reff+ on
+Fig. 5.
+For most values of∆˜r, the effective root ˜r eff+ will be equal
+to the actual root ˜r + up to exponentially small corrections.
+As∆˜rapproaches zero, the effective variable approaches ˜ravg
+smoothly, instead of through a square root kink. Whenever
+the transition doesn’t occur too close to periapsis, this doesn’t
+affect the dynamics. However, the dynamics become sensitive
+to the arbitrary choice of cutofflif the separatrix is crossed at
+a radius ˜rsuch that the distance ˜r−˜rUCO≈O(l).
+We note that this approach doesn’t work for transitions to
+inner plunges, since these occur precisely at the periapsis.
+Hence, the parametrization (31) is flawed. We leave an under-
+standing of how to choose smooth variables for this transition
+FIG. 5: Comparison between the root ˜r+ and the smoothed
+root ˜reff+ defined in Eqs. (32) and (33). We choosel=1/100
+as the length cutoff.
+for future work. However, these transitions are fine tuned;
+and generic transitions will always occur at some finite dis-
+tance from periapsis, which makes this approach useful for
+most physically relevant situations.
+B. Toy model for adiabatic evolution under driving force
+In order to test how the coordinates evolve across the sepa-
+ratrix, we evolve ˜Eand ˜Lat a constant rate to drive a point
+particle from a bound orbit into an outer plunge. At each
+time, we make the particle follow a geodesic whose param-
+eters (p,ϵ) are determined by the slowly varying ( ˜E, ˜L). We
+parametrize the radius using Eqs. (25) and (30).
+We chose constant rates of changed ˜E/dη=−1.5×10 −4
+andd ˜L/dη=−5×10 −3. These rates were chosen only to il-
+lustrate a transition to an outer plunge; they are not intended
+to model a realistic physical system. We start the particle with
+semi-latus rectump 0 =8.5 and eccentricityϵ=0.3. In Fig.
+6, we showpandϵas functions of proper time, as well as the
+radius ˜rand the phaseη. This demonstrates that the extended
+variables provide a continuous parametrization of the motion
+across the separatrix, even though the underlying orbital ele-
+ments (p,ϵ) develop non-analytic behavior.
+VII. CONCLUSIONS
+In this work, we analytically continued the Darwin vari-
+ables to include plunging geodesics. For geodesic motion, the
+extended variables provide a continuous description of bound,
+scattering and plunge trajectories. In the presence of a driving
+force, a smooth parametrization can be maintained except in
+fine-tuned transitions occurring arbitrarily close to periapsis.
+We leave the use of these new coordinates on dynamical sys-
+tems with realistic radiation-reaction forces for future work.
+We also note that it should be possible to extend these coordi-
+nates to geodesics on a Kerr background.
+Acknowledgments: We thank Maarten Van de Meent, Guil-
+10
+(a) Evolution of semi-latus rectump.
+ (b) Evolution of eccentricityϵ.
+(c) Evolution of radius.
+ (d) Evolution of phaseηas a function of proper time ˜τ.
+FIG. 6: We use simple constant fluxes to evolve ( ˜E, ˜L) and make a particle follow, at each time, a geodesic with valuesp( ˜E, ˜L)
+andϵ( ˜E, ˜L). Even though (p,ϵ) have a kink at the separatrix and become complex after that, the radius ˜rand orbital phaseη
+remain real and smooth throughout the complete evolution of the dynamics.
+laume Lhost, Guglielmo Faggioli and Devin Becker for valu-
+able discussions and insights into the lore of the transition to
+plunge. We also thank Nami Nishimura and Trevor Scheopner
+for fruitful discussions on the analytic continuation on Dar-
+win variables.Funded by the European Union. Views and
+opinions expressed are however those of the author(s) only
+and do not necessarily reflect those of the European Union
+or the European Research Council Executive Agency. Neither
+the European Union nor the granting authority can be held
+responsible for them. This work is supported by ERC grant
+(GWSky/101167314).
+[1] B. P. Abbottet al.(LIGO Scientific, Virgo), Phys. Rev. Lett.
+116, 061102 (2016), arXiv:1602.03837 [gr-qc].
+[2] B. P. Abbottet al.(LIGO Scientific, Virgo), Phys. Rev. Lett.
+116, 241103 (2016), arXiv:1606.04855 [gr-qc].
+[3] B. P. Abbottet al.(LIGO Scientific, Virgo), Phys. Rev. X6,
+041015 (2016), arXiv:1606.04856 [gr-qc].
+[4] P. Amaro-Seoane et al., (2013), arXiv:1305.5720 [astro-
+ph.CO].
+[5] L. Barack and A. Pound, Rept. Prog. Phys.82, 016904 (2019),
+arXiv:1805.10385 [gr-qc].
+[6] T. Hinderer and E. E. Flanagan, Phys. Rev. D78, 064028
+(2008), arXiv:0805.3337 [gr-qc].
+[7] C. Darwin, Proceedings of the Royal Society of London. Series
+A, Mathematical and Physical Sciences249, 180 (1959).
+[8] A. Ori and K. S. Thorne, Phys. Rev. D62, 124022 (2000).
+[9] A. Buonanno and T. Damour, Phys. Rev. D62, 064015 (2000).
+[10] G. Lhost and G. Comp `ere, SciPost Phys. Core8, 059 (2025),
+arXiv:2412.04249 [gr-qc].
+[11] D. R. Becker and S. A. Hughes, Phys. Rev. D111, 064003
+(2025).
+[12] L. K ¨uchler, G. Comp `ere, L. Durkan, and A. Pound, SciPost
+Phys.17, 056 (2024), arXiv:2405.00170 [gr-qc].
+[13] L. Honet, L. K ¨uchler, A. Pound, and G. Comp `ere, Phys. Rev.
+D113, 044051 (2026), arXiv:2510.13958 [gr-qc].
+[14] L. K ¨uchler, G. Comp`ere, and A. Pound, Classical and Quantum
+Gravity43, 015018 (2025).
+[15] G. Faggioli, M. van de Meent, A. Buonanno, and G. Khanna,
+Phys. Rev. D112, 084009 (2025).
+[16] A. Buonanno and T. Damour, Phys. Rev. D59, 084006 (1999).
+[17] T. Damour, P. Jaranowski, and G. Sch ¨afer, Physics Letters B
+513, 147 (2001).
+[18] A. Buonanno, Y . Chen, and T. Damour, Phys. Rev. D74,
+11
+104005 (2006).
+[19] J. Levin and G. Perez-Giz, Phys. Rev. D79, 124013 (2009),
+arXiv:0811.3814 [gr-qc].
+[20] R. Grossman and J. Levin, Phys. Rev. D79, 043017 (2009),
+arXiv:0811.3798 [gr-qc].
