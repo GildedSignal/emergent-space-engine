@@ -1,0 +1,180 @@
+diff --git a/crates/lattice-event/src/lib.rs b/crates/lattice-event/src/lib.rs
+index 7b82c06..643e229 100644
+--- a/crates/lattice-event/src/lib.rs
++++ b/crates/lattice-event/src/lib.rs
+@@ -788,7 +788,20 @@ impl EventCore {
+             let xj = hot[j].at(t);
+             let (xa, xb) = if a == i { (xi, xj) } else { (xj, xi) };
+             let (ha, hb) = (&hot[a], &hot[b]);
+-            if let Some(u) = law::first_hit(law::sub(xb, xa), law::sub(hb.k, ha.k), (ha.radius + hb.radius) as i128) {
++            let d = [xb[0] - xa[0], xb[1] - xa[1]];
++            let w = [hb.k[0] - ha.k[0], hb.k[1] - ha.k[1]];
++            let reach = ha.radius + hb.radius;
++            let u = if d[0].abs() <= law::HIT64_D
++                && d[1].abs() <= law::HIT64_D
++                && w[0].abs() <= law::HIT64_K
++                && w[1].abs() <= law::HIT64_K
++                && reach <= law::HIT64_R
++            {
++                law::first_hit64(d, w, reach)
++            } else {
++                law::first_hit(law::sub(xb, xa), law::sub(hb.k, ha.k), reach as i128)
++            };
++            if let Some(u) = u {
+                 e_hit = e_hit.min(t.saturating_add(u).saturating_add(1));
+             }
+         };
+@@ -1224,7 +1237,20 @@ impl EventCore {
+             let xj = hot[j].at(t - 1);
+             let (xa, xb) = if a == i { (xi, xj) } else { (xj, xi) };
+             let (ha, hb) = (&hot[a], &hot[b]);
+-            if law::hit(law::sub(xb, xa), law::sub(hb.k, ha.k), (ha.radius + hb.radius) as i128) {
++            let d = [xb[0] - xa[0], xb[1] - xa[1]];
++            let w = [hb.k[0] - ha.k[0], hb.k[1] - ha.k[1]];
++            let reach = ha.radius + hb.radius;
++            let hits = if d[0].abs() <= law::HIT64_D
++                && d[1].abs() <= law::HIT64_D
++                && w[0].abs() <= law::HIT64_K
++                && w[1].abs() <= law::HIT64_K
++                && reach <= law::HIT64_R
++            {
++                law::hit64(d, w, reach)
++            } else {
++                law::hit(law::sub(xb, xa), law::sub(hb.k, ha.k), reach as i128)
++            };
++            if hits {
+                 pairs.push((a as u32, b as u32));
+             }
+         };
+diff --git a/crates/lattice/src/law.rs b/crates/lattice/src/law.rs
+index 9cdffc0..0ff1261 100644
+--- a/crates/lattice/src/law.rs
++++ b/crates/lattice/src/law.rs
+@@ -410,6 +410,74 @@ pub fn first_wall(x: [i64; 2], k: [i64; 2], lo: [i64; 2], hi: [i64; 2]) -> Optio
+     best
+ }
+ 
++/// Exact i64 domain of [`hit64`] and [`first_hit64`]: with |d_c| ≤ 2²⁶, |w_c| ≤ 2¹⁶ and
++/// reach ≤ 2²⁴ every intermediate stays inside i64 or one widening i64×i64→i128 product
++/// (dd ≤ 2⁵³, |dw| ≤ 2⁴³, ww ≤ 2³³, cross ≤ 2⁴³, |d+w|² ≤ 2⁵⁵, and in the search
++/// w_c·m ≤ 2²⁸·|d_c| because m ≤ closest-approach + 1 makes |d+w·m|² ≤ 2·dd). This is the
++/// GPU's own certificate (crates/lattice-metal: C·(K+1) ≤ 2²⁸) stated over the visitor's
++/// actual arguments, extended to `first_hit`. Callers outside the domain use the i128 forms.
++pub const HIT64_D: i64 = 1 << 26;
++pub const HIT64_K: i64 = 1 << 16;
++pub const HIT64_R: i64 = 1 << 24;
++
++#[inline]
++pub fn hit64(d: [i64; 2], w: [i64; 2], reach: i64) -> bool {
++    let dd = d[0] * d[0] + d[1] * d[1];
++    let dw = d[0] * w[0] + d[1] * w[1];
++    let ww = w[0] * w[0] + w[1] * w[1];
++    let rr = reach * reach;
++    if dd <= rr {
++        dw < 0
++    } else if ww == 0 || dw >= 0 {
++        false
++    } else if -dw >= ww {
++        let e = [d[0] + w[0], d[1] + w[1]];
++        e[0] * e[0] + e[1] * e[1] <= rr
++    } else {
++        let cross = d[0] * w[1] - d[1] * w[0];
++        (cross as i128) * (cross as i128) <= (rr as i128) * (ww as i128)
++    }
++}
++
++#[inline]
++pub fn first_hit64(d: [i64; 2], w: [i64; 2], reach: i64) -> Option<i64> {
++    let dw = d[0] * w[0] + d[1] * w[1];
++    let ww = w[0] * w[0] + w[1] * w[1];
++    if ww == 0 || dw >= 0 {
++        return None;
++    }
++    let rr = reach * reach;
++    let dd = d[0] * d[0] + d[1] * d[1];
++    // Closest approach beyond reach: never.
++    if (dd as i128) * (ww as i128) - (dw as i128) * (dw as i128) > (rr as i128) * (ww as i128) {
++        return None;
++    }
++    if dd <= rr {
++        return Some(0);
++    }
++    // P(u): within reach somewhere in [0, u + 1]; monotone, true at ceil(τ*) − 1.
++    let p = |u: i64| -> bool {
++        if (u + 1) * ww >= -dw {
++            return true;
++        }
++        let ex = d[0] + w[0] * (u + 1);
++        let ey = d[1] + w[1] * (u + 1);
++        ex * ex + ey * ey <= rr
++    };
++    let mut hi = (-dw + ww - 1) / ww - 1; // ceil(τ*) − 1 ≥ 0 because dw < 0
++    let mut lo = 0i64;
++    while lo < hi {
++        let mid = lo + (hi - lo) / 2;
++        if p(mid) {
++            hi = mid;
++        } else {
++            lo = mid + 1;
++        }
++    }
++    debug_assert!(hit64([d[0] + w[0] * lo, d[1] + w[1] * lo], w, reach));
++    Some(lo)
++}
++
+ /// Wall-set membership at the chronon's end position.
+ pub fn at_wall(x: [i64; 2], k: [i64; 2], lo: [i64; 2], hi: [i64; 2]) -> bool {
+     (0..2).any(|c| (k[c] < 0 && x[c] <= lo[c]) || (k[c] > 0 && x[c] >= hi[c]))
+diff --git a/crates/lattice/tests/law.rs b/crates/lattice/tests/law.rs
+index c422ef4..7c623fc 100644
+--- a/crates/lattice/tests/law.rs
++++ b/crates/lattice/tests/law.rs
+@@ -209,3 +209,48 @@ fn slicing_and_restore_do_not_change_the_outcome() {
+     log.merge(second.log());
+     assert_eq!((second.world().digest(), log.digest()), expected);
+ }
++
++/// The i64 fast paths are exact on their documented domain (|d_c| ≤ HIT64_D, |w_c| ≤
++/// HIT64_K, reach ≤ HIT64_R): they must return the i128 predicates' answer everywhere
++/// inside it. Two sweeps: the event core's visitor regime (separations of a few cell
++/// sides, |w| ≤ 2K — where every branch and the hit search run), and the domain's corners
++/// and far-separation deep searches at the guard's widest arguments.
++#[test]
++fn hit64_first_hit64_equal_i128_on_domain() {
++    let mut rng = Rng(19);
++    let mut hits = 0;
++    for _ in 0..200_000 {
++        let d = [rng.range(-800, 800), rng.range(-800, 800)];
++        let w = [rng.range(-512, 512), rng.range(-512, 512)];
++        let reach = rng.range(1, 300);
++        let (di, wi) = ([d[0] as i128, d[1] as i128], [w[0] as i128, w[1] as i128]);
++        assert_eq!(law::hit64(d, w, reach), law::hit(di, wi, reach as i128), "d {d:?} w {w:?} reach {reach}");
++        assert_eq!(law::first_hit64(d, w, reach), law::first_hit(di, wi, reach as i128), "d {d:?} w {w:?} reach {reach}");
++        hits += law::hit64(d, w, reach) as u32;
++    }
++    assert!(hits > 10_000, "the visitor sweep must exercise hits, got {hits}");
++    let mut deep = 0;
++    for _ in 0..50_000 {
++        let d = [rng.range(-law::HIT64_D, law::HIT64_D), rng.range(-law::HIT64_D, law::HIT64_D)];
++        let w = [rng.range(-3, 3), rng.range(-3, 3)];
++        let reach = rng.range(1, law::HIT64_R);
++        let (di, wi) = ([d[0] as i128, d[1] as i128], [w[0] as i128, w[1] as i128]);
++        assert_eq!(law::first_hit64(d, w, reach), law::first_hit(di, wi, reach as i128), "d {d:?} w {w:?} reach {reach}");
++        deep += law::first_hit64(d, w, reach).is_some() as u32;
++    }
++    assert!(deep > 100, "the deep sweep must exercise hits, got {deep}");
++    for &dc in &[law::HIT64_D, -law::HIT64_D, 1, 0] {
++        for &wc in &[law::HIT64_K, -law::HIT64_K, 1, 0] {
++            for &reach in &[law::HIT64_R, 1] {
++                for d1 in [dc, 1, 0] {
++                    for w1 in [wc, 1, 0] {
++                        let (d, w) = ([dc, d1], [wc, w1]);
++                        let (di, wi) = ([d[0] as i128, d[1] as i128], [w[0] as i128, w[1] as i128]);
++                        assert_eq!(law::hit64(d, w, reach), law::hit(di, wi, reach as i128), "corner d {d:?} w {w:?} reach {reach}");
++                        assert_eq!(law::first_hit64(d, w, reach), law::first_hit(di, wi, reach as i128), "corner d {d:?} w {w:?} reach {reach}");
++                    }
++                }
++            }
++        }
++    }
++}

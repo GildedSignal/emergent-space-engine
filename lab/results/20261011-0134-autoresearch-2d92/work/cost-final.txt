@@ -1,0 +1,16 @@
+running 1 test
+machine before: load01:56:01 up 44 days, 16:58,  0 user,  load average: 3.08, 2.29, 1.41 |  |  |  | 
+scene: 2000 bodies, q = 1024, genesis extent 180 light-chronons, horizon 4096 chronons
+ns per body per epoch-kick (epochs after the first), by phase; sparse upkeep = re-home and re-predict every kicked body (run inside the next chronon):
+E =  32 (nT 0.50, 128 epochs): lockstep read 11.1 + frame 33.2 + apply 8.2 = 52.5 ns; wall 2.82 s (344 ns per body-chronon)
+                         sparse   read 6.7 + frame 28.8 + apply 22.6 + upkeep 70.0 = 128.1 ns; wall 0.26 s; 27202 contacts = 106212 events/s, 20.5M ops/s, 20 ops per body-epoch
+E =   8 (nT 2.00, 512 epochs): lockstep read 8.4 + frame 29.7 + apply 8.9 = 46.9 ns; wall 2.85 s (348 ns per body-chronon)
+                         sparse   read 5.5 + frame 27.8 + apply 25.2 + upkeep 158.3 = 216.9 ns; wall 0.43 s; 27995 contacts = 65792 events/s, 16.9M ops/s, 7 ops per body-epoch
+E =   2 (nT 8.00, 2048 epochs): lockstep read 7.2 + frame 29.0 + apply 8.7 = 45.0 ns; wall 2.98 s (364 ns per body-chronon)
+                         sparse   read 5.7 + frame 28.7 + apply 84.2 + upkeep 292.0 = 410.5 ns; wall 2.11 s; 30287 contacts = 14378 events/s, 18.3M ops/s, 9 ops per body-epoch
+kick pass alone, 2000 bodies, 1 threads: 16.6 ns per body-kick
+kick pass alone, 2000 bodies, 4 threads: 55.8 ns per body-kick
+kick pass alone, 2000 bodies, 8 threads: 93.3 ns per body-kick
+machine after: load01:56:16 up 44 days, 16:58,  0 user,  load average: 3.07, 2.32, 1.43 |  |  |  | 
+.
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.22s
