@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261011-1814-quant-f8f9/`: `predictions.md` (pre-registered, two misses reported), `data/` (10 bench runs + summary table), `dossier.md`. No repo files outside the run folder were touched; no git commands run.
+
+**Claim:** On the shipped plane, the readout — not the kick — owns the presented frame (55–72 % of frame CPU; the gather is an unbudgeted, synchronous 8.6 µs per body per frame, twice the whole engine budget at its max), the allocator provably holds both the SLA and exact schedule independence under squeeze (one digest across engine budgets 1/5/15 ms and paced/unpaced; zero frames above 16.7 ms at budget ≤ 5 ms even at 72 % overflow, hitches appearing only past the knee at 15 ms), and the measured per-event arithmetic (62–151 µs/event today vs ~3 µs needed at 32 kicks/orbit for 10⁹ bodies, ~300 µs allowed at secular 0.3/orbit) shows cadence, not per-event cost, spans the gap to the goal.
