@@ -1,0 +1,4 @@
+Working...
+Bit-identical regeneration confirmed (md5 match, G bit-match PASS, all deadline rows reproduce). The named experiment is done, the record regenerates from shipped code, and the parent's claim is corrected.
+
+**The claim, in one sentence:** H_live is bounded iff the store both re-fits the generator and canonically relabels unobserved bodies — re-fit alone is never below the frozen cost (42/42 checkpoints across Gaussian, areal-1/b, and the checker's |Δ|=K/U² tails; E[Δ²]=6.66×10⁶ reconstructs theirs exactly) — and with relabelling the floor is flat and law-robust at 4.26–4.30 bits/body (1.8 bits/column at 10⁹-scale knots, 0.68 GB for 3 columns at 10⁹), leaving the relabelling law decision, due in ~10⁴ orbits under the heavy tail (vs ~10⁷ Gaussian), as the only deadline that matters.
