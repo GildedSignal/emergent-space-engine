@@ -1,0 +1,199 @@
+diff --git a/xtask/src/universe/hlive.rs b/xtask/src/universe/hlive.rs
+new file mode 100644
+index 00000000..48bfac57
+--- /dev/null
++++ b/xtask/src/universe/hlive.rs
+@@ -0,0 +1,155 @@
++//! `xtask universe --hlive`: H_live, the live distinguishing information, measured on the flying plane
++//! (docs/law.md "Populations": the allocator's memory budget, estimated there at +62 bits per kick and
++//! −60 per reabsorption, never measured). Two populations, the only two kinds of thing a body can be:
++//!
++//! - the fleet's members, a frame (lattice exact integers: position x, velocity k);
++//! - the ships, tubes in a doll (the catalogue key = quantized (E, L), the periapsis angle and time).
++//!
++//! Each population is coded per game-second by a two-level shared-program coder: the distinct states are
++//! enumerated once (each at its own width: per dimension, log2 of the population's range), then each member
++//! is coded by an index into that list. The floor bits per member this coder gives is an upper bound on any
++//! better coder and a lower bound on what the plain store pays. The slope of that number against game time
++//! is the net H_live flux; the extrapolation to 10⁹ bodies against the 8 GB budget (64 bits per body) is
++//! the decision this run exists for.
++//!
++//! universe --hlive [--seed N] [--rtf R] [--seconds S] [--threads N] [--members N] [--engine-ms MS]
++use super::session::Session;
++use emergent_lattice::Motion;
++use emergent_universe::body::Kind;
++use serde_json::json;
++use std::time::Instant;
++
++/// One population's exact states, coded by the two-level coder: the distinct states each at their own
++/// width (shared), then each member an index into the list. Returns (members, distinct, bits per member).
++fn code_states<T: Eq + std::hash::Hash + Clone>(states: &[T], bits_of_one: impl Fn(&T, &[T]) -> f64) -> (usize, usize, f64) {
++    let mut seen = std::collections::HashMap::new();
++    let mut distinct: Vec<T> = Vec::new();
++    for s in states {
++        if !seen.contains_key(s) {
++            seen.insert(s.clone(), distinct.len());
++            distinct.push(s.clone());
++        }
++    }
++    let d = distinct.len();
++    if d == 0 || states.is_empty() {
++        return (states.len(), d, 0.0);
++    }
++    let shared: f64 = distinct.iter().map(|s| bits_of_one(s, &distinct)).sum();
++    let per = shared / states.len() as f64 + (d as f64).log2();
++    (states.len(), d, per)
++}
++
++/// Bits to code one integer column of a population: the range is shared (min and max are the program's),
++/// each value then costs log2(range) bits. Collisions are paid for by the coder's index term.
++fn range_bits(vals: &[i64]) -> f64 {
++    let Some(&lo) = vals.iter().min() else { return 0.0 };
++    let Some(&hi) = vals.iter().max() else { return 0.0 };
++    (((hi - lo) as u64 + 1) as f64).log2().max(0.0)
++}
++
++fn pair_bits(vals: &[(i64, i64)]) -> f64 {
++    range_bits(&vals.iter().map(|v| v.0).collect::<Vec<_>>())
++        + range_bits(&vals.iter().map(|v| v.1).collect::<Vec<_>>())
++}
++
++pub(crate) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
++    let frames = (seconds * 60.0) as usize;
++    let cut = (frames as f64 * s.rtf / 60.0 / emergent_universe::view::TICK_SECONDS).round() as i64;
++    s.cut = Some(cut);
++    let log = super::canonical_log(frames, s.rtf, 0);
++    for &(t, k) in &log {
++        s.p.u.schedule(t, k).map_err(|e| format!("schedule: {e:?}"))?;
++    }
++    let mut rows: Vec<serde_json::Value> = Vec::new();
++    let mut last_second = 0u64;
++    let mut prev = None::<(u64, u64)>; // (kicks, contacts) at the last snapshot
++    let wall = Instant::now();
++    for n_frame in 1..=frames {
++        if let Err(e) = s.step(None, 1.0 / 60.0) {
++            rows.push(json!({"frame": n_frame, "error": format!("{e}")}));
++            break;
++        }
++        if s.p.u.now >= cut {
++            break;
++        }
++        let game_s = (n_frame as f64 * s.rtf / 60.0) as u64;
++        if game_s <= last_second {
++            continue;
++        }
++        last_second = game_s;
++        // The fleet: exact lattice states of the members still in the frame.
++        let mut motions: Vec<Motion> = Vec::new();
++        s.p.u.fleets[0].motions(&mut motions);
++        let ks: Vec<(i64, i64)> = motions.iter().map(|m| (m.k[0], m.k[1])).collect();
++        let xs: Vec<(i64, i64)> = motions.iter().map(|m| (m.x[0], m.x[1])).collect();
++        let (n_mem, d_k, k_per) = code_states(&ks, |_, all| pair_bits(all));
++        let (_, d_x, x_per) = code_states(&xs, |_, all| pair_bits(all));
++        // The ships: tubes (key, angle, periapsis time) in whatever doll they live.
++        let mut keys: Vec<u32> = Vec::new();
++        let mut tubes: Vec<(u32, u32, u64)> = Vec::new();
++        for i in 0..s.p.u.n_bodies() {
++            let r = s.p.u.bodies().rec(i);
++            if !r.alive || r.kind != Kind::Ship {
++                continue;
++            }
++            keys.push(r.b.tube.key);
++            tubes.push((r.b.tube.key, r.b.tube.periapsis_angle, r.b.tube.periapsis_time.get()));
++        }
++        let (n_ships, d_keys, _key_per) = code_states(&keys, |_, _| 32.0);
++        // Angle uniform in u32, periapsis time a byte of spread from the population's clock; the coder's
++        // index term is where any collision structure would show.
++        let (_, d_tubes, tube_per) = code_states(&tubes, |_, _| 32.0 + 8.0);
++        let st = s.p.u.stats;
++        let fl = &s.p.u.fleets[0];
++        let flux = match prev {
++            None => (0, 0),
++            Some((k0, c0)) => (st.kicks.saturating_sub(k0), fl.contacts().saturating_sub(c0)),
++        };
++        prev = Some((st.kicks, fl.contacts()));
++        rows.push(json!({
++            "game_s": game_s, "tick": s.p.u.now,
++            "fleet": {"members": n_mem, "distinct_velocities": d_k, "distinct_states": d_x,
++                       "floor_bits_per_member_velocity": k_per, "floor_bits_per_member_state": k_per + x_per,
++                       "contacts_total": fl.contacts(), "contacts_this_s": flux.1},
++            "ships": {"n": n_ships, "distinct_keys": d_keys, "distinct_tubes": d_tubes,
++                       "floor_bits_per_ship": tube_per, "kicks_this_s": flux.0},
++            "bytes_per_body": s.p.u.bytes_per_body(), "catalogue_live": s.p.u.catalogue_live(),
++        }));
++    }
++    let summary = summarize(&rows);
++    println!(
++        "{}",
++        json!({"scope": "H_live on the flying plane: engine advance (budgeted, causal-deadline order), the scripted player, no view; populations coded by the two-level shared-program coder",
++        "seed": s.seed, "rtf": s.rtf, "snapshots": rows.len(), "wall_seconds": wall.elapsed().as_secs_f64(),
++        "rows": rows, "summary": summary})
++    );
++    Ok(0)
++}
++
++/// The decision numbers: fits of the floor bits per member against game time, and the blowup time at 10⁹ bodies.
++fn summarize(rows: &[serde_json::Value]) -> serde_json::Value {
++    let pts = |get: fn(&serde_json::Value) -> Option<f64>| -> Vec<(f64, f64)> {
++        rows.iter().filter_map(|r| Some((r["game_s"].as_f64()?, get(r)?))).collect()
++    };
++    let slope = |v: &[(f64, f64)]| -> Option<f64> {
++        if v.len() < 2 {
++            return None;
++        }
++        let n = v.len() as f64;
++        let (sx, sy) = v.iter().fold((0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
++        let (sxx, sxy) = v.iter().fold((0.0, 0.0), |a, b| (a.0 + b.0 * b.0, a.1 + b.0 * b.1));
++        let d = n * sxx - sx * sx;
++        (d != 0.0).then_some((n * sxy - sx * sy) / d)
++    };
++    let fleet = pts(|r| r["fleet"]["floor_bits_per_member_state"].as_f64());
++    let kv = pts(|r| r["fleet"]["floor_bits_per_member_velocity"].as_f64());
++    let ship = pts(|r| r["ships"]["floor_bits_per_ship"].as_f64());
++    json!({
++        "fleet_state_bits_slope_per_game_s": slope(&fleet),
++        "fleet_state_bits_first": fleet.first().map(|p| p.1), "fleet_state_bits_last": fleet.last().map(|p| p.1),
++        "fleet_velocity_bits_slope_per_game_s": slope(&kv),
++        "ship_bits_slope_per_game_s": slope(&ship),
++        "ship_bits_first": ship.first().map(|p| p.1), "ship_bits_last": ship.last().map(|p| p.1),
++        "note": "at 1e9 bodies the 8 GB budget is 64 bits per body; the blowup time is 64 / slope game-seconds when the slope is positive",
++    })
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..df713de9 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -8,6 +8,7 @@
+ //!
+ //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
++mod hlive;
+ mod http;
+ mod kick_bench;
+ mod session;
+@@ -21,6 +22,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    let mut hlive = false;
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -33,6 +35,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
++            "--hlive" => hlive = true,
+             "--unpaced" => paced = false,
+             "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+@@ -52,6 +55,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
++    if hlive {
++        return hlive::run(s, seconds);
++    }
+     if describe {
+         println!("{}", s.describe());
+         return Ok(0);

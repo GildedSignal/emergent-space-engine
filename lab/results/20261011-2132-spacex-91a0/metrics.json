@@ -1,0 +1,23 @@
+# metrics.json — 20261011-2132-spacex-91a0
+
+Reproduce: `cargo build --release -p xtask` then
+`/path/to/target/release/xtask universe --hlive --seed S --rtf 100 --seconds 20 --members M`
+(binary at `$CARGO_TARGET_DIR/release/xtask`; this checkout: `/home/glmlab/lab-target-3/release/xtask`).
+Raw rows: `hlive-s{1,7,99}-m{400,48}.json` in this folder. Machine: i7-4790, 15 GB, load 3.1, 9 GB free.
+
+{
+  "machine": {"cpu": "i7-4790 x86_64", "mem_gb": 15, "loadavg": 3.09, "note": "cloud timings: orders of magnitude only"},
+  "runs": [
+    {"seed": 1, "members": 400, "game_s": 2000, "wall_s": 7.3, "implied_rtf": 275},
+    {"seed": 7, "members": 400, "game_s": 2000, "wall_s": 8.1, "implied_rtf": 247},
+    {"seed": 99, "members": 400, "game_s": 1000, "wall_s": 4.3},
+    {"seed": 1, "members": 48, "game_s": 2000, "wall_s": 1.4}
+  ],
+  "fleet_velocity_bits_per_member": {"t1": 16.5, "plateau": "21.3-21.8", "slope_second_half_bits_per_game_s": "+0.0000..+0.0001", "distinct_velocities": "298 -> 360-365 by game-s 335, flat to 1668"},
+  "fleet_state_bits_per_member": {"t1": 79, "t2000": "101-102", "fit_vs_log2_t_bits_per_doubling": "+2.1..+2.4", "slope_second_half_bits_per_game_s": "+0.002..+0.005"},
+  "ship_tube_bits_per_ship": {"t1": 44.5, "t2000": "45.6-48.0", "slope_second_half_bits_per_game_s": "-0.0003..-0.0001", "distinct_keys": "all distinct always"},
+  "contacts": {"total_by_seed": "2011-2391", "last_100_game_s": 0, "conclusion": "transient: the battle ends, no steady-state contact flux"},
+  "kicks": {"fired_in_2000_game_s": 0, "conclusion": "tube populations are pure drift at these scales; the +62 bits/kick law estimate governs per-orbit scales, not per-game-second"},
+  "store": {"bytes_per_body": "1183 at t=1 -> 6088-6400 at t=2000", "floor_bytes_per_body": "6-13", "idiot_index": ">= 170x"},
+  "catalogue": {"live_entries": "28 -> 418-428, monotone", "per_shed_fleet_member": "+1 unique compiled cycle, never reabsorbed", "ships_peak": 275}
+}

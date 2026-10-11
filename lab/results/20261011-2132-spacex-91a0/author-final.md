@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261011-2132-spacex-91a0/`: `dossier.md`, `predictions.md` (pre-registered, all four held), `metrics.json`, raw per-second rows (4 runs, seeds 1/7/99, 48/400 members), and `work/xtask-hlive.diff` (verified `git apply --check` clean on the pristine tree).
+
+**The claim:** H_live does not leak — on the flying plane the live distinguishing information per body saturates (fleet velocities ~22 bits/member, ship tubes ~45–48 bits/ship, flat after the battle's transient; zero kicks in 2000 game-seconds), so 10⁹-in-8-GB is bounded by the store, not the information (measured ≥ 170× idiot-index, bytes/body 1.2→6.4 KB against a 6–13 B floor), and the one unbounded grower is the compiled-cycle catalogue (28→428 entries, one per fleet member shed), because `Catalogue::insert` never shares entries by quantized (E, L) as law.md's memo requires.
