@@ -1,0 +1,140 @@
+{
+ "machine": "linux x8664, 8 vCPU",
+ "units": "M=1",
+ "phi_max": 37.69911184307752,
+ "control_weak_field": {
+  "bend": 0.018000000000000682,
+  "expected_4_over_b": 0.02,
+  "rel_err": 0.09999999999996591
+ },
+ "control_capture": {
+  "b_c": 5.196152422706632,
+  "min_escaping_b": 5.197287462084353,
+  "rel_err": 0.00021843843008938517,
+  "any_below_b_c": false
+ },
+ "control_flat_M0": {
+  "max_images": 1,
+  "frac_exactly_1_on_covered_half": 0.916667,
+  "note": "one sky half: covered azimuths are (0, pi); the mirror half doubles the sky"
+ },
+ "emitter_behind_images_r10": {
+  "phi_e": "pi (exactly behind the hole)",
+  "psi_deg_this_half": [
+   141.11087805283196,
+   152.2885657031092
+  ],
+  "psi_deg_mirror_half": [
+   218.889,
+   207.711
+  ],
+  "note": "image directions from one sky half and their mirrors; separation from the hole direction (psi=180 deg)"
+ },
+ "sweep": [
+  {
+   "r_o": 10.0,
+   "r_e": 20.0,
+   "n_rays": 32768,
+   "max_total_images": 4,
+   "frac_ge2": 1.0,
+   "frac_ge3": 1.0,
+   "frac_ge4": 0.4444,
+   "deepest_bend_rad": 10.799,
+   "note": "counts are lower bounds: bend is capped by ray resolution, which itself caps at phi_max"
+  },
+  {
+   "r_o": 10.0,
+   "zoom_corridor_rad": [
+    2.6146151990584987,
+    2.6581569520615598
+   ],
+   "n_rays": 131072,
+   "deepest_bend_rad_zoom": 16.409,
+   "deepest_bend_wraps": 2.612
+  },
+  {
+   "r_o": 5.0,
+   "r_e": 20.0,
+   "n_rays": 32768,
+   "max_total_images": 4,
+   "frac_ge2": 1.0,
+   "frac_ge3": 1.0,
+   "frac_ge4": 0.6361,
+   "deepest_bend_rad": 11.393,
+   "note": "counts are lower bounds: bend is capped by ray resolution, which itself caps at phi_max"
+  },
+  {
+   "r_o": 5.0,
+   "zoom_corridor_rad": [
+    2.1772098933473125,
+    2.2058906567384593
+   ],
+   "n_rays": 131072,
+   "deepest_bend_rad_zoom": 17.043,
+   "deepest_bend_wraps": 2.713
+  },
+  {
+   "r_o": 3.5,
+   "r_e": 20.0,
+   "n_rays": 32768,
+   "max_total_images": 4,
+   "frac_ge2": 1.0,
+   "frac_ge3": 1.0,
+   "frac_ge4": 0.6597,
+   "deepest_bend_rad": 11.467,
+   "note": "counts are lower bounds: bend is capped by ray resolution, which itself caps at phi_max"
+  },
+  {
+   "r_o": 3.5,
+   "zoom_corridor_rad": [
+    1.7826837487456628,
+    1.8083355206235532
+   ],
+   "n_rays": 131072,
+   "deepest_bend_rad_zoom": 17.979,
+   "deepest_bend_wraps": 2.861
+  },
+  {
+   "r_o": 3.2,
+   "r_e": 20.0,
+   "n_rays": 32768,
+   "max_total_images": 4,
+   "frac_ge2": 1.0,
+   "frac_ge3": 1.0,
+   "frac_ge4": 0.9931,
+   "deepest_bend_rad": 12.499,
+   "note": "counts are lower bounds: bend is capped by ray resolution, which itself caps at phi_max"
+  },
+  {
+   "r_o": 3.2,
+   "zoom_corridor_rad": [
+    1.668150007150654,
+    1.6769530137360555
+   ],
+   "n_rays": 131072,
+   "deepest_bend_rad_zoom": 17.722,
+   "deepest_bend_wraps": 2.821
+  },
+  {
+   "r_o": 100.0,
+   "r_e": 200.0,
+   "n_rays": 32768,
+   "max_total_images": 4,
+   "frac_ge2": 1.0,
+   "frac_ge3": 1.0,
+   "frac_ge4": 0.0069,
+   "deepest_bend_rad": 9.448,
+   "note": "counts are lower bounds: bend is capped by ray resolution, which itself caps at phi_max"
+  },
+  {
+   "r_o": 100.0,
+   "zoom_corridor_rad": [
+    2.970237733911761,
+    3.0900722106549687
+   ],
+   "n_rays": 131072,
+   "deepest_bend_rad_zoom": 14.721,
+   "deepest_bend_wraps": 2.343
+  }
+ ]
+}
