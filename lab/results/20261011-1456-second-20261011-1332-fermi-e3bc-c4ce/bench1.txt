@@ -1,0 +1,90 @@
+# jet_anchor decisive run 1, 2026-10-11T15:30:38Z
+# machine: model name	: Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz, 8 vCPU, load 0.80 0.92 0.80, MemAvailable MemAvailable:   13833800 kB
+# command: cargo build --release -p emergent-universe --example jet_anchor && $CARGO_TARGET_DIR/release/examples/jet_anchor 3000000000 350000000000
+jet_anchor: the shipped plane, seed 1 (deterministic stream, wall timings)
+built in 0.00s: 28 bodies, 4 dolls
+
+fine phase (all bodies): span 3000000000 ticks (14776 s game):
+  class            alive   rebinds/b   events/b  rebinds/orbit   r_rebind/s    r_event/s   skips  cell-chg/rebind  key-chg  exact-repeat  passages
+  hauler/star     12/12        0.8        0.8        3729.9     5.640e-5    5.640e-5      0           0.000      10            0        0
+  leaver          20/48       23.6       46.4           8.1     1.600e-3    3.138e-3      0           0.002    1135            0      119
+  moon             1/1        1.0        2.0         141.6     6.768e-5    1.354e-4      0           1.000       1            0        0
+  planet/star      3/3        0.0        0.0           0.0      0.000e0     0.000e0      0             NaN       0            0        0
+  player           1/1      714.0     1429.0         249.9     4.832e-2    9.671e-2      0           0.000     714            0        0
+  ship/Giant       3/3       59.7      118.7         171.5     4.038e-3    8.031e-3      0           0.000     179            0        0
+  ship/Home        8/8      190.0      379.4         175.6     1.286e-2    2.567e-2      0           0.001    1520            0        0
+  stream cache: 7118 keys touched, 3627 distinct exact, 54 distinct quantized cells (cross-body collapse 67.17x)
+digest after fine: 0ecd100e02ff22f475f4fd88153ae0a58a689b295f9ccf34a8afdfe7e0380c2a
+  coarse: tick 21666019798 (1.2 d game), wall 3.7 s
+  coarse: tick 39418725833 (2.2 d game), wall 5.0 s
+  coarse: tick 58254750745 (3.3 d game), wall 6.3 s
+  coarse: tick 78172999749 (4.5 d game), wall 7.7 s
+  coarse: tick 98754122629 (5.6 d game), wall 9.1 s
+  coarse: tick 119776903231 (6.8 d game), wall 10.6 s
+  coarse: tick 141112742271 (8.0 d game), wall 12.2 s
+  coarse: tick 162667010302 (9.3 d game), wall 13.7 s
+  coarse: tick 184275271293 (10.5 d game), wall 15.2 s
+  coarse: tick 205906329087 (11.7 d game), wall 16.8 s
+  coarse: tick 227559455802 (13.0 d game), wall 18.3 s
+  coarse: tick 249233917301 (14.2 d game), wall 19.9 s
+  coarse: tick 270928969909 (15.4 d game), wall 21.4 s
+  coarse: tick 292643854955 (16.7 d game), wall 23.0 s
+  coarse: tick 314377791140 (17.9 d game), wall 24.6 s
+  coarse: tick 336129964742 (19.2 d game), wall 26.1 s
+
+coarse phase (belt class, doll 0): span 350000000000 ticks (1723922 s game):
+  class            alive   rebinds/b   events/b  rebinds/orbit   r_rebind/s    r_event/s   skips  cell-chg/rebind  key-chg  exact-repeat  passages
+  hauler/star     12/12       60.4      120.8        2317.8     3.505e-5    7.004e-5      0           0.001     725            0        0
+  leaver          18/18       62.1      232.4         620.3     3.600e-5    1.348e-4     17           0.221    1100            0        0
+  moon             1/1        0.0      323.0           0.0      0.000e0    1.874e-4      0             NaN       0            0        0
+  planet/star      3/3       17.0       34.0         159.6     9.861e-6    1.972e-5      0           0.000      51            0        0
+  player           1/1        0.0   165617.0           0.0      0.000e0    9.607e-2      0             NaN       0            0        0
+  ship/Giant       3/3        0.0    13801.3           0.0      0.000e0    8.006e-3      0             NaN       0            0        0
+  ship/Home        8/8        0.0    43991.8           0.0      0.000e0    2.552e-2      0             NaN       0            0        0
+  stream cache: 3752 keys touched, 1909 distinct exact, 271 distinct quantized cells (cross-body collapse 7.04x)
+digest after coarse: 25c4de0088e2a2579df38dc46c9e599c37c3e3e3435e98890828c39215f46168
+
+realized per-item wall cost (stats.cost_ns / items), total kicks 289324:
+  moon   :     134 items,    37.2 us/item
+  ship   :  184134 items,    37.7 us/item
+  player :  168323 items,   119.4 us/item
+  fleet  :    1929 items,    29.9 us/item
+  encounters 96486, slices 1929, handoffs 18, lost 30, leavers 48
+
+per-kick readout tiers and the re-anchor compile, on the plane's own entries (200k reads, 2k compiles):
+  hauler/star    readout   3525 ns | state   3266 ns | crossing   360 ns | compile    3911 ns (2000/2000, 6 knots) | rho 0.001 | rebinds/event 0.50 | sink 1520018542773901658
+  leaver         readout   3571 ns | state   3372 ns | crossing   422 ns | compile   52240 ns (2000/2000, 74 knots) | rho 0.002 | rebinds/event 0.51 | sink 2896370496849207713
+  moon           readout   3480 ns | state   3243 ns | crossing   358 ns | compile    3778 ns (2000/2000, 6 knots) | rho 1.000 | rebinds/event 0.50 | sink 5238392943984000471
+  planet/star    readout   3528 ns | state   3280 ns | crossing   373 ns | compile    4904 ns (2000/2000, 7 knots) | rho 0.000 | rebinds/event 0.50 | sink 8352455249375957710
+  player         readout   2580 ns | state   2298 ns | crossing   369 ns | compile    3482 ns (2000/2000, 6 knots) | rho 0.000 | rebinds/event 0.50 | sink -7054646638811685181
+  ship/Giant     readout   3478 ns | state   3237 ns | crossing   361 ns | compile    3530 ns (2000/2000, 6 knots) | rho 0.000 | rebinds/event 0.50 | sink -3832351388454211694
+  ship/Home      readout   2995 ns | state   3182 ns | crossing   356 ns | compile    3484 ns (2000/2000, 6 knots) | rho 0.001 | rebinds/event 0.50 | sink -177904239806825147
+
+the budget identity, measured (8 core-equivalents; rtf 100 = the plane's flight):
+  class            r_event/s  reb/orbit   jet/kick   N_max(rtf100) jet   current/kick  N_max(rtf100) cur
+  hauler/star      7.004e-5      2318      362 ns           3.153e9       5482 ns             2.083e8
+  leaver           3.138e-3         8      469 ns           5.438e7      30208 ns             8.438e5
+  moon             1.354e-4       142     2246 ns           2.631e8       5369 ns             1.101e8
+  planet/star      1.972e-5       160      373 ns          1.087e10       5980 ns             6.783e8
+  player           9.671e-2       250      369 ns           2.242e6       4320 ns             1.915e5
+  ship/Giant       8.031e-3       172      361 ns           2.759e7       5253 ns             1.896e6
+  ship/Home        2.567e-2       176      357 ns           8.719e6       4739 ns             6.574e5
+  realized moon   : 37.2 us/item over 134 items
+  realized ship   : 37.7 us/item over 184134 items
+  realized player : 119.4 us/item over 168323 items
+  realized fleet  : 29.9 us/item over 1929 items
+
+rtf at 1e9 all-active, averaged rate 1e-4 kicks/body/s (the dossier's headline scenario):
+  hauler/star    current, compile-every-kick rtf   10.76 | jet rtf  220.83
+  leaver         current, compile-every-kick rtf    1.43 | jet rtf  170.67
+  moon           current, compile-every-kick rtf   11.02 | jet rtf   35.61
+  planet/star    current, compile-every-kick rtf    9.49 | jet rtf  214.45
+  player         current, compile-every-kick rtf   13.20 | jet rtf  216.86
+  ship/Giant     current, compile-every-kick rtf   11.42 | jet rtf  221.53
+  ship/Home      current, compile-every-kick rtf   12.35 | jet rtf  223.84
+
+integer kick floor: (E,L) += delta, cold 256 MB store against the 64 KB L2 control
+  L2 control (4096 entries, 64 KB, independent): 5.1 ns each (sink 1152068810368068581)
+  cold store (2^24 entries, 256 MB, independent): 32.7 ns each (sink -7032805719960466589)
+  cold store (2^24 entries, 256 MB, dependent chain): 134.0 ns each (sink 2322905383969751221)
+wall 37.72s maxrss 320960kB

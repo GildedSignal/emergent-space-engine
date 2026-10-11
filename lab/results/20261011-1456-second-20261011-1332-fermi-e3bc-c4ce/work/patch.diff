@@ -1,0 +1,764 @@
+diff --git a/crates/space/examples/fermi_budget.rs b/crates/space/examples/fermi_budget.rs
+new file mode 100644
+index 00000000..93c8240d
+--- /dev/null
++++ b/crates/space/examples/fermi_budget.rs
+@@ -0,0 +1,181 @@
++//! Fermi-lens bench for run 20261011-1332-fermi-e3bc: the per-event cost ladder of the
++//! geodesic compiler at 10^9-body budget scale. Orders of magnitude only (Linux/x86 here;
++//! the integrator re-measures on the M1). Everything is deterministic: one fixed seed.
++//!
++//! Measures: (1) Orbit::compile on belt/planet-range keys, split by eccentricity;
++//! (2) ShapeMemo hit cost; (3) Orbit::state readout cost; (4) the integer kick floor;
++//! (5) bytes per compiled cycle; (6) memo-key collapse for belt-like samples.
++use emergent_space::orbit::{Knot, Orbit, OrbitKey, ShapeMemo};
++use emergent_space::scaled::Scalar;
++use std::collections::HashSet;
++use std::time::Instant;
++
++/// Deterministic xorshift64*.
++struct Rng(u64);
++impl Rng {
++    fn next(&mut self) -> u64 {
++        let mut x = self.0;
++        x ^= x >> 12;
++        x ^= x << 25;
++        x ^= x >> 27;
++        self.0 = x;
++        x.wrapping_mul(0x2545F4914F6CDD1D)
++    }
++    fn unit(&mut self) -> f64 {
++        (self.next() >> 11) as f64 / (1u64 << 53) as f64
++    }
++}
++
++/// p in M units as an exact dyadic Scalar on a 2^-30 grid.
++fn periapsis(r: &mut Rng, lo: f64, hi: f64) -> Scalar {
++    let p = lo + r.unit() * (hi - lo);
++    let bits = (p * (1u64 << 30) as f64) as i128;
++    Scalar::raw(bits, -30).expect("periapsis in range")
++}
++
++/// Belt/planet-range key (B11: p 20-1000 M, e <= 0.6). e given explicitly.
++fn key_in(r: &mut Rng, lo: f64, hi: f64, e: f64) -> OrbitKey {
++    let e_q48 = (e * (1u64 << 48) as f64) as u64;
++    OrbitKey::bound(periapsis(r, lo, hi), e_q48).expect("bound key")
++}
++
++fn ns_per(total: std::time::Duration, n: u64) -> f64 {
++    total.as_secs_f64() * 1e9 / n as f64
++}
++
++fn main() {
++    println!("fermi_budget: one fixed seed, orders of magnitude only");
++    let mut rng = Rng(0x2026_1011_1332_e3bc);
++
++    // ---- (1) compile cost, split by eccentricity -----------------------------
++    for (name, elo, ehi) in [("circular-ish e<0.2", 0.0, 0.2), ("eccentric 0.2-0.6", 0.2, 0.6)] {
++        let n = 1_000u64;
++        let mut errors = 0u64;
++        let mut knots = 0usize;
++        let t = Instant::now();
++        let mut max_state = None;
++        for _ in 0..n {
++            let e = elo + rng.unit() * (ehi - elo);
++            let key = key_in(&mut rng, 20.0, 1000.0, e);
++            match Orbit::compile(key) {
++                Ok(orbit) => {
++                    knots += orbit.shape().knots().len();
++                    if max_state.is_none() {
++                        max_state = Some(orbit);
++                    }
++                }
++                Err(_) => errors += 1,
++            }
++        }
++        let d = t.elapsed();
++        println!(
++            "compile[{name}]: {:.1} ns each ({} compiles, {} errors, ~{:.0} knots/orbit)",
++            ns_per(d, n - errors),
++            n,
++            errors,
++            knots as f64 / (n - errors.max(1)) as f64
++        );
++    }
++
++    // ---- (2) ShapeMemo hit cost ----------------------------------------------
++    let key = key_in(&mut rng, 100.0, 200.0, 0.3);
++    let mut memo = ShapeMemo::default();
++    let _ = memo.get(key).expect("first compile");
++    let n = 200_000u64;
++    let t = Instant::now();
++    let mut sink = 0u64;
++    for i in 0..n {
++        let orbit = memo.get(key).expect("memo hit");
++        sink = sink.wrapping_add(orbit.shape().knots().len() as u64 + i % 1);
++    }
++    let d = t.elapsed();
++    println!("shape_memo_hit: {:.1} ns each (sink {sink})", ns_per(d, n));
++
++    // ---- (3) Orbit::state readout --------------------------------------------
++    let orbit = Orbit::compile(key_in(&mut rng, 100.0, 200.0, 0.3)).expect("compile");
++    let period = orbit.period().expect("period");
++    let n = 200_000u64;
++    let mut sink = 0i128;
++    let t = Instant::now();
++    for i in 0..n {
++        let frac = Scalar::raw(rng.next() as i128 >> 12, -52).expect("fraction");
++        let elapsed = period.mul(frac).expect("elapsed");
++        let st = orbit.state(elapsed).expect("state");
++        sink = sink.wrapping_add(st.radius.significand() as i128 + (i % 1) as i128);
++    }
++    let d = t.elapsed();
++    println!("orbit_state_eval: {:.1} ns each (sink {sink})", ns_per(d, n));
++
++
++    // Overhead control for the eval loop above: same RNG + Scalar raw + mul, no state().
++    let n = 200_000u64;
++    let mut sink2 = 0i128;
++    let t = Instant::now();
++    for i in 0..n {
++        let frac = Scalar::raw(rng.next() as i128 >> 12, -52).expect("fraction");
++        let elapsed = period.mul(frac).expect("elapsed");
++        sink2 = sink2.wrapping_add(elapsed.significand() as i128 + (i % 1) as i128);
++    }
++    let d = t.elapsed();
++    println!("eval_overhead_control: {:.1} ns each (sink {sink2})", ns_per(d, n));
++    // ---- (4) integer kick floor: (E, L) += (dE, dL) on a packed array ---------
++    let n = 10_000_000u64;
++    let mut el = vec![[0i64; 2]; 4096];
++    let t = Instant::now();
++    let mut r2 = Rng(0xfeed_face_cafe_1234);
++    for i in 0..n as usize {
++        let b = &mut el[i & 4095];
++        b[0] = b[0].wrapping_add((r2.next() >> 48) as i64 as i64);
++        b[1] = b[1].wrapping_add((r2.next() >> 48) as i64);
++    }
++    let d = t.elapsed();
++    let sink: i64 = el.iter().map(|b| b[0] ^ b[1]).sum();
++    println!("integer_kick_floor: {:.2} ns each (sink {sink})", ns_per(d, n));
++
++    // ---- (5) bytes per compiled cycle ----------------------------------------
++    for e in [0.01, 0.3, 0.6] {
++        let key = key_in(&mut rng, 100.0, 200.0, e);
++        if let Ok(orbit) = Orbit::compile(key) {
++            let shape = orbit.shape();
++            let knots_b = shape.knots().len() * std::mem::size_of::<Knot>();
++            let cross_b = shape.crossings().len() * std::mem::size_of::<usize>();
++            let base = std::mem::size_of::<emergent_space::orbit::OrbitShape>();
++            println!(
++                "cycle_bytes[e={e}]: {} knots + {} crossings = ~{} B per cycle (Knot = {} B)",
++                shape.knots().len(),
++                shape.crossings().len(),
++                knots_b + cross_b + base,
++                std::mem::size_of::<Knot>()
++            );
++        }
++    }
++
++    // ---- (6) memo-key collapse for belt-like samples --------------------------
++    for (name, plo, phi, elo, ehi, n) in [
++        ("narrow belt (p 1 octave, e 0-0.6)", 100.0, 200.0, 0.0, 0.6, 100_000usize),
++        ("wide field (p 20-1000, e 0-0.6)", 20.0, 1000.0, 0.0, 0.6, 100_000usize),
++        ("fleet clump (p 1%, e 0.01)", 100.0, 101.0, 0.0, 0.01, 100_000usize),
++    ] {
++        let mut raw = HashSet::new();
++        let mut memoed = HashSet::new();
++        let mut errors = 0usize;
++        for _ in 0..n {
++            let e = elo + rng.unit() * (ehi - elo);
++            let key = key_in(&mut rng, plo, phi, e);
++            raw.insert(key);
++            match key.memo_key() {
++                Ok(m) => {
++                    memoed.insert(m);
++                }
++                Err(_) => errors += 1,
++            }
++        }
++        println!(
++            "memo_collapse[{name}]: {n} keys -> {} raw distinct, {} memo distinct (collapse {:.1}x, {} errors)",
++            raw.len(),
++            memoed.len(),
++            n as f64 / memoed.len() as f64,
++            errors
++        );
++    }
++}
+diff --git a/crates/universe/examples/jet_anchor.rs b/crates/universe/examples/jet_anchor.rs
+new file mode 100644
+index 00000000..c230b75d
+--- /dev/null
++++ b/crates/universe/examples/jet_anchor.rs
+@@ -0,0 +1,571 @@
++//! jet_anchor: run 20261011-1456 (second author on 20261011-1332-fermi-e3bc). The checker's named
++//! experiment: anchor the budget identity on the shipped plane's real kick path, so the jet's
++//! assumed ε (per-kick readout) and re-anchor rate become measured ones.
++//!
++//! On the shipped plane (`scenario::plane`, seed 1, deterministic stream; timings are wall,
++//! orders of magnitude on this Linux/x86 host — the integrator re-measures on the M1):
++//!   (1) the kick stream per population class: rebinds and events per body, per parent orbit and
++//!       per universe-second (replaces H0190's assumed r_kick and lands its factor-2 ambiguity);
++//!   (2) the realized re-anchor rate: quantized cycle-cell (`MemoCode`) changes per rebind, per
++//!       class, on the plane's own rebind key stream (the cycle cache's miss rate; passages and
++//!       exact-key changes are counted apart);
++//!   (3) cache sharing on the real stream: exact-key self-repeats and cross-body cell collapse;
++//!   (4) the per-kick readout tiers on the plane's own compiled entries: `Binding::readout` (the
++//!       current kick path), `Orbit::state` (its core), `Orbit::crossing_state` (the jet's
++//!       crossing-indexed read), and `Orbit::compile` (the re-anchor) on the same keys;
++//!   (5) the realized per-item wall cost from the universe's own stats;
++//!   (6) the integer kick floor on a cold 256 MB store: independent updates (a kick wave,
++//!       memory-level parallel) against a dependent chain (latency-bound), and the L2 control.
++//!
++//! `jet_anchor [fine_ticks] [coarse_ticks]` (defaults 3e9, 3.5e11; the coarse phase prints
++//! progress). One fixed seed throughout; digests at the canonical cuts make the stream
++//! reproducible bit for bit.
++use emergent_space::binding::Trajectory;
++use emergent_space::orbit::{MemoCode, Orbit, OrbitKey, Scalar};
++use emergent_universe::bind::Binding;
++use emergent_universe::body::Kind;
++use emergent_universe::num::{from_f64, Tick};
++use emergent_universe::scenario::plane;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Config, Universe};
++use std::collections::HashSet;
++use std::time::Instant;
++
++/// Deterministic xorshift64* (same generator as the fermi_budget example).
++struct Rng(u64);
++impl Rng {
++    fn next(&mut self) -> u64 {
++        let mut x = self.0;
++        x ^= x >> 12;
++        x ^= x << 25;
++        x ^= x >> 27;
++        self.0 = x;
++        x.wrapping_mul(0x2545F4914F6CDD1D)
++    }
++    fn unit(&mut self) -> f64 {
++        (self.next() >> 11) as f64 / (1u64 << 53) as f64
++    }
++}
++
++fn ns_per(d: std::time::Duration, n: u64) -> f64 {
++    d.as_secs_f64() * 1e9 / n as f64
++}
++
++fn to_f64(s: Scalar) -> f64 {
++    // A Scalar is significand * 2^(exponent - 62).
++    (s.significand() as f64) * ((s.exponent() as i32 - 62) as f64).exp2()
++}
++
++/// Population class of a body (the plane's own populations; leavers are fleet members handed
++/// out into a doll during the run).
++fn class_of(u: &Universe, i: usize) -> String {
++    let rec = u.rec(i);
++    let name = u.dolls[rec.b.doll as usize].name;
++    match rec.kind {
++        Kind::Planet => format!("planet/{name}"),
++        Kind::Moon => "moon".into(),
++        Kind::Player => "player".into(),
++        Kind::Ship => {
++            if u.info[i].from.is_some() {
++                "leaver".into()
++            } else if rec.b.doll == 0 {
++                "hauler/star".into()
++            } else {
++                format!("ship/{name}")
++            }
++        }
++        _ => "other".into(),
++    }
++}
++
++/// One body's stream tracker (counts reset between phases; `seen` re-armed per phase).
++#[derive(Default, Clone)]
++struct Track {
++    class: String,
++    seen: bool,
++    alive: bool,
++    last_event_time: Tick,
++    last_interval: i64,
++    last_key: Option<OrbitKey>,
++    last_cell: Option<u64>,
++    rebinds: u64,
++    singles: u64,
++    skips: u64,
++    cell_changes: u64,
++    key_changes: u64,
++    exact_self_repeats: u64,
++    passage_rebinds: u64,
++    events: u64,
++    last_events_counter: u64,
++    period_ticks: Option<f64>,
++}
++
++/// Cross-body stream collector for one phase: every key a counted rebind touched (both sides
++/// of a single), for the exact/cell collapse, and the passage count.
++#[derive(Default)]
++struct Collector {
++    exact: HashSet<OrbitKey>,
++    cells: HashSet<u64>,
++    keys_seen: u64,
++}
++
++/// Per-class aggregates of one phase, kept after the phase ends.
++#[derive(Default, Clone)]
++struct ClassAgg {
++    bodies: usize,
++    alive: usize,
++    rebinds: f64,
++    events: f64,
++    singles: u64,
++    skips: u64,
++    cell_changes: u64,
++    key_changes: u64,
++    exact_self_repeats: u64,
++    passage_rebinds: u64,
++    rate_rebind: f64,
++    rate_event: f64,
++    rebinds_per_orbit: f64,
++    rebinds_per_orbit_n: u64,
++}
++
++/// Sample every body once; count observed rebinds and quantized-cell changes. `doll0` restricts
++/// counting to belt-class bodies (doll 0) in the coarse phase.
++fn sample(u: &Universe, tracks: &mut [Track], col: &mut Collector, doll0: bool) {
++    for i in 0..u.n_bodies() {
++        let rec = u.rec(i);
++        let is_doll0 = rec.b.doll == 0;
++        let t = &mut tracks[i];
++        if t.class.is_empty() {
++            t.class = class_of(u, i);
++        }
++        t.alive = rec.alive;
++        if !rec.alive {
++            continue;
++        }
++        if t.period_ticks.is_none() {
++            if let Trajectory::Cycle(c) = &rec.b.entry.trajectory {
++                if let Ok(p_doll) = rec.b.to_doll(c.period().unwrap_or(Scalar::ZERO)) {
++                    // doll time = ticks * 2^clock_exp, so ticks = doll time * 2^-clock_exp
++                    t.period_ticks = Some(to_f64(p_doll) * (-rec.b.clock_exp as f64).exp2());
++                }
++            }
++        }
++        let et = rec.b.event_time;
++        let ev = rec.events;
++        let key = rec.b.entry.trajectory.key();
++        let cell = MemoCode::encode(key).ok().map(|c| c.bits());
++        if !t.seen {
++            t.seen = true;
++            t.last_event_time = et;
++            t.last_interval = rec.interval;
++            t.last_key = Some(key);
++            t.last_cell = cell;
++            t.last_events_counter = ev;
++            continue;
++        }
++        t.events += ev.saturating_sub(t.last_events_counter);
++        t.last_events_counter = ev;
++        if et == t.last_event_time {
++            t.last_interval = rec.interval;
++            continue;
++        }
++        // At least one rebind since the last sample.
++        if !doll0 || is_doll0 {
++            t.rebinds += 1;
++            let thresh = 1.75 * (t.last_interval.min(rec.interval)).max(2) as f64;
++            if (et - t.last_event_time) as f64 <= thresh {
++                t.singles += 1;
++                let prev = t.last_key;
++                if let (Some(a), b) = (prev, key) {
++                    if a == b {
++                        t.exact_self_repeats += 1;
++                    } else {
++                        t.key_changes += 1;
++                    }
++                    col.exact.insert(a);
++                    col.exact.insert(b);
++                    col.keys_seen += 2;
++                    let ca = t.last_cell;
++                    match (ca, cell) {
++                        (Some(x), Some(y)) => {
++                            if x != y {
++                                t.cell_changes += 1;
++                            }
++                            col.cells.insert(x);
++                            col.cells.insert(y);
++                        }
++                        (None, Some(y)) => {
++                            t.cell_changes += 1;
++                            col.cells.insert(y);
++                        }
++                        (Some(x), None) => {
++                            t.passage_rebinds += 1; // a cycle handing off into a passage
++                            col.cells.insert(x);
++                        }
++                        (None, None) => {
++                            t.passage_rebinds += 1; // passage to passage: always a fresh compile
++                        }
++                    }
++                }
++            } else {
++                t.skips += 1;
++            }
++        }
++        t.last_event_time = et;
++        t.last_interval = rec.interval;
++        t.last_key = Some(key);
++        t.last_cell = cell;
++    }
++}
++
++/// Aggregate the tracks per class for one phase.
++fn aggregate(tracks: &[Track], span: Tick) -> Vec<(String, ClassAgg)> {
++    let secs = span as f64 * TICK_SECONDS;
++    let mut classes: Vec<String> = tracks.iter().filter(|t| t.seen).map(|t| t.class.clone()).collect();
++    classes.sort();
++    classes.dedup();
++    let mut out = Vec::new();
++    for class in classes {
++        let ts: Vec<&Track> = tracks.iter().filter(|t| t.seen && t.class == class).collect();
++        let n = ts.len() as f64;
++        let mut a = ClassAgg {
++            bodies: ts.len(),
++            alive: ts.iter().filter(|t| t.alive).count(),
++            rebinds: ts.iter().map(|t| t.rebinds as f64).sum::<f64>() / n,
++            events: ts.iter().map(|t| t.events as f64).sum::<f64>() / n,
++            singles: ts.iter().map(|t| t.singles).sum(),
++            skips: ts.iter().map(|t| t.skips).sum(),
++            cell_changes: ts.iter().map(|t| t.cell_changes).sum(),
++            key_changes: ts.iter().map(|t| t.key_changes).sum(),
++            exact_self_repeats: ts.iter().map(|t| t.exact_self_repeats).sum(),
++            passage_rebinds: ts.iter().map(|t| t.passage_rebinds).sum(),
++            rate_rebind: ts.iter().map(|t| t.rebinds as f64).sum::<f64>() / n / secs,
++            rate_event: ts.iter().map(|t| t.events as f64).sum::<f64>() / n / secs,
++            ..ClassAgg::default()
++        };
++        let mut orbits = 0.0;
++        let mut reb = 0u64;
++        let mut po_n = 0u64;
++        for t in &ts {
++            if let Some(p) = t.period_ticks {
++                if p > 0.0 {
++                    orbits += span as f64 / p;
++                    reb += t.rebinds;
++                    po_n += 1;
++                }
++            }
++        }
++        if orbits > 0.0 {
++            a.rebinds_per_orbit = reb as f64 / orbits;
++            a.rebinds_per_orbit_n = po_n;
++        }
++        out.push((class, a));
++    }
++    out
++}
++
++fn report(aggs: &[(String, ClassAgg)], col: &Collector, phase: &str, span: Tick) {
++    let secs = span as f64 * TICK_SECONDS;
++    println!("\n{phase}: span {span} ticks ({secs:.0} s game):");
++    println!("  class            alive   rebinds/b   events/b  rebinds/orbit   r_rebind/s    r_event/s   skips  cell-chg/rebind  key-chg  exact-repeat  passages");
++    for (class, a) in aggs {
++        let rho = if a.singles > 0 { a.cell_changes as f64 / a.singles as f64 } else { f64::NAN };
++        let po = if a.rebinds_per_orbit_n > 0 { format!("{:.1}", a.rebinds_per_orbit) } else { "-".into() };
++        println!(
++            "  {class:<14} {:>3}/{}  {:>9.1} {:>10.1} {:>13} {:>12.3e} {:>11.3e} {:>6} {:>15.3} {:>7} {:>12} {:>8}",
++            a.alive, a.bodies, a.rebinds, a.events, po, a.rate_rebind, a.rate_event, a.skips, rho, a.key_changes, a.exact_self_repeats, a.passage_rebinds
++        );
++    }
++    println!(
++        "  stream cache: {} keys touched, {} distinct exact, {} distinct quantized cells (cross-body collapse {:.2}x)",
++        col.keys_seen,
++        col.exact.len(),
++        col.cells.len(),
++        if col.cells.len() > 0 { col.exact.len() as f64 / col.cells.len() as f64 } else { f64::NAN }
++    );
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let fine_ticks: Tick = args.get(1).map(|s| s.parse().unwrap()).unwrap_or(3_000_000_000);
++    let coarse_ticks: Tick = args.get(2).map(|s| s.parse().unwrap()).unwrap_or(350_000_000_000);
++    println!("jet_anchor: the shipped plane, seed 1 (deterministic stream, wall timings)");
++    let mut rng = Rng(0x2026_1011_1456_c4ce);
++    let t0 = Instant::now();
++    let mut p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++    println!("built in {:.2}s: {} bodies, {} dolls", t0.elapsed().as_secs_f64(), p.u.n_bodies(), p.u.dolls.len());
++    let n0 = p.u.n_bodies();
++
++    // ---- phase F (fine): every body's stream, window half the finest interval -------------
++    let mut tracks: Vec<Track> = vec![Track::default(); n0];
++    let t_start = p.u.now;
++    let mut t = p.u.now;
++    let t_fine_end = t_start + fine_ticks;
++    let mut samples = 0u64;
++    let mut col_fine = Collector::default();
++    while t < t_fine_end {
++        let mut min_i = i64::MAX;
++        for i in 0..p.u.n_bodies() {
++            let rec = p.u.rec(i);
++            if rec.alive && rec.interval > 0 {
++                min_i = min_i.min(rec.interval);
++            }
++        }
++        let step = (min_i / 2).clamp(1 << 12, 1 << 40);
++        t = (t + step).min(t_fine_end);
++        p.u.settle(t);
++        while tracks.len() < p.u.n_bodies() {
++            tracks.push(Track::default());
++        }
++        sample(&p.u, &mut tracks, &mut col_fine, false);
++        samples += 1;
++        if samples % 32 == 0 {
++            p.u.prune();
++        }
++    }
++    let fine_span = t - t_start;
++    let fine_rebinds: Vec<u64> = tracks.iter().map(|t| t.rebinds).collect();
++    let fine_aggs = aggregate(&tracks, fine_span);
++    report(&fine_aggs, &col_fine, "fine phase (all bodies)", fine_span);
++    println!("digest after fine: {}", p.u.digest());
++
++    // ---- phase C (coarse): the belt class (doll 0: haulers and planets) --------------------
++    for t in tracks.iter_mut() {
++        *t = Track { class: t.class.clone(), ..Track::default() };
++    }
++    let t_c_start = t;
++    let t_c_end = t_c_start + coarse_ticks;
++    let mut col_coarse = Collector::default();
++    samples = 0;
++    while t < t_c_end {
++        let mut min_i = i64::MAX;
++        for i in 0..p.u.n_bodies() {
++            let rec = p.u.rec(i);
++            if rec.alive && rec.interval > 0 && rec.b.doll == 0 {
++                min_i = min_i.min(rec.interval);
++            }
++        }
++        if min_i == i64::MAX {
++            break;
++        }
++        let step = (min_i / 2).clamp(1 << 12, 1 << 40);
++        let next = (t + step).min(t_c_end);
++        p.u.settle(next);
++        t = next;
++        while tracks.len() < p.u.n_bodies() {
++            tracks.push(Track::default());
++        }
++        sample(&p.u, &mut tracks, &mut col_coarse, true);
++        samples += 1;
++        if samples % 8 == 0 {
++            p.u.prune();
++            println!("  coarse: tick {t} ({:.1} d game), wall {:.1} s", t as f64 * TICK_SECONDS / 86_400.0, t0.elapsed().as_secs_f64());
++        }
++    }
++    let coarse_span = t - t_c_start;
++    let coarse_rebinds: Vec<u64> = tracks.iter().map(|t| t.rebinds).collect();
++    let coarse_aggs = aggregate(&tracks, coarse_span);
++    report(&coarse_aggs, &col_coarse, "coarse phase (belt class, doll 0)", coarse_span);
++    println!("digest after coarse: {}", p.u.digest());
++
++    // ---- realized per-item wall cost (the universe's own instrument) ----------------------
++    let s = p.u.stats;
++    let kinds = ["planet", "moon", "ship", "player", "fleet"];
++    println!("\nrealized per-item wall cost (stats.cost_ns / items), total kicks {}:", s.kicks);
++    for (k, name) in kinds.iter().enumerate() {
++        if s.items[k] > 0 {
++            println!("  {name:<7}: {:>7} items, {:>7.1} us/item", s.items[k], s.cost_ns[k] as f64 / s.items[k] as f64 / 1e3);
++        }
++    }
++    println!("  encounters {}, slices {}, handoffs {}, lost {}, leavers {}", s.encounters, s.slices, s.handoffs, s.lost, s.leavers);
++
++    // ---- readout tiers on the plane's own entries ------------------------------------------
++    // Representative per class: the most-rebinding body of the class in the phase that counted
++    // it (fine for the LEO classes, coarse for the belt), still alive at the end.
++    let mut reps: Vec<(String, Binding, i64, OrbitKey)> = Vec::new();
++    {
++        // the most-rebinding live body per class, from the phase that counted it
++        let pick = |aggs: &[(String, ClassAgg)], rebinds: &[u64]| -> Vec<(String, usize)> {
++            let mut v = Vec::new();
++            for (class, _) in aggs {
++                let mut best = (0u64, usize::MAX);
++                for (i, t) in tracks.iter().enumerate() {
++                    let r = rebinds.get(i).copied().unwrap_or(0);
++                    if t.class == *class && t.alive && r > best.0 && i < p.u.n_bodies() {
++                        best = (r, i);
++                    }
++                }
++                if best.1 != usize::MAX {
++                    v.push((class.clone(), best.1));
++                }
++            }
++            v
++        };
++        let mut picked: Vec<(String, usize)> = pick(&fine_aggs, &fine_rebinds);
++        for (class, i) in pick(&coarse_aggs, &coarse_rebinds) {
++            if !picked.iter().any(|(c, _)| *c == class) {
++                picked.push((class, i));
++            }
++        }
++        picked.sort_by(|a, b| a.0.cmp(&b.0));
++        for (class, i) in picked {
++            let rec = p.u.rec(i);
++            if let Trajectory::Cycle(_) = &rec.b.entry.trajectory {
++                reps.push((class, rec.b.clone(), rec.interval.max(2), rec.b.entry.trajectory.key()));
++            }
++        }
++    }
++    println!("\nper-kick readout tiers and the re-anchor compile, on the plane's own entries (200k reads, 2k compiles):");
++    let mut tier: Vec<(String, f64, f64, f64, f64, f64, f64)> = Vec::new(); // class, readout, state, crossing, compile, rho, rebinds/event
++    for (class, b, interval, key) in &reps {
++        let n = 200_000u64;
++        // (a) the current kick path: Binding::readout at ticks around the kick times.
++        let mut sink = 0i64;
++        let tt = Instant::now();
++        for _ in 0..n {
++            let q = b.event_time + (rng.next() % (4 * *interval as u64)) as i64;
++            if let Ok(st) = b.readout(q) {
++                sink = sink.wrapping_add(st.position[0] ^ st.velocity[1]);
++            }
++        }
++        let d_readout = ns_per(tt.elapsed(), n);
++        // (b)+(c) on the compiled cycle: state at a random phase; crossing_state at a knot.
++        let (d_state, d_cross, knots) = match &b.entry.trajectory {
++            Trajectory::Cycle(orbit) => {
++                let period = orbit.period().unwrap();
++                let mut sink = 0i128;
++                let tt = Instant::now();
++                for _ in 0..n {
++                    let f = from_f64(rng.unit());
++                    if let Ok(el) = period.mul(f) {
++                        if let Ok(st) = orbit.state(el) {
++                            sink = sink.wrapping_add(st.radius.significand() as i128);
++                        }
++                    }
++                }
++                let d_state = ns_per(tt.elapsed(), n);
++                let knots = orbit.shape().knots().len();
++                let mut sink = 0i128;
++                let tt = Instant::now();
++                for _ in 0..n {
++                    let idx = (rng.next() as usize) % knots;
++                    let cycles = (rng.next() % 4) as u64;
++                    let out = rng.next() & 1 == 1;
++                    if let Ok(st) = orbit.crossing_state(idx, cycles, out) {
++                        sink = sink.wrapping_add(st.radius.significand() as i128);
++                    }
++                }
++                let d_cross = ns_per(tt.elapsed(), n);
++                (d_state, d_cross, knots)
++            }
++            _ => (f64::NAN, f64::NAN, 0),
++        };
++        // (d) the re-anchor: a fresh compile of the same key.
++        let m = 2_000u64;
++        let mut cok = 0u64;
++        let tt = Instant::now();
++        for _ in 0..m {
++            if Orbit::compile(*key).is_ok() {
++                cok += 1;
++            }
++        }
++        let d_compile = ns_per(tt.elapsed(), m);
++        // the class's stream numbers, from the phase that counted it
++        let (rho, rpe) = stream_of(&fine_aggs, &coarse_aggs, class)
++            .map(|a| {
++                let rho = if a.singles > 0 { a.cell_changes as f64 / a.singles as f64 } else { 0.0 };
++                let rpe = if a.events > 0.0 { a.rebinds / a.events } else { f64::NAN };
++                (rho, rpe)
++            })
++            .unwrap_or((f64::NAN, f64::NAN));
++        println!(
++            "  {class:<14} readout {d_readout:>6.0} ns | state {d_state:>6.0} ns | crossing {d_cross:>5.0} ns | compile {d_compile:>7.0} ns ({cok}/{m}, {knots} knots) | rho {rho:.3} | rebinds/event {rpe:.2} | sink {sink}"
++        );
++        tier.push((class.clone(), d_readout, d_state, d_cross, d_compile, rho, rpe));
++    }
++
++    // ---- the budget identity, re-anchored on the measured stream ---------------------------
++    println!("\nthe budget identity, measured (8 core-equivalents; rtf 100 = the plane's flight):");
++    println!("  class            r_event/s  reb/orbit   jet/kick   N_max(rtf100) jet   current/kick  N_max(rtf100) cur");
++    for (class, _, _, d_cross, d_compile, rho, rpe) in &tier {
++        let Some(a) = stream_of(&fine_aggs, &coarse_aggs, class) else { continue };
++        if a.events <= 0.0 {
++            continue;
++        }
++        let c_jet_s = (d_cross + rpe * rho * d_compile) * 1e-9; // s per kick event (the design's cost)
++        let nmax_jet = 8.0 / (100.0 * a.rate_event * c_jet_s);
++        // the current path decomposed per class: one readout per event, one compile per rebind
++        let d_readout = d_readout_of(&tier, class);
++        let c_cur_s = (d_readout + rpe * d_compile) * 1e-9;
++        let nmax_cur = 8.0 / (100.0 * a.rate_event * c_cur_s);
++        let po = if a.rebinds_per_orbit_n > 0 { format!("{:.0}", a.rebinds_per_orbit) } else { "-".into() };
++        println!(
++            "  {class:<14} {:>10.3e} {:>9} {:>8.0} ns {:>17.3e} {:>10.0} ns {:>19.3e}",
++            a.rate_event,
++            po,
++            c_jet_s * 1e9,
++            nmax_jet,
++            c_cur_s * 1e9,
++            nmax_cur
++        );
++    }
++    // realized per-item cost by kind (all per-item work: encounters, pulls, the queue) as context
++    for (k, name) in kinds.iter().enumerate() {
++        if s.items[k] > 0 {
++            println!("  realized {name:<7}: {:.1} us/item over {} items", s.cost_ns[k] as f64 / s.items[k] as f64 / 1e3, s.items[k]);
++        }
++    }
++    println!("\nrtf at 1e9 all-active, averaged rate 1e-4 kicks/body/s (the dossier's headline scenario):");
++    for (class, _, _, d_cross, d_compile, rho, rpe) in &tier {
++        let c_jet_s = (d_cross + rpe * rho * d_compile) * 1e-9;
++        let c_cur_s = (d_readout_of(&tier, class) + d_compile) * 1e-9;
++        let rtf = |c: f64| 8.0 / (1e9 * 1e-4 * c);
++        println!("  {class:<14} current, compile-every-kick rtf {:>7.2} | jet rtf {:>7.2}", rtf(c_cur_s), rtf(c_jet_s));
++    }
++
++    // ---- the integer floor: cold store, independent wave against dependent chain ------------
++    println!("\ninteger kick floor: (E,L) += delta, cold 256 MB store against the 64 KB L2 control");
++    drop(p);
++    for (name, n_entries, iters) in [
++        ("L2 control (4096 entries, 64 KB, independent)", 4096usize, 10_000_000u64),
++        ("cold store (2^24 entries, 256 MB, independent)", 16_777_216, 10_000_000),
++        ("cold store (2^24 entries, 256 MB, dependent chain)", 16_777_216, 2_000_000),
++    ] {
++        let mut el = vec![[0i64; 2]; n_entries];
++        let mask = n_entries - 1;
++        let mut r2 = Rng(0xfeed_face_cafe_1234);
++        let d = if name.contains("chain") {
++            let mut idx = (r2.next() as usize) & mask;
++            let tt = Instant::now();
++            for _ in 0..iters {
++                el[idx][0] = el[idx][0].wrapping_add(r2.next() as i64);
++                el[idx][1] ^= r2.next() as i64;
++                idx = (el[idx][1] as usize) & mask; // the next touch depends on the load just made
++            }
++            tt.elapsed()
++        } else {
++            let tt = Instant::now();
++            for _ in 0..iters {
++                let i = (r2.next() as usize) & mask;
++                el[i][0] = el[i][0].wrapping_add(r2.next() as i64);
++                el[i][1] ^= r2.next() as i64;
++            }
++            tt.elapsed()
++        };
++        let sink: i64 = el.iter().map(|b| b[0] ^ b[1]).sum();
++        println!("  {name}: {:.1} ns each (sink {sink})", ns_per(d, iters));
++    }
++}
++
++/// The class's aggregates from the phase that counted it (coarse for doll-0 classes, else fine).
++fn stream_of<'a>(fine: &'a [(String, ClassAgg)], coarse: &'a [(String, ClassAgg)], class: &str) -> Option<&'a ClassAgg> {
++    if class.contains("star") {
++        coarse.iter().find(|(c, _)| c == class).map(|(_, a)| a)
++    } else {
++        fine.iter().find(|(c, _)| c == class).map(|(_, a)| a)
++    }
++}
++
++fn d_readout_of(tier: &[(String, f64, f64, f64, f64, f64, f64)], class: &str) -> f64 {
++    tier.iter().find(|(c, ..)| c == class).map(|(_, r, ..)| *r).unwrap_or(f64::NAN)
++}
