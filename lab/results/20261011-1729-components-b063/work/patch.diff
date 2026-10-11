@@ -1,0 +1,72 @@
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..05792c34 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -4,7 +4,7 @@ use emergent_space::{
+     binding::Trajectory,
+     orbit::{MemoCode, ShapeKey},
+ };
+-use emergent_universe::{body::What, step, Budget, Kind};
++use emergent_universe::{body::What, force, step, Budget, Kind};
+ use serde_json::json;
+ use std::collections::HashSet;
+ use std::time::Instant;
+@@ -50,6 +50,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+     // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
+     let (mut made, mut leavers) = (Vec::new(), Vec::new());
++    // Sub-phase medians (µs): the drift readout, and the source gather + field evaluation.
++    let (mut read_us, mut field_us, mut kepler_us) = (Vec::new(), Vec::new(), Vec::new());
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+@@ -80,7 +82,32 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             *seen = Some(item.t);
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+-            // allocator, application, view and formatting are outside the sample.
++            // Sub-phases on the same snapshot, before the resolver: hot-cache lower bounds,
++            // so the remainder (fit, history, plan) is an upper bound.
++            let s0 = Instant::now();
++            let stt = rec.b.cartesian(item.t).ok();
++            let r_us = s0.elapsed().as_secs_f64() * 1e6;
++            let f_us = match &stt {
++                Some((x, _)) => {
++                    let s0 = Instant::now();
++                    let ctx = s.p.u.ctx();
++                    let secs = ctx.secondaries(rec.b.doll, item.t, i).ok();
++                    let _ = secs.as_ref().and_then(|ss| force::field(ss, *x).ok());
++                    s0.elapsed().as_secs_f64() * 1e6
++                }
++                None => 0.0,
++            };
++            read_us.push(r_us);
++            field_us.push(f_us);
++            let k_us = match &stt {
++                Some((x, v)) => {
++                    let s0 = Instant::now();
++                    let _ = force::kepler(*x, *v, emergent_space::orbit::Scalar::ONE).ok();
++                    s0.elapsed().as_secs_f64() * 1e6
++                }
++                None => 0.0,
++            };
++            kepler_us.push(k_us);
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
+@@ -95,6 +122,15 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         s.p.u.settle(s.p.u.now);
+         frames = n;
+     }
++    let mut rest: Vec<f64> = made.iter().chain(leavers.iter())
++        .zip(read_us.iter().zip(field_us.iter()))
++        .map(|(t, (r, f))| t - r - f).collect();
++    println!("subphase {}", serde_json::to_string(&json!({
++        "read_us": percentiles(&mut read_us.clone())["median"],
++        "field_us": percentiles(&mut field_us.clone())["median"],
++        "rest_us": percentiles(&mut rest)["median"],
++        "kepler_us": percentiles(&mut kepler_us.clone())["median"],
++    }))?);
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
