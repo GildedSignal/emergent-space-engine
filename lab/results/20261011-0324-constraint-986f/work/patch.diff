@@ -1,0 +1,119 @@
+diff --git a/crates/universe/examples/constraint_probe.rs b/crates/universe/examples/constraint_probe.rs
+new file mode 100644
+index 0000000..caa8849
+--- /dev/null
++++ b/crates/universe/examples/constraint_probe.rs
+@@ -0,0 +1,113 @@
++// The constraint lens's probe: where does the frame's time go as N grows, and which part is O(N)?
++// Three measurements, each on the shipped code through its public API only:
++//   1. stream: n bare-tube emitters (no force, no fleet, no engine): the gather's per-emitter floor,
++//      cold and warm, at rtf 1 and rtf 100 (the retarded tick jumps ~339k ticks per frame at rtf 100).
++//   2. plane fixed part: after the battle is over (all members handed out), the player's own readout
++//      (root_state + clocks_with + held_thrust) against the whole gather: what is fixed, what is per body.
++//   3. plane fleet part: before the fleets meet (all M members alive in the frame), the gather against M.
++// Usage: constraint_probe [rtf] ; prints JSON lines on stdout.
++fn warm_gather_us(u: &mut emergent_universe::Universe, names: &[String], frames: usize, per_frame_ticks: i64, start: i64) -> (f64, f64, u64, usize) {
++    let mut cache = ViewCache::default();
++    let (mut total, mut reads, mut n, mut seen) = (0.0f64, 0u64, 0usize, 0usize);
++    for f in 0..frames {
++        let t = start + f as i64 * per_frame_ticks;
++        u.settle(t);
++        u.now = t;
++        let t0 = Instant::now();
++        let v = gather_cached(u, names, &mut cache);
++        total += t0.elapsed().as_secs_f64() * 1e6;
++        reads += cache.readouts;
++        n += 1;
++        seen = seen.max(v.map(|v| v.seen.len()).unwrap_or(0));
++    }
++    (total / n.max(1) as f64, total, reads, seen)
++}
++use emergent_universe::observe::{clocks_with, held_thrust, root_state};
++use emergent_universe::scenario::{plane, stream, Stream};
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Config, Kind};
++use std::time::Instant;
++
++
++fn main() {
++    let rtf: f64 = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let per_frame = (rtf / 60.0 / TICK_SECONDS) as i64;
++    println!("# rtf {rtf}, {per_frame} ticks per 60 Hz frame");
++    if std::env::args().nth(2).map_or(false, |s| s == "readout") { readout_split(); return; }
++
++    // 1. The per-emitter floor (bare tubes in the star's doll).
++    let start = 1_200_000_000i64;
++    for n in [24usize, 240, 2400, 4800] {
++        let (mut u, _, p) = match stream(0.0, 1e-4, Stream::Across, n, 1.0e6, start) {
++            Ok(x) => x,
++            Err(e) => {
++                println!("stream n={n} refused: {e:?}");
++                continue;
++            }
++        };
++        let names: Vec<String> = Vec::new();
++        let (per_frame_us, _, reads, seen) = warm_gather_us(&mut u, &names, 40, per_frame, start + per_frame * 10);
++        println!("stream n={n} bodies={} per_frame_us={per_frame_us:.1} us_per_emitter={:.3} reads_total={reads} reads_per_em={:.2} seen={seen}", u.n_bodies(), per_frame_us / n as f64, reads as f64 / 40.0 / n as f64);
++        drop(u);
++        let _ = p;
++    }
++
++    // 2. The plane after the battle: fixed part vs whole gather. members=400 (the bench's cap).
++    let p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 400).unwrap();
++    let (mut u, player) = (p.u, p.player);
++    let late = 2_000_000_000i64; // ~10^4 s of game time: the battle is long over
++    u.settle(late);
++    let mut u = u;
++    u.now = late;
++    let ctx = u.ctx();
++    let rec = u.rec(player);
++    let mut fixed_us = 0.0f64;
++    let mut iters = 0usize;
++    for _ in 0..200 {
++        let t0 = Instant::now();
++        let _ = root_state(&ctx, player, late);
++        let _ = clocks_with(&ctx, player, late, [0.0, 0.0]);
++        let _ = held_thrust(&ctx, &rec, late);
++        fixed_us += t0.elapsed().as_secs_f64() * 1e6;
++        iters += 1;
++    }
++    let (per_frame_us, _, reads, seen) = warm_gather_us(&mut u, &p.names, 40, per_frame, late);
++    let alive = (0..u.n_bodies()).filter(|&i| u.bodies().alive(i)).count();
++    println!("plane_late bodies={} alive={alive} fixed_player_us={:.1} gather_us={per_frame_us:.1} reads={reads} seen={seen} per_body_residual_us={:.3}", u.n_bodies(), fixed_us / iters as f64, (per_frame_us - fixed_us / iters as f64) / alive.max(1) as f64);
++
++    // 3. The fleet loop at scale: all M members alive, fleets not yet met (contact at ~655k ticks).
++    for m in [400u64, 4000, 16000] {
++        let p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, m).unwrap();
++        let (mut u, _) = (p.u, p.player);
++        let early = 100_000i64;
++        u.settle(early);
++        let mut u = u;
++        u.now = early;
++        let (per_frame_us, _, reads, seen) = warm_gather_us(&mut u, &p.names, 40, per_frame, early);
++        println!("plane_early members={m} bodies={} gather_us={per_frame_us:.1} reads={reads} seen={seen} per_member_us={:.3}", u.n_bodies(), per_frame_us / m as f64);
++        let _ = Kind::Ship;
++        drop(u);
++    }
++}
++
++// 4. The readout alone against the whole per-emitter cost: what is the tube read, what is Seen.
++#[allow(dead_code)]
++fn readout_split() {
++    use emergent_universe::observe::state_rate;
++    let start = 1_200_000_000i64;
++    let (mut u, ids, _) = stream(0.0, 1e-4, Stream::Across, 2400, 1.0e6, start).unwrap();
++    u.settle(start);
++    u.now = start;
++    let ctx = u.ctx();
++    let t = start;
++    let t0 = Instant::now();
++    let mut n = 0usize;
++    for _ in 0..40 {
++        for &i in &ids {
++            let _ = state_rate(&ctx, i, t);
++            n += 1;
++        }
++    }
++    let per = t0.elapsed().as_secs_f64() * 1e6 / n as f64;
++    println!("readout_only us_per_call={per:.3} (state_rate on a bare tube, warm)");
++}

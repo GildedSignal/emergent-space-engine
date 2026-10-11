@@ -1,0 +1,42 @@
+# Dossier — 20261011-0324-constraint-986f (the constraint lens)
+
+## Claim
+
+On the shipped plane, the frame is **view-bound, not engine-bound**: the view pipeline (gather + JSON + wire) is 67–82% of the median frame at rtf 100, the gather is the only O(N)-per-frame term (~4.2 µs per bare-tube body, ~11.7 µs per bound body, ~1–9 µs per fleet member, per frame, ~90% of it the retarded-state readout), so it saturates a 16.7 ms frame at roughly **2–4×10³ bodies — six orders of magnitude below the goal's 10⁹** — while the engine's median share is 18–32% and its real cost is a p99 burst problem the allocator already owns.
+
+## Bottleneck
+
+The board's focus order (1 October) is engine-side: kicks per orbit, encounters, memory. Measured on the whole (the plane as the player runs it, `universe --bench`), the frame's median constraint is the **view gather** (`where_the_time_goes_ms.view_gather` 54–69% share; with view_json 9–15% and wire 3–7%, the view pipeline is 67–82%). Expected gain of acting on it: it is the only term that grows with N at fixed frame rate, so at the goal it is not a 10× lever but the difference between possible and impossible; every engine-side gain is invisible on the median frame until the gather stops touching every body every frame. What it deletes: the per-body readout at 60 Hz (~10 µs × N × 60 Hz of compute), by making the view compute only surprises (crossing events, display quanta, aggregate sources).
+
+## Evidence
+
+Linux x86, 8 vCPU (i7-4790), 15 GB, load ~0.4, release build, main. All commands ≤ 60 s. Raw outputs in this folder.
+
+1. **The whole frame, as the player runs it** — `cargo run --release -p xtask -- universe --bench --seconds 30 --rtf 100` ([bench-rtf100.json](bench-rtf100.json)):
+   frame p50 4.17 / p99 10.07 / p99.9 12.59 ms; view_gather share **68.9%** (p50 3.42 ms), view_json 9.4%, wire 3.9%; engine 17.9% (p50 0.24 ms, p99 5.13 ms > the 5 ms budget → 39 overflow frames, rtf lowest 1% = 39.6). 76 bodies.
+2. **Same at 400 fleet members** — `cargo run --release -p xtask -- universe --bench --seconds 10 --rtf 100 --members 480` (clamped to 400; [bench-m480.json](bench-m480.json)): view_gather **54.0%** (p50 3.02 ms), engine 32.2% (p50 0.44 ms, p99 5.66 ms), **109/600 overflow frames, rtf lowest 1% = 0.0** (the sim fully stalls in the worst 1%). 410 bodies, 5,021 kicks, battle still alive.
+3. **The engine's own cost profile** — `cargo run --release -p xtask -- universe --kick-bench --rtf 100 --seconds 20` ([kickbench.json](kickbench.json)): 949 distinct kicks, median 76 µs, p99 381 µs; exact memo hit 0%, quantized 94.5% (reproduces the taste log's numbers). The p99 engine frame (5.1–5.7 ms) is a *burst* of ~70 kicks, not per-kick cost: a scheduling problem (the slack queue's, board item 4), not a law problem.
+4. **The gather's scaling, isolated** — probe added by this run, `cargo run --release -p emergent-universe --example constraint_probe -- 100` ([probe-rtf100.txt](probe-rtf100.txt), identical at rtf 1):
+   - bare tubes (no force, no fleet): **4.2–4.5 µs per emitter per frame**, flat from n=24 to n=2,400 (10.1 ms/frame at 2,400), **1.03 readouts per emitter per frame** — the Newton search is already optimal; the cost is the readout.
+   - `state_rate` alone, warm: **3.7–4.2 µs/call = ~89% of the per-emitter cost**. The Seen construction (String, blackbody, push) is ~0.5 µs — the cheap "exploit" (skip allocs/exp) buys ~10% only.
+   - plane after the battle (428 bodies, 198 alive): fixed player readout **12 µs/frame**; whole gather 2,315–2,331 µs → **11.7 µs per live bound body** (doll-chain readout: 2.8× the bare-tube floor).
+   - plane with the fleet alive, **pre-contact, the clean fleet loop** (rtf 1: the probe's 40 frames stay at ticks 100k–235k, before the fleets meet at ~655k): gather **0.53 ms at 400 members, 23.1 ms at 4,000, 149.8 ms at 16,000** — per member 1.3 / 5.8 / 9.4 µs (the per-member cost rises ~7× over 40× members: the motions walk leaves cache). At 4,000 members the gather alone is **1.4× the whole 16.7 ms frame with zero engine events pending**; at 16,000 it is 9×.
+   - the same sweep at rtf 100 (each frame advances 338k ticks, so the 40 frames run *through* the battle and its handouts — the mix the player actually flies): gather averages **2.36 ms at 400 members, 31.5 ms at 4,000, 161.9 ms**.
+5. **The instrument stops before the break** — the bench's own knob clamps at 400 (`--members` in xtask/src/universe/mod.rs:32): the smoothness dashboard cannot express the plane's scaling break at all.
+6. **Gates** — `cargo run --release -p xtask -- behave --law plane` (99 s, [behave-plane.json](behave-plane.json)): the plane honestly refuses G1–G7 and B9–B11 through this boundary (they judge `space`); B13 60/64 (known marginal), B12 FAIL (known miscalibrated statistic, redesign in flight), B14 FAIL on a 60.1 s timeout (cost, marginal, shared box). **No gate measures the view against N** — B15 judges readouts per emitter on 24 emitters; the gather's scaling is unguarded.
+
+## Predictions
+
+[predictions.md](predictions.md) was written before the probe ran. Held: P2 (per-emitter 0.5–5 µs, rtf-independent, ≤3 readouts: measured 4.2 µs, 1.03 reads, identical at rtf 1 and 100), P3 (view > engine at every members count the bench can express), P5 (engine p99 above the 5 ms budget at 400 members: 5.66 ms, 18% overflow frames). Partially held: P1 (the gather grows monotonically and steeply with members, but not linearly: the clean per-member cost rises 1.3 → 5.8 → 9.4 µs from 400 to 16,000 members — cache, not asymptotics). Missed: P4's magnitude — bound bodies cost 2.8× the bare-tube floor, not ≥10× (the direction held).
+
+## What would make it wrong, cost of adopting, fit
+
+**Wrong if:** the M1 is ~2× faster per core (the ceiling moves to ~4–8k bodies — still 6 orders short); the page stops asking for the full view every frame (today it does: the bench's scope is the page's own loop); populations/aggregate sources were already wired into the gather (they are not: view.rs:300–368 enumerates every body and every member, no culling, no angular floor); the engine's event rate per member at scale exceeded 60 Hz × ~10 µs (at rtf 100, 400 members it is ~4× below: ~96 vs ~360 µs per member per wall-second).
+
+**Adopting:** the diagnosis is free. The fix is a representation change in one module (crates/universe/src/view.rs): the gather becomes event-driven — the `Crossing` memo already predicts each emission tick; what is missing is the test "did what the player can differentiate change?" (display quanta on direction, colour, brightness, angular radius) and aggregate sources for populations. Both are already promised by the design (plane.md foundation 6; PRINCIPLES #5 "the zoom level is the minimap"). No engine change. Also adopt: unclamp `--members` (or sample the gather every k-th frame) so the dashboard can see the break.
+
+**PRINCIPLES:** #3 "Nothing is evolved that can be derived when looked at (clocks, redshift, views)" — the gather derives, but re-derives *every body every frame*; #1 "The cheapest compute is compute not done"; #12 "i care about the p95/99 results" (the engine's p99 burst is second, and already owned by the allocator); #19 "a fix signals the wrong representation" — the per-body loop is the wrong representation for the view at scale, and the 89%-readout share proves no constant-factor patch escapes it.
+
+## The lens (what it may have missed)
+
+Goldratt's "one constraint at a time" is measured on today's scene (≤428 bodies, one fleet). At the goal's scale, memory (H_live, 8 GB) and candidate work (encounters at N) may bind before the view *if the view is fixed first* — the lens ranks the frame's constraints, not the system's across scales. The engine-side program (fewer kicks, slack skin) is not wrong; it is **subordinated**: its gains cannot appear on the median frame while the gather enumerates every body. Two measurement gaps I could not close: the engine was not run end-to-end at 4k/16k members (the bench clamps at 400; "view > engine at 16k" is the 400-member shares plus the gather measurement, not a direct end-to-end run), and `perf` is blocked in this container (paranoid), so the 89% readout share comes from timing `state_rate` directly, not a profile. The stream scenario also refuses to build at n=4,800 (`NoBoundOrbit`, a scenario-builder limit, not a law failure — one line, worth a look by its owner).
