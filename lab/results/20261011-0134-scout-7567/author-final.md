@@ -1,0 +1,4 @@
+Working...
+Run folder complete: `predictions.md` (pre-registered), `falsifier.py` + `falsifier-out.json` (18 s, deterministic, < 100 MB), `dossier.md`.
+
+**Claim:** no per-series statistic on the Jacobi-error trace can separate bounded from compounding error on chaotic ships (the bounded control *is* a walk in observation space: exponent 0.411, Allan 0.475, rank z 13.9 all false-flag it, indistinguishable from a 1%-rate leak), but a law-only, oracle-free **derived-cap + horizon test** — extend the run 10× and require max error to stay inside a cap derived from the C_J level set — meets the B12 contract on all ten laws (bounded PASSes at the cap, ratio 1.1; compound/drift/kick/leaks FAIL, compound's ratio 2.92 ≈ √10), handing the three in-flight B12 rebuilds the separable design while killing the statistic-hunting branch.
