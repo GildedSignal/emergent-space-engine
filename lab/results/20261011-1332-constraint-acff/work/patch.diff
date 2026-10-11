@@ -1,0 +1,95 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..112dff32 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -106,6 +106,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     }
+     let wall = Instant::now();
+     let mut last = Instant::now();
++    // The frame trace: per frame, the overflow flag and what the engine resolved (items and cost by kind).
++    let mut prev = s.p.u.stats;
++    let mut trace: Vec<(bool, [u64; 5], [u64; 5])> = Vec::with_capacity(frames);
+     for n in 1..=frames {
+         if paced {
+             let due = Duration::from_secs_f64(n as f64 / 60.0);
+@@ -116,7 +119,42 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        let cur = s.p.u.stats;
++        let di = [cur.items[0] - prev.items[0], cur.items[1] - prev.items[1], cur.items[2] - prev.items[2], cur.items[3] - prev.items[3], cur.items[4] - prev.items[4]];
++        let dc = [cur.cost_ns[0].wrapping_sub(prev.cost_ns[0]), cur.cost_ns[1].wrapping_sub(prev.cost_ns[1]), cur.cost_ns[2].wrapping_sub(prev.cost_ns[2]), cur.cost_ns[3].wrapping_sub(prev.cost_ns[3]), cur.cost_ns[4].wrapping_sub(prev.cost_ns[4])];
++        trace.push((s.last_overflow, di, dc));
++        prev = cur;
+     }
++    // The worst frames by engine ms, what they were made of, and the worst 5% against the whole run.
++    let mut order: Vec<usize> = (0..trace.len()).collect();
++    order.sort_by(|&a, &b| s.dash.engine_ms[a].total_cmp(&s.dash.engine_ms[b]));
++    let worst_frames: Vec<_> = order.iter().rev().take(25).map(|&i| {
++        let (ovf, di, dc) = &trace[i];
++        json!({"frame": i + 1, "engine_ms": s.dash.engine_ms[i], "overflow": ovf, "items": di, "cost_ms": dc.map(|c| c as f64 / 1e6)})
++    }).collect();
++    let n5 = ((trace.len() as f64) * 0.05).ceil() as usize;
++    let (mut w5, mut allc) = ([0u64; 5], [0u64; 5]);
++    for (k, i) in order.iter().enumerate() {
++        let dc = &trace[*i].2;
++        for j in 0..5 {
++            allc[j] += dc[j];
++            if k + n5 >= trace.len() { w5[j] += dc[j]; }
++        }
++    }
++    let (mut oc, mut oitems) = ([0u64; 5], [0u64; 5]);
++    for (ovf, di, dc) in &trace {
++        if *ovf {
++            for j in 0..5 { oc[j] += dc[j]; oitems[j] += di[j]; }
++        }
++    }
++    let trace_json = json!({
++        "kinds": ["planet", "moon", "ship", "player", "fleet"],
++        "worst_5pct_cost_ms": w5.map(|c| c as f64 / 1e6),
++        "all_frames_cost_ms": allc.map(|c| c as f64 / 1e6),
++        "overflow_frames_cost_ms": oc.map(|c| c as f64 / 1e6),
++        "overflow_frames_items": oitems,
++        "worst_frames": worst_frames,
++    });
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+     let presented_at_end = s.p.u.now;
+@@ -143,6 +181,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "player_alive": player_alive, "lost_bodies": lost,
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
++        "trace": trace_json,
+         "engine_cost_by_kind": cost,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5d..f31e3ab6 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -29,6 +29,8 @@ pub struct Session {
+     pub engine_ms: f64,
+     /// The canonical cut: no frame advances past it, and the digest is taken there (`None`: the flight is open-ended).
+     pub cut: Option<emergent_universe::num::Tick>,
++    /// The last frame's overflow flag (mandatory work left because the budget ran out), for the bench's trace.
++    pub last_overflow: bool,
+     names: Vec<String>,
+     threads: usize,
+     members: u64,
+@@ -40,7 +42,7 @@ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, last_overflow: false, names, threads, members, cache: ViewCache::default() })
+     }
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+@@ -98,6 +100,7 @@ impl Session {
+         let ms = start.elapsed().as_secs_f64() * 1e3;
+         self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
+         self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
++        self.last_overflow = f.overflow;
+         Ok((json, ms))
+     }
+ 

@@ -1,0 +1,816 @@
+{
+  "bodies": 76,
+  "bytes_per_body": 4783,
+  "catalogue_live": 76,
+  "cut_tick": 609076340,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        6429139,
+        0
+      ],
+      [
+        80871803,
+        9
+      ],
+      [
+        87639318,
+        0
+      ],
+      [
+        162081982,
+        2
+      ],
+      [
+        168849497,
+        0
+      ],
+      [
+        243292160,
+        4
+      ],
+      [
+        250059675,
+        0
+      ],
+      [
+        324502339,
+        1
+      ],
+      [
+        331269854,
+        0
+      ],
+      [
+        405712518,
+        5
+      ],
+      [
+        412480033,
+        0
+      ],
+      [
+        486922696,
+        2
+      ],
+      [
+        493690211,
+        0
+      ],
+      [
+        568132875,
+        8
+      ],
+      [
+        574900390,
+        0
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        6429139,
+        0
+      ],
+      [
+        80871803,
+        9
+      ],
+      [
+        87639318,
+        0
+      ],
+      [
+        162081982,
+        2
+      ],
+      [
+        168849497,
+        0
+      ],
+      [
+        243292160,
+        4
+      ],
+      [
+        250059675,
+        0
+      ],
+      [
+        324502339,
+        1
+      ],
+      [
+        331269854,
+        0
+      ],
+      [
+        405712518,
+        5
+      ],
+      [
+        412480033,
+        0
+      ],
+      [
+        486922696,
+        2
+      ],
+      [
+        493690211,
+        0
+      ],
+      [
+        568132875,
+        8
+      ],
+      [
+        574900390,
+        0
+      ]
+    ]
+  },
+  "digest": "41343a143a92f956588db14f77bab6ca36da88110b5bbffb4262514a791728b2",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 1541,
+      "kind": "ship",
+      "total_ms": 407.737294,
+      "us_per_item": 264.59266320571055
+    },
+    {
+      "items": 291,
+      "kind": "player",
+      "total_ms": 374.787598,
+      "us_per_item": 1287.9298900343642
+    },
+    {
+      "items": 4647,
+      "kind": "fleet",
+      "total_ms": 283.504047,
+      "us_per_item": 61.00797224015494
+    }
+  ],
+  "events_per_second": 240.30264610860755,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 4.188005999999405,
+    "p99": 10.55519899999996,
+    "p99.9": 11.869199000000002,
+    "worst": 15.609846999999995
+  },
+  "frame_ms": {
+    "p50": 4.187868,
+    "p95": 8.035499,
+    "p99": 10.554446,
+    "p99.9": 11.868321
+  },
+  "frames": 1800,
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)"
+  ],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-11T13:48:11Z",
+    "unix": 1791726491,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-11T13:47:41Z",
+    "unix": 1791726461,
+    "when": "before"
+  },
+  "paced": true,
+  "player_alive": true,
+  "presented_tick_at_end": 596794561,
+  "rtf": {
+    "lowest_1pct": 9.91012345861669,
+    "median": 99.99984911408662,
+    "overflow_frames": 45
+  },
+  "rtf_target": 100.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 1358, opens: 92, boundaries: 1215, handoffs: 0, lost: 26, refused: 0, slices: 4647, encounters: 169, decisions: 16, leavers: 48, dissolved: 1, cost_ns: [0, 0, 407737294, 374787598, 283504047], items: [0, 0, 1541, 291, 4647] }",
+  "throttle_level": 0,
+  "trace": {
+    "all_frames_cost_ms": [
+      0.0,
+      0.0,
+      407.737294,
+      374.787598,
+      283.504047
+    ],
+    "kinds": [
+      "planet",
+      "moon",
+      "ship",
+      "player",
+      "fleet"
+    ],
+    "overflow_frames_cost_ms": [
+      0.0,
+      0.0,
+      96.103079,
+      55.130395,
+      99.186358
+    ],
+    "overflow_frames_items": [
+      0,
+      0,
+      274,
+      23,
+      390
+    ],
+    "worst_5pct_cost_ms": [
+      0.0,
+      0.0,
+      190.692372,
+      132.109985,
+      125.840726
+    ],
+    "worst_frames": [
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          11.806278
+        ],
+        "engine_ms": 11.873365999999999,
+        "frame": 12,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          8.469502
+        ],
+        "engine_ms": 8.544529,
+        "frame": 69,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          8.405644
+        ],
+        "engine_ms": 8.482054,
+        "frame": 71,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          8.172979
+        ],
+        "engine_ms": 8.244364000000001,
+        "frame": 10,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          8.056371
+        ],
+        "engine_ms": 8.122364,
+        "frame": 13,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          6.539117
+        ],
+        "engine_ms": 6.616269999999999,
+        "frame": 73,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          5.952879,
+          0.0,
+          0.0
+        ],
+        "engine_ms": 6.072839,
+        "frame": 1655,
+        "items": [
+          0,
+          0,
+          3,
+          0,
+          0
+        ],
+        "overflow": false
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          2.681336,
+          2.55436,
+          0.736607
+        ],
+        "engine_ms": 6.054051,
+        "frame": 1028,
+        "items": [
+          0,
+          0,
+          6,
+          1,
+          18
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          4.53698,
+          1.278988,
+          0.0
+        ],
+        "engine_ms": 5.898709,
+        "frame": 1654,
+        "items": [
+          0,
+          0,
+          3,
+          1,
+          0
+        ],
+        "overflow": false
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          5.50067,
+          0.0,
+          0.13306
+        ],
+        "engine_ms": 5.724972,
+        "frame": 860,
+        "items": [
+          0,
+          0,
+          3,
+          0,
+          3
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          3.580952,
+          1.357323,
+          0.616508
+        ],
+        "engine_ms": 5.593497,
+        "frame": 859,
+        "items": [
+          0,
+          0,
+          4,
+          1,
+          9
+        ],
+        "overflow": false
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          2.985596,
+          1.696002,
+          0.78369
+        ],
+        "engine_ms": 5.543242,
+        "frame": 184,
+        "items": [
+          0,
+          0,
+          12,
+          1,
+          15
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          2.63303,
+          2.143631,
+          0.666899
+        ],
+        "engine_ms": 5.513599,
+        "frame": 80,
+        "items": [
+          0,
+          0,
+          8,
+          1,
+          11
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          5.383264
+        ],
+        "engine_ms": 5.457209,
+        "frame": 68,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          2.921902,
+          1.652497,
+          0.764675
+        ],
+        "engine_ms": 5.414256,
+        "frame": 197,
+        "items": [
+          0,
+          0,
+          11,
+          1,
+          14
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          5.320157
+        ],
+        "engine_ms": 5.39452,
+        "frame": 67,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          4.892678,
+          0.0,
+          0.308745
+        ],
+        "engine_ms": 5.3118,
+        "frame": 148,
+        "items": [
+          0,
+          0,
+          7,
+          0,
+          7
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          1.751204,
+          2.877732,
+          0.559552
+        ],
+        "engine_ms": 5.262672,
+        "frame": 479,
+        "items": [
+          0,
+          0,
+          8,
+          1,
+          13
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          1.679845,
+          2.905189,
+          0.57449
+        ],
+        "engine_ms": 5.24282,
+        "frame": 279,
+        "items": [
+          0,
+          0,
+          10,
+          1,
+          13
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          4.568658,
+          0.0,
+          0.571965
+        ],
+        "engine_ms": 5.239459,
+        "frame": 172,
+        "items": [
+          0,
+          0,
+          7,
+          0,
+          7
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          5.158382
+        ],
+        "engine_ms": 5.2239629999999995,
+        "frame": 14,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          1.718094,
+          2.518812,
+          0.8656
+        ],
+        "engine_ms": 5.191699,
+        "frame": 828,
+        "items": [
+          0,
+          0,
+          9,
+          1,
+          21
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          1.545835,
+          2.897082,
+          0.612574
+        ],
+        "engine_ms": 5.127792,
+        "frame": 144,
+        "items": [
+          0,
+          0,
+          12,
+          1,
+          14
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          5.048089
+        ],
+        "engine_ms": 5.124485,
+        "frame": 70,
+        "items": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "overflow": true
+      },
+      {
+        "cost_ms": [
+          0.0,
+          0.0,
+          1.894868,
+          2.503347,
+          0.648641
+        ],
+        "engine_ms": 5.122781,
+        "frame": 130,
+        "items": [
+          0,
+          0,
+          13,
+          1,
+          15
+        ],
+        "overflow": true
+      }
+    ]
+  },
+  "uptime_after": "13:48:11 up 45 days,  4:50,  0 user,  load average: 0.59, 0.52, 0.64",
+  "uptime_before": "13:47:41 up 45 days,  4:50,  0 user,  load average: 0.97, 0.58, 0.66",
+  "wall_seconds": 30.006172378,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 11.873365999999999,
+      "p50": 0.233597,
+      "p99": 5.24282,
+      "share": 0.17886307631868012
+    },
+    "view_gather": {
+      "max": 5.089073,
+      "p50": 3.433058,
+      "p99": 4.690993,
+      "share": 0.6903581137458432
+    },
+    "view_json": {
+      "max": 1.0878649999999999,
+      "p50": 0.436428,
+      "p99": 0.7247100000000001,
+      "share": 0.09327689781169508
+    },
+    "wire": {
+      "max": 0.42696100000000003,
+      "p50": 0.173624,
+      "p99": 0.25033500000000003,
+      "share": 0.0375019121237815
+    }
+  },
+  "worst_hitch_at_frame": 11,
+  "worst_hitch_ms": 15.608729
+}
