@@ -1,0 +1,357 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf44946..4c795162 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -349,15 +349,24 @@ fn root_witness(
+         Some((a, b))
+     } else { None })
+ }
++macro_rules! stage {
++    ($i:expr, $e:expr) => {{
++        #[cfg(feature = "profile")]
++        { crate::profile::stage($i, || $e) }
++        #[cfg(not(feature = "profile"))]
++        { $e }
++    }};
++}
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let (key, r, clockwise, incoming) = stage!(4, fit_key(state, true))?;
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            stage!(5, Orbit::compile(key)).map(Trajectory::Cycle)?
+         } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++            let edge = passage_edge.unwrap_or(r.scale(1)?);
++            stage!(19, Passage::compile(key, edge)).map(Trajectory::Passage)?
+         };
+-        let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        let (mut offset, mut sample) = stage!(8, trajectory.at_radius(r))?;
+         if incoming {
+             offset = offset.negate();
+             sample.reflect();
+@@ -378,7 +387,7 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+-        fit.residual = Residual::between(state, fit.decoded_event()?);
++        fit.residual = Residual::between(state, stage!(9, fit.decoded_event())?);
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd3..1ea85da1 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -240,8 +240,8 @@ impl OrbitShape {
+     }
+     fn node(&self, psi: i128) -> Result<Integral> {
+         let cs = cos(psi);
+-        let x = self.k + product(ONE - self.k, cs);
+-        if x <= 0 {
++        let xr = self.k + product(ONE - self.k, cs);
++        if xr <= 0 {
+             return Err(Error::Range);
+         }
+         let a = 6 * self.k + 2 * product(ONE - self.k, cs);
+@@ -251,14 +251,14 @@ impl OrbitShape {
+         }
+         let g = root.reciprocal()?;
+         let excess = f(a)?.div(root.mul(root.add(Scalar::ONE)?)?)?;
+-        let x = f(x)?;
++        let x = f(xr)?;
+         let inv_x2 = x.mul(x)?.reciprocal()?;
+         let tau = self.tau_numerator.mul(g)?.mul(inv_x2)?;
+         let t = self
+             .t_numerator
+             .mul(g)?
+             .mul(inv_x2)?
+-            .div(f(ONE - product(2 * self.q, self.x(psi)))?)?;
++            .div(f(ONE - product(2 * self.q, xr))?)?;
+         let (dt, dtau) = if !self.key.null && self.key.compactness.is_zero() {
+             (
+                 self.t_numerator.mul(Scalar::integer(3))?.div(x)?,
+@@ -275,11 +275,17 @@ impl OrbitShape {
+             return Ok(Integral::default());
+         }
+         if !self.key.null && self.q == 0 && self.k >= ONE / 2 {
++            #[cfg(feature = "profile")]
++            crate::profile::stage(26, || Ok::<(), ()>(()));
+             return self.weak_quad(lo, hi);
+         }
+         if self.fast {
++            #[cfg(feature = "profile")]
++            crate::profile::stage(25, || Ok::<(), ()>(()));
+             return self.fast_quad(lo, hi);
+         }
++        #[cfg(feature = "profile")]
++        crate::profile::stage(24, || Ok::<(), ()>(()));
+         let mid = lo + h / 2;
+         let mut sum = Integral::default();
+         for j in 0..2 {
+@@ -471,6 +477,14 @@ impl Orbit {
+         &self.shape
+     }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
++        macro_rules! stage {
++            ($i:expr, $e:expr) => {{
++                #[cfg(feature = "profile")]
++                { crate::profile::stage($i, || $e) }
++                #[cfg(not(feature = "profile"))]
++                { $e }
++            }};
++        }
+         if key.null {
+             return Err(Error::NotPeriodic);
+         }
+@@ -481,11 +495,11 @@ impl Orbit {
+             if q >= Scalar::ONE.div(Scalar::integer(3))? {
+                 return Err(Error::NoBoundOrbit);
+             }
+-            let mut shape = OrbitShape::bound(ShapeKey {
++            let mut shape = stage!(6, OrbitShape::bound(ShapeKey {
+                 k: UNIT,
+                 compactness: Scalar::ZERO,
+                 null: false,
+-            })?;
++            }))?;
+             shape.key = ShapeKey::for_orbit(key)?;
+             let rate = Scalar::ONE.sub(q.mul(Scalar::integer(3))?)?.sqrt()?;
+             shape.knots.last_mut().unwrap().sum = Integral([
+@@ -495,9 +509,9 @@ impl Orbit {
+                 Scalar::ZERO,
+                 Scalar::ZERO,
+             ]);
+-            return Self::from_shape(key, Arc::new(shape));
++            return stage!(7, Self::from_shape(key, Arc::new(shape)));
+         }
+-        Self::from_shape(key, Arc::new(OrbitShape::bound(ShapeKey::for_orbit(key)?)?))
++        stage!(7, Self::from_shape(key, Arc::new(stage!(6, ShapeKey::for_orbit(key).and_then(OrbitShape::bound))?)))
+     }
+     /// Planted Newtonian force for the independent behaviour judge's negative control.
+     pub fn newtonian(key: OrbitKey) -> Result<Self> {
+diff --git a/crates/space/src/profile.rs b/crates/space/src/profile.rs
+index 1adcaf77..c0e4f430 100644
+--- a/crates/space/src/profile.rs
++++ b/crates/space/src/profile.rs
+@@ -1,17 +1,33 @@
+ //! Optional compile-stage accounting. Disabled in latency measurements and normal builds.
+ use std::{cell::Cell, time::Instant};
+-thread_local! { static NS: Cell<[u128; 4]> = const { Cell::new([0; 4]) }; }
+-pub(crate) fn stage<T>(i: usize, f: impl FnOnce() -> T) -> T {
++
++pub const SLOTS: usize = 32;
++pub const NAMES: [&str; SLOTS] = [
++    "legacy.roots", "legacy.cuts", "legacy.integrate", "legacy.convert",
++    "fit.key", "compile.total", "shape.bound", "from_shape",
++    "at_radius", "decoded_event", "bind.decode_turn",
++    "kick.readout", "kick.secondaries", "kick.tide", "kick.acceleration",
++    "kick.total", "kick.rebind", "rebind.old_tau", "bind.total",
++    "passage.compile", "spare", "bind.in_tube", "kick.clock", "kick.quantize",
++    "quad.general", "quad.fast", "quad.weak", "cos.dummy",
++
++    "spare0",
++    "spare1",
++    "spare2",
++    "spare3",];
++thread_local! { static NS: Cell<[u128; SLOTS]> = const { Cell::new([0; SLOTS]) }; }
++thread_local! { static N: Cell<[u64; SLOTS]> = const { Cell::new([0; SLOTS]) }; }
++pub fn stage<T>(i: usize, f: impl FnOnce() -> T) -> T {
+     let start = Instant::now();
+     let result = f();
+-    NS.with(|s| {
+-        let mut v = s.get();
+-        v[i] += start.elapsed().as_nanos();
+-        s.set(v);
+-    });
++    let d = start.elapsed().as_nanos();
++    NS.with(|s| { let mut v = s.get(); v[i] += d; s.set(v); });
++    N.with(|c| { let mut v = c.get(); v[i] += 1; c.set(v); });
+     result
+ }
+-/// Nanoseconds in roots, cuts, integration and conversion on this thread; resets the counters.
+-pub fn take() -> [u128; 4] {
+-    NS.with(|s| s.replace([0; 4]))
++/// Per-stage nanoseconds and counts on this thread; resets the counters.
++pub fn take() -> Vec<(&'static str, u128, u64)> {
++    let ns = NS.with(|s| s.replace([0; SLOTS]));
++    let n = N.with(|c| c.replace([0; SLOTS]));
++    (0..SLOTS).filter(|&i| n[i] > 0).map(|i| (NAMES[i], ns[i], n[i])).collect()
+ }
+diff --git a/crates/universe/Cargo.toml b/crates/universe/Cargo.toml
+index b47bf083..8e810e72 100644
+--- a/crates/universe/Cargo.toml
++++ b/crates/universe/Cargo.toml
+@@ -11,3 +11,6 @@ emergent-engine = { path = "../engine" }
+ emergent-lattice = { path = "../lattice" }
+ emergent-lattice-event = { path = "../lattice-event" }
+ blake3.workspace = true
++
++[features]
++profile = ["emergent-space/profile"]
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f30765..e11489e6 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -223,12 +223,13 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+ }
+ 
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+-    let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
++    let exact = pstage!(21, in_tube_units(exact, unit))?;
++    let fit = Rebinding::from_state(exact, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+     let units = (exact.length_exponent, exact.velocity_exponent);
+-    let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
++    let (decoded, orbit) = pstage!(10, decode(&entry, &tube, clock_exp, units, t))?;
+     // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
+     let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
+     let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index afd46ea9..0bb18c67 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,4 +1,13 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
++
++macro_rules! pstage {
++    ($i:expr, $e:expr) => {{
++        #[cfg(feature = "profile")]
++        { emergent_space::profile::stage($i, || $e) }
++        #[cfg(not(feature = "profile"))]
++        { $e }
++    }};
++}
+ pub mod bind;
+ pub mod body;
+ pub mod ctx;
+@@ -20,4 +29,10 @@ pub mod world;
+ pub use body::Kind;
+ pub use ctx::Config;
+ pub use universe::{Budget, OrbitSpec, Universe};
++
++/// Stage timings from the resolver and the compiler on this thread (feature `profile`).
++#[cfg(feature = "profile")]
++pub fn profile_take() -> Vec<(&'static str, u128, u64)> {
++    emergent_space::profile::take()
++}
+ pub use world::{Mass, Unit};
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d435..8fbaca0d 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -306,11 +306,15 @@ impl Work<'_, '_> {
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+-        let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
++        let unit = self.ctx.tube_unit(self.i, doll)?;
++        let bound = pstage!(18, bind(exact, t, clock_exp, self.passage_edge(doll), unit))?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+-        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+-        let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
++        let (_tau, root_tau) = pstage!(17, {
++            let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++            let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
++            Ok::<(Scalar, Scalar), Error>((tau, root_tau))
++        })?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
+         self.rec.b = Binding {
+@@ -352,12 +356,16 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
+-        let (x, v) = scalars(&st)?;
++        pstage!(15, self.kick_inner(t, level))
++    }
++
++    fn kick_inner(&mut self, t: Tick, level: u8) -> Res<()> {
++        let st = pstage!(11, self.rec.b.readout(t))?;
++        let (x, v) = pstage!(11, scalars(&st))?;
+         let d = self.rec.b.doll;
+-        let secs = self.ctx.secondaries(d, t, self.i)?;
+-        let tide = self.ctx.tide(d, t)?;
+-        let a = force::acceleration(level, x, &secs, tide)?;
++        let secs = pstage!(12, self.ctx.secondaries(d, t, self.i))?;
++        let tide = pstage!(13, self.ctx.tide(d, t))?;
++        let a = pstage!(14, force::acceleration(level, x, &secs, tide))?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
+         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+@@ -369,7 +377,7 @@ impl Work<'_, '_> {
+             added = dv;
+             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
+         } else {
+-            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
++            let (dvq, carry) = pstage!(23, quantize(dv, st.velocity_exponent, self.rec.carry))?;
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
+@@ -378,9 +386,9 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        pstage!(16, self.rebind(next, t, d))?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+-        // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
++        // kicks completes it by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+         let q = |s: Scalar| -> Res<i64> { i64::try_from(s.fixed(-ve)?).map_err(|_| Error::Refused("kick outside the word")) };
+         // (A kick that does not fit the word's quanta leaves no ramp: the rebinding stands either way.)
+@@ -581,6 +589,10 @@ impl Work<'_, '_> {
+     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
+     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
++        pstage!(22, self.kick_clock_inner(t, _level))
++    }
++
++    fn kick_clock_inner(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
+         let d = self.rec.b.doll;
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+diff --git a/xtask/Cargo.toml b/xtask/Cargo.toml
+index fe6c1d31..1fa79afc 100644
+--- a/xtask/Cargo.toml
++++ b/xtask/Cargo.toml
+@@ -17,3 +17,6 @@ serde_json.workspace = true
+ blake3.workspace = true
+ libc = "0.2"
+ num-traits.workspace = true
++
++[features]
++profile = ["emergent-universe/profile"]
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..29bac0f3 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -107,5 +107,23 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+     }))?);
++    #[cfg(feature = "profile")]
++    {
++        let stages = emergent_universe::profile_take();
++        let total: u128 = stages
++            .iter()
++            .filter(|s| s.0 == "kick.total" || s.0 == "kick.clock")
++            .map(|s| s.1)
++            .sum();
++        println!("{}", serde_json::to_string_pretty(
++            &stages.iter().map(|(n, ns, c)| json!({
++                "stage": n,
++                "us_per_call": (*ns as f64 / *c as f64) / 1000.0,
++                "calls": c,
++                "us_total": *ns as f64 / 1000.0,
++                "share_of_kicks": if total > 0 { *ns as f64 / total as f64 } else { 0.0 },
++            })).collect::<Vec<_>>(),
++        )?);
++    }
+     Ok(u8::from(refused != 0))
+ }
