@@ -1,0 +1,119 @@
+--- invert.rs (b292 original)
++++ invert.rs (this run, fixed)
+@@ -10,6 +10,13 @@
+ //! rank — the quantity a phase-sorted watch actually needs — plus the lambda-bar window the
+ //! encounter requires, and the cost of the *sound* lambda-bar walk (exact equation-of-center
+ //! amplitudes, linear drift) against the quadratic tier.
++//!
++//! Second-author correction (run 20261011-0736-second-...-5033): the original λ̄ rank
++//! sorted raw `mean_anomaly(t) + pom`, which spans > 2π once ϖ is spread, so cross-block
++//! pairs' ranks were inflated (the checker's finding). Every line now carries both:
++//! `ranks.lbar` (raw, byte-compatible with the b292 record) and `ranks.lbar_mod`
++//! (corrected: (m + pom).rem_euclid(TAU) before circ_rank). Scenes c0b/n1k/aspread/e5
++//! are the checker's held-out attacks, now shipped in the record.
+ 
+ use emergent_encounters::belt::Rng;
+ use emergent_encounters::kepler::Body;
+@@ -112,6 +119,10 @@
+     enc: u64,
+     dmin: f64,
+     lb_ranks: Vec<u64>,
++    /// corrected (modular) lambda-bar ranks: the raw lam = m + pom spans > 2 pi once
++    /// pom is spread, so raw sorted order is not a circular order (checker b292);
++    /// lbar_mod sorts (m + pom).rem_euclid(TAU) — the invariant a +-k watch needs.
++    lb_ranks_mod: Vec<u64>,
+     dist_max: u64,
+     dist_le4: u64,
+     true_max: u64,
+@@ -195,6 +206,7 @@
+         enc: keys.len() as u64,
+         dmin: f64::INFINITY,
+         lb_ranks: Vec::new(),
++        lb_ranks_mod: Vec::new(),
+         dist_max: 0,
+         dist_le4: 0,
+         true_max: 0,
+@@ -288,6 +300,9 @@
+         out.true_le4 += (tr <= 4) as u64;
+         let lr = circ_rank(&lam, i, j);
+         out.lb_ranks.push(lr);
++        let lam_mod: Vec<f64> = lam.iter().map(|&x| x.rem_euclid(TAU)).collect();
++        let lrm = circ_rank(&lam_mod, i, j);
++        out.lb_ranks_mod.push(lrm);
+         // window this encounter required, and the two window bounds
+         let w = wrap(lam[i] - lam[j]).abs();
+         out.lb_win_max = out.lb_win_max.max(w);
+@@ -298,6 +313,7 @@
+         out.twoterm_viol = out.twoterm_viol.max(w - two);
+     }
+     out.lb_ranks.sort_unstable();
++    out.lb_ranks_mod.sort_unstable();
+     out.meth_missed = keys.iter().filter(|k| !mm.contains_key(k)).count() as u64;
+     out.meth_false = mm.keys().filter(|k| !best.contains_key(k)).count() as u64;
+ 
+@@ -306,11 +322,11 @@
+         .iter()
+         .map(|&k| {
+             let (d, t) = best[&k];
+-            let mut lam = vec![0.0f64; nc];
++            let mut lam_mod = vec![0.0f64; nc];
+             for q in 0..nc {
+-                lam[q] = fl[q].mean_anomaly(t) + fl[q].pom;
++                lam_mod[q] = (fl[q].mean_anomaly(t) + fl[q].pom).rem_euclid(TAU);
+             }
+-            (circ_rank(&lam, k.0 as usize, k.1 as usize), k)
++            (circ_rank(&lam_mod, k.0 as usize, k.1 as usize), k)
+         })
+         .collect();
+     keyed.sort_unstable();
+@@ -320,22 +336,28 @@
+         let w = wrap((fl[k.0 as usize].mean_anomaly(t) + fl[k.0 as usize].pom)
+             - (fl[k.1 as usize].mean_anomaly(t) + fl[k.1 as usize].pom))
+         .abs();
++        let lam_raw: Vec<f64> = (0..nc).map(|q| fl[q].mean_anomaly(t) + fl[q].pom).collect();
++        let r_raw = circ_rank(&lam_raw, k.0 as usize, k.1 as usize);
+         let es = fl[k.0 as usize].e + fl[k.1 as usize].e;
+         out.samples.push(format!(
+-            "{{\"pair\":[{},{}],\"lb_rank\":{},\"lb_win\":{:.2e},\"e_sum\":{:.2e},\"d\":{:.2e},\"meth_missed\":{}}}",
+-            k.0, k.1, r, w, es, d, !mm.contains_key(&k)
++            "{{\"pair\":[{},{}],\"lb_rank\":{},\"lb_rank_raw\":{},\"lb_win\":{:.2e},\"e_sum\":{:.2e},\"d\":{:.2e},\"meth_missed\":{}}}",
++            k.0, k.1, r, r_raw, w, es, d, !mm.contains_key(&k)
+         ));
+     }
+ 
+     let p = |v: &[u64], q: f64| if v.is_empty() { 0 } else { v[((q * (v.len() - 1) as f64).round()) as usize] };
+     let lb = &out.lb_ranks;
++    let lbm = &out.lb_ranks_mod;
+     println!(
+-        "{{\"scene\":\"{}\",\"nc\":{},\"sig_lam\":{},\"sig_e\":{},\"pom_span\":{},\"seed\":{},\"enc\":{},\"d_min\":{:.3e},\"sweep_s\":{:.1},\"ranks\":{{\"dist\":{{\"max\":{},\"le4\":{}}},\"true\":{{\"max\":{},\"le4\":{}}},\"lbar\":{{\"max\":{},\"p50\":{},\"p90\":{},\"le4\":{},\"le8\":{},\"gt4_frac\":{:.3}}}}},\"window\":{{\"lb_max\":{:.3e},\"sound_viol_max\":{:.2e},\"twoterm_viol_max\":{:.2e}}},\"watch\":{{\"sound_pairs\":{},\"k_hat\":{:.1},\"quad\":{},\"frac_quad\":{:.3}}},\"method\":{{\"pairs\":{},\"missed\":{},\"false\":{},\"s\":{:.1},\"truncated\":{}}},\"worst\":[{}]}}",
++        "{{\"scene\":\"{}\",\"nc\":{},\"sig_lam\":{},\"sig_e\":{},\"pom_span\":{},\"seed\":{},\"enc\":{},\"d_min\":{:.3e},\"sweep_s\":{:.1},\"ranks\":{{\"dist\":{{\"max\":{},\"le4\":{}}},\"true\":{{\"max\":{},\"le4\":{}}},\"lbar\":{{\"max\":{},\"p50\":{},\"p90\":{},\"le4\":{},\"le8\":{},\"gt4_frac\":{:.3}}},\"lbar_mod\":{{\"max\":{},\"p50\":{},\"p90\":{},\"le4\":{},\"le8\":{},\"gt4_frac\":{:.3}}}}},\"window\":{{\"lb_max\":{:.3e},\"sound_viol_max\":{:.2e},\"twoterm_viol_max\":{:.2e}}},\"watch\":{{\"sound_pairs\":{},\"k_hat\":{:.1},\"quad\":{},\"frac_quad\":{:.3}}},\"method\":{{\"pairs\":{},\"missed\":{},\"false\":{},\"s\":{:.1},\"truncated\":{}}},\"worst\":[{}]}}",
+         name, nc, sig_lam, sig_e, pom_span, seed, out.enc, out.dmin, out.sweep_s,
+         out.dist_max, out.dist_le4, out.true_max, out.true_le4,
+         lb.last().copied().unwrap_or(0), p(lb, 0.5), p(lb, 0.9),
+         lb.iter().filter(|&&r| r <= 4).count(), lb.iter().filter(|&&r| r <= 8).count(),
+         if out.enc > 0 { 1.0 - lb.iter().filter(|&&r| r <= 4).count() as f64 / out.enc as f64 } else { 0.0 },
++        lbm.last().copied().unwrap_or(0), p(lbm, 0.5), p(lbm, 0.9),
++        lbm.iter().filter(|&&r| r <= 4).count(), lbm.iter().filter(|&&r| r <= 8).count(),
++        if out.enc > 0 { 1.0 - lbm.iter().filter(|&&r| r <= 4).count() as f64 / out.enc as f64 } else { 0.0 },
+         out.lb_win_max, out.sound_viol, out.twoterm_viol,
+         out.watch_pairs, 2.0 * out.watch_pairs as f64 / nc as f64, out.quad,
+         out.watch_pairs as f64 / out.quad as f64,
+@@ -387,6 +409,18 @@
+     if is("d30") {
+         scene("d30-debris", 200, 1e-5, 0.02, 3e-2, std::f64::consts::PI, 28, true);
+     }
++    if is("c0b") {
++        scene("c0b-gold-adj-s40", 200, 1e-5, 0.01, 1e-3, 0.1, 40, true);
++    }
++    if is("n1k") {
++        scene("n1k-nc1000-ctrl", 1000, 1e-5, 0.01, 1e-3, 0.1, 27, true);
++    }
++    if is("aspread") {
++        scene("aspread-ahw-1e-3", 200, 1e-3, 0.01, 1e-3, std::f64::consts::PI, 27, true);
++    }
++    if is("e5") {
++        scene("e5-sige-5e-2", 200, 1e-5, 0.01, 5e-2, std::f64::consts::PI, 27, true);
++    }
+     if is("dbg") {
+         dbg_method(200, 1e-5, 0.01, 1e-3, std::f64::consts::PI, 27);
+         dbg_method(200, 1e-5, 0.01, 1e-3, std::f64::consts::PI, 40);

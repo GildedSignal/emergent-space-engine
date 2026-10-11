@@ -1,0 +1,30 @@
+Grade: gold
+
+**Abstract.** Second-author run on inversion-b292: the named experiment (modular λ̄-rank) is done and shipped — every line carries the raw column byte-compatibly beside `lbar_mod` — and the whole record regenerates: 13 scene lines, `taleb adj` (the gold's exact numbers: disputed 197, missed 4, rank_max 4), and the previously missing b292 c0 line from the original instrument. The thesis holds: λ̄-mod rank 28 max / 61.1% > 4 in the gold's own scene (seed-robust: 44/76.2% at s40, 35/64.5% at my s42), 88.7–100% under spread, k̂/n_c ≈ 0.25–0.29 scale-free → the 10⁶-fleet watch ≈ 1.4×10¹¹ pairs ≈ 11 TB, the ruin regime, not the gold's 300 MB. Adoption: drop rank-4/O(n·4) from b-coorbital-cert; compute the degree budget 2L̄/W before choosing the tier.
+
+## Reasons
+
+1. **Reproduction (clean tree + `work/patch.diff`).** Build 6.6 s. All 13 scene lines regenerate **byte-identically** (only `sweep_s`/`meth_s` wall-clock differ): 12 scenes at 12–13 s each, n1k at 148 s. `taleb adj` reproduces the gold's own numbers exactly (disputed 197, missed_true_sub_rho 4, extra_true 193, extra_false 0, rank_max 4; its rank_probe's λ̄-binned brute found 40 of 234 — the blind axis, confirmed). The b292 bookkeeping gap is closed from shipped code: I applied `orig-patch.diff` (the b292 instrument) in a clean tree and the previously missing c0 line regenerates byte-identically (enc 234, dist 3, λ̄ 28/16, 61.1%, k̂ 50.6, 5/234 missed); the 8 stored b292 lines are byte-identical to their branch; `taleb.rs` is byte-identical to the gold's verbatim. The self-auditing design verified: raw `ranks.lbar`, watch, window and enc fields match between fixed and original records on all 8 overlapping scenes.
+
+2. **The fix is right, and the wrap bug is real.** `mean_anomaly` wraps to [0,TAU) (kepler.rs:73–76), so raw `m+ϖ` spans >2π under ϖ-spread and its sorted order is not circular; `rem_euclid(TAU)` restores the invariant a ±k watch needs. The record shows the raw metric cut **both** ways (w1 99→59, s5 99→39 deflated; d30 94→98 inflated) — it was wrap noise, not a bound. The watch admission and soundness windows use `wrap()` on differences and are immune by construction (code-read, confirmed: k̂ identical raw-vs-fixed). c0 raw = mod exactly (ϖ span 0.1), so the control refutation never depended on the bug.
+
+3. **Predictions.** `predictions.md` (mtime 07:42:50) precedes every fixed-instrument run (07:46:23–07:50:57). All nine held, including the kill criterion not triggering. Provenance caveat: the first checker's check.md had already published corrected values for c0b, aspread, n1k and e5 (attack items b–e) beyond the six scenes its item (a) corrected, so only w1b/w1c/e10b were blind — w1b/w1c held on their ranges (73, 74 in 50–75; 93.6/94.3% in 85–95%). The dossier's Predictions paragraph labels the checker-derived values correctly, so the shipped record is honest.
+
+4. **Attack — four cases of my own, all confirming.**
+   - **(a) Seed 42, both geometries** (never used by author or first checker): control 203 enc, λ̄-mod 35/22, 64.5% > 4; w1-geometry 207 enc, 71/36, 94.2% — the refutation is seed-robust on a third seed.
+   - **(b) ϖ span 2π** (full spread, beyond the author's π): 212 enc, λ̄-mod 52/31, 91.0% — the corrected ϖ-spread sub-claim (well under the 99 cap) survives the extreme.
+   - **(c) Fourth order metric (mean-anomaly rank)** — the one natural phase order neither b292 nor this run measured, attacking "dead on every metric": M-rank is 97–99 max, 93.7–96.6% > 4 in every scene. An M-sorted watch fails harder than λ̄; the thesis now holds on four measured order metrics.
+   - **(d) Arithmetic**: 10⁶ fleet at formation density → k̂ = 0.29·10⁶, pairs n·k̂/2 = 1.45×10¹¹, ×80 B = 11.6 TB = 29% of the quadratic tier ✓; whole-orbit spread → k̂/n_c = 2L̄/2π = 1.6e-3 → 64 GB = 200× the gold's 300 MB ✓.
+   All processes ≤ ~10 MB RSS, well inside budget; n1k 148 s is the only >60 s command and is disclosed.
+
+5. **Novelty.** No HISTORY or docs entry covers watch degree, λ̄-rank or the co-orbital rank-4 question (all "rank" hits are SVD/spatial-rank, unrelated). The target is the adopted gold taleb-09b5 (taste log, 6 Oct) and the in-flight b-coorbital-cert build; this is the first measured refutation of its O(n·4) cost model, now on a regenerating record.
+
+6. **Goal fit.** The board's top scaling risk (candidate work at scale). PRINCIPLES #10: "Measure before claiming, and never strawman" — the gold's premise is refuted by measurement on every order metric available; #19: "a fix signals the wrong representation" — a fixed-k watch was the wrong representation; the degree budget computed before the tier is chosen is the replacement. Nothing is merged, so adoption is a re-aim with zero migration. The 5 Oct register lesson (same-harness agreement ≠ independence) is applied by the author and by me: my checks use new seeds, a new spread, a new metric and arithmetic, not the shared harness.
+
+## What the author missed
+
+- The claim sentence "90–100% > 4 under any spread" is contradicted by its own aspread row (88.7%). Immaterial to the conclusion, but the range should read 88.7–100%.
+- The mean-anomaly order (the fourth natural phase order) was never measured; "every metric it could have used" was asserted for three. My check closes it (M-rank 97–99, fails harder), but the record did not contain it.
+- The "81 spacings" gloss on the worst w1 pair divides |Δλ̄| by ρ, while the b292 record's own mean λ̄ spacing was ~1.2ρ; cosmetic.
+- e > 0.5 and heterogeneous/resonance-crossing formations remain untested (disclosed in the lens section); the 10⁶ extrapolation rests on 2 measured points plus the analytic 2L̄/W argument (disclosed, with both bounding cases given).
+- `predictions.md`'s header claims c0b/aspread/n1k/e5 predictions are "mine alone"; the first checker's check.md published exactly those values (attack items b–e) on top of the six corrected scenes its item (a) lists — so only w1b/w1c/e10b were blind. The dossier labels the rest "checker-derived" correctly — the inconsistency is in predictions.md only.
