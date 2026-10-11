@@ -1,0 +1,247 @@
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bff..3c7f56eb 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -45,6 +45,11 @@ fn verify_set(set: &str) -> Vec<Spec> {
+             spec("dense-n3000-s1e-2-r3e-4", 3000, 1e-2, 3e-4, 1.0, 1.5, 0, 20.0, s + 14),
+         ],
+         "long" => vec![spec("long-1000-orbits", 300, 1e-2, 1e-3, 1.0, 1.5, 0, 1000.0, s + 11)],
++        "e" => vec![
++            spec("held-s5e-2-r1e-4", 1000, 5e-2, 1e-4, 1.0, 1.5, 0, 50.0, 777001),
++            spec("held-s1e-2-r1e-3", 1000, 1e-2, 1e-3, 1.0, 1.5, 0, 50.0, 777002),
++            spec("held-coorbital-w1e-4", 300, 1e-3, 1e-3, 1.0, 1.0001, 0, 50.0, 777003),
++        ],
+         "long10k" => vec![spec("long-10000-orbits", 100, 1e-2, 1e-3, 1.0, 1.5, 0, 10000.0, s + 15)],
+         _ => panic!("unknown set"),
+     }
+@@ -375,8 +380,8 @@ fn cone_pairs_sample(b: &[Body], sorted: &Sorted, rho: f64, sample: &[u32]) -> V
+ /// A kick: re-scan the kicked body's range and re-set up its pairs. Also: how many certificates a
+ /// kick actually changes, and how many a stored slack (the relative period change a silent
+ /// certificate absorbs over the horizon) would let the re-certification skip.
+-fn kick() {
+-    let sp = spec("kick", 10_000, 1e-2, 1e-4, 1.0, 1.5, 0, 0.0, 20261050);
++fn kick(rho: f64) {
++    let sp = spec("kick", 10_000, 1e-2, rho, 1.0, 1.5, 0, 0.0, 20261050);
+     let b = make_belt(&sp);
+     let sorted = Sorted::new(&b, sp.rho);
+     let horizon = 1000.0 * TAU;
+@@ -496,6 +501,60 @@ fn kick() {
+     }
+ }
+ 
++/// Where does a kick's re-certification go? Setup vs query, per section kind, with the profiling
++/// counters from pairs::prof (numeric windows, never-windows, d_of_s calls, cross windows).
++fn prof_exp(nsamp: usize) {
++    let sp = spec("kick", 10_000, 1e-2, 1e-4, 1.0, 1.5, 0, 0.0, 20261050);
++    let b = make_belt(&sp);
++    let sorted = Sorted::new(&b, sp.rho);
++    let horizon = 1000.0 * TAU;
++    let t0 = 10.0 * TAU;
++    let sample: Vec<usize> = (0..nsamp).map(|q| (q * 97 + 13) % sp.n).collect();
++    emergent_encounters::pairs::prof::reset();
++    let mut st = Stats::default();
++    let mut dmins: Vec<f64> = Vec::new();
++    let tstart = Instant::now();
++    let mut setup_secs = 0.0;
++    for &i in &sample {
++        let bi = &b[i];
++        let (lo, hi) = sorted.range(bi.binet()[0], sorted.reach(bi));
++        for &(_, j) in &sorted.order[lo..hi] {
++            let bj = &b[j as usize];
++            if j as usize == i || !is_candidate(bi, bj, sp.rho) {
++                continue;
++            }
++            st.pairs += 1;
++            let ts = Instant::now();
++            let secs = sections(bi, bj, sp.rho, SAFETY, &mut st.evals);
++            setup_secs += ts.elapsed().as_secs_f64();
++            for k in 0..3 {
++                st.sections[k] += secs.iter().filter(|s| s.kind as usize == k).count() as u64;
++            }
++            for sec in &secs {
++                let mut v = Vec::new();
++                run_section(bi, bj, sec, sp.rho, t0, t0 + horizon, &mut st, &mut v);
++            }
++        }
++    }
++    let all_secs = tstart.elapsed().as_secs_f64();
++    let p = emergent_encounters::pairs::prof::vals();
++    let dmin = dmins.pop();
++    println!(
++        "{{\"exp\":\"prof\",\"n\":{},\"rho\":{},\"sample\":{},\"pairs\":{},\"sections\":[{},{},{}],\"evals_setup_per_pair\":{:.1},\"checks_per_pair\":{:.3},\"queries_per_pair\":{:.3},\"qsteps_per_pair\":{:.1},\"setup_frac\":{:.3},\"num_win\":{},\"num_none\":{},\"dof_s_per_numwin\":{:.1},\"cross_tried\":{},\"cross_used\":{},\"us_per_pair\":{:.2}}}",
++        sp.n, sp.rho, nsamp, st.pairs, st.sections[0], st.sections[1], st.sections[2],
++        st.evals as f64 / st.pairs as f64, st.checks_total() as f64 / st.pairs as f64,
++        st.queries as f64 / st.pairs as f64, st.qsteps as f64 / st.pairs as f64,
++        setup_secs / all_secs, p[0], p[1], p[2] as f64 / p[0].max(1) as f64, p[3], p[4],
++        all_secs * 1e6 / st.pairs as f64
++    );
++    println!(
++        "{{\"exp\":\"prof-d\",\"d_over_rho\":[{},{},{},{},{}]}}",
++        p[5], p[6], p[7], p[8], p[9]
++    );
++    let _ = dmin;
++}
++
++
+ /// The query loop of a section without the exact checks: counts proposals in [t0, t1].
+ fn run_section_proposals(bi: &Body, bj: &Body, sec: &emergent_encounters::pairs::Section, t0: f64, t1: f64, st: &mut Stats, _v: &mut Vec<(f64, f64)>) {
+     let pi = bi.period as i128;
+@@ -526,7 +585,8 @@ fn main() {
+             steady(n, rho, &hs)
+         }
+         Some("scale") => scale(&args[2], args.get(3).map(|x| x.parse().unwrap())),
+-        Some("kick") => kick(),
++        Some("kick") => kick(args.get(2).map(|x| x.parse().unwrap()).unwrap_or(1e-4)),
++        Some("prof") => prof_exp(args.get(2).map(|x| x.parse().unwrap()).unwrap_or(200)),
+         _ => {
+             let _ = run_section;
+             eprintln!("usage: encounters verify <a|b|c|long> | steady <n> <rho> <orbits..> | scale <n|sigma> | kick");
+diff --git a/crates/encounters/src/pairs.rs b/crates/encounters/src/pairs.rs
+index 2edd2474..8a18986f 100644
+--- a/crates/encounters/src/pairs.rs
++++ b/crates/encounters/src/pairs.rs
+@@ -1,5 +1,4 @@
+ //! Candidates and sections.
+-//!
+ //! In Binet coordinates (U, V, W) = (1/p, e cos ϖ / p, e sin ϖ / p) an orbit is u(θ) = U + V cos θ +
+ //! W sin θ. Two orbits meet iff ΔU² ≤ ΔV² + ΔW² (spacelike), at θ = atan2(ΔW, ΔV) ± acos(−ΔU/R). A pair
+ //! can come within ρ only where |Δu(θ)| < ε(ρ): at most two short arcs (transversal crossings), one
+@@ -12,6 +11,52 @@
+ use crate::kepler::{rel, Body, TICKS};
+ use std::f64::consts::{PI, TAU};
+ 
++pub mod prof {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    pub static NUM_WIN: AtomicU64 = AtomicU64::new(0);
++    pub static NUM_NONE: AtomicU64 = AtomicU64::new(0);
++    pub static DOF_S: AtomicU64 = AtomicU64::new(0);
++    pub static CROSS_TRIED: AtomicU64 = AtomicU64::new(0);
++    pub static CROSS_USED: AtomicU64 = AtomicU64::new(0);
++    /// d/ρ at each d_of_s sample: [<1.05 (break), <3, <30, <300, ≥300].
++    pub static D_BUCKETS: [AtomicU64; 5] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
++    pub fn dbucket(d: f64, rho: f64) {
++        let r = d / rho;
++        let k = if r < 1.05 { 0 } else if r < 3.0 { 1 } else if r < 30.0 { 2 } else if r < 300.0 { 3 } else { 4 };
++        D_BUCKETS[k].fetch_add(1, Ordering::Relaxed);
++    }
++    pub fn vals() -> [u64; 10] {
++        let mut v = [
++            NUM_WIN.load(Ordering::Relaxed),
++            NUM_NONE.load(Ordering::Relaxed),
++            DOF_S.load(Ordering::Relaxed),
++            CROSS_TRIED.load(Ordering::Relaxed),
++            CROSS_USED.load(Ordering::Relaxed),
++            0,
++            0,
++            0,
++            0,
++            0,
++        ];
++        for (k, x) in v.iter_mut().enumerate().skip(5) {
++            *x = D_BUCKETS[k - 5].load(Ordering::Relaxed);
++        }
++        v
++    }
++    pub fn reset() {
++        NUM_WIN.store(0, Ordering::Relaxed);
++        NUM_NONE.store(0, Ordering::Relaxed);
++        DOF_S.store(0, Ordering::Relaxed);
++        CROSS_TRIED.store(0, Ordering::Relaxed);
++        CROSS_USED.store(0, Ordering::Relaxed);
++        for b in D_BUCKETS.iter() {
++            b.store(0, Ordering::Relaxed);
++        }
++    }
++}
++
++use std::sync::atomic::Ordering;
++
+ #[inline]
+ pub fn dot(a: [f64; 2], b: [f64; 2]) -> f64 {
+     a[0] * b[0] + a[1] * b[1]
+@@ -206,10 +251,12 @@ fn arc_section(bi: &Body, bj: &Body, rho: f64, safety: f64, arc: &Arc, evals: &m
+     let mut kind = Kind::Wide;
+     let mut w = cap;
+     if arc.cross && arc.dm.max(arc.dp) < 0.2 {
++        prof::CROSS_TRIED.fetch_add(1, Ordering::Relaxed);
+         if let Some((sm, sp)) = cross_window(bi, bj, th, rho) {
+             let (wm, wp) = (safety * sm, safety * sp);
+             if wm <= 0.5 * cap.0 && wp <= 0.5 * cap.1 {
+-                kind = Kind::Cross;
++            kind = Kind::Cross;
++            prof::CROSS_USED.fetch_add(1, Ordering::Relaxed);
+                 w = (wm, wp);
+             }
+         }
+@@ -289,20 +336,17 @@ fn rel_of(a: [f64; 4], b: [f64; 4]) -> RelState {
+ 
+ /// D(s): the pair's minimum distance while j crosses the arc, with i passing θ_c s later than j.
+ /// Changing s by δ moves i by at most vmax_i·δ, so D is Lipschitz in s with that constant.
+-fn d_of_s(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), s: f64, evals: &mut u64) -> f64 {
+-    let mi = bi.mean_at_longitude(th);
+-    let mj = bj.mean_at_longitude(th);
++/// D(s) with j's grid states precomputed (they do not depend on s) and i's mean at θ_c fixed.
++fn d_of_s_cached(bi: &Body, bj: &Body, mi: f64, mj: f64, js: &[[f64; 4]], lo: f64, h: f64, s: f64, evals: &mut u64) -> f64 {
++    prof::DOF_S.fetch_add(1, Ordering::Relaxed);
+     let f = |tau: f64| rel_of(bi.state_at_mean(mi + bi.n * (tau - s)), bj.state_at_mean(mj + bj.n * tau));
+-    let (lo, hi) = (-dj.0, dj.1);
+-    let k = 32;
+-    let h = (hi - lo) / k as f64;
+-    let (r0, v0, _) = f(lo);
++    let (r0, v0, _) = rel_of(bi.state_at_mean(mi + bi.n * (lo - s)), js[0]);
+     *evals += 1;
+     let mut best = norm(r0);
+     let mut gp = dot(r0, v0);
+-    for q in 1..=k {
++    for q in 1..js.len() {
+         let t = lo + h * q as f64;
+-        let (r, v, _) = f(t);
++        let (r, v, _) = rel_of(bi.state_at_mean(mi + bi.n * (t - s)), js[q]);
+         *evals += 1;
+         best = best.min(norm(r));
+         let g = dot(r, v);
+@@ -318,15 +362,25 @@ fn d_of_s(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), s: f64, evals: &mut u64
+ /// from a sample with D = d, every s' within (d − ρ)/L has D(s') ≥ ρ, so it is skipped rigorously.
+ /// None: the section can never hold an encounter (a certificate valid until a kick).
+ fn numeric_window(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), ab: (f64, f64), rho: f64, evals: &mut u64) -> Option<(f64, f64)> {
++    prof::NUM_WIN.fetch_add(1, Ordering::Relaxed);
+     let lip = bi.vmax() * 1.001;
+     let stop = rho * 1.05;
+     let (a, b) = ab;
++    // j's states on the τ grid and both bodies' means at θ_c do not depend on s: pay once.
++    let (mi, mj) = (bi.mean_at_longitude(th), bj.mean_at_longitude(th));
++    let (lo, hi) = (-dj.0, dj.1);
++    let k = 16;
++    let h = (hi - lo) / k as f64;
++    let js: Vec<[f64; 4]> = (0..=k).map(|q| bj.state_at_mean(mj + bj.n * (lo + h * q as f64))).collect();
++    *evals += k as u64 + 1;
+     let mut s = a;
+     let left = loop {
+         if s > b {
++            prof::NUM_NONE.fetch_add(1, Ordering::Relaxed);
+             return None;
+         }
+-        let d = d_of_s(bi, bj, th, dj, s, evals);
++        let d = d_of_s_cached(bi, bj, mi, mj, &js, lo, h, s, evals);
++        prof::dbucket(d, rho);
+         if d < stop {
+             break s;
+         }
+@@ -334,7 +388,8 @@ fn numeric_window(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), ab: (f64, f64),
+     };
+     let mut s = b;
+     let right = loop {
+-        let d = d_of_s(bi, bj, th, dj, s, evals);
++        let d = d_of_s_cached(bi, bj, mi, mj, &js, lo, h, s, evals);
++        prof::dbucket(d, rho);
+         if d < stop || s <= left {
+             break s.max(left);
+         }
+@@ -342,7 +397,6 @@ fn numeric_window(bi: &Body, bj: &Body, th: f64, dj: (f64, f64), ab: (f64, f64),
+     };
+     Some((left, right))
+ }
+-
+ fn full_section(bi: &Body, bj: &Body, rho: f64) -> Section {
+     let th = bj.pom;
+     let k = 64;
