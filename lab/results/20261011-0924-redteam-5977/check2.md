@@ -1,0 +1,25 @@
+Grade: gold
+
+**Abstract.** Claim: the view's past-light-cone gather is flat in time — no memo, gate or rung carries light-travel delay — mis-timing light by 3.1–7.3M (4.3–10.1° of source orbital phase) near a compact mass (12M/50M), with no guard. Reproduced bit-for-bit (9.5 s, <200 MB), and the travel-time truth independently confirmed by a first-order r-space quadrature (agreement 1e-9 at the claim's endpoints). Controls pass (deflection 0.101%; far-field error → 0.01° at 10³M, 4e-4° at 10⁴M). Letter claims verified: law.md:53's memo is direction-only; gates B0–B19 contain no retarded-time gate; r5/r6 absent while law.md assigns them to GLM. Adoption: freeze the r6 criterion (apparent direction and time vs the Shapiro-carrying gr-oracle, H0183) — one step.
+
+**Reproduction.** Ran `python3 falsifier.py` from a clean copy (`work/patch.diff` is empty — no tree edits). My `falsifier-results.json` differs from the author's in zero numbers. `predictions.md` (09:32) predates the results (09:52); the final script's mtime (09:45) is after predictions, which the dossier discloses (two discarded buggy drafts); the regenerated JSON matches, so the record is clean. No files outside the run folder were touched; no git operations.
+
+**My attacks (beyond reproduction).**
+1. *Independent truth.* First-order r-space quadrature of the null travel time (turning-point substitution) vs the script's φ-ODE: |diff| = 2×10⁻¹⁰ at Φ=0.3 and 2×10⁻⁹ at Φ=2.7 — the two endpoints of the headline. Φ=1.5 differs by 0.12 (0.2%): a near-tangential-emission degeneracy (b ≈ b_max(r_s)), measure-zero, not load-bearing.
+2. *Edge Φ→π.* The sweep's truncation at 2.7 is conservative, not hiding a breakdown: at Φ=3.1 the delay is 9.9M / 13.6° of phase, monotone rising, root-finder stable. The true worst case exceeds the headline.
+3. *Deeper far field (10⁴M/2×10⁴M).* Phase error ≤ 4×10⁻⁴°: the attack is geometry-driven with no numerical floor; the author's "invisible at solar-system scale" holds.
+4. *The proposed fix.* At matched b (<1%), delay differs 4.58M vs 3.72M between (12,80,Φ=1.5) and (12,50,Φ=1.5) — within one doll. Delay is not a function of b alone; a single `delay(b)` column leaves ~1.2° of phase error, ~12× the dossier's own 0.1° criterion.
+
+**Letter-level verification.** law.md:53: "Positions are gathered at the observer's past light cone. Lensing takes deflection(b) from the doll's memo" — no delay term anywhere (grep: no Shapiro/retarded in the view path). B11's allowance is verbatim `(1% + 2·8/p)`. B3/B16 are direction-only. B7 is clock rates. r5/r6 do not exist in `lab/rungs/` while representation.md §7 and law.md's "Who builds what" both assign them (GLM). representation.md §1 still teaches the Binet/Minsky map as "the primary in-cell solution" while law.md:20 records its replacement by `space-darwin16-v1` for a first-order slope error in turning-point cells — the A4 doc contradiction is real and cheap to fix.
+
+**Predictions.** P1 held (≥3M all 13 phases, max 7.31M; phase 4.3–10.1°, median 5.13°). P2's inequalities held and the run found the stronger sign-unsafety (memo residual 50° where truth bends 0.09°). P3 held (0.101%, far ≤0.011°). P4 held at 3 of 4 grid points; missed at p=25 (measured 18–33% vs predicted 10–15%) and reported as missed — and the miss overstates the attack's conclusion, not under it.
+
+**Novelty.** The 1 October red-team established B16 (moving-lens *direction*, static memo off by √((1+β)/(1−β))); no prior entry quantifies gather *timing*. H0183 confirms the oracle already carries Shapiro quadrature, making the proposed criterion cheap on the oracle side.
+
+**Goal fit.** Principle 30: "what really matters is navigation, knowledge and dynamics those need to be perfect" — the finding sits exactly on the knowledge surface. Principle 34 inverted: B11's 2–3.6× padded band (in-domain, p≥25) admits the truncation it should measure — a shepherd. The process core (a premise with no rung, gates frozen after the fact is the one thing PRINCIPLES forbids) is independently true regardless of any strawman reading of the gather, and the author states that strawman risk honestly.
+
+**What the author missed.**
+- The stated fix is under-specified: `delay(b)` is not a function of b alone within a doll (my attack 4); the memo needs a geometry-aware key (per-observer-ring tables or a two-term form), so "one column, no engine redesign" understates the cost.
+- A2's headline pairs p=12 with B11's 134% allowance, but B11's frozen domain is p 20–1000; the in-domain points (25–300: gaps 18–33% vs 65% allowance, etc.) already carry the padding argument, so the claim survives but should quote its own domain.
+- The Φ sweep stopped at 2.7 where the error is still rising; the player-visible worst case (13.6°, delay 9.9M) is 35% above the reported max.
+- The emitter at 12M is deep in the strong field (the lens's own doll inner region); a mid-scale scene (e.g. r_s ≈ 50–100M, where Binet cells would actually host traffic) would show whether degrees-scale error survives at more ordinary radii inside a doll.
