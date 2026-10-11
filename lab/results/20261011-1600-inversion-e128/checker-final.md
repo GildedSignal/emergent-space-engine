@@ -1,0 +1,11 @@
+Working...
+Check complete. **Grade: gold** — written to `lab/results/20261011-1600-inversion-e128/check.md`, nothing else in the run folder touched, patch reverted, no git history written.
+
+**What I did:**
+- **Reproduced bit-for-bit**: both dossier commands on a clean tree at `a838a284` with the patch applied — CSVs byte-identical to the author's (`diff` empty), including the fault `Some((Kick(0), Space(Range)))` at t = 17035876708.
+- **Regenerated every headline number independently** from my own runs: deficit 3.72 at the merge's green point (β 0.999177, γ 24.65), 87.3 at γ 1262, 111.7 at freeze; dt/dτ tail 1.96/1.96/2.00; gate crosses the frozen 3% at β 0.2474 (ratio 1.0303, with the correct t=0 baseline — a naive baseline spuriously gives β 0.037, so I confirmed the author's number is the honest one); gate 27.2× off at γ 1262; pt_exp −64 constant, pt → −0.5, max violation 6.4e−11.
+- **Attacked with my own cases**: level 12 (in-domain) independently reproduces the collapse and the wall (deficit 112, γ_wall 1791, same fault) — not a one-seed artifact. Level 20 exposed that the throttle saturates at level 15 and the probe's α assumption silently breaks out-of-domain (engine columns still valid, same wall).
+- **Grounded the inferred mechanism in source**: the player's clock and the flush both read `orbit_state().proper_time` (`view.rs:262`, `step.rs:312`); the tube's time map is the closed form τ ∝ t·√(1−3q) (`orbit.rs:604`) under a Range-guarded envelope, and the freeze faults on the orbit-key check `orbit.rs:48`.
+- **Novelty**: HANDOFF lists the γ≈2000 refusal with no cause; no HISTORY entry has the dilation saturation.
+
+**Why gold, not silver**: reproduced exactly, pre-registered predictions held (P3's failure is disclosed and *is* the finding — the cause of the known wall), it shows a just-merged green test certified a regime whose one player-facing instrument is silently wrong by up to ~γ/2, and adoption is one step (re-aim `b-high-gamma` at the time map before raising the wall). Flagged for the integrator: the L5 control's "< 1e−6" is below the artifacts' printed precision and not regenerable, and the compile-side algebra of the exact 2.0 asymptote is left to the fix owner.
