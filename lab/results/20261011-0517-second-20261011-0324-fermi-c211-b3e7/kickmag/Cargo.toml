@@ -1,0 +1,13 @@
+[package]
+name = "kickmag"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+emergent-shipmem = { path = "../../../../crates/shipmem" }
+emergent-space = { path = "../../../../crates/space" }
+
+[profile.release]
+opt-level = 3
+
+[workspace]
