@@ -1,0 +1,4 @@
+Working...
+Dossier complete. All artifacts in `lab/results/20261011-0924-library-9834/`: `predictions.md` (pre-registered), `probe.py` + `results.json` + `pairs.csv` (regenerable in 12 s), `highlights.tsv` + `rw-page-*.json` (cached Readwise evidence), `dossier.md`.
+
+**Claim:** the top scaling risk — candidate work tracking real encounters — has an exact, measured solution shape for frozen elements: a pair's encounter indicator is a rotation-hitting sequence (synodic strobe), so a three-number certificate (rotation number, window, ≤3 return times) replaces the per-orbit scan at 33–146× less work with zero missed encounters, and every practitioner lesson that survived the probe (Musk's delete, Taleb's subtractive knowledge and no-averaging, Feynman's store-the-generator, Waitzkin's micro-to-macro) points at the same three moves.
