@@ -1,0 +1,434 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 7ec177b5..57ae04d4 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -159,6 +159,7 @@ dependencies = [
+ name = "emergent-space"
+ version = "0.1.0"
+ dependencies = [
++ "blake3",
+  "num-bigint",
+  "num-traits",
+ ]
+diff --git a/crates/space/Cargo.toml b/crates/space/Cargo.toml
+index 474cfb23..1c5aae17 100644
+--- a/crates/space/Cargo.toml
++++ b/crates/space/Cargo.toml
+@@ -5,6 +5,7 @@ edition.workspace = true
+ license.workspace = true
+ 
+ [dependencies]
++blake3.workspace = true
+ num-bigint.workspace = true
+ num-traits.workspace = true
+ 
+diff --git a/crates/space/examples/kickbench.rs b/crates/space/examples/kickbench.rs
+new file mode 100644
+index 00000000..4cfde35a
+--- /dev/null
++++ b/crates/space/examples/kickbench.rs
+@@ -0,0 +1,227 @@
++//! ns per kick on the shipped per-kick path: readout -> parent tide -> rebind.
++//! The plane rebinds (compiles a tube) on ~99% of kicks, so this is ns per event
++//! for the dominant engine event. Outputs a bit-identity digest of the TubeEvent
++//! stream so any variant must reproduce the exact same tube bits.
++use emergent_space::binding::cartesian;
++use emergent_space::events::handoff::bind;
++use emergent_space::events::kicks::parent_tide;
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use emergent_space::tube::{Catalogue, TubeEvent};
++use std::time::{Duration, Instant};
++
++fn s(n: i64) -> Scalar {
++    Scalar::integer(n)
++}
++
++/// One scene: an orbit key, doll units, a clock, and a parent tide in doll units.
++struct Scene {
++    name: &'static str,
++    key: OrbitKey,
++    units: (i16, i16),
++    clock_exp: i16,
++    interval: i64,
++    tide_mass: Scalar,
++    tide_centre: [Scalar; 2],
++    kicks: usize,
++}
++
++#[derive(Default)]
++struct Timings {
++    readout: Duration,
++    tide: Duration,
++    bind: Duration,
++}
++
++fn run(scene: &Scene, digest: &mut blake3::Hasher) -> Timings {
++    let mut t = Timings::default();
++    let orbit = Orbit::compile(scene.key).expect("scene orbit compiles");
++    let state = orbit.state(Scalar::ZERO).expect("state at periapsis");
++    let exact = cartesian(state, 0, false, scene.units).expect("cartesian state");
++    let mut catalogue = Catalogue::default();
++    let mut event: TubeEvent =
++        bind(exact, 0, scene.clock_exp, None, &mut catalogue).expect("first bind");
++    let h = Scalar::raw(scene.interval as i128, scene.clock_exp as i32).expect("interval");
++    for k in 1..=scene.kicks {
++        let tick = (k as i64) * scene.interval;
++        let now = Instant::now();
++        let st = event.reconstruct(&catalogue).expect("reconstruct");
++        t.readout += now.elapsed();
++        let x = [
++            Scalar::raw(st.position[0] as i128, scene.units.0 as i32).expect("x0"),
++            Scalar::raw(st.position[1] as i128, scene.units.0 as i32).expect("x1"),
++        ];
++        let v = [
++            Scalar::raw(st.velocity[0] as i128, scene.units.1 as i32).expect("v0"),
++            Scalar::raw(st.velocity[1] as i128, scene.units.1 as i32).expect("v1"),
++        ];
++        let now = Instant::now();
++        let a = parent_tide(scene.tide_mass, scene.tide_centre, x).expect("tide");
++        t.tide += now.elapsed();
++        let dv = [a[0].mul(h).expect("dv0"), a[1].mul(h).expect("dv1")];
++        let to_int = |val: Scalar, e: i16| -> i64 {
++            i64::try_from(val.fixed(-(e as i32)).expect("fits")).expect("word")
++        };
++        let next = emergent_space::binding::IntegerState {
++            position: st.position,
++            velocity: [
++                to_int(v[0].add(dv[0]).expect("v0+dv0"), scene.units.1),
++                to_int(v[1].add(dv[1]).expect("v1+dv1"), scene.units.1),
++            ],
++            length_exponent: st.length_exponent,
++            velocity_exponent: st.velocity_exponent,
++        };
++        let now = Instant::now();
++        event = bind(next, tick, scene.clock_exp, None, &mut catalogue).expect("rebind");
++        t.bind += now.elapsed();
++        digest.update(&event.tube.key.to_le_bytes());
++        digest.update(&event.tube.periapsis_angle.to_le_bytes());
++        digest.update(&event.tube.periapsis_time.get().to_le_bytes());
++        for r in event.residual.position.iter().chain(event.residual.velocity.iter()) {
++            digest.update(&r.to_le_bytes());
++        }
++    }
++    t
++}
++
++
++fn heldout_scenes() -> Vec<Scene> {
++    let mass = s(1).scale(-20).expect("tide mass");
++    vec![
++        Scene { name: "held-p2e8-e0.97", key: OrbitKey::bound(s(200_000_000), 1 << 45).expect("key"), units: (-20, -30), clock_exp: -20, interval: 1 << 14, tide_mass: mass, tide_centre: [s(600_000_000), Scalar::ZERO], kicks: 64 },
++        Scene { name: "held-p1e5-e0.99", key: OrbitKey::bound(s(100_000), 1 << 43).expect("key"), units: (-14, -24), clock_exp: -14, interval: 1 << 12, tide_mass: s(1).scale(-14).expect("mass"), tide_centre: [s(300_000), Scalar::ZERO], kicks: 64 },
++        Scene { name: "held-p1e7-e0.5", key: OrbitKey::bound(s(10_000_000), 1 << 46).expect("key"), units: (-17, -27), clock_exp: -17, interval: 1 << 13, tide_mass: s(1).scale(-17).expect("mass"), tide_centre: [s(30_000_000), Scalar::ZERO], kicks: 64 },
++        Scene { name: "held-p80-e0.5", key: OrbitKey::bound(s(80), 1 << 47).expect("key"), units: (-6, -16), clock_exp: -8, interval: 1 << 10, tide_mass: s(1).scale(-10).expect("mass"), tide_centre: [s(240), Scalar::ZERO], kicks: 64 },
++    ]
++}
++fn main() {
++    let mass = s(1).scale(-20).expect("tide mass");
++    let scenes = [
++        Scene {
++            name: "weak-circle-p1e8",
++            key: OrbitKey::bound(s(100_000_000), 1).expect("key"),
++            units: (-20, -30),
++            clock_exp: -20,
++            interval: 1 << 14,
++            tide_mass: mass,
++            tide_centre: [s(300_000_000), Scalar::ZERO],
++            kicks: 64,
++        },
++        Scene {
++            name: "weak-ecc-p1e8-e0.5",
++            key: OrbitKey::bound(s(100_000_000), 1 << 47).expect("key"),
++            units: (-20, -30),
++            clock_exp: -20,
++            interval: 1 << 14,
++            tide_mass: mass,
++            tide_centre: [s(300_000_000), Scalar::ZERO],
++            kicks: 64,
++        },
++        Scene {
++            name: "strong-ecc-p1e5-e0.5",
++            key: OrbitKey::bound(s(100_000), 1 << 47).expect("key"),
++            units: (-14, -24),
++            clock_exp: -14,
++            interval: 1 << 12,
++            tide_mass: s(1).scale(-14).expect("mass"),
++            tide_centre: [s(300_000), Scalar::ZERO],
++            kicks: 64,
++        },
++        Scene {
++            name: "deep-ecc-p40-e0.5",
++            key: OrbitKey::bound(s(40), 1 << 47).expect("key"),
++            units: (-6, -16),
++            clock_exp: -8,
++            interval: 1 << 10,
++            tide_mass: s(1).scale(-10).expect("mass"),
++            tide_centre: [s(120), Scalar::ZERO],
++            kicks: 64,
++        },
++    ];
++    let repeats = 5;
++    let heldout = std::env::args().nth(1).as_deref() == Some("heldout");
++    if heldout {
++        for scene in heldout_scenes() {
++            let mut best: Option<Timings> = None;
++            let mut last_hash = None;
++            for _ in 0..repeats {
++                let mut digest = blake3::Hasher::new();
++                let t = run(&scene, &mut digest);
++                let hash = digest.finalize();
++                if let Some(prev) = last_hash {
++                    assert_eq!(prev, hash, "nondeterministic tube stream in {}", scene.name);
++                }
++                last_hash = Some(hash);
++                let total = t.readout + t.tide + t.bind;
++                if best.as_ref().map(|b| (b.readout + b.tide + b.bind) > total).unwrap_or(true) {
++                    best = Some(t);
++                }
++            }
++            let hash = last_hash.unwrap();
++            let t = best.unwrap();
++            let n = scene.kicks as u128;
++            let ns = |d: Duration| d.as_nanos() / n;
++            println!(
++                "{:<24} {:>10} ns/kick  readout {:>9} tide {:>8} bind {:>9}  digest {}",
++                scene.name,
++                ns(t.readout + t.tide + t.bind),
++                ns(t.readout),
++                ns(t.tide),
++                ns(t.bind),
++                &hash.to_hex()[..16],
++            );
++        }
++        return;
++    }
++    for scene in &scenes {
++        let mut best: Option<Timings> = None;
++        let mut last_hash = None;
++        for _ in 0..repeats {
++            let mut digest = blake3::Hasher::new();
++            let t = run(scene, &mut digest);
++            let hash = digest.finalize();
++            if let Some(prev) = last_hash {
++                assert_eq!(prev, hash, "nondeterministic tube stream in {}", scene.name);
++            }
++            last_hash = Some(hash);
++            let total = t.readout + t.tide + t.bind;
++            if best.as_ref().map(|b| (b.readout + b.tide + b.bind) > total).unwrap_or(true) {
++                best = Some(t);
++            }
++        }
++        let hash = last_hash.unwrap();
++        let t = best.unwrap();
++        let n = scene.kicks as u128;
++        let ns = |d: Duration| d.as_nanos() / n;
++        println!(
++            "{:<24} {:>10} ns/kick  readout {:>9} tide {:>8} bind {:>9}  tubes {:>8} digest {}",
++            scene.name,
++            ns(t.readout + t.tide + t.bind),
++            ns(t.readout),
++            ns(t.tide),
++            ns(t.bind),
++            n * repeats,
++            &hash.to_hex()[..16],
++        );
++    }
++
++    // Compile-only cost: the shape table rebuild every rebind pays when its key
++    // is new (the memo hits 0% on distinct kicks). Keys sweep the same shape class.
++    for scene in &scenes {
++        let mut best_compile = u128::MAX;
++        let mut knots = 0usize;
++        for _r in 0..repeats {
++            let now = Instant::now();
++            for i in 0..scene.kicks as i64 {
++                let key = OrbitKey::new(
++                    scene.key.periapsis.add(s(i)).expect("p+i"),
++                    scene.key.k,
++                )
++                .expect("key");
++                let orbit = Orbit::compile(key).expect("compile");
++                knots = orbit.shape().knots().len();
++            }
++            best_compile = best_compile.min(now.elapsed().as_nanos() / scene.kicks as u128);
++        }
++        println!("{:<24} {:>10} ns/compile  knots {}", scene.name, best_compile, knots);
++    }
++}
+diff --git a/crates/space/examples/micro.rs b/crates/space/examples/micro.rs
+new file mode 100644
+index 00000000..6da9dc7a
+--- /dev/null
++++ b/crates/space/examples/micro.rs
+@@ -0,0 +1,55 @@
++//! Micro: cos, isqrt, div_word, product — the fast_quad node primitives.
++use std::time::Instant;
++
++fn main() {
++    // emulate strong-ecc nodes: psi spanning the orbit, denominator like q=2^-16.6
++    let n = 1_000_000u32;
++    let psi_values: Vec<i128> = (0..n).map(|i| (i as i128 * 7_244_019_458_077_122_847 / n as i128)).collect();
++    let q: i128 = ((1u128 << 62) / 100_000u128) as i128;
++    let k: i128 = (1i128 << 62) * 2 / 3;
++
++    let mut sink = 0u128;
++    let t = Instant::now();
++    for &psi in &psi_values {
++        sink += emergent_space::num::cos(psi) as u128;
++    }
++    println!("cos       {:>6} ns  sink {sink}", t.elapsed().as_nanos() / n as u128);
++
++    let t = Instant::now();
++    for &psi in &psi_values {
++        let ac = (( (1i128<<62) - k) * emergent_space::num::cos(psi)) >> 62;
++        let x = k + ac;
++        let a = 6 * k + 2 * ac;
++        let denominator = (1i128 << 62) - ((q * a) >> 62);
++        let root = ((denominator as u64).isqrt() as u128) << 31;
++        let horizon = (1i128 << 62) - (((2 * q) * x) >> 62);
++        sink += root + horizon as u128;
++    }
++    println!("cos+shape {:>6} ns  sink {sink}", t.elapsed().as_nanos() / n as u128);
++
++    let roots: Vec<u64> = psi_values.iter().map(|&p| {
++        let ac = (((1i128<<62) - k) * emergent_space::num::cos(p)) >> 62;
++        let a = 6 * k + 2 * ac;
++        let d = (1i128 << 62) - (((1i128<<62)/100_000) * a >> 62);
++        (((d as u64).isqrt() as u128) << 31) as u64
++    }).collect();
++    let t = Instant::now();
++    for &r in &roots {
++        sink += emergent_space::num::div_word(1u128 << 104, r) as u128;
++    }
++    println!("div_word  {:>6} ns  sink {sink}", t.elapsed().as_nanos() / n as u128);
++
++    let t = Instant::now();
++    for &r in &roots {
++        sink += ((1u128 << 104) / r as u128) as u128;
++    }
++    println!("u128 div  {:>6} ns  sink {sink}", t.elapsed().as_nanos() / n as u128);
++
++    let t = Instant::now();
++    for &p in &psi_values {
++        let ac = (((1i128<<62) - k) * emergent_space::num::cos(p)) >> 62;
++        let x = k + ac;
++        sink += ((x as u128) << 40) / 1000;
++    }
++    println!("i128 mul  {:>6} ns  sink {sink}", t.elapsed().as_nanos() / n as u128);
++}
+diff --git a/crates/space/src/events/handoff.rs b/crates/space/src/events/handoff.rs
+index 619bf041..4064d895 100644
+--- a/crates/space/src/events/handoff.rs
++++ b/crates/space/src/events/handoff.rs
+@@ -90,7 +90,7 @@ pub fn bind(
+         Scalar::raw(time as i128, clock_exponent as i32)?,
+         passage_edge,
+     )?;
+-    TubeEvent::bind(fit, catalogue, clock_exponent)
++    TubeEvent::bind(fit, exact, catalogue, clock_exponent)
+ }
+ 
+ /// The dense order consumes this exact state, evolves it including the remainder,
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 476d49ef..124645f0 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -111,7 +111,7 @@
+ pub mod binding;
+ mod inverse;
+ pub mod light;
+-mod num;
++pub mod num;
+ pub mod orbit;
+ pub mod scaled;
+ pub mod tube;
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8d..31ef913e 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -10,7 +10,7 @@ pub const ONE: i128 = 1 << 62;
+ /// In base 2^32, each trial digit comes from one native division. The low
+ /// divisor digit corrects the trial by at most two; no rounding is introduced.
+ #[inline]
+-pub(crate) fn div_word(n: u128, d: u64) -> u64 {
++pub fn div_word(n: u128, d: u64) -> u64 {
+     debug_assert!(d != 0 && (n >> 64) < d as u128);
+     if n <= u64::MAX as u128 {
+         return n as u64 / d;
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd3..011c9246 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -9,6 +9,7 @@ use std::{collections::HashMap, sync::Arc};
+ 
+ const HALF: u64 = 1 << 47;
+ const UNIT: u64 = 1 << 48;
++
+ const WEAK_EXPONENT: i16 = -18;
+ const CAP: i128 = PI / 4;
+ /// Coarsening measured on the frozen bound seeds and the added weak-field sweep.
+@@ -271,9 +272,6 @@ impl OrbitShape {
+     }
+     fn quad(&self, lo: i128, hi: i128) -> Result<Integral> {
+         let h = hi - lo;
+-        if h == 0 {
+-            return Ok(Integral::default());
+-        }
+         if !self.key.null && self.q == 0 && self.k >= ONE / 2 {
+             return self.weak_quad(lo, hi);
+         }
+@@ -286,6 +284,7 @@ impl OrbitShape {
+             let dx = (X[j] * h) >> 63;
+             let weight = Scalar::raw((W[j] * h) >> 63, -61)?;
+             for psi in [mid - dx, mid + dx] {
++
+                 let node = self.node(psi)?;
+                 for i in 0..5 {
+                     sum.0[i] = sum.0[i].add(weight.mul(node.0[i])?)?;
+@@ -353,11 +352,15 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                // Every divisor below fits one word with (n >> 64) < d, so the
++                // exact 128/64 word division returns the identical floor: root <= 2^62
++                // and >= 2^47 (delta >= 2^-30 on this path), floor >> 2 < x <= floor's
++                // band, and horizon > 1/2 since q(6k+2*eta) < 1 bounds q < 1/4.
++                let g = crate::num::div_word(1u128 << 104, root as u64);
++                let g1 = crate::num::div_word(a as u128 * g as u128, (ONE as u128 + root) as u64);
++                let ratio = crate::num::div_word((self.floor as u128) << 62, x as u64);
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = crate::num::div_word((rtau as u128) << 62, horizon as u64);
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;
+diff --git a/crates/space/src/tube.rs b/crates/space/src/tube.rs
+index f3c0cd1c..da66ef1a 100644
+--- a/crates/space/src/tube.rs
++++ b/crates/space/src/tube.rs
+@@ -91,8 +91,7 @@ pub struct TubeEvent {
+     units: (i16, i16),
+ }
+ impl TubeEvent {
+-    pub fn bind(fit: Rebinding, catalogue: &mut Catalogue, clock_exponent: i16) -> Result<Self> {
+-        let exact = fit.reconstruct()?;
++    pub fn bind(fit: Rebinding, exact: IntegerState, catalogue: &mut Catalogue, clock_exponent: i16) -> Result<Self> {
+         let event_time = i64::try_from(fit.event_time.fixed(-(clock_exponent as i32))?).map_err(|_| Error::Range)?;
+         // The event must be representable in this population clock. Its origin can
+         // be rebased by the caller, without changing the event or losing its residue.
+diff --git a/crates/space/tests/envelope.rs b/crates/space/tests/envelope.rs
+index 8dbf0671..72c84469 100644
+--- a/crates/space/tests/envelope.rs
++++ b/crates/space/tests/envelope.rs
+@@ -209,7 +209,7 @@ fn public_tube_has_key_orientation_and_one_time_and_carries_its_inverse_rounding
+             let fit = Rebinding::from_state(original, Scalar::ZERO, None).unwrap();
+             let clock_exp = fit.periapsis_time.abs().exponent() - 50;
+             let mut catalogue = Catalogue::default();
+-            let bound = TubeEvent::bind(fit, &mut catalogue, clock_exp).unwrap();
++            let bound = TubeEvent::bind(fit, original, &mut catalogue, clock_exp).unwrap();
+             assert_eq!(bound.reconstruct(&catalogue).unwrap(), original);
+             assert_eq!(catalogue.len(), 1);
+             assert_ne!(bound.tube.periapsis_angle, 0);
