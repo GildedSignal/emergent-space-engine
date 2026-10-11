@@ -1,0 +1,4 @@
+Working...
+Run complete. Dossier at `lab/results/20261011-1814-taleb-762d/dossier.md`, all artifacts (per-frame CSVs, run JSONs) beside it, each under 5 MB.
+
+**Claim:** the plane's overflow design holds where claimed — past capacity the RTF dips with worst frame ≤ 12–16 ms and bit-identical digests across budgets 5→0.05 ms and pacing — but below a per-frame budget floor that scales with universe size it degrades to a **silent stall** (428 bodies deliver 0.00× real time at 0.2 ms budget where 32 bodies deliver 1,240×, no error, frames cheap, bits still exact), and the smoothness tail that moves first is not frame time but presented-time stalls (delivered-RTF lowest 1% = 7.3 paced, 0.7 with an 11,500 g held burn) — so the allocator must be gated on O(1)-in-N fixed per-frame cost and the dashboard on ticks-presented-per-frame, not on `frame_ms` alone.

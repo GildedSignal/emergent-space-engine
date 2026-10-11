@@ -1,0 +1,148 @@
+{
+  "bodies": 32,
+  "bytes_per_body": 4228,
+  "catalogue_live": 32,
+  "cut_tick": 6090763403,
+  "decisions": {
+    "logged": [],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": []
+  },
+  "digest": "6bcc3f975ad0c6c1d321a996658df2cf1b9d6be2fd914c4c4fc514ca43a1e680",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 2048,
+      "kind": "ship",
+      "total_ms": 151.095429,
+      "us_per_item": 73.77706494140625
+    },
+    {
+      "items": 2904,
+      "kind": "player",
+      "total_ms": 411.699663,
+      "us_per_item": 141.7698564049587
+    },
+    {
+      "items": 110,
+      "kind": "fleet",
+      "total_ms": 3.497909,
+      "us_per_item": 31.79917272727273
+    }
+  ],
+  "events_per_second": 1041.199999999992,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 1.3887930000000068,
+    "p99": 2.8048260000000003,
+    "p99.9": 3.1913940000000593,
+    "worst": 4.833241
+  },
+  "frame_ms": {
+    "p50": 1.38838,
+    "p95": 2.286083,
+    "p99": 2.80441,
+    "p99.9": 3.190894
+  },
+  "frames": 600,
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [
+    "Armada (left its frame)",
+    "Armada (left its frame)"
+  ],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-11T19:27:28Z",
+    "unix": 1791746848,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-11T19:27:27Z",
+    "unix": 1791746847,
+    "when": "before"
+  },
+  "paced": false,
+  "player_alive": true,
+  "presented_tick_at_end": 6090763200,
+  "rtf": {
+    "lowest_1pct": 2999.999900192075,
+    "median": 2999.999900192075,
+    "overflow_frames": 0
+  },
+  "rtf_target": 3000.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 5234, opens: 132, boundaries: 4963, handoffs: 0, lost: 2, refused: 0, slices: 110, encounters: 1636, decisions: 0, leavers: 4, dissolved: 1, cost_ns: [0, 0, 151095429, 411699663, 3497909], items: [0, 0, 2048, 2904, 110] }",
+  "throttle_level": 0,
+  "uptime_after": "19:27:28 up 45 days, 10:30,  0 user,  load average: 0.53, 0.39, 0.27",
+  "uptime_before": "19:27:27 up 45 days, 10:30,  0 user,  load average: 0.48, 0.38, 0.26",
+  "wall_seconds": 0.916234556,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 4.1647050000000005,
+      "p50": 0.826291,
+      "p99": 2.194363,
+      "share": 0.6333472398270081
+    },
+    "view_gather": {
+      "max": 0.621156,
+      "p50": 0.479201,
+      "p99": 0.5606819999999999,
+      "share": 0.31706076580529646
+    },
+    "view_json": {
+      "max": 0.092567,
+      "p50": 0.051007000000000004,
+      "p99": 0.073851,
+      "share": 0.0343070232710187
+    },
+    "wire": {
+      "max": 0.066547,
+      "p50": 0.021988999999999998,
+      "p99": 0.036962999999999996,
+      "share": 0.015284971096676647
+    }
+  },
+  "worst_hitch_at_frame": 2,
+  "worst_hitch_ms": 4.83274
+}
