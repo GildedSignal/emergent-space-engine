@@ -1,0 +1,49 @@
+== 1. Grade roster (dossier: 'exactly 5 gold / 20 silver / 3 missing') ==
+  20261006-0030-m-obscure-8202                               silver
+  20261006-1029-constraint-f22e                              silver
+  20261006-1436-quant-18e5                                   silver
+  20261008-0458-constraint-3102                              silver
+  20261008-0945-second-20261008-0743-constraint-4588-0e54    silver
+  20261008-1521-quant-97fd                                   silver
+  20261008-1859-scout-141c                                   silver
+  20261008-2113-second-20261008-2031-constraint-4b27-08f7    silver
+  20261008-2349-constraint-70b0                              MISSING
+  20261009-0521-redteam-93a4                                 silver
+  20261009-0621-constraint-51bf                              silver
+  20261009-1649-second-20261009-1556-redteam-18fc-94dc       gold
+  20261009-2120-redteam-ace6                                 gold
+  20261010-0541-system-d51f                                  silver
+  20261010-1544-scout-c4cb                                   silver
+  20261010-2052-redteam-8be2                                 gold
+  20261010-2141-second-20261010-2052-redteam-8be2-9f4a       gold
+  20261010-2220-scout-9096                                   MISSING
+  20261010-2314-redteam-0b45                                 silver
+  20261011-0006-constraint-48cf                              silver
+  20261011-0614-redteam-a616                                 MISSING
+  20261011-0924-redteam-5977                                 gold
+  20261011-1234-redteam-6eae                                 silver
+  20261011-1332-constraint-acff                              silver
+  20261011-1332-second-20261011-1234-redteam-6eae-8f00       silver
+  20261011-1917-redteam-fb64                                 silver
+  20261012-0138-redteam-0fe0                                 silver
+  20261012-0311-components-5465                              silver
+  totals: gold=5 silver=20 missing=3 (of 28)
+== 2. The five least-certain numbers (predictions.md P6), from each run's own branch ==
+  (a) 8be2: '2.37× as published, 3.32× after my correction' FOUND
+  (b) 0e54: 'serves 5.5–31.2 % of rows' FOUND
+  (c) 48cf: '1080p gave 110.7 ms' FOUND
+  (d) d51f: '775–858 µs vs 56–62 µs, 13–18×' FOUND (lab_arrival harness)
+  (e) 8f00: '>1/50 on 43%–84% of emitter azimuths' FOUND
+== 3. Page run lines vs branches (dossier: '22 run lines; every citation resolves') ==
+  run lines on page: 22 (expect 22)
+  all page run ids resolve to claude/lab-* branches
+== 4. Design-letter anchors and history (page: law.md Observation, representation.md:57, H0183) ==
+  law.md Observation anchor FOUND
+  representation.md:57 'crosses once' FOUND
+  H0183 'oracle gains Shapiro delay' FOUND
+== 5. Ungraded runs appear only as marked leads ==
+  21:**Cost: the view is the frame constraint.** The unbudgeted O(all-bodies) view path (gather + json + wire) takes 56–93% of every frame at ~6–8 µs/body, linear (`f22e`); the gather alone holds 59–71% across four seeds, a repeat, co-load and rtf 1 (`97fd`), 62–72% with engine 12–34% of budget at 76–428 bodies (`acff`), and inside it 95–97% is the per-body crossing loop (`51bf`, `3102`), 97% of that the ramped readout — 60% tube decode + ramp credit, 39% the motion-law-v2 partial step with its force evaluation (`70b0`, ungraded) — with 81% of readout time field evaluations re-read per emitter per Newton step (`51bf`). The crossing cache is near-perfect (1.06–1.19 readouts/emitter: `f22e`, `3102`, `70b0`), so the lever is the row itself, at 6–9 µs (`0e54`). H0210 had already put the gather at 83% of a light frame; this family adds anatomy and N-scaling, not the headline. Dead lever: the display-quantum row cache serves only 5.5–31.2% of rows (saves 0.28–0.48 ms p50, claim was 54–83%) and its gate fails at every rtf ≤ 100 by 15–1,962 quanta (`0e54`). Live lever: the gated view cache — gather p50 0.77–0.86 → 0.21–0.22 ms (3.6–3.9×), readouts 62 → 2–7, worst offset 5.8–6.6×10⁻⁵ against the 1×10⁻⁴ quantum, universe digest bit-identical base↔gated at two seeds and under six adversarial cases; frame gain machine-dependent (1.6–1.7× quiet vs 2.4× claimed) (`08f7`). The display readout is the only over-budget component on main (a838a28): `accumulate()` clears all planes and re-splats every tube every frame, cost flat in change (rtf enters only via plan.t) — far median 36.3–37.1 ms at 10× less motion, 47.0 ms at 100× less, 110.7 ms at 1080p, 200/200 frames over 16.7 ms; ~10× available, queued as b-readout-cost (`48cf`). A recurrence memo for view streams dies incommensurate: single-orbit streams are exact at order = samples/orbit (5×10⁻¹⁴), two incommensurate eccentric orbits admit no recurrence of order ≤ 96 (plateaus ~2–3×10⁻⁵ rad at e 0.3, ~10⁻¹ at e 0.7) (`8202`). The bookkeeping is already one readout: scheduler deadlines, the view gather and the coming news gravity re-derive the same doll-chain readout — `ViewCache::put` stores the arrival rate (1+n·β_obs)/(1+n·β_em) every frame and `apply`'s `root_state_raw` exists solely to feed light_distance → deadline_of — so the delay(b) column has a home (memo redundancy 2.9%; gather 13–18× engine median in the `lab_arrival` harness) (`d51f`).
+  23:**Domain.** Physics: float oracles, Schwarzschild 2+1 (M = 1) — circular-geodesic emitters r_e 3.2–1000 M, static observers r_o 3.2–5000 M — plus Kerr retrograde for the sense key (χ 0.5–0.998); the only shipped-code physics probe is the kinked-tube family (`94dc`). Cost: the shipped plane bench on shared Linux/x86 (orders of magnitude only; the integrator re-measures on the M1), 28–948 bodies. Not measured anywhere: a delay-corrected gather end-to-end in the engine (no build exists), moving observers, the seen/Doppler instruments, eccentric emitters for the timing error, Kerr timing, multi-mass composition (static-spherical only), and newborn images at the shadow rim (ungraded `a616` claims Newton-from-previous-frame misses 100% of them even granted a perfect oracle).
+  43:4. **Newborn photon-ring images at the shadow rim** — ungraded `a616` claims 100% missed even with a perfect oracle; grade it before trusting the k = 0 fix at the rim.
+
+REGEN OK: roster, five numbers, page lines, anchors all resolve

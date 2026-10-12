@@ -1,0 +1,75 @@
+topic: view
+status: open
+closed-by:
+valid-while:
+updated: 20261012-1904-q-wiki-view-d2e5
+
+# The view: the observer's past light cone, lensing, kinked tubes
+
+## Current best
+
+**The view's physics is measured wrong three ways near a compact mass — no time-transfer law, a one-argument deflection key, "crosses once" — and every refutation converges on the same one-step fix: a richer memo (delay(b) beside deflection(b), keyed (b, sense|Q), plus the k=0 image pair). The kinked-tube premise survives on shipped code. On the plane, the view — not the engine — is the frame constraint, and the display re-splat is the only over-budget component.**
+
+**The timing hole (two golds, two silvers, four independent oracles).** The design letter gathers "positions at the observer's past light cone; lensing takes deflection(b) from the doll's memo" (law.md §Observation; representation.md:57) and carries no arrival-time law anywhere; r5/r6 were never frozen and B3/B16 judge deflection angle only. Flat light-time (t − d/c) misplaces emitters within ~50 M of a compact mass by 2–176° of orbital phase — worse the farther out the observer — and the strongest deflection-only steelman still leaves 1.8–61°; at r_e = 6 M (ISCO) the flat error reaches 98° median, 135° max (`ace6`, gold). Independently: emitters at 6–20 M render 7°–86° out of phase (medians 1°–66°, 30–741 px zoomed), and the climb-out floor keeps every r_e = 6 M emitter ≥ 42° wrong at all phases (`0b45`); a 12 M emitter seen from 50 M is mis-timed 3.1–7.3 M = 4.3–10.1° of phase, 9.15 M = 12.6° toward conjunction (`5977`, gold); the pixel floor (1 px) is crossed between 20 and 60 M from the hole, with 1–97 px errors inside ~60 M (`fb64`). B11's frozen allowance is 2–4× wider than the measured exact-vs-1PN gap (`5977`). The fix all four converge on: one arrival-time column — delay(b)/Δt(b)/T(b) — beside deflection(b) in the doll's memo (the photon cycle already integrates dt/dψ; the oracle has had Shapiro since H0183), which collapses the error 40–150× at r_e ≥ 60, below the pixel floor (`fb64`). Keying the memo by the true impact parameter does not save the flat law: still ~50° where the traveled-path bend is 0.09° (`5977`).
+
+**The deflection key (two golds).** The one-argument deflection(b) memo is sound for a static spherical doll (composed-view image error ≤ 0.6%; 0.95% at r_o = 6 M) but broken as a key for a rotating doll: in-plane it needs (b, sense) — the two senses bend by 0.58 rad differently at the same |b|, and the critical |b| differs by 3.32× at χ = 0.998 (retrograde b_crit 6.14/6.83/7.00 M at χ = 0.5/0.9/0.998, confirmed as exact double roots of R by an independent from-scratch solver; the author's published 2.37× took the wrong square-root branch) — off-plane it needs (b, Q); and the cone's Shapiro delay is unmemoized, placing a 0.5 c emitter behind a hole (observer 10 M) 9.8° off, 27% of the lens displacement the design does correct (`8be2`, gold). The saving deletion: winding images a one-argument deflection cannot place measure ≤ 0.084% of the brightest image at every promised scene (7.7–9.8 mag fainter; 1.39×10⁻³ only in an adversarial 6 M scene) — the (b, sense|Q) + delay(b) memo is adoptable with no winding-placement component (`9f4a`, gold).
+
+**"Crosses once" is wrong by an integer (two silvers).** Near a mass, ≥ 2 and ≥ 3 images exist on 100% of emitter azimuths at every r_o probed (100 M…3.2 M), 4 images for 99% at 3.2 M; the first winding family sits at b = 5.199 M ≈ b_c (capture control 0.022%) (`6eae`). The player-visible part is exactly two images — the direct k = 0 ray and its Einstein partner, jointly visible (> 1/50) on 43% (r_o = 100 M) to 84% (r_o = 3.2 M) of azimuths — while winding images are never player-visible (max relative brightness 0.0111, per-winding decay ≈ e⁻²π ≈ 1/535). The fix is the k = 0 pair plus a magnification cutoff, which deletes `6eae`'s own proposed winding-indexed multi-sheet memo (`8f00`; the two-image structure extends to interior emitters).
+
+**What survives.** Kinked tubes at closing β → 1, on the shipped code: with emitters kinked by the engine's own stepper, every crossing is found (0 drops in 6,000 gathered emitter-frames per case), cold and memo views are bit-identical, an independent bisection oracle agrees on every emission tick, at 1.15–1.92 readouts/emitter; the densest accepted configuration (12/12 emitters kinked, 244k kicks) costs the same as the straight control; the strong-kink regime is empty by physics (a relativistic tide deflects a 0.9999c emitter by ~4×10⁻⁸ relative), and checker attacks (111× source mass, β = 0.99999, mutual, combined stale-jumps) all survived (`94dc`, gold). Newton's crossing converges in ~1.0–1.1 readouts/emitter on the plane (`f22e`, `3102`, `70b0`) and in 3.00 iterations at every β ≤ 0.999 warm-started — cold seeds leave the bracket at β ≥ 0.9, its check (`0fe0`). At signature speeds the view's one-sample-per-pixel aliases: every pre-flyby frame at γ = 125–250 is Nyquist-broken (5.8–11.5 rad/frame) and renders 96–98% frozen (`efb2`, silver, from the high-gamma page).
+
+**Cost: the view is the frame constraint.** The unbudgeted O(all-bodies) view path (gather + json + wire) takes 56–93% of every frame at ~6–8 µs/body, linear (`f22e`); the gather alone holds 59–71% across four seeds, a repeat, co-load and rtf 1 (`97fd`), 62–72% with engine 12–34% of budget at 76–428 bodies (`acff`), and inside it 95–97% is the per-body crossing loop (`51bf`, `3102`), 97% of that the ramped readout — 60% tube decode + ramp credit, 39% the motion-law-v2 partial step with its force evaluation (`70b0`, ungraded) — with 81% of readout time field evaluations re-read per emitter per Newton step (`51bf`). The crossing cache is near-perfect (1.0–1.1 readouts/emitter: `f22e`, `3102`, `70b0`), so the lever is the row itself, at 6–9 µs (`0e54`). H0210 had already put the gather at 83% of a light frame; this family adds anatomy and N-scaling, not the headline. Dead lever: the display-quantum row cache serves only 5.5–31.2% of rows (saves 0.28–0.48 ms p50, claim was 54–83%) and its gate fails at every rtf ≤ 100 by 15–1,962 quanta (`0e54`). Live lever: the gated view cache — gather p50 0.77–0.86 → 0.21–0.22 ms (3.6–3.9×), readouts 62 → 2–7, worst offset 5.8–6.6×10⁻⁵ against the 1×10⁻⁴ quantum, universe digest bit-identical base↔gated at two seeds and under six adversarial cases; frame gain machine-dependent (1.6–1.7× quiet vs 2.4× claimed) (`08f7`). The display readout is the only over-budget component on main (a838a28): `accumulate()` clears all planes and re-splats every tube every frame, cost flat in change (rtf enters only via plan.t) — far median 36.3–37.1 ms at 10× less motion, 47.0 ms at 100× less, 110.7 ms at 1080p, 200/200 frames over 16.7 ms; ~10× available, queued as b-readout-cost (`48cf`). A recurrence memo for view streams dies incommensurate: single-orbit streams are exact at order = samples/orbit (5×10⁻¹⁴), two incommensurate eccentric orbits admit no recurrence of order ≤ 96 (plateaus ~2–3×10⁻⁵ rad at e 0.3, ~10⁻¹ at e 0.7) (`8202`). The bookkeeping is already one readout: scheduler deadlines, the view gather and the coming news gravity re-derive the same doll-chain readout — `ViewCache::put` stores the arrival rate (1+n·β_obs)/(1+n·β_em) every frame and `apply`'s `root_state_raw` exists solely to feed light_distance → deadline_of — so the delay(b) column has a home (memo redundancy 2.9%; gather 13–18× engine median in the `lab_arrival` harness) (`d51f`).
+
+**Domain.** Physics: float oracles, Schwarzschild 2+1 (M = 1) — circular-geodesic emitters r_e 3.2–1000 M, static observers r_o 3.2–5000 M — plus Kerr retrograde for the sense key (χ 0.5–0.998); the only shipped-code physics probe is the kinked-tube family (`94dc`). Cost: the shipped plane bench on shared Linux/x86 (orders of magnitude only; the integrator re-measures on the M1), 28–948 bodies. Not measured anywhere: a delay-corrected gather end-to-end in the engine (no build exists), moving observers, the seen/Doppler instruments, eccentric emitters for the timing error, Kerr timing, multi-mass composition (static-spherical only), and newborn images at the shadow rim (ungraded `a616` claims Newton-from-previous-frame misses 100% of them even granted a perfect oracle).
+
+## Refuted
+
+- "The gather has a time-transfer law / t − d/c is enough" (`ace6`, `5977`, `0b45`, `fb64`).
+- "deflection(b) alone is a sufficient memo key" (`8be2`, `9f4a`).
+- "Each visible tube crosses the observer's past light cone once" (`6eae`, `8f00`).
+- "Winding images need placement in the memo" — ≤ 0.084% of the brightest image at every promised scene (`9f4a`); never player-visible, decay ≈ 1/535 per winding (`8f00`).
+- `6eae`'s winding-indexed multi-sheet memo fix — deleted by its own second author: the k = 0 pair + magnification cutoff (`8f00`).
+- "The strong-kink regime threatens the gather" — empty by physics (`94dc`).
+- "The display-quantum row cache is the lever" — 5.5–31.2% of rows served, gate fails everywhere measured (`0e54`).
+- "Recurrence of order ≤ 96 compresses multi-orbit view streams" (`8202`).
+- `fb64`'s ISCO row "err_fix 9.9e-3, 14×" — artifact of an under-converged oracle on nearly-radial photons; refined to 9.6×10⁻² (`fb64`, its own check).
+- `efb2`'s 75–98% frozen-frame aggregates — contaminated by post-flyby receding-Doppler freezing; the pre-flyby 96–98% stands (`efb2`, its check).
+
+## Open directions
+
+1. **Build the converged memo** — delay(b) beside deflection(b), keyed (b, sense|Q), plus the k = 0 image pair and a magnification cutoff — behind r6 with a timing gate criterion (r5/r6 unfrozen; B3/B16 judge deflection only, B7 rates) (`ace6`, `9f4a`, `8f00`, `fb64`, `5977`).
+2. **b-readout-cost (queued):** delete the per-frame re-splat — ~10× on the only over-budget component (`48cf`).
+3. **The Σμ = 1 sum rule** as a magnification-conservation check on the memo: fails 8% → 36% from 50 → 6 M (41% at 5 M), not truncation (`9f4a`).
+4. **Newborn photon-ring images at the shadow rim** — ungraded `a616` claims 100% missed even with a perfect oracle; grade it before trusting the k = 0 fix at the rim.
+5. **The gated cache on the M1** (frame gain 1.6–2.4× is machine-dependent) and the 6–9 µs row itself (`08f7`, `0e54`).
+6. **The aliasing boundary** — where one-sample-per-pixel breaks for the player; measured only pre-flyby at γ 125–250 (`efb2`).
+7. **Unmeasured physics:** moving observers, Doppler/seen instruments, eccentric emitters for the timing error, Kerr timing, multi-mass composition (`ace6`, `5977`).
+
+## Contradictions
+
+None open. Inside the record, four disagreements were resolved by later runs or checks: `6eae`'s fix superseded by `8f00`; `fb64`'s ISCO artifact refined by its own checker; `8be2`'s published 2.37× replaced by the corrected 3.32×, independently confirmed (`9f4a`); `efb2`'s aggregates narrowed to pre-flyby frames. The measured gather shares (56–74%) and H0210's "83% of a light frame" use different accounting (frame-CPU share vs share of a light frame) — not in conflict.
+
+## Runs
+
+- 20261006-0030-m-obscure-8202 (silver): view streams: single-orbit recurrence exact (5e-14); incommensurate eccentric pairs admit no order ≤ 96.
+- 20261006-1029-constraint-f22e (silver): unbudgeted O(all-bodies) view path is the frame constraint (60%, 6–8 µs/body); crossing cache near-perfect.
+- 20261008-0458-constraint-3102 (silver): gather 67.7% of frame, bodies loop 97% of it, 1.065 readouts/emitter, 12.3 µs/live body.
+- 20261008-0945-second-20261008-0743-constraint-4588-0e54 (silver): display-quantum row cache killed: 5.5–31.2% of rows served; attack the 6–9 µs row.
+- 20261008-1521-quant-97fd (silver): gather owns the flown frame 59–71% across seeds and rtf; the paced-tax headline was a load artifact.
+- 20261008-2113-second-20261008-2031-constraint-4b27-08f7 (silver): gated view cache holds: gather 3.6–3.9× faster, readouts 62→2–7, digest bit-identical.
+- 20261008-2349-constraint-70b0 (missing): ungraded: gather 66–74% at rtf 1–1000; 97% of it the ramped readout.
+- 20261009-0621-constraint-51bf (silver): gather anatomy: crossing loop 95%, field evals re-read per emitter per Newton step are 81%.
+- 20261009-1649-second-20261009-1556-redteam-18fc-94dc (gold): kinked tubes survive: 0 drops, dense kinked = straight cost; strong-kink regime empty by physics.
+- 20261009-2120-redteam-ace6 (gold): no time-transfer law: flat light-time off 2–176° within ~50 M; fix Δt(b) beside deflection(b).
+- 20261010-0541-system-d51f (silver): deadlines, gather and news gravity re-derive one doll-chain readout; arrival rate already stored per frame.
+- 20261010-2052-redteam-8be2 (gold): deflection(b) key broken for rotating dolls: needs (b, sense) (3.32× at χ 0.998) and (b, Q); Shapiro unmemoized.
+- 20261010-2141-second-20261010-2052-redteam-8be2-9f4a (gold): winding images ≤ 0.084% of brightest: the (b, sense|Q)+delay(b) memo needs no winding placement.
+- 20261010-2314-redteam-0b45 (silver): flat light-time draws 6–20 M emitters 7°–86° out of phase; r_e = 6 M ≥ 42° wrong at all phases.
+- 20261011-0006-constraint-48cf (silver): display re-splat is the only over-budget component: 36–110 ms, flat in change (rtf-independent).
+- 20261011-0614-redteam-a616 (missing): ungraded: Newton-from-previous-frame misses 100% of newborn photon-ring images.
+- 20261011-0924-redteam-5977 (gold): no memo, gate or rung carries light delay: 4.3–10.1° phase error near a mass; one delay(b) column fixes it.
+- 20261011-1234-redteam-6eae (silver): "crosses once" wrong: ≥ 2–3 images on 100% of azimuths at r_o 100–3.2 M; 4 images 99% at 3.2 M.
+- 20261011-1332-constraint-acff (silver): mean engine cost is not the constraint: O(N) gather 62–72%; single items run past the whole 5 ms budget.
+- 20261011-1332-second-20261011-1234-redteam-6eae-8f00 (silver): player-visible error is the k=0 pair (43–84% of azimuths); windings never visible; fix = pair + cutoff.
+- 20261011-1917-redteam-fb64 (silver): arrival delay renders 1–97 px wrong within ~60 M; delay(b) memo collapses error 40–150× at r_e ≥ 60.
+- 20261012-0138-redteam-0fe0 (silver): representation red-team; for the view: no view gate exists, and Newton's crossing holds at 3.00 iterations for every β warm-started (cold seeds leave the bracket at β ≥ 0.9, its check).
