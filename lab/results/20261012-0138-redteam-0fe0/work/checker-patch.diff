@@ -1,0 +1,428 @@
+diff --git a/crates/engine/tests/checker_adv_flyby.rs b/crates/engine/tests/checker_adv_flyby.rs
+new file mode 100644
+index 00000000..d3180f6b
+--- /dev/null
++++ b/crates/engine/tests/checker_adv_flyby.rs
+@@ -0,0 +1,235 @@
++//! Checker adversarial cases for run 20261012-0138-redteam-0fe0 (independent GLM, no author
++//! context). The author's falsifier stopped at β = 0.88, one fleet seed, 1 thread, and total
++//! contact counts. Attacked here:
++//! A1  β at the subluminal boundary: k = 1023 of q = 1024 (β = 0.9990), single and an opposing
++//!     pair, plus a heavy interceptor (mass 1000 vs the fleet's 1..4) at the same β.
++//! A2  a different fleet seed (7): identity is not seed-2-specific.
++//! A3  the kept event log: which bodies actually met (interceptor-involving contacts, and
++//!     whether a claimed near-c pair contact really happens).
++//! A4  4 threads of the kick pass in both orders (B8's thread axis, unswept by the author).
++//! A5  a lone near-c pair with no fleet to deflect it: the guaranteed head-on contact.
++use emergent_engine::{Battle, Frame, Outcome};
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Law, Response, Tick, World};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice::{Kind, Kickable, Stepper};
++use emergent_lattice_event::EventCore;
++use std::time::Instant;
++
++const HORIZON: Tick = 4096;
++
++/// scenes::battle with a parametric seed, interceptors appended after the fleet draws.
++struct Interceptor {
++    x: [i64; 2],
++    k: [i64; 2],
++    mass: i64,
++}
++
++fn battle_with(seed: u64, interceptors: Vec<Interceptor>) -> (World, i64) {
++    let (n, q, speed_div, formation) = (100u64, 1024i64, 8i64, false);
++    let mut rng = Rng(seed ^ (n << 16) ^ 0x00BA_771E);
++    let spacing = 5 * q;
++    let gap = 40 * q;
++    let mut bodies: Vec<Body> = Vec::with_capacity(n as usize + interceptors.len());
++    let mut extent = 0i64;
++    let sizes = [n / 2, n - n / 2];
++    let per_row: Vec<i64> = sizes.iter().map(|&s| (s as f64).sqrt().ceil() as i64).collect();
++    let offset = rng.range(-per_row[0] * spacing / 2, per_row[0] * spacing / 2);
++    for (f, &size) in sizes.iter().enumerate() {
++        let side = per_row[f] * spacing;
++        let v = q / speed_div;
++        let (x0, vx, y_off) = if f == 0 { (-(gap / 2) - side, v, 0) } else { (gap / 2, -v, offset) };
++        let scatter = if formation { 0 } else { (v / 4).max(1) };
++        let y0 = y_off - side / 2;
++        for j in 0..size as i64 {
++            let radius = rng.range(q / 2, q);
++            let x = [x0 + (j % per_row[f]) * spacing + rng.range(-q / 2, q / 2), y0 + (j / per_row[f]) * spacing + rng.range(-q / 2, q / 2)];
++            let k = [vx + rng.range(-scatter, scatter), rng.range(-scatter, scatter)];
++            let response = match rng.next() % 10 {
++                0 => Response::Pass,
++                1 => Response::Stop,
++                _ => Response::Bounce,
++            };
++            extent = extent.max(x[0].abs()).max(x[1].abs());
++            bodies.push(Body::new(bodies.len() as u64 + 1, x, k, rng.range(1, 4), radius, response));
++        }
++    }
++    for i in interceptors {
++        extent = extent.max(i.x[0].abs()).max(i.x[1].abs());
++        bodies.push(Body::new(bodies.len() as u64 + 1, i.x, i.k, i.mass, q / 2, Response::Bounce));
++    }
++    let w = World::new(q, None, bodies).expect("battle within the law's ranges").with_law(Law::RelativisticV1).expect("subluminal");
++    (w, extent)
++}
++
++fn row_offset(seed: u64) -> i64 {
++    let (n, q) = (100u64, 1024i64);
++    let mut rng = Rng(seed ^ (n << 16) ^ 0x00BA_771E);
++    let spacing = 5 * q;
++    let per_row: Vec<i64> = [n / 2, n - n / 2].iter().map(|&s| (s as f64).sqrt().ceil() as i64).collect();
++    rng.range(-per_row[0] * spacing / 2, per_row[0] * spacing / 2)
++}
++
++fn frame(q: i64, extent: i64, k: u32) -> Frame {
++    let r_orbit = (q << k) / 4;
++    let r_extent = 32 * (extent + 4 * HORIZON * (q / 8));
++    Frame::new(q, r_orbit.max(r_extent), 1u64 << (60 - k)).unwrap()
++}
++
++/// One ordered run with the event log kept, so contacts per body can be counted.
++fn run<S: Stepper + Kickable + 'static>(make: fn(World) -> Option<S>, w: &World, f: &Frame, threads: usize, shift: Tick) -> (Outcome, u64, Vec<(u64, u64)>) {
++    let t = Instant::now();
++    let stepper = make(w.clone()).unwrap();
++    let mut b = Battle::new(stepper, f.clone(), threads).with_epoch_shift(shift);
++    b.run_to(HORIZON).unwrap();
++    let secs = t.elapsed().as_secs_f64();
++    let log = b.stepper().log();
++    let pairs = log.events.iter().filter(|e| e.kind == Kind::Contact).map(|e| (e.a, e.b)).collect();
++    println!("    threads {threads} shift {shift}: {} contacts, {:.2}s", log.contacts, secs);
++    (b.outcome(), log.contacts, pairs)
++}
++
++fn chronon(w: World) -> Option<Chronon> { Chronon::new(w, true).ok() }
++fn event_core(w: World) -> Option<EventCore> { EventCore::new(w, true).ok() }
++
++#[allow(clippy::type_complexity)]
++fn variant(name: &str, seed: u64, interceptors: Vec<Interceptor>, control: bool, threads: usize, base: Option<&Outcome>) -> (Outcome, Vec<(u64, u64)>) {
++    println!("{name}");
++    let n_interceptors = interceptors.len();
++    let (w, extent) = battle_with(seed, interceptors);
++    let f = frame(1024, extent, 15);
++
++    let (a_out, a_contacts, a_pairs) = run(chronon, &w, &f, threads, 0);
++    let (b_out, b_contacts, _) = run(event_core, &w, &f, threads, 0);
++    assert!(a_contacts > 0, "{name}: the battle must happen");
++    assert_eq!(a_contacts, b_contacts, "{name}: contact counts");
++    assert_eq!(a_out, b_out, "{name}: lockstep and sparse digests");
++    if let Some(base) = base {
++        assert_eq!(a_out, *base, "{name}: {threads} threads must give the 1-thread outcome");
++    }
++    println!("    digest {}", &a_out.world[..12]);
++
++    // A3: which bodies met. Fleet is 1..=100; interceptors are 101..
++    let extra: Vec<_> = a_pairs.iter().filter(|(a, b)| *a > 100 || *b > 100).collect();
++    let mut ids: Vec<u64> = extra.iter().flat_map(|(a, b)| [*a, *b]).filter(|i| *i > 100).collect();
++    ids.sort();
++    ids.dedup();
++    println!(
++        "    contacts involving an interceptor: {} (of {}); interceptors that met someone: {:?}; the pair met: {}",
++        extra.len(),
++        a_contacts,
++        ids,
++        n_interceptors == 2 && a_pairs.contains(&(101, 102))
++    );
++
++    if control {
++        let (late_sp, _, _) = run(event_core, &w, &f, 1, 1);
++        let (late_lk, _, _) = run(chronon, &w, &f, 1, 1);
++        assert_ne!(late_sp, b_out, "{name}: shifted sparse must differ (instrument sees a difference)");
++        assert_eq!(late_sp, late_lk, "{name}: shifted in both orders, they agree");
++    }
++    (a_out, a_pairs)
++}
++
++#[test]
++fn checker_adversarial_flyby() {
++    let off2 = row_offset(2);
++    let off7 = row_offset(7);
++    let beta999 = [1023i64, 0i64];
++
++    // A1a: one interceptor at the boundary β = 1023/1024 ≈ 0.9990, arriving mid-battle.
++    let (out1a, _) = variant(
++        "A1a one at beta 0.999",
++        2,
++        vec![Interceptor { x: [-490_000, off2], k: beta999, mass: 1 }],
++        false,
++        1,
++        None,
++    );
++
++    // A1b: an opposing near-c pair at the boundary, with the negative control.
++    let _ = variant(
++        "A1b opposing pair at beta 0.999",
++        2,
++        vec![
++            Interceptor { x: [-490_000, off2], k: beta999, mass: 1 },
++            Interceptor { x: [490_000, off2], k: [-1023, 0], mass: 1 },
++        ],
++        true,
++        1,
++        None,
++    );
++
++    // The author's v3 geometry (±432000 at ∓900), instrumented: does the dossier's claimed
++    // near-c pair contact actually happen, or do fleet contacts deflect the interceptors first?
++    let _ = variant(
++        "probe the author's v3 geometry",
++        2,
++        vec![
++            Interceptor { x: [-432_000, off2], k: [900, 0], mass: 1 },
++            Interceptor { x: [432_000, off2], k: [-900, 0], mass: 1 },
++        ],
++        false,
++        1,
++        None,
++    );
++
++    // A1c: a heavy interceptor (mass 1000) at the boundary β.
++    let _ = variant(
++        "A1c heavy (m=1000) at beta 0.999",
++        2,
++        vec![Interceptor { x: [-490_000, off2], k: beta999, mass: 1000 }],
++        false,
++        1,
++        None,
++    );
++
++    // A2: a different fleet seed with the author's β 0.88 geometry.
++    let _ = variant(
++        "A2 seed 7, one at beta 0.88",
++        7,
++        vec![Interceptor { x: [-432_000, off7], k: [900, 0], mass: 1 }],
++        false,
++        1,
++        None,
++    );
++
++    // A4: 4 threads of the kick pass in both orders, against A1a's 1-thread outcome.
++    let _ = variant(
++        "A4 four threads, one at beta 0.999",
++        2,
++        vec![Interceptor { x: [-490_000, off2], k: beta999, mass: 1 }],
++        false,
++        4,
++        Some(&out1a),
++    );
++}
++
++/// A5: a lone near-c pair with no fleet to deflect it — the guaranteed head-on contact, in
++/// both orders, inside the Battle machinery (frame epochs and tide included).
++#[test]
++fn lone_near_c_pair_contacts_in_both_orders() {
++    let q = 1024i64;
++    let bodies = vec![
++        Body::new(1, [-432_000, 0], [900, 0], 1, q / 2, Response::Bounce),
++        Body::new(2, [432_000, 0], [-900, 0], 1, q / 2, Response::Bounce),
++    ];
++    let w = World::new(q, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap();
++    let f = frame(q, 432_000, 15);
++    let (a_out, a_contacts, a_pairs) = run(chronon, &w, &f, 1, 0);
++    let (b_out, b_contacts, b_pairs) = run(event_core, &w, &f, 1, 0);
++    println!("A5 lone pair: contacts {a_contacts}, pairs lk {a_pairs:?} sp {b_pairs:?}, digests equal: {}", a_out == b_out);
++    assert_eq!(a_contacts, b_contacts, "A5: contact counts");
++    assert_eq!(a_pairs, b_pairs, "A5: the same pairs met");
++    assert_eq!(a_out, b_out, "A5: lockstep and sparse digests");
++
++    // Control: with the kicks pushed past the horizon, the undeflected pair must meet. If it
++    // does, the miss above is the frame's tide deflecting the pair, not the law losing it.
++    let t = Instant::now();
++    let mut b = Battle::new(Chronon::new(w.clone(), true).unwrap(), f.clone(), 1).with_epoch_shift(HORIZON + 1);
++    b.run_to(HORIZON).unwrap();
++    let unkicked = b.stepper().log();
++    let unkicked_pairs: Vec<_> = unkicked.events.iter().filter(|e| e.kind == Kind::Contact).map(|e| (e.a, e.b)).collect();
++    println!("A5 no-kick control: {} contacts, pairs {unkicked_pairs:?} ({:.2}s)", unkicked.contacts, t.elapsed().as_secs_f64());
++    assert!(unkicked.contacts > 0, "A5: without kicks the pair must meet");
++}
+diff --git a/crates/engine/tests/checker_probe.rs b/crates/engine/tests/checker_probe.rs
+new file mode 100644
+index 00000000..e472e506
+--- /dev/null
++++ b/crates/engine/tests/checker_probe.rs
+@@ -0,0 +1,45 @@
++//! Debug probe: does the lone near-c pair meet at all, in the plain lattice and in a frame?
++use emergent_engine::{Battle, Frame};
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Law, Response, Tick, World};
++use emergent_lattice::{Kind, Stepper};
++use emergent_lattice_event::EventCore;
++
++const HORIZON: Tick = 4096;
++
++fn pair(x: i64, k: i64) -> World {
++    let q = 1024i64;
++    let bodies = vec![
++        Body::new(1, [-x, 0], [k, 0], 1, q / 2, Response::Bounce),
++        Body::new(2, [x, 0], [-k, 0], 1, q / 2, Response::Bounce),
++    ];
++    World::new(q, None, bodies).unwrap().with_law(Law::RelativisticV1).unwrap()
++}
++
++#[test]
++fn probe_lone_pair_plain_and_framed() {
++    for &(x, k) in &[(432_000i64, 900i64), (432_000, 1023), (100_000, 900), (20_000, 900)] {
++        let w = pair(x, k);
++        let mut c = Chronon::new(w.clone(), true).unwrap();
++        c.run_to(HORIZON);
++        let wf = c.world();
++        let d = wf.bodies[0].x[0] - wf.bodies[1].x[0];
++        let pairs: Vec<_> = c.log().events.iter().filter(|e| e.kind == Kind::Contact).map(|e| (e.a, e.b, e.tick)).collect();
++        println!("plain   x={x} k={k}: contacts {} {pairs:?}; final x0={} x1={} sep={d}", c.log().contacts, wf.bodies[0].x[0], wf.bodies[1].x[0]);
++
++        let mut e = EventCore::new(w.clone(), true).unwrap();
++        e.run_to(HORIZON);
++        println!("  sparse equal: {}", e.outcome() == c.outcome());
++
++        // same pair inside the battle frame (kicks pushed past the horizon)
++        let r_extent = 32 * (x + 4 * HORIZON * 128);
++        let r = ((1024i64 << 15) / 4).max(32 * (x + 4 * HORIZON * 128));
++        let f = Frame::new(1024, r, 1u64 << 45).unwrap();
++        let mut b = Battle::new(Chronon::new(w, true).unwrap(), f, 1).with_epoch_shift(HORIZON + 1);
++        b.run_to(HORIZON).unwrap();
++        println!("framed  x={x} k={k}: contacts {}", b.stepper().log().contacts);
++    }
++}
++
++trait Pipe: Sized { fn pipe<T>(self, f: impl FnOnce(Self) -> T) -> T { f(self) } }
++impl<T> Pipe for T {}
+diff --git a/crates/engine/tests/redteam_flyby.rs b/crates/engine/tests/redteam_flyby.rs
+new file mode 100644
+index 00000000..aa32b6ba
+--- /dev/null
++++ b/crates/engine/tests/redteam_flyby.rs
+@@ -0,0 +1,130 @@
++//! Red-team 20261012-0138: premise 4 (both orders, identical bits) at relativistic speed
++//! heterogeneity — the identity ladder's scenes all move at fleet speed (β ≤ ~0.18, one
++//! speed class). The player's headline action is a relativistic body crossing a battle.
++//! Scene: the shipped s1 battle (100 bodies, q = 1024, seed 2, div 8, same rng draw order)
++//! plus interceptors appended after the fleet draws. Controls: the epoch-shift plant (the
++//! instrument detects differences), asserted per variant.
++use emergent_engine::{Battle, Frame, Outcome};
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Law, Response, Tick, World};
++use emergent_lattice::worlds::Rng;
++use emergent_lattice_event::EventCore;
++use emergent_lattice::Stepper;
++use std::time::Instant;
++
++const HORIZON: Tick = 4096;
++
++/// scenes::battle with the fleet draws identical (n = 100, q = 1024, seed 2, div 8), then
++/// interceptors appended after the fleet draws, so the fleet layout is the ladder's s1.
++fn battle_with(interceptors: Vec<([i64; 2], [i64; 2])>) -> (World, i64) {
++    let (n, q, seed, speed_div, formation) = (100u64, 1024i64, 2u64, 8i64, false);
++    let mut rng = Rng(seed ^ (n << 16) ^ 0x00BA_771E);
++    let spacing = 5 * q;
++    let gap = 40 * q;
++    let mut bodies: Vec<Body> = Vec::with_capacity(n as usize + interceptors.len());
++    let mut extent = 0i64;
++    let sizes = [n / 2, n - n / 2];
++    let per_row: Vec<i64> = sizes.iter().map(|&s| (s as f64).sqrt().ceil() as i64).collect();
++    let offset = rng.range(-per_row[0] * spacing / 2, per_row[0] * spacing / 2);
++    for (f, &size) in sizes.iter().enumerate() {
++        let side = per_row[f] * spacing;
++        let v = q / speed_div;
++        let (x0, vx, y_off) = if f == 0 { (-(gap / 2) - side, v, 0) } else { (gap / 2, -v, offset) };
++        let scatter = if formation { 0 } else { (v / 4).max(1) };
++        let y0 = y_off - side / 2;
++        for j in 0..size as i64 {
++            let radius = rng.range(q / 2, q);
++            let x = [x0 + (j % per_row[f]) * spacing + rng.range(-q / 2, q / 2), y0 + (j / per_row[f]) * spacing + rng.range(-q / 2, q / 2)];
++            let k = [vx + rng.range(-scatter, scatter), rng.range(-scatter, scatter)];
++            let response = match rng.next() % 10 {
++                0 => Response::Pass,
++                1 => Response::Stop,
++                _ => Response::Bounce,
++            };
++            extent = extent.max(x[0].abs()).max(x[1].abs());
++            bodies.push(Body::new(bodies.len() as u64 + 1, x, k, rng.range(1, 4), radius, response));
++        }
++    }
++    // Interceptors: mass 1, radius q/2, bouncers. A +900-speed body from x = -432000
++    // arrives at the engagement zone (x = 0) at t = 480, mid-battle.
++    for (x, k) in interceptors {
++        extent = extent.max(x[0].abs()).max(x[1].abs());
++        bodies.push(Body::new(bodies.len() as u64 + 1, x, k, 1, q / 2, Response::Bounce));
++    }
++    let w = World::new(q, None, bodies).expect("battle within the law's ranges").with_law(Law::RelativisticV1).expect("subluminal");
++    (w, extent)
++}
++
++/// The battle's random row offset, recomputed with the same first rng draw as `battle_with`.
++fn row_offset() -> i64 {
++    let (n, q, seed) = (100u64, 1024i64, 2u64);
++    let mut rng = Rng(seed ^ (n << 16) ^ 0x00BA_771E);
++    let spacing = 5 * q;
++    let per_row: Vec<i64> = [n / 2, n - n / 2].iter().map(|&s| (s as f64).sqrt().ceil() as i64).collect();
++    rng.range(-per_row[0] * spacing / 2, per_row[0] * spacing / 2)
++}
++
++fn frame(q: i64, extent: i64, k: u32) -> Frame {
++    let r_orbit = (q << k) / 4;
++    let r_extent = 32 * (extent + 4 * HORIZON * (q / 8));
++    Frame::new(q, r_orbit.max(r_extent), 1u64 << (60 - k)).unwrap()
++}
++
++struct Run {
++    out: Outcome,
++    contacts: u64,
++    secs: f64,
++    rebuilds: u64,
++    epochs: u64,
++}
++
++fn lockstep(w: &World, f: &Frame, shift: Tick) -> Run {
++    let t = Instant::now();
++    let mut b = Battle::new(Chronon::new(w.clone(), false).unwrap(), f.clone(), 1).with_epoch_shift(shift);
++    b.run_to(HORIZON).unwrap();
++    Run { out: b.outcome(), contacts: b.stepper().log().contacts, secs: t.elapsed().as_secs_f64(), rebuilds: 0, epochs: b.stats().epochs }
++}
++
++fn sparse(w: &World, f: &Frame, shift: Tick) -> Run {
++    let t = Instant::now();
++    let mut b = Battle::new(EventCore::new(w.clone(), false).unwrap(), f.clone(), 1).with_epoch_shift(shift);
++    b.run_to(HORIZON).unwrap();
++    Run { out: b.outcome(), contacts: b.stepper().log().contacts, secs: t.elapsed().as_secs_f64(), rebuilds: b.stepper().rebuilds(), epochs: b.stats().epochs }
++}
++
++fn variant(name: &str, interceptors: Vec<([i64; 2], [i64; 2])>) {
++    let (w, extent) = battle_with(interceptors);
++    let f = frame(1024, extent, 15);
++    let a = lockstep(&w, &f, 0);
++    let b = sparse(&w, &f, 0);
++
++    let (lk_secs, sp_secs) = (a.secs, b.secs);
++    println!(
++        "{name:<26} contacts {} epochs {} | lk {lk_secs:.2}s sp {sp_secs:.2}s ({} rebuilds) | digest {}",
++        a.contacts, a.epochs, b.rebuilds, &a.out.world[..12]
++    );
++    assert!(a.contacts > 0, "{name}: the battle must happen");
++    assert_eq!(a.contacts, b.contacts, "{name}: contact counts");
++    assert_eq!(a.out, b.out, "{name}: lockstep and sparse digests");
++
++    // Negative control (the instrument can see a difference): one chronon of epoch shift.
++    let late_sparse = sparse(&w, &f, 1);
++    let late_lockstep = lockstep(&w, &f, 1);
++    assert_ne!(late_sparse.out, b.out, "{name}: shifted sparse must differ");
++    assert_eq!(late_sparse.out, late_lockstep.out, "{name}: shifted in both orders, they agree");
++}
++
++#[test]
++fn relativistic_flyby_through_a_battle() {
++    let offset = row_offset();
++    println!("row offset (y of a fleet row): {offset}");
++    // v0 control: the plain s1 battle (must agree, as the ladder shows).
++    variant("v0 no interceptor", vec![]);
++    // v1: one interceptor at β = 0.88 (k = [900, 0]) along a fleet row.
++    variant("v1 one at 0.88c", vec!(([-432000, offset], [900, 0])));
++    // v2: diagonal at β = 0.74 (k = [720, 240]), aimed to cross the row at t = 480.
++    variant("v2 one at 0.74c diagonal", vec!(([-432000, offset - 240 * 480], [720, 240])));
++    // v3: two opposing interceptors on the same row: a guaranteed near-c pair contact at
++    // x = 0, t = 480, each having crossed half the battle.
++    variant("v3 two opposing 0.88c", vec!(([-432000, offset], [900, 0]), ([432000, offset], [-900, 0])));
++}
