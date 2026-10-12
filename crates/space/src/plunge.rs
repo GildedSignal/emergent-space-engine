@@ -74,6 +74,73 @@ impl Plunge {
         Self::build(outer, w2, l2, Scalar::ONE, impact, true, end).map(Some)
     }
 
+    /// An outbound near-radial state (`dot(x, v) > 0`) that has no periapsis to turn at: the arc that goes up to the radius
+    /// it turns at (an apoapsis, where it is at rest) or, if it never turns, up to `outer` (past the doll's edge, where the
+    /// ship is released), and falls from there to `end`, with the time the state is *before* its anchor. Returns the arc and
+    /// that lead, in coordinate time: the binding's anchor time is the event's plus the lead, and the state is read at minus
+    /// it (the reflected leg). Time reversal is a symmetry: the leg up is the fall from the apoapsis run backward, so one arc,
+    /// compiled once from its anchor, serves both, and the ship's own state (its energy and angular momentum) fixes it.
+    /// Refused where the leg up is not the single root of `R` (`L²/r ≥ 1`: a turning orbit's).
+    pub fn outbound(state: IntegerState, end: End, outer: Scalar) -> Result<(Self, Scalar)> {
+        let End::Surface(_) = end else { return Err(Error::Range) };
+        // The same invariants as the fall that retraces this state's leg: the state with its velocity reversed.
+        let reversed = IntegerState { velocity: state.velocity.map(|v| -v), ..state };
+        let (r1, w2, l2, energy, reversed_angular) = crate::inverse::plunge(reversed, end.radius())?;
+        let angular = reversed_angular.negate();
+        // R'(u) = 2 − 2L²u + 6L²u² is positive for u < 1/L²: below it the root R = 0 above the state is unique (the apoapsis),
+        // and a barrier (a periapsis the turning orbit owns) can only be at a larger u. Past it, the turning orbit's.
+        let u1 = r1.reciprocal()?;
+        if l2.mul(u1)? >= Scalar::ONE {
+            return Err(Error::NoBoundOrbit);
+        }
+        // R(u) = w² + (u − u1)·H(u), H(u) = 2 − L²(u + u1) + 2L²(u² + u·u1 + u1²): the outer turning point is the root below
+        // u1 (it exists when the energy is below one), found by the fixed-point step u ← u1 − w²/H(u) (H ≈ 2: it contracts).
+        let h = |u: Scalar| -> Result<Scalar> {
+            Scalar::integer(2)
+                .sub(l2.mul(u.add(u1)?)?)?
+                .add(l2.scale(1)?.mul(u.mul(u)?.add(u.mul(u1)?)?.add(u1.mul(u1)?)?)?)
+        };
+        let mut u = u1.sub(w2.div(Scalar::integer(2))?)?;
+        for _ in 0..24 {
+            if !u.is_positive() {
+                break;
+            }
+            u = u1.sub(w2.div(h(u)?)?)?;
+        }
+        let u_out = outer.reciprocal()?;
+        let (r0, w2_anchor, energy_anchor) = if u.is_positive() && u > u_out {
+            // Bound: it turns at r0 = 1/u, where the arc starts at rest, with the energy that rest has there.
+            let r0 = u.reciprocal()?;
+            let lapse = Scalar::ONE.sub(u.scale(1)?)?;
+            let e2 = lapse.mul(Scalar::ONE.add(l2.mul(u)?.mul(u)?)?)?;
+            (r0, Scalar::ZERO, e2.sqrt()?)
+        } else {
+            // Unbound (or turning beyond `outer`): the arc starts at `outer`, inward, with the state's energy.
+            let w2_out = w2.add(u_out.sub(u1)?.mul(h(u_out)?)?)?;
+            (outer, if w2_out.is_positive() { w2_out } else { Scalar::ZERO }, energy)
+        };
+        let arc = Self::build(r0, w2_anchor, l2, energy_anchor, angular, false, end)?;
+        // The lead: the coordinate time the fall takes from the anchor to this state's radius.
+        let y1 = r0.div(r1)?.sub(Scalar::ONE)?.sqrt()?;
+        let lead = arc.sum_to(y1)?[3];
+        Ok((arc, lead))
+    }
+
+    /// Whether the arc goes on, past its anchor, to its end: a rest anchor (an apoapsis) does, and so does an anchor the state
+    /// itself is at; an anchor with inward speed that the state is before is a place the ship has left the doll by.
+    pub fn rests_at_anchor(&self) -> bool {
+        self.w2.is_zero()
+    }
+
+    fn sum_to(&self, y: Scalar) -> Result<Sum> {
+        let i = self.knots.partition_point(|k| k.y <= y).saturating_sub(1);
+        let base = self.knots[i];
+        if y == base.y {
+            return Ok(base.sum);
+        }
+        Ok(add(base.sum, self.quad(base.y, y)?)?)
+    }
+
     fn build(r0: Scalar, w2: Scalar, l2: Scalar, energy: Scalar, angular: Scalar, null: bool, end: End) -> Result<Self> {
         let inner = end.radius();
         if inner < Scalar::integer(2) || (matches!(end, End::Surface(_)) && inner <= Scalar::integer(2))
@@ -206,7 +273,15 @@ impl Plunge {
     }
     pub fn affine_duration(&self) -> Scalar { self.knots.last().unwrap().sum[1] }
 
+    /// The state `elapsed` coordinate time after the anchor. Before it the arc is read in reflection (time reversal: the
+    /// radial velocity, the azimuthal advance and the proper time change sign, like a periapsis's two sides): an outbound
+    /// leg is the incoming arc run backward, up to its anchor, the apoapsis the ship turns at (a rest anchor).
     pub fn orbit_state(&self, elapsed: Scalar) -> Result<crate::orbit::OrbitState> {
+        if elapsed < Scalar::ZERO {
+            let mut state = self.orbit_state(elapsed.negate())?;
+            state.reflect();
+            return Ok(state);
+        }
         let s = self.at_coordinate(elapsed)?;
         let lapse = Scalar::ONE.sub(Scalar::integer(2).div(s.radius)?)?;
         Ok(crate::orbit::OrbitState { radius: s.radius, radial_angle: 0, advance: s.angle,

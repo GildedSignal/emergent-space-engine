@@ -132,6 +132,11 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
 impl Binding {
     pub fn terminal_tick(&self) -> Res<Option<Tick>> {
         let Trajectory::Plunge(p) = &self.entry.trajectory else { return Ok(None) };
+        // An arc whose anchor has inward speed and is still ahead of the state is a leg the ship leaves its doll by: it
+        // never reaches the surface.
+        if !p.rests_at_anchor() && self.event_time < self.tube.periapsis_time.get() as i64 {
+            return Ok(None);
+        }
         let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
         let peri = time_of(self.tube.periapsis_time.get() as i64, self.clock_exp)?;
         let tick = peri.add(self.to_doll(end)?)?.fixed_ceil(-(self.clock_exp as i32))?;

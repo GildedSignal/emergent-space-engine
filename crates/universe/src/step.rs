@@ -223,7 +223,8 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
             apex
         }
         Trajectory::Passage(p) => peri.add(b.to_doll(p.duration()?)?.scale(-1)?)?,
-        Trajectory::Plunge(_) => return Ok(None),
+        // An outbound leg rises to its anchor, the radius it turns at or is released by: the exit is on the way up to it.
+        Trajectory::Plunge(_) => peri,
     };
     // A passage's last readable tick is one before its window closes: round the end inward.
     let end = if matches!(b.entry.trajectory, Trajectory::Passage(_)) { apex.fixed_floor(-(b.clock_exp as i32))? - 1 } else { apex.fixed_ceil(-(b.clock_exp as i32))? };

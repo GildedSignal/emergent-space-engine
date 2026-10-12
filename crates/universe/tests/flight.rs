@@ -107,7 +107,8 @@ fn frame(p: &mut Plane, rtf: f64) -> View {
 /// The certificate the engine plans its impact from: the tube's periapsis is under the surface of its doll.
 fn under_surface(p: &Plane) -> bool {
     let rec = p.u.rec(p.player);
-    rec.b.to_doll(rec.b.entry.trajectory.key().periapsis).unwrap() < p.u.dolls[rec.b.doll as usize].surface
+    // a turning tube whose periapsis is under it, or a plunge (an arc that ends at it)
+    rec.b.entry.trajectory.key().is_none_or(|k| rec.b.to_doll(k.periapsis).unwrap() < p.u.dolls[rec.b.doll as usize].surface)
 }
 
 fn planned_crash(p: &Plane) -> bool {
