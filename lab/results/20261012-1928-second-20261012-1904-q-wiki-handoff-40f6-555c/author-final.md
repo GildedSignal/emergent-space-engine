@@ -1,0 +1,7 @@
+Working...
+Everything is green and complete. Final state:
+
+- **Page** (`wiki/handoff.md`): a7f7's atlas half folded into Surfaces/Refuted/Contradictions with the mirrored-boost defect scoped to the run's probe code (`handoff_params_derived` machine-checked absent from `main`); 13ae folded as the payload's slow-flow half with the checker's corrections (retro boundary stated separately, recount bracket, the 0.22–0.26 R_H changeover as the adoptable fact); plus four more in-window in-topic runs the accounting forced (21db tide-kernel refutation, 3d2c boundary placement, 3565 r3-v3 provenance, 7a46 gold Levi-Civita) — original content otherwise verbatim.
+- **Record**: `verify.py` 137/137 (original 96 untouched + 41 new), `routing.tsv` accounts all 98 window ids (the regex's 84 ∪ the original 16-run cluster ∪ checker-named 13ae) with **zero unaccounted**, cluster = 16, denominator = 593 branches with check.md (589 at the original's); `regen.sh` regenerates everything in ~3 s with live counts and post-snapshot disclosure; `predictions.md` written before the decisive pass, all six held.
+
+The claim, in one sentence: **The handoff page's first compile now meets its checker's gold bar — a7f7's atlas half and 13ae's slow-flow half folded with checker-corrected numbers and needles, both counts fixed (16; 593 branches with a check.md), and every one of the 98 in-window runs accounted for one by one (zero unaccounted, machine-checked), so the compile is complete and regenerable as it stands.**
