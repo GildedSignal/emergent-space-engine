@@ -17,6 +17,7 @@ Current as of 6 October 2026 (H0214; the "In flight" table below carries the exa
 |---|---|---|---|
 | **The ship's clock at high γ: merged 12 October** | f7f6d87 (Sonnet): a weak-field hyperbolic key carries its gap with its own exponent; τ takes the exact numerator, so dt/dτ = E to 1e-8 up to E = 10⁶ | main | C1 passes: the ≤ 60 s tests, and the full flight to the leave (`--ignored c1_to_the_leave`, 527 s on the M1: ~3×10⁵ events, a frame-cost signal). Only burns past ~1,200 km/s change digests. **Open limit:** a hyperbolic key is refused (`Range`) when its periapsis is above ~2.7×10⁸ M (about 2.7 AU about the star) even at E = 3: a fast flight far from the star is lost (to the sweep and item 3) |
 | **Playability (the sweep's findings)** | Sonnet, `/private/tmp/emergent-wt-play` on `wt/play`; job file `artifacts/runs/play/prompt.md` | a commit on `wt/play` | Verify: the nose starts prograde; the HUD warns of an impact course and clears; gate P1 (radial infall from 2–1000 radii against exact Schwarzschild ≤ 1%, zero refusals); the rerun sweep; the suites; B13 not worse; then merge after the clock |
+| **Smooth flight (gate F1)** | Sonnet, `/private/tmp/emergent-wt-frame` on `wt/frame`; job file `artifacts/runs/frame/prompt.md` | a commit on `wt/frame` | Verify F1 (the sweep at rtf 100, levels 0–15: no frame over 12 ms after the first second, zero lag), every digest bit for bit, the universe suite, B13 not worse; then merge |
 | **Codex wins: merged 12 October** | Kerr compiler (B19 passes, 405b9fb), belt wiring (B18, B18b pass, 1587020), co-orbital tier (92c94b1). `shipmem` and `encounters` are built, not yet wired into the plane | main | Wire them into the plane by bottleneck. Kept for their diagnoses (branches): plunge tubes, encounter skin (5.3×), B12 v2 (needs a red-team), energy register, root keys, handoff surface |
 | **The lab wiki** | `lab/wiki/` (Karpathy's pattern: runs are the raw sources, pages the compiled memory), `lab/wiki.py`; publish folds gold and silver pages in three-way and rewrites the index | pushes to main, `lab/wiki/` only | 13 compile jobs head `lab/queue.txt` (`q-wiki-*`). Read `lab/wiki/index.md` instead of dossiers; check the first compiled pages against their runs |
 | **GLM lab changes (12 October)** | runner: authors read the wiki and write `regen.sh` (the runner runs it, with one 15-minute fix phase) and their topic page; checkers test outside the author's range and check the page | — | Watch the first window's results for regen failures and page conflicts |
@@ -38,11 +39,11 @@ Current as of 6 October 2026 (H0214; the "In flight" table below carries the exa
 ## Headed next (12 October; Julien: "we want something functional … i just don't want it buggy, fly like the sr 71"; at most two sub-agents)
 
 The to-do list, by importance. Each item lands only when it is green:
-1. **The high-γ clock** (Sonnet, `wt/clock`): merge behind gate C1.
+1. ~~**The high-γ clock**~~: merged (C1 passes to the leave).
 2. **The flight sweep** (`crates/universe/examples/flight_sweep.rs`, 12 October, rtf 100, 20 s a flight): every loss was a crash into Home, because **the ship starts with its nose retrograde** (heading 0 = +x while it orbits along −x), so "forward" burns it into the planet; and from L8 up the frame hits its 12 ms budget and the presented time lags up to 1.6 s (a stutter). No refusals in 20 s flights.
 3. **Fix the sweep's findings** (the second sub-agent, after the clock merges: same code): start the nose prograde; the HUD warns of an impact course (the engine already plans the impact); braking to rest (`NoBoundOrbit`, plunges: Codex's partial `wt/cx-b-plunge-tubes`); then rerun the sweep.
-4. **Retire the kick jet** from law.md (six golds refute it; it is not wired into the plane).
-5. **The frame's cost:** O(N) per frame with zero events; the kick at ~1,800× its floor.
+4. ~~**Retire the kick jet**~~: done in law.md (not in the shipped code).
+5. **The frame's cost** (Sonnet, `wt/frame`, gate F1): the stutter from L8 up; lazy re-keying and the incremental deadline first, bits preserved.
 6. **Later:** wire the belt and encounters into the plane; B12 v2 red-teamed, then frozen; the plane faces B12–B14.
 7. Julien flies every merge (`cargo run --release -p xtask -- universe --rtf 100`, http://127.0.0.1:8792/). AI stays off the plan.
 
