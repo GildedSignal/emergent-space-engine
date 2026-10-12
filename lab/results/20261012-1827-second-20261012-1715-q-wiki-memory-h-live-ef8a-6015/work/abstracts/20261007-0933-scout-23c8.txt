@@ -1,0 +1,7 @@
+Grade: silver
+
+First H_live measurement, reproduced exactly and extended. Secular-belt scars saturate at ~6 bits/body (q=1e-6) within 2 orbits and then create ~0 bits/body/orbit — still flat at 64 orbits when re-run by this checker; resonant ~0.13, encounter ~0.3–0.6 bits/body/orbit bursting at encounter epochs. The 64-bit/10⁹ budget holds in every regime measured, and shipmem's form-chooser can read stationary scar entropy + q-slope. But the load-bearing surprise — "stable chaos, T_Lyap ≈ 1.2 orbits with flat memory" — is an instrument artifact: the Benettin shadows integrate a different map from the main bodies (drift at updated ash^-1.5 vs main's birth-frozen n; both half-kicks at the end epoch). An honest same-map shadow gives λ ≈ 5×10⁻⁴/orbit (1700× smaller, 0% saturation), consistent with real-belt T_Lyap of 10³–10⁵ orbits. Every λ/KS number in the run is invalid. Adoption cost: the ~200-line instrument plus a rule, no engine code.
+
+## Reproduction
+
+Clean tree, `work/patch.diff` empty. Ran S0, S1, S2, S3 fresh (numpy 1.26.4, same machine class): every

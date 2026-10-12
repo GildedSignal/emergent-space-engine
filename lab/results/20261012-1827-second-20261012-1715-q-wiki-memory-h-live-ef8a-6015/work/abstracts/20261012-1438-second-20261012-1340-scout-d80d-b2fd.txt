@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract.** Claim: the twin-rate framing predicts the engine's sealed-scar *memory* but not event *traffic*; "99.9% regenerable" hides a 1.8% departed class. Everything reproduces bit-for-bit in a clean tree (all four commands, 236 s total; `bodies_match_A005` true, counts and ladder identical). Departed 75 (1.83%), forced 0.76 bits/body, gross:net 203:1, cross-val ρ = 0.82 / 91% exact — all as written. My probes: seed 777 replicates the split (1.71%, 224:1); 8× finer scar scan moves traffic only 1.05×; but A = 0 empties the departed class, and pure persistence already scores ρ = 0.70 / 87%. Cost to adopt: none — b-h-live should measure three per-body numbers. One experiment from gold: a pre-registered drive ladder.
+
+## Reproduction (clean tree, /tmp copy; patch.diff is empty)
+
+- `hlive.py 10000 0.05 d A005chk`: per-body npz **bit-identical** to `perbody-A005.npz` (every array `array_equal`); summary differs only in `tag`, `wall_s`.
+- `second.py 30000 0.05` → fresh npz **bit-identical** to `perbody-T3e4.npz` (bits *and* scar counts). Deterministic.
+- `analy

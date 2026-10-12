@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: the event calendar needs no container — a per-frame counting scan over per-body next-event keys reproduces the shipped 4-ary heap's pop stream exactly (rolling FNV, all 18 configs) at 2.7–3.1× lower ns/event at 1–4M bodies, zero container memory; the bucket-wheel steal reaches only ~1.9×. Reproduced: pop counts bit-exact (4M belt 13,946,500/13,948,404; 1M uniform 6,000,120/6,000,219), timings within load noise, identity true under my churn-storm, burst and sparse attacks. But the flat scan loses 2.2× at ~250 keys/event and 50–100× when bodies are megatick-silent — the dormant-majority shape of the 10⁹ goal — and silently drops events on any key written below the frame base (past-write attack: −3,487 pops); one guard fixes it. Gold experiment: hierarchical/per-doll scan at mixed dense+dormant loads.
+
+**Reasons.**
+
+1. **Reproduction (clean tree, no patch to apply — `work/patch.diff` is empty; all work lives in `calbench.rs`).** `rustc -O calbench.rs` then `--n 4000000 --load belt` (31 s) and `--n 1000000 --load uniform` (3 s): h

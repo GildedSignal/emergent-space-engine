@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: a 10⁹-body belt's live store is log-bounded (~1 bit per time-octave; 20 bits after one orbit, 34 at 16 384), so 8 GB holds with headroom and churn, not memory, binds. Reproduced bit-for-bit from `python3 probe.py` (3.7 s, <100 MB). Kernel verified to ≤0.16 % against direct leapfrog integration at 8 extreme points including t=218 focusing; growth exponents (σ∝t^0.5 belt, t^0.34 cold), Σ-linearity and scene generality (a=0.5 AU, σ0=200) hold; P2/P4/P6 held, P1/P3 honestly failed. Defects: "cold swarm" is undisclosed Σ×2500 — sparse cold stores 40.3 bits (7.6 GB at 3 dof, inside 8 GB); 16 384 orbits is 534 years, not 8.5; absolute H is ~1.4 bits low. First H_live measurement; adoption cost none.
+
+**Reasons.**
+
+*Reproduction.* `python3 probe.py` in a clean tree (empty `work/patch.diff`, no repo edits): controls, λ_+ tables, linearity ratio, full growth MC and reabsorption all byte-identical to `metrics.json`; only `env.loadavg` differs. Timeline honest: `predictions.md` (11:58) precedes the final `probe.py` (12:11) and `metrics.json` (12:

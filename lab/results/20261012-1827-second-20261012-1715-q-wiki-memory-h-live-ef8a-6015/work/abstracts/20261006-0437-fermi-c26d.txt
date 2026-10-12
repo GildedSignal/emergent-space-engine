@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: a belt's live memory floor is not the born program's 0.126 bits/body but a heating trajectory — ~92 bits/body by 10 Gyr at (2e16 kg, 1e9/belt), with the phase column alone pinning ~20 bits within ~1.3e4 orbits for any belt massive enough to exist; an identity-reassigning repack every ≤1.2e4 orbits holds it, and collisions (2.5e5/body at that corner vs 1.0 tame) forbid a middle. Reproduced bit-identically (heat.json md5 equal, 1.4 s, controls pass); seeds, sample size, Coulomb log and an exact scattering reduction of κ agree. Held-out predictions 4/7, misses disclosed. Gain: B18's newborn floor under-certifies 160–730×; shipmem lacks identity reassignment (verified in code). Silver: the 11.5-GB headline sits at a corner whose own collision count destroys the identities the number is computed for.
+
+**Reasons.**
+
+*Reproduction.* `cd <run> && python3 work/belt_heat.py` from a clean copy: stdout diff-identical to `work/run4.txt`, `heat.json` md5 `79fe98bb…` unchanged; 1.4 s, negligible memory. `patch.diff` is empty (no tree edits). Controls be

@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** The 10⁹-in-8 GB budget, decomposed on the real engine: ~7 KB live per body (428–446× the 16 B tube — the biggest lever on the board, ahead of the skin's 12.6×), ~44 µs per hot event → N_hot ≈ 1.5–2.3×10⁴ at rtf 100 today, ladder to ~3×10⁷; cold populations free by the horizon bound (1.14 belt orbits per 100 h at rtf 100); the board's "190 cores" re-derived as 175 = the unaveraged low-orbit corner at rtf 1, belt cadence 0.03 cores. Every conclusion reproduced within a few percent, including two new slope points. But the quoted evidence numbers do not regenerate with the dossier's stated commands (provenance mixed between an 8-s and a 10-s run), so the record, not the physics, holds it at silver.
+
+**Reproduction** (clean tree, `work/patch.diff` empty; commands as written in the dossier):
+- `--kick-bench` ×3: median 44.3–45.3 µs, p99 62–66, 23 samples, `exact_hit_rate` 0.0 — the quoted 41.8 regenerates in family; the *stored* `kick-bench.json` (65.8/86.3) was a noisier moment and contradicts the quote.
+- `--bench --members 48 --s

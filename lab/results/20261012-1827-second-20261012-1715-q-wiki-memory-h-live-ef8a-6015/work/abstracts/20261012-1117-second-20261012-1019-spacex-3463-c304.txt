@@ -1,0 +1,9 @@
+Grade: gold
+
+**Abstract.** Claim: the plane's 845 MB at 4,000 members is unpruned rebind history (~10.2 kB per kick; the settle crosses ~95% of ticks past the last prune) plus ~19 kB per handed-out body; churn and body count are irrelevant. Reproduced bit-for-bit from `work/patch.diff` (fresh m4000: hist 572,188 KB, kicks 55,839, digest 632b4b53…; gap arm within 8%). Adversarial: the paced player path is identical (846 MB); seed 3 gives 10.10 kB/kick; m40000 at my own S=4 constructs flat at 19.4 kB/handout to #37,500 (696 MB), then kick onset hits the guard — the first author's "cannot construct 4×10⁴" (tick 136, kicks 0) was a wall artifact. Stock digest equals patched. Adoption: one small patch; budget 19 kB + 10 kB·kicks/horizon.
+
+## Reasons
+
+**Reproduction (clean tree, `git apply work/patch.diff`, release).**
+- A m4000 S=8: peak rss 845,832 KB (author 845,828), live 903,411 (identical), hist 572,188 (identical), post-prune 82,708 (identical), kicks 55,839 (identical), trim 0.14%, digest `632b4b53…` identical; m4 digest `6af71966…` identical.
+- B `--gap 2000`: rss 780,

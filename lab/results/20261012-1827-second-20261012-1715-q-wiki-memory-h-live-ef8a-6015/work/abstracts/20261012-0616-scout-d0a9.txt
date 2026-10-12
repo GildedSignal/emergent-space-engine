@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: live-scar memory follows a first-passage law, t_sat ≈ (Q/σ_s)² orbits, ~1 bit/scar, so a real 10⁹ belt never scars (fits as ~16 MB of programs). Everything reproduces bit-identically from the shipped scripts (≤ 30 s each); all quoted numbers verified; predictions pre-registered before the decisive run. But the central mechanism claim — "the rate decays (range law ~√k), so memory self-saturates even with no recompaction" — is falsified by a 13 s probe: the scar stream is linear at √(2/π)·σ_s/Q per orbit per body, forever (0.1994/0.0997/0.0499 at qfac 4/8/16 over 40 000 orbits). The belt headline survives (qfac ~10⁵ at view-floor: nothing flows); recompaction is mandatory for anything run past t_sat, and analyze.py ships an axis bug. Cost to adopt: a corrected design note plus the b-h-live instruments.
+
+**Reasons.**
+
+1. **Reproduction: exact.** `hlive.py results-check.json` and `analyze.py` regenerate `results.json` and `curves.json` bit-for-bit (29.9 s each); `fermi.py` matches its table (real belt t_relax 2.92e22 orbits, t_sat 

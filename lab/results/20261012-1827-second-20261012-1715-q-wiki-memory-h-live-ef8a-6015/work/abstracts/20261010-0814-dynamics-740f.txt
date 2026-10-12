@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: the belt population scar layer (H_live) is a logarithmic crawl on the shipped `shipmem` store — ≈3 bits per doubling of kicks absorbed (½-log per action column, 1.5-log phase), not a walk to ruin — so the 10⁹-in-8 GB risk is empty at play horizons and re-anchoring machinery is unneeded. Reproduced bit-for-bit (`cargo run --release`, 18.8 s); slopes robust to a fresh seed (2.81 / 5.09 / 0.02 bits/doubling for G2/G4/G1) and to a systematic common-mode drift (absorbed natively: 0.655 B/body at k=4096, same as without drift). Extrapolation: ≤2.2 GB at 10⁹ bodies, 10 h, μ=10⁻⁴. One evidence claim failed reproduction: the wrapped-phase "trap" (+1.6 B/body) is not regenerable from the shipped code. Cost to adopt: none.
+
+## Reproduction
+
+- `cd .../scarwalk && cargo run --release` (18.8 s): every data line identical to `run.csv`; `cargo test` passes (roundtrip 2e4 elements, <1e-12). `work/patch.diff` is empty and the tree is clean — the instrument lives wholly in the run folder with a verified path dependency on the shipped `crates/shipm

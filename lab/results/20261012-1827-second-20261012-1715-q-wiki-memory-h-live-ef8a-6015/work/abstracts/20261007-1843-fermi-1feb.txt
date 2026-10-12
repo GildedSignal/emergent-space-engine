@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: at 10⁹ bodies the budget breaks compute-first, H_live second, bandwidth third; affordable hot fraction ≈5–10 % (rtf 1, designed ~3 µs kick) and reabsorption ≥37–292 MB/game-s. Reproduced bit-for-bit from a fresh build at a838a28: both bench digests, all memo counters (663 rebinds, 0.0 exact hit rate, 93.2 % quantized), every budget.py number (532 'cores', 108 game-s fill, 292 MB/game-s); kick timings within box noise (35.2→39.1 µs). Adversarial runs (members 0/1000, seed 7, rtf 1) keep the belt rate at 0.015–0.025 per body per game-s, but show ~half of the hot rate is per-frame battle slices (O(60/game-s), not O(N)): the hot row overstates 10⁹ compute ~2×; the belt-like row stands and the ranking survives. Gain: first measured anchors for board items 3 and H_live; adoption is zero-code. Gold needs scar bits measured (B18), not assumed 16–64.
+
+**Reasons.**
+
+1. *Reproduction.* Clean tree (only untracked `lab/results/`), empty `patch.diff` — pure measurement of main. Fresh `cargo build --release -p xtask` (40 s), then the dossie

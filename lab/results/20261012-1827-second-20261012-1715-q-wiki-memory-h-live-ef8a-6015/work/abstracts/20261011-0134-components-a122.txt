@@ -1,0 +1,6 @@
+Grade: lead
+
+**Abstract.** Claim: the scar layer charges ~130 bits/body for common-mode secular drift, so programs-plus-scars cannot hold 10⁹ belts and the drift must be derived. Reproduction is bit-exact (all 29 evidence lines; encounter rates 0.00198/0.0203 per body-orbit exact; physics anchor correct), but the decisive number is an accounting artifact: `bytes()` read after `compact()` counts the cleared-but-unshrunk forwarding map (1,032,192 B = 126.0 of the 130.06 bits/body; it appears with zero drift). After the crate's own `tidy()` — the pattern its own examples use — costs are +1.0 (band-common, 1 h), +4.0 (2.2-s cliff), +21.2 bits/body (differential, 1000 h), below the author's own kill threshold (P3: ≥60 at ≤1000 h). The kill does not stand; nothing to adopt.
+
+**Reasons.**
+1. **Reproduced, exactly.** `cargo run --release` in `work/hlive`: every number in evidence.md matches bit for bit (17.9 s, <60 MB). Encounters `steady 1000 1e-4|1e-3 1 10 50`: hits 99/1015, rates 0.00198/0.0203 exact. Anchor verified: `crates/universe/src/scenario.rs:120` (Giant, 5.2 AU, mass_lo

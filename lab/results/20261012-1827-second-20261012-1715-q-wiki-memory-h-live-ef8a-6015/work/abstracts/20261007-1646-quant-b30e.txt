@@ -1,0 +1,7 @@
+Grade: gold
+
+First measurement of H_live on the real engine (restricted problem, live bindings, real kicks): a kicked belt scars every member within half an orbit and never reabsorbs (512 orbits, 3.8 M kicks); the live layer holds ~130 bits/member ≈ 16 B at law widths — 11× under the 176 B binding, N-independent (+5% at n=512), μ-linear (−8 bits at μ/256) — so 10⁹ belt bodies ≈ 16 GB and do not fit 8 GB; shipmem's strict-majority Form P `infer` dies at the first kicked window (verified against program.rs). Reproduced bit-for-bit; both empty stored CSVs regenerate exactly. Adoptable now: shipmem's deletion decision, B18's memory metric, the write budget. Correction: resonant growth is transient (139.5 → 135.4 bits/member, orbit 32 → 64) — adopt the bounded 16 B floor, not "+0.3 bits/orbit".
+
+## Reasons
+
+**Reproduction.** Clean tree; `work/patch.diff` is empty (no engine edits; `git status` clean apart from untracked `lab/results/`). Every saved CSV row regenerates exactly (belt15w 64 8, belt21 64 8, hill 32 4, belt15 512 4: identical numbers and kick counts). `dat

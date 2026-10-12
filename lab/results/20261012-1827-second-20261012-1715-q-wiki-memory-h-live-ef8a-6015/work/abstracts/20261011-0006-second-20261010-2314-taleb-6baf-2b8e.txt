@@ -1,0 +1,8 @@
+Grade: gold
+
+**Abstract.** Second-author run on silver `20261010-2314-taleb-6baf`; the checker's named experiment is done and the claim restated. Everything reproduced bit-exact, including the 21-minute 10⁶-ship run: bits16 key churn is a 1/q synodic sweep (med 459 cells/ship/P_p, ×16.0 per 4 bits); a phase-locked program (per-ship T_syn from a, one analytic line) absorbs it to 0.55 key updates/P_p, linear to 1200 P_p; misaligned windows see 11–23/P_p with a real spatial tail (p99/med 4.1, top-1% 100% inner-band); mature k-NN entropy 20.7 bits/ship at 100 P_p (≈22.1 at 1200); bandwidth 861–3.6×10⁴ events/wall-s at 10⁹ ships — the original's 2–4×10⁸ was 3–5 orders high. Adoption is design-inputs only (cadence 0.55/P_p, per-band slack, 21–22 bits/ship for B18b). One undisclosed plug-in formula bug found; conclusions survive.
+
+**Reasons.**
+
+1. **Reproduction (bit-exact, every pillar).**
+   - The 9-run shipped record: my fresh `hlive.py --tag belt_s1` is bit-identical to the author's (only wall/machine differ), and `metrics-regen.json` differs from the original r

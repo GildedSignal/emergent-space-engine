@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: at 10⁹ bodies no wall is set by N — only strong-tide population × kick cadence × fold cost binds, a ~50,000× compute swing between today's corner (3.5×10³× over) and the designed one (15× under). Reproduced: `budget.py 3.2 19.6` regenerates `budget-out.txt` byte-identically; benches reproduce with identical checksums on this loaded box (fold 6.3 vs 3.2 ns, rand16 28.7 vs 19.6 ns); every headline re-derives independently from the cited constants (175 cores, 0.34-core S1c, 435 B/h H_live, 34.7 GB/h scars, swing 51,656×). H_live — an unmeasured handoff risk — is now bounded, and folding is shown load-bearing (scars breach 4 GiB at just 10⁶ unaveraged strong-tide ships). Adoption cost zero: keep q-cadence; measure the plane's cycle-memo hit rate. Missed: the frontier ignores resident-tube memory, capping strong-tide at 2.5×10⁸.
+
+**Reasons.**
+
+*Reproduction.* `patch.diff` is empty (no repo edits to apply). `cc -O2 -o bench bench.c && ./bench all` in a scratch copy: fold 6.3 ns, read 14.3 GB/s, rand16 28.7 ns — all within 2× of th

@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract for the integrator.** Claim: at 10⁹ bodies, live distinctions come from SOI rebinds (plus contacts and the player), not mutual encounters — inert at ship mass for ~10²⁶ yr, m_crit ≈ 3×10¹⁸ kg — so the 8 GB budget is birth programs plus repopulation. All code reproduces bit-for-bit (139 s and 75 s, < 2 GB). P2, P4, P5 and the dense-scan control hold. But the headline is 460× high: "36.5 rebinds/s" should read 0.0365/s (a 10³ arithmetic slip), and that rate is itself 2.2× low — crosscheck's planet Newton is sign-flipped; my brute force gives 1.30×10⁻² transits/body/orbit (stable to 200 orbits), inside the pre-registered range. True H_live ≈ 20 bits/s, with the player co-dominant. The decomposition is adoptable; the numbers are not.
+
+## Reproduction
+
+Clean copy of both scripts to `/tmp` (the stored JSONs untouched); `patch.diff` is 0 B — the scripts are the whole work.
+
+- `h_live_fermi.py` (139 s): every stored number regenerated exactly — P1 median 5.00×10⁻⁶, P2 1.020/2.58, first-version P3 54.4 (the superseded bug), P4 and P

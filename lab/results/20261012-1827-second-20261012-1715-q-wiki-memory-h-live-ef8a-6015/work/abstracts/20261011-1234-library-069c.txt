@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: a stationarity verdict — blocked-difference F over 32 segments with a τ-guard — gives B12's rebuild the statistic that separates a slow leak from bounded error, the case that killed the recurrence ratio. Reproduced from the shipped script in 1.3 s, deterministic: slow leak 95/100 compounding (F med 10.4), diffusive 97/100, false alarms 0/200, never a wrong verdict (misses are void); fresh seeds and my own leak exponents (RMS growth t^0.08–t^0.25) hold at 77–92 % caught. F is amplitude-free (catches diffusion at 3 % of quantum scale), fixing the old B12's magnitude-ranking flaw. Cost: one O(T), integer-able statistic. Not gold: the recorded "99 bounded, 1 void" does not regenerate (script edited after the run), and a bounded phase-tied oscillation at period ≈ T/2 false-alarms 100/100 — the plausible shape of the plane's real energy residual.
+
+## Reasons
+
+**Reproduction (clean copy, `/tmp`, 1.3 s, bit-reproducible).** All headline numbers regenerate from the shipped `b12probe.py`: T=4096 bounded 100/100 (F med 1.015, p90 1.27 — dossier

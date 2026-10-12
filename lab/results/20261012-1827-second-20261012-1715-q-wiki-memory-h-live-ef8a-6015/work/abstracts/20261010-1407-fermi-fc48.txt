@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: stirring a belt is a step, not a rate problem — one Jovian pass scars every body, and the wall is the level. Reproduced bit-identically (seeds 20261010 and 777): f_kicked 0.845 at 1 orbit → 1.000 by 2; 0.85 kicks/body/orbit; scars 126.4 bits/body at 1 orbit; growth 2.95 bits/doubling; `floor.py` 75.5/76.1 bits/body; rate ~33 KB/s at rtf 100. But the 10⁹ headline is wrong: the floor's own −log₂N term gives **61.6–62.2 bits/body = 7.7–7.8 GB at 10⁹ — under** the 8 GB budget, not 9.4–9.5 GB over. Scars (126 bits = 15.8 GB) remain ~2× over, so the requantization/t_p-anchoring conclusion survives; "no exact encoding fits 8 GB" does not.
+
+## Reproduction
+
+- `python3 hlive.py` (82 s): every row matches the shipped `hlive.json` exactly (126.4 / 128.6 / 149.3 fields; σ_e 0.0066→0.0189; 874 kicks/body; slope 2.949). `python3 floor.py` on both the shipped and my regenerated `final_state.npz`: 75.5 birth / 76.1 final, matching the dossier.
+- Spec provenance verified: quanta = law.md line 12 (E,L 32-bit, ϖ 32-bit, t_p 64-bit); scars = l

@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Fermi run on H_live (HANDOFF: "not measured yet"): at 10⁹ bodies the 8 GB promise is gated by the individualized fraction (f_ind ≤ 0.375 at 6 GB, 16 B tubes), not the encounter stream — ship/rock mutual encounters carry ~0 bits (δv/v ≤ 10⁻¹⁰ even after my ×57 conjunction-speed correction). Reproduced bit-identically in 0.4 s; P2–P4 held. But the headline creation rate (3.8×10² bits/s) assumes every body is a 10²² kg embryo: the stated 10³-embryos-among-10⁹ scenario gives 3.8×10⁻⁴ bits/s; the inclination systematic is ~540× at tight ρ, not ×2–3; the r8 claim check floated N (frozen at 10⁴). The priority call — build nothing for encounter memory, instrument f_ind — survives every attack. Gold needs the queued b-h-live engine measurement.
+
+## Reproduction
+
+- `python3 hlive.py` → bit-identical to `hlive-out.json`, 0.35 s, seeded. `work/patch.diff` is empty (no tree edits). `predictions.md` mtime precedes the script and its output by ~5 min; log order consistent.
+- Independent recomputation from `belt.rs`/r8-v2 rung so

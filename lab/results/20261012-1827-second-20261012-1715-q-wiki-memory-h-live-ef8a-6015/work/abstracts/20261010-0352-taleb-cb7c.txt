@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: retained state is bounded by the light-cone lag window, and the unbudgeted view gather — not the budget-clipped engine — is the term that breaks the 16.7 ms frame under load. Reproduced bit-for-bit: every determinism digest (`f8b75cec…` repeat/threads, `d38063b3…` seed 2, `3db02d3d…` mem768, `f0684ddb…` rtf1000) across sessions and machine loads; RSS saturation (last-third drift +0/+4 kB at 3,000–30,000 game-s, zero major faults); gather share 0.58→0.60 of frame time. Not reproduced quiet: gather max 6.7 ms and 0 hitches/hr at 428 bodies (author: 23.25 ms, 1920/hr at load 3.9–5.0) — the cliff is contention-amplified. Gain: closes HANDOFF's "H_live not measured yet". Cost: a work order (budgeted gather skin, ≥8-seed load rungs), no code.
+
+**Reasons.**
+
+1. *Reproduction (clean tree, patch empty as claimed — no code edits).* `cargo build` current; `python3 analyze.py` regenerates `data/summary.txt` exactly. Fresh runs: determinism controls both sides reproduce the author's digests digit for digit (repeat = threads8 = `f8b75cec�

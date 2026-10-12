@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: at 10⁹ bodies the walls rank kick-path per-event cost (18–69 µs measured, ~0.2 µs at a memo hit), then the view at 10⁹-in-view (25–37 ms/frame), then memory as un-reabsorbed scars (~1 per body per session); the board's "190 cores" is one scene (re-derived 178), and belt compute is 0.026 cores. Everything reproduces: plane benches bit-identical (digest, event counts; ship 59–71 µs, fleet 18–25 µs), galaxy scene deterministic (13,963 compiles, hit 0.987, 0.43 s build; view medians within 5%), budget.py output identical. Gain: a measured re-ranking of board #3 plus a scar ceiling for b-h-live. Cost to adopt: none (queue re-ordering). Not gold: two held-out predictions failed, and the 150–350× memo lever rests on an unmeasured 0.2 µs.
+
+**Reasons.**
+
+*Reproduction (clean tree, HEAD a838a284, empty patch.diff, binary at `$CARGO_TARGET_DIR/release/xtask`).*
+- `universe --bench --rtf 100 --seconds 15 --unpaced`: digest `01c9be77…` identical, stats identical (kicks 941, slices 3734), events/s 367.5, bytes/body 5,044, ship 71.0 µs, fle

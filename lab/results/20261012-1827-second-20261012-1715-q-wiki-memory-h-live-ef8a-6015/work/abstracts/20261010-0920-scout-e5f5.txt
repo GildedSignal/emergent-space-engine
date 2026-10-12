@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: quantum-gated cell accumulation holds gravity-as-news at O(1) work and memory per body at fixed density (analytic 40→48 deliveries/body/time over N=10³→10⁶, ratio 2.1×10⁴ at 10⁶; frontier residue O(√N) total), while every plain per-cell accumulator variant leaks (three distinct compounding bookkeeping errors) — the delivery partition must be the FMM interaction-shell structure. Reproduced: the shipped script regenerates `out/results.json` bit-identically (141 s, 1.68 GB); v2 exactly (delete the disclosed v3 block); v1 approximately. My attacks confirm: heavy-tail strengths match the closed form within 0.7%; clustering multiplies the constant 1.74×, not the exponent; v2's leak compounds through t=12 (228q); v3's stays a persistent 7.5×10⁴q. Cost to adopt: a design constraint (scalar accumulators banned), not working code.
+
+**Reasons.**
+
+1. **Reproduction.** Clean tree, `python3 news_scale.py` in a scratch copy (the script writes `out/` relative to CWD): `out/results.json` regenerates **bit-identical** to the author's (diff of nor

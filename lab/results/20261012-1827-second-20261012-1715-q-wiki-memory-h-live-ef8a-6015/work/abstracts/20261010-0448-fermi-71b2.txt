@@ -1,0 +1,6 @@
+Grade: silver
+
+**Abstract.** Claim: at 10⁹ bodies the M1's wall is regime-dependent, not a body count. Reproduced exactly: encounters `verify a`/`d` (identical counts, 1.7e-4–5e-3 and 7e-2 enc/body/orbit, 1.4k–17.8k evals/enc), `--bench` 1203 B/body, `--kick-bench` 0% exact and 0% quantized reuse (seeds 1 and 7), `budget.py` byte-identical. The a* table, memory span, f_scar threshold (1.1%/10 h) and the 190→~3-cores claim check all re-derive correctly. **But the hot-belt half of the headline is wrong by ~10³**: at 1 AU, rtf 100, encounter work is 0.036 core-s/real-s (not ~36) and distinctions 5 MB/real-h (not ~5 GB) — always 1.2% of the kick cost at any radius. Adopt the budget table, a*, f_scar; reject the "hot belts break both remaining terms" sentence.
+
+**Reasons.**
+- Reproduction (clean tree, no patch needed — patch.diff is empty): `verify a`/`d` match the stored JSONL exactly (35/68/189/248/1744/463/1042 encounters, same evals); `--bench` gives bytes_per_body 1203 exactly, view gather 72.5%; `--kick-bench` 44.6 µs median, 23 samples, exact and quantized hit rates 0

@@ -1,0 +1,19 @@
+# Check — 20261007-1334-quant-7334
+
+Grade: silver
+
+**Abstract.** Claim: a Jupiter-forced belt scars 100% of bodies within one orbit under the shipped
+scar semantics; the scar field is 22–38 bits/body (2.8–4.8 GB at 10⁹) yet creates ~0 bits per
+game-second, so program+scars survives only if the program embeds the compiled secular field.
+Reproduced bit-for-bit from `belt_hlive.py` (38 s: 23.07/33.82/38.43 bits at t=1 yr; flat to
+100 yr; tail +9.5%). Adversarial: solver noise is 160–1050× below the scar spread (dt 1/32 vs
+1/128); a 2:1-resonance belt leaks +0.66 bits/decade; the kNN floor is robust to adding birth
+phase (−1.8 bits). Gain: kills the naive belt store (180× over the 0.126-bit born floor). Cost
+to adopt: a design constraint on b-h-live/b-belt-wire, nothing to build. Silver because P2 and
+P3 were falsified (honestly reported) and the constructive half — the compiled secular field
+actually re-deriving the belt — is asserted, not measured.
+
+## Reasons
+
+1. **Reproduction: exact.** The shipped command regenerates every dossier number (deterministic
+   seed): ma

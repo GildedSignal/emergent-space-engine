@@ -1,0 +1,7 @@
+Grade: gold
+
+**Abstract.** The silver's named experiment is done and holds: on a concentrated belt (1,096 and 10,096 ships, crossers carrying the handoff path), each doll binding injects 25.6–27.2 bits (3.2–3.4 B varint, zlib 9.0/9.0/12.5%), a handoff re-reference ~50 bits, reabsorption 1.04–1.08; the per-body binding rate 7.55×10⁻⁷/game-s is N-flat (10³→10⁴: 2.5%), so 10⁹ bodies create 2.6 KB/s (2.3×10⁷ under 60 GB/s; all-inner 79 MB/s = 756× under). Everything reproduced bit-identically (decisive .bin; plane stream vs the silver run's committed bin; fermi_belt table); my fresh-seed, M=0 and 5-orbit probes agree, and the ~1.5 GB memory kill reproduces (1.49 GB). H_live stays non-binding; the wall is the stored cache (1,682 B/body, run-span-dependent retention). Adoption: read-only. One flaw: the prune-floor mechanism sentence is wrong.
+
+**Reasons.**
+
+1. **Reproduction: exact, across runs.** `git apply work/patch.diff` clean; build 6.9 s. `hlive 3600 1 400`: every number matches (1,582 kicks, 615 bindings, 323/292, medians 21/20, ratio 1.09, 13.00 B/event) and t

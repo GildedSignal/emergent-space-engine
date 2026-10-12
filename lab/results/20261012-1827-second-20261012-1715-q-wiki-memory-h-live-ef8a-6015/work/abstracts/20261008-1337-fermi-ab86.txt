@@ -1,0 +1,6 @@
+Grade: silver
+
+**Abstract.** At 10⁹ belt bodies H_live is a design choice, not a runaway: distinctions grow as ½·log₂(play decades) and the binding term is the catalogue quantum (decorrelated ceiling 28–38 b/b vs 36 b/b budget). Everything reproduces (`fermi_budget.py`, 3.4 s): slope 0.499, ceilings 33.9/37.9/28.0, ≤1.04 MB/s writes, 47/190-core cross-check; predictions pre-registered (13:41 < run 13:43 < dossier 13:45). Two defects flip no conclusion: the rate constant is 2.5× high (my geometric MC and exact integral give Γ = 2nGm/q·(1−r_H²/b*²) = 1.36e-2 vs the author's 4nGm/q = 3.43e-2 per body/orbit; their circular P1 MC could not catch it), and "2.7 b/b after 1 orbit" is S at 500 orbits (checkpoint aliasing; true S(1 orbit) is sub-quantum). Adopt the structure, not the constants.
+
+**Reasons.**
+1. **Reproduction:** exact on every headline number (rate, slope, S values, ceilings, macro rate, write bandwidth, 47 cores at rtf 5×10⁴ / 190 at 2×10⁵ by the same formula, 3.6 cores at rtf 10⁶ with H0190's 32 kicks). Script is numpy-only, 3.4 s, deterministic seed

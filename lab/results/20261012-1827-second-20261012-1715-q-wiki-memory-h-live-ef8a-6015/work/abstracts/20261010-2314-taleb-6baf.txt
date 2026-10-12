@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Reproduced exactly: all 9 runs regenerate, metrics-check.json matches metrics.json on 44/45 keys (only wall time differs); controls pass both sides. Solid and new: a frozen birth-key program dies in ≤ 0.4 P_p at ≥ 8 bits/axis, and smoothed key churn runs at ~10–14 events/ship/P_p with linear growth confirmed to 1200 P_p — HANDOFF's "H_live: not measured yet" is now measured. But two headline numbers are instrument artifacts: the "mature entropy floor ≈ 12.7 bits/ship" equals an iid null draw with no dynamics (12.673) — the plug-in+Miller–Madow estimator saturates at log2(N)+0.72; and "uniform, not fat-tailed" is counter clipping: at 4× sampling headroom p99/median = 2.58. Bandwidth is off by ~10⁴ (2×10⁴ events/wall-s at RTF 100, not 2–4×10⁸). The design consequence (re-absorb ≥ 10 events/ship/P_p; deadband; program carries the kick law) survives.
+
+**Reasons.**
+
+1. **Reproduction (exact).** Ran all nine runs from the dossier's commands (the five not listed — belt_s2, belt_hot_s3, ctl_s2, ring21_s2, ringoff_s2 — have arg-equiv

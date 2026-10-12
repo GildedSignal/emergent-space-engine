@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: on the strong branch (compactness > 2⁻¹⁸) the cycle memo — not the bodies (0.126 bits each) — is what busts 8 GB at 10⁹, because the 12-bit key cannot be coarsened without failing the period gate. Reproduced bit-for-bit: 488,004 entries for 2²⁰ cold-belt bodies (~0.44 GB), 945,208 hot (~2.0 GB), ladder 610,178/697,679, weak/strong crossover 61,721→5,587→863, entry cost 0.9–2.1 KB, weak branch ~1,025 entries. My probes confirm the waste band (a p 65536–98304 belt pays the same 488,004 entries at q≈1.5×10⁻⁵) and widen the scope (factor-16 belt: 880,373 codes at 2²⁰). But Part A (the floor table) does not regenerate from the shipped patch; fresh 2048-key sampling still confirms both axes near-tight. Adoption: compactness-quantized ShapeKey in orbit.rs; the safe quantum is unmeasured.
+
+**Reasons.**
+
+1. **Reproduction.** `git apply work/patch.diff`, then `cargo test -p emergent-space --release --test memo_floor -- --nocapture` (32 s, exit 0). Parts B and C reproduce exactly: 61,704/208,018/488,004 entries (A), 945,208 (C)

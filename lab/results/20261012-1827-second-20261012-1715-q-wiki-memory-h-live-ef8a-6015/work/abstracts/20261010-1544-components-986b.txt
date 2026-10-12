@@ -1,0 +1,7 @@
+Grade: gold
+
+**Abstract (for the integrator).** Claim: H_live, the rate at which a program-born belt accumulates distinguishing bits (Kepler tubes + hyperbolic conjunction kicks), is measured for the first time and grows diffusively (σ ∝ t^0.55; the phase column ∝ t^1.6), so the storage quantum q, not the encounter rate, is the memory lever. Reproduced: all 8 stored JSONLs **bit-for-bit** from the dossier's commands (191 s); μ=0 control exactly 0.0 bits; kernel exactness is a trig identity (verified: 2·atan(μ/bv²) ≡ 2·asin(1/e), 2e-16). My adversarial cases: fresh seeds ±20%; a 2:1 resonant two-ring stays sub-diffusive (exponent 0.37); N-flatness holds to N=1024; high-e and μ=3e-4 behave. Gain: kills the per-body-store premise (7×–1000× off the floor); adoption is one rule. One erratum: the entropy constant is 4.13, not 2.07 (+4 bits); "fits at q ≤ 1e-5" survives.
+
+## Reproduction
+
+- Applied nothing (patch.diff is empty; the probe is self-contained in the run folder). Copied the tree, built, ran the dossier's exact command set: **all eight `out-s-*.jsonl` regenera

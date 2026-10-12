@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract (for the integrator).** Claim: a Jupiter-kicked belt's per-body scar stock is ~67 bits after one orbit at 1 km / 2⁻²⁴ quanta (diffusive +~1 bit/orbit) — ~2× the 34.4 bits/body live budget (4 GiB/10⁹, ABP) — and shared programs barely absorb it. All four commands reproduce bit-exact; both controls hold (perturber-off = exactly 0; shuffle −0.2%). Checker attacks: ×16 coarser quanta still breaches (50.6 bits); cross-element delta-coding gains nothing (R²≈10⁻⁴); a disturbing-function basis (Fourier in λ−λ_J × Cheb in e, ω; 154 cols) absorbs 50–87% of per-kick energy yet still leaves 61.2 bits. Breach robust; gain 10⁰–10¹ (reabsorption cadence, scar quanta). Adopt into b-h-live: judge residual word cost, never marginal entropy.
+
+## Reasons
+
+1. **Reproduction: exact.** `h_live2.py ctl/cold/res` and `h_live4.py` in a clean scratch tree give bit-identical medians to the stored JSONs (51.440877…, 51.223209…, absorbed 0.100908…, shuffle −0.005678…, scar words 66.63→77.33). `patch.diff` is empty; scripts self-contained; no

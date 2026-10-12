@@ -1,0 +1,5 @@
+Grade: gold
+
+**Abstract.** Claim: the first run's silver record defect is fixed — H_live saturates on a record that regenerates from shipped code (fleet 17.8–22.3 bits/member, ships 45.5–49.9 bits/ship, second-half slopes ≈ 0, flat *despite* 1113–20647 kicks firing to the last game-second), the 10⁹-in-8 GB plan is store-bound (370–1140× over the 6–13 B floor), and the catalogue is a churn leak (one never-released entry per ship created; saturates at 428 when spawning stops). Reproduced in a clean tree: every command, every structural integer (catalogue endpoints 28→76/418/428/1537, spawns, peaks, contacts 77/20702, all bits to 2 decimals); kick totals drift 0.2–0.9 % under my load (vs the claimed ≤ 0.4 % — the run's own range doctrine covers it). The first checker's named gold experiment is done: record corrected, extractor shipped, both refinements (4000 s, 1600 members) re-run in the run's own rows; provenance verified (published rows byte-identical to the first run's branch). Adoptable now: decisions (1)–(3) plus range-quoting and the clamp fix.
+
+**Reaso

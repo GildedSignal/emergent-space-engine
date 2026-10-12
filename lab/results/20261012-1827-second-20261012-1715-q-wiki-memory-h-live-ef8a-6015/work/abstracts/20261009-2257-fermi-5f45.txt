@@ -1,0 +1,7 @@
+Grade: lead
+
+**Abstract.** The dossier's central quantity, encounters/body/orbit, is wrong by ~10³×: the Monte Carlo returns the hit expectation of ONE sampled neighbour and never multiplies by the neighbour count (surface density). At fixed density the estimator falls as 1/N (4.8×10⁻⁵ → 7.9×10⁻⁷ for N=1500→150,000), while the density-integrated rate is N-independent: ~0.13/orbit (ρ=10⁻⁴) and ~1.25 (ρ=10⁻³), confirmed by an independent direct orbit simulation (0.68/orbit, two seeds) using no Öpik algebra. The "memory safe for 275–1,600 h" claim dies (64 bits/body crossed in ~2–18 orbits without reabsorption); the reported "narrow-belt uplift mechanism" is the artifact. What survives: bits/outcome ≈ 48–50, the re-setup compute wall (understated: full stated constants give 3–63/71–1,500 machines, not 2–4/47–104), and "orbit period in game-seconds is the gating unmeasured constant".
+
+## Reasons
+
+**1. Reproduction.** `python3 opik_belt.py` reproduces every number in `opik_out.json` bit for bit (only wall `seconds` 3.4→3.7). File order is clean:

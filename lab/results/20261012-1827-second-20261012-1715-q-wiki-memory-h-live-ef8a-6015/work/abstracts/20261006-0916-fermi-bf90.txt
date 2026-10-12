@@ -1,0 +1,7 @@
+Grade: silver
+
+At 10⁹ bodies the M1 is not kick-bound: the board's "190 cores" pairs B9's ceiling cadence (512/orbit) with the cheap 2 µs event cost and matches today's honest bill (172–549 cores) only by cancellation; at the designed point (0.3/orbit) kicks cost 0.11 core and the binding terms are encounter-candidate setup (0.44–2.7 cores), the O(N) view gather (dead ×200 even at 1 ns/item) and scar reabsorption (≥ 0.9 MB/s or 3.2 GB/h). Reproduced bit-for-bit: bench digests `9c549447…`/`b0ff4c23…`, medians 39/101 µs on my rerun vs 35/91 (author's), exact-memo hit 0.000 on three seeds, refused 0; floor 26 ns (author 24); `model.py` output byte-identical. Adoption: no code; it re-ranks the queue. Not gold: the "kicks are banked" row omits the non-averageable (resonant) fraction — at 5% non-averageable and today's 29 µs, kicks alone are ~10 cores.
+
+## Reproduction (clean tree, patch.diff empty)
+
+- `xtask universe --kick-bench --seconds 10 --rtf 100`: digests and replay digests **bit-identical**; samples 682/137/545, memo block identical (663 rebinds, exact hit 0.0, q

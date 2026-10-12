@@ -1,0 +1,6 @@
+Grade: silver
+
+**Abstract.** Claim: a 10⁹-body cold belt creates zero live distinctions for ~2.6×10⁷ yr sim, so H_live never decides whether 10⁹ fit in 8 GB; distinctions come from chaos (6.57 bits/body at τ_L=300 in 10⁴ yr), not peer encounters, and marginal re-fit removes ~none. Reproduced bit-for-bit (`python3 hlive.py`, 110.5 s vs 118 s; 96/96 cfg-metric pairs exact); D matches the closed-form Chandrasekhar integral exactly (3.0127e-22); my independent turn-on probe (dense ×100, 2×10⁴ orbits) lands 1.751% scarred vs 1.745% predicted by the corrected first-crossing law. Gain: re-ranks the 10⁹ budget — memory idle for cold belts; kick cadence and certificate maintenance bind at galaxy rtfs. Adopt: none (measurement + risk-register move). Not gold: the hot case rests on an assumed τ_L, and the stated big-perturber safety boundary is ~67× generous.
+
+**Reasons.**
+1. *Reproduction.* Clean tree copy, no patch (work/patch.diff is empty; no repo code touched). `python3 hlive.py` regenerates `out/hlive.json` exactly — all 32 rows, all metrics, including the post-run-a

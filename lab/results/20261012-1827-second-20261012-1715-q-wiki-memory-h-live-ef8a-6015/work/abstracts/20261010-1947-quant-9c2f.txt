@@ -1,0 +1,6 @@
+Grade: silver
+
+**Abstract.** Claim: a return-matched memory curve (sample pairs matched in semimajor axis at growing encounter separations, median |Δe| extrapolated to zero a-separation) separates bounded from compounding error with no reference. Reproduced bit-for-bit: streams md5-identical to a fresh dump; every table number (nulls ≤ 0.079, leaks ≥ 0.251, floor+δ* 0.337 LEAK); both gate groundings (0.353/1.27e-5, 0.416/9.8e-7). My attacks: leak re-draws under 9 fresh seeds all LEAK (0.40–0.63); coupled e+a walks still caught (0.36–0.40); no OU false positive; pure-a memory invisible (disclosed). Gain: deletes B12's machine-dependent reference; unblocks the B12-v2 freeze. Cost: ~1 s Rust per law on samples the judge already reads, plus one agreed state-error floor f. One step from gold: wire it into B12-v2 and run it on the plane law's streams.
+
+**Reasons.**
+- Reproduction: clean tree, `git apply work/patch.diff`, fresh build (41.6 s), both `behave` gates reprinted the dossier's numbers exactly; the ignored dump test regenerated all three `.f64` streams md5-identical to th

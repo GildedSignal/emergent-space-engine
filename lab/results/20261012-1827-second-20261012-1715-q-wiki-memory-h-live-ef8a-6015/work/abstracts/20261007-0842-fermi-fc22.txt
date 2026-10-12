@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: at 10⁹ bodies, dynamics-side distinctions (H_live) write ≤ ~1 MB per 300-h game, so the term that breaks 10⁹-in-8 GB is the store's uniform tube precision (16 GB raw, 2.35 TB as measured), not event history — memory work goes to quantum tiering, and the scar/event-ledger track dies. Reproduced: `ledger.py` bit-identical (0.61 s), plane anchor `bytes/body 2349` exact (N = 28). First measurement of the handoff's unmeasured risk; belt-mass constraint 6×10¹⁶ kg/body; far-certificate churn ≈ 2.7/s at 10⁹. Not gold: P1/P2 failed by 13–18 orders (honestly disclosed), and the model carries an uncalibrated 32× gap to r8 v2's measured belt. Cost to adopt: none (a kill plus two gate numbers).
+
+## Reproduction
+
+- `python3 lab/results/20261007-0842-fermi-fc22/ledger.py`, copied to /tmp with only the output path redirected (the checker must not touch the author's folder): output **bit-identical** to `ledger-out.json`, 0.61 s.
+- `cargo run --release -p emergent-universe --example plane -- 100` → `bytes/body 2349`, 28 bodies — exact match wi

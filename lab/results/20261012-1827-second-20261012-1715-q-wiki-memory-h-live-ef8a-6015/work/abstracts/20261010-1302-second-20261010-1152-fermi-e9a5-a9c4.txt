@@ -1,0 +1,7 @@
+Grade: gold
+
+**Abstract.** Second-author completion of silver e9a5: all four named defects closed on a record that regenerates. Reproduced bit-for-bit (`python3 probe.py`, 16 s, 618 MB; rerun byte-identical, env diff only). Cold belt at belt density: 40.29 raw / 41.74 corrected bits → 5.2/7.8 GB at 2/3 dof — does not break 8 GB; the 47.9 figure indeed belongs to Σ×2500 ∧ cold (confirmed in the parent's stored metrics). Estimator bias measured +1.453 ± 0.015 bits, all absolutes corrected. Time fixed (16 384 orbits = 534.5 real-years at 100×). Churn 375.4/orbit = 6 076 events/frame. My attacks: correction robust to non-Gaussian tails (≤ 0.4 bits against a 1.4-bit margin); kernel stable ±0.4 % to grid/cutoff; 100× colder σ₀ leaves H unchanged. Adoptable now: the q_v octave rule and churn budget quote corrected digits.
+
+**Reasons.**
+
+*Reproduction.* Clean tree, empty `work/patch.diff` (no repo edits). `python3 probe.py` in a scratch copy: every headline digit regenerates exactly (belt 35.7138 corrected; cold_belt 40.286/41.739 → 5.217/7.826 GB; cold_dense 47.906/49.359

@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: a belt's live distinction rate is set by mass and velocity quantum, not body count (R ≈ corr·1.7·M·σ_e/(W⟨v⟩q_v)), so 10⁹ bodies fit 8 GB iff q_v ≳ 1e-6·v_K, while the 2⁻³² tube key breaks the budget ~2.4×10³. Reproduced bit-identically (`python3 probe_hlive.py hlive_raw.json`, 10 s; `python3 post_hlive.py`, 0.3 s; patch.diff empty — nothing to apply); both controls pass. My attacks: Λ(1e-4) has ×4.5 seed spread at the shipped 900 pairs/bin (top bin holds 46% of the rate; converges to 0.34–0.39 at 4000); a hi-res instrument raises all rates 22–33% (shipped Λ biased low); the closed form is 3× low at W=0.1; corr=2.2 is the max of 4 seeds (0.84–2.2). Core verdicts survive as orders of magnitude; adopt via per-belt MC, not the formula.
+
+**Reasons.**
+- **Reproduction.** Clean tree, scripts from `work/` only: raw JSON, post text and post JSON all bit-identical (seeded, deterministic). Controls reproduced exactly: blunt sampler 0.0003 vs truth 0.0030 (10× undercount), widest bins P=0.
+- **Pre-registration.** predictions.

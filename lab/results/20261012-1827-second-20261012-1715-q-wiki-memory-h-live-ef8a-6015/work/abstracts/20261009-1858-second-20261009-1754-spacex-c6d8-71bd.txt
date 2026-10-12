@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: law.md's H_live ledger ("+62 bits per kick, −60 per reabsorption") is dead as specified — the plane's record costs 185.6 bits/binding (64 bits gone in 18–36 game-s), and even a quiescent belt leaves 173.5–175.1 bits/binding at a radius-independent cadence of 3.55–3.58e-5 bindings/ship/s (the ext clock's doll-wide grid), saturating 64 bits in 2.85 game-h. Reproduced bit-for-bit in a clean tree: all four plane digests (83d96bed…, e56d1c12…, e3eb62e6…, 6ddafe96…) and the decisive belt JSON (13.2 s wall); `--kick-bench` regression fixed. My adversarial belts hold: 0.15–0.25 AU (inside Cinder) 3.547e-5, 8–12 AU 3.31e-5, debt 174.9–177.8, cause dv ≡ 0 everywhere. Gain: kills a wrong spec line and supplies b-h-live's two missing decision variables; cost: xtask-only patch, liftable into `universe --bench`. Silver, not gold: the pre-decisions smoke already contained both headline numbers (debt 175.1, cadence 3.56e-5) and the disclosure names only the cadence.
+
+**Reasons.**
+
+1. **Reproduction (all from shipped code, patch applied by

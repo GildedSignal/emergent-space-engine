@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract (for the integrator).** Claim: the plane's frame is readout-bound below ~500 bodies (68–89% of measured frame time) and budget-bound above (26% overflow at 480 members, ~100% at 4,000); its memory is orders off the 16-byte tube; and the dashboard's `bytes_per_body` under-reports by charging Passage tubes a flat 4 kB. Reproduced: readout shares and **exact digests** at 4 and 48 members; peak RSS 845.9 MB at 4,000 members (author 845.4); per-handout RSS 15–23 kB early rising to ~400 kB at handout #3,600; the flat-4096 in `body.rs:174` and the 400-member clamp verified in code. Adopt in one step: fix `bytes_of`, lift the clamp. The memory-scaling headline is contradicted in part by the author's own unreported 40,000-member run.
+
+## What reproduced (clean tree, `git apply work/patch.diff`, release build, seed 1)
+
+- **Digests exact:** m4 S=8 `6af71966…` and m48 S=8 `29f440d6…` match the saved JSONs byte for byte; all engine counts identical (kicks 633, opens 75, items 915/79/2200). (An earlier one-nibble "mismatch" at m48 was my own transcription typo —

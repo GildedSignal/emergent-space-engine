@@ -1,0 +1,6 @@
+Grade: gold
+
+**Abstract (for the integrator).** The named experiment on silver `20261007-0621-scout-6e10` is done and decisive: real Jupiter-flyby kicks on B18b's belt scene, integrated under the plane's own force model (`force.rs`: differential pull + origin fall, verified in source; velocity-Verlet, 700 steps/orbit), are chaotic for every bounded event program — the original's 12-term basis recaptures 0.0 of 41.45 bits at q24, synodic/Fourier programs ≤4.8%, and 100% of bodies are scarred every 10-orbit epoch (min |Δz| = 43× the quantum; 4.2–7.6 conjunctions each), not 1%. The belt store prices at 4.8–5.2 GB/10⁹ (q24) or 3.0 GB (q16): the original's "≤0.6 GB + 37 MB/epoch" line is ≈8× optimistic. All commands reproduce bit-identically. Adopt: rewrite the allocator's belt line (q16 scar quantum or derive-on-read is a requirement, not an option); type B18b's churn cases pole.
+
+**Reasons.**
+- **Reproduction (exact).** In a clean scratch tree: `control` → 0.0012346454216172692, `integrate` (59 s, max |Δz| 0.4605), `measure` (28 s) and `diag_bands` all bit-identical 

@@ -1,0 +1,126 @@
+import glob, os, re
+ONTOPIC = """20261006-0030-taleb-d3fe
+20261006-0437-fermi-c26d
+20261006-1029-components-21c3
+20261006-1101-scout-183b
+20261006-1354-dynamics-04d7
+20261007-0128-b-h-live-1599
+20261007-0528-fermi-aab3
+20261007-0621-scout-6e10
+20261007-0621-second-20261007-0528-fermi-aab3-5e74
+20261007-0711-spacex-cae7
+20261007-0800-fermi-a91f
+20261007-0842-fermi-fc22
+20261007-0933-scout-23c8
+20261007-1032-taleb-ab03
+20261007-1106-fermi-443e
+20261007-1234-second-20261007-1106-fermi-443e-d57e
+20261007-1334-quant-7334
+20261007-1334-spacex-8707
+20261007-1420-second-20261007-1334-spacex-8707-e2a9
+20261007-1646-quant-b30e
+20261007-1918-second-20261007-1843-fermi-1feb-ece4
+20261007-2002-spacex-3b99
+20261007-2057-library-26cb
+20261007-2057-spacex-de6a
+20261007-2155-fermi-ef1d
+20261007-2155-second-20261007-2057-spacex-de6a-3ce2
+20261007-2344-spacex-dbf9
+20261008-0041-fermi-8072
+20261008-0041-second-20261007-2344-spacex-dbf9-57e8
+20261008-0148-components-df14
+20261008-0458-system-5a2c
+20261008-0615-second-20261008-0458-system-5a2c-af34
+20261008-0945-spacex-5964
+20261008-1150-components-4b84
+20261008-1252-spacex-d4e7
+20261008-1337-fermi-ab86
+20261008-1757-system-72ef
+20261008-2031-fermi-9d49
+20261008-2113-components-a9d7
+20261008-2206-spacex-d031
+20261009-1210-fermi-e7a9
+20261009-1259-fermi-c7eb
+20261009-1345-components-0e4d
+20261009-1345-scout-9c12
+20261009-1504-fermi-9d3b
+20261009-1556-fermi-8fb8
+20261009-1649-components-6b55
+20261009-1754-spacex-c6d8
+20261009-0401-spacex-4a62
+20261009-2212-fermi-a11b
+20261009-2348-components-42e6
+20261010-0306-quant-4985
+20261010-0306-spacex-acb2
+20261010-0352-spacex-2dca
+20261010-0448-fermi-71b2
+20261010-0814-dynamics-740f
+20261010-1152-fermi-e9a5
+20261010-1407-fermi-fc48
+20261010-1544-components-986b
+20261010-1544-second-20261010-1407-fermi-fc48-0820
+20261010-1947-spacex-19bc
+20261010-2314-taleb-6baf
+20261011-0006-fermi-2a9d
+20261011-0134-second-20261011-0006-fermi-2a9d-fdfc
+20261011-0134-components-a122
+20261011-0224-spacex-e46b
+20261011-0324-fermi-c211
+20261011-0517-second-20261011-0324-fermi-c211-b3e7
+20261011-0517-spacex-d0ea
+20261011-1332-dynamics-8269
+20261011-1600-fermi-13ad
+20261011-1917-fermi-b946
+20261011-2132-spacex-91a0
+20261011-2235-second-20261011-2132-spacex-91a0-e4cc
+20261012-0311-scout-6759
+20261012-0358-scout-cdac
+20261012-0616-components-0e9c
+20261012-0616-scout-d0a9
+20261012-0616-second-20261012-0358-scout-cdac-07b4
+20261012-1340-scout-d80d
+20261012-1524-fermi-4b55
+20261012-1621-second-20261012-1524-fermi-4b55-09a1""".split()
+
+OFFTOPIC = {
+ "encounters": """20261006-0346-taleb-09b5
+20261008-0148-dynamics-0a3d
+20261009-2257-fermi-5f45""".split(),
+ "frame-cost": """20261006-0916-fermi-bf90
+20261006-1354-fermi-c9fa
+20261007-0933-components-2aaa
+20261007-1334-spacex-8707-X""".split(),
+ "kick-jet": """20261007-1843-second-20261007-1801-fermi-bb60-152f""".split(),
+ "gravity-news": """20261007-1918-scout-3da3
+20261010-0814-system-fbc6
+20261010-0920-scout-e5f5""".split(),
+ "view": """20261010-0352-taleb-cb7c""".split(),
+ "b12-statistic": """20261008-1719-dynamics-c13b
+20261010-1947-quant-9c2f
+20261011-0006-dynamics-a2a5
+20261011-1234-library-069c""".split(),
+ "belt": """20261006-2240-b-belt-wire-a733
+20261004-1525-components-98bc""".split(),
+}
+OFFTOPIC["frame-cost"].remove("20261007-1334-spacex-8707-X")  # placeholder guard
+OFFTOPIC["frame-cost"] += """20261007-1801-fermi-bb60
+20261008-1058-fermi-8e6f
+20261009-0208-fermi-fe6b
+20261009-1754-quant-f2f7
+20261009-2120-taleb-8ea0
+20261010-0100-fermi-c11c
+20261011-0614-fermi-593e""".split()
+
+import pathlib
+here = pathlib.Path(__file__).parent
+allruns = [l.strip() for l in open(here / "runs.txt") if l.strip()]
+assigned = set(ONTOPIC) | {r for v in OFFTOPIC.values() for r in v}
+missing_check = {"20261008-0743-fermi-fbf8","20261009-0819-taleb-1a92","20261008-2349-fermi-c55d",
+                 "20261010-2220-quant-7ce9","20261007-2246-second-20261007-2155-fermi-ef1d-fa84"}
+unassigned = [r for r in allruns if r not in assigned and r not in missing_check]
+dup = assigned & missing_check
+print("total runs:", len(allruns))
+print("ontopic:", len(ONTOPIC), " offtopic:", sum(len(v) for v in OFFTOPIC.values()), " missing:", len(missing_check))
+print("UNASSIGNED:", unassigned)
+print("DUP with missing:", dup)
+print("overlap on/off:", set(ONTOPIC) & {r for v in OFFTOPIC.values() for r in v})

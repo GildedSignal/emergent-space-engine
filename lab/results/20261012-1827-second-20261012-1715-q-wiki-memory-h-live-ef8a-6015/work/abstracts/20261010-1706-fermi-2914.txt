@@ -1,0 +1,6 @@
+Grade: silver
+
+**Abstract.** Claim: H_live per body is bounded by the current binding (~20 bits/kick, ~15–25 bits/body), programs are revisited 82–97%, and at 10⁹ the breakers are kick compute for short-period populations (~10⁵ ships at rtf 100) and the raw 33 B residual (8× over 4 GiB). Reproduced bit-identically (digests equal; entropies, revisit 0.825/0.968, memo 0.0/0.989, programs 311/260 exact); held across my seeds 3/13/21 and a 1.5× horizon. But my below-bucket probe shows the "~20 bits" is a quantization floor: residual low-8 bits are ~uniform (7.8/8 conditional), giving ≥ 49.7 bits/kick measured — the "entropy-coded ~3 B fits" line inverts (≥ 6 B/body → ≥ 6 GB). Revisit, compute cap and term ordering survive; the bits/body number does not. Adoption: a measurement, near-zero cost; the H_live size stays open.
+
+**Reasons.**
+1. **Reproduction: exact.** Clean tree + `work/patch.diff`; both dossier commands rerun. All deterministic quantities identical (kicks 34,544/15,997, Δk 4.93/4.57, residual buckets 3.63–3.86/3.35–3.58, revisit 0.825/0.968, memo exac

@@ -1,0 +1,6 @@
+Grade: silver
+
+**Abstract.** Claim: on the plane's own scene a live ship creates 0.0013–0.0015 bits/s at the 24-bit memo-key level but 0.076–0.136 bits/s at exact Q48, so at 10⁹ ships the exact stream is ~40–61 GB/h (5–7.6× the machine) vs ~0.65 GB/h quantized. Reproduced from `work/patch.diff` in a clean worktree: digests, all integer counts and store samples bit-for-bit; only ULP noise (≤1e-15 rel) in two float entropy sums (HashMap iteration order) and kick µs within shared-runner noise (75.7 vs 72.3 median). My adversarial cases — 6.4× density (423 ships: 0.0018/0.124), fresh seed 42 (0.0014/0.119), rtf 60 — stay in-bracket. First measurement of HANDOFF's unmeasured H_live risk. Adoption: merge the ~200-line `--hlive` mode; report both levels in b-h-live. Not gold: the b-h-live brief's bar (instrument in `--bench` + the page, tests, gates both ways) is unmet, and reabsorption is modeled (72 µs/rebind sweep), not measured.
+
+**Reasons.**
+1. **Reproduction.** Patch applies to HEAD (a838a28) cleanly and equals the author's `hlive-final.rs` byte-for-byte. Build 49.

@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: the reband loop converges (3.5–4.5 bits/body at occupancy ~100, k=10–50; H_live 0.03–0.35 bits/body/orbit by cadence) while static programs saturate, so -0458 holds and the 10⁹ belt bills ≤ 0.6 GB. Everything reproduces: -0458's record bit for bit; the decisive table identical from my own physics dump and an independently rebuilt shipped-codec pricer; `infer` None in both orders with my affine control recovered exactly; zero and dtest2 tables exact. But the 10⁹ bound fails: at matched occupancy the fine width is jitter-floored — my occupancy-matched probe gives f_scar 0.81–0.87 (nearly k-independent) against the claimed 0.235 "conservative upper bound", and 73.5% of bodies change their mean 12-bit key per checkpoint. With cells() one bit coarser than `Scalar::quantize`, crate-width billing is ~1 GB, not ≤ 0.6 GB.
+
+**Reasons.**
+
+1. **Reproduction: complete.** (a) `H.run(6143, 2400.0, 775)` regenerates `orig/main775.log` bit for bit; the author's `main775-re.log` is identical to it. (b) `patch.diff` empty; the repo tree is clean (`c

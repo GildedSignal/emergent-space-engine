@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: 2,896 exact restricted 3-body integrations (DOP853 rtol 1e-12, μ=0 drift 4.3e-13) pin the belt-scale per-conjunction kick at δv/v ≈ (4/3)μ/b² (measured slope −2.00), so the parent's embryo/planet H_live term depends only on total embedded perturber mass M_pert, not the f_emb×μ split; at every physical M_pert ≤ 1e-3 M_star the worst-split creation (14.8 bits/s) and tube rates (fill ≥ 58 game-yr) sit ≥ 1.7 orders below the 8 GB floor. Cold rerun reproduced all integrations bit-identically (316 s); only the rate-curve Monte Carlo moved (~1%). Gain: the parent's 6-order f_emb dispute and both wrong impulse laws (author 5× low, checker 10× high) are settled; the b-h-live gate variable is corrected to M_pert. Adoption cost: zero (analysis only).
+
+**Reasons.**
+
+1. **Reproduction (clean tree, caches deleted).** All 2,896 encounters, the three μ=0 controls, gate2-out.json and the r8 table regenerate bit-identically from `python3 enc3.py && python3 gate2.py` (316 s, well under 1 GB). enc3-out.json differs only in the rate-curve MC (~1%, �

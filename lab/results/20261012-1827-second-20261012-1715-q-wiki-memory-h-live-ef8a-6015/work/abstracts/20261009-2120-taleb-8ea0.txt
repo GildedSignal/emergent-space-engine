@@ -1,0 +1,7 @@
+Grade: silver
+
+Reproduced bit-for-bit: both key cells' digests (`8ab0b55c40140b35` rtf 10⁴/30 s = 3×10⁵ game-s in 6.9 s; `03e62d9683a30e1c` rtf 10³/55 s/members 400, worst frame 14.1 ms < 16.7, 620 overflow frames, settle 0.82 s) and the control (`41343a14…`, third invocation; seed 2 differs). Engine carries no growing compute liability to 3.5 days: wall 1.6→6.6 s over 10⁴× load, tails bounded, memory slope (13.6→26 MB) reproduced cross-seed, tracking game time not events. Adversarial: the bench **aborts** (no report, nondeterministic tick) past ~3–4×10⁵ game-s — the promised rtf-10⁵ rung "didn't fit in the minute" but fails in 4.3 s; the paced run the dossier omits works and matches the unpaced digest. Gain: unblinds horizon probes; cost: a bench script fix, not engine work.
+
+## Reasons
+
+**Reproduction (clean tree, author's own binary at `/home/glmlab/lab-target-1/release/xtask`, patch empty).** Every number in the dossier's tables matches `ladder.jsonl`. My reruns: R1 = 6.9 s / RSS 26.5 MB / player dead / digest identical; R2 = 26.6 s / worst 14.1 ms / hitch

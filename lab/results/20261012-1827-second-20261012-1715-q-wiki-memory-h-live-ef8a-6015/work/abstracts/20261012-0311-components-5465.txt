@@ -1,0 +1,7 @@
+Grade: silver
+
+The plane's individual store holds 5,186 B/body (600 frames, 71 bodies; reproduced exactly, both dossier paths), 324× the law's 16-B Tube. Compiled trajectories are regenerable from the exact key — I recompiled all 50 Cycle entries (the census checked 8), bit-identically, ~32 µs each. Zero exact sharing holds at 200 members (208/208 distinct) and under Dense order. Steady state confirmed (bpb falls 5,697→4,786 over 300→1,800 frames). Verdict: the doc's "12–16 B individual" premise is wrong as written; the honest packet is ~240 B (Residual 64 + carry 16 verified in code), so individuals stay ≤ ~3×10⁷ — the price constant b-h-live needs. Not gold: the 26× deletion is asserted, not flown.
+
+## Reasons
+
+**Reproduction (exact).** `cargo test --release -p emergent-universe --test store_census -- --nocapture` (10.5 s cold, 0.24 s run) matches `census.txt` line for line: 5,186 B/body, 54/54 distinct entries, 663 cycles / 663 distinct exact keys (hit 0.000) / 45 quantized cells (hit 0.932), sizes BodyRec=448 Knot=88 Segment=192. `--example plane -- 100` → `by

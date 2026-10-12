@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: the belt's exact encounter stream cannot avalanche (λ saturates, feedback sub-linear) and is not memoryless (trains, F(10 orb) up to 2.25). Reproduced bitwise from `work/reproduce.sh` + `patch.diff`: cold 16682 events (truth counters identical), fleet 15303, ceiling 95842 (λ_max 0.4792), cascade slopes −0.37…0.00 all match; runs 8–56 s, ≤26 MB. Adversarial: third cold seed F(10)=2.18 (seeds 1.58–2.25, above Poisson p99 each time); N=1000 doubles λ_max to 0.956 (λ_max ∝ N); ρ=1e-2 shifts F to 1.6–1.9. Gain: measured allocator input at zero cost; the cascade gate and fleet-burst sizing are deleted. Adoption cost: none in code, but the "two constants" are per belt-family (N, ρ), not universal.
+
+**Reasons.**
+
+1. **Reproduction is exact.** Clean tree + `git apply work/patch.diff`; `belt_se3e-3` and `belt_fleet` byte-identical including `# stats steps/fine/evals` counters (87535551/1219314/87794042; 72452669/1152103/72804936); `se15e-2` event count 95842 exact. λ sweep, F table, fleet F(1 orb)=0.13, one frozen pair at 850 events, war

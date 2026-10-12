@@ -1,0 +1,5 @@
+Grade: silver
+
+**Abstract.** Claim: the memo key lattice, the Binet cone's U-axis and the co-orbital phase rank are three orders on the tube's own 16 bytes, so the encounter tier needs no per-body element state (deleting `Body` 80 B + `Sorted` 16 B ≈ 96 GB at 10⁹). Reproduced bit-identically in a clean tree (all three modes): zero misses on 9/9 belt runs and my 12 held-out crate-scene runs, cone inflation 1.26–2.65×, formation tier exactly 4n−10 (2048× vs quadratic at 2¹⁴), co-orbital worst rank 2. Negative control confirms the zero-miss instrument is live (broken conservatism: 170–1212 misses). My adversarial probe on the crate's `narrow-adversarial` spec shows the phase-rank bound is density-scaled, not constant (worst rank 23→45 as n doubles; rank-4 coverage 46%→16%): the linear tier is regime-bound (formations), so the straggler rule is load-bearing. Adoption cost: re-point the candidate tier at the tube store; strong-field U(L) unmeasured.
+
+**Reproduction.** `git apply work/patch.diff`, then `cargo run --release -p emergent-encounters --example tube_lattice --

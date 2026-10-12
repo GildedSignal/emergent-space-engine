@@ -1,0 +1,6 @@
+Grade: silver
+
+**Abstract.** Claim: at 10⁹ bodies the steady-state budget binds on the kick→pair-certificate cascade alone (0.077 of 4 cores at rtf 100 averaged+skinned; 8.8 unaveraged+skin; 110–442 unaveraged unskinned, re-deriving the board's "190 cores"), and per-body event keys (12 GB) do not fit, so keys must be program-level (94 MB). All three commands reproduce: `cost` example compile 3.6 µs / state 3.0 / cartesian 0.3 / from_state 12.2 (claimed 3.4/2.8/0.3/11.1); reabsorb 6.97 and 6.34 ×10⁶ bodies/s/core (claimed 5.7–7.0); `budget.py` regenerates the table bit-identically and every cited constant checks in the frozen evidence. Gain: ranks the board's three levers and prunes per-body keying from the design space; adoption is one doc row plus one structural rule. Not gold: no new 10× lever, and one missed bracket at the working point.
+
+**Reasons.**
+- **Reproduction (all commands, clean tree, patch.diff empty).** `cargo run --release -p emergent-universe --example cost`: compile 3.6 µs, state 3.0, cartesian 0.3, from_state 12.2 — within 10% of the dossier. `pytho

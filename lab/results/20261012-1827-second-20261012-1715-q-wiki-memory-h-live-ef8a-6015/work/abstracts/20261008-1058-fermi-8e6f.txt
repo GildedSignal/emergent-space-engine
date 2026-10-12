@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: at 10⁹ bodies, distinction-driven memory (H_live) does not bind for ship/rock masses; the binders are the board's own kick cost (175 vs ~190 cores re-derived, 8%) and dense-belt encounter work (15 cores at 1 µs/event). Reproduced bit-for-bit: probe A counts (32/169/584 encounters, pairs N²·⁰⁰) and ledger.py byte-identical. Checker adversarial cases all held: the skipped pre-registered N=8000 point gives 2474 encounters vs ~2550 predicted from the author's fit (4-point α = 1.06); N=4000 alt-seed +9%; hot belt σ_e=3e-2 exponent 0.90. All ledger arithmetic re-derived by hand: correct. Adopt cost: none (design-side bound; deletes scar-reabsorption design below rock mass). Silver for one failed registered anchor prediction with an incorrect rescue (see reasons).
+
+**Reasons.**
+
+1. **Reproduction.** Clean tree, empty `work/patch.diff`. `python3 ledger.py` → byte-identical to `ledger-out.txt`. Probe rebuilt from scratch: all counts exactly identical (only wall-times differ). Build forensics: `/tmp/fermi-target` created 11:04:30, after `predict
