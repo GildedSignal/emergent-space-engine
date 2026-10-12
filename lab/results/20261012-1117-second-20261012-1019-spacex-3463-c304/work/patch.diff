@@ -1,0 +1,452 @@
+diff --git a/crates/engine/src/scenes.rs b/crates/engine/src/scenes.rs
+index 2c20fcb1..6f597a8a 100644
+--- a/crates/engine/src/scenes.rs
++++ b/crates/engine/src/scenes.rs
+@@ -10,6 +10,42 @@ use emergent_lattice::worlds::Rng;
+ /// otherwise velocities scatter by ±q/(4·`speed_div`) per axis. Law
+ /// `es-lattice-relativistic-v1`. Bodies are numbered from 1 in fleet order; the scene's
+ /// extent is returned with it (the largest |x| component at genesis, in lattice units).
++
++/// PROBE (c304): `battle` with the fleets' initial separation given (in lattice units): a wide gap
++/// puts every member outside the frame's extent rule at genesis, so the first advance hands them
++/// all out and the frame dissolves — the construction-spill regime at any member count, with no
++/// encounters ever. Same bodies, same velocities, only the offset differs.
++pub fn battle_gap(n: u64, q: i64, seed: u64, speed_div: i64, formation: bool, gap: i64) -> (World, i64) {
++    assert!(n >= 4, "a battle needs two fleets");
++    let mut rng = Rng(seed ^ (n << 16) ^ 0x00BA_771E);
++    let spacing = 5 * q;
++    let mut bodies: Vec<Body> = Vec::with_capacity(n as usize);
++    let mut extent = 0i64;
++    let sizes = [n / 2, n - n / 2];
++    let per_row: Vec<i64> = sizes.iter().map(|&s| (s as f64).sqrt().ceil() as i64).collect();
++    let offset = rng.range(-per_row[0] * spacing / 2, per_row[0] * spacing / 2);
++    for (f, &size) in sizes.iter().enumerate() {
++        let side = per_row[f] * spacing;
++        let v = q / speed_div;
++        let (x0, vx, y_off) = if f == 0 { (-(gap / 2) - side, v, 0) } else { (gap / 2, -v, offset) };
++        let scatter = if formation { 0 } else { (v / 4).max(1) };
++        let y0 = y_off - side / 2;
++        for j in 0..size as i64 {
++            let radius = rng.range(q / 2, q);
++            let x = [x0 + (j % per_row[f]) * spacing + rng.range(-q / 2, q / 2), y0 + (j / per_row[f]) * spacing + rng.range(-q / 2, q / 2)];
++            let k = [vx + rng.range(-scatter, scatter), rng.range(-scatter, scatter)];
++            let response = match rng.next() % 10 {
++                0 => Response::Pass,
++                1 => Response::Stop,
++                _ => Response::Bounce,
++            };
++            extent = extent.max(x[0].abs()).max(x[1].abs());
++            bodies.push(Body::new(bodies.len() as u64 + 1, x, k, rng.range(1, 4), radius, response));
++        }
++    }
++    let w = World::new(q, None, bodies).expect("battle within the law's ranges").with_law(Law::RelativisticV1).expect("subluminal");
++    (w, extent)
++}
+ pub fn battle(n: u64, q: i64, seed: u64, speed_div: i64, formation: bool) -> (World, i64) {
+     assert!(n >= 4, "a battle needs two fleets");
+     let mut rng = Rng(seed ^ (n << 16) ^ 0x00BA_771E);
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf44946..59ae24fd 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -63,8 +63,16 @@ impl Trajectory {
+             Self::Passage(p) => p.at_radius(r),
+         }
+     }
++    /// PROBE (c304): the trajectory's structural bytes as compiled (shape table, and a passage's tail).
++    pub fn bytes(&self) -> usize {
++        match self {
++            Self::Cycle(c) => c.shape_bytes() + std::mem::size_of::<Orbit>(),
++            Self::Passage(p) => p.bytes(),
++        }
++    }
+ }
+ 
++
+ /// Additional event storage, charged separately from a tube. Each component can require
+ /// 65 bits: the difference of two i64 readouts. It is not falsely called a one-ulp bound.
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd3..c3bd0558 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -470,6 +470,11 @@ impl Orbit {
+     pub fn shape(&self) -> &OrbitShape {
+         &self.shape
+     }
++    /// PROBE (c304): the shape table's structural bytes (knots and crossings).
++    pub fn shape_bytes(&self) -> usize {
++        let s = &*self.shape;
++        s.knots.len() * std::mem::size_of::<Knot>() + s.crossings.len() * std::mem::size_of::<usize>()
++    }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
+         if key.null {
+             return Err(Error::NotPeriodic);
+@@ -979,6 +984,15 @@ impl Passage {
+         }
+         Ok(passage)
+     }
++
++    /// PROBE (c304): the tail's panel count, for the memory account.
++    pub fn tail_len(&self) -> usize {
++        self.tail.len()
++    }
++    /// PROBE (c304): structural bytes as compiled — the shape table plus the tail panels.
++    pub fn bytes(&self) -> usize {
++        self.orbit.shape_bytes() + self.tail.len() * std::mem::size_of::<(Scalar, Integral)>() + std::mem::size_of::<Self>()
++    }
+     pub fn key(&self) -> OrbitKey {
+         self.orbit.key
+     }
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800ea..d471bba3 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -108,8 +108,11 @@ pub trait BodyStore: Send + Sync {
+     }
+     /// Bytes held per body (the arrays, the catalogue share of its compiled trajectory, history).
+     fn bytes_of(&self, i: usize) -> usize;
++    /// PROBE (c304): the honest whole-store memory account (per tube kind, plans, history).
++    fn account(&self) -> Account;
++    /// PROBE (c304): the account as if `prune` ran with each body's cutoff.
++    fn account_after_prune(&self, before: &[Tick]) -> Account;
+ }
+-
+ #[derive(Default)]
+ pub struct PlainBodies {
+     recs: Vec<BodyRec>,
+@@ -175,8 +178,64 @@ impl BodyStore for PlainBodies {
+         };
+         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
++    fn account(&self) -> Account {
++        let mut a = Account { bodies: self.recs.len(), rec_bytes: self.recs.len() * size_of::<BodyRec>(), ..Account::default() };
++        for (r, h) in self.recs.iter().zip(self.history.iter()) {
++            match &r.b.entry.trajectory {
++                emergent_space::binding::Trajectory::Cycle(_) => {
++                    a.cycle_bodies += 1;
++                    a.cycle_bytes += r.b.entry.trajectory.bytes();
++                }
++                emergent_space::binding::Trajectory::Passage(p) => {
++                    a.passage_bodies += 1;
++                    a.passage_bytes += p.bytes();
++                    a.tail_panels += p.tail_len();
++                }
++            }
++            a.plan_bytes += r.plan.capacity() * size_of::<Item>();
++            // A retired segment holds its own compiled trajectory behind the `Arc<Entry>`.
++            for s in h.iter() {
++                a.history_bytes += size_of::<Segment>() + s.b.entry.trajectory.bytes() + size_of::<crate::bind::Entry>();
++            }
++        }
++        a
++    }
++    fn account_after_prune(&self, before: &[Tick]) -> Account {
++        let mut a = self.account();
++        let mut kept = 0usize;
++        for (i, h) in self.history.iter().enumerate() {
++            let b = before.get(i).copied().unwrap_or(Tick::MIN);
++            let mut seen_kept = false;
++            for s in h.iter().rev() {
++                if !seen_kept || s.until >= b {
++                    kept += size_of::<Segment>() + s.b.entry.trajectory.bytes() + size_of::<crate::bind::Entry>();
++                    seen_kept = true;
++                }
++            }
++        }
++        a.history_bytes = kept;
++        a
++    }
+ }
+ 
++
++/// PROBE (c304): the store's honest memory account — what `bytes_of` would say if the Passage's
++/// real shape table and tail were charged instead of a flat 4096. Plans and history are the
++/// per-body arrays; records are the `BodyRec`s themselves.
++#[derive(Default, Clone, Copy, Debug)]
++pub struct Account {
++    pub bodies: usize,
++    pub cycle_bodies: usize,
++    pub cycle_bytes: usize,
++    pub passage_bodies: usize,
++    pub passage_bytes: usize,
++    pub tail_panels: usize,
++    pub plan_bytes: usize,
++    pub history_bytes: usize,
++    pub rec_bytes: usize,
++}
++
++
+ /// The body's tube record (the law's 16 bytes).
+ pub fn tube_bytes() -> usize {
+     size_of::<Tube>()
+diff --git a/crates/universe/src/count_alloc.rs b/crates/universe/src/count_alloc.rs
+new file mode 100644
+index 00000000..b9c10118
+--- /dev/null
++++ b/crates/universe/src/count_alloc.rs
+@@ -0,0 +1,36 @@
++//! PROBE (c304): a pass-through global allocator that counts. The binary (xtask) installs it;
++//! the memory probe reads `LIVE` (requested bytes currently handed out) against the RSS, which
++//! separates retained state from allocator-held pages: if `LIVE` grows with the RSS the growth
++//! is retained; if the RSS grows while `LIVE` stays flat it is transients and fragmentation.
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicU64, Ordering};
++
++/// Requested bytes currently allocated (not what the allocator holds in arenas).
++pub static LIVE: AtomicU64 = AtomicU64::new(0);
++/// Allocation calls since start.
++pub static TOTAL: AtomicU64 = AtomicU64::new(0);
++
++pub struct Counting<A: GlobalAlloc>(pub A);
++
++unsafe impl<A: GlobalAlloc> GlobalAlloc for Counting<A> {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        let p = self.0.alloc(l);
++        if !p.is_null() {
++            LIVE.fetch_add(l.size() as u64, Ordering::Relaxed);
++            TOTAL.fetch_add(1, Ordering::Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        LIVE.fetch_sub(l.size() as u64, Ordering::Relaxed);
++        self.0.dealloc(p, l)
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, new: usize) -> *mut u8 {
++        let q = self.0.realloc(p, l, new);
++        if !q.is_null() {
++            LIVE.fetch_add(new as u64, Ordering::Relaxed);
++            LIVE.fetch_sub(l.size() as u64, Ordering::Relaxed);
++        }
++        q
++    }
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index afd46ea9..b432fc03 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -11,6 +11,7 @@ pub mod lorentz;
+ pub mod num;
+ pub mod observe;
+ pub mod scenario;
++pub mod count_alloc;
+ pub mod step;
+ pub mod thrust;
+ pub mod universe;
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index c026d5f4..2f92e448 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -148,6 +148,14 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
+     plane_with(cfg, seed, order, threads, world)
+ }
+ 
++/// PROBE (c304): [`plane`] with the fleets' initial gap given (lattice units): a wide gap spills
++/// every member out of the frame's extent rule at the first advance (construction handouts, no
++/// encounters), so the members ladder can be crossed with a no-battle variant at any N.
++pub fn plane_far(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, gap: i64) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle_gap(members, crate::fleet::Q, seed, 1 << 15, false, gap);
++    plane_with(cfg, seed, order, threads, world)
++}
++
+ /// [`plane`] with the fleet's world given (lattice bodies in the frame's axes, `crates/engine`'s scenes or
+ /// a test's own): the same star, planets, moon, ships and player.
+ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World) -> Res<Plane> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc024..5876e614 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -718,6 +718,45 @@ impl Universe {
+             }
+         }
+         // The next member in line has the next id.
++        // PROBE (c304, second author): attribute resident growth to handouts, per regime. Every 25th
++        // handout: RSS, the counting allocator's live bytes, the honest tube account by kind, and the
++        // churn counters — so one record separates construction spill from battle churn and retained
++        // state from allocator-held pages.
++        {
++            use std::sync::atomic::{AtomicU64, Ordering};
++            static N: AtomicU64 = AtomicU64::new(0);
++            static LAST_RSS: AtomicU64 = AtomicU64::new(0);
++            static LAST_LIVE: AtomicU64 = AtomicU64::new(0);
++            let n = N.fetch_add(1, Ordering::Relaxed);
++            if n % 25 == 0 {
++                let rss = std::fs::read_to_string("/proc/self/statm").ok()
++                    .and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok()))
++                    .unwrap_or(0) * 4096 / 1024;
++                let live = crate::count_alloc::LIVE.load(Ordering::Relaxed) / 1024;
++                let a = self.bodies.account();
++                eprintln!(
++                    "PROBE n={n} tick={} rss_kb={rss} d_rss_kb={} live_kb={live} d_live_kb={} bodies={} cyc={} cyc_kb={} pas={} pas_kb={} tail={} plan_kb={} hist_kb={} kicks={} enc={} leavers={}",
++                    self.now,
++                    rss.saturating_sub(LAST_RSS.swap(rss, Ordering::Relaxed)),
++                    live.saturating_sub(LAST_LIVE.swap(live, Ordering::Relaxed)),
++                    a.bodies,
++                    a.cycle_bodies,
++                    a.cycle_bytes / 1024,
++                    a.passage_bodies,
++                    a.passage_bytes / 1024,
++                    a.tail_panels,
++                    a.plan_bytes / 1024,
++                    a.history_bytes / 1024,
++                    self.stats.kicks,
++                    self.stats.encounters,
++                    self.stats.leavers
++                );
++                if rss > 1_700_000 {
++                    eprintln!("PROBE GUARD rss_kb={rss} over the box cap; aborting (the record to here stands)");
++                    std::process::exit(70);
++                }
++            }
++        }
+         self.requeue(self.bodies.len());
+     }
+ 
+@@ -962,6 +1001,18 @@ impl Universe {
+         self.bodies.rec(i)
+     }
+ 
++    /// PROBE (c304): the account as if the every-64-frames prune had run at `now` (the settle
++    /// bypasses it, so the end-of-run record otherwise over-states steady state).
++    pub fn account_after_prune(&self) -> crate::body::Account {
++        let before: Vec<Tick> = (0..self.bodies.len())
++            .map(|i| {
++                let keep = 2 * self.light_distance(i) + (1 << 26);
++                self.now.saturating_sub(keep)
++            })
++            .collect();
++        self.bodies.account_after_prune(&before)
++    }
++
+     /// Forget history the view can no longer need: older than twice the body's light distance (plus a
+     /// margin) behind the present, and older than the oldest item any body still has to resolve.
+     pub fn prune(&mut self) {
+@@ -978,6 +1029,11 @@ impl Universe {
+         (0..self.bodies.len()).map(|i| self.bodies.bytes_of(i)).sum::<usize>() / n
+     }
+ 
++    /// PROBE (c304): the store's honest memory account (see `body::Account`).
++    pub fn account(&self) -> crate::body::Account {
++        self.bodies.account()
++    }
++
+     // ---- the digest -----------------------------------------------------------------------------
+ 
+     /// One digest of the whole universe: the dolls, every body's exact record, the fleets' battles and
+diff --git a/xtask/src/main.rs b/xtask/src/main.rs
+index 9ef42f99..92a21ed9 100644
+--- a/xtask/src/main.rs
++++ b/xtask/src/main.rs
+@@ -12,6 +12,12 @@ mod lattice;
+ mod measure;
+ mod regions;
+ mod universe;
++// PROBE (c304): the counting allocator the universe's memory probe reads (see
++// `emergent_universe::count_alloc`). Pass-through to the system allocator; adds two relaxed
++// atomics per allocation, so timings from instrumented runs are orders of magnitude only.
++#[global_allocator]
++static C304_ALLOC: emergent_universe::count_alloc::Counting<std::alloc::System> =
++    emergent_universe::count_alloc::Counting(std::alloc::System);
+ use serde_json::Value;
+ use std::{
+     fs,
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..94b19c36 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -21,6 +21,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
+     let (mut kicks, mut level) = (false, 0u8);
++    // PROBE (c304): the fleets' initial gap in lattice units (0: stock scene); members clamp lifted
++    // to 400,000 so scale questions are askable (spacex-3463).
++    let mut gap = 0i64;
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
+@@ -29,7 +32,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400_000),
++            "--gap" => gap = val("--gap")?.parse()?,
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
+@@ -47,7 +51,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     if !(rtf.is_finite() && (0.01..=1e7).contains(&rtf)) || !(1.0..=55.0).contains(&seconds) {
+         return Err("rtf outside [0.01, 1e7], or seconds outside [1, 55] (every test and probe is at most a minute)".into());
+     }
+-    let mut s = Session::new(seed, threads, members, rtf)?;
++    let mut s = Session::new_with_gap(seed, threads, members, rtf, gap)?;
+     s.engine_ms = engine_ms;
+     if kicks {
+         return kick_bench::run(s, seconds);
+@@ -129,9 +133,25 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
++    // PROBE (c304): the honest memory account and the trim test — how much of the resident set the
++    // allocator can return decides transients against retained state at the run's end.
++    let acc = s.p.u.account();
++    let live_kb = emergent_universe::count_alloc::LIVE.load(std::sync::atomic::Ordering::Relaxed) / 1024;
++    let accp = s.p.u.account_after_prune();
++    let total_allocs = emergent_universe::count_alloc::TOTAL.load(std::sync::atomic::Ordering::Relaxed);
++    let statm = || std::fs::read_to_string("/proc/self/statm").ok().and_then(|s| s.split_whitespace().nth(1).and_then(|p| p.parse::<u64>().ok())).unwrap_or(0) * 4096 / 1024;
++    let rss_before_trim = statm();
++    unsafe { libc::malloc_trim(0) };
++    let rss_after_trim = statm();
++    eprintln!("PROBE END live_kb={live_kb} allocs={total_allocs} rss_kb={rss_before_trim} after_trim_kb={rss_after_trim} bodies={} cyc={} cyc_kb={} pas={} pas_kb={} tail={}", acc.bodies, acc.cycle_bodies, acc.cycle_bytes / 1024, acc.passage_bodies, acc.passage_bytes / 1024, acc.tail_panels);
++    eprintln!("PROBE PRUNE hist_kb_now={} hist_kb_after_prune={} live_kb_now={}", acc.history_bytes / 1024, accp.history_bytes / 1024, live_kb);
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
++        "memory_c304": {"alloc_live_kb": live_kb, "alloc_calls": total_allocs, "rss_kb_before_trim": rss_before_trim, "rss_kb_after_trim": rss_after_trim,
++            "bodies": acc.bodies, "cycle_bodies": acc.cycle_bodies, "cycle_kb": acc.cycle_bytes / 1024, "passage_bodies": acc.passage_bodies, "passage_kb": acc.passage_bytes / 1024,
++            "hist_kb_after_prune": accp.history_bytes / 1024,
++            "tail_panels": acc.tail_panels, "plan_kb": acc.plan_bytes / 1024, "history_kb": acc.history_bytes / 1024, "rec_kb": acc.rec_bytes / 1024},
+         "frame_ms": {"p50": d.p50, "p95": d.p95, "p99": d.p99, "p99.9": d.p999},
+         "frame_cpu_ms": {"p50": d.cpu.0, "p99": d.cpu.1, "p99.9": d.cpu.2, "worst": d.cpu.3, "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed", "hitch_counts": d.cpu_hitch_counts},
+         "hitches_per_gameplay_hour": {"above_16.7ms": d.hitches_per_hour[0], "above_33ms": d.hitches_per_hour[1], "above_50ms": d.hitches_per_hour[2]},
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5d..47240145 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -32,20 +32,32 @@ pub struct Session {
+     names: Vec<String>,
+     threads: usize,
+     members: u64,
++    /// PROBE (c304): the fleets' initial gap (0: the stock scene).
++    gap: i64,
+     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+     cache: ViewCache,
+ }
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+-        let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
++        Self::new_with_gap(seed, threads, members, rtf, 0)
++    }
++
++    /// PROBE (c304): with the fleets' initial gap (lattice units) — the no-battle variant of the
++    /// scene (see `scenario::plane_far`); `0` is the stock scene.
++    pub fn new_with_gap(seed: u64, threads: usize, members: u64, rtf: f64, gap: i64) -> crate::Result<Self> {
++        let p = if gap > 0 {
++            emergent_universe::scenario::plane_far(Config::default(), seed, Order::Sparse, threads, members, gap).map_err(|e| format!("the plane: {e:?}"))?
++        } else {
++            plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?
++        };
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, gap, cache: ViewCache::default() })
+     }
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+     pub fn restarted(&self) -> crate::Result<Self> {
+-        let mut s = Self::new(self.seed, self.threads, self.members, self.rtf)?;
++        let mut s = Self::new_with_gap(self.seed, self.threads, self.members, self.rtf, self.gap)?;
+         s.engine_ms = self.engine_ms;
+         Ok(s)
+     }
