@@ -1,0 +1,4 @@
+Working...
+Run complete: dossier, predictions (written pre-run, outcomes appended), raw JSON, and the reproducible experiment live in `lab/results/20261012-1340-quant-e49d/`; `main`, the crates and the gates untouched.
+
+**Claim:** one kick's re-certification wake in the Binet-cone encounter tier is O(N) single-thread work (6.8 ms at N=10⁴, slope ≈1.0; a full 16.7 ms frame by N≈2.4×10⁴) that the queued slack skin cannot absorb for player burns (skippable 94.6%→0.25% from δa/a 10⁻⁹→10⁻³, with 5 exactness violations in the crate's slack rule at burn magnitude) — but 98% of the wake is deferrable by its true deadline (first post-kick synodic conjunction: none inside 10 orbits, ~48% inside 100; 99.95% of setups find no encounter within 10 orbits), leaving only the eager cone re-scan (1.3–2.1% of the wake) to land in the burn's frame, with that scan's own linear growth the remaining wall for the envelope tier.
