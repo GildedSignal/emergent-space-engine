@@ -1,0 +1,1841 @@
+diff --git a/crates/encounters/src/bin/checkadv.rs b/crates/encounters/src/bin/checkadv.rs
+new file mode 100644
+index 00000000..10b8404b
+--- /dev/null
++++ b/crates/encounters/src/bin/checkadv.rs
+@@ -0,0 +1,358 @@
++//! Checker adversarial probes for run 20261012-1438-taleb-15d6.
++//! Reuses the author's instrument (fleet/brute/rank) verbatim, then:
++//!   seeds    — is the 14.4% pile-up number seed-robust?
++//!   fixedocc — at fixed along-track spacing, does miss-fraction stay flat as nc grows
++//!              (occupation, not n, is the breaker)?
++//!   highe    — does the author's recommended TRUE-longitude key survive e ~ 3e-2?
++//!   built    — does the BUILT certificate (wt/cx-b-coorbital-cert, phase.rs, verbatim)
++//!              catch every brute-truth contact on the author's break scenes, and what k
++//!              does it pay? (its own tests never ran a tight formation)
++//!   builtsnap— the built certificate's window k and t=0 soundness at 1e5/1e6 scale.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::phase::Neighbours;
++use std::collections::HashMap;
++use std::f64::consts::TAU;
++
++const RHO: f64 = 1e-4;
++
++fn rayleigh(rng: &mut Rng, s: f64, cap: f64) -> f64 {
++    let u = rng.f64();
++    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
++}
++
++fn fleet(nc: usize, a_hw: f64, e_sig: f64, e_cap: f64, spacing_rho: f64, seed: u64) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let pom0 = TAU * rng.f64();
++    let lam0 = TAU * rng.f64();
++    let sig_lam = spacing_rho * RHO * nc as f64 / (2.0 * std::f64::consts::PI).sqrt();
++    (0..nc)
++        .map(|_| {
++            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
++            let e = rayleigh(&mut rng, e_sig, e_cap);
++            let pom = pom0 + (2.0 * rng.f64() - 1.0) * 0.1;
++            let lam = if spacing_rho <= 0.0 {
++                TAU * rng.f64()
++            } else {
++                let (u1, u2) = (rng.f64(), rng.f64());
++                let z = (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos();
++                lam0 + sig_lam * z
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++fn pos_of(b: &Body, t: f64) -> [f64; 2] {
++    let m = b.mean_anomaly(t);
++    let st = b.state_at_mean(m);
++    [st[0], st[1]]
++}
++
++fn lam_mean(b: &Body, t: f64) -> f64 {
++    (b.mean_anomaly(t) + b.pom).rem_euclid(TAU)
++}
++
++fn lam_true(b: &Body, t: f64) -> f64 {
++    let m = b.mean_anomaly(t);
++    let st = b.state_at_mean(m);
++    st[1].atan2(st[0]).rem_euclid(TAU)
++}
++
++fn rank_in(v: &[(f64, usize)], other: usize) -> u64 {
++    let g = v
++        .iter()
++        .find(|x| x.1 == other)
++        .map(|x| x.0)
++        .unwrap_or(f64::INFINITY);
++    v.iter().filter(|x| x.1 != other && x.0 < g).count() as u64 + 1
++}
++
++fn ang_gap(a: f64, b: f64) -> f64 {
++    let d = (a - b).abs().rem_euclid(TAU);
++    d.min(TAU - d)
++}
++
++struct Jam {
++    name: &'static str,
++    nc: usize,
++    a_hw: f64,
++    e_sig: f64,
++    e_cap: f64,
++    spacing_rho: f64,
++    seed: u64,
++    orbits: f64,
++    dt: f64,
++}
++
++fn record(
++    pos: &[[f64; 2]],
++    i: usize,
++    j: usize,
++    t: f64,
++    best: &mut HashMap<(u32, u32), (f64, f64)>,
++) {
++    let d = (pos[i][0] - pos[j][0]).hypot(pos[i][1] - pos[j][1]);
++    if d < RHO {
++        let e = best
++            .entry((i.min(j) as u32, i.max(j) as u32))
++            .or_insert((f64::INFINITY, t));
++        if d < e.0 {
++            *e = (d, t);
++        }
++    }
++}
++
++fn brute(f: &[Body], orbits: f64, dt: f64) -> HashMap<(u32, u32), (f64, f64)> {
++    let nc = f.len();
++    let steps = (orbits * TAU / dt) as usize;
++    let mut best: HashMap<(u32, u32), (f64, f64)> = HashMap::new();
++    let mut head: HashMap<(i64, i64), i64> = HashMap::new();
++    let mut nxt = vec![-1i64; nc];
++    let mut pos = vec![[0.0f64; 2]; nc];
++    let mut keys: Vec<(i64, i64)> = Vec::new();
++    for s in 0..steps {
++        let t = s as f64 * dt;
++        head.clear();
++        keys.clear();
++        for i in 0..nc {
++            pos[i] = pos_of(&f[i], t);
++            let key = (
++                (pos[i][0] / RHO).floor() as i64,
++                (pos[i][1] / RHO).floor() as i64,
++            );
++            match head.get(&key) {
++                Some(&h) => nxt[i] = h,
++                None => {
++                    nxt[i] = -1;
++                    keys.push(key);
++                }
++            }
++            head.insert(key, i as i64);
++        }
++        for key in keys.iter().copied() {
++            let h0 = head[&key];
++            let mut p = h0;
++            while p >= 0 {
++                let mut q = nxt[p as usize];
++                while q >= 0 {
++                    record(&pos, p as usize, q as usize, t, &mut best);
++                    q = nxt[q as usize];
++                }
++                p = nxt[p as usize];
++            }
++            for (dx, dy) in [(1, 0), (0, 1), (1, 1), (-1, 1)] {
++                let h2 = match head.get(&(key.0 + dx, key.1 + dy)) {
++                    Some(&h) => h,
++                    None => continue,
++                };
++                let mut p = h0;
++                while p >= 0 {
++                    let mut q = h2;
++                    while q >= 0 {
++                        record(&pos, p as usize, q as usize, t, &mut best);
++                        q = nxt[q as usize];
++                    }
++                    p = nxt[p as usize];
++                }
++            }
++        }
++    }
++    best
++}
++
++fn refine_pair(bi: &Body, bj: &Body, t0: f64, dt: f64) -> (f64, f64) {
++    let (mut dm, mut tm) = (f64::INFINITY, t0);
++    for k in -400..=400 {
++        let t = t0 + k as f64 * dt / 100.0;
++        let (pi, pj) = (pos_of(bi, t), pos_of(bj, t));
++        let d = (pi[0] - pj[0]).hypot(pi[1] - pj[1]);
++        if d < dm {
++            dm = d;
++            tm = t;
++        }
++    }
++    (dm, tm)
++}
++
++/// The author's run(): brute truth + distance/mean/true ranks at refined closest approach.
++fn run(jm: &Jam) {
++    let f = fleet(jm.nc, jm.a_hw, jm.e_sig, jm.e_cap, jm.spacing_rho, jm.seed);
++    let best = brute(&f, jm.orbits, jm.dt);
++    let mut keys: Vec<_> = best.keys().copied().collect();
++    keys.sort_unstable();
++    let (mut r4, mut rmax, mut tot) = (0u64, 0u64, 0u64);
++    let (mut m4, mut mmax) = (0u64, 0u64);
++    let (mut t4, mut tmax) = (0u64, 0u64);
++    for &(i, j) in &keys {
++        let (_, t) = refine_pair(&f[i as usize], &f[j as usize], best[&(i, j)].1, jm.dt);
++        tot += 1;
++        let (pi, pj) = (pos_of(&f[i as usize], t), pos_of(&f[j as usize], t));
++        let (li, lj) = (
++            lam_mean(&f[i as usize], t),
++            lam_mean(&f[j as usize], t),
++        );
++        let (ti_l, tj_l) = (
++            lam_true(&f[i as usize], t),
++            lam_true(&f[j as usize], t),
++        );
++        let (mut vi, mut vj, mut mi, mut mj, mut ti, mut tj) =
++            (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
++        for k in 0..jm.nc {
++            let p = pos_of(&f[k], t);
++            vi.push(((p[0] - pi[0]).hypot(p[1] - pi[1]), k));
++            vj.push(((p[0] - pj[0]).hypot(p[1] - pj[1]), k));
++            let (lm, lt) = (lam_mean(&f[k], t), lam_true(&f[k], t));
++            mi.push((ang_gap(lm, li), k));
++            mj.push((ang_gap(lm, lj), k));
++            ti.push((ang_gap(lt, ti_l), k));
++            tj.push((ang_gap(lt, tj_l), k));
++        }
++        let rd = rank_in(&vi, j as usize).min(rank_in(&vj, i as usize));
++        let rm = rank_in(&mi, j as usize).min(rank_in(&mj, i as usize));
++        let rt = rank_in(&ti, j as usize).min(rank_in(&tj, i as usize));
++        r4 += (rd <= 4) as u64;
++        rmax = rmax.max(rd);
++        m4 += (rm <= 4) as u64;
++        mmax = mmax.max(rm);
++        t4 += (rt <= 4) as u64;
++        tmax = tmax.max(rt);
++    }
++    println!(
++        "{{\"adv\":\"{}\",\"nc\":{},\"spacing_rho\":{},\"e_sig\":{},\"seed\":{},\"contacts\":{},\"dist\":{{\"le4\":{},\"max\":{}}},\"mean\":{{\"le4\":{},\"max\":{}}},\"true\":{{\"le4\":{},\"max\":{}}},\"miss_k4\":{:.3}}}",
++        jm.name, jm.nc, jm.spacing_rho, jm.e_sig, jm.seed, tot, r4, rmax, m4, mmax, t4, tmax,
++        if tot > 0 { 1.0 - r4 as f64 / tot as f64 } else { 0.0 },
++    );
++}
++
++/// The BUILT certificate (phase.rs from wt/cx-b-coorbital-cert) against brute truth.
++fn built_probe(jm: &Jam) {
++    let f = fleet(jm.nc, jm.a_hw, jm.e_sig, jm.e_cap, jm.spacing_rho, jm.seed);
++    let best = brute(&f, jm.orbits, jm.dt);
++    let nb = match Neighbours::new(&f, RHO, 0.0, jm.orbits * TAU) {
++        Some(n) => n,
++        None => {
++            println!(
++                "{{\"built\":\"{}\",\"refused\":true,\"contacts\":{}}}",
++                jm.name,
++                best.len()
++            );
++            return;
++        }
++    };
++    let mut visited: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
++    let (visits, max_k) = nb.visit(|i, j| {
++        visited.insert((i.min(j), i.max(j)));
++    });
++    let mut misses = 0u64;
++    for k in best.keys() {
++        if !visited.contains(k) {
++            misses += 1;
++        }
++    }
++    println!(
++        "{{\"built\":\"{}\",\"nc\":{},\"contacts\":{},\"misses\":{},\"visits\":{},\"max_k\":{},\"visits_per_contact\":{:.1},\"reach\":{:.3e},\"concentration\":{:.3e}}}",
++        jm.name, jm.nc, best.len(), misses, visits, max_k,
++        visits as f64 / best.len().max(1) as f64, nb.reach, nb.concentration
++    );
++}
++
++/// The BUILT certificate's window at scale: k distribution and t=0 pair soundness.
++fn built_snap(name: &str, nc: usize, e_sig: f64, e_cap: f64, seed: u64) {
++    let f = fleet(nc, 1e-5, e_sig, e_cap, 0.0, seed);
++    let nb = Neighbours::new(&f, RHO, 0.0, 0.0).expect("phase gate refused at snapshot");
++    let reach = nb.reach;
++    let mut lam: Vec<(f64, usize)> = (0..nc)
++        .map(|i| (lam_mean(&f[i], 0.0), i))
++        .collect();
++    lam.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
++    // window occupancy k per body (cyclic), via two pointers
++    let mut ks: Vec<u64> = Vec::with_capacity(nc);
++    let mut end = 1usize;
++    for start in 0..nc {
++        end = end.max(start + 1);
++        while end < start + nc && lam[end % nc].0 + if end >= nc { TAU } else { 0.0 } - lam[start].0 <= reach {
++            end += 1;
++        }
++        ks.push((end - start - 1) as u64);
++    }
++    ks.sort_unstable();
++    let q = |fr: f64| ks.get((fr * (ks.len() as f64 - 1.0)) as usize).copied().unwrap_or(0);
++    // truth contacts at t=0 via position grid; miss if mean-lambda gap at mid(=0) > reach
++    let mut pos = vec![[0.0f64; 2]; nc];
++    let mut head: HashMap<(i64, i64), i64> = HashMap::with_capacity(nc);
++    let mut nxt = vec![-1i64; nc];
++    for i in 0..nc {
++        pos[i] = pos_of(&f[i], 0.0);
++        let key = ((pos[i][0] / RHO).floor() as i64, (pos[i][1] / RHO).floor() as i64);
++        let e = head.entry(key).or_insert(-1);
++        nxt[i] = *e;
++        *e = i as i64;
++    }
++    let keys: Vec<(i64, i64)> = head.keys().copied().collect();
++    let (mut pairs, mut miss) = (0u64, 0u64);
++    for key in &keys {
++        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1), (-1, 1)] {
++            let h2 = match head.get(&(key.0 + dx, key.1 + dy)) {
++                Some(&h) => h,
++                None => continue,
++            };
++            let mut p = head[key];
++            while p >= 0 {
++                let mut q = if (dx, dy) == (0, 0) { nxt[p as usize] } else { h2 };
++                while q >= 0 {
++                    let d = (pos[p as usize][0] - pos[q as usize][0])
++                        .hypot(pos[p as usize][1] - pos[q as usize][1]);
++                    if d < RHO {
++                        pairs += 1;
++                        if ang_gap(lam_mean(&f[p as usize], 0.0), lam_mean(&f[q as usize], 0.0)) > reach {
++                            miss += 1;
++                        }
++                    }
++                    q = nxt[q as usize];
++                }
++                p = nxt[p as usize];
++            }
++        }
++    }
++    println!(
++        "{{\"builtsnap\":\"{}\",\"nc\":{},\"reach\":{:.3e},\"window_k\":{{\"p50\":{},\"p90\":{},\"p99\":{},\"max\":{}}},\"contacts_t0\":{},\"window_miss\":{},\"visits_total\":{}}}",
++        name, nc, reach, q(0.5), q(0.9), q(0.99), q(1.0), pairs, miss,
++        ks.iter().map(|x| x + 1).sum::<u64>()
++    );
++}
++
++fn main() {
++    let dt = 5e-4;
++    let which = std::env::args().nth(1).unwrap_or_default();
++    match which.as_str() {
++        "seeds" => {
++            for seed in [71u64, 72, 73] {
++                run(&Jam { name: "seedprobe-s0.375", nc: 200, a_hw: 1e-5, e_sig: 1e-4, e_cap: 1e-3, spacing_rho: 0.375, seed, orbits: 1.0, dt });
++            }
++        }
++        "fixedocc" => {
++            for nc in [200usize, 800, 3200] {
++                run(&Jam { name: "fixedocc-s1.25", nc, a_hw: 1e-5, e_sig: 1e-4, e_cap: 1e-3, spacing_rho: 1.25, seed: 81, orbits: 1.0, dt });
++            }
++        }
++        "highe" => {
++            run(&Jam { name: "highe-s5", nc: 200, a_hw: 1e-5, e_sig: 3e-2, e_cap: 1e-1, spacing_rho: 5.0, seed: 91, orbits: 2.0, dt });
++        }
++        "built" => {
++            built_probe(&Jam { name: "built-jam-tight-s0.375", nc: 200, a_hw: 1e-5, e_sig: 1e-4, e_cap: 1e-3, spacing_rho: 0.375, seed: 31, orbits: 1.0, dt });
++            built_probe(&Jam { name: "built-jam-tight-s1.25", nc: 200, a_hw: 1e-5, e_sig: 1e-4, e_cap: 1e-3, spacing_rho: 1.25, seed: 32, orbits: 1.0, dt });
++            built_probe(&Jam { name: "built-control-jam-loose-e", nc: 200, a_hw: 1e-5, e_sig: 1e-3, e_cap: 1e-2, spacing_rho: 1.25, seed: 27, orbits: 2.0, dt });
++            built_probe(&Jam { name: "built-espread-s1.25", nc: 200, a_hw: 1e-5, e_sig: 1e-2, e_cap: 5e-2, spacing_rho: 1.25, seed: 51, orbits: 2.0, dt });
++            built_probe(&Jam { name: "built-espread-s5", nc: 200, a_hw: 1e-5, e_sig: 1e-2, e_cap: 5e-2, spacing_rho: 5.0, seed: 52, orbits: 2.0, dt });
++            built_probe(&Jam { name: "built-highe-s5", nc: 200, a_hw: 1e-5, e_sig: 3e-2, e_cap: 1e-1, spacing_rho: 5.0, seed: 91, orbits: 2.0, dt });
++        }
++        "builtsnap" => {
++            built_snap("builtsnap-1e5-tight", 100_000, 1e-5, 1e-4, 61);
++            built_snap("builtsnap-1e6-tight", 1_000_000, 1e-5, 1e-4, 62);
++            built_snap("builtsnap-1e6-gold-e", 1_000_000, 1e-3, 1e-2, 63);
++        }
++        _ => eprintln!("usage: checkadv seeds|fixedocc|highe|built|builtsnap"),
++    }
++}
+diff --git a/crates/encounters/src/bin/redteam.rs b/crates/encounters/src/bin/redteam.rs
+new file mode 100644
+index 00000000..e57400b9
+--- /dev/null
++++ b/crates/encounters/src/bin/redteam.rs
+@@ -0,0 +1,473 @@
++//! Red-team probe (taleb lens, 12 October): does the phase-neighbour "train" certificate
++//! (gold 20261006-0346-taleb-09b5, adopted into the encounters design) survive the fleet
++//! densities it is adopted for? The gold measured partner distance-rank <= 4 at closest
++//! approach on fleets whose local along-track spacing never fell below ~1.25 rho and whose
++//! radial (e-)breathing was ~10 rho. Rank > k at contact requires >= k other bodies closer
++//! than d <= rho, i.e. a pile-up of k+1 bodies within ~rho: a density condition the trigger
++//! (Binet clump diameter / eps_u <= 1, the all-Full condition) does not see.
++//!
++//! Truth is a position-grid brute force (hash grid on instantaneous positions, cell rho,
++//! same + 4 forward neighbour cells): unbiased w.r.t. any longitude, unlike a mean-longitude
++//! binning. Relative motion per step is << rho. Scenarios print one JSON line each.
++
++use emergent_encounters::belt::Rng;
++use emergent_encounters::kepler::Body;
++use emergent_encounters::pairs::{eps_u, sections, Kind};
++use std::collections::HashMap;
++use std::f64::consts::TAU;
++
++const RHO: f64 = 1e-4;
++
++fn rayleigh(rng: &mut Rng, s: f64, cap: f64) -> f64 {
++    let u = rng.f64();
++    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
++}
++
++/// A fleet: co-orbital, apsides clustered, lambda uniform or bunched to a target mean
++/// along-track spacing (in units of rho) at the bunch centre.
++fn fleet(
++    nc: usize,
++    a_hw: f64,
++    e_sig: f64,
++    e_cap: f64,
++    spacing_rho: f64, // target mean along-track spacing / rho; <= 0 means uniform lambda
++    seed: u64,
++) -> Vec<Body> {
++    let mut rng = Rng(seed);
++    let pom0 = TAU * rng.f64();
++    let lam0 = TAU * rng.f64();
++    // spacing = sigma * sqrt(2 pi) / nc  =>  sigma = spacing * nc / sqrt(2 pi)
++    let sig_lam = spacing_rho * RHO * nc as f64 / (2.0 * std::f64::consts::PI).sqrt();
++    (0..nc)
++        .map(|_| {
++            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
++            let e = rayleigh(&mut rng, e_sig, e_cap);
++            let pom = pom0 + (2.0 * rng.f64() - 1.0) * 0.1;
++            let lam = if spacing_rho <= 0.0 {
++                TAU * rng.f64()
++            } else {
++                let (u1, u2) = (rng.f64(), rng.f64());
++                let z = (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos();
++                lam0 + sig_lam * z
++            };
++            Body::new(a, e, pom, lam)
++        })
++        .collect()
++}
++
++fn pos_of(b: &Body, t: f64) -> [f64; 2] {
++    let m = b.mean_anomaly(t);
++    let st = b.state_at_mean(m);
++    [st[0], st[1]]
++}
++
++/// Mean longitude at time t (the cheap, static-in-shape sort key).
++fn lam_mean(b: &Body, t: f64) -> f64 {
++    (b.mean_anomaly(t) + b.pom).rem_euclid(TAU)
++}
++
++/// True longitude at time t.
++fn lam_true(b: &Body, t: f64) -> f64 {
++    let m = b.mean_anomaly(t);
++    let st = b.state_at_mean(m);
++    st[1].atan2(st[0]).rem_euclid(TAU)
++}
++
++/// Gap rank among the fleet: 1 = nearest by the metric (gold's counting had 0 = nearest;
++/// thresholds shift by one, so "le4" here means at most 3 bodies closer, as there).
++fn rank_in(v: &[(f64, usize)], other: usize) -> u64 {
++    let g = v
++        .iter()
++        .find(|x| x.1 == other)
++        .map(|x| x.0)
++        .unwrap_or(f64::INFINITY);
++    v.iter().filter(|x| x.1 != other && x.0 < g).count() as u64 + 1
++}
++
++/// Angular gap wrapped to [0, pi].
++fn ang_gap(a: f64, b: f64) -> f64 {
++    let d = (a - b).abs().rem_euclid(TAU);
++    d.min(TAU - d)
++}
++
++struct Jam {
++    name: &'static str,
++    nc: usize,
++    a_hw: f64,
++    e_sig: f64,
++    e_cap: f64,
++    spacing_rho: f64,
++    seed: u64,
++    orbits: f64,
++    dt: f64,
++}
++
++fn record(
++    pos: &[[f64; 2]],
++    i: usize,
++    j: usize,
++    t: f64,
++    best: &mut HashMap<(u32, u32), (f64, f64)>,
++) {
++    let d = (pos[i][0] - pos[j][0]).hypot(pos[i][1] - pos[j][1]);
++    if d < RHO {
++        let e = best
++            .entry((i.min(j) as u32, i.max(j) as u32))
++            .or_insert((f64::INFINITY, t));
++        if d < e.0 {
++            *e = (d, t);
++        }
++    }
++}
++
++/// Position-grid brute force: every pair ever closer than rho, with its closest approach.
++fn brute(f: &[Body], orbits: f64, dt: f64) -> HashMap<(u32, u32), (f64, f64)> {
++    let nc = f.len();
++    let steps = (orbits * TAU / dt) as usize;
++    let mut best: HashMap<(u32, u32), (f64, f64)> = HashMap::new();
++    let mut head: HashMap<(i64, i64), i64> = HashMap::new();
++    let mut nxt = vec![-1i64; nc];
++    let mut pos = vec![[0.0f64; 2]; nc];
++    let mut keys: Vec<(i64, i64)> = Vec::new();
++    for s in 0..steps {
++        let t = s as f64 * dt;
++        head.clear();
++        keys.clear();
++        for i in 0..nc {
++            pos[i] = pos_of(&f[i], t);
++            let key = (
++                (pos[i][0] / RHO).floor() as i64,
++                (pos[i][1] / RHO).floor() as i64,
++            );
++            match head.get(&key) {
++                Some(&h) => nxt[i] = h,
++                None => {
++                    nxt[i] = -1;
++                    keys.push(key);
++                }
++            }
++            head.insert(key, i as i64);
++        }
++        for key in keys.iter().copied() {
++            let h0 = head[&key];
++            // same-cell pairs
++            let mut p = h0;
++            while p >= 0 {
++                let mut q = nxt[p as usize];
++                while q >= 0 {
++                    record(&pos, p as usize, q as usize, t, &mut best);
++                    q = nxt[q as usize];
++                }
++                p = nxt[p as usize];
++            }
++            // 4 forward neighbours (E, N, NE, NW): every pair < rho is covered once
++            for (dx, dy) in [(1, 0), (0, 1), (1, 1), (-1, 1)] {
++                let h2 = match head.get(&(key.0 + dx, key.1 + dy)) {
++                    Some(&h) => h,
++                    None => continue,
++                };
++                let mut p = h0;
++                while p >= 0 {
++                    let mut q = h2;
++                    while q >= 0 {
++                        record(&pos, p as usize, q as usize, t, &mut best);
++                        q = nxt[q as usize];
++                    }
++                    p = nxt[p as usize];
++                }
++            }
++        }
++    }
++    best
++}
++
++/// Refine a pair's closest approach around the sampled t by dense local sampling.
++fn refine_pair(bi: &Body, bj: &Body, t0: f64, dt: f64) -> (f64, f64) {
++    let (mut dm, mut tm) = (f64::INFINITY, t0);
++    for k in -400..=400 {
++        let t = t0 + k as f64 * dt / 100.0;
++        let (pi, pj) = (pos_of(bi, t), pos_of(bj, t));
++        let d = (pi[0] - pj[0]).hypot(pi[1] - pj[1]);
++        if d < dm {
++            dm = d;
++            tm = t;
++        }
++    }
++    (dm, tm)
++}
++
++/// The gold's trigger: max pairwise Binet distance / mean eps_u (the all-Full condition),
++/// plus the measured all-Full fraction over a pair sample.
++fn trigger_state(f: &[Body]) -> (f64, f64, f64) {
++    let nc = f.len();
++    let step = (nc / 50).max(1);
++    let mut dmax = 0.0f64;
++    let mut eps_sum = 0.0f64;
++    let mut n = 0u64;
++    for i in (0..nc).step_by(step) {
++        for j in ((i + 1)..nc).step_by(step) {
++            let (bi, bj) = (&f[i], &f[j]);
++            let (ui, uj) = (bi.binet(), bj.binet());
++            let d = (0..3)
++                .map(|k| (ui[k] - uj[k]) * (ui[k] - uj[k]))
++                .sum::<f64>()
++                .sqrt();
++            dmax = dmax.max(d);
++            eps_sum += eps_u(bi, bj, RHO);
++            n += 1;
++        }
++    }
++    let s2 = step.max(nc / 200);
++    let mut full = 0u64;
++    let mut tot = 0u64;
++    let mut ev = 0u64;
++    for i in (0..nc).step_by(s2) {
++        for j in ((i + 1)..nc).step_by(s2) {
++            for s in sections(&f[i], &f[j], RHO, 1.1, &mut ev) {
++                if s.kind == Kind::Full {
++                    full += 1;
++                }
++                tot += 1;
++            }
++        }
++    }
++    (dmax / (eps_sum / n.max(1) as f64), full as f64, tot as f64)
++}
++fn run(jm: &Jam) {
++    let f = fleet(jm.nc, jm.a_hw, jm.e_sig, jm.e_cap, jm.spacing_rho, jm.seed);
++    let best = brute(&f, jm.orbits, jm.dt);
++    let t0 = std::time::Instant::now();
++    let brute_us = t0.elapsed().as_micros();
++    let mut keys: Vec<_> = best.keys().copied().collect();
++    keys.sort_unstable();
++    let (mut r4, mut r8, mut rmax, mut tot) = (0u64, 0u64, 0u64, 0u64);
++    let (mut m4, mut m8, mut mmax) = (0u64, 0u64, 0u64);
++    let (mut t4, mut t8, mut tmax) = (0u64, 0u64, 0u64);
++    let (mut dmin_all, mut worst) = (f64::INFINITY, String::new());
++    for &(i, j) in &keys {
++        let (d, t) = refine_pair(&f[i as usize], &f[j as usize], best[&(i, j)].1, jm.dt);
++        tot += 1;
++        dmin_all = dmin_all.min(d);
++        let (pi, pj) = (pos_of(&f[i as usize], t), pos_of(&f[j as usize], t));
++        let (li, lj) = (
++            lam_mean(&f[i as usize], t),
++            lam_mean(&f[j as usize], t),
++        );
++        let (ti_l, tj_l) = (
++            lam_true(&f[i as usize], t),
++            lam_true(&f[j as usize], t),
++        );
++        let mut vi = Vec::with_capacity(jm.nc);
++        let mut vj = Vec::with_capacity(jm.nc);
++        let mut mi = Vec::with_capacity(jm.nc);
++        let mut mj = Vec::with_capacity(jm.nc);
++        let mut ti = Vec::with_capacity(jm.nc);
++        let mut tj = Vec::with_capacity(jm.nc);
++        for k in 0..jm.nc {
++            let p = pos_of(&f[k], t);
++            vi.push(((p[0] - pi[0]).hypot(p[1] - pi[1]), k));
++            vj.push(((p[0] - pj[0]).hypot(p[1] - pj[1]), k));
++            let (lm, lt) = (lam_mean(&f[k], t), lam_true(&f[k], t));
++            mi.push((ang_gap(lm, li), k));
++            mj.push((ang_gap(lm, lj), k));
++            ti.push((ang_gap(lt, ti_l), k));
++            tj.push((ang_gap(lt, tj_l), k));
++        }
++        let rd = rank_in(&vi, j as usize).min(rank_in(&vj, i as usize));
++        let rm = rank_in(&mi, j as usize).min(rank_in(&mj, i as usize));
++        let rt = rank_in(&ti, j as usize).min(rank_in(&tj, i as usize));
++        r4 += (rd <= 4) as u64;
++        r8 += (rd <= 8) as u64;
++        rmax = rmax.max(rd);
++        m4 += (rm <= 4) as u64;
++        m8 += (rm <= 8) as u64;
++        mmax = mmax.max(rm);
++        t4 += (rt <= 4) as u64;
++        t8 += (rt <= 8) as u64;
++        tmax = tmax.max(rt);
++        if rd > 4 && worst.len() < 400 {
++            worst = format!(
++                "{{\"pair\":[{},{}],\"d\":{:.3e},\"rank_dist\":{},\"rank_mean\":{},\"rank_true\":{}}}",
++                i, j, d, rd, rm, rt
++            );
++        }
++    }
++    let (trig, full, tot_sec) = trigger_state(&f);
++    println!(
++        "{{\"jam\":\"{}\",\"nc\":{},\"spacing_rho\":{},\"e_sig\":{},\"orbits\":{},\"encounters\":{},\"d_min\":{:.3e},\"rank_dist\":{{\"le4\":{},\"le8\":{},\"max\":{}}},\"rank_mean_lam\":{{\"le4\":{},\"le8\":{},\"max\":{}}},\"rank_true_lam\":{{\"le4\":{},\"le8\":{},\"max\":{}}},\"miss_frac_k4\":{:.3},\"trigger\":{{\"binet_over_eps\":{:.3e},\"full\":{}/{}}},\"brute_us\":{},\"worst\":{}}}",
++        jm.name, jm.nc, jm.spacing_rho, jm.e_sig, jm.orbits, tot, dmin_all,
++        r4, r8, rmax, m4, m8, mmax, t4, t8, tmax,
++        if tot > 0 { 1.0 - r4 as f64 / tot as f64 } else { 0.0 },
++        trig, full, tot_sec, brute_us, worst,
++    );
++}
++
++/// One-snapshot occupation census at real fleet scale: for every body, how many fleet
++/// members sit within rho; and for a sample of in-contact pairs, the partner's distance-rank
++/// at that instant. A k-watch needs the partner within its k nearest at some watch instant
++/// during the contact episode; this measures the episode's environment directly.
++fn snapshot(name: &str, nc: usize, e_sig: f64, e_cap: f64, seed: u64) {
++    let t0 = std::time::Instant::now();
++    let f = fleet(nc, 1e-5, e_sig, e_cap, 0.0, seed);
++    let t = 0.0;
++    let mut pos = vec![[0.0f64; 2]; nc];
++    let mut head: HashMap<(i64, i64), i64> = HashMap::with_capacity(nc);
++    let mut nxt = vec![-1i64; nc];
++    for i in 0..nc {
++        pos[i] = pos_of(&f[i], t);
++        let key = (
++            (pos[i][0] / RHO).floor() as i64,
++            (pos[i][1] / RHO).floor() as i64,
++        );
++        let e = head.entry(key).or_insert(-1);
++        nxt[i] = *e;
++        *e = i as i64;
++    }
++    let keys: Vec<(i64, i64)> = head.keys().copied().collect();
++    // occupation: neighbours within rho, each body exactly once
++    let mut occ: Vec<u64> = Vec::with_capacity(nc);
++    for i in 0..nc {
++        let pi = pos[i];
++        let key = ((pi[0] / RHO).floor() as i64, (pi[1] / RHO).floor() as i64);
++        let mut m = 0u64;
++        for dx in -1..=1 {
++            for dy in -1..=1 {
++                let mut q = match head.get(&(key.0 + dx, key.1 + dy)) {
++                    Some(&q) => q,
++                    None => continue,
++                };
++                while q >= 0 {
++                    if q as usize != i {
++                        let d = (pi[0] - pos[q as usize][0]).hypot(pi[1] - pos[q as usize][1]);
++                        if d < RHO {
++                            m += 1;
++                        }
++                    }
++                    q = nxt[q as usize];
++                }
++            }
++        }
++        occ.push(m);
++    }
++    // contact pairs: same cell (i<j) + 4 forward cells, each once
++    let mut pairs: Vec<(usize, usize)> = Vec::new();
++    for key in &keys {
++        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1), (-1, 1)] {
++            let h2 = match head.get(&(key.0 + dx, key.1 + dy)) {
++                Some(&h) => h,
++                None => continue,
++            };
++            let mut p = head[key];
++            while p >= 0 {
++                let mut q = if (dx, dy) == (0, 0) { nxt[p as usize] } else { h2 };
++                while q >= 0 {
++                    let d = (pos[p as usize][0] - pos[q as usize][0])
++                        .hypot(pos[p as usize][1] - pos[q as usize][1]);
++                    if d < RHO {
++                        pairs.push((p as usize, q as usize));
++                    }
++                    q = nxt[q as usize];
++                }
++                p = nxt[p as usize];
++            }
++        }
++    }
++    // rank of the partner among neighbours within rho for sampled contact pairs
++    let stride = pairs.len().div_ceil(2000).max(1);
++    let mut ranks: Vec<u64> = Vec::new();
++    for &(i, j) in pairs.iter().step_by(stride) {
++        let pi = pos[i];
++        let dij = (pi[0] - pos[j][0]).hypot(pi[1] - pos[j][1]);
++        let key = (
++            (pi[0] / RHO).floor() as i64,
++            (pi[1] / RHO).floor() as i64,
++        );
++        let mut closer = 0u64;
++        for dx in -1..=1 {
++            for dy in -1..=1 {
++                let mut q = match head.get(&(key.0 + dx, key.1 + dy)) {
++                    Some(&q) => q,
++                    None => continue,
++                };
++                while q >= 0 {
++                    if q as usize != i {
++                        let d = (pi[0] - pos[q as usize][0]).hypot(pi[1] - pos[q as usize][1]);
++                        if d < dij {
++                            closer += 1;
++                        }
++                    }
++                    q = nxt[q as usize];
++                }
++            }
++        }
++        ranks.push(closer + 1);
++    }
++    occ.sort_unstable();
++    ranks.sort_unstable();
++    let q = |v: &Vec<u64>, f: f64| v.get((f * (v.len() as f64 - 1.0)) as usize).copied().unwrap_or(0);
++    let ge5 = occ.iter().filter(|&&o| o >= 5).count();
++    println!(
++        "{{\"snapshot\":\"{}\",\"nc\":{},\"e_sig\":{},\"occ_within_rho\":{{\"p50\":{},\"p90\":{},\"p99\":{},\"max\":{},\"frac_ge5\":{:.4}}},\"contact_pairs\":{},\"rank_at_contact\":{{\"sampled\":{},\"p50\":{},\"p90\":{},\"p99\":{},\"max\":{},\"frac_gt4\":{:.4}}},\"us\":{}}}",
++        name, nc, e_sig,
++        q(&occ, 0.5), q(&occ, 0.9), q(&occ, 0.99), q(&occ, 1.0),
++        ge5 as f64 / occ.len() as f64,
++        pairs.len(), ranks.len(), q(&ranks, 0.5), q(&ranks, 0.9), q(&ranks, 0.99), q(&ranks, 1.0),
++        ranks.iter().filter(|&&r| r > 4).count() as f64 / ranks.len().max(1) as f64,
++        t0.elapsed().as_micros(),
++    );
++}
++
++fn main() {
++    let which = std::env::args()
++        .nth(1)
++        .map(|s| s.to_ascii_lowercase())
++        .unwrap_or_else(|| "all".into());
++    let dt = 5e-4;
++    match which.as_str() {
++        "control" | "all" => {
++            // the gold's own regime: uniform lambda (spacing ~314 rho), e ~ 1e-3 (radial ~10 rho)
++            run(&Jam { name: "control-uniform", nc: 200, a_hw: 1e-5, e_sig: 1e-3, e_cap: 1e-2, spacing_rho: 0.0, seed: 21, orbits: 20.0, dt });
++            // their tightest measured: spacing ~1.25 rho, radial ~10 rho
++            run(&Jam { name: "control-jam-loose-e", nc: 200, a_hw: 1e-5, e_sig: 1e-3, e_cap: 1e-2, spacing_rho: 1.25, seed: 27, orbits: 2.0, dt });
++        }
++        _ => {}
++    }
++    match which.as_str() {
++        "pileup" | "all" => {
++            // pile-up probe: spacing < rho AND radial breathing < rho => many bodies within rho
++            run(&Jam { name: "jam-tight-e-s0.375", nc: 200, a_hw: 1e-5, e_sig: 1e-4, e_cap: 1e-3, spacing_rho: 0.375, seed: 31, orbits: 1.0, dt });
++            run(&Jam { name: "jam-tight-e-s1.25", nc: 200, a_hw: 1e-5, e_sig: 1e-4, e_cap: 1e-3, spacing_rho: 1.25, seed: 32, orbits: 1.0, dt });
++            run(&Jam { name: "jam-loose-e-s0.375", nc: 200, a_hw: 1e-5, e_sig: 1e-3, e_cap: 1e-2, spacing_rho: 0.375, seed: 33, orbits: 1.0, dt });
++        }
++        _ => {}
++    }
++    match which.as_str() {
++        "scale" | "all" => {
++            // scale at fixed tight formation quality: uniform fleets, e ~ 1e-5 (radial ~0.1 rho)
++            run(&Jam { name: "scale-nc3200", nc: 3200, a_hw: 1e-5, e_sig: 1e-5, e_cap: 1e-4, spacing_rho: 0.0, seed: 41, orbits: 1.0, dt });
++            run(&Jam { name: "scale-nc12800", nc: 12800, a_hw: 1e-5, e_sig: 1e-5, e_cap: 1e-4, spacing_rho: 0.0, seed: 42, orbits: 0.5, dt });
++            run(&Jam { name: "scale-nc51200", nc: 51200, a_hw: 1e-5, e_sig: 1e-5, e_cap: 1e-4, spacing_rho: 0.0, seed: 43, orbits: 0.25, dt });
++        }
++        _ => {}
++    }
++    match which.as_str() {
++        "espread" | "all" => {
++            // equation-of-center rank inflation: radial spread ~ 100 rho, mean-vs-true key
++            run(&Jam { name: "espread-s1.25", nc: 200, a_hw: 1e-5, e_sig: 1e-2, e_cap: 5e-2, spacing_rho: 1.25, seed: 51, orbits: 2.0, dt });
++            run(&Jam { name: "espread-s5", nc: 200, a_hw: 1e-5, e_sig: 1e-2, e_cap: 5e-2, spacing_rho: 5.0, seed: 52, orbits: 2.0, dt });
++        }
++        _ => {}
++    }
++    match which.as_str() {
++        "snap" | "all" => {
++            // the gold's headline ruin scenario measured directly: 10^6 ships, one orbit
++            snapshot("snap-1e5-tight", 100_000, 1e-5, 1e-4, 61);
++            snapshot("snap-1e6-tight", 1_000_000, 1e-5, 1e-4, 62);
++            snapshot("snap-1e6-gold-e", 1_000_000, 1e-3, 1e-2, 63);
++            // instrument cross-check: snapshot census vs brute-force ranks at small nc
++            snapshot("snap-3200-tight", 3_200, 1e-5, 1e-4, 64);
++            snapshot("snap-12800-tight", 12_800, 1e-5, 1e-4, 65);
++        }
++        _ => {}
++    }
++}
+diff --git a/crates/encounters/src/lib.rs b/crates/encounters/src/lib.rs
+index cbbcd891..d0930cca 100644
+--- a/crates/encounters/src/lib.rs
++++ b/crates/encounters/src/lib.rs
+@@ -8,6 +8,8 @@ pub mod dioph;
+ pub mod kepler;
+ pub mod method;
+ pub mod pairs;
++pub mod phase;
++pub mod tier;
+ pub mod truth;
+ 
+ use std::sync::atomic::{AtomicUsize, Ordering};
+diff --git a/crates/encounters/src/phase.rs b/crates/encounters/src/phase.rs
+new file mode 100644
+index 00000000..3ff38386
+--- /dev/null
++++ b/crates/encounters/src/phase.rs
+@@ -0,0 +1,266 @@
++//! Horizon certificate for a group concentrated in orbital frequency and phase.
++//!
++//! This is the float research layer, not an integer canonical-law certificate.
++//! k is the actual occupancy of a conservative phase window, NEVER an assumed
++//! rank of four. Gold measured distance rank at the contact, not phase rank at
++//! setup; radial scatter and overtakes can make those different.
++
++use crate::{
++    kepler::Body,
++    method::{pair_events, Stats},
++    tier::{self, ArmStats, Tree, TreeStats},
++};
++use std::f64::consts::{PI, TAU};
++
++/// Sorted phase plus a horizon-wide exclusion certificate. O(n) storage;
++/// sorting costs O(n log n), traversal O(n k), where k is window occupancy.
++/// Valid only for these unmodified tubes in [t0,t1]; any kick rebuilds it.
++pub struct Neighbours {
++    order: Vec<(f64, u32)>,
++    pub reach: f64,
++    /// Dimensionless swept phase spread / circumference. Below 1/2 the
++    /// neighbourhood fits in a semicircle; otherwise use the general tiers.
++    pub concentration: f64,
++}
++
++impl Neighbours {
++    pub fn new(b: &[Body], rho: f64, t0: f64, t1: f64) -> Option<Self> {
++        assert!(rho.is_finite() && rho > 0.0 && t0.is_finite() && t1.is_finite() && t1 >= t0);
++        assert!(b.len() <= u32::MAX as usize);
++        let mut nlo = f64::INFINITY;
++        let mut nhi = 0.0_f64;
++        let mut centre = 0.0_f64;
++        let mut rmin = f64::INFINITY;
++        for x in b {
++            assert!(x.e >= 0.0 && x.e < 1.0 && x.period > 0);
++            nlo = nlo.min(x.n);
++            nhi = nhi.max(x.n);
++            rmin = rmin.min(x.rmin());
++            // |E-M| <= e. tan(f/2) = sqrt((1+e)/(1-e)) tan(E/2)
++            // implies max |f-E| = 2 asin(e/(1+sqrt(1-e^2))).
++            centre = centre.max(x.e + 2.0 * (x.e / (1.0 + x.sq)).asin());
++        }
++        // At distance <= rho, radii >= rmin imply angular separation <=
++        // 2 asin(rho/(2 rmin)). At a contact, each true longitude differs
++        // from its mean longitude by <= centre. Between midpoint and contact,
++        // pair mean-longitude separation changes by <= (nhi-nlo)*H/2.
++        // Hence every contact's pair is in this midpoint phase window, even
++        // across the seam, an overtake, or either horizon edge. No sampling.
++        let mut angular = 2.0 * (rho / (2.0 * rmin)).min(1.0).asin();
++        // A shared orbit shape has a shared monotone theta -> mean-longitude
++        // map. Its equation of centre cancels; paying its amplitude per body
++        // would turn an eccentric dense ring quadratic under dilution.
++        if let Some(ref_shape) = b.first() {
++            if b.iter()
++                .all(|x| x.e == ref_shape.e && x.pom == ref_shape.pom)
++            {
++                // max dM/df = (1+e)^(3/2) / sqrt(1-e), at apoapsis.
++                angular *= (1.0 + ref_shape.e).powf(1.5) / (1.0 - ref_shape.e).sqrt();
++                centre = 0.0;
++            }
++        }
++        let reach = if b.is_empty() {
++            0.0
++        } else {
++            angular + 2.0 * centre + (nhi - nlo) * (t1 - t0) * 0.5
++        };
++        // Numerical guard for this research implementation's clock/phase conversion.
++        let reach = reach + 64.0 * f64::EPSILON * (1.0 + nhi * t0.abs().max(t1.abs()));
++        if !reach.is_finite() || reach >= PI {
++            return None;
++        }
++        let mid = t0 * 0.5 + t1 * 0.5;
++        let mut order: Vec<_> = b
++            .iter()
++            .enumerate()
++            .map(|(i, x)| ((x.mean_anomaly(mid) + x.pom).rem_euclid(TAU), i as u32))
++            .collect();
++        order.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
++        Some(Self {
++            order,
++            reach,
++            concentration: reach / TAU,
++        })
++    }
++
++    /// Every neighbour once; no quadratic pair list is ever materialized.
++    pub fn visit(&self, mut f: impl FnMut(u32, u32)) -> (u64, usize) {
++        let n = self.order.len();
++        let mut count = 0;
++        let mut max_k = 0;
++        let mut end = 1;
++        for start in 0..n {
++            end = end.max(start + 1);
++            let phase = self.order[start].0;
++            while end < start + n {
++                let next = self.order[end % n].0 + if end >= n { TAU } else { 0.0 };
++                if next - phase > self.reach {
++                    break;
++                }
++                end += 1;
++            }
++            max_k = max_k.max(end - start - 1);
++            for pos in start + 1..end {
++                let (i, j) = (self.order[start].1, self.order[pos % n].1);
++                f(i.min(j), i.max(j));
++                count += 1;
++            }
++        }
++        (count, max_k)
++    }
++}
++
++#[derive(Default, Debug)]
++pub struct GroupStats {
++    pub phase: bool,
++    pub concentration: f64,
++    pub neighbours: u64,
++    pub max_k: usize,
++    pub tree: TreeStats,
++    pub arm: ArmStats,
++    pub exact: Stats,
++    pub boundary_checks: u64,
++}
++
++/// Interior minima and existing contacts at t0/t1. Boundary contacts have
++/// exactly the boundary timestamp, distinct from r8's interior-minimum events.
++/// This API is a streaming broad phase: callbacks can consume results without
++/// storing the generated pairs/events. No changes to the frozen r8 definition.
++pub fn group_events(
++    b: &[Body],
++    rho: f64,
++    t0: f64,
++    t1: f64,
++    mut emit: impl FnMut(u32, u32, f64, f64),
++) -> GroupStats {
++    let neighbours = Neighbours::new(b, rho, t0, t1);
++    let mut st = GroupStats::default();
++    let mut out = Vec::new();
++    if let Some(n) = neighbours {
++        st.concentration = n.concentration;
++        st.phase = true;
++        let (count, k) =
++            n.visit(|i, j| check_pair(b, i, j, rho, t0, t1, &mut st, &mut out, &mut emit));
++        st.neighbours = count;
++        st.max_k = k;
++    } else {
++        let tree = Tree::new(b, 32);
++        let mut tree_stats = TreeStats::default();
++        tier::traverse(
++            &tree,
++            b,
++            rho,
++            true,
++            &mut |i, j| check_pair(b, i, j, rho, t0, t1, &mut st, &mut out, &mut emit),
++            &mut tree_stats,
++        );
++        st.tree = tree_stats;
++    }
++    st
++}
++
++#[allow(clippy::too_many_arguments)]
++fn check_pair(
++    b: &[Body],
++    i: u32,
++    j: u32,
++    rho: f64,
++    t0: f64,
++    t1: f64,
++    st: &mut GroupStats,
++    out: &mut Vec<(f64, f64)>,
++    emit: &mut impl FnMut(u32, u32, f64, f64),
++) {
++    let (bi, bj) = (&b[i as usize], &b[j as usize]);
++    for (edge, t) in [t0, t1].into_iter().enumerate() {
++        if edge == 1 && t0 == t1 {
++            continue;
++        }
++        let (x, y) = (bi.state(t), bj.state(t));
++        st.boundary_checks += 1;
++        let d = (x[0] - y[0]).hypot(x[1] - y[1]);
++        if d < rho {
++            emit(i, j, t, d);
++        }
++    }
++    if st.phase || tier::arm_pair(bi, bj, rho, 1.1, t0, t1, &mut st.arm).0 {
++        out.clear();
++        pair_events(bi, bj, rho, 1.1, t0, t1, &mut st.exact, out);
++        for &(t, d) in out.iter() {
++            if t > t0 && t < t1 {
++                emit(i, j, t, d);
++            }
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::collections::BTreeSet;
++
++    #[test]
++    fn seam_overtake_and_ties_are_not_lost_or_duplicated() {
++        let b = [
++            Body::new(1.0, 0.01, 0.0, TAU - 0.001),
++            Body::new(1.0001, 0.02, 0.0, 0.001),
++            Body::new(1.0, 0.01, 0.0, TAU - 0.001),
++            Body::new(1.0, 0.01, 0.0, PI),
++        ];
++        let n = Neighbours::new(&b, 0.01, 0.0, 20.0).unwrap();
++        let mut set = BTreeSet::new();
++        n.visit(|i, j| {
++            assert!(i < j && set.insert((i, j)));
++        });
++        for tick in 0..=400 {
++            let t = tick as f64 * 0.05;
++            for i in 0..b.len() {
++                for j in i + 1..b.len() {
++                    let (x, y) = (b[i].state_halley(t), b[j].state_halley(t));
++                    if (x[0] - y[0]).hypot(x[1] - y[1]) < 0.01 {
++                        assert!(set.contains(&(i as u32, j as u32)));
++                    }
++                }
++            }
++        }
++    }
++
++    #[test]
++    fn a_crowded_phase_window_never_assumes_rank_four() {
++        let b = vec![Body::new(1.0, 0.0, 0.0, 0.0); 32];
++        let n = Neighbours::new(&b, 0.01, 0.0, TAU).unwrap();
++        assert_eq!(n.visit(|_, _| {}), (32 * 31 / 2, 31));
++    }
++
++    #[test]
++    fn instantaneous_query_reports_existing_overlap_once() {
++        let b = [
++            Body::new(1.0, 0.0, 0.0, 0.0),
++            Body::new(1.0, 0.0, 0.0, 0.001),
++        ];
++        let mut events = Vec::new();
++        group_events(&b, 0.01, 3.0, 3.0, |i, j, t, _| events.push((i, j, t)));
++        assert_eq!(events, vec![(0, 1, 3.0)]);
++    }
++
++    #[test]
++    fn frequency_spread_expiring_the_horizon_uses_general_tiers() {
++        let b = [Body::new(1.0, 0.0, 0.0, 0.0), Body::new(2.0, 0.0, 0.0, PI)];
++        assert!(Neighbours::new(&b, 0.01, 0.0, 100.0).is_none());
++        assert!(!group_events(&b, 0.01, 0.0, 100.0, |_, _, _, _| {}).phase);
++    }
++
++    #[test]
++    fn fixed_density_ring_visits_linear_work_to_a_million() {
++        for n in [1000, 10_000, 100_000, 1_000_000] {
++            let b: Vec<_> = (0..n)
++                .map(|i| Body::new(1.0, 0.02, 0.0, TAU * i as f64 / n as f64))
++                .collect();
++            let cert = Neighbours::new(&b, 1.5 * TAU / n as f64, 0.0, TAU).unwrap();
++            let (pairs, k) = cert.visit(|_, _| {});
++            println!("GATE phase-scale n={n} neighbours={pairs} max_k={k}");
++            assert_eq!(pairs, n as u64);
++            assert_eq!(k, 1);
++        }
++    }
++}
+diff --git a/crates/encounters/src/tier.rs b/crates/encounters/src/tier.rs
+new file mode 100644
+index 00000000..e00f5376
+--- /dev/null
++++ b/crates/encounters/src/tier.rs
+@@ -0,0 +1,707 @@
++//! The tiered candidate structure: envelopes above the pair, cheap exact arming below.
++//!
++//! Tier 1 (geometry, static between kicks): a balanced tree over the U-sorted order. Each node is an
++//! envelope: a U-interval plus a disk in (V, W). Two orbits meet only if their Binet separation is
++//! spacelike with |ΔU| − |Δ(V,W)| < ε, so a whole group pair is skipped when
++//!   min|ΔU| − max|Δ(V,W)| ≥ ε_max
++//! (a set-to-set causal-geometry test: the cone between envelopes). A kick walks one leaf-to-root
++//! path: O(log N) envelope recomputations, and only node pairs on the path can lose a certificate.
++//!
++//! Tier 2 (time, once per horizon): a candidate pair is *armed* only if some passage lands in a
++//! sound window superset within the horizon. Arming uses only closed forms (velocities at the
++//! crossing longitude, exact passage ticks, the integer first-hit): no arc travel times, no numeric
++//! windows, no state evaluations. Silent pairs store their slack (how far beyond the horizon the
++//! first in-window passage sits, in units of the horizon). The exact float machinery runs on armed
++//! pairs only; every reported event still comes from the crate's exact per-pair check.
++
++use crate::dioph::first_hit;
++use crate::kepler::{Body, TICKS};
++use crate::method::{pair_events, Stats};
++use crate::pairs::{eps_u, is_candidate, Kind};
++use std::f64::consts::{PI, TAU};
++
++// ---------------------------------------------------------------- envelope tree
++
++#[derive(Clone, Copy)]
++pub struct Node {
++    pub lo: usize,
++    pub hi: usize,
++    pub ulo: f64,
++    pub uhi: f64,
++    pub cx: f64,
++    pub cy: f64,
++    pub rad: f64,
++    pub rmin: f64,
++    pub rmax: f64,
++    pub emax: f64,
++    pub pmin: f64,
++    /// Children (internal only).
++    pub ch: (usize, usize),
++}
++
++impl Node {
++    fn eps_max(&self, o: &Node, rho: f64) -> f64 {
++        let rmin = self.rmin.min(o.rmin);
++        let rmax = self.rmax.max(o.rmax);
++        let emax = self.emax.max(o.emax);
++        let pmin = self.pmin.min(o.pmin);
++        1.5 * rho * (1.0 + rmax * rmax * emax / (pmin * rmin)) / (rmin * rmin)
++    }
++
++    /// True: no member pair can be a candidate (sound prune of the whole group pair).
++    fn sep(&self, o: &Node, rho: f64) -> bool {
++        let du = (o.ulo - self.uhi).max(self.ulo - o.uhi).max(0.0);
++        let rmax = ((self.cx - o.cx).hypot(self.cy - o.cy) + self.rad + o.rad).max(0.0);
++        du - rmax >= self.eps_max(o, rho)
++    }
++}
++
++pub struct Tree {
++    pub order: Vec<(f64, u32)>,
++    pub bucket: usize,
++    pub nodes: Vec<Node>,
++    pub nleaves: usize,
++    pub parent: Vec<usize>,
++    /// Position of each body in `order`.
++    pub pos: Vec<u32>,
++}
++
++impl Tree {
++    pub fn new(b: &[Body], bucket: usize) -> Self {
++        let mut order: Vec<(f64, u32)> = b
++            .iter()
++            .enumerate()
++            .map(|(k, x)| (x.binet()[0], k as u32))
++            .collect();
++        order.sort_by(|x, y| x.0.total_cmp(&y.0).then(x.1.cmp(&y.1)));
++        let n = order.len();
++        let bucket = bucket.max(1);
++        let nleaves = n.div_ceil(bucket);
++        let mut nodes: Vec<Node> = Vec::with_capacity(2 * nleaves);
++        let mut parent: Vec<usize> = vec![usize::MAX; nleaves];
++        for k in 0..nleaves {
++            let lo = k * bucket;
++            let hi = ((k + 1) * bucket).min(n);
++            let mut nd = Node {
++                lo,
++                hi,
++                ulo: f64::INFINITY,
++                uhi: f64::NEG_INFINITY,
++                cx: 0.0,
++                cy: 0.0,
++                rad: 0.0,
++                rmin: f64::INFINITY,
++                rmax: 0.0,
++                emax: 0.0,
++                pmin: f64::INFINITY,
++                ch: (usize::MAX, usize::MAX),
++            };
++            let (mut sx, mut sy) = (0.0, 0.0);
++            for &(_, i) in &order[lo..hi] {
++                let x = &b[i as usize];
++                let u = x.binet();
++                nd.ulo = nd.ulo.min(u[0]);
++                nd.uhi = nd.uhi.max(u[0]);
++                nd.rmin = nd.rmin.min(x.rmin());
++                nd.rmax = nd.rmax.max(x.rmax());
++                nd.emax = nd.emax.max(x.e);
++                nd.pmin = nd.pmin.min(x.p);
++                sx += u[1];
++                sy += u[2];
++            }
++            let m = (hi - lo) as f64;
++            nd.cx = sx / m;
++            nd.cy = sy / m;
++            for &(_, i) in &order[lo..hi] {
++                let u = b[i as usize].binet();
++                nd.rad = nd.rad.max((u[1] - nd.cx).hypot(u[2] - nd.cy));
++            }
++            nodes.push(nd);
++        }
++        let mut level: Vec<usize> = (0..nleaves).collect();
++        while level.len() > 1 {
++            let mut next: Vec<usize> = Vec::new();
++            for pair in level.chunks(2) {
++                if pair.len() == 2 {
++                    let (a, b) = (nodes[pair[0]], nodes[pair[1]]);
++                    let cx = (a.cx + b.cx) * 0.5;
++                    let cy = (a.cy + b.cy) * 0.5;
++                    nodes.push(Node {
++                        lo: a.lo,
++                        hi: b.hi,
++                        ulo: a.ulo.min(b.ulo),
++                        uhi: a.uhi.max(b.uhi),
++                        cx,
++                        cy,
++                        rad: 0.5 * (a.cx - b.cx).hypot(a.cy - b.cy) + a.rad.max(b.rad),
++                        rmin: a.rmin.min(b.rmin),
++                        rmax: a.rmax.max(b.rmax),
++                        emax: a.emax.max(b.emax),
++                        pmin: a.pmin.min(b.pmin),
++                        ch: (pair[0], pair[1]),
++                    });
++                    parent.push(usize::MAX);
++                    parent[pair[0]] = nodes.len() - 1;
++                    parent[pair[1]] = nodes.len() - 1;
++                    next.push(nodes.len() - 1);
++                } else {
++                    next.push(pair[0]);
++                }
++            }
++            level = next;
++        }
++        let mut pos = vec![0u32; order.len()];
++        for (k, &(_, i)) in order.iter().enumerate() {
++            pos[i as usize] = k as u32;
++        }
++        Tree {
++            order,
++            bucket,
++            nodes,
++            nleaves,
++            parent,
++            pos,
++        }
++    }
++
++    /// Recompute envelopes from leaf `lf` to the root after bodies changed; returns recomputations.
++    pub fn refresh_path(&mut self, b: &[Body], lf: usize) -> usize {
++        let mut count = 0;
++        let mut k = lf;
++        // Leaf envelope.
++        self.recompute_leaf(b, k);
++        count += 1;
++        while self.parent[k] != usize::MAX {
++            k = self.parent[k];
++            self.recompute_node(k);
++            count += 1;
++        }
++        count
++    }
++
++    fn recompute_leaf(&mut self, b: &[Body], k: usize) {
++        let (lo, hi) = (self.nodes[k].lo, self.nodes[k].hi);
++        let mut nd = self.nodes[k];
++        nd.ulo = f64::INFINITY;
++        nd.uhi = f64::NEG_INFINITY;
++        nd.cx = 0.0;
++        nd.cy = 0.0;
++        nd.rad = 0.0;
++        nd.rmin = f64::INFINITY;
++        nd.rmax = 0.0;
++        nd.emax = 0.0;
++        nd.pmin = f64::INFINITY;
++        let (mut sx, mut sy) = (0.0, 0.0);
++        for &(_, i) in &self.order[lo..hi] {
++            let x = &b[i as usize];
++            let u = x.binet();
++            nd.ulo = nd.ulo.min(u[0]);
++            nd.uhi = nd.uhi.max(u[0]);
++            nd.rmin = nd.rmin.min(x.rmin());
++            nd.rmax = nd.rmax.max(x.rmax());
++            nd.emax = nd.emax.max(x.e);
++            nd.pmin = nd.pmin.min(x.p);
++            sx += u[1];
++            sy += u[2];
++        }
++        let m = (hi - lo) as f64;
++        nd.cx = sx / m;
++        nd.cy = sy / m;
++        for &(_, i) in &self.order[lo..hi] {
++            let u = b[i as usize].binet();
++            nd.rad = nd.rad.max((u[1] - nd.cx).hypot(u[2] - nd.cy));
++        }
++        self.nodes[k] = nd;
++    }
++
++    fn recompute_node(&mut self, k: usize) {
++        let (l, r) = self.nodes[k].ch;
++        let (a, c) = (self.nodes[l], self.nodes[r]);
++        self.nodes[k].lo = a.lo;
++        self.nodes[k].hi = c.hi;
++        self.nodes[k].ulo = a.ulo.min(c.ulo);
++        self.nodes[k].uhi = a.uhi.max(c.uhi);
++        self.nodes[k].cx = (a.cx + c.cx) * 0.5;
++        self.nodes[k].cy = (a.cy + c.cy) * 0.5;
++        self.nodes[k].rad = 0.5 * (a.cx - c.cx).hypot(a.cy - c.cy) + a.rad.max(c.rad);
++        self.nodes[k].rmin = a.rmin.min(c.rmin);
++        self.nodes[k].rmax = a.rmax.max(c.rmax);
++        self.nodes[k].emax = a.emax.max(c.emax);
++        self.nodes[k].pmin = a.pmin.min(c.pmin);
++    }
++}
++
++#[derive(Default, Debug, Clone, Copy)]
++pub struct TreeStats {
++    pub node_tests: u64,
++    pub pruned: u64,
++    pub leafpair_tests: u64,
++    pub cand: u64,
++}
++
++fn go(
++    t: &Tree,
++    b: &[Body],
++    rho: f64,
++    x: usize,
++    y: usize,
++    bodies_too: bool,
++    f: &mut dyn FnMut(u32, u32),
++    st: &mut TreeStats,
++) {
++    st.node_tests += 1;
++    if x != y && t.nodes[x].sep(&t.nodes[y], rho) {
++        st.pruned += 1;
++        return;
++    }
++    let leafx = t.nodes[x].ch == (usize::MAX, usize::MAX);
++    let leafy = t.nodes[y].ch == (usize::MAX, usize::MAX);
++    if x == y {
++        if leafx {
++            if bodies_too {
++                let (lo, hi) = (t.nodes[x].lo, t.nodes[x].hi);
++                for a in lo..hi {
++                    for c in a + 1..hi {
++                        let (i, j) = (t.order[a].1, t.order[c].1);
++                        let (i, j) = (i.min(j), i.max(j));
++                        if is_candidate(&b[i as usize], &b[j as usize], rho) {
++                            st.cand += 1;
++                            f(i, j);
++                        }
++                    }
++                }
++            }
++            return;
++        }
++        let (l, r) = t.nodes[x].ch;
++        go(t, b, rho, l, l, bodies_too, f, st);
++        go(t, b, rho, l, r, bodies_too, f, st);
++        go(t, b, rho, r, r, bodies_too, f, st);
++        return;
++    }
++    if leafx && leafy {
++        st.leafpair_tests += 1;
++        if bodies_too {
++            for a in t.nodes[x].lo..t.nodes[x].hi {
++                for c in t.nodes[y].lo..t.nodes[y].hi {
++                    let (i, j) = (t.order[a].1, t.order[c].1);
++                    let (i, j) = if i < j { (i, j) } else { (j, i) };
++                    if i == j {
++                        continue;
++                    }
++                    if is_candidate(&b[i as usize], &b[j as usize], rho) {
++                        st.cand += 1;
++                        f(i, j);
++                    }
++                }
++            }
++        }
++        return;
++    }
++    // Split the node with more bodies.
++    let (nx, ny) = (t.nodes[x].hi - t.nodes[x].lo, t.nodes[y].hi - t.nodes[y].lo);
++    if (nx >= ny && !leafx) || leafy {
++        let (l, r) = t.nodes[x].ch;
++        go(t, b, rho, l, y, bodies_too, f, st);
++        go(t, b, rho, r, y, bodies_too, f, st);
++    } else {
++        let (l, r) = t.nodes[y].ch;
++        go(t, b, rho, x, l, bodies_too, f, st);
++        go(t, b, rho, x, r, bodies_too, f, st);
++    }
++}
++
++/// Traverse every candidate pair through the tree. If `bodies_too`, call `f(i, j)` on each exact
++/// candidate; otherwise stop at leaf-pair granularity (counting only).
++pub fn traverse(
++    t: &Tree,
++    b: &[Body],
++    rho: f64,
++    bodies_too: bool,
++    f: &mut dyn FnMut(u32, u32),
++    st: &mut TreeStats,
++) {
++    if t.nodes.is_empty() {
++        return;
++    }
++    let root = t.nodes.len() - 1;
++    go(t, b, rho, root, root, bodies_too, f, st);
++}
++
++// ---------------------------------------------------------------- arming tier
++
++fn ticks_up(x: f64) -> i64 {
++    (x * TICKS).ceil() as i64
++}
++
++/// Sound window half-widths around a transversal crossing, closed forms only: the same linear
++/// model the exact machinery uses (Δ(τ) = −v_i s + a_P s²/2 + (v_i − v_j − a_P s)τ), with the
++/// distance-to-line D(s) evaluated directly. None: model degenerate (|Δv| ≈ 0) — caller falls
++/// back to a full-width window.
++fn fast_window(bi: &Body, bj: &Body, th: f64, rho: f64) -> Option<(f64, f64)> {
++    let (st, ct) = th.sin_cos();
++    // Closed-form state of a Kepler orbit at true longitude th.
++    let state = |o: &Body| -> ([f64; 2], [f64; 2]) {
++        let f = th - o.pom;
++        let (sf, cf) = f.sin_cos();
++        let r = o.p / (1.0 + o.e * cf);
++        let k = 1.0 / o.p.sqrt();
++        let vr = k * o.e * sf;
++        let vt = k * (1.0 + o.e * cf);
++        ([r * ct, r * st], [vr * ct - vt * st, vr * st + vt * ct])
++    };
++    let (ri, vi) = state(bi);
++    let (_rj, vj) = state(bj);
++    let r3 = (ri[0] * ri[0] + ri[1] * ri[1]).powf(1.5);
++    let ap = [-ri[0] / r3, -ri[1] / r3];
++    let dv = [vi[0] - vj[0], vi[1] - vj[1]];
++    let ndv = dv[0].hypot(dv[1]);
++    if !(ndv > 1e-12) {
++        return None;
++    }
++    // D(s) = |Δ₀(s) × û(s)|, Δ₀ = −v_i s + a_P s²/2, u = Δv − a_P s.
++    let d_of = |s: f64| -> f64 {
++        let d0 = [
++            -vi[0] * s + 0.5 * ap[0] * s * s,
++            -vi[1] * s + 0.5 * ap[1] * s * s,
++        ];
++        let u = [dv[0] - ap[0] * s, dv[1] - ap[1] * s];
++        (d0[0] * u[1] - d0[1] * u[0]).abs() / u[0].hypot(u[1])
++    };
++    // Start from the linear width and walk out until D ≥ ρ (D ≈ linear near 0).
++    let c0 = (vi[0] * dv[1] - vi[1] * dv[0]).abs() / ndv;
++    if !(c0 > 1e-14) {
++        return None;
++    }
++    let w0 = rho / c0;
++    let grow = 1.3;
++    let side = |sign: f64| -> f64 {
++        let mut w = w0;
++        // First a coarse geometric walk, then a few secant refinements — soundness only needs
++        // D(±w) ≥ ρ at the end (walked outward with margin).
++        let mut k = 0;
++        while d_of(sign * w) < rho && k < 64 {
++            w *= grow;
++            k += 1;
++        }
++        w * 1.05
++    };
++    Some((side(-1.0), side(1.0)))
++}
++
++pub struct ArmSection {
++    pub kind: Kind,
++    pub ti: u64,
++    pub tj: u64,
++    pub w1: i64,
++    pub w2: i64,
++}
++
++struct Arc {
++    c: f64,
++    dm: f64,
++    dp: f64,
++    cross: bool,
++}
++
++fn full_section_arm(bi: &Body, bj: &Body, rho: f64) -> Vec<ArmSection> {
++    // pairs::full_section (analytic): window from the time-offset spread of the two orbits.
++    let th = bj.pom;
++    let k = 64;
++    let (mut dmin, mut dmax, mut jump, mut prev) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
++    let mut push = |d: f64| {
++        dmin = dmin.min(d);
++        dmax = dmax.max(d);
++        jump = jump.max((d - prev).abs());
++        prev = d;
++    };
++    for q in 1..k {
++        let thq = th + TAU * q as f64 / k as f64;
++        push(bj.travel(th, thq) - bi.travel(th, thq));
++    }
++    push((bj.period as f64 - bi.period as f64) / TICKS);
++    let rmin = bi.rmin().min(bj.rmin());
++    let rmax = bi.rmax().max(bj.rmax());
++    let thdot_min = bi.p.min(bj.p).sqrt() / (rmax * rmax);
++    let pad = 1.3 * rho / (rmin * thdot_min) + jump;
++    vec![ArmSection {
++        kind: Kind::Full,
++        ti: bi.passage_tick(th),
++        tj: bj.passage_tick(th),
++        w1: ticks_up(pad - dmin),
++        w2: ticks_up(dmax + pad),
++    }]
++}
++
++/// Analytic-only sections with sound superset windows. Cross: fast_window × margin. Wide/tangency:
++/// the crate's arc-overlap cap window (travel bounds, closed forms; no state evaluations).
++pub fn arm_sections(bi: &Body, bj: &Body, rho: f64, safety: f64) -> Vec<ArmSection> {
++    let (a, b) = (bi.binet(), bj.binet());
++    let du = a[0] - b[0];
++    let dv = a[1] - b[1];
++    let dw = a[2] - b[2];
++    let r = dv.hypot(dw);
++    let eps = eps_u(bi, bj, rho);
++    if du.abs() - r >= eps {
++        return Vec::new();
++    }
++    if r < 1e-300 {
++        return full_section_arm(bi, bj, rho);
++    }
++    let th0 = dw.atan2(dv);
++    let c_lo = (-eps - du) / r;
++    let c_hi = (eps - du) / r;
++    let merged0 = c_hi >= 1.0;
++    let merged_pi = c_lo <= -1.0;
++    let phi1 = c_hi.min(1.0).acos();
++    let phi2 = c_lo.max(-1.0).acos();
++    let arcs = if merged0 && merged_pi {
++        return full_section_arm(bi, bj, rho);
++    } else if merged0 {
++        vec![Arc {
++            c: th0,
++            dm: phi2,
++            dp: phi2,
++            cross: false,
++        }]
++    } else if merged_pi {
++        vec![Arc {
++            c: th0 + PI,
++            dm: PI - phi1,
++            dp: PI - phi1,
++            cross: false,
++        }]
++    } else {
++        let phx = (-du / r).clamp(-1.0, 1.0).acos();
++        vec![
++            Arc {
++                c: th0 + phx,
++                dm: phx - phi1,
++                dp: phi2 - phx,
++                cross: true,
++            },
++            Arc {
++                c: th0 - phx,
++                dm: phi2 - phx,
++                dp: phx - phi1,
++                cross: true,
++            },
++        ]
++    };
++    arcs.into_iter()
++        .filter_map(|arc| {
++            let th = arc.c.rem_euclid(TAU);
++            let (w1, w2, kind) = if arc.cross {
++                match fast_window(bi, bj, th, rho) {
++                    Some((sm, sp)) => (safety * sm, safety * sp, Kind::Cross),
++                    // Degenerate crossing (|Δv| ≈ 0): the crate's cap window (computed lazily).
++                    None => {
++                        let di = (bi.travel(th - arc.dm, th), bi.travel(th, th + arc.dp));
++                        let dj = (bj.travel(th - arc.dm, th), bj.travel(th, th + arc.dp));
++                        (dj.0 + di.1, dj.1 + di.0, Kind::Wide)
++                    }
++                }
++            } else {
++                // Keep the passage-overlap cap. The lab's linear tightening
++                // dropped contacts at e=0.7..0.9; no model window may narrow it.
++                let di = (bi.travel(th - arc.dm, th), bi.travel(th, th + arc.dp));
++                let dj = (bj.travel(th - arc.dm, th), bj.travel(th, th + arc.dp));
++                (dj.0 + di.1, dj.1 + di.0, Kind::Wide)
++            };
++            if !(w1.is_finite() && w2.is_finite() && w1 >= 0.0 && w2 >= 0.0) {
++                return None;
++            }
++            Some(ArmSection {
++                kind,
++                ti: bi.passage_tick(th),
++                tj: bj.passage_tick(th),
++                w1: ticks_up(w1),
++                w2: ticks_up(w2),
++            })
++        })
++        .collect()
++}
++
++#[derive(Default, Debug, Clone, Copy)]
++pub struct ArmStats {
++    pub tests: u64,
++    pub armed: u64,
++    pub silent: u64,
++    pub qsteps: u64,
++    /// First in-window passage time (time units) — may exceed the horizon (slack).
++    pub due: f64,
++    pub sections: [u64; 3],
++}
++
++/// Does some passage of j over the section land in the (superset) window within [t0, t1]?
++/// Sound superset of "the exact machinery reports an event in [t0, t1]". Returns (armed, due).
++pub fn arm_pair(
++    bi: &Body,
++    bj: &Body,
++    rho: f64,
++    safety: f64,
++    t0: f64,
++    t1: f64,
++    st: &mut ArmStats,
++) -> (bool, f64) {
++    st.tests += 1;
++    let mut due = f64::INFINITY;
++    let mut any = false;
++    for sec in arm_sections(bi, bj, rho, safety) {
++        st.sections[sec.kind as usize] += 1;
++        let ti = sec.ti as i128;
++        let tj = sec.tj as i128;
++        let pi = bi.period as i128;
++        let pj = bj.period as i128;
++        // Sound superset of the crate's `ext` (arc traversals are sub-period).
++        let ext = pi + 2 * pj;
++        let t0t = (t0 * TICKS) as i128;
++        let t1t = (t1 * TICKS) as i128;
++        let base = tj + (t0t - ext - tj).div_euclid(pj) * pj;
++        let lmax = (t1t + ext - base).div_euclid(pj);
++        let w1 = sec.w1 as i128;
++        let w = (w1 + sec.w2 as i128).clamp(0, pi - 1);
++        let c0 = (ti - base + w1).rem_euclid(pi);
++        let d = (pi - pj.rem_euclid(pi)).rem_euclid(pi);
++        if let Some(k) = first_hit(
++            c0 as u128,
++            d as u128,
++            pi as u128,
++            0,
++            w as u128,
++            &mut st.qsteps,
++        ) {
++            let l = k as i128;
++            due = due.min((base + l * pj) as f64 / TICKS);
++            if l <= lmax {
++                any = true;
++            }
++        }
++    }
++    st.due = st.due.min(due);
++    if any {
++        st.armed += 1;
++    } else {
++        st.silent += 1;
++    }
++    (any, due)
++}
++
++/// Phase A: arm every candidate of body i's U-range; collect armed partner ids and dues.
++#[allow(clippy::too_many_arguments)]
++pub fn tiered_arm(
++    b: &[Body],
++    order: &[(f64, u32)],
++    i: u32,
++    rho: f64,
++    safety_arm: f64,
++    t0: f64,
++    t1: f64,
++    reach: impl Fn(&Body) -> f64,
++    ast: &mut ArmStats,
++    armed: &mut Vec<(u32, f64)>,
++) {
++    let bi = &b[i as usize];
++    let u = bi.binet()[0];
++    let lo = order.partition_point(|z| z.0 < u - reach(bi));
++    let hi = order.partition_point(|z| z.0 <= u + reach(bi));
++    for &(_, j) in &order[lo..hi] {
++        if j <= i {
++            continue;
++        }
++        let bj = &b[j as usize];
++        if !is_candidate(bi, bj, rho) {
++            continue;
++        }
++        let (on, due) = arm_pair(bi, bj, rho, safety_arm, t0, t1, ast);
++        if on {
++            armed.push((j, due));
++        }
++    }
++}
++
++/// Phase B: the exact machinery on armed pairs only.
++pub fn tiered_exact(
++    b: &[Body],
++    i: u32,
++    armed: &[(u32, f64)],
++    rho: f64,
++    t0: f64,
++    t1: f64,
++    xst: &mut Stats,
++    out: &mut Vec<(u32, u32, f64, f64)>,
++) {
++    let bi = &b[i as usize];
++    for &(j, _) in armed {
++        let mut tmp = Vec::new();
++        pair_events(bi, &b[j as usize], rho, 1.1, t0, t1, xst, &mut tmp);
++        out.extend(tmp.iter().map(|&(t, d)| (i, j, t, d)));
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::{
++        belt::{make_belt, Spec},
++        pairs::cone_pairs,
++    };
++    use std::collections::BTreeSet;
++
++    #[test]
++    fn envelope_tree_equals_brute_cone_with_unbalanced_radii_and_id_order() {
++        let spec = Spec {
++            name: "tree".into(),
++            n: 193,
++            sigma_e: 0.15,
++            rho: 0.001,
++            a_lo: 0.5,
++            a_hi: 3.0,
++            keys: 0,
++            seed: 89,
++            orbits: 1.0,
++        };
++        let mut b = make_belt(&spec);
++        b[71] = Body::new(1.0, 0.9, 0.7, 1.1);
++        let expected: BTreeSet<_> = cone_pairs(&b, spec.rho).pairs.into_iter().collect();
++        for bucket in [1, 7, 32, 1000] {
++            let tree = Tree::new(&b, bucket);
++            let mut found = BTreeSet::new();
++            traverse(
++                &tree,
++                &b,
++                spec.rho,
++                true,
++                &mut |i, j| {
++                    assert!(found.insert((i, j)));
++                },
++                &mut TreeStats::default(),
++            );
++            assert_eq!(found, expected, "bucket {bucket}");
++        }
++    }
++
++    #[test]
++    fn wide_arming_keeps_the_full_passage_overlap_cap_at_high_e() {
++        let mut wide = 0;
++        for e in [0.7, 0.8, 0.9] {
++            let a = Body::new(1.0, e, 0.0, 0.0);
++            let b = Body::new(0.9, 1.0 - (1.0 - e) / 0.9, 0.0, 0.02);
++            for sec in arm_sections(&a, &b, 1e-5, 1.1) {
++                if sec.kind != Kind::Wide {
++                    continue;
++                }
++                wide += 1;
++                // Vary safety to catch accidental model-dependent tightening:
++                // overlap bounds depend solely on arc transit times.
++                let other = arm_sections(&a, &b, 1e-5, 0.0);
++                let same = other
++                    .iter()
++                    .find(|s| s.ti == sec.ti && s.tj == sec.tj)
++                    .unwrap();
++                assert_eq!((sec.w1, sec.w2), (same.w1, same.w2));
++            }
++        }
++        assert!(wide > 0, "probe must exercise Wide");
++    }
++}

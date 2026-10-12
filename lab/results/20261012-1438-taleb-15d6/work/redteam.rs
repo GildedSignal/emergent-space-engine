@@ -1,0 +1,473 @@
+//! Red-team probe (taleb lens, 12 October): does the phase-neighbour "train" certificate
+//! (gold 20261006-0346-taleb-09b5, adopted into the encounters design) survive the fleet
+//! densities it is adopted for? The gold measured partner distance-rank <= 4 at closest
+//! approach on fleets whose local along-track spacing never fell below ~1.25 rho and whose
+//! radial (e-)breathing was ~10 rho. Rank > k at contact requires >= k other bodies closer
+//! than d <= rho, i.e. a pile-up of k+1 bodies within ~rho: a density condition the trigger
+//! (Binet clump diameter / eps_u <= 1, the all-Full condition) does not see.
+//!
+//! Truth is a position-grid brute force (hash grid on instantaneous positions, cell rho,
+//! same + 4 forward neighbour cells): unbiased w.r.t. any longitude, unlike a mean-longitude
+//! binning. Relative motion per step is << rho. Scenarios print one JSON line each.
+
+use emergent_encounters::belt::Rng;
+use emergent_encounters::kepler::Body;
+use emergent_encounters::pairs::{eps_u, sections, Kind};
+use std::collections::HashMap;
+use std::f64::consts::TAU;
+
+const RHO: f64 = 1e-4;
+
+fn rayleigh(rng: &mut Rng, s: f64, cap: f64) -> f64 {
+    let u = rng.f64();
+    (s * (-2.0 * (1.0 - u).ln()).sqrt()).min(cap)
+}
+
+/// A fleet: co-orbital, apsides clustered, lambda uniform or bunched to a target mean
+/// along-track spacing (in units of rho) at the bunch centre.
+fn fleet(
+    nc: usize,
+    a_hw: f64,
+    e_sig: f64,
+    e_cap: f64,
+    spacing_rho: f64, // target mean along-track spacing / rho; <= 0 means uniform lambda
+    seed: u64,
+) -> Vec<Body> {
+    let mut rng = Rng(seed);
+    let pom0 = TAU * rng.f64();
+    let lam0 = TAU * rng.f64();
+    // spacing = sigma * sqrt(2 pi) / nc  =>  sigma = spacing * nc / sqrt(2 pi)
+    let sig_lam = spacing_rho * RHO * nc as f64 / (2.0 * std::f64::consts::PI).sqrt();
+    (0..nc)
+        .map(|_| {
+            let a = 1.0 + (2.0 * rng.f64() - 1.0) * a_hw;
+            let e = rayleigh(&mut rng, e_sig, e_cap);
+            let pom = pom0 + (2.0 * rng.f64() - 1.0) * 0.1;
+            let lam = if spacing_rho <= 0.0 {
+                TAU * rng.f64()
+            } else {
+                let (u1, u2) = (rng.f64(), rng.f64());
+                let z = (-2.0 * (1e-12 + u1).ln()).sqrt() * (TAU * u2).cos();
+                lam0 + sig_lam * z
+            };
+            Body::new(a, e, pom, lam)
+        })
+        .collect()
+}
+
+fn pos_of(b: &Body, t: f64) -> [f64; 2] {
+    let m = b.mean_anomaly(t);
+    let st = b.state_at_mean(m);
+    [st[0], st[1]]
+}
+
+/// Mean longitude at time t (the cheap, static-in-shape sort key).
+fn lam_mean(b: &Body, t: f64) -> f64 {
+    (b.mean_anomaly(t) + b.pom).rem_euclid(TAU)
+}
+
+/// True longitude at time t.
+fn lam_true(b: &Body, t: f64) -> f64 {
+    let m = b.mean_anomaly(t);
+    let st = b.state_at_mean(m);
+    st[1].atan2(st[0]).rem_euclid(TAU)
+}
+
+/// Gap rank among the fleet: 1 = nearest by the metric (gold's counting had 0 = nearest;
+/// thresholds shift by one, so "le4" here means at most 3 bodies closer, as there).
+fn rank_in(v: &[(f64, usize)], other: usize) -> u64 {
+    let g = v
+        .iter()
+        .find(|x| x.1 == other)
+        .map(|x| x.0)
+        .unwrap_or(f64::INFINITY);
+    v.iter().filter(|x| x.1 != other && x.0 < g).count() as u64 + 1
+}
+
+/// Angular gap wrapped to [0, pi].
+fn ang_gap(a: f64, b: f64) -> f64 {
+    let d = (a - b).abs().rem_euclid(TAU);
+    d.min(TAU - d)
+}
+
+struct Jam {
+    name: &'static str,
+    nc: usize,
+    a_hw: f64,
+    e_sig: f64,
+    e_cap: f64,
+    spacing_rho: f64,
+    seed: u64,
+    orbits: f64,
+    dt: f64,
+}
+
+fn record(
+    pos: &[[f64; 2]],
+    i: usize,
+    j: usize,
+    t: f64,
+    best: &mut HashMap<(u32, u32), (f64, f64)>,
+) {
+    let d = (pos[i][0] - pos[j][0]).hypot(pos[i][1] - pos[j][1]);
+    if d < RHO {
+        let e = best
+            .entry((i.min(j) as u32, i.max(j) as u32))
+            .or_insert((f64::INFINITY, t));
+        if d < e.0 {
+            *e = (d, t);
+        }
+    }
+}
+
+/// Position-grid brute force: every pair ever closer than rho, with its closest approach.
+fn brute(f: &[Body], orbits: f64, dt: f64) -> HashMap<(u32, u32), (f64, f64)> {
+    let nc = f.len();
+    let steps = (orbits * TAU / dt) as usize;
+    let mut best: HashMap<(u32, u32), (f64, f64)> = HashMap::new();
+    let mut head: HashMap<(i64, i64), i64> = HashMap::new();
+    let mut nxt = vec![-1i64; nc];
+    let mut pos = vec![[0.0f64; 2]; nc];
+    let mut keys: Vec<(i64, i64)> = Vec::new();
+    for s in 0..steps {
+        let t = s as f64 * dt;
+        head.clear();
+        keys.clear();
+        for i in 0..nc {
+            pos[i] = pos_of(&f[i], t);
+            let key = (
+                (pos[i][0] / RHO).floor() as i64,
+                (pos[i][1] / RHO).floor() as i64,
+            );
+            match head.get(&key) {
+                Some(&h) => nxt[i] = h,
+                None => {
+                    nxt[i] = -1;
+                    keys.push(key);
+                }
+            }
+            head.insert(key, i as i64);
+        }
+        for key in keys.iter().copied() {
+            let h0 = head[&key];
+            // same-cell pairs
+            let mut p = h0;
+            while p >= 0 {
+                let mut q = nxt[p as usize];
+                while q >= 0 {
+                    record(&pos, p as usize, q as usize, t, &mut best);
+                    q = nxt[q as usize];
+                }
+                p = nxt[p as usize];
+            }
+            // 4 forward neighbours (E, N, NE, NW): every pair < rho is covered once
+            for (dx, dy) in [(1, 0), (0, 1), (1, 1), (-1, 1)] {
+                let h2 = match head.get(&(key.0 + dx, key.1 + dy)) {
+                    Some(&h) => h,
+                    None => continue,
+                };
+                let mut p = h0;
+                while p >= 0 {
+                    let mut q = h2;
+                    while q >= 0 {
+                        record(&pos, p as usize, q as usize, t, &mut best);
+                        q = nxt[q as usize];
+                    }
+                    p = nxt[p as usize];
+                }
+            }
+        }
+    }
+    best
+}
+
+/// Refine a pair's closest approach around the sampled t by dense local sampling.
+fn refine_pair(bi: &Body, bj: &Body, t0: f64, dt: f64) -> (f64, f64) {
+    let (mut dm, mut tm) = (f64::INFINITY, t0);
+    for k in -400..=400 {
+        let t = t0 + k as f64 * dt / 100.0;
+        let (pi, pj) = (pos_of(bi, t), pos_of(bj, t));
+        let d = (pi[0] - pj[0]).hypot(pi[1] - pj[1]);
+        if d < dm {
+            dm = d;
+            tm = t;
+        }
+    }
+    (dm, tm)
+}
+
+/// The gold's trigger: max pairwise Binet distance / mean eps_u (the all-Full condition),
+/// plus the measured all-Full fraction over a pair sample.
+fn trigger_state(f: &[Body]) -> (f64, f64, f64) {
+    let nc = f.len();
+    let step = (nc / 50).max(1);
+    let mut dmax = 0.0f64;
+    let mut eps_sum = 0.0f64;
+    let mut n = 0u64;
+    for i in (0..nc).step_by(step) {
+        for j in ((i + 1)..nc).step_by(step) {
+            let (bi, bj) = (&f[i], &f[j]);
+            let (ui, uj) = (bi.binet(), bj.binet());
+            let d = (0..3)
+                .map(|k| (ui[k] - uj[k]) * (ui[k] - uj[k]))
+                .sum::<f64>()
+                .sqrt();
+            dmax = dmax.max(d);
+            eps_sum += eps_u(bi, bj, RHO);
+            n += 1;
+        }
+    }
+    let s2 = step.max(nc / 200);
+    let mut full = 0u64;
+    let mut tot = 0u64;
+    let mut ev = 0u64;
+    for i in (0..nc).step_by(s2) {
+        for j in ((i + 1)..nc).step_by(s2) {
+            for s in sections(&f[i], &f[j], RHO, 1.1, &mut ev) {
+                if s.kind == Kind::Full {
+                    full += 1;
+                }
+                tot += 1;
+            }
+        }
+    }
+    (dmax / (eps_sum / n.max(1) as f64), full as f64, tot as f64)
+}
+fn run(jm: &Jam) {
+    let f = fleet(jm.nc, jm.a_hw, jm.e_sig, jm.e_cap, jm.spacing_rho, jm.seed);
+    let best = brute(&f, jm.orbits, jm.dt);
+    let t0 = std::time::Instant::now();
+    let brute_us = t0.elapsed().as_micros();
+    let mut keys: Vec<_> = best.keys().copied().collect();
+    keys.sort_unstable();
+    let (mut r4, mut r8, mut rmax, mut tot) = (0u64, 0u64, 0u64, 0u64);
+    let (mut m4, mut m8, mut mmax) = (0u64, 0u64, 0u64);
+    let (mut t4, mut t8, mut tmax) = (0u64, 0u64, 0u64);
+    let (mut dmin_all, mut worst) = (f64::INFINITY, String::new());
+    for &(i, j) in &keys {
+        let (d, t) = refine_pair(&f[i as usize], &f[j as usize], best[&(i, j)].1, jm.dt);
+        tot += 1;
+        dmin_all = dmin_all.min(d);
+        let (pi, pj) = (pos_of(&f[i as usize], t), pos_of(&f[j as usize], t));
+        let (li, lj) = (
+            lam_mean(&f[i as usize], t),
+            lam_mean(&f[j as usize], t),
+        );
+        let (ti_l, tj_l) = (
+            lam_true(&f[i as usize], t),
+            lam_true(&f[j as usize], t),
+        );
+        let mut vi = Vec::with_capacity(jm.nc);
+        let mut vj = Vec::with_capacity(jm.nc);
+        let mut mi = Vec::with_capacity(jm.nc);
+        let mut mj = Vec::with_capacity(jm.nc);
+        let mut ti = Vec::with_capacity(jm.nc);
+        let mut tj = Vec::with_capacity(jm.nc);
+        for k in 0..jm.nc {
+            let p = pos_of(&f[k], t);
+            vi.push(((p[0] - pi[0]).hypot(p[1] - pi[1]), k));
+            vj.push(((p[0] - pj[0]).hypot(p[1] - pj[1]), k));
+            let (lm, lt) = (lam_mean(&f[k], t), lam_true(&f[k], t));
+            mi.push((ang_gap(lm, li), k));
+            mj.push((ang_gap(lm, lj), k));
+            ti.push((ang_gap(lt, ti_l), k));
+            tj.push((ang_gap(lt, tj_l), k));
+        }
+        let rd = rank_in(&vi, j as usize).min(rank_in(&vj, i as usize));
+        let rm = rank_in(&mi, j as usize).min(rank_in(&mj, i as usize));
+        let rt = rank_in(&ti, j as usize).min(rank_in(&tj, i as usize));
+        r4 += (rd <= 4) as u64;
+        r8 += (rd <= 8) as u64;
+        rmax = rmax.max(rd);
+        m4 += (rm <= 4) as u64;
+        m8 += (rm <= 8) as u64;
+        mmax = mmax.max(rm);
+        t4 += (rt <= 4) as u64;
+        t8 += (rt <= 8) as u64;
+        tmax = tmax.max(rt);
+        if rd > 4 && worst.len() < 400 {
+            worst = format!(
+                "{{\"pair\":[{},{}],\"d\":{:.3e},\"rank_dist\":{},\"rank_mean\":{},\"rank_true\":{}}}",
+                i, j, d, rd, rm, rt
+            );
+        }
+    }
+    let (trig, full, tot_sec) = trigger_state(&f);
+    println!(
+        "{{\"jam\":\"{}\",\"nc\":{},\"spacing_rho\":{},\"e_sig\":{},\"orbits\":{},\"encounters\":{},\"d_min\":{:.3e},\"rank_dist\":{{\"le4\":{},\"le8\":{},\"max\":{}}},\"rank_mean_lam\":{{\"le4\":{},\"le8\":{},\"max\":{}}},\"rank_true_lam\":{{\"le4\":{},\"le8\":{},\"max\":{}}},\"miss_frac_k4\":{:.3},\"trigger\":{{\"binet_over_eps\":{:.3e},\"full\":{}/{}}},\"brute_us\":{},\"worst\":{}}}",
+        jm.name, jm.nc, jm.spacing_rho, jm.e_sig, jm.orbits, tot, dmin_all,
+        r4, r8, rmax, m4, m8, mmax, t4, t8, tmax,
+        if tot > 0 { 1.0 - r4 as f64 / tot as f64 } else { 0.0 },
+        trig, full, tot_sec, brute_us, worst,
+    );
+}
+
+/// One-snapshot occupation census at real fleet scale: for every body, how many fleet
+/// members sit within rho; and for a sample of in-contact pairs, the partner's distance-rank
+/// at that instant. A k-watch needs the partner within its k nearest at some watch instant
+/// during the contact episode; this measures the episode's environment directly.
+fn snapshot(name: &str, nc: usize, e_sig: f64, e_cap: f64, seed: u64) {
+    let t0 = std::time::Instant::now();
+    let f = fleet(nc, 1e-5, e_sig, e_cap, 0.0, seed);
+    let t = 0.0;
+    let mut pos = vec![[0.0f64; 2]; nc];
+    let mut head: HashMap<(i64, i64), i64> = HashMap::with_capacity(nc);
+    let mut nxt = vec![-1i64; nc];
+    for i in 0..nc {
+        pos[i] = pos_of(&f[i], t);
+        let key = (
+            (pos[i][0] / RHO).floor() as i64,
+            (pos[i][1] / RHO).floor() as i64,
+        );
+        let e = head.entry(key).or_insert(-1);
+        nxt[i] = *e;
+        *e = i as i64;
+    }
+    let keys: Vec<(i64, i64)> = head.keys().copied().collect();
+    // occupation: neighbours within rho, each body exactly once
+    let mut occ: Vec<u64> = Vec::with_capacity(nc);
+    for i in 0..nc {
+        let pi = pos[i];
+        let key = ((pi[0] / RHO).floor() as i64, (pi[1] / RHO).floor() as i64);
+        let mut m = 0u64;
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                let mut q = match head.get(&(key.0 + dx, key.1 + dy)) {
+                    Some(&q) => q,
+                    None => continue,
+                };
+                while q >= 0 {
+                    if q as usize != i {
+                        let d = (pi[0] - pos[q as usize][0]).hypot(pi[1] - pos[q as usize][1]);
+                        if d < RHO {
+                            m += 1;
+                        }
+                    }
+                    q = nxt[q as usize];
+                }
+            }
+        }
+        occ.push(m);
+    }
+    // contact pairs: same cell (i<j) + 4 forward cells, each once
+    let mut pairs: Vec<(usize, usize)> = Vec::new();
+    for key in &keys {
+        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1), (-1, 1)] {
+            let h2 = match head.get(&(key.0 + dx, key.1 + dy)) {
+                Some(&h) => h,
+                None => continue,
+            };
+            let mut p = head[key];
+            while p >= 0 {
+                let mut q = if (dx, dy) == (0, 0) { nxt[p as usize] } else { h2 };
+                while q >= 0 {
+                    let d = (pos[p as usize][0] - pos[q as usize][0])
+                        .hypot(pos[p as usize][1] - pos[q as usize][1]);
+                    if d < RHO {
+                        pairs.push((p as usize, q as usize));
+                    }
+                    q = nxt[q as usize];
+                }
+                p = nxt[p as usize];
+            }
+        }
+    }
+    // rank of the partner among neighbours within rho for sampled contact pairs
+    let stride = pairs.len().div_ceil(2000).max(1);
+    let mut ranks: Vec<u64> = Vec::new();
+    for &(i, j) in pairs.iter().step_by(stride) {
+        let pi = pos[i];
+        let dij = (pi[0] - pos[j][0]).hypot(pi[1] - pos[j][1]);
+        let key = (
+            (pi[0] / RHO).floor() as i64,
+            (pi[1] / RHO).floor() as i64,
+        );
+        let mut closer = 0u64;
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                let mut q = match head.get(&(key.0 + dx, key.1 + dy)) {
+                    Some(&q) => q,
+                    None => continue,
+                };
+                while q >= 0 {
+                    if q as usize != i {
+                        let d = (pi[0] - pos[q as usize][0]).hypot(pi[1] - pos[q as usize][1]);
+                        if d < dij {
+                            closer += 1;
+                        }
+                    }
+                    q = nxt[q as usize];
+                }
+            }
+        }
+        ranks.push(closer + 1);
+    }
+    occ.sort_unstable();
+    ranks.sort_unstable();
+    let q = |v: &Vec<u64>, f: f64| v.get((f * (v.len() as f64 - 1.0)) as usize).copied().unwrap_or(0);
+    let ge5 = occ.iter().filter(|&&o| o >= 5).count();
+    println!(
+        "{{\"snapshot\":\"{}\",\"nc\":{},\"e_sig\":{},\"occ_within_rho\":{{\"p50\":{},\"p90\":{},\"p99\":{},\"max\":{},\"frac_ge5\":{:.4}}},\"contact_pairs\":{},\"rank_at_contact\":{{\"sampled\":{},\"p50\":{},\"p90\":{},\"p99\":{},\"max\":{},\"frac_gt4\":{:.4}}},\"us\":{}}}",
+        name, nc, e_sig,
+        q(&occ, 0.5), q(&occ, 0.9), q(&occ, 0.99), q(&occ, 1.0),
+        ge5 as f64 / occ.len() as f64,
+        pairs.len(), ranks.len(), q(&ranks, 0.5), q(&ranks, 0.9), q(&ranks, 0.99), q(&ranks, 1.0),
+        ranks.iter().filter(|&&r| r > 4).count() as f64 / ranks.len().max(1) as f64,
+        t0.elapsed().as_micros(),
+    );
+}
+
+fn main() {
+    let which = std::env::args()
+        .nth(1)
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_else(|| "all".into());
+    let dt = 5e-4;
+    match which.as_str() {
+        "control" | "all" => {
+            // the gold's own regime: uniform lambda (spacing ~314 rho), e ~ 1e-3 (radial ~10 rho)
+            run(&Jam { name: "control-uniform", nc: 200, a_hw: 1e-5, e_sig: 1e-3, e_cap: 1e-2, spacing_rho: 0.0, seed: 21, orbits: 20.0, dt });
+            // their tightest measured: spacing ~1.25 rho, radial ~10 rho
+            run(&Jam { name: "control-jam-loose-e", nc: 200, a_hw: 1e-5, e_sig: 1e-3, e_cap: 1e-2, spacing_rho: 1.25, seed: 27, orbits: 2.0, dt });
+        }
+        _ => {}
+    }
+    match which.as_str() {
+        "pileup" | "all" => {
+            // pile-up probe: spacing < rho AND radial breathing < rho => many bodies within rho
+            run(&Jam { name: "jam-tight-e-s0.375", nc: 200, a_hw: 1e-5, e_sig: 1e-4, e_cap: 1e-3, spacing_rho: 0.375, seed: 31, orbits: 1.0, dt });
+            run(&Jam { name: "jam-tight-e-s1.25", nc: 200, a_hw: 1e-5, e_sig: 1e-4, e_cap: 1e-3, spacing_rho: 1.25, seed: 32, orbits: 1.0, dt });
+            run(&Jam { name: "jam-loose-e-s0.375", nc: 200, a_hw: 1e-5, e_sig: 1e-3, e_cap: 1e-2, spacing_rho: 0.375, seed: 33, orbits: 1.0, dt });
+        }
+        _ => {}
+    }
+    match which.as_str() {
+        "scale" | "all" => {
+            // scale at fixed tight formation quality: uniform fleets, e ~ 1e-5 (radial ~0.1 rho)
+            run(&Jam { name: "scale-nc3200", nc: 3200, a_hw: 1e-5, e_sig: 1e-5, e_cap: 1e-4, spacing_rho: 0.0, seed: 41, orbits: 1.0, dt });
+            run(&Jam { name: "scale-nc12800", nc: 12800, a_hw: 1e-5, e_sig: 1e-5, e_cap: 1e-4, spacing_rho: 0.0, seed: 42, orbits: 0.5, dt });
+            run(&Jam { name: "scale-nc51200", nc: 51200, a_hw: 1e-5, e_sig: 1e-5, e_cap: 1e-4, spacing_rho: 0.0, seed: 43, orbits: 0.25, dt });
+        }
+        _ => {}
+    }
+    match which.as_str() {
+        "espread" | "all" => {
+            // equation-of-center rank inflation: radial spread ~ 100 rho, mean-vs-true key
+            run(&Jam { name: "espread-s1.25", nc: 200, a_hw: 1e-5, e_sig: 1e-2, e_cap: 5e-2, spacing_rho: 1.25, seed: 51, orbits: 2.0, dt });
+            run(&Jam { name: "espread-s5", nc: 200, a_hw: 1e-5, e_sig: 1e-2, e_cap: 5e-2, spacing_rho: 5.0, seed: 52, orbits: 2.0, dt });
+        }
+        _ => {}
+    }
+    match which.as_str() {
+        "snap" | "all" => {
+            // the gold's headline ruin scenario measured directly: 10^6 ships, one orbit
+            snapshot("snap-1e5-tight", 100_000, 1e-5, 1e-4, 61);
+            snapshot("snap-1e6-tight", 1_000_000, 1e-5, 1e-4, 62);
+            snapshot("snap-1e6-gold-e", 1_000_000, 1e-3, 1e-2, 63);
+            // instrument cross-check: snapshot census vs brute-force ranks at small nc
+            snapshot("snap-3200-tight", 3_200, 1e-5, 1e-4, 64);
+            snapshot("snap-12800-tight", 12_800, 1e-5, 1e-4, 65);
+        }
+        _ => {}
+    }
+}
