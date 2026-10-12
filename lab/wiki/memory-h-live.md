@@ -2,7 +2,7 @@ topic: memory-h-live
 status: open
 closed-by:
 valid-while:
-updated: 20261012-1715-q-wiki-memory-h-live-ef8a
+updated: 20261012-1827-second-20261012-1715-q-wiki-memory-h-live-ef8a-6015
 
 # Memory at 10⁹ in 8 GB: live information per body (H_live), scars, the standing representation
 
@@ -24,9 +24,15 @@ rate decays 14.8 → 0.036 bits/game-s, ~0.2 GB of scars per hour at plane densi
 (20261007-2344-spacex-dbf9; record repaired to regenerate by
 20261008-0041-second-…-57e8, gold). The exact-vs-quantized gap is the one live
 rate risk: at exact Q48 a ship writes 0.076–0.136 bits/s (40–61 GB/h at 10⁹) against
-~0.0013–0.0015 at the 24-bit memo key (20261010-1947-spacex-19bc), and at the
+~0.0013–0.0015 at the 24-bit memo key (20261010-1947-spacex-19bc) — and holding even
+the coarse side costs a measured 0.6–1.1% of a core in reabsorption duty, while the
+exact side dies on CPU as well as bandwidth (0.3–1.3 cores;
+20261010-2052-second-20261010-1947-spacex-19bc-d205) — and at the
 tube's 32-bit angle quantum a belt writes 180.6 GB/h — the quantum must be coarser
-than ~2×10⁻⁷ rad (20261012-0616-components-0e9c).
+than ~2×10⁻⁷ rad (20261012-0616-components-0e9c). The write rate itself is
+geometry-split: fc22's ≤ ~1 MB per 300 h holds in 3-D only (18 KB/game); planar
+belt writes run ~209 MB/game at 10⁹ at the dossier's own parameters
+(20261007-0933-second-20261007-0842-fermi-fc22-a7d0, gold).
 
 **The stock saturates by promotion level; the census, not the rate, decides 10⁹.**
 Per body on the shipped store: program member 17.3–29.6 bits, first scar +70.7–76.7,
@@ -37,9 +43,15 @@ plus ~2 bits per further doubling (49.9 → 68.3 bits at K = 1 → 1024); the sh
 shelf stays 0.8–7 bits above that floor with bit-exact repacks; a fully-mixed
 population (63 bits/body) is ≈ 7.9 GB — the first wall (20261007-0800-fermi-a91f,
 gold). One chaotic scar is a stock of 40.2 bits = the analytic 2·log₂(σ/q)+4.1,
-independent of kick count — law.md's "+62/−60" flow model is dead (20261007-0621-scout-6e10);
-on the plane it is ~2× optimistic (0.8–1.5 bits/ship/game-s, 98–121 bits per
-rebound binding; 20261009-1754-spacex-c6d8). The scar constant is
+independent of kick count — law.md's "+62/−60" flow model is dead (20261007-0621-scout-6e10),
+and real Jupiter-flyby kicks are chaotic for every bounded event program (0.0–4.8% of
+the kick's bits recaptured; every body kicked every epoch;
+20261007-0711-second-20261007-0621-scout-6e10-ab9d, gold). On the plane each
+rebounded binding costs 234–252 bits and even a quiescent belt leaves 173.5–175.1
+bits/binding, so the +62 is ~3× low and the −60 has no mechanism (20261009-1754-spacex-c6d8,
+headline ~2.2× low, corrected by 20261009-1858-second-20261009-1754-spacex-c6d8-71bd);
+the bound is the current binding, not history — a kick stream revisits its own programs
+82–97%, ~15–25 bits entropy-coded (20261010-1706-fermi-2914). The scar constant is
 magnitude-dependent: S = Elias–Fano ~7 b + Σ(b_c+2), 61.2 → 172.5 bits from the
 shipped kick to the supra-family stress rung (20261011-0517-second-…-b3e7, gold),
 giving the admission rule bits/body ≈ 1 + S·f_cum with break-even f* = 33.4/S ∈
@@ -55,7 +67,9 @@ gold). A driven belt pays it at once: one Jovian pass scars every body, 126.4
 bits/body within one orbit (20261010-1407-fermi-fc48); the plane's belt carries a
 one-time ~146 bits/body (exact quanta) / ~69 (memo cell) of orientation-coupled
 synodic scatter, flat after — the generator needs first-order epicyclic terms
-(20261011-0517-spacex-d0ea, gold); the real engine's kicked belt scars every member
+(20261011-0517-spacex-d0ea, gold) — and no secular program absorbs it either: the
+exact double-averaged twin leaves residual 108.71 of 108.77 frozen bits at 20 yr
+(20261007-1106-second-20261007-1032-taleb-ab03-0263, gold); the real engine's kicked belt scars every member
 within half an orbit and never reabsorbs, ~130 bits/member ≈ 16 B at law widths, and
 shipmem's Form P dies as a family representation the moment a member is kicked
 (20261007-1646-quant-b30e, gold). The escape is measured: re-fit the generator AND
@@ -69,13 +83,20 @@ gold), which reconciles b30e (no re-programming: ~130 bits/member busts) with 80
 a median 158–420 sub-quantum kicks (98–100% multi-kick) under real conjunction
 geometry, t_sat ≈ (Q/σ_s)² orbits, so a real 10⁹ belt never scars and stands at
 1.7–2.4 B/live-body, inside B18 (20261012-0616-second-…-07b4, gold;
-20261012-0616-scout-d0a9); the growth that does exist is diffusive, σ ∝ t^0.55,
+20261012-0616-scout-d0a9); and at the law's own quanta no recompilation cadence
+rescues the driven belt — 45–76 bits/body residual against the 34.4 budget at every
+cadence and program class, restored only by per-population quanta 256× coarser
+(2,560 km → 33.2 bits; 6759's "1 km" quantum was in fact 10 km;
+20261012-0358-second-20261012-0311-scout-6759-0ae6, gold); the growth that does exist is diffusive, σ ∝ t^0.55,
 flat in N at fixed belt mass, and the storage quantum is the lever (−13 bits per
 decade of coarsening; 20261010-1544-components-986b, gold) — the ½·log₂ family
 (20261008-1337-fermi-ab86; 20261009-1556-fermi-8fb8: ½ per identity-tied column, ¼
 interchangeable, f_tie the knob; 20261008-1150-components-4b84: the periapsis-time
 axis, ~1.5·log₂t; 20261010-0814-dynamics-740f: ~3 bits per kick doubling;
-20261010-1152-fermi-e9a5: ~1 bit per time-octave).
+20261010-1152-fermi-e9a5: ~1 bit per time-octave; 20261010-1302-second-…-a9c4, gold:
+a cold belt stands at 41.7 bits = 5.2 GB at 2 dof, only concentrated 3-dof regions
+break; 20261011-0006-second-…-2b8e, gold: a synodic-aware program absorbs all but
+0.55 events/ship/P_p, mature footprint 20.7–22.1 bits/ship).
 
 **The standing representation is the shipped-code villain.** On the shipped plane the
 live stock is 1,245–1,277 B per belt body (4,665 B/body flown): `Catalogue::insert`
@@ -92,7 +113,18 @@ and 5.0 KB/battle member with whales = re-minted generators, retained segments,
 never-freed corpses (20261010-0306-quant-4985), commit path 660 B per ~60-bit kick
 (88×; 20261008-0148-components-df14), packed live state itself only 448–454 bits =
 56.0–56.8 B vs 672 B stored (20261009-2348-components-42e6) — a 75–615× spread over
-the 16 B tube. The one unbounded grower is the compiled-cycle catalogue, and it is a
+the 16 B tube. One doll body stands at 5,186 B = 324× the tube, 58% of it compiled
+knots proven regenerable bit-identically from the exact key (a cache, not state) and
+29% the view's retired history (20261012-0311-components-5465). At 4,000 members the
+plane's 845 MB is unpruned rebind history — ~10 kB per ship kick, `settle` bypassing
+the every-64-frames prune — on a true construction marginal of ~19 kB per handed-out
+body (~33 kB/body post-prune steady; the dashboard under-reports ~20×;
+20261012-1019-spacex-3463, decomposed by
+20261012-1117-second-20261012-1019-spacex-3463-c304, gold). The event queue needs no
+container (a counting scan at 8 B/body against the heap's 16 B + slack;
+20261011-2028-components-6a0e), and the encounters crate's second per-body copy
+(~96 GB at 10⁹) deletes onto the tube store itself (20261011-2028-system-3b42).
+The one unbounded grower is the compiled-cycle catalogue, and it is a
 churn leak (one entry per ship ever created; 20261011-2235-second-…-e4cc, gold;
 20261011-2132-spacex-91a0), with H_live itself saturating despite continuous kicks
 (fleet 17.8–22.3 bits/member, ships 45.5–49.9 bits/ship, second-half slopes ≈ 0).
@@ -100,7 +132,10 @@ A reachable ruin state remains: peak RSS grows ~0.2 kB per surviving member per
 game-second through any battle that stays live, and both instruments were blind to
 it (20261006-0030-taleb-d3fe, silver).
 
-**What binds at 10⁹ is regime-dependent, and both gold verdicts stand.** At the
+**What binds at 10⁹ is regime-dependent, and both gold verdicts stand.** The hot
+side is two per-body terms: 6.9 KB live per hot body with N_hot ≈ 1.3–2.7×10⁴ at
+rtf 100, cold populations free by horizon (20261009-2257-second-20261009-2212-fermi-a11b-ba64,
+gold; the board's 190 cores re-derives as 175). At the
 short-orbit corner (90-min orbits, 32.5 kicks/orbit) compute binds first: 153 cores
 averaged at RTF 100, S_live capped at 5.2×10⁷ by compute vs 5.4×10⁸ by memory
 (20261006-1354-fermi-c9fa, gold — frame-cost topic). At belt scale memory capacity
@@ -110,8 +145,11 @@ binds: the tube store plus any per-body event queue is already 3.2× over the us
 ordering compute (short-orbit) ≫ memory (admission at f_cum ≥ 0.19–0.55) ≫ H_live ≫
 bandwidth is measured at the 81-min corner (20261011-0517-second-…-b3e7, gold;
 20261010-0448-fermi-71b2: the wall is regime-dependent, not N; 20261010-0352-spacex-2dca
-and 20261010-1152-fermi-e9a5: at the 1× belt, churn/CPU, four orders of margin).
-The contact channel is the exception that can ruin a close-in belt: 4 GiB in 9–18
+and 20261010-1152-fermi-e9a5: at the 1× belt, churn/CPU, four orders of margin) —
+first seen as compute ≫ H_live ≫ bandwidth with the affordable hot fraction 5–10%
+at rtf 1 (0.05–0.1% at rtf 100) and reabsorption ≥ 37–292 MB/game-s at 10⁹
+(20261007-1843-fermi-1feb). The contact channel is the exception that can ruin a
+close-in belt: 4 GiB in 9–18
 play-hours for immortal ships unless contacts are terminal or herds re-program
 (20261011-1600-fermi-13ad, gold).
 
@@ -123,11 +161,15 @@ holds ships inside SOIs, contact recycling at real rates, 3D, and the dense orde
 beyond the plane's battle. The 128 bits/rebind and ~10 bits/s player are stated
 assumptions, not measurements; they bound H_live between roughly 11 and 100 bits/s
 at the measured Γ_SOI. Both cross-instruments for Γ_SOI are cold-belt-only; only the
-brute-force counter carries it across regimes (checker, 12 October). The two m_crit
-values (≈ 8×10⁻¹⁹ M☉ ≈ 500-m rock at the (E,L) quantum,
-20261009-1259-fermi-c7eb; ≈ 4.3×10¹⁸ kg at the scar quantum, 20261012-1524-fermi-4b55)
-differ because each is thresholded at its own quantum; both make ship-mass mutual
-encounters inert. The mixed-population entropy after repopulation (0.126 → ~30
+brute-force counter carries it across regimes (checker, 12 October). m_crit is now
+measured at three quanta: c7eb's ≈ 8×10⁻¹⁹ M☉ (500-m rock, (E,L) quantum) was
+corrected 16× up to ≈ 1.3×10⁻¹⁷ M☉ (1.3-km rock) by its checker
+(20261009-1345-second-20261009-1259-fermi-c7eb-46a6, gold), which also finds no mass
+threshold protects tp-identity — but a phase tick is 1.9×10⁷ per player pixel, so
+consumers, not belt self-evolution, set H_live (~0.2 distinctions/s at 10⁹ over
+1.7×10⁴ orbits); mutual-encounter distinctions begin only above μ_b ≈ 1.7×10⁻¹⁸ M☉
+(~1-km rock; 20261010-1816-components-6273); ≈ 4.3×10¹⁸ kg at the scar quantum
+(√2-corrected from 4b55's 3.0×10¹⁸ by 20261012-1621-second-…-09a1). All make ship-mass mutual encounters inert. The mixed-population entropy after repopulation (0.126 → ~30
 bits/body, ceiling ~3.75 GB) is still a bracket, not a measurement — `b-h-live`'s
 job; repopulation is load-bearing: scattered singletons saturate the store in
 1/Γ_SOI ≈ 76 orbits ≈ 400 game-years and never re-smooth on their own
@@ -155,12 +197,27 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
   (20261007-0800-fermi-a91f); the flat 16-B tube store alone is 14.9 GiB = 1.9× over
   (20261009-1259-fermi-c7eb); the exact 4-field floor 15.7 GB ≈ 2× over
   (20261010-1544-second-…-0820, gold).
-- Return-based scar reabsorption as the balancer: 10⁻⁶ of creation; the layer grows
-  only log in t (20261006-1029-components-21c3).
 - "History is never reabsorbed; live state grows ~4 B/body/game-second and fills
   8 GB in ~2 game-s" (20261008-2206-spacex-d031, lead): the plane's light-cone prune
   reaches steady state, creation = reabsorption (20261007-0711-spacex-cae7;
   20261009-0401-spacex-4a62; 20261011-2235-second-…-e4cc, golds).
+- fc22's "H_live writes ≤ ~1 MB per 300 h" for planar belts — every belt the
+  engine ships: ~209 MB/game at 10⁹, ~200× (holds in 3-D at 18 KB/game;
+  20261007-0933-second-20261007-0842-fermi-fc22-a7d0, gold).
+- 6759's "~67 bits after one orbit at 1 km quanta": the quantum was 10 km
+  (Q_A = 6.6846×10⁻⁸ AU); the headline was 10× optimistic
+  (20261012-0358-second-…-0ae6, gold).
+- d80d's "99.9% of a weak-drive resonance belt is program-regenerable": a horizon
+  artifact; 1.8% depart permanently at ~40 bits each
+  (20261012-1438-second-…-b2fd).
+- 3463's "marginal memory ~330 kB per handed-out body, growing with body count":
+  unpruned rebind history (~10 kB/ship-kick) on a ~19 kB construction marginal
+  (20261012-1117-second-…-c304, gold).
+- "The secular program absorbs the belt's drift": the exact double-averaged twin
+  explains none of it (residual 108.71 of 108.77 bits at 20 yr;
+  20261007-1106-second-…-0263, gold).
+- Return-based scar reabsorption as the balancer: 10⁻⁶ of creation; the layer grows
+  only log in t (20261006-1029-components-21c3).
 
 ## Open directions
 
@@ -168,13 +225,18 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
    code: catalogue dedup, evictable/shared compiled shapes, out-of-line records,
    free the whales (20261007-0711-spacex-cae7; 20261009-0401-spacex-4a62;
    20261009-2212-fermi-a11b; 20261010-0306-quant-4985; 20261009-2348-components-42e6;
-   20261011-2235-second-…-e4cc). Would change: 10⁹ fits with no law change.
+   20261011-2235-second-…-e4cc; 20261012-0311-components-5465: 58% is a regenerable
+   cache; 20261012-1117-second-…-c304: prune the rebind history `settle` bypasses;
+   20261011-2028-components-6a0e: queue at 8 B/body, no container;
+   20261011-2028-system-3b42: delete the encounters copy). Would change: 10⁹ fits
+   with no law change.
 2. **The requantization law, phase anchored, plus epicyclic generator terms** —
    deletes the 64-bit/radial-cycle phase dof and the one-time 146-bit synodic
    scatter; sets q_v ≳ 10⁻⁶ v_K and the angle quantum ≥ ~2×10⁻⁷ rad
    (20261010-1544-second-…-0820; 20261011-0517-spacex-d0ea; 20261007-0842-fermi-fc22;
    20261012-0616-components-0e9c; 20261010-0306-spacex-acb2;
-   20261010-1544-components-986b). Would change: the 4-field floor 15.7 GB → under
+   20261010-1544-components-986b; 20261012-0358-second-…-0ae6: per-population quanta
+   256× coarser restore the budget). Would change: the 4-field floor 15.7 GB → under
    budget.
 3. **Wire the promotion census and the admission rule** — f_cum/promotion counters,
    S by kick magnitude, f* ∈ [0.19, 0.55], re-fit + canonical relabelling
@@ -187,8 +249,11 @@ job; repopulation is load-bearing: scattered singletons saturate the store in
    (20261012-1621-second-…-09a1; 20261004-1525-components-98bc for the 0.126 anchor).
 5. **The secondary census** (k, μ distribution): sets the rebind prefactor and the
    rebind/player balance; unmeasured (20261012-1621-second-…-09a1).
-6. **m_crit transition and contact recycling:** map ~10¹²–10¹⁸ kg by quantum
-   (20261009-1259-fermi-c7eb; 20261012-1524-fermi-4b55); make contacts terminal or
+6. **m_crit transition and contact recycling:** map ~10¹²–10¹⁸ kg by quantum — two
+   interior points now measured, μ_b ≈ 1.7×10⁻¹⁸ M☉ (~1 km; 20261010-1816-components-6273)
+   and ≈ 1.3×10⁻¹⁷ M☉ (~1.3 km, c7eb corrected; 20261009-1345-second-…-46a6, gold)
+   — plus the tp channel (no mass threshold; 20261009-1345-second-…-46a6);
+   make contacts terminal or
    herd-re-programming legal before a close-in belt's 9–18 h ruin
    (20261011-1600-fermi-13ad, gold; 20261008-2031-fermi-9d49, gold).
 
@@ -290,3 +355,24 @@ code path (`soi_truth.py`, 21.1 bits/s; 20261012-1621-second-…-09a1).
 - 20261012-1340-scout-d80d (silver): H_live is a rate class; at weak drive 99.9% of a resonance belt is program-regenerable.
 - 20261012-1524-fermi-4b55 (silver): H_live term decomposition: rebinds, contacts and the player create; mutual encounters inert at ship mass.
 - 20261012-1621-second-20261012-1524-fermi-4b55-09a1 (gold): corrected the silver's broken record; Γ_SOI = 1.31×10⁻²; H_live ≈ 21 bits/s at 10⁹.
+- 20261007-0711-second-20261007-0621-scout-6e10-ab9d (gold): real Jupiter-flyby kicks are chaotic for every bounded program (≤4.8% recaptured); every body kicked every epoch.
+- 20261007-0933-second-20261007-0842-fermi-fc22-a7d0 (gold): fc22's ≤1 MB holds in 3-D only; planar belts (all shipped ones) write ~209 MB/game at 10⁹.
+- 20261007-1106-second-20261007-1032-taleb-ab03-0263 (gold): the secular-shadow twin refutes program-absorption for the belt: residual 108.71 of 108.77 bits at 20 yr.
+- 20261007-1843-fermi-1feb (silver): ordering: compute first, H_live second, bandwidth third; hot fraction 5–10% at rtf 1; reabsorption ≥37–292 MB/game-s.
+- 20261007-2057-second-20261007-2002-spacex-3b99-be63 (gold): the element-entropy ceiling stands; the identity split is forced by embedded massive bodies, not the mutual walk (4.3×10¹² orbits).
+- 20261009-1345-second-20261009-1259-fermi-c7eb-46a6 (gold): m_crit corrected 16× up to ≈1.3×10⁻¹⁷ M☉ (1.3-km rock); no mass threshold protects tp-identity; consumers set H_live.
+- 20261009-1858-second-20261009-1754-spacex-c6d8-71bd (silver): the plane creates 234–252 bits per rebounded binding; a quiescent belt still leaves 173.5–175.1 bits/binding; +62/−60 dead.
+- 20261009-2257-second-20261009-2212-fermi-a11b-ba64 (gold): 6.9 KB live per hot body; N_hot ≈ 1.3–2.7×10⁴ at rtf 100; cold populations free by horizon; 190→175 cores.
+- 20261010-0352-second-20261010-0306-spacex-acb2-7b82 (silver): Λ = 0.525 ± 0.069 with error bars; q_v* = 3.8×10⁻⁷ v_K (2.8× below shipped); q=10⁻⁶ certified marginal.
+- 20261010-1302-second-20261010-1152-fermi-e9a5-a9c4 (gold): log-bounded, regenerating record; cold belt 41.7 bits (5.2 GB, 2 dof); only concentrated 3-dof regions break.
+- 20261010-1706-fermi-2914 (silver): ~20 bits per kick; H_live bounded by the current binding (~15–25 bits); raw residual storage ~8× over 4 GiB.
+- 20261010-1816-components-6273 (silver): store cost is rate × kernel; mutual-encounter distinctions start only above a ~1-km-rock crossover mass.
+- 20261010-2052-second-20261010-1947-spacex-19bc-d205 (silver): reabsorption duty measured: 0.6–1.1% of a core at the memo key; exact Q48 costs 0.3–1.3 cores — CPU death.
+- 20261011-0006-second-20261010-2314-taleb-6baf-2b8e (gold): synodic-aware programs absorb all but 0.55 events/ship/P_p; mature footprint 20.7–22.1 bits/ship.
+- 20261011-2028-components-6a0e (silver): the event queue needs no container: a per-frame counting scan owns 8 B/body against the heap's 16 B.
+- 20261011-2028-system-3b42 (silver): the tube store sorted by (key, phase) is already the encounter index; the ~96 GB per-body copy deletes.
+- 20261012-0358-second-20261012-0311-scout-6759-0ae6 (gold): no recompilation cadence saves the belt at law's quanta (45–76 bits vs 34.4); 6759's quantum was 10 km.
+- 20261012-0311-components-5465 (silver): one doll body stands at 5,186 B = 324× the tube: 58% regenerable compiled knots, 29% retired view history.
+- 20261012-1019-spacex-3463 (silver): marginal memory ~330 kB per handed-out body, growing with N; the dashboard under-reports ~40×.
+- 20261012-1117-second-20261012-1019-spacex-3463-c304 (gold): the 845 MB at 4,000 members is unpruned rebind history (~10 kB/ship-kick; settle bypasses the prune) plus 19 kB/handout.
+- 20261012-1438-second-20261012-1340-scout-d80d-b2fd (silver): twin-rates predict sealed-scar memory, not traffic; 1.8% depart permanently at ~40 bits each.
