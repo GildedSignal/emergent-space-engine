@@ -111,6 +111,7 @@
 pub mod binding;
 mod inverse;
 pub mod light;
+pub mod kerr;
 mod num;
 pub mod orbit;
 pub mod scaled;

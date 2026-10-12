@@ -1,6 +1,8 @@
 //! Boundary adapter only: quantize input, invoke the integer core, decode output.
 //! Long runs read each cycle's turning points from positions derived from the compiled cycle.
 use super::Law;
+#[path = "space_belt.rs"]
+mod belt_adapter;
 use emergent_space::events::clock_rate;
 use emergent_space::{
     binding::Trajectory,
@@ -30,6 +32,13 @@ fn scalar(x: f64) -> Option<Scalar> {
 fn decoded(x: Scalar) -> f64 {
     x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
 }
+fn signed(x: f64) -> Option<Scalar> {
+    if x == 0.0 {
+        Some(Scalar::ZERO)
+    } else {
+        scalar(x.abs()).map(|s| if x < 0.0 { s.negate() } else { s })
+    }
+}
 fn native_key(p: f64, e: f64) -> Option<OrbitKey> {
     if !e.is_finite() || !(0.0..1.0).contains(&e) {
         return None;
@@ -47,6 +56,123 @@ impl Space {
     }
 }
 impl Law for Space {
+    fn belt_birth(&self, spec: &super::belt::BeltSpec, n: u64, seed: u64) -> Option<Box<dyn super::belt::Belt>> {
+        belt_adapter::birth(spec,n,seed)
+    }
+    fn belt_restore(&self, store: &[u8]) -> Option<Box<dyn super::belt::Belt>> {
+        belt_adapter::restore(store)
+    }
+    fn bytes_per_body(&self, scene: &super::memory::MemoryScene) -> Option<f64> {
+        belt_adapter::bytes_per_body(scene)
+    }
+    fn kerr(
+        &self,
+        chi: f64,
+        query: &super::rotating::KerrQuery,
+    ) -> Option<super::rotating::KerrAnswer> {
+        use super::rotating::{KerrAnswer as A, KerrQuery as Q, Observer, Sense};
+        use emergent_space::kerr::{Constants, Cycle, Fate, Spin};
+        // The zero-spin boundary is exactly the established Schwarzschild
+        // adapter, including its memo quantization and floating-point decode.
+        if chi == 0.0 {
+            match *query {
+                Q::Cycle { p, e, .. } => {
+                    return Some(self.advance_per_cycle(p, e).map_or(
+                        A::Absent,
+                        |(advance, period, proper_period)| A::Cycle {
+                            advance,
+                            period,
+                            proper_period,
+                        },
+                    ))
+                }
+                Q::Deflection { b } => {
+                    return Some(self.deflection(b.abs()).map_or(A::Absent, A::Angle))
+                }
+                Q::PhotonFate { b } => {
+                    return Some(A::Fate(if self.photon_captured(b.abs()) {
+                        super::kerr::Fate::Captured
+                    } else {
+                        super::kerr::Fate::Scattered
+                    }))
+                }
+                Q::Fate { energy, angular } if energy >= 1.0 => {
+                    return Some(A::Fate(if self.captured(energy, angular.abs()) {
+                        super::kerr::Fate::Captured
+                    } else {
+                        super::kerr::Fate::Scattered
+                    }))
+                }
+                Q::Clock {
+                    r,
+                    observer: Observer::Static,
+                } => return Some(self.static_clock_rate(r).map_or(A::Absent, A::Rate)),
+                _ => {}
+            }
+        }
+        let spin = Spin::new(signed(chi)?).ok()?;
+        let fate = |f| {
+            A::Fate(match f {
+                Fate::Bound => super::kerr::Fate::Bound,
+                Fate::Plunge => super::kerr::Fate::Plunge,
+                Fate::Scattered => super::kerr::Fate::Scattered,
+                Fate::Captured => super::kerr::Fate::Captured,
+            })
+        };
+        Some(match *query {
+            Q::Cycle { p, e, sense } => {
+                let c = Cycle::bound(
+                    spin,
+                    scalar(p)?,
+                    (e * 2f64.powi(48)).round() as u64,
+                    sense == Sense::Retro,
+                );
+                match c {
+                    Ok(c) => A::Cycle {
+                        advance: decoded(c.advance().ok()?),
+                        period: decoded(c.period().ok()?),
+                        proper_period: decoded(c.proper_period().ok()?),
+                    },
+                    Err(_) => A::Absent,
+                }
+            }
+            Q::Circular { r, sense } => spin
+                .circular(scalar(r)?, sense == Sense::Retro)
+                .ok()?
+                .map_or(A::Absent, |(_, stable)| A::Circular { stable }),
+            Q::Fate { energy, angular } => fate(
+                Constants::massive(signed(energy)?, signed(angular)?)
+                    .fate(spin)
+                    .ok()?,
+            ),
+            Q::PhotonFate { b } => fate(Constants::photon(signed(b)?).fate(spin).ok()?),
+            Q::Deflection { b } => emergent_space::kerr::deflection(spin, signed(b)?)
+                .ok()?
+                .map_or(A::Absent, |d| A::Angle(decoded(d))),
+            Q::Clock { r, observer } => match observer {
+                Observer::Static => spin.static_clock(scalar(r)?),
+                Observer::Zamo => spin.zamo_clock(scalar(r)?),
+            }
+            .ok()?
+            .map_or(A::Absent, |r| A::Rate(decoded(r))),
+            Q::Tube { energy, angular, r } => Constants::massive(signed(energy)?, signed(angular)?)
+                .tube_rates(spin, scalar(r)?)
+                .ok()?
+                .map_or(A::Absent, |[p, t]| A::Tube {
+                    phi_rate: decoded(p),
+                    clock_rate: decoded(t),
+                }),
+            Q::Split { energy, angular, r } => {
+                Constants::massive(signed(energy)?, signed(angular)?)
+                    .split(spin, scalar(r)?)
+                    .ok()?
+                    .map_or(A::Absent, |[f, b]| A::Split {
+                        forward: (decoded(f.energy), decoded(f.angular)),
+                        backward: (decoded(b.energy), decoded(b.angular)),
+                    })
+            }
+        })
+    }
     fn binary_cycle(&self, energy: f64, angular: f64, nu: f64) -> Option<(f64, f64)> {
         if !energy.is_finite()
             || !angular.is_finite()
@@ -73,7 +199,7 @@ impl Law for Space {
     ) -> Option<Vec<[f64; 4]>> {
         // Float conversion is confined to this judge boundary; all evolution and
         // acceptance decisions are integer and independent of the oracle.
-        use emergent_space::events::dense::{ONE, Scene, Stepper, inertial};
+        use emergent_space::events::dense::{inertial, Scene, Stepper, ONE};
         if !scene.mu.is_finite()
             || !scene.sep.is_finite()
             || !(0.0..0.5).contains(&scene.mu)

@@ -1,0 +1,14 @@
+command: env CARGO_TARGET_DIR=/Users/julien_laurent/Research/emergent-space/target cargo test --release -j 1 -p emergent-shipmem -p xtask --bin xtask --tests --no-run
+timeout=180s; process RSS ceiling=2000000000 bytes
+   Compiling emergent-shipmem v0.1.0 (/private/tmp/emergent-wt-cx-b-belt-wire/crates/shipmem)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-cx-b-belt-wire/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 2m 07s
+  Executable unittests src/lib.rs (/Users/julien_laurent/Research/emergent-space/target/release/deps/emergent_shipmem-fd53d27d55650964)
+  Executable tests/belt.rs (/Users/julien_laurent/Research/emergent-space/target/release/deps/belt-99b30bb6a1ad09fc)
+  Executable tests/belt_population.rs (/Users/julien_laurent/Research/emergent-space/target/release/deps/belt_population-aedaa74196d94dbe)
+  Executable tests/roundtrip.rs (/Users/julien_laurent/Research/emergent-space/target/release/deps/roundtrip-e1827dd111bc8cea)
+  Executable unittests src/main.rs (/Users/julien_laurent/Research/emergent-space/target/release/deps/xtask-52085a6d1eb35362)
+  Executable tests/behave_cli.rs (/Users/julien_laurent/Research/emergent-space/target/release/deps/behave_cli-352c1c59821680bc)
+
+peak_observed_process_rss_bytes=522698752
+exit=0; wall_s=127.062

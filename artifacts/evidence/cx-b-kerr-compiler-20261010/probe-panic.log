@@ -1,0 +1,20 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/crates/space)
+   Compiling emergent-engine v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/crates/engine)
+   Compiling emergent-universe v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/crates/universe)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 04s
+     Running `target/release/xtask behave --gates B19 --law space`
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t91%; charging; 0:45 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 5.80 4.06 3.73 }","power_source":"Now drawing from 'AC Power'","swap":"total = 5120.00M  used = 3878.12M  free = 1241.88M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-10T13:29:54Z","unix":1791638994,"when":"start"}
+
+thread 'main' panicked at crates/space/src/num.rs:118:5:
+index out of bounds: the len is 17 but the index is 17
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

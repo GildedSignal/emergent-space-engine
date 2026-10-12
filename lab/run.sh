@@ -8,9 +8,16 @@ cd "$(git rev-parse --show-toplevel)"
 export PATH="$HOME/.local/bin:$PATH"
 GLM=(omp -p --model=zai/glm-5.3 --thinking=high --approval-mode=yolo --no-session)
 
-preamble() {  # PRINCIPLES' goal and philosophy, verbatim, then the lab's charter and board
+preamble() {  # PRINCIPLES' goal and philosophy, verbatim, then the lab's charter, board and wiki index
   sed -n '/^## The goal/,/^## Proposed/p' docs/PRINCIPLES.md | sed '$d'
   printf '\n'; cat lab/heuristics.md; printf '\n'; cat lab/README.md; printf '\n'; cat lab/board.md; printf '\n'
+  cat lab/wiki/README.md; printf '\n'; cat lab/wiki/index.md; printf '\n'
+}
+regen() {  # run the author's regen.sh with its patch applied (15 minutes); its result goes to the checker
+  [ -f "$out/regen.sh" ] || { echo "missing: $out/regen.sh"; return 1; }
+  [ -s "$out/work/patch.diff" ] && git apply "$out/work/patch.diff"
+  timeout 900 bash "$out/regen.sh" > "$out/regen.log" 2>&1; local rc=$?
+  restore; [ $rc -eq 0 ] && echo "regen.sh: exit 0" || { echo "regen.sh: exit $rc; last lines:"; tail -5 "$out/regen.log"; return 1; }
 }
 restore() { git reset -q; git checkout -q -- .; git clean -fdq -e lab/results; }
 guard_linux() { [ "$(uname)" = Linux ] || { echo "Linux only (GitHub's machines or agonbox as glmlab): never on Julien's Mac"; exit 2; }; }
@@ -40,7 +47,7 @@ lens_text() {  # a lens file, or for second-<run id> a second author on that run
   cat <<S
 # Lens: second author on run $r
 
-Read the run's dossier and its checker's verdict: \`git show origin/claude/lab-$r:lab/results/$r/check.md\` and \`dossier.md\` beside it (its scripts are in the same folder). The checker graded it silver and named what kept it from gold: usually one experiment, a record that does not regenerate, or a held-out case never run. Do exactly that, in your folder, starting from the run's own scripts: make the record regenerate from shipped code, run the missing experiment, and report whether the claim then holds. If the checker's named experiment would cost more than your time, run its cheapest decisive part and say so. Never edit the crates, the gates or \`main\`.
+Read the run's dossier and its checker's verdict: \`git show origin/claude/lab-$r:lab/results/$r/check.md\` and \`dossier.md\` beside it (its scripts are in the same folder), and the wiki page of its topic (lab/wiki/): do not redo what the page already settles. The checker graded it silver and named what kept it from gold: usually one experiment, a record that does not regenerate, or a held-out case never run. Do exactly that, in your folder, starting from the run's own scripts: make the record regenerate from shipped code, run the missing experiment, and report whether the claim then holds. If the checker's named experiment would cost more than your time, run its cheapest decisive part and say so. Never edit the crates, the gates or \`main\`.
 
 Gold: the claim now holds on the shipped record with the named experiment done, or a clean refutation of it.
 S
@@ -67,26 +74,34 @@ wait)
   for _ in $(seq 54); do [ -f "$f" ] && { cat "$f"; exit 0; }; sleep 10; done
   echo "RUNNING ${2}"; tail -2 "lab/results/$2/run.log" ;;
 _run)
-  lens=$2; min=$3; id=$4; out=lab/results/$id; base=$(git rev-parse HEAD)
+  lens=$2; min=$3; id=$4; out=lab/results/$id; base=$(git rev-parse HEAD); echo "$base" > "$out/base"
   { preamble; lens_text "$lens"; cat <<P
 ## Your run
 Run id: $id. Your folder: $out/. Time: $min minutes.
 - The machine is a Linux machine ($(machine)). Install what you need with pip or cargo.
 - For the web, use your search tools if you have them, or else curl: export.arxiv.org/api/query, api.github.com.
 - You may edit any file in this tree to experiment. Your edits are saved as a patch, and the tree is then restored.
+- Before choosing, read lab/wiki/index.md and the page of your topic (lab/wiki/<topic>.md): your result must add what the page lacks, not repeat it.
 - Before your decisive experiment, write $out/predictions.md. At the end, write $out/dossier.md in the format given in lab/README.md.
+- Write $out/regen.sh: it regenerates every number in your dossier from shipped code, your scripts and work/patch.diff (applied before it runs), in at most 15 minutes. The runner runs it before the checker sees your work.
+- Write $out/wiki/<topic>.md: your topic's page with your result folded in (lab/wiki/README.md), or a new page for a new topic.
 - Keep scripts and data in $out/, each under 5 MB.
 - Never run git commit or git push.
 - Your final reply: the claim, in one sentence.
 P
   } > "$out/author-prompt.md"
   phase author "$min" patch.diff
+  rg=$(regen) || { cp "$out/author-prompt.md" "$out/fix-prompt.md"
+    printf '\n## Your record does not regenerate\n%s\nFix %s/regen.sh (and only what it needs) so that it regenerates every number in your dossier. You have 15 minutes.\n' "$rg" "$out" >> "$out/fix-prompt.md"
+    phase fix 15 fix.diff; [ -s "$out/work/fix.diff" ] && cat "$out/work/fix.diff" >> "$out/work/patch.diff"; rg=$(regen); }
+  echo "$rg" > "$out/regen.txt"
 
   { preamble; cat lab/lenses/checker.md; cat <<P
 ## Your check
-Run id: $id. The author's folder is $out/: dossier.md, predictions.md, its scripts, and work/patch.diff, its edits (apply them with git apply to reproduce).
+Run id: $id. The author's folder is $out/: dossier.md, predictions.md, its scripts, regen.sh, its proposed wiki page(s) in wiki/, and work/patch.diff, its edits (apply them with git apply to reproduce).
+- The runner already ran regen.sh: $(head -1 "$out/regen.txt").
 - Time: $((min / 2)) minutes. The machine is a Linux machine ($(machine)).
-- Write $out/check.md. Change nothing else in $out/.
+- Write $out/check.md. You may also correct the author's page in $out/wiki/ where it overstates. Change nothing else in $out/.
 - Never run git commit or git push.
 P
   } > "$out/checker-prompt.md"
