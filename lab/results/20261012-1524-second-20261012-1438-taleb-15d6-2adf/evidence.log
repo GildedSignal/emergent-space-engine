@@ -1,0 +1,78 @@
+# Evidence — run 20261012-1524-second-20261012-1438-taleb-15d6-2adf (second author)
+
+Machine: GitHub Actions Linux x86, 8 vCPU. Timings: control 17.5 s, built 8.2 s, builtsnap
+3.4 s, decomp 0.9 s, surgery 4.7 s, scaling 0.6 s, pileup 3.2 s; peak RSS 211 MB. treefall is
+the one long run (146 s; its 1e6 continuation killed as unnecessary — the 1e5 number already
+shows C(n,2)). Build: `CARGO_TARGET_DIR=/home/glmlab/lab-target-second cargo build --release
+-p emergent-encounters --bin redteam --bin checkadv --bin second`. Sources: author's
+`redteam.rs` and checker's `checkadv.rs` verbatim from the run's branch; `phase.rs`/`tier.rs`
+verbatim from `wt/cx-b-coorbital-cert` (adce00d6, verified byte-identical to the copies inside
+the checker's patch); my `second.rs` (decomp/surgery/scaling/treefall). Raw lines: `run-log.txt`.
+ρ = 1e-4. "Built cert" = `Neighbours`/`group_events` in phase.rs as shipped on that branch.
+
+## The record regenerates (bit-identical to the author's evidence.log)
+
+- `redteam control` (17.5 s): control-uniform 11 contacts, dist-rank max 2; control-jam-loose-e
+  (the gold's own `adj`) 314 contacts, 313 ≤ 4, one at 5, miss 0.003.
+- `redteam pileup` (3.2 s): jam-tight-e-s0.375: 757 contacts, 14.4% rank > 4, max 9;
+  s1.25: 249, 0.8%; loose-e s0.375: 705, 2.3%. All exactly the author's numbers.
+
+## The named experiment, done: the BUILT certificate (checker's 3d, reproduced and extended)
+
+1. **Soundness** — `checkadv built` (8 s): 0 misses on all six author break scenes (757, 249,
+   314, 203, 68, 54 brute-truth contacts). `checkadv builtsnap` (3.4 s, 203 MB): t=0 window
+   guarantee holds at 1e5-tight, 1e6-tight and 1e6-gold-e — **0 window misses**. The original
+   headline ("silently drops most contacts") is true of no code that exists.
+2. **Cost at the gold's own 10⁶ headline** — 1e6-gold-e: reach 2.142e-2, window k p50 **3411**
+   (p99 3537, max 3595), 3.409e9 visits, 2.472e6 t=0 contacts → **1379 visits per contact**.
+   1e6-tight: reach 3.02e-4, k p50 48, 49.1e6 visits, 15.8e6 contacts → **3.1 per contact**.
+   The k=4 promise is 853× off; the cert is sound but pays for it.
+3. **Why: reach is equation-of-centre-dominated** — `second decomp` (0.9 s). reach = angular +
+   2·centre + shear·H/2 (+eps), centre = max-body(e + 2·asin(e/(1+sqrt(1−e²)))) ≈ 2·e_max.
+   - 1e6-gold-e: EoC share **99.5%** (eoc 2.132e-2 vs angular 1.0e-4, shear 0 at H=0);
+     e_max 5.33e-3 = **4.5× the median** 1.18e-3. k_pred = reach·n/TAU = 3408 vs p50 3411
+     (ratio 0.999). 1e6-tight: EoC share 66.9%, k_pred/p50 = 1.002. adj-200: 97.8%;
+     espread-200: 99.8% (k → full pairwise, visits 19900 = C(200,2) as in `built`).
+   - k_pred = reach·n/TAU is exact on uniform-λ fleets (0.999–1.056) but only a lower bound on
+     clumps (adj-200: 0.006 — local λ-density, not n/TAU, sets k there). True k is free anyway:
+     a two-pointer over the sorted mean-λ order (already paid for by the cert) gives the exact
+     k distribution before a single pair is visited.
+4. **Quadratic in n at fixed e-spread** — `second scaling` (0.6 s): visits 3.09e7 (n=1e5) →
+   3.41e8 (3.16e5) → 3.41e9 (1e6): exponent **2.04** per decade; k p50 308 → 1079 → 3411
+   tracks n·e_max(n), e_max growing as sqrt(2 ln n) (4.82e-3 → 5.33e-3). At fixed σ_e the
+   phase tier is the quadratic disease it was adopted to cure; "linear" holds only at fixed
+   concentration (shrinking σ_e or shared shape).
+5. **No hot-body fix** — `second surgery` (4.7 s, 211 MB): worst-e body → median e: k 3411 →
+   3283 (−3.7%), contacts 100.00%, 0 misses. Top 10 → p99.9 (3.71e-3): k → 3065 (−10%),
+   contacts 100.00%. k is set by the e-tail order statistic, not by any single body — the
+   cost is fat-tailed exactly the way the original run's occupation was.
+6. **The branch's own gates cannot see it** — the only scale test on wt/cx-b-coorbital-cert,
+   `fixed_density_ring_visits_linear_work_to_a_million`, builds `Body::new(1.0, 0.02, 0.0, …)`:
+   uniform e AND pom, so the cert's shared-shape cancellation fires (measured on that exact
+   fleet: **eoc = 0.0**, k 16 at ρ=1e-4 spacing) and it asserts max_k = 1. No test on the
+   branch has heterogeneous e or a clumped λ; the k=3411 regime is invisible to its gates.
+7. **The fallback is sound, not cheap** — `second treefall` (146 s, one run, the 1e6
+   continuation killed as unnecessary): tree tier on gold-e 1e5 returns **4,999,995,000
+   candidates = C(1e5,2)** — full pairwise at co-orbital concentration (the disease the gold
+   documented), extrapolating C(1e6,2) ≈ 5e11. So a "refuse phase tier when k is large" guard
+   buys honesty about cost, not a cheaper tier; the real lever is budgeting/splitting k itself
+   (e.g. by e-bands where the EoC nearly cancels) — design work for the integrator, not this run.
+8. **Stale text** — `lab/lenses/b-coorbital-cert.md`: "every encounter lies within partner rank 4
+   along the orbit … Implement the phase-neighbour certificate at O(n·k)". board.md, 6 Oct gold
+   entry: "every real encounter lies within partner rank 4 along the orbit, so a phase-neighbour
+   certificate at O(n·k) replaces the quadratic tier". phase.rs's own header: "k is the actual
+   occupancy of a conservative phase window, NEVER an assumed rank of four". The false premise
+   survives in the queue spec and the board; the code never had it.
+
+## Notes and gaps
+
+- I did not rerun the author's `snap` census or `espread`/`scale` full set: the checker
+  reproduced those bit-identically and no conclusion here rests on them; my scale numbers come
+  from the built cert's own window (decomp/builtsnap).
+- treefall exceeds the 60 s ideal (146 s); single run, documented; the 1e6 variant was killed.
+- `decomp`'s reach terms are recomputed from phase.rs's formulas independently and match the
+  shipped `Neighbours::reach` to the printed precision on every fleet (e.g. gold-e:
+  1.0054e-4 + 2.1316e-2 + 0 + 1.4e-14 = 2.1416e-2).
+- All counted quantities are deterministic per fleet; the fleet generators are the checker's
+  verbatim (same seeds), so R2/R3 match the checker's numbers exactly, by construction of the
+  instrument and independently of them being run here again.

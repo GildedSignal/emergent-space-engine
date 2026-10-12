@@ -1,0 +1,53 @@
+# Evidence — run 20261012-1438-taleb-15d6
+
+Machine: GitHub Actions Linux x86, 8 vCPU; every process < 500 MB RSS (10⁶-body census peak 406 MB).
+Binary: `crates/encounters/src/bin/redteam.rs` (copy in `work/redteam.rs`; added by this run's patch).
+Build: `CARGO_TARGET_DIR=/home/glmlab/lab-target-1 cargo build --release -p emergent-encounters --bin redteam`
+ρ = 1e-4, a = 1, a-spread ±1e-5, apsides ±0.1 rad, seeds fixed per scenario. Ranks: my counting is
+"strictly-closer bodies + 1" (gold's was "strictly-closer bodies"); my ≤ 4 = gold's ≤ 3, my 5 = gold's 4.
+Truth: position-grid brute force (hash grid, cell ρ, same + 4 forward cells), dt = 5e-4, relative motion
+per step ≤ ρ/4 worst case; per-pair closest approach refined at 5e-6 spacing. Raw lines: `run-log.txt`.
+
+## Controls (reproduce the gold, 20261006-0346-taleb-09b5)
+
+- `redteam control` (19 s): control-uniform (nc 200, λ uniform, e~Rayleigh(1e-3)): 11 contacts / 20 orbits,
+  distance-rank max 2 (mean-λ max 3). control-jam-loose-e (the gold's own `adj` scenario: σ_λ=0.01, seed 27,
+  nc 200): 314 contacts / 2 orbits, distance-rank 313 ≤ 4, one at 5 = the gold's counting 4 — their 234/234
+  max-4 claim reproduces on their metric.
+- `redteam snap` cross-check (32 s): snapshot census vs brute-force ranks at nc 3200 (max rank 2 vs 3, 0
+  misses both) and nc 12800 (max 4 vs 5, ~0 both). The census instrument is validated where the two overlap.
+
+## The three holes (decisive)
+
+1. Pile-up / density (`redteam pileup`, 3 s; `redteam snap`, 13 s):
+   - jam-tight-e-s0.375 (s = 0.375ρ, e~Rayleigh(1e-4)): 757 contacts, **14.4% rank > 4**, max 9.
+   - jam-tight-e-s1.25 (s = 1.25ρ): 249 contacts, 0.8% > 4, max 5. jam-loose-e-s0.375 (e~1e-3): 2.3%, max 6.
+   - scale-nc3200 / nc12800 (uniform λ, e~1e-5): 0 misses; 1/3148 at rank 5.
+   - snap-1e5-tight: 12.5% of in-contact pairs rank > 4 (occupation p50 3, p90 6).
+   - **snap-1e6-tight (the gold's headline fleet): occupation within ρ p50 31 (max 60); rank at contact
+     p50 17, p90 31, max 48; 88.0% of contacts rank > 4.** 8.4 s, 406 MB.
+   - **snap-1e6-gold-e (the gold's own e-generator, Rayleigh(1e-3)): occupation p50 3 but p90 12, p99 23;
+     42.8% of contacts rank > 4.** Fat tails, not the mean, decide.
+2. Sort key (`redteam espread`, 5 s; visible already in `control`):
+   - espread-s1.25 (e~Rayleigh(1e-2), s 1.25ρ): 203 contacts; distance-rank max 3; **mean-longitude rank
+     1/203 ≤ 4 (99.5% miss), max 181**; true-longitude rank max 4. espread-s5: mean-λ 2/68 ≤ 4, max 128.
+   - In the gold's own tightest scenario (control-jam-loose-e, e~1e-3): **mean-λ rank > 4 for 262/314
+     (83%), max 54**, while true-λ max 6 and distance max 5. The equation of center (the gold's own
+     instrument lesson #6) breaks any mean-longitude sort at any density.
+3. Trigger (from the same runs): Binet-diameter/eps_u and the all-Full fraction read 2.11 / 84% Full for the
+   harmless s=1.25ρ tight fleet and 2.22 / 75% for the broken s=0.375ρ one — indistinguishable; at the 10⁶
+   construction (smaller-nc same-e runs: 0.20 / 100% Full) it fires "train regime" while 88% of contacts are
+   missed. The trigger has no term in local number density.
+
+## Notes
+
+- Determinism: counted quantities (contacts, occupations, pair totals) are bit-identical across
+  reruns; the 2000-pair rank sample rides HashMap iteration order, so its stats move ±0.1% between
+  processes (88.0% ↔ 88.05%). All conclusions are far outside that band.
+- The nc=51200 brute-force variant was killed at 600 s by my own O(nc)-per-contact rank loop; the snapshot
+  census replaces it (validated above). Documented, not hidden.
+- `brute_us` in `run()` lines prints 0 (timer started after the brute call) — cosmetic; no timing claims
+  rest on it. Snapshot timings are correct.
+- Census ranks are measured at a random instant inside contact episodes, not at closest approach; closest-
+  approach rank is if anything lower, so census miss fractions are if anything understated at fixed
+  occupation. A cadence-driven watch samples the episode, not the minimum.
