@@ -1,0 +1,98 @@
+diff --git a/tmp/orig-probe.rs b/work/enc/src/bin/probe.rs
+index 8b48220b..1b3dbe0f 100644
+--- a/tmp/orig-probe.rs
++++ b/work/enc/src/bin/probe.rs
+@@ -119,6 +119,93 @@ fn main() {
+     let args: Vec<String> = std::env::args().collect();
+     let which = args.get(1).map(|s| s.as_str()).unwrap_or("all");
+     let h = 5.0_f64;
++    if which == "all" || which == "disp2" {
++        // Second-author case: the UNSATURATED dispersion ladder. Same scene as disp
++        // (m=100, k=20, n=2000, H=5) but da small enough that 2*reach < mid-time
++        // phase arc, so the window is not clipped by the n^2/2 ceiling. Model:
++        // reach = ang + 2.5*Dn, arc_mid = 0.099 + 2.5*Dn, Dn = 1-(1+19da)^(-3/2),
++        // pairs ~ C(n,2) * min(1, 2*reach/arc_mid).
++        for &da in &[1e-5_f64, 2.5e-5, 5e-5, 1e-4, 1.2e-4, 2e-4, 4e-4, 5e-4] {
++            let b = dispersed_da(100, 20, da);
++            run_phase(&b, h, &format!("DISP2 n=2000 da={da}"));
++        }
++    }
++    if which == "all" || which == "blob" {
++        // Dense-blob safety: sub-rho dispersion gives REAL contacts (same-index
++        // cross-shell pairs start at distance |s-s'|*da and separate monotonically:
++        // outer shells lag). Exact contact set = {(s,i),(s',i): |s-s'|*da < rho}.
++        // Verify the certificate emits every one (zero missed), plus brute controls:
++        // each expected pair truly dips below rho, near-miss same-index pairs never
++        // do, and the widest shell pair (0 vs 19, whose different-index chords can
++        // align within the horizon) has no contact at all beyond same-index ones.
++        for &da in &[1e-5_f64, 2.5e-5, 5e-5] {
++            let b = dispersed_da(100, 20, da);
++            let mut got = std::collections::BTreeSet::new();
++            let st = group_events(&b, RHO, 0.0, h, |i, j, _t, _d| {
++                got.insert((i.min(j), i.max(j)));
++            });
++            let mut want = std::collections::BTreeSet::new();
++            for s in 0..20usize {
++                for s2 in (s + 1)..20usize {
++                    if (s2 - s) as f64 * da < RHO {
++                        for i in 0..100usize {
++                            want.insert(((s * 100 + i) as u32, (s2 * 100 + i) as u32));
++                        }
++                    }
++                }
++            }
++            let missed: Vec<_> = want.difference(&got).collect();
++            // brute: expected pairs dip below rho; j one step beyond never does.
++            let mut dip_ok = true;
++            let mut false_ok = true;
++            for s in 0..20usize {
++                for s2 in (s + 1)..20usize {
++                    let j = (s2 - s) as f64 * da;
++                    if j >= RHO * 1.2 {
++                        continue;
++                    }
++                    for i in 0..100usize {
++                        let (bi, bj) = (&b[s * 100 + i], &b[s2 * 100 + i]);
++                        let mut dm = f64::INFINITY;
++                        for k in 0..500 {
++                            let t = h * k as f64 / 499.0;
++                            let (x, y) = (bi.state(t), bj.state(t));
++                            dm = dm.min((x[0] - y[0]).hypot(x[1] - y[1]));
++                        }
++                        if j < RHO && dm >= RHO {
++                            dip_ok = false;
++                        }
++                        if j >= RHO * 1.02 && dm < RHO {
++                            false_ok = false;
++                        }
++                    }
++                }
++            }
++            // widest shell pair: all 100x100 combinations, no contact expected.
++            let mut wide_contacts = 0usize;
++            for i in 0..100usize {
++                for i2 in 0..100usize {
++                    if i == i2 {
++                        continue; // same-index covered above (radial offset 19*da)
++                    }
++                    let (bi, bj) = (&b[i], &b[1900 + i2]);
++                    let mut dm = f64::INFINITY;
++                    for k in 0..500 {
++                        let t = h * k as f64 / 499.0;
++                        let (x, y) = (bi.state(t), bj.state(t));
++                        dm = dm.min((x[0] - y[0]).hypot(x[1] - y[1]));
++                    }
++                    if dm < RHO {
++                        wide_contacts += 1;
++                    }
++                }
++            }
++            println!(
++                "BLOB da={da}: phase={} neigh={} events_pairs={} want={} missed={} brute_dip_ok={} brute_no_false={} wide_contacts={} (expect 0)",
++                st.phase, st.neighbours, got.len(), want.len(), missed.len(), dip_ok, false_ok, wide_contacts
++            );
++        }
++    }
+     if which == "all" || which == "truth" {
+         let b = dispersed(100, 2);
+         let truth = min_dist_grid(&b, 500, 0.0, h);
