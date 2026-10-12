@@ -58,6 +58,17 @@ def certificate(h):
     return "closed"
 
 
+def split_runs(text):
+    """(the page without its `## Runs` section, the section's run lines)."""
+    m = re.search(r"^## Runs\s*$", text, re.M)
+    if not m:
+        return text, []
+    rest = text[m.end():]
+    end = re.search(r"^## ", rest, re.M)
+    lines = [l for l in (rest[:end.start()] if end else rest).splitlines() if l.startswith("- ")]
+    return text[:m.start()] + (rest[end.start():] if end else ""), lines
+
+
 def summary(text):
     """The page's first line under '## Current best'."""
     m = re.search(r"^## Current best\s*\n+(.+)$", text, re.M)
@@ -104,10 +115,18 @@ def apply(results, base):
             start = os.path.join(results, run, "base")  # the commit the run started from (run.sh writes it)
             b = open(start).read().strip() if os.path.isfile(start) else base
             old = git("show", f"{b}:{WIKI}/{name}", check=False).stdout
-            basefile = os.path.join(results, run, f".base-{name}")
-            open(basefile, "w", encoding="utf-8").write(old)
-            r = subprocess.run(["git", "merge-file", "-L", "main", "-L", "run start", "-L", run, ours, basefile, theirs])
-            os.remove(basefile)
+            mine, theirs_text = open(ours, encoding="utf-8").read(), open(theirs, encoding="utf-8").read()
+            # The append-only `## Runs` list is merged as a union; the rest of the page three-way.
+            body = {k: split_runs(v) for k, v in (("ours", mine), ("base", old), ("theirs", theirs_text))}
+            tmp = {k: os.path.join(results, run, f".{k}-{name}") for k in body}
+            for k in body:
+                open(tmp[k], "w", encoding="utf-8").write(body[k][0])
+            r = subprocess.run(["git", "merge-file", "-p", "-L", "main", "-L", "run start", "-L", run, tmp["ours"], tmp["base"], tmp["theirs"]],
+                               capture_output=True, text=True)
+            runs = body["ours"][1] + [l for l in body["theirs"][1] if l not in body["ours"][1]]
+            open(ours, "w", encoding="utf-8").write(r.stdout.rstrip("\n") + "\n\n## Runs\n" + "".join(l + "\n" for l in runs))
+            for f in tmp.values():
+                os.remove(f)
             print(f"wiki: {run} merged {name}{' with conflicts' if r.returncode else ''}")
 
 
