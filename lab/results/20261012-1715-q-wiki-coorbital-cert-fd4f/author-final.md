@@ -1,0 +1,4 @@
+Working...
+Compile complete and mechanically verified. The page, dossier, predictions, and regen are in the run folder; the audit re-derives every cited grade, dead-run classification, and load-bearing formula from the published branches (`audit: PASS`, <1 s).
+
+**Claim:** the `coorbital-cert` page is compiled — 48 graded runs (26 gold) show the phase-neighbour representation stands while every constant of the adopted gold died (rank 4, O(n_c·k), the Binet-clump trigger, "replaces the quadratic tier"), leaving a corrected contract of derived width, dimensionless gates, event-driven maintenance and cross-group routing, plus the measured state of the built certificate (sound, cost-blind, unmerged) and one process finding: `55a8`'s published second check is a byte-copy of the first, so its independence is unevidenced.
