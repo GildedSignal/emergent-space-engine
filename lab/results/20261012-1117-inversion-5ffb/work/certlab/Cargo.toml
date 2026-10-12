@@ -1,0 +1,18 @@
+[package]
+name = "certlab"
+version = "0.1.0"
+edition = "2021"
+autobins = false
+autolib = false
+
+[lib]
+path = "src/lib.rs"
+
+# (their CLI main.rs is intentionally not built here: it targets the
+# workspace crate name; the invert bin and the lib are self-contained)
+
+[[bin]]
+name = "invert"
+path = "src/bin/invert.rs"
+
+[workspace]

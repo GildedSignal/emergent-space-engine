@@ -1,0 +1,22 @@
+invert bounds  (220 s)
+RESULT bounds centre_slack_min=6.250e-11 at e=0.0010 (positive => sound; tight as e->0)
+RESULT bounds fe_component_slack_min=-3.747e-16 at e=0.0645 (1 ulp => exact identity)
+RESULT bounds scale_slack_min=-1.421e-14 at e=0.9810 (~6 ulps of powf rounding only)
+
+invert fuzz  (86 s)
+RESULT fuzz_total scenes=32 contacts=20396 cert_miss=0 emit_miss=0 tree_miss=0 cert_inactive_scenes=0
+(kinds: mixede reach~2.81 k~0.8n; sharedhie e=0.9 epochs<=9e7; drift reach~0.53; seam 1935 contacts/scene; tight k=2-3)
+
+invert cost
+RESULT cost home_regime n=10000 pairs=10000 k=1
+RESULT cost home_regime n=100000 pairs=100000 k=1
+RESULT cost home_regime n=1000000 pairs=1000000 k=1
+RESULT cost tag=mild-e n=1000  reach=1.2181 k=217  cert_pairs=193147   tree_pairs=499500  contacts=18  t_cert=5.31s  t_tree=1.52s  ratio=3.5 exponent=NaN      same_contact_set=true
+RESULT cost tag=mild-e n=2000  reach=1.2234 k=425  cert_pairs=777626   tree_pairs=1999000 contacts=82  t_cert=21.57s t_tree=6.28s  ratio=3.4 exponent=2.0094    same_contact_set=true
+RESULT cost tag=mild-e n=4000  reach=1.2234 k=824  cert_pairs=3113680  tree_pairs=7998000 contacts=423 t_cert=86.42s t_tree=24.44s ratio=3.5 exponent=2.0015    same_contact_set=true
+RESULT cost tag=wide-e n=1000  reach=2.8106 k=479  cert_pairs=446849   tree_pairs=499500  contacts=27  t_cert=124.03s t_tree=31.06s ratio=4.0 exponent=NaN      same_contact_set=true
+RESULT cost tag=wide-e n=2000  reach=2.8265 k=942  cert_pairs=1798708  tree_pairs=1999000 contacts=82  t_cert=486.45s t_tree=117.41s ratio=4.1 exponent=2.0091    same_contact_set=true
+RESULT cost tag=rho-scan n=2000 rho=5e-3 phase=true cert_pairs=1799213 contacts=74 pairs_per_encounter=24313.7  t=493.9s
+RESULT cost tag=rho-scan n=2000 rho=5e-4 phase=true cert_pairs=1791004 contacts=3  pairs_per_encounter=597001.3  t=17.8s
+RESULT cost tag=rho-scan n=2000 rho=5e-5 phase=true cert_pairs=1790214 contacts=1  pairs_per_encounter=1790214   t=5.5s
+RESULT cost tag=drift-refuse n=1000 phase=TRUE reach_frac=0.467 contacts=9 tree_cand=0 t=120.9s   # did NOT refuse: drift term = H/2 * dn, H=0.05
