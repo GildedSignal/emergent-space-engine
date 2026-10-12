@@ -268,6 +268,43 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
     Ok(Some(i64::try_from(at.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("periapsis"))?))
 }
 
+/// The impact the tube holds: the first tick at or after `after` where it is below `surface` (the doll's units). That is
+/// `after` itself if it is already below; else, if the periapsis dips under the surface and is still ahead (the certificate
+/// `plan_interval` plans a [`What::Crash`] from), the tick the radius falls through it. The radius falls monotonically on the
+/// way in, from the apoapsis before a periapsis (from the first readable tick of a passage), so the first tick below is
+/// found by bisection on that branch: the answer is the same however far ahead it is. None when the periapsis is above the
+/// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+/// tick of its fall.
+pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
+    // The engine's own reading (the turned tube plus its remainder), the one a kick or a crash checks the surface with.
+    let inside = |t: Tick| -> Res<bool> { Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface) };
+    if inside(after)? {
+        return Ok(Some(after));
+    }
+    if b.to_doll(b.entry.trajectory.key().periapsis)? >= surface {
+        return Ok(None);
+    }
+    let Some(tp) = next_periapsis(b, after)? else { return Ok(None) };
+    let whole = match &b.entry.trajectory {
+        Trajectory::Cycle(c) => c.period()?,
+        Trajectory::Passage(p) => p.duration()?,
+    };
+    let half = i64::try_from(b.to_doll(whole.scale(-1)?)?.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("half period"))?;
+    let (mut lo, mut hi) = (after.max(tp.saturating_sub(half)), tp);
+    if !inside(hi)? {
+        return Ok(None);
+    }
+    while hi - lo > 1 {
+        let mid = lo + (hi - lo) / 2;
+        if inside(mid)? {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    Ok(Some(hi))
+}
+
 /// The proper time (root units) a binding's tube has run between `since` (or its binding event, if later)
 /// and `t`: a clock reads its tube's length. `shift` is the doll's clock exponent.
 pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar> {
@@ -504,10 +541,9 @@ impl Work<'_, '_> {
         if self.rec.kind != Kind::Planet {
             let key = self.rec.b.entry.trajectory.key();
             if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
-                if let Some(tp) = next_periapsis(&self.rec.b, t)? {
-                    if tp <= t + h {
-                        insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
-                    }
+                // The ship is lost where the course meets the surface, not at the periapsis behind it.
+                if let Some(tc) = next_impact(&self.rec.b, self.doll().surface, t)?.filter(|&tc| tc <= t + h) {
+                    insert(&mut self.rec.plan, Item { t: tc.max(t + 1), what: What::Crash });
                 }
             }
         }
@@ -644,10 +680,8 @@ impl Work<'_, '_> {
         if self.rec.kind != Kind::Planet {
             let key = self.rec.b.entry.trajectory.key();
             if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
-                if let Some(tp) = next_periapsis(&self.rec.b, t)? {
-                    if tp <= t + full {
-                        insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
-                    }
+                if let Some(tc) = next_impact(&self.rec.b, self.doll().surface, t)?.filter(|&tc| tc <= t + full) {
+                    insert(&mut self.rec.plan, Item { t: tc.max(t + 1), what: What::Crash });
                 }
             }
         }

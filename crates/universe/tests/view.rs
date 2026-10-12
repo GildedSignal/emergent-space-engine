@@ -91,7 +91,8 @@ fn holding_turn_changes_the_heading_on_the_next_frame() {
     for rtf in [1.0, 100.0] {
         let (p, views, ticks) = hold(rtf, 4);
         let per_tick = std::f64::consts::TAU * 2f64.powi(Config::default().turn_log2);
-        let mut last = 0.0; // heading 0 at the start
+        // the nose starts along the velocity: the heading at the start is the first view's, before any key
+        let mut last = angle(&gather(&plane(Config::default(), 2, Order::Sparse, 1, 8).unwrap().u, &[]).unwrap());
         for (f, (v, &dt)) in views.iter().zip(&ticks).enumerate() {
             let a = angle(v);
             let d = wrap(a - last);
@@ -112,8 +113,8 @@ fn holding_forward_changes_the_velocity_on_the_next_frame() {
         let mut elapsed = 0.0;
         for (f, ((a, b), &dt)) in thrusting.iter().zip(&coasting).zip(&ticks).enumerate().take(3) {
             elapsed += dt as f64 * a.rate;
-            // the heading is +x in the doll's frame, so the burn is along x (the velocities are in the root frame)
-            let dv = a.beta[0] - b.beta[0];
+            // the burn is along the heading, which does not turn here (the velocities are in the root frame, the axes the doll's)
+            let dv = (a.beta[0] - b.beta[0]) * a.heading[0] + (a.beta[1] - b.beta[1]) * a.heading[1];
             assert!(((dv - alpha * elapsed) / (alpha * elapsed)).abs() < 0.02, "rtf {rtf}, frame {f}: velocity changed by {dv:e}, the burn owed is {:e}", alpha * elapsed);
         }
     }

@@ -151,6 +151,7 @@ fn view_json(v: &View) -> Value {
         "tick": v.tick, "coordinate": v.coordinate_seconds, "proper": v.proper_seconds, "rate": v.rate,
         "beta": v.beta, "doll_rate": v.doll_rate, "doll_beta": v.doll_beta, "position": v.position_light_seconds,
         "heading": v.heading, "doll": v.doll, "level": v.level, "burning": v.burning, "keys": v.keys, "alive": v.alive, "loss": v.loss, "refusals": v.refusals,
+        "impact": v.impact.as_ref().map(|i| json!({"body": i.body, "seconds": i.seconds, "at": i.at, "speed": i.speed, "text": i.sentence()})),
         "seen": v.seen.iter().map(|s| json!({
             "name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
             "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift,

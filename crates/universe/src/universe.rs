@@ -179,6 +179,12 @@ struct Lanes {
     ships: Vec<usize>,
 }
 
+/// The heading a player's nose starts at: along its velocity at tick 0 in its doll's axes (prograde, so that "forward" burns
+/// the orbit up and not down into the planet).
+fn prograde(b: &Binding) -> Res<u32> {
+    crate::thrust::heading_of(b.cartesian(0)?.1)
+}
+
 impl Universe {
     pub fn new(star_surface: Scalar, cfg: Config) -> Self {
         Self {
@@ -286,6 +292,7 @@ impl Universe {
         let (entry, mut tube, units) = self.spec_binding(&spec, self.dolls[spec.doll as usize].unit)?;
         tube.key = self.cat.insert(entry.clone())?;
         let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
+        let heading = prograde(&b)?;
         let rec = BodyRec {
             kind,
             b,
@@ -295,7 +302,7 @@ impl Universe {
             interval: 0,
             anchor: 0,
             plan: Vec::new(),
-            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading, since: 0 }),
             ext: None,
             alive: true,
             events: 0,
@@ -334,6 +341,7 @@ impl Universe {
         let mut tube = bound.tube;
         tube.key = self.cat.insert(bound.entry.clone())?;
         let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
+        let heading = prograde(&b)?;
         let rec = BodyRec {
             kind,
             b,
@@ -343,7 +351,7 @@ impl Universe {
             interval: 0,
             anchor: 0,
             plan: Vec::new(),
-            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading, since: 0 }),
             ext: None,
             alive: true,
             events: 0,

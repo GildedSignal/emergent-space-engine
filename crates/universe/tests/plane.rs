@@ -117,7 +117,8 @@ fn a_burn_changes_the_energy_by_the_work_done() {
     p.u.settle(t0);
     p.u.input(t0, 1).unwrap();
     let (e0, _) = energy(&p, t0);
-    // Burn along the heading (the x axis) for 20 s of game time, sampling the work F·v.
+    // Burn along the heading (the nose starts along the velocity) for 20 s of game time, sampling the work F·v.
+    let n = emergent_universe::thrust::direction(p.u.rec(me).thrust.unwrap().heading).unwrap().map(emergent_universe::num::to_f64);
     let (mut work, mut t) = (0.0, t0);
     let t1 = t0 + 4_000_000;
     let dt = 20_000;
@@ -126,8 +127,9 @@ fn a_burn_changes_the_energy_by_the_work_done() {
         t += dt;
         p.u.settle(t);
         let (_, v) = energy(&p, t);
-        // the heading is fixed (no turn key): thrust is along +x; trapezoid of alpha * vx
-        work += alpha * 0.5 * (last_v[0] + v[0]) * (t - last_t) as f64;
+        // the heading is fixed (no turn key): thrust is along it; trapezoid of alpha * (v · n)
+        let along = |v: [f64; 2]| v[0] * n[0] + v[1] * n[1];
+        work += alpha * 0.5 * (along(last_v) + along(v)) * (t - last_t) as f64;
         last_v = v;
         last_t = t;
     }

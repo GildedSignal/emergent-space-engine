@@ -34,13 +34,36 @@ pub fn g_of(cfg: &Config, level: u8) -> f64 {
     2f64.powi(alpha_log2(cfg, level) as i32) * 299_792_458.0 / crate::view::TICK_SECONDS / 9.806_65
 }
 
+/// `atan(2^-i)` in turns·2^32, the constants of both CORDIC modes.
+const ATAN: [i64; 24] = [
+    536870912, 316933406, 167458907, 85004756, 42667331, 21354465, 10679838, 5340245, 2670163, 1335087, 667544, 333772, 166886, 83443, 41722,
+    20861, 10430, 5215, 2608, 1304, 652, 326, 163, 81,
+];
+
+/// The heading (turns, Q32) of a vector: integer CORDIC (vectoring mode), the inverse of [`direction`] to within a few
+/// units of 2^-32 turn (24 iterations, like it). The ship's nose starts along its velocity (`heading_of(v)`): "forward" is
+/// prograde. A zero vector has no heading (0).
+pub fn heading_of(v: V2) -> Res<u32> {
+    if v[0].is_zero() && v[1].is_zero() {
+        return Ok(0);
+    }
+    // Both components in one fixed-point word, the larger at 2^60 or more.
+    let top = (v[0].exponent() as i32).max(v[1].exponent() as i32);
+    let (mut x, mut y) = (v[0].fixed(60 - top)?, v[1].fixed(60 - top)?);
+    let mut z = 0i128;
+    if x < 0 {
+        (x, y, z) = (-x, -y, 1 << 31); // half a turn
+    }
+    for (i, a) in ATAN.iter().enumerate() {
+        let d = if y > 0 { 1 } else { -1 };
+        (x, y, z) = (x + d * (y >> i), y - d * (x >> i), z + d * *a as i128);
+    }
+    Ok(z.rem_euclid(1 << 32) as u32)
+}
+
 /// Unit vector of a heading in turns (Q32): integer CORDIC (rotation mode), 24 iterations. The
 /// constants are `atan(2^-i)` in turns·2^32 and the inverse gain in Q32.
 pub fn direction(heading: u32) -> Res<V2> {
-    const ATAN: [i64; 24] = [
-        536870912, 316933406, 167458907, 85004756, 42667331, 21354465, 10679838, 5340245, 2670163, 1335087, 667544, 333772, 166886, 83443,
-        41722, 20861, 10430, 5215, 2608, 1304, 652, 326, 163, 81,
-    ];
     let mut z = heading as i64;
     let atan: [i128; 24] = ATAN.map(|a| a as i128);
     if z > 1 << 31 {

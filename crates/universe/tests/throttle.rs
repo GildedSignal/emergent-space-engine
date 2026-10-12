@@ -6,7 +6,7 @@
 //! **Frozen before the first run.**
 //! 1. A word with level 0 is the keys alone (every old log replays as before), and the levels' accelerations are
 //!    `0.353 g · 2^level`, from 0.35 g to about 10^4 g.
-//! 2. At every level the burn's work holds: the energy gained equals `∫ α·v_x dt` (3%), the same criterion as
+//! 2. At every level the burn's work holds: the energy gained equals `∫ α·(v·n) dt` along the heading `n` (3%), the same criterion as
 //!    `plane.rs`, with the burn long enough at each level to be well past the steps' own size.
 //! 3. A log with throttle changes replays to one digest on any frames, budget and thread count; another level (a
 //!    control) gives another digest.
@@ -60,11 +60,11 @@ fn the_burn_does_the_work_at_every_level() {
         let alpha = 2f64.powi(cfg.thrust_log2 + level as i32); // rapidity per tick
         let t0 = 2_000_000;
         p.u.settle(t0);
-        // Along the orbit's own direction of motion at the heading's axis (a burn that stops the ship dead above the
-        // planet is a radial plunge, which the compile refuses: see the note on the view's `refusals`).
-        let along = if energy(&p, t0).1[0] < 0.0 { 2u8 } else { 1u8 };
-        let sign = if along == 1 { 1.0 } else { -1.0 };
-        p.u.input(t0, word(along, level)).unwrap();
+        // Forward: along the heading, which starts along the orbit's own direction of motion (prograde, so the burn raises
+        // the orbit: a burn against it that stopped the ship dead above the planet would be a radial plunge).
+        let n = emergent_universe::thrust::direction(p.u.rec(p.player).thrust.unwrap().heading).unwrap().map(to_f64);
+        let along = |v: [f64; 2]| v[0] * n[0] + v[1] * n[1];
+        p.u.input(t0, word(1, level)).unwrap();
         // A burn of at most 4e6 ticks, and no more than 2e-4 c of velocity: the ship stays in Home's doll.
         let span = ((2e-4 / alpha) as i64).clamp(100_000, 4_000_000);
         let (e0, mut last_v) = energy(&p, t0);
@@ -74,7 +74,7 @@ fn the_burn_does_the_work_at_every_level() {
             t += dt;
             p.u.settle(t);
             let (_, v) = energy(&p, t);
-            work += sign * alpha * 0.5 * (last_v[0] + v[0]) * (t - last_t) as f64;
+            work += alpha * 0.5 * (along(last_v) + along(v)) * (t - last_t) as f64;
             last_v = v;
             last_t = t;
         }
@@ -176,11 +176,11 @@ fn the_view_shows_the_throttle_and_the_two_frames() {
     }
     let v = gather(&p.u, &p.names).unwrap();
     assert_eq!((v.level, v.burning, v.refusals), (12, true, 0));
-    // In Home's doll, the velocity against the doll's centre is slower than against the star (the planet moves at 1e-4 c).
+    // In Home's doll, the velocity against the doll's centre differs from the one against the star by the planet's own (1e-4 c).
     let (b, bd) = ((v.beta[0].powi(2) + v.beta[1].powi(2)).sqrt(), (v.doll_beta[0].powi(2) + v.doll_beta[1].powi(2)).sqrt());
     println!("doll {}: star frame β {b:.6} rate {:.9}; doll frame β {bd:.6} rate {:.9}", v.doll, v.rate, v.doll_rate);
     assert_eq!(v.doll, "Home");
-    assert!(b > bd && bd > 0.0 && (v.rate - v.doll_rate).abs() < 1e-3 && v.rate < 1.0 && v.doll_rate < 1.0);
+    assert!((b - bd).abs() > 1e-5 && bd > 0.0 && (v.rate - v.doll_rate).abs() < 1e-3 && v.rate < 1.0 && v.doll_rate < 1.0);
     // The rate is the clock's: close to 1/γ in the star's frame, once the burn is large.
     let g = 1.0 / (1.0 - b * b).sqrt();
     assert!((v.rate * g - 1.0).abs() < 1e-4, "rate {} against 1/γ {}", v.rate, 1.0 / g);
@@ -193,7 +193,8 @@ fn the_view_shows_the_throttle_and_the_two_frames() {
 fn a_lost_ship_says_why_and_keeps_its_readings() {
     let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
     p.u.frame(0.1, 800.0, Budget::unlimited());
-    p.u.input(p.u.now, word(1, 4)).unwrap();
+    // Reverse: against the orbit's motion, the burn that brings a ship down into the planet (forward is prograde).
+    p.u.input(p.u.now, word(2, 4)).unwrap();
     let mut last_b = 0.0;
     for _ in 0..3000 {
         p.u.frame(0.1, 800.0, Budget::unlimited());
@@ -218,7 +219,7 @@ fn a_lost_ship_says_why_and_keeps_its_readings() {
 fn a_stuck_ship_keeps_a_view() {
     let mut p = plane(Config::default(), 5, Order::Sparse, 1, 8).unwrap();
     p.u.settle(2_000_000);
-    p.u.input(2_000_000, word(1, 14)).unwrap();
+    p.u.input(2_000_000, word(2, 14)).unwrap(); // reverse: brake against the orbit's motion
     p.u.settle(2_300_000);
     p.u.now = 2_300_000;
     let v = gather(&p.u, &p.names).expect("a stuck ship is still a view");
