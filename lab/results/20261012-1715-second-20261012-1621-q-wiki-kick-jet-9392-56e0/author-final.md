@@ -1,0 +1,4 @@
+Working...
+All deliverables complete and verified: the checker's named experiment is done — branch search run (646 branches swept), 8 runs folded into the page, regen green at 109/0 with check2 pairs asserted, predictions written before the fold, dossier and wiki page in place.
+
+**Claim:** the kick-jet page is now complete and machine-checkable — the branch search the mandate instructed yields eight kick-jet runs the page lacked (0083, 620e, ec9d, a48d, 2833, c3a5, 152f, 4cb2; every number verbatim in its source), regen.sh asserts the (check1, check2) grade pair behind every standing grade — which corrects the first checker's own abstract: 620e stands silver (gold then silver), not gold — and direction 1 gains its measured floor (three digest-identical cuts of −10.9%, −9–10%, −40–45% already exist, so the target is the recompile interior, with cycle-sharing bounded at 1.08–1.17× by the new standing gold 4cb2).
