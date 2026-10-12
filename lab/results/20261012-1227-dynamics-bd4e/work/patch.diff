@@ -1,0 +1,105 @@
+diff --git a/xtask/src/behave/handoff.rs b/xtask/src/behave/handoff.rs
+index fcc26869..4b7896a5 100644
+--- a/xtask/src/behave/handoff.rs
++++ b/xtask/src/behave/handoff.rs
+@@ -421,6 +421,100 @@ mod tests {
+         assert!(state < memory, "an error of the state reads up to {state:.3}, one with a memory down to {memory:.3}");
+     }
+ 
++    /// The slope of a least-squares line through `pts`, NaN if it has none.
++    fn slope_of(pts: &[(f64, f64)]) -> f64 {
++        if pts.len() < 3 {
++            return f64::NAN;
++        }
++        let m = pts.len() as f64;
++        let (mx, my) = (pts.iter().map(|p| p.0).sum::<f64>() / m, pts.iter().map(|p| p.1).sum::<f64>() / m);
++        let sxx = pts.iter().map(|p| (p.0 - mx).powi(2)).sum::<f64>();
++        if sxx <= 0.0 { f64::NAN } else { pts.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum::<f64>() / sxx }
++    }
++
++    /// Lab run 20261012-1227-dynamics-bd4e (dynamics lens), probe not a gate: the error TYPE of the
++    /// signed Jacobi trace. `beta` is the slope of ln D(tau) vs ln tau over the top decade of lags,
++    /// D(tau) = mean_k (e_{k+tau} − e_k)²: a bounded error saturates (beta → 0), a random walk
++    /// gives 1, a ballistic drift 2. `z` is the t-statistic of the mean increment over the second
++    /// half: z > 3 says the increments carry a systematic sign (drift), not only dispersion.
++    fn error_type(e: &[f64]) -> (f64, f64) {
++        let n = e.len();
++        let mut pts = Vec::new();
++        let mut tau = 2.0f64;
++        while (tau as usize) <= n / 2 {
++            let g = tau as usize;
++            let d = (0..n - g).map(|k| (e[k + g] - e[k]).powi(2)).sum::<f64>() / (n - g) as f64;
++            if d > 0.0 {
++                pts.push(((g as f64).ln(), 0.5 * d.ln()));
++            }
++            tau *= 1.3;
++        }
++        let top = ((n / 20) as f64).ln();
++        let beta = slope_of(&pts.iter().filter(|p| p.0 >= top).copied().collect::<Vec<_>>());
++        let h: Vec<f64> = e[n / 2..].windows(2).map(|w| w[1] - w[0]).collect();
++        let (m, mean) = (h.len() as f64, h.iter().sum::<f64>() / h.len() as f64);
++        let sd = (h.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (m - 1.0)).sqrt();
++        (beta, if sd > 0.0 { mean.abs() * m.sqrt() / sd } else { 0.0 })
++    }
++
++    /// Lab run 20261012-1227-dynamics-bd4e: type every law's Jacobi error on B12's frozen ships —
++    /// bounded, diffusive leak (random walk) or drift — against the exponent, with the P2 controls
++    /// on both sides and the plane (`B12TYPE_STEP` overrides its step, `B12TYPE_OUT` the CSV dir).
++    /// Table: `data/b12type.csv`; the worst ship's trace per law: `data/b12traces.csv`.
++    #[test]
++    #[ignore = "probe (lab 20261012-1227): the error type from the signed trace's structure function, with controls; not a gate"]
++    fn b12_error_type() {
++        let (scene, times) = (JUPITER, coarse_times(&JUPITER));
++        let out = std::env::var("B12TYPE_OUT").unwrap_or_else(|_| "../lab/results/20261012-1227-dynamics-bd4e/data".into());
++        std::fs::create_dir_all(&out).expect("out dir");
++        let step: Option<i32> = std::env::var("B12TYPE_STEP").ok().and_then(|v| v.parse().ok());
++        let plane = super::super::plane::Plane::new(step);
++        let rows: [(&str, &dyn Law); 5] = [
++            ("echo", &Echo),
++            ("bounded", &Planted(Fault::Bounded)),
++            ("compound", &Planted(Fault::Compound)),
++            ("drift", &Planted(Fault::Drift)),
++            ("plane", &plane),
++        ];
++        let (mut table, mut traces) = (String::from("law,ship,crossings,max_abs_err,exponent,beta,z,class\n"), String::from("law,ship,t,err\n"));
++        for (name, law) in rows {
++            let (mut betas, mut zs, mut exps, mut worst, mut lost) = (Vec::new(), Vec::new(), Vec::new(), (0usize, Vec::new()), 0);
++            for (i, k) in kept().iter().enumerate().filter(|(_, k)| k.judged(&scene)) {
++                let c0 = scene.jacobi(0.0, &k.ship);
++                let Some(states) = law.restricted(&scene, k.ship, &times) else {
++                    lost += 1;
++                    println!("{name:>9} ship {i:>2}: no answer");
++                    continue;
++                };
++                let e: Vec<f64> = states.iter().zip(&times).map(|(s, &t)| (scene.jacobi(t, s) - c0) / c0).collect();
++                let abs: Vec<f64> = e.iter().map(|x| x.abs()).collect();
++                let (beta, z) = error_type(&e);
++                let (exponent, max) = (fit::growth_exponent(&abs), abs.iter().fold(0.0f64, |m, x| m.max(*x)));
++                let class = if z > 3.0 { "drift" } else if beta > 0.65 { "diffusive" } else { "bounded" };
++                println!("{name:>9} ship {i:>2} crossings {:>3} max {max:.2e} exp {exponent:6.3} beta {beta:6.3} z {z:6.2} {class}", k.crossings);
++                table.push_str(&format!("{name},{i},{},{max:.3e},{exponent:.4},{beta:.4},{z:.3},{class}\n", k.crossings));
++                if max > worst.1.iter().fold(0.0f64, |m, x| m.max(*x)) {
++                    worst = (i, e);
++                }
++                if max > FLOOR {
++                    betas.push(beta);
++                    zs.push(z);
++                    exps.push(exponent);
++                }
++            }
++            for (_, (&t, &x)) in times.iter().zip(&worst.1).enumerate() {
++                if x.is_finite() {
++                    traces.push_str(&format!("{name},{},{:e},{:e}\n", worst.0, t, x));
++                }
++            }
++            let (nb, med_b, med_z) = (betas.len(), median(betas), median(zs));
++            println!("{name:>9} MEDIAN over {nb} ships above the floor ({lost} no answer): exponent {:.3} beta {:.3} z {:.2}\n", median(exps), med_b, med_z);
++            table.push_str(&format!("{name},median,,,,{med_b:.4},{med_z:.4},\n"));
++        }
++        std::fs::write(format!("{out}/b12type.csv"), table).expect("csv");
++        std::fs::write(format!("{out}/b12traces.csv"), traces).expect("traces");
++    }
++
+     #[test]
+     fn the_median_counts_nan_as_infinity_and_takes_the_middle_pair() {
+         assert_eq!(median(vec![3.0, 1.0, 2.0]), 2.0);
