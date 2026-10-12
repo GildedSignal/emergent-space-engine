@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim reproduced end to end: the patch applies to pristine main (70f27a9); B18b goes FAIL ("belt_birth is not implemented") → PASS on all five frozen runs with the dossier's statistics bit-identical (chi2 2.80/4.5, serial 3.13/5, KS 0.56, birth 31 B, 32 B at 1e9, 11.4% scarred at 9.7 B); B18 FAIL unchanged; shipmem 5+2 and xtask 3+1 tests pass; two CLI invocations give identical bits. My adversarial probes pass: unseen seeds 424242, 777 at 2^20 and 555 at 2^23 all inside limits; restore fuzz refuses every mutation/truncation. wt/belt's frozen E[0]=1174440 vs judge threshold ≈1062976 confirms the claimed old-table bottom-tail kill (z −7.25). Silver, not gold, for two record defects (below); gain: the components-98bc program certified mergeable, one step to adopt.
+
+**Reasons.**
+
+1. **Reproduction (clean tree, patch applied by me).** Before, on main: `B18b FAIL belt: 1 of 1 findings fail: 2^20 seed 20261008: belt_birth is not implemented [0.00 s]`; `B18 FAIL memory: 0/12 ladder scenes … 12 not answered`. After: `B18b PASS belt: 5 runs, every criterio

@@ -1,0 +1,5 @@
+Grade: lead
+
+**Abstract.** Claim: distinction rate is tiny (0.059 events/body/gs) but history is never reabsorbed, so live state grows ≈4 B/body/gs and 10⁹ bodies fill 8 GB in ~2 gs. Reproduction: exact — all digests, bodies, bytes/body and probe counters match; digest-neutrality verified at rtf 1/10/100 (author did only 100); Segment = 192 B regenerated. But the central mechanism is falsified: at 2000/3000/5500 gs total live memory is flat (365,484 / 364,192 / 368,828 B) while retirements triple (1017→1841). The shipped plane prunes history every 64 frames (`Universe::prune`, universe.rs:870, 967). The 4 B/body/gs slope was scene-age transient inside the ≈2·light_distance+2²⁶-tick horizon. The real wall is the standing ~4.8–5.2 KB/body (the known shipmem question), not a rate.
+
+**Reproduction.** Clean tree, `git apply work/patch.diff`, `cargo build --release -p xtask`, the dossier's three commands. Digests, bodies, bytes_per_body and every Stats counter identical to the author's JSONs (kicks 736, recompiled 688, cat 691/691, segs 688, slices 2680, decisions 6). Basel

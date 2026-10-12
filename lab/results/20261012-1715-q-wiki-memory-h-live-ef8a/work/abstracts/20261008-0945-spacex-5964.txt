@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract.** Claim: the scar's grid, not body count, decides H_live. Reproduced bit-for-bit (validate, main, summarize; 152 s; 11.5 GB peak — over the 2 GB window rule). The MC's dynamics are accurate: converted to true orbits (n = a⁻¹·⁵ rad per time unit ⇒ one orbit = 2π/n̄ = 8.56 time units) it gives 4.5×10⁻² encounters/body/orbit against the repo's frozen truth 3.96×10⁻² at the identical scene (1.13×). But every printed absolute is wrong: rates 8.56× low (36× after a spurious ÷4.2), "100 orbits" is 11.7 real orbits, creation MB/game-h 11.7× high and internally inconsistent ×100, Elias lengths short. The decision survives: cert-grid scars ≈5–10 bits/body at true 100 orbits (fits, ~7–10× slack — not 40–600×), doll-grid 16–20⁺ bits (25–31%⁺ of the whole budget), ship fleets exactly 0. Adoption cost small: the scar layer's exponent from the population.
+
+## Reproduction
+
+- Clean tree, `work/patch.diff` empty (no code outside the run folder).
+- `python3 h_live_probe.py validate` → `1.25e-3`, exact.
+- `python3 h_live_probe.p

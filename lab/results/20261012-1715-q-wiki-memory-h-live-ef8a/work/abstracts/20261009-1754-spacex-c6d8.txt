@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: the plane's universe creates 0.8–1.5 bits/ship/game-s (98–121 bits per rebounded binding, ≥ 98 % innovation), so the 64-bit/ship budget saturates in 43–82 game-seconds and law.md's "+62/−60" ledger is ~2× optimistic. Reproduced bit-for-bit on all four commands in a clean tree (digest 83d96bed… included, < 1 s each); predictions genuinely held out (17:58:54 vs runs 18:03:35; 3/6 held, failures honestly reported). Adversarial: a quiet scene (no fleet, 25 ships) still gives 0.67 → 96 s; 6 000 game-s is stationary. But the `dperi` stream is never fed — "periapsis-time never moved" is an instrument bug (fed: 15.2 bits, p_zero 0.0); corrected 136.6/101.3 bits/binding, 0.93 bits/ship/s, 69 s. The patch also deletes `--kick-bench`. Silver: adopt after two one-line fixes; gold needs the belt-refit experiment.
+
+## Reasons
+
+1. **Reproduction: exact.** `git apply work/patch.diff`, build (22.5 s), all four commands from `commands.md` → JSONs identical to the stored ones field for field (`diff` empty after removing the machine-state timestamp)

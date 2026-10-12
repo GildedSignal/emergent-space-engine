@@ -1,0 +1,9 @@
+Grade: gold
+
+**Abstract.** Claim: at 10⁹ bodies on the 8 GB M1 the binding term is memory capacity, not compute or bandwidth. Reproduced bit-for-bit in a clean tree (steady: 414/1738/40 hits; budget.py output identical). My adversarial cases held: another seed gives 0.0184 truth-checked (method = truth, 921/921, missed 0), ρ=1e-2 gives exponent 1.03, n=10000 gives 0.1954 (linear predicts 0.207), σ_e=1e-3 gives 0.0024, confirming the P1 post-mortem's σ_e pre-factor. Compute at belt scale is 0.024 cores today (175× margin, no levers); the board's 190 cores re-derives as 175 (all-LEO worst case); capacity breaks today at 3.2× (tubes, linear queue); H_live is 2.65 bits/body/orbit → recompile each ~1.5 orbits. Gain: deletes the event-speed hunt, aims scale work at memory (B18b, sublinear queue). Cost to adopt: a re-rank, no code.
+
+## Reproduction
+
+`work/patch.diff` is empty — the run used shipped code, so I reproduced from the clean tree:
+
+- `steady 1000 0.001 20`, `steady 3000 0.001 10`, `steady 1000 0.0001 20`: every deterministic counter identical (cone_pairs 44691/412502/41

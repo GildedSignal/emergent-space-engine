@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: the plane's commit path carries ~60 bits of live information per kick and writes 660 B (88× the floor). Reproduced bit-identically: all three CSVs (plus my independently built stride-2), digests, event totals, `analyze.py` output. Controls hold: kick-bench digests identical pristine vs patched; `--h-live` deterministic across three executions. Held-out seed 3 and a 50-member fleet give 63.9–66.6 bits/kick, 659–663 B/kick. law.md's "+62 bits per kick" is confirmed — with my sign correction (the shape term omits sign) the measured floor is 62.1 bits, exact. Silver because the 88×→1.12× varint-scar store is measured ex ante, not built, and the brief's `--bench`/page wiring and tests are undelivered. Adopt the number and the method (description length, not frequency entropy) now.
+
+## Reasons
+
+**Reproduction (clean tree, `git apply work/patch.diff`).** Built patched, ran all three dossier commands: seed1/rtf1e4 and seed7/rtf1e4 CSVs are md5-identical to the stored ones; the rtf1e5 stride-2 file, rebuilt through my own gzip+awk pipeline, is al

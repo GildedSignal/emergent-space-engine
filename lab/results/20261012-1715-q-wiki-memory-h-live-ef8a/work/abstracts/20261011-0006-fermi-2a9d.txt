@@ -1,0 +1,7 @@
+Grade: silver
+
+Abstract: Claim: H_live per body is bounded iff the generator is re-fit; law.md's "+62 bits/kick" is record cost, true birth ~2 bits. Reproduced bit-for-bit: budget.py exact, sweep.py exact, h_live.py main run 14/14 checkpoints (2.10 bits H(δ); frozen scar 10.79 bits at t=8192; floor 3.76 at m=16384). All three code claims verified (law.md line 13, program.rs:284, shelf.rs compact). But the author's own totals refute the "iff": re-fit must store the permutation, and label ≥ frozen scar everywhere (17.1 vs 10.8 bits at t=8192), so re-fit alone bounds nothing — canonical relabelling does. Gain: ~10× on law.md's budget line; adoption: one shipmem pass, blocked on the relabelling law decision.
+
+Reasons:
+
+1. **Reproduction: complete.** `budget.py` matches `budget-out.txt` exactly; `sweep.py` matches `sweep.json` to all printed digits (6.08/5.64/4.76/3.76); `h_live.py`'s main config (seed 20261011, same rng stream) matches `results.json` run 1 on every checkpoint and summary entropy, including `H_delta_bits = 2.10479…` and all 14 points. Clean tree; `work/patch.diff`

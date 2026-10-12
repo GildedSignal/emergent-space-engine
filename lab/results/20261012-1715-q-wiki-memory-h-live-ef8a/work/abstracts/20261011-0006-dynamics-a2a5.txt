@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: B12's attractor class is readable from increments (VR(τ*) with no amplitude floor) plus OLS/HAC trend, where the frozen growth exponent fails every bounded chaotic law. Reproduced bit-identically twice: warm rerun (88 s) and cold regeneration from seed in a fresh tree (4m58 s); every number, ship and flip in metrics.json matches; the EXP port is faithful to `fit.rs`. VR+trend passes all positives and fails all negatives (7.0σ separation); leak sweep shows VR exactly drift-blind (0.0049 for every leak). Predictions P2/P3/P6/P7 held; P1 failed (no inversion on the author's ships), honestly reported. Gain: unblocks the frozen gate for ~40 lines. Cost: my attacks show VR at the registered τ*=200 leaves amplitude-matched walks INDETERMINATE (FAIL rests on marginal trend t=3.3–4.1, partly the admitted |·|-folding artifact), a reversing leak passes both tests, and the demo is not on the gate's frozen harness. One experiment away.
+
+## Reproduction
+
+- `python3 b12attractor.py metrics.json` (author's command, output redirected): 88 s warm, **bit-identi

@@ -1,0 +1,7 @@
+Grade: gold
+
+**Abstract.** The first checker's named experiment is done: the scar constant is magnitude-dependent, S = EF(≈7 b) + Σ(b_c+2), measured 61.2 → 172.5 b (family jump 165.7), so the admission rule survives as bits/body ≈ 1 + S·f_cum with f* = 33.4/S ∈ [0.19, 0.55]; the packed ceiling is 53.5 → 160.8 b (bounded 4.7×, not 1.6×); the original's "0.5%" headline is corrected to 4.2% of 10⁹ at the 81-minute corner (0.5 was 1/191, a division by core count). I reproduced every deterministic field bit-identically from a fresh build (28 s, 249 MB); all eight pre-registered predictions held. My adversarial cases (ω wraparound saturation, asymmetric per-field additivity, off-ladder and beyond-width magnitudes, perfect E/L correlation) all confirm the rule. Adoption: the plane's budget check takes S from the issued kick's delta widths; no code change.
+
+**Reasons.**
+
+1. **Reproduction: exact.** Clean tree (only `?? lab/results/`, empty patch.diff, no crate edits — kickmag is a standalone crate path-depending on shipped crates). I rebuilt `emergent-shipmem` examples fro

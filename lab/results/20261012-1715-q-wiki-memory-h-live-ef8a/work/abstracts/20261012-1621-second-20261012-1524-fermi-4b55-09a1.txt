@@ -1,0 +1,7 @@
+Grade: gold
+
+**Abstract for the integrator.** Second-author run fixes the silver's broken record. Reproduced bit-for-bit: soi_truth.py (my own run, 46 s) and both original scripts (regen.sh, runner + log); the Newton sign-flip is verified calculus. The corrected claim stands: Γ_SOI = 1.31×10⁻² transits/body/orbit; at 10⁹, H_live ≈ 21 bits/s (rebinds 10.2; player ~10, assumed; contacts 0.9) ≈ 9.3 kB/h; mutual encounters inert (m_crit ≈ 4.3×10¹⁸ kg); only post-repopulation mixed entropy can approach 8 GB. Attacks: dt 0.0375 (+0.31%); seeds 44/45 (±2%); sampler exact; occupancy-duration identity closes; σ_e ×10 lifts the truth only ×1.3; μ scaling smooth. The Newton and anchor cross-checks collapse off-regime (0.34×, 4×) — noted on the page. Adoption cost: none in code.
+
+## Reproduction
+
+- Clean copy of `soi_truth.py` to /tmp: 45.8 s, `soi_truth_results.json` **identical** to the stored record (diff empty). The runner's regen.sh (exit 0, regen.log) additionally regenerated both originals bit-for-bit, confirming the superseded values it reconciles: stale P3 54.4

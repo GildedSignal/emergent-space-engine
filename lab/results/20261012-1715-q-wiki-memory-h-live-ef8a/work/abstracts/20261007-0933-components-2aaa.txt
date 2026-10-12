@@ -1,0 +1,6 @@
+Grade: silver
+
+Abstract: Claim: the engine's 4-ary indexed heap (Calendar) sits 2–6× above a hierarchical-timing-wheel floor on integer ticks at 10⁵–3×10⁷ entities. Reproduced in a clean tree (178 s, same runner class): heap grows 98→443 ns/op with N, wheel flat 18–93 ns, median ratio 4.6–6.6× at N ≥ 10⁷, amortized 1.7–3.3×; pop order bit-identical across all three structures in all 30 configs and under my four adversarial workloads (dense, synchronized burst, non-power-of-two intervals, 2³⁰–2⁴⁴ span), oracle-checked. Below the 10× gold bar, as the author reports. Found a missed boundary: at sparse tick density (intervals ≫ N) the wheel inverts to 3.5–7× slower than the heap (cascade per pop). Adoption cost: ~200 lines behind Calendar's interface, plus the budget slicer for due-tick bursts.
+
+Reasons:
+1. **Reproduction.** `runall.sh` rerun in a clean directory (178 s): 0/30 hash mismatches; heap4 98→443 ns p50 (wide), wheel 17.7→92.6 flat; h2/h4 = 1.20–1.50 at N ≥ 10⁷ (control loses, as it must); chain max/mean at wide 3×10⁷ exactly 

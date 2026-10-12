@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** H_live is now measured: a quiescent belt (a∈[2.2,3.2] AU) produces 0.27 L-key changes/orbit at the law's 16+16 key (1.49×10⁻³ at 8+8, a 182× quantum drop) and exactly zero E-key changes (no body enters Jupiter's tidal radius: min gap 0.92 vs 0.18 AU), so 10⁹ belts write ~1.3 B/s (0.05 GB per 100 play-hr, RTF 100), while a 10⁻³ short-period fraction at 1 change/orbit writes 1.16 GB and breaks 4 GiB at f·κ ≳ 3×10⁻³. Reproduced bit-identically; seed-stable ±1%; LL core independently verified. Silver because the hot-tail κ is parameterized, one pre-registered magnitude failed, and the headline rate undercounts converged sampling by 1.5×. Adoption cost ≈ 0: it prices B18b's dynamic rung.
+
+## Reproduction
+
+- `python3 lab/results/20261007-2057-library-26cb/probe_hlive.py` in a clean tree: output **bit-identical** to `probe-out.txt` (9.7 s, deterministic integer bin-change counts). `work/patch.diff` empty; no repo files touched — consistent with the dossier.
+- Held out in time: `predictions.md` 21:06:08 < `probe_hlive.py` 21:09:59 < `pr

@@ -1,0 +1,11 @@
+# Check — 20261008-1757-system-72ef
+
+Grade: silver
+
+**Abstract.** Author claims a perturbed belt's stored scar information saturates at ~64 bits/body (q=1e-6), killing the H_live rate premise, with 10⁹ bodies needing 7.2–8.2 GB. Reproduced: control exact-zero, main content-identical (31.7 s), resonance and q-series match. But the "level" is the plug-in entropy's sample-size wall (5·log₂N = 66.4 at N=10⁴): dlambda reads 13.278 against a 13.288 per-channel maximum. My adversarial runs: N=10⁵ with identical physics reads 73.85 bits (+10.2); μ×10 reads 66.38 at q=1e-7 — the wall again. The true level is ≈91 bits (distribution estimate) → 11.4 GB at 10⁹: overflows, not brushes. The rate-form kill stands; the level, its quantum-independence claim, and the 8 GB pricing do not.
+
+## Reproduction
+
+- `patch.diff` is empty — no tree edits outside the run folder.
+- Control (`N=2000`, μ=0): re-run bit-identical to the stored JSON; every channel p99 ≤ 6×10⁻¹³, entropy exactly 0. The pre-registered instrument kill criteria were checked and pass.
+- Main: 31.7 s (dossi

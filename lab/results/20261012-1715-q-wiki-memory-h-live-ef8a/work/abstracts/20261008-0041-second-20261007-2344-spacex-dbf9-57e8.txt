@@ -1,0 +1,8 @@
+Grade: gold
+
+**Abstract.** The silver's named gap is closed and verified: `code/live-ledger.patch` (368 lines) reconstructs the exact 23:56:40 stash state — I confirmed byte-identity of the 4 tracked files against dangler `a2246852` and of `live.rs`/`h_live.rs` against `8e5e31a2` — and `bash code/regen.sh` regenerates the record from pristine `a838a28`. In a third tree all six rows reproduce exactly (created 444/3,426/3,228/5,310/7,203/6,604, digests identical, balance identity holds), tests 58/0, and the corrected swallowed-bullet counts 1/127/283/272 print identically. Held-out seed 5 at 200,000 game-s held (0.92×). Cost to adopt: one `git apply` (plus the one-line `run.sh` `mkdir -p` fix, which applies). The 10⁹-body decision stands: ~0.2 GB of scars per hour at plane density, interactions not N.
+
+## Reproduction
+
+- Clean worktree at `a838a28`, `git apply code/live-ledger.patch` → clean; `cargo build --release -p xtask` 47.5 s; `cargo test --release -p emergent-universe` **58 passed, 0 failed** (12+2+6+1+8+4+6+3+8+3+5, the 2 `h_live` tests included).
+- All six benches (`-

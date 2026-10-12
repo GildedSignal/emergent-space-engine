@@ -1,0 +1,8 @@
+Grade: gold
+
+**Abstract.** The 4-field sorted floor of a stirred belt at the tube's own quanta is 125.5/126.1 bits/body = 15.7/15.8 GB at 10⁹ — ≈2× over the 8 GB budget — because every exact non-replay encoding carries the phase (t_p, 64 bits per radial cycle, uniform by construction; law.md: "position and velocity are derived when asked"). The "under budget, ≤3% margin" restatement covered 3 of 4 fields. I reproduced everything byte-identically (hlive.json, final_state.npz, floor9.json; floor.py 75.5/76.1); all six pre-registered predictions held; the −log₂N slope (−0.996) holds on my own fresh seeds (H₁ 90.01–90.05); the strict 16-byte reading gives 90.4 bits = 11.3 GB, still over; shipmem's Elias–Fano port sits +1.06 bits/key above the multiset bound. Adoption: B18's stirred-clause floor is the 4-field one; the requantization law stands with a real margin.
+
+## Reproduction (clean dir, shipped scripts, no patch to apply)
+
+- `python3 hlive.py` (77 s, seed 20261010): `hlive.json` and `final_state.npz` **byte-identical** to the shipped copies (`cmp` both).
+- `py

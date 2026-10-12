@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** H_live (live distinguishing bits) is now measured: an exact integer ledger in `xtask universe --bench` whose creation rate falls from 14.8 bits/game-second (30 game-s) to 0.036 (200,000 game-s), stock 5,240 bits for 76 bodies, reabsorption 27% — extrapolating to ~0.2 GB of scars for 10⁹ bodies over an hour at plane density (≥ 40× under 8 GB), so the fit is decided by interactions per body per second, not N. I reproduced every table number, the bit-identical digest across patched/pristine trees (6ee2bcb8…, cut 101,512,723) and 58/0 tests — from the author's edits recovered out of dangling git objects, because `work/patch.diff` was never saved. Not gold: the published record carries no code, and one bullet is contradicted by the log.
+
+## Reproduction
+
+- **`work/patch.diff` does not exist** (run.log: "line 24: …work/patch.diff: No such file or directory"); the tree was restored clean. I recovered the author's exact bytes from this runner's dangling stash objects — tracked hooks in `a22468523b443c7c7c5cb3f37c854e8c3fb5ee62`, untracked `crates/u

@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Measured on the plane (28 doll bodies, 3,600 game-s, new instrument `hlive`): H_live is not the binding term at 10⁹. Each binding change injects ~104 near-incompressible bits (zlib saves 4.5–5.5%), residuals reabsorb (late/early 1.09–1.20 per hour; my 10-hour rerun: 1.01), worst all-inner cadence 182 MB/s against 60 GB/s, fill time 44 s only if reabsorption breaks. The walls it exposes: stored representation 9,846 B/body = 1,231× over 8 GB, and inner-cadence kick compute. Decisive run reproduced bit-identically (`cmp` equal); `fermi.py` regenerates every table line. Caveats: the 0.014 events/body/s anchor mixes lattice kicks with doll binding events (overestimates, safe direction); one prediction miss is tallied as held; one scene class only. Adoption cost: none; re-ranks the HANDOFF risk.
+
+**Reasons.**
+
+1. **Reproduction: exact.** Applied `work/patch.diff` to a clean tree, built (`cargo build --release -p emergent-universe --example hlive`, 4.7 s warm), ran `3600 1 400`: every printed number matches the dossier (28 bodies, 9,846 B/body, 1,582 kick

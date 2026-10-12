@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: H_live — live distinguishing bits per game-second, defined from binding remainders plus decision words and sampled read-only on the plane's dashboard — holds a carrying body at a stable 70–90 bits with 82–97% reabsorption and a decaying net slope, so memory at 10⁹ is representation width (~600×), not information growth. Reproduced bit-exact: digests 40cf6013/cd20cea5/c02a850d, every table stock and flow, kicks 16/1,937/9,287; my own clean-main build gives the same digest as patched (a7d089f9…); crate suite green; `/frame` serves `h_live`. My attacks (seeds 3/7, a dense 400-member scene, a shorter window) confirm the stable width. But the dossier's "neither kill criterion triggered" contradicts its own table (≥64 bits/body in every long run; 72–75 in mine), and the kicked-fraction denominator at 10⁹ is unmeasured. Cost: ~150 read-only lines.
+
+## Reproduction
+
+- Applied `work/patch.diff` to clean `main` (a838a28). Digest check with my **own** clean-main build first: seed 1, rtf 100, 6 s, unpaced → `a7d089f9…1ca8df7`; patched re

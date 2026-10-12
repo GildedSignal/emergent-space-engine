@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Reproduced on a clean tree: event counts bit-identical at every N; whole per-event 17.7–19.4 µs, flat to 65 536 (K4 ✓); allocs 5.94/event (K3 ✓); cold/hot 1.07 on a quiet run (K2 ✓); stages 2.5/3.5/0.02/9.3 µs; `from_state` 11.7–12.4 µs — I confirmed it independently on the scene's own states, so the rebind's ~60 % of a 19–22 µs kick stands, and memory/allocator/calendar are honestly ruled out. Two corrections to the headline: the belt budget row counts kicks only, but every interval also emits a boundary (46 % of events, near-kick cost), and the engine default is ~557 events/orbit — "on the budget line today" is really ~2× over at the 64-kick target and ~8× over at today's cadence; and the incremental-rebind lever is 1.4–1.5× whole-engine by mix arithmetic, not 1.7–2.5×. Adversarial: `from_state` blows up with eccentricity — 43 µs at e = 0.5, 101 µs at e = 0.9 — so the flat ~20 µs picture is a near-circular-scene fact. Real, reproduced, dashboard adoptable in one step; no 10× moved yet.
+
+**Reasons.**
+
+1. **Reproduction

@@ -1,0 +1,5 @@
+Grade: gold
+
+**Abstract.** Claim: under workload concentration (co-orbital formation), the encounters crate's pairwise candidate system breaks twice — the window tier drops real sub-ρ contacts (the adopted q-candidate-degree "zero misses" premise fails there), and setup/memory go quadratic (~135× work per real encounter, ~40 TB for a 10⁶ fleet) — while every measured encounter sits within partner distance-rank 4, so a phase-neighbor train certificate at O(n_c·k) replaces the quadratic tier. I reproduced every counted number bit-for-bit (missed 4, extra 193 all true, 0 false, evals 7402534, rank_max 4, fleet p50 606 evals/pair) and attacked with an unbiased all-pairs sweep on 8 scenarios: the misses persist across seeds (3–5 per 232–238), reach 25/441 (5.7%) in a tighter jam, and include a 5th pair the author's instruments both missed; rank ≤ 4 held everywhere, incl. e-spread ×10 and n_c=400 (911 encounters). Cost to adopt: one regime (dimensionless trigger) plus a horizon-edge fix in the second tier.
+
+## Reproduction (clean tree, `git apply work/patch.diff`, CARGO_TAR

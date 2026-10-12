@@ -1,0 +1,6 @@
+Grade: gold
+
+**Abstract.** Claim: at 10⁹ bodies (90-min-orbit mix, RTF 100) the 8 GB M1 budget is compute-bound, not memory-bound. Reproduced byte-identically from repo root (0.06 s; `budget.py`, empty patch). Every anchor traces to frozen evidence: 29 µs kick (HANDOFF #42), 32.5/orbit and 114× averaging (H0190 K1/K2), 4 GiB cap (scale-ladder-v7.json), hits 0.0059 steady / 0.020 sweep (opus-encounters evidence, re-derived from pair fields), 575–51,587 B/body pair stores (r8). 175 cores at RTF 1 unaveraged independently confirms the board's ~190; the 10× S_live gap (5.2×10⁷ compute vs 5.4×10⁸ memory) and P5 (resident stores break memory) hold. Cost to adopt: none — three sizing laws into B10/B18-at-10⁹ and the encounters design. The premise "10⁹ is a memory problem" is shown wrong at the stated mix, by an order of magnitude, adoptable in one step.
+
+**Reasons.**
+1. **Reproduction.** `python3 lab/results/20261006-1354-fermi-c9fa/budget.py` from repo root: output identical to `budget-out.txt` (diff empty). Patch is 0 B — "no code" claim consistent; nothing outside th

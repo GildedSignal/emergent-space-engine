@@ -1,0 +1,5 @@
+Grade: silver
+
+**Abstract.** Claim: at 10⁹ bodies, kick compute on short orbits is the only breaking term; memory is an admission rule (bits/body ≈ 1 + 61·f_cum, break-even ≈ 0.55); H_live is bounded (≈23 bits/kick). Reproduced bit-identically from a clean rebuild (14 s build, 24 s `reproduce.sh`): every deterministic field matches, budget table equal, 22.8 bits/kick and 61.2 bits/scar exact. My adversarial cases held: 10 kicks/member saturates at one 61–65-bit scar per member-ever-kicked; f = 0.05/0.2/0.5 match 1+61f within 8% (conservative); scar cost stable across m = 1024–16384. Gain: the 10⁹ question reduces to two measured knobs, per-body memory work below f ≈ 0.5 is deletable (34× headroom), and the 190-core fear re-derives exactly as the all-billion-on-81-minute-orbit corner. Adoption cost: none in code.
+
+1. **Reproduction: exact.** Clean tree (only `?? lab/results/`), empty `work/patch.diff` consistent with shipped-code-only. All populations, bits, codecs, scar counts, `inferred` flags, mismatch counts (0) and checksums bit-identical; timings within shared-

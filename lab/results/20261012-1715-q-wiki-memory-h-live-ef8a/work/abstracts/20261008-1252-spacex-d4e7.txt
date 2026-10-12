@@ -1,0 +1,5 @@
+Grade: silver
+
+**Abstract.** Claim: under secular perturbation a belt's live memory is a step, not a rate — naive scars saturate at ~84 bits/body (9.77 GB at 10⁹) by T≈100 and stay flat to 10⁵, while a closed-form generator holds ~0 and the synthetic kick model is wrong 1.8× low and wrong in shape. All three commands reproduce **bit-identically** (two seeds, two sizes, ≤8.2 s, 3.4 MB RSS); the Laplace–Lagrange truth verified against independent scipy quadrature (e_F 0.0235–0.0342, g 1.00e-3–3.77e-3, 4 digits). Gain: deletes the naive scar store for the secular bulk (84→~0 bits). Cost: the generator must be law-exact in integers and the residue (resonances, encounters) is unmeasured. Two instrument defects found (below) do not change any conclusion's direction but must be absorbed before adoption.
+
+**Reproduction.** `git apply work/patch.diff`, build, run the three dossier commands: every number in the table, the seed control (±0.01 GB) and the size control (m=2¹⁸: 82.8 bits = 9.64 GB) match the saved outputs exactly. Truth physics independently recomputed (scip

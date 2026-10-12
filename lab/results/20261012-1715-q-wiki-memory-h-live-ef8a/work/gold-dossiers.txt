@@ -1,0 +1,515 @@
+
+########## 20261006-1354-fermi-c9fa
+# Dossier — 20261006-1354-fermi-c9fa (lens: Fermi)
+
+## Claim
+
+At 10⁹ bodies the 8 GB M1 budget is bounded by **compute, not memory**: the
+programs-plus-scars store absorbs encounter distinctions for **1–9 days with zero
+reabsorption** (90-min orbits), while tide kicks at the plane's RTF 100 need
+**153 cores today** (19× over) — and one number, the live set S_live (bodies off
+program form), is capped by kicks at **5.2×10⁷** where memory would tolerate
+5.4×10⁸. "Fitting 10⁹ in 8 GB" is decided in the ALU, not the RAM.
+
+## Bottleneck
+
+Board focus item "fitting 10⁹ in 8 GB … decided by distinctions created per
+game-second" and plane.md's H_live line (the 5 October outside review). Gain:
+not a speedup — a sizing law that deletes the memory-first framing and fixes the
+independent variable (S_live, not N) for B10/B18-at-10⁹ and the encounters
+design. It also quantifies bottleneck 3 ("10–100× less") exactly: **20×** on
+kick cost at RTF 100.
+
+## Evidence (all from `budget.py`, 0.07 s; anchors in `anchors.json`)
+
+Reproduce: `python3 lab/results/20261006-1354-fermi-c9fa/budget.py` (cwd = repo
+root; full output in `budget-out.txt`). Anchors are measured, not assumed:
+
+- **Memory holds for days.** Generator floor 15 MiB (0.126 bit/body, gold
+  components-98bc); encounter scars at the measured hits rate (5.9×10⁻³ per body
+  per orbit, steady.jsonl converged over 10⁵ orbits; sweep rate 2.0×10⁻²) × 64
+  bits fill the frozen 4 GiB cap in **5.7 d / 1.7 d** at 90-min orbits, **92 d /
+  27 d** at 24-h orbits. shipmem already reabsorbs (return-to-program) and
+  repacks (shelf.rs `compact`), so this is a floor, not a requirement.
+- **Compute binds first.** Kicks: 32.5/orbit (H0190) × 29 µs (H0210) at 10⁹,
+  90-min orbits → **175 cores at RTF 1 unaveraged** (tide averaging is
+  load-bearing even at RTF 1, not polish), **153 cores at RTF 100 averaged**
+  (19× over the 8-core M1); RTF 10 averaged = 15 cores (2× over). A 20× kick cut
+  (29 → 1.4 µs, Sol's kick job + cadence) makes RTF 100 fit inside one core-budget.
+- **The unified variable.** S_live ≤ 5.2×10⁷ (compute, RTF 100, 29 µs) vs
+  5.4×10⁸ (memory). Feed rate 1086–3704 scars/s → **reabsorption deadline 4–13 h**
+  to hold the compute cap — compatible with idle-time compaction. With 1.4 µs
+  kicks the compute cap lifts above the
+
+########## 20261011-1917-fermi-b946
+# Dossier — 20261011-1917-fermi-b946
+
+**Claim.** At 10⁹ bodies on the 8 GB M1 the binding term is memory capacity, not
+compute or bandwidth: the tube store and any per-body event queue are already 3.2×
+over the usable 5 GB, while compute and bandwidth clear by 3–5 orders of magnitude
+once the two already-measured levers (kick-setup 12.5×, tide averaging 114×) are
+applied — the board's "about 190 cores at today's rates" re-derives as 175 (all
+bodies in LEO, raw 29 µs kicks) and dissolves to ~0.1 core with those levers.
+
+**Bottleneck.** Board item 3 ("Cost at a billion... about 190 cores. We need 10–100×
+less") and the handoff's unmeasured risk "distinctions per game-second (H_live)
+decide whether 10⁹ fit in 8 GB". The estimate moves the item from "compute, 10–100×
+short" to "capacity, and already within reach": the compute ask is met on paper by
+measured constants (12.5 × 114 ≈ 1.4×10³), so the work that would hunt another 100×
+of event speed is deletable; what remains is the memory design (programs + scars +
+sublinear queue), with a measured cadence target. Expected gain: refocus of the
+scale effort, one component class deleted (per-body kick handling at belt scale).
+
+**Evidence** (all commands ≤ 60 s; Linux/x86 shared host, orders of magnitude only;
+machine state in `machine-state.txt`, load 0.6):
+
+- Encounter rate (the H_live creation input), `emergent-encounters steady`,
+  truth-checked hits per body per orbit (`steady.jsonl`):
+  - n=1000, σ_e=0.01, ρ=1e-3, a∈[1,1.5], 20 orbits: **0.0207** (414 hits).
+    r8 v2's belt-0 truth (board: "427 encounters" / 20 orbits / 1000 bodies) gives
+    0.0214 on another seed: reproduced independently.
+  - n=3000 (3× density): **0.0579** = 2.80× — linear in n (n σ v at fixed volume).
+  - ρ=1e-4 (÷10): **0.0020** = ÷10.35 — rate ∝ ρ^1.01, one pinned dimension, not ρ².
+    This confirms the quasi-periodic conjunction-chain geometry the r8 design
+    (continued fractions) assumes; a smooth two-free-component model would give ρ².
+  - `steady_work_per_encounter` 1.3–1.6 checks per hit: the certificate's promise
+    (work tracks real encounters) is visible in the same data.
+- Budget arithmetic, `budget.py` → `budget-out.txt` (constants cited in-file):
+  - **Compute.** Belt scale (P≈4×10⁷ s): 0.024 cores today, 2×10⁻³ after the se
+
+########## 20261009-0401-spacex-4a62
+# Dossier — H_live on the flying plane: the memory law is standing representation, not distinction rate
+
+## Claim
+
+On the plane, distinction *creation* is reabsorbed (net memory growth zero at steady state, retention ≤ 11 segments per body), but a median ship **stands at ~1.46 KB — 90× the law's 16-byte tube** — so 10⁹ bodies cost ~1.4 TB, **175× the 8 GB budget**; the multiplier is the per-body resident compiled trajectory (~530–970 B of quadrature knots) plus a 448 B `BodyRec`, and fitting 10⁹ needs evictable shared shapes and out-of-line records, not a better prune.
+
+## Bottleneck
+
+Board risk "Distinctions created per game-second (H_live): they, not the body count, decide whether 10⁹ fit in 8 GB; **not measured yet**" (HANDOFF, risks; plane.md §36). This run measures it for the first time. Outcome: the *rate* side is harmless at the plane's cadences (2.8 events/s universe-wide; median ship 0 events/s); the *standing representation* is the villain. Redirects the queued build `b-h-live` from "count distinctions per second" to "shrink and share the standing bytes".
+
+## Evidence
+
+Machine: lab Linux, 8 vCPU, load 0.8, 13.7 GB available, ~28–49 °C zones. Reproduce (≤ 60 s):
+
+```
+cargo build --release -p emergent-universe --example hlive
+/home/glmlab/lab-target-3/release/examples/hlive   # 0.2 s wall, 10.9 MiB maxrss
+```
+
+Log: `hlive.log` in this folder. Scenario: the plane, seed 1, Sparse, 1 thread, 64 fleet members; 12 probes of 2×10⁷ ticks (98.5 game-s each), prune at every probe boundary, counting allocator as instrument.
+
+- **Steady state (last 3 probes):** live-after-prune flat at 2.91–3.29 MiB; engine `bytes_per_body` 5,615 B; median ship `body_bytes` 1,456 B, max 3,120 B; history depth median 0, max 11.
+- **Reabsorption balances creation:** from probe 5 on, prune reclaims what settle created (e.g. probe 6: +600 KiB created, 2,002 KiB reclaimed; net live *falls* 6.7→2.9 MiB and then holds). Retention = the view's window (2× light distance), not an archive.
+- **Event mix per probe (steady):** kick 55, boundary 51, slice 169, open/handoff/decision 0 — the fleet battle's contact slices are 61% of events.
+- **Rates per body:** median ship 0 events/s; max ship 5.1×10⁻² /s; player 1.0×10⁻¹ /s. Creation churn ≈ 1.3 KiB of transient allocations per event (compile t
+
+########## 20261011-2235-second-20261011-2132-spacex-91a0-e4cc
+# dossier.md — 20261011-2235-second-20261011-2132-spacex-91a0-e4cc (SpaceX lens, second author on 20261011-2132-spacex-91a0)
+
+**Claim.** The first run's claim survives its checker's named experiment, now on a record that regenerates from shipped code: H_live saturates on the flying plane (fleet velocities ~18–22 bits/member, ship tubes ~45–50 bits/ship, flat second-half slopes ≈ 0 at seeds 1/7/99, members 48/400/1600, horizons to 4000 game-seconds) — and the saturation holds *despite* kicks firing continuously (1113–20647 per run, bursts to the last game-second; the first run's "zero kicks" was a false reading of its own rows), so the 10⁹-in-8 GB plan is bounded by the store (≥ 370× over the 6–13 byte floor at run end), not by information; the one unbounded grower, the compiled-cycle catalogue, is a **churn** leak (one entry per ship ever created, monotone, saturating at 428 once spawning stops — seed 7 sheds nobody and still gains 390), so reabsorption must fix death-time release and (E,L) sharing, not compaction by time.
+
+**Bottleneck.** Same as the first run: HANDOFF risk "distinctions created per game-second (H_live), not measured yet"; board focus item 5 (fitting 10⁹ in 8 GB). This run's own bottleneck was the record: the physics was measured right, the summary misread the rows. Gain: the adoptability blocker named by the checker ("a 30-minute dossier edit re-run against the same JSONs") is done, with the two refinements the checker could only assert from unshipped local runs (4000 s horizon, 1600 members) now reproduced in this folder's own rows.
+
+**Evidence.** All numbers computed by `work/metrics.py` (shipped here) from raw rows; per-run lines in `work/all-metrics.jsonl`. Reproduce: `git apply work/patch.diff && cargo build --release -p xtask`, then `$CARGO_TARGET_DIR/release/xtask universe --hlive --seed S --rtf 100 --seconds T --members M` (T=20 for 2000 game-s; s99 used T=10 for 1000). Wall: 1.4–8.1 s per regeneration, 11.1 s for the 4000 s run, 40.3 s for 1600 members (needs `work/clamp-1600.diff`: the shipped harness clamps `--members` to 400). Machine: i7-4790, 8 vCPU, 15 GB, load shared with sibling runs; orders of magnitude only.
+- **The record regenerates, as ranges.** Headline quantities across published-vs-regenerated pairs agree to ≤ 0.4 % 
+
+########## 20261010-1544-second-20261010-1407-fermi-fc48-0820
+# Dossier — second author on 20261010-1407-fermi-fc48: the floor at 10⁹, with the phase dof
+
+## Claim
+
+The named experiment confirms the checker's arithmetic — the 3-field sorted
+floor falls with N and lands at **61.6 / 62.1 bits/body = 7.70 / 7.77 GB at
+10⁹, under the 8 GB budget** — but that floor covers 3 of the tube's 4 fields:
+the phase (t_p, 64 bits per radial cycle, uniform by construction at 63.96
+bits/sample) is carried by every exact non-replay encoding, so the 4-field
+floor at 10⁹ is **125.5 / 126.1 bits/body = 15.7 / 15.8 GB, ≈ 2× over
+budget**; the original headline verdict ("no exact encoding at the tube's own
+quanta fits 8 GB at 10⁹") therefore **holds with corrected numbers**, the
+checker's "under budget, ≤ 3% margin" restatement is a field-scope artifact,
+and the scar form is near-optimal (+0.9 bits over the floor right after the
+first pass, +23 bits by 10³ orbits) — the wall is the tube's own quanta, so
+the requantization-law adoption (coarser storage quantum, remainders
+carried, t_p anchored) stands with a real margin, not 3%.
+
+## Bottleneck
+
+Same as the parent run (H_live decides whether 10⁹ fit in 8 GB; B18's
+belt clause). This run closes the gap the checker named: the −log₂N
+extrapolation (done, empirically) and the encoding-class question it flagged
+as "the actual decision B18's stirred clause needs, and it is unexamined"
+(done: the phase dof is the decider).
+
+## Evidence
+
+All from this folder. Commands: `python3 hlive.py` (78 s; regenerates
+`hlive.json` **byte-identically** to the shipped one — verified with `cmp` —
+and an identical `final_state.npz`), `python3 floor.py` (0.2 s; 75.5/76.1 as
+shipped), `python3 floor9.py` (0.8 s; writes `floor9.json`). The T_ORBITS=2
+quick path, which crashed in the shipped script, now runs in 0.4 s (slope-fit
+guard; the full-run JSON is unchanged by the patch, re-verified).
+
+**A. The checker's experiment — N-scaling of the 3-field floor** (subsamples
+of the shipped state + fresh birth states, Miller–Madow-corrected adaptive
+coarse-grain; at N=2¹⁶ it reproduces floor.py's fixed B=2²⁴ to 0.01 bits):
+
+| state | H₁ (bits/sample) | slope vs log₂N | floor₃(10⁹) |
+|---|---|---|---|
+| birth | 90.03 ± 0.02 (analytic 90.09) | −0.996 | 61.58 bits = 7.70 GB |
+| final | 90.59 ± 0.03 | −0.996 | 62.14 bits = 7.77 GB |
+
+########## 20261011-0517-spacex-d0ea
+# Dossier — 20261011-0517-spacex-d0ea (SpaceX lens): H_live of the plane's belt
+
+## Claim
+
+The belt's live distinguishing information is a **one-time ~146 bits per body (exact quanta) /
+~69 bits (memo cell), created within the first orbit and then flat** (+0.08 bit/orbit, clock
+field only), and it is dominated by the *orientation-coupled kick scatter* — the synodic
+short-period oscillation around the averaged law — not by resonance or rounding; at 10⁹ bodies
+that is 8.6–18.3 GB, so **the program+scars store at the law's current quanta cannot hold a
+billion-body belt in the 4 GiB budget** — the generator needs the first-order short-period
+(epicyclic) terms, and the angle/clock word quanta are the store's real cost.
+
+## Bottleneck
+
+The board's named unmeasured risk: "Distinctions created per game-second (H_live): they, not
+the body count, decide whether 10⁹ fit in 8 GB; not measured yet" (also plane.md "Measured on
+the whole"). This run measures it for the plane's own belt scene, on the plane's own path.
+
+## The measure
+
+A group = M ships born with the *same* (p, e, phase) at M orientations α_i. The averaged law is
+rotation-equivariant, so the program+generator predicts identical (p, k) and periapsis time for
+all M and angle α_i + shared precession; any refit absorbs that shared path (one table row per
+radius, ~0 bits at 10⁹). The within-group spread of the stored tube's words — mean-centred, in
+the store's own quanta — is therefore exactly the scar bits: exact quanta (p at 2⁻²⁴ root units,
+k at Q48, angle at 2⁻³² turns, t_p at 1 clock word) and the law's memo cell (12+12 bits).
+bits(field) = log₂(1 + range). Scene: star + planet (1/999 of the total) at 5.2 AU; belt
+2.0–3.5 AU, e₀ = 0.05; 33 radii (25 log-grid + planted resonance centres) × M = 64 → 2112
+ships; the plane's law as shipped (integer tubes, SyMBA kicks, 128 kicks/radial period);
+20 mid-belt orbits ≈ 88 yr ≈ 2.8×10⁹ game-seconds.
+
+## Evidence
+
+Commands (from the repo root; the test is `crates/universe/tests/h_live.rs`, saved in this
+run's patch):
+
+- Decisive (~136 s, **6.1 GB RSS — over the 2 GB lab budget, reported**):
+  `env HL_RADII=25 HL_M=64 HL_ORBITS=20 HL_SNAPS=20 HL_THREADS=8 cargo test --release -p emergent-universe --test h_live -- --nocapture --test-threads=1`
+  → `lab/results/20261011-051
+
+########## 20261012-0616-second-20261012-0358-scout-cdac-07b4
+# Dossier — 20261012-0616-second-20261012-0358-scout-cdac-07b4 (second author on 20261012-0358-scout-cdac)
+
+## Claim (one sentence)
+
+The scout's live-memory law **survives real conjunction geometry, and real geometry is 3–9× safer per kick than the toy claimed**: on a real Kepler belt with true-conjunction kicks (Gauss-mapped, recurring, natively stirring), escape at the player floor needs a median 158–420 sub-quantum kicks (98–100% multi-kick), s(ε) obeys α = 0.76–0.96 on the partial regime, MB/h at 10⁹ and fixed surface density is 1.3–9.1, and the saturated belt store — the binding number at 10⁹ — is 1.7–2.4 bytes per live body, inside B18 (≤ 2× floor + 2 B) and inside the 4.29 GB live budget; the toy's `alpha_partial` field is corrected to −0.817.
+
+## Bottleneck
+
+The checker's named experiment, item by item: s(ε) and MB/h against real kicks; a stirring-capable e-coupling; the saturation store at 10⁹ stated against B18; `alpha_partial` on the partial regime only. Board: "fitting 10⁹ in 8 GB … decided by distinctions created per game-second". This closes the "rate-structure toy, not the design's encounter+kick path" gap that held the scout run at silver.
+
+## Evidence (reproduce: `python3 work/hlive_real.py` ~193 s, then `python3 work/analyze.py` ~40 s; <0.5 GB; load1≈0.8/8 vCPU shared)
+
+Real belt per `crates/encounters`' generator (a ~ U, Rayleigh e, uniform angles, GM=1), real Kepler propagation, conjunctions = every local minimum of pair distance below 0.06 (truth.rs semantics: pair tracked in the zone, kick at each r·v sign flip, minimum refined by parabola and re-evaluated analytically at t*), impulse dv = 2m/(b·v_rel) along the separation, both bodies, (δa, δe) by Gauss's equations at the true anomaly. Accounting identical to the scout (same cells, same R1/R2/R3, same entropies), replayed per ε over the recorded kick stream. Six configs (m ∈ {1e-10, 1e-8, 1e-6}, Σ ∈ {1e4, 3e4, 9e4}/AU, two seeds), N = 500–1500, 10–20 orbits. All in `work/metrics-real.json` + `work/analysis.json`.
+
+- **Real rate:** K = 19.7–65.3 kicks/body/orbit (scales with N at fixed width: 19.7→59.5 for N 500→1500). The toy's Γ=1.1 anchor is 18–60× low at belt surface densities.
+- **Matched-rate comparison (the decisive row):** at m=1e-10, ε=1e-3, K=59.5, real s_part = 2.56e-4 vs the t
+
+########## 20261010-1544-components-986b
+# H_live's floor: the rate at which a program-born belt accumulates distinguishing bits
+
+## Claim
+
+The storage component's live rate is measured for the first time: under the law's own
+event structure (exact Kepler drift + hyperbolic kicks at conjunctions), a belt's
+distinguishing information grows **diffusively, not linearly** —
+`bits(t) = Σ_col log2(σ_col(t)·2.07/q)` with σ ∝ t^0.55 — so 10⁹ program-born bodies fit
+the 4 GiB budget at a player-differentiable quantum, and the **storage quantum q, not the
+encounter rate, is the memory lever** (−13 bits per decade of coarsening). Two scaling
+facts I predicted wrong: per-body spread is **flat in N** at fixed belt mass (diffusion is
+dominated by rare strong encounters, not the numerous weak ones — so no 1/√N dilution may
+be assumed), and 10× belt mass buys only ×3.8–7 spread (self-limiting heating).
+
+## Bottleneck
+
+Board risk "H_live: distinctions created per game-second … not measured yet" and HANDOFF's
+"decided by distinctions created per game-second". This is the storage component's floor
+(PRINCIPLES #24: "The memory floor is information"). The `b-h-live` build instruments the
+plane's dashboard (one small scene); this probe measures the **rate law itself** on belt
+physics the plane cannot hold, and answers the 10⁹ verdict.
+
+## Evidence
+
+Probe: `hlive/` (self-contained Rust, no deps). Bodies drift on exact Kepler tubes
+(integer periods/periapsis times, `crates/encounters`' discipline); conjunctions found
+event-driven per pair (bracketed synodic scan + epicycle scan); every conjunction inside
+ρ_screen applies the hyperbolic kick `δ = 2·atan(μ/(b·v²))` — proven **identical** to the
+exact analytic hyperbola `2·asin(1/e)` (so the kernel is exact for isolated pairs; the
+only approximations are the star's tide during an encounter and the impulse's position
+treatment). Elastic contacts below 2·r_contact. Measured: empirical entropy of quantized,
+centered offsets (ΔE/E, ΔL/L, Δϖ/2π, Δλ/2π) vs the birth program, plus the offset spreads
+σ_col (the 10⁹-relevant differential entropy — the empirical entropy saturates at the
+sample cap log₂N).
+
+Self-tests: Kepler round trip 4e-13; conjunction finder exact (wrap 0.0);
+hyperbola conserves speed to machine precision; **control μ=0 is exactly 0.0 bits at every
+checkpoint** (anal
+
+########## 20261011-0517-second-20261011-0324-fermi-c211-b3e7
+# Dossier — 20261011-0517-second-20261011-0324-fermi-c211-b3e7 (second author on 20261011-0324-fermi-c211)
+
+**Claim.** The checker's named experiment is done and it *replaces the constant, not the rule*:
+the scar cost is magnitude-dependent — S = Elias–Fano ordinal (~7 b) + Σ per-field delta widths
+(b_c+2), measured 61.2 → 85.4 → 109.6 → 133.9 → 154.4 → 172.5 bits from the shipped kick
+(t ±2¹⁶, E/L/ω ±2¹⁰) to the supra-family stress rung, 165.7 at a true family jump (E/L redrawn
+as a fresh law orbit) — so the original's "bits/body ≈ 1 + 61·f_cum, breaks only past f_cum ≈
+0.55" holds **as a rule with a magnitude-dependent constant**: bits/body ≈ 1 + S·f_cum (fit
+within −8%…+4% for f ≤ 0.5 at every magnitude), break-even f* = 33.4/S ∈ **[0.19, 0.55]**; the
+packed-form ceiling is equally magnitude-dependent (53.5 → 160.8 bits/body at f = 1, a bounded
+4.7× over budget, not 1.6×); and the original's "0.5%" headline is corrected from its own table
+to **4.2%** of 10⁹ sustainable at the 81-minute corner (RTF 1, 32 kicks/orbit; 4.5% at RTF 100
+with the 0.3 averaged cadence, 0.04% unaveraged) — "0.5%" was 1/191, a division by the core
+count. The verdict order survives intact: compute (short-orbit corner) ≫ memory (admission at
+f_cum ≥ 0.19–0.55) ≫ H_live (a family-jump kick creates 62 b, seal 154 ns: 4 GiB unsealed fills
+in ≈ 2,000 h at RTF 100) ≫ bandwidth; even at family-jump magnitude, encounter-driven f_cum
+(1.4×10⁻⁴/h at RTF 100 year orbits) crosses f* only after **≥ 1,410 h of play** (1,413 h at the worst rung, 3,982 h shipped).
+
+**Bottleneck.** Same as the original (board: "fitting 10⁹ in 8 GB … decided by distinctions
+created per game-second"; bottleneck 3). This run closes the record's one untested knob: the
+61-bit scar, the f* = 0.55 threshold and the 53.5-bit packed ceiling were each measured at a
+single hardcoded kick magnitude. What it deletes: any design decision that treated 61 b/scar,
+f* = 0.55 or the 53.5-b cap as magnitude-invariant constants (e.g. a plane-side budget check
+wired to f_cum ≤ 0.55 would under-price family-jumping encounters by 2.7×).
+
+**Evidence** (this machine, x86, orders only; state in `state.txt`; `sh reproduce.sh`
+regenerates every number in 23 s: the original baseline from shipped code bit-identical —
+dH/kick 22.8, scar 61.2, chose
+
+########## 20261011-1600-fermi-13ad
+# Dossier: H_live at 10⁹ — what creates scar bits per game-second, and what reabsorbs
+
+## Claim
+
+Ship-to-ship gravity creates **exactly zero** scar bits at any belt density up to 10⁹ (measured:
+every ship–ship kick, down to contact range, is ≥9 orders below the (E,L) quantum, and the
+accumulated random walk at 10⁹ crosses one quantum per ≥10¹¹ orbits), so H_live's only growing
+channels are contacts, massive-body encounters and decisions — and the contact channel alone,
+on one close-in 10⁹-body belt, exhausts the 4 GiB budget in **9–18 play-hours** for immortal
+ships unless contacts are terminal or herds re-program, in which case H_live is bounded.
+
+## Bottleneck
+
+Board risk "Distinctions created per game-second (H_live): they, not the body count, decide
+whether 10⁹ fit in 8 GB; not measured yet" (HANDOFF, 6 October); queue item `b-h-live`. This
+run supplies the physics half the frozen gates lack: B18b gates the scar *codec* against a
+synthetic 50-bit churn kick; nothing measured what real dynamics create or destroy. Gain: the
+encounter skin ρ is freed for ships (any ρ above the contact radius creates no gravitational
+scar memory — one design constraint deleted), and the allocator gets its signal: watch the
+contact-scar count, not the body count.
+
+## Evidence
+
+Machine: GitHub Actions Linux, 8 vCPU, load 0.24–0.70, 14 GB free at start; all processes
+≤ 2 GB except one bug (below). Commands (from `lab/results/20261011-1600-fermi-13ad/work/`):
+`python3 hlive_probe.py` (241 s, writes `hlive.json`; per-run walls 9–78 s), then the kick
+table (`kicks.json`, 0.2 s: `hp.kick_entropy` over `events_B18b_N1e4_geom.npy`, sweep μ ×
+quantum), and `python3 analyze.py` (extrapolations, 0.2 s).
+
+Belt: B18b's frozen geometry (p one octave a∈[1,2), e Rayleigh σ=0.07 capped 0.6, uniform
+angles). Units G·M=4π², time in a=1 orbits. Encounters found by exact Kepler propagation,
+spatial hashing, per-event impact parameter b = |Δr×Δv|/|Δv| (resolves ρ ≪ step size), deduped
+to one row per conjunction.
+
+1. **Rate law (warm belt, flyby regime).** Encounters per body per a=1 orbit at ρ=10⁻⁴:
+   N=2×10³: 1.25×10⁻²; N=10⁴: 6.33×10⁻²; N=5×10⁴: 3.17×10⁻¹. rate/N = 6.25/6.33/6.33 ×10⁻⁶ —
+   mean-field linear (exponent 1.00 over 25× in N). b-distribution slope α ∈ [1.0, 1.25]
+   (two estimators; s
+
+########## 20261008-0041-fermi-8072
+# Dossier: H_live — the belt's live information is bounded and mostly free
+
+## Claim (one sentence)
+
+In the plane's belt, live distinguishing information saturates rather than accumulates: a static birth program scars every body (measured: 100% by 7.6 kyr), but the ensemble's evolution is programmatic (proper-a chaos is 12.5%, concentrated at resonances, flat in time) and a re-programmed synthetic belt evolves statistically indistinguishably from the true one — so 10⁹ belts fit in 8 GB if (and only if) either the program carries the secular drift or unobserved bodies are legally re-programmed; the player's channel, not the belt, dominates H_live.
+
+## Bottleneck
+
+Board risk "Distinctions created per game-second (H_live) … not measured yet" (HANDOFF; plane.md "Measured on the whole"). Decides whether 10⁹ bodies fit in 8 GB. Gain: deletes the naive-tube memory plan (16 GB, fails) in favour of a program+scars plan measured at ~2 GB worst case, ~tens of MB with re-programming — the difference between the goal being reachable and not.
+
+## Evidence (machine: Linux x86, 8 vCPU, load 2.0, 13.9 GB free; all runs ≤ 370 s wall, ≤ 100 MB)
+
+Scene: Sun + Jupiter (9.55×10⁻⁴ M☉, a=5.2 AU, e=0.048, exact analytic Kepler), 2,000 massless belt bodies, banded a∈[2.2,3.4], Rayleigh e (σ=0.05), uniform angles (B18b family). Test-particle Wisdom–Holman: exact universal-variable Kepler drift (validated: max |Δa/a| = 0.0 over 1.85 kyr drift-only), Jupiter impulse kicks, dt = P_J/64 = 0.185 yr. T = 71 kyr (5,993 J-orbits).
+
+- **Controls.** Drift-only: |Δa/a| = 0.0 exactly. dt-refinement (P_J/256, equal t): median osculating-|Δa/a| 8.7×10⁻⁴ vs 7.8×10⁻⁴ at P_J/64 — dt-independent, so the osculating-a spread is physical forced oscillation, not quadrature error. This control killed my own pre-registered 10⁻⁴ marker (see Predictions): |Δa/a|>10⁻⁴ is true for 90% of bodies everywhere, resonance-agnostic — it measures the forced oscillation, not chaos. Replacement chaos marker (defined from the A1 half only, before A2/D ran): proper-a drift = |⟨a⟩₍last 18 kyr₎/⟨a⟩₍first 18 kyr₎ − 1| > 10⁻³.
+- **P1 (chaos fraction).** 12.5% of bodies drift >10⁻³ (3.6% > 3×10⁻³, 1.0% >10⁻²), concentrated: 48% in the 2:1 band (3.22–3.32 AU), 12% at 3:1, 5.5% at 5:2, 5.7% off-resonance. Rolling 18-kyr windows thro
+
+########## 20261011-0134-second-20261011-0006-fermi-2a9d-fdfc
+# Dossier — H_live bounded iff re-fit **and** canonical relabelling; the floor is law-robust
+
+Run 20261011-0134-second-20261011-0006-fermi-2a9d-fdfc, second author on
+20261011-0006-fermi-2a9d (Fermi lens). The checker's named experiment, done: the totals
+comparison (re-fit + canonical relabelling of unobserved bodies vs entropy-coded frozen,
+both under 1/b² encounter tails at belt rate), plus the restated claim. Scripts:
+`totals.py` (3 laws × 8192 orbits, 7 min, < 1 GB; G asserted bit-exact against the
+author's `results.json`), `budget2.py` (< 1 s, reads `totals.json`). Raw points in
+`totals.json`. Built from the run's own scripts (`h_live.py`'s evolve/measure, verbatim).
+
+## Claim (restated around what actually bounds H_live)
+
+H_live is bounded **iff the store both re-fits the generator and canonically relabels
+unobserved bodies** (label cost → 0 for bodies the player has never pinned). Re-fit
+**alone** bounds nothing: its total (residual + label permutation) is ≥ the entropy-coded
+frozen cost at **every checkpoint of all three jump laws** (42/42; G 15.05 vs 10.79,
+T1 16.01 vs 11.75, T2 19.62 vs 15.33 bits at t = 8192). With relabelling, the floor is
+**flat in t and law-robust: 4.26–4.30 bits/body** at lab N (m* = 16384 knots), falling to
+a measured **1.80–1.83 bits/column** at m = 2.6×10⁵ knots (program cost 0.008 bits at
+10⁹) — even under the checker's |Δ| = K/U² tail, whose second moment is 667× the
+Gaussian's. The binding deadline is the relabelling **law decision**, and it is set by
+the engine's real jump tail: **1.14×10⁴ orbits** under the K/U² tail (the checker's ~10⁴,
+confirmed), 1.15×10⁶ under the physical areal-1/b tail, 9.4×10⁶ under the Gaussian — the
+author's "not urgent" survives only under the gentlest tail.
+
+## Bottleneck
+
+Same as the parent run: board risk "distinctions created per game-second (H_live)";
+bottleneck 5. This run completes the accounting the parent left one experiment short of,
+and hands `b-h-live` three numbers: the law-robust floor (1.8 bits/column at 2.6×10⁵
+knots), the tail-dependence of the relabelling deadline (10⁴–10⁷ orbits), and the
+confirmation that the checker's E[Δ²] = 6.6×10⁶ reconstructs exactly (K = 25, cap 10⁴,
+median 100: 1.67×10⁶ continuous + 5×10⁶ in the 5% pile at the cap).
+
+## Evidence
+
+### The totals compar
+
+########## 20261007-1646-quant-b30e
+# Dossier — run 20261007-1646-quant-b30e (lens: Quant)
+
+**Claim.** H_live, measured for the first time on the real engine: a kicked belt family's live
+distinguishing state scars **every member within half an orbit** (reabsorption never fires; to
+512 orbits), is **bounded in width away from resonance** (~130 bits/member ≈ 16 B at the law's
+invariant widths, 11× under today's 176-byte binding, +3 bits over 1,024× time), **grows under
+resonance** (+0.3 bits/member/orbit at 2:1), and scales with the storage quantum, not the kick
+regime (256× weaker kicks buy exactly −8 bits ≈ −1.6 B/member) — so 10⁹ belt bodies cost ~16 GB
+of scar layer and do **not** fit 8 GB at the law's widths, while shipmem's Form P as shipped
+(strict-majority `infer`) dies as a family representation the moment any member is kicked.
+
+**Bottleneck.** Board "fitting 10⁹ in 8 GB" / HANDOFF risk "H_live: not measured yet; they, not
+the body count, decide whether 10⁹ fit in 8 GB". The measurement the belt build (b-belt-wire)
+and B18 need before population programs are wired into the plane.
+
+**Evidence** (full tables in [analysis.md](analysis.md); raw CSV in `data/`):
+
+- Physics: the real engine, `restricted` problem (star + planet μ + convoy of n real ships on
+  circular orbits at 1.5·sep), real kicks and handoffs, `settle` to 512 orbits; 3.8 M events,
+  0 lost. Accounting: each member's exact invariant columns [p(Q32), k(Q48), ω(Q32)] read from
+  its live binding, a per-window median-affine family program over ordinals (a launched convoy
+  is affine), deviations sealed as Elias–Fano ordinals + zigzag rows (shipmem Form P's packing,
+  checked against its own `Program::build` where its majority rule still applies).
+- Controls on both sides: orbit 0 seals 0.2–0.9 bits/member (accounting control; fails only for
+  `hill`, whose alternating launch is not affine — flagged, config not quoted); flat store =
+  1,408 bits/member (the negative contrast); μ/256 = −8.0 bits exactly on med and p99
+  (linearity control). Reproduced at n = 16, 32, 512.
+- Repro (this box, ≤ 60 s each): `cd lab/results/20261007-1646-quant-b30e/probe && cargo build
+  --release`, then `/home/glmlab/lab-target-3/release/hlive-probe <config> <n> <orbits>` with
+  belt15 32 8 (9 s), belt15w 64 8 (5 s), belt21 64 8 (12 s), hill 32 4 (3 s),
+
+########## 20261007-0800-fermi-a91f
+# Dossier — 20261007-0800-fermi-a91f (Fermi lens)
+
+**Claim.** H_live is bounded and reabsorbable — a kicked body costs ~50 bits once and ~2 bits per
+doubling of further exposure, not 44 bits per kick — so at 10⁹ bodies the first wall is memory,
+not compute: a fully-mixed population (7.9 GB at 63 bits/body) busts the 8 GB machine, while all
+kick compute (hot update + compaction) runs at ~8% of one core.
+
+**Bottleneck.** HANDOFF's named risk "Distinctions created per game-second (H_live): they, not
+the body count, decide whether 10⁹ fit in 8 GB; **not measured yet**", and board item "fitting
+10⁹ in 8 GB decided by distinctions created per game-second". Expected gain: no new component;
+it sizes the B18 gate (add a repeated-kick scene), fixes the affordable-population number for
+the billion-ship design, and deletes the fear that H_live compounds (it does not).
+
+**Evidence** (agonbox, i7-4790, load 1.2, 14 GB free; all runs ≤ 30 s, < 1 GB; machine.txt).
+Driver `hlive.rs` (copy in this folder; added as `crates/shipmem/examples/hlive.rs` in the
+patch) uses only shipped code: the frozen ladder's `Rung::Rate(0.0)` convoy, `Pop::Convoy.kick`
+(the law's integer kick model: Δt ±2¹⁶, ΔE/ΔL/Δω ±2¹⁰), `Shelf::{add_group,get,update,compact}`.
+
+- Commands (each ≤ 60 s):
+  - `HLIVE_OUT=state.jsonl  cargo run --release -p emergent-shipmem --example hlive -- state 1048576`
+  - `HLIVE_OUT=shelf-a.jsonl cargo run --release -p emergent-shipmem --example hlive -- shelf 1048576 8 0.25`
+  - `HLIVE_OUT=shelf-b.jsonl cargo run --release -p emergent-shipmem --example hlive -- shelf 1048576 16 0.5`
+  - `cargo run --release -p emergent-encounters -- verify a`
+- **State floor vs kick count K** (every ship kicked K times; `state.jsonl`): 49.9 bits/ship at
+  K=1 (the frozen ladder's 50.0 reproduced), 58.4 at 16, 65.2 at 256, 68.3 at 1024 — ≈ 4×(11 +
+  ½log₂K) + 6, i.e. ~2 bits per doubling. The draw account (what a naive store or a logged
+  history pays) is 44·K: at K=256 it is 173× the floor.
+- **Shipped store under repeated kicks** (`shelf-*.jsonl`, bit-exact round trip every epoch,
+  mismatches=0, including repacks): store stays 0.8–7 bits above the state floor; a repack fires
+  near K̄≈4.5 and *drops* stored bits 66.6→62.5 while the floor rises — the store re-fits by exact
+  cost, as law.m
+
+########## 20261007-0711-spacex-cae7
+# H_live measured: the plane's live stock is ~1.3 KB/body; the compiled trajectory is never shared
+
+## Claim
+
+On the shipped plane (main at 70f27a9), H_live reaches a steady state — creation equals
+reabsorption; the light-cone prune works — but the live stock is **1,245–1,277 B per belt body**
+(4,665 B/body on the flown plane), because **the catalogue never dedups compiled trajectories**
+(`bind.rs::Catalogue::insert` allocates a fresh slot per body; 2,000 ships on *one* orbit hold
+2,000 entries), the record is 448 B, and one 192 B history segment is mandatory per body.
+Extrapolated, 10⁹ bodies cost ≈ 1.3 TB of live state — **160× over the 8 GB budget** — and even
+at the law's own floor widths (12–16 B static + scars) a billion *individual records* is 14–18 GB,
+so the billion must be population programs; the scar budget that remains fits only if retention
+follows observable distinction, not light distance alone.
+
+## Bottleneck
+
+Board risk "H_live: not measured yet; they, not the body count, decide whether 10⁹ fit in 8 GB"
+(HANDOFF 6 October; plane.md "Distinctions created per game-second"). Gain sought: the number
+that sizes `crates/shipmem` (programs + scars) and the retention rule. This run deletes nothing
+by itself; it names the three deletions and their measured sizes.
+
+Verified: two runs of the belt probe give byte-identical JSON once `wall_seconds` is dropped
+(md5 `c7cacca5…`); `cargo test -p emergent-universe` shows 7 passed / 3 failed **identically
+with and without this patch** (step.rs passage/handoff tests; pre-existing on main at 70f27a9).
+The container reports no battery/thermal state (the JSONs' `machine` field): timings here are
+orders of magnitude only, and none of the claims rests on wall time.
+
+## Evidence
+
+Probe: `xtask universe --h-live` (patch to `crates/universe` + `xtask`, saved by `run.sh`):
+settle (unpaced, unlimited budget — outcomes are schedule-independent by the digest contract),
+`prune`, sample. Runs on this container (8 vCPU, shared; probe caps itself at ~60 s wall):
+
+```
+cargo run --release -q -p xtask -- universe --h-live --game-seconds 1.6e6 --stages 10
+cargo run --release -q -p xtask -- universe --h-live --belt 2000 --belt-mode formation --game-seconds 1.6e6 --stages 6
+cargo run --release -q -p xtask -- universe --h-live --belt
+
+########## 20261008-2031-fermi-9d49
+# Dossier — H_live: distinctions per game-second decide 10⁹ in 8 GB, and they are a census, not a rate
+
+## Claim
+
+H_live per body **saturates** (measured on the shipped store: program member 17.3–29.6 bits, first scar +70.7–76.7 bits, individual 149.7–196.6 bits, re-kicks ≈ 0), so whether 10⁹ bodies fit 8 GB is decided by the **promotion census** — the fraction of bodies ever promoted past a first quantum crossing — not by the event rate (representation.md's ~6×10⁴ kicks/game-second create ≈ 0 bits); at 4 GiB the ceiling is 9.5–12.9% individuals (24% scarred), and at B18b belt geometry the promoters are **contacts** (belt turnover in ~10² yr for 1-km rocks) and **embedded masses** (M ≥ 8×10¹⁷ kg turns the belt over per Myr; v_rel cancels), never mutual gravity between rocks (b_cross < contact radius at every rock size) — so the engine needs contact-driven recycling (fragment programs) and retirement as a designed counterweight, and the dashboard should count promotions/retirements, not kicks.
+
+## Bottleneck
+
+Board item "fitting 10⁹ in 8 GB (crates/shipmem), decided by distinctions created per game-second"; HANDOFF risk "not measured yet". Expected gain: converts the H_live risk into a budget identity with measured constants (orders of magnitude, not 10× compute), deletes the misreading "distinctions per second ≈ event rate", and gives `b-h-live` its exact counters. It also kills one number in representation.md §4 (see below).
+
+## Evidence
+
+Machine: Linux x86 cloud runner (8 vCPU), orders of magnitude only. All commands ≤ 60 s, run from the repo root; every measurement round-trips bit for bit (`roundtrip_mismatches: 0`).
+
+```
+cargo build --release -p emergent-shipmem --example measure          # 6.7 s
+R=lab/results/20261008-2031-fermi-9d49
+cargo run --release -p emergent-shipmem --example measure -- convoy    1e6 200000 128 $R/measure.jsonl
+cargo run --release -p emergent-shipmem --example measure -- formation 1e6 200000 128 $R/measure.jsonl
+cargo run --release -p emergent-shipmem --example measure -- convoy    1e6 0       128 $R/measure.jsonl
+cargo run --release -p emergent-shipmem --example measure -- formation 1e6 0       128 $R/measure.jsonl
+cargo run --release -p emergent-shipmem --example measure -- random    1e6 0       128 $R/measure.jsonl
+cargo run --r

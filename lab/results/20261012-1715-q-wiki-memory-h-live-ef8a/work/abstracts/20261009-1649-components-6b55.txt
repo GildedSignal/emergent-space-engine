@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** First measured H_live-side constraint for the belt store, and it reproduces bit-identically: the crate's `scale n` gives enc_per_body_orbit 0.0412/0.0394/0.0396/0.0388/0.0404 (N-independent in ρ∝1/N), `hlive.py` regenerates `metrics.json` exactly, controls pass both ways (heavy belt scars 100%, diffusion ratio 0.886 ∈ [0.7,1.4]), and the key τ values (4×10³ orbits at Q_e=10⁻⁷, 4×10⁷ at 10⁻⁵, Kuiper mass, N=10⁹, fixed ρ) follow from the shipped code plus the disclosed, measured 22× rate correction. But the headline constraint Q_e ≳ 2×10⁻⁹·(M_belt/10⁻⁷)·(10⁹/N)^½ contradicts the run's own table by ~77× (it is the one-orbit boundary, missing √10⁴), "destroys the store at any mass" fails at M_belt=10⁻⁹/Q_e=10⁻⁵ (its own τ=1.8×10⁷), and P6 is misreported as held. Gold-worthy physics, broken headline arithmetic.
+
+**Reasons.**
+
+*Reproduced (clean tree, empty patch.diff — the crate ran unmodified):*
+- `cargo run --release -p emergent-encounters -- scale n`: enc_per_body_orbit = 4.128e-2, 3.938e-2, 3.957e-2

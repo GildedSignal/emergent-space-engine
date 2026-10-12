@@ -1,0 +1,12 @@
+Grade: silver
+
+**Abstract.** Claim: the shipped plane has a reachable ruin state — peak RSS grows ~linearly in game time through any battle that stays live (~0.2 kB per surviving member per game-second, unbounded while the battle lives, 2.8× seed spread) — with both instruments blind to it. Reproduced: 31/70/140/279 MB, leavers/bodies flat; dissolved control 18 MB; digests identical across processes, threads and rtf 8e4. Extended: same cut at half the frames → 308 MB (law is game time, not frames); members 96 → 191 B/member/game-s; default pace → 5 MB, zero kicks. Not gold: "~1.6 GB per hour" is a 10³ slip (1.6 MB/game-hour; 160 MB/wall-hour at fly pace rtf 100), and "canonical event counter" misdescribes the wall-dependent `stats.kicks`.
+
+## Reproduction (clean tree, no patch — `work/patch.diff` is empty)
+
+`reproduce.sh` end-to-end, plus six probes of my own. Linux/x86, 8 vCPU, shared.
+
+| Author | Mine | Verdict |
+|---|---|---|
+| Law 31/70/142/279 MB (seed 3, m48, rtf 1e4..8e4) | 31/70/140/279 | reproduced |
+| Counters flat, leavers 46, dissolved 0 | leavers 46, dissol

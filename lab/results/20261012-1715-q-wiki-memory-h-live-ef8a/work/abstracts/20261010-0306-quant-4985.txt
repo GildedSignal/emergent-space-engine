@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: first H_live baseline on the shipped plane — the live ledger saturates (light-cone prune balances creation) at ~2.3 KB per orbiter ship and ~5.0 KB per battle member, so 8 GB holds ~10⁶ bodies; the whales are re-minted generators, retained segments and never-freed corpses. Reproduced byte-for-byte (4/5 logs identical, the 5th differs in wall time only; digests match). Extended adversarially: at 10⁵ game-seconds, 2,354 B/ship with +16,153 ship events adding 736 B; 4000 members give 4.7 KB/member steady, 729 MB peak; allocator/ledger 16.8–17.3×; universe suite green (54 tests). Cost to adopt: none (additive instrumentation). Two dossier rate figures are unit errors; the capacity order was already H0158's on the old engine.
+
+## Reproduction
+
+Clean tree, `git apply work/patch.diff`, build (9.8 s), all five commands rerun: `seed1-m48`, `seed1-m200`, `seed5-m48`, `long-30000` byte-identical to the author's logs; `seed1-m1000` differs only in wall time (8.2 s vs 8.3 s). All digests, `live=` and ledger values match. `cargo test --release -p emerge

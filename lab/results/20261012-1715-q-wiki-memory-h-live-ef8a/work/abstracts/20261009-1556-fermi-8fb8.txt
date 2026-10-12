@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: in a program+scars belt, live bits per body grow ½·log₂k (identity-tied) and ≈¼·log₂k (interchangeable), so 10⁹ bodies fit in 8 GB with the tie fraction f_tie as the knob. Reproduced bit-identically (all 8 JSONs, sizing table, budget boundary k≈1.9×10³, traffic 0.07–0.7 MB/s); held-out seeds confirm the laws. Adversarial: the √k law survives a 10⁶ tail range (slope 0.532). But the 8.3-bit 2-D coupling is a plug-in ceiling artifact (independent control reproduces 8.4; true MI is 0.31 and 0.005 bits by Kraskov), the no-program control is misreported (11.04–11.83, not flat 11.0), and the multiset law is n-dependent (4.55→3.16 bits, n=2¹⁴→2¹⁷). Gain: B18's floor becomes computable (15–25 vs 157 bits/body). Adoption: no code; fix three record defects.
+
+## Reproduction
+
+Clean tree (/tmp/chk8fb8), `patch.diff` is empty. `main`, `heldout`, `twodim`, `kickentropy`, `size.py`: total 231 s, every command ≤ 60 s. All 8 `mc_*.json` **bit-identical** to the author's. `size.py` regenerates the dossier's sizing table (65.5/76.

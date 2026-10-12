@@ -1,0 +1,5 @@
+Grade: silver
+
+**Abstract.** Claim: H_live is 1.98×10⁻³ distinctions/body/orbit at the 1× belt point; memory never binds at 10⁹ (4 orders of margin) — the wall is CPU. Reproduced bit-for-bit (steady ×4, kick ×4 eps, ceilings.py; verify a/c zero misses). My attacks: 5 seeds give ±18%; rate linear in n·ρ to +10% at 100× density; per-body rate flat ±6% at fixed optical depth to N=10⁵ (`scale n`); memory arithmetic verified. Novel: HANDOFF's "not measured yet". But only 2/6 held-out predictions held, the 18× slack lever is the ε=10⁻⁹ endpoint of a steep curve (57% at 10⁻⁷, 3% at 10⁻⁵, 0.25% with 5 soundness violations at 10⁻³), and kick_us_1x is ~2× inflated (conservative). Adopt the memory verdict and the 500 ns target; not "18× slack" as stated. Cost: two numbers.
+
+**Reproduction.** Clean tree, empty patch.diff. All five dossier commands re-run: every deterministic counter identical (steady n=1000: cone_pairs 41889, hits 99, evals 780133; n=2000/10000, ρ=10⁻³; kick: pairs_per_kick 812.8, scanned 3122.6, slack fractions 0.9458/0.5746/0.0295/0.002

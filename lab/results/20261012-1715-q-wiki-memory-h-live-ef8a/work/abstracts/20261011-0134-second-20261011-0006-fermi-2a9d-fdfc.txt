@@ -1,0 +1,7 @@
+Grade: silver
+
+Abstract: Claim: H_live is bounded iff the store re-fits AND canonically relabels unobserved bodies; the floor is flat and law-robust; the 10⁹ floor "1.8 bits/column, 0.68 GB". Everything reproduces bit-identically (md5 match; G 14/14; 42/42 noRelabel ≥ frozen; all budget rows and deadlines), and every attack I ran strengthens the structure (clumped marginals lower the floor, raise labels). But the 10⁹ number is wrong: the fixed-m residual depends on k = N/m (1.22/1.80/2.29 at k = 2/4/8), so at 10⁹ with m = 2.6×10⁵ it is ~6.3–6.9 bits — the author's own m=256 column — not 1.8. The minimized floor is k-invariant: 4.26–4.30 bits/column, m* ∝ N, 1.6 GB. Adopt: the relabelling law decision plus a budget line at 4.26 bits/column.
+
+Reasons:
+
+1. **Reproduction: complete and bit-identical.** Clean tree, empty patch.diff; `python3 totals.py` regenerates `totals.json` with the same md5 (7203e6b0…), prints `G bit-match vs author run 1: PASS`, and reproduces every table of `regen.log` exactly (noRelabel 15.05/16.01/19.62; floors 4.26/4.26/4.30; resid@262144 

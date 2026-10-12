@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: for a plane-like belt (30k bodies, Jupiter-analogue, 1000 yr, 3 seeds), secular H_live after one program refit is ~10⁻³ scars/body/yr at q=10⁻³ (≈0.03 scars/game-s at 10⁹; ≈50 B/real-s at rtf 100), saturating in ~5–7 sim-yr, so planetary secular dynamics cannot force 8 GB at session scale; the memory risk lives in encounters and the player. Reproduced **bit-identically** — all seven output files (null, convergence pair, three belt seeds, aggregate); decisive seeds 159 s wall. Null 4.4e-12, exponent 0.573. My attacks (causal refit +1.2% residual; pure 2:1 belt, 5× rate; 3× stronger perturber, ejections at same order) leave the 4–5-order margin intact. Silver: 3 of 7 held-out predictions failed (disclosed), and the scene is a uniform-in-a float surrogate, not the frozen B18b sampler.
+
+**Reasons.**
+
+*Reproduction.* Clean tree (work/patch.diff is empty; the work is entirely in the run folder). Every dossier command rerun: `null_1000.json`, `conv_dt05/10.json`, `belt_s{7,8,9}.json`, `aggregate.json` all **bit-identical** to the store

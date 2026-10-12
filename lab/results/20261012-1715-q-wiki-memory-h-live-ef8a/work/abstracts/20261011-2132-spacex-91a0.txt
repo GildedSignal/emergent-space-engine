@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: H_live saturates on the flying plane, so 10⁹-in-8 GB is bounded by the store, not information; the one unbounded grower is the compiled-cycle catalogue. Reproduced from `work/patch.diff` on a clean tree: all four runs and every headline number verified against the raw rows (velocity plateau 21.4–21.9 bits/member, slope ≈ 0; state bits +2.0–2.4 per doubling; ship tubes 44.5→48 flat; store 1183→6088–6400 B/body vs 6–13 B floor). The catalogue leak is real in code (`Catalogue::insert`, bind.rs:44, is a pure slot allocator; no (E,L) sharing; dead bodies never release). My adversarial runs (4× members, 2× horizon, determinism) all support the claim. But two recorded numbers are contradicted by the run's own rows: "zero kicks fired" (actual 5277–9160 per run, firing to the last seconds) and "ships peak 275" (rows say 360–366). Decision (3) would write a false number into law.md. Gain: a named HANDOFF risk becomes a measured decision; adoption cost near zero for decisions (1) and (2).
+
+**Reasons.**
+
+1. **Reproduction.** `git apply wo

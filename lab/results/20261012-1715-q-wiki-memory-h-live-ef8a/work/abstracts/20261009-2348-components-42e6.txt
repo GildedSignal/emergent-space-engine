@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** First measurement of the board's open H_live risk (HANDOFF: "not measured yet"), on the plane's own scene. Reproduced bit-for-bit: seeds 1/7 give 1968/2325 kicks (jsonl md5 identical to the author's); my adversarial seed 3, 200-member fleet and 18,000 game-s span agree. Live ship state packs to 448–454 bits (56.0–56.8 B) vs 672 B stored today (11.8×); at 10⁹ that is 56 GB against 8 GB — 7–84× over at any packing, so per-body bindings cannot be the billion-scale store. Exact-shape catalogue sharing is 0% on four scenes. But the headline "belt-like" 0.62 bits/body/s is a class mix, not a belt number (below); the "two-minute scar horizon" is premature. Adopt the packed SoA fact and the no-shared-catalogue fact; not the horizon.
+
+**Reasons.**
+
+1. **Reproduction: exact.** Clean tree, `work/patch.diff` empty (no engine edits; the probe is a standalone crate path-depending on `crates/{universe,space}`). `cargo build --release` 16 s; `hlive --seconds 20 --rtf 300 --seed 1|7` reproduce `runS1/runS7.txt` and `kS1/kS7.jsonl` md5-for-md5; `python3 analyze
