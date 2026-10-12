@@ -4,13 +4,13 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 
 ## Focus (Julien, 30 September)
 
-"the only goal is the engine/compiler to work with GR natively". **AI and factions are off the plan:** no lens works on decisions, factions or agents until Julien brings them back. The plane flies (docs/plane.md, H0210), and work goes by its measured bottleneck. The live engine questions, in order (1 October):
-- fewer kicks per orbit at the same behaviour (correctors, higher-order splits): kicks dominate the engine's cost;
-- the changeover near a secondary, reversible and integer (TRACE, JANUS);
-- finding encounters without work per orbit or per element change (the Binet cone, r8 v3, plus a skin);
-- the Schwarzschild tide in the Fermi frame (phase 2, after gate E9);
-- fitting 10⁹ in 8 GB (`crates/shipmem`: population programs plus scars; every body real, never averaged), decided by distinctions created per game-second;
-- **the top scaling risk (5 October):** candidate pairs per body grow with N at a fixed distribution (O(N²) pairs); candidate work must track real encounters (`q-candidate-degree`).
+"the only goal is the engine/compiler to work with GR natively". **AI and factions are off the plan:** no lens works on decisions, factions or agents until Julien brings them back. The plane flies (docs/plane.md, H0210), and work goes by its measured bottleneck.
+**The live questions, in order (12 October; the [wiki](wiki/index.md) holds what is known on each, read it before choosing):**
+- **the ship's clock at high γ** (`high-gamma-clock`): the tube's dt/dτ saturates at 2 while γ reaches 1,761, then the ship is lost; a build is in flight (Sonnet, `wt/clock`). Lab runs here: the regimes it has not measured (levels, directions, near the star), never the same probe again;
+- **the kick jet's retirement and what replaces it** (`kick-jet`): six golds refute the multiply-add update; what is the cheapest exact kick on the shipped representation;
+- **the frame's cost** (`frame-cost`): O(N) per frame with zero events, and a kick at ~1,800× its floor; what deletes the per-frame rekey and the rebind bookkeeping, measured on shipped code;
+- **memory at 10⁹** (`memory-h-live`): the standing representation is ~1.3–1.5 KB per ship against a floor of ~62 bits; what representation stands at the floor;
+- **encounters** (`coorbital-cert`, `encounters`): the adaptive window, the tiers' seams, the horizon edge.
 
 The list of 29 September below is background: the pivot (H0200 onwards) answered most of it.
 
