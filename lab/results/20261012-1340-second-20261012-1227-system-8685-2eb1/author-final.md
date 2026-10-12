@@ -1,0 +1,4 @@
+Working...
+Done. The run is complete: `predictions.md` was registered before the decisive grid, all cells regenerate from the shipped `window_clock.c` (original cells bit-identical), and `dossier.md` reports the scored predictions including the one calibration miss (PB1's K=8 letter).
+
+**Claim:** the checker's named experiment succeeds — an orbit-anchored between-window term (one midpoint kick per fixed mean-longitude segment, conjunction windows on top, nothing dropped) removes the aliasing subharmonic at every segment length (Δė 84–134 → 0.01–0.11 MADs, Jacobi 48–175× → 1.0× the floor at 64 seeds) and closes the belt ϖ̇ break (+64% → +2.5% at K=16, +0.5% at K=32), so the secular term may be discrete and orbit-anchored — never tick-anchored (K ≥ 16 for percent-level precession, K = 2 forbidden) — and the 64-seed encounter inversion (w0.5 2.78 vs u8 2.43 MADs, u16 0.60) is now in the shipped record.
