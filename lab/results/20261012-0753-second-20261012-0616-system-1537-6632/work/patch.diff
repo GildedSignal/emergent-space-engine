@@ -1,0 +1,412 @@
+diff --git a/crates/universe/examples/tick_audit.rs b/crates/universe/examples/tick_audit.rs
+new file mode 100644
+index 00000000..cb84f4f6
+--- /dev/null
++++ b/crates/universe/examples/tick_audit.rs
+@@ -0,0 +1,162 @@
++// The whole-system audit: does the engine pay per frame per *entity* (a tick), or per *event*?
++// Modes:
++//   tick_audit quiet <n> [frames]  — n quiet ships (4 AU circles, one planet as the secondary), advance
++//                                    with ~zero events; reports per-frame wall and events.
++//   tick_audit digest [cut]        — the plane scenario, three schedules (sparse threads 1, wave threads 4,
++//                                    starved budget), settled at one canonical cut (default 9e10); digests
++//                                    must be equal. Prints per-schedule stats.
++//   tick_audit restricted          — the fleet-free control (tests/motion.rs params): settle vs starved
++//                                    frames at one canonical cut.
++use emergent_universe::body::Kind;
++use emergent_universe::scenario::{plane, AU, STAR_RADIUS};
++use emergent_universe::{Budget, Config, OrbitSpec, Universe};
++use emergent_space::orbit::Scalar;
++use std::time::Instant;
++
++fn s(v: i64) -> Scalar {
++    Scalar::integer(v)
++}
++
++fn quiet(n: usize, frames: usize) {
++    let mut u = Universe::new(s(STAR_RADIUS), Config::default());
++    u.threads = 1;
++    // One planet at 1 AU: the secondary every ship's kick reads. Its own kicks are ~1e11 ticks apart.
++    let planet = u
++        .add_body(
++            Kind::Planet,
++            OrbitSpec { doll: 0, periapsis: s(AU), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++            Scalar::ZERO,
++        )
++        .unwrap();
++    u.add_doll("Planet", planet, -10, Scalar::raw(1_000, -10).unwrap()).unwrap();
++    // n quiet ships: circular 4 AU orbits, ~8-year periods, kicks ~8e11 ticks apart.
++    let t0 = Instant::now();
++    for k in 0..n {
++        let _ = u
++            .add_body(
++                Kind::Ship,
++                OrbitSpec {
++                    doll: 0,
++                    periapsis: s(4 * AU),
++                    e_q48: 0,
++                    clockwise: false,
++                    angle: (k as u32).wrapping_mul(2_654_435_761),
++                    phase: 0,
++                },
++                Scalar::raw(34, -10).unwrap(),
++            )
++            .unwrap();
++    }
++    let setup_us = t0.elapsed().as_secs_f64() * 1e6;
++    u.start().unwrap();
++    let queued = (0..u.n_bodies()).filter(|e| u.key_of(*e).is_some()).count();
++    // 1e8 ticks per frame: no item can fall due (the nearest is ~1e11 away).
++    let step: i64 = 100_000_000;
++    let mut events_total = 0u64;
++    let mut worst = 0f64;
++    let t0 = Instant::now();
++    for f in 0..frames {
++        let target = step * (f as i64 + 1);
++        let tf = Instant::now();
++        let a = u.advance(target, Budget::unlimited());
++        let dt = tf.elapsed().as_secs_f64() * 1e6;
++        events_total += a.events;
++        if f >= 3 {
++            worst = worst.max(dt);
++        }
++    }
++    let per_frame = t0.elapsed().as_secs_f64() * 1e6 / frames as f64;
++    println!(
++        "quiet n={n} frames={frames} bodies={} queued={} setup={setup_us:.0}us per_frame={per_frame:.2}us worst={worst:.2}us events={events_total} ns_per_body_per_frame={:.2}",
++        u.n_bodies(),
++        queued,
++        per_frame / n as f64 * 1000.0
++    );
++}
++
++fn stats(u: &Universe, tag: &str) {
++    let st = &u.stats;
++    println!(
++        "stats {tag}: kicks={} opens={} boundaries={} handoffs={} slices={} leavers={} dissolved={} lost={} refused={} decisions={} encounters={} items={:?} bodies={} now={} pending_handouts={}",
++        st.kicks, st.opens, st.boundaries, st.handoffs, st.slices, st.leavers, st.dissolved, st.lost, st.refused, st.decisions, st.encounters, st.items, u.n_bodies(), u.now, u.pending_handouts()
++    );
++}
++
++
++fn bodies_mode(cut: i64) {
++    let mut a = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 8).unwrap();
++    a.u.settle(cut);
++    for i in 0..a.u.n_bodies() {
++        let r = a.u.rec(i);
++        println!("body {i} kind={:?} alive={} events={} refusals={} event_time={} interval={}", r.kind, r.alive, r.events, r.refusals, r.b.event_time, r.interval);
++    }
++    println!("digest A: {}", a.u.digest());
++}
++
++fn digest_mode(cut: i64) {
++    // Schedule A: single thread, no budget.
++    let mut a = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 8).unwrap();
++    a.u.settle(cut);
++    println!("digest A (threads 1, settle): {}", a.u.digest());
++    stats(&a.u, "A");
++    // Schedule B: four threads (the wave path), frames under a wall budget.
++    let mut b = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 4, 8).unwrap();
++    let mut t = 0i64;
++    while t < cut {
++        let want = 3_000_000_000i64.min(cut - t);
++        t += want;
++        let _ = b.u.frame_to(1.0, 100.0, Budget::wall(0.5), t);
++    }
++    b.u.settle(cut);
++    println!("digest B (threads 4, budgeted frames): {}", b.u.digest());
++    stats(&b.u, "B");
++    // Schedule C: starved budget (overflow + the deferred path), then catch up.
++    let mut c = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 8).unwrap();
++    let mut t = 0i64;
++    while t < cut {
++        let want = 9_000_000_000i64.min(cut - t);
++        t += want;
++        let _ = c.u.frame_to(1.0, 300.0, Budget::events(3), t);
++    }
++    c.u.settle(cut);
++    println!("digest C (starved, overflow): {}", c.u.digest());
++    stats(&c.u, "C");
++}
++
++fn digest_restricted() {
++    // tests/motion.rs params: mu_log2 = -10, sep = 5.27e8, ships at 1.5–2.6 Hill radii; cut = 3 periods.
++    let (mu_log2, sep) = (-10i32, 527_000_000i64);
++    let hill = sep as f64 * (2f64.powi(mu_log2) / 3.0).cbrt();
++    let ships: Vec<(i64, u32)> =
++        (0..12).map(|i| ((sep as f64 + if i % 2 == 0 { 1.0 } else { -1.0 } * hill * (1.5 + 0.1 * i as f64)) as i64, (i as u32).wrapping_mul(0x9E37_79B9))).collect();
++    let period = 2.0 * std::f64::consts::PI / ((1.0 + 2f64.powi(mu_log2)).sqrt() / (sep as f64).powf(1.5));
++    let cut = (3.0 * period) as i64;
++    let mut a = emergent_universe::scenario::restricted(mu_log2, sep, 49_000, &ships, 1).unwrap();
++    a.u.settle(cut);
++    println!("digest R (restricted, settle): {} [cut {cut}]", a.u.digest());
++    stats(&a.u, "R");
++    let mut b = emergent_universe::scenario::restricted(mu_log2, sep, 49_000, &ships, 1).unwrap();
++    let mut t = 0i64;
++    while t < cut {
++        t += 2_000_000_000i64.min(cut - t);
++        let _ = b.u.frame_to(1.0, 100.0, Budget::events(4), t);
++    }
++    b.u.settle(cut);
++    println!("digest R2 (restricted, starved frames): {}", b.u.digest());
++    stats(&b.u, "R2");
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    match args.get(1).map(|s| s.as_str()) {
++        Some("quiet") => {
++            let n: usize = args[2].parse().unwrap();
++            let frames: usize = args.get(3).map(|s| s.parse().unwrap()).unwrap_or(30);
++            quiet(n, frames);
++        }
++        Some("digest") => digest_mode(args.get(2).map(|s| s.parse().unwrap()).unwrap_or(90_000_000_000)),
++        Some("bodies") => bodies_mode(args.get(2).map(|s| s.parse().unwrap()).unwrap_or(90_000_000_000)),
++        Some("restricted") => digest_restricted(),
++        _ => println!("usage: tick_audit quiet <n> [frames] | digest [cut] | restricted"),
++    }
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc024..f0bd2313 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -44,7 +44,8 @@ use emergent_space::{
+     orbit::{Orbit, OrbitKey, Scalar},
+     Tube,
+ };
+-use std::collections::VecDeque;
++use std::cmp::Reverse;
++use std::collections::{BinaryHeap, VecDeque};
+ use std::sync::Arc;
+ use std::time::Instant;
+ 
+@@ -420,7 +421,14 @@ impl Universe {
+         for f in 0..self.fleets.len() {
+             self.update_fleet_position(f);
+         }
+-        self.rekey();
++        for e in 0..self.bodies.len() {
++            self.requeue(e);
++        }
++        for f in 0..self.fleets.len() {
++            self.requeue(self.fleet_entity(f));
++        }
++        self.requeue(self.bodies.len());
++        self.observe();
+         Ok(())
+     }
+ 
+@@ -482,27 +490,24 @@ impl Universe {
+         self.key_of(e).map(|(t, _)| t.saturating_add(self.light_distance(e)))
+     }
+ 
++    /// Queue an entity at its **canonical tick** (the law's own key: `(time, smallest body id, kind)`,
++    /// docs/law.md "Ties"). Requeueing happens only at an entity's own events and at the frame's
++    /// boundaries, so no per-frame pass touches the entities with nothing due: a frame's engine cost
++    /// follows its events, not the universe's size (principle 14: "no work for no reason, so no ticks").
+     fn requeue(&mut self, e: usize) {
+-        let d = self.deadline_of(e);
++        let t = self.key_of(e).map(|k| k.0);
+         if let Some(q) = self.queue.as_mut() {
+-            let _ = q.set(e, d.map(Scalar::integer));
++            let _ = q.set(e, t.map(Scalar::integer));
+         }
+     }
+ 
+-    /// Recompute every deadline from the player's present position (a scheduling heuristic only).
+-    pub fn rekey(&mut self) {
++    /// Where the player is now: the origin of the deadlines (a scheduling heuristic only).
++    fn observe(&mut self) {
+         if let Some(p) = self.player {
+             if let Ok((pos, _)) = crate::observe::root_state_raw(&self.ctx(), p, self.bodies.event_time(p).max(self.now)) {
+                 self.observer = pos;
+             }
+         }
+-        for e in 0..self.bodies.len() {
+-            self.requeue(e);
+-        }
+-        for f in 0..self.fleets.len() {
+-            self.requeue(self.fleet_entity(f));
+-        }
+-        self.requeue(self.bodies.len());
+     }
+ 
+     // ---- resolving ------------------------------------------------------------------------------
+@@ -584,12 +589,13 @@ impl Universe {
+         let rec = self.bodies.rec(i);
+         let upd = step::process(&self.ctx(), i, rec);
+         self.apply(i, upd);
++        self.requeue(i);
+         if kind == Kind::Player {
+             self.encounters_for_player();
+         }
+     }
+ 
+-    fn resolve_entity(&mut self, e: usize) {
++    fn resolve_entity(&mut self, e: usize, due: &mut BinaryHeap<Reverse<(Tick, usize, Tick)>>) {
+         if e == self.bodies.len() && self.handouts.front().is_some() {
+             let t0 = Instant::now();
+             self.resolve_handout();
+@@ -600,14 +606,25 @@ impl Universe {
+         match self.entity_fleet(e).filter(|_| e >= self.bodies.len()) {
+             Some(f) => {
+                 // The battle may run only as far as the light-delayed deadline of the next entity in
+-                // line: its committed tick never passes the presented time (the horizon is at least
+-                // that deadline, less one), so a canonical cut finds every frame at the cut.
++                // line, on either side: the smallest deadline still due this frame, and the nearest
++                // future item (its deadline is a lower bound for every entity left in the calendar).
++                // Its committed tick never passes the presented time (the horizon is at least that
++                // deadline, less one), so a canonical cut finds every frame at the cut. The floor at
++                // the fleet's own tick restores the old invariant — the popped fleet held the smallest
++                // deadline, so its cap was never below it — and keeps the step from degenerating into
++                // no-op resolutions.
+                 let dist = self.light_distance(e);
+-                let second = self.queue.as_mut().and_then(|q| {
+-                    let _ = q.set(e, None);
+-                    q.peek()
+-                });
+-                let cap = second.map_or(Tick::MAX, |(d, _)| (d.fixed(0).unwrap_or(i128::MAX) as Tick).saturating_sub(dist));
++                let tick = self.key_of(e).map_or(Tick::MAX, |k| k.0);
++                let due_min = due.peek().map_or(Tick::MAX, |r| r.0 .0);
++                let second = self
++                    .queue
++                    .as_mut()
++                    .and_then(|q| {
++                        let _ = q.set(e, None);
++                        q.peek().map(|(_, e2)| e2)
++                    })
++                    .and_then(|e2| self.deadline_of(e2));
++                let cap = due_min.min(second.unwrap_or(Tick::MAX)).saturating_sub(dist).max(tick);
+                 self.resolve_fleet(f, cap);
+             }
+             None => {
+@@ -628,7 +645,10 @@ impl Universe {
+         let t0 = Instant::now();
+         let e = self.fleet_entity(f);
+         let (slice, limit) = (self.slice, self.target.min(cap));
+-        let Some(to) = self.fleets[f].horizon(slice, limit) else { return };
++        let Some(to) = self.fleets[f].horizon(slice, limit) else {
++            self.requeue(e);
++            return;
++        };
+         // What the origin's kick and a leaver's first plan read: the planets and the moon, up to the tick
+         // the battle runs to.
+         let key = (to + 1, 0);
+@@ -734,18 +754,24 @@ impl Universe {
+     /// the moon and write only themselves, so once those are resolved up to the latest key of the wave
+     /// the ships' items are pure functions of their own records, and any number of threads gives the
+     /// same bits; the updates are applied in key order.
+-    fn resolve_wave(&mut self, first: usize, target: Tick) {
++    fn resolve_wave(&mut self, first: usize, due: &mut BinaryHeap<Reverse<(Tick, usize, Tick)>>) {
+         let t0 = Instant::now();
+         let cap = self.threads * 4;
+         let mut wave = vec![first];
+-        let _ = self.queue.as_mut().map(|q| q.set(first, None));
++        // More ships from the frame's due set (every live entry's tick is inside the frame), in
++        // deadline order. A stale entry — its entity moved on when a pull resolved it — is discarded;
++        // the calendar re-admits whatever it still has due. A live non-ship at the front stops the
++        // wave, as the queue's front did.
+         while wave.len() < cap {
+-            let Some((_, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+-            let ok = self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) && self.key_of(e).is_some_and(|k| k.0 <= target);
+-            if !ok {
++            let Some(&Reverse((_, e, t))) = due.peek() else { break };
++            if self.key_of(e) != Some((t, e)) {
++                due.pop();
++                continue;
++            }
++            if !self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+                 break;
+             }
+-            let _ = self.queue.as_mut().map(|q| q.set(e, None));
++            due.pop();
+             wave.push(e);
+         }
+         let mut keyed: Vec<((Tick, usize), usize)> = wave.iter().filter_map(|&e| self.key_of(e).map(|k| (k, e))).collect();
+@@ -787,47 +813,65 @@ impl Universe {
+     }
+ 
+     /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.
++    ///
++    /// The calendar is keyed by the canonical tick, so the entities with nothing due are never
++    /// touched: a frame's cost is the size of its due set, not of the universe. The frame's mandatory
++    /// items (a tick inside the frame) are admitted once each from the calendar into a small
++    /// deadline-ordered heap — the deadline is computed for them alone — and a pop resolves an entry
++    /// only while its entity's key still is the key it was admitted at: a resolution through a pull
++    /// requeues the entity, and its old entry must neither resolve it twice nor past the frame. An
++    /// entity whose item lands back inside the frame (a chained kick) re-enters through the calendar.
+     pub fn advance(&mut self, target: Tick, budget: Budget) -> Advanced {
+         self.target = target;
+-        self.rekey();
++        self.observe();
+         let start = self.resolved;
+         let mut done = 0u64;
+-        let mut deferred: Vec<usize> = Vec::new();
+         let mut overflow = false;
++        let mut due: BinaryHeap<Reverse<(Tick, usize, Tick)>> = BinaryHeap::new();
+         loop {
+             self.take_due(target);
+-            let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+-            let dl = dl.fixed(0).unwrap_or(i128::MAX) as Tick;
+-            let Some((t, _)) = self.key_of(e) else {
+-                let _ = self.queue.as_mut().map(|q| q.set(e, None));
+-                continue;
+-            };
+-            if t > target {
+-                // Beyond this frame: set aside until the frame is done.
++            while let Some((t, e)) = self.queue.as_ref().and_then(|q| q.peek()) {
++                let t = t.fixed(0).unwrap_or(i128::MAX) as Tick;
++                if t > target {
++                    break;
++                }
+                 let _ = self.queue.as_mut().map(|q| q.set(e, None));
+-                deferred.push(e);
+-                continue;
++                if self.key_of(e).is_none() {
++                    continue;
++                }
++                if let Some(dl) = self.deadline_of(e) {
++                    due.push(Reverse((dl, e, t)));
++                }
+             }
++            let Some(&Reverse((dl, e, t))) = due.peek() else { break };
+             if budget.spent(done) {
+                 overflow = dl <= target;
+                 break;
+             }
++            due.pop();
++            if self.key_of(e) != Some((t, e)) {
++                // Stale: a pull resolved this entity (or a hand-out took its id); the calendar
++                // re-admits whatever it still has due.
++                continue;
++            }
+             if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+-                self.resolve_wave(e, target);
++                self.resolve_wave(e, &mut due);
+             } else {
+-                self.resolve_entity(e);
++                self.resolve_entity(e, &mut due);
+             }
+             done = self.resolved - start;
+         }
+-        // The horizon: the smallest deadline still unresolved (the heap's min, and what was set aside).
++        // The horizon: the smallest deadline still unresolved (the due heap's min). Entities beyond
++        // the frame are left in the calendar keyed past the target, and a deadline never runs behind
++        // its tick, so they cannot bind.
+         let mut horizon = target;
+-        if let Some((dl, _)) = self.queue.as_ref().and_then(|q| q.peek()) {
+-            horizon = horizon.min(dl.fixed(0).unwrap_or(i128::MAX) as Tick - 1);
++        if let Some(&Reverse((dl, _, _))) = due.peek() {
++            horizon = horizon.min(dl.saturating_sub(1));
+         }
+-        for e in deferred {
+-            if let Some(d) = self.deadline_of(e) {
+-                horizon = horizon.min(d - 1);
+-            }
++        // What the frame did not finish goes back — live entries (their calendar slot is empty since
++        // the drain) and stale ones alike: requeue is idempotent, and the next frame re-admits
++        // whatever is due in it.
++        while let Some(Reverse((_, e, _))) = due.pop() {
+             self.requeue(e);
+         }
+         Advanced { events: done, horizon: horizon.max(self.now), overflow }
