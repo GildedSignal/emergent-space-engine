@@ -1,0 +1,19 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/julien_laurent/.cargo/registry/src/index.crates.io-6f17d22bba15001f/socket2-0.5.8/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/crates/space)
+   Compiling emergent-engine v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/crates/engine)
+   Compiling emergent-universe v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/crates/universe)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-cx-b-kerr-compiler/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 57.39s
+     Running `target/release/xtask behave --gates B19 --law space`
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t91%; charging; 0:41 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 3.84 3.84 3.67 }","power_source":"Now drawing from 'AC Power'","swap":"total = 5120.00M  used = 4005.44M  free = 1114.56M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-10T13:31:10Z","unix":1791639070,"when":"start"}
+B19 FAIL rotating holes: [1 FAIL] cycles (1536 orbits: chi 0.5/0.9/0.998 x prograde/retrograde x 256, p from 1.1x the separatrix to 1000, e < 0.7): advance within 1e-2 in 4/6 cells pass, failing (cell, seeds ok of 256): ["0.9+ 233", "0.998+ 222"] (fewest ok 222, worst inf), periods within 1e-3 in 4/6 cells pass, failing (cell, seeds ok of 256): ["0.9+ 233", "0.998+ 222"] (fewest ok 222, worst inf); oracle converged to 8.3e-16; [2 PASS] fates, exactly as the oracle (1680/1680): circular 48/48, E=1 capture 24/24, bound/plunge 48/48, photons 24/24, dense capture 1536/1536; [3 PASS] frame dragging: 379 tubes inside the ergosphere, answered 379, dphi/dt > 0 in 379, rates within 1e-6 in 379 (worst 1.4e-14); outside it static 96/96 and ZAMO 96/96 clocks within 1e-12 (worst 1.9e-16); no static clock inside 48/48; [4 PASS] Penrose: negative-energy tubes answered 85/85 inside the ergosphere, refused 73/73 forged outside it; splits inside: conserved 27/27, energy gained 27/27, equal to the oracle within 1e-6 27/27 (canonical ["chi=0.5 r=1.933 v=0.6: E_out +0.4196 for E_in +0.3989", "chi=0.9 r=1.718 v=0.6: E_out +0.7461 for E_in +0.6911", "chi=0.998 r=1.532 v=0.6: E_out +0.8498 for E_in +0.7599"]); outside: no gain, conserved and right 27/27; [5 PASS] light (384 impacts, |b| from 1.05 b_c to 300, both senses): deflection within 1e-2 in 6/6 cells pass (fewest ok 64, worst 4.4e-11); [6 PASS] chi = 0: 170 answers, the law's Schwarzschild digest 59d54de0f9ead66f, its Kerr(0) digest prograde 59d54de0f9ead66f retrograde 59d54de0f9ead66f; oracle against mpmath: 285 values, worst relative difference 2.2e-13 (the thresholds above are 1e-2, 1e-3, 1e-6 and 1e-12) [0.22 s]
+machine_state {"batt":"Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t91%; charging; 0:41 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 3.84 3.84 3.67 }","power_source":"Now drawing from 'AC Power'","swap":"total = 5120.00M  used = 4005.44M  free = 1114.56M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-10T13:31:10Z","unix":1791639070,"when":"end"}
+behave space (B19): FAIL B19

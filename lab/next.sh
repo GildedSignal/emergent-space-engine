@@ -29,6 +29,6 @@ for b in $(git for-each-ref --sort=-committerdate --format='%(refname:short)' 'r
   [ -n "$(git for-each-ref --format=x "refs/remotes/origin/claude/lab-*-second-$r-????")" ] && continue
   echo "start second-$r 90"; n=$((n + 1)); m=$((m + 1))
 done
-lenses=(dynamics system components scout autoresearch quant spacex taleb library redteam inversion fermi constraint)
+lenses=(dynamics system components scout quant spacex taleb library redteam inversion fermi)   # autoresearch and constraint retired 12 October: 0 gold in 71 runs (docs/archive/README.md)
 k=$(( $(date -u +%s) / 3600 ))
 [ $n -lt "$SLOTS" ] && for j in $(seq $n $((SLOTS - 1))); do echo "start ${lenses[$(( (k * SLOTS + j) % ${#lenses[@]} ))]} 60"; done

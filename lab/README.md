@@ -6,7 +6,7 @@ Many GLMs, each with a lens, get **autonomy of inquiry and no authority.** They 
 
 ## One run
 
-1. **The author** reads PRINCIPLES, this file, the [board](board.md) and its lens. It picks its own question, aimed at a bottleneck on the board or at a bigger one it argues for. Then it does real work: derivations, code, experiments. It may edit any file in the container to experiment. `run.sh` saves the edits as a patch and restores the tree.
+1. **The author** reads PRINCIPLES, this file, the [board](board.md), the [wiki](wiki/index.md) (the lab's memory: the current best and the open directions per topic) and its lens. It picks its own question, aimed at a bottleneck on the board or at a bigger one it argues for. Then it does real work: derivations, code, experiments. It may edit any file in the container to experiment. `run.sh` saves the edits as a patch and restores the tree.
 2. **Held out before the run.** Before its decisive experiment, the author writes `predictions.md` in its run folder: the cases it has not tuned on, and what it expects there.
 3. **The checker** is a fresh GLM session with no author context. It reproduces the work from the dossier's commands, runs the held-out cases plus adversarial cases of its own, and checks novelty against `docs/HISTORY.md` and the docs. Then it grades the work and writes the abstract.
 4. **Gold is checked twice.** A second checker runs blind to the first; gold stands only if both grade it gold (two independent finders, arch-v3 §3).

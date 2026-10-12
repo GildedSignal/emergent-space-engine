@@ -65,9 +65,11 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency: {group: glm-lab-publish, cancel-in-progress: false}   # one writer of lab/wiki at a time
     permissions: {contents: write, actions: write}
     steps:
       - uses: actions/checkout@v4
+        with: {fetch-depth: 0}   # the wiki's merges and certificates need main's history
       - uses: actions/download-artifact@v4
         with: {name: results, path: ../results}
         continue-on-error: true
@@ -86,6 +88,20 @@ jobs:
             if [ -z "$(git diff --name-only "$base" HEAD | grep -v "^lab/results/$id/")" ]; then
               git push -q origin "claude/lab-$id" && echo "published: $id | $(head -1 "$d/DONE")"
             else echo "refused (paths): $id"; fi
+          done
+      - name: Fold the graded runs' pages into the wiki on main (lab/wiki/ only), then rewrite its index
+        if: always()
+        run: |
+          git fetch -q origin '+refs/heads/claude/lab-*:refs/remotes/origin/claude/lab-*'
+          for try in 1 2 3; do
+            git checkout -q -B main origin/main
+            [ -d ../results ] && python3 lab/wiki.py apply ../results "$(git rev-parse HEAD)" || python3 lab/wiki.py index
+            git add lab/wiki
+            git diff --cached --quiet && { echo "wiki unchanged"; break; }
+            if [ -n "$(git diff --cached --name-only | grep -v '^lab/wiki/')" ]; then echo "refused (paths outside lab/wiki)"; break; fi
+            git commit -q -m "lab wiki: $(ls ../results 2>/dev/null | tr '\n' ' ')" -m "Built-by: glm-lab publish" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+            git push -q origin main && { echo "wiki pushed"; break; }
+            git fetch -q origin main; sleep 5
           done
       - name: Start the next window at once, unless GLM itself failed (all grades missing means its token window is spent)
         if: always()
