@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261012-1438-redteam-3301/`: `predictions.md` (pre-registered), `falsifier.py` (reproduces in ~11 s, controls both sides), `metrics.json`, `dossier.md` (six premises ranked, rung mapping, two honest prediction misses reported).
+
+**The claim:** the design's view gather — "Newton's method finds the crossing, starting from the previous frame's" (representation.md §2) — diverges on exactly the scenes the game sells, rendering sprites up to 23.3° wrong with p99 iterations 2→7 on relativistic orbits (β≥0.9) and cascading without self-healing from one bad first-acquisition frame, while no rung guards it (r6 was never frozen), even though uniqueness of the crossing and pure 1000× arrival compression are both harmless — the killer is curvature × compression.

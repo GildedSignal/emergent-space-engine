@@ -1,0 +1,29 @@
+Grade: gold
+
+**Abstract.** Claim: the view gather's design line — seeded Newton on the light-cone crossing, no fallback (representation.md §2) — breaks on core scenes: relativistic orbits and first acquisition at β ≳ 0.9. Reproduced bit-identically (20 scenes, 0 field diffs, 11 s): B0.99@3 p99 7 of 8 iterations, 11 capped frames, 23.3° sprite error; cold start fails 30–46% at β ≥ 0.9; uniqueness holds, so "crosses once" survives and the solver line dies. Adversarial: tolerance-insensitive (1e-7 → 1e-3); B0.995@10 diverges even at cap 64; the bracketed fix measured p99 5, max 12 evals, zero error. r6 never frozen; H0211 confirms the plane runs this line. Gain: deletes a wrong-sprite bug class early. Cost: one design patch + r6 freeze (threshold 5, not 4).
+
+## Reasons
+
+**Reproduction.** `python3 falsifier.py` in a clean temp dir: exit 0, 11.2 s, metrics.json identical to the author's in all 20 scenes × 15 fields (float equality, no diffs). The 23.3° headline was reconfirmed by my independent bisection truth and independent angle code. `work/patch.diff` is empty — the falsifier is self-contained and touches no repo file.
+
+**Predictions.** mtime order: `predictions.md` 14:44:40 → `falsifier.py` 14:57:50 → `metrics.json` 14:59:51 → `author-final.md` 14:59:56. Pre-registration holds on the record. P1 (uniqueness, g′ ≥ 1−β) holds everywhere — `uniqueness_max_roots = 1`, min g′ = 1−β exactly. P2, P3 hold exactly (2 iterations at β = 0.999, compression 1000×, harmless). P5 held (the finding's carrier). P4 (flybys) and P6 (smooth chase) missed and reported as misses, which sharpens the mechanism (curvature × compression, not compression alone). `run.log` is empty (0 B), so ordering rests on mtimes — it checks out, but keep the log next time.
+
+**Adversarial cases (mine).**
+1. *Cap sensitivity.* B0.99@3 converges at 36 iterations (cap 64 → 0 capped, 0° error): a 4.5× deadline overrun, not divergence. B0.995@10 is genuine divergence: 7 frames still capped at cap 64. The finding's substance — an unbounded solve on the component with the hardest deadline — survives either way.
+2. *Tolerance.* Identical cap counts and errors from TOL 1e-7 down to 1e-3: the failure is oscillation (step stays large), not an over-tight tolerance. A game-appropriate tolerance does not rescue the premise.
+3. *The proposed fix.* Safeguarded Newton (bracket maintained, bisect fallback): p99 = 5 evals, max = 12, end |g| ~ 1e-14, zero sprite error, on all failing scenes. The "≤ ~12 evaluations always" claim is verified; the fix is adoptable as stated.
+4. *Cascade anatomy.* B0.99@3 naive seed: capped frames exactly 0–10 contiguous, heals at frame 11; B0.9@3 one frame (0). A two-iteration fixed-point seed at acquisition kills the first-sight cascade entirely (0 capped frames both scenes). The mid-run slope-dip caps (B0.995@10 frames 100/479, from a converged previous frame) remain and require the bracket — the core finding stands against the best seeding.
+
+**Documentary claims, all verified verbatim.** representation.md: line 57 (the attacked sentence), 78 ("the view has the hardest deadline"), 116 ("≤ 1 sample per pixel per frame"), 130 (r6 in the ladder), 32 (Minsky map "the primary in-cell solution"), 129 (r5 still described as Clohessy–Wiltshire). law.md: line 20 (Darwin-phase compiled cycle replaced the in-band area-preserving map, 30 September — so the two texts do disagree), 35 (re-anchor jet, 0.05 compiles/kick), 49 ("Both orders give identical bits"), 53 (gather, no fallback specified), 67 (B8 promises the bit-identity "at the law's freeze"), 70 (B11 ν ≤ 0.25, e ≤ 0.6), 88 (r6 assigned to GLM). `lab/rungs/` contains no r5 and no r6. HISTORY: H0211 "The gather finds each crossing by Newton from the last frame's"; H0213's only gather number is "0.9c: 3.6 → 1.2 readouts per emitter" (steady-state readouts, never worst-case iterations); H0210 "the view gather is 83% of a light frame".
+
+**Novelty.** No HISTORY entry or rung attacks the crossing solve. B16 is the moving-lens *deflection memo* (law.md line 75); B7 covers clocks; B9/B15 cover cost per body, not per view sample; the 1 October law red-team did not touch the solver. The prior-art trace (H0213) measured the cache, not the iterations. This is new.
+
+**Goal fit.** Principle 28: "the view is an instrument"; principle 30: "navigation, knowledge and dynamics those need to be perfect". The design asks an unbounded synchronous solve of the one component with the hardest deadline (principle 12, p99 smoothness) and lets one bad frame poison the chain (principle 13, errors never compound). Gold clause: shows a premise — a written design line the plane already implements — is wrong, and the replacement is verified adoptable within one step.
+
+## What the author missed
+
+1. **"No self-healing" is contradicted by the author's own table**: the cascade heals at frame 11 (0.18 s at 60 Hz). The correct statement: up to 11 consecutive wrong frames per first sight, plus isolated mid-run caps (B0.995@10 frames 100, 479) that recur without any poison seed.
+2. **"Diverges" is exact only at β = 0.995@10** (caps persist at 64 iterations); at 0.99@3 Newton converges — in 36 iterations, 4.5× the cap. Deadline breach either way, but the letter should say which.
+3. **The proposed r6 criterion "p99 ≤ 4" is unpassable by the author's own fix** (I measure p99 = 5, max = 12). Frozen as written, the positive control fails and the rung VOIDs — the r2 lesson (a control that cannot pass is a broken instrument). Set the threshold to 5 (or 6).
+4. **The cheapest half of the fix was missed**: a two-evaluation fixed-point seed at acquisition (t ← T − D(t), twice) eliminates the entire first-sight cascade (verified: 0 capped frames). Only the slope-dip frames then need the bracket. The design patch should specify the acquisition protocol, not only the fallback.
+5. run.log empty; keep the log so prediction ordering does not rest on mtimes.
