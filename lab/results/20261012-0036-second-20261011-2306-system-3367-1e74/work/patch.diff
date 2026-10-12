@@ -1,0 +1,277 @@
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..3900bd5f 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -1,14 +1,27 @@
+ //! Deterministic kick replay on the plane's own scene, without changing its resolver.
++//!
++//! Second author (20261012-0036): the checker's named gold experiment, bench-side on public API
++//! only (no crate edits). Per distinct kick, on the exact post-kick state the resolver bound:
++//! (a) attribution — `Rebinding::from_state` re-measured (fit + fresh cycle + readout + residual)
++//! and `Orbit::compile` alone on the key it fitted, against the whole `step::process` sample;
++//! (b) the jet (docs/law.md "strong-field reuse … re-anchored") — fold the kick's Δv into the
++//! residual against the pre-kick binding, keep the cycle, re-anchor exactly when the accumulated
++//! fractional drift crosses √(floor/C) (redteam-df81: C = 1.88, floor 10⁻⁶). Nothing here feeds
++//! back into the universe: the replay digest and the memo integers are the shipped record's.
+ use super::{script, Session};
+ use emergent_space::{
+-    binding::Trajectory,
+-    orbit::{MemoCode, ShapeKey},
++    binding::{Residual, Rebinding, Trajectory},
++    orbit::{MemoCode, Orbit, ShapeKey},
+ };
+-use emergent_universe::{body::What, step, Budget, Kind};
++use emergent_universe::{body::What, num::time_of, step, Budget, Kind};
+ use serde_json::json;
+ use std::collections::HashSet;
+ use std::time::Instant;
+ 
++/// The jet's re-anchor threshold: drift* = sqrt(floor/C), C = 1.88 measured by
++/// lab run 20261006-0346-redteam-df81 for the angular increment, floor = the law's 10⁻⁶.
++const DRIFT_STAR: f64 = 1e-6f64 / 1.88;
++
+ /// The shapes the rebinds of the replayed kicks asked for, under the exact key and under the law's
+ /// quantized 12+12-bit memo key (docs/law.md: the cycle memo). A distinct kick is counted once.
+ #[derive(Default)]
+@@ -39,22 +52,56 @@ impl Shapes {
+     }
+ }
+ 
++/// Per-kick measurements of one population (ships made with the plane, fleet leavers, the player).
++#[derive(Default)]
++struct Pop {
++    whole: Vec<f64>,
++    from_state: Vec<f64>,
++    compile: Vec<f64>,
++    implied_jet: Vec<f64>,
++    share: Vec<f64>,
++}
++
+ fn percentiles(samples: &mut [f64]) -> serde_json::Value {
+     samples.sort_by(f64::total_cmp);
+     let at = |p: f64| samples.get(((samples.len().saturating_sub(1)) as f64 * p).ceil() as usize).copied();
+     json!({"median": at(0.5), "p99": at(0.99), "samples": samples.len()})
+ }
+ 
++impl Pop {
++    fn json(&self) -> serde_json::Value {
++        json!({
++            "kick_us": percentiles(&mut self.whole.clone()),
++            "rebind_us_from_state": percentiles(&mut self.from_state.clone()),
++            "compile_us_alone": percentiles(&mut self.compile.clone()),
++            "implied_jet_kick_us": percentiles(&mut self.implied_jet.clone()),
++            "rebind_share_of_whole": percentiles(&mut self.share.clone()),
++        })
++    }
++}
++
+ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+     let machine_before = crate::measure::machine_state("before");
+     // Two populations: the bodies made with the plane (comparable with every earlier run of this bench)
+     // and the members a fleet hands out later (the bench once skipped them; they are most of the kicks).
+-    let (mut made, mut leavers) = (Vec::new(), Vec::new());
++    // The player is replayed the same way but kept out of the two, so they stay comparable with the record.
++    let (mut made, mut leavers) = (Pop::default(), Pop::default());
++    let mut player = Pop::default();
+     let mut shapes = Shapes::default();
+     let made_n = s.n_bodies();
+     let mut digest = blake3::Hasher::new();
+     let mut refused = 0;
++    let mut player_shapes = Shapes::default();
++    let mut player_refused = 0;
+     let mut last: Vec<Option<i64>> = vec![None; made_n];
++    // The jet's per-body drift since its anchor, and the per-kick Δv fractions (for the threshold sweep).
++    let mut drift: Vec<f64> = vec![0.0; made_n];
++    let mut dv_log: Vec<(usize, f64)> = Vec::new();
++    let mut anchors = 0u64;
++    let mut key_matches = 0u64;
++    let mut key_checks = 0u64;
++    let mut post_refused = 0u64;
++    let mut exp_skips = 0u64;
+     let wall = Instant::now();
+     let mut frames = 0;
+     let mut keys = 0;
+@@ -68,9 +115,10 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             s.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
+         }
+         last.resize(s.n_bodies(), None);
++        drift.resize(s.n_bodies(), 0.0);
+         for (i, seen) in last.iter_mut().enumerate() {
+             let rec = s.p.u.rec(i);
+-            if rec.kind != Kind::Ship || !rec.alive {
++            if !rec.alive || !matches!(rec.kind, Kind::Ship | Kind::Player) {
+                 continue;
+             }
+             let Some(item) = rec.plan.first().copied() else { continue };
+@@ -78,31 +126,162 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+                 continue;
+             }
+             *seen = Some(item.t);
++            let is_player = rec.kind == Kind::Player;
++            let doll = rec.b.doll;
++            let clock_exp = rec.b.clock_exp;
++            // The exact pre-kick state (what the law's readout gives; identical call inside process).
++            let pre = rec.b.readout(item.t).ok();
+             // Pure resolver, against this exact plane snapshot. Timing includes
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
+             let t0 = Instant::now();
+             let upd = step::process(&s.p.u.ctx(), i, rec);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
+-            if i < made_n { &mut made } else { &mut leavers }.push(us);
+-            refused += usize::from(upd.kind != step::Resolved::Kick);
++            if is_player {
++                player.whole.push(us);
++                player_refused += usize::from(upd.kind != step::Resolved::Kick);
++            } else {
++                if i < made_n { &mut made } else { &mut leavers }.whole.push(us);
++                refused += usize::from(upd.kind != step::Resolved::Kick);
++            }
+             if let Some(e) = &upd.new_entry {
+-                shapes.note(&e.trajectory);
++                if is_player { player_shapes.note(&e.trajectory) } else { shapes.note(&e.trajectory) }
++            }
++            // --- attribution + jet, bench-side on the resolver's own post-kick state ---
++            let Ok(post) = upd.rec.b.readout(item.t) else {
++                post_refused += 1;
++                continue;
++            };
++            let unit = s.p.u.ctx().tube_unit(i, doll).map_err(|e| format!("tube unit: {e:?}"))?;
++            let event_tube = unit
++                .to_tube(time_of(item.t, clock_exp).map_err(|e| format!("time: {e:?}"))?)
++                .map_err(|e| format!("tube time: {e:?}"))?;
++            let t1 = Instant::now();
++            let rb = Rebinding::from_state(post, event_tube, None);
++            let from_state_us = t1.elapsed().as_secs_f64() * 1e6;
++            let mut compile_us = 0.0;
++            if let Ok(rb) = &rb {
++                if let Trajectory::Cycle(c) = &rb.trajectory {
++                    let key = c.key();
++                    let t2 = Instant::now();
++                    let _ = Orbit::compile(key);
++                    compile_us = t2.elapsed().as_secs_f64() * 1e6;
++                    if let Some(e) = &upd.new_entry {
++                        if let Trajectory::Cycle(nc) = &e.trajectory {
++                            key_checks += 1;
++                            key_matches += u64::from(nc.key() == key);
++                        }
++                    }
++                }
++            }
++            // The jet: fold Δv into the residual against the pre-kick binding, keep the cycle;
++            // re-anchor exactly when the accumulated fractional drift crosses drift*.
++            let mut fold_us = 0.0;
++            let mut anchor_us = 0.0;
++            let mut dv_frac = 0.0f64;
++            if let Some(pre) = pre {
++                let shift = post.velocity_exponent - pre.velocity_exponent;
++                let scale = |v: i64| -> Option<i128> {
++                    if shift >= 0 { Some((v as i128) << shift) } else if shift >= -63 {
++                        Some((v as i128) >> -shift)
++                    } else { None }
++                };
++                if let (Some(px), Some(py)) = (scale(pre.velocity[0]), scale(pre.velocity[1])) {
++                    let dv = [post.velocity[0] as i128 - px, post.velocity[1] as i128 - py];
++                    let t3 = Instant::now();
++                    let folded = Residual {
++                        position: upd.rec.b.residual.position,
++                        velocity: [upd.rec.b.residual.velocity[0] + dv[0], upd.rec.b.residual.velocity[1] + dv[1]],
++                    };
++                    let vx = post.velocity[0] as f64;
++                    let vy = post.velocity[1] as f64;
++                    dv_frac = ((dv[0] as f64 * dv[0] as f64 + dv[1] as f64 * dv[1] as f64).sqrt())
++                        / (vx * vx + vy * vy + 1.0).sqrt();
++                    drift[i] += dv_frac;
++                    let anchor = drift[i] >= DRIFT_STAR.sqrt();
++                    fold_us = t3.elapsed().as_secs_f64() * 1e6;
++                    std::hint::black_box(&folded);
++                    if anchor {
++                        let t4 = Instant::now();
++                        let _ = Rebinding::from_state(post, event_tube, None);
++                        anchor_us = t4.elapsed().as_secs_f64() * 1e6;
++                        drift[i] = 0.0;
++                        anchors += 1;
++                    }
++                } else {
++                    exp_skips += 1;
++                }
++            }
++            dv_log.push((i, dv_frac));
++            let pop = if is_player { &mut player } else if i < made_n { &mut made } else { &mut leavers };
++            pop.from_state.push(from_state_us);
++            pop.compile.push(compile_us);
++            pop.implied_jet.push(us - from_state_us + fold_us + anchor_us);
++            if us > 0.0 {
++                pop.share.push(from_state_us / us);
++            }
++            if !is_player {
++                digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+             }
+-            digest.update(format!("{i} {item:?} {:?}", upd.rec).as_bytes());
+         }
+         s.p.u.frame(1.0 / 60.0, s.rtf, Budget::unlimited());
+         s.p.u.settle(s.p.u.now);
+         frames = n;
+     }
+-    let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
++    // Threshold sweep: anchor counts only, from the logged per-kick Δv fractions (the timing above
++    // used drift*; this checks the arithmetic scales as the red-team's rule says, without re-running).
++    let anchors_at = |threshold: f64| -> u64 {
++        let mut d = vec![0.0f64; made_n.max(dv_log.iter().map(|&(i, _)| i + 1).max().unwrap_or(0))];
++        let mut n = 0;
++        for &(i, dv) in &dv_log {
++            if i >= d.len() { d.resize(i + 1, 0.0); }
++            d[i] += dv;
++            if d[i] >= threshold {
++                d[i] = 0.0;
++                n += 1;
++            }
++        }
++        n
++    };
++    let kicks = made.whole.len() + leavers.whole.len();
++    let dv_frac_median = {
++        let mut v: Vec<f64> = dv_log.iter().map(|&(_, d)| d).filter(|&d| d > 0.0).collect();
++        v.sort_by(f64::total_cmp);
++        v.get(v.len() / 2).copied().unwrap_or(0.0)
++    };
++    let (stages_ns, per_rebind_ns) = {
++        let s = emergent_space::profile::take();
++        let n = shapes.cycles.max(1) as f64;
++        let per: Vec<String> = s.iter().map(|&x| format!("{}", (x as f64 / n) as u64)).collect();
++        (s, format!("[{}]", per.join(", ")))
++    };
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+-        "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
+-        "kick_us": percentiles(&mut made),
+-        "kick_us_leavers": percentiles(&mut leavers),
+-        "kick_us_all": percentiles(&mut all),
++        "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": made.whole.len() + leavers.whole.len(),
++        "kick_us": percentiles(&mut made.whole.clone()),
++        "kick_us_leavers": percentiles(&mut leavers.whole.clone()),
++        "kick_us_all": percentiles(&mut { let mut a = made.whole.clone(); a.extend_from_slice(&leavers.whole); a }),
+         "memo": shapes.json(),
++        "cycle_compile_ns": {
++            "note": "crates/space profile stages over the replay's cycle rebinds: 0 roots/bound, 1 cuts, 2 integration, 3 conversion; built with --features emergent-space/profile",
++            "stages_ns": stages_ns, "per_rebind_ns": per_rebind_ns,
++            "finding": "zeros: the shipped profiler instruments compile_sums (the float harness), which the plane's orbit.rs path never calls; this run attributes bench-side instead (rebind_attribution)"
++        },
++        "rebind_attribution": {
++            "note": "per distinct kick: whole = step::process as shipped; rebind_us_from_state = Rebinding::from_state re-measured on the resolver's exact post-kick state (fit + fresh cycle compile + at_radius + residual; the law's bind() adds tube bookkeeping on top); compile_us_alone = Orbit::compile on the key from_state fitted; rebind_share_of_whole = from_state/whole",
++            "made": made.json(), "leavers": leavers.json(),
++            "player": player.json(),
++            "player_refused": player_refused,
++            "key_matches": key_matches, "key_checks": key_checks,
++            "post_readout_refused": post_refused, "exponent_skips": exp_skips
++        },
++        "jet": {
++            "note": "the law's jet (docs/law.md 'strong-field reuse … re-anchored') replayed bench-side: fold the kick's Δv into the residual against the pre-kick binding (the cycle is kept; the readout between kicks is the same table read), re-anchor with an exact from_state when the accumulated |dv|/|v| crosses sqrt(floor/C) (C=1.88, floor=1e-6, redteam-df81); implied_jet_kick_us = whole - from_state + fold + anchor",
++            "drift_star": DRIFT_STAR.sqrt(),
++            "anchors": anchors, "kicks": kicks, "anchors_per_kick": if kicks == 0 { 0.0 } else { anchors as f64 / kicks as f64 },
++            "anchors_at_drift_star_over_100": anchors_at(DRIFT_STAR.sqrt() / 100.0),
++            "dv_frac_median": dv_frac_median
++        },
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()

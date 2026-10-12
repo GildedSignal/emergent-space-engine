@@ -1,0 +1,166 @@
+{
+  "cycle_compile_ns": {
+    "finding": "zeros: the shipped profiler instruments compile_sums (the float harness), which the plane's orbit.rs path never calls; this run attributes bench-side instead (rebind_attribution)",
+    "note": "crates/space profile stages over the replay's cycle rebinds: 0 roots/bound, 1 cuts, 2 integration, 3 conversion; built with --features emergent-space/profile",
+    "per_rebind_ns": "[0, 0, 0, 0]",
+    "stages_ns": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "digest": "b7244c7f7e5b7448f5e1c9418bb26dca6acd8031270df00c855501ebf547b88f",
+  "frames": 600,
+  "jet": {
+    "anchors": 10,
+    "anchors_at_drift_star_over_100": 41,
+    "anchors_per_kick": 0.005417118093174431,
+    "drift_star": 0.0007293249574894729,
+    "dv_frac_median": 1.1735990920594918e-8,
+    "kicks": 1846,
+    "note": "the law's jet (docs/law.md 'strong-field reuse … re-anchored') replayed bench-side: fold the kick's Δv into the residual against the pre-kick binding (the cycle is kept; the readout between kicks is the same table read), re-anchor with an exact from_state when the accumulated |dv|/|v| crosses sqrt(floor/C) (C=1.88, floor=1e-6, redteam-df81); implied_jet_kick_us = whole - from_state + fold + anchor"
+  },
+  "kick_us": {
+    "median": 38.312000000000005,
+    "p99": 62.757,
+    "samples": 1165
+  },
+  "kick_us_all": {
+    "median": 39.896,
+    "p99": 425.265,
+    "samples": 1846
+  },
+  "kick_us_leavers": {
+    "median": 106.852,
+    "p99": 496.429,
+    "samples": 681
+  },
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-12T00:49:45Z",
+    "unix": 1791766185,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-12T00:49:44Z",
+    "unix": 1791766184,
+    "when": "before"
+  },
+  "memo": {
+    "cycle_rebinds": 1779,
+    "exact_hit_rate": 0.0,
+    "exact_shapes": 1779,
+    "quantized_hit_rate": 0.9713322091062394,
+    "quantized_shapes": 51
+  },
+  "rebind_attribution": {
+    "exponent_skips": 0,
+    "key_checks": 1805,
+    "key_matches": 1805,
+    "leavers": {
+      "compile_us_alone": {
+        "median": 52.580999999999996,
+        "p99": 169.248,
+        "samples": 681
+      },
+      "implied_jet_kick_us": {
+        "median": 28.461000000000002,
+        "p99": 319.85900000000004,
+        "samples": 681
+      },
+      "kick_us": {
+        "median": 106.852,
+        "p99": 496.429,
+        "samples": 681
+      },
+      "rebind_share_of_whole": {
+        "median": 0.6792663308321883,
+        "p99": 0.8898388413912639,
+        "samples": 681
+      },
+      "rebind_us_from_state": {
+        "median": 78.745,
+        "p99": 259.307,
+        "samples": 681
+      }
+    },
+    "made": {
+      "compile_us_alone": {
+        "median": 3.8979999999999997,
+        "p99": 6.841,
+        "samples": 1165
+      },
+      "implied_jet_kick_us": {
+        "median": 25.532000000000004,
+        "p99": 41.995999999999995,
+        "samples": 1165
+      },
+      "kick_us": {
+        "median": 38.312000000000005,
+        "p99": 62.757,
+        "samples": 1165
+      },
+      "rebind_share_of_whole": {
+        "median": 0.3364846211943642,
+        "p99": 0.4561670059862044,
+        "samples": 1165
+      },
+      "rebind_us_from_state": {
+        "median": 12.857999999999999,
+        "p99": 21.887,
+        "samples": 1165
+      }
+    },
+    "note": "per distinct kick: whole = step::process as shipped; rebind_us_from_state = Rebinding::from_state re-measured on the resolver's exact post-kick state (fit + fresh cycle compile + at_radius + residual; the law's bind() adds tube bookkeeping on top); compile_us_alone = Orbit::compile on the key from_state fitted; rebind_share_of_whole = from_state/whole",
+    "player": {
+      "compile_us_alone": {
+        "median": 10.015,
+        "p99": 18.924,
+        "samples": 26
+      },
+      "implied_jet_kick_us": {
+        "median": 40.614000000000004,
+        "p99": 65.818,
+        "samples": 26
+      },
+      "kick_us": {
+        "median": 53.976,
+        "p99": 72.78,
+        "samples": 26
+      },
+      "rebind_share_of_whole": {
+        "median": 0.41208768002703045,
+        "p99": 0.56877710320902,
+        "samples": 26
+      },
+      "rebind_us_from_state": {
+        "median": 19.249000000000002,
+        "p99": 39.348,
+        "samples": 26
+      }
+    },
+    "player_refused": 0,
+    "post_readout_refused": 0
+  },
+  "refused": 0,
+  "replay_digest": "017f05e210ea0ccff6db72ea75e4276e26711f272458ba037b150e93f23b6cae",
+  "rtf_target": 1000.0,
+  "samples": 1846,
+  "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+  "seed": 1,
+  "wall_seconds": 0.797268891
+}
