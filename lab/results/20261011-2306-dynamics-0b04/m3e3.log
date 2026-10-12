@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261011-2306-dynamics-0b04/belt.py", line 186, in <module>
+    main()
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261011-2306-dynamics-0b04/belt.py", line 177, in main
+    r = run(args.mu, args.T, args.spf, args.N, args.e0, args.amin, args.amax, args.seed)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261011-2306-dynamics-0b04/belt.py", line 157, in run
+    d_res=float(res_distance(a_mean ** -1.5)),
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261011-2306-dynamics-0b04/belt.py", line 75, in res_distance
+    p = max(1, int(round(q * nb_over_npl)))
+                   ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: type complex doesn't define __round__ method
