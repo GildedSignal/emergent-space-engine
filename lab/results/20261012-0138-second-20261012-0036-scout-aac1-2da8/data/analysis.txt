@@ -1,0 +1,144 @@
+=== A. original record (data/probe-orig.json), recomputed ===
+[main eps=0.03] n=380 nfail=19 tstat-walk frac=0.139
+   walkers with Rg in [0.0,1.8): 0%  (of pop: 0.0%)
+   walkers with Rg in [1.8,2.3): 8%  (of pop: 1.1%)
+   walkers with Rg in [2.3,2.8): 42%  (of pop: 5.8%)
+   walkers with Rg in [2.8,4.2): 51%  (of pop: 7.1%)
+   de==0 rows: 0 recorded; nfail=19 (double-root compile failures, all de=0)
+[H1 eps=0.10] n=182 nfail=13 tstat-walk frac=0.555
+   walkers with Rg in [0.0,1.8): 8%  (of pop: 4.4%)
+   walkers with Rg in [1.8,2.3): 21%  (of pop: 11.5%)
+   walkers with Rg in [2.3,2.8): 24%  (of pop: 13.2%)
+   walkers with Rg in [2.8,4.2): 48%  (of pop: 26.4%)
+   de==0 rows: 0 recorded; nfail=13 (double-root compile failures, all de=0)
+[H2 OmP=0.625] n=182 nfail=13 tstat-walk frac=0.110
+   walkers with Rg in [0.0,1.8): 5%  (of pop: 0.5%)
+   walkers with Rg in [1.8,2.3): 40%  (of pop: 4.4%)
+   walkers with Rg in [2.3,2.8): 35%  (of pop: 3.8%)
+   walkers with Rg in [2.8,4.2): 20%  (of pop: 2.2%)
+   de==0 rows: 0 recorded; nfail=13 (double-root compile failures, all de=0)
+[main eps=0.03] spatial gate Rg>=1.8: recall=1.00 fpr=0.51
+[H1 eps=0.10] spatial gate Rg>=1.8: recall=0.92 fpr=0.23
+[H2 OmP=0.625] spatial gate Rg>=1.8: recall=0.95 fpr=0.57
+eval-on-read vs ONE stepped period: 384x ; vs the 60-period block: 23038x ; compile vs 60-period stepping: 687x
+P1 OmP=0.5: corotation=[2.1699948204036485], OLR(m=2)=[3.7437044694321133], ILR=[0.16967002629639047]
+P1 OmP=0.625: corotation=[1.755734862568653], OLR(m=2)=[3.047334698009568], ILR=[0.1544903936327787]
+
+=== B. census vs window (angle classifier) ===
+
+[p1-e001-60] pot=P1 bar=A1 eps=0.01 n=209 nfail=0 T=60p res={'corotation': [2.17], 'OLR': [3.744], 'ILR': [0.17]}
+  W= 60p: walk=0.038 lib=0.038 quiet=0.923 | tstat>4: 0.019 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 1/4/3/0 | band95 [1.77,2.38] width=0.61
+  circular rows compiled: 19, nfail=0
+
+[p1-e001-600] pot=P1 bar=A1 eps=0.01 n=209 nfail=0 T=600p res={'corotation': [2.17], 'OLR': [3.744], 'ILR': [0.17]}
+  W= 60p: walk=0.038 lib=0.038 quiet=0.923 | tstat>4: 0.019 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 1/4/3/0 | band95 [1.77,2.38] width=0.61
+  W=120p: walk=0.010 lib=0.038 quiet=0.952 | tstat>4: 0.000 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 0/1/1/0 | band95 [1.97,2.36] width=0.39
+  W=240p: walk=0.000 lib=0.033 quiet=0.967 | tstat>4: 0.010 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 0/0/0/0 | band95 -
+  W=480p: walk=0.005 lib=0.033 quiet=0.962 | tstat>4: 0.010 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 0/1/0/0 | band95 [1.97,1.97] width=0.00
+  W=600p: walk=0.005 lib=0.033 quiet=0.962 | tstat>4: 0.014 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 0/1/0/0 | band95 [1.97,1.97] width=0.00
+  W6 (quiet E bounded): frac with Ew(600)<=3*Ew(60): 1.000; median dE 60p=0.0019 600p=0.0003
+  circular rows compiled: 19, nfail=0
+
+[p1-e03-60] pot=P1 bar=A1 eps=0.03 n=209 nfail=0 T=60p res={'corotation': [2.17], 'OLR': [3.744], 'ILR': [0.17]}
+  W= 60p: walk=0.220 lib=0.072 quiet=0.708 | tstat>4: 0.144 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 14/8/17/7 | band95 [0.55,3.34] width=2.79
+  circular rows compiled: 19, nfail=0
+
+[p1-e03-600] pot=P1 bar=A1 eps=0.03 n=209 nfail=0 T=600p res={'corotation': [2.17], 'OLR': [3.744], 'ILR': [0.17]}
+  W= 60p: walk=0.258 lib=0.053 quiet=0.689 | tstat>4: 0.172 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 9/10/17/18 | band95 [0.55,3.67] width=3.11
+  W=120p: walk=0.282 lib=0.053 quiet=0.665 | tstat>4: 0.234 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 8/9/17/25 | band95 [0.55,3.80] width=3.24
+  W=240p: walk=0.311 lib=0.053 quiet=0.636 | tstat>4: 0.321 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 5/10/17/33 | band95 [0.55,3.80] width=3.24
+  W=480p: walk=0.349 lib=0.053 quiet=0.598 | tstat>4: 0.349 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 5/12/19/37 | band95 [1.57,3.80] width=2.23
+  W=600p: walk=0.349 lib=0.053 quiet=0.598 | tstat>4: 0.364 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 4/11/19/39 | band95 [1.57,3.80] width=2.23
+  W6 (quiet E bounded): frac with Ew(600)<=3*Ew(60): 0.992; median dE 60p=0.0036 600p=0.0009
+  circular rows compiled: 19, nfail=0
+
+[p1-e10-60] pot=P1 bar=A1 eps=0.1 n=209 nfail=0 T=60p res={'corotation': [2.17], 'OLR': [3.744], 'ILR': [0.17]}
+  W= 60p: walk=0.770 lib=0.014 quiet=0.215 | tstat>4: 0.589 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 48/19/31/63 | band95 [0.55,4.00] width=3.45
+  circular rows compiled: 19, nfail=0
+
+[p1-e10-600] pot=P1 bar=A1 eps=0.1 n=209 nfail=0 T=600p res={'corotation': [2.17], 'OLR': [3.744], 'ILR': [0.17]}
+  W= 60p: walk=0.718 lib=0.019 quiet=0.263 | tstat>4: 0.526 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 40/19/30/61 | band95 [0.55,4.00] width=3.45
+  W=120p: walk=0.718 lib=0.014 quiet=0.268 | tstat>4: 0.560 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 37/20/30/63 | band95 [0.55,4.00] width=3.45
+  W=240p: walk=0.684 lib=0.014 quiet=0.301 | tstat>4: 0.612 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 30/18/32/63 | band95 [0.55,4.00] width=3.45
+  W=480p: walk=0.670 lib=0.014 quiet=0.316 | tstat>4: 0.632 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 28/19/31/62 | band95 [0.55,4.00] width=3.45
+  W=600p: walk=0.665 lib=0.014 quiet=0.321 | tstat>4: 0.656 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 27/18/32/62 | band95 [0.55,4.00] width=3.45
+  W6 (quiet E bounded): frac with Ew(600)<=3*Ew(60): 1.000; median dE 60p=0.0116 600p=0.0021
+  circular rows compiled: 19, nfail=0
+
+[p2-e001-60] pot=P2 bar=A2 eps=0.01 n=209 nfail=0 T=60p res={'corotation': [2.31], 'OLR': [3.928], 'ILR': [0.118]}
+  W= 60p: walk=0.048 lib=0.043 quiet=0.909 | tstat>4: 0.024 | of tstat-walkers, angle says lib: 1 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 9/0/1/0 | band95 [0.96,1.74] width=0.78
+  circular rows compiled: 19, nfail=0
+
+[p2-e03-60] pot=P2 bar=A2 eps=0.03 n=209 nfail=0 T=60p res={'corotation': [2.31], 'OLR': [3.928], 'ILR': [0.118]}
+  W= 60p: walk=0.091 lib=0.043 quiet=0.866 | tstat>4: 0.014 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 11/3/5/0 | band95 [0.96,2.58] width=1.62
+  circular rows compiled: 19, nfail=0
+
+[p2-e03-600] pot=P2 bar=A2 eps=0.03 n=209 nfail=0 T=600p res={'corotation': [2.31], 'OLR': [3.928], 'ILR': [0.118]}
+  W= 60p: walk=0.072 lib=0.077 quiet=0.852 | tstat>4: 0.024 | of tstat-walkers, angle says lib: 4 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 9/3/3/0 | band95 [0.96,2.38] width=1.42
+  W=120p: walk=0.014 lib=0.062 quiet=0.923 | tstat>4: 0.005 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 3/0/0/0 | band95 [0.96,0.96] width=0.00
+  W=240p: walk=0.014 lib=0.057 quiet=0.928 | tstat>4: 0.000 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 3/0/0/0 | band95 [0.96,0.96] width=0.00
+  W=480p: walk=0.005 lib=0.057 quiet=0.938 | tstat>4: 0.005 | of tstat-walkers, angle says lib: 1 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 1/0/0/0 | band95 [0.96,0.96] width=0.00
+  W=600p: walk=0.000 lib=0.053 quiet=0.947 | tstat>4: 0.005 | of tstat-walkers, angle says lib: 1 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 0/0/0/0 | band95 -
+  W6 (quiet E bounded): frac with Ew(600)<=3*Ew(60): 1.000; median dE 60p=0.0015 600p=0.0003
+  circular rows compiled: 19, nfail=0
+
+[p2-e10-60] pot=P2 bar=A2 eps=0.1 n=209 nfail=0 T=60p res={'corotation': [2.31], 'OLR': [3.928], 'ILR': [0.118]}
+  W= 60p: walk=0.282 lib=0.115 quiet=0.603 | tstat>4: 0.167 | of tstat-walkers, angle says lib: 1 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 35/14/10/0 | band95 [0.76,2.58] width=1.83
+  circular rows compiled: 19, nfail=0
+
+[p2-e10-600] pot=P2 bar=A2 eps=0.1 n=209 nfail=0 T=600p res={'corotation': [2.31], 'OLR': [3.928], 'ILR': [0.118]}
+  W= 60p: walk=0.282 lib=0.115 quiet=0.603 | tstat>4: 0.167 | of tstat-walkers, angle says lib: 1 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 35/14/10/0 | band95 [0.76,2.58] width=1.83
+  W=120p: walk=0.282 lib=0.086 quiet=0.632 | tstat>4: 0.211 | of tstat-walkers, angle says lib: 2 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 35/11/13/0 | band95 [0.96,2.58] width=1.62
+  W=240p: walk=0.306 lib=0.057 quiet=0.636 | tstat>4: 0.239 | of tstat-walkers, angle says lib: 0 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 35/14/15/0 | band95 [0.96,2.58] width=1.62
+  W=480p: walk=0.292 lib=0.062 quiet=0.646 | tstat>4: 0.273 | of tstat-walkers, angle says lib: 2 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 33/15/13/0 | band95 [0.96,2.58] width=1.62
+  W=600p: walk=0.268 lib=0.062 quiet=0.670 | tstat>4: 0.263 | of tstat-walkers, angle says lib: 1 | walker bins 0-1.8/1.8-2.3/2.3-2.8/2.8-4.2 = 27/14/15/0 | band95 [0.96,2.58] width=1.62
+  W6 (quiet E bounded): frac with Ew(600)<=3*Ew(60): 1.000; median dE 60p=0.0027 600p=0.0006
+  circular rows compiled: 19, nfail=0
+
+--- doll-edge width vs bar strength (band95 width; p5-p95 of walker Rg) ---
+tag               W  edge_in edge_out95   width   frac
+p1-e001-60       60     1.77       2.38    0.61  0.038
+p1-e001-600     600     1.97       1.97    0.00  0.005
+p1-e03-60        60     0.55       3.34    2.79  0.220
+p1-e03-600      600     1.57       3.80    2.23  0.349
+p1-e10-60        60     0.55       4.00    3.45  0.770
+p1-e10-600      600     0.55       4.00    3.45  0.665
+p2-e001-60       60     0.96       1.74    0.78  0.048
+p2-e03-60        60     0.96       2.58    1.62  0.091
+p2-e03-600      600      nan        nan     nan    nan
+p2-e10-60        60     0.76       2.58    1.83  0.282
+p2-e10-600      600     0.96       2.58    1.62  0.268
+
+=== C. per-Rg churn profile (doll-edge curve) ===
+
+[p1-e001-600] (walk/lib fraction per Rg)
+  W= 60:  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0
+  W=600:  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0
+  Rg:   0.35 0.55 0.76 0.96 1.16 1.36 1.57 1.77 1.97 2.17 2.38 2.58 2.78 2.99 3.19 3.39 3.59 3.80 4.00
+
+[p1-e03-600] (walk/lib fraction per Rg)
+  W= 60:  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  1/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0
+  W=600:  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  1/0  0/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  0/0
+  Rg:   0.35 0.55 0.76 0.96 1.16 1.36 1.57 1.77 1.97 2.17 2.38 2.58 2.78 2.99 3.19 3.39 3.59 3.80 4.00
+
+[p1-e10-600] (walk/lib fraction per Rg)
+  W= 60:  0/0  1/0  1/0  0/0  0/0  0/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0
+  W=600:  0/0  0/0  0/0  0/0  0/0  0/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0  1/0
+  Rg:   0.35 0.55 0.76 0.96 1.16 1.36 1.57 1.77 1.97 2.17 2.38 2.58 2.78 2.99 3.19 3.39 3.59 3.80 4.00
+
+[p2-e03-600] (walk/lib fraction per Rg)
+  W= 60:  0/0  0/0  0/0  1/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0
+  W=600:  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0
+  Rg:   0.35 0.55 0.76 0.96 1.16 1.36 1.57 1.77 1.97 2.17 2.38 2.58 2.78 2.99 3.19 3.39 3.59 3.80 4.00
+
+[p2-e10-600] (walk/lib fraction per Rg)
+  W= 60:  0/0  0/0  0/0  1/0  0/0  0/0  1/0  1/0  1/0  1/0  0/1  0/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0
+  W=600:  0/0  0/0  0/0  1/0  0/0  0/0  1/0  1/0  1/0  1/0  1/0  1/0  0/0  0/0  0/0  0/0  0/0  0/0  0/0
+  Rg:   0.35 0.55 0.76 0.96 1.16 1.36 1.57 1.77 1.97 2.17 2.38 2.58 2.78 2.99 3.19 3.39 3.59 3.80 4.00
+
+=== D. sustained churn vs eps_eff = eps*A(r_corotation) ===
+  eps_eff=0.00743  p2-e03-600     walk600=0.000 lib600=0.053 band95=-
+  eps_eff=0.00825  p1-e001-600    walk600=0.005 lib600=0.033 band95=[1.97,1.97]
+  eps_eff=0.02475  p1-e03-600     walk600=0.349 lib600=0.053 band95=[1.57,3.80]
+  eps_eff=0.02477  p2-e10-600     walk600=0.268 lib600=0.062 band95=[0.96,2.58]
+  eps_eff=0.08248  p1-e10-600     walk600=0.665 lib600=0.014 band95=[0.55,4.00]
