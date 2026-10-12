@@ -1,0 +1,4 @@
+Working...
+Run complete: `lab/results/20261012-0036-scout-aac1/` holds `dossier.md`, `predictions.md` (written before the decisive run, outcomes appended), `probe.py`, and `data/probe.json` — every number regenerable by `python3 probe.py data/probe.json` (279 s, 1.9 GB, load 1.7–3.3 recorded).
+
+**Claim (one sentence):** The galaxy doll can compile each orbit from (E, L) by exact 2D radial quadrature — the star doll's own cycle mechanism, ~690× cheaper than stepping with bounded, non-compounding readout error — but the falsifier killed the cheap regime gate: compiled frequencies from the initial cycle do not predict bar-driven migration (resonance overlap churns 14% of the disc at a 3% bar and 55% at 10%, concentrated from corotation outward and moving with the pattern speed), so (E, L) drift must be owned by the kick layer's re-anchoring and the quiet/dense boundary is a spatial, pattern-locked doll edge, not a per-orbit resonance tag.
