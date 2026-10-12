@@ -1011,6 +1011,9 @@ impl Universe {
             let key = r.b.entry.trajectory.key();
             put_s(&mut h, key.periapsis);
             put(&mut h, key.k as i128);
+            if let Some(gap) = key.gap {
+                put_s(&mut h, gap);
+            }
             put(&mut h, r.b.entry.clockwise as i128);
             put(&mut h, r.b.turn.a as i128);
             put(&mut h, r.b.turn.b as i128);

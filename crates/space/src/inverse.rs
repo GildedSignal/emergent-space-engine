@@ -307,6 +307,7 @@ pub(crate) fn photon(impact: crate::scaled::Scalar) -> Result<Option<OrbitKey>> 
         periapsis: radius,
         k: k.fixed(48)? as u64,
         null: true,
+        gap: None,
     }))
 }
 

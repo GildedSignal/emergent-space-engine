@@ -13,6 +13,7 @@ fn main() {
     p.u.input(0, word(1, level)).unwrap();
     let f64v = |v: [Scalar; 2]| [to_f64(v[0]), to_f64(v[1])];
     let n = 100;
+    let wall = std::time::Instant::now();
     let mut t_prev = 0i64;
     for j in 0..=n {
         let t: i64 = if j == 0 { 0 } else { (2f64.powf(24.0 + (tmax - 24.0) * j as f64 / n as f64)) as i64 };
@@ -50,7 +51,7 @@ fn main() {
         let dtdtau = dtk as f64 / dtau;
         let kind = match &rec.b.entry.trajectory { emergent_space::binding::Trajectory::Cycle(_) => "cycle", _ => "passage" };
         let b2 = (l_ex / e_ex).abs();
-        eprintln!("t={:>12} r={:>11.4e} gamma={:>11.4} E_exact={:>12.6} E_key={:>12.6} dt/dtau_tube={:>11.6} u^t={:>12.6} L/E={:.4e} peri={:.4e} k={:.6e} q={:.3e} kind={kind} refusals={} ev_lag={}", t, r, 1.0/(1.0-(vr*vr+vt*vt)).sqrt(), e_ex, e_key, dtdtau, ut, b2, peri, kq, q, rec.refusals, t-rec.b.event_time);
+        eprintln!("t={:>12} r={:>11.4e} gamma={:>11.4} E_exact={:>12.6} E_key={:>12.6} dt/dtau_tube={:>11.6} u^t={:>12.6} L/E={:.4e} peri={:.4e} k={:.6e} q={:.3e} kind={kind} refusals={} ev_lag={} events={} step={} wall_ms={}", t, r, 1.0/(1.0-(vr*vr+vt*vt)).sqrt(), e_ex, e_key, dtdtau, ut, b2, peri, kq, q, rec.refusals, t-rec.b.event_time, rec.events, rec.step, wall.elapsed().as_millis());
         t_prev = t;
     }
 }

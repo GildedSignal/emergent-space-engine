@@ -6,8 +6,10 @@
 //! **Frozen before the first run.**
 //! 1. A word with level 0 is the keys alone (every old log replays as before), and the levels' accelerations are
 //!    `0.353 g · 2^level`, from 0.35 g to about 10^4 g.
-//! 2. At every level the burn's work holds: the energy gained equals `∫ α·v_x dt` (3%), the same criterion as
-//!    `plane.rs`, with the burn long enough at each level to be well past the steps' own size.
+//! 2. At every level the burn's work holds: the energy gained equals the work done (3%), with the burn long enough at each
+//!    level to be well past the steps' own size. **Oracle domain (12 October, adjudicated):** the criterion was `∫ α·v_x dt`,
+//!    the Newtonian limit of the law, which cannot hold above β ≈ 0.25; the exact work is `ΔE_∞ = ∫ √f·(u·n)·α dτ = α ∫ f·(w·n) dt`
+//!    (E_∞ = γ√f the energy at the doll's infinity, w the local velocity), threshold unchanged.
 //! 3. A log with throttle changes replays to one digest on any frames, budget and thread count; another level (a
 //!    control) gives another digest.
 //! 4. The time factor changes when, never what: a flight flown live with its time factor changed every few frames
@@ -41,15 +43,26 @@ fn the_word_keeps_the_keys_and_the_levels_are_powers_of_two_of_a_third_of_a_g() 
     assert!((9_000.0..13_000.0).contains(&top), "the top is about 10^4 g: {top}");
 }
 
-/// The energy (Newtonian, in the Home doll's units) and the velocity of the player at `t`, the burn owed since the last
-/// flush included (the engine takes it at its own kicks; the view reads it within the frame).
-fn energy(p: &Plane, t: i64) -> (f64, [f64; 2]) {
+/// The exact energy at the doll's infinity per unit mass, `E_∞ − 1 = γ√f − 1` (as `(w² − 2μ/r)/((1 − w²)(γ√f + 1))`, with no
+/// cancellation), the local velocity `w` (the static observer's orthonormal frame: `w_r = v_r/f`, `w_t = v_t/√f`, in the plane's axes)
+/// and `f = 1 − 2μ/r`, in the Home doll's units at `t`, the burn owed since the last flush included (the engine takes it at its own
+/// kicks; the view reads it within the frame).
+fn energy(p: &Plane, t: i64) -> (f64, [f64; 2], f64) {
     let rec = p.u.rec(p.player);
+    let ctx = p.u.ctx();
     let (x, v) = rec.b.cartesian(t).unwrap();
-    let dv = held_thrust(&p.u.ctx(), &rec, t).unwrap().map_or([0.0; 2], |o| o.1);
-    let f = |s: Scalar| to_f64(s);
-    let (x, v) = ([f(x[0]), f(x[1])], [f(v[0]) + dv[0], f(v[1]) + dv[1]]);
-    (0.5 * (v[0] * v[0] + v[1] * v[1]) - 1.0 / (x[0] * x[0] + x[1] * x[1]).sqrt(), v)
+    let dv = held_thrust(&ctx, &rec, t).unwrap().map_or([0.0; 2], |o| o.1);
+    let f64s = |s: Scalar| to_f64(s);
+    let (x, v) = ([f64s(x[0]), f64s(x[1])], [f64s(v[0]) + dv[0], f64s(v[1]) + dv[1]]);
+    let mu = to_f64(ctx.tube_unit(p.player, rec.b.doll).unwrap().mu);
+    let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
+    let f = 1.0 - 2.0 * mu / r;
+    let (rh, th) = ([x[0] / r, x[1] / r], [-x[1] / r, x[0] / r]);
+    let (wr, wt) = ((v[0] * rh[0] + v[1] * rh[1]) / f, (v[0] * th[0] + v[1] * th[1]) / f.sqrt());
+    let w2 = wr * wr + wt * wt;
+    let gamma = 1.0 / (1.0 - w2).sqrt();
+    let e1 = (w2 - 2.0 * mu / r) / ((1.0 - w2) * (gamma * f.sqrt() + 1.0));
+    (e1, [wr * rh[0] + wt * th[0], wr * rh[1] + wt * th[1]], f)
 }
 
 #[test]
@@ -67,18 +80,19 @@ fn the_burn_does_the_work_at_every_level() {
         p.u.input(t0, word(along, level)).unwrap();
         // A burn of at most 4e6 ticks, and no more than 2e-4 c of velocity: the ship stays in Home's doll.
         let span = ((2e-4 / alpha) as i64).clamp(100_000, 4_000_000);
-        let (e0, mut last_v) = energy(&p, t0);
+        let (e0, w0, f0) = energy(&p, t0);
+        let mut last = f0 * w0[0]; // f·w_x
         let (mut work, mut t, mut last_t) = (0.0f64, t0, t0);
         let dt = span / 200;
         while t < t0 + span {
             t += dt;
             p.u.settle(t);
-            let (_, v) = energy(&p, t);
-            work += sign * alpha * 0.5 * (last_v[0] + v[0]) * (t - last_t) as f64;
-            last_v = v;
+            let (_, w, f) = energy(&p, t);
+            work += sign * alpha * 0.5 * (last + f * w[0]) * (t - last_t) as f64;
+            last = f * w[0];
             last_t = t;
         }
-        let (e1, _) = energy(&p, t);
+        let (e1, _, _) = energy(&p, t);
         let d = e1 - e0;
         let rec = p.u.rec(p.player);
         println!("level {level:>2}: {} ticks, energy changed by {d:.4e}, the work done {work:.4e} ({} refusals)", t - t0, rec.refusals);

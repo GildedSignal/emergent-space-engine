@@ -285,7 +285,18 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
     } else {
         k = k.max((1 << 47) + 1);
     }
-    Ok((OrbitKey::new(rp, k)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO))
+    let key = OrbitKey::new(rp, k)?;
+    // The clock's gap, from the state and not from the key: E² = f²/den exactly (E = f·u^t), and E² = tn/d, so d = tn·den/f².
+    // No cancellation, so E has no ceiling short of what the state's own words hold (the Q48 k keeps the shape, which does not
+    // need E: positions and velocities read k alone).
+    if alpha.is_positive() && key.needs_gap()? {
+        let (q, k) = (key.compactness()?, Scalar::raw(k as i128, -48)?);
+        let one_minus_2q = Scalar::ONE.sub(q.scale(1)?)?;
+        let tn = k.mul(one_minus_2q)?.mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(k.scale(1)?)?)?)?)?;
+        let gap = tn.mul(den)?.div(lapse.mul(lapse)?)?;
+        return Ok((key.with_gap(gap)?, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
+    }
+    Ok((key, r, vt < Scalar::ZERO, vr < Scalar::ZERO))
 }
 
 /// A narrow sign witness, never a replacement root. Replay the original midpoint
