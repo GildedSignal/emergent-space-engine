@@ -43,24 +43,29 @@ impl IntegerState {
 pub enum Trajectory {
     Cycle(Orbit),
     Passage(Passage),
+    Plunge(crate::plunge::Plunge),
 }
 impl Trajectory {
-    pub fn key(&self) -> OrbitKey {
+    /// A plunge has no periapsis or Darwin shape key.
+    pub fn key(&self) -> Option<OrbitKey> {
         match self {
-            Self::Cycle(c) => c.key(),
-            Self::Passage(p) => p.key(),
+            Self::Cycle(c) => Some(c.key()),
+            Self::Passage(p) => Some(p.key()),
+            Self::Plunge(_) => None,
         }
     }
     pub fn state(&self, time: Scalar) -> Result<OrbitState> {
         match self {
             Self::Cycle(c) => c.signed_state(time),
             Self::Passage(p) => p.state(time),
+            Self::Plunge(p) => p.orbit_state(time),
         }
     }
     fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
         match self {
             Self::Cycle(c) => c.at_radius(r),
             Self::Passage(p) => p.at_radius(r),
+            Self::Plunge(_) => Err(Error::Topology),
         }
     }
 }
@@ -350,6 +355,35 @@ fn root_witness(
     } else { None })
 }
 impl Rebinding {
+    /// Extend the turning-orbit inverse with an inward arc ending at a body's
+    /// surface. Horizon arcs use `Plunge`'s explicit falling-clock API instead.
+    pub fn ending_at(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, surface: Scalar) -> Result<Self> {
+        let turning = match Self::from_state(state, event_time, passage_edge) {
+            Ok(fit) => {
+                let (p, v) = state.components()?;
+                if fit.trajectory.key().is_some_and(|k| k.periapsis >= surface) || dot(p, v)? > Scalar::ZERO {
+                    return Ok(fit);
+                }
+                Some(fit)
+            },
+            Err(Error::NoBoundOrbit) => None,
+            Err(e) => return Err(e),
+        };
+        let plunge = match crate::plunge::Plunge::from_state(state, crate::plunge::End::Surface(surface)) {
+            Ok(p) => p,
+            // A rounded turning fit can place its periapsis just inside the
+            // surface. The exact interval predicate owns that decision.
+            Err(Error::NoBoundOrbit) if turning.is_some() => return Ok(turning.unwrap()),
+            Err(e) => return Err(e),
+        };
+        let (p, _) = state.components()?;
+        let periapsis_angle = ((angle(p[0], p[1])? << 32) / (2 * PI)) as u32;
+        let mut fit = Self { trajectory: Trajectory::Plunge(plunge), periapsis_time: event_time,
+            periapsis_angle, clockwise: false, residual: Residual { position: [0; 2], velocity: [0; 2] },
+            event_time, units: (state.length_exponent, state.velocity_exponent) };
+        fit.residual = Residual::between(state, fit.decoded_event()?);
+        Ok(fit)
+    }
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
         let (key, r, clockwise, incoming) = fit_key(state, true)?;
         let trajectory = if key.periodic() {

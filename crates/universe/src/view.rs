@@ -268,7 +268,13 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
     // A lost player (a wreck) stays where it was lost, its readings frozen at its last state: the universe goes on.
     // A ship the engine could not carry on (refused kicks, possibly still "alive") is read at its last state when its tube or
     // partial step cannot be read at the presented tick (the motion law v2 refuses a read far past its last boundary).
-    let mut t_read = if rec.alive { t_now } else { rec.b.event_time };
+    // A wreck is read where it was lost: at its impact when its last tube held one (the surface, not the tube's start).
+    let mut t_read = if rec.alive {
+        t_now
+    } else {
+        let doll = &u.dolls[rec.b.doll as usize];
+        crate::step::next_impact(&rec.b, doll.surface, rec.b.event_time).ok().flatten().unwrap_or(rec.b.event_time)
+    };
     let (xo, vo) = match root_state(&ctx, p, t_read) {
         Ok(x) => x,
         Err(_) => {

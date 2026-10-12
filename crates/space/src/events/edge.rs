@@ -38,6 +38,7 @@ pub fn next_exit(
             apex
         }
         Trajectory::Passage(p) => peri.add(p.duration()?.scale(-1)?)?,
+        Trajectory::Plunge(_) => return Ok(None),
     };
     let (mut lo, mut hi) = (
         after,

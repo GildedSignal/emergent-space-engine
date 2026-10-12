@@ -91,7 +91,8 @@ binding event. Transport through later physical motion is the events owner's
 remaining obligation: discarding the remainder at a handoff voids the proof.
 
 Bound radial generators satisfy p>6+2e; their periapsis approaches 4M.
-Plunges, radial L=0 paths and horizon arrival times remain outside this compiler.
+Incoming plunges and radial L=0 paths use `plunge::Plunge`, derived in
+[PLUNGE.md](PLUNGE.md), with an explicit surface or horizon endpoint.
 
 The v4 boundary supplies exact circular generators down to r>3M, including unstable
 circles: their constant-radius angular clock needs no radial integration. The inverse

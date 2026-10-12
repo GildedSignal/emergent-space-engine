@@ -33,7 +33,7 @@
 //! accurate, and at the edge (`R_edge`) on the way out, with a four-to-one hysteresis so no ship
 //! chatters. A body
 //! that has nothing to be kicked by (no secondary, no parent) has no events at all.
-use crate::bind::{bind, scalars, Binding, Bound, Entry, Kick};
+use crate::bind::{bind_surface, scalars, Binding, Bound, Entry, Kick};
 use crate::body::{BodyRec, Item, Kind, Segment, What};
 use crate::ctx::Ctx;
 use crate::ext::Ext;
@@ -78,9 +78,15 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
     let mut period = b.to_doll(match &b.entry.trajectory {
         Trajectory::Cycle(c) => c.period()?,
         Trajectory::Passage(p) => p.duration()?,
+        Trajectory::Plunge(p) => {
+            // The surface is an event, not a dynamical scale. Using time left
+            // until arrival makes every rebind shorten the step (a Zeno tail).
+            // Use the gravity and crossing scales, as for a turning orbit.
+            p.motion_period()?
+        },
     })?;
     if let (Some(edge), Some(tp)) = (edge, next_periapsis(b, b.event_time)?) {
-        if b.to_doll(b.entry.trajectory.key().periapsis)? < edge {
+        if b.entry.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r < edge)) {
             if let Some(out) = next_exit(b, tp, edge)? {
                 let inside = time_of(out - tp, b.clock_exp)?.scale(1)?;
                 if inside < period {
@@ -217,6 +223,7 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
             apex
         }
         Trajectory::Passage(p) => peri.add(b.to_doll(p.duration()?)?.scale(-1)?)?,
+        Trajectory::Plunge(_) => return Ok(None),
     };
     // A passage's last readable tick is one before its window closes: round the end inward.
     let end = if matches!(b.entry.trajectory, Trajectory::Passage(_)) { apex.fixed_floor(-(b.clock_exp as i32))? - 1 } else { apex.fixed_ceil(-(b.clock_exp as i32))? };
@@ -252,6 +259,7 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
     let after_s = time_of(after, b.clock_exp)?;
     let at = match &b.entry.trajectory {
+        Trajectory::Plunge(_) => return Ok(None),
         Trajectory::Cycle(c) => {
             let period = b.to_doll(c.period()?)?;
             let ahead = after_s.sub(peri)?;
@@ -276,18 +284,23 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
 /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
 /// tick of its fall.
 pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
+    // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+    if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
+        return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+    }
     // The engine's own reading (the turned tube plus its remainder), the one a kick or a crash checks the surface with.
     let inside = |t: Tick| -> Res<bool> { Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface) };
     if inside(after)? {
         return Ok(Some(after));
     }
-    if b.to_doll(b.entry.trajectory.key().periapsis)? >= surface {
+    if b.entry.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r >= surface)) {
         return Ok(None);
     }
     let Some(tp) = next_periapsis(b, after)? else { return Ok(None) };
     let whole = match &b.entry.trajectory {
         Trajectory::Cycle(c) => c.period()?,
         Trajectory::Passage(p) => p.duration()?,
+        Trajectory::Plunge(_) => return Ok(None), // returned above
     };
     let half = i64::try_from(b.to_doll(whole.scale(-1)?)?.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("half period"))?;
     let (mut lo, mut hi) = (after.max(tp.saturating_sub(half)), tp);
@@ -343,7 +356,7 @@ impl Work<'_, '_> {
     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
-        let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
+        let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
         let old = &self.rec.b;
         // The tube's length since the last binding is the body's clock reading (root units).
         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
@@ -362,6 +375,8 @@ impl Work<'_, '_> {
             kick: Kick::NONE,
         };
         self.new_entry = Some(bound.entry.clone());
+        self.rec.plan.retain(|item| item.what != What::Crash);
+        self.plan_terminal()?;
         Ok(bound)
     }
 
@@ -496,7 +511,20 @@ impl Work<'_, '_> {
 
     /// Plan the interval starting at `t`: the step (with hysteresis), its midpoint kick and boundary,
     /// capped so that it ends no later than the tube's exit from its doll, and the planned impact.
+    fn plan_terminal(&mut self) -> Res<()> {
+        if let Some(t) = self.rec.b.terminal_tick()? {
+            self.rec.plan.retain(|item| item.what != What::Crash);
+            insert(&mut self.rec.plan, Item { t, what: What::Crash });
+        }
+        Ok(())
+    }
+
     fn plan_interval(&mut self, t: Tick) -> Res<()> {
+        self.plan_interval_inner(t)?;
+        self.plan_terminal()
+    }
+
+    fn plan_interval_inner(&mut self, t: Tick) -> Res<()> {
         let d = self.rec.b.doll;
         if !self.has_forces(d) {
             // Nothing can kick this body: it is a pure tube, and costs nothing until observed.
@@ -539,8 +567,7 @@ impl Work<'_, '_> {
         insert(&mut self.rec.plan, Item { t: t + h / 2, what: What::Kick(0) });
         insert(&mut self.rec.plan, Item { t: t + h, what: What::Boundary });
         if self.rec.kind != Kind::Planet {
-            let key = self.rec.b.entry.trajectory.key();
-            if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
+            if self.rec.b.entry.trajectory.key().is_some_and(|key| self.rec.b.to_doll(key.periapsis).is_ok_and(|r| r < self.doll().surface)) {
                 // The ship is lost where the course meets the surface, not at the periapsis behind it.
                 if let Some(tc) = next_impact(&self.rec.b, self.doll().surface, t)?.filter(|&tc| tc <= t + h) {
                     insert(&mut self.rec.plan, Item { t: tc.max(t + 1), what: What::Crash });
@@ -611,7 +638,7 @@ impl Work<'_, '_> {
         // The synchronised state a reader's partial step starts from, until the first kick: this one.
         self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
         insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
-        Ok(())
+        self.plan_terminal()
     }
 
     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
@@ -678,13 +705,13 @@ impl Work<'_, '_> {
         insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
         insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
         if self.rec.kind != Kind::Planet {
-            let key = self.rec.b.entry.trajectory.key();
-            if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
+            if self.rec.b.entry.trajectory.key().is_some_and(|key| self.rec.b.to_doll(key.periapsis).is_ok_and(|r| r < self.doll().surface)) {
                 if let Some(tc) = next_impact(&self.rec.b, self.doll().surface, t)?.filter(|&tc| tc <= t + full) {
                     insert(&mut self.rec.plan, Item { t: tc.max(t + 1), what: What::Crash });
                 }
             }
         }
+        self.plan_terminal()?;
         Ok(Resolved::Kick)
     }
 
@@ -776,6 +803,11 @@ impl Work<'_, '_> {
 
     /// A planned impact: the ship is at or below the surface at the periapsis passage.
     fn crash(&mut self, t: Tick) -> Res<Resolved> {
+        if self.rec.b.terminal_tick()? == Some(t) {
+            self.rec.alive = false;
+            self.rec.plan.clear();
+            return Ok(Resolved::Lost);
+        }
         let st = self.rec.b.readout(t)?;
         let (x, _) = scalars(&st)?;
         if norm2(x)? <= self.doll().surface {

@@ -172,6 +172,7 @@ impl BodyStore for PlainBodies {
         let shape = match &r.b.entry.trajectory {
             emergent_space::binding::Trajectory::Cycle(o) => o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>() + o.shape().crossings().len() * size_of::<usize>(),
             emergent_space::binding::Trajectory::Passage(_) => 4096,
+            emergent_space::binding::Trajectory::Plunge(p) => p.retained_bytes(),
         };
         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
     }

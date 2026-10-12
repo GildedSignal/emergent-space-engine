@@ -12,8 +12,9 @@
 //!    at it (one event);
 //! 3. the HUD has the impact from the first frame, and its tick is the loss's.
 //! Families: the star's own radius (471,000 M: the plane's central body), an Earth-sized radius at a star's mass (4,313 M),
-//! and a compact star (6 M, where the fall is strongly relativistic: the control that the oracle can tell GR from Newton:
-//! there Newton's time is off by more than 1e-2 and the engine must not be).
+//! and a compact star (30 M, where the fall is relativistic: the control that the oracle can tell GR from Newton: there
+//! Newton's time is off by more than 1e-2 and the engine must not be; a tick is one M, so a smaller star's fall is only tens of
+//! ticks and the clock's own quantum would be the error).
 //! The gate is the worst case of each family, printed one line per case.
 use emergent_space::orbit::Scalar;
 use emergent_universe::num::{s, Tick};
@@ -74,7 +75,7 @@ fn quadrature(r0: f64, rs: f64) -> f64 {
 
 #[test]
 fn the_oracle_is_the_geodesic_and_not_newton() {
-    for (r0, rs) in [(12.0, 6.0), (30.0, 6.0), (9.4e5, 4.71e5), (4.71e8, 4.71e5), (8_626.0, 4_313.0)] {
+    for (r0, rs) in [(60.0, 30.0), (150.0, 30.0), (9.4e5, 4.71e5), (4.71e8, 4.71e5), (8_626.0, 4_313.0)] {
         let (t, tau) = exact(r0, rs);
         let q = quadrature(r0, rs);
         assert!(((t - q) / t).abs() < 1e-9, "r0 {r0}, R {rs}: closed form {t}, quadrature {q}");
@@ -83,8 +84,8 @@ fn the_oracle_is_the_geodesic_and_not_newton() {
     }
     // the compact star: the Newtonian fall time (the proper time, in this weak-field-free form `sqrt(r0³/8)(η + sin η)` is Newton's
     // too) is more than 1e-2 off the coordinate time: the control that the gate can tell GR from Newton
-    let (t, tau) = exact(12.0, 6.0);
-    assert!(((t - tau) / tau).abs() > 0.1, "the strong field must matter: t {t}, τ {tau}");
+    let (t, tau) = exact(60.0, 30.0);
+    assert!(((t - tau) / tau).abs() > 1e-2, "the strong field must matter: t {t}, τ {tau}");
 }
 
 fn world(surface: i64, r0: i64) -> Universe {
@@ -104,7 +105,7 @@ fn alive_at(surface: i64, r0: i64, t: Tick) -> bool {
 #[test]
 fn a_ship_at_rest_falls_to_the_surface_by_the_exact_infall() {
     let mut families = Vec::new();
-    for (name, surface) in [("star", 471_000i64), ("earth-sized", 4_313), ("compact", 6)] {
+    for (name, surface) in [("star", 471_000i64), ("earth-sized", 4_313), ("compact", 30)] {
         let (mut worst_t, mut worst_tau) = (0f64, 0f64);
         for ratio in [2i64, 5, 20, 100, 1000] {
             let r0 = surface * ratio;

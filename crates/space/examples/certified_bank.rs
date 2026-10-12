@@ -810,6 +810,7 @@ fn process(c: &Case, rows: &mut Rows) {
                             law = match rb.trajectory {
                                 Trajectory::Cycle(_) => "cycle".into(),
                                 Trajectory::Passage(_) => "passage".into(),
+                                Trajectory::Plunge(_) => "plunge".into(),
                             };
                             ok_pos = true;
                             // fit residual at the event, and the exact left inverse
@@ -824,7 +825,7 @@ fn process(c: &Case, rows: &mut Rows) {
                                 Err(_) => -1,
                             };
                             // turning points against the exact roots of R(u), polished in f64
-                            let key = rb.trajectory.key();
+                            let key = rb.trajectory.key().expect("turning inverse");
                             ecc = pow2(48) / key.k as f64 - 1.0;
                             let rp = sf(key.periapsis);
                             edge_ratio = edge_used / rp;
