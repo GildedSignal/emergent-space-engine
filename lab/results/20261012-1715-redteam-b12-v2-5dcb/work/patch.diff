@@ -1,0 +1,268 @@
+diff --git a/xtask/src/behave/mod.rs b/xtask/src/behave/mod.rs
+index bda077ec..cef6d818 100644
+--- a/xtask/src/behave/mod.rs
++++ b/xtask/src/behave/mod.rs
+@@ -32,6 +32,8 @@ pub mod cost;
+ pub mod fit;
+ pub mod handoff;
+ mod b12_stat;
++#[cfg(test)]
++mod rt_b12;
+ pub mod hill;
+ pub mod kerr;
+ pub mod laws;
+diff --git a/xtask/src/behave/rt_b12.rs b/xtask/src/behave/rt_b12.rs
+new file mode 100644
+index 00000000..ed01f00c
+--- /dev/null
++++ b/xtask/src/behave/rt_b12.rs
+@@ -0,0 +1,249 @@
++//! Red-team of B12 v2 (lab run 20261012-1715-redteam-b12-v2-5dcb), rebuilt verbatim from the
++//! run's record after its patch was lost: planted laws are laid on echo's corpus histories with
++//! `laws::lay`, judged by the candidate's own `b12_stat::arrow`/`pooled_score`, and the official
++//! `handoff::b12` gate is called for echo, planted-bounded, planted-compound and the break law.
++//! Every planted error is a per-time shift of the Jacobi constant; `arrow` reads |ΔC/C₀|, so only
++//! the shift-magnitude profile m(t) matters (relative units; laid as c₀·m(t)).
++#![cfg(test)]
++use super::b12_stat;
++use super::handoff::{coarse_times, kept, b12, ARROW_MAX, DETECTABLE_LEAK, PERIODS};
++use super::laws::{lay, Echo, Events, Fault, Planted};
++use super::restricted::JUPITER;
++use super::resonance::elements;
++use super::Law;
++use std::sync::LazyLock;
++
++/// Per ship: its scene, its echo states at the coarse times, a₀/sep and |C₀|.
++struct Rig {
++    scene: super::restricted::Restricted,
++    ship: [f64; 4],
++    states: Vec<[f64; 4]>,
++    a0_sep: f64,
++    c0: f64,
++    stable: bool,
++}
++
++fn rigs() -> &'static Vec<Rig> {
++    static R: LazyLock<Vec<Rig>> = LazyLock::new(|| {
++        let times = coarse_times(&JUPITER);
++        kept().iter().map(|k| {
++            let scene = super::restricted::Restricted {
++                planet_radius: if k.fate_safe { JUPITER.planet_radius } else { 0.0 },
++                ..JUPITER
++            };
++            let states = Echo.restricted(&scene, k.ship, &times).expect("echo states");
++            let a0_sep = elements(&scene, 0.0, &k.ship).0 / scene.sep;
++            Rig { scene, ship: k.ship, states, a0_sep, c0: scene.jacobi(0.0, &k.ship).abs(), stable: k.fate_safe }
++        }).collect()
++    });
++    &R
++}
++
++/// One table: build each ship's states from echo's, run the candidate's statistic, print the
++/// per-ship rows and the VERDICT line. Returns (pooled arrow, injected arrow, pass, worst, per-ship (n, worst z, median z)).
++fn table(name: &str, build: &dyn Fn(&Rig, &[f64]) -> Option<Vec<[f64; 4]>>) -> (f64, f64, bool, f64, (usize, f64, f64)) {
++    let times = coarse_times(&JUPITER);
++    println!("-- {name}");
++    let mut stats = Vec::new();
++    let mut injected = Vec::new();
++    let (mut injection_bad, mut unresolved, mut bad) = (0usize, 0usize, 0usize);
++    let mut worst = 0.0f64;
++    for (si, r) in rigs().iter().enumerate() {
++        let states = build(r, &times).expect("planted states");
++        let st = b12_stat::arrow(&r.scene, r.ship, &times, &states);
++        bad += st.bad as usize;
++        unresolved += (!st.bad && st.above_floor && st.n < 3) as usize;
++        worst = worst.max(st.worst);
++        println!(
++            "  ship {:2}: a0/sep {:.4}{} n {:4} z {:+7.3} leak {:+.2e} worst {:.2e} dmed {:.2e}",
++            si,
++            r.a0_sep, if r.stable { "S" } else { " " }, st.n, st.z, st.leak, st.worst, st.diff_med
++        );
++        match b12_stat::inject_leak(&r.scene, r.ship, &times, &states, DETECTABLE_LEAK) {
++            Some(s) => injected.push(b12_stat::arrow(&r.scene, r.ship, &times, &s)),
++            None => injection_bad += 1,
++        }
++        stats.push(st);
++    }
++    let arrow = b12_stat::pooled_score(&stats);
++    let injected_arrow = b12_stat::pooled_score(&injected);
++    let sens = if injected_arrow > ARROW_MAX && injection_bad == 0 { "OK" } else { "UNSUPPORTED" };
++    let fleet: Vec<&b12_stat::ShipStat> = stats.iter().filter(|s| s.above_floor && s.n >= 3 && !s.bad).collect();
++    let summary = if fleet.is_empty() {
++        (0usize, f64::NEG_INFINITY, 0.0)
++    } else {
++        let mut zs: Vec<f64> = fleet.iter().map(|s| s.z).collect();
++        zs.sort_by(f64::total_cmp);
++        (fleet.len(), zs.iter().cloned().fold(f64::NEG_INFINITY, f64::max), zs[zs.len() / 2])
++    };
++    let pass = arrow <= ARROW_MAX && worst <= 1e-4 && unresolved == 0 && bad == 0 && sens == "OK";
++    println!(
++        "  VERDICT {name}: pass={pass} arrow {arrow:+.3} (<= 5) injected {injected_arrow:+.3} worst {worst:.2e} (<= 1e-4) unresolved {unresolved} bad {bad} sens {sens} | per-ship z: n {} worst {:+.1} median {:+.1}",
++        summary.0, summary.1, summary.2
++    );
++    (arrow, injected_arrow, pass, worst, summary)
++}
++
++/// Lay a shift-magnitude profile m(t) (relative units) on echo's states.
++fn profile(m: impl Fn(usize, f64) -> f64 + 'static) -> impl Fn(&Rig, &[f64]) -> Option<Vec<[f64; 4]>> {
++    move |r: &Rig, times: &[f64]| {
++        let idx = rigs().iter().position(|x| x.ship == r.ship).unwrap();
++        let shifts: Vec<f64> = times.iter().map(|&t| r.c0 * m(idx, t)).collect();
++        Some(lay(&r.scene, r.states.clone(), &shifts))
++    }
++}
++
++fn horizon() -> f64 {
++    PERIODS as f64 * JUPITER.period()
++}
++
++/// The eight ships the half tests leak (a₀/sep rank): 0, 1, 6, 9, 11, 12, 14, 15.
++fn half_leak_side(i: usize) -> bool {
++    matches!(i, 0 | 1 | 6 | 9 | 11 | 12 | 14 | 15)
++}
++
++#[test]
++fn rt_blip_drives_the_arrow_negative() {
++    for w in [0.02, 0.05, 0.1] {
++        let h = horizon();
++        let (arrow, inj, pass, _, _) = table(
++            &format!("blip 1e-6 w={w}"),
++            &profile(move |_, t| {
++                let t0 = (1.0 - w) * 0.5 * h;
++                let span = w * h;
++                if t > t0 && t < t0 + span {
++                    1e-6 * (std::f64::consts::PI * (t - t0) / span).sin().powi(2)
++                } else {
++                    0.0
++                }
++            }),
++        );
++        assert!(!pass && arrow < 0.0 && inj <= ARROW_MAX, "blip w={w} must fail negative, sens UNSUPPORTED");
++    }
++}
++
++#[test]
++fn rt_bounded_family_near_the_cap() {
++    for (name, tau) in [("slab 9e-5 tau=5", 5.0 * JUPITER.period()), ("slab 9e-5 tau=100", 100.0 * JUPITER.period())] {
++        let (arrow, _, pass, _, _) = table(name, &profile(move |_, t| 9e-5 * (1.0 - (-t / tau).exp())));
++        assert!(!pass && arrow > ARROW_MAX, "{name} must fail");
++    }
++    for a in [1e-7, 1e-6, 1e-5, 9e-5] {
++        let h = horizon();
++        let (arrow, _, pass, _, _) = table(
++            &format!("hump {a:.0e}"),
++            &profile(move |_, t| a * (std::f64::consts::PI * t / h).sin().powi(2)),
++        );
++        assert!(!pass && arrow > ARROW_MAX, "hump {a:.0e} must fail");
++    }
++}
++
++#[test]
++fn rt_creep_scan_where_it_decides() {
++    let h = horizon();
++    for lam in [5e-16, 2e-15, 1e-14, 1e-13, 1e-12, 1e-11, 2e-10] {
++        let (arrow, _, pass, _, summary) = table(&format!("creep {lam:.0e}"), &profile(move |_, t| lam * t / h));
++        if lam <= 1e-13 {
++            assert!(pass && arrow == 0.0 && summary.0 == 0, "creep {lam:.0e} stays below the floor");
++        } else {
++            assert!(!pass && arrow > ARROW_MAX, "creep {lam:.0e} must fail");
++        }
++    }
++}
++
++#[test]
++fn rt_half_the_fleet_drifts() {
++    let h = horizon();
++    let blip = move |a: f64, w: f64, t: f64| {
++        let t0 = (1.0 - w) * 0.5 * h;
++        let span = w * h;
++        if t > t0 && t < t0 + span { a * (std::f64::consts::PI * (t - t0) / span).sin().powi(2) } else { 0.0 }
++    };
++    let cases: Vec<(String, Box<dyn Fn(usize, f64) -> f64>)> = vec![
++        ("half leak 2e-9 / hump 1e-6".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-9 * t / h } else { 1e-6 * (std::f64::consts::PI * t / h).sin().powi(2) })),
++        ("half leak 2e-9 / blip 1e-6".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-9 * t / h } else { blip(1e-6, 0.05, t) })),
++        ("half leak 2e-9 / blip 1e-8".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-9 * t / h } else { blip(1e-8, 0.05, t) })),
++        ("half leak 2e-9 / blip 1e-9".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-9 * t / h } else { blip(1e-9, 0.05, t) })),
++        ("half leak 2e-9 / blip 6e-10".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-9 * t / h } else { blip(6e-10, 0.05, t) })),
++        ("half leak 2e-10 / blip w=0.05".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-10 * t / h } else { blip(1e-6, 0.05, t) })),
++        ("half leak 2e-10 / blip w=0.1".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-10 * t / h } else { blip(1e-6, 0.1, t) })),
++        ("half leak 2e-10 / blip w=0.15".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-10 * t / h } else { blip(1e-6, 0.15, t) })),
++        ("half leak 2e-10 / blip w=0.2".into(), Box::new(move |i, t| if half_leak_side(i) { 2e-10 * t / h } else { blip(1e-6, 0.2, t) })),
++    ];
++    for (name, m) in cases {
++        let (arrow, _, pass, _, _) = table(&name, &profile(move |i, t| m(i, t)));
++        assert!(!pass && arrow > ARROW_MAX, "{name} must fail");
++    }
++}
++
++#[test]
++fn rt_minority_leaks_at_the_declared_rate() {
++    // The break: DETECTABLE_LEAK on the ships with a₀/sep > 1.13, a bounded blip on the rest.
++    let h = horizon();
++    let times = coarse_times(&JUPITER);
++    let (arrow, inj, pass, worst, summary) = table(
++        "minority leak 2e-10 / blip 1e-9",
++        &profile(move |i, t| {
++            if rigs()[i].a0_sep > 1.13 {
++                2e-10 * t / h
++            } else {
++                let (t0, span) = (0.475 * h, 0.05 * h);
++                if t > t0 && t < t0 + span { 1e-9 * (std::f64::consts::PI * (t - t0) / span).sin().powi(2) } else { 0.0 }
++            }
++        }),
++    );
++    assert!(pass && arrow <= ARROW_MAX && inj > ARROW_MAX && worst <= 1e-4, "the break law must PASS the pooled score");
++    assert_eq!(summary.0, 16, "every ship is above the floor");
++    // The same law through the official gate.
++    let law = Events {
++        binary: Box::new(Some),
++        restricted: Box::new(move |scene, ship, times| {
++            let i = rigs().iter().position(|r| r.ship == ship && r.scene.planet_radius == scene.planet_radius)?;
++            let idx = i;
++            let shifts: Vec<f64> = times.iter().map(|&t| rigs()[idx].c0 * if rigs()[idx].a0_sep > 1.13 { 2e-10 * t / h } else {
++                let (t0, span) = (0.475 * h, 0.05 * h);
++                if t > t0 && t < t0 + span { 1e-9 * (std::f64::consts::PI * (t - t0) / span).sin().powi(2) } else { 0.0 }
++            }).collect();
++            Some(lay(scene, Echo.restricted(scene, ship, times)?, &shifts))
++        }),
++    };
++    let g = b12(&law);
++    println!("  official gate: {} {}", if g.pass { "PASS" } else { "FAIL" }, g.detail);
++    assert!(g.pass, "the official gate passes the break law");
++    assert!(g.detail.contains(&format!("conditional arrow {arrow:.3}")), "probe arrow matches the official one");
++    let _ = times;
++}
++
++#[test]
++fn rt_quad_breaks_the_affine_assumption() {
++    for k in [4e-11, 4e-10, 4e-9] {
++        let times = coarse_times(&JUPITER);
++        let (arrow, _, pass, _, _) = table(
++            &format!("quad {k:.0e}"),
++            &profile(move |i, t| {
++                let r = &rigs()[i];
++                let j = times.iter().position(|&x| x == t).unwrap();
++                let a = elements(&r.scene, t, &r.states[j]).0;
++                let a0 = elements(&r.scene, 0.0, &r.states[0]).0;
++                k * ((a - a0) / r.scene.hill()).powi(2)
++            }),
++        );
++        assert!(!pass && arrow > ARROW_MAX, "quad {k:.0e} must fail");
++    }
++}
++
++#[test]
++fn rt_reproduce_the_receipt() {
++    for (name, law_pass) in [("echo", true), ("planted-bounded", true), ("planted-compound", false)] {
++        let law: Box<dyn Law> = match name {
++            "echo" => Box::new(Echo),
++            "planted-bounded" => Box::new(Planted(Fault::Bounded)),
++            _ => Box::new(Planted(Fault::Compound)),
++        };
++        let (_, _, pass, _, _) = table(name, &|r, times| law.restricted(&r.scene, r.ship, times));
++        let g = b12(&*law);
++        println!("  official gate: {} {}", if g.pass { "PASS" } else { "FAIL" }, g.detail);
++        assert_eq!(g.pass, law_pass, "{name}: official verdict");
++        assert_eq!(pass, law_pass, "{name}: probe agrees with the official gate");
++    }
++}

@@ -1,0 +1,4 @@
+Working...
+All deliverables in place, worktrees cleaned, main tree untouched. Run complete.
+
+**Claim (one sentence):** The B12 v2 statistic is broken as a fleet gate — its one-sided pooled rank score returns an official PASS for a law that leaks at the gate's own declared detectable rate (2e-10 Jacobi/horizon, fitted exactly by the gate's own discarded leak diagnostic) on 5 of 16 corpus ships while a bounded mid-horizon "blip" on the other 11 cancels the pool to arrow −18.8 with sensitivity falsely "RESOLVED" (+5.75), and separately its rank null is miscalibrated by orders of magnitude (a bounded law scores −32.7; the same control scores +0.8 on Linux vs −2.8 in the receipt on identical sha256-verified code, so near-cutoff verdicts are float-decided), with the evidence, per-ship distributions, predictions and a working `regen.sh` in `lab/results/20261012-1715-redteam-b12-v2-5dcb/`.

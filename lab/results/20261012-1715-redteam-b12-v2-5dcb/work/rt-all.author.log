@@ -1,0 +1,632 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling serde_core v1.0.229
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling syn v3.0.5
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.12
+   Compiling serde v1.0.229
+   Compiling cc v1.4.5
+   Compiling serde_derive v1.0.229
+   Compiling blake3 v1.8.7
+   Compiling num-integer v0.1.47
+   Compiling arrayvec v0.7.8
+   Compiling cfg-if v1.0.4
+   Compiling constant_time_eq v0.4.2
+   Compiling cpufeatures v0.3.1
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.151
+   Compiling libc v0.2.189
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling num-bigint v0.4.8
+   Compiling emergent-lattice v0.1.0 (/tmp/rtb12-regen-EyYc/crates/lattice)
+   Compiling emergent-space v0.1.0 (/tmp/rtb12-regen-EyYc/crates/space)
+   Compiling emergent-lattice-event v0.1.0 (/tmp/rtb12-regen-EyYc/crates/lattice-event)
+   Compiling emergent-engine v0.1.0 (/tmp/rtb12-regen-EyYc/crates/engine)
+   Compiling emergent-universe v0.1.0 (/tmp/rtb12-regen-EyYc/crates/universe)
+   Compiling emergent-allocator v0.1.0 (/tmp/rtb12-regen-EyYc/crates/allocator)
+   Compiling emergent-lattice-metal v0.1.0 (/tmp/rtb12-regen-EyYc/crates/lattice-metal)
+   Compiling xtask v0.1.0 (/tmp/rtb12-regen-EyYc/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 14s
+     Running unittests src/main.rs (target/release/deps/xtask-c5ad266a97d66839)
+
+running 7 tests
+test behave::rt_b12::rt_blip_drives_the_arrow_negative ... -- blip 1e-6 w=0.02
+  ship  0: a0/sep 1.1678  n  539 z   -0.726 leak -1.13e-8 worst 1.00e-6 dmed 1.94e-8
+  ship  1: a0/sep 1.1719  n  445 z   -5.562 leak +1.17e-8 worst 1.00e-6 dmed 1.93e-8
+  ship  2: a0/sep 0.8582  n  374 z   -5.684 leak -9.72e-8 worst 1.00e-6 dmed 8.23e-8
+  ship  3: a0/sep 0.8696  n  499 z   -3.633 leak +6.53e-8 worst 1.00e-6 dmed 3.24e-8
+  ship  4: a0/sep 0.8537  n  465 z   -1.692 leak -1.55e-7 worst 1.00e-6 dmed 7.29e-8
+  ship  5: a0/sep 0.8576  n  489 z   +4.974 leak -8.19e-8 worst 1.00e-6 dmed 1.80e-8
+  ship  6: a0/sep 1.1335  n  378 z   +0.882 leak +6.40e-9 worst 1.00e-6 dmed 3.00e-8
+  ship  7: a0/sep 0.8784  n  412 z   +1.081 leak +1.17e-7 worst 1.00e-6 dmed 7.71e-9
+  ship  8: a0/sep 0.8818  n   95 z   -0.704 leak +7.35e-7 worst 1.00e-6 dmed 3.61e-7
+  ship  9: a0/sep 1.1159  n  323 z   +2.284 leak -9.40e-8 worst 1.00e-6 dmed 1.44e-8
+  ship 10: a0/sep 0.8659  n  549 z  -13.905 leak +7.25e-9 worst 1.00e-6 dmed 9.84e-9
+  ship 11: a0/sep 1.1792  n  303 z   +8.625 leak -1.13e-7 worst 1.00e-6 dmed 1.48e-8
+  ship 12: a0/sep 1.1572  n  219 z   -7.080 leak -1.82e-6 worst 1.00e-6 dmed 1.94e-7
+  ship 13: a0/sep 0.8347  n  433 z   -5.529 leak -2.02e-8 worst 1.00e-6 dmed 5.58e-9
+  ship 14: a0/sep 1.1097  n  676 z   -4.493 leak +6.36e-8 worst 1.00e-6 dmed 2.42e-8
+  ship 15: a0/sep 1.1180S n  583 z   -4.277 leak -4.31e-8 worst 1.00e-6 dmed 1.09e-8
+  VERDICT blip 1e-6 w=0.02: pass=false arrow -10.616 (<= 5) injected -10.703 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens UNSUPPORTED | per-ship z: n 16 worst +8.6 median -1.7
+-- blip 1e-6 w=0.05
+  ship  0: a0/sep 1.1678  n  539 z   -5.430 leak -2.22e-8 worst 1.00e-6 dmed 6.68e-8
+  ship  1: a0/sep 1.1719  n  445 z   -7.120 leak -4.62e-8 worst 1.00e-6 dmed 3.93e-8
+  ship  2: a0/sep 0.8582  n  374 z   -8.057 leak -1.39e-7 worst 1.00e-6 dmed 1.47e-7
+  ship  3: a0/sep 0.8696  n  499 z  -14.103 leak +1.02e-7 worst 1.00e-6 dmed 2.03e-8
+  ship  4: a0/sep 0.8537  n  465 z   -6.552 leak -4.37e-7 worst 1.00e-6 dmed 1.88e-7
+  ship  5: a0/sep 0.8576  n  489 z   +0.958 leak -2.36e-7 worst 1.00e-6 dmed 1.04e-7
+  ship  6: a0/sep 1.1335  n  378 z   -8.828 leak +6.72e-8 worst 1.00e-6 dmed 1.24e-7
+  ship  7: a0/sep 0.8784  n  412 z  -13.086 leak +3.43e-7 worst 1.00e-6 dmed 2.29e-8
+  ship  8: a0/sep 0.8818  n   95 z   -0.537 leak +4.75e-7 worst 1.00e-6 dmed 2.17e-7
+  ship  9: a0/sep 1.1159  n  323 z   -1.115 leak -1.32e-7 worst 1.00e-6 dmed 3.65e-8
+  ship 10: a0/sep 0.8659  n  549 z  -22.635 leak -7.62e-9 worst 1.00e-6 dmed 8.00e-9
+  ship 11: a0/sep 1.1792  n  303 z   +6.935 leak -1.83e-7 worst 1.00e-6 dmed 6.81e-8
+  ship 12: a0/sep 1.1572  n  219 z   -7.134 leak -1.82e-6 worst 1.00e-6 dmed 3.11e-7
+  ship 13: a0/sep 0.8347  n  433 z  -10.627 leak -3.10e-9 worst 1.00e-6 dmed 2.42e-9
+  ship 14: a0/sep 1.1097  n  676 z  -10.546 leak +9.66e-8 worst 1.00e-6 dmed 5.68e-8
+  ship 15: a0/sep 1.1180S n  583 z  -11.337 leak -7.56e-8 worst 1.00e-6 dmed 3.10e-8
+  VERDICT blip 1e-6 w=0.05: pass=false arrow -32.742 (<= 5) injected -32.659 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens UNSUPPORTED | per-ship z: n 16 worst +6.9 median -7.1
+-- blip 1e-6 w=0.1
+  ship  0: a0/sep 1.1678  n  539 z   -8.723 leak +2.03e-8 worst 1.00e-6 dmed 8.78e-8
+  ship  1: a0/sep 1.1719  n  445 z   -0.361 leak -3.39e-7 worst 1.00e-6 dmed 1.13e-7
+  ship  2: a0/sep 0.8582  n  374 z   -2.701 leak -1.35e-7 worst 1.00e-6 dmed 1.00e-7
+  ship  3: a0/sep 0.8696  n  499 z  -13.168 leak +1.12e-7 worst 1.00e-6 dmed 4.92e-8
+  ship  4: a0/sep 0.8537  n  465 z   -5.081 leak -8.15e-7 worst 1.00e-6 dmed 2.97e-7
+  ship  5: a0/sep 0.8576  n  489 z   -4.090 leak -4.00e-7 worst 1.00e-6 dmed 2.00e-7
+  ship  6: a0/sep 1.1335  n  378 z  -12.654 leak -3.93e-9 worst 1.00e-6 dmed 5.40e-7
+  ship  7: a0/sep 0.8784  n  412 z  -13.188 leak +6.24e-7 worst 1.00e-6 dmed 9.85e-8
+  ship  8: a0/sep 0.8818  n   95 z   -1.244 leak +8.64e-7 worst 1.00e-6 dmed 1.93e-7
+  ship  9: a0/sep 1.1159  n  323 z  -12.982 leak -1.48e-7 worst 1.00e-6 dmed 5.33e-8
+  ship 10: a0/sep 0.8659  n  549 z  -10.313 leak -9.97e-8 worst 1.00e-6 dmed 5.02e-8
+  ship 11: a0/sep 1.1792  n  303 z   +0.864 leak -1.74e-7 worst 1.00e-6 dmed 3.26e-7
+  ship 12: a0/sep 1.1572  n  219 z   -7.560 leak -1.43e-6 worst 1.00e-6 dmed 3.65e-7
+  ship 13: a0/sep 0.8347  n  433 z  -12.033 leak +4.23e-8 worst 1.00e-6 dmed 1.97e-8
+  ship 14: a0/sep 1.1097  n  676 z  -15.212 leak +1.41e-7 worst 1.00e-6 dmed 1.81e-7
+  ship 15: a0/sep 1.1180S n  583 z  -13.352 leak -1.22e-7 worst 1.00e-6 dmed 6.50e-8
+  VERDICT blip 1e-6 w=0.1: pass=false arrow -34.371 (<= 5) injected -34.364 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens UNSUPPORTED | per-ship z: n 16 worst +0.9 median -8.7
+ok
+test behave::rt_b12::rt_bounded_family_near_the_cap ... -- slab 9e-5 tau=5
+  ship  0: a0/sep 1.1678  n  539 z  +11.383 leak -1.22e-5 worst 9.00e-5 dmed 1.86e-6
+  ship  1: a0/sep 1.1719  n  447 z   +4.358 leak -1.98e-5 worst 9.00e-5 dmed 5.54e-6
+  ship  2: a0/sep 0.8582  n  377 z   +7.122 leak -9.46e-6 worst 9.00e-5 dmed 6.50e-6
+  ship  3: a0/sep 0.8696  n  500 z   +9.518 leak -2.25e-5 worst 9.00e-5 dmed 3.44e-6
+  ship  4: a0/sep 0.8537  n  468 z  +13.673 leak -2.25e-5 worst 9.00e-5 dmed 2.80e-7
+  ship  5: a0/sep 0.8576  n  489 z   -3.299 leak -1.11e-5 worst 9.00e-5 dmed 3.38e-6
+  ship  6: a0/sep 1.1335  n  377 z   +9.316 leak -1.86e-5 worst 9.00e-5 dmed 6.68e-6
+  ship  7: a0/sep 0.8784  n  412 z  +14.545 leak -9.62e-8 worst 9.00e-5 dmed 1.49e-8
+  ship  8: a0/sep 0.8818  n   95 z   +1.309 leak -6.58e-9 worst 9.00e-5 dmed 1.42e-8
+  ship  9: a0/sep 1.1159  n  325 z   +7.929 leak -1.91e-5 worst 9.00e-5 dmed 7.25e-6
+  ship 10: a0/sep 0.8659  n  552 z   +4.872 leak -1.22e-5 worst 9.00e-5 dmed 1.67e-6
+  ship 11: a0/sep 1.1792  n  300 z   +8.890 leak -8.11e-6 worst 9.00e-5 dmed 8.54e-7
+  ship 12: a0/sep 1.1572  n  219 z   +2.134 leak -1.74e-5 worst 9.00e-5 dmed 1.73e-6
+  ship 13: a0/sep 0.8347  n  433 z   +6.986 leak -8.44e-6 worst 9.00e-5 dmed 9.70e-7
+  ship 14: a0/sep 1.1097  n  676 z   +4.986 leak -3.88e-7 worst 9.00e-5 dmed 1.11e-7
+  ship 15: a0/sep 1.1180S n  583 z   -3.111 leak -1.00e-5 worst 9.00e-5 dmed 1.55e-6
+  VERDICT slab 9e-5 tau=5: pass=false arrow +22.667 (<= 5) injected +22.673 worst 9.00e-5 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +14.5 median +7.1
+-- slab 9e-5 tau=100
+  ship  0: a0/sep 1.1678  n  539 z  +17.610 leak -7.18e-5 worst 7.78e-5 dmed 3.44e-5
+  ship  1: a0/sep 1.1719  n  446 z  +14.446 leak -8.48e-5 worst 7.78e-5 dmed 3.33e-5
+  ship  2: a0/sep 0.8582  n  376 z  +15.806 leak -7.53e-5 worst 7.78e-5 dmed 1.75e-5
+  ship  3: a0/sep 0.8696  n  499 z  +14.117 leak -7.42e-5 worst 7.78e-5 dmed 2.63e-5
+  ship  4: a0/sep 0.8537  n  467 z   -1.468 leak -8.17e-5 worst 7.78e-5 dmed 1.69e-5
+  ship  5: a0/sep 0.8576  n  489 z  +19.136 leak -7.74e-5 worst 7.78e-5 dmed 4.08e-5
+  ship  6: a0/sep 1.1335  n  378 z   +7.765 leak -7.91e-5 worst 7.78e-5 dmed 2.59e-5
+  ship  7: a0/sep 0.8784  n  412 z   -0.960 leak -5.77e-5 worst 7.78e-5 dmed 1.03e-5
+  ship  8: a0/sep 0.8818  n   95 z   +0.325 leak -3.66e-5 worst 7.78e-5 dmed 3.60e-6
+  ship  9: a0/sep 1.1159  n  324 z   +7.837 leak -7.50e-5 worst 7.78e-5 dmed 2.83e-5
+  ship 10: a0/sep 0.8659  n  551 z  +25.636 leak -7.65e-5 worst 7.78e-5 dmed 4.01e-5
+  ship 11: a0/sep 1.1792  n  302 z   -2.979 leak -6.45e-5 worst 7.78e-5 dmed 2.09e-5
+  ship 12: a0/sep 1.1572  n  219 z   -2.535 leak -9.00e-5 worst 7.78e-5 dmed 1.03e-5
+  ship 13: a0/sep 0.8347  n  433 z  +21.644 leak -6.79e-5 worst 7.78e-5 dmed 3.94e-5
+  ship 14: a0/sep 1.1097  n  676 z  +20.884 leak -6.57e-5 worst 7.78e-5 dmed 2.81e-5
+  ship 15: a0/sep 1.1180S n  583 z  +17.690 leak -7.98e-5 worst 7.78e-5 dmed 3.84e-5
+  VERDICT slab 9e-5 tau=100: pass=false arrow +50.969 (<= 5) injected +50.969 worst 7.78e-5 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.6 median +14.4
+-- hump 1e-7
+  ship  0: a0/sep 1.1678  n  539 z   -2.927 leak +8.79e-9 worst 1.00e-7 dmed 2.77e-8
+  ship  1: a0/sep 1.1719  n  445 z  +16.871 leak -8.22e-8 worst 1.00e-7 dmed 3.68e-8
+  ship  2: a0/sep 0.8582  n  374 z   -1.002 leak -8.98e-9 worst 1.00e-7 dmed 7.85e-9
+  ship  3: a0/sep 0.8696  n  499 z   -1.062 leak +8.64e-11 worst 1.00e-7 dmed 1.35e-8
+  ship  4: a0/sep 0.8537  n  465 z   +6.938 leak -8.42e-8 worst 1.00e-7 dmed 3.37e-8
+  ship  5: a0/sep 0.8576  n  489 z   +2.308 leak -4.27e-8 worst 1.00e-7 dmed 3.44e-8
+  ship  6: a0/sep 1.1335  n  378 z   -1.890 leak -2.73e-8 worst 1.00e-7 dmed 6.07e-8
+  ship  7: a0/sep 0.8784  n  412 z   +1.936 leak +1.00e-7 worst 1.00e-7 dmed 8.09e-9
+  ship  8: a0/sep 0.8818  n   95 z   +2.697 leak +2.80e-7 worst 1.00e-7 dmed 3.20e-8
+  ship  9: a0/sep 1.1159  n  323 z   +1.260 leak -1.48e-8 worst 1.00e-7 dmed 1.71e-8
+  ship 10: a0/sep 0.8659  n  549 z   -1.999 leak -2.30e-8 worst 1.00e-7 dmed 1.93e-8
+  ship 11: a0/sep 1.1792  n  303 z   +7.468 leak +4.57e-8 worst 1.00e-7 dmed 5.00e-8
+  ship 12: a0/sep 1.1572  n  219 z   -4.710 leak -1.48e-7 worst 1.00e-7 dmed 1.69e-8
+  ship 13: a0/sep 0.8347  n  433 z   -6.397 leak +2.76e-8 worst 1.00e-7 dmed 2.16e-8
+  ship 14: a0/sep 1.1097  n  676 z   +3.087 leak +3.25e-8 worst 1.00e-7 dmed 3.68e-8
+  ship 15: a0/sep 1.1180S n  583 z   +9.935 leak -5.18e-8 worst 1.00e-7 dmed 1.68e-8
+  VERDICT hump 1e-7: pass=false arrow +8.634 (<= 5) injected +8.644 worst 1.00e-7 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +16.9 median +1.9
+-- hump 1e-6
+  ship  0: a0/sep 1.1678  n  539 z   -2.929 leak +8.79e-8 worst 1.00e-6 dmed 2.78e-7
+  ship  1: a0/sep 1.1719  n  445 z  +16.867 leak -8.22e-7 worst 1.00e-6 dmed 3.68e-7
+  ship  2: a0/sep 0.8582  n  374 z   -0.997 leak -8.99e-8 worst 1.00e-6 dmed 7.85e-8
+  ship  3: a0/sep 0.8696  n  499 z   -1.075 leak +8.33e-10 worst 1.00e-6 dmed 1.35e-7
+  ship  4: a0/sep 0.8537  n  465 z   +7.129 leak -8.44e-7 worst 1.00e-6 dmed 3.33e-7
+  ship  5: a0/sep 0.8576  n  489 z   +2.315 leak -4.27e-7 worst 1.00e-6 dmed 3.44e-7
+  ship  6: a0/sep 1.1335  n  378 z   -1.887 leak -2.73e-7 worst 1.00e-6 dmed 6.07e-7
+  ship  7: a0/sep 0.8784  n  412 z   +1.943 leak +1.00e-6 worst 1.00e-6 dmed 7.96e-8
+  ship  8: a0/sep 0.8818  n   95 z   +2.697 leak +2.80e-6 worst 1.00e-6 dmed 3.20e-7
+  ship  9: a0/sep 1.1159  n  323 z   +1.260 leak -1.48e-7 worst 1.00e-6 dmed 1.71e-7
+  ship 10: a0/sep 0.8659  n  549 z   -2.000 leak -2.30e-7 worst 1.00e-6 dmed 1.93e-7
+  ship 11: a0/sep 1.1792  n  303 z   +7.438 leak +4.56e-7 worst 1.00e-6 dmed 5.00e-7
+  ship 12: a0/sep 1.1572  n  219 z   -4.701 leak -1.48e-6 worst 1.00e-6 dmed 1.69e-7
+  ship 13: a0/sep 0.8347  n  433 z   -6.397 leak +2.76e-7 worst 1.00e-6 dmed 2.16e-7
+  ship 14: a0/sep 1.1097  n  676 z   +2.987 leak +3.31e-7 worst 1.00e-6 dmed 3.66e-7
+  ship 15: a0/sep 1.1180S n  583 z   +9.871 leak -5.19e-7 worst 1.00e-6 dmed 1.71e-7
+  VERDICT hump 1e-6: pass=false arrow +8.611 (<= 5) injected +8.610 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +16.9 median +1.9
+-- hump 1e-5
+  ship  0: a0/sep 1.1678  n  539 z   -2.932 leak +8.80e-7 worst 1.00e-5 dmed 2.78e-6
+  ship  1: a0/sep 1.1719  n  447 z  +16.957 leak -8.22e-6 worst 1.00e-5 dmed 3.67e-6
+  ship  2: a0/sep 0.8582  n  374 z   -0.980 leak -9.02e-7 worst 1.00e-5 dmed 7.84e-7
+  ship  3: a0/sep 0.8696  n  499 z   -1.065 leak +7.06e-9 worst 1.00e-5 dmed 1.36e-6
+  ship  4: a0/sep 0.8537  n  465 z   +7.388 leak -8.41e-6 worst 1.00e-5 dmed 3.32e-6
+  ship  5: a0/sep 0.8576  n  489 z   +2.338 leak -4.26e-6 worst 1.00e-5 dmed 3.44e-6
+  ship  6: a0/sep 1.1335  n  378 z   -1.931 leak -2.73e-6 worst 1.00e-5 dmed 5.98e-6
+  ship  7: a0/sep 0.8784  n  413 z   +1.890 leak +1.00e-5 worst 1.00e-5 dmed 7.85e-7
+  ship  8: a0/sep 0.8818  n   95 z   +2.765 leak +2.85e-5 worst 1.00e-5 dmed 3.32e-6
+  ship  9: a0/sep 1.1159  n  323 z   +1.229 leak -1.48e-6 worst 1.00e-5 dmed 1.71e-6
+  ship 10: a0/sep 0.8659  n  549 z   -2.007 leak -2.30e-6 worst 1.00e-5 dmed 1.93e-6
+  ship 11: a0/sep 1.1792  n  303 z   +7.483 leak +4.52e-6 worst 1.00e-5 dmed 5.04e-6
+  ship 12: a0/sep 1.1572  n  219 z   -4.707 leak -1.49e-5 worst 1.00e-5 dmed 1.69e-6
+  ship 13: a0/sep 0.8347  n  433 z   -6.450 leak +2.76e-6 worst 1.00e-5 dmed 2.16e-6
+  ship 14: a0/sep 1.1097  n  676 z   +3.352 leak +3.25e-6 worst 1.00e-5 dmed 3.64e-6
+  ship 15: a0/sep 1.1180S n  583 z   +9.877 leak -5.19e-6 worst 1.00e-5 dmed 1.68e-6
+  VERDICT hump 1e-5: pass=false arrow +8.864 (<= 5) injected +8.863 worst 1.00e-5 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +17.0 median +1.9
+-- hump 9e-5
+  ship  0: a0/sep 1.1678  n  539 z   -2.567 leak +8.29e-6 worst 9.00e-5 dmed 2.49e-5
+  ship  1: a0/sep 1.1719  n  446 z  +16.807 leak -7.38e-5 worst 9.00e-5 dmed 3.31e-5
+  ship  2: a0/sep 0.8582  n  372 z   -0.770 leak -8.19e-6 worst 9.00e-5 dmed 7.18e-6
+  ship  3: a0/sep 0.8696  n  499 z   -0.580 leak -8.56e-7 worst 9.00e-5 dmed 1.08e-5
+  ship  4: a0/sep 0.8537  n  467 z   +6.632 leak -7.66e-5 worst 9.00e-5 dmed 2.80e-5
+  ship  5: a0/sep 0.8576  n  489 z   +1.928 leak -3.77e-5 worst 9.00e-5 dmed 3.06e-5
+  ship  6: a0/sep 1.1335  n  377 z   -2.120 leak -2.44e-5 worst 9.00e-5 dmed 5.39e-5
+  ship  7: a0/sep 0.8784  n  413 z   +2.175 leak +9.03e-5 worst 9.00e-5 dmed 7.12e-6
+  ship  8: a0/sep 0.8818  n   95 z   +2.553 leak +2.46e-4 worst 9.00e-5 dmed 2.85e-5
+  ship  9: a0/sep 1.1159  n  323 z   +1.134 leak -1.34e-5 worst 9.00e-5 dmed 1.54e-5
+  ship 10: a0/sep 0.8659  n  549 z   -2.121 leak -2.07e-5 worst 9.00e-5 dmed 1.76e-5
+  ship 11: a0/sep 1.1792  n  303 z   +7.190 leak +3.86e-5 worst 9.00e-5 dmed 4.69e-5
+  ship 12: a0/sep 1.1572  n  219 z   -4.775 leak -1.34e-4 worst 9.00e-5 dmed 1.57e-5
+  ship 13: a0/sep 0.8347  n  433 z   -6.435 leak +2.48e-5 worst 9.00e-5 dmed 1.98e-5
+  ship 14: a0/sep 1.1097  n  676 z   +3.369 leak +2.86e-5 worst 9.00e-5 dmed 3.28e-5
+  ship 15: a0/sep 1.1180S n  583 z   +9.902 leak -4.67e-5 worst 9.00e-5 dmed 1.53e-5
+  VERDICT hump 9e-5: pass=false arrow +8.762 (<= 5) injected +8.762 worst 9.00e-5 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +16.8 median +1.9
+ok
+test behave::rt_b12::rt_creep_scan_where_it_decides ... -- creep 5e-16
+  ship  0: a0/sep 1.1678  n  539 z   +5.211 leak -4.81e-16 worst 2.17e-15 dmed 2.89e-16
+  ship  1: a0/sep 1.1719  n  445 z   -0.098 leak -4.80e-16 worst 2.02e-15 dmed 2.41e-16
+  ship  2: a0/sep 0.8582  n  374 z   +2.574 leak -5.22e-16 worst 1.30e-15 dmed 3.32e-16
+  ship  3: a0/sep 0.8696  n  499 z   +1.997 leak -4.73e-16 worst 1.30e-15 dmed 2.63e-16
+  ship  4: a0/sep 0.8537  n  465 z   -0.732 leak -4.87e-16 worst 1.30e-15 dmed 2.56e-16
+  ship  5: a0/sep 0.8576  n  489 z   +3.567 leak -5.08e-16 worst 1.16e-15 dmed 2.76e-16
+  ship  6: a0/sep 1.1335  n  378 z   -1.020 leak -4.48e-16 worst 1.74e-15 dmed 2.24e-16
+  ship  7: a0/sep 0.8784  n  412 z   -1.450 leak -4.65e-16 worst 1.16e-15 dmed 2.88e-16
+  ship  8: a0/sep 0.8818  n   95 z   -0.768 leak +3.37e-16 worst 1.30e-15 dmed 2.56e-16
+  ship  9: a0/sep 1.1159  n  323 z   +1.663 leak -5.22e-16 worst 1.01e-15 dmed 2.89e-16
+  ship 10: a0/sep 0.8659  n  549 z   +4.680 leak -5.29e-16 worst 1.45e-15 dmed 2.91e-16
+  ship 11: a0/sep 1.1792  n  303 z   +0.032 leak -4.09e-16 worst 1.15e-15 dmed 2.12e-16
+  ship 12: a0/sep 1.1572  n  219 z   +0.009 leak -6.69e-16 worst 1.59e-15 dmed 1.88e-16
+  ship 13: a0/sep 0.8347  n  433 z   +2.038 leak -5.39e-16 worst 1.15e-15 dmed 3.21e-16
+  ship 14: a0/sep 1.1097  n  676 z   +3.902 leak -4.53e-16 worst 1.30e-15 dmed 2.78e-16
+  ship 15: a0/sep 1.1180S n  583 z   +3.665 leak -3.87e-16 worst 1.01e-15 dmed 2.71e-16
+  VERDICT creep 5e-16: pass=true arrow +0.000 (<= 5) injected +55.491 worst 2.17e-15 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 0 worst -inf median +0.0
+-- creep 2e-15
+  ship  0: a0/sep 1.1678  n  539 z  +13.989 leak -2.01e-15 worst 2.60e-15 dmed 9.82e-16
+  ship  1: a0/sep 1.1719  n  445 z   +8.471 leak -1.98e-15 worst 3.18e-15 dmed 7.02e-16
+  ship  2: a0/sep 0.8582  n  374 z  +15.472 leak -2.00e-15 worst 2.46e-15 dmed 7.84e-16
+  ship  3: a0/sep 0.8696  n  499 z  +10.587 leak -2.03e-15 worst 2.60e-15 dmed 7.33e-16
+  ship  4: a0/sep 0.8537  n  465 z   +0.871 leak -2.02e-15 worst 2.60e-15 dmed 5.04e-16
+  ship  5: a0/sep 0.8576  n  489 z  +15.774 leak -1.99e-15 worst 2.60e-15 dmed 9.74e-16
+  ship  6: a0/sep 1.1335  n  378 z   +3.858 leak -1.92e-15 worst 2.61e-15 dmed 7.43e-16
+  ship  7: a0/sep 0.8784  n  412 z   -4.258 leak -2.33e-15 worst 2.60e-15 dmed 4.48e-16
+  ship  8: a0/sep 0.8818  n   95 z   +1.219 leak -2.28e-15 worst 2.61e-15 dmed 3.94e-16
+  ship  9: a0/sep 1.1159  n  323 z   +5.550 leak -2.01e-15 worst 2.61e-15 dmed 8.26e-16
+  ship 10: a0/sep 0.8659  n  549 z  +21.075 leak -2.02e-15 worst 2.75e-15 dmed 1.14e-15
+  ship 11: a0/sep 1.1792  n  303 z   -1.796 leak -1.90e-15 worst 2.31e-15 dmed 4.47e-16
+  ship 12: a0/sep 1.1572  n  219 z   -1.006 leak -2.09e-15 worst 3.32e-15 dmed 3.04e-16
+  ship 13: a0/sep 0.8347  n  433 z  +13.634 leak -2.02e-15 worst 2.16e-15 dmed 1.20e-15
+  ship 14: a0/sep 1.1097  n  676 z  +17.253 leak -1.96e-15 worst 2.61e-15 dmed 8.55e-16
+  ship 15: a0/sep 1.1180S n  583 z  +13.956 leak -1.99e-15 worst 2.46e-15 dmed 8.57e-16
+  VERDICT creep 2e-15: pass=true arrow +0.000 (<= 5) injected +55.491 worst 3.32e-15 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 0 worst -inf median +0.0
+-- creep 1e-14
+  ship  0: a0/sep 1.1678  n  539 z  +16.603 leak -1.00e-14 worst 1.06e-14 dmed 4.99e-15
+  ship  1: a0/sep 1.1719  n  445 z  +12.336 leak -1.00e-14 worst 1.11e-14 dmed 3.67e-15
+  ship  2: a0/sep 0.8582  n  374 z  +16.446 leak -9.98e-15 worst 1.01e-14 dmed 3.16e-15
+  ship  3: a0/sep 0.8696  n  499 z  +12.240 leak -1.00e-14 worst 1.06e-14 dmed 4.18e-15
+  ship  4: a0/sep 0.8537  n  465 z   -0.988 leak -1.00e-14 worst 1.04e-14 dmed 2.35e-15
+  ship  5: a0/sep 0.8576  n  489 z  +22.939 leak -9.98e-15 worst 1.05e-14 dmed 4.89e-15
+  ship  6: a0/sep 1.1335  n  378 z   +4.864 leak -9.97e-15 worst 1.06e-14 dmed 3.61e-15
+  ship  7: a0/sep 0.8784  n  412 z   -2.689 leak -1.01e-14 worst 1.03e-14 dmed 1.39e-15
+  ship  8: a0/sep 0.8818  n   95 z   +1.103 leak -1.00e-14 worst 1.04e-14 dmed 9.69e-16
+  ship  9: a0/sep 1.1159  n  323 z   +7.958 leak -1.00e-14 worst 1.01e-14 dmed 3.93e-15
+  ship 10: a0/sep 0.8659  n  549 z  +29.861 leak -1.00e-14 worst 1.10e-14 dmed 5.49e-15
+  ship 11: a0/sep 1.1792  n  303 z   -2.090 leak -9.92e-15 worst 1.04e-14 dmed 2.76e-15
+  ship 12: a0/sep 1.1572  n  219 z   -3.895 leak -9.96e-15 worst 1.05e-14 dmed 9.16e-16
+  ship 13: a0/sep 0.8347  n  433 z  +19.615 leak -1.00e-14 worst 9.80e-15 dmed 6.34e-15
+  ship 14: a0/sep 1.1097  n  676 z  +24.601 leak -9.96e-15 worst 1.06e-14 dmed 4.30e-15
+  ship 15: a0/sep 1.1180S n  583 z  +16.488 leak -9.91e-15 worst 1.03e-14 dmed 4.73e-15
+  VERDICT creep 1e-14: pass=true arrow +0.000 (<= 5) injected +55.492 worst 1.11e-14 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 0 worst -inf median +0.0
+-- creep 1e-13
+  ship  0: a0/sep 1.1678  n  539 z  +17.638 leak -1.00e-13 worst 1.00e-13 dmed 4.99e-14
+  ship  1: a0/sep 1.1719  n  445 z  +13.170 leak -1.00e-13 worst 1.00e-13 dmed 3.74e-14
+  ship  2: a0/sep 0.8582  n  374 z  +16.287 leak -1.00e-13 worst 1.00e-13 dmed 2.87e-14
+  ship  3: a0/sep 0.8696  n  499 z  +12.377 leak -1.00e-13 worst 1.01e-13 dmed 4.32e-14
+  ship  4: a0/sep 0.8537  n  465 z   -1.268 leak -1.00e-13 worst 1.00e-13 dmed 2.32e-14
+  ship  5: a0/sep 0.8576  n  489 z  +24.174 leak -1.00e-13 worst 1.00e-13 dmed 4.89e-14
+  ship  6: a0/sep 1.1335  n  378 z   +5.501 leak -9.99e-14 worst 1.00e-13 dmed 3.50e-14
+  ship  7: a0/sep 0.8784  n  412 z   -1.152 leak -1.00e-13 worst 1.00e-13 dmed 1.51e-14
+  ship  8: a0/sep 0.8818  n   95 z   +0.106 leak -9.99e-14 worst 9.99e-14 dmed 9.48e-15
+  ship  9: a0/sep 1.1159  n  323 z   +8.444 leak -1.00e-13 worst 1.00e-13 dmed 3.91e-14
+  ship 10: a0/sep 0.8659  n  549 z  +32.200 leak -1.00e-13 worst 1.00e-13 dmed 5.39e-14
+  ship 11: a0/sep 1.1792  n  303 z   -1.744 leak -9.99e-14 worst 1.00e-13 dmed 2.90e-14
+  ship 12: a0/sep 1.1572  n  219 z   -3.690 leak -1.00e-13 worst 1.00e-13 dmed 7.82e-15
+  ship 13: a0/sep 0.8347  n  433 z  +21.311 leak -1.00e-13 worst 9.97e-14 dmed 6.38e-14
+  ship 14: a0/sep 1.1097  n  676 z  +25.470 leak -1.00e-13 worst 1.00e-13 dmed 4.33e-14
+  ship 15: a0/sep 1.1180S n  583 z  +17.184 leak -1.00e-13 worst 1.00e-13 dmed 4.99e-14
+  VERDICT creep 1e-13: pass=true arrow +0.000 (<= 5) injected +55.492 worst 1.01e-13 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 0 worst -inf median +0.0
+-- creep 1e-12
+  ship  0: a0/sep 1.1678  n  539 z  +17.745 leak -1.00e-12 worst 1.00e-12 dmed 4.98e-13
+  ship  1: a0/sep 1.1719  n  445 z  +13.217 leak -1.00e-12 worst 1.00e-12 dmed 3.74e-13
+  ship  2: a0/sep 0.8582  n  374 z  +16.246 leak -1.00e-12 worst 9.99e-13 dmed 2.88e-13
+  ship  3: a0/sep 0.8696  n  499 z  +12.382 leak -1.00e-12 worst 1.00e-12 dmed 4.32e-13
+  ship  4: a0/sep 0.8537  n  465 z   -1.266 leak -1.00e-12 worst 1.00e-12 dmed 2.33e-13
+  ship  5: a0/sep 0.8576  n  489 z  +24.243 leak -1.00e-12 worst 1.00e-12 dmed 4.90e-13
+  ship  6: a0/sep 1.1335  n  378 z   +5.537 leak -1.00e-12 worst 1.00e-12 dmed 3.51e-13
+  ship  7: a0/sep 0.8784  n  412 z   -0.755 leak -1.00e-12 worst 1.00e-12 dmed 1.54e-13
+  ship  8: a0/sep 0.8818  n   95 z   +0.106 leak -9.99e-13 worst 1.00e-12 dmed 9.74e-14
+  ship  9: a0/sep 1.1159  n  323 z   +8.453 leak -1.00e-12 worst 1.00e-12 dmed 3.91e-13
+  ship 10: a0/sep 0.8659  n  549 z  +32.341 leak -1.00e-12 worst 1.00e-12 dmed 5.40e-13
+  ship 11: a0/sep 1.1792  n  303 z   -1.793 leak -1.00e-12 worst 1.00e-12 dmed 2.92e-13
+  ship 12: a0/sep 1.1572  n  219 z   -3.723 leak -1.00e-12 worst 1.00e-12 dmed 7.66e-14
+  ship 13: a0/sep 0.8347  n  433 z  +21.311 leak -1.00e-12 worst 1.00e-12 dmed 6.38e-13
+  ship 14: a0/sep 1.1097  n  676 z  +25.470 leak -1.00e-12 worst 1.00e-12 dmed 4.35e-13
+  ship 15: a0/sep 1.1180S n  583 z  +17.263 leak -1.00e-12 worst 1.00e-12 dmed 5.04e-13
+  VERDICT creep 1e-12: pass=false arrow +39.084 (<= 5) injected +55.492 worst 1.00e-12 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 9 worst +32.3 median +8.5
+-- creep 1e-11
+  ship  0: a0/sep 1.1678  n  539 z  +17.740 leak -1.00e-11 worst 1.00e-11 dmed 4.98e-12
+  ship  1: a0/sep 1.1719  n  445 z  +13.228 leak -1.00e-11 worst 1.00e-11 dmed 3.74e-12
+  ship  2: a0/sep 0.8582  n  374 z  +16.243 leak -1.00e-11 worst 1.00e-11 dmed 2.89e-12
+  ship  3: a0/sep 0.8696  n  499 z  +12.386 leak -1.00e-11 worst 1.00e-11 dmed 4.32e-12
+  ship  4: a0/sep 0.8537  n  465 z   -1.261 leak -1.00e-11 worst 1.00e-11 dmed 2.33e-12
+  ship  5: a0/sep 0.8576  n  489 z  +24.256 leak -1.00e-11 worst 1.00e-11 dmed 4.89e-12
+  ship  6: a0/sep 1.1335  n  378 z   +5.547 leak -1.00e-11 worst 1.00e-11 dmed 3.50e-12
+  ship  7: a0/sep 0.8784  n  412 z   -0.749 leak -1.00e-11 worst 1.00e-11 dmed 1.55e-12
+  ship  8: a0/sep 0.8818  n   95 z   +0.138 leak -1.00e-11 worst 1.00e-11 dmed 9.77e-13
+  ship  9: a0/sep 1.1159  n  323 z   +8.455 leak -1.00e-11 worst 1.00e-11 dmed 3.91e-12
+  ship 10: a0/sep 0.8659  n  549 z  +32.340 leak -1.00e-11 worst 1.00e-11 dmed 5.40e-12
+  ship 11: a0/sep 1.1792  n  303 z   -1.796 leak -1.00e-11 worst 1.00e-11 dmed 2.93e-12
+  ship 12: a0/sep 1.1572  n  219 z   -3.731 leak -1.00e-11 worst 1.00e-11 dmed 7.64e-13
+  ship 13: a0/sep 0.8347  n  433 z  +21.311 leak -1.00e-11 worst 1.00e-11 dmed 6.37e-12
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -1.00e-11 worst 1.00e-11 dmed 4.35e-12
+  ship 15: a0/sep 1.1180S n  583 z  +17.261 leak -1.00e-11 worst 1.00e-11 dmed 5.04e-12
+  VERDICT creep 1e-11: pass=false arrow +55.490 (<= 5) injected +55.492 worst 1.00e-11 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +32.3 median +13.2
+-- creep 2e-10
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-10 worst 2.00e-10 dmed 9.96e-11
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-10 worst 2.00e-10 dmed 7.47e-11
+  ship  2: a0/sep 0.8582  n  374 z  +16.245 leak -2.00e-10 worst 2.00e-10 dmed 5.78e-11
+  ship  3: a0/sep 0.8696  n  499 z  +12.384 leak -2.00e-10 worst 2.00e-10 dmed 8.65e-11
+  ship  4: a0/sep 0.8537  n  465 z   -1.261 leak -2.00e-10 worst 2.00e-10 dmed 4.66e-11
+  ship  5: a0/sep 0.8576  n  489 z  +24.255 leak -2.00e-10 worst 2.00e-10 dmed 9.79e-11
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-10 worst 2.00e-10 dmed 7.00e-11
+  ship  7: a0/sep 0.8784  n  412 z   -0.748 leak -2.00e-10 worst 2.00e-10 dmed 3.10e-11
+  ship  8: a0/sep 0.8818  n   95 z   +0.125 leak -2.00e-10 worst 2.00e-10 dmed 1.95e-11
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-10 worst 2.00e-10 dmed 7.82e-11
+  ship 10: a0/sep 0.8659  n  549 z  +32.340 leak -2.00e-10 worst 2.00e-10 dmed 1.08e-10
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-10 worst 2.00e-10 dmed 5.85e-11
+  ship 12: a0/sep 1.1572  n  219 z   -3.738 leak -2.00e-10 worst 2.00e-10 dmed 1.53e-11
+  ship 13: a0/sep 0.8347  n  433 z  +21.313 leak -2.00e-10 worst 2.00e-10 dmed 1.27e-10
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-10 worst 2.00e-10 dmed 8.70e-11
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-10 worst 2.00e-10 dmed 1.01e-10
+  VERDICT creep 2e-10: pass=false arrow +55.492 (<= 5) injected +55.492 worst 2.00e-10 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +32.3 median +13.2
+ok
+test behave::rt_b12::rt_half_the_fleet_drifts ... -- half leak 2e-9 / hump 1e-6
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-9 worst 2.00e-9 dmed 9.96e-10
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-9 worst 2.00e-9 dmed 7.47e-10
+  ship  2: a0/sep 0.8582  n  374 z   -0.997 leak -8.99e-8 worst 1.00e-6 dmed 7.85e-8
+  ship  3: a0/sep 0.8696  n  499 z   -1.075 leak +8.33e-10 worst 1.00e-6 dmed 1.35e-7
+  ship  4: a0/sep 0.8537  n  465 z   +7.129 leak -8.44e-7 worst 1.00e-6 dmed 3.33e-7
+  ship  5: a0/sep 0.8576  n  489 z   +2.315 leak -4.27e-7 worst 1.00e-6 dmed 3.44e-7
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-9 worst 2.00e-9 dmed 7.00e-10
+  ship  7: a0/sep 0.8784  n  412 z   +1.943 leak +1.00e-6 worst 1.00e-6 dmed 7.96e-8
+  ship  8: a0/sep 0.8818  n   95 z   +2.697 leak +2.80e-6 worst 1.00e-6 dmed 3.20e-7
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-9 worst 2.00e-9 dmed 7.82e-10
+  ship 10: a0/sep 0.8659  n  549 z   -2.000 leak -2.30e-7 worst 1.00e-6 dmed 1.93e-7
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-9 worst 2.00e-9 dmed 5.85e-10
+  ship 12: a0/sep 1.1572  n  219 z   -3.736 leak -2.00e-9 worst 2.00e-9 dmed 1.53e-10
+  ship 13: a0/sep 0.8347  n  433 z   -6.397 leak +2.76e-7 worst 1.00e-6 dmed 2.16e-7
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-9 worst 2.00e-9 dmed 8.70e-10
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-9 worst 2.00e-9 dmed 1.01e-9
+  VERDICT half leak 2e-9 / hump 1e-6: pass=false arrow +28.039 (<= 5) injected +28.043 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median +2.7
+-- half leak 2e-9 / blip 1e-6
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-9 worst 2.00e-9 dmed 9.96e-10
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-9 worst 2.00e-9 dmed 7.47e-10
+  ship  2: a0/sep 0.8582  n  374 z   -8.057 leak -1.39e-7 worst 1.00e-6 dmed 1.47e-7
+  ship  3: a0/sep 0.8696  n  499 z  -14.103 leak +1.02e-7 worst 1.00e-6 dmed 2.03e-8
+  ship  4: a0/sep 0.8537  n  465 z   -6.552 leak -4.37e-7 worst 1.00e-6 dmed 1.88e-7
+  ship  5: a0/sep 0.8576  n  489 z   +0.958 leak -2.36e-7 worst 1.00e-6 dmed 1.04e-7
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-9 worst 2.00e-9 dmed 7.00e-10
+  ship  7: a0/sep 0.8784  n  412 z  -13.086 leak +3.43e-7 worst 1.00e-6 dmed 2.29e-8
+  ship  8: a0/sep 0.8818  n   95 z   -0.537 leak +4.75e-7 worst 1.00e-6 dmed 2.17e-7
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-9 worst 2.00e-9 dmed 7.82e-10
+  ship 10: a0/sep 0.8659  n  549 z  -22.635 leak -7.62e-9 worst 1.00e-6 dmed 8.00e-9
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-9 worst 2.00e-9 dmed 5.85e-10
+  ship 12: a0/sep 1.1572  n  219 z   -3.736 leak -2.00e-9 worst 2.00e-9 dmed 1.53e-10
+  ship 13: a0/sep 0.8347  n  433 z  -10.627 leak -3.10e-9 worst 1.00e-6 dmed 2.42e-9
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-9 worst 2.00e-9 dmed 8.70e-10
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-9 worst 2.00e-9 dmed 1.01e-9
+  VERDICT half leak 2e-9 / blip 1e-6: pass=false arrow +8.463 (<= 5) injected +8.543 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median -0.5
+-- half leak 2e-9 / blip 1e-8
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-9 worst 2.00e-9 dmed 9.96e-10
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-9 worst 2.00e-9 dmed 7.47e-10
+  ship  2: a0/sep 0.8582  n  374 z   -8.060 leak -1.39e-9 worst 1.00e-8 dmed 1.47e-9
+  ship  3: a0/sep 0.8696  n  499 z  -14.092 leak +1.02e-9 worst 1.00e-8 dmed 2.03e-10
+  ship  4: a0/sep 0.8537  n  465 z   -6.552 leak -4.37e-9 worst 1.00e-8 dmed 1.88e-9
+  ship  5: a0/sep 0.8576  n  489 z   +0.958 leak -2.36e-9 worst 1.00e-8 dmed 1.04e-9
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-9 worst 2.00e-9 dmed 7.00e-10
+  ship  7: a0/sep 0.8784  n  412 z  -13.141 leak +3.43e-9 worst 1.00e-8 dmed 2.30e-10
+  ship  8: a0/sep 0.8818  n   95 z   -0.537 leak +4.75e-9 worst 1.00e-8 dmed 2.18e-9
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-9 worst 2.00e-9 dmed 7.82e-10
+  ship 10: a0/sep 0.8659  n  549 z  -22.636 leak -7.62e-11 worst 1.00e-8 dmed 8.00e-11
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-9 worst 2.00e-9 dmed 5.85e-10
+  ship 12: a0/sep 1.1572  n  219 z   -3.736 leak -2.00e-9 worst 2.00e-9 dmed 1.53e-10
+  ship 13: a0/sep 0.8347  n  433 z  -10.628 leak -3.10e-11 worst 1.00e-8 dmed 2.42e-11
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-9 worst 2.00e-9 dmed 8.70e-10
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-9 worst 2.00e-9 dmed 1.01e-9
+  VERDICT half leak 2e-9 / blip 1e-8: pass=false arrow +8.454 (<= 5) injected +10.440 worst 1.00e-8 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median -0.5
+-- half leak 2e-9 / blip 1e-9
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-9 worst 2.00e-9 dmed 9.96e-10
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-9 worst 2.00e-9 dmed 7.47e-10
+  ship  2: a0/sep 0.8582  n  374 z   -8.060 leak -1.39e-10 worst 1.00e-9 dmed 1.47e-10
+  ship  3: a0/sep 0.8696  n  499 z  -14.091 leak +1.02e-10 worst 1.00e-9 dmed 2.03e-11
+  ship  4: a0/sep 0.8537  n  465 z   -6.552 leak -4.37e-10 worst 1.00e-9 dmed 1.88e-10
+  ship  5: a0/sep 0.8576  n  489 z   +0.958 leak -2.36e-10 worst 1.00e-9 dmed 1.04e-10
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-9 worst 2.00e-9 dmed 7.00e-10
+  ship  7: a0/sep 0.8784  n  412 z  -13.140 leak +3.43e-10 worst 1.00e-9 dmed 2.30e-11
+  ship  8: a0/sep 0.8818  n   95 z   -0.537 leak +4.75e-10 worst 1.00e-9 dmed 2.18e-10
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-9 worst 2.00e-9 dmed 7.82e-10
+  ship 10: a0/sep 0.8659  n  549 z  -22.635 leak -7.62e-12 worst 1.00e-9 dmed 8.00e-12
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-9 worst 2.00e-9 dmed 5.85e-10
+  ship 12: a0/sep 1.1572  n  219 z   -3.736 leak -2.00e-9 worst 2.00e-9 dmed 1.53e-10
+  ship 13: a0/sep 0.8347  n  433 z  -10.628 leak -3.10e-12 worst 1.00e-9 dmed 2.42e-12
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-9 worst 2.00e-9 dmed 8.70e-10
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-9 worst 2.00e-9 dmed 1.01e-9
+  VERDICT half leak 2e-9 / blip 1e-9: pass=false arrow +8.454 (<= 5) injected +27.570 worst 2.00e-9 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median -0.5
+-- half leak 2e-9 / blip 6e-10
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-9 worst 2.00e-9 dmed 9.96e-10
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-9 worst 2.00e-9 dmed 7.47e-10
+  ship  2: a0/sep 0.8582  n  374 z   -8.060 leak -8.34e-11 worst 6.00e-10 dmed 8.81e-11
+  ship  3: a0/sep 0.8696  n  499 z  -14.091 leak +6.13e-11 worst 6.00e-10 dmed 1.22e-11
+  ship  4: a0/sep 0.8537  n  465 z   -6.552 leak -2.62e-10 worst 6.00e-10 dmed 1.13e-10
+  ship  5: a0/sep 0.8576  n  489 z   +0.958 leak -1.41e-10 worst 6.00e-10 dmed 6.23e-11
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-9 worst 2.00e-9 dmed 7.00e-10
+  ship  7: a0/sep 0.8784  n  412 z  -13.140 leak +2.06e-10 worst 6.00e-10 dmed 1.38e-11
+  ship  8: a0/sep 0.8818  n   95 z   -0.537 leak +2.85e-10 worst 6.00e-10 dmed 1.31e-10
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-9 worst 2.00e-9 dmed 7.82e-10
+  ship 10: a0/sep 0.8659  n  549 z  -22.636 leak -4.57e-12 worst 6.00e-10 dmed 4.80e-12
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-9 worst 2.00e-9 dmed 5.85e-10
+  ship 12: a0/sep 1.1572  n  219 z   -3.736 leak -2.00e-9 worst 2.00e-9 dmed 1.53e-10
+  ship 13: a0/sep 0.8347  n  433 z  -10.626 leak -1.86e-12 worst 6.00e-10 dmed 1.45e-12
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-9 worst 2.00e-9 dmed 8.70e-10
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-9 worst 2.00e-9 dmed 1.01e-9
+  VERDICT half leak 2e-9 / blip 6e-10: pass=false arrow +8.454 (<= 5) injected +32.202 worst 2.00e-9 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median -0.5
+-- half leak 2e-10 / blip w=0.05
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-10 worst 2.00e-10 dmed 9.96e-11
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-10 worst 2.00e-10 dmed 7.47e-11
+  ship  2: a0/sep 0.8582  n  374 z   -8.057 leak -1.39e-7 worst 1.00e-6 dmed 1.47e-7
+  ship  3: a0/sep 0.8696  n  499 z  -14.103 leak +1.02e-7 worst 1.00e-6 dmed 2.03e-8
+  ship  4: a0/sep 0.8537  n  465 z   -6.552 leak -4.37e-7 worst 1.00e-6 dmed 1.88e-7
+  ship  5: a0/sep 0.8576  n  489 z   +0.958 leak -2.36e-7 worst 1.00e-6 dmed 1.04e-7
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-10 worst 2.00e-10 dmed 7.00e-11
+  ship  7: a0/sep 0.8784  n  412 z  -13.086 leak +3.43e-7 worst 1.00e-6 dmed 2.29e-8
+  ship  8: a0/sep 0.8818  n   95 z   -0.537 leak +4.75e-7 worst 1.00e-6 dmed 2.17e-7
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-10 worst 2.00e-10 dmed 7.82e-11
+  ship 10: a0/sep 0.8659  n  549 z  -22.635 leak -7.62e-9 worst 1.00e-6 dmed 8.00e-9
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-10 worst 2.00e-10 dmed 5.85e-11
+  ship 12: a0/sep 1.1572  n  219 z   -3.738 leak -2.00e-10 worst 2.00e-10 dmed 1.53e-11
+  ship 13: a0/sep 0.8347  n  433 z  -10.627 leak -3.10e-9 worst 1.00e-6 dmed 2.42e-9
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-10 worst 2.00e-10 dmed 8.70e-11
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-10 worst 2.00e-10 dmed 1.01e-10
+  VERDICT half leak 2e-10 / blip w=0.05: pass=false arrow +8.463 (<= 5) injected +8.543 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median -0.5
+-- half leak 2e-10 / blip w=0.1
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-10 worst 2.00e-10 dmed 9.96e-11
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-10 worst 2.00e-10 dmed 7.47e-11
+  ship  2: a0/sep 0.8582  n  374 z   -2.701 leak -1.35e-7 worst 1.00e-6 dmed 1.00e-7
+  ship  3: a0/sep 0.8696  n  499 z  -13.168 leak +1.12e-7 worst 1.00e-6 dmed 4.92e-8
+  ship  4: a0/sep 0.8537  n  465 z   -5.081 leak -8.15e-7 worst 1.00e-6 dmed 2.97e-7
+  ship  5: a0/sep 0.8576  n  489 z   -4.090 leak -4.00e-7 worst 1.00e-6 dmed 2.00e-7
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-10 worst 2.00e-10 dmed 7.00e-11
+  ship  7: a0/sep 0.8784  n  412 z  -13.188 leak +6.24e-7 worst 1.00e-6 dmed 9.85e-8
+  ship  8: a0/sep 0.8818  n   95 z   -1.244 leak +8.64e-7 worst 1.00e-6 dmed 1.93e-7
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-10 worst 2.00e-10 dmed 7.82e-11
+  ship 10: a0/sep 0.8659  n  549 z  -10.313 leak -9.97e-8 worst 1.00e-6 dmed 5.02e-8
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-10 worst 2.00e-10 dmed 5.85e-11
+  ship 12: a0/sep 1.1572  n  219 z   -3.738 leak -2.00e-10 worst 2.00e-10 dmed 1.53e-11
+  ship 13: a0/sep 0.8347  n  433 z  -12.033 leak +4.23e-8 worst 1.00e-6 dmed 1.97e-8
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-10 worst 2.00e-10 dmed 8.70e-11
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-10 worst 2.00e-10 dmed 1.01e-10
+  VERDICT half leak 2e-10 / blip w=0.1: pass=false arrow +12.317 (<= 5) injected +12.318 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median -1.8
+-- half leak 2e-10 / blip w=0.15
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-10 worst 2.00e-10 dmed 9.96e-11
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-10 worst 2.00e-10 dmed 7.47e-11
+  ship  2: a0/sep 0.8582  n  374 z   -2.117 leak -1.16e-7 worst 1.00e-6 dmed 8.08e-8
+  ship  3: a0/sep 0.8696  n  499 z  -10.560 leak +5.61e-8 worst 1.00e-6 dmed 1.28e-7
+  ship  4: a0/sep 0.8537  n  465 z   -2.934 leak -9.95e-7 worst 1.00e-6 dmed 3.81e-7
+  ship  5: a0/sep 0.8576  n  489 z   -2.410 leak -4.95e-7 worst 1.00e-6 dmed 2.54e-7
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-10 worst 2.00e-10 dmed 7.00e-11
+  ship  7: a0/sep 0.8784  n  412 z   -8.263 leak +9.01e-7 worst 1.00e-6 dmed 1.26e-7
+  ship  8: a0/sep 0.8818  n   95 z   -1.321 leak +1.70e-6 worst 1.00e-6 dmed 2.48e-7
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-10 worst 2.00e-10 dmed 7.82e-11
+  ship 10: a0/sep 0.8659  n  549 z   -6.437 leak -1.75e-7 worst 1.00e-6 dmed 8.59e-8
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-10 worst 2.00e-10 dmed 5.85e-11
+  ship 12: a0/sep 1.1572  n  219 z   -3.738 leak -2.00e-10 worst 2.00e-10 dmed 1.53e-11
+  ship 13: a0/sep 0.8347  n  433 z  -17.774 leak +9.94e-8 worst 1.00e-6 dmed 8.10e-8
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-10 worst 2.00e-10 dmed 8.70e-11
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-10 worst 2.00e-10 dmed 1.01e-10
+  VERDICT half leak 2e-10 / blip w=0.15: pass=false arrow +15.132 (<= 5) injected +15.138 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median -1.8
+-- half leak 2e-10 / blip w=0.2
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-10 worst 2.00e-10 dmed 9.96e-11
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-10 worst 2.00e-10 dmed 7.47e-11
+  ship  2: a0/sep 0.8582  n  374 z   -2.058 leak -1.06e-7 worst 1.00e-6 dmed 8.92e-8
+  ship  3: a0/sep 0.8696  n  499 z   -7.873 leak +1.74e-8 worst 1.00e-6 dmed 1.41e-7
+  ship  4: a0/sep 0.8537  n  465 z   +1.087 leak -9.87e-7 worst 1.00e-6 dmed 3.97e-7
+  ship  5: a0/sep 0.8576  n  489 z   +0.301 leak -5.05e-7 worst 1.00e-6 dmed 2.92e-7
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-10 worst 2.00e-10 dmed 7.00e-11
+  ship  7: a0/sep 0.8784  n  412 z   -4.443 leak +1.02e-6 worst 1.00e-6 dmed 1.03e-7
+  ship  8: a0/sep 0.8818  n   95 z   +0.485 leak +2.28e-6 worst 1.00e-6 dmed 2.54e-7
+  ship  9: a0/sep 1.1159  n  323 z   +8.456 leak -2.00e-10 worst 2.00e-10 dmed 7.82e-11
+  ship 10: a0/sep 0.8659  n  549 z   -4.452 leak -2.08e-7 worst 1.00e-6 dmed 1.36e-7
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-10 worst 2.00e-10 dmed 5.85e-11
+  ship 12: a0/sep 1.1572  n  219 z   -3.738 leak -2.00e-10 worst 2.00e-10 dmed 1.53e-11
+  ship 13: a0/sep 0.8347  n  433 z  -12.947 leak +1.74e-7 worst 1.00e-6 dmed 1.25e-7
+  ship 14: a0/sep 1.1097  n  676 z  +25.478 leak -2.00e-10 worst 2.00e-10 dmed 8.70e-11
+  ship 15: a0/sep 1.1180S n  583 z  +17.262 leak -2.00e-10 worst 2.00e-10 dmed 1.01e-10
+  VERDICT half leak 2e-10 / blip w=0.2: pass=false arrow +20.216 (<= 5) injected +20.223 worst 1.00e-6 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +25.5 median +0.5
+ok
+test behave::rt_b12::rt_minority_leaks_at_the_declared_rate ... -- minority leak 2e-10 / blip 1e-9
+  ship  0: a0/sep 1.1678  n  539 z  +17.741 leak -2.00e-10 worst 2.00e-10 dmed 9.96e-11
+  ship  1: a0/sep 1.1719  n  445 z  +13.230 leak -2.00e-10 worst 2.00e-10 dmed 7.47e-11
+  ship  2: a0/sep 0.8582  n  374 z   -8.060 leak -1.39e-10 worst 1.00e-9 dmed 1.47e-10
+  ship  3: a0/sep 0.8696  n  499 z  -14.091 leak +1.02e-10 worst 1.00e-9 dmed 2.03e-11
+  ship  4: a0/sep 0.8537  n  465 z   -6.552 leak -4.37e-10 worst 1.00e-9 dmed 1.88e-10
+  ship  5: a0/sep 0.8576  n  489 z   +0.958 leak -2.36e-10 worst 1.00e-9 dmed 1.04e-10
+  ship  6: a0/sep 1.1335  n  378 z   +5.550 leak -2.00e-10 worst 2.00e-10 dmed 7.00e-11
+  ship  7: a0/sep 0.8784  n  412 z  -13.140 leak +3.43e-10 worst 1.00e-9 dmed 2.30e-11
+  ship  8: a0/sep 0.8818  n   95 z   -0.537 leak +4.75e-10 worst 1.00e-9 dmed 2.18e-10
+  ship  9: a0/sep 1.1159  n  323 z   -1.117 leak -1.32e-10 worst 1.00e-9 dmed 3.65e-11
+  ship 10: a0/sep 0.8659  n  549 z  -22.635 leak -7.62e-12 worst 1.00e-9 dmed 8.00e-12
+  ship 11: a0/sep 1.1792  n  303 z   -1.795 leak -2.00e-10 worst 2.00e-10 dmed 5.85e-11
+  ship 12: a0/sep 1.1572  n  219 z   -3.738 leak -2.00e-10 worst 2.00e-10 dmed 1.53e-11
+  ship 13: a0/sep 0.8347  n  433 z  -10.628 leak -3.10e-12 worst 1.00e-9 dmed 2.42e-12
+  ship 14: a0/sep 1.1097  n  676 z  -10.277 leak +1.02e-10 worst 1.00e-9 dmed 5.81e-11
+  ship 15: a0/sep 1.1180S n  583 z  -11.342 leak -7.56e-11 worst 1.00e-9 dmed 3.04e-11
+  VERDICT minority leak 2e-10 / blip 1e-9: pass=true arrow -18.796 (<= 5) injected +5.751 worst 1.00e-9 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +17.7 median -3.7
+  official gate: PASS handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow -18.796 (limit 5, NOT a correlated-return confidence level); worst err 1.00e-9 (limit 1e-4); pairs 6782 (422 exact ties), maximum pair-gap mean 119.9 P, maximum ship median residual 2.18e-10, maximum fitted leak 4.75e-10/horizon; injected leak arrow 5.751, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN
+ok
+test behave::rt_b12::rt_quad_breaks_the_affine_assumption ... -- quad 4e-11
+  ship  0: a0/sep 1.1678  n  539 z   -6.041 leak -1.63e-10 worst 6.49e-7 dmed 2.14e-10
+  ship  1: a0/sep 1.1719  n  445 z   +1.517 leak -2.06e-10 worst 5.79e-9 dmed 6.80e-11
+  ship  2: a0/sep 0.8582  n  374 z   +0.824 leak -1.01e-10 worst 1.93e-8 dmed 4.12e-10
+  ship  3: a0/sep 0.8696  n  499 z  +13.728 leak +1.14e-10 worst 2.44e-8 dmed 3.93e-11
+  ship  4: a0/sep 0.8537  n  465 z   +5.238 leak -1.03e-12 worst 7.16e-9 dmed 1.82e-11
+  ship  5: a0/sep 0.8576  n  489 z  +11.159 leak -3.62e-10 worst 1.69e-8 dmed 3.92e-10
+  ship  6: a0/sep 1.1335  n  378 z   +3.523 leak +9.32e-11 worst 1.03e-8 dmed 3.46e-11
+  ship  7: a0/sep 0.8784  n  412 z   -0.637 leak +9.32e-10 worst 3.06e-8 dmed 2.33e-10
+  ship  8: a0/sep 0.8818  n   95 z   -0.325 leak +8.86e-11 worst 1.41e-8 dmed 6.62e-11
+  ship  9: a0/sep 1.1159  n  323 z   -6.479 leak +2.47e-11 worst 1.73e-8 dmed 3.42e-11
+  ship 10: a0/sep 0.8659  n  549 z  -14.058 leak +8.38e-12 worst 1.83e-8 dmed 1.27e-10
+  ship 11: a0/sep 1.1792  n  303 z   +5.225 leak +3.72e-12 worst 4.45e-9 dmed 5.11e-11
+  ship 12: a0/sep 1.1572  n  219 z   -0.699 leak +2.66e-9 worst 6.51e-7 dmed 3.98e-10
+  ship 13: a0/sep 0.8347  n  433 z   +6.920 leak +3.25e-11 worst 1.93e-8 dmed 9.73e-11
+  ship 14: a0/sep 1.1097  n  676 z   +1.185 leak +6.81e-13 worst 1.46e-9 dmed 2.28e-13
+  ship 15: a0/sep 1.1180S n  583 z  +14.263 leak -5.48e-10 worst 2.05e-8 dmed 3.35e-10
+  VERDICT quad 4e-11: pass=false arrow +9.579 (<= 5) injected +20.170 worst 6.51e-7 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +14.3 median +1.5
+-- quad 4e-10
+  ship  0: a0/sep 1.1678  n  539 z   -6.040 leak -1.63e-9 worst 6.49e-6 dmed 2.14e-9
+  ship  1: a0/sep 1.1719  n  445 z   +1.517 leak -2.06e-9 worst 5.79e-8 dmed 6.80e-10
+  ship  2: a0/sep 0.8582  n  374 z   +0.825 leak -1.01e-9 worst 1.93e-7 dmed 4.12e-9
+  ship  3: a0/sep 0.8696  n  499 z  +13.728 leak +1.14e-9 worst 2.44e-7 dmed 3.93e-10
+  ship  4: a0/sep 0.8537  n  465 z   +5.237 leak -1.04e-11 worst 7.16e-8 dmed 1.82e-10
+  ship  5: a0/sep 0.8576  n  489 z  +11.159 leak -3.62e-9 worst 1.69e-7 dmed 3.92e-9
+  ship  6: a0/sep 1.1335  n  378 z   +3.522 leak +9.32e-10 worst 1.03e-7 dmed 3.46e-10
+  ship  7: a0/sep 0.8784  n  412 z   -0.560 leak +9.32e-9 worst 3.06e-7 dmed 2.33e-9
+  ship  8: a0/sep 0.8818  n   95 z   -0.325 leak +8.86e-10 worst 1.41e-7 dmed 6.62e-10
+  ship  9: a0/sep 1.1159  n  323 z   -6.479 leak +2.47e-10 worst 1.73e-7 dmed 3.42e-10
+  ship 10: a0/sep 0.8659  n  549 z  -14.058 leak +8.38e-11 worst 1.83e-7 dmed 1.27e-9
+  ship 11: a0/sep 1.1792  n  303 z   +5.225 leak +3.72e-11 worst 4.45e-8 dmed 5.11e-10
+  ship 12: a0/sep 1.1572  n  219 z   -0.701 leak +2.66e-8 worst 6.51e-6 dmed 3.98e-9
+  ship 13: a0/sep 0.8347  n  433 z   +6.917 leak +3.25e-10 worst 1.93e-7 dmed 9.73e-10
+  ship 14: a0/sep 1.1097  n  676 z   +1.193 leak +6.81e-12 worst 1.46e-8 dmed 2.28e-12
+  ship 15: a0/sep 1.1180S n  583 z  +14.262 leak -5.48e-9 worst 2.05e-7 dmed 3.35e-9
+  VERDICT quad 4e-10: pass=false arrow +9.598 (<= 5) injected +20.545 worst 6.51e-6 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +14.3 median +1.5
+-- quad 4e-9
+  ship  0: a0/sep 1.1678  n  539 z   -6.039 leak -1.63e-8 worst 6.49e-5 dmed 2.14e-8
+  ship  1: a0/sep 1.1719  n  445 z   +1.519 leak -2.06e-8 worst 5.79e-7 dmed 6.80e-9
+  ship  2: a0/sep 0.8582  n  374 z   +0.833 leak -1.01e-8 worst 1.93e-6 dmed 4.12e-8
+  ship  3: a0/sep 0.8696  n  499 z  +13.728 leak +1.14e-8 worst 2.44e-6 dmed 3.93e-9
+  ship  4: a0/sep 0.8537  n  465 z   +5.418 leak -1.07e-10 worst 7.16e-7 dmed 1.83e-9
+  ship  5: a0/sep 0.8576  n  489 z  +11.163 leak -3.62e-8 worst 1.69e-6 dmed 3.92e-8
+  ship  6: a0/sep 1.1335  n  378 z   +3.519 leak +9.32e-9 worst 1.03e-6 dmed 3.46e-9
+  ship  7: a0/sep 0.8784  n  412 z   -0.543 leak +9.34e-8 worst 3.06e-6 dmed 2.34e-8
+  ship  8: a0/sep 0.8818  n   95 z   -0.325 leak +8.84e-9 worst 1.41e-6 dmed 6.63e-9
+  ship  9: a0/sep 1.1159  n  323 z   -6.478 leak +2.47e-9 worst 1.73e-6 dmed 3.42e-9
+  ship 10: a0/sep 0.8659  n  549 z  -14.047 leak +8.38e-10 worst 1.83e-6 dmed 1.27e-8
+  ship 11: a0/sep 1.1792  n  303 z   +5.225 leak +3.73e-10 worst 4.45e-7 dmed 5.11e-9
+  ship 12: a0/sep 1.1572  n  219 z   -0.699 leak +2.66e-7 worst 6.51e-5 dmed 3.98e-8
+  ship 13: a0/sep 0.8347  n  433 z   +6.892 leak +3.25e-9 worst 1.93e-6 dmed 9.73e-9
+  ship 14: a0/sep 1.1097  n  676 z   +1.233 leak +6.79e-11 worst 1.46e-7 dmed 2.28e-11
+  ship 15: a0/sep 1.1180S n  583 z  +14.262 leak -5.48e-8 worst 2.05e-6 dmed 3.35e-8
+  VERDICT quad 4e-9: pass=false arrow +9.665 (<= 5) injected +14.460 worst 6.51e-5 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +14.3 median +1.5
+ok
+test behave::rt_b12::rt_reproduce_the_receipt ... -- echo
+  ship  0: a0/sep 1.1678  n  539 z   -0.310 leak -3.85e-19 worst 2.31e-15 dmed 1.70e-16
+  ship  1: a0/sep 1.1719  n  445 z   +0.209 leak +1.15e-17 worst 1.44e-15 dmed 1.63e-16
+  ship  2: a0/sep 0.8582  n  374 z   -1.494 leak -3.26e-17 worst 1.30e-15 dmed 2.70e-16
+  ship  3: a0/sep 0.8696  n  499 z   +0.239 leak -2.85e-18 worst 1.01e-15 dmed 1.98e-16
+  ship  4: a0/sep 0.8537  n  465 z   -1.000 leak +6.86e-18 worst 8.66e-16 dmed 1.63e-16
+  ship  5: a0/sep 0.8576  n  489 z   +0.815 leak -1.04e-18 worst 1.01e-15 dmed 1.60e-16
+  ship  6: a0/sep 1.1335  n  378 z   +0.809 leak +6.08e-17 worst 1.30e-15 dmed 2.36e-16
+  ship  7: a0/sep 0.8784  n  412 z   -1.560 leak -1.24e-16 worst 1.16e-15 dmed 2.76e-16
+  ship  8: a0/sep 0.8818  n   95 z   +1.251 leak +2.18e-16 worst 1.16e-15 dmed 1.94e-16
+  ship  9: a0/sep 1.1159  n  323 z   +1.455 leak -2.04e-17 worst 1.01e-15 dmed 1.48e-16
+  ship 10: a0/sep 0.8659  n  549 z   -0.275 leak -2.56e-17 worst 1.01e-15 dmed 1.55e-16
+  ship 11: a0/sep 1.1792  n  303 z   -0.253 leak +6.65e-17 worst 7.21e-16 dmed 1.86e-16
+  ship 12: a0/sep 1.1572  n  219 z   -0.483 leak -1.35e-16 worst 1.16e-15 dmed 1.87e-16
+  ship 13: a0/sep 0.8347  n  433 z   -1.667 leak -4.09e-17 worst 1.15e-15 dmed 2.37e-16
+  ship 14: a0/sep 1.1097  n  676 z   -0.542 leak +2.26e-17 worst 1.01e-15 dmed 2.70e-16
+  ship 15: a0/sep 1.1180S n  583 z   -1.521 leak +5.16e-17 worst 8.69e-16 dmed 1.75e-16
+  VERDICT echo: pass=true arrow +0.000 (<= 5) injected +55.491 worst 2.31e-15 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 0 worst -inf median +0.0
+  official gate: PASS handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 0.000 (limit 5, NOT a correlated-return confidence level); worst err 2.31e-15 (limit 1e-4); pairs 6782 (1402 exact ties), maximum pair-gap mean 119.9 P, maximum ship median residual 2.76e-16, maximum fitted leak 2.18e-16/horizon; injected leak arrow 55.491, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN
+-- planted-bounded
+  ship  0: a0/sep 1.1678  n  539 z   +5.829 leak -9.87e-15 worst 1.27e-5 dmed 1.42e-12
+  ship  1: a0/sep 1.1719  n  445 z   +0.914 leak -5.14e-13 worst 1.20e-6 dmed 3.35e-12
+  ship  2: a0/sep 0.8582  n  374 z   -1.182 leak -5.85e-12 worst 2.19e-6 dmed 6.15e-12
+  ship  3: a0/sep 0.8696  n  499 z   +4.007 leak -8.63e-13 worst 2.47e-6 dmed 6.84e-13
+  ship  4: a0/sep 0.8537  n  465 z   +1.747 leak -1.64e-11 worst 1.34e-6 dmed 1.12e-11
+  ship  5: a0/sep 0.8576  n  489 z   -0.397 leak +8.19e-14 worst 2.05e-6 dmed 4.68e-12
+  ship  6: a0/sep 1.1335  n  378 z   -3.375 leak +3.71e-12 worst 1.61e-6 dmed 1.61e-12
+  ship  7: a0/sep 0.8784  n  412 z   +3.239 leak +7.32e-12 worst 2.76e-6 dmed 6.61e-12
+  ship  8: a0/sep 0.8818  n   95 z   +0.280 leak -3.07e-11 worst 1.88e-6 dmed 6.59e-12
+  ship  9: a0/sep 1.1159  n  323 z   +0.282 leak -2.67e-12 worst 2.08e-6 dmed 2.33e-12
+  ship 10: a0/sep 0.8659  n  549 z   -4.408 leak +1.20e-12 worst 2.14e-6 dmed 4.17e-12
+  ship 11: a0/sep 1.1792  n  303 z   -0.882 leak +8.57e-12 worst 1.05e-6 dmed 2.23e-12
+  ship 12: a0/sep 1.1572  n  219 z   -1.381 leak -2.14e-12 worst 1.28e-5 dmed 2.78e-12
+  ship 13: a0/sep 0.8347  n  433 z   -4.417 leak -3.12e-12 worst 2.20e-6 dmed 5.12e-12
+  ship 14: a0/sep 1.1097  n  676 z   -1.676 leak +3.79e-13 worst 6.05e-7 dmed 1.07e-12
+  ship 15: a0/sep 1.1180S n  583 z   +2.303 leak -2.14e-12 worst 2.27e-6 dmed 2.26e-12
+  VERDICT planted-bounded: pass=true arrow +0.812 (<= 5) injected +50.473 worst 1.28e-5 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +5.8 median +0.3
+  official gate: PASS handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 0.812 (limit 5, NOT a correlated-return confidence level); worst err 1.28e-5 (limit 1e-4); pairs 6782 (0 exact ties), maximum pair-gap mean 119.9 P, maximum ship median residual 1.12e-11, maximum fitted leak 3.07e-11/horizon; injected leak arrow 50.473, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN
+-- planted-compound
+  ship  0: a0/sep 1.1678  n  539 z  +18.834 leak -9.82e-7 worst 9.94e-7 dmed 5.66e-7
+  ship  1: a0/sep 1.1719  n  445 z  +12.274 leak -1.17e-6 worst 8.77e-7 dmed 4.27e-7
+  ship  2: a0/sep 0.8582  n  374 z  +14.727 leak +2.49e-7 worst 2.96e-7 dmed 8.42e-8
+  ship  3: a0/sep 0.8696  n  499 z  +10.133 leak -3.03e-8 worst 4.08e-7 dmed 3.38e-8
+  ship  4: a0/sep 0.8537  n  465 z   -1.996 leak -3.80e-7 worst 4.35e-7 dmed 1.27e-7
+  ship  5: a0/sep 0.8576  n  489 z   +4.979 leak -3.38e-7 worst 3.93e-7 dmed 2.13e-7
+  ship  6: a0/sep 1.1335  n  378 z   -3.748 leak +3.94e-7 worst 4.33e-7 dmed 7.45e-8
+  ship  7: a0/sep 0.8784  n  412 z   +9.933 leak -9.78e-8 worst 4.34e-7 dmed 2.09e-9
+  ship  8: a0/sep 0.8818  n   95 z   -0.042 leak -2.35e-8 worst 5.59e-7 dmed 4.27e-8
+  ship  9: a0/sep 1.1159  n  323 z   +7.485 leak -5.44e-7 worst 7.01e-7 dmed 1.71e-7
+  ship 10: a0/sep 0.8659  n  549 z   +0.414 leak +2.25e-7 worst 2.40e-7 dmed 1.11e-7
+  ship 11: a0/sep 1.1792  n  303 z   +2.164 leak +2.28e-7 worst 4.15e-7 dmed 1.07e-7
+  ship 12: a0/sep 1.1572  n  219 z  +10.543 leak -3.73e-7 worst 3.13e-7 dmed 6.99e-8
+  ship 13: a0/sep 0.8347  n  433 z   +4.086 leak +2.00e-7 worst 3.51e-7 dmed 1.13e-7
+  ship 14: a0/sep 1.1097  n  676 z   +0.904 leak +1.01e-8 worst 2.56e-7 dmed 6.60e-9
+  ship 15: a0/sep 1.1180S n  583 z   +0.905 leak +1.56e-8 worst 4.86e-7 dmed 3.25e-8
+  VERDICT planted-compound: pass=false arrow +20.560 (<= 5) injected +20.535 worst 9.94e-7 (<= 1e-4) unresolved 0 bad 0 sens OK | per-ship z: n 16 worst +18.8 median +5.0
+  official gate: FAIL handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 20.560 (limit 5, NOT a correlated-return confidence level); worst err 9.94e-7 (limit 1e-4); pairs 6782 (193 exact ties), maximum pair-gap mean 119.9 P, maximum ship median residual 5.66e-7, maximum fitted leak 1.17e-6/horizon; injected leak arrow 20.535, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN
+ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 213 filtered out; finished in 129.82s
+
+     Running tests/behave_cli.rs (target/release/deps/behave_cli-8b9b8fe19d44a501)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
