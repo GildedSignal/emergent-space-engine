@@ -1,0 +1,5 @@
+# Author fiRun complete within the 90-minute budget. The checker's four named gold items are all done on real conjunction geometry, with the record regenerating from the shipped scripts (`work/hlive_real.py` → `metrics-real.json`, `work/analyze.py` → `analysis.json`), predictions pre-registered at `predictions.md` (7/7 held, caveats stated), and one self-found replay bug fixed via snapshot cross-check (final-cell numbers never affected).
+
+**The claim, in one sentence:** the scout's live-memory law holds on the design's real encounter path — real Kepler conjunctions with Gauss-mapped, recurring, natively stirring kicks make belt self-encounters 2.8–8.7× *safer* per kick than the toy claimed (escape at the player floor needs a median 158–420 sub-quantum kicks, 98–100% multi-kick; α = 0.76–0.96 on the partial regime; 1.3–9.1 MB/play-hour at 10⁹ and fixed surface density), the binding number at 10⁹ is the saturated belt store at 1.7–2.4 bytes per live body — inside B18 (≤ 2× floor + 2 B) and the 4.29 GB live budget — and the toy's mislabeled `alpha_partial` is corrected to −0.817.
+
+on main.
