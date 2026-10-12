@@ -1,0 +1,399 @@
+diff --git a/crates/universe/examples/kick_probe.rs b/crates/universe/examples/kick_probe.rs
+new file mode 100644
+index 00000000..54a68568
+--- /dev/null
++++ b/crates/universe/examples/kick_probe.rs
+@@ -0,0 +1,48 @@
++// Probe harness for the kick path: pure resolve µs and whole-universe µs/item, with the digest as
++// the behaviour lock (the lab run 20261012-1019-autoresearch-c549; loop identical to cost_split.rs).
++// A-tune is the tuning case; B/C/D are held out (never tuned on).
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::{body::What, step, Config};
++use std::time::Instant;
++
++fn probe(name: &str, cfg: Config, seed: u64, order: Order, fleets: usize, fleet_n: u64) {
++    let mut p = plane(cfg, seed, order, fleets, fleet_n).unwrap();
++    let ship = p.ships[14];
++    let n = 3000;
++    let ctx = p.u.ctx();
++    let rec = p.u.rec(ship);
++    let t0 = Instant::now();
++    let mut kicks = 0;
++    for _ in 0..n {
++        let mut r = rec.clone();
++        while !matches!(r.plan.first().map(|i| i.what), Some(What::Kick(0))) {
++            r.plan.remove(0);
++        }
++        let u = step::process(&ctx, ship, r);
++        kicks += matches!(u.kind, step::Resolved::Kick) as u32;
++        std::hint::black_box(&u);
++    }
++    let pure = t0.elapsed().as_secs_f64() * 1e6 / n as f64;
++    drop(ctx);
++    let h = 30_000_000_000i64;
++    let t0 = Instant::now();
++    p.u.settle(h);
++    let el = t0.elapsed();
++    let s = p.u.stats;
++    let ev = s.kicks + s.opens + s.boundaries;
++    let whole = el.as_secs_f64() * 1e6 / ev as f64;
++    println!(
++        "{name} pure_kick {pure:.2} us ({kicks}/{n}) whole {whole:.2} us/item ({ev} items, {el:.2?}) bytes/body {} digest {}",
++        p.u.bytes_per_body(),
++        p.u.digest()
++    );
++}
++
++fn main() {
++    let d = Config::default();
++    probe("A-tune", d, 1, Order::Sparse, 1, 8);
++    probe("B-held", d, 1, Order::Dense, 3, 8);
++    probe("C-held", d, 5, Order::Sparse, 2, 12);
++    probe("D-held", Config { step_log2: 6, ..d }, 2, Order::Sparse, 1, 8);
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f30765..364b9737 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -104,6 +104,9 @@ pub struct Binding {
+     /// The doll's clock quantum (`2^clock_exp` doll time units per tick).
+     pub clock_exp: i16,
+     pub event_time: Tick,
++    /// The tube's proper time at `event_time` (the doll's units): half of the clock bookkeeping a
++    /// kick does, memoized at the binding event so a rebind reads the tube once, not three times.
++    pub event_proper: Scalar,
+     /// The kick that made this binding (zero length if none): what the state between kicks is completed with.
+     pub kick: Kick,
+ }
+@@ -133,18 +136,27 @@ impl Binding {
+         Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
+     }
+ 
++    /// The body's exact integer state at `t ≥ event_time` and the tube's orbit state there: one
++    /// decode for both (a kick needs the state and the clock, and the clock is the orbit state).
++    pub fn readout_with(&self, t: Tick) -> Res<(IntegerState, OrbitState)> {
++        let (d, orbit) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
++        let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
++        let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
++        Ok((
++            IntegerState {
++                position: [fit(p[0], self.residual.position[0])?, fit(p[1], self.residual.position[1])?],
++                velocity: [fit(v[0], self.residual.velocity[0])?, fit(v[1], self.residual.velocity[1])?],
++                length_exponent: self.units.0,
++                velocity_exponent: self.units.1,
++            },
++            orbit,
++        ))
++    }
++
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+     /// binding event it equals the bound state.
+     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
+-        let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
+-        let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
+-        let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
+-        Ok(IntegerState {
+-            position: [fit(p[0], self.residual.position[0])?, fit(p[1], self.residual.position[1])?],
+-            velocity: [fit(v[0], self.residual.velocity[0])?, fit(v[1], self.residual.velocity[1])?],
+-            length_exponent: self.units.0,
+-            velocity_exponent: self.units.1,
+-        })
++        Ok(self.readout_with(t)?.0)
+     }
+ 
+     /// Position and velocity as scalars in the doll's units.
+@@ -243,8 +255,10 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+ }
+ 
+ /// A binding with an exactly known tube and nothing to carry (a body made from its orbit).
+-pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i16), t: Tick, doll: u16) -> Binding {
+-    Binding {
++pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i16), t: Tick, doll: u16) -> Res<Binding> {
++    // One decode at the binding event pays for the memoized clock reading (creation is rare).
++    let event_proper = decode(&entry, &tube, clock_exp, units, t)?.1.proper_time;
++    Ok(Binding {
+         doll,
+         tube,
+         entry,
+@@ -253,6 +267,7 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
+         units,
+         clock_exp,
+         event_time: t,
++        event_proper,
+         kick: Kick::NONE,
+-    }
++    })
+ }
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d435..09ca7fe9 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -38,7 +38,7 @@ use crate::body::{BodyRec, Item, Kind, Segment, What};
+ use crate::ctx::Ctx;
+ use crate::ext::Ext;
+ use crate::force::{self, LEVELS, RATIO};
+-use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, Error, Res, Tick, V2};
++use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, to_f64, Error, Res, Tick, V2};
+ use crate::thrust;
+ use emergent_space::{
+     binding::{IntegerState, Trajectory},
+@@ -58,6 +58,10 @@ pub struct Update {
+     pub retired: Vec<Segment>,
+     /// A compiled entry to put in the catalogue (the rec's tube key is then set by the owner).
+     pub new_entry: Option<Arc<Entry>>,
++    /// The body's root position after the event, when the event already held every piece of it
++    /// (same value [`crate::observe::root_state_raw`] derives): saves `apply` reading two tubes
++    /// again for a number only the scheduler sees. `None` → derive it there.
++    pub root_pos: Option<[f64; 2]>,
+     pub kind: Resolved,
+ }
+ 
+@@ -271,7 +275,9 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// The proper time (root units) a binding's tube has run between `since` (or its binding event, if later)
+ /// and `t`: a clock reads its tube's length. `shift` is the doll's clock exponent.
+ pub fn proper_since(b: &Binding, shift: i16, since: Tick, t: Tick) -> Res<Scalar> {
+-    let tau = b.orbit_state(t)?.proper_time.sub(b.orbit_state(since.max(b.event_time))?.proper_time)?;
++    let start = since.max(b.event_time);
++    let tau0 = if start == b.event_time { b.event_proper } else { b.orbit_state(start)?.proper_time };
++    let tau = b.orbit_state(t)?.proper_time.sub(tau0)?;
+     Ok(tau.scale(-(shift as i32))?)
+ }
+ 
+@@ -287,6 +293,7 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    root_pos: Option<[f64; 2]>,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -298,18 +305,46 @@ impl Work<'_, '_> {
+         passage_edge(self.ctx, doll)
+     }
+ 
++    /// The body's root position after a rebind, from what the event already read — the same value
++    /// `root_state_raw` derives from the tubes (the scheduler's deadline wants it after every
++    /// event). Called only where the answer is provably identical: the doll chain at most two
++    /// deep (the root doll, whose centre's contribution `centre` carries, and its direct
++    /// children), and the fit kept the state's own word (a wider word re-fits, and then only the
++    /// tube can answer). Everywhere else `apply` falls back to `root_state_raw`.
++    fn set_root_pos(&mut self, next: &IntegerState, centre: Option<V2>) {
++        let d = self.rec.b.doll;
++        if self.rec.b.units != (next.length_exponent, next.velocity_exponent) {
++            return;
++        }
++        let centre = if d == 0 { None } else { centre };
++        if d != 0 && (self.ctx.dolls[d as usize].parent != Some(0) || centre.is_none()) {
++            return;
++        }
++        let k = 2f64.powi(-(self.ctx.dolls[d as usize].shift as i32));
++        let Ok((np, _)) = scalars(next) else { return };
++        let mut pos = [to_f64(np[0]) * k, to_f64(np[1]) * k];
++        if let Some(c) = centre {
++            pos = [pos[0] + to_f64(c[0]) * k, pos[1] + to_f64(c[1]) * k];
++        }
++        self.root_pos = Some(pos);
++    }
++
++
+     /// Whether anything can kick this body: a secondary in its doll (other than itself) or a parent.
+     fn has_forces(&self, doll: u16) -> bool {
+         self.ctx.dolls[doll as usize].parent.is_some() || self.ctx.sources[doll as usize].iter().any(|&j| j != self.i)
+     }
+ 
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+-    fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
++    /// `tau_now` is the old binding's tube proper time at `t` when the caller already decoded it
++    /// (a kick does); the rare paths pass `None` and decode it here.
++    fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16, tau_now: Option<Scalar>) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+-        let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
++        let now = match tau_now { Some(p) => p, None => old.orbit_state(t)?.proper_time };
++        let tau = now.sub(old.event_proper)?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
+@@ -322,6 +357,7 @@ impl Work<'_, '_> {
+             units: bound.units,
+             clock_exp,
+             event_time: t,
++            event_proper: bound.orbit.proper_time,
+             kick: Kick::NONE,
+         };
+         self.new_entry = Some(bound.entry.clone());
+@@ -352,11 +388,12 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
+-        let st = self.rec.b.readout(t)?;
++        let (st, orbit) = self.rec.b.readout_with(t)?;
+         let (x, v) = scalars(&st)?;
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
++        let centre = tide.as_ref().map(|(_, c)| *c);
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
+@@ -378,7 +415,8 @@ impl Work<'_, '_> {
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+-        self.rebind(next, t, d)?;
++        self.rebind(next, t, d, Some(orbit.proper_time))?;
++        self.set_root_pos(&next, centre);
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
+         let ve = self.rec.b.units.1 as i32;
+@@ -615,7 +653,8 @@ impl Work<'_, '_> {
+         };
+         let fired = next.velocity != st.velocity;
+         if fired {
+-            self.rebind(next, t, d)?;
++            self.rebind(next, t, d, None)?;
++            self.set_root_pos(&next, None);
+         }
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+@@ -716,7 +755,7 @@ impl Work<'_, '_> {
+     }
+ 
+     fn handoff_to(&mut self, t: Tick, exact: IntegerState, doll: u16) -> Res<()> {
+-        self.rebind(exact, t, doll)?;
++        self.rebind(exact, t, doll, None)?;
+         self.rec.carry = [0, 0];
+         self.rec.plan.clear();
+         self.rec.step = 0;
+@@ -755,7 +794,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, root_pos: None };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -790,24 +829,24 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             }
+         }
+     };
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, root_pos: w.root_pos, kind }
+ }
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, root_pos: None };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, root_pos: w.root_pos, kind: Resolved::Open }
+ }
+ 
+ /// A decision: flush the thrust owed so far at `t` (a rebinding when a burn is owed; a turn alone only
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, root_pos: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+@@ -817,7 +856,8 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+             let v2 = w.burn(x, v, t)?;
+             if th.keys & 3 != 0 {
+                 let next = IntegerState { velocity: w.velocity_after(&st, v2)?, ..st };
+-                w.rebind(next, t, w.rec.b.doll)?;
++                w.rebind(next, t, w.rec.b.doll, None)?;
++                w.set_root_pos(&next, None);
+                 if w.rec.ext.is_some() {
+                     // A burn is not a flow of the Hamiltonian: the register is projected back onto K = 0.
+                     w.project(t)?;
+@@ -839,7 +879,7 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+     if res.is_err() {
+         w.rec.refusals += 1;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, root_pos: w.root_pos, kind: Resolved::Open }
+ }
+ 
+ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc024..65761422 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -285,7 +285,7 @@ impl Universe {
+     pub fn add_body(&mut self, kind: Kind, spec: OrbitSpec, radius: Scalar) -> Res<usize> {
+         let (entry, mut tube, units) = self.spec_binding(&spec, self.dolls[spec.doll as usize].unit)?;
+         tube.key = self.cat.insert(entry.clone())?;
+-        let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
++        let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll)?;
+         let rec = BodyRec {
+             kind,
+             b,
+@@ -333,7 +333,7 @@ impl Universe {
+         let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
+         let mut tube = bound.tube;
+         tube.key = self.cat.insert(bound.entry.clone())?;
+-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
++        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, event_proper: bound.orbit.proper_time, kick: crate::bind::Kick::NONE };
+         let rec = BodyRec {
+             kind,
+             b,
+@@ -372,7 +372,7 @@ impl Universe {
+         let mut rec = self.bodies.rec(i);
+         self.cat.release(rec.b.tube.key);
+         tube.key = self.cat.insert(entry.clone())?;
+-        rec.b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
++        rec.b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll)?;
+         self.bodies.put(i, rec);
+         Ok(())
+     }
+@@ -527,9 +527,16 @@ impl Universe {
+         }
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
++        let root_pos = upd.root_pos;
+         self.bodies.put(i, upd.rec);
+-        if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+-            self.pos[i] = p;
++        // The scheduler's position: the event's own reading when it has one, the tubes otherwise.
++        match root_pos {
++            Some(p) => self.pos[i] = p,
++            None => {
++                if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
++                    self.pos[i] = p;
++                }
++            }
+         }
+     }
+ 
+@@ -681,7 +688,7 @@ impl Universe {
+             let key = self.cat.insert(bound.entry.clone())?;
+             let mut tube = bound.tube;
+             tube.key = key;
+-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE };
++            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, event_proper: bound.orbit.proper_time, kick: crate::bind::Kick::NONE };
+             let rec = BodyRec {
+                 kind: Kind::Ship,
+                 b,
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3f..896e0f1f 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -261,7 +261,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     let h = heading as f64 / 4294967296.0 * std::f64::consts::TAU;
+     let tau = rec.b.orbit_state(t_read.max(rec.b.event_time)).ok().map(|s| {
+         let doll = &u.dolls[rec.b.doll as usize];
+-        let along = s.proper_time.sub(rec.b.orbit_state(rec.b.event_time).ok()?.proper_time).ok()?;
++        let along = s.proper_time.sub(rec.b.event_proper).ok()?;
+         Some(to_f64(rec.proper) + to_f64(along) * 2f64.powi(-(doll.shift as i32)))
+     });
+     let proper = tau.flatten().unwrap_or(0.0) * TICK_SECONDS;
