@@ -34,14 +34,16 @@ Current as of 6 October 2026 (H0214; the "In flight" table below carries the exa
 - Never edit `.github/workflows/glm-lab.yml` while a window runs without the publish fix in place (result branches are cut from main's tip since 156f4fd); a GLM experiment once took 15 GB (agonbox's runner is capped at 12 GB, OOMPolicy=continue).
 - Several lab runs agreeing is not independence when they share a harness (the memo artifact); and a gate can be wrong: check its oracle's domain (B12, B13, B17 all were) before blaming the law.
 
-## Headed next (from 12 October, when Claude returns; the order is the bottleneck order)
+## Headed next (12 October; Julien: "we want something functional … i just don't want it buggy, fly like the sr 71"; at most two sub-agents)
 
-1. **Review the autopilot's branches** (table above): per item, GLM's patch against the Codex branch; keep the better, rerun its gates, merge.
-2. **B12 rebuilt and frozen** (GLM `q-b12-design`, Codex `b12-v2`, Sonnet's partial `wt/b12-v2`), red-teamed first; then the plane faces B12–B14 and B17 together.
-3. **The motion law v2, finished:** the GR energy register (P3'), plunge and radial tubes, the single-surface handoff (step 3), root-clock event keys (step 4), news gravity at c (`lab/refs/opus-motion/memo.md` §5).
-4. **GR's weird effects, in Julien's order:** rotating holes (B19 frozen), then the Fermi frame's phase 2 (E9 frozen), then inspiral (Peters' generator).
-5. **Scale:** encounters at N (the co-orbital certificate, the slack skin, candidate work per real encounter), belts and populations in the plane (B18b frozen), distinctions per game-second, B15, the galaxy doll.
-6. Julien flies every merge (`cargo run --release -p xtask -- universe --rtf 100`, http://127.0.0.1:8792/). AI stays off the plan.
+The to-do list, by importance. Each item lands only when it is green:
+1. **The high-γ clock** (Sonnet, `wt/clock`): merge behind gate C1.
+2. **The flight sweep** (`crates/universe/examples/flight_sweep.rs`, 12 October, rtf 100, 20 s a flight): every loss was a crash into Home, because **the ship starts with its nose retrograde** (heading 0 = +x while it orbits along −x), so "forward" burns it into the planet; and from L8 up the frame hits its 12 ms budget and the presented time lags up to 1.6 s (a stutter). No refusals in 20 s flights.
+3. **Fix the sweep's findings** (the second sub-agent, after the clock merges: same code): start the nose prograde; the HUD warns of an impact course (the engine already plans the impact); braking to rest (`NoBoundOrbit`, plunges: Codex's partial `wt/cx-b-plunge-tubes`); then rerun the sweep.
+4. **Retire the kick jet** from law.md (six golds refute it; it is not wired into the plane).
+5. **The frame's cost:** O(N) per frame with zero events; the kick at ~1,800× its floor.
+6. **Later:** wire the belt and encounters into the plane; B12 v2 red-teamed, then frozen; the plane faces B12–B14.
+7. Julien flies every merge (`cargo run --release -p xtask -- universe --rtf 100`, http://127.0.0.1:8792/). AI stays off the plan.
 
 **Decided by Julien (29 September):**
 - The law is a cheap, local, fixed integer algorithm. Exact GR is the oracle, not the implementation (H0195).
