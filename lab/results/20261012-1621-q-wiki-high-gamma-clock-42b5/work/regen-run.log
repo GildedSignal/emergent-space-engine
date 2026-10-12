@@ -1,0 +1,73 @@
+misses: 0
+OK   ref origin/claude/lab-20261011-1600-inversion-e128
+OK   ref origin/claude/lab-20261009-2043-scout-a1a4
+OK   ref origin/claude/lab-20261008-1947-redteam-efb2
+OK   ref origin/claude/lab-20261008-2031-second-20261008-1947-redteam-efb2-4d7e
+OK   20261011-1600-inversion-e128 | grade-gold | Grade: gold
+OK   20261011-1600-inversion-e128 | grade2-gold | Grade: gold
+OK   20261011-1600-inversion-e128 | saturation | dt/dτ → 2.0000 while γ → 1761
+OK   20261011-1600-inversion-e128 | tail | dt/dτ tail = 1.96, 1.96, 2.00
+OK   20261011-1600-inversion-e128 | mechanism | first order in v²
+OK   20261011-1600-inversion-e128 | deficit-green | deficit γ/γ_ext = 3.72
+OK   20261011-1600-inversion-e128 | deficit-curve | 1.06 at γ 2.2
+OK   20261011-1600-inversion-e128 | deficit-freeze | 87 at γ 1262, 112 at the freeze
+OK   20261011-1600-inversion-e128 | tau-vs-sr | τ = 4.206e9 at t = 7.742e9
+OK   20261011-1600-inversion-e128 | rate-dial | disagree by ~630×
+OK   20261011-1600-inversion-e128 | gamma-pred | 3.8e−3
+OK   20261011-1600-inversion-e128 | register | −64 throughout
+OK   20261011-1600-inversion-e128 | register-pt | −2⁶³ = −c²/2
+OK   20261011-1600-inversion-e128 | register-viol | 6.4e−11
+OK   20261011-1600-inversion-e128 | wall-l15 | first refusal at t = 8.45e9, γ = 1761.4
+OK   20261011-1600-inversion-e128 | wall-l12 | γ_wall 1791.4
+OK   20261011-1600-inversion-e128 | wall-l13 | wall at γ 1802.7
+OK   20261011-1600-inversion-e128 | leave-factor | 137× short of the leave
+OK   20261011-1600-inversion-e128 | k-word | k = 1/(1+e) falls toward 2⁻²⁸
+OK   20261011-1600-inversion-e128 | k-word-check | 48-bit word
+OK   20261011-1600-inversion-e128 | gate-crossing | β 0.2474, ratio 1.0303
+OK   20261011-1600-inversion-e128 | gate-27x | 27.2× off
+OK   20261011-1600-inversion-e128 | gate-newtonian | saturates at c²/2
+OK   20261011-1600-inversion-e128 | scheduler | events/clock.rs
+OK   20261011-1600-inversion-e128 | l5-control | 0.59%
+OK   20261009-2043-scout-a1a4 | grade-silver | Grade: silver
+OK   20261009-2043-scout-a1a4 | exactness | 1.3×10⁻¹⁰
+OK   20261009-2043-scout-a1a4 | readout-cost | 3.1 µs/sample
+OK   20261009-2043-scout-a1a4 | compile-cost | compile 0.55 ms
+OK   20261009-2043-scout-a1a4 | panels-log | ∝ ln(1/δ)
+OK   20261009-2043-scout-a1a4 | case-gamma2000 | E γ=2000
+OK   20261009-2043-scout-a1a4 | case-photon | G photon b=0.9b_crit
+OK   20261009-2043-scout-a1a4 | horizon | finite and smooth in Eddington–Finkelstein/Kerr–Schild time
+OK   20261008-1947-redteam-efb2 | grade-silver | Grade: silver
+OK   20261008-2031-second-20261008-1947-redteam-efb2-4d7e | grade2-silver | Grade: silver
+OK   20261008-1947-redteam-efb2 | solver-b | never fails and never picks a wrong root at any γ ≤ 2×10⁶
+OK   20261008-2031-second-20261008-1947-redteam-efb2-4d7e | solver-accel | γ=2808
+OK   20261008-1947-redteam-efb2 | observer-frame-wrong | 6156–6353 of 6336
+OK   20261008-2031-second-20261008-1947-redteam-efb2-4d7e | observer-frame-count | 12 700
+OK   20261008-1947-redteam-efb2 | ulp-slope | ulp = 0.0156 s
+OK   20261008-1947-redteam-efb2 | alias-inside-envelope | ≈1.9×10³ for β_o = 0.01
+OK   20261008-2031-second-20261008-1947-redteam-efb2-4d7e | convention | convention-carried
+--- branch triage (all origin/claude/lab-*)
+total-branches 642
+10 20261011-1600-inversion-e128
+4 20261010-1947-spacex-19bc
+3 20261007-1918-second-20261007-1843-fermi-1feb-ece4
+2 20261010-2052-second-20261010-1947-spacex-19bc-d205
+2 20261008-1252-spacex-d4e7
+2 20261006-1738-b-news-gravity-e300
+2 20261005-1540-redteam-b19-kerr-0cce
+2 20261003-0520-system-8f54
+1 20261012-0358-components-fa08
+1 20261011-1456-components-f797
+1 20261011-0517-spacex-d0ea
+1 20261010-1947-second-20261010-1920-spacex-cb3f-f79a
+1 20261010-1816-second-20261010-1706-redteam-e07f-311d
+1 20261010-1706-second-20261010-1544-system-97ce-b18f
+1 20261010-1706-fermi-2914
+1 20261009-0709-autoresearch-b2a0
+1 20261008-1757-constraint-1c2e
+1 20261007-2246-system-969a
+1 20261007-2002-spacex-3b99
+1 20261007-1646-quant-b30e
+1 20261007-1334-quant-7334
+1 20261007-1032-taleb-ab03
+1 20261006-1135-scout-7a46
+1 20261005-1404-q-plane-judge-65fd
