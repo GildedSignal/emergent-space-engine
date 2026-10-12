@@ -1,0 +1,18 @@
+{"command": ["target/release/deps/phase_truth-711e384372cbd03c", "work_per_real_contact_stays_bounded_under_ring_dilution", "--exact", "--nocapture", "--test-threads=1"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t93%; charging; 0:37 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}, "load": {"rc": 0, "text": "{ 4.06 3.86 3.69 }\n"}, "swap": {"rc": 0, "text": "total = 5120.00M  used = 4414.75M  free = 705.25M  (encrypted)\n"}}}
+
+running 1 test
+test work_per_real_contact_stays_bounded_under_ring_dilution ... GATE ring-work n=32 truth=32 work=752 bound=512
+
+thread 'work_per_real_contact_stays_bounded_under_ring_dilution' panicked at crates/encounters/tests/phase_truth.rs:197:9:
+assertion failed: real > 0 && work <= 16 * real as u64
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    work_per_real_contact_stays_bounded_under_ring_dilution
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.38s
+
+{"exit": 101, "seconds": 0.9402104170294479, "max_rss_bytes": 4325376}

@@ -1,0 +1,110 @@
+
+command: /Users/julien_laurent/Research/emergent-space/target/release/deps/emergent_shipmem-fd53d27d55650964 --test-threads=1
+timeout=60s; process RSS ceiling=2000000000 bytes
+
+running 2 tests
+test belt::quantiles::tests::both_cdf_tails_are_resolved_and_tables_are_monotone ... ok
+test belt::quantiles::tests::integer_quantiles_match_an_independent_float_oracle_across_octaves ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+peak_observed_process_rss_bytes=32768
+exit=0; wall_s=0.722
+
+command: /Users/julien_laurent/Research/emergent-space/target/release/deps/belt-99b30bb6a1ad09fc --test-threads=1
+timeout=60s; process RSS ceiling=2000000000 bytes
+
+running 5 tests
+test distinct_states_at_both_belt_sizes ... ok
+test dyadic_tail_covers_the_discrete_rayleigh_endpoints ... ok
+test exact_round_trip_with_scars_splits_stream_and_reabsorption ... ok
+test refuses_correlations_and_nonbijective_keys ... ok
+test regeneration_is_bit_identical_across_orders_and_threads ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+
+
+peak_observed_process_rss_bytes=155353088
+exit=0; wall_s=1.730
+
+command: /Users/julien_laurent/Research/emergent-space/target/release/deps/belt_population-aedaa74196d94dbe --test-threads=1
+timeout=60s; process RSS ceiling=2000000000 bytes
+
+running 4 tests
+test arbitrary_scar_history_is_exact_in_any_order_and_reabsorbs ... ok
+test malformed_stores_are_rejected_without_panicking_or_large_allocations ... ok
+test tables_and_store_follow_the_birth_parameters_not_population_size ... ok
+test wrapped_angles_and_time_round_trip_as_small_deltas ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+
+
+peak_observed_process_rss_bytes=6520832
+exit=0; wall_s=1.565
+
+command: /Users/julien_laurent/Research/emergent-space/target/release/deps/roundtrip-e1827dd111bc8cea --test-threads=1
+timeout=60s; process RSS ceiling=2000000000 bytes
+
+running 2 tests
+test block_codecs_round_trip_extremes ... ok
+test elias_fano_matches_brute_force ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+peak_observed_process_rss_bytes=3801088
+exit=0; wall_s=0.389
+
+command: /Users/julien_laurent/Research/emergent-space/target/release/deps/xtask-52085a6d1eb35362 behave::space::belt_adapter::tests --test-threads=1
+timeout=60s; process RSS ceiling=2000000000 bytes
+
+running 3 tests
+test behave::space::belt_adapter::tests::a_small_measurement_counts_both_supported_memory_forms ... ok
+test behave::space::belt_adapter::tests::extreme_seeds_keep_independent_columns_under_the_frozen_statistics ... ok
+test behave::space::belt_adapter::tests::space_reaches_the_production_belt_with_exact_history ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 219 filtered out; finished in 2.09s
+
+
+peak_observed_process_rss_bytes=45236224
+exit=0; wall_s=2.631
+
+command: /Users/julien_laurent/Research/emergent-space/target/release/deps/xtask-52085a6d1eb35362 behave::space::tests::coarsest_screened_key_passes_all_six_unchanged_behavior_gates --exact --test-threads=1
+timeout=60s; process RSS ceiling=2000000000 bytes
+
+running 1 test
+test behave::space::tests::coarsest_screened_key_passes_all_six_unchanged_behavior_gates ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 221 filtered out; finished in 0.17s
+
+
+peak_observed_process_rss_bytes=9109504
+exit=0; wall_s=0.195
+
+command: /Users/julien_laurent/Research/emergent-space/target/release/deps/xtask-52085a6d1eb35362 behave::memory::tests --test-threads=1
+timeout=60s; process RSS ceiling=2000000000 bytes
+
+running 4 tests
+test behave::memory::tests::echo_sits_on_the_floor_and_passes_with_the_ladder_on_the_line ... ok
+test behave::memory::tests::the_ladder_is_the_shipmem_ladder_of_twelve_scenes_with_the_measured_floors ... ok
+test behave::memory::tests::the_planted_sixteen_byte_tube_fails_where_the_floor_is_below_seven_bytes ... ok
+test behave::memory::tests::two_bytes_of_slack_and_twice_the_floor_are_the_limit_and_nothing_below_half_the_floor_counts ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 217 filtered out; finished in 0.00s
+
+
+peak_observed_process_rss_bytes=4538368
+exit=0; wall_s=0.017
+
+command: /Users/julien_laurent/Research/emergent-space/target/release/deps/behave_cli-352c1c59821680bc the_belt_gate_can_be_picked_and_a_planted_belt_fails_only_it --test-threads=1
+timeout=60s; process RSS ceiling=2000000000 bytes
+
+running 1 test
+test the_belt_gate_can_be_picked_and_a_planted_belt_fails_only_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 13.15s
+
+
+peak_observed_process_rss_bytes=348471296
+exit=0; wall_s=13.525

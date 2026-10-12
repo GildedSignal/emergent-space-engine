@@ -1,0 +1,20 @@
+{"command": ["target/release/deps/phase_truth-711e384372cbd03c", "gold_bunch26", "--exact", "--nocapture", "--test-threads=1"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t91%; charging; 0:41 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded\n"}, "load": {"rc": 0, "text": "{ 7.39 4.13 3.73 }\n"}, "swap": {"rc": 0, "text": "total = 5120.00M  used = 3895.31M  free = 1224.69M  (encrypted)\n"}}}
+
+running 1 test
+test gold_bunch26 ... GATE gold-bunch26 truth=117 misses=19 false=0 setups=19900 checks=451 candidate_work=19900 max_k=0 oracle_evals=1691703 seconds=5.818
+
+thread 'gold_bunch26' panicked at crates/encounters/tests/phase_truth.rs:77:5:
+assertion `left == right` failed: gold-bunch26: truth contacts lost
+  left: 19
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    gold_bunch26
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 5.82s
+
+{"exit": 101, "seconds": 5.869780167005956, "max_rss_bytes": 4374528}

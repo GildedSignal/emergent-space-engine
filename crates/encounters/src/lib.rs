@@ -8,6 +8,8 @@ pub mod dioph;
 pub mod kepler;
 pub mod method;
 pub mod pairs;
+pub mod phase;
+pub mod tier;
 pub mod truth;
 
 use std::sync::atomic::{AtomicUsize, Ordering};

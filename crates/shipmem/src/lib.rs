@@ -3,6 +3,7 @@
 //! Every ship is real: a group writes once what its members share, and each member keeps
 //! exactly what differs, at the width its information needs.
 pub mod bits;
+pub mod belt;
 pub mod codec;
 pub mod pop;
 pub mod program;

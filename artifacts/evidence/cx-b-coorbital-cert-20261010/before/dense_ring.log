@@ -1,0 +1,20 @@
+{"command": ["target/release/deps/phase_truth-711e384372cbd03c", "dense_ring", "--nocapture", "--test-threads=1"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t100%; charged; 0:00 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc\n"}, "load": {"rc": 1, "text": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"}, "swap": {"rc": 1, "text": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"}}}
+
+running 1 test
+test dense_ring ... GATE dense-ring truth=768 misses=512 false=0 setups=32640 checks=1024 oracle_evals=952101 seconds=3.315
+
+thread 'dense_ring' panicked at crates/encounters/tests/phase_truth.rs:68:5:
+assertion `left == right` failed: dense-ring: truth contacts lost
+  left: 512
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    dense_ring
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 3.32s
+
+{"exit": 101, "seconds": 3.858258249994833, "max_rss_bytes": 4276224}

@@ -13,6 +13,7 @@ use crate::shelf::{FxMap, Ship};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Prog {
+    Belt(crate::belt::BeltColumn),
     Const(u64),
     /// a + b·i (wrapping).
     Affine {
@@ -24,12 +25,14 @@ impl Prog {
     #[inline]
     pub fn at(self, i: u64) -> u64 {
         match self {
+            Prog::Belt(b) => b.at(i),
             Prog::Const(v) => v,
             Prog::Affine { a, b } => a.wrapping_add((i as i64).wrapping_mul(b) as u64),
         }
     }
     fn shifted(self, s: u64) -> Self {
         match self {
+            Prog::Belt(b) => Prog::Belt(b.shifted(s)),
             Prog::Const(v) => Prog::Const(v),
             Prog::Affine { a, b } => Prog::Affine {
                 a: Prog::Affine { a, b }.at(s),
@@ -431,9 +434,16 @@ impl Program {
             + self.rows.capacity()
             + self.rblocks.capacity() * 8
             + self.hot.capacity() * 72
+            + self.table_bytes()
     }
     pub fn scars(&self) -> usize {
         self.ef.k
+    }
+    /// The table is shared by all belt columns; count its payload once per population.
+    pub fn table_bytes(&self) -> usize {
+        if self.prog[..self.cols].iter().any(|p| matches!(p, Prog::Belt(_))) {
+            crate::belt::Belt::table_bytes()
+        } else { 0 }
     }
     #[inline]
     fn row(&self, j: usize, out: &mut Ship, cols: usize) {
@@ -454,6 +464,15 @@ impl Program {
                 *out = *s;
                 return;
             }
+        }
+        if let Some(mut s) = crate::belt::base(&self.prog, self.cols, i) {
+            if let Some(j) = self.ef.find(i) {
+                let mut d = [0; MAXC];
+                self.row(j, &mut d, self.cols);
+                Scars::apply(&mut s, &d, self.cols);
+            }
+            *out = s;
+            return;
         }
         match self.ef.find(i) {
             Some(j) => {
@@ -531,6 +550,11 @@ impl Program {
             buf.n = n;
             for c in 0..self.cols {
                 match self.prog[c] {
+                    Prog::Belt(b) => {
+                        for (i, x) in buf.col[c][..n].iter_mut().enumerate() {
+                            *x = b.at(s + i as u64);
+                        }
+                    }
                     Prog::Const(v) => buf.col[c][..n].fill(v),
                     Prog::Affine { a, b } => {
                         let mut v = Prog::Affine { a, b }.at(s);
@@ -604,6 +628,12 @@ impl Program {
     pub fn bounds(&self, i0: u64, i1: u64) -> [(i128, i128); MAXC] {
         let mut out = [(0i128, 0i128); MAXC];
         for f in 0..self.cols {
+            if let Prog::Belt(b) = self.prog[f] {
+                let (lo, hi) = b.bounds();
+                let d = self.maxdev[f] as i128;
+                out[f] = (lo - d, hi + d);
+                continue;
+            }
             let (x, y) = (self.prog[f].at(i0) as i128, self.prog[f].at(i1) as i128);
             let d = self.maxdev[f] as i128;
             out[f] = (x.min(y) - d, x.max(y) + d);

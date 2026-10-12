@@ -3175,3 +3175,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/runs/opus-motion/, sonnet-motion2/, codex-week/
 - Limitations: B12 unusable until rebuilt; plunge orbits have no tube; the register is Kepler's, not the geodesic's.
 - Next: on 12 October, review the branches item by item and merge the best per item.
+
+## H0216 — The week's review: rotating holes, the belt and co-orbital fleets merged; the high-γ clock pinned; the lab gets a memory
+
+- Date: 2026-10-12
+- Kind: implementation
+- Status: partial
+- Revisions: 405b9fb (Kerr compiler); 1587020 (belt wiring); 92c94b1 (co-orbital certificate); ffb0eee, 72da795 (lab wiki)
+- Scope: crates/space (kerr.rs), crates/shipmem, crates/encounters, xtask/src/behave/space.rs; lab
+- Changed: Codex's three winning branches merged after M1 reruns: B19 passes all six criteria (G1–G6, B16 unchanged); B18, B18b pass; the co-orbital tier's 21 tests pass. A GLM gold reproduced exactly: under a held burn the tube's dt/dτ caps at 2 while γ reaches 1,761. Sonnet pinned why: the weak-field clock is first order (2E²/(E²+1)), and E lives in a Q48 gap that caps it near 1,753. The lab (557 runs, 100 golds) repeated settled topics: it now keeps a wiki with topic certificates; authors ship regen.sh; checkers test outside the author's range; two lenses retired.
+- Why: Julien: "a karphaty style wiki"; the clock is what the player feels.
+- Validation: the space, universe, shipmem and encounters suites; behave G1–G6, B16, B18, B18b, B19; the clock probe on the M1.
+- Evidence: artifacts/runs/codex-week/, artifacts/runs/clock/, lab/wiki/
+- Limitations: the clock fix is in flight (wt/clock); the shipmem and encounters crates are built but not yet wired into the plane.
+- Next: merge the clock fix behind gate C1; retire the kick jet; the frame's cost.

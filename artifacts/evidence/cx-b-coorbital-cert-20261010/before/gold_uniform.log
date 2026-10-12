@@ -1,0 +1,9 @@
+{"command": ["target/release/deps/phase_truth-711e384372cbd03c", "gold_uniform", "--nocapture", "--test-threads=1"], "state": {"power": {"rc": 0, "text": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25034851)\t100%; charged; 0:00 remaining present: true\n"}, "thermal": {"rc": 0, "text": "Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc\n"}, "load": {"rc": 1, "text": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"}, "swap": {"rc": 1, "text": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"}}}
+
+running 1 test
+test gold_uniform ... GATE gold-uniform truth=0 misses=0 false=0 setups=19900 checks=1 oracle_evals=237919 seconds=1.676
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 1.68s
+
+{"exit": 0, "seconds": 2.264225292019546, "max_rss_bytes": 4308992}
