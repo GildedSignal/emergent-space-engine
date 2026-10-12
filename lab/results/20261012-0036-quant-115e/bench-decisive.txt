@@ -1,0 +1,48 @@
+== A: stage budget (default plane, settle 30000000000 ticks) ==
+machine: cpu=Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz; load=2.07 2.24 2.44 2/484 4044255
+; MemAvailable_kB=14428848
+wall 2.763s; items 49619 (kicks 24827, opens 198, boundaries 24594, handoffs 4, lost 4, refused 0); whole-universe 55.7 us/item
+digest: e317b2680d65325981d67a5e5d9e67288e624e6ae6ce0c1ec04c2de3c595a5be
+
+-- step::process per What (us: p50 p90 p99 p99.9 max, n) --
+     Crash:    1.30    1.30    1.30     1.30     1.30  n=1
+            apply:   12.80   12.80   12.80    12.80    12.80
+  Boundary:   18.88   22.35   28.10    66.34   169.15  n=24601
+            apply:    7.60    7.89   11.17    12.96    26.93
+   Kick(0):   37.66   40.51   82.24   423.65   579.80  n=24606
+            apply:    7.71    8.03   11.95    24.06   150.91
+   Kick(1):  414.76  422.45  430.80   436.51   436.51  n=124
+            apply:   12.82   13.31   19.43    21.90    21.90
+   Kick(2):  414.07  424.28  461.92   461.92   461.92  n=92
+            apply:   12.80   13.46   18.28    18.28    18.28
+   Open(1):   12.97   26.18   39.03    39.03    39.03  n=93
+            apply:   12.60   12.81   17.72    17.72    17.72
+   Open(2):   13.01   13.21   17.08    17.08    17.08  n=69
+            apply:   12.63   12.87   13.06    13.06    13.06
+
+-- kick stages (WH path; us/call and share of kick total) --
+         readout:    3.53 us/call    8.5 % of kick
+inputs(2nd+tide):    7.27 us/call   17.5 % of kick
+           force:    1.05 us/call    2.5 % of kick
+        quantize:    0.09 us/call    0.2 % of kick
+          rebind:   29.39 us/call   70.7 % of kick
+       kick-post:    0.06 us/call    0.1 % of kick
+            kick:   41.57 us/kick (total)
+   plan_interval:   15.53 us/call  (plan_interval share of boundary:  80.5 %)
+        boundary:   19.29 us/boundary
+            open:    0.00 us/open
+      root_state:    7.35 us/call over 49622 calls (the position cache after every event)
+requeue: 0.14 us/call over 30835 calls; classes: planet 23.1 moon 35.1 ship 35.7 player 150.9 fleet 66.7 us/item (fleet items 104)
+rekey: 2 advances in the settle
+sums: process 30.6 us/item, apply 7.6 us/item, root_state 97.0 % of apply
+
+== B: the per-frame scheduler tax (zero engine budget: no events resolved) ==
+machine: cpu=Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz; load=2.07 2.24 2.44 2/484 4044255
+; MemAvailable_kB=14420784
+ N_extra     bodies    frame_p50    frame_p99      rekey   events
+       0         28       8.0 us       8.8 us     7.8 us        0
+    4000       4028     187.6 us     193.9 us   188.0 us        0
+   16000      16028     772.2 us     809.6 us   773.0 us        0
+   64000      64028    3640.3 us    3938.8 us  3658.1 us        0
+  256000     256028   15943.7 us   16296.6 us 15971.7 us        0
+64000 inert      64028    3646.6 us    3856.8 us  3663.8 us        0

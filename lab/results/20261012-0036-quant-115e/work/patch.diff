@@ -1,0 +1,483 @@
+diff --git a/crates/universe/examples/digest_control.rs b/crates/universe/examples/digest_control.rs
+new file mode 100644
+index 00000000..be7d76ad
+--- /dev/null
++++ b/crates/universe/examples/digest_control.rs
+@@ -0,0 +1,15 @@
++//! Lab 20261012-0036 control: the plane's digest after the same settle, on pristine sources.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::Config;
++
++fn main() {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    p.u.settle(30_000_000_000);
++    let s = p.u.stats;
++    println!(
++        "items {} (kicks {}, opens {}, boundaries {}, lost {}, refused {}) digest {}",
++        s.kicks + s.opens + s.boundaries, s.kicks, s.opens, s.boundaries, s.lost, s.refused,
++        p.u.digest()
++    );
++}
+diff --git a/crates/universe/examples/kick_budget.rs b/crates/universe/examples/kick_budget.rs
+new file mode 100644
+index 00000000..75a28ecb
+--- /dev/null
++++ b/crates/universe/examples/kick_budget.rs
+@@ -0,0 +1,205 @@
++//! Lab 20261012-0036-quant-115e (quant lens): two measurements on the shipped plane.
++//!
++//! A. The event's stage budget: settle the default plane scene and split every resolved item's
++//!    cost into `step::process` (and its internal stages) against `apply` (+ `root_state`), with
++//!    per-What latency percentiles — the mean hides what the frame pays at p99.
++//! B. The per-frame scheduler tax: `advance` rekeys every body's deadline each presented frame.
++//!    A ladder of N extra Home orbiters (all kicked, all planned) measures the frame's cost with
++//!    a zero engine budget — no events resolved at all — plus an inert control (root-doll
++//!    haulers, nothing can kick them: pure tubes with no plan).
++use emergent_space::orbit::Scalar;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane, AU};
++use emergent_universe::{universe, Budget, Config, Kind, OrbitSpec, Universe};
++use std::time::Instant;
++
++fn pctl(mut v: Vec<u64>, ps: &[f64]) -> Vec<f64> {
++    v.sort_unstable();
++    ps.iter()
++        .map(|&p| {
++            let i = (((v.len() as f64 - 1.0) * p).ceil()) as usize;
++            v.get(i).copied().unwrap_or(0) as f64 / 1000.0
++        })
++        .collect()
++}
++
++fn machine() -> String {
++    let cpu = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
++    let model = cpu
++        .lines()
++        .find(|l| l.starts_with("model name"))
++        .and_then(|l| l.split(':').nth(1))
++        .unwrap_or("?")
++        .trim()
++        .to_string();
++    let load = std::fs::read_to_string("/proc/loadavg").unwrap_or_default();
++    let avail = std::fs::read_to_string("/proc/meminfo")
++        .ok()
++        .and_then(|m| m.lines().find(|l| l.starts_with("MemAvailable")).map(|l| l.split_whitespace().nth(1).unwrap_or("?").to_string()))
++        .unwrap_or_else(|| "?".into());
++    format!("cpu={model}; load={load}; MemAvailable_kB={avail}")
++}
++
++fn what_name(c: u8) -> String {
++    match c {
++        1 => "Crash".into(),
++        2 => "Boundary".into(),
++        c if (16..32).contains(&c) => format!("Kick({})", c - 16),
++        c if (32..48).contains(&c) => format!("Open({})", c - 32),
++        _ => format!("code {c}"),
++    }
++}
++
++fn phase_a() {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    let horizon = 30_000_000_000i64;
++    let t0 = Instant::now();
++    p.u.settle(horizon);
++    let wall = t0.elapsed();
++    let (ev, apply, root_ns, root_n, _rk, _rkn, rq_ns, rq_n) = universe::prof_take();
++    let st = step_stages();
++    let s = p.u.stats;
++    let items = s.kicks + s.opens + s.boundaries;
++    println!("== A: stage budget (default plane, settle {horizon} ticks) ==");
++    println!("machine: {}", machine());
++    println!(
++        "wall {:.3?}; items {items} (kicks {}, opens {}, boundaries {}, handoffs {}, lost {}, refused {}); whole-universe {:.1} us/item",
++        wall, s.kicks, s.opens, s.boundaries, s.handoffs, s.lost, s.refused,
++        wall.as_secs_f64() * 1e6 / items as f64
++    );
++    println!("digest: {}", p.u.digest());
++    let ps = [0.5f64, 0.9, 0.99, 0.999];
++    let mut codes: Vec<u8> = ev.iter().map(|(_, c)| *c).collect();
++    codes.sort_unstable();
++    codes.dedup();
++    println!("\n-- step::process per What (us: p50 p90 p99 p99.9 max, n) --");
++    for c in codes {
++        let sub: Vec<u64> = ev.iter().filter(|(_, w)| *w == c).map(|(n, _)| *n).collect();
++        let n = sub.len();
++        let mut q = pctl(sub.clone(), &ps);
++        q.push(*sub.iter().max().unwrap_or(&0) as f64 / 1000.0);
++        println!("{:>10}: {:7.2} {:7.2} {:7.2} {:8.2} {:8.2}  n={n}", what_name(c), q[0], q[1], q[2], q[3], q[4]);
++        let ap: Vec<u64> = apply.iter().filter(|(_, w)| *w == c).map(|(n, _)| *n).collect();
++        if !ap.is_empty() {
++            let mut q = pctl(ap.clone(), &ps);
++            q.push(*ap.iter().max().unwrap_or(&0) as f64 / 1000.0);
++            println!("{:>10}  apply: {:7.2} {:7.2} {:7.2} {:8.2} {:8.2}", "", q[0], q[1], q[2], q[3], q[4]);
++        }
++    }
++    println!("\n-- kick stages (WH path; us/call and share of kick total) --");
++    let kt = st[6] as f64 / 1000.0;
++    let names = [
++        ("readout", 0usize),
++        ("inputs(2nd+tide)", 1),
++        ("force", 2),
++        ("quantize", 3),
++        ("rebind", 4),
++        ("kick-post", 5),
++    ];
++    for (n, i) in names {
++        println!("{:>16}: {:7.2} us/call  {:5.1} % of kick", n, st[i] as f64 / 1000.0 / s.kicks.max(1) as f64, 100.0 * st[i] as f64 / st[6].max(1) as f64);
++    }
++    println!("{:>16}: {:7.2} us/kick (total)", "kick", kt / s.kicks.max(1) as f64);
++    println!(
++        "{:>16}: {:7.2} us/call  (plan_interval share of boundary: {:5.1} %)",
++        "plan_interval",
++        st[7] as f64 / 1000.0 / s.boundaries.max(1) as f64,
++        100.0 * st[7] as f64 / st[8].max(1) as f64
++    );
++    println!("{:>16}: {:7.2} us/boundary", "boundary", st[8] as f64 / 1000.0 / s.boundaries.max(1) as f64);
++    println!("{:>16}: {:7.2} us/open", "open", st[9] as f64 / 1000.0 / s.opens.max(1) as f64);
++    println!("{:>16}: {:7.2} us/call over {} calls (the position cache after every event)", "root_state", root_ns as f64 / 1000.0 / root_n.max(1) as f64, root_n);
++    println!(
++        "requeue: {:.2} us/call over {} calls; classes: planet {:.1} moon {:.1} ship {:.1} player {:.1} fleet {:.1} us/item (fleet items {})",
++        rq_ns as f64 / 1000.0 / rq_n.max(1) as f64,
++        rq_n,
++        s.cost_ns[0] as f64 / 1000.0 / s.items[0].max(1) as f64,
++        s.cost_ns[1] as f64 / 1000.0 / s.items[1].max(1) as f64,
++        s.cost_ns[2] as f64 / 1000.0 / s.items[2].max(1) as f64,
++        s.cost_ns[3] as f64 / 1000.0 / s.items[3].max(1) as f64,
++        s.cost_ns[4] as f64 / 1000.0 / s.items[4].max(1) as f64,
++        s.items[4]
++    );
++    println!("rekey: {} advances in the settle", _rkn);
++    let ev_sum: u64 = ev.iter().map(|(n, _)| *n).sum();
++    let ap_sum: u64 = apply.iter().map(|(n, _)| *n).sum();
++    println!(
++        "sums: process {:.1} us/item, apply {:.1} us/item, root_state {:.1} % of apply",
++        ev_sum as f64 / 1000.0 / ev.len().max(1) as f64,
++        ap_sum as f64 / 1000.0 / ev.len().max(1) as f64,
++        100.0 * root_ns as f64 / ap_sum.max(1) as f64
++    );
++}
++
++fn step_stages() -> [u64; 12] {
++    emergent_universe::step::prof_take()
++}
++
++struct Lcg(u64);
++impl Lcg {
++    fn f(&mut self) -> f64 {
++        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        (self.0 >> 11) as f64 / (1u64 << 53) as f64
++    }
++}
++
++fn phase_b() {
++    println!("\n== B: the per-frame scheduler tax (zero engine budget: no events resolved) ==");
++    println!("machine: {}", machine());
++    println!("{:>8} {:>10} {:>12} {:>12} {:>10} {:>8}", "N_extra", "bodies", "frame_p50", "frame_p99", "rekey", "events");
++    for &(k, inert) in &[(0usize, false), (4_000, false), (16_000, false), (64_000, false), (256_000, false), (64_000, true)] {
++        let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++        let mut rng = Lcg(0xC0FFEE_D15EA5);
++        let doll = if inert { 0 } else { p.dolls[1] };
++        for j in 0..k {
++            let spec = if inert {
++                let a = (0.5 + 7.5 * rng.f()) * AU as f64;
++                OrbitSpec {
++                    doll,
++                    periapsis: Scalar::raw(a as i128, 0).unwrap(),
++                    e_q48: (0.25 * rng.f() * (1u64 << 48) as f64) as u64,
++                    clockwise: rng.f() < 0.15,
++                    angle: (rng.f() * 4294967296.0) as u32,
++                    phase: (rng.f() * 4294967296.0) as u32,
++                }
++            } else {
++                let alt = 1.15 + 0.35 * ((j % 40) as f64) + 0.2 * rng.f();
++                OrbitSpec {
++                    doll,
++                    periapsis: Scalar::raw((4_313.0 * alt * 1024.0) as i128, 8).unwrap(),
++                    e_q48: ((0.02 * rng.f()) * (1u64 << 48) as f64) as u64,
++                    clockwise: j % 5 == 4,
++                    angle: (rng.f() * 4294967296.0) as u32,
++                    phase: (rng.f() * 4294967296.0) as u32,
++                }
++            };
++            p.u.add_body(Kind::Ship, spec, Scalar::raw(34, 8).unwrap()).unwrap();
++        }
++        p.u.start().unwrap();
++        let n = p.u.n_bodies();
++        let before = p.u.stats.kicks + p.u.stats.opens + p.u.stats.boundaries;
++        let mut frames: Vec<u64> = Vec::with_capacity(30);
++        for _ in 0..30 {
++            let t0 = Instant::now();
++            p.u.frame_to(1.0 / 60.0, 1.0, Budget::wall(0.0), i64::MAX);
++            frames.push(t0.elapsed().as_nanos() as u64);
++        }
++        let after = p.u.stats.kicks + p.u.stats.opens + p.u.stats.boundaries;
++        let (_, _, _, _, rk, rkn, _, _) = universe::prof_take();
++        let q = pctl(frames.clone(), &[0.5, 0.99]);
++        println!(
++            "{:>8} {:>10} {:>9} us {:>9} us {:>7} us {:>8}",
++            if inert { format!("{k} inert") } else { format!("{k}") },
++            n,
++            format!("{:.1}", q[0]),
++            format!("{:.1}", q[1]),
++            format!("{:.1}", rk as f64 / 1000.0 / rkn.max(1) as f64),
++            after - before
++        );
++    }
++}
++
++fn main() {
++    phase_a();
++    phase_b();
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d435..1396d400 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -352,17 +352,25 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let k_total = std::time::Instant::now();
++        let sw = std::time::Instant::now();
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
++        bump(0, sw);
+         let d = self.rec.b.doll;
++        let sw = std::time::Instant::now();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
++        bump(1, sw);
++        let sw = std::time::Instant::now();
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
++        bump(2, sw);
+         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+         let added;
++        let sw = std::time::Instant::now();
+         let next = if thrusting {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+@@ -373,20 +381,28 @@ impl Work<'_, '_> {
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
++                bump(3, sw);
++                bump(6, k_total);
+                 return Ok(());
+             }
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
++        bump(3, sw);
++        let sw = std::time::Instant::now();
+         self.rebind(next, t, d)?;
++        bump(4, sw);
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
++        let sw = std::time::Instant::now();
+         let ve = self.rec.b.units.1 as i32;
+         let q = |s: Scalar| -> Res<i64> { i64::try_from(s.fixed(-ve)?).map_err(|_| Error::Refused("kick outside the word")) };
+         // (A kick that does not fit the word's quanta leaves no ramp: the rebinding stands either way.)
+         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
+             self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
+         }
++        bump(5, sw);
++        bump(6, k_total);
+         Ok(())
+     }
+ 
+@@ -685,8 +701,11 @@ impl Work<'_, '_> {
+ 
+     /// The end of a step: certificates, then the next step's plan.
+     fn boundary(&mut self, t: Tick) -> Res<Resolved> {
++        let b_total = std::time::Instant::now();
+         if self.rec.ext.is_some() {
+-            return self.boundary_clock(t);
++            let r = self.boundary_clock(t);
++            bump(8, b_total);
++            return r;
+         }
+         let d = self.rec.b.doll;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+@@ -695,23 +714,30 @@ impl Work<'_, '_> {
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
++            bump(8, b_total);
+             return Ok(Resolved::Lost);
+         }
+         if movable {
+             if d == 0 {
+                 if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+                     self.rec.alive = false;
++                    bump(8, b_total);
+                     return Ok(Resolved::Lost);
+                 }
+                 if self.maybe_capture(t, &st, x)? {
++                    bump(8, b_total);
+                     return Ok(Resolved::Handoff);
+                 }
+             } else if r > self.doll().edge {
+                 self.release(t, st)?;
++                bump(8, b_total);
+                 return Ok(Resolved::Handoff);
+             }
+         }
++        let sw = std::time::Instant::now();
+         self.plan_interval(t)?;
++        bump(7, sw);
++        bump(8, b_total);
+         Ok(Resolved::Boundary)
+     }
+ 
+@@ -971,3 +997,19 @@ mod tests {
+         assert!(miss < 1e-15 && galilean > 1e-2);
+     }
+ }
++
++// ---- lab probe 20261012-0036-quant-115e: per-stage timing only; no semantics change ---------------
++std::thread_local! {
++    static PROF: std::cell::RefCell<[u64; 12]> = const { std::cell::RefCell::new([0; 12]) };
++}
++
++/// Stage indices: 0 readout, 1 inputs (secondaries+tide), 2 force, 3 quantize, 4 rebind,
++/// 5 kick post, 6 kick total, 7 plan_interval, 8 boundary total, 9 open total, 10 kick_clock total.
++pub fn prof_take() -> [u64; 12] {
++    PROF.with(|p| std::mem::replace(&mut *p.borrow_mut(), [0; 12]))
++}
++
++#[inline]
++fn bump(i: usize, since: std::time::Instant) {
++    PROF.with(|p| p.borrow_mut()[i] += since.elapsed().as_nanos() as u64);
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc024..ecfb159d 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -528,9 +528,15 @@ impl Universe {
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
++        let t_root = Instant::now();
+         if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+             self.pos[i] = p;
+         }
++        UPROF.with(|p| {
++            let mut p = p.borrow_mut();
++            p.root_ns += t_root.elapsed().as_nanos() as u64;
++            p.root_n += 1;
++        });
+     }
+ 
+     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {
+@@ -582,8 +588,25 @@ impl Universe {
+             self.lanes.ships = ships;
+         }
+         let rec = self.bodies.rec(i);
++        let what = rec.plan.first().map(|it| match it.what {
++            crate::body::What::Crash => 1u8,
++            crate::body::What::Boundary => 2u8,
++            crate::body::What::Kick(l) => 16 + l,
++            crate::body::What::Open(l) => 32 + l,
++        });
++        let t0 = Instant::now();
+         let upd = step::process(&self.ctx(), i, rec);
++        let t1 = t0.elapsed().as_nanos() as u64;
++        UPROF.with(|p| {
++            let mut p = p.borrow_mut();
++            p.ev.push((t1, what.unwrap_or(0)));
++        });
++        let t0 = Instant::now();
+         self.apply(i, upd);
++        UPROF.with(|p| {
++            let mut p = p.borrow_mut();
++            p.apply.push((t0.elapsed().as_nanos() as u64, what.unwrap_or(0)));
++        });
+         if kind == Kind::Player {
+             self.encounters_for_player();
+         }
+@@ -616,7 +639,13 @@ impl Universe {
+                 self.resolve_body(e);
+                 self.stats.cost_ns[class] += t0.elapsed().as_nanos() as u64;
+                 self.stats.items[class] += 1;
++                let t_rq = Instant::now();
+                 self.requeue(e);
++                UPROF.with(|p| {
++                    let mut p = p.borrow_mut();
++                    p.rq_ns += t_rq.elapsed().as_nanos() as u64;
++                    p.rq_n += 1;
++                });
+             }
+         }
+     }
+@@ -765,7 +794,7 @@ impl Universe {
+             let mut chunks: Vec<Vec<(usize, BodyRec)>> = Vec::new();
+             let mut it = recs.into_iter().peekable();
+             while it.peek().is_some() {
+-                chunks.push(it.by_ref().take(per).collect());
++            chunks.push(it.by_ref().take(per).collect());
+             }
+             std::thread::scope(|sc| {
+                 let handles: Vec<_> = chunks
+@@ -785,11 +814,16 @@ impl Universe {
+         }
+         self.stats.cost_ns[2] += t0.elapsed().as_nanos() as u64;
+     }
+-
+     /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.
+     pub fn advance(&mut self, target: Tick, budget: Budget) -> Advanced {
+         self.target = target;
++        let t_rk = Instant::now();
+         self.rekey();
++        UPROF.with(|p| {
++            let mut p = p.borrow_mut();
++            p.rekey_ns += t_rk.elapsed().as_nanos() as u64;
++            p.rekey_n += 1;
++        });
+         let start = self.resolved;
+         let mut done = 0u64;
+         let mut deferred: Vec<usize> = Vec::new();
+@@ -1076,3 +1110,40 @@ impl Universe {
+     }
+ }
+ 
++// ---- lab probe 20261012-0036-quant-115e: per-stage timing only; no semantics change ---------------
++struct UProf {
++    ev: Vec<(u64, u8)>,
++    apply: Vec<(u64, u8)>,
++    root_ns: u64,
++    root_n: u64,
++    rekey_ns: u64,
++    rekey_n: u64,
++    rq_ns: u64,
++    rq_n: u64,
++}
++std::thread_local! {
++    static UPROF: std::cell::RefCell<UProf> = const {
++        std::cell::RefCell::new(UProf { ev: Vec::new(), apply: Vec::new(), root_ns: 0, root_n: 0, rekey_ns: 0, rekey_n: 0, rq_ns: 0, rq_n: 0 })
++    };
++}
++
++/// Lab probe: (per-item `step::process` ns by What code, per-item `apply` ns by What code,
++/// root_state ns, root_state calls, rekey ns, rekey calls, requeue ns, requeue calls).
++/// What codes: 1 Crash, 2 Boundary, 16+l Kick(l), 32+l Open(l).
++pub fn prof_take()
++-> (Vec<(u64, u8)>, Vec<(u64, u8)>, u64, u64, u64, u64, u64, u64) {
++    UPROF.with(|p| {
++        let mut p = p.borrow_mut();
++        (
++            std::mem::take(&mut p.ev),
++            std::mem::take(&mut p.apply),
++            std::mem::replace(&mut p.root_ns, 0),
++            std::mem::replace(&mut p.root_n, 0),
++            std::mem::replace(&mut p.rekey_ns, 0),
++            std::mem::replace(&mut p.rekey_n, 0),
++            std::mem::replace(&mut p.rq_ns, 0),
++            std::mem::replace(&mut p.rq_n, 0),
++        )
++    })
++}
++

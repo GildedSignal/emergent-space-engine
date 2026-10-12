@@ -1,0 +1,4 @@
+Working...
+Run complete. Artifacts in `lab/results/20261012-0036-quant-115e/` (predictions pre-registered, dossier, decisive bench output, sources; controls: bit-identical digest `e317b268…a5be` and 11/11 test suites on pristine vs instrumented builds).
+
+**Claim:** the plane's presented frame pays a measured ~43–60 ns per planned body even when zero events resolve — the per-frame `rekey` of every heuristic deadline, over the 16.7 ms budget at ~10⁶ bodies and minutes at 10⁹ — while the kick itself is 70.7 % rebind bookkeeping with an 11× p99.9 tail against 28 % physics inputs and 2.7 % force arithmetic, so the event's unit price is already within ~1× of its billion-body belt-cadence budget and the levers are lazy deadline re-keying (O(events), bits preserved) and rebind slimming, not cheaper force math.
