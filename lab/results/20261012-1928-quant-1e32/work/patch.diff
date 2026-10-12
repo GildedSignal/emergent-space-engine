@@ -1,0 +1,360 @@
+diff --git a/crates/universe/examples/lazy_cal.rs b/crates/universe/examples/lazy_cal.rs
+new file mode 100644
+index 00000000..54c99d57
+--- /dev/null
++++ b/crates/universe/examples/lazy_cal.rs
+@@ -0,0 +1,140 @@
++//! The zero-event frame's cost and the digest's schedule-independence, for the lazy calendar
++//! (a due lane keyed on the next item tick, a rekey that runs only when the observer moved,
++//! and no deferral). Run with `ES_LAZY_CAL=0` for the shipped path, `ES_LAZY_CAL=1` (default)
++//! for the patched one.
++//!
++//! - `quiet`:  K zero-event frames (`advance(now)`) at N = 1e4..2e5 root-doll ships: p50/p99/max.
++//! - `busy`:   settle 5e4 ships to a horizon: wall time and events (the lane's per-event overhead).
++//! - `digest`: plane (fleet + player + decisions) at 5 schedules and the ship population at 3
++//!             schedules: asserts one digest per scenario, prints them for the cross-mode diff.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane, restricted_with};
++use emergent_universe::{Budget, Config, Universe};
++use std::time::Instant;
++
++const H: i64 = 150_000_000;
++
++/// N ships about the star in the root doll, phases and radii spread (the restricted problem's
++/// population: every ship is a planned, queued body with real kicks).
++fn pop(n: usize) -> Universe {
++    let ships: Vec<(i64, u32)> = (0..n)
++        .map(|i| {
++            let a = i as f64 / n as f64;
++            let r = 300_000_000.0 + 6_000_000.0 * (1.0 + (((i.wrapping_mul(2_654_435_761) >> 13) % 1000) as f64) / 500.0);
++            (r as i64, (a * (1u64 << 32) as f64) as u32)
++        })
++        .collect();
++    restricted_with(20, 300_000_000, 49_000, &ships, 1, Config::default()).unwrap().u
++}
++
++fn quiet(ns: &[usize], k: usize) {
++    for &n in ns {
++        let mut u = pop(n);
++        let mut times = Vec::with_capacity(k);
++        let mut events = 0u64;
++        for _ in 0..k {
++            let t0 = Instant::now();
++            let a = u.advance(u.now, Budget::unlimited());
++            times.push(t0.elapsed().as_nanos() as f64);
++            events += a.events;
++        }
++        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let q = |p: f64| times[(p * (times.len() - 1) as f64) as usize];
++        println!(
++            "quiet n={n:>7} events={events} p50={:8.0}ns p99={:8.0}ns max={:8.0}ns per-body-p50={:7.3}ns",
++            q(0.5), q(0.99), times[times.len() - 1], q(0.5) / n as f64
++        );
++    }
++}
++
++fn busy(n: usize) {
++    let mut u = pop(n);
++    let t0 = Instant::now();
++    u.settle(H);
++    let s = u.stats;
++    println!("busy n={n} settle {:.2}s events {} kicks {}", t0.elapsed().as_secs_f64(), s.events(), s.kicks);
++}
++
++/// Frames the way a session runs them, then the canonical cut.
++fn run_pop(n: usize, budget: Budget, step: i64) -> String {
++    let mut u = pop(n);
++    while u.now < H {
++        let target = (u.now + step).min(H);
++        let a = u.advance(target, budget);
++        u.now = a.horizon.max(u.now);
++        if a.events == 0 && a.overflow {
++            u.settle(target);
++        }
++    }
++    u.settle(H);
++    u.digest()
++}
++
++const PH: i64 = 2_000_000_000;
++const MEMBERS: u64 = 24;
++const INPUTS: [(i64, u8); 8] = [
++    (10_000_000, 1), (12_000_000, 0), (300_000_000, 9), (302_000_000, 0),
++    (900_000_000, 2), (902_000_000, 0), (1_200_000_000, 4), (1_201_000_000, 0),
++];
++
++fn run_plane(threads: usize, budget: Budget, step: i64) -> String {
++    let mut p = plane(Config::default(), 7, Order::Sparse, threads, MEMBERS).unwrap();
++    let mut next_input = 0;
++    while p.u.now < PH {
++        let mut target = (p.u.now + step).min(PH);
++        if let Some(&(t, _)) = INPUTS.get(next_input) {
++            target = target.min(t.max(p.u.now + 1));
++        }
++        let a = p.u.advance(target, budget);
++        p.u.now = a.horizon.max(p.u.now);
++        if let Some(&(t, keys)) = INPUTS.get(next_input) {
++            if p.u.now >= t {
++                p.u.input(t, keys).unwrap();
++                next_input += 1;
++            }
++        }
++        if a.events == 0 && a.overflow {
++            p.u.settle(target);
++        }
++    }
++    p.u.settle(PH);
++    p.u.digest()
++}
++
++fn digest() {
++    let mut ok = true;
++    let reference = run_plane(1, Budget::unlimited(), 3_000_000);
++    println!("plane reference digest {}", &reference[..32]);
++    for (threads, events, step) in [
++        (1usize, 13u64, 3_000_000i64), (2, 200, 40_000_000), (4, 7, 1_000_000),
++        (8, 64, 100_000_000), (3, u64::MAX, 7_000_000),
++    ] {
++        let d = run_plane(threads, Budget::events(events), step);
++        println!("plane threads={threads} events={events} step={step}: {} {}", &d[..32], if d == reference { "same" } else { "DIFFERENT" });
++        ok &= d == reference;
++    }
++    let r0 = run_pop(400, Budget::unlimited(), 3_000_000);
++    println!("pop reference digest {}", &r0[..32]);
++    for (events, step) in [(13u64, 1_000_000i64), (7, 20_000_000)] {
++        let d = run_pop(400, Budget::events(events), step);
++        println!("pop events={events} step={step}: {} {}", &d[..32], if d == r0 { "same" } else { "DIFFERENT" });
++        ok &= d == r0;
++    }
++    // A control that can fail: another input log gives another digest.
++    let d = run_pop(401, Budget::unlimited(), 3_000_000);
++    println!("pop n=401 control: {} {}", &d[..32], if d != r0 { "differs (good)" } else { "IDENTICAL (bad control)" });
++    ok &= d != r0;
++    assert!(ok, "a digest moved");
++}
++
++fn main() {
++    let mode = std::env::args().nth(1).unwrap_or_else(|| "quiet".into());
++    let lazy = std::env::var("ES_LAZY_CAL").map_or(true, |v| v != "0");
++    println!("mode={mode} lazy={lazy}");
++    match mode.as_str() {
++        "quiet" => quiet(&[10_000, 50_000, 100_000, 200_000], 300),
++        "busy" => busy(50_000),
++        "digest" => digest(),
++        _ => panic!("unknown mode"),
++    }
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index da300bc7..8fa57da9 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -139,7 +139,14 @@ pub struct Universe {
+     cat: Catalogue,
+     pub fleets: Vec<Fleet>,
+     queue: Option<Calendar>,
+-    /// The presented time of the last frame, and the position of the player used for deadlines.
++    /// The next item's tick per entity (the due lane): a frame with nothing due peeks once
++    /// instead of walking every entity, and every entity keeps its deadline slot (nothing is
++    /// set aside and requeued), so a quiet frame costs O(1), not one pass per body.
++    lane: Option<Calendar>,
++    /// Whether the player's record changed since the last full rekey (the observer may have moved).
++    observer_dirty: bool,
++    /// The evaluation time of the observer at the last full rekey; `Tick::MIN` forces the first.
++    observer_eval: Option<Tick>,
+     pub now: Tick,
+     player: Option<usize>,
+     observer: [f64; 2],
+@@ -179,6 +186,13 @@ struct Lanes {
+     ships: Vec<usize>,
+ }
+ 
++/// The lazy calendar is the default; `ES_LAZY_CAL=0` selects the shipped loop (the A/B of the
++/// run: both paths are schedule-only, so digests are mode-independent).
++fn lazy_cal() -> bool {
++    static L: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_LAZY_CAL").map_or(true, |v| v != "0"));
++    *L
++}
++
+ impl Universe {
+     pub fn new(star_surface: Scalar, cfg: Config) -> Self {
+         Self {
+@@ -187,6 +201,9 @@ impl Universe {
+             specs: Vec::new(),
+             sources: vec![Vec::new()],
+             cfg,
++            lane: None,
++            observer_dirty: false,
++            observer_eval: Some(Tick::MIN),
+             bodies: Box::<PlainBodies>::default(),
+             cat: Catalogue::default(),
+             fleets: Vec::new(),
+@@ -411,6 +428,7 @@ impl Universe {
+         }
+         self.body_cap = n + self.fleets.iter().map(|f| f.n_members).sum::<usize>();
+         self.queue = Some(Calendar::new(self.body_cap + self.fleets.len()));
++        self.lane = Some(Calendar::new(self.body_cap + self.fleets.len()));
+         let (ctx, fleets) = self.split();
+         for f in fleets.iter_mut() {
+             f.start(&ctx);
+@@ -483,14 +501,29 @@ impl Universe {
+     }
+ 
+     fn requeue(&mut self, e: usize) {
++        let t = self.key_of(e).map(|(t, _)| t);
+         let d = self.deadline_of(e);
+         if let Some(q) = self.queue.as_mut() {
+             let _ = q.set(e, d.map(Scalar::integer));
+         }
++        if let Some(l) = self.lane.as_mut() {
++            let _ = l.set(e, t.map(Scalar::integer));
++        }
+     }
+ 
+     /// Recompute every deadline from the player's present position (a scheduling heuristic only).
++    /// A deadline reads three things — the observer, the entity's position, its next tick — and each
++    /// of those changes only where [`Universe::requeue`] already runs (an item's resolution requeues
++    /// its own entity; the player's is the only one that moves the observer). So the pass is needed
++    /// only after the player's record changed, or when its evaluation time (the last committed tick
++    /// against the presented now) moved: until then every key it would rewrite is already current.
+     pub fn rekey(&mut self) {
++        let eval = self.player.map(|p| self.bodies.event_time(p).max(self.now));
++        if lazy_cal() && !self.observer_dirty && eval == self.observer_eval {
++            return;
++        }
++        self.observer_dirty = false;
++        self.observer_eval = eval;
+         if let Some(p) = self.player {
+             if let Ok((pos, _)) = crate::observe::root_state_raw(&self.ctx(), p, self.bodies.event_time(p).max(self.now)) {
+                 self.observer = pos;
+@@ -531,6 +564,9 @@ impl Universe {
+         if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+             self.pos[i] = p;
+         }
++        if Some(i) == self.player {
++            self.observer_dirty = true;
++        }
+     }
+ 
+     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {
+@@ -607,6 +643,7 @@ impl Universe {
+                     let _ = q.set(e, None);
+                     q.peek()
+                 });
++                let _ = self.lane.as_mut().map(|l| l.set(e, None));
+                 let cap = second.map_or(Tick::MAX, |(d, _)| (d.fixed(0).unwrap_or(i128::MAX) as Tick).saturating_sub(dist));
+                 self.resolve_fleet(f, cap);
+             }
+@@ -739,6 +776,7 @@ impl Universe {
+         let cap = self.threads * 4;
+         let mut wave = vec![first];
+         let _ = self.queue.as_mut().map(|q| q.set(first, None));
++        let _ = self.lane.as_mut().map(|l| l.set(first, None));
+         while wave.len() < cap {
+             let Some((_, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+             let ok = self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) && self.key_of(e).is_some_and(|k| k.0 <= target);
+@@ -746,6 +784,7 @@ impl Universe {
+                 break;
+             }
+             let _ = self.queue.as_mut().map(|q| q.set(e, None));
++            let _ = self.lane.as_mut().map(|l| l.set(e, None));
+             wave.push(e);
+         }
+         let mut keyed: Vec<((Tick, usize), usize)> = wave.iter().filter_map(|&e| self.key_of(e).map(|k| (k, e))).collect();
+@@ -786,7 +825,10 @@ impl Universe {
+         self.stats.cost_ns[2] += t0.elapsed().as_nanos() as u64;
+     }
+ 
+-    /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.
++    /// Spend `budget` resolving items with a tick up to `target`. The shipped path picks the
++    /// smallest deadline and sets aside what is beyond the frame; the lazy path (the default,
++    /// [`lazy_cal`]) picks the due lane's min — the canonical key (tick, then id) — and sets
++    /// nothing aside, so a frame with nothing due costs one peek whatever the population.
+     pub fn advance(&mut self, target: Tick, budget: Budget) -> Advanced {
+         self.target = target;
+         self.rekey();
+@@ -796,20 +838,55 @@ impl Universe {
+         let mut overflow = false;
+         loop {
+             self.take_due(target);
+-            let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+-            let dl = dl.fixed(0).unwrap_or(i128::MAX) as Tick;
+-            let Some((t, _)) = self.key_of(e) else {
+-                let _ = self.queue.as_mut().map(|q| q.set(e, None));
+-                continue;
++            let e = if lazy_cal() {
++                // The due lane: the earliest tick in the universe. A frame with nothing due
++                // breaks here after one peek — no walk of the calendar, nothing set aside and
++                // put back.
++                let Some((t, e)) = self.lane.as_ref().and_then(|l| l.peek()) else { break };
++                let t = t.fixed(0).unwrap_or(i128::MAX) as Tick;
++                if t > target {
++                    break;
++                }
++                match self.key_of(e) {
++                    None => {
++                        let _ = self.queue.as_mut().map(|q| q.set(e, None));
++                        let _ = self.lane.as_mut().map(|l| l.set(e, None));
++                        continue;
++                    }
++                    Some((kt, _)) if kt != t => {
++                        // A stale lane key (a tick that moved without its requeue): refresh it.
++                        self.requeue(e);
++                        continue;
++                    }
++                    Some(_) => e,
++                }
++            } else {
++                let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
++                let dl = dl.fixed(0).unwrap_or(i128::MAX) as Tick;
++                let Some((t, _)) = self.key_of(e) else {
++                    let _ = self.queue.as_mut().map(|q| q.set(e, None));
++                    continue;
++                };
++                if t > target {
++                    // Beyond this frame: set aside until the frame is done.
++                    let _ = self.queue.as_mut().map(|q| q.set(e, None));
++                    deferred.push(e);
++                    continue;
++                }
++                if budget.spent(done) {
++                    overflow = dl <= target;
++                    break;
++                }
++                e
+             };
+-            if t > target {
+-                // Beyond this frame: set aside until the frame is done.
+-                let _ = self.queue.as_mut().map(|q| q.set(e, None));
+-                deferred.push(e);
+-                continue;
+-            }
+             if budget.spent(done) {
+-                overflow = dl <= target;
++                // Mandatory work is whatever is visible by the frame: the smallest unresolved
++                // deadline against the target (nothing was set aside, so the heap's min is it).
++                overflow = self
++                    .queue
++                    .as_ref()
++                    .and_then(|q| q.peek())
++                    .is_some_and(|(dl, _)| dl.fixed(0).unwrap_or(i128::MAX) as Tick <= target);
+                 break;
+             }
+             if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
+@@ -819,7 +896,8 @@ impl Universe {
+             }
+             done = self.resolved - start;
+         }
+-        // The horizon: the smallest deadline still unresolved (the heap's min, and what was set aside).
++        // The horizon: the smallest deadline still unresolved — the heap's min over what was
++        // not set aside, and the deadlines of what was.
+         let mut horizon = target;
+         if let Some((dl, _)) = self.queue.as_ref().and_then(|q| q.peek()) {
+             horizon = horizon.min(dl.fixed(0).unwrap_or(i128::MAX) as Tick - 1);
+@@ -833,6 +911,7 @@ impl Universe {
+         Advanced { events: done, horizon: horizon.max(self.now), overflow }
+     }
+ 
++
+     /// Resolve every item up to `horizon` (the canonical cut): the state a digest is taken at.
+     pub fn settle(&mut self, horizon: Tick) {
+         loop {
