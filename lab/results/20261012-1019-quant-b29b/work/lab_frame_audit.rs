@@ -1,0 +1,126 @@
+// Frame audit (quant lens): what one presented frame costs as the entity count N grows, split into
+// the budgeted event tier and the unbudgeted fixed tier (`rekey`, the defer/requeue drain, `digest`).
+// `lab_frame_audit N THREADS RTF` prints one line per measurement. Deterministic ship layout (LCG).
+use emergent_universe::scenario::restricted_with;
+use emergent_universe::{Budget, Config};
+use std::time::Instant;
+
+fn rss_mb() -> f64 {
+    let s = std::fs::read_to_string("/proc/self/statm").unwrap();
+    let r: u64 = s.split_whitespace().nth(1).unwrap().parse().unwrap();
+    r as f64 * 4096.0 / 1e6
+}
+
+fn med(v: &mut Vec<f64>) -> f64 {
+    v.sort_by(|a, b| a.total_cmp(b));
+    v[v.len() / 2]
+}
+
+fn main() {
+    let a: Vec<String> = std::env::args().skip(1).collect();
+    let n: usize = a.first().map(|s| s.parse().unwrap()).unwrap_or(120);
+    let threads: usize = a.get(1).map(|s| s.parse().unwrap()).unwrap_or(1);
+    let rtf: f64 = a.get(2).map(|s| s.parse().unwrap()).unwrap_or(1.0);
+    let sep = 527_000_000i64;
+    let hill = sep as f64 * (2f64.powi(-10) / 3.0).cbrt();
+    let mut seed = 0x9E3779B97F4A7C15u64;
+    let mut rnd = || {
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        (seed >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let mut ships = Vec::with_capacity(n);
+    for i in 0..n {
+        let k = 1.5 + 1.5 * rnd();
+        let side = if i % 2 == 0 { 1.0 } else { -1.0 };
+        let r = sep as f64 + side * hill * k;
+        ships.push((r as i64, ((rnd() * (1u64 << 32) as f64) as u64 % (1 << 32)) as u32));
+    }
+    let t0 = Instant::now();
+    let cfg = Config::default();
+    let mut w = restricted_with(-10, sep, 49_000, &ships, threads, cfg).unwrap();
+    let build_s = t0.elapsed().as_secs_f64();
+    let u = &mut w.u;
+
+    // 1. rekey alone (the per-frame deadline recompute): 9 samples, median.
+    let mut rk = Vec::new();
+    for _ in 0..9 {
+        let t = Instant::now();
+        u.rekey();
+        rk.push(t.elapsed().as_secs_f64() * 1e3);
+    }
+
+    let mut ef = Vec::new();
+    for _ in 0..9 {
+        let target = u.now + 64;
+        let t = Instant::now();
+        let adv = u.advance(target, Budget::events(0));
+        ef.push(t.elapsed().as_secs_f64() * 1e3);
+        u.now = adv.horizon.max(u.now);
+        std::hint::black_box(&adv);
+    }
+
+    // 3. real frames at 60 Hz: wall per frame (p50/p99/max), events, overflow. 240 frames.
+    let mut fr_ms = Vec::new();
+    let mut evs = 0u64;
+    let mut overflows = 0u64;
+    let (k0, i0, ns0) = (u.stats.kicks, u.stats.items.iter().sum::<u64>(), u.stats.cost_ns.iter().sum::<u64>());
+    for _ in 0..240 {
+        let t = Instant::now();
+        let fr = u.frame(1.0 / 60.0, rtf, Budget::events(64));
+        fr_ms.push(t.elapsed().as_secs_f64() * 1e3);
+        evs += fr.events;
+        overflows += fr.overflow as u64;
+    }
+    let p99 = {
+        let mut s = fr_ms.clone();
+        s.sort_by(|a, b| a.total_cmp(b));
+        s[(s.len() as f64 * 0.99) as usize]
+    };
+    let fr_med = med(&mut fr_ms);
+    let fr_max = fr_ms.iter().cloned().fold(0.0, f64::max);
+    let (k1, i1, ns1) = (u.stats.kicks, u.stats.items.iter().sum::<u64>(), u.stats.cost_ns.iter().sum::<u64>());
+
+    // 4. event throughput: settle forward with an unlimited budget until >=50k kicks or 25 s.
+    let t = Instant::now();
+    let start_items = u.stats.events();
+    let mut chunk = 4096i64;
+    loop {
+        let before = u.stats.events();
+        u.settle(u.now + chunk);
+        let got = u.stats.events() - before;
+        if u.stats.kicks - k1 >= 50_000 || t.elapsed().as_secs_f64() > 25.0 {
+            break;
+        }
+        if got == 0 {
+            chunk *= 2;
+        }
+    }
+    let settle_s = t.elapsed().as_secs_f64();
+    let items = u.stats.events() - start_items;
+    let (k2, i2, ns2) = (u.stats.kicks, u.stats.items.iter().sum::<u64>(), u.stats.cost_ns.iter().sum::<u64>());
+
+    // 5. digest at a settled cut, 3 samples.
+    let mut dg = Vec::new();
+    for _ in 0..3 {
+        let t = Instant::now();
+        let d = u.digest();
+        dg.push(t.elapsed().as_secs_f64() * 1e3);
+        std::hint::black_box(&d);
+    }
+
+    println!(
+        "n={n} threads={threads} rtf={rtf} build_s={build_s:.2} rss_mb={:.0} rec_bytes={} \
+         rekey_ms={:.3} empty_frame_ms={:.3} frame_ms_p50={:.3} p99={:.3} max={:.3} evs_per_frame={evs} overflows={overflows} \
+         items={items} kicks={k2} settle_us_per_item={:.2} ship_us_per_item={:.2} settle_s={settle_s:.1} digest_ms={:.2}",
+        rss_mb(),
+        std::mem::size_of::<emergent_universe::body::BodyRec>(),
+        med(&mut rk),
+        med(&mut ef),
+        fr_med,
+        p99,
+        fr_max,
+        if items > 0 { (ns2 - ns1) as f64 / items as f64 / 1e3 } else { 0.0 },
+        if i2 > i1 { (ns2 - ns1) as f64 / (i2 - i1) as f64 / 1e3 } else { 0.0 },
+        med(&mut dg),
+    );
+}
