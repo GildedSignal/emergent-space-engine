@@ -1,0 +1,74 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..e7d95b62 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -29,7 +29,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 20000),
+             "--seconds" => seconds = val("--seconds")?.parse()?,
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
+@@ -144,6 +144,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
++        "view_surprise": {"below_quantum_live": s.view_below.0, "compared_live": s.view_below.1, "compared_dead": s.view_below.2, "frames": d.frames,
++            "note": "live emitters whose direction (<1e-4 rad), shift (<1e-3) and angular radius (<1e-4 rad) all changed less than a display quantum since the previous frame; dead emitters (wrecks, frozen by construction) counted apart; readouts are the tube readouts the crossings spent"},
++        "view_readouts": s.view_readouts,
+         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5d..09e4115f 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -34,13 +34,20 @@ pub struct Session {
+     members: u64,
+     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
+     cache: ViewCache,
++    /// (experiment 20261012-1524) the previous frame's seen emitters by id: (direction, shift, angular radius).
++    prev_seen: std::collections::HashMap<usize, ([f64; 2], f64, f64)>,
++    /// (experiment) emitters whose (direction, shift, angular radius) all changed less than a display
++    /// quantum since the previous frame: below-threshold count / compared count, over frames.
++    pub view_below: (u64, u64, u64),
++    /// (experiment) tube readouts the gathers spent on crossings (the cache counts them).
++    pub view_readouts: u64,
+ }
+ 
+ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), prev_seen: Default::default(), view_below: (0, 0, 0), view_readouts: 0 })
+     }
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+@@ -98,6 +105,24 @@ impl Session {
+         let ms = start.elapsed().as_secs_f64() * 1e3;
+         self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
+         self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
++        // (experiment) which emitters the player could not tell apart from the previous frame: a display
++        // quantum, not a physics tolerance. 1e-4 rad is a fifth of a pixel at a 60 deg field over 1080 px.
++        // Split by liveness: a wreck's readings are frozen, so it is below the quantum by construction.
++        self.view_readouts += self.cache.readouts;
++        let mut next = std::collections::HashMap::with_capacity(view.seen.len());
++        for e in &view.seen {
++            let here = (e.direction, e.shift, e.angular_radius);
++            let live = e.id == usize::MAX || e.id >= 1_000_000 || self.p.u.bodies().alive(e.id);
++            if let Some(&(d0, s0, a0)) = self.prev_seen.get(&e.id) {
++                let dd = (here.0[0] - d0[0]).hypot(here.0[1] - d0[1]);
++                let below = dd < 1e-4 && (here.1 - s0).abs() < 1e-3 && (here.2 - a0).abs() < 1e-4;
++                self.view_below.0 += (below && live) as u64;
++                self.view_below.1 += live as u64;
++                self.view_below.2 += (!live) as u64;
++            }
++            next.insert(e.id, here);
++        }
++        self.prev_seen = next;
+         Ok((json, ms))
+     }
+ 

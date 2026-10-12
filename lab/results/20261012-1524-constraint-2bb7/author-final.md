@@ -1,0 +1,4 @@
+Working...
+**The claim:** At flight pace (rtf 100) the plane's presented frame is constrained by the view pipeline, not the engine — gather+JSON+wire take 49–72 % of frame CPU at every measured scale, grow linearly and uncapped in presented emitters (5.6–10.6 µs each, busting 16.7 ms at ≈1.7 k bodies while the engine's 5 ms budget only saturates there), and 75–78 % of live emitter-frame pairs change less than a display quantum — so the cheapest lever is view cadence ("compute only surprises"), ahead of the board's fewer-kicks and the queued cheaper-readout build, which attack the second constraint.
+
+Evidence is in `lab/results/20261012-1524-constraint-2bb7/` (dossier.md, predictions.md written before the sweeps, 15 bench/gate outputs; digest proven identical before/after instrumentation; tree edits are measurement-only xtask changes saved as the run's patch).
