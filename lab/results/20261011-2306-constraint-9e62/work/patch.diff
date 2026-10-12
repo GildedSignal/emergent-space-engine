@@ -1,0 +1,134 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3f..8c10ed4b 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -120,6 +120,12 @@ pub struct ViewCache {
+     slots: Vec<Option<Crossing>>,
+     /// Readouts spent finding crossings, in the last gather (a measure, not a result).
+     pub readouts: u64,
++    /// Instrumentation, summed over the run (a lab measure, never a result): [0] the bodies loop
++    /// (Newton crossings), [1] the `state_rate` readouts it spends, [2] fleet setup reads, [3]
++    /// `f.motions` copies, [4] the per-member float work, plus the frames and total readouts.
++    pub parts_ns: [u64; 5],
++    pub readouts_total: u64,
++    pub frames: u64,
+ }
+ 
+ impl ViewCache {
+@@ -297,13 +303,22 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     }
+     // Bodies: where each tube crosses the past light cone.
+     let mut reads = 0u64;
+-    for i in 0..u.n_bodies() {
+-        if i == p || !u.bodies().alive(i) {
+-            continue;
+-        }
+-        let kind = u.info[i].kind;
+-        let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+-        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++    let t_bodies = std::time::Instant::now();
++    let mut eval_ns_acc = 0u64;
++     for i in 0..u.n_bodies() {
++         if i == p || !u.bodies().alive(i) {
++             continue;
++         }
++         let kind = u.info[i].kind;
++         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
++        let mut eval_ns = 0u64;
++        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| {
++            let s = std::time::Instant::now();
++            let r = state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate });
++            eval_ns += s.elapsed().as_nanos() as u64;
++            r
++        }, t_now, xo, guess) else { continue };
++        eval_ns_acc += eval_ns;
+         if let Some(c) = cache.as_deref_mut() {
+             // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+             let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+@@ -330,21 +345,33 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             None => push(i, names.get(i).map(|s| s.as_str()).unwrap_or("?"), k, at.x, at.v, at.rate, temp, lum, radius, 0.0, t_e as f64),
+         }
+     }
++    let bodies_ns = t_bodies.elapsed().as_nanos() as u64;
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
++        c.parts_ns[0] += bodies_ns;
++        c.parts_ns[1] += eval_ns_acc;
++        c.readouts_total += reads;
++        c.frames += 1;
+     }
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
++    let t_fleet = std::time::Instant::now();
++    let (mut setup_ns, mut motions_ns, mut members_ns) = (0u64, 0u64, 0u64);
+     let mut motions = Vec::new();
+     for (fi, f) in u.fleets.iter().enumerate() {
++        let s0 = std::time::Instant::now();
+         let tc = f.tick();
+         let (Some((o, ov)), Ok((cp, cv))) = (f.origin(tc), root_state(&ctx, f.centre, tc.max(u.bodies().event_time(f.centre)).min(t_now))) else { continue };
+         let k = 2f64.powi(-20);
+         let q = crate::fleet::Q as f64;
+         let origin = [cp[0] + o[0] * k, cp[1] + o[1] * k];
+         let rate0 = clock_rate(&ctx, f.centre, tc.max(0).min(t_now)).unwrap_or(1.0);
++        setup_ns += s0.elapsed().as_nanos() as u64;
++        let s1 = std::time::Instant::now();
+         motions.clear();
+         f.motions(&mut motions);
++        motions_ns += s1.elapsed().as_nanos() as u64;
++        let s2 = std::time::Instant::now();
+         let shift = u.dolls[f.doll as usize].shift as i32;
+         for (m, mo) in motions.iter().enumerate() {
+             // a member handed out is a body of the doll now, seen above
+@@ -365,6 +392,12 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             let rad = f.radii.get(m).copied().unwrap_or(0) as f64 * k;
+             push(1_000_000 + fi * 1000 + m, "fleet", 4, xe, v, rate, 3500., 1e-6, rad, dt.abs(), want);
+         }
++        members_ns += s2.elapsed().as_nanos() as u64;
++    }
++    if let Some(c) = cache.as_deref_mut() {
++        c.parts_ns[2] += setup_ns;
++        c.parts_ns[3] += motions_ns;
++        c.parts_ns[4] += members_ns;
+     }
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..bafd3f12 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -144,7 +144,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+-        "engine_budget_ms": s.engine_ms, "throttle_level": level,
++        "view_split": s.view_split(),
++         "engine_budget_ms": s.engine_ms, "throttle_level": level,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5d..86f99e5c 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -116,6 +116,21 @@ impl Session {
+                "bytes_per_body": self.p.u.bytes_per_body()})
+     }
+ 
++    /// The view gather's own split, summed over the run (lab instrumentation; the run's patch).
++    pub fn view_split(&self) -> Value {
++        let p = &self.cache.parts_ns;
++        let ms = |n: u64| n as f64 / 1e6;
++        let total: u64 = p.iter().sum();
++        json!({
++            "note": "sums over the run, from the view's cache (the gather only; observer setup excluded): bodies = Newton crossings of the 27 non-fleet bodies, eval = the state_rate readouts inside it, fleet_setup, fleet_motions, fleet_members",
++            "frames": self.cache.frames,
++            "readouts": self.cache.readouts_total,
++            "readouts_per_body_frame": if self.cache.frames > 0 { self.cache.readouts_total as f64 / self.cache.frames as f64 / 27.0 } else { 0.0 },
++            "bodies_ms": ms(p[0]), "eval_ms": ms(p[1]), "fleet_setup_ms": ms(p[2]), "fleet_motions_ms": ms(p[3]), "fleet_members_ms": ms(p[4]),
++            "share_of_split": p.iter().map(|n| if total > 0 { *n as f64 / total as f64 } else { 0.0 }).collect::<Vec<_>>()
++        })
++    }
++
+     /// The canonical cut the digest is taken at: the session's cut when it has one (everything up to it is
+     /// resolved and nothing past it was), else the presented tick. Returns the tick with the digest, so the
+     /// two are always printed together.
