@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""Emit the sorted-run table (dossier.md's Evidence section) and check that
+every claim is at most 20 words. Single source of truth for the sorting."""
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from verify import PLACEMENTS  # noqa: E402
+
+# (run id, grade, claim <= 20 words)  — topic comes from verify.PLACEMENTS
+ROWS = [
+    ("20261005-2231-m-micro-numbers-13dd", "silver",
+     "Every update is one floor-triangular integer shear: bit-exact invertible, measure-preserving, order-independent; rival roundings walk or break the bijection."),
+    ("20261006-0030-q-kerr-compile-0528", "silver",
+     "Equatorial Kerr compiles in the crate's exact Schwarzschild representation, only integrands changed; verified to 1e-15 against direct geodesic integration."),
+    ("20261006-0220-autoresearch-c3a5", "silver",
+     "Weak-hyperbolic quadrature q=0 shortcut is bit-identical; cuts the leaver-kick panel ladder 40%, leaver kicks 33%."),
+    ("20261006-0220-quant-9e04", "silver",
+     "Capacity ~10² members at 60 Hz; frozen frames (rtf.lowest_1pct 0) are invisible to hitch counters."),
+    ("20261006-0346-library-563d", "silver",
+     "Fat-tailed queue probe: online ordering closed (LeastLaxity ≈ EDF), utilization dominates, size-ordering starves; the 10× is prediction-fed compute-ahead."),
+    ("20261006-0437-constraint-ec9d", "silver",
+     "Leaver-kick tail is Passage::compile at 318–567 µs (~70× a cycle compile); the fix is bounded lazy compile."),
+    ("20261006-0737-scout-b73e", "silver",
+     "The frame-budget knee sits between RTF dips and hitches; no session-level scheduling discipline moves it — the lever is engine-side."),
+    ("20261006-1101-autoresearch-52e5", "silver",
+     "Multiply-xor hasher makes the CPU chronon reference 1.4× faster, bit-identical digests; the rest is cache misses, not arithmetic."),
+    ("20261006-1101-quant-5457", "silver",
+     "One player burn at 11,560 g is priced in deferred game time, not frame hitches; digests stay byte-identical."),
+    ("20261006-1101-spacex-ef61", "silver",
+     "Made-kick cost is tube readouts (~50%), not fit+compile (~24%); compile dominates only the rarer passage rebinds (~420 µs)."),
+    ("20261006-1135-scout-7a46", "gold",
+     "Levi-Civita z = u² serves the conic singular set exactly at depth-independent event cost; the stepping fallback is 18–93× worse."),
+    ("20261006-1436-components-ed09", "silver",
+     "The calendar heap sits 30–100× above its information floor; a lazy bucket wheel is 1.9–5.2× faster, order-identical, ~10× from floor."),
+    ("20261006-1738-second-20261006-1436-quant-18e5-55ca", "silver",
+     "The budget-passing item is the player's hand-out drain (26–58 ms, unbudgeted); the paced-costs-2.7× claim was a contention artifact."),
+    ("20261006-2240-second-20261006-1738-b-kerr-compiler-fa4b-6586", "silver",
+     "fa4b's silver was a missing Grade: line; the record regenerates bit for bit; a 19-line guard closes both named edges."),
+    ("20261007-0341-autoresearch-9dc2", "lead",
+     "Kick cost is not arithmetic width (0% gain); 75% of compile is EDGE-band panel count, growing with eccentricity."),
+    ("20261007-0711-library-9ab7", "silver",
+     "Hitch risk is unsizable from bench percentiles: matched streams hide an 11.5× hourly-worst spread; the gate needs the tail exponent."),
+    ("20261007-0800-second-20261007-0711-library-9ab7-480e", "silver",
+     "Holds on the shipped record: the event stream is fat-tailed (Hill α̂ ≈ 1.27); bench p99.9 underestimates the hourly worst 4.5–6.8×."),
+    ("20261007-1032-spacex-3d04", "silver",
+     "Fast-forward ceiling is 3–4×10³ game-s per wall-s, set by live surprise rate, not frame cost; budget binds at 10⁴×."),
+    ("20261007-1334-autoresearch-a235", "silver",
+     "A 17-line patch makes the per-kick recompile 12–16% cheaper, bit-identical by construction and digest; tests green."),
+    ("20261007-1334-second-20261007-1234-components-97bf-98e6", "gold",
+     "Staleness-fixed wheel delivers the identical stream everywhere; steady state 2.2–2.4× cheaper; the heap wins only all-far quiet regions."),
+    ("20261007-1420-redteam-9fbd", "lead",
+     "Frozen gates never sample the strong field; there Binet m16 fails its 1% on near-circular massive precession (+9.6% at 7M)."),
+    ("20261007-1646-second-20261007-1550-dynamics-71a5-f282", "lead",
+     "The aging law holds (Δϖ̇⁻¹ scaling); the rebuild-cadence fix is refuted — misses are fold events needing per-passage exact Δϖ."),
+    ("20261007-1918-autoresearch-db5f", "silver",
+     "The Darwin compiler is within ~1.5× of its bit-identical floor; the next 10× is cross-compile reuse (the memo), not arithmetic."),
+    ("20261008-0148-second-20261008-0041-redteam-ecfd-90ec", "gold",
+     "B11's precession leg certifies nothing GR-shaped (1PN oracle 34–718× off, passes sign-flipped 2PN); the doll premise binds the shipped law."),
+    ("20261008-0234-second-20261008-0148-system-098e-bd06", "gold",
+     "The static integer lag table read at arrival-time cell is behaviour-neutral and never-early; the float event-time variant is not."),
+    ("20261008-0234-spacex-0083", "silver",
+     "The kick is compile-bound (63% fresh compile); trivial shape reuse buys 1.5%; the quantized-cell jet buys a measured ~4.4×."),
+    ("20261008-0338-library-f045", "silver",
+     "Five Readwise lessons wired to queued decisions; the shock-asymmetry trigger reproduced r9's τ₀ (its moon measurement died — broken Kepler layer)."),
+    ("20261008-0458-dynamics-7166", "lead",
+     "The contact law is per-chronon Poisson-smooth but the Fano factor grows with N (1.2 → 30.5); zero energy drift."),
+    ("20261008-0615-redteam-cc34", "silver",
+     "The resonance gate is an untested state switch: reach ≈ 1.9× the tolerance at e 0.005; one chirp leaves 33–69% irreversible error."),
+    ("20261008-1252-second-20261008-1150-system-cf13-3565", "silver",
+     "An angular window (|Δλ| ≤ 2.5·2·e_hi + drift) makes the unified certificate exact on the convoy (0 missed, was 76%)."),
+    ("20261008-1252-taleb-2570", "silver",
+     "Under 32× load the frame wall holds but delivery stalls silently (zero new game time from 4× members); digest invariant."),
+    ("20261008-1337-second-20261008-1252-taleb-2570-9420", "silver",
+     "Inside the real load range stalls start at 2×; the frozen service gate (rtf_low1_median ≥ 1 at 4×) kills shipped service."),
+    ("20261008-1419-components-620e", "silver",
+     "The fired kick is 25× above its floor: rebind 68%, shared secondaries 27%, forces 6%; an integer evaluator is 8–10× cheaper."),
+    ("20261008-1419-system-2f89", "silver",
+     "The SEM step is killed on the v2 clock: 44–58% of steps admit no solution; closing K exactly is impossible."),
+    ("20261008-1521-autoresearch-a48d", "silver",
+     "Deleting the rebind's second dead trajectory decode cuts the pure kick ~38%; replays bit-identical."),
+    ("20261008-1757-constraint-1c2e", "silver",
+     "Compile price is a measured law: 0.73 µs per knot, knots ≈ 6 + 15.4·log₂(r_a/r_p); leavers (e 0.94) carry the p99."),
+    ("20261008-1757-dynamics-2a25", "silver",
+     "Per-frame demand bifurcates at the sustained mean, not the tail; 8–15× bursts need no coverage; provision against the mean."),
+    ("20261008-1859-quant-19d6", "silver",
+     "The capacity knee sits ~20× above the flying point; the readout is two-thirds of frame; burns collapse the RTF tail 100×."),
+    ("20261008-2113-autoresearch-687b", "silver",
+     "The galaxy readout is memory-traffic-bound, not scalar-bound: exact reciprocal division plus f32 buy 0.93×; levers are batching, tiling, GPU."),
+    ("20261008-2206-second-20261008-2113-scout-6652-3eee", "silver",
+     "Sound admissibility (sweep-extended radii, alias completion) closes two cancelling holes; zero of 1,857 fires missed, 11–126× less wall."),
+    ("20261009-0401-autoresearch-e044", "silver",
+     "The compiler is within 3–4% of its bit-identical floor; exact cos is a serial chain worth 33%; near-separatrix rebinds ~1 ms."),
+    ("20261009-0621-dynamics-0a0b", "missing",
+     "A one-quantum perturbation propagates via contact-frame cascades (quantum-blind, contained); peers have zero coupling; doll geometry is instantly global."),
+    ("20261009-0709-autoresearch-b2a0", "lead",
+     "Exact word division in fast_quad makes the compile ~5% cheaper bit-identically; per-node cost is at its structural floor under bit-identity."),
+    ("20261009-0709-second-20261009-0621-system-7f97-1eca", "gold",
+     "The clock-path regime split (orbit-permitted Δs, refining-only) is built and gated: 4.7–7.8× fewer kicks; B17 passes, uniform cuts fail B13."),
+    ("20261009-1754-second-20261009-1649-system-aa29-0ee9", "silver",
+     "A lock judge separates order-1 interiors cleanly but earns no freeze at e0 0.02 (zero order-≥2 lock); detector deletion refuted."),
+    ("20261009-2120-second-20261009-2043-scout-a1a4-a194", "silver",
+     "The NoBoundOrbit gap compiles into the ψ-panel tube: honest readout at the table floor, 0.53 µs/sample, winding-independent."),
+    ("20261009-2257-second-20261009-2212-fermi-a11b-ba64", "gold",
+     "10⁹-in-8GB is decided by hot terms: 6.9 KB live per body, N_hot ≈ 1.3–2.7×10⁴ at rtf 100; cold free by horizon."),
+    ("20261009-2348-autoresearch-19f8", "silver",
+     "The per-kick rebind cannot get materially cheaper bit-identically (five rounds, ~0.7%); half of it is definitional wide division and bisection."),
+    ("20261010-0100-second-20261009-2348-scout-3851-0d8c", "gold",
+     "The coupled 2×2 Floquet chart matches 144/144 truth bands (Q 2¹² shifts ≤ 0.03 steps); averaging misses 127, scalar 142."),
+    ("20261010-0448-redteam-f771", "silver",
+     "Binet cells survive every r1 criterion held out, but the coordinate-time period band fails from e ≈ 0.85 (1.9%)."),
+    ("20261010-0541-second-20261010-0448-redteam-f771-9999", "gold",
+     "The re-frozen widened r1 runs end-to-end: binet-m16 is killed (period 0.9766, precession 0.9883); binet-m32 passes every criterion."),
+    ("20261010-0656-autoresearch-cc88", "silver",
+     "Four-lane Horner cos4 (each lane cos's exact sequence) cuts the kick 16%; digests unchanged, both test suites green."),
+    ("20261010-0920-autoresearch-1411", "lead",
+     "Contacts engine: guarded i64 division cuts per-op cost 15% on class frames, bit-identically; the pair predicates' i128 carries nothing."),
+    ("20261010-1029-second-20261010-0920-scout-e5f5-0c3b", "silver",
+     "FMM-shell per-(cell,ring) accumulators bound the deferral leak (stationary ~3–10·Lq) at O(log N) cost; the quantum floors at event-strength scale."),
+    ("20261010-1302-second-20261010-1152-fermi-e9a5-a9c4", "gold",
+     "The belt's live store is log-bounded (~1 bit per time-octave); cold at 41.7 bits fits 8 GB; only concentrated 3-dof breaks."),
+    ("20261010-1706-redteam-e07f", "silver",
+     "The Binet band coefficient makes stability a property of the band: a phantom shelf inside the true ISCO; r1's criterion is blind."),
+    ("20261010-1816-second-20261010-1706-redteam-e07f-311d", "silver",
+     "No phantom shelf in the shipped law (7,203 exact-rational adjudications, none wrongly parked); live defect: 1.5% of near-rim bound states refused."),
+    ("20261010-1920-second-20261010-1816-system-67f2-3ea5", "silver",
+     "Quantize-and-carry (magnitude rounded, timing exact) stays bounded 28–46× below deferral at equal quantum; deferral walks at every quantum."),
+    ("20261010-2052-second-20261010-1947-spacex-19bc-d205", "silver",
+     "Shipmem reabsorption measured with a real packed store: coarse 0.6–1.1% of a core (kill line 20%); exact dies on CPU too."),
+    ("20261010-2220-autoresearch-2fe1", "missing",
+     "An f64-seeded exact-fixup isqrt cuts orbit-compile 12–13% and the rebind 11–14%, every compiled bit unchanged."),
+    ("20261011-0134-autoresearch-2d92", "silver",
+     "Exact i64 visit-predicate fast paths cut contact cost 11–16%, bit-identical; the rest is the neighbour loop (43%) and calendar (16%)."),
+    ("20261011-0614-second-20261011-0517-taleb-3ebf-b04d", "gold",
+     "The union sort is eternal only on period-quantized fleets (19×); the honest number is 9.6× at spread 1e-4; cross-group tier works."),
+    ("20261011-0736-system-785d", "silver",
+     "One certificate — excursion(δ) = min(2ṗ_coh/|θ̇|, c_H·μ^(1/3)) — predicts where averaging fails and derives B17's W as its crossing."),
+    ("20261011-0836-second-20261011-0736-system-785d-07b5", "silver",
+     "The certificate as the only resonance gate: zero behaviour misses in 6,762 truth-failure events where the W-gate misses 542–1,120."),
+    ("20261011-1234-second-20261011-1102-scout-4c5b-dde0", "silver",
+     "Peters-flux (E,L) drift is adoptable inside B11's domain at the 1% bar; the kill line is crossed only outside it."),
+    ("20261011-1456-autoresearch-bb4d", "silver",
+     "The kick is 84% compile; the cost is panel count (~140 per kick) times a flat ~200 ns/node; no hotspot."),
+    ("20261011-1456-scout-126c", "silver",
+     "Extended Darwin variables (cosh phase, root-structure classification) cover plunge and near-radial sectors at bound-orbit panel cost, with exact terminal events."),
+    ("20261011-1600-second-20261011-1456-scout-126c-640f", "gold",
+     "Extended Darwin holds on the fixed integer cut layout: the near-separatrix valley oracle-verified to 1e-6 at ≤ 75 panels."),
+    ("20261011-1814-taleb-762d", "silver",
+     "The overflow design holds past capacity, but a budget floor scales with the universe: 428 bodies silently deliver 0.00× at 0.2 ms."),
+    ("20261011-2028-components-6a0e", "silver",
+     "'One clock, one queue' needs no container: a counting scan reproduces the heap's stream exactly, 2.7–3.1× cheaper, zero container memory."),
+    ("20261011-2028-dynamics-7807", "silver",
+     "Candidate-tier cost collapses onto one number κ = σ_e·ā/Δa (frac = 4.27κ, half-point 0.20); the belt drives κ through it."),
+    ("20261011-2028-second-20261011-1917-redteam-fb64-7521", "silver",
+     "The strong-field delay rows were correct (the corrections were under-convergence); real corruption at r_e ≥ 20; the memo reaches the floor."),
+    ("20261011-2132-quant-fca2", "silver",
+     "The 60 Hz frame breaks at M* ≈ 700–1,000 members; the breaker is the unbudgeted readout (gather 55–63%), not the engine."),
+    ("20261012-0036-autoresearch-e3ca", "lead",
+     "An f64-seeded exact isqrt (−28% kernel) plus one CSE cut the compile 4–6%; the rest is division-bound; no 10×."),
+    ("20261012-0138-second-20261012-0036-scout-aac1-2da8", "silver",
+     "Churn switches on between eps_eff 0.008 and 0.025 in the bar's envelope; the static resonance flag is dead."),
+    ("20261012-0311-autoresearch-3d4e", "silver",
+     "All remaining compile divisions to word-size buy only ~3%: the cost is diffuse (~60% outside the node kernel); reuse is the lever."),
+    ("20261012-0358-autoresearch-ff43", "silver",
+     "The kick is 82% exact recompilation at the x86 floor; lazy shape tables are blocked by Orbit::state's cycle-count division."),
+    ("20261012-0753-quant-dafc", "silver",
+     "The frame wall holds to rtf 1000; delivery floors at ~10×; the budget knee is 10 ms; the readout owns the median frame."),
+    ("20261012-1019-autoresearch-c549", "silver",
+     "One decode per kick and a carried root position delete 24% of the kick, bit-identical universes, 54/54 tests."),
+    ("20261012-1019-second-20261012-0753-quant-dafc-9a07", "silver",
+     "The checker's digest-flip falsification does not reproduce across 70+ runs sweeping every schedule mechanism; one digest per seed."),
+    ("20261012-1117-second-20261012-1019-spacex-3463-c304", "silver",
+     "The 845 MB at 4,000 members is unpruned rebind history (~10 kB per ship-kick; settle bypasses the prune) on ~19 kB construction."),
+]
+
+TOPIC_ORDER = [
+    ("kick-jet", "existing"), ("smoothness", "new"), ("memory-h-live", "existing"),
+    ("handoff", "existing"), ("binet-cells", "new"), ("encounters", "existing"),
+    ("resonance-gate", "new"), ("contacts", "new"), ("plunge-tubes", "new"),
+    ("gravity-news", "existing"), ("kick-cadence", "existing"),
+    ("frame-cost", "existing"), ("view", "existing"), ("b12-statistic", "existing"),
+    ("coorbital-cert", "existing"), ("changeover", "new, single run — no page yet"),
+]
+
+
+def wc(claim):
+    return len(claim.split())
+
+
+def main():
+    rows = {r[0]: r for r in ROWS}
+    assert len(rows) == 81, len(rows)
+    assert set(rows) == set(PLACEMENTS), "table ids != placement ids"
+    long = [(rid, wc(c)) for rid, _, c in ROWS if wc(c) > 20]
+    assert not long, f"claims over 20 words: {long}"
+
+    lines = ["| run | grade | topic | claim |", "|---|---|---|---|"]
+    for topic, kind in TOPIC_ORDER:
+        subset = [(rid, g, c) for rid, g, c in ROWS if PLACEMENTS[rid] == topic]
+        subset.sort(key=lambda r: r[0])
+        for rid, g, c in subset:
+            lines.append(f"| `{rid}` | {g} | {topic} | {c} |")
+    print("\n".join(lines))
+
+
+if __name__ == "__main__":
+    main()

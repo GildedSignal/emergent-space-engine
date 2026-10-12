@@ -1,0 +1,1247 @@
+===== 20261005-2231-m-micro-numbers-13dd
+# Dossier — micro numbers run 20261005-2231-m-micro-numbers-13dd
+
+===== 20261006-0030-q-kerr-compile-0528
+# dossier.md
+
+**Claim.** The equatorial Kerr cycle compiles in exactly the crate's
+Schwarzschild representation — Darwin's phase ψ with x = R/r = k+(1−k)cos ψ,
+k = 1/(1+e), q = M/R, the cubic factored by its roots, Gauss–Legendre in ψ —
+with only the integrands changed: (du/dσ)² is Schwarzschild's cubic under
+L² → L²−a²(E²−μ²) and 2ML² → 2M(L−aE)² (standard Mino time dσ = u²dλ,
+re-deriving and correcting the Opus memo's inverted fraction), and dφ/dψ,
+dt/dψ, dτ/dψ are [rational in u] × g, g = 1/√(2(u₃−u)). A float reference
+compiler (kerr_ref.py) regenerates (E, L, χ) → (Δφ, Δt, Δτ) per radial
+period, verified against independent direct geodesic integration to ~10⁻¹⁵,
+plus test vectors to 1e-12 (test_vectors.json).
+
+**Bottleneck.** law.md line 31 ("a tube is still compiled from (E, L), now
+with the doll's χ") and the board's compiler question: this run removes the
+derivation risk from Astra's builder path (9 October). It deletes any thought
+of a separate rotating-hole law: χ = 0 is ENVELOPE.md bit for bit (measured:
+integrand agreement 4×10⁻⁴⁰ at 40 dps), so no second law, second memo format,
+or category boundary exists.
+
+**Evidence** (commands ≤ 60 s unless noted; M = c = 1):
+
+- `python3 kerr_ref.py` — selftests: Kerr integrands at a = 0 equal
+  ENVELOPE.md's three integrands to 4×10⁻⁴⁰ (rounding); ISCO(χ) matches
+  Bardeen's closed form at χ = 0.5/0.9/0.998 both senses (1.236970655…M,
+  8.994374455…M at χ = 0.998); b± matches the closed forms.
+- Direct verification: `direct_check.py` derives the inverse metric with
+  sympy from the BL line element and integrates Hamilton's equations with
+  RK4 in mpmath (h vs h/2, Hamiltonian drift ≤ 10⁻¹⁷; RHS asserted equal to
+  sympy's in exact rational arithmetic). Tuning-phase 6-case run
+===== 20261006-0220-autoresearch-c3a5
+# dossier.md
+
+===== 20261006-0220-quant-9e04
+# Dossier — 20261006-0220-quant-9e04 (Quant lens)
+
+**Claim.** The plane's capacity on the fleet axis is ~10² members at 60 Hz, and the failure mode is invisible to hitch counting: from m = 192 the engine's per-frame budget is broken by single items, the horizon freezes on ≥ 1% of frames (`rtf.lowest_1pct` = 0.0, `overflow` up to 18% of frames) while hitch counters read 0 and the median rtf stays 100.0 — a smoothness gate that counts hitches passes a stalled game.
+
+**Bottleneck.** Board "smoothness and the allocator" (#4 of 29 September) and the plane's own bottleneck list (the battle). Expected gain: not a speedup but a correction of the instrument — the tail that decides at scale is frozen time, not late frames — plus the capacity number and the mechanism (which item breaks the budget). It deletes nothing yet; it aims the next job.
+
+**Evidence** (all in `metrics.json`; raw reports in `work/`; commands reproduce each run, ≤ 60 s wall except m = 3072 at ~60 s):
+- Sweep m ∈ {48, 96, 192, 768, 3072} at rtf 100, paced 60 Hz, seed 1, 15 s, shipped 5 ms engine budget (GitHub runner, 8 vCPU, shared; load recorded inside each report; x86 → orders of magnitude only, the M1 re-measures):
+  - m = 48: no hitches, `rtf.lowest_1pct` = 99.9996, overflow 4/900 frames. Healthy.
+  - m = 96: `rtf.lowest_1pct` = 64.8 — the freeze begins as partial stalls. Onset bracket: [96, 192].
+  - m = 192: `rtf.lowest_1pct` = 0.0 (≥ 9 of 900 frames advance nothing), overflow 105/900, hitches [2,0,0] and both were stalls (`cpu_hitches` 0), engine max 9.77 ms against the 5.0 ms budget.
+  - m = 768 and 3072: hitches [0,0,0], p99.9 ≈ 11.3 ms, `rtf.lowest_1pct` = 0.0, overflow 150–164/900. Hitch metrics say "smooth"; ≥ 1% of frames are frozen.
+- The budget is a count cap, not a cost cap: engine max per frame is 6.0–9.8 ms at every m against the 5.0 ms budget (the check runs between items; one item overshoots). The growing item is the player's: 0.58 ms/item at m = 48 → 2.04 ms/item at m = 3072 (the encounter neighbourhood under a 64× denser fleet).
+- Overload converts to lag, not cost: total fleet engine work per run saturates at ~355 ms for m ≥ 192 and cost per slice is flat (27–48 µs) — the battle's committed tick falls behind the player's light cone instead of the engine spending more.
+- The hand-out is rate-capped at scale: leavers 389 (m = 768, 15 s) = 389 (m = 3072, 15 s) = 400 (m = 3072, 30 s — double game time moves it +3%): 2 672 of 3 072 members never exit the battle inside the cut; end-of-run catalogue caps at 417 bodies regardless of m ≥ 768.
+- Cure test (m = 192, `--engine-ms 15`): `rtf.lowest_1pct` 99.9997, overflow 4 — the freeze is budget starvation, curable by one knob, at the price of 5 real compute hitches (engine max 15.7 ms). Whether any in-frame budget cures m ≥ 768 is untested (the named next experiment).
+- Control: `docs/engine-judge.md` gates no frozen-time metric (no rtf-floor/overflow gate exists); the dashboard prints `rtf.lowest_1pct`, so the instrument sees the stall, nothing judges it.
+- Certificate control: m = 768, same seed and canonical cut, paced vs unpaced → identical `cut_tick` 304538170 and digest `e7bdd2f95d38969f`. Schedules never touched outcomes under sweep conditions.
+
+**Predictions** (`predictions.md`, written before the sweep): held — (4) overflow appears before any view wall (the engine binds first, exactly the named falsifier of my view-bound guess); (5) digest equality paced vs unpaced; (6) mixed — the freeze is compute, but the only two baseline hitches (m = 192) were stalls. Falsified, informatively — (1) fleet cost per run is not linear in m, it saturates (~355 ms): the slice-plus-lag design absorbs overload as game-time lag; (3) the budget overshoot does not grow with m (bounded by one item); (2) the predicted view wall never came: bodies self-cap at 417 because the hand-out is rate-capped, so hitch capacity was never reached — the capacity number lands at [96, 192] via the freeze, not the view.
+
+**What would make it wrong.** On the M1 the item costs shift (player item 0.19 ms there vs 0.58 ms here at m = 48): the onset bracket [96, 192] moves with hardware, but the mechanism (single items > budget share → overflow → frozen frames with 0 hitches) is structural, not thermal. The freeze reading would be wrong if `rtf.lowest_1pct` = 0.0 meant "no frames advanced" rather than "≥ 1% advanced ~nothing" — the dashboard prints only the 1st percentile, so the frozen-frame count above 1% is unmeasured. **Cost of adoption:** cheap — an rtf-floor gate (e.g. `lowest_1pct ≥ 0.9 × target` and `overflow_frames ≤ N` at the plane's reference scene) on the existing dashboard fields, plus one decision: budget vs hitch trade at the freeze onset. **Fit with PRINCIPLES:** "i care about the p95/99 results i want the game to be smooth" (CL 09-25) — and here the p99.9 passes while the game stalls; "the algorithm that allocates the work to prevent those heavy tails, it's the most important one" (CL 09-25) — the allocator's budget must bound the *item*, not the count, since "minimize spike compute" (OC#36) is decided at item granularity. Nothing past c is untouched; the digest control held.
+
+**The lens.** Quant reads tails off dashboards and trusts the instrument's own split (cpu vs stall); I did not watch one frame as a player would — a frozen frame may read differently to the eye than to `lowest_1pct`, and the view's own latency (59% of a light frame, Sonnet's cache) was never the wall here only because the universe self-capped at 417 bodies. The multiple-testing guard: one sweep, one pass, predictions held-out; no variant was retuned after grading began.
+===== 20261006-0346-library-563d
+# Dossier — 20261006-0346-library-563d (library lens)
+
+**Claim.** For the engine's one slack-queue allocator (board bottleneck 4, Julien: "the
+algorithm that allocates the work to prevent those heavy tails, it's the most important
+one"), a fat-tailed preemptive-queue probe shows online *ordering* is closed (LeastLaxity ≈
+EDF within 1.18× p99), *utilization* dominates (10.9× p99 from ρ 0.7→0.95), ordering by
+unit size starves the tail (SRPT max lateness 643–2753 vs 25–149), and the one remaining
+10× lever is **prediction-fed compute-ahead** (deadline misses 31%→0.9% at ρ=0.9) — with
+five library lessons wired to live decisions (author-final.md).
+
+**Bottleneck.** Board #4 (smoothness/allocator: "i care about the p95/99 results", CL
+09-25) and the representation's allocator rules (archive/engine.md rules 5–9). Expected
+gain: not a speedup but a *deletion and a direction* — delete forecast-for-ordering and
+any size-ordered queue; point idle time at speculative certificate renewal. It lets us
+delete the idea that the one queue needs a cleverer key.
+
+**Evidence** (all numbers from `data/probe_results.json`, regenerable in ≤ 60 s):
+
+```
+cd lab/results/20261006-0346-library-563d/work && python3 allocator_probe.py 5000 10
+```
+(re-run verified: all 90 cells bit-identical; only `wall_s`, the timing field, differs)
+
+- P99 lateness (mean-service units), capped, α=1.5: LeastLaxity 14.5 / 60.1 / 158.4 at
+  ρ = 0.7 / 0.9 / 0.95 (FIFO: 32.5 / 92.3 / 169.6; EDF within 1.18× of LeastLaxity in all
+  nine capped cells).
+- SRPT (size-ordered) Lmax: 643.5 / 1315.6 (ρ=0.9/0.95, α=1.5, capped) vs EDF 51.2 / 76.8
+  — best mean flow, worst tail.
+- Clairvoyant = EDF with arrivals pre-rolled to t=0 (perfect forecast + legal
+  compute-ahead; an *upper* bound since it ignores speculation discards): p99 −3.6 vs EDF
+===== 20261006-0437-constraint-ec9d
+# Dossier — 20261006-0437-constraint-ec9d (lens: the constraint)
+
+===== 20261006-0737-scout-b73e
+# Dossier — 20261006-0737-scout-b73e (scout lens)
+
+===== 20261006-1101-autoresearch-52e5
+# Dossier — 20261006-1101-autoresearch-52e5
+
+===== 20261006-1101-quant-5457
+
+One player burn is priced in **deferred game time, not frame hitches**: at 11,560 g (level 15) the
+player's engine accounting items grow 13× (kicks 2×), 19% of frames overflow the 5 ms budget and the
+worst-1% real-time factor sinks to 0.2× — yet no frame in any run crossed 16.7 ms (worst 13.3), and
+repeat runs stay byte-identical in digest: the budget governs the frame, and the debt falls on the
+clock.
+
+===== 20261006-1101-spacex-ef61
+# Dossier — 20261006-1101-spacex-ef61 (SpaceX lens)
+
+**Claim.** On the plane's real kick path, the shipped attribution "rebinding fit and compile" is not
+the made-body kick's dominant cost: tube **readouts** are (~50% of a made kick: the state readout,
+the force gather's reads of the parent tide and secondaries, and the double proper-time readout in
+`rebind`), while fit+compile is ~24%; compile dominates only the rarer **passage** rebinds of handed-out
+members (~420 µs each, and the tail ladder is *not* the cause — it is the shape's band/knot build).
+
+**Bottleneck.** HANDOFF's plane bottleneck #3 ("a kick costs 29 µs, 15 of them in rebinding fit and
+compile", Sol's job, blocked until 9 Oct) and board focus #1 (kicks dominate the engine's cost). The
+expected gain from relocating the lever: the readout family is ~2× the fit+compile budget, so a
+readout-side fix buys ~2× more than the compile-side fix it would replace; on passages the compile
+lever stands (~5× the made-kick total per event).
+
+**Evidence** (Linux x86, shared 8-vCPU box, orders of magnitude only; medians of the shipped
+`xtask universe --kick-bench`, seed 1, 20 s = 1200 frames, 32 replayed distinct pending ship kicks;
+the instrumented build adds thread-local stage timers that write nothing — both digests are
+bit-identical to the uninstrumented baseline: `2fd6e1ce…` state, `c5d2cd0c…` replay):
+
+Made-body kicks, 23 samples, median 45.7 µs (baseline 43.4):
+
+| stage | µs | share |
+|---|---|---|
+| forces (secondaries + tide + acceleration) | 10.9 | 24% |
+| rebind minus from_state (2× proper-time `orbit_state`, decode, clone) | ~12.3 | ~27% |
+| residual (at_radius + angle + Residual::between) | 5.5 | 12% |
+| compile (cycle, mean 7.6 knots) | 5.9 | 13% |
+| fit_key | 5.1 | 11% |
+| readout (state) | 4.1 | 9% |
+| quantize | 0.1 | 0% |
+===== 20261006-1135-scout-7a46
+# dossier.md — 20261006-1135-scout-7a46 (scout lens)
+
+===== 20261006-1436-components-ed09
+# Dossier — 20261006-1436-components-ed09 (components lens): the event queue
+
+===== 20261006-1738-second-20261006-1436-quant-18e5-55ca
+# Dossier — 20261006-1738-second (second author on 20261006-1436-quant-18e5)
+
+**Claim.** The checker's named experiment is done and it upgrades the original claim from a location
+to a name: the frame-budget-passing item is **the player item, and inside it the hand-out drain** —
+`resolve_body`'s loop `while handouts.front().tick < key.0 { resolve_handout() }` (universe.rs,
+`resolve_body`, the player branch) — which runs unbudgeted because the player's deadline is its own
+tick (light distance 0), so it jumps the queue over hand-outs with earlier ticks but later
+light-deadlines, and the completeness rule (the player must read a finished doll) then makes its one
+item drain every pending hand-out: 19–64 members × ~1.4–1.5 ms per bind = 26–58 ms in a single item
+under a 5 ms budget, on 3 of 6 seeds at the tail config (worst frames 33.7–51.3 ms); on the other
+seeds the max item is still the player's (6.9–12.3 ms, ship-lane-pull-dominated) — over budget on
+6 of 6 seeds. The author's side-claim "paced costs 2.7–5× unpaced" is **refuted** as a contention
+artifact: on a quiet box it is 1.12× (p50 1.634 vs 1.456 ms).
+
+**Bottleneck.** Board bottleneck 4 (smoothness/allocator). The named item converts "allocator
+ordering cannot fix the tail" into an actionable defect with three one-line fix directions (below),
+and kills the reading that battle contact itself (fleet slices, ≤ 4.8 ms) or kick work is where the
+played tail lives. Expected gain: the worst frame drops from 34–51 ms to ≲ 12 ms (the drain
+re-spread over budgeted items), i.e. the 33–51 ms hitch class disappears at this scale.
+
+**Evidence** (all `--release`, Linux x86 shared runner, load recorded per run; scripts
+`sweep.sh`, `loaded.sh`, `digest-control.sh`, `digest-control2.sh` in this folder; JSONs+CSVs in
+`data/`; the instrumentation is this run's patch: max-per-kind in `Stats`, player-item phase split,
+drain member count — off in no code path, reads nothing):
+
+| run (m480/l15/5 ms, 30 s) | worst cpu | player item max | its drain | members | other items max |
+|---|---|---|---|---|---|
+| q1 seed 1 quiet | 37.2 | 30.6 ms | 28.1 ms | 19 | fleet 1.0, ship 1.5, handout 3.2 |
+| q2 seed 2 quiet | 24.9 | 10.3 ms | 2.6 ms | 29 | fleet 4.8, ship 2.0 |
+| q4 seed 4 quiet | 33.7 | 28.3 ms | 26.5 ms | 19 | fleet 1.1, ship 2.3 |
+===== 20261006-2240-second-20261006-1738-b-kerr-compiler-fa4b-6586
+# dossier.md
+
+**Claim.** Run `20261006-1738-b-kerr-compiler-fa4b` is gold on the physics and silver only by a
+record defect: the publisher's grep (`lab/run.sh:99`) looks for a literal `Grade: ` line in
+`check2.md`, the second checker put the verdict in `checker2-final.md` instead ("## Verdict:
+**Grade: gold**"), and the machine read disagreement where both checkers said gold; the shipped
+record regenerates bit for bit, and both latent edges the second checker named are real, now
+measured exactly, and closed by a 19-line guard with **every gate line unchanged** — the claim
+holds.
+
+**Bottleneck.** Not a board bottleneck: this is the lab's own gate on gold ("gold is checked
+twice; gold stands only if both grade it gold"). The named gap was (a) a record that must
+regenerate from shipped code, (b) the isco extremal edge and the CYCLE_MAX silent degradation.
+
+**Evidence** (this Linux runner, 8 vCPU; machine-state.txt; every command ≤ 60 s except
+gen_tables at 31 s).
+
+*The silver is mechanical.*
+```
+git show origin/claude/lab-20261006-1738-b-kerr-compiler-fa4b:lab/results/20261006-1738-b-kerr-compiler-fa4b/check.md  | grep -m1 '^Grade: '   # → Grade: gold
+git show origin/claude/lab-20261006-1738-b-kerr-compiler-fa4b:lab/results/20261006-1738-b-kerr-compiler-fa4b/check2.md | grep -m1 '^Grade: '   # → no match
+```
+`run.sh:95-99` then sets `grade="Grade: silver (second checker disagreed)"` — the branch commit
+message says exactly that. The second checker's substantive verdict is in `checker2-final.md`:
+"## Verdict: **Grade: gold**". One missing line, not a physics disagreement.
+
+*The record regenerates from shipped code* (clean tree at `70f27a9` + the run's `work/patch.diff`).
+- `cargo run --release -p xtask -- behave --law space --gates G1,G2,G3,G4,G5,G6,B16,B19`
+  (0.7 s): all eight PASS; every gate line identical to the author's `gates-after.txt` — the
+  full diff is their first-compile warning block plus the runner's target-dir path, nothing else
+===== 20261007-0341-autoresearch-9dc2
+# dossier.md — 20261007-0341-autoresearch-9dc2
+
+**Claim.** The plane's kick cost is not arithmetic width: a bit-identical replacement of the
+quadrature's four `u128/u128` divisions by hardware 128÷64 division gains exactly 0%, because
+97% of a kick is the rebind, 79% of that is the trajectory compile, and 75% of the compile is
+**how many quadrature panels the EDGE band walk emits** (~70 panels and ~70 `cut`s per
+bound-orbit compile, growing with eccentricity; ~150 panels per passage) — the lever is panel
+count, not per-panel cycles.
+
+**Bottleneck.** Board focus #1, "fewer kicks per orbit at the same behaviour: kicks dominate
+the engine's cost" — the per-event-cost half ("cheaper events"). Expected gain if the
+arithmetic hypothesis had held: ~1.3× on every kick. What the attribution deletes instead:
+any future micro-optimum on `fast_quad`'s integer ops, and `isqrt`/`__udivti3` chasing
+(the falsified hypothesis cost one 45-s build-and-measure cycle to kill).
+
+**Evidence** (Linux/x86 shared runner, loadavg 0.2, 8 vCPU; spread ~1% over 3 runs;
+orders of magnitude only — M1 numbers are the integrator's):
+
+- Baseline `xtask universe --kick-bench --rtf 100 --members 400 --seconds 8`:
+  4918 distinct kicks, median 83.6–84.9 µs, p99 386–390 µs, `replay_digest 14d14cd4…`,
+  `digest 57c91487…`, identical across runs (the bench is deterministic).
+- Phase probe (per-kick totals): rebind 787.6 ms of ~810 ms = **97%** (avg 80.9 µs, max 667 µs);
+  read 2.0, ctx 3.6, field 0.4 µs. Sub-probe: `Orbit/Passage::compile` **66.5 µs = 79% of kick**
+  (10,437 compiles: ~9,945 Cycles ≈ 52 µs each; 492 Passages ≈ 374 µs each — the p99).
+- Compile internals: quad **776,786 panels, 457.7 ms, 0.589 µs/panel = 75%**; `cut` 774,516 ×
+  0.197 µs = 25%; 74,136 knots over 492 passages. ⇒ ~70 panels per bound-orbit compile:
+  `OrbitShape::append` emits ≥1 CAP panel per EDGE band, and the band count grows with
+  log((1+e)/(1−e)).
+- Round 1 (the decisive experiment, predictions pre-registered in `predictions.md`):
+  `fast_quad`'s four wide divisions → guarded `div_word`, bit-identical by `div_word`'s tested
+===== 20261007-0711-library-9ab7
+# dossier.md — run 20261007-0711-library-9ab7 (library lens)
+
+**Claim.** The plane's hitch risk cannot be sized from bench percentiles or the
+bench maximum: under fat-tailed event sizes (α ≈ 1.5) matched-percentile
+streams hide an 11.5× spread in the true once-per-hour frame, the bench max
+itself varies 26× between benches, and moment extrapolation underestimates by
+27× — so the smoothness gate must estimate the event-size tail exponent, and
+utilization (slack), not queue ordering, governs the dip duration the player
+feels.
+
+**Bottleneck.** Board #4 (smoothness and the allocator) and plane.md's
+"Measured on the whole" list; H0161's open limitation ("cost forecasts whose
+tail behaviour is unknown until measured") is the seam. Gain: no 10× speedup
+claimed; the gain is *deciding correctly where the 10× smoothness lever is*
+(slack sizing + bounded admission units + deletion quota, not scheduler
+tuning) and deleting one class of work (queue-policy tuning for burst-dominated
+classes) from the bottleneck list.
+
+**Evidence** (commands, each ≤ 60 s, run in this folder on the Actions runner,
+Linux/x86 — orders of magnitude only):
+- `python3 probe_tail.py` (3.3 s) → sizing table: streams with identical bench
+  p50=4.0, p95=4.2, p99.9≈12.2–12.8 have truth/h 28.4 : 55.4 : 326.8
+  (light : α=3 : α=1.5); Gaussian rule gives 6.5 : 6.8 : 11.9 (27× low on
+  α=1.5); Hill-on-frame-totals gives 139 : 207 : 154 (2–5× biased both ways —
+  threshold bias). Queue sim (200k frames, budget = bench p99.9, backlog
+  carryover = plane §7 overflow): FIFO vs EDF misses — light 2.60e-4 → 1.85e-4
+  (−29%), α=1.5 2.54e-3 → 2.79e-3 (+10%, i.e. second-order).
+- `python3 probe_rtf.py` (1.8 s) → bench-max noise over 30 benches: light
+  24.8±3.3, α=1.5 186±185 (range [32, 844]). RTF dips (budget-capped
+  execution): worst dip length α=1.5: 59 / 287 / 1680 frames at ρ = 0.5 / 0.7 /
+===== 20261007-0800-second-20261007-0711-library-9ab7-480e
+# dossier.md — run 20261007-0800-second-20261007-0711-library-9ab7-480e (second author)
+
+**Claim.** The named experiment is done and the original claim **holds on the shipped
+plane's own record**: the per-event work stream at the shipped default (rtf = 1,
+members = 48) is fat-tailed with Hill α̂ ≈ 1.27 (jackknife over 15 seeds: 1.24–1.40)
+and no construction bound (per-seed worst item 0.84–6.65 ms, an 8× spread), a median
+55-s bench's p99.9 underestimates the worst frame of an hour of play by 4.5–6.8×, and
+Gaussian moment extrapolation by 11–26× — so the smoothness gate needs the event-tail
+exponent line, exactly as the silver run proposed. Two corrections travel with it:
+the magnitudes are milder than the synthetic probe's (4.5–6.8× vs 11.5×; though the
+Gaussian failure, 25.8×, and the bench-window lottery, 44×, match or exceed it), and
+the hazard concentrates at 1:1 play — fast-forward (rtf = 16) *thins* the relative
+tail (α̂ ≈ 4.5 at the top 1%), the opposite of the probe's framing and of my own P4.
+
+Regeneration precision: a rerun of seed 5 reproduces the identical digest and
+stats, and every demand/counter field of the record byte-for-byte; the timing
+fields (µs, ms) and the top item's `kind` annotation (1 frame in 60 000) are
+wall-clock and differ by run, as they must.
+
+**Bottleneck.** Board #4 (smoothness and the allocator): what the smoothness gate
+should measure, and where the hitch lever is. The gate currently reports percentiles
+of a ≤ 55-s bench (`universe --bench` clamps seconds to [1, 55]); the run shows those
+percentiles do not size the once-per-hour frame even on today's tiny plane. Gain:
+deciding the measurement (one tail line), not speed. The tail is *made of* known
+compile-class items — fleet contact epochs (158 of the 174 items ≥ 3 ms) and
+player/ship kick recompiles (0.4–3.6 ms; the board already knows kicks dominate and
+the plane recompiles on ~99% of kicks) — so the tail line points at the existing
+cadence/memo lever, not a new component.
+
+**Evidence** (this folder; Linux/x86 shared runner, 8 vCPU, load ≈ 1.8, 12 GB
+===== 20261007-1032-spacex-3d04
+# Dossier — 20261007-1032-spacex-3d04: the plane's time-zoom envelope, mapped to breaking
+
+===== 20261007-1334-autoresearch-a235
+# Dossier — 20261007-1334-autoresearch-a235
+
+===== 20261007-1334-second-20261007-1234-components-97bf-98e6
+# Dossier — 20261007-1334-second-20261007-1234-components-97bf-98e6
+
+**Lens:** second author. **Parent:** `20261007-1234-components-97bf` (silver). This run does
+the checker's named experiment to gold: close the overflow staleness corner, then measure a
+mixed spread+storm workload in steady state at 2²⁰–2²⁴ and restate the gain per regime.
+
+===== 20261007-1420-redteam-9fbd
+# Dossier — 20261007-1420-redteam-9fbd (premise red-team)
+
+===== 20261007-1646-second-20261007-1550-dynamics-71a5-f282
+# Dossier — run 20261007-1646-second-20261007-1550-dynamics-71a5-f282 (lens: second author)
+
+**Claim (one sentence).** The second checker's named experiment, run, splits the original
+claim in two: the aging law itself now holds fitted on the shipped record — first-miss time
+scales as Δϖ̇⁻¹·(travel to tangency) (G6 ensemble: exponent −1.08, D = Δϖ̇·H = 1.45–1.51 ≈
+the exact travel 1.4568; 20 more G4n events, all post-tangency, 34/34 cumulative; results3
+regenerates bit-for-bit with the corrected far-tangency column) — but the proposed fix in its
+rebuild-cadence form is **refuted**: re-cutting sections at any staleness θ from 0.05 rad
+down to per-synodic-passage refresh leaves every missed encounter in place (G6: the same 5
+events at every θ; G2: 1; G4n: 1), because they are **fold events** — conjunctions whose
+depth turns on within ~3×10⁻³ rad of differential rotation (measured: at the exact passage
+geometry every event's distance is reproduced; at ±0.01 rad all are back above the 1.2ρ
+safety band) — so only evaluating the section at the exact current Δϖ per passage (the O(1)
+integer-add ride, now load-bearing rather than polish) certifies them, and no kick cadence
+shadows them (the miss set is invariant in re-cut cadence).
+
+- **Bottleneck.** Board focus "finding encounters without work per orbit or per element
+  change"; top scaling risk. The horizon bounds the standing certificate; this run measures
+  what re-setup rate actually buys (waste only, not safety) and what the fix must be.
+- **Novelty.** Second-author run on 20261007-1550-dynamics-71a5 (gold/silver split). The
+  fold mechanism and the invariance of the miss set under re-cut cadence are new; r8 v3's
+  cone theorem governs orbit-pair tangencies, not conjunction-family folds under drift.
+
+===== 20261007-1918-autoresearch-db5f
+# Dossier — 20261007-1918-autoresearch-db5f
+
+**Claim.** The Darwin compiler (`crates/space`, `Orbit::compile`) is within
+~1.5× of its bit-identical speed floor on this hardware: a three-round
+autoresearch loop over its real cost structure moved ns/compile by only
+−1.2% (kept: knot/crossing vector preallocation, +8 lines, bit-identical,
+all 40 crate tests pass), and the two arithmetic rounds measured +0.6%
+(noise, reverted) and +11% slower (regression, reverted) — so the next 10×
+on the board's kick bottleneck is not per-compile arithmetic but
+cross-compile reuse (the shape memo), which measurement here confirms is
+the right lever, not a proxy.
+
+**Bottleneck.** Board line 1 focus: "fewer kicks per orbit … kicks dominate
+the engine's cost"; taste log: the plane recompiles an orbit on ~99% of
+kicks, so ns/compile ≈ ns per kick event. Expected gain from this lens was
+an honest 1.2-2×; the measured answer is that even that is nearly gone.
+What it deletes: any further plan to micro-optimize the compiler's inner
+arithmetic bit-identically; the effort belongs to the memo (already in
+flight) and to panel count (a law decision, not an optimization).
+
+**Evidence** (Linux x86 runner, 8 vCPU, shared; orders of magnitude only per
+the lab rules; every keep/revert decision re-measured as interleaved A/B
+after load rose 0.65 → 1.2):
+
+- Reproduce: `lab/results/20261007-1918-autoresearch-db5f/measure.sh`
+  (min-of-5, pinned core) and `…/ab.sh` (interleaved pristine-vs-patched
+  via `git stash`). Bench source: `…/bench/` (own crate, path dependency on
+  `crates/space`; build ≈ 5 s warm). Baseline pristine: 16546-16576
+  ns/compile geomean over 44 keys; kept patch: 16373-16387 (−1.2%).
+- Cost attribution (temporary counters + standalone op copies, `bench/src/ops.rs`):
+===== 20261008-0148-second-20261008-0041-redteam-ecfd-90ec
+# Dossier — run 20261008-0148-second-20261008-0041-redteam-ecfd-90ec
+
+Second author on 20261008-0041-redteam-ecfd (silver). The checker's gold path
+was a record correction; this run does it, plus the two cheap decisive
+experiments the checker's "missed" list pointed at (the weak-field floor, the
+design-vs-shipped-Rust scoping). The original claim survives **strengthened**.
+
+===== 20261008-0234-second-20261008-0148-system-098e-bd06
+# Dossier — second author on 20261008-0148-system-098e
+
+Run: 20261008-0234-second-20261008-0148-system-098e-bd06. Linux x86 cloud box;
+orders of magnitude only. Scripts copied from the author's run and extended in
+this folder; the tree outside `lab/results/` is untouched.
+
+===== 20261008-0234-spacex-0083
+# Dossier — the kick is compile-bound: 63% of its ~97 µs is a fresh Darwin cycle nobody needs
+
+Run: 20261008-0234-spacex-0083, lens: SpaceX. Linux x86 cloud box (8 vCPU, load ~1.5–1.8,
+no other run active); orders of magnitude only, per the lab rule.
+
+===== 20261008-0338-library-f045
+# dossier.md — 20261008-0338-library-f045 (library lens)
+
+===== 20261008-0458-dynamics-7166
+# Dossier — 20261008-0458-dynamics-7166 (lens: dynamics and attractors)
+
+===== 20261008-0615-redteam-cc34
+# Dossier — redteam-cc34: the resonance gate is an untested state switch
+
+===== 20261008-1252-second-20261008-1150-system-cf13-3565
+# Dossier — the angular window makes the unified certificate exact on clustered phases
+
+**Run:** 20261008-1252-second-20261008-1150-system-cf13-3565 · second author on 20261008-1150-system-cf13 · 8 October 2026
+
+===== 20261008-1252-taleb-2570
+# Dossier — the plane's cliff under load: no wall hitch, silent zero-RTF stalls, and a digest that holds
+
+Run: 20261008-1252-taleb-2570 (lens Taleb), Linux x86 runner, 8 vCPU, load 1.3–2.0, ~15 GB RAM.
+All numbers are the shipped bench's own JSON (`xtask universe --bench`), regenerated by the
+commands below, each ≤ 60 s. Machine state is recorded inside every JSON (`machine_before/after`,
+uptime). Orders of magnitude only (cloud x86, not the M1).
+
+===== 20261008-1337-second-20261008-1252-taleb-2570-9420
+# Dossier — the cliff, rerun inside the real range: the stall starts at 2×, the gate is frozen, and the record regenerates
+
+Second-author run on 20261008-1252-taleb-2570 (silver). The checker's named experiment for gold
+is done here: the ladder rerun inside the real range (`--members` clamps at 400), ≥ 3 seeds,
+bracketing 48/96/192, with the clamp and the corrected gather-share range stated, and the
+service criterion frozen as a rung gate. Binary: the shipped `xtask` the author and checker both
+used (sha256 `cff18e98…`, `/home/glmlab/lab-target-3/release/xtask`), tree `a838a28`, clean.
+
+===== 20261008-1419-components-620e
+# Dossier — 20261008-1419-components-620e (components lens)
+
+**Claim.** The kick event — the engine's dominant cost — is 25× above its floor, and the gap is
+not the force law's arithmetic: the rebind (`bind`, ~68% of a fired kick) and the per-body
+recomputation of shared epoch data (the secondaries' tube readouts, ~27%) dominate, while the
+entire force evaluation is ~6%; a measured integer-band evaluator does the force at 8–10× less
+than today's `Scalar` path and agrees with it below the ship's real velocity quantum.
+
+**Bottleneck.** Board: "kicks dominate the engine's cost". Expected gain: 25× on the per-kick
+path (orders of magnitude on the plane's event throughput; at 10⁹ bodies × 0.3 fired
+kicks/orbit, today's ~28–41 µs/kick is ~1 h of one core per orbit; the floor's ~1.1–1.7 µs makes
+it ~2–3 min). What it deletes: the per-kick rebind (replaced by the already-adopted jet,
+re-anchored at 0.05 compiles/kick), the per-body secondaries evaluation (shared per kick epoch:
+block steps share boundaries, law.md "A body's state between kicks"), and the `Scalar` soft
+arithmetic on the kick path (replaced by one shared exponent per band — already the law's stated
+number rule).
+
+**Evidence** (Linux x86, shared runner, load 5.83/8 cores — orders of magnitude only; ratios are
+the robust numbers, stable across 5 runs including two at 1.4× load):
+
+| part of one fired level-0 kick | ns | share |
+|---|---|---|
+| `bind` (the rebind, fires on ~99% of distinct kicks) | 18,600–28,600 | 68% |
+| `Ctx::secondaries` work (3 planets' `cartesian` + Vec) | 7,500–10,600 | 27% |
+| `force::acceleration` (`Scalar`) | 1,590–2,270 | 5.8% |
+| `Binding::readout` (the state read, for scale) | 2,470–3,440 | — |
+| **floor version**: integer-band force, body part only | **190–220** | — |
+| floor version with origin fall (apples-to-apples) | 375–440 (5.2–5.9× vs `Scalar`) | — |
+
+Sum today ≈ 28–41 µs per fired kick; floor ≈ 1.1–1.7 µs (integer force 0.2 + 0.05·bind ≈ 0.9–1.4
+===== 20261008-1419-system-2f89
+# Dossier — run 20261008-1419-system-2f89 (lens: the whole system)
+
+===== 20261008-1521-autoresearch-a48d
+# Dossier — run 20261008-1521-autoresearch-a48d
+
+===== 20261008-1757-constraint-1c2e
+# Dossier — 20261008-1757-constraint-1c2e (lens: the constraint)
+
+**Claim.** On the plane as shipped, the engine's per-event constraint is the orbit-shape compile
+that (almost) every kick pays, and its price is a measured law — 0.73 µs per knot, knots ≈ 6 +
+15.4·log₂(r_apo/r_peri), the same dyadic law as B9's readout bound — which the plane's own
+workload makes expensive: 76% of its kicks are fleet leavers at median e = 0.94 (p99 = 0.9995),
+so the compile is 54% of the mean kick (59% of the median) and carries the p99 tail (415 µs);
+no bit-identical reuse exists (807/807 distinct ShapeKeys), so the levers are cadence and a
+law-level quantized grid — plus one new representation lead this run prices: compile only the arc
+the next event reads.
+
+**Bottleneck.** Board #1 ("fewer kicks per orbit at the same behaviour: kicks dominate the
+engine's cost"). Expected gain in orders of magnitude: the levers now have prices — cadence 4×
+(32→8/orbit) at any e; the quantized relative-gap grid ~18× of compile work on this mix (45 shape
+cells served 807 compiles) but changes canonical outcomes (5 Oct adjudication; Julien's call);
+lazy arcs up to ~cadence× of compile work if the period can be had without the full integral.
+What it deletes: per-kick compile work, concentrated exactly on the leavers fleets manufacture.
+
+**Evidence** (Linux x86, 8 vCPU shared, load 0.7–1.2 during runs; orders of magnitude only; all
+commands ≤ 60 s except the gate run; tree restored after the run, the two instruments are the
+saved patch):
+
+1. *The whole, at player pace* — `cargo run --release -p xtask -- universe --bench --seconds 20
+   --rtf 100` (`bench-rtf100.json`): frame p50 4.57 ms / p99 10.8 / worst 11.2, zero hitches
+   above 16.7 ms, rtf median 100.0; **engine 19.9% of the frame, view gather 67.5%** (a debug
+   instrument, not the game's view); events/s 330; 71 bodies, 5075 bytes/body, catalogue_live 71.
+   Smoothness is not the constraint at player scale — per-event throughput is.
+2. *The kick, decomposed* — `universe --kick-bench --seconds 15 --rtf 100` with an added
+   out-of-line `Orbit::compile(key)` re-run per sample and an e-dump of the 807 cycle rebinds
+   (`kickbench-final.json`; replay digest unchanged, 10597678d37370c8; refused 0): kick mean
+===== 20261008-1757-dynamics-2a25
+# Dossier — 20261008-1757-dynamics-2a25 (dynamics lens)
+
+**Claim.** The plane's per-frame event demand is a stable stream: the per-frame budget bifurcates
+exactly at the *sustained mean* rate (below it the presentation lag diverges linearly; above it
+the lag is bounded and self-healing with bit-identical outcomes), bursts of 8–15× the median need
+no coverage, a player burn displaces the event calendar instead of creating work, and the
+attractor rate does not ratchet — so the allocator should provision and forecast against the
+mean, not the tail.
+
+**Bottleneck.** #4, smoothness and the allocator (and the budget semantics under B15's p99).
+What it deletes: provisioning and spike-shaping sized to the worst frame — the measured demand
+has p99 = 13.5× the median (up to 51 events/frame at mean 3.4), yet a budget of 4 events/frame
+(1.18× mean) holds rtf 100 with full recovery and the same digest as an unlimited budget. That is
+an ~8× smaller reserved per-frame capacity than p99-provisioning for identical outcomes. It is an
+operating-point and instrument result, not a speedup of the engine itself.
+
+**Evidence** (plane scenario, seed 7, 48 fleet members, 1 thread, rtf 100, 6600 frames =
+2.23·10⁹ ticks ≈ 2.7 h game, the 8 scripted burns of `crates/universe/tests/plane.rs`; probe:
+`crates/universe/examples/stream.rs`, saved in this run's patch; analysis `work/analyze.py`,
+output `work/evidence.txt`, digests `work/digests.txt`):
+
+- **Attractor.** Demand decays from 9.5 to 3.40 events/frame as the battle winds down
+  (~2500 frames), then is flat: 3.390 vs 3.397 across the last burns (+0.2%, no ratchet). The
+  attractor is 79% fleet clock slices (2.69/frame); gravity's kicks are 0.39/frame.
+- **Bursts.** Attractor p50 2, p99 27, max 51. Burst factor p99/p50 grows with members
+  (10 at 6, 13.5 at 48, 30 at 192 — aligned schedules synchronise), and vanishes when the frame
+  window aggregates 10× more (rtf 1000: burst 1.6): the clumping time is below one frame at
+  rtf 100.
+- **Calendar.** Top-16 harmonics explain 33% of attractor variance (shuffled control 5%): one
+  fundamental family — 24.8, 12.4, 8.3, 6.2 frames (24.8 frames = 41.3 game-s) — present in both
+===== 20261008-1859-quant-19d6
+# Dossier — 20261008-1859-quant-19d6
+
+**Claim.** On the plane's own bench (Linux/x86, shared box, load 1.3–2.9 — orders of magnitude only),
+the frame budget holds everywhere we have flown it, but the engine's capacity knee sits only ~20×
+above the flying point, the readout (not the engine) is two-thirds of the frame at that point, and
+the player's max burn leaves every frame metric nearly untouched while collapsing the real-time
+factor's tail 100× — impact lands on presentation time, not on the frame, and the deferral is
+canonical (bit-identical digests across engine budgets).
+
+**Bottleneck.** Board #4 (smoothness and the allocator: worst frame and p99) and the readout's cost
+(b-readout-cost, queued). Numbers the integrator had no record of: the capacity knee, the burn's
+tail impact, the per-kind event price list, and the pure-resolver-versus-scheduled overhead. No
+10× lever delivered; this is the instrument reading the integrator needs before spending the
+encounter-skin budget (it prices the event the skin would cheapen, and shows the readout competing
+with it).
+
+===== 20261008-2113-autoresearch-687b
+# Dossier — 20261008-2113-autoresearch-687b
+
+**Claim.** The galaxy readout's per-sample cost (18–27 ns/sample wall at 4 threads; splat = 94% of the frame) is not scalar-arithmetic-bound: an exact reciprocal division replacing the u64 div/mod in `locate`, plus an f32 projection, hold every frozen gate and buy a paired median of **0.93× (range 0.87–1.01, n = 7 cases)** — real but ≤ 13%, so the lever for the readout is not scalar micro-optimization; the cost sits in the pad gathers, the scattered plane read-modify-write and per-frame fixed overheads, and the changes that would beat this local optimum are sample batching per compiled orbit (SoA pad), image tiling, or moving the splat to the GPU.
+
+**Bottleneck.** Board focus "cost at a billion" / the readout's cost. `xtask galaxy --bench` renders 10⁹ ships (1e6 real tubes + ~10k family generators, 13,963 compiled cycles) — the only artifact at billion scale that works. Fermi before the run: u64 div ≈ 30 c of ≈ 240 c/sample ⇒ at most ~12% — below a gold, worth one probe. Measured: paired ~7%; the div was mostly hidden latency.
+
+**Evidence** (from the repo root, release build; each command ≤ 60 s unless noted):
+- Breakdown (added to the bench JSON by this run): `./target/release/xtask galaxy --bench --frames 60 --pace 0` → far 31.6 ms = plan 0.35 + splat 29.75 + tone 1.16; 1,706,760 samples; 218 MB peak RSS.
+- Not plane-cache-bound: same bench at 480×270 / 960×540 / 1920×1080 → 22.4 / 17.4 / 16.5 ns/sample (flat to improving as plane bytes grow 16×).
+- Exactness: `cargo test --release -p xtask galaxy` → **11/11** (9 frozen gates + the new differential `magic_division_matches_hardware`: 2,000 pseudo-random dividends per real period, 0 mismatches). Offline: 610,154 adversarial (d, n) pairs, 0 mismatches; exact when floor_log2(d) ≥ 1 (error < 2⁻ˡ ≤ ½, one correction suffices).
+- Paired A/B, pristine vs candidate binaries, interleaved in the same window (load average 5–8, shared box; absolute ns drift ±15% between windows, ratios are the evidence):
+  `far 0.888 · seed7 0.991 · mid 0.942 · deep 0.866 · far(40f) 0.932 · threads1 0.933 · deep(40f) 1.014` → median **0.932**, never slower beyond noise. Single-threaded (threads1) confirms the gain is not a scheduling artifact.
+- Reproduce the A/B: build both binaries (candidate = this patch, baseline = pristine), then alternate `xtask galaxy --bench --pace 0 --frames 40 [--seed 7 | --threads 1 | --w 1920 --h 1080]` and take median `ns_per_sample` ratios; script shape in `log.md`.
+
+**Predictions** (`predictions.md`, written before the paired run): P1 "within ±10% on every held-out case" — held on 6/7, exceeded in the good direction on one (deep 0.866); the honest summary is "small real gain, not the suspected 12%-from-division alone". P2 gates stay green — held (11/11). P3 cost is memory-traffic-shaped — supported (flat plane-size curve + null-ish scalar result).
+
+**What would make it wrong.** The M1 has cheaper integer division and a different cache shape; there the division's removal may buy nothing and the f32 change could matter more (NEON). If any paired case regresses > 5% on the M1, drop the f32 projection and keep the division (it is exact and free). The gain is 3rd-order: adopting only for exactness/simplicity is legitimate, adopting for speed is not.
+
+**Cost of adopting.** 163-line patch, all inside `xtask/src/galaxy/` (scene.rs: `dmag`/`dsh` fields + 6-line `locate`; draw.rs: f32 `Proj`; mod.rs: plan/splat/tone medians in the bench JSON; tests.rs: differential test). No behaviour change, no dependency, no cost to other paths.
+
+**Fit with PRINCIPLES.** "The cheapest compute is compute not done" (P1): the division is deleted, not tuned. "Measure before claiming … the simplest falsifying test first" (P10): paired A/B with the pristine build as the standing control. "A failed experiment kills that configuration, never the method" (P9): the null-ish result kills scalar micro-opts for the readout and names the structural lever. "Rough first, refine when a certificate could break" (P21): the readout is a derived cache that decides nothing; its exactness gates still hold bit-for-bit on the division path.
+
+**The lens (autoresearch) and what it missed.** The loop stopped after two sub-10% tuned-case rounds — correct by its own stop rule, but it optimized inside a representation it never questioned (P19: "a fix signals the wrong representation"). What would beat this local optimum: (a) batch 4–8 samples per compiled orbit, SoA pad, vectorized Catmull–Rom — amortizes rec loads and turns the two interpolations into wide f32 ops; (b) tile the image so one thread's working slice fits L2 (the diagnostic says plane capacity is not the binding constraint *per sample*, but tile locality also fixes the scattered RMW chain); (c) move the splat to the M1 GPU (`lattice-metal` exists for other paths) — the honest structural answer, since the readout is pure throughput arithmetic into a texture. And the board's own deeper question stands untouched: H_live (distinct pixels per game-second) decides the billion-body budget, not ns/sample.
+
+**Machine.** GitHub Actions runner, 8 vCPU i7-4790 @ 3.6 GHz (4 cores/8 threads), 15 GB, load 5–8 during measurement, Linux 6.8.0; perf blocked (paranoid=4). Cloud timing: orders of magnitude only; the integrator re-measures on the M1.
+===== 20261008-2206-second-20261008-2113-scout-6652-3eee
+# dossier.md — run 20261008-2206-second-20261008-2113-scout-6652-3eee (lens: second author)
+
+**Claim.** The checker's named experiment is done and the original claim survives it
+— but only after closing a second, deeper hole the checker's attack exposed the edge
+of: with (1) admissibility re-derived as sweep-extended pooled radius ranges (the
+original's common-longitude 2ρ filter is unsound at high e — the two bodies meet at
+*different* longitudes, and dr/dλ = r²e·sin f/p is large there; the checker's false
+"never-fires" routes and my first dissection's 84 missed fires are one and the same
+hole), and (2) **alias completion** over the passage lattice {k·T_i + m·T_j} (the
+replica's D(s) is exactly lattice-periodic, D(s+k·T_i+m·T_j)=D(s); cert A's window is
+alias-complete by construction, the original's single-branch window only when the cap
+domain fits one lattice cell — true on F1/F2/F4, false on F3x; **the two holes
+cancelled on the original's measured families: the family that would have exposed
+the alias hole was routed out by the radial hole**), the travel-time-difference
+window misses **zero** of 1,857 certified fires across all five families — including
+the checker's kill family F3x (618 fires, e up to 0.71) and the never-measured
+wide-crossing half of Kind::Wide (F5, 398 fires) — at 68–82 closed-form evaluations
+versus the numeric window's 294–2,559 (count ratio 5.5–19.9×), measured wall ratio
+**11.2–126× (family medians 15–66×)** with the per-call ratio measured (3.76×:
+mean_at_longitude 0.62 µs vs state_at_mean 2.35 µs) — and the price is width: the
+sound window is 4.3–31× the numeric window's (family medians; p90 up to 93×), so the
+original's "2.6× width" does **not** survive soundness, and the adoption trade (state
+evals deleted vs firing measure armed) is now explicit and unmeasured.
+
+**Bottleneck.** Board focus item 3 / the top scaling risk, continuing
+q-candidate-degree and 20261008-2113-scout-6652: the Wide sections' numeric windows,
+0.67–0.7% of sections but 91% of all state evaluations at 10⁶. This run answers the
+checker's three named gaps: the margined routing (re-derived, not just margined), the
+wide-crossing family, and the wall-clock ratio.
+
+===== 20261009-0401-autoresearch-e044
+# Dossier — 20261009-0401-autoresearch-e044
+
+**Claim:** the geodesic compiler (`Orbit::compile`, the plane's per-kick rebind path) is
+within ~3–4% of its bit-identical floor on x86-64 — the exact nested-product `cos` is a
+serial-latency chain worth ~33% of per-knot cost and cannot be made cheaper without
+changing the law's declared arithmetic; the only free exact win left is ~3% from native-digit
+divisions, delivered as a patch, plus a measured warning: near-separatrix rebinds cost ~1 ms.
+
+**Bottleneck:** board focus line 1, "fewer kicks per orbit ... kicks dominate the engine's
+cost", sharpened on the cost side: each kick rebinds, the plane recompiles on ~99% of kicks
+(board, 5 October) and the exact-key memo hits 0% on distinct kicks, so ns/compile multiplies
+the engine's dominant cost. Expected gain from a successful micro-loop: 2–10x. Measured
+gain: none of that size exists without changing bits. This is a negative result with a
+small exact patch and one cost-concentration measurement the board lacks.
+
+**Evidence** (all commands <= 60 s, Linux/x86 shared runner, taskset -c 2; orders of
+magnitude only):
+
+    cd lab/results/20261009-0401-autoresearch-e044/bench
+    cargo build --release                       # depends on emergent-space by path
+    /home/glmlab/lab-target-1/release/bench-compile tune 200 5    # bank stats + digest
+    /home/glmlab/lab-target-1/release/bench-compile heldout 200 5 # corners + digest
+
+- Baseline (main + read-only `Knot::sums` accessor for hashing): tune median 17.6 us,
+  p99 94 us; held-out median 9.8 us.
+- R1 (patch): four software 128-bit divisions per node in `fast_quad` replaced by guarded
+  `div_word` — exact by construction (guard `n>>64 < d` implies word-sized quotient; the
+  software path remains as fallback): tune median 17.1 us (−3.0%), held-out 9.4 us (−3.6%).
+- Digests (FNV-1a over knot psis, all knot sums, crossings, increments, crossing times):
+  tune 11806c4030d5dd5f and held-out f8c456a28a52db9a, identical baseline vs patch.
+===== 20261009-0621-dynamics-0a0b
+# Dossier — 20261009-0621-dynamics-0a0b (lens: dynamics and attractors)
+
+===== 20261009-0709-autoresearch-b2a0
+# dossier — 20261009-0709-autoresearch-b2a0
+
+===== 20261009-0709-second-20261009-0621-system-7f97-1eca
+# Dossier — 20261009-0709-second-20261009-0621-system-7f97-1eca (second author on 20261009-0621-system-7f97)
+
+**Claim.** The checker's named gold experiment is done: the clock-path regime split is
+built, shipped-code-gated and cost-measured — Δs per clock body from the coupling its
+own **orbit** permits (`ext::split_k`: one bit per octave of κ = Σ gm_j/gap_j over c,
+anchored at κ = 1 at `Config::step_log2`, floored 3 octaves below), **refining only and
+never coarsening within a clock** — and it holds: B13 and the default path are
+bit-identical to shipped (60/64, digest `21c73edc…`), B17 PASSES (pump [0.984, 1.001],
+libration 0.981, 34/34 regimes, 5/5 controls) where the naive uniform cut fails B13 at
+3/64, and a belt of 2,000 clock bodies runs **4.7× (wide belt) to 7.8× (inner belt)
+fewer kicks** at the same gates. The run also measured a law-level constraint the
+q-cadence build must respect: **a cadence that modulates with the orbit pumps a
+resonant libration and destroys it** (two falsifications below), so per-body cadence
+may only refine — the ratchet is not an optimisation but a correctness condition.
+
+**Bottleneck.** Board focus 1 (fewer kicks per orbit at the same behaviour). The first
+run measured the 8× regime split and named the knob (the doll-wide Δs, a tick in
+principle 14's sense); this run turns it into adoptable code and validates it through
+the frozen gates, folding the checker's S=9/10 saturation (the claim is bulk-only:
+passages keep their shipped resolution, which is the best B13 gets anywhere).
+
+===== 20261009-1754-second-20261009-1649-system-aa29-0ee9
+# Dossier — second author on 20261009-1649-system-aa29: the named experiment done, and the unification refuted in its adoptable form
+
+Run: 20261009-1754-second-20261009-1649-system-aa29-0ee9, lens: second author.
+Every number below regenerates from the shipped `sim.py` + `gate2.py` by the
+commands given (bit-for-bit; `run-log.txt` holds the eval output, including the
+regeneration check of `data/ho_mu1e4.json`).
+
+===== 20261009-2120-second-20261009-2043-scout-a1a4-a194
+# Dossier — 20261009-2120-second-20261009-2043-scout-a1a4-a194 (second-author lens on 20261009-2043-scout-a1a4)
+
+**Claim.** The first run's claim — the law's whole `NoBoundOrbit` gap compiles into the
+ψ-panel tube, exact to ~10⁻¹⁰ with O(1) readout — **now holds on the shipped record
+with the checker's named experiment done**: the honest readout (bracket + Newton-in-ψ,
+the mechanism P4 predicted, not the linear interpolation that was timed) sits at the
+compiled table's own error floor in every case and across the winding sweep
+|1−L/L_c| = 10⁻³…10⁻⁷, at 27 µs/sample in pure Python and **0.53 µs/sample compiled**
+(C, `-O2`), winding-independent (sweep max/min = 1.014). The "3 µs" headline number is
+retired: it measured a linear readout whose accuracy is 10⁻⁵…10⁻⁷ (10⁵–10⁹× above the
+table floor). The near-critical column is restated against a reference now confirmed
+**three independent ways**, which also closes the first run's last open flag (the
+mp40 kink) non-circularly.
+
+**Bottleneck.** Same as the first run (`b-plunge-tubes`, queue item 3): capture orbits
+stop being stepping physics and become one compiled object. The named gap between
+silver and gold was the record, not the physics; this run closes it and measures what
+the readout mechanism actually costs and delivers per sample.
+
+**Evidence** (commands, each ≤ 5 s on this 8-vCPU runner, load 0.1–0.4; all in
+`work/`; first run's `plunge_falsifier.py`/`plunge_cost.py` imported unmodified and
+still regenerate their record):
+```
+cd lab/results/20261009-2120-second-20261009-2043-scout-a1a4-a194/work
+python3 plunge_record.py   # P3 + restated column + 3-way adjudication, 2.1 s
+python3 plunge_readout.py  # honest readout: accuracy+cost, cases+sweep, 3.1 s
+cc -O2 -o plunge_readout_c plunge_readout_c.c -lm && ./plunge_readout_c  # 2.6 s
+```
+
+1. **Honest readout accuracy — at the table floor everywhere** (`readout-output.txt`).
+===== 20261009-2257-second-20261009-2212-fermi-a11b-ba64
+# Dossier — 20261009-2257-second-20261009-2212-fermi-a11b-ba64
+
+Second-author pass on `20261009-2212-fermi-a11b` (silver). The checker believed
+the physics and not the record; this run rebuilds the record and runs the named
+experiment. Nothing here is new physics — it is the same claim, now held by a
+record that regenerates, with the checker's four corrections folded in and
+tested.
+
+===== 20261009-2348-autoresearch-19f8
+# dossier.md — autoresearch: the per-kick compile is at its bit-identical floor
+
+**Claim.** The plane's per-kick rebind (`Rebinding::from_state` in `crates/space`) cannot be made materially cheaper by local, bit-identical change: five measured rounds bottom out at ~0.7% (noise); ~half the call is an exact wide-division chain that integer semantics forbid shortcutting, and the fit's 76-iteration bisection is definitional (its midpoint sequence *is* the rounded root), so the next 10× must come from fewer rebinds or warm-started quadrature, not faster ones.
+
+**Bottleneck.** Board #1/#3: "kicks dominate the engine's cost"; the taste log: the plane recompiles an orbit on ~99% of kicks. Expected gain from cheaper events at 10⁹ bodies: any 10× here is a 10× off the 190-core estimate. Measured instead: the ceiling for *local* wins is ≈1%, which deletes nothing — so the lever stays cadence, confirming the board's standing conclusion with numbers.
+
+**Evidence.** Baseline on a fixed deterministic corpus of 4608 kicked states (tune) + 1440 held-out, Linux x86-64 (shared, load 1.4–2.1; orders of magnitude only):
+- ns per rebind: p50 ≈ 13 µs, p99 ≈ 58 µs (tune); held-out p50 ≈ 14–15 µs. Phase split (feature-gated timers): compile ≈ 47%, fit ≈ 25%, orient ≈ 9%, residual ≈ 19%. Per call: ≈54 `Scalar::div` + 31 `isqrt` ≈ 94 wide divisions, 317 `mul`, 404 `add`, bisection ≈ 76 iterations.
+- Rounds (hypothesis → verdict): isqrt division via `div_word` → exact but 1.00× (reverted); `Scalar::add` fast path → noise (reverted); `poly`'s duplicate `z·z` → kept; **witness-tightened bisection start → KILLED by its own control** (digest changed; `witnessed_fit_keeps_the_full_search_key_at_kicks_and_boundaries` failed — the rounded cubic is non-monotone at fine scale, so tightening the bracket lands on a different dyadic root); duplicate `cos ψ` in `node()` → kept.
+- Final interleaved A/B under identical load: BASE p50 13071 ns vs KEPT 12982 ns (≈0.7%). Digests identical to baseline on both sets (`fd33f759b10e569f`, `c45b567dfc5b395c`); `emergent-space` 50/50 and `emergent-universe` 37/37 green.
+
+Reproduce (each ≤ 60 s once built; build ≈ 10 s):
+```
+cd lab/results/20261009-2348-autoresearch-19f8/bench
+cargo build --release && ./target/release/rebind-bench tune 3   # KEPT (tree as left)
+./target/release/rebind-bench heldout 3
+# BASE (pristine HEAD), interleaved with KEPT under the same load — see work/README.md:
+cd ../../.. && git checkout HEAD -- crates/space
+cd lab/results/20261009-2348-autoresearch-19f8/bench && cargo build --release && ./target/release/rebind-bench tune 3
+cd ../../.. && git apply lab/results/20261009-2348-autoresearch-19f8/work/patch.diff   # restore KEPT
+# attribution (from HEAD): git apply .../work/instrumented-attribution.diff,
+# then in bench/: cargo run --release --features profile -- tune 3
+```
+
+**Predictions.** `predictions.md` was written before the final run: digest unchanged on both sets ✓; gain 1–3% at p50, noise at p99 ✓ (0.7% measured); held-out within ×1.2 of tune ✓ (p50 14140 vs 12741 = ×1.11); E4 not bit-identical if re-applied ✓ (that is what killed it). All four held.
+
+**What would make it wrong.** On the M1 (ARM64, no 128/64 divide) the division floor may sit elsewhere: `div_word` vs `__udivti3` could differ by more there, and the i128 multiply/add costs differ — the ~1% ceiling is this machine's, so the integrator should re-measure before quoting it. A proof that the *rounded* poly's sign pattern admits a certified tighter bracket (making E4 bit-identical) would also reopen the fit phase. Cost of adopting the patch: nil (two expression dedupes, bit-identical, tests green); it is offered as hygiene, not as a gain.
+
+**Fit with PRINCIPLES.** "The cheapest compute is compute not done" (P1) — the two kept changes delete duplicate exact expressions; the killed E4 is exactly P2's "error type over error size": the answer's low bits are *defined* by the search sequence, so "the same math" was not the same integer. "A test that cannot fail is a control" — the bit-digest and the existing witnessed-fit test both failed when they should have.
+
+===== 20261010-0100-second-20261009-2348-scout-3851-0d8c
+# Dossier — second-author run 20261010-0100-second-20261009-2348-scout-3851-0d8c
+
+===== 20261010-0448-redteam-f771
+# Dossier — 20261010-0448-redteam-f771 (lens: premise red-team)
+
+===== 20261010-0541-second-20261010-0448-redteam-f771-9999
+# Dossier — 20261010-0541-second-20261010-0448-redteam-f771-9999 (lens: second author)
+
+===== 20261010-0656-autoresearch-cc88
+# Dossier — run 20261010-0656-autoresearch-cc88 (lens: autoresearch on something that works)
+
+===== 20261010-0920-autoresearch-1411
+# Dossier — run 20261010-0920-autoresearch-1411 (lens: autoresearch)
+
+**Claim.** The contacts engine's per-op cost (`crates/lattice-event`, `EventCore`) is cut 15% on class-frame-heavy worlds and ~5% on dense-contact worlds by replacing two i128 software divisions per tracked frame (`entry_time`) and per prediction (`law::first_wall`) with a bounds-guarded i64 hardware division — bit-identical world/log digests everywhere, all tests green — while the obvious suspect (i128 arithmetic in the exact pair predicates `hit`/`first_hit`) measurably carries **nothing** (a checked i64 fast path was a wash and was reverted).
+
+**Bottleneck.** Board #4/#12 territory (cost per event must not grow; smoothness): `ops/fired` is the engine's cost-per-event contract. Profiling (temporary rdtsc instrumentation, reverted): predict upkeep 55–59% + gather/scan 27–30% of wall time; within a prediction, the 3×3-cell scan (`around`+visits+predicates) is 82–84%; the calendar is 3–9%. The 10×-class lever (per-pair "cannot hit before T" certificates deleting most of the ~20 neighbour visits per prediction) is named below but was out of reach in one hour; this run takes the measured local win.
+
+**Evidence** (Linux x86, 8 vCPU shared runner — orders of magnitude only; the integrator re-measures on the M1):
+- Baseline vs final, interleaved A/B (pinned core, 3–5 alternations, median-of-3 reps each; ns/op):
+  - `crowded_axes` 20k (8 co-moving class frames, zero events): 42.7 → 36.2 (**−15.3%**, min-of-alternations; every kept run beat every baseline run)
+  - `gas` 20k fill 0.02: 43.6 → 40.7 (−6.5%)
+  - `random` 20k Pass: 52.4 → 50.9 (−2.9%)
+  - `gas` 20k fill 0.10: 45.6 → 45.3 (0%, inside noise)
+- Held-out (see `predictions.md`, never tuned on): `h-crowded` 8k: 39.0 → 33.2 (−15%, all 4 alternations); `h-mixed` 8192: 42.6 → 40.7 (−4.6%); `h-gas-mid`/`h-gas-hot`: inside noise.
+- **Digests:** all 4 tuning and all 4 held-out world+log digests bit-identical to baseline.
+- Tests: `cargo test --release -p emergent-lattice -p emergent-lattice-event` — 38 passed, 0 failed (includes EventCore≡Chronon bit-equality).
+
+Reproduce (≤ 60 s each):
+```
+cargo build --release -p emergent-lattice-event --example bench
+$CARGO_TARGET_DIR/release/examples/bench            # tuning worlds, digests + ns/op
+$CARGO_TARGET_DIR/release/examples/bench --heldout  # held-out set
+```
+Patch: `work/patch.diff` (law.rs `floor_div`+`first_wall`, lattice-event `floor_div`+`entry_time`), bench harness `work/bench.rs` (new `examples/bench.rs`).
+
+**Predictions** (`predictions.md`, written before the decisive runs): "upkeep+scan ≥ 80%, rebuild ≤ 5%" **held** (83–86%, 2–3%). "i64 fast path for `hit`/`first_hit` gains ≥ 15%" **failed** (0–2%, wash; reverted) — the mechanism was plausible (7.6M predicate calls in gas-dense) but LLVM already compiles small-operand i128 multiplies to a few i64 ops; the miss cost is cache lines, not arithmetic. Held-out expectations (crowded ≥ tuning crowded's gain; mixed smaller; digests identical) all held.
+
+**What would make it wrong.** A world where `entry_time`'s operands overflow i64: the guard (`i64::try_from` both operands, else exact i128) keeps exactness, only the speed reverts to today's. Nothing else can change behaviour: division results are identical by construction, verified by digests and the mode-equality tests. Cost of adopting: ~20 lines, no new state, no contract change.
+
+**Fit with PRINCIPLES.** #1 "the cheapest compute is compute not done … make compute cheap"; #16 "what's cheapest to compute"; #26 "keep doing those smarter math and old tricks" — hardware `div` over software `__divti3`, the same fix `cross_time`'s comment already records ("an i128 division was a hot spot"): this run finished that sweep.
+
+===== 20261010-1029-second-20261010-0920-scout-e5f5-0c3b
+# Dossier — run 20261010-1029-second (second author on 20261010-0920-scout-e5f5)
+
+**Claim.** The checker's named experiment, run: per-(cell, shell) accumulators (FMM
+interaction shells, member quanta) **do kill the compounding leak** — the deferral
+error becomes bounded and near-stationary where every scalar-accumulator variant of
+the original run grew or persisted (dipole aggregates: max 52→60q over a 3× horizon,
++16%, vs v2's ×79 growth to 228q and v3's persistent 3.6×10⁴q) — **but not at the
+letter of the criterion**: the steady error is ~(3–10)·L·q, not ≤ L·q (median 18–22q
+≈ 3Lq, max 43–60q ≈ 9Lq at L=6 levels), and the cost is O(log N) per body at ~11×
+the leaky scheme's constant (585.6 deliveries/body/time at N=16 384, measured
+two-size exponent 0.231, level terms saturating at ~160/ring), not the original
+2.1×10⁴× advantage (≈ 28× over naive here; ≈ 10³ extrapolated to N≈10⁶). The exact
+partition is proven as an integer assert. One new constraint: the accumulator's
+effective quantum floors at the event-strength scale (renewal overshoot
+E[s²]/2E[s] ≈ 0.042 ≫ θ below q ≈ 0.004), so tightening q below that fails to
+tighten error or cost (measured at q=0.001: error ×8 in q-units, cost ×4.1).
+
+**Bottleneck.** Same as the scout run: the board's "the light cone keeps growing" /
+R5's gravity-as-news taken literally (O(N) deliveries per event). The question left
+open by the silver: does the FMM-shell partition make quantum-gated accumulation
+*correct* (bounded, non-compounding) at O(1)-per-body cost?
+
+**Evidence** (toy identical to the scout's: 2D periodic patch, σ=1, c=1, Poisson
+news λ=1/body/time, strengths log-uniform [0.005, 0.5], 1/d² falloff, quantum q;
+leaf cells k=16 bodies; N = 4 096 and 16 384 as the checker specified).
+
+Scheme under test (`shells.py`): DIRECT = exact arrival-timed broadcast to the
+source's 3×3 leaf neighbourhood (no per-event rings → no ring/square complement to
+mismatch); SHELLS = one accumulator per (source leaf, ring level l) holding
+(strength A, dipole p), member set = receivers whose tree-code separation level
+===== 20261010-1302-second-20261010-1152-fermi-e9a5-a9c4
+# Dossier — 20261010-1302-second-20261010-1152-fermi-e9a5-a9c4
+
+Second-author run on `20261010-1152-fermi-e9a5` (silver). The checker named four
+defects; this run does its "one experiment", on the run's own `probe.py` extended
+in place. Every digit quoted below is in `metrics.json`, regenerated by one
+command.
+
+**Claim.** The original claim holds, now on a record that regenerates every
+quoted digit: a 10⁹-body belt's live store is log-bounded (≈ 1 bit per
+time-octave; 21.5 bits after one orbit, 35.7 after 16 384, bias-corrected), so
+10⁹ bodies fit 8 GB — including a *cold* belt at belt density (41.7 bits,
+5.2 GB at 2 dof / 7.8 GB at 3 dof, which breaks nothing) — and only
+concentrated regions break it, at 3 dof (dense ×2500: 47.0–49.4 bits,
+8.8–9.3 GB); the binding constraint is scar-mutation churn, not memory.
+
+**Bottleneck.** Unchanged from the original (board: "fitting 10⁹ in 8 GB";
+HANDOFF's unmeasured H_live). This run converts the silver's four defects into
+record: no new physics, a completed one.
+
+**Evidence** — `python3 probe.py`, 15.0 s wall, 618 MB peak RSS, seed 20261010;
+rerun byte-identical modulo `env`. Script: this folder's `probe.py` (the
+original plus: the `cold_belt` scene, the estimator-bias calibration, the
+floor-invariance runs, time and churn blocks; the entropy arithmetic was
+refactored into `shape_entropy_H` — verified bit-equal to the original inline
+code before use).
+
+1. **Cold at belt density (the checker's decisive experiment).**
+   `cold_belt` = Σ₀, σ₀ = 0.01 m/s: λ⁺ = 177.34/orbit at q_v = 10⁻⁶
+   (= 443 357.73/2500 exactly; cold Σ-linearity 1.0000; β = −0.9939 clean over
+   five decades), σ_resid → 0.466 m/s, **H = 40.29 bits raw / 41.74 corrected
+===== 20261010-1706-redteam-e07f
+# Dossier — redteam e07f: the Binet ISCO strip
+
+**Claim.** The Binet cell's frozen band coefficient makes orbital stability a property of
+the *band*, not of the *body*, so the design's innermost stable orbit is a cliff displaced
+by up to a full band — with rung r1's frozen convention a strip of orbits **inside the true
+ISCO is wrongly stable, so a ship parks at r = 5.95 M forever while exact GR plunges it in
+8.8 orbits** — and r1's frozen ISCO criterion cannot see any of it.
+
+**Bottleneck.** Bottleneck 0 (the representation), aimed at r1's scheduled clean re-run
+(H0205: DISPUTED, "needs a clean PASS"). Not a speed gain: it stops a blind gate from
+certifying a law whose headline GR behaviour (the ISCO, the thing a player goes to a black
+hole to feel) is wrong by construction at the rim. It deletes the design's "the innermost
+stable orbit… and plunges all emerge" as written: they emerge at the wrong radius, as a
+cliff, with a phantom stable shelf.
+
+===== 20261010-1816-second-20261010-1706-redteam-e07f-311d
+# Dossier — second author on 20261010-1706-redteam-e07f: the ISCO falsifier on the shipped law
+
+**Claim.** The checker's named experiment is done: r1's ISCO phantom shelf and ω_r cliff do **not** survive in the shipped law (`space-darwin16-scaled-v5`, via the plane's own binding path `Rebinding::from_state`) — of 7,203 near-rim states adjudicated in exact rational arithmetic, **not one is wrongly parked**, the compiled advance matches GR to 1.1×10⁻⁹ through the whole window and to 4 significant digits down to 1 quantum of the separatrix, and the exact-key classification boundary sits on the theoretical separatrix to < 5×10⁻⁷ — but the falsifier surfaced a **live mirror defect in the same neighbourhood**: 110/7,203 (1.5%) genuinely bound states near the rim are refused with `Error::Range` by the shipped binding path's fast-scalar word-rounding guard (binding.rs:275-277), states the law's own exact (E,L) path compiles fine.
+
+**Bottleneck.** The same as the original run's (bottleneck 0, r1's clean re-run): this closes the original finding — it is the reason band-frozen cells stay dead, plus a two-case r1 gate fix — and opens one urgent, one-line-reproducible defect on the live path (wrongly **refused** bound bodies at the rim: the mirror of the strip, blast radius ~1.5% of near-rim grid states, isolated integer-pair locus).
+
+===== 20261010-1920-second-20261010-1816-system-67f2-3ea5
+# Dossier — the named experiment done: the kill survives the corrected clock; the record now regenerates
+
+Run: 20261010-1920-second-…-3ea5, second author on 20261010-1816-system-67f2.
+Host: GitHub Actions Linux, 8 vCPU, load 1.4, 2.0/15.9 GB used; pure Python,
+~60 MB, 12 s for the whole record.
+
+===== 20261010-2052-second-20261010-1947-spacex-19bc-d205
+# Dossier — 20261010-2052-second-20261010-1947-spacex-19bc-d205 (second author on 20261010-1947-spacex-19bc)
+
+**Claim.** The checker's named experiment is done: with a real shipmem packed-block store fed the
+plane's own rebind stream, the **removal side is now measured, not modelled** — at the coarse
+(memo-key) level reabsorption duty at 10⁹ ships is **0.6–1.1 % of a core by measured removal
+capacity, 2–3 % by the decomposed marginal-row + repack model** (kill line was 20 %), so the
+original claim's "reabsorption to hold it costs ~2 % of one core" **holds by measurement**; the
+exact (Q48) side costs **0.3–1.3 cores on the same defensible models (up to 11 on an adversarial
+small-group bracket)** — it dies on CPU as well as bandwidth, harder than the dossier's 1.18-core
+model. Creation side reproduced unchanged (coarse 0.0013–0.0018 bits/ship/s, exact 0.076–0.136).
+
+**Bottleneck.** The one the checker named: "the reabsorption cost model reuses the kick-resolver µs
+for a recompile that has never been timed". Every duty number in the silver dossier rested on it.
+
+**Evidence** (Linux x86 shared runner, 8 vCPU; orders of magnitude only; machine state in the
+JSONs). Patch = the original `--hlive` mode plus the removal side (`work/patch.diff`; xtask only,
+one dep line; no engine change; **kick-bench digest on the patched build equals the unpatched
+baseline**: `eccc7f5a…`, and the replay digest is deterministic across repeats: `c57600fc…`, all
+non-timing fields of s1 vs s1-rep identical bit-for-bit — the ordered entropy fold also fixed the
+original's ULP nondeterminism).
+
+```
+cargo build --release -p xtask                                   # ~40 s
+cargo test --release -p xtask hlive                              # <1 s, 1 test
+xtask universe --hlive --rtf 100 --seconds 30 --seed 1           # -> data/hlive-rtf100-s1.json
+xtask universe --hlive --rtf 100 --seconds 30 --seed 7
+xtask universe --hlive --rtf 1000 --seconds 3  --seed 1
+xtask universe --hlive --rtf 100 --seconds 30 --seed 1 --members 400
+xtask universe --kick-bench --rtf 100 --seconds 30 --seed 1      # digest gate vs baseline
+```
+===== 20261010-2220-autoresearch-2fe1
+# dossier.md — 20261010-2220-autoresearch-2fe1 (lens: autoresearch)
+
+**Claim.** Replacing std `u64::isqrt` with an f64-seeded, exact-fixup integer square root
+(bit-identical by construction) cuts the motion law's orbit-compile cost by **12–13%** and the
+per-kick rebind event (`Rebinding::from_state`, the path the plane pays on ~99% of kicks) by
+**11–14%**, with every compiled bit unchanged; two further bit-identical micro-rounds (append
+n==1 fast path, fit_key poly hoisting) add ~2% each before the loop hits its stop rule.
+
+**Bottleneck.** Board focus line 1: "kicks dominate the engine's cost"; "cheaper events" is the
+explicit lever under *Cost at a billion*. The per-kick event is fit + orbit compile + readout +
+residual. Measured baseline on this runner: 31.2 µs per compile, 60.0 µs per rebind event.
+Component microbench showed the std `u64::isqrt` (software Newton with integer division, 22.3 ns)
+called once per quadrature node (≈107 nodes per orbit compile), plus as the seed of the crate's
+u128 isqrt (86.8 ns) used by every `Scalar::sqrt`. Order-of-magnitude gain: ~0.1× on the event,
+not a new representation — this is a tail-cut on the per-kick cost, not a 10× lever.
+
+**Evidence.** All numbers are medians of 7 timed rounds over 512 deterministic keys
+(LCG-seeded), `--release`, shared 8-vCPU Linux runner (orders of magnitude only, per lab rules;
+the integrator re-measures on the M1). Reproduce with:
+
+```bash
+cargo build --release -p emergent-space --example lab_bench   # bench: lab/results/<run>/lab_bench.rs
+for m in compile compile-deep compile-circ rebind; do
+  cargo run --release -q -p emergent-space --example lab_bench -- $m 7
+done
+cargo test --release -q -p emergent-space      # 50/50 green (law)
+cargo test --release -q -p emergent-universe   # 54/54 green (consumer, the plane)
+```
+
+| mode | baseline ns/event | final ns/event | Δ | checksum |
+===== 20261011-0134-autoresearch-2d92
+# Dossier — 20261011-0134-autoresearch-2d92
+
+**Claim.** Exact i64 fast paths for the lattice law's visit predicates (`hit64`, `first_hit64`,
+guarded by the GPU's own exactness certificate, i128 fallback) cut the contact engine's cost per
+event by 11–16% on the contact-dense tracks with bit-identical outcomes, and the profile now
+says where the rest of the cost lives: the neighbour-visit loop (43%) and the calendar heap
+(16%), not the exact arithmetic.
+
+**Bottleneck.** Board item 5 / "Headed next" 5: contacts at scale in the plane's Fermi-frame
+battles; the ladder's `ops / fired` and `ns / event` are the cost measures. Not a 10×: an
+adoption-ready constant-factor cut plus the map for the next run.
+
+**Evidence** (GitHub Actions Linux, 8 vCPU, shared; 3-rep means; digests checked every run):
+
+| track | n | main ns/fired | final ns/fired | gain | digest |
+|---|---|---|---|---|---|
+| gas 0.1 (tune) | 256 | 3394 | 2928 | 13.7% | same |
+| gas 0.1 (tune) | 1024 | 3721 | 3272 | 12.1% | same |
+| gas 0.1 (tune) | 4096 | 4328 | 3793 | 12.4% | same |
+| gas 0.1 (held out) | 64 | 2912 | 2592 | 11.0% | same |
+| gas 0.1 (held out) | 16384 | 5386 | 4767 | 11.5% | same |
+| gas 0.3 (held out) | 1024 | 3690 | 3098 | 16.0% | same |
+| random (held out) | 4096 | — ns/body 1793 | 1649 | 8.0% | same |
+| crowded axes (held out) | 4096 | — ns/body 2163 | 1955 | 9.6% | same |
+
+Ops counts are unchanged (ops/fired 94.4 at gas 4096, `scaling.rs`): the change is pure
+arithmetic, the algorithm untouched. The engine's cost test (`cargo test -p emergent-engine
+--release --offline --test cost`) passes on both trees, orders equal, numbers within noise
+(the battle scene's cost sits in apply/upkeep, not the predicates).
+
+===== 20261011-0614-second-20261011-0517-taleb-3ebf-b04d
+# Dossier — 20261011-0614-second-20261011-0517-taleb-3ebf-b04d
+
+Second author on 20261011-0517-taleb-3ebf (silver, check2). The named experiment is done on a
+record that regenerates; the claim holds in its fragility core and is sharpened, the positive fix
+is corrected (9.6×, not 19×, on the parent's scenes) and then strengthened: period-quantized
+fleets make the certificate eternal at the parent's 19×.
+
+===== 20261011-0736-system-785d
+# Dossier — run 20261011-0736-system-785d (lens: the whole system)
+
+===== 20261011-0836-second-20261011-0736-system-785d-07b5
+# Dossier — run 20261011-0836-second-...-07b5 (second author on 20261011-0736-system-785d)
+
+===== 20261011-1234-second-20261011-1102-scout-4c5b-dde0
+# Dossier — 20261011-1234-second-20261011-1102-scout-4c5b-dde0 (lens: second author)
+
+Second-author run on 4c5b. Everything below regenerates from this folder: `python3 inspiral.py`
+(the run's own script + the checker's one-line `circ_L` fix; 42 s, writes `inspiral-out.json`),
+`python3 second.py all` (7 s: kill grid, step convergence, W2 scaling), `python3 second.py
+m1000c` (50 s) and `python3 second.py m1000e` (32 s) (measured re-keys from 1000M). numpy only,
+every process < 100 MB.
+
+===== 20261011-1456-autoresearch-bb4d
+# Dossier — run 20261011-1456-autoresearch-bb4d (lens: autoresearch)
+
+**Claim.** The plane's kick cost is 84% `Orbit`/`Passage` compile, and that cost is panel count (~140 quadrature panels per kick; ~450 for a fleet member's passage) times a flat ~200 ns/node with no arithmetic hotspot — so the next 10× must come from the representation (fewer certified cut points per compile), not from micro-optimization; the one micro-change tried (exact word division for `fast_quad`) is bit-identical and free but buys 0% on x86.
+
+**Bottleneck.** Board #1: "kicks dominate the engine's cost … cheaper events" (ns per event). Measured on the plane: ship 70 µs/kick, player 344, fleet member 364-472 µs/kick. Expected gain from the attribution: it redirects the lever from arithmetic to panel count.
+
+**Evidence** (all commands ≤ 60 s; Linux x86 shared runner, orders of magnitude only):
+- Baseline: `KICK_REPS=9 xtask universe --kick-bench --seconds 20` → made median 42-64 µs, leavers 362-382 µs, 32 kicks; plane digest `46d63fe0cb18daee…`, replay digest `f3e04738b88805ce…`.
+- Phase attribution (`KICK_PHASES=1`, same command): rebind 92.9 µs/kick (87% of tracked), compile 90.2 µs/kick (84% of a kick), quad 129.4 µs/kick over ~140 quad calls/kick, cut 9.2, fit_key 4.6, decode 5.5, readout 4.4, ctx 8.4, forces 1.3.
+- Round 1 (guarded exact `div_word` for the four u128 divisions in `fast_quad`): digests unchanged, 0% speedup on x86 → the divisions are not the cost (LLVM lowers them well); kept as an exact cleanup, likely a real gain on aarch64 where 128/128 division is fully software (unmeasured here).
+- Round 2 (timed `cos` inside quad): ≤ 10 ns of ~200 ns per node → not the cost.
+- Exactness on the whole plane: `xtask universe --bench --rtf 100 --seconds 20 --unpaced` → digest `6ce636fa13458efb…` **identical** to the pre-change baseline.
+- `cargo test --release -p emergent-space` → 40 tests green.
+- Full log: `log.md`; instrument: `emergent_space::lab` phase timers + `KICK_REPS`/`KICK_PHASES` in the kick bench (all in this run's patch).
+
+**Predictions** (`predictions.md`): the speedup prediction (1.3-1.8×) **failed** on x86 — honest miss, the division hypothesis was wrong on this CPU. The exactness predictions all held: identical digests on every held-out case (seeds 7 and 13: made 67.8/44.9 µs, leavers 471.7/386.8 µs, `refused: 0`; whole-plane digest identical; tests green).
+
+**What would make it wrong.** A node-level hotspot that only shows on the M1 (different division/isqrt costs) — the x86 attribution could mislead there. The panel-count reading assumes the band walk is intrinsic to the crossing-table certificate; if a consumer of `crossings` tolerates a coarser band grid, the compile could shrink 10× without touching nodes, which would falsify "the lever is not arithmetic".
+
+**Cost of adoption.** Small: the guarded `div_u128_word` is exact (digest-proven), a few lines in `crates/space/src/num.rs` + `orbit.rs`; the phase harness is env-gated and zero-cost when off (keep for the next runs, or drop before merge). Fit with PRINCIPLES: "the cheapest compute is compute not done" (P1) — the finding says the compute not done is panels, and "A fix signals the wrong representation" (P19) — micro-fixes inside the node are the wrong layer.
+
+**The lens's blind spot.** A local search finds local optima: I confirmed no in-node 10× exists on x86, but the structural change that beats this result is at the representation level — (a) compile passages with a coarser certified band grid where no certificate reads those crossings, or (b) amortize the shape's band table across kicks by caching `OrbitShape` per `ShapeKey` **with the tail keyed by the passage edge** (the memo's 0% hit rate measured shape reuse, and this bench's 26 rebinds were 26 distinct shapes, so reuse must be argued from a richer workload — e.g. fleets that hand out members on similar outbound tracks — before it is worth building).
+
+**Grade asked for:** silver — real, reproduced, digest-verified attribution that redirects the board's #1 lever (cheaper events → fewer panels per compile), one exact change adopted, and the next run's experiment named; not gold because nothing moved 10×.
+===== 20261011-1456-scout-126c
+# Dossier: plunge and radial tubes — extended Darwin variables, falsified in float
+
+**Run:** 20261011-1456-scout-126c (scout lens). **Machine:** Linux CI, 8 vCPU, load recorded in `metrics.json`. Wall: ~30 s per full run.
+
+===== 20261011-1600-second-20261011-1456-scout-126c-640f
+# Dossier: second author on 20261011-1456-scout-126c — the record now regenerates, and the valley rescue holds on the law's fixed cuts
+
+**Run:** 20261011-1600-second-20261011-1456-scout-126c-640f (second-author lens on the silver
+20261011-1456-scout-126c). **Machine:** Linux CI, 8 vCPU. Wall: 27 s per full run.
+
+===== 20261011-1814-taleb-762d
+# Dossier — the plane's overload cliff and its stall floor
+
+**Claim.** The plane's overflow design holds where it was claimed to hold — past capacity the
+real-time factor dips with no hitch and bit-identical digests — but it fails silently below a
+**per-frame budget floor that scales with the universe**: at a 0.2 ms engine budget a 32-body
+universe still delivers 1,240× real time while a 428-body one delivers **0.00** (a silent stall:
+frames stay cheap, no error, digest still exact), and the smoothness tail that moves first is not
+frame time at all but **presented-time stalls** (delivered-RTF lowest 1% = 7.3 paced, 0.7 with an
+11,500 g held burn) while worst frame stays 12–16 ms.
+
+**Bottleneck.** Board #4 (smoothness and the allocator) and foundation 7 of docs/plane.md
+("bounded work per presented frame"; "overflow … the real-time factor dips for a frame, smoothly,
+and nothing hitches or degrades"). The measured gain is a design guard, not a speedup: the fixed
+per-frame cost (deadline rekeying, queue and horizon bookkeeping, `Universe::advance`'s per-frame
+prologue before any event is bought) is the allocator's ruin bar, and it must be O(1) in N or the
+stall floor rises with every doll. What it deletes: any belief that "budget bites → dip" holds at
+all budgets, and any smoothness gate that watches only `frame_ms`.
+
+**Evidence** (Linux x86, 8 vCPU shared, load 1.1–1.6, 15 GB, no thermal data — orders of
+magnitude only; the integrator re-measures on the M1). All runs: `xtask universe --bench`, seed 1,
+threads 1, `--series` per-frame CSV; scripts and raw JSON/CSV in this folder.
+
+| run | delivered RTF med | low 1% | overflow | worst frame ms | engine ms/game-s |
+|---|---|---|---|---|---|
+| rtf 300 unpaced | 300 | 300 | 3/600 | 6.4 | 8.9e-1 |
+| rtf 3,000 unpaced | 3,000 | 1,240 | 23/600 | 6.8 | 1.6e-1 |
+| rtf 30,000 unpaced | 30,000 | 1,013 | 269/600 | 9.7 | 2.1e-2 |
+| rtf 300,000 (3 s) | 6,818 | 620 | 180/180 | 7.3 | 1.2e-1 |
+| rtf 3,000 paced | 2,479 | **7.3** | 344/600 | **12.1** | 1.1e-1 |
+
+===== 20261011-2028-components-6a0e
+# Dossier — the event calendar as a container vs. a scan (components lens)
+
+**Claim.** The engine's "one clock, one queue" (docs/plane.md foundation 2) does not need a
+container at all: a per-frame counting scan over the per-body next-event array ("store the
+generator, not the generated", PRINCIPLES #6) reproduces the shipped 4-ary indexed heap's
+pop stream **exactly** — every (tick, id) order, the frozen tie rule, late requeues included —
+at **2.7–3.1× lower ns/event** at 10⁶–4×10⁶ bodies, flat in n, and owning **zero container
+memory** (8 B/body key vs the heap's 16 B/body + slack); the shipped heap sits ~4–6× above
+this component's memory-physical floor, and the "obvious" steal (a two-level bucket wheel)
+only reaches 1.9× and degrades as much as the heap when arrays leave cache.
+
+**Bottleneck.** Board #3/#4 (cost at a billion; smoothness). Not a 10× kill: measured 3× at
+today's testable scales, but the *gap widens with n* (heap sift depth grows, its arrays stop
+fitting anywhere; the scan's cost per event is 8 B × inter-event gap⁻¹, size-invariant at
+fixed density) and at 10⁹ the heap's 24 GB working set does not fit the machine at all while
+the scan's key array can ride the binding columns the engine already owns. What it deletes:
+the `pos[]` side table, the heap array, and the second ordered copy of ordering information
+the engine currently maintains (crates/space `Calendar`, lifted into crates/lattice-event).
+
+**Evidence** (median of seeds 1–3; ns/event; every config's pop stream bit-identical to the
+heap's, FNV over the full stream; Linux x86 cloud box, 8 vCPU shared, load 1.1–2.7 during
+runs, temps 28–52 °C — orders of magnitude only, per lab rules; machine state in
+`state-decisive.txt`):
+
+| n | load | heap | heap p99 | wheel | wheel p99 | scan | scan p99 | heap/scan |
+|---|---|---|---|---|---|---|---|---|
+| 10⁶ | belt | 319 | 336 | 182 | 187 | **117** | 121 | 2.74 |
+| 10⁶ | formation | 334 | 372 | 187 | 189 | **120** | 123 | 2.80 |
+| 10⁶ | uniform | 111 | 164 | 36 | 88 | **34** | 91 | 3.26 |
+| 4×10⁶ | belt | 408 | 409 | 208 | 222 | **133** | 151 | 3.08 |
+===== 20261011-2028-dynamics-7807
+# Dossier — run 20261011-2028-dynamics-7807 (dynamics lens)
+
+===== 20261011-2028-second-20261011-1917-redteam-fb64-7521
+# Dossier — run 20261011-2028-second (second author on 20261011-1917-redteam-fb64)
+
+===== 20261011-2132-quant-fca2
+# Dossier: the plane's frame capacity — the readout breaks first, at ≈10³ members
+
+===== 20261012-0036-autoresearch-e3ca
+# dossier — run 20261012-0036-autoresearch-e3ca (lens: autoresearch)
+
+**Claim.** The orbit compiler's hot kernel `num::isqrt` was replaced by a provably
+bit-identical f64-seeded version (−28% on the kernel, −4–6% per compile) plus one
+pure CSE in `node()`, and the loop's attribution shows the remaining compile cost
+is division-bound (3 `__udivti3` per quadrature node ≈ 24 ns each), with
+`div_word` measured *slower* than the compiler's software 128/128 division on
+x86-64 — so no ≥10× exists inside the bit-identity constraint at this node cost.
+
+**Bottleneck.** Board #1/#3 ("kicks dominate the engine's cost"; "cheaper
+events"): the plane recompiles an orbit on ~99% of kicks (taste log, 5 October),
+so ns per compile is paid per kick. Expected gain: the honest ceiling found is
+single-digit × , not 10× — reported as such.
+
+**Evidence** (Linux/x86-64, Haswell i7-4790, shared runner; orders of magnitude only).
+Commands, each ≤ 60 s:
+```
+cargo build --release -p emergent-space --example bench_compile
+/home/glmlab/lab-target-2/release/examples/bench_compile 30 main     # 300 belt-like keys
+/home/glmlab/lab-target-2/release/examples/bench_compile 30 heldout  # near-separatrix + far field
+cargo build --release -p emergent-space --example bench_kernels
+/home/glmlab/lab-target-2/release/examples/bench_kernels             # isqrt agreement + timing
+cargo test --release -p emergent-space                               # 5/5 behaviour tests pass
+```
+Interleaved A/B of two saved binaries (`ab-numbers.txt`; the box drifts ±10%, so
+cross-time comparisons are void):
+- main: mean 40.1 → 38.5 µs/compile (−4.2%), p99 −6.1%;
+- heldout: mean 62.0 → 58.7 µs/compile (−5.7%), p99 −5.1%;
+- output hash identical on both corpora (main `7932a7d0…780f2`, heldout `1d3ac911…17e2`),
+  computed over the full Debug dump of every compiled orbit (knots, crossings, increments);
+===== 20261012-0138-second-20261012-0036-scout-aac1-2da8
+# Dossier — 20261012-0138-second-20261012-0036-scout-aac1-2da8 (second author)
+
+===== 20261012-0311-autoresearch-3d4e
+# Dossier — 20261012-0311-autoresearch-3d4e
+
+**Claim.** The orbit compiler (`crates/space` `Orbit::compile`, the plane's recompile-per-kick hot path) is already division-cheap: replacing every remaining 128-bit software division on the compile path with exact word-size divisions buys only ~3% end-to-end, because the cost is diffuse — cos's exact 13-factor product chain (~18%), the rest of the node arithmetic (~20%), and ~60% spread across band cuts, Scalar/Integral bookkeeping and knot storage; the next compile-cost lever is structural (shape reuse), not arithmetic.
+
+**Bottleneck.** Board focus line 1, "fewer kicks per orbit … kicks dominate the engine's cost", read through the taste log's finding that the plane recompiles an orbit on ~99% of kicks: the per-kick tax is ns/compile. Expected gain when the run started: ~2× (kernel microbench showed u128 soft division at 21.8 ns vs `div_word` at 3.0 ns, `isqrt(u128)` at 74.6 ns). Measured end-to-end gain: **2.4–3.0%** — the arithmetic was not the wall. Nothing gets deleted by adopting the patch; equally, the "make the divides word-size" direction is now measured dead, which deletes the next run someone would spend on it.
+
+**Evidence.** Machine: GitHub Actions linux runner, 8 vCPU shared; load 0.4–2.2 recorded per run; all A/B verdicts from interleaved runs at matched load (3×, medians). Release, thin-lto, RUSTFLAGS unset.
+
+- Baseline: 16409 ns/compile (tuning: 480 keys, p ∈ [2.5, 1.3·10⁶] M, e-biased), 30004 ns (heldout: near-circular, e ≤ 0.999, compact-to-far), readout 4360/4059 ns per state.
+- Kernel costs (`bench/src/bin/kernels.rs`): u128/u64 soft div 21.8 ns, `div_word` 3.0 ns, `isqrt(u128)` 74.6 ns, `cos` 38.7 ns, i128 mul 1.9 ns.
+- Final interleaved A/B (patch = 4 divisions in `fast_quad` → `div_word`): tuning 15911 → 15432 (−3.0%), heldout 30489 → 29773 (−2.4%), readout −2%. Bit-identity: FNV hashes over knots/increments/crossing times/states equal pristine on both corpora (`a4ca5799aa979f44`, `34ad080fe9afcf1b`); `cargo test -p emergent-space --release` all targets green (and the isqrt tail case near 2¹²⁸ — where x/y reaches 2⁶⁴+1 — was caught by the crate's own `isqrt_is_the_exact_floor` test during round 2).
+- Attribution stubs (temporary, reverted): `cos` → identity: compile −18%, readout −19%. `fast_quad` body after cos → dummy: −20%. So ~60% of compile cost lives outside the node kernel.
+- Reproduce (each ≤ 60 s):
+  - `cd lab/results/20261012-0311-autoresearch-3d4e/bench && CARGO_TARGET_DIR=/tmp/b cargo run --release --bin compile-bench -- tuning 8` (and `heldout 8`; and `--bin kernels`)
+  - `git apply lab/results/20261012-0311-autoresearch-3d4e/work/patch.diff` from the repo root, rebuild, rerun; hashes must not move.
+  - `cargo test -p emergent-space -p emergent-universe --release`
+
+**Predictions.** `predictions.md` was written before the decisive runs. P1 (heldout −25%) **failed**: −2.4%. P2 (readout −15%) **failed**: −2%. P3 (exactness: hashes identical, tests green) **held**. P4 (post-fix residual is not division-major) **held** — the surprise is that it was never division-major to begin with: the 21.8-vs-3.0 ns kernel gap is real but divisions are only ~4 per node among ~40 arithmetic+bookkeeping operations. P5 (structural: `ShapeMemo` reuse beats ns/compile tuning) stands as the live lever.
+
+**What would make it wrong.** A corpus that weights strong-field shapes (p < 6 M, generic `node()` path with `Scalar::sqrt` per node) or non-`word_root` panels more heavily than mine would restore `isqrt(u128)` to the hot path; there the round-2 fix (kept in `/tmp/patch_num.rs.patch`, reverted from the tree) is worth ~70 ns/hit. The 3% gain itself could drown in the runner's ±4% load noise on a worse day; the interleaved medians are the defence. Cost of adopting the final patch: 4 lines in `fast_quad`, zero behaviour change by construction (quotients < 2⁶⁴ exactly where the old code already truncated `as u64`). Fit: "The cheapest compute is compute not done" (P1) — but this run's honest lesson is the corollary: measure which compute matters before making any of it cheaper; and "Measure before claiming" (P10) — my own first attribution (divisions dominate) was wrong by 5× despite correct kernel numbers.
+
+**The lens.** Autoresearch's local search assumes the metric's bottleneck is reachable one same-bits change at a time; it is not, here. The ~60% structural residue (knot vectors, per-band cut searches, Scalar normalization) yields only to a representation change — compiling shapes once per quantized key fleet-wide (`ShapeMemo`, already half-wired) or fusing the panel loop — which changes what is stored, not just how it is computed, and so sits outside this lens. Also missed: single-machine timing at ±4% shared-load noise makes 10%-threshold verdicts fragile; the checker should demand interleaved A/B.
+===== 20261012-0358-autoresearch-ff43
+# dossier — 20261012-0358-autoresearch-ff43
+
+**Claim:** the plane's kick cost (median 50–84 µs) is 82% exact orbit recompilation whose
+quadrature arithmetic already sits at the x86 floor — every bit-exact speedup I measured
+is under 10% — so the next 10× must change what is compiled, not how; and the one exact
+structural lever (lazy shape tables) is blocked precisely by `Orbit::state()`'s
+cycle-count division, which needs the full table's exact period. Nothing adopted.
+
+**Bottleneck:** board #1, "fewer kicks per orbit … kicks dominate the engine's cost" —
+the ns-per-event half. Measured on the plane's own deterministic kick replay.
+
+**Evidence** (commands, each < 60 s; seeds 1–2 tuned, 3–5 and rtf 1 held out):
+
+```
+cargo build --release -p xtask
+/home/glmlab/lab-target-3/release/xtask universe --kick-bench --seed 1 --rtf 100 --seconds 30   # med 77–84 µs, p99 ≈ 410, n 1158
+#   seeds 2–5, rtf 100: med 56.5 / 51.4 / 63.5 / 49.7 µs; rtf 1, 55 s: 49.5 / 43.5 µs; refused 0 everywhere
+# phase/op profile (apply instrumentation.patch first): fit = 63.9 µs/kick = 82%;
+#   Orbit::compile 48.8 µs (≈66 panels × 4 nodes of cos+products+div_word), passages 3% × 332 µs;
+#   ops per kick: 595 div_word, 437 cos, 113 isqrt; 1125 shape builds, 1125 distinct ShapeKeys
+cargo build --release -p emergent-space --example bench_div && target…/examples/bench_div
+#   div_word shipped 26.0 ns | one-divq 21.9 | u128/u64 22.6 (all bit-equal, 200k cases)
+#   isqrt shipped 89.2 ns | word-div variant 90.4 (bit-equal, 100k cases)
+cargo build --release -p emergent-space --example bench_new && target…/examples/bench_new
+#   OrbitShape::new 545 ns vs full bound 19.1 µs per build (weak keys, e ≈ 0.33–1)
+```
+
+Digests are bit-identical across runs, rebuilds and the instrumented binary (seed 1 rtf
+100: replay `0e02bf0f3448…`, universe `eccc7f5a3d78…`), so the instrumentation itself
+changed no outcome.
+===== 20261012-0753-quant-dafc
+# Dossier — 20261012-0753-quant-dafc (Quant lens)
+
+**Claim.** On the plane's own smoothness dashboard, the frame wall holds everywhere tested
+(0 hitches > 16.7 ms up to rtf 1000 and 417 bodies) and game-time delivery dips to an
+absolute floor of ~10× real time rather than to zero — but the 5 ms engine budget is
+2× too small at 100× (delivery dips) while 15 ms breaks the frame wall (540 hitches/hr),
+the knee on this box is 10 ms, and the readout, not the engine, owns the median frame
+(61–77% of frame time, growing with members and with rtf).
+
+**Bottleneck.** Board #4 (smoothness and the allocator) and plane.md's "measured on the
+whole, from the first flight". Expected gain: not a speedup but the first capacity
+frontier of the flying plane — it pins the budget dial (the allocator's only knob exposed
+to the frame) to a measured knee, and hands `b-readout-cost` its plane-side numbers.
+
+===== 20261012-1019-autoresearch-c549
+# Dossier — 20261012-1019-autoresearch-c549
+
+**Claim.** The plane's kick costs 33.4 µs, and 24% of it (−19% pure kick, −13% whole-universe per item) was the same deterministic decode run three times per kick and the scheduler's position re-derived from tubes the event had just read; both are deleted with bit-identical universes (digests unchanged, 54/54 tests).
+
+**Bottleneck.** Board focus item 1: "kicks dominate the engine's cost" — the metric is ns per event on the plane (`crates/universe`), the artifact the player flies. A kick is the atom of the engine's cost; fewer kicks per orbit is a law question (six runs bought nothing), but cheaper kicks is representation plumbing with a provable behaviour lock (the digest).
+
+**Evidence** (Linux/x86 shared runner, load 3.9–7.6, min of 3; `log.md` has the full table):
+
+- Baseline: A-tune pure kick 33.4 µs, whole 50.7 µs/item (C 32.9/68.9, D 32.8/48.8).
+- Piece costs (examples/cost_split.rs): own readout 3.3, secondaries 3.3, tide 3.3, root_state 6.8 µs; `Rebinding::from_state` 11.1 µs.
+- **H1 (kept):** one decode per kick, not three. `Binding` memoizes its event-time proper time (`event_proper`, one Scalar); `readout_with` returns state and orbit from a single decode; `rebind` takes the caller's decode. Pure kick 27.1 µs (−18.9%); whole −7%.
+- **H2 (kept):** `Update.root_pos` — the kick carries the post-event root position built from pieces in hand (the tide's centre read), so `apply` stops calling `root_state_raw` (6.8 µs) for it; guarded to chains the plane has (≤ 2 deep) and to fits that kept the state's word, `root_state_raw` remains the fallback everywhere else. Whole 44.1 µs/item (−13.0% cumulative; D −10.2%; C flat — its item mix is fleet-dominated).
+- Held-out, run once at the end (never tuned on): B 26.7 µs pure kick (baseline 33.2, −20%), all four digests identical to baseline bit for bit.
+- `cargo test --release -p emergent-universe`: 54/54 after each change (memo, motion, replay, ties, view included).
+
+Reproduce (each ≤ 60 s except the final B settle ~1 min):
+```
+cargo build --release -p emergent-universe --examples
+$CARGO_TARGET_DIR/release/examples/cost_split          # piece costs
+$CARGO_TARGET_DIR/release/examples/kick_probe          # A–D: µs/kick, µs/item, bytes/body, digest
+cargo test --release -p emergent-universe              # behaviour
+```
+The patch is `work.patch` (5 files, +144/−34): `bind.rs`, `step.rs`, `universe.rs`, `view.rs`, and the probe example.
+
+**Predictions** (`predictions.md`, written before the first edit): H1 predicted −14–18% pure kick and identical digests — measured −19% and identical; H1's bytes/body prediction (invisible next to 134 KB) was **wrong**: +8% (145 KB), one Scalar per history segment — `settle` never prunes; in play `frame_to` prunes every 64 frames, so the live cost is bounded by history depth, but it is a real cost and is priced in `log.md`. H2 predicted 3–6 µs/item; measured ~3 µs (−6.4%): half the clock-mode items are boundaries, which still take the fallback.
+
+**What would make it wrong.** Nothing in the outcomes can drift: both changes return the same values by construction (H2 skips only where the arithmetic is provably the same ops; the digest proves it on four scenarios). The risk is maintenance: `root_pos`'s guard is correct for the plane's two-level dolls; a galaxy doll (three levels) silently falls back to `root_state_raw` — correct but unpaid-for. Cost of adopting: trivial (a clean patch, no API change beyond `Update.root_pos` and `Binding.event_proper`). Fit: PRINCIPLES #1 "The cheapest compute is compute not done. Delete before optimizing" and #3 "Nothing is evolved that can be derived when looked at" — the clock reading and the scheduler's position were being re-derived twice per event.
+
+**Not gold, silver-shaped:** the gain is 1.2×, not an order of magnitude — a real, adoptable, zero-risk cheapening of the engine's dominant event, but it moves no bottleneck by 10×. The one idea that carried the gain: *an event should hand forward what it already read* (the decode, the centre's state) instead of each consumer re-deriving it from the tubes.
+
+===== 20261012-1019-second-20261012-0753-quant-dafc-9a07
+# Dossier — 20261012-1019-second-20261012-0753-quant-dafc-9a07 (second author, quant lens)
+
+**Claim.** The checker's falsification of run 20261012-0753-quant-dafc's claim 5 (the canonical
+digest flips run-to-run, `6ce6…` ↔ `56f4…`, "engine-side") does not reproduce: across 70+ runs
+that deterministically sweep **every** mechanism by which the schedule can reach the engine —
+per-frame game-time target (`--dt-ms` 16.7→100 ms), budget bite (`--engine-events` 1→64,
+wall 5/10/15 ms), pacing on/off, box load 0.8→7.5, one contended core, threads 1→8, and
+history pruning disabled — the digest at the fixed cut (406050894) is **one value per seed**
+(3 seeds × 3 schedules each), the per-body canonical state is bit-identical across schedules
+(field-group dump), and the checker's named suspect, `frame_to`'s wall-derived `want`, is
+exonerated by construction; `56f4…` is not the digest of any neighbouring cell either
+(level 1–3, members 47/49/50), so it remains unreproduced and without a mechanism in the
+shipped code — while the checker's *other* finding (the smoothness frontier is
+machine-state-dependent) is confirmed and now holds on 3 seeds.
+
+===== 20261012-1117-second-20261012-1019-spacex-3463-c304
+# Dossier — c304, second author on spacex-3463 (the attribution experiment the checker named)
+
