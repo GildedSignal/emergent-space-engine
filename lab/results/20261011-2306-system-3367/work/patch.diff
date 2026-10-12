@@ -1,0 +1,28 @@
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..1803684c 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -96,6 +96,12 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         frames = n;
+     }
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
++    let (stages_ns, per_rebind_ns) = {
++        let s = emergent_space::profile::take();
++        let n = shapes.cycles.max(1) as f64;
++        let per: Vec<String> = s.iter().map(|&x| format!("{}", (x as f64 / n) as u64)).collect();
++        (s, format!("[{}]", per.join(", ")))
++    };
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+         "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
+@@ -103,6 +109,10 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "cycle_compile_ns": {
++            "note": "crates/space profile stages over the replay's cycle rebinds: 0 roots/bound, 1 cuts, 2 integration, 3 conversion; built with --features emergent-space/profile",
++            "stages_ns": stages_ns, "per_rebind_ns": per_rebind_ns
++        },
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
