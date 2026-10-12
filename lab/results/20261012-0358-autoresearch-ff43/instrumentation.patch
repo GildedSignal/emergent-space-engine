@@ -1,0 +1,325 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index baf44946..4c9cb476 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -351,13 +351,13 @@ fn root_witness(
+ }
+ impl Rebinding {
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        let (key, r, clockwise, incoming) = crate::prof::stage(0, || fit_key(state, true))?;
+         let trajectory = if key.periodic() {
+-            Trajectory::Cycle(Orbit::compile(key)?)
++            Trajectory::Cycle(crate::prof::stage(1, || Orbit::compile(key))?)
+         } else {
+-            Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
++            Trajectory::Passage(crate::prof::stage(5, || Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?)))?)
+         };
+-        let (mut offset, mut sample) = trajectory.at_radius(r)?;
++        let (mut offset, mut sample) = crate::prof::stage(3, || trajectory.at_radius(r))?;
+         if incoming {
+             offset = offset.negate();
+             sample.reflect();
+@@ -378,7 +378,7 @@ impl Rebinding {
+             event_time,
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+-        fit.residual = Residual::between(state, fit.decoded_event()?);
++        fit.residual = Residual::between(state, crate::prof::stage(6, || fit.decoded_event())?);
+         Ok(fit)
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 476d49ef..99e603ea 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -108,6 +108,7 @@
+ //! to the caller. The live native API is documented in `ENVELOPE.md`.
+ //! The retained fixed-unit cycle serves the galaxy debug view only.
+ 
++pub mod prof;
+ pub mod binding;
+ mod inverse;
+ pub mod light;
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8d..4d1fc027 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -11,7 +11,10 @@ pub const ONE: i128 = 1 << 62;
+ /// divisor digit corrects the trial by at most two; no rounding is introduced.
+ #[inline]
+ pub(crate) fn div_word(n: u128, d: u64) -> u64 {
+-    debug_assert!(d != 0 && (n >> 64) < d as u128);
++    crate::prof::op(0, || div_word_raw(n, d))
++}
++
++pub(crate) fn div_word_raw(n: u128, d: u64) -> u64 {
+     if n <= u64::MAX as u128 {
+         return n as u64 / d;
+     }
+@@ -41,8 +44,16 @@ pub(crate) fn div_word(n: u128, d: u64) -> u64 {
+     (q1 << 32) + q0
+ }
+ 
++pub fn isqrt_counted(x: u128) -> u128 {
++    crate::prof::op(1, || isqrt(x))
++}
++
+ /// floor(sqrt(x)).
+ pub fn isqrt(x: u128) -> u128 {
++    crate::prof::op(1, || isqrt_raw(x))
++}
++
++pub fn isqrt_raw(x: u128) -> u128 {
+     if x < 2 {
+         return x;
+     }
+@@ -85,6 +96,10 @@ pub fn mul_shr(a: u128, b: u128, s: u32) -> Result<u128> {
+ /// cos(psi) = -sin(x), and sin(x) = x(1 - x^2/(2*3)(1 - x^2/(4*5)(1 - ... x^2/(26*27)))):
+ /// thirteen nested factors, innermost first, each product floored (arithmetic shift).
+ pub fn cos(psi: i128) -> i128 {
++    crate::prof::op(2, || cos_raw(psi))
++}
++
++pub fn cos_raw(psi: i128) -> i128 {
+     if psi == 0 {
+         return ONE;
+     }
+@@ -103,6 +118,11 @@ pub fn cos(psi: i128) -> i128 {
+     -((x as i128 * s as i128) >> 62)
+ }
+ 
++pub fn cos_counted(psi: i128) -> i128 {
++    crate::prof::op(2, || cos(psi))
++}
++
++
+ /// atan(s) in Q62 for s in [0, 1] in Q62. j = round(16 s) (ties up), a = j/16,
+ /// t = trunc((s - a) 2^62 / (1 + s a)) with |t| <= 1/32, and
+ /// atan(s) = atan(j/16) + t(1 - t^2/3 + t^4/5 - ... + t^12/13), nested, products floored.
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 69408fd3..e90cdf54 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -399,7 +399,7 @@ impl OrbitShape {
+             for i in 0..n {
+                 let a = lo + (hi - lo) * i / n;
+                 let b = lo + (hi - lo) * (i + 1) / n;
+-                let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
++                let sum = self.knots.last().unwrap().sum.add(crate::prof::stage(4, || self.quad(a, b))?)?;
+                 self.knots.push(Knot { psi: b as u64, sum });
+             }
+             lo = hi;
+@@ -418,10 +418,11 @@ impl OrbitShape {
+         }
+     }
+     fn bound(key: ShapeKey) -> Result<Self> {
++        crate::prof::note_shape(key.k, key.compactness.significand(), key.compactness.exponent(), key.null);
+         if key.k <= HALF {
+             return Err(Error::NotPeriodic);
+         }
+-        let mut s = Self::new(key)?;
++        let mut s = crate::prof::stage(2, || Self::new(key))?;
+         let xa = 2 * s.k - ONE;
+         let mut band = 1usize;
+         loop {
+@@ -438,6 +439,20 @@ impl OrbitShape {
+     }
+ }
+ 
++/// TEMPORARY (20261012-0358-autoresearch-ff43): bench hooks.
++pub fn debug_bound(key: &OrbitKey) -> Result<()> {
++    let sk = ShapeKey::for_orbit(*key)?;
++    let _ = OrbitShape::bound(sk)?;
++    Ok(())
++}
++
++pub fn debug_new_ns(key: &OrbitKey) -> u128 {
++    let sk = ShapeKey::for_orbit(*key).expect("key");
++    let t = std::time::Instant::now();
++    let _ = OrbitShape::new(sk).expect("new");
++    t.elapsed().as_nanos()
++}
++
+ /// A shared shape plus a binding's scale. The catalogue pays this storage once per key.
+ #[derive(Clone, Debug)]
+ pub struct Orbit {
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f30765..d32dfdae 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -114,7 +114,7 @@ pub struct Binding {
+ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+-    let mut state = entry.trajectory.state(elapsed)?;
++    let mut state = crate::prof::stage(1, || entry.trajectory.state(elapsed))?;
+     if !entry.unit.unity {
+         state.radius = entry.unit.to_doll(state.radius)?;
+         state.proper_time = entry.unit.to_doll(state.proper_time)?;
+@@ -223,12 +223,12 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+ }
+ 
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+-    let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
++    let fit = crate::prof::stage(2, || Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?).map_err(crate::num::Error::from))?;
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+     let units = (exact.length_exponent, exact.velocity_exponent);
+-    let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
++    let (decoded, orbit) = crate::prof::stage(9, || decode(&entry, &tube, clock_exp, units, t))?;
+     // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
+     let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
+     let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6da..ec8f5832 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -55,6 +55,10 @@ pub struct Ctx<'a> {
+ impl Ctx<'_> {
+     /// Body `j`'s position and velocity at `t` in the units of the doll it sits in.
+     pub fn state_of(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
++        crate::prof::stage(3, || self.state_of_inner(j, t))
++    }
++
++    fn state_of_inner(&self, j: usize, t: Tick) -> Res<(V2, V2)> {
+         let b = self.bodies.binding_at(j, t).ok_or(crate::num::Error::Refused("history pruned"))?;
+         b.cartesian(t)
+     }
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index afd46ea9..894ba87c 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,4 +1,5 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
++pub mod prof;
+ pub mod bind;
+ pub mod body;
+ pub mod ctx;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d435..d91eae1d 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -306,7 +306,7 @@ impl Work<'_, '_> {
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+-        let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
++        let bound = crate::prof::stage(8, || bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?))?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+@@ -357,9 +357,9 @@ impl Work<'_, '_> {
+         let d = self.rec.b.doll;
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
+-        let a = force::acceleration(level, x, &secs, tide)?;
++        let a = crate::prof::stage(4, || force::acceleration(level, x, &secs, tide))?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+-        let dv = scale2(a, h)?;
++        let dv = crate::prof::stage(4, || scale2(a, h))?;
+         let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+         let added;
+@@ -369,7 +369,7 @@ impl Work<'_, '_> {
+             added = dv;
+             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
+         } else {
+-            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
++        let (dvq, carry) = crate::prof::stage(6, || quantize(dv, st.velocity_exponent, self.rec.carry))?;
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
+@@ -485,7 +485,7 @@ impl Work<'_, '_> {
+         self.rec.interval = h;
+         let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         if movable && d != 0 {
+-            if let Some(exit) = next_exit(&self.rec.b, t, self.doll().edge)? {
++            if let Some(exit) = crate::prof::stage(7, || next_exit(&self.rec.b, t, self.doll().edge))? {
+                 // The interval must end at or before the exit, so the release is checked there.
+                 let room = exit - t;
+                 while h > room && h > MIN_STEP {
+@@ -600,16 +600,16 @@ impl Work<'_, '_> {
+             return Ok(Resolved::Lost);
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        let f = force::field(&secs, x)?;
+-        let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+-        let dv = scale2(f.accel, w)?;
++        let f = crate::prof::stage(4, || force::field(&secs, x))?;
++        let w = crate::prof::stage(5, || ext.time(ext.y(f.potential)?, ext.ds))?;
++        let dv = crate::prof::stage(4, || scale2(f.accel, w))?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+             (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
+         } else {
+-            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
++        let (dvq, carry) = crate::prof::stage(6, || quantize(dv, st.velocity_exponent, self.rec.carry))?;
+             ext.add_pt(w.mul(f.rate)?)?;
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
+@@ -626,8 +626,8 @@ impl Work<'_, '_> {
+         // kick share it), and its boundary in the middle.
+         let (x, v) = scalars(&next)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+-        let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
+-        let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
++        let y = crate::prof::stage(5, || ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?))?;
++        let mut full = crate::prof::stage(5, || ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp()))?;
+         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+             full = full.min(self.thrust_step(t)?);
+         }
+@@ -644,7 +644,7 @@ impl Work<'_, '_> {
+         if self.rec.kind != Kind::Planet {
+             let key = self.rec.b.entry.trajectory.key();
+             if self.rec.b.to_doll(key.periapsis)? < self.doll().surface {
+-                if let Some(tp) = next_periapsis(&self.rec.b, t)? {
++                if let Some(tp) = crate::prof::stage(7, || next_periapsis(&self.rec.b, t))? {
+                     if tp <= t + full {
+                         insert(&mut self.rec.plan, Item { t: tp.max(t + 1), what: What::Crash });
+                     }
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..27a6a06a 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -82,7 +82,9 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+             // drift readout, forces, sigma-delta, fitting and the exact remainder;
+             // allocator, application, view and formatting are outside the sample.
+             let t0 = Instant::now();
++            emergent_space::prof::arm(true);
+             let upd = step::process(&s.p.u.ctx(), i, rec);
++            emergent_space::prof::arm(false);
+             let us = t0.elapsed().as_secs_f64() * 1e6;
+             if i < made_n { &mut made } else { &mut leavers }.push(us);
+             refused += usize::from(upd.kind != step::Resolved::Kick);
+@@ -95,6 +97,19 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         s.p.u.settle(s.p.u.now);
+         frames = n;
+     }
++    let (sns, sc, distinct_shapes) = emergent_space::prof::take();
++    let (ons, oc) = emergent_space::prof::ops_take();
++    let (pns, pc) = emergent_universe::prof::take();
++    let ops: std::collections::BTreeMap<&str, [u128; 2]> = ["div_word", "isqrt", "cos", "sqrt_op"]
++        .iter().zip(ons.iter()).zip(oc.iter())
++        .map(|((n, ns), c)| (*n, [*ns, *c as u128])).collect();
++    let sphases: std::collections::BTreeMap<&str, [u128; 2]> =
++        emergent_space::prof::NAMES.iter().zip(sns.iter()).zip(sc.iter())
++        .map(|((n, ns), c)| (*n, [*ns, *c as u128])).collect();
++    let phases: std::collections::BTreeMap<&str, [u128; 2]> =
++        emergent_universe::prof::NAMES.iter().zip(pns.iter()).zip(pc.iter())
++            .filter(|((_, ns), _)| **ns > 0)
++            .map(|((n, ns), c)| (*n, [*ns, *c as u128])).collect();
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+@@ -103,6 +118,7 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "ops": ops, "space_phases": sphases, "phases": phases,
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()

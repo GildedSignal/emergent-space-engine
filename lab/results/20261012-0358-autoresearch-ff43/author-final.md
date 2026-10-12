@@ -1,0 +1,4 @@
+Working...
+Run complete: tree pristine (only the run folder remains), clean build reproduces the original baseline digests exactly (`dac49af3…` / `96bfe379…`), all evidence in `lab/results/20261012-0358-autoresearch-ff43/` (dossier, log, predictions written before the decisive runs, phase profile, instrumentation patch, held-out seeds 3–5 + rtf 1).
+
+**Claim:** the plane's kick (median 50–84 µs, judged by the deterministic kick bench) is 82% exact orbit recompilation whose quadrature arithmetic already sits at the x86 floor — every bit-exact speedup measured (div variants 3%, isqrt 0%, lazy residual 4.8%) is under 10% and was reverted, the exact shape memo can never hit (1125 builds, 1125 distinct keys), and the one exact structural lever (lazy shape tables) is blocked precisely by `Orbit::state()`'s cycle-count division needing the full table's exact period — so the next 10× must change what is compiled per kick, not how.
