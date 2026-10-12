@@ -1,0 +1,14 @@
+calibration: k=0.01 h=0.03791 thr_ratio=0.4759
+c0_neg    detect cusum/ratio/expo =   0/200/  0  cusum median alarm = -1
+c1_pos    detect cusum/ratio/expo = 200/200/200  cusum median alarm = 4
+P1_match  detect cusum/ratio/expo = 200/200/200  cusum median alarm = 5
+P2_halfc  detect cusum/ratio/expo = 200/200/200  cusum median alarm = 302
+P3_tail   detect cusum/ratio/expo = 200/200/  0  cusum median alarm = 91
+P4_echo   detect cusum/ratio/expo = 200/200/  0  cusum median alarm = 35
+
+verdicts:
+P1: cusum catches leak 100% (pred >=95); expo flags 100% at 5x-bounded amplitude
+P2: leak halved -> cusum detect 100%, median alarm 4 -> 302 (pred ~2x = 8); ratio detect 100%
+P3: heavy-tailed bounded false alarm 100% (pred <5)
+P4: pure echo false alarm 100% (pred 0)
+controls: pos cusum 100% (must be 100), neg cusum 0% (must be 0)
