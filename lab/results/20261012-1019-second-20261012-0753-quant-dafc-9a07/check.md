@@ -1,0 +1,30 @@
+Grade: gold
+
+**Abstract.** Claim: the prior check's digest flip (`6ce6…`↔`56f4…`, "engine-side") does not reproduce; the shipped digest is schedule-invariant. Reproduced on a fresh build: every cell gives `6ce636fa…` at cut 406050894 (author 57 runs; my 15: paced at load 5.6, shared pinned core, dt 500 ms, engine-events 0, threads 8, prune off; seeds 1/2/3 → one digest per seed; a pristine no-patch build too; `ES_DIGEST_PARTS`: 77 per-body lines bit-identical, only the un-hashed `resolved` moves). New, decisive: the flip **does** reproduce on the prior checker's own surviving binary (`lab-target-1`, built 08:19 from checkout lab-1): `fbc3…`×5 ↔ `56f4…`×2 at one command — provably not a clean a838a284 build. The falsification was a harness artifact. Gain: H0213's digest control restored; adopt the machine-state smoothness caveat. Cost: none.
+
+## Reproduction (fresh build from the disclosed patch, lab-target-0)
+
+- Applied `work/patch.diff` to a clean a838a284 tree myself; 35 s incremental build. Ran cells from the dossier's reproduce line, plus `summ.py` over all stored JSONs. Stored data: 57 parseable runs, digests `6ce636fa`×45 (seed 1), `c9794984`×3 (seed 2), `1e05437c`×3 (seed 3), plus 6 neighbour cells (lvl 1/2/3 → `5079…`/`67c7…`/`663a…`; members 47/49/50 → `83fa…`/`0af6…`/`a93d…`) — no `56f4…` anywhere. Matches every dossier number I checked.
+- My cells (each ≤ 20 s, load 1.4–5.6): paced ×3, unpaced, unpaced dt 16.6667/100/**500**, engine-events 1/4/**0** (defer-everything — beyond the author's sweep), ev1+dt100+threads 8 combined, paced under 6 spinners (load 5.56), pinned to one core shared with a spinner, `ES_NO_PRUNE=1`, seeds 2/3 — **all `6ce636fa…`**, cut and inputs identical. Seeds: `c979…`/`1e05…` exactly as claimed.
+- Pristine control: `git stash` → no-patch build in a fresh target dir → paced and unpaced both `6ce636fa…`. The probe patch masks nothing.
+- Field groups: `ES_DIGEST_PARTS=1` on paced / unpaced-dt16.6667 / unpaced-ev1-dt50 — all 77 lines identical except the global `resolved` work-counter (6721/6781/5117 — far larger spread than the author's 6746/6756, same conclusion: schedule moves the counter, never the state).
+- Smoothness (claim 5): my paced run at load ~3: 0 hitches > 16.7 ms, worst 6.5 ms, gather share 0.63 — matches the author and the prior checker's loaded reruns, not the prior author's load-0.3 numbers. Confirmed.
+- Record order: `predictions.md` (10:23:49) predates all data (earliest 10:25:03); `dossier.md` 10:46. Held-out honesty: P2/P3 reported wrong-side, P4 vacuous, P1/P6 held — correctly drawn.
+
+## Attack (my adversarial cases, and the anomaly resolved)
+
+1. **The flip reproduces — on the prior checker's binary, which is not the shipped code.** The prior run's smoke file names `/home/glmlab/lab-target-1/release/xtask`; that binary still exists (mtime 08:19:35, mid-checker-session; its dep file builds from checkout `lab-1`). Running it at the checker's exact cell (`universe --bench --rtf 100 --seconds 20`): `fbc3a5e8…`×5, `56f49416…`×2 (their exact attractor, at their reported events/s 227 vs the shipped build's 329–338). A clean build of a838a284 is deterministic (57 author runs + ~15 of mine + the pristine build, one digest each), so a binary that disagrees with itself run-to-run cannot be a clean a838a284 build. The checker's "clean tree, empty patch.diff, shipped code" described the end state, not the 08:19 build state; checkout lab-1's tree is dirty again today with engine experiments (universe.rs/bind.rs/step.rs/view.rs). The prior falsification is a stale/dirty-binary artifact — the lab's 5 October lesson (agreement within one harness is not independence) applied to a checker's own harness.
+2. Extreme deferral (`--engine-events 0`): everything deferred to the final `settle` — digest unchanged. `settle` runs `advance(horizon, Budget::unlimited())` to exhaustion (universe.rs:837), so per-frame chunking cannot reach canonical state; the only wall entry points are `frame_to`'s `want` (line 863) and `Budget::wall`'s `Instant`, both exonerated by construction and by sweep.
+3. Extremes beyond the author's sweep (dt 500 ms; combined stressors; load 5.6; shared core): digest unchanged.
+
+## Novelty
+
+H0213 recorded the digest-over-schedules claim; the prior check (0753) falsified it; no prior entry explains `56f4…`. This run's refutation-of-the-refutation is new, and the mechanism (the checker's own non-shipped binary) is new evidence in the record. Not a redo of anything in HISTORY.md.
+
+## Goal fit and errors
+
+Restores the plane's determinism control — PRINCIPLES #2 ("'exact' means deterministic and reproducible") and #10 ("measure before claiming") — and discharges the integrator's named prerequisite ("capacity claims on a plane whose canonical digest is unstable at a fixed cut are built on sand"). The falsified falsification is itself a result (H0183). Fits #22/#31: the check attacked the checker's incentives and harness, not just the letter. Nits: "70+ runs" counts 7 compile-error logs among the 77 artifacts (57 real runs); the patch removes `--engine-ms`, so the prior checker's exact flag cells can't be rerun verbatim (default budget 5 ms covers their b5 cell).
+
+## What the author missed
+
+The 60-second experiment that settles the anomaly they left open: run the checker's surviving binary. They asserted "same shipped semantics for every cell" about the checker's tree without testing the one artifact that still exists of it; they priced the stale-binary hypothesis in "what would make it wrong" but did not spend the minute to confirm it (this check did). Their own lens section names the other miss: the cheap deterministic dt sweep should have preceded the loaded flip-hunt. The prediction market confidently pointed (0.65) at a phenomenon that is not there — flagged honestly, but it is the same trap the lens was supposed to catch. Nothing to adopt in the engine; the probe patch stays unmerged as intended, with `ES_DIGEST_PARTS` noted as a one-step bisect tool if a flip ever shows on a verified-clean build.

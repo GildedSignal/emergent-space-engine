@@ -1,0 +1,28 @@
+error[E0599]: no function or associated item named `new_update` found for struct `blake3::Hasher` in the current scope
+    --> crates/universe/src/universe.rs:1167:127
+     |
+1167 | ...puts.len(), hex(&blake3::Hasher::new_update(&self.enc_digest)));
+     |                                     ^^^^^^^^^^ function or associated item not found in `blake3::Hasher`
+     |
+note: if you're trying to build a new `blake3::Hasher` consider using one of the following associated functions:
+      blake3::Hasher::new
+      blake3::Hasher::new_keyed
+      blake3::Hasher::new_derive_key
+    --> /home/glmlab/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/blake3-1.8.7/src/lib.rs:1089:5
+     |
+1089 |     pub fn new() -> Self {
+     |     ^^^^^^^^^^^^^^^^^^^^
+...
+1097 |     pub fn new_keyed(key: &[u8; KEY_LEN]) -> Self {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1107 |     pub fn new_derive_key(context: &str) -> Self {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is a method `update` with a similar name
+     |
+1167 -                   self.now, self.frames, self.resolved, hex(&hp), hex(&hb), hex(&hg), self.inputs.len(), hex(&blake3::Hasher::new_update(&self.enc_digest)));
+1167 +                   self.now, self.frames, self.resolved, hex(&hp), hex(&hb), hex(&hg), self.inputs.len(), hex(&blake3::Hasher::update(&self.enc_digest)));
+     |
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `emergent-universe` (lib) due to 1 previous error

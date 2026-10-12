@@ -1,0 +1,223 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 065dc024..ab821845 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -867,7 +867,7 @@ impl Universe {
+         self.now = a.horizon.max(self.now);
+         // Histories older than every light cone the view can need are forgotten.
+         self.frames += 1;
+-        if self.frames % 64 == 0 {
++        if self.frames % 64 == 0 && std::env::var("ES_NO_PRUNE").is_err() {
+             self.prune();
+         }
+         Frame { target, presented: self.now, ticks: self.now - before, events: a.events, overflow: a.overflow }
+@@ -984,6 +984,10 @@ impl Universe {
+     /// the player's decisions. Taken after [`Universe::settle`]; independent of schedule, budget,
+     /// threads and observation.
+     pub fn digest(&self) -> String {
++        // Lab probe 20261012-1019: field-group dump for the digest-flip bisect (env-gated; the digest itself is unchanged).
++        if std::env::var("ES_DIGEST_PARTS").is_ok() {
++            self.digest_parts_dbg();
++        }
+         let mut h = blake3::Hasher::new();
+         h.update(b"es-universe-plane-v0");
+         let put = |h: &mut blake3::Hasher, v: i128| {
+@@ -1070,6 +1074,100 @@ impl Universe {
+         h.finalize().to_hex().to_string()
+     }
+ 
++    /// Lab probe 20261012-1019 (env `ES_DIGEST_PARTS`): the digest's inputs split into groups — physics
++    /// (doll, event_time, tube, trajectory, turn, residual, carry, units, proper, ext register) and
++    /// bookkeeping (step, interval, anchor, plan, thrust, events, refusals, fault) — plus the global
++    /// blocks, so a digest difference can be localised to one group and one body. Never changes the digest.
++    fn digest_parts_dbg(&self) {
++        let mut hp = blake3::Hasher::new(); // physics
++        let mut hb = blake3::Hasher::new(); // bookkeeping
++        let mut hg = blake3::Hasher::new(); // global (dolls, fleets, inputs, handouts, enc)
++        let put = |h: &mut blake3::Hasher, v: i128| {
++            h.update(&v.to_le_bytes());
++        };
++        let put_s = |h: &mut blake3::Hasher, s: Scalar| {
++            h.update(&(s.significand() as i128).to_le_bytes());
++            h.update(&(s.exponent() as i128).to_le_bytes());
++        };
++        let hex = |h: &blake3::Hasher| h.finalize().to_hex().as_str()[..12].to_string();
++        for i in 0..self.bodies.len() {
++            let (mut p, mut b) = (blake3::Hasher::new(), blake3::Hasher::new());
++            let r = self.bodies.rec(i);
++            for v in [r.kind as i128, r.alive as i128, r.b.doll as i128, r.b.event_time as i128,
++                      r.b.tube.periapsis_angle as i128, r.b.tube.periapsis_time.get() as i64 as i128] {
++                put(&mut p, v);
++            }
++            let key = r.b.entry.trajectory.key();
++            put_s(&mut p, key.periapsis);
++            put(&mut p, key.k as i128);
++            put(&mut p, r.b.entry.clockwise as i128);
++            put(&mut p, r.b.turn.a as i128);
++            put(&mut p, r.b.turn.b as i128);
++            for c in 0..2 {
++                put(&mut p, r.b.residual.position[c]);
++                put(&mut p, r.b.residual.velocity[c]);
++                put(&mut p, r.carry[c] as i128);
++            }
++            put(&mut p, r.b.units.0 as i128);
++            put(&mut p, r.b.units.1 as i128);
++            put_s(&mut p, r.proper);
++            if let Some(e) = r.ext {
++                for v in [e.pt, e.pt_exp as i128, e.pt_carry as i128, e.dt_carry as i128] {
++                    put(&mut p, v);
++                }
++                for c in [e.ds, e.c, e.b] {
++                    put_s(&mut p, c);
++                }
++            }
++            for v in [r.step as i128, r.interval as i128, r.anchor as i128, r.events as i128, r.refusals as i128] {
++                put(&mut b, v);
++            }
++            b.update(format!("{:?}", r.fault).as_bytes());
++            for it in &r.plan {
++                put(&mut b, it.t as i128);
++                put(&mut b, match it.what {
++                    What::Kick(l) => 100 + l as i128,
++                    What::Open(l) => 200 + l as i128,
++                    What::Crash => 250,
++                    What::Boundary => 300,
++                });
++            }
++            if let Some(t) = r.thrust {
++                put(&mut b, t.keys as i128);
++                if t.level != 0 {
++                    put(&mut b, 1000 + t.level as i128);
++                }
++                put(&mut b, t.heading as i128);
++                put(&mut b, t.since as i128);
++            }
++            eprintln!("ESDP body {i} kind={:?} alive={} phys={} book={} events={} refusals={} fault={:?} plan={} step={} interval={} anchor={} since={:?}",
++                      r.kind, r.alive, hex(&p), hex(&b), r.events, r.refusals, r.fault, r.plan.len(), r.step, r.interval, r.anchor, r.thrust.map(|t| t.since));
++            hp.update(p.finalize().as_bytes());
++            hb.update(b.finalize().as_bytes());
++        }
++        for d in &self.dolls {
++            put(&mut hg, d.mass_log2 as i128);
++            put_s(&mut hg, d.unit.mu);
++            put(&mut hg, d.parent.map_or(-1, |p| p as i128));
++            put_s(&mut hg, d.edge);
++            put_s(&mut hg, d.surface);
++        }
++        for f in &self.fleets {
++            f.digest_into(&mut hg);
++        }
++        for (t, k) in &self.inputs {
++            put(&mut hg, *t as i128);
++            put(&mut hg, *k as i128);
++        }
++        if !self.handouts.is_empty() {
++            put(&mut hg, self.handouts.len() as i128);
++        }
++        hg.update(&self.enc_digest);
++        let enc = { let mut e = blake3::Hasher::new(); e.update(&self.enc_digest); hex(&e) };
++        eprintln!("ESDP global now={} frames={} resolved={} phys={} book={} global={} inputs={} enc={}",
++                  self.now, self.frames, self.resolved, hex(&hp), hex(&hb), hex(&hg), self.inputs.len(), enc);
++    }
++
+     /// The canonical time at which a body's next item is, for tests.
+     pub fn horizon_of(&self, i: usize) -> Option<Tick> {
+         self.key_of(i).map(|k| k.0)
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index 0cb1cd8a..3ecba4a8 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -20,6 +20,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     let (mut seed, mut rtf, mut port, mut threads, mut members) = (1u64, 1.0f64, 8792u16, 1usize, 48u64);
+     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
+     let mut engine_ms = session::ENGINE_BUDGET_MS;
++    let (mut dt_ms, mut engine_events) = (None::<f64>, None::<u64>);
+     let (mut kicks, mut level) = (false, 0u8);
+     let mut it = args.into_iter();
+     while let Some(a) = it.next() {
+@@ -34,7 +35,8 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--bench" => bench = true,
+             "--kick-bench" => kicks = true,
+             "--unpaced" => paced = false,
+-            "--engine-ms" => engine_ms = val("--engine-ms")?.parse()?,
++            "--dt-ms" => dt_ms = Some(val("--dt-ms")?.parse()?),
++            "--engine-events" => engine_events = Some(val("--engine-events")?.parse()?),
+             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
+             "--describe" => describe = true,
+             "--help" => {
+@@ -49,6 +51,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+     }
+     let mut s = Session::new(seed, threads, members, rtf)?;
+     s.engine_ms = engine_ms;
++    s.engine_events = engine_events;
+     if kicks {
+         return kick_bench::run(s, seconds);
+     }
+@@ -57,7 +60,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+         return Ok(0);
+     }
+     if bench {
+-        return benchmark(s, seconds, paced, level);
++        return benchmark(s, seconds, paced, level, dt_ms);
+     }
+     http::serve(s, port)
+ }
+@@ -91,7 +94,7 @@ fn canonical_log(frames: usize, rtf: f64, level: u8) -> Vec<(i64, u8)> {
+     log
+ }
+ 
+-fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Result<u8> {
++fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8, dt_ms: Option<f64>) -> crate::Result<u8> {
+     let before = crate::measure::machine_state("before");
+     let uptime = |c: &str| std::process::Command::new(c).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+     let load_before = uptime("uptime");
+@@ -115,7 +118,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         }
+         let dt = last.elapsed().as_secs_f64().min(0.1);
+         last = Instant::now();
+-        s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
++        let fixed_dt = dt_ms.map(|x| x / 1000.0).unwrap_or(1.0 / 60.0);
++        s.step(None, if paced { dt } else { fixed_dt })?;
+     }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+@@ -144,7 +148,7 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "bytes_per_body": bytes_per_body, "bodies": bodies, "catalogue_live": catalogue_live,
+         "stats": stats_s,
+         "engine_cost_by_kind": cost,
+-        "engine_budget_ms": s.engine_ms, "throttle_level": level,
++        "engine_budget_ms": s.engine_ms, "throttle_level": level, "dt_ms": dt_ms, "engine_events": s.engine_events,
+         "decisions": {"logged": log, "taken": s.p.u.inputs, "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one"},
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5d..f7db7fcf 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -27,6 +27,8 @@ pub struct Session {
+     keys: u8,
+     /// The wall budget of a frame's engine advance, ms (a budget that bites delays work and never moves a decision).
+     pub engine_ms: f64,
++    /// Lab probe 20261012-1019: an item-count budget instead of the wall one (deterministic deferral).
++    pub engine_events: Option<u64>,
+     /// The canonical cut: no frame advances past it, and the digest is taken there (`None`: the flight is open-ended).
+     pub cut: Option<emergent_universe::num::Tick>,
+     names: Vec<String>,
+@@ -40,7 +42,7 @@ impl Session {
+     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
+         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
+         let names = p.names.clone();
+-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
++        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, engine_events: None, cut: None, names, threads, members, cache: ViewCache::default() })
+     }
+ 
+     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
+@@ -80,7 +82,7 @@ impl Session {
+             self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
+             self.keys = keys;
+         }
+-        let f = self.p.u.frame_to(wall_dt, self.rtf, Budget::wall(self.engine_ms), self.cut.unwrap_or(i64::MAX));
++        let f = self.p.u.frame_to(wall_dt, self.rtf, self.engine_events.map(emergent_universe::Budget::events).unwrap_or_else(|| Budget::wall(self.engine_ms)), self.cut.unwrap_or(i64::MAX));
+         let t1 = Instant::now();
+         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
+             Some(v) => v,

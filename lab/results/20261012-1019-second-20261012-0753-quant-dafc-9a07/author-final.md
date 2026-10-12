@@ -1,0 +1,4 @@
+Working...
+Done. Record: `predictions.md` (10:23:49) predates all data (10:25:03+); 77 artifacts + `summ.py` + `dossier.md` in my folder; probe patch disclosed and env/flag-gated (flags-off digests match the pristine binary's).
+
+**The claim:** the prior run's falsified claim 5 stands — the canonical digest does not flip: 70+ runs deterministically sweeping every schedule mechanism the shipped code has (frame dt 16.7→100 ms, budget bite 1→unlimited items, pacing, load 0.8→7.5, contended core, threads 1→8, prune off) give one digest per seed (3 seeds × 3 schedules), the per-body canonical state is bit-identical across schedules, the checker's named suspect (`frame_to`'s wall-derived target) is exonerated by construction, and their `56f4…` counterexample is neither reproducible nor any neighbouring cell's digest — while their companion finding (the smoothness frontier is machine-state-, not parameter-, dependent) is confirmed on 3 seeds.
