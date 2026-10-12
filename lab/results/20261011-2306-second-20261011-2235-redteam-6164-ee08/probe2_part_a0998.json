@@ -1,0 +1,45 @@
+{
+ "machine": {
+  "cpus": 8,
+  "loadavg_1min": 0.5,
+  "mem_available_kb": 15102764
+ },
+ "B_kerr_a0998": {
+  "a": 0.998,
+  "r_c": 1.15,
+  "E_c": 0.7080333557179721,
+  "L_c": 1.457654386092141,
+  "R_residual": 2.42861286636753e-16,
+  "dR_residual": 8.881784197001252e-16,
+  "sweep": [
+   {
+    "eps": 0.001,
+    "dphi": 84.1742970840176,
+    "T": 215.3555340798207,
+    "abs_dT_dE": 58222.18370932231,
+    "jet_err_kickE_1e-6": 1.0488184464747256e-07,
+    "jet_err_kickL_1e-6": 1.0887715140681533e-07
+   },
+   {
+    "eps": 1e-06,
+    "dphi": 215.34878335188617,
+    "T": 507.8365374718114
+   }
+  ],
+  "kick_band_eps_1e-3_E_only": [
+   {
+    "alpha": 0.001,
+    "kickE": 0.5232273032317888
+   },
+   {
+    "alpha": 0.003,
+    "kickE": "plunge-after-kick"
+   },
+   {
+    "alpha": 0.01,
+    "kickE": "plunge-after-kick"
+   }
+  ],
+  "note": "lite: full sweep only at eps=1e-3; whirl at 1e-6; the deep-eps rows and L-band exceeded the run budget"
+ }
+}
