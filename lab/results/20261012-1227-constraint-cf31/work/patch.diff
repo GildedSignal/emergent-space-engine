@@ -1,0 +1,86 @@
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index a16ccf3f..a91c2d8c 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -230,8 +230,15 @@ pub fn gather_cached(u: &Universe, names: &[String], cache: &mut ViewCache) -> O
+     gather_with(u, names, Some(cache))
+ }
+ 
++use std::sync::atomic::{AtomicU64, Ordering};
++/// Experiment (constraint-cf31): ns spent per frame in gather's three parts — observer setup,
++/// the bodies' light-cone crossings, the fleets' member loop — and fleet members pushed.
++pub static GATHER_PARTS_NS: [AtomicU64; 3] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
++pub static GATHER_FLEET_MEMBERS: AtomicU64 = AtomicU64::new(0);
++thread_local! { static _T0: std::cell::Cell<std::time::Instant> = std::cell::Cell::new(std::time::Instant::now()); }
+ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>) -> Option<View> {
+     let ctx = u.ctx();
++    _T0.with(|t| t.set(std::time::Instant::now()));
+     if let Some(c) = cache.as_mut() {
+         c.readouts = 0;
+     }
+@@ -295,15 +302,23 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         let rate = (1.0f64 - 2.0 / crate::scenario::STAR_RADIUS as f64).sqrt();
+         push(usize::MAX, "star", 0, [0.0, 0.0], [0.0, 0.0], rate, 5772., 1.0, crate::scenario::STAR_RADIUS as f64, 0.0, t_now as f64 - 0.0);
+     }
+-    // Bodies: where each tube crosses the past light cone.
+     let mut reads = 0u64;
++    let _t1 = std::time::Instant::now();
++    GATHER_PARTS_NS[2].fetch_add(_T0.with(|t| t.get().elapsed().as_nanos() as u64), Ordering::Relaxed);
+     for i in 0..u.n_bodies() {
+         if i == p || !u.bodies().alive(i) {
+             continue;
+         }
+         let kind = u.info[i].kind;
+         let guess = cache.as_deref().and_then(|c| c.guess(i, t_now)).unwrap_or(t_now);
+-        let Some((t_e, at, root)) = crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess) else { continue };
++        // PROBE (constraint-cf31): no light-cone search; one read at the presented tick.
++        let Some((t_e, at, root)) = (if std::env::var_os("ES_PROBE_NO_CROSSING").is_some() {
++            let r = state_rate(&ctx, i, t_now).ok().map(|(x, v, rate)| At { x, v, rate });
++            reads += 1;
++            r.map(|a| (t_now, a, t_now as f64))
++        } else {
++            crossing(&mut reads, &mut |t| state_rate(&ctx, i, t).ok().map(|(x, v, rate)| At { x, v, rate }), t_now, xo, guess)
++        }) else { continue };
+         if let Some(c) = cache.as_deref_mut() {
+             // The arrival rate at this crossing, from the emitter's velocity and the observer's (a guess's input only).
+             let d = [at.x[0] - xo[0], at.x[1] - xo[1]];
+@@ -333,6 +348,8 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+     if let Some(c) = cache.as_deref_mut() {
+         c.readouts = reads;
+     }
++    GATHER_PARTS_NS[0].fetch_add(_t1.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    let _t2 = std::time::Instant::now();
+     // Fleets: the battle's committed tick follows the retarded time of its light, so its members
+     // are read where the stepper is, extrapolated along their own velocity to the retarded tick.
+     let mut motions = Vec::new();
+@@ -351,6 +368,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+             if !f.is_member(m) {
+                 continue;
+             }
++            GATHER_FLEET_MEMBERS.fetch_add(1, Ordering::Relaxed);
+             let x = [origin[0] + mo.x[0] as f64 * k, origin[1] + mo.x[1] as f64 * k];
+             let v = [cv[0] + ov[0] / q + mo.k[0] as f64 / q, cv[1] + ov[1] / q + mo.k[1] as f64 / q];
+             let d = [x[0] - xo[0], x[1] - xo[1]];
+@@ -367,6 +385,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         }
+     }
+     let rec_doll = u.dolls[rec.b.doll as usize].name;
++    GATHER_PARTS_NS[1].fetch_add(_t2.elapsed().as_nanos() as u64, Ordering::Relaxed);
+     let pos = [xo[0] * TICK_SECONDS, xo[1] * TICK_SECONDS];
+     let _ = Scalar::ZERO;
+     Some(View {
+diff --git a/xtask/src/universe/session.rs b/xtask/src/universe/session.rs
+index a5179d5d..eedc764b 100644
+--- a/xtask/src/universe/session.rs
++++ b/xtask/src/universe/session.rs
+@@ -90,6 +90,10 @@ impl Session {
+             }
+         };
+         let t2 = Instant::now();
++        let (gb, gf, go) = (emergent_universe::view::GATHER_PARTS_NS[0].swap(0, std::sync::atomic::Ordering::Relaxed), emergent_universe::view::GATHER_PARTS_NS[1].swap(0, std::sync::atomic::Ordering::Relaxed), emergent_universe::view::GATHER_PARTS_NS[2].swap(0, std::sync::atomic::Ordering::Relaxed));
++        let fm = emergent_universe::view::GATHER_FLEET_MEMBERS.swap(0, std::sync::atomic::Ordering::Relaxed);
++        eprintln!("DIAG2 bodies_ms={:.4} fleets_ms={:.4} obs_ms={:.4} fleet_members={}", gb as f64/1e6, gf as f64/1e6, go as f64/1e6, fm);
++        eprintln!("DIAG gather_ms={:.4} readouts={} seen={} tick={}", (t2 - t1).as_secs_f64() * 1e3, self.cache.readouts, view.seen.len(), self.p.u.now);
+         let json = view_json(&view);
+         let t3 = Instant::now();
+         // The cost of putting it on the wire is part of the frame.
