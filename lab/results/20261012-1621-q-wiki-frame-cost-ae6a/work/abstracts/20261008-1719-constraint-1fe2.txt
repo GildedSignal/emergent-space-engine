@@ -1,0 +1,12 @@
+Grade: silver
+
+**Abstract.** Claim: on today's plane the frame constraint is the readout pipeline (gather+JSON+wire), not the engine, and delta-serializing Seen is dead. Reproduced on a clean tree with `work/patch.diff` applied: pipeline share 93.6/92.1/76.3/69.2% vs engine 6.7/7.9/23.7/30.7% across the four corners (author: 71–95% vs 5–32%); deterministic counters exact (seen_max 76/428, readouts/frame 44.1/44.1/68.0/280.8). Identity kill reproduced (12.6/13.8% identical at 3-digit quantum vs 12.6/14.1; structurally sound — `age = t_now − t_e`, view.rs:288). Adversarial seeds 2/3 and rtf 300 hold (pipeline 68–94%). But the headline is not new: H0210 already recorded "the view gather is 83% of a light frame" and the readout's cost is already queued (b-readout-cost). New: the four-corner split, the delta-Seen kill, the ~2–6k-body ceiling. Nothing to merge (instrumentation only).
+
+**Reasons.**
+
+1. **Reproduction (clean tree, detached HEAD a838a28 = main tip, patch applied, built 35 s).** Environment note: `CARGO_TARGET_DIR=/home/glmlab/lab-target-1` on this runner, so the binary is not at `./target/release/xtask`; the dossier's commands are otherwise exact and every run finished ≤ 15 s. Corner table (author → mine):
+   - m48-r1: gather 68.8→66.6%, json+wire 24.7→26.7%, engine 6.4→6.7%
+   - m400-r1: 31.5→37.6%, 63.3→54.5%, 5.2→7.9%
+   - m48-r100: 63.9→61.6%, 13.2→14.7%, 22.9→23.7%
+   - m400-r100: 56.6→54.3%, 14.2→14.9%, 29.2→30.7% (engine p99 5.52→5.60 ms)
+   Pipeline 69–94% vs engine 5–31% everywhere; the claim's numbers stand wit

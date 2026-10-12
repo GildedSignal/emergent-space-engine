@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: the frame's constraint is the view walk (65% of frame CPU, ~9× the engine's median), not kicks; at the instrument's quantum only ~8% of emitters change per frame (0% on the far sky), so a surprise-gated view buys ≥10×. Reproduced cleanly from the patch: surprise fractions bit-for-bit (8.1%/49.7%/7.7–8.6%/0.0%), view_gather share 65.4%/p50 0.83 ms solo vs engine 0.091 ms, unit split 10.8 vs 7.3 µs, per-emitter cost linear 24→2400. Prediction 1 failed honestly (ramp ~30%, not >70%), correcting the queued readout lens's premise. But the gate was not built: the ≥10× is projected. My zoom attack: at 10⁻⁴ rad, 62.9% move — the near-scene saving collapses to ~1.4×; the value is the far sky. Gold needs the gate measured.
+
+**Reproduction** (clean tree, `git apply work/patch.diff`):
+- `view_gate 400 100`: all five surprise rows identical to `view_gate.out` (8.1%, 49.7%, 7.7%, 8.6%, 0.0%; mean dθ 3.56e-4, max 6.40e-3). Unit split 10.79/7.29 µs vs author 11.04/7.22.
+- `view_scale 60`: 4.4–5.6 µs/emitter slow at 1.00 reads/em, 13.4–14.2 µs at 0.9c toward (1.60 reads), linear 24→2400 (11.8 ms gather at 2400 slow = 71% of a frame; 34 ms at 0.9c). Part B: 11.2 µs/read, 1.014 reads/em, ships 18.8 µs, planets 3.4, moon-depth 8.0 — all within noise of the dossier.
+- `xtask universe --bench --rtf 100 --seconds 30`: view_gather p50 0.828 ms, **share 65.4%**; engine p50 0.091 ms (9.1×), share 19.4%; frame_cpu p50 1.15 ms. The author's heavier p99s (view 4.83, frame 10.6, 45 overflow frames) did not repeat here (1.22/2.79/3 ove

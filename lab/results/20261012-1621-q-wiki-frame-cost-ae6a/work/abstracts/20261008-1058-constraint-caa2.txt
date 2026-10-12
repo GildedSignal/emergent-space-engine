@@ -1,0 +1,15 @@
+Grade: silver
+
+**Abstract.** Claim: the frame's constraint is the view gather — a synchronous, unbudgeted, uncalled `for i in 0..n_bodies()` Newton light-cone scan per frame — not the engine. Reproduced in a clean tree (patch applied): gather 2.36 ms = 74.0 % of a 3.28 ms frame at 39 bodies; 42.4 ms (86.7 %) at 1216; linear at 24–35 µs per star ship, held at my adversarial 4816 bodies (117.5 ms) and unseen seed 3 (29.5 ms); members ~3.9 µs each; engine 1–13 % of the same frames. Wall: 60 Hz caps at ~480–700 bodies, 2²⁰ belt 25–36 s/frame. Gain: names a 10²–10³× wall before any scale-up. Cost to adopt: none (measurement); the cull it points to is one design step. Silver because the dominance was already recorded (H0210: 83 % of a light frame) and the fix is already adopted (representation.md §3).
+
+**Reasons.**
+
+*Reproduction (clean tree at `a838a28`, patch applied, release, 8-vCPU shared runner):*
+- `universe --bench` (paced 30 s): gather p50 2.360 ms / share 74.0 % / frame CPU 3.28 ms; author 2.37 / 74.2 % / 3.30. Engine share 4.5 % both.
+- `ES_SHIPS=1200 --bench --unpaced --seconds 4`: gather p50 42.39 ms, share 86.7 %; author 42.55 / 85.2 %.
+- `--members 6400`: gather p50 24.24 ms; author 22.56 (bodies 3229 vs their 3054 — handout counts drift with scheduling).
+- `--kick-bench`: leavers 380.6 µs (author 384), exact memo hit 0.0 % on 27 rebinds, quantized 3.7 % — matches exactly.
+- `--bench --rtf 100`: engine p99 5.18 ms (author 5.24), engine share 19.4 % (17.4), overflow 53/1800 (36) — same orders, load differs.
+
+*Adversarial cases (mine):*
+1

@@ -1,0 +1,10 @@
+Grade: silver
+
+Reproduced exactly, on a clean tree, both sides: all four digests bit-identical across the patch (A `7e4c4380…`, B `2138e8c5…`, C `169e1aa3…`, tail/budget-of-one `e8d0d065…`); ship class 32.0 → 20.4 µs/item (−36%), whole-universe 49.8 → 43.3 µs/item; kick decomposition (root_state 7.0, rebind 11.3, compile 3.4 µs) and `cargo test --release -p emergent-universe` 54 passed / 0 failed. ~14 lines, one file, no API change; the named next lever (the rebind) is measured. Gain is ~1.4×, not 10×, and no component is deleted — real and adoptable, but below the gold bar. Record defects: the baseline's B line (Dense, "4.25 s") is unregenerable (Dense-200@3G takes >90 s on both trees; shipped bench says Sparse, switch undisclosed), and every digest scenario ran threads=1.
+
+## Reasons
+
+**Reproduction (all commands from the dossier, clean tree at a838a28, `git apply` of `work/patch.diff`).**
+- Baseline: `cost_split` — pure kick 34.7 µs, root_state 7.00 µs, own readout 3.31, secondaries 3.28, tide 3.30, whole universe 49.8 µs/item, ships 32.0 µs/item; `cost` — compile 3.4, from_state 11.3 µs. Matches the dossier (6.9 claimed for root_state; 12.3 for from_state — same order, noisy box).
+- Patched: ships 20.4 µs/item (−36%; dossier 20.2–20.4), whole universe 43.3 (dossier 43.0–43.2), root_state cost gone from `apply`. `idiot` A/B/C and `tail 10 100 1 48`: all digests identical to baseline and to the author's files; tail worst item still the fleet open (~2.3 ms), frames >5 ms: 2 → 2.
+- Tests on the patched tree: 54 passed, 0 failed, 1 ig

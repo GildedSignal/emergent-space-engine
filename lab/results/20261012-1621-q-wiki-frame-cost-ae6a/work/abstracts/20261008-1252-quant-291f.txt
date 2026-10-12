@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: one held L15 player order wakes a bounded transient — ~2,000 extra events, 94–116 budget-saturating frames, RTF floor 0.23×, worst frame ≤ 3.1× coast p99.9, digests bit-identical at a fixed canonical cut. Reproduced from a clean tree: seed-2 wake 1,929 events, 95 overflow frames, owners kick +561 / bound +515 / slice +3,046; digests 47dd9c71… / 6ed7b26b… identical ×3 — and, beyond the dossier, identical at 1 ms and 10 ms budgets and at rtf 200. My probes sharpen the claim: the stable core is the player's own ~700-event wake plus a 69–116-frame dip the fleet does not own (fleet-stripped: 69 frames, worst frames pure c_player); the ~2,000 headline and the ≤ 3.1× ratio are seed- and baseline-relative. Three of six held-out predictions failed (author-reported). Adoption cost zero: two constraints for b-root-keys and b-encounter-skin.
+
+## Reproduction (clean tree, `git apply work/patch.diff`, release build, pinned core, loadavg ≈ 1)
+
+- Fresh panel seed 2 matches the stored CSVs within ±1 %: wake 1,929 extra events (author 1,921), 95 frames over the 5 ms budget (author 95), owners kick +561 / bound +515 / slice +3,046 / enc +46 (author +561/+515/+3,037/+46). `analyze.py` on the stored CSVs regenerates every table number: 2,112/1,921/2,016/1,938 events, ratios 2.71/3.01/2.71/2.58×, overflows 101/95/116/93, noop 0–1 events. Per-frame re-analysis confirms min rate 768 ticks/frame (0.227×), 94–116 frames below ⅓ rate (coast 0), decay-window 3.6–3.8 events/frame ≈ coast, and slice-dominant worst frames in the shipp

@@ -1,0 +1,10 @@
+# Check — 20261007-2344-quant-4211 (quant lens: the deadline queue's capacity)
+
+Grade: silver
+
+**Abstract.** Claim: the plane's deadline calendar is O(N)/frame (rekey-all, drain, defer-requeue), capping 60 FPS/rtf 100 near 10⁴–10⁵ bodies; a dyadic wheel on event time plus a triangle-inequality skin on deadlines deletes the drain and rekey-all, 7–20× at 10⁶–3×10⁶, canonical states bit-identical. All 12 commands reproduce: every `sum_t` matches the author's and V0≡V4 in my runs; V4's churn counters match exactly (7,438 / 83,535 / 514,164 sqrts/frame); ratios 6.5–17.2× at load 5–7 (author 7.4–19.5× at load 10–14). The bench mechanics match shipped `universe.rs:493/790` and `calendar.rs` verbatim; law.md §"A body's state" confirms steps are powers of two. Cost to adopt: ~80 lines beside `Calendar`. Held-out prediction 5 failed (V3 not graceful — killed, disclosed).
+
+## Reproduction
+
+- Compiled `bench.rs` (0-byte `work/patch.diff`, nothing to apply) to /tmp and ran every command in `results.txt`. All `sum_t` values match exactly: M1e6/Hbeta `16289184286667`, Hrtf1k `138106832619467`, FLEET `16285934054275`, S3M `38709709126669` — V0≡V4 on every case, as claimed. V4's deterministic counters (sqrt/frame 7,438 at β=0.1; 83,535 at β=1; 514,164 at β·rtf=1000) match to the digit.
+- Same-window ratios on my load (5–7): M1e6 17.2×, Hbeta 11.3×, Hrtf1k 1.6×, FLEET 8.3×, S3M 6.5× — against the author's 7.4/13.2/2.4/19.5/11 under load 10–14. Direction and order hold; individual ratios move with load both ways, which is why the author's in

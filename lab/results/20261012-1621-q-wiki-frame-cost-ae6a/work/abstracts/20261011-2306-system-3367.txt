@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: on the plane's integer resolver every distinct kick re-fits a fresh exact cycle (1125/1125, exact hit 0.0%, 95.5% under 51 quantized keys), motion law v2 is the priciest mechanism per event (player ≈ 0.5–1.0 ms, ~18–30× a fleet slice), and the frame is the view (engine 16–24%, view 64–83%). Reproduced in a clean tree: bench and kick-replay digests bit-exact (`41343a…`/`0e02bf…`), memo integers identical; µs/item moved 2× with box contention but ratios held. Adversarial: exact 0% and quantized 94–97% held at seed 7, rtf 1000 and a 200-member fleet; paced/unpaced at one cut give one digest. Gain: prices the already-adopted memo hook and audits the queue order. Cost: ordering plus profiler wiring. One experiment from gold (below).
+
+**Reasons.**
+
+*Reproduction.* Applied `work/patch.diff` at the same HEAD (a838a284, clean tree). One command-block defect: `cargo build --release -p xtask` fails as written once the patch is applied (E0433: `emergent_space::profile` needs `--features emergent-space/profile`, disclosed only in the patch note, not the Commands block). With the feature: `--bench --rtf 100 --seconds 30` reproduces digest `41343a143a92f956…` and cut 609076340 bit-exact; `--kick-bench` reproduces replay digest `0e02bf0f34481650…` and the memo integers exactly (rebinds 1125, exact 0.0%, quantized 0.9547 over 51 keys, 1158 samples, 365/793 split). Per-item µs on my quieter run are ~2× lower (player 473 vs 1009, ship 92 vs 179, fleet 20.5 vs 39.5 µs): within the stated orders-of-magnitude band, and the structural 

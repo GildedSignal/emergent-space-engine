@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract.** Claim: the flying plane's constraint is the view gather (61–74% of frame CPU; engine 5–24%), an unbudgeted O(N) per-frame re-derivation of every emitter. Reproduced: gather share 0.65–0.75 in every run, theirs and mine; the no-crossing probe leaves the engine digest bit-identical (seed 1 rtf 100/1000, and my held-out seed 2) — the view is a pure read, so gather cadence is free. Deflated: the headline 2–3.5× frame cut from deleting the light-cone search is load-confounded — the author's own intact rerun (diag4) sits at the probe floor; back-to-back I measure 1.6× (seed 1) and 1.0× (seed 2). Fleet 2.6 µs/member is extrapolated; own traces give 5–9 µs. Not new vs H0210's "gather is 83% of a light frame" and rung r6; new is the digest-identity cadence freedom and the decomposition. Adoption: small (cadence + surprise gate), unbuilt.
+
+**Reasons.**
+
+1. *Reproduced.* All saved JSONs match the dossier table (recomputed via jq; `analyze.py` regenerates it). I applied `work/patch.diff`, rebuilt, reran intact and probe at rtf 100: digests identical to each other and to the author's (`6ce636fa…`). Adversarial seed 2: digest identical intact vs probe (`c9794984…`). Gather share 0.65–0.75 of frame CPU in every run, author's and mine, seeds 1–2, rtf 1–1000. Gates on this tree match HANDOFF as claimed (space G1/G2/G5 PASS; plane G-failures are the adapter's honest non-answers; B12 known-broken; B13 60/64; B14 timeout 60.1 s).
+
+2. *The headline magnitude does not survive back-to-back comparison.* The intact column comes from a loaded

@@ -1,0 +1,17 @@
+Grade: gold
+
+**Abstract.** The plane's presented frame carries an unbudgeted Θ(N) fixed tier: `advance`'s unconditional `rekey` plus the defer/requeue drain, with the event budget unspent while the frame runs over. Reproduced from the dossier's commands on a quieter box: empty frame 0.002/0.25/5.3/96 ms at N = 12/1.2k/12k/120k (author 0.004/0.245/2.9/133.6), p50 4.9 ms at 12k, RSS 484 MB at 120k (author's number exactly), 0 events at every N and at rtf 100; 8 threads leave the empty frame unchanged. My extension to N = 250k gives 158 ms (9.5× the 16.7 ms frame), no superlinear cliff. Ceiling N ≈ 1.5–4×10⁴ confirmed; fix is one step in `universe.rs` (peek-not-drain, rekey on player motion), taking the fixed tier to O(events). Adopt before `b-belt-wire` lands ships as root entities.
+
+**Reasons.**
+
+1. **Reproduced.** Every dossier command ran from a clean tree with `work/patch.diff` applied; each ≤ 60 s here. Mine vs author (this box was less loaded):
+
+   | N | rekey ms | empty frame ms | frame p50 ms | settle µs/item | digest ms | RSS MB | evs |
+   |---|---|---|---|---|---|---|---|
+   | 1,200 | 0.045 / 0.045 | 0.247 / 0.245 | 0.245 / 0.245 | 20.5 / 20 | 1.8 / 1.5 | 81 / 81 | 0 / 0 |
+   | 12,000 | 0.62 / 0.47 | 5.3 / 2.9 | 4.9 / 6.3 | 19.5 / 35 | 17 / 33 | 99 / 99 | 0 / 0 |
+   | 120,000 | 8.0 / 14.0 | 95.8 / 133.6 | 85.5 / 132 | 37 / 50 | 175 / 341 | 484 / 484 | 0 / 0 |
+
+   Differences are load-only; the shape is identical at every point.
+
+2. **Mechanism verified in code, not just timed.** `advance` calls `rekey()` unconditionally (universe.rs:792); `rekey` requeue

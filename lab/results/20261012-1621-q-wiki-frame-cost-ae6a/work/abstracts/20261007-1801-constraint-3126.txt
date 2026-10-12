@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract.** Claim: the plane's constraint is the view gather (54–70% of frame CPU; ~1 Newton readout per body per frame while the engine runs at 0.03–0.06 events/body/game-second), and 92.9% of that work at rtf 100 changes the display by under one quantum, so a quantum-driven carry is the exploit. Reproduced exactly where deterministic: all four probe points (0.929/1.000/0.786 sub-quantum, readouts 292/44/400, streaks 2·15/162·599), digests bit-for-bit on all benches, galaxy 31.8 ms @1e9 ships, B13 60/64, B14 timeout exit 1. Absolute ms are unstable (×4.7 same-digest swing), shares robust. Gain: deletes the last O(N)-per-frame piece, ceiling ~10×. Adopt: redirect the queued b-readout-cost build from a cheaper eval to no eval.
+
+**Reproduction** (clean tree, patch applied; shared box, load 0.6–3.0):
+- Probe, exact bit-for-bit vs metrics.json: rtf100 m400 — 410 bodies, seen 313/28 bodies, alive 270, readouts p50 292, sub-quantum p50 0.929, streaks median 2 / p90 15; rtf1 m48 — 1.000, 162/599, readouts 44; rtf1000 m400 — 0.786 (p10 0.679), readouts 400; rtf100 m48 — 0.929, 128. All identical.
+- Benches: digests match the raws exactly (m48 `09e4…`, m4800 `aada…`, rtf100 `4134…`). view_gather share 0.689 vs 0.693 (paced 30 s), 0.532 vs 0.541 (m4800), unpaced 0.696.
+- Galaxy `--ships 1e9`: 31.8 ms median (author 32.1), 200/200 over 16.7 ms, 0.032 ns/ship, identical deterministic counts (13,963 cycles, 1,706,760 samples).
+- `behave --law plane`: B13 60/64 worst 2.12e-2 (matches HANDOFF); B14 FAIL timeout 60.1 s, run exits 1, later gates neve

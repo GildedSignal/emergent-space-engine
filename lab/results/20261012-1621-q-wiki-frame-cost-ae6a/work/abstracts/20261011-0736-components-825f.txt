@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: the plane's frame allocator is at its floor — idiot index 1.01, 99.6% of engine work has zero light-cone slack — so there is nothing to build in the scheduler; at 428 bodies the mandatory demand itself (steady p99 ~6 ms, spinup 20–45 ms) exceeds the 5 ms budget, stalling presented time (rtf lowest-1% = 0.0) without hitches. Reproduced: the digest triple bit-for-bit (`3db02d3d…` traced/untraced/`--engine-ms 10`), idiot index 1.00, deferrable share 0.3–0.4%, slack median 0, and it holds on seed 2. Gain: deletes the "better scheduler" branch at zero adoption cost. But the demand-tail diagnosis is mis-attributed: the player's motion-law step is flat in members; the O(members) term is the PlayerNeighbourhood scan (encounter.rs:53), so the proposed doll-aggregate moment source would change nothing.
+
+## Reproduction (clean tree, `git apply work/patch.diff`)
+
+- Build 35 s; all four dossier commands ran under 60 s each. Digests reproduce **bit for bit**: traced m400, untraced m400 and b10 all `3db02d3d…`; m48 traced `41343a14…` = the author's saved baseline. P6 holds exactly.
+- My traced m400: engine wall p50 0.128 / p99 5.31 / max 6.42 ms; mandatory p99 5.28; deferrable p99 0.00, share 0.4%; rekey mean 0.022 ms; **idiot index 1.00**; slack median 0.0 / max 0.1 frames, 0% ≥ 10; player entity 27 = 437.8 ms of item time, battle entity 428 = 195.3 ms (worst item 3.0 ms); kind-B p50 41 µs; demand-by-deadline steady p50 0.04 / p99 5.9 / max 16.6 ms, spinup bins 18–45 ms; causal flattening ratio 1.00×. All matches the dossier within 

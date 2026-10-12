@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** The claim: the silver deletion rebuilt scope-free regenerates its record from the patch alone, and the cadence lever is priced (work exponent ≈ 1 at flat per-kick cost; ≈ 4× B13 error per halving). Reproduced exactly: my own interleaved A/B on the author's four scenes plus my m4/rtf1000 gives made −18…−21 %, leavers −5.5…−8.5 %, digests bit-identical everywhere, 18 suites 104/0/1; cadence kicks 949→507→287→173, work ×0.54/×0.30/×0.16, exponent 0.98–1.04; B13 60/64→41/64→15/64, worst 2.12e-2→8.47e-2→3.39e-1; Jacobi ×3.5 with kicks exactly halved. Gain stays 1.1–1.2× per kick; cadence prices the integrator's door without opening it. Cost to adopt: apply `work/scope-free.patch` (clean on HEAD, zero prof refs).
+
+## Reproduction (clean tree at a838a28; every number mine unless stated)
+
+- **Patch hygiene:** `scope-free.patch` applies clean; zero `prof` references; the `universe.rs` deletion is byte-identical to the silver run's; `bind.rs`/`step.rs` differ only by prof-scope removal and one brace reshuffle (same semantics). The run's snapshot `patch.diff` equals scope-free + cadence-flag applied together.
+- **A/B (my binaries, my interleave, quieter box):** made −18.3/−19.4/−19.0 % (tuned/m24/m96), −19.2 % m4, −19.3 % rtf1000, −21.0 % rtf10; leavers −5.5…−8.5 %. `replay_digest` and canonical `digest` bit-identical on all six scenes (tuned = `eaef383e…`/`c8ab26da…`), `refused` 0. The author's `data/*.json` regenerate the dossier text verbatim (made −17.8…−19.6 %, leavers −5.9…−9.7

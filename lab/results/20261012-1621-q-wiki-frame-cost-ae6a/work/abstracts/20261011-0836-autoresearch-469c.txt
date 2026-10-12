@@ -1,0 +1,8 @@
+Grade: lead
+
+**Abstract.** The attribution reproduces: on `xtask universe --kick-bench` (seed 1, rtf 10) the leaver kick median is 120.3 µs, rebind 87.2% of kick time, `OrbitShape` quadrature ~61%, `Passage::compile` 31–36% (339–493 µs/call × 60), quad panels exactly 105,948/11,861/0, exact memo hit 0%, quantized 83.5%. But the one kept change is **not** bit-identical: at rtf 100 the replay digest flips (seed 7 `29a40cdc…`→`5a4c42cd…`, seed 5 `fed002a9…`→`9a1c039a…`; pristine stable across loads), because the patch shadows `exact` with tube-unit positions in `bind_in`, corrupting the residual whenever `Unit.unity` is false. The dossier's "P1 held exactly, all digests identical" is false; the author's own criterion says any digest change is a KILL of the change. Nothing to adopt as shipped; the attribution instrument is worth keeping once the shadow is fixed.
+
+**Reproduction** (clean tree at `a838a284`, load 1.2–2.1, CARGO_TARGET_DIR=/home/glmlab/lab-target-1):
+- Pristine: seed 1/rtf 10 leaver median 120.3 µs, made 36.5, p99 412.8, refused 0, digest `adc434a474b63e09…` (= author's); seed 2/rtf 10 median 106.0 (author pristine 106.1), digest `03dcd421…`; seed 7/rtf 100 median 72.5, digest `29a40cdc852c242a…`; seed 1/rtf 1 median 384.9 (n=10), digest `35f786a5…`.
+- Patch applied (`git apply work/patch.diff`), rebuilt: seed 1/rtf 10 median 119.2 (−0.9%), digest match; seed 2/rtf 10 median 103.3, digest match; seed 1/rtf 1 median 326.2, digest match; **seed 7/rtf 100 digest `5a4c42cd16ad…` ≠ pristine `29a40cdc…`**.
+- Adversarial cases of my 

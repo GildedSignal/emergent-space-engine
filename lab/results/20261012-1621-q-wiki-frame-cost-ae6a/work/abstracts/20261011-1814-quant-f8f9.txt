@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: on the shipped plane the readout, not the kick, owns the frame; the allocator holds the tail and exact schedule independence; cadence, not per-event cost, spans the gap to 10⁹. Reproduced in a clean tree (empty patch, shipped binary): all 10 digests bit-identical, including budgets 1/5/15 ms and paced/unpacked; readout share 69–93 % everywhere; gather 8.8–10.0 µs/body at rtf 100 (author: 8.6); per-kind costs exact (ship 105–195, player 579–1213, fleet 28–58 µs). Adversarial: digest invariant under 788/900 overflow at a fresh seed; no hitch > 16.7 ms even at rtf 10⁴, 400 members. Gain: measured lever order for b-readout-cost (gather ≈ 2× the engine budget). Cost to adopt: zero code. Not gold: the gather's dominance and digest invariance are already known (H0210 "the view gather is 83 % of a light frame"; H0212 "one digest over five schedules and budgets").
+
+**Reasons.**
+- *Reproduction.* Ran all ten dossier commands (`--seconds 15`, seed 1/7, rtf 1–1000, members 200/400, engine-ms 1/15, unpaced). Every digest matches the stored JSON exactly. Shares, bodies, events/s, per-kind µs/item, and the arithmetic (1e9 × 32 / 3.15e7 s × rtf 100 → 1.0e5 events/s → 2.95 µs/event allowed; 0.3/orbit → ~300 µs) all check. `predictions.md` (18:17:18) precedes the first data file (18:17:46); two honest misses (P2 hitches, P6 events/s band) corroborate genuine pre-registration.
+- *Adversarial (3 cases).* (1) seed 7, members 400, engine 1 vs 15 ms: 788/900 overflow, delivered rtf 0, 82 % short of the cut — digests identical (

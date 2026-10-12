@@ -1,0 +1,11 @@
+Grade: silver
+
+**Abstract.** Claim: representation.md §2's view gather (Newton continuation from the previous frame) has no mechanism to *find* crossings lensing adds: in a lens transit it misses the caustic-born second image in 100% of frames. Reproduced: 9/9 two-image frames, missed image 4.7–5.1° away, 0.41–0.78 as bright; control passes; instrument stable under grid and step refinement; predictions pre-registered. Novel: no gate or rung covers image enumeration (B3/B16 single-path; r6 unfrozen). Adopt: one design sentence (±b branch enumeration per lensing doll, or per-pixel gather) plus one r6 criterion. **Scope overstated**: visible secondaries exist only for r* < b_E ≈ 80 here (r*≥80: zero); normal stars occult. The scene (r*/M=50) is compact-lens territory; the in-goal case (black-hole lens, P6) was stated, not run.
+
+## Reproduction
+
+`python3 falsifier.py` (14.7 s here vs 22.8 s author; summary identical otherwise, every quoted number verified). k=25 example exact: truth {−0.0262, +0.0630}, tracked {−0.0262}. Birth at the limb verified: secondary r_min = 52.7 at η=72.4 (r*=50), rising with alignment. Rel-mag series symmetric [0.412 … 0.776 … 0.412]. Quote at representation.md:57 verbatim; law.md "Observation" carries the same per-tube sentence. `work/patch.diff` empty — no tree edits. File times: predictions 15:12:05 → script 15:20:01 → output 15:20:24; P1's 1.6× miss was honestly reported half-held.
+
+## Attacks (5, beyond the author's)
+
+1. **Scope envelope (decisive).** Swept r* at M=1, D_OL=2000: visible secondary exists only while r* < 

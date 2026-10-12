@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract (for the integrator).** Author claims the plane engine pays a hidden per-frame O(N) tick: every `advance` runs `rekey` (deadline sqrt + heap set per entity) even at zero events — 215 µs/frame at 1k quiet bodies rising superlinearly to 37 ms at 64k — invisible to B10's exponent gate; deleting it the naive way (tick-keyed calendar) collapses the quiet frame to ~0.1 µs flat through 256k but breaks cross-schedule digest identity, so the pass is also an undocumented repair. I reproduced everything: baseline A=B=C=`645d0367…` bit-for-bit, quiet 237 µs→34.9 ms unpatched / 0.10–0.11 µs patched flat, patched digests `e107/ebaa/6931` exactly. My fleet-free control is bit-identical to baseline under the patch (leak localized to the fleet), and frame schedules under-resolve catastrophically (2,927/245 vs 73,372 kicks at the same cut). Adopt now: the requirement "quiet-frame cost flat in N" + the diagnosis; the deletion itself needs one more run.
+
+## Reproduction (clean tree, `git apply work/patch.diff`)
+
+- **Unpatched quiet** (my run / author): 237 / 865 / 3,925 / 34,934 µs per frame at n = 1k/4k/16k/64k (author 215/971/7,088/37,436); same superlinear shape (147× cost for 64× bodies; author 174×); `events=0` printed on every row — the zero-event claim is honest.
+- **Unpatched digest** (cut 9e10): A=B=C=`645d0367d54b951b4f165ec1ea638a56fb4f650eb4592d7b6b2beac1e8c99204`, matching `work/digest-before.txt` exactly (wall 21.5 s, rss 333 MB).
+- **Patched quiet** (`--include=crates/universe/src/universe.rs`): 0.11/0.10/0.10/0.11/0.11 µs at n=1k�

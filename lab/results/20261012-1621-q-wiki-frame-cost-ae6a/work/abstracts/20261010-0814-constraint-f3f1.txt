@@ -1,0 +1,10 @@
+# Check — run 20261010-0814-constraint-f3f1 (checker: fresh session, 10 October)
+
+Grade: silver
+
+**Abstract (for the integrator).** Claim: on main (741d05e-era tree, digest-anchored) the frame's constraint is the view gather — 0.62–0.72 of frame time, 94–96% of it in per-body retarded readouts, bimodal ~11–15 µs (tube path) vs 28–95 µs (read lands in kick machinery), worst frame 13.4–15.5 of 16.7 ms at 417 bodies. Reproduced: digest `6ce636fa…` exact (patch bit-neutral), gather 0.66 vs author 0.67–0.72, per-readout 11.6 µs cheap / 57.7 µs expensive, kick-bench digest and 35 µs median exact, gates identical verdicts. Survived my attacks: seed 7, rtf 400, unpaced, m1000. Gain: orders the queued work (readout before slack skin, priced 4–6× gather cut). Cost: none (measurement only). Headline dominance was already known (H0210: "the view gather is 83% of a light frame"); the decomposition, bimodality and scale point are new.
+
+## Reproduction (clean tree, patch applied by me)
+
+- `cargo build --release -p xtask` (CARGO_TARGET_DIR is `~/lab-target-1`); `xtask universe --bench --rtf 100 --seconds 20`: **digest `6ce636fa…` identical** to both the author's pre-patch run and their post-patch recheck — tree identity and bit-neutrality both confirmed in one shot. Gather share 0.661 (author 0.674–0.720), engine 0.210 p99 5.19 ms, 0 hitches, worst 15.6 ms (schedule tail; author 11.8 — same box, shared load). Last frame cheap mode in my run: 59 readouts, 11.6 µs/readout, depth-1 18.9 µs vs deep 11.1 µs — matches the author's cheap-mode rows exactly.
+-

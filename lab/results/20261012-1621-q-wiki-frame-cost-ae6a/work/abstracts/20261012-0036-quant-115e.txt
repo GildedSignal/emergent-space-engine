@@ -1,0 +1,23 @@
+Grade: gold
+
+**Abstract.** Reproduced; two premises of the shipped plane fall. Its presented frame pays an
+O(N) rekey tax with zero events resolved — 43–85 ns/body, linear to 10⁶ bodies (my probe:
+84.7 ms/frame, 5× the 16.7 ms budget; the author's extrapolation is conservative), and no body
+class escapes it (inert and 3–6 AU controls pay the same). The kick is 70.7 % rebind, 2.7 %
+force arithmetic, 11× p99.9 tail — so the levers are rebind slimming and lazy deadline
+re-keying (one local change; digest-identity control demonstrated), not cheaper force math or
+more splits. Controls: bit-identical digest pristine vs instrumented, 11/11 suites both, belt
+arithmetic (≈39 µs/event budget vs ≈35 µs ship item). Predictions 1,2,5,6,8 held; 3,7 failed,
+disclosed, and sharpen the claims.
+
+**Reasons.**
+
+*Reproduction (clean tree, patch applied by me).* `kick_budget` twice (load 1.96 and 1.20) and
+`digest_control` on pristine sources: items 49,619 (kicks 24,827, opens 198, boundaries 24,594,
+lost 4, refused 0) and digest `e317b268…a5be` identical in all three, author's numbers included.
+Stage shares bit-stable across every run: readout 8.5 %, inputs 17.5 %, force 2.5 %, quantize
+0.2 %, rebind 70.7 %; kick total ≈41.3 µs; Kick(0) p99.9/p50 = 11.2×; Kick(1)/(2) ≈413 µs
+(n=216); apply 7.5 µs/item with root_state 97.0 %; classes planet 21.7 / moon 34.1 / ship 35.5 /
+player 150.0 / fleet 66.6 µs. Phase B at load 1.20 matches the author's row almost exactly
+(256k: 15.32 ms vs 15.39 ms, 59.8 vs 60.4 ns/body); events resolved 0 in every row. `cargo
+test --release -p

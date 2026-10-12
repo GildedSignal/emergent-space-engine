@@ -1,0 +1,8 @@
+Grade: lead
+
+**Abstract.** Claim: at rtf 100 the frame's constraint is the view (gather+JSON 72–90%), not the engine; a differentiation floor would delete ~99% of view work. Reproduced bit-identically (digests `41343a14`, `3db02d3d` from a clean rebuild; gather 5.56 µs/emitter/frame linear over 32→428 bodies, R² 0.999; engine p50 ≤ 0.14 ms, tail p99 5.4 ms ≥ the 5 ms budget). But the ~99% is wrong: fleet members are 738–1477 m (`scenes.rs` radii q/2..q, q = 2²⁰), not the assumed 28 m — at the author's own half-pixel floor 200/343 members sit *above* it (a cull deletes ≤ 54%, and that half is the battle the player watches), and members fill 341/343 distinct pixel cells, so pooling also collapses nothing. The direction was already known (H0210: "the view gather is 83% of a light frame"). The surviving one-step is a budget on the gather (plane.md §7), not a floor.
+
+**Reproduction (clean tree, own build, patch.diff empty).**
+- `xtask universe --bench --seconds 30 --rtf 100 --unpaced --members {48,400}`: digests exactly the author's (`41343a14…`, `3db02d3d…`); gather p50 0.736/2.669 ms (author 0.706/2.578), engine p99 1.34/5.40 (1.29/5.24), overflow 3/133 (3/116), events/s 242/1104 (242/1107). All four dossier rows match their JSONs to displayed precision; paced shares 69.5/17.8/9.0/3.8 confirmed in `bench-rtf100.json`.
+- Linearity strengthened: added `--members {4,100,250}` → 5 points, least-squares slope 5.56 µs/body/frame, intercept 0.32 ms, R² 0.9988. No floor in the gather, as claimed.
+- Code claims verified: `angular_radius` computed per emitter

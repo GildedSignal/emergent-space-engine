@@ -1,0 +1,10 @@
+Grade: gold
+
+Abstract: The shipped plane's presented frame is Ω(N) in bodies at zero events (~0.7–0.8 µs/body/frame of pure deadline bookkeeping), breaking 16.67 ms at ≈3×10⁴ live tubes (0.72–0.84 s at 10⁶, events 0 everywhere), and the exact player-neighbourhood scan (1.7 µs/body, linear, the shipped default finder) breaks one player item at ≈10⁴. Reproduced from the patch in a clean tree: digest control bit-identical (1674 events, EQUAL), fresh layout to 1.03×, far end 1.00–1.16×, peak RSS 1 930 140 KB vs 1 930 272 (1.9 KB/tube). Code attribution verified line-by-line. Gain: the two digest-invariant when-changes (gate rekey on observer movement; horizon from peeked deadlines) delete the frame's sweep and rekey as work classes; ≥700× is projected, the wall itself is measured. Adopt: one step in crates/universe, before b-belt-wire runs.
+
+## Reasons
+
+**Reproduction (clean tree, `git apply work/patch.diff`, build 10 s).**
+- Control: `events settled 1674`, digests `4c390dfb…c70a` EQUAL — identical to the author.
+- Main sweep (load 1.6–2.7): 10³ 199 µs, 10⁴ 5 264 µs, 10⁵ 64 453 µs, events 0; sched-only 200/4 436/63 996 (100%, 84%, 99% of frame). My 10⁴ point ran 2.3× the author's isolated value — transient shared-box load; the fresh-layout rerun (2 244 µs vs author 2 236) and 10⁵ (53 585 vs 55 019) match to 1.2×. Constants wobble ±2× on this box; the structure is solid.
+- Far end: 3×10⁵ 194 246 µs (author 193 578, +0.4%); 10⁶ 839 041 µs (author 721 515, +16% at load 2.69); peak RSS 1 930 140 KB (author 1 930 272). 1.9 KB/

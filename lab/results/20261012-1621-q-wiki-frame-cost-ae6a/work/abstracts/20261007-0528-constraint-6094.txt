@@ -1,0 +1,10 @@
+Grade: silver
+
+Abstract: Claim: on the flying plane the frame's constraint is the unbudgeted view gather, not the engine; ~90% of its output is unchanged per frame, so the first 10× is surprise-gated reuse. Reproduced bit-close: gather share 0.669 vs 0.694 paced (canonical digest identical), engine p50 0.047 ms and gather 0.721 ms unpaced (author 0.047/0.724); decomposition at 64/329/3778 entries gives 0.75/2.97/27.45 ms, 7.19 µs/entry, readouts ≈ entries, surprise 4.7/8.2/7.4%. Expected gain ~10× on the median frame, projected not measured. Cost: one seam (per-entry gate + gather budget). H0210 already had the gather at 83% of a frame; new are the post-cache decomposition, the surprise rate and the unimplemented foundation-7 budget.
+
+## Reasons
+
+**Reproduction (clean tree, patch.diff empty, verified).**
+- Paced bench: shares gather/engine/json/wire 0.669/0.203/0.091/0.037 vs author 0.694/0.175/0.092/0.038; p99 frame 10.70 = 10.70 ms; engine p99 5.15 vs 5.24 (budget bites); 49 vs 45 overflow frames; **canonical digest identical** (`41343a14…`) — schedule-independent outcomes, evidence regenerable. Absolute paced medians differ ~4× (frame p50 1.07 vs 4.37 ms) under 7× lower load (0.16 vs 1.14); the author disclosed load and claimed orders of magnitude only. Shares and tails — the actual claim — reproduce.
+- Unbudgeted bench: engine p50 0.0471/p99 1.30 ms, gather p50 0.721 ms (author 0.047/1.30/0.724). Exact.
+- gatherbench 48/400/4000: p50 0.747/2.97/27.45 ms (author 0.744/3.00/27.75); entries 64.2/329.4/3777.7; readouts 70/290/2573; surprise 4.72/8.23/7.43%; s

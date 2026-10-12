@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: the plane's frame constraint is the readout — gather ≈15.8 µs per universe body per frame, JSON 1.4–1.9 µs per view entry — 20–160× the engine's per-body advance (engine 3–5% of every frame). Everything reproduced: stock benches within 1–5%, instrumented counts exact (seen 32/76/428, reads ≈45, bodies 28–29), galaxy 10⁹ identical in counts (1,088,345 key requests, memo 0.9872; RSS 104.8 vs 104.5 MB; render 28.5–40.4 vs 32.0 ms, all 200 frames over 16.7 ms), gates B12/B13 60/64/B14 60.1 s as quoted. My adversarial `--rtf 4` run (226 bodies) confirms the linear 15.8 µs/body law. But the headline share is **not new**: H0210 records "the view gather is 83% of a light frame", H0211/H0213 built the gather cache, H0214 queues "the plane's readout"; and 3 of 5 predictions failed (honestly reported). New here: the decomposition (flat in members, linear in bodies), the caps (~1,200 bodies, ~9,000 entries per frame), the galaxy 10⁹ numbers. Cost to adopt: nothing to merge; re-rank the readout above kick cadence in the focus list.
+
+**Reasons.**
+
+1. **Reproduction (clean tree, `git apply work/patch.diff`, own target dir).** Stock: l0 p50 0.631 ms / engine 4.65% / gather 72.8% / json 15.7% (author 0.629 / 4.6 / 72.8 / 15.8); m4 gather 83.3%, 450 µs (author 83.3%, 443 µs) — this is H0210's "83%" to the digit; m400 p50 1.627 ms / engine 3.4% / json 48.9%, 808 µs (author 1.624 / 3.4 / 48.7, 806 µs); kickbench median 45–48 µs, leavers 369 µs, exact memo hit 0.0 (author 50/367/0). Instrumented: gather_measure counts mat

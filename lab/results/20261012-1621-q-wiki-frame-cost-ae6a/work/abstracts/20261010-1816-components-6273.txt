@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: a stirred belt's live cost is rate × kernel, not 157 bits/body; below a crossover mass mutual encounters create zero distinctions on the law's integer grid. All five logs reproduce numerically identically from the dossier's commands (main, seed31, coorbital, narrow, feedback 1222/1222 and 1222/1215 events). Measured: 2.2–2.4 bits/body at μ_b=10⁻¹⁸ after 100 orbits (0.3 GB per 10⁹) vs 19.6 GB naive — a 65× answer to the H_live item (HANDOFF: "not measured yet"), kernel 1.4–38 bits, rebind up to 4.7× cheaper. But three of six held-out predictions missed, the "1.7×10⁻¹⁸" crossover is an interpolation (measured 50% point ≈2.2×10⁻¹⁸), and the "ships never leave the program" claim fails in co-orbital fleets: at exactly 10⁹ kg (μ=5×10⁻²²) my run marks 8.8% of updates (0.87 bits/body per 50 orbits). Adoption: ~200 lines in shipmem, no engine change.
+
+**Reasons.**
+
+1. **Reproduction: complete.** Applied `work/patch.diff` in a clean tree; every number in the dossier's table regenerates (bits/body 0.42/2.41/16.79/31.03/45.84; rebind 0.43/2.21/12.0/19.5/25.9; GB 0.05/0.30/1.5/2.4/3.2; rates 6.11×10⁻³ / 1.89×10⁻² / 5.66×10⁻²; coorbital rebind 5.32 vs 25.03 = 4.7×; feedback 1222→1222 and 1222→1215, distinct 587/587 and 1389). Deterministic: bit-identical except timings. The GB column honestly takes min(scar, rebind).
+2. **Provenance blemish.** The stored seed31 and narrow logs lack the `max_rel_dP` field the final code prints: they were produced by an earlier build and not re-run after the last ed

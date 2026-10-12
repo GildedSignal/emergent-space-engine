@@ -1,0 +1,10 @@
+Grade: gold
+
+Abstract: Claim: the flown frame's constraint is the view gather's per-emitter exact tube readout (61–69% of every frame, 96–97% of it light-cone crossings), not kicks (0.3% of wall; kick-bench 32 samples, median 47 µs, reproduces exactly). The gather cache of H0211 has hit its ceiling: ~1 readout/emitter/frame is the cost itself. Measured: skip fails (57–62 of ~64 emitters change above player floors each frame), advance-instead-of-readout works (90–100% within 15 m per frame; 99.8% within 150 m at rtf 100, seeds 1 and 7, 76 and 417 bodies; degrades honestly at rtf 1000). Gain projected 25–40× on the dominant term from measured components (42 µs paced / 10 µs warm readout vs 1.1 µs fleet advance). Adoption: ViewCache refresh cadence, one builder step, no law or gate changes. Cost: floors must be derived per doll scale; fast approachers need per-frame refresh.
+
+Reasons:
+
+1. Reproduction (patch applied to a clean tree, load 0.7–2.5 on 8 vCPU; all dossier commands ≤ 60 s):
+   - 30 s rtf 100: crossing_ms 2.696 of bodies_ms 2.805 (96.1%; author 2.767/2.874, 96%), readouts/frame 63.5 (author 66.5), surprise per_frame 57.2 (author 60.2), extrap lt_15m 0.975 / lt_150m 1.000 (author 0.963/0.999). Same conclusions.
+   - 20 s rtf 100 --members 400: gather share 61.8% (author 61%), frame p50 8.83 ms (author 8.75), gather p50 6.29 ms (author 6.12), overflow_frames 337 (author 338), rtf lowest_1pct 0.0 (author 0), readouts/frame 274.5 (author 295.8), lt_150m 0.999 (author 0.997).
+   - kick-bench: exactly the author's numbers — 32 samples, median 47.3 µs

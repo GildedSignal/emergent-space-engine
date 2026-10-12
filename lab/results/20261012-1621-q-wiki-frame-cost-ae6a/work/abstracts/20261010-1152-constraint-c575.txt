@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract.** Claim: on the plane as it flies, the frame's binding constraint is the view gather — the only unbudgeted, synchronous O(N) cost (a Newton crossing per alive emitter per frame, no floor) — and 63–77% of it at rtf 100 re-reads emitters whose presented appearance moved under half a pixel, so a rate-bounded refresh skin should cut the median frame 3–4×. Reproduced in a clean tree with the patch: gather shares 69.9%/71.2% (author 69.8%/73.5%), digests bit-identical across machines (`41343a14…`, `09e40859…`, `aadaa1c8…`), invisible fractions 0.629/0.773 exact, kick-bench 1158 kicks / 95.5% quantized / 0% exact, `behave --law space` PASS. Not gold: the constraint is already on record (H0210: "the view gather is 83% of a light frame"; representation.md queues r6 and prescribes screen-capped aggregates), and the 3–4× gain is estimated, never measured. Adoption cost: one skin on the existing `ViewCache`.
+
+**Reasons.**
+
+*Reproduction (all commands from the dossier, clean tree + `work/patch.diff`, sequential runs).*
+- Benches: rtf 100 gather share 69.9% / engine 17.4% (author 69.8/17.7); rtf 1 paced gather 71.2% / engine 4.5% (author 73.5/5.2). Digest `41343a143a92f956…` matches the author's bit-for-bit.
+- Probes: m48 rtf 100 — digest `09e4085904c780e5` in two fresh runs and equal to the author's; gather p50 0.830/0.826 ms (author 0.824); invisible 0.629, sub-pixel 0.841, µs/emitter 13.55 (author 13.50). m400 rtf 100 10 s — digest `aadaa1c81e2bcc49` identical; invisible 0.773, sub-pixel 0.763 exact; overflow 139 vs author's 136 (adj

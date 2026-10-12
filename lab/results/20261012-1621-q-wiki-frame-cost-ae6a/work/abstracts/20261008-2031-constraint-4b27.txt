@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract.** Claim: the frame's constraint is the view gather (69–74% of every frame), its atom the ~5 µs orbit-phase solve paid per emitter per frame; an event-gated crossing (linear extrapolation, closed-form cone solve, re-solve on chain events or a curvature cap) makes the view pay events, not frames. Reproduced in a clean tree: gather share 0.69→0.29, readouts 62→4 (0 at rtf 1), gather p50 6.9× at matched machine state, universe digest bit-identical, profiler output bit-for-bit, and exactly the two disclosed cache-purity tests fail. Not gold: prediction 3's error bounds were breached (light-seconds 10×), and at 5400 frames the display error passes 1e-4 (1.68e-4); the 7× frame headline mixes machine states — matched-state it is 3.1×. Adoption needs the frozen cache-purity contract relaxed and the cap made a real bound.
+
+**Reproduction (clean tree, `git apply work/patch.diff` myself; load 1.0–1.9, 8 vCPU).**
+- Baseline `xtask universe --bench --seconds 30 --rtf 100`: digest `41343a14…` (matches stored), view_gather share 0.693 (stored 0.694), engine 0.181 (0.177); rtf 1: share 0.737 (stored 0.737). ✓
+- Gated, same command: digest identical to baseline (`41343a14…`, the bit-identity claim holds), gather share 0.292, readouts collapse, engine now the top share (0.417). ✓
+- `profile_view 100 48 1800`: readouts 4.0/frame, gather p50 83.6 µs, display diff 1.126e-4 / 1.092e-4 / 1.355e-6, gate counters, worst offender — **bit-for-bit the stored values**. rtf 1 variant matches too. ✓
+- `cargo test --release -p emergent-universe --test 

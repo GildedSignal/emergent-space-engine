@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: the plane's per-event cost is ~50 µs against ~3.6 µs of unavoidable physics; the player's exact encounter scan is 30–36% of the settle with a 33 ns/body/item O(N) slope; a source-state memo is bit-identical but deletes <5%. Reproduced from the patch in a rebuilt target, every number within noise (digests `d4413b80…`, `74a3a79f…`, `b1dcf925…` exact; memo 1.03×; scan 56.6→118.5 µs/item across cohort 200→2000; NOSCAN leaves 66%). The memo should not be adopted (at 1e11 ticks it is 8% slower — my run). Gain: a ranked deletion ledger (same-doll pair check ~4 µs/pair, root_state 7 µs/event), no 10× delivered. Adoption cost: zero code; numbers only.
+
+**Reasons.**
+- **Reproduction (all ✓).** Applied `work/patch.diff` to a clean tree and rebuilt `spacex_probe`/`cost_split` myself (50 s): every digest in the dossier is bit-identical to my rebuild; memo off/on, threads 1/4, plain plane, cohort 2000, NOSCAN, cost_split all reproduce within shared-box noise (2.64→2.56 s = 1.03×; scan 30–32%; threads 4 slower, 3.37 s; root_state 6.95 µs).
+- **Adversarial (mine).** Seed 42 cohort 500 off/on: identical. Threads 1 vs 8: identical (schedule independence beyond the author's 4). 1e11 ticks cohort 2000 (3.3× pruning stress): digests identical, and the memo is a *pessimization* there (18.67→20.19 s) — strengthens the delete recommendation beyond the dossier. Scan share stays 32% at 1e11.
+- **Mechanism verified in source.** `PlayerNeighbourhood::find` clones `binding_at` for every body (the slope) and runs the cartesian decode 

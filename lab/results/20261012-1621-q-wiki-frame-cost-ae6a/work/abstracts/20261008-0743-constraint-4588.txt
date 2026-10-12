@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: at player scale (≤ ~430 visible bodies, ≤ 10³× time) the frame constraint is the view gather, not the engine. Reproduced on a clean tree with the patch: unpaced gather p50 0.723 ms / share 0.675 (author 0.718/0.674), 428 bodies 2.69 ms / 0.591, rtf 10⁴ engine share 0.559 with 25,578 kicks (author 25,598), quiet rows 82.7/80.5/84.6 % — identical to 0.1 pp. Pacing artifact confirmed with its trigger (cool CPU 3.70 ms vs warm 0.72 ms; shares stable both ways). Expected gain: a display-quantum row cache deletes ~50–80 % of gather rows ≈ 2–3× frame at today's N. Cost: one cache beside `ViewCache` plus a behaviour gate. Not gold: gather-dominance is H0210's recorded limitation, predictions 2/4, the lever is proposed not built.
+
+**Reasons.**
+- *Reproduction.* Applied `work/patch.diff`, rebuilt (8 s, shared target dir). Every core number lands within a few percent: shares to three digits (0.675/0.202 vs 0.674/0.202), overflow 3/116 vs 3/109, rtf_lo at 10⁴ 1,494 vs 1,428, kick median 35.15 µs (author's `kick-bench-full.txt`). Coherence seed 1 reproduced exactly (82.7/80.5/84.6 over 1,199 frames).
+- *Predictions.* 2/4 held, both misses honestly reported, and the pre-registered falsifier (prediction 1) fired against the author's own expectation — the 3.5 ms dashboard reading was an artifact. Pre-registration order consistent: `predictions.md` 07:49:24, first decided run's output 07:49:37, sweeps and coherence 07:51–07:58. Gold's "predictions held" is met for half of them.
+- *Adversarial (5).* (i) Paced 10 s on a cool CPU: vg 

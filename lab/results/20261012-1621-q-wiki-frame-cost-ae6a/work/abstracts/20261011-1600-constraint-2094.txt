@@ -1,0 +1,11 @@
+Grade: silver
+
+**Abstract.** Claim: on the plane as flown the frame's constraint is the view gather (linear 15.4 µs/emitter, 65–70% of every frame), not the engine (protected by its 5 ms budget); the next representation to change is the view's. Reproduced exactly: `gather_scaling` 15.45 vs 15.41 µs/emitter at 100k emitters, 1.98 readouts both; bench gather share 69.5% both. Adversarial: the "scene saturates at 428 bodies" finding is false — xtask clamps `--members` at 400 (m480/m4800 have identical digests); with the clamp raised the scene reaches 3744 bodies in 10 s, gather still 60.7% of a collapsed frame, player item 24.5 ms > the engine's whole budget. Gain: names where the next 10× lives (doll-level gather). Cost: a view-layer redesign awaiting Julien's perception floor.
+
+## Reasons
+
+**1. Reproduction (clean tree, patch applied).**
+- `gather_scaling`: my run vs the author's, µs/emitter at 100/1k/10k/50k/100k emitters: 14.96/15.02/15.45/15.45/15.45 vs 14.93/15.03/15.41/15.40/15.40; readouts 1.98 both; dead linear over three decades. Peak RSS 620 MB. The headline law is real.
+- Baseline bench (`universe --bench --rtf 100 --seconds 30`): gather p50 3.45 ms / share 69.5% (author 3.46 / 69.5%), engine 0.239 ms / 17.6% (author 0.243 / 17.4%), json 9.1%, wire 3.8%. No hitches above 16.7 ms. Matches.
+- Gate artifact claim verified: the plane law answers only B12–B14 (xtask/src/behave/plane.rs); G1–G6 PASS under `--law space` (work/behave-space-g.txt); B12 FAIL and B13 60/64 match HANDOFF's known state; B14 at 60.1 s is marginal on this box. No new breakage.
+- Arith

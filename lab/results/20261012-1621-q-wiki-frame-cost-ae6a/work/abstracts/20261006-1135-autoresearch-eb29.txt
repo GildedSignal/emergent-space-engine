@@ -1,0 +1,7 @@
+Grade: silver
+
+**Abstract.** Claim: the universe's `bind_in` discards `from_state`'s residual decode; deleting it (`from_state_lean`, +15/−2 lines) is bit-identical and cuts kick cost. Reproduced: replay and state digests identical on seeds 1–3 (author's digests match mine exactly) and on my held-out seed 7; tests 99 passed/0 failed/1 ignored; `behave --law plane` verdicts identical to the stashed baseline (only timestamps and B13 wall time differ). Interleaved A/B of both binaries on one quiet box: made median 34.9→31.6 µs (−9.5%), leavers −3.7%/−5.1% — direction holds, magnitude below the claimed −14/−15%. Primitive rates confirmed (cos ≈47 ns, div_word 18.5 ns; cos+div ≈34 of the 60 µs compile). Adoption is two lines; next lever (lazy knot compilation) is designed, not measured.
+
+**Reasons.**
+
+1. **Reproduction (bit identity: full).** Clean tree, `git apply work/patch.diff` (verified byte-identical to `git diff crates/`). Baseline digests match the author's `predictions.md` exactly (seed 1 `27fd0a44…`/`a6792ead…`, seed 2 `6ce6c53f…`/`b8b47653…`, seed 3 `5e121398…`/`cb07680f…`), and R1 reproduces every one, plus my adversarial seed 7 (`f3276e19…`/`039ce671…`), refused=0 throughout. `cargo test --release -p emergent-space -p emergent-universe`: 0 failed, 1 ignored (99 passed; the author wrote 67 — count differs, verdict identical). `behave --law plane` on both binaries: every gate verdict and number identical; only machine_state timestamps and B13's wall (2.72 vs 2.63 s) differ — exactly the author's own diff. Failing gates are m

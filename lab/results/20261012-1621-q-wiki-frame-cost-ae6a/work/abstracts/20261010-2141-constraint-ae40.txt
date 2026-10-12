@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract.** Claim: on the plane as-flown, the median frame is view-bound (the *cached* gather is 65–70% of frame CPU, rtf-independent) and the p99 tail is single *player* events (1.3–3.4 ms each, growing with doll population via the O(all-bodies) encounter scan); kick-cadence work targets the cheapest 17–22% of the frame. Reproduced: both digests bit-for-bit, and the digest held across different kick counts (8802 vs 8383), confirming the canonical-cut contract; shares 0.60–0.68 vs stored 0.64–0.70; player max per-item by 4–28×, monotone in members; seed 2 and rtf 2×10⁴ hold. Gain: ranks the queued readout and encounter builds first. Cost: zero code. Not gold: view-bound is H0210's recorded limitation; the player-event mechanism is code-read, not instrumented.
+
+**Reasons.**
+
+1. **Reproduction.** `xtask universe --bench` re-run on the unchanged tree (`work/patch.diff` is empty): `--rtf 100` gives digest `41343a…728b2` and `--members 400` gives `3db02d3d…ca2ce`, both bit-identical to the stored JSONs. Key quantities: gather share 0.680/0.603 (stored 0.697/0.640), engine share 0.188/0.229 (stored 0.172/0.221), player per-item the max kind at 4.3×–28× the ship, growing 685→2193→~3400 µs across members 48→400→400-effective. Absolute µs run ~2× faster on today's quieter machine than the author's table — the author's own "ratios, not absolutes" caveat is correct and necessary.
+
+2. **A bonus the author under-sells:** my m400 run resolved 8802 kicks and 264 player items vs the stored 8383/238 (different budget slicing under differ

@@ -1,0 +1,12 @@
+Grade: silver
+
+**Abstract.** Claim: on the engine's belt path (default cadence 2⁷) the cycle memo would hit 0 of 203,017 kicks — every kick fires, rebinds and rekeys (1.000/kick, ~22 µs per bind). Reproduced bit-for-bit; extended adversarially: all 101,519 keys are globally distinct (zero revisits — even an unbounded memo misses every kick), and Saturn (2⁻¹², 9.58 AU) also saturates at 1.0000. But `bind()` is only 43.7 % of wall (2.22/5.08 s), so the designed re-anchor (0.05 compiles/kick) buys ≈1.7× belt wall, not 20× — the 20× is the compile-count reduction alone. Belt compute at 10⁹ ≈ 3.4 % of one core; the 8 GB risk is the record format, not the kick stream. Silver: held-out predictions failed, and the gain is a priced target, not a wired lever.
+
+## Reproduction (clean tree, `git apply work/patch.diff`)
+
+`cargo test -p emergent-universe --release --test hlive -- --nocapture`:
+
+- 2⁷: events 406,220 (kicks 203,017, opens 385, boundaries 202,818), rebinds 203,017 (1.000/kick), rekeys 203,017 (100 %), 25.9 µs/event (author: 23–25, shared box), 196.7 events/body/ship-orbit, 4.41-yr ship orbit. Identical counts to the dossier.
+- 2⁴: events 50,939, rekeys 25,401 (100 %); work ratio 7.98× for 8× cadence — "work ∝ cadence, cost per event flat" confirmed.
+- Control: 397 kicks, 397 rekeys; `dv != 0` = 0 everywhere — and code reading confirms why: `kick_clock` writes `dv: [0; 2]` (step.rs:638); only the non-clock `kick()` populates it (step.rs:388). The first probe was indeed blind; the author's disclosure is accurate.
+- Sizes 176/192/448 B ✓.

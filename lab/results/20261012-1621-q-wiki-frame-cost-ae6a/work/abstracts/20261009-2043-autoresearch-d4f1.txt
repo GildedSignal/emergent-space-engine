@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Reproduced in a clean tree (`git apply work/patch.diff`, `xtask universe --kick-bench --seconds 55 --seed {1,2,3}`): replay digests bit-identical to uninstrumented runs, `refused` 0; compile/bind 0.85/0.60/0.85, fit_key ≤ 11%, front half ≤ 18% — the dossier's ranges hold; my fresh seeds 7/11 (83/70 kicks, leaver-heavy) give compile/bind 0.89–0.90, front 3%, strengthening the claim. The localization is real and adoptable for free (probe only, tree restored): `Orbit::compile` is the kick's cost, front-half micro-optimization caps at ≈ 1.2×. Not gold: no 10× moved, and held-out prediction 1's strong form failed on seed 2 (compile/bind 0.57–0.62 vs ≥ 0.75; front 18–19% vs ≤ 15%), disclosed by the author. One experiment away: intervene on the compile and measure the drop.
+
+**Reasons**
+
+1. **Reproduced, bit-exact behaviour.** Clean tree, uninstrumented runs first: seeds 1/2/3 give `131a3982…`, `17ba6896…`, `f6541714…` — identical to the author's *instrumented* JSONs, so the probe is digest-neutral on all three seeds, not just the claimed seed 1. With the patch applied the phase ratios reproduce within run-to-run noise (my compile/bind 0.83/0.60/0.82-total vs author 0.78/0.57–0.62/0.83). Uninstrumented medians 46.9/45.1/46.6 µs match the claimed "46/45.6/47.3". `refused` 0 everywhere.
+2. **Predictions.** `predictions.md` (20:57:34) predates the held-out artifacts (seed JSONs 20:58:31); its seed-1 quotes (fit_key 4.5 µs) come from an earlier repeat than the saved JSON (4.69 µs), consistent with tune-then-predict-then-hol

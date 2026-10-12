@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: the constraint finding holds at true N with three corrections — no 428-body saturation (a CLI clamp; 4331 bodies at 15 s), the plane flies at 1.00–1.29 readouts/body (not the stream's 1.98), and the hot marginal is ~11 µs/body, per-readout ~8–9 µs, memory-bound; the first flight's 69% gather share is inflated ~4× by pacing. Reproduced bit-identically: all three bench digests from clean tree + the one-line clamp; the m4800 collapse (gather 36.9 ms/63.6%, engine pinned 5.12 ms deferring 900/900, player 25.2 ms/item, 44.9k hitches/h, RSS 1.17 GB); view_rel 1.00–1.63; gather_scaling 15.0–15.5 µs, 1.98; shipped `--unpaced` confirms 0.71 ms vs paced 3.46 ms. Not gold: `work/patch.diff` is empty — the dossier's "both edits are in the patch" is false and the plane_readouts source is lost; m480 "zero hitches" flips to 240/h on rerun (box noise ±2×).
+
+## Reasons
+
+**1. Reproduction (clean tree; patch.diff is empty so I redid the described edit myself).**
+- One-line clamp (`clamp(4, 400)` → `clamp(4, 40_000)`, xtask/src/universe/mod.rs:32), rebuild, rerun. Baseline `--bench --rtf 100 --seconds 30`: digest `41343a14…728b2` **bit-identical**; frame p50 4.21 ms, gather 3.46/69.9%, engine 0.239 ms, 0 hitches, rtf median 100. `--members 480`: digest `c4e03c80…` **bit-identical**, 508 bodies — the clamp was indeed the whole "saturation". `--members 4800 --seconds 15`: digest `577a2568…` **bit-identical**; 4331 bodies, frame p50 56.9 ms, gather 36.86/**63.6%**, json 11.5/19.8%, wire 2.4/4.1%, engine p50 5.118 (max 53.0 — the on

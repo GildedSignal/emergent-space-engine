@@ -1,0 +1,16 @@
+# Check — 20261009-2043-quant-3cfc (quant lens)
+
+Grade: silver
+
+**Abstract.** Claim: the plane's smoothness contract breaks at ~1,600 members (one indivisible `Fleet::advance` exodus slice, 0.6–1.5 s) and 8 GB cannot fly a 10⁵ fleet. Reproduced on a clean tree with the author's patch: 400/10 s digest bit-identical (`aadaa1c8…`), one 630–742 ms fleet item at 3,200–25,600 (`slices: 1`), break confirmed on seeds 2 and 7, at rtf 1, and at 4 threads; RSS 124/315/842 MB exact; 100 k killed at 1.85 GB and climbing. The clamp finding alone unblocks all load testing. Not gold: 3 of 5 held-out predictions failed, and the memory attribution is wrong — I measure 3.87 GB at 25,600 (author est. ~1 GB) and ~150–330 KB/member resident, not 6.5 KB/leaver; the 8 GB ceiling is ≈5×10⁴ members. Cost to adopt: one clamp line plus a fleet-boundary slicing fix, both named.
+
+## Reproduction (clean tree, `git apply work/patch.diff`, rebuilt release)
+
+| dossier claim | author | mine | verdict |
+|---|---|---|---|
+| 400 members, 10 s: p50/p99 4.8/10.1, overflow 105/600, view_gather 54 % | m1e6.json | 4.76/10.09, 106/600, share 0.54, digest `aadaa1c81e2bcc49…`, cut 203025447 | exact, bit-identical |
+| determinism | two runs same digest | det1 = det2 (cut 40605089, `0527ad28…`) | holds |
+| 1,600 broken | p99 25.1, overflow 116/120 | 25.96, 118/120 | holds |
+| 3,200: one 624 ms slice, 1,269 leavers | s3200 | one item 643 ms, `slices: 1`, 1,329 leavers | holds |
+| 6,400: one 645 ms slice, 2,573 leavers | s6400 | one item 630 ms, 2,510 leavers | holds |
+| rtf 1 control | 621 ms | 63

@@ -1,0 +1,8 @@
+Grade: silver
+
+**Abstract.** Claim: the frame's constraint is the view's readout, not kicks — the light-cone gather owns 54–74% of every frame and is ~97% the exact integer tube decode (~4.5 µs × ~1.8 cartesian calls per body per frame), capping the visible universe near 2×10³ bodies at rtf 100. I reproduced everything I reran on clean main + the patch: digest bit-exact (aadaa1c8…) with and without instrumentation; 410 bodies: gather 54.3%/3.08 ms p50, engine 32%, state_rate 97% of the bodies loop, 0.718 Newton evals per body per frame, cartesian 4.54 µs/call, 2.47 calls/eval, secondaries 5.6%; paced default: gather 73.6%, engine 4.4%; kick-bench exact 0%/quantized 95.5%. Gain is projected (per-distinction gather), not delivered. Cost to adopt: keep the counters, re-rank the queue.
+
+**Reasons.**
+- Reproduction is exact. Baseline on clean main gives the same digest and shares as the author's instrumented run; the counters match to <2% (calls 435,865 vs 435,648; µs/call 4.54 vs 4.59). The purity control (counters change no bit) I verified myself in both directions.
+- Adversarial: seed 7 → gather 52.4% vs engine 34.1% (gather leads); rtf 1000 → gather 52.6%, engine 39.9%: the ranking holds, but the dossier's band "64–75% at every rtf" did not reproduce at rtf 1000 on my rerun, and engine passes the stated 29% (40% measured). Shared-machine noise cannot be excluded — the retained logs hold only one bench JSON; the rtf-sweep and 71-body numbers are regenerable but not retained.
+- `behave --law plane` log confirms B14 eats its whole 60 s and B17 never runs; B1

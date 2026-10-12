@@ -1,0 +1,7 @@
+Grade: gold
+
+**Abstract.** The attack falsifies the design's view contract (representation.md §2, quoted verbatim): near a compact mass the single-deflection gather is blind over a closed-form 41.28° half-width patch behind the hole (verified) while exact ray tracing always shows a symmetric image pair. Reproduced bit-for-bit (13.9 s); truth independently re-verified with scipy DOP853 (agreement ~10⁻³°). My strongest salvage — exact one-bend ray shooting, no thin-lens kink — still finds 0/2 bright images at r_o = 10 M (best error 3.4–4.6°), and at 100 M adds ghost images inside the shadow and stays blind at alignment. No gate judges the gather (r6 absent, B3/B16 forward-only). Gain: blocks an unsalvageable contract before anything is built. Cost: one rung + one design decision; zero engine code.
+
+**Reasons.**
+
+1. **Reproduction.** `python3 falsifier.py` in a clean tree (patch.diff empty): output JSON identical to the shipped one, 0 field diffs. Every dossier headline number matches: A (1 root, 5.94e-6 rad, Newton 1 iteration at β ≤ 0.999), B (err/bend 5.15%), C (blind 100% at r_o = 10 for r_s = 20/30/50; 14.3% at 100; err max 26.49°, median 2.05°, >1° 66.7%, >10° 16.7%; image pair 136.297°/223.703°; C4 gap 0.72 rad). Timing: predictions.md 10:42:54 → falsifier.py 10:57:49 → dossier 11:01:37 → falsifier-out.json 11:01:59 (a rerun, disclosed in author-final.md; bit-identical, so the shipped JSON is the decisive run's numbers). The predictions contain genuine misses (B1 ≤1% → 5.15%; C1 ≥3 visible → below cut; C2 patch 27.7° → 41.3°), whi

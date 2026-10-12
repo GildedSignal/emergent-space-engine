@@ -1,0 +1,8 @@
+Grade: silver
+
+Abstract: Claim: the view-gather premise (one cone crossing per tube, Newton from the previous frame) survives closing β up to 0.99999 and the mutual 0.9×0.9999 case on the shipped code. Reproduced: all three tables (rtf 1/100/1000) byte-identical, ~6 s each — zero drops, zero cold-vs-memo disagreements, ≤1.84 reads/emitter. My independent attacks: a closed-form retarded-time oracle (no shared code with `crossing`) confirms apparent positions to ≤3e-2 relative at γ≈707 (5e-3 at 0.9999, zero for away); Away/Across at 0.9999 and 40-frame stale-cache jumps (memo recovers in 2 reads/emitter) are clean. Gain: removes the last unmeasured extreme from the premise; nothing to adopt beyond folding the edge cases into r6's criteria. Cost: one 6-second example. Not gold: no bottleneck moved, and the kinked tube is unmeasured.
+
+## Reasons
+
+1. **Reproduction is exact.** Applied `work/patch.diff` to a clean tree, ran the three dossier commands: every row of all three tables matches `work/rtf1.txt`, `rtf100.txt`, `rtf1000.txt` (reads/em, max/frame, drops, disagree). ~6 s per invocation, well under the memory budget.
+2. **The mechanism claim is true in the code.** `view.rs:136-144` clamps the memo slope to [1e-3, 1e4]; `crossing` (view.rs:170-210) is a bracketed walk (64-read cap) whose Newton step uses the *instantaneous* relativistic rate `1 + n·β`, not the clamped slope. For a straight tube `g` is exactly linear in the emission tick, so one step lands on the root from any guess; the clamp only degrades the guess. This is why P3/P4 failed, and the dossier says

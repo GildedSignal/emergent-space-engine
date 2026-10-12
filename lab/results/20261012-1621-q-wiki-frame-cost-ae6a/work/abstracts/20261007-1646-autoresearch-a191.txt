@@ -1,0 +1,10 @@
+Grade: silver
+
+Claim: each kick paid two redundant exact tube decodes for clock bookkeeping; deleting them is bit-identical and makes the median made kick 16–21% and the leaver kick 6–11.5% cheaper, leaving certified quadrature in `Orbit::compile` (60–66%) as the wall. Reproduced: with the patch's diagnostic scopes stripped, made −17…−19%, leavers −6…−10% across the four dossier scenes plus three adversarial edges (members 200/4, rtf 10); digests bit-identical everywhere, `refused` 0, 18 suites green, `u_tau2` → 0.0%. Caveat: the patch as shipped (always-on per-panel prof scopes, ~350 drops/kick) is a net leaver regression (+9–12%) — strip `prof.rs` before adopting. Gain ~1.1–1.2× per kick: below the 10× bar; it closes the micro layer and points the lever at cadence.
+
+## Reproduction
+
+Clean tree at `a838a28`; built base (`git HEAD`) and patched binaries from one target dir; box swung ~1.6× in load during the check (base made 39→62 µs), so ratios only, interleaved.
+
+- **Digests:** `replay_digest` and canonical `digest` bit-identical between base and patched on all 7 scenes — the author's exact values (`eaef383e…`/`c8ab26da…` tuned; per-scene values match their `data/*.json`). `refused` 0 everywhere. The gate is real: the canonical digest hashes `r.proper` (`universe.rs:1024`), the accumulated τ the deleted solves fed, plus `event_time`, tube, keys, carries.
+- **Source-level bit-identity:** `proper0` is the same decode at the same event tick in all four `Binding` construction sites (`bind_in` → `Bound.orbit`; `rebind_at`; `universe.rs`

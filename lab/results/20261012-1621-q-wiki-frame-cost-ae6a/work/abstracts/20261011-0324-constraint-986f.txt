@@ -1,0 +1,10 @@
+Grade: silver
+
+**Abstract.** Claim: on the shipped plane the frame is view-bound, not engine-bound — the view pipeline is 67–82% of the median frame at rtf 100, and the gather touches every body every frame (~4.2 µs per bare tube, ~11.7 µs per bound body, 1.3–10.2 µs per fleet member), saturating a 16.7 ms frame at ~2–4×10³ bodies. Reproduced on a clean tree: identical bench digest; view_gather 70.1% vs 68.9% (p50 3.44 vs 3.42 ms); the probe within 1% everywhere (per member 5.93/7.85/10.20 vs 5.90/7.87/10.12 µs; 163 vs 162 ms at 16,000 members); kick-bench memo rates exact (0% / 94.49%). Gain at the goal is possible-vs-impossible, not 10×. Cost: the diagnosis is free; the fix is one module, already promised (plane.md foundation 7, PRINCIPLES #5).
+
+## Reasons
+
+**Reproduction (clean tree, `work/patch.diff` applied, release, same box class).**
+- `universe --bench --seconds 30 --rtf 100`: digest identical (`41343a143a92f956…`); frame p50 4.216 vs 4.166 ms; view_gather share 70.1% vs 68.9% (p50 3.444 vs 3.421); engine p99 5.02 vs 5.13 ms (both over the 5 ms budget). Overflow frames 18 vs 39 — machine state, as the dossier's own machine_before/after records anticipate.
+- `constraint_probe 100`: per-emitter floor 4.955/4.169/4.159 µs flat in n (stored 4.275/4.061/4.215), 1.03 readouts per emitter, n=4800 refused identically; plane_late 11.776 vs 11.713 µs per live body, fixed player readout 12.0 µs; members sweep 5.933/7.854/10.203 vs 5.900/7.870/10.118 µs per member, gather 163.2 vs 161.9 ms at 16,000 members.
+- `universe --kick-bench --rtf 100 --seconds 20

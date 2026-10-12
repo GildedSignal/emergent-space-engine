@@ -1,0 +1,10 @@
+Grade: gold
+
+**Abstract.** With the Riemann sign fixed and windows Richardson-extrapolated to zero, the Fermi-frame Schwarzschild tide is confirmed as the q-fermi2-tide closed form, and phase-2 cadence follows N/orbit = 512π√2·3f√g/√((2−3x)²+g²), 3047→421 monotonically. All artifacts reproduce byte-identically. The prior run's axis epoch columns (3214/4017/4038/16081, its checker's included) are unwrap artifacts; honest sweep is exactly 2π per their window; their tensor columns survive (2877/2395 exact). Held-out attacks confirm: epoch formula vs einsum at r=8/30 to 1e-5, kernel at r=3.5/5 to 4e-5. Gain: E9 freezes (positive = this kernel, negative = naive); strong-field cadence fear deleted (421, not 16081, at 3.1M). Cost: none new — the closed form is already schwarztide.py; the epoch rule is one rational comparison. P6's unbound half failed (6898/5320 vs <1500), honestly reported.
+
+## Reproduction (clean tree, /tmp/check-b7a4, patch.diff empty)
+
+- `python3 sanity.py` (0.70 s): reproduces; fixed-sign einsum = diag(−3w, +w) at 6M and (−32w, +w) at 3.1M; static-r̂ sweep 4.4429 = 2π−geod at 6M (the geodetic anchor).
+- `python3 kernel.py` (49.4 s vs the dossier's 56 s — same order, only number that differs): `decisive.log` and `kernel-table.json` **both byte-identical** to the stored copies.
+- `python3 leakage.py` (3.6 s): identical to `leakage.log`; 3.1M members plunge at every orbit-scale window, 6M gives −2.2463/−2.6432/−0.5476 at T_p/4, T_p/2, T_p.
+- Timeline: `predictions.md` 02:34:24, before the decisive run (decisive.log 02:47:07). `ker

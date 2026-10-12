@@ -1,0 +1,11 @@
+Grade: silver
+
+**Abstract.** Claim: at the 400-member clamp the plane's felt constraint is game-time fidelity, not the frame; the largest spike is the player's O(doll-population) encounter scan (27% of engine time from ~1% of items, one item = 68% of the frame budget), and 4 threads worsen overflow. Reproduced bit-for-bit: bench and kickbench digests identical, every table number recomputed from `data/` matches; my fresh runs confirm the ordering (m400: player 2336 µs vs ship 83; overflow 301→507 with 4 threads; seed 2 and m100 hold). Gain: measured payoffs for the already-queued cone and skin; threads killed as a lever. Cost: nothing to build. Not gold: no gate moved, and predictions 1–3 were written after the m200/m400 runs had finished.
+
+## Reproduction
+
+Clean tree (`work/patch.diff` is empty — a measurement-only run; `run.sh`'s restore is consistent). Built, then re-ran the commands:
+
+- **m400 paced**: digest `24208b…` and `cut_tick` **identical**; engine p50/p99 0.41/5.7 ms (author 0.43/6.1), share 25% vs 23%, rtf median 100 / worst-1% 0.0, overflow 301/1800 vs 389 (shared box, quieter now); µs/item player 2336 / ship 83 / fleet 37 vs 3405/104/40 — same ordering, player ≈ 28× ship.
+- **kick-bench**: digest `a6792e…` **identical**; memo identical (exact 0%, quantized 95.47%, 1125/51 shapes); resolver median 34.9 µs (author 35.3), all-kicks 76.3 (76.4), leaver 92.5 (92.1), 793/1158 leaver samples.
+- Every number in the dossier table recomputed from the stored JSONs: all six rows match exactly (frame percentiles, engine/view p50/p99 and shares, rtf, over

@@ -1,0 +1,8 @@
+Grade: gold
+
+**Abstract.** The claim reproduces end to end, bit for bit where deterministic: stock digest `6ce636fa…`/cut 406050894; mode-0 view digest `cb69811f…` and mode-1 changed-view digest `cd8bee72…` match the author's stored runs exactly; digest identical lever-on/off at rtf 100 (paced and unpaced), rtf 1000, rtf 10000, seeds 1, 3, 7; kick-bench `c8ab26da…`, 35.2/91.7 µs, memo 0.0/926 shapes; B16 PASS 6.93e-8. Sources' tube reads 151.5→13.3 ms (11.4×), reuse 91.7%, frame p50 ×1.10–1.16, gather 0.674→0.636 vs engine 0.203→0.226: no inversion — the parent run's gold bar fails by ~2.5×, with the residual measured (561–589 of 709–846 ms bodies loop outside `partial`). Gain: an adoptable, digest-clean ×1.16 view lever (~60 lines) plus a measured premise kill redirecting the gather to the cell-held-field representation (PRINCIPLES 7). Cost: trivial; engine semantics untouched.
+
+**Reasons.**
+
+1. **Reproduction (clean tree, patch applied by me).** Every deterministic number matches: digests (universe, view mode 0, view mode 1, kick-bench), cut tick, mode-2 deltas (Δp 2.980e-8 root units, Δv 1.209e-16, spread 153,624,076 ticks — exact), B16 worst 6.93e-8, memo 0.0/926, quantized 94.4924%. Timing numbers sit inside load noise: sources_tube 151.5→13.3 ms (11.4× vs author's 11.9×), bodies loop −16% (−19.5%), interleaved uninstrumented p50 ×1.09–1.15 (×1.16), shares to the third decimal (0.674→0.636 vs 0.203→0.226 against the author's 0.674→0.634 / 0.203→0.227).
+2. **Held-out predictions.** File order holds: mode-0 splits 12:27,

@@ -1,0 +1,10 @@
+Grade: gold
+
+Abstract: Claim: the plane's engine core is schedule-independent (one digest per cut across nine adversarial paths, 3 seeds, repeats), but the shipped interactive loop logs key changes at the frame's presented tick (`session.rs:80`), so the same physical play writes different canonical histories at different frame rates and under load. Reproduced bit-for-bit from the dossier's commands in a clean tree: 16/16 matrix lines, 12/12 play lines, all three control digests (encounters 68–102, contacts 0–14, kicks 6474–6481). Adversarially extended: the leak persists at rtf 1 (the page's default pace) and at 512 members; thread count is a further axis through the same seam. Adoption: two lines (quantize the decision tick to scheduled game time) plus a play60/play30 equal-digest regression test. The core negative independently confirms adba97a's five-run validation.
+
+## Reproduction
+
+Applied `work/patch.diff` to a clean tree, built `CARGO_TARGET_DIR=/tmp/x-target cargo build --release -p emergent-universe --bin determinism` (8.9 s). Every run ≤ 6 s, well inside the time budget.
+
+- Matrix (`/tmp/check-matrix.txt`): seeds 11/22/33 subset (direct, events1, events8, wall, frame-starve, frame-rich, frame-obs, ckpt; thr8) — every line bit-identical to `work/matrix.txt` (digest and all counters; only `wall_ms` and the `direct`/`direct-thr8` tag spelling differ). One digest per seed across all paths: `9dbf38e4…` / `9001b877…` / `ff0ff6d7…`; only events/slices counters move, exactly the pre-registered split.
+- Play (`/tmp/check-play.txt`): 12/12 lines bit-identica

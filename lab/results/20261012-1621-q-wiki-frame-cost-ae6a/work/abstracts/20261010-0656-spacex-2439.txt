@@ -1,0 +1,16 @@
+Grade: gold
+
+**Abstract.** Claim: the plane's frame loop pays ≈0.43 µs × N per frame even when nothing is due — `Universe::advance` defers and requeues every non-due entity: a hidden tick (P14). Reproduced on my own build from `work/patch.diff`: engine p50 0.054→2.81 ms (71→6,203 bodies) at constant 453 events/s; walked/frame = N−60…124 at every size; the rekey walk is acquitted (norekey 2.70 vs 2.81 ms, digests bit-identical, including the author's exact 6,203-body digest 3ea75405…); the default-scene digest equals the pristine binary's. Adversarial: at 9,888 quiet bodies engine p50 hits 4.7 ms — the whole 5 ms engine budget. Gain: per-frame cost returns to O(events). Adoption: one step — re-represent the queue by key tick (or a tick calendar), with digest equality as the regression.
+
+**Reproduction** (clean tree at a838a28, patch applied, `cargo build --release -p xtask`, CARGO_TARGET_DIR=/home/glmlab/lab-target-3; every command ≤ 60 s except the 6,203/9,888-body runs at 62/98 s wall, view-bound):
+
+| N | author engine p50 ms | mine | events/s (mine) | walked/frame (mine) |
+|---|---|---|---|---|
+| 71 | 0.058 | 0.054 | 453.0 | 57.4 |
+| 130 | 0.065 | 0.069 | 453.3 | 115.9 |
+| 859 | 0.21–0.23 | 0.232 | 453.3 | 838.9 |
+| 3,259 | 1.02–1.12 | 1.32 (loaded box) | 453.2 | 3,218.9 |
+| 6,203 | 2.45–2.67 | 2.81 | 453.5 | 6,138.3 |
+| 9,888 (mine) | — | 4.70 | 453.0 | 9,765.2 |
+
+Slope ≈ 0.45 µs/body/frame (author 0.43). Digests bit-identical where configurations coincide, across the author's runs, my runs, and my pristine build: default 71 a7d089f9… (

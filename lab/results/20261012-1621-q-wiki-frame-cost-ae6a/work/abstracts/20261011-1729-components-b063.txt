@@ -1,0 +1,8 @@
+Grade: gold
+
+**Abstract.** Claim: the plane's kick resolver (median 75.6 µs, 1,158 replayed kicks) sits ~1,400–1,800× above a measured ~42–56 ns information floor, and the cost is the per-kick tube refit, not physics. Reproduced in a clean tree: digests bit-identical (`eccc7f5a…`, replay `0e02bf0f…`), medians within 3% (77.4/35.6/94.7 vs 75.6/34.9/91.7), memo block identical (exact hit 0%, 1,125/1,158 rebinds), floor re-run: 41.5–42.9 ns (3-source), 2.2 ns (memory only), 125–161 ns (random order). Decomposition holds on unseen seed 7 (rest 88%). The checker closed the author's open split by timing `bind()` directly: 63.5–64.4 µs/call — the refit alone is ~84% of the kick; ext step re-derivation is negligible (0.9 µs, 12 calls). Gain: 10²–10³× per kick by fitting the tube per read, not per kick. Adoption: one builder item (additive invariants, fit-per-read; B12–B17 + digests acceptance).
+
+**Reasons.**
+
+1. **Reproduction.** Applied `work/patch.diff` to the clean tree, rebuilt (`CARGO_TARGET_DIR=/home/glmlab/lab-target-2 cargo build --release -p xtask`, 33 s), ran the dossier's command. All deterministic quantities bit-identical (digest, replay digest, samples 1,158, refused 0, memo block); timings within 3% on a shared machine. The floor: `gcc -O3 -march=native floor.c -lm`, all three variants reproduced within noise, plus an extra case the author did not print (1M bodies, 16 MB working set, with field: 43.1 ns — confirms the field, not memory, is the arithmetic floor at every cache size).
+2. **Predictions.** Pre-registered: `predictions.md` mtime

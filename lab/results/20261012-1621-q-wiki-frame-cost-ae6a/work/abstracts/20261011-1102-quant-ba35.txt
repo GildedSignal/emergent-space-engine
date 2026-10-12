@@ -1,0 +1,9 @@
+Grade: silver
+
+**Abstract.** Claim: the kick path is compute-bound (made 36–38 µs, leavers 92–102 µs, flat as the store passes L3, record clone 0.14% of a kick, exact-memo hit 0.0), and between 400 and 4,000 fleet members the flight dies on a "0.95 s unsplittable fleet battle slice" plus a 14.9 ms view gather. Every digest reproduces bit-identically and every number within machine noise — but the 0.95 s is misattributed: instrumenting the run shows one slice of 20 ms plus 2,091 hand-out events of 443 µs (927 ms), already split across frames by the 5 ms budget. The real levers are hand-out cost (12× a kick) and deadline pinning, not slice granularity. Gain: deletes record-packing and clone-elimination as levers; renames the fleet-scale wall. Adoption: correct the target, build nothing.
+
+**Reasons.**
+
+1. **Reproduction (clean tree, patch applied, i7-4790, same shared target dir).** Sizes test exact (`BodyRec=448 … Tube=16`). Kick sweep: made medians 35.3/37.0/36.7 µs at 71/393/3,842 bodies (author 41.8/36.2/38.2), leavers 120.2/93.1/102.1 µs, clone 0.044–0.056 µs, exact hit 0.0, quantized hit 0.832/0.910/0.945 — the quantized rates and all four digests and replay digests match bit for bit. Bench m4000: frame p50 29.1 ms, gather p50 14.89 ms, hitches 198,000/h, rtf 0, presented tick 32, `cost_ns[4]` 955 ms on `items[4]=1`, digest identical. maxrss matches the author's `.err` files (40 MB / 590 MB; 1.55 GB and 3.5 GB for the 40k/200k deaths). The warm-path flatness past L3 (2.8→34.5 MB, made 1.06×) is confirmed as far as it goes.
+
+2. **Predictions.** `pred
