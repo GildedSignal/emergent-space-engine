@@ -1,0 +1,9 @@
+frames=600 bodies=71 dead_still_stored=17 alive_by_kind={"ship": 49, "moon": 1, "planet": 3, "player": 1} catalogue_live=71
+plane bytes_per_body=5186 (its own accounting)
+sizes: BodyRec=448 Item=16 Binding=176 Tube=16 Knot=88 Scalar=16 Segment=192
+per-body side: fat=340B binding_beyond_tube=121B plan_items=1 hist(0..4+)=[0, 17, 37, 0, 0] => 482 B/body over 71 bodies
+usage: carry_used=25 thrust_used=1 ext_used=12 proper_used=25 fault_used=0 of 54 alive
+catalogue side: distinct_entries=54 of 54 alive; entry_bytes=163560B total, 2303 B/body-over-71, 3028 B/alive-body
+knots per compiled cycle: min=6 max=130 mean=22.5 over 36 cycles; recompiled-from-key bit-identical: 8 checked
+kick stream: cycles=663 distinct_exact=663 (hit 0.000) distinct_quantized_cells=45 (hit 0.932)
+floor packet: tube=16B + residual(law) 64B + kind/flags 1B + carry(when used) 16B + step/interval/anchor 24B + plan inline

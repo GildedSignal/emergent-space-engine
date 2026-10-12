@@ -1,0 +1,170 @@
+//! The per-body store census (components lens, run 20261012-0311): what an individual body in a
+//! doll costs today on the real plane, decomposed, against the law's own 16-byte tube floor
+//! (`crates/space::Tube`). Counts shared compiled entries once (by `Arc` identity), so the
+//! catalogue side and the per-body side are separated. Instrument, not a gate.
+use emergent_space::{binding::Trajectory, orbit::MemoCode, orbit::ShapeKey};
+use emergent_universe::body::What;
+use emergent_universe::fleet::Order;
+use emergent_universe::scenario::plane;
+use emergent_universe::{step, Budget, Config, Kind};
+use std::collections::{HashMap, HashSet};
+use std::mem::size_of;
+use std::sync::Arc;
+
+#[test]
+fn census_of_the_planes_per_body_store() {
+    let frames = std::env::var("CENSUS_FRAMES").map(|s| s.parse().unwrap()).unwrap_or(600);
+    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
+    let mut last: Vec<Option<i64>> = Vec::new();
+    let (mut cycles, mut exact, mut quantized) = (0u64, HashSet::new(), HashSet::new());
+    let mut frames_done = 0usize;
+    for _ in 0..frames {
+        last.resize(p.u.n_bodies(), None);
+        for i in 0..p.u.n_bodies() {
+            let rec = p.u.rec(i);
+            if rec.kind != Kind::Ship || !rec.alive {
+                continue;
+            }
+            let Some(item) = rec.plan.first().copied() else { continue };
+            if !matches!(item.what, What::Kick(_)) || last[i] == Some(item.t) {
+                continue;
+            }
+            last[i] = Some(item.t);
+            let upd = step::process(&p.u.ctx(), i, rec);
+            if let Some(Trajectory::Cycle(c)) = upd.new_entry.as_ref().map(|e| &e.trajectory) {
+                cycles += 1;
+                exact.insert(ShapeKey::for_orbit(c.key()).unwrap());
+                quantized.insert(MemoCode::encode(c.key()).unwrap().bits());
+            }
+        }
+        p.u.frame(1.0 / 60.0, 100.0, Budget::unlimited());
+        p.u.settle(p.u.now);
+        frames_done += 1;
+    }
+
+    // ---- the census ------------------------------------------------------------------------------
+    let n = p.u.n_bodies();
+    let mut alive_by_kind: HashMap<&str, usize> = HashMap::new();
+    let (mut fat, mut plan_items, mut plan_hist) = (0usize, 0usize, [0usize; 5]);
+    let (mut carry_used, mut thrust_used, mut ext_used, mut proper_used, mut fault_used) =
+        (0usize, 0usize, 0usize, 0usize, 0usize);
+    let mut distinct_entries: HashSet<usize> = HashSet::new();
+    let mut entry_bytes = 0usize; // counted once per distinct Arc<Entry>
+    let mut per_body_binding = 0usize; // the binding's non-tube fields, per body
+    let mut knot_stats = (usize::MAX, 0usize, 0usize, 0usize); // min, max, sum, n
+    let mut recompiled = 0usize;
+    for i in 0..n {
+        let rec = p.u.rec(i);
+        if !rec.alive {
+            continue;
+        }
+        *alive_by_kind
+            .entry(match rec.kind {
+                Kind::Planet => "planet",
+                Kind::Moon => "moon",
+                Kind::Ship => "ship",
+                Kind::Player => "player",
+            })
+            .or_default() += 1;
+        fat += size_of::<emergent_universe::body::BodyRec>();
+        plan_items += rec.plan.len();
+        plan_hist[rec.plan.len().min(4)] += 1;
+        if rec.carry != [0i64; 2] {
+            carry_used += 1;
+        }
+        if rec.thrust.is_some() {
+            thrust_used += 1;
+        }
+        if rec.ext.is_some() {
+            ext_used += 1;
+        }
+        if rec.proper != Default::default() {
+            proper_used += 1;
+        }
+        if rec.fault.is_some() {
+            fault_used += 1;
+        }
+        per_body_binding += size_of::<emergent_universe::bind::Binding>() - size_of::<emergent_space::Tube>();
+        let ptr = Arc::as_ptr(&rec.b.entry) as usize;
+        if let Trajectory::Cycle(c) = &rec.b.entry.trajectory {
+            let k = c.shape().knots().len();
+            knot_stats.0 = knot_stats.0.min(k);
+            knot_stats.1 = knot_stats.1.max(k);
+            knot_stats.2 += k;
+            knot_stats.3 += 1;
+            if recompiled < 8 {
+                // Knots are a cache, not state: compiling from the exact key must reproduce the entry bit for bit.
+                let again = emergent_space::orbit::Orbit::compile(c.key()).unwrap();
+                assert_eq!(again.shape().knots(), c.shape().knots(), "knots must recompile bit-identically");
+                assert_eq!(again.shape().crossings(), c.shape().crossings(), "crossings must recompile bit-identically");
+                recompiled += 1;
+            }
+        }
+        if distinct_entries.insert(ptr) {
+            entry_bytes += size_of::<emergent_universe::bind::Entry>();
+            match &rec.b.entry.trajectory {
+                Trajectory::Cycle(o) => {
+                    entry_bytes += o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>()
+                        + o.shape().crossings().len() * size_of::<usize>()
+                        + 32; // two Vec headers' allocator slack
+                }
+                Trajectory::Passage(_) => {
+                    entry_bytes += 4096;
+                }
+            }
+        }
+    }
+    let per_body = fat + plan_items * size_of::<emergent_universe::body::Item>() + per_body_binding;
+    let alive = alive_by_kind.values().sum::<usize>();
+    let dead = n - alive;
+    let tube = size_of::<emergent_space::Tube>();
+    let hit = |k: usize| 1.0 - k as f64 / cycles as f64;
+    println!("frames={frames_done} bodies={n} dead_still_stored={dead} alive_by_kind={alive_by_kind:?} catalogue_live={}", p.u.catalogue_live());
+    println!("plane bytes_per_body={} (its own accounting)", p.u.bytes_per_body());
+    println!(
+        "sizes: BodyRec={} Item={} Binding={} Tube={} Knot={} Scalar={} Segment={}",
+        size_of::<emergent_universe::body::BodyRec>(),
+        size_of::<emergent_universe::body::Item>(),
+        size_of::<emergent_universe::bind::Binding>(),
+        tube,
+        size_of::<emergent_space::orbit::Knot>(),
+        size_of::<emergent_space::orbit::Scalar>(),
+        size_of::<emergent_universe::body::Segment>()
+    );
+    println!(
+        "per-body side: fat={}B binding_beyond_tube={}B plan_items={} hist(0..4+)={:?} => {} B/body over {} bodies",
+        fat / n.max(1),
+        per_body_binding / n.max(1),
+        plan_items / n.max(1),
+        plan_hist,
+        per_body / n.max(1),
+        n
+    );
+    println!(
+        "usage: carry_used={} thrust_used={} ext_used={} proper_used={} fault_used={} of {} alive",
+        carry_used, thrust_used, ext_used, proper_used, fault_used, alive
+    );
+    println!(
+        "catalogue side: distinct_entries={} of {} alive; entry_bytes={}B total, {} B/body-over-{}, {} B/alive-body",
+        distinct_entries.len(),
+        alive,
+        entry_bytes,
+        entry_bytes / n.max(1),
+        n,
+        entry_bytes / alive.max(1)
+    );
+    println!(
+        "knots per compiled cycle: min={} max={} mean={:.1} over {} cycles; recompiled-from-key bit-identical: {} checked",
+        knot_stats.0, knot_stats.1, knot_stats.2 as f64 / knot_stats.3.max(1) as f64, knot_stats.3, recompiled
+    );
+    println!(
+        "kick stream: cycles={} distinct_exact={} (hit {:.3}) distinct_quantized_cells={} (hit {:.3})",
+        cycles, exact.len(), hit(exact.len()), quantized.len(), hit(quantized.len())
+    );
+    println!(
+        "floor packet: tube={}B + residual(law) 64B + kind/flags 1B + carry(when used) 16B + step/interval/anchor 24B + plan inline",
+        tube
+    );
+    assert!(n > 10, "the plane must be real: {n}");
+    assert!(frames_done > 100, "the run must be long enough: {frames_done}");
+}
