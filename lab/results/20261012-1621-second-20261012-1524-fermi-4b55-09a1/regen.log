@@ -1,0 +1,36 @@
+R_SOI=0.0867  belt 1e4 sigma_e=0.0055 a in [1,1.5]
+  seed42 20orbits dt=0.3    episodes= 2600 rate=1.300e-02/body/orbit
+  seed42 20orbits dt=0.15   episodes= 2619 rate=1.310e-02/body/orbit
+  seed42 20orbits dt=0.075  episodes= 2626 rate=1.313e-02/body/orbit
+  seed43 20orbits dt=0.15  episodes= 2678 rate=1.339e-02/body/orbit
+  seed42  60orbits dt=0.15 episodes= 7816 rate=1.303e-02/body/orbit
+  seed42 200orbits dt=0.15 episodes=26107 rate=1.305e-02/body/orbit
+sign-fixed Newton: hits=2380 rate=1.190e-02 (0.91 x brute truth)
+analytic anchor: rate=2.186e-02 (1.7 x truth), eligible fraction 0.38
+
+10^9 table (from truth rate):
+  truth_rate_per_body_per_orbit                1.3095e-02
+  rebinds_per_game_second                      7.9848e-02
+  H_live_rebind_bits_per_s                     1.0220e+01
+  contacts_per_game_second                     3.3802e-03
+  H_live_contact_bits_per_s                    8.6532e-01
+  H_live_player_bits_per_s                     1.0000e+01
+  H_live_total_bits_per_s                      2.1086e+01
+  bytes_per_s                                  2.6357e+00
+  kB_per_hour_of_play                          9.2662e+00
+  singleton_saturation_orbits                  7.6365e+01
+  saturation_game_years                        3.9758e+02
+  saturation_wall_years_at_rtf100              3.9758e+00
+  birth_program_bytes_at_1e9                   1.5750e+07
+  mixed_entropy_ceiling_bytes_at_1e9_30bits    3.7500e+09
+  mu_crit_sqrt2_fixed                          2.1390e-12
+  m_crit_kg_sqrt2_fixed                        4.2545e+18
+
+wrote soi_truth_results.json
+originals regenerate bit-for-bit
+as-shipped Newton (sign bug):   5.985e-03/body/orbit
+stale h_live JSON (1st bug):    5.440e+01/body/orbit (superseded)
+brute-force truth (adopted):    1.310e-02/body/orbit
+stale headline H_live:          42462.4 bits/s (superseded)
+reconciled H_live total:        21.1 bits/s (rebind 10.2 + player 10 + contact 0.87)
+regen complete

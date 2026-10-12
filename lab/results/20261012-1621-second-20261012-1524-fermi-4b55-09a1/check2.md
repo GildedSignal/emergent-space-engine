@@ -1,0 +1,27 @@
+Grade: gold
+
+**Abstract.** Second checker, blind to the first. Claim: Γ_SOI = 1.31×10⁻² transits/body/orbit per secondary (brute-force dense-time, dt-, seed- and window-converged), so H_live ≈ 21 bits/s at 10⁹ bodies — rebinds 10.2 bits/s co-dominant with the player's assumed 10 — and 8 GB is decided by post-repopulation mixed entropy, not live distinctions. Reproduced bit-for-bit from `regen.sh` in a clean copy (exit 0, 238 s; all four stored artifacts identical). Four adversarial regimes of my own: σ_e ×10 → truth ×1.32 (Newton degrades to 0.34×, anchor 4.0×; only brute force carries); μ_p ×10 → ×4.76; planet at belt edge → 0.60×; N ×5 → 1.002× (N-independence holds). Adoption cost: none in code; `b-h-live` inherits the instrument and its stated domain.
+
+## Reasons
+
+**Reproduction.** Copied the run folder to `/tmp/check2` and ran `regen.sh`: exit 0, 238 s, well under 200 MB. `soi_truth_results.json`, `soi_truth_log.txt`, `orig/h_live_results.json`, `orig/crosscheck_results.json` all diff clean against the stored copies. The reconciliation block regenerates: as-shipped Newton 5.985×10⁻³, stale P3 54.40, stale headline 42,462.4 bits/s, truth 1.310×10⁻², total 21.1 bits/s. The sign bug is real and the fix is the correct Newton step: residual `λ_body(t) − n_p·t` has derivative `n_b − n_p = −dn`, so `orig/crosscheck.py:139` (`t −= dth/dn`) diverges and `t += dth/dn` converges; fixed, the same machinery scores 0.91× the brute force (2,380 vs 2,619 episodes).
+
+**Predictions.** File times support pre-registration (`predictions.md` 21 m, `soi_truth.py` 20 m, results 12 m; the author states the truth band was anchored to the checker's known value — disclosed, and independence is carried by the fresh instrument instead). Genuinely held-out controls all held: dt halvings +0.7%/+0.3%; seed 43 +2.2%; windows 60/200 orbits ±0.5%; sign-fixed Newton 0.91× (within the promised 15%, above the 1,197 as-shipped). The corrected value lands inside the original run's pre-registered P3 range 0.01–0.05 (`orig/predictions.md`), verified. The 10⁹ table is code-generated from Γ_SOI with no hand-copied number; I re-derived every row analytically (rebinds 0.0798/s, 10.22 bits/s; contacts 3.38×10⁻³/s, 0.87 bits/s; 76.4 orbits; 15.75 MB; 3.75 GB; m_crit 4.25×10¹⁸ kg = 3.008×10¹⁸ × √2) — all match.
+
+**Adversarial cases (mine, outside the author's tested range).**
+1. *Hot belt σ_e = 0.05* (regime the truth instrument had never seen): truth 1.732×10⁻² at dt 0.15 and 1.733×10⁻² at dt 0.075 (×1.32 over cold, dt-converged to 0.03%). The sign-fixed Newton falls to 0.34× and the analytic anchor to 4.0× — the wiki page's caveat that only the brute-force instrument carries across regimes is confirmed, independently.
+2. *Heavier secondary μ_p = 10⁻²* (R_SOI ×2.15): truth 6.23×10⁻² (×4.76 — superlinear in R_SOI, so the secondary-mass census matters more than "×k for k planets" suggests; open direction #2 on the page is correctly ranked). Newton 0.68×, anchor 1.47×.
+3. *Planet at the belt's inner edge a_p = 1.02*: truth 7.80×10⁻³ (0.60×), Newton 0.96×, anchor 1.25× — the instrument ratio is stable where the SOI band is clipped.
+4. *N = 5×10⁴ (5× bodies, same annulus)*: rate 1.311×10⁻² = 1.002× — the per-body rate is density-independent, which is exactly the assumption the 10⁹ extrapolation rests on.
+
+**Novelty.** The topic's wiki page was empty (0 runs compiled); `docs/HISTORY.md` has no h-live entry; the silver run's named experiment is what this run does. First measured H_live on the board.
+
+**Goal fit.** Moves `memory-h-live` (HANDOFF: "not measured yet") to measured with a regime-tested instrument, and shows the silver premise wrong: rebind headline 457× high (36.5/s claimed vs 0.0798/s corrected; the 2.19× sign bug times the 10³ text slip), player "nil" → co-dominant, and the 8 GB question redirected to the only term that can matter. PRINCIPLES #24 ("the memory floor is information"): 21 bits/s ≈ 9.3 kB/h is ~9 orders under budget. #10: the run exists to close the "numbers the shipped code cannot regenerate" failure, and does — one code path per headline number. No page corrections needed: every line I could check (including the hot-belt paragraph) matches the evidence, and assumptions (128 bits/rebind, 10 bits/s player) are marked as bounds, not measurements.
+
+## What the author missed
+
+- The headline ratio is stated one way ("460×", = 36.5/0.0798 on the rebind rate) while the total-headline ratio is 2,014× (42,462/21.1) and the text-headline ratio 223× (4.7×10³/21.1); the definition is sound but "460× below the original headline" invites misreading of *which* headline.
+- Transits are counted on unperturbed Keplerian orbits; a real transit deflects at O(1) (dv at the SOI edge ≈ 0.9 by the original run's own estimate), so post-transit orbits differ and chained re-entries are unquantified. My regime sweeps suggest it stays well inside the stated tolerances, but the 0.91×-vs-truth Newton gap partly lives here.
+- The "×k for k secondaries" scaling is asserted, not tested; case 2 above shows strong μ-dependence (×4.76 for R_SOI ×2.15), so the census matters by mass, not just count.
+- The inherited Refuted line "certificate-event counts overstate by ~5 orders" is not regenerable from this record (I can reconstruct only ~2–3 orders from what is stored here); re-derive or re-cite when `b-h-live` runs.
+- The t=0 in-SOI bodies count as one episode each, inflating the 20-orbit rate ~2% (the 200-orbit run shows the asymptote at 1.305×10⁻² vs the adopted 1.310×10⁻²). Immaterial at this precision.
