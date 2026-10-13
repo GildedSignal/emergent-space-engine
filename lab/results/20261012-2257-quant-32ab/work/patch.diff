@@ -1,0 +1,2214 @@
+diff --git a/crates/universe/examples/frame_split.rs b/crates/universe/examples/frame_split.rs
+new file mode 100644
+index 00000000..4871bd00
+--- /dev/null
++++ b/crates/universe/examples/frame_split.rs
+@@ -0,0 +1,138 @@
++//! Where the flight's frame time goes: the sweep's forward flights, per frame, with the engine's
++//! own attribution (Stats: kicks/opens/boundaries, items and cost by kind) against the frame's
++//! wall time. Two budgets: `paced` is the page's 12 ms cap, `demand` is unlimited (the true cost).
++//!
++//! cargo run --release -p emergent-universe --example frame_split --
++//!   [mode paced|demand] [rtf] [wall seconds] [members] [levels...]
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++use emergent_universe::{fleet::Order, num::to_f64, universe::Stats, view::TICK_SECONDS, Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct_f(sorted: &[f64], q: f64) -> f64 {
++    if sorted.is_empty() { return 0.0; }
++    let i = ((sorted.len() as f64 - 1.0) * q).round() as usize;
++    sorted[i.min(sorted.len() - 1)]
++}
++
++fn pct_u(sorted: &[u64], q: f64) -> u64 {
++    if sorted.is_empty() { return 0; }
++    let i = ((sorted.len() as f64 - 1.0) * q).round() as usize;
++    sorted[i.min(sorted.len() - 1)]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args.get(1).cloned().unwrap_or_else(|| "paced".into());
++    let rtf: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let members: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(48);
++    let levels: Vec<u8> = args.iter().skip(5).filter_map(|s| s.parse().ok()).collect();
++    let levels: Vec<u8> = if levels.is_empty() { vec![0, 2, 4, 6, 8, 10, 12, 15] } else { levels };
++    let frames = (seconds * 60.0) as usize;
++    println!("mode,rtf,members,level,frames,alive,refusals,vmax,cpu_ms_total,cpu_us_p50,cpu_us_p99,cpu_us_max,ev_total,ev_fr_p50,ev_fr_p99,lag_s_max,overflows,tick_now,ev_fr_max,it3_fr_max,us3_fr_max,kicks,opens,boundaries,handoffs,slices,decisions,encounters,lost,leavers,dissolved,it_planet,us_planet,it_moon,us_moon,it_ship,us_ship,it_player,us_player,it_fleet,us_fleet,fault");
++    let mut flights: Vec<(String, u8)> = vec![("coast".into(), 0)];
++    for &l in &levels {
++        flights.push((format!("forward L{l}"), l));
++    }
++    for (name, level) in flights {
++        let mut cpu: Vec<f64> = Vec::with_capacity(frames);
++        let mut ev_fr: Vec<u64> = Vec::with_capacity(frames);
++        let mut it3_fr: Vec<u64> = Vec::with_capacity(frames);
++        let mut us3_fr: Vec<u64> = Vec::with_capacity(frames);
++        let mut cpu_total = Duration::ZERO;
++        let (mut ev_total, mut over, mut fr) = (0u64, 0u64, 0usize);
++        let hold = name != "coast";
++        let mut p = plane(Config::default(), 1, Order::Sparse, 1, members).unwrap();
++        let s0: Stats = p.u.stats;
++        let (mut next, mut lag, mut vmax) = (0usize, 0f64, 0f64);
++        let script: Vec<(f64, u8, u8)> = if hold { vec![(1.0, 1, level)] } else { vec![] };
++        for f in 0..frames {
++            let wall = f as f64 / 60.0;
++            while next < script.len() && script[next].0 <= wall {
++                let (_, keys, lv) = script[next];
++                let t = p.u.now;
++                let _ = p.u.input(t, word(keys, lv));
++                next += 1;
++            }
++            let start = Instant::now();
++            let budget = if mode == "paced" {
++                Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }
++            } else {
++                Budget::unlimited()
++            };
++            let s_before = p.u.stats;
++            let frame = p.u.frame_to(1.0 / 60.0, rtf, budget, i64::MAX);
++            let dt = start.elapsed();
++            cpu_total += dt;
++            cpu.push(dt.as_secs_f64() * 1e6);
++            ev_fr.push(frame.events);
++            ev_total += frame.events;
++            over += frame.overflow as u64;
++            let it3 = p.u.stats.items[3].saturating_sub(s_before.items[3]);
++            if it3 > 50 {
++                let us3 = p.u.stats.cost_ns[3].saturating_sub(s_before.cost_ns[3]);
++                eprintln!("burst {name} frame {f} wall {wall:.2}s: {it3} player items, {:.1} ms, target-advanced {} ticks", us3 as f64 / 1e6, frame.ticks);
++            }
++            it3_fr.push(p.u.stats.items[3].saturating_sub(s_before.items[3]));
++            us3_fr.push(p.u.stats.cost_ns[3].saturating_sub(s_before.cost_ns[3]));
++            lag = lag.max((frame.target - frame.presented) as f64 * TICK_SECONDS);
++            fr = f + 1;
++            let rec = p.u.rec(p.player);
++            if !rec.alive {
++                break;
++            }
++            if let Ok((_, v)) = rec.b.cartesian(frame.presented.max(rec.b.event_time)) {
++                vmax = vmax.max((to_f64(v[0]).powi(2) + to_f64(v[1]).powi(2)).sqrt());
++            }
++        }
++        let rec = p.u.rec(p.player);
++        let fault = rec.fault.map(|f| format!("{f:?}")).unwrap_or_default();
++        let s1 = p.u.stats;
++        let d = Stats {
++            kicks: s1.kicks - s0.kicks,
++            opens: s1.opens - s0.opens,
++            boundaries: s1.boundaries - s0.boundaries,
++            handoffs: s1.handoffs - s0.handoffs,
++            lost: s1.lost - s0.lost,
++            refused: s1.refused - s0.refused,
++            slices: s1.slices - s0.slices,
++            encounters: s1.encounters - s0.encounters,
++            decisions: s1.decisions - s0.decisions,
++            leavers: s1.leavers - s0.leavers,
++            dissolved: s1.dissolved - s0.dissolved,
++            cost_ns: std::array::from_fn(|i| s1.cost_ns[i] - s0.cost_ns[i]),
++            items: std::array::from_fn(|i| s1.items[i] - s0.items[i]),
++        };
++        let mut cs = cpu.clone();
++        cs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mut es = ev_fr.clone();
++        es.sort();
++        let mut fields: Vec<String> = vec![
++            mode.clone(), format!("{rtf}"), format!("{members}"),
++            format!("{}", if hold { level as i32 } else { -1 }),
++            format!("{fr}"), format!("{}", rec.alive), format!("{}", rec.refusals),
++            format!("{vmax:.6}"),
++            format!("{:.1}", cpu_total.as_secs_f64() * 1e3),
++            format!("{:.1}", pct_f(&cs, 0.5)), format!("{:.1}", pct_f(&cs, 0.99)),
++            format!("{:.1}", cs.last().unwrap_or(&0.0)),
++            format!("{ev_total}"),
++            format!("{}", es.get(es.len() / 2).copied().unwrap_or(0)),
++            format!("{}", pct_u(&es, 0.99)),
++            format!("{lag:.3}"), format!("{over}"), format!("{}", p.u.now),
++            format!("{}", es.last().copied().unwrap_or(0)),
++            format!("{}", it3_fr.iter().copied().max().unwrap_or(0)),
++            format!("{:.1}", us3_fr.iter().copied().max().unwrap_or(0) as f64 / 1e3),
++            format!("{}", d.kicks), format!("{}", d.opens), format!("{}", d.boundaries),
++            format!("{}", d.handoffs), format!("{}", d.slices), format!("{}", d.decisions),
++            format!("{}", d.encounters), format!("{}", d.lost), format!("{}", d.leavers),
++            format!("{}", d.dissolved),
++        ];
++        for k in 0..5 {
++            fields.push(format!("{}", d.items[k]));
++            fields.push(format!("{:.1}", d.cost_ns[k] as f64 / 1e3));
++        }
++        fields.push(fault);
++        println!("{}", fields.join(","));
++    }
++}
+diff --git a/crates/universe/examples/player_items.rs b/crates/universe/examples/player_items.rs
+new file mode 100644
+index 00000000..6b954d10
+--- /dev/null
++++ b/crates/universe/examples/player_items.rs
+@@ -0,0 +1,63 @@
++//! Per-item cost of the player's own item stream along a forward flight: at each wall second,
++//! resolve up to K consecutive plan items locally (chaining `Update.rec`), timing each, with the
++//! speed the flight has reached. Controls: coast and L8.
++//!
++//! cargo run --release -p emergent-universe --example player_items -- [level] [rtf] [wall s] [members] [K]
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++use emergent_universe::{fleet::Order, num::to_f64, Budget, Config};
++use std::time::{Duration, Instant};
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let level: u8 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(15);
++    let rtf: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let members: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(48);
++    let k: usize = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(40);
++    let frames = (seconds * 60.0) as usize;
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, members).unwrap();
++    println!("wall_s,vmax,alive,idx,kind,us,plan_len");
++    let mut next = 0usize;
++    let script: Vec<(f64, u8, u8)> = if level == 255 { vec![] } else { vec![(1.0, 1, level)] };
++    for f in 0..frames {
++        let wall = f as f64 / 60.0;
++        while next < script.len() && script[next].0 <= wall {
++            let (_, keys, lv) = script[next];
++            let t = p.u.now;
++            let _ = p.u.input(t, word(keys, lv));
++            next += 1;
++        }
++        // at each whole wall second, probe the player's item stream
++        if f % 60 == 0 && f > 0 {
++            let ctx = p.u.ctx();
++            let mut rec = p.u.rec(p.player);
++            let rec0 = p.u.rec(p.player);
++            let vmax = rec0
++                .b
++                .cartesian(p.u.now.max(rec0.b.event_time))
++                .ok()
++                .map(|(_, v)| (to_f64(v[0]).powi(2) + to_f64(v[1]).powi(2)).sqrt())
++                .unwrap_or(0.0);
++            for i in 0..k {
++                if rec.plan.is_empty() {
++                    break;
++                }
++                let t0 = Instant::now();
++                let upd = emergent_universe::step::process(&ctx, p.player, rec.clone());
++                let us = t0.elapsed().as_secs_f64() * 1e6;
++                println!("{:.2},{vmax:.6},{},{},{:?},{:.1},{}", wall, rec0.alive, i, upd.kind, us, upd.rec.plan.len());
++                std::hint::black_box(&upd);
++                rec = upd.rec;
++            }
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, i64::MAX);
++        let rec = p.u.rec(p.player);
++        if !rec.alive {
++            println!("# died at wall {wall:.2}");
++            break;
++        }
++        let _ = frame.events;
++    }
++}
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/burst_m48.err b/lab/lab/results/20261012-2257-quant-32ab/work/burst_m48.err
+new file mode 100644
+index 00000000..0737e156
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/burst_m48.err
+@@ -0,0 +1,12 @@
++burst forward L10 frame 60 wall 1.00s: 166 player items, 42.9 ms, target-advanced 338375 ticks
++burst forward L10 frame 61 wall 1.02s: 165 player items, 49.5 ms, target-advanced 338375 ticks
++burst forward L10 frame 62 wall 1.03s: 165 player items, 74.3 ms, target-advanced 338375 ticks
++burst forward L10 frame 63 wall 1.05s: 83 player items, 47.6 ms, target-advanced 338375 ticks
++burst forward L10 frame 64 wall 1.07s: 63 player items, 42.5 ms, target-advanced 338375 ticks
++burst forward L12 frame 60 wall 1.00s: 579 player items, 165.5 ms, target-advanced 338375 ticks
++burst forward L12 frame 61 wall 1.02s: 182 player items, 88.1 ms, target-advanced 338375 ticks
++burst forward L12 frame 62 wall 1.03s: 83 player items, 60.5 ms, target-advanced 338375 ticks
++burst forward L12 frame 63 wall 1.05s: 61 player items, 46.0 ms, target-advanced 338375 ticks
++burst forward L15 frame 60 wall 1.00s: 1036 player items, 386.1 ms, target-advanced 338375 ticks
++burst forward L15 frame 61 wall 1.02s: 133 player items, 63.5 ms, target-advanced 338375 ticks
++burst forward L15 frame 62 wall 1.03s: 83 player items, 54.6 ms, target-advanced 338375 ticks
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/demand_m400_r100_v2.csv b/lab/lab/results/20261012-2257-quant-32ab/work/demand_m400_r100_v2.csv
+new file mode 100644
+index 00000000..2ed85f43
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/demand_m400_r100_v2.csv
+@@ -0,0 +1,10 @@
++mode,rtf,members,level,frames,alive,refusals,vmax,cpu_ms_total,cpu_us_p50,cpu_us_p99,cpu_us_max,ev_total,ev_fr_p50,ev_fr_p99,lag_s_max,overflows,tick_now,ev_fr_max,it3_fr_max,us3_fr_max,kicks,opens,boundaries,handoffs,slices,decisions,encounters,lost,leavers,dissolved,it_planet,us_planet,it_moon,us_moon,it_ship,us_ship,it_player,us_player,it_fleet,us_fleet,fault
++demand,100,400,-1,600,true,0,0.000028,1246.7,155.0,11933.7,45110.5,22013,2,239,0.000,0,203025000,295,1,2849.1,5493,387,5267,0,10735,0,202,179,387,0,0,0.0,0,0.0,10567,689817.2,96,180842.7,10735,327000.4,
++demand,100,400,0,472,false,0,0.000028,1026.5,161.6,18125.9,41241.4,19291,2,246,0.000,0,159713000,290,1,2698.6,4808,382,4587,0,9387,1,206,166,381,0,0,0.0,0,0.0,9269,563635.4,77,137888.3,9387,288262.3,
++demand,100,400,2,310,false,0,0.000028,1107.5,2251.7,21504.5,40561.1,14990,5,260,0.000,0,104896250,292,1,2823.5,3764,375,3587,0,7143,1,694,147,374,0,0,0.0,0,0.0,7186,467500.9,171,343598.7,7143,267556.5,
++demand,100,400,4,223,false,0,0.000028,1570.1,6337.8,29228.4,42021.2,12238,13,277,0.000,0,75457625,299,3,7401.3,3136,367,2921,0,5718,1,4410,115,366,0,0,0.0,0,0.0,5647,380261.1,429,908459.7,5718,260591.6,
++demand,100,400,6,600,true,0,0.000631,3382.7,2721.2,33432.8,42108.2,20333,9,257,0.000,0,203025000,313,11,26563.7,5975,388,5747,0,8093,1,23526,179,387,0,0,0.0,0,0.0,10566,660202.6,1058,2370467.4,8093,299928.4,
++demand,100,400,8,600,true,0,0.002620,4182.4,2672.7,97773.7,114587.3,20244,8,240,0.000,0,203025000,380,42,105924.0,6107,388,5879,0,7740,1,44489,179,387,0,0,0.0,0,0.0,10562,680572.1,1322,3146208.5,7740,302710.8,
++demand,100,400,10,600,true,0,0.010671,4924.2,2448.0,113898.2,432471.2,20781,7,250,0.000,0,203025000,747,166,424478.1,6245,388,6018,1,7999,1,66862,179,387,0,0,0.0,0,0.0,10108,637156.6,1600,3925370.2,7999,314936.5,
++demand,100,400,12,600,true,0,0.042208,5107.5,2010.0,85270.4,1409043.6,21163,6,226,0.000,0,203025000,1742,579,1401918.7,6372,388,6146,1,8126,1,88554,179,387,0,0,0.0,0,0.0,8017,499399.5,1855,4279504.8,8126,299959.1,
++demand,100,400,15,600,true,0,0.319657,5580.8,495.6,68220.5,2424018.3,19811,5,220,0.000,0,203025000,3113,1036,2414279.5,6566,388,6339,1,6387,1,119402,179,387,0,0,0.0,0,0.0,3017,209806.4,2242,5087575.7,6387,273647.9,
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r100_v2.csv b/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r100_v2.csv
+new file mode 100644
+index 00000000..1c5e97dd
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r100_v2.csv
+@@ -0,0 +1,10 @@
++mode,rtf,members,level,frames,alive,refusals,vmax,cpu_ms_total,cpu_us_p50,cpu_us_p99,cpu_us_max,ev_total,ev_fr_p50,ev_fr_p99,lag_s_max,overflows,tick_now,ev_fr_max,it3_fr_max,us3_fr_max,kicks,opens,boundaries,handoffs,slices,decisions,encounters,lost,leavers,dissolved,it_planet,us_planet,it_moon,us_moon,it_ship,us_ship,it_player,us_player,it_fleet,us_fleet,fault
++demand,100,48,-1,1200,true,0,0.000028,257.8,39.5,1371.6,14456.4,6569,2,41,0.000,0,406050000,63,1,695.7,1108,48,977,0,4511,0,182,21,48,1,0,0.0,0,0.0,1361,96997.7,193,66828.0,4511,74950.4,
++demand,100,48,0,472,false,0,0.000028,144.7,44.5,1499.7,12475.2,3434,2,47,0.000,0,159713000,63,1,719.1,625,44,558,0,2228,1,100,18,43,0,0,0.0,0,0.0,909,62406.4,77,28988.3,2228,44940.1,
++demand,100,48,2,310,false,0,0.000028,152.4,369.3,1652.2,12532.5,2820,5,50,0.000,0,104896250,62,1,717.7,517,44,473,0,1797,1,254,15,43,0,0,0.0,0,0.0,693,47398.4,171,60344.7,1797,39891.1,
++demand,100,48,4,223,false,0,0.000028,244.6,1010.4,2619.0,13106.3,3063,10,53,0.000,0,75457625,71,3,1764.8,538,44,496,0,1991,1,730,13,43,0,0,0.0,0,0.0,522,36542.7,429,165703.3,1991,40768.9,
++demand,100,48,6,1200,true,0,0.001367,776.1,60.9,5265.9,14948.7,8960,3,50,0.000,0,406050000,95,11,5964.2,1613,49,1481,0,5893,1,2966,21,48,1,0,0.0,0,0.0,1361,95302.6,1202,580314.8,5893,82212.0,
++demand,100,48,8,1200,true,0,0.005627,931.6,61.4,13483.8,23370.6,9599,3,113,0.000,0,406050000,163,42,21874.3,1750,49,1619,1,6256,1,5594,21,48,1,0,0.0,0,0.0,1455,98197.3,1478,732669.9,6256,85434.4,
++demand,100,48,10,1200,true,0,0.022506,1029.8,125.1,13747.8,72718.4,10282,3,66,0.000,0,406050000,535,166,71278.2,1880,49,1749,1,6679,1,7092,21,48,1,0,0.0,0,0.0,1396,91746.5,1738,836938.2,6679,90632.0,
++demand,100,48,12,1200,true,0,0.088770,1111.6,119.5,12372.6,166974.5,10513,3,62,0.000,0,406050000,1738,579,162159.9,2007,49,1877,1,6655,1,3982,21,48,1,0,0.0,0,0.0,1037,72508.0,1993,939610.9,6655,93437.0,
++demand,100,48,15,1200,true,0,0.580421,1175.4,66.5,10670.1,388808.7,10574,2,60,0.000,0,406050000,3109,1036,380097.4,2211,49,2080,1,6309,1,694,21,48,1,0,0.0,0,0.0,224,16777.8,2400,1075426.4,6309,87147.8,
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r25.csv b/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r25.csv
+new file mode 100644
+index 00000000..2f73c588
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r25.csv
+@@ -0,0 +1,6 @@
++mode,rtf,members,level,frames,alive,refusals,vmax,cpu_ms_total,cpu_us_p50,cpu_us_p99,cpu_us_max,ev_total,ev_fr_p50,ev_fr_p99,lag_s_max,overflows,tick_now,ev_fr_max,it3_fr_max,us3_fr_max,kicks,opens,boundaries,handoffs,slices,decisions,encounters,lost,leavers,dissolved,it_planet,us_planet,it_moon,us_moon,it_ship,us_ship,it_player,us_player,it_fleet,us_fleet,fault
++demand,25,48,-1,600,true,0,0.000028,74.7,25.7,1334.3,12649.2,1493,1,39,0.000,0,50755800,62,1,688.5,223,43,197,0,1036,0,38,6,43,0,0,0.0,0,0.0,334,23956.3,24,9388.4,1036,32609.3,
++demand,25,48,0,600,true,0,0.000028,74.8,26.7,1478.6,12649.9,1489,1,38,0.000,0,50755800,61,1,740.3,223,44,197,0,1032,1,42,6,43,0,0,0.0,0,0.0,334,23530.5,24,9661.7,1032,32362.7,
++demand,25,48,8,600,true,0,0.000633,487.8,655.3,3108.6,13280.9,4617,5,34,0.000,0,50755800,46,11,4501.7,739,44,712,0,3129,1,734,6,43,0,0,0.0,0,0.0,334,24289.8,1055,409584.2,3129,48325.8,
++demand,25,48,12,600,true,0,0.010569,711.2,484.3,18748.4,48615.2,6146,4,124,0.000,0,50755800,499,166,47245.2,1001,44,974,0,4134,1,1712,6,43,0,0,0.0,0,0.0,334,23717.9,1579,630497.7,4134,55418.1,
++demand,25,48,15,600,true,0,0.084045,845.1,285.2,12996.8,245505.9,6850,3,88,0.000,0,50755800,2287,762,239370.9,1200,44,1174,1,4438,1,2506,6,43,0,0,0.0,0,0.0,361,24690.2,1979,765541.1,4438,57459.8,
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r400.csv b/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r400.csv
+new file mode 100644
+index 00000000..faf2e4be
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/demand_m48_r400.csv
+@@ -0,0 +1,6 @@
++mode,rtf,members,level,frames,alive,refusals,vmax,cpu_ms_total,cpu_us_p50,cpu_us_p99,cpu_us_max,ev_total,ev_fr_p50,ev_fr_p99,lag_s_max,overflows,tick_now,ev_fr_max,it3_fr_max,us3_fr_max,kicks,opens,boundaries,handoffs,slices,decisions,encounters,lost,leavers,dissolved,it_planet,us_planet,it_moon,us_moon,it_ship,us_ship,it_player,us_player,it_fleet,us_fleet,fault
++demand,400,48,-1,600,true,0,0.000028,326.1,421.4,2506.4,12665.8,6920,6,56,0.000,0,812101200,84,1,695.7,1619,48,1479,0,3843,0,189,27,48,1,0,0.0,0,0.0,1728,126054.7,387,124518.5,3843,65753.1,
++demand,400,48,0,155,false,0,0.000028,159.4,884.6,3307.2,12895.8,3836,22,60,0.000,0,209792810,84,1,691.4,753,44,679,0,2391,1,130,20,43,0,0,0.0,0,0.0,1067,71549.5,100,36377.2,2391,48357.8,
++demand,400,48,8,69,false,0,0.000133,372.7,1196.4,48518.6,55975.7,4297,35,518,0.000,0,93391638,544,166,53554.6,775,44,729,0,2757,1,1470,15,43,0,0,0.0,0,0.0,630,42582.9,766,286885.2,2757,46710.6,
++demand,400,48,12,63,false,0,0.000602,510.5,1140.1,70126.7,339840.1,4932,31,465,0.000,0,85270626,2608,864,333015.3,895,44,854,0,3145,1,2054,15,43,0,0,0.0,0,0.0,584,40250.6,1062,427174.8,3145,48174.2,
++demand,400,48,15,61,false,0,0.000028,652.2,1197.5,12408.0,562690.1,4916,29,84,0.000,0,82563622,3144,1234,556311.0,989,44,945,0,2945,1,2500,14,43,0,0,0.0,0,0.0,571,40834.3,1272,571121.9,2945,47519.6,
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/items_L15.csv b/lab/lab/results/20261012-2257-quant-32ab/work/items_L15.csv
+new file mode 100644
+index 00000000..5e8880fe
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/items_L15.csv
+@@ -0,0 +1,761 @@
++wall_s,vmax,alive,idx,kind,us,plan_len
++1.00,0.000028,true,0,Kick,42.0,1
++1.00,0.000028,true,1,Boundary,22.1,2
++1.00,0.000028,true,2,Kick,44.8,1
++1.00,0.000028,true,3,Boundary,21.2,2
++1.00,0.000028,true,4,Kick,44.7,1
++1.00,0.000028,true,5,Boundary,21.2,2
++1.00,0.000028,true,6,Kick,44.6,1
++1.00,0.000028,true,7,Boundary,21.4,2
++1.00,0.000028,true,8,Kick,43.9,1
++1.00,0.000028,true,9,Boundary,21.2,2
++1.00,0.000028,true,10,Kick,44.5,1
++1.00,0.000028,true,11,Boundary,21.2,2
++1.00,0.000028,true,12,Kick,45.0,1
++1.00,0.000028,true,13,Boundary,21.2,2
++1.00,0.000028,true,14,Kick,49.7,1
++1.00,0.000028,true,15,Boundary,21.8,2
++1.00,0.000028,true,16,Kick,47.2,1
++1.00,0.000028,true,17,Boundary,21.5,2
++1.00,0.000028,true,18,Kick,47.3,1
++1.00,0.000028,true,19,Boundary,21.5,2
++1.00,0.000028,true,20,Kick,47.1,1
++1.00,0.000028,true,21,Boundary,21.3,2
++1.00,0.000028,true,22,Kick,64.4,1
++1.00,0.000028,true,23,Boundary,41.2,2
++1.00,0.000028,true,24,Kick,49.0,1
++1.00,0.000028,true,25,Boundary,21.4,2
++1.00,0.000028,true,26,Kick,48.6,1
++1.00,0.000028,true,27,Boundary,21.4,2
++1.00,0.000028,true,28,Kick,48.7,1
++1.00,0.000028,true,29,Boundary,21.3,2
++1.00,0.000028,true,30,Kick,48.7,1
++1.00,0.000028,true,31,Boundary,21.3,2
++1.00,0.000028,true,32,Kick,49.3,1
++1.00,0.000028,true,33,Boundary,21.5,2
++1.00,0.000028,true,34,Kick,50.2,1
++1.00,0.000028,true,35,Boundary,21.5,2
++1.00,0.000028,true,36,Kick,50.5,1
++1.00,0.000028,true,37,Boundary,21.4,2
++1.00,0.000028,true,38,Kick,51.0,1
++1.00,0.000028,true,39,Boundary,21.3,2
++2.00,0.008603,true,0,Boundary,59.5,2
++2.00,0.008603,true,1,Kick,392.0,1
++2.00,0.008603,true,2,Boundary,69.4,2
++2.00,0.008603,true,3,Kick,447.7,1
++2.00,0.008603,true,4,Boundary,59.4,2
++2.00,0.008603,true,5,Kick,383.2,1
++2.00,0.008603,true,6,Boundary,63.4,2
++2.00,0.008603,true,7,Kick,478.0,1
++2.00,0.008603,true,8,Boundary,60.3,2
++2.00,0.008603,true,9,Kick,384.1,1
++2.00,0.008603,true,10,Boundary,58.2,2
++2.00,0.008603,true,11,Kick,411.9,1
++2.00,0.008603,true,12,Boundary,58.9,2
++2.00,0.008603,true,13,Kick,386.0,1
++2.00,0.008603,true,14,Boundary,58.5,2
++2.00,0.008603,true,15,Kick,419.3,1
++2.00,0.008603,true,16,Boundary,58.9,2
++2.00,0.008603,true,17,Kick,385.1,1
++2.00,0.008603,true,18,Boundary,58.4,2
++2.00,0.008603,true,19,Kick,385.3,1
++2.00,0.008603,true,20,Boundary,80.1,2
++2.00,0.008603,true,21,Kick,382.4,1
++2.00,0.008603,true,22,Boundary,59.7,2
++2.00,0.008603,true,23,Kick,391.6,1
++2.00,0.008603,true,24,Boundary,72.0,2
++2.00,0.008603,true,25,Kick,400.1,1
++2.00,0.008603,true,26,Boundary,57.9,2
++2.00,0.008603,true,27,Kick,379.4,1
++2.00,0.008603,true,28,Boundary,58.0,2
++2.00,0.008603,true,29,Kick,407.4,1
++2.00,0.008603,true,30,Boundary,58.4,2
++2.00,0.008603,true,31,Kick,381.1,1
++2.00,0.008603,true,32,Boundary,58.0,2
++2.00,0.008603,true,33,Kick,406.6,1
++2.00,0.008603,true,34,Boundary,58.4,2
++2.00,0.008603,true,35,Kick,380.4,1
++2.00,0.008603,true,36,Boundary,57.7,2
++2.00,0.008603,true,37,Kick,417.1,1
++2.00,0.008603,true,38,Boundary,58.4,2
++2.00,0.008603,true,39,Kick,384.2,1
++3.00,0.046334,true,0,Boundary,60.2,2
++3.00,0.046334,true,1,Kick,443.5,1
++3.00,0.046334,true,2,Boundary,71.9,2
++3.00,0.046334,true,3,Kick,424.3,1
++3.00,0.046334,true,4,Boundary,60.4,2
++3.00,0.046334,true,5,Kick,425.0,1
++3.00,0.046334,true,6,Boundary,60.7,2
++3.00,0.046334,true,7,Kick,394.0,1
++3.00,0.046334,true,8,Boundary,59.5,2
++3.00,0.046334,true,9,Kick,419.3,1
++3.00,0.046334,true,10,Boundary,60.2,2
++3.00,0.046334,true,11,Kick,393.2,1
++3.00,0.046334,true,12,Boundary,59.9,2
++3.00,0.046334,true,13,Kick,394.1,1
++3.00,0.046334,true,14,Boundary,85.6,2
++3.00,0.046334,true,15,Kick,393.8,1
++3.00,0.046334,true,16,Boundary,59.6,2
++3.00,0.046334,true,17,Kick,392.9,1
++3.00,0.046334,true,18,Boundary,59.3,2
++3.00,0.046334,true,19,Kick,430.2,1
++3.00,0.046334,true,20,Boundary,69.4,2
++3.00,0.046334,true,21,Kick,382.4,1
++3.00,0.046334,true,22,Boundary,46.7,2
++3.00,0.046334,true,23,Kick,416.5,1
++3.00,0.046334,true,24,Boundary,46.6,1
++3.00,0.046334,true,25,Handoff,216.8,1
++3.00,0.046334,true,26,Kick,148.6,2
++3.00,0.046334,true,27,Boundary,8.1,1
++3.00,0.046334,true,28,Kick,145.7,2
++3.00,0.046334,true,29,Boundary,8.0,1
++3.00,0.046334,true,30,Kick,183.2,2
++3.00,0.046334,true,31,Boundary,8.1,1
++3.00,0.046334,true,32,Kick,146.1,2
++3.00,0.046334,true,33,Boundary,8.2,1
++3.00,0.046334,true,34,Kick,145.9,2
++3.00,0.046334,true,35,Boundary,8.0,1
++3.00,0.046334,true,36,Kick,144.2,2
++3.00,0.046334,true,37,Boundary,8.0,1
++3.00,0.046334,true,38,Kick,144.2,2
++3.00,0.046334,true,39,Boundary,7.9,1
++4.00,0.084061,true,0,Boundary,8.2,1
++4.00,0.084061,true,1,Kick,151.3,2
++4.00,0.084061,true,2,Boundary,8.0,1
++4.00,0.084061,true,3,Kick,148.9,2
++4.00,0.084061,true,4,Boundary,8.1,1
++4.00,0.084061,true,5,Kick,145.8,2
++4.00,0.084061,true,6,Boundary,8.0,1
++4.00,0.084061,true,7,Kick,144.1,2
++4.00,0.084061,true,8,Boundary,8.0,1
++4.00,0.084061,true,9,Kick,182.4,2
++4.00,0.084061,true,10,Boundary,8.1,1
++4.00,0.084061,true,11,Kick,145.5,2
++4.00,0.084061,true,12,Boundary,8.0,1
++4.00,0.084061,true,13,Kick,144.0,2
++4.00,0.084061,true,14,Boundary,8.0,1
++4.00,0.084061,true,15,Kick,144.0,2
++4.00,0.084061,true,16,Boundary,8.1,1
++4.00,0.084061,true,17,Kick,144.5,2
++4.00,0.084061,true,18,Boundary,8.0,1
++4.00,0.084061,true,19,Kick,144.4,2
++4.00,0.084061,true,20,Boundary,7.9,1
++4.00,0.084061,true,21,Kick,180.0,2
++4.00,0.084061,true,22,Boundary,8.1,1
++4.00,0.084061,true,23,Kick,145.4,2
++4.00,0.084061,true,24,Boundary,8.0,1
++4.00,0.084061,true,25,Kick,144.3,2
++4.00,0.084061,true,26,Boundary,7.9,1
++4.00,0.084061,true,27,Kick,144.4,2
++4.00,0.084061,true,28,Boundary,7.9,1
++4.00,0.084061,true,29,Kick,143.8,2
++4.00,0.084061,true,30,Boundary,8.0,1
++4.00,0.084061,true,31,Kick,143.9,2
++4.00,0.084061,true,32,Boundary,7.9,1
++4.00,0.084061,true,33,Kick,187.8,2
++4.00,0.084061,true,34,Boundary,8.1,1
++4.00,0.084061,true,35,Kick,144.7,2
++4.00,0.084061,true,36,Boundary,8.0,1
++4.00,0.084061,true,37,Kick,144.3,2
++4.00,0.084061,true,38,Boundary,8.1,1
++4.00,0.084061,true,39,Kick,144.3,2
++5.00,0.120585,true,0,Kick,150.4,2
++5.00,0.120585,true,1,Boundary,8.3,1
++5.00,0.120585,true,2,Kick,149.8,2
++5.00,0.120585,true,3,Boundary,8.0,1
++5.00,0.120585,true,4,Kick,146.6,2
++5.00,0.120585,true,5,Boundary,8.0,1
++5.00,0.120585,true,6,Kick,174.4,2
++5.00,0.120585,true,7,Boundary,17.3,1
++5.00,0.120585,true,8,Kick,214.8,2
++5.00,0.120585,true,9,Boundary,8.1,1
++5.00,0.120585,true,10,Kick,145.4,2
++5.00,0.120585,true,11,Boundary,8.0,1
++5.00,0.120585,true,12,Kick,144.8,2
++5.00,0.120585,true,13,Boundary,7.9,1
++5.00,0.120585,true,14,Kick,144.6,2
++5.00,0.120585,true,15,Boundary,8.0,1
++5.00,0.120585,true,16,Kick,143.9,2
++5.00,0.120585,true,17,Boundary,8.0,1
++5.00,0.120585,true,18,Kick,181.6,2
++5.00,0.120585,true,19,Boundary,8.0,1
++5.00,0.120585,true,20,Kick,145.0,2
++5.00,0.120585,true,21,Boundary,7.9,1
++5.00,0.120585,true,22,Kick,144.1,2
++5.00,0.120585,true,23,Boundary,7.9,1
++5.00,0.120585,true,24,Kick,143.5,2
++5.00,0.120585,true,25,Boundary,8.0,1
++5.00,0.120585,true,26,Kick,143.8,2
++5.00,0.120585,true,27,Boundary,8.0,1
++5.00,0.120585,true,28,Kick,144.8,2
++5.00,0.120585,true,29,Boundary,7.9,1
++5.00,0.120585,true,30,Kick,181.1,2
++5.00,0.120585,true,31,Boundary,8.1,1
++5.00,0.120585,true,32,Kick,145.7,2
++5.00,0.120585,true,33,Boundary,8.0,1
++5.00,0.120585,true,34,Kick,143.9,2
++5.00,0.120585,true,35,Boundary,7.9,1
++5.00,0.120585,true,36,Kick,143.4,2
++5.00,0.120585,true,37,Boundary,7.8,1
++5.00,0.120585,true,38,Kick,143.9,2
++5.00,0.120585,true,39,Boundary,7.9,1
++6.00,0.157569,true,0,Boundary,8.3,1
++6.00,0.157569,true,1,Kick,161.6,2
++6.00,0.157569,true,2,Boundary,8.4,1
++6.00,0.157569,true,3,Kick,158.9,2
++6.00,0.157569,true,4,Boundary,8.0,1
++6.00,0.157569,true,5,Kick,145.0,2
++6.00,0.157569,true,6,Boundary,7.9,1
++6.00,0.157569,true,7,Kick,181.0,2
++6.00,0.157569,true,8,Boundary,8.0,1
++6.00,0.157569,true,9,Kick,142.0,2
++6.00,0.157569,true,10,Boundary,7.8,1
++6.00,0.157569,true,11,Kick,141.3,2
++6.00,0.157569,true,12,Boundary,7.8,1
++6.00,0.157569,true,13,Kick,151.8,2
++6.00,0.157569,true,14,Boundary,8.0,1
++6.00,0.157569,true,15,Kick,161.8,2
++6.00,0.157569,true,16,Boundary,8.1,1
++6.00,0.157569,true,17,Kick,145.0,2
++6.00,0.157569,true,18,Boundary,8.1,1
++6.00,0.157569,true,19,Kick,178.8,2
++6.00,0.157569,true,20,Boundary,7.9,1
++6.00,0.157569,true,21,Kick,141.0,2
++6.00,0.157569,true,22,Boundary,7.8,1
++6.00,0.157569,true,23,Kick,141.4,2
++6.00,0.157569,true,24,Boundary,7.8,1
++6.00,0.157569,true,25,Kick,140.7,2
++6.00,0.157569,true,26,Boundary,7.8,1
++6.00,0.157569,true,27,Kick,140.2,2
++6.00,0.157569,true,28,Boundary,8.1,1
++6.00,0.157569,true,29,Kick,141.7,2
++6.00,0.157569,true,30,Boundary,7.8,1
++6.00,0.157569,true,31,Kick,187.0,2
++6.00,0.157569,true,32,Boundary,7.9,1
++6.00,0.157569,true,33,Kick,142.7,2
++6.00,0.157569,true,34,Boundary,7.9,1
++6.00,0.157569,true,35,Kick,140.3,2
++6.00,0.157569,true,36,Boundary,7.8,1
++6.00,0.157569,true,37,Kick,140.1,2
++6.00,0.157569,true,38,Boundary,7.8,1
++6.00,0.157569,true,39,Kick,140.1,2
++7.00,0.192980,true,0,Kick,187.2,2
++7.00,0.192980,true,1,Boundary,8.2,1
++7.00,0.192980,true,2,Kick,144.8,2
++7.00,0.192980,true,3,Boundary,8.1,1
++7.00,0.192980,true,4,Kick,142.6,2
++7.00,0.192980,true,5,Boundary,7.8,1
++7.00,0.192980,true,6,Kick,141.4,2
++7.00,0.192980,true,7,Boundary,7.9,1
++7.00,0.192980,true,8,Kick,141.7,2
++7.00,0.192980,true,9,Boundary,10.1,1
++7.00,0.192980,true,10,Kick,156.6,2
++7.00,0.192980,true,11,Boundary,10.1,1
++7.00,0.192980,true,12,Kick,198.7,2
++7.00,0.192980,true,13,Boundary,10.2,1
++7.00,0.192980,true,14,Kick,163.3,2
++7.00,0.192980,true,15,Boundary,10.1,1
++7.00,0.192980,true,16,Kick,162.3,2
++7.00,0.192980,true,17,Boundary,10.2,1
++7.00,0.192980,true,18,Kick,161.9,2
++7.00,0.192980,true,19,Boundary,10.1,1
++7.00,0.192980,true,20,Kick,161.5,2
++7.00,0.192980,true,21,Boundary,10.1,1
++7.00,0.192980,true,22,Kick,162.0,2
++7.00,0.192980,true,23,Boundary,27.6,1
++7.00,0.192980,true,24,Kick,173.6,2
++7.00,0.192980,true,25,Boundary,10.2,1
++7.00,0.192980,true,26,Kick,161.4,2
++7.00,0.192980,true,27,Boundary,10.2,1
++7.00,0.192980,true,28,Kick,161.6,2
++7.00,0.192980,true,29,Boundary,10.2,1
++7.00,0.192980,true,30,Kick,184.4,2
++7.00,0.192980,true,31,Boundary,10.1,1
++7.00,0.192980,true,32,Kick,161.4,2
++7.00,0.192980,true,33,Boundary,10.1,1
++7.00,0.192980,true,34,Kick,196.8,2
++7.00,0.192980,true,35,Boundary,10.5,1
++7.00,0.192980,true,36,Kick,162.3,2
++7.00,0.192980,true,37,Boundary,10.1,1
++7.00,0.192980,true,38,Kick,161.0,2
++7.00,0.192980,true,39,Boundary,10.1,1
++8.00,0.227655,true,0,Kick,205.9,2
++8.00,0.227655,true,1,Boundary,10.4,1
++8.00,0.227655,true,2,Kick,164.2,2
++8.00,0.227655,true,3,Boundary,10.2,1
++8.00,0.227655,true,4,Kick,162.8,2
++8.00,0.227655,true,5,Boundary,10.2,1
++8.00,0.227655,true,6,Kick,161.4,2
++8.00,0.227655,true,7,Boundary,10.1,1
++8.00,0.227655,true,8,Kick,161.2,2
++8.00,0.227655,true,9,Boundary,10.4,1
++8.00,0.227655,true,10,Kick,199.5,2
++8.00,0.227655,true,11,Boundary,10.2,1
++8.00,0.227655,true,12,Kick,163.1,2
++8.00,0.227655,true,13,Boundary,10.1,1
++8.00,0.227655,true,14,Kick,161.5,2
++8.00,0.227655,true,15,Boundary,10.1,1
++8.00,0.227655,true,16,Kick,161.5,2
++8.00,0.227655,true,17,Boundary,10.1,1
++8.00,0.227655,true,18,Kick,160.6,2
++8.00,0.227655,true,19,Boundary,10.1,1
++8.00,0.227655,true,20,Kick,161.4,2
++8.00,0.227655,true,21,Boundary,10.1,1
++8.00,0.227655,true,22,Kick,206.4,2
++8.00,0.227655,true,23,Boundary,10.1,1
++8.00,0.227655,true,24,Kick,227.5,2
++8.00,0.227655,true,25,Boundary,10.1,1
++8.00,0.227655,true,26,Kick,161.6,2
++8.00,0.227655,true,27,Boundary,10.1,1
++8.00,0.227655,true,28,Kick,161.5,2
++8.00,0.227655,true,29,Boundary,10.1,1
++8.00,0.227655,true,30,Kick,161.0,2
++8.00,0.227655,true,31,Boundary,10.1,1
++8.00,0.227655,true,32,Kick,211.3,2
++8.00,0.227655,true,33,Boundary,10.2,1
++8.00,0.227655,true,34,Kick,161.7,2
++8.00,0.227655,true,35,Boundary,10.0,1
++8.00,0.227655,true,36,Kick,161.4,2
++8.00,0.227655,true,37,Boundary,10.0,1
++8.00,0.227655,true,38,Kick,161.6,2
++8.00,0.227655,true,39,Boundary,10.1,1
++9.00,0.261489,true,0,Kick,166.4,2
++9.00,0.261489,true,1,Boundary,10.4,1
++9.00,0.261489,true,2,Kick,178.3,2
++9.00,0.261489,true,3,Boundary,10.5,1
++9.00,0.261489,true,4,Kick,173.0,2
++9.00,0.261489,true,5,Boundary,10.1,1
++9.00,0.261489,true,6,Kick,162.4,2
++9.00,0.261489,true,7,Boundary,10.2,1
++9.00,0.261489,true,8,Kick,183.7,2
++9.00,0.261489,true,9,Boundary,20.2,1
++9.00,0.261489,true,10,Kick,173.4,2
++9.00,0.261489,true,11,Boundary,10.1,1
++9.00,0.261489,true,12,Kick,161.1,2
++9.00,0.261489,true,13,Boundary,10.1,1
++9.00,0.261489,true,14,Kick,161.7,2
++9.00,0.261489,true,15,Boundary,7.8,1
++9.00,0.261489,true,16,Kick,145.2,2
++9.00,0.261489,true,17,Boundary,7.8,1
++9.00,0.261489,true,18,Kick,140.5,2
++9.00,0.261489,true,19,Boundary,7.8,1
++9.00,0.261489,true,20,Kick,178.7,2
++9.00,0.261489,true,21,Boundary,8.1,1
++9.00,0.261489,true,22,Kick,142.2,2
++9.00,0.261489,true,23,Boundary,7.8,1
++9.00,0.261489,true,24,Kick,140.4,2
++9.00,0.261489,true,25,Boundary,7.8,1
++9.00,0.261489,true,26,Kick,140.3,2
++9.00,0.261489,true,27,Boundary,7.7,1
++9.00,0.261489,true,28,Kick,139.8,2
++9.00,0.261489,true,29,Boundary,7.9,1
++9.00,0.261489,true,30,Kick,140.5,2
++9.00,0.261489,true,31,Boundary,7.8,1
++9.00,0.261489,true,32,Kick,156.5,2
++9.00,0.261489,true,33,Boundary,17.2,1
++9.00,0.261489,true,34,Kick,142.1,2
++9.00,0.261489,true,35,Boundary,7.8,1
++9.00,0.261489,true,36,Kick,140.9,2
++9.00,0.261489,true,37,Boundary,7.9,1
++9.00,0.261489,true,38,Kick,141.0,2
++9.00,0.261489,true,39,Boundary,7.8,1
++10.00,0.296097,true,0,Boundary,8.0,1
++10.00,0.296097,true,1,Kick,145.4,2
++10.00,0.296097,true,2,Boundary,7.9,1
++10.00,0.296097,true,3,Kick,141.3,2
++10.00,0.296097,true,4,Boundary,12.3,1
++10.00,0.296097,true,5,Kick,164.0,2
++10.00,0.296097,true,6,Boundary,8.0,1
++10.00,0.296097,true,7,Kick,140.9,2
++10.00,0.296097,true,8,Boundary,7.8,1
++10.00,0.296097,true,9,Kick,140.0,2
++10.00,0.296097,true,10,Boundary,7.9,1
++10.00,0.296097,true,11,Kick,140.5,2
++10.00,0.296097,true,12,Boundary,7.8,1
++10.00,0.296097,true,13,Kick,140.1,2
++10.00,0.296097,true,14,Boundary,7.8,1
++10.00,0.296097,true,15,Kick,140.9,2
++10.00,0.296097,true,16,Boundary,7.8,1
++10.00,0.296097,true,17,Kick,178.9,2
++10.00,0.296097,true,18,Boundary,8.0,1
++10.00,0.296097,true,19,Kick,142.2,2
++10.00,0.296097,true,20,Boundary,7.8,1
++10.00,0.296097,true,21,Kick,140.6,2
++10.00,0.296097,true,22,Boundary,7.9,1
++10.00,0.296097,true,23,Kick,141.2,2
++10.00,0.296097,true,24,Boundary,7.8,1
++10.00,0.296097,true,25,Kick,140.5,2
++10.00,0.296097,true,26,Boundary,7.9,1
++10.00,0.296097,true,27,Kick,140.6,2
++10.00,0.296097,true,28,Boundary,8.0,1
++10.00,0.296097,true,29,Kick,181.8,2
++10.00,0.296097,true,30,Boundary,8.0,1
++10.00,0.296097,true,31,Kick,142.2,2
++10.00,0.296097,true,32,Boundary,7.8,1
++10.00,0.296097,true,33,Kick,152.3,2
++10.00,0.296097,true,34,Boundary,8.0,1
++10.00,0.296097,true,35,Kick,151.2,2
++10.00,0.296097,true,36,Boundary,7.8,1
++10.00,0.296097,true,37,Kick,140.4,2
++10.00,0.296097,true,38,Boundary,7.8,1
++10.00,0.296097,true,39,Kick,141.1,2
++11.00,0.329579,true,0,Boundary,8.0,1
++11.00,0.329579,true,1,Kick,145.1,2
++11.00,0.329579,true,2,Boundary,8.1,1
++11.00,0.329579,true,3,Kick,142.7,2
++11.00,0.329579,true,4,Boundary,7.9,1
++11.00,0.329579,true,5,Kick,141.7,2
++11.00,0.329579,true,6,Boundary,7.8,1
++11.00,0.329579,true,7,Kick,141.1,2
++11.00,0.329579,true,8,Boundary,8.0,1
++11.00,0.329579,true,9,Kick,156.7,2
++11.00,0.329579,true,10,Boundary,22.4,1
++11.00,0.329579,true,11,Kick,151.6,2
++11.00,0.329579,true,12,Boundary,7.8,1
++11.00,0.329579,true,13,Kick,140.8,2
++11.00,0.329579,true,14,Boundary,7.8,1
++11.00,0.329579,true,15,Kick,144.5,2
++11.00,0.329579,true,16,Boundary,8.0,1
++11.00,0.329579,true,17,Kick,152.8,2
++11.00,0.329579,true,18,Boundary,7.8,1
++11.00,0.329579,true,19,Kick,141.1,2
++11.00,0.329579,true,20,Boundary,7.9,1
++11.00,0.329579,true,21,Kick,140.4,2
++11.00,0.329579,true,22,Boundary,23.5,1
++11.00,0.329579,true,23,Kick,162.0,2
++11.00,0.329579,true,24,Boundary,7.7,1
++11.00,0.329579,true,25,Kick,140.6,2
++11.00,0.329579,true,26,Boundary,7.8,1
++11.00,0.329579,true,27,Kick,152.3,2
++11.00,0.329579,true,28,Boundary,17.4,1
++11.00,0.329579,true,29,Kick,180.3,2
++11.00,0.329579,true,30,Boundary,7.7,1
++11.00,0.329579,true,31,Kick,140.5,2
++11.00,0.329579,true,32,Boundary,7.7,1
++11.00,0.329579,true,33,Kick,157.4,2
++11.00,0.329579,true,34,Boundary,11.3,1
++11.00,0.329579,true,35,Kick,162.6,2
++11.00,0.329579,true,36,Boundary,7.8,1
++11.00,0.329579,true,37,Kick,156.6,2
++11.00,0.329579,true,38,Boundary,10.1,1
++11.00,0.329579,true,39,Kick,161.0,2
++12.00,0.358691,true,0,Kick,170.9,2
++12.00,0.358691,true,1,Boundary,8.5,1
++12.00,0.358691,true,2,Kick,190.5,2
++12.00,0.358691,true,3,Boundary,9.6,1
++12.00,0.358691,true,4,Kick,224.8,2
++12.00,0.358691,true,5,Boundary,11.4,1
++12.00,0.358691,true,6,Kick,171.8,2
++12.00,0.358691,true,7,Boundary,8.2,1
++12.00,0.358691,true,8,Kick,146.3,2
++12.00,0.358691,true,9,Boundary,8.0,1
++12.00,0.358691,true,10,Kick,144.5,2
++12.00,0.358691,true,11,Boundary,7.9,1
++12.00,0.358691,true,12,Kick,174.4,2
++12.00,0.358691,true,13,Boundary,8.2,1
++12.00,0.358691,true,14,Kick,146.4,2
++12.00,0.358691,true,15,Boundary,8.1,1
++12.00,0.358691,true,16,Kick,144.3,2
++12.00,0.358691,true,17,Boundary,8.0,1
++12.00,0.358691,true,18,Kick,160.7,2
++12.00,0.358691,true,19,Boundary,10.3,1
++12.00,0.358691,true,20,Kick,164.9,2
++12.00,0.358691,true,21,Boundary,10.4,1
++12.00,0.358691,true,22,Kick,164.8,2
++12.00,0.358691,true,23,Boundary,10.4,1
++12.00,0.358691,true,24,Kick,192.8,2
++12.00,0.358691,true,25,Boundary,10.1,1
++12.00,0.358691,true,26,Kick,162.0,2
++12.00,0.358691,true,27,Boundary,10.1,1
++12.00,0.358691,true,28,Kick,161.0,2
++12.00,0.358691,true,29,Boundary,10.2,1
++12.00,0.358691,true,30,Kick,161.2,2
++12.00,0.358691,true,31,Boundary,10.2,1
++12.00,0.358691,true,32,Kick,160.7,2
++12.00,0.358691,true,33,Boundary,10.0,1
++12.00,0.358691,true,34,Kick,189.0,2
++12.00,0.358691,true,35,Boundary,10.5,1
++12.00,0.358691,true,36,Kick,162.1,2
++12.00,0.358691,true,37,Boundary,10.1,1
++12.00,0.358691,true,38,Kick,160.4,2
++12.00,0.358691,true,39,Boundary,10.0,1
++13.00,0.389854,true,0,Boundary,10.9,1
++13.00,0.389854,true,1,Kick,174.3,2
++13.00,0.389854,true,2,Boundary,10.8,1
++13.00,0.389854,true,3,Kick,171.7,2
++13.00,0.389854,true,4,Boundary,10.7,1
++13.00,0.389854,true,5,Kick,169.7,2
++13.00,0.389854,true,6,Boundary,10.5,1
++13.00,0.389854,true,7,Kick,180.5,2
++13.00,0.389854,true,8,Boundary,10.8,1
++13.00,0.389854,true,9,Kick,170.8,2
++13.00,0.389854,true,10,Boundary,10.8,1
++13.00,0.389854,true,11,Kick,169.8,2
++13.00,0.389854,true,12,Boundary,10.7,1
++13.00,0.389854,true,13,Kick,169.4,2
++13.00,0.389854,true,14,Boundary,10.6,1
++13.00,0.389854,true,15,Kick,170.0,2
++13.00,0.389854,true,16,Boundary,10.6,1
++13.00,0.389854,true,17,Kick,177.1,2
++13.00,0.389854,true,18,Boundary,10.8,1
++13.00,0.389854,true,19,Kick,170.3,2
++13.00,0.389854,true,20,Boundary,10.5,1
++13.00,0.389854,true,21,Kick,170.0,2
++13.00,0.389854,true,22,Boundary,10.7,1
++13.00,0.389854,true,23,Kick,169.8,2
++13.00,0.389854,true,24,Boundary,10.6,1
++13.00,0.389854,true,25,Kick,170.4,2
++13.00,0.389854,true,26,Boundary,10.8,1
++13.00,0.389854,true,27,Kick,173.4,2
++13.00,0.389854,true,28,Boundary,10.6,1
++13.00,0.389854,true,29,Kick,153.4,2
++13.00,0.389854,true,30,Boundary,8.1,1
++13.00,0.389854,true,31,Kick,147.4,2
++13.00,0.389854,true,32,Boundary,8.1,1
++13.00,0.389854,true,33,Kick,147.7,2
++13.00,0.389854,true,34,Boundary,8.2,1
++13.00,0.389854,true,35,Kick,147.9,2
++13.00,0.389854,true,36,Boundary,8.2,1
++13.00,0.389854,true,37,Kick,152.6,2
++13.00,0.389854,true,38,Boundary,8.4,1
++13.00,0.389854,true,39,Kick,159.2,2
++14.00,0.419734,true,0,Boundary,10.6,1
++14.00,0.419734,true,1,Kick,172.5,2
++14.00,0.419734,true,2,Boundary,10.6,1
++14.00,0.419734,true,3,Kick,168.4,2
++14.00,0.419734,true,4,Boundary,10.5,1
++14.00,0.419734,true,5,Kick,167.5,2
++14.00,0.419734,true,6,Boundary,10.5,1
++14.00,0.419734,true,7,Kick,165.2,2
++14.00,0.419734,true,8,Boundary,10.3,1
++14.00,0.419734,true,9,Kick,149.1,2
++14.00,0.419734,true,10,Boundary,8.0,1
++14.00,0.419734,true,11,Kick,172.8,2
++14.00,0.419734,true,12,Boundary,8.0,1
++14.00,0.419734,true,13,Kick,144.7,2
++14.00,0.419734,true,14,Boundary,7.9,1
++14.00,0.419734,true,15,Kick,143.8,2
++14.00,0.419734,true,16,Boundary,8.0,1
++14.00,0.419734,true,17,Kick,147.9,2
++14.00,0.419734,true,18,Boundary,8.3,1
++14.00,0.419734,true,19,Kick,148.0,2
++14.00,0.419734,true,20,Boundary,8.1,1
++14.00,0.419734,true,21,Kick,148.2,2
++14.00,0.419734,true,22,Boundary,8.1,1
++14.00,0.419734,true,23,Kick,174.2,2
++14.00,0.419734,true,24,Boundary,8.1,1
++14.00,0.419734,true,25,Kick,148.2,2
++14.00,0.419734,true,26,Boundary,8.1,1
++14.00,0.419734,true,27,Kick,147.9,2
++14.00,0.419734,true,28,Boundary,8.1,1
++14.00,0.419734,true,29,Kick,147.6,2
++14.00,0.419734,true,30,Boundary,8.0,1
++14.00,0.419734,true,31,Kick,147.5,2
++14.00,0.419734,true,32,Boundary,8.1,1
++14.00,0.419734,true,33,Kick,147.5,2
++14.00,0.419734,true,34,Boundary,8.0,1
++14.00,0.419734,true,35,Kick,174.0,2
++14.00,0.419734,true,36,Boundary,8.2,1
++14.00,0.419734,true,37,Kick,147.9,2
++14.00,0.419734,true,38,Boundary,8.1,1
++14.00,0.419734,true,39,Kick,147.6,2
++15.00,0.445511,true,0,Kick,174.8,2
++15.00,0.445511,true,1,Boundary,8.1,1
++15.00,0.445511,true,2,Kick,148.5,2
++15.00,0.445511,true,3,Boundary,8.3,1
++15.00,0.445511,true,4,Kick,160.5,2
++15.00,0.445511,true,5,Boundary,8.2,1
++15.00,0.445511,true,6,Kick,155.9,2
++15.00,0.445511,true,7,Boundary,8.0,1
++15.00,0.445511,true,8,Kick,144.6,2
++15.00,0.445511,true,9,Boundary,7.9,1
++15.00,0.445511,true,10,Kick,144.3,2
++15.00,0.445511,true,11,Boundary,7.8,1
++15.00,0.445511,true,12,Kick,170.9,2
++15.00,0.445511,true,13,Boundary,8.0,1
++15.00,0.445511,true,14,Kick,145.8,2
++15.00,0.445511,true,15,Boundary,7.9,1
++15.00,0.445511,true,16,Kick,165.6,2
++15.00,0.445511,true,17,Boundary,8.0,1
++15.00,0.445511,true,18,Kick,183.6,2
++15.00,0.445511,true,19,Boundary,7.9,1
++15.00,0.445511,true,20,Kick,143.7,2
++15.00,0.445511,true,21,Boundary,8.1,1
++15.00,0.445511,true,22,Kick,143.2,2
++15.00,0.445511,true,23,Boundary,7.9,1
++15.00,0.445511,true,24,Kick,186.1,2
++15.00,0.445511,true,25,Boundary,8.2,1
++15.00,0.445511,true,26,Kick,146.4,2
++15.00,0.445511,true,27,Boundary,8.0,1
++15.00,0.445511,true,28,Kick,145.8,2
++15.00,0.445511,true,29,Boundary,8.0,1
++15.00,0.445511,true,30,Kick,146.1,2
++15.00,0.445511,true,31,Boundary,7.9,1
++15.00,0.445511,true,32,Kick,145.9,2
++15.00,0.445511,true,33,Boundary,7.9,1
++15.00,0.445511,true,34,Kick,146.0,2
++15.00,0.445511,true,35,Boundary,8.0,1
++15.00,0.445511,true,36,Kick,176.0,2
++15.00,0.445511,true,37,Boundary,8.1,1
++15.00,0.445511,true,38,Kick,146.9,2
++15.00,0.445511,true,39,Boundary,7.9,1
++16.00,0.472908,true,0,Boundary,8.4,1
++16.00,0.472908,true,1,Kick,154.8,2
++16.00,0.472908,true,2,Boundary,8.4,1
++16.00,0.472908,true,3,Kick,148.7,2
++16.00,0.472908,true,4,Boundary,8.2,1
++16.00,0.472908,true,5,Kick,151.6,2
++16.00,0.472908,true,6,Boundary,8.2,1
++16.00,0.472908,true,7,Kick,150.4,2
++16.00,0.472908,true,8,Boundary,8.2,1
++16.00,0.472908,true,9,Kick,180.1,2
++16.00,0.472908,true,10,Boundary,19.2,1
++16.00,0.472908,true,11,Kick,158.1,2
++16.00,0.472908,true,12,Boundary,7.9,1
++16.00,0.472908,true,13,Kick,151.0,2
++16.00,0.472908,true,14,Boundary,8.1,1
++16.00,0.472908,true,15,Kick,156.1,2
++16.00,0.472908,true,16,Boundary,8.1,1
++16.00,0.472908,true,17,Kick,166.4,2
++16.00,0.472908,true,18,Boundary,8.0,1
++16.00,0.472908,true,19,Kick,145.7,2
++16.00,0.472908,true,20,Boundary,7.9,1
++16.00,0.472908,true,21,Kick,246.7,2
++16.00,0.472908,true,22,Boundary,8.1,1
++16.00,0.472908,true,23,Kick,149.4,2
++16.00,0.472908,true,24,Boundary,8.0,1
++16.00,0.472908,true,25,Kick,148.9,2
++16.00,0.472908,true,26,Boundary,7.8,1
++16.00,0.472908,true,27,Kick,148.1,2
++16.00,0.472908,true,28,Boundary,7.9,1
++16.00,0.472908,true,29,Kick,148.4,2
++16.00,0.472908,true,30,Boundary,8.0,1
++16.00,0.472908,true,31,Kick,150.3,2
++16.00,0.472908,true,32,Boundary,8.0,1
++16.00,0.472908,true,33,Kick,188.6,2
++16.00,0.472908,true,34,Boundary,8.0,1
++16.00,0.472908,true,35,Kick,151.0,2
++16.00,0.472908,true,36,Boundary,7.9,1
++16.00,0.472908,true,37,Kick,150.7,2
++16.00,0.472908,true,38,Boundary,8.1,1
++16.00,0.472908,true,39,Kick,153.1,2
++17.00,0.499000,true,0,Boundary,8.0,1
++17.00,0.499000,true,1,Kick,218.7,2
++17.00,0.499000,true,2,Boundary,8.2,1
++17.00,0.499000,true,3,Kick,170.9,2
++17.00,0.499000,true,4,Boundary,8.0,1
++17.00,0.499000,true,5,Kick,149.1,2
++17.00,0.499000,true,6,Boundary,7.9,1
++17.00,0.499000,true,7,Kick,147.9,2
++17.00,0.499000,true,8,Boundary,8.0,1
++17.00,0.499000,true,9,Kick,148.4,2
++17.00,0.499000,true,10,Boundary,8.0,1
++17.00,0.499000,true,11,Kick,150.0,2
++17.00,0.499000,true,12,Boundary,7.9,1
++17.00,0.499000,true,13,Kick,150.0,2
++17.00,0.499000,true,14,Boundary,8.7,1
++17.00,0.499000,true,15,Kick,170.7,2
++17.00,0.499000,true,16,Boundary,7.9,1
++17.00,0.499000,true,17,Kick,150.5,2
++17.00,0.499000,true,18,Boundary,8.1,1
++17.00,0.499000,true,19,Kick,152.7,2
++17.00,0.499000,true,20,Boundary,8.0,1
++17.00,0.499000,true,21,Kick,152.6,2
++17.00,0.499000,true,22,Boundary,8.1,1
++17.00,0.499000,true,23,Kick,152.0,2
++17.00,0.499000,true,24,Boundary,7.9,1
++17.00,0.499000,true,25,Kick,168.2,2
++17.00,0.499000,true,26,Boundary,17.3,1
++17.00,0.499000,true,27,Kick,156.0,2
++17.00,0.499000,true,28,Boundary,8.0,1
++17.00,0.499000,true,29,Kick,154.2,2
++17.00,0.499000,true,30,Boundary,8.0,1
++17.00,0.499000,true,31,Kick,167.7,2
++17.00,0.499000,true,32,Boundary,8.2,1
++17.00,0.499000,true,33,Kick,161.3,2
++17.00,0.499000,true,34,Boundary,8.3,1
++17.00,0.499000,true,35,Kick,162.1,2
++17.00,0.499000,true,36,Boundary,8.2,1
++17.00,0.499000,true,37,Kick,190.2,2
++17.00,0.499000,true,38,Boundary,8.3,1
++17.00,0.499000,true,39,Kick,164.2,2
++18.00,0.521397,true,0,Boundary,8.1,1
++18.00,0.521397,true,1,Kick,173.5,2
++18.00,0.521397,true,2,Boundary,10.7,1
++18.00,0.521397,true,3,Kick,176.6,2
++18.00,0.521397,true,4,Boundary,8.0,1
++18.00,0.521397,true,5,Kick,151.7,2
++18.00,0.521397,true,6,Boundary,7.9,1
++18.00,0.521397,true,7,Kick,151.8,2
++18.00,0.521397,true,8,Boundary,8.2,1
++18.00,0.521397,true,9,Kick,174.7,2
++18.00,0.521397,true,10,Boundary,8.0,1
++18.00,0.521397,true,11,Kick,185.9,2
++18.00,0.521397,true,12,Boundary,8.3,1
++18.00,0.521397,true,13,Kick,192.4,2
++18.00,0.521397,true,14,Boundary,8.1,1
++18.00,0.521397,true,15,Kick,153.4,2
++18.00,0.521397,true,16,Boundary,8.0,1
++18.00,0.521397,true,17,Kick,155.3,2
++18.00,0.521397,true,18,Boundary,7.9,1
++18.00,0.521397,true,19,Kick,154.7,2
++18.00,0.521397,true,20,Boundary,8.0,1
++18.00,0.521397,true,21,Kick,154.8,2
++18.00,0.521397,true,22,Boundary,8.0,1
++18.00,0.521397,true,23,Kick,157.6,2
++18.00,0.521397,true,24,Boundary,8.1,1
++18.00,0.521397,true,25,Kick,192.1,2
++18.00,0.521397,true,26,Boundary,8.1,1
++18.00,0.521397,true,27,Kick,158.0,2
++18.00,0.521397,true,28,Boundary,8.0,1
++18.00,0.521397,true,29,Kick,159.1,2
++18.00,0.521397,true,30,Boundary,7.9,1
++18.00,0.521397,true,31,Kick,158.6,2
++18.00,0.521397,true,32,Boundary,8.0,1
++18.00,0.521397,true,33,Kick,158.2,2
++18.00,0.521397,true,34,Boundary,7.9,1
++18.00,0.521397,true,35,Kick,275.0,2
++18.00,0.521397,true,36,Boundary,8.1,1
++18.00,0.521397,true,37,Kick,161.6,2
++18.00,0.521397,true,38,Boundary,7.9,1
++18.00,0.521397,true,39,Kick,160.6,2
++19.00,0.545081,true,0,Boundary,9.2,1
++19.00,0.545081,true,1,Kick,185.5,2
++19.00,0.545081,true,2,Boundary,8.7,1
++19.00,0.545081,true,3,Kick,169.9,2
++19.00,0.545081,true,4,Boundary,8.2,1
++19.00,0.545081,true,5,Kick,157.0,2
++19.00,0.545081,true,6,Boundary,8.3,1
++19.00,0.545081,true,7,Kick,159.2,2
++19.00,0.545081,true,8,Boundary,8.2,1
++19.00,0.545081,true,9,Kick,184.7,2
++19.00,0.545081,true,10,Boundary,8.3,1
++19.00,0.545081,true,11,Kick,160.0,2
++19.00,0.545081,true,12,Boundary,8.2,1
++19.00,0.545081,true,13,Kick,161.5,2
++19.00,0.545081,true,14,Boundary,8.4,1
++19.00,0.545081,true,15,Kick,161.1,2
++19.00,0.545081,true,16,Boundary,8.3,1
++19.00,0.545081,true,17,Kick,161.5,2
++19.00,0.545081,true,18,Boundary,8.2,1
++19.00,0.545081,true,19,Kick,163.4,2
++19.00,0.545081,true,20,Boundary,8.1,1
++19.00,0.545081,true,21,Kick,199.3,2
++19.00,0.545081,true,22,Boundary,8.0,1
++19.00,0.545081,true,23,Kick,159.8,2
++19.00,0.545081,true,24,Boundary,8.0,1
++19.00,0.545081,true,25,Kick,237.0,2
++19.00,0.545081,true,26,Boundary,8.1,1
++19.00,0.545081,true,27,Kick,161.0,2
++19.00,0.545081,true,28,Boundary,7.9,1
++19.00,0.545081,true,29,Kick,160.6,2
++19.00,0.545081,true,30,Boundary,8.1,1
++19.00,0.545081,true,31,Kick,196.6,2
++19.00,0.545081,true,32,Boundary,8.0,1
++19.00,0.545081,true,33,Kick,163.6,2
++19.00,0.545081,true,34,Boundary,8.1,1
++19.00,0.545081,true,35,Kick,163.0,2
++19.00,0.545081,true,36,Boundary,7.9,1
++19.00,0.545081,true,37,Kick,163.3,2
++19.00,0.545081,true,38,Boundary,7.9,1
++19.00,0.545081,true,39,Kick,165.4,2
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/items_L8.csv b/lab/lab/results/20261012-2257-quant-32ab/work/items_L8.csv
+new file mode 100644
+index 00000000..e229667d
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/items_L8.csv
+@@ -0,0 +1,761 @@
++wall_s,vmax,alive,idx,kind,us,plan_len
++1.00,0.000028,true,0,Kick,39.2,1
++1.00,0.000028,true,1,Boundary,18.2,2
++1.00,0.000028,true,2,Kick,37.8,1
++1.00,0.000028,true,3,Boundary,17.3,2
++1.00,0.000028,true,4,Kick,38.8,1
++1.00,0.000028,true,5,Boundary,21.1,2
++1.00,0.000028,true,6,Kick,43.5,1
++1.00,0.000028,true,7,Boundary,21.1,2
++1.00,0.000028,true,8,Kick,43.4,1
++1.00,0.000028,true,9,Boundary,20.8,2
++1.00,0.000028,true,10,Kick,44.3,1
++1.00,0.000028,true,11,Boundary,21.1,2
++1.00,0.000028,true,12,Kick,44.9,1
++1.00,0.000028,true,13,Boundary,21.1,2
++1.00,0.000028,true,14,Kick,61.9,1
++1.00,0.000028,true,15,Boundary,40.6,2
++1.00,0.000028,true,16,Kick,50.7,1
++1.00,0.000028,true,17,Boundary,21.2,2
++1.00,0.000028,true,18,Kick,46.6,1
++1.00,0.000028,true,19,Boundary,20.8,2
++1.00,0.000028,true,20,Kick,46.4,1
++1.00,0.000028,true,21,Boundary,21.1,2
++1.00,0.000028,true,22,Kick,46.5,1
++1.00,0.000028,true,23,Boundary,21.1,2
++1.00,0.000028,true,24,Kick,47.3,1
++1.00,0.000028,true,25,Boundary,21.0,2
++1.00,0.000028,true,26,Kick,47.2,1
++1.00,0.000028,true,27,Boundary,21.0,2
++1.00,0.000028,true,28,Kick,48.0,1
++1.00,0.000028,true,29,Boundary,20.9,2
++1.00,0.000028,true,30,Kick,48.6,1
++1.00,0.000028,true,31,Boundary,21.1,2
++1.00,0.000028,true,32,Kick,49.0,1
++1.00,0.000028,true,33,Boundary,20.9,2
++1.00,0.000028,true,34,Kick,48.9,1
++1.00,0.000028,true,35,Boundary,21.1,2
++1.00,0.000028,true,36,Kick,50.0,1
++1.00,0.000028,true,37,Boundary,21.0,2
++1.00,0.000028,true,38,Kick,50.7,1
++1.00,0.000028,true,39,Boundary,26.6,2
++2.00,0.000227,true,0,Kick,409.5,1
++2.00,0.000227,true,1,Boundary,68.3,2
++2.00,0.000227,true,2,Kick,454.9,1
++2.00,0.000227,true,3,Boundary,69.2,2
++2.00,0.000227,true,4,Kick,412.0,1
++2.00,0.000227,true,5,Boundary,69.4,2
++2.00,0.000227,true,6,Kick,435.0,1
++2.00,0.000227,true,7,Boundary,69.3,2
++2.00,0.000227,true,8,Kick,514.3,1
++2.00,0.000227,true,9,Boundary,85.2,2
++2.00,0.000227,true,10,Kick,457.8,1
++2.00,0.000227,true,11,Boundary,69.3,2
++2.00,0.000227,true,12,Kick,382.3,1
++2.00,0.000227,true,13,Boundary,96.6,2
++2.00,0.000227,true,14,Kick,381.5,1
++2.00,0.000227,true,15,Boundary,57.9,2
++2.00,0.000227,true,16,Kick,402.2,1
++2.00,0.000227,true,17,Boundary,60.8,2
++2.00,0.000227,true,18,Kick,410.2,1
++2.00,0.000227,true,19,Boundary,57.8,2
++2.00,0.000227,true,20,Kick,378.7,1
++2.00,0.000227,true,21,Boundary,57.2,2
++2.00,0.000227,true,22,Kick,414.6,1
++2.00,0.000227,true,23,Boundary,58.7,2
++2.00,0.000227,true,24,Kick,380.3,1
++2.00,0.000227,true,25,Boundary,58.4,2
++2.00,0.000227,true,26,Kick,419.3,1
++2.00,0.000227,true,27,Boundary,58.3,2
++2.00,0.000227,true,28,Kick,380.0,1
++2.00,0.000227,true,29,Boundary,58.3,2
++2.00,0.000227,true,30,Kick,414.5,1
++2.00,0.000227,true,31,Boundary,58.3,2
++2.00,0.000227,true,32,Kick,379.6,1
++2.00,0.000227,true,33,Boundary,57.5,2
++2.00,0.000227,true,34,Kick,408.9,1
++2.00,0.000227,true,35,Boundary,60.3,2
++2.00,0.000227,true,36,Kick,392.1,1
++2.00,0.000227,true,37,Boundary,57.9,2
++2.00,0.000227,true,38,Kick,378.3,1
++2.00,0.000227,true,39,Boundary,97.6,2
++3.00,0.000518,true,0,Boundary,60.8,2
++3.00,0.000518,true,1,Kick,401.5,1
++3.00,0.000518,true,2,Boundary,60.1,2
++3.00,0.000518,true,3,Kick,543.1,1
++3.00,0.000518,true,4,Boundary,79.1,2
++3.00,0.000518,true,5,Kick,494.3,1
++3.00,0.000518,true,6,Boundary,60.3,2
++3.00,0.000518,true,7,Kick,421.7,1
++3.00,0.000518,true,8,Boundary,59.1,2
++3.00,0.000518,true,9,Kick,383.1,1
++3.00,0.000518,true,10,Boundary,58.0,2
++3.00,0.000518,true,11,Kick,439.0,1
++3.00,0.000518,true,12,Boundary,70.8,2
++3.00,0.000518,true,13,Kick,453.5,1
++3.00,0.000518,true,14,Boundary,78.6,2
++3.00,0.000518,true,15,Kick,528.3,1
++3.00,0.000518,true,16,Boundary,84.7,2
++3.00,0.000518,true,17,Kick,567.6,1
++3.00,0.000518,true,18,Boundary,63.3,2
++3.00,0.000518,true,19,Kick,404.3,1
++3.00,0.000518,true,20,Boundary,71.1,2
++3.00,0.000518,true,21,Kick,415.1,1
++3.00,0.000518,true,22,Boundary,66.6,2
++3.00,0.000518,true,23,Kick,545.4,1
++3.00,0.000518,true,24,Boundary,61.5,2
++3.00,0.000518,true,25,Kick,419.3,1
++3.00,0.000518,true,26,Boundary,60.4,2
++3.00,0.000518,true,27,Kick,391.3,1
++3.00,0.000518,true,28,Boundary,59.3,2
++3.00,0.000518,true,29,Kick,478.5,1
++3.00,0.000518,true,30,Boundary,94.8,2
++3.00,0.000518,true,31,Kick,403.6,1
++3.00,0.000518,true,32,Boundary,59.7,2
++3.00,0.000518,true,33,Kick,470.0,1
++3.00,0.000518,true,34,Boundary,62.2,2
++3.00,0.000518,true,35,Kick,439.5,1
++3.00,0.000518,true,36,Boundary,83.0,2
++3.00,0.000518,true,37,Kick,498.9,1
++3.00,0.000518,true,38,Boundary,71.3,2
++3.00,0.000518,true,39,Kick,422.9,1
++4.00,0.000816,true,0,Boundary,58.8,2
++4.00,0.000816,true,1,Kick,427.2,1
++4.00,0.000816,true,2,Boundary,59.0,2
++4.00,0.000816,true,3,Kick,453.6,1
++4.00,0.000816,true,4,Boundary,58.4,2
++4.00,0.000816,true,5,Kick,422.4,1
++4.00,0.000816,true,6,Boundary,59.0,2
++4.00,0.000816,true,7,Kick,391.2,1
++4.00,0.000816,true,8,Boundary,58.6,2
++4.00,0.000816,true,9,Kick,429.2,1
++4.00,0.000816,true,10,Boundary,59.4,2
++4.00,0.000816,true,11,Kick,384.3,1
++4.00,0.000816,true,12,Boundary,58.0,2
++4.00,0.000816,true,13,Kick,418.0,1
++4.00,0.000816,true,14,Boundary,58.3,2
++4.00,0.000816,true,15,Kick,387.2,1
++4.00,0.000816,true,16,Boundary,57.9,2
++4.00,0.000816,true,17,Kick,419.1,1
++4.00,0.000816,true,18,Boundary,58.2,2
++4.00,0.000816,true,19,Kick,382.1,1
++4.00,0.000816,true,20,Boundary,57.9,2
++4.00,0.000816,true,21,Kick,419.6,1
++4.00,0.000816,true,22,Boundary,67.3,2
++4.00,0.000816,true,23,Kick,383.0,1
++4.00,0.000816,true,24,Boundary,57.9,2
++4.00,0.000816,true,25,Kick,396.6,1
++4.00,0.000816,true,26,Boundary,67.7,2
++4.00,0.000816,true,27,Kick,383.5,1
++4.00,0.000816,true,28,Boundary,58.1,2
++4.00,0.000816,true,29,Kick,383.1,1
++4.00,0.000816,true,30,Boundary,57.9,2
++4.00,0.000816,true,31,Kick,426.2,1
++4.00,0.000816,true,32,Boundary,58.3,2
++4.00,0.000816,true,33,Kick,382.9,1
++4.00,0.000816,true,34,Boundary,57.9,2
++4.00,0.000816,true,35,Kick,405.9,1
++4.00,0.000816,true,36,Boundary,58.3,2
++4.00,0.000816,true,37,Kick,384.4,1
++4.00,0.000816,true,38,Boundary,58.1,2
++4.00,0.000816,true,39,Kick,415.3,1
++5.00,0.001102,true,0,Kick,428.2,1
++5.00,0.001102,true,1,Boundary,59.9,2
++5.00,0.001102,true,2,Kick,391.4,1
++5.00,0.001102,true,3,Boundary,58.3,2
++5.00,0.001102,true,4,Kick,417.4,1
++5.00,0.001102,true,5,Boundary,58.5,2
++5.00,0.001102,true,6,Kick,385.1,1
++5.00,0.001102,true,7,Boundary,58.1,2
++5.00,0.001102,true,8,Kick,416.6,1
++5.00,0.001102,true,9,Boundary,58.3,2
++5.00,0.001102,true,10,Kick,381.1,1
++5.00,0.001102,true,11,Boundary,57.6,2
++5.00,0.001102,true,12,Kick,428.0,1
++5.00,0.001102,true,13,Boundary,60.3,2
++5.00,0.001102,true,14,Kick,392.4,1
++5.00,0.001102,true,15,Boundary,57.8,2
++5.00,0.001102,true,16,Kick,407.4,1
++5.00,0.001102,true,17,Boundary,78.0,2
++5.00,0.001102,true,18,Kick,422.0,1
++5.00,0.001102,true,19,Boundary,57.3,2
++5.00,0.001102,true,20,Kick,379.5,1
++5.00,0.001102,true,21,Boundary,92.3,2
++5.00,0.001102,true,22,Kick,381.0,1
++5.00,0.001102,true,23,Boundary,57.8,2
++5.00,0.001102,true,24,Kick,380.5,1
++5.00,0.001102,true,25,Boundary,57.7,2
++5.00,0.001102,true,26,Kick,420.6,1
++5.00,0.001102,true,27,Boundary,58.4,2
++5.00,0.001102,true,28,Kick,381.5,1
++5.00,0.001102,true,29,Boundary,57.6,2
++5.00,0.001102,true,30,Kick,415.8,1
++5.00,0.001102,true,31,Boundary,58.4,2
++5.00,0.001102,true,32,Kick,380.4,1
++5.00,0.001102,true,33,Boundary,57.8,2
++5.00,0.001102,true,34,Kick,433.7,1
++5.00,0.001102,true,35,Boundary,58.4,2
++5.00,0.001102,true,36,Kick,380.6,1
++5.00,0.001102,true,37,Boundary,58.2,2
++5.00,0.001102,true,38,Kick,406.5,1
++5.00,0.001102,true,39,Boundary,56.4,2
++6.00,0.001407,true,0,Boundary,57.7,2
++6.00,0.001407,true,1,Kick,416.7,1
++6.00,0.001407,true,2,Boundary,56.6,2
++6.00,0.001407,true,3,Kick,424.9,1
++6.00,0.001407,true,4,Boundary,58.3,2
++6.00,0.001407,true,5,Kick,428.0,1
++6.00,0.001407,true,6,Boundary,57.6,2
++6.00,0.001407,true,7,Kick,424.5,1
++6.00,0.001407,true,8,Boundary,58.3,2
++6.00,0.001407,true,9,Kick,386.7,1
++6.00,0.001407,true,10,Boundary,57.8,2
++6.00,0.001407,true,11,Kick,422.9,1
++6.00,0.001407,true,12,Boundary,58.6,2
++6.00,0.001407,true,13,Kick,386.4,1
++6.00,0.001407,true,14,Boundary,57.7,2
++6.00,0.001407,true,15,Kick,387.3,1
++6.00,0.001407,true,16,Boundary,85.7,2
++6.00,0.001407,true,17,Kick,397.3,1
++6.00,0.001407,true,18,Boundary,58.3,2
++6.00,0.001407,true,19,Kick,385.2,1
++6.00,0.001407,true,20,Boundary,57.8,2
++6.00,0.001407,true,21,Kick,421.6,1
++6.00,0.001407,true,22,Boundary,60.1,2
++6.00,0.001407,true,23,Kick,396.3,1
++6.00,0.001407,true,24,Boundary,57.8,2
++6.00,0.001407,true,25,Kick,420.1,1
++6.00,0.001407,true,26,Boundary,59.0,2
++6.00,0.001407,true,27,Kick,387.5,1
++6.00,0.001407,true,28,Boundary,58.1,2
++6.00,0.001407,true,29,Kick,421.6,1
++6.00,0.001407,true,30,Boundary,58.8,2
++6.00,0.001407,true,31,Kick,386.3,1
++6.00,0.001407,true,32,Boundary,58.6,2
++6.00,0.001407,true,33,Kick,424.1,1
++6.00,0.001407,true,34,Boundary,58.4,2
++6.00,0.001407,true,35,Kick,385.8,1
++6.00,0.001407,true,36,Boundary,57.8,2
++6.00,0.001407,true,37,Kick,426.9,1
++6.00,0.001407,true,38,Boundary,58.8,2
++6.00,0.001407,true,39,Kick,386.5,1
++7.00,0.001697,true,0,Boundary,59.4,2
++7.00,0.001697,true,1,Kick,426.3,1
++7.00,0.001697,true,2,Boundary,59.0,2
++7.00,0.001697,true,3,Kick,388.4,1
++7.00,0.001697,true,4,Boundary,68.6,2
++7.00,0.001697,true,5,Kick,424.0,1
++7.00,0.001697,true,6,Boundary,58.5,2
++7.00,0.001697,true,7,Kick,385.7,1
++7.00,0.001697,true,8,Boundary,57.5,2
++7.00,0.001697,true,9,Kick,419.8,1
++7.00,0.001697,true,10,Boundary,58.2,2
++7.00,0.001697,true,11,Kick,386.2,1
++7.00,0.001697,true,12,Boundary,58.0,2
++7.00,0.001697,true,13,Kick,422.4,1
++7.00,0.001697,true,14,Boundary,58.6,2
++7.00,0.001697,true,15,Kick,385.2,1
++7.00,0.001697,true,16,Boundary,58.0,2
++7.00,0.001697,true,17,Kick,409.5,1
++7.00,0.001697,true,18,Boundary,67.3,2
++7.00,0.001697,true,19,Kick,385.0,1
++7.00,0.001697,true,20,Boundary,57.8,2
++7.00,0.001697,true,21,Kick,385.1,1
++7.00,0.001697,true,22,Boundary,74.1,2
++7.00,0.001697,true,23,Kick,424.1,1
++7.00,0.001697,true,24,Boundary,59.1,2
++7.00,0.001697,true,25,Kick,394.3,1
++7.00,0.001697,true,26,Boundary,59.7,2
++7.00,0.001697,true,27,Kick,422.0,1
++7.00,0.001697,true,28,Boundary,80.2,2
++7.00,0.001697,true,29,Kick,534.7,1
++7.00,0.001697,true,30,Boundary,83.6,2
++7.00,0.001697,true,31,Kick,400.9,1
++7.00,0.001697,true,32,Boundary,60.4,2
++7.00,0.001697,true,33,Kick,395.1,1
++7.00,0.001697,true,34,Boundary,86.0,2
++7.00,0.001697,true,35,Kick,406.9,1
++7.00,0.001697,true,36,Boundary,60.7,2
++7.00,0.001697,true,37,Kick,411.1,1
++7.00,0.001697,true,38,Boundary,75.0,2
++7.00,0.001697,true,39,Kick,405.9,1
++8.00,0.001979,true,0,Kick,392.6,1
++8.00,0.001979,true,1,Boundary,58.9,2
++8.00,0.001979,true,2,Kick,411.7,1
++8.00,0.001979,true,3,Boundary,58.5,2
++8.00,0.001979,true,4,Kick,387.6,1
++8.00,0.001979,true,5,Boundary,57.8,2
++8.00,0.001979,true,6,Kick,422.8,1
++8.00,0.001979,true,7,Boundary,58.4,2
++8.00,0.001979,true,8,Kick,400.5,1
++8.00,0.001979,true,9,Boundary,63.3,2
++8.00,0.001979,true,10,Kick,426.7,1
++8.00,0.001979,true,11,Boundary,60.2,2
++8.00,0.001979,true,12,Kick,397.0,1
++8.00,0.001979,true,13,Boundary,59.4,2
++8.00,0.001979,true,14,Kick,492.2,1
++8.00,0.001979,true,15,Boundary,80.3,2
++8.00,0.001979,true,16,Kick,476.4,1
++8.00,0.001979,true,17,Boundary,61.3,2
++8.00,0.001979,true,18,Kick,426.5,1
++8.00,0.001979,true,19,Boundary,60.1,2
++8.00,0.001979,true,20,Kick,397.6,1
++8.00,0.001979,true,21,Boundary,59.4,2
++8.00,0.001979,true,22,Kick,430.1,1
++8.00,0.001979,true,23,Boundary,58.3,2
++8.00,0.001979,true,24,Kick,386.3,1
++8.00,0.001979,true,25,Boundary,58.3,2
++8.00,0.001979,true,26,Kick,421.4,1
++8.00,0.001979,true,27,Boundary,58.0,2
++8.00,0.001979,true,28,Kick,385.4,1
++8.00,0.001979,true,29,Boundary,57.9,2
++8.00,0.001979,true,30,Kick,421.3,1
++8.00,0.001979,true,31,Boundary,58.6,2
++8.00,0.001979,true,32,Kick,386.2,1
++8.00,0.001979,true,33,Boundary,57.8,2
++8.00,0.001979,true,34,Kick,401.2,1
++8.00,0.001979,true,35,Boundary,81.6,2
++8.00,0.001979,true,36,Kick,387.1,1
++8.00,0.001979,true,37,Boundary,58.3,2
++8.00,0.001979,true,38,Kick,398.7,1
++8.00,0.001979,true,39,Boundary,75.4,2
++9.00,0.002284,true,0,Boundary,59.2,2
++9.00,0.002284,true,1,Kick,442.1,1
++9.00,0.002284,true,2,Boundary,58.9,2
++9.00,0.002284,true,3,Kick,395.0,1
++9.00,0.002284,true,4,Boundary,58.2,2
++9.00,0.002284,true,5,Kick,440.3,1
++9.00,0.002284,true,6,Boundary,59.2,2
++9.00,0.002284,true,7,Kick,388.8,1
++9.00,0.002284,true,8,Boundary,57.7,2
++9.00,0.002284,true,9,Kick,424.6,1
++9.00,0.002284,true,10,Boundary,58.5,2
++9.00,0.002284,true,11,Kick,386.1,1
++9.00,0.002284,true,12,Boundary,58.1,2
++9.00,0.002284,true,13,Kick,401.2,1
++9.00,0.002284,true,14,Boundary,78.7,2
++9.00,0.002284,true,15,Kick,398.1,1
++9.00,0.002284,true,16,Boundary,59.3,2
++9.00,0.002284,true,17,Kick,396.3,1
++9.00,0.002284,true,18,Boundary,90.7,2
++9.00,0.002284,true,19,Kick,388.9,1
++9.00,0.002284,true,20,Boundary,58.2,2
++9.00,0.002284,true,21,Kick,386.5,1
++9.00,0.002284,true,22,Boundary,58.1,2
++9.00,0.002284,true,23,Kick,584.4,1
++9.00,0.002284,true,24,Boundary,72.9,2
++9.00,0.002284,true,25,Kick,427.2,1
++9.00,0.002284,true,26,Boundary,60.2,2
++9.00,0.002284,true,27,Kick,420.3,1
++9.00,0.002284,true,28,Boundary,59.2,2
++9.00,0.002284,true,29,Kick,420.5,1
++9.00,0.002284,true,30,Boundary,58.2,2
++9.00,0.002284,true,31,Kick,389.3,1
++9.00,0.002284,true,32,Boundary,57.8,2
++9.00,0.002284,true,33,Kick,387.1,1
++9.00,0.002284,true,34,Boundary,71.4,2
++9.00,0.002284,true,35,Kick,418.2,1
++9.00,0.002284,true,36,Boundary,58.2,2
++9.00,0.002284,true,37,Kick,406.4,1
++9.00,0.002284,true,38,Boundary,59.3,2
++9.00,0.002284,true,39,Kick,421.8,1
++10.00,0.002589,true,0,Boundary,60.9,2
++10.00,0.002589,true,1,Kick,401.4,1
++10.00,0.002589,true,2,Boundary,60.0,2
++10.00,0.002589,true,3,Kick,421.7,1
++10.00,0.002589,true,4,Boundary,59.9,2
++10.00,0.002589,true,5,Kick,532.9,1
++10.00,0.002589,true,6,Boundary,69.2,2
++10.00,0.002589,true,7,Kick,449.1,1
++10.00,0.002589,true,8,Boundary,60.8,2
++10.00,0.002589,true,9,Kick,400.4,1
++10.00,0.002589,true,10,Boundary,59.3,2
++10.00,0.002589,true,11,Kick,432.2,1
++10.00,0.002589,true,12,Boundary,58.1,2
++10.00,0.002589,true,13,Kick,411.0,1
++10.00,0.002589,true,14,Boundary,57.6,2
++10.00,0.002589,true,15,Kick,422.8,1
++10.00,0.002589,true,16,Boundary,58.5,2
++10.00,0.002589,true,17,Kick,388.2,1
++10.00,0.002589,true,18,Boundary,57.6,2
++10.00,0.002589,true,19,Kick,405.0,1
++10.00,0.002589,true,20,Boundary,77.9,2
++10.00,0.002589,true,21,Kick,388.6,1
++10.00,0.002589,true,22,Boundary,57.4,2
++10.00,0.002589,true,23,Kick,391.1,1
++10.00,0.002589,true,24,Boundary,95.0,2
++10.00,0.002589,true,25,Kick,410.1,1
++10.00,0.002589,true,26,Boundary,57.9,2
++10.00,0.002589,true,27,Kick,415.0,1
++10.00,0.002589,true,28,Boundary,75.8,2
++10.00,0.002589,true,29,Kick,431.1,1
++10.00,0.002589,true,30,Boundary,60.2,2
++10.00,0.002589,true,31,Kick,400.2,1
++10.00,0.002589,true,32,Boundary,60.0,2
++10.00,0.002589,true,33,Kick,442.0,1
++10.00,0.002589,true,34,Boundary,71.7,2
++10.00,0.002589,true,35,Kick,421.6,1
++10.00,0.002589,true,36,Boundary,60.7,2
++10.00,0.002589,true,37,Kick,427.0,1
++10.00,0.002589,true,38,Boundary,59.8,2
++10.00,0.002589,true,39,Kick,434.7,1
++11.00,0.002864,true,0,Kick,439.5,1
++11.00,0.002864,true,1,Boundary,59.5,2
++11.00,0.002864,true,2,Kick,410.9,1
++11.00,0.002864,true,3,Boundary,57.7,2
++11.00,0.002864,true,4,Kick,425.2,1
++11.00,0.002864,true,5,Boundary,58.6,2
++11.00,0.002864,true,6,Kick,400.2,1
++11.00,0.002864,true,7,Boundary,59.2,2
++11.00,0.002864,true,8,Kick,439.9,1
++11.00,0.002864,true,9,Boundary,58.6,2
++11.00,0.002864,true,10,Kick,390.0,1
++11.00,0.002864,true,11,Boundary,58.2,2
++11.00,0.002864,true,12,Kick,466.4,1
++11.00,0.002864,true,13,Boundary,59.0,2
++11.00,0.002864,true,14,Kick,390.7,1
++11.00,0.002864,true,15,Boundary,58.2,2
++11.00,0.002864,true,16,Kick,389.6,1
++11.00,0.002864,true,17,Boundary,91.4,2
++11.00,0.002864,true,18,Kick,400.9,1
++11.00,0.002864,true,19,Boundary,57.9,2
++11.00,0.002864,true,20,Kick,389.4,1
++11.00,0.002864,true,21,Boundary,57.7,2
++11.00,0.002864,true,22,Kick,437.0,1
++11.00,0.002864,true,23,Boundary,58.2,2
++11.00,0.002864,true,24,Kick,391.7,1
++11.00,0.002864,true,25,Boundary,55.6,2
++11.00,0.002864,true,26,Kick,415.7,1
++11.00,0.002864,true,27,Boundary,58.4,2
++11.00,0.002864,true,28,Kick,416.2,1
++11.00,0.002864,true,29,Boundary,58.1,2
++11.00,0.002864,true,30,Kick,425.1,1
++11.00,0.002864,true,31,Boundary,58.4,2
++11.00,0.002864,true,32,Kick,391.9,1
++11.00,0.002864,true,33,Boundary,58.1,2
++11.00,0.002864,true,34,Kick,441.0,1
++11.00,0.002864,true,35,Boundary,58.9,2
++11.00,0.002864,true,36,Kick,391.7,1
++11.00,0.002864,true,37,Boundary,58.0,2
++11.00,0.002864,true,38,Kick,426.4,1
++11.00,0.002864,true,39,Boundary,58.4,2
++12.00,0.003169,true,0,Boundary,69.8,2
++12.00,0.003169,true,1,Kick,399.2,1
++12.00,0.003169,true,2,Boundary,58.7,2
++12.00,0.003169,true,3,Kick,392.5,1
++12.00,0.003169,true,4,Boundary,93.7,2
++12.00,0.003169,true,5,Kick,393.6,1
++12.00,0.003169,true,6,Boundary,56.0,2
++12.00,0.003169,true,7,Kick,391.4,1
++12.00,0.003169,true,8,Boundary,58.0,2
++12.00,0.003169,true,9,Kick,438.9,1
++12.00,0.003169,true,10,Boundary,59.2,2
++12.00,0.003169,true,11,Kick,392.8,1
++12.00,0.003169,true,12,Boundary,58.3,2
++12.00,0.003169,true,13,Kick,416.4,1
++12.00,0.003169,true,14,Boundary,58.7,2
++12.00,0.003169,true,15,Kick,393.4,1
++12.00,0.003169,true,16,Boundary,58.4,2
++12.00,0.003169,true,17,Kick,428.3,1
++12.00,0.003169,true,18,Boundary,58.5,2
++12.00,0.003169,true,19,Kick,404.3,1
++12.00,0.003169,true,20,Boundary,59.5,2
++12.00,0.003169,true,21,Kick,464.4,1
++12.00,0.003169,true,22,Boundary,60.6,2
++12.00,0.003169,true,23,Kick,403.4,1
++12.00,0.003169,true,24,Boundary,59.6,2
++12.00,0.003169,true,25,Kick,427.1,1
++12.00,0.003169,true,26,Boundary,70.5,2
++12.00,0.003169,true,27,Kick,544.1,1
++12.00,0.003169,true,28,Boundary,74.3,2
++12.00,0.003169,true,29,Kick,425.1,1
++12.00,0.003169,true,30,Boundary,60.6,2
++12.00,0.003169,true,31,Kick,402.3,1
++12.00,0.003169,true,32,Boundary,59.5,2
++12.00,0.003169,true,33,Kick,427.5,1
++12.00,0.003169,true,34,Boundary,60.3,2
++12.00,0.003169,true,35,Kick,426.6,1
++12.00,0.003169,true,36,Boundary,59.3,2
++12.00,0.003169,true,37,Kick,428.3,1
++12.00,0.003169,true,38,Boundary,58.0,2
++12.00,0.003169,true,39,Kick,390.7,1
++13.00,0.003474,true,0,Boundary,61.1,2
++13.00,0.003474,true,1,Kick,404.6,1
++13.00,0.003474,true,2,Boundary,60.1,2
++13.00,0.003474,true,3,Kick,435.3,1
++13.00,0.003474,true,4,Boundary,59.1,2
++13.00,0.003474,true,5,Kick,409.3,1
++13.00,0.003474,true,6,Boundary,59.9,2
++13.00,0.003474,true,7,Kick,504.4,1
++13.00,0.003474,true,8,Boundary,82.9,2
++13.00,0.003474,true,9,Kick,583.9,1
++13.00,0.003474,true,10,Boundary,83.0,2
++13.00,0.003474,true,11,Kick,548.4,1
++13.00,0.003474,true,12,Boundary,81.5,2
++13.00,0.003474,true,13,Kick,584.0,1
++13.00,0.003474,true,14,Boundary,82.9,2
++13.00,0.003474,true,15,Kick,585.4,1
++13.00,0.003474,true,16,Boundary,82.9,2
++13.00,0.003474,true,17,Kick,546.0,1
++13.00,0.003474,true,18,Boundary,81.0,2
++13.00,0.003474,true,19,Kick,591.0,1
++13.00,0.003474,true,20,Boundary,83.0,2
++13.00,0.003474,true,21,Kick,577.3,1
++13.00,0.003474,true,22,Boundary,80.7,2
++13.00,0.003474,true,23,Kick,589.4,1
++13.00,0.003474,true,24,Boundary,81.1,2
++13.00,0.003474,true,25,Kick,530.2,1
++13.00,0.003474,true,26,Boundary,58.5,2
++13.00,0.003474,true,27,Kick,394.1,1
++13.00,0.003474,true,28,Boundary,57.9,2
++13.00,0.003474,true,29,Kick,420.4,1
++13.00,0.003474,true,30,Boundary,58.7,2
++13.00,0.003474,true,31,Kick,393.7,1
++13.00,0.003474,true,32,Boundary,57.8,2
++13.00,0.003474,true,33,Kick,429.4,1
++13.00,0.003474,true,34,Boundary,58.1,2
++13.00,0.003474,true,35,Kick,392.6,1
++13.00,0.003474,true,36,Boundary,63.0,2
++13.00,0.003474,true,37,Kick,482.4,1
++13.00,0.003474,true,38,Boundary,86.2,2
++13.00,0.003474,true,39,Kick,569.4,1
++14.00,0.003749,true,0,Kick,426.5,1
++14.00,0.003749,true,1,Boundary,59.3,2
++14.00,0.003749,true,2,Kick,392.5,1
++14.00,0.003749,true,3,Boundary,58.1,2
++14.00,0.003749,true,4,Kick,429.6,1
++14.00,0.003749,true,5,Boundary,58.4,2
++14.00,0.003749,true,6,Kick,394.1,1
++14.00,0.003749,true,7,Boundary,57.7,2
++14.00,0.003749,true,8,Kick,426.7,1
++14.00,0.003749,true,9,Boundary,58.3,2
++14.00,0.003749,true,10,Kick,393.9,1
++14.00,0.003749,true,11,Boundary,58.2,2
++14.00,0.003749,true,12,Kick,427.3,1
++14.00,0.003749,true,13,Boundary,58.3,2
++14.00,0.003749,true,14,Kick,394.4,1
++14.00,0.003749,true,15,Boundary,57.7,2
++14.00,0.003749,true,16,Kick,432.0,1
++14.00,0.003749,true,17,Boundary,60.0,2
++14.00,0.003749,true,18,Kick,404.1,1
++14.00,0.003749,true,19,Boundary,59.7,2
++14.00,0.003749,true,20,Kick,426.2,1
++14.00,0.003749,true,21,Boundary,60.1,2
++14.00,0.003749,true,22,Kick,517.4,1
++14.00,0.003749,true,23,Boundary,70.4,2
++14.00,0.003749,true,24,Kick,458.1,1
++14.00,0.003749,true,25,Boundary,60.9,2
++14.00,0.003749,true,26,Kick,408.0,1
++14.00,0.003749,true,27,Boundary,59.7,2
++14.00,0.003749,true,28,Kick,442.3,1
++14.00,0.003749,true,29,Boundary,61.6,2
++14.00,0.003749,true,30,Kick,417.4,1
++14.00,0.003749,true,31,Boundary,59.6,2
++14.00,0.003749,true,32,Kick,430.8,1
++14.00,0.003749,true,33,Boundary,59.8,2
++14.00,0.003749,true,34,Kick,428.2,1
++14.00,0.003749,true,35,Boundary,57.7,2
++14.00,0.003749,true,36,Kick,430.1,1
++14.00,0.003749,true,37,Boundary,58.2,2
++14.00,0.003749,true,38,Kick,395.2,1
++14.00,0.003749,true,39,Boundary,57.8,2
++15.00,0.004039,true,0,Boundary,63.1,2
++15.00,0.004039,true,1,Kick,420.9,1
++15.00,0.004039,true,2,Boundary,60.0,2
++15.00,0.004039,true,3,Kick,437.4,1
++15.00,0.004039,true,4,Boundary,60.7,2
++15.00,0.004039,true,5,Kick,405.5,1
++15.00,0.004039,true,6,Boundary,59.8,2
++15.00,0.004039,true,7,Kick,439.9,1
++15.00,0.004039,true,8,Boundary,58.5,2
++15.00,0.004039,true,9,Kick,394.0,1
++15.00,0.004039,true,10,Boundary,58.0,2
++15.00,0.004039,true,11,Kick,430.8,1
++15.00,0.004039,true,12,Boundary,58.5,2
++15.00,0.004039,true,13,Kick,396.5,1
++15.00,0.004039,true,14,Boundary,57.7,2
++15.00,0.004039,true,15,Kick,431.5,1
++15.00,0.004039,true,16,Boundary,58.7,2
++15.00,0.004039,true,17,Kick,396.4,1
++15.00,0.004039,true,18,Boundary,57.7,2
++15.00,0.004039,true,19,Kick,430.6,1
++15.00,0.004039,true,20,Boundary,58.2,2
++15.00,0.004039,true,21,Kick,395.6,1
++15.00,0.004039,true,22,Boundary,57.5,2
++15.00,0.004039,true,23,Kick,410.5,1
++15.00,0.004039,true,24,Boundary,79.6,2
++15.00,0.004039,true,25,Kick,420.6,1
++15.00,0.004039,true,26,Boundary,46.3,1
++15.00,0.004039,true,27,Handoff,213.5,1
++15.00,0.004039,true,28,Kick,146.4,2
++15.00,0.004039,true,29,Boundary,8.1,1
++15.00,0.004039,true,30,Kick,181.0,2
++15.00,0.004039,true,31,Boundary,7.9,1
++15.00,0.004039,true,32,Kick,155.7,2
++15.00,0.004039,true,33,Boundary,8.2,1
++15.00,0.004039,true,34,Kick,173.0,2
++15.00,0.004039,true,35,Boundary,7.8,1
++15.00,0.004039,true,36,Kick,143.9,2
++15.00,0.004039,true,37,Boundary,8.0,1
++15.00,0.004039,true,38,Kick,143.7,2
++15.00,0.004039,true,39,Boundary,7.9,1
++16.00,0.004344,true,0,Boundary,102.8,2
++16.00,0.004344,true,1,Kick,477.6,1
++16.00,0.004344,true,2,Boundary,60.8,2
++16.00,0.004344,true,3,Kick,445.1,1
++16.00,0.004344,true,4,Boundary,58.7,2
++16.00,0.004344,true,5,Kick,396.5,1
++16.00,0.004344,true,6,Boundary,58.3,2
++16.00,0.004344,true,7,Kick,411.7,1
++16.00,0.004344,true,8,Boundary,76.9,2
++16.00,0.004344,true,9,Kick,396.4,1
++16.00,0.004344,true,10,Boundary,57.8,2
++16.00,0.004344,true,11,Kick,394.5,1
++16.00,0.004344,true,12,Boundary,83.5,2
++16.00,0.004344,true,13,Kick,395.3,1
++16.00,0.004344,true,14,Boundary,57.7,2
++16.00,0.004344,true,15,Kick,394.1,1
++16.00,0.004344,true,16,Boundary,46.0,1
++16.00,0.004344,true,17,Handoff,248.5,1
++16.00,0.004344,true,18,Kick,146.5,2
++16.00,0.004344,true,19,Boundary,8.0,1
++16.00,0.004344,true,20,Kick,144.7,2
++16.00,0.004344,true,21,Boundary,7.8,1
++16.00,0.004344,true,22,Kick,143.6,2
++16.00,0.004344,true,23,Boundary,7.9,1
++16.00,0.004344,true,24,Kick,143.2,2
++16.00,0.004344,true,25,Boundary,7.8,1
++16.00,0.004344,true,26,Kick,143.5,2
++16.00,0.004344,true,27,Boundary,7.9,1
++16.00,0.004344,true,28,Kick,181.9,2
++16.00,0.004344,true,29,Boundary,8.0,1
++16.00,0.004344,true,30,Kick,154.0,2
++16.00,0.004344,true,31,Boundary,8.0,1
++16.00,0.004344,true,32,Kick,146.6,2
++16.00,0.004344,true,33,Boundary,8.2,1
++16.00,0.004344,true,34,Kick,154.1,2
++16.00,0.004344,true,35,Boundary,7.9,1
++16.00,0.004344,true,36,Kick,143.1,2
++16.00,0.004344,true,37,Boundary,7.8,1
++16.00,0.004344,true,38,Kick,143.2,2
++16.00,0.004344,true,39,Boundary,7.9,1
++17.00,0.004712,true,0,Kick,148.9,2
++17.00,0.004712,true,1,Boundary,8.1,1
++17.00,0.004712,true,2,Kick,146.3,2
++17.00,0.004712,true,3,Boundary,8.0,1
++17.00,0.004712,true,4,Kick,144.0,2
++17.00,0.004712,true,5,Boundary,7.8,1
++17.00,0.004712,true,6,Kick,156.7,2
++17.00,0.004712,true,7,Boundary,8.3,1
++17.00,0.004712,true,8,Kick,156.9,2
++17.00,0.004712,true,9,Boundary,7.9,1
++17.00,0.004712,true,10,Kick,178.5,2
++17.00,0.004712,true,11,Boundary,7.9,1
++17.00,0.004712,true,12,Kick,145.2,2
++17.00,0.004712,true,13,Boundary,8.0,1
++17.00,0.004712,true,14,Kick,143.6,2
++17.00,0.004712,true,15,Boundary,7.7,1
++17.00,0.004712,true,16,Kick,144.2,2
++17.00,0.004712,true,17,Boundary,7.9,1
++17.00,0.004712,true,18,Kick,154.6,2
++17.00,0.004712,true,19,Boundary,8.0,1
++17.00,0.004712,true,20,Kick,173.5,2
++17.00,0.004712,true,21,Boundary,7.9,1
++17.00,0.004712,true,22,Kick,180.1,2
++17.00,0.004712,true,23,Boundary,7.9,1
++17.00,0.004712,true,24,Kick,144.7,2
++17.00,0.004712,true,25,Boundary,8.0,1
++17.00,0.004712,true,26,Kick,143.2,2
++17.00,0.004712,true,27,Boundary,7.8,1
++17.00,0.004712,true,28,Kick,142.9,2
++17.00,0.004712,true,29,Boundary,7.8,1
++17.00,0.004712,true,30,Kick,144.8,2
++17.00,0.004712,true,31,Boundary,8.0,1
++17.00,0.004712,true,32,Kick,143.9,2
++17.00,0.004712,true,33,Boundary,7.8,1
++17.00,0.004712,true,34,Kick,184.8,2
++17.00,0.004712,true,35,Boundary,7.9,1
++17.00,0.004712,true,36,Kick,145.3,2
++17.00,0.004712,true,37,Boundary,7.9,1
++17.00,0.004712,true,38,Kick,143.2,2
++17.00,0.004712,true,39,Boundary,7.8,1
++18.00,0.005017,true,0,Kick,176.5,2
++18.00,0.005017,true,1,Boundary,8.2,1
++18.00,0.005017,true,2,Kick,150.3,2
++18.00,0.005017,true,3,Boundary,8.2,1
++18.00,0.005017,true,4,Kick,148.0,2
++18.00,0.005017,true,5,Boundary,7.9,1
++18.00,0.005017,true,6,Kick,148.1,2
++18.00,0.005017,true,7,Boundary,8.1,1
++18.00,0.005017,true,8,Kick,158.5,2
++18.00,0.005017,true,9,Boundary,17.6,1
++18.00,0.005017,true,10,Kick,205.4,2
++18.00,0.005017,true,11,Boundary,17.3,1
++18.00,0.005017,true,12,Kick,171.3,2
++18.00,0.005017,true,13,Boundary,8.0,1
++18.00,0.005017,true,14,Kick,201.2,2
++18.00,0.005017,true,15,Boundary,11.8,1
++18.00,0.005017,true,16,Kick,167.2,2
++18.00,0.005017,true,17,Boundary,8.1,1
++18.00,0.005017,true,18,Kick,147.0,2
++18.00,0.005017,true,19,Boundary,8.0,1
++18.00,0.005017,true,20,Kick,146.8,2
++18.00,0.005017,true,21,Boundary,8.1,1
++18.00,0.005017,true,22,Kick,174.8,2
++18.00,0.005017,true,23,Boundary,8.0,1
++18.00,0.005017,true,24,Kick,147.8,2
++18.00,0.005017,true,25,Boundary,8.0,1
++18.00,0.005017,true,26,Kick,146.5,2
++18.00,0.005017,true,27,Boundary,8.1,1
++18.00,0.005017,true,28,Kick,146.6,2
++18.00,0.005017,true,29,Boundary,8.1,1
++18.00,0.005017,true,30,Kick,146.9,2
++18.00,0.005017,true,31,Boundary,8.0,1
++18.00,0.005017,true,32,Kick,146.9,2
++18.00,0.005017,true,33,Boundary,8.1,1
++18.00,0.005017,true,34,Kick,165.7,2
++18.00,0.005017,true,35,Boundary,8.3,1
++18.00,0.005017,true,36,Kick,158.2,2
++18.00,0.005017,true,37,Boundary,8.0,1
++18.00,0.005017,true,38,Kick,147.2,2
++18.00,0.005017,true,39,Boundary,8.0,1
++19.00,0.005322,true,0,Boundary,8.1,1
++19.00,0.005322,true,1,Kick,149.3,2
++19.00,0.005322,true,2,Boundary,7.9,1
++19.00,0.005322,true,3,Kick,145.4,2
++19.00,0.005322,true,4,Boundary,7.9,1
++19.00,0.005322,true,5,Kick,143.8,2
++19.00,0.005322,true,6,Boundary,7.9,1
++19.00,0.005322,true,7,Kick,180.7,2
++19.00,0.005322,true,8,Boundary,7.8,1
++19.00,0.005322,true,9,Kick,144.3,2
++19.00,0.005322,true,10,Boundary,7.8,1
++19.00,0.005322,true,11,Kick,142.9,2
++19.00,0.005322,true,12,Boundary,7.9,1
++19.00,0.005322,true,13,Kick,143.5,2
++19.00,0.005322,true,14,Boundary,7.8,1
++19.00,0.005322,true,15,Kick,142.7,2
++19.00,0.005322,true,16,Boundary,7.8,1
++19.00,0.005322,true,17,Kick,142.7,2
++19.00,0.005322,true,18,Boundary,7.8,1
++19.00,0.005322,true,19,Kick,178.9,2
++19.00,0.005322,true,20,Boundary,7.9,1
++19.00,0.005322,true,21,Kick,157.3,2
++19.00,0.005322,true,22,Boundary,8.1,1
++19.00,0.005322,true,23,Kick,153.6,2
++19.00,0.005322,true,24,Boundary,7.8,1
++19.00,0.005322,true,25,Kick,142.9,2
++19.00,0.005322,true,26,Boundary,7.8,1
++19.00,0.005322,true,27,Kick,142.6,2
++19.00,0.005322,true,28,Boundary,7.8,1
++19.00,0.005322,true,29,Kick,143.4,2
++19.00,0.005322,true,30,Boundary,7.8,1
++19.00,0.005322,true,31,Kick,179.0,2
++19.00,0.005322,true,32,Boundary,7.9,1
++19.00,0.005322,true,33,Kick,144.7,2
++19.00,0.005322,true,34,Boundary,7.9,1
++19.00,0.005322,true,35,Kick,143.5,2
++19.00,0.005322,true,36,Boundary,7.9,1
++19.00,0.005322,true,37,Kick,143.3,2
++19.00,0.005322,true,38,Boundary,7.9,1
++19.00,0.005322,true,39,Kick,143.0,2
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/items_coast.csv b/lab/lab/results/20261012-2257-quant-32ab/work/items_coast.csv
+new file mode 100644
+index 00000000..97690319
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/items_coast.csv
+@@ -0,0 +1,361 @@
++wall_s,vmax,alive,idx,kind,us,plan_len
++1.00,0.000028,true,0,Boundary,15.4,2
++1.00,0.000028,true,1,Kick,42.4,1
++1.00,0.000028,true,2,Boundary,15.0,2
++1.00,0.000028,true,3,Kick,31.0,1
++1.00,0.000028,true,4,Boundary,30.7,2
++1.00,0.000028,true,5,Kick,33.4,1
++1.00,0.000028,true,6,Boundary,24.1,2
++1.00,0.000028,true,7,Kick,30.9,1
++1.00,0.000028,true,8,Boundary,14.5,2
++1.00,0.000028,true,9,Kick,30.7,1
++1.00,0.000028,true,10,Boundary,14.5,2
++1.00,0.000028,true,11,Kick,38.6,1
++1.00,0.000028,true,12,Boundary,14.2,2
++1.00,0.000028,true,13,Kick,30.1,1
++1.00,0.000028,true,14,Boundary,14.3,2
++1.00,0.000028,true,15,Kick,30.0,1
++1.00,0.000028,true,16,Boundary,14.4,2
++1.00,0.000028,true,17,Kick,29.7,1
++1.00,0.000028,true,18,Boundary,14.1,2
++1.00,0.000028,true,19,Kick,29.6,1
++1.00,0.000028,true,20,Boundary,14.2,2
++1.00,0.000028,true,21,Kick,29.3,1
++1.00,0.000028,true,22,Boundary,14.3,2
++1.00,0.000028,true,23,Kick,29.5,1
++1.00,0.000028,true,24,Boundary,14.1,2
++1.00,0.000028,true,25,Kick,29.8,1
++1.00,0.000028,true,26,Boundary,14.3,2
++1.00,0.000028,true,27,Kick,29.5,1
++1.00,0.000028,true,28,Boundary,14.3,2
++1.00,0.000028,true,29,Kick,29.4,1
++1.00,0.000028,true,30,Boundary,14.3,2
++1.00,0.000028,true,31,Kick,29.6,1
++1.00,0.000028,true,32,Boundary,14.2,2
++1.00,0.000028,true,33,Kick,29.8,1
++1.00,0.000028,true,34,Boundary,14.2,2
++1.00,0.000028,true,35,Kick,30.3,1
++1.00,0.000028,true,36,Boundary,14.5,2
++1.00,0.000028,true,37,Kick,29.9,1
++1.00,0.000028,true,38,Boundary,14.0,2
++1.00,0.000028,true,39,Kick,29.2,1
++2.00,0.000028,true,0,Boundary,15.2,2
++2.00,0.000028,true,1,Kick,32.1,1
++2.00,0.000028,true,2,Boundary,14.5,2
++2.00,0.000028,true,3,Kick,30.8,1
++2.00,0.000028,true,4,Boundary,14.3,2
++2.00,0.000028,true,5,Kick,30.3,1
++2.00,0.000028,true,6,Boundary,14.3,2
++2.00,0.000028,true,7,Kick,29.9,1
++2.00,0.000028,true,8,Boundary,14.2,2
++2.00,0.000028,true,9,Kick,29.7,1
++2.00,0.000028,true,10,Boundary,14.3,2
++2.00,0.000028,true,11,Kick,29.4,1
++2.00,0.000028,true,12,Boundary,14.4,2
++2.00,0.000028,true,13,Kick,29.5,1
++2.00,0.000028,true,14,Boundary,32.7,2
++2.00,0.000028,true,15,Kick,49.9,1
++2.00,0.000028,true,16,Boundary,14.5,2
++2.00,0.000028,true,17,Kick,29.8,1
++2.00,0.000028,true,18,Boundary,14.3,2
++2.00,0.000028,true,19,Kick,29.5,1
++2.00,0.000028,true,20,Boundary,14.2,2
++2.00,0.000028,true,21,Kick,29.7,1
++2.00,0.000028,true,22,Boundary,14.2,2
++2.00,0.000028,true,23,Kick,29.8,1
++2.00,0.000028,true,24,Boundary,14.3,2
++2.00,0.000028,true,25,Kick,30.4,1
++2.00,0.000028,true,26,Boundary,14.3,2
++2.00,0.000028,true,27,Kick,30.1,1
++2.00,0.000028,true,28,Boundary,13.8,2
++2.00,0.000028,true,29,Kick,29.3,1
++2.00,0.000028,true,30,Boundary,13.9,2
++2.00,0.000028,true,31,Kick,29.1,1
++2.00,0.000028,true,32,Boundary,14.0,2
++2.00,0.000028,true,33,Kick,29.4,1
++2.00,0.000028,true,34,Boundary,14.0,2
++2.00,0.000028,true,35,Kick,29.3,1
++2.00,0.000028,true,36,Boundary,13.9,2
++2.00,0.000028,true,37,Kick,29.2,1
++2.00,0.000028,true,38,Boundary,13.9,2
++2.00,0.000028,true,39,Kick,29.4,1
++3.00,0.000028,true,0,Boundary,15.2,2
++3.00,0.000028,true,1,Kick,31.9,1
++3.00,0.000028,true,2,Boundary,14.7,2
++3.00,0.000028,true,3,Kick,30.1,1
++3.00,0.000028,true,4,Boundary,14.3,2
++3.00,0.000028,true,5,Kick,30.3,1
++3.00,0.000028,true,6,Boundary,14.3,2
++3.00,0.000028,true,7,Kick,29.9,1
++3.00,0.000028,true,8,Boundary,14.2,2
++3.00,0.000028,true,9,Kick,29.7,1
++3.00,0.000028,true,10,Boundary,14.2,2
++3.00,0.000028,true,11,Kick,29.7,1
++3.00,0.000028,true,12,Boundary,14.3,2
++3.00,0.000028,true,13,Kick,29.7,1
++3.00,0.000028,true,14,Boundary,14.4,2
++3.00,0.000028,true,15,Kick,30.2,1
++3.00,0.000028,true,16,Boundary,14.5,2
++3.00,0.000028,true,17,Kick,30.0,1
++3.00,0.000028,true,18,Boundary,13.9,2
++3.00,0.000028,true,19,Kick,29.2,1
++3.00,0.000028,true,20,Boundary,13.8,2
++3.00,0.000028,true,21,Kick,56.7,1
++3.00,0.000028,true,22,Boundary,23.8,2
++3.00,0.000028,true,23,Kick,30.2,1
++3.00,0.000028,true,24,Boundary,14.0,2
++3.00,0.000028,true,25,Kick,40.1,1
++3.00,0.000028,true,26,Boundary,14.4,2
++3.00,0.000028,true,27,Kick,29.9,1
++3.00,0.000028,true,28,Boundary,14.2,2
++3.00,0.000028,true,29,Kick,30.1,1
++3.00,0.000028,true,30,Boundary,14.3,2
++3.00,0.000028,true,31,Kick,29.8,1
++3.00,0.000028,true,32,Boundary,14.1,2
++3.00,0.000028,true,33,Kick,29.8,1
++3.00,0.000028,true,34,Boundary,24.0,2
++3.00,0.000028,true,35,Kick,30.3,1
++3.00,0.000028,true,36,Boundary,13.9,2
++3.00,0.000028,true,37,Kick,29.3,1
++3.00,0.000028,true,38,Boundary,14.0,2
++3.00,0.000028,true,39,Kick,29.1,1
++4.00,0.000028,true,0,Kick,32.9,1
++4.00,0.000028,true,1,Boundary,15.5,2
++4.00,0.000028,true,2,Kick,30.8,1
++4.00,0.000028,true,3,Boundary,14.6,2
++4.00,0.000028,true,4,Kick,30.3,1
++4.00,0.000028,true,5,Boundary,14.5,2
++4.00,0.000028,true,6,Kick,30.7,1
++4.00,0.000028,true,7,Boundary,14.4,2
++4.00,0.000028,true,8,Kick,30.2,1
++4.00,0.000028,true,9,Boundary,14.0,2
++4.00,0.000028,true,10,Kick,29.3,1
++4.00,0.000028,true,11,Boundary,13.9,2
++4.00,0.000028,true,12,Kick,29.4,1
++4.00,0.000028,true,13,Boundary,14.0,2
++4.00,0.000028,true,14,Kick,29.4,1
++4.00,0.000028,true,15,Boundary,13.9,2
++4.00,0.000028,true,16,Kick,29.4,1
++4.00,0.000028,true,17,Boundary,13.9,2
++4.00,0.000028,true,18,Kick,29.2,1
++4.00,0.000028,true,19,Boundary,14.0,2
++4.00,0.000028,true,20,Kick,29.3,1
++4.00,0.000028,true,21,Boundary,13.9,2
++4.00,0.000028,true,22,Kick,29.1,1
++4.00,0.000028,true,23,Boundary,13.8,2
++4.00,0.000028,true,24,Kick,29.2,1
++4.00,0.000028,true,25,Boundary,14.2,2
++4.00,0.000028,true,26,Kick,29.4,1
++4.00,0.000028,true,27,Boundary,14.0,2
++4.00,0.000028,true,28,Kick,29.3,1
++4.00,0.000028,true,29,Boundary,14.1,2
++4.00,0.000028,true,30,Kick,29.2,1
++4.00,0.000028,true,31,Boundary,14.0,2
++4.00,0.000028,true,32,Kick,29.3,1
++4.00,0.000028,true,33,Boundary,14.0,2
++4.00,0.000028,true,34,Kick,29.4,1
++4.00,0.000028,true,35,Boundary,17.4,2
++4.00,0.000028,true,36,Kick,29.0,1
++4.00,0.000028,true,37,Boundary,16.3,2
++4.00,0.000028,true,38,Kick,53.5,1
++4.00,0.000028,true,39,Boundary,27.7,2
++5.00,0.000028,true,0,Kick,32.0,1
++5.00,0.000028,true,1,Boundary,14.9,2
++5.00,0.000028,true,2,Kick,30.4,1
++5.00,0.000028,true,3,Boundary,14.1,2
++5.00,0.000028,true,4,Kick,30.2,1
++5.00,0.000028,true,5,Boundary,14.3,2
++5.00,0.000028,true,6,Kick,29.3,1
++5.00,0.000028,true,7,Boundary,14.0,2
++5.00,0.000028,true,8,Kick,29.2,1
++5.00,0.000028,true,9,Boundary,13.9,2
++5.00,0.000028,true,10,Kick,40.1,1
++5.00,0.000028,true,11,Boundary,14.4,2
++5.00,0.000028,true,12,Kick,39.4,1
++5.00,0.000028,true,13,Boundary,13.8,2
++5.00,0.000028,true,14,Kick,29.2,1
++5.00,0.000028,true,15,Boundary,14.1,2
++5.00,0.000028,true,16,Kick,39.0,1
++5.00,0.000028,true,17,Boundary,16.8,2
++5.00,0.000028,true,18,Kick,34.5,1
++5.00,0.000028,true,19,Boundary,32.1,2
++5.00,0.000028,true,20,Kick,52.5,1
++5.00,0.000028,true,21,Boundary,14.5,2
++5.00,0.000028,true,22,Kick,29.6,1
++5.00,0.000028,true,23,Boundary,14.0,2
++5.00,0.000028,true,24,Kick,29.4,1
++5.00,0.000028,true,25,Boundary,17.4,2
++5.00,0.000028,true,26,Kick,29.0,1
++5.00,0.000028,true,27,Boundary,16.4,2
++5.00,0.000028,true,28,Kick,29.0,1
++5.00,0.000028,true,29,Boundary,16.7,2
++5.00,0.000028,true,30,Kick,29.1,1
++5.00,0.000028,true,31,Boundary,18.2,2
++5.00,0.000028,true,32,Kick,29.0,1
++5.00,0.000028,true,33,Boundary,16.1,2
++5.00,0.000028,true,34,Kick,29.0,1
++5.00,0.000028,true,35,Boundary,17.3,2
++5.00,0.000028,true,36,Kick,29.2,1
++5.00,0.000028,true,37,Boundary,17.1,2
++5.00,0.000028,true,38,Kick,29.0,1
++5.00,0.000028,true,39,Boundary,18.0,2
++6.00,0.000028,true,0,Kick,31.6,1
++6.00,0.000028,true,1,Boundary,15.4,2
++6.00,0.000028,true,2,Kick,31.5,1
++6.00,0.000028,true,3,Boundary,14.4,2
++6.00,0.000028,true,4,Kick,30.4,1
++6.00,0.000028,true,5,Boundary,14.5,2
++6.00,0.000028,true,6,Kick,45.1,1
++6.00,0.000028,true,7,Boundary,24.1,2
++6.00,0.000028,true,8,Kick,39.4,1
++6.00,0.000028,true,9,Boundary,14.0,2
++6.00,0.000028,true,10,Kick,29.4,1
++6.00,0.000028,true,11,Boundary,14.0,2
++6.00,0.000028,true,12,Kick,29.3,1
++6.00,0.000028,true,13,Boundary,14.0,2
++6.00,0.000028,true,14,Kick,29.6,1
++6.00,0.000028,true,15,Boundary,17.3,2
++6.00,0.000028,true,16,Kick,28.9,1
++6.00,0.000028,true,17,Boundary,16.2,2
++6.00,0.000028,true,18,Kick,29.0,1
++6.00,0.000028,true,19,Boundary,16.6,2
++6.00,0.000028,true,20,Kick,29.1,1
++6.00,0.000028,true,21,Boundary,18.1,2
++6.00,0.000028,true,22,Kick,29.2,1
++6.00,0.000028,true,23,Boundary,16.1,2
++6.00,0.000028,true,24,Kick,29.1,1
++6.00,0.000028,true,25,Boundary,17.4,2
++6.00,0.000028,true,26,Kick,29.1,1
++6.00,0.000028,true,27,Boundary,17.2,2
++6.00,0.000028,true,28,Kick,29.0,1
++6.00,0.000028,true,29,Boundary,18.3,2
++6.00,0.000028,true,30,Kick,30.0,1
++6.00,0.000028,true,31,Boundary,17.3,2
++6.00,0.000028,true,32,Kick,29.3,1
++6.00,0.000028,true,33,Boundary,17.1,2
++6.00,0.000028,true,34,Kick,29.2,1
++6.00,0.000028,true,35,Boundary,17.3,2
++6.00,0.000028,true,36,Kick,29.0,1
++6.00,0.000028,true,37,Boundary,16.2,2
++6.00,0.000028,true,38,Kick,29.0,1
++6.00,0.000028,true,39,Boundary,17.1,2
++7.00,0.000028,true,0,Boundary,15.6,2
++7.00,0.000028,true,1,Kick,32.6,1
++7.00,0.000028,true,2,Boundary,14.8,2
++7.00,0.000028,true,3,Kick,30.8,1
++7.00,0.000028,true,4,Boundary,14.4,2
++7.00,0.000028,true,5,Kick,30.4,1
++7.00,0.000028,true,6,Boundary,17.8,2
++7.00,0.000028,true,7,Kick,30.0,1
++7.00,0.000028,true,8,Boundary,16.8,2
++7.00,0.000028,true,9,Kick,30.0,1
++7.00,0.000028,true,10,Boundary,17.2,2
++7.00,0.000028,true,11,Kick,30.1,1
++7.00,0.000028,true,12,Boundary,18.6,2
++7.00,0.000028,true,13,Kick,30.0,1
++7.00,0.000028,true,14,Boundary,16.5,2
++7.00,0.000028,true,15,Kick,29.9,1
++7.00,0.000028,true,16,Boundary,17.7,2
++7.00,0.000028,true,17,Kick,29.8,1
++7.00,0.000028,true,18,Boundary,17.7,2
++7.00,0.000028,true,19,Kick,29.9,1
++7.00,0.000028,true,20,Boundary,18.5,2
++7.00,0.000028,true,21,Kick,30.0,1
++7.00,0.000028,true,22,Boundary,21.9,2
++7.00,0.000028,true,23,Kick,31.0,1
++7.00,0.000028,true,24,Boundary,17.6,2
++7.00,0.000028,true,25,Kick,30.1,1
++7.00,0.000028,true,26,Boundary,17.9,2
++7.00,0.000028,true,27,Kick,29.8,1
++7.00,0.000028,true,28,Boundary,16.6,2
++7.00,0.000028,true,29,Kick,29.8,1
++7.00,0.000028,true,30,Boundary,17.6,2
++7.00,0.000028,true,31,Kick,29.7,1
++7.00,0.000028,true,32,Boundary,16.3,2
++7.00,0.000028,true,33,Kick,29.9,1
++7.00,0.000028,true,34,Boundary,16.5,2
++7.00,0.000028,true,35,Kick,30.0,1
++7.00,0.000028,true,36,Boundary,17.6,2
++7.00,0.000028,true,37,Kick,30.0,1
++7.00,0.000028,true,38,Boundary,17.6,2
++7.00,0.000028,true,39,Kick,29.8,1
++8.00,0.000028,true,0,Boundary,17.5,2
++8.00,0.000028,true,1,Kick,32.0,1
++8.00,0.000028,true,2,Boundary,18.4,2
++8.00,0.000028,true,3,Kick,30.1,1
++8.00,0.000028,true,4,Boundary,16.2,2
++8.00,0.000028,true,5,Kick,29.5,1
++8.00,0.000028,true,6,Boundary,17.2,2
++8.00,0.000028,true,7,Kick,29.4,1
++8.00,0.000028,true,8,Boundary,17.1,2
++8.00,0.000028,true,9,Kick,29.2,1
++8.00,0.000028,true,10,Boundary,17.9,2
++8.00,0.000028,true,11,Kick,29.3,1
++8.00,0.000028,true,12,Boundary,17.4,2
++8.00,0.000028,true,13,Kick,29.2,1
++8.00,0.000028,true,14,Boundary,17.1,2
++8.00,0.000028,true,15,Kick,29.5,1
++8.00,0.000028,true,16,Boundary,17.3,2
++8.00,0.000028,true,17,Kick,43.2,1
++8.00,0.000028,true,18,Boundary,26.7,2
++8.00,0.000028,true,19,Kick,39.1,1
++8.00,0.000028,true,20,Boundary,17.2,2
++8.00,0.000028,true,21,Kick,29.1,1
++8.00,0.000028,true,22,Boundary,15.8,2
++8.00,0.000028,true,23,Kick,29.2,1
++8.00,0.000028,true,24,Boundary,16.2,2
++8.00,0.000028,true,25,Kick,29.3,1
++8.00,0.000028,true,26,Boundary,17.1,2
++8.00,0.000028,true,27,Kick,29.3,1
++8.00,0.000028,true,28,Boundary,17.1,2
++8.00,0.000028,true,29,Kick,28.9,1
++8.00,0.000028,true,30,Boundary,17.2,2
++8.00,0.000028,true,31,Kick,29.0,1
++8.00,0.000028,true,32,Boundary,17.0,2
++8.00,0.000028,true,33,Kick,28.8,1
++8.00,0.000028,true,34,Boundary,18.1,2
++8.00,0.000028,true,35,Kick,29.5,1
++8.00,0.000028,true,36,Boundary,17.7,2
++8.00,0.000028,true,37,Kick,29.6,1
++8.00,0.000028,true,38,Boundary,16.4,2
++8.00,0.000028,true,39,Kick,29.4,1
++9.00,0.000028,true,0,Boundary,19.7,2
++9.00,0.000028,true,1,Kick,32.6,1
++9.00,0.000028,true,2,Boundary,18.0,2
++9.00,0.000028,true,3,Kick,31.0,1
++9.00,0.000028,true,4,Boundary,17.8,2
++9.00,0.000028,true,5,Kick,30.6,1
++9.00,0.000028,true,6,Boundary,17.7,2
++9.00,0.000028,true,7,Kick,30.2,1
++9.00,0.000028,true,8,Boundary,16.7,2
++9.00,0.000028,true,9,Kick,30.2,1
++9.00,0.000028,true,10,Boundary,17.5,2
++9.00,0.000028,true,11,Kick,30.1,1
++9.00,0.000028,true,12,Boundary,16.2,2
++9.00,0.000028,true,13,Kick,30.3,1
++9.00,0.000028,true,14,Boundary,16.6,2
++9.00,0.000028,true,15,Kick,30.3,1
++9.00,0.000028,true,16,Boundary,17.6,2
++9.00,0.000028,true,17,Kick,30.4,1
++9.00,0.000028,true,18,Boundary,17.5,2
++9.00,0.000028,true,19,Kick,29.9,1
++9.00,0.000028,true,20,Boundary,17.6,2
++9.00,0.000028,true,21,Kick,30.0,1
++9.00,0.000028,true,22,Boundary,17.5,2
++9.00,0.000028,true,23,Kick,30.7,1
++9.00,0.000028,true,24,Boundary,18.7,2
++9.00,0.000028,true,25,Kick,30.5,1
++9.00,0.000028,true,26,Boundary,18.1,2
++9.00,0.000028,true,27,Kick,45.9,1
++9.00,0.000028,true,28,Boundary,26.9,2
++9.00,0.000028,true,29,Kick,31.8,1
++9.00,0.000028,true,30,Boundary,17.0,2
++9.00,0.000028,true,31,Kick,30.6,1
++9.00,0.000028,true,32,Boundary,16.9,2
++9.00,0.000028,true,33,Kick,30.6,1
++9.00,0.000028,true,34,Boundary,16.9,2
++9.00,0.000028,true,35,Kick,30.2,1
++9.00,0.000028,true,36,Boundary,17.1,2
++9.00,0.000028,true,37,Kick,30.8,1
++9.00,0.000028,true,38,Boundary,17.0,2
++9.00,0.000028,true,39,Kick,30.6,1
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/machine.txt b/lab/lab/results/20261012-2257-quant-32ab/work/machine.txt
+new file mode 100644
+index 00000000..1355c1c3
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/machine.txt
+@@ -0,0 +1,4 @@
++0.89 0.89 0.47 2/503 2921934
++               total        used        free      shared  buff/cache   available
++Mem:           15934        2050        7502          35        6796       13883
++8
+diff --git a/lab/lab/results/20261012-2257-quant-32ab/work/paced_m48_r100.csv b/lab/lab/results/20261012-2257-quant-32ab/work/paced_m48_r100.csv
+new file mode 100644
+index 00000000..830aec8c
+--- /dev/null
++++ b/lab/lab/results/20261012-2257-quant-32ab/work/paced_m48_r100.csv
+@@ -0,0 +1,10 @@
++mode,rtf,members,level,frames,alive,refusals,vmax,cpu_ms_total,cpu_us_p50,cpu_us_p99,cpu_us_max,ev_total,ev_fr_p50,ev_fr_p99,lag_s_max,overflows,tick_now,ev_fr_max,it3_fr_max,us3_fr_max,kicks,opens,boundaries,handoffs,slices,decisions,encounters,lost,leavers,dissolved,it_planet,us_planet,it_moon,us_moon,it_ship,us_ship,it_player,us_player,it_fleet,us_fleet,fault
++paced,100,48,-1,1200,true,0,0.000028,253.1,39.2,1359.5,12025.8,6577,2,40,0.038,1,406042345,62,1,726.4,1108,48,977,0,4519,0,182,21,48,1,0,0.0,0,0.0,1361,96131.8,193,65997.7,4519,72041.9,
++paced,100,48,0,472,false,0,0.000028,145.4,44.9,1546.4,12416.3,3430,2,47,0.038,1,159705345,62,1,734.0,625,44,558,0,2224,1,100,18,43,0,0,0.0,0,0.0,909,62436.5,77,29274.3,2224,45152.2,
++paced,100,48,2,310,false,0,0.000028,164.5,386.1,1695.7,12607.3,2814,5,50,0.038,1,104888595,61,1,791.0,517,44,473,0,1791,1,254,15,43,0,0,0.0,0,0.0,693,51044.4,171,65997.6,1791,41889.7,
++paced,100,48,4,223,false,0,0.000028,248.2,1023.1,2750.2,12442.8,3064,10,57,0.038,1,75449970,71,3,1836.2,538,44,496,0,1992,1,730,13,43,0,0,0.0,0,0.0,522,37066.4,429,167758.4,1992,41627.8,
++paced,100,48,6,1200,true,0,0.001367,800.7,63.9,5825.9,12697.4,8967,3,52,0.038,1,406042345,96,11,7052.4,1613,49,1481,0,5900,1,2966,21,48,1,0,0.0,0,0.0,1361,98353.6,1202,597857.0,5900,84888.3,
++paced,100,48,8,1200,true,0,0.005627,940.3,62.8,12230.0,12722.7,9587,4,84,1.425,22,403830371,137,41,12472.6,1744,49,1618,1,6251,1,5594,21,48,1,0,0.0,0,0.0,1449,100809.3,1477,738074.8,6251,85645.7,
++paced,100,48,10,1200,true,0,0.022018,992.8,127.0,12386.5,12757.5,10220,3,84,1.525,34,399261591,150,50,12521.0,1868,44,1732,1,6650,1,7092,21,43,0,0,0.0,0,0.0,1372,87115.3,1734,810513.7,6650,85856.6,
++paced,100,48,12,1200,true,0,0.086839,1034.0,120.8,12443.9,12661.3,10441,3,84,1.606,41,396501043,150,50,12472.7,1992,44,1859,1,6620,1,3982,21,43,0,0,0.0,0,0.0,1041,66907.8,1989,876825.3,6620,85831.8,
++paced,100,48,15,1200,true,0,0.567530,1131.4,115.9,12329.3,12597.8,10477,3,84,1.656,55,391677792,148,49,12392.6,2188,44,2056,1,6261,1,694,21,43,0,0,0.0,0,0.0,250,15671.5,2393,1036208.8,6261,83250.3,
