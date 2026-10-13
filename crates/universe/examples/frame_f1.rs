@@ -63,6 +63,9 @@ fn main() {
             let l = (frame.target - frame.presented) as f64 * TICK_SECONDS;
             ran += 1;
             events.push(frame.events);
+            if std::env::var("TRACE").is_ok() && took > Duration::from_micros(12_500) {
+                println!("  frame {f}: {:.2} ms, {} events, lag {:.3} s, {} scans held", took.as_secs_f64() * 1e3, frame.events, l, p.u.held_scans());
+            }
             held = held.max(p.u.held_scans());
             worst = worst.max(took);
             lag = lag.max(l);

@@ -28,7 +28,9 @@ pub const HANDOUT: usize = 19;
 pub const H_PULL: usize = 20;
 pub const H_BIND: usize = 21;
 pub const H_REPLAN: usize = 22;
-pub const N: usize = 23;
+/// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+pub const FIT2: usize = 23;
+pub const N: usize = 24;
 
 pub const NAMES: [&str; N] = [
     "rekey (all deadlines)",
@@ -54,6 +56,7 @@ pub const NAMES: [&str; N] = [
     "  hand-out: pull planets and moons",
     "  hand-out: bind (the member as a tube)",
     "  hand-out: first plan (replan)",
+    "  fit again: the coarser word (bind_surface)",
 ];
 
 #[cfg(feature = "prof")]

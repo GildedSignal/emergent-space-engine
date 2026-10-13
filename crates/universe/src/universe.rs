@@ -69,8 +69,12 @@ impl Budget {
     }
 }
 
-/// The scans held for idle time (about 10 KB each: the bindings they read) are answered whatever the budget says once more
-/// than this many are waiting, the oldest first, so the memory they hold is bounded.
+/// Idle time is spent on a scan only if at least twice the longest recent one (and this, ns) is left: a scan costs 30 us to
+/// 1.5 ms (the finder reads each of up to a hundred bodies, a passage in tens of microseconds), and the frame must not overrun.
+const SCAN_MARGIN_NS: u64 = 750_000;
+
+/// The scans held for idle time (about 10 KB each: the bindings they read) are answered, inside the frame's budget, before the
+/// frame resolves anything else once this many are waiting, the oldest first, so the memory they hold is bounded.
 const SCAN_BACKLOG: usize = 2048;
 
 /// The encounter hash chain's next link.
@@ -370,7 +374,7 @@ impl Universe {
         let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface))?;
         let mut tube = bound.tube;
         tube.key = self.cat.insert(bound.entry.clone())?;
-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
+        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE, impact: None };
         let heading = prograde(&b)?;
         let rec = BodyRec {
             kind,
@@ -757,7 +761,7 @@ impl Universe {
             let key = self.cat.insert(bound.entry.clone())?;
             let mut tube = bound.tube;
             tube.key = key;
-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE };
+            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE, impact: None };
             let rec = BodyRec {
                 kind: Kind::Ship,
                 b,
@@ -892,6 +896,13 @@ impl Universe {
             if budget.spent(done) {
                 overflow = dl <= target;
                 break;
+            }
+            // Held scans are work like any other once they pile up (the memory they hold is bounded): at the backlog's cap
+            // the player's next item waits for the oldest scan, inside the budget, so a frame stays within it and the
+            // presented time lags (as it did before scans were held), instead of the frame overrunning.
+            if self.scans.len() >= SCAN_BACKLOG {
+                self.answer_front();
+                continue;
             }
             if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
                 self.resolve_wave(e, target);
@@ -1051,26 +1062,30 @@ impl Universe {
     }
 
     /// Answer the held scans, oldest first, while `until` allows (all of them if `None`): scans are idle-time work as far
-    /// as the frame's budget goes, and they keep their order. Past [`SCAN_BACKLOG`] the oldest are answered whatever the
-    /// clock says.
+    /// as the frame's budget goes, and they keep their order.
     fn drain_scans(&mut self, until: Option<Instant>) {
         while !self.scans.is_empty() {
-            if let (Some(u), false) = (until, self.scans.len() > SCAN_BACKLOG) {
+            if let Some(u) = until {
                 let room = u.checked_duration_since(Instant::now()).map_or(0, |d| d.as_nanos() as u64);
-                if room == 0 || room < 2 * self.scan_ns {
+                if room < 2 * self.scan_ns.max(SCAN_MARGIN_NS) {
                     break;
                 }
             }
-            let (t0, t_scan) = (Instant::now(), crate::prof::t());
-            let found = self.scans.front().map(|held| held.answer()).unwrap_or_default();
-            let ns = t0.elapsed().as_nanos() as u64;
-            crate::prof::add(crate::prof::SCANS, t_scan);
-            // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
-            self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
-            self.scans.pop_front();
-            for e in found {
-                self.log_encounter(e);
-            }
+            self.answer_front();
+        }
+    }
+
+    /// Answer the oldest held scan: into the count, the log and the hash.
+    fn answer_front(&mut self) {
+        let (t0, t_scan) = (Instant::now(), crate::prof::t());
+        let found = self.scans.front().map(|held| held.answer()).unwrap_or_default();
+        let ns = t0.elapsed().as_nanos() as u64;
+        crate::prof::add(crate::prof::SCANS, t_scan);
+        // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
+        self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
+        self.scans.pop_front();
+        for e in found {
+            self.log_encounter(e);
         }
     }
 

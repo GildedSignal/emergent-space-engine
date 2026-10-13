@@ -374,6 +374,7 @@ impl Work<'_, '_> {
             clock_exp,
             event_time: t,
             kick: Kick::NONE,
+            impact: None,
         };
         self.new_entry = Some(bound.entry.clone());
         self.rec.plan.retain(|item| item.what != What::Crash);
@@ -521,7 +522,17 @@ impl Work<'_, '_> {
         } else if self.rec.kind != Kind::Planet
             && self.rec.b.entry.trajectory.key().is_some_and(|key| self.rec.b.to_doll(key.periapsis).is_ok_and(|r| r < self.doll().surface))
         {
-            if let Some(tick) = next_impact(&self.rec.b, self.doll().surface, self.rec.b.event_time)? {
+            // The impact is a function of the binding: the boundary after a kick finds it where the kick left it.
+            let after = self.rec.b.event_time;
+            let found = match self.rec.b.impact {
+                Some((a, found)) if a == after => found,
+                _ => {
+                    let found = next_impact(&self.rec.b, self.doll().surface, after)?;
+                    self.rec.b.impact = Some((after, found));
+                    found
+                }
+            };
+            if let Some(tick) = found {
                 insert(&mut self.rec.plan, Item { t: tick.max(t + 1), what: What::Crash });
             }
         }
