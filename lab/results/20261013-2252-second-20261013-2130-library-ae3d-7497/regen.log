@@ -1,0 +1,129 @@
+== probe neutrality: is the patch already applied?
+== build
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 21.40s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+== digest neutrality of the probe (the strongest check: a burn flight, base vs patched)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 21.15s
+DIGEST IDENTICAL: reverse L15                seed 1 members 48 | e0972a1ce81d30950df93a0b1ec8d37c | kicks  1684 encounters  597 contacts   0 | 4 schedules agree
+== the four scenes (rule 2's falsifier)
+
+=== idle-s1-m48: idle seed 1 members 48 40000 game-s (1.79 s wall) | bodies 76 kicks body/origin 9176/96 leavers 48 lost 30 decisions 0
+  per-orbit tube (planets,moon,orbiters,skimmers): n=13 tot=2350.119 top1=10.4% top3=29.1% top10%=10.4% max/med=1.47 CV=0.179 Gini=0.1 Zipf=-0.229 (r2=0.944)
+  per-orbit tube + idle player: n=14 tot=2600.391 top1=9.6% top3=27.8% top10%=9.6% max/med=1.44 CV=0.193 Gini=0.109 Zipf=-0.243 (r2=0.92)
+  per-orbit all bodies: n=64 tot=113284.66 top1=22.8% top3=44.2% top10%=66.8% max/med=135.23 CV=2.328 Gini=0.811 Zipf=-2.908 (r2=0.712)
+  per-scene-second all bodies: n=64 tot=0.229 top1=21.1% top3=42.2% top10%=58.0% max/med=71.7 CV=2.083 Gini=0.751 Zipf=-2.181 (r2=0.801)
+  per-lived-second members: n=38 tot=1.367 top1=7.5% top3=22.2% top10%=22.2% max/med=14.39 CV=1.108 Gini=0.589 Zipf=-2.176 (r2=0.663)
+  player: 1936 kicks = 21.1% of body kicks; 250.3/orbit, clock 0, sub(level>=1) 0
+  top tube bodies by per-orbit:
+    You          kicks  1936 sub    0    250.27/orbit    0.04840/s
+    Skimmer 3    kicks   121 sub    0    244.57/orbit    0.00302/s
+    Orbiter 5    kicks   484 sub    0    227.75/orbit    0.01210/s
+    Orbiter 2    kicks   968 sub    0    212.37/orbit    0.02420/s
+    Moon         kicks     4 sub    0    206.46/orbit    0.00010/s
+    Orbiter 8    kicks   242 sub    0    198.35/orbit    0.00605/s
+  haulers (v2 clock):
+    Hauler 1     kicks     2 clock     2 sub    0     25878.71/orbit(extrap)    0.00005/s
+    Hauler 2     kicks     1 clock     1 sub    0      2011.32/orbit(extrap)    0.00003/s
+    Hauler 3     kicks     1 clock     1 sub    0       355.40/orbit(extrap)    0.00003/s
+    Hauler 4     kicks     1 clock     1 sub    0      8704.96/orbit(extrap)    0.00003/s
+    Hauler 5     kicks     1 clock     1 sub    0     12558.09/orbit(extrap)    0.00003/s
+    Hauler 6     kicks     1 clock     1 sub    0      3410.27/orbit(extrap)    0.00003/s
+    Hauler 7     kicks     1 clock     1 sub    0     11653.94/orbit(extrap)    0.00003/s
+    Hauler 8     kicks     1 clock     1 sub    0      1173.12/orbit(extrap)    0.00003/s
+    Hauler 9     kicks     1 clock     1 sub    0      5026.54/orbit(extrap)    0.00003/s
+    Hauler 10    kicks     1 clock     1 sub    0      2029.89/orbit(extrap)    0.00003/s
+    Hauler 11    kicks     1 clock     1 sub    0      7133.36/orbit(extrap)    0.00003/s
+    Hauler 12    kicks     1 clock     1 sub    0       620.46/orbit(extrap)    0.00003/s
+
+=== idle-s7-m48: idle seed 7 members 48 40000 game-s (2.18 s wall) | bodies 73 kicks body/origin 10800/969 leavers 45 lost 29 decisions 0
+  per-orbit tube (planets,moon,orbiters,skimmers): n=13 tot=2388.925 top1=10.2% top3=28.8% top10%=10.2% max/med=1.44 CV=0.173 Gini=0.096 Zipf=-0.22 (r2=0.927)
+  per-orbit tube + idle player: n=14 tot=2639.197 top1=9.5% top3=27.8% top10%=9.5% max/med=1.38 CV=0.186 Gini=0.104 Zipf=-0.232 (r2=0.905)
+  per-orbit all bodies: n=63 tot=93884.858 top1=29.7% top3=52.0% top10%=75.2% max/med=167.31 CV=2.764 Gini=0.841 Zipf=-2.794 (r2=0.77)
+  per-scene-second all bodies: n=63 tot=0.27 top1=17.9% top3=35.9% top10%=56.1% max/med=60.5 CV=1.886 Gini=0.742 Zipf=-2.236 (r2=0.782)
+  per-lived-second members: n=37 tot=1.478 top1=7.0% top3=20.7% top10%=20.7% max/med=4.21 CV=0.973 Gini=0.533 Zipf=-1.949 (r2=0.579)
+  player: 1936 kicks = 17.9% of body kicks; 250.3/orbit, clock 0, sub(level>=1) 0
+  top tube bodies by per-orbit:
+    You          kicks  1936 sub    0    250.27/orbit    0.04840/s
+    Skimmer 3    kicks   121 sub    0    244.64/orbit    0.00302/s
+    Orbiter 5    kicks   484 sub    0    238.02/orbit    0.01210/s
+    Moon         kicks     4 sub    0    206.46/orbit    0.00010/s
+    Orbiter 2    kicks   968 sub    0    202.04/orbit    0.02420/s
+    Orbiter 4    kicks   484 sub    0    197.12/orbit    0.01210/s
+  haulers (v2 clock):
+    Hauler 3     kicks     3 clock     3 sub    0     27912.75/orbit(extrap)    0.00007/s
+    Hauler 1     kicks     1 clock     1 sub    0      1477.20/orbit(extrap)    0.00003/s
+    Hauler 2     kicks     1 clock     1 sub    0      3288.53/orbit(extrap)    0.00003/s
+    Hauler 4     kicks     1 clock     1 sub    0      6497.95/orbit(extrap)    0.00003/s
+    Hauler 5     kicks     1 clock     1 sub    0      7342.37/orbit(extrap)    0.00003/s
+    Hauler 6     kicks     1 clock     1 sub    0      8205.79/orbit(extrap)    0.00003/s
+    Hauler 7     kicks     1 clock     1 sub    0     12691.12/orbit(extrap)    0.00003/s
+    Hauler 8     kicks     1 clock     1 sub    0       884.18/orbit(extrap)    0.00003/s
+    Hauler 9     kicks     1 clock     1 sub    0      1592.68/orbit(extrap)    0.00003/s
+    Hauler 10    kicks     1 clock     1 sub    0       835.98/orbit(extrap)    0.00003/s
+    Hauler 11    kicks     1 clock     1 sub    0      3407.45/orbit(extrap)    0.00003/s
+    Hauler 12    kicks     1 clock     1 sub    0      7998.24/orbit(extrap)    0.00003/s
+
+=== burn-s1-m48: burn seed 1 members 48 1000 game-s (1.18 s wall) | bodies 71 kicks body/origin 2142/48 leavers 43 lost 18 decisions 1
+  per-orbit tube (planets,moon,orbiters,skimmers): n=11 tot=1960.485 top1=12.4% top3=34.6% top10%=12.4% max/med=1.5 CV=0.189 Gini=0.104 Zipf=-0.25 (r2=0.953)
+  per-orbit tube + idle player: n=12 tot=58347.433 top1=96.6% top3=97.4% top10%=96.6% max/med=331.53 CV=3.195 Gini=0.886 Zipf=-1.702 (r2=0.588)
+  per-orbit all bodies: n=36 tot=63474.646 top1=88.8% top3=92.1% top10%=92.1% max/med=366.83 CV=5.238 Gini=0.914 Zipf=-1.529 (r2=0.818)
+  per-scene-second all bodies: n=36 tot=2.142 top1=70.6% top3=76.9% top10%=76.9% max/med=126.08 CV=4.141 Gini=0.828 Zipf=-1.635 (r2=0.849)
+  per-lived-second members: n=24 tot=1.247 top1=8.3% top3=24.3% top10%=16.3% max/med=2.11 CV=0.739 Gini=0.411 Zipf=-1.363 (r2=0.522)
+  player: 1513 kicks = 70.6% of body kicks; 56386.9/orbit, clock 89, sub(level>=1) 816
+  top tube bodies by per-orbit:
+    You          kicks  1513 sub  816  56386.95/orbit    1.51300/s
+    Skimmer 3    kicks     3 sub    0    242.55/orbit    0.00300/s
+    Orbiter 5    kicks    12 sub    0    225.87/orbit    0.01200/s
+    Orbiter 2    kicks    24 sub    0    210.62/orbit    0.02400/s
+    Orbiter 8    kicks     6 sub    0    196.71/orbit    0.00600/s
+    Orbiter 4    kicks    12 sub    0    178.89/orbit    0.01200/s
+  haulers (v2 clock):
+    Hauler 1     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 2     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 3     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 4     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 5     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 6     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 7     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 8     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 9     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 10    kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 11    kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 12    kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+
+=== idle-s1-m4000: idle seed 1 members 4000 3600 game-s (30.54 s wall) | bodies 3988 kicks body/origin 78299/88 leavers 3960 lost 1885 decisions 0
+  per-orbit tube (planets,moon,orbiters,skimmers): n=11 tot=1992.6 top1=12.4% top3=34.6% top10%=12.4% max/med=1.5 CV=0.189 Gini=0.104 Zipf=-0.25 (r2=0.955)
+  per-orbit tube + idle player: n=12 tot=2242.528 top1=11.1% top3=32.4% top10%=11.1% max/med=1.44 CV=0.203 Gini=0.113 Zipf=-0.261 (r2=0.912)
+  per-orbit all bodies: n=3781 tot=557950.377 top1=3.0% top3=3.5% top10%=33.3% max/med=138.25 CV=2.091 Gini=0.562 Zipf=-1.219 (r2=0.661)
+  per-scene-second all bodies: n=3781 tot=21.75 top1=0.2% top3=0.7% top10%=38.0% max/med=34.8 CV=1.265 Gini=0.622 Zipf=-1.39 (r2=0.72)
+  per-lived-second members: n=3769 tot=163.126 top1=0.1% top3=0.2% top10%=23.3% max/med=4.68 CV=1.033 Gini=0.549 Zipf=-1.693 (r2=0.548)
+  player: 174 kicks = 0.2% of body kicks; 249.9/orbit, clock 0, sub(level>=1) 0
+  top tube bodies by per-orbit:
+    You          kicks   174 sub    0    249.93/orbit    0.04833/s
+    Skimmer 3    kicks    11 sub    0    247.05/orbit    0.00306/s
+    Orbiter 5    kicks    44 sub    0    230.05/orbit    0.01222/s
+    Orbiter 2    kicks    87 sub    0    212.08/orbit    0.02417/s
+    Orbiter 8    kicks    22 sub    0    200.35/orbit    0.00611/s
+    Orbiter 4    kicks    44 sub    0    182.21/orbit    0.01222/s
+  haulers (v2 clock):
+    Hauler 1     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 2     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 3     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 4     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 5     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 6     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 7     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 8     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 9     kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 10    kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 11    kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+    Hauler 12    kicks     0 clock     0 sub    0         0.00/orbit(extrap)    0.00000/s
+== store baseline (shipmem: the run this one completes)
+row-n2e4.jsonl {'n': 1280000, 'b_update_ns': 8, 'b_bits': 12.347, 'inferred': True, 'mismatches': 0}
+row-n2e5.jsonl {'n': 12800000, 'b_update_ns': 7, 'b_bits': 12.3286, 'inferred': True, 'mismatches': 0}
+row-storm.jsonl {'n': 1280000, 'b_update_ns': 7, 'b_bits': 48.3811, 'inferred': False, 'mismatches': 0}
+row-trickle.jsonl {'n': 1280000, 'b_update_ns': 8, 'b_bits': 12.1717, 'inferred': True, 'mismatches': 0}
+spikes-convoy.jsonl {'n': 1000464, 'hot_ns_p50': 34, 'hot_ns_p99': 1273, 'hot_ns_max': 10500, 'compact_max_step_ns': 1274677, 'repacks': 2570}
+== done

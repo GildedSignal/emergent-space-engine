@@ -1,0 +1,13 @@
+Working...
+Check complete. `check.md` written; the author's wiki page corrected in place; the working tree restored (patch reversed, `crates/` clean).
+
+**Grade: gold.**
+
+What I did and found:
+
+- **Reproduction** — applied `work/patch.diff` by hand on the clean tree, rebuilt, and re-proved digest-neutrality myself (`frame_digest 8 L15` → `e0972a1c…`, identical to the stored base). All four scenes rerun: every deterministic number matches the dossier and the runner's regen exactly (bodies, kick counts, CV 0.179/0.173/0.189/0.189, player 21.1/17.9/70.6/0.2%, member p50 5 / mean 20.6 / max 174, Orbiter 2 rows, haulers). Store rows reproduce; only µs-level timing jitter differs, disclosed as such.
+- **Predictions** — pre-registered (predictions.md 22:57 precedes the probe directory's creation 23:07; originals were later overwritten by the runner's regen, so I state exactly what is provable). The decisive halves held (burn player 70.6% ≥ 30%; bulk flat); letter misses were disclosed; none of the pre-registered kill criteria fired (idle top-1 peaked at 28.1% < 30%).
+- **Adversarial** — seed 3 (bulk flat, player 13.3%); held burn inside the 4,000-member battle, a combination the author never ran (player dilutes to 2.6% — the head is the driver, and it washes out at population scale); a decade more game time (400,000 game-s: CV 0.182 unchanged, Orbiter 2 212.39 vs 212.37/orbit — no drift tail). The 40,000-member decade was killed at exit 137 (~447 s, over the 2 GB budget) — named on the record as the open edge.
+- **One blemish** — the dossier's derived ratio "per-lived-second top-10%/median 1.0–1.2" is not reproducible under any natural reading (real: p90/med 4.05, decile-mean/mean 2.34) and is defined nowhere. Not load-bearing: the rank rule dies on the reproducible headlessness (top member 0.07%, top-10 bodies 2.2% of the stream). Page corrected to "dispersed but headless".
+- **Page corrections** (five, in place): CV/Gini bounds widened to the seeds actually run, "identical per-body numbers" → ±5% near-constant (the page had silently dropped seed 7's 202.0/orbit), idle player share 13–28% across seeds/spans, m48 sub-kick counts fixed (10/38 and 8/37 by seed — the dossier conflated seed 7's count with seed 1's range), and the member ratio above.
+- **Gold grounds** — the first checker's named experiment is done on shipped code with a digest-neutral probe and a fully regenerating record; it deletes a component from the in-flight ladder (the rank-rule rungs and surprise-rate instrumentation) and shows rule 2's premise wrong, adoptable in one step, with the domain honestly scoped to the plane and the belt named as the revival path.

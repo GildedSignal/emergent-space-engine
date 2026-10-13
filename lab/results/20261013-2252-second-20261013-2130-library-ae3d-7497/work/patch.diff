@@ -1,0 +1,165 @@
+diff --git a/crates/universe/examples/kick_tail.rs b/crates/universe/examples/kick_tail.rs
+new file mode 100644
+index 00000000..1c80df51
+--- /dev/null
++++ b/crates/universe/examples/kick_tail.rs
+@@ -0,0 +1,86 @@
++//! Rule 2's falsifier (the nladder page, open direction 1): the per-body surprise-rate
++//! distribution on shipped scenes. Logs every applied kick `(tick, body, level, clock)`
++//! through `Universe::kick_log` (probe field; `None` leaves the engine untouched), settles
++//! the shipped `plane` scenario, and prints one JSON line per body with its kick tally,
++//! its compiled period (ticks) and its rate per orbit and per game-second, then a scene
++//! line with the counters. The fleet origin's own kicks are the frame's (aggregate, in
++//! `stats.kicks` minus the body tally).
++//!
++//! cargo run --release -p emergent-universe --example kick_tail -- idle <secs> [seed] [members]
++//! cargo run --release -p emergent-universe --example kick_tail -- burn <secs> [seed] [members] [keys level from_s]
++use emergent_space::binding::Trajectory;
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++
++fn period_ticks(p: &emergent_universe::scenario::Plane, i: usize) -> Option<f64> {
++    let b = &p.u.rec(i).b;
++    let per = match &b.entry.trajectory {
++        Trajectory::Cycle(c) => c.period().ok()?,
++        Trajectory::Passage(g) => g.duration().ok()?,
++        Trajectory::Plunge(g) => g.motion_period().ok()?,
++    };
++    Some(emergent_universe::num::to_f64(per) * 2f64.powi(-(b.clock_exp as i32)))
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let scene = args.get(1).cloned().unwrap_or("idle".into());
++    let secs: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(3600.0);
++    let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let members: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(48);
++    let mut p = plane(Config::default(), seed, Order::Sparse, 1, members).unwrap();
++    let cut = (secs / TICK_SECONDS) as i64;
++    if scene == "burn" {
++        let keys: u8 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1);
++        let level: u8 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(12);
++        let from_s: f64 = args.get(7).and_then(|s| s.parse().ok()).unwrap_or(1.0);
++        p.u.schedule((from_s / TICK_SECONDS) as i64, word(keys, level)).unwrap();
++    }
++    let t0 = std::time::Instant::now();
++    p.u.kick_log = Some(Vec::new());
++    p.u.settle(cut);
++    let wall = t0.elapsed().as_secs_f64();
++    let log = p.u.kick_log.take().unwrap_or_default();
++
++    let mut per = vec![(0u64, 0u64, 0u64, 0u64, i64::MAX, 0i64); p.u.n_bodies()];
++    for (t, i, l, clock) in &log {
++        let r = &mut per[*i];
++        r.0 += 1;
++        if *l > 0 { r.1 += 1 }
++        if *clock { r.2 += 1 }
++        if *t < r.4 { r.4 = *t }
++        if *t > r.5 { r.5 = *t }
++    }
++    let span_ticks = cut as f64;
++    for i in 0..p.u.n_bodies() {
++        let r = per[i];
++        if r.0 == 0 && i >= p.names.len() {
++            continue;
++        }
++        let pt = period_ticks(&p, i).filter(|_| r.0 > 0);
++        let orbits = pt.map(|p| span_ticks / p);
++        let kind = format!("{:?}", p.u.rec(i).kind);
++        let name = p.names.get(i).cloned().unwrap_or_else(|| format!("member {i}"));
++        let live = p.u.rec(i).alive;
++        let born = p.u.info.get(i).map(|b| b.born).unwrap_or(0);
++        let doll = p.u.rec(i).b.doll;
++        let group = if name.starts_with("member") { "member" } else if matches!(name.as_str(), "Cinder" | "Home" | "Giant" | "Moon" | "You") { "core" } else { "ship" };
++        println!(
++            "{{\"body\":{i},\"name\":\"{name}\",\"kind\":\"{kind}\",\"group\":\"{group}\",\"doll\":{doll},\"kicks\":{},\"sub\":{},\"clock\":{},\"t_first\":{},\"t_last\":{},\"alive\":{live},\"born\":{born},\"period_ticks\":{},\"kicks_per_orbit\":{},\"kicks_per_sec\":{}}}",
++            r.0, r.1, r.2, r.4, r.5,
++            pt.map(|x| x.trunc()).unwrap_or(0.0),
++            orbits.map(|o| r.0 as f64 / o).unwrap_or(0.0),
++            r.0 as f64 / secs,
++        );
++    }
++    let body_kicks: u64 = per.iter().map(|r| r.0).sum();
++    let s = &p.u.stats;
++    println!(
++        "{{\"scene\":\"{scene}\",\"seed\":{seed},\"members\":{members},\"secs\":{secs},\"wall_s\":{wall:.2},\"bodies\":{},\"kicks_body\":{body_kicks},\"kicks_total\":{},\"origin_kicks\":{},\"opens\":{},\"boundaries\":{},\"decisions\":{},\"leavers\":{},\"lost\":{},\"refused\":{},\"contacts\":{}}}",
++        p.u.n_bodies(), s.kicks, s.kicks - body_kicks, s.opens, s.boundaries, s.decisions, s.leavers, s.lost, s.refused, p.u.contacts
++    );
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..ef4acf30 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -57,6 +57,8 @@ pub struct Update {
+     /// A compiled entry to put in the catalogue (the rec's tube key is then set by the owner).
+     pub new_entry: Option<Arc<Entry>>,
+     pub kind: Resolved,
++    /// The kick this update applied, if it was one: `(tick, level, clock-stepped)`. Probe only.
++    pub kick: Option<(Tick, u8, bool)>,
+ }
+ 
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+@@ -861,7 +863,8 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             }
+         }
+     };
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
++    let kick = match (&item.what, kind) { (What::Kick(l), Resolved::Kick) => Some((t, *l, w.rec.ext.is_some())), _ => None };
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind, kick }
+ }
+ 
+ /// Plan a body's first interval at its creation.
+@@ -871,7 +874,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open, kick: None }
+ }
+ 
+ /// A decision: flush the thrust owed so far at `t` (a rebinding when a burn is owed; a turn alone only
+@@ -910,7 +913,7 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+     if res.is_err() {
+         w.rec.refusals += 1;
+     }
+-    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
++    Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open, kick: None }
+ }
+ 
+ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 3253025d..367f63e3 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -194,6 +194,9 @@ pub struct Universe {
+     /// Entity ids below this are bodies (those made, and the room for every member a fleet can hand out);
+     /// a fleet's entity id is `body_cap + its index`.
+     body_cap: usize,
++    /// Every applied kick `(tick, body, level, clock-stepped)` while a probe holds it out. `None`: no logging, the
++    /// engine is what it was. The fleet origin's own kicks are not per body (they are the frame's, in `stats.kicks`).
++    pub kick_log: Option<Vec<(Tick, usize, u8, bool)>>,
+ }
+ 
+ #[derive(Default)]
+@@ -243,6 +246,7 @@ impl Universe {
+             resolved: 0,
+             frames: 0,
+             body_cap: 0,
++            kick_log: None,
+         }
+     }
+ 
+@@ -573,6 +577,9 @@ impl Universe {
+             Resolved::Lost => self.stats.lost += 1,
+             Resolved::Refused => self.stats.refused += 1,
+         }
++        if let (Some(log), Some(k)) = (&mut self.kick_log, upd.kick) {
++            log.push((k.0, i, k.1, k.2));
++        }
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
+         self.bodies.put(i, upd.rec);
