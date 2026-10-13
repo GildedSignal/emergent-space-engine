@@ -1,0 +1,47 @@
+== build (probe patch applied by the runner)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.11s
+== matrix: 6 scenes x 3 arms (A base, B keys, C exact memo)
+== interleaved A/C at m4000 with the memo's keys logged (true hit counts)
+== pair locality (adjacency of duplicate keys) and the table
+hand-out compiles: 3303 distinct keys: 2213
+key multiplicity histogram: {1: 1123, 2: 1090}
+gap between duplicate hand-outs (rows): {1: 1090}
+hand-out hits: 1090
+all hits: 1090 of 4366
+scene        leavers  ho_comp  ho_dist  ho_hits   hit% all_comp  all_hits  bindA_us  bindC_us   hoA_us   hoC_us  dgAB  dgAC
+m1500            232      352      234        0   0.0%      470       118     399.0     242.4    501.0    345.5  True  True
+m400               0        0        0        0   0.0%        3         0       0.0       0.0      0.0      0.0  True  True
+m4000           2157     3303     2213        0   0.0%     4366      1090     410.1     254.5    512.6    357.1  True  True
+m4000s3         2041     3104     2095        0   0.0%     4140      1009     416.0     259.2    523.4    366.8  True  True
+m400rtf100       377      617      613        0   0.0%     5430         4     349.9     355.1    478.8    485.2  True  True
+m48                0        0        0        0   0.0%        3         0       0.0       0.0      0.0      0.0  True  True
+
+m400rtf100_A_keys.csv: 617 hand-out keys
+  periapsis exponents: {29: 136, 30: 264, 28: 54, 26: 31, 17: 2, 25: 26, 22: 7, 23: 15, 19: 6, 24: 27, 27: 27, 3: 2, 21: 9, 20: 4, 14: 4, 18: 1, 9: 2}
+  periapsis significand spread (modal exponent): 1.512e-01 relative; distinct 263/264
+  k: 381 distinct of 617; top-3 shared by [2, 2, 2] members
+
+m4000_A_keys.csv: 3303 hand-out keys
+  periapsis exponents: {25: 182, 17: 25, 20: 77, 23: 166, 21: 81, 24: 221, 14: 8, 26: 65, 18: 24, 15: 16, 10: 6, 7: 4, 8: 6, 19: 50, 22: 128, 12: 8, 16: 18, 13: 8, 11: 4, 30: 2206}
+  periapsis significand spread (modal exponent): 1.051e-01 relative; distinct 1116/2206
+  k: 2162 distinct of 3303; top-3 shared by [2, 2, 2] members
+== digest identity with the memo forced on: the universe suite (1 ignored clock flight)
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.72s
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 22.97s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.70s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.10s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.07s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 34.01s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.45s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.10s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.08s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.36s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+== done
