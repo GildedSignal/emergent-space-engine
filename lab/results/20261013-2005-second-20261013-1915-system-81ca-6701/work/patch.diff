@@ -1,0 +1,948 @@
+diff --git a/crates/space/tests/carlson_compile_probe.rs b/crates/space/tests/carlson_compile_probe.rs
+new file mode 100644
+index 00000000..e61aa3ec
+--- /dev/null
++++ b/crates/space/tests/carlson_compile_probe.rs
+@@ -0,0 +1,942 @@
++//! The checker-named gold experiment for 20261013-1915-system-81ca: the WHOLE compile
++//! as certified Carlson integers — all three channels (advance, period, proper
++//! period) — plus the readout's incomplete forms, measured against the shipped panel
++//! walk on the same keys. Run:
++//!   cargo test --release -p emergent-space --test carlson_compile_probe -- --nocapture
++//!
++//! ## The algebra (standard Carlson notation throughout)
++//!
++//! The walk's node integrands over psi in [0,pi], with x = k+(1-k)cos, a = 6k+2(1-k)cos:
++//!   phi: int (1/sqrt(1-qa) - 1)dpsi   t: sqrt(tn) int dpsi/(x^2 (1-2qx) sqrt(1-qa))
++//!   tau: sqrt(d) int dpsi/(x^2 sqrt(1-qa))
++//! with tn = k(1-2q)(1+2q(1-2k)), d = k - q(3k^2+(1-k)^2). Substitute s = sin(psi/2):
++//! x = 1-ns^2, 1-qa = B(1-ms^2) with n = 2(1-k), m = 4q(1-k)/B, B = 1-q(4k+2),
++//! 1-2qx = H0(1-n_h s^2), H0 = 1-2q, n_h = -2qn/H0. Then with
++//!   K = RF(0,1-m,1),  E = K - (m/3)RD(0,1-m,1),  Pi(n|m) = K + (n/3)RJ(0,1-m,1,1-n)
++//! (Carlson 1991, eqs 4.1-4.3 and 4.7 with Legendre characteristic n):
++//!   advance      = 4*RF(0,A,B) - 2pi                       [A = 1-q(8k-2); 21ba/81ca]
++//!   dPi/dn       = [nE + (m-n)K - (m-n^2)Pi]/(2n(m-n)(n-1)) [classical; sympy-verified]
++//!   I2           = Pi + n*dPi/dn                            [= int ds/((1-ns^2)^2 sqrt..)]
++//!   tau_half     = sqrt(d)*(2/sqrt(B))*I2
++//!   t_half       = sqrt(tn)*(2/(sqrt(B)*H0))*[a*Pi(n|m) + b*I2 + c*Pi(n_h|m)]
++//! with a = -n*n_h/(n_h-n)^2, b = n/(n-n_h), c = n_h^2/(n_h-n)^2 from the partial
++//! fraction 1/((1-ng)^2(1-n_h g)) = a/(1-ng) + b/(1-ng)^2 + c/(1-n_h g).
++//!
++//! ## The integer port (Q62, floor-rounded, u128/i128)
++//!
++//! RF/RD/RJ follow Carlson's published algorithms verbatim (arXiv:math/9409227,
++//! eqs 2.7, 2.31, 2.23): floor-root duplication, stop at five-variable spread
++//! <= 2^-20 (his stop rule (2.17)/(2.25) then certifies relative error
++//! r = 4*eps^6 ~ 2^-118), his series tails evaluated in exact integer arithmetic, RJ's
++//! RC(1,1+e_m) corrections computed as RC = RF(1,1+e,1+e) by the same certified
++//! duplication. The pi subtraction and all products stay in integers.
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::f64::consts::PI;
++use std::time::Instant;
++
++// ---------------------------------------------------------------- key helpers
++fn decode(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++fn encode(x: f64) -> Scalar {
++    let exp = x.abs().log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - exp)).round() as i128, exp - 60).unwrap()
++}
++fn key(p: f64, e: f64) -> OrbitKey {
++    OrbitKey::bound(encode(p), (e * 2f64.powi(48)).round() as u64).unwrap()
++}
++
++// ---------------------------------------------------------------- Q62 integer arithmetic
++const Q: u32 = 62;
++const ONE: i128 = 1i128 << Q;
++const PI_Q: i128 = 14488038916154245686; // round(pi*2^62)
++
++/// floor isqrt of u128: f64 seed + integer Newton + square fix-ups (exact).
++fn isqrt_u128(x: u128) -> u128 {
++    if x == 0 {
++        return 0;
++    }
++    let mut r = ((x as f64).sqrt() as u128).max(1);
++    r = (r + x / r) >> 1;
++    while r > 0 && r * r > x {
++        r -= 1;
++    }
++    while (r + 1) * (r + 1) <= x {
++        r += 1;
++    }
++    r
++}
++/// Q62 product, exact for |raws| < 2^96 (limb-wise; the mathematical result must
++/// fit i128 — true at every call site: products of channel quantities stay <= ~2^66).
++fn imul(a: i128, b: i128) -> i128 {
++    let neg = (a < 0) != (b < 0);
++    let (a, b) = (a.unsigned_abs(), b.unsigned_abs());
++    debug_assert!(a < 1u128 << 96 && b < 1u128 << 96);
++    let (a1, a0) = (a >> 64, a & u64::MAX as u128);
++    let (b1, b0) = (b >> 64, b & u64::MAX as u128);
++    // a*b = (a1*b1)<<128 + (a1*b0 + a0*b1)<<64 + a0*b0, exactly;
++    // (a*b)>>62 = (a1*b1)<<66 + 4*(mid) + (a0*b0)>>62   (2^64 is a multiple of 2^62)
++    let mid = a1 * b0 + a0 * b1;
++    let q = ((a1 * b1) << 66).wrapping_add((mid << 2).wrapping_add((a0 * b0) >> 62));
++    debug_assert!(q < 1u128 << 126, "imul result overflow");
++    let q = q as i128;
++    if neg { -q } else { q }
++}
++/// Exact (a << 62)/b for u128 operands. Fast path a <= 2^65; otherwise limb-wise
++/// long division (requires b <= 2^96 so the remainder never overflows a limb).
++fn div_shift62(a: u128, b: u128) -> u128 {
++    debug_assert!(b != 0 && b <= 1u128 << 96);
++    if a <= 1u128 << 65 {
++        return ((a / b) << 62) + ((a % b) << 62) / b;
++    }
++    let mut q: u128 = 0;
++    let mut rem: u128 = 0;
++    for i in (0..4).rev() {
++        rem = (rem << 32) | ((a >> (32 * i)) & 0xFFFF_FFFF);
++        q <<= 32;
++        let t = rem / b;
++        q |= t;
++        rem -= t * b;
++    }
++    for _ in 0..2 {
++        rem <<= 31;
++        q <<= 31;
++        let t = rem / b;
++        q |= t;
++        rem -= t * b;
++    }
++    q >> 0 // q = floor(a * 2^62 / b); caller guarantees it fits
++}
++/// Q62 signed division, exact.
++fn idiv(a: i128, b: i128) -> i128 {
++    if a == 0 {
++        return 0;
++    }
++    debug_assert!(b != 0);
++    let neg = (a < 0) != (b < 0);
++    let q = div_shift62(a.unsigned_abs(), b.unsigned_abs()) as i128;
++    if neg {
++        -q
++    } else {
++        q
++    }
++}
++/// floor(sqrt(a)) in Q62, i.e. floor(sqrt(a_raw * 2^62)), exact for a < 2^96.
++fn qsqrt(a: i128) -> i128 {
++    debug_assert!(a >= 0);
++    let a = a as u128;
++    if a == 0 {
++        return 0;
++    }
++    if a < 1u128 << 66 {
++        return isqrt_u128(a << Q) as i128;
++    }
++    // a*2^62 overflows u128. r^2 <= X ⟺ r <= floor(X/r), with X = a*2^62 kept
++    // implicit via the long-division quotient (no u128 product anywhere).
++    let xr = |r: u128| idiv(a as i128, r as i128) as u128;
++    let mut r = ((a as f64).sqrt() * 2f64.powi(31)) as u128; // seed within ~2^13
++    r = (r + xr(r)) >> 1; // one Newton lands within +-2
++    while r > xr(r) {
++        r -= 1;
++    }
++    while r + 1 <= xr(r + 1) {
++        r += 1;
++    }
++    r as i128
++}
++fn l_of(x: i128, y: i128, z: i128) -> i128 {
++    (isqrt_u128((x as u128) * (y as u128))
++        + isqrt_u128((y as u128) * (z as u128))
++        + isqrt_u128((z as u128) * (x as u128))) as i128
++}
++
++/// Carlson RF in Q62 (his eq. 2.7 algorithm: duplication + series tail).
++/// Args: nonnegative Q62 raws. Returns (RF, iters).
++fn rf_int(x0: i128, y0: i128, z0: i128) -> (i128, u32) {
++    let (mut x, mut y, mut z) = (x0, y0, z0);
++    let mut iters = 0u32;
++    loop {
++        let lo = x.min(y).min(z).max(0);
++        let hi = x.max(y).max(z);
++        let sum = x + y + z;
++        if iters > 0 && (hi - lo) <= sum >> 20 {
++            break;
++        }
++        let l = l_of(x, y, z);
++        x = (x + l) >> 2;
++        y = (y + l) >> 2;
++        z = (z + l) >> 2;
++        iters += 1;
++        debug_assert!(iters < 100, "rf_int divergence");
++    }
++    let an = (x + y + z) / 3; // floored mean
++    let mut rf = idiv(ONE, qsqrt(an)); // A^{-1/2}
++    // series tail (2.7): 1 - E2/10 + E3/14 + E2^2/24 - 3E2E3/44, X = 1 - x_n/A_n
++    let hi_lo = x.max(y).max(z) - x.min(y).min(z);
++    if an > 0 && hi_lo > an >> 42 {
++        let xv = ONE - idiv(x, an);
++        let yv = ONE - idiv(y, an);
++        let zv = ONE - idiv(z, an);
++        let e2 = imul(xv, yv) + imul(yv, zv) + imul(zv, xv);
++        let e3 = imul(imul(xv, yv), zv);
++        let c = ONE
++            - idiv(e2, 10 * ONE)
++            + idiv(e3, 14 * ONE)
++            + idiv(imul(e2, e2), 24 * ONE)
++            - idiv(3 * imul(e2, e3), 44 * ONE);
++        rf = imul(rf, c);
++    }
++    (rf, iters)
++}
++
++/// Carlson RD in Q62 (his eq. 2.31: pure-duplication corrections + series tail).
++fn rd_int(x0: i128, y0: i128, z0: i128) -> (i128, u32) {
++    let (mut x, mut y, mut z) = (x0, y0, z0);
++    let a0 = idiv(x + y + 3 * z, 5 * ONE);
++    let mut sum = 0i128;
++    let mut iters = 0u32;
++    let mut an = a0;
++    loop {
++        let lo = x.min(y).min(z).max(0);
++        let hi = x.max(y).max(z);
++        if iters > 0 && (hi - lo) <= (x + y + 3 * z) >> 21 {
++            an = idiv(x + y + 3 * z, 5 * ONE);
++            break;
++        }
++        let sz = qsqrt(z);
++        let l = l_of(x, y, z);
++        let term = idiv(3 * ONE, imul(sz, z + l));
++        sum += term >> (2 * iters);
++        x = (x + l) >> 2;
++        y = (y + l) >> 2;
++        z = (z + l) >> 2;
++        iters += 1;
++        debug_assert!(iters < 100, "rd_int divergence");
++    }
++    // tail (2.31): 4^-n A^-3/2 (1 - 3E2/14 + E3/6 + 9E2^2/88 - 3E4/22 - 9E2E3/52 + 3E5/26)
++    let a_inv = idiv(ONE, an);
++    let a_32 = imul(a_inv, qsqrt(a_inv)); // A^{-3/2}
++    let (xv, yv) = (
++        idiv(a0 - x, an) >> (2 * iters),
++        idiv(a0 - y, an) >> (2 * iters),
++    );
++    let zv = idiv(-(xv + yv), 3 * ONE);
++    let xy = imul(xv, yv);
++    let z2 = imul(zv, zv);
++    let e2 = xy - 6 * z2;
++    let e3 = imul(3 * xy - 8 * z2, zv);
++    let e4 = imul(3 * (xy - z2), z2);
++    let e5 = imul(imul(xy, zv), z2);
++    let poly = ONE
++        - idiv(3 * e2, 14 * ONE)
++        + idiv(e3, 6 * ONE)
++        + idiv(9 * imul(e2, e2), 88 * ONE)
++        - idiv(3 * e4, 22 * ONE)
++        - idiv(9 * imul(e2, e3), 52 * ONE)
++        + idiv(3 * e5, 26 * ONE);
++    let tail = imul(a_32, poly) >> (2 * iters);
++    (sum + tail, iters)
++}
++
++/// Carlson RJ in Q62 (his eqs 2.16-2.23, RC corrections included).
++fn rj_int(x0: i128, y0: i128, z0: i128, p0: i128) -> (i128, u32) {
++    let (mut x, mut y, mut z, mut p) = (x0, y0, z0, p0);
++    // Homogeneity pre-scaling: RJ(4x,4y,4z,4p) = 8·RJ(x,y,z,p). Keep every raw <= ONE
++    // so no internal product overflows u128/i128 (each floor shift costs <= 2 ulp).
++    let mut sh = 0u32;
++    while x.max(y).max(z).max(p) > ONE {
++        x >>= 2;
++        y >>= 2;
++        z >>= 2;
++        p >>= 2;
++        sh += 1;
++    }
++    let a0 = idiv(x + y + z + 2 * p, 5 * ONE);
++    let delta = imul(imul(p - x, p - y), p - z);
++    let mut sum = 0i128;
++    let mut iters = 0u32;
++    let mut an = a0;
++    loop {
++        let five_sum = x + y + z + 2 * p;
++        let lo = x.min(y).min(z).min(p).max(0);
++        let hi = x.max(y).max(z).max(p);
++        if iters > 0 && (hi - lo) <= five_sum >> 21 {
++            an = idiv(five_sum, 5 * ONE);
++            break;
++        }
++        let (sx, sy, sz, sp) = (qsqrt(x), qsqrt(y), qsqrt(z), qsqrt(p));
++        let d = imul(imul(sp + sx, sp + sy), sp + sz);
++        let e = idiv(idiv(delta, d), d) >> (6 * iters); // 4^{-3m}*delta/d^2 (two 1-ulp divs)
++        assert!(ONE + e > 0, "rj: RC argument 1+e <= 0");
++        // RC(1,1+e) = atan(sqrt(e))/sqrt(e) (e>0) or atanh(sqrt(-e))/sqrt(-e) (e<0):
++        // 1 - e/3 + O(e^2), with the e^2 coefficient in [1/7, 1/5]. Exact to < 2^-50
++        // once |e| <= 2^-24; the Carlson duplication covers coarse e.
++        let rc = if e.abs() <= ONE >> 24 {
++            ONE - idiv(e, 3 * ONE) + idiv(imul(e, e), 5 * ONE)
++        } else {
++            rf_int(ONE, ONE + e, ONE + e).0
++        };
++        sum += (idiv(3 * rc, d) << 1) >> (2 * iters); // 6*4^{-m}*RC/d
++        let l = l_of(x, y, z);
++        x = (x + l) >> 2;
++        y = (y + l) >> 2;
++        z = (z + l) >> 2;
++        p = (p + l) >> 2;
++        iters += 1;
++        debug_assert!(iters < 100, "rj_int divergence");
++    }
++    // tail (2.23): five variables x,y,z,p,p
++    let (xv, yv, zv) = (
++        idiv(a0 - x, an) >> (2 * iters),
++        idiv(a0 - y, an) >> (2 * iters),
++        idiv(a0 - z, an) >> (2 * iters),
++    );
++    let pv = idiv(-(xv + yv + zv), 2 * ONE);
++    let p2 = imul(pv, pv);
++    let e2 = imul(xv, yv) + imul(xv, zv) + imul(yv, zv) - 3 * p2;
++    let xyz = imul(imul(xv, yv), zv);
++    let e3 = xyz + 2 * imul(e2, pv) + 4 * imul(p2, pv);
++    let e4 = imul(2 * xyz + imul(e2, pv) + 3 * imul(p2, pv), pv);
++    let e5 = imul(xyz, p2);
++    let poly = ONE
++        - idiv(3 * e2, 14 * ONE)
++        + idiv(e3, 6 * ONE)
++        + idiv(9 * imul(e2, e2), 88 * ONE)
++        - idiv(3 * e4, 22 * ONE)
++        - idiv(9 * imul(e2, e3), 52 * ONE)
++        + idiv(3 * e5, 26 * ONE);
++    let a_inv = idiv(ONE, an);
++    let a_32 = imul(a_inv, qsqrt(a_inv));
++    let tail = imul(a_32, poly) >> (2 * iters);
++    ((sum + tail) >> (3 * sh), iters)
++}
++
++// ---------------------------------------------------------------- f64 reference arms
++fn rf_f64(mut x: f64, mut y: f64, mut z: f64) -> f64 {
++    for _ in 0..80 {
++        let l = (x * y).sqrt() + (y * z).sqrt() + (z * x).sqrt();
++        x = (x + l) / 4.0;
++        y = (y + l) / 4.0;
++        z = (z + l) / 4.0;
++        let a = (x + y + z) / 3.0;
++        let e = ((x - a).abs() / a).max((y - a).abs() / a).max((z - a).abs() / a);
++        if e < 1e-17 {
++            break;
++        }
++    }
++    ((x + y + z) / 3.0).sqrt().recip()
++}
++fn rd_f64(mut x: f64, mut y: f64, mut z: f64) -> f64 {
++    let mut sum = 0f64;
++    let mut f = 1f64;
++    for _ in 0..80 {
++        let l = (x * y).sqrt() + (y * z).sqrt() + (z * x).sqrt();
++        sum += 3.0 * f / (z.sqrt() * (z + l));
++        f /= 4.0;
++        x = (x + l) / 4.0;
++        y = (y + l) / 4.0;
++        z = (z + l) / 4.0;
++        let a = (x + y + 3.0 * z) / 5.0;
++        let e = ((x - a).abs()).max((y - a).abs()).max((z - a).abs()) / a;
++        if e < 1e-17 {
++            break;
++        }
++    }
++    let a = (x + y + 3.0 * z) / 5.0;
++    sum + f * a.powf(-1.5)
++}
++fn rj_f64(mut x: f64, mut y: f64, mut z: f64, p0: f64) -> f64 {
++    let delta = (p0 - x) * (p0 - y) * (p0 - z);
++    let mut sum = 0f64;
++    let mut f = 1f64;
++    let mut p = p0;
++    for _ in 0..80 {
++        let l = (x * y).sqrt() + (y * z).sqrt() + (z * x).sqrt();
++        let sp = p.sqrt();
++        let d = (sp + x.sqrt()) * (sp + y.sqrt()) * (sp + z.sqrt());
++        let e = f * f * f * delta / (d * d);
++        let rc = rf_f64(1.0, 1.0 + e, 1.0 + e);
++        sum += 6.0 * f * rc / d;
++        f /= 4.0;
++        x = (x + l) / 4.0;
++        y = (y + l) / 4.0;
++        z = (z + l) / 4.0;
++        p = (p + l) / 4.0;
++        let a = (x + y + z + 2.0 * p) / 5.0;
++        let e5 = ((x - a).abs()).max((y - a).abs()).max((z - a).abs()).max((p - a).abs()) / a;
++        if e5 < 1e-17 {
++            break;
++        }
++    }
++    let a = (x + y + z + 2.0 * p) / 5.0;
++    sum + f * a.powf(-1.5)
++}
++
++// ---------------------------------------------------------------- channel algebra
++#[derive(Clone, Copy)]
++struct Par {
++    kk: i128,
++    q: i128,
++    a: i128,
++    b: i128,
++    /// A-frame characteristics: m = 4q(1-k)/A in (0,1) [21ba's m],
++    /// nu = -2(1-k)/(2k-1) < 0 [the x pole], nuh = 4q(1-k)/H1 in (0,1) [the horizon pole].
++    m: i128,
++    nu: i128,
++    nuh: i128,
++    h1: i128,
++    kk2: i128, // 2k-1 in Q62
++    tn: i128,
++    d: i128,
++}
++impl Par {
++    fn from_key(k: &OrbitKey) -> Self {
++        let per = k.periapsis;
++        let s = per.significand() as i128; // 63-bit
++        let e = per.exponent() as i32;
++        let sh = 124 - e;
++        let q = if sh <= 120 {
++            (1i128 << sh) / s
++        } else {
++            ((1i128 << 120) / s) << (sh - 120)
++        };
++        let kk = (k.k as i128) << 14; // Q62
++        let t1 = 8 * kk - 2 * ONE;
++        let t2 = 4 * kk + 2 * ONE;
++        let b = ONE - imul(q, t2);
++        let a = ONE - imul(q, t1);
++        let kk2 = 2 * kk - ONE;
++        let m = idiv(4 * imul(q, ONE - kk), a);
++        let nu = -idiv(2 * (ONE - kk), kk2);
++        let h1 = ONE - imul(2 * q, kk2);
++        let nuh = idiv(4 * imul(q, ONE - kk), h1);
++        let h0 = ONE - 2 * q;
++        let tn = imul(imul(kk, h0), h1);
++        let d = kk - imul(q, imul(3 * kk, kk) + imul(ONE - kk, ONE - kk));
++        Self { kk, q, a, b, m, nu, nuh, h1, kk2, tn, d }
++    }
++    fn f64s(&self) -> [f64; 11] {
++        let v = |x: i128| x as f64 / ONE as f64;
++        [v(self.kk), v(self.q), v(self.a), v(self.b), v(self.m), v(self.nu), v(self.nuh), v(self.h1), v(self.kk2), v(self.tn), v(self.d)]
++    }
++}
++
++/// I2(nu|m) = Pi + nu*dPi/dnu with the nu-prefactor cancelled (safe at large |nu|).
++fn i2_f64(m: f64, nu: f64) -> f64 {
++    let k = rf_f64(0.0, 1.0 - m, 1.0);
++    let e = k - m / 3.0 * rd_f64(0.0, 1.0 - m, 1.0);
++    let pi = k + nu / 3.0 * rj_f64(0.0, 1.0 - m, 1.0, 1.0 - nu);
++    pi + (nu * e + (m - nu) * k - (m - nu * nu) * pi) / (2.0 * (m - nu) * (nu - 1.0))
++}
++fn channels_f64(par: &Par) -> (f64, f64, f64) {
++    let f = par.f64s();
++    let (a, b, m, nu, nuh, h1, kk2, tn, d) = (f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[10]);
++    let rf_ab = rf_f64(0.0, b, a);
++    let adv = 4.0 * rf_ab - 2.0 * PI;
++    let i2 = i2_f64(m, nu);
++    let tau_half = d.sqrt() * 2.0 / a.sqrt() / (kk2 * kk2) * i2;
++    let k_m = rf_f64(0.0, 1.0 - m, 1.0);
++    let pi_nu = k_m + nu / 3.0 * rj_f64(0.0, 1.0 - m, 1.0, 1.0 - nu);
++    let pi_nuh = k_m + nuh / 3.0 * rj_f64(0.0, 1.0 - m, 1.0, 1.0 - nuh);
++    let ca = -nu * nuh / ((nuh - nu) * (nuh - nu));
++    let cb = nu / (nu - nuh);
++    let cc = nuh * nuh / ((nuh - nu) * (nuh - nu));
++    let t_half = tn.sqrt() * 2.0 / (a.sqrt() * kk2 * kk2 * h1) * (ca * pi_nu + cb * i2 + cc * pi_nuh);
++    (adv, t_half, tau_half)
++}
++fn channels_int(par: &Par) -> ((i128, i128, i128), [u32; 5]) {
++    let (rf_ab, i1) = rf_int(0, par.b, par.a);
++    let adv = 4 * rf_ab - 2 * PI_Q;
++    // basis in the (0, 1-m, 1) frame, m in (0,1) bounded
++    let one_m = ONE - par.m;
++    let (k_m, i2) = rf_int(0, one_m, ONE);
++    let (rd, i3) = rd_int(0, one_m, ONE);
++    let (rj_nu, i4) = rj_int(0, one_m, ONE, ONE - par.nu);
++    let (rj_nuh, i5) = rj_int(0, one_m, ONE, ONE - par.nuh);
++    let e_m = k_m - idiv(imul(par.m, rd), 3 * ONE);
++    let pi_nu = k_m + idiv(imul(par.nu, rj_nu), 3 * ONE);
++    let pi_nuh = k_m + idiv(imul(par.nuh, rj_nuh), 3 * ONE);
++    // I2 = Pi + [nu*E + (m-nu)K - (m-nu^2)Pi]/(2(m-nu)(nu-1))   [nu-prefactor cancelled]
++    let num = imul(par.nu, e_m) + imul(par.m - par.nu, k_m) - imul(par.m - imul(par.nu, par.nu), pi_nu);
++    let i2v = pi_nu + idiv(num, imul(2 * (par.m - par.nu), par.nu - ONE));
++    let sqrt_a = qsqrt(par.a);
++    let kk2_sq = imul(par.kk2, par.kk2);
++    // tau_half = sqrt(d)*(2/sqrt(A))*I2/kk2^2 - divide last to keep raws bounded
++    let tau_half = idiv(idiv(imul(qsqrt(par.d), 2 * i2v), sqrt_a), kk2_sq);
++    // t_half = sqrt(tn)*(2/(sqrt(A)*kk2^2*H1))*[a*Pi(nu) + b*I2 + c*Pi(nuh)]
++    let dnv = par.nuh - par.nu;
++    let ca = -imul(idiv(par.nu, dnv), idiv(par.nuh, dnv));
++    let cb = idiv(par.nu, -dnv);
++    let cc = imul(idiv(par.nuh, dnv), idiv(par.nuh, dnv));
++    let brack = imul(ca, pi_nu) + imul(cb, i2v) + imul(cc, pi_nuh);
++    let t_half = idiv(
++        idiv(imul(imul(qsqrt(par.tn), 2 * ONE), brack), imul(sqrt_a, kk2_sq)),
++        par.h1,
++    );
++    ((adv, t_half, tau_half), [i1, i2, i3, i4, i5])
++}
++
++// ---------------------------------------------------------------- independent quadrature truth
++fn gl4(f: &dyn Fn(f64) -> f64, lo: f64, hi: f64, n: usize) -> f64 {
++    const X: [f64; 2] = [0.3399810435848563, 0.8611363115940526];
++    const W: [f64; 2] = [0.6521451548625461, 0.3478548451374538];
++    let h = (hi - lo) / n as f64;
++    let mut sum = 0.0;
++    for i in 0..n {
++        let mid = lo + (i as f64 + 0.5) * h;
++        for j in 0..2 {
++            for sgn in [-1.0f64, 1.0] {
++                sum += W[j] * h / 2.0 * f(mid + sgn * X[j] * h / 2.0);
++            }
++        }
++    }
++    sum
++}
++fn quad_truth(par: &Par) -> (f64, f64, f64) {
++    let f = par.f64s();
++    let (kk, q, tn, d) = (f[0], f[1], f[9], f[10]);
++    let adv = 2.0 * gl4(&|psi| {
++        let a = 6.0 * kk + 2.0 * (1.0 - kk) * psi.cos();
++        1.0 / (1.0 - q * a).sqrt() - 1.0
++    }, 0.0, PI, 4096);
++    let x = |psi: f64| kk + (1.0 - kk) * psi.cos();
++    let g = |psi: f64| {
++        let a = 6.0 * kk + 2.0 * (1.0 - kk) * psi.cos();
++        1.0 / (1.0 - q * a).sqrt()
++    };
++    let t_half = tn.sqrt() * gl4(&|psi| g(psi) / (x(psi) * x(psi) * (1.0 - 2.0 * q * x(psi))), 0.0, PI, 4096);
++    let tau_half = d.sqrt() * gl4(&|psi| g(psi) / (x(psi) * x(psi)), 0.0, PI, 4096);
++    (adv, t_half, tau_half)
++}
++
++// ---------------------------------------------------------------- incomplete readout (f64)
++/// B-frame (s = sin(psi/2), periapsis at s = 0): m_B = -4q(1-k)/B < 0,
++/// n = 2(1-k) in (0,1), nh = -2qn/H0 < 0. Negative m is legitimate (m < 1).
++struct Inc {
++    mb: f64,
++    n: f64,
++    nh: f64,
++    b: f64,
++    h0: f64,
++    tn: f64,
++    d: f64,
++    kk: f64,
++}
++impl Inc {
++    fn new(par: &Par) -> Self {
++        let f = par.f64s();
++        let (kk, q, b, tn, d) = (f[0], f[1], f[3], f[9], f[10]);
++        let n = 2.0 * (1.0 - kk);
++        let h0 = 1.0 - 2.0 * q;
++        let mb = -4.0 * q * (1.0 - kk) / b;
++        let nh = -2.0 * q * n / h0;
++        Self { mb, n, nh, b, h0, tn, d, kk }
++    }
++    /// (t, tau, advance) accumulated from periapsis (psi=0) to psi = 2*asin(s).
++    fn at(&self, s: f64) -> (f64, f64, f64) {
++        let s2 = s * s;
++        let c = 1.0 / s2;
++        let (cx, cy) = (c - 1.0, c - self.mb);
++        let f = rf_f64(cx, cy, c);
++        let e = f - self.mb / 3.0 * rd_f64(cx, cy, c);
++        let pin = f + self.n / 3.0 * rj_f64(cx, cy, c, c - self.n);
++        let pinh = f + self.nh / 3.0 * rj_f64(cx, cy, c, c - self.nh);
++        let ss = self.n * s2;
++        let dpin = (self.n * self.n * (1.0 - self.mb * s2).sqrt() * (2.0 * s * (1.0 - s2).sqrt())
++            + 2.0 * self.n * (ss - 1.0) * e
++            + 2.0 * (ss - 1.0) * ((self.mb - self.n) * f - (self.mb - self.n * self.n) * pin))
++            / (4.0 * self.n * (self.mb - self.n) * (self.n - 1.0) * (ss - 1.0));
++        let i2 = pin + self.n * dpin;
++        let psi = 2.0 * s.asin();
++        let adv = 2.0 * (2.0 / self.b.sqrt() * f - psi);
++        let tau = self.d.sqrt() * 2.0 / self.b.sqrt() * i2;
++        let ca = -self.n * self.nh / ((self.nh - self.n) * (self.nh - self.n));
++        let cb = self.n / (self.n - self.nh);
++        let cc = self.nh * self.nh / ((self.nh - self.n) * (self.nh - self.n));
++        let t = self.tn.sqrt() * 2.0 / (self.b.sqrt() * self.h0) * (ca * pin + cb * i2 + cc * pinh);
++        (t, tau, adv)
++    }
++    /// cos(psi) from radius: u = r/periapsis.
++    fn cos_psi(&self, u: f64) -> f64 {
++        (1.0 - self.kk * u) / (u * (1.0 - self.kk))
++    }
++}
++
++// ---------------------------------------------------------------- probe driver
++struct Row {
++    p: f64,
++    e: f64,
++    strong: bool,
++    rel_f64: [f64; 3],
++    rel_int: [f64; 3],
++    rel_quad: [f64; 3],
++    iters: [u32; 5],
++    compile_us: f64,
++    mine_ns: f64,
++    knots: usize,
++    mem_bytes: usize,
++    cond_flag: bool,
++}
++
++fn probe(p: f64, e: f64) -> Option<Row> {
++    let k = key(p, e);
++    if k.k == 1u64 << 48 {
++        // The symbolic circle: the shipped compile already special-cases it in O(1)
++        // (no walk); the Carlson reduction replaces the walk, which e > 0 keys run.
++        println!("KEY ({p:.4}, {e:.4}): CIRCLE branch (k = UNIT), no walk to replace");
++        return None;
++    }
++    let compiled = match Orbit::compile(k) {
++        Ok(o) => o,
++        Err(err) => {
++            println!("KEY ({p:.4}, {e:.4}): REFUSED by shipped compile: {err:?}");
++            return None;
++        }
++    };
++    let par = Par::from_key(&k);
++    let strong = (par.q as f64 / ONE as f64) > 2f64.powi(-18);
++    let cf = channels_f64(&par);
++    let (ci_raw, its) = channels_int(&par);
++    let v = |x: i128| x as f64 / ONE as f64;
++    let ci = (v(ci_raw.0), v(ci_raw.1), v(ci_raw.2));
++    let quad = quad_truth(&par);
++    let peri = decode(k.periapsis);
++    let tscale = peri * peri.sqrt();
++    let shipped = [
++        decode(compiled.advance().ok()?),
++        decode(compiled.period().ok()?) / (2.0 * tscale),
++        decode(compiled.proper_period().ok()?) / (2.0 * tscale),
++    ];
++    if shipped.iter().any(|x| !x.is_finite() || *x <= 0.0) {
++        return None;
++    }
++    let rel = |mine: [f64; 3]| {
++        [
++            (mine[0] - shipped[0]).abs() / shipped[0],
++            (mine[1] - shipped[1]).abs() / shipped[1],
++            (mine[2] - shipped[2]).abs() / shipped[2],
++        ]
++    };
++    let t0 = Instant::now();
++    for _ in 0..100 {
++        std::hint::black_box(Orbit::compile(std::hint::black_box(k))).ok();
++    }
++    let compile_us = t0.elapsed().as_nanos() as f64 / 100.0 / 1000.0;
++    let t0 = Instant::now();
++    for _ in 0..5000 {
++        std::hint::black_box(channels_int(std::hint::black_box(&par)));
++    }
++    let mine_ns = t0.elapsed().as_nanos() as f64 / 5000.0;
++    let knots = compiled.shape().knots().len();
++    let mem = knots * std::mem::size_of::<emergent_space::orbit::Knot>()
++        + compiled.shape().crossings().len() * std::mem::size_of::<usize>();
++    let cond_flag = ((par.m - par.nu).abs() as f64 / ONE as f64) < 2f64.powi(-10);
++    Some(Row {
++        p,
++        e,
++        strong,
++        rel_f64: rel([cf.0, cf.1, cf.2]),
++        rel_int: rel([ci.0, ci.1, ci.2]),
++        rel_quad: rel([quad.0, quad.1, quad.2]),
++        iters: its,
++        compile_us,
++        mine_ns,
++        knots,
++        mem_bytes: mem,
++        cond_flag,
++    })
++}
++
++fn fmt3(r: &[f64; 3]) -> String {
++    format!("{:9.2e} {:9.2e} {:9.2e}", r[0], r[1], r[2])
++}
++
++#[test]
++fn carlson_compile_probe() {
++    // ---- internal formula self-checks (cheap, hard asserts) ----
++    {
++        let (n, nh) = (0.35f64, -0.12);
++        for g in [0.0, 0.13, 0.5, 0.77, 0.99] {
++            let lhs = 1.0 / ((1.0 - n * g) * (1.0 - n * g) * (1.0 - nh * g));
++            let ca = -n * nh / ((nh - n) * (nh - n));
++            let cb = n / (n - nh);
++            let cc = nh * nh / ((nh - n) * (nh - n));
++            let rhs = ca / (1.0 - n * g) + cb / ((1.0 - n * g) * (1.0 - n * g)) + cc / (1.0 - nh * g);
++            assert!((lhs - rhs).abs() < 1e-14 * lhs.abs(), "partial fraction broken");
++        }
++        let (m, n) = (0.31f64, 0.42);
++        let k_ = rf_f64(0.0, 1.0 - m, 1.0);
++        let pi_of = |nn: f64| k_ + nn / 3.0 * rj_f64(0.0, 1.0 - m, 1.0, 1.0 - nn);
++        let e_ = k_ - m / 3.0 * rd_f64(0.0, 1.0 - m, 1.0);
++        let ana = (n * e_ + (m - n) * k_ - (m - n * n) * pi_of(n)) / (2.0 * n * (m - n) * (n - 1.0));
++        let fd = (pi_of(n + 1e-7) - pi_of(n - 1e-7)) / 2e-7;
++        assert!((ana - fd).abs() < 1e-8 * ana.abs(), "dPi/dn formula wrong: {ana} vs {fd}");
++        // theta-form: integrand smooth on [0, pi/2] (the s-form has an endpoint 1/sqrt)
++        // negative-m / large-negative-nu coverage (the readout frame and the A-frame x pole)
++        let (m2, nu2) = (0.31f64, -18.0);
++        let i2_d2 = gl4(
++            &|th| {
++                let s2 = th.sin() * th.sin();
++                1.0 / ((1.0 - nu2 * s2) * (1.0 - nu2 * s2) * (1.0 - m2 * s2).sqrt())
++            },
++            0.0,
++            PI / 2.0,
++            4096,
++        );
++        assert!((i2_f64(m2, nu2) - i2_d2).abs() < 1e-11 * i2_d2.abs(), "I2 formula wrong (nu=-18)");
++        let i2_direct = gl4(
++            &|th| {
++                let s2 = th.sin() * th.sin();
++                1.0 / ((1.0 - n * s2) * (1.0 - n * s2) * (1.0 - m * s2).sqrt())
++            },
++            0.0,
++            PI / 2.0,
++            4096,
++        );
++        assert!((i2_f64(m, n) - i2_direct).abs() < 1e-11 * i2_direct.abs(), "I2 formula wrong");
++        // integer primitives vs f64 arms on the actual channel argument sets
++        for (p_slr, e) in [(12.0, 0.3), (12.0, 0.99), (8.0, 0.995), (96.0, 0.5), (7.801, 0.9)] {
++            let par = Par::from_key(&key(p_slr, e));
++            let v = |x: i128| x as f64 / ONE as f64;
++            let f = par.f64s();
++            let (a, b, m, nu, nuh) = (f[2], f[3], f[4], f[5], f[6]);
++            let one_m = ONE - par.m;
++            let (ri, _) = rf_int(0, par.b, par.a);
++            let rf = rf_f64(0.0, b, a);
++            let (ri2, _) = rf_int(0, one_m, ONE);
++            let rf2 = rf_f64(0.0, 1.0 - m, 1.0);
++            let (rdi, _) = rd_int(0, one_m, ONE);
++            let rdf = rd_f64(0.0, 1.0 - m, 1.0);
++            let (rji, _) = rj_int(0, one_m, ONE, ONE - par.nu);
++            let rjf = rj_f64(0.0, 1.0 - m, 1.0, 1.0 - nu);
++            let (rji2, _) = rj_int(0, one_m, ONE, ONE - par.nuh);
++            let rjf2 = rj_f64(0.0, 1.0 - m, 1.0, 1.0 - nuh);
++            let chk = |name: &str, mine: f64, want: f64| {
++                let rel = (mine - want).abs() / want;
++                assert!(rel < 1e-9, "PRIM {name} p={p_slr} e={e}: {mine} vs {want} (rel {rel:.2e})");
++            };
++            chk("RF", v(ri), rf);
++            chk("RF2", v(ri2), rf2);
++            chk("RD", v(rdi), rdf);
++            chk("RJ", v(rji), rjf);
++            chk("RJ2", v(rji2), rjf2);
++        }
++        println!("SELF-CHECKS OK (partial fractions, dPi/dn, I2)");
++    }
++
++    let mut grid = Vec::new();
++    for j in 1..=16u32 {
++        for &e in [0.05f64, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99].iter() {
++            if let Some(r) = probe(6.0 * 2f64.powi(j as i32), e) {
++                grid.push(r);
++            }
++        }
++    }
++    let held: Vec<Row> = [
++        (7.3f64, 0.05),
++        (100.7, 0.55),
++        (4192.9, 0.95),
++        (37.0, 0.985),
++        (99991.0, 0.3),
++        (5.0, 0.0),
++        (8.0, 0.995),
++        (5.5, 0.9999),
++        (20.0, 0.9999),
++        (50.0, 0.99999),
++        (7.801, 0.9),
++        (7.81, 0.9),
++        (7.85, 0.9),
++        (7.01, 0.5),
++    ]
++    .iter()
++    .filter_map(|(p, e)| probe(*p, *e))
++    .collect();
++
++    let summarize = |rows: &[Row], tag: &str| {
++        let strong: Vec<&Row> = rows.iter().filter(|r| r.strong).collect();
++        let weak: Vec<&Row> = rows.iter().filter(|r| !r.strong).collect();
++        println!("== {tag}: {} strong, {} weak ==", strong.len(), weak.len());
++        for (name, idx) in [("adv", 0usize), ("t", 1), ("tau", 2)] {
++            let cf = strong.iter().map(|r| r.rel_f64[idx]).fold(0f64, f64::max);
++            let cint = strong.iter().map(|r| r.rel_int[idx]).fold(0f64, f64::max);
++            let cq = strong.iter().map(|r| r.rel_quad[idx]).fold(0f64, f64::max);
++            println!("  {name}: worst rel(f64 vs shipped)={cf:.2e}  rel(int vs shipped)={cint:.2e}  rel(quad vs shipped)={cq:.2e}");
++        }
++        if !weak.is_empty() {
++            for (name, idx) in [("adv", 0usize), ("t", 1), ("tau", 2)] {
++                let lo = weak.iter().map(|r| r.rel_f64[idx]).fold(f64::INFINITY, f64::min);
++                let hi = weak.iter().map(|r| r.rel_f64[idx]).fold(0f64, f64::max);
++                println!("  WEAK {name}: rel(f64) {lo:.2e} .. {hi:.2e}");
++            }
++        }
++        let maxiter = strong.iter().map(|r| r.iters.iter().copied().max().unwrap_or(0)).max().unwrap_or(0);
++        let ratios: Vec<f64> = strong.iter().map(|r| r.mine_ns / 1000.0 / r.compile_us).collect();
++        println!(
++            "  cost: mine {:.0}..{:.0} ns vs compile {:.1}..{:.1} us; ratio {:.3}..{:.3}; max Carlson iters {}",
++            strong.iter().map(|r| r.mine_ns).fold(f64::INFINITY, f64::min),
++            strong.iter().map(|r| r.mine_ns).fold(0f64, f64::max),
++            strong.iter().map(|r| r.compile_us).fold(f64::INFINITY, f64::min),
++            strong.iter().map(|r| r.compile_us).fold(0f64, f64::max),
++            ratios.iter().cloned().fold(f64::INFINITY, f64::min),
++            ratios.iter().cloned().fold(0f64, f64::max),
++            maxiter
++        );
++        let flagged: Vec<(f64, f64)> = strong.iter().filter(|r| r.cond_flag).map(|r| (r.p, r.e)).collect();
++        if !flagged.is_empty() {
++            println!("  CONDITIONING (|m-n|<2^-10): {:?}", flagged);
++        }
++    };
++    summarize(&grid, "GRID");
++    summarize(&held, "HELD-OUT+ATTACK");
++
++    println!(
++        "\n{:>9} {:>6} | {:>28} | {:>28} | {:>28} | {:>2} {:>8} {:>7} {:>5} {:>6}",
++        "p_slr", "e", "rel_f64 adv/t/tau", "rel_int adv/t/tau", "rel_quad adv/t/tau", "it", "comp_us", "mine_ns", "knots", "mem_B"
++    );
++    for r in grid.iter().chain(held.iter()) {
++        println!(
++            "{:>9.3} {:>6.4} | {} | {} | {} | {:>2} {:>8.2} {:>7.0} {:>5} {:>6}{}",
++            r.p,
++            r.e,
++            fmt3(&r.rel_f64),
++            fmt3(&r.rel_int),
++            fmt3(&r.rel_quad),
++            r.iters.iter().copied().max().unwrap_or(0),
++            r.compile_us,
++            r.mine_ns,
++            r.knots,
++            r.mem_bytes,
++            if r.cond_flag { " COND" } else { "" }
++        );
++    }
++
++    // ---- readout sanity: inc.at(1.0) must reproduce the complete halves ----
++    for (p_slr, e) in [(12.0, 0.6), (96.0, 0.5), (8.0, 0.995)] {
++        let k = key(p_slr, e);
++        let par = Par::from_key(&k);
++        let inc = Inc::new(&par);
++        let (t1, tau1, adv1) = inc.at(1.0);
++        let cf = channels_f64(&par);
++        println!(
++            "READOUT-SANE p={p_slr} e={e}: t {t1:.9e} vs {:.9e} | tau {tau1:.9e} vs {:.9e} | adv {adv1:.9e} vs {:.9e}",
++            cf.1, cf.2, cf.0
++        );
++    }
++    // ---- readout pricing: incomplete Carlson vs shipped at_radius / state ----
++    println!("\n== READOUT (incomplete Carlson vs shipped walk) ==");
++    let mut worst = [0f64; 3];
++    let mut nread = 0usize;
++    let mut nsub = 0usize;
++    for r in grid.iter().step_by(6).chain(held.iter().filter(|r| r.p < 100.0).step_by(2)) {
++        if r.e < 0.1 || !r.strong {
++            continue;
++        }
++        let k = key(r.p, r.e);
++        let o = Orbit::compile(k).unwrap();
++        let par = Par::from_key(&k);
++        let inc = Inc::new(&par);
++        let peri = decode(k.periapsis);
++        let tscale = peri * peri.sqrt();
++        let apo = peri / (2.0 * (k.k as f64 / 2f64.powi(48)) - 1.0);
++        for fr in [0.31f64, 0.5, 0.77] {
++            let tn_target = decode(o.period().unwrap()) * fr / tscale;
++            let st = match o.at_phase(0, encode(tn_target)) {
++                Ok(v) => v,
++                Err(err) => {
++                    println!("  ({:.3},{:.3}) fr {fr}: at_phase REFUSED {err:?}", r.p, r.e);
++                    continue;
++                }
++            };
++            // phi from the shipped solution's own psi (fixed-point radians, PI = pi·2^61);
++            // my closed forms must return the same normalized time at that amplitude.
++            let psi = st.psi as f64 / 2f64.powi(61);
++            let s = (psi / 2.0).sin();
++            let (t_mine, tau_mine, adv_mine) = inc.at(s);
++            // inbound half: the shipped solves the reflected phase — mirror mine
++            let (half_t, half_tau, half_adv) = inc.at(1.0);
++            let full_t = 2.0 * half_t;
++            // the read state's advance is q*sum (per-half-cycle integral units):
++            // my adv(phi) is the doubled (per-cycle) value, so compare at half scale
++            let (t_cmp, tau_cmp, adv_cmp) = if tn_target <= half_t {
++                (t_mine, tau_mine, adv_mine / 2.0)
++            } else {
++                (full_t - t_mine, 2.0 * half_tau - tau_mine, half_adv - adv_mine / 2.0)
++            };
++            let rel_t = (t_cmp - tn_target).abs() / tn_target;
++            let tau_ship = decode(st.proper_time) / tscale;
++            let rel_tau = (tau_cmp - tau_ship).abs() / tau_ship;
++            let adv_ship = decode(st.advance);
++            // advance crosses zero at periapsis: only rows where the shipped value is
++            // above its own Q30 storage quantum decide; the rest are counted, not judged
++            worst[0] = worst[0].max(rel_t);
++            worst[1] = worst[1].max(rel_tau);
++            if adv_ship.abs() > 1e-6 {
++                let rel_adv = (adv_cmp - adv_ship).abs() / adv_ship.abs();
++                worst[2] = worst[2].max(rel_adv);
++                nread += 1;
++            } else {
++                nsub += 1;
++            }
++        }
++        let t_target = encode(decode(o.period().unwrap()) * 0.31);
++        let t0 = Instant::now();
++        for _ in 0..2000 {
++            let u = 1.0 + 0.55 * (apo / peri - 1.0);
++            let s = ((1.0 - inc.cos_psi(u)) / 2.0).sqrt();
++            std::hint::black_box(inc.at(std::hint::black_box(s)));
++        }
++        let inc_ns = t0.elapsed().as_nanos() as f64 / 2000.0;
++        let t0 = Instant::now();
++        for _ in 0..2000 {
++            std::hint::black_box(o.signed_state(std::hint::black_box(t_target))).ok();
++        }
++        let state_ns = t0.elapsed().as_nanos() as f64 / 2000.0;
++        let tn_target = decode(t_target);
++        let t0 = Instant::now();
++        for _ in 0..2000 {
++            let (mut lo, mut hi) = (1e-9f64, 1.0f64);
++            let mut phi = 0.5f64;
++            for _ in 0..60 {
++                let (t1, _, _) = inc.at(phi);
++                if (t1 - tn_target).abs() <= 1e-14 * tn_target {
++                    break;
++                }
++                if t1 < tn_target {
++                    lo = phi;
++                } else {
++                    hi = phi;
++                }
++                phi = (lo + hi) / 2.0;
++            }
++            std::hint::black_box(phi);
++        }
++        let solve_ns = t0.elapsed().as_nanos() as f64 / 2000.0;
++        println!(
++            "  ({:>8.3},{:>6}) incomplete 3ch {:>6.0} ns; signed_state() {:>7.0} ns vs closed-form solve {:>7.0} ns",
++            r.p, r.e, inc_ns, state_ns, solve_ns
++        );
++    }
++    println!(
++        "READOUT n={nread} (+{nsub} sub-quantum adv rows): worst rel(t)={:.2e} rel(tau)={:.2e} rel(adv)={:.2e}",
++        worst[0], worst[1], worst[2]
++    );
++
++    // dump for the mpmath cross-check in regen.sh
++    println!("\nMPMATH-DUMP");
++    for (p, e) in [(12.0, 0.3), (12.0, 0.99), (7.3, 0.05), (8.0, 0.995), (96.0, 0.5), (50.0, 0.99999)] {
++        let k = key(p, e);
++        if let Ok(o) = Orbit::compile(k) {
++            let par = Par::from_key(&k);
++            let cf = channels_f64(&par);
++            let peri = decode(k.periapsis);
++            let tscale = peri * peri.sqrt();
++            let kk = k.k as f64 / 2f64.powi(48);
++            let q = 1.0 / (p * kk);
++            let _ = decode(o.advance().unwrap());
++            println!(
++                "MPK p={p} e={e} k={kk:.17} q={q:.17} ts={tscale:.17e} adv={:.17e} t_half={:.17e} tau_half={:.17e}",
++                cf.0, cf.1, cf.2
++            );
++        }
++    }
++}
