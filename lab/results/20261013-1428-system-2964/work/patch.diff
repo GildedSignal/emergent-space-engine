@@ -1,0 +1,235 @@
+diff --git a/crates/universe/examples/burn_cadence.rs b/crates/universe/examples/burn_cadence.rs
+new file mode 100644
+index 00000000..a0c33465
+--- /dev/null
++++ b/crates/universe/examples/burn_cadence.rs
+@@ -0,0 +1,118 @@
++//! The burn-cadence probe (lab run 20261013-1428-system-2964): the player's held burns flown the
++//! way the page flies them (paced frames, 12 ms budget, rtf 100), under three arms of the same
++//! binary selected by `ES_BURN_CADENCE` (`ship` = shipped bits, the default when unset; `fine` =
++//! 16× finer burn sampling, the reference; `off` = the clamp deleted, the field's/clock's own step
++//! carries the burn).
++//!
++//! Decisions are scheduled at FIXED canonical ticks (only the changes, as the session logs them),
++//! so every arm sees the same decision ticks: readout differences between arms are the cadence
++//! law's, not the wall's. Per flight: player items and decisions per frame (the burst), the worst
++//! frame's CPU, the readout grid every 4th frame (presented tick, ramped root state, the burn owed
++//! there), the end state at a fixed canonical cut (settle + digest), refusals, and the impact
++//! warning's lead.
++//!
++//! cargo run --release -p emergent-universe --example burn_cadence [-- <wall seconds per flight> [<only flights whose name contains>]]]
++use emergent_universe::observe::{held_thrust, root_state};
++use emergent_universe::scenario::plane;
++use emergent_universe::step::{counters, Counters};
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::io::Write as _;
++use emergent_universe::thrust::word;
++use std::time::{Duration, Instant};
++/// One flight: a name and the decision changes at fixed game-seconds (the burn holds from game-s 100).
++fn flights(seconds: f64) -> Vec<(String, Vec<(f64, u8, u8)>)> {
++    let _ = seconds;
++    vec![
++        ("coast".into(), vec![]),
++        ("forward L8".into(), vec![(100.0, 1, 8)]),
++        ("forward L12".into(), vec![(100.0, 1, 12)]),
++        ("forward L15".into(), vec![(100.0, 1, 15)]),
++        ("reverse L8".into(), vec![(100.0, 2, 8)]),
++        ("turn then burn L8".into(), vec![(100.0, 4, 8), (164.0, 0, 8), (200.0, 1, 8)]),
++    ]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let seconds: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(8.0);
++    let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let only = args.get(2).cloned().unwrap_or_default();
++    let arm = std::env::var("ES_BURN_CADENCE").unwrap_or_else(|_| "ship(unset)".into());
++    let frames = (seconds * 60.0) as usize;
++    let grid = std::fs::File::create(format!("burn_cadence_{arm}_{seed}.tsv", arm = arm.replace("(unset)", "unset"))).unwrap();
++    let mut grid = std::io::BufWriter::new(grid);
++    writeln!(grid, "flight\tt\tx0\tx1\tv0\tv1\tdv0\tdv1").unwrap();
++    println!("arm {arm}, rtf 100, {seconds} s wall per flight ({frames} frames), decisions at fixed ticks");
++    println!(
++        "{:<20} {:>8} {:>8} {:>8} {:>9} {:>9} {:>9} {:>9} {:>8} {:>10} {:>10}  {} {}",
++        "flight", "pitems", "pburst", "decide", "items", "rebinds", "worst ms", "lag s", "refusal", "alive", "end |x| AU", "end |v|/c", "digest"
++    );
++    for (name, changes) in flights(seconds).into_iter().filter(|(n, _)| n.contains(&only)) {
++        let mut p = plane(Config::default(), seed, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++        let mut cache = ViewCache::default();
++        let player = p.player;
++        // Schedule every decision change at its fixed canonical tick before the first frame.
++        for (g, keys, level) in &changes {
++            p.u.schedule((g / TICK_SECONDS) as i64, word(*keys, *level)).unwrap();
++        }
++        let limit = ((seconds * 100.0) / TICK_SECONDS) as i64; // rtf 100: the canonical cut every arm settles at
++        let (mut worst, mut lag, mut burst, mut items, mut decides, mut pburst, mut pitems) =
++            (Duration::ZERO, 0f64, 0u64, 0u64, 0u64, 0u64, 0u64);
++        let mut pevents = p.u.rec(player).events;
++        let (mut rebinds, mut warned) = (0u64, None);
++        let mut lost_at = None;
++        let _ = counters();
++        for f in 0..frames {
++            let start = Instant::now();
++            let frame = p.u.frame_to(1.0 / 60.0, 100.0, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, limit);
++            worst = worst.max(start.elapsed());
++            lag = lag.max((frame.target - frame.presented) as f64 * TICK_SECONDS);
++            let c: Counters = counters();
++            burst = burst.max(c.kick + c.boundary + c.open + c.crash + c.decide);
++            items += c.kick + c.boundary + c.open + c.crash;
++            decides += c.decide;
++            rebinds += c.rebind;
++            let rec = p.u.rec(player);
++            let dp = rec.events - pevents;
++            pevents = rec.events;
++            pburst = pburst.max(dp);
++            pitems += dp;
++            if !rec.alive {
++                lost_at = Some(frame.presented);
++                break;
++            }
++            if f % 4 == 0 {
++                let t = frame.presented.max(rec.b.event_time);
++                if let Ok((x, v)) = root_state(&p.u.ctx(), player, t) {
++                    let dv = held_thrust(&p.u.ctx(), &rec, t).ok().flatten().map(|(_, d)| d).unwrap_or([0.0; 2]);
++                    writeln!(grid, "{name}\t{t}\t{:.9e}\t{:.9e}\t{:.9e}\t{:.9e}\t{:.9e}\t{:.9e}", x[0], x[1], v[0], v[1], dv[0], dv[1]).unwrap();
++                }
++            }
++            if warned.is_none() && gather_cached(&p.u, &p.names, &mut cache).is_some_and(|v| v.impact.is_some()) {
++                warned = Some(frame.presented);
++            }
++        }
++        p.u.settle(limit);
++        let rec = p.u.rec(player);
++        let (ex, ev) = root_state(&p.u.ctx(), player, rec.b.event_time).unwrap_or(([0.0; 2], [0.0; 2]));
++        let au = (ex[0] * ex[0] + ex[1] * ex[1]).sqrt() * TICK_SECONDS / 499.004784;
++        let vc = (ev[0] * ev[0] + ev[1] * ev[1]).sqrt();
++        let warn = match (warned, lost_at) {
++            (Some(w), Some(l)) => format!("{:.0}s lead", (l - w) as f64 * TICK_SECONDS),
++            (Some(_), None) => "warned, alive".into(),
++            _ => "-".into(),
++        };
++        let end = if rec.alive {
++            rec.fault.map(|f| format!("fault {f:?}")).unwrap_or_default()
++        } else {
++            gather_cached(&p.u, &p.names, &mut cache)
++                .and_then(|v| v.loss)
++                .unwrap_or_else(|| format!("lost at {}", lost_at.unwrap_or(0)))
++        };
++        println!(
++            "{:<20} {:>8} {:>8} {:>8} {:>9} {:>9} {:>9.2} {:>9.3} {:>9} {:>8} {:>10.4} {:>10.6}  {} {}",
++            name, pitems, pburst, decides, items, rebinds, worst.as_secs_f64() * 1e3, lag, rec.refusals, rec.alive, au, vc, p.u.digest(), format!("{warn} {end}")
++        );
++    }
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index d9e280b9..33e36850 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -51,6 +51,41 @@ pub const MAX_STEP: i64 = 1 << 50;
+ /// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
+ pub const THRUST_FRACTION_LOG2: i32 = 6;
+ 
++// ---- probe counters (lab run 20261013-1428-system-2964; counting only, never an outcome) ------------------
++
++/// Per-thread counters of what resolution did (the lab's burn-cadence probe reads them between
++#[derive(Clone, Copy, Default, Debug)]
++pub struct Counters {
++    pub kick: u64,
++    pub boundary: u64,
++    pub open: u64,
++    pub crash: u64,
++    pub decide: u64,
++    pub rebind: u64,
++    pub lost: u64,
++}
++
++impl Counters {
++    const EMPTY: Self = Self { kick: 0, boundary: 0, open: 0, crash: 0, decide: 0, rebind: 0, lost: 0 };
++}
++
++thread_local! {
++    static COUNTERS: std::cell::Cell<Counters> = const { std::cell::Cell::new(Counters::EMPTY) };
++}
++
++/// Take (and reset) this thread's counters.
++pub fn counters() -> Counters {
++    COUNTERS.with(|c| c.replace(Counters::default()))
++}
++
++fn bump(f: impl FnOnce(&mut Counters)) {
++    COUNTERS.with(|c| {
++        let mut n = c.get();
++        f(&mut n);
++        c.set(n);
++    });
++}
++
+ /// What resolving one item did, for the universe to apply and count.
+ pub struct Update {
+     pub rec: BodyRec,
+@@ -363,6 +398,7 @@ impl Work<'_, '_> {
+         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
++        bump(|c| c.rebind += 1);
+         self.retired.push(Segment { b: old.clone(), until: t });
+         self.rec.b = Binding {
+             doll,
+@@ -730,12 +766,24 @@ impl Work<'_, '_> {
+     }
+ 
+     fn thrust_step(&self, t: Tick) -> Res<i64> {
++        // The burn-cadence knob (a lab probe, 20261013-1428-system-2964; default = shipped bits):
++        // `fine` = 16× finer sampling (the reference arm), `off` = no clamp at all, so the field's /
++        // clock's own step carries the burn. The env is read once per call; unset behaves bit for bit
++        // as shipped.
++        if std::env::var("ES_BURN_CADENCE").as_deref() == Ok("off") {
++            return Ok(MAX_STEP);
++        }
++        let fraction = match std::env::var("ES_BURN_CADENCE").as_deref() {
++            Ok("fine") => 10,
++            Ok("f8") => 8,
++            _ => THRUST_FRACTION_LOG2,
++        };
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let speed = norm2(v)?.max(Scalar::ONE.div(norm2(x)?)?.sqrt()?);
+         // α in rapidity per tick: 2^thrust_log2 per root unit at the throttle's level, and a tick is 2^0 root units.
+         let alpha = Scalar::power_of_two(thrust::alpha_log2(self.ctx.cfg, self.rec.thrust.map_or(0, |t| t.level)));
+-        let ticks = speed.scale(-THRUST_FRACTION_LOG2)?.div(alpha)?;
++        let ticks = speed.scale(-fraction)?.div(alpha)?;
+         let exp = log2_floor(ticks).clamp(1, 50);
+         Ok((1i64 << exp).clamp(MIN_STEP, MAX_STEP))
+     }
+@@ -819,6 +867,12 @@ impl Work<'_, '_> {
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+     let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
+     let item = w.rec.plan.remove(0);
++    bump(|c| match item.what {
++        What::Kick(_) => c.kick += 1,
++        What::Boundary => c.boundary += 1,
++        What::Open(_) => c.open += 1,
++        What::Crash => c.crash += 1,
++    });
+     w.rec.events += 1;
+     let t = item.t;
+     let h0 = w.rec.interval;
+@@ -852,6 +906,9 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+             }
+         }
+     };
++    if kind == Resolved::Lost {
++        bump(|c| c.lost += 1);
++    }
+     Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
+ }
+ 
+@@ -869,6 +926,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
++    bump(|c| c.decide += 1);
+     let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);

@@ -1,0 +1,159 @@
+probe: /home/glmlab/lab-target-1/release/examples/burn_cadence
+EQUIVALENCE: ship == unset, digest bd692347a96097305a3d380e86b66950be2bd95bbc0b5449abfc05d39ac617f5
+=== 8s_ship_seed1 (arm ship, 8 s, seed 1)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                      77        1        0      1160       583     12.49     0.038         0     true     0.9669   0.000099  2f7697ca86b017d840fc01d080d3bbac88fb7a40cc43e18919960542f4655360 - 
+forward L8                817       31        1      1900       953     12.54     0.456         0     true     0.9674   0.001971  28c4991d425256362ce38c328aa0f7a52986bd49875574849979aab26c1cee3c - 
+forward L12              2444       63        1      3471      1999     12.98     1.566         0     true     0.9752   0.032246  7445664da4c470ca8b0d58372c557de7966016f46b0ed50ddbe65ba03d4f4286 - 
+forward L15              2819       65        1      3810      2158     12.68     1.666         0     true     1.0449   0.251095  89a3a99ca94fddaad17fe9ba1f2b16503252b5a80aa7f82197b960cbde158b60 - 
+reverse L8               1281       41        1      2358      1180     12.61     1.667         0     true     0.9664   0.002104  62c1cef4a0a2467311093d56837d9c2abf4e243412e7aa0ccd4dba3256e3300a warned, alive 
+turn then burn L8         802       32        3      1885       947     12.36     0.057         0     true     0.9672   0.001695  2b761a12a318a96569ca7733e38b917753f3501e01eb516ecbf0dfc57a995bc8 - 
+=== 8s_off_seed1 (arm off, 8 s, seed 1)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                      77        1        0      1160       583     12.39     0.038         0     true     0.9669   0.000099  2f7697ca86b017d840fc01d080d3bbac88fb7a40cc43e18919960542f4655360 - 
+forward L8                 13        1        1      1096       551     12.22     0.038         0     true     0.9668   0.000049  35ec826dfaa9fe589a2c1856c0e6d201a69ce5e284eb121e6817eac4e1928989 - 
+forward L12                12        1        1      1095       550     12.29     0.038         1     true     0.9668   0.000043  15dacf798e7f388e235b502c95f4017354cb23b1a32df175255ebf9733b7208a - fault (Kick(0), Refused("velocity outside the word"))
+forward L15                78        1        1      1161       549     12.21     0.038        35     true     0.9668   0.000078  06d6d0757fc0a74449fd963b615412dfc81e7391250f1c06a6d6bfd843b17308 - fault (Kick(0), Refused("velocity outside the word"))
+reverse L8                 18        1        1      1101       554     12.63     0.038         0     true     0.9666   0.001966  08a3a73a402aec0376582e80e949171945961c801a474bcb684e8ffc4c7c3fab warned, alive 
+turn then burn L8          28        1        3      1111       560     12.23     0.038         0     true     0.9670   0.001533  d7128b911686ec7f92f23117e241cad0b44452b19b463bd4858aee4cda21880f - 
+=== 8s_fine_seed1 (arm fine, 8 s, seed 1)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                      77        1        0      1160       583     12.62     0.038         0     true     0.9669   0.000099  2f7697ca86b017d840fc01d080d3bbac88fb7a40cc43e18919960542f4655360 - 
+forward L8              10103       81        1     10726      5364     12.96     1.571         0     true     0.9674   0.001999  82e150d9172483ffd4b73da71b19fe1985104f01bb6c3c57508e6b4221fc6fdb - 
+forward L12             11758       81        1     11859      5935     12.82     1.665         0     true     0.9754   0.032939  2613545ec83a4fa4336ca733f31153555345290a97dd2d852f9222547cdac146 - 
+forward L15             12006       77        1     12079      6048     19.23     1.659         0     true     1.0462   0.255573  606eabbf8de03e6fa1bd6860856566480dea27b151cd173aaa60d32ef81651ea - 
+reverse L8              11608       83        1     11749      5878     12.77     1.667         0     true     0.9663   0.002132  b05b55521b0288f4afc9cb89db3efbe884b0f882923977c67cb75a6d9a4e32aa warned, alive 
+turn then burn L8        8940       40        3      9563      4784     12.67     1.567         0     true     0.9672   0.001700  d26a20abdc0aa539310fedb14aebb25a6eb3cb759aa8453feb80c395db52db5c - 
+=== 8s_f8_seed1 (arm f8, 8 s, seed 1)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                      77        1        0      1160       583     12.50     0.038         0     true     0.9669   0.000099  2f7697ca86b017d840fc01d080d3bbac88fb7a40cc43e18919960542f4655360 - 
+forward L8               3176       76        1      4226      2115     12.70     1.667         0     true     0.9674   0.001998  586b0f62f669ec9e2f7e2e8ee965182ae166705fae83d1c672e9e0615e73fd3c - 
+forward L12              8841       78        1      9451      5742     13.60     1.641         0     true     0.9754   0.032857  35535102c76a43c6d308d4bc68f0304a3b20f7be1d877518fc024c45ebec72ff - 
+forward L15              9577       76        1      9985      5929     13.53     1.656         0     true     1.0460   0.254711  760713679bd88af6d9ba9d32168e8172ddbad15dce98d7332294747cd98946e2 - 
+reverse L8               4882       57        1      5830      2920     12.71     1.667         0     true     0.9663   0.002131  4d7a5dc69fa9bf7f00bb82aaa0b22d4b533e3f7799a01cec8002d8724937a568 warned, alive 
+turn then burn L8        3052       39        3      4102      2054     12.65     1.275         0     true     0.9672   0.001700  5c170471d9c4fc3aecbb07c855613b020120f295b62ce4f63ce30488a46f8742 - 
+=== 16s_ship_seed1 (arm ship, 16 s, seed 1)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                     154        1        0      1770       887     12.34     0.038         0     true     0.9669   0.000123  c1aa226fcb1965913a477631595b32e889e92a2cb4714b1b8463c600cfe47c24 - 
+forward L8               2098       31        1      3714      2126     12.37     0.456         0     true     0.9693   0.004302  67dcd0aedaa4bf0f8cc406d86fa4accb53311365a5bae40fab1a851586a240e1 - 
+forward L12              2594       67        1      4182      2353     14.10     1.646         0     true     1.0097   0.069691  40ea31c4a8bca88e43ec49e60525c6052cf2c1fec01e961f5f8ed5e69a24dc12 - 
+forward L15              2992       65        1      4561      2532     12.75     1.644         0     true     1.4451   0.488862  2dbf6bba467fa1ce15ec1d908ccb5a831360b5999b3d0662b6d9bd5979ad0f26 - 
+reverse L8               1422       41        1      3033      1519     12.47     1.667         0     true     0.9645   0.004490  4e58cc062dbc7ce3d7dde812a34c887c727e2a4053ea1b0a973516a26c8cd7f8 warned, alive 
+turn then burn L8        1535       30        3      3151      1620     12.26     0.198         0     true     0.9685   0.004006  eb374adca0ce986da725c721209abf7b1fe234b83885a66701dae65c0e221fc5 - 
+=== 16s_off_seed1 (arm off, 16 s, seed 1)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                     154        1        0      1770       887     12.58     0.038         0     true     0.9669   0.000123  c1aa226fcb1965913a477631595b32e889e92a2cb4714b1b8463c600cfe47c24 - 
+forward L8                 14        1        1      1630       817     12.25     0.038         1     true     0.9668   0.000049  e29935ee317c8779a2f2b54c86f321c8d3edfa227ae08108d4ed0035608e5297 - fault (Kick(0), Refused("velocity outside the word"))
+forward L12                13        1        1      1629       816     12.74     0.038         1     true     0.9668   0.000043  0704cb3c028e5a28d097713621dc2a5efcf20ffda34c3dd61dcce27a8c77f6b2 - fault (Kick(0), Refused("velocity outside the word"))
+forward L15               155        1        1      1771       815     12.10     0.038        73     true     0.9668   0.000078  82587a1054d40302f54c666d1f17140b9bf2f686de40b065ce79a488f8f39f2d - fault (Kick(0), Refused("velocity outside the word"))
+reverse L8                 52        1        1      1668       837     12.24     0.038         0     true     0.9648   0.004468  5567758e36b28af18c024c51ae31d448aff8be9625a04a28c6947ea846620237 warned, alive 
+turn then burn L8         221        3        3      1837       934     12.65     0.038         0     true     0.9684   0.004035  db73b7dd83e04f6e4603c39ddbd2f7c175096d8d75adff309aefbe7f10613a96 - 
+=== 16s_fine_seed1 (arm fine, 16 s, seed 1)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                     154        1        0      1770       887     12.05     0.038         0     true     0.9669   0.000123  c1aa226fcb1965913a477631595b32e889e92a2cb4714b1b8463c600cfe47c24 - 
+forward L8              17520       78        1     18791      9806     12.88     1.662         0     true     0.9693   0.004356  c678a1cca780c8f22eb0853fce7dc651297af093192fe8ba8052b125eb96aa3b - 
+forward L12             22753       78        1     23299     12495     14.86     1.660         0     true     1.0098   0.070530  4d05a77acd5550bcb50443b6ad82a682c5d67193504f78412da460b3175336ad - 
+forward L15             22702       74        1     22933     12325     26.88     1.659         0     true     1.4536   0.493137  30650b5fd74f6c69ef057163730310c1a9f7d5f6372f6bc4ffb679702781df5f - 
+reverse L8              20014       82        1     21058     10529     12.70     1.639         0     true     0.9645   0.004489  c27e51e1636448082093e2e78a08fea1fa9554499ccb3403644a72f1d4e191a9 warned, alive 
+turn then burn L8       16153       39        3     17483      8934     12.70     1.571         0     true     0.9686   0.004061  642a11d6728b52674329464ca94553f7cc73ee78a9f7458fff2f90367942d2c0 - 
+=== 8s_ship_seed3 (arm ship, 8 s, seed 3)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                      77        1        0      1072       535     12.21     0.038         0     true     0.9669   0.000099  83fa81e249e2a8119922cb2662e430a663f0379780728f259b779789e00fb85e - 
+forward L8                817       31        1      1812       905     12.69     0.779         0     true     0.9674   0.001971  4f6e163454892f23e84eb35ed8d6412858e2b5c65a891b830df729120bf648d3 - 
+forward L12              2439       67        1      3374      1946     13.52     1.526         0     true     0.9752   0.032246  274cc8f85b8cffb362427ffc4d4a70cec0337657050e214af887b036a25f939f - 
+forward L15              2814       66        1      3709      2103     12.76     1.645         0     true     1.0449   0.251095  4d10d2befdfe5a3b0ba373b7d9f1526899c78edd04b41db8c900622efb57c9e4 - 
+reverse L8               1281       39        1      2271      1134     13.13     1.465         0     true     0.9664   0.002104  2ec41cc9b7f36746072e25e7d7e2461285013ac210068716ca9d809ea7f767d9 warned, alive 
+turn then burn L8         802       30        3      1797       899     12.81     0.375         0     true     0.9672   0.001695  ee8cb29f0fa7037a57903ad878373ca8d7b6aead04eb1102ce0428fb2d456f1e - 
+=== 8s_off_seed3 (arm off, 8 s, seed 3)
+flight                 pitems   pburst   decide     items   rebinds  worst ms     lag s  refusal      alive end |x| AU  end |v|/c digest
+coast                      77        1        0      1072       535     12.37     0.038         0     true     0.9669   0.000099  83fa81e249e2a8119922cb2662e430a663f0379780728f259b779789e00fb85e - 
+forward L8                 13        1        1      1008       503     12.05     0.038         0     true     0.9668   0.000049  a72179eb67d9e99203d04cb121485bb400ddab21f3c311e652fedb006a924956 - 
+forward L12                12        1        1      1007       502     12.02     0.038         1     true     0.9668   0.000043  b70df7f3a241243a0f664b4935d0112928eadb9e5d49c297b7a3ea15d97b4ec7 - fault (Kick(0), Refused("velocity outside the word"))
+forward L15                78        1        1      1073       501     12.12     0.038        35     true     0.9668   0.000078  fd30f0358aed8b0916f78e5bb0eaa637bb4c634d8df2665980afc3fcded90483 - fault (Kick(0), Refused("velocity outside the word"))
+reverse L8                 18        1        1      1013       506     12.06     0.038         0     true     0.9666   0.001966  6980f4d836e8e2d913d4f428c577655f90593844986b8d6e9fd98249e9bae0ea warned, alive 
+turn then burn L8          28        1        3      1023       512     12.06     0.038         0     true     0.9670   0.001533  080d05fb683939c167eed4a7bb487bb08f9f81bca203e4e08eab1bba0aab7248 - 
+=== the staleness envelopes (max owed |dv| a reader sees between flushes)
+== f8_1: max owed |dv| per flight (c)
+  coast              0.000e+00 c (120 rows)
+  forward L12        2.601e-05 c (120 rows)
+  forward L15        1.014e-04 c (120 rows)
+  forward L8         3.810e-06 c (120 rows)
+  reverse L8         3.758e-06 c (120 rows)
+  turn then burn L8  3.776e-06 c (120 rows)
+== fine_1: max owed |dv| per flight (c)
+  coast              0.000e+00 c (240 rows)
+  forward L12        7.469e-06 c (240 rows)
+  forward L15        1.525e-05 c (240 rows)
+  forward L8         1.898e-06 c (240 rows)
+  reverse L8         9.368e-07 c (240 rows)
+  turn then burn L8  1.690e-06 c (240 rows)
+== fine: max owed |dv| per flight (c)
+  coast              0.000e+00 c (120 rows)
+  forward L12        9.534e-07 c (120 rows)
+  forward L15        3.813e-06 c (120 rows)
+  forward L8         4.574e-07 c (120 rows)
+  reverse L8         3.762e-08 c (120 rows)
+  turn then burn L8  2.794e-07 c (120 rows)
+== off_1: max owed |dv| per flight (c)
+  coast              0.000e+00 c (240 rows)
+  forward L12        4.168e-02 c (240 rows)
+  forward L15        7.743e-03 c (240 rows)
+  forward L8         3.746e-03 c (240 rows)
+  reverse L8         1.016e-03 c (240 rows)
+  turn then burn L8  7.262e-04 c (240 rows)
+== off_3: max owed |dv| per flight (c)
+  coast              0.000e+00 c (120 rows)
+  forward L12        2.867e-02 c (120 rows)
+  forward L15        7.657e-03 c (120 rows)
+  forward L8         2.013e-03 c (120 rows)
+  reverse L8         1.016e-03 c (120 rows)
+  turn then burn L8  7.262e-04 c (120 rows)
+== off: max owed |dv| per flight (c)
+  coast              0.000e+00 c (120 rows)
+  forward L12        2.867e-02 c (120 rows)
+  forward L15        7.657e-03 c (120 rows)
+  forward L8         2.013e-03 c (120 rows)
+  reverse L8         1.016e-03 c (120 rows)
+  turn then burn L8  7.262e-04 c (120 rows)
+== ship_1: max owed |dv| per flight (c)
+  coast              0.000e+00 c (240 rows)
+  forward L12        9.690e-04 c (240 rows)
+  forward L15        3.311e-03 c (240 rows)
+  forward L8         5.502e-05 c (240 rows)
+  reverse L8         5.943e-05 c (240 rows)
+  turn then burn L8  4.588e-05 c (240 rows)
+== ship_3: max owed |dv| per flight (c)
+  coast              0.000e+00 c (120 rows)
+  forward L12        2.404e-04 c (120 rows)
+  forward L15        1.794e-03 c (120 rows)
+  forward L8         2.162e-05 c (120 rows)
+  reverse L8         1.476e-05 c (120 rows)
+  turn then burn L8  1.500e-05 c (120 rows)
+== ship8s_1: max owed |dv| per flight (c)
+  coast              0.000e+00 c (120 rows)
+  forward L12        2.435e-04 c (120 rows)
+  forward L15        1.891e-03 c (120 rows)
+  forward L8         2.281e-05 c (120 rows)
+  reverse L8         1.501e-05 c (120 rows)
+  turn then burn L8  1.509e-05 c (120 rows)
+== ship: max owed |dv| per flight (c)
+  coast              0.000e+00 c (30 rows)
+  forward L12        3.046e-05 c (30 rows)
+  forward L15        1.771e-04 c (30 rows)
+  forward L8         3.263e-06 c (30 rows)
+  reverse L8         1.830e-06 c (30 rows)
+  turn then burn L8  0.000e+00 c (30 rows)
+== shipunset_1: max owed |dv| per flight (c)
+  coast              0.000e+00 c (30 rows)
+  forward L12        2.963e-05 c (30 rows)
+  forward L15        2.095e-04 c (30 rows)
+  forward L8         3.501e-06 c (30 rows)
+  reverse L8         1.592e-06 c (30 rows)
+  turn then burn L8  0.000e+00 c (30 rows)
+== shipunset: max owed |dv| per flight (c)
+  coast              0.000e+00 c (30 rows)
+  forward L12        3.046e-05 c (30 rows)
+  forward L15        2.069e-04 c (30 rows)
+  forward L8         3.263e-06 c (30 rows)
+  reverse L8         1.353e-06 c (30 rows)
+  turn then burn L8  0.000e+00 c (30 rows)
