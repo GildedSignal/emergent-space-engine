@@ -56,6 +56,21 @@ Investment follows the state. The firing log makes this doc's rules certificates
 - **Archive; don't delete.** Removed code, docs and rules go to the archive with a ledger line: what it did well, why it went, and where it is. A restore cites its line. That makes Musk's calibration (some deletions should come back) a count taken at E8, not a memory.
 - **History is never rewritten.** Committed entries stay and corrections are appended. Summaries may compress, but the originals stay in the archive. That record is battle-tested feedback on the method itself.
 
+## 3b. Git is the ledger (Julien, 12 October: "leverage git fully … Toyota TPS, Palantir foundry and SpaceX")
+
+Git already does most of what the chain needs: we use it, rather than build beside it.
+
+| Need | Git mechanism | The precedent |
+|---|---|---|
+| Who built it, and why | commit trailers `Built-by:` and `Why:` (M5); `git log --format=%(trailers)` answers "who made this" at any line, with `git blame` | SpaceX's names on requirements |
+| What a merge was checked against | `git notes --ref=verdicts`: the merge command attaches every gate's verdict line and the machine state to the merge commit | Foundry's lineage: every result points to its inputs |
+| Component states | Sketch = a branch; Flying = main; Frozen = a tag (`frozen/B19`, `law/es-space-v2`) whose file hashes the hook checks; Retired = a bundle in the archive | — |
+| Stop the line | the pre-commit hook and the merge command refuse; a red main is reverted, never built on (`git revert`, history kept) | TPS: jidoka and the andon cord |
+| Mistake-proofing | hooks and types catch it before a person must remember (poka-yoke); the hook's checks grow only after an escape | TPS: poka-yoke |
+| Find the cause of a regression | `git bisect run` with the sweep or a gate: exact replay makes every bisection step deterministic | — |
+| Memory without rewriting | history is append-only: corrections are new commits, never rebases of main; the lab's runs are immutable branches; the wiki compiles them | Foundry: raw data immutable, views derived |
+| Run records | each run's record names its commit, seeds and law version, so any old run can be replayed at its commit (`git worktree add <commit>`) | Foundry's lineage |
+
 ## 4. Changing the method without oscillating
 
 - A change to a rule names the regime it was observed in: the state, the scale, and the evidence.
