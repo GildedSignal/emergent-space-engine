@@ -1,0 +1,28 @@
+== P1: the hole, raw mode, cut 84M, rtf 100, members 48
+arms=4 distinct digests=4 (60rich/60starve/30/144)
+  fps=60 starve=0: 3d59ae6df5cd enc=43 contacts=0 ticks=10151250,34514250,64968000,83240250
+  fps=60 starve=1: c1a4368f440c enc=29 contacts=0 ticks=5767303,12188671,18430980,22359080
+  fps=30 starve=0: deb0bafc7788 enc=43 contacts=0 ticks=10151265,33837550,64968096,83240373
+  fps=144 starve=0: 6f144c136b56 enc=43 contacts=0 ticks=10151208,34401316,64854940,83183510
+== P2: compounding, raw 60rich vs 60starve, members 48
+  cut 84M: sep 3.158e+07 doll units (0.312 AU) enc 43/29 contacts 0/0
+  cut 252M: sep 2.355e+08 doll units (2.324 AU) enc 83/69 contacts 0/0 x7.5
+  cut 756M: sep 1.827e+09 doll units (18.025 AU) enc 121/133 contacts 6/54 x7.8
+== P3: the fix holds
+  rtf100 4 arms -> 1 digest(s): 711b3acf0dc8 ticks 10151272,35529452,65983268
+== P4: latency price (logged tick - sched at press), rtf 100 / rtf 1
+  rtf 100: game-s lag [0.0, 5.0, 5.001] wall-s [0.0, 0.05, 0.05] (quantum 0.25 s wall)
+  rtf 1: game-s lag [0.0, 0.05, 0.051, 0.151] wall-s [0.0001, 0.0504, 0.0507, 0.1509] (quantum 0.25 s wall)
+  growth ratios per 3x time: [7.5, 7.8] (criterion > 3)
+== P5: straddle limit, fix, press 0.26 s
+  30Hz ticks 5075636,35529452,65983268 digest 94f32d9a80fb
+  144Hz ticks 10151272,35529452,65983268 digest 711b3acf0dc8
+== P6: 400 members
+  raw load pair digests 2 (enc 49/30, contacts 0/4)
+  fix load pair digests 1
+P1: HELD
+P2: HELD
+P3: HELD
+P4: HELD
+P5: HELD
+P6: HELD
