@@ -1,0 +1,98 @@
+### the wiring (work/patch.diff) ###
+ crates/universe/src/bind.rs    |  8 +++++++-
+ crates/universe/src/observe.rs | 18 +++++++++++++-----
+ crates/universe/src/step.rs    | 34 +++++++++++++++++++++++++---------
+ 3 files changed, 45 insertions(+), 15 deletions(-)
+
+### gates on the wired tree ###
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 17.58s
+test the_readout_at_a_boundary_is_the_state_bit_for_bit_and_between_boundaries_it_does_not_jump ... FAILED
+test the_readout_error_falls_as_the_step_squared ... FAILED
+test the_readout_between_kicks_reads_the_boundarys_error ... FAILED
+38427 boundaries and 38429 kicks looked at: across a kick the largest jump of the position is 5.79e-13 of the radius, of the velocity 3.28e-9 of itself; across a boundary 3.05e-6 of the radius and 3.85e-2 of the velocity
+worst readout 1.45e-4 (raw tube 4.56e-4); worst ratio to the map's error 356.07x (18.3 s)
+test result: FAILED. 5 passed; 3 failed; 1 ignored; 0 measured; 0 filtered out; finished in 26.95s
+
+### wired census (the tree's readout vs the by-hand shipped readout; digests) ###
+== flight coast (keys 0 L0): 480 frames, 5760 reads, 12 windows, 0.4s ==
+   term      (doll units): median 5.677e-6 p99 1.572e-4 max 2.034e-4
+   wired err (doll units): median 5.457e-7 p99 6.402e-5 max 8.280e-5
+   wired dv-err           : median 1.329e-14 p99 8.964e-13 max 1.020e-12
+   reads per window per body: median 480 p99 480 max 480 (12 windows, 12 bodies)
+digest 2437d7b24f29a7c1b3fbb1e590ff24983cbd60f7c7bc17db97101bd4ff02e897
+== flight fwd (keys 1 L8): 480 frames, 5760 reads, 12 windows, 0.7s ==
+   term      (doll units): median 5.677e-6 p99 1.572e-4 max 2.034e-4
+   wired err (doll units): median 5.457e-7 p99 6.402e-5 max 8.280e-5
+   wired dv-err           : median 1.329e-14 p99 8.964e-13 max 1.020e-12
+   reads per window per body: median 480 p99 480 max 480 (12 windows, 12 bodies)
+digest c4d3c2e8d54d98e97caadbc000ab30e3369d7b4fb3e7f9ca4052e915386f5dbb
+== flight rev (keys 2 L15): 480 frames, 6101 reads, 167 windows, 1.2s ==
+   term      (doll units): median 5.027e-6 p99 1.550e-4 max 2.034e-4
+   wired err (doll units): median 4.667e-7 p99 6.308e-5 max 8.280e-5
+   wired dv-err           : median 1.201e-14 p99 8.901e-13 max 1.020e-12
+   reads per window per body: median 2 p99 480 max 480 (167 windows, 13 bodies)
+digest 9d4748f103d7ec9fb77ed2bed81b66f3de2890e6d677448f52d5a6f9bf39f2a7
+
+### the 549f census itself (unchanged probe, wired tree) ###
+   player end: alive true refusals 0 doll 2 r 1.243e9 beta 2.837e-5 | census bodies: Hauler 1, Hauler 10, Hauler 11, Hauler 12, Hauler 2, Hauler 3, Hauler 4, Hauler 5, Hauler 6, Hauler 7, Hauler 8, Hauler 9
+== flight coast (keys 0 L0): 480 frames, 5760 census reads, 0.7s wall ==
+   term (doll units): median 5.677e-6 p99 1.572e-4 max 2.034e-4
+   err  (doll units): median 2.754e-10 p99 2.599e-9 max 3.031e-9
+   da/a : median 3.502e-5 p99 2.910e-4 max 3.144e-4  reads with da/a>1: 0 (0.000%)
+   light-window da/a (news T): median 6.342e-4 max 1.914e-3
+   worst 8 reads by err (i, name, tau_ticks, term, err, da/a, |a|, r):
+      11 Hauler 8     tau 162420000 term 1.293e-5 err 3.031e-9 da/a 0.00 |a| 9.808e-22 r 1.183e8
+      11 Hauler 8     tau 162081625 term 1.288e-5 err 3.012e-9 da/a 0.00 |a| 9.808e-22 r 1.183e8
+      11 Hauler 8     tau 161743250 term 1.283e-5 err 2.994e-9 da/a 0.00 |a| 9.808e-22 r 1.183e8
+      11 Hauler 8     tau 161404875 term 1.277e-5 err 2.975e-9 da/a 0.00 |a| 9.808e-22 r 1.183e8
+      11 Hauler 8     tau 161066500 term 1.272e-5 err 2.956e-9 da/a 0.00 |a| 9.808e-22 r 1.183e8
+      11 Hauler 8     tau 160728125 term 1.267e-5 err 2.938e-9 da/a 0.00 |a| 9.808e-22 r 1.183e8
+      11 Hauler 8     tau 160389750 term 1.261e-5 err 2.919e-9 da/a 0.00 |a| 9.808e-22 r 1.183e8
+       6 Hauler 3     tau 162420000 term 9.257e-6 err 2.909e-9 da/a 0.00 |a| 7.016e-22 r 5.553e7
+
+### control side: stash the wiring, rebuild, same probes ###
+-- control word_wired (must read err 0.0 and the same digests) --
+== flight coast (keys 0 L0): 480 frames, 5760 reads, 12 windows, 0.5s ==
+   term      (doll units): median 5.677e-6 p99 1.572e-4 max 2.034e-4
+   wired err (doll units): median 0.000e0 p99 0.000e0 max 0.000e0
+   wired dv-err           : median 0.000e0 p99 0.000e0 max 0.000e0
+   reads per window per body: median 480 p99 480 max 480 (12 windows, 12 bodies)
+digest 2437d7b24f29a7c1b3fbb1e590ff24983cbd60f7c7bc17db97101bd4ff02e897
+== flight fwd (keys 1 L8): 480 frames, 5760 reads, 12 windows, 0.8s ==
+   term      (doll units): median 5.677e-6 p99 1.572e-4 max 2.034e-4
+   wired err (doll units): median 0.000e0 p99 0.000e0 max 0.000e0
+   wired dv-err           : median 0.000e0 p99 0.000e0 max 0.000e0
+   reads per window per body: median 480 p99 480 max 480 (12 windows, 12 bodies)
+digest c4d3c2e8d54d98e97caadbc000ab30e3369d7b4fb3e7f9ca4052e915386f5dbb
+== flight rev (keys 2 L15): 480 frames, 6101 reads, 167 windows, 1.2s ==
+   term      (doll units): median 5.027e-6 p99 1.550e-4 max 2.034e-4
+   wired err (doll units): median 0.000e0 p99 0.000e0 max 0.000e0
+   wired dv-err           : median 0.000e0 p99 0.000e0 max 0.000e0
+   reads per window per body: median 2 p99 480 max 480 (167 windows, 13 bodies)
+digest 9d4748f103d7ec9fb77ed2bed81b66f3de2890e6d677448f52d5a6f9bf39f2a7
+
+### A/B bench, interleaved, 3 rounds (base then wired) ###
+-- round 1 --
+  new gather, from scratch:      1238.9 us per frame =  25811 ns per emitter (all 48 emitters, fleet and Seen included)
+  new gather, from the memo:      609.1 us per frame =  12689 ns per emitter (1.69 readouts per body)
+  new gather, from scratch:       823.6 us per frame =  17157 ns per emitter (all 48 emitters, fleet and Seen included)
+  new gather, from the memo:      419.3 us per frame =   8735 ns per emitter (1.69 readouts per body)
+-- round 2 --
+  new gather, from scratch:      1235.8 us per frame =  25746 ns per emitter (all 48 emitters, fleet and Seen included)
+  new gather, from the memo:      607.5 us per frame =  12655 ns per emitter (1.69 readouts per body)
+  new gather, from scratch:       817.6 us per frame =  17033 ns per emitter (all 48 emitters, fleet and Seen included)
+  new gather, from the memo:      415.5 us per frame =   8657 ns per emitter (1.69 readouts per body)
+-- round 3 --
+  new gather, from scratch:      1236.0 us per frame =  25749 ns per emitter (all 48 emitters, fleet and Seen included)
+  new gather, from the memo:      608.1 us per frame =  12668 ns per emitter (1.69 readouts per body)
+  new gather, from scratch:       817.6 us per frame =  17034 ns per emitter (all 48 emitters, fleet and Seen included)
+  new gather, from the memo:      416.3 us per frame =   8673 ns per emitter (1.69 readouts per body)
+
+### strong field: r=20M and the weak control ###
+== strong r=20M: r = 20 M (beta_circ 0.224), period 562 GM/c^3, 480 frames = 800 t doll-units, 140.7s wall ==
+   ship alive true events 4345751 windows 0 reads 0
+digest 57d16273a42d9fbd8db2f160e3f25a9d7e07b8e198250a5d93adbddaa80c7391
+== weak control r=4000M: r = 4000 M (beta_circ 0.016), period 1589534 GM/c^3, 480 frames = 800 t doll-units, 54.8s wall ==
+   ship alive true events 634453 windows 0 reads 0
+digest 6bb30c1bd85076e3b634250839e4bc0c7adec743c04b7d278b8a976122375d80
+REGEN_OK

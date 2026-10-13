@@ -1,0 +1,564 @@
+diff --git a/crates/universe/examples/a_word.rs b/crates/universe/examples/a_word.rs
+new file mode 100644
+index 00000000..e780bdca
+--- /dev/null
++++ b/crates/universe/examples/a_word.rs
+@@ -0,0 +1,149 @@
++//! The acceleration-word census: is the second-order term the shipped readout re-derives per
++//! read (`observe::partial`, one `force::field` at the window's mid) the SAME quantity the kick
++//! already computes and discards (`step.rs:669`, `f.accel`), and how stale is one stored word
++//! across each consumer's window?
++//!
++//! Per frame, per body whose binding the shipped readout would complete with a partial step
++//! (a clock kick, 0 < τ ≤ 2·len — `partial`'s own gate), it samples:
++//!   term = |a(mid)|·τ²/2          the per-read term the shipped readout pays to compute;
++//!   err  = |a(mid) − a(B)|·τ²/2   the error if the term came from a word stored at the
++//!                                 window's synchronised boundary B (where the tube read is
++//!                                 exact, and the engine's own machinery runs);
++//!   Δa/a, and Δa across the light window to the dominant secondary (the news consumer's T).
++//! All in the body's own doll units (c = 1), f64 for measurement only.
++//!
++//! cargo run --release -p emergent-universe --example a_word [-- <flight: coast|fwd|rev>]
++use emergent_universe::force;
++use emergent_universe::num::{time_of, to_f64};
++use emergent_universe::scenario::plane;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++fn main() {
++    let which = std::env::args().nth(1).unwrap_or_default();
++    let flights: Vec<(&str, u8, u8)> = vec![
++        ("coast", 0, 0),
++        ("fwd", 1, 8),   // held forward burn, level 8 (the waterfall scene, 174d)
++        ("rev", 2, 15),  // held reverse burn, level 15 (the dive approach, 174d checker2)
++    ];
++    for (name, keys, level) in flights {
++        if !which.is_empty() && name != which { continue; }
++        let mut p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++        let mut t0 = Instant::now();
++        let mut reads: Vec<(usize, String, f64, f64, f64, f64, f64, f64)> = Vec::new(); // (i, name, tau, term, err, da_rel, |a|, r)
++        let mut light_rel: Vec<f64> = Vec::new();
++        let frames = 480usize; // 8 s at 60 Hz
++        for f in 0..frames {
++            if level > 0 && f == 60 {
++                let _ = p.u.input(p.u.now, emergent_universe::thrust::word(keys, level));
++            }
++            let frame = p.u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), i64::MAX);
++            let t = frame.presented;
++            let ctx = p.u.ctx();
++            for i in 0..ctx.info.len() {
++                let rec = p.u.rec(i);
++                if !rec.alive { continue; }
++                let b = rec.b;
++                let k = b.kick;
++                if !k.clock { continue; }
++                let (start, doll) = if t >= k.boundary {
++                    (k.boundary, b.doll)
++                } else {
++                    if k.lead <= 0 { continue; }
++                    match ctx.bodies.binding_at(i, b.event_time - 1) {
++                        Some(prev) => (b.event_time - k.lead, prev.doll),
++                        None => continue,
++                    }
++                };
++                let tau = t - start;
++                if tau <= 0 || tau > 2 * k.len.max(1) { continue; }
++                let mid = start + tau / 2;
++                let base = if t >= k.boundary { b } else { ctx.bodies.binding_at(i, b.event_time - 1).unwrap() };
++                let a_at = |tick| -> Option<(f64, f64, f64, f64)> {
++                    let (x, v) = base.cartesian(tick).ok()?;
++                    let secs = ctx.secondaries(base.doll, tick, i).ok()?;
++                    let f = force::field(&secs, x).ok()?;
++                    Some((to_f64(f.accel[0]), to_f64(f.accel[1]), (to_f64(x[0]).powi(2) + to_f64(x[1]).powi(2)).sqrt(), (to_f64(v[0]).powi(2) + to_f64(v[1]).powi(2)).sqrt()))
++                };
++                let Some((amx, amy, _, _)) = a_at(mid) else { continue };
++                let Some((abx, aby, r, beta)) = a_at(start) else { continue };
++                let tau_s = match time_of(tau, base.clock_exp) { Ok(v) => to_f64(v), Err(_) => continue };
++                let ts2 = tau_s * tau_s / 2.0;
++                let term = (amx.powi(2) + amy.powi(2)).sqrt() * ts2;
++                let err = ((amx - abx).powi(2) + (amy - aby).powi(2)).sqrt() * ts2;
++                let a_mag = (abx.powi(2) + aby.powi(2)).sqrt();
++                let da_rel = if a_mag > 0.0 { ((amx - abx).powi(2) + (amy - aby).powi(2)).sqrt() / a_mag } else { 0.0 };
++                let name = p.names.get(i).cloned().unwrap_or_else(|| format!("body {i}"));
++                reads.push((i, name, tau as f64, term, err, da_rel, a_mag, r));
++                let _ = beta;
++                // the light window to the dominant secondary: the news consumer's T (weak-field plane bound)
++                if let Some((ax, ay, _, _)) = a_at(start) {
++                    let Ok(secs) = ctx.secondaries(base.doll, start, i) else { continue };
++                    let Ok((x, _)) = base.cartesian(start) else { continue };
++                    let mut best: Option<(f64, f64)> = None; // (pull, r)
++                    for s in &secs {
++                        let (dx, dy) = (to_f64(s.pos[0]) - to_f64(x[0]), to_f64(s.pos[1]) - to_f64(x[1]));
++                        let rr = (dx.powi(2) + dy.powi(2)).sqrt();
++                        let gm = to_f64(s.gm);
++                        if gm > 0.0 {
++                            let pull = gm / rr / rr;
++                            if best.map(|(p0, _)| pull > p0).unwrap_or(true) { best = Some((pull, rr)); }
++                        }
++                    }
++                    if let Some((_, t_light)) = best {
++                        if let Some((ax2, ay2, _, _)) = a_at(start + (t_light as i64).max(1)) {
++                            let m = (ax.powi(2) + ay.powi(2)).sqrt();
++                            if m > 0.0 {
++                                light_rel.push((((ax2 - ax).powi(2) + (ay2 - ay).powi(2)).sqrt()) / m);
++                            }
++                        }
++                    }
++                }
++            }
++        }
++        // report
++        let pl = p.player;
++        {
++            let prec = p.u.rec(pl);
++            let doll = prec.b.doll;
++            let (r, beta) = prec.b.cartesian(p.u.now.max(prec.b.event_time))
++                .map(|(x, v)| ((to_f64(x[0]).powi(2) + to_f64(x[1]).powi(2)).sqrt(), (to_f64(v[0]).powi(2) + to_f64(v[1]).powi(2)).sqrt()))
++                .unwrap_or((f64::NAN, f64::NAN));
++            let mut names: Vec<String> = reads.iter().map(|r| r.1.clone()).collect();
++            names.sort(); names.dedup();
++            println!("   player end: alive {} refusals {} doll {} r {:.3e} beta {:.3e} | census bodies: {}", prec.alive, prec.refusals, doll, r, beta, names.join(", "));
++        }
++        let (mut pt, mut pe, mut pd): (Vec<f64>, Vec<f64>, Vec<f64>) = Default::default();
++        for r in reads.iter().filter(|r| r.0 == pl) { pt.push(r.3); pe.push(r.4); pd.push(r.5); }
++        if !pt.is_empty() {
++            pt.sort_by(|a, b| a.partial_cmp(b).unwrap()); pe.sort_by(|a, b| a.partial_cmp(b).unwrap()); pd.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            let med = |v: &Vec<f64>| v[(0.5 * (v.len() - 1) as f64) as usize];
++            println!("   player-only ({} reads): term med {:.3e} max {:.3e} | err med {:.3e} max {:.3e} | da/a med {:.3e} max {:.3e}", pt.len(), med(&pt), pt[pt.len()-1], med(&pe), pe[pe.len()-1], med(&pd), pd[pd.len()-1]);
++        }
++        let mut terms: Vec<f64> = reads.iter().map(|r| r.3).collect();
++        let mut errs: Vec<f64> = reads.iter().map(|r| r.4).collect();
++        let mut das: Vec<f64> = reads.iter().map(|r| r.5).collect();
++        terms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        errs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        das.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let q = |v: &Vec<f64>, f: f64| v[((f * (v.len() - 1) as f64) as usize).min(v.len() - 1)];
++        let gt1 = das.iter().filter(|d| **d > 1.0).count();
++        println!("== flight {name} (keys {keys} L{level}): {} frames, {} census reads, {:.1}s wall ==", frames, reads.len(), t0.elapsed().as_secs_f64());
++        if reads.is_empty() { continue; }
++        println!("   term (doll units): median {:.3e} p99 {:.3e} max {:.3e}", q(&terms, 0.5), q(&terms, 0.99), terms[terms.len() - 1]);
++        println!("   err  (doll units): median {:.3e} p99 {:.3e} max {:.3e}", q(&errs, 0.5), q(&errs, 0.99), errs[errs.len() - 1]);
++        println!("   da/a : median {:.3e} p99 {:.3e} max {:.3e}  reads with da/a>1: {} ({:.3}%)", q(&das, 0.5), q(&das, 0.99), das[das.len() - 1], gt1, 100.0 * gt1 as f64 / das.len() as f64);
++        if !light_rel.is_empty() {
++            let mut l = light_rel.clone();
++            l.sort_by(|a, b| a.partial_cmp(b).unwrap());
++            println!("   light-window da/a (news T): median {:.3e} max {:.3e}", q(&l, 0.5), l[l.len() - 1]);
++        }
++        let mut worst = reads.clone();
++        worst.sort_by(|a, b| b.4.partial_cmp(&a.4).unwrap());
++        println!("   worst 8 reads by err (i, name, tau_ticks, term, err, da/a, |a|, r):");
++        for w in worst.iter().take(8) {
++            println!("     {:>3} {:<12} tau {:>9} term {:.3e} err {:.3e} da/a {:.2} |a| {:.3e} r {:.3e}", w.0, w.1, w.2 as i64, w.3, w.4, w.5, w.6, w.7);
++        }
++        let _ = t0; t0 = Instant::now();
++    }
++}
+diff --git a/crates/universe/examples/word_strong.rs b/crates/universe/examples/word_strong.rs
+new file mode 100644
+index 00000000..fc809bb4
+--- /dev/null
++++ b/crates/universe/examples/word_strong.rs
+@@ -0,0 +1,130 @@
++//! The acceleration word at strong field (r ≲ 20 M): the plane cannot express the scene (its star's
++//! r = 20 M is inside its surface), but the engine can — a compact doll of 2^12 solar masses has
++//! GM = 1 in its own units with a surface at 1 M, so a ship at periapsis 20 orbits at r = 20 M,
++//! beta_circ = sqrt(1/20) = 0.224 (7ab4's strong-field consumer), and a moon at 800 (1/16 the mass)
++//! gives the perturbing field a real gradient to age against.
++//!
++//! The question (549f's checker, the gold experiment's second half): does the kick cadence — the
++//! word's refresh — shorten with the field enough that the stored word still tracks `a(mid)`, or
++//! does strong field force one word per read? Measures, per gated read of the ship: the shipped
++//! term |a(mid)|·tau²/2, the wired word's true error (the tree's readout vs the by-hand shipped
++//! readout), the longest window against the ship's orbital period, and events per orbit.
++//! Control flight: the same ship at r = 4000 (weak field, beta = 0.016).
++//!
++//! cargo run --release -p emergent-universe --example word_strong [-- <r: 20|4000>]
++use emergent_universe::force;
++use emergent_universe::num::{add2, scale2, time_of, to_f64};
++use emergent_universe::observe::ramped_in;
++use emergent_universe::scenario::STAR_RADIUS;
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::s;
++use emergent_universe::{Budget, Config, Kind, OrbitSpec, Universe};
++use std::collections::HashMap;
++use std::time::Instant;
++
++fn flight(r: i64, frames: usize, name: &str) {
++    let mut u = Universe::new(s(STAR_RADIUS), Config::default());
++    u.threads = 1;
++    // the compact: 2^-4 of the star (a red dwarf) with a surface at 1 M of its own mass: a doll's
++    // units normalise GM = 1 and c = 1, so periapsis 20 is r = 20 M regardless of the star; deeper dolls must be lighter
++    let compact = u.add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: s(101_300_000), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
++    let cd = u.add_doll("compact", compact, -4, s(1)).unwrap();
++    // the moon: 1/16 of the compact at 800 (its sphere of influence there is ~205; the ship at r never enters)
++    let moon = u.add_body(Kind::Planet, OrbitSpec { doll: cd, periapsis: s(800), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
++    let _md = u.add_doll("moon", moon, -12, s(1)).unwrap();
++    // the ship: r gravitational radii of the compact
++    let ship = u.add_body(Kind::Ship, OrbitSpec { doll: cd, periapsis: s(r), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
++    u.start().unwrap();
++    let t0 = Instant::now();
++    let events0 = u.rec(ship).events;
++    let mut windows: HashMap<i64, u32> = HashMap::new();
++    let mut reads: Vec<(f64, f64, f64)> = Vec::new(); // (term, wired pos err, wired dv err)
++    let mut max_len = 0.0f64; // window length in doll time units
++    for f in 0..frames {
++        let frame = u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), i64::MAX);
++        let t = frame.presented;
++        let ctx = u.ctx();
++        let rec = u.rec(ship);
++        if !rec.alive {
++            println!("== {name}: ship lost at frame {f} ({:?}) ==", rec.fault);
++            return;
++        }
++        let b = rec.b;
++        let k = b.kick;
++        let mut sample = || -> Option<()> {
++            if !k.clock {
++                return None;
++            }
++            let (base, start) = if t >= k.boundary {
++                (b.clone(), k.boundary)
++            } else {
++                if k.lead <= 0 {
++                    return None;
++                }
++                let prev = ctx.bodies.binding_at(ship, b.event_time - 1)?;
++                (prev, b.event_time - k.lead)
++            };
++            let tau = t - start;
++            if tau <= 0 || tau > 2 * k.len.max(1) {
++                return None;
++            }
++            // the shipped partial step, by hand
++            let mid = start + tau / 2;
++            let (x_mid, _) = base.cartesian(mid).ok()?;
++            let secs = ctx.secondaries(base.doll, mid, ship).ok()?;
++            let field = force::field(&secs, x_mid).ok()?;
++            let tau_s = time_of(tau, base.clock_exp).ok()?;
++            let dv = scale2(field.accel, tau_s).ok()?;
++            let dx = scale2(dv, tau_s.scale(-1).ok()?).ok()?;
++            let (px, pv) = base.cartesian(t).ok()?;
++            let sp = add2(px, dx).ok()?;
++            let sv = add2(pv, dv).ok()?;
++            // the read the tree serves (wired tree: from the stored word)
++            let (wp, wv) = ramped_in(&ctx, ship, t, &b).ok()?;
++            let ts2 = to_f64(tau_s) * to_f64(tau_s) / 2.0;
++            let am = to_f64(field.accel[0]).powi(2) + to_f64(field.accel[1]).powi(2);
++            let term = am.sqrt() * ts2;
++            let pe = ((to_f64(wp[0]) - to_f64(sp[0])).powi(2) + (to_f64(wp[1]) - to_f64(sp[1])).powi(2)).sqrt();
++            let ve = ((to_f64(wv[0]) - to_f64(sv[0])).powi(2) + (to_f64(wv[1]) - to_f64(sv[1])).powi(2)).sqrt();
++            reads.push((term, pe, ve));
++            if let Ok(len_s) = time_of(k.len, base.clock_exp) {
++                max_len = max_len.max(to_f64(len_s));
++            }
++            *windows.entry(start).or_insert(0) += 1;
++            Some(())
++        };
++        let _ = sample();
++        drop(ctx);
++    }
++    let digest = u.digest();
++    let mut terms: Vec<f64> = reads.iter().map(|x| x.0).collect();
++    let mut perrs: Vec<f64> = reads.iter().map(|x| x.1).collect();
++    let mut verrs: Vec<f64> = reads.iter().map(|x| x.2).collect();
++    for v in [&mut terms, &mut perrs, &mut verrs] {
++        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    }
++    let q = |v: &Vec<f64>, f: f64| v[((f * (v.len() - 1) as f64) as usize).min(v.len() - 1)];
++    let rec = u.rec(ship);
++    let beta = (1.0 / r as f64).sqrt();
++    let period = 2.0 * std::f64::consts::PI * (r as f64).powf(1.5); // GM = 1, c = 1
++    let game_time = frames as f64 / 60.0 * 100.0; // rtf 100
++    println!("== {name}: r = {r} M (beta_circ {beta:.3}), period {period:.0} GM/c^3, {frames} frames = {game_time:.0} t doll-units, {:.1}s wall ==", t0.elapsed().as_secs_f64());
++    println!("   ship alive {} events {} windows {} reads {}", rec.alive, rec.events - events0, windows.len(), reads.len());
++    if !reads.is_empty() {
++        println!("   term      (doll units): median {:.3e} p99 {:.3e} max {:.3e}", q(&terms, 0.5), q(&terms, 0.99), terms[terms.len() - 1]);
++        println!("   wired err (doll units): median {:.3e} p99 {:.3e} max {:.3e}", q(&perrs, 0.5), q(&perrs, 0.99), perrs[perrs.len() - 1]);
++        println!("   wired dv-err           : median {:.3e} p99 {:.3e} max {:.3e}", q(&verrs, 0.5), q(&verrs, 0.99), verrs[verrs.len() - 1]);
++        println!("   longest window seen {:.1} doll t-units = {:.2} ship periods; events per orbit {:.1}", max_len, max_len / period, (rec.events - events0) as f64 * period / game_time);
++    }
++    println!("digest {digest}");
++}
++
++fn main() {
++    let which = std::env::args().nth(1).unwrap_or_default();
++    if which.is_empty() || which == "20" {
++        flight(20, 480, "strong r=20M");
++    }
++    if which.is_empty() || which == "4000" {
++        flight(4000, 480, "weak control r=4000M");
++    }
++}
+diff --git a/crates/universe/examples/word_wired.rs b/crates/universe/examples/word_wired.rs
+new file mode 100644
+index 00000000..f638f7a5
+--- /dev/null
++++ b/crates/universe/examples/word_wired.rs
+@@ -0,0 +1,108 @@
++//! The wired a-word vs the shipped per-read field evaluation, on the same reads the shipped readout
++//! completes (lab run 20261013-1249, the checker's named experiment for 20261013-1145-system-549f).
++//!
++//! Runs the census's three flights (coast, held forward L8, held reverse L15). Per gated read it
++//! computes, by hand, the SHIPPED partial step (the tube decode at the mid, the secondaries' field
++//! there, `Δv = a·τ`, `Δx = a·τ²/2`) and takes the READ the tree actually serves through
++//! `observe::ramped_in`. On the shipped tree the two agree bit for bit (the control); on the wired
++//! tree (`work/patch.diff`: the kick stores its `f.accel` as one word, `partial` reads it) their
++//! difference is the wired word's true error — the word is `a(B − len/2)`, half a window staler
++//! than the census's `a(B)`.
++//!
++//! Also censuses the multiplicity the prior run left unpriced: reads per window per body (how many
++//! consumers share one stored word between a body's kicks), and prints the digest per flight (the
++//! law must not move: identical across trees).
++//!
++//! cargo run --release -p emergent-universe --example word_wired [-- <flight>]
++use emergent_universe::force;
++use emergent_universe::num::{add2, scale2, time_of, to_f64};
++use emergent_universe::observe::ramped_in;
++use emergent_universe::scenario::plane;
++use emergent_universe::{Budget, Config};
++use std::collections::HashMap;
++use std::time::Instant;
++
++fn main() {
++    let which = std::env::args().nth(1).unwrap_or_default();
++    let flights: Vec<(&str, u8, u8)> = vec![
++        ("coast", 0, 0),
++        ("fwd", 1, 8),
++        ("rev", 2, 15),
++    ];
++    for (name, keys, level) in flights {
++        if !which.is_empty() && name != which { continue; }
++        let mut p = plane(Config::default(), 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++        let t0 = Instant::now();
++        // per read: (tau_ticks, term, wired_pos_err, wired_dv_err)
++        let mut reads: Vec<(f64, f64, f64, f64)> = Vec::new();
++        let mut windows: HashMap<(usize, i64), u32> = HashMap::new(); // (body, window start) -> reads
++        let frames = 480usize;
++        for f in 0..frames {
++            if level > 0 && f == 60 {
++                let _ = p.u.input(p.u.now, emergent_universe::thrust::word(keys, level));
++            }
++            let frame = p.u.frame_to(1.0 / 60.0, 100.0, Budget::unlimited(), i64::MAX);
++            let t = frame.presented;
++            let ctx = p.u.ctx();
++            for i in 0..ctx.info.len() {
++                let rec = p.u.rec(i);
++                if !rec.alive { continue; }
++                let b = rec.b;
++                let k = b.kick;
++                if !k.clock { continue; }
++                let (base, start) = if t >= k.boundary {
++                    (b.clone(), k.boundary)
++                } else {
++                    if k.lead <= 0 { continue; }
++                    match ctx.bodies.binding_at(i, b.event_time - 1) {
++                        Some(prev) => (prev, b.event_time - k.lead),
++                        None => continue,
++                    }
++                };
++                let tau = t - start;
++                if tau <= 0 || tau > 2 * k.len.max(1) { continue; }
++                // the shipped partial step, by hand
++                let mid = start + tau / 2;
++                let Ok((x_mid, _)) = base.cartesian(mid) else { continue };
++                let Ok(secs) = ctx.secondaries(base.doll, mid, i) else { continue };
++                let Ok(field) = force::field(&secs, x_mid) else { continue };
++                let Ok(tau_s) = time_of(tau, base.clock_exp) else { continue };
++                let Ok(dv) = scale2(field.accel, tau_s) else { continue };
++                let Ok(dx) = scale2(dv, tau_s.scale(-1).unwrap()) else { continue };
++                let Ok((px, pv)) = base.cartesian(t) else { continue };
++                let Ok(sp) = add2(px, dx) else { continue };
++                let Ok(sv) = add2(pv, dv) else { continue };
++                // the read the tree serves (wired tree: from the stored word)
++                let Ok((wp, wv)) = ramped_in(&ctx, i, t, &b) else { continue };
++                let ts2 = to_f64(tau_s) * to_f64(tau_s) / 2.0;
++                let am = to_f64(field.accel[0]).powi(2) + to_f64(field.accel[1]).powi(2);
++                let term = am.sqrt() * ts2;
++                let pe = ((to_f64(wp[0]) - to_f64(sp[0])).powi(2) + (to_f64(wp[1]) - to_f64(sp[1])).powi(2)).sqrt();
++                let ve = ((to_f64(wv[0]) - to_f64(sv[0])).powi(2) + (to_f64(wv[1]) - to_f64(sv[1])).powi(2)).sqrt();
++                let _ = &sv;
++                reads.push((tau as f64, term, pe, ve));
++                *windows.entry((i, start)).or_insert(0) += 1;
++            }
++        }
++        let digest = p.u.digest();
++        let pl = p.player;
++        let _ = pl;
++        let mut terms: Vec<f64> = reads.iter().map(|r| r.1).collect();
++        let mut perrs: Vec<f64> = reads.iter().map(|r| r.2).collect();
++        let mut verrs: Vec<f64> = reads.iter().map(|r| r.3).collect();
++        terms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        perrs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        verrs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let q = |v: &Vec<f64>, f: f64| v[((f * (v.len() - 1) as f64) as usize).min(v.len() - 1)];
++        let per_window: Vec<u32> = windows.values().copied().collect();
++        let mut pw = per_window.clone();
++        pw.sort();
++        println!("== flight {name} (keys {keys} L{level}): {} frames, {} reads, {} windows, {:.1}s ==", frames, reads.len(), windows.len(), t0.elapsed().as_secs_f64());
++        if reads.is_empty() { println!("digest {digest}"); continue; }
++        println!("   term      (doll units): median {:.3e} p99 {:.3e} max {:.3e}", q(&terms, 0.5), q(&terms, 0.99), terms[terms.len() - 1]);
++        println!("   wired err (doll units): median {:.3e} p99 {:.3e} max {:.3e}", q(&perrs, 0.5), q(&perrs, 0.99), perrs[perrs.len() - 1]);
++        println!("   wired dv-err           : median {:.3e} p99 {:.3e} max {:.3e}", q(&verrs, 0.5), q(&verrs, 0.99), verrs[verrs.len() - 1]);
++        println!("   reads per window per body: median {} p99 {} max {} ({} windows, {} bodies)", pw[pw.len() / 2], pw[((0.99 * (pw.len() - 1) as f64) as usize).min(pw.len() - 1)], pw[pw.len()-1], windows.len(), windows.keys().map(|(i, _)| i).collect::<std::collections::HashSet<_>>().len());
++        println!("digest {digest}");
++    }
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 5ec3cab2..fa1d582c 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -84,9 +84,15 @@ pub struct Kick {
+     pub clock: bool,
+     pub boundary: i64,
+     pub lead: i64,
++    /// The acceleration word: the perturbing field's acceleration this kick computed at its own tick (the window's
++    /// `boundary` less half its `len`), as one `[i64; 2]` at `2^a_exp` in the doll's units — the value `kick_clock`
++    /// already had in hand and used only for the impulse. The reader's partial step reads `Δv = a·τ, Δx = a·τ²/2`
++    /// from it instead of re-deriving the field per read (lab run 20261013-1249).
++    pub a: [i64; 2],
++    pub a_exp: i16,
+ }
+ impl Kick {
+-    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2], clock: false, boundary: 0, lead: 0 };
++    pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2], clock: false, boundary: 0, lead: 0, a: [0; 2], a_exp: 0 };
+ }
+ 
+ /// Everything needed to read one body's state at any time after its binding event.
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d9..7e7b9069 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -9,7 +9,6 @@
+ //! deadlines, which are never an outcome.
+ use crate::bind::{Binding, Kick};
+ use crate::body::{BodyRec, BodyStore};
+-use crate::force;
+ use crate::ctx::Ctx;
+ use crate::num::{add2, scale2, time_of, to_f64, Res, Tick, V2};
+ use crate::{step, thrust};
+@@ -140,11 +139,20 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+         return base.cartesian(t).or_else(|_| raw());
+     }
+     let step = || -> Res<(V2, V2)> {
+-        let mid = start + tau / 2;
+-        let (x_mid, _) = base.cartesian(mid)?;
+-        let field = force::field(&ctx.secondaries(base.doll, mid, i)?, x_mid)?;
++        // The acceleration word: the kick that owns this window (the one whose `boundary` is its start) stored the
++        // field's acceleration at its own tick, `B − len/2`, when it computed the impulse. The reader pays two
++        // multiply-adds instead of a tube decode at the mid, a walk of the doll chain and a field evaluation.
++        let src = if b.kick.clock && b.kick.boundary == start {
++            &b.kick
++        } else if base.kick.clock && base.kick.boundary == start {
++            &base.kick
++        } else {
++            // no word for this window (a history the clock did not write): the tube alone, the measured-safe deletion
++            return base.cartesian(t);
++        };
++        let a = [Scalar::raw(src.a[0] as i128, src.a_exp as i32)?, Scalar::raw(src.a[1] as i128, src.a_exp as i32)?];
+         let tau_s = time_of(tau, base.clock_exp)?;
+-        let dv = scale2(field.accel, tau_s)?;
++        let dv = scale2(a, tau_s)?;
+         let dx = scale2(dv, tau_s.scale(-1)?)?;
+         let (p, v) = base.cartesian(t)?;
+         Ok((add2(p, dx)?, add2(v, dv)?))
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index d9e280b9..f1516f50 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -158,6 +158,14 @@ pub(crate) fn to_word(v: [i128; 2], exp: i32) -> Res<([i64; 2], i16)> {
+     Ok(([word(v[0])?, word(v[1])?], i16::try_from(exp + shift).map_err(|_| Error::Refused("exponent"))?))
+ }
+ 
++/// The acceleration word: a two-vector of Scalars packed to one `[i64; 2]` pair at a shared exponent
++/// (the same fit `to_word` gives the kick's own words), for the reader's partial step to read back.
++fn word_of(a: V2) -> Res<([i64; 2], i16)> {
++    let exp = a[0].exponent().min(a[1].exponent());
++    let v = [a[0].fixed(-exp as i32)?, a[1].fixed(-exp as i32)?];
++    to_word(v, exp as i32)
++}
++
+ /// A position component of `a` as an integer at the length exponent `el` (not above its own).
+ fn lift(a: &IntegerState, c: usize, el: i32) -> i128 {
+     (a.position[c] as i128) << (a.length_exponent as i32 - el)
+@@ -597,18 +605,17 @@ impl Work<'_, '_> {
+     fn tube_mu(&self) -> Res<Scalar> {
+         Ok(self.ctx.tube_unit(self.i, self.rec.b.doll)?.mu)
+     }
+-
+-    /// Project the energy register onto the constraint `K = 0` at the state read at `t`: `p_t = U_P − H_D`.
+-    fn project(&mut self, t: Tick) -> Res<()> {
++    fn project(&mut self, t: Tick) -> Res<V2> {
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
+-        let u = force::field(&secs, x)?.potential;
++        let f = force::field(&secs, x)?;
++        let u = f.potential;
+         let hd = force::kepler(x, v, self.tube_mu()?)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         ext.set_pt(u.sub(hd)?)?;
+         self.rec.ext = Some(ext);
+-        Ok(())
++        Ok(f.accel)
+     }
+ 
+     /// Begin (or begin again, after a decision or a handoff) the clock at tick `t`, where the state is synchronised: the
+@@ -622,7 +629,7 @@ impl Work<'_, '_> {
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+             self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+         }
+-        self.project(t)?;
++        let a = word_of(self.project(t)?)?;
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+@@ -639,7 +646,7 @@ impl Work<'_, '_> {
+         self.rec.interval = 2 * half;
+         self.rec.step = 2 * half;
+         // The synchronised state a reader's partial step starts from, until the first kick: this one.
+-        self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
++        self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0, a: a.0, a_exp: a.1 };
+         insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
+         self.plan_terminal(t)
+     }
+@@ -667,6 +674,7 @@ impl Work<'_, '_> {
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let f = force::field(&secs, x)?;
++        let a_word = word_of(f.accel)?;
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+@@ -686,7 +694,7 @@ impl Work<'_, '_> {
+         self.rec.carry = carry;
+         self.rec.ext = Some(ext);
+         if thrusting {
+-            self.project(t)?;
++            let _ = self.project(t)?;
+         }
+         // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
+         // kick share it), and its boundary in the middle.
+@@ -701,7 +709,7 @@ impl Work<'_, '_> {
+         if fired {
+             // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
+             // closes had been running.
+-            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
++            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor, a: a_word.0, a_exp: a_word.1 };
+         }
+         self.rec.interval = full;
+         self.rec.step = full;
+@@ -726,6 +734,14 @@ impl Work<'_, '_> {
+             return Ok(Resolved::Lost);
+         }
+         self.rec.anchor = t;
++        // The fresh acceleration word for the window that starts here: one field evaluation per step
++        // (the boundary ran none), making the stored word `a(B)` exactly — the census's word (549f).
++        if self.rec.b.kick.clock && self.rec.b.kick.boundary == t {
++            if let Ok((a, a_exp)) = self.ctx.secondaries(self.rec.b.doll, t, self.i).and_then(|secs| force::field(&secs, x)).and_then(|f| word_of(f.accel)) {
++                self.rec.b.kick.a = a;
++                self.rec.b.kick.a_exp = a_exp;
++            }
++        }
+         Ok(Resolved::Boundary)
+     }
+ 
