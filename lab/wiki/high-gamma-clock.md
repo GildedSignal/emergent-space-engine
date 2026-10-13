@@ -2,39 +2,76 @@ topic: high-gamma-clock
 status: open
 closed-by:
 valid-while:
-updated: 20261012-1621-q-wiki-high-gamma-clock-42b5
+updated: 20261013-0037-dynamics-1890
 
-# The ship at high γ: its clock, its energy, the wall near γ 2,000
+# The ship at high γ: its clock, its energy, the wall after the exact-in-E merge
 
 ## Current best
 
-- The shipped tube's clock stops dilating above γ ≈ 2 and the flight dies near γ 1,800 in the kick's rebind — both measured, both with causes (20261011-1600-inversion-e128, gold; two blind checkers reproduced it byte-identically, and the integrator re-measured it on the M1 — docs/HANDOFF.md, 12 Oct):
-
-- **The clock saturates at dt/dτ = 2.** The proper time the player's page reads (`view.rs:262–267`), the burn flushes against (`step.rs:311–314`) and the event scheduler uses (`events/clock.rs`) carries time dilation only first order in v² (dτ/dt ≈ 1 − v²/2 → 1/2): local dt/dτ tails 1.96, 1.96, 2.00, and the compile pins E_∞ at exactly 2.0000 across γ 400–1,800 at two levels. A held burn therefore reaches γ its own coordinate time cannot afford: γ/γ_ext = 1.06 at γ 2.2, 3.72 at the merge's green point (β 0.999177), 87 at γ 1262, 112 at the freeze; at t = 7.74×10⁹ ticks the clock reads 4.21×10⁹ where relativity affords 1.8×10⁹. The HUD's rate dial — computed exactly from the state — then contradicts the ship's clock by ~630×. The burn and the i128 register are exact *in this τ* (γ_pred ≤ 3.8×10⁻³ from β 0.03 to γ 1262; |p_t − (U_P − H_D)| ≤ 6.4×10⁻¹¹, zero register refusals): the defect is the time map alone.
-- **The wall is a key word, not the tube.** The flight ends at γ 1761 (L15), 1791 (L12), 1803 (L13) with `Space(Range)`: during the kick's rebind, the orbit key's k = 1/(1+e) falls toward 2⁻²⁸ and the 48-bit word's relative error trips the 2⁻²⁰ check — 137× short of the leave radius. The ψ-panel tube itself covers the whole regime: plunge, direct-capture, near-radial, γ 2000 and photon orbits compile into it exactly (≤ 1.3×10⁻¹⁰ against an independent oracle, horizon crossing finite and smooth in Kerr–Schild time; near-critical orbits need panels ∝ ln(1/δ); 0.55 ms compile, 3.1 µs/readout) (20261009-2043-scout-a1a4, silver).
-- **The frozen 3% work gate certifies nothing above β 0.2474** (ratio 1.0303 there, 27.2× off at γ 1262): its work grows as γ−1 while the Newtonian energy it compares against saturates at c²/2 — the criterion is the law's Newtonian limit (20261011-1600-inversion-e128).
-- **The frame around the ship survives.** The light-cone crossing solver written in the tube's frame never fails and never picks a wrong root at any γ ≤ 2×10⁶ (second checker: still 0 fails at γ 2808 under acceleration), while the same solver in raw observer-frame magnitudes mis-locates emission at γ 2×10⁶ (~12,700 events; root ambiguity ≈ ulp/slope ≈ 10⁴ s): crossings stay in the tube's parameter (20261008-1947-redteam-efb2 and its second check, silver). The view's aliasing boundary (≥ ~1 received orbit per frame) already falls inside the plane's envelope at slow emitters (γ ≈ 1.9×10³ at β_o = 0.01) — that line is the view page's.
-- **Domain:** one scene, one seed per level (12/13/15), forward held burn, star frame. Not measured: reverse burns, turn keys at high γ, the `seen`/Doppler instruments, near-star passages, level 8, directions. The fix in flight is the integrator's, not a lab result: `wt/clock` — an exact-in-E clock and the Q48 gap as mantissa + exponent, behind gate C1 (dt/dτ vs u^t ≤ 1%, γ vs closed form ≤ 1%, zero refusals, levels 8 and 15; docs/HANDOFF.md, 12 Oct).
+- The merged exact-in-E clock (f7f6d87, 12 October) holds in every regime the pre-merge record
+  never flew, and the old wall is replaced by two cheaper walls (20261013-0037-dynamics-1890):
+- **The clock is exact wherever it is readable.** Braking reversals at γ 30 (dt/dτ = u^t to
+  2×10⁻⁶ through the reversal) and — measured by the checker, the author's window held only one
+  post-switch checkpoint — at γ 300 (brakes 315 → sampled min 12.5, repumps through 393; ≤ 5.6×10⁻⁶)
+  and γ 5 (min 1.018, repump through 21.9; ≤ 4.5×10⁻¹²). A sustained turning burn (γ → 1.19, tail
+  errors ≤ 4×10⁻⁷), far bound orbits at r ~ 1e9 M (4e-12 at E = 1.000000), and the forward burn
+  (checker, flown to the 2^40 window end: alive at γ 2,056, k flat at 1.09×10⁻⁸, zero refusals —
+  the old γ ≈ 1,800 Range wall is gone on the shipped tree; worst relerr 1.3×10⁻⁵ at γ 1,879). The
+  pre-merge saturation at dt/dτ = 2 is gone everywhere sampled. The old `E_key` reconstruction from
+  k alone (clock_pin's formula) is now off by design — 0.62% at γ 307 (regenerated; the 1.6%-at-γ-334
+  checkpoint was not regenerable) — E lives in the key's gap.
+- **A held brake key is a pump, not a brake, below γ ≈ 1.2.** Retro L15 from γ 30.7 brakes
+  smoothly to γ 1.208, then the same held key pumps back through γ 186.7 (still rising).
+  Brake-to-rest by a held key is impossible: rest is a crossing, not a fixed point; the
+  playability plan needs attitude-keeping. A turning flight survives 69,660 rebind refusals on
+  its old binding (γ → 1.19, periapsis → 2.1e10 M): refusal counts cannot certify a lost flight.
+- **The far hyperbolic `Range` wall is the fit's arithmetic, not the key.** The acceptance map
+  (22 E × 22 periapsis exact states through the shipped `Rebinding::from_state`): E → 1⁺ compiles
+  at every periapsis 10 M … 1.6e10 M (the parabolic edge is safe); `Range` refuses on a jagged
+  boundary (E=1.1 at 2e9 M; E=2–100 at 4e8 M; E ≥ 1e4 at 3e8 M). At E ≥ 100 the accepted
+  k ≈ 1/periapsis, E-independent — the shape carries no E, the gap does. At every tested refusal
+  point `OrbitKey::from_invariants` builds the same (peri, k) key and it compiles: the fix is the
+  far-field fit path (fit from invariants), not a representation change.
+- **Slow far flights end at the leave, not the key wall.** An L2 escape settles onto a bound
+  orbit (k > 1/2) whose apoapsis passes 2^40: silent death (`fault=None`), a leave, not a
+  refusal.
+- Domain: one plane seed, the unfixed retrograde nose (main), settle-based flights to t=2^38,
+  my wall cap 55 s per flight (fwd15's γ-1800 tail not re-flown; the checker's extension flew it
+  to the 2^40 window end, alive at γ 2,056). Not measured: the pump's threshold under a prograde
+  nose, the E→1 crossing *in flight* (the sweep
+  covers it at periapsis exactly), level 8.
 
 ## Refuted
-- "The register or the word is the wall" — the register is exact through the freeze; the wall is the rebind's k-word check, and the deeper defect is the clock (20261011-1600-inversion-e128).
-- "No tube past γ ≈ 2,000, nor for plunges" — the same tube *form* compiles γ 2000, plunge, near-radial and photon orbits to 1.3×10⁻¹⁰, proven standalone; the shipped engine still refuses until it is wired in (20261009-2043-scout-a1a4).
-- e128's author mechanism ("a saturating weak-field energy map") — `fit_key`'s energy predicate is exact; the constant 2.0000 is a clock integrand first order in v² (20261011-1600-inversion-e128, check2).
-- e128's L5 control "< 1×10⁻⁶" — not regenerable (0.59% measured, probe-quadrature-limited); the conclusion (the gate passes in its own regime) stands (20261011-1600-inversion-e128, check2).
+- "The wall is the representation" — at every tested `from_state` `Range` point (author and
+  checker, out to periapsis 1.6e10 M) the same key builds via `from_invariants`, peri exact and k
+  to 4–5 digits; `Passage::compile` accepted 5 of the author's 8 points (the 3 refusals also hit
+  ok rows: the reconstruction's edge, not the key) (20261013-0037-dynamics-1890).
+  E-independent (20261013-0037-dynamics-1890).
+- The pre-merge list (clock saturates; register/word is the wall; no tube past γ 2000) — see
+  20261011-1600-inversion-e128 and 20261009-2043-scout-a1a4 below; all superseded by the merge.
 
 ## Open directions
-
-1. **The unmeasured regimes** (the board's line: levels, directions, near the star — never the same forward-burn probe again): reverse burns (the playability fix brakes to rest), turn keys at high γ, near-star perihelion passages, level 8, fresh seeds (20261011-1600-inversion-e128).
-2. **The `seen`/Doppler instruments at high γ** — they read retarded states and could mask or double the wrongness the player perceives; unread (20261011-1600-inversion-e128).
-3. **The scheduler's entanglement** — `events/clock.rs` schedules dolls on the saturated map; the standing "fast dolls need root-clock event keys" item may be this bug seen from the events side; one look when the time map is fixed (20261011-1600-inversion-e128, check2).
-4. **After the fix:** re-measure the wall (does it track the Q48 gap as the build's pin says?) and the clock–rate-dial agreement; e128's γ 1761/1791/1803 and 137×-short-of-leave are the before-picture (20261011-1600-inversion-e128).
+1. **The far-field fit path**: build the key from invariants (or carry the fit's intermediates
+   wider) where the state→key cancellation bites; a checker should re-derive L from the flight's
+   own tube words first (my discriminator reconstructed L, and 3 of 16 of its compile calls hit
+   `Topology` also on ok rows — my edge, not theirs).
+2. **The pump under a prograde nose** (the wt/play build): does the threshold γ ≈ 1.2 move, and
+   does brake-to-rest need attitude control or a law change?
+3. **Refusal semantics**: 69,660 refusals survived — what does the scheduler do with a body
+   whose every rebind refuses? (frame-cost's rebind bookkeeping, from the events side.)
+4. The `seen`/Doppler instruments at high γ (unread, carried from before).
 
 ## Contradictions
-
-None open. The one disagreement inside the record — the saturation's mechanism — was resolved against the source by the second checker (the energy predicate is exact; the clock integrand is first order in v²), and the `wt/clock` pin (dt/dτ = 2E²/(E²+1)) agrees with that reading.
+- None open. My Q48-k mechanism (prediction 5) died against the measured k ≈ 1/peri; the
+  fit-arithmetic reading is the standing one, one checker away from confirmation.
 
 ## Runs
 - 20261011-1600-inversion-e128 (gold): clock saturates at dt/dτ 2; the wall (γ≈1800) is the rebind's k word; gate dead above β 0.25.
 - 20261009-2043-scout-a1a4 (silver): plunge, capture and γ-2000 orbits compile into the same ψ-panel tube, exact to 1.3×10⁻¹⁰.
 - 20261008-1947-redteam-efb2 (silver): doll-frame crossing solver exact to γ 2×10⁶; observer-frame form mis-locates emission; the view aliases (→ view).
 - 20261008-2031-second-20261008-1947-redteam-efb2-4d7e (silver): confirms the solver (0 fails to γ 2808 under acceleration); the view's PASS is convention-carried (→ view).
+- 20261013-0037-dynamics-1890 (pending): post-merge: clock exact in all new regimes; held brake
+- 20261011-1600-inversion-e128 (gold): clock saturates at dt/dτ 2; the wall (γ≈1800) is the
+- 20261009-2043-scout-a1a4 (silver): plunge, capture and γ-2000 orbits compile into the same
+- 20261008-1947-redteam-efb2 (silver): doll-frame crossing solver exact to γ 2×10⁶;
+- 20261008-2031-second-20261008-1947-redteam-efb2-4d7e (silver): confirms the solver (0 fails
