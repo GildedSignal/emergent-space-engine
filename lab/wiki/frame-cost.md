@@ -2,15 +2,49 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261013-1915-fermi-367f
+<<<<<<< main
+updated: 20261013-2005-quant-7055
+=======
+updated: 20261013-2005-spacex-3989
+>>>>>>> 20261013-2005-spacex-3989
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
 
+<<<<<<< main
+**The shared-shape half of the promotion is priced — and the sharing is not between members
+(mechanism corrected by this run's checker; 20261013-2005-quant-7055).** An **exact** memo keyed on
+(OrbitKey, edge) in `Rebinding::from_state` (env-gated probe on shipped code; the `--members` clamp
+lifted; prof counters in `universe --bench`; digests at the canonical cut) hits 33.0% of hand-out
+compiles at 4,000 members, rtf 1, 8 game-s (seed 3: 32.5%; 1,500: 33.5%; checker-held-out: seed 7
+28.0%, 16 game-s 32.4%, 8,000 members 31.9%), cutting bind 407–419 → 250–252 µs (−39%; checker
+scenes −34 to −37%) and the whole hand-out 508–525 → 351–354 µs (−31%), bit-identically (digests
+equal memo-off/on at every scene, twice at m4000; universe suite green with the memo forced on,
+0 failed, 70 passed, 2 ignored clock flights). But the hits are **not member-to-member sharing**:
+every duplicate key is two compiles of the *same* hand-out — `bind_surface` rebinds at a coarser
+integer word when the tube outgrows its word ([bind.rs](../../../crates/universe/src/bind.rs),
+"fit again: the coarser word"), and the OrbitKey survives the one-quantum rounding; hand-out calls
++ fit-again calls = hand-out compiles within 1 at every scene and three checker scenes (2,163 +
+1,141 = 3,303 at m4000), every duplicate exactly two rows and adjacent, ~no periodic key ever
+repeats. Member-to-member exact key sharing is ~0: the fermi run's "shared-shape" premise, read as
+members sharing compiled trajectories, is refuted — what the memo caught is redundant recompiles of
+one member. At flying pace (m400 rtf 100) hits collapse to 0.6% and bind moves ±1–8% (noise, 4
+hits); no hand-outs occur at all at ≤ 400 members in 8 game-s. So sharing buys a constant ~1.45× on
+the hand-out, not the 10× the board wants; the levers that remain are the ephemeral half (demote at
+commit) and deleting the retry itself — choose the word before the first bind, or thread the first
+fit's trajectory into the retry (same key, no map). No standing bytes are saved: the first fit's
+entry is discarded on retry either way, one standing `Entry` per hand-out.
+=======
+**Dormancy deletes the plane's first N-wall for unread leavers at every seed and size tested; its digest identity holds only where no in-flight leaver ever enters the player's scan reach (1 of 4 far seeds — the seed-1 cells were luck, checker), the cheap census gate is unsound (seed 3, pre-registered), and the dormant arm itself is load-nondeterministic — the walls are the gate's bound and the arm's determinism, not the dormancy (20261013-2005-spacex-3989, checker-corrected).**
+An env-gated probe (`ES_DORMANT`, ~60 lines, digest-identical when unset) holds hand-outs as `Leaver` words (~80 B, no body, no entity, no scan candidate), wakes them at the player's item behind a drift-bound gate and at the settle; the bind+replay runs through the shipped `resolve_handout` unchanged. With the player opposite the fleet on its own circle (~14,000 km, co-orbital, `ES_PLAYER_ANGLE`): 1,500 members at rtf 100 — overflow 447/480 -> 27/480 (checker regen: 455 -> 59 on the shared box), engine p50 21.7 -> 1.7 ms (22.5 -> 4.8), 1,425 held and **0 woken in flight** (55,629 gate checks), bodies at the cut 1,386 -> 28, ship items 10,868 -> 2, the deferred work landing in the settle (5.5 -> 7.1 s unpaced); 4,000 members at rtf 1 (fermi's "even rtf 1 collapses" rung) — overflow 286 -> 0 (262 -> 0, checker), delivered rtf 0.0 -> 1.0. Digests **bit-identical** in the near cells (the gate's positive control: 1,364/1,368 woken, no win — the scene plants the player 20 km ahead by construction) and in both seed-1 far cells and the 4,000 rung; **seed 3 far breaks** (46c7652f vs 4ac2d175) — the pre-registered kill: `PlayerNeighbourhood::capture` takes the bodies alive at the scan's moment as candidates, so dormancy changes the encounter canon whenever a leaver is within the scan's reach; the gate must be sound against that reach over the scan's interval (derive the bound from the doll's exact max speed, or force-wake same-doll members), and that canon question is integrator-level. The near 1,500 shipped rung reproduces fermi's 449/480 collapse class (456/480 on the checker's box).
+**Checker (same run): held-out seeds 7 and 11 break identity too** (1,440/1,407 held, 0 woken, bodies 28 vs ~1,390; the cost cure intact — overflow 437 -> 51, 427 -> 17, rtf 0 -> 100): identity is the exception, not the rule. **Four concurrent identical dormant runs at seed 3 print two digests** (4ac2d175… and 7f1641e8…, four each over two batches) at the same cut tick with kicks 115/112, held 1398/1397 and 0 wakes, where four concurrent shipped runs are stable (46c7652f ×4): the dormant arm is not reproducible under load — plausibly the known budgeted-vs-settled fleet-cap divergence (spacex-5eb6, second-8b43) re-exposed because dormant leavers leave the queue [inference]; until explained, the arm's identity cells cannot stand as certificates. **8,000 members, rtf 100, 4 s** (outside the author's range): shipped collapses (240/480 overflow, p50 38.9 ms, rtf 0, settle 39 s); dormant stays flyable — 84/480, p50 5.2 ms, rtf 100, 7,790 held, 0 woken, settle ≈ the shipped arm's (37 s) — but not to zero: fleet-side work remains.
+>>>>>>> 20261013-2005-spacex-3989
+
 **The ladder's first wall is the compact fleet frame's own leak, an order below the walk
 tier: it hands out members superlinearly and every hand-out is a sticky promotion
 (20261013-1915-fermi-367f; decomposition corrected by its checker).** Measured on the plane scene itself (probe patch:
+
 the `--members` clamp lifted, RSS and the 24 `prof` counters added to `universe --bench`;
 seed-deterministic inputs, shared-box timings). At flying pace (rtf 100) the plane holds
 400 members (engine p50 2.2 ms of the 5 ms budget) and collapses at 1,500 (449/480
@@ -318,6 +352,8 @@ other scenes, the M1.
 
 ## Refuted
 
+- The naive census gate (a 4x-padded f64 drift guess from the hand-off words) as sound dormancy — seed 3's digest breaks where seeds 1 hold: the scan's candidate set is canon, and a guess bound on the leaver's reach cannot decide it (20261013-2005-spacex-3989).
+- Dormancy as a digest certificate without a determinism answer — the dormant arm prints two digests at one cut under concurrent load (kicks 115/112, 0 wakes) where the shipped arm is stable under the same load; until explained, its identity cells cannot stand as certificates (20261013-2005-spacex-3989, checker).
 - The thrust word's refit against every scheduled kick as the waterfall's mechanism — no such refit
   exists: `decide` clears the plan and plans one kick; the burst is the player's own burn-cadence
   chain of Kick(0)+Boundary pairs (20261013-0037-system-174d, correcting 20261012-2257-quant-32ab's
@@ -423,6 +459,7 @@ other scenes, the M1.
    resolve is only ~140–150 µs (20261012-2257-quant-32ab).
 8. **Hand-out cost at fleet scale**: 443 µs per hand-out, 12× a kick, plus deadline pinning
    (20261011-1102-quant-ba35).
+9. **The sound wake rule for dormant leavers, plus the arm's determinism** (the one experiment this run is from gold): derive the gate from the doll's exact maximum speed and the scan's interval instead of a padded guess, or force-wake same-doll members at the player's item and keep dormancy for other dolls; then prove digest identity across seeds **and** run-to-run stability under concurrent load — the dormant arm printed two digests at one cut under load where the shipped arm is stable (checker) — before any identity cell is trusted as a certificate. The store, the settle wake and the digest certificate are already built and measured (20261013-2005-spacex-3989).
 
 ## Contradictions
 
@@ -485,3 +522,5 @@ other scenes, the M1.
 - 20261013-0236-second-20261013-0037-system-174d-0f2a: the law's own cadence re-prices the tide counterfactual — ~0–24 events against 377–1,085 burst kicks at every level incl. paced L15 8 s; the fixed-granularity inversion was the divisor's artifact; lever adoptable.
 - 20261013-1428-system-2964 (this run): the cadence's two edges priced — deletion collapses events 19–204× and the lag to 0.038 s but breaks at the velocity word (prograde burns lost, refusals, envelope to 4.2e-2 c; retrograde lands ~7% low); 16× refinement keeps the stutter and shows the shipped arm ~1% off its own fine limit; the carry's contract measured.
 - 20261013-1915-fermi-367f (silver, checker-corrected): the plane's first N-wall is the fleet frame's leak into sticky promotions (~0.5 ms, ~8.3 kB each, no demotion); the frame's own advance is only ≈N^0.6–0.8 (the N^1.9 "fleet item" includes the hand-outs).
+- 20261013-2005-quant-7055 (silver, checker-corrected): the hand-out's exact-memo edge priced — 33% of hand-out compiles are same-member coarser-word retries (bind −39%/hand-out −31%, bit-identical; member-to-member sharing ~0; 0.6% at rtf 100); the retry and the sticky promotion stay the levers.
+- 20261013-2005-spacex-3989 (silver, checker-corrected): dormant leavers cure the first N-wall at every seed and size tested (286->0 overflow, rtf 0->1 at 4000/rtf1; flyable at 8000) but break the digest in 3 of 4 far seeds, and the arm is load-nondeterministic; the gate's bound and the arm's determinism, not the dormancy, gate adoption.

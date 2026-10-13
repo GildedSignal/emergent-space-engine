@@ -2,84 +2,95 @@ topic: closed-form-kernel
 status: open
 closed-by:
 valid-while:
-updated: 20261013-1915-system-81ca
+updated: 20261013-2005-second-20261013-1915-system-81ca-6701
 
-# One exact O(1) kernel for the cycle: Carlson RF on the key's own dyadic fields
+# One exact O(1) kernel for the cycle: the Carlson basis, all three channels
 
 ## Current best
 
-**The bound cycle's advance is one certified-exact integer Carlson RF call —
-`advance = 2·[RF(0, B, A) − π]`, `A = 1 − q(8k−2)`, `B = 1 − q(4k+2)`, all dyadic, no
-division (homogeneity absorbs the √A) — independently reproduced from
-20261013-1428-scout-21ba and priced at 1.82–2.10 µs in pure integers against the
-shipped compile's 6.2–228 µs: 3.3×–108× per key, flat in e (20261013-1915-system-81ca).**
-Exactness: worst relerr vs the shipped walk 9.20e-10 over 170 strong keys (under the
-walk's Q30 quantum 9.31e-10), with the integer pipeline (floor-rounded duplication,
-stop at spread 2⁻²⁴, Carlson's bound ≤ 10⁻¹⁵, π subtracted in integers — the
-cancellation trap: a f64 composition costs 3.9e-7) matching the f64 arm to < 1
-quantum everywhere. 13–15 duplication steps, 3 isqrt each. The formula is exact, not
-fitted (1.3e-12 at q = 0.144, where an O(q²) term would show at 1e-2). **New: the
-walk's own Q30 certificate is broken at the held-out key (8, 0.995) (q = 0.249,
-1−m = 5.5e-3): 35 quanta, both closed-form arms agreeing to 1e-12 — two decades
-shallower than 21ba's second-checker separatrix point (6.7e-7 at 1−m = 3.5e-9), and
-exactly where the plane's kicked bodies live (median e 0.94).** The system claim:
-this one kernel is also the exact per-pair Δφ/cycle primitive the co-precessing
-sections (71a5) and the slack skin's precession sizing (8f99, 73f0) currently
-linearize — ~2 µs/tube, 3.3–110× cheaper than recompiles.
+**The whole compile is one certified-exact integer Carlson basis — advance, period
+and proper period together, not just the φ channel — verified against the shipped
+walk to its own channel quanta on 182 strong keys (grid + held-out + every attack
+key): worst 5.3e-10 (adv) / 3.7e-10 (t) / 3.8e-10 (τ), at 18–40 µs flat (O(1) in e)
+against the shipped compile's 5.8–374 µs, and 0.5–12 kB per shape deleted with the
+knot table. The readout half is measured and negative: one 3-channel incomplete
+Carlson evaluation costs 6.5–30 µs against the panel table's 4.0–5.3 µs read (1.6–6.4×
+at every row), so the crossing table is a load-bearing amortization of the same
+integrals, not dead storage (20261013-2005-second-20261013-1915-system-81ca-6701).**
 
-**[Checker, this run's check: the closed form is now verified by three independent
-paths — mpmath 50 dps `ellipk`, QUADPACK θ-quadrature, and DOP853 on the geodesic
-ODE `u'' = 1/L² + 3u² − u` from the key's exact integer fields — agreeing with both
-arms to ≤1e-15 on a 28-key attack grid beyond the author's domain (e 0.99999 at
-p 50, compile 310 µs; 1−m 2.8e-4). The walk break extends: 62 quanta at (7.801,
-0.9), 35 at (7.81, 0.9), 14 at (7.01, 0.5), and is NON-monotonic in 1−m ((7.85,
-0.9) holds at 0.2) — panel noise, not a smooth separatrix law. Deep-e keys far
-from the separatrix (20, 0.9999; 50, 0.99999) hold at 0.4–0.6 quanta while costing
-300–375 µs: the closed form wins cost everywhere, exactness near the separatrix.
-Iterations stay 13–15 at every attack key. Boundary found: the integer certificate
-(spread 2⁻²⁴ ⇒ RF-relative ≈1.1e-15) decides Q30 quanta only while advance ≳
-3.4e-6; the strong branch's edge (q = 2⁻¹⁸ ⇒ advance ≥ 3π·2⁻¹⁸ ≈ 1.1e-5) keeps
-~3× margin, the weak branch does not need it (measured 2.3e-10 at p = 1.6e7
-against a certificate bound of 2.7e-9). Notation trap: the run's `RF` returns
-2/√a, i.e. 2× Carlson's RF — the standard-form identity is `advance = 4·RF(0,B,A)
-− 2π`; the code is correct.]**
+The reduction (standard Carlson notation): `K = RF(0,1−m,1)`,
+`E = K − (m/3)RD(0,1−m,1)`, `Π(ν|m) = K + (ν/3)RJ(0,1−m,1,1−ν)`, with the A-frame
+characteristics `m = 4q(1−k)/A ∈ (0,1)` [21ba's m], `ν = −2(1−k)/(2k−1) < 0`,
+`ν_h = 4q(1−k)/H1 ∈ (0,1)`; the squared x-factor rides the classical
+`∂Π/∂ν = [νE+(m−ν)K−(m−ν²)Π]/(2ν(m−ν)(ν−1))`; `advance = 4RF(0,B,A) − 2π` (81ca,
+standard notation). The integer port runs Carlson's published algorithms verbatim
+(arXiv:math/9409227 eqs 2.7/2.23/2.31): floor-root duplication, his stop rules
+(certified r = 4·ε⁶ ≈ 2⁻¹¹⁸ at spread 2⁻²¹), his series tails in exact Q62
+arithmetic; RJ's arguments are homogeneity-pre-scaled ≤ 1 so no internal product
+leaves u128/i128. Verified three ways: mpmath 50 dps from the raw (k, q) fields
+(≤ 1e-12, regen.sh), an in-probe quadrature of the raw ψ-integrands, and the shipped
+walk itself (integer = f64 = quad to the printed digits). The walk's Q30 certificate
+break at (8, 0.995) is a φ-channel break only: t and τ stay at 6.2e-9 / 4.9e-9
+there. Cost: cheaper at every key with e ≳ 0.4 (9.4× at the (50, 0.99999) leaver
+tail), 2.2–3.4× dearer on the whole low-e band (every p at e ≤ 0.1, where compile is
+already 6–9 µs, and 1.1–1.4× at large p mid-e) — the belt's own band — the compile's
+cost stops depending on e at all, which is the F1-stutter lever. The incomplete Carlson
+readout is correct (t 9.8e-9, τ 8.9e-9, adv 3.3e-8 vs shipped at matched amplitude,
+inbound mirror included) but 1.6–6.4× slower per query than the panel table, and a
+naive closed-form solve is ~1.3 ms: deleting the walk trades compile time (won, 9×)
+for read time (lost) unless the table is rebuilt coarser from Carlson values.
+
+**[Checker, this run's check: reproduced bit-identically (all physics numbers,
+mpmath 2.9e-13). Domain hole found past e ≈ 0.9999: the t/τ composition feeds
+(m−ν²) (raw 2^97 at e = 0.99999) into imul, whose asserted operand bound is 2^96 —
+debug builds panic, release silently corrupts (idiv denominator 2^98 overflows a
+long-division limb): int t = 1.23e-7 vs 50-dps truth at (99991, 0.99999) — above the
+run's own pre-registered 1e-7 port bar — and the showcase key (50, 0.99999) already
+runs out-of-domain (int 5.1e-9 vs f64 1.9e-10). e ≤ 0.9999, the e→0 corner (4e-14)
+and 10× closer to the separatrix (2.8e-13) are clean; readout holds at fr 0.001–0.999
+(≤3.5e-8); Par::from_key is 0.18 µs (cost omission negligible). The certificate claim
+is true on e ≤ 0.9999 only until the ν-corner is pre-scaled.]**
 
 ## Refuted
 
 - "The integer Carlson port's error analysis is the standing objection" (Opus memo,
-  via kick-jet): answered for RF by construction — floor rounding plus Carlson's
-  published spread bound, integers deciding every Q30 bit
-  (20261013-1915-system-81ca; τ/t RD/RJ still open).
+  via kick-jet): answered for RF, RD **and** RJ by construction — Carlson's own
+  published stop rules and series tails, floor-rounded Q62 end-to-end, integers
+  deciding every stored bit (20261013-1915-system-81ca; extended
+  20261013-2005-second-20261013-1915-system-81ca-6701).
 - "The shipped walk holds Q30 across the strong domain": it does not — 35 quanta at
-  e 0.995, q 0.249 (20261013-1915-system-81ca; extends 21ba's second checker).
-- My own pre-registered ≤ 10 duplication iterations: 13–15 needed (spread decay ×4
-  from e₀ ≈ 1 to 2⁻²⁴); no key exceeded 15; the m→1 complementary form would shave
-  ~2 at the deepest corner, unpriced (20261013-1915-system-81ca predictions.md P3).
+  (8, 0.995), 62 at (7.801, 0.9), non-monotonic in 1−m (checker of 81ca).
+- "The readout's crossing table is cheaply replaceable by incomplete Carlson forms"
+  (21ba open direction 3, priced here): **not per-query** — 6.5–30 µs per 3-channel
+  incomplete evaluation vs 4.0–5.3 µs for the shipped panel read (1.6–6.4×); the
+  table amortizes the same integrals (20261013-2005-second-20261013-1915-system-81ca-6701).
+- Pre-registered ≤ 10 µs per incomplete 3-channel evaluation (this run's P5): 6.5–30
+  µs measured, f64 — the prediction failed low at the cheap end of the band.
 
 ## Open directions
 
-1. **Price the τ/t channels as integers** (RD/RJ; reductions verified twice in 21ba's
-   checks): completes the compile's replacement; then the law change — swap the
-   walk, re-freeze the compile's gates. Would change: the kick's compile term
-   (49–97% of the rebind) becomes O(1) in e; the leaver tail (228 µs → ~2 µs/key)
-   stops driving F1's stutter.
-2. **Wire the kernel as the co-precessing frame's per-pair update** inside
-   `crates/encounters` sections (71a5's O(1) angle update) and the skin's exact
-   slack sizing (8f99): measured proxy here (2 µs vs 6–228 µs per tube), unmeasured
-   in situ.
-3. **The readout's crossing table** (incomplete Carlson forms, 21ba's assertion,
-   unpriced): if it has no cheap form, panels survive in the readout and the kick
-   only halves — the adoption case should price this first.
-4. **The m→1 complementary forms** near the separatrix: keeps iterations at 13 and
-   the exactness at the deepest corner where the walk is already 35 quanta off.
+1. **The law change, compile half**: swap the walk's three channels for the Carlson
+   basis (RF+RD+RJ per key, ~4 chains), keep or rebuild the readout's table; gates
+   re-freeze. First close the ν-corner (pre-scale the t/τ composition as rj_int
+   pre-scales its arguments, release-mode asserts) — the certificate currently fails
+   exactly on the leaver tail it wins most. Would change: the compile term (49–97% of
+   every kick rebind) becomes O(1) in e; the leaver/plunge tail (228–374 µs) drops
+   ~9–19×; 0.5–12 kB/shape freed.
+2. **A Carlson-built crossing table**: rebuild the knots at coarser, error-bounded
+   amplitudes from incomplete Carlson values (compile once, read fast) — the route
+   that keeps the 4 µs read and deletes the walk's band-cut machinery.
+3. **The m→1 complementary forms** near the separatrix and the ν-pole corner's extra
+  pre-scaling duplications (~4 at e = 0.99): unpriced shavings.
+4. **The passage (unbound) branch and Kerr** (Fujita–Hikida forms): the same basis,
+  untouched.
 
 ## Contradictions
 
-None open. The weak-branch control behaves as law.md says (first-order truncation,
-1.15e-5 at the shallow end; some weak keys coincide at 4e-10).
+None open. The weak-branch controls behave as law.md says for advance (1.15e-5
+truncation); the weak branch's t/τ match the closed form at 2.5e-10 (the walk's weak
+t/τ are not first-order truncated — noted, unexplained, harmless).
 
 ## Runs
-
 - 20261013-1915-system-81ca (awaiting grade): advance = one exact integer RF on the
-  key's dyadic fields: 1.9 µs vs 6–228 µs compile, 9.2e-10 worst, walk 35 quanta off
-  at e 0.995.
+- 20261013-1915-system-81ca (silver): advance = one exact integer RF on the key's
+- 20261013-2005-second-20261013-1915-system-81ca-6701 (awaiting grade): all three
