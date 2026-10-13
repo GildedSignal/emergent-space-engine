@@ -2,7 +2,11 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261013-0236-fermi-061f
+<<<<<<< main
+updated: 20261013-0350-components-c914
+=======
+updated: 20261013-0350-scout-7d2b
+>>>>>>> 20261013-0350-scout-7d2b
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
@@ -12,14 +16,53 @@ updated: 20261013-0236-fermi-061f
 
 **The exact replacement, priced on shipped code.** The rebind (fit → compile → readout) is 84.6% of a plane kick's wall (96b4, correcting ea6b's wrong-path table), the compile alone 49–62% on fleet leavers (1e74) — the same shape at the 97 µs era (0083: compile 64.5%, rebind 78.7%, forces 9%) and on the leaver tail (ec9d: Passage::compile is 89–97% of a 365–381 µs leaver rebind); the rebind runs ~270× above a two-integer floor, and 1,400–1,800× above a measured ~42–56 ns information floor (b063, gold; the board files it under frame-cost); the compile's uncounted interior (allocations, key search, ~182 i128 panels), not its ~2,300 counted Scalar ops (~3–5 µs), owns most of the ~25–27 µs (fa08, 30e1); the fired kick's generator update runs 9–16× above its floo…
 
-**The interior is closed by elimination: allocations and key search are dead, the walk's arithmetic owns it (20261013-0236-fermi-061f).** On the cost_split path (ship 14, "made"-class, 32.7–34.2 µs — the wiki's own made band 34–38): a kick makes **9 allocations, 2,872 B** (2×16, 1×64, 1×128, 3×256, 2×512 — the compiled trajectory's tables carry the bytes), priced at 87.5 ns at the measured pair cost of that exact size mix (9.7–9.8 ns) = **0.3% of the kick**; a never-free bump arena moves the kick 0 to −4% (inside the system arm's own run-to-run spread) with the loop hash equal and **settle digests bit-identical** (system twice, bump once — the control repeat is equal, so the identity check is not vacuous). Key search is absent on the bind path by construction (`bind_in` → `Rebinding::from_state` directly; `Catalogue` is slots plus a free list). What remains is the quadrature/Newton walk: unit prices on this runner class are **i128 division 30.9 ns, i64 division 8.9 ns, i128 multiply 1.5 ns**, so the un-attributed ~29 µs ≈ **~900 i128-division-equivalents per kick** — the cheapest exact kick is a panel-and-division *count* question, not a memory-management question (the Q62 wide temporaries are load-bearing for exactness — QUADRATURE.md — so width is not the lever; count is). Domain: one ship, one class, seed 1 Sparse; leavers, word transitions and fleets not censused. Checker (check2): swept every ship's next pending kick — 23 ships, seeds 1 and 3, pre- and post-settle(5e9) — 8–14 allocs/kick, 2,488–4,568 B, 29–46 µs; the 9/2,872 is the cheap class (`ships[14]` is body id 18), the worst class prices at ~0.14 µs of 44 µs (0.3%), and no Passage rebind exists in any plan censused, so the leaver hole stays open but bounded by ec9d's compile-dominated pricing.
+**The interior is closed by elimination: allocations and key search are dead, the walk's arithmetic owns it (20261013-0236-fermi-061f).** On the cost_split path (ship 14, "made"-class, 32.7–34.2 µs — the wiki's own made band 34–38): a kick makes **9 allocations, 2,872 B** (2×16, 1×64, 1×128, 3×256, 2×512 — the compiled trajectory's tables carry the bytes), priced at 87.5 ns at the measured pair cost of that exact size mix (9.7–9.8 ns) = **0.3% of the kick**; a never-free bump arena moves the kick 0 to −4% (inside the system arm's own run-to-run spread) with the loop hash equal and **settle digests bit-identical** (system twice, bump once — the control repeat is equal, so the identity check is not vacuous). Key search is absent on the bind path by constructio…
+
+**The division half of the interior is now measured — and it is at its hardware floor on x86 (20261013-0350-components-c914).** On the fast_quad operand shapes (dividend < 2^127, divisor ∈ [2^20, 2^62]): the compiler's soft u128/u128 division costs 30.2 ns (i128/i128 35.0; matches 061f's 30.9), the x86 128/64 `divq` instruction itself costs 31.4 ns (**1.04×**, exact), and an exact multiply-only Newton reciprocal (f64 seed, 3 integer iterations, exact ceil-pin, one correction; 0 mismatches on the domain) costs 31.6 ns (**1.05×**) — no cheaper exact division was found among {the soft routine, hardware divq, an exact Newton reciprocal} (checker c914: existence not disproved), and LLVM already emits near-optimal code (it even constant-folds naive measurement loops, a harness trap now on the record). The timing-hack decomposition of `Orbit::compile` (env-gated stand-ins, `ES_DIV_HACK`/`ES_SQRT_HACK`/`ES_COS_HACK`, bit-identical default path — checksums and the 63-test suite unchanged): divisions own **20–35%**, the cos polynomial 12–40% (method-sensitive), isqrt 6–14%, and **all three together only 42–56%** — the other half is products, Scalar normalization, knot accumulation, panel scaffolding. Per-node cost 244–264 ns over ~52 panels/cycle (tuned plane-like grid, 10,234 panels). So the record's open direction 1 — "cheaper wide divisions" — is **bounded at ~1.4× end-to-end** (divisions ≈ 14–19% of a made-kick), and the residual ~500× over the information floor is owned by the law's panel count and bit-exact per-node arithmetic, not by implementation waste. The only arithmetic lever left untested is the M1, whose soft `__udivti3` may be worse than x86's (the Newton prototype ships in `div_bench` for the integrator's re-measure).
 
 **The word-transition double compile, measured and deleted (digest-identical).** The shipped `bind` chose the integer word from the *compiled* entry (`word_for(&bound.entry)`), so every word transition compiled a full trajectory, read two exponents off it, threw it away and compiled again: on plane settles (600 s game, seeds 1/3, 48 and 400 members) transitions are 5.1–6.0% of binds but are the expensive binds (leaver-class; 278–310 µs discarded per transition against a ~104 µs mean bind), so the discarded first pass was 14.5–18.2% of all bind time (binds ≈ 43–50% of settle wall at 400 members). The word is a function of the fit's key (plus, for a passage, the compile edge — both known before compiling): `Rebinding::fit_of` (the fit without the compile) + `w…
 
+<<<<<<< main
+**Domain.** Tested: plane seeds 1–7 at rtf 30–1000, fleets to 200 members; the hlive belt (Jupiter 2⁻¹⁰, Saturn 2⁻¹², 24 game-years); Schwarzschild and equatorial Kerr χ ∈ {−0.9, 0.5, 0.9, 0.998}; e ≤ 0.99. Not tested: inclined Kerr, resonant kick trains against a carry, the dense order, and behaviour gates on any derivative-carrying build (see Contradictions). Inspiral is not a jet: Peters' a(t) is its generator (law.md:36; df81; the Peters flux drifting the tube's (E, L) is adoptable with measured contracts — 4c5b, silver, gravity-news topic). The allocation census (20261013-0236-fermi-061f) adds: one ship class, one scene, tcache-warm single thread. The division-floor census (20261013-0350-components-c914) adds: x86-64 only (i7-4790-class, shared), compile grids not a settle's kick stream, leaver `Passage::compile` under-sampled.
+=======
+
+**The division-primitive lever inside the walk is killed, and the node's arithmetic is a
+three-way tie, not a division monopoly (20261013-0350-scout-7d2b).** Census on a 48-key
+exact compile sweep: 674 u128 `/` divisions per compile on the `fast_quad` sites (min 89,
+max 1,752; with `div_word`'s 26 — the census covers the four `fast_quad` sites and
+`div_word` only; `isqrt`'s internal Newton divisions are uncensused, which is the gap to
+061f's ~900/kick) and their
+divisors **do not repeat** (31,776 distinct of 32,384; fraction 0.019) — they are
+functions of the node's ψ — so Möller–Granlund reciprocal division has nothing to
+amortize: cold it costs 40.4 ns against the `__udivti3` libcall's 23.6 (and the shipped
+Knuth `div_word`'s 27.8; all bit-identical over a 10⁷-case fuzz, max 3 correction
+steps); swapping `div_word` for the libcall cannot move the compile — the census bounds
+the arm's effect at ~0.1 µs/compile (26 of ~700 divisions; sweep wall 53–74 µs across
+invocations on the shared box, noise above any arm effect; 0/48 shape mismatches). Decomposition of the
+~320 ns node: **4 divisions 29%, 1 u128 `isqrt` 30%, 1 `cos` 24%, multiplies ~5%** —
+no division-only lever can beat ~1.4×; the co-owners are `isqrt` and `cos` (or panel
+count, a law change). x86 ranking only; re-measure the primitives on the M1 before
+believing the ordering (the no-repetition census is hardware-independent).
+
 **Domain.** Tested: plane seeds 1–7 at rtf 30–1000, fleets to 200 members; the hlive belt (Jupiter 2⁻¹⁰, Saturn 2⁻¹², 24 game-years); Schwarzschild and equatorial Kerr χ ∈ {−0.9, 0.5, 0.9, 0.998}; e ≤ 0.99. Not tested: inclined Kerr, resonant kick trains against a carry, the dense order, and behaviour gates on any derivative-carrying build (see Contradictions). Inspiral is not a jet: Peters' a(t) is its generator (law.md:36; df81; the Peters flux drifting the tube's (E, L) is adoptable with measured contracts — 4c5b, silver, gravity-news topic). The allocation census (20261013-0236-fermi-061f) adds: one ship class, one scene, tcache-warm single thread.
+>>>>>>> 20261013-0350-scout-7d2b
 
 ## Refuted
+- "Exact division-by-multiplication where divisors repeat" as the walk's lever: the hot
+  sites' divisors are functions of the node's ψ and do not repeat (0.019 fraction over
+  32,384 censused divisions), the cold reciprocal costs 40.4 ns against the libcall's
+  23.6, and `div_word`→libcall is bounded at ~0.1 µs/compile by the census (0/48
+  mismatches; wall noise above any arm effect) — the lever is dead on x86, killed
+  before being built (20261013-0350-scout-7d2b).
+  Check2 (160-key grid, p 4–8192 × e 0–0.99): per-key repeat is exactly 0.000 for
+  every e>0 key (through e 0.99, 1,968–2,080 divisions/compile); the 0.019
+  aggregate lives in the e=0 corner (circular keys repeat 95%, but carry 80
+  divisions, 25× cheaper keys). Cross-compile divisor sharing is 0.229 of
+  instances (far-field divisors converge to common constants), yet even a free
+  global reciprocal cache is bounded at ~4% of the compile (100% sharing caps at
+  ~18%) — caching across compiles cannot revive it either.
 
+- "Cheaper exact wide divisions" as a kick lever on x86 (open direction 1's named attack, from 061f): the hardware 128/64 `divq` is 1.04× the soft routine and an exact multiply-only Newton reciprocal is 1.05×; divisions own 20–35% of the compile = 8–18% of a kick, so free divisions bound the kick at ~1.2× and a 2× division win at ~1.1×; ~1.4× is the ceiling for removing all three named ingredients together (checker c914 arithmetic). (20261013-0350-components-c914).
 - "The kick's uncounted interior is allocations" (open direction 1's first suspect): 9 allocs/kick, 2,872 B, 0.3% priced; bump A/B within noise; digests bit-identical (20261013-0236-fermi-061f). Fleet-wide ceiling (check2): worst class 14 allocs ≈ 0.3% of its 44 µs. Also dead by the same run: "key search" on the bind path — nothing is searched at bind time (`Catalogue` is slots + free list).
 - "A kick updates the cycle by a multiply-add" (representation.md §3) as a general law: error C·drift², floor crossed after ~730 correlated kicks (df81; 075b).
 - The jet near the Schwarzschild separatrix, L axis: 10³–10⁹× the floor; plunge mispredicted as bound cycle (4978; 2040).
@@ -38,7 +81,20 @@ updated: 20261013-0236-fermi-061f
 
 ## Open directions
 
+<<<<<<< main
+1. **Cheapen the exact recompile — the arithmetic half is now bounded, so this is a panel-count question alone.** The interior: divisions 20–35% **at their hardware floor on x86** (divq 1.04×, exact Newton reciprocal 1.05× — no lever; 20261013-0350-components-c914), allocations 0.3% and key search absent (061f), cos 12–40%, isqrt 6–14%, and 44–58% none of these (products, Scalar normalization, knot accumulation, scaffolding). What remains: fewer panel evaluations per compile (the law's π/4 quantum and band cuts — a law change with recertification, not an optimization), interleaving the four nodes' independent chains if the walk is latency-bound (untested), and the M1 re-measure of the division floor (the Newton prototype is in `div_bench`). The word-transition double-compile half is done (009b: −12.9 to −17.5% of bind time); a crossing-read tier already reads at 0.34–0.42 µs (8c81, c4ce). Digest-identical cuts…
+=======
+
 1. **Cheapen the exact recompile — now a pure count question** — the retired jet's replacement and the board's live question. The interior is the walk's arithmetic (~900 i128-division-equivalents at 30.9 ns each; fa08/30e1's ~182 panels × ~2,300 Scalar ops), **not** allocations (0.3%, measured both ways) and not key search (absent). Attack: fewer panel evaluations per compile and fewer wide divisions per panel (exact division-by-multiplication with correction where divisors repeat; the Newton readout's `rate` divisions), not arenas, pooling or `Entry` trimming — those are capped at ~0.3%. The word-transition double-compile half is done (009b: −12.9 to −17.5% of bind time); a crossing-read tier already reads at 0.34–0.42 µs (8c81, c4ce). Digest-identical cuts already measured: fit_only deletes one dead trajectory decode per kick (−10.9%, a48d), a proper_at_event cache plus cartesian-free orbit_state cuts ~9–10% (2833), a weak-hyperbolic quadrature shortcut cuts the leaver ladder 40–45% (c3a5); ec9d's bounded Passage::compile projects ~10× off the leaver …
+1a. **The primitive inside the walk, re-priced (20261013-0350-scout-7d2b): division is
+   only ~29% of the ~320 ns node — 1 u128 `isqrt` owns 30% and 1 `cos` 24%.** The next
+   levers by share: a bit-identical Newton `isqrt(u128)` (u64 seed + correction; fuzz at
+   perfect squares), a cheaper exact `cos` (the 13-factor nested series costs 77 ns),
+   or fewer panels per compile (a law change, moving all three at once). The 10⁷-case
+   reciprocal-division fuzz harness and census instrumentation are in the run's patch if
+   the M1's primitive ranking (u64 div fast, different `__udivti3`) ever revives the
+   division half.
+>>>>>>> 20261013-0350-scout-7d2b
 2. **The fate predicate at a kick.** 9a04's tri-predicate (bound ⇔ E < 1 ∧ three real roots ∧ middle root > 2M; escape ⇔ E ≥ 1 ∧ three real roots; plunge otherwise) is complete and freeze-ready for b-plunge-tubes; ee08 folds both failure families into one root-distance rule in u-space on roots darwin16 already factors, and d617 prices the domain guard (μ ≥ 0.3 plus a drift counter, ≈0.01 compiles/kick, residents only). Would change: deletes the plane's NoBoundOrbit refusals (4978) and guards the exact path's fate flips.
 3. **Inspiral by Peters' generator, not kicks** (law.md:36; 4c5b: handoff = separatrix, re-key wall, 1PN flux contract measured; its circ_L √a artifact was corrected by the checker). Would change: deletes the GW channel's per-kick work.
 4. **If a carry is ever reopened:** it must carry the (E,L) sensitivities (b33f) and the period derivatives ∂Δt/∂E, ∂Δt/∂L per band (fa08: without them it dies at kick 1–4), trigger on offset × window age, not offset alone (b242, ungraded), and face B12/B13/B17 and the lifecycle pin on the same build that holds drift (b33f; 2c68).
@@ -47,6 +103,7 @@ updated: 20261013-0236-fermi-061f
 - **Drift floor versus behaviour gates on the same mechanism.** A frozen-tube carry holds 10⁻⁶ for a median 34–790 kicks on real plane bodies (2c68, silver; on the intended bodies its checker measures medians 72/314/705, stable across seeds — the dossier's 34–790 range mixes in mislabeled rows), while the wired carry fails B13 and the lifecycle invariant (b33f, gold). The ungraded second author (b242, no check.md) sides with b33f: 2c68's "bounded by construction" was a shadow-reset artifact — a rebind anchors to the carried state, not the truth, so the error compounds across rebinds (3.1×10⁻⁴ at 3000 kicks on held-out seeds). Unresolved only in grade: b242 has no checker; one behave-suite run on a derivative-carrying build decides it.
 - **The belt-domain derivative jet.** 8306 (gold first check, silver second; standing silver) holds 10⁻⁶ at 0.0065 compiles/kick with per-anchor C at belt sizes; b18f refuted only the derivative-free carry, and no run has faced a derivative-carrying build against the behaviour gates. Unconfirmed, not refuted; the retirement sets the default to exact recompile either way.
 - **The design doc lags the law.** representation.md line 67 still states "a cycle's derivatives are stored with it, so a kick updates the cycle by a multiply-add"; law.md:36 retired the jet on 12 October. The wiki records it; fixing the doc is the integrator's.
+- **061f's "~900 i128-division-equivalents own the interior" versus c914's measured split** (divisions 20–35%, and only 42–56% together with cos and isqrt): resolved by measurement, not contradiction — 061f's was a count-based inference; the division count is right, the attribution of the rest of the wall was incomplete (the cos polynomial alone matches or exceeds the divisions depending on method).
 
 ## Runs
 - 20261006-0346-redteam-df81 (gold, one checker): multiply-add error C·drift² unbounded; inspirals need Peters' generator; re-anchor rule proposed.
@@ -96,3 +153,5 @@ updated: 20261013-0236-fermi-061f
 - 20261008-1613-redteam-7922 (silver): the recompile horizon shrinks as (1−e)^(2/3); 25 kicks at e 0.99 versus 342 at e 0.5; gold first check, silver second.
 - 20261013-0236-fermi-061f (pending): the interior closed by elimination — 9 allocs/kick at 0.3%, bump within noise, digests identical; i128 division 30.9 ns; the lever is panel/division count.
 - 20261013-0037-components-009b (pending): the word-transition double compile measured (5–6% of binds, 14.5–18.2% of bind time) and deleted digest-identically; bind −12.9 to −17.5%.
+- 20261013-0350-components-c914 (this run, awaiting grade): the division half measured dead — divq 1.04×, exact Newton reciprocal 1.05×; divisions 20–35% of the compile, all three named ingredients 42–56%; open direction 1 bounded at ~1.4×.
+- 20261013-0350-scout-7d2b (this run, awaiting grade): reciprocal division killed (repeat fraction 0.019, cold 40.4 > libcall 23.6 ns); division only 29% of the node — isqrt 30%, cos 24%.
