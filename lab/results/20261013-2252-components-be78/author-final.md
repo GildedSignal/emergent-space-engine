@@ -1,0 +1,9 @@
+The hand-ouAll deliverables are in place and verified. Final summary:
+
+**Claim (one sentence):** The hand-out's fit-again retry — 40–62% of promotions compiling their member's tube twice because the state arrives at a word its own orbit outgrows — is deleted by deriving the integer word from the state's turning key *before* the bind (`fit_key` is closed-form; the word was always derivable, PRINCIPLES #3), giving one compile where 1.4–1.6 ran: digests bit-identical on all seven bench scenes plus the plain no-`prof` build, main-thread retries 3,200→0 at m8000, the hand-out 538→360 µs calls-weighted (−29…−46% per scene), with no map and no standing bytes — which also obsoletes quant-7055's memo, whose entire catchment was these retries.
+
+Supporting facts for the checker:
+- **Structural identity, not sampled**: the pre-shifted bind is bit-for-bit the shipped retry's second bind (same shift, same state); predicted word = `word_for(entry)` by construction for Cycle/Passage since `from_state` compiles from the same key; Plunge is only reachable when `fit_key` refuses, where the probe defers to the shipped path; any error falls back verbatim. The one hole (compile errors at the state's word but succeeds coarser) never fired in ~9,400 hand-outs.
+- **Honest misses**: predictions P3 (retry share 40–62% vs the 52–63% band), P4's low tail (−16% at seed 5 on the author pass), P6 wrong for this box (m400/rtf100 collapses here and hands out 381 members); P5 refined by the off/off2 wobble control — run-path counters move between two *shipped* runs as much as between arms in the collapse regime, digests never move.
+- **Verification**: `regen.sh` reproduced end-to-end (3.4 min warm); `cargo test --release -p emergent-universe` green (70/0/2) with the probe unset.
+- Run folder: `predictions.md` (pre-registered), `dossier.md`, `regen.sh`, `compare.py`, `wiki/frame-cost.md` (fold-in), `author-final.md`.
