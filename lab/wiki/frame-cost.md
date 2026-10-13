@@ -2,11 +2,56 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261013-1428-system-2964
+updated: 20261013-1915-fermi-367f
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
+
+**The ladder's first wall is the compact fleet frame's own leak, an order below the walk
+tier: it hands out members superlinearly and every hand-out is a sticky promotion
+(20261013-1915-fermi-367f; decomposition corrected by its checker).** Measured on the plane scene itself (probe patch:
+the `--members` clamp lifted, RSS and the 24 `prof` counters added to `universe --bench`;
+seed-deterministic inputs, shared-box timings). At flying pace (rtf 100) the plane holds
+400 members (engine p50 2.2 ms of the 5 ms budget) and collapses at 1,500 (449/480
+overflow, seed 3 reproduces): the binding term is the event stream ∝ N — ~0.041
+events/member/game-s in the battle regime, kicks 182–231 µs and handouts 486–585 µs
+each. At rtf 1 (the battle fully resolved) the *compact* side breaks instead: the fleet's
+leak rate is 0 at 400 members, 1.9×10⁻² at 1,500, 6.8×10⁻² per member per game-s
+at 4,000 (∝ N^~1.3 over the two sampled rungs 1,500–4,000, softening to ≈N^0.7 by 8,000
+members — 0.107 per member per game-s, checker; a 10⁵-member frame empties in
+game-seconds, not the game-milliseconds first claimed), and even rtf 1 collapses at 4,000
+members (engine p50 pinned at the budget, worst CPU frame 62 ms). **The frame's own
+advance is not a second wall (checker):** the engine's `fleet` kind item — 14 → 51 → 362 →
+4,311 µs, first read as advance ≈ N^1.9 — includes the hand-outs by construction
+(`universe.rs`: "a hand-out was inside its item"), and the advance prof counter alone is
+10 → 104 → 131 → 317 → 466 µs per frame from 48 to 8,000 members ≈ **N^0.6–0.8**, i.e.
+~0.1–0.3 µs per member, walk-tier class, not quadratic and not independent of the live
+side. The walk tier measured
+on these same runs is cheap and late: rekey 0.10–0.15 µs/body/frame (~5×10⁴ live bodies
+to the 5 ms budget) and peak RSS 80 MB at 4,000 members — an order behind. **The
+promotion, as shipped** (`resolve_handout`, the only wired compact→live path): 486–585 µs
+flat in N (bind 355–421 µs with the coarser re-fit on 52–63% of handouts, replan
+100–160 µs; 2.2 kicks, dearer than the player item) and 8,257 B marginal standing bytes,
+**sticky — no demotion path exists**; ~3,000× the 22-bit compact member, ~145× the
+56.8 B packed live floor. Construction RSS is flat (4.7–6.2 MB for 48–4,000 members:
+the compact member is ~0–1 kB, lost in the process floor). The 10⁹ identity on these
+slopes: in the quiet belt regime (3.6×10⁻⁵ events/body/game-s) the kick cost, not the
+promotion, is the CPU wall (~8.3 cores at 231 µs), but sticky promotion grows with any
+nonzero promotion mix — ~15 MB/game-s at the *assumed* 5% mix (the only measured mix,
+the battle at 4,000/rtf 1, is 67% hand-outs: 2,163 hand-outs against 1,058 kicks) — so the
+smallest promotion must be **ephemeral (demote at commit), shared-shape, census-gated**,
+not cheaper; the battle density
+(0.041 events/member/game-s at the 48-member smoke rung, falling ~6× by 4,000) is a local pocket no 10⁹ can live in. The
+probe patch drops the bench report's `digest` field (the settle still runs).
+
+**Checker's domain extension (same run):** members 800 (rtf 100: median rtf 9.8, fully
+collapsed — the collapse window's lower edge sits at or below 400 on the checker's box,
+where the 400 rung itself medians 77 with 252/480 overflow), members 8,000 (rtf 1:
+240/240 overflow, leak 0.107/member/game-s, hand-out still flat at 507 µs, marginal bytes
+per promoted body rising to ~11 kB), and seed 7 (rtf 1, 1,500: leak 1.6×10⁻², hand-out
+604 µs — consistent). The corrected break order: the leak×promotion stream alone breaks
+the plane at ~10³ members; the frame's own advance and the walk tier are both behind it.
 
 
 **The cadence's two halves are now both priced, and neither is what the waterfall pays for: the
@@ -264,7 +309,7 @@ deterministic); not tested there: other input patterns, the M1. The lazy
 tier's digest identity is tested on plane scenes and quiet tubes to 4×10⁵ (checker), a tie storm
 and a 25×-wander player; under sustained starvation (3-event budgets, 200/200 overflow) it holds
 at seed 11 threads 1 and fails on seeds 2/5/9 and threads 4 (checker,
-20261013-0037-second-…-8b43); not tested: checkpoints, the M1. The waterfall decomposition
+20261013-0037-second-…-8b43); not tested: checkpoints, the M1. The ladder probe (20261013-1915-fermi-367f) adds the plane scene itself at members 48–4,000 (checker: 800 and 8,000, seed 7), seeds 1 and 3, rtf 1 and 100, flights 4–8 s; not tested there: sparser battle geometry (the 400-member xtask clamp is lifted only by the probe patch), the M1, and the demotion half of promotion (no shipped path). The waterfall decomposition
 (20261013-0037-system-174d, 20261013-0236-second-20261013-0037-system-174d-0f2a) covers seeds 1, 3 and 7, one scene, 48 members,
 forward/brake/turn patterns at levels 8–15, flights 2–8 s (16 s, rtf 20 and a reverse-L15 brake,
 checker2) including the plunge approach (r to
@@ -439,3 +484,4 @@ other scenes, the M1.
 - 20261013-0037-system-174d (silver): the waterfall decomposed — all burst items are the player's burn-cadence chain; tide/burn ≤ 1.3×10⁻⁹; delete by carrying the burn, don't spread.
 - 20261013-0236-second-20261013-0037-system-174d-0f2a: the law's own cadence re-prices the tide counterfactual — ~0–24 events against 377–1,085 burst kicks at every level incl. paced L15 8 s; the fixed-granularity inversion was the divisor's artifact; lever adoptable.
 - 20261013-1428-system-2964 (this run): the cadence's two edges priced — deletion collapses events 19–204× and the lag to 0.038 s but breaks at the velocity word (prograde burns lost, refusals, envelope to 4.2e-2 c; retrograde lands ~7% low); 16× refinement keeps the stutter and shows the shipped arm ~1% off its own fine limit; the carry's contract measured.
+- 20261013-1915-fermi-367f (silver, checker-corrected): the plane's first N-wall is the fleet frame's leak into sticky promotions (~0.5 ms, ~8.3 kB each, no demotion); the frame's own advance is only ≈N^0.6–0.8 (the N^1.9 "fleet item" includes the hand-outs).

@@ -2,12 +2,32 @@ topic: high-gamma-clock
 status: open
 closed-by:
 valid-while:
-updated: 20261013-1428-second-20261013-1145-dynamics-0e79-8574
+updated: 20261013-1915-dynamics-3f63
 
 # The ship at high γ: its clock, its energy, the wall after the exact-in-E merge
 
 ## Current best
-
+- **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07
+  near the surface and κ ≈ 2.72 + 1.71·(r/R − 1) across the sweep (20261013-1915-dynamics-3f63).** The
+  page's named r-only sweep, flown on the shipped tree (circular starts, fixed prograde nose, the
+  reverse key held from tick 0, exact integer settles to 2³⁵): 7 levels bisected in r to 1%
+  (r\* = 2.834/2.113/1.624/1.304/1.125/1.041/1.013 R for L0–L6), plus 4 held-out arms. Λ =
+  thrust/local-weight spans **2.23 → 18.20 (×8.2)** over the same sweep — decisively not the
+  ruler (measured where 8574 had inferred it). The tangent geometry (a from-rest ship under
+  horizontal thrust a and gravity g misses the planet iff a/g > R/√(r²−R²): the resultant ray must
+  clear the disk) sets the *form*; the prefactor κ > 1 carries the brake's own residual descent
+  (the from-rest tangent is the wrong vertex — a braked ship enters the fall already moving down),
+  and that residual grows with the walk length: κ plateaus at 2.85 ± 0.07 for boundaries within
+  13% of the surface (L4–L6) and rises with d ln κ/d ln r ≈ +0.77. The pre-registered constant-κ
+  (3.5, from this page's own D-row band) was **falsified by the held-out arm (2.50R, L0): crash**;
+  the drifting curve answers all 4 held-out arms. The curve also sits inside all three of 8574's
+  tracking-nose raised-apoapsis brackets (κ 3.48/3.86/4.82 at 1.445/1.665/2.228R) — one ruler,
+  both nose laws, at the page's resolution. Anchors at 1.099R reproduce the D row exactly (crash
+  L0–L4, alive L5+, coast control clean, determinism to the digit). What it buys: a one-line
+  brake-margin certificate for the HUD (open direction 1's missing number). What it cannot
+  decide: at circular starts Ψ = τ_brake·ω = 1/Λ identically, so the sweep pins the r-dependence,
+  not whether the thrust races weight or centrifugal deficit — the v₀-separated flights (hyperbolic
+  arrivals at speed) remain the discriminator.
 - **The held brake's crash basin is real, Λ-ordered at the low orbit only, and beyond the reach
   of attitude control — and the 1145 record now regenerates in full
   (20261013-1428-second-20261013-1145-dynamics-0e79-8574).** The second checker's one
@@ -209,11 +229,13 @@ updated: 20261013-1428-second-20261013-1145-dynamics-0e79-8574
    an outcome (X8.3's lesson). The `range`/turn defect list now has four entries: turn-key
    deaths at escape speed (135°/180°), A-L2's braking-phase Range loss, the jagged fit
    boundary, and the turn tier's 2⁻³⁰ rate being ~6× too slow to follow a terminal fall.
-2. **The crash basin's true ruler:** Λ fails across r, level fails across r — the margin race
-   (periapsis walk vs braking time; start radius and v₀) is the standing mechanism but is not
-   yet a dimensionless number with a measured threshold. The r-only sweep (circular starts at
-   chosen radii — a scenario change) and hyperbolic arrivals at speed are the flights that
-   would name it. L5's graze (1.014 R at γ 1.002) remains the separatrix specimen at 1.099R.
+2. **The crash basin's ruler (measured, one check from adoption):** Λ\* = κ(r)·R/√(r²−R²), κ =
+   2.85 ± 0.07 near the surface, κ ≈ 2.72 + 1.71·(r/R − 1) across r/R 1.01–2.83 (3f63; held-out
+   4/4, cross-nose within 8574's brackets). Remaining: the v₀-separated sweep (hyperbolic arrivals
+   at speed — circular starts cannot break the Λ↔Ψ degeneracy), the boundary's cleanliness finer
+   than 1% in r, a 2³⁷ horizon (a later-than-169k-s crash would read ALIVE), and the plane's own
+   world (this sweep's minimal Home validated only through the D row). L5's graze (1.014 R at
+   γ 1.002) remains the separatrix specimen at 1.099R.
 3. **The far-field fit path**: build the key from invariants (or carry the fit's intermediates
    wider) where the state→key cancellation bites; a checker should re-derive L from the flight's
    own tube words first. Now owns the four named defects above (the turn tier's rate included).
@@ -244,3 +266,4 @@ updated: 20261013-1428-second-20261013-1145-dynamics-0e79-8574
 - 20261013-1145-dynamics-0e79 (this run): no γ pump threshold on the prograde nose (γ_min ≤ 1.0005 at every crossing, ruler η₀·sinθ); from-orbit held brake crash basin ordered by Λ, boundary Λ* ∈ (6.8, 13.6); turn-key Range deaths and 13k refusal storms named.
 - 20261013-1145-dynamics-0e79 (silver, twice-checked gold/silver): no γ pump threshold on the
 - 20261013-1428-second-20261013-1145-dynamics-0e79-8574 (this run): the record regenerates
+- 20261013-1915-dynamics-3f63 (this run): the crash basin's ruler measured on 7 bisected radii — Λ dead (×8.2), tangent family with κ drifting 2.85→5.9; held-out falsifies constant κ.
