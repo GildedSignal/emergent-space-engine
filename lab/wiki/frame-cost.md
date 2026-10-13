@@ -2,17 +2,67 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261013-0037-second-20261012-2257-spacex-5eb6-8b43
-=======
-updated: 20261013-0037-system-174d
->>>>>>> 20261013-0037-system-174d
+updated: 20261013-0236-second-20261013-0037-system-174d-0f2a
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
 
-<<<<<<< main
+**The burn-input waterfall is the velocity word's sampling of an exactly-solvable burn, not a replan
+storm and not field work — so the burst can be deleted, not spread (20261013-0037-system-174d).**
+Decomposed on shipped code (env-gated probe, counters only; demand-mode worst frames reproduce the
+published 42/579/1,036 at L8/L12/L15 digit for digit): every burst item is the player's own
+Kick(0)+Boundary pair (opens 0, one decide per input; there is no refit of scheduled kicks — quant-32ab's
+standing guess for the mechanism is wrong); the chain's step is the law's thrust step
+`2^⌊log2(β·2⁻⁶/α)⌋` (α = 2^(thrust_log2+level), thrust_log2 = −44; 2,283/2,293 kicks match exactly, the
+rest are `aligned()`/MIN_STEP remainders) — one rebind per 1/64 of |v|; and each event's gravity content
+is tide/burn = 2.6×10⁻¹²…1.3×10⁻⁹ (median 2.8×10⁻¹¹) over all 2,293 burst kicks (demand, seed 1; at
+seed 7 the L8 max reaches 7.6×10⁻⁹ — 10⁸–10¹⁰ across seeds, checker), all 906 L15-demand
+kicks below 2⁻³⁰. The counterfactual, completed at the law's own regime-scaled cadence
+(`step_for` before the thrust clamp, recorded per kick by the second author's probe): the tide
+behind a held burn costs **~0–24 events where the burst costs 377–1,085 kicks (45–377×)** — L8 6,
+L12 23, L15 24, brake 5, turn-then-burn 1 (paced 8 s, seeds 1 and 7 agreeing to 3 digits; demand 4 s
+within 3×) — set by the dive the burn produces, not by the throttle level (20261013-0236-second-20261013-0037-system-174d-0f2a).
+Checker2: duration co-sets it away from the dive — at 16 s L8 grows 6→24 and brake 5→19 while L12/L15
+stay 23/24 (reverse L15: 2,219 kicks → 23 events, 96×; seed 3 and rtf 20 agree, L15 = 24
+pace-invariant) — the 0–24 envelope holds through the next decade of flight duration.
+The fixed-granularity carry (the coast's 4.98×10⁸ quanta/event applied to the plunge) mints 31,286 at
+paced L15 8 s — an artifact of the fixed divisor, not of the lever: on the dive (r → 9.4×10⁷, β →
+0.231) the burned conic becomes an escape passage, the law's cadence **coarsens** to ~2³² ticks, and
+the 149 deep kicks carrying 100% of the tide sum (1.56×10¹³ quanta) contribute 0.02 of the 24 law
+events. The per-event tide budget the law itself scales through the dive: ~1.25×10⁸ at coast radii,
+up to ~1.5×10¹³ per window at the plunge (20261013-0236-second-20261013-0037-system-174d-0f2a); the honest tide/burn range is median 10⁻¹⁰…10⁻¹²
+with a plunge tail to 1.5×10⁻⁴.
+The lever for the sweep's fix: carry the held burn in the tube's generator (the representation already
+holds all three pieces — `rec.b.kick`'s ramp for readers, `thrust::owed` exact in rapidity, `rec.carry`
+for the tide), with events only when the tide's carry crosses its quantum or the keys change; spreading
+the waterfall (HANDOFF item 3's shape) buys smoothness while paying the same empty work. The exception the first run named (the
+plunge-adjacent strong-tide kicks) is where the law's own cadence is coarsest, not finest — the
+field does not want the burn's fine sampling there (20261013-0236-second-20261013-0037-system-174d-0f2a).**
+
+**The fixed tier is deleted outside sustained starvation; inside it the fleet cap breaks canon
+(checker).** The missing experiment of open direction 1 is built: due-ness served from a tick-keyed
+calendar (one peek; the drain that set aside every non-due entity is gone), the `rekey` sweep gated
+on the player's displacement since the last sweep (`wander ≥ want/64`, so between sweeps every
+stored deadline is within `wander` light-ticks of its truth, and the overflow horizon takes that
+slack off), and `settle` draining by the same tick-due-ness (20261012-2257-spacex-5eb6). Measured on
+the probe's quiet populations (200 frames, rtf 100): median 1.34–1.49 µs **flat in n** from 428 to
+2×10⁵ bodies against legacy 16.45 µs → 14.7 ms (~73 ns/body) — 11× at 428, 10,872× at 2×10⁵; the
+amortized sweep is the p99 (5.1 ms at 2×10⁵, 2 sweeps in 200 frames); full rekeys on the same
+flights drop from 1,719–80,005 to 1–219. Checker-reproduced and extended: flat at 4×10⁵ (22,000×),
+a same-tick tie storm, and a player at ~2×10⁻³ c (25× the wander rate: rekeys 2→33, lazy median
+4.2 µs) — digests bit-identical across both arms on all 15 schedules and every checker case
+**except sustained starvation**: under a 3-event budget at 5×10⁶ rtf (200/200 overflow frames) the
+shipped gate `work_per_frame_is_bounded_and_overflow_is_a_dip_not_a_hitch` fails deterministically
+on the patched tree and passes on base — the budgeted fleet commits to cut+128 ticks while the
+settled fleet stops at the cut, and the run's own `starve` probe prints three digests at one cut
+(e7472f50… / 314b1bbc… / 94096d75…). Tick-due order lets the fleet resolve early in the frame and
+commit past the presented time; the shipped deadline order was the regulator that prevented it.
+The dossier's "the universe suite passes" is wrong: regen.sh runs the clock tests unskipped (17 s on
+the checker's machine), and plane.rs fails. The trap's fix in the patch is park-and-retry
+(`cap ≤ tick` parks the fleet for the pass; `resolve_fleet` only runs at `cap > tick`), not the
+`cap.max(tick + 1)` the dossier names (20261012-2257-spacex-5eb6, checker).
+
 **The fixed tier is deleted outside sustained starvation; the second author's starvation fix holds on the gate's own scene and not beyond it (checker), so it is not yet merge-ready.** Due-ness
 is read from a tick-keyed calendar (one peek; the quiet frame never walks a queue), the `rekey`
 sweep is gated on the player's displacement (`wander ≥ want/64`; between sweeps every stored
@@ -46,54 +96,6 @@ fastest bindable player (~2×10⁻³ c) and the replay schedule; the universe su
 clock flights). Residue named: in deadline order a body's `event_time` may exceed the cut by
 ≤ slack + 1 in principle; measured zero here (the gate's digests agree bit-exactly), unbounded
 nowhere — the next builder bounds it or the merge review does.
-=======
-**The burn-input waterfall is the velocity word's sampling of an exactly-solvable burn, not a replan
-storm and not field work — so the burst can be deleted, not spread (20261013-0037-system-174d).**
-Decomposed on shipped code (env-gated probe, counters only; demand-mode worst frames reproduce the
-published 42/579/1,036 at L8/L12/L15 digit for digit): every burst item is the player's own
-Kick(0)+Boundary pair (opens 0, one decide per input; there is no refit of scheduled kicks — quant-32ab's
-standing guess for the mechanism is wrong); the chain's step is the law's thrust step
-`2^⌊log2(β·2⁻⁶/α)⌋` (α = 2^(thrust_log2+level), thrust_log2 = −44; 2,283/2,293 kicks match exactly, the
-rest are `aligned()`/MIN_STEP remainders) — one rebind per 1/64 of |v|; and each event's gravity content
-is tide/burn = 2.6×10⁻¹²…1.3×10⁻⁹ (median 2.8×10⁻¹¹) over all 2,293 burst kicks (demand, seed 1; at
-seed 7 the L8 max reaches 7.6×10⁻⁹ — 10⁸–10¹⁰ across seeds, checker), all 906 L15-demand
-kicks below 2⁻³⁰. The counterfactual: the same flights' tide, accumulated at the coast cadence (the
-clock step 2²², 256× coarser than the L8 thrust step), mints ~0–2 events against 226–906 burn events
-in demand mode and at L8–L12 paced — but at paced L15 late flight the same fixed-granularity carry
-mints ~2.6–3.1×10⁴ events against ~10³ burst items (the run's own log: 26,413; checker: 28,448 at
-seed 7, 31,284 over 8 s — the 44–147 plunge kicks carry ~5–7×10¹¹ quanta each, 100% of the tide sum),
-so near the plunge the deletion's win depends on a tide cadence regime-scaled to what today's kicks
-already deliver there, which this run does not derive.
-The lever for the sweep's fix: carry the held burn in the tube's generator (the representation already
-holds all three pieces — `rec.b.kick`'s ramp for readers, `thrust::owed` exact in rapidity, `rec.carry`
-for the tide), with events only when the tide's carry crosses its quantum or the keys change; spreading
-the waterfall (HANDOFF item 3's shape) buys smoothness while paying the same empty work. Exception the
-data names: 44–49 late-flight L15 kicks near the plunge (wall-clock variable) reach tide/burn ≥ 2⁻³⁰ —
-where the field genuinely wants its own cadence, and where the priced counterfactual inverts (above).
-
-**The fixed tier is deleted outside sustained starvation; inside it the fleet cap breaks canon
-(checker).** The missing experiment of open direction 1 is built: due-ness served from a tick-keyed
-calendar (one peek; the drain that set aside every non-due entity is gone), the `rekey` sweep gated
-on the player's displacement since the last sweep (`wander ≥ want/64`, so between sweeps every
-stored deadline is within `wander` light-ticks of its truth, and the overflow horizon takes that
-slack off), and `settle` draining by the same tick-due-ness (20261012-2257-spacex-5eb6). Measured on
-the probe's quiet populations (200 frames, rtf 100): median 1.34–1.49 µs **flat in n** from 428 to
-2×10⁵ bodies against legacy 16.45 µs → 14.7 ms (~73 ns/body) — 11× at 428, 10,872× at 2×10⁵; the
-amortized sweep is the p99 (5.1 ms at 2×10⁵, 2 sweeps in 200 frames); full rekeys on the same
-flights drop from 1,719–80,005 to 1–219. Checker-reproduced and extended: flat at 4×10⁵ (22,000×),
-a same-tick tie storm, and a player at ~2×10⁻³ c (25× the wander rate: rekeys 2→33, lazy median
-4.2 µs) — digests bit-identical across both arms on all 15 schedules and every checker case
-**except sustained starvation**: under a 3-event budget at 5×10⁶ rtf (200/200 overflow frames) the
-shipped gate `work_per_frame_is_bounded_and_overflow_is_a_dip_not_a_hitch` fails deterministically
-on the patched tree and passes on base — the budgeted fleet commits to cut+128 ticks while the
-settled fleet stops at the cut, and the run's own `starve` probe prints three digests at one cut
-(e7472f50… / 314b1bbc… / 94096d75…). Tick-due order lets the fleet resolve early in the frame and
-commit past the presented time; the shipped deadline order was the regulator that prevented it.
-The dossier's "the universe suite passes" is wrong: regen.sh runs the clock tests unskipped (17 s on
-the checker's machine), and plane.rs fails. The trap's fix in the patch is park-and-retry
-(`cap ≤ tick` parks the fleet for the pass; `resolve_fleet` only runs at `cap > tick`), not the
-`cap.max(tick + 1)` the dossier names (20261012-2257-spacex-5eb6, checker).
->>>>>>> 20261013-0037-system-174d
 
 **The zero-event fixed tier (the hidden tick), as shipped.** Shipped `Universe::advance` touches
 every body every frame whether or not anything is due: an unconditional `rekey` (one deadline
@@ -118,8 +120,6 @@ settle, never per frame (20261012-1019-quant-b29b). At plane scale (≈428 bodie
 small — 15 µs/frame, 99% rekey (20261011-1917-second-…-762d-119f) — so it is a scale wall, not a
 today wall.
 
-<<<<<<< main
-=======
 **The flight regime (the sweep's L8+ stutter): the burn-input replan waterfall, not the fixed
 tier.** On shipped code (clock fix in), the sweep's flights paced at the page's 12 ms budget jump
 from 0.038 s worst lag (L0–L6) to 1.43–1.66 s with 22–55 capped frames at L8–L15, and demand mode
@@ -144,10 +144,8 @@ sweep's burns start at wall second 1.0; the decay tail, 50–60 ms in demand, is
 clause can pass while the burn frames hitch — though F1's zero-lag clause still catches the
 stutter. Spreading the
 waterfall across frames is digest-safe by the schedule-independence gold (20261007-1234-system-2517)
-(20261012-2257-quant-32ab; the waterfall's mechanism and content are now measured — see this run's
-block above).
-
->>>>>>> 20261013-0037-system-174d
+(20261012-2257-quant-32ab; the waterfall's mechanism and content are now measured — see the
+waterfall block above).
 **The deadline heuristic is schedule-only, proven by divergence (20261012-2257-scout-64e4).** Three
 genuinely divergent rekey policies — shipped every-advance, never (frozen observer and deadlines),
 lazy-on-player-motion — end every probe with a bit-identical canonical digest (seeds 1/3, 48/400
@@ -229,25 +227,19 @@ fleets, belt tubes) up to ~2.6×10⁵ bodies, rtf 1–10⁴, orders of magnitude
 the xtask clamp first: unpatched `--members 1024` silently returns the 400-member digest
 (20261010-1920-quant-9464, 20261011-1729-second-…-07b8). The median *delivered* frame is
 view-bound, not engine-bound (gather 54–86% of frame CPU, engine ≤ 5–24%) — that half belongs to
-<<<<<<< main
-the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf31). The lazy
-tier's digest identity is tested on plane scenes and quiet tubes to 4×10⁵ (checker), a tie storm
-and a 25×-wander player; under sustained starvation (3-event budgets, 200/200 overflow) it holds
-at seed 11 threads 1 and fails on seeds 2/5/9 and threads 4 (checker,
-20261013-0037-second-…-8b43); not tested: checkpoints, the M1.
-=======
 the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf31). The flight
 regime (20261012-2257-quant-32ab) adds: one seed, one scene, forward holds, members 48 and 400;
 the burst frame's wall cost moved 0.38 s → 2.4 s across processes on the shared box (item counts
 deterministic); not tested there: other input patterns, the M1. The lazy
 tier's digest identity is tested on plane scenes and quiet tubes to 4×10⁵ (checker), a tie storm
-and a 25×-wander player; it **fails** under sustained starvation (3-event budgets, 200/200
-overflow) — the shipped plane gate breaks; not tested: checkpoints, the M1
-(20261012-2257-spacex-5eb6, checker). The waterfall decomposition (20261013-0037-system-174d) is
-one seed, one scene, 48 members, forward/brake/turn patterns at levels 8–15, 2–4 s flights; not
-tested: other seeds, 400 members (the scan rider is priced elsewhere), near-star burns beyond the
-flight's own plunge approach, the M1.
->>>>>>> 20261013-0037-system-174d
+and a 25×-wander player; under sustained starvation (3-event budgets, 200/200 overflow) it holds
+at seed 11 threads 1 and fails on seeds 2/5/9 and threads 4 (checker,
+20261013-0037-second-…-8b43); not tested: checkpoints, the M1. The waterfall decomposition
+(20261013-0037-system-174d, 20261013-0236-second-20261013-0037-system-174d-0f2a) covers seeds 1, 3 and 7, one scene, 48 members,
+forward/brake/turn patterns at levels 8–15, flights 2–8 s (16 s, rtf 20 and a reverse-L15 brake,
+checker2) including the plunge approach (r to
+9.4×10⁷, β 0.231) and demand mode; not tested: 400 members (the scan rider is priced elsewhere),
+other scenes, the M1.
 
 ## Refuted
 
@@ -255,10 +247,11 @@ flight's own plunge approach, the M1.
   exists: `decide` clears the plan and plans one kick; the burst is the player's own burn-cadence
   chain of Kick(0)+Boundary pairs (20261013-0037-system-174d, correcting 20261012-2257-quant-32ab's
   stated guess).
-- "The burst's events carry the field" — tide/burn ≤ 1.3×10⁻⁹ on all 2,293 measured burst kicks
-  (demand, seed 1); the counterfactual tide-carry cadence mints ~0–2 events for the same demand-mode
-  flights — but ~2.6–3.1×10⁴ at paced L15 late flight under the same fixed granularity (checker)
-  (20261013-0037-system-174d).
+- "The burst's events carry the field" — tide/burn median 10⁻¹⁰…10⁻¹² with a plunge tail to
+  1.5×10⁻⁴ over all measured burst kicks (both seeds, both modes); at the law's own cadence the
+  counterfactual tide-carry mints ~0–24 events for the same flights at every level, and the
+  fixed-granularity inversion at paced L15 (~2.6–3.1×10⁴ events) is the fixed divisor's artifact
+  (20261013-0037-system-174d; completed and re-priced by 20261013-0236-second-20261013-0037-system-174d-0f2a).
 - The deadline order as load-bearing for canon, outside starvation — tick order with (tick, id)
   ties gives byte-identical digests across 15 schedules, both arms and the checker's tie storm; the
   order is a schedule (20261012-2257-spacex-5eb6, confirming 20261008-0615-taleb-40c0 at the
@@ -299,7 +292,6 @@ flight's own plunge approach, the M1.
 
 ## Open directions
 
-<<<<<<< main
 1. **Close the starvation hole for real, then merge the deleted tier**: the second author's fix
    (deadline-ordered due pass, slack on the cap with a proximity park, rekey at the pull and at a
    park-induced stall) passes the plane gate, `starve` prints one digest across three arms and the
@@ -311,39 +303,27 @@ flight's own plunge approach, the M1.
    residue (a body's `event_time` may exceed a cut by ≤ slack + 1 in principle; measured zero). The
    merge cost to know: with-work frames now pay the shipped deadline walk (the
    quiet frame still peeks once), and fleet scenarios pay a sweep per stale pull.
-=======
-1. **Close the starvation hole, then merge the deleted tier**: the construction holds everywhere
-   except a starving budget, where the fleet commits past the presented time (plane gate fails,
-   checker). The named experiment: cap the fleet's commit by the frame's overflow horizon (or serve
-   fleet entities in deadline order inside the tick loop) so the budgeted and settled universes
-   agree at one cut — `starve` must print one digest. Then adopt 20261012-2257-spacex-5eb6's patch
-   (tick calendar + lazy rekey + parked fleets; ~120 lines, `ES_EAGER=1` keeps the legacy arm for
-   A/B), delete the legacy arm and `debug_queues` on merge, and re-run the behave suite on the M1.
->>>>>>> 20261013-0037-system-174d
    What remains after it: the amortized sweep is still Θ(N) when it fires (p99 5.1 ms at 2×10⁵) —
    the bucket wheel (2.1–4.4×/event, 20261007-2246-components-4955) and the dyadic wheel + skin
    (7–20× at 10⁶–3×10⁶, 20261007-2344-quant-4211) are the measured next rungs for it. Unblocks any
    doll holding ≥10⁴ ships and decides whether the belt may join the root queue as entities (it
    must not, 20261012-1019-quant-b29b).
-<<<<<<< main
-2. **The kick as an addition** (10²–10³× per kick): keep additive integer invariants between kicks
-=======
-2. **Carry the burn in the tube's generator, deleting the waterfall (not spreading it)**: the burst
-   is 10⁹–10¹⁰ parts burn to one part tide (20261013-0037-system-174d), the burn is exact in
+2. **Carry the burn in the tube's generator, deleting the waterfall (not spreading it)** — the
+   pricing is now complete at every level: the tide behind a held burn costs ~0–24 law-cadence
+   events against 377–1,085 burst kicks (45–377×; paced 8 s, both seeds, demand within 3×), with
+   the plunge's whole tide riding ~zero of the law's own events (20261013-0236-second-20261013-0037-system-174d-0f2a). The burst is 10¹⁰–10¹²
+   parts burn to one part tide at the median (20261013-0037-system-174d), the burn is exact in
    rapidity (`thrust::owed`), the binding already holds a kick ramp for readers (`rec.b.kick`), and
    the law already carries sub-quantum tide dv (`rec.carry`) — so a held burn can ride the tube as
-   an unending ramp with events only when the tide's carry crosses its quantum or the keys change
-   (~0–10 events per burst against 226–1,036 at L8–L12 and in demand mode; at paced L15 near the
-   plunge the same fixed-granularity carry mints ~2.6–3.1×10⁴ — the tide's per-event budget there
-   must be regime-scaled to what today's kicks already deliver, ~5×10¹¹ quanta, checker). This is
-   the kick-jet retirement applied to the one
-   influence that is exactly solvable; the word-margin the thrust step protects must survive at
-   readout, and the plunge-adjacent strong-tide kicks (44–49 at L15 late-flight, wall-clock
-   variable) must keep the field's own cadence. Spreading the waterfall across frames (digest-safe,
+   an unending ramp with events only when the tide's carry crosses its quantum or the keys change.
+   This is the kick-jet retirement applied to the one influence that is exactly solvable. What
+   adoption must still answer: the word-margin the thrust step protects must survive at readout,
+   and the near-periapsis tide window (up to ~10¹³ quanta of tide in one law event — the shipped
+   law's own operating point for a coasting body on the same escape conic) must be bounded against
+   the B-series gates; the read side (a ramp read every frame per viewer) is direction 3's standing
+   counterweight. Spreading the waterfall across frames (digest-safe,
    20261012-2257-quant-32ab) remains the scheduling-only fallback; it pays the same empty work.
-3. **The kick as an addition** (10²–10³× per kick): keep additive integer invariants between kicks
->>>>>>> 20261013-0037-system-174d
-   (`ΔL = x×Δv`, `ΔE = v·Δv + |Δv|²/2`, carries as today); fit the tube once per *read* (plan
+3. **The kick as an addition**   (`ΔL = x×Δv`, `ΔE = v·Δv + |Δv|²/2`, carries as today); fit the tube once per *read* (plan
    tick, certificate, view gather) instead of once per kick — reads are per frame per visible
    body, kicks are 128 per radial period, and the fit stays exact so digests survive where the
    memo could not (20261011-1729-components-b063). Unmeasured: scenes where reads outnumber kicks
@@ -358,15 +338,7 @@ flight's own plunge approach, the M1.
    (20261011-1917-second-…-762d-119f).
 6. **Land the decision-tick quantization** (close the canon leak): two lines in
    `session.rs`/`kick_bench.rs`, already built and held on an ungraded branch — bring it through a
-<<<<<<< main
-  wall-grid fix shape validated on the shipped API by 20261012-2257-scout-64e4 — quantizing the
-  presented tick does not fix it).
-7. **Replace the player scan** (the frame's p99): the Binet cone over `PlayerNeighbourhood`'s exact
-   O(all-bodies) check (20261010-0656-quant-d540, 20261010-1920-spacex-cb3f,
-   20261011-0736-components-825f).
-8. **Hand-out cost at fleet scale**: 443 µs per hand-out, 12× a kick, plus deadline pinning
-=======
-   graded run (20261008-0615-taleb-40c0, 20261008-0743-second-…-a342; the leak reproduced and the
+     graded run (20261008-0615-taleb-40c0, 20261008-0743-second-…-a342; the leak reproduced and the
    wall-grid fix shape validated on the shipped API by 20261012-2257-scout-64e4 — quantizing the
    presented tick does not fix it).
 7. **Replace the player scan** (the frame's p99, and the flight's per-item cost): the Binet
@@ -376,7 +348,6 @@ flight's own plunge approach, the M1.
    resolve is only ~140–150 µs (20261012-2257-quant-32ab).
 8. **Hand-out cost at fleet scale**: 443 µs per hand-out, 12× a kick, plus deadline pinning
    (20261011-1102-quant-ba35).
->>>>>>> 20261013-0037-system-174d
 
 ## Contradictions
 
@@ -435,3 +406,5 @@ flight's own plunge approach, the M1.
 - 20261012-2257-quant-32ab (silver): the sweep's L8+ stutter is the burn-input player-item waterfall (1,036 items in the input frame at L15) on the O(N) scan, not the fixed tier (≈0% in flight); per-item cost flat in γ.
 - 20261012-2257-scout-64e4 (silver): rekey policy proven schedule-only (divergent schedules, identical digests); the digest break is presented-tick key logging; wall-grid fix holds.
 - 20261013-0037-system-174d (this run): the waterfall decomposed — all burst items are the player's burn-cadence chain; tide/burn ≤ 1.3×10⁻⁹; delete by carrying the burn, don't spread.
+- 20261013-0037-system-174d (silver): the waterfall decomposed — all burst items are the player's burn-cadence chain; tide/burn ≤ 1.3×10⁻⁹; delete by carrying the burn, don't spread.
+- 20261013-0236-second-20261013-0037-system-174d-0f2a: the law's own cadence re-prices the tide counterfactual — ~0–24 events against 377–1,085 burst kicks at every level incl. paced L15 8 s; the fixed-granularity inversion was the divisor's artifact; lever adoptable.
