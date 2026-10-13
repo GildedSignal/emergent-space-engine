@@ -1,0 +1,31 @@
+Grade: gold
+
+Abstract: The named experiment is done and holds. An honest Carlson kernel (RF/RC/RD/RJ paper-verbatim, r=10⁻¹⁵ stop rules, black_box) delivers the walk's three increments as a drop-in: ≤7.6×10⁻¹⁰ vs shipped compile on all 29 strong keys, kernel-vs-truth at the f64 floor. I reproduced every physics column bit-identically and arbitrated with mpmath at 50 dps (independent of the author's DE): the closed-form algebra is exact (≤1.5×10⁻⁴³ vs quadrature of node()'s own integrands, all keys), the kernel hits 10⁻¹⁷–10⁻¹⁶ mid-range. Honest walls: φ 129 ns, all-three 2.9 µs vs 307 µs compile (42–2378×, 3.5–106×). My attacks one decade past every swept dimension strengthen it: at e=0.9999999 the walk is 1.6×10⁻⁷ off while the kernel holds 3.3×10⁻¹¹. Adopt: a law change with recertification (incomplete forms for the readout, integer port).
+
+## Reasons
+
+**Reproduction.** `regen.sh` exit 0; every physics column of `probe-out.txt` bit-identical to the runner's regenerated copy (rel_*, truth_*, shipped values, iterations, spread ratio 0.2500 exactly at n=4.15×10⁷, X ≤ 3.34×10⁻³ ≤ (3r)^{1/6} = 3.80×10⁻³). Walls match within shared-box noise (φ 133 vs 129 ns). All dossier numbers trace to the output: gains φ 42× (5.4 µs/129 ns) → 2378× (306.7/0.129), all-three 3.5× → 106×; weak rows 4.29–4.48×10⁻⁶; refusal boundary coincident (p2² e0.5 → NoBoundOrbit ⟺ A ≤ 0); m→1 ladder 6.70×10⁻⁷ at P=3×10⁻⁹ reproduced.
+
+**Predictions.** `predictions.md` predates the patch, dossier and probe (file times; the pre-run debug and its findings disclosed in Instrument). Physics predictions 1–7, 9, 10 all held; #8 partially (τ/t walls over the predicted ceilings on the two most extreme rows only: 1.39 vs 0.9 µs, 2.9 vs 2.5 µs — disclosed, and the predicted gains held with margin: φ ≥2378× vs ≥450×, all-three 106× vs ≥75×). #4's truth columns (3.6×10⁻¹⁰ vs predicted <10⁻¹¹) are the DE truth's own f64 limit — confirmed by my arbitration below: the kernel side is ~2×10⁻¹² there, so the author's attribution was correct and the prediction right in substance.
+
+**Independent arbitration (mpmath 50 dps, no shared code with the Rust kernel or the author's DE).**
+- *Algebra:* the author's closed-form reduction (J₀ identity, Π(−β)/Π(n₃) combination, γ⁻¹ horizon factor, all prefactors), re-implemented with mpmath's ellipk/ellipe/ellippi, matches direct quadrature of the shipped `node()` integrands (orbit.rs:274–303) to ≤1.5×10⁻⁴³ on all 15 keys I tested, grid and adversarial. The algebra is exact, not merely "agrees to 10⁻¹⁰".
+- *Kernel:* Rust dumps at 17 digits vs mpmath (+ AGM identity for K, which matches mpmath exactly): K/E/Π/J₀ at 10⁻¹⁷–4×10⁻¹⁶ mid-range — the f64 floor claim confirmed; Π(−β) 8.2×10⁻¹⁴ → 1.1×10⁻¹² as β goes 2×10⁵ → 2×10⁷, i.e. the predicted K/Π amplification mechanism, one and two decades past the grid.
+
+**Adversarial cases (mine; each outside the author's grid).**
+1. *e-tail, next decades (e = 0.999999, 0.9999999 at p2¹⁰):* cf-vs-ship grows to 8.2×10⁻⁹ / 1.6×10⁻⁷ — but that is the **walk's** error (kernel-vs-truth 7.6×10⁻¹³ / 3.3×10⁻¹¹). The drop-in claim not only survives beyond the stated domain; the kernel's advantage grows there. Compile 362/420 µs, kernel walls 3.2/3.4 µs — gains grow to ~123× (all-three) at the next decade.
+2. *m→1 edge, next decade (P = 3×10⁻¹⁰, 10⁻¹⁰, 3×10⁻¹¹ at e 0.5; 3×10⁻¹⁰ at e 0.9):* walk error 9.9×10⁻⁷ → 3.6×10⁻⁶; the kernel's own error (17-digit dump vs 50-dps truth) grows 1.3×10⁻¹² (P=3×10⁻⁹) → 1.2×10⁻¹⁰ (P=3×10⁻¹¹) — still within the dossier's quoted ≤3.6×10⁻¹⁰ at the tested edge and ~3×10⁶× better than the walk at mine.
+3. *Mid-range grid hole (q=0.15, e=0.3; q=0.11, e=0.7):* strong branch, algebra exact, kernel at the floor, cf-vs-ship ≤4.7×10⁻¹⁰. The hole the author's grid left between q 0.075 and 0.2375 is filled.
+
+**Novelty.** The published kick-jet page holds, from the first run (21ba), "τ/t channels … cited only; my DE instrument failed its convergence check". This run builds the kernel from the paper, verifies and prices all three channels, and fixes the first run's tanh-sinh weight bug (sech² of the tanh value instead of the argument) — explaining the junk DE columns both earlier checkers saw. No Carlson entry in docs/HISTORY.md. Not a repetition: it is exactly the experiment the prior check named, delivered completely (normalized-deviation series ✓, spread ~10⁻³ stop at 5–6 duplications ✓, black_box ✓, φ/τ/t drop-in ✓, certified per-iteration law stated and measured ✓, readout fenced with storage prices ✓).
+
+**Page.** `wiki/kick-jet.md` folds the result in faithfully, including the fence ("with the table kept, panels remain and the increment win is not on the compile wall"). No overstatement found; no corrections made. Topic stays open (no three-gold agreement).
+
+**Goal fit.** The kick: 75–160 µs against a ~50 ns floor — this prices the record's last ≥10× lever on an instrument that cannot delete the work. PRINCIPLES #18: "we just need to have the right representation so that math is trivial" — three increments, three closed forms, O(1) in e; #1: "the cheapest compute is compute not done" — 704 node() evaluations per compile at e=0.999 share their sums with the increments the closed form replaces.
+
+## What the author missed
+
+- **The certificate's letter at the deepest edge.** The stop rule's r=10⁻¹⁵ is a series-truncation certificate under exact arithmetic; the measured kernel error at m→1 is f64 roundoff amplification, and it grows ~×100 per decade of P below 3×10⁻⁹ (1.3×10⁻¹² → 1.2×10⁻¹⁰). Harmless at every tested key, but "kernel stays ≤3.6×10⁻¹⁰" should not be read as extendable indefinitely toward m=1; the integer port will need its own edge analysis.
+- **"Agreement with the walk" inverts one decade past the grid:** at e ≥ 0.999999 the walk is the inaccurate side (to 1.6×10⁻⁷), so the adoption metric there is kernel-vs-truth, not drop-in agreement. The claim's framing survives only because the run scopes it to the grid.
+- The it_rf/it_rd/it_rj columns count R-*calls* per closed form, not duplications (6 calls vs 5–6 duplications coincide numerically and invite the misreading).
+- Still Schwarzschild-equatorial only; the Kerr quartic (same Carlson family) remains unverified at source — disclosed in the lens, worth keeping on the page's open list.

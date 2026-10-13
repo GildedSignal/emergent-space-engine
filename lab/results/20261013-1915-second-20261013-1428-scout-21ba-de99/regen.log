@@ -1,0 +1,56 @@
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+warning: field `2` is never read
+   --> crates/space/examples/elliptic_kernel.rs:346:19
+    |
+346 |     Sep(f64, f64, &'static str),
+    |     ---           ^^^^^^^^^^^^
+    |     |
+    |     field in this variant
+    |
+    = note: `#[warn(dead_code)]` on by default
+help: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+    |
+346 -     Sep(f64, f64, &'static str),
+346 +     Sep(f64, f64, ()),
+    |
+
+warning: creating a mutable reference to mutable static
+  --> crates/space/examples/elliptic_kernel.rs:42:14
+   |
+42 |     unsafe { SPREAD_RATIOS.push(r) }
+   |              ^^^^^^^^^^^^^^^^^^^^^ mutable reference to mutable static
+   |
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/static-mut-references.html>
+   = note: mutable references to mutable statics are dangerous; it's undefined behavior if any other pointer to the static is used or if any other reference is created for the static while the mutable reference lives
+   = note: `#[warn(static_mut_refs)]` on by default
+
+warning: creating a mutable reference to mutable static
+  --> crates/space/examples/elliptic_kernel.rs:68:14
+   |
+68 |     unsafe { X_FINAL.push(((a0 - x).abs().max((a0 - y).abs()).max((a0 - z).abs())) / (4f64.powi(n as i32) * an)) }
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable reference to mutable static
+   |
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/static-mut-references.html>
+   = note: mutable references to mutable statics are dangerous; it's undefined behavior if any other pointer to the static is used or if any other reference is created for the static while the mutable reference lives
+
+warning: creating a shared reference to mutable static
+   --> crates/space/examples/elliptic_kernel.rs:507:21
+    |
+507 |         let mut r = SPREAD_RATIOS.clone();
+    |                     ^^^^^^^^^^^^^^^^^^^^^ shared reference to mutable static
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/static-mut-references.html>
+    = note: shared references to mutable statics are dangerous; it's undefined behavior if the static is mutated or if a mutable reference is created for it while the shared reference lives
+
+warning: creating a shared reference to mutable static
+   --> crates/space/examples/elliptic_kernel.rs:509:21
+    |
+509 |         let mut x = X_FINAL.clone();
+    |                     ^^^^^^^^^^^^^^^ shared reference to mutable static
+    |
+    = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/static-mut-references.html>
+    = note: shared references to mutable statics are dangerous; it's undefined behavior if the static is mutated or if a mutable reference is created for it while the shared reference lives
+
+warning: `emergent-space` (example "elliptic_kernel") generated 5 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 3.19s
+regen ok: 45 lines

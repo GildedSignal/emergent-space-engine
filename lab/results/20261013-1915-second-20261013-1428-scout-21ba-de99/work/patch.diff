@@ -1,0 +1,545 @@
+diff --git a/crates/space/examples/elliptic_kernel.rs b/crates/space/examples/elliptic_kernel.rs
+new file mode 100644
+index 00000000..e5ffeaec
+--- /dev/null
++++ b/crates/space/examples/elliptic_kernel.rs
+@@ -0,0 +1,539 @@
++//! Second-author run 20261013-1915-second-20261013-1428-scout-21ba-de99.
++//!
++//! The named experiment (check2): an honest Carlson kernel — algorithms verbatim
++//! from B.C. Carlson, "Numerical computation of real or complex elliptic
++//! integrals", arXiv:math/9409227 (1994), downloaded and read at source this run —
++//! with normalized-deviation series, the certified stop rules (2.2)/(2.9)/(2.25)/
++//! (2.17) at r = 1e-15, std::hint::black_box on input and output, delivering the
++//! panel walk's three increments (advance, period, proper_period) as a drop-in,
++//! priced against shipped `Orbit::compile` on the leaver tail.
++//!
++//! Certified statements carried from the paper: deviations contract by exactly 4
++//! per duplication (§2 text); the series truncation error decreases by 4^6 = 4096
++//! per additional duplication (intro); each R is computed with relative error
++//! less than r when n satisfies 4^-n Q < |A_n| (algorithm statements).
++//!
++//! tau/t reduction (this run's algebra, from orbit.rs `node()`): with
++//! c = 2k-1, beta = (1-c)/c, A = 1-q(8k-2), m = 4q(1-k)/A, n3 = 2q(1-c)/(1-2qc),
++//!   I2 = 2/(c^2 sqrt A) * Q(beta,m),          Q = J0 at n = -beta,
++//!   I3 = 2/(c^2 sqrt A) * (A1*Pi(-beta)+A2*Q+A3*Pi(n3)),
++//!   J0(n,m) = [(n^2-2(1+m)n+3m)Pi(n,m)-(n+m)K(m)+nE(m)] / (2(n-1)(n-m)),
++//!   period = 2*sqrt(tn)*q^-3/2*I3,  proper = 2*sqrt(d)*q^-3/2*I2
++//!   (tn, d the source's own numerators squared).
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use std::hint::black_box;
++use std::time::Instant;
++
++const PI: f64 = std::f64::consts::PI;
++const R_CERT: f64 = 1e-15; // requested relative error; paper covers r < 3e-4
++
++#[derive(Default)]
++struct Counts {
++    rf: u32,
++    rc: u32,
++    rd: u32,
++    rj: u32,
++}
++static mut SPREAD_RATIOS: Vec<f64> = Vec::new();
++static mut X_FINAL: Vec<f64> = Vec::new();
++
++fn note_ratio(r: f64) {
++    unsafe { SPREAD_RATIOS.push(r) }
++}
++
++/// Carlson RF, eqs (2.2)-(2.7) verbatim.
++fn rf(x: f64, y: f64, z: f64, c: &mut Counts) -> f64 {
++    c.rf += 1;
++    let a0 = (x + y + z) / 3.0;
++    let q = (3.0 * R_CERT).powf(-1.0 / 6.0)
++        * (a0 - x).abs().max((a0 - y).abs()).max((a0 - z).abs());
++    let (mut xn, mut yn, mut zn) = (x, y, z);
++    let mut an = a0;
++    let mut n = 0u32;
++    while q / 4f64.powi(n as i32) >= an.abs() && n < 50 {
++        let (sx, sy, sz) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
++        let lam = sx * sy + sx * sz + sy * sz;
++        let spread_before = (xn - yn).abs().max((xn - zn).abs()).max((yn - zn).abs());
++        an = (an + lam) / 4.0;
++        xn = (xn + lam) / 4.0;
++        yn = (yn + lam) / 4.0;
++        zn = (zn + lam) / 4.0;
++        let spread_after = (xn - yn).abs().max((xn - zn).abs()).max((yn - zn).abs());
++        if spread_before > 0.0 {
++            note_ratio(spread_after / spread_before);
++        }
++        n += 1;
++    }
++    unsafe { X_FINAL.push(((a0 - x).abs().max((a0 - y).abs()).max((a0 - z).abs())) / (4f64.powi(n as i32) * an)) }
++    let p4n = 4f64.powi(n as i32);
++    let xd = (a0 - x) / (p4n * an);
++    let yd = (a0 - y) / (p4n * an);
++    let zd = -xd - yd;
++    let e2 = xd * yd - zd * zd;
++    let e3 = xd * yd * zd;
++    (1.0 - e2 / 10.0 + e3 / 14.0 + e2 * e2 / 24.0 - 3.0 * e2 * e3 / 44.0) / an.sqrt()
++}
++
++/// Carlson RC, eqs (2.9)-(2.13) verbatim (degree-7 series).
++fn rc(x: f64, y: f64, c: &mut Counts) -> f64 {
++    c.rc += 1;
++    let a0 = (x + 2.0 * y) / 3.0;
++    let q = (3.0 * R_CERT).powf(-1.0 / 8.0) * (a0 - x).abs();
++    let (mut xn, mut yn) = (x, y);
++    let mut an = a0;
++    let mut n = 0u32;
++    while q / 4f64.powi(n as i32) >= an.abs() && n < 50 {
++        let lam = 2.0 * xn.sqrt() * yn.sqrt() + yn;
++        an = (an + lam) / 4.0;
++        xn = (xn + lam) / 4.0;
++        yn = (yn + lam) / 4.0;
++        n += 1;
++    }
++    let p4n = 4f64.powi(n as i32);
++    let s = (y - a0) / (p4n * an);
++    (1.0
++        + 3.0 / 10.0 * s * s
++        + 1.0 / 7.0 * s * s * s
++        + 3.0 / 8.0 * s.powi(4)
++        + 9.0 / 22.0 * s.powi(5)
++        + 159.0 / 208.0 * s.powi(6)
++        + 9.0 / 8.0 * s.powi(7))
++        / an.sqrt()
++}
++
++/// Carlson RD, eqs (2.25)-(2.31) verbatim.
++fn rd(x: f64, y: f64, z: f64, c: &mut Counts) -> f64 {
++    c.rd += 1;
++    let a0 = (x + y + 3.0 * z) / 5.0;
++    let q = (R_CERT / 4.0).powf(-1.0 / 6.0)
++        * (a0 - x).abs().max((a0 - y).abs()).max((a0 - z).abs());
++    let (mut xn, mut yn, mut zn) = (x, y, z);
++    let mut an = a0;
++    let mut sum = 0.0;
++    let mut n = 0u32;
++    while q / 4f64.powi(n as i32) >= an.abs() && n < 50 {
++        let (sx, sy, sz) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
++        let lam = sx * sy + sx * sz + sy * sz;
++        sum += 3.0 / (sz * (zn + lam)) / 4f64.powi(n as i32);
++        an = (an + lam) / 4.0;
++        xn = (xn + lam) / 4.0;
++        yn = (yn + lam) / 4.0;
++        zn = (zn + lam) / 4.0;
++        n += 1;
++    }
++    let p4n = 4f64.powi(n as i32);
++    let xd = (a0 - x) / (p4n * an);
++    let yd = (a0 - y) / (p4n * an);
++    let zd = -(xd + yd) / 3.0;
++    let xy = xd * yd;
++    let e2 = xy - 6.0 * zd * zd;
++    let e3 = (3.0 * xy - 8.0 * zd * zd) * zd;
++    let e4 = 3.0 * (xy - zd * zd) * zd * zd;
++    let e5 = xd * yd * zd.powi(3);
++    (4f64.powi(n as i32).recip() * an.powf(-1.5))
++        * (1.0 - 3.0 / 14.0 * e2
++            + 1.0 / 6.0 * e3
++            + 9.0 / 88.0 * e2 * e2
++            - 3.0 / 22.0 * e4
++            - 9.0 / 52.0 * e2 * e3
++            + 3.0 / 26.0 * e5)
++        + sum
++}
++
++/// Carlson RJ, eqs (2.16)-(2.23) verbatim.
++fn rj(x: f64, y: f64, z: f64, p: f64, c: &mut Counts) -> f64 {
++    c.rj += 1;
++    let a0 = (x + y + z + 2.0 * p) / 5.0;
++    let delta = (p - x) * (p - y) * (p - z);
++    let q = (R_CERT / 4.0).powf(-1.0 / 6.0)
++        * (a0 - x).abs().max((a0 - y).abs()).max((a0 - z).abs()).max((a0 - p).abs());
++    let (mut xn, mut yn, mut zn, mut pn) = (x, y, z, p);
++    let mut an = a0;
++    let mut sum = 0.0;
++    let mut n = 0u32;
++    while q / 4f64.powi(n as i32) >= an.abs() && n < 50 {
++        let (sx, sy, sz, sp) = (xn.sqrt(), yn.sqrt(), zn.sqrt(), pn.sqrt());
++        let lam = sx * sy + sx * sz + sy * sz;
++        let dm = (sp + sx) * (sp + sy) * (sp + sz);
++        let em = 4f64.powi(-3 * n as i32) * delta / (dm * dm);
++        sum += 6.0 * 4f64.powi(-(n as i32)) / dm * rc(1.0, 1.0 + em, c);
++        an = (an + lam) / 4.0;
++        xn = (xn + lam) / 4.0;
++        yn = (yn + lam) / 4.0;
++        zn = (zn + lam) / 4.0;
++        pn = (pn + lam) / 4.0;
++        n += 1;
++    }
++    let p4n = 4f64.powi(n as i32);
++    let xd = (a0 - x) / (p4n * an);
++    let yd = (a0 - y) / (p4n * an);
++    let zd = (a0 - z) / (p4n * an);
++    let pd = (-xd - yd - zd) / 2.0;
++    let e2 = xd * yd + xd * zd + yd * zd - 3.0 * pd * pd;
++    let e3 = xd * yd * zd + 2.0 * e2 * pd + 4.0 * pd * pd * pd;
++    let e4 = (2.0 * xd * yd * zd + e2 * pd + 3.0 * pd * pd * pd) * pd;
++    let e5 = xd * yd * zd * pd * pd;
++    (4f64.powi(n as i32).recip() * an.powf(-1.5))
++        * (1.0 - 3.0 / 14.0 * e2
++            + 1.0 / 6.0 * e3
++            + 9.0 / 88.0 * e2 * e2
++            - 3.0 / 22.0 * e4
++            - 9.0 / 52.0 * e2 * e3
++            + 3.0 / 26.0 * e5)
++        + sum
++}
++
++// ---- Legendre layer -------------------------------------------------------
++
++fn k_complete(m: f64, c: &mut Counts) -> f64 {
++    rf(0.0, 1.0 - m, 1.0, c)
++}
++fn e_complete(m: f64, c: &mut Counts) -> f64 {
++    rf(0.0, 1.0 - m, 1.0, c) - m / 3.0 * rd(0.0, 1.0 - m, 1.0, c)
++}
++fn pi_complete(n: f64, m: f64, c: &mut Counts) -> f64 {
++    k_complete(m, c) + n / 3.0 * rj(0.0, 1.0 - m, 1.0, 1.0 - n, c)
++}
++/// J0(n,m) = int dth/((1-n s^2)^2 sqrt(1-m s^2)); exact reduction, derived with
++/// sympy from d/dth[s c sqrt(1-m s^2)/(1-n s^2)] = P/(D^2 w) (endpoint-zero) and
++/// verified against mpmath ellippi/ellipk/ellipe to 1.1e-16 before this run.
++fn j0(n: f64, m: f64, c: &mut Counts) -> f64 {
++    let (kk, ee) = (k_complete(m, c), e_complete(m, c));
++    let pii = pi_complete(n, m, c);
++    ((n * n - 2.0 * (1.0 + m) * n + 3.0 * m) * pii + (n - m) * kk - n * ee)
++        / (2.0 * (n - 1.0) * (n - m))
++}
++
++// ---- The drop-in: the walk's three increments in closed form ---------------
++
++struct Closed {
++    adv: f64,
++    per: f64,
++    prop: f64,
++}
++
++/// Strong branch only (q_key > 2^-18). Returns None at the domain edges the
++fn closed_increments(q: f64, k: f64, c: &mut Counts) -> Option<Closed> {
++    let cc = 2.0 * k - 1.0;
++    if q <= 0.0 || cc <= 0.0 {
++        return None;
++    }
++    let aden = 1.0 - q * (8.0 * k - 2.0);
++    if aden <= 0.0 {
++        return None; // m >= 1: the compile's refusal boundary
++    }
++    let m = 4.0 * q * (1.0 - k) / aden;
++    let gamma = 1.0 - 2.0 * q * cc;
++    let tn = k * (1.0 - 2.0 * q) * (1.0 + 2.0 * q * (1.0 - 2.0 * k));
++    let d = k - q * (3.0 * k * k + (1.0 - k) * (1.0 - k));
++    if gamma <= 0.0 || tn <= 0.0 || d <= 0.0 || !(0.0..1.0).contains(&m) {
++        return None;
++    }
++    let beta = (1.0 - cc) / cc;
++    let n3 = 2.0 * q * (1.0 - cc) / gamma;
++    // phi channel: one RF.
++    let adv = 4.0 * k_complete(m, c) / aden.sqrt() - 2.0 * PI;
++    // tau channel: K, E, Pi(-beta) -> RF + RD + RJ.
++    let qv = j0(-beta, m, c);
++    let i2 = 2.0 * qv / (cc * cc * aden.sqrt());
++    let prop = 2.0 * d.sqrt() * i2 * q.powf(-1.5);
++    // t channel: adds Pi(n3) -> one more RJ. The horizon factor (1-2qx)
++    // contributes gamma^-1: 1-2qx = gamma(1-n3 s^2) with gamma = 1-2qc.
++    let pb = pi_complete(-beta, m, c);
++    let pn = pi_complete(n3, m, c);
++    let (a1, a2, a3) = (
++        beta * n3 / (beta + n3).powi(2),
++        beta / (beta + n3),
++        n3 * n3 / (beta + n3).powi(2),
++    );
++    let i3 = 2.0 * (a1 * pb + a2 * qv + a3 * pn) / (cc * cc * gamma * aden.sqrt());
++    let per = 2.0 * tn.sqrt() * i3 * q.powf(-1.5);
++    Some(Closed { adv, per, prop })
++}
++
++// ---- Independent truth: tanh-sinh double exponential (no shared code) ------
++
++fn de<F: Fn(f64) -> f64>(f: F, tol: f64) -> f64 {
++    let mut h = 0.5f64;
++    let mut prev = 0.0f64;
++    let mut first = true;
++    loop {
++        let mut s = 0.0f64;
++        let mut j = 0i64;
++        loop {
++            let u = j as f64 * h;
++            let t = (std::f64::consts::FRAC_PI_2 * u.sinh()).tanh();
++            // sech^2 applies to the tanh ARGUMENT, not the tanh value: the
++            // original probe's de used t.cosh() here, which made every DE
++            // column in that run junk (weight ~8.5x too large). Fixed + tested
++            // on int 1 dt = 2.000000 in python before this run.
++            let arg = std::f64::consts::FRAC_PI_2 * u.sinh();
++            let wp = std::f64::consts::FRAC_PI_2 * u.cosh() / (arg.cosh() * arg.cosh());
++            if wp < 1e-19 || t >= 1.0 {
++                break;
++            }
++            s += wp * (f(t) + if j == 0 { 0.0 } else { f(-t) });
++            j += 1;
++        }
++        s *= h;
++        if !first && (s - prev).abs() <= tol * s.abs().max(1e-300) {
++            return s;
++        }
++        first = false;
++        prev = s;
++        h *= 0.5;
++        if h < 2e-4 {
++            return s;
++        }
++    }
++}
++
++/// Truth for the three increments: psi in [0,pi], doubled (full cycle).
++fn truth_increments(q: f64, k: f64) -> (f64, f64, f64) {
++    let f_adv = |psi: f64| {
++        let a = 6.0 * k + 2.0 * (1.0 - k) * psi.cos();
++        1.0 / (1.0 - q * a).sqrt() - 1.0
++    };
++    let f_tau = |psi: f64| {
++        let x = k + (1.0 - k) * psi.cos();
++        let a = 6.0 * k + 2.0 * (1.0 - k) * psi.cos();
++        1.0 / (x * x * (1.0 - q * a).sqrt())
++    };
++    let f_t = |psi: f64| {
++        let x = k + (1.0 - k) * psi.cos();
++        let a = 6.0 * k + 2.0 * (1.0 - k) * psi.cos();
++        1.0 / (x * x * (1.0 - 2.0 * q * x) * (1.0 - q * a).sqrt())
++    };
++    let sub = |g: &dyn Fn(f64) -> f64| {
++        // psi = pi*(t+1)/2 over t in (-1,1), factor pi/2
++        de(|t: f64| g(PI * (t + 1.0) / 2.0) * PI / 2.0, 1e-13)
++    };
++    let tn = k * (1.0 - 2.0 * q) * (1.0 + 2.0 * q * (1.0 - 2.0 * k));
++    let d = k - q * (3.0 * k * k + (1.0 - k) * (1.0 - k));
++    let adv = 2.0 * sub(&f_adv);
++    let prop = 2.0 * d.sqrt() * sub(&f_tau) * q.powf(-1.5);
++    let per = 2.0 * tn.sqrt() * sub(&f_t) * q.powf(-1.5);
++    (adv, per, prop)
++}
++
++// ---- Harness ---------------------------------------------------------------
++
++fn d(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
++fn median(mut v: Vec<f64>) -> f64 {
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[v.len() / 2]
++}
++
++fn key_of(pe: i16, e: f64) -> OrbitKey {
++    let e48 = (e * (1u64 << 48) as f64) as u64;
++    OrbitKey::bound(Scalar::power_of_two(pe), e48).unwrap()
++}
++
++/// Arbitrary periapsis (for the m->1 edge keys the power-of-two p grid cannot hit).
++fn key_at_periapsis(periapsis: f64, e: f64) -> OrbitKey {
++    let e48 = (e * (1u64 << 48) as f64) as u64;
++    let k = ((1u128 << 96) / ((1u64 << 48) + e48) as u128) as u64;
++    // Scalar::raw(n, bp) is n * 2^bp (cf. bound's raw(k, -48) for Q48 k); the
++    // first two edge attempts got this backwards and compiled nonsense keys.
++    OrbitKey::new(Scalar::raw((periapsis * (1u128 << 50) as f64) as i128, -50).unwrap(), k).unwrap()
++}
++enum Key {
++    P(i16, f64),
++    Sep(f64, f64, &'static str),
++}
++
++fn main() {
++    // (label, key): the first run's 18-key grid, both checkers' extensions, and
++    // this run's m->1 edge keys at arbitrary periapsis (1-m ~= 3.5e-9).
++    let mut grid: Vec<(String, Key)> = vec![
++        ("p2^10 e0.001".to_string(), Key::P(10, 0.001)),
++        ("p2^10 e0.2".to_string(), Key::P(10, 0.2)),
++        ("p2^10 e0.5".to_string(), Key::P(10, 0.5)),
++        ("p2^10 e0.9".to_string(), Key::P(10, 0.9)),
++        ("p2^10 e0.94".to_string(), Key::P(10, 0.94)),
++        ("p2^10 e0.99".to_string(), Key::P(10, 0.99)),
++        ("p2^10 e0.999".to_string(), Key::P(10, 0.999)),
++        ("p2^10 e0.9999".to_string(), Key::P(10, 0.9999)),
++        ("p2^10 e0.99999".to_string(), Key::P(10, 0.99999)),
++        ("p2^12 e0.001".to_string(), Key::P(12, 0.001)),
++        ("p2^12 e0.5".to_string(), Key::P(12, 0.5)),
++        ("p2^12 e0.9".to_string(), Key::P(12, 0.9)),
++        ("p2^8 e1e-6".to_string(), Key::P(8, 1e-6)),
++        ("p2^8 e1e-9".to_string(), Key::P(8, 1e-9)),
++        ("p2^6 e0.2".to_string(), Key::P(6, 0.2)),
++        ("p2^6 e0.5".to_string(), Key::P(6, 0.5)),
++        ("p2^4 e0.001".to_string(), Key::P(4, 0.001)),
++        ("p2^4 e0.2".to_string(), Key::P(4, 0.2)),
++        ("p2^3 e0.9".to_string(), Key::P(3, 0.9)),
++        ("p2^2 e0.5".to_string(), Key::P(2, 0.5)),
++        ("p2^20 e0.001".to_string(), Key::P(20, 0.001)),
++        ("p2^20 e0.5".to_string(), Key::P(20, 0.5)),
++        ("p2^20 e0.9".to_string(), Key::P(20, 0.9)),
++    ];
++    // m->1 edge ladder: q = (1-eta)/(4k+2) so the turning-point delta P = eta.
++    // Maps where the shipped walk's outputs stop tracking the closed form.
++    for (e, eta) in [
++        (0.5f64, 1e-1f64),
++        (0.5, 1e-3),
++        (0.5, 1e-5),
++        (0.5, 1e-7),
++        (0.5, 1e-8),
++        (0.5, 3e-9),
++        (0.9, 1e-3),
++        (0.9, 1e-7),
++        (0.9, 3e-9),
++    ] {
++        let k = 1.0 / (1.0 + e);
++        let qmax = 1.0 / (4.0 * k + 2.0);
++        let q = qmax * (1.0 - eta);
++        grid.push((format!("edge e{e} P{eta:.0e}"), Key::Sep(1.0 / q, e, "sep")));
++    }
++
++    println!("case q k m branch knots compile_us phi_ns tau_ns t_ns all3_ns it_rf it_rd it_rj it_rc rel_adv rel_per rel_prop truth_adv truth_per truth_prop adv_ship per_ship prop_ship");
++    for (label, keyd) in &grid {
++        let (key, q, k) = match keyd {
++            Key::P(pe, e) => {
++                let key = key_of(*pe, *e);
++                let k = 1.0 / (1.0 + *e);
++                (key, 1.0 / (2f64.powi(*pe as i32) * k), k)
++            }
++            Key::Sep(peri, e, _) => {
++                let key = key_at_periapsis(*peri, *e);
++                let k = 1.0 / (1.0 + *e);
++                (key, 1.0 / *peri, k)
++            }
++        };
++        let weak = q <= 2f64.powi(-18);
++        let orbit = match Orbit::compile(key) {
++            Ok(o) => o,
++            Err(err) => {
++                // Refused: does the closed form see the same boundary?
++                let mut cnt = Counts::default();
++                let cf = closed_increments(q, k, &mut cnt);
++                println!(
++                    "{label} q={q:.6e} k={k:.6}: REFUSED {err:?} closed_form={}",
++                    if cf.is_some() { "SOME(m<1 held)" } else { "NONE(same boundary)" }
++                );
++                continue;
++            }
++        };
++        let aden = 1.0 - q * (8.0 * k - 2.0);
++        let m = 4.0 * q * (1.0 - k) / aden;
++        let (adv_s, per_s, prop_s) = (
++            d(orbit.advance().unwrap()),
++            d(orbit.period().unwrap()),
++            d(orbit.proper_period().unwrap()),
++        );
++        let mut cnt = Counts::default();
++        let cf = closed_increments(black_box(q), black_box(k), &mut cnt).unwrap();
++        let (rel_a, rel_p, rel_t) = (
++            ((adv_s - cf.adv) / adv_s).abs(),
++            ((per_s - cf.per) / per_s).abs(),
++            ((prop_s - cf.prop) / prop_s).abs(),
++        );
++        let (ta, tp, tt) = truth_increments(q, k);
++        let (tra, trp, trt) = (
++            ((cf.adv - ta) / ta).abs(),
++            ((cf.per - tp) / tp).abs(),
++            ((cf.prop - tt) / tt).abs(),
++        );
++        let knots = orbit.shape().knots().len() - 1;
++        // Shipped wall (external fn; still black_box the key): median of 31.
++        let mut walls = vec![];
++        for _ in 0..31 {
++            let t0 = Instant::now();
++            let o = Orbit::compile(black_box(key));
++            black_box(&o);
++            walls.push(t0.elapsed().as_secs_f64() * 1e6);
++        }
++        // Kernel walls per channel: median of 20001, black_box in and out.
++        let mut wphi = vec![];
++        let mut wtau = vec![];
++        let mut wt = vec![];
++        let mut wall3 = vec![];
++        for _ in 0..20001 {
++            let t0 = Instant::now();
++            let mut c1 = Counts::default();
++            let v = k_complete(black_box(m), &mut c1);
++            black_box(v);
++            wphi.push(t0.elapsed().as_secs_f64() * 1e9);
++
++            let t0 = Instant::now();
++            let v = j0(black_box(-(1.0 - (2.0 * k - 1.0)) / (2.0 * k - 1.0)), black_box(m), &mut c1);
++            black_box(v);
++            wtau.push(t0.elapsed().as_secs_f64() * 1e9);
++
++            let t0 = Instant::now();
++            let v = (
++                pi_complete(black_box(-(1.0 - (2.0 * k - 1.0)) / (2.0 * k - 1.0)), black_box(m), &mut c1),
++                pi_complete(black_box(2.0 * q * (1.0 - (2.0 * k - 1.0)) / (1.0 - 2.0 * q * (2.0 * k - 1.0))), black_box(m), &mut c1),
++            );
++            black_box(v);
++            wt.push(t0.elapsed().as_secs_f64() * 1e9);
++
++            let t0 = Instant::now();
++            let v = closed_increments(black_box(q), black_box(k), &mut c1);
++            black_box(v);
++            wall3.push(t0.elapsed().as_secs_f64() * 1e9);
++        }
++        if label.starts_with("edge") {
++            // Edge rows: record what the closed form and the truth say the walk
++            // should have returned, alongside the walk's own outputs.
++            println!(
++                "  edge_detail {label}: adv cf={:.9e} truth={:.9e} ship={:.9e} | per cf={:.9e} truth={:.9e} ship={:.9e} | prop cf={:.9e} truth={:.9e} ship={:.9e}",
++                cf.adv, ta, adv_s, cf.per, tp, per_s, cf.prop, tt, prop_s
++            );
++        }
++        println!(
++            "{label} {q:.6e} {k:.7} {m:.9} {} {knots} {:.1} {:.0} {:.0} {:.0} {:.0} {} {} {} {} {rel_a:.2e} {rel_p:.2e} {rel_t:.2e} {tra:.2e} {trp:.2e} {trt:.2e} {adv_s:.9e} {per_s:.9e} {prop_s:.9e}",
++            if weak { "weak" } else { "strong" },
++            median(walls),
++            median(wphi),
++            median(wtau),
++            median(wt),
++            median(wall3),
++            cnt.rf,
++            cnt.rd,
++            cnt.rj,
++            cnt.rc,
++        );
++    }
++    // Convergence law and final spread, and the readout fence.
++    unsafe {
++        let mut r = SPREAD_RATIOS.clone();
++        r.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mut x = X_FINAL.clone();
++        x.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        println!(
++            "spread_ratio_per_duplication median={:.4} min={:.4} max={:.4} n={}",
++            r[r.len() / 2],
++            r[0],
++            r[r.len() - 1],
++            r.len()
++        );
++        println!(
++            "final_relative_deviation_X median={:.2e} max={:.2e} (stop rule at r={R_CERT} expects X~(3r)^(1/6)={:.2e})",
++            x[x.len() / 2],
++            x[x.len() - 1],
++            (3.0 * R_CERT).powf(1.0 / 6.0)
++        );
++    }
++    // Readout fence: what the knot table stores for at_phase/crossing consumers.
++    let key = key_of(10, 0.999);
++    let orbit = Orbit::compile(key).unwrap();
++    let knots = orbit.shape().knots().len();
++    let knot_bytes = std::mem::size_of::<emergent_space::orbit::OrbitShape>(); // placeholder, real number printed via debug
++    println!(
++        "readout_fence knots={knots} knot_size_bytes={} crossings={} size_of_knot={} size_of_scalar={} three_increments_bytes={} nodes_deleted_per_compile={}",
++        knot_bytes,
++        orbit.shape().crossings().len(),
++        { use emergent_space::orbit::Knot; std::mem::size_of::<Knot>() },
++        std::mem::size_of::<Scalar>(),
++        3 * std::mem::size_of::<Scalar>(),
++        4 * (knots - 1),
++    );
++}
