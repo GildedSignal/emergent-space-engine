@@ -1,0 +1,22 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/xtask)
+warning: unused variable: `load_before`
+   --> xtask/src/universe/mod.rs:121:9
+    |
+121 |     let load_before = uptime("uptime");
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_load_before`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `xtask` (bin "xtask") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 45.17s
+near48-s1-shipped      digest a2ae2910b624 bodies 71 settle_ms 0 fleet_ms 65 fleet_items 2082 ship_ms 143 ship_items 908 held 0 woken 0 gate_checks 0 overflow 3 /480 p50cpu_ms 1.47 worstcpu_ms 6.9 rtf_med 100.0
+near48-s1-dormant      digest a2ae2910b624 bodies 71 settle_ms 0 fleet_ms 41 fleet_items 2048 ship_ms 130 ship_items 872 held 43 woken 43 gate_checks 43 overflow 2 /480 p50cpu_ms 1.46 worstcpu_ms 21.4 rtf_med 100.0
+near1500-s1-shipped    digest 0b9db5950190 bodies 1379 settle_ms 5812 fleet_ms 1091 fleet_items 4000 ship_ms 1401 ship_items 10189 held 0 woken 0 gate_checks 0 overflow 456 /480 p50cpu_ms 24.06 worstcpu_ms 34.3 rtf_med 0.0
+near1500-s1-dormant    digest 0b9db5950190 bodies 1396 settle_ms 5046 fleet_ms 407 fleet_items 6478 ship_ms 1901 ship_items 14284 held 1368 woken 1368 gate_checks 1368 overflow 426 /480 p50cpu_ms 22.84 worstcpu_ms 267.8 rtf_med 0.0
+far1500-s1-shipped     digest 351e5b8ec9e4 bodies 1383 settle_ms 5646 fleet_ms 1044 fleet_items 4671 ship_ms 1427 ship_items 10712 held 0 woken 0 gate_checks 0 overflow 455 /480 p50cpu_ms 22.51 worstcpu_ms 25.1 rtf_med 0.0
+far1500-s1-dormant     digest 351e5b8ec9e4 bodies 28 settle_ms 6993 fleet_ms 927 fleet_items 1114 ship_ms 0 ship_items 2 held 1425 woken 0 gate_checks 54204 overflow 59 /480 p50cpu_ms 4.84 worstcpu_ms 17.2 rtf_med 100.0
+far1500-s3-shipped     digest 46c7652f3985 bodies 1383 settle_ms 2561 fleet_ms 1091 fleet_items 5271 ship_ms 1375 ship_items 10911 held 0 woken 0 gate_checks 0 overflow 433 /480 p50cpu_ms 20.69 worstcpu_ms 24.7 rtf_med 0.0
+far1500-s3-dormant     digest 7f1641e8df40 bodies 28 settle_ms 4258 fleet_ms 865 fleet_items 1116 ship_ms 0 ship_items 2 held 1397 woken 0 gate_checks 52721 overflow 51 /480 p50cpu_ms 5.06 worstcpu_ms 20.7 rtf_med 100.0
+far4000-rtf1-shipped   digest e81b138959ad bodies 2191 settle_ms 6 fleet_ms 1249 fleet_items 313 ship_ms 257 ship_items 1058 held 0 woken 0 gate_checks 0 overflow 262 /480 p50cpu_ms 35.98 worstcpu_ms 53.8 rtf_med 0.0
+far4000-rtf1-dormant   digest e81b138959ad bodies 28 settle_ms 1357 fleet_ms 186 fleet_items 480 ship_ms 0 ship_items 0 held 2163 woken 0 gate_checks 0 overflow 0 /480 p50cpu_ms 9.53 worstcpu_ms 20.7 rtf_med 1.0
