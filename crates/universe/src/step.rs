@@ -48,8 +48,6 @@ use std::sync::Arc;
 
 pub const MIN_STEP: i64 = 2 * 64;
 pub const MAX_STEP: i64 = 1 << 50;
-/// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
-pub const THRUST_FRACTION_LOG2: i32 = 6;
 
 /// What resolving one item did, for the universe to apply and count.
 pub struct Update {
@@ -746,7 +744,7 @@ impl Work<'_, '_> {
         let speed = norm2(v)?.max(Scalar::ONE.div(norm2(x)?)?.sqrt()?);
         // α in rapidity per tick: 2^thrust_log2 per root unit at the throttle's level, and a tick is 2^0 root units.
         let alpha = Scalar::power_of_two(thrust::alpha_log2(self.ctx.cfg, self.rec.thrust.map_or(0, |t| t.level)));
-        let ticks = speed.scale(-THRUST_FRACTION_LOG2)?.div(alpha)?;
+        let ticks = speed.scale(-self.ctx.cfg.thrust_quantum_log2)?.div(alpha)?;
         let exp = log2_floor(ticks).clamp(1, 50);
         Ok((1i64 << exp).clamp(MIN_STEP, MAX_STEP))
     }

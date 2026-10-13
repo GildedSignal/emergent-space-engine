@@ -36,10 +36,12 @@ pub struct Config {
     pub leave_log2: i32,
     /// Kicks per radial period, as a power of two.
     pub step_log2: i32,
+    /// A burn's kick moves the velocity by at most `2^-thrust_quantum_log2` of the local speed.
+    pub thrust_quantum_log2: i32,
 }
 impl Default for Config {
     fn default() -> Self {
-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7 }
+        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7, thrust_quantum_log2: 6 }
     }
 }
 
