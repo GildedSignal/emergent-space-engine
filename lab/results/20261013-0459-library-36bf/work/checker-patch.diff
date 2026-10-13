@@ -1,0 +1,267 @@
+diff --git a/crates/universe/examples/check_digest.rs b/crates/universe/examples/check_digest.rs
+new file mode 100644
+index 00000000..0a41d14a
+--- /dev/null
++++ b/crates/universe/examples/check_digest.rs
+@@ -0,0 +1,42 @@
++//! CHECKER control (20261013-0459-library-36bf): two-build digest identity on flights the
++//! author's control did not cover — the long leave-tight8 plane flight (1.24e10 ticks, fleets
++//! and encounters live) and the constructed planet-death scene. Prints no `end` field, so it
++//! compiles on the unpatched tree too: run, stash the patch, run again, compare digests.
++use emergent_space::orbit::Scalar;
++use emergent_universe::scenario::{plane, STAR_RADIUS};
++use emergent_universe::thrust;
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++
++fn plane_flight(name: &str, leave_log2: i32, word: u8, horizon: i64) {
++    let mut p = plane(Config { leave_log2, ..Config::default() }, 7, emergent_universe::fleet::Order::Sparse, 4, 16).unwrap();
++    let player = p.player;
++    p.u.schedule(10_000_000, word).unwrap();
++    p.u.settle(horizon);
++    let r = p.u.rec(player);
++    println!("{name}: alive={} fault={:?} event_time={} digest {}", r.alive, r.fault, r.b.event_time, &p.u.digest()[..32]);
++}
++
++fn planet_scene() {
++    let mut u = Universe::new(Scalar::raw(STAR_RADIUS as i128, 0).unwrap(), Config::default());
++    let p = u
++        .add_body(
++            Kind::Planet,
++            OrbitSpec { doll: 0, periapsis: Scalar::raw(500_000_000, 0).unwrap(), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++            Scalar::ZERO,
++        )
++        .unwrap();
++    u.add_doll("P", p, -10, Scalar::raw(47_400, 10).unwrap()).unwrap();
++    let (pp, pv) = u.rec(p).b.cartesian(0).unwrap();
++    let player = u
++        .add_body_state(Kind::Player, 0, [pp[0].add(Scalar::raw(47_400 / 2, 0).unwrap()).unwrap(), pp[1]], [pv[0], pv[1]], Scalar::raw(34, -10).unwrap())
++        .unwrap();
++    u.start().unwrap();
++    u.settle(20_000_000);
++    let r = u.rec(player);
++    println!("planet-scene: alive={} fault={:?} event_time={} digest {}", r.alive, r.fault, r.b.event_time, &u.digest()[..32]);
++}
++
++fn main() {
++    plane_flight("leave-tight8", 30, thrust::word(1, 8), 20_000_000_000);
++    planet_scene();
++}
+diff --git a/crates/universe/examples/lab_digest.rs b/crates/universe/examples/lab_digest.rs
+new file mode 100644
+index 00000000..bcec31c0
+--- /dev/null
++++ b/crates/universe/examples/lab_digest.rs
+@@ -0,0 +1,19 @@
++//! Digest control for the lab probe: the same flights as tests/lab_faulttag.rs, run on the
++//! unpatched tree to show the `end` word changed no canonical outcome. `cargo run --release --example lab_digest`.
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust;
++use emergent_universe::Config;
++
++fn flight(name: &str, leave_log2: i32, word: u8, horizon: i64) {
++    let mut p = plane(Config { leave_log2, ..Config::default() }, 7, emergent_universe::fleet::Order::Sparse, 4, 16).unwrap();
++    let player = p.player;
++    p.u.schedule(10_000_000, word).unwrap();
++    p.u.settle(horizon);
++    let r = p.u.rec(player);
++    println!("{name}: alive={} fault={:?} event_time={} digest {}", r.alive, r.fault, r.b.event_time, &p.u.digest()[..32]);
++}
++
++fn main() {
++    flight("crash", 40, thrust::word(1, 1), 200_000_000);
++    flight("leave-tight15", 30, thrust::word(1, 15), 20_000_000_000);
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 459800ea..5a44018b 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -75,6 +75,18 @@ pub struct BodyRec {
+     pub refusals: u64,
+     /// Why the last refusal happened.
+     pub fault: Option<(What, crate::num::Error)>,
++    /// How the body ended, when it is not alive and no error refused it: the one word the
++    /// record could not tell apart before (crash, planet, leave). Not a digest input.
++    pub end: Option<End>,
++}
++
++/// The silent ends, told apart: the star's (or any doll's) surface, a planet's surface, the
++/// system's edge. All three read `fault = None`; only this word separates them.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum End {
++    Crash,
++    Planet,
++    Leave,
+ }
+ 
+ /// A retired binding: readable at any `t` in `[b.event_time, until)`.
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d435..219ed637 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -591,12 +591,14 @@ impl Work<'_, '_> {
+             if let Some(radius) = self.ctx.surface_in(j, d)? {
+                 if norm2(sub2(s.pos, x)?)? < radius {
+                     self.rec.alive = false;
++                    self.rec.end = Some(crate::body::End::Planet);
+                     return Ok(Resolved::Lost);
+                 }
+             }
+         }
+         if self.rec.kind != Kind::Planet && norm2(x)? < self.doll().surface {
+             self.rec.alive = false;
++            self.rec.end = Some(crate::body::End::Crash);
+             return Ok(Resolved::Lost);
+         }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+@@ -662,10 +664,12 @@ impl Work<'_, '_> {
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
++            self.rec.end = Some(crate::body::End::Crash);
+             return Ok(Resolved::Lost);
+         }
+         if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+             self.rec.alive = false;
++            self.rec.end = Some(crate::body::End::Leave);
+             return Ok(Resolved::Lost);
+         }
+         self.rec.anchor = t;
+@@ -695,12 +699,14 @@ impl Work<'_, '_> {
+         let r = norm2(x)?;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
++            self.rec.end = Some(crate::body::End::Crash);
+             return Ok(Resolved::Lost);
+         }
+         if movable {
+             if d == 0 {
+                 if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+                     self.rec.alive = false;
++                    self.rec.end = Some(crate::body::End::Leave);
+                     return Ok(Resolved::Lost);
+                 }
+                 if self.maybe_capture(t, &st, x)? {
+@@ -746,6 +752,7 @@ impl Work<'_, '_> {
+         let (x, _) = scalars(&st)?;
+         if norm2(x)? <= self.doll().surface {
+             self.rec.alive = false;
++            self.rec.end = Some(crate::body::End::Crash);
+             return Ok(Resolved::Lost);
+         }
+         Ok(Resolved::Open)
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index da300bc7..19169178 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -301,6 +301,7 @@ impl Universe {
+             events: 0,
+             refusals: 0,
+             fault: None,
++            end: None,
+         };
+         let i = self.bodies.push(rec);
+         self.info.push(BodyInfo { kind, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: None, born: 0 });
+@@ -349,6 +350,7 @@ impl Universe {
+             events: 0,
+             refusals: 0,
+             fault: None,
++            end: None,
+         };
+         let i = self.bodies.push(rec);
+         self.info.push(BodyInfo { kind, gm: Scalar::ZERO, soi: Scalar::ZERO, doll: None, radius, from: None, born: 0 });
+@@ -697,6 +699,7 @@ impl Universe {
+                 events: 0,
+                 refusals: 0,
+                 fault: None,
++                end: None,
+             };
+             let radius = Scalar::raw(l.radius as i128, -20 + self.dolls[doll as usize].shift as i32)?;
+             let i = self.bodies.push(rec);
+diff --git a/crates/universe/tests/check_planet_end.rs b/crates/universe/tests/check_planet_end.rs
+new file mode 100644
+index 00000000..8f85269b
+--- /dev/null
++++ b/crates/universe/tests/check_planet_end.rs
+@@ -0,0 +1,39 @@
++//! CHECKER probe (20261013-0459-library-36bf): demonstrate `End::Planet` in flight, the one
++//! variant the author wired but never flew. A minimal system built from the shipped API alone:
++//! star (doll 0), one planet with its own doll (so it is a secondary source of doll 0), and the
++//! player added by state inside the planet's surface, co-moving with it. The player is a root
++//! doll body, so the motion law v2 steps it on the clock and its first kick must find it inside
++//! the planet's surface: `end = Some(Planet)`, `fault = None`.
++use emergent_space::orbit::Scalar;
++use emergent_universe::{scenario, Config, Kind, OrbitSpec, Universe};
++
++#[test]
++fn planet_end_is_reachable_and_silent_on_main() {
++    let mut u = Universe::new(Scalar::raw(scenario::STAR_RADIUS as i128, 0).unwrap(), Config::default());
++    let p = u
++        .add_body(
++            Kind::Planet,
++            OrbitSpec { doll: 0, periapsis: Scalar::raw(500_000_000, 0).unwrap(), e_q48: 0, clockwise: false, angle: 0, phase: 0 },
++            Scalar::ZERO,
++        )
++        .unwrap();
++    // The planet's radius: 47,400 root units, expressed in its own doll's units (root × 2^-mass_log2).
++    let surface = Scalar::raw(47_400, 10).unwrap();
++    u.add_doll("P", p, -10, surface).unwrap();
++    let (pp, pv) = u.rec(p).b.cartesian(0).unwrap();
++    let half = Scalar::raw(47_400 / 2, 0).unwrap();
++    // Inside the surface, co-moving with the planet.
++    let player = u
++        .add_body_state(Kind::Player, 0, [pp[0].add(half).unwrap(), pp[1]], [pv[0], pv[1]], Scalar::raw(34, -10).unwrap())
++        .unwrap();
++    u.start().unwrap();
++    u.settle(20_000_000);
++    let r = u.rec(player);
++    println!(
++        "planet-flight: alive={} end={:?} fault={:?} event_time={} refusals={} digest {}",
++        r.alive, r.end, r.fault, r.b.event_time, r.refusals, &u.digest()[..32]
++    );
++    assert!(!r.alive, "the player must die inside the planet");
++    assert_eq!(r.end, Some(emergent_universe::body::End::Planet), "the death must read Planet");
++    assert_eq!(r.fault, None, "the death is silent on main: no fault");
++}
+diff --git a/crates/universe/tests/lab_faulttag.rs b/crates/universe/tests/lab_faulttag.rs
+new file mode 100644
+index 00000000..b0fc7aa4
+--- /dev/null
++++ b/crates/universe/tests/lab_faulttag.rs
+@@ -0,0 +1,37 @@
++//! Lab probe 20261013-0459-library-36bf: the three silent ends told apart.
++//!
++//! On main, a crash into the star, a hit on a planet and a leave past the system's edge all end
++//! the body the same way: `alive = false`, `fault = None` (lab wiki, high-gamma-clock: "the
++//! record cannot tell them apart"). The patch adds one word, `BodyRec::end`, set at the seven
++//! `Resolved::Lost` sites of `step.rs` and nowhere else; it is not a digest input, so no
++//! canonical outcome moves. These flights are settle-based (as the wiki's), seed 7.
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust;
++use emergent_universe::Config;
++
++/// One settle-based flight: schedule the held word, settle to `horizon`, report the player's end.
++fn flight(name: &str, leave_log2: i32, word: u8, horizon: i64) {
++    let t0 = std::time::Instant::now();
++    let mut p = plane(Config { leave_log2, ..Config::default() }, 7, emergent_universe::fleet::Order::Sparse, 4, 16).unwrap();
++    let player = p.player;
++    p.u.schedule(10_000_000, word).unwrap();
++    p.u.settle(horizon);
++    let r = p.u.rec(player);
++    let d = p.u.digest();
++    println!(
++        "{name}: keys={:#04x} leave_log2={leave_log2} horizon={horizon:.3e} alive={} end={:?} fault={:?} event_time={} refusals={} ({:.1}s) digest {}",
++        word, r.alive, r.end, r.fault, r.b.event_time, r.refusals, t0.elapsed().as_secs_f64(), &d[..32]
++    );
++}
++
++#[test]
++fn the_three_silent_ends_are_told_apart() {
++    // 1. The crash: a held gentle burn puts the periapsis under the star's surface.
++    flight("crash", 40, thrust::word(1, 1), 200_000_000);
++    // 2. The leave: prediction 2's horizon (2e9) was too short (reported as failed); the climb
++    //    continues, so run the same tight cage (2^30 root units) to 2e10, levels 8 and 15.
++    flight("leave-tight8", 30, thrust::word(1, 8), 20_000_000_000);
++    flight("leave-tight15", 30, thrust::word(1, 15), 20_000_000_000);
++    // 3. The control: the same strong burn in the default cage must not read Leave at 2e9.
++    flight("leave-wide8", 40, thrust::word(1, 8), 2_000_000_000);
++}

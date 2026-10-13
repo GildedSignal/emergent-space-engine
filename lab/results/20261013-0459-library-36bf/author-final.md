@@ -1,0 +1,3 @@
+One `end` wRun complete. Folder `lab/results/20261013-0459-library-36bf/`: dossier, predictions (written pre-probe; prediction 2 failed at its stated horizon and the failure is reported), lessons, wiki page, regen.sh (verified end-to-end: 7/7 quotes verbatim, all four flights reproduce, unpatched digests bit-identical), patch in `work/patch.diff`; the shipped suite on the patched tree passed 59/59 (2 pre-existing ignores).
+
+**Claim:** one `end` word on the record tells the three silent deaths apart (crash, planet, leave) with bit-identical canonical outcomes — the cheapest lesson from Julien's library, executed, with four more lessons mapping the page's open directions to their cheapest tests.

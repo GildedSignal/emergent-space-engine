@@ -1,0 +1,25 @@
+== quotes ==
+VERBATIM  You could feel like you're flying straight and level while in fact you
+VERBATIM  listen only to your instruments
+VERBATIM  Planes are safer when the least experienced pilot is flying, because i
+VERBATIM  Unless a pilot has actually recovered from a stall, has actually put h
+VERBATIM  Investment in loss is giving yourself to the learning process
+VERBATIM  he would physically alter his visitors so they would fit by stretching
+VERBATIM  Make them less wrong and dumb, because all requirements are somewhat w
+7/7 quote fragments verbatim in the export
+== apply patch (idempotent) ==
+already applied
+== patched tree: the three silent ends ==
+
+running 1 test
+crash: keys=0x11 leave_log2=40 horizon=2.000e8 alive=false end=Some(Crash) fault=None event_time=118489088 refusals=0 (0.1s) digest ca9ecffac3139391783c6fd1089d3873
+leave-tight8: keys=0x81 leave_log2=30 horizon=2.000e10 alive=false end=Some(Leave) fault=None event_time=12438249776 refusals=0 (1.6s) digest ad7579fc0c9ee8f4e53734b7356dd2fb
+leave-tight15: keys=0xf1 leave_log2=30 horizon=2.000e10 alive=false end=Some(Leave) fault=None event_time=1562576868 refusals=0 (1.8s) digest acdeac981fcb3971cf02865de056cc0a
+leave-wide8: keys=0x81 leave_log2=40 horizon=2.000e9 alive=true end=None fault=None event_time=1986044208 refusals=0 (0.6s) digest 385b04c3b8461f4bcae1f8cb02e55431
+.
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.09s
+
+== unpatched tree: digest control ==
+crash: alive=false fault=None event_time=118489088 digest ca9ecffac3139391783c6fd1089d3873
+leave-tight15: alive=false fault=None event_time=1562576868 digest acdeac981fcb3971cf02865de056cc0a
+== regen done (compare digests with the dossier's two-build table) ==
