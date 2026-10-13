@@ -1,0 +1,35 @@
+=== A. division primitives: fuzz (10^7) + timing (Tables 1-2 of the dossier) ===
+fuzz cases            : 10000000
+mismatches schoolbook : 0
+mismatches reciprocal : 0
+max correction steps  : 3
+checksum              : 34cc8009c0e3244e3f0b06
+u64/u64 native (control):   7.75 ns/op  (   8.1 ms/M)
+u128/u128 `/` (libcall) :  23.40 ns/op  (  24.5 ms/M)
+div_word (shipped)      :  27.73 ns/op  (  29.1 ms/M)
+reciprocal, cold        :  40.51 ns/op  (  42.5 ms/M)
+reciprocal, amortized   :   8.96 ns/op  (   9.4 ms/M)
+reciprocal, 8x repeat   :  13.04 ns/op  (  13.7 ms/M)
+
+=== B. the compile workload: census, repetition, bit-identity, arms (Table 3) ===
+keys compiled          : 48
+div_word calls         : 1274 total, 26 avg/compile (distinct 196, repeat frac 0.846)
+u128 `/` sites         : 32384 total, 674 avg/compile (distinct 31776, repeat frac 0.019)
+divisions per compile  : min 89, max 1752
+  top u64 divisor    8124947949535583389 x97
+  top u64 divisor    5745205791904345728 x97
+  top u64 divisor    5244631349558902385 x97
+  top u64 divisor    6423335347711814011 x97
+  top u128 divisor                     4611686018427387904 x160
+  top u128 divisor                     3858413344574668800 x20
+  top u128 divisor                     4609996857181995008 x20
+  top u128 divisor                     4251764426127966208 x20
+libcall mismatches     : 0 of 48
+schoolbook arm        :     56.5 us/compile (  2.71 ms/sweep, 48 keys) [acc 1c114545720ef7398f926650848364d8]
+libcall    arm        :     55.7 us/compile (  2.67 ms/sweep, 48 keys) [acc 1c114545720ef7398f926650848364d8]
+
+=== C. per-node ingredients: isqrt / cos / mul controls (Table 4) ===
+u128 isqrt                  :  99.91 ns/op
+cos(psi) Q62                :  79.57 ns/op
+u128 mul (control)          :   1.45 ns/op
+u128 >>62 (control)         :   1.16 ns/op

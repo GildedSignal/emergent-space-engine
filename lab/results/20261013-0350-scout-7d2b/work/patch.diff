@@ -1,0 +1,317 @@
+diff --git a/crates/space/examples/compile_bench.rs b/crates/space/examples/compile_bench.rs
+new file mode 100644
+index 00000000..60b26119
+--- /dev/null
++++ b/crates/space/examples/compile_bench.rs
+@@ -0,0 +1,121 @@
++//! Scout 20261013-0350: the kick's compile path, censused and timed.
++//! Sweeps exact `Orbit::compile` over a (periapsis, eccentricity) grid, in both
++//! division arms (schoolbook vs libcall), checking structural bit-identity of
++//! every produced shape (derived Eq over all knots) and reporting wall time
++//! plus the division census (div_word and the raw u128 `/` sites).
++use emergent_space::num::census;
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use std::time::Instant;
++
++fn keys() -> Vec<OrbitKey> {
++    let mut out = Vec::new();
++    // p from just outside the separatrix to the far field (M units), e across the band.
++    for p in [8u32, 12, 20, 40, 100, 400, 1500, 8192] {
++        for e48 in [
++            0u64,
++            (0.2 * (1u64 << 48) as f64) as u64,
++            (0.5 * (1u64 << 48) as f64) as u64,
++            (0.7 * (1u64 << 48) as f64) as u64,
++            (0.9 * (1u64 << 48) as f64) as u64,
++            (0.97 * (1u64 << 48) as f64) as u64,
++        ] {
++            let p_scalar = Scalar::raw(p as i128, 0).unwrap();
++            if let Ok(key) = OrbitKey::bound(p_scalar, e48) {
++                if Orbit::compile(key).is_ok() {
++                    out.push(key);
++                }
++            }
++        }
++    }
++    out
++}
++
++fn main() {
++    let keys = keys();
++    println!("keys compiled          : {}", keys.len());
++
++    // Census on the schoolbook arm: calls and distinct divisors per compile.
++    census::configure(false, true);
++    let mut per_key = Vec::new();
++    for k in &keys {
++        census::reset();
++        let _ = Orbit::compile(*k).unwrap();
++        per_key.push(census::take());
++    }
++    let total_divs: u64 = per_key.iter().map(|d| d.0).sum();
++    let distinct_all: usize = per_key.iter().map(|d| d.1).sum();
++    let total_w128: u64 = per_key.iter().map(|d| d.2).sum();
++    let distinct_w128: usize = per_key.iter().map(|d| d.3).sum();
++    let max_divs = per_key.iter().map(|d| d.0 + d.2).max().unwrap();
++    let min_divs = per_key.iter().map(|d| d.0 + d.2).min().unwrap();
++    println!(
++        "div_word calls         : {total_divs} total, {} avg/compile (distinct {}, repeat frac {:.3})",
++        total_divs / keys.len() as u64,
++        distinct_all,
++        1.0 - distinct_all as f64 / total_divs as f64
++    );
++    println!(
++        "u128 `/` sites         : {total_w128} total, {} avg/compile (distinct {}, repeat frac {:.3})",
++        total_w128 / keys.len() as u64,
++        distinct_w128,
++        1.0 - distinct_w128 as f64 / total_w128.max(1) as f64
++    );
++    println!("divisions per compile  : min {min_divs}, max {max_divs}");
++    // Aggregate top divisors over the whole sweep (identifies the repeating site).
++    census::reset();
++    for k in &keys {
++        let _ = Orbit::compile(*k).unwrap();
++    }
++    let (top64, top128) = census::top(4);
++    for (d, c) in top64 {
++        println!("  top u64 divisor   {d:>20} x{c}");
++    }
++    for (d, c) in top128 {
++        println!("  top u128 divisor  {d:>38} x{c}");
++    }
++
++    // Bit-identity across arms via derived Eq over the whole shape.
++    census::configure(false, false);
++    let sb: Vec<_> = keys.iter().map(|k| Orbit::compile(*k).unwrap()).collect();
++    census::configure(true, false);
++    let lc: Vec<_> = keys.iter().map(|k| Orbit::compile(*k).unwrap()).collect();
++    let mism = sb
++        .iter()
++        .zip(&lc)
++        .filter(|(a, b)| a.shape() != b.shape())
++        .count();
++    println!("libcall mismatches     : {mism} of {}", keys.len());
++
++    // Timing both arms (census off, HashSet cold-path absent).
++    let run = || {
++        let t = Instant::now();
++        let mut acc = 0u128;
++        for k in &keys {
++            let o = Orbit::compile(*k).unwrap();
++            acc = acc.wrapping_add(o.shape().knots().len() as u128);
++            for kn in o.shape().knots().iter().step_by(16) {
++                acc = acc.wrapping_mul(31).wrapping_add(kn.psi as u128);
++            }
++            std::hint::black_box(&o);
++        }
++        (t.elapsed(), acc)
++    };
++    for (name, libcall) in [("schoolbook", false), ("libcall", true)] {
++        census::configure(libcall, false);
++        let _ = run(); // warm
++        let mut best = f64::INFINITY;
++        let mut acc = 0;
++        for _ in 0..7 {
++            let (d, a) = run();
++            best = best.min(d.as_secs_f64());
++            acc = a;
++        }
++        println!(
++            "{name:10} arm        : {:8.1} us/compile ({:>6.2} ms/sweep, {} keys) [acc {acc:x}]",
++            best / keys.len() as f64 * 1e6,
++            best * 1e3,
++            keys.len()
++        );
++    }
++}
+diff --git a/crates/space/examples/ingredient_bench.rs b/crates/space/examples/ingredient_bench.rs
+new file mode 100644
+index 00000000..89bfa09e
+--- /dev/null
++++ b/crates/space/examples/ingredient_bench.rs
+@@ -0,0 +1,57 @@
++//! Scout 20261013-0350: per-node ingredient costs (isqrt, cos, the 4-div block).
++use emergent_space::num::{cos, isqrt};
++use std::time::Instant;
++
++fn main() {
++    let mut state = 0x243f6a8885a308d3u64;
++    let mut next = || {
++        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
++        state ^= state >> 33;
++        state
++    };
++    const M: usize = 1 << 22;
++    let args: Vec<u128> = (0..M).map(|_| ((next() as u128) << 64) | next() as u128).collect();
++    let bench = |name: &str, f: &dyn Fn(&[u128]) -> u128| {
++        f(&args); // warm
++        let mut best = f64::INFINITY;
++        for _ in 0..5 {
++            let t = Instant::now();
++            let a = f(&args);
++            let d = t.elapsed().as_secs_f64();
++            best = best.min(d);
++            if a == 42_424_2 {
++                println!();
++            }
++        }
++        println!("{name:28}: {:6.2} ns/op", best / M as f64 * 1e9);
++    };
++    bench("u128 isqrt", &|a: &[u128]| {
++        let mut acc = 0u128;
++        for &x in a {
++            acc = acc.wrapping_add(isqrt(x));
++        }
++        acc
++    });
++    // cos takes Q61 psi in [0, pi]; keep in range.
++    bench("cos(psi) Q62", &|a: &[u128]| {
++        let mut acc = 0u128;
++        for &x in a {
++            acc = acc.wrapping_add(cos((x % 7244019458077122842u128) as i128) as u128);
++        }
++        acc
++    });
++    bench("u128 mul (control)", &|a: &[u128]| {
++        let mut acc = 0u128;
++        for i in 1..a.len() {
++            acc ^= a[i].wrapping_mul(a[i - 1]);
++        }
++        acc
++    });
++    bench("u128 >>62 (control)", &|a: &[u128]| {
++        let mut acc = 0u128;
++        for &x in a {
++            acc ^= x >> 62;
++        }
++        acc
++    });
++}
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index ec2e91e6..5185d5ce 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -112,7 +112,7 @@ pub mod binding;
+ mod inverse;
+ pub mod light;
+ pub mod kerr;
+-mod num;
++pub mod num; // scout-7d2b: census arm switch, measurement only
+ pub mod orbit;
+ pub mod scaled;
+ pub mod tube;
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8d..2bd35eba 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -12,6 +12,12 @@ pub const ONE: i128 = 1 << 62;
+ #[inline]
+ pub(crate) fn div_word(n: u128, d: u64) -> u64 {
+     debug_assert!(d != 0 && (n >> 64) < d as u128);
++    census::record(d);
++    if census::arm_libcall() {
++        // Measurement arm (scout 20261013-0350): identical bits when the
++        // precondition holds, verified by 10^7-case fuzz against the schoolbook.
++        return (n / d as u128) as u64;
++    }
+     if n <= u64::MAX as u128 {
+         return n as u64 / d;
+     }
+@@ -41,6 +47,73 @@ pub(crate) fn div_word(n: u128, d: u64) -> u64 {
+     (q1 << 32) + q0
+ }
+ 
++/// Scout run 20261013-0350: division census and arm switch (measurement only).
++pub mod census {
++    use std::cell::RefCell;
++    use std::collections::HashMap;
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++    static TOTAL: AtomicU64 = AtomicU64::new(0);
++    static W128: AtomicU64 = AtomicU64::new(0);
++    static LIBCALL: AtomicBool = AtomicBool::new(false);
++    static CENSUS: AtomicBool = AtomicBool::new(false);
++    thread_local! {
++        static SEEN: RefCell<HashMap<u64, u64>> = RefCell::new(HashMap::new());
++        static SEEN128: RefCell<HashMap<u128, u64>> = RefCell::new(HashMap::new());
++    }
++    pub fn configure(libcall: bool, census: bool) {
++        LIBCALL.store(libcall, Ordering::Relaxed);
++        CENSUS.store(census, Ordering::Relaxed);
++    }
++    pub fn reset() {
++        TOTAL.store(0, Ordering::Relaxed);
++        W128.store(0, Ordering::Relaxed);
++        SEEN.with(|s| s.borrow_mut().clear());
++        SEEN128.with(|s| s.borrow_mut().clear());
++    }
++    #[inline]
++    pub(crate) fn record(d: u64) {
++        TOTAL.fetch_add(1, Ordering::Relaxed);
++        if CENSUS.load(Ordering::Relaxed) {
++            SEEN.with(|s| {
++                *s.borrow_mut().entry(d).or_insert(0) += 1;
++            });
++        }
++    }
++    /// Census the raw u128/u128 `/` sites (the fast_quad family), scout-7d2b.
++    #[inline]
++    pub fn div128_census(n: u128, d: u128) -> u128 {
++        W128.fetch_add(1, Ordering::Relaxed);
++        if CENSUS.load(Ordering::Relaxed) {
++            SEEN128.with(|s| {
++                *s.borrow_mut().entry(d).or_insert(0) += 1;
++            });
++        }
++        n / d
++    }
++    pub fn take() -> (u64, usize, u64, usize) {
++        (
++            TOTAL.load(Ordering::Relaxed),
++            SEEN.with(|s| s.borrow().len()),
++            W128.load(Ordering::Relaxed),
++            SEEN128.with(|s| s.borrow().len()),
++        )
++    }
++    /// Top-k divisors by count, both widths, for the census report.
++    pub fn top(k: usize) -> (Vec<(u64, u64)>, Vec<(u128, u64)>) {
++        let mut a: Vec<(u64, u64)> = SEEN.with(|s| s.borrow().iter().map(|(d, c)| (*d, *c)).collect());
++        let mut b: Vec<(u128, u64)> = SEEN128.with(|s| s.borrow().iter().map(|(d, c)| (*d, *c)).collect());
++        a.sort_by(|x, y| y.1.cmp(&x.1));
++        b.sort_by(|x, y| y.1.cmp(&x.1));
++        a.truncate(k);
++        b.truncate(k);
++        (a, b)
++    }
++    #[inline]
++    pub(crate) fn arm_libcall() -> bool {
++        LIBCALL.load(Ordering::Relaxed)
++    }
++}
++
+ /// floor(sqrt(x)).
+ pub fn isqrt(x: u128) -> u128 {
+     if x < 2 {
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 0aa1d27e..06a1aea7 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -386,11 +386,14 @@ impl OrbitShape {
+                 if root == 0 || horizon <= 0 {
+                     return Err(Error::Range);
+                 }
+-                let g = ((1u128 << 104) / root) as u64;
+-                let g1 = (a as u128 * g as u128 / (ONE as u128 + root)) as u64;
+-                let ratio = ((self.floor << 62) / x) as u64;
++                let g = crate::num::census::div128_census(1u128 << 104, root) as u64;
++                let g1 = crate::num::census::div128_census(
++                    a as u128 * g as u128,
++                    ONE as u128 + root,
++                ) as u64;
++                let ratio = crate::num::census::div128_census((self.floor as u128) << 62, x as u128) as u64;
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+-                let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
++                let rt = crate::num::census::div128_census((rtau as u128) << 62, horizon as u128) as u64;
+                 sum[0] += w as u128 * g1 as u128;
+                 let weighted = (w as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;
