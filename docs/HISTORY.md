@@ -3189,3 +3189,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/runs/codex-week/, artifacts/runs/clock/, lab/wiki/
 - Limitations: the clock fix is in flight (wt/clock); the shipmem and encounters crates are built but not yet wired into the plane.
 - Next: merge the clock fix behind gate C1; retire the kick jet; the frame's cost.
+
+## H0217 — Playable without refusals: the nose prograde, impacts warned, braking is a fall; B12 v3 decided from the lab's wiki
+
+- Date: 2026-10-13
+- Kind: implementation
+- Status: partial
+- Revisions: 886eb6f (playability: ca4a65c, 47e5d30, 8be9178); daf8fc0 (B12 v3 in law.md); ffb0eee and the lab's wiki publishes
+- Scope: crates/universe, crates/space (plunge arcs), xtask/src/universe (the HUD), docs/law.md, lab
+- Changed: The flight sweep found every loss was a crash: the nose started retrograde, so "forward" burned the ship into Home, unwarned. Now the nose starts prograde, the HUD warns minutes ahead, braking to rest is a plunge the player can burn out of (gate P1: 15/15, zero refusals, worst 1.05e-4 against exact radial infall), and a burn is paid at every kick level (thrust was lost through the Moon's engagement). Zero refusals in normal flight. The lab's compiled wiki decided B12: no statistic separates at 200 periods (fourteen dead), two instruments do at 10⁴, so v3 judges per ship at 10⁴ with both instruments agreeing.
+- Why: Julien: "something functional … i just don't want it buggy".
+- Validation: the universe and space suites (137); G1–G6, B16, B19; B13 at baseline; the sweep.
+- Evidence: artifacts/evidence/play-20261013/, lab/wiki/b12-statistic.md
+- Limitations: stutter from L8 up (F1 in flight); a prograde L15 clock drifts past γ≈60 and far flights are refused past ~6 AU (both owned by `range`).
+- Next: merge frame, recorder, range; Julien flies; integration.
