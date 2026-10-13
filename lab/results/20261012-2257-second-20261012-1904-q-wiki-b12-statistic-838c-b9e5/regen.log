@@ -1,0 +1,152 @@
+=== 0. restore the two shipped probes from their run branches ===
+=== 1. verify.sh: 131 mechanical checks ===
+    grades (P1/P1b), sampled claims from the 23 source runs (P2a/P2b),
+    shipped-probe re-runs (P4/P5), the independent detune reproduction (P6),
+    the full-branch sweep and classification (P3), page mechanics (P2c).
+== P1: grades of the prior page's runs (unchanged) ==
+PASS  gold: 20261007-0528-dynamics-f819
+PASS  gold: 20261007-1550-second-20261007-1420-library-240c-32f9
+PASS  gold: 20261009-0208-second-20261008-2206-library-73ca-618f
+PASS  gold: 20261009-2348-second-20261009-2257-dynamics-a47e-09fb
+PASS  silver: 20261005-1404-q-plane-judge-65fd
+PASS  silver: 20261006-0737-redteam-b12-stat-e5fe
+PASS  silver: 20261007-1420-library-240c
+PASS  silver: 20261008-2206-library-73ca
+PASS  silver: 20261009-2257-dynamics-a47e
+PASS  silver: 20261011-0134-scout-7567
+PASS  silver: 20261011-0224-second-20261011-0134-scout-7567-cc25
+PASS  silver: 20261012-0138-library-060f
+PASS  silver: 20261012-1227-dynamics-bd4e
+PASS  missing: q-b12-design-9242 has no check.md
+== P1b: grades of the eight folded runs ==
+PASS  silver: 20261008-1719-dynamics-c13b
+PASS  silver: 20261010-1947-quant-9c2f
+PASS  silver: 20261010-1029-library-6cfc
+PASS  silver: 20261011-0006-dynamics-a2a5
+PASS  silver: 20261011-1234-library-069c
+PASS  silver: 20261012-1438-library-e9f9
+PASS  silver: 20261008-1419-system-2f89
+PASS  gold: 20261011-2235-library-54d9
+== P2a: sampled claims from the prior page (unchanged set) ==
+PASS  618f bounded α
+PASS  618f compounding α
+PASS  618f v1 false-kills 21/32
+PASS  32f9 dead band
+PASS  32f9 bounded max
+PASS  32f9 leak min
+PASS  32f9 autocorr
+PASS  09fb 8/8
+PASS  09fb controls
+PASS  09fb window
+PASS  bd4e plane beta
+PASS  bd4e slow leak
+PASS  1715 minority leak
+PASS  1715 fleet blip
+PASS  e5fe reference
+PASS  e5fe noise passes
+PASS  cc25 horizon
+PASS  f819 fma flip
+PASS  f819 plain
+PASS  060f kill fired
+== P2b: sampled claims from the eight folded runs ==
+PASS  c13b bounded S2
+PASS  c13b compound S2
+PASS  c13b drift S2
+PASS  c13b bounded z
+PASS  c13b identifiability
+PASS  c13b machine flip
+PASS  c13b threshold margin
+PASS  9c2f state-only flat
+PASS  9c2f leaks rise
+PASS  9c2f requirement leak
+PASS  9c2f seed grey
+PASS  9c2f band edge
+PASS  9c2f OU no false positive
+PASS  9c2f pure-a blind spot
+PASS  6cfc mean AUC
+PASS  6cfc max AUC
+PASS  6cfc window sizing
+PASS  a2a5 separation
+PASS  a2a5 VR drift-blind
+PASS  a2a5 walk indeterminate
+PASS  a2a5 2.6x
+PASS  a2a5 trend artifactual
+PASS  a2a5 long-memory boundary
+PASS  069c slow leak
+PASS  069c F med
+PASS  069c amplitude-free
+PASS  069c phase-tied kill
+PASS  069c guard precedence
+PASS  e9f9 fast detection
+PASS  e9f9 detune kill
+PASS  e9f9 median orbit
+PASS  e9f9 breaking condition
+PASS  e9f9 frozen h
+PASS  e9f9 tautology
+PASS  2f89 one-signed
+PASS  2f89 exponent k8
+PASS  2f89 worst k8
+PASS  2f89 shadow offset
+PASS  2f89 what B12 reads
+PASS  54d9 matched-cost walk
+PASS  54d9 phase-lock
+PASS  54d9 walk slopes
+PASS  54d9 register advice
+== P4/P5: re-run the shipped probes of 069c and 6cfc ==
+PASS  069c shipped script: bounded_jumps 100/100
+PASS  069c shipped script: slow_leak 95/100
+PASS  6cfc shipped script: mean 0.967
+PASS  6cfc shipped script: max 0.920
+PASS  6cfc shipped script: T=100 blind
+PASS  detune: commensurate A=20 no alarms
+PASS  detune: A*eps=0.002 no alarms
+PASS  detune: A*eps=0.02 kills
+PASS  detune: A=5 eps=1e-2 kills
+== P3: the full-branch sweep ==
+PASS  sweep: exactly 37 dossiers with >=4 B12 mentions
+PASS  sweep: 20261008-1719-dynamics-c13b in the >=4 set
+PASS  sweep: 20261010-1947-quant-9c2f in the >=4 set
+PASS  sweep: 20261010-1029-library-6cfc in the >=4 set
+PASS  sweep: 20261011-0006-dynamics-a2a5 in the >=4 set
+PASS  sweep: 20261011-1234-library-069c in the >=4 set
+PASS  sweep: 20261012-1438-library-e9f9 in the >=4 set
+PASS  sweep: 20261008-1419-system-2f89 in the >=4 set
+PASS  sweep: 20261011-2235-library-54d9 in the >=4 set
+PASS  sweep: 20261005-1404-q-plane-judge-65fd in the >=4 set
+PASS  sweep: 20261006-0737-redteam-b12-stat-e5fe in the >=4 set
+PASS  sweep: 20261007-1420-library-240c in the >=4 set
+PASS  sweep: 20261008-2206-library-73ca in the >=4 set
+PASS  sweep: 20261009-2257-dynamics-a47e in the >=4 set
+PASS  sweep: 20261011-0134-scout-7567 in the >=4 set
+PASS  sweep: 20261012-0138-library-060f in the >=4 set
+PASS  context-only 20261009-0709-second-20261009-0621-system-7f97-1eca not on the page
+PASS  context-only 20261008-1757-second-20261008-1719-system-0ccd-b33f not on the page
+PASS  context-only 20261011-1814-second-20261011-1729-system-2c68-b242 not on the page
+PASS  context-only 20261011-0924-second-20261011-0836-spacex-0c44-c01c not on the page
+PASS  context-only 20261008-0338-library-f045 not on the page
+PASS  context-only 20261004-0555-spacex-450b not on the page
+PASS  context-only 20261001-2353-q-changeover-e04a not on the page
+PASS  context-only 20260930-2250-taleb-3d2c not on the page
+PASS  context-only 20261008-1419-dynamics-5cbd not on the page
+PASS  context-only 20261005-2129-m-meso-motion-15d6 not on the page
+PASS  context-only 20261005-1540-m-macro-structure-a7f7 not on the page
+PASS  context-only 20261006-0030-library-39a2 not on the page
+PASS  context-only 20261008-1150-scout-2c45 not on the page
+== P2c: page mechanics ==
+PASS  header updated
+PASS  header open
+PASS  five sections
+PASS  23 run lines
+PASS  14 refuted bullets
+PASS  census sentence folded
+PASS  no dangling placeholder
+PASS  1715 line verbatim
+== 131 passed, 0 failed ==
+
+=== 2. the fold's headline repro numbers (for the dossier) ===
+detune_repro: P=1234 orbits=512 seeds=200 k=0.01 h=0.03391 sigma=0.1
+A= 20.0 eps=0e+00  A*eps=0.0000  false-alarms 0/200  median alarm orbit nan
+A= 20.0 eps=1e-04  A*eps=0.0020  false-alarms 0/200  median alarm orbit nan
+A= 20.0 eps=1e-03  A*eps=0.0200  false-alarms 200/200  median alarm orbit 106.0
+A=  5.0 eps=1e-02  A*eps=0.0500  false-alarms 200/200  median alarm orbit 8.0
+A=  1.0 eps=0e+00  A*eps=0.0000  false-alarms 0/200  median alarm orbit nan

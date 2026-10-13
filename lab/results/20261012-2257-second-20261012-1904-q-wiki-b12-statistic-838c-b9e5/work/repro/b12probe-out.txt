@@ -1,0 +1,12 @@
+T=4096 seeds=100 seed0=20261011
+bounded        -> verdict pass  1.00  F med=     1.02  subs={'bounded': 100}
+diffusive      -> verdict pass  0.97  F med=     12.7  subs={'compounding-unresolved': 96, 'leak': 4}
+ballistic      -> verdict pass  1.00  F med= 6.09e+04  subs={'compounding-unresolved': 100}
+slow_leak      -> verdict pass  0.95  F med=     10.4  subs={'compounding-unresolved': 96, 'leak': 4}
+bounded_jumps  -> verdict pass  1.00  F med=     1.02  subs={'bounded': 100}
+T=1024 seeds=100 seed0=20261011
+bounded        -> verdict pass  0.00  F med=     1.17  subs={'compounding-unresolved': 92, 'leak': 8}
+diffusive      -> verdict pass  0.97  F med=     12.8  subs={'compounding-unresolved': 96, 'leak': 4}
+ballistic      -> verdict pass  1.00  F med=      924  subs={'compounding-unresolved': 100}
+slow_leak      -> verdict pass  0.96  F med=     10.9  subs={'compounding-unresolved': 91, 'leak': 9}
+bounded_jumps  -> verdict pass  0.00  F med=     1.21  subs={'compounding-unresolved': 97, 'leak': 3}
