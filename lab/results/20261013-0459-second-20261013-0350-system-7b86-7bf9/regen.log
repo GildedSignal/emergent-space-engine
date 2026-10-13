@@ -1,0 +1,71 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: unused variable: `player`
+  --> crates/universe/examples/quad_slot.rs:89:17
+   |
+89 |             let player = p.player;
+   |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_player`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "quad_slot") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 19.48s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-0/release/examples/slot_ab 3`
+slot_ab: the deletion measured — fresh `force::field` read vs tube-only, one binary, interleaved
+linux/x86 shared box: read orders of magnitude; the integrator re-measures on the M1
+
+== digest and instrument (deterministic pair per scene, no wall cut) ==
+scene                     frames   digest   dp50 tick  dp99 tick  dmax tick    dshift99  idset  bodies seen
+coast                        480     same      0.00e0    2.44e-8    2.06e-6    5.55e-15      0  59
+forward L8                   480     same      0.00e0    2.42e-8    2.08e-6    5.55e-15      0  59
+forward L12                  480     same      0.00e0    2.72e-6    4.57e-6    5.52e-12      0  59
+forward L15                  480     same      0.00e0    2.76e-7    3.42e-6    1.02e-12      0  59
+brake L8                     480     same      0.00e0    2.42e-8    2.07e-6    5.55e-15      0  59
+turn left then burn L8       188     same      0.00e0     0.00e0     0.00e0      0.00e0      0  65
+dense 400 forward L12        240     same      0.00e0     0.00e0     0.00e0      0.00e0      0  306
+scene                     cfg   gat_p50   gat_p99   eng_p99   frame99   share50   part/f    part%   rd/b/f
+coast                    fresh     0.77ms     1.15ms     1.63ms     2.41ms    94.4%     12.0    16.9%     2.54
+coast                    tube     0.56ms     0.98ms     1.65ms     2.45ms    92.7%     12.0    16.9%     2.54
+coast: gain fresh/tube                                           1.38x     0.99x
+forward L8               fresh     1.16ms     1.46ms    18.47ms    19.44ms    62.7%     12.6    12.2%     3.70
+forward L8               tube     0.96ms     1.28ms    18.43ms    19.23ms    58.0%     12.6    12.2%     3.70
+forward L8: gain fresh/tube                                      1.21x     1.01x
+forward L12              fresh     1.20ms     1.53ms    27.74ms    29.25ms    68.6%     13.6    12.6%     3.85
+forward L12              tube     0.96ms     1.33ms    27.84ms    29.14ms    62.8%     13.6    12.6%     3.85
+forward L12: gain fresh/tube                                     1.25x     1.00x
+forward L15              fresh     1.21ms     1.54ms    27.08ms    28.61ms    81.5%     14.3    13.2%     3.86
+forward L15              tube     0.96ms     1.35ms    27.02ms    28.36ms    78.0%     14.3    13.2%     3.86
+forward L15: gain fresh/tube                                     1.27x     1.01x
+brake L8                 fresh     1.17ms     1.46ms    12.21ms    13.37ms    62.9%     12.6    12.1%     3.74
+brake L8                 tube     0.96ms     1.27ms    12.15ms    13.18ms    58.3%     12.6    12.1%     3.74
+brake L8: gain fresh/tube                                        1.21x     1.01x
+turn left then burn L8   fresh     0.91ms     1.24ms    15.27ms    16.15ms    89.4%     12.0    16.1%     2.66
+turn left then burn L8   tube     0.72ms     1.04ms    15.21ms    15.89ms    85.5%     12.0    16.1%     2.66
+turn left then burn L8: gain fresh/tube                          1.27x     1.02x
+dense 400 forward L12    fresh     5.99ms     7.91ms   200.07ms   206.16ms    49.1%     12.0     2.2%    19.42
+dense 400 forward L12    tube     5.77ms     7.16ms   200.16ms   206.04ms    48.3%     12.0     2.2%    19.42
+dense 400 forward L12: gain fresh/tube                           1.04x     1.00x
+warning: unused variable: `player`
+  --> crates/universe/examples/quad_slot.rs:89:17
+   |
+89 |             let player = p.player;
+   |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_player`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "quad_slot") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.20s
+     Running `/home/glmlab/lab-target-0/release/examples/quad_slot 8`
+paced 8 s per flight, 480 frames at 60 Hz, rtf 100, seed 1, 48 members
+read quantum: the gather reads integer ticks; 1 root tick = 4.925e-6 s of light
+flight                 frames  clock% rd/body/f  no-stor  |a|>0 e_p50 tick e_p99 tick e_max tick    ev_p99   rel_p99
+coast                     480   42.9%      2.54        0   0.0%     0.00e0     0.00e0     0.00e0    0.00e0    0.00e0
+forward L8                480   42.9%      3.69        0   0.0%     0.00e0     0.00e0     0.00e0    0.00e0    0.00e0
+forward L12               480   44.1%      3.77        6 101.6%    2.81e-7    7.16e-6    8.79e-6  9.10e-12    1.00e0
+forward L15               480   45.1%      3.75        8 101.2%    1.15e-8    4.56e-7    9.89e-7  1.92e-12    1.00e0
+brake L8                  480   42.9%      3.74        0   0.0%     0.00e0     0.00e0     0.00e0    0.00e0    0.00e0
+turn left then burn L8    190   42.9%      2.67        0   0.0%     0.00e0     0.00e0     0.00e0    0.00e0    0.00e0
+Expected (slot_ab): digest 'same' on all 7 scenes; dp99 <= 2.8e-6, dmax <= 4.6e-6 root ticks;
+dshift99 <= 5.6e-12; idset 0 everywhere; gather p50 gain fresh/tube 1.2-1.3x at 48 members;
+part/f ~12-14 (12.0 at 400 members, part% 2.2); frame p99 gain 0.9-1.2x (noise);
+gather share 62-94% fresh, dropping 3-6 points tube-only.
