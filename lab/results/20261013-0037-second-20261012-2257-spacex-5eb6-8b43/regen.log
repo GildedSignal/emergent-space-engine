@@ -1,0 +1,119 @@
+== 1. the starvation case (the run's decisive experiment): budgeted vs settled vs stepped ==
+fleet-past-now frames: 6 of 200, first: Some((23, 23068671, 22020433))
+overflow frames: 200
+budgeted: fleet tick 83886150, live true
+settled: fleet tick 83886150, live true
+stepped: fleet tick 83886150, live true
+{"case":"starve","arm":"budgeted","cut":83886150,"bodies":50,"events":985,"kicks":303,"opens":50,"boundaries":285,"handoffs":0,"lost":4,"refused":0,"slices":347,"encounters":52,"decisions":0,"leavers":22,"dissolved":0,"contacts":12,"rekeys":41,"digest":"7d1c6468a2cc15bf86f2f18b"}
+{"case":"starve","arm":"stepped-settle","cut":83886150,"digest":"7d1c6468a2cc15bf86f2f18b"}
+{"case":"starve","arm":"settled","cut":83886150,"bodies":50,"events":959,"kicks":303,"opens":50,"boundaries":285,"handoffs":0,"lost":4,"refused":0,"slices":321,"encounters":52,"decisions":0,"leavers":22,"dissolved":0,"contacts":12,"rekeys":1,"digest":"7d1c6468a2cc15bf86f2f18b"}
+fleet-past-now frames: 0 of 200, first: None
+overflow frames: 200
+budgeted: fleet tick 44041683, live true
+settled: fleet tick 44041683, live true
+stepped: fleet tick 44041680, live true
+{"case":"starve","arm":"budgeted","cut":44041683,"bodies":49,"events":693,"kicks":133,"opens":49,"boundaries":119,"handoffs":0,"lost":1,"refused":0,"slices":392,"encounters":22,"decisions":0,"leavers":21,"dissolved":0,"contacts":1,"rekeys":405,"digest":"c7acf6cc5d2007870b59a7ea"}
+{"case":"starve","arm":"stepped-settle","cut":44041683,"digest":"34c81358812fd83984539ccd"}
+{"case":"starve","arm":"settled","cut":44041683,"bodies":49,"events":470,"kicks":133,"opens":49,"boundaries":119,"handoffs":0,"lost":1,"refused":0,"slices":169,"encounters":22,"decisions":0,"leavers":21,"dissolved":0,"contacts":1,"rekeys":5,"digest":"c7acf6cc5d2007870b59a7ea"}
+lazy starve: digests {'budgeted': '7d1c6468a2cc15bf86f2f18b', 'stepped-settle': '7d1c6468a2cc15bf86f2f18b', 'settled': '7d1c6468a2cc15bf86f2f18b'} -> ONE digest
+lazy starve: budgeted fleet tick 83886150 vs cut 83886150 -> AT OR BELOW the cut
+eager starve: budgeted c7acf6cc5d20… settled c7acf6cc5d20… -> AGREE
+VERDICT: STARVE HOLDS
+== 2. quiet frames (the zero-event tier), both arms, 428 to 400k bodies ==
+{"case":"quiet","n":428,"frames":200,"build_s":0.02,"median_us":1.36,"p99_us":6.19,"max_us":9.26,"rekeys":2,"events":0,"digest":"e1450b4b51a62766"}
+{"case":"quiet","n":10000,"frames":200,"build_s":0.49,"median_us":1.36,"p99_us":128.03,"max_us":156.96,"rekeys":2,"events":0,"digest":"e7819b92614bb5c8"}
+{"case":"quiet","n":40000,"frames":200,"build_s":1.95,"median_us":1.36,"p99_us":876.94,"max_us":1431.04,"rekeys":2,"events":0,"digest":"70fd6f4155340a9e"}
+{"case":"quiet","n":100000,"frames":200,"build_s":4.83,"median_us":1.36,"p99_us":2244.59,"max_us":3648.05,"rekeys":2,"events":0,"digest":"5b9f3ee4bdbee379"}
+{"case":"quiet","n":200000,"frames":200,"build_s":9.70,"median_us":1.36,"p99_us":4610.56,"max_us":7256.24,"rekeys":2,"events":0,"digest":"47c490d8e915aad8"}
+{"case":"quiet","n":400000,"frames":200,"build_s":19.44,"median_us":1.36,"p99_us":9319.24,"max_us":14851.35,"rekeys":2,"events":0,"digest":"074bd56b48994362"}
+{"case":"quiet","n":428,"frames":200,"build_s":0.02,"median_us":15.76,"p99_us":20.51,"max_us":20.68,"rekeys":401,"events":0,"digest":"e1450b4b51a62766"}
+{"case":"quiet","n":10000,"frames":200,"build_s":0.49,"median_us":303.38,"p99_us":426.77,"max_us":429.58,"rekeys":401,"events":0,"digest":"e7819b92614bb5c8"}
+{"case":"quiet","n":40000,"frames":200,"build_s":1.96,"median_us":2245.53,"p99_us":2882.66,"max_us":3012.82,"rekeys":401,"events":0,"digest":"70fd6f4155340a9e"}
+{"case":"quiet","n":100000,"frames":200,"build_s":4.87,"median_us":7027.67,"p99_us":9099.11,"max_us":9171.12,"rekeys":401,"events":0,"digest":"5b9f3ee4bdbee379"}
+{"case":"quiet","n":200000,"frames":200,"build_s":9.69,"median_us":14661.71,"p99_us":19145.79,"max_us":20316.61,"rekeys":401,"events":0,"digest":"47c490d8e915aad8"}
+{"case":"quiet","n":400000,"frames":200,"build_s":19.54,"median_us":29578.42,"p99_us":38798.38,"max_us":38981.93,"rekeys":401,"events":0,"digest":"074bd56b48994362"}
+== 3. the plane to a canonical cut, both arms, 15 schedules ==
+{"case":"fly","seed":1,"rtf":100,"threads":1,"wall_ms":5,"frames":869,"events":1364,"kicks":538,"rekeys":160,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":1,"rtf":100,"threads":4,"wall_ms":5,"frames":869,"events":1364,"kicks":538,"rekeys":160,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":1,"rtf":1,"threads":1,"wall_ms":5,"frames":40000,"events":8624,"kicks":538,"rekeys":306,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":1,"rtf":1000,"threads":1,"wall_ms":5,"frames":86,"events":1317,"kicks":538,"rekeys":86,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":1,"rtf":100,"threads":1,"wall_ms":0.05,"frames":1263,"events":1351,"kicks":538,"rekeys":169,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":3,"rtf":100,"threads":1,"wall_ms":5,"frames":858,"events":1105,"kicks":442,"rekeys":147,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":3,"rtf":100,"threads":4,"wall_ms":5,"frames":858,"events":1105,"kicks":442,"rekeys":147,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":3,"rtf":1,"threads":1,"wall_ms":5,"frames":40000,"events":7016,"kicks":442,"rekeys":259,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":3,"rtf":1000,"threads":1,"wall_ms":5,"frames":87,"events":1063,"kicks":442,"rekeys":86,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":3,"rtf":100,"threads":1,"wall_ms":0.05,"frames":1132,"events":1094,"kicks":442,"rekeys":150,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":7,"rtf":100,"threads":1,"wall_ms":5,"frames":859,"events":1258,"kicks":535,"rekeys":146,"digest":"4dc0556c8cd27c72"}
+{"case":"fly","seed":7,"rtf":100,"threads":4,"wall_ms":5,"frames":859,"events":1258,"kicks":535,"rekeys":146,"digest":"4dc0556c8cd27c72"}
+{"case":"fly","seed":7,"rtf":1,"threads":1,"wall_ms":5,"frames":40000,"events":5960,"kicks":535,"rekeys":259,"digest":"4dc0556c8cd27c72"}
+{"case":"fly","seed":7,"rtf":1000,"threads":1,"wall_ms":5,"frames":86,"events":1223,"kicks":535,"rekeys":86,"digest":"4dc0556c8cd27c72"}
+{"case":"fly","seed":7,"rtf":100,"threads":1,"wall_ms":0.05,"frames":1254,"events":1250,"kicks":535,"rekeys":149,"digest":"4dc0556c8cd27c72"}
+{"case":"identity","configs":15,"agree":true,"disagree":[]}
+{"case":"fly","seed":1,"rtf":100,"threads":1,"wall_ms":5,"frames":858,"events":1387,"kicks":538,"rekeys":1719,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":1,"rtf":100,"threads":4,"wall_ms":5,"frames":858,"events":1387,"kicks":538,"rekeys":1719,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":1,"rtf":1,"threads":1,"wall_ms":5,"frames":40000,"events":8664,"kicks":538,"rekeys":80005,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":1,"rtf":1000,"threads":1,"wall_ms":5,"frames":86,"events":1327,"kicks":538,"rekeys":175,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":1,"rtf":100,"threads":1,"wall_ms":0.05,"frames":1267,"events":1360,"kicks":538,"rekeys":2537,"digest":"a8496bfff17a43dd"}
+{"case":"fly","seed":3,"rtf":100,"threads":1,"wall_ms":5,"frames":858,"events":1105,"kicks":442,"rekeys":1719,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":3,"rtf":100,"threads":4,"wall_ms":5,"frames":858,"events":1105,"kicks":442,"rekeys":1719,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":3,"rtf":1,"threads":1,"wall_ms":5,"frames":40000,"events":7016,"kicks":442,"rekeys":80005,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":3,"rtf":1000,"threads":1,"wall_ms":5,"frames":87,"events":1063,"kicks":442,"rekeys":177,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":3,"rtf":100,"threads":1,"wall_ms":0.05,"frames":1131,"events":1084,"kicks":442,"rekeys":2265,"digest":"c48002602519bf1f"}
+{"case":"fly","seed":7,"rtf":100,"threads":1,"wall_ms":5,"frames":859,"events":1258,"kicks":535,"rekeys":1721,"digest":"4dc0556c8cd27c72"}
+{"case":"fly","seed":7,"rtf":100,"threads":4,"wall_ms":5,"frames":859,"events":1258,"kicks":535,"rekeys":1721,"digest":"4dc0556c8cd27c72"}
+{"case":"fly","seed":7,"rtf":1,"threads":1,"wall_ms":5,"frames":40000,"events":5960,"kicks":535,"rekeys":80005,"digest":"4dc0556c8cd27c72"}
+{"case":"fly","seed":7,"rtf":1000,"threads":1,"wall_ms":5,"frames":86,"events":1223,"kicks":535,"rekeys":175,"digest":"4dc0556c8cd27c72"}
+{"case":"fly","seed":7,"rtf":100,"threads":1,"wall_ms":0.05,"frames":1255,"events":1245,"kicks":535,"rekeys":2513,"digest":"4dc0556c8cd27c72"}
+{"case":"identity","configs":15,"agree":true,"disagree":[]}
+fly-lazy.json seed 1: ONE digest ['a8496bfff17a43dd']
+fly-lazy.json seed 3: ONE digest ['c48002602519bf1f']
+fly-lazy.json seed 7: ONE digest ['4dc0556c8cd27c72']
+fly-legacy.json seed 1: ONE digest ['a8496bfff17a43dd']
+fly-legacy.json seed 3: ONE digest ['c48002602519bf1f']
+fly-legacy.json seed 7: ONE digest ['4dc0556c8cd27c72']
+quiet n=428: lazy e1450b4b51a62766 legacy e1450b4b51a62766 SAME
+quiet n=10000: lazy e7819b92614bb5c8 legacy e7819b92614bb5c8 SAME
+quiet n=40000: lazy 70fd6f4155340a9e legacy 70fd6f4155340a9e SAME
+quiet n=100000: lazy 5b9f3ee4bdbee379 legacy 5b9f3ee4bdbee379 SAME
+quiet n=200000: lazy 47c490d8e915aad8 legacy 47c490d8e915aad8 SAME
+quiet n=400000: lazy 074bd56b48994362 legacy 074bd56b48994362 SAME
+cross-arm seed 1: lazy a8496bfff17a43dd legacy ['a8496bfff17a43dd'] SAME
+cross-arm seed 3: lazy c48002602519bf1f legacy ['c48002602519bf1f'] SAME
+cross-arm seed 7: lazy 4dc0556c8cd27c72 legacy ['4dc0556c8cd27c72'] SAME
+VERDICT: ALL DIGESTS AGREE
+== 4. adversarial: the tie storm, the fastest bindable player, the replay schedule ==
+{"case":"storm","events":3002,"median_us":0.07,"rekeys":2,"digest":"0f4e960086112d50ebf4e30e"}
+{"case":"storm","events":3002,"median_us":72.82,"rekeys":406,"digest":"0f4e960086112d50ebf4e30e"}
+{"case":"fast","events":0,"median_us":1.37,"p99_us":158.58,"rekeys":17,"fleet_past_now":false,"digest":"29d8eacc7746ca8a466e935b"}
+{"case":"fast","events":0,"median_us":302.81,"p99_us":441.41,"rekeys":401,"fleet_past_now":false,"digest":"29d8eacc7746ca8a466e935b"}
+{"case":"replay","cut":13535000,"frames":33,"inputs":3,"digest":"302c3ba3ce44064aff93b062","want":"302c3ba3ce44064aff93b062"}
+{"case":"replay","cut":13535000,"frames":29,"inputs":3,"digest":"302c3ba3ce44064aff93b062","want":"302c3ba3ce44064aff93b062"}
+storm: lazy 0f4e960086112d50… eager 0f4e960086112d50…, events 3002/3002 -> SAME
+fast: lazy 29d8eacc7746ca8a… eager 29d8eacc7746ca8a… -> SAME
+replay: lazy 302c3ba3ce44064a… eager 302c3ba3ce44064a…, frames 33/29, matches want: True -> SAME
+VERDICT: ADVERSARIAL HOLDS
+== 5. the universe suite (cross-schedule digest gauntlet) ==
+running 10 tests
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.51s
+running 3 tests
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 17.15s
+running 6 tests
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.15s
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+running 9 tests
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 25.62s
+running 4 tests
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+running 6 tests
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.05s
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s
+running 8 tests
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.73s
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.74s
+running 5 tests
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
