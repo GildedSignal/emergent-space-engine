@@ -10,6 +10,7 @@ pub mod force;
 pub mod lorentz;
 pub mod num;
 pub mod observe;
+pub mod prof;
 pub mod scenario;
 pub mod step;
 pub mod thrust;

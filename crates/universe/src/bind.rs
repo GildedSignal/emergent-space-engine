@@ -106,6 +106,9 @@ pub struct Binding {
     pub event_time: Tick,
     /// The kick that made this binding (zero length if none): what the state between kicks is completed with.
     pub kick: Kick,
+    /// The impact this tube is on, as [`crate::step::next_impact`] found it after tick `.0` (`.1`: none, or the tick): a function
+    /// of the binding alone, so the boundary after a kick reads what the kick found instead of bisecting again. Not state.
+    pub impact: Option<(Tick, Option<Tick>)>,
 }
 
 /// The tube's own readout (no remainder) at `t`, with the orbit state it came from, in the doll's units
@@ -219,7 +222,9 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, 
 }
 
 pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
+    let t_fit = crate::prof::t();
     let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
+    crate::prof::add(crate::prof::FIT, t_fit);
     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
     // at most one quantum of the new word) and bind again.
@@ -236,7 +241,10 @@ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<S
         length_exponent: nl as i16,
         velocity_exponent: nv as i16,
     };
-    bind_in(coarser, t, clock_exp, edge, unit, surface)
+    let t_again = crate::prof::t();
+    let again = bind_in(coarser, t, clock_exp, edge, unit, surface);
+    crate::prof::add(crate::prof::FIT2, t_again);
+    again
 }
 
 /// The state in the tube's units (`M_D`): positions divided by `μ`, rounded toward zero at the word (a fit is
@@ -291,5 +299,6 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
         clock_exp,
         event_time: t,
         kick: Kick::NONE,
+        impact: None,
     }
 }
