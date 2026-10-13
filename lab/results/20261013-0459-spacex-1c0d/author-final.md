@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place and verified. Final state: patch (+34/−3 in `fit_key`), probes, dossier, pre-registered predictions, regen.sh, wiki page, and saved outputs.
+
+**The claim, one sentence:** The far hyperbolic `Range` wall that loses a fast flight far from the star is deleted — a 20-line fallback in `fit_key` re-fits the key from the state's own invariants through the already-shipped exact big-int cubic, fitting 11 of 14 refused grid points while leaving every one of the 56 originally-accepted fits bit-identical and both test suites (space 63/63, plane digests 6/6) green in both arms — with the two honest edges it surfaced (shared root selection at stiff far corners; a 1%-at-E-100–1000 gap-column disagreement predating the patch) named for the checker's exact-GR oracle, and the stiff single-real-root hyperbola left standing as the representation's true wall.

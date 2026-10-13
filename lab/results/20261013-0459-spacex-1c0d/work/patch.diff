@@ -1,0 +1,272 @@
+diff --git a/crates/space/examples/far_diag.rs b/crates/space/examples/far_diag.rs
+new file mode 100644
+index 00000000..28efce71
+--- /dev/null
++++ b/crates/space/examples/far_diag.rs
+@@ -0,0 +1,66 @@
++//! Focused: at three former Range-refusal points, print the fallback's fitted key vs the
++//! control from_invariants key, and the error stage for points that still refuse.
++use emergent_space::binding::{IntegerState, Rebinding};
++use emergent_space::orbit::{OrbitKey, Scalar};
++
++fn f(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi(s.exponent() as i32 - 62)
++}
++
++fn mk(e: f64, rp: f64) -> IntegerState {
++    let u = 1.0 / rp;
++    let lapse = 1.0 - u;
++    let vt = (lapse - lapse * lapse / (e * e)).sqrt();
++    let le = (rp.abs().log2().floor() - 54.0) as i16;
++    IntegerState {
++        position: [(rp / 2f64.powi(le as i32)).round() as i64, 0],
++        velocity: [0, (vt * 2f64.powi(60)).round() as i64],
++        length_exponent: le,
++        velocity_exponent: -60,
++    }
++}
++
++fn main() {
++    for &(e, rp) in &[
++        (1.5f64, 1e9f64),
++        (2.0, 4e8),
++        (100.0, 4e8),
++        (1000.0, 1.6e10),
++        (10000.0, 1e9),
++        (1.001, 1e6),
++    ] {
++        let st = mk(e, rp);
++        let p = Scalar::raw(st.position[0] as i128, st.length_exponent as i32).unwrap();
++        let v = Scalar::raw(st.velocity[1] as i128, st.velocity_exponent as i32).unwrap();
++        let r = p.abs();
++        let u = r.reciprocal().unwrap();
++        let lapse = Scalar::integer(1).sub(u).unwrap();
++        let den = lapse.sub(v.mul(v).unwrap()).unwrap();
++        let e2 = lapse.mul(lapse).unwrap().div(den).unwrap();
++        let delta = e2.sub(Scalar::integer(1)).unwrap();
++        let ang = r.mul(v).unwrap();
++        let ctrl = OrbitKey::from_invariants(delta, ang);
++        let fit = Rebinding::from_state(st, Scalar::integer(0), None);
++        match (&ctrl, &fit) {
++            (Ok(ck), Ok(fit)) => {
++                let fk = fit.trajectory.key();
++                println!(
++                    "e={e} rp={rp}: fit k={} ctrl k={} kdiff={} peri_fit={:.6e} peri_ctrl={:.6e} peridiff={:.3e} gap={}",
++                    fk.k,
++                    ck.k,
++                    fk.k as i64 as f64 - ck.k as i64 as f64,
++                    f(fk.periapsis),
++                    f(ck.periapsis),
++                    (f(fk.periapsis) - f(ck.periapsis)).abs(),
++                    fk.gap.is_some(),
++                );
++            }
++            (ck, fe) => println!("e={e} rp={rp}: ctrl={ck:?} fit={fe:?}"),
++        }
++        // Stage isolation for refusals: compile the control key directly.
++        if let Ok(ck) = &ctrl {
++            let comp = emergent_space::orbit::Passage::compile(*ck, r);
++            println!("   passage compile of control key: {:?}", comp.map(|_| ()));
++        }
++    }
++}
+diff --git a/crates/space/examples/far_wall.rs b/crates/space/examples/far_wall.rs
+new file mode 100644
+index 00000000..416b4a73
+--- /dev/null
++++ b/crates/space/examples/far_wall.rs
+@@ -0,0 +1,137 @@
++//! The far hyperbolic wall of the shipped fit (`Rebinding::from_state`), measured on
++//! exact periapsis states across (E, periapsis), with the invariants key as the control.
++//! One binary, two arms: with the far-field patch, `ES_INVDOMAIN=0` restores the shipped
++//! behavior; on base the env var is ignored. Prints one row per grid point.
++use emergent_space::binding::{IntegerState, Rebinding};
++use emergent_space::orbit::{OrbitKey, Scalar};
++
++fn f(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi(s.exponent() as i32 - 62)
++}
++
++fn state_at_periapsis(e: f64, rp: f64) -> IntegerState {
++    // At periapsis vr = 0; E^2 = lapse^2/den with den = lapse - vt^2 (fit_key's algebra),
++    // so vt^2 = lapse - lapse^2/E^2. Words are exact integers; the fit's oracle is the
++    // state's own Scalar E, recomputed below, not this target.
++    let u = 1.0 / rp;
++    let lapse = 1.0 - u;
++    let vt2 = lapse - lapse * lapse / (e * e);
++    let vt = vt2.sqrt();
++    let le = (rp.abs().log2().floor() - 54.0) as i16;
++    let px = (rp / 2f64.powi(le as i32)).round() as i64;
++    let vy = (vt * 2f64.powi(60)).round() as i64;
++    IntegerState {
++        position: [px, 0],
++        length_exponent: le,
++        velocity: [0, vy],
++        velocity_exponent: -60,
++    }
++}
++
++fn scalars(st: IntegerState) -> (Scalar, Scalar, Scalar, Scalar) {
++    // (r, vt, den, lapse) from the state's own words, exactly as fit_key forms them.
++    let p = [
++        Scalar::raw(st.position[0] as i128, st.length_exponent as i32).unwrap(),
++        Scalar::raw(st.position[1] as i128, st.length_exponent as i32).unwrap(),
++    ];
++    let v = [
++        Scalar::raw(st.velocity[0] as i128, st.velocity_exponent as i32).unwrap(),
++        Scalar::raw(st.velocity[1] as i128, st.velocity_exponent as i32).unwrap(),
++    ];
++    let r = p[0].mul(p[0]).unwrap().add(p[1].mul(p[1]).unwrap()).unwrap().sqrt().unwrap();
++    let vt = v[1].abs();
++    let u = r.reciprocal().unwrap();
++    let lapse = Scalar::integer(1).sub(u).unwrap();
++    let den = lapse.sub(vt.mul(vt).unwrap()).unwrap();
++    (r, vt, den, lapse)
++}
++
++fn main() {
++    let energies = [1.001, 1.01, 1.1, 1.5, 2.0, 5.0, 10.0, 100.0, 1e3, 1e4, 1e6];
++    let peris = [1e2, 1e4, 1e6, 1e8, 2.7e8, 4e8, 1e9, 1.6e10];
++    let arm = std::env::var("ES_INVDOMAIN").unwrap_or_default();
++    println!("arm ES_INVDOMAIN={arm}");
++    println!("e,rp,outcome,peri_relerr,kword,gap_erel,res_pos_rel,res_vel_rel,inv");
++    let (mut ok, mut refused, mut mismatch, mut invok) = (0u32, 0u32, 0u32, 0u32);
++    for &e in &energies {
++        for &rp in &peris {
++            let st = state_at_periapsis(e, rp);
++            let (r, vt, den, lapse) = scalars(st);
++            // State's own invariants (the oracle and the control's input).
++            let e2 = lapse.mul(lapse).unwrap().div(den).unwrap();
++            let delta = e2.sub(Scalar::integer(1)).unwrap();
++            let angular = r.mul(vt).unwrap();
++            let inv = OrbitKey::from_invariants(delta, angular);
++            if inv.is_ok() {
++                invok += 1;
++            }
++            let row = match Rebinding::from_state(st, Scalar::integer(0), None) {
++                Ok(fit) => {
++                    ok += 1;
++                    let key = fit.trajectory.key();
++                    let perr = (f(key.periapsis) / f(r) - 1.0).abs();
++                    let pos = fit.residual.position;
++                    let vel = fit.residual.velocity;
++                    let pn = ((pos[0] * pos[0] + pos[1] * pos[1]) as f64).sqrt()
++                        * 2f64.powi(st.length_exponent as i32);
++                    let vn = ((vel[0] * vel[0] + vel[1] * vel[1]) as f64).sqrt()
++                        * 2f64.powi(st.velocity_exponent as i32);
++                    // Clock oracle: E^2 = tn/d for keys that carry their gap.
++                    let gapcol = match key.gap {
++                        Some(d) => {
++                            let q = key.compactness().unwrap();
++                            let ks = Scalar::raw(key.k as i128, -48).unwrap();
++                            let tn = ks
++                                .mul(Scalar::integer(1).sub(q.scale(1).unwrap()).unwrap())
++                                .unwrap()
++                                .mul(
++                                    Scalar::integer(1)
++                                        .add(
++                                            q.scale(1)
++                                                .unwrap()
++                                                .mul(Scalar::integer(1).sub(ks.scale(1).unwrap()).unwrap())
++                                                .unwrap(),
++                                        )
++                                        .unwrap(),
++                                )
++                                .unwrap();
++                            let e2k = f(tn.div(d).unwrap());
++                            format!("{:.2e}", (e2k / f(e2) - 1.0).abs())
++                        }
++                        None => "-".into(),
++                    };
++                    let invm = match &inv {
++                        Ok(ik) => {
++                            if ik.periapsis == key.periapsis && ik.k == key.k {
++                                "same"
++                            } else {
++                                mismatch += 1;
++                                "diff"
++                            }
++                        }
++                        Err(_) => "inv-err",
++                    };
++                    format!(
++                        "ok,{:.2e},{},{},{:.2e},{:.2e},{}",
++                        perr,
++                        key.k,
++                        gapcol,
++                        pn / f(r).max(1e-300),
++                        vn / f(vt).max(1e-300),
++                        invm
++                    )
++                }
++                Err(err) => {
++                    refused += 1;
++                    format!(
++                        "refused-{:?},-,,-,-,-,{}",
++                        err,
++                        if inv.is_ok() { "inv-ok" } else { "inv-err" }
++                    )
++                }
++            };
++            println!("{e},{rp},{row}");
++        }
++    }
++    println!("summary ok={ok} refused={refused} invariants_ok={invok} invariants_key_mismatch={mismatch}");
++}
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index eb433a1c..aaba10c2 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -178,6 +178,12 @@ pub fn cartesian(state: OrbitState, orientation: u32, clockwise: bool, units: (i
+ 
+ /// Inverse invariants without subtracting E from one. The cubic is in z=L²/r,
+ /// whose outer turning root is O(1) in the weak field, not in absolute 1/r.
++fn far_field_enabled() -> bool {
++    // Probe/roll-back gate: `ES_INVDOMAIN=0` restores the shipped bits exactly.
++    static ENABLED: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_INVDOMAIN").map_or(true, |v| v != "0"));
++    *ENABLED
++}
+ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, bool, bool)> {
+     let (p, v) = state.components()?;
+     let r = norm(p)?;
+@@ -272,11 +278,36 @@ fn fit_key(state: IntegerState, accelerate: bool) -> Result<(OrbitKey, Scalar, b
+     let b = Scalar::ONE.add(compact.scale(1)?)?;
+     let discriminant = b.mul(b)?.sub(compact.mul(Scalar::integer(16))?.mul(compact.add(d)?)?)?;
+     let k = compact.add(d)?.scale(1)?.div(b.add(discriminant.sqrt()?)?)?;
+-    let word = u64::try_from(k.fixed(48)?).map_err(|_| Error::Range)?.min(1 << 48);
+-    if k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)? {
++    let shipped_word = u64::try_from(k.fixed(48)?).ok().map(|w| w.min(1 << 48));
++    let off_target = match shipped_word {
++        Some(word) => k.sub(Scalar::raw(word as i128, -48)?)?.abs() > k.scale(-20)?,
++        None => true,
++    };
++    if off_target && far_field_enabled() {
++        // The far hyperbolic wall is this k formula's scratch, not the representation:
++        // at every measured refusal the exact big-int cubic from the state's invariants
++        // compiles the same orbit. E^2 = lapse^2/den has no cancellation at hyperbolic
++        // energies, and the angular momentum is a state word product, so the invariants
++        // carry their own exponents where the Q48 shape arithmetic cannot. Only the
++        // refusal points change; the success path is untouched.
++        let e2 = lapse.mul(lapse)?.div(den)?;
++        let delta = e2.sub(Scalar::ONE)?;
++        if delta >= Scalar::power_of_two(-3) {
++            let mut key = OrbitKey::from_invariants(delta, angular)?;
++            if key.needs_gap()? {
++                let (q, ks) = (key.compactness()?, Scalar::raw(key.k as i128, -48)?);
++                let tn = ks
++                    .mul(Scalar::ONE.sub(q.scale(1)?)?)?
++                    .mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(ks.scale(1)?)?)?)?)?;
++                key = key.with_gap(tn.mul(den)?.div(lapse.mul(lapse)?)?)?;
++            }
++            return Ok((key, r, vt < Scalar::ZERO, vr < Scalar::ZERO));
++        }
++    }
++    if off_target {
+         return Err(Error::Range);
+     }
+-    let mut k = word;
++    let mut k = shipped_word.unwrap();
+     // Classification follows the conserved binding energy, including a parabolic tie.
+     if alpha.is_zero() {
+         k = 1 << 47;
