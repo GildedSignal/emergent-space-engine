@@ -73,23 +73,23 @@ fn the_burn_does_the_work_at_every_level() {
         let alpha = 2f64.powi(cfg.thrust_log2 + level as i32); // rapidity per tick
         let t0 = 2_000_000;
         p.u.settle(t0);
-        // Along the orbit's own direction of motion at the heading's axis (a burn that stops the ship dead above the
-        // planet is a radial plunge, which the compile refuses: see the note on the view's `refusals`).
-        let along = if energy(&p, t0).1[0] < 0.0 { 2u8 } else { 1u8 };
-        let sign = if along == 1 { 1.0 } else { -1.0 };
-        p.u.input(t0, word(along, level)).unwrap();
+        // Forward: along the heading, which starts along the orbit's own direction of motion (prograde, so the burn raises
+        // the orbit: a burn against it that stopped the ship dead above the planet would be a radial plunge).
+        let n = emergent_universe::thrust::direction(p.u.rec(p.player).thrust.unwrap().heading).unwrap().map(to_f64);
+        let along = |v: [f64; 2]| v[0] * n[0] + v[1] * n[1];
+        p.u.input(t0, word(1, level)).unwrap();
         // A burn of at most 4e6 ticks, and no more than 2e-4 c of velocity: the ship stays in Home's doll.
         let span = ((2e-4 / alpha) as i64).clamp(100_000, 4_000_000);
         let (e0, w0, f0) = energy(&p, t0);
-        let mut last = f0 * w0[0]; // f·w_x
+        let mut last = f0 * along(w0); // f·(w·n)
         let (mut work, mut t, mut last_t) = (0.0f64, t0, t0);
         let dt = span / 200;
         while t < t0 + span {
             t += dt;
             p.u.settle(t);
             let (_, w, f) = energy(&p, t);
-            work += sign * alpha * 0.5 * (last + f * w[0]) * (t - last_t) as f64;
-            last = f * w[0];
+            work += alpha * 0.5 * (last + f * along(w)) * (t - last_t) as f64;
+            last = f * along(w);
             last_t = t;
         }
         let (e1, _, _) = energy(&p, t);
@@ -190,11 +190,11 @@ fn the_view_shows_the_throttle_and_the_two_frames() {
     }
     let v = gather(&p.u, &p.names).unwrap();
     assert_eq!((v.level, v.burning, v.refusals), (12, true, 0));
-    // In Home's doll, the velocity against the doll's centre is slower than against the star (the planet moves at 1e-4 c).
+    // In Home's doll, the velocity against the doll's centre differs from the one against the star by the planet's own (1e-4 c).
     let (b, bd) = ((v.beta[0].powi(2) + v.beta[1].powi(2)).sqrt(), (v.doll_beta[0].powi(2) + v.doll_beta[1].powi(2)).sqrt());
     println!("doll {}: star frame β {b:.6} rate {:.9}; doll frame β {bd:.6} rate {:.9}", v.doll, v.rate, v.doll_rate);
     assert_eq!(v.doll, "Home");
-    assert!(b > bd && bd > 0.0 && (v.rate - v.doll_rate).abs() < 1e-3 && v.rate < 1.0 && v.doll_rate < 1.0);
+    assert!((b - bd).abs() > 1e-5 && bd > 0.0 && (v.rate - v.doll_rate).abs() < 1e-3 && v.rate < 1.0 && v.doll_rate < 1.0);
     // The rate is the clock's: close to 1/γ in the star's frame, once the burn is large.
     let g = 1.0 / (1.0 - b * b).sqrt();
     assert!((v.rate * g - 1.0).abs() < 1e-4, "rate {} against 1/γ {}", v.rate, 1.0 / g);
@@ -207,7 +207,8 @@ fn the_view_shows_the_throttle_and_the_two_frames() {
 fn a_lost_ship_says_why_and_keeps_its_readings() {
     let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
     p.u.frame(0.1, 800.0, Budget::unlimited());
-    p.u.input(p.u.now, word(1, 4)).unwrap();
+    // Reverse: against the orbit's motion, the burn that brings a ship down into the planet (forward is prograde).
+    p.u.input(p.u.now, word(2, 4)).unwrap();
     let mut last_b = 0.0;
     for _ in 0..3000 {
         p.u.frame(0.1, 800.0, Budget::unlimited());
@@ -226,20 +227,32 @@ fn a_lost_ship_says_why_and_keeps_its_readings() {
     panic!("the ship should have crashed");
 }
 
-/// A ship the engine could not carry on (a refused kick: stopping dead above a planet is a radial plunge, which the compile
-/// refuses, kick after kick) stays viewable, alive: the view reads its last state when the presented tick cannot be read.
+/// Stopping dead above a planet is a radial plunge, and the compile owns a tube for it (gate P1): the ship that brakes to rest
+/// is not refused kick after kick, as it was when this test held a "stuck" ship up to the view. It falls with no refusal, the
+/// view follows it to the surface, and the wreck says where it was lost.
 #[test]
-fn a_stuck_ship_keeps_a_view() {
+fn a_ship_braked_to_rest_falls_with_no_refusal_and_keeps_a_view() {
     let mut p = plane(Config::default(), 5, Order::Sparse, 1, 8).unwrap();
-    p.u.settle(2_000_000);
-    p.u.input(2_000_000, word(1, 14)).unwrap();
-    p.u.settle(2_300_000);
-    p.u.now = 2_300_000;
-    let v = gather(&p.u, &p.names).expect("a stuck ship is still a view");
-    let rec = p.u.rec(p.player);
-    println!("stuck: {} refusals, alive {}, β {:?}, loss {:?}", rec.refusals, rec.alive, v.beta, v.loss);
-    assert!(rec.refusals > 0, "the scene must refuse (the engine's radial-fall limit)");
-    assert!(v.refusals > 0 && v.proper_seconds > 0.0);
+    p.u.frame(0.1, 100.0, Budget::unlimited());
+    p.u.input(p.u.now, word(2, 4)).unwrap(); // reverse: brake against the orbit's motion
+    let (mut braking, mut frames_at_rest) = (true, 0);
+    for f in 0..4000 {
+        p.u.frame(0.1, 100.0, Budget::unlimited());
+        let v = gather(&p.u, &p.names).expect("a ship is always a view");
+        assert_eq!(v.refusals, 0, "refused at frame {f}: {:?}", v.loss);
+        if braking && v.doll_beta[0] * v.heading[0] + v.doll_beta[1] * v.heading[1] <= 0.0 {
+            braking = false; // at rest against the planet (to within a frame's burn): coast and fall
+            p.u.input(p.u.now, word(0, 0)).unwrap();
+        }
+        frames_at_rest += !braking as u32;
+        if !v.alive {
+            let loss = v.loss.clone().expect("a wreck says why");
+            println!("braked to rest, then fell: {loss}, {frames_at_rest} frames after the brake ended");
+            assert!(!braking && frames_at_rest > 3 && loss.starts_with("hit Home at "), "{loss}");
+            return;
+        }
+    }
+    panic!("the ship should have fallen to the surface");
 }
 
 /// Julien's goal is to feel high c: a ship burning at the top level from the plane's start reaches β 0.999 (γ ≈ 22) with

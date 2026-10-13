@@ -59,11 +59,19 @@ impl Catalogue {
         }
     }
     pub fn insert(&mut self, trajectory: Trajectory, clockwise: bool) -> Result<u32> {
+        // Finite arcs carry their anchor and endpoint as well as invariants.
+        // They must never alias in the old Darwin-key memo.
+        if matches!(trajectory, Trajectory::Plunge(_)) {
+            let id = u32::try_from(self.entries.len()).map_err(|_| Error::Range)?;
+            self.entries.push(Entry { trajectory, clockwise });
+            return Ok(id);
+        }
         let edge = match &trajectory {
             Trajectory::Cycle(_) => None,
             Trajectory::Passage(p) => Some(p.outer_radius),
+            Trajectory::Plunge(_) => unreachable!(),
         };
-        let key = (trajectory.key(), clockwise, edge);
+        let key = (trajectory.key().ok_or(Error::Topology)?, clockwise, edge);
         if let Some(&id) = self.ids.get(&key) {
             return Ok(id);
         }

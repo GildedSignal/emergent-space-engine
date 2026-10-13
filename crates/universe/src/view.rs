@@ -71,6 +71,31 @@ pub struct Seen {
     pub angular_radius: f64,
 }
 
+/// An impact course: the player's tube dips below the surface of the body whose doll it is in, so unless something
+/// changes the orbit (a burn rebinds it) the ship hits it. Derived from the tube when looked at, the same certificate the
+/// engine plans its [`crate::body::What::Crash`] from; it is there from the moment the periapsis is under the surface (the
+/// plan holds the item only once the step reaches it) and gone when the orbit no longer crosses one.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Impact {
+    /// What: the body whose surface (the name of its doll: "star", "Home").
+    pub body: &'static str,
+    /// When: the tick of the first contact (the root clock) and the game seconds from the presented tick to it.
+    pub tick: Tick,
+    pub seconds: f64,
+    /// Where: the unit vector from the body's centre to the point of contact, in the doll's axes.
+    pub at: [f64; 2],
+    /// The speed against the body there (`c = 1`).
+    pub speed: f64,
+}
+
+impl Impact {
+    /// The page's words: "Home's surface in 3 min 12 s".
+    pub fn sentence(&self) -> String {
+        let body = if self.body == "star" { "the star".to_string() } else { self.body.to_string() };
+        format!("{body}'s surface in {}", clock_text(self.seconds))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct View {
     pub tick: Tick,
@@ -97,6 +122,8 @@ pub struct View {
     pub position_light_seconds: [f64; 2],
     pub heading: [f64; 2],
     pub doll: &'static str,
+    /// The impact the course holds, if it holds one (a live ship only).
+    pub impact: Option<Impact>,
     pub seen: Vec<Seen>,
 }
 
@@ -241,7 +268,13 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
     // A lost player (a wreck) stays where it was lost, its readings frozen at its last state: the universe goes on.
     // A ship the engine could not carry on (refused kicks, possibly still "alive") is read at its last state when its tube or
     // partial step cannot be read at the presented tick (the motion law v2 refuses a read far past its last boundary).
-    let mut t_read = if rec.alive { t_now } else { rec.b.event_time };
+    // A wreck is read where it was lost: at its impact when its last tube held one (the surface, not the tube's start).
+    let mut t_read = if rec.alive {
+        t_now
+    } else {
+        let doll = &u.dolls[rec.b.doll as usize];
+        crate::step::next_impact(&rec.b, doll.surface, rec.b.event_time).ok().flatten().unwrap_or(rec.b.event_time)
+    };
     let (xo, vo) = match root_state(&ctx, p, t_read) {
         Ok(x) => x,
         Err(_) => {
@@ -380,20 +413,33 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
         level: rec.thrust.map_or(0, |t| t.level),
         burning: rec.alive && rec.thrust.is_some_and(|t| t.keys & 3 != 0),
         alive: rec.alive,
-        loss: (!rec.alive).then(|| loss_cause(u, &rec, t_now)),
+        loss: (!rec.alive).then(|| loss_cause(u, &rec)),
         keys: rec.thrust.map_or(0, |t| t.keys),
         refusals: rec.refusals,
         position_light_seconds: pos,
         heading: [h.cos(), h.sin()],
         doll: rec_doll,
+        impact: if rec.alive { impact_course(u, &rec, t_now) } else { None },
         seen,
     })
+}
+
+/// The impact the player's tube holds from the presented tick: [`crate::step::next_impact`] on the surface of the body whose
+/// doll the ship is in, with where and how fast the ship arrives. A tube that cannot be read says nothing (no warning is
+/// better than a wrong one: the engine's own refusal is shown elsewhere).
+fn impact_course(u: &Universe, rec: &crate::body::BodyRec, t_now: Tick) -> Option<Impact> {
+    let doll = &u.dolls[rec.b.doll as usize];
+    let tick = crate::step::next_impact(&rec.b, doll.surface, t_now.max(rec.b.event_time)).ok().flatten()?;
+    let (x, v) = rec.b.cartesian(tick).ok()?;
+    let (x, v) = ([to_f64(x[0]), to_f64(x[1])], [to_f64(v[0]), to_f64(v[1])]);
+    let r = dot(x, x).sqrt().max(1e-300);
+    Some(Impact { body: doll.name, tick, seconds: (tick - t_now).max(0) as f64 * TICK_SECONDS, at: [x[0] / r, x[1] / r], speed: dot(v, v).sqrt() })
 }
 
 /// Why the player was lost, in words: the impact (on the centre of the doll it was in: the first tick its last tube is
 /// below the surface, found by bisection on the tube, with the speed there against the centre), the edge of the system,
 /// or the engine's own refusal. Read only when the player is already lost.
-fn loss_cause(u: &Universe, rec: &crate::body::BodyRec, t_now: Tick) -> String {
+fn loss_cause(u: &Universe, rec: &crate::body::BodyRec) -> String {
     let doll = &u.dolls[rec.b.doll as usize];
     let t0 = rec.b.event_time;
     let r_at = |t: Tick| -> Option<(f64, f64)> {
@@ -401,31 +447,9 @@ fn loss_cause(u: &Universe, rec: &crate::body::BodyRec, t_now: Tick) -> String {
         let (x, v) = ([to_f64(x[0]), to_f64(x[1])], [to_f64(v[0]), to_f64(v[1])]);
         Some((dot(x, x).sqrt(), dot(v, v).sqrt()))
     };
-    let surface = to_f64(doll.surface);
     let fmt_speed = |b: f64| if b < 0.1 { format!("{:.2} km/s", b * 299_792.458) } else { format!("{:.4} c", b) };
-    // The first tick at or after the last state whose radius is under the surface.
-    let (mut lo, mut hi) = (t0, None::<Tick>);
-    let mut step = 1i64;
-    while step < 1 << 50 && lo + step <= t_now.saturating_add(1 << 40) {
-        match r_at(lo + step) {
-            Some((r, _)) if r < surface => {
-                hi = Some(lo + step);
-                break;
-            }
-            Some(_) => lo += step,
-            None => break,
-        }
-        step *= 2;
-    }
-    if let Some(mut h) = hi {
-        while h - lo > 1 {
-            let mid = lo + (h - lo) / 2;
-            if r_at(mid).is_some_and(|(r, _)| r < surface) {
-                h = mid;
-            } else {
-                lo = mid;
-            }
-        }
+    // The impact the last tube held (the first tick at or after the last state that is under the surface).
+    if let Ok(Some(h)) = crate::step::next_impact(&rec.b, doll.surface, t0) {
         if let Some((_, v)) = r_at(h) {
             let body = if rec.b.doll == 0 { "the star" } else { doll.name };
             return format!("hit {body} at {} (relative to {body}), at world time {}", fmt_speed(v), clock_text(h as f64 * TICK_SECONDS));

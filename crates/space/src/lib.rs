@@ -114,6 +114,7 @@ pub mod light;
 pub mod kerr;
 mod num;
 pub mod orbit;
+pub mod plunge;
 pub mod scaled;
 pub mod tube;
 pub use tube::Tube;
@@ -139,7 +140,7 @@ use num::{ONE, atan, cos, isqrt, mul_shr, ratio_sqrt};
 use tables::{EDGE, PI, W, X};
 
 /// Integer law and boundary-quantization version. Never reuse a memo across law versions.
-pub const LAW_ID: &str = "space-darwin16-scaled-v5";
+pub const LAW_ID: &str = "space-darwin16-scaled-v6-plunge";
 pub const LEGACY_LAW_ID: &str = "space-darwin16-v2";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

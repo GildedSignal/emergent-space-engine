@@ -213,6 +213,72 @@ pub(crate) fn fit(st: IntegerState) -> Result<OrbitKey> {
     fit_cubic(c)
 }
 
+/// Exact interval predicate for an incoming massive arc. Bernstein coefficients
+/// enclose the radial cubic over the *whole* interval, not just quadrature nodes.
+/// Scratch work is bounded; an unresolved separatrix remains an explicit refusal.
+pub(crate) fn plunge(st: IntegerState, inner: Scalar) -> Result<(Scalar, Scalar, Scalar, Scalar, Scalar)> {
+    let [x, y] = st.position.map(BigInt::from);
+    let [vx, vy] = st.velocity.map(BigInt::from);
+    let s = &x * &x + &y * &y;
+    let dot = &x * &vx + &y * &vy;
+    let cross = &x * &vy - &y * &vx;
+    if s.is_zero() || dot.is_positive() || inner < Scalar::integer(2) {
+        return Err(Error::NoBoundOrbit);
+    }
+    let pe = st.length_exponent as i32;
+    let ve = st.velocity_exponent as i32;
+    let one = A::dyadic(1.into(), 0, &s);
+    let r = A::new(0.into(), 1.into(), 1.into(), &s).mul(&A::dyadic(1.into(), pe, &s));
+    let end = A::dyadic(inner.significand().into(), inner.exponent() as i32 - 62, &s);
+    if r.sub(&end).sign() <= 0 { return Err(Error::NoBoundOrbit); }
+    let u = one.div(&r);
+    let lapse = one.sub(&u.mul(&one.n(2)));
+    if lapse.sign() <= 0 { return Err(Error::NoBoundOrbit); }
+    let ss = A::dyadic(s.clone(), 2 * pe, &s);
+    let dot2 = A::dyadic(&dot * &dot, 2 * (pe + ve), &s);
+    let cross2 = A::dyadic(&cross * &cross, 2 * (pe + ve), &s);
+    let kinetic = dot2.div(&ss.mul(&lapse)).add(&cross2.div(&ss));
+    let den = lapse.sub(&kinetic);
+    if den.sign() <= 0 { return Err(Error::NoBoundOrbit); }
+    let w2 = dot2.div(&ss.mul(&den));
+    let l2 = cross2.div(&den);
+    let du = one.div(&end).sub(&u);
+    let c1 = du.mul(&one.n(2).sub(&l2.mul(&u).mul(&one.n(2)))
+        .add(&l2.mul(&u.square()).mul(&one.n(6))));
+    let c2 = du.square().mul(&l2).mul(&one.n(-1).add(&u.mul(&one.n(6))));
+    let c3 = du.square().mul(&du).mul(&l2).mul(&one.n(2));
+    let third = one.div(&one.n(3));
+    let b = [w2.clone(), w2.add(&c1.mul(&third)),
+        w2.add(&c1.mul(&third).mul(&one.n(2))).add(&c2.mul(&third)),
+        w2.add(&c1).add(&c2).add(&c3)];
+    fn certify(b: [A; 4], depth: u8, budget: &mut usize) -> Result<()> {
+        if *budget == 0 || depth == 64 { return Err(Error::Range); }
+        *budget -= 1;
+        if b[0].sign() < 0 || b[3].sign() <= 0 { return Err(Error::NoBoundOrbit); }
+        if b.iter().all(|x| x.sign() >= 0) && (b[0].sign() > 0 || b[1].sign() > 0) {
+            return Ok(());
+        }
+        if b[0].sign() == 0 && b[1].sign() <= 0 { return Err(Error::NoBoundOrbit); }
+        let half = |a: &A, c: &A| a.add(c).div(&a.n(2));
+        let a = half(&b[0], &b[1]);
+        let c = half(&b[1], &b[2]);
+        let d = half(&b[2], &b[3]);
+        let e = half(&a, &c);
+        let f = half(&c, &d);
+        let g = half(&e, &f);
+        certify([b[0].clone(), a, e, g.clone()], depth + 1, budget)?;
+        certify([g, f, d, b[3].clone()], depth + 1, budget)
+    }
+    certify(b, 0, &mut 4096)?;
+    let narrow = |a: &A| -> Result<Scalar> {
+        let v = scalar(&a.fixed())?;
+        if v.is_zero() && a.sign() != 0 { Err(Error::Range) } else { Ok(v) }
+    };
+    let ell = narrow(&l2)?.sqrt()?;
+    Ok((narrow(&r)?, narrow(&w2)?, narrow(&l2)?, narrow(&lapse.square().div(&den))?.sqrt()?,
+        if cross.is_negative() { ell.negate() } else { ell }))
+}
+
 /// Binding energy E-1 retains its exponent; never round a weak E to unity.
 pub(crate) fn invariants(
     delta: crate::scaled::Scalar,

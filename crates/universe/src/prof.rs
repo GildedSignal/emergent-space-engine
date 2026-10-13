@@ -7,36 +7,28 @@ pub const ROOT: usize = 1;
 pub const APPLY: usize = 2;
 pub const REQUEUE: usize = 3;
 pub const PROCESS: usize = 4;
-pub const K_READOUT: usize = 5;
-pub const K_SOURCES: usize = 6;
-pub const K_FIELD: usize = 7;
-pub const K_QUANT: usize = 8;
-pub const K_REBIND: usize = 9;
-pub const R_FIT: usize = 10;
-pub const R_TAU: usize = 11;
-pub const R_REST: usize = 12;
-pub const K_POST: usize = 13;
-pub const B_FROM_STATE: usize = 14;
-pub const B_DECODE: usize = 15;
-pub const B_REST: usize = 16;
-pub const TAKE_DUE: usize = 17;
-pub const PRUNE: usize = 18;
-pub const ENCOUNTERS: usize = 19;
-pub const WALK: usize = 20;
-pub const P_KICK: usize = 21;
-pub const P_KICK_CLOCK: usize = 22;
-pub const P_BOUNDARY: usize = 23;
-pub const P_OPEN: usize = 24;
-pub const P_CRASH: usize = 25;
-pub const P_DECIDE: usize = 26;
-pub const P_KICK_SUB: usize = 27;
-pub const F_RUN: usize = 28;
-pub const F_ADV: usize = 29;
-pub const HANDOUT: usize = 30;
-pub const H_PULL: usize = 31;
-pub const H_BIND: usize = 32;
-pub const H_REPLAN: usize = 33;
-pub const N: usize = 34;
+/// `bind_surface`: the exact fit of a tube to a state (a kick's, a hand-out's), the dearest thing an item does.
+pub const FIT: usize = 5;
+pub const TAKE_DUE: usize = 6;
+pub const PRUNE: usize = 7;
+/// The cheap half of the player's scan (who is there to be read), taken on the frame's critical path.
+pub const ENCOUNTERS: usize = 8;
+/// The held scans answered (in idle time, or at a settle or a digest).
+pub const SCANS: usize = 9;
+pub const P_KICK: usize = 10;
+pub const P_KICK_CLOCK: usize = 11;
+pub const P_KICK_SUB: usize = 12;
+pub const P_BOUNDARY: usize = 13;
+pub const P_OPEN: usize = 14;
+pub const P_CRASH: usize = 15;
+pub const P_DECIDE: usize = 16;
+pub const F_RUN: usize = 17;
+pub const F_ADV: usize = 18;
+pub const HANDOUT: usize = 19;
+pub const H_PULL: usize = 20;
+pub const H_BIND: usize = 21;
+pub const H_REPLAN: usize = 22;
+pub const N: usize = 23;
 
 pub const NAMES: [&str; N] = [
     "rekey (all deadlines)",
@@ -44,29 +36,18 @@ pub const NAMES: [&str; N] = [
     "apply (whole)",
     "requeue",
     "process (whole)",
-    "  kick: readout",
-    "  kick: sources",
-    "  kick: field",
-    "  kick: quantize",
-    "  kick: rebind (whole)",
-    "    rebind: bind() fit",
-    "    rebind: proper-time reads",
-    "    rebind: rest",
-    "  kick: replan",
-    "      bind: Rebinding::from_state",
-    "      bind: decode",
-    "      bind: rest (incl. decode)",
+    "  fit: bind_surface (kicks, hand-outs)",
     "take_due",
     "prune",
-    "encounters (player)",
-    "deadline anchor walks",
+    "encounters: capture (cheap half)",
+    "encounters: held scans answered",
     "item: kick (Wisdom-Holman)",
     "item: kick (clock)",
+    "item: kick at a changeover level",
     "item: boundary",
     "item: open",
     "item: crash",
     "decision (player input)",
-    "item: kick at a changeover level",
     "fleet: battle run_to",
     "fleet: advance (whole item)",
     "hand-out (a member made a body)",

@@ -30,7 +30,7 @@
 //! deadline is later than the frame is *idle-time* work, done only while the budget lasts.
 //! When the mandatory work does not fit, the horizon stays behind the target: the real-time
 //! factor dips for a frame, smoothly, and nothing hitches or degrades.
-use crate::bind::{bind, bind_exact, Binding, Catalogue, Entry};
+use crate::bind::{bind_surface, bind_exact, Binding, Catalogue, Entry};
 use crate::body::{BodyRec, BodyStore, Kind, PlainBodies, Segment, Thrust, What};
 use crate::ctx::{BodyInfo, Config, Ctx};
 use crate::encounter::{Encounter, Encounters, Held, PlayerNeighbourhood};
@@ -199,6 +199,12 @@ struct Lanes {
     ships: Vec<usize>,
 }
 
+/// The heading a player's nose starts at: along its velocity at tick 0 in its doll's axes (prograde, so that "forward" burns
+/// the orbit up and not down into the planet).
+fn prograde(b: &Binding) -> Res<u32> {
+    crate::thrust::heading_of(b.cartesian(0)?.1)
+}
+
 impl Universe {
     pub fn new(star_surface: Scalar, cfg: Config) -> Self {
         Self {
@@ -274,7 +280,7 @@ impl Universe {
         let host = self.bodies.rec(centre).b.doll;
         let tube = self.bodies.rec(centre).b.tube;
         // The separation in the host's own units (the tube is compiled in units of the host's mass).
-        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.trajectory.key().periapsis)?;
+        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.trajectory.key().ok_or(Error::Refused("a doll centre needs a turning orbit"))?.periapsis)?;
         let parent_rec = self.dolls[host as usize].record.clone();
         let rec = DollRec::child(name, host, mass, centre, tube, surface, Scalar::ZERO)?;
         // The sphere of influence from the mass ratio (Laplace): separation · (m/M)^(2/5), in the parent's units.
@@ -316,6 +322,7 @@ impl Universe {
         let (entry, mut tube, units) = self.spec_binding(&spec, self.dolls[spec.doll as usize].unit)?;
         tube.key = self.cat.insert(entry.clone())?;
         let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
+        let heading = prograde(&b)?;
         let rec = BodyRec {
             kind,
             b,
@@ -325,7 +332,7 @@ impl Universe {
             interval: 0,
             anchor: 0,
             plan: Vec::new(),
-            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading, since: 0 }),
             ext: None,
             alive: true,
             events: 0,
@@ -348,10 +355,10 @@ impl Universe {
     pub fn add_body_state(&mut self, kind: Kind, doll: u16, position: [Scalar; 2], velocity: [Scalar; 2], radius: Scalar) -> Res<usize> {
         let d = &self.dolls[doll as usize];
         let (x, v) = (crate::num::norm2(position)?, crate::num::norm2(velocity)?);
-        if x.is_zero() || v.is_zero() {
-            return Err(Error::Refused("a state at rest or at the centre has no orbit"));
+        if x.is_zero() {
+            return Err(Error::Refused("a state at the centre has no exterior orbit"));
         }
-        let (le, ve) = crate::bind::choose_units(x.scale(2)?, v.scale(2)?);
+        let (le, ve) = crate::bind::choose_units(x.scale(2)?, if v.is_zero() { Scalar::ONE } else { v.scale(2)? });
         let word = |a: Scalar, e: i16| -> Res<i64> { i64::try_from(a.fixed(-(e as i32))?).map_err(|_| Error::Refused("state outside the integer word")) };
         let exact = emergent_space::binding::IntegerState {
             position: [word(position[0], le)?, word(position[1], le)?],
@@ -360,10 +367,11 @@ impl Universe {
             velocity_exponent: ve,
         };
         let edge = (doll != 0).then(|| d.edge.scale(2)).transpose()?;
-        let bound = bind(exact, 0, d.clock_exp(), edge, d.unit)?;
+        let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface))?;
         let mut tube = bound.tube;
         tube.key = self.cat.insert(bound.entry.clone())?;
         let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
+        let heading = prograde(&b)?;
         let rec = BodyRec {
             kind,
             b,
@@ -373,7 +381,7 @@ impl Universe {
             interval: 0,
             anchor: 0,
             plan: Vec::new(),
-            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading: 0, since: 0 }),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading, since: 0 }),
             ext: None,
             alive: true,
             events: 0,
@@ -627,8 +635,21 @@ impl Universe {
         }
         let rec = self.bodies.rec(i);
         let t_process = crate::prof::t();
+        let item = if crate::prof::ENABLED { rec.plan.first().map(|it| (it.what, rec.ext.is_some())) } else { None };
         let upd = step::process(&self.ctx(), i, rec);
         crate::prof::add(crate::prof::PROCESS, t_process);
+        if let Some((what, clock)) = item {
+            use crate::prof::*;
+            let stage = match what {
+                What::Kick(_) if clock => P_KICK_CLOCK,
+                What::Kick(l) if l > 0 => P_KICK_SUB,
+                What::Kick(_) => P_KICK,
+                What::Open(_) => P_OPEN,
+                What::Crash => P_CRASH,
+                What::Boundary => P_BOUNDARY,
+            };
+            add(stage, t_process);
+        }
         self.apply(i, upd);
         if kind == Kind::Player {
             let t_enc = crate::prof::t();
@@ -731,7 +752,7 @@ impl Universe {
         let made = (|| -> Res<usize> {
             let clock_exp = self.dolls[doll as usize].clock_exp();
             let t_bind = crate::prof::t();
-            let bound = bind(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit)?;
+            let bound = bind_surface(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit, Some(self.dolls[doll as usize].surface))?;
             crate::prof::add(crate::prof::H_BIND, t_bind);
             let key = self.cat.insert(bound.entry.clone())?;
             let mut tube = bound.tube;
@@ -1040,9 +1061,10 @@ impl Universe {
                     break;
                 }
             }
-            let t0 = Instant::now();
+            let (t0, t_scan) = (Instant::now(), crate::prof::t());
             let found = self.scans.front().map(|held| held.answer()).unwrap_or_default();
             let ns = t0.elapsed().as_nanos() as u64;
+            crate::prof::add(crate::prof::SCANS, t_scan);
             // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
             self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
             self.scans.pop_front();
@@ -1104,11 +1126,16 @@ impl Universe {
             put(&mut h, r.b.event_time as i128);
             put(&mut h, r.b.tube.periapsis_angle as i128);
             put(&mut h, r.b.tube.periapsis_time.get() as i64 as i128);
-            let key = r.b.entry.trajectory.key();
-            put_s(&mut h, key.periapsis);
-            put(&mut h, key.k as i128);
-            if let Some(gap) = key.gap {
-                put_s(&mut h, gap);
+            if let Some(key) = r.b.entry.trajectory.key() {
+                put_s(&mut h, key.periapsis);
+                put(&mut h, key.k as i128);
+                if let Some(gap) = key.gap {
+                    put_s(&mut h, gap);
+                }
+            } else if let Trajectory::Plunge(p) = &r.b.entry.trajectory {
+                put(&mut h, -1);
+                for coefficient in p.coefficients() { put_s(&mut h, coefficient); }
+                put_s(&mut h, p.arrival().end.radius());
             }
             put(&mut h, r.b.entry.clockwise as i128);
             put(&mut h, r.b.turn.a as i128);
@@ -1181,4 +1208,3 @@ impl Universe {
         self.key_of(i).map(|k| k.0)
     }
 }
-

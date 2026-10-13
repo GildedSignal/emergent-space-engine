@@ -113,7 +113,14 @@ pub struct Binding {
 /// the radius and the proper time out; angles and velocities are the same in both).
 fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
-    let elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+    let mut elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+    if let Trajectory::Plunge(p) = &entry.trajectory {
+        let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
+        let deadline = peri.add(entry.unit.to_doll(end)?)?.fixed_ceil(-(clock_exp as i32))?;
+        // The terminal event is rounded outward to the population clock. Its
+        // sole endpoint read returns the exact surface, never motion beyond it.
+        if t as i128 == deadline && elapsed > end { elapsed = end; }
+    }
     let mut state = entry.trajectory.state(elapsed)?;
     if !entry.unit.unity {
         state.radius = entry.unit.to_doll(state.radius)?;
@@ -123,6 +130,18 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
 }
 
 impl Binding {
+    pub fn terminal_tick(&self) -> Res<Option<Tick>> {
+        let Trajectory::Plunge(p) = &self.entry.trajectory else { return Ok(None) };
+        // An arc whose anchor has inward speed and is still ahead of the state is a leg the ship leaves its doll by: it
+        // never reaches the surface.
+        if !p.rests_at_anchor() && self.event_time < self.tube.periapsis_time.get() as i64 {
+            return Ok(None);
+        }
+        let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
+        let peri = time_of(self.tube.periapsis_time.get() as i64, self.clock_exp)?;
+        let tick = peri.add(self.to_doll(end)?)?.fixed_ceil(-(self.clock_exp as i32))?;
+        Ok(Some(i64::try_from(tick).map_err(|_| Error::Refused("terminal clock"))?))
+    }
     /// A length or time of the compiled trajectory (in units of the doll's mass) in the doll's own units.
     pub fn to_doll(&self, x: Scalar) -> Res<Scalar> {
         self.entry.unit.to_doll(x)
@@ -169,11 +188,15 @@ pub fn choose_units(r_max: Scalar, v_max: Scalar) -> (i16, i16) {
 /// The word a tube needs: the smallest exponents (coarsest units) at which its largest radius and its
 /// periapsis speed (with a factor of two of margin) still fit in 60 bits.
 pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
-    let key = entry.trajectory.key();
+    if let Trajectory::Plunge(p) = &entry.trajectory {
+        return Ok((entry.unit.to_doll(p.initial_radius())?.exponent() as i32 - 60, p.speed_bound()?.scale(1)?.exponent() as i32 - 60));
+    }
+    let key = entry.trajectory.key().ok_or(Error::Refused("turning key"))?;
     let k = Scalar::raw(key.k as i128, -48)?;
     let r_max = match &entry.trajectory {
         Trajectory::Cycle(_) => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
         Trajectory::Passage(p) => p.outer_radius,
+        Trajectory::Plunge(_) => unreachable!(),
     };
     let v_max = Scalar::ONE.div(key.periapsis.mul(k)?)?.sqrt()?.scale(1)?;
     Ok((r_max.exponent() as i32 - 60, v_max.exponent() as i32 - 60))
@@ -192,7 +215,13 @@ pub struct Bound {
 /// Fit a tube to the exact state `exact` at tick `t` (in a doll whose clock exponent is `clock_exp`),
 /// and keep everything the fit discards. `edge` is the radius a passage is compiled out to.
 pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
-    let bound = bind_in(exact, t, clock_exp, edge, unit)?;
+    bind_surface(exact, t, clock_exp, edge, unit, None)
+}
+
+pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
+    let t_fit = crate::prof::t();
+    let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
+    crate::prof::add(crate::prof::FIT, t_fit);
     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
     // at most one quantum of the new word) and bind again.
@@ -209,7 +238,7 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, 
         length_exponent: nl as i16,
         velocity_exponent: nv as i16,
     };
-    bind_in(coarser, t, clock_exp, edge, unit)
+    bind_in(coarser, t, clock_exp, edge, unit, surface)
 }
 
 /// The state in the tube's units (`M_D`): positions divided by `μ`, rounded toward zero at the word (a fit is
@@ -222,18 +251,23 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
     Ok(IntegerState { position: [q(st.position[0])?, q(st.position[1])?], ..st })
 }
 
-fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
-    let t_fit = crate::prof::t();
-    let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
-    crate::prof::add(crate::prof::B_FROM_STATE, t_fit);
-    let t_rest = crate::prof::t();
+fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
+    let input = in_tube_units(exact, unit)?;
+    let time = unit.to_tube(time_of(t, clock_exp)?)?;
+    let edge = edge.map(|e| unit.to_tube(e)).transpose()?;
+    let fit = if let Some(surface) = surface {
+        Rebinding::ending_at(input, time, edge, unit.to_tube(surface)?)?
+    } else { Rebinding::from_state(input, time, edge)? };
     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
     let tube = Tube::new(0, fit.periapsis_angle, peri);
     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+    if let Trajectory::Plunge(p) = &entry.trajectory {
+        let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
+        let at = time_of(peri, clock_exp)?.add(unit.to_doll(end)?)?.fixed_ceil(-(clock_exp as i32))?;
+        i64::try_from(at).map_err(|_| Error::Refused("terminal clock"))?;
+    }
     let units = (exact.length_exponent, exact.velocity_exponent);
-    let t_dec = crate::prof::t();
     let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
-    crate::prof::add(crate::prof::B_DECODE, t_dec);
     // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
     let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
     let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
@@ -244,7 +278,6 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
         position: [exact.position[0] as i128 - tp[0], exact.position[1] as i128 - tp[1]],
         velocity: [exact.velocity[0] as i128 - tv[0], exact.velocity[1] as i128 - tv[1]],
     };
-    crate::prof::add(crate::prof::B_REST, t_rest);
     Ok(Bound { units, entry, tube, residual, turn, orbit })
 }
 

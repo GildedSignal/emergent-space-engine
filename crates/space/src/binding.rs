@@ -43,24 +43,29 @@ impl IntegerState {
 pub enum Trajectory {
     Cycle(Orbit),
     Passage(Passage),
+    Plunge(crate::plunge::Plunge),
 }
 impl Trajectory {
-    pub fn key(&self) -> OrbitKey {
+    /// A plunge has no periapsis or Darwin shape key.
+    pub fn key(&self) -> Option<OrbitKey> {
         match self {
-            Self::Cycle(c) => c.key(),
-            Self::Passage(p) => p.key(),
+            Self::Cycle(c) => Some(c.key()),
+            Self::Passage(p) => Some(p.key()),
+            Self::Plunge(_) => None,
         }
     }
     pub fn state(&self, time: Scalar) -> Result<OrbitState> {
         match self {
             Self::Cycle(c) => c.signed_state(time),
             Self::Passage(p) => p.state(time),
+            Self::Plunge(p) => p.orbit_state(time),
         }
     }
     fn at_radius(&self, r: Scalar) -> Result<(Scalar, OrbitState)> {
         match self {
             Self::Cycle(c) => c.at_radius(r),
             Self::Passage(p) => p.at_radius(r),
+            Self::Plunge(_) => Err(Error::Topology),
         }
     }
 }
@@ -361,6 +366,54 @@ fn root_witness(
     } else { None })
 }
 impl Rebinding {
+    /// Extend the turning-orbit inverse with the arcs a state that has no periapsis to turn at needs, ending at a body's
+    /// surface. A state the turning inverse takes keeps its turning orbit, whatever its periapsis: one that dips under the
+    /// surface is ended where its tube meets it (the engine's `next_impact`), and the exact interval predicate of the arcs
+    /// (a Bernstein certificate over rationals, milliseconds) is paid only by the states that cannot do without it: a fall
+    /// toward the surface (`Plunge::from_state`, inbound or at rest) or a rise (`Plunge::outbound`). Horizon arcs use
+    /// `Plunge`'s explicit falling-clock API instead.
+    pub fn ending_at(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, surface: Scalar) -> Result<Self> {
+        match Self::from_state(state, event_time, passage_edge) {
+            Ok(fit) => return Ok(fit),
+            Err(Error::NoBoundOrbit) => {}
+            Err(e) => return Err(e),
+        }
+        let (p, v) = state.components()?;
+        if dot(p, v)? > Scalar::ZERO {
+            // Going up with no periapsis to turn at (a near-radial state): the leg up and the fall back, one arc.
+            return Self::outbound_arc(state, event_time, passage_edge, surface);
+        }
+        let plunge = crate::plunge::Plunge::from_state(state, crate::plunge::End::Surface(surface))?;
+        let periapsis_angle = ((angle(p[0], p[1])? << 32) / (2 * PI)) as u32;
+        let mut fit = Self { trajectory: Trajectory::Plunge(plunge), periapsis_time: event_time,
+            periapsis_angle, clockwise: false, residual: Residual { position: [0; 2], velocity: [0; 2] },
+            event_time, units: (state.length_exponent, state.velocity_exponent) };
+        fit.residual = Residual::between(state, fit.decoded_event()?);
+        Ok(fit)
+    }
+    /// An outbound near-radial state as the arc [`crate::plunge::Plunge::outbound`] compiles from its anchor (the radius it
+    /// turns at, or the one past the edge it is released by): the binding's anchor is the arc's, ahead of the event by the
+    /// lead, and the state is read before it, in reflection.
+    fn outbound_arc(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, surface: Scalar) -> Result<Self> {
+        // Past the doll's edge, or (the root doll has none) far past the radius a ship is lost at (2^40 root units).
+        let outer = passage_edge.unwrap_or(Scalar::power_of_two(42));
+        let (arc, lead) = crate::plunge::Plunge::outbound(state, crate::plunge::End::Surface(surface), outer)?;
+        let trajectory = Trajectory::Plunge(arc);
+        let sample = trajectory.state(lead.negate())?;
+        let (p, _) = state.components()?;
+        let orientation = (angle(p[0], p[1])? - phase(sample)?).rem_euclid(2 * PI);
+        let mut fit = Self {
+            trajectory,
+            periapsis_time: event_time.add(lead)?,
+            periapsis_angle: ((orientation << 32) / (2 * PI)) as u32,
+            clockwise: false,
+            residual: Residual { position: [0; 2], velocity: [0; 2] },
+            event_time,
+            units: (state.length_exponent, state.velocity_exponent),
+        };
+        fit.residual = Residual::between(state, fit.decoded_event()?);
+        Ok(fit)
+    }
     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
         let (key, r, clockwise, incoming) = fit_key(state, true)?;
         let trajectory = if key.periodic() {

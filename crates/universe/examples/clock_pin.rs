@@ -34,7 +34,10 @@ fn main() {
         let e_ex = f * ut;
         let l_ex = r * vt * ut;
         // key
-        let key = rec.b.entry.trajectory.key();
+        let Some(key) = rec.b.entry.trajectory.key() else {
+            eprintln!("plunge at {t}: the arc has no turning key");
+            break;
+        };
         let peri = to_f64(key.periapsis);
         let kq = key.k as f64 / 2f64.powi(48);
         let q = 1.0 / peri;

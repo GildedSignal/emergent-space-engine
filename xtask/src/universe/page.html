@@ -16,6 +16,7 @@ header{position:absolute;top:24px;left:28px;pointer-events:none}h1{font:500 14px
 .big{font-size:26px;font-weight:300;color:#c6caba;letter-spacing:-.04em}
 #error{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:550px;background:#302b26;padding:18px;color:#e0bea0;display:none;line-height:1.7}
 #now{top:64px;left:28px;right:28px;white-space:normal;font-size:12px;line-height:1.55;color:#cfd2c4}
+#impact{position:absolute;left:50%;top:92px;transform:translateX(-50%);max-width:min(620px,60vw);padding:8px 16px;background:rgba(58,38,28,.9);border:1px solid #d1a874;color:#f0d9b0;font-size:13px;letter-spacing:.04em;text-align:center;pointer-events:none;display:none}
 #news{top:112px;left:28px;max-width:46vw;white-space:normal;font-size:11px;line-height:1.6}
 #news div{color:#8e9e9b}#news div.fresh{color:#e8d9a8}
 #stats{top:176px}
@@ -39,6 +40,7 @@ button{font:inherit;font-size:10px;color:#b9c4bf;background:#1b2b31;border:1px s
 <div class="abs" id="metric"></div>
 <div class="abs" id="now"></div>
 <div class="abs" id="news"></div>
+<div id="impact" role="alert"></div>
 <div class="abs" id="controls"></div>
 <div id="pads"><div class="pad" id="pad-thrust"><b>THRUST</b><i></i></div><div class="pad" id="pad-reverse"><b>REVERSE</b><i></i></div><div class="pad" id="pad-left"><b>TURN LEFT</b><i></i></div><div class="pad" id="pad-right"><b>TURN RIGHT</b><i></i></div><div class="pad" id="pad-cut"><b>CUT THRUST</b><i></i></div><div id="lastkey">LAST KEY  none yet: press a key and it is named here</div></div>
 <div class="abs" id="help"></div>
@@ -56,7 +58,7 @@ const canvas=document.getElementById('sky'),ctx=canvas.getContext('2d'),el=id=>d
 const C_KMS=299792.458,C_MS=299792458,AU_LS=499.004784,LY_LS=31557600;
 // The throttle: the burn is 2^level times the base thrust. Digits 1-8 take every second level, 9 the top one.
 const DIGIT_LEVEL=[0,2,4,6,8,10,12,14,15],MAX_LEVEL=15;
-let frame=null,dash=null,held=new Set(),keys=0,busy=false,rtf=1,zoom=1,stopped=false,levelsG=[],level=2,mode='map',viewLog=null,viewTarget=0,wall=null,rtfNow=0,epoch=0,prevDoll=null,prevAlive=true,armed=0;
+let frame=null,dash=null,held=new Set(),keys=0,busy=false,rtf=1,zoom=1,stopped=false,levelsG=[],level=2,mode='map',viewLog=null,viewTarget=0,wall=null,rtfNow=0,epoch=0,prevDoll=null,prevAlive=true,prevImpact=false,armed=0;
 const DEFAULT_LEVEL=2;// about 1.4 g: the first thing a player does is not fatal
 let trail=[];// the past positions (the star's frame, light-seconds), thinned as they age
 function resize(){const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0)}
@@ -256,6 +258,9 @@ function feedback(f){
  let h='',shown=0;for(const n of news){if(shown++>=4)break;const age=(now-n.t)/1e3;if(age>12)continue;h+=`<div class="${age<2.5?'fresh':''}" style="opacity:${age<8?1:1-(age-8)/4}">${n.text}</div>`}
  el('news').innerHTML=h;
  const lk=el('lastkey'),age=(now-lastKey.t)/1e3;if(lastKey.html){lk.innerHTML=age<8?lastKey.html:'LAST KEY  none in the last seconds';lk.className=age<1.5?'fresh':''}
+ // the impact course: the engine's plan, in words, from the moment the orbit crosses a surface to the moment it no longer does
+ const ib=el('impact'),ic=f.alive?f.impact:null;
+ if(ic){ib.style.display='block';ib.textContent=`Impact course: ${ic.text}, at ${fmtSpeed(ic.speed)}`}else ib.style.display='none';
  // the loss
  const lb=el('lossbox');
  if(!f.alive){lb.style.display='block';lb.innerHTML=`<h2>SHIP LOST</h2>${f.loss||'the engine has no more to say'}<br><br><span class="label">LAST READINGS</span><br>proper time ${fmtDur(f.proper)} · world time ${fmtDur(f.coordinate)} · β ${fmtBeta(len(f.beta))} · speed ${fmtSpeed(len(f.beta))}<br>The wreck stays where it was lost; the readings are frozen at its last state.<br><button id="restart2">RESTART THE FLIGHT  ( R )</button>`;
@@ -265,7 +270,7 @@ function feedback(f){
 async function restart(force){
  if(frame&&frame.alive&&!force){if(performance.now()-armed<3000){armed=0}else{armed=performance.now();say('<span class="warn">RESTART? press R (or the button) again within 3 s: the flight so far is dropped</span>');return}}
  epoch++;busy=true;
- try{await fetch('/restart',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});frame=null;dash=null;trail=[];wall=null;rtfNow=0;viewLog=null;prevDoll=null;prevAlive=true;level=DEFAULT_LEVEL;held.clear();setKeys();el('lossbox').style.display='none';say('RESTARTED: a new flight from the start, throttle '+levelText(level))}
+ try{await fetch('/restart',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});frame=null;dash=null;trail=[];wall=null;rtfNow=0;viewLog=null;prevDoll=null;prevAlive=true;prevImpact=false;level=DEFAULT_LEVEL;held.clear();setKeys();el('lossbox').style.display='none';say('RESTARTED: a new flight from the start, throttle '+levelText(level))}
  catch(e){stopped=true;el('error').style.display='block';el('error').textContent=`Restart failed: ${e.message}.`}
  finally{busy=false}
 }
@@ -276,6 +281,7 @@ async function poll(){
   if(ep!==epoch)return;
   frame=j.frame;dash=j.dash;
   if(prevDoll!==null&&prevDoll!==frame.doll)say(frame.doll==='star'?`<span class="warn">LEFT ${prevDoll.toUpperCase()}'S DOLL</span>: the star's frame is the only one now`:`<span class="warn">ENTERED ${frame.doll.toUpperCase()}'S DOLL</span>: speeds and clock rate also read against ${frame.doll}`);
+  if(frame.alive&&!!frame.impact!==prevImpact)say(frame.impact?`<span class="warn">IMPACT COURSE</span>: ${frame.impact.text}`:'Impact course cleared: the orbit no longer crosses the surface');prevImpact=frame.alive&&!!frame.impact;
   prevDoll=frame.doll;if(prevAlive&&!frame.alive)say(`<span class="warn">SHIP LOST</span>: ${frame.loss||''}`);prevAlive=frame.alive;
   // the time the game got: its coordinate seconds per wall second, smoothed
   const now=performance.now();if(wall){const dt=(now-wall.t)/1e3,dc=frame.coordinate-wall.c;if(dt>0&&dc>=0){const r=dc/dt;rtfNow=rtfNow?rtfNow+(r-rtfNow)*Math.min(1,dt*1.5):r}}wall={t:now,c:frame.coordinate};

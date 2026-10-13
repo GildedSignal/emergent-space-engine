@@ -358,7 +358,7 @@ fn exact_parabolic_and_unstable_circle_ties_are_generators() {
     let parabolic = IntegerState { position: [32, 0], velocity: [-15, 60], length_exponent: 0, velocity_exponent: -8 };
     let fit = Rebinding::from_state(parabolic, Scalar::ZERO, Some(Scalar::integer(128))).unwrap();
     assert!(matches!(fit.trajectory, Trajectory::Passage(_)));
-    assert_eq!(fit.trajectory.key().k, 1 << 47);
+    assert_eq!(fit.trajectory.key().unwrap().k, 1 << 47);
     assert_eq!(fit.reconstruct().unwrap(), parabolic);
     for sign in [-1, 1] {
         let circle = IntegerState { position: [4, 0], velocity: [0, sign], length_exponent: 0, velocity_exponent: -1 };

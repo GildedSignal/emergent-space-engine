@@ -62,7 +62,7 @@ fn the_tube_clock_is_e_at_every_energy_up_to_a_million() {
         assert_eq!(rb.reconstruct().unwrap(), st, "E {e}: the binding must return the state it was made from, bit for bit");
         let rate = tube_rate(&rb.trajectory, rb.event_time, rb.periapsis_time);
         let err = (rate / e - 1.0).abs();
-        println!("E {e:>14.6}: tube dt/dτ {rate:>14.6}, error {err:.2e}, gap carried: {}", rb.trajectory.key().gap.is_some());
+        println!("E {e:>14.6}: tube dt/dτ {rate:>14.6}, error {err:.2e}, gap carried: {}", rb.trajectory.key().unwrap().gap.is_some());
         assert!(err < 1e-5, "E {e}: the tube's dt/dτ is {rate}");
         worst = worst.max(err);
     }
@@ -75,12 +75,12 @@ fn the_gap_is_carried_only_where_the_first_order_clock_is_not_good_enough() {
     // A slow flyby (v∞ ≈ 10⁻⁴ c) and a bound-looking near-parabolic one keep their keys as before: no gap, the same bits.
     for nominal in [1.000000001, 1.0000001] {
         let rb = Rebinding::from_state(state(r0, b, nominal), Scalar::ZERO, None).unwrap();
-        assert!(rb.trajectory.key().gap.is_none(), "E {nominal}: a gap where the first-order clock holds");
+        assert!(rb.trajectory.key().unwrap().gap.is_none(), "E {nominal}: a gap where the first-order clock holds");
     }
     // A flyby at 0.1 c or more carries one.
     for nominal in [1.01, 1.5, 1.0e3, 1.0e6] {
         let rb = Rebinding::from_state(state(r0, b, nominal), Scalar::ZERO, None).unwrap();
-        assert!(rb.trajectory.key().gap.is_some_and(|g| g.is_positive()), "E {nominal}: no gap");
+        assert!(rb.trajectory.key().unwrap().gap.is_some_and(|g| g.is_positive()), "E {nominal}: no gap");
     }
 }
 

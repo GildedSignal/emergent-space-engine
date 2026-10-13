@@ -1,0 +1,43 @@
+=== baseline-lifecycle-test.txt ===
+
+running 1 test
+test a_dissolved_battle_costs_nothing ... dissolved after 2934 fleet items; 30 of its 48 members have crashed since
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 1.33s
+
+
+=== repair-lifecycle.txt ===
+
+running 1 test
+test a_dissolved_battle_costs_nothing ... dissolved after 2698 fleet items; 30 of its 48 members have crashed since
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 2.78s
+
+
+=== baseline-stuck-view.txt ===
+
+running 1 test
+test a_stuck_ship_keeps_a_view ... stuck: 1053 refusals, alive true, β [9.452555003480922e-5, -3.805008752565523e-5], loss None
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.14s
+
+
+=== history-check.txt ===
+PASS: 215 development history entries; fields, local links, committed prefix and text budgets checked
+
+=== remaining-refusals.txt ===
+
+running 1 test
+test behave::plane::tests::b13_refusals ... refusal 1 after the binding at tick 1115156964876: r 5.2643e8, vr 2.997e-5, vt -1.452e-7, E -1.451e-9 (planet at 5.275e8), fault Some((Kick(0), Space(NoBoundOrbit))), E_circ -9.498e-10
+refusal 2 after the binding at tick 1115156964876: r 5.2643e8, vr 2.997e-5, vt -1.452e-7, E -1.451e-9 (planet at 5.275e8), fault Some((Kick(0), Space(NoBoundOrbit))), E_circ -9.498e-10
+refusal 3 after the binding at tick 1115156964876: r 5.2643e8, vr 2.997e-5, vt -1.452e-7, E -1.451e-9 (planet at 5.275e8), fault Some((Kick(0), Space(NoBoundOrbit))), E_circ -9.498e-10
+refusal 4 after the binding at tick 1115156964876: r 5.2643e8, vr 2.997e-5, vt -1.452e-7, E -1.451e-9 (planet at 5.275e8), fault Some((Kick(0), Space(NoBoundOrbit))), E_circ -9.498e-10
+refusal 5 after the binding at tick 1115156964876: r 5.2643e8, vr 2.997e-5, vt -1.452e-7, E -1.451e-9 (planet at 5.275e8), fault Some((Kick(0), Space(NoBoundOrbit))), E_circ -9.498e-10
+refusal 6 after the binding at tick 1115156964876: r 5.2643e8, vr 2.997e-5, vt -1.452e-7, E -1.451e-9 (planet at 5.275e8), fault Some((Kick(0), Space(NoBoundOrbit))), E_circ -9.498e-10
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 218 filtered out; finished in 0.04s
+

@@ -96,11 +96,15 @@ fn main() {
         println!("{:>5} {:>7.3} {:>5} {:>5} | {:>7.0} {:>7.0} {:>7.0} {:>7.0} {:>7.0} | {:?}", r.0, r.1, r.2, r.5, r.3[0] as f64 / 1e3, r.3[1] as f64 / 1e3, r.3[2] as f64 / 1e3, r.3[3] as f64 / 1e3, r.3[4] as f64 / 1e3, r.4);
     }
     if emergent_universe::prof::ENABLED {
-        println!("stages of the worst frames (µs): rekey, walk, apply, requeue, process, rebind, fit, | fleet run, fleet advance, hand-out, encounters | hand-out: pull, bind, replan");
+        println!("stages of the worst frames (µs): rekey, walk, apply, requeue, process, fit | scans answered, capture | fleet run, fleet advance, hand-out | hand-out: pull, bind, replan");
         for r in worst.iter().take(shown) {
             let ns = stage_rows.iter().find(|x| x.0 == r.0).map(|x| x.1).unwrap_or([0; emergent_universe::prof::N]);
             use emergent_universe::prof::*;
-            println!("{:>5} {:>7.3} | {:>7.0} {:>7.0} {:>7.0} {:>7.0} {:>7.0} {:>7.0} {:>7.0} | {:>7.0} {:>7.0} {:>7.0} {:>7.0} | {:>7.0} {:>7.0} {:>7.0}", r.0, r.1, ns[REKEY] as f64 / 1e3, ns[ROOT] as f64 / 1e3, ns[APPLY] as f64 / 1e3, ns[REQUEUE] as f64 / 1e3, ns[PROCESS] as f64 / 1e3, ns[K_REBIND] as f64 / 1e3, ns[R_FIT] as f64 / 1e3, ns[F_RUN] as f64 / 1e3, ns[F_ADV] as f64 / 1e3, ns[HANDOUT] as f64 / 1e3, ns[ENCOUNTERS] as f64 / 1e3, ns[H_PULL] as f64 / 1e3, ns[H_BIND] as f64 / 1e3, ns[H_REPLAN] as f64 / 1e3);
+            let us = |k: usize| ns[k] as f64 / 1e3;
+            println!(
+                "{:>5} {:>7.3} | {:>7.0} {:>7.0} {:>7.0} {:>7.0} {:>7.0} {:>7.0} | {:>7.0} {:>7.0} | {:>7.0} {:>7.0} {:>7.0} | {:>7.0} {:>7.0} {:>7.0}",
+                r.0, r.1, us(REKEY), us(ROOT), us(APPLY), us(REQUEUE), us(PROCESS), us(FIT), us(SCANS), us(ENCOUNTERS), us(F_RUN), us(F_ADV), us(HANDOUT), us(H_PULL), us(H_BIND), us(H_REPLAN)
+            );
         }
     }
     println!("total engine wall {:.3} s", total.as_secs_f64());
