@@ -5,12 +5,12 @@ Owned by the integrator and rewritten in place. **Target:** the fastest and most
 ## Focus (Julien, 30 September)
 
 "the only goal is the engine/compiler to work with GR natively". **AI and factions are off the plan:** no lens works on decisions, factions or agents until Julien brings them back. The plane flies (docs/plane.md, H0210), and work goes by its measured bottleneck.
-**The live questions, in order (12 October; the [wiki](wiki/index.md) holds what is known on each, read it before choosing):**
-- **the ship's clock at high γ** (`high-gamma-clock`): the tube's dt/dτ saturates at 2 while γ reaches 1,761, then the ship is lost; a build is in flight (Sonnet, `wt/clock`). Lab runs here: the regimes it has not measured (levels, directions, near the star), never the same probe again;
-- **the kick jet's retirement and what replaces it** (`kick-jet`): six golds refute the multiply-add update; what is the cheapest exact kick on the shipped representation;
-- **the frame's cost** (`frame-cost`): O(N) per frame with zero events, and a kick at ~1,800× its floor; what deletes the per-frame rekey and the rebind bookkeeping, measured on shipped code;
-- **memory at 10⁹** (`memory-h-live`): the standing representation is ~1.3–1.5 KB per ship against a floor of ~62 bits; what representation stands at the floor;
-- **encounters** (`coorbital-cert`, `encounters`): the adaptive window, the tiers' seams, the horizon edge.
+**The live questions, in order of the gap (13 October; Julien: "tackle what's the furthest behind … without just asymptoting"; the scoreboard is in [HANDOFF](../docs/HANDOFF.md); the [wiki](wiki/index.md) holds what is known, read it before choosing):**
+- **bodies in the flyable engine: 28 against 10⁹** (the furthest gap; a build is in flight: Sonnet's N ladder, `wt/nladder`). Lab runs here: which term breaks first as the plane grows (per-frame walks, rekey, the queue, memory per live body), measured on shipped code at 10³-10⁶; and the smallest promotion between a compact body and a live one;
+- **encounter work at 10⁹: ~10³-10⁴ cores** (`encounters`, `coorbital-cert`): what cuts it by 10³ (the cells' setup, the skin, what never needs a pair test at all);
+- **the kick: 75-160 µs against a ~50 ns floor** (`kick-jet`, `frame-cost`): the jet is retired; the cheapest exact kick on the shipped representation, and how many kicks a body really needs per orbit;
+- **memory at 10⁹** (`memory-h-live`, `belt`): within ~2× of the floor in the worst case; only what the ladder shows breaking;
+- **not here:** the burn's stutter above L8 (GPT's `burst` job tonight, gate T1) and the high-γ clock (merged): no lens re-measures them.
 
 The list of 29 September below is background: the pivot (H0200 onwards) answered most of it.
 
