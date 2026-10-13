@@ -1,0 +1,127 @@
+== [0] tree ==
+the tree already carries this run's patch
+47f3bdd9c715046f55283aa6c150a385d56d8cdb
+== [1] toolchain ==
+== [2] build (both targets, same kernels) ==
+wrote crates/space/examples/div_floor_arm.rs (200 lines)
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.76s
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 3.14s
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+warning: unused variable: `lo`
+  --> crates/space/examples/div_floor_arm.rs:32:9
+   |
+32 |     let lo = n as u64;
+   |         ^^ help: if this is intentional, prefix it with an underscore: `_lo`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-space` (example "div_floor_arm") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.35s
+== [3] measure (TCG wall + insn census + x86 controls + c914 record) ==
+== env ==
+Linux agonbox 6.8.0-111-generic #111-Ubuntu SMP PREEMPT_DYNAMIC Sat Apr 11 23:16:02 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+0.52 1.20 1.58 1/364 84681
+  sym __udivti3 size 40
+== [1] TCG wall time (ns/div, 3 runs each, ROUNDS=2000 => 8.19M divs/run) ==
+arm-div[soft] 136.21 ns/div (8192000 divs, sink 0)
+arm-div[soft] 133.55 ns/div (8192000 divs, sink 0)
+arm-div[soft] 133.60 ns/div (8192000 divs, sink 0)
+arm-div[i128] 133.20 ns/div (8192000 divs, sink 1)
+arm-div[i128] 133.49 ns/div (8192000 divs, sink 1)
+arm-div[i128] 134.42 ns/div (8192000 divs, sink 1)
+arm-div[asm] 94.97 ns/div (8192000 divs, sink 0)
+arm-div[asm] mismatches on 4096 pairs: 0
+arm-div[asm] 93.86 ns/div (8192000 divs, sink 0)
+arm-div[asm] mismatches on 4096 pairs: 0
+arm-div[asm] 93.97 ns/div (8192000 divs, sink 0)
+arm-div[asm] mismatches on 4096 pairs: 0
+arm-div[newton] 389.24 ns/div (8192000 divs, sink 0)
+arm-div[newton] mismatches on 4096 pairs: 0
+arm-div[newton] 386.63 ns/div (8192000 divs, sink 0)
+arm-div[newton] mismatches on 4096 pairs: 0
+arm-div[newton] 387.01 ns/div (8192000 divs, sink 0)
+arm-div[newton] mismatches on 4096 pairs: 0
+arm-div[none] 8192000 steps, sink 0
+arm-div[none] 8192000 steps, sink 0
+arm-div[none] 8192000 steps, sink 0
+== [2] dynamic guest instructions per division (singlestep exec, N vs 2N) ==
+  insn/div[none] = 3.0   (c12=234619 c24=382075)
+  insn/div[soft] = 169.9   (c12=8446087 c24=16797738)
+  insn/div[i128] = 188.7   (c12=9364500 c24=18638844)
+  insn/div[asm] = 88.3   (c12=5251493 c24=9590781)
+  insn/div[newton] = 253.0   (c12=14042721 c24=26478198)
+== [3] executed-mnemonic census (difference-based, N vs 2N, capstone) ==
+  census[soft] 8351619 guest insns / 49152 divs = 169.9/div
+    csel          773124    15.73/div
+    lsr           738402    15.02/div
+    cmp           673572    13.70/div
+    lsl           625266    12.72/div
+    mov           540675    11.00/div
+    add           388691     7.91/div
+    clz           384162     7.82/div
+    orr           373728     7.60/div
+    b.ls          329505     6.70/div
+    subs          277376     5.64/div
+    tst           275424     5.60/div
+    mvn           256065     5.21/div
+    sub           211968     4.31/div
+    mul           211440     4.30/div
+  census[asm] 4339306 guest insns / 49152 divs = 88.3/div
+    mov           448478     9.12/div
+    lsr           399755     8.13/div
+    cmp           316419     6.44/div
+    orr           316416     6.44/div
+    mul           218112     4.44/div
+    csel          196608     4.00/div
+    msub          190501     3.88/div
+    cbnz          153995     3.13/div
+    b             153564     3.12/div
+    lsl           147456     3.00/div
+    eor           147456     3.00/div
+    cbz           141350     2.88/div
+    udiv          141349     2.88/div
+    add           132493     2.70/div
+  census[newton] 12435481 guest insns / 49152 divs = 253.0/div
+    mov          1376259    28.00/div
+    cmp          1130499    23.00/div
+    umulh         983040    20.00/div
+    csel          884736    18.00/div
+    mul           835584    17.00/div
+    adds          540672    11.00/div
+    add           442370     9.00/div
+    cinc          393216     8.00/div
+    b.hs          344066     7.00/div
+    fmov          344064     7.00/div
+    cset          344064     7.00/div
+    orr           294912     6.00/div
+    sbcs          245761     5.00/div
+    b.ne          245760     5.00/div
+== [4] native x86 harness, same kernels (control; ROUNDS=2000 x3) ==
+arm-div[soft] 30.23 ns/div (8192000 divs, sink 0)
+arm-div[soft] 30.25 ns/div (8192000 divs, sink 0)
+arm-div[soft] 30.60 ns/div (8192000 divs, sink 0)
+arm-div[i128] 36.00 ns/div (8192000 divs, sink 1)
+arm-div[i128] 35.67 ns/div (8192000 divs, sink 1)
+arm-div[i128] 35.90 ns/div (8192000 divs, sink 1)
+arm-div[asm] 30.94 ns/div (8192000 divs, sink 0)
+arm-div[asm] mismatches on 4096 pairs: 0
+arm-div[asm] 30.84 ns/div (8192000 divs, sink 0)
+arm-div[asm] mismatches on 4096 pairs: 0
+arm-div[asm] 30.85 ns/div (8192000 divs, sink 0)
+arm-div[asm] mismatches on 4096 pairs: 0
+arm-div[newton] 31.52 ns/div (8192000 divs, sink 0)
+arm-div[newton] mismatches on 4096 pairs: 0
+arm-div[newton] 31.56 ns/div (8192000 divs, sink 0)
+arm-div[newton] mismatches on 4096 pairs: 0
+arm-div[newton] 31.92 ns/div (8192000 divs, sink 0)
+arm-div[newton] mismatches on 4096 pairs: 0
+== [5] shipped div_bench x86 (the c914 record, same box today) ==
+div u128/u128 : 33.43 ns
+div i128/i128 : 34.99 ns
+div asm/divq  : 31.01 ns  (mismatches: 0)
+sinks 0 0 1
+div newton    : 32.75 ns  (mismatches: 1 of 4105)
+== done ==
+== regen done ==
