@@ -39,14 +39,15 @@ fn main() {
     let frames = (seconds * 60.0) as usize;
     let budget_ms = 12.0;
     println!("F1 sweep: rtf {rtf}, {seconds} s of wall time per flight ({frames} frames at 60 Hz), engine budget {budget_ms} ms; 'late' = frames over the budget after the first second");
-    println!("{:<30} {:>5} {:>6} {:>9} {:>8} {:>8} {:>7} {:>8} {:>5} {:>7} {:>7}  {}", "flight", "alive", "frames", "max|v|/c", "worst ms", "late ms", "lag s", "late lag", "late", "ev p50", "ev max", "fault");
+    println!("{:<30} {:>5} {:>6} {:>9} {:>8} {:>8} {:>7} {:>8} {:>5} {:>7} {:>7} {:>6}  {}", "flight", "alive", "frames", "max|v|/c", "worst ms", "late ms", "lag s", "late lag", "late", "ev p50", "ev max", "held", "fault");
     let mut total_late = 0usize;
     let mut worst_all = Duration::ZERO;
     let mut lag_all = 0f64;
-    for (name, script) in flights().into_iter().filter(|(n, _)| n.contains(&only)) {
+    let repeat: usize = std::env::var("REPEAT").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
+    for (name, script) in (0..repeat).flat_map(|_| flights()).filter(|(n, _)| n.contains(&only)) {
         let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
         let (mut next, mut worst, mut late_worst, mut lag, mut late_lag, mut vmax) = (0usize, Duration::ZERO, Duration::ZERO, 0f64, 0f64, 0f64);
-        let (mut late, mut ran) = (0usize, 0usize);
+        let (mut late, mut ran, mut held) = (0usize, 0usize, 0usize);
         let mut events: Vec<u64> = Vec::new();
         for f in 0..frames {
             let wall = f as f64 / 60.0;
@@ -62,6 +63,7 @@ fn main() {
             let l = (frame.target - frame.presented) as f64 * TICK_SECONDS;
             ran += 1;
             events.push(frame.events);
+            held = held.max(p.u.held_scans());
             worst = worst.max(took);
             lag = lag.max(l);
             if wall >= 1.0 {
@@ -82,8 +84,8 @@ fn main() {
         events.sort_unstable();
         let (p50, max) = (events[events.len() / 2], events[events.len() - 1]);
         println!(
-            "{:<30} {:>5} {:>6} {:>9.6} {:>8.2} {:>8.2} {:>7.3} {:>8.3} {:>5} {:>7} {:>7}  {}",
-            name, rec.alive, ran, vmax, worst.as_secs_f64() * 1e3, late_worst.as_secs_f64() * 1e3, lag, late_lag, late, p50, max, fault
+            "{:<30} {:>5} {:>6} {:>9.6} {:>8.2} {:>8.2} {:>7.3} {:>8.3} {:>5} {:>7} {:>7} {:>6}  {}",
+            name, rec.alive, ran, vmax, worst.as_secs_f64() * 1e3, late_worst.as_secs_f64() * 1e3, lag, late_lag, late, p50, max, held, fault
         );
         total_late += late;
         worst_all = worst_all.max(late_worst);

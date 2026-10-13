@@ -30,7 +30,13 @@ pub const P_OPEN: usize = 24;
 pub const P_CRASH: usize = 25;
 pub const P_DECIDE: usize = 26;
 pub const P_KICK_SUB: usize = 27;
-pub const N: usize = 28;
+pub const F_RUN: usize = 28;
+pub const F_ADV: usize = 29;
+pub const HANDOUT: usize = 30;
+pub const H_PULL: usize = 31;
+pub const H_BIND: usize = 32;
+pub const H_REPLAN: usize = 33;
+pub const N: usize = 34;
 
 pub const NAMES: [&str; N] = [
     "rekey (all deadlines)",
@@ -61,6 +67,12 @@ pub const NAMES: [&str; N] = [
     "item: crash",
     "decision (player input)",
     "item: kick at a changeover level",
+    "fleet: battle run_to",
+    "fleet: advance (whole item)",
+    "hand-out (a member made a body)",
+    "  hand-out: pull planets and moons",
+    "  hand-out: bind (the member as a tube)",
+    "  hand-out: first plan (replan)",
 ];
 
 #[cfg(feature = "prof")]

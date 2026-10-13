@@ -314,7 +314,9 @@ impl Fleet {
         let Some(to) = self.horizon(slice, limit) else { return out };
         let b = self.battle.as_mut().expect("a live fleet");
         if to > b.tick() {
+            let t_run = crate::prof::t();
             b.run_to(to).expect("a fleet's frame is valid");
+            crate::prof::add(crate::prof::F_RUN, t_run);
             out.slices = 1;
         }
         // The origin's events: the same kicks and boundaries a ship has, at their ticks.
