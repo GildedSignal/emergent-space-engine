@@ -1,0 +1,120 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: unused variable: `sflip`
+   --> crates/universe/examples/crossing.rs:243:14
+    |
+243 |     let Some(sflip) = star_flip else {
+    |              ^^^^^ help: if this is intentional, prefix it with an underscore: `_sflip`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: value assigned to `last_t` is never read
+   --> crates/universe/examples/crossing.rs:598:13
+    |
+598 |     let mut last_t = p.u.now;
+    |             ^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: value assigned to `star_flip` is never read
+   --> crates/universe/examples/crossing.rs:703:61
+    |
+703 |     let (mut t_prev, mut t, mut last, mut into_passage, mut star_flip) = (512i64, 640i64, None::<(usize, bool)>, 0, None);
+    |                                                             ^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: fields `t` and `relerr` are never read
+  --> crates/universe/examples/crossing.rs:20:5
+   |
+19 | struct St {
+   |        -- fields in this struct
+20 |     t: i64,
+   |     ^
+...
+24 |     relerr: f64,
+   |     ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `doll_of` is never used
+  --> crates/universe/examples/crossing.rs:34:4
+   |
+34 | fn doll_of(p: &emergent_universe::scenario::Plane, me: usize) -> usize {
+   |    ^^^^^^^
+
+warning: field `peri` is never read
+   --> crates/universe/examples/crossing.rs:322:5
+    |
+311 | struct Ctl {
+    |        --- field in this struct
+...
+322 |     peri: f64,
+    |     ^^^^
+
+warning: `emergent-universe` (example "crossing") generated 6 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.06s
+== C5 (rc=0)
+== C11 (rc=0)
+== C15 (rc=0)
+== C8.23 (rc=0)
+== C8.26 (rc=0)
+== T8 (rc=0)
+== C8 (rc=0)
+== E8.0 (rc=0)
+== E8.1 (rc=0)
+== E8.2 (rc=0)
+== E8.3 (rc=0)
+== E8.3 dt=19 (rc=0)
+== E8.3 dt=21 (rc=0)
+== E8.3 dt=23 (rc=0)
+== G8.3 (rc=0)
+== F8.2 (rc=0)
+== F8.3 (rc=0)
+== B8 repro (rc=0)
+--- captures (kind flips to Cycle):
+ctl phase1: FIXED-NOSE CAPTURE dir=2 t=225424788
+ctl phase1: FIXED-NOSE CAPTURE dir=2 t=59211992
+ctl phase1: FIXED-NOSE CAPTURE dir=2 t=2065888888
+ctl phase1: FIXED-NOSE CAPTURE dir=2 t=690887599
+ctl phase1: FIXED-NOSE CAPTURE dir=2 t=690887599
+ctl phase1: FIXED-NOSE CAPTURE dir=2 t=685120431
+T captured at 1219828654
+held: CAPTURED at t=1040987996 — the engine's own grid resolves the window
+held: CAPTURED at t=863316357 — the engine's own grid resolves the window
+held: CAPTURED at t=774480537 — the engine's own grid resolves the window
+held: CAPTURED at t=729538339 — the engine's own grid resolves the window
+held: CAPTURED at t=731111203 — the engine's own grid resolves the window
+held: CAPTURED at t=735305507 — the engine's own grid resolves the window
+held: CAPTURED at t=730062627 — the engine's own grid resolves the window
+held: CAPTURED at t=685644719 — the engine's own grid resolves the window
+--- capture brackets and landings:
+cap bracket: Passage at 2064836216, Cycle at 2064840312 (width 4096)
+capup L5 t=2064840312 doll=0 kind=0 r=9.731329e7 gamma=1.000000 E=1.000000000 E-1=-4.967e-10 dt/dtau=1.000000020 u^t=1.000000020 relerr=-2.329e-11 k-1/2=+2.534415e-2 peri=9.7128e7 mu=1.0000e0 refusals=0 events=1765
+captured apo=1.9162e9 peri=9.7128e7 k-1/2=+2.534415e-2 leave=2^40=1.0995e12 SAFE
+cap bracket: Passage at 684727214, Cycle at 684727726 (width 512)
+capup L8 t=684727726 doll=0 kind=0 r=9.736189e7 gamma=1.000000 E=0.999999999 E-1=-1.018e-9 dt/dtau=1.000000020 u^t=1.000000020 relerr=+1.017e-11 k-1/2=+5.491918e-2 peri=9.7243e7 mu=1.0000e0 refusals=0 events=2109
+captured apo=8.8533e8 peri=9.7243e7 k-1/2=+5.491918e-2 leave=2^40=1.0995e12 SAFE
+cap bracket: Passage at 225375572, Cycle at 225375636 (width 64)
+capup L11 t=225375636 doll=0 kind=0 r=9.743633e7 gamma=1.000000 E=0.999999999 E-1=-8.604e-10 dt/dtau=1.000000020 u^t=1.000000020 relerr=+6.293e-13 k-1/2=+4.555348e-2 peri=9.7048e7 mu=1.0000e0 refusals=0 events=2455
+captured apo=1.0652e9 peri=9.7048e7 k-1/2=+4.555348e-2 leave=2^40=1.0995e12 SAFE
+cap bracket: Passage at 59210964, Cycle at 59210968 (width 4)
+capup L15 t=59210968 doll=0 kind=0 r=9.738392e7 gamma=1.000000 E=1.000000000 E-1=-3.819e-10 dt/dtau=1.000000020 u^t=1.000000020 relerr=-5.980e-12 k-1/2=+1.919851e-2 peri=9.6827e7 mu=1.0000e0 refusals=0 events=2982
+captured apo=2.5217e9 peri=9.6827e7 k-1/2=+1.919851e-2 leave=2^40=1.0995e12 SAFE
+cap bracket: Passage at 1219828142, Cycle at 1219828654 (width 512)
+capup L8 t=1219828654 doll=0 kind=0 r=9.651121e7 gamma=1.000000 E=0.999999999 E-1=-6.408e-10 dt/dtau=1.000000020 u^t=1.000000020 relerr=+4.036e-12 k-1/2=+2.947058e-2 peri=8.6857e7 mu=1.0000e0 refusals=0 events=2101
+--- pumps / silent deaths:
+grow: pump past E-1=1e-3 at t=4630731179 n=31
+t=1355527031 DEAD fault=None refusals=0 event_time=1315545753 surface=4.710000e5 r_at_death=9.805835e7 leave=2^40=1.100e12
+F stops t=4136740203 n=11 E-1=+1.203585197e-3 wall_ms=676
+B no capture by t=287044013625 E=4.288858767 wall_ms=13447
+--- capcoast (survival at 2x):
+capcoast L11 t=450751274 doll=0 kind=0 r=9.743447e7 gamma=1.000000 E=0.999999999 E-1=-8.604e-10 dt/dtau=1.000000020 u^t=1.000000020 relerr=+6.620e-12 k-1/2=+4.555436e-2 peri=9.7048e7 mu=1.0000e0 refusals=0 events=2455
+capcoast L15 t=118421938 doll=0 kind=0 r=9.738331e7 gamma=1.000000 E=1.000000000 E-1=-3.821e-10 dt/dtau=1.000000020 u^t=1.000000020 relerr=+2.052e-11 k-1/2=+1.921168e-2 peri=9.6827e7 mu=1.0000e0 refusals=0 events=2982
+capcoast L5 t=4129680626 doll=0 kind=0 r=9.732577e7 gamma=1.000000 E=1.000000000 E-1=-4.967e-10 dt/dtau=1.000000020 u^t=1.000000020 relerr=+3.664e-11 k-1/2=+2.534417e-2 peri=9.7128e7 mu=1.0000e0 refusals=0 events=1765
+capcoast L8 t=1369470814 doll=0 kind=0 r=9.737728e7 gamma=1.000000 E=0.999999992 E-1=-8.379e-9 dt/dtau=1.000000012 u^t=1.000000012 relerr=-2.325e-11 k-1/2=+8.770518e-2 peri=1.7810e7 mu=1.0000e0 refusals=0 events=2269
+capcoast L8 t=1369585502 doll=0 kind=0 r=9.737713e7 gamma=1.000000 E=0.999999992 E-1=-8.379e-9 dt/dtau=1.000000012 u^t=1.000000012 relerr=-1.506e-12 k-1/2=+8.771018e-2 peri=1.7811e7 mu=1.0000e0 refusals=0 events=2269
+capcoast L8 t=1369455454 doll=0 kind=0 r=9.735884e7 gamma=1.000000 E=0.999999999 E-1=-1.018e-9 dt/dtau=1.000000020 u^t=1.000000020 relerr=+4.352e-13 k-1/2=+5.491929e-2 peri=9.7243e7 mu=1.0000e0 refusals=0 events=2109
+capcoast L8 t=2439657310 doll=0 kind=0 r=9.645909e7 gamma=1.000000 E=0.999999999 E-1=-6.408e-10 dt/dtau=1.000000020 u^t=1.000000020 relerr=+8.302e-12 k-1/2=+2.947068e-2 peri=8.6857e7 mu=1.0000e0 refusals=0 events=2101
+--- refusals anywhere (expect none):
+none
