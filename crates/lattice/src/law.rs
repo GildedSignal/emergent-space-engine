@@ -329,21 +329,151 @@ pub fn energy(m: i128, k: [i128; 2]) -> i128 {
 
 /// Bin predicate. `d` is b − a at the bin start, `w` = k_b − k_a, `reach` = r_a + r_b:
 /// the pair is approaching and min over s in [0, 1] of |d + w·s| ≤ reach.
+///
+/// Exact for every `i128` input: its products are formed in `i128` when they fit, else in 512 bits ([`Wide`]). Until
+/// 13 October 2026 they were formed in `i128` only and wrapped past |d|·|w| ≈ 2^63 (16-52% of the pairs a burn tests in
+/// the plane's player scan), answering garbage there; the answer is unchanged wherever nothing wrapped.
 pub fn hit(d: [i128; 2], w: [i128; 2], reach: i128) -> bool {
-    let dd = dot(d, d);
-    let dw = dot(d, w);
-    let ww = dot(w, w);
-    let rr = reach * reach;
-    if dd <= rr {
+    hit_narrow(d, w, reach).unwrap_or_else(|| hit_in(d.map(Wide::of), w.map(Wide::of), Wide::of(reach)))
+}
+
+/// [`hit`] in `i128`, or None if a product or sum would leave it.
+fn hit_narrow(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<bool> {
+    let dot = |a: [i128; 2], b: [i128; 2]| a[0].checked_mul(b[0])?.checked_add(a[1].checked_mul(b[1])?);
+    let (dd, dw, ww, rr) = (dot(d, d)?, dot(d, w)?, dot(w, w)?, reach.checked_mul(reach)?);
+    Some(if dd <= rr {
         dw < 0
     } else if ww == 0 || dw >= 0 {
         false
     } else if -dw >= ww {
+        let e = [d[0].checked_add(w[0])?, d[1].checked_add(w[1])?];
+        dot(e, e)? <= rr
+    } else {
+        let cross = d[0].checked_mul(w[1])?.checked_sub(d[1].checked_mul(w[0])?)?;
+        cross.checked_mul(cross)? <= rr.checked_mul(ww)?
+    })
+}
+
+/// [`hit`]'s branches over any exact integers.
+fn hit_in<T: Copy + Ord + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + From<i8>>(d: [T; 2], w: [T; 2], reach: T) -> bool {
+    let dot = |a: [T; 2], b: [T; 2]| a[0] * b[0] + a[1] * b[1];
+    let (dd, dw, ww, rr, zero) = (dot(d, d), dot(d, w), dot(w, w), reach * reach, T::from(0));
+    if dd <= rr {
+        dw < zero
+    } else if ww == zero || dw >= zero {
+        false
+    } else if zero - dw >= ww {
         let e = [d[0] + w[0], d[1] + w[1]];
         dot(e, e) <= rr
     } else {
         let cross = d[0] * w[1] - d[1] * w[0];
         cross * cross <= rr * ww
+    }
+}
+
+/// A signed 512-bit integer (a sign and little-endian 64-bit limbs): wide enough for any product of four `i128`s, which is
+/// all [`hit`] forms. Zero is never negative, so equality is limb equality.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Wide {
+    neg: bool,
+    mag: [u64; 8],
+}
+
+impl Wide {
+    pub fn of(x: i128) -> Self {
+        let m = x.unsigned_abs();
+        Wide { neg: x < 0, mag: [m as u64, (m >> 64) as u64, 0, 0, 0, 0, 0, 0] }
+    }
+
+    fn signed(neg: bool, mag: [u64; 8]) -> Self {
+        Wide { neg: neg && mag != [0; 8], mag }
+    }
+
+    fn cmp_mag(a: &[u64; 8], b: &[u64; 8]) -> std::cmp::Ordering {
+        a.iter().rev().cmp(b.iter().rev())
+    }
+
+    /// |a| − |b| for |a| ≥ |b|, or |a| + |b|.
+    fn mag_sub(a: &[u64; 8], b: &[u64; 8]) -> [u64; 8] {
+        let (mut r, mut borrow) = ([0u64; 8], false);
+        for i in 0..8 {
+            let (x, o1) = a[i].overflowing_sub(b[i]);
+            let (x, o2) = x.overflowing_sub(borrow as u64);
+            (r[i], borrow) = (x, o1 || o2);
+        }
+        r
+    }
+
+    fn mag_add(a: &[u64; 8], b: &[u64; 8]) -> [u64; 8] {
+        let (mut r, mut carry) = ([0u64; 8], 0u128);
+        for i in 0..8 {
+            let t = a[i] as u128 + b[i] as u128 + carry;
+            (r[i], carry) = (t as u64, t >> 64);
+        }
+        debug_assert!(carry == 0, "Wide overflow");
+        r
+    }
+}
+
+impl From<i8> for Wide {
+    fn from(x: i8) -> Self {
+        Wide::of(x as i128)
+    }
+}
+
+impl std::ops::Add for Wide {
+    type Output = Wide;
+    fn add(self, o: Wide) -> Wide {
+        if self.neg == o.neg {
+            return Wide::signed(self.neg, Wide::mag_add(&self.mag, &o.mag));
+        }
+        match Wide::cmp_mag(&self.mag, &o.mag) {
+            std::cmp::Ordering::Less => Wide::signed(o.neg, Wide::mag_sub(&o.mag, &self.mag)),
+            _ => Wide::signed(self.neg, Wide::mag_sub(&self.mag, &o.mag)),
+        }
+    }
+}
+
+impl std::ops::Sub for Wide {
+    type Output = Wide;
+    fn sub(self, o: Wide) -> Wide {
+        self + Wide::signed(!o.neg, o.mag)
+    }
+}
+
+impl std::ops::Mul for Wide {
+    type Output = Wide;
+    fn mul(self, o: Wide) -> Wide {
+        let mut r = [0u64; 8];
+        for i in 0..8 {
+            if self.mag[i] == 0 {
+                continue;
+            }
+            let mut carry = 0u128;
+            for j in 0..8 - i {
+                let t = self.mag[i] as u128 * o.mag[j] as u128 + r[i + j] as u128 + carry;
+                (r[i + j], carry) = (t as u64, t >> 64);
+            }
+            debug_assert!(carry == 0 && (8 - i..8).all(|j| o.mag[j] == 0), "Wide overflow");
+        }
+        Wide::signed(self.neg != o.neg, r)
+    }
+}
+
+impl Ord for Wide {
+    fn cmp(&self, o: &Wide) -> std::cmp::Ordering {
+        match (self.neg, o.neg) {
+            (false, true) => std::cmp::Ordering::Greater,
+            (true, false) => std::cmp::Ordering::Less,
+            (false, false) => Wide::cmp_mag(&self.mag, &o.mag),
+            (true, true) => Wide::cmp_mag(&o.mag, &self.mag),
+        }
+    }
+}
+
+impl PartialOrd for Wide {
+    fn partial_cmp(&self, o: &Wide) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(o))
     }
 }
 
@@ -539,5 +669,48 @@ pub fn resolve(
             body.k = nk;
             body.rev += 1;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::worlds::Rng;
+
+    /// The wide path answers as the `i128` one wherever that one fits, over every magnitude up to its edge.
+    #[test]
+    fn hit_wide_agrees_with_narrow_where_it_fits() {
+        let mut rng = Rng(13);
+        let mut cases = [0u32; 2];
+        for i in 0..400_000 {
+            let bits = (i % 63) as u32 + 1;
+            let mut r = |b: u32| ((rng.next() as i128) << 64 | rng.next() as i128) >> (127 - b);
+            let (d, w, reach) = ([r(bits), r(bits)], [r(bits), r(bits)], r(bits).abs());
+            if let Some(narrow) = hit_narrow(d, w, reach) {
+                assert_eq!(hit_in(d.map(Wide::of), w.map(Wide::of), Wide::of(reach)), narrow, "d {d:?} w {w:?} reach {reach}");
+                cases[narrow as usize] += 1;
+            }
+        }
+        assert!(cases[0] > 10_000 && cases[1] > 10_000, "both answers exercised: {cases:?}");
+    }
+
+    /// The predicate is homogeneous: scaling d, w and the reach by 2^s never changes it, so a small case scaled far past
+    /// i128's products (where the old predicate wrapped) must answer as the small case.
+    #[test]
+    fn hit_is_exact_past_the_i128_products() {
+        let mut rng = Rng(17);
+        let (mut wide, mut yes) = (0u32, 0u32);
+        for _ in 0..200_000 {
+            let d = [rng.range(-300, 300) as i128, rng.range(-300, 300) as i128];
+            let w = [rng.range(-40, 40) as i128, rng.range(-40, 40) as i128];
+            let reach = rng.range(1, 40) as i128;
+            let small = hit(d, w, reach);
+            let s = rng.range(40, 117) as u32;
+            let (ds, ws, rs) = (d.map(|x| x << s), w.map(|x| x << s), reach << s);
+            wide += hit_narrow(ds, ws, rs).is_none() as u32;
+            assert_eq!(hit(ds, ws, rs), small, "d {d:?} w {w:?} reach {reach} scaled by 2^{s}");
+            yes += small as u32;
+        }
+        assert!(wide > 150_000 && yes > 1_000, "the wide path and hits exercised: {wide} wide, {yes} hits");
     }
 }

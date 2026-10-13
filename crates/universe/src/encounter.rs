@@ -54,13 +54,9 @@ pub trait Held: Send + Sync {
 /// tick and interval, the same bodies in the same bindings): its encounters are logged again (that is the digest's
 /// history), but their answer is found once.
 ///
-/// **The predicate wraps** (`examples/hit_wrap.rs`). `hit` multiplies `i128`s; for a pair thousands of kilometres apart over a
-/// long interval (|d|·|w| beyond 2^63 in its units: 16–52% of the pairs a burn tests) the products wrap and it answers yes or
-/// no on garbage. Every "contact" the digest counts today is such an answer, and so are 5–54 of the hashed encounters of a
-/// flight. That answer is law, so it is kept, and it also forbids the cheap bound in front of the test (a pair beyond the
-/// neighbourhood can be skipped only where the products cannot have wrapped, and most can have). Commit `ce694696` holds
-/// such a filter, bit for bit, with its control: it skipped 0–10% of the pairs for that reason, so it is not carried. The
-/// fix of the predicate changes digests; it is not this job's.
+/// **The predicate is exact** (13 October; it wrapped its `i128` products before, on 16–58% of the pairs a burn tests, and
+/// answered garbage there: the probe `examples/hit_wrap.rs`, retired after 53165a9c). A cheap exact bound in front of it would now skip 70–86% of the pairs
+/// (commit `ce694696` holds one, with its control); it is not carried, since the scans are already off the critical path.
 pub struct PlayerNeighbourhood {
     /// The last scan taken.
     last: Mutex<Option<Arc<Scan>>>,

@@ -116,10 +116,7 @@ impl Session {
     pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<(Value, f64)> {
         let (start, cpu0) = (Instant::now(), thread_cpu_ms());
         if let Some(keys) = keys.filter(|&k| k != self.keys) {
-            // A frame may have resolved the player a tick or more past the presented tick (a kick at now + 1): the decision then
-            // takes effect at the player's committed tick, and is logged there, or a replay (which takes it at its logged tick)
-            // would take it earlier than the flight did.
-            let now = self.p.u.now.max(self.p.u.bodies().event_time(self.p.player));
+            let now = self.p.u.now;
             self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
             self.keys = keys;
         }

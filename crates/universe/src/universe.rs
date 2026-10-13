@@ -1013,14 +1013,16 @@ impl Universe {
         self.requeue(p);
     }
 
-    /// The player's keys change at tick `t`, which must be `now` or later and not before the player's committed
-    /// tick, taken now: the scheduled decisions before it are taken first, then the player's own past is
-    /// resolved (and what it reads, by pulling). The change is a decision event, logged at `t`.
+    /// The player's keys change at tick `t` (`now` or later), taken now: the scheduled decisions before it are taken
+    /// first, then the player's own past is resolved (and what it reads, by pulling). The change is a decision event,
+    /// logged at the tick it takes effect: `t`, or the player's committed tick when a frame has resolved the player past
+    /// `t` (a kick at now + 1), or a replay, which takes it at its logged tick, would take it earlier than the flight did.
     pub fn input(&mut self, t: Tick, keys: u8) -> Res<()> {
         let p = self.player.ok_or(Error::Refused("no player"))?;
         if t < self.last_decision || t < self.now.min(self.bodies.event_time(p)) {
             return Err(Error::Refused("input in the past"));
         }
+        let t = t.max(self.bodies.event_time(p));
         while let Some(&(pt, pk)) = self.pending.front().filter(|d| d.0 <= t) {
             while self.key_of(p).is_some_and(|k| k.0 <= pt) {
                 self.resolve_body(p);
