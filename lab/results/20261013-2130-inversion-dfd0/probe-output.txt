@@ -1,0 +1,34 @@
+probe rich m400: inputs [(2359325, 129), (4177959, 241), (4256300, 245), (4536477, 240), (5243544, 66), (9440803, 0)]
+probe rich m400: presented 22032414 cut Some(22032414) loss None end Some("exit") refusals 0/0 digest Some("4ed7ae25752f") (Some("live")) stopped_by None
+probe starved m400: inputs [(871755, 129), (892937, 241), (893059, 245), (893184, 240), (1155346, 66), (1233032, 0)]
+probe starved m400: presented 1233033 cut Some(1233033) loss None end Some("exit") refusals 0/0 digest Some("04bc51e33b34") (Some("live")) stopped_by None
+probe rich m8: inputs [(3567150, 129), (9142428, 241), (9299135, 245), (9851521, 240), (23869300, 66), (34710160, 0)]
+probe rich m8: presented 56322175 cut Some(56322175) loss None end Some("exit") refusals 0/0 digest Some("fac8be060cb0") (Some("live")) stopped_by None
+probe starved m8: inputs [(2867975, 129), (3833870, 241), (3838991, 245), (3844111, 240), (16787602, 66), (21318933, 0)]
+probe starved m8: presented 36702340 cut Some(36702340) loss None end Some("exit") refusals 0/0 digest Some("0596f2891d25") (Some("live")) stopped_by None
+probe tick-fork m8: 13391227 ticks
+probe digest-fork m8: fac8be060cb06e57e0e33008b03bcd2e8034dde0512c23edc3ce608d83b4998b vs 0596f2891d25caff6f39400ca19b3be22823b96c2827b34bda4afa48101d6bb8
+probe rich m150: inputs [(3307030, 129), (8814837, 241), (8988960, 245), (9605976, 240), (19939932, 66), (21745730, 0)]
+probe rich m150: presented 35693485 cut Some(35693485) loss None end Some("exit") refusals 0/0 digest Some("a28821f6d2f7") (Some("live")) stopped_by None
+probe starved m150: inputs [(1743496, 129), (1761292, 241), (1761413, 245), (1761537, 240), (2023702, 66), (2060426, 0)]
+probe starved m150: presented 2097168 cut Some(2097168) loss None end Some("exit") refusals 0/0 digest Some("0323e27b7f71") (Some("live")) stopped_by None
+probe tick-fork m400: 8207771 ticks (max over the six decisions)
+probe tick-fork m150: 19685304 ticks
+probe digest-fork m400: 4ed7ae25752fb029cd73e914364d1e8270644d503fea6d227b82e97e0093b565 vs 04bc51e33b34212c4f73da0a49900fd9678cd27034c4d4ed535baf9546649ffa
+probe replay rich: same=true regression=false notes=[] (2.8 s)
+probe replay starved: same=true regression=false notes=[] (0.1 s)
+probe replay rich150: same=true regression=false notes=[] (1.9 s)
+probe replay starved150: same=true regression=false notes=[] (0.0 s)
+probe replay rich@4threads: same=true notes=[]
+replay-all: 6 flight(s) in /tmp/es-flights-fork-785027, longest first, 55 s in all; now 294215b8961a (dirty), law es-space-v2 #41f180a05c92cfe1
+same       20261013T213940Z-seed3.json  digest fac8be060cb0  cut 56322175  loss none  1.1 s
+same       20261013T213943Z-seed3.json  digest 0596f2891d25  cut 36702340  loss none  0.3 s
+same       20261013T213944Z-seed3.json  digest a28821f6d2f7  cut 35693485  loss none  1.9 s
+same       20261013T213931Z-seed3.json  digest 4ed7ae25752f  cut 22032414  loss none  2.9 s
+same       20261013T213948Z-seed3.json  digest 0323e27b7f71  cut 2097168  loss none  0.1 s
+same       20261013T213938Z-seed3.json  digest 04bc51e33b34  cut 1233033  loss none  0.1 s
+replay-all: 6 same, 0 changed, 0 unchecked, 0 skipped (time), 0 regression(s), 6.4 s
+probe replay_all exit code: 0 (0: no regression in any of them)
+test universe::flight_tests::one_session_two_loads_two_flights ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 227 filtered out; finished in 34.81s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s

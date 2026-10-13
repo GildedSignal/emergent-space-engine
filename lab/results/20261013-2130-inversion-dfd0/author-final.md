@@ -1,0 +1,4 @@
+Working...
+All artifacts are in place: `predictions.md` (pre-registered), the probe in the recorder's own frozen test module (saved as `work/patch.diff` by the runner), `probe-output.txt` + `probe-output-run1.txt`, `dossier.md`, guarded `regen.sh`, and the folded `wiki/decision-log.md`. The port is confirmed absent tree-wide (`input_frame`/`sched`/quantum: no matches), and the probe passed on both executions with all invariants asserted.
+
+**Claim:** the flight recorder merged ahead of the decision-tick fix it was told to wait for, so the new `--replay-all` regression gate certifies machine load as player intent — one player session flown twice on one machine records contradictory canonical flights (digest forks in every arm, including the frozen test's own budgets; the same arm re-flown gives a different digest; presses alias to one tick under load), every one of which the gate blesses as exact.

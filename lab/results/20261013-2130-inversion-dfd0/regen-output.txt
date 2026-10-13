@@ -1,0 +1,46 @@
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/xtask)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.27s
+     Running unittests src/main.rs (/home/glmlab/lab-target-3/debug/deps/xtask-34c9edad035af245)
+
+running 1 test
+probe rich m400: inputs [(2359325, 129), (4112421, 241), (4185641, 245), (4442249, 240), (5243545, 66), (8476373, 0)]
+probe rich m400: presented 22031511 cut Some(22031511) loss None end Some("exit") refusals 0/0 digest Some("81edb94948d9") (Some("live")) stopped_by None
+probe starved m400: inputs [(262170, 129), (262170, 241), (262284, 245), (262285, 240), (262285, 66), (262285, 0)]
+probe starved m400: presented 262285 cut Some(262285) loss None end Some("exit") refusals 0/0 digest Some("82625c7c8ee0") (Some("live")) stopped_by None
+probe rich m8: inputs [(3567150, 129), (9076887, 241), (9229497, 245), (9761372, 240), (23198877, 66), (34039737, 0)]
+probe rich m8: presented 55651752 cut Some(55651752) loss None end Some("exit") refusals 0/0 digest Some("8b939873293b") (Some("live")) stopped_by None
+probe starved m8: inputs [(2867975, 129), (3833870, 241), (3838991, 245), (3844111, 240), (16787149, 66), (21318933, 0)]
+probe starved m8: presented 36702340 cut Some(36702340) loss None end Some("exit") refusals 0/0 digest Some("438eb5117003") (Some("live")) stopped_by None
+probe tick-fork m8: 12720804 ticks
+probe digest-fork m8: 8b939873293b91d30af77e63edba78d8823bdfc82d3a4755bb477653df2013ad vs 438eb5117003b5e4156d29ce561ea8b809db8b675609c0592475f53935b3a47a
+probe rich m150: inputs [(3307030, 129), (8618214, 241), (8762629, 245), (9261693, 240), (19937275, 66), (20548112, 0)]
+probe rich m150: presented 33586429 cut Some(33586429) loss None end Some("exit") refusals 0/0 digest Some("1fa1fa29d599") (Some("live")) stopped_by None
+probe starved m150: inputs [(14, 129), (14, 241), (14, 245), (14, 240), (14, 66), (14, 0)]
+probe starved m150: presented 262173 cut Some(262173) loss None end Some("exit") refusals 0/0 digest Some("f7d501f46bef") (Some("live")) stopped_by None
+probe tick-fork m400: 8214088 ticks (max over the six decisions)
+probe tick-fork m150: 20548098 ticks
+probe digest-fork m400: 81edb94948d92a1788326d98e16655cac296b97d95e641d76cbed8f77bb94d0f vs 82625c7c8ee08b0175941b5d10c0aa2444b1cbfc25bbe78d4cc0fb731614dd3f
+probe replay rich: same=true regression=false notes=[] (2.9 s)
+probe replay starved: same=true regression=false notes=[] (0.0 s)
+probe replay rich150: same=true regression=false notes=[] (2.2 s)
+probe replay starved150: same=true regression=false notes=[] (0.0 s)
+probe replay rich@4threads: same=true notes=[]
+replay-all: 6 flight(s) in /tmp/es-flights-fork-787863, longest first, 55 s in all; now 294215b8961a (dirty), law es-space-v2 #41f180a05c92cfe1
+same       20261013T214236Z-seed3.json  digest 8b939873293b  cut 55651752  loss none  1.3 s
+same       20261013T214238Z-seed3.json  digest 438eb5117003  cut 36702340  loss none  0.3 s
+same       20261013T214239Z-seed3.json  digest 1fa1fa29d599  cut 33586429  loss none  1.9 s
+same       20261013T214226Z-seed3.json  digest 81edb94948d9  cut 22031511  loss none  2.9 s
+same       20261013T214233Z-seed3.json  digest 82625c7c8ee0  cut 262285  loss none  0.0 s
+same       20261013T214243Z-seed3.json  digest f7d501f46bef  cut 262173  loss none  0.0 s
+replay-all: 6 same, 0 changed, 0 unchecked, 0 skipped (time), 0 regression(s), 6.5 s
+probe replay_all exit code: 0 (0: no regression in any of them)
+test universe::flight_tests::one_session_two_loads_two_flights ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 227 filtered out; finished in 36.02s
+
+     Running tests/behave_cli.rs (/home/glmlab/lab-target-3/debug/deps/behave_cli-154082b91dce7611)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+

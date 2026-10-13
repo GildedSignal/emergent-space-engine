@@ -1,0 +1,19 @@
+First execution of the probe (before the m8 arm was added; from the author transcript —
+the runner's full log is in this run's run.log). Same invariants, different hex: the
+same-arm digests differ from the second execution's, which is half the finding.
+
+probe rich m150: inputs [(3307030, 129), (8683755, 241), (8832267, 245), (9343639, 240), (19937527, 66), (20548409, 0)]
+probe rich m150: presented 33640205 ... digest Some("cf87cb973348") (Some("live"))
+probe starved m150: inputs [(2097151, 129), (2121741, 241), (2121741, 245), (2121861, 240), (2384026, 66), (2502732, 0)]
+probe starved m150: presented 2621465 cut Some(2764863) ... digest Some("4e9256bd6100") (Some("live"))
+probe tick-fork m400: 7200146 ticks (max over the six decisions)
+probe tick-fork m150: 18045677 ticks
+probe digest-fork m400: dd39afb78b9fe3940204750a630c6bfe91abf3baa2d44e41f8becbff20a81550 vs 51e2137ff6c2c19b6b1062314c01b87298a1ed53391a9ccdec7da0d16c9faaf3
+probe replay rich: same=true ... probe replay starved: same=true ... rich150/starved150: same=true
+replay-all: 4 same, 0 changed, 0 unchecked, 0 skipped (time), 0 regression(s), 5.1 s
+
+Notes vs the second execution (probe-output.txt):
+- m400 rich: dd39afb7... here, 4ed7ae25... there — the SAME arm, same budget, same script:
+  different canonical flight on a re-run (box load only).
+- starved m150 decisions 2 and 3 (words 241, 245, pressed 40 frames apart) both logged at tick
+  2,121,741: decision aliasing under a biting budget.

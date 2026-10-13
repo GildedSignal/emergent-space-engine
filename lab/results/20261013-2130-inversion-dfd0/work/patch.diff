@@ -1,0 +1,90 @@
+diff --git a/xtask/src/universe/flight_tests.rs b/xtask/src/universe/flight_tests.rs
+index f7c58fba..5efdf6e3 100644
+--- a/xtask/src/universe/flight_tests.rs
++++ b/xtask/src/universe/flight_tests.rs
+@@ -74,6 +74,85 @@ fn a_recorded_flight_replays_to_its_digest() {
+     let _ = std::fs::remove_dir_all(&dir);
+ }
+ 
++// ---- the inversion probe (20261013-2130-inversion-dfd0) -------------------------------------
++// One player session, two machine loads: the same seed, script and frame cadence, only the engine's
++// wall budget differs. What the recorder freezes is compared, and what the replay gate blesses.
++
++const PROBE_DT: [f64; 4] = [1.0 / 60.0, 0.0171, 0.033, 0.0042];
++
++fn fly_load(dir: &Path, engine_ms: f64, members: u64) -> (Flight, Option<String>) {
++    let mut s = Session::new(3, 1, members, 100.0).unwrap();
++    s.engine_ms = engine_ms;
++    s.record_into(dir.to_path_buf());
++    let mut stopped = None;
++    for f in 0..260 {
++        let keys = SCRIPT.iter().rev().find(|(n, _)| *n <= f).map(|x| x.1);
++        if let Err(e) = s.step(keys, PROBE_DT[f % PROBE_DT.len()]) {
++            stopped = Some(e.to_string());
++            break;
++        }
++    }
++    let path = s.finish("exit").expect("a flown session leaves a file");
++    (read(&path), stopped)
++}
++
++fn show(tag: &str, f: &Flight, stopped: &Option<String>) {
++    println!("probe {tag}: inputs {:?}", f.inputs);
++    println!("probe {tag}: presented {} cut {:?} loss {:?} end {:?} refusals {}/{} digest {:?} ({:?}) stopped_by {:?}",
++        f.presented_tick, f.cut_tick, f.loss, f.end, f.refusals, f.other_refusals,
++        f.digest.as_deref().map(|d| &d[..12]), f.digest_source, stopped);
++}
++
++#[test]
++fn one_session_two_loads_two_flights() {
++    let dir = tmp("fork");
++    let (rich, rich_stop) = fly_load(&dir, 8.0, 400);
++    let (starved, starved_stop) = fly_load(&dir, 0.05, 400);
++    show("rich m400", &rich, &rich_stop);
++    show("starved m400", &starved, &starved_stop);
++
++    let fork = |a: &Flight, b: &Flight| a.inputs.iter().zip(&b.inputs).map(|((ta, _), (tb, _))| ta.abs_diff(*tb)).max().unwrap_or(0);
++    // the frozen test's own configuration (members 8) at its own budget extremes: do its flights fork too?
++    let (rich8, rich8_stop) = fly_load(&dir, 8.0, 8);
++    let (starved8, starved8_stop) = fly_load(&dir, 0.5, 8);
++    show("rich m8", &rich8, &rich8_stop);
++    show("starved m8", &starved8, &starved8_stop);
++    println!("probe tick-fork m8: {} ticks", fork(&rich8, &starved8));
++    println!("probe digest-fork m8: {} vs {}", rich8.digest.as_deref().unwrap_or("?"), starved8.digest.as_deref().unwrap_or("?"));
++    // the held-out pair: the budget bites less at 150 members
++    let (rich150, rich150_stop) = fly_load(&dir, 8.0, 150);
++    let (starved150, starved150_stop) = fly_load(&dir, 0.05, 150);
++    show("rich m150", &rich150, &rich150_stop);
++    show("starved m150", &starved150, &starved150_stop);
++
++    println!("probe tick-fork m400: {} ticks (max over the six decisions)", fork(&rich, &starved));
++    println!("probe tick-fork m150: {} ticks", fork(&rich150, &starved150));
++    println!("probe digest-fork m400: {} vs {}", rich.digest.as_deref().unwrap_or("?"), starved.digest.as_deref().unwrap_or("?"));
++
++    // the gate: each file replays to itself, exactly — both truths blessed
++    for (tag, f) in [("rich", &rich), ("starved", &starved), ("rich150", &rich150), ("starved150", &starved150)] {
++        let r = replay(f, None).unwrap();
++        let v = compare(f, &r);
++        println!("probe replay {tag}: same={} regression={} notes={:?} ({:.1} s)", v.same(), v.regression, v.notes, r.seconds);
++    }
++    // the thread-count control: the replay instrument is exact
++    let mut t4 = rich.clone();
++    t4.threads = 4;
++    let r4 = replay(&t4, None).unwrap();
++    let v4 = compare(&t4, &r4);
++    println!("probe replay rich@4threads: same={} notes={:?}", v4.same(), v4.notes);
++
++    // and the merge gate itself over all four contradictory files
++    let code = replay_all(&dir, 55.0).unwrap();
++    println!("probe replay_all exit code: {code} (0: no regression in any of them)");
++
++    assert_eq!((rich.inputs.len(), starved.inputs.len()), (6, 6), "the script's six decisions");
++    assert!(compare(&rich, &replay(&rich, None).unwrap()).same(), "rich replays exactly");
++    assert!(compare(&starved, &replay(&starved, None).unwrap()).same(), "starved replays exactly");
++    assert_ne!((rich.inputs.clone(), rich.digest.clone()), (starved.inputs.clone(), starved.digest.clone()),
++        "the fork: one session, two recorded truths");
++}
++
+ #[test]
+ fn a_planted_change_is_reported() {
+     let dir = tmp("planted");
