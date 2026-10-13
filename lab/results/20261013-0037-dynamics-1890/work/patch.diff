@@ -1,0 +1,273 @@
+diff --git a/crates/universe/examples/clock_debug.rs b/crates/universe/examples/clock_debug.rs
+new file mode 100644
+index 00000000..ae97ba98
+--- /dev/null
++++ b/crates/universe/examples/clock_debug.rs
+@@ -0,0 +1,44 @@
++//! Debug: why does from_state refuse ordinary states? Try vr=0 (exact periapsis) vs slightly
++//! off-periapsis inbound states, and compare with OrbitKey::from_invariants.
++use emergent_space::binding::{IntegerState, Rebinding};
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::to_f64;
++
++fn state(p: f64, e: f64, vr_frac: f64) -> IntegerState {
++    let f = 1.0 - 2.0 / p;
++    let vt0sq = f - f * f / (e * e);
++    let vr = -vr_frac * vt0sq.sqrt();
++    let vtsq = vt0sq - vr * vr / f;
++    let vt = vtsq.sqrt();
++    IntegerState {
++        position: [p as i64, 0],
++        velocity: [(vr * 2f64.powi(40)) as i64, (vt * 2f64.powi(40)) as i64],
++        length_exponent: 0,
++        velocity_exponent: -40,
++    }
++}
++
++fn main() {
++    let zero = Scalar::raw(0, 0).unwrap();
++    for &(e, p) in &[(1.1f64, 100.0), (1.5, 1e3), (3.0, 1e5), (1.0001, 1e4)] {
++        for &frac in &[0.0f64, 0.01, 0.1] {
++            let st = state(p, e, frac);
++            match Rebinding::from_state(st, zero, None) {
++                Ok(fit) => {
++                    let key = fit.trajectory.key();
++                    println!("E={e} p={p:.0} vr_frac={frac}: OK peri={} k={:.6e}", to_f64(key.periapsis), key.k as f64 / 2f64.powi(48));
++                }
++                Err(err) => println!("E={e} p={p:.0} vr_frac={frac}: {err:?}"),
++            }
++        }
++        // invariants path for comparison
++        let f = 1.0 - 2.0 / p;
++        let l2 = p * p * (e * e - f) / f;
++        let be = Scalar::raw(((e - 1.0) * 2f64.powi(40)) as i128, -40).unwrap();
++        let ang = Scalar::raw((l2.sqrt() * 2f64.powi(40)) as i128, -40).unwrap();
++        match emergent_space::orbit::OrbitKey::from_invariants(be, ang) {
++            Ok(k) => println!("  from_invariants: peri={} k={:.6e}", to_f64(k.periapsis), k.k as f64 / 2f64.powi(48)),
++            Err(err) => println!("  from_invariants: {err:?}"),
++        }
++    }
++}
+diff --git a/crates/universe/examples/clock_disc.rs b/crates/universe/examples/clock_disc.rs
+new file mode 100644
+index 00000000..d66590b7
+--- /dev/null
++++ b/crates/universe/examples/clock_disc.rs
+@@ -0,0 +1,55 @@
++//! Discriminator: at the sweep's refusal points, does `OrbitKey::from_invariants` + `Passage`/`Orbit`
++//! compile also refuse (key->compile path), or only `from_state` (state->key arithmetic)?
++use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::to_f64;
++
++fn state(p: f64, e: f64) -> IntegerState {
++    let f = 1.0 - 2.0 / p;
++    let vt = (f - f * f / (e * e)).sqrt();
++    IntegerState {
++        position: [p as i64, 0],
++        velocity: [0, (vt * 2f64.powi(40)) as i64],
++        length_exponent: 0,
++        velocity_exponent: -40,
++    }
++}
++
++fn main() {
++    // the jagged refusal rows plus neighbouring ok rows
++    let cases = [
++        (2.0f64, 4e8f64, true), (2.0, 6.32e8, false),
++        (5.0, 4e8, true), (5.0, 1e9, false),
++        (31.62, 4e8, true), (31.62, 3e8, false),
++        (100.0, 4e8, true), (100.0, 1.58e8, false),
++        (1e4, 3e8, true), (1e4, 4e8, false),
++        (1e6, 3e8, true), (1e6, 4e8, false),
++        (1.1, 2e9, true), (1.1, 1e9, false),
++        (1.5, 1e9, true), (1.5, 6.32e8, false),
++    ];
++    let zero = Scalar::raw(0, 0).unwrap();
++    for &(e, p, refused) in &cases {
++        let st = state(p, e);
++        let from_state = match Rebinding::from_state(st, zero, None) {
++            Ok(f) => format!("OK(k={:.4e})", f.trajectory.key().k as f64 / 2f64.powi(48)),
++            Err(err) => format!("{err:?}"),
++        };
++        let f = 1.0 - 2.0 / p;
++        let l2 = p * p * (e * e - f) / f;
++        let be = Scalar::raw(((e - 1.0) * 2f64.powi(40)) as i128, -40).unwrap();
++        let ang = Scalar::raw((l2.sqrt() * 2f64.powi(40)) as i128, -40).unwrap();
++        let inv = match emergent_space::orbit::OrbitKey::from_invariants(be, ang) {
++            Ok(k) => {
++                let peri = to_f64(k.periapsis);
++                let ke = k.k as f64 / 2f64.powi(48);
++                let compiled = match emergent_space::orbit::Passage::compile(k, Scalar::integer(p as i64)) {
++                    Ok(_) => "compiled".to_string(),
++                    Err(err) => format!("{err:?}"),
++                };
++                format!("OK(peri={peri:.3e} k={ke:.4e}) {compiled}")
++            }
++            Err(err) => format!("{err:?}"),
++        };
++        println!("E={e:<9} p={p:<9.3e} sweep_expectedly_refused={refused}\n  from_state: {from_state}\n  from_invariants: {inv}");
++    }
++}
+diff --git a/crates/universe/examples/clock_domain.rs b/crates/universe/examples/clock_domain.rs
+new file mode 100644
+index 00000000..907c941e
+--- /dev/null
++++ b/crates/universe/examples/clock_domain.rs
+@@ -0,0 +1,64 @@
++//! Domain sweep (lab 20261013-0037-dynamics-1890): the shipped key compiler's acceptance domain
++//! in (E, periapsis), driven through `Rebinding::from_state` — the same call a kick's rebind uses.
++//! Each state sits at periapsis of the exact Schwarzschild orbit with energy E and periapsis r_p
++//! (geometric units, mu = 1): r = r_p, v purely tangential, v_t = sqrt(f - f^2/E^2), f = 1 - 2/r_p.
++//! One line per (E, r_p): ok/range/nobound + kind + k + E implied by the key (tn/d formula).
++use emergent_space::binding::{IntegerState, Rebinding};
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::to_f64;
++
++fn main() {
++    let es: Vec<f64> = [1.0000001f64, 1.000001, 1.00001, 1.0001, 1.001, 1.01, 1.1, 1.5, 2.0, 3.0, 5.0,
++        10.0, 31.62, 100.0, 316.2, 1000.0, 3162.0, 1e4, 3.16e4, 1e5, 3.16e5, 1e6]
++        .to_vec();
++    let ps: Vec<f64> = [10f64, 100.0, 1e3, 1e4, 1e5, 3.16e5, 1e6, 3.16e6, 1e7, 3.16e7, 1e8,
++        1.5e8, 2e8, 2.5e8, 2.7e8, 3e8, 4e8, 6.32e8, 1e9, 2e9, 6.32e9, 1.6e10]
++        .to_vec();
++    println!("E peri verdict kind k_word E_key");
++    let t0 = std::time::Instant::now();
++    let mut ok = 0usize;
++    let mut refuse = 0usize;
++    for &e in &es {
++        for &p in &ps {
++            let f = 1.0 - 2.0 / p;
++            if f <= 0.0 {
++                continue;
++            }
++            let vt = (f - f * f / (e * e)).sqrt();
++            if vt <= 0.0 {
++                continue;
++            }
++            // integer * 2^exp; positions in M (exp 0 up to 1.6e10 fits i64), vt < 1 -> exp -40
++            let st = IntegerState {
++                position: [p as i64, 0],
++                velocity: [0, (vt * 2f64.powi(40)) as i64],
++                length_exponent: 0,
++                velocity_exponent: -40,
++            };
++            let zero = Scalar::raw(0, 0).unwrap();
++            let line = match Rebinding::from_state(st, zero, None) {
++                Ok(fit) => {
++                    let key = fit.trajectory.key();
++                    let kind = match &fit.trajectory {
++                        emergent_space::binding::Trajectory::Cycle(_) => "cycle",
++                        _ => "passage",
++                    };
++                    let kq = key.k as f64 / 2f64.powi(48);
++                    let peri = to_f64(key.periapsis);
++                    let q = 1.0 / peri;
++                    let d = match key.gap { Some(g) => to_f64(g), None => { let eta = 1.0 - kq; kq - q * (3.0 * kq * kq + eta * eta) } };
++                    let tn = kq * (1.0 - 2.0 * q) * (1.0 + 2.0 * q * (1.0 - 2.0 * kq));
++                    let e_key = (tn / d).sqrt();
++                    ok += 1;
++                    format!("ok {kind} {kq:.6e} {e_key:.6} gap={}", key.gap.is_some() as u8)
++                }
++                Err(err) => {
++                    refuse += 1;
++                    format!("REFUSE-{err:?} 0 0")
++                }
++            };
++            println!("{e:.7} {p:.3e} {line}");
++        }
++    }
++    eprintln!("ok {ok} refused {refuse}, sweep wall: {:?}", t0.elapsed());
++}
+diff --git a/crates/universe/examples/clock_regimes.rs b/crates/universe/examples/clock_regimes.rs
+new file mode 100644
+index 00000000..c2144651
+--- /dev/null
++++ b/crates/universe/examples/clock_regimes.rs
+@@ -0,0 +1,86 @@
++//! Flight regimes the clock record has not flown (lab 20261013-0037-dynamics-1890), post-merge
++//! (f7f6d87, exact-in-E clock): braking from high gamma (the playability brake-to-rest), a turning
++//! burn, a gentle far escape — each flown with `settle` and read at log-spaced checkpoints exactly
++//! like `clock_pin`. Prints per checkpoint: t, gamma, r, E_exact, E_key, dt/dtau(tube) vs u^t
++//! (the clock the player reads against the exact state = the HUD dial's physics), peri, k, kind.
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::{to_f64, Tick};
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++
++#[derive(Clone, Copy, Debug, PartialEq)]
++enum Phase {
++    Burn,
++    Brake,
++    Turn,
++}
++
++fn main() {
++    // (name, level, switch: gamma threshold at which the flight flips to its second phase, second keys)
++    let regimes: Vec<(&str, u8, Option<f64>, u8)> = vec![
++        ("fwd15", 15, None, 0),
++        ("fwd2_farstar", 2, None, 0),
++        ("brake_g30", 15, Some(30.0), 2),
++        ("brake_g300", 15, Some(300.0), 2),
++        ("turnburn15", 15, Some(30.0), 5),
++    ];
++    let tmax_log2: f64 = 38.0;
++    for (name, level, gamma_switch, second_keys) in regimes {
++        let cfg = emergent_universe::Config::default();
++        let mut p = plane(cfg, 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++        let me = p.player;
++        p.u.input(0, word(1, level)).unwrap();
++        let f64v = |v: [Scalar; 2]| [to_f64(v[0]), to_f64(v[1])];
++        println!("# {name}");
++        let n = 130;
++        let mut t_prev = 0i64;
++        let mut phase = Phase::Burn;
++        let start = std::time::Instant::now();
++        for j in 0..=n {
++            let t: i64 = if j == 0 { 1 << 22 } else { (2f64.powf(22.0 + (tmax_log2 - 22.0) * j as f64 / n as f64)) as i64 };
++            if t <= t_prev { continue; }
++            if start.elapsed().as_secs_f64() > 55.0 { println!("TIMEOUT wall"); break; }
++            p.u.settle(t);
++            let rec = p.u.rec(me);
++            if !rec.alive {
++                println!("LOST t={t} fault={:?} refusals={}", rec.fault, rec.refusals);
++                break;
++            }
++            let mu = { let ctx = p.u.ctx(); to_f64(ctx.tube_unit(me, rec.b.doll).unwrap().mu) };
++            let (x, v) = match rec.b.cartesian(t) { Ok((x, v)) => (f64v(x), f64v(v)), Err(e) => { println!("REFUSED_READ t={t} {e:?}"); break; } };
++            let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
++            let f = 1.0 - 2.0 * mu / r;
++            let rh = [x[0] / r, x[1] / r];
++            let vr = v[0] * rh[0] + v[1] * rh[1];
++            let vt = -v[0] * rh[1] + v[1] * rh[0];
++            let den = f - vr * vr / f - vt * vt;
++            let ut = 1.0 / den.sqrt();
++            let gamma = 1.0 / (1.0 - (vr * vr + vt * vt)).sqrt();
++            let e_ex = f * ut;
++            // phase switch on the measured gamma
++            if phase == Phase::Burn && gamma_switch.is_some_and(|g| gamma > g) {
++                let _ = p.u.input(t, word(second_keys, level));
++                phase = match second_keys { 2 => Phase::Brake, _ => Phase::Turn };
++                println!("SWITCH t={t} gamma={gamma:.3} keys={second_keys}");
++            }
++            let key = rec.b.entry.trajectory.key();
++            let peri = to_f64(key.periapsis);
++            let kq = key.k as f64 / 2f64.powi(48);
++            let q = 1.0 / peri;
++            let eta = 1.0 - kq;
++            let d = kq - q * (3.0 * kq * kq + eta * eta);
++            let tn = kq * (1.0 - 2.0 * q) * (1.0 + 2.0 * q * (1.0 - 2.0 * kq));
++            let e_key = (tn / d).sqrt();
++            let shift = { let ctx = p.u.ctx(); ctx.dolls[rec.b.doll as usize].shift as i32 };
++            let dtk: Tick = 1 << 16;
++            let a = rec.b.orbit_state(t).unwrap().proper_time;
++            let b = rec.b.orbit_state(t + dtk).unwrap().proper_time;
++            let dtau = to_f64(b.sub(a).unwrap()) * 2f64.powi(-shift);
++            let dtdtau = dtk as f64 / dtau;
++            let kind = match &rec.b.entry.trajectory { emergent_space::binding::Trajectory::Cycle(_) => "cycle", _ => "passage" };
++            let rel = (dtdtau / ut - 1.0).abs();
++            println!("t={t} r={r:.4e} gamma={gamma:.4} E_exact={e_ex:.6} E_key={e_key:.6} dtdtau={dtdtau:.6} ut={ut:.6} clock_relerr={rel:.3e} peri={peri:.4e} k={kq:.6e} kind={kind} doll={} refusals={} phase={phase:?}", rec.b.doll, rec.refusals);
++            t_prev = t;
++        }
++    }
++}
