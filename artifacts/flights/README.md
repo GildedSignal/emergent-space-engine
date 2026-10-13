@@ -1,0 +1,1 @@
+Flights flown on the plane, recorded as inputs only (kilobytes, never states): replay one with `cargo run --release -p xtask -- universe --replay <file>`, all of them (the check before every merge, a minute at most) with `... universe --replay-all`.

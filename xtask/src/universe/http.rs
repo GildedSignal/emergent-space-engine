@@ -5,8 +5,32 @@ use serde_json::json;
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
+    os::fd::AsRawFd,
+    sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
+
+/// Set by SIGINT, SIGTERM and SIGHUP: the server leaves its loop, and the flight is written on the way out. A second signal
+/// while it writes ends the process at once.
+static STOP: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn on_signal(_: libc::c_int) {
+    if STOP.swap(true, Ordering::SeqCst) {
+        // SAFETY: _exit is async-signal-safe.
+        unsafe { libc::_exit(130) };
+    }
+}
+
+fn catch_signals() {
+    for sig in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
+        // SAFETY: the handler only touches an atomic and calls _exit.
+        unsafe { libc::signal(sig, on_signal as extern "C" fn(libc::c_int) as libc::sighandler_t) };
+    }
+}
+
+fn panic_text(p: &(dyn std::any::Any + Send)) -> String {
+    p.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| p.downcast_ref::<String>().cloned()).unwrap_or_else(|| "(no message)".into())
+}
 
 fn receive(stream: &mut TcpStream) -> crate::Result<(String, Vec<u8>)> {
     stream.set_read_timeout(Some(Duration::from_secs(2)))?;
@@ -67,9 +91,23 @@ pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
     let listener = TcpListener::bind(("127.0.0.1", port))?;
     println!("Universe: http://127.0.0.1:{}/ · seed {} · {}x game time · the star system, whole", listener.local_addr()?.port(), s.seed, s.rtf);
     println!("W/up thrust · S/down reverse · A D / left right turn · space cuts thrust · 1-9 or + - throttle · [ ] halve and double the time factor · M map/sky");
+    if s.recording() {
+        println!("recording the flight: written at every decision and every 10 s, and at exit, loss and restart; replay it with --replay <file>, all of them with --replay-all");
+    }
+    catch_signals();
     let mut last = Instant::now();
-    for stream in listener.incoming() {
-        let mut stream = stream?;
+    loop {
+        // Wait for a request, looking up from time to time at whether the process was asked to leave.
+        let mut fds = [libc::pollfd { fd: listener.as_raw_fd(), events: libc::POLLIN, revents: 0 }];
+        // SAFETY: one valid pollfd for the listener's descriptor.
+        let ready = unsafe { libc::poll(fds.as_mut_ptr(), 1, 200) };
+        if STOP.load(Ordering::SeqCst) {
+            break;
+        }
+        if ready <= 0 {
+            continue;
+        }
+        let (mut stream, _) = listener.accept()?;
         let response = (|| -> crate::Result<(String, Vec<u8>)> {
             let (line, body) = receive(&mut stream)?;
             let mut words = line.split_whitespace();
@@ -79,6 +117,9 @@ pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
                 ("GET", "/config") => Ok(("application/json".into(), serde_json::to_vec(&s.config())?)),
                 ("GET", "/log") => Ok(("application/json".into(), serde_json::to_vec_pretty(&s.log())?)),
                 ("POST", "/restart") => {
+                    if let Some(p) = s.finish("restart") {
+                        println!("flight recorded: {}", p.display());
+                    }
                     s = s.restarted()?;
                     last = Instant::now();
                     Ok(("application/json".into(), serde_json::to_vec(&s.config())?))
@@ -94,7 +135,18 @@ pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
                     }
                     let dt = last.elapsed().as_secs_f64().min(0.1);
                     last = Instant::now();
-                    let (v, ms) = s.step(Some(keys), dt)?;
+                    // An engine panic is a bug the player found: the inputs so far are its reproduction. Write them, then die as before.
+                    let stepped = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.step(Some(keys), dt)));
+                    let (v, ms) = match stepped {
+                        Ok(r) => r?,
+                        Err(p) => {
+                            let message = panic_text(&*p);
+                            if let Some(path) = s.record_panic(&message) {
+                                eprintln!("flight recorded: {} (the engine panicked: {message})", path.display());
+                            }
+                            std::panic::resume_unwind(p);
+                        }
+                    };
                     Ok(("application/json".into(), serde_json::to_vec(&json!({"frame": v, "server_ms": ms, "dash": s.dash_json()}))?))
                 }
                 _ => Err("unknown route".into()),
@@ -108,6 +160,9 @@ pub(super) fn serve(mut s: Session, port: u16) -> crate::Result<u8> {
                 let _ = respond(&mut stream, "400 Bad Request", "application/json", &serde_json::to_vec(&json!({"error": e.to_string()}))?);
             }
         }
+    }
+    if let Some(p) = s.finish("exit") {
+        println!("flight recorded: {}", p.display());
     }
     Ok(0)
 }

@@ -5,7 +5,10 @@ use emergent_universe::scenario::{plane, Plane};
 use emergent_universe::view::{gather_cached, View, ViewCache};
 use emergent_universe::{Budget, Config};
 use serde_json::{json, Value};
+use std::path::PathBuf;
 use std::time::Instant;
+
+use super::flight::Recorder;
 
 /// The wall time the engine may spend in a frame (the frame is 16.7 ms at 60 Hz: the rest is the view,
 /// the serialisation and the browser).
@@ -34,19 +37,56 @@ pub struct Session {
     members: u64,
     /// The view's memo: each emitter's last crossing of the past light cone (a guess for Newton's method).
     cache: ViewCache,
+    /// The flight recorder (a served session has one: [`Session::record_into`]; the benchmark and the tests do not).
+    rec: Option<Recorder>,
 }
 
 impl Session {
     pub fn new(seed: u64, threads: usize, members: u64, rtf: f64) -> crate::Result<Self> {
         let p = plane(Config::default(), seed, Order::Sparse, threads, members).map_err(|e| format!("the plane: {e:?}"))?;
         let names = p.names.clone();
-        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default() })
+        Ok(Self { p, seed, rtf, dash: Dash::default(), keys: 0, engine_ms: ENGINE_BUDGET_MS, cut: None, names, threads, members, cache: ViewCache::default(), rec: None })
+    }
+
+    /// Record this session's flight in `dir` (`artifacts/flights/`): see [`super::flight`].
+    pub fn record_into(&mut self, dir: PathBuf) {
+        self.rec = Some(Recorder::new(dir, self.seed, self.rtf, self.members, self.threads));
+    }
+
+    pub fn recording(&self) -> bool {
+        self.rec.is_some()
+    }
+
+    /// The flight is over (exit or restart): settle its universe to the canonical cut, digest it and write the file. Returns where.
+    pub fn finish(&mut self, why: &str) -> Option<PathBuf> {
+        let mut r = self.rec.take()?;
+        let path = r.finish(self, why);
+        self.rec = Some(r);
+        path
+    }
+
+    /// The engine panicked in a frame: write the inputs so far, the reproduction.
+    pub fn record_panic(&mut self, message: &str) -> Option<PathBuf> {
+        let mut r = self.rec.take()?;
+        let path = r.panicked(self, message);
+        self.rec = Some(r);
+        path
+    }
+
+    fn record_frame(&mut self, view: Option<&View>) {
+        if let Some(mut r) = self.rec.take() {
+            r.frame(self, view);
+            self.rec = Some(r);
+        }
     }
 
     /// The same flight from the start (the page's restart key): a new universe, the same seed, time factor and budget.
     pub fn restarted(&self) -> crate::Result<Self> {
         let mut s = Self::new(self.seed, self.threads, self.members, self.rtf)?;
         s.engine_ms = self.engine_ms;
+        if let Some(r) = &self.rec {
+            s.record_into(r.dir().to_path_buf());
+        }
         Ok(s)
     }
 
@@ -76,7 +116,10 @@ impl Session {
     pub fn step(&mut self, keys: Option<u8>, wall_dt: f64) -> crate::Result<(Value, f64)> {
         let (start, cpu0) = (Instant::now(), thread_cpu_ms());
         if let Some(keys) = keys.filter(|&k| k != self.keys) {
-            let now = self.p.u.now;
+            // A frame may have resolved the player a tick or more past the presented tick (a kick at now + 1): the decision then
+            // takes effect at the player's committed tick, and is logged there, or a replay (which takes it at its logged tick)
+            // would take it earlier than the flight did.
+            let now = self.p.u.now.max(self.p.u.bodies().event_time(self.p.player));
             self.p.u.input(now, keys).map_err(|e| format!("input: {e:?}"))?;
             self.keys = keys;
         }
@@ -85,6 +128,7 @@ impl Session {
         let view = match gather_cached(&self.p.u, &self.names, &mut self.cache) {
             Some(v) => v,
             None => {
+                self.record_frame(None);
                 let r = self.p.u.rec(self.p.player);
                 return Err(format!("no view: the player is {} (fault {:?}, doll {}, tick {})", if r.alive { "alive but unreadable" } else { "lost" }, r.fault, r.b.doll, self.p.u.now).into());
             }
@@ -95,6 +139,8 @@ impl Session {
         // The cost of putting it on the wire is part of the frame.
         let wire = serde_json::to_vec(&json)?;
         std::hint::black_box(&wire);
+        // The recorder's own cost (a snapshot handed to its writer thread, at a decision or every 10 s) is part of the frame.
+        self.record_frame(Some(&view));
         let ms = start.elapsed().as_secs_f64() * 1e3;
         self.dash.parts((t1 - start).as_secs_f64() * 1e3, (t2 - t1).as_secs_f64() * 1e3, (t3 - t2).as_secs_f64() * 1e3, t3.elapsed().as_secs_f64() * 1e3);
         self.dash.record(ms, thread_cpu_ms() - cpu0, f.ticks, wall_dt, f.events, f.overflow);
@@ -125,7 +171,13 @@ impl Session {
         (t, self.p.u.digest())
     }
 
+    /// The flight so far, as the recorder writes it (a session with no recorder: the bare log).
     pub fn log(&self) -> Value {
+        if let Some(r) = &self.rec {
+            if let Ok(v) = serde_json::to_value(r.current(self)) {
+                return v;
+            }
+        }
         json!({"version": "es-plane-v0", "seed": self.seed, "inputs": self.p.u.inputs, "presented_tick": self.p.u.now, "cut_tick": self.cut})
     }
 

@@ -5,11 +5,18 @@
 //! universe --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]
 //! universe --describe
 //! universe --kick-bench [--seed N] [--rtf R] [--seconds S]
+//! universe --replay <file> [--seconds S]      replay a recorded flight and say whether it matches (exit 1: a regression)
+//! universe --replay-all [--flights DIR]       replay every saved flight within a minute in all (exit 1: a new loss or refusal)
+//! universe [...] [--flights DIR | --no-record]  where the served flight is recorded (default artifacts/flights/)
 //!
 //! The frame loop is the one a player runs: every frame spends a wall budget on the engine in
 //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+mod flight;
+#[cfg(test)]
+mod flight_tests;
 mod http;
 mod kick_bench;
+mod replay;
 mod session;
 
 use serde_json::json;
@@ -21,6 +28,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
     let (mut bench, mut seconds, mut paced, mut describe) = (false, 30.0f64, true, false);
     let mut engine_ms = session::ENGINE_BUDGET_MS;
     let (mut kicks, mut level) = (false, 0u8);
+    let (mut replay_file, mut replay_all, mut flights, mut record, mut seconds_given) = (None::<String>, false, None::<std::path::PathBuf>, true, false);
     let mut it = args.into_iter();
     while let Some(a) = it.next() {
         let mut val = |n: &str| it.next().ok_or_else(|| format!("missing value for {n}"));
@@ -30,7 +38,14 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
             "--port" => port = val("--port")?.parse()?,
             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
             "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
-            "--seconds" => seconds = val("--seconds")?.parse()?,
+            "--seconds" => {
+                seconds = val("--seconds")?.parse()?;
+                seconds_given = true;
+            }
+            "--replay" => replay_file = Some(val("--replay")?),
+            "--replay-all" => replay_all = true,
+            "--flights" => flights = Some(val("--flights")?.into()),
+            "--no-record" => record = false,
             "--bench" => bench = true,
             "--kick-bench" => kicks = true,
             "--unpaced" => paced = false,
@@ -38,7 +53,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
             "--level" => level = val("--level")?.parse::<u8>()?.min(emergent_universe::thrust::MAX_LEVEL),
             "--describe" => describe = true,
             "--help" => {
-                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe");
+                println!("universe [--seed N] [--rtf R] [--port 8792] [--threads N] [--members N]\nuniverse --bench [--seed N] [--rtf R] [--seconds S] [--threads N] [--unpaced] [--engine-ms MS] [--level L]\nuniverse --kick-bench [--seed N] [--rtf R] [--seconds S]\nuniverse --describe\nuniverse --replay <file> [--seconds S]\nuniverse --replay-all [--flights DIR]\nuniverse [...] [--flights DIR | --no-record]");
                 return Ok(0);
             }
             _ => return Err(format!("unknown universe argument {a}").into()),
@@ -46,6 +61,12 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
     }
     if !(rtf.is_finite() && (0.01..=1e7).contains(&rtf)) || !(1.0..=55.0).contains(&seconds) {
         return Err("rtf outside [0.01, 1e7], or seconds outside [1, 55] (every test and probe is at most a minute)".into());
+    }
+    if let Some(file) = replay_file {
+        return replay::replay_file(std::path::Path::new(&file), if seconds_given { seconds } else { 55.0 });
+    }
+    if replay_all {
+        return replay::replay_all(&flights.unwrap_or_else(replay::default_flights), replay::ALL_SECONDS);
     }
     let mut s = Session::new(seed, threads, members, rtf)?;
     s.engine_ms = engine_ms;
@@ -58,6 +79,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
     }
     if bench {
         return benchmark(s, seconds, paced, level);
+    }
+    if record {
+        s.record_into(flights.unwrap_or_else(flight::default_dir));
     }
     http::serve(s, port)
 }
