@@ -1,0 +1,214 @@
+diff --git a/crates/universe/examples/nose_map.rs b/crates/universe/examples/nose_map.rs
+new file mode 100644
+index 00000000..ce394b53
+--- /dev/null
++++ b/crates/universe/examples/nose_map.rs
+@@ -0,0 +1,171 @@
++//! The nose map: for a held forward burn, does the flight's end state depend smoothly on where the
++//! nose points? The sweep flew one nose (main's retrograde start); this turns the nose to every
++//! 22.5° of the circle first, then holds the burn at a level, and classifies the end state:
++//! crash (silent death at a surface), leave, escape (Passage), bound (Cycle), or wall-capped.
++//! One CSV row per flight. Settle-based (unpaced), wall-capped per flight.
++//!
++//! Instrument note: the shipped turn rate (2^-30 turns/tick) tracks the player's orbit about Home
++//! (one circle per ~2^30 ticks), so turning to an absolute heading leaves the nose-vs-velocity angle
++//! unchanged. The probe turns 2x faster (`turn_log2 = -29`, ~0.5 deg per flush, ~11 deg orbital
++//! drift per circle, which the recorded rel angles absorb). The burn config is the shipped one.
++//!
++//! cargo run --release -p emergent-universe --example nose_map [-- <angles> <levels> <cap_s> <burn_log2>]
++use emergent_space::binding::Trajectory;
++use emergent_universe::num::to_f64;
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::{direction, word};
++use emergent_universe::{fleet::Order, Budget, Config};
++use std::io::Write;
++use std::time::{Duration, Instant};
++
++const TURN_CHUNK: i64 = 1 << 21; // one flush per sample (flush step 2^21 at level 15)
++const BURN_CHUNK: i64 = 1 << 30;
++const TOL: u64 = 1 << 27; // heading tolerance, Q32: one flush's turn (11.25 deg = half the grid step)
++
++/// Resolve everything up to `horizon`, never past `deadline`. True if drained to the horizon.
++fn cap_settle(u: &mut emergent_universe::Universe, horizon: i64, deadline: Instant) -> bool {
++    loop {
++        let a = u.advance(horizon, Budget { events: u64::MAX, until: Some(deadline) });
++        if a.events == 0 {
++            u.now = u.now.max(horizon);
++            return true;
++        }
++        if Instant::now() >= deadline {
++            return false;
++        }
++    }
++}
++
++fn azim(x: f64, y: f64) -> f64 {
++    x.atan2(y) * 180.0 / std::f64::consts::PI
++}
++
++fn wrap180(d: f64) -> f64 {
++    let mut d = d.rem_euclid(360.0);
++    if d >= 180.0 {
++        d -= 360.0;
++    }
++    d
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n_angle: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(16);
++    let levels: Vec<u8> = args
++        .get(2)
++        .and_then(|s| s.parse::<String>().ok())
++        .map(|s| s.split(',').map(|x| x.parse().unwrap()).collect())
++        .unwrap_or(vec![0, 2, 4, 6, 8, 12, 15]);
++    let cap_s: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let burn_log2: i32 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(36);
++    let mut out = std::fs::File::create("nose_map.csv").unwrap();
++    writeln!(out, "level,turn_deg,rel_v_deg,rel_rout_deg,outcome,fault,refusals,gamma_max,r_end,doll,t_end_ticks,events,turn_ticks,wall_s").unwrap();
++    eprintln!("nose map: {n_angle} angles x levels {levels:?}, cap {cap_s} s, burn horizon 2^{burn_log2} ticks");
++    for a in 0..n_angle {
++        let turn_deg = 360.0 * a as f64 / n_angle as f64;
++        let target = (turn_deg / 360.0 * 4294967296.0).round() as u32; // Q32
++        for &level in &levels {
++            let t0 = Instant::now();
++            let deadline = t0 + Duration::from_secs_f64(cap_s);
++            let mut cfg = Config::default();
++            cfg.turn_log2 = -26; // probe instrument: 11.25 deg per flush, full circle 6.7e7 ticks (~8% of one orbit)
++            let mut p = plane(cfg, 1, Order::Sparse, 1, 48).unwrap();
++            let player = p.player;
++            // Turn: hold the right key at level 15 (fine flush step) until the heading reaches the target.
++            let _ = p.u.input(p.u.now, word(8, 15));
++            let mut turned = false;
++            let mut dbg_head = String::new();
++            while Instant::now() < deadline {
++                let nxt = p.u.now + TURN_CHUNK;
++                if !cap_settle(&mut p.u, nxt, deadline) {
++                    break;
++                }
++                if let Some(th) = p.u.rec(player).thrust {
++                    let d = target.wrapping_sub(th.heading) as u64;
++                    dbg_head = format!("head={} target={} d={}", th.heading, target, d);
++                    if d <= TOL || d >= (u32::MAX - TOL as u32) as u64 {
++                        turned = true;
++                        break;
++                    }
++                } else {
++                    dbg_head = "thrust=None".into();
++                }
++            }
++            let turn_ticks = p.u.now;
++            let (rel_v, rel_rout, gamma0) = {
++                let rec = p.u.rec(player);
++                let (x, v) = rec
++                    .b
++                    .cartesian(p.u.now)
++                    .unwrap_or(([emergent_space::orbit::Scalar::ZERO; 2], [emergent_space::orbit::Scalar::ZERO; 2]));
++                let (x, v) = ([to_f64(x[0]), to_f64(x[1])], [to_f64(v[0]), to_f64(v[1])]);
++                let head = rec.thrust.map(|t| t.heading).unwrap_or(0);
++                let n = direction(head).map(|d| [to_f64(d[0]), to_f64(d[1])]).unwrap_or([0.0, 1.0]);
++                let a_n = azim(n[0], n[1]);
++                (wrap180(azim(v[0], v[1]) - a_n), wrap180(azim(x[0], x[1]) - a_n), (v[0] * v[0] + v[1] * v[1]).sqrt())
++            };
++            // Burn: hold forward at this level to the horizon.
++            let mut vmax = gamma0;
++            let mut capped = !turned;
++            if turned {
++                let _ = p.u.input(p.u.now, word(1, level));
++                let horizon = turn_ticks + (1i64 << burn_log2);
++                while p.u.now < horizon {
++                    let nxt = (p.u.now + BURN_CHUNK).min(horizon);
++                    if !cap_settle(&mut p.u, nxt, deadline) {
++                        capped = true;
++                        break;
++                    }
++                    if !p.u.rec(player).alive {
++                        break;
++                    }
++                    if let Ok((_, v)) = p.u.rec(player).b.cartesian(p.u.now) {
++                        let s = (to_f64(v[0]).powi(2) + to_f64(v[1]).powi(2)).sqrt();
++                        if s.is_finite() {
++                            vmax = vmax.max(s);
++                        }
++                    }
++                }
++            }
++            let rec = p.u.rec(player);
++            let kind = match rec.b.entry.trajectory {
++                Trajectory::Cycle(_) => "cycle",
++                Trajectory::Passage(_) => "passage",
++            };
++            let (outcome, r_end) = if !turned {
++                (format!("TURNCAP {dbg_head}"), 0.0)
++            } else if !rec.alive {
++                let t = rec.b.event_time;
++                let r = match rec.b.cartesian(t) {
++                    Ok((x, _)) => (to_f64(x[0]).powi(2) + to_f64(x[1]).powi(2)).sqrt(),
++                    Err(_) => rec.b.orbit_state(t).map(|s| to_f64(s.radius)).unwrap_or(f64::NAN),
++                };
++                let surf = to_f64(p.u.dolls[rec.b.doll as usize].surface);
++                if r <= surf * 1.5 {
++                    ("CRASH".to_string(), r)
++                } else if r >= (1i64 << 39) as f64 {
++                    ("LEAVE".to_string(), r)
++                } else {
++                    (format!("DEAD_other@{r:.3e}"), r)
++                }
++            } else if capped {
++                (format!("CAP_{kind}"), 0.0)
++            } else {
++                let r = rec
++                    .b
++                    .cartesian(p.u.now)
++                    .or_else(|_| rec.b.cartesian(rec.b.event_time))
++                    .map(|(x, _)| (to_f64(x[0]).powi(2) + to_f64(x[1]).powi(2)).sqrt())
++                    .unwrap_or(f64::NAN);
++                ((if kind == "passage" { "ESCAPE" } else { "BOUND" }).to_string(), r)
++            };
++            let fault = rec.fault.map(|(w, e)| format!("{w:?}/{e:?}")).unwrap_or_else(|| "-".into());
++            let row = format!(
++                "{level},{turn_deg:.1},{rel_v:.1},{rel_rout:.1},{outcome},{fault},{},{},{r_end:.6e},{},{},{},{},{:.2}\n",
++                rec.refusals, vmax, rec.b.doll, rec.b.event_time, rec.events, turn_ticks, t0.elapsed().as_secs_f64()
++            );
++            out.write_all(row.as_bytes()).unwrap();
++            eprint!("{row}");
++        }
++    }
++}
+diff --git a/crates/universe/examples/turn_probe.rs b/crates/universe/examples/turn_probe.rs
+new file mode 100644
+index 00000000..d3e6a7f1
+--- /dev/null
++++ b/crates/universe/examples/turn_probe.rs
+@@ -0,0 +1,31 @@
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++use emergent_universe::{fleet::Order, Budget, Config};
++use std::time::{Duration, Instant};
++fn main() {
++    let tl: i32 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(-29);
++    let capped: bool = std::env::args().nth(2).map(|s| s == "cap").unwrap_or(false);
++    let mut cfg = Config::default();
++    cfg.turn_log2 = tl;
++    let mut p = plane(cfg, 1, Order::Sparse, 1, 48).unwrap();
++    let pl = p.player;
++    let _ = p.u.input(p.u.now, word(8, 15));
++    let deadline = Instant::now() + Duration::from_secs(3);
++    for i in 0..40 {
++        let tgt = p.u.now + (1 << 21);
++        if capped {
++            loop {
++                let a = p.u.advance(tgt, Budget { events: u64::MAX, until: Some(deadline) });
++                if a.events == 0 || Instant::now() >= deadline { break; }
++            }
++        } else {
++            loop {
++                let a = p.u.advance(tgt, Budget::unlimited());
++                if a.events == 0 { break; }
++            }
++        }
++        p.u.now = p.u.now.max(tgt);
++        let r = p.u.rec(pl);
++        println!("i={i} t={} head={} step={} ev={} keys={:?}", p.u.now, r.thrust.map(|t| t.heading).unwrap_or(0), r.step, r.events, r.thrust.map(|t| t.keys));
++    }
++}
