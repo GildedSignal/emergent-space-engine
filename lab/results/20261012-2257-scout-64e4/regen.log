@@ -1,0 +1,54 @@
+== build (the harness example + the one-switch patch) ==
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.97s
+
+== E1: digest at one canonical cut under shipped / never / lazy rekey (P1) ==
+-- seed 1, 48 members, starved (1 event/frame), 8 game-s --
+digest seed=1 members=48 starve=1 secs=8 arm=shipped digest=ac09adb0da737afb0392bb753ea196c89e5cc936c9527441bd474c9728855c66 frames=481 events=485 trace="a135187ef9a0adde" front_trace=4898842d3ab17531 fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+digest seed=1 members=48 starve=1 secs=8 arm=never digest=ac09adb0da737afb0392bb753ea196c89e5cc936c9527441bd474c9728855c66 frames=481 events=485 trace="a135187ef9a0adde" front_trace=5d5205a4d722fe2a fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+digest seed=1 members=48 starve=1 secs=8 arm=lazy digest=ac09adb0da737afb0392bb753ea196c89e5cc936c9527441bd474c9728855c66 frames=481 events=485 trace="a135187ef9a0adde" front_trace=5b9f7d17c341a3e3 fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+-- seed 3, 48 members, starved, 8 game-s --
+digest seed=3 members=48 starve=1 secs=8 arm=shipped digest=0566579f708da8a962fef6c8dc5aafb0fcaeb8ede9a3392db255d122796e0d9e frames=481 events=485 trace="a135187ef9a0adde" front_trace=10b504f0a8163922 fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+digest seed=3 members=48 starve=1 secs=8 arm=never digest=0566579f708da8a962fef6c8dc5aafb0fcaeb8ede9a3392db255d122796e0d9e frames=481 events=485 trace="a135187ef9a0adde" front_trace=6f09537138414134 fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+digest seed=3 members=48 starve=1 secs=8 arm=lazy digest=0566579f708da8a962fef6c8dc5aafb0fcaeb8ede9a3392db255d122796e0d9e frames=481 events=485 trace="a135187ef9a0adde" front_trace=bad038971d7e35cb fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+-- seed 1, 400 members, starved, 8 game-s --
+digest seed=1 members=400 starve=1 secs=8 arm=shipped digest=2dbc92e463239197688c2d96798ee60693aa29ebedc1f40de53467a080bb1f63 frames=481 events=485 trace="a135187ef9a0adde" front_trace=5f07eeaf09da35cc fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+digest seed=1 members=400 starve=1 secs=8 arm=never digest=2dbc92e463239197688c2d96798ee60693aa29ebedc1f40de53467a080bb1f63 frames=481 events=485 trace="a135187ef9a0adde" front_trace=3f2fc7a1574d79c0 fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+digest seed=1 members=400 starve=1 secs=8 arm=lazy digest=2dbc92e463239197688c2d96798ee60693aa29ebedc1f40de53467a080bb1f63 frames=481 events=485 trace="a135187ef9a0adde" front_trace=dfb67494ba7dbbf9 fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+-- seed 1, 48 members, starved, 60 game-s (kicks + encounters) --
+digest seed=1 members=48 starve=1 secs=60 arm=shipped digest=e38b245b1a8f43ccb546bc9f55e0eceb5c60c3cbb1ef512cc61c197f691f5a3e frames=3637 events=3653 trace="cdaf531d82992714" front_trace=b93fba444297e7be fronts=3637 encounters=8 contacts=3 kicks=15 refusals=0 lost=0
+digest seed=1 members=48 starve=1 secs=60 arm=never digest=e38b245b1a8f43ccb546bc9f55e0eceb5c60c3cbb1ef512cc61c197f691f5a3e frames=3634 events=3650 trace="9fa8404b5f628283" front_trace=af34e9ddefc0df1a fronts=3634 encounters=8 contacts=3 kicks=15 refusals=0 lost=0
+digest seed=1 members=48 starve=1 secs=60 arm=lazy digest=e38b245b1a8f43ccb546bc9f55e0eceb5c60c3cbb1ef512cc61c197f691f5a3e frames=3636 events=3652 trace="35e41d21b2726535" front_trace=edbf9a464dcc05db fronts=3636 encounters=8 contacts=3 kicks=15 refusals=0 lost=0
+-- seed 3, 48 members, starved, 60 game-s --
+digest seed=3 members=48 starve=1 secs=60 arm=shipped digest=35812c306fe2cc1ba166e0205a8351c0ddb93ba47eed3acbc52d035954980354 frames=3622 events=3638 trace="3852b851cb5d18c8" front_trace=e4e9afed8d19540c fronts=3622 encounters=5 contacts=0 kicks=12 refusals=0 lost=0
+digest seed=3 members=48 starve=1 secs=60 arm=never digest=35812c306fe2cc1ba166e0205a8351c0ddb93ba47eed3acbc52d035954980354 frames=3620 events=3636 trace="cce45a66834090b4" front_trace=b4c0496838c2f879 fronts=3620 encounters=5 contacts=0 kicks=12 refusals=0 lost=0
+digest seed=3 members=48 starve=1 secs=60 arm=lazy digest=35812c306fe2cc1ba166e0205a8351c0ddb93ba47eed3acbc52d035954980354 frames=3621 events=3637 trace="da458a7e7d84eb5a" front_trace=0198233754db4c46 fronts=3621 encounters=5 contacts=0 kicks=12 refusals=0 lost=0
+-- seed 1, 48 members, unstarved (5 ms wall), 8 game-s --
+digest seed=1 members=48 starve=0 secs=8 arm=shipped digest=ac09adb0da737afb0392bb753ea196c89e5cc936c9527441bd474c9728855c66 frames=481 events=485 trace="a135187ef9a0adde" front_trace=4898842d3ab17531 fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+digest seed=1 members=48 starve=0 secs=8 arm=never digest=ac09adb0da737afb0392bb753ea196c89e5cc936c9527441bd474c9728855c66 frames=481 events=485 trace="a135187ef9a0adde" front_trace=5d5205a4d722fe2a fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+digest seed=1 members=48 starve=0 secs=8 arm=lazy digest=ac09adb0da737afb0392bb753ea196c89e5cc936c9527441bd474c9728855c66 frames=481 events=485 trace="a135187ef9a0adde" front_trace=5b9f7d17c341a3e3 fronts=481 encounters=0 contacts=0 kicks=0 refusals=0 lost=0
+
+== E2: the session's presented-tick key logging vs grid-quantized decisions (P2, P3) ==
+leak seed=1 rtf=100 hz=30 mode=raw digest=ec1649ed9ae73d3fc15df902d495878d1c55cfd62ce5a80b5bbdc9439f3e6219 inputs=4 encounters=39 contacts=17 grid_ticks=1048576
+leak seed=1 rtf=100 hz=30 mode=grid digest=7b8f956c0a1e6bdffad5876c108e8e20dff2d8db1e02e5fc41a43a6d5ed20223 inputs=4 encounters=30 contacts=7 grid_ticks=1048576
+leak seed=1 rtf=100 hz=60 mode=raw digest=ee0fea2779d7ebdbb8fe6d32e8e21111f9d049dcff7ce74d8a6b02b002694e8c inputs=4 encounters=37 contacts=14 grid_ticks=1048576
+leak seed=1 rtf=100 hz=60 mode=grid digest=7b8f956c0a1e6bdffad5876c108e8e20dff2d8db1e02e5fc41a43a6d5ed20223 inputs=4 encounters=30 contacts=7 grid_ticks=1048576
+leak seed=1 rtf=100 hz=144 mode=raw digest=3fb435d4368dd7ae6588969900778ca37bccfa830f84434fa7d7986821315f30 inputs=4 encounters=38 contacts=14 grid_ticks=1048576
+leak seed=1 rtf=100 hz=144 mode=grid digest=7b8f956c0a1e6bdffad5876c108e8e20dff2d8db1e02e5fc41a43a6d5ed20223 inputs=4 encounters=30 contacts=7 grid_ticks=1048576
+leak seed=3 rtf=100 hz=30 mode=raw digest=107a3ea24711f1edbc0f7786d0f6964e399793839ebf06d45ab2887d13e75981 inputs=4 encounters=22 contacts=0 grid_ticks=1048576
+leak seed=3 rtf=100 hz=30 mode=grid digest=f5b97834319fb092806200270b9062ab1d51803d44cc0cac4b05c6c86f735b34 inputs=4 encounters=19 contacts=0 grid_ticks=1048576
+leak seed=3 rtf=100 hz=60 mode=raw digest=1aeac265b078c5a423c840dd36bcb5c6ec2f945011f36cee5048c39a77b16263 inputs=4 encounters=23 contacts=0 grid_ticks=1048576
+leak seed=3 rtf=100 hz=60 mode=grid digest=f5b97834319fb092806200270b9062ab1d51803d44cc0cac4b05c6c86f735b34 inputs=4 encounters=19 contacts=0 grid_ticks=1048576
+leak seed=3 rtf=100 hz=144 mode=raw digest=bbea06c3826a95ece634144dc7ef0ec6096be839160a7f7f24326ebda8fbb113 inputs=4 encounters=23 contacts=0 grid_ticks=1048576
+leak seed=3 rtf=100 hz=144 mode=grid digest=f5b97834319fb092806200270b9062ab1d51803d44cc0cac4b05c6c86f735b34 inputs=4 encounters=19 contacts=0 grid_ticks=1048576
+
+== E0: the fixed tier's rekey share (P4), quiet frames, events=0 ==
+pop n=1000 rekey_on=true bodies=1001 median_ns=187955 p95_ns=210974 events=0 median_ns_per_body=187.77
+pop n=1000 rekey_on=false bodies=1001 median_ns=150934 p95_ns=172899 events=0 median_ns_per_body=150.78
+pop n=10000 rekey_on=true bodies=10001 median_ns=2300320 p95_ns=2397090 events=0 median_ns_per_body=230.01
+pop n=10000 rekey_on=false bodies=10001 median_ns=1946135 p95_ns=2084566 events=0 median_ns_per_body=194.59
+-- the plane itself (28 bodies; view off, engine advance only) --
+cost members=48 rekey_on=true bodies=28 median_ns=16486 p95_ns=28235 events=600 median_ns_per_body=588.8
+cost members=48 rekey_on=false bodies=28 median_ns=10763 p95_ns=21534 events=600 median_ns_per_body=384.4
+cost members=400 rekey_on=true bodies=28 median_ns=36703 p95_ns=72407 events=600 median_ns_per_body=1310.8
+cost members=400 rekey_on=false bodies=28 median_ns=30405 p95_ns=62334 events=600 median_ns_per_body=1085.9
