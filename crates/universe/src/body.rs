@@ -94,8 +94,8 @@ pub trait BodyStore: Send + Sync {
     fn push(&mut self, r: BodyRec) -> usize;
     /// Retire a binding into body `i`'s history (the view reads the past through it).
     fn retire(&mut self, i: usize, seg: Segment);
-    /// Forget history that ended before `before`, keeping at least the last segment.
-    fn prune(&mut self, i: usize, before: Tick);
+    /// Forget history that ended before `before`, keeping at least the last segment; how many segments went.
+    fn prune(&mut self, i: usize, before: Tick) -> usize;
     /// The binding that holds at `t` (current, or a retired one), if still remembered.
     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding>;
     /// The current binding's event time (the body's committed tick).
@@ -108,6 +108,10 @@ pub trait BodyStore: Send + Sync {
     }
     /// Bytes held per body (the arrays, the catalogue share of its compiled trajectory, history).
     fn bytes_of(&self, i: usize) -> usize;
+    /// Retired bindings held for body `i`.
+    fn history_len(&self, i: usize) -> usize;
+    /// Body `i`'s current binding and every retained one, oldest first (what a reader can still ask for).
+    fn bindings_of(&self, i: usize) -> Vec<Binding>;
 }
 
 #[derive(Default)]
@@ -134,11 +138,14 @@ impl BodyStore for PlainBodies {
     fn retire(&mut self, i: usize, seg: Segment) {
         self.history[i].push_back(seg);
     }
-    fn prune(&mut self, i: usize, before: Tick) {
+    fn prune(&mut self, i: usize, before: Tick) -> usize {
         let h = &mut self.history[i];
+        let mut gone = 0;
         while h.len() > 1 && h[0].until < before {
             h.pop_front();
+            gone += 1;
         }
+        gone
     }
     fn binding_at(&self, i: usize, t: Tick) -> Option<Binding> {
         let r = &self.recs[i];
@@ -166,6 +173,12 @@ impl BodyStore for PlainBodies {
     }
     fn doll(&self, i: usize) -> u16 {
         self.recs[i].b.doll
+    }
+    fn history_len(&self, i: usize) -> usize {
+        self.history[i].len()
+    }
+    fn bindings_of(&self, i: usize) -> Vec<Binding> {
+        self.history[i].iter().map(|s| s.b.clone()).chain(std::iter::once(self.recs[i].b.clone())).collect()
     }
     fn bytes_of(&self, i: usize) -> usize {
         let r = &self.recs[i];

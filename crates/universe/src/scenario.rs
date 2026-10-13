@@ -316,8 +316,8 @@ pub fn rayleigh_q48(u: u32, sigma_milli: u64) -> u64 {
     }
     let l2 = (32u64 << 32) - ((k << 32) | frac); // log2(2^32 / d), Q32
     let ln = (l2 as u128 * 2_977_044_472u128) >> 32; // ln 2 = 2977044472 / 2^32; ln(2^32 / d), Q32
-    let e2 = ln * 2 * (sigma_milli as u128).pow(2) / 1_000_000; // e², Q32
-    (e2 << 64).isqrt() as u64 // e · 2^48
+    let e2 = ((ln * 2 * (sigma_milli as u128).pow(2)) << 64) / 1_000_000; // e², Q96
+    e2.isqrt() as u64 // e · 2^48
 }
 
 /// One ship of the N ladder: the orbit it is made on and its radius. Ship `k` of `extra`: the first [`ladder_locals`] are about

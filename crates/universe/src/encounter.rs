@@ -9,7 +9,8 @@
 //! (the neighbourhood the player's own instruments would call close).
 use crate::bind::Binding;
 use crate::ctx::Ctx;
-use crate::num::{sub2, time_of, Res, Tick, V2};
+use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+use crate::radial::Window;
 use emergent_lattice::law::hit;
 use emergent_space::orbit::Scalar;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -161,8 +162,17 @@ impl Encounters for PlayerNeighbourhood {
     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
         let me = ctx.bodies.binding_at(body, t)?;
         // The cheap tests, in body order: who is there to be read.
+        // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+        // that the rest cannot be a hit); when that is most of the doll, every body is read, as it always was.
+        let near = (|| -> Option<Vec<usize>> {
+            let (x, v) = me.cartesian(t).ok()?;
+            let h = time_of(interval, me.clock_exp).ok()?;
+            let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
+            let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+            ctx.radial.candidates(me.doll, &w)
+        })();
         let mut candidates = Vec::new();
-        for j in 0..ctx.bodies.len() {
+        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
             // A member handed out of a frame is there for the ticks after its hand-out.
             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
                 continue;
