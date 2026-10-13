@@ -11,3 +11,7 @@ emergent-engine = { path = "../engine" }
 emergent-lattice = { path = "../lattice" }
 emergent-lattice-event = { path = "../lattice-event" }
 blake3.workspace = true
+
+[features]
+# Stage timers for the frame's cost (crate::prof); off, every call is empty and the engine is what it was.
+prof = []

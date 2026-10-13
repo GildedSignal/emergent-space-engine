@@ -33,7 +33,7 @@
 use crate::bind::{bind_surface, bind_exact, Binding, Catalogue, Entry};
 use crate::body::{BodyRec, BodyStore, Kind, PlainBodies, Segment, Thrust, What};
 use crate::ctx::{BodyInfo, Config, Ctx};
-use crate::encounter::{Encounter, Encounters, PlayerNeighbourhood};
+use crate::encounter::{Encounter, Encounters, Held, PlayerNeighbourhood};
 use crate::fleet::{Fleet, Leaver};
 use crate::num::{Error, Res, Tick};
 use crate::step::{self, Resolved, Update};
@@ -67,6 +67,24 @@ impl Budget {
     fn spent(&self, done: u64) -> bool {
         done >= self.events || self.until.is_some_and(|u| Instant::now() >= u)
     }
+}
+
+/// Idle time is spent on a scan only if at least twice the longest recent one (and this, ns) is left: a scan costs 30 us to
+/// 1.5 ms (the finder reads each of up to a hundred bodies, a passage in tens of microseconds), and the frame must not overrun.
+const SCAN_MARGIN_NS: u64 = 750_000;
+
+/// The scans held for idle time (about 10 KB each: the bindings they read) are answered, inside the frame's budget, before the
+/// frame resolves anything else once this many are waiting, the oldest first, so the memory they hold is bounded.
+const SCAN_BACKLOG: usize = 2048;
+
+/// The encounter hash chain's next link.
+fn chain(prev: [u8; 32], e: &Encounter) -> [u8; 32] {
+    let mut h = blake3::Hasher::new();
+    h.update(&prev);
+    for v in [e.a as i128, e.b as i128, e.t as i128, e.contact as i128] {
+        h.update(&v.to_le_bytes());
+    }
+    *h.finalize().as_bytes()
 }
 
 /// What one presented frame did.
@@ -161,6 +179,12 @@ pub struct Universe {
     lanes: Lanes,
     target: Tick,
     encounters: Box<dyn Encounters>,
+    /// Scans the player's items took and the allocator has not answered yet, in the order taken
+    /// ([`Universe::drain_scans`]); the log, the count and the hash below are as if each had been answered at once once
+    /// this is empty, and [`Universe::digest`] answers what is held.
+    scans: VecDeque<Arc<dyn Held>>,
+    /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+    scan_ns: u64,
     pub enc_log: Vec<Encounter>,
     enc_digest: [u8; 32],
     pub contacts: u64,
@@ -210,7 +234,9 @@ impl Universe {
             slice: 1 << 18,
             lanes: Lanes::default(),
             target: 0,
-            encounters: Box::new(PlayerNeighbourhood),
+            encounters: Box::<PlayerNeighbourhood>::default(),
+            scans: VecDeque::new(),
+            scan_ns: 0,
             enc_log: Vec::new(),
             enc_digest: [0; 32],
             contacts: 0,
@@ -234,6 +260,14 @@ impl Universe {
     }
     pub fn n_bodies(&self) -> usize {
         self.bodies.len()
+    }
+    /// Scans the player's items took that idle time has not answered yet ([`Universe::digest`] counts them as answered).
+    pub fn held_scans(&self) -> usize {
+        self.scans.len()
+    }
+    /// Answer every held scan now (what the count, the log and the hash read once nothing is held; `settle` does it too).
+    pub fn flush_scans(&mut self) {
+        self.drain_scans(None);
     }
     /// Members the frame has handed out whose tubes are not made yet (each is an item of the queue).
     pub fn pending_handouts(&self) -> usize {
@@ -340,7 +374,7 @@ impl Universe {
         let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface))?;
         let mut tube = bound.tube;
         tube.key = self.cat.insert(bound.entry.clone())?;
-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE };
+        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE, impact: None };
         let heading = prograde(&b)?;
         let rec = BodyRec {
             kind,
@@ -400,6 +434,7 @@ impl Universe {
 
     /// Replace the encounter finder (the seam): the Binet cone later.
     pub fn set_encounters(&mut self, e: Box<dyn Encounters>) {
+        self.drain_scans(None);
         self.encounters = e;
     }
 
@@ -491,14 +526,17 @@ impl Universe {
     }
 
     fn requeue(&mut self, e: usize) {
+        let t0 = crate::prof::t();
         let d = self.deadline_of(e);
         if let Some(q) = self.queue.as_mut() {
             let _ = q.set(e, d.map(Scalar::integer));
         }
+        crate::prof::add(crate::prof::REQUEUE, t0);
     }
 
     /// Recompute every deadline from the player's present position (a scheduling heuristic only).
     pub fn rekey(&mut self) {
+        let t0 = crate::prof::t();
         if let Some(p) = self.player {
             if let Ok((pos, _)) = crate::observe::root_state_raw(&self.ctx(), p, self.bodies.event_time(p).max(self.now)) {
                 self.observer = pos;
@@ -511,11 +549,13 @@ impl Universe {
             self.requeue(self.fleet_entity(f));
         }
         self.requeue(self.bodies.len());
+        crate::prof::add(crate::prof::REKEY, t0);
     }
 
     // ---- resolving ------------------------------------------------------------------------------
 
     fn apply(&mut self, i: usize, mut upd: Update) {
+        let t_apply = crate::prof::t();
         for seg in upd.retired.drain(..) {
             self.cat.release(seg.b.tube.key);
             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
@@ -536,9 +576,17 @@ impl Universe {
         self.resolved += 1;
         let t = upd.rec.b.event_time;
         self.bodies.put(i, upd.rec);
-        if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
-            self.pos[i] = p;
+        // The position cache is read by `light_distance` and nothing else, and the player's light distance is zero by
+        // definition (`rekey` reads the observer from the player's own state): its walk of the doll chain, the dearest
+        // thing `apply` did after a player item, bought nothing.
+        if Some(i) != self.player {
+            let t_walk = crate::prof::t();
+            if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
+                self.pos[i] = p;
+            }
+            crate::prof::add(crate::prof::ROOT, t_walk);
         }
+        crate::prof::add(crate::prof::APPLY, t_apply);
     }
 
     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {
@@ -590,10 +638,27 @@ impl Universe {
             self.lanes.ships = ships;
         }
         let rec = self.bodies.rec(i);
+        let t_process = crate::prof::t();
+        let item = if crate::prof::ENABLED { rec.plan.first().map(|it| (it.what, rec.ext.is_some())) } else { None };
         let upd = step::process(&self.ctx(), i, rec);
+        crate::prof::add(crate::prof::PROCESS, t_process);
+        if let Some((what, clock)) = item {
+            use crate::prof::*;
+            let stage = match what {
+                What::Kick(_) if clock => P_KICK_CLOCK,
+                What::Kick(l) if l > 0 => P_KICK_SUB,
+                What::Kick(_) => P_KICK,
+                What::Open(_) => P_OPEN,
+                What::Crash => P_CRASH,
+                What::Boundary => P_BOUNDARY,
+            };
+            add(stage, t_process);
+        }
         self.apply(i, upd);
         if kind == Kind::Player {
+            let t_enc = crate::prof::t();
             self.encounters_for_player();
+            crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
         }
     }
 
@@ -646,10 +711,12 @@ impl Universe {
         let moons = std::mem::take(&mut self.lanes.moons);
         self.pull(&moons, key);
         self.lanes.moons = moons;
+        let t_adv = crate::prof::t();
         let step = {
             let (ctx, fleets) = self.split();
             fleets[f].advance(&ctx, slice, limit)
         };
+        crate::prof::add(crate::prof::F_ADV, t_adv);
         self.resolved += 1;
         self.stats.slices += step.slices;
         self.stats.kicks += step.kicks;
@@ -674,22 +741,27 @@ impl Universe {
     /// when it is made changes no outcome; whoever reads the doll at a later tick (the player's check) makes the
     /// members handed out before it first.
     fn resolve_handout(&mut self) {
+        let t_ho = crate::prof::t();
         let Some((f, l)) = self.handouts.pop_front() else { return };
         let key = (l.tick + 1, 0);
+        let t_pull = crate::prof::t();
         let planets = std::mem::take(&mut self.lanes.planets);
         self.pull(&planets, key);
         self.lanes.planets = planets;
         let moons = std::mem::take(&mut self.lanes.moons);
         self.pull(&moons, key);
         self.lanes.moons = moons;
+        crate::prof::add(crate::prof::H_PULL, t_pull);
         let doll = self.fleets[f].doll;
         let made = (|| -> Res<usize> {
             let clock_exp = self.dolls[doll as usize].clock_exp();
+            let t_bind = crate::prof::t();
             let bound = bind_surface(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit, Some(self.dolls[doll as usize].surface))?;
+            crate::prof::add(crate::prof::H_BIND, t_bind);
             let key = self.cat.insert(bound.entry.clone())?;
             let mut tube = bound.tube;
             tube.key = key;
-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE };
+            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE, impact: None };
             let rec = BodyRec {
                 kind: Kind::Ship,
                 b,
@@ -715,7 +787,9 @@ impl Universe {
         })();
         match made {
             Ok(i) => {
+                let t_replan = crate::prof::t();
                 let upd = step::replan(&self.ctx(), i, self.bodies.rec(i), l.tick);
+                crate::prof::add(crate::prof::H_REPLAN, t_replan);
                 self.apply(i, upd);
                 self.requeue(i);
                 self.stats.leavers += 1;
@@ -727,6 +801,7 @@ impl Universe {
         }
         // The next member in line has the next id.
         self.requeue(self.bodies.len());
+        crate::prof::add(crate::prof::HANDOUT, t_ho);
     }
 
     fn update_fleet_position(&mut self, f: usize) {
@@ -803,7 +878,9 @@ impl Universe {
         let mut deferred: Vec<usize> = Vec::new();
         let mut overflow = false;
         loop {
+            let t_due = crate::prof::t();
             self.take_due(target);
+            crate::prof::add(crate::prof::TAKE_DUE, t_due);
             let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
             let dl = dl.fixed(0).unwrap_or(i128::MAX) as Tick;
             let Some((t, _)) = self.key_of(e) else {
@@ -819,6 +896,13 @@ impl Universe {
             if budget.spent(done) {
                 overflow = dl <= target;
                 break;
+            }
+            // Held scans are work like any other once they pile up (the memory they hold is bounded): at the backlog's cap
+            // the player's next item waits for the oldest scan, inside the budget, so a frame stays within it and the
+            // presented time lags (as it did before scans were held), instead of the frame overrunning.
+            if self.scans.len() >= SCAN_BACKLOG {
+                self.answer_front();
+                continue;
             }
             if self.threads > 1 && self.info.get(e).is_some_and(|i| i.kind == Kind::Ship) {
                 self.resolve_wave(e, target);
@@ -838,6 +922,9 @@ impl Universe {
             }
             self.requeue(e);
         }
+        // Idle time: what the frame's budget has left goes to the scans the player's items held (all of them when there
+        // is no wall to keep).
+        self.drain_scans(budget.until);
         Advanced { events: done, horizon: horizon.max(self.now), overflow }
     }
 
@@ -876,7 +963,9 @@ impl Universe {
         // Histories older than every light cone the view can need are forgotten.
         self.frames += 1;
         if self.frames % 64 == 0 {
+            let t_prune = crate::prof::t();
             self.prune();
+            crate::prof::add(crate::prof::PRUNE, t_prune);
         }
         Frame { target, presented: self.now, ticks: self.now - before, events: a.events, overflow: a.overflow }
     }
@@ -915,7 +1004,9 @@ impl Universe {
 
     fn take(&mut self, p: usize, t: Tick, keys: u8) {
         let rec = self.bodies.rec(p);
+        let t_decide = crate::prof::t();
         let upd = step::decide(&self.ctx(), p, rec, t, keys);
+        crate::prof::add(crate::prof::P_DECIDE, t_decide);
         self.apply(p, upd);
         self.stats.decisions += 1;
         self.inputs.push((t, keys));
@@ -949,18 +1040,52 @@ impl Universe {
         let Some(p) = self.player else { return };
         let t = self.bodies.event_time(p);
         let interval = self.bodies.rec(p).step.max(2);
-        for e in self.encounters.find(&self.ctx(), p, t, interval) {
-            self.stats.encounters += 1;
-            self.contacts += e.contact as u64;
-            let mut h = blake3::Hasher::new();
-            h.update(&self.enc_digest);
-            for v in [e.a as i128, e.b as i128, e.t as i128, e.contact as i128] {
-                h.update(&v.to_le_bytes());
+        match self.encounters.capture(&self.ctx(), p, t, interval) {
+            // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+            Some(held) => self.scans.push_back(held),
+            None => {
+                for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                    self.log_encounter(e);
+                }
             }
-            self.enc_digest = *h.finalize().as_bytes();
-            if self.enc_log.len() < 4096 {
-                self.enc_log.push(e);
+        }
+    }
+
+    /// One encounter into the count, the hash chain and the log.
+    fn log_encounter(&mut self, e: Encounter) {
+        self.stats.encounters += 1;
+        self.contacts += e.contact as u64;
+        self.enc_digest = chain(self.enc_digest, &e);
+        if self.enc_log.len() < 4096 {
+            self.enc_log.push(e);
+        }
+    }
+
+    /// Answer the held scans, oldest first, while `until` allows (all of them if `None`): scans are idle-time work as far
+    /// as the frame's budget goes, and they keep their order.
+    fn drain_scans(&mut self, until: Option<Instant>) {
+        while !self.scans.is_empty() {
+            if let Some(u) = until {
+                let room = u.checked_duration_since(Instant::now()).map_or(0, |d| d.as_nanos() as u64);
+                if room < 2 * self.scan_ns.max(SCAN_MARGIN_NS) {
+                    break;
+                }
             }
+            self.answer_front();
+        }
+    }
+
+    /// Answer the oldest held scan: into the count, the log and the hash.
+    fn answer_front(&mut self) {
+        let (t0, t_scan) = (Instant::now(), crate::prof::t());
+        let found = self.scans.front().map(|held| held.answer()).unwrap_or_default();
+        let ns = t0.elapsed().as_nanos() as u64;
+        crate::prof::add(crate::prof::SCANS, t_scan);
+        // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
+        self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
+        self.scans.pop_front();
+        for e in found {
+            self.log_encounter(e);
         }
     }
 
@@ -1082,7 +1207,14 @@ impl Universe {
         if !self.handouts.is_empty() {
             put(&mut h, self.handouts.len() as i128);
         }
-        h.update(&self.enc_digest);
+        // The scans still held count as answered: the chain, extended by them in their order.
+        let mut enc = self.enc_digest;
+        for held in &self.scans {
+            for e in held.answer() {
+                enc = chain(enc, &e);
+            }
+        }
+        h.update(&enc);
         h.finalize().to_hex().to_string()
     }
 

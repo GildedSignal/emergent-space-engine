@@ -1,0 +1,270 @@
+state: 2026-10-13 08:32:02 | load averages: 9.35 6.10 4.70 | swap total = 5120.00M used = 3950.06M free = 1169.94M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
+
+=== coast (keys 0): frame_cost 100 20 0 0 8 ===
+rtf 100, 20 s, keys 0 level 0 from 1 s, engine budget 12 ms, 28 bodies
+frames after 1 s: 1140  ms p50 0.036 p90 0.551 p99 1.016 max 9.757 mean 0.165   events p50 2 p99 41 max 63   kicks 1079 (0.95/frame)  over budget 0
+by kind over the 1140 frames (µs total, items): planet 0 (0), moon 0 (0), ship 73649 (1347), player 48229 (184), fleet 46833 (4340); frames total 188491 µs
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  rekey (all deadlines)                        8.8     1.00       8809
+    position walk (root_state_raw)             9.8     1.76       5545
+  apply (whole)                               10.0     1.76       5693
+  requeue                                      3.7   137.40         27
+  process (whole)                             68.6     1.73      39703
+      rebind: bind() fit                      43.4     0.87      50086
+      rebind: proper-time reads                4.7     0.87       5479
+      rebind: rest                             0.1     0.87         58
+        bind: Rebinding::from_state           47.6     0.92      51785
+        bind: decode                           2.8     0.92       2999
+        bind: rest (incl. decode)              3.0     0.92       3301
+  take_due                                     1.2    61.44         20
+  prune                                        0.2     0.02      11667
+  encounters (player)                         27.2     0.16     168690
+  item: kick (Wisdom-Holman)                  56.0     0.87      64567
+  item: boundary                              12.5     0.86      14580
+  item: crash                                  0.0     0.00       1069
+  fleet: battle run_to                         7.8     3.81       2044
+  fleet: advance (whole item)                 10.8     3.81       2845
+  hand-out (a member made a body)              8.3     0.03     256660
+    hand-out: pull planets and moons           0.0     0.03         34
+    hand-out: bind (the member as a tube)       7.4     0.03     227977
+    hand-out: first plan (replan)              0.7     0.03      21175
+the 8 worst frames: frame, ms, events, kicks | µs by kind planet moon ship player fleet | items by kind
+   61   9.757    44     3 |       0       0      81     220    9437 | [0, 0, 2, 1, 8]
+  824   1.775    19     9 |       0       0    1387     261     110 | [0, 0, 7, 1, 11]
+ 1189   1.389    27     2 |       0       0     679     384     311 | [0, 0, 6, 1, 4]
+   68   1.385    40    11 |       0       0     858     323     178 | [0, 0, 17, 1, 22]
+  427   1.196    19     8 |       0       0     886     194     101 | [0, 0, 7, 1, 11]
+   71   1.159    17     8 |       0       0    1047       0      82 | [0, 0, 8, 0, 9]
+   80   1.144    37    10 |       0       0     678     281     164 | [0, 0, 16, 1, 20]
+  148   1.131    53     6 |       0       0     436     502     170 | [0, 0, 16, 1, 27]
+stages of the worst frames (µs): rekey, walk, apply, requeue, process, rebind, fit, | fleet run, fleet advance, hand-out, encounters | hand-out: pull, bind, replan
+   61   9.757 |       7     242     245       7     135       0      65 |     133     141    9244     131 |       1    8284     719
+  824   1.775 |       9      55      57       5    1358       0    1200 |       7      37       0     226 |       0       0       0
+ 1189   1.389 |       9     132     134       5     799       0     526 |       7      78     214     147 |       0     130      53
+   68   1.385 |       9     104     108       7     778       0     500 |      10      44       0     285 |       0       0       0
+  427   1.196 |       9      48      50       4     864       0     732 |      10      38       0     159 |       0       0       0
+   71   1.159 |       9      56      59       6     986       0     824 |      17      18       0       0 |       0       0       0
+   80   1.144 |       9      91      93       6     611       0     367 |      14      49       0     246 |       0       0       0
+  148   1.131 |       9     141     144       6     535       0     160 |       9      17       0     249 |       0       0       0
+total engine wall 0.201 s
+
+=== reverse L8: frame_cost 100 20 2 8 8 ===
+rtf 100, 20 s, keys 2 level 8 from 1 s, engine budget 12 ms, 28 bodies
+frames after 1 s: 1140  ms p50 0.497 p90 2.255 p99 7.074 max 12.176 mean 0.937   events p50 4 p99 54 max 94   kicks 2475 (2.17/frame)  over budget 1
+by kind over the 1140 frames (µs total, items): planet 0 (0), moon 0 (0), ship 73142 (1315), player 922109 (2357), fleet 61832 (6451); frames total 1068287 µs
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  rekey (all deadlines)                       12.7     1.00      12742
+    position walk (root_state_raw)            27.2     3.67       7428
+  apply (whole)                               27.9     3.67       7615
+  requeue                                      4.1   142.91         29
+  process (whole)                            447.7     3.63     123217
+    kick: readout                              0.1     0.01       6195
+    kick: sources                              0.1     0.01       9630
+    kick: field                                0.0     0.01       1550
+    kick: quantize                             0.2     0.01      13365
+    kick: rebind (whole)                       1.0     0.01      72109
+      rebind: bind() fit                     362.4     2.04     177824
+      rebind: proper-time reads               19.3     2.04       9473
+      rebind: rest                             0.1     2.04         66
+    kick: replan                               0.3     0.01      23328
+        bind: Rebinding::from_state          358.6     2.10     170629
+        bind: decode                          10.2     2.10       4844
+        bind: rest (incl. decode)             10.9     2.10       5198
+  take_due                                     1.3    63.27         20
+  prune                                        0.8     0.02      51490
+  encounters (player)                        382.2     2.07     184872
+  item: kick (Wisdom-Holman)                 182.5     1.22     149036
+  item: kick (clock)                           1.8     0.01     126453
+  item: boundary                              32.5     1.23      26361
+  item: open                                   3.3     0.31      10846
+  item: crash                                  0.0     0.00       1278
+  item: kick at a changeover level           227.4     0.85     266655
+  fleet: battle run_to                         8.5     5.66       1496
+  fleet: advance (whole item)                 11.8     5.66       2083
+  hand-out (a member made a body)              8.7     0.03     266847
+    hand-out: pull planets and moons           0.0     0.03         43
+    hand-out: bind (the member as a tube)       7.7     0.03     236350
+    hand-out: first plan (replan)              0.7     0.03      22716
+the 8 worst frames: frame, ms, events, kicks | µs by kind planet moon ship player fleet | items by kind
+   61  12.176    94    13 |       0       0      60    4185    8036 | [0, 0, 1, 21, 44]
+   65  11.093    80    18 |       0       0     903    9896     380 | [0, 0, 8, 21, 51]
+   62  10.852    68    10 |       0       0      22    8640    2263 | [0, 0, 1, 20, 42]
+   64  10.318    61    10 |       0       0       0   10112     301 | [0, 0, 0, 20, 41]
+   63   9.966    64    11 |       0       0       0    9778     285 | [0, 0, 0, 21, 43]
+   66   9.149    58    10 |       0       0       0    8981     248 | [0, 0, 0, 19, 39]
+  650   7.425    38    18 |       0       0       0    7394     158 | [0, 0, 0, 17, 18]
+  657   7.267    34    15 |       0       0       0    7235     113 | [0, 0, 0, 17, 17]
+stages of the worst frames (µs): rekey, walk, apply, requeue, process, rebind, fit, | fleet run, fleet advance, hand-out, encounters | hand-out: pull, bind, replan
+   61  12.176 |       8     305     310       9     941       0     439 |     147     158    7614    3037 |       1    6765     642
+   65  11.093 |      14     231     240      10    4439       0    3384 |      45      49       0    5978 |       0       0       0
+   62  10.852 |      21     188     193      11    2793       0    2121 |      19      22    1991    5584 |       0    1819     131
+   64  10.318 |      12     185     189      10    3636       0    2739 |      22      26       0    6139 |       0       0       0
+   63   9.966 |      13     178     181       8    3650       0    2813 |      20      23       0    5802 |       0       0       0
+   66   9.149 |      13     160     163       8    3520       0    2776 |      18      21       0    5176 |       0       0       0
+  650   7.425 |      14     172     176       5    4199       0    3726 |      13      48       0    2856 |       0       0       0
+  657   7.267 |      14     151     155       5    4156       0    3740 |       7       9       0    2808 |       0       0       0
+total engine wall 1.081 s
+
+=== reverse L15: frame_cost 100 20 2 15 8 ===
+rtf 100, 20 s, keys 2 level 15 from 1 s, engine budget 12 ms, 28 bodies
+frames after 1 s: 1140  ms p50 0.201 p90 6.145 p99 12.443 max 12.539 mean 1.474   events p50 3 p99 108 max 177   kicks 3299 (2.89/frame)  over budget 97
+by kind over the 1140 frames (µs total, items): planet 0 (0), moon 0 (0), ship 59523 (1258), player 1554336 (3846), fleet 67801 (7792); frames total 1680389 µs
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  rekey (all deadlines)                       10.5     1.00      10478
+    position walk (root_state_raw)            37.4     4.91       7602
+  apply (whole)                               38.4     4.91       7814
+  requeue                                      4.0   141.41         28
+  process (whole)                            638.7     4.89     130719
+    kick: readout                              1.4     0.23       5884
+    kick: sources                              2.1     0.23       9143
+    kick: field                                0.3     0.23       1395
+    kick: quantize                             3.0     0.23      12646
+    kick: rebind (whole)                      15.2     0.23      65244
+      rebind: bind() fit                     511.6     2.75     186037
+      rebind: proper-time reads               28.2     2.75      10270
+      rebind: rest                             0.2     2.75         62
+    kick: replan                               5.1     0.23      21851
+        bind: Rebinding::from_state          502.8     2.81     178780
+        bind: decode                          14.7     2.81       5227
+        bind: rest (incl. decode)             15.6     2.81       5547
+  take_due                                     1.2    59.82         20
+  prune                                        1.9     0.02     118120
+  encounters (player)                        714.1     3.37     211654
+  item: kick (Wisdom-Holman)                 243.2     1.40     173300
+  item: kick (clock)                          27.2     0.23     116391
+  item: boundary                              43.1     1.63      26406
+  item: open                                   4.8     0.43      11080
+  item: crash                                  0.0     0.00       1180
+  item: kick at a changeover level           320.1     1.18     270701
+  fleet: battle run_to                         7.8     6.84       1140
+  fleet: advance (whole item)                 10.8     6.84       1587
+  hand-out (a member made a body)              8.3     0.03     296533
+    hand-out: pull planets and moons           0.0     0.03         46
+    hand-out: bind (the member as a tube)       7.5     0.03     265537
+    hand-out: first plan (replan)              0.7     0.03      23163
+the 8 worst frames: frame, ms, events, kicks | µs by kind planet moon ship player fleet | items by kind
+  181  12.539    49    21 |       0       0       0   12521     143 | [0, 0, 0, 25, 24]
+  183  12.536    47    20 |       0       0       0   12519     144 | [0, 0, 0, 24, 23]
+  157  12.516    49    21 |       0       0       0   12499     143 | [0, 0, 0, 25, 24]
+  189  12.507    50    15 |       0       0       0   12486     167 | [0, 0, 0, 26, 24]
+  172  12.507    46    20 |       0       0       0   12488     143 | [0, 0, 0, 24, 22]
+  138  12.498    51    16 |       0       0       0   12474     152 | [0, 0, 0, 27, 24]
+   78  12.494   106    19 |       0       0      60   11030    1574 | [0, 0, 1, 32, 65]
+  184  12.493    55    21 |       0       0       0   12474     163 | [0, 0, 0, 29, 26]
+stages of the worst frames (µs): rekey, walk, apply, requeue, process, rebind, fit, | fleet run, fleet advance, hand-out, encounters | hand-out: pull, bind, replan
+  181  12.539 |      14     216     221       5    5698       0    5156 |       1       2       0    6447 |       0       0       0
+  183  12.536 |      13     217     221       5    5625       0    5086 |       2       3       0    6515 |       0       0       0
+  157  12.516 |      13     214     218       5    5702       0    5114 |       1       2       0    6423 |       0       0       0
+  189  12.507 |      14     240     246       7    4890       0    4315 |      12      14       0    7161 |       0       0       0
+  172  12.507 |      14     217     222       5    5661       0    5105 |       5       7       0    6448 |       0       0       0
+  138  12.498 |      14     240     245       9    4829       0    4246 |       5       7       0    7233 |       0       0       0
+   78  12.494 |      14     391     397       8    6037       0    4370 |     144     156    1022    4482 |       0     891      92
+  184  12.493 |      13     258     263       5    4377       0    3816 |       4       6       0    7656 |       0       0       0
+total engine wall 1.693 s
+
+=== demand mode (budget 100000 ms) reverse L15 ===
+rtf 100, 20 s, keys 2 level 15 from 1 s, engine budget 100000 ms, 28 bodies
+frames after 1 s: 1140  ms p50 0.121 p90 0.726 p99 38.825 max 185.715 mean 1.471   events p50 3 p99 177 max 1747   kicks 3344 (2.93/frame)  over budget 0
+by kind over the 1140 frames (µs total, items): planet 0 (0), moon 0 (0), ship 63287 (1316), player 1543804 (3859), fleet 70488 (7998); frames total 1677463 µs
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  rekey (all deadlines)                       10.7     1.00      10723
+    position walk (root_state_raw)            37.9     4.98       7599
+  apply (whole)                               38.9     4.98       7802
+  requeue                                      4.2   147.01         29
+  process (whole)                            638.4     4.95     128946
+    kick: readout                              1.5     0.24       6113
+    kick: sources                              2.3     0.24       9689
+    kick: field                                0.4     0.24       1467
+    kick: quantize                             3.2     0.24      13157
+    kick: rebind (whole)                      16.4     0.24      68373
+      rebind: bind() fit                     509.2     2.78     182888
+      rebind: proper-time reads               28.5     2.78      10247
+      rebind: rest                             0.2     2.78         65
+    kick: replan                               5.4     0.24      22754
+        bind: Rebinding::from_state          500.1     2.86     175138
+        bind: decode                          14.8     2.86       5179
+        bind: rest (incl. decode)             15.7     2.86       5515
+  take_due                                     1.3    64.69         21
+  prune                                        1.5     0.02      92690
+  encounters (player)                        708.0     3.39     209159
+  item: kick (Wisdom-Holman)                 244.8     1.43     171030
+  item: kick (clock)                          29.2     0.24     121798
+  item: boundary                              43.8     1.66      26337
+  item: open                                   4.7     0.43      10990
+  item: crash                                  0.0     0.00       1306
+  item: kick at a changeover level           315.5     1.18     266836
+  fleet: battle run_to                         8.6     7.02       1227
+  fleet: advance (whole item)                 12.0     7.02       1716
+  hand-out (a member made a body)              8.2     0.03     251579
+    hand-out: pull planets and moons           0.0     0.03         39
+    hand-out: bind (the member as a tube)       7.3     0.03     223524
+    hand-out: first plan (replan)              0.7     0.03      20661
+the 6 worst frames: frame, ms, events, kicks | µs by kind planet moon ship player fleet | items by kind
+   60 185.715  1747   291 |       0       0       0  181914    7014 | [0, 0, 0, 582, 1165]
+  112 132.771   510   220 |       0       0       0  132691    1524 | [0, 0, 0, 261, 249]
+  110 132.248   510   220 |       0       0       0  132169    1542 | [0, 0, 0, 261, 249]
+  111 130.805   528   222 |       0       0       0  130728    1525 | [0, 0, 0, 261, 250]
+  113  99.078   397   163 |       0       0       0   99010    1176 | [0, 0, 0, 204, 193]
+  109  87.686   352   141 |       0       0       0   87623    1029 | [0, 0, 0, 182, 170]
+stages of the worst frames (µs): rekey, walk, apply, requeue, process, rebind, fit, | fleet run, fleet advance, hand-out, encounters | hand-out: pull, bind, replan
+   60 185.715 |       7    5119    5232      96   93968       0   70288 |      64     130       0   79028 |       0       0       0
+  112 132.771 |      13    2292    2351      30   60595       0   54705 |      33      50       0   68068 |       0       0       0
+  110 132.248 |      13    2300    2392      31   60080       0   54175 |      46      63       0   68017 |       0       0       0
+  111 130.805 |      13    2363    2427      30   59517       0   53420 |      37      59       0   67100 |       0       0       0
+  113  99.078 |      13    1763    1809      25   43130       0   38629 |      35      48       0   52787 |       0       0       0
+  109  87.686 |      13    1593    1633      22   37919       0   33948 |      27      39       0   46949 |       0       0       0
+total engine wall 1.690 s
+
+=== demand mode reverse L8 ===
+rtf 100, 20 s, keys 2 level 8 from 1 s, engine budget 100000 ms, 28 bodies
+frames after 1 s: 1140  ms p50 0.492 p90 2.244 p99 7.138 max 13.556 mean 0.925   events p50 4 p99 51 max 103   kicks 2475 (2.17/frame)  over budget 0
+by kind over the 1140 frames (µs total, items): planet 0 (0), moon 0 (0), ship 71686 (1323), player 912629 (2357), fleet 59760 (6453); frames total 1054688 µs
+stages (µs per frame, calls per frame, ns per call), over the 1140 frames:
+  rekey (all deadlines)                       12.3     1.00      12334
+    position walk (root_state_raw)            27.0     3.67       7370
+  apply (whole)                               27.7     3.67       7563
+  requeue                                      3.9   142.99         27
+  process (whole)                            443.2     3.63     121977
+    kick: readout                              0.1     0.01       5672
+    kick: sources                              0.1     0.01       8802
+    kick: field                                0.0     0.01       1411
+    kick: quantize                             0.2     0.01      12224
+    kick: rebind (whole)                       0.9     0.01      61500
+      rebind: bind() fit                     359.4     2.04     176376
+      rebind: proper-time reads               19.1     2.04       9368
+      rebind: rest                             0.1     2.04         57
+    kick: replan                               0.3     0.01      21300
+        bind: Rebinding::from_state          355.6     2.10     169215
+        bind: decode                          10.0     2.10       4771
+        bind: rest (incl. decode)             10.7     2.10       5082
+  take_due                                     1.3    63.34         20
+  prune                                        0.8     0.02      51440
+  encounters (player)                        377.7     2.07     182688
+  item: kick (Wisdom-Holman)                 180.6     1.22     147501
+  item: kick (clock)                           1.6     0.01     111115
+  item: boundary                              31.7     1.23      25718
+  item: open                                   3.3     0.31      10797
+  item: crash                                  0.0     0.00       1292
+  item: kick at a changeover level           225.8     0.85     264790
+  fleet: battle run_to                         8.1     5.66       1430
+  fleet: advance (whole item)                 11.3     5.66       1994
+  hand-out (a member made a body)              8.3     0.03     257099
+    hand-out: pull planets and moons           0.0     0.03         34
+    hand-out: bind (the member as a tube)       7.4     0.03     228057
+    hand-out: first plan (replan)              0.7     0.03      21340
+the 6 worst frames: frame, ms, events, kicks | µs by kind planet moon ship player fleet | items by kind
+   61  13.556   103    13 |       0       0      80    3883    9682 | [0, 0, 2, 21, 47]
+   65  10.879    80    19 |       0       0     838    9808     318 | [0, 0, 8, 21, 51]
+   64   9.780    64    10 |       0       0       0    9603     299 | [0, 0, 0, 21, 43]
+   62   9.491    64    11 |       0       0       0    9315     273 | [0, 0, 0, 21, 43]
+   63   9.182    61    10 |       0       0       0    9013     253 | [0, 0, 0, 20, 41]
+   66   8.575    55     9 |       0       0       0    8415     232 | [0, 0, 0, 18, 37]
+stages of the worst frames (µs): rekey, walk, apply, requeue, process, rebind, fit, | fleet run, fleet advance, hand-out, encounters | hand-out: pull, bind, replan
+   61  13.556 |       9     354     359      11     912       0     435 |     138     149    9257    2777 |       1    8285     725
+   65  10.879 |      13     221     230       9    4465       0    3514 |      17      21       0    5815 |       0       0       0
+   64   9.780 |      12     177     180       8    3439       0    2611 |      12      15       0    5817 |       0       0       0
+   62   9.491 |       9     158     161       8    3098       0    2419 |      12      15       0    5918 |       0       0       0
+   63   9.182 |      12     169     171       7    3329       0    2544 |      14      16       0    5387 |       0       0       0
+   66   8.575 |      13     152     154       7    3238       0    2527 |      15      18       0    4909 |       0       0       0
+total engine wall 1.068 s
+state: 2026-10-13 08:32:08 | load averages: 8.84 6.05 4.69 | swap total = 5120.00M used = 3950.06M free = 1169.94M  | 'AC Power' | No thermal warning level has been recorded No performance warning level has been recorded No CPU power status has been recorded  | Apple M1
