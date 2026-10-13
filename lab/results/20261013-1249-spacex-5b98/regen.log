@@ -1,0 +1,226 @@
+patch already applied or tree dirty — continuing
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: field `lam` is never read
+  --> crates/universe/examples/lam_star.rs:44:5
+   |
+42 | struct Row {
+   |        --- field in this struct
+43 |     fate: Fate,
+44 |     lam: f64,
+   |     ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `emergent-universe` (example "lam_star") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.18s
+GM(Home) = 3.8147e-6 root³/tick² from the default start (r₀ = 4.7400e3 root units);
+sanity Λ(L0, alt 1) = 0.335 (0e79 measured 0.43); default start r/R = 1.099
+
+== controls: 0e79's D row reproduced at alt 1.0 (L0/L2/L4 crash, L5/L6/L8 escape), horizon 2^33
+ 1.000 pro   e=0    L0  Λ=0.335     CRASH   t=826.4    s minR/R=0.9703   endR/R=0.970     γmax=1.0000    refus=0      [0.3s wall]
+ 1.000 pro   e=0    L2  Λ=1.339     CRASH   t=578.5    s minR/R=0.9464   endR/R=0.946     γmax=1.0000    refus=0      [0.2s wall]
+ 1.000 pro   e=0    L4  Λ=5.357     CRASH   t=413.2    s minR/R=0.9610   endR/R=0.961     γmax=1.0000    refus=0      [0.3s wall]
+ 1.000 pro   e=0    L5  Λ=10.713    ESCAPE  t=2396.4   s minR/R=1.0141   endR/R=42.679    γmax=1.0000    refus=0      [0.9s wall]
+ 1.000 pro   e=0    L6  Λ=21.427    ESCAPE  t=1652.7   s minR/R=1.0589   endR/R=40.240    γmax=1.0000    refus=0      [0.8s wall]
+ 1.000 pro   e=0    L8  Λ=85.707    ESCAPE  t=909.0    s minR/R=1.0990   endR/R=45.971    γmax=1.0000    refus=0      [0.8s wall]
+
+== the r/R axis: bisect alt at L0–L4 (each returns Λ* if the mechanism is r-independent)
+-- bisect L0 retro=false e=0 in [2, 8]
+ 2.000 pro   e=0    L0  Λ=1.339     CRASH   t=2479.1   s minR/R=0.8906   endR/R=0.891     γmax=1.0000    refus=0      [0.5s wall]
+ 8.000 pro   e=0    L0  Λ=21.427    ESCAPE  t=13139.1  s minR/R=8.7185   endR/R=40.162    γmax=1.0000    refus=0      [1.0s wall]
+ 4.000 pro   e=0    L0  Λ=5.357     ESCAPE  t=13882.9  s minR/R=3.8321   endR/R=40.493    γmax=1.0000    refus=0      [1.1s wall]
+ 2.828 pro   e=0    L0  Λ=2.678     ESCAPE  t=14957.1  s minR/R=1.5892   endR/R=40.506    γmax=1.0000    refus=0      [1.1s wall]
+ 2.378 pro   e=0    L0  Λ=1.894     CRASH   t=3140.2   s minR/R=0.9145   endR/R=0.914     γmax=1.0000    refus=0      [0.5s wall]
+ 2.594 pro   e=0    L0  Λ=2.252     CRASH   t=3801.3   s minR/R=0.9834   endR/R=0.983     γmax=1.0000    refus=0      [0.6s wall]
+ 2.709 pro   e=0    L0  Λ=2.456     ESCAPE  t=15452.9  s minR/R=1.2783   endR/R=40.021    γmax=1.0000    refus=0      [1.1s wall]
+ 2.650 pro   e=0    L0  Λ=2.352     ESCAPE  t=15948.8  s minR/R=1.1231   endR/R=40.301    γmax=1.0000    refus=0      [1.2s wall]
+ 2.622 pro   e=0    L0  Λ=2.302     ESCAPE  t=16196.7  s minR/R=1.0483   endR/R=40.099    γmax=1.0000    refus=0      [1.2s wall]
+ 2.608 pro   e=0    L0  Λ=2.277     ESCAPE  t=16361.9  s minR/R=1.0090   endR/R=40.145    γmax=1.0000    refus=0      [1.2s wall]
+ 2.601 pro   e=0    L0  Λ=2.264     CRASH   t=3883.9   s minR/R=0.9879   endR/R=0.988     γmax=1.0000    refus=0      [0.6s wall]
+   => alt* = 2.6042, Λ* = 2.27   [r*/R = 2.862]
+
+-- bisect L1 retro=false e=0 in [1.5, 6]
+ 1.500 pro   e=0    L1  Λ=1.507     CRASH   t=1404.8   s minR/R=0.9778   endR/R=0.978     γmax=1.0000    refus=0      [0.4s wall]
+ 6.000 pro   e=0    L1  Λ=24.105    ESCAPE  t=9255.2   s minR/R=6.5467   endR/R=40.466    γmax=1.0000    refus=0      [1.0s wall]
+ 3.000 pro   e=0    L1  Λ=6.026     ESCAPE  t=9585.8   s minR/R=2.9410   endR/R=40.092    γmax=1.0000    refus=0      [0.9s wall]
+ 2.121 pro   e=0    L1  Λ=3.013     ESCAPE  t=10081.6  s minR/R=1.3779   endR/R=40.263    γmax=1.0000    refus=0      [1.0s wall]
+ 1.784 pro   e=0    L1  Λ=2.131     CRASH   t=1900.6   s minR/R=0.8990   endR/R=0.899     γmax=1.0000    refus=0      [0.5s wall]
+ 1.945 pro   e=0    L1  Λ=2.534     CRASH   t=2231.2   s minR/R=0.9966   endR/R=0.997     γmax=1.0000    refus=0      [0.5s wall]
+ 2.031 pro   e=0    L1  Λ=2.763     ESCAPE  t=10246.9  s minR/R=1.1611   endR/R=40.033    γmax=1.0000    refus=0      [1.0s wall]
+ 1.988 pro   e=0    L1  Λ=2.646     ESCAPE  t=10412.1  s minR/R=1.0504   endR/R=40.274    γmax=1.0000    refus=0      [1.0s wall]
+ 1.966 pro   e=0    L1  Λ=2.589     CRASH   t=2396.4   s minR/R=0.9940   endR/R=0.994     γmax=1.0000    refus=0      [0.5s wall]
+ 1.977 pro   e=0    L1  Λ=2.617     ESCAPE  t=10494.8  s minR/R=1.0226   endR/R=40.649    γmax=1.0000    refus=0      [1.0s wall]
+ 1.972 pro   e=0    L1  Λ=2.603     ESCAPE  t=10494.8  s minR/R=1.0086   endR/R=40.454    γmax=1.0000    refus=0      [1.0s wall]
+   => alt* = 1.9691, Λ* = 2.60   [r*/R = 2.164]
+
+-- bisect L2 retro=false e=0 in [1.2, 5]
+ 1.200 pro   e=0    L2  Λ=1.928     CRASH   t=826.4    s minR/R=0.9796   endR/R=0.980     γmax=1.0000    refus=0      [0.3s wall]
+ 5.000 pro   e=0    L2  Λ=33.479    ESCAPE  t=6528.2   s minR/R=5.4714   endR/R=41.050    γmax=1.0000    refus=0      [0.9s wall]
+ 2.449 pro   e=0    L2  Λ=8.035     ESCAPE  t=6693.5   s minR/R=2.5097   endR/R=40.662    γmax=1.0000    refus=0      [0.9s wall]
+ 1.714 pro   e=0    L2  Λ=3.936     ESCAPE  t=6858.8   s minR/R=1.3824   endR/R=40.473    γmax=1.0000    refus=0      [0.9s wall]
+ 1.434 pro   e=0    L2  Λ=2.755     CRASH   t=1239.5   s minR/R=0.9124   endR/R=0.912     γmax=1.0000    refus=0      [0.4s wall]
+ 1.568 pro   e=0    L2  Λ=3.293     ESCAPE  t=6941.4   s minR/R=1.0808   endR/R=40.188    γmax=1.0000    refus=0      [0.9s wall]
+ 1.500 pro   e=0    L2  Λ=3.012     CRASH   t=1322.2   s minR/R=0.9880   endR/R=0.988     γmax=1.0000    refus=0      [0.5s wall]
+ 1.534 pro   e=0    L2  Λ=3.150     ESCAPE  t=7024.1   s minR/R=1.0030   endR/R=40.743    γmax=1.0000    refus=0      [1.0s wall]
+ 1.517 pro   e=0    L2  Λ=3.080     CRASH   t=1404.8   s minR/R=0.9793   endR/R=0.979     γmax=1.0000    refus=0      [0.5s wall]
+ 1.525 pro   e=0    L2  Λ=3.115     CRASH   t=1404.8   s minR/R=0.9995   endR/R=0.999     γmax=1.0000    refus=0      [0.5s wall]
+ 1.529 pro   e=0    L2  Λ=3.132     CRASH   t=1487.4   s minR/R=0.9914   endR/R=0.991     γmax=1.0000    refus=0      [0.5s wall]
+   => alt* = 1.5314, Λ* = 3.14   [r*/R = 1.683]
+
+-- bisect L3 retro=false e=0 in [1.05, 3]
+ 1.050 pro   e=0    L3  Λ=2.953     CRASH   t=578.5    s minR/R=0.9221   endR/R=0.922     γmax=1.0000    refus=0      [0.3s wall]
+ 3.000 pro   e=0    L3  Λ=24.105    ESCAPE  t=4627.6   s minR/R=3.2646   endR/R=40.878    γmax=1.0000    refus=0      [0.8s wall]
+ 1.775 pro   e=0    L3  Λ=8.437     ESCAPE  t=4710.3   s minR/R=1.8106   endR/R=40.847    γmax=1.0000    refus=0      [0.9s wall]
+ 1.365 pro   e=0    L3  Λ=4.991     ESCAPE  t=4792.9   s minR/R=1.2109   endR/R=41.169    γmax=1.0000    refus=0      [0.9s wall]
+ 1.197 pro   e=0    L3  Λ=3.839     CRASH   t=743.7    s minR/R=0.9884   endR/R=0.988     γmax=1.0000    refus=0      [0.4s wall]
+ 1.278 pro   e=0    L3  Λ=4.377     ESCAPE  t=4792.9   s minR/R=1.0575   endR/R=40.698    γmax=1.0000    refus=0      [0.9s wall]
+ 1.237 pro   e=0    L3  Λ=4.099     CRASH   t=909.0    s minR/R=0.9739   endR/R=0.974     γmax=1.0000    refus=0      [0.5s wall]
+ 1.258 pro   e=0    L3  Λ=4.236     ESCAPE  t=4792.9   s minR/R=1.0187   endR/R=40.557    γmax=1.0000    refus=0      [0.9s wall]
+ 1.247 pro   e=0    L3  Λ=4.167     CRASH   t=909.0    s minR/R=0.9990   endR/R=0.999     γmax=1.0000    refus=0      [0.5s wall]
+ 1.252 pro   e=0    L3  Λ=4.202     ESCAPE  t=4792.9   s minR/R=1.0090   endR/R=40.520    γmax=1.0000    refus=0      [0.9s wall]
+ 1.250 pro   e=0    L3  Λ=4.184     ESCAPE  t=4792.9   s minR/R=1.0041   endR/R=40.501    γmax=1.0000    refus=0      [0.9s wall]
+   => alt* = 1.2486, Λ* = 4.18   [r*/R = 1.372]
+
+-- bisect L4 retro=false e=0 in [1, 1.9]
+ 1.000 pro   e=0    L4  Λ=5.357     CRASH   t=413.2    s minR/R=0.9610   endR/R=0.961     γmax=1.0000    refus=0      [0.3s wall]
+ 1.900 pro   e=0    L4  Λ=19.338    ESCAPE  t=3305.4   s minR/R=2.0492   endR/R=41.417    γmax=1.0000    refus=0      [0.8s wall]
+ 1.378 pro   e=0    L4  Λ=10.178    ESCAPE  t=3305.4   s minR/R=1.4201   endR/R=40.633    γmax=1.0000    refus=0      [0.8s wall]
+ 1.174 pro   e=0    L4  Λ=7.384     ESCAPE  t=3305.4   s minR/R=1.1462   endR/R=40.143    γmax=1.0000    refus=0      [0.9s wall]
+ 1.084 pro   e=0    L4  Λ=6.289     ESCAPE  t=3388.1   s minR/R=1.0086   endR/R=42.045    γmax=1.0000    refus=0      [0.9s wall]
+ 1.041 pro   e=0    L4  Λ=5.804     CRASH   t=495.8    s minR/R=0.9585   endR/R=0.958     γmax=1.0000    refus=0      [0.4s wall]
+ 1.062 pro   e=0    L4  Λ=6.042     CRASH   t=495.8    s minR/R=0.9915   endR/R=0.992     γmax=1.0000    refus=0      [0.4s wall]
+ 1.073 pro   e=0    L4  Λ=6.164     CRASH   t=578.5    s minR/R=0.9855   endR/R=0.986     γmax=1.0000    refus=0      [0.4s wall]
+ 1.078 pro   e=0    L4  Λ=6.226     CRASH   t=578.5    s minR/R=0.9983   endR/R=0.998     γmax=1.0000    refus=0      [0.4s wall]
+ 1.081 pro   e=0    L4  Λ=6.258     ESCAPE  t=3388.1   s minR/R=1.0044   endR/R=42.034    γmax=1.0000    refus=0      [0.9s wall]
+ 1.079 pro   e=0    L4  Λ=6.242     ESCAPE  t=3388.1   s minR/R=1.0022   endR/R=42.029    γmax=1.0000    refus=0      [0.9s wall]
+   => alt* = 1.0788, Λ* = 6.23   [r*/R = 1.186]
+
+== Λ* vs level (r*/R = 1.099·alt*):
+   L0: alt* = 2.6042, r*/R = 2.862, Λ* = 2.27
+   L1: alt* = 1.9691, r*/R = 2.164, Λ* = 2.60
+   L2: alt* = 1.5314, r*/R = 1.683, Λ* = 3.14
+   L3: alt* = 1.2486, r*/R = 1.372, Λ* = 4.18
+   L4: alt* = 1.0788, r*/R = 1.186, Λ* = 6.23
+
+== sense: retro at L2
+-- bisect L2 retro=true e=0 in [1.2, 5]
+ 1.200 retro e=0    L2  Λ=1.928     CRASH   t=826.4    s minR/R=0.9796   endR/R=0.980     γmax=1.0000    refus=0      [0.3s wall]
+ 5.000 retro e=0    L2  Λ=33.479    ESCAPE  t=6528.2   s minR/R=5.4714   endR/R=41.050    γmax=1.0000    refus=0      [0.9s wall]
+ 2.449 retro e=0    L2  Λ=8.035     ESCAPE  t=6693.5   s minR/R=2.5097   endR/R=40.662    γmax=1.0000    refus=0      [0.9s wall]
+ 1.714 retro e=0    L2  Λ=3.936     ESCAPE  t=6858.8   s minR/R=1.3824   endR/R=40.473    γmax=1.0000    refus=0      [0.9s wall]
+ 1.434 retro e=0    L2  Λ=2.755     CRASH   t=1239.5   s minR/R=0.9124   endR/R=0.912     γmax=1.0000    refus=0      [0.4s wall]
+ 1.568 retro e=0    L2  Λ=3.293     ESCAPE  t=6941.4   s minR/R=1.0808   endR/R=40.188    γmax=1.0000    refus=0      [0.9s wall]
+ 1.500 retro e=0    L2  Λ=3.012     CRASH   t=1322.2   s minR/R=0.9880   endR/R=0.988     γmax=1.0000    refus=0      [0.5s wall]
+ 1.534 retro e=0    L2  Λ=3.150     ESCAPE  t=7024.1   s minR/R=1.0030   endR/R=40.743    γmax=1.0000    refus=0      [0.9s wall]
+ 1.517 retro e=0    L2  Λ=3.080     CRASH   t=1404.8   s minR/R=0.9793   endR/R=0.979     γmax=1.0000    refus=0      [0.5s wall]
+ 1.525 retro e=0    L2  Λ=3.115     CRASH   t=1404.8   s minR/R=0.9995   endR/R=0.999     γmax=1.0000    refus=0      [0.5s wall]
+ 1.529 retro e=0    L2  Λ=3.132     CRASH   t=1487.4   s minR/R=0.9914   endR/R=0.991     γmax=1.0000    refus=0      [0.5s wall]
+   => alt* = 1.5314, Λ* = 3.14   [r*/R = 1.683]
+
+
+== eccentricity: e ∈ {0.3, 0.6, 0.9} at L2 (brake from periapsis)
+-- bisect L2 retro=false e=0.3 in [1.2, 5]
+ 1.200 pro   e=0.3  L2  Λ=1.145     CRASH   t=413.2    s minR/R=0.9960   endR/R=0.996     γmax=1.0000    refus=0      [0.2s wall]
+ 5.000 pro   e=0.3  L2  Λ=19.811    ESCAPE  t=6610.9   s minR/R=4.1682   endR/R=40.687    γmax=1.0000    refus=0      [1.0s wall]
+ 2.449 pro   e=0.3  L2  Λ=4.757     ESCAPE  t=6858.8   s minR/R=1.6237   endR/R=40.515    γmax=1.0000    refus=0      [0.9s wall]
+ 1.714 pro   e=0.3  L2  Λ=2.332     CRASH   t=1074.3   s minR/R=0.9173   endR/R=0.917     γmax=1.0000    refus=0      [0.4s wall]
+ 2.049 pro   e=0.3  L2  Λ=3.330     ESCAPE  t=7024.1   s minR/R=1.0043   endR/R=40.307    γmax=1.0000    refus=0      [0.9s wall]
+ 1.874 pro   e=0.3  L2  Λ=2.787     CRASH   t=1239.5   s minR/R=0.9365   endR/R=0.936     γmax=1.0000    refus=0      [0.4s wall]
+ 1.960 pro   e=0.3  L2  Λ=3.046     CRASH   t=1322.2   s minR/R=0.9841   endR/R=0.984     γmax=1.0000    refus=0      [0.4s wall]
+ 2.004 pro   e=0.3  L2  Λ=3.185     CRASH   t=1404.8   s minR/R=0.9869   endR/R=0.987     γmax=1.0000    refus=0      [0.5s wall]
+ 2.027 pro   e=0.3  L2  Λ=3.257     CRASH   t=1487.4   s minR/R=0.9783   endR/R=0.978     γmax=1.0000    refus=0      [0.5s wall]
+ 2.038 pro   e=0.3  L2  Λ=3.293     CRASH   t=1487.4   s minR/R=0.9992   endR/R=0.999     γmax=1.0000    refus=0      [0.5s wall]
+ 2.044 pro   e=0.3  L2  Λ=3.312     CRASH   t=1570.1   s minR/R=0.9924   endR/R=0.992     γmax=1.0000    refus=0      [0.5s wall]
+   => alt* = 2.0464, Λ* = 5.61   [r*/R = 2.249]
+
+-- bisect L2 retro=false e=0.6 in [1.2, 5]
+ 1.200 pro   e=0.6  L2  Λ=0.764     CRASH   t=82.6     s minR/R=0.8301   endR/R=0.830     γmax=1.0000    refus=0      [0.0s wall]
+ 5.000 pro   e=0.6  L2  Λ=13.080    ESCAPE  t=6693.5   s minR/R=3.3128   endR/R=40.375    γmax=1.0000    refus=0      [0.9s wall]
+ 2.449 pro   e=0.6  L2  Λ=3.144     CRASH   t=1404.8   s minR/R=0.9509   endR/R=0.951     γmax=1.0000    refus=0      [0.5s wall]
+ 3.500 pro   e=0.6  L2  Λ=6.411     ESCAPE  t=6858.8   s minR/R=2.0702   endR/R=40.807    γmax=1.0000    refus=0      [0.9s wall]
+ 2.928 pro   e=0.6  L2  Λ=4.489     ESCAPE  t=6941.4   s minR/R=1.4647   endR/R=40.621    γmax=1.0000    refus=0      [0.9s wall]
+ 2.678 pro   e=0.6  L2  Λ=3.756     ESCAPE  t=7024.1   s minR/R=1.1441   endR/R=40.619    γmax=1.0000    refus=0      [0.9s wall]
+ 2.561 pro   e=0.6  L2  Λ=3.437     CRASH   t=1570.1   s minR/R=0.9896   endR/R=0.990     γmax=1.0000    refus=0      [0.5s wall]
+ 2.619 pro   e=0.6  L2  Λ=3.593     ESCAPE  t=7024.1   s minR/R=1.0622   endR/R=40.230    γmax=1.0000    refus=0      [0.9s wall]
+ 2.590 pro   e=0.6  L2  Λ=3.514     ESCAPE  t=7024.1   s minR/R=1.0210   endR/R=40.005    γmax=1.0000    refus=0      [0.9s wall]
+ 2.576 pro   e=0.6  L2  Λ=3.475     CRASH   t=1652.7   s minR/R=0.9997   endR/R=1.000     γmax=1.0000    refus=0      [0.5s wall]
+ 2.583 pro   e=0.6  L2  Λ=3.494     ESCAPE  t=7106.7   s minR/R=1.0106   endR/R=41.021    γmax=1.0000    refus=0      [0.9s wall]
+   => alt* = 2.5791, Λ* = 8.91   [r*/R = 2.834]
+
+-- bisect L2 retro=false e=0.9 in [1.2, 5]
+ 1.200 pro   e=0.9  L2  Λ=0.553     CRASH   t=82.6     s minR/R=0.7065   endR/R=0.706     γmax=1.0000    refus=0      [0.0s wall]
+ 5.000 pro   e=0.9  L2  Λ=9.279     ESCAPE  t=6776.2   s minR/R=2.6701   endR/R=40.095    γmax=1.0000    refus=0      [0.9s wall]
+ 2.449 pro   e=0.9  L2  Λ=2.235     CRASH   t=1156.9   s minR/R=0.8889   endR/R=0.889     γmax=1.0000    refus=0      [0.4s wall]
+ 3.500 pro   e=0.9  L2  Λ=4.550     ESCAPE  t=6941.4   s minR/R=1.4290   endR/R=40.030    γmax=1.0000    refus=0      [0.9s wall]
+ 2.928 pro   e=0.9  L2  Λ=3.188     CRASH   t=1404.8   s minR/R=0.9894   endR/R=0.989     γmax=1.0000    refus=0      [0.5s wall]
+ 3.201 pro   e=0.9  L2  Λ=3.808     ESCAPE  t=7024.1   s minR/R=1.1041   endR/R=40.021    γmax=1.0000    refus=0      [0.9s wall]
+ 3.061 pro   e=0.9  L2  Λ=3.484     CRASH   t=1570.1   s minR/R=0.9779   endR/R=0.978     γmax=1.0000    refus=0      [0.5s wall]
+ 3.130 pro   e=0.9  L2  Λ=3.643     ESCAPE  t=7106.7   s minR/R=1.0207   endR/R=40.694    γmax=1.0000    refus=0      [0.9s wall]
+ 3.096 pro   e=0.9  L2  Λ=3.563     CRASH   t=1652.7   s minR/R=0.9786   endR/R=0.979     γmax=1.0000    refus=0      [0.5s wall]
+ 3.113 pro   e=0.9  L2  Λ=3.602     CRASH   t=1735.4   s minR/R=0.9950   endR/R=0.995     γmax=1.0000    refus=0      [0.5s wall]
+ 3.122 pro   e=0.9  L2  Λ=3.622     ESCAPE  t=7106.7   s minR/R=1.0102   endR/R=40.637    γmax=1.0000    refus=0      [1.0s wall]
+   => alt* = 3.1174, Λ* = 13.01   [r*/R = 3.426]
+
+GM(Home) = 3.8147e-6 root³/tick² from the default start (r₀ = 4.7400e3 root units);
+sanity Λ(L0, alt 1) = 0.335 (0e79 measured 0.43); default start r/R = 1.099
+
+-- bisect L1 retro=false e=0.6 in [1.5, 6]
+ 1.500 pro   e=0.6  L1  Λ=0.593     CRASH   t=991.6    s minR/R=0.9661   endR/R=0.966     γmax=1.0000    refus=0      [0.3s wall]
+ 6.000 pro   e=0.6  L1  Λ=9.417     ESCAPE  t=9668.4   s minR/R=3.8700   endR/R=40.493    γmax=1.0000    refus=0      [1.0s wall]
+ 3.000 pro   e=0.6  L1  Λ=2.356     CRASH   t=2148.5   s minR/R=0.8882   endR/R=0.888     γmax=1.0000    refus=0      [0.5s wall]
+ 4.243 pro   e=0.6  L1  Λ=4.710     ESCAPE  t=9916.3   s minR/R=2.2362   endR/R=40.363    γmax=1.0000    refus=0      [1.0s wall]
+ 3.568 pro   e=0.6  L1  Λ=3.331     ESCAPE  t=10246.9  s minR/R=1.3689   endR/R=40.734    γmax=1.0000    refus=0      [1.0s wall]
+ 3.272 pro   e=0.6  L1  Λ=2.801     CRASH   t=2479.1   s minR/R=0.9666   endR/R=0.967     γmax=1.0000    refus=0      [0.5s wall]
+ 3.416 pro   e=0.6  L1  Λ=3.055     ESCAPE  t=10412.1  s minR/R=1.1397   endR/R=40.720    γmax=1.0000    refus=0      [1.0s wall]
+ 3.343 pro   e=0.6  L1  Λ=2.925     ESCAPE  t=10494.8  s minR/R=1.0238   endR/R=40.369    γmax=1.0000    refus=0      [1.0s wall]
+ 3.307 pro   e=0.6  L1  Λ=2.863     CRASH   t=2561.7   s minR/R=0.9829   endR/R=0.983     γmax=1.0000    refus=0      [0.5s wall]
+ 3.325 pro   e=0.6  L1  Λ=2.894     CRASH   t=2644.4   s minR/R=0.9941   endR/R=0.994     γmax=1.0000    refus=0      [0.5s wall]
+ 3.334 pro   e=0.6  L1  Λ=2.910     ESCAPE  t=10494.8  s minR/R=1.0093   endR/R=40.209    γmax=1.0000    refus=0      [1.0s wall]
+   => alt* = 3.3296, Λ* = 7.42   [r*/R = 3.659]
+
+GM(Home) = 3.8147e-6 root³/tick² from the default start (r₀ = 4.7400e3 root units);
+sanity Λ(L0, alt 1) = 0.335 (0e79 measured 0.43); default start r/R = 1.099
+
+-- bisect L2 retro=true e=0.6 in [1.2, 5]
+ 1.200 retro e=0.6  L2  Λ=0.764     CRASH   t=82.6     s minR/R=0.8301   endR/R=0.830     γmax=1.0000    refus=0      [0.0s wall]
+ 5.000 retro e=0.6  L2  Λ=13.080    ESCAPE  t=6693.5   s minR/R=3.3128   endR/R=40.375    γmax=1.0000    refus=0      [0.9s wall]
+ 2.449 retro e=0.6  L2  Λ=3.144     CRASH   t=1404.8   s minR/R=0.9509   endR/R=0.951     γmax=1.0000    refus=0      [0.5s wall]
+ 3.500 retro e=0.6  L2  Λ=6.411     ESCAPE  t=6858.8   s minR/R=2.0702   endR/R=40.807    γmax=1.0000    refus=0      [1.0s wall]
+ 2.928 retro e=0.6  L2  Λ=4.489     ESCAPE  t=6941.4   s minR/R=1.4647   endR/R=40.621    γmax=1.0000    refus=0      [1.0s wall]
+ 2.678 retro e=0.6  L2  Λ=3.756     ESCAPE  t=7024.1   s minR/R=1.1441   endR/R=40.619    γmax=1.0000    refus=0      [1.0s wall]
+ 2.561 retro e=0.6  L2  Λ=3.437     CRASH   t=1570.1   s minR/R=0.9896   endR/R=0.990     γmax=1.0000    refus=0      [0.5s wall]
+ 2.619 retro e=0.6  L2  Λ=3.593     ESCAPE  t=7024.1   s minR/R=1.0622   endR/R=40.230    γmax=1.0000    refus=0      [1.0s wall]
+ 2.590 retro e=0.6  L2  Λ=3.514     ESCAPE  t=7024.1   s minR/R=1.0210   endR/R=40.005    γmax=1.0000    refus=0      [1.0s wall]
+ 2.576 retro e=0.6  L2  Λ=3.475     CRASH   t=1652.7   s minR/R=0.9997   endR/R=1.000     γmax=1.0000    refus=0      [0.6s wall]
+ 2.583 retro e=0.6  L2  Λ=3.494     ESCAPE  t=7106.7   s minR/R=1.0106   endR/R=41.021    γmax=1.0000    refus=0      [1.0s wall]
+   => alt* = 2.5791, Λ* = 8.91   [r*/R = 2.834]
+
+GM(Home) = 3.8147e-6 root³/tick² from the default start (r₀ = 4.7400e3 root units);
+sanity Λ(L0, alt 1) = 0.335 (0e79 measured 0.43); default start r/R = 1.099
+
+-- bisect L0 retro=false e=0.3 in [2, 8]
+ 2.000 pro   e=0.3  L0  Λ=0.793     CRASH   t=1983.3   s minR/R=0.9778   endR/R=0.978     γmax=1.0000    refus=0      [0.4s wall]
+ 8.000 pro   e=0.3  L0  Λ=12.679    ESCAPE  t=13552.3  s minR/R=6.5745   endR/R=40.315    γmax=1.0000    refus=0      [1.1s wall]
+ 4.000 pro   e=0.3  L0  Λ=3.170     ESCAPE  t=14626.6  s minR/R=1.9798   endR/R=40.240    γmax=1.0000    refus=0      [1.2s wall]
+ 2.828 pro   e=0.3  L0  Λ=1.585     CRASH   t=2892.3   s minR/R=0.8804   endR/R=0.880     γmax=1.0000    refus=0      [0.5s wall]
+ 3.364 pro   e=0.3  L0  Λ=2.242     CRASH   t=3636.0   s minR/R=0.9716   endR/R=0.972     γmax=1.0000    refus=0      [0.6s wall]
+ 3.668 pro   e=0.3  L0  Λ=2.666     ESCAPE  t=15370.3  s minR/R=1.3461   endR/R=40.422    γmax=1.0000    refus=0      [1.2s wall]
+ 3.513 pro   e=0.3  L0  Λ=2.445     ESCAPE  t=16196.7  s minR/R=1.0300   endR/R=40.365    γmax=1.0000    refus=0      [1.2s wall]
+ 3.437 pro   e=0.3  L0  Λ=2.341     CRASH   t=3801.3   s minR/R=0.9936   endR/R=0.994     γmax=1.0000    refus=0      [0.6s wall]
+ 3.475 pro   e=0.3  L0  Λ=2.392     CRASH   t=3966.5   s minR/R=0.9810   endR/R=0.981     γmax=1.0000    refus=0      [0.6s wall]
+ 3.494 pro   e=0.3  L0  Λ=2.418     CRASH   t=4049.2   s minR/R=0.9980   endR/R=0.998     γmax=1.0000    refus=0      [0.6s wall]
+ 3.503 pro   e=0.3  L0  Λ=2.431     ESCAPE  t=16279.3  s minR/R=1.0105   endR/R=40.431    γmax=1.0000    refus=0      [1.2s wall]
+   => alt* = 3.4983, Λ* = 4.10   [r*/R = 3.845]
+
+GM(Home) = 3.8147e-6 root³/tick² from the default start (r₀ = 4.7400e3 root units);
+sanity Λ(L0, alt 1) = 0.335 (0e79 measured 0.43); default start r/R = 1.099
+
+ 1.010 pro   e=0    L5  Λ=10.929    ESCAPE  t=2396.4   s minR/R=1.0270   endR/R=42.702    γmax=1.0000    refus=0      [0.9s wall]
+GM(Home) = 3.8147e-6 root³/tick² from the default start (r₀ = 4.7400e3 root units);
+sanity Λ(L0, alt 1) = 0.335 (0e79 measured 0.43); default start r/R = 1.099
+
+ 1.010 pro   e=0    L6  Λ=21.857    ESCAPE  t=1652.7   s minR/R=1.0710   endR/R=40.254    γmax=1.0000    refus=0      [0.8s wall]
+DETERMINISM: L2 bisect rerun bit-identical
+--- compare against the run's own outputs (physics columns must match; wall fields differ):
+grid: IDENTICAL
+heldout: IDENTICAL
