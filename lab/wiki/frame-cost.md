@@ -2,11 +2,41 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261013-0236-second-20261013-0037-system-174d-0f2a
+updated: 20261013-1428-system-2964
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
+
+
+**The cadence's two halves are now both priced, and neither is what the waterfall pays for: the
+clamp's contract is the velocity word, and its product is ~1% error, not smoothness or the field
+(20261013-1428-system-2964).** The whole-system lens priced the "carry the burn" lever's two
+deletion edges on shipped code (an `ES_BURN_CADENCE` knob in `thrust_step`, digest-identical to
+shipped when unset; decisions at fixed canonical ticks so every arm shares decision ticks;
+`burn_cadence.rs`, paced 12 ms/rtf 100, seeds 1 and 3, 8 s and 16 s). **Deleting the clamp:**
+player items collapse 19–204× on the prograde holds (817–2,990 → 13–155; retrograde and turn
+7–71× — checker-corrected from "27–230×", which the run's tables do not source), the burst frame to
+1, and the L8+ lag to the coast's own 0.038 s at every level — but the burn leaves the canonical
+state: prograde flushes refuse with `Refused("velocity outside the word")` (35–73 refusals at
+L15; ≥1 at every level by 16 s), the flush chain starves itself (each flush raises the orbit and
+the raised orbit's step grows past the flight: 13 items where coast alone spends 77), the end
+|v|/c sits at the coast's level while the reader's owed dv envelope reaches 7.7e-3–2.9e-2 c at
+8 s (4.2e-2 at 16 s, checker). Retrograde burns (orbit-lowering) land with no refusals at 27–71×
+fewer events but ~7% low at 8 s (0.5% at 16 s; not monotone in duration — 48% low at 32 s,
+checker, outside the run's range). **Refining 16× (1/1024):** costs 4–14× the events, the lag stays 1.58–1.66 s
+(the paced budget caps work per frame, so the stutter survives any sampling — it is the burst's
+existence, not its size), and it exposes the shipped arm's own error: end |v|/c 0.87–1.75% below
+the fine limit on every prograde flight (1/256 lands between, 0.09–0.5% from fine — superlinear
+convergence, so fine ≈ the law's limit). So the waterfall buys neither the field (174d), nor
+exactness (~1% kept), nor smoothness (any sampling stutters; only deletion reaches 0.038 s) —
+and deletion without the carry breaks at the word. The carry's measured contract: the owed
+generator is already exact in rapidity (`thrust::owed`) and already in `BodyRec::thrust`; the
+flushed word must carry its own exponent (today it refuses); the position half (½aτ², ≤ |v|/64
+per interval shipped, no burn displacement in any cadence's ramp) must join the readers' ramp
+without re-anchoring to itself (the kick-jet lesson). This is the same one slot the view's
+deleted field term and gravity-news's quadratic payload ask for (7b86, 7ab4) — one adoption,
+three bottlenecks.
 
 **The burn-input waterfall is the velocity word's sampling of an exactly-solvable burn, not a replan
 storm and not field work — so the burst can be deleted, not spread (20261013-0037-system-174d).**
@@ -408,3 +438,4 @@ other scenes, the M1.
 - 20261013-0037-system-174d (this run): the waterfall decomposed — all burst items are the player's burn-cadence chain; tide/burn ≤ 1.3×10⁻⁹; delete by carrying the burn, don't spread.
 - 20261013-0037-system-174d (silver): the waterfall decomposed — all burst items are the player's burn-cadence chain; tide/burn ≤ 1.3×10⁻⁹; delete by carrying the burn, don't spread.
 - 20261013-0236-second-20261013-0037-system-174d-0f2a: the law's own cadence re-prices the tide counterfactual — ~0–24 events against 377–1,085 burst kicks at every level incl. paced L15 8 s; the fixed-granularity inversion was the divisor's artifact; lever adoptable.
+- 20261013-1428-system-2964 (this run): the cadence's two edges priced — deletion collapses events 19–204× and the lag to 0.038 s but breaks at the velocity word (prograde burns lost, refusals, envelope to 4.2e-2 c; retrograde lands ~7% low); 16× refinement keeps the stutter and shows the shipped arm ~1% off its own fine limit; the carry's contract measured.
