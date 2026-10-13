@@ -5,7 +5,8 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
-| [a-word](a-word.md) | open | 1 | **The three per-consumer second-order re-derivations are one missing word, and its |
+| [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
+| [decision-log](decision-log.md) | open | 3 | **The hole compounds, and the fix closes it on the current tree (20261013-1249-taleb-a004).** |
 | [gravity-news](gravity-news.md) | open | 5 | **The rebind half of "gravity is news" is right and now has an error model; the thrust |
 | [handoff](handoff.md) | open | 11 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
 | [high-gamma-clock](high-gamma-clock.md) | open | 14 | - **The held brake under the merged prograde nose: no γ threshold exists, and the real boundary is |
