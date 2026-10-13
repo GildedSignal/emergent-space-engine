@@ -1,0 +1,294 @@
+diff --git a/crates/space/examples/checker_transit.rs b/crates/space/examples/checker_transit.rs
+new file mode 100644
+index 00000000..0b9ed3bb
+--- /dev/null
++++ b/crates/space/examples/checker_transit.rs
+@@ -0,0 +1,128 @@
++//! Checker probe for 20261013-2130-redteam-8398: adversarial cases on the order-boundary
++//! round trip. (A) walk depth k > 2 (the author's named first checker experiment) with
++//! SIGNED k drift and later-time divergence against the original tube; (B) cases outside
++//! the author's grid: p beyond 1000 (galaxy scale), e beyond 0.999, retrograde sense,
++//! unbound passages. Integer decisions only.
++use emergent_space::{
++    binding::{self, IntegerState, Rebinding},
++    orbit::{Orbit, OrbitKey, Scalar},
++};
++
++fn walk(p: i64, e: f64, word: &str, steps: usize, clockwise: bool) {
++    let k0 = (e * 2f64.powi(48)).round() as u64;
++    let key = match (OrbitKey::bound(Scalar::integer(p), k0), Orbit::compile(match OrbitKey::bound(Scalar::integer(p), k0) { Ok(k) => k, Err(e) => panic!("{e:?}") })) {
++        (Ok(k), Ok(_)) => k,
++        (k, _) => { println!("walk p={p} e={e}: key refused {k:?}"); return }
++    };
++    let orbit = Orbit::compile(key).unwrap();
++    let period = orbit.period().unwrap();
++    let t_ev = match period.scale(-2).ok().and_then(|t| orbit.signed_state(t).ok().map(|_| t)) {
++        Some(t) => t,
++        None => match period.scale(-3).ok().and_then(|t| orbit.signed_state(t).ok().map(|_| t)) {
++            Some(t) => t,
++            None => { println!("walk p={p} e={e}: decode refused at P/4 and P/8"); return }
++        }
++    };
++    let st0 = orbit.signed_state(t_ev).unwrap();
++    let mut units = match word {
++        "fine" => (st0.radius.exponent() - 60, st0.transverse_velocity.abs().exponent() - 60),
++        "coarse" => (-20, -50),
++        _ => unreachable!(),
++    };
++    let input0 = match binding::cartesian(st0, 0, clockwise, units) {
++        Ok(s) => s,
++        Err(_) => {
++            units = (-20, -50);
++            match binding::cartesian(st0, 0, clockwise, units) {
++                Ok(s) => s,
++                Err(err) => { println!("walk p={p} e={e}: cartesian refused {err:?} (fine and coarse)"); return }
++            }
++        }
++    };
++    let mut fit = Rebinding::from_state(input0, t_ev, None).unwrap();
++    println!(
++        "walk p={p} e={e} {word} sense={} key0.k={} reconstruct(input)=={}",
++        if clockwise { "retro" } else { "pro" },
++        key.k,
++        fit.reconstruct().unwrap() == input0
++    );
++    let t_probe = t_ev.add(period.scale(-3).unwrap()).unwrap();
++    let mut prev = (key.k, None::<u32>, Some(key));
++    for i in 1..=steps {
++        let st = match fit.decoded_event() {
++            Ok(x) => x,
++            Err(err) => { println!("  step {i}: decode refused {err:?}"); break }
++        };
++        fit = match Rebinding::from_state(st, t_ev, None) {
++            Ok(f) => f,
++            Err(err) => { println!("  step {i}: refit refused {err:?}"); break }
++        };
++        let k = fit.trajectory.key().unwrap();
++        let s_dk = k.k as i64 - prev.0 as i64;
++        let dang = prev.1.map_or(0, |a| fit.periapsis_angle.abs_diff(a));
++        let key_same = prev.2.map_or(false, |p| p == k);
++        let div = (|| -> Option<i128> {
++            let orig = binding::cartesian(orbit.signed_state(t_probe).ok()?, 0, false, units).ok()?;
++            let now = binding::cartesian(
++                fit.trajectory.state(t_probe.sub(fit.periapsis_time).ok()?).ok()?,
++                fit.periapsis_angle, fit.clockwise, units).ok()?;
++            Some(orig.position.iter().zip(now.position.iter()).map(|(a, b)| (*a as i128 - *b as i128).abs()).max().unwrap())
++        })();
++        println!("  step {i}: k={} signed_dk={s_dk} dang={dang} full_key_same={key_same} div_pos_later={div:?} resid_max={}",
++            k.k,
++            fit.residual.position.iter().map(|x| x.abs()).max().unwrap_or(0));
++        prev = (k.k, Some(fit.periapsis_angle), Some(k));
++    }
++}
++
++fn passage_probe(r0: f64, b: f64, e: f64) {
++    // clock.rs conventions: positions n*2^-34, velocities n*2^-60, M = 1.
++    let (le, ve) = (-34i16, -60i16);
++    let f = 1.0 - 2.0 / r0;
++    let vt = b * (e * e - 1.0).sqrt() * f / (r0 * e);
++    let vr = (f * (f - vt * vt - f * f / (e * e))).sqrt();
++    let s0 = IntegerState {
++        position: [(r0 * 2f64.powi(-(le as i32))) as i64, 0],
++        velocity: [(vr * 2f64.powi(-(ve as i32))) as i64, (vt * 2f64.powi(-(ve as i32))) as i64],
++        length_exponent: le,
++        velocity_exponent: ve,
++    };
++    let t0 = Scalar::integer(1000);
++    let mut fit = Rebinding::from_state(s0, t0, None).unwrap();
++    let mut prev_k = fit.trajectory.key().unwrap();
++    println!("passage r0={r0:.1e} b={b:.1e} E~{e}: k0.k={} gap={:?}", prev_k.k, prev_k.gap.is_some());
++    for i in 1..=4 {
++        let st = match fit.decoded_event() {
++            Ok(x) => x,
++            Err(err) => { println!("  step {i}: decode refused {err:?}"); break }
++        };
++        fit = match Rebinding::from_state(st, t0, None) {
++            Ok(f) => f,
++            Err(err) => { println!("  step {i}: refit refused {err:?}"); break }
++        };
++        let k = fit.trajectory.key().unwrap();
++        println!("  step {i}: k={} signed_dk={} same_as_prev={} reconstruct=={}",
++            k.k, k.k as i64 - prev_k.k as i64, k == prev_k, fit.reconstruct().unwrap() == st);
++        prev_k = k;
++    }
++}
++
++fn main() {
++    println!("== A: walk depth (k > 2), signed drift, divergence vs original tube ==");
++    walk(8, 0.0, "fine", 16, false);
++    walk(20, 0.5, "fine", 16, false);
++    walk(20, 0.7, "coarse", 16, false);
++    walk(8, 0.9, "fine", 16, false);
++    walk(50, 0.999, "fine", 16, false);
++    println!("== B1/B2: p outside the author's range (grid stopped at 1000) ==");
++    walk(100_000, 0.5, "fine", 8, false);
++    walk(1_000_000, 0.5, "fine", 8, false);
++    println!("== B3: e outside the author's range (grid stopped at 0.999) ==");
++    walk(50, 0.9999, "fine", 8, false);
++    println!("== B4: retrograde sense (author decoded prograde only) ==");
++    walk(20, 0.5, "fine", 8, true);
++    walk(8, 0.9, "fine", 8, true);
++    println!("== B5: unbound passages (author tested bound keys only) ==");
++    passage_probe(1.5e8, 9.0e7, 1.5);
++    passage_probe(1.0e4, 3.0e2, 12.0);
++}
+diff --git a/crates/space/examples/transit_roundtrip.rs b/crates/space/examples/transit_roundtrip.rs
+new file mode 100644
+index 00000000..86684fbc
+--- /dev/null
++++ b/crates/space/examples/transit_roundtrip.rs
+@@ -0,0 +1,154 @@
++//! Premise red-team 20261013-2130: the order-boundary round trip on shipped code.
++//!
++//! representation.md §3 / law.md:51 claim the sparse and dense orders evaluate "the same
++//! event graph, with identical bits". The boundary between them changes a body's
++//! representation: tube (sparse) -> Cartesian member (dense) -> tube. The shipped exit
++//! path is `Rebinding::from_state` (bind.rs, `resolve_handout`). If the pure-transit
++//! round trip key -> decoded integer state -> refit does not return the same law-level
++//! orbit, the two orders' event graphs differ by a refit event the sparse order never
++//! performs, and the identity claim fails at the boundary no matter how either order is
++//! scheduled inside its own region.
++//!
++//! Integer decisions only: key equality, k-word delta (Q48 ulps), periapsis delta
++//! (2^-48 units), residual ulps, future decoded divergence (position ulps at the state's
++//! own exponent). No float decides anything.
++use emergent_space::{
++    binding::{self, IntegerState, Rebinding},
++    orbit::{Orbit, OrbitKey, Scalar},
++};
++
++fn d(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi(s.exponent() as i32)
++}
++
++fn main() {
++    // Units follow the crate's own test convention (60 bits of product headroom),
++    // derived once per key from its apastral state and used on BOTH sides of every
++    // comparison; a coarse fixed word (the plane-scale column) runs as a second pass.
++    let coarse: (i16, i16) = (-20, -50);
++    let grid: Vec<(i64, f64)> = vec![
++        (7, 0.0), (8, 0.0), (50, 0.0), (1000, 0.0),
++        (8, 0.1), (12, 0.3), (20, 0.5), (20, 0.7), (8, 0.9), (50, 0.9),
++        (8, 0.99), (50, 0.99), (7, 0.995), (50, 0.999), (1000, 0.999),
++    ];
++    println!("p\t e\t t/P\t key_ok\t dk_q48\t drp_q48\t resid_p\t resid_v\t fut_p\t note");
++    let (mut total, mut same, mut refused) = (0u64, 0u64, 0u64);
++    for &(p, e) in &grid {
++        let k0 = (e * 2f64.powi(48)).round() as u64;
++        let key = match OrbitKey::bound(Scalar::integer(p), k0) {
++            Ok(k) => k,
++            Err(err) => {
++                println!("{p}\t{e}\t-\t-\t-\t-\t-\t-\t-\tkey refused: {err:?}");
++                continue;
++            }
++        };
++        let orbit = match Orbit::compile(key) {
++            Ok(o) => o,
++            Err(err) => {
++                println!("{p}\t{e}\t-\t-\t-\t-\t-\t-\t-\tcompile refused: {err:?}");
++                continue;
++            }
++        };
++        let period = orbit.period().expect("period");
++        let probe = orbit.signed_state(period.scale(-1).expect("ph")).and_then(|st| Ok((st.radius.exponent() - 60, st.transverse_velocity.abs().exponent() - 60)));
++        let fine = match probe { Ok(u) => u, Err(err) => { println!("{p}\t{e}\t-\t-\t-\t-\t-\t-\t-\tunits refused: {err:?}"); continue } };
++        let quarters = [
++            period.scale(-3).expect("p8"),
++            period.scale(-2).expect("p4"),
++            period.scale(-1).expect("p2"),
++            period.sub(period.scale(-2).expect("p4b")).expect("3p4"),
++        ];
++        for (label, units) in [("fine", fine), ("coarse", coarse)] {
++        for (qi, t) in quarters.iter().enumerate() {
++            total += 1;
++            let state = match orbit.signed_state(*t) {
++                Ok(s) => s,
++                Err(err) => {
++                    println!("{p}\t{e}\t{}/4\t-\t-\t-\t-\t-\t-\tdecode refused: {err:?}", qi + 1);
++                    refused += 1;
++                    continue;
++                }
++            };
++            let state = match binding::cartesian(state, 0, false, units) {
++                Ok(s) => s,
++                Err(err) => {
++                    println!("{p}\t{e}\t{}/4\t-\t-\t-\t-\t-\t-\tcartesian refused: {err:?}", qi + 1);
++                    refused += 1;
++                    continue;
++                }
++            };
++            let fit = match Rebinding::from_state(state, *t, None) {
++                Ok(f) => f,
++                Err(err) => {
++                    println!("{p}\t{e}\t{}/4\t-\t-\t-\t-\t-\t-\trefit refused: {err:?}", qi + 1);
++                    refused += 1;
++                    continue;
++                }
++            };
++            let key2 = fit.trajectory.key().expect("cycle key");
++            let key_ok = key2 == key;
++            if key_ok {
++                same += 1;
++            }
++            let dk = key2.k.abs_diff(key.k);
++            let drp = (key2.periapsis.sub(key.periapsis).expect("drp").fixed(48).expect("drp f")).abs();
++            let rp = fit.residual.position.iter().map(|x| x.abs()).max().unwrap_or(0);
++            let rv = fit.residual.velocity.iter().map(|x| x.abs()).max().unwrap_or(0);
++            // Future: a quarter cycle after the event, decoded from each trajectory.
++            // A quarter of a radial quarter-cycle ahead: never on the periapsis mirror.
++            let t2 = t.add(period.scale(-5).expect("p8c")).expect("t2");
++            let fut = match (|| -> Result<i128, emergent_space::Error> {
++                let orig2 = binding::cartesian(orbit.signed_state(t2)?, 0, false, units)?;
++                let fit2 = binding::cartesian(
++                    fit.trajectory.state(t2.sub(fit.periapsis_time)?)?,
++                    fit.periapsis_angle,
++                    fit.clockwise,
++                    units,
++                )?;
++                Ok(orig2.position.iter().zip(fit2.position.iter())
++                    .map(|(a, b)| (*a as i128 - *b as i128).abs()).max().unwrap_or(0))
++            })() {
++                Ok(v) => v,
++                Err(err) => { println!("{p}\t{e}\t{}/4\t{label}\t{key_ok}\t{dk}\t{drp}\t{rp}\t{rv}\t-\tfuture decode refused: {err:?}", qi + 1); continue }
++            };
++            let note = if key_ok { "" } else { "KEY MOVED" };
++            println!("{p}\t{e}\t{}/4\t{label}\t{key_ok}\t{dk}\t{drp}\t{rp}\t{rv}\t{fut}\t{note}", qi + 1);
++        }
++        }
++    }
++    // Fixed-point control: a second transit re-fits the decode of the first fit.
++    // If fit2 == fit1 the boundary costs one representation change and is then a
++    // fixed point (no drift); if not, transits walk. Also validates that the
++    // instrument's equality can return true at all.
++    println!("fixed-point control (t = P/4):");
++    for (p, e) in grid.iter() {
++        let key = match OrbitKey::bound(Scalar::integer(*p), (e * 2f64.powi(48)).round() as u64) { Ok(k) => k, Err(_) => continue };
++        let orbit = match Orbit::compile(key) { Ok(o) => o, Err(_) => continue };
++        let period = match orbit.period() { Ok(x) => x, Err(_) => continue };
++        let st = match orbit.signed_state(period.scale(-2).unwrap()) { Ok(x) => x, Err(_) => continue };
++        let units = (st.radius.exponent() - 60, st.transverse_velocity.abs().exponent() - 60);
++        let t = period.scale(-2).unwrap();
++        let s0 = match binding::cartesian(st, 0, false, units) { Ok(x) => x, Err(_) => continue };
++        let f1 = match Rebinding::from_state(s0, t, None) { Ok(f) => f, Err(_) => continue };
++        let s1 = match f1.decoded_event() { Ok(x) => x, Err(_) => continue };
++        let f2 = match Rebinding::from_state(s1, t, None) { Ok(f) => f, Err(err) => { println!("p={p} e={e}: second fit refused: {err:?}"); continue } };
++        let k_same = f2.trajectory.key().unwrap() == f1.trajectory.key().unwrap();
++        let ang = f2.periapsis_angle.abs_diff(f1.periapsis_angle);
++        let r2p = f2.residual.position.iter().map(|x| x.abs()).max().unwrap_or(0);
++        let r2v = f2.residual.velocity.iter().map(|x| x.abs()).max().unwrap_or(0);
++        println!("p={p} e={e}: key2==key1={k_same} dang={ang} resid2=({r2p},{r2v})");
++    }
++    // Negative control: one velocity ulp must move the refit somewhere.
++    let key = OrbitKey::bound(Scalar::integer(20), (0.5 * 2f64.powi(48)).round() as u64).unwrap();
++    let orbit = Orbit::compile(key).unwrap();
++    let period = orbit.period().unwrap();
++    let st = orbit.signed_state(period.scale(-2).unwrap()).unwrap();
++    let units = (st.radius.exponent() - 60, st.transverse_velocity.abs().exponent() - 60);
++    let mut s = binding::cartesian(st, 0, false, units).unwrap();
++    s.velocity[0] += 1;
++    let fit = Rebinding::from_state(s, period.scale(-2).unwrap(), None).unwrap();
++    let moved = fit.trajectory.key().unwrap() != key;
++    println!("negative (1 velocity ulp on p=20,e=0.5): key moved = {moved}");
++    println!("summary: {same}/{total} round trips kept the key; {refused} refused");
++    let _ = d(Scalar::ONE);
++}

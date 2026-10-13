@@ -1,0 +1,23 @@
+--- key-identity summary ---
+negative (1 velocity ulp on p=20,e=0.5): key moved = true
+summary: 0/112 round trips kept the key; 10 refused
+--- rows keeping the key (expect none) ---
+none: 0/112 round trips kept the key
+--- circular row (class loss) ---
+7	0	1/4	fine	false	524288	3670016	1209306259	27921545	1185217400	KEY MOVED
+7	0	1/4	coarse	false	177068308	2724309711	1	461177	1	KEY MOVED
+--- fixed-point control ---
+fixed-point control (t = P/4):
+p=7 e=0: key2==key1=false dang=1003 resid2=(1616982720,1808043924)
+p=8 e=0: key2==key1=false dang=851 resid2=(784434425,1650124832)
+p=50 e=0: key2==key1=false dang=1526 resid2=(2078018619,1136264927)
+p=1000 e=0: key2==key1=false dang=1006 resid2=(435396339,155826524)
+p=8 e=0.1: key2==key1=false dang=0 resid2=(79887,117648)
+p=12 e=0.3: key2==key1=false dang=0 resid2=(26994467,17479296)
+p=20 e=0.5: key2==key1=false dang=0 resid2=(665257,623043)
+p=20 e=0.7: key2==key1=false dang=1 resid2=(2807580084,2579043630)
+p=8 e=0.9: key2==key1=false dang=4294967295 resid2=(3311888195,3823356286)
+p=50 e=0.9: key2==key1=false dang=1 resid2=(2728858856,2957854990)
+p=8 e=0.99: key2==key1=false dang=0 resid2=(3254043,30967476)
+negative (1 velocity ulp on p=20,e=0.5): key moved = true
+summary: 0/112 round trips kept the key; 10 refused
