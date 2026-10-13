@@ -483,14 +483,17 @@ impl Universe {
     }
 
     fn requeue(&mut self, e: usize) {
+        let t0 = crate::prof::t();
         let d = self.deadline_of(e);
         if let Some(q) = self.queue.as_mut() {
             let _ = q.set(e, d.map(Scalar::integer));
         }
+        crate::prof::add(crate::prof::REQUEUE, t0);
     }
 
     /// Recompute every deadline from the player's present position (a scheduling heuristic only).
     pub fn rekey(&mut self) {
+        let t0 = crate::prof::t();
         if let Some(p) = self.player {
             if let Ok((pos, _)) = crate::observe::root_state_raw(&self.ctx(), p, self.bodies.event_time(p).max(self.now)) {
                 self.observer = pos;
@@ -503,11 +506,13 @@ impl Universe {
             self.requeue(self.fleet_entity(f));
         }
         self.requeue(self.bodies.len());
+        crate::prof::add(crate::prof::REKEY, t0);
     }
 
     // ---- resolving ------------------------------------------------------------------------------
 
     fn apply(&mut self, i: usize, mut upd: Update) {
+        let t_apply = crate::prof::t();
         for seg in upd.retired.drain(..) {
             self.cat.release(seg.b.tube.key);
             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
@@ -528,9 +533,12 @@ impl Universe {
         self.resolved += 1;
         let t = upd.rec.b.event_time;
         self.bodies.put(i, upd.rec);
+        let t_walk = crate::prof::t();
         if let Ok((p, _)) = crate::observe::root_state_raw(&self.ctx(), i, t) {
             self.pos[i] = p;
         }
+        crate::prof::add(crate::prof::ROOT, t_walk);
+        crate::prof::add(crate::prof::APPLY, t_apply);
     }
 
     fn lane(&self, ids: &[usize]) -> Option<(Tick, usize)> {
@@ -582,10 +590,14 @@ impl Universe {
             self.lanes.ships = ships;
         }
         let rec = self.bodies.rec(i);
+        let t_process = crate::prof::t();
         let upd = step::process(&self.ctx(), i, rec);
+        crate::prof::add(crate::prof::PROCESS, t_process);
         self.apply(i, upd);
         if kind == Kind::Player {
+            let t_enc = crate::prof::t();
             self.encounters_for_player();
+            crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
         }
     }
 
@@ -795,7 +807,9 @@ impl Universe {
         let mut deferred: Vec<usize> = Vec::new();
         let mut overflow = false;
         loop {
+            let t_due = crate::prof::t();
             self.take_due(target);
+            crate::prof::add(crate::prof::TAKE_DUE, t_due);
             let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
             let dl = dl.fixed(0).unwrap_or(i128::MAX) as Tick;
             let Some((t, _)) = self.key_of(e) else {
@@ -868,7 +882,9 @@ impl Universe {
         // Histories older than every light cone the view can need are forgotten.
         self.frames += 1;
         if self.frames % 64 == 0 {
+            let t_prune = crate::prof::t();
             self.prune();
+            crate::prof::add(crate::prof::PRUNE, t_prune);
         }
         Frame { target, presented: self.now, ticks: self.now - before, events: a.events, overflow: a.overflow }
     }
@@ -907,7 +923,9 @@ impl Universe {
 
     fn take(&mut self, p: usize, t: Tick, keys: u8) {
         let rec = self.bodies.rec(p);
+        let t_decide = crate::prof::t();
         let upd = step::decide(&self.ctx(), p, rec, t, keys);
+        crate::prof::add(crate::prof::P_DECIDE, t_decide);
         self.apply(p, upd);
         self.stats.decisions += 1;
         self.inputs.push((t, keys));

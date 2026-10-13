@@ -305,13 +305,18 @@ impl Work<'_, '_> {
 
     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+        let t_fit = crate::prof::t();
         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
         let bound = bind(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?)?;
+        crate::prof::add(crate::prof::R_FIT, t_fit);
+        let t_tau = crate::prof::t();
         let old = &self.rec.b;
         // The tube's length since the last binding is the body's clock reading (root units).
         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
         self.rec.proper = self.rec.proper.add(root_tau)?;
+        crate::prof::add(crate::prof::R_TAU, t_tau);
+        let t_rest = crate::prof::t();
         self.retired.push(Segment { b: old.clone(), until: t });
         self.rec.b = Binding {
             doll,
@@ -325,6 +330,7 @@ impl Work<'_, '_> {
             kick: Kick::NONE,
         };
         self.new_entry = Some(bound.entry.clone());
+        crate::prof::add(crate::prof::R_REST, t_rest);
         Ok(bound)
     }
 
@@ -582,8 +588,11 @@ impl Work<'_, '_> {
     /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
         let d = self.rec.b.doll;
+        let t_read = crate::prof::t();
         let st = self.rec.b.readout(t)?;
         let (x, v) = scalars(&st)?;
+        crate::prof::add(crate::prof::K_READOUT, t_read);
+        let t_src = crate::prof::t();
         let secs = self.ctx.secondaries(d, t, self.i)?;
         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
@@ -599,8 +608,12 @@ impl Work<'_, '_> {
             self.rec.alive = false;
             return Ok(Resolved::Lost);
         }
+        crate::prof::add(crate::prof::K_SOURCES, t_src);
+        let t_field = crate::prof::t();
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         let f = force::field(&secs, x)?;
+        crate::prof::add(crate::prof::K_FIELD, t_field);
+        let t_quant = crate::prof::t();
         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
         let dv = scale2(f.accel, w)?;
         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
@@ -614,9 +627,13 @@ impl Work<'_, '_> {
             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
         };
         let fired = next.velocity != st.velocity;
+        crate::prof::add(crate::prof::K_QUANT, t_quant);
         if fired {
+            let t_rebind = crate::prof::t();
             self.rebind(next, t, d)?;
+            crate::prof::add(crate::prof::K_REBIND, t_rebind);
         }
+        let t_post = crate::prof::t();
         self.rec.carry = carry;
         self.rec.ext = Some(ext);
         if thrusting {
@@ -651,6 +668,7 @@ impl Work<'_, '_> {
                 }
             }
         }
+        crate::prof::add(crate::prof::K_POST, t_post);
         Ok(Resolved::Kick)
     }
 
@@ -760,6 +778,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
     w.rec.events += 1;
     let t = item.t;
     let h0 = w.rec.interval;
+    let t_item = crate::prof::t();
     let result = match item.what {
         What::Kick(l) if w.rec.ext.is_some() => w.kick_clock(t, l),
         What::Kick(l) => w.kick(t, l).map(|_| Resolved::Kick),
@@ -767,6 +786,17 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
         What::Crash => w.crash(t),
         What::Boundary => w.boundary(t),
     };
+    crate::prof::add(
+        match item.what {
+            What::Kick(_) if w.rec.ext.is_some() => crate::prof::P_KICK_CLOCK,
+            What::Kick(l) if l > 0 => crate::prof::P_KICK_SUB,
+            What::Kick(_) => crate::prof::P_KICK,
+            What::Open(_) => crate::prof::P_OPEN,
+            What::Crash => crate::prof::P_CRASH,
+            What::Boundary => crate::prof::P_BOUNDARY,
+        },
+        t_item,
+    );
     let kind = match result {
         Ok(k) => k,
         Err(e) => {

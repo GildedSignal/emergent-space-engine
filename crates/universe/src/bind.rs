@@ -223,12 +223,17 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
 }
 
 fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+    let t_fit = crate::prof::t();
     let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
+    crate::prof::add(crate::prof::B_FROM_STATE, t_fit);
+    let t_rest = crate::prof::t();
     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
     let tube = Tube::new(0, fit.periapsis_angle, peri);
     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
     let units = (exact.length_exponent, exact.velocity_exponent);
+    let t_dec = crate::prof::t();
     let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
+    crate::prof::add(crate::prof::B_DECODE, t_dec);
     // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
     let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
     let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
@@ -239,6 +244,7 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
         position: [exact.position[0] as i128 - tp[0], exact.position[1] as i128 - tp[1]],
         velocity: [exact.velocity[0] as i128 - tv[0], exact.velocity[1] as i128 - tv[1]],
     };
+    crate::prof::add(crate::prof::B_REST, t_rest);
     Ok(Bound { units, entry, tube, residual, turn, orbit })
 }
 
