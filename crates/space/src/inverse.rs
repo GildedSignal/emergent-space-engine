@@ -306,6 +306,7 @@ pub(crate) fn photon(impact: crate::scaled::Scalar) -> Result<Option<OrbitKey>> 
     Ok(Some(OrbitKey {
         periapsis: radius,
         k: k.fixed(48)? as u64,
+        k_exponent: 0,
         null: true,
         gap: None,
     }))
@@ -389,5 +390,18 @@ fn fit_cubic(c: Cubic) -> Result<OrbitKey> {
     } else {
         &k >> shift
     };
+    if k < (&one >> 28) {
+        let key = OrbitKey::scaled(rp, scalar(&k)?)?;
+        if key.needs_gap()? {
+            let q = key.compactness()?;
+            let k = key.shape()?;
+            let tn = k.mul(Scalar::ONE.sub(q.scale(1)?)?)?
+                .mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(k.scale(1)?)?)?)?)?;
+            // b/a = E²-1, retained from the exact invariant/state polynomial.
+            let energy2 = scalar(&c.b.div(&c.a).add(&c.a.n(1)).fixed())?;
+            return key.with_gap(tn.div(energy2)?);
+        }
+        return Ok(key);
+    }
     OrbitKey::new(rp, word.to_u64().ok_or(Error::Range)?)
 }

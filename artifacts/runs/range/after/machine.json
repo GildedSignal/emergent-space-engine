@@ -1,0 +1,36 @@
+{
+  "utc": "2026-10-13T06:28:06.713614+00:00",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "commands": {
+    "git rev-parse HEAD": {
+      "status": 0,
+      "stdout": "ac1a0a4a9c8fedd948a18fe3d366de9c2330bffc\n",
+      "stderr": ""
+    },
+    "uptime": {
+      "status": 0,
+      "stdout": " 8:28  1 user, load averages: 3.76 4.12 3.83\n",
+      "stderr": ""
+    },
+    "pmset -g therm": {
+      "status": 0,
+      "stdout": "Error:Failed to get thermal warning level with error code 0xe00002bc\nError: Failed to get performance warning level with error code 0xe00002bc\nError: No CPU power status with error code 0xe00002bc\n",
+      "stderr": ""
+    },
+    "pmset -g batt": {
+      "status": 0,
+      "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=25362531)\t100%; charged; 0:00 remaining present: true\n",
+      "stderr": ""
+    },
+    "sysctl vm.swapusage": {
+      "status": 1,
+      "stdout": "",
+      "stderr": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    "vm_stat": {
+      "status": 0,
+      "stdout": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                     5233.\nPages active:                                 119185.\nPages inactive:                               107230.\nPages speculative:                             11009.\nPages throttled:                                   0.\nPages wired down:                              94810.\nPages purgeable:                                 404.\n\"Translation faults\":                     1099539314.\nPages copy-on-write:                        56070880.\nPages zero filled:                         341087180.\nPages reactivated:                         362114513.\nPages purged:                               44851810.\nFile-backed pages:                            104263.\nAnonymous pages:                              133161.\nPages stored in compressor:                   722460.\nPages occupied by compressor:                 150985.\nDecompressions:                            326873794.\nCompressions:                              356692678.\nPageins:                                    56361700.\nPageouts:                                    1414413.\nSwapins:                                     2151934.\nSwapouts:                                    2642176.\n",
+      "stderr": ""
+    }
+  }
+}

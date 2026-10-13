@@ -170,7 +170,7 @@ pub fn choose_units(r_max: Scalar, v_max: Scalar) -> (i16, i16) {
 /// periapsis speed (with a factor of two of margin) still fit in 60 bits.
 pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
     let key = entry.trajectory.key();
-    let k = Scalar::raw(key.k as i128, -48)?;
+    let k = key.shape()?;
     let r_max = match &entry.trajectory {
         Trajectory::Cycle(_) => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
         Trajectory::Passage(p) => p.outer_radius,

@@ -40,6 +40,13 @@ no oversized absolute period is ever constructed. Public Cartesian event states
 have explicit common length/velocity exponents. The former fixed Q20/Q30 API is
 a compatibility boundary and may refuse values its units cannot express.
 
+For hyperbolic k below 2^-28, the key stores k as a 48-bit normalized mantissa
+and its own i16 exponent. Exponent zero retains the old Q48 bits above that
+boundary. Angular factors use the bounded Q62 projection of k; clock numerators,
+the speed scale and the clock gap use its full scaled value. A tiny k may vanish
+from an O(1) angular factor, but never from sqrt(k) or q/k. Both inverse paths
+(state and invariants) retain this scale; memo keys and universe digests include it.
+
 Rebinding is necessarily a quotient **and a remainder**: a rounded orbit fit is
 not injective. For integer event state X and decoder F, store C=X-F(Q(X)). Then
 F(Q(X))+C=X exactly. Translation and kicks operate on this reconstructed integer
