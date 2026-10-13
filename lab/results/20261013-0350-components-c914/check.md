@@ -1,0 +1,39 @@
+Grade: silver
+
+**Abstract.** Claim: the kick's exact recompile is at its wide-division hardware floor on x86-64 (divq 1.04×, exact Newton reciprocal 1.05×, both exact), and divisions own 20–35% of the compile, bounding the "cheaper divisions" branch of kick-jet's open direction 1 at ~1.2× (free) / ~1.4× (all three ingredients). Reproduced on a clean tree: 30.28/34.99/31.09/31.48 ns, checksums byte-identical, 63/63 tests; an adversarial grid outside the tested range (e 0.001–0.999, octaves −8…26) reproduces the shares (div −19.4%, cos −12.0%, sqrt −6.7% by total); divisor tracing confirms the Newton domain claim covers shipped operands. Adoption cost: none (bounded-direction result; probe is the instrument). Silver, not gold: the pre-registered predictions did not all hold (Newton speed failed; the ordering flipped), and the kill is x86-only while the target machine is the M1 — one experiment (arm64 rerun of the shipped probe) from gold.
+
+## Reproduction
+
+- The tree was clean at base `cb16ccb9` (regen.sh's comment "the tree already carries this run's patch" was false at check time — the runner restores after regen); I applied `work/patch.diff` myself and verified my orbit.rs hunk matched the patch byte-for-byte (sha256).
+- `cargo run --release -p emergent-space --example div_bench -- all`: div u128 30.28 ns / i128 34.99 / asm divq 31.09 (**1.03×**, 0 mismatches) / Newton 31.48 (**1.04×**, 1 mismatch of 4105, d=3) — dossier 30.2/35.0/31.4 (1.04×)/31.6 (1.05×). Runner's regen-out.txt agrees (30.24/35.08/30.98/31.39).
+- compile medians 45.97/27.13 µs (dossier 45.8/27.1), per-node 273/259 ns (dossier 264/244); checksums `133c7636a7f1f4cacd3bf1a43e92b57c` / `0dcef556a4b9d7c5a5114b4cb6e6c275` identical in every invocation.
+- regen.sh (runner): same numbers; space suite 63/63 (10+1+4+12+17+9+5+5+0).
+- Env-gated arms regenerate: div tuned min-of-3 30.44 µs (−33.6%), heldout 21.08 (−20.2%), all-three 18.48/15.16. My **pair arm (div+cos), which the author never ran**: tuned 21.0 µs = −54%, ≈ the sum of the singles (53.9%); sqrt on top of the pair adds only ~2.5 points against its 11.6% single share — shares are additive only to first order, exactly the author's disclosed ±10-point second-order overlap.
+
+## Predictions
+
+`predictions.md` mtime 04:04, frozen probes 04:17, dossier 04:18 — written before the decisive runs. Held: hardware-vs-soft within 15% (1.03–1.04×), Newton exact on the domain, default-path identity. **Failed:** Newton's speed (predicted 8–18 ns, measured 31.5 — no win; the author reports the failure as the result, and the headline never depended on it); the held-out ordering flipped by the author's own pre-registered criterion (divisions first under the env-gated probe → "the record's division-first attribution stands" — the author downgraded the split to method-sensitive, 12–40% for cos); per-node cost landed above the predicted 110–200 ns band at 244–264 ns. Honest disclosure of all three.
+
+## Attacks (three adversarial cases of my own; one outside the author's tested range)
+
+1. **Extreme grid, outside the range** (e ∈ {0.993, 0.996, 0.999} ∪ {0.001, 0.005}, radius octaves −8…26, mantissas 8/16/24 — author tested e ≤ 0.99 / ≤ 0.985, octaves −6…24): 135 ok / 54 refused, panels 10,245. Shares by total compile time: div −19.4%, cos −12.0%, sqrt −6.7%; per-node 218→173 ns (div). All inside the claimed bands (div at its low end) — the claim survives its domain extension. Noteworthy: the *median* compile is unmoved (46.1→46.6 µs; the cuts land on the tail, p90 156→116 µs) — the shares are aggregate, not per-key; nothing in the claim contradicts this.
+2. **Identity against the truly unpatched tree**: stripped the orbit.rs hunk entirely (kept the example), rebuilt, ran: both checksums byte-identical. The env gates are timing-only; the probe changes no shipped bits — verified independently, not just re-run.
+3. **Divisor-domain trace** (my instrumentation, `ES_TRACE_DIV`, since removed): across tuned, held-out and extreme grids, every one of the four divisors is ≥ 2^51 (root ≥ 2^57.7, ONE+root ≥ 2^62.1, x ≥ 2^51.0, horizon ≥ 2^61.0) — the Newton "0 mismatches on the operand domain" claim does cover the shipped operands; the d=3 failure is far outside. One edge found: ONE+root reaches exactly 2^63 on the extreme grid, and the prototype's documented domain is [2^20, 2^63) — that single boundary point is untested; moot on x86 since Newton loses on speed regardless, relevant only if the M1 rerun revives it.
+4. **Structure check**: all four divisors (`root`, `ONE+root`, `x`, `horizon`) are psi-dependent per node — the wiki's cached-reciprocal attack ("division-by-multiplication where divisors repeat") is structurally dead on this code; the run's cold-reciprocal model is the correct one.
+5. **Novelty**: no HISTORY entry or wiki page measures the wide-division floor or an exact reciprocal (HISTORY's "Newton" hits are Newtonian gravity); 061f's 30.9 ns was a count-based inference this run replaces with measurement. `law.md:36` (exact recompile) is the right requirement anchor.
+
+## The page
+
+Corrected two overstatements in `wiki/kick-jet.md` in place:
+- "no cheaper exact division **exists** on this box" → none **was found among the three variants tested** (soft routine, hardware divq, exact Newton reciprocal); existence was not disproved.
+- "the end-to-end ceiling is ~1.4× even at a 2× division win" → a 2× division win yields ~1.08–1.10× end-to-end (divisions are 8–18% of a kick: 20–35% of compile × 41–52% of kick); ~1.4× is the ceiling for removing **all three** named ingredients (42–56% of compile). Free divisions bound at ~1.2× — the dossier's own number, which the claim sentence also blurred ("~1.4×" attached to cheaper divisions).
+
+## What the author missed
+
+- The per-node decomposition double-counts: "4 wide divisions (~120 ns)" in a ~250 ns node is 48%, yet the measured division share is 20–35% — the node has two independent dependency chains (g→g1, ratio→rtau→rt) that out-of-order execution overlaps, so the naive sum is not the wall time. The measured shares are the honest numbers; the decomposition narrative is not.
+- The result is x86-only, and the game's target is the fanless M1 (aarch64: no 128/64 divide instruction, slower `__udivti3`) — the one architecture where a multiply-only reciprocal could plausibly win, and the only live revival path of the lever. The author flags it under "what would make it wrong" and ships the prototype for exactly that, but the lab could have run the probe on a hosted arm64 runner itself.
+- The split is measured on compile grids, not on a full settle's kick stream; leaver `Passage::compile` paths under-sampled (disclosed by the author, repeated here because the leaver tail is 89–97% of the leaver rebind per ec9d).
+
+## Why silver, and the one experiment
+
+Reproduced bit-for-bit, honestly pre-registered with failures disclosed, and it kills the arithmetic half of open direction 1 on this box with a measured bound — real and adoptable as a redirect (nothing to merge; the instrument ships in the example). Not gold for two reasons: (a) the held-out predictions did not hold (Newton's speed failed, the ordering flipped, per-node missed its band — all disclosed, none load-bearing for the headline, but the letter of gold says the predictions held); (b) the kill is measured on x86-64 only while the goal machine is the M1, where the floor is genuinely unknown — a "configuration killed" claim whose configuration may not include the target hardware. **The one experiment:** run this same `div_bench` (Newton prototype included) on arm64 — a hosted arm64 runner, or the integrator's M1 re-measure. If the reciprocal also loses there, the kill generalizes to the target machine and this is gold; if it wins, the lever revives with a measured number, which is just as good a result.

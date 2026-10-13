@@ -1,0 +1,11 @@
+loadavg 1.29 0.86 0.56 2/596 3767205
+div u128/u128 : 30.21 ns
+div i128/i128 : 35.04 ns
+div asm/divq  : 31.42 ns  (mismatches: 0)
+sinks 0 0 1
+MISMATCH n=ffffffffffffffffffffffffffffffff d=0000000000000003 got 55555555555555555555555554d0003e want 55555555555555555555555555555555
+div newton    : 31.57 ns  (mismatches: 1 of 4105)
+compile[tuned] ok=198 refused=27 panels=10234 median 45.87 us  p90 134.18 us  total 10875.3 us  per-node 265.7 ns
+checksum[tuned] 133c7636a7f1f4cacd3bf1a43e92b57c
+compile[heldout] ok=195 refused=55 panels=6440 median 26.50 us  p90 60.30 us  total 6271.2 us  per-node 243.4 ns
+checksum[heldout] 0dcef556a4b9d7c5a5114b4cb6e6c275
