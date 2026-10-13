@@ -1,0 +1,520 @@
+diff --git a/crates/space/examples/cos_bench.rs b/crates/space/examples/cos_bench.rs
+new file mode 100644
+index 00000000..8a107633
+--- /dev/null
++++ b/crates/space/examples/cos_bench.rs
+@@ -0,0 +1,227 @@
++// The compile node's cos: shipped serial chain vs bit-identical unrolled and 4-way
++// interleaved evaluations, plus the whole-compile A/B on a key grid.
++// Bit identity is the law: every variant must reproduce shipped `cos` bit for bit.
++use emergent_space::num::cos;
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use emergent_space::tables::{PI, SINE};
++
++const ONE: u64 = 1 << 62;
++
++#[inline(always)]
++fn mul_hi(a: u64, b: u64) -> u64 {
++    (((a as u128) * (b as u128)) >> 62) as u64
++}
++
++#[inline(always)]
++fn sq_q62(x: i64) -> u64 {
++    (((x as i128) * (x as i128)) >> 62) as u64
++}
++
++/// Straight-line, unrolled: identical operations to shipped `cos`, no loop.
++pub fn cos1(psi: i128) -> i128 {
++    if psi == 0 {
++        return ONE as i128;
++    }
++    if psi == PI {
++        return -(ONE as i128);
++    }
++    let x = (2 * psi - PI) as i64;
++    let x2 = sq_q62(x);
++    let mut s = ONE;
++    let r = SINE;
++    macro_rules! step {
++        ($rr:expr) => {
++            s = ONE - mul_hi(mul_hi(x2, s), $rr as u64);
++        };
++    }
++    step!(r[12]);
++    step!(r[11]);
++    step!(r[10]);
++    step!(r[9]);
++    step!(r[8]);
++    step!(r[7]);
++    step!(r[6]);
++    step!(r[5]);
++    step!(r[4]);
++    step!(r[3]);
++    step!(r[2]);
++    step!(r[1]);
++    step!(r[0]);
++    -((x as i128 * s as i128) >> 62)
++}
++
++/// Four independent chains step-locked: same floored products per chain, ILP across chains.
++pub fn cos4(psi: [i128; 4]) -> [i128; 4] {
++    let mut out = [0i128; 4];
++    let mut x = [0i64; 4];
++    let mut x2 = [0u64; 4];
++    let mut live = [false; 4];
++    for j in 0..4 {
++        if psi[j] == 0 {
++            out[j] = ONE as i128;
++        } else if psi[j] == PI {
++            out[j] = -(ONE as i128);
++        } else {
++            live[j] = true;
++            x[j] = (2 * psi[j] - PI) as i64;
++            x2[j] = sq_q62(x[j]);
++        }
++    }
++    let mut s = [ONE; 4];
++    let r = SINE;
++    for k in (0..13).rev() {
++        let rr = r[k] as u64;
++        for j in 0..4 {
++            if live[j] {
++                s[j] = ONE - mul_hi(mul_hi(x2[j], s[j]), rr);
++            }
++        }
++    }
++    for j in 0..4 {
++        if live[j] {
++            out[j] = -((x[j] as i128 * s[j] as i128) >> 62);
++        }
++    }
++    out
++}
++
++fn operands() -> Vec<i128> {
++    // uniform over [0, pi] plus the corners and the psi=pi/2 region
++    let mut v = Vec::new();
++    let n = 1 << 16;
++    for i in 0..=n {
++        v.push(PI * i / n);
++    }
++    v.push(PI / 2);
++    v.push(PI / 2 - 1);
++    v.push(PI / 2 + 1);
++    v.push(1);
++    v.push(PI - 1);
++    v
++}
++
++fn main() {
++    // 1. bit identity, dense grid + pseudo-random (deterministic xorshift)
++    let ops = operands();
++    let mut bad = 0u64;
++    let mut shown = 0;
++    for &psi in &ops {
++        let want = cos(psi);
++        let got1 = cos1(psi);
++        let got4 = cos4([psi; 4]);
++        if got1 != want || got4 != [want; 4] {
++            bad += 1;
++            if shown < 6 {
++                shown += 1;
++                println!("dense mismatch psi={psi} want={want} cos1={got1} cos4={got4:?}");
++            }
++        }
++    }
++    let mut state = 0x2545F4914F6CDD1Du64;
++    let rnd = |state: &mut u64| {
++        *state ^= *state << 13;
++        *state ^= *state >> 7;
++        *state ^= *state << 17;
++        *state
++    };
++    for _ in 0..2_000_000u64 {
++        let psi = (rnd(&mut state) % (PI as u64 + 1)) as i128;
++        let want = cos(psi);
++        if cos1(psi) != want || cos4([psi; 4]) != [want; 4] {
++            bad += 1;
++            if bad < 5 {
++                println!("random mismatch psi={psi} want={want}");
++            }
++        }
++    }
++    println!("bit-identity: {} mismatches over {} dense + 2M random", bad, ops.len());
++
++    // 2. primitive timing (the chain's cost is data-independent; operand mix is irrelevant)
++    let batch = 4096;
++    let psis: Vec<i128> = (0..batch).map(|i| PI * i / batch).collect();
++    let mut sink = 0i128;
++    for rep in 0..3 {
++        let t = std::time::Instant::now();
++        for _ in 0..200 {
++            for &psi in &psis {
++                sink = sink.wrapping_add(cos(psi));
++            }
++        }
++        let shipped = t.elapsed().as_secs_f64() / (200 * batch) as f64 * 1e9;
++        let t = std::time::Instant::now();
++        for _ in 0..200 {
++            for &psi in &psis {
++                sink = sink.wrapping_add(cos1(psi));
++            }
++        }
++        let unrolled = t.elapsed().as_secs_f64() / (200 * batch) as f64 * 1e9;
++        let q: Vec<[i128; 4]> = psis.chunks(4).map(|c| [c[0], c[1], c[2], c[3]]).collect();
++        let t = std::time::Instant::now();
++        for _ in 0..200 {
++            for p in &q {
++                let r = cos4(*p);
++                sink = sink.wrapping_add(r[0] + r[3]);
++            }
++        }
++        let batch4 = t.elapsed().as_secs_f64() / (200 * batch) as f64 * 1e9;
++        println!(
++            "rep {}: shipped {:.1} ns  unrolled {:.1} ns  interleaved4 {:.2} ns/cos  (ratio {:.2}x / {:.2}x)",
++            rep + 1,
++            shipped,
++            unrolled,
++            batch4,
++            shipped / unrolled,
++            shipped / batch4
++        );
++    }
++    std::hint::black_box(&sink);
++
++    // 3. whole-compile A/B on a key grid: periapsis powers x eccentricities
++    let mut keys = Vec::new();
++    for p in 2..=18i16 {
++        for e in [0.0f64, 0.2, 0.5, 0.8, 0.9] {
++            let k = ((1u128 << 96) / (((1u64 << 48) as f64 * (1.0 + e)) as u128)) as u64;
++            if let Ok(key) = OrbitKey::new(Scalar::power_of_two(p), k) {
++                keys.push(key);
++            }
++        }
++    }
++    let valid: Vec<Orbit> = keys.iter().filter_map(|k| Orbit::compile(*k).ok()).collect();
++    println!("grid: {} keys, {} compiled", keys.len(), valid.len());
++    let mut digest = 0u64;
++    for o in &valid {
++        for k in o.shape().knots() {
++            digest = digest
++                .wrapping_mul(31)
++                .wrapping_add(format!("{k:?}").bytes().map(|b| b as u64).sum::<u64>());
++        }
++    }
++    println!("shape digest {:016x}", digest);
++    let n = 20;
++    let mut best = f64::INFINITY;
++    for rep in 0..5 {
++        let t = std::time::Instant::now();
++        for _ in 0..n {
++            for &k in &keys {
++                std::hint::black_box(Orbit::compile(k).ok());
++            }
++        }
++        let per = t.elapsed().as_secs_f64() * 1e6 / (n * keys.len()) as f64;
++        best = best.min(per);
++        println!("compile rep {}: {:.2} us/key", rep + 1, per);
++    }
++    #[cfg(feature = "profile")]
++    {
++        let st = emergent_space::profile::take();
++        let tot = (n * keys.len()) as f64;
++        println!(
++            "stages us/key: roots {:.2} cuts {:.2} walk {:.2} convert {:.2}",
++            st[0] as f64 / tot / 1e3,
++            st[1] as f64 / tot / 1e3,
++            st[2] as f64 / tot / 1e3,
++            st[3] as f64 / tot / 1e3
++        );
++    }
++    println!("compile best {:.2} us/key over {} keys", best, keys.len());
++}
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 8dce4968..2d8f48de 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -112,7 +112,7 @@ pub mod binding;
+ mod inverse;
+ pub mod light;
+ pub mod kerr;
+-mod num;
++pub mod num;
+ pub mod orbit;
+ pub mod plunge;
+ pub mod scaled;
+@@ -121,8 +121,7 @@ pub use tube::Tube;
+ pub mod events;
+ #[cfg(feature = "profile")]
+ pub mod profile;
+-mod tables;
+-
++pub mod tables;
+ macro_rules! stage {
+     ($i:expr, $e:expr) => {{
+         #[cfg(feature = "profile")]
+@@ -413,9 +412,10 @@ impl Shape {
+             .map(move |k| (k, self.cut(edge(k))))
+     }
+ 
+-    /// The node's integrands: (g in Q42, r_τ, r_t in Q62).
+-    fn node(&self, psi: i128, clocks: bool) -> Result<(u64, u64, u64)> {
+-        let cs = cos(psi) as i64;
++    /// The node's integrands: (g in Q42, r_τ, r_t in Q62), with cos(ψ) supplied by the
++    /// caller: a panel's four nodes exist at once, so their cos chains interleave
++    /// ([`num::cos4`]) while every floored product stays bit-identical to [`cos`].
++    fn node_cs(&self, psi: i128, cs: i64, clocks: bool) -> Result<(u64, u64, u64)> {
+         let acs = (self.a as i128 * cs as i128) >> 62;
+         let g = if self.newton {
+             1 << 42
+@@ -438,15 +438,22 @@ impl Shape {
+             (((rtau as u128) << 62) / (ONE - 2 * u) as u128) as u64,
+         ))
+     }
++    /// The node's integrands: (g in Q42, r_τ, r_t in Q62).
++    fn node(&self, psi: i128, clocks: bool) -> Result<(u64, u64, u64)> {
++        self.node_cs(psi, cos(psi) as i64, clocks)
++    }
+     /// Four-point GL on [lo, hi]: S_φ Q103, clocks Q(165-clock_shift).
+     fn quad(&self, lo: i128, hi: i128, clocks: bool, sums: &mut [i128; 3]) -> Result<()> {
+         let h = hi - lo;
+         let mid = lo + (h >> 1);
++        let dx = [(X[0] * h) >> 63, (X[1] * h) >> 63];
++        let w = [(W[0] * h) >> 63, (W[1] * h) >> 63];
++        let cs = crate::num::cos4([mid - dx[0], mid + dx[0], mid - dx[1], mid + dx[1]]);
+         for i in 0..2 {
+-            let (dx, w) = ((X[i] * h) >> 63, (W[i] * h) >> 63);
+-            for psi in [mid - dx, mid + dx] {
+-                let (g, rtau, rt) = self.node(psi, clocks)?;
+-                let a = w as u64 as u128 * g as u128;
++            for j in 0..2 {
++                let psi = mid + if j == 0 { -dx[i] } else { dx[i] };
++                let (g, rtau, rt) = self.node_cs(psi, cs[2 * i + j] as i64, clocks)?;
++                let a = w[i] as u64 as u128 * g as u128;
+                 sums[0] += a as i128;
+                 let b = (a >> self.clock_shift) as u64;
+                 sums[1] += (b as u128 * rtau as u128) as i128;
+@@ -455,7 +462,6 @@ impl Shape {
+         }
+         Ok(())
+     }
+-    /// The panels of the interval [lo, hi] between two cuts, in order.
+     fn panels(
+         &self,
+         lo: i128,
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8d..18ffcf16 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -103,6 +103,45 @@ pub fn cos(psi: i128) -> i128 {
+     -((x as i128 * s as i128) >> 62)
+ }
+ 
++/// `cos` for four arguments at once: the same thirteen nested factors per argument,
++/// identical floored products (bit-identical to [`cos`]), with the four chains
++/// step-locked so their independent multiplies interleave. A panel's four Gauss
++/// nodes exist at once, so the walk trades serial chain latency for throughput.
++pub fn cos4(psi: [i128; 4]) -> [i128; 4] {
++    const UONE: u64 = 1 << 62;
++    let mut out = [0i128; 4];
++    let mut x = [0i64; 4];
++    let mut x2 = [0u64; 4];
++    let mut live = [false; 4];
++    for j in 0..4 {
++        if psi[j] == 0 {
++            out[j] = ONE;
++        } else if psi[j] == PI {
++            out[j] = -ONE;
++        } else {
++            live[j] = true;
++            x[j] = (2 * psi[j] - PI) as i64;
++            x2[j] = (((x[j] as i128) * (x[j] as i128)) >> 62) as u64;
++        }
++    }
++    let mut s = [UONE; 4];
++    for k in (0..13).rev() {
++        let r = SINE[k] as u64;
++        for j in 0..4 {
++            if live[j] {
++                let y = ((x2[j] as u128 * s[j] as u128) >> 62) as u64;
++                s[j] = UONE - ((y as u128 * r as u128) >> 62) as u64;
++            }
++        }
++    }
++    for j in 0..4 {
++        if live[j] {
++            out[j] = -((x[j] as i128 * s[j] as i128) >> 62);
++        }
++    }
++    out
++}
++
+ /// atan(s) in Q62 for s in [0, 1] in Q62. j = round(16 s) (ties up), a = j/16,
+ /// t = trunc((s - a) 2^62 / (1 + s a)) with |t| <= 1/32, and
+ /// atan(s) = atan(j/16) + t(1 - t^2/3 + t^4/5 - ... + t^12/13), nested, products floored.
+@@ -179,4 +218,27 @@ mod tests {
+         assert_eq!(atan(ONE), PI / 2);
+         assert_eq!(atan(0), 0);
+     }
++    #[test]
++    fn cos4_is_bit_identical_to_cos() {
++        // corners first
++        for psi in [0, 1, PI / 2 - 1, PI / 2, PI / 2 + 1, PI - 1, PI] {
++            assert_eq!(cos4([psi; 4]), [cos(psi); 4], "psi {psi}");
++        }
++        let mut x: u128 = 0x2545F4914F6CDD1D;
++        for _ in 0..60_000 {
++            x ^= x << 13;
++            x ^= x >> 7;
++            x ^= x << 17;
++            let psi = (x % (PI as u128 + 1)) as i128;
++            assert_eq!(cos4([psi; 4]), [cos(psi); 4], "psi {psi}");
++        }
++        // mixed lanes, dense grid
++        for i in 0..4096 {
++            let a = PI * i / 4096;
++            let b = PI * (4096 - i) / 4096;
++            let c = PI / 2 + i;
++            let d = (PI / 2).saturating_sub(i);
++            assert_eq!(cos4([a, b, c, d]), [cos(a), cos(b), cos(c), cos(d)], "i {i}");
++        }
++    }
+ }
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 0aa1d27e..847edd85 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -268,13 +268,15 @@ impl OrbitShape {
+             clock_factor: [t_numerator.div(floor2)?, tau_numerator.div(floor2)?],
+         })
+     }
++    pub(crate) fn x_cs(&self, cs: i128) -> i128 {
++        self.k + product(ONE - self.k, cs)
++    }
+     pub(crate) fn x(&self, psi: i128) -> i128 {
+-        self.k + product(ONE - self.k, cos(psi))
++        self.x_cs(cos(psi))
+     }
+-    fn node(&self, psi: i128) -> Result<Integral> {
+-        let cs = cos(psi);
+-        let x = self.k + product(ONE - self.k, cs);
+-        if x <= 0 {
++    fn node_cs(&self, _psi: i128, cs: i128) -> Result<Integral> {
++        let x_raw = self.x_cs(cs);
++        if x_raw <= 0 {
+             return Err(Error::Range);
+         }
+         let a = 6 * self.k + 2 * product(ONE - self.k, cs);
+@@ -284,14 +286,14 @@ impl OrbitShape {
+         }
+         let g = root.reciprocal()?;
+         let excess = f(a)?.div(root.mul(root.add(Scalar::ONE)?)?)?;
+-        let x = f(x)?;
++        let x = f(x_raw)?;
+         let inv_x2 = x.mul(x)?.reciprocal()?;
+         let tau = self.tau_numerator.mul(g)?.mul(inv_x2)?;
+         let t = self
+             .t_numerator
+             .mul(g)?
+             .mul(inv_x2)?
+-            .div(f(ONE - product(2 * self.q, self.x(psi)))?)?;
++            .div(f(ONE - product(2 * self.q, x_raw))?)?;
+         let (dt, dtau) = if !self.key.null && self.key.compactness.is_zero() {
+             (
+                 self.t_numerator.mul(Scalar::integer(3))?.div(x)?,
+@@ -302,6 +304,9 @@ impl OrbitShape {
+         };
+         Ok(Integral([excess, t, tau, dt, dtau]))
+     }
++    fn node(&self, psi: i128) -> Result<Integral> {
++        self.node_cs(psi, cos(psi))
++    }
+     fn quad(&self, lo: i128, hi: i128) -> Result<Integral> {
+         let h = hi - lo;
+         if h == 0 {
+@@ -314,14 +319,20 @@ impl OrbitShape {
+             return self.fast_quad(lo, hi);
+         }
+         let mid = lo + h / 2;
++        let dx = [(X[0] * h) >> 63, (X[1] * h) >> 63];
++        let weight = [
++            Scalar::raw((W[0] * h) >> 63, -61)?,
++            Scalar::raw((W[1] * h) >> 63, -61)?,
++        ];
++        // The four nodes exist at once: interleave their cos chains (bit-identical).
++        let cs = crate::num::cos4([mid - dx[0], mid + dx[0], mid - dx[1], mid + dx[1]]);
+         let mut sum = Integral::default();
+         for j in 0..2 {
+-            let dx = (X[j] * h) >> 63;
+-            let weight = Scalar::raw((W[j] * h) >> 63, -61)?;
+-            for psi in [mid - dx, mid + dx] {
+-                let node = self.node(psi)?;
++            for s in 0..2 {
++                let psi = mid + if s == 0 { -dx[j] } else { dx[j] };
++                let node = self.node_cs(psi, cs[2 * j + s])?;
+                 for i in 0..5 {
+-                    sum.0[i] = sum.0[i].add(weight.mul(node.0[i])?)?;
++                    sum.0[i] = sum.0[i].add(weight[j].mul(node.0[i])?)?;
+                 }
+             }
+         }
+@@ -332,19 +343,21 @@ impl OrbitShape {
+         let mid = lo + h / 2;
+         let mut sum = [0i128; 4];
+         let term = self.weak_tau_term.fixed(62)?;
++        let dx = [(X[0] * h) >> 63, (X[1] * h) >> 63];
++        let w = [(W[0] * h) >> 63, (W[1] * h) >> 63];
++        // The four nodes exist at once: interleave their cos chains (bit-identical).
++        let cs = crate::num::cos4([mid - dx[0], mid + dx[0], mid - dx[1], mid + dx[1]]);
+         for j in 0..2 {
+-            let dx = (X[j] * h) >> 63;
+-            let w = (W[j] * h) >> 63;
+-            for psi in [mid - dx, mid + dx] {
+-                let ac = product(ONE - self.k, cos(psi));
++            for s in 0..2 {
++                let ac = product(ONE - self.k, cs[2 * j + s]);
+                 let x = self.k + ac;
+                 let excess = 3 * self.k + ac;
+                 let ratio = crate::num::div_word((self.floor as u128) << 62, x as u64) as i128;
+                 let rtau = product(ratio, ratio);
+-                sum[0] += w * excess;
+-                sum[1] += w * rtau;
+-                sum[2] += w * product(rtau, 3 * x);
+-                sum[3] += w * product(rtau, excess - term);
++                sum[0] += w[j] * excess;
++                sum[1] += w[j] * rtau;
++                sum[2] += w[j] * product(rtau, 3 * x);
++                sum[3] += w[j] * product(rtau, excess - term);
+             }
+         }
+         let base = Scalar::raw(sum[1], -123)?.mul(self.clock_factor[0])?;
+@@ -362,11 +375,13 @@ impl OrbitShape {
+         let h = hi - lo;
+         let mid = lo + h / 2;
+         let mut sum = [0u128; 3];
++        let dx = [(X[0] * h) >> 63, (X[1] * h) >> 63];
++        let w = [((W[0] * h) >> 63) as u64, ((W[1] * h) >> 63) as u64];
++        // The four nodes exist at once: interleave their cos chains (bit-identical).
++        let cs = crate::num::cos4([mid - dx[0], mid + dx[0], mid - dx[1], mid + dx[1]]);
+         for j in 0..2 {
+-            let dx = (X[j] * h) >> 63;
+-            let w = ((W[j] * h) >> 63) as u64;
+-            for psi in [mid - dx, mid + dx] {
+-                let ac = product(ONE - self.k, cos(psi));
++            for s in 0..2 {
++                let ac = product(ONE - self.k, cs[2 * j + s]);
+                 let x = self.k + ac;
+                 // A node at x <= 0 lies at or beyond infinity (an unbound passage's asymptote):
+                 // refuse it as out of range rather than divide by zero (the certified bank's R5-05954).
+@@ -391,8 +406,8 @@ impl OrbitShape {
+                 let ratio = ((self.floor << 62) / x) as u64;
+                 let rtau = ((ratio as u128 * ratio as u128) >> 62) as u64;
+                 let rt = (((rtau as u128) << 62) / horizon as u128) as u64;
+-                sum[0] += w as u128 * g1 as u128;
+-                let weighted = (w as u128 * g as u128) >> self.clock_shift;
++                sum[0] += w[j] as u128 * g1 as u128;
++                let weighted = (w[j] as u128 * g as u128) >> self.clock_shift;
+                 sum[1] += weighted * rt as u128;
+                 sum[2] += weighted * rtau as u128;
+             }

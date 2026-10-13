@@ -1,0 +1,25 @@
+== patched tree (work/patch.diff applied) ==
+bit-identity: 0 mismatches over 65542 dense + 2M random
+rep 1: shipped 42.2 ns  unrolled 41.3 ns  interleaved4 14.11 ns/cos  (ratio 1.02x / 2.99x)
+rep 2: shipped 41.9 ns  unrolled 41.3 ns  interleaved4 14.09 ns/cos  (ratio 1.01x / 2.97x)
+rep 3: shipped 41.8 ns  unrolled 41.2 ns  interleaved4 14.08 ns/cos  (ratio 1.01x / 2.97x)
+grid: 85 keys, 81 compiled
+shape digest b5ef99aabce2f641
+compile rep 1: 29.64 us/key
+compile rep 2: 29.62 us/key
+compile rep 3: 29.61 us/key
+compile rep 4: 29.71 us/key
+compile rep 5: 29.79 us/key
+compile best 29.61 us/key over 85 keys
+10
+digest c83e8285b5cc69e541013137134f3801f41bf4ccb1070f1675bf69e09ba19852
+pure kick (resolve) 28.9 us (3000 kicks of 3000)
+== pristine control (A/B/A): revert the three law files ==
+digest c83e8285b5cc69e541013137134f3801f41bf4ccb1070f1675bf69e09ba19852
+pure kick (resolve) 36.9 us (3000 kicks of 3000)
+bit-identity: 0 mismatches over 65542 dense + 2M random
+shape digest b5ef99aabce2f641
+compile best 34.31 us/key over 85 keys
+== patch restored; final identity check ==
+shape digest b5ef99aabce2f641
+compile best 29.59 us/key over 85 keys
