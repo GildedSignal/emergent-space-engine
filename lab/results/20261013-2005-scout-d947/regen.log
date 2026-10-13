@@ -1,0 +1,64 @@
+runs: 239
+--- dossier tables (analysis.txt) ---
+== 1. T-exponents (log scar vs log T), per case/beta/order ==
+A_const_burn  b=0.003  slopes: O1 2.990  O2 0.000  O3 0.000  now1 1.286
+A_const_burn  b=0.030  slopes: O1 2.622  O2 0.015  O3 0.015  now1 0.776
+A_const_burn  b=0.300  slopes: O1 2.188  O2 0.000  O3 0.000  now1 0.987
+B_burn+jerk   b=0.003  slopes: O1 2.904  O2 3.804  O3 0.000  now1 1.503
+B_burn+jerk   b=0.030  slopes: O1 2.598  O2 3.500  O3 -79.509  now1 0.703
+B_burn+jerk   b=0.300  slopes: O1 2.205  O2 3.163  O3 -213.621  now1 0.955
+C_pure_jerk   b=0.003  slopes: O1 2.997  O2 3.978  O3 0.000  now1 1.604
+C_pure_jerk   b=0.030  slopes: O1 2.625  O2 3.564  O3 0.000  now1 0.816
+C_pure_jerk   b=0.300  slopes: O1 2.191  O2 3.148  O3 0.000  now1 0.909
+
+== 2. absolute scars at T=P/64 ==
+A_const_burn  b=0.003  O1 1.330e-12  O2 0.000e+00  O3 0.000e+00  now1 1.171e-11
+A_const_burn  b=0.030  O1 2.446e-10  O2 8.044e-20  O3 8.044e-20  now1 1.272e-08
+A_const_burn  b=0.300  O1 1.353e-07  O2 0.000e+00  O3 0.000e+00  now1 1.215e-05
+B_burn+jerk   b=0.003  O1 6.146e-12  O2 1.917e-14  O3 0.000e+00  now1 2.863e-11
+B_burn+jerk   b=0.030  O1 1.060e-09  O2 3.588e-12  O3 0.000e+00  now1 3.342e-08
+B_burn+jerk   b=0.300  O1 5.407e-07  O2 2.098e-09  O3 0.000e+00  now1 3.104e-05
+C_pure_jerk   b=0.003  O1 4.584e-12  O2 1.929e-14  O3 0.000e+00  now1 1.628e-11
+C_pure_jerk   b=0.030  O1 8.400e-10  O2 4.050e-12  O3 0.000e+00  now1 1.978e-08
+C_pure_jerk   b=0.300  O1 4.396e-07  O2 2.550e-09  O3 0.000e+00  now1 1.794e-05
+
+== 3. jerk-linearity (case C, O2, T=P/64): scar(C_x0.5)/C, /C_x2 ==
+b=0.003  half/full=0.562  double/full=1.765
+b=0.030  half/full=0.566  double/full=1.560
+b=0.300  half/full=0.544  double/full=1.458
+== 3b. a-linearity (case A, O1, T=P/64) ==
+b=0.003  half/full=0.536  double/full=1.915
+b=0.030  half/full=0.538  double/full=1.775
+b=0.300  half/full=0.523  double/full=1.687
+
+== 4. free-fall control (no thrust): O1 scar at T=P/64 ==
+b=0.003  freefall 0.000e+00  vs const-burn 1.330e-12  (ratio 0.00e+00)
+b=0.030  freefall 0.000e+00  vs const-burn 2.446e-10  (ratio 0.00e+00)
+b=0.300  freefall 0.000e+00  vs const-burn 1.353e-07  (ratio 0.00e+00)
+
+== 5. beta-scaling of O1 scar (case A, T=P/64) and C(beta^2/2 * dv/v) ==
+b=0.003  scar 1.330e-12  C=0.004
+b=0.030  scar 2.446e-10  C=0.007
+b=0.300  scar 1.353e-07  C=0.038
+C spread across beta: 10.17
+
+== 6. step-size control (case A anchor, O1) ==
+h=P/1024: 2.4460e-10   h=P/4096: 2.4953e-10   ratio 0.9803
+
+== 7. now1 readout: per-rebind slope in T, and TOTAL scar per orbit (cadence test) ==
+b=0.003  per-rebind slope 1.286   total/P at T=P/256..P/8: 8.16e-10 8.05e-10 7.49e-10 5.07e-10 5.64e-10 4.38e-09
+b=0.030  per-rebind slope 0.776   total/P at T=P/256..P/8: 8.15e-07 8.16e-07 8.14e-07 7.96e-07 7.01e-07 3.03e-07
+b=0.300  per-rebind slope 0.987   total/P at T=P/256..P/8: 7.72e-04 7.74e-04 7.78e-04 7.81e-04 7.78e-04 7.24e-04
+
+== 8. O2/O1 floor check (case A) and sign control (case C) ==
+b=0.003  T=P/256: 2.1e+286  T=P/64: 1.3e+288  T=P/8: 6.6e+290
+        sign control: |C+|/|C-| = 0.684 (1 = clean sign flip)
+b=0.030  T=P/256: 1.0e+08  T=P/64: 3.0e+09  T=P/8: 8.3e+11
+        sign control: |C+|/|C-| = 0.674 (1 = clean sign flip)
+b=0.300  T=P/256: 7.9e+291  T=P/64: 1.4e+293  T=P/8: 1.6e+295
+        sign control: |C+|/|C-| = 0.724 (1 = clean sign flip)
+
+== 9. the adoption row: scar at kick-like cadence T=P/32, case B (burn+jerk) ==
+b=0.003  O1 4.70e-11  O2 2.80e-13  O3 0.00e+00  now1 2.40e-11
+b=0.030  O1 6.51e-09  O2 4.15e-11  O3 0.00e+00  now1 6.34e-08
+b=0.300  O1 2.43e-06  O2 1.84e-08  O3 0.00e+00  now1 6.16e-05

@@ -1,0 +1,4 @@
+Working...
+Run complete and bit-identical on re-execution. Deliverables in `lab/results/20261013-2005-scout-d947/`: `dossier.md`, `predictions.md` (pre-registered; 4 held, 4 misses reported with mechanisms), `regen.sh` (~10 s, stdlib-only, deterministic), `wiki/gravity-news.md` with the result folded in.
+
+**Claim:** The gravity-news payload is settled by Kinnersley/Carlip (verified at source: the retarded field of an arbitrarily thrusting source depends on retarded (x, v, a) only, never jerk) and by a float falsifier — carrying total acceleration puts a constant burn at the machine floor, the jerk residual scales as j·T³ (1.8×10⁻⁸ per rebind at kick cadence, β_c = 0.3, crossing 10⁻⁶ only past T ≈ P/6.5) so no jerk slot is needed at game cadences, while the as-if-now readout's total scar is cadence-invariant (3.4×10³× worse), giving `r-news` its freeze numbers and the shared three-bottleneck slot its measured contract.
