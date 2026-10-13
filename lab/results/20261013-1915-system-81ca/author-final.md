@@ -1,0 +1,4 @@
+Working...
+Run complete. Deliverables in `lab/results/20261013-1915-system-81ca/`: `predictions.md` (pre-registered, with the honest P3/P6 partial failures), `dossier.md`, `regen.sh` (verified end-to-end, 8 s), `wiki/closed-form-kernel.md`, `probe-out.txt`; the probe lives in the tree patch as `crates/space/tests/carlson_probe.rs`.
+
+**Claim:** the bound cycle's advance is one certified-exact integer Carlson RF call on the key's own dyadic fields (`advance = 2·[RF(0,B,A) − π]`, `A = 1−q(8k−2)`, `B = 1−q(4k+2)`, no division) — reproduced independently at 1.82–2.10 µs against the shipped compile's 6.2–228 µs (3.3×–108×, O(1) in e), agreeing to 9.2e-10 over 170 strong keys while the walk itself is already 35 quanta off at the held-out key (8, 0.995) where the kicked bodies live — and the same ~2 µs kernel is the exact per-pair precession primitive the encounters tier's co-precessing sections and slack skin currently only linearize.
