@@ -64,8 +64,6 @@ impl Encounters for Brute {
 fn finder(p: &mut emergent_universe::scenario::Plane) {
     if std::env::var("BRUTE").is_ok() {
         p.u.set_encounters(Box::new(Brute));
-    } else if std::env::var("VERIFY").is_ok() {
-        p.u.set_encounters(Box::new(emergent_universe::encounter::PlayerNeighbourhood::verifying()));
     }
 }
 
@@ -129,7 +127,7 @@ fn main() {
     let only = args.get(2).cloned().unwrap_or_default();
     let cut = (seconds * RTF / TICK_SECONDS) as i64;
     let mut bad = 0;
-    // SEED_ADD shifts every flight's seed (more scenes for the verifying finder: VERIFY=1 SEED_ADD=10).
+    // SEED_ADD shifts every flight's seed (more scenes against the reference finder: BRUTE=1 SEED_ADD=10).
     let add: u64 = std::env::var("SEED_ADD").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
     for (name, seed, members, script) in flights().into_iter().filter(|f| f.0.contains(&only)) {
         let seed = seed + add;

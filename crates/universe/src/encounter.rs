@@ -9,7 +9,7 @@
 //! (the neighbourhood the player's own instruments would call close).
 use crate::bind::Binding;
 use crate::ctx::Ctx;
-use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+use crate::num::{sub2, time_of, Res, Tick, V2};
 use emergent_lattice::law::hit;
 use emergent_space::orbit::Scalar;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -30,9 +30,9 @@ pub trait Encounters: Send + Sync {
     fn find(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Vec<Encounter>;
 
     /// `find` in two halves: take now what the answer reads (the cheap half), and answer whenever the allocator has time.
-    /// The universe resolves a held scan in idle time, in the order the scans were taken, and always before it is
-    /// asked for a digest or a count, so the encounters (and what is hashed of them) are the same as if each had been
-    /// found at once. `None` (the default) means the finder does not split: the universe calls `find` where it is.
+    /// The universe answers a held scan in idle time, in the order the scans were taken, and always before it is asked for a
+    /// digest or a count, so the encounters (and what is hashed of them) are the same as if each had been found at once.
+    /// `None` (the default) means the finder does not split: the universe calls `find` where it is.
     fn capture(&self, _ctx: &Ctx, _body: usize, _t: Tick, _interval: Tick) -> Option<Arc<dyn Held>> {
         None
     }
@@ -44,59 +44,32 @@ pub trait Held: Send + Sync {
     fn answer(&self) -> Vec<Encounter>;
 }
 
-/// The exact check for the player's neighbourhood: every body in the player's doll, tested against
-/// the player over the interval.
+/// The exact check for the player's neighbourhood: every body in the player's doll, tested against the player over the
+/// interval.
 ///
-/// **A filter in front of the exact test, never in place of it.** The test reads the other body's tube at `t` (a root solve
-/// for a passage, tens of microseconds) and applies the lattice predicate to the pair's separation `d` and relative
-/// displacement `w`. A pair can hit only if `|d| − |w| ≤ near` (the predicate asks that some point of the segment `d + s·w`
-/// be within `near`), and the finder remembers where each body was when it last paid for a reading: `x_a` at `t_a`. A
-/// tube's speed is bounded by its integer word (`units.1`: the velocity components are `i64` words of `2^units.1`, sized
-/// to the tube's periapsis speed with margin, and a state outside the word is refused) and by `c = 1`, so the body is
-/// within `V·|t − t_a|` of `x_a`, the player is read exactly now, and `|d| ≥ |x_a − x_p| − V·|t − t_a|`, `|w| ≤ (V + |v_p|)·h`.
-/// When that lower bound clears `near` by a wide margin (1% and a few units of the predicate's resolution), the exact test
-/// would answer no and is not run: the same encounters, in the same order, with the same digest. The bound is evaluated in
-/// floats with a margin eight orders of magnitude above their rounding (a filter that can only skip a test that fails, as
-/// in exact geometric predicates), and `verify` runs the exact test on what it skips and panics if it ever finds a hit.
+/// **Two things are not done on the frame's critical path, and one is not done twice.** The answer reads no live state, only
+/// what the scan captured, and nothing the view shows reads it: it is found in idle time, in order ([`Encounters::capture`]).
+/// And the finder reads the player at the tick of its binding, so the scan after a boundary or an opening (which rebind
+/// nothing) is the scan after the kick before it again whenever nothing it reads has changed (the same player binding,
+/// tick and interval, the same bodies in the same bindings): its encounters are logged again (that is the digest's
+/// history), but their answer is found once.
 ///
-/// **The predicate wraps.** `hit` multiplies `i128`s; for a pair thousands of kilometres apart over a long interval
-/// (|d|·|w| beyond 2^63 in its units) the products wrap and it answers yes or no on garbage, and that answer is hashed
-/// into the digest. The filter therefore skips only where no product can wrap; every other pair is read and tested
-/// exactly, wrapped bits and all (a finding for the law's owner: the fix changes digests).
+/// **The predicate wraps** (`examples/hit_wrap.rs`). `hit` multiplies `i128`s; for a pair thousands of kilometres apart over a
+/// long interval (|d|·|w| beyond 2^63 in its units: 16–52% of the pairs a burn tests) the products wrap and it answers yes or
+/// no on garbage. Every "contact" the digest counts today is such an answer, and so are 5–54 of the hashed encounters of a
+/// flight. That answer is law, so it is kept, and it also forbids the cheap bound in front of the test (a pair beyond the
+/// neighbourhood can be skipped only where the products cannot have wrapped, and most can have). Commit `ce694696` holds
+/// such a filter, bit for bit, with its control: it skipped 0–10% of the pairs for that reason, so it is not carried. The
+/// fix of the predicate changes digests; it is not this job's.
 pub struct PlayerNeighbourhood {
-    state: Arc<Mutex<State>>,
-    /// Run the exact test on every body the filter skips and panic if one hits (the tests' control; off in the game).
-    pub verify: bool,
-    /// The tests' planted fault ([`PlayerNeighbourhood::planted_always_skip`]).
-    always_skip: bool,
-}
-
-/// What the finder did, for the measurements: pairs it was asked about, skipped by the filter, tested exactly, and the pairs the
-/// filter would have skipped had the predicate not wrapped (the cost the wrap defect keeps).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Tally {
-    pub scans: u64,
-    pub pairs: u64,
-    pub skipped: u64,
-    pub tested: u64,
-    pub kept_by_wrap: u64,
-}
-
-#[derive(Default)]
-struct State {
-    tally: Tally,
-    memo: Vec<Option<Memo>>,
-    /// The last scan taken: a scan after a boundary or an opening, which rebind nothing, reads the player at the tick of
-    /// the kick before it (the finder reads the player at its binding's tick), and with the same inputs it is that
-    /// scan again; the encounters are logged again, and the answer is not found twice.
-    last: Option<Arc<Scan>>,
+    /// The last scan taken.
+    last: Mutex<Option<Arc<Scan>>>,
+    /// The test's planted fault: reuse the last scan whatever the tick, the interval and the bodies.
+    sloppy: bool,
 }
 
 /// Everything one scan reads.
 struct Scan {
-    state: Arc<Mutex<State>>,
-    verify: bool,
-    always_skip: bool,
     body: usize,
     t: Tick,
     interval: Tick,
@@ -130,64 +103,19 @@ fn same(a: &Binding, b: &Binding) -> bool {
         && a.doll == b.doll
 }
 
-/// Where a body was when the finder last read it, and which binding that reading belongs to.
-#[derive(Clone, Copy)]
-struct Memo {
-    print: Print,
-    t: Tick,
-    x: [f64; 2],
-}
-
-/// A binding's identity: the tube, its angle and time, its units and the event that made it. The bound on the body's
-/// speed is the binding's, so a memo is used only while the body has not been rebound since.
-#[derive(Clone, Copy, PartialEq, Eq)]
-struct Print {
-    event_time: Tick,
-    key: u32,
-    angle: u32,
-    peri: i64,
-    units: (i16, i16),
-    doll: u16,
-}
-
-impl Print {
-    fn of(b: &Binding) -> Self {
-        Self { event_time: b.event_time, key: b.tube.key, angle: b.tube.periapsis_angle, peri: b.tube.periapsis_time.get() as i64, units: b.units, doll: b.doll }
-    }
-}
-
 impl Default for PlayerNeighbourhood {
     fn default() -> Self {
-        Self { state: Arc::new(Mutex::new(State::default())), verify: false, always_skip: false }
+        Self { last: Mutex::new(None), sloppy: false }
     }
 }
 
 impl PlayerNeighbourhood {
-    /// What the finder has done so far.
-    pub fn tally(&self) -> Tally {
-        self.state.lock().expect("the finder's state").tally
-    }
-
-    /// The control: every body the filter skips is tested exactly, and a hit among them panics.
-    pub fn verifying() -> Self {
-        Self { verify: true, ..Self::default() }
-    }
-
-    /// A planted fault for the tests' controls: a filter that skips every body it has read once (it believes nothing
-    /// moves), with or without the verification that catches it.
+    /// A planted fault for the tests' control: a finder that reuses the last scan whatever the tick, the interval and the
+    /// bodies. It must give another digest.
     #[doc(hidden)]
-    pub fn planted_always_skip(verify: bool) -> Self {
-        Self { verify, always_skip: true, ..Self::default() }
+    pub fn planted_sloppy_reuse() -> Self {
+        Self { sloppy: true, ..Self::default() }
     }
-}
-
-/// A speed no body of this binding exceeds, in units of `c` (the doll's `c = 1`): the integer word's capacity, at most `c`.
-fn speed_cap(b: &Binding) -> f64 {
-    (1.5 * 2f64.powi(63 + b.units.1 as i32)).min(1.0)
-}
-
-fn floats(a: V2) -> [f64; 2] {
-    [to_f64(a[0]), to_f64(a[1])]
 }
 
 fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
@@ -201,32 +129,18 @@ impl Held for Scan {
 }
 
 impl Scan {
-    /// The expensive half: read the player and each candidate at `t` and apply the predicate, past the filter where it applies.
+    /// The expensive half: read the player and each candidate at `t` and apply the predicate.
     fn compute(&self) -> Vec<Encounter> {
         let mut out = Vec::new();
-        let (me, t, body) = (&self.me, self.t, self.body);
-        let Ok((x, v)) = me.cartesian(t) else { return out };
-        let h = match time_of(self.interval, me.clock_exp) {
-            Ok(h) => h,
-            Err(_) => return out,
-        };
-        let (xf, vf, hf) = (floats(x), floats(v), to_f64(h));
-        let speed = (vf[0] * vf[0] + vf[1] * vf[1]).sqrt();
-        let mut state = self.state.lock().expect("the finder's state");
-        state.tally.scans += 1;
-        if let Some(last) = self.candidates.last() {
-            if state.memo.len() <= last.0 {
-                state.memo.resize(last.0 + 1, None);
-            }
-        }
+        let (t, body) = (self.t, self.body);
+        let Ok((x, v)) = self.me.cartesian(t) else { return out };
+        let Ok(h) = time_of(self.interval, self.me.clock_exp) else { return out };
         for (j, other, reach) in &self.candidates {
-            let (j, reach) = (*j, *reach);
-            state.tally.pairs += 1;
-            // The exact test, given the other body's state at `t`.
-            let exact = |xj: V2, vj: V2| -> Res<Option<bool>> {
+            let found = (|| -> Res<Option<bool>> {
+                let (xj, vj) = other.cartesian(t)?;
                 let d = sub2(xj, x)?;
                 let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
-                // Integers in units of reach/2^20: the lattice predicate is exact on i128.
+                // Integers in units of reach/2^20: the lattice predicate is exact on i128 (until it wraps: see above).
                 let q_exp = reach.exponent() as i32 - 20;
                 let (di, wi) = (integers(d, q_exp)?, integers(w, q_exp)?);
                 let near = reach.scale(ENCOUNTER_LOG2)?.fixed(-q_exp)?;
@@ -234,48 +148,9 @@ impl Scan {
                     return Ok(None);
                 }
                 Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
-            };
-            // The filter: where the body was when it was last read, and how far it can have gone since.
-            let print = Print::of(other);
-            if let Some(m) = state.memo[j].filter(|m| m.print == print) {
-                let cap = speed_cap(other);
-                let dt = t.abs_diff(m.t) as f64 * 2f64.powi(other.clock_exp as i32);
-                let gap = ((m.x[0] - xf[0]).powi(2) + (m.x[1] - xf[1]).powi(2)).sqrt();
-                let near = to_f64(reach) * (1u64 << ENCOUNTER_LOG2) as f64;
-                // |d| ≥ gap − cap·dt and |w| ≤ (cap + |v_p|)·h: the closest the pair gets over the interval.
-                let closest = gap - cap * dt - (cap + speed) * hf;
-                // The predicate's products are `i128`s that wrap: far beyond its design it answers yes on garbage, and that
-                // answer is part of the digest. The filter skips a pair only where the predicate cannot have wrapped:
-                // every product below 2^124 in its units.
-                let unit = 2f64.powi(reach.exponent() as i32 - 20);
-                let (d_max, w_max, near_int) = ((gap + cap * dt) / unit + 4.0, (cap + speed) * hf / unit + 4.0, near / unit + 4.0);
-                let no_wrap = d_max < 2f64.powi(60) && w_max < 2f64.powi(60) && d_max * w_max < 2f64.powi(60) && w_max * w_max * near_int * near_int < 2f64.powi(122);
-                if closest > near * 1.01 && !no_wrap {
-                    state.tally.kept_by_wrap += 1;
-                }
-                if self.always_skip || (no_wrap && closest > near * 1.01) {
-                    state.tally.skipped += 1;
-                    if self.verify {
-                        if let Ok((xj, vj)) = other.cartesian(t) {
-                            assert!(!matches!(exact(xj, vj), Ok(Some(_))), "the filter skipped body {j} at tick {t}, which hits (closest bound {closest:e}, near {near:e})");
-                        }
-                    }
-                    continue;
-                }
-            }
-            state.tally.tested += 1;
-            let found = match other.cartesian(t) {
-                Ok((xj, vj)) => {
-                    state.memo[j] = Some(Memo { print, t, x: floats(xj) });
-                    exact(xj, vj)
-                }
-                Err(e) => {
-                    state.memo[j] = None;
-                    Err(e)
-                }
-            };
+            })();
             if let Ok(Some(contact)) = found {
-                out.push(Encounter { a: body, b: j, t, contact });
+                out.push(Encounter { a: body, b: *j, t, contact });
             }
         }
         out
@@ -306,20 +181,13 @@ impl Encounters for PlayerNeighbourhood {
             }
             candidates.push((j, other, reach));
         }
-        let last = {
-            let state = self.state.lock().expect("the finder's state");
-            state.last.clone().filter(|l| l.same_inputs(body, t, interval, &me, &candidates))
-        };
-        if let Some(last) = last {
-            if self.verify && last.found.get().is_some() {
-                // The repeated scan is the earlier answer; recompute it from nothing (no filter) and compare.
-                let fresh = Scan { state: Arc::new(Mutex::new(State::default())), verify: false, always_skip: false, body, t, interval, me: me.clone(), candidates: candidates.clone(), found: OnceLock::new() };
-                assert_eq!(fresh.answer(), last.answer(), "a repeated scan at tick {t} found something else");
-            }
-            return Some(last as Arc<dyn Held>);
+        let mut last = self.last.lock().expect("the finder's last scan");
+        let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+        if let Some(l) = last.as_ref().filter(reusable) {
+            return Some(l.clone() as Arc<dyn Held>);
         }
-        let scan = Arc::new(Scan { state: self.state.clone(), verify: self.verify, always_skip: self.always_skip, body, t, interval, me, candidates, found: OnceLock::new() });
-        self.state.lock().expect("the finder's state").last = Some(scan.clone());
+        let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
+        *last = Some(scan.clone());
         Some(scan)
     }
 }
