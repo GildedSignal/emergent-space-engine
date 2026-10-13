@@ -1,0 +1,4 @@
+Working...
+All deliverables verified: `predictions.md` (pre-registered), `dossier.md`, `regen.sh` (exit 0, ~10 s, every number regenerates including the 42/579/1,036 external control), and `wiki/frame-cost.md` (conflicts resolved, result folded in).
+
+**Claim:** the flight sweep's burn-input waterfall (42→1,036 player items per input frame, reproduced digit-for-digit) is not a replan storm and not field work — it is the velocity word's sampling of an exactly-solvable burn (one rebind per 1/64 of |v|, `2^⌊log2(β·2⁻⁶/α)⌋`, 2,283/2,293 kicks) whose events carry a tide 10⁹–10¹⁰ times smaller than the thrust per kick (median 2.8×10⁻¹¹; counterfactual tide-carry cadence: ~0–2 events), so the burst should be deleted by carrying the burn in the tube's generator (ramp + `rec.carry`, the kick-jet retirement applied to the one exactly-solvable influence) rather than spread, as the in-flight fix proposes.

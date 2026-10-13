@@ -1,0 +1,156 @@
+== build ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 16.05s
+
+== the decomposition, paced (12 ms frame budget, the sweep's flight conditions) ==
+rtf 100, 4 s per flight (240 frames at 60 Hz), budget 12 ms
+
+=== coast (control) (alive 240 of 240)
+  thrust steps: sum 0 ticks over ticks 2097152..77594624
+  counterfactual: the tide alone (carry at the coast cadence, median tide 572400014/kick) would mint ~0 events for the same 0/19 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 0, 0, 0, 0]
+player items total 38 (worst frame 6 with 1), max lag 0.038 s
+  by kind: kick0 19 kick1+ 0 open 0 boundary 19 crash 0 decide 0
+  kicks recorded 19 (thrust 0 coast 19); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 0]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 0]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 19] (fired 19 of 19)
+  thrust steps: sum 0 ticks over ticks 2097152..77594624
+
+=== forward L8 (alive 240 of 240)
+  thrust steps: sum 54146396 ticks over ticks 2097152..74186752
+  counterfactual: the tide alone (carry at the coast cadence, median tide 497962832/kick) would mint ~0 events for the same 541/546 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 437, 104, 0, 0]
+player items total 1091 (worst frame 60 with 32), max lag 1.667 s
+  by kind: kick0 546 kick1+ 0 open 0 boundary 545 crash 0 decide 1
+  kicks recorded 546 (thrust 541 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 541]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 541]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+  thrust steps: sum 54146396 ticks over ticks 2097152..74186752
+
+=== forward L12 (alive 240 of 240)
+  thrust steps: sum 43660636 ticks over ticks 2097152..63700992
+  counterfactual: the tide alone (carry at the coast cadence, median tide 497962832/kick) would mint ~0 events for the same 785/790 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 721, 64, 0, 0]
+player items total 1579 (worst frame 60 with 32), max lag 1.626 s
+  by kind: kick0 790 kick1+ 0 open 0 boundary 789 crash 0 decide 1
+  kicks recorded 790 (thrust 785 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 127, 658]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 785]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+  thrust steps: sum 43660636 ticks over ticks 2097152..63700992
+
+=== forward L15 (alive 240 of 240)
+  thrust steps: sum 36734978 ticks over ticks 2097152..56644281
+  counterfactual: the tide alone (carry at the coast cadence, median tide 497962832/kick) would mint ~26413 events for the same 968/973 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 936, 0, 32, 0]
+player items total 1946 (worst frame 60 with 32), max lag 1.666 s
+  by kind: kick0 973 kick1+ 0 open 0 boundary 973 crash 0 decide 1
+  kicks recorded 973 (thrust 968 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 191, 777]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 968]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+  thrust steps: sum 36734978 ticks over ticks 2097152..56644281
+
+=== reverse L8 (brake) (alive 240 of 240)
+  thrust steps: sum 60437852 ticks over ticks 2097152..80478208
+  counterfactual: the tide alone (carry at the coast cadence, median tide 497962832/kick) would mint ~10 events for the same 325/330 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 222, 103, 0, 0]
+player items total 659 (worst frame 60 with 31), max lag 0.779 s
+  by kind: kick0 330 kick1+ 0 open 0 boundary 329 crash 0 decide 1
+  kicks recorded 330 (thrust 325 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 325]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 325]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+  thrust steps: sum 60437852 ticks over ticks 2097152..80478208
+
+=== turn left then burn L8 (alive 191 of 240)
+  thrust steps: sum 12559181 ticks over ticks 2097152..63242240
+  counterfactual: the tide alone (carry at the coast cadence, median tide 524106938/kick) would mint ~0 events for the same 377/391 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 376, 1, 0, 0]
+player items total 780 (worst frame 150 with 35), max lag 0.577 s
+  by kind: kick0 391 kick1+ 0 open 0 boundary 389 crash 0 decide 3
+  kicks recorded 391 (thrust 377 coast 14); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 377]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 377]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 14] (fired 14 of 14)
+  thrust steps: sum 12559181 ticks over ticks 2097152..63242240
+
+== the decomposition, demand mode (unlimited budget: every due item in its frame) ==
+rtf 100, 2 s per flight (120 frames at 60 Hz), budget unlimited (demand)
+
+=== coast (control) (alive 120 of 120)
+  thrust steps: sum 0 ticks over ticks 2097152..39845888
+  counterfactual: the tide alone (carry at the coast cadence, median tide 524106938/kick) would mint ~0 events for the same 0/10 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 0, 0, 0, 0]
+player items total 19 (worst frame 6 with 1), max lag 0.000 s
+  by kind: kick0 10 kick1+ 0 open 0 boundary 9 crash 0 decide 0
+  kicks recorded 10 (thrust 0 coast 10); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 0]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 0]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 10] (fired 10 of 10)
+  thrust steps: sum 0 ticks over ticks 2097152..39845888
+
+=== forward L8 (alive 120 of 120)
+  thrust steps: sum 20329820 ticks over ticks 2097152..40501248
+  counterfactual: the tide alone (carry at the coast cadence, median tide 497962832/kick) would mint ~0 events for the same 447/452 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 437, 10, 0, 0]
+player items total 902 (worst frame 62 with 42), max lag 0.000 s
+  by kind: kick0 452 kick1+ 0 open 0 boundary 450 crash 0 decide 1
+  kicks recorded 452 (thrust 447 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 447]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 447]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+  thrust steps: sum 20329820 ticks over ticks 2097152..40501248
+
+=== forward L12 (alive 120 of 120)
+  thrust steps: sum 20329820 ticks over ticks 2097152..40501248
+  counterfactual: the tide alone (carry at the coast cadence, median tide 497962832/kick) would mint ~0 events for the same 714/719 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 714, 0, 0, 0]
+player items total 1436 (worst frame 60 with 579), max lag 0.000 s
+  by kind: kick0 719 kick1+ 0 open 0 boundary 717 crash 0 decide 1
+  kicks recorded 719 (thrust 714 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 127, 587]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 714]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+  thrust steps: sum 20329820 ticks over ticks 2097152..40501248
+
+=== forward L15 (alive 120 of 120)
+  thrust steps: sum 20329820 ticks over ticks 2097152..40501248
+  counterfactual: the tide alone (carry at the coast cadence, median tide 497962832/kick) would mint ~0 events for the same 906/911 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 906, 0, 0, 0]
+player items total 1820 (worst frame 60 with 1036), max lag 0.000 s
+  by kind: kick0 911 kick1+ 0 open 0 boundary 909 crash 0 decide 1
+  kicks recorded 911 (thrust 906 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 191, 715]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 906]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+  thrust steps: sum 20329820 ticks over ticks 2097152..40501248
+
+=== reverse L8 (brake) (alive 120 of 120)
+  thrust steps: sum 20329820 ticks over ticks 2097152..40501248
+  counterfactual: the tide alone (carry at the coast cadence, median tide 497962832/kick) would mint ~2 events for the same 226/231 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 222, 4, 0, 0]
+player items total 460 (worst frame 60 with 31), max lag 0.000 s
+  by kind: kick0 231 kick1+ 0 open 0 boundary 229 crash 0 decide 1
+  kicks recorded 231 (thrust 226 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 226]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 226]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+  thrust steps: sum 20329820 ticks over ticks 2097152..40501248
+
+=== turn left then burn L8 (alive 120 of 120)
+  thrust steps: sum 0 ticks over ticks 2097152..39845888
+  counterfactual: the tide alone (carry at the coast cadence, median tide 516371417/kick) would mint ~0 events for the same 0/11 thrust kicks
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 0, 0, 0, 0]
+player items total 20 (worst frame 6 with 1), max lag 0.000 s
+  by kind: kick0 11 kick1+ 0 open 0 boundary 9 crash 0 decide 1
+  kicks recorded 11 (thrust 0 coast 11); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 0]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 0]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 11] (fired 11 of 11)
+  thrust steps: sum 0 ticks over ticks 2097152..39845888
+
+== cadence-law check over every thrust kick (demand run) ==
+thrust kicks 2293; cadence-formula mismatches 10 (alignment/MIN_STEP remainders)
+tide/burn dv ratio: min 2.570e-12 median 2.819e-11 max 1.334e-09

@@ -1,0 +1,322 @@
+diff --git a/crates/universe/examples/waterfall.rs b/crates/universe/examples/waterfall.rs
+new file mode 100644
+index 00000000..a0fa315f
+--- /dev/null
++++ b/crates/universe/examples/waterfall.rs
+@@ -0,0 +1,148 @@
++//! The burn-input waterfall, decomposed (lab run 20261013-0037-system-174d). The sweep's L8+ stutter
++//! was attributed to "a replan waterfall of up to 1,036 player items in the burn frame"; this example
++//! answers *what those items are* and *what each one buys*: every player item by kind, and every
++//! kick's tide dv against burn dv in velocity quanta (the tide is the only part that needs an event;
++//! the burn is analytic in rapidity).
++//!
++//! cargo run --release -p emergent-universe --example waterfall [-- <rtf> <wall seconds per flight>]
++use emergent_universe::scenario::plane;
++use emergent_universe::step::waterfall;
++use emergent_universe::thrust::word;
++use emergent_universe::{fleet::Order, Budget, Config};
++use std::sync::atomic::Ordering;
++use std::time::{Duration, Instant};
++
++fn flights() -> Vec<(String, Vec<(f64, u8, u8)>)> {
++    vec![
++        ("coast (control)".into(), vec![]),
++        ("forward L8".into(), vec![(1.0, 1, 8)]),
++        ("forward L12".into(), vec![(1.0, 1, 12)]),
++        ("forward L15".into(), vec![(1.0, 1, 15)]),
++        ("reverse L8 (brake)".into(), vec![(1.0, 2, 8)]),
++        ("turn left then burn L8".into(), vec![(1.0, 4, 8), (2.0, 0, 8), (2.5, 1, 8)]),
++    ]
++}
++
++fn bucket(q: i64) -> usize {
++    match q {
++        0 => 0,
++        1 => 1,
++        2..=3 => 2,
++        4..=7 => 3,
++        8..=15 => 4,
++        16..=63 => 5,
++        _ => 6,
++    }
++}
++
++fn main() {
++    std::env::set_var("ES_WATERFALL", "1");
++    let args: Vec<String> = std::env::args().collect();
++    let rtf: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(4.0);
++    let demand = args.get(3).map(|s| s == "demand").unwrap_or(false);
++    let frames = (seconds * 60.0) as usize;
++    println!("rtf {rtf}, {seconds} s per flight ({frames} frames at 60 Hz), budget {}", if demand { "unlimited (demand)" } else { "12 ms" });
++
++    for (name, script) in flights() {
++        let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++        let items0 = p.u.stats.items[3];
++        let wf0: Vec<u64> = waterfall::PLAYER_ITEMS.iter().map(|c| c.load(Ordering::Relaxed)).collect();
++        let (mut next, mut worst_items, mut worst_frame, mut max_lag, mut alive_for) = (0usize, 0u64, 0usize, 0f64, frames);
++        let mut cumulative: Vec<u64> = Vec::with_capacity(frames);
++        for f in 0..frames {
++            let wall = f as f64 / 60.0;
++            while next < script.len() && script[next].0 <= wall {
++                let (_, keys, level) = script[next];
++                let _ = p.u.input(p.u.now, word(keys, level));
++                next += 1;
++            }
++            let start = Instant::now();
++            let frame = p.u.frame_to(
++                1.0 / 60.0,
++                rtf,
++                Budget { events: u64::MAX, until: if demand { None } else { Some(start + Duration::from_millis(12)) } },
++                i64::MAX,
++            );
++            let items = p.u.stats.items[3] - items0;
++            let prev = cumulative.last().copied().unwrap_or(0);
++            if items - prev > worst_items {
++                worst_items = items - prev;
++                worst_frame = f;
++            }
++            cumulative.push(items);
++            max_lag = max_lag.max((frame.target - frame.presented) as f64 * emergent_universe::view::TICK_SECONDS);
++            if !p.u.rec(p.player).alive {
++                alive_for = f + 1;
++                break;
++            }
++        }
++        let rec = p.u.rec(p.player);
++        let items = *cumulative.last().unwrap_or(&0);
++        let wf: Vec<u64> = waterfall::PLAYER_ITEMS.iter().map(|c| c.load(Ordering::Relaxed)).zip(wf0).map(|(a, b)| a - b).collect();
++        let kicks = waterfall::take_kicks();
++        let thrust: Vec<_> = kicks.iter().filter(|k| k.burn_q > 0).collect();
++        let coast: Vec<_> = kicks.iter().filter(|k| k.burn_q == 0).collect();
++        let tide_zero = thrust.iter().filter(|k| k.tide_q == 0).count();
++        let mut tide_h = [0usize; 7];
++        let mut burn_h = [0usize; 7];
++        for k in &thrust {
++            tide_h[bucket(k.tide_q)] += 1;
++            burn_h[bucket(k.burn_q)] += 1;
++        }
++        let mut tide_coast_h = [0usize; 7];
++        let mut tide_coast_fire = 0usize;
++        for k in &coast {
++            tide_coast_h[bucket(k.tide_q)] += 1;
++            tide_coast_fire += (k.tide_q > 0) as usize;
++        }
++        let steps_sum: i64 = thrust.iter().map(|k| k.step).sum();
++        let tide_sum: i128 = thrust.iter().map(|k| k.tide_q as i128).sum();
++        let coast_median = {
++            let mut qs: Vec<i64> = coast.iter().map(|k| k.tide_q).collect();
++            qs.sort_unstable();
++            qs.get(qs.len() / 2).copied().unwrap_or(0)
++        };
++        let tide_only_events = if coast_median > 0 { (tide_sum / coast_median as i128).max(0) } else { -1 };
++        let mut ratio_h = [0usize; 5];
++        for k in &thrust {
++            let r = (k.tide_q as f64 + 1.0) / (k.burn_q as f64 + 1.0);
++            ratio_h[match r {
++                r if r < 2f64.powi(-40) => 0,
++                r if r < 2f64.powi(-30) => 1,
++                r if r < 2f64.powi(-20) => 2,
++                r if r < 2f64.powi(-10) => 3,
++                _ => 4,
++            }] += 1;
++        }
++        println!(
++            "\n=== {name} (alive {} of {frames}{})",
++            alive_for,
++            rec.fault.map(|f| format!(", fault {f:?}")).unwrap_or_default()
++        );
++        println!("  thrust steps: sum {steps_sum} ticks over ticks {}..{}", kicks.first().map(|k| k.tick).unwrap_or(0), kicks.last().map(|k| k.tick).unwrap_or(0));
++        println!(
++            "  counterfactual: the tide alone (carry at the coast cadence, median tide {coast_median}/kick) would mint ~{tide_only_events} events for the same {}/{} thrust kicks",
++            thrust.len(),
++            kicks.len()
++        );
++        println!("  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: {ratio_h:?}");
++        println!("player items total {items} (worst frame {} with {}), max lag {max_lag:.3} s", worst_frame, worst_items);
++        println!("  by kind: kick0 {} kick1+ {} open {} boundary {} crash {} decide {}", wf[0], wf[1], wf[2], wf[3], wf[4], wf[5]);
++        println!(
++            "  kicks recorded {} (thrust {} coast {}); thrust tide==0 quanta: {} ({:.1}%)",
++            kicks.len(),
++            thrust.len(),
++            coast.len(),
++            tide_zero,
++            100.0 * tide_zero as f64 / thrust.len().max(1) as f64
++        );
++        println!("  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: {tide_h:?}");
++        println!("  thrust burn_q buckets: {burn_h:?}");
++        println!("  coast  tide_q buckets: {tide_coast_h:?} (fired {tide_coast_fire} of {})", coast.len());
++        println!("  thrust steps: sum {steps_sum} ticks over ticks {}..{}", kicks.first().map(|k| k.tick).unwrap_or(0), kicks.last().map(|k| k.tick).unwrap_or(0));
++        for k in &kicks {
++            println!("kick tick {} step {} beta {:.6e} tide_q {} burn_q {}", k.tick, k.step, k.beta_e9 as f64 / 1e9, k.tide_q, k.burn_q);
++        }
++    }
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d435..32462ccb 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -51,6 +51,57 @@ pub const MAX_STEP: i64 = 1 << 50;
+ /// A thrust step moves the velocity by at most `1/2^THRUST_FRACTION_LOG2` of the local speed.
+ pub const THRUST_FRACTION_LOG2: i32 = 6;
+ 
++/// Lab probe (run 20261013-0037-system-174d): what the player's resolved items are, and how much of
++/// each thrust kick is tide (the only part that needs an event) against burn (analytic in rapidity).
++/// Off unless `ES_WATERFALL` is set; no behaviour change either way (counters only).
++pub mod waterfall {
++    use std::sync::atomic::{AtomicU64, Ordering};
++     use std::sync::Mutex;
++
++    /// One thrust kick on the player: `tide_q`/`burn_q` are the max |component| of that part's dv,
++    /// in the velocity word's quanta (rounded toward zero); `step` is the next interval planned.
++    #[derive(Clone, Copy, Debug)]
++    pub struct ThrustKick {
++        pub tick: u64,
++        pub step: i64,
++        pub beta_e9: u64,
++        pub tide_q: i64,
++        pub burn_q: i64,
++    }
++
++    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    /// Player items by what: kick0, kick1+, open, boundary, crash, decide.
++    pub static PLAYER_ITEMS: [AtomicU64; 6] = [
++        AtomicU64::new(0),
++        AtomicU64::new(0),
++        AtomicU64::new(0),
++        AtomicU64::new(0),
++        AtomicU64::new(0),
++        AtomicU64::new(0),
++    ];
++    static KICKS: Mutex<Option<Vec<ThrustKick>>> = Mutex::new(None);
++
++    pub fn on() -> bool {
++        *ON.get_or_init(|| std::env::var("ES_WATERFALL").is_ok())
++    }
++
++    pub fn item(kind: usize) {
++        PLAYER_ITEMS[kind].fetch_add(1, Ordering::Relaxed);
++    }
++
++    pub fn kick(k: ThrustKick) {
++        let mut g = KICKS.lock().expect("waterfall");
++        let v = g.get_or_insert_with(Vec::new);
++        if v.len() < 400_000 {
++            v.push(k);
++        }
++    }
++
++    pub fn take_kicks() -> Vec<ThrustKick> {
++        KICKS.lock().expect("waterfall").take().unwrap_or_default()
++    }
++}
++
+ /// What resolving one item did, for the universe to apply and count.
+ pub struct Update {
+     pub rec: BodyRec,
+@@ -367,8 +418,26 @@ impl Work<'_, '_> {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+             added = dv;
++            if waterfall::on() && self.rec.kind == Kind::Player {
++                waterfall::kick(waterfall::ThrustKick {
++                    tick: t as u64,
++                    step: self.rec.interval >> (2 * level as i64),
++                    beta_e9: ((crate::num::to_f64(v[0]).powi(2) + crate::num::to_f64(v[1]).powi(2)).sqrt() * 1e9) as u64,
++                    tide_q: tide_quanta(&dv, st.velocity_exponent),
++                    burn_q: burn_quanta(&add2(v, dv)?, &v2, st.velocity_exponent),
++                });
++            }
+             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
+         } else {
++            if waterfall::on() && self.rec.kind == Kind::Player {
++                waterfall::kick(waterfall::ThrustKick {
++                    tick: t as u64,
++                    step: self.rec.interval >> (2 * level as i64),
++                    beta_e9: ((crate::num::to_f64(v[0]).powi(2) + crate::num::to_f64(v[1]).powi(2)).sqrt() * 1e9) as u64,
++                    tide_q: tide_quanta(&dv, st.velocity_exponent),
++                    burn_q: 0,
++                });
++            }
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+@@ -604,12 +673,19 @@ impl Work<'_, '_> {
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
++         let mut wf: Option<(i64, i64)> = None;
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
++            if waterfall::on() && self.rec.kind == Kind::Player {
++                wf = Some((tide_quanta(&dv, st.velocity_exponent), burn_quanta(&v, &v2, st.velocity_exponent)));
++            }
+             (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
+         } else {
+-            let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
++            if waterfall::on() && self.rec.kind == Kind::Player {
++                wf = Some((tide_quanta(&dv, st.velocity_exponent), 0));
++            }
++             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+             ext.add_pt(w.mul(f.rate)?)?;
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
+@@ -637,6 +713,10 @@ impl Work<'_, '_> {
+             // closes had been running.
+             self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
+         }
++        if let (true, Some((tide_q, burn_q))) = (waterfall::on() && self.rec.kind == Kind::Player, wf) {
++            let beta = (crate::num::to_f64(v[0]).powi(2) + crate::num::to_f64(v[1]).powi(2)).sqrt();
++            waterfall::kick(waterfall::ThrustKick { tick: t as u64, step: full, beta_e9: (beta * 1e9) as u64, tide_q, burn_q });
++        }
+         self.rec.interval = full;
+         self.rec.step = full;
+         insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
+@@ -757,7 +837,16 @@ impl Work<'_, '_> {
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+     let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
+     let item = w.rec.plan.remove(0);
+-    w.rec.events += 1;
++    if waterfall::on() && w.rec.kind == Kind::Player {
++        waterfall::item(match item.what {
++            What::Kick(0) => 0,
++            What::Kick(_) => 1,
++            What::Open(_) => 2,
++            What::Boundary => 3,
++            What::Crash => 4,
++        });
++    }
++     w.rec.events += 1;
+     let t = item.t;
+     let h0 = w.rec.interval;
+     let result = match item.what {
+@@ -807,7 +896,10 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    if waterfall::on() && rec.kind == Kind::Player {
++        waterfall::item(5);
++    }
++     let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+@@ -971,3 +1063,16 @@ mod tests {
+         assert!(miss < 1e-15 && galilean > 1e-2);
+     }
+ }
++
++/// The probe's dv magnitudes in velocity quanta (measurement only; the law's own quantize is untouched).
++fn tide_quanta(dv: &V2, exp: i16) -> i64 {
++    dv.iter().map(|s| s.fixed(-(exp as i32)).unwrap_or(0).abs() as i64).max().unwrap_or(0)
++}
++
++/// The burn's dv alone: the post-burn velocity minus the pre-kick velocity plus the tide's part.
++fn burn_quanta(v: &V2, v2: &V2, exp: i16) -> i64 {
++    (0..2)
++        .map(|c| v2[c].sub(v[c]).map(|d| d.fixed(-(exp as i32)).unwrap_or(0).abs() as i64).unwrap_or(0))
++        .max()
++        .unwrap_or(0)
++}
