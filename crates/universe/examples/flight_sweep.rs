@@ -56,6 +56,27 @@ fn brake(level: u8, burn_out: bool) -> Pilot {
     })
 }
 
+/// A held prograde burn at `level` from the first frame (the nose is prograde only at the start: it holds its direction in space,
+/// and the orbit turns under it) until the ship is `au` astronomical units from the star, then coast: the far, fast flight
+/// (run it at a higher time factor: `flight_sweep 3000 20 far`).
+fn far(level: u8, au: f64) -> Pilot {
+    let mut burning = false;
+    Box::new(move |wall, v| {
+        let ls = (v.position_light_seconds[0].powi(2) + v.position_light_seconds[1].powi(2)).sqrt();
+        match (burning, wall < 0.1, ls >= au * 499.004784) {
+            (false, true, false) => {
+                burning = true;
+                Some((1, level))
+            }
+            (true, _, true) => {
+                burning = false;
+                Some((0, level))
+            }
+            _ => None,
+        }
+    })
+}
+
 fn flights() -> Vec<(String, Pilot)> {
     let mut v: Vec<(String, Pilot)> = vec![("coast".into(), script(vec![]))];
     for level in [0u8, 2, 4, 6, 8, 10, 12, 15] {
@@ -71,6 +92,9 @@ fn flights() -> Vec<(String, Pilot)> {
     for level in [2u8, 8] {
         v.push((format!("turn left then burn L{level}"), script(vec![(1.0, 4, level), (2.0, 0, level), (2.5, 1, level), (8.0, 0, level)])));
         v.push((format!("burn, coast, brake L{level}"), script(vec![(1.0, 1, level), (6.0, 0, level), (9.0, 2, level), (14.0, 0, level)])));
+    }
+    for level in [10u8, 12, 15] {
+        v.push((format!("far: prograde L{level} to 3 AU"), far(level, 3.0)));
     }
     v.push(("throttle sweep 0→15→0".into(), script((0..32).map(|i| (1.0 + i as f64 * 0.5, 1, if i < 16 { i as u8 } else { 31 - i as u8 })).collect())));
     v.push(("key mashing".into(), script((0..120).map(|i| (1.0 + i as f64 * 0.1, [1, 4, 2, 8, 5, 9, 0, 6][i % 8], (i % 16) as u8)).collect())));

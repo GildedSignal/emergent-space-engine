@@ -357,7 +357,7 @@ impl Work<'_, '_> {
     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
-        let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
+        let bound = match bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface)) { Ok(b) => b, Err(e) => { eprintln!("DBGREFUSE {e:?} t {t} doll {doll} state {exact:?} edge {:?}", self.passage_edge(doll).map(crate::num::to_f64)); return Err(e) } };
         let old = &self.rec.b;
         // The tube's length since the last binding is the body's clock reading (root units).
         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
@@ -377,7 +377,7 @@ impl Work<'_, '_> {
         };
         self.new_entry = Some(bound.entry.clone());
         self.rec.plan.retain(|item| item.what != What::Crash);
-        self.plan_terminal()?;
+        self.plan_terminal(t)?;
         Ok(bound)
     }
 
@@ -510,19 +510,29 @@ impl Work<'_, '_> {
         Ok(())
     }
 
-    /// Plan the interval starting at `t`: the step (with hysteresis), its midpoint kick and boundary,
-    /// capped so that it ends no later than the tube's exit from its doll, and the planned impact.
-    fn plan_terminal(&mut self) -> Res<()> {
-        if let Some(t) = self.rec.b.terminal_tick()? {
-            self.rec.plan.retain(|item| item.what != What::Crash);
-            insert(&mut self.rec.plan, Item { t, what: What::Crash });
+    /// Plan the impact the binding holds, as the one `Crash` item of the plan (any other is dropped): where a plunge arc ends
+    /// at the surface, or where a turning orbit whose periapsis dips under it meets it ([`next_impact`]: the ship is lost
+    /// where the course meets the surface, not at the periapsis behind it). A rebinding plans it again from the new tube,
+    /// so a stale impact never outlives the orbit it was read from; the item is re-checked at its tick all the same.
+    fn plan_terminal(&mut self, t: Tick) -> Res<()> {
+        self.rec.plan.retain(|item| item.what != What::Crash);
+        if let Some(tick) = self.rec.b.terminal_tick()? {
+            insert(&mut self.rec.plan, Item { t: tick, what: What::Crash });
+        } else if self.rec.kind != Kind::Planet
+            && self.rec.b.entry.trajectory.key().is_some_and(|key| self.rec.b.to_doll(key.periapsis).is_ok_and(|r| r < self.doll().surface))
+        {
+            if let Some(tick) = next_impact(&self.rec.b, self.doll().surface, self.rec.b.event_time)? {
+                insert(&mut self.rec.plan, Item { t: tick.max(t + 1), what: What::Crash });
+            }
         }
         Ok(())
     }
 
+    /// Plan the interval starting at `t`: the step (with hysteresis), its midpoint kick and boundary,
+    /// capped so that it ends no later than the tube's exit from its doll, and the planned impact.
     fn plan_interval(&mut self, t: Tick) -> Res<()> {
         self.plan_interval_inner(t)?;
-        self.plan_terminal()
+        self.plan_terminal(t)
     }
 
     fn plan_interval_inner(&mut self, t: Tick) -> Res<()> {
@@ -567,14 +577,6 @@ impl Work<'_, '_> {
         }
         insert(&mut self.rec.plan, Item { t: t + h / 2, what: What::Kick(0) });
         insert(&mut self.rec.plan, Item { t: t + h, what: What::Boundary });
-        if self.rec.kind != Kind::Planet {
-            if self.rec.b.entry.trajectory.key().is_some_and(|key| self.rec.b.to_doll(key.periapsis).is_ok_and(|r| r < self.doll().surface)) {
-                // The ship is lost where the course meets the surface, not at the periapsis behind it.
-                if let Some(tc) = next_impact(&self.rec.b, self.doll().surface, t)?.filter(|&tc| tc <= t + h) {
-                    insert(&mut self.rec.plan, Item { t: tc.max(t + 1), what: What::Crash });
-                }
-            }
-        }
         // A stub is split into quarters like any interval (the levels' lengths are `h >> 2l`, floored: a few ticks of the
         // deepest level's weight are left out of a stub), unless it is too short to split.
         if h < MIN_STEP {
@@ -631,6 +633,11 @@ impl Work<'_, '_> {
         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
             half = half.min((self.thrust_step(t)? / 2).max(1));
         }
+        // The first kick is read from this tube: it comes before the tube's window closes (a fast ship leaves a passage's
+        // compiled radius within a clock step, far from the star where the step is long).
+        if let Some(end) = self.window_end()? {
+            half = half.min(((end - t) / 4).max(1));
+        }
         self.rec.ext = Some(ext);
         self.rec.plan.clear();
         self.rec.anchor = t;
@@ -639,7 +646,7 @@ impl Work<'_, '_> {
         // The synchronised state a reader's partial step starts from, until the first kick: this one.
         self.rec.b.kick = Kick { len: 2 * half, level: 0, dv: [0; 2], clock: true, boundary: t, lead: 0 };
         insert(&mut self.rec.plan, Item { t: t + half, what: What::Kick(0) });
-        self.plan_terminal()
+        self.plan_terminal(t)
     }
 
     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
@@ -677,9 +684,16 @@ impl Work<'_, '_> {
             ext.add_pt(w.mul(f.rate)?)?;
             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
         };
-        let fired = next.velocity != st.velocity;
+        let mut fired = next.velocity != st.velocity;
         if fired {
             self.rebind(next, t, d)?;
+        } else if let Some(end) = self.window_end()? {
+            // A kick that changed nothing leaves the tube it read: when half its window is spent it is bound again at the same
+            // state (exactly: the readout at the event is the state), so the window is always ahead of the next kick.
+            if end - t < (end - self.rec.b.event_time) / 2 {
+                self.rebind(next, t, d)?;
+                fired = true;
+            }
         }
         self.rec.carry = carry;
         self.rec.ext = Some(ext);
@@ -695,6 +709,9 @@ impl Work<'_, '_> {
         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
             full = full.min(self.thrust_step(t)?);
         }
+        if let Some(end) = self.window_end()? {
+            full = full.min(((end - t) / 2).max(2));
+        }
         self.rec.ext = Some(ext);
         if fired {
             // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
@@ -705,14 +722,7 @@ impl Work<'_, '_> {
         self.rec.step = full;
         insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
         insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
-        if self.rec.kind != Kind::Planet {
-            if self.rec.b.entry.trajectory.key().is_some_and(|key| self.rec.b.to_doll(key.periapsis).is_ok_and(|r| r < self.doll().surface)) {
-                if let Some(tc) = next_impact(&self.rec.b, self.doll().surface, t)?.filter(|&tc| tc <= t + full) {
-                    insert(&mut self.rec.plan, Item { t: tc.max(t + 1), what: What::Crash });
-                }
-            }
-        }
-        self.plan_terminal()?;
+        self.plan_terminal(t)?;
         Ok(Resolved::Kick)
     }
 
@@ -732,6 +742,16 @@ impl Work<'_, '_> {
         }
         self.rec.anchor = t;
         Ok(Resolved::Boundary)
+    }
+
+    /// The last tick the binding's tube can be read at, if it has an end: a passage is compiled out to a finite radius (twice the
+    /// one it was bound at, or four sphere-of-influence radii), and its window closes there; a turning orbit has none.
+    fn window_end(&self) -> Res<Option<Tick>> {
+        let b = &self.rec.b;
+        let Trajectory::Passage(p) = &b.entry.trajectory else { return Ok(None) };
+        let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+        let end = peri.add(b.to_doll(p.duration()?.scale(-1)?)?)?;
+        Ok(Some(i64::try_from(end.fixed_floor(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("window"))? - 1))
     }
 
     fn thrust_step(&self, t: Tick) -> Res<i64> {
@@ -837,6 +857,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
     let kind = match result {
         Ok(k) => k,
         Err(e) => {
+            if std::env::var("DBGBT").is_ok() { eprintln!("DBGFAULT {e:?} {:?} t {t} doll {} kind {:?} state {:?} key {:?}", item.what, w.rec.b.doll, w.rec.kind, w.rec.b.readout(t), w.rec.b.entry.trajectory.key()); }
             w.rec.fault = Some((item.what, e));
             // A refusal never corrupts a body: the old binding stands, the kick is dropped and
             // counted. A boundary that cannot plan its next step ends the body: it is lost.
