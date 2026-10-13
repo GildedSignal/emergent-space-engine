@@ -71,8 +71,20 @@ pub struct PlayerNeighbourhood {
     always_skip: bool,
 }
 
+/// What the finder did, for the measurements: pairs it was asked about, skipped by the filter, tested exactly, and the pairs the
+/// filter would have skipped had the predicate not wrapped (the cost the wrap defect keeps).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Tally {
+    pub scans: u64,
+    pub pairs: u64,
+    pub skipped: u64,
+    pub tested: u64,
+    pub kept_by_wrap: u64,
+}
+
 #[derive(Default)]
 struct State {
+    tally: Tally,
     memo: Vec<Option<Memo>>,
     /// The last scan taken: a scan after a boundary or an opening, which rebind nothing, reads the player at the tick of
     /// the kick before it (the finder reads the player at its binding's tick), and with the same inputs it is that
@@ -151,6 +163,11 @@ impl Default for PlayerNeighbourhood {
 }
 
 impl PlayerNeighbourhood {
+    /// What the finder has done so far.
+    pub fn tally(&self) -> Tally {
+        self.state.lock().expect("the finder's state").tally
+    }
+
     /// The control: every body the filter skips is tested exactly, and a hit among them panics.
     pub fn verifying() -> Self {
         Self { verify: true, ..Self::default() }
@@ -196,6 +213,7 @@ impl Scan {
         let (xf, vf, hf) = (floats(x), floats(v), to_f64(h));
         let speed = (vf[0] * vf[0] + vf[1] * vf[1]).sqrt();
         let mut state = self.state.lock().expect("the finder's state");
+        state.tally.scans += 1;
         if let Some(last) = self.candidates.last() {
             if state.memo.len() <= last.0 {
                 state.memo.resize(last.0 + 1, None);
@@ -203,6 +221,7 @@ impl Scan {
         }
         for (j, other, reach) in &self.candidates {
             let (j, reach) = (*j, *reach);
+            state.tally.pairs += 1;
             // The exact test, given the other body's state at `t`.
             let exact = |xj: V2, vj: V2| -> Res<Option<bool>> {
                 let d = sub2(xj, x)?;
@@ -231,7 +250,11 @@ impl Scan {
                 let unit = 2f64.powi(reach.exponent() as i32 - 20);
                 let (d_max, w_max, near_int) = ((gap + cap * dt) / unit + 4.0, (cap + speed) * hf / unit + 4.0, near / unit + 4.0);
                 let no_wrap = d_max < 2f64.powi(60) && w_max < 2f64.powi(60) && d_max * w_max < 2f64.powi(60) && w_max * w_max * near_int * near_int < 2f64.powi(122);
+                if closest > near * 1.01 && !no_wrap {
+                    state.tally.kept_by_wrap += 1;
+                }
                 if self.always_skip || (no_wrap && closest > near * 1.01) {
+                    state.tally.skipped += 1;
                     if self.verify {
                         if let Ok((xj, vj)) = other.cartesian(t) {
                             assert!(!matches!(exact(xj, vj), Ok(Some(_))), "the filter skipped body {j} at tick {t}, which hits (closest bound {closest:e}, near {near:e})");
@@ -240,6 +263,7 @@ impl Scan {
                     continue;
                 }
             }
+            state.tally.tested += 1;
             let found = match other.cartesian(t) {
                 Ok((xj, vj)) => {
                     state.memo[j] = Some(Memo { print, t, x: floats(xj) });

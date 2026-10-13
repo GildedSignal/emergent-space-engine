@@ -11,8 +11,63 @@ use emergent_universe::scenario::plane;
 use emergent_universe::thrust::word;
 use emergent_universe::view::TICK_SECONDS;
 use emergent_universe::{Budget, Config};
+use emergent_universe::ctx::Ctx;
+use emergent_universe::encounter::{Encounter, Encounters, ENCOUNTER_LOG2};
+use emergent_universe::num::{sub2, time_of, Res, Tick};
+use emergent_lattice::law::hit;
+use emergent_space::orbit::Scalar;
 
 const RTF: f64 = 100.0;
+
+/// The finder as it was before the filter (every body read at every scan): `BRUTE=1` runs the flights with it, as the
+/// reference the default finder's digests are compared with.
+struct Brute;
+impl Encounters for Brute {
+    fn find(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Vec<Encounter> {
+        let mut out = Vec::new();
+        let Some(me) = ctx.bodies.binding_at(body, t) else { return out };
+        let Ok((x, v)) = me.cartesian(t) else { return out };
+        let Ok(h) = time_of(interval, me.clock_exp) else { return out };
+        for j in 0..ctx.bodies.len() {
+            if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                continue;
+            }
+            let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
+            if other.doll != me.doll {
+                continue;
+            }
+            let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
+            if reach.is_zero() {
+                continue;
+            }
+            let found = (|| -> Res<Option<bool>> {
+                let (xj, vj) = other.cartesian(t)?;
+                let d = sub2(xj, x)?;
+                let w = [vj[0].sub(v[0])?.mul(h)?, vj[1].sub(v[1])?.mul(h)?];
+                let q_exp = reach.exponent() as i32 - 20;
+                let integers = |a: [Scalar; 2]| -> Res<[i128; 2]> { Ok([a[0].fixed(-q_exp)?, a[1].fixed(-q_exp)?]) };
+                let (di, wi) = (integers(d)?, integers(w)?);
+                let near = reach.scale(ENCOUNTER_LOG2)?.fixed(-q_exp)?;
+                if !hit(di, wi, near) {
+                    return Ok(None);
+                }
+                Ok(Some(hit(di, wi, reach.fixed(-q_exp)?)))
+            })();
+            if let Ok(Some(contact)) = found {
+                out.push(Encounter { a: body, b: j, t, contact });
+            }
+        }
+        out
+    }
+}
+
+fn finder(p: &mut emergent_universe::scenario::Plane) {
+    if std::env::var("BRUTE").is_ok() {
+        p.u.set_encounters(Box::new(Brute));
+    } else if std::env::var("VERIFY").is_ok() {
+        p.u.set_encounters(Box::new(emergent_universe::encounter::PlayerNeighbourhood::verifying()));
+    }
+}
 
 type Script = Vec<(f64, u8, u8)>;
 
@@ -33,9 +88,7 @@ fn flights() -> Vec<(&'static str, u64, u64, Script)> {
 /// One run to the cut: the digest, the tick the frames reached, and the counters.
 fn run(seed: u64, members: u64, script: &Script, cut: i64, budget: Budget, threads: usize) -> (String, i64, u64, u64, u64) {
     let mut p = plane(Config::default(), seed, Order::Sparse, threads, members).unwrap();
-    if std::env::var("VERIFY").is_ok() {
-        p.u.set_encounters(Box::new(emergent_universe::encounter::PlayerNeighbourhood::verifying()));
-    }
+    finder(&mut p);
     for &(wall, keys, level) in script {
         let t = (wall * RTF / TICK_SECONDS) as i64;
         p.u.schedule(t, word(keys, level)).unwrap();
@@ -54,6 +107,7 @@ fn run(seed: u64, members: u64, script: &Script, cut: i64, budget: Budget, threa
 /// The same, every frame on a wall budget of `ms`: whatever the clock lets through, the digest at the cut is the same.
 fn run_wall(seed: u64, members: u64, script: &Script, cut: i64, ms: f64) -> (String, i64, u64, u64, u64) {
     let mut p = plane(Config::default(), seed, Order::Sparse, 1, members).unwrap();
+    finder(&mut p);
     for &(wall, keys, level) in script {
         let t = (wall * RTF / TICK_SECONDS) as i64;
         p.u.schedule(t, word(keys, level)).unwrap();
@@ -75,7 +129,10 @@ fn main() {
     let only = args.get(2).cloned().unwrap_or_default();
     let cut = (seconds * RTF / TICK_SECONDS) as i64;
     let mut bad = 0;
+    // SEED_ADD shifts every flight's seed (more scenes for the verifying finder: VERIFY=1 SEED_ADD=10).
+    let add: u64 = std::env::var("SEED_ADD").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
     for (name, seed, members, script) in flights().into_iter().filter(|f| f.0.contains(&only)) {
+        let seed = seed + add;
         let t0 = std::time::Instant::now();
         let a = run(seed, members, &script, cut, Budget::unlimited(), 1);
         let b = run(seed, members, &script, cut, Budget::events(25), 1);
