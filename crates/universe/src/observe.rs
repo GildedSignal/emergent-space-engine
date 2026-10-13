@@ -161,6 +161,12 @@ pub fn ramped(ctx: &Ctx, i: usize, t: Tick) -> Res<(Binding, V2, V2)> {
 
 /// [`ramped`] for a binding already in hand (`b` is the one body `i` has at `t`).
 pub fn ramped_in(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+    let rec = ctx.bodies.rec(i);
+    if rec.b.event_time == b.event_time && rec.thrust.is_some_and(|th| th.keys != 0) {
+        // The burn account belongs to this tube. A partial step on a previous tube
+        // would drop its prepaid impulse; held_thrust reconciles this one at t.
+        return b.cartesian(t);
+    }
     if b.kick.clock {
         return partial(ctx, i, t, b);
     }
@@ -293,10 +299,10 @@ pub fn state_rate(ctx: &Ctx, i: usize, t: Tick) -> Res<([f64; 2], [f64; 2], f64)
 /// read, so the view shows the keys within the frame instead of at the next kick.
 pub fn held_thrust(ctx: &Ctx, rec: &BodyRec, t: Tick) -> Res<Option<(u32, [f64; 2])>> {
     let Some(th) = rec.thrust else { return Ok(None) };
-    if th.keys == 0 || t <= th.since || t < rec.b.event_time {
+    if th.keys == 0 || t < th.since || t < rec.b.event_time {
         return Ok(None);
     }
-    let dtau = step::proper_since(&rec.b, ctx.dolls[rec.b.doll as usize].shift, th.since, t)?;
+    let dtau = step::proper_since(&rec.b, ctx.dolls[rec.b.doll as usize].shift, th.since, t)?.sub(th.ahead)?;
     let (x, v) = rec.b.cartesian(t)?;
     let (heading, v2) = thrust::owed(ctx.cfg, th, dtau, x, v, ctx.dolls[rec.b.doll as usize].unit.mu)?;
     Ok(Some((heading, [to_f64(v2[0]) - to_f64(v[0]), to_f64(v2[1]) - to_f64(v[1])])))

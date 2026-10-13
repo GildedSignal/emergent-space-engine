@@ -49,6 +49,11 @@ pub struct Thrust {
     pub heading: u32,
     /// When the thrust now held started counting (the last flush), in ticks.
     pub since: Tick,
+    /// Proper time paid ahead by the last centred impulse (root units).
+    pub ahead: Scalar,
+    /// Current burn cadence after caps, and whole-step kicks since the decision.
+    pub cadence_step: i64,
+    pub kicks: u32,
 }
 
 #[derive(Clone, Debug)]

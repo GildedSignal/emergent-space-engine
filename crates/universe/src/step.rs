@@ -385,15 +385,17 @@ impl Work<'_, '_> {
         proper_since(&self.rec.b, self.ctx.dolls[self.rec.b.doll as usize].shift, since, t)
     }
 
-    /// The thrust burn owed since the last flush: new velocity (scalars); the heading changes too.
-    fn burn(&mut self, x: V2, v: V2, t: Tick) -> Res<V2> {
+    /// Reconcile the last payment at `t`; a midpoint kick prepays through `end`.
+    /// A decision has `end == t`, clears the credit, and may refund a negative remainder.
+    fn burn(&mut self, x: V2, v: V2, t: Tick, end: Tick) -> Res<V2> {
         let Some(th) = self.rec.thrust else { return Ok(v) };
-        if th.keys == 0 || t <= th.since {
+        if th.keys == 0 || t < th.since {
             return Ok(v);
         }
-        let dtau = self.proper_since(th.since, t)?;
+        let ahead = self.proper_since(t, end)?;
+        let dtau = self.proper_since(th.since, t)?.sub(th.ahead)?.add(ahead)?;
         let (heading, v2) = thrust::owed(self.ctx.cfg, th, dtau, x, v, self.ctx.dolls[self.rec.b.doll as usize].unit.mu)?;
-        self.rec.thrust = Some(crate::body::Thrust { heading, since: t, ..th });
+        self.rec.thrust = Some(crate::body::Thrust { heading, since: t, ahead, ..th });
         Ok(v2)
     }
 
@@ -413,11 +415,11 @@ impl Work<'_, '_> {
         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
         let dv = scale2(a, h)?;
         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
-        // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+        // Only the tide enters the observation ramp; the burn keeps its prepaid proper-time account.
         let added;
         let next = if thrusting {
-            // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
-            let v2 = self.burn(x, add2(v, dv)?, t)?;
+            // At every level: the tide, then the burn's signed payment through this interval's end.
+            let v2 = self.burn(x, add2(v, dv)?, t, t + (self.rec.interval >> (2 * level as i64)) / 2)?;
             added = dv;
             IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }
         } else {
@@ -439,6 +441,7 @@ impl Work<'_, '_> {
         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
             self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
         }
+        if level == 0 { self.burn_kicked(); }
         Ok(())
     }
 
@@ -556,9 +559,9 @@ impl Work<'_, '_> {
         }
         let edge = (d != 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player)).then(|| self.doll().edge);
         let want = step_for(&self.rec.b, self.ctx.cfg.step_log2, edge)?;
-        // Thrust steps: the burn moves the velocity by a small fraction of the local speed.
+        // The first burn step is a speed fraction; later steps grow every third kick, within the caps.
         let want = match self.rec.thrust {
-            Some(th) if th.keys & 3 != 0 => want.min(self.thrust_step(t)?),
+            Some(th) if th.keys != 0 => want.min(self.thrust_step(t)?),
             _ => want,
         };
         let cur = self.rec.step;
@@ -637,11 +640,11 @@ impl Work<'_, '_> {
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
         let mut half = ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
-        // A held burn limits the step as it does at every kick (the clock's own step is far longer in the far field: the burn
-        // would be one lump, and the velocity leaves its word): the velocity moves by a small fraction of itself per step.
-        if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+        // The held burn's growing cadence also caps the clock's first half drift.
+        if matches!(self.rec.thrust, Some(th) if th.keys != 0) {
             half = half.min((self.thrust_step(t)? / 2).max(1));
         }
+        if let Some(th) = self.rec.thrust.as_mut().filter(|th| th.keys != 0) { th.cadence_step = 2 * half; }
         self.rec.ext = Some(ext);
         self.rec.plan.clear();
         self.rec.anchor = t;
@@ -681,7 +684,7 @@ impl Work<'_, '_> {
         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
         let (next, carry) = if thrusting {
             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
-            let v2 = self.burn(x, add2(v, dv)?, t)?;
+            let v2 = self.burn(x, add2(v, dv)?, t, t + self.rec.interval / 2)?;
             (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
         } else {
             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
@@ -699,23 +702,27 @@ impl Work<'_, '_> {
         }
         // The drift to come: `D(Δs)` at `y = H_D + p_t + c` of the state the kick leaves (the two half drifts around the next
         // kick share it), and its boundary in the middle.
+        let closing_half = self.rec.interval / 2;
+        self.burn_kicked();
         let (x, v) = scalars(&next)?;
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
         let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
-        if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+        if matches!(self.rec.thrust, Some(th) if th.keys != 0) {
             full = full.min(self.thrust_step(t)?);
         }
+        if let Some(th) = self.rec.thrust.as_mut().filter(|th| th.keys != 0) { th.cadence_step = full; }
         self.rec.ext = Some(ext);
+        let (boundary, next_kick) = if thrusting { (t + closing_half, t + closing_half + full / 2) } else { (t + full / 2, t + full) };
         if fired {
             // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
             // closes had been running.
-            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
+            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary, lead: t - self.rec.anchor };
         }
         self.rec.interval = full;
         self.rec.step = full;
-        insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
-        insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
+        insert(&mut self.rec.plan, Item { t: boundary, what: What::Boundary });
+        insert(&mut self.rec.plan, Item { t: next_kick, what: What::Kick(0) });
         self.plan_terminal(t)?;
         Ok(Resolved::Kick)
     }
@@ -738,7 +745,7 @@ impl Work<'_, '_> {
         Ok(Resolved::Boundary)
     }
 
-    fn thrust_step(&self, t: Tick) -> Res<i64> {
+    fn first_thrust_step(&self, t: Tick) -> Res<i64> {
         let st = self.rec.b.readout(t)?;
         let (x, v) = scalars(&st)?;
         let speed = norm2(v)?.max(Scalar::ONE.div(norm2(x)?)?.sqrt()?);
@@ -747,6 +754,31 @@ impl Work<'_, '_> {
         let ticks = speed.scale(-self.ctx.cfg.thrust_quantum_log2)?.div(alpha)?;
         let exp = log2_floor(ticks).clamp(1, 50);
         Ok((1i64 << exp).clamp(MIN_STEP, MAX_STEP))
+    }
+
+    fn burn_kicked(&mut self) {
+        if let Some(th) = self.rec.thrust.as_mut().filter(|th| th.keys != 0) {
+            th.kicks = th.kicks.saturating_add(1);
+            if th.kicks % 3 == 0 { th.cadence_step = th.cadence_step.saturating_mul(2); }
+        }
+    }
+
+    /// Start with the speed-fraction step; double only every third whole-step kick.
+    /// The radial dynamics and absolute rapidity quantum cap every interval.
+    fn thrust_step(&mut self, t: Tick) -> Res<i64> {
+        let mut th = self.rec.thrust.expect("held thrust");
+        if th.cadence_step == 0 {
+            th.cadence_step = self.first_thrust_step(t)?;
+            self.rec.thrust = Some(th);
+        }
+        let alpha = thrust::alpha_log2(self.ctx.cfg, th.level) as i32;
+        let quantum = 1i64 << (-self.ctx.cfg.thrust_quantum_log2 - alpha).clamp(1, 50);
+        let edge = (self.rec.b.doll != 0).then(|| self.doll().edge);
+        let step = th.cadence_step.min(quantum).min(step_for(&self.rec.b, self.ctx.cfg.step_log2, edge)?).clamp(MIN_STEP, MAX_STEP);
+        // A cap consumes the proposed growth: it cannot be banked for a later jump.
+        th.cadence_step = step;
+        self.rec.thrust = Some(th);
+        Ok(step)
     }
 
     /// The end of a step: certificates, then the next step's plan.
@@ -789,7 +821,15 @@ impl Work<'_, '_> {
         self.plan_interval(t)
     }
 
+    // A coordinate change must first reconcile the old tube's proper-time account.
+    fn handoff_burn(&mut self, st: IntegerState, t: Tick) -> Res<IntegerState> {
+        let (x, v) = scalars(&st)?;
+        let v2 = self.burn(x, v, t, t)?;
+        Ok(IntegerState { velocity: self.velocity_after(&st, v2)?, ..st })
+    }
+
     fn capture(&mut self, t: Tick, st: IntegerState, child: u16) -> Res<()> {
+        let st = if self.rec.thrust.is_some_and(|th| th.keys != 0) { self.handoff_burn(st, t)? } else { st };
         let from = self.rec.b.doll;
         let centre = self.ctx.dolls[child as usize].centre.expect("centre");
         let cs = self.ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?.readout(t)?;
@@ -798,6 +838,7 @@ impl Work<'_, '_> {
     }
 
     fn release(&mut self, t: Tick, st: IntegerState) -> Res<()> {
+        let st = if self.rec.thrust.is_some_and(|th| th.keys != 0) { self.handoff_burn(st, t)? } else { st };
         let from = self.rec.b.doll;
         let to = self.ctx.dolls[from as usize].parent.expect("a child doll has a parent");
         let centre = self.ctx.dolls[from as usize].centre.expect("centre");
@@ -882,10 +923,10 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
     let (keys, level) = thrust::split(word);
     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
     let res = (|| -> Res<()> {
-        if let Some(th) = w.rec.thrust.filter(|th| th.keys != 0 && t > th.since) {
+        if let Some(th) = w.rec.thrust.filter(|th| th.keys != 0 && t >= th.since) {
             let st = w.rec.b.readout(t)?;
             let (x, v) = scalars(&st)?;
-            let v2 = w.burn(x, v, t)?;
+            let v2 = w.burn(x, v, t, t)?;
             if th.keys & 3 != 0 {
                 let next = IntegerState { velocity: w.velocity_after(&st, v2)?, ..st };
                 w.rebind(next, t, w.rec.b.doll)?;
@@ -899,6 +940,8 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
             th.keys = keys;
             th.level = level;
             th.since = t;
+            th.ahead = Scalar::ZERO;
+            if !same { th.cadence_step = 0; th.kicks = 0; }
         }
         if same {
             return Ok(());

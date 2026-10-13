@@ -36,7 +36,8 @@ pub struct Config {
     pub leave_log2: i32,
     /// Kicks per radial period, as a power of two.
     pub step_log2: i32,
-    /// A burn's kick moves the velocity by at most `2^-thrust_quantum_log2` of the local speed.
+    /// The first burn interval moves at most `2^-thrust_quantum_log2` of the local speed;
+    /// later intervals grow geometrically, capped at that absolute rapidity quantum.
     pub thrust_quantum_log2: i32,
 }
 impl Default for Config {

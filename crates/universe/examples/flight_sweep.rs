@@ -79,7 +79,7 @@ fn far(level: u8, au: f64) -> Pilot {
 
 fn flights() -> Vec<(String, Pilot)> {
     let mut v: Vec<(String, Pilot)> = vec![("coast".into(), script(vec![]))];
-    for level in [0u8, 2, 4, 6, 8, 10, 12, 15] {
+    for level in 0u8..=15 {
         v.push((format!("forward L{level} (prograde)"), script(vec![(1.0, 1, level)])));
     }
     for level in [0u8, 2, 4, 8] {
@@ -106,6 +106,7 @@ fn main() {
     let rtf: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(100.0);
     let seconds: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(20.0);
     let only = args.get(3).cloned().unwrap_or_default();
+    let demand = args.get(4).is_some_and(|s| s == "demand");
     let frames = (seconds * 60.0) as usize;
     println!("rtf {rtf}, {seconds} s of wall time per flight ({frames} frames at 60 Hz)");
     println!("{:<34} {:>6} {:>8} {:>10} {:>8} {:>7} {:>9} {:>8} {:>8}  {}", "flight", "alive", "refusals", "max |v|/c", "min r/R", "max AU", "warned s", "worst ms", "lag s", "fault, or the loss");
@@ -113,9 +114,11 @@ fn main() {
         let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
         let mut cache = ViewCache::default();
         let (mut worst, mut lag, mut vmax, mut rmin, mut aumax) = (Duration::ZERO, 0f64, 0f64, f64::MAX, 0f64);
+        let (mut late, mut kicks_max, mut lag_ticks, mut frames_run) = (0u64, 0u64, 0i64, 0usize);
         let mut warned = None;
         let mut lost_at = None;
         for f in 0..frames {
+            frames_run = f + 1;
             let wall = f as f64 / 60.0;
             if let Some(view) = gather_cached(&p.u, &p.names, &mut cache) {
                 if let Some((keys, level)) = pilot(wall, &view) {
@@ -127,9 +130,16 @@ fn main() {
                     warned = Some(view.tick);
                 }
             }
+            let kicks_before = p.u.stats.kicks;
             let start = Instant::now();
-            let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, i64::MAX);
-            worst = worst.max(start.elapsed());
+            let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: if demand { None } else { Some(start + Duration::from_millis(12)) } }, i64::MAX);
+            let elapsed = start.elapsed();
+            kicks_max = kicks_max.max(p.u.stats.kicks - kicks_before);
+            if wall >= 1.0 {
+                worst = worst.max(elapsed);
+                late += (elapsed > Duration::from_millis(12)) as u64;
+            }
+            lag_ticks = lag_ticks.max(frame.target - frame.presented);
             lag = lag.max((frame.target - frame.presented) as f64 * TICK_SECONDS);
             let rec = p.u.rec(p.player);
             if !rec.alive {
@@ -154,6 +164,6 @@ fn main() {
             _ => "-".to_string(),
         };
         let rmin = if rmin == f64::MAX { "-".to_string() } else { format!("{rmin:.3}") };
-        println!("{:<34} {:>6} {:>8} {:>10.6} {:>8} {:>7.3} {:>9} {:>8.2} {:>8.3}  {}", name, rec.alive, rec.refusals, vmax, rmin, aumax, warn, worst.as_secs_f64() * 1e3, lag, end);
+        println!("{:<34} {:>6} {:>8} {:>10.6} {:>8} {:>7.3} {:>9} {:>8.2} {:>8.3}  {}", name, rec.alive, rec.refusals, vmax, rmin, aumax, warn, worst.as_secs_f64() * 1e3, lag, format!("{end} late={late} max_kicks={kicks_max} lag_ticks={lag_ticks} frames={frames_run}"));
     }
 }

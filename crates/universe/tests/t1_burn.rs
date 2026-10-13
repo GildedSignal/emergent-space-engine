@@ -21,6 +21,15 @@
 //! harness then lost the reverse L0 coast (the ship not alive at the reading, no refusal) and the run took 137 s. The harness
 //! is repaired and split to fit 60 s by the job that changes the cadence (`artifacts/runs/burst/prompt.md`); the criteria
 //! above do not change.
+//! Centred payment + capped geometric cadence (this job): forward shipped position errors are
+//! 2.66e-4, 2.23e-4, 5.67e-4, 1.36e-4, 1.29e-5 at L0/4/8/12/15; velocity errors are
+//! 3.12e-4, 6.86e-5, 2.09e-5, 3.82e-6, 5.42e-6. Reverse L4/L8 position errors are 7.55e-4/2.03e-4,
+//! velocity 2.61e-5/3.16e-6. All readable shipped burns pass the 3e-2 accuracy limit, but T1 is FAIL:
+//! forward L4 fails convergence in both readings; L8 fails position convergence. The reverse L0 reference
+//! hits Home during the burn (~700 s world time, 7.51 km/s), before its 1,239 s cut. The old harness cut
+//! the already lost ship and rebound its wreck, hiding the real loss time; it now reports loss before cutting.
+//! Criteria, scene, burn durations and coast are unchanged. Nine split tests take 48.50 s in total in
+//! artifacts/runs/burst/t1-after.txt (therefore each is below 60 s); the coarse control fails at forward L0.
 use emergent_universe::fleet::Order;
 use emergent_universe::observe::root_state;
 use emergent_universe::scenario::plane;
@@ -37,62 +46,119 @@ fn fly(cfg: Config, keys: u8, level: u8, seconds: f64) -> Result<([f64; 2], [f64
     p.u.settle(T0);
     let end = T0 + (seconds / TICK_SECONDS) as i64;
     if keys != 0 {
-        p.u.input(T0, word(keys, level)).map_err(|e| format!("{e:?}"))?;
+        p.u.input(T0, word(keys, level))
+            .map_err(|e| format!("{e:?}"))?;
         p.u.settle(end);
-        p.u.input(end, word(0, level)).map_err(|e| format!("{e:?}"))?;
+        // Never send a cut to an already lost ship: it would rebind the wreck at
+        // the cut tick and erase the location/time of the loss from this diagnostic.
+        live(&p, end)?;
+        p.u.input(end, word(0, level))
+            .map_err(|e| format!("{e:?}"))?;
     }
     let read = end + (COAST_S / TICK_SECONDS) as i64;
     p.u.settle(read);
+    live(&p, read)?;
+    root_state(&p.u.ctx(), p.player, read).map_err(|e| format!("{e:?}"))
+}
+
+fn live(p: &emergent_universe::scenario::Plane, read: i64) -> Result<(), String> {
     let rec = p.u.rec(p.player);
     if !rec.alive || rec.refusals != 0 {
-        return Err(format!("alive {} refusals {} fault {:?}", rec.alive, rec.refusals, rec.fault));
+        return Err(format!(
+            "alive {} refusals {} fault {:?}, last binding {}, read {}, loss {:?}",
+            rec.alive,
+            rec.refusals,
+            rec.fault,
+            rec.b.event_time,
+            read,
+            emergent_universe::view::gather(&p.u, &p.names).and_then(|v| v.loss)
+        ));
     }
-    root_state(&p.u.ctx(), p.player, read).map_err(|e| format!("{e:?}"))
+    Ok(())
 }
 
 fn cadence(finer: i32) -> Config {
     let d = Config::default();
-    Config { step_log2: d.step_log2 + finer, thrust_quantum_log2: d.thrust_quantum_log2 + finer, ..d }
+    Config {
+        step_log2: d.step_log2 + finer,
+        thrust_quantum_log2: d.thrust_quantum_log2 + finer,
+        ..d
+    }
 }
 
 fn dist(a: [f64; 2], b: [f64; 2]) -> f64 {
     ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt()
 }
 
-#[test]
-#[ignore = "T1, frozen: its harness exceeds 60 s and loses a reverse coast (the burst job repairs both, criteria unchanged)"]
-fn t1_a_held_burn_converges_with_its_cadence() {
+fn check_burn(keys: u8, level: u8) {
     let d = Config::default();
     // The ship's speed about Home at the start, for the reverse burns' length.
     let v0 = {
         let mut p = plane(d, 5, Order::Sparse, 1, 8).unwrap();
         p.u.settle(T0);
         let (_, v) = p.u.rec(p.player).b.cartesian(T0).unwrap();
-        let v = [emergent_universe::num::to_f64(v[0]), emergent_universe::num::to_f64(v[1])];
+        let v = [
+            emergent_universe::num::to_f64(v[0]),
+            emergent_universe::num::to_f64(v[1]),
+        ];
         (v[0] * v[0] + v[1] * v[1]).sqrt() * 299_792_458.0
     };
-    let mut burns: Vec<(u8, u8, f64)> = [0u8, 4, 8, 12, 15].iter().map(|&l| (1u8, l, 2000.0)).collect();
-    burns.extend([0u8, 4, 8].iter().map(|&l| (2u8, l, 0.5 * v0 / (g_of(&d, l) * 9.806_65))));
+    let seconds = if keys == 1 {
+        2000.0
+    } else {
+        0.5 * v0 / (g_of(&d, level) * 9.806_65)
+    };
+    let burns = [(keys, level, seconds)];
     let mut failures = Vec::new();
     let mut control_failed = false;
     for &(keys, level, seconds) in &burns {
         let coast = fly(d, 0, 0, seconds).unwrap();
-        let reference = fly(cadence(6), keys, level, seconds).unwrap();
+        let reference = match fly(cadence(6), keys, level, seconds) {
+            Ok(r) => r,
+            Err(why) => {
+                // A lost reference cannot judge convergence. Report every cadence rather
+                // than dropping the burn or changing its duration/reading/criterion.
+                println!("reference {keys} L{level} {seconds:.1}s: {why}");
+                for q in [0, 4, -6] {
+                    println!("cadence {q}: {:?}", fly(cadence(q), keys, level, seconds));
+                }
+                panic!("T1 reference is not alive at the frozen reading: {why}");
+            }
+        };
         let moved = (dist(reference.0, coast.0), dist(reference.1, coast.1));
         let err = |cfg: Config| -> Result<(f64, f64), String> {
             let r = fly(cfg, keys, level, seconds)?;
-            Ok((dist(r.0, reference.0) / moved.0, dist(r.1, reference.1) / moved.1))
+            Ok((
+                dist(r.0, reference.0) / moved.0,
+                dist(r.1, reference.1) / moved.1,
+            ))
         };
-        let name = format!("{} L{level} {seconds:.1} s", if keys == 1 { "forward" } else { "reverse" });
+        let name = format!(
+            "{} L{level} {seconds:.1} s",
+            if keys == 1 { "forward" } else { "reverse" }
+        );
         let shipped = err(d);
         let finer = err(cadence(4));
         let coarse = err(cadence(-6));
-        let show = |e: &Result<(f64, f64), String>| e.as_ref().map_or_else(|w| w.clone(), |e| format!("{:.2e}/{:.2e}", e.0, e.1));
-        println!("{name:<24} moved {:.2e}/{:.2e}: shipped {}, 16x finer {}, 64x coarser {}", moved.0, moved.1, show(&shipped), show(&finer), show(&coarse));
+        let show = |e: &Result<(f64, f64), String>| {
+            e.as_ref()
+                .map_or_else(|w| w.clone(), |e| format!("{:.2e}/{:.2e}", e.0, e.1))
+        };
+        println!(
+            "{name:<24} moved {:.2e}/{:.2e}: shipped {}, 16x finer {}, 64x coarser {}",
+            moved.0,
+            moved.1,
+            show(&shipped),
+            show(&finer),
+            show(&coarse)
+        );
         match (&shipped, &finer) {
             (Ok(s), Ok(f)) => {
                 if s.0 > 3e-2 || s.1 > 3e-2 {
-                    failures.push(format!("{name}: shipped error {:.3e}/{:.3e} over 3e-2", s.0, s.1));
+                    failures.push(format!(
+                        "{name}: shipped error {:.3e}/{:.3e} over 3e-2",
+                        s.0, s.1
+                    ));
                 }
                 for (a, b, what) in [(s.0, f.0, "position"), (s.1, f.1, "velocity")] {
                     if !(b <= a / 4.0 || (a < 1e-9 && b < 1e-9)) {
@@ -104,6 +170,53 @@ fn t1_a_held_burn_converges_with_its_cadence() {
         }
         control_failed |= coarse.map_or(true, |c| c.0 > 3e-2 || c.1 > 3e-2);
     }
-    assert!(control_failed, "the control (64x coarser) must fail criterion 1 somewhere");
+    // The separate control test checks the frozen existential criterion.
+    let _ = control_failed;
     assert!(failures.is_empty(), "T1 fails:\n{}", failures.join("\n"));
+}
+
+macro_rules! burn_test {
+    ($name:ident, $keys:expr, $level:expr) => {
+        #[test]
+        fn $name() {
+            check_burn($keys, $level);
+        }
+    };
+}
+burn_test!(t1_forward_l0, 1, 0);
+burn_test!(t1_forward_l4, 1, 4);
+burn_test!(t1_forward_l8, 1, 8);
+burn_test!(t1_forward_l12, 1, 12);
+burn_test!(t1_forward_l15, 1, 15);
+burn_test!(t1_reverse_l0, 2, 0);
+burn_test!(t1_reverse_l4, 2, 4);
+burn_test!(t1_reverse_l8, 2, 8);
+#[test]
+fn t1_coarse_control() {
+    // The frozen existential control: stop at a witness, otherwise try every burn.
+    let d = Config::default();
+    let mut p = plane(d, 5, Order::Sparse, 1, 8).unwrap();
+    p.u.settle(T0);
+    let (_, v) = p.u.rec(p.player).b.cartesian(T0).unwrap();
+    let v0 = (emergent_universe::num::to_f64(v[0]).powi(2)
+        + emergent_universe::num::to_f64(v[1]).powi(2))
+    .sqrt()
+        * 299_792_458.0;
+    let burns = [0u8, 4, 8, 12, 15]
+        .map(|l| (1, l, 2000.0))
+        .into_iter()
+        .chain([0u8, 4, 8].map(|l| (2, l, 0.5 * v0 / (g_of(&d, l) * 9.806_65))));
+    for (keys, level, seconds) in burns {
+        let coast = fly(d, 0, 0, seconds).unwrap();
+        let reference = fly(cadence(6), keys, level, seconds).unwrap();
+        let coarse = fly(cadence(-6), keys, level, seconds);
+        if coarse.map_or(true, |c| {
+            dist(c.0, reference.0) / dist(reference.0, coast.0) > 3e-2
+                || dist(c.1, reference.1) / dist(reference.1, coast.1) > 3e-2
+        }) {
+            println!("coarse control witness: keys {keys}, L{level}");
+            return;
+        }
+    }
+    panic!("the control (64x coarser) must fail criterion 1 somewhere");
 }

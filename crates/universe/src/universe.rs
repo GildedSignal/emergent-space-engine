@@ -336,7 +336,7 @@ impl Universe {
             interval: 0,
             anchor: 0,
             plan: Vec::new(),
-            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading, since: 0 }),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading, since: 0, ahead: Scalar::ZERO, cadence_step: 0, kicks: 0 }),
             ext: None,
             alive: true,
             events: 0,
@@ -385,7 +385,7 @@ impl Universe {
             interval: 0,
             anchor: 0,
             plan: Vec::new(),
-            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading, since: 0 }),
+            thrust: (kind == Kind::Player).then_some(Thrust { keys: 0, level: 0, heading, since: 0, ahead: Scalar::ZERO, cadence_step: 0, kicks: 0 }),
             ext: None,
             alive: true,
             events: 0,
@@ -1193,6 +1193,9 @@ impl Universe {
                 }
                 put(&mut h, t.heading as i128);
                 put(&mut h, t.since as i128);
+                put_s(&mut h, t.ahead);
+                put(&mut h, t.cadence_step as i128);
+                put(&mut h, t.kicks as i128);
             }
             put(&mut h, r.events as i128);
             put(&mut h, r.refusals as i128);
