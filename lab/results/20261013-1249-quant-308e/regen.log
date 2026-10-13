@@ -1,0 +1,43 @@
+== apply patch ==
+Performing three-way merge...
+error: crates/space/examples/prim_compile.rs: does not exist in index
+error: cannot read the current contents of 'crates/space/examples/prim_compile.rs'
+error: crates/space/examples/prim_compile.rs: patch does not apply
+error: crates/space/src/num.rs: does not match index
+error: crates/space/src/orbit.rs: does not match index
+Performing three-way merge...
+error: crates/universe/examples/quant_digest.rs: does not exist in index
+error: cannot read the current contents of 'crates/universe/examples/quant_digest.rs'
+error: crates/universe/examples/quant_digest.rs: patch does not apply
+error: lab/wiki/kick-jet.md: does not match index
+(patch already applied)
+== 1. primitives: shipped cos / tuned / cos4 lane / isqrt ref (fuzz 2M built in) ==
+cos shipped 43.7 ns | tuned 43.2 ns | cos4 lane 29.8 ns | isqrt(u128) ref 58.8 ns
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 1.91s
+== 2. compile sweep, interleaved epochs on a pinned core (B=shipped cos, I=cos4) ==
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.92s
+B(cos) ARM base: median compile 25.4 us (min 4.7, max 115.1, n 28, refused 0)
+I(cos4) ARM base: median compile 25.4 us (min 4.6, max 116.0, n 28, refused 0)
+B(cos) ARM base: median compile 25.5 us (min 4.6, max 117.1, n 28, refused 0)
+I(cos4) ARM base: median compile 25.5 us (min 4.6, max 115.5, n 28, refused 0)
+B(cos) ARM base: median compile 25.4 us (min 4.6, max 116.8, n 28, refused 0)
+I(cos4) ARM base: median compile 25.4 us (min 4.6, max 116.2, n 28, refused 0)
+B(cos) ARM base: median compile 24.9 us (min 4.6, max 115.4, n 28, refused 0)
+I(cos4) ARM base: median compile 25.5 us (min 4.6, max 116.3, n 28, refused 0)
+== 3. identity: plane digest, both arms ==
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 15.19s
+digest 0c30618518ecb5f67aa07bcd1514d59e9a75139613da45fbd012c30443cada2c settle 10000000000 wall 3.8s items 21051 encounters 2704 refused 0 lost 30
+digest 0c30618518ecb5f67aa07bcd1514d59e9a75139613da45fbd012c30443cada2c settle 10000000000 wall 3.8s items 21051 encounters 2704 refused 0 lost 30
+== 4. suite with the patch live (cos4 default on) ==
+test result: ok. 10 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.09s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s

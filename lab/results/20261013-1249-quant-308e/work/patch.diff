@@ -1,0 +1,464 @@
+diff --git a/crates/space/examples/prim_compile.rs b/crates/space/examples/prim_compile.rs
+new file mode 100644
+index 00000000..f41ce390
+--- /dev/null
++++ b/crates/space/examples/prim_compile.rs
+@@ -0,0 +1,55 @@
++// Orbit::compile wall on a plane-like key grid (weak field, the fast path), median of 3
++// repetitions per key. `ARM` is printed so base/patched runs can be diffed.
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use std::time::Instant;
++
++fn main() {
++    let arm = std::env::var("ARM").unwrap_or_else(|_| "base".into());
++    let mut keys = Vec::new();
++    for p_exp in [20i32, 24, 28, 32] {
++        for &e in &[0.0f64, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99] {
++            let peri = Scalar::power_of_two(p_exp as i16);
++            let k = (2f64.powi(48) / (1.0 + e)) as u64;
++            keys.push((p_exp, e, OrbitKey::new(peri, k)));
++        }
++    }
++    let mut medians = Vec::new();
++    let mut refused = 0;
++    for (p_exp, e, key) in keys {
++        let key = match key {
++            Ok(k) => k,
++            Err(_) => {
++                refused += 1;
++                continue;
++            }
++        };
++        // warm + choose a rep count for ~40 ms per rep
++        let _ = Orbit::compile(key).unwrap();
++        let reps = 40;
++        let mut times = Vec::new();
++        for _ in 0..3 {
++            let t = Instant::now();
++            for _ in 0..reps {
++                std::hint::black_box(Orbit::compile(key).unwrap());
++            }
++            times.push(t.elapsed().as_secs_f64() / reps as f64);
++        }
++        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        medians.push((p_exp, e, times[1]));
++    }
++    medians.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
++    let mut line = String::new();
++    for (p, e, t) in &medians {
++        line.push_str(&format!("p2^{p} e{e:.2} {:.1}us | ", t * 1e6));
++    }
++    let mid = medians.len() / 2;
++    println!(
++        "ARM {arm}: median compile {:.1} us (min {:.1}, max {:.1}, n {}, refused {refused})",
++        medians[mid].2 * 1e6,
++        medians[0].2 * 1e6,
++        medians[medians.len() - 1].2 * 1e6,
++        medians.len()
++    );
++    println!("{line}");
++}
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8d..56499843 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -103,6 +103,141 @@ pub fn cos(psi: i128) -> i128 {
+     -((x as i128 * s as i128) >> 62)
+ }
+ 
++/// The identical thirteen floored nested products as [`cos`], written out: a control for
++/// codegen (loop versus straight line), bit-identical by fuzz.
++#[inline]
++#[allow(dead_code)]
++pub(crate) fn cos_tuned(psi: i128) -> i128 {
++    if psi == 0 {
++        return ONE;
++    }
++    if psi == PI {
++        return -ONE;
++    }
++    let x = (2 * psi - PI) as i64;
++    let x2 = ((x as i128 * x as i128) >> 62) as u64;
++    let mut s = ONE as u64;
++    macro_rules! step {
++        ($r:expr) => {{
++            let y = ((x2 as u128 * s as u128) >> 62) as u64;
++            s = ONE as u64 - ((y as u128 * ($r as u64 as u128)) >> 62) as u64;
++        }};
++    }
++    step!(SINE[12]);
++    step!(SINE[11]);
++    step!(SINE[10]);
++    step!(SINE[9]);
++    step!(SINE[8]);
++    step!(SINE[7]);
++    step!(SINE[6]);
++    step!(SINE[5]);
++    step!(SINE[4]);
++    step!(SINE[3]);
++    step!(SINE[2]);
++    step!(SINE[1]);
++    step!(SINE[0]);
++    -((x as i128 * s as i128) >> 62)
++}
++
++/// A/B scaffold for the interleaved-cos experiment (default on; COS4=0 disables).
++pub(crate) fn cos4_enabled() -> bool {
++    use std::sync::atomic::{AtomicU8, Ordering};
++    static ENABLED: AtomicU8 = AtomicU8::new(255);
++    let v = ENABLED.load(Ordering::Relaxed);
++    if v == 255 {
++        let on = match std::env::var("COS4") {
++            Ok(s) => s != "0",
++            Err(_) => true,
++        };
++        ENABLED.store(on as u8, Ordering::Relaxed);
++        return on;
++    }
++    v == 1
++}
++/// Four cosines in one pass. The four chains are independent, so the core overlaps
++/// them; each lane performs exactly the shipped floored products in the shipped
++/// order (bit-identical by construction; fuzzed against [`cos`] lane-wise).
++#[inline]
++#[allow(dead_code)]
++pub(crate) fn cos4(psi: [i128; 4]) -> [i128; 4] {
++    let mut x = [0i64; 4];
++    let mut x2 = [0u64; 4];
++    let mut s = [ONE as u64; 4];
++    for i in 0..4 {
++        x[i] = (2 * psi[i] - PI) as i64;
++        x2[i] = ((x[i] as i128 * x[i] as i128) >> 62) as u64;
++    }
++    macro_rules! step {
++        ($i:expr, $r:expr) => {{
++            let y = ((x2[$i] as u128 * s[$i] as u128) >> 62) as u64;
++            s[$i] = ONE as u64 - ((y as u128 * ($r as u64 as u128)) >> 62) as u64;
++        }};
++    }
++    step!(0, SINE[12]);
++    step!(1, SINE[12]);
++    step!(2, SINE[12]);
++    step!(3, SINE[12]);
++    step!(0, SINE[11]);
++    step!(1, SINE[11]);
++    step!(2, SINE[11]);
++    step!(3, SINE[11]);
++    step!(0, SINE[10]);
++    step!(1, SINE[10]);
++    step!(2, SINE[10]);
++    step!(3, SINE[10]);
++    step!(0, SINE[9]);
++    step!(1, SINE[9]);
++    step!(2, SINE[9]);
++    step!(3, SINE[9]);
++    step!(0, SINE[8]);
++    step!(1, SINE[8]);
++    step!(2, SINE[8]);
++    step!(3, SINE[8]);
++    step!(0, SINE[7]);
++    step!(1, SINE[7]);
++    step!(2, SINE[7]);
++    step!(3, SINE[7]);
++    step!(0, SINE[6]);
++    step!(1, SINE[6]);
++    step!(2, SINE[6]);
++    step!(3, SINE[6]);
++    step!(0, SINE[5]);
++    step!(1, SINE[5]);
++    step!(2, SINE[5]);
++    step!(3, SINE[5]);
++    step!(0, SINE[4]);
++    step!(1, SINE[4]);
++    step!(2, SINE[4]);
++    step!(3, SINE[4]);
++    step!(0, SINE[3]);
++    step!(1, SINE[3]);
++    step!(2, SINE[3]);
++    step!(3, SINE[3]);
++    step!(0, SINE[2]);
++    step!(1, SINE[2]);
++    step!(2, SINE[2]);
++    step!(3, SINE[2]);
++    step!(0, SINE[1]);
++    step!(1, SINE[1]);
++    step!(2, SINE[1]);
++    step!(3, SINE[1]);
++    step!(0, SINE[0]);
++    step!(1, SINE[0]);
++    step!(2, SINE[0]);
++    step!(3, SINE[0]);
++    let mut out = [0i128; 4];
++    for i in 0..4 {
++        out[i] = if psi[i] == 0 {
++            ONE
++        } else if psi[i] == PI {
++            -ONE
++        } else {
++            -((x[i] as i128 * s[i] as i128) >> 62)
++        };
++    }
++    out
++}
++
+ /// atan(s) in Q62 for s in [0, 1] in Q62. j = round(16 s) (ties up), a = j/16,
+ /// t = trunc((s - a) 2^62 / (1 + s a)) with |t| <= 1/32, and
+ /// atan(s) = atan(j/16) + t(1 - t^2/3 + t^4/5 - ... + t^12/13), nested, products floored.
+@@ -180,3 +315,97 @@ mod tests {
+         assert_eq!(atan(0), 0);
+     }
+ }
++
++#[cfg(test)]
++mod bench {
++    use super::*;
++    use std::time::Instant;
++
++    /// cos is data-independent (no tables, no data branches after entry), so a dense grid
++    /// plus LCG samples over [0, PI] carry the compile's own psi shapes.
++    fn operands(n: usize) -> Vec<i128> {
++        let mut psi = (0..n)
++            .map(|i| PI * (i as i128 + 1) / (n as i128 + 2))
++            .collect::<Vec<_>>();
++        let mut z: u128 = 0x243F_6A88_85A3_08D3;
++        for p in psi.iter_mut() {
++            z = z
++                .wrapping_mul(6364136223846793005)
++                .wrapping_add(1442695040888963407);
++            *p = (z % (PI as u128 + 1)) as i128;
++        }
++        psi[0] = 0;
++        psi[1] = PI;
++        psi[2] = PI / 2;
++        psi[3] = 1;
++        psi[4] = PI - 1;
++        psi
++    }
++
++    #[test]
++    #[ignore]
++    fn cos_variants() {
++        // fuzz: bit-identity of tuned and cos4 against cos (2M cases, lane-wise)
++        let psi = operands(1 << 21);
++        for chunk in psi.chunks(4) {
++            let c4in = [chunk[0], chunk[1], chunk[2], chunk[3]];
++            let c4 = cos4(c4in);
++            for i in 0..4 {
++                assert_eq!(cos(c4in[i]), cos_tuned(c4in[i]), "tuned {}", c4in[i]);
++                assert_eq!(cos(c4in[i]), c4[i], "cos4 lane {}", c4in[i]);
++            }
++        }
++        // bench
++        let psi = operands(2048);
++        let passes = 4000;
++        let mut sink = 0i128;
++        let t = Instant::now();
++        for _ in 0..passes {
++            for &p in &psi {
++                sink ^= cos(p);
++            }
++        }
++        std::hint::black_box(&sink);
++        let shipped = t.elapsed().as_secs_f64() / (passes * psi.len()) as f64;
++        let mut sink = 0i128;
++        let t = Instant::now();
++        for _ in 0..passes {
++            for &p in &psi {
++                sink ^= cos_tuned(p);
++            }
++        }
++        std::hint::black_box(&sink);
++        let tuned = t.elapsed().as_secs_f64() / (passes * psi.len()) as f64;
++        let packs: Vec<[i128; 4]> = psi.chunks(4).map(|c| [c[0], c[1], c[2], c[3]]).collect();
++        let mut sink = [0i128; 4];
++        let t = Instant::now();
++        for _ in 0..passes {
++            for &p in &packs {
++                let r = cos4(p);
++                for i in 0..4 {
++                    sink[i] ^= r[i];
++                }
++            }
++        }
++        std::hint::black_box(&sink);
++        let cos4_per = t.elapsed().as_secs_f64() / (passes * psi.len()) as f64;
++        // isqrt reference on the compile's own shapes (d << 62, d < 2^62)
++        let d: Vec<u128> = (0..2048u128).map(|i| ((i + 1) << 62) / 2048).collect();
++        let mut sink = 0u128;
++        let t = Instant::now();
++        for _ in 0..passes {
++            for &v in &d {
++                sink ^= isqrt(v);
++            }
++        }
++        std::hint::black_box(&sink);
++        let isqrt_ref = t.elapsed().as_secs_f64() / (passes * d.len()) as f64;
++        println!(
++            "cos shipped {:.1} ns | tuned {:.1} ns | cos4 lane {:.1} ns | isqrt(u128) ref {:.1} ns",
++            shipped * 1e9,
++            tuned * 1e9,
++            cos4_per * 1e9,
++            isqrt_ref * 1e9
++        );
++    }
++}
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index 0aa1d27e..510a32c2 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -362,11 +362,25 @@ impl OrbitShape {
+         let h = hi - lo;
+         let mid = lo + h / 2;
+         let mut sum = [0u128; 3];
++        // A/B scaffold: the interleaved cos4 is the adopted path; COS4=0 falls back to
++        // the shipped per-psi cos so both arms run in one binary and one wall-clock epoch.
++        let dx = [(X[0] * h) >> 63, (X[1] * h) >> 63];
++        let cs = if crate::num::cos4_enabled() {
++            crate::num::cos4([mid - dx[0], mid + dx[0], mid - dx[1], mid + dx[1]])
++        } else {
++            [
++                crate::num::cos(mid - dx[0]),
++                crate::num::cos(mid + dx[0]),
++                crate::num::cos(mid - dx[1]),
++                crate::num::cos(mid + dx[1]),
++            ]
++        };
++        let mut lane = 0;
+         for j in 0..2 {
+-            let dx = (X[j] * h) >> 63;
+             let w = ((W[j] * h) >> 63) as u64;
+-            for psi in [mid - dx, mid + dx] {
+-                let ac = product(ONE - self.k, cos(psi));
++            for _ in 0..2 {
++                let ac = product(ONE - self.k, cs[lane]);
++                lane += 1;
+                 let x = self.k + ac;
+                 // A node at x <= 0 lies at or beyond infinity (an unbound passage's asymptote):
+                 // refuse it as out of range rather than divide by zero (the certified bank's R5-05954).
+diff --git a/crates/universe/examples/quant_digest.rs b/crates/universe/examples/quant_digest.rs
+new file mode 100644
+index 00000000..b54dc698
+--- /dev/null
++++ b/crates/universe/examples/quant_digest.rs
+@@ -0,0 +1,25 @@
++// The plane's canonical digest over a fixed settle, for A/B identity checks.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::Config;
++
++fn main() {
++    let h: i64 = std::env::args()
++        .nth(1)
++        .and_then(|a| a.parse().ok())
++        .unwrap_or(10_000_000_000);
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++    let t = std::time::Instant::now();
++    p.u.settle(h);
++    let s = p.u.stats;
++    println!(
++        "digest {} settle {} wall {:.1}s items {} encounters {} refused {} lost {}",
++        p.u.digest(),
++        h,
++        t.elapsed().as_secs_f64(),
++        s.kicks + s.opens + s.boundaries,
++        s.encounters,
++        s.refused,
++        s.lost
++    );
++}
+diff --git a/lab/wiki/kick-jet.md b/lab/wiki/kick-jet.md
+index a1b839ca..d428b2ba 100644
+--- a/lab/wiki/kick-jet.md
++++ b/lab/wiki/kick-jet.md
+@@ -2,16 +2,32 @@ topic: kick-jet
+ status: open
+ closed-by:
+ valid-while:
+-<<<<<<< main
+-updated: 20261013-1145-components-9384
+-=======
+-updated: 20261013-1145-second-20261013-0350-components-c914-00d2
+->>>>>>> 20261013-1145-second-20261013-0350-components-c914-00d2
++updated: 20261013-1249-quant-308e
+ 
+ # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
+ 
+ ## Current best
+ 
++**The cos half of the node is closed at both levels, and the interleave idea with it
++(20261013-1249-quant-308e).** The shipped 13-factor nested sine series costs 41.6 ns isolated
++on the compile's own operand domain — already at its single-chain ISA latency floor (13 × ~11.5
++cycles ≈ 42 ns at 3.6 GHz; a fully unrolled straight line measures 41.2 ns), so 7d2b's "cos 77
++ns" node attribution was ~1.9× inflated and no codegen lever exists. Interleaving the panel's
++four independent cos chains (cos4, the same 26 floored multiplies per cos, lane-wise
++bit-identical over 2M fuzz operands) buys **1.51× per cos in isolation** (27.6 ns) — and
++**0% at the compile**: 28-key plane-like grids, one binary with a `COS4` runtime switch,
++pinned core, epochs interleaved, medians 25.1±0.2 µs (shipped cos) vs 25.3±0.3 µs (cos4), no
++movement at min or max key; the plane settle digest `0c306185…cada2c` identical both arms and
++the space suite green. Mechanism: `fast_quad`'s four cos chains are independent and the OoO
++window already overlaps them with the panel's divisions (at their measured hardware floor),
++u64 isqrt and products — the compile's cos cost is port throughput, not chain latency, and
++cos4 executes the same ops only reordered. This closes open direction 1's "interleaving the
++four nodes' independent chains" (dead on any deep-OoO core; only an in-order target could
++profit) and 1a's "cos series" half (the primitive is at its floor; fewer floored products is a
++bits change). Also demonstrated: identical base code measured 18.9 µs and 24.7 µs in two
++epochs on the shared box — back-to-back A/B arms are worthless there; the interleaved-epoch
++protocol is the evidence (the naive first pair in this run's log is the trap, caught before it
++was believed). x86 (Haswell-class) only; the M1 re-measure needs the same protocol.
+ **The jet is retired** (law.md:36, 12 October; HANDOFF item 4 is now struck through — "done in law.md (not in the shipped code)"): a kick recompiles its cycle exactly, as the plane does, and the kick's cost is now the frame-cost bottleneck. The six standing gold refutations are 4978, 9a04, a059, b33f, ee08, d617 (law.md:36 cites 4978, b33f, d617; df81, the run the law originally adopted, had one checker — 4978). The refutation, in one pass: the multiply-add's error is C·drift² with no bound (df81: the 10⁻⁶ floor crossed after ~730 correlated 10⁻⁶ kicks); it diverges at the Schwarzschild separatrix on the L axis (4978: one 10⁻³-of-L kick errs 10³–10⁹× the floor, and a plunge is fabricated as a bound cycle) and on the E axis (9a04: relerr(T_t) ≈ (15/8)·(δE/(1−…
+ 
+ **The exact replacement, priced on shipped code.** The rebind (fit → compile → readout) is 84.6% of a plane kick's wall (96b4, correcting ea6b's wrong-path table), the compile alone 49–62% on fleet leavers (1e74) — the same shape at the 97 µs era (0083: compile 64.5%, rebind 78.7%, forces 9%) and on the leaver tail (ec9d: Passage::compile is 89–97% of a 365–381 µs leaver rebind); the rebind runs ~270× above a two-integer floor, and 1,400–1,800× above a measured ~42–56 ns information floor (b063, gold; the board files it under frame-cost); the compile's uncounted interior (allocations, key search, ~182 i128 panels), not its ~2,300 counted Scalar ops (~3–5 µs), owns most of the ~25–27 µs (fa08, 30e1); the fired kick's generator update runs 9–16× above its floo…
+@@ -24,11 +40,7 @@ updated: 20261013-1145-second-20261013-0350-components-c914-00d2
+ 
+ **The word-transition double compile, measured and deleted (digest-identical).** The shipped `bind` chose the integer word from the *compiled* entry (`word_for(&bound.entry)`), so every word transition compiled a full trajectory, read two exponents off it, threw it away and compiled again: on plane settles (600 s game, seeds 1/3, 48 and 400 members) transitions are 5.1–6.0% of binds but are the expensive binds (leaver-class; 278–310 µs discarded per transition against a ~104 µs mean bind), so the discarded first pass was 14.5–18.2% of all bind time (binds ≈ 43–50% of settle wall at 400 members). The word is a function of the fit's key (plus, for a passage, the compile edge — both known before compiling): `Rebinding::fit_of` (the fit without the compile) + `w…
+ 
+-<<<<<<< main
+-**Domain.** Tested: plane seeds 1–7 at rtf 30–1000, fleets to 200 members; the hlive belt (Jupiter 2⁻¹⁰, Saturn 2⁻¹², 24 game-years); Schwarzschild and equatorial Kerr χ ∈ {−0.9, 0.5, 0.9, 0.998}; e ≤ 0.99. Not tested: inclined Kerr, resonant kick trains against a carry, the dense order, and behaviour gates on any derivative-carrying build (see Contradictions). Inspiral is not a jet: Peters' a(t) is its generator (law.md:36; df81; the Peters flux drifting the tube's (E, L) is adoptable with measured contracts — 4c5b, silver, gravity-news topic). The allocation census (20261013-0236-fermi-061f) adds: one ship class, one scene, tcache-warm single thread. The division-floor census (20261013-0350-components-c914) adds: x86-64 only (i7-4790-class, shared), compile grids not a settle's kick stream, leaver `Passage::compile` under-sampled.
+-=======
+ **Domain.** Tested: plane seeds 1–7 at rtf 30–1000, fleets to 200 members; the hlive belt (Jupiter 2⁻¹⁰, Saturn 2⁻¹², 24 game-years); Schwarzschild and equatorial Kerr χ ∈ {−0.9, 0.5, 0.9, 0.998}; e ≤ 0.99. Not tested: inclined Kerr, resonant kick trains against a carry, the dense order, and behaviour gates on any derivative-carrying build (see Contradictions). Inspiral is not a jet: Peters' a(t) is its generator (law.md:36; df81; the Peters flux drifting the tube's (E, L) is adoptable with measured contracts — 4c5b, silver, gravity-news topic). The allocation census (20261013-0236-fermi-061f) adds: one ship class, one scene, tcache-warm single thread. The division-floor census (20261013-0350-components-c914) adds: x86-64 only at the time (i7-4790-class, shared), compile grids not a settle's kick stream, leaver `Passage::compile` under-sampled; the arm64 floor proxy (20261013-1145-second-...-00d2) extends it off-M1 (QEMU TCG + instruction census, see Current best). The divisor census (20261013-0350-scout-7d2b) adds: the four `fast_quad` sites plus `div_word` only; `isqrt`'s internal Newton divisions uncensused.
+->>>>>>> 20261013-1145-second-20261013-0350-components-c914-00d2
+ 
+ **The division-primitive lever inside the walk is killed, and the node's arithmetic is a
+ three-way tie, not a division monopoly (20261013-0350-scout-7d2b).** Census on a 48-key
+@@ -48,7 +60,6 @@ no division-only lever can beat ~1.4×; the co-owners are `isqrt` and `cos` (or
+ count, a law change). x86 ranking only; re-measure the primitives on the M1 before
+ believing the ordering (the no-repetition census is hardware-independent).
+ 
+-<<<<<<< main
+ **Domain.** Tested: plane seeds 1–7 at rtf 30–1000, fleets to 200 members; the hlive belt (Jupiter 2⁻¹⁰, Saturn 2⁻¹², 24 game-years); Schwarzschild and equatorial Kerr χ ∈ {−0.9, 0.5, 0.9, 0.998}; e ≤ 0.99. Not tested: inclined Kerr, resonant kick trains against a carry, the dense order, and behaviour gates on any derivative-carrying build (see Contradictions). Inspiral is not a jet: Peters' a(t) is its generator (law.md:36; df81; the Peters flux drifting the tube's (E, L) is adoptable with measured contracts — 4c5b, silver, gravity-news topic). The allocation census (20261013-0236-fermi-061f) adds: one ship class, one scene, tcache-warm single thread.
+ 
+ **The isqrt primitive, taken to its floor's edge, bit-identically (20261013-1145-components-9384).**
+@@ -64,9 +75,6 @@ patched. Kick-level ≈−3–5%; the 1,400–1,800× kick idiot index is untouc
+  count, a law question). On this grid the measured drop (−9.5%) at the measured primitive ratio
+  (1.78×) implies an isqrt compile share of ~22% (checker arms: 22–26%), between c914's 6–14%
+  and 7d2b's 30%-of-node.
+-
+-=======
+->>>>>>> 20261013-1145-second-20261013-0350-components-c914-00d2
+ ## Refuted
+ - "Exact division-by-multiplication where divisors repeat" as the walk's lever: the hot
+   sites' divisors are functions of the node's ψ and do not repeat (0.019 fraction over
+@@ -98,15 +106,12 @@ patched. Kick-level ≈−3–5%; the 1,400–1,800× kick idiot index is untouc
+ - Sharing one compiled cycle across co-orbital bodies as a ≥40× lever: the shareable compile is 9–17% of a distinct kick, so sharing buys 1.08–1.17× (best tail 6.3×) (4cb2).
+ - Deferring a kick's application under a renewal quantum: energy walks linearly, exponent 1.01 (67f2 — kick-cadence topic).
+ - The integer word as a function of the compiled entry (the word-transition double compile): the word is a function of the fit's key (plus the passage edge) and can be chosen before the compile; bit-identical everywhere tested, deletes the discarded pass (009b).
++- "Interleave the four nodes' independent chains" as a compile lever, and "the cos series at 77 ns" as a named lever: the primitive is at its 41.6 ns chain floor, the interleave wins 1.51× isolated and 0% at the compile (OoO already does it; digest identical both arms) (20261013-1249-quant-308e).
+ 
+ ## Open directions
+ 
+-<<<<<<< main
+ 1. **Cheapen the exact recompile — the arithmetic half is now bounded, so this is a panel-count question alone.** The interior: divisions 20–35% **at their hardware floor on x86** (divq 1.04×, exact Newton reciprocal 1.05× — no lever; 20261013-0350-components-c914), allocations 0.3% and key search absent (061f), cos 12–40%, isqrt 6–14%, and 44–58% none of these (products, Scalar normalization, knot accumulation, scaffolding). What remains: fewer panel evaluations per compile (the law's π/4 quantum and band cuts — a law change with recertification, not an optimization), interleaving the four nodes' independent chains if the walk is latency-bound (untested), and the M1 re-measure of the division floor (the Newton prototype is in `div_bench`). The word-transition double-compile half is done (009b: −12.9 to −17.5% of bind time); a crossing-read tier already reads at 0.34–0.42 µs (8c81, c4ce). Digest-identical cuts…
+-1a. **The primitive inside the walk, re-priced (7d2b) — the isqrt half is now closed (20261013-1145-components-9384):** the bit-identical f64-seed isqrt is built and measured (primitive ~96→~54 ns, compile −9.5% on the author's grid, digests identical; checker: −10.5–12% same grid, −8% on a wider grid p≤2²⁰/e≤0.999, Kerr −11%). Remaining in the node: the `cos` series (77 ns), panel count (a law change), and the isqrt headroom to the mul-only reciprocal Newton (division-free, ~15–25 ns floor design, untested).
+-=======
+-1. **Cheapen the exact recompile — the arithmetic half is bounded on x86 (hardware floor) and on the arm64 proxy for the prototype alone, so on silicon this is still a panel-count question pending one re-measure.** The interior: divisions 20–35% of the compile on x86 **at their hardware floor** (divq 1.04×, exact Newton reciprocal 1.05× — no lever there; 20261013-0350-components-c914; the arm64 QEMU/census proxy bounds the c914 prototype off-M1 — Newton 2.8× the wall, 1.49× the instructions — but the aarch64 baseline carries ~2.8 `udiv`/div, so M1 silicon decides the division lever: checker-corrected, 20261013-1145-second-...-00d2), allocations 0.3% and key search absent (061f), cos 12–40%, isqrt 6–14% (7d2b re-prices the ~320 ns node: divisions 29%, isqrt 30%, cos 24%, multiplies ~5%), and 44–58% none of these (products, Scalar normalization, knot accumulation, scaffolding). What remains: fewer panel evaluations per compile (the law's π/4 quantum and band cuts — a law change with recertification, not an optimization), a bit-identical Newton `isqrt(u128)` and a cheaper exact `cos` (7d2b's next levers by share), interleaving the four nodes' independent chains if the walk is latency-bound (untested), and the integrator's M1 re-measure of the division floor (the Newton prototype ships in `div_bench`; the expectation to falsify is 1.49× instructions / ≥1.5× wall — 00d2). The word-transition double-compile half is done (009b: −12.9 to −17.5% of bind time); a crossing-read tier already reads at 0.34–0.42 µs (8c81, c4ce). Digest-identical cuts already measured: fit_only deletes one dead trajectory decode per kick (−10.9%, a48d), a proper_at_event cache plus cartesian-free orbit_state cuts ~9–10% (2833), a weak-hyperbolic quadrature shortcut cuts the leaver ladder 40–45% (c3a5); ec9d's bounded Passage::compile projects ~10× off the leaver tail.
+->>>>>>> 20261013-1145-second-20261013-0350-components-c914-00d2
++1b. **The cos half and the interleave are now closed (20261013-1249-quant-308e):** shipped cos 41.6 ns = its ISA chain floor (77 ns was inflated; unrolled = 41.2); cos4 interleaves the panel's four chains for 1.51× per cos isolated but **0% at the compile** (OoO already overlaps them; digest identical) — the node's remaining arithmetic levers on x86 are panel count (a law change) and the mul-only reciprocal isqrt headroom alone. Naive A/B epochs on the shared box differ 30% on identical code: interleave arms in one binary.
+ 2. **The fate predicate at a kick.** 9a04's tri-predicate (bound ⇔ E < 1 ∧ three real roots ∧ middle root > 2M; escape ⇔ E ≥ 1 ∧ three real roots; plunge otherwise) is complete and freeze-ready for b-plunge-tubes; ee08 folds both failure families into one root-distance rule in u-space on roots darwin16 already factors, and d617 prices the domain guard (μ ≥ 0.3 plus a drift counter, ≈0.01 compiles/kick, residents only). Would change: deletes the plane's NoBoundOrbit refusals (4978) and guards the exact path's fate flips.
+ 3. **Inspiral by Peters' generator, not kicks** (law.md:36; 4c5b: handoff = separatrix, re-key wall, 1PN flux contract measured; its circ_L √a artifact was corrected by the checker). Would change: deletes the GW channel's per-kick work.
+ 4. **If a carry is ever reopened:** it must carry the (E,L) sensitivities (b33f) and the period derivatives ∂Δt/∂E, ∂Δt/∂L per band (fa08: without them it dies at kick 1–4), trigger on offset × window age, not offset alone (b242, ungraded), and face B12/B13/B17 and the lifecycle pin on the same build that holds drift (b33f; 2c68).
+@@ -169,3 +174,4 @@ patched. Kick-level ≈−3–5%; the 1,400–1,800× kick idiot index is untouc
+ - 20261013-0350-scout-7d2b (this run, awaiting grade): reciprocal division killed (repeat fraction 0.019, cold 40.4 > libcall 23.6 ns); division only 29% of the node — isqrt 30%, cos 24%.
+ - 20261013-1145-components-9384 (this run, awaiting grade): bit-identical isqrt (f64 seed + Newton + fix-ups) 96.5→54.2 ns, compile −9.5% A/B/A, digests identical; isqrt lever closed, mul-only reciprocal open.
+ - 20261013-1145-second-20261013-0350-components-c914-00d2 (silver, second check): the arm64 half of the division floor — Newton loses 2.8× (TCG wall) / 1.49× (instructions) on every decade tested; `__udivti3` executes ~2.8 `udiv`/div (the run's "zero udiv / multiply-only" was a print-cutoff artifact), so the lever stays open on M1 silicon.
++- 20261013-1249-quant-308e (this run, awaiting grade): cos at its 41.6 ns chain floor (77 ns was inflated); cos4 interleave 1.51× isolated, 0% at the compile — OoO already overlaps the panel's chains; digest identical; resolved the page's four standing conflicts (00d2's domain text and 9384's isqrt block both kept).
