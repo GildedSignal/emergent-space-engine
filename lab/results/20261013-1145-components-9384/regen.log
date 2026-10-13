@@ -1,0 +1,110 @@
+== machine state (the lab measures with it recorded) ==
+ 12:01:37 up 47 days,  3:04,  0 user,  load average: 0.59, 0.93, 0.59
+8
+== [1] primitive fuzz: 24M cases + edges, candidates vs shipped (expect 0 mismatches) ==
+fuzz uniform: 3000000 cases ok (acc 935dc8ae0d8c4e6e)
+fuzz fastquad: (d<<62), d<2^62: 3000000 cases ok (acc 8b04bf341d4fee)
+fuzz ratio_sqrt: num*den, <=2^61: 3000000 cases ok (acc 108466c9b6075531)
+fuzz squares: 3000000 cases ok (acc 1a966c22607df8e8)
+fuzz squares-1: 3000000 cases ok (acc 4f71967dff42e66b)
+fuzz squares+1: 3000000 cases ok (acc cb989179cf164ff)
+fuzz small: 3000000 cases ok (acc 27)
+fuzz pow2 +-1: 3000000 cases ok (acc ee7ee8fe22242b91)
+edges ok; total mismatches: 0
+== [2] primitive bench: shipped vs B vs C on the compile's operand domains ==
+-- fastquad-domain (4096 operands)
+shipped (u64seed + soft u128 divs)     99.3 ns/op  (acc cbf5b0719a4c909d1f240, 10.07 M ops)
+B: f64 seed + div_word + fixup         57.8 ns/op  (acc cbf5b0719a4c909d1f240, 17.29 M ops)
+C: f64 seed + soft div + fixup         52.7 ns/op  (acc cbf5b0719a4c909d1f240, 18.98 M ops)
+-- ratio-domain (4096 operands)
+shipped (u64seed + soft u128 divs)     97.4 ns/op  (acc 4448c3eb998dae6570ae3, 10.26 M ops)
+B: f64 seed + div_word + fixup         57.0 ns/op  (acc 4448c3eb998dae6570ae3, 17.53 M ops)
+C: f64 seed + soft div + fixup         52.5 ns/op  (acc 4448c3eb998dae6570ae3, 19.03 M ops)
+-- mixed (8192 operands)
+shipped (u64seed + soft u128 divs)     98.4 ns/op  (acc 881f5296ad56d0dbc6526, 10.17 M ops)
+B: f64 seed + div_word + fixup         57.3 ns/op  (acc 881f5296ad56d0dbc6526, 17.46 M ops)
+C: f64 seed + soft div + fixup         52.3 ns/op  (acc 881f5296ad56d0dbc6526, 19.11 M ops)
+seed error histogram |f64seed - isqrt| (0..=15+): [59, 117, 106, 101, 100, 83, 91, 92, 92, 95, 104, 104, 92, 88, 83, 6785]
+== [3] compile sweep A/B/A (digest must be equal in all three arms) ==
+-- PATCHED arm:
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.80s
+     Running `/home/glmlab/lab-target-3/release/examples/isqrt_sweep 40`
+SWEEP 65 keys best-of 0.0034 s -> 52.9 us/compile  digest 7ea39076dbf4c7f0a5a57bd8ebd95662
+-- BASE arm (x2):
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.80s
+     Running `/home/glmlab/lab-target-3/release/examples/isqrt_sweep 40`
+SWEEP 65 keys best-of 0.0038 s -> 59.0 us/compile  digest 7ea39076dbf4c7f0a5a57bd8ebd95662
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+     Running `/home/glmlab/lab-target-3/release/examples/isqrt_sweep 40`
+SWEEP 65 keys best-of 0.0038 s -> 58.6 us/compile  digest 7ea39076dbf4c7f0a5a57bd8ebd95662
+-- PATCHED arm again:
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.81s
+     Running `/home/glmlab/lab-target-3/release/examples/isqrt_sweep 40`
+SWEEP 65 keys best-of 0.0035 s -> 53.2 us/compile  digest 7ea39076dbf4c7f0a5a57bd8ebd95662
+== [4] the law's own frozen-oracle tests on the patched tree (70 tests, all must pass) ==
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+== [5] plane digest A/B/A (tail 10s rtf100 seed1 48 members; digests must be equal) ==
+-- PATCHED arm:
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: value assigned to `horizon` is never read
+  --> crates/universe/examples/tail.rs:26:17
+   |
+26 |         let mut horizon = p.u.now;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (example "tail") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.86s
+     Running `/home/glmlab/lab-target-3/release/examples/tail 10 100 1 48`
+digest f5b8cd231836cc9d0e98271b3b22ceb4d59c26c172b0aa1638d913e55fc6d7ce
+-- BASE arm:
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: value assigned to `horizon` is never read
+  --> crates/universe/examples/tail.rs:26:17
+   |
+26 |         let mut horizon = p.u.now;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (example "tail") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.90s
+     Running `/home/glmlab/lab-target-3/release/examples/tail 10 100 1 48`
+digest f5b8cd231836cc9d0e98271b3b22ceb4d59c26c172b0aa1638d913e55fc6d7ce
+-- PATCHED arm again:
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: value assigned to `horizon` is never read
+  --> crates/universe/examples/tail.rs:26:17
+   |
+26 |         let mut horizon = p.u.now;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (example "tail") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 14.52s
+     Running `/home/glmlab/lab-target-3/release/examples/tail 10 100 1 48`
+digest f5b8cd231836cc9d0e98271b3b22ceb4d59c26c172b0aa1638d913e55fc6d7ce
+DONE

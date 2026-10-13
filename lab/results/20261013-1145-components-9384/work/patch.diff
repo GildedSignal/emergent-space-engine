@@ -1,0 +1,106 @@
+diff --git a/crates/space/examples/isqrt_sweep.rs b/crates/space/examples/isqrt_sweep.rs
+new file mode 100644
+index 00000000..1f742ed6
+--- /dev/null
++++ b/crates/space/examples/isqrt_sweep.rs
+@@ -0,0 +1,60 @@
++//! Deterministic compile sweep for the isqrt A/B: compiles a fixed grid of bound keys and
++//! prints wall time plus a checksum over every knot, crossing and period, so the two arms
++//! can be compared for cost and for bits at once.
++//!
++//! ```text
++//! cargo run --release -p emergent-space --example isqrt_sweep [reps]
++//! ```
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::time::Instant;
++
++fn main() {
++    let reps: usize = std::env::args()
++        .nth(1)
++        .and_then(|s| s.parse().ok())
++        .unwrap_or(3);
++    // Grid over the plane's shipped shapes: periapsis 4..2048 (M units), e 0..0.99.
++    let mut keys = Vec::new();
++    for log_p in 2..11usize {
++        let p = Scalar::integer(1i64 << log_p);
++        for &e in &[
++            0.0f64, 0.1, 0.3, 0.5, 0.7, 0.9, 0.95, 0.99,
++        ] {
++            let k = (e * 2f64.powi(48)).round() as u64;
++            if let Ok(key) = OrbitKey::bound(p, k) {
++                keys.push(key);
++            }
++        }
++    }
++    let mut digest = 0u128;
++    let mut compiled = 0usize;
++    let mut best = f64::INFINITY;
++    for r in 0..reps {
++        let t = Instant::now();
++        let mut acc = 0u128;
++        let mut n = 0usize;
++        for (i, key) in keys.iter().enumerate() {
++            if let Ok(c) = Orbit::compile(*key) {
++                n += 1;
++                acc = acc
++                    .wrapping_mul(31)
++                    .wrapping_add(c.period().map(|s| s.significand() as u128).unwrap_or(0));
++                for knot in c.shape().knots() {
++                    acc ^= knot.psi as u128;
++                }
++                acc = acc.wrapping_add(c.shape().crossings().len() as u128 + (i as u128) << 8);
++            }
++        }
++        let d = t.elapsed().as_secs_f64();
++        if r > 0 {
++            best = best.min(d);
++        }
++        digest = acc;
++        compiled = n;
++        println!("rep {r}: {n}/{} compiled in {d:.4} s (acc {digest:x})", keys.len());
++    }
++    println!(
++        "SWEEP {compiled} keys best-of {best:.4} s -> {:.1} us/compile  digest {digest:x}",
++        best / compiled as f64 * 1e6
++    );
++}
+diff --git a/crates/space/src/num.rs b/crates/space/src/num.rs
+index e6b74c8d..188461ee 100644
+--- a/crates/space/src/num.rs
++++ b/crates/space/src/num.rs
+@@ -46,19 +46,23 @@ pub fn isqrt(x: u128) -> u128 {
+     if x < 2 {
+         return x;
+     }
+-    // Start at or above the root: the root of the top 64 bits (u64 Newton), plus one, rescaled.
+-    let shift = (128 - x.leading_zeros()).saturating_sub(64).div_ceil(2) * 2;
+-    let top = (x >> shift) as u64;
+-    let mut y = top.isqrt() as u128 + 1;
+-    y <<= shift / 2;
+-    // Newton from above decreases monotonically to floor(sqrt(x)).
+-    loop {
+-        let z = (y + x / y) >> 1;
+-        if z >= y {
+-            return y;
+-        }
+-        y = z;
++    // The float square root is correctly rounded, so the seed sits within a relative
++    // 2^-51 of the root; one integer Newton step (the exact floor division) lands within
++    // one of floor(sqrt(x)), and the square fix-ups below close it exactly, so the
++    // returned bits are the floor whatever the seed does.
++    let mut y = ((x as f64).sqrt() as u128).max(1);
++    if y > 1 {
++        y = (y + x / y) >> 1;
++    }
++    while y.checked_mul(y).is_some_and(|s| s > x) {
++        y -= 1;
++    }
++    let mut s = y + 1;
++    while s.checked_mul(s).is_some_and(|t| t <= x) {
++        y = s;
++        s += 1;
+     }
++    y
+ }
+ 
+ /// floor(a * b / 2^s) for a, b >= 0, from the exact 256-bit product; Range if it exceeds u128.
