@@ -1,0 +1,66 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: variable `arm_tick` is assigned to, but never used
+   --> crates/universe/examples/second_probe.rs:163:49
+    |
+163 |         let (mut hold_tick, mut cross_tick, mut arm_tick) = (0i64, 0i64, 0i64);
+    |                                                 ^^^^^^^^
+    |
+    = note: consider using `_arm_tick` instead
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: variable `phi0` is assigned to, but never used
+   --> crates/universe/examples/second_probe.rs:165:18
+    |
+165 |         let (mut phi0, mut dphi_v) = (0.0f64, 0.0f64);
+    |                  ^^^^
+    |
+    = note: consider using `_phi0` instead
+
+warning: variable `rr_hold` is assigned to, but never used
+   --> crates/universe/examples/second_probe.rs:176:17
+    |
+176 |         let mut rr_hold = 0.0f64;
+    |                 ^^^^^^^
+    |
+    = note: consider using `_rr_hold` instead
+
+warning: value assigned to `phi0` is never read
+   --> crates/universe/examples/second_probe.rs:305:17
+    |
+305 |                 phi0 = v.doll_beta[1].atan2(v.doll_beta[0]);
+    |                 ^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: value assigned to `rr_hold` is never read
+   --> crates/universe/examples/second_probe.rs:310:17
+    |
+310 |                 rr_hold = rr;
+    |                 ^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: value assigned to `arm_tick` is never read
+   --> crates/universe/examples/second_probe.rs:359:29
+    |
+359 | ...                   arm_tick = v.tick;
+    |                       ^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: `emergent-universe` (example "second_probe") generated 6 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.61s
+record rows: 22/22 bit-identical
+== off45: 1872 refusal-change checks, total 13386
+   first refusal at t=14048s (phase 3, g_d=2.097)
+   hold       13386  (100.0%)
+   same-doll     13386  (100.0%)
+   doll-change       0  (0.0%)
+   g_d at refusal checks: min 1.723 max 2.421
+== off90: 1840 refusal-change checks, total 12762
+   first refusal at t=15949s (phase 3, g_d=3.193)
+   hold       12762  (100.0%)
+   same-doll     12762  (100.0%)
+   doll-change       0  (0.0%)
+   g_d at refusal checks: min 3.193 max 5.011
