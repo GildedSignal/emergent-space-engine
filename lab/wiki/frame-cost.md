@@ -2,17 +2,48 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261012-1621-q-wiki-frame-cost-ae6a
+<<<<<<< main
+<<<<<<< main
+updated: 20261012-2257-quant-32ab
+=======
+updated: 20261012-2257-scout-64e4
+>>>>>>> 20261012-2257-scout-64e4
+=======
+updated: 20261012-2257-spacex-5eb6
+>>>>>>> 20261012-2257-spacex-5eb6
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
 
-**The zero-event fixed tier (the hidden tick).** Shipped `Universe::advance` touches every body
-every frame whether or not anything is due: an unconditional `rekey` (one deadline recompute plus
-one heap set per entity, `universe.rs:493`), then the defer/drain/requeue passes that pop and
-re-push every non-due entity (`universe.rs:790`) — three Calendar touches per body per frame,
-always, all outside `Budget` (20261010-0656-quant-d540, 20261012-1019-quant-b29b). Measured
+**The fixed tier is deleted outside sustained starvation; inside it the fleet cap breaks canon
+(checker).** The missing experiment of open direction 1 is built: due-ness served from a tick-keyed
+calendar (one peek; the drain that set aside every non-due entity is gone), the `rekey` sweep gated
+on the player's displacement since the last sweep (`wander ≥ want/64`, so between sweeps every
+stored deadline is within `wander` light-ticks of its truth, and the overflow horizon takes that
+slack off), and `settle` draining by the same tick-due-ness (20261012-2257-spacex-5eb6). Measured on
+the probe's quiet populations (200 frames, rtf 100): median 1.34–1.49 µs **flat in n** from 428 to
+2×10⁵ bodies against legacy 16.45 µs → 14.7 ms (~73 ns/body) — 11× at 428, 10,872× at 2×10⁵; the
+amortized sweep is the p99 (5.1 ms at 2×10⁵, 2 sweeps in 200 frames); full rekeys on the same
+flights drop from 1,719–80,005 to 1–219. Checker-reproduced and extended: flat at 4×10⁵ (22,000×),
+a same-tick tie storm, and a player at ~2×10⁻³ c (25× the wander rate: rekeys 2→33, lazy median
+4.2 µs) — digests bit-identical across both arms on all 15 schedules and every checker case
+**except sustained starvation**: under a 3-event budget at 5×10⁶ rtf (200/200 overflow frames) the
+shipped gate `work_per_frame_is_bounded_and_overflow_is_a_dip_not_a_hitch` fails deterministically
+on the patched tree and passes on base — the budgeted fleet commits to cut+128 ticks while the
+settled fleet stops at the cut, and the run's own `starve` probe prints three digests at one cut
+(e7472f50… / 314b1bbc… / 94096d75…). Tick-due order lets the fleet resolve early in the frame and
+commit past the presented time; the shipped deadline order was the regulator that prevented it.
+The dossier's "the universe suite passes" is wrong: regen.sh runs the clock tests unskipped (17 s on
+the checker's machine), and plane.rs fails. The trap's fix in the patch is park-and-retry
+(`cap ≤ tick` parks the fleet for the pass; `resolve_fleet` only runs at `cap > tick`), not the
+`cap.max(tick + 1)` the dossier names (20261012-2257-spacex-5eb6, checker).
+
+**The zero-event fixed tier (the hidden tick), as shipped.** Shipped `Universe::advance` touches
+every body every frame whether or not anything is due: an unconditional `rekey` (one deadline
+recompute plus one heap set per entity, `universe.rs:493`), then the defer/drain/requeue passes
+that pop and re-push every non-due entity (`universe.rs:790`) — three Calendar touches per body per
+frame, always, all outside `Budget` (20261010-0656-quant-d540, 20261012-1019-quant-b29b). Measured
 slopes, by population and cache regime: ~29 ns/body (rekey only, 428 bodies,
 20261011-1917-second-…-762d-119f), 43–60 ns/body (rekey, 4×10³–2.6×10⁵, linear with a growing
 coefficient, 20261012-0036-quant-115e), 0.25 µs/entity cache-resident rising to ~1.1 µs at 1.2×10⁵
@@ -30,6 +61,54 @@ unlimited settle the pass runs only twice; it bites exactly in the session's per
 settle, never per frame (20261012-1019-quant-b29b). At plane scale (≈428 bodies) the tier is still
 small — 15 µs/frame, 99% rekey (20261011-1917-second-…-762d-119f) — so it is a scale wall, not a
 today wall.
+
+<<<<<<< main
+**The flight regime (the sweep's L8+ stutter): the burn-input replan waterfall, not the fixed
+tier.** On shipped code (clock fix in), the sweep's flights paced at the page's 12 ms budget jump
+from 0.038 s worst lag (L0–L6) to 1.43–1.66 s with 22–55 capped frames at L8–L15, and demand mode
+(unlimited budget) attributes it: player items are 79–91% of the flight's CPU (rising with level;
+checker-corrected from 87–91), the Stats remainder
+(the fixed tier at 48 members) is ≈0, and the worst frame is the frame the burn input lands
+(wall second 1.0, within 3% from L10 up; at L8 within 7%) — a replan waterfall of 42 (L8) → 166 (L10) → 579 (L12) → 1,036 (L15)
+player items in that one frame, deterministic in count, decaying over 2–4 frames, while the whole
+flight's median frame stays 39–125 µs. The pure resolve (`step::process` on the player's record)
+is ~29 µs at coast and ~140–150 µs under burn once past the first post-burn seconds (up to
+~390 µs inside them), flat in speed from 0.12c to 0.55c — the jet-era
+compile is not the flight's problem either; the item totals ~430–500 µs at 48 members and
+~1.7–2.9 ms at 400 members, the difference being the O(all-bodies)
+scan riding player items plus apply/requeue (the pure resolve is population-flat: ~143 µs at 400
+members too, checker), so the same waterfall costs 2.4 s in one frame at 400 members. The
+per-frame burst concentration scales with rtf (53 items at rtf 1, where the worst frame stays
+under 12 ms, to 1,036 at the sweep's rtf 100 — checker); the stutter binds at and above the
+sweep's flying pace. Even the coast control is
+not sub-millisecond: the 48-member idle plane has p99 ≈ 1.3 ms and worst ≈ 13 ms frames. Gate F1's
+"no frame over 12 ms **after the first second**" excludes the worst burst frame itself (the
+sweep's burns start at wall second 1.0; the decay tail, 50–60 ms in demand, is past it), so that
+clause can pass while the burn frames hitch — though F1's zero-lag clause still catches the
+stutter. Spreading the
+waterfall across frames is digest-safe by the schedule-independence gold (20261007-1234-system-2517)
+(20261012-2257-quant-32ab).
+=======
+**The deadline heuristic is schedule-only, proven by divergence (20261012-2257-scout-64e4).** Three
+genuinely divergent rekey policies — shipped every-advance, never (frozen observer and deadlines),
+lazy-on-player-motion — end every probe with a bit-identical canonical digest (seeds 1/3, 48/400
+members, 8/60 game-s, starved to one resolved item per frame so the calendar alone picks the
+order): the per-frame queue-front fingerprints, frame counts and event streams differ (3637/3634/
+3636 frames at 60 s), the digests match exactly (`e38b245b…`/`35812c30…`/`2dbc92e4…` ×3), kicks
+and encounters counted equal. The only channel demonstrated to break digests on the shipped engine
+core is the session's key logging at the presented tick: reproduced on the shipped API
+(`input(u.now,…)`,
+three digests across 30/60/144 Hz, encounters 39/37/38), and the two-line fix shape validated
+(decision tick derived from the wall timeline, snapped up to a 2²⁰-tick grid via `schedule`: one
+digest per seed across all rates; two flips inside one cell both land, in order — checker).
+Quantizing the presented tick itself does *not* fix it (adjacent pacings straddle cell boundaries:
+raw ticks 19912096/20250432 fall either side of 19×2²⁰). A second, structural channel exists
+outside this run's deadline-value domain: 1537's tick-keyed calendar broke via the fleet commit cap
+and `pull`'s stale slots (its own diagnosis, no player keys involved). The rekey walk alone is
+10–34% of the quiet frame (188.6→152.7 µs at 1,001 bodies; 2.30→2.07 ms at 10,001; plane
+16.7→11.1 µs) — drain/requeue own the rest. Checker domain extension: identity holds at 1,600
+members (1,642 kicks, 662 encounters, seed 7), under 64-decision scripts, and at threads 4.
+>>>>>>> 20261012-2257-scout-64e4
 
 **The kick.** The shipped kick resolver costs a median 75.6 µs (made 34–38, leavers 92–102, p99.9
 11× the median, boundaries only 3.5×) against a measured information floor of 42–56 ns per kick
@@ -59,10 +138,11 @@ event is 6.9 µs of which 97% is `root_state` (20261012-0036-quant-115e); the be
 digest per canonical cut across budgets, threads, pace, checkpoints, observation and starvation
 (9 adversarial paths × 3 seeds, 20261008-0615-taleb-40c0; 12 runs through 100% overflow,
 20261007-1234-system-2517) — so scheduler changes that alter only *when* work happens are
-digest-testable. At plane scale the allocator is at its floor: idiot index 1.01, 0.3–0.4%
-deferrable, slack median 0 (20261011-0736-components-825f); the frame's tail is demand, not
-scheduling — single player events of 1.3–3.4 ms, 4–28× every other item, monotone in doll
-population, via the O(all-bodies) `PlayerNeighbourhood` scan (20261010-2141-constraint-ae40,
+digest-testable (the lazy tier is the strongest instance: tick order instead of deadline order,
+digests unchanged, 20261012-2257-spacex-5eb6). At plane scale the allocator is at its floor: idiot
+index 1.01, 0.3–0.4% deferrable, slack median 0 (20261011-0736-components-825f); the frame's tail
+is demand, not scheduling — single player events of 1.3–3.4 ms, 4–28× every other item, monotone in
+doll population, via the O(all-bodies) `PlayerNeighbourhood` scan (20261010-2141-constraint-ae40,
 20261006-1354-constraint-df79, 20261011-0736-components-825f), linear at ~1.6–3 µs/body and alone
 breaking 16.7 ms at ≈8×10³ bodies (20261010-0656-quant-d540; 33 ns/body/item,
 20261010-1920-spacex-cb3f); at the 400-member clamp one player item took 68% of the frame budget
@@ -91,10 +171,31 @@ fleets, belt tubes) up to ~2.6×10⁵ bodies, rtf 1–10⁴, orders of magnitude
 the xtask clamp first: unpatched `--members 1024` silently returns the 400-member digest
 (20261010-1920-quant-9464, 20261011-1729-second-…-07b8). The median *delivered* frame is
 view-bound, not engine-bound (gather 54–86% of frame CPU, engine ≤ 5–24%) — that half belongs to
-the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf31).
+<<<<<<< main
+the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf31). The flight
+regime (20261012-2257-quant-32ab) adds: one seed, one scene, forward holds, members 48 and 400;
+the burst frame's wall cost moved 0.38 s → 2.4 s across processes on the shared box (item counts
+deterministic); not tested there: other input patterns, the M1.
+=======
+the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf31). The lazy
+tier's digest identity is tested on plane scenes and quiet tubes to 4×10⁵ (checker), a tie storm
+and a 25×-wander player; it **fails** under sustained starvation (3-event budgets, 200/200
+overflow) — the shipped plane gate breaks; not tested: checkpoints, the M1
+(20261012-2257-spacex-5eb6, checker).
+>>>>>>> 20261012-2257-spacex-5eb6
 
 ## Refuted
 
+- The deadline order as load-bearing for canon, outside starvation — tick order with (tick, id)
+  ties gives byte-identical digests across 15 schedules, both arms and the checker's tie storm; the
+  order is a schedule (20261012-2257-spacex-5eb6, confirming 20261008-0615-taleb-40c0 at the
+  frame-loop level). **Under a starving budget the deadline order IS load-bearing for the fleet**
+  (it caps the battle's committed tick at the presented time); tick order lets the fleet commit
+  past it, and the plane gate fails (checker).
+- Tightening the fleet cap below the fleet's own next tick (staleness slack on the cap) — deadlocks
+  `run_to` at `to == tick`: the fleet is due every tick, and only the second-in-line's resolution
+  raises the cap; the patch's answer is to park the fleet for the pass and retry at the next
+  advance (20261012-2257-spacex-5eb6; the dossier's `cap.max(tick + 1)` names a superseded draft).
 - A fixed per-frame prologue floor (0.2–1 ms) as the freeze mechanism — directly measured at
   15 µs/frame at 428 bodies, no knee in events-per-budget (20261011-1917-second-…-762d-119f).
 - "Delivers 0.00×" under stall — a median-frame artifact; the stalled run delivers 28.8× unpaced
@@ -102,6 +203,11 @@ the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf
 - The rekey walk alone owning the per-frame slope — deleting it changed nothing at 6,203 haulers
   (20261010-0656-spacex-2439); the tier is rekey + drain + defer/requeue together
   (20261012-1019-quant-b29b, 20261010-0656-quant-d540).
+- The fixed tier (or lazy re-keying) as the fix for the flight sweep's L8+ stutter — at 48 members
+  the tier is ≈0% of the flight's CPU; the stutter is the burn-input player-item waterfall plus the
+  per-item scan (20261012-2257-quant-32ab).
+- Per-item player cost growing with speed/γ in the flight regime — flat at 75–80 µs from 0.12c to
+  0.55c; the frame is item-count, not item-cost (20261012-2257-quant-32ab).
 - Kick memoization — exact hit 0% everywhere measured (1,125 distinct shapes in 1,158 kicks; 0 of
   203,017 on the belt); the quantized key hits 94–97% but changes orbits (20261011-1729-components-b063,
   20261010-1544-system-97ce, 20261011-2306-system-3367; 5 October correction).
@@ -116,6 +222,7 @@ the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf
 
 ## Open directions
 
+<<<<<<< main
 1. **Delete the fixed tier** (unbounded at scale): lazy deadlines — rekey only on player motion;
    serve tick-due-ness by min-peek instead of drain; deadline keys as slack lower bounds rechecked
    on pop (20261010-0656-quant-d540, 20261012-1019-quant-b29b, 20261012-0036-quant-115e). Takes the
@@ -123,12 +230,37 @@ the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf
    whether the belt may join the root queue as entities (it must not, 20261012-1019-quant-b29b).
    The naive variants so far break cross-schedule digest identity (6766's break: different digests
    and a broken settle contract; 1537's tick-keyed calendar: quiet frame 0.1 µs flat but fleet
-   digests move) — the determinism-safe construction is the missing experiment. Supporting
+   digests move) — the rekey half of that construction is now supplied by 20261012-2257-scout-64e4:
+  *any deadline-value policy on the shipped calendar structure* is digest-safe under divergence,
+  provided decisions are logged off the presented tick (direction 5); gate F1's digest criterion must be
+  evaluated with that fix, or honest lazy builds will fail it. Supporting
    internals already measured: a monotone bucket wheel on event time (2.1–4.4× cheaper per event,
    4–9× under co-orbital concentration, rare O(n) rebuild stalls,
    20261007-2246-components-4955) and a dyadic wheel plus triangle-inequality skin (7–20× at
-   10⁶–3×10⁶, canonical states bit-identical, 20261007-2344-quant-4211).
+   10⁶–3×10⁶, canonical states bit-identical, 20261007-2344-quant-4211). Note: at flight scale this
+   deletes ~15 µs/frame — it does not touch the sweep's L8+ stutter
+   (20261012-2257-quant-32ab).
+2. **Spread or cap the burn-input replan waterfall** (the flight's worst frame): one input mints
+   up to 1,036 player items due in the input frame (L15, 48 members; 2.4 s at 400 members);
+   resolving them across frames is digest-safe by schedule independence
+   (20261012-2257-quant-32ab). Unmeasured: why the replan mints that many items (the thrust word's
+   refit against every scheduled kick), and the waterfall's size under other input patterns.
+3. **The kick as an addition** (10²–10³× per kick): keep additive integer invariants between kicks
+=======
+1. **Close the starvation hole, then merge the deleted tier**: the construction holds everywhere
+   except a starving budget, where the fleet commits past the presented time (plane gate fails,
+   checker). The named experiment: cap the fleet's commit by the frame's overflow horizon (or serve
+   fleet entities in deadline order inside the tick loop) so the budgeted and settled universes
+   agree at one cut — `starve` must print one digest. Then adopt 20261012-2257-spacex-5eb6's patch
+   (tick calendar + lazy rekey + parked fleets; ~120 lines, `ES_EAGER=1` keeps the legacy arm for
+   A/B), delete the legacy arm and `debug_queues` on merge, and re-run the behave suite on the M1.
+   What remains after it: the amortized sweep is still Θ(N) when it fires (p99 5.1 ms at 2×10⁵) —
+   the bucket wheel (2.1–4.4×/event, 20261007-2246-components-4955) and the dyadic wheel + skin
+   (7–20× at 10⁶–3×10⁶, 20261007-2344-quant-4211) are the measured next rungs for it. Unblocks any
+   doll holding ≥10⁴ ships and decides whether the belt may join the root queue as entities (it
+   must not, 20261012-1019-quant-b29b).
 2. **The kick as an addition** (10²–10³× per kick): keep additive integer invariants between kicks
+>>>>>>> 20261012-2257-spacex-5eb6
    (`ΔL = x×Δv`, `ΔE = v·Δv + |Δv|²/2`, carries as today); fit the tube once per *read* (plan
    tick, certificate, view gather) instead of once per kick — reads are per frame per visible
    body, kicks are 128 per radial period, and the fit stays exact so digests survive where the
@@ -136,19 +268,32 @@ the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf
    (a watched fleet at rtf 1) — the read side's cost at scale is the named counterweight
    (20261011-1729-components-b063, lens). Cadence is a separate, priced door: halving kicks halves
    work (exponent ≈1) at ≈4× B13 error per halving (20261007-1801-second-…-18df).
-3. **Per-region staleness rung** (survive sustained overload): horizon from the player's own chain;
+4. **Per-region staleness rung** (survive sustained overload): horizon from the player's own chain;
    a lagging region's sky goes stale, the player never waits — kills the ~600× presented-time
    cliff (20261007-1234-system-2517). Must be shown to move no digest.
-4. **A density/throughput gate** (end the silent freeze): shed target rtf when local density ×
+5. **A density/throughput gate** (end the silent freeze): shed target rtf when local density ×
    target exceeds the budget's sustainable events/s; dashboard arithmetic only
    (20261011-1917-second-…-762d-119f).
-5. **Land the decision-tick quantization** (close the canon leak): two lines in
+6. **Land the decision-tick quantization** (close the canon leak): two lines in
    `session.rs`/`kick_bench.rs`, already built and held on an ungraded branch — bring it through a
+<<<<<<< main
    graded run (20261008-0615-taleb-40c0, 20261008-0743-second-…-a342).
+7. **Replace the player scan** (the frame's p99, and now the flight's per-item cost): the Binet
+   cone over `PlayerNeighbourhood`'s exact O(all-bodies) check (20261010-0656-quant-d540,
+   20261010-1920-spacex-cb3f, 20261011-0736-components-825f); in the flight regime it prices every
+   player item at ~430–500 µs (48 members) to ~1.7–2.9 ms (400 members), of which the pure
+   resolve is only ~140–150 µs
+   (20261012-2257-quant-32ab).
+8. **Hand-out cost at fleet scale**: 443 µs per hand-out, 12× a kick, plus deadline pinning
+=======
+   graded run (20261008-0615-taleb-40c0, 20261008-0743-second-…-a342; the leak reproduced and the
+  wall-grid fix shape validated on the shipped API by 20261012-2257-scout-64e4 — quantizing the
+  presented tick does not fix it).
 6. **Replace the player scan** (the frame's p99): the Binet cone over `PlayerNeighbourhood`'s exact
    O(all-bodies) check (20261010-0656-quant-d540, 20261010-1920-spacex-cb3f,
    20261011-0736-components-825f).
 7. **Hand-out cost at fleet scale**: 443 µs per hand-out, 12× a kick, plus deadline pinning
+>>>>>>> 20261012-2257-scout-64e4
    (20261011-1102-quant-ba35).
 
 ## Contradictions
@@ -201,3 +346,6 @@ the `view` page (e.g. 20261011-0324-constraint-986f, 20261012-1227-constraint-cf
 - 20261012-0036-quant-115e (gold): rekey tax 43–60 ns/body, linear to 2.6×10⁵ at zero events, no class escapes; kick 70.7% rebind, 11× tail.
 - 20261012-0616-system-1537 (silver): hidden O(N) rekey tick (215 µs at 10³ → 37 ms at 6.4×10⁴); the naive tick-keyed calendar breaks digest identity.
 - 20261012-1019-quant-b29b (gold): unbudgeted Θ(N) fixed tier (rekey + drain): 38% of frame at 12k, 8× over at 120k; ceiling ≈1.5–6×10⁴ entities.
+- 20261012-2257-quant-32ab (this run): the sweep's L8+ stutter is the burn-input player-item waterfall (1,036 items in the input frame at L15) on the O(N) scan, not the fixed tier (≈0% in flight); per-item cost flat in γ.
+- 20261012-2257-scout-64e4 (proposed): rekey policy proven schedule-only (divergent schedules, identical digests); the digest break is presented-tick key logging; wall-grid fix holds.
+- 20261012-2257-spacex-5eb6 (silver): the lazy deletion built — quiet frame O(1) (1.35 µs flat to 2×10⁵, 10,872×; 4×10⁵, tie-storm and 25×-wander cases hold, checker), digests identical across arms and 15 schedules; sustained starvation breaks the fleet cap (the shipped plane gate fails) — one experiment from merge.
