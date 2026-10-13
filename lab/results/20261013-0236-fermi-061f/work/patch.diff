@@ -1,0 +1,263 @@
+diff --git a/crates/universe/examples/kick_fermi.rs b/crates/universe/examples/kick_fermi.rs
+new file mode 100644
+index 00000000..b2e824bf
+--- /dev/null
++++ b/crates/universe/examples/kick_fermi.rs
+@@ -0,0 +1,257 @@
++// Fermi attribution of a plane kick's interior: allocations vs arithmetic, on shipped code.
++// Arms: A pure-kick timing (system allocator), D settle digest under system (twice: control),
++// B allocation census (counting, untimed), pair-cost microbench, C bump-arena timing, then a
++// settle digest under bump. The global allocator dispatches on MODE; mode 2 is entered last and
++// never left (a cross-mode free would be UB). No engine file is touched.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::{step, Config};
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
++use std::time::Instant;
++
++const CLASSES: usize = 24; // floor(log2(size)) buckets, 1 B .. 8 MB
++static MODE: AtomicUsize = AtomicUsize::new(0); // 0 system, 1 counting, 2 bump
++static COUNT: AtomicUsize = AtomicUsize::new(0);
++static BYTES: AtomicUsize = AtomicUsize::new(0);
++static HIST: [AtomicUsize; CLASSES] = [const { AtomicUsize::new(0) }; CLASSES];
++
++fn class(size: usize) -> usize {
++    (usize::BITS as usize - 1 - size.max(1).leading_zeros() as usize).min(CLASSES - 1)
++}
++
++struct Fermi;
++unsafe impl GlobalAlloc for Fermi {
++    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
++        match MODE.load(Relaxed) {
++            2 => bump_alloc(l.size(), l.align()),
++            1 => {
++                COUNT.fetch_add(1, Relaxed);
++                BYTES.fetch_add(l.size(), Relaxed);
++                HIST[class(l.size())].fetch_add(1, Relaxed);
++                System.alloc(l)
++            }
++            _ => System.alloc(l),
++        }
++    }
++    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
++        if MODE.load(Relaxed) != 2 {
++            System.dealloc(p, l);
++        }
++    }
++    unsafe fn realloc(&self, p: *mut u8, l: Layout, new: usize) -> *mut u8 {
++        match MODE.load(Relaxed) {
++            2 => {
++                let dst = bump_alloc(new, l.align());
++                std::ptr::copy_nonoverlapping(p, dst, new.min(l.size()));
++                dst
++            }
++            1 => {
++                COUNT.fetch_add(1, Relaxed);
++                BYTES.fetch_add(new, Relaxed);
++                HIST[class(new)].fetch_add(1, Relaxed);
++                System.realloc(p, l, new)
++            }
++            _ => System.realloc(p, l, new),
++        }
++    }
++}
++#[global_allocator]
++static A: Fermi = Fermi;
++
++const BUMP_CAP: usize = 512 << 20;
++static BUMP_BASE: AtomicUsize = AtomicUsize::new(0);
++static BUMP_CUR: AtomicUsize = AtomicUsize::new(0);
++unsafe fn bump_alloc(size: usize, align: usize) -> *mut u8 {
++    let align = align.max(16);
++    let want = size + align;
++    let cur = BUMP_CUR.fetch_add(want, Relaxed);
++    let base = BUMP_BASE.load(Relaxed);
++    if base == 0 || cur + want > base + BUMP_CAP {
++        eprintln!("bump exhausted at {cur} bytes");
++        std::process::abort();
++    }
++    ((cur + align - 1) & !(align - 1)) as *mut u8
++}
++
++fn snapshot() -> (usize, usize, [usize; CLASSES]) {
++    (
++        COUNT.load(Relaxed),
++        BYTES.load(Relaxed),
++        std::array::from_fn(|i| HIST[i].load(Relaxed)),
++    )
++}
++
++struct LoopOut {
++    us: f64,
++    kicks: u32,
++    hash: u64,
++    allocs: usize,
++    bytes: usize,
++    hist: [usize; CLASSES],
++}
++
++/// The cost_split path: clones of one record, plan advanced to the first Kick item, one
++/// `step::process` each. The census snapshot excludes the scene's construction.
++fn pure_kick_loop(n: usize) -> LoopOut {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    let ship = p.ships[14];
++    let ctx = p.u.ctx();
++    let rec = p.u.rec(ship);
++    let (c0, b0, h0) = snapshot();
++    let t0 = Instant::now();
++    let mut kicks = 0;
++    let mut h: u64 = 0x9e3779b97f4a7c15;
++    for _ in 0..n {
++        let mut r = rec.clone();
++        while !matches!(r.plan.first().map(|i| i.what), Some(emergent_universe::body::What::Kick(0))) {
++            r.plan.remove(0);
++        }
++        let u = step::process(&ctx, ship, r);
++        kicks += matches!(u.kind, step::Resolved::Kick) as u32;
++        h = h.rotate_left(17) ^ (u.retired.len() as u64) ^ (u.new_entry.is_some() as u64);
++        std::hint::black_box(&u);
++    }
++    let us = t0.elapsed().as_secs_f64() * 1e6 / n as f64;
++    let (c1, b1, h1) = snapshot();
++    LoopOut {
++        us,
++        kicks,
++        hash: h,
++        allocs: c1 - c0,
++        bytes: b1 - b0,
++        hist: std::array::from_fn(|i| h1[i] - h0[i]),
++    }
++}
++
++/// The loop's own cost (clone + plan walk) without `step::process`, for subtraction.
++fn harness_loop(n: usize) -> LoopOut {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    let ship = p.ships[14];
++    let rec = p.u.rec(ship);
++    let (c0, b0, h0) = snapshot();
++    let t0 = Instant::now();
++    for _ in 0..n {
++        let mut r = rec.clone();
++        while !matches!(r.plan.first().map(|i| i.what), Some(emergent_universe::body::What::Kick(0))) {
++            r.plan.remove(0);
++        }
++        std::hint::black_box(&r);
++    }
++    let us = t0.elapsed().as_secs_f64() * 1e6 / n as f64;
++    let (c1, b1, h1) = snapshot();
++    LoopOut {
++        us,
++        kicks: 0,
++        hash: 0,
++        allocs: c1 - c0,
++        bytes: b1 - b0,
++        hist: std::array::from_fn(|i| h1[i] - h0[i]),
++    }
++}
++
++fn settle_digest(horizon: i64) -> String {
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, 8).unwrap();
++    p.u.settle(horizon);
++    p.u.digest()
++}
++
++fn main() {
++    unsafe {
++        let layout = Layout::from_size_align(BUMP_CAP, 4096).unwrap();
++        let base = System.alloc(layout) as usize;
++        BUMP_BASE.store(base, Relaxed);
++        BUMP_CUR.store(base, Relaxed);
++    }
++    let n: usize = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(3000);
++    let horizon: i64 = std::env::args().nth(2).and_then(|a| a.parse().ok()).unwrap_or(5_000_000_000);
++
++    // Arm A: pure-kick timing under the system allocator.
++    let a = pure_kick_loop(n);
++    println!("armA_system_kick_us {:.2} kicks {} hash {:x}", a.us, a.kicks, a.hash);
++
++    // Arm D1: settle digest under system, twice (a process-internal nondeterminism shows here).
++    let d1 = settle_digest(horizon);
++    let d2 = settle_digest(horizon);
++    // Unit prices of the interior's candidate arithmetic (x86-64 emulates i128).
++    let d: Vec<i128> = (0..64)
++        .map(|i| (i as i128) * 0x9E3779B97F4A7C15 + 0x0123456789ABCDEF)
++        .collect();
++    let iters = 2_000_000;
++    for (name, op) in [
++        ("i128_div", Box::new(|a: i128, b: i128| a / b) as Box<dyn Fn(i128, i128) -> i128>),
++        ("i64_div", Box::new(|a: i128, b: i128| ((a as i64) / (b as i64)) as i128) as _),
++        ("i128_mul", Box::new(|a: i128, b: i128| a.wrapping_mul(b)) as _),
++    ] {
++        let t0 = Instant::now();
++        for i in 0..iters {
++            let x = op(d[i & 63] | 1, d[(i >> 6) & 63] | 1);
++            std::hint::black_box(x);
++        }
++        println!("unit_ns {name} {:.2}", t0.elapsed().as_secs_f64() * 1e9 / iters as f64);
++    }
++    println!("armD_system_digest {d1} repeat_equal {}", d1 == d2);
++
++    // Arm B: census, untimed.
++    MODE.store(1, Relaxed);
++    let b = pure_kick_loop(n);
++    let harness = harness_loop(n);
++    let pk = |x: usize| x as f64 / n as f64;
++    println!(
++        "armB_allocs_per_kick {:.1} harness {:.1}",
++        pk(b.allocs.saturating_sub(harness.allocs)),
++        pk(harness.allocs)
++    );
++    println!(
++        "armB_bytes_per_kick {:.1} harness {:.1}",
++        pk(b.bytes.saturating_sub(harness.bytes)),
++        pk(harness.bytes)
++    );
++    println!(
++        "armB_harness_us_per_iter {:.2} vs kick {:.2}",
++        harness.us, b.us
++    );
++    for k in 0..CLASSES {
++        let v = b.hist[k].saturating_sub(harness.hist[k]);
++        if v > 0 {
++            println!("armB_class_bytes_{} {:.1}", 1usize << k, pk(v));
++        }
++    }
++    println!("armB_hash_vs_system {}", a.hash == b.hash);
++
++    // Pair-cost microbench on a fixed ladder (mode 0: raw System pairs).
++    MODE.store(0, Relaxed);
++    for s in [16, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 8192] {
++        let iters = 200_000;
++        let t0 = Instant::now();
++        for _ in 0..iters {
++            unsafe {
++                let l = Layout::from_size_align(s, 16).unwrap();
++                let p = System.alloc(l);
++                std::ptr::write_volatile(p, 1u8);
++                System.dealloc(p, l);
++            }
++        }
++        println!("pair_ns {s} {:.1}", t0.elapsed().as_secs_f64() * 1e9 / iters as f64);
++    }
++
++    // Arm C: bump arena, entered last and never left.
++    MODE.store(2, Relaxed);
++    let c = pure_kick_loop(n);
++    println!(
++        "armC_bump_kick_us {:.2} kicks {} hash_equal {} bump_bytes {}",
++        c.us,
++        c.kicks,
++        a.hash == c.hash,
++        BUMP_CUR.load(Relaxed) - BUMP_BASE.load(Relaxed)
++    );
++    let d3 = settle_digest(horizon);
++    println!("armD_bump_digest_equal {}", d1 == d3);
++    println!(
++        "attribution: system {:.2} us, bump {:.2} us, delta {:.2} us ({:.0}% of system)",
++        a.us,
++        c.us,
++        a.us - c.us,
++        100.0 * (a.us - c.us) / a.us
++    );
++}

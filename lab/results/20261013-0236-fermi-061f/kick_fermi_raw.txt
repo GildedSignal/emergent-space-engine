@@ -1,0 +1,21 @@
+armA_system_kick_us 34.22 kicks 3000 hash 159e3779b97f4a7c            (run 1)
+armA_system_kick_us 32.69 kicks 3000 hash 159e3779b97f4a7c            (run 3, after unit-price rebuild)
+armD_system_digest b4f07b752003034546f4c20db277e68ca2c1d12d4d031d46f991a276fbe63381 repeat_equal true
+armB_allocs_per_kick 9.0 harness 1.0
+armB_bytes_per_kick 2872.0 harness 32.0
+armB_harness_us_per_iter 0.05..0.09 vs kick 32.58..34.31
+armB_class_bytes_16 2.0
+armB_class_bytes_64 1.0
+armB_class_bytes_128 1.0
+armB_class_bytes_256 3.0
+armB_class_bytes_512 2.0
+armB_hash_vs_system true
+pair_ns 16..1024 ~9.7   (run 1: 9.7-10.2; 192..1024 up to 19.0)
+pair_ns 1536 30.6..52.8  pair_ns 2048 21.0..21.5  pair_ns 3072 32.5  pair_ns 4096 33.6..34.0  pair_ns 8192 34.3..34.4
+unit_ns i128_div 30.85
+unit_ns i64_div 8.91
+unit_ns i128_mul 1.49
+armC_bump_kick_us 34.05 (run 1) / 33.89 (run 3)  kicks 3000  hash_equal true  bump_bytes 9331410
+armD_bump_digest_equal true
+attribution: system 34.22 -> bump 34.05, delta 0.16 us (0%)   (run 1)
+attribution: system 32.69 -> bump 33.89, delta -1.20 us (-4%) (run 3)

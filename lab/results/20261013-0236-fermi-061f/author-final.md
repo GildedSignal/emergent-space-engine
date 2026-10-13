@@ -1,0 +1,4 @@
+Working...
+Regen verified end-to-end: deterministic (9.0 allocs/kick, 2,872 B, hash and digest bit-identical, bump_bytes 9,331,410 exact across runs; timing deltas 0.16/−1.2/−0.84 µs — allocation cost is zero within noise). All deliverables are in `lab/results/20261013-0236-fermi-061f/`: `predictions.md` (pre-registered, P6 kill triggered), `dossier.md`, `regen.sh` (~2 s warm), `wiki/kick-jet.md`, `kick_fermi_raw.txt`; the probe is one new example, no engine file touched.
+
+**Claim:** on shipped code a plane kick makes only 9 allocations (2,872 B) worth ~0.1 µs of its 34 µs (0.3%; bump-arena A/B within noise, digests bit-identical) and no key search exists on the bind path, so the kick's "uncounted interior" is the fit→compile→readout walk's arithmetic — ~900 emulated i128-division-equivalents at 30.9 ns each — making the cheapest exact kick a panel-and-division *count* question and killing the allocator avenue (fa08/30e1's first suspect) outright.
