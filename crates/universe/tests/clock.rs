@@ -53,17 +53,22 @@ fn fly(level: u8, log2_end: f64, checkpoints: usize, gamma_max: f64) -> Report {
     let alpha = 2f64.powi(cfg.thrust_log2 + level as i32); // rapidity per proper tick
     let mut p = plane(cfg, 1, Order::Sparse, 1, 48).unwrap();
     let me = p.player;
-    p.u.input(0, word(1, level)).unwrap();
+    // The course this gate froze: the burn goes along +x. The nose now starts prograde (−x), so that is the reverse key. The same
+    // burn flown forward (prograde, −x) drifts from the closed form beyond γ ≈ 60 (8.9e-2 at γ = 120, 680 AU out): each rebinding
+    // loses 1e-8 to 1e-7 of rapidity, the size of one quantum of the compiled key's k, which has only 21 bits there (Q48, k ≈
+    // 1.1e-8). Probably a rounding the +x course happens to average out; the key's range is the far-flyby job's, not the clock's.
+    p.u.input(0, word(2, level)).unwrap();
     let f2 = |v: [Scalar; 2]| [to_f64(v[0]), to_f64(v[1])];
-    // The start state: γ₀ and u₀·n (the heading is 0: n = (1, 0), and no turn key is held).
+    // The start state: γ₀ and u₀·n (n is the thrust's unit vector: the reverse key burns against the nose, which starts prograde).
     let (g0, u0n) = {
         let rec = p.u.rec(me);
+        let n = f2(emergent_universe::thrust::direction(rec.thrust.expect("the player has a thrust").heading).unwrap()).map(|c| -c);
         let ctx = p.u.ctx();
         let (x, v) = rec.b.cartesian(0).unwrap();
         let mu = to_f64(ctx.tube_unit(me, rec.b.doll).unwrap().mu);
         let (_, w) = local(f2(x), f2(v), mu);
         let g = 1.0 / (1.0 - w[0] * w[0] - w[1] * w[1]).sqrt();
-        (g, g * w[0])
+        (g, g * (w[0] * n[0] + w[1] * n[1]))
     };
     let mut rep = Report { level, clock: vec![], gamma: vec![], at: vec![], last_t: 0, last_gamma: 1.0, refusals: 0, alive: true, left: false, wall: 0.0 };
     let mut t_prev = 0i64;

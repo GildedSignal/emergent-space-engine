@@ -96,15 +96,17 @@ fn null_capture_uses_the_exact_existing_predicate_and_has_zero_proper_time() {
     }
 }
 
+/// A state the turning inverse takes keeps its turning orbit whatever its periapsis: one that dips under the surface is ended
+/// where its tube meets the surface by the engine (`next_impact`), and the arcs' exact interval predicate (milliseconds) is paid
+/// only by states with no periapsis to turn at (a fall or a rise: the tests around this one).
 #[test]
-fn a_turning_orbit_inside_the_star_is_cut_at_the_surface() {
+fn a_turning_orbit_inside_the_star_stays_a_turning_orbit() {
     let input = state(64, -0.02, 0.10);
     let original = Rebinding::from_state(input, Scalar::ZERO, None).unwrap();
     assert!(original.trajectory.key().unwrap().periapsis < Scalar::integer(32));
     let fit = Rebinding::ending_at(input, Scalar::integer(123), None, Scalar::integer(32)).unwrap();
     assert_eq!(fit.reconstruct().unwrap(), input);
-    let emergent_space::binding::Trajectory::Plunge(p) = fit.trajectory else { panic!("not cut at surface") };
-    assert_eq!(p.at_coordinate(p.arrival().coordinate_time.unwrap()).unwrap().radius, Scalar::integer(32));
+    assert!(fit.trajectory.key().is_some_and(|k| k.periapsis < Scalar::integer(32)), "a turning orbit, not an arc");
 }
 
 #[test]

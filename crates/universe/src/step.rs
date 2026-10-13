@@ -357,7 +357,7 @@ impl Work<'_, '_> {
     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
-        let bound = match bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface)) { Ok(b) => b, Err(e) => { eprintln!("DBGREFUSE {e:?} t {t} doll {doll} state {exact:?} edge {:?}", self.passage_edge(doll).map(crate::num::to_f64)); return Err(e) } };
+        let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
         let old = &self.rec.b;
         // The tube's length since the last binding is the body's clock reading (root units).
         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
@@ -413,7 +413,7 @@ impl Work<'_, '_> {
         let a = force::acceleration(level, x, &secs, tide)?;
         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
         let dv = scale2(a, h)?;
-        let thrusting = level == 0 && self.rec.thrust.is_some_and(|t| t.keys != 0);
+        let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
         let added;
         let next = if thrusting {
@@ -633,11 +633,6 @@ impl Work<'_, '_> {
         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
             half = half.min((self.thrust_step(t)? / 2).max(1));
         }
-        // The first kick is read from this tube: it comes before the tube's window closes (a fast ship leaves a passage's
-        // compiled radius within a clock step, far from the star where the step is long).
-        if let Some(end) = self.window_end()? {
-            half = half.min(((end - t) / 4).max(1));
-        }
         self.rec.ext = Some(ext);
         self.rec.plan.clear();
         self.rec.anchor = t;
@@ -684,16 +679,9 @@ impl Work<'_, '_> {
             ext.add_pt(w.mul(f.rate)?)?;
             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
         };
-        let mut fired = next.velocity != st.velocity;
+        let fired = next.velocity != st.velocity;
         if fired {
             self.rebind(next, t, d)?;
-        } else if let Some(end) = self.window_end()? {
-            // A kick that changed nothing leaves the tube it read: when half its window is spent it is bound again at the same
-            // state (exactly: the readout at the event is the state), so the window is always ahead of the next kick.
-            if end - t < (end - self.rec.b.event_time) / 2 {
-                self.rebind(next, t, d)?;
-                fired = true;
-            }
         }
         self.rec.carry = carry;
         self.rec.ext = Some(ext);
@@ -708,9 +696,6 @@ impl Work<'_, '_> {
         let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
             full = full.min(self.thrust_step(t)?);
-        }
-        if let Some(end) = self.window_end()? {
-            full = full.min(((end - t) / 2).max(2));
         }
         self.rec.ext = Some(ext);
         if fired {
@@ -742,16 +727,6 @@ impl Work<'_, '_> {
         }
         self.rec.anchor = t;
         Ok(Resolved::Boundary)
-    }
-
-    /// The last tick the binding's tube can be read at, if it has an end: a passage is compiled out to a finite radius (twice the
-    /// one it was bound at, or four sphere-of-influence radii), and its window closes there; a turning orbit has none.
-    fn window_end(&self) -> Res<Option<Tick>> {
-        let b = &self.rec.b;
-        let Trajectory::Passage(p) = &b.entry.trajectory else { return Ok(None) };
-        let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
-        let end = peri.add(b.to_doll(p.duration()?.scale(-1)?)?)?;
-        Ok(Some(i64::try_from(end.fixed_floor(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("window"))? - 1))
     }
 
     fn thrust_step(&self, t: Tick) -> Res<i64> {
@@ -857,7 +832,6 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
     let kind = match result {
         Ok(k) => k,
         Err(e) => {
-            if std::env::var("DBGBT").is_ok() { eprintln!("DBGFAULT {e:?} {:?} t {t} doll {} kind {:?} state {:?} key {:?}", item.what, w.rec.b.doll, w.rec.kind, w.rec.b.readout(t), w.rec.b.entry.trajectory.key()); }
             w.rec.fault = Some((item.what, e));
             // A refusal never corrupts a body: the old binding stands, the kick is dropped and
             // counted. A boundary that cannot plan its next step ends the body: it is lost.

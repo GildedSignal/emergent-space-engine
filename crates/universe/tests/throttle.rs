@@ -227,20 +227,32 @@ fn a_lost_ship_says_why_and_keeps_its_readings() {
     panic!("the ship should have crashed");
 }
 
-/// A ship the engine could not carry on (a refused kick: stopping dead above a planet is a radial plunge, which the compile
-/// refuses, kick after kick) stays viewable, alive: the view reads its last state when the presented tick cannot be read.
+/// Stopping dead above a planet is a radial plunge, and the compile owns a tube for it (gate P1): the ship that brakes to rest
+/// is not refused kick after kick, as it was when this test held a "stuck" ship up to the view. It falls with no refusal, the
+/// view follows it to the surface, and the wreck says where it was lost.
 #[test]
-fn a_stuck_ship_keeps_a_view() {
+fn a_ship_braked_to_rest_falls_with_no_refusal_and_keeps_a_view() {
     let mut p = plane(Config::default(), 5, Order::Sparse, 1, 8).unwrap();
-    p.u.settle(2_000_000);
-    p.u.input(2_000_000, word(2, 14)).unwrap(); // reverse: brake against the orbit's motion
-    p.u.settle(2_300_000);
-    p.u.now = 2_300_000;
-    let v = gather(&p.u, &p.names).expect("a stuck ship is still a view");
-    let rec = p.u.rec(p.player);
-    println!("stuck: {} refusals, alive {}, β {:?}, loss {:?}", rec.refusals, rec.alive, v.beta, v.loss);
-    assert!(rec.refusals > 0, "the scene must refuse (the engine's radial-fall limit)");
-    assert!(v.refusals > 0 && v.proper_seconds > 0.0);
+    p.u.frame(0.1, 100.0, Budget::unlimited());
+    p.u.input(p.u.now, word(2, 4)).unwrap(); // reverse: brake against the orbit's motion
+    let (mut braking, mut frames_at_rest) = (true, 0);
+    for f in 0..4000 {
+        p.u.frame(0.1, 100.0, Budget::unlimited());
+        let v = gather(&p.u, &p.names).expect("a ship is always a view");
+        assert_eq!(v.refusals, 0, "refused at frame {f}: {:?}", v.loss);
+        if braking && v.doll_beta[0] * v.heading[0] + v.doll_beta[1] * v.heading[1] <= 0.0 {
+            braking = false; // at rest against the planet (to within a frame's burn): coast and fall
+            p.u.input(p.u.now, word(0, 0)).unwrap();
+        }
+        frames_at_rest += !braking as u32;
+        if !v.alive {
+            let loss = v.loss.clone().expect("a wreck says why");
+            println!("braked to rest, then fell: {loss}, {frames_at_rest} frames after the brake ended");
+            assert!(!braking && frames_at_rest > 3 && loss.starts_with("hit Home at "), "{loss}");
+            return;
+        }
+    }
+    panic!("the ship should have fallen to the surface");
 }
 
 /// Julien's goal is to feel high c: a ship burning at the top level from the plane's start reaches β 0.999 (γ ≈ 22) with

@@ -108,11 +108,11 @@ fn main() {
     let only = args.get(3).cloned().unwrap_or_default();
     let frames = (seconds * 60.0) as usize;
     println!("rtf {rtf}, {seconds} s of wall time per flight ({frames} frames at 60 Hz)");
-    println!("{:<34} {:>6} {:>8} {:>10} {:>8} {:>9} {:>8} {:>8}  {}", "flight", "alive", "refusals", "max |v|/c", "min r/R", "warned s", "worst ms", "lag s", "fault, or the loss");
+    println!("{:<34} {:>6} {:>8} {:>10} {:>8} {:>7} {:>9} {:>8} {:>8}  {}", "flight", "alive", "refusals", "max |v|/c", "min r/R", "max AU", "warned s", "worst ms", "lag s", "fault, or the loss");
     for (name, mut pilot) in flights().into_iter().filter(|(n, _)| n.contains(&only)) {
         let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
         let mut cache = ViewCache::default();
-        let (mut worst, mut lag, mut vmax, mut rmin) = (Duration::ZERO, 0f64, 0f64, f64::MAX);
+        let (mut worst, mut lag, mut vmax, mut rmin, mut aumax) = (Duration::ZERO, 0f64, 0f64, f64::MAX, 0f64);
         let mut warned = None;
         let mut lost_at = None;
         for f in 0..frames {
@@ -122,6 +122,7 @@ fn main() {
                     let t = p.u.now;
                     let _ = p.u.input(t, word(keys, level));
                 }
+                aumax = aumax.max((view.position_light_seconds[0].powi(2) + view.position_light_seconds[1].powi(2)).sqrt() / 499.004784);
                 if warned.is_none() && view.impact.is_some() {
                     warned = Some(view.tick);
                 }
@@ -153,6 +154,6 @@ fn main() {
             _ => "-".to_string(),
         };
         let rmin = if rmin == f64::MAX { "-".to_string() } else { format!("{rmin:.3}") };
-        println!("{:<34} {:>6} {:>8} {:>10.6} {:>8} {:>9} {:>8.2} {:>8.3}  {}", name, rec.alive, rec.refusals, vmax, rmin, warn, worst.as_secs_f64() * 1e3, lag, end);
+        println!("{:<34} {:>6} {:>8} {:>10.6} {:>8} {:>7.3} {:>9} {:>8.2} {:>8.3}  {}", name, rec.alive, rec.refusals, vmax, rmin, aumax, warn, worst.as_secs_f64() * 1e3, lag, end);
     }
 }
