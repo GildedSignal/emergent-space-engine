@@ -1,0 +1,38 @@
+Flight sweep on wt/play (8be91783 + merge), 13 October. State: AC power, load average 2.3, swap 3.6 of 5 GB used, other builders compiling (wt/frame, wt/range). Times are CPU under that load.
+cargo run --release -p emergent-universe --example flight_sweep -- 100 20
+rtf 100, 20 s of wall time per flight (1200 frames at 60 Hz)
+flight                              alive refusals  max |v|/c  min r/R  max AU  warned s worst ms    lag s  fault, or the loss
+coast                                true        0   0.000028    1.099   0.967         -     9.81    0.000  
+burn, coast, brake L2                true        0   0.000048    1.099   0.967         -     9.89    0.000  
+burn, coast, brake L8                true        0   0.001503    1.099   0.968         -    12.39    1.102  
+forward L0 (prograde)                true        0   0.000033    1.099   0.967       yes     9.94    0.000  
+forward L2 (prograde)                true        0   0.000101    1.099   0.967         -     9.99    0.000  
+forward L4 (prograde)                true        0   0.000370    1.099   0.967         -    10.48    0.000  
+forward L6 (prograde)                true        0   0.001427    1.099   0.968         -    10.80    0.000  
+forward L8 (prograde)                true        0   0.005492    1.099   0.971         -    12.01    0.034  
+forward L10 (prograde)               true        0   0.022303    1.099   0.983         -    12.42    0.839  
+forward L12 (prograde)               true        0   0.087107    1.099   1.037         -    12.82    1.505  
+forward L15 (prograde)               true        0   0.567650    1.099   1.747         -    13.62    1.634  
+reverse L0 (held)                   false        0   0.000028    1.000   0.967       595     9.83    0.000  hit Home at 7.71 km/s (relative to Home), at world time 12 min 51 s
+reverse L2 (held)                   false        0   0.000028    1.000   0.967       398     9.91    0.000  hit Home at 5.44 km/s (relative to Home), at world time 8 min 34 s
+reverse L4 (held)                   false        0   0.000028    1.001   0.967       267    10.09    0.000  hit Home at 8.16 km/s (relative to Home), at world time 6 min 11 s
+reverse L8 (held)                    true        0   0.005627    1.079   0.967       yes    12.35    0.739  
+brake to rest L2                    false        0   0.000028    1.000   0.967       398     9.82    0.000  hit Home at 5.44 km/s (relative to Home), at world time 8 min 34 s
+brake to rest, burn out L2          false        0   0.000028    1.000   0.967       398    10.09    0.000  hit Home at 5.44 km/s (relative to Home), at world time 8 min 34 s
+brake to rest L4                    false        0   0.000028    1.001   0.967       287    10.13    0.000  hit Home at 4.19 km/s (relative to Home), at world time 6 min 32 s
+brake to rest, burn out L4          false        0   0.000032    1.000   0.967       412    10.17    0.000  hit Home at 9.71 km/s (relative to Home), at world time 8 min 35 s
+brake to rest L8                    false        0   0.000028    1.000   0.967       257    12.17    0.698  hit Home at 3.97 km/s (relative to Home), at world time 5 min 57 s
+brake to rest, burn out L8           true        0   0.000030    1.097   0.967       yes    12.27    0.698  
+burn, coast, brake L2                true        0   0.000048    1.099   0.967         -     9.71    0.000  
+burn, coast, brake L8                true        0   0.001503    1.099   0.968         -    12.45    1.021  
+turn left then burn L2               true        0   0.000046    1.099   0.967         -    10.23    0.000  
+turn left then burn L8               true        0   0.001648    1.099   0.968         -    10.33    0.000  
+throttle sweep 0→15→0                true        0   0.041664    1.099   1.002         -    12.45    1.588  
+key mashing                          true        0   0.000926    1.099   0.967       yes    12.45    1.638  
+
+flight_sweep 3000 20 far (the far flight: wt/range's refusal, not fixed here)
+rtf 3000, 20 s of wall time per flight (1200 frames at 60 Hz)
+flight                              alive refusals  max |v|/c  min r/R  max AU  warned s worst ms    lag s  fault, or the loss
+far: prograde L10 to 3 AU           false        1   0.170804    1.099   5.993         -    13.28   48.769  the engine lost it: Kick(0): Space(Range) (1 refusals), in the star's doll at 0.1708 c
+far: prograde L12 to 3 AU           false        1   0.331800    1.099   6.005         -    14.22   49.707  the engine lost it: Kick(0): Space(Range) (1 refusals), in the star's doll at 0.3318 c
+far: prograde L15 to 3 AU           false        1   0.736553    1.099   5.965         -    15.96   49.963  the engine lost it: Kick(0): Space(Range) (1 refusals), in the star's doll at 0.7366 c
