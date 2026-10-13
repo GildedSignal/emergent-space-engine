@@ -1,0 +1,176 @@
+diff --git a/crates/universe/examples/quad_slot.rs b/crates/universe/examples/quad_slot.rs
+new file mode 100644
+index 00000000..b48c264a
+--- /dev/null
++++ b/crates/universe/examples/quad_slot.rs
+@@ -0,0 +1,170 @@
++//! One missing slot, three consumers: does a stored acceleration serve every between-events reader?
++//!
++//! The shipped plane derives a body's between-events state through three separate mechanisms, none of
++//! which stores the acceleration: `observe::partial` re-evaluates `force::field` at every read (the
++//! view's frame constraint), the gravity version payload omits it (the measured ½·a·T² lag), and a
++//! held burn rekeys the velocity word every 1/64 of |v| (the waterfall). This probe measures, on the
++//! frame-cost scenes flown deterministically, whether the acceleration the last committed kick already
++//! stored (`kick.dv / kick.len`) reproduces `partial`'s fresh evaluation within the readers' quanta,
++//! over the real read windows; and, for the gravity consumer, what a quadratic version payload leaves
++//! over the scene's light window against the linear payload.
++//!
++//! cargo run --release -p emergent-universe --example quad_slot [-- <wall seconds per flight>]
++use emergent_universe::bind::Binding;
++use emergent_universe::num::{to_f64, Tick};
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{fleet::Order, Budget, Config};
++use std::time::{Duration, Instant};
++
++/// Keys: 1 forward, 2 reverse, 4 left, 8 right. The frame-cost scenes (paced 8 s).
++fn flights() -> Vec<(String, Vec<(f64, u8, u8)>)> {
++    vec![
++        ("coast".into(), vec![]),
++        ("forward L8".into(), vec![(1.0, 1, 8)]),
++        ("forward L12".into(), vec![(1.0, 1, 12)]),
++        ("forward L15".into(), vec![(1.0, 1, 15)]),
++        ("brake L8".into(), vec![(1.0, 2, 8)]),
++        ("turn left then burn L8".into(), vec![(1.0, 4, 8), (2.0, 0, 8), (2.5, 1, 8), (8.0, 0, 8)]),
++    ]
++}
++
++struct Acc {
++    ax: f64,
++    ay: f64,
++}
++
++/// The field acceleration `partial` evaluates: `force::field` at the tube's position at `mid`.
++fn a_fresh(ctx: &emergent_universe::ctx::Ctx, b: &Binding, i: usize, mid: Tick) -> Option<Acc> {
++    let (x, _) = b.cartesian(mid).ok()?;
++    let f = emergent_universe::force::field(&ctx.secondaries(b.doll, mid, i).ok()?, x).ok()?;
++    Some(Acc { ax: to_f64(f.accel[0]), ay: to_f64(f.accel[1]) })
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let seconds: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(8.0);
++    let frames = (seconds * 60.0) as usize;
++    println!("paced {seconds} s per flight, {frames} frames at 60 Hz, rtf 100, seed 1, 48 members");
++    println!("read quantum: the gather reads integer ticks; 1 root tick = {:.3e} s of light", TICK_SECONDS);
++    println!(
++        "{:<22} {:>6} {:>7} {:>9} {:>8} {:>6} {:>10} {:>10} {:>10} {:>9} {:>9}",
++        "flight", "frames", "clock%", "rd/body/f", "no-stor", "|a|>0", "e_p50 tick", "e_p99 tick", "e_max tick", "ev_p99", "rel_p99"
++    );
++    for (name, script) in flights() {
++        let mut p = plane(Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++        let n = p.u.n_bodies();
++        let names: Vec<String> = (0..n).map(|i| format!("b{i}")).collect();
++        let mut cache = ViewCache::default();
++        let mut next = 0usize;
++        let (mut readouts, mut samples, mut nostored, mut nonzero) = (0u64, 0u64, 0u64, 0u64);
++        let (mut clock_reads, mut total_reads) = (0u64, 0u64);
++        let mut epos: Vec<f64> = Vec::new();
++        let mut evel: Vec<f64> = Vec::new();
++        let mut erel: Vec<f64> = Vec::new();
++        let mut done = 0usize;
++        for f in 0..frames {
++            let wall = f as f64 / 60.0;
++            while next < script.len() && script[next].0 <= wall {
++                let (_, keys, level) = script[next];
++                let t = p.u.now;
++                let _ = p.u.input(t, word(keys, level));
++                next += 1;
++            }
++            let start = Instant::now();
++            let frame = p.u.frame_to(
++                1.0 / 60.0,
++                100.0,
++                Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) },
++                i64::MAX,
++            );
++            done = f + 1;
++            if gather_cached(&p.u, &names, &mut cache).is_some() {
++                readouts += cache.readouts;
++            }
++            let t_now = frame.presented;
++            let ctx = p.u.ctx();
++            let bodies = p.u.bodies();
++            let player = p.player;
++            for i in 0..n {
++                total_reads += 1;
++                let Some(b) = bodies.binding_at(i, t_now) else { continue };
++                if !b.kick.clock {
++                    continue; // the ramp path already reads the stored kicks (`credit`)
++                }
++                clock_reads += 1;
++                let shift = ctx.dolls[b.doll as usize].shift as i32;
++                let ct = 2f64.powi(b.clock_exp as i32); // doll time units per tick
++                let len = b.kick.len.max(1);
++                let start_b = if t_now >= b.kick.boundary { b.kick.boundary } else { b.event_time - b.kick.lead };
++                // the acceleration the last committed kick stored: its dv over its window
++                let a_st = (|| {
++                    let prev = bodies.binding_at(i, start_b.saturating_sub(1))?;
++                    let k = prev.kick;
++                    if !k.clock || k.len != len || k.len == 0 {
++                        return None;
++                    }
++                    let ve = prev.units.1 as i32;
++                    Some(Acc {
++                        ax: (k.dv[0] as f64) * 2f64.powi(ve) / (k.len as f64 * ct),
++                        ay: (k.dv[1] as f64) * 2f64.powi(ve) / (k.len as f64 * ct),
++                    })
++                })();
++                for &frac in &[0.25, 0.5, 1.0, 1.5, 2.0] {
++                    let tau = (len as f64 * frac) as i64;
++                    if tau <= 0 || start_b + tau / 2 > t_now || start_b + tau > t_now + len {
++                        continue;
++                    }
++                    let mid = start_b + tau / 2;
++                    let Some(a_f) = a_fresh(&ctx, &b, i, mid) else { continue };
++                    let tau_s = tau as f64 * ct;
++                    let a_mag = (a_f.ax * a_f.ax + a_f.ay * a_f.ay).sqrt();
++                    if a_mag > 0.0 {
++                        nonzero += 1;
++                    }
++                    match &a_st {
++                        Some(a_s) => {
++                            let (dx, dy) = (a_f.ax - a_s.ax, a_f.ay - a_s.ay);
++                            let da = (dx * dx + dy * dy).sqrt();
++                            epos.push(0.5 * da * tau_s * tau_s * 2f64.powi(-shift));
++                            evel.push(da * tau_s);
++                            if a_mag > 0.0 {
++                                erel.push(da / a_mag);
++                            }
++                            samples += 1;
++                        }
++                        None => nostored += 1,
++                    }
++                }
++            }
++            if !p.u.rec(p.player).alive {
++                break;
++            }
++        }
++        epos.sort_by(|a, b| a.total_cmp(b));
++        evel.sort_by(|a, b| a.total_cmp(b));
++        erel.sort_by(|a, b| a.total_cmp(b));
++        let q = |v: &Vec<f64>, f: f64| {
++            if v.is_empty() {
++                0.0
++            } else {
++                v[((v.len() as f64 * f.min(1.0)) as usize).saturating_sub(1)]
++            }
++        };
++        println!(
++            "{:<22} {:>6} {:>6.1}% {:>9.2} {:>8} {:>5.1}% {:>10.2e} {:>10.2e} {:>10.2e} {:>9.2e} {:>9.2e}",
++            name,
++            done,
++            100.0 * clock_reads as f64 / total_reads.max(1) as f64,
++            readouts as f64 / done.max(1) as f64 / n as f64,
++            nostored,
++            100.0 * nonzero as f64 / samples.max(1) as f64,
++            q(&epos, 0.50),
++            q(&epos, 0.99),
++            epos.last().copied().unwrap_or(0.0),
++            q(&evel, 0.99),
++            q(&erel, 0.99)
++        );
++    }
++}

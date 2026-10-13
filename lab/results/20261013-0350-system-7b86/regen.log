@@ -1,0 +1,36 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+warning: unused variable: `player`
+  --> crates/universe/examples/quad_slot.rs:89:17
+   |
+89 |             let player = p.player;
+   |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_player`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "quad_slot") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.08s
+warning: unused variable: `player`
+  --> crates/universe/examples/quad_slot.rs:89:17
+   |
+89 |             let player = p.player;
+   |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_player`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "quad_slot") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/examples/quad_slot 8`
+paced 8 s per flight, 480 frames at 60 Hz, rtf 100, seed 1, 48 members
+read quantum: the gather reads integer ticks; 1 root tick = 4.925e-6 s of light
+flight                 frames  clock% rd/body/f  no-stor  |a|>0 e_p50 tick e_p99 tick e_max tick    ev_p99   rel_p99
+coast                     480   42.9%      2.54        0   0.0%     0.00e0     0.00e0     0.00e0    0.00e0    0.00e0
+forward L8                480   42.9%      3.69        0   0.0%     0.00e0     0.00e0     0.00e0    0.00e0    0.00e0
+forward L12               480   44.1%      3.77        9 102.3%    2.83e-7    7.92e-6    9.78e-6  1.01e-11    1.00e0
+forward L15               480   45.1%      3.75        8 101.2%    1.16e-8    4.56e-7    9.31e-7  1.85e-12    1.00e0
+brake L8                  480   42.9%      3.74        0   0.0%     0.00e0     0.00e0     0.00e0    0.00e0    0.00e0
+turn left then burn L8    190   42.9%      2.67        0   0.0%     0.00e0     0.00e0     0.00e0    0.00e0    0.00e0
+---
+Expected table (probe-out.txt): 6 scenes; e_p99 <= 7.2e-6 root ticks on every scene;
+e exactly 0 on coast / forward L8 / brake L8 / turn-then-burn L8; clock% ~43; rd/body/f 2.5-3.8.
+The 'no-stor' column may wobble by a few counts (the frame budget's wall cut is machine-dependent);
+the e quantile columns are stable to 2 digits.
