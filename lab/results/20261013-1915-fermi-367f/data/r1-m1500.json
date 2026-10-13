@@ -1,0 +1,290 @@
+{
+  "bodies": 260,
+  "bytes_per_body": 7232,
+  "catalogue_live": 260,
+  "cut_tick": 1624204,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ]
+    ]
+  },
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 114,
+      "kind": "ship",
+      "total_ms": 27.396068,
+      "us_per_item": 240.31638596491229
+    },
+    {
+      "items": 0,
+      "kind": "player",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 470,
+      "kind": "fleet",
+      "total_ms": 200.231295,
+      "us_per_item": 426.02403191489367
+    }
+  ],
+  "events_per_second": 102.50064265340428,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 8.636637999999948,
+    "p99": 13.123063000000002,
+    "p99.9": 15.876243000000159,
+    "worst": 15.876243000000159
+  },
+  "frame_ms": {
+    "p50": 8.636241,
+    "p95": 11.901594999999999,
+    "p99": 13.122034,
+    "p99.9": 15.875182000000002
+  },
+  "frames": 480,
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [],
+  "paced": true,
+  "player_alive": true,
+  "presented_tick_at_end": 1522435,
+  "prof": [
+    {
+      "count": 483,
+      "ns": 27244204,
+      "stage": "rekey (all deadlines)"
+    },
+    {
+      "count": 373,
+      "ns": 3712050,
+      "stage": "  position walk (root_state_raw)"
+    },
+    {
+      "count": 379,
+      "ns": 3802991,
+      "stage": "apply (whole)"
+    },
+    {
+      "count": 242746,
+      "ns": 23724529,
+      "stage": "requeue"
+    },
+    {
+      "count": 114,
+      "ns": 26438871,
+      "stage": "process (whole)"
+    },
+    {
+      "count": 348,
+      "ns": 71008655,
+      "stage": "  fit: bind_surface (kicks, hand-outs)"
+    },
+    {
+      "count": 119010,
+      "ns": 2586754,
+      "stage": "take_due"
+    },
+    {
+      "count": 7,
+      "ns": 47227,
+      "stage": "prune"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "encounters: capture (cheap half)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "encounters: held scans answered"
+    },
+    {
+      "count": 114,
+      "ns": 26442635,
+      "stage": "item: kick (Wisdom-Holman)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: kick (clock)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: kick at a changeover level"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: boundary"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: open"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: crash"
+    },
+    {
+      "count": 5,
+      "ns": 215895,
+      "stage": "decision (player input)"
+    },
+    {
+      "count": 471,
+      "ns": 62638031,
+      "stage": "fleet: battle run_to"
+    },
+    {
+      "count": 471,
+      "ns": 62981448,
+      "stage": "fleet: advance (whole item)"
+    },
+    {
+      "count": 232,
+      "ns": 134907361,
+      "stage": "hand-out (a member made a body)"
+    },
+    {
+      "count": 232,
+      "ns": 29557,
+      "stage": "  hand-out: pull planets and moons"
+    },
+    {
+      "count": 232,
+      "ns": 104769893,
+      "stage": "  hand-out: bind (the member as a tube)"
+    },
+    {
+      "count": 232,
+      "ns": 27154729,
+      "stage": "  hand-out: first plan (replan)"
+    },
+    {
+      "count": 120,
+      "ns": 45132493,
+      "stage": "  fit again: the coarser word (bind_surface)"
+    }
+  ],
+  "rss_kb": {
+    "after_construction": [
+      5400,
+      5400
+    ],
+    "at_end": 14036,
+    "peak": 17252
+  },
+  "rtf": {
+    "lowest_1pct": 0.0,
+    "median": 0.999832756297004,
+    "overflow_frames": 31
+  },
+  "rtf_target": 1.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 114, opens: 264, boundaries: 0, handoffs: 0, lost: 0, refused: 0, slices: 470, encounters: 0, decisions: 4, leavers: 232, dissolved: 0, cost_ns: [0, 0, 27396068, 0, 200231295], items: [0, 0, 114, 0, 470] }",
+  "throttle_level": 0,
+  "wall_seconds": 8.008125254,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 5.809798,
+      "p50": 0.285517,
+      "p99": 5.444392000000001,
+      "share": 0.06741465118754246
+    },
+    "view_gather": {
+      "max": 6.678904,
+      "p50": 3.464261,
+      "p99": 4.8973949999999995,
+      "share": 0.4029719953203669
+    },
+    "view_json": {
+      "max": 7.275521,
+      "p50": 3.605457,
+      "p99": 5.656605,
+      "share": 0.4112979118712734
+    },
+    "wire": {
+      "max": 1.922689,
+      "p50": 1.095285,
+      "p99": 1.5516539999999999,
+      "share": 0.11831544162081714
+    }
+  },
+  "worst_hitch_at_frame": 215,
+  "worst_hitch_ms": 15.875182000000002
+}

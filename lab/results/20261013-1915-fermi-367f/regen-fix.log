@@ -1,0 +1,42 @@
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/xtask)
+warning: unused variable: `before`
+   --> xtask/src/universe/mod.rs:134:9
+    |
+134 |     let before = crate::measure::machine_state("before");
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_before`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `load_before`
+   --> xtask/src/universe/mod.rs:136:9
+    |
+136 |     let load_before = uptime("uptime");
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_load_before`
+
+warning: unused variable: `digest`
+   --> xtask/src/universe/mod.rs:171:20
+    |
+171 |     let (cut_tick, digest) = s.digest_at_cut();
+    |                    ^^^^^^ help: if this is intentional, prefix it with an underscore: `_digest`
+
+warning: `xtask` (bin "xtask") generated 3 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 38.11s
+pace m     rtf_med eng_p50 eng_p99 worst  over ev/s  bodies leb   leak/m/gs  handout bind fit2% kick  rekey/b fleet_us  B/body rss0MB rssMB
+100     48  100.0   0.14   5.59  10.6   11   404     71    43  1.12e-03     913  655   63   289  0.509       42   5342   4.8  12.0
+100    400   77.5   5.01   6.51  19.5  247  1530    399   371  1.16e-03     810  595   62   252  0.163       84   7444   5.0  62.2
+100   1500    0.0   5.14  10.87  27.3  449  1656   1383  1355  1.13e-03     497  364   57   210  0.099      240   7511   5.3 340.1
+100   4000    0.0   5.43  14.65  69.8  240   361   2191  2163  1.35e-03     488  376   58   226  0.102    18176   8116   6.0 709.0
+1       48    1.0   0.08   0.17   3.6    0    61     28     0  0.00e+00       0    0    0     0  1.052       25   1214   4.7   5.9
+1      400    1.0   0.07   0.51  14.7    0    61     28     0  0.00e+00       0    0    0     0  0.796       84   1214   4.9   6.7
+1     1500    1.0   0.27   5.44  14.4   29   103    260   232  1.93e-02     544  420   52   251  0.182      397   7232   5.3  16.6
+1     4000    0.0   5.05   5.76  61.1  268   208   2191  2163  6.76e-02     509  408   53   236  0.136     4040   8167   6.0  79.3
+s3     400  100.0                      - ev/s 1410 leb 372
+s3    1500    0.0                      - ev/s 1764 leb 1355
+
+live bytes per promoted body (marginal, m4000 vs m400): 8257 B
+promotion time 509 us = 2.2 kicks; fit2 (coarser re-bind) on 53% of handouts
+exchange rate vs compact member (22 bits = 2.8 B): 3003x in bytes
+exchange rate vs packed live floor 56.8 B (42e6): 145x
+10^9 identity, belt (a9d7): 3.60e+04 events/game-s -> 8.06 cores of kicks + 0.92 cores of promotions; sticky growth 14.9 MB/game-s (8 GB in 9e+00 game-min)
+10^9 identity, plane battle (this run): 4.10e+07 events/game-s -> 9181.58 cores of kicks + 1044.23 cores of promotions; sticky growth 16926.9 MB/game-s (8 GB in 8e-03 game-min)
+regen done: compare ladder-table.txt against dossier.md's table (orders of magnitude; shared box)

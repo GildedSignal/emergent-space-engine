@@ -1,0 +1,308 @@
+{
+  "bodies": 71,
+  "bytes_per_body": 5379,
+  "catalogue_live": 71,
+  "cut_tick": 162420357,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        6429139,
+        0
+      ],
+      [
+        80871803,
+        9
+      ],
+      [
+        87639318,
+        0
+      ],
+      [
+        162081982,
+        2
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        6429139,
+        0
+      ],
+      [
+        80871803,
+        9
+      ],
+      [
+        87639318,
+        0
+      ],
+      [
+        162081982,
+        2
+      ]
+    ]
+  },
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 867,
+      "kind": "ship",
+      "total_ms": 378.554339,
+      "us_per_item": 436.62553517877734
+    },
+    {
+      "items": 40,
+      "kind": "player",
+      "total_ms": 27.40354,
+      "us_per_item": 685.0885000000001
+    },
+    {
+      "items": 1949,
+      "kind": "fleet",
+      "total_ms": 209.532926,
+      "us_per_item": 107.50791482811698
+    }
+  ],
+  "events_per_second": 382.7495081668819,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      1,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 4.772959000000128,
+    "p99": 11.245924999999943,
+    "p99.9": 27.464377999999996,
+    "worst": 27.464377999999996
+  },
+  "frame_ms": {
+    "p50": 4.772478,
+    "p95": 10.078505999999999,
+    "p99": 11.245223000000001,
+    "p99.9": 27.463888999999998
+  },
+  "frames": 480,
+  "hitch_counts": [
+    1,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 449.99942175074295,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)",
+    "Armada (left its frame)"
+  ],
+  "paced": true,
+  "player_alive": true,
+  "presented_tick_at_end": 149445940,
+  "prof": [
+    {
+      "count": 483,
+      "ns": 29388681,
+      "stage": "rekey (all deadlines)"
+    },
+    {
+      "count": 1153,
+      "ns": 30134878,
+      "stage": "  position walk (root_state_raw)"
+    },
+    {
+      "count": 1202,
+      "ns": 31184203,
+      "stage": "apply (whole)"
+    },
+    {
+      "count": 62277,
+      "ns": 14002799,
+      "stage": "requeue"
+    },
+    {
+      "count": 1126,
+      "ns": 398241797,
+      "stage": "process (whole)"
+    },
+    {
+      "count": 612,
+      "ns": 192377512,
+      "stage": "  fit: bind_surface (kicks, hand-outs)"
+    },
+    {
+      "count": 27863,
+      "ns": 2567837,
+      "stage": "take_due"
+    },
+    {
+      "count": 7,
+      "ns": 396922,
+      "stage": "prune"
+    },
+    {
+      "count": 43,
+      "ns": 1708676,
+      "stage": "encounters: capture (cheap half)"
+    },
+    {
+      "count": 43,
+      "ns": 25920292,
+      "stage": "encounters: held scans answered"
+    },
+    {
+      "count": 567,
+      "ns": 361603363,
+      "stage": "item: kick (Wisdom-Holman)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: kick (clock)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: kick at a changeover level"
+    },
+    {
+      "count": 542,
+      "ns": 36090933,
+      "stage": "item: boundary"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: open"
+    },
+    {
+      "count": 17,
+      "ns": 700877,
+      "stage": "item: crash"
+    },
+    {
+      "count": 5,
+      "ns": 796523,
+      "stage": "decision (player input)"
+    },
+    {
+      "count": 2050,
+      "ns": 30054078,
+      "stage": "fleet: battle run_to"
+    },
+    {
+      "count": 2050,
+      "ns": 38697192,
+      "stage": "fleet: advance (whole item)"
+    },
+    {
+      "count": 43,
+      "ns": 120174340,
+      "stage": "hand-out (a member made a body)"
+    },
+    {
+      "count": 43,
+      "ns": 37012,
+      "stage": "  hand-out: pull planets and moons"
+    },
+    {
+      "count": 43,
+      "ns": 83791943,
+      "stage": "  hand-out: bind (the member as a tube)"
+    },
+    {
+      "count": 43,
+      "ns": 33740649,
+      "stage": "  hand-out: first plan (replan)"
+    },
+    {
+      "count": 27,
+      "ns": 37342969,
+      "stage": "  fit again: the coarser word (bind_surface)"
+    }
+  ],
+  "rss_kb": {
+    "after_construction": [
+      5024,
+      5024
+    ],
+    "at_end": 12064,
+    "peak": 12064
+  },
+  "rtf": {
+    "lowest_1pct": 0.0,
+    "median": 99.99982595138744,
+    "overflow_frames": 47
+  },
+  "rtf_target": 100.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 572, opens: 75, boundaries: 513, handoffs: 0, lost: 17, refused: 0, slices: 1949, encounters: 40, decisions: 4, leavers: 43, dissolved: 0, cost_ns: [0, 0, 378554339, 27403540, 209532926], items: [0, 0, 867, 40, 1949] }",
+  "throttle_level": 0,
+  "wall_seconds": 8.005347756,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 24.145720999999998,
+      "p50": 0.346983,
+      "p99": 7.476052,
+      "share": 0.30734012186578497
+    },
+    "view_gather": {
+      "max": 5.928313999999999,
+      "p50": 3.272596,
+      "p99": 4.6088819999999995,
+      "share": 0.5757189185149018
+    },
+    "view_json": {
+      "max": 1.226605,
+      "p50": 0.488528,
+      "p99": 0.7896249999999999,
+      "share": 0.08424596903705876
+    },
+    "wire": {
+      "max": 0.45697,
+      "p50": 0.20477599999999999,
+      "p99": 0.27421500000000004,
+      "share": 0.03269499058225441
+    }
+  },
+  "worst_hitch_at_frame": 11,
+  "worst_hitch_ms": 27.463888999999998
+}

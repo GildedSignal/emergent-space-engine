@@ -1,0 +1,290 @@
+{
+  "bodies": 28,
+  "bytes_per_body": 1214,
+  "catalogue_live": 28,
+  "cut_tick": 1624204,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ]
+    ]
+  },
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "ship",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "player",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 480,
+      "kind": "fleet",
+      "total_ms": 14.955493,
+      "us_per_item": 31.157277083333334
+    }
+  ],
+  "events_per_second": 60.625121326024036,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 0.8080640000000017,
+    "p99": 3.495492000000013,
+    "p99.9": 5.102053999999953,
+    "worst": 5.102053999999953
+  },
+  "frame_ms": {
+    "p50": 0.8081079999999999,
+    "p95": 3.3736930000000003,
+    "p99": 3.507215,
+    "p99.9": 5.100791
+  },
+  "frames": 480,
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [],
+  "paced": true,
+  "player_alive": true,
+  "presented_tick_at_end": 1623954,
+  "prof": [
+    {
+      "count": 483,
+      "ns": 15866882,
+      "stage": "rekey (all deadlines)"
+    },
+    {
+      "count": 27,
+      "ns": 148520,
+      "stage": "  position walk (root_state_raw)"
+    },
+    {
+      "count": 33,
+      "ns": 154407,
+      "stage": "apply (whole)"
+    },
+    {
+      "count": 29435,
+      "ns": 4799999,
+      "stage": "requeue"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "process (whole)"
+    },
+    {
+      "count": 2,
+      "ns": 76060,
+      "stage": "  fit: bind_surface (kicks, hand-outs)"
+    },
+    {
+      "count": 14941,
+      "ns": 947166,
+      "stage": "take_due"
+    },
+    {
+      "count": 7,
+      "ns": 8252,
+      "stage": "prune"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "encounters: capture (cheap half)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "encounters: held scans answered"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: kick (Wisdom-Holman)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: kick (clock)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: kick at a changeover level"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: boundary"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: open"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "item: crash"
+    },
+    {
+      "count": 5,
+      "ns": 278339,
+      "stage": "decision (player input)"
+    },
+    {
+      "count": 481,
+      "ns": 4909402,
+      "stage": "fleet: battle run_to"
+    },
+    {
+      "count": 481,
+      "ns": 5328892,
+      "stage": "fleet: advance (whole item)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "hand-out (a member made a body)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "  hand-out: pull planets and moons"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "  hand-out: bind (the member as a tube)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "  hand-out: first plan (replan)"
+    },
+    {
+      "count": 0,
+      "ns": 0,
+      "stage": "  fit again: the coarser word (bind_surface)"
+    }
+  ],
+  "rss_kb": {
+    "after_construction": [
+      4760,
+      4760
+    ],
+    "at_end": 6036,
+    "peak": 6036
+  },
+  "rtf": {
+    "lowest_1pct": 0.9997092518789243,
+    "median": 0.9998330817122602,
+    "overflow_frames": 0
+  },
+  "rtf_target": 1.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 0, opens: 33, boundaries: 0, handoffs: 0, lost: 0, refused: 0, slices: 480, encounters: 0, decisions: 5, leavers: 0, dissolved: 0, cost_ns: [0, 0, 0, 0, 14955493], items: [0, 0, 0, 0, 480] }",
+  "throttle_level": 0,
+  "wall_seconds": 8.004080216,
+  "where_the_time_goes_ms": {
+    "engine": {
+      "max": 0.28681399999999996,
+      "p50": 0.069872,
+      "p99": 0.251222,
+      "share": 0.0636085825560315
+    },
+    "view_gather": {
+      "max": 3.392155,
+      "p50": 0.54577,
+      "p99": 2.469134,
+      "share": 0.6934316196778416
+    },
+    "view_json": {
+      "max": 1.028644,
+      "p50": 0.152258,
+      "p99": 0.5927070000000001,
+      "share": 0.17122812467968035
+    },
+    "wire": {
+      "max": 0.39381499999999997,
+      "p50": 0.060055,
+      "p99": 0.25678,
+      "share": 0.07173167308644668
+    }
+  },
+  "worst_hitch_at_frame": 463,
+  "worst_hitch_ms": 5.100791
+}

@@ -1,0 +1,66 @@
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..dc608c6b 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400_000),
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;
+@@ -115,10 +115,26 @@ fn canonical_log(frames: usize, rtf: f64, level: u8) -> Vec<(i64, u8)> {
+     log
+ }
+ 
++fn rss_kb() -> (u64, u64) {
++    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut rss = 0;
++    let mut hwm = 0;
++    for line in status.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            rss = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0);
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            hwm = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0);
++        }
++    }
++    (rss, hwm)
++}
++
+ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Result<u8> {
+     let before = crate::measure::machine_state("before");
+     let uptime = |c: &str| std::process::Command::new(c).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+     let load_before = uptime("uptime");
++    let rss_construct = rss_kb();
+     let frames = (seconds * 60.0) as usize;
+     // The canonical cut: the game time the run is for (`seconds` at `rtf`), a tick of the root clock. No frame goes past it,
+     // the digest is taken there whatever the wall did, and it is printed with the digest.
+@@ -153,6 +169,13 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
++    let (rss_now, rss_peak) = rss_kb();
++    let prof = if emergent_universe::prof::ENABLED {
++        let (ns, count) = emergent_universe::prof::take();
++        json!(emergent_universe::prof::NAMES.iter().enumerate().map(|(i, n)| json!({"stage": n, "ns": ns[i], "count": count[i]})).collect::<Vec<_>>())
++    } else {
++        serde_json::Value::Null
++    };
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
+@@ -173,9 +196,8 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+         "cut_tick": cut_tick,
+-        "digest": digest,
+-        "machine_before": before, "machine_after": crate::measure::machine_state("after"),
+-        "uptime_before": load_before, "uptime_after": uptime("uptime"),
++        "rss_kb": {"after_construction": rss_construct, "at_end": rss_now, "peak": rss_peak},
++        "prof": prof,
+     });
+     println!("{}", serde_json::to_string_pretty(&report)?);
+     Ok(0)
