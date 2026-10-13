@@ -1,0 +1,23 @@
+== build (warm cache ~10 s, cold a few minutes)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+== probe rows
+row            members   rung   b_update_ns b_compact bits/member inferred mismatches
+n2e4             1280000   1e-3           7         7     12.347     True          0
+n2e5            12800000   1e-3           6         7    12.3286     True          0
+storm            1280000   3e-1           6         9    48.3811    False          0
+trickle          1280000   1e-4           9         6    12.1717     True          0
+convoy spikes : n=1000464 hot p50/p99/max=32/1234/11889 ns compact/update=22360 ns max_step=1204779 ns repacks=2570 roundtrip=True
+dossier table check: b_update_ns 6/7/6/7, bits/member 12.35/12.33/12.17/48.38, hot 34/1271/9217, max_step 1264859 (orders of magnitude on this runner)
+== corpus and verbatim quotes
+VERBATIM  Delete any part or process you can. You may have to add them back late
+VERBATIM  Step one should be to question the requirements
+VERBATIM  When we learn a new language, it’s always a good idea to start by lear
+VERBATIM  In Extremistan, inequalities are such that one single observation can 
+VERBATIM  Darwinian fitness applies to species developing over a very long time,
+VERBATIM  Optionality will take us many places, but at the core, an option is wh
+VERBATIM  The key was to recognize that the principles making one simple techniq
+VERBATIM  It’s not the product that leads to success. It’s the ability to make t
+VERBATIM  Always wait until the end of designing a process—after you have questi
+VERBATIM  In the utopian province of Mediocristan
+all quotes verbatim
+== done
