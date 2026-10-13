@@ -1,0 +1,227 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index eb433a1c..e35afb9d 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -360,9 +360,31 @@ fn root_witness(
+         Some((a, b))
+     } else { None })
+ }
++/// The fit of a state to an orbit key, before any trajectory is compiled: the key, the fit's
++/// radius, the sense, and whether the body was inbound. Everything that keys on the orbit
++/// (the integer word, catalogues, scheduling envelopes) can be derived from this without
++/// paying for a compile.
++#[derive(Clone, Copy, Debug)]
++pub struct Fitted {
++    pub key: OrbitKey,
++    pub radius: Scalar,
++    pub clockwise: bool,
++    pub incoming: bool,
++}
++
+ impl Rebinding {
++    /// Fit only: no trajectory is compiled (`from_state` is this plus [`Self::from_fit`]).
++    pub fn fit_of(state: IntegerState) -> Result<Fitted> {
++        let (key, radius, clockwise, incoming) = fit_key(state, true)?;
++        Ok(Fitted { key, radius, clockwise, incoming })
++    }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
++        Self::from_fit(Self::fit_of(state)?, state, event_time, passage_edge)
++    }
++    /// Compile and read out a pre-computed fit ([`Self::fit_of`]); the state must be the one
++    /// the fit came from.
++    pub fn from_fit(fit: Fitted, state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
++        let Fitted { key, radius: r, clockwise, incoming } = fit;
+         let trajectory = if key.periodic() {
+             Trajectory::Cycle(Orbit::compile(key)?)
+         } else {
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index 92f30765..7726300c 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -18,10 +18,36 @@ use crate::lorentz::Turn;
+ use crate::num::{cross2, dot2, time_of, Error, Res, Tick, V2};
+ use crate::world::Unit;
+ use emergent_space::{
+-    binding::{cartesian, IntegerState, Rebinding, Residual, Trajectory},
+-    orbit::{OrbitState, Scalar},
++    binding::{cartesian, Fitted, IntegerState, Rebinding, Residual, Trajectory},
++    orbit::{OrbitKey, OrbitState, Scalar},
+     Tube,
+ };
++
++/// Run instrumentation for the bind-word probe (20261013-0037): call and word-transition
++/// counts, the time spent in the first (word-chosen) bind pass, and total bind time.
++pub mod probe {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    pub static CALLS: AtomicU64 = AtomicU64::new(0);
++    pub static TRANSITIONS: AtomicU64 = AtomicU64::new(0);
++    pub static NS_FIRST: AtomicU64 = AtomicU64::new(0);
++    pub static NS_ALL: AtomicU64 = AtomicU64::new(0);
++    pub fn dump() -> String {
++        use std::fmt::Write;
++        let mut s = String::new();
++        let _ = write!(
++            s,
++            "bind calls {} transitions {} ns_first {} ns_all {}",
++            CALLS.load(Ordering::Relaxed),
++            TRANSITIONS.load(Ordering::Relaxed),
++            NS_FIRST.load(Ordering::Relaxed),
++            NS_ALL.load(Ordering::Relaxed)
++        );
++        s
++    }
++}
++
++use std::sync::atomic::Ordering;
++
+ use std::sync::Arc;
+ 
+ /// A compiled trajectory and its sense: the entry a tube's key indexes. The trajectory is compiled
+@@ -167,18 +193,28 @@ pub fn choose_units(r_max: Scalar, v_max: Scalar) -> (i16, i16) {
+ }
+ 
+ /// The word a tube needs: the smallest exponents (coarsest units) at which its largest radius and its
+-/// periapsis speed (with a factor of two of margin) still fit in 60 bits.
+-pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
+-    let key = entry.trajectory.key();
++/// periapsis speed (with a factor of two of margin) still fit in 60 bits. The word is a function of
++/// the fit's key alone (`Fitted`), so it can be chosen before any trajectory is compiled.
++pub fn word_of_key(key: OrbitKey, passage_outer: Option<Scalar>) -> Res<(i32, i32)> {
+     let k = Scalar::raw(key.k as i128, -48)?;
+-    let r_max = match &entry.trajectory {
+-        Trajectory::Cycle(_) => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
+-        Trajectory::Passage(p) => p.outer_radius,
++    let r_max = match passage_outer {
++        Some(outer) => outer,
++        None => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
+     };
+     let v_max = Scalar::ONE.div(key.periapsis.mul(k)?)?.sqrt()?.scale(1)?;
+     Ok((r_max.exponent() as i32 - 60, v_max.exponent() as i32 - 60))
+ }
+ 
++pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
++    word_of_key(
++        entry.trajectory.key(),
++        match &entry.trajectory {
++            Trajectory::Passage(p) => Some(p.outer_radius),
++            _ => None,
++        },
++    )
++}
++
+ /// The result of binding an exact state: the compiled entry and the record to store.
+ pub struct Bound {
+     pub units: (i16, i16),
+@@ -192,15 +228,59 @@ pub struct Bound {
+ /// Fit a tube to the exact state `exact` at tick `t` (in a doll whose clock exponent is `clock_exp`),
+ /// and keep everything the fit discards. `edge` is the radius a passage is compiled out to.
+ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+-    let bound = bind_in(exact, t, clock_exp, edge, unit)?;
+-    // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
+-    // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
+-    // at most one quantum of the new word) and bind again.
+-    let (len, vel) = word_for(&bound.entry)?;
++    let __t0 = std::time::Instant::now();
++    probe::CALLS.fetch_add(1, Ordering::Relaxed);
++    let r = bind_timed(exact, t, clock_exp, edge, unit);
++    probe::NS_ALL.fetch_add(__t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
++    r
++}
++
++fn bind_timed(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
++    let __t1 = std::time::Instant::now();
++    // A/B arm for this run only (`ES_BASELINE_ARM=1`): the shipped double compile —
++    // compile at the old word, then decide, then compile again at the coarser word.
++    if std::env::var_os("ES_BASELINE_ARM").is_some() {
++        let bound = bind_in(exact, t, clock_exp, edge, unit)?;
++        let (len, vel) = word_for(&bound.entry)?;
++        let (cur_len, cur_vel) = (exact.length_exponent as i32, exact.velocity_exponent as i32);
++        if len <= cur_len && vel <= cur_vel {
++            return Ok(bound);
++        }
++        probe::TRANSITIONS.fetch_add(1, Ordering::Relaxed);
++        probe::NS_FIRST.fetch_add(__t1.elapsed().as_nanos() as u64, Ordering::Relaxed);
++        let (nl, nv) = (len.max(cur_len), vel.max(cur_vel));
++        let shift = |v: i64, by: i32| -> i64 { if by <= 0 { v } else { v / (1i64 << by.min(62)) } };
++        let coarser = IntegerState {
++            position: [shift(exact.position[0], nl - cur_len), shift(exact.position[1], nl - cur_len)],
++            velocity: [shift(exact.velocity[0], nv - cur_vel), shift(exact.velocity[1], nv - cur_vel)],
++            length_exponent: nl as i16,
++            velocity_exponent: nv as i16,
++        };
++        return bind_in(coarser, t, clock_exp, edge, unit);
++    }
++    // The integer word is a function of the fit's key alone: choose it from the fit, before any
++    // trajectory is compiled. A word transition then costs one discarded fit (cheap, exact
++    // Scalar arithmetic), never a compiled cycle that is read once for its word and thrown away.
++    let tube_edge = edge.map(|e| unit.to_tube(e)).transpose()?;
++    let in_tube = in_tube_units(exact, unit)?;
++    let probe_fit = Rebinding::fit_of(in_tube)?;
++    // A passage is compiled out to the doll's edge (or, without one, twice the fit's radius).
++    let outer = match tube_edge {
++        Some(e) => e,
++        None => probe_fit.radius.scale(1)?,
++    };
++    let (len, vel) = if probe_fit.key.periodic() {
++        word_of_key(probe_fit.key, None)?
++    } else {
++        word_of_key(probe_fit.key, Some(outer))?
++    };
+     let (cur_len, cur_vel) = (exact.length_exponent as i32, exact.velocity_exponent as i32);
+     if len <= cur_len && vel <= cur_vel {
+-        return Ok(bound);
++        return bind_with(probe_fit, in_tube, exact, t, clock_exp, tube_edge, unit);
+     }
++    probe::TRANSITIONS.fetch_add(1, Ordering::Relaxed);
++    // The word decision's cost (the fit the compiled pass does not need again).
++    probe::NS_FIRST.fetch_add(__t1.elapsed().as_nanos() as u64, Ordering::Relaxed);
+     let (nl, nv) = (len.max(cur_len), vel.max(cur_vel));
+     let shift = |v: i64, by: i32| -> i64 { if by <= 0 { v } else { v / (1i64 << by.min(62)) } };
+     let coarser = IntegerState {
+@@ -209,7 +289,8 @@ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>,
+         length_exponent: nl as i16,
+         velocity_exponent: nv as i16,
+     };
+-    bind_in(coarser, t, clock_exp, edge, unit)
++    let in_tube_coarser = in_tube_units(coarser, unit)?;
++    bind_with(Rebinding::fit_of(in_tube_coarser)?, in_tube_coarser, coarser, t, clock_exp, tube_edge, unit)
+ }
+ 
+ /// The state in the tube's units (`M_D`): positions divided by `μ`, rounded toward zero at the word (a fit is
+@@ -222,6 +303,27 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+     Ok(IntegerState { position: [q(st.position[0])?, q(st.position[1])?], ..st })
+ }
+ 
++fn bind_with(fit: Fitted, in_tube: IntegerState, exact: IntegerState, t: Tick, clock_exp: i16, tube_edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
++    let fit = Rebinding::from_fit(fit, in_tube, unit.to_tube(time_of(t, clock_exp)?)?, tube_edge)?;
++    let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
++    let tube = Tube::new(0, fit.periapsis_angle, peri);
++    let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
++    let units = (exact.length_exponent, exact.velocity_exponent);
++    let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
++    // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
++    let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
++    let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
++    let dot = dot2(dp, ep)?;
++    let turn = if dot.is_positive() { Turn::of_tangent(cross2(dp, ep)?.div(dot)?)? } else { Turn::NONE };
++    let (tp, tv) = (turn.apply(decoded.position)?, turn.apply(decoded.velocity)?);
++    let residual = Residual {
++        position: [exact.position[0] as i128 - tp[0], exact.position[1] as i128 - tp[1]],
++        velocity: [exact.velocity[0] as i128 - tv[0], exact.velocity[1] as i128 - tv[1]],
++    };
++    Ok(Bound { units, entry, tube, residual, turn, orbit })
++}
++
++/// The shipped bind pass (this run's baseline arm only): fit and compile in one step.
+ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+     let fit = Rebinding::from_state(in_tube_units(exact, unit)?, unit.to_tube(time_of(t, clock_exp)?)?, edge.map(|e| unit.to_tube(e)).transpose()?)?;
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+@@ -229,7 +331,6 @@ fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, u
+     let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
+     let units = (exact.length_exponent, exact.velocity_exponent);
+     let (decoded, orbit) = decode(&entry, &tube, clock_exp, units, t)?;
+-    // The turn the 32-bit angle could not hold: the small angle from the decoded position to the exact one.
+     let q = |a: [i64; 2]| -> Res<V2> { Ok([Scalar::raw(a[0] as i128, 0)?, Scalar::raw(a[1] as i128, 0)?]) };
+     let (dp, ep) = (q(decoded.position)?, q(exact.position)?);
+     let dot = dot2(dp, ep)?;
