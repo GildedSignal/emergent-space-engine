@@ -1,0 +1,51 @@
+//! Scratch (clock job): digests and readout hashes of fixed scenes, to compare the engine before and after the exact clock.
+use emergent_universe::fleet::Order;
+use emergent_universe::scenario::plane;
+use emergent_universe::thrust::word;
+use emergent_universe::{Budget, Config};
+
+/// FNV hashes of the exact positions and velocities at `t`: of every body but the player, and of the player; and how many keys carry a gap.
+fn readouts(p: &emergent_universe::scenario::Plane, t: i64) -> (u64, u64, usize) {
+    let (mut others, mut player, mut gaps) = (0xcbf29ce484222325u64, 0xcbf29ce484222325u64, 0usize);
+    for i in 0..p.names.len() {
+        let r = p.u.rec(i);
+        if r.b.entry.trajectory.key().gap.is_some() {
+            gaps += 1;
+        }
+        let h = if i == p.player { &mut player } else { &mut others };
+        if let Ok(st) = r.b.readout(t.max(r.b.event_time)) {
+            for c in 0..2 {
+                for v in [st.position[c] as i128, st.velocity[c] as i128] {
+                    for b in v.to_le_bytes() {
+                        *h ^= b as u64;
+                        *h = h.wrapping_mul(0x100000001b3);
+                    }
+                }
+            }
+        }
+    }
+    (others, player, gaps)
+}
+
+fn scene(name: &str, seed: u64, burn: Option<(u8, u8)>, t_end: i64) {
+    let mut p = plane(Config::default(), seed, Order::Sparse, 1, 8).unwrap();
+    if let Some((keys, level)) = burn {
+        p.u.input(0, word(keys, level)).unwrap();
+    }
+    p.u.settle(t_end);
+    let (others, player, gaps) = readouts(&p, t_end);
+    let me = p.u.rec(p.player);
+    println!("{name:<22} digest {} others {others:016x} player {player:016x} gaps {gaps} proper {:.9e}", &p.u.digest()[..16], emergent_universe::num::to_f64(me.proper));
+}
+
+fn main() {
+    scene("coast seed 1 to 2^32", 1, None, 1 << 32);
+    scene("coast seed 3 to 2^34", 3, None, 1 << 34);
+    scene("L4 burn to 2^30", 1, Some((1, 4)), 1 << 30);
+    scene("L8 burn to 2^28", 1, Some((1, 8)), 1 << 28);
+    scene("L8 burn to 2^34", 1, Some((1, 8)), 1 << 34);
+    scene("L12 burn to 2^26", 2, Some((1, 12)), 1 << 26);
+    scene("L15 burn to 2^24", 1, Some((1, 15)), 1 << 24);
+    scene("L15 burn to 2^29", 1, Some((1, 15)), 1 << 29);
+    let _ = Budget::unlimited();
+}

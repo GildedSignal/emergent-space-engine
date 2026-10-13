@@ -34,6 +34,11 @@ pub struct OrbitKey {
     pub k: u64,
     /// Zero rest mass uses the same radial shape, with a null clock numerator.
     pub null: bool,
+    /// The clock's gap `d = k − q(3k²+η²)` (`q` = 1/periapsis, η = 1−k) as a number with its own exponent, where the Q48 `k`
+    /// cannot carry it: `E² = tn/d`, so for `E ≫ 1` the gap is `≈ q/E²`, a few quanta of `k` at `E ~ 10³` and none beyond.
+    /// `None` is the gap `k` implies, the same bits as before. Only a weak-field hyperbolic key carries one
+    /// ([`OrbitKey::needs_gap`]); it moves the proper clock and nothing else (positions and velocities read `k` alone).
+    pub gap: Option<Scalar>,
 }
 impl OrbitKey {
     /// Null scattering input in M units. None means capture, with an exact predicate.
@@ -52,7 +57,35 @@ impl OrbitKey {
             periapsis,
             k,
             null: false,
+            gap: None,
         })
+    }
+    /// Whether this weak-field hyperbolic key's proper clock needs the exact gap. The weak branch's clock is first order in
+    /// `q`: its numerator `√d = √k·√(1 − 2q·term)` is expanded with `term = (3k²+η²)/(2k)`, whose error is `s²/8` with
+    /// `s = 2q·term`. That is below the branch's own truncation (`q² ≤ 2^-36`) while `s < 2^-16`, and
+    /// above it from there on: the exact clock takes over at the point where the first-order one stops being as good as the
+    /// rest of the branch. It is a pure integer predicate of the key; the two clocks agree to the branch's truncation at the
+    /// switch, so a key on either side of it chatters by less than the branch resolves (no hysteresis is needed). Bound keys
+    /// (`s ≤ 3q < 2^-16`) and every flyby slower than about 4×10⁻³ c never switch: their bits are unchanged.
+    pub fn needs_gap(self) -> Result<bool> {
+        if self.null || self.periodic() {
+            return Ok(false);
+        }
+        let q = self.compactness()?;
+        if q > Scalar::power_of_two(WEAK_EXPONENT) {
+            return Ok(false);
+        }
+        let k = Scalar::raw(self.k as i128, -48)?;
+        let eta = Scalar::ONE.sub(k)?;
+        let s = q.mul(k.mul(k)?.mul(Scalar::integer(3))?.add(eta.mul(eta)?)?)?.div(k)?;
+        Ok(s >= Scalar::power_of_two(-16))
+    }
+    /// The same key with its exact gap (see [`OrbitKey::gap`]); only a weak-field hyperbolic key takes one.
+    pub fn with_gap(self, gap: Scalar) -> Result<Self> {
+        if self.null || self.periodic() || !gap.is_positive() || self.compactness()? > Scalar::power_of_two(WEAK_EXPONENT) {
+            return Err(Error::Topology);
+        }
+        Ok(Self { gap: Some(gap), ..self })
     }
     /// p in M units, e in Q48. Unlike the legacy conversion, p has no absolute cap.
     pub fn bound(p: Scalar, eccentricity_q48: u64) -> Result<Self> {
@@ -447,6 +480,11 @@ pub struct Orbit {
     q: Scalar,
     speed_scale: Scalar,
     increments: [Scalar; 3],
+    /// The exact proper clock of a key that carries a gap: `[√(d/k), q·term]`. The weak shape's `tau` integrals are
+    /// `√k·∫(1/x²)(1 + q(a/2 − term))`, first order in `q`; with `E ≫ 1`, `q·term → 1/2` and that is not small. The exact numerator
+    /// `√d` is `√k·√(d/k)`, and the first-order expansion of the rest (`g = 1/√(1−qa)`, uniformly `O(q)`) stays:
+    /// `τ = √(d/k)·(i₂ + q·i₄ + q·term·i₂)`.
+    clock: Option<[Scalar; 2]>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -521,6 +559,7 @@ impl Orbit {
             q: Scalar::ZERO,
             speed_scale: key.compactness()?.div(k)?.sqrt()?,
             increments: [Scalar::ZERO, period, period],
+            clock: None,
         })
     }
     fn from_shape(key: OrbitKey, shape: Arc<OrbitShape>) -> Result<Self> {
@@ -532,7 +571,11 @@ impl Orbit {
         // Taylor shape, k>1/2 and q<=2^-18 imply 1-qA>0, D>1/2-3q>0
         // and both clock factors positive. Do not rebuild and discard a shape
         // to prove those same predicates. Weak passages still need the check.
-        if shape.key.compactness != q && !key.periodic() {
+        if key.gap.is_some() && (shape.key.compactness != Scalar::ZERO || key.null || key.periodic()) {
+            // A carried gap belongs to the weak branch's clock, and to nothing else.
+            return Err(Error::Topology);
+        }
+        if shape.key.compactness != q && !key.periodic() && key.gap.is_none() {
             let _ = OrbitShape::new(ShapeKey {
                 k: key.k,
                 compactness: q,
@@ -560,7 +603,15 @@ impl Orbit {
             q,
             speed_scale,
             increments: [Scalar::ZERO; 3],
+            clock: None,
         };
+        if let Some(gap) = key.gap {
+            // The gap is E's (E² = tn/d): it must be positive for E to be finite.
+            if !gap.is_positive() {
+                return Err(Error::NoBoundOrbit);
+            }
+            orbit.clock = Some([gap.div(k)?.sqrt()?, q.mul(orbit.shape.weak_tau_term)?]);
+        }
         let half = orbit.shape.knots.last().unwrap().sum;
         orbit.increments = [
             q.mul(half.0[0])?.scale(1)?,
@@ -573,7 +624,11 @@ impl Orbit {
         i.0[1].add(self.q.mul(i.0[3])?)
     }
     fn tau(&self, i: Integral) -> Result<Scalar> {
-        i.0[2].add(self.q.mul(i.0[4])?)
+        let first = i.0[2].add(self.q.mul(i.0[4])?)?;
+        match self.clock {
+            None => Ok(first),
+            Some([ratio, q_term]) => ratio.mul(first.add(q_term.mul(i.0[2])?)?),
+        }
     }
     pub fn period(&self) -> Result<Scalar> {
         Ok(self.increments[1])

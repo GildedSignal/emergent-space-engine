@@ -1,0 +1,45 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling libc v0.2.189
+   Compiling syn v3.0.5
+   Compiling zmij v1.0.23
+   Compiling paste v1.0.15
+   Compiling core-foundation-sys v0.8.7
+   Compiling core-foundation v0.10.1
+   Compiling malloc_buf v0.0.6
+   Compiling foreign-types-shared v0.3.1
+   Compiling bitflags v2.13.2
+   Compiling serde_json v1.0.151
+   Compiling core-graphics-types v0.2.0
+   Compiling serde_derive v1.0.229
+   Compiling foreign-types-macros v0.2.4
+   Compiling foreign-types v0.5.0
+   Compiling objc v0.2.7
+   Compiling log v0.4.34
+   Compiling memchr v2.8.3
+   Compiling serde v1.0.229
+   Compiling itoa v1.0.18
+   Compiling block v0.1.6
+   Compiling metal v0.33.0
+   Compiling num-bigint v0.4.8
+   Compiling emergent-lattice v0.1.0 (/private/tmp/emergent-wt-clock/crates/lattice)
+   Compiling emergent-space v0.1.0 (/private/tmp/emergent-wt-clock/crates/space)
+   Compiling emergent-lattice-event v0.1.0 (/private/tmp/emergent-wt-clock/crates/lattice-event)
+   Compiling emergent-engine v0.1.0 (/private/tmp/emergent-wt-clock/crates/engine)
+   Compiling emergent-universe v0.1.0 (/private/tmp/emergent-wt-clock/crates/universe)
+   Compiling emergent-allocator v0.1.0 (/private/tmp/emergent-wt-clock/crates/allocator)
+   Compiling emergent-shipmem v0.1.0 (/private/tmp/emergent-wt-clock/crates/shipmem)
+   Compiling emergent-lattice-metal v0.1.0 (/private/tmp/emergent-wt-clock/crates/lattice-metal)
+   Compiling xtask v0.1.0 (/private/tmp/emergent-wt-clock/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 50.51s
+     Running `target/release/xtask behave --law space --gates G1,G2,G3,G4,G5,G6,B7`
+machine_state {"batt":"Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25362531)\t51%; discharging; 1:12 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 3.93 3.10 3.20 }","power_source":"Now drawing from 'Battery Power'","swap":"total = 5120.00M  used = 4033.25M  free = 1086.75M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-12T16:36:11Z","unix":1791822971,"when":"start"}
+G1 PASS advance per cycle: 256/256 within 1e-2, worst 6.60e-4 [0.04 s]
+G2 PASS radial periods: 256/256 within 1e-3, worst 5.50e-4 [0.04 s]
+G3 PASS deflection: 64/64 within 1e-2, worst 6.40e-12 [0.01 s]
+G4 PASS capture: 0 of 10 misclassified [] [0.00 s]
+G5 PASS long run: 32/32 seeds over 10000 cycles (0 short), worst growth E 0.000 L 0.000 (limit 0.2), worst shape drift 0.00e0 (limit 1e-2) [0.13 s]
+G6 PASS prograde: 256/256 advances positive [0.00 s]
+B7 PASS clocks: static 64/64 within 1e-12 worst 3.56e-15, circular 64/64 within 1e-12 worst 6.37e-15, radii log-uniform in [3, 1e4] [0.00 s]
+machine_state {"batt":"Now drawing from 'Battery Power'\n -InternalBattery-0 (id=25362531)\t51%; discharging; 1:12 remaining present: true","hardware":"Apple M1","kind":"machine","loadavg":"{ 3.93 3.10 3.20 }","power_source":"Now drawing from 'Battery Power'","swap":"total = 5120.00M  used = 4033.25M  free = 1086.75M  (encrypted)","therm":"Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded","time_utc":"2026-10-12T16:36:12Z","unix":1791822972,"when":"end"}
+behave space (G1 G2 G3 G4 G5 G6 B7): PASS

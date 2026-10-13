@@ -1,0 +1,12 @@
+test c1_level_15_the_tubes_clock_is_the_ships_to_gamma_130 ... level 15: 82 checkpoints to t = 1.538e10, γ = 1761.4, 3.2 s; (a) dt/dτ over u^t: worst 9.99e-1, median 6.40e-2; (b) γ over its closed form: worst 9.99e-1, median 8.96e-4; refusals 3630, alive false, left the system false
+  worst (a) at t = 1.302e10, γ = 1761.398; worst (b) at t = 1.538e10, γ = 1761.398
+thread 'c1_level_15_the_tubes_clock_is_the_ships_to_gamma_130' panicked at crates/universe/tests/clock.rs:131:5:
+assertion `left == right` failed: level 15: the engine refused 3630 kicks (alive false)
+test c1_level_8_the_tubes_clock_is_the_ships_to_gamma_4 ... level  8: 100 checkpoints to t = 2.749e11, γ = 6.9, 12.0 s; (a) dt/dτ over u^t: worst 7.14e-1, median 1.76e-7; (b) γ over its closed form: worst 3.02e-3, median 1.70e-6; refusals 0, alive true, left the system false
+  worst (a) at t = 2.749e11, γ = 6.859; worst (b) at t = 4.349e10, γ = 1.181
+thread 'c1_level_8_the_tubes_clock_is_the_ships_to_gamma_4' panicked at crates/universe/tests/clock.rs:133:5:
+level 8: (a) the tube's clock is off by 7.145e-1
+test c1_to_the_leave_at_levels_8_and_15 ... ignored
+    c1_level_15_the_tubes_clock_is_the_ships_to_gamma_130
+    c1_level_8_the_tubes_clock_is_the_ships_to_gamma_4
+test result: FAILED. 0 passed; 2 failed; 1 ignored; 0 measured; 0 filtered out; finished in 15.28s

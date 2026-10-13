@@ -1019,6 +1019,9 @@ impl Universe {
             if let Some(key) = r.b.entry.trajectory.key() {
                 put_s(&mut h, key.periapsis);
                 put(&mut h, key.k as i128);
+                if let Some(gap) = key.gap {
+                    put_s(&mut h, gap);
+                }
             } else if let Trajectory::Plunge(p) = &r.b.entry.trajectory {
                 put(&mut h, -1);
                 for coefficient in p.coefficients() { put_s(&mut h, coefficient); }
