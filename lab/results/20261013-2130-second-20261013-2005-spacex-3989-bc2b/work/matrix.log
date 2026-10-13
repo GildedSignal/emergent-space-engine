@@ -1,0 +1,23 @@
+--- P1: identity across seeds, far scene, 1500/rtf100 (drift rule) ---
+far1500-s1-shipped         digest 351e5b8ec9e4 bodies 1386 held 0 woken 0 checks 0 enc 0 ovf 447 /480 p50ms 21.68 worst 25.1 rtf_med 0.0 settle_ms 5435
+far1500-s1-dormant         digest 351e5b8ec9e4 bodies 28 held 1425 woken 0 checks 54204 enc 0 ovf 50 /480 p50ms 4.61 worst 15.3 rtf_med 100.0 settle_ms 7010
+far1500-s3-shipped         digest 46c7652f3985 bodies 1384 held 0 woken 0 checks 0 enc 0 ovf 434 /480 p50ms 20.5 worst 24.4 rtf_med 0.0 settle_ms 2493
+far1500-s3-dormant         digest 46c7652f3985 bodies 28 held 1397 woken 0 checks 52721 enc 0 ovf 48 /480 p50ms 5.05 worst 20.3 rtf_med 100.0 settle_ms 4224
+far1500-s7-shipped         digest d5f75e970e4a bodies 1403 held 0 woken 0 checks 0 enc 0 ovf 434 /480 p50ms 20.46 worst 25.3 rtf_med 0.0 settle_ms 3371
+far1500-s7-dormant         digest d5f75e970e4a bodies 28 held 1440 woken 0 checks 53741 enc 0 ovf 50 /480 p50ms 4.78 worst 18.6 rtf_med 100.0 settle_ms 5046
+far1500-s11-shipped        digest 2b524171f776 bodies 1388 held 0 woken 0 checks 0 enc 0 ovf 427 /480 p50ms 19.94 worst 25.2 rtf_med 0.0 settle_ms 2664
+far1500-s11-dormant        digest 2b524171f776 bodies 28 held 1405 woken 0 checks 53014 enc 0 ovf 61 /480 p50ms 4.97 worst 19.1 rtf_med 100.0 settle_ms 4354
+--- P1b: identity with the canon-exact doll rule (seeds 3, 7) ---
+far1500-s3-doll            digest 46c7652f3985 bodies 1395 held 1367 woken 1367 checks 1367 enc 0 ovf 393 /480 p50ms 20.11 worst 228.6 rtf_med 0.0 settle_ms 1924
+far1500-s7-doll            digest d5f75e970e4a bodies 1412 held 1386 woken 1384 checks 1384 enc 0 ovf 391 /480 p50ms 20.47 worst 226.6 rtf_med 0.0 settle_ms 2825
+--- P5: near scene (positive control), seed 1 ---
+near48-s1-shipped          digest a2ae2910b624 bodies 71 held 0 woken 0 checks 0 enc 40 ovf 54 /480 p50ms 5.0 worst 12.0 rtf_med 100.0 settle_ms 39
+near48-s1-dormant          digest a2ae2910b624 bodies 71 held 43 woken 43 checks 43 enc 41 ovf 40 /480 p50ms 4.96 worst 76.3 rtf_med 100.0 settle_ms 8
+near1500-s1-shipped        digest 0b9db5950190 bodies 1386 held 0 woken 0 checks 0 enc 483 ovf 447 /480 p50ms 21.69 worst 23.9 rtf_med 0.0 settle_ms 5422
+near1500-s1-dormant        digest 0b9db5950190 bodies 1396 held 1371 woken 1368 checks 1368 enc 483 ovf 423 /480 p50ms 21.43 worst 253.7 rtf_med 0.0 settle_ms 4958
+--- P6: fermi collapse rung 4000/rtf1, both rules ---
+far4000-rtf1-shipped       digest e81b138959ad bodies 2191 held 0 woken 0 checks 0 enc 0 ovf 261 /480 p50ms 35.77 worst 52.5 rtf_med 0.0 settle_ms 6
+far4000-rtf1-dormant       digest e81b138959ad bodies 28 held 2163 woken 0 checks 0 enc 0 ovf 0 /480 p50ms 9.54 worst 20.3 rtf_med 1.0 settle_ms 1351
+far4000-rtf1-doll          digest e81b138959ad bodies 28 held 2163 woken 0 checks 0 enc 0 ovf 0 /480 p50ms 9.89 worst 22.7 rtf_med 1.0 settle_ms 1364
+--- P3: the canon-exact rule price, far 1500/rtf100 seed 3 (already have shipped+dormant above) ---
+far1500-s3-doll-cost       digest 46c7652f3985 bodies 1395 held 1367 woken 1367 checks 1367 enc 0 ovf 388 /480 p50ms 20.12 worst 224.2 rtf_med 0.0 settle_ms 1937

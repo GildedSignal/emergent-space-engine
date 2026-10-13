@@ -1,0 +1,55 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/xtask)
+warning: unused variable: `load_before`
+   --> xtask/src/universe/mod.rs:121:9
+    |
+121 |     let load_before = uptime("uptime");
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_load_before`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `xtask` (bin "xtask") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 38.81s
+--- budget sweep (fixed): one digest at every engine-ms, work moves flight<->settle only ---
+fixed-ms0.5              46c7652f3985 fleet tick 162420357 handoffs 1403 members 97 held 1387 ovf 370 bodies 28
+fixed-ms5                46c7652f3985 fleet tick 162420357 handoffs 1403 members 97 held 1397 ovf 37 bodies 28
+fixed-ms100              46c7652f3985 fleet tick 162420357 handoffs 1403 members 97 held 1403 ovf 0 bodies 28
+--- P1: identity across seeds, far scene, 1500/rtf100 (drift rule) ---
+far1500-s1-shipped       digest 351e5b8ec9e4 bodies 1386 held 0 woken 0 checks 0 enc 0 ovf 444 /480 p50ms 21.54 worst 26.6 rtf_med 0.0 settle_ms 5375 cut 162420357
+far1500-s1-dormant       digest 351e5b8ec9e4 bodies 28 held 1425 woken 0 checks 54204 enc 0 ovf 56 /480 p50ms 4.53 worst 17.5 rtf_med 100.0 settle_ms 6974 cut 162420357
+far1500-s3-shipped       digest 46c7652f3985 bodies 1384 held 0 woken 0 checks 0 enc 0 ovf 437 /480 p50ms 20.46 worst 26.6 rtf_med 0.0 settle_ms 2492 cut 162420357
+far1500-s3-dormant       digest 46c7652f3985 bodies 28 held 1398 woken 0 checks 54118 enc 0 ovf 39 /480 p50ms 4.55 worst 18.6 rtf_med 100.0 settle_ms 4225 cut 162420357
+far1500-s7-shipped       digest d5f75e970e4a bodies 1403 held 0 woken 0 checks 0 enc 0 ovf 434 /480 p50ms 20.41 worst 24.0 rtf_med 0.0 settle_ms 3367 cut 162420357
+far1500-s7-dormant       digest d5f75e970e4a bodies 28 held 1440 woken 0 checks 53741 enc 0 ovf 47 /480 p50ms 4.37 worst 18.7 rtf_med 100.0 settle_ms 4935 cut 162420357
+far1500-s11-shipped      digest 2b524171f776 bodies 1388 held 0 woken 0 checks 0 enc 0 ovf 426 /480 p50ms 19.87 worst 24.3 rtf_med 0.0 settle_ms 2664 cut 162420357
+far1500-s11-dormant      digest 2b524171f776 bodies 28 held 1405 woken 0 checks 53014 enc 0 ovf 52 /480 p50ms 4.89 worst 18.9 rtf_med 100.0 settle_ms 4318 cut 162420357
+--- P1b: identity with the canon-exact doll rule ---
+far1500-s3-doll          digest 46c7652f3985 bodies 1395 held 1367 woken 1367 checks 1367 enc 0 ovf 389 /480 p50ms 20.02 worst 223.6 rtf_med 0.0 settle_ms 1917 cut 162420357
+far1500-s7-doll          digest d5f75e970e4a bodies 1414 held 1386 woken 1386 checks 1386 enc 0 ovf 390 /480 p50ms 20.0 worst 224.8 rtf_med 0.0 settle_ms 2767 cut 162420357
+--- P5: near scene (positive control) ---
+near48-s1-shipped        digest a2ae2910b624 bodies 71 held 0 woken 0 checks 0 enc 40 ovf 52 /480 p50ms 4.97 worst 11.3 rtf_med 100.0 settle_ms 34 cut 162420357
+near48-s1-dormant        digest a2ae2910b624 bodies 71 held 43 woken 43 checks 43 enc 41 ovf 38 /480 p50ms 4.75 worst 74.5 rtf_med 100.0 settle_ms 23 cut 162420357
+near1500-s1-shipped      digest 0b9db5950190 bodies 1389 held 0 woken 0 checks 0 enc 483 ovf 443 /480 p50ms 21.52 worst 24.1 rtf_med 0.0 settle_ms 5401 cut 162420357
+near1500-s1-dormant      digest 0b9db5950190 bodies 1396 held 1371 woken 1368 checks 1368 enc 483 ovf 421 /480 p50ms 21.33 worst 243.6 rtf_med 0.0 settle_ms 4742 cut 162420357
+--- P6: 4000/rtf1 (the collapse rung), both rules ---
+far4000-rtf1-shipped     digest e81b138959ad bodies 2191 held 0 woken 0 checks 0 enc 0 ovf 259 /480 p50ms 36.3 worst 51.6 rtf_med 0.0 settle_ms 5 cut 1624204
+far4000-rtf1-dormant     digest e81b138959ad bodies 28 held 2163 woken 0 checks 0 enc 0 ovf 0 /480 p50ms 9.57 worst 20.8 rtf_med 1.0 settle_ms 1362 cut 1624204
+far4000-rtf1-doll        digest e81b138959ad bodies 28 held 2163 woken 0 checks 0 enc 0 ovf 0 /480 p50ms 9.9 worst 20.6 rtf_med 1.0 settle_ms 1353 cut 1624204
+--- P3: the canon-exact rule price, far 1500/rtf100 seed 3 ---
+far1500-s3-doll-cost     digest 46c7652f3985 bodies 1395 held 1367 woken 1367 checks 1367 enc 0 ovf 388 /480 p50ms 19.95 worst 223.6 rtf_med 0.0 settle_ms 1921 cut 162420357
+--- the next decade: 8000/rtf100, 4 s ---
+far8000-shipped          digest 304df5e33ec4 bodies 3524 held 0 woken 0 checks 0 enc 0 ovf 240 /480 p50ms 37.96 worst 59.2 rtf_med 0.0 settle_ms 38176 cut 81210179
+far8000-dormant          digest 304df5e33ec4 bodies 28 held 7785 woken 0 checks 70104 enc 0 ovf 79 /480 p50ms 4.43 worst 99.7 rtf_med 100.0 settle_ms 35196 cut 81210179
+--- P2: load stability (the checker probe, twice) + shipped control ---
+load-batch1 46c7652f3985
+load-batch1 46c7652f3985
+load-batch1 46c7652f3985
+load-batch1 46c7652f3985
+load-batch2 46c7652f3985
+load-batch2 46c7652f3985
+load-batch2 46c7652f3985
+load-batch2 46c7652f3985
+load-ctl 46c7652f3985
+load-ctl 46c7652f3985
+load-ctl 46c7652f3985
+load-ctl 46c7652f3985

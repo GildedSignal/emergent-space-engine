@@ -1,0 +1,10 @@
+Working...
+Check complete. **Grade: gold** — written to `check.md`, with the author's wiki page corrected in place.
+
+**Reproduction** (clean tree at base `294215b8`, patch applied by me, private target dir): every load-independent number regenerates — budget sweep one digest `46c7652f3985` at ms 0.5/5/100; identity at seeds 3/7 bit for bit with the cure intact (ovf 435→47, p50 20.4→4.9 ms, rtf 0→100, bodies 1,384→28); `doll` s3 identity with the cure dead (1,367 woken, ovf 390); near 1,500 and 4,000/rtf1 identical; 8/8 concurrent-load runs = shipped.
+
+**Root cause falsified both ways**: with the one-shot drain restored, the digest moves with the wall budget at zero load (`46c7652f3985`/`7f1641e8df40` at ms 100/5 — the author's exact values, and `7f1641e8df40` matches one of the silver run's load-probe digests, corroborating one channel) while the fleet's state at the cut stays bit-identical at every budget. Code confirms the mechanism: shipped hand-outs re-enter the queue (`universe.rs:499`) so the settle's `advance` binds them; dormant leavers leave the queue, so only the drain can.
+
+**Adversarial extension** (the finding that sharpened the record): at 16 s wall — 2× the author's duration, same far scene — **the drift arm breaks identity** (`ade1352a771a` vs `7024e553eb57`, 9 encounters vs 0, 106/1,464 woken), while `doll` at 16 s holds and drift at 12 s holds. The author's named-but-unconstructed open edge is now a measured boundary: the drift gate's safe window ends in (1,200, 1,600] game-s in the safest scene class. It contradicts no stated claim (the author scoped it honestly); it's folded into the page as the checker paragraph, with the adoption consequence: drift needs a canonical guard horizon, not just a proof.
+
+Held-out seeds 5/13 and the quarter-turn scene (canon channel live, 426 encounters both arms) also held identity — domain extended, no contradiction. Predictions were pre-registered (file order verified) and all six held. Gold: the premise "the arm is load-nondeterministic" is shown wrong, ~50× on board #1's live-body axis, adoptable in one step.

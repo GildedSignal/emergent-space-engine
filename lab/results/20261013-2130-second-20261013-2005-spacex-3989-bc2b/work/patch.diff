@@ -1,0 +1,231 @@
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 0ae6e743..bc4007da 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -249,9 +249,10 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+     let fleet = Fleet::new("Armada", home_doll, home, -18, world, r_lat, fleet_angle, order, threads.max(1))?;
+     // The player: the same circle, a little ahead of the fleet (about 20 km along the orbit).
+     let p_orbit = Scalar::raw(r_lat as i128, -20 + 18)?; // lattice units → root units → Home's units
++    let angle = std::env::var("ES_PLAYER_ANGLE").ok().and_then(|s| s.trim().parse::<u32>().ok());
+     let player = u.add_body(
+         Kind::Player,
+-        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
++        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: angle.unwrap_or(fleet_angle.wrapping_add(player_offset)), phase: 0 },
+         Scalar::raw(34, -10 + 18)?,
+     )?;
+     names.push("You".into());
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 3253025d..3f17fbb2 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -122,6 +122,10 @@ pub struct Stats {
+     /// Members handed out of a frame into a doll, and frames dissolved.
+     pub leavers: u64,
+     pub dissolved: u64,
++    /// The dormant-promotion probe (`ES_DORMANT`): members held compact, woken by the gate or the settle, gate checks.
++    pub dormant_held: u64,
++    pub dormant_woken: u64,
++    pub gate_checks: u64,
+     /// Wall nanoseconds and items resolved, by kind: planet, moon, ship, player, fleet.
+     pub cost_ns: [u64; 5],
+     pub items: [u64; 5],
+@@ -165,6 +169,9 @@ pub struct Universe {
+     pos: Vec<[f64; 2]>,
+     pub stats: Stats,
+     pub inputs: Vec<(Tick, u8)>,
++    /// Members the frame handed out, held compact (the dormant-promotion probe, `ES_DORMANT`): no body, no queue
++    /// entity, no scan candidate, until the player's gate ([`Universe::wake_dormant`]) or a settle wakes them.
++    dormant: VecDeque<(usize, Leaver)>,
+     /// Members the frame handed out whose tubes are not made yet, in hand-out order ([`Universe::resolve_handout`]):
+     /// each is an item of the queue (the front one has the next body id), made when the budget gets to it.
+     handouts: VecDeque<(usize, Leaver)>,
+@@ -200,9 +207,23 @@ pub struct Universe {
+ struct Lanes {
+     planets: Vec<usize>,
+     moons: Vec<usize>,
++
+     ships: Vec<usize>,
+ }
+ 
++/// The dormant-promotion probe is on (`ES_DORMANT` in the environment; unset: the shipped queue, bit for bit).
++fn dormant_on() -> bool {
++    static D: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var_os("ES_DORMANT").is_some());
++    *D
++}
++
++/// The wake rule (`ES_DORMANT_WAKE`): `doll` — the canon-exact rule, wake every same-doll member at the
++/// player's item, as the shipped queue does; anything else — the f64 drift bound (`drift`).
++fn wake_rule_is_doll() -> bool {
++    static D: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var_os("ES_DORMANT_WAKE").is_some_and(|v| v == "doll"));
++    *D
++}
++
+ /// The heading a player's nose starts at: along its velocity at tick 0 in its doll's axes (prograde, so that "forward" burns
+ /// the orbit up and not down into the planet).
+ fn prograde(b: &Binding) -> Res<u32> {
+@@ -228,6 +249,7 @@ impl Universe {
+             stats: Stats::default(),
+             inputs: Vec::new(),
+             handouts: VecDeque::new(),
++            dormant: VecDeque::new(),
+             pending: VecDeque::new(),
+             last_decision: 0,
+             threads: 1,
+@@ -633,6 +655,8 @@ impl Universe {
+             while self.handouts.front().is_some_and(|(_, l)| l.tick < key.0) {
+                 self.resolve_handout();
+             }
++            // The dormant members the gate says can yet matter to this read are made here too; the rest stay compact.
++            self.wake_dormant(key);
+             let ships = std::mem::take(&mut self.lanes.ships);
+             self.pull(&ships, key);
+             self.lanes.ships = ships;
+@@ -723,7 +747,13 @@ impl Universe {
+         self.stats.refused += step.refused;
+         // Whoever left is made a body later, one item each, when the budget gets to it (docs/plane.md, foundation 7:
+         // a hand-out of nine members used to be one event of thirteen milliseconds).
+-        self.handouts.extend(step.leavers.into_iter().map(|l| (f, l)));
++        if dormant_on() {
++            // The probe: they stay dormant — no body, no entity, no scan candidate — until a reader wakes them.
++            self.stats.dormant_held += step.leavers.len() as u64;
++            self.dormant.extend(step.leavers.into_iter().map(|l| (f, l)));
++        } else {
++            self.handouts.extend(step.leavers.into_iter().map(|l| (f, l)));
++        }
+         self.requeue(self.bodies.len());
+         self.stats.dissolved += step.dissolved as u64;
+         if self.fleets[f].live() {
+@@ -804,6 +834,77 @@ impl Universe {
+         crate::prof::add(crate::prof::HANDOUT, t_ho);
+     }
+ 
++    /// The wake rule of the dormant-promotion probe, at the player's item: which dormant members must be
++    /// bodies *before this item reads the doll*. The scan's candidates are the same-doll bodies alive at
++    /// the scan, so only same-doll members can change the encounter canon; other-doll dormancy is
++    /// canon-free by construction and never woken in flight. `ES_DORMANT_WAKE=doll` is the canon-exact
++    /// rule — wake every same-doll member handed out before the item's tick, exactly what the shipped
++    /// queue does — so the digest matches the shipped arm by construction at any scene. The default
++    /// (`drift`) is the f64 drift bound below: cheaper (0 wakes in a far scene), sound only while its
++    /// padding covers the acceleration.
++    fn wake_dormant(&mut self, key: (Tick, usize)) {
++        if self.dormant.is_empty() {
++            return;
++        }
++        let Some(p) = self.player else { return };
++        let t = key.0;
++        let doll_rule = wake_rule_is_doll();
++        // The player's doll position, speed and read interval at the item; unreadable: wake everything.
++        let read = (|| -> Option<([f64; 2], f64, u16, f64)> {
++            let b = self.bodies.binding_at(p, t)?;
++            let (x, v) = b.cartesian(t).ok()?;
++            let xf = [crate::num::to_f64(x[0]), crate::num::to_f64(x[1])];
++            let vf = crate::num::to_f64(v[0]).hypot(crate::num::to_f64(v[1]));
++            let h = (self.bodies.rec(p).interval.max(1)) as f64;
++            Some((xf, vf, b.doll, h))
++        })();
++        let (px, pv, doll, h) = read.unwrap_or(([0.0; 2], f64::INFINITY, u16::MAX, 1.0));
++        let mut i = 0;
++        while i < self.dormant.len() {
++            let (f, l) = &self.dormant[i];
++            let wake = if doll_rule || u16::MAX == doll {
++                // The canon-exact rule: everything the item's doll could read (unreadable player: all).
++                self.fleets[*f].doll == doll || u16::MAX == doll
++            } else {
++                false
++            };
++            self.stats.gate_checks += 1;
++            let stale = t.saturating_sub(l.tick) > (1i64 << 33);
++            let near = wake
++                || stale
++                || self.dormant_near(l, *f, px, pv, h, t);
++            if near {
++                let (f, l) = self.dormant.remove(i).unwrap();
++                self.stats.dormant_woken += 1;
++                self.handouts.push_back((f, l));
++            } else {
++                i += 1;
++            }
++        }
++        while self.handouts.front().is_some_and(|(_, l)| l.tick < t) {
++            self.resolve_handout();
++        }
++        self.requeue(self.bodies.len());
++    }
++
++    /// Can the leaver yet come near the player? Its exact position at the hand-off tick, the player's now,
++    /// and a drift bound padded 4× over the leaver's own hand-off speed plus the player's (co-orbital
++    /// relative speeds are small; the padding stands in for the acceleration, unbounded here).
++    fn dormant_near(&self, l: &Leaver, f: usize, px: [f64; 2], pv: f64, h: f64, now: Tick) -> bool {
++        let doll = self.fleets[f].doll as usize;
++        let shift = self.dolls[doll].shift as i32;
++        let reach = crate::num::to_f64(self.info[self.player.unwrap_or(0)].radius) + (l.radius as f64) * 2f64.powi(shift - 20);
++        let near = reach * 1024.0;
++        let kx = 2f64.powi(l.state.length_exponent as i32);
++        let kv = 2f64.powi(l.state.velocity_exponent as i32);
++        let x = [l.state.position[0] as f64 * kx, l.state.position[1] as f64 * kx];
++        let v = (l.state.velocity[0] as f64 * kv).hypot(l.state.velocity[1] as f64 * kv);
++        let dt = now.saturating_sub(l.tick) as f64 + h;
++        let drift = (v + pv + 1.0) * 4.0 * dt;
++        let dist = (x[0] - px[0]).hypot(x[1] - px[1]);
++        dist <= near + drift
++    }
++
+     fn update_fleet_position(&mut self, f: usize) {
+         let t = self.fleets[f].tick();
+         let centre = self.fleets[f].centre;
+@@ -930,9 +1031,19 @@ impl Universe {
+ 
+     /// Resolve every item up to `horizon` (the canonical cut): the state a digest is taken at.
+     pub fn settle(&mut self, horizon: Tick) {
++        // The dormant members wake here (the probe) — *inside* the loop: the settle's own advances run the
++        // fleets, which hand out more members as they reach the cut, and a one-shot drain before the loop
++        // loses exactly those (however many the flight's budget starved into the settle: a wall-dependent
++        // count, so a load-dependent digest). Draining until neither half produces anything loses none.
+         loop {
++            if dormant_on() && !self.dormant.is_empty() {
++                let rest: Vec<(usize, Leaver)> = self.dormant.drain(..).filter(|(_, l)| l.tick <= horizon).collect();
++                self.stats.dormant_woken += rest.len() as u64;
++                self.handouts.extend(rest);
++                self.requeue(self.bodies.len());
++            }
+             let a = self.advance(horizon, Budget::unlimited());
+-            if a.events == 0 {
++            if a.events == 0 && self.dormant.iter().all(|(_, l)| l.tick > horizon) {
+                 break;
+             }
+         }
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..53a180c5 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 1_000_000),
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;
+@@ -152,7 +152,9 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         .collect();
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
++    let t_settle = std::time::Instant::now();
+     let (cut_tick, digest) = s.digest_at_cut();
++    let settle_ms = t_settle.elapsed().as_secs_f64() * 1e3;
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
+@@ -173,9 +175,10 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         "presented_tick_at_end": presented_at_end,
+         "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+         "cut_tick": cut_tick,
++        "fleet": {"tick": s.p.u.fleets[0].tick(), "members": s.p.u.fleets[0].members(), "handoffs": s.p.u.fleets[0].handoffs().len(), "live": s.p.u.fleets[0].live()},
+         "digest": digest,
+         "machine_before": before, "machine_after": crate::measure::machine_state("after"),
+-        "uptime_before": load_before, "uptime_after": uptime("uptime"),
++        "settle_ms": settle_ms,
+     });
+     println!("{}", serde_json::to_string_pretty(&report)?);
+     Ok(0)
