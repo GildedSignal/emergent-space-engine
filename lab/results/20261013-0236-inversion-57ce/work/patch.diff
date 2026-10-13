@@ -1,0 +1,282 @@
+diff --git a/crates/universe/examples/crossing.rs b/crates/universe/examples/crossing.rs
+new file mode 100644
+index 00000000..e359505f
+--- /dev/null
++++ b/crates/universe/examples/crossing.rs
+@@ -0,0 +1,276 @@
++//! E->1 crossing probe (inversion lens, 13 October). The high-gamma-clock page names the
++//! in-flight E->1 crossing as unmeasured (the acceptance sweep covered E->1 at periapsis
++//! exactly, vr = 0; a burn crosses off-periapsis). This probe flies the crossing and
++//! brackets every (doll, kind) family flip:
++//!   mode A<level>: hold forward until the first Passage (Home escape), cut, coast;
++//!   mode B (level 8): hold through the star escape flip too, cut, coast, then hold
++//!     reverse until the capture flip back to Cycle, cut, coast.
++//! At each bracket it reports the parabolic miss distance E-1 (exact readout oracle,
++//! E = f·u^t), the tube clock's dt/dtau against u^t, the key's k-1/2, refusals, fault.
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::{to_f64, Tick};
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++use emergent_universe::Config;
++use std::time::Instant;
++
++const END: i64 = 1i64 << 38;
++
++struct St {
++    t: i64,
++    doll: usize,
++    passage: bool,
++    e: f64,
++    relerr: f64,
++}
++
++fn kind_of(p: &emergent_universe::scenario::Plane, me: usize) -> bool {
++    matches!(
++        p.u.rec(me).b.entry.trajectory,
++        emergent_space::binding::Trajectory::Passage(_)
++    )
++}
++
++fn doll_of(p: &emergent_universe::scenario::Plane, me: usize) -> usize {
++    p.u.rec(me).b.doll as usize
++}
++
++fn measure(p: &mut emergent_universe::scenario::Plane, me: usize, t: i64, tag: &str, level: u8) {
++    p.u.settle(t);
++    let rec = p.u.rec(me);
++    if !rec.alive {
++        println!(
++            "{tag} L{level} t={t} DEAD doll={} refusals={} events={} fault={:?}",
++            rec.b.doll, rec.refusals, rec.events, rec.fault
++        );
++        return;
++    }
++    let f64v = |v: [Scalar; 2]| [to_f64(v[0]), to_f64(v[1])];
++    let (x, v) = match rec.b.cartesian(t) {
++        Ok(pv) => (f64v(pv.0), f64v(pv.1)),
++        Err(e) => {
++            println!("{tag} L{level} t={t} REFUSED {e:?} refusals={}", rec.refusals);
++            return;
++        }
++    };
++    let ctx = p.u.ctx();
++    let mu = to_f64(ctx.tube_unit(me, rec.b.doll).unwrap().mu);
++    let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
++    let f = 1.0 - 2.0 * mu / r;
++    let rh = [x[0] / r, x[1] / r];
++    let vr = v[0] * rh[0] + v[1] * rh[1];
++    let vt = -v[0] * rh[1] + v[1] * rh[0];
++    let den = f - vr * vr / f - vt * vt;
++    let ut = 1.0 / den.sqrt();
++    let e_ex = f * ut;
++    let gamma = 1.0 / (1.0 - (vr * vr + vt * vt)).sqrt();
++    let shift = ctx.dolls[rec.b.doll as usize].shift as i32;
++    let dtk: Tick = 1 << 16;
++    let a = rec.b.orbit_state(t).unwrap().proper_time;
++    let b = rec.b.orbit_state(t + dtk).unwrap().proper_time;
++    let dtau = to_f64(b.sub(a).unwrap()) * 2f64.powi(-shift);
++    let dtdtau = dtk as f64 / dtau;
++    let relerr = dtdtau / ut - 1.0;
++    let e1 = e_ex - 1.0;
++    let key = rec.b.entry.trajectory.key();
++    let peri = to_f64(key.periapsis);
++    let kq = key.k as f64 / 2f64.powi(48);
++    let kh = kq - 0.5;
++    println!(
++        "{tag} L{level} t={t} doll={} kind={} r={r:.6e} gamma={gamma:.6} E={e_ex:.9} E-1={e1:+.3e} dt/dtau={dtdtau:.9} u^t={ut:.9} relerr={relerr:+.3e} k-1/2={kh:+.6e} peri={peri:.4e} mu={mu:.4e} refusals={} events={}",
++        rec.b.doll,
++        kind_of(p, me) as u8,
++        rec.refusals,
++        rec.events
++    );
++}
++
++/// Settle at t and sample the flip state; returns None when dead/refused.
++fn sample(p: &mut emergent_universe::scenario::Plane, me: usize, t: i64) -> Option<St> {
++    p.u.settle(t);
++    let rec = p.u.rec(me);
++    if !rec.alive {
++        let mut rs = format!(" surface={:.6e}", to_f64(p.u.ctx().dolls[rec.b.doll as usize].surface));
++        if let Ok((x0, _)) = rec.b.cartesian(t) {
++            let xf = [to_f64(x0[0]), to_f64(x0[1])];
++            rs += &format!(
++                " r_at_death={:.6e} leave=2^40={:.3e}",
++                (xf[0] * xf[0] + xf[1] * xf[1]).sqrt(),
++                2f64.powi(40)
++            );
++        }
++        println!(
++            "t={t} DEAD fault={:?} refusals={} event_time={}{}",
++            rec.fault,
++            rec.refusals,
++            rec.b.event_time,
++            rs
++        );
++        return None;
++    }
++    let ctx = p.u.ctx();
++    let f64v = |v: [Scalar; 2]| [to_f64(v[0]), to_f64(v[1])];
++    let (x, v) = rec.b.cartesian(t).ok()?;
++    let (x, v) = (f64v(x), f64v(v));
++    let mu = to_f64(ctx.tube_unit(me, rec.b.doll).unwrap().mu);
++    let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
++    let f = 1.0 - 2.0 * mu / r;
++    let rh = [x[0] / r, x[1] / r];
++    let vr = v[0] * rh[0] + v[1] * rh[1];
++    let vt = -v[0] * rh[1] + v[1] * rh[0];
++    let ut = 1.0 / (f - vr * vr / f - vt * vt).sqrt();
++    let shift = ctx.dolls[rec.b.doll as usize].shift as i32;
++    let dtk: Tick = 1 << 16;
++    let a = rec.b.orbit_state(t).unwrap().proper_time;
++    let b = rec.b.orbit_state(t + dtk).unwrap().proper_time;
++    let dtau = to_f64(b.sub(a).unwrap()) * 2f64.powi(-shift);
++    Some(St {
++        t,
++        doll: rec.b.doll as usize,
++        passage: matches!(
++            rec.b.entry.trajectory,
++            emergent_space::binding::Trajectory::Passage(_)
++        ),
++        e: f * ut,
++        relerr: dtk as f64 / dtau / ut - 1.0,
++    })
++}
++
++/// Bracket the family flip between lo (settled, old state) and hi (settled, new state):
++/// 7 bisections, then a fine measure on both sides.
++fn bracket(p: &mut emergent_universe::scenario::Plane, me: usize, lo: i64, hi: i64, level: u8, name: &str) -> Option<i64> {
++    let mut lo = lo;
++    let mut hi = hi;
++    for _ in 0..7 {
++        let mid = lo / 2 + hi / 2;
++        if mid <= lo || mid >= hi {
++            break;
++        }
++        let s = sample(p, me, mid)?;
++        if s.passage {
++            hi = mid;
++        } else {
++            lo = mid;
++        }
++    }
++    measure(p, me, lo, &format!("{name}lo"), level);
++    measure(p, me, hi, &format!("{name}up"), level);
++    Some(hi)
++}
++
++fn main() {
++    let arg: String = std::env::args().nth(1).unwrap_or_else(|| "A8".into());
++    let level: u8 = arg[1..].parse().unwrap_or(8);
++    let cfg = Config::default();
++    let cap_ms = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(25_000u64);
++    let mut p = plane(cfg, 1, emergent_universe::fleet::Order::Sparse, 1, 48).unwrap();
++    let me = p.player;
++    let wall = Instant::now();
++    p.u.input(0, word(1, level)).unwrap();
++
++    // Fine ladder (x1.25) bracketing EVERY (doll, kind) transition while the burn is held.
++    let mut t_prev: i64 = 512;
++    let mut t: i64 = 640;
++    let mut last: Option<(usize, bool)> = None;
++    let mut into_passage = 0;
++    let mut star_flip = None;
++    let mut last_flip = None;
++    loop {
++        let s = match sample(&mut p, me, t) {
++            Some(s) => s,
++            None => {
++                println!("L{level} lost t={t} wall_ms={}", wall.elapsed().as_millis());
++                return;
++            }
++        };
++        let cur = (s.doll, s.passage);
++        if let Some(pr) = last {
++            if pr != cur {
++                let tag = format!("d{}{}>d{}{}-", pr.0, pr.1 as u8, cur.0, cur.1 as u8);
++                match bracket(&mut p, me, t_prev, t, level, &tag) {
++                    Some(hi) => {
++                        if cur.1 {
++                            into_passage += 1;
++                            if arg.starts_with('B') && into_passage == 2 {
++                                star_flip = Some(hi);
++                                break;
++                            }
++                        }
++                        last_flip = Some(hi);
++                        t_prev = hi;
++                        t = (hi as f64 * 1.25) as i64;
++                        last = Some(cur);
++                        continue;
++                    }
++                    None => return,
++                }
++            }
++        } else {
++            last = Some(cur);
++        }
++        if star_flip.is_some() {
++            break;
++        }
++        if t >= END || wall.elapsed().as_millis() as u64 > cap_ms {
++            println!(
++                "L{level} ladder ends t={t} E={:.9} flips={} wall_ms={}",
++                s.e,
++                into_passage,
++                wall.elapsed().as_millis()
++            );
++            break;
++        }
++        t_prev = t;
++        t = (t as f64 * 1.25) as i64;
++    }
++
++    if last_flip.is_some() && !arg.starts_with('B') {
++        println!("A L{level} done wall_ms={}", wall.elapsed().as_millis());
++        return;
++    }
++    let Some(sflip) = star_flip else {
++        println!("B L{level} no star flip wall_ms={}", wall.elapsed().as_millis());
++        return;
++    };
++    // cut, coast x4, then hold reverse until the capture flip back to Cycle.
++    let cut = p.u.now + 1;
++    p.u.input(cut, word(0, 0)).unwrap();
++    let coast_to = p.u.now + (p.u.now >> 4);
++    if sample(&mut p, me, coast_to).is_none() {
++        println!("B lost on coast t={coast_to}");
++        return;
++    }
++    measure(&mut p, me, coast_to, "bcoast", level);
++    p.u.input(coast_to + (coast_to >> 3), word(2, level)).unwrap();
++    let rev = p.u.now + 1;
++    let mut t_prev = rev;
++    let mut t = (rev as f64 * 1.25) as i64;
++    let mut captured = false;
++    loop {
++        let s = match sample(&mut p, me, t) {
++            Some(s) => s,
++            None => {
++                println!("B lost during capture t={t}");
++                return;
++            }
++        };
++        if !s.passage {
++            bracket(&mut p, me, t_prev, t, level, "cap");
++            captured = true;
++            break;
++        }
++        if t >= END || wall.elapsed().as_millis() as u64 > cap_ms * 3 {
++            println!("B no capture by t={t} E={:.9} wall_ms={}", s.e, wall.elapsed().as_millis());
++            break;
++        }
++        t_prev = t;
++        t = (t as f64 * 1.25) as i64;
++    }
++    if captured {
++        let after = t * 2;
++        if after <= END {
++            measure(&mut p, me, after, "capcoast", level);
++        }
++    }
++    println!("B done wall_ms={}", wall.elapsed().as_millis());
++}

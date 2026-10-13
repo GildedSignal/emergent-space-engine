@@ -1,0 +1,75 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: unused variable: `sflip`
+   --> crates/universe/examples/crossing.rs:231:14
+    |
+231 |     let Some(sflip) = star_flip else {
+    |              ^^^^^ help: if this is intentional, prefix it with an underscore: `_sflip`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: fields `t` and `relerr` are never read
+  --> crates/universe/examples/crossing.rs:20:5
+   |
+19 | struct St {
+   |        -- fields in this struct
+20 |     t: i64,
+   |     ^
+...
+24 |     relerr: f64,
+   |     ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `doll_of` is never used
+  --> crates/universe/examples/crossing.rs:34:4
+   |
+34 | fn doll_of(p: &emergent_universe::scenario::Plane, me: usize) -> usize {
+   |    ^^^^^^^
+
+warning: `emergent-universe` (example "crossing") generated 3 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 7.81s
+== A15 (rc=0)
+== A11 (rc=0)
+== A8 (rc=0)
+== A5 (rc=0)
+== A4 (rc=0)
+== A3 (rc=0)
+== A2 (rc=0)
+== B8 (rc=0)
+--- crossing brackets (kind flips):
+d20>d21-lo L11 t=516515 doll=2 kind=1 r=1.242545e9 gamma=1.000000 E=1.000000000 E-1=+2.872e-10 dt/dtau=1.000000002 u^t=1.000000002 relerr=+1.776e-15 k-1/2=-1.315068e-1 peri=1.2425e9 mu=1.0000e0 refusals=0 events=563
+d20>d21-up L11 t=517522 doll=2 kind=1 r=1.242545e9 gamma=1.000000 E=1.000000000 E-1=+2.872e-10 dt/dtau=1.000000002 u^t=1.000000002 relerr=+4.885e-15 k-1/2=-1.315068e-1 peri=1.2425e9 mu=1.0000e0 refusals=0 events=563
+d21>d01-lo L11 t=87671281 doll=0 kind=1 r=9.780403e7 gamma=1.000081 E=1.000081000 E-1=+8.100e-5 dt/dtau=1.000081020 u^t=1.000081020 relerr=-2.884e-13 k-1/2=-4.999326e-1 peri=9.1644e7 mu=1.0000e0 refusals=0 events=1626
+d21>d01-up L11 t=87842512 doll=0 kind=1 r=9.780326e7 gamma=1.000081 E=1.000081000 E-1=+8.100e-5 dt/dtau=1.000081020 u^t=1.000081020 relerr=-2.200e-13 k-1/2=-4.999326e-1 peri=9.1644e7 mu=1.0000e0 refusals=0 events=1626
+d20>d21-lo L15 t=35496 doll=2 kind=1 r=1.242562e9 gamma=1.000000 E=1.000000001 E-1=+6.471e-10 dt/dtau=1.000000002 u^t=1.000000002 relerr=+3.775e-15 k-1/2=-2.228367e-1 peri=1.2425e9 mu=1.0000e0 refusals=0 events=594
+d20>d21-up L15 t=35565 doll=2 kind=1 r=1.242562e9 gamma=1.000000 E=1.000000001 E-1=+6.471e-10 dt/dtau=1.000000002 u^t=1.000000002 relerr=+4.441e-15 k-1/2=-2.228367e-1 peri=1.2425e9 mu=1.0000e0 refusals=0 events=594
+d21>d01-lo L15 t=22982481 doll=0 kind=1 r=9.778932e7 gamma=1.001434 E=1.001434155 E-1=+1.434e-3 dt/dtau=1.001434176 u^t=1.001434176 relerr=+4.770e-13 k-1/2=-4.999962e-1 peri=9.1561e7 mu=1.0000e0 refusals=0 events=1893
+d21>d01-up L15 t=23027367 doll=0 kind=1 r=9.778848e7 gamma=1.001434 E=1.001434155 E-1=+1.434e-3 dt/dtau=1.001434176 u^t=1.001434176 relerr=+4.889e-13 k-1/2=-4.999962e-1 peri=9.1561e7 mu=1.0000e0 refusals=0 events=1893
+d20>d21-lo L5 t=35840306 doll=2 kind=1 r=1.213085e9 gamma=1.000000 E=1.000000001 E-1=+6.050e-10 dt/dtau=1.000000002 u^t=1.000000002 relerr=+6.461e-14 k-1/2=-2.107008e-1 peri=1.2039e9 mu=1.0000e0 refusals=0 events=587
+d20>d21-up L5 t=35910306 doll=2 kind=1 r=1.212983e9 gamma=1.000000 E=1.000000001 E-1=+6.050e-10 dt/dtau=1.000000002 u^t=1.000000002 relerr=+6.439e-14 k-1/2=-2.107008e-1 peri=1.2039e9 mu=1.0000e0 refusals=0 events=587
+d21>d01-lo L5 t=816505790 doll=0 kind=1 r=9.777267e7 gamma=1.000002 E=1.000001800 E-1=+1.800e-6 dt/dtau=1.000001820 u^t=1.000001820 relerr=-4.908e-12 k-1/2=-4.970138e-1 peri=9.2477e7 mu=1.0000e0 refusals=0 events=1274
+d21>d01-up L5 t=818100527 doll=0 kind=1 r=9.777169e7 gamma=1.000002 E=1.000001800 E-1=+1.800e-6 dt/dtau=1.000001820 u^t=1.000001820 relerr=-5.852e-12 k-1/2=-4.970138e-1 peri=9.2477e7 mu=1.0000e0 refusals=0 events=1274
+d20>d21-lo L8 t=3848325 doll=2 kind=1 r=1.242154e9 gamma=1.000000 E=1.000000000 E-1=+5.604e-11 dt/dtau=1.000000002 u^t=1.000000002 relerr=+5.773e-15 k-1/2=-3.252293e-2 peri=1.2416e9 mu=1.0000e0 refusals=0 events=541
+d20>d21-up L8 t=3855840 doll=2 kind=1 r=1.242152e9 gamma=1.000000 E=1.000000000 E-1=+5.604e-11 dt/dtau=1.000000002 u^t=1.000000002 relerr=+5.995e-15 k-1/2=-3.252293e-2 peri=1.2416e9 mu=1.0000e0 refusals=0 events=541
+d21>d01-lo L8 t=267552587 doll=0 kind=1 r=9.778307e7 gamma=1.000012 E=1.000011960 E-1=+1.196e-5 dt/dtau=1.000011981 u^t=1.000011981 relerr=-2.273e-12 k-1/2=-4.995452e-1 peri=9.1836e7 mu=1.0000e0 refusals=0 events=1452
+d21>d01-up L8 t=268075149 doll=0 kind=1 r=9.778219e7 gamma=1.000012 E=1.000011960 E-1=+1.196e-5 dt/dtau=1.000011981 u^t=1.000011981 relerr=-2.045e-12 k-1/2=-4.995452e-1 peri=9.1836e7 mu=1.0000e0 refusals=0 events=1452
+d20>d21-lo L8 t=3848325 doll=2 kind=1 r=1.242154e9 gamma=1.000000 E=1.000000000 E-1=+5.604e-11 dt/dtau=1.000000002 u^t=1.000000002 relerr=+5.773e-15 k-1/2=-3.252293e-2 peri=1.2416e9 mu=1.0000e0 refusals=0 events=541
+d20>d21-up L8 t=3855840 doll=2 kind=1 r=1.242152e9 gamma=1.000000 E=1.000000000 E-1=+5.604e-11 dt/dtau=1.000000002 u^t=1.000000002 relerr=+5.995e-15 k-1/2=-3.252293e-2 peri=1.2416e9 mu=1.0000e0 refusals=0 events=541
+d21>d01-lo L8 t=267552587 doll=0 kind=1 r=9.778307e7 gamma=1.000012 E=1.000011960 E-1=+1.196e-5 dt/dtau=1.000011981 u^t=1.000011981 relerr=-2.273e-12 k-1/2=-4.995452e-1 peri=9.1836e7 mu=1.0000e0 refusals=0 events=1452
+d21>d01-up L8 t=268075149 doll=0 kind=1 r=9.778219e7 gamma=1.000012 E=1.000011960 E-1=+1.196e-5 dt/dtau=1.000011981 u^t=1.000011981 relerr=-2.045e-12 k-1/2=-4.995452e-1 peri=9.1836e7 mu=1.0000e0 refusals=0 events=1452
+--- deaths:
+t=109375931 DEAD fault=None refusals=0 event_time=91750400 surface=1.130627e9 r_at_death=1.058895e9 leave=2^40=1.100e12
+t=87500745 DEAD fault=None refusals=0 event_time=76283904 surface=1.130627e9 r_at_death=1.082520e9 leave=2^40=1.100e12
+t=87500745 DEAD fault=None refusals=0 event_time=69992448 surface=1.130627e9 r_at_death=1.087082e9 leave=2^40=1.100e12
+--- ladder ends / captures:
+L11 ladder ends t=338357044907 E=39.413420609 flips=2 wall_ms=29258
+A L11 done wall_ms=29258
+L15 ladder ends t=138590916571 E=258.203255328 flips=2 wall_ms=41820
+A L15 done wall_ms=41820
+L5 ladder ends t=338358446807 E=1.174197441 flips=2 wall_ms=15106
+A L5 done wall_ms=15106
+L8 ladder ends t=338358405978 E=5.026438286 flips=2 wall_ms=23485
+A L8 done wall_ms=23485
+bcoast L8 t=355343278 doll=0 kind=1 r=9.763614e7 gamma=1.000012 E=1.000012147 E-1=+1.215e-5 dt/dtau=1.000012168 u^t=1.000012168 relerr=-3.062e-12 k-1/2=-4.995522e-1 peri=9.1834e7 mu=1.0000e0 refusals=0 events=1452
+B no capture by t=287044013625 E=4.288858767 wall_ms=13492
+B done wall_ms=13492
