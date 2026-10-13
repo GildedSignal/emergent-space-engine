@@ -1,0 +1,316 @@
+== build ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.13s
+
+== decisive battery: paced 8 s (the checker's adversarial case), seed 1 ==
+rtf 100, 8 s per flight (480 frames at 60 Hz), budget 12 ms, seed 1
+
+=== coast (control) (alive 480 of 480)
+  thrust steps: sum 0 ticks over ticks 2097152..161480704
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 666174091/kick) would mint ~0 events for the same 0/39 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~0 events (law-bound kicks 0, burn-bound 0); tide per law-cadence event: median 0.000e0, max 0.000e0 quanta; closest approach r=1.243e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 0, 0, 0, 0]
+player items total 77 (worst frame 6 with 1), max lag 0.038 s
+  by kind: kick0 39 kick1+ 0 open 0 boundary 38 crash 0 decide 0
+  kicks recorded 39 (thrust 0 coast 39); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 0]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 0]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 39] (fired 39 of 39)
+
+=== forward L8 (alive 480 of 480)
+  thrust steps: sum 139081052 ticks over ticks 2097152..158334976
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~1 events for the same 636/641 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~6 events (law-bound kicks 0, burn-bound 636); tide per law-cadence event: median 1.248e8, max 7.981e8 quanta; closest approach r=1.219e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 437, 199, 0, 0]
+player items total 1281 (worst frame 60 with 41), max lag 1.546 s
+  by kind: kick0 641 kick1+ 0 open 0 boundary 640 crash 0 decide 1
+  kicks recorded 641 (thrust 636 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 636]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 636]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== forward L12 (alive 480 of 480)
+  thrust steps: sum 131355648 ticks over ticks 2097152..151133867
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~58889 events for the same 896/901 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~23 events (law-bound kicks 0, burn-bound 896); tide per law-cadence event: median 1.038e7, max 2.797e13 quanta; closest approach r=9.727e7 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 723, 120, 53, 0]
+player items total 1803 (worst frame 60 with 50), max lag 1.667 s
+  by kind: kick0 901 kick1+ 0 open 0 boundary 902 crash 0 decide 1
+  kicks recorded 901 (thrust 896 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 127, 769]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 896]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== forward L15 (alive 480 of 480)
+  thrust steps: sum 127436802 ticks over ticks 2097152..146821817
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~31285 events for the same 1084/1089 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~24 events (law-bound kicks 0, burn-bound 1084); tide per law-cadence event: median 8.687e6, max 1.490e13 quanta; closest approach r=9.375e7 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 936, 56, 92, 0]
+player items total 2177 (worst frame 70 with 48), max lag 1.666 s
+  by kind: kick0 1089 kick1+ 0 open 0 boundary 1088 crash 0 decide 1
+  kicks recorded 1089 (thrust 1084 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 191, 893]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 1084]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== reverse L8 (brake) (alive 480 of 480)
+  thrust steps: sum 141178204 ticks over ticks 2097152..160432128
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~89 events for the same 404/409 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~5 events (law-bound kicks 0, burn-bound 404); tide per law-cadence event: median 4.429e10, max 4.429e10 quanta; closest approach r=1.243e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 222, 182, 0, 0]
+player items total 817 (worst frame 60 with 31), max lag 0.940 s
+  by kind: kick0 409 kick1+ 0 open 0 boundary 408 crash 0 decide 1
+  kicks recorded 409 (thrust 404 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 404]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 404]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== turn left then burn L8 (alive 191 of 480)
+  thrust steps: sum 12559181 ticks over ticks 2097152..63242240
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 524106938/kick) would mint ~0 events for the same 377/391 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~1 events (law-bound kicks 0, burn-bound 377); tide per law-cadence event: median 1.574e8, max 1.574e8 quanta; closest approach r=1.131e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 376, 1, 0, 0]
+player items total 780 (worst frame 150 with 36), max lag 0.497 s
+  by kind: kick0 391 kick1+ 0 open 0 boundary 389 crash 0 decide 3
+  kicks recorded 391 (thrust 377 coast 14); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 377]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 377]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 14] (fired 14 of 14)
+
+== paced 4 s, seed 1 ==
+rtf 100, 4 s per flight (240 frames at 60 Hz), budget 12 ms, seed 1
+
+=== coast (control) (alive 240 of 240)
+  thrust steps: sum 0 ticks over ticks 2097152..77594624
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 572400014/kick) would mint ~0 events for the same 0/19 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~0 events (law-bound kicks 0, burn-bound 0); tide per law-cadence event: median 0.000e0, max 0.000e0 quanta; closest approach r=1.243e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 0, 0, 0, 0]
+player items total 38 (worst frame 6 with 1), max lag 0.038 s
+  by kind: kick0 19 kick1+ 0 open 0 boundary 19 crash 0 decide 0
+  kicks recorded 19 (thrust 0 coast 19); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 0]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 0]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 19] (fired 19 of 19)
+
+=== forward L8 (alive 240 of 240)
+  thrust steps: sum 58340700 ticks over ticks 2097152..78381056
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~0 events for the same 549/554 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~2 events (law-bound kicks 0, burn-bound 549); tide per law-cadence event: median 8.166e7, max 1.248e8 quanta; closest approach r=1.219e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 437, 112, 0, 0]
+player items total 1106 (worst frame 60 with 41), max lag 1.626 s
+  by kind: kick0 554 kick1+ 0 open 0 boundary 552 crash 0 decide 1
+  kicks recorded 554 (thrust 549 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 549]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 549]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== forward L12 (alive 240 of 240)
+  thrust steps: sum 50476380 ticks over ticks 2097152..70516736
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~0 events for the same 798/803 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~11 events (law-bound kicks 0, burn-bound 798); tide per law-cadence event: median 1.537e7, max 6.196e7 quanta; closest approach r=1.231e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 721, 77, 0, 0]
+player items total 1605 (worst frame 70 with 48), max lag 1.606 s
+  by kind: kick0 803 kick1+ 0 open 0 boundary 802 crash 0 decide 1
+  kicks recorded 803 (thrust 798 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 127, 671]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 798]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== forward L15 (alive 240 of 240)
+  thrust steps: sum 45647874 ticks over ticks 2097152..65557177
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~29009 events for the same 985/990 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~24 events (law-bound kicks 0, burn-bound 985); tide per law-cadence event: median 8.687e6, max 1.376e13 quanta; closest approach r=9.729e7 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 936, 0, 49, 0]
+player items total 1979 (worst frame 60 with 47), max lag 1.657 s
+  by kind: kick0 990 kick1+ 0 open 0 boundary 989 crash 0 decide 1
+  kicks recorded 990 (thrust 985 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 191, 794]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 985]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== reverse L8 (brake) (alive 240 of 240)
+  thrust steps: sum 60437852 ticks over ticks 2097152..80478208
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~10 events for the same 325/330 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~1 events (law-bound kicks 0, burn-bound 325); tide per law-cadence event: median 4.671e9, max 4.671e9 quanta; closest approach r=1.243e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 222, 103, 0, 0]
+player items total 659 (worst frame 60 with 31), max lag 0.779 s
+  by kind: kick0 330 kick1+ 0 open 0 boundary 329 crash 0 decide 1
+  kicks recorded 330 (thrust 325 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 325]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 325]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== turn left then burn L8 (alive 190 of 240)
+  thrust steps: sum 12559181 ticks over ticks 2097152..63242240
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 524106938/kick) would mint ~0 events for the same 377/391 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~1 events (law-bound kicks 0, burn-bound 377); tide per law-cadence event: median 1.574e8, max 1.574e8 quanta; closest approach r=1.131e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 376, 1, 0, 0]
+player items total 780 (worst frame 150 with 36), max lag 0.537 s
+  by kind: kick0 391 kick1+ 0 open 0 boundary 389 crash 0 decide 3
+  kicks recorded 391 (thrust 377 coast 14); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 377]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 377]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 14] (fired 14 of 14)
+
+== paced 8 s, seed 7 (cross-seed) ==
+rtf 100, 8 s per flight (480 frames at 60 Hz), budget 12 ms, seed 7
+
+=== coast (control) (alive 480 of 480)
+  thrust steps: sum 0 ticks over ticks 2097152..161480704
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 666174091/kick) would mint ~0 events for the same 0/39 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~0 events (law-bound kicks 0, burn-bound 0); tide per law-cadence event: median 0.000e0, max 0.000e0 quanta; closest approach r=1.243e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 0, 0, 0, 0]
+player items total 77 (worst frame 6 with 1), max lag 0.000 s
+  by kind: kick0 39 kick1+ 0 open 0 boundary 38 crash 0 decide 0
+  kicks recorded 39 (thrust 0 coast 39); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 0]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 0]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 39] (fired 39 of 39)
+
+=== forward L8 (alive 480 of 480)
+  thrust steps: sum 141178204 ticks over ticks 2097152..160432128
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~1 events for the same 637/642 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~7 events (law-bound kicks 0, burn-bound 637); tide per law-cadence event: median 1.248e8, max 8.259e8 quanta; closest approach r=1.219e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 437, 200, 0, 0]
+player items total 1282 (worst frame 60 with 34), max lag 0.658 s
+  by kind: kick0 642 kick1+ 0 open 0 boundary 640 crash 0 decide 1
+  kicks recorded 642 (thrust 637 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 637]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 637]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== forward L12 (alive 480 of 480)
+  thrust steps: sum 130307072 ticks over ticks 2097152..150085291
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~58513 events for the same 895/900 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~23 events (law-bound kicks 0, burn-bound 895); tide per law-cadence event: median 1.038e7, max 2.779e13 quanta; closest approach r=9.728e7 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 723, 120, 52, 0]
+player items total 1801 (worst frame 60 with 34), max lag 1.604 s
+  by kind: kick0 900 kick1+ 0 open 0 boundary 901 crash 0 decide 1
+  kicks recorded 900 (thrust 895 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 127, 768]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 895]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== forward L15 (alive 480 of 480)
+  thrust steps: sum 125339650 ticks over ticks 2097152..144724665
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~31283 events for the same 1082/1087 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~24 events (law-bound kicks 0, burn-bound 1082); tide per law-cadence event: median 8.687e6, max 1.490e13 quanta; closest approach r=9.385e7 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 936, 54, 92, 0]
+player items total 2174 (worst frame 60 with 36), max lag 1.658 s
+  by kind: kick0 1087 kick1+ 0 open 0 boundary 1087 crash 0 decide 1
+  kicks recorded 1087 (thrust 1082 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 191, 891]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 1082]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== reverse L8 (brake) (alive 480 of 480)
+  thrust steps: sum 141178204 ticks over ticks 2097152..160432128
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~89 events for the same 404/409 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~5 events (law-bound kicks 0, burn-bound 404); tide per law-cadence event: median 4.429e10, max 4.429e10 quanta; closest approach r=1.243e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 222, 182, 0, 0]
+player items total 817 (worst frame 60 with 31), max lag 0.007 s
+  by kind: kick0 409 kick1+ 0 open 0 boundary 408 crash 0 decide 1
+  kicks recorded 409 (thrust 404 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 404]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 404]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== turn left then burn L8 (alive 189 of 480)
+  thrust steps: sum 12551526 ticks over ticks 2097152..63242240
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 524106938/kick) would mint ~0 events for the same 377/391 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~1 events (law-bound kicks 0, burn-bound 377); tide per law-cadence event: median 1.582e8, max 1.582e8 quanta; closest approach r=1.131e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 375, 2, 0, 0]
+player items total 780 (worst frame 150 with 41), max lag 0.416 s
+  by kind: kick0 391 kick1+ 0 open 0 boundary 389 crash 0 decide 3
+  kicks recorded 391 (thrust 377 coast 14); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 377]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 377]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 14] (fired 14 of 14)
+
+== demand 4 s, seed 1 (unlimited budget; 4 s so the turn flight's 2.5 s burn fires) ==
+rtf 100, 4 s per flight (240 frames at 60 Hz), budget unlimited (demand), seed 1
+
+=== coast (control) (alive 240 of 240)
+  thrust steps: sum 0 ticks over ticks 2097152..77594624
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 572400014/kick) would mint ~0 events for the same 0/19 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~0 events (law-bound kicks 0, burn-bound 0); tide per law-cadence event: median 0.000e0, max 0.000e0 quanta; closest approach r=1.243e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 0, 0, 0, 0]
+player items total 38 (worst frame 6 with 1), max lag 0.000 s
+  by kind: kick0 19 kick1+ 0 open 0 boundary 19 crash 0 decide 0
+  kicks recorded 19 (thrust 0 coast 19); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 0]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 0]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 19] (fired 19 of 19)
+
+=== forward L8 (alive 240 of 240)
+  thrust steps: sum 60962140 ticks over ticks 2097152..81002496
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~0 events for the same 554/559 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~3 events (law-bound kicks 0, burn-bound 554); tide per law-cadence event: median 9.248e7, max 1.248e8 quanta; closest approach r=1.219e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 437, 117, 0, 0]
+player items total 1116 (worst frame 62 with 42), max lag 0.000 s
+  by kind: kick0 559 kick1+ 0 open 0 boundary 557 crash 0 decide 1
+  kicks recorded 559 (thrust 554 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 554]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 554]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== forward L12 (alive 240 of 240)
+  thrust steps: sum 60962140 ticks over ticks 2097152..81002496
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~0 events for the same 818/823 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~16 events (law-bound kicks 0, burn-bound 818); tide per law-cadence event: median 8.208e6, max 6.196e7 quanta; closest approach r=1.231e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 721, 97, 0, 0]
+player items total 1644 (worst frame 60 with 579), max lag 0.000 s
+  by kind: kick0 823 kick1+ 0 open 0 boundary 821 crash 0 decide 1
+  kicks recorded 823 (thrust 818 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 127, 691]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 818]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== forward L15 (alive 240 of 240)
+  thrust steps: sum 60852226 ticks over ticks 2097152..80761529
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~30721 events for the same 1014/1019 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~24 events (law-bound kicks 0, burn-bound 1014); tide per law-cadence event: median 8.687e6, max 1.462e13 quanta; closest approach r=9.680e7 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 936, 0, 78, 0]
+player items total 2038 (worst frame 60 with 1036), max lag 0.000 s
+  by kind: kick0 1019 kick1+ 0 open 0 boundary 1019 crash 0 decide 1
+  kicks recorded 1019 (thrust 1014 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 191, 823]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 1014]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== reverse L8 (brake) (alive 240 of 240)
+  thrust steps: sum 60962140 ticks over ticks 2097152..81002496
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 497962832/kick) would mint ~10 events for the same 326/331 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~1 events (law-bound kicks 0, burn-bound 326); tide per law-cadence event: median 4.778e9, max 4.778e9 quanta; closest approach r=1.243e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 222, 104, 0, 0]
+player items total 660 (worst frame 60 with 31), max lag 0.000 s
+  by kind: kick0 331 kick1+ 0 open 0 boundary 329 crash 0 decide 1
+  kicks recorded 331 (thrust 326 coast 5); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 326]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 326]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 5] (fired 5 of 5)
+
+=== turn left then burn L8 (alive 188 of 240)
+  thrust steps: sum 12551526 ticks over ticks 2097152..63242240
+  counterfactual (fixed granularity): the tide alone at the coast cadence (median tide 524106938/kick) would mint ~0 events for the same 377/391 thrust kicks
+  counterfactual (law cadence): the tide alone at the clock's own step mints ~1 events (law-bound kicks 0, burn-bound 377); tide per law-cadence event: median 1.582e8, max 1.582e8 quanta; closest approach r=1.131e9 doll units
+  tide/burn ratio buckets [<2^-40, <2^-30, <2^-20, <2^-10, rest]: [0, 375, 2, 0, 0]
+player items total 780 (worst frame 150 with 43), max lag 0.000 s
+  by kind: kick0 391 kick1+ 0 open 0 boundary 389 crash 0 decide 3
+  kicks recorded 391 (thrust 377 coast 14); thrust tide==0 quanta: 0 (0.0%)
+  thrust tide_q buckets [0,1,2-3,4-7,8-15,16-63,64+]: [0, 0, 0, 0, 0, 0, 377]
+  thrust burn_q buckets: [0, 0, 0, 0, 0, 0, 377]
+  coast  tide_q buckets: [0, 0, 0, 0, 0, 0, 14] (fired 14 of 14)
+
+== summary table (kicks -> law-cadence events, per flight, from the paced-8s record) ==
+coast: thrust kicks 0
+coast: law-cadence events 0 (law-bound 0, burn-bound 0)
+forward L8: thrust kicks 636
+forward L8: law-cadence events 6 (law-bound 0, burn-bound 636)
+forward L12: thrust kicks 897
+forward L12: law-cadence events 23 (law-bound 0, burn-bound 897)
+forward L15: thrust kicks 1084
+forward L15: law-cadence events 24 (law-bound 0, burn-bound 1084)
+reverse L8: thrust kicks 404
+reverse L8: law-cadence events 5 (law-bound 0, burn-bound 404)
+turn left then burn L8: thrust kicks 377
+turn left then burn L8: law-cadence events 1 (law-bound 0, burn-bound 377)
