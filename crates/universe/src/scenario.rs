@@ -151,6 +151,19 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
 /// [`plane`] with the fleet's world given (lattice bodies in the frame's axes, `crates/engine`'s scenes or
 /// a test's own): the same star, planets, moon, ships and player.
 pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World) -> Res<Plane> {
+    plane_with_extra(cfg, seed, order, threads, world, 0)
+}
+
+/// [`plane`] with `extra` more real bodies: ships made by [`ladder_ship`] (the N ladder's population: a few hundred about
+/// Home and the Moon, the rest in a belt about the star), each on its own exact orbit, with the ids after the plane's own ships
+/// and before the player's. `extra = 0` is the plane, bit for bit.
+pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize) -> Res<Plane> {
+    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
+    plane_with_extra(cfg, seed, order, threads, world, extra)
+}
+
+/// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
     use crate::fleet::{Fleet, Q};
     let mut u = Universe::new(s(STAR_RADIUS), cfg);
     u.threads = threads;
@@ -243,6 +256,12 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
         ships.push(id);
         names.push(format!("Skimmer {}", k + 1));
     }
+    // The ladder's ships: real bodies, each on its own exact orbit, built from integers and the seed.
+    for k in 0..extra {
+        let (spec, radius) = ladder_ship(seed, k as u64, extra as u64, home_doll)?;
+        ships.push(u.add_body(Kind::Ship, spec, radius)?);
+        names.push(String::new());
+    }
     // The fleet: lattice radius of Home's low orbit (7,000 km: 4,740 root units), starting at angle 0.
     let r_lat: i64 = 4_740 * Q;
     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
@@ -258,4 +277,105 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
     let f = u.add_fleet(fleet);
     u.start()?;
     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+}
+
+// ---- the N ladder's population -------------------------------------------------------------------
+
+/// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.
+pub fn ladder_locals(extra: u64) -> u64 {
+    (extra / 2).min(300)
+}
+
+/// splitmix64's finalizer: the ladder's only source of randomness, with the seed (integers all the way).
+fn mix64(mut z: u64) -> u64 {
+    z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^ (z >> 31)
+}
+
+/// Draw `lane` of ship `k`: independent of every other ship's draws (a counter, not a stream).
+fn draw(seed: u64, k: u64, lane: u64) -> u64 {
+    mix64(mix64(seed ^ 0x5DEE_CE66_D1CE_4E5B) ^ k.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (lane << 56))
+}
+
+/// `e · 2^48` of a Rayleigh draw of scale `sigma_milli / 1000` from a uniform 32-bit `u`: `σ √(−2 ln(1 − u))`, in integers
+/// (`log2` by squaring, `ln = ln2 · log2`, an integer root): the same bits on every machine.
+pub fn rayleigh_q48(u: u32, sigma_milli: u64) -> u64 {
+    let d = (1u64 << 32) - u as u64; // the survival probability, d / 2^32, in (0, 1]
+    let k = 63 - d.leading_zeros() as u64;
+    let mut x = (d as u128) << (62 - k); // the mantissa in [1, 2), Q62
+    let mut frac = 0u64;
+    for _ in 0..32 {
+        x = (x * x) >> 62;
+        frac <<= 1;
+        if x >= 2u128 << 62 {
+            x >>= 1;
+            frac |= 1;
+        }
+    }
+    let l2 = (32u64 << 32) - ((k << 32) | frac); // log2(2^32 / d), Q32
+    let ln = (l2 as u128 * 2_977_044_472u128) >> 32; // ln 2 = 2977044472 / 2^32; ln(2^32 / d), Q32
+    let e2 = ln * 2 * (sigma_milli as u128).pow(2) / 1_000_000; // e², Q32
+    (e2 << 64).isqrt() as u64 // e · 2^48
+}
+
+/// One ship of the N ladder: the orbit it is made on and its radius. Ship `k` of `extra`: the first [`ladder_locals`] are about
+/// Home (a quarter of them on the Moon's orbit, 60 degrees ahead of or behind it, where a ship stays; the rest from just above
+/// the surface out to two thirds of the Moon's distance, Rayleigh eccentricities); the rest are a belt about the star between 2
+/// and 3 AU (Rayleigh eccentricities of scale 0.07, periapsis above 1.2 AU: no crossing of Home's orbit), uniform angles. Each is
+/// a real body on its own exact orbit; nothing is averaged, and every number is an integer from the seed and `k`.
+pub fn ladder_ship(seed: u64, k: u64, extra: u64, home_doll: u16) -> Res<(OrbitSpec, Scalar)> {
+    let d = |lane: u64| draw(seed, k, lane);
+    let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
+    let locals = ladder_locals(extra);
+    if k >= locals {
+        // The belt: a uniform in [2, 3) AU at 2^-8 of a root unit, e Rayleigh (re-drawn above 0.4), p = a (1 - e).
+        let a_q8 = ((2 * AU as u128) << 8) + (d(1) as u128 % ((AU as u128) << 8));
+        let mut e = rayleigh_q48((d(2) >> 32) as u32, 70);
+        for lane in 16.. {
+            if e <= (2u64 << 48) / 5 {
+                break;
+            }
+            e = rayleigh_q48((d(lane) >> 32) as u32, 70);
+        }
+        let p_q8 = a_q8 - ((a_q8 * e as u128) >> 48);
+        let spec = OrbitSpec { doll: 0, periapsis: Scalar::raw(p_q8 as i128, -8)?, e_q48: e, clockwise: false, angle, phase };
+        return Ok((spec, Scalar::raw(34, -10)?));
+    }
+    let radius = Scalar::raw(34, -10 + 18)?;
+    if k < locals / 4 {
+        // About the Moon: its orbit (periapsis 260,000 root units, e = 1/20, the Moon's angle), 3 % off in size at most, e within a
+        // tenth of its own, 60 degrees ahead of it or behind (L4 and L5) within 5 degrees.
+        let jit = |lane: u64| (d(lane) >> 32) as i128 - (1i128 << 31); // [-2^31, 2^31): [-1/2, 1/2) turn of 2^32
+        let base = 260_000i128 << 16;
+        let peri_q16 = base + base * 6 * jit(4) / (100 * (1i128 << 32));
+        let e = ((1i128 << 48) / 20 + ((1i128 << 48) / 100) * jit(5) / (1i128 << 32)) as u64;
+        let sixth = (1i128 << 32) / 6;
+        let phase = 0x7000_0000i128 + if d(6) & 1 == 0 { sixth } else { -sixth } + jit(7) / 36;
+        let spec = OrbitSpec {
+            doll: home_doll,
+            periapsis: Scalar::raw(peri_q16, 18 - 16)?,
+            e_q48: e,
+            clockwise: false,
+            angle: 0x1000_0000,
+            phase: phase.rem_euclid(1 << 32) as u32,
+        };
+        return Ok((spec, radius));
+    }
+    // About Home: a in [5,200 root units, 2^5 times that): an octave uniform and the place in it uniform; e Rayleigh of scale 0.03
+    // (re-drawn above 0.1: the periapsis clears the surface); 1 in 8 against the planet's turn.
+    let lo_q16 = 5_200u128 << 16;
+    let oct = d(1) % 5;
+    let a_q16 = (lo_q16 << oct) + (((lo_q16 << oct) * (d(2) >> 32) as u128) >> 32);
+    let mut e = rayleigh_q48((d(2) & 0xFFFF_FFFF) as u32, 30);
+    for lane in 16.. {
+        if e <= (1u64 << 48) / 10 {
+            break;
+        }
+        e = rayleigh_q48((d(lane) >> 32) as u32, 30);
+    }
+    let p_q16 = a_q16 - ((a_q16 * e as u128) >> 48);
+    let spec = OrbitSpec { doll: home_doll, periapsis: Scalar::raw(p_q16 as i128, 18 - 16)?, e_q48: e, clockwise: d(5) & 7 == 0, angle, phase };
+    Ok((spec, radius))
 }

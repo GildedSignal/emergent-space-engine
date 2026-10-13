@@ -1,0 +1,72 @@
+THE N LADDER (13 October, Sonnet, wt/nladder): how many real bodies the plane holds, and what breaks first. BEFORE any change.
+
+What was run. `cargo run --release -p emergent-universe --example nladder -- <N> <coast|burn> 20` (crates/universe/examples/nladder.rs): the plane
+plus N more ships (scenario::plane_extra / ladder_ship: ids after the plane's own ships, before the player's; min(N/2, 300) about Home and the Moon
+(a quarter on the Moon's orbit 60 degrees ahead/behind, the rest 5,200 to 166,000 root units out, Rayleigh e of scale 0.03), the rest a belt between
+2 and 3 AU, Rayleigh e of scale 0.07 (re-drawn above 0.4: periapsis > 1.2 AU), uniform angles; every number an integer from the seed and the index; each
+body its own exact orbit). The page's frame loop (60 frames a second of wall time at rtf 100, `frame_to`, 12 ms engine budget) for 20 s of page time:
+coasting, or burning forward at L8 from 1 s (the player leaves Home's SOI for the star's doll at frame 947, 15.8 s). One process a rung and flight, <= 60 s
+(a run is cut at 55 s: "truncated"). Columns: p50/p99/max = engine ms a frame after the first second; >12ms = frames over 12 ms after the first second; lag = the
+worst lag of the presented time behind the target; ev/b/gs and kick/b/gs = events and kicks per body per game-second (all bodies, after the first second);
+held = most scans held for idle time; view ms = one warm gather of the view (the page's instrument, outside the engine's frame; -1 = not run, near 60 s);
+MiB = peak physical footprint (compressed pages included; the resident size alone under-reports on this machine under load).
+Verdict: "pass" = literal F1 (no frame over 12 ms, lag 0); "pass as N=0" = no worse than N=0's own coast run (its one frame over by 7 us at frame 61 is the
+fleet's opening exodus, 10 ms of the 12, present at every N: the F1 table of wt/frame has the same 12.0-12.1 ms at forward L8) and under 13 ms. Refusals: 0 at every rung.
+Seed 1, 48 fleet members, 1 thread. Raw: artifacts/runs/nladder/before/ (one file a run, machine state first). Script: ladder.sh, table.py.
+
+Machine state (artifacts/runs/frame/state.sh, at the start of the runs, also in each raw file): load 2.1-3.2 (Arc, Claude, other builders' compiles), battery power,
+swap 4.0-5.1 GB of 5-6 GB used (the machine was already swapping), no thermal warning. Fanless M1 8 GB. One sample per rung: p99 and max move by a millisecond between
+runs (10^3 burn: max 11.8 ms here; the margin to 12 ms is thin).
+
+THE TABLE (before):
+       N flight   bodies  build s    MiB  B/body   p50 ms   p99 ms   max ms  >12ms  lag s   ev/b/gs kick/b/gs refus  held  view ms frames wall s  F1
+       0 burn         28     0.00     28  196608    0.384    6.066    10.51      0  0.000  1.93e-01  4.32e-02     0    17      0.4   1200    0.8  pass
+       0 coast        28     0.00      9  196608    0.026    1.464    12.01      1  0.035  1.20e-01  2.00e-02     0     1      0.4   1200    0.2  pass as N=0
+     100 burn        128     0.00     29    5243    0.462    8.025    10.60      0  0.000  4.81e-02  1.12e-02     0    21      1.3   1200    1.0  pass
+     100 coast       128     0.00      9    5407    0.037    1.547     9.88      0  0.000  3.29e-02  6.10e-03     0     0      1.3   1200    0.3  pass
+    1000 burn       1028     0.03     55    2982    0.850   11.073    11.79      0  0.000  9.62e-03  2.49e-03     0   326     11.4   1200    2.2  pass
+    1000 coast      1028     0.03     12    2900    0.172    5.002    10.47      0  0.000  8.30e-03  1.86e-03     0     1     11.3   1200    0.8  pass
+   10000 burn      10028     0.27    138    2567    2.731   11.122    28.58      7  0.127  9.79e-04  2.55e-04     0   570    133.6   1200    5.2  FAIL
+   10000 coast     10028     0.27     34    2562    1.656   10.394    12.82      4  1.076  8.45e-04  1.90e-04     0     1    134.2   1200    3.4  FAIL
+  100000 burn     100028     3.02    320    2632   13.103  133.418   384.95   1140  1.667  8.79e-05  2.66e-05     0  1020    607.7   1200   34.4  FAIL
+  100000 coast    100028     2.85    280    2632   41.789  205.920   455.98   1060  1.667  6.05e-05  1.96e-05     0   158     -1.0   1120   55.0  FAIL (truncated: 60 s)
+ 1000000 burn    1000028    30.15   2345    2458   52.713   79.810   159.19    393  1.667  0.00e+00  0.00e+00     0     0     -1.0    453   55.3  FAIL (truncated: 60 s)
+ 1000000 coast   1000028    31.54   2285    2378   54.337   83.775   212.38    349  1.667  0.00e+00  0.00e+00     0     0     -1.0    409   55.3  FAIL (truncated: 60 s)
+
+THE SCORE BEFORE (gate N1): the largest N (power of ten) that keeps F1 for coast and the L8 burn, under 4 GiB, with zero refusals: N = 10^3 (1,028 bodies, 10^3.01).
+(The brief's "28 bodies" is the plane before any ladder: the ladder shows it already holds 10^3 with a thin margin.) 10^4 fails both flights.
+
+STAGE PROFILE (--features prof; the timers themselves cost ~20-30 ns a call, so the stage sums run a little over the plain walls; artifacts/runs/nladder/before/prof_*):
+  coast, us per frame (calls per frame):     N=0       N=10^3          N=10^4           N=10^5
+  rekey (all deadlines)                       7.9        58.5 (1)        501 (1)         8,089 (1)
+  requeue                                     3.4        51.4 (2,145)    469 (20,136)    7,592 (185,044)
+  take_due (one per queue pop)                1.1        18.6 (1,065)    173 (10,056)    1,461 (84,969)
+  prune (every 64th frame)                    0.2        0.7             1.9             23.9 (1.5 ms a call)
+  encounters capture (per player item)        0.4        4.0 (0.16)      40 (0.16; 248 us a call)   634 (0.14; 4.5 ms a call)
+  process (the events themselves)           112        190             190             225        <- independent of N: ~30 us an event
+  held scans answered (idle time)            24        148             145             --
+  burn at 10^5: capture 3,792 us a frame (0.84 calls, 4.5 ms a call), rekey 8.3 ms, requeue 6.2 ms, take_due 0.26 ms.
+Everything that is O(N) is a walk over every body that runs every frame whether or not anything happened to it; the work that follows an event is flat in N.
+
+WHERE THE FRAME GOES (engine p50, coast): 0.026 ms (N=0), 0.037 (10^2), 0.172 (10^3), 1.656 (10^4), 41.8 (10^5), 54 (10^6, budget-capped: a frame is rekey plus a drain cut by the budget).
+Per body and frame above N=0: 146 ns (10^3), 163 ns (10^4), 418 ns (10^5). Exponent of the frame in N: 0.98 between 10^3 and 10^4, 1.40 between 10^4 and 10^5 (the walk leaves the cache:
+24 ns a requeue to 41-54 ns, a Calendar pop 100+ ns).
+
+FIRST BREAK (named, measured):
+  The term: the frame's per-body walks in `Universe::advance` (crates/universe/src/universe.rs):
+    (1) `rekey`: every frame recomputes the deadline (event time + light distance from the player) of EVERY body and re-sets it in the Calendar: N requeues, 24 ns each at 10^3-10^4, 41-54 ns at 10^5;
+    (2) the loop's drain: the Calendar is ordered by deadline and a body whose next event is after the target is "set aside" when it reaches the head, so the loop pops EVERY body every frame
+        (take_due calls = N a frame), and afterwards re-sets each (a second N requeues: requeue calls = 2N a frame);
+    (3) `prune` every 64 frames walks every body (1.5 ms a call at 10^5); (4) the player's neighbourhood scan `capture` walks and clones the binding of every body at every player item (45-50 ns a body:
+        4.5 ms at 10^5, 0.25 ms at 10^4), and `pull(ships)` for the player scans every ship for the minimum next tick (N next_time reads per player item).
+  Its cost: ~160 ns per body per frame while it fits in cache (exponent 1.0, p50 0.98), ~420 ns per body per frame at 10^5 (exponent 1.4). It crosses F1 first through the p99 frames: at 10^4 the walk (1.7 ms)
+  plus a frame of 400 events (the 300 locals' orbits: 10.5 ms) is over 12 ms (4 late frames in coast, 7 in the burn, lag 1.1 s / 0.13 s); its p50 alone crosses 12 ms at ~3x10^4 and the budget is gone at 10^5 (1,060 of 1,060 frames over).
+  What it is not: the events (30-65 us an event, flat in N: process 190-225 us a frame at every N; kicks and events per body per game-second fall as 1/N because only the 300 locals and the player's neighbours have short periods),
+  memory (2.4-2.6 KB a body flat: 2,285 MiB at 10^6, 4 GiB at ~1.7x10^6 bodies), refusals (zero everywhere), the build (27-31 us a body: 30 s at 10^6, 60 s at ~2x10^6).
+SECOND TERMS, outside or after the first (measured here, not fixed by the first fix):
+  - The view (the page's instrument, not the engine): `gather` reads every body every frame: 11 ms at 10^3 (warm, 11 us a body here), 134 ms at 10^4, 608 ms at 10^5. The page's 16.7 ms frame cannot carry it past ~10^3 bodies.
+    It is not the engine's F1; it is listed because the page pays it.
+  - Held scans: a burn holds hundreds of scans (326 at 10^3, 570 at 10^4, 1,020 at 10^5), each a clone of every candidate's binding (the 300 locals now; every body of the doll when the player is in the star's doll).
+  - The player in the belt: the scan against every body of its doll is exact and O(candidates) per player item (encounters.md: 1.5-1.9 us a body; priced out as a per-pair filter): these flights stay near 1 AU,
+    so they never meet it (the burn reaches the star's doll at 15.8 s but is still at 1 AU, within about 0.02 AU of it; the belt's periapses are above 1.2 AU). A flight into the belt is the next ladder.
+  - Memory and build: 2.4-2.6 KB a body (a compiled orbit per body in the catalogue, never shared: 1.2-1.5 KB; a 448 B record; plan, info, spec) and 29-31 us a body to build: the plane cannot hold 10^7 whatever the frame does.
