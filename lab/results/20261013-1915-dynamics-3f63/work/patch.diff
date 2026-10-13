@@ -1,0 +1,196 @@
+diff --git a/crates/universe/tests/crash_basin.rs b/crates/universe/tests/crash_basin.rs
+new file mode 100644
+index 00000000..3cce5a48
+--- /dev/null
++++ b/crates/universe/tests/crash_basin.rs
+@@ -0,0 +1,190 @@
++//! The crash basin's ruler (lab run 20261013-1915-dynamics-3f63, lens: dynamics and attractors).
++//!
++//! The held retro brake from a circular orbit about Home: which (start radius, throttle level)
++//! pairs crash into the planet, which live? The wiki's open direction (high-gamma-clock): Λ =
++//! thrust/local-weight fails across r, level fails across r; the margin race is the standing
++//! mechanism but has no measured dimensionless ruler. This probe flies the r-only sweep the page
++//! names: circular starts at chosen radii, the reverse key held from tick 0 (fixed prograde nose,
++//! so the thrust is retro), and bisects the crash/live boundary in r at each level.
++//!
++//! World: the star, Home on its circular 1 AU orbit (the plane's Home kind: 2^-18 of the star,
++//! 4,313 root units of radius), the player on a circular orbit in Home's doll. Doll units are
++//! Home's geometric units (M = c = 1): the surface is at 4313·2^18 and speeds are β.
++use emergent_space::orbit::Scalar;
++use emergent_universe::num::{to_f64, Tick};
++use emergent_universe::scenario::STAR_RADIUS;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Config, Kind, OrbitSpec, Universe};
++use std::time::Instant;
++
++const SURFACE_ROOT: i64 = 4_313;
++const MASS_LOG2: i32 = -18;
++/// The player's id: the planet is body 0.
++const ME: usize = 1;
++/// The horizon the page's from-orbit grid used: 2^35 ticks ≈ 169,239 game-s.
++const HORIZON: Tick = 1 << 35;
++/// Checkpoints every 2^26 ticks (≈ 330 game-s): r, β, alive.
++const EVERY: Tick = 1 << 26;
++
++const SURFACE_DOLL: f64 = (SURFACE_ROOT as f64) * 262_144.0; // root units × 2^18 doll units per root unit
++
++/// The star, Home on a circle at 1 AU, the player on a circular orbit of `radii` Home radii.
++fn world(radii: f64) -> Universe {
++    let mut u = Universe::new(Scalar::integer(STAR_RADIUS), Config::default());
++    let planet = u.add_body(Kind::Planet, OrbitSpec { doll: 0, periapsis: Scalar::integer(99_300_000), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
++    let surface = Scalar::raw(SURFACE_ROOT as i128, -MASS_LOG2).unwrap(); // root units → planet units
++    let doll = u.add_doll("planet", planet, MASS_LOG2, surface).unwrap();
++    let r0 = Scalar::raw((SURFACE_ROOT as f64 * radii) as i128, 18).unwrap(); // planet radii → doll units
++    u.add_body(Kind::Player, OrbitSpec { doll, periapsis: r0, e_q48: 0, clockwise: false, angle: 0x4000_0000, phase: 0 }, Scalar::ZERO)
++        .expect("a player on a circular orbit has a tube");
++    u.start().unwrap();
++    u
++}
++
++/// One flight: the given keys at `level` held from tick 0 (keys 0: the coast control), settled to
++/// checkpoints until the player is lost or the horizon. Returns the anatomy.
++#[derive(Clone, Debug)]
++struct Flight {
++    radii: f64,
++    level: u8,
++    dead: bool,
++    /// The first checkpoint tick the player was not alive at.
++    tick: Tick,
++    /// r at that checkpoint, in Home radii (doll 1 only; the last alive checkpoint's r otherwise).
++    r_last: f64,
++    beta_last: f64,
++    min_r: f64,
++    fault: Option<String>,
++    checks: u64,
++}
++
++fn fly_keys(radii: f64, keys: u8, level: u8) -> Flight {
++    let mut u = world(radii);
++    let t0 = Instant::now();
++    if keys != 0 {
++        u.input(0, word(keys, level)).expect("the decision");
++    }
++    let mut f = Flight { radii, level, dead: false, tick: HORIZON, r_last: 0.0, beta_last: 0.0, min_r: f64::MAX, fault: None, checks: 0 };
++    let mut t = EVERY;
++    while t <= HORIZON {
++        u.settle(t);
++        f.checks += 1;
++        let rec = u.rec(ME);
++        // r and β only mean Home-relative quantities while the ship is in Home's doll (doll 1).
++        if rec.alive && rec.b.doll == 1 {
++            let (x, v) = rec.b.cartesian(u.now).expect("the player's state");
++            let (x, v) = (x.map(to_f64), v.map(to_f64));
++            let r = (x[0] * x[0] + x[1] * x[1]).sqrt();
++            let beta = (v[0] * v[0] + v[1] * v[1]).sqrt();
++            f.min_r = f.min_r.min(r);
++            f.r_last = r / SURFACE_DOLL;
++            f.beta_last = beta;
++        }
++        if !rec.alive {
++            f.dead = true;
++            f.tick = t;
++            if rec.b.doll == 1 {
++                let (x, _) = rec.b.cartesian(u.now).expect("the player's state at death");
++                let x = x.map(to_f64);
++                f.r_last = (x[0] * x[0] + x[1] * x[1]).sqrt() / SURFACE_DOLL;
++            }
++            f.fault = rec.fault.map(|(w, e)| format!("{w:?}:{e:?}"));
++            break;
++        }
++        t += EVERY;
++    }
++    f.min_r /= SURFACE_DOLL;
++    eprintln!("  fly r={radii:.4}R L{level:>2}: {} at tick {} (t={:.0} game-s), r_last={:.4}R min_r={:.4}R beta={:.3e} fault={:?} checks={} [{:.2} s wall]",
++        if f.dead { "DEAD" } else { "ALIVE" }, f.tick, f.tick as f64 * TICK_SECONDS, f.r_last, f.min_r, f.beta_last, f.fault, f.checks, t0.elapsed().as_secs_f64());
++    f
++}
++
++fn fly(radii: f64, level: u8) -> Flight {
++    fly_keys(radii, 2, level)
++}
++
++/// `true`: the player was alive at the horizon (a live arm of the basin).
++fn lives(radii: f64, level: u8) -> bool {
++    !fly(radii, level).dead
++}
++
++/// The control: a coasting player on the same circle must live at the horizon (no thrust, no crash).
++fn coast(radii: f64) -> Flight {
++    fly_keys(radii, 0, 0)
++}
++
++/// Bisect the smallest radius (in Home radii) from which the level-`level` held brake lives,
++/// within `tol` relative. Returns the bracket.
++fn bisect(level: u8, lo: f64, hi: f64, tol: f64) -> (f64, f64) {
++    if lives(lo, level) {
++        eprintln!("  r*(L{level}) < {lo:.4}R (the boundary is below the sweep's floor)");
++        return (0.0, lo);
++    }
++    assert!(lives(hi, level), "the high end must live (r={hi}R L{level})");
++    let mut lo = lo;
++    let mut hi = hi;
++    while (hi - lo) / lo > tol {
++        let mid = 0.5 * (lo + hi);
++        if lives(mid, level) { hi = mid } else { lo = mid }
++    }
++    (lo, hi)
++}
++
++/// One case per invocation, driven by env vars, so the runner can schedule arms:
++/// `BASIN_MODE=pilot|anchors|sweep|heldout|coast`.
++fn main_env() {
++    let mode = std::env::var("BASIN_MODE").unwrap_or_else(|_| "pilot".into());
++    match mode.as_str() {
++        "pilot" => {
++            // Wall-cost pilot + validation against the page's from-orbit bracket:
++            // at 1.099R the D row says L4 crashes, L5 grazes and lives.
++            fly(1.099, 4);
++            fly(1.099, 5);
++        }
++        "anchors" => {
++            // All sixteen levels at the page's radius: the level bracket of the basin.
++            for level in 0..=15 {
++                fly(1.099, level);
++            }
++        }
++        "sweep" => {
++            // The r-bisection at each level that has a boundary above the surface.
++            let levels: Vec<u8> = std::env::var("BASIN_LEVELS").unwrap_or_else(|_| "0,1,2,3,4".into()).split(',').filter_map(|s| s.trim().parse().ok()).collect();
++            for &l in &levels {
++                // The bracket must straddle: find a hi that lives, starting from 1.099R × 1.5^k.
++                let mut hi = 1.099f64;
++                while hi < 8.0 && !lives(hi, l) {
++                    hi *= 1.5;
++                }
++                if hi >= 8.0 {
++                    eprintln!("  L{l}: no live arm below 8R (the basin extends past the sweep)");
++                    continue;
++                }
++                let (lo, hi) = bisect(l, 1.01, hi, 0.01);
++                eprintln!("  r*(L{l}) ∈ ({lo:.4}R, {hi:.4}R)");
++            }
++        }
++        "heldout" => {
++            // Held-out radii for the ruler fit (never used in it).
++            let arms: Vec<(f64, u8)> = std::env::var("BASIN_ARMS").unwrap_or_default().split(';').filter_map(|s| s.split_once('L')).filter_map(|(r, l)| Some((r.trim().parse().ok()?, l.trim().parse().ok()?))).collect();
++            for (r, l) in arms {
++                fly(r, l);
++            }
++        }
++        "coast" => {
++            // The negative control: no brake, no crash, at every radius the sweep visits.
++            let radii: Vec<f64> = std::env::var("BASIN_RADII").unwrap_or_else(|_| "1.099,1.2,1.5,2,3,4,6".into()).split(',').filter_map(|s| s.trim().parse().ok()).collect();
++            for r in &radii {
++                assert!(!coast(*r).dead, "a coasting player at {r}R must live");
++            }
++            eprintln!("  coast: {} radii, all alive at the horizon", radii.len());
++        }
++        _ => panic!("unknown BASIN_MODE {mode}"),
++    }
++}
++
++#[test]
++fn crash_basin_probe() {
++    main_env();
++}
