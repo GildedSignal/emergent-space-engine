@@ -1,0 +1,262 @@
+diff --git a/crates/space/examples/elliptic_probe.rs b/crates/space/examples/elliptic_probe.rs
+new file mode 100644
+index 00000000..29490738
+--- /dev/null
++++ b/crates/space/examples/elliptic_probe.rs
+@@ -0,0 +1,256 @@
++//! Scout falsifier (lab run 20261013-1428-scout-21ba, lens scout).
++//!
++//! Question: the shipped kick compile walks Darwin panels (4-point Gauss–Legendre on
++//! <=pi/4 panels between band cuts, plus a dyadic ladder near the separatrix) to
++//! integrate the half cycle's three increments. In w = cos(psi) every integrand is
++//! rational(w)/sqrt((1-w^2)(1 - q*a(w))) — the complete-elliptic-integral canonical
++//! form. This probe measures, on shipped code:
++//!   1. advance() vs the one-Carlson-call closed form 2K(m)/sqrt(A) - pi,
++//!      A = 1-q(8k-2), m = 4q(1-k)/A (phi channel);
++//!   2. period()/proper_period() vs the exact psi integrals I3, I2 (scale pinned at
++//!      one key; the test is that one constant explains the whole grid);
++//!   3. knots() per compile (the shipped node count = 4 x panels) vs Carlson's
++//!      duplication iterations (instrumented) and tanh-sinh node counts for 1e-12;
++//!   4. compile wall vs one Carlson RF wall (orders of magnitude, shared box).
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use std::time::Instant;
++
++fn d(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
++/// Carlson symmetric RF, duplication algorithm, with an iteration counter.
++fn rf(x0: f64, y0: f64, z0: f64, iters: &mut u32) -> f64 {
++    let (mut x, mut y, mut z) = (x0, y0, z0);
++    loop {
++        *iters += 1;
++        let sx = x.sqrt();
++        let sy = y.sqrt();
++        let sz = z.sqrt();
++        let lam = sx * sy + sx * sz + sy * sz;
++        x = (x + lam) * 0.25;
++        y = (y + lam) * 0.25;
++        z = (z + lam) * 0.25;
++        let hi = x.max(y).max(z);
++        let lo = x.min(y).min(z);
++        if hi - lo <= 4e-16 * hi || *iters >= 100 {
++            break;
++        }
++    }
++    let a = (x + y + z) / 3.0;
++    let (dx, dy, dz) = (x - a, y - a, z - a);
++    let e2 = dx * dy + dy * dz + dz * dx;
++    let e3 = dx * dy * dz;
++    let s = 1.0 - e2 / 10.0 + e3 / 14.0 + e2 * e2 / 24.0 - 3.0 * e2 * e3 / 44.0;
++    s / a.sqrt()
++}
++
++fn k_complete(m: f64, iters: &mut u32) -> f64 {
++    rf(0.0, 1.0 - m, 1.0, iters)
++}
++
++/// Half-orbit azimuth from the closed form: dphi = 2K(m)/sqrt(A).
++fn phi_half_closed(q: f64, k: f64, iters: &mut u32) -> f64 {
++    let a = 1.0 - q * (8.0 * k - 2.0);
++    let m = 4.0 * q * (1.0 - k) / a;
++    2.0 * k_complete(m, iters) / a.sqrt()
++}
++
++/// Composite 4-point Gauss–Legendre over [0, pi] (independent truth, no closed form).
++fn gl4<F: Fn(f64) -> f64>(f: F, panels: usize) -> f64 {
++    const X: [f64; 4] = [
++        -0.8611363115940526,
++        -0.3399810435848563,
++        0.3399810435848563,
++        0.8611363115940526,
++    ];
++    const W: [f64; 4] = [
++        0.3478548451374538,
++        0.6521451548625461,
++        0.6521451548625461,
++        0.3478548451374538,
++    ];
++    let pi = std::f64::consts::PI;
++    let h = pi / panels as f64;
++    let mut s = 0.0;
++    for i in 0..panels {
++        let mid = (i as f64 + 0.5) * h;
++        for j in 0..4 {
++            s += W[j] * h * 0.5 * f(mid + X[j] * h * 0.5);
++        }
++    }
++    s
++}
++
++/// Integrate an endpoint-singular integrand over w in (-1,1) by tanh-sinh; returns
++/// (value, nodes at the final level). Convergence when level-to-level change < tol.
++fn de<F: Fn(f64) -> f64>(f: F, tol: f64) -> (f64, usize) {
++    let mut h = 0.5f64;
++    let mut prev = 0.0f64;
++    let mut first = true;
++    loop {
++        let mut s = 0.0;
++        let mut nodes = 0usize;
++        let mut j = 0i64;
++        loop {
++            let u = j as f64 * h;
++            let t = (std::f64::consts::FRAC_PI_2 * u.sinh()).tanh();
++            let wp = std::f64::consts::FRAC_PI_2 * u.cosh() / (t.cosh() * t.cosh());
++            if wp < 1e-19 || t >= 1.0 {
++                break;
++            }
++            nodes += if j == 0 { 1 } else { 2 };
++            s += wp * (f(t) + if j == 0 { 0.0 } else { f(-t) });
++            j += 1;
++        }
++        s *= h;
++        if !first && (s - prev).abs() <= tol * s.abs().max(1e-300) && nodes > 3 {
++            return (s, nodes);
++        }
++        first = false;
++        prev = s;
++        h *= 0.5;
++        if h < 2e-4 {
++            return (s, nodes);
++        }
++    }
++}
++
++fn median(mut v: Vec<f64>) -> f64 {
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[v.len() / 2]
++}
++
++fn main() {
++    let pi = std::f64::consts::PI;
++    // (p exponent, e): p = 2^pe about a mass of 1, so q = 2^-pe. e spans the plane's
++    // median kicked eccentricity (0.94) and the band-cut ladder (0.999). e = 0 is the
++    // symbolic circle (no periastron; a different convention) — excluded, noted.
++    let grid: Vec<(i16, f64)> = vec![
++        (20, 0.001),
++        (20, 0.5),
++        (20, 0.9),
++        (12, 0.001),
++        (12, 0.5),
++        (12, 0.9),
++        (10, 0.001),
++        (10, 0.2),
++        (10, 0.5),
++        (10, 0.9),
++        (10, 0.94),
++        (10, 0.99),
++        (10, 0.999),
++        (6, 0.001),
++        (6, 0.2),
++        (6, 0.5),
++        (4, 0.001),
++        (4, 0.2),
++    ];
++    println!("case p e q k adv_ship adv_cf relerr_phi shiptruth knots nodes_ship t_ship tau_ship C_t_dev C_tau_dev itrf n_de1 n_de2 n_de3 compile_us rf_ns");
++    // Scale constants pinned at the (2^10, 0.5) key.
++    let pin = key_of(10, 0.5);
++    let (c_t, c_tau) = {
++        let o = Orbit::compile(pin).unwrap();
++        let k = 1.0 / 1.5;
++        let q = 1.0 / (1024.0 * k);
++        let i3 = 2.0 * gl4(psi_t(q, k), 8192);
++        let i2 = 2.0 * gl4(psi_tau(q, k), 8192);
++        let p32 = 1024.0 * k * (1024.0 * k).sqrt();
++        (d(o.period().unwrap()) / (i3 * p32), d(o.proper_period().unwrap()) / (i2 * p32))
++    };
++    for (pe, e) in grid {
++        let key = key_of(pe, e);
++        let orbit = match Orbit::compile(key) {
++            Ok(o) => o,
++            Err(err) => {
++                println!("p=2^{pe} e={e}: REFUSED {err:?}");
++                continue;
++            }
++        };
++        let k = 1.0 / (1.0 + e);
++        let q = 1.0 / (2f64.powi(pe as i32) * k); // key periapsis = p*k, q = 1/(p*k)
++        let adv = d(orbit.advance().unwrap());
++        let mut it = 0u32;
++        let cf = 2.0 * (phi_half_closed(q, k, &mut it) - pi); // full-cycle advance
++        let truth = 2.0 * gl4(psi_phi(q, k), 8192);
++        let rel_phi = ((adv - cf) / cf).abs();
++        let ship_vs_truth = ((adv - truth) / truth).abs();
++        let (i1d, n1) = de(w_phi(q, k), 1e-12);
++        let (i2d, n2) = de(w_tau(q, k), 1e-12);
++        let (i3d, n3) = de(w_t(q, k), 1e-12);
++        let _ = i1d;
++        let pk = 2f64.powi(pe as i32) * k;
++        let p32 = pk * pk.sqrt();
++        let ct_dev = (d(orbit.period().unwrap()) / (i3d * c_t * p32) - 1.0).abs();
++        let ctau_dev = (d(orbit.proper_period().unwrap()) / (i2d * c_tau * p32) - 1.0).abs();
++        let knots = orbit.shape().knots().len() - 1;
++        let nodes_ship = 4 * knots;
++        let mut walls = vec![];
++        for _ in 0..31 {
++            let t0 = Instant::now();
++            let _ = Orbit::compile(key);
++            walls.push(t0.elapsed().as_secs_f64() * 1e6);
++        }
++        let mut rfw = vec![];
++        let mut itr = 0u32;
++        for _ in 0..20001 {
++            let t0 = Instant::now();
++            let _ = phi_half_closed(q, k, &mut itr);
++            rfw.push(t0.elapsed().as_secs_f64() * 1e9);
++        }
++        println!(
++            "g p2^{pe} {e} {q:.3e} {k:.6} {adv:.9e} {cf:.9e} {rel_phi:.2e} {ship_vs_truth:.2e} {knots} {nodes_ship} {:.6e} {:.6e} {ct_dev:.2e} {ctau_dev:.2e} {it} {n1} {n2} {n3} {:.1} {:.1} truthdev {:.2e}",
++            d(orbit.period().unwrap()),
++            d(orbit.proper_period().unwrap()),
++            median(walls),
++            median(rfw),
++            ((cf - truth) / cf).abs()
++        );
++    }
++}
++
++fn key_of(pe: i16, e: f64) -> OrbitKey {
++    OrbitKey::bound(Scalar::power_of_two(pe), (e * (1u64 << 48) as f64) as u64).unwrap()
++}
++
++fn psi_phi(q: f64, k: f64) -> impl Fn(f64) -> f64 {
++    move |psi| {
++        let a = 6.0 * k + 2.0 * (1.0 - k) * psi.cos();
++        1.0 / (1.0 - q * a).sqrt() - 1.0
++    }
++}
++fn psi_tau(q: f64, k: f64) -> impl Fn(f64) -> f64 {
++    move |psi| {
++        let x = k + (1.0 - k) * psi.cos();
++        let a = 6.0 * k + 2.0 * (1.0 - k) * psi.cos();
++        1.0 / (x * x * (1.0 - q * a).sqrt())
++    }
++}
++fn psi_t(q: f64, k: f64) -> impl Fn(f64) -> f64 {
++    move |psi| {
++        let x = k + (1.0 - k) * psi.cos();
++        let a = 6.0 * k + 2.0 * (1.0 - k) * psi.cos();
++        1.0 / (x * x * (1.0 - 2.0 * q * x) * (1.0 - q * a).sqrt())
++    }
++}
++fn w_phi(q: f64, k: f64) -> impl Fn(f64) -> f64 {
++    move |w| {
++        let a = 6.0 * k + 2.0 * (1.0 - k) * w;
++        1.0 / ((1.0 - w * w).sqrt() * (1.0 - q * a).sqrt())
++    }
++}
++fn w_tau(q: f64, k: f64) -> impl Fn(f64) -> f64 {
++    move |w| {
++        let x = k + (1.0 - k) * w;
++        let a = 6.0 * k + 2.0 * (1.0 - k) * w;
++        1.0 / ((1.0 - w * w).sqrt() * x * x * (1.0 - q * a).sqrt())
++    }
++}
++fn w_t(q: f64, k: f64) -> impl Fn(f64) -> f64 {
++    move |w| {
++        let x = k + (1.0 - k) * w;
++        let a = 6.0 * k + 2.0 * (1.0 - k) * w;
++        1.0 / ((1.0 - w * w).sqrt() * x * x * (1.0 - 2.0 * q * x) * (1.0 - q * a).sqrt())
++    }
++}

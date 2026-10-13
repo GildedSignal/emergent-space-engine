@@ -1,0 +1,4 @@
+Working...
+`regen.sh` verified end-to-end (deterministic, < 1 min). Run complete: predictions written before the decisive experiment, dossier, regen script, and the kick-jet topic page with the four standing conflicts resolved and the result folded in.
+
+**The claim:** the shipped kick compile's certified panel walk computes complete elliptic integrals — its azimuth advance is exactly one Carlson `RF` call (`2·[2K(m)/√A−π]`, verified against shipped `Orbit::compile` to 3–5×10⁻¹⁰, the compile's own Q30 output quantum, on every strong key of an 18-key grid) at constant cost while the panel count grows 5→176 and the wall 3.2→197 µs as e→0.999 (the leaver tail), so the record's one remaining ≥10× lever — panel count, filed as "a law change" — has a named closed-form replacement, and the Opus memo's "revisit only if compiles show in a profile" condition is now met: the compile *is* the profile (49–97% of every kick).
