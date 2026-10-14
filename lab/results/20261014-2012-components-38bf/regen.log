@@ -1,0 +1,41 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 22.42s
+=== belt_first 200000 (the wave window) ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 199700 bodies, first item (game s) min 13037 p01 13377 p50 14072 p99 14473 max 14542
+=== P1 plain cap-unset ===
+N=200000 mode=plain rtf=100 budget=12 ms cap=unset cut=16000 game-s; build 9.5 s
+frames 9602 (settled at cut in 0.6 s): engine ms p50 0.011 p90 2.646 p99 11.932 max 1884.743; over 12 ms: 9; worst lag 1.219 game-s; scans held max 273
+inputs: 0 calls, p50 0.000 ms, max 0.000 ms (frame 18446744073709551615), events inside one: max 0; total -0.0 ms
+physics: kicks 225949 events 258939 encounters 1624 decisions 0 refused 0; player alive true, doll 0
+doll trace (frame, doll): [(0, 2), (888, 0)]
+worst frames (frame, ms, events, lag): (8419,1884.74,25784,0.00) (8518,1675.42,29395,0.00) (8468,1265.54,20621,0.00) (8567,732.76,9552,0.00) (8369,670.07,12210,0.00) (8617,578.99,7990,0.00)
+digest c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774
+waveinput: n=200000 mode=plain cap=unset frames=9602 over=9 max_ms=1884.743 p99_ms=11.932 lag_s=1.219 inputs=0 input_max_ms=0.000 input_max_events=0 kicks=225949 events=258939 encounters=1624 decisions=0 digest=c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774 wall_s=26.5
+=== P2 plain cap64 ===
+N=200000 mode=plain rtf=100 budget=12 ms cap=64 cut=16000 game-s; build 9.6 s
+frames 9603 (settled at cut in 0.6 s): engine ms p50 0.012 p90 8.988 p99 11.943 max 13.018; over 12 ms: 1; worst lag 1.594 game-s; scans held max 269
+inputs: 0 calls, p50 0.000 ms, max 0.000 ms (frame 18446744073709551615), events inside one: max 0; total -0.0 ms
+physics: kicks 225949 events 259477 encounters 1624 decisions 0 refused 0; player alive true, doll 0
+doll trace (frame, doll): [(0, 2), (890, 0)]
+worst frames (frame, ms, events, lag): (9178,13.02,37,0.00) (8703,11.96,215,0.00) (8530,11.96,269,0.00) (9123,11.96,220,0.00) (8797,11.96,217,0.00) (8603,11.95,208,0.00)
+digest c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774
+waveinput: n=200000 mode=plain cap=64 frames=9603 over=1 max_ms=13.018 p99_ms=11.943 lag_s=1.594 inputs=0 input_max_ms=0.000 input_max_events=0 kicks=225949 events=259477 encounters=1624 decisions=0 digest=c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774 wall_s=25.5
+=== P3 one cap64 ===
+N=200000 mode=one rtf=100 budget=12 ms cap=64 cut=16000 game-s; build 9.5 s
+frames 9602 (settled at cut in 0.6 s): engine ms p50 0.011 p90 7.405 p99 11.944 max 11.956; over 12 ms: 0; worst lag 1.219 game-s; scans held max 272
+inputs: 1 calls, p50 0.164 ms, max 0.164 ms (frame 8445), events inside one: max 2; total 0.2 ms
+physics: kicks 225949 events 259531 encounters 1624 decisions 1 refused 0; player alive true, doll 0
+doll trace (frame, doll): [(0, 2), (888, 0)]
+worst frames (frame, ms, events, lag): (8395,11.96,208,0.00) (8898,11.95,217,0.00) (8952,11.95,219,0.00) (8611,11.95,215,0.00) (8393,11.95,209,0.00) (9092,11.95,220,0.00)
+digest 2bcaada89f3c9d1b3715e8d37b7a614f8caefb57d7bbffe7ea6e271555005596
+waveinput: n=200000 mode=one cap=64 frames=9602 over=0 max_ms=11.956 p99_ms=11.944 lag_s=1.219 inputs=1 input_max_ms=0.164 input_max_events=2 kicks=225949 events=259531 encounters=1624 decisions=1 digest=2bcaada89f3c9d1b3715e8d37b7a614f8caefb57d7bbffe7ea6e271555005596 wall_s=24.9
+=== P4 held cap64 ===
+N=200000 mode=held rtf=100 budget=12 ms cap=64 cut=16000 game-s; build 9.3 s
+frames 9602 (settled at cut in 0.6 s): engine ms p50 0.011 p90 7.202 p99 11.942 max 12.692; over 12 ms: 1; worst lag 1.433 game-s; scans held max 195
+inputs: 657 calls, p50 0.162 ms, max 0.243 ms (frame 8658), events inside one: max 2; total 106.7 ms
+physics: kicks 225949 events 260844 encounters 1625 decisions 657 refused 0; player alive true, doll 0
+doll trace (frame, doll): [(0, 2), (888, 0)]
+worst frames (frame, ms, events, lag): (9145,12.69,0,0.00) (8906,11.96,217,0.00) (8724,11.96,219,0.00) (8762,11.96,219,0.00) (8487,11.95,211,0.00) (8830,11.95,218,0.00)
+digest 6cd322091ea4a4c7810c8d6253aeeb2ada2e5f082f4f636ac2bacaa722f55d8a
+waveinput: n=200000 mode=held cap=64 frames=9602 over=1 max_ms=12.692 p99_ms=11.942 lag_s=1.433 inputs=657 input_max_ms=0.243 input_max_events=2 kicks=225949 events=260844 encounters=1625 decisions=657 digest=6cd322091ea4a4c7810c8d6253aeeb2ada2e5f082f4f636ac2bacaa722f55d8a wall_s=24.7
