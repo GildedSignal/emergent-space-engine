@@ -1,0 +1,162 @@
+diff --git a/crates/space/examples/readout_price.rs b/crates/space/examples/readout_price.rs
+new file mode 100644
+index 00000000..e7377f88
+--- /dev/null
++++ b/crates/space/examples/readout_price.rs
+@@ -0,0 +1,75 @@
++//! Prices the shipped time->state readout (`Orbit::state`) on the de99/b8fc key grid,
++//! and dumps (psi, state) samples for the closed-form verification. Read-only probe.
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::hint::black_box;
++use std::time::Instant;
++
++fn decode(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++fn encode(x: f64) -> Scalar {
++    let exp = x.abs().log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - exp)).round() as i128, exp - 60).unwrap()
++}
++
++fn main() {
++    let ps: [f64; 6] = [7.0, 10.0, 30.0, 100.0, 1e4, 1e6];
++    let es: [f64; 6] = [0.001, 0.3, 0.7, 0.9, 0.99, 0.999];
++    for &p in &ps {
++        for &e in &es {
++            let k_q48 = (2f64.powi(48) / (1.0 + e)).round() as u64;
++            let key = OrbitKey::new(encode(p), k_q48);
++            let key = match key {
++                Ok(k) => k,
++                Err(_) => {
++                    println!("SKIP p={p} e={e}");
++                    continue;
++                }
++            };
++            let t0 = Instant::now();
++            let orbit = match Orbit::compile(key) {
++                Ok(o) => o,
++                Err(err) => {
++                    println!("SKIP p={p} e={e} err={err:?}");
++                    continue;
++                }
++            };
++            let build_us = t0.elapsed().as_secs_f64() * 1e6;
++            let period = decode(orbit.period().unwrap());
++            let knots = orbit.shape().crossings().len();
++            let half = decode(orbit.crossing_time(orbit.shape().crossings().len()).unwrap());
++            // samples for the Python verification: u = elapsed/period across the cycle
++            let mut samples: Vec<(f64, f64, f64, f64, f64, f64, f64)> = Vec::new();
++            for i in 1..24 {
++                let u = i as f64 / 24.0;
++                let st = orbit.state(encode(period * u)).unwrap();
++                samples.push((
++                    u,
++                    st.psi as f64 / 2f64.powi(61),
++                    decode(st.radius),
++                    decode(st.proper_time),
++                    decode(st.advance),
++                    decode(st.radial_velocity),
++                    decode(st.transverse_velocity),
++                ));
++            }
++            // timing: the readout path (bracket + Newton on partial panels)
++            let iters = 3000u32;
++            let mut sink = 0u64;
++            let t0 = Instant::now();
++            for i in 0..iters {
++                let u = (i % 24 + 1) as f64 / 24.0;
++                let st = orbit.state(encode(period * u)).unwrap();
++                sink = sink.wrapping_add(st.psi);
++            }
++            let read_ns = t0.elapsed().as_secs_f64() * 1e9 / iters as f64;
++            println!(
++                "KEY p={p} e={e} k48={k_q48} period={period:.17e} half={half:.17e} crossings={knots} build_us={build_us:.1} read_ns={read_ns:.1}"
++            );
++            black_box(sink);
++            for (u, psi, r, tau, adv, vr, vt) in samples {
++                println!("S p={p} e={e} u={u:.17} psi={psi:.17} r={r:.17e} tau={tau:.17e} adv={adv:.17e} vr={vr:.17e} vt={vt:.17e}");
++            }
++        }
++    }
++}
+diff --git a/crates/space/examples/readout_price.rs b/crates/space/examples/readout_price.rs
+new file mode 100644
+index 00000000..e7377f88
+--- /dev/null
++++ b/crates/space/examples/readout_price.rs
+@@ -0,0 +1,75 @@
++//! Prices the shipped time->state readout (`Orbit::state`) on the de99/b8fc key grid,
++//! and dumps (psi, state) samples for the closed-form verification. Read-only probe.
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++use std::hint::black_box;
++use std::time::Instant;
++
++fn decode(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++fn encode(x: f64) -> Scalar {
++    let exp = x.abs().log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - exp)).round() as i128, exp - 60).unwrap()
++}
++
++fn main() {
++    let ps: [f64; 6] = [7.0, 10.0, 30.0, 100.0, 1e4, 1e6];
++    let es: [f64; 6] = [0.001, 0.3, 0.7, 0.9, 0.99, 0.999];
++    for &p in &ps {
++        for &e in &es {
++            let k_q48 = (2f64.powi(48) / (1.0 + e)).round() as u64;
++            let key = OrbitKey::new(encode(p), k_q48);
++            let key = match key {
++                Ok(k) => k,
++                Err(_) => {
++                    println!("SKIP p={p} e={e}");
++                    continue;
++                }
++            };
++            let t0 = Instant::now();
++            let orbit = match Orbit::compile(key) {
++                Ok(o) => o,
++                Err(err) => {
++                    println!("SKIP p={p} e={e} err={err:?}");
++                    continue;
++                }
++            };
++            let build_us = t0.elapsed().as_secs_f64() * 1e6;
++            let period = decode(orbit.period().unwrap());
++            let knots = orbit.shape().crossings().len();
++            let half = decode(orbit.crossing_time(orbit.shape().crossings().len()).unwrap());
++            // samples for the Python verification: u = elapsed/period across the cycle
++            let mut samples: Vec<(f64, f64, f64, f64, f64, f64, f64)> = Vec::new();
++            for i in 1..24 {
++                let u = i as f64 / 24.0;
++                let st = orbit.state(encode(period * u)).unwrap();
++                samples.push((
++                    u,
++                    st.psi as f64 / 2f64.powi(61),
++                    decode(st.radius),
++                    decode(st.proper_time),
++                    decode(st.advance),
++                    decode(st.radial_velocity),
++                    decode(st.transverse_velocity),
++                ));
++            }
++            // timing: the readout path (bracket + Newton on partial panels)
++            let iters = 3000u32;
++            let mut sink = 0u64;
++            let t0 = Instant::now();
++            for i in 0..iters {
++                let u = (i % 24 + 1) as f64 / 24.0;
++                let st = orbit.state(encode(period * u)).unwrap();
++                sink = sink.wrapping_add(st.psi);
++            }
++            let read_ns = t0.elapsed().as_secs_f64() * 1e9 / iters as f64;
++            println!(
++                "KEY p={p} e={e} k48={k_q48} period={period:.17e} half={half:.17e} crossings={knots} build_us={build_us:.1} read_ns={read_ns:.1}"
++            );
++            black_box(sink);
++            for (u, psi, r, tau, adv, vr, vt) in samples {
++                println!("S p={p} e={e} u={u:.17} psi={psi:.17} r={r:.17e} tau={tau:.17e} adv={adv:.17e} vr={vr:.17e} vt={vt:.17e}");
++            }
++        }
++    }
++}
