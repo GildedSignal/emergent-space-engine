@@ -1,0 +1,19 @@
+regen: work/patch.diff is already applied; using the tree as-is
+   Compiling emergent-encounters v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/encounters)
+warning: unused variable: `lo`
+   --> crates/encounters/src/main.rs:666:18
+    |
+666 |             let (lo, hi) = sorted.range(new.binet()[0], sorted.reach(&new));
+    |                  ^^ help: if this is intentional, prefix it with an underscore: `_lo`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `hi`
+   --> crates/encounters/src/main.rs:666:22
+    |
+666 |             let (lo, hi) = sorted.range(new.binet()[0], sorted.reach(&new));
+    |                      ^^ help: if this is intentional, prefix it with an underscore: `_hi`
+
+warning: `emergent-encounters` (bin "encounters") generated 2 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.05s
+wrote kick-baseline.json, kick2.json

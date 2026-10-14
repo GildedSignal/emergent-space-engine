@@ -1,0 +1,4 @@
+Working...
+Run complete. All deliverables are in `lab/results/20261014-0727-spacex-d911/`: `predictions.md` (pre-registered, with two predictions honestly refuted), `dossier.md`, `regen.sh` (tested end-to-end from a clean tree: 14 s, valid JSON, anchors reproduced), `work/patch.diff`, `kick2.json`, `kick-baseline.json`, and the topic page `wiki/encounters.md` with the result folded in.
+
+**The claim:** the kick→encounter-certificate cascade doesn't drift, it re-rolls — one kick flips out 93% of armed pairs at Δa/a = 1e-5 (79% at 1e-7, saturating at the full-re-roll value; the horizon knife edge refuted at knife_share = 0.0000) while the exact tier already runs at the news scale (41.5 checks vs 17k window evals per kick), so per-pair horizon arming cannot be maintained incrementally at any real kick size and the ~10³ cut at 10⁹ must **delete** the per-kick arming pass (lazy per-passage arming at the wired doll door, or O(log N) group envelopes), not cheapen it.

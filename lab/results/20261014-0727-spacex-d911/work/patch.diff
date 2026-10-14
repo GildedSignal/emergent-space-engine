@@ -1,0 +1,243 @@
+diff --git a/crates/encounters/src/main.rs b/crates/encounters/src/main.rs
+index f1062bff..216547ee 100644
+--- a/crates/encounters/src/main.rs
++++ b/crates/encounters/src/main.rs
+@@ -496,6 +496,230 @@ fn kick() {
+     }
+ }
+ 
++/// The kick cascade's anatomy: what the per-kick pair work actually carries. For each kicked
++/// body: partners' hits before (in horizon and in the first horizon beyond it) and after the
++/// kick; classify transitions (unchanged / moved / flipped in / flipped out / edge churn),
++/// test the horizon knife edge (did the new hits already sit within drift of the horizon edge
++/// before the kick?), fit the anchored passage-clock transform t_new ≈ tk + (t_old−tk)(1+c·rel_dt),
++/// and time scan+cone alone against the full re-certification.
++fn kick2() {
++    let sp = spec("kick2", 10_000, 1e-2, 1e-4, 1.0, 1.5, 0, 0.0, 20261050);
++    let b = make_belt(&sp);
++    let sorted = Sorted::new(&b, sp.rho);
++    let h = 1000.0 * TAU;
++    let tk = 10.0 * TAU;
++    let nk = 100;
++    let epss = [1e-7f64, 1e-5];
++    let kicked: Vec<usize> = (0..nk).map(|q| (q * 97 + 13) % sp.n).collect();
++
++    struct Old {
++        j: u32,
++        hits: Vec<(f64, f64)>,
++        ext: Vec<(f64, f64)>,
++    }
++    // Dry scan (range + cone test only), timed.
++    let t0 = Instant::now();
++    let mut dry_pairs = 0u64;
++    let mut dry_scanned = 0u64;
++    for &i in &kicked {
++        let old = b[i];
++        let (lo, hi) = sorted.range(old.binet()[0], sorted.reach(&old));
++        for &(_, j) in &sorted.order[lo..hi] {
++            if j as usize == i {
++                continue;
++            }
++            dry_scanned += 1;
++            dry_pairs += is_candidate(&old, &b[j as usize], sp.rho) as u64;
++        }
++    }
++    let dry_secs = t0.elapsed().as_secs_f64();
++    println!(
++        "{{\"exp\":\"kick2-scan\",\"n\":{},\"rho\":{},\"kicks\":{},\"scanned_per_kick\":{:.1},\"pairs_per_kick\":{:.1},\"us_per_kick\":{:.2}}}",
++        sp.n, sp.rho, nk, dry_scanned as f64 / nk as f64, dry_pairs as f64 / nk as f64, dry_secs * 1e6 / nk as f64
++    );
++
++    // Old certificates: hits inside the horizon, and hits in the first horizon beyond it.
++    let mut olds: Vec<Vec<Old>> = Vec::new();
++    for &i in &kicked {
++        let old = b[i];
++        let (lo, hi) = sorted.range(old.binet()[0], sorted.reach(&old));
++        let mut v = Vec::new();
++        for &(_, j) in &sorted.order[lo..hi] {
++            let bj = &b[j as usize];
++            if j as usize == i || !is_candidate(&old, bj, sp.rho) {
++                continue;
++            }
++            let mut hits = Vec::new();
++            let mut ext = Vec::new();
++            pair_events(&old, bj, sp.rho, SAFETY, tk, tk + h, &mut Stats::default(), &mut hits);
++            pair_events(&old, bj, sp.rho, SAFETY, tk + h, tk + 2.0 * h, &mut Stats::default(), &mut ext);
++            v.push(Old { j, hits, ext });
++        }
++        olds.push(v);
++    }
++
++    for &eps in &epss {
++        let mut scanned = 0u64;
++        let mut secs = 0.0;
++        let mut st = Stats::default();
++        let (mut unchanged, mut moved, mut flipped_in, mut flipped_out, mut knife, mut at_risk_silent, mut silent_total) =
++            (0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
++        let mut edge_in = 0u64;
++        let mut edge_out = 0u64;
++        let mut cs: Vec<f64> = Vec::new();
++        let mut res_abs: Vec<f64> = Vec::new();
++        let mut res_syn: Vec<f64> = Vec::new();
++        let (mut armed_before, mut armed_stay) = (0u64, 0u64);
++        for (k, &i) in kicked.iter().enumerate() {
++            let old = b[i];
++            let lam_k = old.mean_anomaly(tk) + old.pom;
++            let a_new = old.a * (1.0 + eps);
++            let n_new = a_new.powf(-1.5);
++            let new = Body::new(a_new, old.e, old.pom, lam_k - n_new * tk);
++            let rel_dt = (new.period as f64 - old.period as f64).abs() / old.period as f64;
++            let edge = tk + h;
++            let span = 4.0 * rel_dt * h;
++
++            let t0 = Instant::now();
++            let (lo, hi) = sorted.range(new.binet()[0], sorted.reach(&new));
++            let mut after: HashMap<u32, Vec<(f64, f64)>> = HashMap::new();
++            for &(_, j) in &sorted.order[lo..hi] {
++                if j as usize == i {
++                    continue;
++                }
++                scanned += 1;
++                let bj = &b[j as usize];
++                if !is_candidate(&new, bj, sp.rho) {
++                    continue;
++                }
++                let mut v = Vec::new();
++                pair_events(&new, bj, sp.rho, SAFETY, tk, tk + h, &mut st, &mut v);
++                after.insert(j, v);
++            }
++            secs += t0.elapsed().as_secs_f64();
++
++            let old_set: std::collections::BTreeSet<u32> = olds[k].iter().map(|o| o.j).collect();
++            let new_set: std::collections::BTreeSet<u32> = after.keys().copied().collect();
++            edge_in += new_set.difference(&old_set).count() as u64;
++            edge_out += old_set.difference(&new_set).count() as u64;
++
++            for o in &olds[k] {
++                let empty = Vec::new();
++                let v = after.get(&o.j).unwrap_or(&empty);
++                silent_total += o.hits.is_empty() as u64;
++                if o.hits.is_empty() {
++                    armed_before += 0;
++                } else {
++                    armed_before += 1;
++                    armed_stay += (!v.is_empty()) as u64;
++                }
++                if o.hits.is_empty() && v.is_empty() {
++                    // silent before and after: is the first beyond-edge hit within drift of the edge?
++                    at_risk_silent += o.ext.iter().any(|x| x.0 - edge <= span) as u64;
++                    continue;
++                }
++                if o.hits.is_empty() != v.is_empty() {
++                    if o.hits.is_empty() {
++                        flipped_in += 1;
++                        knife += o.ext.iter().any(|x| x.0 - edge <= span) as u64;
++                    } else {
++                        flipped_out += 1;
++                    }
++                } else {
++                    let same = o.hits.len() == v.len()
++                        && o.hits.iter().zip(v).all(|(x, y)| (x.0 - y.0).abs() < 1e-3);
++                    unchanged += same as u64;
++                    moved += (!same) as u64;
++                }
++                // Anchored transform on matched hits.
++                let dn = (old.n - b[o.j as usize].n).abs();
++                if dn > 1e-12 && !o.hits.is_empty() && !v.is_empty() {
++                    let syn = TAU / dn;
++                    for xo in &o.hits {
++                        let mut best: Option<(f64, f64)> = None;
++                        for xn in v {
++                            let d = (xn.0 - xo.0).abs();
++                            if best.map_or(true, |b| d < b.0) {
++                                best = Some((d, xn.0));
++                            }
++                        }
++                        if let Some((d, tn)) = best {
++                            if d <= 0.25 * syn && xo.0 > tk {
++                                cs.push(((tn - tk) / (xo.0 - tk) - 1.0) / rel_dt);
++                            }
++                        }
++                    }
++                }
++            }
++        }
++        cs.sort_by(|x, y| x.total_cmp(y));
++        let q = |v: &Vec<f64>, f: f64| v[((v.len() as f64 - 1.0) * f) as usize];
++        let c_med = if cs.is_empty() { f64::NAN } else { q(&cs, 0.5) };
++        // Residual of the one-parameter prediction against every matched hit.
++        for (k, &i) in kicked.iter().enumerate() {
++            let old = b[i];
++            let lam_k = old.mean_anomaly(tk) + old.pom;
++            let a_new = old.a * (1.0 + eps);
++            let n_new = a_new.powf(-1.5);
++            let new = Body::new(a_new, old.e, old.pom, lam_k - n_new * tk);
++            let rel_dt = (new.period as f64 - old.period as f64).abs() / old.period as f64;
++            let (lo, hi) = sorted.range(new.binet()[0], sorted.reach(&new));
++            for o in &olds[k] {
++                if o.hits.is_empty() {
++                    continue;
++                }
++                let dn = (old.n - b[o.j as usize].n).abs();
++                if dn <= 1e-12 {
++                    continue;
++                }
++                let mut v = Vec::new();
++                if !is_candidate(&new, &b[o.j as usize], sp.rho) {
++                    continue;
++                }
++                pair_events(&new, &b[o.j as usize], sp.rho, SAFETY, tk, tk + h, &mut Stats::default(), &mut v);
++                if v.is_empty() {
++                    continue;
++                }
++                let syn = TAU / dn;
++                for xo in &o.hits {
++                    let mut best: Option<(f64, f64)> = None;
++                    for xn in &v {
++                        let d = (xn.0 - xo.0).abs();
++                        if best.map_or(true, |b| d < b.0) {
++                            best = Some((d, xn.0));
++                        }
++                    }
++                    if let Some((d, tn)) = best {
++                        if d <= 0.25 * syn && xo.0 > tk {
++                            let pred = tk + (xo.0 - tk) * (1.0 + c_med * rel_dt);
++                            res_abs.push((tn - pred).abs());
++                            res_syn.push((tn - pred).abs() / syn);
++                        }
++                    }
++                }
++            }
++        }
++        res_abs.sort_by(|x, y| x.total_cmp(y));
++        res_syn.sort_by(|x, y| x.total_cmp(y));
++        let pairs: u64 = olds.iter().map(|v| v.len() as u64).sum();
++        println!(
++            "{{\"exp\":\"kick2\",\"n\":{},\"rho\":{},\"eps\":{:e},\"kicks\":{},\"pairs_per_kick\":{:.1},\"scanned_per_kick\":{:.1},\"us_per_kick\":{:.1},\"us_per_pair\":{:.2},\"armed_per_kick\":{:.1},\"armed_stay_frac\":{:.4},\
++\"unchanged_frac\":{:.4},\"moved_frac\":{:.4},\"flipped_in_per_kick\":{:.2},\"flipped_out_per_kick\":{:.2},\"knife_share\":{:.4},\"at_risk_silent_frac\":{:.4},\
++\"edge_in_per_kick\":{:.2},\"edge_out_per_kick\":{:.2},\"c_matched\":{},\"c_p10\":{:.3},\"c_med\":{:.3},\"c_p90\":{:.3},\"resid_med_time\":{:.3e},\"resid_p99_time\":{:.3e},\"resid_med_syn\":{:.3e},\"resid_p99_syn\":{:.3e},\
++\"anatomy\":{{\"sections\":[{},{},{}],\"queries_per_kick\":{:.1},\"qsteps_per_kick\":{:.1},\"checks_per_kick\":{:.1},\"hits_per_kick\":{:.2},\"evals_per_kick\":{:.1}}}}}",
++            sp.n, sp.rho, eps, nk, pairs as f64 / nk as f64, scanned as f64 / nk as f64, secs * 1e6 / nk as f64, secs * 1e6 / pairs as f64, armed_before as f64 / nk as f64, armed_stay as f64 / armed_before.max(1) as f64,
++            unchanged as f64 / pairs as f64, moved as f64 / pairs as f64, flipped_in as f64 / nk as f64, flipped_out as f64 / nk as f64,
++            knife as f64 / flipped_in.max(1) as f64, at_risk_silent as f64 / silent_total.max(1) as f64,
++            edge_in as f64 / nk as f64, edge_out as f64 / nk as f64,
++            cs.len(), if cs.is_empty() { f64::NAN } else { q(&cs, 0.1) }, c_med, if cs.is_empty() { f64::NAN } else { q(&cs, 0.9) },
++            if res_abs.is_empty() { f64::NAN } else { q(&res_abs, 0.5) }, if res_abs.is_empty() { f64::NAN } else { q(&res_abs, 0.99) },
++            if res_syn.is_empty() { f64::NAN } else { q(&res_syn, 0.5) }, if res_syn.is_empty() { f64::NAN } else { q(&res_syn, 0.99) },
++            st.sections[0] as f64 / nk as f64, st.sections[1] as f64 / nk as f64, st.sections[2] as f64 / nk as f64,
++            st.queries as f64 / nk as f64, st.qsteps as f64 / nk as f64, st.checks_total() as f64 / nk as f64, st.hits_total() as f64 / nk as f64, st.evals as f64 / nk as f64
++        );
++    }
++}
++
+ /// The query loop of a section without the exact checks: counts proposals in [t0, t1].
+ fn run_section_proposals(bi: &Body, bj: &Body, sec: &emergent_encounters::pairs::Section, t0: f64, t1: f64, st: &mut Stats, _v: &mut Vec<(f64, f64)>) {
+     let pi = bi.period as i128;
+@@ -518,6 +742,7 @@ fn run_section_proposals(bi: &Body, bj: &Body, sec: &emergent_encounters::pairs:
+ fn main() {
+     let args: Vec<String> = std::env::args().collect();
+     match args.get(1).map(|s| s.as_str()) {
++        Some("kick2") => kick2(),
+         Some("verify") => verify(&args[2]),
+         Some("steady") => {
+             let n: usize = args[2].parse().unwrap();
