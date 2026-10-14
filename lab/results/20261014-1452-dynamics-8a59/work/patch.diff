@@ -1,0 +1,482 @@
+diff --git a/crates/universe/src/isearch.rs b/crates/universe/src/isearch.rs
+new file mode 100644
+index 00000000..b783a5d2
+--- /dev/null
++++ b/crates/universe/src/isearch.rs
+@@ -0,0 +1,179 @@
++//! The crash-tick search's instrument: per-search readout counts, bracket widths, and the
++//! crossing's displacement from the retired tube's tick (the hint) — the return map of the kick
++//! stream that decides which warm start wins. Pure bookkeeping: thread-local ping counts and
++//! atomics, no engine state touched, so it never moves a digest and every arm pays it alike.
++//! An errored search (`?` propagation) leaves its pings unrecorded; refusals are rare and the
++//! histogram is an instrument, not a certificate.
++
++use crate::num::Tick;
++use std::cell::Cell;
++use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
++
++pub const BINS: usize = 64;
++
++/// The bin of `v`: bin 0 holds exactly 0, bin k (k ≥ 1) holds [2^(k-1), 2^k).
++#[inline]
++pub fn lbin(v: u64) -> usize {
++    if v == 0 { 0 } else { ((u64::BITS - v.leading_zeros()) as usize).min(BINS - 1) }
++}
++thread_local! {
++    static PINGS: Cell<u32> = const { Cell::new(0) };
++}
++
++/// One `inside` predicate evaluation: exactly the readouts a search spends.
++#[inline(always)]
++pub fn ping() {
++    PINGS.with(|p| p.set(p.get().wrapping_add(1)));
++}
++
++#[inline]
++fn take_pings() -> u32 {
++    PINGS.with(|p| p.replace(0))
++}
++
++/// The warm-start strategy this process runs: 0 the shipped cold bisection, 1 the guess
++/// (20261014-1010-quant-036c: settle in two readouts or narrow one step), 2 the gallop
++/// (20261014-1010-second-…-0b85: one side reading, doubling steps to the sign change).
++/// Env `ES_WSTRAT`, read once; unset is the shipped search verbatim.
++pub fn strategy() -> u8 {
++    use std::sync::LazyLock;
++    static S: LazyLock<u8> = LazyLock::new(|| match std::env::var("ES_WSTRAT").as_deref() {
++        Ok("guess") => 1,
++        Ok("gallop") => 2,
++        _ => 0,
++    });
++    *S
++}
++
++pub struct Stat {
++    /// `next_impact` entries from every caller (view included).
++    pub calls: AtomicU64,
++    /// Entries from the plan site (`plan_terminal`: kicks and hand-outs), the recorded population.
++    pub site: AtomicU64,
++    /// Site entries carrying the retired tube's crash tick.
++    pub hinted: AtomicU64,
++    /// Exits before any bracket (a plunge's terminal tick; already inside at `after`).
++    pub early: AtomicU64,
++    /// `Ok(None)` returns (no crossing).
++    pub none: AtomicU64,
++    /// Searches that ran a bracket.
++    pub searched: AtomicU64,
++    /// Guess-strategy two-readout settles (the crossing did not move: displacement 0).
++    pub settled: AtomicU64,
++    /// Gallop-strategy bracket-edge hits (the cold width was paid after all).
++    pub fallback: AtomicU64,
++    /// Readouts per searched call.
++    pub readouts: [AtomicU64; BINS],
++    pub readout_sum: AtomicU64,
++    /// |found − hint| per hinted, searched call.
++    pub displ: [AtomicU64; BINS],
++    pub displ_sum: AtomicU64,
++    /// The cold bracket's width hi − lo per searched call.
++    pub width: [AtomicU64; BINS],
++}
++
++pub static STAT: Stat = Stat {
++    calls: AtomicU64::new(0),
++    site: AtomicU64::new(0),
++    hinted: AtomicU64::new(0),
++    early: AtomicU64::new(0),
++    none: AtomicU64::new(0),
++    searched: AtomicU64::new(0),
++    settled: AtomicU64::new(0),
++    fallback: AtomicU64::new(0),
++    readouts: [const { AtomicU64::new(0) }; BINS],
++    readout_sum: AtomicU64::new(0),
++    displ: [const { AtomicU64::new(0) }; BINS],
++    displ_sum: AtomicU64::new(0),
++    width: [const { AtomicU64::new(0) }; BINS],
++};
++
++/// An exit before the bracket: nothing to histogram, pings still consumed.
++pub fn note_early(site: bool) {
++    take_pings();
++    if site {
++        STAT.early.fetch_add(1, Relaxed);
++    }
++}
++
++/// A `None` exit.
++pub fn note_none(site: bool) {
++    take_pings();
++    if site {
++        STAT.none.fetch_add(1, Relaxed);
++    }
++}
++
++/// A bracket search began: its cold width, before any strategy ran.
++pub fn mark_search(site: bool, width: u64) {
++    if !site {
++        return;
++    }
++    STAT.searched.fetch_add(1, Relaxed);
++    STAT.width[lbin(width)].fetch_add(1, Relaxed);
++}
++
++/// A bracket search ended: its readouts (consumed), the crossing's displacement from the hint,
++/// and the strategy outcomes (a two-readout settle; a gallop that reached the bracket's edge).
++pub fn end_search(site: bool, hint: Option<Tick>, found: Option<Tick>, settled: bool, fallback: bool) {
++    let p = take_pings() as u64;
++    if !site {
++        return;
++    }
++    STAT.readouts[lbin(p)].fetch_add(1, Relaxed);
++    STAT.readout_sum.fetch_add(p, Relaxed);
++    if settled {
++        STAT.settled.fetch_add(1, Relaxed);
++    }
++    if fallback {
++        STAT.fallback.fetch_add(1, Relaxed);
++    }
++    if let (Some(h), Some(f)) = (hint, found) {
++        let d = (f - h).unsigned_abs();
++        STAT.displ[lbin(d)].fetch_add(1, Relaxed);
++        STAT.displ_sum.fetch_add(d, Relaxed);
++    }
++}
++/// A plain read-and-reset snapshot for the bench to print.
++pub struct Snap {
++    pub strategy: u8,
++    pub calls: u64,
++    pub site: u64,
++    pub hinted: u64,
++    pub early: u64,
++    pub none: u64,
++    pub searched: u64,
++    pub settled: u64,
++    pub fallback: u64,
++    pub readouts: [u64; BINS],
++    pub readout_sum: u64,
++    pub displ: [u64; BINS],
++    pub displ_sum: u64,
++    pub width: [u64; BINS],
++}
++
++pub fn take() -> Snap {
++    fn arr(a: &[AtomicU64; BINS]) -> [u64; BINS] {
++        let mut o = [0; BINS];
++        for (o, a) in o.iter_mut().zip(a) {
++            *o = a.swap(0, Relaxed);
++        }
++        o
++    }
++    Snap {
++        strategy: strategy(),
++        calls: STAT.calls.swap(0, Relaxed),
++        site: STAT.site.swap(0, Relaxed),
++        hinted: STAT.hinted.swap(0, Relaxed),
++        early: STAT.early.swap(0, Relaxed),
++        none: STAT.none.swap(0, Relaxed),
++        searched: STAT.searched.swap(0, Relaxed),
++        settled: STAT.settled.swap(0, Relaxed),
++        fallback: STAT.fallback.swap(0, Relaxed),
++        readouts: arr(&STAT.readouts),
++        readout_sum: STAT.readout_sum.swap(0, Relaxed),
++        displ: arr(&STAT.displ),
++        displ_sum: STAT.displ_sum.swap(0, Relaxed),
++        width: arr(&STAT.width),
++    }
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..aaae212d 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -8,6 +8,7 @@ pub mod ext;
+ pub mod fleet;
+ pub mod force;
+ pub mod lorentz;
++pub mod isearch;
+ pub mod num;
+ pub mod observe;
+ pub mod prof;
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..7b09085f 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -30,7 +30,9 @@ pub const H_BIND: usize = 21;
+ pub const H_REPLAN: usize = 22;
+ /// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+ pub const FIT2: usize = 23;
+-pub const N: usize = 24;
++/// `next_impact`'s search at the plan site (kicks and hand-outs): the crash tick a fresh binding buys.
++pub const IMPACT: usize = 24;
++pub const N: usize = 25;
+ 
+ pub const NAMES: [&str; N] = [
+     "rekey (all deadlines)",
+@@ -57,6 +59,7 @@ pub const NAMES: [&str; N] = [
+     "  hand-out: bind (the member as a tube)",
+     "  hand-out: first plan (replan)",
+     "  fit again: the coarser word (bind_surface)",
++    "  impact: next_impact at the plan site (the crash search)",
+ ];
+ 
+ #[cfg(feature = "prof")]
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..c98be133 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -283,19 +283,49 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+ /// tick of its fall.
+ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
++    next_impact_at(b, surface, after, None, false)
++}
++
++/// [`next_impact`] from the plan site, where the crash tick the tube being *replaced* already found
++/// (`hint`, carried across `rebind`) can warm the search. The two warm strategies are the two runs'
++/// variants, picked once by env `ES_WSTRAT` (`isearch::strategy`): the guess settles in two readouts
++/// when the crossing did not move and otherwise narrows the bracket by one step before the cold
++/// bisection; the gallop reads the hint's side once and doubles its reach to the sign change,
++/// bisecting only the span it bounded (a bracket-edge hit falls back to the cold width, counted).
++/// Both are certified by the same monotone-fall predicate as the cold bisection (the comment above),
++/// so all three return one answer; `isearch` histograms every search either way.
++pub fn next_impact_at(b: &Binding, surface: Scalar, after: Tick, hint: Option<Tick>, site: bool) -> Res<Option<Tick>> {
++    use crate::isearch::{mark_search, note_early, note_none, end_search, ping, strategy, STAT};
++    use std::sync::atomic::Ordering::Relaxed as R;
++    STAT.calls.fetch_add(1, R);
++    if site {
++        STAT.site.fetch_add(1, R);
++        if hint.is_some() {
++            STAT.hinted.fetch_add(1, R);
++        }
++    }
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+     if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
++        note_early(site);
+         return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+     }
+     // The engine's own reading (the turned tube plus its remainder), the one a kick or a crash checks the surface with.
+-    let inside = |t: Tick| -> Res<bool> { Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface) };
++    let mut inside = |t: Tick| -> Res<bool> {
++        ping();
++        Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface)
++    };
+     if inside(after)? {
++        note_early(site);
+         return Ok(Some(after));
+     }
+     if b.entry.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r >= surface)) {
++        note_none(site);
+         return Ok(None);
+     }
+-    let Some(tp) = next_periapsis(b, after)? else { return Ok(None) };
++    let Some(tp) = next_periapsis(b, after)? else {
++        note_none(site);
++        return Ok(None);
++    };
+     let whole = match &b.entry.trajectory {
+         Trajectory::Cycle(c) => c.period()?,
+         Trajectory::Passage(p) => p.duration()?,
+@@ -304,8 +334,74 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     let half = i64::try_from(b.to_doll(whole.scale(-1)?)?.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("half period"))?;
+     let (mut lo, mut hi) = (after.max(tp.saturating_sub(half)), tp);
+     if !inside(hi)? {
++        note_none(site);
+         return Ok(None);
+     }
++    mark_search(site, (hi - lo) as u64);
++    match (hint, strategy()) {
++        // The guess (quant-036c): settle at the hint in two readouts, else narrow one step
++        // and pay the cold bisection on what remains.
++        (Some(g), 1) if g > lo && g <= hi => {
++            if inside(g)? {
++                if !inside(g - 1)? {
++                    end_search(site, hint, Some(g), true, false);
++                    return Ok(Some(g));
++                }
++                hi = g;
++            } else {
++                lo = g;
++            }
++        }
++        // The gallop (0b85): one reading for the hint's side, doubling steps to the sign
++        // change, bisecting only the span it bounded; a bracket-edge hit (counted) pays the
++        // cold width instead.
++        (Some(w), 2) => {
++            let mut fallback = false;
++            let w = w.max(lo).min(hi);
++            let side = if w == hi { true } else { inside(w)? };
++            let found = if side {
++                // The boundary is at or before `w`: gallop down for the first reading out.
++                let mut k = 1i64;
++                let l = loop {
++                    let cand = w.saturating_sub(k);
++                    if cand <= lo {
++                        fallback = true;
++                        break lo;
++                    }
++                    if !inside(cand)? {
++                        break cand;
++                    }
++                    k <<= 1;
++                };
++                bisect(&mut inside, l, w)?
++            } else {
++                // The boundary is after `w`: gallop up for the first reading in.
++                let mut k = 1i64;
++                let h = loop {
++                    let cand = w.saturating_add(k);
++                    if cand >= hi {
++                        fallback = true;
++                        break hi;
++                    }
++                    if inside(cand)? {
++                        break cand;
++                    }
++                    k <<= 1;
++                };
++                bisect(&mut inside, w, h)?
++            };
++            end_search(site, hint, Some(found), false, fallback);
++            return Ok(Some(found));
++        }
++        _ => {}
++    }
++    let found = bisect(&mut inside, lo, hi)?;
++    end_search(site, hint, Some(found), false, false);
++    Ok(Some(found))
++}
++
++/// The bisection on the fall branch: `lo` outside, `hi` inside, monotone between.
++fn bisect(inside: &mut dyn FnMut(Tick) -> Res<bool>, mut lo: Tick, mut hi: Tick) -> Res<Tick> {
+     while hi - lo > 1 {
+         let mid = lo + (hi - lo) / 2;
+         if inside(mid)? {
+@@ -314,7 +410,7 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+             lo = mid;
+         }
+     }
+-    Ok(Some(hi))
++    Ok(hi)
+ }
+ 
+ /// The proper time (root units) a binding's tube has run between `since` (or its binding event, if later)
+@@ -336,6 +432,9 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// The crash tick the tube being replaced already found (its `impact` memo), same doll: the
++    /// warm start of the search the rebind's `plan_terminal` is about to buy. Set by [`Work::rebind`], read once.
++    warm: Option<Tick>,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -362,6 +461,10 @@ impl Work<'_, '_> {
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
++        // The retired tube's crash tick is a fact about where the boundary lies: the kicked
++        // tube's boundary lies near it. The memo itself is dropped below (a stale impact must
++        // never outlive its orbit), but its tick warm-starts the next search.
++        let warm = if old.doll == doll { old.impact.and_then(|(_, found)| found) } else { None };
+         self.rec.b = Binding {
+             doll,
+             tube: bound.tube,
+@@ -374,6 +477,7 @@ impl Work<'_, '_> {
+             kick: Kick::NONE,
+             impact: None,
+         };
++        self.warm = warm;
+         self.new_entry = Some(bound.entry.clone());
+         self.rec.plan.retain(|item| item.what != What::Crash);
+         self.plan_terminal(t)?;
+@@ -525,7 +629,9 @@ impl Work<'_, '_> {
+             let found = match self.rec.b.impact {
+                 Some((a, found)) if a == after => found,
+                 _ => {
+-                    let found = next_impact(&self.rec.b, self.doll().surface, after)?;
++                    let t_imp = crate::prof::t();
++                    let found = next_impact_at(&self.rec.b, self.doll().surface, after, self.warm.take(), true)?;
++                    crate::prof::add(crate::prof::IMPACT, t_imp);
+                     self.rec.b.impact = Some((after, found));
+                     found
+                 }
+@@ -826,7 +932,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, warm: None };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -866,7 +972,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, warm: None };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+@@ -878,7 +984,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, warm: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..566b1fd0 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -95,6 +95,17 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         s.p.u.settle(s.p.u.now);
+         frames = n;
+     }
++    let snap = emergent_universe::isearch::take();
++    let (pns, pcalls) = emergent_universe::prof::take();
++    let imp_us = if pcalls[emergent_universe::prof::IMPACT] > 0 {
++        pns[emergent_universe::prof::IMPACT] as f64 / 1e3 / pcalls[emergent_universe::prof::IMPACT] as f64
++    } else {
++        0.0
++    };
++    let bins = |a: &[u64; 64]| -> serde_json::Value {
++        let m: Vec<(usize, u64)> = a.iter().enumerate().filter(|(_, v)| **v > 0).map(|(i, v)| (i, *v)).collect();
++        serde_json::json!(m)
++    };
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+@@ -103,6 +114,15 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "isearch": {
++            "note": "the crash search at the plan site: strategy (0 cold, 1 guess, 2 gallop), counters, and log2 histograms (bin k holds [2^(k-1), 2^k); bin 0 is exactly 0) of readouts per search, |found - hint|, and bracket width",
++            "strategy": snap.strategy, "site_calls": snap.site, "hinted": snap.hinted, "early": snap.early, "none": snap.none,
++            "searched": snap.searched, "settled_two_readouts": snap.settled, "gallop_fallbacks": snap.fallback,
++            "mean_readouts": if snap.searched > 0 { snap.readout_sum as f64 / snap.searched as f64 } else { 0.0 },
++            "mean_displ_ticks": if snap.displ.iter().sum::<u64>() > 0 { snap.displ_sum as f64 / snap.displ.iter().sum::<u64>() as f64 } else { 0.0 },
++            "readout_bins": bins(&snap.readouts), "displ_bins": bins(&snap.displ), "width_bins": bins(&snap.width)
++        },
++        "prof_impact": {"us_per_call": imp_us, "calls": pcalls[emergent_universe::prof::IMPACT]},
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..b450aee2 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,11 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => {
++                // ES_MEMBERS lifts the probe clamp ([4, 400]) to [4, 10^6]: the lab's scaling arms, never the shipped default.
++                let hi = std::env::var("ES_MEMBERS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(400);
++                members = val("--members")?.parse::<u64>()?.clamp(4, hi);
++            }
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;
