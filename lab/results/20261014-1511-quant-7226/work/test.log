@@ -1,0 +1,30 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: variable does not need to be mutable
+   --> crates/universe/src/step.rs:332:30
+    |
+332 |     let (mut a_lo, mut last, mut run) = (after, None, 0u64);
+    |                              ----^^^
+    |                              |
+    |                              help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: value assigned to `last` is never read
+   --> crates/universe/src/step.rs:428:24
+    |
+428 |     let (mut a_lo, mut last, mut run) = (after, None, 0u64);
+    |                        ^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (lib test) generated 2 warnings (run `cargo fix --lib -p emergent-universe --tests` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 14.44s
+     Running unittests src/lib.rs (/home/glmlab/lab-target-3/release/deps/emergent_universe-5b90b1b6aa943855)
+
+running 1 test
+117 impacts of 42 handed-out ships, each the same by both policies
+test step::tests::the_false_positions_impact_is_the_bisections_impact ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.06s
+

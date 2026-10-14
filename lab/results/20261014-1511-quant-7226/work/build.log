@@ -1,0 +1,23 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: variable does not need to be mutable
+   --> crates/universe/src/step.rs:332:30
+    |
+332 |     let (mut a_lo, mut last, mut run) = (after, None, 0u64);
+    |                              ----^^^
+    |                              |
+    |                              help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: value assigned to `last` is never read
+   --> crates/universe/src/step.rs:428:24
+    |
+428 |     let (mut a_lo, mut last, mut run) = (after, None, 0u64);
+    |                        ^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (lib) generated 2 warnings (run `cargo fix --lib -p emergent-universe` to apply 1 suggestion)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 39.33s

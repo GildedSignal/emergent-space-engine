@@ -1,0 +1,7 @@
+Done. ClaimEverything is in place and verified. Final state of the run:
+
+- **Census (shipped, digest = pristine)**: 802 `next_impact` searches / 23,552 exact probes at the flying arm — mean **29.4, worst 32** per search (held-out s7: 29.7/33); `next_exit` searches **0** behind the passage guess. ≈ log₂(2³⁰-tick bracket): midpoint bisection is at its policy class's floor.
+- **Kill (pre-registered rule fired)**: three digest-identical probe policies + pure secant all lose (best −4.6 %, worst case 57–58 probes, leaver kick +55 %); traces show the *typical* search converges in 4–7 probes but a degenerate tail crawls past the guard — the miss anchor's ~10⁸-valued distance dominates every chord until an Anderson–Björck-class update replaces plain halving.
+- **Adoptable as-is**: probe counters in `step::searches` (bench-printed), the fast-vs-slow equality test (117 impacts / 42 ships, passes), and the identity harness — the contract for the named next experiment and for the warm start's freeze. Suite: 0 failed; `nladder` example link failure is a pre-existing macOS-only API, untouched.
+
+**Claim:** the kick's crash search is first counted on shipped code — 29.4 exact readouts per fired kick, worst 32, seed-stable, with the exit search already retired by the passage guess — and the obvious smarter-probe lever on it is killed as built (three digest-identical policies crawl on a degenerate tail; the typical search proves 4–6× is available), leaving the counters, the identity harness, and the named Anderson–Björck experiment as the run's adoptable output.

@@ -1,0 +1,29 @@
+== build (patched tree; ES_FP off == shipped semantics) ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 39.33s
+== OFF s3 rtf100 (the census) ==
+{"digest": "36637e67f6506b82a462d11fa63130b4e0eab6cbf618be45e9a361c09970bdaa", "replay": "f282c90742b0375ebe1de625364ffcae338f4ce26a5398397df2b175e8fe94b3", "made_med": 35.5, "leaver_med": 200.641, "all_p99": 378.274, "refused": 0, "impact": [802, 23552, 32], "exit": [0, 1188, 0]}
+== ON  s3 rtf100 (the kill) ==
+{"digest": "36637e67f6506b82a462d11fa63130b4e0eab6cbf618be45e9a361c09970bdaa", "replay": "f282c90742b0375ebe1de625364ffcae338f4ce26a5398397df2b175e8fe94b3", "made_med": 35.342, "leaver_med": 305.16499999999996, "all_p99": 373.558, "refused": 0, "impact": [802, 35621, 57], "exit": [0, 1188, 0]}
+== OFF s7 rtf100 (held-out) ==
+{"digest": "cf58ac6e002ed0184932374ec1e0940c63782d3968a878a2fd9fb66923957f84", "replay": "68d3af8c56c3bac0c6b87feae003fcc53af3303cb992f5c5c0c80004124a0fdd", "made_med": 35.306, "leaver_med": 192.106, "all_p99": 385.65700000000004, "refused": 0, "impact": [1225, 36367, 33], "exit": [0, 1576, 0]}
+== ON  s7 rtf100 (held-out) ==
+{"digest": "cf58ac6e002ed0184932374ec1e0940c63782d3968a878a2fd9fb66923957f84", "replay": "68d3af8c56c3bac0c6b87feae003fcc53af3303cb992f5c5c0c80004124a0fdd", "made_med": 35.083000000000006, "leaver_med": 205.303, "all_p99": 389.089, "refused": 0, "impact": [1225, 45367, 57], "exit": [0, 1576, 0]}
+== equality test (fast vs slow on every dipping tube) ==
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.06s
+
+== probe trace (first searches, ES_FP on) ==
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 1 bracket [4194304,135972660] probe 34692664 d -42528478.75295615 d_v -312431622.4778619 tp 135972660
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 2 bracket [4194304,34692664] probe 25198178 d -944701.8625240326 d_v -312431622.4778619 tp 135972660
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 3 bracket [4194304,25198178] probe 24989369 d -18320.75377368927 d_v -312431622.4778619 tp 135972660
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 4 bracket [4194304,24989369] probe 24985320 d -352.8167052268982 d_v -312431622.4778619 tp 135972660
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 5 bracket [4194304,24985320] probe 24985242 d -6.680386304855347 d_v -312431622.4778619 tp 135972660
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 6 bracket [4194304,24985242] probe 24985240 d 2.1949048042297363 d_v -312431622.4778619 tp 135972660
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 7 bracket [24985240,24985242] probe 24985241 d -2.2427406311035156 d_v -312431622.4778619 tp 135972660
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 1 bracket [4194304,64570654] probe 8908819 d -17443791.618251562 d_v -680149789.1952454 tp 64570654
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 2 bracket [4194304,8908819] probe 7813058 d -35363.719722509384 d_v -680149789.1952454 tp 64570654
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 3 bracket [4194304,7813058] probe 7810837 d -54.59652924537659 d_v -680149789.1952454 tp 64570654
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 4 bracket [4194304,7810837] probe 7810833 d 8.994952201843262 d_v -680149789.1952454 tp 64570654
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 5 bracket [7810833,7810837] probe 7810834 d -6.902918338775635 d_v -680149789.1952454 tp 64570654
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 1 bracket [4194304,74227595] probe 11550513 d -24349955.776719093 d_v -616767388.6483996 tp 74227595
+lab/results/20261014-1511-quant-7226/work/trace.err:TRACE run 2 bracket [4194304,11550513] probe 9698878 d -91878.93990135193 d_v -616767388.6483996 tp 74227595
