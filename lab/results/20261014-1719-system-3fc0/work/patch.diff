@@ -1,0 +1,127 @@
+diff --git a/crates/universe/examples/wave_probe.rs b/crates/universe/examples/wave_probe.rs
+new file mode 100644
+index 00000000..323953e9
+--- /dev/null
++++ b/crates/universe/examples/wave_probe.rs
+@@ -0,0 +1,71 @@
++//! The wave probe: the player's item pull (`pull_ships`) during the belt's first-kick wave, bounded or not,
++//! must not move a bit — and its monster frames must die when it is bounded (lab run 20261014-1719-system-3fc0).
++//!
++//! cargo run --release -p emergent-universe --example wave_probe [-- <members> <game_seconds_cut> <rtf>]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++fn main() {
++    let mut args = std::env::args().skip(1);
++    let members: u64 = args.next().and_then(|a| a.parse().ok()).unwrap_or(100_000);
++    let game_s: f64 = args.next().and_then(|a| a.parse().ok()).unwrap_or(16_000.0);
++    let rtf: f64 = args.next().and_then(|a| a.parse().ok()).unwrap_or(200.0);
++    let cut = (game_s / TICK_SECONDS) as i64;
++    let mut p = plane(Config::default(), 1, Order::Sparse, 1, members).unwrap();
++    let t_burn = (1.0 * rtf / TICK_SECONDS) as i64;
++    p.u.schedule(t_burn, word(2, 8)).unwrap();
++    let mut frames = Vec::new();
++    let mut stuck = 0usize;
++    let mut last_now = p.u.now;
++    let t0 = std::time::Instant::now();
++    for _ in 0..200_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        let f0 = std::time::Instant::now();
++        p.u.frame_to(1.0 / 60.0, rtf, Budget::wall(12.0), cut);
++        frames.push(f0.elapsed().as_secs_f64() * 1e3);
++        stuck = if p.u.now > last_now { 0 } else { stuck + 1 };
++        last_now = p.u.now;
++        if frames.len() % 600 == 0 {
++            let worst = frames.iter().cloned().fold(0.0_f64, f64::max);
++            println!(
++                "progress frames={} now={} worst_ms={:.1} over12={}",
++                frames.len(),
++                p.u.now,
++                worst,
++                frames.iter().filter(|&&f| f > 12.0).count()
++            );
++            if stuck >= 600 {
++                println!("stalled: the horizon has not advanced for 600 frames");
++                break;
++            }
++        }
++    }
++    let reached = p.u.now;
++    let t_settle = std::time::Instant::now();
++    p.u.settle(cut);
++    frames.sort_by(|a, b| a.total_cmp(b));
++    let q = |pr: f64| frames[(pr * (frames.len() - 1) as f64) as usize];
++    println!(
++        "members={} game_s={} rtf={} digest={} reached={} kicks={} encounters={} contacts={} worst_ms={:.1} p99_ms={:.1} over12={} over50={} frames={} wall_s={:.0} settle_s={:.1}",
++        members,
++        game_s,
++        rtf,
++        p.u.digest(),
++        reached,
++        p.u.stats.kicks,
++        p.u.stats.encounters,
++        p.u.contacts,
++        frames.last().copied().unwrap_or(0.0),
++        q(0.99),
++        frames.iter().filter(|&&f| f > 12.0).count(),
++        frames.iter().filter(|&&f| f > 50.0).count(),
++        frames.len(),
++        t0.elapsed().as_secs_f64(),
++        t_settle.elapsed().as_secs_f64(),
++    );
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..687fa941 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -686,17 +686,26 @@ impl Universe {
+     }
+ 
+     /// Resolve every ship item with a key below `key`, in key order (the ships' own minimum is `ship_ticks`' first slot: no walk over them);
+-    /// with `children_only`, the items of the ships of a planet's doll only.
+-    fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) {
+-        loop {
++    /// with `children_only`, the items of the ships of a planet's doll only. Returns false when the lab-bound (`ES_PULL_MAX`)
++    /// stopped it early: the rest stays queued for the frame's budgeted drain, exactly as the out-of-root path leaves the root's ships.
++    fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) -> bool {
++        static MAX: std::sync::LazyLock<usize> = std::sync::LazyLock::new(|| {
++            std::env::var("ES_PULL_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(usize::MAX)
++        });
++        let max = *MAX;
++        for done in 0.. {
+             let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
+             let Some((t, i)) = ticks.peek() else { break };
+             if (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i) >= key {
+                 break;
+             }
++            if done >= max {
++                return false;
++            }
+             self.resolve_body(i);
+             self.requeue(i);
+         }
++        true
+     }
+ 
+     /// Resolve every item of `ids` with a key below `key`, in key order.
+@@ -767,9 +776,13 @@ impl Universe {
+             // the size of the root's whole wave of kicks, inside one item and outside the budget). Ships read only the sources, and the
+             // player reads no ship: resolving the player's item before theirs changes no bit.
+             let in_root = self.bodies.doll(i) == 0;
+-            self.pull_ships(key, !in_root);
++            // The lab bound (unset in production): a pull truncated by the wave leaves the rest to the queue's budgeted
++            // drain, and the scan waits for the next item rather than read certificates the truncation left expired.
++            let pulled_all = self.pull_ships(key, !in_root);
+             let t_enc = crate::prof::t();
+-            self.encounters_for_player();
++            if pulled_all || std::env::var_os("ES_PULL_FORCE_SCAN").is_some() {
++                self.encounters_for_player();
++            }
+             crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
+         }
+     }
