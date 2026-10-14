@@ -2,11 +2,33 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261014-0059-fermi-effb
+updated: 20261014-0450-scout-b29a
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**The smallest promotion is no promotion: one belt event is a stack-local function on the compact
+row, and the live bind is a regime change, not an event (20261014-0450-scout-b29a).** Composed from
+shipped pub APIs (`Population::body`/`scar`, `Key::darwin`, `Orbit::compile`, readout,
+`binding::cartesian`, `Rebinding::from_state`) on the lab belt band: ~38 µs p50 / ~78 µs p95 per
+event and 12–40 B of standing state, against the wired sticky `resolve_handout`'s 486–585 µs and
+8,257 B with no demotion (367f) — ~13× on CPU, ≥ 200× on bytes, zero standing body. The refit term
+(`from_state`) is 21 µs p50 at belt keys; the **key-space arm** (integer ΔE/ΔL on the key's own
+Q48/Q32 quanta) is 0.11 µs and stays at the kicked state's birth quantization floor at every
+scale Δv/v ≤ 1e-1 (E 3.0 Q48 / L 7.6 Q32 quanta from the f64 invariants), with shape agreement
+with the refit ≤ 1e-9 typical (tail 7.7e-8 at 65,536 — checker), impulse-independent — the r2
+finding ("kicks are integers native to the law") made the cheapest exact arm, pending the
+encounters tier delivering ΔE/ΔL as exact integers. At 10⁹ quiet the stream is 1.4 Linux cores
+(refit arm) / 0.004 (key arm): the kick stops being the quiet-belt wall; encounter discovery stays
+the cold rail's large term. The 8-byte scar's i16 grade ends near Δv/v ~ 1e-5 (92% Wide at 1e-4);
+w/t column anchoring is a wiring decision (naive wiring forces Wide at 53%/47%; anchored in-order
+deltas measure 12.07 B/event, checker). Domain: planar,
+prograde, one belt band, Linux shared-cloud; not 3-D, not the GR doll, not the real contact-impulse
+distribution. Checker: the 13× is cold-belt (σ0.07); at σ0.3/e≤0.9 the composed cost is ~76 µs
+(6.4× under sticky); Δv/v=1 refuses 9–26% (the regime trigger observed); `Key::darwin` caps the
+composed path at p ≤ 8192 M — belt bands beyond it (the store's `Spec` allows to 65536 M) need a
+different row→key path.
 
 **The 10⁹ ledger is composed, and the scoreboard's gaps resolve into two rails: the kick
 gap is the hot rail's alone, and the cold rail is encounter-bound by ~1.9×10³ skin-on
@@ -130,6 +152,10 @@ The four rules that survive, with rule 2 struck and adjudicated:
 
 ## Open directions
 
+0. **Wire the belt's events through the scar batch, not `resolve_handout`** (b29a): the composed
+   path deletes the sticky promotion entirely; the contract to settle at wiring is the tier → law
+   kick interface (exact integer ΔE/ΔL in the key's quanta vs state-space impulse at 21 µs) and
+   the w/t column anchoring. The refit's *refusal* is the true promote-to-live trigger.
 1. **The deleted rungs** (rule 1): per term, what does the frame loop look like with the
    term gone; count what the per-frame walk visits that the hot tier did not touch.
 2. **Event-time hysteresis on the shipped chatter case** (rule 3): retrograde 0.49 R_H,
@@ -173,3 +199,4 @@ The four rules that survive, with rule 2 struck and adjudicated:
 - 20261013-2252-second-20261013-2130-library-ae3d-7497 (second author): rule 2's falsifier run on four shipped scenes — distribution not heavy-tailed (bulk flat per orbit by construction, head driver-caused); promotion is a fixed fraction; digest-neutral probe.
 - 20261014-0000-fermi-3071 (awaiting grade): the conflict adjudicated by decomposition — native counts identical across seeds and exactly 2× with the window, roster-predicted Gini 0.759 vs measured 0.718–0.745; rule 2 dead, ea91's description stands, certificate = birth constant.
 - 20261014-0059-fermi-effb (awaiting grade): the 10⁹ ledger composed — cadence law rate = 2⁷/P code-verified (roster endpoints 0.96/0.76, Orbiters ⊂ [128,256]); encounters 1,925× over skin-on, 7,051× the kicks; two rails (hot = kick gap, cold = encounters + memory); held-out: wired wall ~5.2×10⁵.
+- 20261014-0450-scout-b29a (silver): the smallest promotion composed and measured — ~34–38 µs/12–40 B ephemeral vs 486 µs/8,257 B sticky; key-space kick 0.11 µs at the birth floor; checker: cold-belt 13×, 6.4× at σ0.3, darwin domain p ≤ 8192 M.
