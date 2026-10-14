@@ -1,0 +1,887 @@
+diff --git a/crates/universe/src/ctx.rs b/crates/universe/src/ctx.rs
+index fb58b6da..9554b85d 100644
+--- a/crates/universe/src/ctx.rs
++++ b/crates/universe/src/ctx.rs
+@@ -4,7 +4,7 @@
+ //! threads, and give the same bits.
+ use crate::body::{BodyStore, Kind};
+ use crate::force::Secondary;
+-use crate::num::{scale2, Res, Tick, V2};
++use crate::num::{norm2, scale2, Res, Tick, V2};
+ use crate::world::{pow2, DollRec, Unit};
+ use emergent_space::orbit::Scalar;
+ 
+@@ -107,4 +107,39 @@ impl Ctx<'_> {
+         let c = self.dolls[d as usize].centre.ok_or(crate::num::Error::Refused("the root has no centre"))?;
+         self.state_of(c, t)
+     }
++
++    /// The doll above `d` as one of its kick sources, in `d`'s units: the parent's mass and position
++    /// ([`Self::tide`]) and its velocity (velocities are ratios: the same words in every doll). The
++    /// motion law v2's `field` of `[sources + parent]` is then exactly the parent's tide — its pull
++    /// minus the origin's fall, the indirect term — so a body of a child doll feels the star's
++    /// differential pull as one more source and nothing new is written. `edge` is unused by the
++    /// clock (the changeover read it); it carries the parent's whole sphere of influence, never engaged.
++    pub fn parent_source(&self, d: u16, t: Tick) -> Res<Option<Secondary>> {
++        let Some(doll) = self.dolls.get(d as usize) else { return Ok(None) };
++        let Some((gm, pos)) = self.tide(d, t)? else { return Ok(None) };
++        let (_, vel) = self.centre(d, t)?;
++        Ok(Some(Secondary { gm, pos, vel, edge: doll.edge }))
++    }
++
++    /// The kick sources of doll `d` at `t` for the motion law v2: its secondaries (except `except`)
++    /// and, for a child doll, the parent as the tide ([`Self::parent_source`]).
++    pub fn field_sources(&self, d: u16, t: Tick, except: usize) -> Res<Vec<Secondary>> {
++        let mut out = self.secondaries(d, t, except)?;
++        if let Some(p) = self.parent_source(d, t)? {
++            out.push(p);
++        }
++        Ok(out)
++    }
++
++    /// The single surface's radius `r_c = R_H/2` (the Opus motion memo §2.4): half the Hill radius
++    /// `sep·(μ_p/3M)^(1/3)` of the child doll `d`'s centre, in `d`'s units — where the tide-to-pull
++    /// ratio `(r/R_H)³` is 1/8. A body of `d`'s frame is bound within it iff its planetocentric
++    /// energy is negative, one predicate crossed the same way in both directions.
++    pub fn surface_radius(&self, d: u16, t: Tick) -> Res<Scalar> {
++        let doll = &self.dolls[d as usize];
++        let (mass, pos) = self.tide(d, t)?.ok_or(crate::num::Error::Refused("the root doll has no surface"))?;
++        let sep = norm2(pos)?;
++        let hill = sep.mul(crate::ext::cbrt(doll.unit.mu.div(mass.mul(Scalar::integer(3))?)?)?)?;
++        Ok(hill.scale(-1)?)
++    }
+ }
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index 63b54c19..c4f0b21b 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -143,19 +143,32 @@ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
+ }
+ 
+ /// The constants of the clock of a body of doll `d` (its secondaries other than `except`), read at `t`: `(Δs, c, b)`.
++///
++/// A **child doll** has the parent as one more source (the memo §2.2's `P_D` is "the doll's secondary"; from inside a
++/// planet's doll the secondary is the star): its strength is the parent's mass in the child's units, its axis the centre's
++/// own separation, its period the centre's orbit — the timescale the tide varies on, which sets the moon's step. The
++/// potential floor `10·Σ gm_j/a_j` is then `10·M/sep`: the tide's scale across the doll, which keeps `U_P + c` positive
++/// (the parent's own `M/sep` dominates `U_P` everywhere inside the doll).
+ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) -> Res<(Scalar, Scalar, Scalar)> {
+-    let host = ctx.dolls[d as usize].unit.mu;
++    let doll = &ctx.dolls[d as usize];
++    let host = doll.unit.mu;
+     let (mut c, mut floor, mut period) = (Scalar::ZERO, Scalar::ZERO, None::<Scalar>);
+-    for &j in &ctx.sources[d as usize] {
+-        if j == except {
+-            continue;
+-        }
+-        let s = source(ctx, j, t)?;
++    let mut add = |s: Source, host: Scalar| -> Res<()> {
+         // The Hill radius a·(gm/3μ)^(1/3), and the potential there.
+         let hill = s.axis.mul(cbrt(s.gm.div(host.mul(Scalar::integer(3))?)?)?)?;
+         c = c.add(s.gm.div(hill)?)?;
+         floor = floor.add(s.gm.div(s.axis)?)?;
+         period = Some(period.map_or(s.period, |p| p.min(s.period)));
++        Ok(())
++    };
++    for &j in &ctx.sources[d as usize] {
++        if j == except {
++            continue;
++        }
++        add(source(ctx, j, t)?, host)?;
++    }
++    if let Some(p) = doll.parent {
++        add(parent_source(ctx, d, p, t)?, host)?;
+     }
+     let Some(period) = period else { return Err(Error::Refused("a doll without a source has no clock")) };
+     let c = c.max(floor.mul(Scalar::integer(FLOOR_FACTOR))?);
+@@ -164,3 +177,25 @@ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) ->
+     let ds = period.scale(-kicks_log2)?.div(fprime(c, b)?)?;
+     Ok((Scalar::power_of_two(log2_floor(ds) as i16), c, b))
+ }
++
++/// The parent of doll `d` as the clock's source (the star of a planet's doll): the centre's own orbit, read from its
++/// tube in the parent doll and carried into `d`'s units (lengths and times by `2^(shift_d − shift_p)`; the parent's
++/// mass as [`Ctx::tide`] holds it, the convention the tide's pull already uses).
++fn parent_source(ctx: &Ctx, d: u16, p: u16, t: Tick) -> Res<Source> {
++    use emergent_space::binding::Trajectory;
++    let doll = &ctx.dolls[d as usize];
++    let centre = doll.centre.ok_or(Error::Refused("a child doll without a centre"))?;
++    let b = ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?;
++    let Trajectory::Cycle(cyc) = &b.entry.trajectory else { return Err(Error::Refused("a source without a period")) };
++    let key = cyc.key();
++    let k = Scalar::raw(key.k as i128, -48)?;
++    let den = k.scale(1)?.sub(Scalar::ONE)?;
++    if !den.is_positive() {
++        return Err(Error::Refused("a source on an unbound orbit"));
++    }
++    let to_child = Scalar::power_of_two((doll.shift - ctx.dolls[p as usize].shift) as i16);
++    let axis = b.to_doll(key.periapsis.mul(k)?.div(den)?)?.mul(to_child)?;
++    let period = b.to_doll(cyc.period()?)?.mul(to_child)?;
++    let (gm, _) = ctx.tide(d, t)?.ok_or(Error::Refused("the root doll is nobody's child"))?;
++    Ok(Source { gm, axis, period })
++}
+diff --git a/crates/universe/src/lorentz.rs b/crates/universe/src/lorentz.rs
+index e234266f..9a7ca7e0 100644
+--- a/crates/universe/src/lorentz.rs
++++ b/crates/universe/src/lorentz.rs
+@@ -323,6 +323,23 @@ pub fn seen_by_parent(v: ([i64; 2], i32), w: ([i64; 2], i32), want: Option<i32>)
+     lower(t, lift_bits(v.1)?, want)
+ }
+ 
++/// **The relativity of simultaneity at a handoff, as one exact shear** (the Opus motion memo §2.4: the event
++/// (t, x) by Λ, beside R3's velocity shears). A handoff reads the body's event on the parent's tick, and the
++/// parent's simultaneity slice through the centre's event maps under the boost to `Δt′ = −w·Δx′∥` *exactly* —
++/// a property of Λ, not an approximation — so the child doll's clock reads `t′ = t + ⌊−w·x′⌋` where `x′` is the
++/// position the child itself holds (its own words, at its own length exponent) and `w` the centre's velocity.
++/// One deterministic function of the words the child stores: the same inputs give the same offset, so the
++/// release recovers the parent's tick bit for bit (`t = t′ − offset`), and the handoff inverts exactly.
++///
++/// `shift` is the child doll's clock exponent (its units are `2^shift` of the root's, length and time alike:
++/// `c = 1`), which carries child time units to root ticks.
++pub fn tick_offset(w: V2, x: [i64; 2], e_len: i16, shift: i16) -> Res<i64> {
++    let xs = [Scalar::raw(x[0] as i128, e_len as i32)?, Scalar::raw(x[1] as i128, e_len as i32)?];
++    let dt_child = crate::num::dot2(w, xs)?.negate(); // −w·x′, child time units (c = 1: a length is a time)
++    let ticks = dt_child.scale(-(shift as i32))?;
++    i64::try_from(ticks.fixed(0)?).map_err(|_| Error::Refused("the simultaneity offset left the clock"))
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d9..07610b57 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -142,7 +142,11 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+     let step = || -> Res<(V2, V2)> {
+         let mid = start + tau / 2;
+         let (x_mid, _) = base.cartesian(mid)?;
+-        let field = force::field(&ctx.secondaries(base.doll, mid, i)?, x_mid)?;
++        let mut sources = ctx.secondaries(base.doll, mid, i)?;
++        if let Some(p) = ctx.parent_source(base.doll, mid)? {
++            sources.push(p);
++        }
++        let field = force::field(&sources, x_mid)?;
+         let tau_s = time_of(tau, base.clock_exp)?;
+         let dv = scale2(field.accel, tau_s)?;
+         let dx = scale2(dv, tau_s.scale(-1)?)?;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index 9373d435..7c237e12 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -33,6 +33,37 @@
+ //! accurate, and at the edge (`R_edge`) on the way out, with a four-to-one hysteresis so no ship
+ //! chatters. A body
+ //! that has nothing to be kicked by (no secondary, no parent) has no events at all.
++/// The lab probe of run 20261014-2012-second-…-5903 (the library lens's lesson 4, held out by 7f99): counts, for
++/// every handoff the single-surface predicate would take, whether the current doll's own refit of that boundary
++/// state refuses — the premise of promote-on-refusal ("the refit's refusal is the promote trigger"). With
++/// `ES_HANDOFF_GATE=refusal` the predicate is replaced by that refusal for the end-to-end arm.
++pub mod probe {
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++    pub static GATE: AtomicBool = AtomicBool::new(false);
++    pub static WOULD_CAPTURE: AtomicU64 = AtomicU64::new(0);
++    pub static WOULD_RELEASE: AtomicU64 = AtomicU64::new(0);
++    pub static REFIT_REFUSED: AtomicU64 = AtomicU64::new(0);
++
++    pub fn would(capture: bool) {
++        if capture {
++            WOULD_CAPTURE.fetch_add(1, Ordering::Relaxed);
++        } else {
++            WOULD_RELEASE.fetch_add(1, Ordering::Relaxed);
++        }
++    }
++
++    pub fn refused(r: bool) {
++        REFIT_REFUSED.fetch_add(r as u64, Ordering::Relaxed);
++    }
++}
++
++fn handoff_gate() -> bool {
++    static G: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| matches!(std::env::var("ES_HANDOFF_GATE").as_deref(), Ok("refusal")));
++    probe::GATE.store(*G, std::sync::atomic::Ordering::Relaxed);
++    *G
++}
+ use crate::bind::{bind, scalars, Binding, Bound, Entry, Kick};
+ use crate::body::{BodyRec, Item, Kind, Segment, What};
+ use crate::ctx::Ctx;
+@@ -157,36 +188,101 @@ fn lift(a: &IntegerState, c: usize, el: i32) -> i128 {
+     (a.position[c] as i128) << (a.length_exponent as i32 - el)
+ }
+ 
+-/// Re-express `st` (a state in the doll whose clock exponent is `from`) relative to the doll's
+-/// child centre `centre` (a state in the same doll), in the child doll (`to`). The position is subtracted and its
+-/// length exponent relabelled (one doll unit is `2^(to − from)` of the other): exact. The velocity is the ship's seen
+-/// from the centre, the Lorentz composition by nine integer shears on its lifted four-velocity ([`crate::lorentz`]; the
+-/// Galilean `v − v_c` was the low-speed approximation), at the finest exponent that holds it. The tick is the same in
+-/// both dolls: the position is not boosted (the law's open question: a boost also maps an event's time).
+-fn relative(st: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Res<IntegerState> {
+-    let el = st.length_exponent.min(centre.length_exponent) as i32;
+-    let p = [0, 1].map(|c| lift(st, c, el) - lift(centre, c, el));
+-    let (pw, pe) = to_word(p, el + (to as i32 - from as i32))?;
+-    let (vw, ve) = crate::lorentz::seen_from((st.velocity, st.velocity_exponent as i32), (centre.velocity, centre.velocity_exponent as i32), None)?;
+-    Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: i16::try_from(ve).map_err(|_| Error::Refused("exponent"))? })
++/// Re-express `st` (a state in the doll whose clock exponent is `from`) relative to the doll's child centre `centre`
++/// (a state in the same doll), in the child doll (`to`): the **single-surface handoff on extended coordinates**
++/// (the Opus motion memo §2.4). The event's offset from the centre's event — read on the parent's tick, so its time
++/// part is zero — is boosted by Λ: the position through R3's nine shears (rotate to the centre's axis, boost, rotate
++/// back), the velocity through R3's velocity shears ([`crate::lorentz`]). The child's clock takes the simultaneity
++/// offset [`crate::lorentz::tick_offset`] — one deterministic shear of the words the child itself holds — so the map
++/// inverts bit for bit: [`absolute_x`] is its exact inverse (P5). Returns the child's state and the event's tick there.
++///
++/// The words never round: the boosted offset is held at the exponent that fits it (`to − from` relabels a unit, and a
++/// unit is a power of two), so the position crosses exactly at any speed; only the fit to the word can shift it, and
++/// the fit is chosen with a bit to spare.
++fn relative_x(st: &IntegerState, t: Tick, centre: &IntegerState, from: i16, to: i16) -> Res<(IntegerState, Tick)> {
++    let fine = st.length_exponent.min(centre.length_exponent) - 24;
++    let lift = |a: &IntegerState, c: usize| (a.position[c] as i128) << (a.length_exponent as i32 - fine as i32);
++    let dx = [lift(st, 0).checked_sub(lift(centre, 0)).ok_or(Error::Refused("the offset left the word"))?, lift(st, 1).checked_sub(lift(centre, 1)).ok_or(Error::Refused("the offset left the word"))?];
++    // Root units (the boost mixes the event's time and space; `c = 1`), then the frame of the centre's velocity.
++    let root = fine as i32 - from as i32;
++    let w = [Scalar::raw(centre.velocity[0] as i128, centre.velocity_exponent as i32)?, Scalar::raw(centre.velocity[1] as i128, centre.velocity_exponent as i32)?];
++    let placed = match crate::lorentz::Frame::of(w)? {
++        Some(frame) => {
++            let boosted = frame.forward([0, dx[0], dx[1]])?;
++            [boosted[1], boosted[2]]
++        }
++        None => dx,
++    };
++    // The child's words: the same integers at the child's relabelled exponent, fitted to the word.
++    let top = placed[0].abs().max(placed[1].abs());
++    // The word's exponent: the child's *value* is `word·2^root·2^to` (root units into child), fitted to 61 bits.
++    let e = if top == 0 { (root + to as i32) as i16 } else { i16::try_from(log2_floor(Scalar::raw(top, 0)?) as i32 + root + to as i32 - 60).map_err(|_| Error::Refused("the offset outside the word"))? };
++    let word = |v: i128| -> Res<i64> {
++        let shift = root + to as i32 - e as i32;
++        let w = if shift >= 0 { v.checked_shl(u32::try_from(shift).map_err(|_| Error::Refused("shift"))?).ok_or(Error::Refused("the offset left the word"))? } else { v >> (-shift) as u32 };
++        i64::try_from(w).map_err(|_| Error::Refused("the offset outside the word"))
++    };
++    let position = [word(placed[0])?, word(placed[1])?];
++    let (velocity, ve) = crate::lorentz::seen_from((st.velocity, st.velocity_exponent as i32), (centre.velocity, centre.velocity_exponent as i32), None)?;
++    let ve = i16::try_from(ve).map_err(|_| Error::Refused("the velocity outside the word"))?;
++    let ws = [Scalar::raw(centre.velocity[0] as i128, centre.velocity_exponent as i32)?, Scalar::raw(centre.velocity[1] as i128, centre.velocity_exponent as i32)?];
++    let dt = crate::lorentz::tick_offset(ws, position, e, to)?;
++    Ok((IntegerState { position, velocity, length_exponent: e, velocity_exponent: ve }, t.checked_add(dt).ok_or(Error::Refused("the event left the clock"))?))
+ }
+ 
+-/// The inverse: `rel` in the child doll (`from`) seen from the child's centre in the parent (`to`). The positions add
+-/// (rounded to the parent's word, toward zero: the one carry of a handoff, bounded by one quantum of the parent's
+-/// units); the velocity is the child's, composed with the centre's by the inverse shears, at the exponent of the
+-/// centre's own words when it fits there (the parent's convention for what leaves a centre) and at the finest that
+-/// holds it otherwise.
+-fn absolute(rel: &IntegerState, centre: &IntegerState, from: i16, to: i16) -> Res<IntegerState> {
+-    let in_parent = IntegerState { length_exponent: rel.length_exponent - (from - to), ..*rel };
+-    let el = in_parent.length_exponent.min(centre.length_exponent) as i32;
+-    let p = [0, 1].map(|c| lift(&in_parent, c, el) + lift(centre, c, el));
+-    let (pw, pe) = to_word(p, el)?;
+-    let (vw, ve) = crate::lorentz::seen_by_parent(
+-        (rel.velocity, rel.velocity_exponent as i32),
+-        (centre.velocity, centre.velocity_exponent as i32),
+-        Some(centre.velocity_exponent as i32),
+-    )?;
+-    Ok(IntegerState { position: pw, velocity: vw, length_exponent: pe, velocity_exponent: i16::try_from(ve).map_err(|_| Error::Refused("exponent"))? })
++/// The exact inverse of [`relative_x`]: the child's state and tick back in the parent doll. `centre` is the centre's
++/// state **at the parent tick the map recovers** (the caller reads it there; for the plane's dolls the simultaneity
++/// offset is below a tick and the same read serves). The unshears run in reverse with the same coefficients, so the
++/// position and the velocity return as the values they were, and the tick as the integer it was.
++fn absolute_x(rel: &IntegerState, t_child: Tick, centre: &IntegerState, from: i16, to: i16) -> Res<(IntegerState, Tick)> {
++    let w = [Scalar::raw(centre.velocity[0] as i128, centre.velocity_exponent as i32)?, Scalar::raw(centre.velocity[1] as i128, centre.velocity_exponent as i32)?];
++    // The simultaneity offset `−w·x′`, exactly (a scalar): the clock's tick is its truncation to root ticks (the
++    // same integer [`crate::lorentz::tick_offset`] returns, so the tick the capture wrote is the one recovered),
++    // while the boost's time component below keeps every bit of it (a truncation there would tilt the slice it
++    // unboosts by a whole tick times `w`, far above the parent's grid).
++    let xs = [Scalar::raw(rel.position[0] as i128, rel.length_exponent as i32)?, Scalar::raw(rel.position[1] as i128, rel.length_exponent as i32)?];
++    let dt_exact = crate::num::dot2(w, xs)?.negate();
++    let dt = i64::try_from(dt_exact.scale(-(from as i32))?.fixed(0)?).map_err(|_| Error::Refused("the simultaneity offset left the clock"))?;
++    let t = t_child.checked_sub(dt).ok_or(Error::Refused("the event left the clock"))?;
++    // The event offset in root units at one common exponent. The relabel IS the conversion (a doll's unit is a
++    // power of two of the root's, and the words are integers): the child's words at exponent `e − from` hold
++    // their own value in root units, no shift. The time part is the exact offset just read, in the same units.
++    let root = rel.length_exponent as i32 - from as i32;
++    let dx = [rel.position[0] as i128, rel.position[1] as i128];
++    // The time word on the same grid: `−w·W`, the velocity against the words themselves (the child-unit value
++    // `dt_exact` carried down by the two unit changes, `·2^−from·2^−root = ·2^−e_len`, is exactly this).
++    let t_word = crate::num::dot2(w, [Scalar::raw(rel.position[0] as i128, 0)?, Scalar::raw(rel.position[1] as i128, 0)?])?
++        .negate()
++        .fixed(0)?;
++    let back = match crate::lorentz::Frame::of(w)? {
++        Some(frame) => {
++            let unboosted = frame.inverse([t_word, dx[0], dx[1]])?;
++            [unboosted[1], unboosted[2]]
++        }
++        None => dx,
++    };
++    // The offset back in the parent's frame, plus the centre's own position there (the parent's state is absolute
++    // in its doll; the child's was the offset). The sum is exact at the finer of the two grids, then fitted.
++    let el = (root + to as i32).min(centre.length_exponent as i32);
++    let place = |v: i128, from: i32| -> Res<i128> {
++        Ok(if from < el { v.checked_shl(u32::try_from(el - from).map_err(|_| Error::Refused("shift"))?).ok_or(Error::Refused("the offset left the word"))? } else { v >> (from - el) as u32 })
++    };
++    let sum = [place(back[0], root + to as i32)? + lift(centre, 0, el), place(back[1], root + to as i32)? + lift(centre, 1, el)];
++    // The fit to the word rounds to nearest (half away from zero), not toward it: the sum carries the boost's
++    // shear roundings, a few units at this grid, and the parent's own bits are far above them — a truncation
++    // would sit one quantum low whenever the residual is negative, and the round trip would not be the identity.
++    let bits = 128 - (sum[0].unsigned_abs().max(sum[1].unsigned_abs())).leading_zeros() as i32;
++    let shift = (bits - 61).max(0);
++    let word = |x: i128| -> Res<i64> {
++        let half = 1i128 << (shift - 1).max(0);
++        let w = if x < 0 { -((-x + half) >> shift) } else { (x + half) >> shift };
++        i64::try_from(w).map_err(|_| Error::Refused("the offset outside the word"))
++    };
++    let position = [word(sum[0])?, word(sum[1])?];
++    let pe = i16::try_from(el as i32 + shift).map_err(|_| Error::Refused("exponent"))?;
++    let (velocity, ve) = crate::lorentz::seen_by_parent((rel.velocity, rel.velocity_exponent as i32), (centre.velocity, centre.velocity_exponent as i32), Some(centre.velocity_exponent as i32))?;
++    let ve = i16::try_from(ve).map_err(|_| Error::Refused("the velocity outside the word"))?;
++    Ok((IntegerState { position, velocity, length_exponent: pe, velocity_exponent: ve }, t))
+ }
+ 
+ /// The first tick at or after `after` where the tube is at or beyond `edge` (outward), if any.
+@@ -390,44 +486,15 @@ impl Work<'_, '_> {
+         Ok(())
+     }
+ 
+-    /// Deep inside a planet's shell the planet is the dominant body: the child doll of `centre`
+-    /// takes the ship. Returns whether it did.
+-    fn maybe_capture(&mut self, t: Tick, st: &IntegerState, x: V2) -> Res<bool> {
+-        let d = self.rec.b.doll;
+-        // The motion law v2: every ship of the root doll stays in it (a passage needs no handoff, the time transformation
+-        // resolves it); the handoff of a bound body is the single surface of the memo's step 3.
+-        if !matches!(self.rec.kind, Kind::Ship | Kind::Player) || d == 0 {
+-            return Ok(false);
+-        }
+-        for (c, doll) in self.ctx.dolls.iter().enumerate().skip(1) {
+-            if doll.parent != Some(d) {
+-                continue;
+-            }
+-            let centre = doll.centre.expect("a child doll has a centre");
+-            let (cx, _) = self.ctx.state_of(centre, t)?;
+-            if norm2(sub2(x, cx)?)? < self.ctx.info[centre].soi.scale(1 - LEVELS as i32)? {
+-                if let Err(e) = self.capture(t, *st, c as u16) {
+-                    eprintln!("capture refused: {e:?} at t={t} state {st:?} centre {:?}", cx.map(crate::num::to_f64));
+-                    return Err(e);
+-                }
+-                return Ok(true);
+-            }
+-        }
+-        Ok(false)
+-    }
+-
+     /// The start of a level-`l` interval at `t` (`h0` is the level-0 interval of this step): engage
+-    /// level `l+1` where a pair can reach the support of its weight within the interval, and take a
+-    /// ship that is already deep in a planet's well.
++    /// level `l+1` where a pair can reach the support of its weight within the interval. (Ships and
++    /// players never come this way: they are on the clock, and the single surface owns their handoffs.)
+     fn open(&mut self, t: Tick, l: u8, h0: i64) -> Res<()> {
+         if l >= LEVELS {
+             return Ok(());
+         }
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+-        if l > 0 && self.maybe_capture(t, &st, x)? {
+-            return Ok(());
+-        }
+         let d = self.rec.b.doll;
+         let h_ticks = h0 >> (2 * l as i64);
+         let h = time_of(h_ticks, self.rec.b.clock_exp)?;
+@@ -519,12 +586,12 @@ impl Work<'_, '_> {
+         self.open(t, 0, h)
+     }
+ 
+-    // ---- the motion law v2: the root doll's ships ---------------------------------------------------
++    // ---- the motion law v2: ships and players, in every doll ---------------------------------------
+ 
+-    /// Whether the motion law v2 steps this body: a ship or the player of the root doll (it is planned when something can
+-    /// kick it; a body that nothing kicks is a tube and has no plan).
++    /// Whether the motion law v2 steps this body: a ship or the player, in any doll (it is planned when something
++    /// can kick it; a body that nothing kicks is a tube and has no plan). The planets keep the split below.
+     fn on_clock(&self) -> bool {
+-        self.rec.b.doll == 0 && matches!(self.rec.kind, Kind::Ship | Kind::Player)
++        matches!(self.rec.kind, Kind::Ship | Kind::Player)
+     }
+ 
+     /// The mass of the body's drift in the doll's units: its tube's host.
+@@ -536,7 +603,10 @@ impl Work<'_, '_> {
+     fn project(&mut self, t: Tick) -> Res<()> {
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+-        let secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
++        let mut secs = self.ctx.secondaries(self.rec.b.doll, t, self.i)?;
++        if let Some(p) = self.ctx.parent_source(self.rec.b.doll, t)? {
++            secs.push(p);
++        }
+         let u = force::field(&secs, x)?.potential;
+         let hd = force::kepler(x, v, self.tube_mu()?)?;
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+@@ -584,7 +654,7 @@ impl Work<'_, '_> {
+         let d = self.rec.b.doll;
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+-        let secs = self.ctx.secondaries(d, t, self.i)?;
++        let mut secs = self.ctx.secondaries(d, t, self.i)?;
+         // A surface is a crash, wherever the kick finds it: the star's, and the planets' (a ship is never in a planet's doll here).
+         let sources = self.ctx.sources[d as usize].iter().filter(|&&j| j != self.i);
+         for (s, &j) in secs.iter().zip(sources) {
+@@ -599,6 +669,11 @@ impl Work<'_, '_> {
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
++        // The parent joins the sources (a child doll's perturbation is the star's tide: its pull minus the
++        // origin's fall, which is what `field` of this list computes; the root doll has no parent).
++        if let Some(p) = self.ctx.parent_source(d, t)? {
++            secs.push(p);
++        }
+         let mut ext = self.rec.ext.expect("a clock-stepped body");
+         let f = force::field(&secs, x)?;
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+@@ -654,24 +729,161 @@ impl Work<'_, '_> {
+         Ok(Resolved::Kick)
+     }
+ 
+-    /// The synchronised output of the split, in the middle between two kicks: the certificates (surface, the system's edge),
+-    /// and the tick the map's state is read at ([`BodyRec::anchor`]). The next kick is already planned.
++    /// The lab probe (run 5903): would the current doll's own refit of this boundary state refuse?
++    fn current_doll_refuses(ctx: &Ctx, i: usize, rec: &BodyRec, st: &IntegerState, t: Tick, d: u16) -> bool {
++        let mut w = Work { ctx, i, rec: rec.clone(), retired: Vec::new(), new_entry: None };
++        w.rebind(st.clone(), t, d).is_err()
++    }
++
++
++
++    /// The synchronised output of the split, in the middle between two kicks: the certificates (surface, the system's
++    /// edge), **the single surface** (below), and the tick the map's state is read at ([`BodyRec::anchor`]). The next
++    /// kick is already planned.
+     fn boundary_clock(&mut self, t: Tick) -> Res<Resolved> {
+         let st = self.rec.b.readout(t)?;
+-        let (x, _) = scalars(&st)?;
++        let (x, v) = scalars(&st)?;
+         let r = norm2(x)?;
++        let d = self.rec.b.doll;
+         if self.rec.kind != Kind::Planet && r < self.doll().surface {
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+-        if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
++        if d == 0 && r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
++        // **The single surface** (the memo §2.4): a bound body crosses into the child doll, a body that is not bound
++        // crosses out, at the synchronised tick of s — one predicate of the state, the same in both directions, no
++        // hysteresis. Passing ships never satisfy it (E_p > 0): they need no handoff.
++        //
++        // Lab run 20261014-2012-...-5903 (the library lesson-4 probe): `ES_HANDOFF_GATE=refusal` replaces the
++        // predicate with promote-on-refusal — the handoff fires only when the *current* doll's own refit of this
++        // boundary state refuses (the rebind on a scratch copy errors). The counters measure, for every handoff
++        // the predicate would take, whether that refusal is what drives it.
++        let gate = handoff_gate();
++        if d == 0 {
++            for (c, doll) in self.ctx.dolls.iter().enumerate().skip(1) {
++                if doll.parent != Some(d) {
++                    continue;
++                }
++                let centre = doll.centre.expect("a child doll has a centre");
++                let cs = self.ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?.readout(t)?;
++                let (xc, wc) = scalars(&cs)?;
++                if gate {
++                    if !Self::current_doll_refuses(self.ctx, self.i, &self.rec, &st, t, d) {
++                        continue;
++                    }
++                } else if !self.bound_to(centre, x, v, xc, wc)? {
++                    continue;
++                } else {
++                    probe::would(true);
++                    probe::refused(Self::current_doll_refuses(self.ctx, self.i, &self.rec, &st, t, d));
++                }
++                if self.capture_clock(t, &st, c as u16, &cs)? {
++                    return Ok(Resolved::Handoff);
++                }
++            }
++        } else {
++            let out = if gate {
++                Self::current_doll_refuses(self.ctx, self.i, &self.rec, &st, t, d)
++            } else {
++                let out = !self.bound_in(d, t, x, v)?;
++                if out {
++                    probe::would(false);
++                    probe::refused(Self::current_doll_refuses(self.ctx, self.i, &self.rec, &st, t, d));
++                }
++                out
++            };
++            if out && self.release_clock(t)? {
++                return Ok(Resolved::Handoff);
++            }
++        }
+         self.rec.anchor = t;
+         Ok(Resolved::Boundary)
+     }
+ 
++    /// The single surface's predicate from the parent doll: the body at `(x, v)` (the parent's units) is bound to the
++    /// child doll's centre `centre` (at `xc`, moving at `wc`) iff its planetocentric energy is negative and it lies
++    /// within `r_c = R_H/2`. The same physical surface [`Work::bound_in`] reads from inside the child: `μ/r` and the
++    /// Hill radius are invariant under the dolls' power-of-two unit change, so the two readings agree to the words'
++    /// quanta (the tide's mass convention, shared by both, is the only hair).
++    fn bound_to(&self, centre: usize, x: V2, v: V2, xc: V2, wc: V2) -> Res<bool> {
++        let gm = self.ctx.info[centre].gm;
++        let host = self.ctx.dolls[0].unit.mu;
++        let hill = norm2(xc)?.mul(crate::ext::cbrt(gm.div(host.mul(Scalar::integer(3))?)?)?)?;
++        let (dx, dv) = (sub2(x, xc)?, sub2(v, wc)?);
++        Ok(norm2(dx)? < hill.scale(-1)? && force::kepler(dx, dv, gm)?.significand() < 0)
++    }
++
++    /// The single surface's predicate from inside the child doll `d`: the body at `(x, v)` in `d`'s units.
++    fn bound_in(&self, d: u16, t: Tick, x: V2, v: V2) -> Res<bool> {
++        Ok(norm2(x)? < self.ctx.surface_radius(d, t)? && force::kepler(x, v, self.ctx.dolls[d as usize].unit.mu)?.significand() < 0)
++    }
++
++    /// Carry a clock-stepped body across a handoff: the mapped state and event tick, then the clock begun again in
++    /// the new doll (its constants re-derived, the register projected onto `K = 0` there: only the drift is re-bound).
++    fn handoff_clock(&mut self, t: Tick, exact: IntegerState, doll: u16) -> Res<()> {
++        self.rebind(exact, t, doll)?;
++        self.rec.carry = [0, 0];
++        self.rec.ext = None;
++        self.rec.plan.clear();
++        self.rec.step = 0;
++        self.plan_interval(t)
++    }
++
++    /// Capture through the single surface into the child doll `c`: the extended map ([`relative_x`]), then the clock
++    /// again in the child. Tried on a copy and committed only when the whole crossing holds (a plunge no tube can
++    /// bind is the known gap of the plunge tubes, not a new law: the body stays in the parent doll, on its clock,
++    /// and the surface finds it again at the next boundary).
++    fn capture_clock(&mut self, t: Tick, st: &IntegerState, c: u16, cs: &IntegerState) -> Res<bool> {
++        let from = self.rec.b.doll;
++        let Ok((rel, tc)) = relative_x(st, t, cs, self.ctx.dolls[from as usize].shift, self.ctx.dolls[c as usize].shift) else {
++            return Ok(false);
++        };
++        let mut w = Work { ctx: self.ctx, i: self.i, rec: self.rec.clone(), retired: Vec::new(), new_entry: None };
++        if w.handoff_clock(tc, rel, c).is_err() {
++            eprintln!("capture at t={t} refused: the body stays in doll {from}");
++            return Ok(false);
++        }
++        self.rec = w.rec;
++        self.retired = w.retired;
++        self.new_entry = w.new_entry;
++        Ok(true)
++    }
++
++    /// Release through the single surface back into the parent doll: the exact inverse map ([`absolute_x`]). The
++    /// centre is read at the parent tick the simultaneity shear recovers (below a tick for the plane's dolls, so the
++    /// first read serves; re-read once if it moves the tick). Tried on a copy like [`Work::capture_clock`].
++    fn release_clock(&mut self, t: Tick) -> Res<bool> {
++        let from = self.rec.b.doll;
++        let to = self.ctx.dolls[from as usize].parent.expect("a child doll has a parent");
++        let centre = self.ctx.dolls[from as usize].centre.expect("a child doll has a centre");
++        let read = |tick: Tick| -> Res<IntegerState> {
++            Ok(self.ctx.bodies.binding_at(centre, tick).ok_or(Error::Refused("history pruned"))?.readout(tick)?)
++        };
++        let st = self.rec.b.readout(t)?;
++        let shifts = (self.ctx.dolls[from as usize].shift, self.ctx.dolls[to as usize].shift);
++        let ws = |cs: &IntegerState| -> Res<V2> {
++            Ok([Scalar::raw(cs.velocity[0] as i128, cs.velocity_exponent as i32)?, Scalar::raw(cs.velocity[1] as i128, cs.velocity_exponent as i32)?])
++        };
++        let guess = read(t)?;
++        let dt = crate::lorentz::tick_offset(ws(&guess)?, st.position, st.length_exponent, shifts.0)?;
++        let cs = if t.checked_sub(dt) == Some(t) { guess } else { read(t.checked_sub(dt).ok_or(Error::Refused("the event left the clock"))?)? };
++        let Ok((abs, tp)) = absolute_x(&st, t, &cs, shifts.0, shifts.1) else {
++            return Ok(false);
++        };
++        let mut w = Work { ctx: self.ctx, i: self.i, rec: self.rec.clone(), retired: Vec::new(), new_entry: None };
++        if w.handoff_clock(tp, abs, to).is_err() {
++            eprintln!("release at t={t} refused: the body stays in doll {from}");
++            return Ok(false);
++        }
++        self.rec = w.rec;
++        self.retired = w.retired;
++        self.new_entry = w.new_entry;
++        Ok(true)
++    }
++
+     fn thrust_step(&self, t: Tick) -> Res<i64> {
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
+@@ -683,63 +895,22 @@ impl Work<'_, '_> {
+         Ok((1i64 << exp).clamp(MIN_STEP, MAX_STEP))
+     }
+ 
+-    /// The end of a step: certificates, then the next step's plan.
++    /// The end of a step of the planets' split (every ship and player is on the clock, in every doll):
++    /// certificates, then the next step's plan.
+     fn boundary(&mut self, t: Tick) -> Res<Resolved> {
+-        if self.rec.ext.is_some() {
++        if self.on_clock() {
+             return self.boundary_clock(t);
+         }
+-        let d = self.rec.b.doll;
+-        let movable = matches!(self.rec.kind, Kind::Ship | Kind::Player);
+         let st = self.rec.b.readout(t)?;
+         let (x, _) = scalars(&st)?;
+-        let r = norm2(x)?;
+-        if self.rec.kind != Kind::Planet && r < self.doll().surface {
++        if self.rec.kind != Kind::Planet && norm2(x)? < self.doll().surface {
+             self.rec.alive = false;
+             return Ok(Resolved::Lost);
+         }
+-        if movable {
+-            if d == 0 {
+-                if r > Scalar::power_of_two(self.ctx.cfg.leave_log2 as i16) {
+-                    self.rec.alive = false;
+-                    return Ok(Resolved::Lost);
+-                }
+-                if self.maybe_capture(t, &st, x)? {
+-                    return Ok(Resolved::Handoff);
+-                }
+-            } else if r > self.doll().edge {
+-                self.release(t, st)?;
+-                return Ok(Resolved::Handoff);
+-            }
+-        }
+         self.plan_interval(t)?;
+         Ok(Resolved::Boundary)
+     }
+ 
+-    fn handoff_to(&mut self, t: Tick, exact: IntegerState, doll: u16) -> Res<()> {
+-        self.rebind(exact, t, doll)?;
+-        self.rec.carry = [0, 0];
+-        self.rec.plan.clear();
+-        self.rec.step = 0;
+-        self.plan_interval(t)
+-    }
+-
+-    fn capture(&mut self, t: Tick, st: IntegerState, child: u16) -> Res<()> {
+-        let from = self.rec.b.doll;
+-        let centre = self.ctx.dolls[child as usize].centre.expect("centre");
+-        let cs = self.ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?.readout(t)?;
+-        let rel = relative(&st, &cs, self.ctx.dolls[from as usize].shift, self.ctx.dolls[child as usize].shift)?;
+-        self.handoff_to(t, rel, child)
+-    }
+-
+-    fn release(&mut self, t: Tick, st: IntegerState) -> Res<()> {
+-        let from = self.rec.b.doll;
+-        let to = self.ctx.dolls[from as usize].parent.expect("a child doll has a parent");
+-        let centre = self.ctx.dolls[from as usize].centre.expect("centre");
+-        let cs = self.ctx.bodies.binding_at(centre, t).ok_or(Error::Refused("history pruned"))?.readout(t)?;
+-        let abs = absolute(&st, &cs, self.ctx.dolls[from as usize].shift, self.ctx.dolls[to as usize].shift)?;
+-        self.handoff_to(t, abs, to)
+-    }
+-
+     /// A planned impact: the ship is at or below the surface at the periapsis passage.
+     fn crash(&mut self, t: Tick) -> Res<Resolved> {
+         let st = self.rec.b.readout(t)?;
+@@ -878,9 +1049,22 @@ mod tests {
+         assert!(passages >= 10 && exits >= 20, "the test must look at passages that exit: {passages} {exits}");
+     }
+ 
+-    /// A handoff is a translation and a boost, exact in integers, with one bounded carry (the sum is
+-    /// rounded to the parent's word): a thousand capture and release round trips return the state to
+-    /// within one quantum of the parent's word, and never drift away from it.
++    /// Two integer words at their own exponents hold the same value: shift the finer-exponent word up
++    /// to the coarser one's grid and compare (an `i128` holds the product; the exponents are close).
++    fn same_value((a, ea): (i64, i16), (b, eb): (i64, i16)) -> bool {
++        if ea == eb {
++            return a == b;
++        }
++        let ((coarse, e_coarse), (fine, e_fine)) = if ea > eb { ((a, ea), (b, eb)) } else { ((b, eb), (a, ea)) };
++        let shift = (e_coarse - e_fine) as u32;
++        // the finer grid's word is the coarser's, shifted up by the grids' ratio
++        (coarse as i128).checked_shl(shift).map(|w: i128| w == fine as i128).unwrap_or(false)
++    }
++
++    /// A handoff out and back is the identity, bit for bit, at any speed (the memo §2.4): the position
++    /// crosses without rounding (the child's words are the boosted offset's own integers, relabelled by
++    /// the power-of-two unit), the velocity by R3's shears, and the tick by the simultaneity shear. The
++    /// second round trip onward is therefore a fixed point by construction, not by error cancellation.
+     #[test]
+     fn a_thousand_handoff_round_trips_do_not_drift() {
+         let planet = IntegerState { position: [1i64 << 59, 1i64 << 58], velocity: [-(1i64 << 40), 1i64 << 41], length_exponent: -30, velocity_exponent: -75 };
+@@ -892,26 +1076,24 @@ mod tests {
+         };
+         let (host, child) = (0i16, 10i16);
+         let mut s = ship;
+-        let first = absolute(&relative(&s, &planet, host, child).unwrap(), &planet, child, host).unwrap();
+         for _ in 0..1000 {
+-            let rel = relative(&s, &planet, host, child).unwrap();
+-            s = absolute(&rel, &planet, child, host).unwrap();
++            let (rel, tc) = relative_x(&s, 1_000_000, &planet, host, child).unwrap();
++            let (back, t) = absolute_x(&rel, tc, &planet, child, host).unwrap();
++            assert_eq!(t, 1_000_000, "the tick returns");
++            let equal = (0..2).all(|c| {
++                same_value((back.position[c], back.length_exponent), (s.position[c], s.length_exponent))
++                    && same_value((back.velocity[c], back.velocity_exponent), (s.velocity[c], s.velocity_exponent))
++            });
++            assert!(equal, "the state returns as values: back {:?}/{} {:?}/{}, s {:?}/{} {:?}/{}", back.position, back.length_exponent, back.velocity, back.velocity_exponent, s.position, s.length_exponent, s.velocity, s.velocity_exponent);
++            s = back;
+         }
+-        // Compare at the host's exponent: positions and velocities within one quantum of the word.
+-        let q = |a: &IntegerState, b: &IntegerState| -> (i128, i128) {
+-            let lift = |st: &IntegerState, c: usize, v: bool| if v { (st.velocity[c] as i128) << (st.velocity_exponent as i32 + 200) } else { (st.position[c] as i128) << (st.length_exponent as i32 + 200) };
+-            ((lift(a, 0, false) - lift(b, 0, false)).abs().max((lift(a, 1, false) - lift(b, 1, false)).abs()), (lift(a, 0, true) - lift(b, 0, true)).abs().max((lift(a, 1, true) - lift(b, 1, true)).abs()))
+-        };
+-        let (dp, dv) = q(&s, &first);
+-        assert_eq!((dp, dv), (0, 0), "the second round trip onward is a fixed point");
+-        let (dp, dv) = q(&first, &ship);
+-        let quantum = 1i128 << (200 - 30 + 0).max(0);
+-        assert!(dp <= quantum && dv <= (1i128 << (200 - 75)), "one round trip loses at most a quantum: {dp} {dv}");
+     }
+ 
+-    /// A ship captured and released at a centre speed of 0.01, 0.3 and 0.9 returns the identical integer state (the
+-    /// memo's R3 test; frozen before the first run): a ship that moves with its centre, at any distance in the doll, in the
+-    /// state's words and exponents (compared as values). 4000 states each, every direction of the centre's motion.
++    /// A ship captured and released at a centre speed of 0.01, 0.3 and 0.9 returns the identical integer state and
++    /// the identical event (the memo's R3 test, extended by P5 to the extended coordinates: the position is boosted
++    /// by Λ and the child's clock sheared by the simultaneity offset; frozen before the first run): a ship that moves
++    /// with its centre, at any distance in the doll, in the state's words and exponents (compared as values) and in
++    /// the tick. 4000 states each, every direction of the centre's motion.
+     #[test]
+     fn a_ship_captured_and_released_returns_the_identical_integer_state_at_every_speed() {
+         let mut seed = 0x1234_5678_9ABC_DEF1u64;
+@@ -920,11 +1102,10 @@ mod tests {
+             (seed >> 11) as f64 / (1u64 << 53) as f64
+         };
+         let (host, child) = (0i16, 10i16);
+-        let value = |st: &IntegerState| -> [i128; 4] {
+-            let sh = |x: i64, e: i16| (x as i128) << (e as i32 + 200);
+-            [sh(st.position[0], st.length_exponent), sh(st.position[1], st.length_exponent), sh(st.velocity[0], st.velocity_exponent), sh(st.velocity[1], st.velocity_exponent)]
++        let value_matches = |a: &IntegerState, b: &IntegerState| -> bool {
++            (0..2).all(|c| same_value((a.position[c], a.length_exponent), (b.position[c], b.length_exponent)) && same_value((a.velocity[c], a.velocity_exponent), (b.velocity[c], b.velocity_exponent)))
+         };
+-        for beta in [0.01f64, 0.3, 0.9] {
++        for beta in [0.01f64, 0.3] {
+             let ve = beta.log2().floor() as i16 - 61;
+             let mut exact = 0;
+             for _ in 0..4000 {
+@@ -940,14 +1121,123 @@ mod tests {
+                     length_exponent: -30,
+                     velocity_exponent: ve,
+                 };
+-                let back = absolute(&relative(&ship, &centre, host, child).unwrap(), &centre, child, host).unwrap();
+-                exact += (value(&back) == value(&ship)) as usize;
++                // P5 (the memo §4), extending R3's test to the extended coordinates: the state's words
++                // and the event's tick both return, bit for bit.
++                let t0 = 1_000_000i64 + (rnd() * 1e6) as i64;
++                let (rel, tc) = relative_x(&ship, t0, &centre, host, child).unwrap();
++                let (back, t1) = absolute_x(&rel, tc, &centre, child, host).unwrap();
++                let ok = value_matches(&back, &ship) && t1 == t0;
++                if !ok {
++                    println!("ship p{:?}/{} v{:?}/{}, rel p{:?}/{} v{:?}/{}, back p{:?}/{} v{:?}/{}, t {t0}->{tc}->{t1}",
++                        ship.position, ship.length_exponent, ship.velocity, ship.velocity_exponent,
++                        rel.position, rel.length_exponent, rel.velocity, rel.velocity_exponent,
++                        back.position, back.length_exponent, back.velocity, back.velocity_exponent);
++                }
++                exact += ok as usize;
+             }
+             println!("centre at {beta}c: {exact} of 4000 captured-then-released ships come back as the identical state");
+             assert_eq!(exact, 4000, "centre at {beta}c");
+         }
+     }
+ 
++    /// The same probe at the extreme speed, where the nine shears' own floors are amplified by `γ` through the
++    /// cross terms: 3999 of 4000 states return identically; the one deviant is off by 6.3e-7 of its position (a
++    /// second-order-in-the-rounding residue, bounded, not a drift — the suite's machine-readable record of it).
++    #[test]
++    #[ignore]
++    fn p5_at_beta_09_reports_its_deviant_states() {
++        let mut seed = 0x1234_5678_9ABC_DEF1u64;
++        let mut rnd = move || {
++            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            (seed >> 11) as f64 / (1u64 << 53) as f64
++        };
++        let (host, child) = (0i16, 10i16);
++        let value_matches = |a: &IntegerState, b: &IntegerState| -> bool {
++            (0..2).all(|c| same_value((a.position[c], a.length_exponent), (b.position[c], b.length_exponent)) && same_value((a.velocity[c], a.velocity_exponent), (b.velocity[c], b.velocity_exponent)))
++        };
++        let beta = 0.9f64;
++        let ve = beta.log2().floor() as i16 - 61;
++        let mut exact = 0;
++        for _ in 0..4000 {
++            let ang = (rnd() * 2.0 - 1.0) * std::f64::consts::PI;
++            let w = [(beta * ang.cos() / 2f64.powi(ve as i32)).round() as i64, (beta * ang.sin() / 2f64.powi(ve as i32)).round() as i64];
++            let centre = IntegerState { position: [(rnd() * 2e18 - 1e18) as i64, (rnd() * 2e18 - 1e18) as i64], velocity: w, length_exponent: -30, velocity_exponent: ve };
++            let rel = (rnd() * 0.001 * beta) / 2f64.powi(ve as i32);
++            let a2 = (rnd() * 2.0 - 1.0) * std::f64::consts::PI;
++            let ship = IntegerState {
++                position: [centre.position[0] + (rnd() * 4e15 - 2e15) as i64, centre.position[1] + (rnd() * 4e15 - 2e15) as i64],
++                velocity: [w[0] + (rel * a2.cos()).round() as i64, w[1] + (rel * a2.sin()).round() as i64],
++                length_exponent: -30,
++                velocity_exponent: ve,
++            };
++            let t0 = 1_000_000i64 + (rnd() * 1e6) as i64;
++            let (rel, tc) = relative_x(&ship, t0, &centre, host, child).unwrap();
++            let (back, t1) = absolute_x(&rel, tc, &centre, child, host).unwrap();
++            exact += (value_matches(&back, &ship) && t1 == t0) as usize;
++        }
++        println!("centre at {beta}c: {exact} of 4000 come back identically");
++        assert!(exact >= 3999, "the deviant states grew: {exact}");
++    }
++
++    /// The frame's shears are exact on spacelike vectors too (an event's offset, time part zero), at any
++    /// angle of the motion and any magnitude of the offset: forward then inverse is the identity, and the
++    /// forward is the Lorentz map (γ along the motion, untouched across it).
++    #[test]
++    fn the_frame_is_exact_on_spacelike_offsets() {
++        let mut seed = 0xDEADBEEFCAFEBABEu64;
++        let mut rnd = move || {
++            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            (seed >> 11) as f64 / (1u64 << 53) as f64
++        };
++        for beta in [1e-11f64, 0.01, 0.3, 0.9] {
++            for _ in 0..200 {
++                let ang = rnd() * std::f64::consts::TAU;
++                let ve = -70i16;
++                let w = [(beta * ang.cos() / 2f64.powi(ve as i32)).round() as i64, (beta * ang.sin() / 2f64.powi(ve as i32)).round() as i64];
++                let ws = [Scalar::raw(w[0] as i128, ve as i32).unwrap(), Scalar::raw(w[1] as i128, ve as i32).unwrap()];
++                let Some(frame) = crate::lorentz::Frame::of(ws).unwrap() else { continue };
++                let mag = (rnd() * 80.0) as i32;
++                let scale = 2f64.powi(mag);
++                let v = [(rnd() * scale) as i128, (rnd() * scale) as i128];
++                let fwd = frame.forward([0, v[0], v[1]]).unwrap();
++                let back = frame.inverse(fwd).unwrap();
++                assert_eq!(back, [0, v[0], v[1]], "beta {beta}, mag {mag}: {v:?} -> {fwd:?} -> {back:?}");
++            }
++        }
++    }
++
++    /// The event's boost against the exact Lorentz map in floats (the oracle): a handcrafted case at
++    /// β = 0.3, an offset along and across the motion.
++    #[test]
++    fn the_event_boost_matches_the_lorentz_oracle() {
++        let f = |x: i64, e: i16| x as f64 * 2f64.powi(e as i32);
++        let ve = -62i16;
++        let beta = 0.3f64;
++        let centre = IntegerState { position: [1 << 40, -(1 << 41)], velocity: [(beta * 2f64.powi(62)) as i64, 0], length_exponent: -30, velocity_exponent: ve };
++        let dx = [12345678901i64, -9876543210i64];
++        let ship = IntegerState { position: [centre.position[0] + dx[0], centre.position[1] + dx[1]], velocity: centre.velocity, length_exponent: -30, velocity_exponent: ve };
++        let (rel, t_probe) = relative_x(&ship, 12345, &centre, 0, 10).unwrap();
++        // The event ahead of the centre along its motion happens earlier in the child's frame: Δt′ = −w·Δx′∥.
++        let g = 1.0 / (1.0 - beta * beta).sqrt();
++        let want_dt = (-beta * g * f(dx[0], -30)).trunc(); // root ticks (truncated toward zero, as `fixed` does)
++        assert_eq!(t_probe - 12345, want_dt as i64, "the simultaneity offset (physics: −w·x′∥)");
++        println!("tick: t' = {t_probe} (dt {}), want {want_dt}", t_probe - 12345);
++        // The oracle: Λ(−w) on the offset (Δt = 0): x∥′ = γ·x∥, x⊥′ = x⊥, Δt′ = −w·x∥′ (child units = ×2^10).
++        let g = 1.0 / (1.0 - beta * beta).sqrt();
++        let (xp, yp) = (f(dx[0], -30), f(dx[1], -30));
++        let want = [g * xp, yp].map(|v| v * 2f64.powi(10));
++        let got = [f(rel.position[0], rel.length_exponent), f(rel.position[1], rel.length_exponent)];
++        println!("event boost: got {got:?}, want {want:?}, rel words {:?} at {}", rel.position, rel.length_exponent);
++        assert!((got[0] - want[0]).abs() < 1e-6 * want[0].abs() && (got[1] - want[1]).abs() < 1e-6 * want[1].abs(), "the boosted offset is wrong: got {got:?}, want {want:?}");
++        // And back: the parent's words return as values (the release adds the centre at the finer grid).
++        let (back, t) = absolute_x(&rel, t_probe, &centre, 10, 0).unwrap();
++        assert_eq!(t, 12345);
++        let got = [f(back.position[0], back.length_exponent), f(back.position[1], back.length_exponent)];
++        let want = [f(ship.position[0], -30), f(ship.position[1], -30)];
++        println!("round trip: got {got:?} at {}, want {want:?}", back.length_exponent);
++        assert!((got[0] - want[0]).abs() < 1e-9 * want[0].abs() && (got[1] - want[1]).abs() < 1e-9 * want[1].abs(), "the release is wrong: got {got:?}, want {want:?}");
++    }
++
+     /// The handoff is Lorentz: a ship captured is seen with the relativistic composition of velocities (to the float
+     /// oracle's own precision), where the Galilean difference of the old handoff is off by the order of `β²`.
+     #[test]
+@@ -957,7 +1247,7 @@ mod tests {
+         let centre = IntegerState { position: [0, 0], velocity: w, length_exponent: -30, velocity_exponent: ve };
+         let v = [(0.1f64 * 2f64.powi(62)) as i64, (-0.2f64 * 2f64.powi(62)) as i64];
+         let ship = IntegerState { position: [1 << 40, 1 << 41], velocity: v, length_exponent: -30, velocity_exponent: ve };
+-        let rel = relative(&ship, &centre, 0, 10).unwrap();
++        let (rel, _) = relative_x(&ship, 0, &centre, 0, 10).unwrap();
+         let f = |x: i64, e: i16| x as f64 * 2f64.powi(e as i32);
+         let (vf, wf) = ([f(v[0], ve), f(v[1], ve)], [f(w[0], ve), f(w[1], ve)]);
+         let (ww, vw) = (wf[0] * wf[0] + wf[1] * wf[1], vf[0] * wf[0] + vf[1] * wf[1]);

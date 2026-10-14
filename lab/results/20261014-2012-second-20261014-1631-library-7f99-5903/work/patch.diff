@@ -1,0 +1,774 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..788bab50 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,16 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// On macOS that is rusage_info_v4; on Linux (the lab's machines) VmRSS/VmHWM of /proc/self/status, resident and its
++/// high-water mark — compressed pages are not reported separately there, so the number is a lower bound under swap.
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +34,22 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(text) = std::fs::read_to_string("/proc/self/status") {
++        for line in text.lines() {
++            let kb = |v: &str| v.trim().trim_end_matches("kB").trim().parse::<u64>().unwrap_or(0) * 1024;
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = kb(v);
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = kb(v);
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -64,7 +84,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs(std::env::var("ES_WALL_CAP").ok().and_then(|s| s.parse().ok()).unwrap_or(55)) {
+             truncated = true;
+             break;
+         }
+@@ -112,6 +132,11 @@ fn main() {
+     let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
+     let (kicks, evs) = (last_stats.kicks - s0.kicks, last_stats.events() - s0.events());
+     let per = |x: u64| if game_s > 0.0 { x as f64 / bodies as f64 / game_s } else { 0.0 };
++    // The certificate cut (lab run 20261014-2012-...-5903): settle to the flight's last presented tick and
++    // print the universe's digest — schedule-independent by construction, so it is the same for any build
++    // whose candidate sets differ only inside the exact predicate's coverage.
++    let cut = p.u.now;
++    println!("digest {} at {} (contacts {}, logged {})", p.u.digest(), cut, p.u.contacts, p.u.enc_log.len());
+     // refusals: the engine's count (a body refused an item) and what the bodies hold; the dead.
+     let (mut refusals, mut dead) = (0u64, 0usize);
+     for i in 0..bodies {
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..62241370 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -111,7 +111,7 @@ impl PlayerNeighbourhood {
+     /// bodies. It must give another digest.
+     #[doc(hidden)]
+     pub fn planted_sloppy_reuse() -> Self {
+-        Self { sloppy: true, ..Self::default() }
++        Self { last: Mutex::new(None), sloppy: true }
+     }
+ }
+ 
+@@ -160,6 +160,13 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        static CENSUS: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
++            let on = std::env::var("ES_SCAN_CENSUS").is_ok();
++            crate::radial::census::ON.store(on, std::sync::atomic::Ordering::Relaxed);
++            on
++        });
++        let census = *CENSUS;
++        let seq = if census { crate::radial::census::SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1 } else { 0 };
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+@@ -171,8 +178,11 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let near_some = near.is_some();
+         let mut candidates = Vec::new();
+-        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
++        let mut walked = 0usize;
++        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter()) as Box<dyn Iterator<Item = usize>>) {
++            walked += 1;
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+@@ -187,6 +197,20 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        if census {
++            let decision = crate::radial::census::LAST.load(std::sync::atomic::Ordering::Relaxed);
++            let kind = ["some", "nodoll", "width", "horizon"][decision.min(3) as usize];
++            let why = if near_some { kind } else if decision == 0 { "err" } else { kind };
++            crate::radial::census::line(format!(
++                "cap seq={seq} doll={} t={t} interval={interval} why={why} walked={walked} kept={} total={}",
++                me.doll,
++                candidates.len(),
++                ctx.bodies.len()
++            ));
++            crate::radial::census::CAP_WALKED.fetch_add(walked as u64, std::sync::atomic::Ordering::Relaxed);
++            crate::radial::census::CAP_KEPT.fetch_add(candidates.len() as u64, std::sync::atomic::Ordering::Relaxed);
++            crate::radial::census::CAP_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+@@ -197,3 +221,28 @@ impl Encounters for PlayerNeighbourhood {
+         Some(scan)
+     }
+ }
++
++impl Drop for PlayerNeighbourhood {
++    fn drop(&mut self) {
++        use crate::radial::census;
++        if !census::on() {
++            return;
++        }
++        let (calls, some, doll, width, hor) = (
++            census::CALLS.load(std::sync::atomic::Ordering::Relaxed),
++            census::CALLS_SOME.load(std::sync::atomic::Ordering::Relaxed),
++            census::NONE_DOLL.load(std::sync::atomic::Ordering::Relaxed),
++            census::NONE_WIDTH.load(std::sync::atomic::Ordering::Relaxed),
++            census::NONE_HORIZON.load(std::sync::atomic::Ordering::Relaxed),
++        );
++        eprintln!(
++            "scan census: candidates calls={calls} some={some} nodoll={doll} width={width} horizon={hor} kept_per_some={:.1} walked={} kept={}",
++            if some > 0 { census::KEPT_SOME.load(std::sync::atomic::Ordering::Relaxed) as f64 / some as f64 } else { 0.0 },
++            census::CAP_WALKED.load(std::sync::atomic::Ordering::Relaxed),
++            census::CAP_KEPT.load(std::sync::atomic::Ordering::Relaxed),
++        );
++        for l in census::LINES.lock().expect("the census log").iter() {
++            eprintln!("{l}");
++        }
++    }
++}
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..c049b718 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -6,15 +6,94 @@
+ //! radial ranges overlap), widened by what the binding carries beyond the tube (the residual and the rounding of the readout, in quanta of
+ //! its word). The scan's predicate is the lattice law's `hit`: the linear relative motion over the interval comes within `reach`
+ //! (`reach = 2^ENCOUNTER_LOG2 (r_a + r_b)`), which implies `|d| ≤ reach + |w|`, `|w| ≤ (|v_a| + |v_b|)·h`, hence
+-//! `|r_b − r_a| ≤ reach + (|v_a| + |v_b|)·h`: a body whose radial range misses that window cannot be a hit, and is not read. Every term of
+-//! the window is rounded up (floats widened by a percent, far above their own rounding); the window only ever drops pairs that cannot meet,
+-//! so no outcome depends on a float: the candidates it keeps go through the exact predicate unchanged.
++//! `|r_b − r_a| ≤ reach + (|v_a| + |v_b|)·h`: a body whose radial range misses that window cannot be a hit, and is not read. Every term
++//! is rounded up (floats widened by a percent, far above their own rounding); the window only ever drops pairs that cannot meet,
++//! so no outcome depends on a float: the candidates it keeps go through the exact predicate unchanged. The other body's share of the
++//! motion, `|v_b|·h`, is carried by **its own registration** — its bins are widened by its own speed bound over the scan horizon
++//! ([`horizon`]) — and the window carries only the player's, so no doll-wide speed exists to be poisoned by one hot tube; a scan
++//! whose interval exceeds the horizon is not covered by any registration and reads every body instead (exact).
+ //!
+ //! **What is registered.** Every binding a body has had that a reader can still ask for (the current one and the retained history: the
+-//! registration is the hull of their radial ranges, only widened by an event and recomputed when the history is pruned), in the bins of
+-//! its radial range (sixteenth-octaves). A body whose tube has no bounded range (a passage, a plunge, a planet, a moon, the player) is
+-//! registered as *unbounded* in the doll: always a candidate. When the window covers most of what is registered (the player is inside
+-//! the belt), the caller reads every body as before: the filter costs nothing it does not save.
++//! registration is the hull of their widened radial ranges, only widened by an event and recomputed when the history is pruned), in the
++//! bins of its radial range (sixteenth-octaves). A body whose tube has no bounded range (a passage, a plunge, a planet, a moon, the
++//! player) is registered as *unbounded* in the doll: always a candidate. When the window covers most of what is registered (the player
++//! is inside the belt), the caller reads every body as before: the filter costs nothing it does not save.
++
++/// The scan census (lab run 20261014-1511-components-a2c1): env-gated counters on the certificate's own decisions —
++/// **why** the player's scan walks a whole doll, in numbers (the ladder measured that it does, at 45–50 ns a body on the
++/// frame's critical path, but not which term pays). Counters and a log only: no state the engine reads is touched, and with
++/// `ES_SCAN_CENSUS` unset every call here is one relaxed load of a false boolean.
++pub mod census {
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++    use std::sync::Mutex;
++
++    pub static ON: AtomicBool = AtomicBool::new(false);
++    pub static SEQ: AtomicU64 = AtomicU64::new(0);
++    /// The decision of the `candidates` call under `SEQ` (0 some, 1 nodoll, 2 width, 3 horizon).
++    pub static LAST: AtomicU64 = AtomicU64::new(0);
++    pub static CALLS: AtomicU64 = AtomicU64::new(0);
++    pub static NONE_DOLL: AtomicU64 = AtomicU64::new(0);
++    pub static NONE_WIDTH: AtomicU64 = AtomicU64::new(0);
++    pub static NONE_HORIZON: AtomicU64 = AtomicU64::new(0);
++    /// `hit + unbounded` over calls that returned Some: the certificate's own keep set.
++    pub static KEPT_SOME: AtomicU64 = AtomicU64::new(0);
++    pub static CALLS_SOME: AtomicU64 = AtomicU64::new(0);
++    pub static LINES: Mutex<Vec<String>> = Mutex::new(Vec::new());
++
++    pub fn on() -> bool {
++        ON.load(Ordering::Relaxed)
++    }
++
++    /// One decision, with everything that produced it.
++    #[allow(clippy::too_many_arguments)]
++    pub fn rec(
++        seq: u64,
++        doll: u16,
++        decision: u64,
++        lo: i32,
++        hi: i32,
++        hit: usize,
++        unb: usize,
++        bodies: usize,
++        rcap: f64,
++        r: f64,
++        v: f64,
++        h: f64,
++        near: f64,
++        reach: f64,
++    ) {
++        CALLS.fetch_add(1, Ordering::Relaxed);
++        LAST.store(decision, Ordering::Relaxed);
++        match decision {
++            1 => NONE_DOLL.fetch_add(1, Ordering::Relaxed),
++            2 => NONE_WIDTH.fetch_add(1, Ordering::Relaxed),
++            3 => NONE_HORIZON.fetch_add(1, Ordering::Relaxed),
++            _ => {
++                KEPT_SOME.fetch_add((hit + unb) as u64, Ordering::Relaxed);
++                CALLS_SOME.fetch_add(1, Ordering::Relaxed);
++                0
++            }
++        };
++        let tag = ["some", "nodoll", "width", "horizon"][decision.min(3) as usize];
++        let mut l = LINES.lock().expect("the census log");
++        if l.len() < 4000 {
++            l.push(format!(
++                "rad seq={seq} doll={doll} {tag} lo={lo} hi={hi} hit={hit} unb={unb} bodies={bodies} rcap={rcap:.3e} r={r:.6e} v={v:.3e} h={h:.3e} near={near:.3e} reach={reach:.3e}"
++            ));
++        }
++    }
++    /// The capture half (encounter.rs): what the walk actually visited.
++    pub static CAP_CALLS: AtomicU64 = AtomicU64::new(0);
++    pub static CAP_WALKED: AtomicU64 = AtomicU64::new(0);
++    pub static CAP_KEPT: AtomicU64 = AtomicU64::new(0);
++
++    pub fn line(s: String) {
++        let mut l = LINES.lock().expect("the census log");
++        if l.len() < 4000 {
++            l.push(s);
++        }
++    }
++}
+ use crate::bind::Binding;
+ use crate::body::Kind;
+ use crate::num::to_f64;
+@@ -24,6 +103,17 @@ use std::collections::HashMap;
+ /// Bins per octave of radius.
+ const PER_OCTAVE: f64 = 16.0;
+ 
++/// The scan horizon: the largest doll-time interval a scan may ask and still be served from the per-body widening (each
++/// body's bins are widened by its own speed bound over exactly this horizon). A scan beyond it returns no candidate set
++/// and the caller reads every body — exact, the degenerate path. The default covers the cadence's coarsest interval;
++/// `ES_SCAN_H` overrides it (the lab's control arm).
++fn horizon() -> f64 {
++    static H: std::sync::LazyLock<f64> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_SCAN_H").ok().and_then(|s| s.parse().ok()).unwrap_or(2.0e12)
++    });
++    *H
++}
++
+ fn bin_of(r: f64) -> i32 {
+     (r.max(1e-30).log2() * PER_OCTAVE).floor() as i32
+ }
+@@ -44,11 +134,8 @@ struct DollIndex {
+     bins: HashMap<i32, Vec<u32>>,
+     /// Ids registered without a bound, ascending.
+     unbounded: Vec<u32>,
+-    /// Entries in `bins` (a body counts once a bin it is in), for the caller's choice between the window and everything.
+-    entries: usize,
+-    /// The largest radius (as the scan reads it) and the speed bound of any body registered with a range.
++    /// The largest radius (as the scan reads it) of any body registered with a range.
+     radius_cap: f64,
+-    speed_cap: f64,
+ }
+ 
+ #[derive(Default)]
+@@ -158,9 +245,7 @@ impl Radial {
+                         continue;
+                     }
+                     if let Some(list) = idx.bins.get_mut(&b) {
+-                        if Self::take_from(list, id) {
+-                            idx.entries -= 1;
+-                        }
++                        Self::take_from(list, id);
+                         if list.is_empty() {
+                             idx.bins.remove(&b);
+                         }
+@@ -172,9 +257,7 @@ impl Radial {
+             Self::put_in(&mut idx.unbounded, id);
+         } else {
+             for b in new.lo..=new.hi {
+-                if Self::put_in(idx.bins.entry(b).or_default(), id) {
+-                    idx.entries += 1;
+-                }
++                Self::put_in(idx.bins.entry(b).or_default(), id);
+             }
+         }
+         self.set_reg(i, new);
+@@ -190,8 +273,10 @@ impl Radial {
+             Some((lo, hi, v)) => {
+                 let idx = self.doll_mut(d);
+                 idx.radius_cap = idx.radius_cap.max(radius);
+-                idx.speed_cap = idx.speed_cap.max(v);
+-                let (blo, bhi) = (bin_of(lo.max(1e-30)), bin_of(hi));
++                // Widened by this body's own speed bound over the scan horizon (not any doll-wide cap): a slow body
++                // stays in a bin or two, a hot one spreads over exactly what its own motion can cover.
++                let w = v * horizon();
++                let (blo, bhi) = (bin_of((lo - w).max(1e-30)), bin_of(hi + w));
+                 if old.doll == d && old.lo != UNBOUNDED {
+                     Reg { doll: d, lo: old.lo.min(blo), hi: old.hi.max(bhi) }
+                 } else if old.doll == d {
+@@ -223,8 +308,8 @@ impl Radial {
+                 (Some((lo, hi)), Some((rl, rh, v))) => {
+                     let idx = self.doll_mut(b.doll);
+                     idx.radius_cap = idx.radius_cap.max(radius);
+-                    idx.speed_cap = idx.speed_cap.max(v);
+-                    Some((lo.min(bin_of(rl.max(1e-30))), hi.max(bin_of(rh))))
++                    let wd = v * horizon();
++                    Some((lo.min(bin_of((rl - wd).max(1e-30))), hi.max(bin_of(rh + wd))))
+                 }
+                 _ => None,
+             };
+@@ -240,19 +325,41 @@ impl Radial {
+         }
+     }
+ 
+-    /// The bodies of doll `d` that can be within the window of the player (ascending), or None when that is most of what is registered
+-    /// in the doll (the caller then reads every body, as it did before there was an index).
++    /// The bodies of doll `d` that can be within the window of the player (ascending), or None where the index cannot narrow
++    /// the read (no such doll; the window spans most of what is registered; the scan's interval is beyond the horizon the
++    /// registrations are widened for): the caller then reads every body, as it did before there was an index.
+     pub fn candidates(&self, d: u16, w: &Window) -> Option<Vec<usize>> {
+-        let idx = self.dolls.get(d as usize)?;
++        let Some(idx) = self.dolls.get(d as usize) else {
++            if census::on() {
++                let seq = census::SEQ.load(std::sync::atomic::Ordering::Relaxed);
++                census::rec(seq, d, 1, 0, 0, 0, 0, self.bodies, 0.0, w.r, w.v, w.h, 0.0, 0.0);
++            }
++            return None;
++        };
++        // The other body's share of the relative motion over the interval is carried by its own widened registration
++        // (`note`/`rebuild`), never by a doll-wide speed: an interval beyond that horizon is not covered, so the caller
++        // reads every body (exact).
++        if w.h > horizon() {
++            if census::on() {
++                let seq = census::SEQ.load(std::sync::atomic::Ordering::Relaxed);
++                census::rec(seq, d, 3, 0, 0, 0, idx.unbounded.len(), self.bodies, idx.radius_cap, w.r, w.v, w.h, 0.0, 0.0);
++            }
++            return None;
++        }
+         let near = (w.reach_p + idx.radius_cap) * 2f64.powi(w.near_log2);
+-        let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
++        let reach = (near + w.v * w.h) * 1.01 + w.r * 1e-9;
+         let (lo, hi) = (bin_of((w.r - reach).max(1e-30)), bin_of(w.r + reach));
+         if hi - lo > 4096 {
++            if census::on() {
++                let seq = census::SEQ.load(std::sync::atomic::Ordering::Relaxed);
++                census::rec(seq, d, 2, lo, hi, 0, idx.unbounded.len(), self.bodies, idx.radius_cap, w.r, w.v, w.h, near, reach);
++            }
+             return None;
+         }
+-        let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
+-        if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
+-            return None;
++        if census::on() {
++            let seq = census::SEQ.load(std::sync::atomic::Ordering::Relaxed);
++            let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
++            census::rec(seq, d, 0, lo, hi, hit, idx.unbounded.len(), self.bodies, idx.radius_cap, w.r, w.v, w.h, near, reach);
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+         for b in lo..=hi {
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..788bab50 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,16 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++/// On macOS that is rusage_info_v4; on Linux (the lab's machines) VmRSS/VmHWM of /proc/self/status, resident and its
++/// high-water mark — compressed pages are not reported separately there, so the number is a lower bound under swap.
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +34,22 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    let (mut now, mut peak) = (0u64, 0u64);
++    if let Ok(text) = std::fs::read_to_string("/proc/self/status") {
++        for line in text.lines() {
++            let kb = |v: &str| v.trim().trim_end_matches("kB").trim().parse::<u64>().unwrap_or(0) * 1024;
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = kb(v);
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = kb(v);
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -64,7 +84,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs(std::env::var("ES_WALL_CAP").ok().and_then(|s| s.parse().ok()).unwrap_or(55)) {
+             truncated = true;
+             break;
+         }
+@@ -112,6 +132,11 @@ fn main() {
+     let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
+     let (kicks, evs) = (last_stats.kicks - s0.kicks, last_stats.events() - s0.events());
+     let per = |x: u64| if game_s > 0.0 { x as f64 / bodies as f64 / game_s } else { 0.0 };
++    // The certificate cut (lab run 20261014-2012-...-5903): settle to the flight's last presented tick and
++    // print the universe's digest — schedule-independent by construction, so it is the same for any build
++    // whose candidate sets differ only inside the exact predicate's coverage.
++    let cut = p.u.now;
++    println!("digest {} at {} (contacts {}, logged {})", p.u.digest(), cut, p.u.contacts, p.u.enc_log.len());
+     // refusals: the engine's count (a body refused an item) and what the bodies hold; the dead.
+     let (mut refusals, mut dead) = (0u64, 0usize);
+     for i in 0..bodies {
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..62241370 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -111,7 +111,7 @@ impl PlayerNeighbourhood {
+     /// bodies. It must give another digest.
+     #[doc(hidden)]
+     pub fn planted_sloppy_reuse() -> Self {
+-        Self { sloppy: true, ..Self::default() }
++        Self { last: Mutex::new(None), sloppy: true }
+     }
+ }
+ 
+@@ -160,6 +160,13 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        static CENSUS: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
++            let on = std::env::var("ES_SCAN_CENSUS").is_ok();
++            crate::radial::census::ON.store(on, std::sync::atomic::Ordering::Relaxed);
++            on
++        });
++        let census = *CENSUS;
++        let seq = if census { crate::radial::census::SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1 } else { 0 };
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+@@ -171,8 +178,11 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        let near_some = near.is_some();
+         let mut candidates = Vec::new();
+-        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
++        let mut walked = 0usize;
++        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter()) as Box<dyn Iterator<Item = usize>>) {
++            walked += 1;
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+                 continue;
+@@ -187,6 +197,20 @@ impl Encounters for PlayerNeighbourhood {
+             }
+             candidates.push((j, other, reach));
+         }
++        if census {
++            let decision = crate::radial::census::LAST.load(std::sync::atomic::Ordering::Relaxed);
++            let kind = ["some", "nodoll", "width", "horizon"][decision.min(3) as usize];
++            let why = if near_some { kind } else if decision == 0 { "err" } else { kind };
++            crate::radial::census::line(format!(
++                "cap seq={seq} doll={} t={t} interval={interval} why={why} walked={walked} kept={} total={}",
++                me.doll,
++                candidates.len(),
++                ctx.bodies.len()
++            ));
++            crate::radial::census::CAP_WALKED.fetch_add(walked as u64, std::sync::atomic::Ordering::Relaxed);
++            crate::radial::census::CAP_KEPT.fetch_add(candidates.len() as u64, std::sync::atomic::Ordering::Relaxed);
++            crate::radial::census::CAP_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        }
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+@@ -197,3 +221,28 @@ impl Encounters for PlayerNeighbourhood {
+         Some(scan)
+     }
+ }
++
++impl Drop for PlayerNeighbourhood {
++    fn drop(&mut self) {
++        use crate::radial::census;
++        if !census::on() {
++            return;
++        }
++        let (calls, some, doll, width, hor) = (
++            census::CALLS.load(std::sync::atomic::Ordering::Relaxed),
++            census::CALLS_SOME.load(std::sync::atomic::Ordering::Relaxed),
++            census::NONE_DOLL.load(std::sync::atomic::Ordering::Relaxed),
++            census::NONE_WIDTH.load(std::sync::atomic::Ordering::Relaxed),
++            census::NONE_HORIZON.load(std::sync::atomic::Ordering::Relaxed),
++        );
++        eprintln!(
++            "scan census: candidates calls={calls} some={some} nodoll={doll} width={width} horizon={hor} kept_per_some={:.1} walked={} kept={}",
++            if some > 0 { census::KEPT_SOME.load(std::sync::atomic::Ordering::Relaxed) as f64 / some as f64 } else { 0.0 },
++            census::CAP_WALKED.load(std::sync::atomic::Ordering::Relaxed),
++            census::CAP_KEPT.load(std::sync::atomic::Ordering::Relaxed),
++        );
++        for l in census::LINES.lock().expect("the census log").iter() {
++            eprintln!("{l}");
++        }
++    }
++}
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..c049b718 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -6,15 +6,94 @@
+ //! radial ranges overlap), widened by what the binding carries beyond the tube (the residual and the rounding of the readout, in quanta of
+ //! its word). The scan's predicate is the lattice law's `hit`: the linear relative motion over the interval comes within `reach`
+ //! (`reach = 2^ENCOUNTER_LOG2 (r_a + r_b)`), which implies `|d| ≤ reach + |w|`, `|w| ≤ (|v_a| + |v_b|)·h`, hence
+-//! `|r_b − r_a| ≤ reach + (|v_a| + |v_b|)·h`: a body whose radial range misses that window cannot be a hit, and is not read. Every term of
+-//! the window is rounded up (floats widened by a percent, far above their own rounding); the window only ever drops pairs that cannot meet,
+-//! so no outcome depends on a float: the candidates it keeps go through the exact predicate unchanged.
++//! `|r_b − r_a| ≤ reach + (|v_a| + |v_b|)·h`: a body whose radial range misses that window cannot be a hit, and is not read. Every term
++//! is rounded up (floats widened by a percent, far above their own rounding); the window only ever drops pairs that cannot meet,
++//! so no outcome depends on a float: the candidates it keeps go through the exact predicate unchanged. The other body's share of the
++//! motion, `|v_b|·h`, is carried by **its own registration** — its bins are widened by its own speed bound over the scan horizon
++//! ([`horizon`]) — and the window carries only the player's, so no doll-wide speed exists to be poisoned by one hot tube; a scan
++//! whose interval exceeds the horizon is not covered by any registration and reads every body instead (exact).
+ //!
+ //! **What is registered.** Every binding a body has had that a reader can still ask for (the current one and the retained history: the
+-//! registration is the hull of their radial ranges, only widened by an event and recomputed when the history is pruned), in the bins of
+-//! its radial range (sixteenth-octaves). A body whose tube has no bounded range (a passage, a plunge, a planet, a moon, the player) is
+-//! registered as *unbounded* in the doll: always a candidate. When the window covers most of what is registered (the player is inside
+-//! the belt), the caller reads every body as before: the filter costs nothing it does not save.
++//! registration is the hull of their widened radial ranges, only widened by an event and recomputed when the history is pruned), in the
++//! bins of its radial range (sixteenth-octaves). A body whose tube has no bounded range (a passage, a plunge, a planet, a moon, the
++//! player) is registered as *unbounded* in the doll: always a candidate. When the window covers most of what is registered (the player
++//! is inside the belt), the caller reads every body as before: the filter costs nothing it does not save.
++
++/// The scan census (lab run 20261014-1511-components-a2c1): env-gated counters on the certificate's own decisions —
++/// **why** the player's scan walks a whole doll, in numbers (the ladder measured that it does, at 45–50 ns a body on the
++/// frame's critical path, but not which term pays). Counters and a log only: no state the engine reads is touched, and with
++/// `ES_SCAN_CENSUS` unset every call here is one relaxed load of a false boolean.
++pub mod census {
++    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++    use std::sync::Mutex;
++
++    pub static ON: AtomicBool = AtomicBool::new(false);
++    pub static SEQ: AtomicU64 = AtomicU64::new(0);
++    /// The decision of the `candidates` call under `SEQ` (0 some, 1 nodoll, 2 width, 3 horizon).
++    pub static LAST: AtomicU64 = AtomicU64::new(0);
++    pub static CALLS: AtomicU64 = AtomicU64::new(0);
++    pub static NONE_DOLL: AtomicU64 = AtomicU64::new(0);
++    pub static NONE_WIDTH: AtomicU64 = AtomicU64::new(0);
++    pub static NONE_HORIZON: AtomicU64 = AtomicU64::new(0);
++    /// `hit + unbounded` over calls that returned Some: the certificate's own keep set.
++    pub static KEPT_SOME: AtomicU64 = AtomicU64::new(0);
++    pub static CALLS_SOME: AtomicU64 = AtomicU64::new(0);
++    pub static LINES: Mutex<Vec<String>> = Mutex::new(Vec::new());
++
++    pub fn on() -> bool {
++        ON.load(Ordering::Relaxed)
++    }
++
++    /// One decision, with everything that produced it.
++    #[allow(clippy::too_many_arguments)]
++    pub fn rec(
++        seq: u64,
++        doll: u16,
++        decision: u64,
++        lo: i32,
++        hi: i32,
++        hit: usize,
++        unb: usize,
++        bodies: usize,
++        rcap: f64,
++        r: f64,
++        v: f64,
++        h: f64,
++        near: f64,
++        reach: f64,
++    ) {
++        CALLS.fetch_add(1, Ordering::Relaxed);
++        LAST.store(decision, Ordering::Relaxed);
++        match decision {
++            1 => NONE_DOLL.fetch_add(1, Ordering::Relaxed),
++            2 => NONE_WIDTH.fetch_add(1, Ordering::Relaxed),
++            3 => NONE_HORIZON.fetch_add(1, Ordering::Relaxed),
++            _ => {
++                KEPT_SOME.fetch_add((hit + unb) as u64, Ordering::Relaxed);
++                CALLS_SOME.fetch_add(1, Ordering::Relaxed);
++                0
++            }
++        };
++        let tag = ["some", "nodoll", "width", "horizon"][decision.min(3) as usize];
++        let mut l = LINES.lock().expect("the census log");
++        if l.len() < 4000 {
++            l.push(format!(
++                "rad seq={seq} doll={doll} {tag} lo={lo} hi={hi} hit={hit} unb={unb} bodies={bodies} rcap={rcap:.3e} r={r:.6e} v={v:.3e} h={h:.3e} near={near:.3e} reach={reach:.3e}"
++            ));
++        }
++    }
++    /// The capture half (encounter.rs): what the walk actually visited.
++    pub static CAP_CALLS: AtomicU64 = AtomicU64::new(0);
++    pub static CAP_WALKED: AtomicU64 = AtomicU64::new(0);
++    pub static CAP_KEPT: AtomicU64 = AtomicU64::new(0);
++
++    pub fn line(s: String) {
++        let mut l = LINES.lock().expect("the census log");
++        if l.len() < 4000 {
++            l.push(s);
++        }
++    }
++}
+ use crate::bind::Binding;
+ use crate::body::Kind;
+ use crate::num::to_f64;
+@@ -24,6 +103,17 @@ use std::collections::HashMap;
+ /// Bins per octave of radius.
+ const PER_OCTAVE: f64 = 16.0;
+ 
++/// The scan horizon: the largest doll-time interval a scan may ask and still be served from the per-body widening (each
++/// body's bins are widened by its own speed bound over exactly this horizon). A scan beyond it returns no candidate set
++/// and the caller reads every body — exact, the degenerate path. The default covers the cadence's coarsest interval;
++/// `ES_SCAN_H` overrides it (the lab's control arm).
++fn horizon() -> f64 {
++    static H: std::sync::LazyLock<f64> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_SCAN_H").ok().and_then(|s| s.parse().ok()).unwrap_or(2.0e12)
++    });
++    *H
++}
++
+ fn bin_of(r: f64) -> i32 {
+     (r.max(1e-30).log2() * PER_OCTAVE).floor() as i32
+ }
+@@ -44,11 +134,8 @@ struct DollIndex {
+     bins: HashMap<i32, Vec<u32>>,
+     /// Ids registered without a bound, ascending.
+     unbounded: Vec<u32>,
+-    /// Entries in `bins` (a body counts once a bin it is in), for the caller's choice between the window and everything.
+-    entries: usize,
+-    /// The largest radius (as the scan reads it) and the speed bound of any body registered with a range.
++    /// The largest radius (as the scan reads it) of any body registered with a range.
+     radius_cap: f64,
+-    speed_cap: f64,
+ }
+ 
+ #[derive(Default)]
+@@ -158,9 +245,7 @@ impl Radial {
+                         continue;
+                     }
+                     if let Some(list) = idx.bins.get_mut(&b) {
+-                        if Self::take_from(list, id) {
+-                            idx.entries -= 1;
+-                        }
++                        Self::take_from(list, id);
+                         if list.is_empty() {
+                             idx.bins.remove(&b);
+                         }
+@@ -172,9 +257,7 @@ impl Radial {
+             Self::put_in(&mut idx.unbounded, id);
+         } else {
+             for b in new.lo..=new.hi {
+-                if Self::put_in(idx.bins.entry(b).or_default(), id) {
+-                    idx.entries += 1;
+-                }
++                Self::put_in(idx.bins.entry(b).or_default(), id);
+             }
+         }
+         self.set_reg(i, new);
+@@ -190,8 +273,10 @@ impl Radial {
+             Some((lo, hi, v)) => {
+                 let idx = self.doll_mut(d);
+                 idx.radius_cap = idx.radius_cap.max(radius);
+-                idx.speed_cap = idx.speed_cap.max(v);
+-                let (blo, bhi) = (bin_of(lo.max(1e-30)), bin_of(hi));
++                // Widened by this body's own speed bound over the scan horizon (not any doll-wide cap): a slow body
++                // stays in a bin or two, a hot one spreads over exactly what its own motion can cover.
++                let w = v * horizon();
++                let (blo, bhi) = (bin_of((lo - w).max(1e-30)), bin_of(hi + w));
+                 if old.doll == d && old.lo != UNBOUNDED {
+                     Reg { doll: d, lo: old.lo.min(blo), hi: old.hi.max(bhi) }
+                 } else if old.doll == d {
+@@ -223,8 +308,8 @@ impl Radial {
+                 (Some((lo, hi)), Some((rl, rh, v))) => {
+                     let idx = self.doll_mut(b.doll);
+                     idx.radius_cap = idx.radius_cap.max(radius);
+-                    idx.speed_cap = idx.speed_cap.max(v);
+-                    Some((lo.min(bin_of(rl.max(1e-30))), hi.max(bin_of(rh))))
++                    let wd = v * horizon();
++                    Some((lo.min(bin_of((rl - wd).max(1e-30))), hi.max(bin_of(rh + wd))))
+                 }
+                 _ => None,
+             };
+@@ -240,19 +325,41 @@ impl Radial {
+         }
+     }
+ 
+-    /// The bodies of doll `d` that can be within the window of the player (ascending), or None when that is most of what is registered
+-    /// in the doll (the caller then reads every body, as it did before there was an index).
++    /// The bodies of doll `d` that can be within the window of the player (ascending), or None where the index cannot narrow
++    /// the read (no such doll; the window spans most of what is registered; the scan's interval is beyond the horizon the
++    /// registrations are widened for): the caller then reads every body, as it did before there was an index.
+     pub fn candidates(&self, d: u16, w: &Window) -> Option<Vec<usize>> {
+-        let idx = self.dolls.get(d as usize)?;
++        let Some(idx) = self.dolls.get(d as usize) else {
++            if census::on() {
++                let seq = census::SEQ.load(std::sync::atomic::Ordering::Relaxed);
++                census::rec(seq, d, 1, 0, 0, 0, 0, self.bodies, 0.0, w.r, w.v, w.h, 0.0, 0.0);
++            }
++            return None;
++        };
++        // The other body's share of the relative motion over the interval is carried by its own widened registration
++        // (`note`/`rebuild`), never by a doll-wide speed: an interval beyond that horizon is not covered, so the caller
++        // reads every body (exact).
++        if w.h > horizon() {
++            if census::on() {
++                let seq = census::SEQ.load(std::sync::atomic::Ordering::Relaxed);
++                census::rec(seq, d, 3, 0, 0, 0, idx.unbounded.len(), self.bodies, idx.radius_cap, w.r, w.v, w.h, 0.0, 0.0);
++            }
++            return None;
++        }
+         let near = (w.reach_p + idx.radius_cap) * 2f64.powi(w.near_log2);
+-        let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
++        let reach = (near + w.v * w.h) * 1.01 + w.r * 1e-9;
+         let (lo, hi) = (bin_of((w.r - reach).max(1e-30)), bin_of(w.r + reach));
+         if hi - lo > 4096 {
++            if census::on() {
++                let seq = census::SEQ.load(std::sync::atomic::Ordering::Relaxed);
++                census::rec(seq, d, 2, lo, hi, 0, idx.unbounded.len(), self.bodies, idx.radius_cap, w.r, w.v, w.h, near, reach);
++            }
+             return None;
+         }
+-        let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
+-        if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
+-            return None;
++        if census::on() {
++            let seq = census::SEQ.load(std::sync::atomic::Ordering::Relaxed);
++            let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
++            census::rec(seq, d, 0, lo, hi, hit, idx.unbounded.len(), self.bodies, idx.radius_cap, w.r, w.v, w.h, near, reach);
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+         for b in lo..=hi {
