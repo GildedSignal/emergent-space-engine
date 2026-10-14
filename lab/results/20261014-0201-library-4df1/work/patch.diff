@@ -1,0 +1,143 @@
+diff --git a/crates/shipmem/examples/measure.rs b/crates/shipmem/examples/measure.rs
+index c6c5700f..4d8ffe0c 100644
+--- a/crates/shipmem/examples/measure.rs
++++ b/crates/shipmem/examples/measure.rs
+@@ -75,6 +75,11 @@ fn main() {
+     let bsize: usize = a.get(4).map(|s| s.parse().unwrap()).unwrap_or(128);
+     let out_path = a.get(5).cloned();
+     let chord = std::env::var("SHIPMEM_NOCHORD").is_err();
++    let slice: usize = std::env::var("SHIPMEM_SLICE")
++        .ok()
++        .and_then(|s| s.parse().ok())
++        .filter(|&k| k > 0)
++        .unwrap_or(usize::MAX);
+     // Identity from provenance for exchangeable populations: keep birth order, do not sort.
+     let birth = std::env::var("SHIPMEM_BIRTH").is_ok();
+     let cols = pop.cols();
+@@ -239,6 +244,7 @@ fn main() {
+         let (mut compact_total, mut max_step, mut arena_ns, mut repacks) =
+             (0u128, 0u64, 0u64, 0u64);
+         let mut ok = true;
++        let mut all_slices: Vec<u64> = Vec::new();
+         let mut krng = Rng::new(0xE7E47);
+         for _round in 0..2 {
+             // The hot tier is sized ahead, in idle time (a rehash inside an event is a spike).
+@@ -261,12 +267,21 @@ fn main() {
+                 pending.insert((br.group as usize, br.start as usize + slot), new);
+             }
+             let t = Instant::now();
+-            let st = s.compact();
++            let mut slices: Vec<u64> = Vec::new();
++            loop {
++                let t0 = Instant::now();
++                let (s2, left) = s.compact_budgeted(slice);
++                slices.push(t0.elapsed().as_nanos() as u64);
++                max_step = max_step.max(s2.max_step_ns);
++                arena_ns = arena_ns.max(s2.arena_ns);
++                repacks += s2.repacks;
++                if left == 0 {
++                    break;
++                }
++            }
++            all_slices.extend_from_slice(&slices);
+             s.tidy();
+             compact_total += t.elapsed().as_nanos();
+-            max_step = max_step.max(st.max_step_ns);
+-            arena_ns = arena_ns.max(st.arena_ns);
+-            repacks += st.repacks;
+             // Oracle: every ship keeps its slot.
+             for (&(g, rank), &new) in &pending {
+                 oracle[g][rank] = new;
+@@ -283,7 +298,7 @@ fn main() {
+         let mean = hot_ns.iter().sum::<u64>() as f64 / hot_ns.len() as f64;
+         let n_upd = hot_ns.len();
+         upd = format!(
+-            ",\"updates\":{},\"hot_ns_mean\":{:.0},\"hot_ns_p50\":{},\"hot_ns_p99\":{},\"hot_ns_max\":{},\"compact_ns_per_update\":{:.0},\"compact_max_step_ns\":{},\"arena_compaction_ns\":{},\"repacks\":{},\"bits_before\":{:.2},\"bits_after\":{:.2},\"updates_roundtrip\":{}",
++            ",\"updates\":{},\"hot_ns_mean\":{:.0},\"hot_ns_p50\":{},\"hot_ns_p99\":{},\"hot_ns_max\":{},\"compact_ns_per_update\":{:.0},\"compact_max_step_ns\":{},\"compact_slices\":{},\"compact_max_slice_ns\":{},\"compact_p99_slice_ns\":{},\"arena_compaction_ns\":{},\"repacks\":{},\"bits_before\":{:.2},\"bits_after\":{:.2},\"updates_roundtrip\":{}",
+             n_upd,
+             mean,
+             pct(&mut hot_ns, 0.5),
+@@ -291,6 +306,9 @@ fn main() {
+             pct(&mut hot_ns, 1.0),
+             compact_total as f64 / n_upd as f64,
+             max_step,
++            all_slices.len(),
++            pct(&mut all_slices, 1.0),
++            pct(&mut all_slices, 0.99),
+             arena_ns,
+             repacks,
+             bits0,
+diff --git a/crates/shipmem/src/shelf.rs b/crates/shipmem/src/shelf.rs
+index 01b37ef6..9f1c0360 100644
+--- a/crates/shipmem/src/shelf.rs
++++ b/crates/shipmem/src/shelf.rs
+@@ -820,16 +820,21 @@ impl Shelf {
+     /// slot (identity is provenance); a ship back at its base is reabsorbed. A group whose scars
+     /// cost more than half its blocks is repacked: the scars are folded into fresh blocks.
+     pub fn compact(&mut self) -> CompactStats {
++        self.compact_budgeted(usize::MAX).0
++    }
++
++    /// Budgeted compaction: seal at most `max_groups` pending groups per call and keep the
++    /// remaining events hot (their base slots stay dead, `forward` restored). Same slot
++    /// semantics as `compact`; returns the stats plus the count of events left pending.
++    pub fn compact_budgeted(&mut self, max_groups: usize) -> (CompactStats, usize) {
+         let mut st = CompactStats::default();
+         let hot = std::mem::take(&mut self.hot);
+-        self.forward.clear();
+         let cols = self.cols;
+         // (group, rank, new state)
+         let mut ev: Vec<(u32, u64, Ship, u32)> = hot
+             .iter()
+             .map(|h| {
+                 let bi = (h.handle >> 8) as usize;
+-                self.dead[bi] = 0;
+                 (
+                     h.group,
+                     self.blocks[bi].start as u64 + (h.handle & 255) as u64,
+@@ -842,11 +847,16 @@ impl Shelf {
+         let mut enc = std::mem::take(&mut self.enc);
+         let mut buf = Buf::default();
+         let mut i = 0;
++        let mut done = 0usize;
+         while i < ev.len() {
++            if done >= max_groups {
++                break;
++            }
+             let t0 = Instant::now();
+             let g = ev[i].0 as usize;
+             let mut j = i;
+             while j < ev.len() && ev[j].0 as usize == g {
++                self.dead[(ev[j].3 >> 8) as usize] = 0;
+                 j += 1;
+             }
+             // Merge the old scars (as deltas) with the new states (deltas from the base).
+@@ -923,16 +933,27 @@ impl Shelf {
+                 st.repacks += 1;
+             }
+             st.max_step_ns = st.max_step_ns.max(t0.elapsed().as_nanos() as u64);
++            done += 1;
+             i = j;
+         }
+         self.enc = enc;
++        // Events left unsealed this call go back to the hot tier; their slots stay dead.
++        self.forward.clear();
++        for e in &ev[i..] {
++            self.forward.insert(e.3, self.hot.len() as u32);
++            self.hot.push(Hot {
++                ship: e.2,
++                handle: e.3,
++                group: e.0,
++            });
++        }
+         if self.garbage * 4 > self.arena.len() {
+             let t0 = Instant::now();
+             self.compact_arena();
+             st.arena_compactions += 1;
+             st.arena_ns = t0.elapsed().as_nanos() as u64;
+         }
+-        st
++        (st, ev.len() - i)
+     }
+ 
+     /// Idle-time tidy: reclaim garbage and slack.
