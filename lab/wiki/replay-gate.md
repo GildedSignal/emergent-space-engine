@@ -2,7 +2,7 @@ topic: replay-gate
 status: open
 closed-by:
 valid-while:
-updated: 20261014-0059-inversion-8e84
+updated: 20261014-0450-second-20261014-0059-inversion-8e84-7559
 
 # The replay gate: budget decay, a stale canon that rewards reverting fixes, and no teeth for law regressions
 
@@ -43,6 +43,26 @@ baselines stale `3 changed`, fresh `3 same`, both exit 0):
   and a same-law digest mismatch each print REGRESSION and exit 1 — the teeth exist
   exactly on those two channels and nowhere else.
 
+**And the two gate-dark mutants are guarded nowhere else either (second-author run,
+20261014-0450-second-…-7559, the checker's named experiment):** `cargo test
+-p emergent-universe -p emergent-lattice` (23 binaries, 91 tests) passes **91/0/3 —
+identical to the clean baseline — under both M-kick and M-prune**, with the M-wrap
+control dying in the lattice's own `hit_is_exact_past_the_i128_products` (teeth proven,
+so the passes mean "guarded nowhere"), restore = baseline, and an rlib-fingerprint
+liveness control proving the mutations compiled in. The xtask suite (the only other
+crate whose tests reach the mutated code) adds no mutant-specific failure: M-kick's
+failure set equals baseline; M-prune's two extra parallel failures are the B10 timing
+gate (planted laws never enter `universe.rs`; serial under M-prune they pass, 7/7).
+M-kick's suite-darkness has a named mechanism: the running readout tests judge through
+`observe::partial` (7 Oct: "the ramp: up to 39x, and ignored"), whose mid-window value
+is independent of `Kick.len` (Δv recomputed from the field; `len` only bounds the
+window τ ≤ 2·len) — the `credit` ramp, whose shape uses `len`, has **no running test**,
+and the one across-kick reader (xtask `across_a_kick…`) reads bit-identical values
+under the mutant. `behave --law plane` (the frozen B12–B14, B17 that judge the shipped
+engine) is run by no test at all and cannot adjudicate on the lab's shared box — the
+**clean tree fails it there** (B14's 60 s limit is M1-calibrated); it is the one
+instrument only the integrator can run.
+
 So the gate's mesh on a fresh corpus is 2 of 6 fully dark, 4 of 6 review-only; on a stale
 corpus (main today) the per-flight signal is already saturated at `changed`, so an
 additional mutant-induced digest change is unobservable, and a mutant that drifts the law
@@ -73,6 +93,13 @@ skip the longest committed real flight and print `0 regression(s)`, exit 0 (chec
   (M-wrap, 20261014-0059-inversion-8e84).
 - "An absurd law change (gravity's sign) would trip the gate": exit 0, `3 changed`, same
   class as any pending change (M-sign, 20261014-0059-inversion-8e84).
+- "The shipped suites catch what the gate misses": refuted for the two gate-dark
+  mutants — neither draws a mutant-specific failure anywhere (universe+lattice
+  91/0/3, identical to baseline, under both; M-kick's xtask failure set equals
+  baseline; M-prune's two parallel xtask extras are the B10 load gate, planted
+  laws never entering `universe.rs`, and pass serially, 7/7), while M-wrap dies
+  in the lattice's own `hit_is_exact…`; only the never-automatically-run
+  `behave --law plane` remains unmeasured (20261014-0450-second-…-7559).
 
 ## Open directions
 
@@ -80,19 +107,27 @@ skip the longest committed real flight and print `0 regression(s)`, exit 0 (chec
    law hash differs from the tree's is reported `stale (N flights need refresh)` and never
    silently yields `same` (move `law_same` out of the digest-mismatch branch); `changed >
    0` exits 2 ("review") so scripts stop reading green for law drift. Would change:
-   reverting a fix can no longer read as the gate's best output.
+   reverting a fix can no longer read as the gate's best output. The suites result makes
+   this the only automated line of defence, not one layer among several.
 2. **Corpus envelope by dark path — closes M-prune only** — the corpus is one seed, 48
    members, threads 1, levels {4, 6, 8, 15}; M-prune (history margin) is dark there at
    any margin (an absurd cut, `1 << 2`, is still `3 same` — checker 2), and one scripted
    prune-bound long flight (or a second seed) would close it. M-kick is
-   **not** closable by corpus: it needs the digest to cover `b.kick` (a canon reset) or
-   an observe-consistency assertion; the panel is the instrument to re-run after
-   (20261014-0059-inversion-8e84).
-3. **Budget honesty and retention** (30da): `skipped > 0` exits non-zero and/or parallel
+   **not** closable by corpus: it needs the digest to cover `b.kick` (a canon reset), an
+   observe-consistency assertion, or a running `credit`-ramp test (a mid-window
+   between-kick read, which no running test does — the running readout tests judge
+   through `partial`, whose value is `len`-independent; 7559).
+3. **`behave --law plane` under the mutants, on the M1** (the one unmeasured
+   instrument): the clean tree fails it on the lab's shared x86 box (B14's 60 s limit,
+   B12/B13 convergence), so only the integrator can run the two-mutant check — minutes,
+   one command each (7559).
+4. **Is main's xtask suite red on x86?** `cargo test -p xtask` fails 7 tests on the
+   lab box with a deterministic signature (`across_a_kick…` ship 3 reads 24.4 quanta
+   against a bound the other three ships meet at 1–3; five handoff tests and one
+   events test besides) — one M1 rerun decides machine-dependence vs a red main
+   (7559, a lead from the controls, not from the mutants).
+5. **Budget honesty and retention** (30da): `skipped > 0` exits non-zero and/or parallel
    replays; keep the K most recent flights plus any that ever caught a regression.
-4. **Do the shipped suites bite where the gate is dark?** M-wrap dies in the lattice's own
-   `hit_is_exact_past_the_i128_products`; whether any shipped test kills M-kick or M-prune
-   is unmeasured — the named next experiment (20261014-0059-inversion-8e84).
 
 ## Contradictions
 
@@ -103,3 +138,4 @@ mutant's digests under a clean tree) was diagnosed and superseded by the
 ## Runs
 - 20261014-0000-inversion-30da (ungraded): the merge gate skips flights silently once
 - 20261014-0059-inversion-8e84 (silver): gate-bite mutant panel — no law regression can
+- 20261014-0450-second-20261014-0059-inversion-8e84-7559 (second author): the named
