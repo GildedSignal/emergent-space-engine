@@ -1,0 +1,166 @@
+diff --git a/xtask/src/universe/flight_growth.rs b/xtask/src/universe/flight_growth.rs
+new file mode 100644
+index 00000000..98a4a1a2
+--- /dev/null
++++ b/xtask/src/universe/flight_growth.rs
+@@ -0,0 +1,147 @@
++//! How much flown time the merge gate can still check (run 20261014-0000-inversion-30da,
++//! inversion lens). `--replay-all` gives every flight at most half its 55 s budget and
++//! skips what does not fit, with exit code 0. This flies sessions the way `flight_tests`
++//! does (live frames, a wall budget, a player-like script in coordinate time), records
++//! them with the shipped recorder, then replays each with no deadline: one JSON row per
++//! flight, the x-axis being the coordinate time the flight covered. The members count
++//! follows the committed flights (48), so event density matches real play.
++use super::flight::Flight;
++use super::replay::{replay, replay_all};
++use super::session::Session;
++use emergent_universe::view::TICK_SECONDS;
++use serde_json::json;
++use std::path::{Path, PathBuf};
++use std::time::Instant;
++
++fn word(k: u8, l: u8) -> u8 {
++    (k & 15) | (l << 4)
++}
++
++/// A mixed script in coordinate seconds, every hold at least a frame long (frames are
++/// `dt · rtf` coordinate seconds: a hold shorter than that is invisible to the universe,
++/// and the flight silently becomes a coast — the first version of this test did exactly
++/// that). Density: a decision every few hundred coordinate seconds, as the committed
++/// flights have it (six decisions over ~1,200 coordinate-s).
++fn mixed(t: f64) -> u8 {
++    if t < 300.0 {
++        word(0, 0)
++    } else if t < 900.0 {
++        word(1, 8)
++    } else if t < 1500.0 {
++        word(0, 0)
++    } else if t < 1800.0 {
++        word(1, 15)
++    } else if t < 2400.0 {
++        word(0, 0)
++    } else if t < 3000.0 {
++        word(2, 8)
++    } else {
++        let m = (t - 3000.0) % 3000.0;
++        if m < 600.0 { word(1, 8) } else if m < 900.0 { word(4, 4) } else { word(0, 0) }
++    }
++}
++
++/// A burn-dense script: the mixed opening (the part a replay pays the most for) cycled
++/// forever — a player who manoeuvres constantly (the sweep, docking, combat). Every hold
++/// is hundreds of coordinate seconds, as real burns are.
++fn burny(t: f64) -> u8 {
++    let m = t % 3000.0;
++    if m < 300.0 {
++        word(0, 0)
++    } else if m < 900.0 {
++        word(1, 8)
++    } else if m < 1500.0 {
++        word(0, 0)
++    } else if m < 1800.0 {
++        word(1, 15)
++    } else if m < 2400.0 {
++        word(0, 0)
++    } else {
++        word(2, 8)
++    }
++}
++
++/// Fly `wall_s` of a session at `rtf` (frames of `dt` wall seconds), record it, replay it
++/// with no deadline, and return everything the gate's reach depends on.
++fn grow(dir: &Path, seed: u64, members: u64, rtf: f64, wall_s: f64, dt: f64, style: fn(f64) -> u8) -> serde_json::Value {
++    let t0 = Instant::now();
++    let mut s = Session::new(seed, 1, members, rtf).unwrap();
++    s.engine_ms = 900.0;
++    s.record_into(dir.to_path_buf());
++    let (mut t, mut frames) = (0.0, 0u64);
++    while t < wall_s {
++        s.step(Some(style(t * rtf)), dt).unwrap();
++        t += dt;
++        frames += 1;
++    }
++    let events = s.dash.events;
++    let path = s.finish("exit").expect("a flown session leaves a file");
++    let fly_s = t0.elapsed().as_secs_f64();
++    let text = std::fs::read_to_string(&path).unwrap();
++    let f: Flight = serde_json::from_str(&text).unwrap();
++    let r = replay(&f, None).expect("no deadline: the replay must finish");
++    json!({
++        "seed": seed, "members": members, "rtf": rtf, "wall_flown_s": wall_s, "dt": dt,
++        "frames": frames, "fly_s": fly_s, "events_live": events, "inputs": f.inputs.len(),
++        "cut_tick": f.cut_tick, "coord_s": f.cut_tick.unwrap_or(0) as f64 * TICK_SECONDS,
++        "replay_s": r.seconds, "bytes": text.len(), "loss": f.loss,
++        "same_digest": Some(&r.digest) == f.digest.as_ref(),
++    })
++}
++
++fn tmp(name: &str) -> PathBuf {
++    let d = std::env::temp_dir().join(format!("es-growth-{name}-{}", std::process::id()));
++    let _ = std::fs::remove_dir_all(&d);
++    std::fs::create_dir_all(&d).unwrap();
++    d
++}
++
++#[test]
++fn the_gate_reach_against_flown_time() {
++    let dir = tmp("table");
++    let rows: Vec<_> = [(11u64, 0.2f64), (12, 6.0), (13, 30.0), (14, 60.0)]
++        .iter()
++        .map(|&(seed, wall)| grow(&dir, seed, 48, 1000.0, wall, 0.5, mixed))
++        .collect();
++    println!("GROWTH {}", serde_json::to_string(&rows).unwrap());
++    assert!(
++        rows.iter().all(|r| r["same_digest"].as_bool().unwrap()),
++        "every flight must replay to its recorded digest, or the measurement is of a bug"
++    );
++    assert!(
++        rows[1..].iter().all(|r| r["inputs"].as_u64().unwrap() >= 5),
++        "the scripted flights must carry real decisions (the first version silently flew a coast)"
++    );
++    let _ = std::fs::remove_dir(&dir);
++}
++
++/// silently stops covering the corpus as play accumulates.
++#[test]
++fn the_gate_skips_silently_once_play_accumulates() {
++    let dir = tmp("corpus");
++    let mut rows = vec![];
++    for seed in 15..25u64 {
++        rows.push(grow(&dir, seed, 48, 1000.0, 130.0, 0.5, burny));
++    }
++    let solo: f64 = rows.iter().map(|r| r["replay_s"].as_f64().unwrap()).sum();
++    println!("CORPUS {}", serde_json::to_string(&rows).unwrap());
++    assert!(
++        rows.iter().all(|r| r["same_digest"].as_bool().unwrap() && r["loss"].is_null()),
++        "every flight is legal and replays to its digest"
++    );
++    let committed: f64 = 3.0 * 0.7; // the three committed flights replay in ~2.1 s in all (measured)
++    for c in std::fs::read_dir(super::flight::default_dir()).unwrap().flatten() {
++        let p = c.path();
++        if p.extension().is_some_and(|e| e == "json") {
++            std::fs::copy(&p, dir.join(p.file_name().unwrap())).unwrap();
++        }
++    }
++    let exit = replay_all(&dir, 55.0).unwrap();
++    println!("GATE exit {exit}; solo replays {solo:.1} s + committed ~{committed:.1} s vs the 55 s budget");
++    assert!(
++        solo + committed > 55.0,
++        "the corpus must outlive the budget, or the demonstration shows nothing"
++    );
++    assert_eq!(exit, 0, "the gate reports success while flights go unreplayed");
++    let _ = std::fs::remove_dir_all(&dir);
++}
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..1ecad6cd 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -13,6 +13,8 @@
+ //! causal-deadline order, gathers the view, serialises it; its wall time is the frame time.
+ mod flight;
+ #[cfg(test)]
++mod flight_growth;
++#[cfg(test)]
+ mod flight_tests;
+ mod http;
+ mod kick_bench;

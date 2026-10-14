@@ -1,0 +1,22 @@
+{
+  "machine": "Linux x86_64, 8 vCPU (GitHub Actions lab box); orders of magnitude only",
+  "committed_flights_replay": [
+    {"file": "20261013T143859Z-seed1.json", "inputs": 6, "coord_s": 1205.4, "replay_s": 1.4, "coord_s_per_s": 861},
+    {"file": "20261013T143928Z-seed1.json", "inputs": 1, "coord_s": 408.3, "replay_s": 0.2, "coord_s_per_s": 2042},
+    {"file": "20261013T143932Z-seed1.json", "inputs": 2, "coord_s": 2194.3, "replay_s": 0.5, "coord_s_per_s": 4388}
+  ],
+  "growth_table_48_members_mixed": [
+    {"coord_s": 500, "inputs": 0, "events": 1729, "replay_s": 0.128},
+    {"coord_s": 5505, "inputs": 7, "events": 17578, "replay_s": 1.976},
+    {"coord_s": 29505, "inputs": 23, "events": 22045, "replay_s": 2.482},
+    {"coord_s": 59505, "inputs": 43, "events": 51052, "replay_s": 3.637}
+  ],
+  "burny_130k": {"coord_s": 129505, "inputs": 259, "events": 105826, "replay_s": 5.95, "coord_s_per_s": 21780},
+  "corpus_demo": {
+    "flights": 13, "solo_replay_s": {"synthetic_10": 54.1, "committed_3": 2.1},
+    "outcome": "10 same, 1 changed (law hash differs on this tree), 2 skipped (time), 0 regressions, exit 0",
+    "skipped": ["20261013T143859Z-seed1.json (the longest committed real flight)"]
+  },
+  "gate_constants": {"ALL_SECONDS": 55.0, "per_flight_cap_s": 27.5},
+  "plane_effective_rate": {"coord_s_per_played_s_at_rtf100": 41.5, "source": "flight 20261013T143859Z: 1205 coord-s over 29 s wall"}
+}
