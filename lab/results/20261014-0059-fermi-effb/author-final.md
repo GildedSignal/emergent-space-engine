@@ -1,0 +1,4 @@
+Working...
+Run complete. All artifacts in `lab/results/20261014-0059-fermi-effb/` (predictions written first — all six held; `regen.sh` reproduces every number in under a second).
+
+**The claim:** after the full measured adoption queue the 10⁹ quiet-belt CPU is encounter-bound by ~1.9×10³ even with the skin on while the kick term never exceeds 1.07 cores at Carlson pricing under either rate constant — because the cadence law is now code-verified as rate = 2⁷/P (κ ∈ [128,256] per radial period, reproducing the measured roster endpoints at 0.96/0.76 and containing the measured 202–223 kicks/orbit), so the scoreboard's kick gap is the *hot* rail's alone and the billion's cold-rail event load is a birth-constant content decision, with the wired belt's next wall predicted at ~5.2×10⁵ bodies (held-out, falsifiable when the encounters tier lands).

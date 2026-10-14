@@ -1,0 +1,46 @@
+==============================================================================
+1. THE CADENCE LAW AGAINST THE MEASURED ROSTER (prediction 1 and 2)
+==============================================================================
+  Cinder  a= 0.39 AU  P=  0.24 yr   rate 1.7e-05-3.3e-05/s
+  Home    a= 1.00 AU  P=  1.00 yr   rate 4.1e-06-8.1e-06/s
+  Giant   a= 5.20 AU  P= 11.84 yr   rate 3.4e-07-6.8e-07/s
+  Orbiter0 (1.15 R_Home)  P=   5536 s (92 min)  rate 0.0231-0.0462/s   [3071 top: 0.0484]
+  Player (7000 km alt)    P=  13651 s (3.8 h)    rate 0.0094-0.0188/s
+  Moon (60 R_Home)        P=2070329 s (24.0 d)     rate 6.18e-05-1.24e-04/s
+  Hauler a=0.5 AU         P=11158589 s (0.354 yr)  rate 1.15e-05-2.29e-05/s   [3071 floor: 3e-5]
+  Hauler a=8 AU           P=714149715 s (22.6 yr)   rate 1.79e-07-3.58e-07/s
+  -> roster TOP  predicted 0.0462 vs measured 0.0484 : ratio 0.96 (within 2x: True)
+  -> roster FLOOR predicted 2.29e-05 vs measured 3e-5  : ratio 0.76 (within 2x: True)
+  -> 7497 Orbiters 202-223/orbit inside [128,256]: True
+  -> roster MEAN rate (kappa=128) ~ 3.33e-03/s per native  [a9d7's instrument: 3.55e-5/body/s]
+
+==============================================================================
+2. THE 10^9 LEDGER (quiet belt, one game-second, rtf 1; budget 4 cores)
+==============================================================================
+  event-rate bracket                                231us       30us       50ns   (cores)
+  code-derived, belt at 1-2 AU (kappa=128-256/P)      0.937      0.122      0.000   (upper edge of bracket)
+  a9d7 plane instrument 3.55e-5                     8.200      1.065      0.002   (upper edge of bracket)
+  ENCOUNTERS  skin on  : 7.700e+03 cores   (1925x the 4-core budget)
+  ENCOUNTERS  no skin  : 9.660e+04 cores   (24150x)
+  -> encounters / kicks (Carlson, worst-rate bracket) = 7051x
+  MEMORY quiet 21-40 bits/body: 2.62-5.00 GB of 8;  driven 126 bits: 15.75 GB
+  HOT   6.9 KB x N_hot 1.3-2.7e4: 90-186 MB;  H_live 21 bits/s: ~0
+  FRAME tier: deleted by the lazy tier (8b43; 1.35 us flat) - ~0 (gate regression open)
+
+==============================================================================
+3. THE TWO RAILS (where each scoreboard gap actually lands)
+==============================================================================
+  HOT ceiling at  231.0 us/event: 1.1e+05 battle members  [790b measured ~2.8e4 at the stack]
+  HOT ceiling at   30.0 us/event: 8.1e+05 battle members  [790b measured ~2.8e4 at the stack]
+  HOT ceiling at    0.0 us/event: 4.9e+08 battle members  [790b measured ~2.8e4 at the stack]
+  COLD encounter wall: N = 4 cores / 7.7e-6 cores/body/s = 5.2e+05 bodies (skin on); 4.1e+04 (no skin)
+  bodies gap decomposition: 10^9 needs the COLD encounter term cut 1925x more (skin on),
+  and the HOT rail's kick cost decides only the hot ceiling (2.8e4 -> 5e+08 at the floor).
+
+==============================================================================
+4. CHECK-A-CLAIM: 367f/ad26's quiet-belt arithmetic, independently
+==============================================================================
+  367f: 1e9 x 3.6e-5 x 231 us = 8.32 cores  (published ~8.3)  -> agrees
+  ad26: 1e9 x 3.55e-5 x 30 us = 1.065 cores  (published 1.08)  -> agrees
+  Both inherit the a9d7 rate (the plane's mix); at code-derived 2-AU belt rates the same
+  arithmetic gives 0.33-0.66 cores (231 us) / 0.086 cores (30 us).
