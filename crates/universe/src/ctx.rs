@@ -41,6 +41,9 @@ pub struct Config {
     /// Kicks per the ship's own radial period, as a power of two, for a ship of the root doll (the smooth regime and the floor of
     /// the passage regime, [`crate::ext::constants`]).
     pub smooth_log2: i32,
+    /// Steps per period of the doll's shortest secondary, as a power of two, for a ship of the root doll on its own clock: the
+    /// frame's fall toward every secondary (the indirect term) forces every body of the doll at that period ([`crate::ext::constants`]).
+    pub forcing_log2: i32,
     /// Each ship of the root doll on its own clock (its own period, the secondaries it can meet, a phase from its id); false is
     /// the clock of 7 October (every ship of the doll on the doll's shortest secondary, phase zero), kept as the reference.
     pub own_clock: bool,
@@ -49,7 +52,7 @@ pub struct Config {
 }
 impl Default for Config {
     fn default() -> Self {
-        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7, smooth_log2: 4, own_clock: true, thrust_quantum_log2: 6 }
+        Self { thrust_log2: -44, turn_log2: -30, leave_log2: 40, step_log2: 7, smooth_log2: 4, forcing_log2: 2, own_clock: true, thrust_quantum_log2: 6 }
     }
 }
 

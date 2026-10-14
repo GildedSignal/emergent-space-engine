@@ -23,14 +23,20 @@
 //!   floor of `10·Σ gm_j/a_j` that keeps `U_P + c` positive for the origin's fall out to ten separations (past the doll's
 //!   useful range `U_P + c` is held at `c/8`: a guard, a coarser step, not a branch of the law);
 //! - `b = 30·c`: the refinement passes from `d²` to `d` (Sundman's `dt ∝ r`) at about `R_H/30`;
-//! - `Δs = T/f'(c)`, rounded down to a power of two, `T` the step the body's own orbit asks for far from every secondary
-//!   (**each body's own clock**, 14 October; [`constants`]): `T = min(2^−k_s·P, 2^−k·P_j over the secondaries j it can meet)`,
-//!   `P` its own radial period (`k_s = Config::smooth_log2`, the lab's smooth frontier: 16 a period), `P_j` the period of a
-//!   secondary its orbit can meet (`k = Config::step_log2`, the passage price B13 is measured at). Which secondaries a body can
-//!   meet is one dimensionless number per secondary: the gap between the radial ranges of the two orbits in the secondary's Hill
-//!   radii, against `2√3` (Gladman's bound: orbits further apart never meet). A body whose tube has no period (a passage
-//!   through the system) can meet them all; the player, whose orbit is a decision, keeps the doll's clock (`2^−k` of the
-//!   period of the doll's shortest secondary), as every body did before.
+//! - `Δs = T/f'(c)`, rounded down to a power of two, `T` the step far from every secondary (**each body's own clock**,
+//!   14 October; [`constants`]): the longest that resolves the three timescales that force the body,
+//!   `T = min(2^−k_s·P, 2^−k_f·P_D, 2^−k·P_j over the secondaries j it can meet)`:
+//!   - its own orbit: `P` its radial period, `k_s = Config::smooth_log2` (the lab's smooth frontier: 16 a period);
+//!   - the frame's fall: the origin falls toward every secondary (the indirect term, a uniform field, the same at every body of
+//!     the doll), so every body is forced at the period `P_D` of the doll's shortest secondary; `k_f = Config::forcing_log2` = 2
+//!     is the cheapest measured to keep a belt's error an offset (`examples/cadence.rs`: at `k_f` = 1, or with no such term, a
+//!     belt about Cinder, Home and the Giant aliases Cinder's 88 days and its eccentricity walks, growth exponent 1.0-1.1);
+//!   - a passage: `P_j` the period of a secondary its orbit can meet (`k = Config::step_log2`, the price B13 is measured at).
+//!     Which secondaries a body can meet is one dimensionless number per secondary: the gap between the radial ranges of the two
+//!     orbits in the secondary's Hill radii, against `2√3` (Gladman's bound: orbits further apart never meet).
+//!
+//!   A body whose tube has no period (a passage through the system) can meet them all; the player, whose orbit is a decision,
+//!   keeps the doll's clock (`2^−k·P_D`), as every body did before.
 //! - **No lockstep:** a body's first step is a stub `φ·Δs`, `φ ∈ (0, 1)` a function of its id ([`phase`]), a symmetric step
 //!   like the others (`D(φΔs/2)·Kc(φΔs)·D(φΔs/2)`), so that bodies born at one tick with one `Δs` never kick at one tick.
 //!
@@ -185,9 +191,9 @@ pub fn phase(id: usize) -> u16 {
 /// The constants of the clock of a body of doll `d` (its secondaries other than `except`), read at `t`: `(Δs, c, b)`.
 ///
 /// `own` is the body's tube when it has its own clock (a ship), None for the doll's clock (the player, and every body under
-/// `Config::own_clock = false`). The step far from every secondary is `T = min(2^-k_s·P, 2^-k·P_j)` over the secondaries `j`
-/// the tube can meet (module docs): the gap between the tube's radial range `[q, Q]` and the secondary's `[q_j, Q_j]` is under
-/// `2√3·R_H,j`. A tube without a period can meet every secondary.
+/// `Config::own_clock = false`). The step far from every secondary is `T = min(2^-k_s·P, 2^-k_f·P_D, 2^-k·P_j)` over the
+/// secondaries `j` the tube can meet (module docs): the gap between the tube's radial range `[q, Q]` and the secondary's
+/// `[q_j, Q_j]` is under `2√3·R_H,j`. A tube without a period can meet every secondary.
 pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, own: Option<&Binding>) -> Res<(Scalar, Scalar, Scalar)> {
     let host = ctx.dolls[d as usize].unit.mu;
     let (k, k_s) = (ctx.cfg.step_log2, ctx.cfg.smooth_log2);
@@ -218,7 +224,7 @@ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, own: Option<&Binding
         (None, _) => shortest.scale(-k)?,
         (Some(_), None) => met.unwrap_or(shortest).scale(-k)?,
         (Some(_), Some((_, _, _, p))) => {
-            let mine = p.scale(-k_s)?;
+            let mine = p.scale(-k_s)?.min(shortest.scale(-ctx.cfg.forcing_log2)?);
             match met {
                 Some(m) => mine.min(m.scale(-k)?),
                 None => mine,
