@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place (`dossier.md`, `predictions.md` with outcomes, `regen.sh`, `raw/` logs, `work/patch.diff`, `wiki/nladder.md`; tree edits left for `run.sh` to save and restore; no commits made).
+
+**The claim:** the first-kick wave's height is a generation accident, not an engine property — staggering the ladder's birth grid over one clock step (birth-only, ships-only, ~10 lines, no engine term) flattens the wave's arrival width 20.2× (1,491 → 30,109 game-s ≈ one step) and deletes its monster frames on clean main at 10⁵ burn (events/frame max 6,712 → 338, wave-region over-budget frames 5 → 0, worst frame 338 → 34.4 ms), with every non-belt counter identical and the one-shot Jacobi cost inside the cadence's own error class — leaving the unnamed second seam as the only term still binding F1, and making the stagger (measured at 10⁵, cf45's "not optional" at 10⁹) the generation-side complement to 4487's engine-side pull-hold.

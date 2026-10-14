@@ -1,0 +1,119 @@
+diff --git a/crates/universe/examples/belt_first.rs b/crates/universe/examples/belt_first.rs
+index 558a4a83..d7f104ed 100644
+--- a/crates/universe/examples/belt_first.rs
++++ b/crates/universe/examples/belt_first.rs
+@@ -10,7 +10,8 @@ use emergent_universe::Config;
+ 
+ fn main() {
+     let n: usize = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(3000);
+-    let p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let seed: u64 = std::env::var("ES_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let locals = ladder_locals(n as u64) as usize;
+     // The ladder's ships come after the plane's own bodies and before the player.
+     let base = p.player - n;
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..ef737961 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,17 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: the resident set and its high-water mark from /proc (kB lines; 0 when unreadable).
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let read = |key: &str| -> u64 {
++        std::fs::read_to_string("/proc/self/status").ok().and_then(|s| {
++            s.lines().find(|l| l.starts_with(key)).and_then(|l| l.split_whitespace().nth(1)?.parse::<u64>().ok())
++        }).unwrap_or(0) * 1024
++    };
++    (read("VmRSS:"), read("VmHWM:"))
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -45,11 +58,13 @@ fn main() {
+     let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let seed: u64 = std::env::var("ES_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let max_s: f64 = std::env::var("ES_LADDER_MAX_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0);
+     let burn = flight == "burn";
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -64,7 +79,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(max_s) {
+             truncated = true;
+             break;
+         }
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..3a15749e 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -625,7 +625,8 @@ impl Work<'_, '_> {
+     /// is planned at the middle of the first step.
+     fn plan_clock(&mut self, t: Tick) -> Res<()> {
+         let d = self.rec.b.doll;
+-        if self.rec.ext.is_none() {
++        let born = self.rec.ext.is_none();
++        if born {
+             let st = self.rec.b.readout(t)?;
+             let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
+@@ -642,6 +643,13 @@ impl Work<'_, '_> {
+         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
+             half = half.min((self.thrust_step(t)? / 2).max(1));
+         }
++        // The birth-grid stagger (an experiment, `ES_STAGGER`): a ship that has just been given the clock's
++        // constants delays its first kick by a uniform draw over one step, so a population born at one tick
++        // does not arrive as one wave. The player is never staggered; only the first interval moves.
++        if born && matches!(self.rec.kind, Kind::Ship) && std::env::var_os("ES_STAGGER").is_some() {
++            let span = (2 * half) as u64;
++            half += (mix64(self.i as u64) % span.max(1)) as i64;
++        }
+         self.rec.ext = Some(ext);
+         self.rec.plan.clear();
+         self.rec.anchor = t;
+@@ -913,8 +921,13 @@ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+     Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind: Resolved::Open }
+ }
+ 
+-pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+-    dot2(a, b)
++
++/// splitmix64's finalizer (as `scenario::mix64`): a body's stagger draw, integers only.
++fn mix64(mut z: u64) -> u64 {
++    z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
++    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    z ^ (z >> 31)
+ }
+ 
+ #[cfg(test)]

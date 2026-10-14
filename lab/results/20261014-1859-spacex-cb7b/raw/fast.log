@@ -1,0 +1,26 @@
+=== census control N=100000 ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 99700 bodies, first item (game s) min 13051 p01 13380 p50 14072 p99 14473 max 14542
+=== census stagger N=100000 ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 99700 bodies, first item (game s) min 13288 p01 14323 p50 28122 p99 42103 max 43397
+=== census control N=3000 ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 2700 bodies, first item (game s) min 13051 p01 13371 p50 14072 p99 14476 max 14534
+=== census stagger N=3000 ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 2700 bodies, first item (game s) min 13821 p01 14244 p50 28301 p99 41969 max 43294
+=== jacobi 7 control ===
+
+thread 'main' panicked at crates/universe/examples/jacobi.rs:31:42:
+called `Result::unwrap()` on an `Err` value: Space(Range)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+=== jacobi 7 stagger ===
+refusals per ship: [0, 0, 0, 0, 0, 0]
+step 2^-7: worst per ship ["2.7e-5", "5.0e-6", "2.3e-5", "1.7e-5", "2.9e-6", "3.3e-6"] | 7.8s kicks 167923 handoffs 0 lost 0
+=== jacobi 5 control ===
+refusals per ship: [0, 0, 0, 0, 0, 0]
+step 2^-5: worst per ship ["1.7e-5", "2.2e-6", "1.8e-5", "2.7e-6", "5.1e-6", "2.0e-6"] | 2.1s kicks 40650 handoffs 0 lost 0
+=== jacobi 5 stagger ===
+refusals per ship: [0, 0, 0, 0, 0, 0]
+step 2^-5: worst per ship ["1.9e-4", "1.2e-5", "4.0e-5", "1.9e-5", "2.3e-4", "1.8e-5"] | 2.0s kicks 42041 handoffs 0 lost 0

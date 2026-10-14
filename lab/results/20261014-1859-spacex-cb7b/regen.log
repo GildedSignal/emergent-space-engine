@@ -1,0 +1,61 @@
+warning: unused import: `dot2`
+  --> crates/universe/src/step.rs:41:24
+   |
+41 | use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, Error, Res, Tick, V2};
+   |                        ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: value assigned to `horizon` is never read
+  --> crates/universe/examples/tail.rs:26:17
+   |
+26 |         let mut horizon = p.u.now;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+--- 19:18:49 load 2.00 1.29 0.93 free_mb 14965
+=== census control N=100000 ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 99700 bodies, first item (game s) min 13051 p01 13380 p50 14072 p99 14473 max 14542
+=== census stagger N=100000 ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 99700 bodies, first item (game s) min 13288 p01 14323 p50 28122 p99 42103 max 43397
+=== census control N=3000 ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 2700 bodies, first item (game s) min 13051 p01 13371 p50 14072 p99 14476 max 14534
+=== census stagger N=3000 ===
+locals: 300 bodies, first item (game s) min 21 p01 21 p50 661 p99 5289 max 5289
+belt: 2700 bodies, first item (game s) min 13821 p01 14244 p50 28301 p99 41969 max 43294
+=== jacobi 7 control ===
+
+thread 'main' panicked at crates/universe/examples/jacobi.rs:31:42:
+called `Result::unwrap()` on an `Err` value: Space(Range)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+=== jacobi 7 stagger ===
+refusals per ship: [0, 0, 0, 0, 0, 0]
+step 2^-7: worst per ship ["2.7e-5", "5.0e-6", "2.3e-5", "1.7e-5", "2.9e-6", "3.3e-6"] | 7.7s kicks 167923 handoffs 0 lost 0
+=== jacobi 5 control ===
+refusals per ship: [0, 0, 0, 0, 0, 0]
+step 2^-5: worst per ship ["1.7e-5", "2.2e-6", "1.8e-5", "2.7e-6", "5.1e-6", "2.0e-6"] | 2.0s kicks 40650 handoffs 0 lost 0
+=== jacobi 5 stagger ===
+refusals per ship: [0, 0, 0, 0, 0, 0]
+step 2^-5: worst per ship ["1.9e-4", "1.2e-5", "4.0e-5", "1.9e-5", "2.3e-4", "1.8e-5"] | 2.0s kicks 42041 handoffs 0 lost 0
+=== FLIGHT control ===
+rung N=100000 (100028 bodies), burn, rtf 100, 210 s of wall time, engine budget 12 ms; build 4.25 s, peak footprint 237 MB (now 237 MB)
+frames after 1 s: 12540  engine ms p50 0.009 p90 1.764 p99 11.923 max 334.058; over 12 ms: 35; frames behind: 2, worst lag 1.448 s; events/frame p50 0 p99 239 max 6907; scans held max 176
+game 20898.2 s after the first second: kicks 133465 (6.385e-5/body/game-s), events 173313 (8.291e-5/body/game-s), stats {opens 433, boundaries 32368, handoffs 1, lost 25, refused 0, slices 7046}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 237 MB at the build's end, 863 MB at the flight's end (now 863 MB); 2347 B a body from the build; dashboard bytes/body 1414; view gather 4577.3 ms cold, 2025.4 ms warm (100048 seen); catalogue 100076 entries
+frames over the budget (first 12): [8367, 8416, 8466, 8516, 11094, 11143, 11193, 11243, 11292, 11342, 11391, 11441]; the player's doll (frame, doll): [(0, 2), (948, 0)]
+worst frames (frame, ms, events, lag s): (8516, 334.06, 6907, 0.000) (8416, 305.46, 6292, 0.000) (8466, 183.51, 3612, 0.000) (11143, 35.92, 1, 0.000) (11243, 35.67, 1, 0.000)
+ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=12600 build_s=4.25 foot_build_mb=237 foot_end_mb=863 b_per_body=2347 p50_ms=0.009 p99_ms=11.923 max_ms=334.058 over=35 lag_s=1.448 kicks_per_body_gs=6.385e-5 events_per_body_gs=8.291e-5 refusals=0 dead=0 held_max=176 view_ms=2025.4 truncated=false wall_s=20.7
+=== FLIGHT stagger ===
+rung N=100000 (100028 bodies), burn, rtf 100, 210 s of wall time, engine budget 12 ms; build 4.27 s, peak footprint 237 MB (now 237 MB)
+frames after 1 s: 12540  engine ms p50 0.055 p90 1.076 p99 6.029 max 34.448; over 12 ms: 31; frames behind: 2, worst lag 1.448 s; events/frame p50 1 p99 134 max 338; scans held max 148
+game 20898.2 s after the first second: kicks 58287 (2.788e-5/body/game-s), events 98135 (4.695e-5/body/game-s), stats {opens 433, boundaries 32368, handoffs 1, lost 25, refused 0, slices 7046}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 237 MB at the build's end, 686 MB at the flight's end (now 686 MB); 2347 B a body from the build; dashboard bytes/body 1258; view gather 4549.3 ms cold, 1992.7 ms warm (100048 seen); catalogue 100076 entries
+frames over the budget (first 12): [11094, 11143, 11193, 11243, 11292, 11342, 11391, 11441, 11490, 11540, 11590, 11639]; the player's doll (frame, doll): [(0, 2), (948, 0)]
+worst frames (frame, ms, events, lag s): (11143, 34.45, 5, 0.000) (12532, 32.62, 2, 0.000) (12432, 32.60, 9, 0.000) (12036, 32.50, 2, 0.000) (12234, 32.43, 2, 0.000)
+ladder: n=100000 bodies=100028 flight=burn rtf=100 frames=12600 build_s=4.27 foot_build_mb=237 foot_end_mb=686 b_per_body=2347 p50_ms=0.055 p99_ms=6.029 max_ms=34.448 over=31 lag_s=1.448 kicks_per_body_gs=2.788e-5 events_per_body_gs=4.695e-5 refusals=0 dead=0 held_max=148 view_ms=1992.7 truncated=false wall_s=16.8
+--- 19:19:50 load 1.41 1.26 0.94 free_mb 14914
