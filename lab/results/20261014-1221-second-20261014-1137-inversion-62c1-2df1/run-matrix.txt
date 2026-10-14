@@ -1,0 +1,34 @@
+=== baselines (the shipped frame) ===
+base N=0: 28 bodies, 240 frames at rtf 100 (build 0.0 s): total ms p50 0.995 p99 5.064 max 5.694 (engine 0.042 · gather 0.791/0.848 · wire 0.138); wire 0.02 MB/frame; sky-static 83.26%
+base: n=0 bodies=28 frames=240 rtf=100 total_p50=0.995 total_p99=5.064 total_max=5.694 engine_p50=0.042 gather_p50=0.791 wire_p50=0.138 wire_mb=0.02 rows=65
+base: n=1000 bodies=1028 frames=240 rtf=100 total_p50=21.757 total_p99=26.285 total_max=27.105 engine_p50=0.049 gather_p50=19.314 wire_p50=2.260 wire_mb=0.29 rows=1065
+base: n=10000 bodies=10028 frames=120 rtf=100 total_p50=256.869 total_p99=270.478 total_max=271.697 engine_p50=0.176 gather_p50=230.658 wire_p50=25.384 wire_mb=2.72 rows=10067
+base: n=100000 bodies=100028 frames=48 rtf=100 total_p50=2632.413 total_p99=2669.191 total_max=2669.191 engine_p50=0.543 gather_p50=2345.530 wire_p50=284.731 wire_mb=26.96 rows=100066
+=== display, map, fitted zoom, coast ===
+disp: bodies=28 frames=240 steady_total_p50=0.978 steady_total_p99=4.590 steady_gather_p50=0.920 fill_ms=0.9 wire_kb=14.27 served=47 readouts=75 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=136 audit_panel=0 audit_frames=240
+disp: bodies=1028 frames=240 steady_total_p50=1.221 steady_total_p99=7.276 steady_gather_p50=1.153 fill_ms=21.5 wire_kb=26.53 served=90 readouts=98 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=154 audit_panel=0 audit_frames=240
+disp: bodies=10028 frames=160 steady_total_p50=2.446 steady_total_p99=39.288 steady_gather_p50=2.143 fill_ms=232.4 wire_kb=26.61 served=90 readouts=99 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=50 audit_panel=0 audit_frames=40
+disp: bodies=100028 frames=64 steady_total_p50=14.327 steady_total_p99=371.270 steady_gather_p50=14.001 fill_ms=2341.5 wire_kb=27.28 served=92 readouts=99 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=35 audit_panel=0 audit_frames=8
+=== display, map, fitted zoom, coast ===
+disp: bodies=1028 frames=240 steady_total_p50=1.196 steady_total_p99=6.666 steady_gather_p50=1.116 fill_ms=22.1 wire_kb=26.54 served=90 readouts=99 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=127 audit_panel=0 audit_frames=240
+disp: bodies=10028 frames=160 steady_total_p50=1.281 steady_total_p99=37.941 steady_gather_p50=1.148 fill_ms=232.6 wire_kb=26.63 served=90 readouts=99 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=41 audit_panel=0 audit_frames=40
+disp: bodies=100028 frames=64 steady_total_p50=1.761 steady_total_p99=363.974 steady_gather_p50=1.397 fill_ms=2464.5 wire_kb=27.49 served=93 readouts=102 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=25 audit_panel=0 audit_frames=8
+disp: bodies=1000028 frames=120 steady_total_p50=1.569 steady_total_p99=3477.026 steady_gather_p50=1.327 fill_ms=23975.5 wire_kb=26.61 served=90 readouts=99 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=0 audit_panel=0 audit_frames=0
+=== display, map, belt zoom, coast ===
+disp: bodies=1028 frames=240 steady_total_p50=0.854 steady_total_p99=5.931 steady_gather_p50=0.762 fill_ms=21.7 wire_kb=19.57 served=67 readouts=72 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=4044 audit_panel=0 audit_frames=240
+disp: bodies=10028 frames=160 steady_total_p50=0.919 steady_total_p99=37.182 steady_gather_p50=0.801 fill_ms=232.0 wire_kb=18.74 served=64 readouts=69 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=600 audit_panel=0 audit_frames=40
+disp: bodies=100028 frames=64 steady_total_p50=1.464 steady_total_p99=358.037 steady_gather_p50=0.952 fill_ms=2342.6 wire_kb=18.74 served=64 readouts=68 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=66 audit_panel=0 audit_frames=8
+disp: bodies=1000028 frames=120 steady_total_p50=1.067 steady_total_p99=3516.818 steady_gather_p50=0.853 fill_ms=23843.5 wire_kb=18.71 served=64 readouts=67 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=0 audit_panel=0 audit_frames=0
+=== display, map, fit -> belt zoom-out ===
+disp: bodies=10028 frames=160 steady_total_p50=1.358 steady_total_p99=238.875 steady_gather_p50=1.140 fill_ms=236.4 wire_kb=26.03 served=88 readouts=99 turn_max_ms=0.000 zoom_max_ms=90.638 audit_viol=94 audit_panel=0 audit_frames=40
+disp: bodies=100028 frames=64 steady_total_p50=1.617 steady_total_p99=369.412 steady_gather_p50=1.236 fill_ms=2366.3 wire_kb=28.45 served=96 readouts=108 turn_max_ms=0.000 zoom_max_ms=903.911 audit_viol=96 audit_panel=0 audit_frames=8
+disp: bodies=1000028 frames=120 steady_total_p50=3.272 steady_total_p99=24156.213 steady_gather_p50=1.493 fill_ms=23531.1 wire_kb=27.30 served=92 readouts=102 turn_max_ms=0.000 zoom_max_ms=9375.131 audit_viol=0 audit_panel=0 audit_frames=0
+=== display, map, fitted, one turn ===
+disp: bodies=10028 frames=160 steady_total_p50=1.282 steady_total_p99=38.482 steady_gather_p50=1.158 fill_ms=236.0 wire_kb=26.65 served=90 readouts=99 turn_max_ms=37.504 zoom_max_ms=0.000 audit_viol=42 audit_panel=0 audit_frames=40
+=== display, sky, coast ===
+disp: bodies=1028 frames=240 steady_total_p50=20.012 steady_total_p99=24.421 steady_gather_p50=19.893 fill_ms=22.2 wire_kb=27.42 served=94 readouts=1775 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=93 audit_panel=0 audit_frames=240
+disp: bodies=10028 frames=160 steady_total_p50=233.573 steady_total_p99=246.167 steady_gather_p50=233.269 fill_ms=239.2 wire_kb=28.21 served=97 readouts=19777 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=15 audit_panel=0 audit_frames=40
+disp: bodies=100028 frames=64 steady_total_p50=2378.825 steady_total_p99=2430.212 steady_gather_p50=2378.398 fill_ms=2401.6 wire_kb=30.25 served=103 readouts=199753 turn_max_ms=0.000 zoom_max_ms=0.000 audit_viol=0 audit_panel=0 audit_frames=8
+=== digest (byte-identity, deterministic budget) ===
+digest final 8387a46ce4b08a255bb8f30f9982629c43f9ae8b52bff7d4d4b00b48461a5271 bodies=1028 frames=200 build=0.0s rtf=100
+DONE3
