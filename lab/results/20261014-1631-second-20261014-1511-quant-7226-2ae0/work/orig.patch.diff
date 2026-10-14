@@ -1,0 +1,320 @@
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..018d33df 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -38,7 +38,7 @@ use crate::body::{BodyRec, Item, Kind, Segment, What};
+ use crate::ctx::Ctx;
+ use crate::ext::Ext;
+ use crate::force::{self, LEVELS, RATIO};
+-use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, Error, Res, Tick, V2};
++use crate::num::{add2, dot2, log2_floor, norm2, scale2, sub2, time_of, to_f64, Error, Res, Tick, V2};
+ use crate::thrust;
+ use emergent_space::{
+     binding::{IntegerState, Trajectory},
+@@ -59,6 +59,75 @@ pub struct Update {
+     pub kind: Resolved,
+ }
+ 
++/// Whether the exact searches pick their probes by false position on the value the predicate
++/// already reads (`ES_FP`): the float places the probe, the integer predicate decides what is
++/// kept, so the first crossing found is the bisection's — only the count of exact readouts
++/// changes. Off (the default) is the shipped midpoint policy, verbatim.
++fn fast_probes() -> bool {
++    static FAST: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var_os("ES_FP").is_some_and(|v| v != "0"));
++    *FAST
++}
++
++/// Counters for the two exact searches ([`next_impact`], [`next_exit`]), read by the kick bench:
++/// how many searches ran, how many exact predicate probes they paid, and the worst probe count of
++/// any one search (the tail decides whether a probe policy is adoptable, not the mean). Both
++/// policies count the same things, endpoint checks included.
++pub mod searches {
++    use std::sync::atomic::{AtomicU64, Ordering};
++
++    pub struct Tally {
++        pub searches: AtomicU64,
++        pub probes: AtomicU64,
++        pub worst: AtomicU64,
++    }
++    impl Tally {
++        const fn new() -> Self {
++            Self { searches: AtomicU64::new(0), probes: AtomicU64::new(0), worst: AtomicU64::new(0) }
++        }
++        pub fn search(&self) {
++            self.searches.fetch_add(1, Ordering::Relaxed);
++        }
++        pub fn probe(&self) {
++            self.probes.fetch_add(1, Ordering::Relaxed);
++        }
++        pub fn worst(&self, run: u64) {
++            self.worst.fetch_max(run, Ordering::Relaxed);
++        }
++    }
++    pub static IMPACT: Tally = Tally::new();
++    pub static EXIT: Tally = Tally::new();
++
++    /// `(impact, exit)` as `(searches, probes, worst)`.
++    pub fn snapshot() -> [(u64, u64, u64); 2] {
++        let r = |t: &Tally| (t.searches.load(Ordering::Relaxed), t.probes.load(Ordering::Relaxed), t.worst.load(Ordering::Relaxed));
++        [r(&IMPACT), r(&EXIT)]
++    }
++}
++/// The false-position estimate of where the level is crossed between the anchor probes `(a, d_a)`
++/// and `(b, d_b)` given as signed distances to the level, clamped strictly inside the live
++/// bracket `[lo, hi]` (any interior probe keeps the invariant; a non-finite estimate falls back
++/// to the midpoint). Only where to look: the exact predicate decides what is kept.
++fn false_position(a: i64, b: i64, lo: i64, hi: i64, d_a: f64, d_b: f64) -> i64 {
++    let g = d_a / (d_a - d_b);
++    let t = a as f64 + g * (b - a) as f64;
++    if t.is_finite() {
++        (t.floor() as i64).clamp(lo + 1, hi - 1)
++    } else {
++        lo + (hi - lo) / 2
++    }
++}
++
++/// The crossing estimate from the branch's own shape: the radius is flat — quadratic — at the
++/// bracket's turning end (the periapsis of a fall, the apoapsis of a rise), where value
++/// differences are quantization noise rather than slope, so a straight secant crawls a tick at a
++/// time. With the vertex value `d_v` at `v` and one probe `(t, d)`, `d(s) = d_v + B·(v − s)²`
++/// puts the level at `v − (v − t)·sqrt(−d_v/(d − d_v))`: the square-root scaling a flat branch
++/// asks for. `None` on any degeneracy (the secant or the midpoint then places the probe).
++fn flat_branch(v: i64, d_v: f64, t: i64, d: f64) -> Option<i64> {
++    let x = (v - t) as f64 * (-d_v / (d - d_v)).sqrt();
++    (x.is_finite() && x >= 1.0).then(|| v - x as i64)
++}
++
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub enum Resolved {
+     Kick,
+@@ -200,8 +269,12 @@ fn next_exit(b: &Binding, after: Tick, edge: Scalar) -> Res<Option<Tick>> {
+ 
+ /// [`next_exit`], with or without the passage's analytic guess (the bisection alone is the reference the guess must equal).
+ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Option<Tick>> {
+-    let outside = |t: Tick| -> Res<bool> { Ok(b.orbit_state(t)?.radius >= edge) };
+-    if outside(after)? {
++    let r_at = |t: Tick| -> Res<Scalar> {
++        searches::EXIT.probe();
++        Ok(b.orbit_state(t)?.radius)
++    };
++    let r_after = r_at(after)?;
++    if r_after >= edge {
+         return Ok(Some(after));
+     }
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+@@ -226,8 +299,13 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+     };
+     // A passage's last readable tick is one before its window closes: round the end inward.
+     let end = if matches!(b.entry.trajectory, Trajectory::Passage(_)) { apex.fixed_floor(-(b.clock_exp as i32))? - 1 } else { apex.fixed_ceil(-(b.clock_exp as i32))? };
+-    let (mut lo, mut hi) = (after, i64::try_from(end).map_err(|_| Error::Refused("exit"))?);
+-    if hi < lo || !outside(hi)? {
++    let end_t = i64::try_from(end).map_err(|_| Error::Refused("exit"))?;
++    let (mut lo, mut hi) = (after, end_t);
++    if hi < lo {
++        return Ok(None);
++    }
++    let r_end = r_at(hi)?;
++    if r_end < edge {
+         return Ok(None);
+     }
+     // A passage knows when it reaches a radius (its inverse, one solve): the tick it names is verified against
+@@ -237,19 +315,40 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+     if let (true, Trajectory::Passage(p)) = (guess, &b.entry.trajectory) {
+         let guess = b.entry.unit.to_tube(edge).ok().and_then(|e| p.at_radius(e).ok()).and_then(|(off, _)| b.to_doll(off).ok()).and_then(|off| peri.add(off).ok()).and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok()).and_then(|t| i64::try_from(t).ok());
+         if let Some(g) = guess.filter(|&g| g > lo && g <= hi) {
+-            if outside(g)? && !outside(g - 1)? {
++            if r_at(g)? >= edge && r_at(g - 1)? < edge {
+                 return Ok(Some(g));
+             }
+         }
+     }
++    searches::EXIT.search();
++    // The radius rises to the apoapsis (or runs out of the passage window) with one crossing of
++    // `edge` inside the bracket, so any interior probe policy finds the same tick. The false
++    // position places the probe where the anchors say the crossing is; Illinois halves the
++    // retained end's signed distance so one side cannot stick, and the midpoint takes over after
++    // 30 probes (the tail is bounded by twice the bisection's own count).
++    let level = to_f64(edge);
++    let d_v = to_f64(r_end) - level;
++    let (mut d_lo, mut d_hi) = (to_f64(r_after) - level, d_v);
++    let (mut a_lo, mut last, mut run) = (after, None, 0u64);
+     while lo < hi {
+-        let mid = lo + (hi - lo) / 2;
+-        if outside(mid)? {
++        let mid = if fast_probes() && hi - lo > 1 && run < 30 {
++            last.and_then(|(t, d)| flat_branch(end_t, d_v, t, d)).map(|m| m.clamp(lo + 1, hi - 1)).unwrap_or_else(|| false_position(a_lo, hi, lo, hi, d_lo, d_hi))
++        } else {
++            lo + (hi - lo) / 2
++        };
++        let r = r_at(mid)?;
++        last = Some((mid, to_f64(r) - level));
++        if r >= edge {
+             hi = mid;
++            d_hi = last.unwrap().1;
++            d_lo /= 2.0;
+         } else {
+-            lo = mid + 1;
++            (lo, a_lo) = (mid + 1, mid);
++            d_lo = last.unwrap().1;
++            d_hi /= 2.0;
+         }
+     }
++    searches::EXIT.worst(run);
+     Ok(Some(lo))
+ }
+ 
+@@ -283,13 +382,25 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+ /// tick of its fall.
+ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
++    next_impact_with(b, surface, after, fast_probes())
++}
++
++/// [`next_impact`], with the shipped midpoint bisection or, when `fast`, the same false position
++/// [`next_exit_with`] uses, on the radius the predicate already reads: the float places the
++/// probe, the integer decides, so the first tick below the surface is the same by either policy.
++pub fn next_impact_with(b: &Binding, surface: Scalar, after: Tick, fast: bool) -> Res<Option<Tick>> {
++    searches::IMPACT.search();
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+     if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
+         return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+     }
+-    // The engine's own reading (the turned tube plus its remainder), the one a kick or a crash checks the surface with.
+-    let inside = |t: Tick| -> Res<bool> { Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface) };
+-    if inside(after)? {
++    // The engine's own reading (the turned tube plus the remainder), the one a kick or a crash checks the surface with.
++    let r2 = |t: Tick| -> Res<Scalar> {
++        searches::IMPACT.probe();
++        Ok(norm2(scalars(&b.readout(t)?)?.0)?)
++    };
++    let r_after = r2(after)?;
++    if r_after < surface {
+         return Ok(Some(after));
+     }
+     if b.entry.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r >= surface)) {
+@@ -303,17 +414,37 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     };
+     let half = i64::try_from(b.to_doll(whole.scale(-1)?)?.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("half period"))?;
+     let (mut lo, mut hi) = (after.max(tp.saturating_sub(half)), tp);
+-    if !inside(hi)? {
++    let r_tp = r2(hi)?;
++    if r_tp >= surface {
+         return Ok(None);
+     }
++    // `after` is above the surface and the periapsis below it, and the radius falls monotonically
++    // between them, so the one crossing lies inside the bracket however the probes are placed; the
++    // anchors start one readable tick outside it (`after` may sit before the apoapsis), as signed
++    // distances to the surface (the halved quantity of Illinois).
++    let lvl = to_f64(surface);
++    let d_v = to_f64(r_tp) - lvl;
++    let (mut d_lo, mut d_hi) = (to_f64(r_after) - lvl, d_v);
++    let (mut a_lo, mut last, mut run) = (after, None, 0u64);
+     while hi - lo > 1 {
+-        let mid = lo + (hi - lo) / 2;
+-        if inside(mid)? {
++        let mid = if fast && run < 30 {
++            false_position(a_lo, hi, lo, hi, d_lo, d_hi)
++        } else {
++            lo + (hi - lo) / 2
++        };
++        let r = r2(mid)?;
++        run += 1;
++        last = Some((mid, to_f64(r) - lvl));
++        if std::env::var_os("ES_FP_TRACE").is_some() { eprintln!("TRACE run {run} bracket [{lo},{hi}] probe {mid} d {} d_v {d_v} tp {tp}", last.unwrap().1); }
++        if r < surface {
+             hi = mid;
++            d_hi = last.unwrap().1;
+         } else {
+-            lo = mid;
++            (lo, a_lo) = (mid, mid);
++            d_lo = last.unwrap().1;
+         }
+     }
++    searches::IMPACT.worst(run);
+     Ok(Some(hi))
+ }
+ 
+@@ -842,6 +973,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+         Ok(k) => k,
+         Err(e) => {
+             w.rec.fault = Some((item.what, e));
++
+             // A refusal never corrupts a body: the old binding stands, the kick is dropped and
+             // counted. A boundary that cannot plan its next step ends the body: it is lost.
+             w.rec.refusals += 1;
+@@ -921,6 +1053,36 @@ pub fn dot(a: V2, b: V2) -> Res<Scalar> {
+ mod tests {
+     use super::*;
+ 
++    /// The false position finds the impact the bisection finds: every handed-out member of a
++    /// settled plane (cycles and passages), from the binding event and from periapsis, at the
++    /// doll's surface and at a doubled one (shallow dips included).
++    #[test]
++    fn the_false_positions_impact_is_the_bisections_impact() {
++        use crate::fleet::Order;
++        let mut p = crate::scenario::plane(crate::ctx::Config::default(), 1, Order::Sparse, 1, 48).unwrap();
++        let n0 = p.u.n_bodies();
++        p.u.settle(30_000_000);
++        let (mut ships, mut impacts) = (0, 0);
++        for i in n0..p.u.n_bodies() {
++            if p.u.rec(i).kind != crate::body::Kind::Ship {
++                continue;
++            }
++            ships += 1;
++            let born = p.u.info[i].born;
++            let b = p.u.bodies().binding_at(i, born).unwrap();
++            let doll = &p.u.dolls[b.doll as usize];
++            let starts = [Some(born), next_periapsis(&b, born).unwrap()];
++            for after in starts.into_iter().flatten() {
++                for surf in [doll.surface, doll.surface.scale(1).unwrap()] {
++                    let (fast, slow) = (next_impact_with(&b, surf, after, true).unwrap(), next_impact_with(&b, surf, after, false).unwrap());
++                    assert_eq!(fast, slow, "body {i}, from {after}, surface {surf:?}");
++                    impacts += fast.is_some() as usize;
++                }
++            }
++        }
++        println!("{impacts} impacts of {ships} handed-out ships, each the same by both policies");
++        assert!(ships >= 10 && impacts >= 5, "the test must look at dipping tubes: {ships} {impacts}");
++    }
+     /// The passage's analytic guess finds the tick the bisection finds: for every member the plane hands out
+     /// (passages and cycles, from every state the frame hands over), from periapsis and from the binding event.
+     #[test]
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..a0307d61 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -95,6 +95,8 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         s.p.u.settle(s.p.u.now);
+         frames = n;
+     }
++    let [(is, ip, iw), (es, ep, ew)] = step::searches::snapshot();
++    println!("searches: impact {is} searches / {ip} probes (worst {iw}), exit {es} / {ep} (worst {ew})");
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+@@ -103,6 +105,12 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "searches": {
++            "note": "exact predicate probes: impact = next_impact (surface), exit = next_exit (boundary); each (searches, probes, worst per search)",
++            "impact": step::searches::snapshot()[0],
++            "exit": step::searches::snapshot()[1],
++            "es_fp": std::env::var("ES_FP").unwrap_or_default(),
++        },
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..21027e40 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => members = val("--members")?.parse::<u64>().map_err(|_| "members")?.clamp(4, if std::env::var_os("ES_MEMBERS").is_some() { 20_000 } else { 400 }),
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;

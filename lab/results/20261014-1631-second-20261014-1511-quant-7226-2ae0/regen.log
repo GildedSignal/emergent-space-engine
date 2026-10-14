@@ -1,0 +1,59 @@
+== the kill table regenerates (s3 flying; policy ladder) ==
+OFF (shipped):
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 198.449, "all_p99": 401.342, "refused": 0, "impact": [802, 23552, 32]}
+ES_FP=1:
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 301.96, "all_p99": 376.176, "refused": 0, "impact": [802, 35621, 57]}
+ES_FP=2:
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 136.72299999999998, "all_p99": 372.293, "refused": 0, "impact": [802, 9810, 13]}
+ES_FP=3:
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 130.18400000000003, "all_p99": 393.322, "refused": 0, "impact": [802, 8589, 14]}
+ES_FP=4:
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 133.35, "all_p99": 373.05, "refused": 0, "impact": [802, 8709, 11]}
+== the frozen rule's matrix: OFF vs policy 3 at 3 seeds x both paces ==
+s3 flying OFF:
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 198.331, "all_p99": 372.85299999999995, "refused": 0, "impact": [802, 23552, 32]}
+s3 flying P3:
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 130.43, "all_p99": 372.633, "refused": 0, "impact": [802, 8589, 14]}
+s3 battle OFF:
+{"digest": "227d9aec", "replay": "6f0ec136", "leaver_med": 363.049, "all_p99": 479.09, "refused": 0, "impact": [3096, 91323, 28]}
+s3 battle P3:
+{"digest": "227d9aec", "replay": "6f0ec136", "leaver_med": 362.75, "all_p99": 465.48, "refused": 0, "impact": [3096, 34318, 12]}
+s7 flying OFF:
+{"digest": "cf58ac6e", "replay": "68d3af8c", "leaver_med": 189.733, "all_p99": 370.793, "refused": 0, "impact": [1225, 36367, 33]}
+s7 flying P3:
+{"digest": "cf58ac6e", "replay": "68d3af8c", "leaver_med": 123.659, "all_p99": 370.232, "refused": 0, "impact": [1225, 13254, 17]}
+s7 battle OFF:
+{"digest": "8fa6192e", "replay": "9375c766", "leaver_med": 362.652, "all_p99": 440.99399999999997, "refused": 0, "impact": [3700, 109170, 29]}
+s7 battle P3:
+{"digest": "8fa6192e", "replay": "9375c766", "leaver_med": 362.24199999999996, "all_p99": 374.839, "refused": 0, "impact": [3700, 41109, 12]}
+s11 flying OFF:
+{"digest": "164d6547", "replay": "4b7767c2", "leaver_med": 188.73499999999999, "all_p99": 418.2, "refused": 0, "impact": [731, 21396, 31]}
+s11 flying P3:
+{"digest": "164d6547", "replay": "4b7767c2", "leaver_med": 121.642, "all_p99": 416.166, "refused": 0, "impact": [731, 7786, 18]}
+s11 battle OFF:
+{"digest": "083d44ee", "replay": "d34fbb99", "leaver_med": 362.808, "all_p99": 450.803, "refused": 0, "impact": [3015, 88969, 29]}
+s11 battle P3:
+{"digest": "083d44ee", "replay": "d34fbb99", "leaver_med": 362.753, "all_p99": 400.736, "refused": 0, "impact": [3015, 33530, 12]}
+== the composition, layered (identity chain; s3, both paces) ==
+s3 fly WARM only:
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 105.402, "all_p99": 396.933, "refused": 0, "impact": [802, 4518, 32]}
+s3 fly WARM+P3:
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 105.1, "all_p99": 385.202, "refused": 0, "impact": [802, 3932, 11]}
+s3 bat WARM only:
+{"digest": "227d9aec", "replay": "6f0ec136", "leaver_med": 361.627, "all_p99": 380.25199999999995, "refused": 0, "impact": [3096, 39273, 28]}
+s3 bat WARM+P3:
+{"digest": "227d9aec", "replay": "6f0ec136", "leaver_med": 362.714, "all_p99": 398.91299999999995, "refused": 0, "impact": [3096, 20228, 12]}
+== composition at the held-out seeds ==
+s7 fly WARM+P3:
+{"digest": "cf58ac6e", "replay": "68d3af8c", "leaver_med": 101.147, "all_p99": 369.671, "refused": 0, "impact": [1225, 6371, 17]}
+s7 bat WARM+P3:
+{"digest": "8fa6192e", "replay": "9375c766", "leaver_med": 362.00600000000003, "all_p99": 385.545, "refused": 0, "impact": [3700, 24378, 12]}
+s11 fly WARM+P3:
+{"digest": "164d6547", "replay": "4b7767c2", "leaver_med": 98.28399999999999, "all_p99": 424.96500000000003, "refused": 0, "impact": [731, 3861, 12]}
+s11 bat WARM+P3:
+{"digest": "083d44ee", "replay": "d34fbb99", "leaver_med": 362.26, "all_p99": 382.666, "refused": 0, "impact": [3015, 19775, 12]}
+== identity: every policy equals the bisection on every dipping tube of a settled plane ==
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.52s
+
+== off semantics are the shipped ones even with the env vars set to their off values ==
+{"digest": "36637e67", "replay": "f282c907", "leaver_med": 197.804, "all_p99": 372.54999999999995, "refused": 0, "impact": [802, 23552, 32]}
