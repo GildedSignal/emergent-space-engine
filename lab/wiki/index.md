@@ -11,7 +11,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
-| [nladder](nladder.md) | open | 7 | **Break #2's "representation's lever" is measured: the compiled orbit is write-only memory for |
+| [nladder](nladder.md) | open | 8 | **Break #3's scan half is decomposed: the player's scan walks its certificate's poison, not the |
 | [gravity-news](gravity-news.md) | open | 11 | **The fleet doll under thrust is now measured on the shipped frame, and it freezes at the |
 | [handoff](handoff.md) | open | 11 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
@@ -20,7 +20,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [view](view.md) | open | 38 | **The row-set deletion is built on the shipped crossings and the flyable frame collapses: steady map frames ≈ 1-3 ms p50 at 10³-10⁶ bodies at both the fitted and the belt zoom (86-160× at 10³, ~10³× at 10⁶ against the li |
 | [kick-cadence](kick-cadence.md) | open | 43 | **The rule is regime-aware and coarse, everywhere except where cadence is the wrong lever.** Seven graded runs split the question by regime; the levers that died are the interesting half of the record. The 12-October bra |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [frame-cost](frame-cost.md) | open **conflict to resolve** | 50 | <<<<<<< main |
-| [encounters](encounters.md) | open | 54 | **The candidate-count lever has a measured mechanism and a measured ceiling: a quantum |
+| [frame-cost](frame-cost.md) | open | 51 | **The crash search is counted probe by probe on shipped code, and the naive smarter-probe |
 | [kick-jet](kick-jet.md) | open | 62 | **The knot table is measured write-mostly and read-thin: one census prices the incomplete-form |
+| [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
 | [memory-h-live](memory-h-live.md) | open | 105 | **The rate is small, measured, and not the problem.** At 10⁹ bodies H_live ≈ 21 bits/s |

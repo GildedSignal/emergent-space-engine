@@ -2,11 +2,48 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261014-1221-components-0e37
+updated: 20261014-1511-components-a2c1
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**Break #3's scan half is decomposed: the player's scan walks its certificate's poison, not the
+doll — a write-once speed cap and a global-count density rule (20261014-1511-components-a2c1).**
+An env-gated census on the shipped `PlayerNeighbourhood::capture`/`Radial::candidates` (counters
+only, digest-neutral; the ladder's own arms, 20 s flights): the unpoisoned certificate keeps
+**15 + 2 bodies at every N** (the first call's window: bins 479–486 around the player), but one
+hot kicked tube (a local on a periapsis-heavy ellipse) raises the doll's `speed_cap` 84×
+(1.16e-4 → 9.76e-3, monotone: `note` only maxes and `rebuild` only maxes, so it never falls for
+the process's life), and `scap·h` (h = the player's plan step, 1.1e12) becomes 96% of the window:
+±9× the player's radius, hit 2,402 bin-entries, **walked 194 a call (flight average; late calls
+203) at 10⁴–3×10⁵, 12× the
+certificate's own keep set, kept 177** *[checker a2c1: 10⁶ untested — 3×10⁵ reproduced
+identically (194/177, 711 MB); the claim's domain ends where the measurement does]*; the
+hull-of-history registration widens entries 905 → 2,885 (~14 bins/body) as kicks land. At
+**N=10³ the density rule fires on 183/193 calls and the fallback walks every body of every doll
+(1,017 of 1,028)** — the rule compares a doll-local hit against `bodies/4` counted over all
+dolls, so the misfire is N-dependent and inverted (adding belt bodies to other dolls
+un-poisons doll 2) *[checker a2c1: the misfire domain is wider than the author's "N ≲ 2×10³" —
+it fires at 2,000/3,000/5,000/9,000 and passes at 9,500; the crossover is bodies ≈ 4×(2,425−64)
+≈ 9,444, so the 10⁴ arm sits ~5% above it — a 9,000-body universe walks everything, a
+10,000-body one does not]*; capture then costs **more at 10³ than at 10⁵ per
+call on this box (author 178 vs 129 µs; checker regen 110.8 vs 105.7 µs — direction holds, the
+gap is inside shared-box noise)**, and the held answers (idle-time) scale the same
+(1,428 vs 824 µs author; checker regen 1,299 vs 777 µs; standing ~10 KB a held scan ≈ 57 B a
+kept candidate, held max 270 at 10⁴ burn / 191 at 10⁵ in regen — schedule-dependent, the
+author's 1,020 not reproduced). The ladder break-3 "one item 14.6 ms" near the belt
+*[checker: inferred, not observed — 3×10⁵ × 48 ns ≈ 14.4 ms fits the walk-all arithmetic, but
+no root-doll scan was recorded in any arm (40 s burn included: the player's binding stays in
+doll 2 past frame 948)]* is this walk-all at the M1's ~48 ns/body.
+Named fixes, in cost order: `rebuild` resets-then-maxes the caps over the retained bindings
+(one line); the density rule counts the doll's own membership and the fallback iterates the
+doll's registered ids, not `0..total` (a few lines); the window's representation — each body's
+bins widened by its **own** speed bound, not the doll-wide cap (slow bodies stay in 1–2 bins,
+hot ones correctly spread). Burn arms: finer `h`, 79 walked/call, density never fires (P4 held);
+**unmeasured**: the belt's registration state (no belt events in 20 s flights — its first kicks
+are at 13,051 game-s), the player inside the belt (the case the density rule was written for),
+and the found set per scan. PRINCIPLES #5: the scan reads its neighbourhood, not the doll.
 
 **Break #2's "representation's lever" is measured: the compiled orbit is write-only memory for
 the engine, exactly its key, and the view's ramp completion is its one real reader
@@ -165,6 +202,18 @@ The four rules that survive, with rule 2 struck and adjudicated:
 
 ## Refuted
 
+- "The scan's walk is O(N) at ladder scale" (the reading of the ladder's before-fix capture
+  profile, 45–50 ns a body, carried into break 3's wording): at 10⁴–3×10⁵ the walk is
+  doll-scoped, 194 bodies a call (79 on the burn arms) — the O(N) reading holds only where the
+  density rule fires, which by measurement is N ≲ ~9.4×10³ on these arms (checker: fires at
+  9,000, passes at 9,500; the author's first reading was 2×10³), and there it walks every
+  body of every doll (1,017 of 1,028 at 10³; 8,604 of 9,028 at 9,000) (20261014-1511-components-a2c1).
+- "The density rule protects the walk": it inverts — its threshold (`bodies/4`, counted over all
+  dolls) grows with populations the window never touches, so the same poisoned window passes at
+  10⁴⁺ and fails at 10³, where the fallback (`0..total`, a `binding_at` a body) costs more than
+  the 10⁵ scan it was meant to save (author 178 vs 129 µs/call; checker regen 110.8 vs 105.7 —
+  direction only, the gap is inside shared-box noise) (same run).
+
 - "The retired compiled orbit is needed by the engine between kicks" (the assumption under
   ladder break #2's memory wall): flight reads of held tables are O(1) in N and the *belt's*
   retired tables are read exactly 0 times in a headless flight past the wave *[checker: the
@@ -254,3 +303,4 @@ The four rules that survive, with rule 2 struck and adjudicated:
 - 20261014-0059-fermi-effb (awaiting grade): the 10⁹ ledger composed — cadence law rate = 2⁷/P code-verified (roster endpoints 0.96/0.76, Orbiters ⊂ [128,256]); encounters 1,925× over skin-on, 7,051× the kicks; two rails (hot = kick gap, cold = encounters + memory); held-out: wired wall ~5.2×10⁵.
 - 20261014-0450-scout-b29a (silver): the smallest promotion composed and measured — ~34–38 µs/12–40 B ephemeral vs 486 µs/8,257 B sticky; key-space kick 0.11 µs at the birth floor; checker: cold-belt 13×, 6.4× at σ0.3, darwin domain p ≤ 8192 M.
 - 20261014-1221-components-0e37 (this run, awaiting grade): break #2's lever measured — compiled orbits are write-only in flight (retired: 0 reads; flight reads O(1) in N), exactly the key (1,001/1,001 regen), floor 673 vs standing 1,806 B/body; the view's ramp is the one reader (≥1 retired read/row post-wave) — the two-word completion deletes the retired generation free.
+- 20261014-1511-components-a2c1 (this run, awaiting grade): the scan seam censused — unpoisoned keep 15+2 at every N, the write-once `speed_cap` poisons the window ±9×r (walked 203, 12×), the density rule walks all dolls at N=10³ (1,017, 60×); capture dearer at 10³ (178 µs) than 10⁵ (129 µs); fixes named in cost order.
