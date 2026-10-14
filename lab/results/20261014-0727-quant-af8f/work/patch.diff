@@ -1,0 +1,347 @@
+diff --git a/crates/universe/examples/impact_probe.rs b/crates/universe/examples/impact_probe.rs
+new file mode 100644
+index 00000000..05db365e
+--- /dev/null
++++ b/crates/universe/examples/impact_probe.rs
+@@ -0,0 +1,96 @@
++//! The crash-tick search probe (this run's patch): the cost and the readout count of `next_impact`
++//! on the battle arms, with the verified Kepler guess off (`ES_IMP_GUESS` unset) or on. One line per
++//! arm: the wall of the frames, the digest at the canonical cut (the identity control: on and off
++use emergent_universe::step::{imp_reset, IMP, IMP_NS};
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++/// (name, seed, members, rtf, game seconds): the 14 October battle arms of the frame-cost page.
++fn arms() -> Vec<(&'static str, u64, u64, f64, f64)> {
++    vec![
++        ("battle m4000 s3", 3, 4000, 1.0, 8.0),
++        ("battle m1500 s3", 3, 1500, 1.0, 8.0),
++        ("battle m4000 s7", 7, 4000, 1.0, 8.0),
++        ("battle m1500 s11", 11, 1500, 1.0, 8.0),
++        ("flying m400 s3", 3, 400, 100.0, 8.0),
++        ("handout m16000 s3", 3, 16000, 1.0, 8.0),
++    ]
++}
++
++fn run(seed: u64, members: u64, rtf: f64, seconds: f64) -> (f64, String, u64, u64) {
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    let mut p = plane(Config::default(), seed, Order::Sparse, 1, members).unwrap();
++    imp_reset();
++    let t0 = Instant::now();
++    for _ in 0..400_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), cut);
++    }
++    let wall = t0.elapsed().as_secs_f64();
++    p.u.settle(cut);
++
++    (
++        wall,
++        p.u.digest(),
++        p.u.stats.kicks,
++        p.u.stats.encounters,
++    )
++    // counters read by the caller before the next arm resets them
++}
++
++fn main() {
++    let only = std::env::args().nth(1).unwrap_or_default();
++    let g = |i: usize| IMP[i].load(std::sync::atomic::Ordering::Relaxed);
++    let hist = |name: &str, bins: &[std::sync::atomic::AtomicU64]| {
++        let counts: Vec<(usize, u64)> = bins
++            .iter()
++            .enumerate()
++            .map(|(b, c)| (b, c.load(std::sync::atomic::Ordering::Relaxed)))
++            .filter(|&(_, c)| c > 0)
++            .collect();
++        let total: u64 = counts.iter().map(|&(_, c)| c).sum();
++        if total > 0 {
++            let p50 = counts.iter().try_fold((0u64, None), |(acc, mut med), &(b, c)| {
++                if med.is_none() && acc + c > total / 2 {
++                    med = Some(b);
++                }
++                Ok::<_, ()>((acc + c, med))
++            });
++            let (_, p50) = p50.unwrap();
++            println!("  miss-{name}: n {total}, p50 bin {} (ticks), bins {}", p50.map(|b| format!("2^{b}")).unwrap_or("-".into()), counts.iter().map(|(b, c)| format!("{b}:{c}")).collect::<Vec<_>>().join(" "));
++        }
++    };
++    for (name, seed, members, rtf, seconds) in arms().into_iter().filter(|a| a.0.contains(&only)) {
++        let (wall, digest, kicks, encounters) = run(seed, members, rtf, seconds);
++        let (calls, searches, cyc, pas, m_tries, m_hits, w_tries, w_hits, reads) =
++            (g(0), g(3), g(4), g(5), g(6), g(7), g(10), g(11), g(9));
++        println!(
++            "{:<18} wall {:6.2} s | digest {} | kicks {:>5} | imp calls {:>6} searches {:>6} (cyc {:>5} pas {:>4}) reads {:>7} ({:.2}/search) | model {}/{} hits, warm {}/{} hits, bisect-finished {}",
++            name,
++            wall,
++            &digest[..16],
++            kicks,
++            calls,
++            searches,
++            cyc,
++            pas,
++            reads,
++            if searches > 0 { reads as f64 / searches as f64 } else { 0.0 },
++            m_hits,
++            m_tries,
++            w_hits,
++            w_tries,
++            g(13),
++        );
++        println!("  predicate: {} us total, {:.2} us/search ({:.1} ns/read)", IMP_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e3, IMP_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e3 / searches as f64, IMP_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / reads as f64);
++        println!("  warm arm: no hint {}, hint outside bracket {}", g(14), g(15));
++        hist("model", &emergent_universe::step::IMP_MISS_MODEL);
++        hist("warm", &emergent_universe::step::IMP_MISS_WARM);
++    }
++}
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..479339ac 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -46,6 +46,61 @@ use emergent_space::{
+ };
+ use std::sync::Arc;
+ 
++// The impact-search probe (this run's patch): counts only, never an outcome. `next_impact`'s cycle
++// branch bisects a monotone branch with full tube readouts (each rebuilds a cell's panels); these
++// count the calls, the early exits, and — when `ES_IMP_GUESS` (a float Kepler inverse from the key)
++// or `ES_IMP_WARM` (the retired binding's own impact tick, threaded as a hint) is set — the
++// verified guesses tried before the bisection, whose every outcome either returns a
++// predicate-verified tick or narrows the bracket. `IMP_MISS` bins log2 of the guess's distance in
++// ticks from the answer the search returned (bin 0: the tick itself).
++pub static IMP: [std::sync::atomic::AtomicU64; 16] = [
++    std::sync::atomic::AtomicU64::new(0), // 0 calls of next_impact
++    std::sync::atomic::AtomicU64::new(0), // 1 plunge: terminal tick
++    std::sync::atomic::AtomicU64::new(0), // 2 early none (certificate / not inside at periapsis)
++    std::sync::atomic::AtomicU64::new(0), // 3 searches (entered the bracket)
++    std::sync::atomic::AtomicU64::new(0), // 4 of them on a cycle
++    std::sync::atomic::AtomicU64::new(0), // 5 of them on a passage
++    std::sync::atomic::AtomicU64::new(0), // 6 model guesses tried
++    std::sync::atomic::AtomicU64::new(0), // 7 model first-guess hits
++    std::sync::atomic::AtomicU64::new(0), // 8 predicate evaluations inside the model guess
++    std::sync::atomic::AtomicU64::new(0), // 9 predicate evaluations, all callers
++    std::sync::atomic::AtomicU64::new(0), // 10 warm hints tried
++    std::sync::atomic::AtomicU64::new(0), // 11 warm first-guess hits
++    std::sync::atomic::AtomicU64::new(0), // 12 predicate evaluations inside the warm hint
++    std::sync::atomic::AtomicU64::new(0), // 13 searches the bisection finished (no guess returned)
++    std::sync::atomic::AtomicU64::new(0), // 14 warm arm on with no hint at all
++    std::sync::atomic::AtomicU64::new(0), // 15 warm arm on, hint outside (lo, hi]
++];
++pub static IMP_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static IMP_MISS_MODEL: [std::sync::atomic::AtomicU64; 48] = [const { std::sync::atomic::AtomicU64::new(0) }; 48];
++pub static IMP_MISS_WARM: [std::sync::atomic::AtomicU64; 48] = [const { std::sync::atomic::AtomicU64::new(0) }; 48];
++
++/// Zero the probe counters (the harness runs one arm per process).
++
++pub fn imp_reset() {
++    for c in IMP.iter().chain(IMP_MISS_MODEL.iter()).chain(IMP_MISS_WARM.iter()) {
++        c.store(0, std::sync::atomic::Ordering::Relaxed);
++    }
++    IMP_NS.store(0, std::sync::atomic::Ordering::Relaxed);
++}
++
++fn imp_guess_on() -> bool {
++    static G: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var_os("ES_IMP_GUESS").is_some());
++    *G
++}
++
++fn imp_warm_on() -> bool {
++    static W: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var_os("ES_IMP_WARM").is_some());
++    *W
++}
++
++/// A float view of a scalar, for the guess weights only (never for an outcome).
++fn s_f64(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++
+ pub const MIN_STEP: i64 = 2 * 64;
+ pub const MAX_STEP: i64 = 1 << 50;
+ 
+@@ -283,19 +338,39 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+ /// tick of its fall.
+ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
++    next_impact_hinted(b, surface, after, None)
++}
++
++/// [`next_impact`] with a warm seed: `hint` is the impact tick the binding this one replaced had
++/// found (a function of that binding alone). The probe arms (`ES_IMP_WARM`, `ES_IMP_GUESS`) only
++/// use it to guess and narrow before the bisection; the answer itself is always the predicate's.
++pub fn next_impact_hinted(b: &Binding, surface: Scalar, after: Tick, hint: Option<Tick>) -> Res<Option<Tick>> {
++    use std::sync::atomic::Ordering::Relaxed;
++    IMP[0].fetch_add(1, Relaxed);
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+     if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
++        IMP[1].fetch_add(1, Relaxed);
+         return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+     }
+     // The engine's own reading (the turned tube plus its remainder), the one a kick or a crash checks the surface with.
+-    let inside = |t: Tick| -> Res<bool> { Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface) };
++    let inside = |t: Tick| -> Res<bool> {
++        let t0 = std::time::Instant::now();
++        let below = norm2(scalars(&b.readout(t)?)?.0).and_then(|n| Ok(n < surface));
++        IMP_NS.fetch_add(t0.elapsed().as_nanos() as u64, Relaxed);
++        IMP[9].fetch_add(1, Relaxed);
++        below
++    };
+     if inside(after)? {
+         return Ok(Some(after));
+     }
+     if b.entry.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r >= surface)) {
++        IMP[2].fetch_add(1, Relaxed);
+         return Ok(None);
+     }
+-    let Some(tp) = next_periapsis(b, after)? else { return Ok(None) };
++    let Some(tp) = next_periapsis(b, after)? else {
++        IMP[2].fetch_add(1, Relaxed);
++        return Ok(None);
++    };
+     let whole = match &b.entry.trajectory {
+         Trajectory::Cycle(c) => c.period()?,
+         Trajectory::Passage(p) => p.duration()?,
+@@ -304,8 +379,92 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     let half = i64::try_from(b.to_doll(whole.scale(-1)?)?.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("half period"))?;
+     let (mut lo, mut hi) = (after.max(tp.saturating_sub(half)), tp);
+     if !inside(hi)? {
++        IMP[2].fetch_add(1, Relaxed);
+         return Ok(None);
+     }
++    IMP[3].fetch_add(1, Relaxed);
++    match &b.entry.trajectory {
++        Trajectory::Cycle(_) => {
++            IMP[4].fetch_add(1, Relaxed);
++        }
++        Trajectory::Passage(_) => {
++            IMP[5].fetch_add(1, Relaxed);
++        }
++        Trajectory::Plunge(_) => {}
++    }
++    // The probe (`ES_IMP_GUESS`): the branch [lo, tp] is monotone (the radius falls on the way in), so a
++    // float Kepler inverse from the key — periapsis radius and shape, both already read above — guesses
++    // the crossing tick; the exact predicate verifies it (inside(t), !inside(t-1)), and a miss only
++    // narrows [lo, hi], so the bisection below returns the same tick either way.
++    let mut model_t: Option<i64> = None;
++    let mut warm_t: Option<i64> = None;
++    // The warm probe (`ES_IMP_WARM`): the impact tick the replaced binding found. A kick moves the
++    // orbit a little, so the new crossing sits in a neighbourhood of the old one; the predicate
++    // verifies, and a miss only narrows [lo, hi] (the branch is monotone).
++    if imp_warm_on() {
++        match hint {
++            None => {
++                IMP[14].fetch_add(1, Relaxed);
++            }
++            Some(t) if !(t > lo && t <= hi) => {
++                IMP[15].fetch_add(1, Relaxed);
++            }
++            _ => {}
++        }
++        if let Some(t) = hint.filter(|&t| t > lo && t <= hi) {
++            IMP[10].fetch_add(1, Relaxed);
++            warm_t = Some(t);
++            IMP[12].fetch_add(1, Relaxed);
++            if inside(t)? {
++                IMP[12].fetch_add(1, Relaxed);
++                if t == lo + 1 || !inside(t - 1)? {
++                    IMP[11].fetch_add(1, Relaxed);
++                    IMP_MISS_WARM[0].fetch_add(1, Relaxed);
++                    return Ok(Some(t));
++                }
++                hi = t;
++            } else {
++                lo = t;
++            }
++        }
++    }
++    // The model probe (`ES_IMP_GUESS`): a float Kepler inverse from the key — periapsis radius and
++    // shape, both already read above — guesses the crossing tick; verified the same way.
++    if imp_guess_on() {
++        if let (Trajectory::Cycle(_), Some(key)) = (&b.entry.trajectory, b.entry.trajectory.key()) {
++            if !key.null {
++                IMP[6].fetch_add(1, Relaxed);
++                let kq = key.k as f64 / 2f64.powi(48); // 1/(1+e)
++                let e = 1.0 / kq - 1.0;
++                let rp = b.to_doll(key.periapsis).map(s_f64).unwrap_or(f64::NAN);
++                // The predicate compares the squared norm against `surface`, so it is a squared
++                // length: the model wants the radius itself.
++                let s = s_f64(surface).sqrt();
++                let a = rp / (1.0 - e); // semi-major axis, doll units
++                let arg = (1.0 - s / a) / e; // cos E at the surface; outside [-1, 1] the orbit never dips so far (or e ~ 0): no guess
++                if e > 1e-9 && arg.is_finite() && (-1.0..=1.0).contains(&arg) {
++                    let big_e = -arg.acos(); // inbound half: E in (-pi, 0), periapsis at 0
++                    let m = big_e - e * big_e.sin(); // mean anomaly in (-pi, 0)
++                    let tg = tp as f64 + (m / std::f64::consts::PI) * half as f64;
++                    if let Some(t) = i64::try_from(tg as i64).ok().filter(|&t| t > lo && t <= hi) {
++                        IMP[8].fetch_add(1, Relaxed);
++                        model_t = Some(t);
++                        if inside(t)? {
++                            IMP[8].fetch_add(1, Relaxed);
++                            if t == lo + 1 || !inside(t - 1)? {
++                                IMP[7].fetch_add(1, Relaxed);
++                                IMP_MISS_MODEL[0].fetch_add(1, Relaxed);
++                                return Ok(Some(t));
++                            }
++                            hi = t;
++                        } else {
++                            lo = t;
++                        }
++                    }
++                }
++            }
++        }
++    }
+     while hi - lo > 1 {
+         let mid = lo + (hi - lo) / 2;
+         if inside(mid)? {
+@@ -314,6 +473,16 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+             lo = mid;
+         }
+     }
++    IMP[13].fetch_add(1, Relaxed);
++    let bin = |arr: &[std::sync::atomic::AtomicU64; 48], g: Option<i64>| {
++        if let Some(t) = g {
++            let d = (t as i128 - hi as i128).abs().max(1);
++            let b = (128 - d.leading_zeros() - 1).min(47) as usize; // floor(log2 d)
++            arr[b].fetch_add(1, Relaxed);
++        }
++    };
++    bin(&IMP_MISS_WARM, warm_t);
++    bin(&IMP_MISS_MODEL, model_t);
+     Ok(Some(hi))
+ }
+ 
+@@ -525,7 +694,10 @@ impl Work<'_, '_> {
+             let found = match self.rec.b.impact {
+                 Some((a, found)) if a == after => found,
+                 _ => {
+-                    let found = next_impact(&self.rec.b, self.doll().surface, after)?;
++                    // The probe threads the replaced binding's own impact tick as a warm seed (this
++                    // run's patch; used only when `ES_IMP_WARM` is set, and only ever a verified guess).
++                    let hint = self.retired.last().and_then(|s| s.b.impact).and_then(|(_, f)| f);
++                    let found = next_impact_hinted(&self.rec.b, self.doll().surface, after, hint)?;
+                     self.rec.b.impact = Some((after, found));
+                     found
+                 }
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..93af4337 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,9 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            // The lab's probe lift (this run's patch): ES_MEMBERS=N raises the clamp so the battle
++            // arms above 400 members can run; the shipped default is untouched.
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, std::env::var("ES_MEMBERS").ok().and_then(|s| s.parse::<u64>().ok()).unwrap_or(400)),
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;

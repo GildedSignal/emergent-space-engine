@@ -1,0 +1,55 @@
+=== OFF (shipped path)
+battle m4000 s3    wall   1.65 s | digest c0ab0b4b7d0d9d10 | kicks  1032 | imp calls   2064 searches   2064 (cyc  2064 pas    0) reads   60888 (29.50/search) | model 0/0 hits, warm 0/0 hits, bisect-finished 2064
+  predicate: 225969.404 us total, 109.48 us/search (3711.2 ns/read)
+  warm arm: no hint 0, hint outside bracket 0
+battle m1500 s3    wall   0.20 s | digest 1d1b68c1e4d56fd8 | kicks    95 | imp calls    190 searches    190 (cyc   190 pas    0) reads    5615 (29.55/search) | model 0/0 hits, warm 0/0 hits, bisect-finished 190
+  predicate: 21862.117 us total, 115.06 us/search (3893.5 ns/read)
+  warm arm: no hint 0, hint outside bracket 0
+battle m4000 s7    wall   2.01 s | digest b7e0ee56738189b6 | kicks  1190 | imp calls   2445 searches   2445 (cyc  2445 pas    0) reads   72134 (29.50/search) | model 0/0 hits, warm 0/0 hits, bisect-finished 2445
+  predicate: 266627.566 us total, 109.05 us/search (3696.3 ns/read)
+  warm arm: no hint 0, hint outside bracket 0
+battle m1500 s11   wall   0.18 s | digest a2933e02221a92c5 | kicks    88 | imp calls    176 searches    176 (cyc   176 pas    0) reads    5173 (29.39/search) | model 0/0 hits, warm 0/0 hits, bisect-finished 176
+  predicate: 18773.059 us total, 106.67 us/search (3629.0 ns/read)
+  warm arm: no hint 0, hint outside bracket 0
+flying m400 s3     wall   1.28 s | digest b1feb4bf1157db69 | kicks  4004 | imp calls   3901 searches   3842 (cyc  3813 pas   29) reads  114795 (29.88/search) | model 0/0 hits, warm 0/0 hits, bisect-finished 3842
+  predicate: 419453.022 us total, 109.18 us/search (3653.9 ns/read)
+  warm arm: no hint 0, hint outside bracket 0
+handout m16000 s3  wall  10.98 s | digest 61b321edbee921d8 | kicks  6867 | imp calls  13742 searches  13741 (cyc 13739 pas    2) reads  405390 (29.50/search) | model 0/0 hits, warm 0/0 hits, bisect-finished 13741
+  predicate: 1505882.661 us total, 109.59 us/search (3714.7 ns/read)
+  warm arm: no hint 0, hint outside bracket 0
+
+=== WARM (ES_IMP_WARM=1)
+battle m4000 s3    wall   1.55 s | digest c0ab0b4b7d0d9d10 | kicks  1032 | imp calls   2064 searches   2064 (cyc  2064 pas    0) reads   37511 (18.17/search) | model 0/0 hits, warm 921/1032 hits, bisect-finished 1143
+  predicate: 139914.527 us total, 67.79 us/search (3730.0 ns/read)
+  warm arm: no hint 1032, hint outside bracket 0
+  miss-warm: n 1032, p50 bin 2^0 (ticks), bins 0:1010 1:16 2:3 5:2 6:1
+battle m1500 s3    wall   0.19 s | digest 1d1b68c1e4d56fd8 | kicks    95 | imp calls    190 searches    190 (cyc   190 pas    0) reads    3604 (18.97/search) | model 0/0 hits, warm 79/95 hits, bisect-finished 111
+  predicate: 13355.853 us total, 70.29 us/search (3705.8 ns/read)
+  warm arm: no hint 95, hint outside bracket 0
+  miss-warm: n 95, p50 bin 2^0 (ticks), bins 0:91 2:1 5:1 6:2
+battle m4000 s7    wall   1.91 s | digest b7e0ee56738189b6 | kicks  1190 | imp calls   2445 searches   2445 (cyc  2445 pas    0) reads   44740 (18.30/search) | model 0/0 hits, warm 1079/1190 hits, bisect-finished 1366
+  predicate: 163261.764 us total, 66.77 us/search (3649.1 ns/read)
+  warm arm: no hint 1255, hint outside bracket 0
+  miss-warm: n 1190, p50 bin 2^0 (ticks), bins 0:1161 1:21 2:3 4:2 5:3
+battle m1500 s11   wall   0.17 s | digest a2933e02221a92c5 | kicks    88 | imp calls    176 searches    176 (cyc   176 pas    0) reads    3206 (18.22/search) | model 0/0 hits, warm 78/88 hits, bisect-finished 98
+  predicate: 11534.846 us total, 65.54 us/search (3597.9 ns/read)
+  warm arm: no hint 88, hint outside bracket 0
+  miss-warm: n 88, p50 bin 2^0 (ticks), bins 0:85 1:3
+flying m400 s3     wall   1.06 s | digest b1feb4bf1157db69 | kicks  4004 | imp calls   3901 searches   3842 (cyc  3813 pas   29) reads   53068 (13.81/search) | model 0/0 hits, warm 2448/3615 hits, bisect-finished 1394
+  predicate: 194342.722 us total, 50.58 us/search (3662.1 ns/read)
+  warm arm: no hint 227, hint outside bracket 0
+  miss-warm: n 3615, p50 bin 2^0 (ticks), bins 0:2947 1:240 2:115 3:181 4:72 5:23 6:11 7:9 8:7 9:5 12:3 13:2
+handout m16000 s3  wall  10.39 s | digest 61b321edbee921d8 | kicks  6867 | imp calls  13742 searches  13741 (cyc 13739 pas    2) reads  249102 (18.13/search) | model 0/0 hits, warm 6151/6867 hits, bisect-finished 7590
+  predicate: 917052.701 us total, 66.74 us/search (3681.4 ns/read)
+  warm arm: no hint 6874, hint outside bracket 0
+  miss-warm: n 6867, p50 bin 2^0 (ticks), bins 0:6705 1:124 2:11 3:10 4:8 5:6 6:3
+
+=== MODEL (ES_IMP_GUESS=1)
+battle m4000 s3    wall   1.64 s | digest c0ab0b4b7d0d9d10 | kicks  1032 | imp calls   2064 searches   2064 (cyc  2064 pas    0) reads   61001 (29.55/search) | model 0/2064 hits, warm 0/0 hits, bisect-finished 2064
+  predicate: 225605.435 us total, 109.30 us/search (3698.4 ns/read)
+  warm arm: no hint 0, hint outside bracket 0
+  miss-model: n 56, p50 bin 2^26 (ticks), bins 26:56
+battle m4000 s7    wall   2.00 s | digest b7e0ee56738189b6 | kicks  1190 | imp calls   2445 searches   2445 (cyc  2445 pas    0) reads   72232 (29.54/search) | model 0/2445 hits, warm 0/0 hits, bisect-finished 2445
+  predicate: 265489.272 us total, 108.58 us/search (3675.5 ns/read)
+  warm arm: no hint 0, hint outside bracket 0
+  miss-model: n 53, p50 bin 2^26 (ticks), bins 26:53
