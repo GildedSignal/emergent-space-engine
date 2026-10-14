@@ -2,11 +2,43 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261014-0450-scout-b29a
+updated: 20261014-1221-components-0e37
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**Break #2's "representation's lever" is measured: the compiled orbit is write-only memory for
+the engine, exactly its key, and the view's ramp completion is its one real reader
+(20261014-1221-components-0e37).** On the wave scene (N=100,028, 80 wall s at rtf 200, past the
+first-kick wave): held tables 2.0/body (100,076 current + 100,491 retired); standing 1,806 B/body
+of which 74.3% is derived knots (current shape 672, retired 670; rec+plan 464); law-mandated
+floor 673 B/body — idiot index 2.68× accounted, ~4.6× on footprint (459 MiB = 4.59 KB/body;
++2.33 KB/body across the wave, ladder's 2.6→5.1 reproduced). Flight table-reads are **O(1) in
+N** (107–191 decodes/frame at N=10⁵, the same as N=2×10³; 2.2M reads ≈ the wave's own kicks ×
+~10–15, ≈6.9×10⁻⁴/held-table/game-s) and **the belt's retired tables are read 0 times in
+flight** — read only in the burst at their own next kick *[checker 0e37, all-path counter: true
+of the belt (fetch rate flat across the wave), but the fixed cast's retired bindings are fetched
+~1.4/game-s by the player's encounter scan (`encounter.rs:180` — all 56,454 in-flight retired
+fetches over 40,000 game-s; state_of 0) — deletion costs ~0.1–1 % CPU in recompiles, not zero,
+or one kept exception for the cast]*. 1,001/1,001 sampled current
+Cycle tables regenerate **exactly** from `Orbit::compile(key)` (knots, crossings, all three
+channel increments): the cache holds nothing beyond the key. The one mass reader is the view's
+gather: cold 4,238.7 ms, 10.71 decodes/row, and **309,227 rows completed through a retired
+binding in two gathers** (≥1/row post-wave — `observe::partial`'s ramp decodes the previous tube
+2–3× per mid-window row), which the **two-word (a, ȧ) completion** replaces (a-word's open
+direction 1; the one-word form is gate-refuted, the two-word is second order at the handover by
+construction). Design, priced: `Segment` drops `entry`, gains key (+56 B) + word (~24 B) →
+deletes ~520 B/body accounted (~800 B/body footprint) at ≈zero flight CPU *[checker: ~0.1–1 %
+above]*; the current generation
+follows the same route once the Carlson kernel lands (2.9 µs/channel family, kick-jet de99) →
+~750 B/body ≈ 1.1× the floor, moving the 4-GiB-at-10⁶ wall to ~2×10⁶ (free half) / ~4×10⁶ (with
+kernel). Instrument digest-neutral: `frame_digest` identical pristine vs patched on every
+flight. Domain: belt band (e ~0, ~7 knots), planar, headless flight (no per-frame gather),
+Linux footprint; passages/plunges unsampled, high-e members are the same lever at 5–20× the
+bytes (thinner tables, closed-form-kernel 5a3b), the gather's retired-read share is a post-wave
+snapshot — the mid-window phase peak (≥2/row cold); at 40,000 game-s it is 0.02/row (checker),
+the synchronized cadence's phase setting the share.
 
 **The smallest promotion is no promotion: one belt event is a stack-local function on the compact
 row, and the live bind is a regime change, not an event (20261014-0450-scout-b29a).** Composed from
@@ -133,6 +165,18 @@ The four rules that survive, with rule 2 struck and adjudicated:
 
 ## Refuted
 
+- "The retired compiled orbit is needed by the engine between kicks" (the assumption under
+  ladder break #2's memory wall): flight reads of held tables are O(1) in N and the *belt's*
+  retired tables are read exactly 0 times in a headless flight past the wave *[checker: the
+  cast's are fetched ~1.4/game-s by the player's scan — 56,454 over 40,000 game-s, all at
+  `encounter.rs:180`; ~0.1–1 % CPU to recompile]*; the knots are a pure cache of the
+  `OrbitKey` (1,001/1,001 sampled regen; checker: every current and retired table, knot-for-knot,
+  300,520/300,520) (20261014-1221-components-0e37).
+- "Deleting the retired generation is free at today's view": post-wave, the gather completes
+  ≥1 row in 1 through the previous binding (309,227 completions in two gathers of 100,048 rows,
+  10.71 decodes/row) — the deletion needs the two-word completion (a, ȧ), not just a key
+  (same run; the one-word form already gate-refuted by a-word's f2b7).
+
 - "Cost follows events, not bodies" as a measured update-path scaling law: the timed
   path is one shard by construction, and 6→7 ns is inside the 6–9 ns repeat noise
   (20261013-2130-library-ae3d, checker).
@@ -152,35 +196,44 @@ The four rules that survive, with rule 2 struck and adjudicated:
 
 ## Open directions
 
-0. **Wire the belt's events through the scar batch, not `resolve_handout`** (b29a): the composed
+0. **The break-#2 build (the lever is now measured):** `Segment` drops `entry`, gains the key
+   (+56 B) and the two-word (a, ȧ) completion (~24 B; a-word's open direction 1 is its missing
+   half — the write needs the field's derivative at the kick); `observe::partial`'s ramp reads
+   the word instead of decoding the previous tube; `binding_at` recompiles on the rare
+   non-window read. Deletes ~520 B/body accounted (~800 B/body footprint) at zero flight CPU;
+   with the Carlson kernel (kick-jet de99) the current generation deletes too (~750 B/body,
+   ~1.1× the floor). The gather's retired-read census then re-runs as the acceptance check.
+1. **Wire the belt's events through the scar batch, not `resolve_handout`** (b29a): the composed
    path deletes the sticky promotion entirely; the contract to settle at wiring is the tier → law
    kick interface (exact integer ΔE/ΔL in the key's quanta vs state-space impulse at 21 µs) and
    the w/t column anchoring. The refit's *refusal* is the true promote-to-live trigger.
-1. **The deleted rungs** (rule 1): per term, what does the frame loop look like with the
+2. **The deleted rungs** (rule 1): per term, what does the frame loop look like with the
    term gone; count what the per-frame walk visits that the hot tier did not touch.
-2. **Event-time hysteresis on the shipped chatter case** (rule 3): retrograde 0.49 R_H,
+3. **Event-time hysteresis on the shipped chatter case** (rule 3): retrograde 0.49 R_H,
    boundary evaluated at the doll's events; expect handoffs per 20 periods to collapse.
-3. **Compaction as the scheduled spike** (measured): fold the storm row's update stream
+4. **Compaction as the scheduled spike** (measured): fold the storm row's update stream
    into the shipped allocator and check the p99 frame. Primary direction for the
    promotion work (rule 2's death redirects it here and to ephemeral promotion).
-4. **The wired encounter wall** (effb's held-out number): when H0216 wires the encounters
+5. **The wired encounter wall** (effb's held-out number): when H0216 wires the encounters
    tier into the plane, the first CPU wall lands at ~5.2×10⁵ belt bodies skin-on
    (~4.1×10⁴ no-skin) — measure it there; the further ~1.9×10³ cut (cells, setup, what
    never needs a pair test) is the cold rail's 10⁹ lever, ahead of any kick-cost work.
-5. **The belt revival path** (both runs and the adjudication point here): a dense belt
+   *[0e37: once wired, re-run the read census — the tier is the one consumer that could
+   read belt tables between kicks; today's flight has none.]*
+6. **The belt revival path** (both runs and the adjudication point here): a dense belt
    where conjunctions cluster on bodies could still be heavy-tailed *without* a driver —
    unmeasured; it is the one scene class that could revive a measured rank.
-6. **The death channel at belt scale** (ea91): the 47–64 % promotion death rate is the
+7. **The death channel at belt scale** (ea91): the 47–64 % promotion death rate is the
    battle pocket; measure the quiet belt's promotion mix (death vs dormancy) before
    sizing retirement vs demotion. The avalanche stream (Fano 8–28) is the allocator's
    target for burst absorption (PRINCIPLES #12).
-7. The haulers' far-field clock cadence per orbit is extrapolated from ~1 kick
+8. The haulers' far-field clock cadence per orbit is extrapolated from ~1 kick
    (0.03–0.3 % of an orbit measured); a full-orbit measurement needs ~10⁷–10⁸ game-s
    (wall-days) — only worth it if the ladder reaches the root-doll bulk. *[effb: the
    cadence law rate = 2⁷/P now explains why the haulers sit at ~1 kick per *measured
    window* without any separate far-field clock: their κ/P is simply small; no extra
    law is needed.]*
-8. **Pick the belt's `step_log2` as a budget decision** (effb): the cold rail's whole
+9. **Pick the belt's `step_log2` as a budget decision** (effb): the cold rail's whole
    CPU bill is 2^step_log2/P summed over the period mix; the billion's event load is a
    content policy, not an engine property — set it when wiring shipmem, with the
    encounter term (not the kick) as the binding constraint it must leave room for.
@@ -200,3 +253,4 @@ The four rules that survive, with rule 2 struck and adjudicated:
 - 20261014-0000-fermi-3071 (awaiting grade): the conflict adjudicated by decomposition — native counts identical across seeds and exactly 2× with the window, roster-predicted Gini 0.759 vs measured 0.718–0.745; rule 2 dead, ea91's description stands, certificate = birth constant.
 - 20261014-0059-fermi-effb (awaiting grade): the 10⁹ ledger composed — cadence law rate = 2⁷/P code-verified (roster endpoints 0.96/0.76, Orbiters ⊂ [128,256]); encounters 1,925× over skin-on, 7,051× the kicks; two rails (hot = kick gap, cold = encounters + memory); held-out: wired wall ~5.2×10⁵.
 - 20261014-0450-scout-b29a (silver): the smallest promotion composed and measured — ~34–38 µs/12–40 B ephemeral vs 486 µs/8,257 B sticky; key-space kick 0.11 µs at the birth floor; checker: cold-belt 13×, 6.4× at σ0.3, darwin domain p ≤ 8192 M.
+- 20261014-1221-components-0e37 (this run, awaiting grade): break #2's lever measured — compiled orbits are write-only in flight (retired: 0 reads; flight reads O(1) in N), exactly the key (1,001/1,001 regen), floor 673 vs standing 1,806 B/body; the view's ramp is the one reader (≥1 retired read/row post-wave) — the two-word completion deletes the retired generation free.

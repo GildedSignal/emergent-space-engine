@@ -2,11 +2,43 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261013-1915-second-20261013-1428-scout-21ba-de99
+updated: 20261014-1221-system-b8fc
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
 ## Current best
+**The knot table is measured write-mostly and read-thin: one census prices the incomplete-form
+readout as the single deletion for the kick's bind half AND its search/read half, plus the standing
+memory (20261014-1221-system-b8fc, whole-system lens).** Additive counters in `orbit.rs` (digest
+bit-identical under unlimited and 3 ms budgets, `b1feb4bf…`): on the shipped plane (seed 3, 8
+game-s; 400 and 1,500 members at rtf 100) each compile builds a 77–92-knot table of which only
+**7.1–7.6 bracket cells are ever read (8–10%)**; every time→state readout then re-integrates
+**2.8–2.9 partial-panel quads + 1.9 Newton rate evals ≈ 13.4 integrand point-evals** (plus 5.4–5.7
+cheap bracket probes on stored sums). Shares of integrand point-evals: build 31–34%, read 66–69% —
+the read side dominates, so the incomplete Carlson forms (fenced below) must land **first**, and the
+complete-form kernel (already certified to the walk's 2⁻³⁰ quantum) takes the increments: the two
+together delete the build walk (the kick's bind, 46% of a fired kick), the search's re-integration
+(45%; the frame-cost page's 4.6 µs/readout is quadrature, not lookup), and the ~77–92 × 88 B
+standing knots behind the memory gap — one adoption, three bottlenecks. The author's pre-registered
+P3/P4 (build dominates) failed into this: the table is not just expensive to build, it is barely
+consulted. Domain: bound Darwin cycles, `orbit.rs` only (Kerr/light/plunge uncounted), single
+thread, two scenes, 8 game-s; `at_radius` (the passage guess) is a 2% path. Regeneration:
+`lab/results/20261014-1221-system-b8fc/regen.sh`.
+[Checker, this run's check: every raw counter and digest reproduces bit-for-bit, and the census
+moves no bits (pristine tree, three arms). The derived split does NOT regenerate as shipped: the
+example's summary line consumes `R_QUADS`/`AR_QUADS`, which the hooks never bump, so regen prints
+"build 73–75%" — an instrument artifact; the 31/69 and 34/66 must be recomputed by hand from the
+raw counters (4·C_QUADS vs 4·R_NEWTON+R_RATE, justified by `quad`'s code: 4 point-evals on every
+branch), and under node()-class evals the read side dominates harder (75/25 and 72/28). Address
+identity slightly OVERSTATES cells-read (distinct tables merged): unique per-compile ids give
+6.2/76.9 and 6.3/92.3 on the same arms, 6.0–6.5 (5–11%) on held-out attacks (seed 7; 32 game-s
+at 400 members, read share 74%; 5,000 members, knots/table grows to 117.5, read share 59%) —
+write-mostly stands everywhere tested, digest identical under budget on seed 7 too. One domain
+correction: on the author's own quiet arm (rtf 1) the BUILD side dominates (62/38 by the same
+point model; 90.6% of node() calls) — read dominance is a kick-active (rtf 100) fact, and
+readouts/table under honest identity is ~48, not 55–60.]
+
+
 
 **The panel walk computes complete elliptic integrals: the φ channel is one Carlson RF
 call, verified on shipped code to its Q30 output quantum (20261013-1428-scout-21ba).**
@@ -273,3 +305,4 @@ division/isqrt chains themselves (function-call-shaped, untouched), and panel co
 - 20261013-1428-components-2368 (this run, awaiting grade): cos closed bit-identically by 4-way interleaving of the panel's Gauss nodes — primitive 42→14.1 ns/cos (3.0×), compile −10.6–12.4% A/B/A, plane digest identical, kick resolve 33.2→28.3 µs; unrolling alone refuted (1.01–1.03×).
 - 20261013-1428-scout-21ba (this run, awaiting grade): the φ channel of the shipped panel compile is one Carlson RF call, exact to the compile's Q30 quantum on every strong key; panels 5→176 (e→0.999, band cuts), wall 3.2→197 µs vs ~90–420 ns closed form (checker-corrected; the run's 37–39 ns was a timing artifact); panel-count lever now has a named replacement mechanism.
 - 20261013-1915-second-20261013-1428-scout-21ba-de99 (awaiting grade): the honest Carlson kernel (paper-verbatim, r=10⁻¹⁵, black_box) delivers φ/τ/t as a drop-in to the walk's quantum on 29 keys; φ 129 ns flat, all-three ≤2.9 µs vs 307 µs walk (42–2378× per channel); walk degrades to 6.7×10⁻⁷ at m→1 where the kernel holds 10⁻¹⁰; first run's DE weight bug found and fixed.
+- 20261014-1221-system-b8fc (this run): knot-table census — 8–10% of cells read, 13.4 point-evals re-integrated per readout, read side 66–69% of point-evals; the incomplete-form readout is the one deletion for kick cost, search cost and standing memory.

@@ -2,11 +2,46 @@ topic: encounters
 status: open
 closed-by:
 valid-while:
-updated: 20261014-1137-fermi-1738
+updated: 20261014-1221-scout-0b81
 
 # Finding encounters: the pairwise tier, the slack skin, the Binet cone
 
 ## Current best
+
+**The candidate-count lever has a measured mechanism and a measured ceiling: a quantum
+gate — charge each candidate pair's strongest in-horizon conjunction against the law's
+own key quantum (one Q48 of E) — deletes 95.5–97.8% of exact-tier pair work on an
+asteroid-like 10⁹ belt against Kepler-true conjunction misses, composing the
+contiguous-averaged wall (1.65×10³–8.2×10³ cores) only to ~37–369, NOT under the
+4-core budget; the phase-free group certificate is proven vacuous on random-phase
+belts (20261014-1221-scout-0b81, checker-corrected: the author's 99.96% / 0.5–3.1
+cores assumed misses uniform over v_rel·P_syn/2, which a direct Kepler integration
+shows 6×10²–9×10³× too large at Δa ≤ 0.05).** Float replica, controls both sides: the
+deflection impulse Δv = 2μ/(b·v_rel) validates against RK4 at ratio 0.999–1.000
+(weak-deflection regime); an all-50-m-rock belt deletes 1.000000 under both miss
+models (c7eb's 0/1000 anchor); an all-10-km belt deletes 0.118 in the author's model
+and 0.000 under Kepler-true misses (negative control). Dohnanyi spectra
+(dN/dD ∝ D^−3.5, N=10⁹), Kepler-true misses: D∈[70 m, 470 km] → deletable 0.967,
+survivors 3.3×10⁻² of candidates, ledger ~54–268 cores (author's model said
+0.99962 / 3.8×10⁻⁴ / 0.63–3.1); survivors are cross pairs (a large partner moves a
+small one), so the exact tier tracks N_large×n, not n². The gate's own per-refresh
+comparison cost is unpriced in the composition. The
+content dial is the birth spectrum (author-model numbers, direction stands):
+D_min 100 m → 0.9993, 500 m → 0.966, 2 km → 0.558 — a belt born all-large keeps its
+pairs and needs islands/flux instead. The deleted
+tail's destination is the flux accumulator (62f7, 0.87–1.04 of truth; PRINCIPLES #6:
+"influences below one quantum accumulate"); the gate deletes event work, never
+observable state (positions derive from generators regardless; a player entering a
+sub-quantum rock's light cone re-opens exact treatment per-pair). Group-certificate
+vacuity: min-over-phases miss at a crossing longitude falls as 1/K (2.9×10⁻¹ at K=10
+→ 1.6×10⁻⁶ at K=10⁵) — no phase-free group certificate can skip a crossing cell pair
+where phases are random; the r8-v2 lead lives only where phases correlate (formations,
+taleb-09b5's rank ≤ 4). Domain: planar, prograde, σ_e 0.05, horizon 10³ orbits,
+float/Linux orders of magnitude; the M1 re-measures. Risks: quantum anchor (finer
+effective key granularity raises survivors: Q52 → 0.78), conjunction misses that are
+quasi-periodic, not uniform (generic at Δa ≲ 0.05, not a resonant minority; the law's
+resonance gate is the complement), heavier belts (real-belt mass ×52 → 0.64), and the
+accumulator's secular feedback stays loaded (43d5/6875).
 
 **The 10⁹ wall is a three-axis policy cube, not a number: the published "7.7×10³ cores
 skin-on / 1,925× over / 7,051× the kick term" composes 90fb's mislabelled "per 10⁴-cell"
@@ -31,88 +66,69 @@ Carlson, 0.045 at the key arm), topology 2.2×10⁴–1.1×10⁵× (islands vs c
 contiguous, quadratic in N) to 5.2×10¹⁰ (averaged, islands) at flying pace — the
 wiring's `step_log2` + topology choices are worth ~10⁴× in where the first wall lands.
 **The one remaining 10³-class engine lever: the contiguous belt's candidate COUNT ∝ N —
-no index cuts it; group certificates (r8-v2 lead), the phase-neighbour certificate
-(taleb-09b5) and crossing-packet flux (62f7) are the candidates.** effb's cadence law,
-kick term, memory rows and two-rail ordering survive (encounters bind the cold rail in
-every consistent frame except averaged+islands); its encounter term, the 1,925×/7,051×
-ratios and the held-out 5.2×10⁵ do not — nladder's effb paragraph inherits this
-correction.
+no index cuts it; the quantum gate above (0b81) is the measured mechanism but its
+checker-corrected ceiling is 20–45× (37–369 cores), so the budget needs the flux
+split on top; group certificates (r8-v2 lead) are vacuous on random-phase belts, the
+phase-neighbour certificate (taleb-09b5) is alive where phases correlate, and
+crossing-packet flux (62f7) the accumulator.**
+effb's cadence law, kick term, memory rows and two-rail ordering
+survive (encounters bind the cold rail in every consistent frame except
+averaged+islands); its encounter term, the 1,925×/7,051× ratios and the held-out
+5.2×10⁵ do not — nladder's effb paragraph inherits this correction.
 
 **The pairwise tier is exactly sound everywhere measured except two named holes, its cost follows measured laws, and the one standing lever is the slack skin.** The shipped tier (cone candidates → `sections` → Diophantine first-hit → exact check, `crates/encounters`) is built but not wired into the plane (H0216).
 
-**Cost laws (cone tier).** Candidate work per real encounter is `cpe ≈ 1.2–1.3·a^2.53/ρ`, decomposing exactly as a^1.5 local clock × a^1.0 relative-ρ; carrying ρ ∝ a and per-doll (local-orbit) time makes work per encounter radius-flat, residual exponent 0.000 over a 100× ladder (`48e5`, `abd7`). Radial concentration does not break it: degree tail max/mean ≤ 3.9, N-linear, per-kick setup f·N with f = 0.10–1.0 (`48e5`). At 10⁶ the kick→certificate cascade is the only term near a core, with measured law `pairs/kick = 0.0346·n·(1+X)/(2(X−1))` (anchor 812.8 at the n=10⁴ island, shipped code, re-anchored 20261014-1137 within 1%): **the law's n is the TOTAL population indexed — 90fb's "0.966/0.077 cores per 10⁴-cell" is the partitioned TOTAL of the billion (max-rtf 5,216 on 4 cores in that frame), cells keep candidate sets identical to global (exact verify, 0 mismatches), so the cascade of one contiguous belt is quadratic in N — 10⁹ contiguous costs 2×10⁴–10⁵ cores no-skin at flying pace — while ~10⁵ isolated islands of ~10⁴ (a content choice) cost 0.966/0.077 total — and the global U-index itself does not fit (16 GB at 10⁹) (`90fb`, corrected 20261014-1137).** The cost is a burst, not a load: degree/body ∝ N even at ρ = 1/N, re-pay p99 ≈ 20 ms at N = 10⁴ / 80 ms at 10⁵ single-threaded (`7578`).
+**Cost laws (cone tier).** Candidate work per real encounter is `cpe ≈ 1.2–1.3·a^2.53/ρ`, decomposing exactly as a^1.5 local clock × a^1.0 relative-ρ; carrying ρ ∝ a and per-doll (local-orbit) time makes work per encounter radius-flat, residual exponent 0.000 over a 100× ladder (`48e5`, `abd7`). Radial concentration does not break it: degree tail max/mean ≤ 3.9, N-linear, per-kick setup f·N with f = 0.10–1.0 (`48e5`). At 10⁶ the kick→certificate cascade is the only term near a core, with measured law `pairs/kick = 0.0346·n·(1+X)/(2(X−1))` (anchor 812.8 at the n=10⁴ island, shipped code, re-anchored 20261014-1137 within 1%).
 
-**The slack skin (the lever).** 92% of per-kick evals are numeric-window *setup*, so dormant-pair deferral is dead (ceiling 1.1–1.2×; analytic zero-setup windows over-fire 427×) and the lever is setup-skipping (`4643`). Built and sound: windows as ρ-level sets at ρ_eff = ρ + 1.5·s·r²max are exact at s = 4·eps_u — 0 missed / 0 false, setups/kick 14.95 vs always's 188.6 (`317c`, the 12.6× of q-skin, 2 Oct) — and the built `skin.rs` cuts setups/kick 142.3→17.1 at 0/0 against independent truth (`8bfa`), converting to total-evals cuts: fleet 3.6×, wall 3.0–3.7×, p95/p99 down 3–4× (`57c1`); a dual-guard variant cuts kick re-cert 7377→851 µs/kick (8.7×) at ε 1e-9 with zero violations (`ccc6`); τ-grid caching 1.6–2.1× (`a85a`); arc-grid hoisting 1.39× bit-identical (`f521`). The skin's law: the cut equals the mean cache lifetime τ = slack·eps_u·32/((e/p)·g) (42.5× at 0.057 rad/orbit; τ ≈ 2.2e3–1.1e5 epochs at real belt rates) (`73f0`); slack/widen must be sized from the law's precession — slack 0.5/widen 2 misses 5/459 at 0.19 rad/orbit, widen 6 or slack 0.1 restores soundness, widen 12 breaks the exact check (`73f0`); width is per-pair precession, not a resonance split (`8f99`). Boundaries: at 100× the plane's kicks the sound skin costs more than it saves (`317c`); the max-age refresh is unimplemented (`57c1`); the queued skin cannot absorb player burns (skippable 94.6% at δa/a 1e-9 but 0.25% at 1e-3, unsound there) (`e49d`).
+**The slack skin (the lever).** 92% of per-kick evals are numeric-window *setup*, so dormant-pair deferral is dead (ceiling 1.1–1.2×; analytic zero-setup windows over-fire 427×) and the lever is setup-skipping (`4643`). Built and sound: windows as ρ-level sets at ρ_eff = ρ + 1.5·s·r²max are exact at s = 4·eps_u — 0 missed / 0 false, setups/kick 14.95 vs always's 188.6 (`317c`), the built `skin.rs` cuts setups/kick 142.3→17.1 at 0/0 (`8bfa`), fleet wall 3.0–3.7× (`57c1`); dual-guard cuts kick re-cert 7377→851 µs/kick at ε 1e-9 (`ccc6`); τ-grid caching 1.6–2.1× (`a85a`); arc-grid hoisting 1.39× bit-identical (`f521`).
 
-**Soundness holes, both with one-step fixes.** (1) *Horizon edge:* encounters in progress at horizon open/close are silently dropped — 20.2% of true encounters (284/1407) on a dilute fleet, the dropped set pinned to the two edges while truth grows 6×; two unconditional t=0/t=H edge checks catch every observed miss (`5c01`; this falsifies `8af8`'s "0 missed on every scene" — its truth shared the blind axis). (2) *High e:* the shipped fixed-k check misses 5.4–7.1% at e ∈ [0.60, 0.95] — `make_belt` caps e at 0.5, so frozen verify sets never looked there (`8cee`); the 12+12-bit Catalogue-key window's sound domain ends at e ≈ 0.969, where the pad's 1/g term crosses periapsis (206/289 missed at e ∈ [0.95, 0.985]; one-line inner-edge fix) (`969a`, `5d90`). Also: differential apsidal precession kills the standing "never" certificate at t_tang = (distance to orbit-tangency)/Δϖ̇ — every realized encounter lands after its tangency (12/12) — so sections must live in the pair's co-precessing frame, an O(1) angle update per pair; it matters at p ≈ 50 M (40–400 orbits), not in the weak field (`71a5`). Found engine bug: `hit()`'s cross·cross overflows i128 and reports phantom encounters (all 19 plane contacts in one scene) (`cdf8`, lead — the run's own claims died, the bug is real). Untested: a GR doll's apsidal advance breaks the circle-rotation timing and the cone (`4e7c`, lead; direction only, record doctored).
+**Soundness holes, both with one-step fixes.** (1) *Horizon edge:* 20.2% of true encounters dropped at horizon open/close; two unconditional t=0/t=H edge checks catch every observed miss (`5c01`, falsifying `8af8`). (2) *High e:* the shipped fixed-k check misses 5.4–7.1% at e ∈ [0.60, 0.95] (`8cee`); the 12+12-bit Catalogue-key window's sound domain ends at e ≈ 0.969 (`969a`, `5d90`). Also `hit()`'s i128 overflow (`cdf8`).
 
-**The player seam.** `PlayerNeighbourhood::find` is an exact O(N) clone-and-eval scan at 1.5–1.9 µs/body: one player event crosses the whole 16.7 ms frame at ≈10⁴ bodies (`d7bd`). A provably-safe same-doll pre-filter is priced out — the only airtight bound rejects 0.07% of pairs; the exact tier is ~4 µs/pair, linear in population (~4 s per player item at 10⁶ same-doll bodies): the deletion belongs to phase certificates at the seam, not per-pair filters (`f79a`). One kick's wake in the cone tier is O(N) single-thread (6.6–6.9 ms at N = 10⁴, slope ~1.04; a full frame at N ≈ 2.4×10⁴; re-anchored 20261014-1137 at 7.2–7.3 ms on the shipped `kick` experiment), but 98% of it (window setups) has deadlines ≥ tens of orbits away — deadline-ordered scheduling turns the burst into a stream; only the cone re-scan (1.3–2.1%) must land in the kick's frame; the deadline must be phase-aware (1/|Δn| is the synodic period: 11.3% of pairs first conjunct within 10 orbits) (`e49d`).
+**The player seam.** `PlayerNeighbourhood::find` is an exact O(N) scan at 1.5–1.9 µs/body: one player event crosses the 16.7 ms frame at ≈10⁴ bodies (`d7bd`); the airtight pre-filter rejects 0.07% (`f79a`); one kick's wake is O(N) single-thread (6.6–7.3 ms at 10⁴) but 98% defers by deadline (`e49d`).
 
-**Structural ruins and their escapes.** Co-orbital concentration is the sibling page's ruin (`coorbital-cert`). Two more live here. *Fleet engagement* (two tight swarms on crossing orbits): 100% cross-pair saturation, 2 analytic Cross sections per pair, 0 numeric setup evals — a Θ(n_A·n_B) store (~144 TB at 10⁶×10⁶) that neither the clump trigger (cross Binet separation 0.29 vs eps_u 3.9e-4) nor a node-interchange guard (p50 6.3e-2, ~630× the ρ/v_rel window) can cheapen, while the tier is exactly sound there (0/0 over 40,000 pairs; 51–55 evals/hit flat in n) (`2e81`). The escape, measured: when concentrated packets cross, contacts are Θ(n_A·n_B) (exponent 1.94, per-pair p ≈ 0.021 flat) — the events themselves are the workload and no discovery certificate can help — so one aggregate event per packet crossing replaces enumeration: per-ship flux λ_i = ρ_B·2R·L_i through the opposing packet's density grid, O(n) at 257·(n_A+n_B) evals, zero free parameters, totals 0.87–1.04 of exact truth (`62f7`). *Tier routing*: coplanar pairs split by the crossing fraction χ_t = Δa/(e₁a₁+e₂a₂) (exact identity, 0 violations in 166k pairs); conjunction-anchored checks (radial, Öpik) miss 40–97% of true close approaches in deep crossing, so per-pair synodic CF pays only where ν = W·ε ≪ 1 and the deep tier routes to the phase-neighbour mechanism (`532c`).
+**Structural ruins and their escapes.** Co-orbital concentration (the sibling page's ruin). *Fleet engagement:* Θ(n_A·n_B) store (~144 TB at 10⁶×10⁶) (`2e81`); the escape is per-ship flux (`62f7`).
 
-**Candidate-tier shape.** The law's own 12+12-bit Catalogue key is a conservative candidate tier: one key-sorted list, zero window misses on 8 scenes incl. precessing rosettes, kick maintenance local (median 2 cells), 2.7× median cut vs the O(N) Cartesian scan (`969a`); stacked with the shipped timing tier it recalls every fine-truth encounter in the sound domain with tier-2 work bit-identical and key-only breadth free, passing r8 v4's frozen gates (1.400/1.296 ≤ 2.0; 1.10 checks/hit ≤ 1.5) (`5d90`). Quantized (periapsis, k) buckets are a conservative cone index (zero misses, superset ×1.02–1.49) (`136a`) — but their Δϖ-band section cache is refuted as zero-miss: tolerance ≈ 1e-5 rad, 9.3% of encounters silently missed at the fine band, window widening useless (the arc geometry θ_c binds; only re-setup recomputes it) (`ca96`). One unified rule — `cone ∧ wrap(Δλ₀) ≤ |Δn|(1+3ē²)H + 5(eᵢ+eⱼ) + skin` on one U-sorted scan — deletes the concentration trigger, the second certificate and the fleet category; its index must bound each slow-band bin's |Δn| by its occupants' exact mean-motion extremes, which makes it emit exactly the naive per-pair rule (0 drops/adds over 23 scene-instances, recall 1.0; belt evals +28–90%) (`8716`, `88ee`). Killed shortcuts: the CF/Diophantine next-conjunction calendar (median percentile rank 0.48 ≈ random, exact-window hit ≤ 7.6%; conjunctions cluster whenever 2e·n > |Δn| — ~90% of belt pairs; only weak recurrence survives, miss 0.48–0.67× median at the best convergent offset) (`189e`, `30a7`); the three-number synodic-strobe record (its 33–146× inverts under real kicks to a 1.1–20× loss, 96× at ε 1e-4; 43k–3.97M evals per real encounter vs scanning's 38–41k) (`9834`, `5c16`); the time-priority τ book (static keys miss 99%; the O(N·k) gain asserted, not measured) (`c716`).
+**Candidate-tier shape.** The law's 12+12-bit Catalogue key: zero window misses on 8 scenes, kick maintenance local (median 2 cells), 2.7× median cut vs the O(N) scan (`969a`); stacked with the timing tier, recall 1.0 in the sound domain (`5d90`). Quantized (periapsis, k) buckets: conservative (superset ×1.02–1.49) (`136a`) but the Δϖ-band cache is refuted (`ca96`).
 
-**Load and the steady state (allocator inputs).** "No work per orbit in the steady state" is false under endogenous kicks: elastic stirring keeps a kick floor and certificate re-setup churn runs 15–50× real encounters at the m=16 grid (`43d5`, `6875`); the 0.1-encounters/body/orbit "attractor" is dead — rate 0.105→0.247 still climbing between orbits 400 and 800 — so a static encounter budget is wrong by >2.5× in one session (`1b1f`); instead rates decay as λ ∝ t^-0.25 with e_rms ∝ t^0.4, collapsing to λ = 0.345·e^-0.215, mildly self-exciting (b ≈ 0.35, subcritical; tails ≈ 1.8× Poisson) (`79ef`); no avalanche — corrected branching 1.01–1.11× baseline (`6565`). Swarms on Ψ = μ_g/(aσ_e)³: a Poisson gas (λ ∝ Ψ^0.95) ending at a birth-burst/capture regime; real game swarms sit at Ψ ≲ 10⁻⁶ where mutual encounters are deletable; the impulsive-conjunction representation is valid only inside b ≲ 3 r_H (`ec74`).
+**Load and the steady state.** No steady state under endogenous stirring (`43d5`, `6875`); rates decay λ ∝ t^-0.25 collapsing to λ = 0.345·e^-0.215 (`79ef`); no avalanche (`6565`); swarms a Poisson gas, deletable (`ec74`).
 
-**The event itself.** A flyby must be an event entered by analytic detection at ≥ 1.5·SOI (wired as the doll door), after which the plane's in-doll rule holds B13's 1% gate (15/15, worst 2.4e-3, 65–120 events flat in e_h; star-doll cadence 0/60, one-event Öpik ≤ 7/41) (`4ea2`). The contact impulse coefficient is validated on the crate's own truth encounters (measured/predicted median 0.998 over 1091 RK4 runs; the prior (2/3)·2atan(μ/qv²) form ~18× high and cosψ-blind), giving m_crit ≈ 1.3×10⁻¹⁷ M☉ (~1.35-km rock) — below it, belt encounters never cross a period tick (0/1000 50-m rocks in 1.7×10⁴ orbits) (`c7eb`). The kick layer's resonance gate and the encounters CF pass read the same synodic rotation, so the standalone frequency detector is deletable as a pairwise gate — recall 46–92%, not the claimed 94–98% (`aa29`).
+**The event itself.** Analytic detection at ≥ 1.5·SOI as the doll door holds B13 (`4ea2`); contact impulse validated (median 0.998 over 1091 RK4), m_crit ≈ 1.3×10⁻¹⁷ M☉ (~1.35-km rock; below it 0/1000 50-m rocks cross a tick, `c7eb`); the resonance gate and CF pass read the same synodic rotation (`aa29`).
 
-**Domain.** All of it is planar-Kepler replicas on Linux/x86 (orders of magnitude only; the integrator re-measures on the M1), n ≤ 10⁶ anchored (arithmetic beyond), scan cohorts to 3×10¹⁰; the tier is not yet wired into the plane's runtime (H0216); 3-D inclination, kick-perturbed λ(t) and the GR doll are untested in every run here (`4e7c`, flagged also by the coorbital page).
+**Domain.** Planar-Kepler replicas on Linux/x86 (orders of magnitude; the integrator re-measures on the M1), n ≤ 10⁶ anchored, scan cohorts to 3×10¹⁰; not yet wired (H0216); 3-D inclination, kick-perturbed λ(t), the GR doll and (0b81 adds) the mass spectrum's M1-side quantum anchor are untested.
 
 ## Refuted
 
-- **The published 10⁹ encounter ledger (effb's "7.7×10³ skin-on / 9.66×10⁴ no-skin /
-  1,925× over / 7,051× the kick term / wired wall ~5.2×10⁵")**: 90fb's 0.966/0.077 is
-  the partitioned TOTAL (max-rtf 5,216 reproduced exactly), the ×10⁵ cells double-bills
-  the kick stream, and the two terms mix rtf frames by 100×
-  (20261014-1137-fermi-1738). The cascade constants themselves all stand.
-- Dormant-pair deferral (the taleb-3ec1 lead): 92% of per-kick evals are setup; ceiling 1.1–1.2×; analytic windows over-fire 427× (`4643`).
+- **The quantum gate's uniform-in-synodic-tube miss model (0b81's 99.96% / 0.5–3.1-cores headline)**: real Kepler min-misses over a 10³-orbit horizon (random ω, 4×10⁶ samples, 8 seeds per Δa) are 6×10²–9×10³× smaller than modeled at Δa ∈ [0.005, 0.05] — conjunction misses are quasi-periodic and revisit near-zero (the r8-v2 CF structure, generic, not resonant-minority); corrected deletable 0.955–0.978, ledger 37–369 cores vs budget 4, the all-10-km control flips 0.118 → 0.000 (0b81 checker, 20261014).
+- **Phase-free group certificates ("pay once while envelopes are disjoint", the r8-v2 lead) on random-phase belts**: the min-over-member-phases miss at a crossing longitude is 0 (falls as 1/K: 1.6×10⁻⁶ at K=10⁵) — no element-space aggregate without phase can skip a crossing cell pair; alive only where phases correlate (20261014-1221-scout-0b81).
+- **The published 10⁹ encounter ledger (effb's encounter term and ratios)**: 90fb's 0.966/0.077 is the partitioned TOTAL, the ×10⁵ cells double-bill the kick stream, the two terms mix rtf frames by 100× (20261014-1137-fermi-1738). The cascade constants themselves all stand.
+- Dormant-pair deferral: ceiling 1.1–1.2×; analytic windows over-fire 427× (`4643`).
 - The CF/Diophantine conjunction calendar (board lead, 30 Sept): loses to random at belt scale (`189e`, `30a7`).
 - The three-number synodic-strobe record: inverts to a 1.1–20× loss under real kicks (`9834` → `5c16`).
-- The Δϖ-band section cache as zero-miss: tolerance ≈1e-5 rad, 9.3% silent miss at the fine band (`136a` → `ca96`).
-- The unified index's ΔU-linearized |Δn|: misses 66/495 on a constant-p bimodal-e belt; replaced by occupants' exact mean-motion extremes (`8716` → `88ee`).
-- The static/priority candidate book: static keys miss 99–99.6%; selectivity never measured (`c716`).
-- The provably-safe same-doll scan pre-filter: airtight bound rejects 0.07% — do-not-spend (`f79a`).
-- The 0.1-encounters/body/orbit attractor: nonstationary, rate still climbing at 800 orbits (`1b1f`).
+- The Δϖ-band section cache as zero-miss: 9.3% silent miss (`136a` → `ca96`).
+- The unified index's ΔU-linearized |Δn|: misses 66/495; replaced by occupants' exact mean-motion extremes (`8716` → `88ee`).
+- The static/priority candidate book: static keys miss 99–99.6% (`c716`).
+- The 0.1-encounters/body/orbit attractor: nonstationary (`1b1f`).
 - The slack-0.5/widen-2 pairing at strong rotation: 5 misses/459 (`73f0`).
 - The Catalogue key's sound domain reaching e ≈ 0.9995: it ends at e ≈ 0.969 (`969a` → `5d90`).
-- "The shipped cone tier missed 0 encounters on every scene" (`8af8`, coorbital page): its truth shared the horizon-edge blind axis (`5c01`).
+- "The shipped cone tier missed 0 encounters on every scene" (`8af8`): its truth shared the horizon-edge blind axis (`5c01`).
 
 ## Open directions
 
 Ranked by what each would change:
 
-1. **Price the belt wiring as the cube, not the wall** (20261014-1137): when H0216 wires
-   the tier, the first CPU wall is decided by two content choices — the belt's
-   `step_log2` (457× between averaged and shipped) and its topology (islands vs one
-   contiguous belt, 2.2×10⁴×) — worth ~10⁴× in where the wall lands (1.2×10⁶ to
-   5.2×10¹⁰ bodies at flying pace). Measure the wired tier against the cube's predicted
-   cell, not a single number.
-2. **The candidate-COUNT lever on a contiguous belt** — the one remaining 10³-class
-   engine question: pairs/kick ∝ n_total is untouched by every measured index/skin
-   lever; group certificates that pay once while envelopes are disjoint (r8-v2 lead),
-   the phase-neighbour certificate generalized beyond formations (taleb-09b5), or
-   crossing-packet flux (62f7) are the candidates.
-3. **Ship the skin whole** — the measured lever (3.0–3.7× wall, soundness priced): the max-age refresh (`57c1`), slack/widen sized from the law's precession (`73f0`, `8f99`), the phase-aware deadline (`e49d`), and the player-burn path the queued skin cannot absorb (`e49d`).
-4. **Close the two soundness holes in shipped code** — the two unconditional horizon-edge checks (`5c01`); high-e scene families in every frozen verify set plus the key window's inner-edge fix past e ≈ 0.969 (`8cee`, `5d90`). Also fix the i128 overflow in `hit()` (`cdf8`).
-5. **The co-precessing frame for sections** — O(1) angle update per pair from the tubes' exact Δφ per cycle; load-bearing in the strong field (40–400 orbits at p ≈ 50 M) (`71a5`).
-6. **Crossing-packet routing by flux aggregation** — one aggregate per packet crossing deletes pair enumeration exactly where the events are the workload (`2e81`, `62f7`); wire as the engagement branch of the unified rule (`88ee`).
-7. **The allocator's encounter budget** — burst law (`7578`), nonstationary rate law (`1b1f`, `79ef`), no-avalanche bound (`6565`), deletable swarm gas (`ec74`), deadline-streaming of the kick wake (`e49d`).
-8. **Wire the tier into the plane** (H0216): the player seam sets the deadline — 16.7 ms at ≈10⁴ bodies today (`d7bd`, `f79a`).
-9. **The untested domain** — 3-D inclination, kick-perturbed λ(t), the GR doll (`4e7c`).
+1. **Wire the quantum gate ahead of the section/Diophantine tiers** (0b81): one deflection-formula comparison per candidate pair per refresh; the belt's mass spectrum becomes a `shipmem` birth parameter (the dial, author-model numbers, direction stands: D_min 100 m → 0.9993 deleted, 2 km → 0.558); the deleted tail routes to the flux accumulator (62f7), and the player's light cone re-opens exact treatment per-pair. Checker-corrected: the gate alone lands at 37–369 cores, not under budget — the gold experiment is the yield re-derived with Kepler-true per-Δa miss distributions plus the gate's own per-refresh cost priced against the cascade (f79a's ~4 µs/pair); until then the flux split is not optional. Other named risks: the key's effective quantum on the M1 build (Q52 → 0.78), heavier-than-modeled belts (×52 → 0.64), and the accumulator's secular feedback.
+2. **Price the belt wiring as the cube, not the wall** (20261014-1137): the first CPU wall is decided by the belt's `step_log2` (457× between averaged and shipped) and topology (islands vs contiguous, 2.2×10⁴×) — worth ~10⁴× in where the wall lands; with the gate, the cube gains a fourth axis (the mass spectrum).
+3. **Ship the skin whole** — the measured lever (3.0–3.7× wall): max-age refresh (`57c1`), slack/widen sized from the law's precession (`73f0`, `8f99`), the phase-aware deadline (`e49d`), the player-burn path (`e49d`).
+4. **Close the two soundness holes in shipped code** — the two unconditional horizon-edge checks (`5c01`); high-e scene families plus the key window's inner-edge fix past e ≈ 0.969 (`8cee`, `5d90`); the `hit()` i128 overflow (`cdf8`).
+5. **The co-precessing frame for sections** — O(1) angle update per pair (`71a5`).
+6. **Crossing-packet routing by flux aggregation** — now double-duty: the engagement branch of the unified rule (`88ee`) and the quantum gate's accumulator destination (`0b81`, `2e81`, `62f7`).
+7. **The allocator's encounter budget** — burst law (`7578`), nonstationary rate law (`1b1f`, `79ef`), no-avalanche bound (`6565`), deadline-streaming (`e49d`).
+8. **Wire the tier into the plane** (H0216): the player seam sets the deadline (`d7bd`, `f79a`).
+9. **The untested domain** — 3-D inclination (raises crossings per pair), kick-perturbed λ(t), the GR doll, the mass-spectrum/quantum anchor on the M1 (`4e7c`, `0b81`).
 
 ## Contradictions
 
-None unresolved among these runs. **One composition error corrected**
-(20261014-1137-fermi-1738): effb's encounter term and ratios (nladder page) were built
-from 90fb's mislabelled row; both runs' constants stand, the composition does not — the
-checker should verify the audit against `ledger2-out.txt` (the max-rtf 5,216
-reproduction is the one-line proof). Three silver/gold conflicts were resolved by their
-own second checkers (`969a`→`5d90` on the sound domain; `136a`→`ca96` on the cache;
-`9834`→`5c16` on the strobe record) and are kept as Refuted lines. One cross-run lesson
-stands as the page's H0183 example: `8af8`'s "0 missed" and `5c01`'s 20% horizon-edge
-miss agree because they shared the truth's blind axis — agreement between harnesses is
-not independence; the 20261014-1137 audit adds its twin: agreement between documents
-(board, effb, wiki) is not independence when they cite one row.
+None unresolved among these runs. **One composition error corrected** (20261014-1137-fermi-1738): effb's encounter term and ratios (nladder page) were built from 90fb's mislabelled row; both runs' constants stand, the composition does not. Three silver/gold conflicts were resolved by their own second checkers (`969a`→`5d90`; `136a`→`ca96`; `9834`→`5c16`) and are kept as Refuted lines. One cross-run lesson stands as the page's H0183 example: `8af8`'s "0 missed" and `5c01`'s 20% horizon-edge miss agree because they shared the truth's blind axis — agreement between harnesses is not independence; the 20261014-1137 audit adds its twin: agreement between documents (board, effb, wiki) is not independence when they cite one row; 0b81 adds a third: its two mass controls agreed with the anchors while the decisive number was wrong — controls that share the model's blind component validate nothing.
 
 ## Runs
 - 20261006-0220-scout-4ea2 (gold): B13 flybys are an entry gap: analytic detection at ≥1.5·SOI as the doll door holds the gate; cadence rules fail.
@@ -168,3 +184,4 @@ not independence; the 20261014-1137 audit adds its twin: agreement between docum
 - 20261012-1340-quant-e49d (silver): one kick's wake is O(N) (6.8 ms at 10⁴) but 98% defers by deadline; the skin cannot absorb player burns.
 - 20261009-0401-second-20261009-0208-fermi-fe6b-90fb (gold): cascade anchored at 10⁶: pairs/kick = 0.0346·n·(1+X)/(2(X−1)); skin 0.077 cores/cell; U-index 16 GB at 10⁹. *[20261014-1137: the per-cell label corrected — 0.966/0.077 is the partitioned total; the law, anchor and verify controls all stand.]*
 - 20261014-1137-fermi-1738 (awaiting grade): the 10⁹ encounter ledger audited: 90fb's per-cell constant is the partitioned total (max-rtf 5,216 reproduced), effb's ×10⁵ double-bills; the honest cube spans 0.077 to 3×10⁷ cores on cadence/topology/skin; the remaining engine lever is the contiguous belt's candidate count.
+- 20261014-1221-scout-0b81 (silver): the quantum gate measured — one Q48 of E against each pair's strongest conjunction; author model: 99.96% deleted, ledger 0.5–3.1 cores; checker: the miss model is 6×10²–9×10³× too large at Δa ≤ 0.05 (Kepler-true misses quasi-periodic), corrected 95.5–97.8% and 37–369 cores — mechanism and controls stand, the budget claim does not; phase-free group certificates vacuous (1/K→0); the mass spectrum is the content dial.
