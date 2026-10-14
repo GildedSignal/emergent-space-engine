@@ -1,0 +1,415 @@
+diff --git a/crates/universe/examples/seam_cycle.rs b/crates/universe/examples/seam_cycle.rs
+new file mode 100644
+index 00000000..6efd6c71
+--- /dev/null
++++ b/crates/universe/examples/seam_cycle.rs
+@@ -0,0 +1,409 @@
++//! Lab probe 20261014-1010-taleb-292a: the compact<->live crossing cycle.
++//!
++//! The compact row (shipmem::Body) holds (p, e, w, t) only; the live Rebinding's
++//! Residual (binding.rs:74) has no home there. This chains the crossing the
++//! ephemeral-promotion design will multiply:
++//!   columns -> Orbit::compile -> state at phase -> cartesian (doll word)
++//!   -> [in_tube_units: unit.to_tube(x).fixed(0), the shipped bind.rs:252-258 line]
++//!   -> Rebinding::from_state -> columns' (Trajectory::key, periapsis_angle, clockwise)
++//! and asks: bounded (fixed point / short cycle) or walking (compounding)?
++//! Everything is composed from shipped pub APIs; no engine code is changed.
++//! The fit is a pure function of the integer state (fit_key takes no time), so the
++//! chain holds the event time fixed; phase re-anchoring through a walking period is
++//! not modeled (disclosed in the dossier).
++
++use emergent_space::binding::{cartesian, IntegerState, Rebinding};
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use emergent_universe::world::Unit;
++use std::collections::HashSet;
++use std::time::Instant;
++
++type R<T> = std::result::Result<T, emergent_space::Error>;
++
++/// The shipped `in_tube_units` (crates/universe/src/bind.rs:252-258), mirrored from pub APIs.
++fn in_tube(st: IntegerState, unit: &Unit) -> R<IntegerState> {
++    if unit.unity {
++        return Ok(st);
++    }
++    let q = |p: i64| -> R<i64> {
++        let s = unit
++            .to_tube(Scalar::raw(p as i128, 0)?)
++            .map_err(|_| emergent_space::Error::Range)?;
++        let fixed = s.fixed(0)?;
++        i64::try_from(fixed).map_err(|_| emergent_space::Error::Range)
++    };
++    Ok(IntegerState { position: [q(st.position[0])?, q(st.position[1])?], ..st })
++}
++
++/// The key's k value (k * 2^k_exponent) as one integer count of Q48 ulps, checked.
++fn k_q48(k: u64, e: i16) -> Option<i128> {
++    let shift = e as i32;
++    if shift >= 0 {
++        (k as i128).checked_shl(shift as u32)
++    } else if shift <= -64 {
++        None
++    } else {
++        Some((k as i128) >> (-shift) as u32)
++    }
++}
++
++fn key_q48(k: &OrbitKey) -> Option<i128> {
++    k_q48(k.k, k.k_exponent)
++}
++
++/// A Scalar as (significand, exponent).
++fn scalar_parts(s: Scalar) -> (i128, i16) {
++    (s.significand() as i128, s.exponent())
++}
++
++fn shift_to(s: i128, e: i16, m: i16) -> Option<i128> {
++    let d = e - m;
++    if d >= 64 || d <= -64 {
++        return None;
++    }
++    if d >= 0 { s.checked_shl(d as u32) } else { Some(s >> (-d) as u32) }
++}
++
++fn ulp_diff(s1: i128, e1: i16, s2: i128, e2: i16) -> Option<i128> {
++    let m = e1.min(e2);
++    let (a, b) = (shift_to(s1, e1, m)?, shift_to(s2, e2, m)?);
++    a.checked_sub(b)
++}
++
++/// Coarse integer log2 of |d| in units of scale*2^-64 (no floats decide anything).
++fn rel_exp(d: i128, scale: i128) -> i32 {
++    let (mut a, mut acc) = (d.abs().max(1), 0i32);
++    let mut s2 = scale.abs().max(1);
++    while s2 > (i128::MAX >> 1) { s2 >>= 1; }
++    while a > s2 && acc < 120 { a >>= 1; acc += 1; }
++    acc - 64
++}
++
++#[derive(Clone, PartialEq)]
++struct Step {
++    k: i128, // key value in Q48 ulps; overflow -> HUGE sentinel
++    p: (i128, i16),
++    w: i32,
++}
++
++const HUGE: i128 = i128::MIN / 2;
++
++struct ChainOut {
++    config: String,
++    refused_at: Option<(usize, String)>,
++    unique: usize,
++    cycle_len: Option<usize>,
++    dk_first: Option<i128>,
++    dk_max: i128,
++    dk_final: i128,
++    dp_rel_exp: i32, // exponent of the max periapsis drift vs p0, in ulps of p0*2^-64
++    dw_max: i64,
++    dstate_max_quanta: i128,
++    dstate_rel_exp: i32,
++    signed_frac: f64,
++    steps: Vec<Step>,
++    p1_reconstruct_ok: bool,
++    p2_kick_dk: i128,
++}
++
++fn run_chain(pexp: i32, eq48: u64, phi_num: i128, w0: u32, cw0: bool, shift: i16, unit: &Unit) -> ChainOut {
++    let config = format!(
++        "p16e{pexp}_e{eq48}_phi{phi_num}_w{w0:x}_cw{cw0}_s{shift}_mu{}",
++        if unit.unity { "1" } else { "x" }
++    );
++    let mut out = ChainOut {
++        config,
++        refused_at: None,
++        unique: 0,
++        cycle_len: None,
++        dk_first: None,
++        dk_max: 0,
++        dk_final: 0,
++        dp_rel_exp: -200,
++        dw_max: 0,
++        dstate_max_quanta: 0,
++        dstate_rel_exp: -200,
++        signed_frac: 0.0,
++        steps: Vec::new(),
++        p1_reconstruct_ok: false,
++        p2_kick_dk: 0,
++    };
++    let key0 = match OrbitKey::bound(Scalar::integer(16).scale(pexp).unwrap(), eq48) {
++        Ok(k) => k,
++        Err(e) => {
++            out.refused_at = Some((0, format!("bound:{e:?}")));
++            return out;
++        }
++    };
++    let orbit0 = match Orbit::compile(key0) {
++        Ok(o) => o,
++        Err(e) => {
++            out.refused_at = Some((0, format!("compile:{e:?}")));
++            return out;
++        }
++    };
++    let per = match orbit0.period() {
++        Ok(p) => p,
++        Err(e) => {
++            out.refused_at = Some((0, format!("period:{e:?}")));
++            return out;
++        }
++    };
++    let t = match per.mul(Scalar::raw(phi_num, 3).unwrap()) {
++        Ok(t) => t,
++        Err(e) => {
++            out.refused_at = Some((0, format!("time:{e:?}")));
++            return out;
++        }
++    };
++    let st0 = match orbit0.state(t) {
++        Ok(s) => s,
++        Err(e) => {
++            out.refused_at = Some((0, format!("state:{e:?}")));
++            return out;
++        }
++    };
++    let units = (
++        st0.radius.exponent() - 60 + shift,
++        st0.transverse_velocity.abs().exponent() - 60 + shift,
++    );
++
++    let mut key = key0;
++    let mut w = w0;
++    let mut cw = cw0;
++    let mut seen: Vec<OrbitKey> = Vec::new();
++    let mut s0: Option<IntegerState> = None;
++    let mut signs = (0i64, 0i64, 0i64);
++
++    const D: usize = 64;
++    for n in 0..D {
++        let orbit = match Orbit::compile(key) {
++            Ok(o) => o,
++            Err(e) => {
++                out.refused_at = Some((n, format!("compile:{e:?}")));
++                break;
++            }
++        };
++        // The compact t column is a phase; time is re-derived from the current key's period.
++        let t = match orbit.period().and_then(|p| p.mul(Scalar::raw(phi_num, 3).unwrap())) {
++            Ok(t) => t,
++            Err(e) => {
++                out.refused_at = Some((n, format!("time:{e:?}")));
++                break;
++            }
++        };
++        let mut st = match orbit.state(t) {
++            Ok(s) => s,
++            Err(e) => {
++                out.refused_at = Some((n, format!("state:{e:?}")));
++                break;
++            }
++        };
++        // The shipped decode (bind.rs:127-131): the radius leaves tube units via to_doll.
++        if !unit.unity {
++            st.radius = match unit.to_doll(st.radius) {
++                Ok(r) => r,
++                Err(_) => {
++                    out.refused_at = Some((n, "to_doll".into()));
++                    break;
++                }
++            };
++        }
++        let s = match cartesian(st, w, cw, units) {
++            Ok(s) => s,
++            Err(e) => {
++                out.refused_at = Some((n, format!("cartesian:{e:?}")));
++                break;
++            }
++        };
++        let s = match in_tube(s, unit) {
++            Ok(s) => s,
++            Err(e) => {
++                out.refused_at = Some((n, format!("in_tube:{e:?}")));
++                break;
++            }
++        };
++        if s0.is_none() {
++            s0 = Some(s);
++        }
++        if n == 0 {
++            // P1 control: reconstruct is an exact left inverse (residual carried).
++            if let Ok(f) = Rebinding::from_state(s, t, None) {
++                out.p1_reconstruct_ok = f.reconstruct().map(|r| r == s).unwrap_or(false);
++            }
++            // P2 control: a real kick (|v|/1024 on one component) must dwarf 4 ulps.
++            let mut sk = s;
++            let vv = sk.velocity[0].unsigned_abs() >> 10;
++            sk.velocity[0] += vv as i64;
++            if let Ok(fk) = Rebinding::from_state(sk, t, None) {
++                if let (Some(nk), Some(ok)) = (
++                    fk.trajectory.key().and_then(|k| k_q48(k.k, k.k_exponent)),
++                    key_q48(&key),
++                ) {
++                    out.p2_kick_dk = (nk - ok).abs();
++                }
++            }
++        }
++        let fit = match Rebinding::from_state(s, t, None) {
++            Ok(f) => f,
++            Err(e) => {
++                out.refused_at = Some((n, format!("fit:{e:?}")));
++                break;
++            }
++        };
++        let nk = match fit.trajectory.key() {
++            Some(k) => k,
++            None => {
++                out.refused_at = Some((n, "fit:Plunge".into()));
++                break;
++            }
++        };
++        let step = Step { k: key_q48(&nk).unwrap_or(HUGE), p: scalar_parts(nk.periapsis), w: fit.periapsis_angle as i32 };
++        if !out.steps.is_empty() {
++            let prev = out.steps.last().unwrap();
++            if step.k != HUGE && prev.k != HUGE {
++                let a = step.k - prev.k;
++                out.dk_max = out.dk_max.max(a.abs());
++                match a.signum() {
++                    1 => signs.0 += 1,
++                    -1 => signs.1 += 1,
++                    _ => signs.2 += 1,
++                }
++                if out.dk_first.is_none() && a != 0 {
++                    out.dk_first = Some(a);
++                }
++            }
++            out.dw_max = out.dw_max.max((step.w - prev.w).abs() as i64);
++            let (s1, e1) = step.p;
++            let (s0p, e0p) = scalar_parts(key0.periapsis);
++            if let Some(d) = ulp_diff(s1, e1, s0p, e0p) {
++                out.dp_rel_exp = out.dp_rel_exp.max(rel_exp(d, s0p.abs().max(1)));
++            }
++        }
++        if let Some(s0v) = s0 {
++            for i in 0..2 {
++                out.dstate_max_quanta =
++                    out.dstate_max_quanta.max((s.position[i] as i128 - s0v.position[i] as i128).abs());
++            }
++            out.dstate_rel_exp = rel_exp(out.dstate_max_quanta, s0v.position.iter().map(|p| p.abs() as i128).max().unwrap_or(1));
++        }
++        out.steps.push(step);
++        seen.push(nk);
++        key = nk;
++        w = fit.periapsis_angle;
++        cw = fit.clockwise;
++    }
++    out.unique = seen.iter().collect::<HashSet<_>>().len();
++    let mut dup = HashSet::new();
++    for (i, k) in seen.iter().enumerate() {
++        if !dup.insert(k) {
++            let first = seen.iter().position(|x| x == k).unwrap();
++            out.cycle_len = Some(i - first);
++            break;
++        }
++    }
++    let tot = (signs.0 + signs.1 + signs.2).max(1) as f64;
++    out.signed_frac = signs.0.max(signs.1) as f64 / tot;
++    if out.steps.len() > 1 {
++        let last = out.steps.last().unwrap().clone();
++        let first = out.steps.first().unwrap().clone();
++        if last.k != HUGE && first.k != HUGE {
++            out.dk_final = last.k - first.k;
++        }
++    }
++    out
++}
++
++fn main() {
++    let unit_one = Unit::ONE;
++    let unit_mu = Unit::of(Scalar::raw(0x14_7AE1, 20).unwrap()).unwrap(); // ~1.28
++    let mut rows: Vec<(&str, ChainOut)> = Vec::new();
++    for &pexp in &[-1i32, 8, 17, 18, 19, 30] {
++        for &eq48 in &[
++            0u64,
++            (1u64 << 48) / 1000,
++            (1u64 << 48) / 10,
++            (1u64 << 48) / 2,
++            (9 * (1u64 << 48)) / 10,
++            (99 * (1u64 << 48)) / 100,
++        ] {
++            for &phi in &[1i128, 3] {
++                for &shift in &[0i16, 4, 8] {
++                    for (u, muname) in [(&unit_one, "1"), (&unit_mu, "x")] {
++                        let r = run_chain(pexp, eq48, phi, 0x2000_0000, false, shift, u);
++                        rows.push((muname, r));
++                    }
++                }
++            }
++        }
++    }
++
++    let mut json = String::from("[\n");
++    for (mu, r) in &rows {
++        let refused_str = r
++            .refused_at
++            .as_ref()
++            .map(|(n, s)| format!("{n} {}", s.replace('"', "'")))
++            .unwrap_or_else(|| "None".into());
++        let dk_first = r.dk_first.map(|v| v.to_string()).unwrap_or_else(|| "null".into());
++        let cycle = r.cycle_len.map(|v| v.to_string()).unwrap_or_else(|| "null".into());
++        json.push_str(&format!(
++            "{{\"mu\":\"{mu}\",\"cfg\":\"{}\",\"refused\":\"{}\",\"unique\":{},\"cycle\":{},\"dk_first\":{},\"dk_max\":{},\"dk_final\":{},\"dp_rel_exp\":{},\"dw_max\":{},\"dstate_quanta\":{},\"dstate_rel_exp\":{},\"signed\":{:.3},\"p1\":{},\"p2_dk\":{}}},\n",
++            r.config, refused_str, r.unique, cycle, dk_first, r.dk_max, r.dk_final,
++            r.dp_rel_exp, r.dw_max, r.dstate_max_quanta, r.dstate_rel_exp,
++            r.signed_frac, r.p1_reconstruct_ok, r.p2_kick_dk,
++        ));
++    }
++    json.push_str("]\n");
++    std::fs::write(std::env::args().nth(1).unwrap_or_else(|| "seam.json".into()), &json).unwrap();
++
++    let done: Vec<_> = rows.iter().filter(|(_, r)| r.refused_at.is_none()).collect();
++    let walk: Vec<_> = done.iter().filter(|(_, r)| r.cycle_len.is_none() && r.unique >= 60).collect();
++    let cyc: Vec<_> = done.iter().filter(|(_, r)| r.cycle_len.is_some()).collect();
++    println!(
++        "chains={} refused={} walking(unique>=60,no cycle)={} cyclic={}",
++        rows.len(),
++        rows.len() - done.len(),
++        walk.len(),
++        cyc.len()
++    );
++    for scale in [0i16, 4, 8] {
++        let sub: Vec<_> = done.iter().filter(|(_, r)| r.config.ends_with(&format!("_s{scale}_mu1")) || r.config.ends_with(&format!("_s{scale}_mux"))).collect();
++        let w: Vec<_> = sub.iter().filter(|(_, r)| r.cycle_len.is_none() && r.unique >= 60).collect();
++        let sgn: Vec<_> = w.iter().filter(|(_, r)| r.signed_frac >= 0.9 && r.dk_max > 4).collect();
++        println!("shift=+{scale}: done={} walk={} directed(signed>=0.9,dkmax>4)={}", sub.len(), w.len(), sgn.len());
++    }
++    let p1ok = done.iter().filter(|(_, r)| r.p1_reconstruct_ok).count();
++    println!("P1 reconstruct exact left inverse: {p1ok}/{}", done.len());
++    let p2: Vec<_> = done.iter().map(|(_, r)| r.p2_kick_dk).filter(|v| *v > 0).collect::<Vec<_>>();
++    println!("P2 kick control: n={} min_dk={} max_dk={}", p2.len(), p2.iter().min().unwrap_or(&0), p2.iter().max().unwrap_or(&0));
++
++    // determinism: rerun one chain, steps must repeat bit-exactly
++    let a = run_chain(18, (1u64 << 48) / 10, 3, 0x2000_0000, false, 0, &unit_one);
++    let b = run_chain(18, (1u64 << 48) / 10, 3, 0x2000_0000, false, 0, &unit_one);
++    let det = a.steps == b.steps && a.unique == b.unique;
++    println!("determinism rerun identical: {det}");
++
++    // cost: mid config, 2000 crossings, then from_state alone on a fixed state
++    let key = OrbitKey::bound(Scalar::integer(16).scale(18).unwrap(), (1u64 << 48) / 10).unwrap();
++    let orbit = Orbit::compile(key).unwrap();
++    let t = orbit.period().unwrap().mul(Scalar::raw(3, 3).unwrap()).unwrap();
++    let st = orbit.state(t).unwrap();
++    let units = (st.radius.exponent() - 60, st.transverse_velocity.abs().exponent() - 60);
++    let s = cartesian(st, 0x2000_0000, false, units).unwrap();
++    let now = Instant::now();
++    for _ in 0..2000 {
++        let orbit = Orbit::compile(key).unwrap();
++        let st = orbit.state(t).unwrap();
++        let s = cartesian(st, 0x2000_0000, false, units).unwrap();
++        let _ = Rebinding::from_state(s, t, None).unwrap();
++    }
++    let full = now.elapsed().as_nanos() as f64 / 2000.0;
++    let now = Instant::now();
++    for _ in 0..2000 {
++        let _ = Rebinding::from_state(s, t, None).unwrap();
++    }
++    let fitonly = now.elapsed().as_nanos() as f64 / 2000.0;
++    println!("cost: full crossing = {full:.1} ns, from_state alone = {fitonly:.1} ns");
++}

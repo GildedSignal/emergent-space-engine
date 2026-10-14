@@ -1,0 +1,23 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.98s
+     Running `/home/glmlab/lab-target-3/release/examples/seam_cycle lab/results/20261014-1010-taleb-292a/seam.json`
+chains=432 refused=304 walking(unique>=60,no cycle)=125 cyclic=3
+shift=+0: done=42 walk=39 directed(signed>=0.9,dkmax>4)=6
+shift=+4: done=44 walk=44 directed(signed>=0.9,dkmax>4)=4
+shift=+8: done=42 walk=42 directed(signed>=0.9,dkmax>4)=4
+P1 reconstruct exact left inverse: 128/128
+P2 kick control: n=128 min_dk=13088047 max_dk=971261122816
+determinism rerun identical: true
+cost: full crossing = 21932.5 ns, from_state alone = 13106.3 ns
+chains=432 refusal_stages={'ok': 128, 'cartesian': 195, 'fit': 10, 'state': 99}
+done=128 unique>=60 (no key repeat)=128 cyclic=3
+shift+0: n=42 rel_drift min/med/max = 3.93e-07/6.41e-03/3.36e+00  dw/cross turns = 1.40e-09/1.44e-05/3.09e-01  dk_max ulp = 0/1.0/143680
+  directed k-walks (signed>=0.9, dkmax>4): 6
+shift+4: n=44 rel_drift min/med/max = 3.96e-07/6.41e-03/3.36e+00  dw/cross turns = 1.40e-09/1.44e-05/3.09e-01  dk_max ulp = 0/0.0/131009
+  directed k-walks (signed>=0.9, dkmax>4): 4
+shift+8: n=42 rel_drift min/med/max = 3.97e-07/5.06e-03/3.36e+00  dw/cross turns = 1.40e-09/1.14e-05/3.09e-01  dk_max ulp = 0/0.0/143680
+  directed k-walks (signed>=0.9, dkmax>4): 4
+P1 reconstruct exact left inverse: 128/128
+P2 kick control: n=128 min=13088047 max=971261122816 Q48 ulps
