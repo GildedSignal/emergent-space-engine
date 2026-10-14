@@ -1,0 +1,16 @@
+== 1. lattice lib, clean baseline (teeth available) == 06:37:47
+[lattice-clean] passed=4 failed=0 ignored=0
+== 2. M-wrap control: the lattice suite must bite == 06:37:57
+[lattice-M-wrap] passed=3 failed=1 ignored=0
+   test law::tests::hit_is_exact_past_the_i128_products ... FAILED
+   test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+== 3. liveness: clean universe rlib fingerprint == 06:38:01
+clean-rlib 4f8705dd38e36f8e
+== M-kick: full universe+lattice suite == 06:38:06
+[suite-M-kick] passed=91 failed=0 ignored=3
+M-kick-rlib a35ad28d1f1c4fa0
+== M-prune: full universe+lattice suite == 06:42:26
+
+real	7m3.468s
+user	0m2.637s
+sys	0m0.329s

@@ -1,0 +1,30 @@
+== 1. lattice lib, clean baseline (teeth available) == 06:44:50
+[lattice-clean] passed=4 failed=0 ignored=0
+== 2. M-wrap control: the lattice suite must bite == 06:44:55
+[lattice-M-wrap] passed=3 failed=1 ignored=0
+   test law::tests::hit_is_exact_past_the_i128_products ... FAILED
+   test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+== 3. liveness: clean universe rlib fingerprint == 06:44:59
+clean-rlib 4f8705dd38e36f8e
+== M-kick: full universe+lattice suite == 06:45:02
+[suite-M-kick] passed=91 failed=0 ignored=3
+M-kick-rlib a35ad28d1f1c4fa0
+== M-prune: full universe+lattice suite == 06:49:20
+[suite-M-prune] passed=91 failed=0 ignored=3
+M-prune-rlib ebe25213cc901953
+== 5. B10-flake control: behave::tests serial under M-prune (same build) == 06:53:28
+[serial-M-prune] passed=7 failed=0 ignored=0
+== 4. restore control: lattice lib equals the clean baseline == 06:54:12
+[lattice-restore] passed=4 failed=0 ignored=0
+== done 06:54:17: compare lab/results/20261014-0450-second-20261014-0059-inversion-8e84-7559/regen-logs/summary.txt against the dossier table; the clean and mutant rlib stamps must differ ==
+[lattice-clean] passed=4 failed=0 ignored=0
+[lattice-M-wrap] passed=3 failed=1 ignored=0
+   test law::tests::hit_is_exact_past_the_i128_products ... FAILED
+   test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+clean-rlib 4f8705dd38e36f8e
+[suite-M-kick] passed=91 failed=0 ignored=3
+M-kick-rlib a35ad28d1f1c4fa0
+[suite-M-prune] passed=91 failed=0 ignored=3
+M-prune-rlib ebe25213cc901953
+[serial-M-prune] passed=7 failed=0 ignored=0
+[lattice-restore] passed=4 failed=0 ignored=0

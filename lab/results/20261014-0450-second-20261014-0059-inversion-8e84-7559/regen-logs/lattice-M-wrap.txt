@@ -1,0 +1,27 @@
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/lattice)
+    Finished `release` profile [optimized] target(s) in 4.32s
+     Running unittests src/lib.rs (/home/glmlab/lab-target-0/release/deps/emergent_lattice-44867b5a78c96fd6)
+
+running 4 tests
+test law::tests::hit_is_exact_past_the_i128_products ... FAILED
+test worlds::tests::sin_cos_matches_the_platform_to_rounding ... ok
+test worlds::tests::galaxy_is_deterministic_exact_in_size_and_overlap_free ... ok
+test law::tests::hit_wide_agrees_with_narrow_where_it_fits ... ok
+
+failures:
+
+---- law::tests::hit_is_exact_past_the_i128_products stdout ----
+
+thread 'law::tests::hit_is_exact_past_the_i128_products' panicked at crates/lattice/src/law.rs:711:13:
+assertion `left == right` failed: d [157, 106] w [20, 22] reach 32 scaled by 2^61
+  left: true
+ right: false
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    law::tests::hit_is_exact_past_the_i128_products
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p emergent-lattice --lib`

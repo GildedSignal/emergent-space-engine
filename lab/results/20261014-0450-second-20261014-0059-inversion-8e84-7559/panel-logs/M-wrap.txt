@@ -1,0 +1,48 @@
+warning: function `hit_narrow` is never used
+   --> crates/lattice/src/law.rs:341:4
+    |
+341 | fn hit_narrow(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<bool> {
+    |    ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/lattice)
+warning: `emergent-lattice` (lib) generated 1 warning
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: value assigned to `horizon` is never read
+  --> crates/universe/examples/tail.rs:26:17
+   |
+26 |         let mut horizon = p.u.now;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (example "tail") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 5m 30s
+     Running unittests src/lib.rs (/home/glmlab/lab-target-0/release/deps/emergent_lattice-1340be74530b706d)
+
+running 4 tests
+test law::tests::hit_is_exact_past_the_i128_products ... FAILED
+test worlds::tests::sin_cos_matches_the_platform_to_rounding ... ok
+test worlds::tests::galaxy_is_deterministic_exact_in_size_and_overlap_free ... ok
+test law::tests::hit_wide_agrees_with_narrow_where_it_fits ... ok
+
+failures:
+
+---- law::tests::hit_is_exact_past_the_i128_products stdout ----
+
+thread 'law::tests::hit_is_exact_past_the_i128_products' panicked at crates/lattice/src/law.rs:711:13:
+assertion `left == right` failed: d [157, 106] w [20, 22] reach 32 scaled by 2^61
+  left: true
+ right: false
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    law::tests::hit_is_exact_past_the_i128_products
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p emergent-lattice --lib`
+exit=101

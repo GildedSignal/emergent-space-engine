@@ -1,0 +1,13 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 3253025d..941f1225 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -1102,7 +1102,7 @@ impl Universe {
+     pub fn prune(&mut self) {
+         let oldest = (0..self.bodies.len()).filter_map(|i| self.bodies.next_time(i)).min().unwrap_or(self.now).min(self.now);
+         for i in 0..self.bodies.len() {
+-            let keep = 2 * self.light_distance(i) + (1 << 26);
++            let keep = 2 * self.light_distance(i) + (1 << 20);
+             self.bodies.prune(i, (self.now - keep).min(oldest - (1 << 26)));
+         }
+     }

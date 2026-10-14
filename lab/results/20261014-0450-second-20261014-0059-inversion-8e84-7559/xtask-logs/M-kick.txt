@@ -1,0 +1,294 @@
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 34.12s
+     Running unittests src/main.rs (/home/glmlab/lab-target-0/release/deps/xtask-b057117972fdd8dc)
+
+running 227 tests
+test behave::assist::tests::a_law_that_only_gets_the_position_wrong_by_a_planet_radius_still_passes ... ok
+test behave::assist::tests::a_law_that_cannot_answer_fails_and_so_does_one_that_is_off_by_2_permille_in_speed ... ok
+test behave::assist::tests::relative_error_is_zero_for_equal_values_and_nan_stays_nan ... ok
+test behave::assist::tests::a_seed_whose_reference_passes_inside_the_planet_is_replaced_and_named_and_the_count_is_kept ... ok
+test behave::assist::tests::the_flyby_starts_on_the_incoming_hyperbola ... ok
+test behave::assist::tests::echo_passes_and_the_reference_finds_every_flyby_in_and_out_within_a_period ... ok
+test behave::belt::tests::calibrate_the_conditional_tail_z_under_iid ... ignored
+test behave::belt::tests::calibrate_the_reference_passes_from_many_seeds ... ignored
+test behave::belt::tests::calibrate_the_tail_count_z_under_iid ... ignored
+test behave::belt::tests::ln_det_is_the_logarithm_to_a_few_ulps_across_the_range_the_belt_uses ... ok
+test behave::belt::tests::show_the_crush_in_each_run_and_pooled ... ignored
+test behave::belt::tests::show_the_evidence_of_the_frozen_runs_on_the_controls ... ignored
+test behave::belt::tests::the_iid_floor_is_the_draw_entropy_of_the_belt ... ok
+test behave::belt::tests::the_ordinal_information_of_a_churn_is_log_binomial_per_scar ... ok
+test behave::belt::tests::the_reference_regenerates_and_round_trips_with_scars ... ok
+test behave::belt::tests::varints_and_zigzag_round_trip ... ok
+test behave::assist::tests::the_closest_approach_agrees_between_the_two_tolerances_on_every_flyby ... ok
+test behave::belt_tests::a_law_with_no_belt_fails ... ok
+test behave::assist::tests::a_law_that_destroys_ships_passing_above_the_surface_fails ... ok
+test behave::assist::tests::the_planted_kick_and_the_dropped_tide_fail ... ok
+test behave::belt_tests::a_thread_order_dependence_is_caught_in_every_order ... ok
+test behave::belt_tests::a_rank_one_lattice_is_caught_by_the_two_dimensional_chi_square ... ok
+test behave::belt_tests::a_belt_that_ignores_a_scar_or_forgets_it_in_its_store_is_caught_on_exactness ... ok
+test behave::belt_tests::a_winsorized_belt_keeps_the_count_and_loses_the_range ... ok
+test behave::belt_tests::an_over_budget_store_fails_at_birth_and_so_do_fat_scars_and_ships ... ok
+test behave::belt_tests::f2_a_hollow_inner_edge_of_p_is_caught_at_the_bottom_end ... ok
+test behave::belt_tests::f3_deep_dippers_aligned_in_one_corridor_are_caught_by_the_other_columns_of_the_tail ... ok
+test behave::belt_tests::repeated_states_are_caught_exactly_and_by_the_chi_square ... ok
+test behave::belt_tests::f4_a_table_declared_as_information_is_over_the_cap ... ok
+test behave::belt_tests::the_belt_gate_is_a_default_gate_named_like_the_others ... ok
+test behave::belt_tests::serial_structure_is_caught_by_the_lag_correlation_and_nothing_else_fires ... ok
+test behave::belt_tests::the_golds_clipped_table_fails_the_tail_count_the_range_and_the_shape_of_e_only ... ok
+test behave::belt_tests::the_declared_information_is_bound_by_the_store_and_by_growth ... ok
+test behave::binary::tests::a_law_that_answers_nothing_fails ... ok
+test behave::binary::tests::echo_passes_every_seed_and_judges_most_of_them_for_period ... ok
+test behave::binary::tests::nan_answers_fail ... ok
+test behave::binary::tests::newtons_law_fails_both_the_precession_and_the_period ... ok
+test behave::binary::tests::precession_off_by_4_percent_fails_where_the_allowance_is_small_and_by_1_percent_passes ... ok
+test behave::binary::tests::ten_wrong_seeds_of_1024_are_forgiven_and_eleven_are_not ... ok
+test behave::clocks::tests::a_rate_off_by_1e_6_fails_and_so_does_each_kind_alone ... ok
+test behave::clocks::tests::echo_passes_and_reports_zero_error ... ok
+test behave::clocks::tests::the_tolerance_is_1e_12_relative_not_looser ... ok
+test behave::clocks::tests::unimplemented_nan_and_one_bad_radius_all_fail ... ok
+test behave::belt_tests::the_reference_belt_and_the_stored_draw_pass_with_the_evidence_on_the_line ... ok
+test behave::cost::tests::the_bound_follows_the_orbit_and_echo_sits_inside_it_to_e_099 ... ok
+test behave::cost::tests::the_planted_512_crossings_fail ... ok
+test behave::cost::tests::the_planted_linear_bands_pass_the_old_median_and_fail_the_log_scaled_bound ... ok
+test behave::cost::tests::every_orbit_is_inside_its_bound_and_must_answer ... ok
+test behave::cost::tests::the_reference_count_is_the_band_lattice_and_echo_sits_well_inside_the_limit ... ok
+test behave::cost::tests::the_timing_is_taken_after_the_first_call ... ok
+test behave::events_tests::a_law_that_implements_none_of_the_events_gates_fails_exactly_them ... ok
+test behave::amendment_tests::a_law_that_implements_none_of_the_amended_methods_fails_them_all ... ok
+test behave::events_tests::planted_drift_fails_b12_alone ... ok
+test behave::events_tests::planted_newton_fails_b11_and_answers_the_rest_as_echo_does ... ok
+test behave::amendment_tests::a_planted_law_answers_the_restricted_problem_as_echo_does_unless_it_plants_its_flaw_there ... ok
+test behave::events_tests::planted_kick_fails_b12_b13_and_b14 ... ok
+test behave::events_tests::echo_passes_the_four_events_gates_with_the_evidence_on_each_line ... FAILED
+test behave::fit::tests::exact_zero_is_no_growth_and_junk_is_nan ... ok
+test behave::fit::tests::ignores_the_first_tenth ... ok
+test behave::fit::tests::recovers_exponents_0_half_and_1_on_clean_power_laws ... ok
+test behave::fit::tests::recovers_exponents_through_noise_and_bounded_oscillation ... ok
+test behave::handoff::tests::a_bounded_error_that_depends_only_on_the_state_passes ... ignored, probe P2 (6 October), fails today: B12's statistic reads a bounded error that depends only on the state as growth (median exponent 0.49 on these ships, limit 0.2); unignore when the statistic is fixed (law.md B12)
+test behave::events_tests::planted_notide_fails_b12_b13_and_b14 ... ok
+test behave::events_tests::the_events_gates_run_only_when_named_and_in_the_judges_order ... ok
+test behave::events_tests::the_default_run_is_all_eighteen_gates_and_a_law_without_the_new_methods_fails_every_gate_after_g6_in_it ... ok
+test behave::amendment_tests::each_planted_law_of_the_amendments_fails_exactly_its_gate ... ok
+test behave::handoff::tests::a_law_that_cannot_answer_or_answers_short_or_junk_fails ... ok
+test behave::handoff::tests::the_frozen_list_is_sixteen_distinct_ascending_candidates_and_the_ships_cross_and_converge ... FAILED
+test behave::handoff::tests::the_frozen_ships_are_what_the_search_finds ... ignored, re-derives the frozen ships (about 3 s); run it, and update sample::HANDOFF_KEPT, when the reference changes
+test behave::handoff::tests::the_median_counts_nan_as_infinity_and_takes_the_middle_pair ... ok
+test behave::handoff::tests::the_planted_bounded_law_has_the_planted_error ... FAILED
+test behave::handoff::tests::the_recurrence_ratio_separates_errors_of_the_state_from_errors_with_a_memory ... ignored, probe, 6 October: the recurrence ratio, a candidate B12 statistic (a reply to P2) with the controls on both sides (0.91-1.06 for errors of the state, 1.25 to 4e5 for errors with a memory); red-team it before it is frozen (law.md B12)
+test behave::handoff::tests::a_smooth_bounded_error_above_the_floor_is_judged_and_passes_and_a_junk_series_is_judged_and_fails ... FAILED
+test behave::handoff::tests::the_ship_is_on_a_circular_barycentric_orbit_at_the_drawn_distance ... ok
+test behave::hill::tests::a_birth_is_a_kepler_orbit_about_the_planet_started_at_periapsis ... ok
+test behave::handoff::tests::a_slow_leak_far_inside_the_bound_fails_on_the_exponent ... ok
+test behave::handoff::tests::ships_whose_error_stays_under_the_floor_are_not_judged_on_the_exponent ... FAILED
+test behave::hill::tests::escape_is_any_sample_beyond_one_and_a_half_hill_radii_and_junk_counts_as_escape ... ok
+test behave::hill::tests::the_apsidal_rate_of_a_precessing_ellipse_is_its_slope_and_a_jump_is_not_a_rate ... ok
+test behave::hill::tests::the_eccentric_births_carry_the_apsides_and_a_circular_birth_has_none ... ok
+test behave::hill::tests::the_moon_is_on_a_circular_planetocentric_orbit_prograde_or_retrograde ... ok
+test behave::hill::tests::the_reference_finds_the_known_stability_edges ... ok
+test behave::kerr::tests::a_small_spin_is_continuous_with_zero ... ok
+test behave::kerr::tests::bound_constants_put_the_turning_points_where_the_label_says ... ok
+test behave::kerr::tests::capture_and_plunge_are_classified_by_the_roots_of_the_potential ... ok
+test behave::kerr::tests::chi_values_of_b19_agree_with_mpmath ... ok
+test behave::kerr::tests::chi_zero_is_the_schwarzschild_oracle ... ok
+test behave::kerr::tests::circular_orbits_solve_the_radial_potential_and_the_isco_is_where_their_stability_ends ... ok
+test behave::kerr::tests::future_directed_is_p_nonnegative_on_allowed_states ... ok
+test behave::kerr::tests::no_future_directed_orbit_is_bound_with_negative_energy ... ok
+test behave::kerr::tests::photons_the_critical_impact_parameters_two_ways_and_the_weak_field ... ok
+test behave::kerr::tests::prograde_orbits_precess_less_and_retrograde_more_than_schwarzschild ... ok
+test behave::kerr::tests::real_roots_are_the_roots ... ok
+test behave::kerr::tests::the_cycle_integrals_converge_and_the_clocks_agree_with_the_geometry ... ok
+test behave::kerr::tests::the_ergosphere_negative_energy_and_the_penrose_split ... ok
+test behave::kerr::tests::the_isco_the_photon_orbit_and_the_marginally_bound_orbit_are_the_textbook_ones ... ok
+test behave::kerr::tests::the_separatrix_at_zero_eccentricity_is_the_isco_and_it_moves_out_with_e ... ok
+test behave::laws::tests::planted_bounded_answers_each_time_from_that_states_alone ... ok
+test behave::lens::tests::aberration_is_the_special_relativistic_one_and_its_inverse_is_the_opposite_velocity ... ok
+test behave::lens::tests::composition_in_the_weak_field_is_the_doppler_and_gamma_factors_of_the_red_team ... ok
+test behave::lens::tests::echo_passes_to_the_oracles_convergence_and_the_planted_static_and_flipped_laws_fail ... ok
+test behave::lens::tests::the_gate_is_99_percent_of_the_seeds_within_one_percent_and_a_nan_or_a_silence_fails ... ok
+test behave::lens::tests::the_integration_conserves_the_hamiltonian_and_what_the_lens_frame_conserves ... ok
+test behave::lens::tests::the_oracle_is_the_static_deflection_at_rest_and_not_the_composition_it_judges ... ok
+test behave::lens::tests::the_seeds_are_four_kinds_up_to_beta_09_with_lens_frame_impact_parameters_of_both_signs ... ok
+test behave::memory::tests::echo_sits_on_the_floor_and_passes_with_the_ladder_on_the_line ... ok
+test behave::memory::tests::the_ladder_is_the_shipmem_ladder_of_twelve_scenes_with_the_measured_floors ... ok
+test behave::memory::tests::the_planted_sixteen_byte_tube_fails_where_the_floor_is_below_seven_bytes ... ok
+test behave::memory::tests::two_bytes_of_slack_and_twice_the_floor_are_the_limit_and_nothing_below_half_the_floor_counts ... ok
+test behave::oracle::tests::capture_thresholds_are_the_textbook_ones ... ok
+test behave::oracle::tests::wrappers_agree_with_their_closed_limits ... ok
+test behave::hill::tests::a_law_that_never_escapes_or_always_escapes_or_cannot_answer_fails ... ok
+test behave::plane::tests::a_far_ship_keeps_its_orbit_against_the_reference ... ok
+test behave::handoff::tests::a_compounding_error_fails_on_the_exponent_though_it_reads_lower_than_a_bounded_one ... FAILED
+test behave::plane::tests::b12_small_planet ... ignored
+test behave::plane::tests::b13_by_draw ... ignored
+test behave::plane::tests::b13_refusals ... ignored
+test behave::plane::tests::moon_probe_b14_physics_not_the_gate ... ignored
+test behave::plane::tests::p3_prime_the_register_and_the_geodesics_angular_momentum_move_together ... ignored, probe P3' fails (6 October): with the geodesic's L, J moves by 3.6e3-1.4e5 quanta along the drift (the Q48 key's fit) and 5.8e5-2e8 across a kick (a Kepler register against a geodesic L); the compiler's exactness question
+test behave::plane::tests::p3_the_energy_register_and_the_angular_momentum_move_together ... ignored, probe P3 fails as frozen (6 October): J moves by up to 5.4e6 quanta per kick, 1.1e-9 of the kick's work across a kick and the rest along the geodesic drift; see the doc comment
+test behave::plane::tests::the_start_comes_back_through_the_conversion ... ok
+test behave::plane::tests::a_far_ships_error_falls_like_the_cadence ... ok
+test behave::resonance::tests::a_ship_starts_on_the_kepler_orbit_the_case_names_about_the_star ... ok
+test behave::handoff::tests::the_reference_without_the_conservation_drifts_but_stays_far_inside_the_bound ... ok
+test behave::resonance::tests::only_the_cases_the_reference_converges_on_are_asked_and_a_chaotic_one_is_dropped_and_counted ... ok
+test behave::resonance::tests::the_cases_are_r4_v3s_two_resonances_three_masses_three_detunings_two_phases_and_five_controls ... ok
+test behave::resonance::tests::the_laplace_coefficient_and_the_averaged_precession_are_right_where_averaging_is_right ... ok
+test behave::resonance::tests::the_reference_pumps_and_librates_at_the_resonance_and_leaves_the_controls_alone ... ok
+test behave::resonance::tests::the_regimes_are_librating_below_two_pi_circulating_above_and_borderline_within_a_fifth_of_it ... ok
+test behave::resonance::tests::the_verdicts_are_r4_v3s_metrics_with_their_thresholds ... ok
+test behave::restricted::tests::a_close_moon_keeps_kepler_time_about_the_planet ... ok
+test behave::restricted::tests::heliocentric_energy_and_angular_momentum_of_a_circular_orbit_about_the_star ... ok
+test behave::restricted::tests::states_come_out_exactly_at_the_times_asked_whatever_the_step ... ok
+test behave::restricted::tests::the_equilateral_point_stays_where_it_is_over_ten_planet_periods ... ok
+test behave::restricted::tests::the_kick_multiplies_the_planetocentric_velocity_once_on_entry_and_the_full_model_does_not ... ok
+test behave::restricted::tests::the_phase_is_exact_where_float64_is_not ... ok
+test behave::restricted::tests::the_planet_and_the_star_start_where_the_contract_puts_them_and_balance_about_the_origin ... ok
+test behave::restricted::tests::the_tracked_closest_approach_is_the_periapsis_and_not_a_sample ... ok
+test behave::restricted::tests::until_crossing_lands_on_the_sphere_going_in_and_going_out ... ok
+test behave::restricted::tests::without_the_tide_inside_the_sphere_a_wide_prograde_moon_stays_and_with_it_it_leaves ... ok
+test behave::rotating::tests::a_law_correct_only_for_prograde_orbits_fails_every_criterion_that_has_a_retrograde_side ... ok
+test behave::rotating::tests::a_law_that_has_not_implemented_kerr_fails_every_criterion ... ok
+test behave::plane::tests::across_a_kick_the_register_and_the_angular_momentum_agree_to_the_post_newtonian_gap ... FAILED
+test behave::rotating::tests::a_law_that_misses_retrograde_capture_in_a_band_between_the_four_point_probes_is_caught_by_the_dense_family ... ok
+test behave::rotating::tests::a_penrose_split_that_leaks_energy_fails_criterion_4_alone ... ok
+test behave::rotating::tests::criterion_two_is_exact_one_misclassification_fails_it ... ok
+test behave::rotating::tests::a_schwarzschild_law_with_the_kerr_isco_bolted_on_still_fails ... ok
+test behave::rotating::tests::echo_passes_all_six_with_the_evidence_on_the_line ... ok
+test behave::rotating::tests::schwarzschild_for_every_spin_fails_all_but_chi_zero ... ok
+test behave::rotating::tests::the_dense_capture_family_is_stratified_kept_off_the_threshold_and_agrees_with_the_roots_of_the_potential ... ok
+test behave::rotating::tests::the_oracles_answers_at_chi_zero_are_the_schwarzschild_laws_bit_for_bit ... ok
+test behave::rotating::tests::each_threshold_sits_where_the_row_puts_it ... ok
+test behave::rotating::tests::the_seeds_are_frozen_prefix_stable_and_inside_their_ranges ... ok
+test behave::rotating::tests::the_tubes_include_negative_energies_in_every_spin_and_the_forged_ones_are_all_refused_by_the_oracle ... ok
+test behave::sample::tests::draws_are_deterministic_prefix_stable_and_in_range ... ok
+test behave::sample::tests::splitmix64_matches_the_reference_vector ... ok
+test behave::sample::tests::the_events_draws_are_deterministic_prefix_stable_and_in_range ... ok
+test behave::amendment_tests::echo_passes_every_amended_gate_with_its_evidence_on_the_line ... ok
+test behave::rotating::tests::the_penrose_split_is_judged_on_conservation_gain_and_the_oracle_and_the_negative_energies_on_where_they_live ... ok
+test behave::belt_tests::both_controls_pass_the_frozen_runs_and_every_plant_fails_them has been running for over 60 seconds
+test behave::belt_tests::f1_a_crush_of_the_e_tails_spread_is_caught_by_the_log_score_mean_alone_or_pooled has been running for over 60 seconds
+test behave::belt_tests::f1_a_crush_of_the_e_tails_spread_is_caught_by_the_log_score_mean_alone_or_pooled ... ok
+test behave::scale::tests::a_law_cannot_hide_work_by_reporting_less ... ok
+test behave::hill::tests::a_law_with_the_right_classes_and_apsides_twenty_percent_too_fast_fails_on_the_apsides_alone ... ok
+test behave::scale::tests::a_law_too_slow_to_measure_fails_and_the_judge_never_starts_a_run_it_cannot_finish ... ok
+test behave::select::tests::bad_gates_and_arguments_are_refused ... ok
+test behave::resonance::tests::echo_is_the_reference_to_a_part_in_ten_thousand_on_every_leg_and_the_first_order_average_fails_the_resonance_and_not_the_controls ... ok
+test behave::select::tests::law_and_gates_in_either_spelling_and_order ... ok
+test behave::select::tests::the_default_is_echo_and_every_gate ... ok
+test behave::select::tests::the_events_gates_are_named_in_the_judges_order_and_the_core_is_the_first_nine ... ok
+test behave::select::tests::the_plane_step_is_an_integer_in_either_spelling ... ok
+test behave::space::belt_adapter::tests::a_small_measurement_counts_both_supported_memory_forms ... ok
+test behave::space::belt_adapter::tests::space_reaches_the_production_belt_with_exact_history ... ok
+test behave::space::tests::coarsest_screened_key_passes_all_six_unchanged_behavior_gates ... ok
+test behave::space::belt_adapter::tests::extreme_seeds_keep_independent_columns_under_the_frozen_statistics ... ok
+test behave::resonance::tests::a_law_that_does_not_answer_a_case_or_leaves_the_stars_orbit_fails_whatever_else_it_gets_right ... ok
+test behave::scale::tests::echo_is_linear_and_the_planted_quadratic_is_not ... ok
+test behave::scale::tests::the_limit_is_an_exponent_of_1_1 ... ok
+test behave::scale::tests::the_fit_recovers_exponents_and_the_extrapolation_is_arithmetic ... ok
+test behave::tests::every_planted_law_the_usage_names_resolves ... ok
+test behave::tests::the_cli_refuses_unknown_laws_and_arguments ... ok
+test behave::scale::tests::unimplemented_nan_and_negative_costs_fail ... ok
+test engine_judge::behaviour::tests::verlet_circular_orbit_converges_and_is_reversible ... ok
+test engine_judge::conservation::tests::exact_recentre_composes_velocities_without_a_report_ledger ... ok
+test engine_judge::schwarzschild::tests::circular_killing_constants_tetrad_and_radial_epicycle ... ok
+test engine_judge::schwarzschild::tests::eccentric_radial_period_and_apsidal_angle_match_anomaly_quadrature ... ok
+test engine_judge::schwarzschild::tests::genesis_exponential_map_and_velocity_transport ... ok
+test engine_judge::schwarzschild::tests::oracle_refinement_and_finite_separation_controls ... ok
+test engine_judge::schwarzschild::tests::strong_field_gr_positive_and_planted_wrong_tides ... ok
+test engine_judge::schwarzschild::tests::weak_field_positive_and_sign_static_falsifiers_without_engine ... ok
+test fly::flight::tests::contacts_keep_the_lattice_outcome_and_true_kink_tick ... ok
+test fly::flight::tests::proper_acceleration_matches_closed_form_rapidity ... ok
+test fly::flight::tests::replay_is_independent_of_frame_partition_and_seed_matters ... ok
+test fly::server::tests::downloaded_replay_roundtrips_and_tampering_fails ... ok
+test fly::server::tests::invalid_input_batch_cannot_partially_mutate_flight ... ok
+test fly::server::tests::wire_frames_are_finite_and_include_both_clocks ... ok
+test fly::view::tests::aberration_and_doppler_match_closed_forms ... ok
+test fly::view::tests::comoving_emitter_has_no_doppler_shift ... ok
+test fly::view::tests::gather_selects_the_retarded_side_of_a_kink ... ok
+test fly::view::tests::light_cone_matches_independent_brute_force_bisection ... ok
+test fly::view::tests::observation_and_c_scale_do_not_change_replay ... ok
+test galaxy::tests::a_familys_materialized_ships_are_the_same_on_every_call ... ok
+test galaxy::tests::a_single_tube_lands_on_its_exact_pixel ... ok
+test galaxy::tests::allocation_is_exact_and_deterministic ... ok
+test galaxy::tests::drawn_positions_agree_with_cycle_readouts ... ok
+test galaxy::tests::drawn_ships_are_exactly_the_materialized_ones_when_the_budget_allows ... ok
+test galaxy::tests::the_density_at_far_zoom_conserves_the_ship_count ... ok
+test galaxy::tests::the_lattice_is_all_compilable_orbits ... ok
+test galaxy::tests::the_memo_shares_cycles ... ok
+test galaxy::tests::the_view_query_refuses_what_it_cannot_draw ... ok
+test history::tests::archived_specs_still_resolve_and_nothing_else_does ... ok
+test history::tests::caps_new_entries_but_grandfathers_old_ones ... ok
+test history::tests::completed_append_preserves_committed_records ... ok
+test history::tests::rejects_missing_fields_duplicates_and_unfinished_templates ... ok
+test measure::tests::percentile_takes_the_nearest_index ... ok
+test measure::tests::the_machine_state_records_the_load ... ok
+test measure::tests::the_watch_fires_on_a_phase_past_its_limit_and_not_on_one_that_ends ... ok
+test universe::flight_tests::a_decision_is_logged_at_the_tick_it_takes_effect ... ok
+test universe::flight_tests::a_lost_ship_is_recorded_and_replays_to_the_same_loss ... ok
+test universe::flight_tests::a_planted_change_is_reported ... ok
+test universe::flight_tests::a_recorded_flight_replays_to_its_digest ... ok
+test behave::tests::a_law_that_implements_none_of_the_new_gates_fails_exactly_them ... ok
+test behave::space::tests::planted_newtonian_map_fails_precession_gate ... ok
+test universe::flight_tests::replay_all_says_same_changed_and_regressed ... ok
+test behave::tests::echo_passes_every_gate ... ok
+test behave::tests::gates_can_be_picked_and_only_they_run ... ok
+test behave::tests::the_other_gates_can_fail_too ... ok
+test behave::belt_tests::both_controls_pass_the_frozen_runs_and_every_plant_fails_them ... ok
+test behave::tests::each_planted_law_fails_exactly_its_gate ... ok
+
+failures:
+
+---- behave::events_tests::echo_passes_the_four_events_gates_with_the_evidence_on_each_line stdout ----
+
+thread 'behave::events_tests::echo_passes_the_four_events_gates_with_the_evidence_on_each_line' panicked at xtask/src/behave/mod.rs:470:9:
+assertion `left == right` failed
+  left: [("B11", true), ("B12", false), ("B13", true), ("B14", true)]
+ right: [("B11", true), ("B12", true), ("B13", true), ("B14", true)]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- behave::handoff::tests::the_frozen_list_is_sixteen_distinct_ascending_candidates_and_the_ships_cross_and_converge stdout ----
+
+thread 'behave::handoff::tests::the_frozen_list_is_sixteen_distinct_ascending_candidates_and_the_ships_cross_and_converge' panicked at xtask/src/behave/handoff.rs:249:9:
+[10, 8, 8, 14, 16, 30, 22, 22, 12, 34, 42, 8, 28, 12, 12, 22]
+
+---- behave::handoff::tests::the_planted_bounded_law_has_the_planted_error stdout ----
+
+thread 'behave::handoff::tests::the_planted_bounded_law_has_the_planted_error' panicked at xtask/src/behave/handoff.rs:339:13:
+starts at zero and stays small: 1.273822363922925e-5
+
+---- behave::handoff::tests::a_smooth_bounded_error_above_the_floor_is_judged_and_passes_and_a_junk_series_is_judged_and_fails stdout ----
+
+thread 'behave::handoff::tests::a_smooth_bounded_error_above_the_floor_is_judged_and_passes_and_a_junk_series_is_judged_and_fails' panicked at xtask/src/behave/handoff.rs:318:9:
+handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 planet radii), 1 not converged, 1 inside the planet; 14 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them 0.191 (limit 0.2), worst 0.623; worst err 2.85e-11 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18
+
+---- behave::handoff::tests::ships_whose_error_stays_under_the_floor_are_not_judged_on_the_exponent stdout ----
+
+thread 'behave::handoff::tests::ships_whose_error_stays_under_the_floor_are_not_judged_on_the_exponent' panicked at xtask/src/behave/handoff.rs:311:13:
+handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 planet radii), 1 not converged, 1 inside the planet; 0 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them 0.000 (limit 0.2), worst 0.000; worst err 2.31e-15 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18
+
+---- behave::handoff::tests::a_compounding_error_fails_on_the_exponent_though_it_reads_lower_than_a_bounded_one stdout ----
+
+thread 'behave::handoff::tests::a_compounding_error_fails_on_the_exponent_though_it_reads_lower_than_a_bounded_one' panicked at xtask/src/behave/handoff.rs:360:9:
+handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 planet radii), 1 not converged, 1 inside the planet; 14 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them 0.416 (limit 0.2), worst 1.654; worst err 9.80e-7 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18
+handoffs: 16 frozen ships (this run's reference crosses R_SOI 8..42 times, at least 20 when frozen, and passes no closer than 0.13 planet radii), 1 not converged, 1 inside the planet; 14 of 14 judged ships rise above the 1e-12 floor, median growth exponent among them 0.353 (limit 0.2), worst 1.471; worst err 1.27e-5 (limit 1e-4); 44 candidates replaced at the freeze because the reference passes inside the planet (draw, closest approach in planet radii): #1 0.91, #2 0.20, #7 0.38, #12 0.03, #14 0.55, #15 0.36, #19 0.56, #22 0.90, #23 0.67, #25 0.60, #30 0.33, #31 0.06, #35 0.25, #44 0.21, #45 0.14, #46 0.01, #49 0.10, #52 0.88, #54 0.28, #56 0.25, #60 0.05, #62 0.13, #65 0.24, #68 0.16, #69 0.40, #79 0.12, #91 0.02, #92 0.70, #93 0.10, #98 0.20, #103 0.32, #110 0.07, #111 0.05, #112 0.35, #118 0.39, #134 0.43, #137 0.89, #140 0.64, #143 0.07, #147 0.85, #150 0.01, #151 0.04, #154 0.12, #158 0.18
+
+---- behave::plane::tests::across_a_kick_the_register_and_the_angular_momentum_agree_to_the_post_newtonian_gap stdout ----
+ship 0: 5549 kicks, across a kick 1.0 quanta, over its work 1.60e-8
+ship 1: 6531 kicks, across a kick 3.0 quanta, over its work 3.10e-9
+ship 2: 6408 kicks, across a kick 1.0 quanta, over its work 6.55e-9
+ship 3: 7016 kicks, across a kick 24.4 quanta, over its work 8.41e-8
+
+thread 'behave::plane::tests::across_a_kick_the_register_and_the_angular_momentum_agree_to_the_post_newtonian_gap' panicked at xtask/src/behave/plane.rs:436:13:
+ship 3: JRun { kicks: 7016, per_kick: 2575847.3203125, across_kick: 24.37109375, across_kick_over_work: 8.409466703853747e-8, along_drift: 2575846.65234375, trend: 7618880.155103069, reach: 45288613.224609375, alive: true }
+
+
+failures:
+    behave::events_tests::echo_passes_the_four_events_gates_with_the_evidence_on_each_line
+    behave::handoff::tests::a_compounding_error_fails_on_the_exponent_though_it_reads_lower_than_a_bounded_one
+    behave::handoff::tests::a_smooth_bounded_error_above_the_floor_is_judged_and_passes_and_a_junk_series_is_judged_and_fails
+    behave::handoff::tests::ships_whose_error_stays_under_the_floor_are_not_judged_on_the_exponent
+    behave::handoff::tests::the_frozen_list_is_sixteen_distinct_ascending_candidates_and_the_ships_cross_and_converge
+    behave::handoff::tests::the_planted_bounded_law_has_the_planted_error
+    behave::plane::tests::across_a_kick_the_register_and_the_angular_momentum_agree_to_the_post_newtonian_gap
+
+test result: FAILED. 206 passed; 7 failed; 14 ignored; 0 measured; 0 filtered out; finished in 135.66s
+
+error: test failed, to rerun pass `-p xtask --bin xtask`
+exit=101
