@@ -1,0 +1,198 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index e29c906e..05a714d7 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -172,6 +172,7 @@ dependencies = [
+  "emergent-lattice",
+  "emergent-lattice-event",
+  "emergent-space",
++ "serde_json",
+ ]
+ 
+ [[package]]
+diff --git a/crates/universe/Cargo.toml b/crates/universe/Cargo.toml
+index 631c67e1..11c30d71 100644
+--- a/crates/universe/Cargo.toml
++++ b/crates/universe/Cargo.toml
+@@ -12,6 +12,9 @@ emergent-lattice = { path = "../lattice" }
+ emergent-lattice-event = { path = "../lattice-event" }
+ blake3.workspace = true
+ 
++[dev-dependencies]
++serde_json.workspace = true
++
+ [features]
+ # Stage timers for the frame's cost (crate::prof); off, every call is empty and the engine is what it was.
+ prof = []
+diff --git a/crates/universe/examples/flyframe.rs b/crates/universe/examples/flyframe.rs
+new file mode 100644
+index 00000000..5974c28c
+--- /dev/null
++++ b/crates/universe/examples/flyframe.rs
+@@ -0,0 +1,166 @@
++//! The flyable frame: the page's own metric (engine + view + wire) on the N ladder's scenes.
++//!
++//! What the player runs (xtask/src/universe): the browser's requestAnimationFrame loop POSTs /frame, and
++//! `Session::step` spends the engine's 5 ms wall budget (`frame_to`), gathers the view (`gather_cached`),
++//! serialises it (`view_json` + `serde_json::to_vec`), and returns; the fetch resolves only after all three,
++//! so the served frame's wall time is their sum. Gate N1's ladder certified the engine slice alone (p50
++//! 0.022 ms coast at 10^6 bodies); this example flies the same scenes the ladder flies and times the frame
++//! the page pays, then counts what that frame buys: which rows are on the canvas at the page's own fitted
++//! map zoom (`fitLog`), and which rows' drawn pixels move at all between frames (map and sky, the page's two
++//! displays) — the far-row tax the Θ(N) gather and wire carry for dots that do not change.
++//!
++//! cargo run --release -p emergent-universe --example flyframe [-- <N> [frames [rtf]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::{gather_cached, ViewCache};
++use emergent_universe::{Budget, Config};
++use serde_json::json;
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    if sorted.is_empty() {
++        return 0.0;
++    }
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++/// The page's canvas (1920×1080 at device pixel ratio 1) and its two displays' geometry.
++const W: f64 = 1920.0;
++const H: f64 = 1080.0;
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let frames: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(480);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++
++    // The page's fitted map zoom, from the first view: the nearest body holds 0.33·R pixels (fitLog).
++    let mut cache = ViewCache::default();
++    let (cx, cy) = (W / 2.0, H / 2.0);
++    let r_map = 0.4 * W.min(H);
++    let r_sky = 0.45 * W.min(H);
++    let (lo, hi) = (-5.0f64, 3.6f64);
++
++    // Warm-up: the page's first second (60 frames), then measure.
++    for _ in 0..60 {
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget::wall(5.0), i64::MAX);
++        let _ = gather_cached(&p.u, &p.names, &mut cache);
++    }
++
++    let mut engine_ms: Vec<f64> = Vec::with_capacity(frames);
++    let mut gather_ms: Vec<f64> = Vec::with_capacity(frames);
++    let mut wire_ms: Vec<f64> = Vec::with_capacity(frames);
++    let mut readouts = 0u64;
++    let mut rows_seen = 0usize;
++    let mut wire_bytes = 0usize;
++    // Census, in the page's terms.
++    let mut s_px_ls = 0.0f64; // the fitted map's pixels per light-second
++    let mut on_screen_tot = 0usize;
++    let mut static_map_tot = 0usize;
++    let mut static_sky_tot = 0usize;
++    let mut static_wire_tot = 0usize;
++    let mut census_frames = 0usize;
++    let mut prev: Option<(Vec<(i64, i64)>, Vec<(i64, i64)>, Vec<String>)> = None;
++
++    for f in 0..frames {
++        let t1 = Instant::now();
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget::wall(5.0), i64::MAX);
++        let t2 = Instant::now();
++        let view = gather_cached(&p.u, &p.names, &mut cache).expect("the player has a view");
++        let t3 = Instant::now();
++        // The shipped wire, row for row (xtask session.rs view_json): name, kind, direction,
++        // light_seconds, offset, closing, color, shift — each float every frame.
++        let rows: Vec<_> = view
++            .seen
++            .iter()
++            .map(|s| {
++                json!({"name": s.name, "kind": s.kind, "direction": s.direction, "light_seconds": s.light_seconds,
++                       "offset": s.offset, "closing": s.closing, "color": s.color, "shift": s.shift})
++            })
++            .collect();
++        let wire = serde_json::to_vec(&json!({
++            "tick": view.tick, "coordinate": view.coordinate_seconds, "proper": view.proper_seconds, "rate": view.rate,
++            "beta": view.beta, "doll_rate": view.doll_rate, "doll_beta": view.doll_beta, "position": view.position_light_seconds,
++            "heading": view.heading, "doll": view.doll, "level": view.level, "burning": view.burning, "keys": view.keys,
++            "alive": view.alive, "loss": view.loss, "refusals": view.refusals, "impact": Option::<serde_json::Value>::None,
++            "seen": rows
++        }))
++        .unwrap();
++        let t4 = Instant::now();
++        std::hint::black_box(&wire);
++        engine_ms.push((t2 - t1).as_secs_f64() * 1e3);
++        gather_ms.push((t3 - t2).as_secs_f64() * 1e3);
++        wire_ms.push((t4 - t3).as_secs_f64() * 1e3);
++        readouts += cache.readouts;
++        rows_seen += view.seen.len();
++        if f == 0 {
++            wire_bytes = wire.len();
++            let near = view.seen.iter().filter(|s| s.kind <= 3).map(|s| s.light_seconds).fold(f64::INFINITY, f64::min);
++            s_px_ls = 10f64.powf((0.33 * r_map / near.max(1e-6)).log10());
++        }
++        // The census: pixels the page would draw, this frame against the last.
++        let mut map_px = Vec::with_capacity(view.seen.len());
++        let mut sky_px = Vec::with_capacity(view.seen.len());
++        let mut row_s = Vec::with_capacity(view.seen.len());
++        let mut on_screen = 0usize;
++        for s in &view.seen {
++            let (mx, my) = (cx + s_px_ls * s.offset[0], cy + s_px_ls * s.offset[1]);
++            if mx >= 0.0 && mx <= W && my >= 0.0 && my <= H {
++                on_screen += 1;
++            }
++            map_px.push((mx.round() as i64, my.round() as i64));
++            let x = ((s.light_seconds.max(1e-6).log10() - lo) / (hi - lo)).clamp(0.0, 1.0);
++            let r = r_sky * x;
++            let ang = s.direction[1].atan2(s.direction[0]);
++            sky_px.push(((cx + r * ang.sin()).round() as i64, (cy - r * ang.cos()).round() as i64));
++        }
++        for r in &rows {
++            row_s.push(serde_json::to_string(r).unwrap());
++        }
++        if let Some((pm, ps, pw)) = &prev {
++            static_map_tot += map_px.iter().zip(pm).filter(|(a, b)| a == b).count();
++            static_sky_tot += sky_px.iter().zip(ps).filter(|(a, b)| a == b).count();
++            static_wire_tot += row_s.iter().zip(pw).filter(|(a, b)| a == b).count();
++            on_screen_tot += on_screen;
++            census_frames += 1;
++        }
++        prev = Some((map_px, sky_px, row_s));
++    }
++
++    let mut total: Vec<f64> = engine_ms.iter().zip(&gather_ms).zip(&wire_ms).map(|((e, g), w)| e + g + w).collect();
++    total.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut g: Vec<f64> = gather_ms.clone();
++    g.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut e: Vec<f64> = engine_ms.clone();
++    e.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut w: Vec<f64> = wire_ms.clone();
++    w.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let rows = rows_seen as f64 / frames as f64;
++    let cf = census_frames.max(1) as f64;
++    let rows_c = rows.round() as usize;
++    println!(
++        "flyframe N={n}: {bodies} bodies, {frames} frames at rtf {rtf} (build {build:.1} s). The page's frame, engine+view+wire:"
++    );
++    println!(
++        "  total ms p50 {:.3} p99 {:.3} max {:.3}   (engine p50 {:.3} · gather p50 {:.3} p99 {:.3} · wire p50 {:.3}); wire {:.2} MB/frame; readouts {:.2}/row",
++        pct(&total, 0.5), pct(&total, 0.99), pct(&total, 1.0), pct(&e, 0.5), pct(&g, 0.5), pct(&g, 0.99), pct(&w, 0.5), wire_bytes as f64 / 1e6, readouts as f64 / rows_seen as f64
++    );
++    println!(
++        "  census over {census_frames} frames, {rows_c} rows: on the map canvas at the fitted zoom {:.1} ({:.4}%); pixels unchanged frame-to-frame: map {:.3}% · sky {:.3}%; wire row bytes identical: {:.3}%; map scale {s_px_ls:.3} px/light-second",
++        on_screen_tot as f64 / cf,
++        on_screen_tot as f64 / cf / rows_c as f64 * 100.0,
++        static_map_tot as f64 / cf / rows_c as f64 * 100.0,
++        static_sky_tot as f64 / cf / rows_c as f64 * 100.0,
++        static_wire_tot as f64 / cf / rows_c as f64 * 100.0
++    );
++    println!(
++        "flyframe: n={n} bodies={bodies} frames={frames} rtf={rtf} total_p50={:.3} total_p99={:.3} total_max={:.3} engine_p50={:.3} gather_p50={:.3} gather_p99={:.3} wire_p50={:.3} wire_mb={:.2} readouts_per_row={:.2} rows={} onscreen_frac={:.6} static_map={:.4} static_sky={:.4} static_wire={:.4}",
++        pct(&total, 0.5), pct(&total, 0.99), pct(&total, 1.0), pct(&e, 0.5), pct(&g, 0.5), pct(&g, 0.99), pct(&w, 0.5), wire_bytes as f64 / 1e6, readouts as f64 / rows_seen as f64, rows_c,
++        on_screen_tot as f64 / cf / rows_c as f64, static_map_tot as f64 / cf / rows_c as f64, static_sky_tot as f64 / cf / rows_c as f64, static_wire_tot as f64 / cf / rows_c as f64
++    );
++    let _ = Duration::ZERO;
++}

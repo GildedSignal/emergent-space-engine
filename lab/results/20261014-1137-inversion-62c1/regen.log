@@ -1,0 +1,30 @@
+error: patch failed: Cargo.lock:172
+error: Cargo.lock: patch does not apply
+error: patch failed: crates/universe/Cargo.toml:12
+error: crates/universe/Cargo.toml: patch does not apply
+error: crates/universe/examples/flyframe.rs: already exists in working directory
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.74s
+     Running `/home/glmlab/lab-target-2/release/examples/flyframe 0 240 100`
+flyframe N=0: 28 bodies, 240 frames at rtf 100 (build 0.0 s). The page's frame, engine+view+wire:
+  total ms p50 0.988 p99 4.970 max 5.323   (engine p50 0.041 · gather p50 0.790 p99 0.991 · wire p50 0.133); wire 0.02 MB/frame; readouts 1.15/row
+  census over 239 frames, 65 rows: on the map canvas at the fitted zoom 44.2 (67.9755%); pixels unchanged frame-to-frame: map 36.839% · sky 83.547%; wire row bytes identical: 0.541%; map scale 9504.020 px/light-second
+flyframe: n=0 bodies=28 frames=240 rtf=100 total_p50=0.988 total_p99=4.970 total_max=5.323 engine_p50=0.041 gather_p50=0.790 gather_p99=0.991 wire_p50=0.133 wire_mb=0.02 readouts_per_row=1.15 rows=65 onscreen_frac=0.679755 static_map=0.3684 static_sky=0.8355 static_wire=0.0054
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/flyframe 1000 480 100`
+flyframe N=1000: 1028 bodies, 480 frames at rtf 100 (build 0.0 s). The page's frame, engine+view+wire:
+  total ms p50 21.455 p99 27.579 max 30.051   (engine p50 0.074 · gather p50 19.290 p99 22.962 · wire p50 1.915); wire 0.29 MB/frame; readouts 1.63/row
+  census over 479 frames, 1062 rows: on the map canvas at the fitted zoom 72.0 (6.7765%); pixels unchanged frame-to-frame: map 10.637% · sky 96.826%; wire row bytes identical: 0.410%; map scale 14718.098 px/light-second
+flyframe: n=1000 bodies=1028 frames=480 rtf=100 total_p50=21.455 total_p99=27.579 total_max=30.051 engine_p50=0.074 gather_p50=19.290 gather_p99=22.962 wire_p50=1.915 wire_mb=0.29 readouts_per_row=1.63 rows=1062 onscreen_frac=0.067765 static_map=0.1064 static_sky=0.9683 static_wire=0.0041
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/flyframe 10000 240 100`
+flyframe N=10000: 10028 bodies, 240 frames at rtf 100 (build 0.4 s). The page's frame, engine+view+wire:
+  total ms p50 255.241 p99 270.168 max 274.631   (engine p50 0.180 · gather p50 231.693 p99 247.020 · wire p50 22.856); wire 2.72 MB/frame; readouts 1.96/row
+  census over 239 frames, 10065 rows: on the map canvas at the fitted zoom 73.7 (0.7318%); pixels unchanged frame-to-frame: map 2.906% · sky 99.632%; wire row bytes identical: 0.835%; map scale 14718.098 px/light-second
+flyframe: n=10000 bodies=10028 frames=240 rtf=100 total_p50=255.241 total_p99=270.168 total_max=274.631 engine_p50=0.180 gather_p50=231.693 gather_p99=247.020 wire_p50=22.856 wire_mb=2.72 readouts_per_row=1.96 rows=10065 onscreen_frac=0.007318 static_map=0.0291 static_sky=0.9963 static_wire=0.0083
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-2/release/examples/flyframe 100000 48 100`
+flyframe N=100000: 100028 bodies, 48 frames at rtf 100 (build 4.3 s). The page's frame, engine+view+wire:
+  total ms p50 2611.038 p99 2730.027 max 2730.027   (engine p50 0.995 · gather p50 2352.083 p99 2461.041 · wire p50 251.401); wire 26.96 MB/frame; readouts 1.87/row
+  census over 47 frames, 100066 rows: on the map canvas at the fitted zoom 73.3 (0.0732%); pixels unchanged frame-to-frame: map 15.257% · sky 99.958%; wire row bytes identical: 12.763%; map scale 14722.131 px/light-second
+flyframe: n=100000 bodies=100028 frames=48 rtf=100 total_p50=2611.038 total_p99=2730.027 total_max=2730.027 engine_p50=0.995 gather_p50=2352.083 gather_p99=2461.041 wire_p50=251.401 wire_mb=26.96 readouts_per_row=1.87 rows=100066 onscreen_frac=0.000732 static_map=0.1526 static_sky=0.9996 static_wire=0.1276

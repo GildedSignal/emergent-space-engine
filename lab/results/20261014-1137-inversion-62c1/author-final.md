@@ -1,0 +1,4 @@
+Working...
+Regen verified end to end: exit 0, all four rungs reproduce — timings within ~2% (21.5→21.7, 255→259.6, 2,614→2,602 ms), row counts and census fractions identical. All artifacts are in place (dossier, filled predictions, verified regen.sh, wiki page).
+
+**Claim:** the plane's flyable ceiling is ~10³ bodies, not the merged gate's 10⁶ — gate N1 certified only the engine slice of the frame, while the page the player flies pays the view per browser frame (a Θ(N) gather with no culling plus 9 floats × N on the wire, 90–91% of the frame), crossing the 16.7 ms display budget at the gate's own first rung (21.5 ms p50 at 10³, 255 at 10⁴, 2,614 at 10⁵) even though the rows the page can actually draw stay ~73, flat in N — so the lever is deleting the row set (off-canvas in map mode, display-static in sky mode: 99.96% at 10⁵), a measured ~10³× at 10⁶, not making rows cheaper.
