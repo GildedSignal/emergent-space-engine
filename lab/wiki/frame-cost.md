@@ -11,6 +11,35 @@ updated: 20261013-2252-system-ad26
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
+**The adoption queue is measured as one stack and it is worth 2×, not 4.5×: the composed
+endgame is refuted, the interlock is confirmed (20261014-0000-second-20261013-2252-system-ad26-790b).**
+The three engine-path levers stacked on one binary against shipped f687ec25 (009b's word fix
+ported onto the post-plunge `bind_surface` — every engine bind now passes a surface, so the
+original patch's path is dead and the port chooses the word pre-compile for keyed fits only;
+7055's memo routed inside `from_fit`; 8b43's lazy tier rebased onto the frame merge): digests
+bit-identical to shipped at **every** comparable arm (7/7, incl. held-out seed 7, both flying
+paces, the 12,000 rung where counts move with the wall — 7,439 leavers vs 5,856–6,016 — but the
+canonical digest does not), and at m4,000/rtf 1: fit2 1,141 calls → **0**
+(hand-out bind −45.7%), fixed tier 2.09 M requeues → 12.6 k (D+fixed 286 → **142 ms/game-s,
+50% on one binary**; ~61% against the pristine shipped fixed tier). Two of ad26's four factors
+die on the stack: the memo's hit rate is 33% on shipped and **0 of 3,225** compiles on the
+word-fixed bind (the −31% was the retry's recompile; the endgame counted both), and Carlson's
+kernel is not a bind lever — `from_shape` reads the three increments off the walk's last knot,
+the compile exists to build the panel grid the readout interpolates, so the kernel's home is
+increments-only consumers (cadence, envelopes), not `bind_surface`; priced onto the bind anyway
+it lands D → 95–100 ms/game-s. Measured composite **141 ms/game-s (71% of shipped D)**, measured
+ceiling **≈ 2.8×10⁴ members** (≈ 4×10⁴ Carlson-priced), not 42.3 and not 9.5×10⁴. Tails after
+the whole queue: p99 47.6 → 41.7 ms (−12%), hitches >50 ms/hr −57%, overflow 309 → 194 — the
+burst (the bind concentration at the settle) survives the queue; the kick's non-bind 55% is the
+next wall. **Checker (this run): the rebased lazy tier re-breaks the shipped gate at its own
+scene** — `work_per_frame_is_bounded_and_overflow_is_a_dip_not_a_hitch` (seed 11, threads 1)
+fails deterministically on the stacked default paths and passes with `ES_EAGER=1` (shipped
+loop, stacked bind), a regression against 8b43 where the deadline-ordered fix made this gate
+pass at that scene; the stack is not one merge queue until that is restored, and the dossier's
+"suites green (0 failed)" does not regenerate (1 failed, `-p emergent-universe --test plane`).
+
+### Prior best
+
 
 <<<<<<< main
 **The hand-out's retry is deleted, not cached: the word is derived from the state's own key before the bind (20261013-2252-components-be78).** An env-gated probe (`ES_WORD_FIRST`) in `bind_surface` computes, before the first compile, the same re-expression the shipped retry performs after it — from the turning key `fit_key` returns for the state (`fit_of_state` + `word_of_key`, published in `crates/space`; apoapsis `periapsis/(k-1)` for a turning orbit, the compiled-out edge for a flyby, `1/sqrt(periapsis*k)` for the speed, the same arithmetic `word_for` runs on the finished entry) — so the member is bound once at the word its orbit implies. Measured on the bench ladder (7 scenes, 9,395 hand-outs — the 8,908 in the dossier matched neither pass; corrected by checker2, Linux/x86, orders of magnitude): digests bit-identical everywhere, including the plain no-`prof` build; main-thread retries (40-62% of hand-outs, fermi's 52-63% band) go to 0; the hand-out 538 -> 360 us calls-weighted (-29...-46% per scene on the regen pass; -16...-45% on the author pass), the bind term -38...-52%; no map and no standing bytes, so quant-7055's memo — whose catchment was exactly these fit-again recompiles — becomes dead code with it. Identity is structural, not sampled: `from_state` compiles from the same key, so the predicted word equals `word_for(entry)` for Cycle and Passage by construction; a Plunge is reachable only when `fit_key` itself refuses (`NoBoundOrbit` originates there), where the probe defers to the shipped path; any error on the pre-shifted bind falls back to the shipped path verbatim. The one hole — a compile that errors at the state's own word but succeeds at the coarser one, which would save a member shipped loses and move the digest — never fired. The collapse-regime run-path counters (lost/bodies/presented tick at m400/rtf 100, 174-231 overflow frames) wobble as much between two shipped runs as between arms (off/off2 control: presented 101 M vs 91 M ticks, digest `540ec08d304060d6` in all three runs) — the canonical digest is the instrument, and it never moved. What remains of the promotion after this: `replan` (now the larger half of the 332-411 us) and the stick itself (8,257 B standing, no demote path — the term the 10^9 arithmetic breaks on).
@@ -565,3 +594,4 @@ other scenes, the M1.
 - 20261013-2130-second-20261013-2005-spacex-3989-bc2b (second author): the dormancy arm's seed breaks and load nondeterminism were one bug (the settle's one-shot drain losing settle-time leavers); fixed, identity at seeds 1/3/7/11 near and far, one digest across budgets and 4-way load, cure intact to 8,000; the canon-exact doll rule kills the same-doll flying cure (393/480) — the win needs other dolls or the unproven drift bound.
 - 20261013-2252-components-be78 (author, unchecked): word-before-bind deletes the fit-again retry (40-62% of hand-outs, hand-out -16...-45%), digests identical on 7 scenes + plain build.
 - 20261013-2252-system-ad26 (this run, awaiting grade): one wall — the bind is 41–65% of every event-carrying item class (80% of a hand-out, 45% of a battle kick; the retry 18–39% of the bind); the four unmerged levers compose to 22% of the battle cost, ceiling ~10^5 members; projection, composite unverified.
+- 20261014-0000-second-20261013-2252-system-ad26-790b (second author, awaiting grade): the stack measured — word fix+lazy tier bit-identical, D+fixed 50% on one binary; memo 0/3,225 hits on the word-fixed bind and Carlson not a bind lever kill the 22%/10^5 endgame; ceiling measured ≈2.8e4.
