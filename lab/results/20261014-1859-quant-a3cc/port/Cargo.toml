@@ -1,0 +1,13 @@
+[package]
+name = "carlson-port"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+emergent-space = { path = "../../../../crates/space" }
+
+[profile.release]
+opt-level = 3
+debug = false
+
+[workspace]
