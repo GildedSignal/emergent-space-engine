@@ -20,6 +20,11 @@ fn cases() -> Vec<(String, usize, f64, f64, Script)> {
         v.push((format!("N={n} forward L8"), n, 100.0, 20.0, vec![(1.0, 1, 8)]));
         v.push((format!("N={n} key mashing"), n, 100.0, 12.0, (0..120).map(|i| (1.0 + i as f64 * 0.1, [2, 4, 1, 8, 6, 9, 0, 5][i % 8], (i % 16) as u8)).collect()));
     }
+    // Through the root's first wave of kicks (the belt's bodies first kick at 13,000-14,500 game-s: examples/belt_first.rs), the player
+    // coasting in Home's doll: rtf 1000 to 20,000 game-s.
+    for n in [1000usize, 3000] {
+        v.push((format!("N={n} coast through the wave"), n, 1000.0, 20.0, vec![]));
+    }
     // Through the belt: forward L10 from 1 s to 4 s at rtf 3000, then coast to the cut (the player is in the star's doll among the belt's bodies).
     for n in [1000usize, 3000] {
         v.push((format!("N={n} belt crossing L10"), n, 3000.0, 8.0, vec![(1.0, 1, 10), (4.0, 0, 10)]));

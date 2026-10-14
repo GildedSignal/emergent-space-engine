@@ -110,6 +110,8 @@ pub trait BodyStore: Send + Sync {
     fn bytes_of(&self, i: usize) -> usize;
     /// Retired bindings held for body `i`.
     fn history_len(&self, i: usize) -> usize;
+    /// When the oldest retired binding of body `i` ended, if [`BodyStore::prune`] could forget it (more than one is held).
+    fn droppable_until(&self, i: usize) -> Option<Tick>;
     /// Body `i`'s current binding and every retained one, oldest first (what a reader can still ask for).
     fn bindings_of(&self, i: usize) -> Vec<Binding>;
 }
@@ -176,6 +178,10 @@ impl BodyStore for PlainBodies {
     }
     fn history_len(&self, i: usize) -> usize {
         self.history[i].len()
+    }
+    fn droppable_until(&self, i: usize) -> Option<Tick> {
+        let h = &self.history[i];
+        h.front().filter(|_| h.len() > 1).map(|s| s.until)
     }
     fn bindings_of(&self, i: usize) -> Vec<Binding> {
         self.history[i].iter().map(|s| s.b.clone()).chain(std::iter::once(self.recs[i].b.clone())).collect()
