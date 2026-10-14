@@ -1,0 +1,9 @@
+0f112b89 verified (14 October, Opus, wt/nladder; load 13-17 from another builder's compile, AC power, no thermal warning):
+- N = 0: frame_digest's 8 scripted flights on 4 schedules: IDENTICAL to digests_before.txt (bit for bit), 0 schedule disagreements.
+- The ladder (ladder_digest, 11 cases, one at a time, each < 60 s): with the OLD Rayleigh draw restored in the working tree (the population
+  d2e06b61 recorded), all 11 digests IDENTICAL to ladder_digests_before.txt, 4 schedules agree. 0f112b89 also corrected the draw
+  (rayleigh_q48: e^2 in Q96 instead of Q32; the old one failed its own test at small e): a probe population change, not a law change
+  (N = 0 never reads it). The new population's digests, the baseline for every later change: ladder_digests_newpop.txt.
+- cargo test --release -p emergent-universe (-- --test-threads=2): every binary green (n_ladder 6/6).
+- xtask universe --replay-all: 0 same, 3 changed, 0 regressions, with replay digests a4afc1ca6c30, 2fd67418e8eb, 83699edde72a, the SAME
+  digests as the branch base 6bca6137's universe code gives (the three flights changed with main's law, 31d124b9, before this branch).
