@@ -1,0 +1,46 @@
+====================================================================================================
+ANCHOR (this box, shipped code): pairs/kick 812.8  us/pair x86 8.83  us/kick 7179.0  slack_skippable 0.9458
+M1 factor 0.605 -> M1 us/pair 5.34 (global) / 2.39 (cells-local, 90fb c6W)
+Pairs law at 1e9: contiguous wide X=150 1.75e+07 / narrow X=1.5 8.65e+07  vs island(1e4) 813
+Topology lever 21570x (wide) / 106422x (narrow); cadence lever 0.28->128 = 457x; skin 12.6x; locality 2.2x
+====================================================================================================
+ENCOUNTER CASCADE, M1-implied cores, skin-on, per GAME-second  (flying pace = x100)
+cadence policy (kicks/game-s at 1e9)           |              islands 812.8 |           contiguous X=150 |           contiguous X=1.5
+averaged 0.28/orbit (H0190 avg; 90fb K_AVG) (2/s) |    0.000766 (  0.0766) |        16.5 (1.65e+03) |        81.5 (8.15e+03) |
+unaveraged 32/orbit (H0190) (254/s)            |      0.0876 (    8.76) |    1.89e+03 (1.89e+05) |    9.32e+03 (9.32e+05) |
+shipped k=128/orbit, belt at 1 AU (4056/s)     |         1.4 (     140) |    3.02e+04 (3.02e+06) |    1.49e+05 (1.49e+07) |
+shipped k=256/orbit, belt at 1 AU (8113/s)     |         2.8 (     280) |    6.03e+04 (6.03e+06) |    2.98e+05 (2.98e+07) |
+(each cell: per game-second, and in parentheses at flying pace rtf 100; budget 4 cores)
+
+MAX RTF ON 4 CORES (90fb's own bottom-line metric), skin-on, global pricing:
+  averaged 0.28/orbit (H0190 avg; 90fb K_AVG)       5.22e+03       0.242      0.0491   [islands / wide / narrow]
+  unaveraged 32/orbit (H0190)                           45.7     0.00212    0.000429   [islands / wide / narrow]
+  shipped k=128/orbit, belt at 1 AU                     2.86    0.000133    2.69e-05   [islands / wide / narrow]
+  shipped k=256/orbit, belt at 1 AU                     1.43    6.63e-05    1.34e-05   [islands / wide / narrow]
+  [90fb's own row: 'max rtf on 4 cores: averaged + skin' = 5,216 at CELL geometry — the
+   '0.966/0.077 per cell' was the partitioned TOTAL, not a per-cell rate]
+
+====================================================================================================
+AUDIT OF THE PUBLISHED NUMBERS
+====================================================================================================
+90fb '0.966 per cell' = kicks_s(all 1e9, averaged, rtf100 = 222/s) x one island wake (813 x 5.34 us = 4.34 ms)
+   = 0.965 cores  == the PARTITIONED TOTAL (all islands). It is not a per-cell rate.
+effb '7.7e3 skin / 9.66e4 no-skin' = that x 1e5 cells  -> bills the billion's kick stream once per cell.
+Structural identity: 1e5 cells x 813 = 8.13e+07 pairs ~ contiguous pair count (1.75e+07-8.65e+07),
+   so effb's magnitude lands inside the CONTIGUOUS+averaged+skin+rtf100 cell of the cube (1.65e+03-8.15e+03) by identity,
+   not by the cell arithmetic written. The published label ('working point = 1e5 cells') contradicts the number.
+
+THE KICK TERM IN THE SAME FRAMES (effb's own constants, made consistent):
+  shipped 231 us                 0.937 cores/game-s        93.7 at flying pace
+  Carlson 30 us                  0.122 cores/game-s        12.2 at flying pace
+  key arm 0.11 us (b29a)      0.000446 cores/game-s      0.0446 at flying pace
+  [effb's ledger: kick term at rtf 1 (0.12-1.09 cores) vs encounter term carrying 90fb's rtf 100
+   inside the 0.077 -> the published '7,051x the kick term' mixes frames by 100x]
+
+THE 'WIRED WALL' (H0216's held-out number, recomputed):
+  averaged 0.28/orbit      islands: 5.22e+12 (rtf1) / 5.22e+10 (fly)   contiguous-wide: 4.92e+08 (rtf1) / 4.92e+07 (fly)
+  unaveraged 32/orbit      islands: 4.57e+10 (rtf1) / 4.57e+08 (fly)   contiguous-wide: 4.60e+07 (rtf1) / 4.60e+06 (fly)
+  shipped k=128/orbit      islands: 2.86e+09 (rtf1) / 2.86e+07 (fly)   contiguous-wide: 1.15e+07 (rtf1) / 1.15e+06 (fly)
+  [contiguous cost is quadratic in N: pairs/kick = C_W*N; islands linear]
+  [effb's held-out '~5.2e5 skin-on' inherits the hybrid composition; the honest flying-pace walls span
+   1.2e+06 to 5.2e+10 bodies — the wiring's step_log2 + topology choices are worth ~5e+04x]
