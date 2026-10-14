@@ -1,0 +1,26 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 52.36s
+    Finished `release` profile [optimized + debuginfo] target(s) in 52.27s
+    Finished `release` profile [optimized + debuginfo] target(s) in 51.91s
+    Finished `release` profile [optimized + debuginfo] target(s) in 51.50s
+    Finished `release` profile [optimized + debuginfo] target(s) in 51.64s
+arm        digest off=on fired kick off→on    K_IMP off→on           warm/fb        hand-out replan off→on  
+m4000-s3   YES           242.4→142.6 (-41%)   113.4→65.8 (1627/2064) 1032/0         95.1→96.0               
+           kick calls 595/1032, stats kicks 595/1032, leavers 2041/2041, pings 48466→35343, fleet item 6893.9→5765.6µs, digest 2e97e58000cb9fd7
+m1500-s3   YES           293.6→166.8 (-43%)   124.4→88.7 (190/190)   95/0           94.8→122.5              
+           kick calls 95/95, stats kicks 95/95, leavers 205/205, pings 6095→3733, fleet item 373.3→426.6µs, digest 7b33d0b866149e71
+m4000-s7   YES           no fired kicks       117.1→117.7 (1134/1134) 0/0            93.9→94.2               
+           kick calls 0/0, stats kicks 0/0, leavers 2370/2370, pings 33935→33935, fleet item 15386.0→12986.1µs, digest d539b8b6ea7ff0b5
+m400-s3-f  YES           314.1→185.7 (-41%)   173.1→42.3 (2282/2925) 2642/0         227.7→184.9             
+           kick calls 2127/2840, stats kicks 2144/2864, leavers 371/372, pings 66555→20811, fleet item 118.8→74.6µs, digest 94ff015b365f997c
+m16000-s3  YES           no fired kicks       111.0→111.4 (4839/4792) 0/0            127.3→127.8             
+           kick calls 0/0, stats kicks 0/0, leavers 4842/4795, pings 143118→141730, fleet item 1456895.6→1447963.4µs, digest 4df28df692b3b7bf
+
+identity (plain patched warm-on vs pristine HEAD, prof off):
+  m4000-s3: plain digest 2e97e58000cb9fd7 (pristine missing)
+  m1500-s3: plain digest 7b33d0b866149e71 (pristine missing)
+IDENTICAL HEAD warm-off == clamp-only shipped (m4000) 2e97e58000cb9fd7 2e97e58000cb9fd7
+IDENTICAL HEAD warm-ON == clamp-only shipped (m4000) 2e97e58000cb9fd7 2e97e58000cb9fd7
+IDENTICAL plain warm-on == shipped (m4000) 2e97e58000cb9fd7 2e97e58000cb9fd7
+IDENTICAL plain warm-on == shipped (m1500) 7b33d0b866149e71 7b33d0b866149e71
+IDENTICAL patched plain == pristine HEAD (m400) db05a06994d8251f db05a06994d8251f
+IDENTICAL prior patch base == this patch HEAD (m4000) 2e97e58000cb9fd7 2e97e58000cb9fd7

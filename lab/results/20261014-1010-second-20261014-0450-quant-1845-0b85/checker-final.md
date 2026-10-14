@@ -1,0 +1,11 @@
+Working...
+**Grade: gold** — written to `check.md`, with a checker note folded into the author's `wiki/frame-cost.md`.
+
+**What I did:**
+
+1. **Reproduction.** Runner's `regen.sh` exit 0 (478 s, five cold builds, no shared target cache — the hazard the author's lens names); re-ran `table.py` and read the raw JSONs. All six identity checks IDENTICAL (`2e97e580`, `7b33d0b8`, `d539b8b6`, `4df28df6`, `94ff015b`, `db05a069`); the prior run's record regenerates at its base (K_IMP 2064 exactly, digest exactly, kick 238.4 vs 241.7 µs). The differing numbers are all µs inside the disclosed wall-draw class; counts and digests are exact.
+2. **Own cold rebuild** (52.4 s) + **four adversarial arms**, two outside the author's domain: new battle seed s5 (digest off=on, kick 242.5→147.1 µs, 886 warm/0 fb); m1500/s11 — the prior checker's held-out seed, same-draw 88/88, off-digest `5093fe58d892f6bd` matches the prior checker's independent value, kick 300.7→189.6; threads 2 (digest identical, but the kick prof counters capture no kick items there — the cut's µs stay single-thread evidence); non-battle m120 (warm inert, digest identical). Zero fallbacks across 8,671 total warm searches.
+3. **Correctness.** Read the gallop line by line: it leans on exactly the monotone-fall assumption the shipped bisection already leans on (`inside(lo)` is never evaluated by either), warm flows only from a same-doll rebind's retired memo, consumed once; hand-outs and the view path stay cold by construction.
+4. **Novelty/page/fit.** The wiki runs list and HISTORY hold only the prior silver's arithmetic price of this deletion; this run builds it. The page fold-in is faithful — no overstatement found. It meets the prior checker's pre-registered gold condition verbatim ("fallback rate low, kick near ~140 µs, digests identical on battle arms, flying pace and 16,000 members"): kick 142–148 µs, fallbacks 0, digests unmoved everywhere.
+
+**Named residual risks** (in check.md, none grade-touching): single-thread-only kick µs; the m4000 off/on headline rides different wall draws (like-for-like same-count figure is −40%); "~9× under cold" is draw-dependent 6.4–9.5×; the predictions file's final save postdates the last author arm batch — order rests on content (pinned pre-published digests), not mtimes.
