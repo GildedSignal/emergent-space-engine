@@ -1,0 +1,93 @@
+diff --git a/crates/universe/examples/wave_steady.rs b/crates/universe/examples/wave_steady.rs
+new file mode 100644
+index 00000000..96c51bdf
+--- /dev/null
++++ b/crates/universe/examples/wave_steady.rs
+@@ -0,0 +1,87 @@
++//! The belt's kick waves in steady state: does the shipped plane hold one? Flies the plane (at-Home
++//! coast, no input, so the root-doll seam cannot fire) through several wave periods at a high rtf —
++//! real frames (`frame_to`, so `prune` runs every frame exactly as the page flies it; `settle` alone
++//! bypasses prune, a known artifact) — and prints a line per game-time slice: kicks, events,
++//! encounters, RSS/peak, catalogue entries, held scans, bytes a body. The digest after the canonical
++//! `settle(cut)` closes the run (documented chunking-independent).
++//!
++//! cargo run --release -p emergent-universe --example wave_steady [-- <N> <cut_game_s> <rtf> [seed] [slice_game_s]]
++use emergent_universe::fleet::Order;
++use emergent_universe::num::Tick;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::io::Write as _;
++use std::time::{Duration, Instant};
++
++fn rss() -> (u64, u64) {
++    let Ok(s) = std::fs::read_to_string("/proc/self/status") else { return (0, 0) };
++    let (mut r, mut h) = (0u64, 0u64);
++    let kb = |l: &str| l.split_whitespace().next().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0) * 1024;
++    for line in s.lines() {
++        if let Some(l) = line.strip_prefix("VmRSS:") { r = kb(l); }
++        if let Some(l) = line.strip_prefix("VmHWM:") { h = kb(l); }
++    }
++    (r, h)
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let n: usize = a.get(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let cut_s: f64 = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(115_000.0);
++    let rtf: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(6_000.0);
++    let seed: u64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let slice_s: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(2_500.0);
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let (r, h) = rss();
++    println!("ws-head: n={n} bodies={bodies} seed={seed} rtf={rtf} cut_s={cut_s:.0} slice_s={slice_s:.0} build_s={build:.2} rss_mb={:.0} hwm_mb={:.0} tick_s={TICK_SECONDS:E}", r as f64 / 1e6, h as f64 / 1e6);
++    std::io::stdout().flush().ok();
++
++    let cut = (cut_s / TICK_SECONDS) as Tick;
++    let slice = (slice_s / TICK_SECONDS) as Tick;
++    let mut next_slice = p.u.now + slice;
++    let (mut k0, mut e0, mut enc0) = (p.u.stats.kicks, p.u.stats.events(), p.u.stats.encounters);
++    let (mut k_slice, mut ev_slice) = (0u64, 0u64);
++    let mut wall_engine = 0u128;
++    let t_fly = Instant::now();
++    while p.u.now < cut {
++        let s = Instant::now();
++        let f = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(s + Duration::from_secs(30)) }, cut);
++        wall_engine += s.elapsed().as_nanos();
++        k_slice += p.u.stats.kicks - k0;
++        ev_slice += f.events;
++        k0 = p.u.stats.kicks;
++        if p.u.now >= next_slice || f.overflow && p.u.now >= next_slice {
++            while p.u.now >= next_slice {
++                next_slice += slice;
++            }
++            let (r, h) = rss();
++            println!("ws: t_s={:.0} wall_s={:.1} eng_s={:.1} k_slice={k_slice} ev_slice={ev_slice} kicks={} enc={} opens={} hof={} ref={} rss_mb={:.0} hwm_mb={:.0} cat={} held={} bpb={}",
++                p.u.now as f64 * TICK_SECONDS, t_fly.elapsed().as_secs_f64(), wall_engine as f64 / 1e9,
++                p.u.stats.kicks, p.u.stats.encounters - enc0, p.u.stats.opens, p.u.stats.handoffs, p.u.stats.refused,
++                r as f64 / 1e6, h as f64 / 1e6, p.u.catalogue_live(), p.u.held_scans(), p.u.bytes_per_body());
++            std::io::stdout().flush().ok();
++            k_slice = 0;
++            ev_slice = 0;
++        }
++        if !p.u.rec(p.player).alive {
++            println!("ws: player dead at t_s={:.0}", p.u.now as f64 * TICK_SECONDS);
++            break;
++        }
++    }
++    p.u.settle(cut.min(p.u.now));
++    let (r, h) = rss();
++    let (mut refus, mut dead) = (0u64, 0usize);
++    for i in 0..bodies {
++        let rec = p.u.rec(i);
++        refus += rec.refusals;
++        dead += (!rec.alive) as usize;
++    }
++    println!("ws-final: t_s={:.0} wall_s={:.1} eng_s={:.1} kicks={} events={} enc={} refusals_held={refus} dead={dead} rss_mb={:.0} hwm_mb={:.0} cat={} bpb={} digest={}",
++        p.u.now as f64 * TICK_SECONDS, t_fly.elapsed().as_secs_f64(), wall_engine as f64 / 1e9,
++        p.u.stats.kicks, p.u.stats.events(), p.u.stats.encounters, r as f64 / 1e6, h as f64 / 1e6,
++        p.u.catalogue_live(), p.u.bytes_per_body(), p.u.digest());
++}

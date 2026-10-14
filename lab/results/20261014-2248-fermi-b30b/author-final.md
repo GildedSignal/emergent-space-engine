@@ -1,0 +1,4 @@
+Working...
+All deliverables complete and verified: pre-registered predictions, four decisive arms plus four validity contrasts (digests bit-identical), analysis JSON, dossier, regen, and the folded wiki page (additions only, conflicts left for the integrator's q-wiki jobs).
+
+**Claim:** the shipped plane holds a true steady state through the belt's kick waves — memory plateaus at 4.85–5.06 kB/body (slope 0.00 B/body/wave over waves 2–4, killing the churn regime), the belt's end-to-end kick rate is 3.33–3.50×10⁻⁵/body/game-s on a train of exactly 27,500 game-s — so memory, one-time at the first wave, is the flyable-N wall at every N (8.8×10⁵ bodies at 4 GiB, 1.12×10⁶ at the M1's usable memory, CPU binding only at ~6×10⁶), putting the merged "10⁶ for 20 s" rung squarely on the wall and certifying wave-safety for the compact store's promotion wiring.
