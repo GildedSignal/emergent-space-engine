@@ -1,0 +1,48 @@
+[scan] regular=475 sticky=135 sea=130 (sea lambda range 0.232..0.536)
+
+[noise test] median(noisy dev from reference) at checkpoints (Q=quantized p90); torus diag = 4.44
+  regular0_Q1e-04 t100:1.57e-03  t1000:3.12e-02  t10000:9.93e-01  t30000:1.36e+00  t100000:9.71e-01
+  regular0_Q1e-03 t100:1.46e-02  t1000:2.90e-01  t10000:1.05e+00  t30000:1.00e+00  t100000:9.49e-01
+  regular0_quant  t100:2.17e-02  t1000:1.91e-01  t10000:1.35e+00  t30000:1.78e+00  t100000:1.76e+00
+  sticky1_Q1e-04  t100:2.73e-03  t1000:8.47e-02  t10000:1.47e+00  t30000:1.21e+00  t100000:1.12e+00
+  sticky1_Q1e-03  t100:2.35e-02  t1000:7.44e-01  t10000:1.42e+00  t30000:1.48e+00  t100000:1.53e+00
+  sticky1_quant   t100:1.02e-02  t1000:7.43e-01  t10000:2.37e+00  t30000:2.32e+00  t100000:2.32e+00
+  sticky2_Q1e-04  t100:3.27e-03  t1000:8.47e-02  t10000:1.50e+00  t30000:1.74e+00  t100000:1.39e+00
+  sticky2_Q1e-03  t100:3.83e-02  t1000:6.82e-01  t10000:1.46e+00  t30000:1.91e+00  t100000:1.48e+00
+  sticky2_quant   t100:7.00e-03  t1000:1.24e+00  t10000:2.32e+00  t30000:2.35e+00  t100000:2.35e+00
+  sticky3_Q1e-04  t100:2.51e-03  t1000:8.42e-02  t10000:1.20e+00  t30000:1.27e+00  t100000:1.40e+00
+  sticky3_Q1e-03  t100:3.23e-02  t1000:9.76e-01  t10000:1.33e+00  t30000:1.33e+00  t100000:1.81e+00
+  sticky3_quant   t100:8.51e-03  t1000:6.79e-02  t10000:6.72e-01  t30000:1.85e+00  t100000:2.28e+00
+  sea4_Q1e-04     t100:2.22e-02  t1000:2.79e+00  t10000:2.49e+00  t30000:2.16e+00  t100000:2.71e+00
+  sea4_Q1e-03     t100:5.77e-02  t1000:2.27e+00  t10000:2.42e+00  t30000:2.40e+00  t100000:2.68e+00
+  sea4_quant      t100:4.15e-02  t1000:3.51e+00  t10000:3.43e+00  t30000:3.48e+00  t100000:3.47e+00
+  sea5_Q1e-04     t100:2.08e+00  t1000:2.50e+00  t10000:2.43e+00  t30000:2.46e+00  t100000:2.05e+00
+  sea5_Q1e-03     t100:2.53e+00  t1000:2.43e+00  t10000:1.95e+00  t30000:2.45e+00  t100000:2.75e+00
+  sea5_quant      t100:2.96e+00  t1000:3.56e+00  t10000:3.38e+00  t30000:3.37e+00  t100000:3.44e+00
+  sea6_Q1e-04     t100:2.63e+00  t1000:2.35e+00  t10000:2.24e+00  t30000:2.57e+00  t100000:2.28e+00
+  sea6_Q1e-03     t100:2.83e+00  t1000:2.16e+00  t10000:2.72e+00  t30000:2.31e+00  t100000:2.50e+00
+  sea6_quant      t100:3.08e+00  t1000:3.49e+00  t10000:3.51e+00  t30000:3.51e+00  t100000:3.52e+00
+
+[dwell] first escape from the island disk, sticky ensemble n=135, cap 200000
+  true       p50=       0 p90=       2 p99=       2 capped=0.000
+  q1e-04     p50=       0 p90=       2 p99=       2 capped=0.000
+  q1e-03     p50=       0 p90=       2 p99=       2 capped=0.000
+  q1e-02     p50=       0 p90=       2 p99=       2 capped=0.000
+  noise1e-03 p50=       0 p90=       2 p99=       2 capped=0.000
+
+[controls] {'regular_true_dwell_capped': True, 'regular_quantQ1e-2_dwell_capped': True, 'sticky_bigQ1.0_capped_frac': 0.02}
+
+elapsed 39.6s
+[ensemble] n=256 ICs in the sticky bands beyond the outermost KAM curve
+
+[dwell] continuous stay inside the island disk, cap 100000
+  true       p50=    393 p90=   2821 p99=  14208 max=  16654 capped=0.000
+  q1e-04     p50=    379 p90=   2106 p99= 100000 max= 100000 capped=0.027
+  q1e-03     p50=    396 p90= 100000 p99= 100000 max= 100000 capped=0.141
+  q1e-02     p50=    277 p90=    512 p99= 100000 max= 100000 capped=0.031
+  noise1e-03 p50=    346 p90=   2313 p99=  77444 max= 100000 capped=0.012
+
+[shadow check] too few long-dwell ICs (n=3)
+
+elapsed 44.4s
+regen done

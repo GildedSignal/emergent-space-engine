@@ -1,0 +1,4 @@
+Working...
+regen.sh verified end-to-end (85 s, byte-identical numbers: dwell table true p90=2821/capped 0% → q1e-3 capped 14.1%, q1e-2 p90=512, noise 1.2%; sea-decorrelation curves and controls reproduced). All deliverables in place: `predictions.md` (pre-registered, with held/failed verdicts in the dossier), `shadow_falsifier.py`, `dwell_tail.py`, `dossier.md`, `regen.sh`, `wiki/chaos-shadowing.md`.
+
+**Claim:** representation.md's thesis-2 clause — "by the shadowing lemma a deterministic law with the right statistics is a true orbit of nearby initial conditions" — is false in the game's own mixed-phase-space chaos: a quantized area-preserving law (the doc's error model, one floor unit per event) distorts trapping statistics in both directions (14.1% permanent spurious captures at Q=10⁻³ vs 0% true; tail crushed 5.5× at Q=10⁻²; deterministic rounding ≠ same-magnitude noise, 1.2%), with no shadow bound in the sea — and no rung, gate or wiki page tests it.
