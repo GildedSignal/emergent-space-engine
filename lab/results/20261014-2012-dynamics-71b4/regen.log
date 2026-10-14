@@ -1,0 +1,39 @@
+=== machine 2 (bounded midpoint kernel) — decisive batch, 32 bodies, H=400 ===
+=== snap diagnostic (fires snapped to the sensor grid: QUANT_SNAP=1) ===
+=== interpolated-fire emergence with horizon (8 bodies) ===
+=== machine 1 (524e's held-at-close kernel): everything compounds ===
+=== clock convergence order ===
+run                            rate     D_med     D_p90 sl_med sl_p90  lock  dphi
+A_K16                          4.75  1.80e-04  4.36e-04  0.013  0.164  0.00 0.001
+A_K32                          9.51  2.01e-05  4.71e-05  0.001  0.067  0.00 0.000
+A_K8                           2.38  8.69e-04  2.72e-03  0.000  0.131  0.00 0.003
+C_th0.1                       45.76  3.84e-03  8.40e-03  0.881  1.638  0.32 0.183
+C_th0.5                        7.07  3.65e-02  6.37e-02  0.646  1.339  0.27 0.712
+C_th0.5_ws512                  7.13  3.42e-02  6.27e-02  0.630  1.145  0.29 0.716
+Q_q0.0001                     12.63  9.59e-03  1.57e-02  0.920  1.091  0.12 0.264
+Q_q0.0005                      3.07  1.12e-02  1.95e-02  0.886  1.605  0.16 0.880
+Q_q0.0005_ws512                3.18  3.52e-03  1.04e-02  0.508  1.008  0.13 0.900
+Q_ws1024_H100                  2.09  1.51e-03  3.41e-03  0.000  0.296  0.16 0.845
+Q_ws128_H400                   2.01  5.24e-03  1.51e-02  0.291  0.680  0.15 0.856
+Q_ws512_H100                   2.07  1.99e-03  3.31e-03  0.028  0.193  0.18 0.851
+Q_ws512_H400                   2.09  2.38e-03  6.82e-03  0.356  0.485  0.16 0.848
+Q_ws512i_H100                  2.07  1.94e-03  2.64e-03  0.140  0.327  0.16 0.847
+conv_A16                       3.75  1.60e-04  1.79e-04  0.000  0.009  0.01 0.000
+conv_A32                       7.50  2.00e-05  2.83e-05  0.004  0.013  0.00 0.000
+conv_A4                        0.94  1.48e-03  3.30e-03  0.000  0.107  0.02 0.009
+conv_A8                        1.88  5.88e-04  7.14e-04  0.000  0.010  0.01 0.002
+held_A8                        2.38  1.15e-01  1.38e-01  0.818  0.947  0.10 0.113
+held_Q1e3                      2.72  2.90e-02  4.03e-02  0.831  1.254  0.13 0.867
+
+matched-rate excess over the clock frontier (D at H=400):
+  C_th0.1                      rate=45.76  D/clock =      4.4x  slope=0.881
+  C_th0.5                      rate= 7.07  D/clock =     42.0x  slope=0.646
+  C_th0.5_ws512                rate= 7.13  D/clock =     39.3x  slope=0.630
+  Q_q0.0001                    rate=12.63  D/clock =     11.0x  slope=0.920
+  Q_q0.0005                    rate= 3.07  D/clock =     12.9x  slope=0.886
+  Q_q0.0005_ws512              rate= 3.18  D/clock =      4.0x  slope=0.508
+  Q_ws1024_H100                rate= 2.09  D/clock =      8.4x  slope=0.000
+  Q_ws128_H400                 rate= 2.01  D/clock =     29.1x  slope=0.291
+  Q_ws512_H100                 rate= 2.07  D/clock =     11.1x  slope=0.028
+  Q_ws512_H400                 rate= 2.09  D/clock =     13.2x  slope=0.356
+  Q_ws512i_H100                rate= 2.07  D/clock =     10.8x  slope=0.140
