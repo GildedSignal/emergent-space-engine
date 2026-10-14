@@ -1,0 +1,39 @@
+== the belt's kick stream (shipped roster, h=2.814e4 s, 120000 kicks x 64 bodies) ==
+per-kick |dv|  p01/p50/p99: 2.52e-03 / 4.94e-03 / 3.08e-02  m/s
+per-kick |dE|  p01/p50/p99: 0.00 / 0.23 / 0.91  Q48 quanta
+per-kick |dL|/L p01/p50/p99: 2.99e-09 / 2.10e-07 / 9.83e-07  (relative)
+velocity-carry gate (step.rs:424): |dv| in quanta of 2^-48 c, p01 = 2362.7 -> early-return fraction 0.0e+00%
+
+== P1: L-axis flips ==
+dL/L per kick vs the shipped L range's own quantum extremes:
+  vs coarsest legal (2^-32/0.25 = 9.31e-10): median multiplicity 226 quanta/kick
+  vs finest   legal (2^-32/4096 = 5.68e-14): median multiplicity 3.7e+06 quanta/kick
+  naive root-doll reading L/L_doll p50 = 1.610e+04 (out of the documented [0.25,4096]: the belt's tube cannot use it; every legal scaling is finer)
+P1 verdict: L flips on 100%% of kicks at every legal scaling
+
+== P2: E-axis flips (Q48, absolute) ==
+E-word flip fraction: 0.300 (P2 predicted 0.25-0.60)
+
+== P3: synodic cancellation and the coarsening run length (E axis) ==
+E-word drift birth->end (107 yr): p50 -51.4 quanta, max |.| 1615.6
+|sum dE| per synod / sum|dE| per synod (median over bodies):
+  cancellation ratio p50 = 0.1682 (P3 predicts <= 0.05)
+
+== the coarsening dial (what a per-population coarser key deletes) ==
+  k   q_E x 2^k    E-flip frac   mean run length (kicks)
+   0   2^0         0.3000        3.3
+   1   2^1         0.1501        6.7
+   2   2^2         0.0751        13.3
+   3   2^3         0.0375        26.6
+   4   2^4         0.0188        53.3
+   5   2^5         0.0094        106.7
+   6   2^6         0.0047        213.2
+   7   2^7         0.0024        425.5
+   8   2^8         0.0012        856.8
+   9   2^9         0.0006        1648.1
+  10   2^10        0.0003        3440.8
+  11   2^11        0.0002        4977.3
+  12   2^12        0.0002        5059.2
+
+== P4: kick size vs belt radius ==
+  |dE| p50 inner (<2.4 AU) 0.253 vs outer (>2.6 AU) 0.212 quanta; ratio 1.19 (Giant-dominated -> < 1)
