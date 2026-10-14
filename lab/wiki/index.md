@@ -11,11 +11,11 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [decision-log](decision-log.md) | open | 4 | **The recorder merged ahead of the fix and froze the hole: one player session, flown twice on |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
-| [nladder](nladder.md) | open **conflict to resolve** | 10 | <<<<<<< main |
 | [gravity-news](gravity-news.md) | open | 11 | **The fleet doll under thrust is now measured on the shipped frame, and it freezes at the |
 | [handoff](handoff.md) | open | 12 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
+| [nladder](nladder.md) | open **conflict to resolve** | 20 | <<<<<<< main |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 38 | **The row-set deletion is built on the shipped crossings and the flyable frame collapses: steady map frames ≈ 1-3 ms p50 at 10³-10⁶ bodies at both the fitted and the belt zoom (86-160× at 10³, ~10³× at 10⁶ against the li |
 | [kick-cadence](kick-cadence.md) | open | 43 | **The rule is regime-aware and coarse, everywhere except where cadence is the wrong lever.** Seven graded runs split the question by regime; the levers that died are the interesting half of the record. The 12-October bra |

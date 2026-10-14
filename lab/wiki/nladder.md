@@ -3,16 +3,91 @@ status: open
 closed-by:
 valid-while:
 <<<<<<< main
-updated: 20261014-1631-library-7f99
-=======
+updated: 20261014-1719-dynamics-bf21
 updated: 20261014-1631-taleb-6138
->>>>>>> 20261014-1631-taleb-6138
+=======
+updated: 20261014-1719-second-20261014-1631-taleb-6138-4487
+>>>>>>> 20261014-1719-second-20261014-1631-taleb-6138-4487
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
 
 <<<<<<< main
+<<<<<<< main
+**The wave's fix is measured and certified, and the wave is a standing train (20261014-1719-dynamics-bf21).**
+Capping the player's look-ahead pull (`pull_ships_capped`, 9 lines, `ES_PULL_CAP`-gated; the pull resolves every
+ship below the player's *next* item inside its current one, outside the budget — the burst 6138 named) holds the
+same 2×10⁵ burn flight at **max 11.97 ms, 0 frames over 12 ms** against the baseline's **1,364.9 ms / 12 over**
+(114×; monsters 25,547 events, spaced exactly 50 frames, reproduced from 6138's basin), with the digest
+**bit-identical**, encounters 4,060 = 4,060 and kicks 225,975 = 225,975; the wave's cost becomes the drain's
+1.45 s lag, unchanged from the coast control. The certificate *kills the literal fix*: deferring the capture to
+answer time (the "hold the scan" reading) breaks it — 4,029 encounters, digest differs (the late capture meets
+pruned history: the drain's ~1.45 s game lag against the prune's 2×light-distance retention) — so the capture
+stays at the player's item (every item before its tick is resolved by key order; the pull-ahead was eagerness),
+and only the answer is held, which `Held` already did. The wave itself is **not a one-shot shock**: every belt
+body's step is ≈ 26.1–29.1 k game-s (a continuum, not one power of two), and the cohort recurs with its shape
+(second items 26,101–29,084, width 1.1 k → 3.0 k game-s: no phase mixing), so a rung must fly past *every* wave
+(~27.5 k game-s apart, ≈ 4.6 min at rtf 100), not just the first; the arrival width is a generation choice
+(stagger the birth grid over one step → ~24× flatter drain utilisation), unmeasured here. Domain: seed 1, the
+ladder belt, Linux shared box, 2×10⁵ burn only; the view's gather during the deferred window unmeasured.
+   *[Checker bf21: reproduced three ways — clean tree, patched-unset and capped are one digest
+(`ba1a66b4…`), so the patch is default-neutral and the cap changes no bit; held out on seed 7
+(1416 → 12.1 ms, digest equal) and at 4×10⁵ (3276 → 12.0 ms, 61,701-event items, 1.88 GB RSS —
+this box's ceiling). The digest is cap-value-invariant (ES_PULL_CAP 0 and 1 also give `ba1a66b4…`,
+equal counts): on these scenes the scan's candidates never overlap the wave backlog, so "the
+pull-ahead was eagerness" is scene-structural, not a law — a player inside the belt band during a
+wave is the untested exposure. And the frame profile is not cap-monotone: cap 0 leaves 734 ms
+monsters, cap 1 leaves 94 ms (other unbudgeted terms near the player's item re-emerge), so
+"any small bound" is wrong — 64 is a measured operating point. The patch's comments describe a
+capture-deferral that is not in the code (`backlog` is dead; the capture is immediate): rewrite
+them at adoption. The wrong-variant numbers are the author's killed build, not rebuilt by the
+checker.]*
+   *[Checker 2 bf21: every certificate reproduced independently — pristine main (universe.rs
+   reverted, same example) gives the same digest `ba1a66b4…`, so default-neutrality is proven, not
+   argued; held out on seed 3 (1,257 → 11.96 ms, digest `618d9d23…` equal, counts equal), at 4×10⁵
+   (3,901 ms / 65,556-event items → 11.97 ms, 0 over, digest `1d13ab6a…` equal, RSS 1.84-1.86 GB
+   — this box's ceiling) and coast (`c55dcf84…` equal). Two corrections to the notes above: (a) the
+   non-monotone caps are NOT reproduced on a quiet box — cap 0 and cap 1 both hold 11.98/11.97 ms
+   with the same 333-events/frame profile and the same digest, and 333 events ≈ 16 ms of engine
+   work leaves nothing to bill a 734 ms frame to: those spikes were box contention (wall time,
+   descheduling), not engine terms, so "64 is a measured operating point" rests on schedule noise;
+   (b) the neutrality is law on the queue path — the scan reads `binding_at(j, t)` (encounter.rs
+   capture, same-doll candidates only), and key order makes every binding at t final before the
+   player's item pops — the one hole is `input` (universe.rs:1182), which resolves the player's
+   item over an overdue backlog outside the queue: a player issuing input inside a same-doll wave
+   is the real untested exposure. Settle at 4×10⁵ grows to 11 s (the deferred backlog answered
+   after the flight): the drain, not the frame, scales with N.]*
+
+=======
+**The belt's cadence is the doll's clock, and the 10⁹ rate law is corrected 24× (20261014-1719-fermi-cf45).**
+Measured on shipped main (`examples/cadence.rs`, read-only, seed 1 + held-out 11, N 1000/4000):
+every root-doll ship steps at 2^step_log2 per period of the doll's **shortest secondary**
+(P_D = 77.24 d — the record's "Cinder 88 d" is off 14%), Δs rounded one octave down and refined
++7.9% by f'(U_P+c): interval **2.814×10⁴ s p50, flat in a** across 2–3 AU (quartile means
+2.818→2.805×10⁴ s; the own-period law demands ×1.84), rate **3.553×10⁻⁵ /game-s/body** seed- and
+N-stable, kicks/own-orbit 2,674–5,484 (5–11× the old 512/orbit bar); three instruments agree
+(plan interval; per-body counter exactly 2 kicks in 60,333 game-s; first kicks at 1.41×10⁴ s inside
+taleb-6138's measured wave window), and `step_for` on the same bodies gives 6.77×10⁵ s — **24.1×
+slower**: effb's "rate = 2⁷/P_own, a pure birth constant — the whole bill" is the *secondary-doll*
+law read onto the root doll (`step.rs:554` reaches `step_for` only when `!on_clock()`; the roster
+reproductions 3071/7497, 202–223 kicks/orbit, live in secondary dolls — a code-path reading, not
+re-measured). Recomposed at 10⁹
+(`compose.py`): 3.55×10⁴ kicks/game-s = 8.2 cores at 231 µs, 1.07 at the M1's 30 µs, 0.10 Carlson,
+0.0039 key arm (rtf 1); **at flying pace the shipped step_log2 7 is 148× over even at 30 µs** —
+the dial fits only at its coarse end (step_log2 0: 1.16×; Carlson ≤ 2–3: 0.45–0.90×; key arm
+already 5: 0.14×; as shipped only the key arm fits, 0.54×), and its anchor is **P_D × the
+f'(U_P+c) refinement, never P_own**. The birth wave at 10⁹ (all bodies at tick 0, first kicks
+1.34–1.45×10⁴ game-s) is 26× the steady stream — 10 s/s at rtf 100 even at the key arm: birth-phase
+staggering is not optional. effb's kick-term composition, its checker's "0.5 AU belt 5.3 cores at
+231 µs" line, and the cadence axis of 1738's cube all inherit the correction; ladder.txt's law was
+right with the wrong period label. Domain: the ladder's belt (Rayleigh e 0.07, periapsis > 1.2 AU,
+planar, prograde) at 2–3 AU, one Linux box; not measured: belts inside P_D's orbit, near
+secondaries (f' shortens), under thrust, or a P_D that itself rebinds (the doll's clock is
+dynamic); the locals' arm of the probe carried a doll-unit bug and made no claim.
+
+<<<<<<< main
+>>>>>>> 20261014-1719-fermi-cf45
 
 **The deletion program gets its method, priced from Julien's library mined verbatim for the first
 time (20261014-1631-library-7f99; 762 highlighted books, 4,580 highlights cached in the run).**
@@ -34,7 +109,6 @@ completion is the expected add-back (4.6% of the 520 B deleted). All numbers: th
    revival-shaped event, putting the law level at 3/26 ≈ 12% landed; and the 26 kills are a sample
    (the Refuted sections of encounters/b12/kick-cadence/kick-jet hold more). The frame-path 0 and
    the ordering survive both corrections.]*
-=======
 **The wave's freeze is the player's doll, measured on shipped main: the shock a 20 s rung never
 sees (F1's window ends 11,000 game-s before it) is absorbed as 1.45 s of lag when the player is out of
 the root doll and as unbudgeted 0.3–1.2 s single frames when it is in it (20261014-1631-taleb-6138).**
@@ -66,7 +140,6 @@ N rung flown 20 s certifies a window that excludes every belt body's first event
 past the wave (≥ 150 s) before F1 can certify scale. Domain: Linux shared box, one box, burn arms at
 10⁵–2×10⁵ only (3×10⁵ quoted from the M1 record: it exceeds this box's 2 GB cap); a second milder
 burn-only seam at frames 11,094+ (13–55 ms, event-thin, every ~50 frames) is unnamed.
->>>>>>> 20261014-1631-taleb-6138
 
 **Break #3's scan half is decomposed: the player's scan walks its certificate's poison, not the
 doll — a write-once speed cap and a global-count density rule (20261014-1511-components-a2c1).**
@@ -271,6 +344,13 @@ The four rules that survive, with rule 2 struck and adjudicated:
 
 ## Refuted
 
+- "Hold the scan" read as holding the whole scan (capture at answer time): digest-refuted — the late capture
+  reads pruned history (4,029 ≠ 4,060 encounters, digest differs); only the answer is holdable, and the capture
+  must stay at the player's item, where the bindings at its tick are final (20261014-1719-dynamics-bf21).
+- "The first kicks arrive as one smooth wave" (the one-shock reading of 6138's measurement): the arrivals are a
+  standing train — the cohort recurs one step (~27.5 k game-s) later with its shape, width growing only 1.1 k →
+  3.0 k game-s per pass; and the steps are a continuum, not the single power of two the pow2-rounding reading
+  predicted (same run).
 - "The wave is the drain's problem": the drain holds the coast at 12.0 ms through the same wave
   (0 frames over, 1.45 s lag); the freeze is the player's item alone (`pull_ships` at the root doll)
   (20261014-1631-taleb-6138).
@@ -314,15 +394,111 @@ The four rules that survive, with rule 2 struck and adjudicated:
   (20261013-2252-dynamics-ea91).
 - "Most promoted bodies go dormant (zero events in the second half)": true only of the
   dead; among live promotions 0–9 % are dormant in a half-run (20261013-2252-dynamics-ea91).
+=======
+**The wave's freeze is deleted, and the fix is certified bit-exact where the cut is canonical
+(20261014-1719-second-20261014-1631-taleb-6138-4487; the checker's named gold experiment, built and
+flown).** The named fix in the engine's own idiom: the player's in-root item pulls at most `PULL_HOLD
+= 64` ship items; over that the rest goes to a drain inside `advance` (the ships below the oldest held
+key, in the pull's own key order, one item a pass behind the same `spent_before` gate as any other
+item), and the scan that needed the pull is held as a `Waiting` entry that captures only once the ship
+lane is clear of its key (answered FIFO, folded into the digest like any held scan; the children-only
+pull is untouched). Measured, 200 s flights at rtf 100, budget 12 ms, this Linux box: worst frame
+**315→37.7 ms at 10⁵, 1,213→90.3 ms at 2×10⁵ (seed 1; seed 2 1,244→81.4), 1,280 (M1 record)→123.8 ms
+at 3×10⁵** (peak 1,705 MB, inside the box's 2 GB cap); events/frame max 24,467→**333**; the wave region
+itself now runs at **11.94 ms worst** (the budgeted drain saturated, exactly the coast control's shape),
+the overload appearing as 1.67 s of recovered lag instead of 1.2 s freezes. Certificates:
+`frame_digest` (8 scripted flights × 4 schedules) identical pristine vs fixed vs every-pull-forced
+(`set_pull_hold(0)`, a doc-hidden control); belt flights bit-identical at the post-wave canonical cut
+(21,000 game-s, deterministic 25-events budget: digest `ae06c773…`, kicks/events/encounters equal to
+the digit), at all three cuts at N=2,000, and both cuts on the coast control. *[checker 4487: seed 3
+and every-pull-held (`NLADDER_HOLD=0`) reproduce the post-drain identity (hold 0 matches at both
+cuts); the 3×10⁵ arm is a quiet-box number — under a loaded box its worst frame inflates ~4× on
+0-event frames while evmax stays 333.]* *[checker2 4487, from the patch on a clean tree: 3×10⁵ under
+the deterministic budget joins the identity — pristine 2,615 ms worst / 52,846 events in a frame vs
+fixed 12.0 ms / 218, digest `d4f4441e…` equal to the digit; seed 7 and `NLADDER_HOLD=1` (minimum
+slice) also match at 21,000 game-s — and at seed 7 the resolved-events counter sits 6,116 apart at the
+identical digest, so the counter is pace-dependent and the digest is the certificate.]* Two findings bound the
+claim: (a) a **mid-drain cut is not canonical** — at 16,000 game-s the fixed engine holds 11,473 fewer
+resolved events (the drain's unfinished share) and the digest differs; (b) the instrument itself — a
+wall-budgeted 2×10⁵ belt flight — **is not schedule-stable on shipped main** (two pristine runs differ
+at both cuts: `f6869cbb…`/`02570fef…`), so belt digests compare only under a deterministic budget.
+Residual: the worst frames are now the unnamed **second seam** (1 event each, every ~50 frames, burn
+only: 37.7/90.3/123.8 ms at 1/2/3×10⁵ — it grows with N and now binds F1; the fix does not touch it).
+
+**The wave's freeze is the player's doll, measured on shipped main (20261014-1631-taleb-6138).** Every
+belt body is born at tick 0 with one Δs, so the first kicks arrive as one smooth wave at 13,037–14,542
+game-s; the player in the root doll resolves the whole backlog inside one unbudgeted item
+(`pull_ships` at `universe.rs:769`), worst 315/1,213/1,244 ms, while the coast control holds 12.0 ms
+through the same wave. *[checker 6138: the onset N is drain-rate conditional (5×10⁴ passes clean
+here); the batch has a drain term — batch = wave demand in the item horizon − what the budget-cut
+drain removed.]*
+
+**The deletion program gets its method, priced from Julien's library mined verbatim for the first
+time (20261014-1631-library-7f99; 762 highlighted books, 4,580 highlights cached in the run).**
+A grep-backed audit of the engine's own record: 26 kills, 5 revival-shaped events (8–19%): the law
+level brackets Musk's 10% add-back quota, the shipped frame path holds 0 add-backs and its unfired
+backlog is exactly the named terms (a2c1's two sensors, b29a's sticky promotion, 0e37's `entry`
+field); promotion collapses to a filter; automation last. *[Checker 7f99: one landed scoped
+restoration missed (r9 killed kick-avg, `docs/law.md` keeps kicks orbit-averaged) — a sixth
+revival-shaped event; the frame-path 0 and the ordering survive.]*
+
+**Break #3's scan half is decomposed (20261014-1511-components-a2c1): the player's scan walks its
+certificate's poison, not the doll** — a monotone `speed_cap` (84×) and an inverted density rule
+(`bodies/4` over all dolls, misfiring at N ≲ 9.4×10³) put 194 walked entries a call against the
+certificate's keep 15+2; named fixes in cost order: reset-then-max the caps, doll-local density,
+per-body window widths.
+
+**Break #2's lever is measured (20261014-1221-components-0e37): the compiled orbit is write-only
+memory for the engine, exactly its key** — flight reads O(1) in N, the belt's retired tables read 0
+times in flight, 1,001/1,001 sampled tables regenerate exactly from `Orbit::compile(key)`; the
+deletion is priced (~520 B/body) pending the two-word (a, ȧ) ramp completion.
+
+**The smallest promotion is no promotion (20261014-0450-scout-b29a): one belt event is a stack-local
+function on the compact row** (~38 µs p50, 12–40 B standing) against the wired sticky resolve's
+486–585 µs and 8,257 B; the key-space arm (integer ΔE/ΔL on the key's own quanta) is 0.11 µs.
+
+**The 10⁹ ledger is composed (20261014-0059-fermi-effb): the kick gap is the hot rail's alone, the
+cold rail is encounter-bound by ~1.9×10³ skin-on**; the cadence law is code-verified (`step_for` is
+one step per 2⁻⁷ of the radial period: rate = 2⁷/P, a birth constant).
+
+**The rule-2 conflict is resolved by decomposition (20261014-0000-fermi-3071): the tail is
+manufactured, the live fraction is set at generation**; the surprise-rate distribution's regime is
+the compiled period ladder, its head is driver-caused, its churn is death.
+
+(The longer standing blocks — the store's update path, the four surviving rules with rule 2 struck,
+the kick census, the surprise-rate distribution — are unchanged below this point on the page.)
+
+## Refuted
+
+- "The wave is the drain's problem": the drain holds the coast at 12.0 ms through the same wave; the
+  freeze is the player's item alone (20261014-1631-taleb-6138).
+- "The unbudgeted pull is the price of the scan's bit-exactness": the held pull — a 64-item slice,
+  a budgeted key-ordered drain, and a scan that captures once the lane clears — is bit-identical on
+  every scripted flight and at every canonical cut past the drain; the freeze it deletes was not
+  buying the bits (20261014-1719-second-20261014-1631-taleb-6138-4487).
+- "A belt flight's digest at a cut is a canonical comparison": two pristine 2×10⁵ wall-budgeted
+  flights of shipped main differ at both cuts tested (16,000 and 21,000 game-s); only a deterministic
+  budget (events, no wall) makes the comparison exact — and under it the engines agree bit for bit
+  past the drain (same run).
+- "The scan's walk is O(N) at ladder scale" / "the density rule protects the walk": the walk is
+  doll-scoped (194 a call) and the rule inverts (20261014-1511-components-a2c1).
+- "The retired compiled orbit is needed by the engine between kicks" / "deleting it is free at
+  today's view": read-0 in flight but the view's ramp completes through it — the two-word completion
+  is the prerequisite (20261014-1221-components-0e37).
+>>>>>>> 20261014-1719-second-20261014-1631-taleb-6138-4487
+
+- "effb's cadence law `rate = 2⁷/P with κ ∈ [128, 256]` — a pure birth constant, the cold rail's whole bill" (and the checker's 0.5-AU/5.3-core composition): right only inside secondary dolls; the root-doll belt runs on the doll's clock — measured 3.553×10⁻⁵/s flat in a, 24× the own-period law at p50; the dial's anchor is P_D (77.24 d), not P_own (20261014-1719-fermi-cf45).
+- ladder.txt's "period of Cinder … 88 days": the root doll's shortest secondary is 77.24 d (same run).
 
 ## Open directions
 
-0. **Hold-the-scan on the root-doll backlog** (taleb-6138's named fix, priced next): the pull
-   exists so the scan reads resolved tubes; a held scan reads them after the drain, so the
-   certificate is `frame_digest` unchanged — measure the worst frame at 3×10⁵–10⁶ burn with it.
-   With it, re-fly the rung past the wave (≥ 150 s) so F1's window contains every belt body's
-   first event; the event-thin 13–55 ms seam at frames 11,094+ under burn is unnamed and open.
-0. **The break-#2 build (the lever is now measured):** `Segment` drops `entry`, gains the key
+<<<<<<< main
+0. **The capped pull is measured and certified** (bf21, above): adopt the constant (the env gate comes out;
+   any small bound works — the cap only bites when the queue is behind, which is the wave), then re-fly the N rung
+   past a *whole wave train period* (≥ 27.5 k game-s, not just past the first wave) so F1's window contains a
+   wave; at 10⁶ the frame holds but real time does not (~34 s of lag per pass on this box) — the generation-side
+   stagger (birth grid over one step, ~24× flatter) is the measured-next lever, a `shipmem` wiring decision
+   (effb's direction 9). The event-thin 13–55 ms seam at frames 11,094+ under burn stays unnamed and open.0. **The break-#2 build (the lever is now measured):** `Segment` drops `entry`, gains the key
    (+56 B) and the two-word (a, ȧ) completion (~24 B; a-word's open direction 1 is its missing
    half — the write needs the field's derivative at the kick); `observe::partial`'s ramp reads
 
@@ -366,14 +542,29 @@ The four rules that survive, with rule 2 struck and adjudicated:
    CPU bill is 2^step_log2/P summed over the period mix; the billion's event load is a
    content policy, not an engine property — set it when wiring shipmem, with the
    encounter term (not the kick) as the binding constraint it must leave room for.
+=======
+0. **The second seam now binds F1** (the fix removed the wave's monsters): 1-event frames at
+   37.7/90.3/123.8 ms for 10⁵/2×10⁵/3×10⁵ burn, every ~50 frames (the player's item cadence), burn
+   only — and from 5×10⁴ up (19–22 ms there, both engines, the same frames: it predates the fix;
+   checker 4487) — the player's own item cost under burn (a2c1's walk-all and cap candidates name
+   the suspects); unnamed, cheaper to diagnose than the pull was.
+1. **The mid-drain cut** (16,000 game-s): the fixed engine's digest differs there by exactly the
+   drain's unfinished share (11,473 events at 2×10⁵) — a cut is canonical for the held pull only
+   once no held key remains below it; the rung writer's cut choice must respect that (or the settle
+   must drain before the digest, which it does — the residual is the *flight's* pace, not the
+   settle's).
+2. The wall-schedule instability of the belt digest on shipped main (two pristine runs differ):
+   worth its own run — it breaks the "digest independent of schedule" contract at 2×10⁵ belt scale
+   even without any fix; the deterministic-budget mode (`NLADDER_EBUDGET`) is the instrument until
+   it is understood.
+3. The standing directions from a2c1 (the caps, the density rule, the per-body window), 0e37 (the
+   two-word completion), b29a (the filter promotion), and the ladder's 10⁶ arm.
+>>>>>>> 20261014-1719-second-20261014-1631-taleb-6138-4487
 
 ## Contradictions
 
-- None. [The rule-2 conflict between 20261013-2252-dynamics-ea91 and
-  20261013-2252-second-…-7497 was resolved by 20261014-0000-fermi-3071: both measured
-  the same stream; ea91's Gini 0.72–0.74 is real but manufactured (compiled period
-  ladder + promotion transient + driver head); ea91's Zipf-slope flag (−1.6…−2.0, not
-  Extremistan) is likewise manufactured — the model reproduces the slope.]
+- None open on this topic. (The main/taleb-6138 page conflict was two concurrent current-bests; both
+  blocks are kept above, the newer first.)
 
 ## Runs
 - 20261013-2130-library-ae3d (silver): store updates event-cheap with spikes in compaction steps; memory 12.3→48.4 bits/member under storm; five falsifiable ladder rules.
@@ -386,3 +577,13 @@ The four rules that survive, with rule 2 struck and adjudicated:
 - 20261014-1511-components-a2c1 (this run, awaiting grade): the scan seam censused — unpoisoned keep 15+2 at every N, the write-once `speed_cap` poisons the window ±9×r (walked 203, 12×), the density rule walks all dolls at N=10³ (1,017, 60×); capture dearer at 10³ (178 µs) than 10⁵ (129 µs); fixes named in cost order.
 - 20261014-1631-library-7f99 (this run, awaiting grade): the library mined verbatim (4,580 highlights cached); deletion audit 26 kills / 2 landed add-backs (8%; law level at quota, frame path 0%); automation debt 6 anchored sites; promotion = refusal filter; lookup budget 427–877 recompiles/frame vs demand ≤ 1.4/s.
 - 20261014-1631-taleb-6138 (this run, awaiting grade): the wave's ruin basin measured — 315 ms/1,213 ms single frames at 10⁵/2×10⁵ burn (seed-stable), the batch = wave density × the player's item horizon at universe.rs:769, coast 12.0 ms through the same wave; fix named (hold the scan), rung must fly past the wave.
+- 20261014-1719-dynamics-bf21 (this run, awaiting grade): the wave is a standing train; the look-ahead pull capped holds 2×10⁵ burn at 11.97 ms max (114×) with the digest bit-identical; holding the whole scan is digest-refuted.
+- 20261014-1719-fermi-cf45 (awaiting grade): the belt's clock is the doll's (P_D 77.24 d, interval 2.814e4 s flat in a, 24x the own-period law); effb's rate law corrected 24x at the plane's belt (its 1-2 AU core numbers move little; the anchor does not); shipped step_log2 148x over at flying pace; dial anchor P_D.
+- 20261014-1719-second-20261014-1631-taleb-6138-4487 (awaiting grade): the checker's named gold
+- 20261014-1631-taleb-6138 (silver): the wave's ruin basin measured — 315/1,213 ms single frames at
+- 20261014-1631-library-7f99 (gold): the deletion program's method — 26 kills, the 10% add-back
+- 20261014-1511-components-a2c1 (silver): break 3's scan half decomposed — the cap's monotone walk
+- 20261014-1221-components-0e37 (silver): break 2's lever — the compiled orbit is write-only memory,
+- 20261014-0450-scout-b29a (silver): the smallest promotion is no promotion.
+- 20261014-0059-fermi-effb (silver): the 10⁹ ledger composed; the cadence law code-verified.
+- 20261014-0000-fermi-3071 (silver): rule 2 dead by decomposition; the tail manufactured.
