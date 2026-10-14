@@ -1,0 +1,25 @@
+tree already carries radial/encounter edits; NOT applying the patch again
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.78s
+scan census: candidates calls=193 some=10 nodoll=0 width=0 density=183 kept_per_some=148.4 walked=196361 kept=61622
+scan census: candidates calls=193 some=193 nodoll=0 width=0 density=0 kept_per_some=2306.7 walked=37517 kept=34172
+scan census: candidates calls=193 some=193 nodoll=0 width=0 density=0 kept_per_some=2306.7 walked=37517 kept=34172
+scan census: candidates calls=2136 some=2136 nodoll=0 width=0 density=0 kept_per_some=232.0 walked=160089 kept=149293
+scan census: candidates calls=2136 some=2136 nodoll=0 width=0 density=0 kept_per_some=232.0 walked=160089 kept=149293
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.41s
+== prof 100000 coast
+  encounters: capture (cheap half)            17.1     0.16     105680
+  encounters: held scans answered            125.4     0.16     776935
+== prof 1000 coast
+  encounters: capture (cheap half)            17.9     0.16     110839
+  encounters: held scans answered            209.7     0.16    1299036
+n100000-burn.census      calls=2000 why={'some': 2000} walked/call=79 kept/call=74 | seq1: scap=1.164e-4 hit=15 unb=2 reach=1.788e8 | last: scap=9.756e-3 hit=0 unb=23 reach=7.504e9 entries=2865
+  scan census: candidates calls=2136 some=2136 nodoll=0 width=0 density=0 kept_per_some=232.0 walked=160089 kept=149293
+n100000-coast.census     calls=193 why={'some': 193} walked/call=194 kept/call=177 | seq1: scap=1.164e-4 hit=15 unb=2 reach=1.788e8 | last: scap=9.756e-3 hit=2422 unb=23 reach=1.114e10 entries=2885
+  scan census: candidates calls=193 some=193 nodoll=0 width=0 density=0 kept_per_some=2306.7 walked=37517 kept=34172
+n10000-burn.census       calls=2000 why={'some': 2000} walked/call=79 kept/call=74 | seq1: scap=1.164e-4 hit=15 unb=2 reach=1.788e8 | last: scap=9.756e-3 hit=0 unb=23 reach=7.504e9 entries=2865
+  scan census: candidates calls=2136 some=2136 nodoll=0 width=0 density=0 kept_per_some=232.0 walked=160089 kept=149293
+n10000-coast.census      calls=193 why={'some': 193} walked/call=194 kept/call=177 | seq1: scap=1.164e-4 hit=15 unb=2 reach=1.788e8 | last: scap=9.756e-3 hit=2422 unb=23 reach=1.114e10 entries=2885
+  scan census: candidates calls=193 some=193 nodoll=0 width=0 density=0 kept_per_some=2306.7 walked=37517 kept=34172
+n1000-coast.census       calls=193 why={'some': 10, 'density': 183} walked/call=1017 kept/call=319 | seq1: scap=1.164e-4 hit=15 unb=2 reach=1.788e8 | last: scap=9.756e-3 hit=2422 unb=23 reach=1.114e10 entries=2885
+  scan census: candidates calls=193 some=10 nodoll=0 width=0 density=183 kept_per_some=148.4 walked=196361 kept=61622
+regen done
