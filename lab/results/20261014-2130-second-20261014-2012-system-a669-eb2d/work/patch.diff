@@ -1,0 +1,298 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..c9e6a28b 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -6,6 +6,15 @@ use crate::{
+     tables::PI,
+     Error, Result,
+ };
++use std::sync::atomic::{AtomicU64, Ordering};
++
++/// The flip gate's counters (lab 20261014-2130): fresh compiles and reuses through `from_keyed`.
++static KEYED_COMPILED: AtomicU64 = AtomicU64::new(0);
++static KEYED_REUSED: AtomicU64 = AtomicU64::new(0);
++/// (fresh compiles, reuses) through the flip gate: the compile stream, and what the gate deleted.
++pub fn keyed_counts() -> (u64, u64) {
++    (KEYED_COMPILED.load(Ordering::Relaxed), KEYED_REUSED.load(Ordering::Relaxed))
++}
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub struct IntegerState {
+@@ -375,15 +384,24 @@ impl Rebinding {
+     /// toward the surface (`Plunge::from_state`, inbound or at rest) or a rise (`Plunge::outbound`). Horizon arcs use
+     /// `Plunge`'s explicit falling-clock API instead.
+     pub fn ending_at(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, surface: Scalar) -> Result<Self> {
+-        match Self::from_state(state, event_time, passage_edge) {
+-            Ok(fit) => return Ok(fit),
++        Ok(Self::ending_at_keyed(state, event_time, passage_edge, surface, None, None)?.0)
++    }
++    /// [`ending_at`] with the flip gate: `dial` coarsens the fitted key before the compile, and `prev`
++    /// (the binding's own compiled key and trajectory) is reused instead of recompiling when the
++    /// coarsened key is unchanged. The plunge arcs never take a dial or a reuse.
++    pub fn ending_at_keyed(
++        state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>, surface: Scalar,
++        dial: Option<(u32, u32)>, prev: Option<(OrbitKey, &Trajectory)>,
++    ) -> Result<(Self, Option<OrbitKey>)> {
++        match Self::from_keyed(state, event_time, passage_edge, dial, prev) {
++            Ok((fit, key)) => return Ok((fit, Some(key))),
+             Err(Error::NoBoundOrbit) => {}
+             Err(e) => return Err(e),
+         }
+         let (p, v) = state.components()?;
+         if dot(p, v)? > Scalar::ZERO {
+             // Going up with no periapsis to turn at (a near-radial state): the leg up and the fall back, one arc.
+-            return Self::outbound_arc(state, event_time, passage_edge, surface);
++            return Ok((Self::outbound_arc(state, event_time, passage_edge, surface)?, None));
+         }
+         let plunge = crate::plunge::Plunge::from_state(state, crate::plunge::End::Surface(surface))?;
+         let periapsis_angle = ((angle(p[0], p[1])? << 32) / (2 * PI)) as u32;
+@@ -391,7 +409,7 @@ impl Rebinding {
+             periapsis_angle, clockwise: false, residual: Residual { position: [0; 2], velocity: [0; 2] },
+             event_time, units: (state.length_exponent, state.velocity_exponent) };
+         fit.residual = Residual::between(state, fit.decoded_event()?);
+-        Ok(fit)
++        Ok((fit, None))
+     }
+     /// An outbound near-radial state as the arc [`crate::plunge::Plunge::outbound`] compiles from its anchor (the radius it
+     /// turns at, or the one past the edge it is released by): the binding's anchor is the arc's, ahead of the event by the
+@@ -417,10 +435,31 @@ impl Rebinding {
+         Ok(fit)
+     }
+     pub fn from_state(state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>) -> Result<Self> {
+-        let (key, r, clockwise, incoming) = fit_key(state, true)?;
+-        let trajectory = if key.periodic() {
++        Ok(Self::from_keyed(state, event_time, passage_edge, None, None)?.0)
++    }
++    /// [`from_state`] with the flip gate (lab 20261014-2130): fit exactly, coarsen the key by `dial`
++    /// (`(shape_bits, scale_bits)` of [`OrbitKey::quantized`]; `None` keeps the exact key), and reuse
++    /// `prev`'s compiled trajectory instead of compiling when the coarsened key equals the one it was
++    /// compiled from (a bound orbit only: a passage also depends on its edge). Everything the coarser
++    /// fit discards is carried by the residual, as at the exact quantum. Returns the key compiled.
++    pub fn from_keyed(
++        state: IntegerState, event_time: Scalar, passage_edge: Option<Scalar>,
++        dial: Option<(u32, u32)>, prev: Option<(OrbitKey, &Trajectory)>,
++    ) -> Result<(Self, OrbitKey)> {
++        let (exact_key, r, clockwise, incoming) = fit_key(state, true)?;
++        let key = match dial {
++            None => exact_key,
++            Some((shape_bits, scale_bits)) => exact_key.quantized(shape_bits, scale_bits)?,
++        };
++        let reuse = prev.is_some_and(|(pk, _)| pk == key && key.periodic());
++        let trajectory = if reuse {
++            KEYED_REUSED.fetch_add(1, Ordering::Relaxed);
++            prev.expect("checked above").1.clone()
++        } else if key.periodic() {
++            KEYED_COMPILED.fetch_add(1, Ordering::Relaxed);
+             Trajectory::Cycle(Orbit::compile(key)?)
+         } else {
++            KEYED_COMPILED.fetch_add(1, Ordering::Relaxed);
+             Trajectory::Passage(Passage::compile(key, passage_edge.unwrap_or(r.scale(1)?))?)
+         };
+         let (mut offset, mut sample) = trajectory.at_radius(r)?;
+@@ -445,7 +484,7 @@ impl Rebinding {
+             units: (state.length_exponent, state.velocity_exponent),
+         };
+         fit.residual = Residual::between(state, fit.decoded_event()?);
+-        Ok(fit)
++        Ok((fit, key))
+     }
+     pub fn decoded_event(&self) -> Result<IntegerState> {
+         cartesian(
+diff --git a/crates/universe/examples/key_dial.rs b/crates/universe/examples/key_dial.rs
+new file mode 100644
+index 00000000..ffa68468
+--- /dev/null
++++ b/crates/universe/examples/key_dial.rs
+@@ -0,0 +1,49 @@
++//! The flip gate's record (lab 20261014-2130, second author on 20261014-2012-system-a669): one ladder
++//! flight — the plane with N more ships, flown as the page flies it — reporting the compile stream
++//! (`from_keyed`'s fresh compiles and reuses), the digest at the canonical cut, and the map's counters.
++//! Run it with and without `ES_KEY_BITS=shape,scale`: unset, the gate compares exact keys (a pure
++//! memo, digest-neutral); set, the key is coarsened before the compile and the residual carries what
++//! the coarser fit discards.
++//!
++//! cargo run --release -p emergent-universe --example key_dial [-- <N> <rtf> <wall seconds> [<keys> <level>]]
++use emergent_space::binding::keyed_counts;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::Instant;
++
++fn main() {
++    let a: Vec<String> = std::env::args().skip(1).collect();
++    let n: usize = a.first().and_then(|s| s.parse().ok()).unwrap_or(3000);
++    let rtf: f64 = a.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000.0);
++    let seconds: f64 = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(20.0);
++    let (keys, level): (u8, u8) = (
++        a.get(3).and_then(|s| s.parse().ok()).unwrap_or(0),
++        a.get(4).and_then(|s| s.parse().ok()).unwrap_or(0),
++    );
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    if keys != 0 {
++        p.u.schedule((1.0 * rtf / TICK_SECONDS) as i64, word(keys, level)).unwrap();
++    }
++    for _ in 0..400_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), cut);
++    }
++    p.u.settle(cut);
++    let (compiled, reused) = keyed_counts();
++    let s = p.u.stats;
++    println!(
++        "N {} rtf {} cut {} script {} | digest {} | kicks {} encounters {} contacts {} | compiles {} reused {} (reuse {:.3} of cycle fits, {:.2} compiles/kick) | refused {} lost {} handoffs {} boundaries {} | build {:.1}s flight {:.1}s",
++        n, rtf, cut, if keys == 0 { "coast".to_string() } else { format!("L{level}") },
++        p.u.digest(), s.kicks, s.encounters, p.u.contacts,
++        compiled, reused, reused as f64 / (compiled + reused).max(1) as f64, compiled as f64 / s.kicks.max(1) as f64,
++        s.refused, s.lost, s.handoffs, s.boundaries, build, t0.elapsed().as_secs_f64() - build,
++    );
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..387e75c8 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -19,10 +19,10 @@ use crate::num::{cross2, dot2, time_of, Error, Res, Tick, V2};
+ use crate::world::Unit;
+ use emergent_space::{
+     binding::{cartesian, IntegerState, Rebinding, Residual, Trajectory},
+-    orbit::{OrbitState, Scalar},
++    orbit::{OrbitKey, OrbitState, Scalar},
+     Tube,
+ };
+-use std::sync::Arc;
++use std::sync::{Arc, LazyLock};
+ 
+ /// A compiled trajectory and its sense: the entry a tube's key indexes. The trajectory is compiled
+ /// about a mass of one, in units of the doll's mass; `unit` converts it to the doll's own units (the
+@@ -32,6 +32,9 @@ pub struct Entry {
+     pub trajectory: Trajectory,
+     pub clockwise: bool,
+     pub unit: Unit,
++    /// The key the trajectory was compiled from (the dial's coarsened key; `None` for a plunge arc).
++    /// The flip gate compares the next fitted key against it.
++    pub key: Option<OrbitKey>,
+ }
+ 
+ /// The catalogue of compiled trajectories behind the tubes' key indexes.
+@@ -218,12 +221,28 @@ pub struct Bound {
+ /// Fit a tube to the exact state `exact` at tick `t` (in a doll whose clock exponent is `clock_exp`),
+ /// and keep everything the fit discards. `edge` is the radius a passage is compiled out to.
+ pub fn bind(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit) -> Res<Bound> {
+-    bind_surface(exact, t, clock_exp, edge, unit, None)
++    bind_surface(exact, t, clock_exp, edge, unit, None, None)
+ }
+ 
+-pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
++/// The key dial (lab 20261014-2130): `ES_KEY_BITS=shape,scale` coarsens every fitted key through
++/// `OrbitKey::quantized` before the compile, population-wide (the cold-belt dial of run
++/// 20261014-2012-system-a669; the per-population byte is the adoption shape). Unset: exact keys.
++fn key_dial() -> Option<(u32, u32)> {
++    static DIAL: LazyLock<Option<(u32, u32)>> = LazyLock::new(|| {
++        std::env::var("ES_KEY_BITS").ok().and_then(|s| {
++            let (a, b) = s.split_once(',')?;
++            Some((a.parse().ok()?, b.parse().ok()?))
++        })
++    });
++    *DIAL
++}
++
++/// [`bind`] with the flip gate: `prev` is the binding's own entry; when the (coarsened) fitted key,
++/// sense and unit are unchanged, the entry is `Arc`-reused instead of minted, and `from_keyed`
++/// skipped the compile (the residual still carries everything the coarser fit discards).
++pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>, prev: Option<&Arc<Entry>>) -> Res<Bound> {
+     let t_fit = crate::prof::t();
+-    let bound = bind_in(exact, t, clock_exp, edge, unit, surface)?;
++    let bound = bind_in(exact, t, clock_exp, edge, unit, surface, prev)?;
+     crate::prof::add(crate::prof::FIT, t_fit);
+     // The integer word was chosen for an earlier orbit: when the new tube reaches farther, or is
+     // faster at periapsis, than the word holds, re-express the state in coarser units (a rounding of
+@@ -242,7 +261,7 @@ pub fn bind_surface(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<S
+         velocity_exponent: nv as i16,
+     };
+     let t_again = crate::prof::t();
+-    let again = bind_in(coarser, t, clock_exp, edge, unit, surface);
++    let again = bind_in(coarser, t, clock_exp, edge, unit, surface, prev);
+     crate::prof::add(crate::prof::FIT2, t_again);
+     again
+ }
+@@ -257,16 +276,24 @@ fn in_tube_units(st: IntegerState, unit: Unit) -> Res<IntegerState> {
+     Ok(IntegerState { position: [q(st.position[0])?, q(st.position[1])?], ..st })
+ }
+ 
+-fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>) -> Res<Bound> {
++fn bind_in(exact: IntegerState, t: Tick, clock_exp: i16, edge: Option<Scalar>, unit: Unit, surface: Option<Scalar>, prev: Option<&Arc<Entry>>) -> Res<Bound> {
+     let input = in_tube_units(exact, unit)?;
+     let time = unit.to_tube(time_of(t, clock_exp)?)?;
+     let edge = edge.map(|e| unit.to_tube(e)).transpose()?;
+-    let fit = if let Some(surface) = surface {
+-        Rebinding::ending_at(input, time, edge, unit.to_tube(surface)?)?
+-    } else { Rebinding::from_state(input, time, edge)? };
++    let dial = key_dial();
++    let prev_traj = prev.and_then(|e| e.key.map(|k| (k, &e.trajectory)));
++    let (fit, key) = if let Some(surface) = surface {
++        Rebinding::ending_at_keyed(input, time, edge, unit.to_tube(surface)?, dial, prev_traj)?
++    } else {
++        let (fit, key) = Rebinding::from_keyed(input, time, edge, dial, prev_traj)?;
++        (fit, Some(key))
++    };
+     let peri = i64::try_from(unit.to_doll(fit.periapsis_time)?.fixed(-(clock_exp as i32))?).map_err(|_| Error::Refused("periapsis time outside the clock"))?;
+     let tube = Tube::new(0, fit.periapsis_angle, peri);
+-    let entry = Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit });
++    let entry = match (prev, key) {
++        (Some(e), Some(k)) if e.key == Some(k) && e.clockwise == fit.clockwise && e.unit == unit => e.clone(),
++        _ => Arc::new(Entry { trajectory: fit.trajectory, clockwise: fit.clockwise, unit, key }),
++    };
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+         let end = p.arrival().coordinate_time.ok_or(Error::Refused("horizon needs a falling clock"))?;
+         let at = time_of(peri, clock_exp)?.add(unit.to_doll(end)?)?.fixed_ceil(-(clock_exp as i32))?;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..9f184642 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -355,7 +355,8 @@ impl Work<'_, '_> {
+     /// Bind `exact` at `t` in `doll` and replace the body's binding, keeping the old one as history.
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+-        let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
++        let prev = self.rec.b.entry.clone();
++        let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface), Some(&prev))?;
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..25fad58b 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -345,7 +345,7 @@ impl Universe {
+         let key = OrbitKey::bound(unit.to_tube(spec.periapsis)?, spec.e_q48)?;
+         let orbit = Orbit::compile(key)?;
+         let period = unit.to_doll(orbit.period()?)?;
+-        let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit });
++        let entry = Arc::new(Entry { trajectory: Trajectory::Cycle(orbit), clockwise: spec.clockwise, unit, key: Some(key) });
+         // Periapsis `phase` of a period before tick 0.
+         let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
+         let peri = -i64::try_from(behind.fixed(-(doll.clock_exp() as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;
+@@ -405,7 +405,7 @@ impl Universe {
+             velocity_exponent: ve,
+         };
+         let edge = (doll != 0).then(|| d.edge.scale(2)).transpose()?;
+-        let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface))?;
++        let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface), None)?;
+         let mut tube = bound.tube;
+         tube.key = self.cat.insert(bound.entry.clone())?;
+         let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE, impact: None };
+@@ -868,7 +868,7 @@ impl Universe {
+         let made = (|| -> Res<usize> {
+             let clock_exp = self.dolls[doll as usize].clock_exp();
+             let t_bind = crate::prof::t();
+-            let bound = bind_surface(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit, Some(self.dolls[doll as usize].surface))?;
++            let bound = bind_surface(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit, Some(self.dolls[doll as usize].surface), None)?;
+             crate::prof::add(crate::prof::H_BIND, t_bind);
+             let key = self.cat.insert(bound.entry.clone())?;
+             let mut tube = bound.tube;

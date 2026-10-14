@@ -1,0 +1,30 @@
+== phase 1: pristine baseline ==
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 43.37s
+== phase 2: patch, default-neutrality ==
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 36.65s
+neutrality (default digests == pristine, timing lines aside): IDENTICAL
+== phase 3: the dial ==
+N 3000 rtf 1000 cut 4060508935 script coast | digest d2632de90255f5c10de9fd7372a3790d52e7b8bf57f6f03907d2ed8fd942df32 | kicks 34537 encounters 934 contacts 0 | compiles 34606 reused 0 (reuse 0.000 of cycle fits, 1.00 compiles/kick) | flight 4.9s
+N 3000 rtf 1000 cut 4060508935 script coast | digest 21887465cc40bb42503073dbc0aa6aa6fd15d4dbaf453e9c9a5abf775d7da93c | kicks 33296 encounters 0 contacts 0 | compiles 34606 reused 0 (reuse 0.000 of cycle fits, 1.04 compiles/kick) | flight 2.9s
+N 3000 rtf 1000 cut 4060508935 script coast | digest d9bb82085a955afc31ce4328778d0b5be3b248a721ccfa438c8e8279b899552e | kicks 33300 encounters 0 contacts 0 | compiles 34594 reused 12 (reuse 0.000 of cycle fits, 1.04 compiles/kick) | flight 2.9s
+N 3000 rtf 1000 cut 4060508935 script coast | digest f06e138f1648c5586e0126ada99f34e753609bf4f26937d2c0ffd1b9e3502980 | kicks 33502 encounters 0 contacts 0 | compiles 34572 reused 34 (reuse 0.001 of cycle fits, 1.03 compiles/kick) | build 0.1s flight 3.4s
+N 3000 rtf 1000 cut 4060508935 script coast | digest 1a639027ac8719f4a3be7bc7938da8cf34c473216531bfa298e3abcaa470d39c | kicks 33323 encounters 0 contacts 0 | compiles 29894 reused 4712 (reuse 0.136 of cycle fits, 0.90 compiles/kick) | flight 2.9s
+N 3000 rtf 1000 cut 4060508935 script coast | digest 66bff408f0a010a53d9e29e182e93139d143bd27af1be85bc49685d26c3299ce | kicks 33203 encounters 0 contacts 0 | compiles 8742 reused 25871 (reuse 0.747 of cycle fits, 0.26 compiles/kick) | flight 2.7s
+N 3000 rtf 1000 cut 4060508935 script coast | digest deec3ce924549fc82931f65de1630d1cfe2792e44852e4694ae38f449ef0142c | kicks 34537 encounters 928 contacts 0 | compiles 26002 reused 8604 (reuse 0.249 of cycle fits, 0.75 compiles/kick) | flight 4.8s
+N 3000 rtf 1000 cut 4060508935 script coast | digest 2b45ed9fcfebbfb82374809bef4a3d4ea792e3f91f8750bed852b3186e26302c | kicks 34537 encounters 928 contacts 0 | compiles 32280 reused 2326 (reuse 0.067 of cycle fits, 0.93 compiles/kick) | flight 4.8s
+N 3000 rtf 1000 cut 4060508935 script coast | digest 5084d59dff5566d2659d04ebc6d32652a25c114315da3e518d06519dc9def9c5 | kicks 34537 encounters 928 contacts 0 | compiles 34306 reused 300 (reuse 0.009 of cycle fits, 0.99 compiles/kick) | flight 4.9s
+N 3000 rtf 1000 cut 4060508935 script coast | digest d0943acdd241eb8f1baab80fab2b40d1c6986dac63eca04aa460c82fb0c92a29 | kicks 34537 encounters 934 contacts 0 | compiles 31892 reused 2714 (reuse 0.078 of cycle fits, 0.92 compiles/kick) | flight 4.8s
+N 3000 rtf 1000 cut 4060508935 script coast | digest 6e62281ff1adb3cc7c5487ee0f9a4af0a0a7d00ce8172eecacaca8b420393bf8 | kicks 34537 encounters 934 contacts 0 | compiles 34265 reused 341 (reuse 0.010 of cycle fits, 0.99 compiles/kick) | flight 4.8s
+jacobi baseline: step 2^-6: worst per ship ["2.8e-6", "4.9e-7", "5.1e-6", "6.5e-7", "1.0e-6", "5.1e-7"] | 4.0s kicks 82930 handoffs 0 los
+jacobi 12,24: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+jacobi 16,28: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+jacobi 16,32: step 2^-6: worst per ship ["4.6e-3", "2.8e-4", "5.5e-4", "1.3e-4", "2.7e-4", "1.5e-4"] | 4.2s kicks 82551 handoffs 0 los
+jacobi 20,36: step 2^-6: worst per ship ["8.0e-5", "1.5e-5", "4.1e-5", "2.6e-5", "9.7e-4", "1.2e-5"] | 4.1s kicks 84797 handoffs 0 los
+== leave the tree pristine ==
+REGEN_DONE
