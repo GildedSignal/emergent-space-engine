@@ -2,51 +2,58 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261014-1511-quant-7226
+updated: 20261014-1631-second-20261014-1511-quant-7226-2ae0
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
 
-**The crash search is counted probe by probe on shipped code, and the naive smarter-probe
-lever on it is killed with the mechanism named (20261014-1511-quant-7226).** Additive
-counters in `step.rs` (`step::searches`, printed by `--kick-bench`; digest
-`36637e67…` = the pristine build's, off = shipped verbatim): at the flying arm
-(m400/s3/rtf100, 8 game-s) the kick's surface search runs **802 `next_impact` searches
-paying 23,552 exact readouts — mean 29.4, worst 32 per search** (held-out s7: 1,225 /
-36,367, mean 29.7, worst 33); 29.4 ≈ log₂ of the ~2^30-tick half-orbit bracket, so the
-midpoint bisection sits at its policy class's floor — no probe is wasted, the policy wastes
-them. `next_exit` searches are **0** wherever the passage's analytic guess applies (its
-endpoint probes: 1,188) — the guess retires the whole exit search, not just accelerates it.
-The lever this count invites — choose the probe by the radius value the predicate already
-reads, float places / integer decides — was built three ways (Illinois on values, Illinois
-on signed distances, vertex-quadratic matched to the flat periapsis, plus a pure secant),
-**digest-identical in every arm and seed** (canonical + replay; refused 0; a new crate test
-asserts fast = slow on every dipping tube of a settled plane, two surfaces, two starts) and
-**killed by the pre-registered rule**: best arm −4.6 % probes, worst 57–58 (the 30-probe
-fallback fired), leaver median +55 % on the final arm. Mechanism from probe traces: the
-crossings are mid-branch with deep dips (periapsis 3–7× the level deeper than the miss
-end), local slopes healthy and consistent (~4.4 units/tick over 2×10⁷ ticks), but every
-chord through the retained miss anchor (signed distance ~10⁸) lands a fraction
-|d_hi|/d_lo across — a one-sided crawl at ratio ≈ 0.23 that no halving rule in this family
-breaks fast enough. The named survivor: **Anderson–Björck (or inverse-quadratic through the
-newest three probes) — checker-measured, not just named: mean 21.3/22.3 probes at seeds
-3/11 (−28/−24 % vs bisection), leaver median −25/−26 %, digests identical, but worst 38
-> 30, so the frozen tail rule kills plain AB too**; the update rule must penalize the
-retained miss anchor multiplicatively **and** bound the degenerate tail (a bail at 8
-probes measured worse: mean 27.5). The counters and
-the equality test are adoptable as-is (zero cost unread); they are the contract for the
-warm start's freeze and for any Carlson readout change that touches the search. Domain:
-Linux/x86 shared box, one scene family (plane battle, seeds 3 and 7), flying pace only
-(battle pace fires no surface searches at m400); the grazing-dip regime (crossing near the
-periapsis) is where the warm start already settles in two readouts and would flatter a
-quadratic policy. Regeneration: `lab/results/20261014-1511-quant-7226/regen.sh`.
+**The crash search's probe bill is cut 6× exact and digest-identical, and the named
+AB experiment is done and passes the frozen rule (20261014-1631-second-20261014-1511-quant-7226-2ae0).**
+The guarded Anderson–Björck/IQI policy (`ES_FP=3`: inverse-quadratic probe through the
+three newest readouts, AB decay of a retained anchor's distance by the measured same-side
+ratio, a crawl bail — two consecutive sub-half cuts force one midpoint) holds **worst
+11–18 probes per search against the frozen ≤ 30 (mean 10.6–11.1 vs bisection's 29.4)** at
+3 seeds × both paces, cuts probes **−62…−64 %** everywhere, and the **flying leaver kick
+−34…−35 %** (199→122–131 µs); digests bit-identical (canonical + replay) at every arm,
+ladder rung and warm layer, refused 0, crate suite 11/11 with the equality test extended
+to every policy. At battle pace the leaver **median** is flat because the descents sit in the
+dipping minority (3,096 searches vs 2,064 kick samples) — the saving lands at all-kick p99,
+the wobbliest column (−1…−18 % across the author's, the regen's and the checker's runs,
+direction consistent everywhere); the lever is
+the same, only its visible term moves. **Composed with the
+warm start (0b85's carry merged in, `ES_IMP_WARM`)**: exact readouts fall **−78…−83 %
+against shipped** (flying s3: 23,552→3,932; ~29.4→~4.9–5.3 flying, ~6.6 battle
+readouts/search; worst 32→11),
+flying leaver −43…−47 % (199→105 µs), the savings of the two levers add (warm deletes
+searches that moved < 1 tick, the policy cuts the rest), and the warm path's own tail
+(worst 32 under plain bisection) drops to 11–12. The kill table of
+20261014-1511-quant-7226 now regenerates from the patch (`ES_FP`=1 secant row exactly,
+35,621/57): the prior Illinois/AB variants lost their gain to the retention discipline —
+the **retained** anchor decays, the fresh side resets (policy 4 = one-half decay: mean
+10.9, worst 11). Adoption is a default flip of two env gates (off = shipped verbatim,
+verified digest-level — this checker re-verified the OFF arm against a pristine build at
+four flying seeds and battle m400; the m4000 battle scene is reachable only through the
+patch's `ES_MEMBERS` bench unlock, so its OFF reference is patch-internal, and 0b85's
+Crash-retain removal in `rebind` is unconditional, digest-neutral on every measured scene;
+`ES_FP=""`/`0` and `ES_IMP_WARM=""`/`0` mean off — the checker's
+footgun closed). Domain: plane battle, seeds 3/7/11, flying (m400/rtf100) and battle
+(m4000/rtf1), one shared Linux box; wall columns wobble a few %, counts and digests are
+deterministic. Regeneration: `lab/results/20261014-1631-second-20261014-1511-quant-7226-2ae0/regen.sh`.
 
-**Prior best (20261014-1010-second-20261014-0450-quant-1845-0b85):** the warm start is
-built, measured and exact — the kick's rebought crash-tick search falls 38–44 % for zero
+**The census and the mechanism stand (20261014-1511-quant-7226).** At the flying arm the
+search pays mean 29.4, worst 32 readouts ≈ log₂ of the ~2^30-tick half-orbit bracket — the
+midpoint bisection was at its policy class's floor; `next_exit` fires 0 searches behind
+the passage's analytic guess (1,188 endpoint probes). The plain secant crawls one-sidedly
+(chord through the retained miss anchor, distance ~10⁸, lands |d_hi|/d_lo ≈ 0.23 across)
+— the curvature story the IQI guard confirms by passing.
+
+**Prior best (20261014-1010-second-20261014-0450-quant-1845-0b85):** the warm start alone
+is built, measured and exact — the rebought crash-tick search falls 38–44 % for zero
 fallbacks, shipped digests never move; and (20261014-0450-quant-1845) the fired kick is
-46 % bind, 45 % one `next_impact` bisection (≈ 25 readouts × 4.6 µs), 9 % the rest; the
-search fires on every fired kick because `rebind` resets `Binding.impact`.
+46 % bind, 45 % one `next_impact` bisection, 9 % the rest; the search fires on every
+fired kick because `rebind` resets `Binding.impact`.
+
 ## Refuted
 - **"A value-guided probe policy cuts the crash search" as a one-hour build**: three
   bracketed policies (Illinois absolute/signed, vertex-quadratic) plus a pure secant all
@@ -54,21 +61,25 @@ search fires on every fired kick because `rebind` resets `Binding.impact`.
   probes, leaver kick +55 %; digests identical everywhere) — the miss anchor's value
   dominates every chord until an Anderson–Björck-class update replaces plain halving
   (20261014-1511-quant-7226). The lever itself is not refuted: the pre-registered kill is
-  of the update rules built, and the traces name the survivor.
+  of the update rules built, and the traces named the survivor — built and passed by the
+  second author (above).
 - Illinois's halving applied to the **value** rather than the signed distance to the level:
-  2.0× the probes (the halved anchor leaves the level's neighbourhood entirely) — a
-1. **Anderson–Björck / inverse-quadratic probe update with a tail guard on the same exact
-   predicate** — the named experiment this run leaves, half-built by the checker: plain AB
-   already gives mean 21.3 probes (seeds 3/11), −25/−26 % leaver median, digests identical,
-   but worst 38 (the frozen rule's tail); a bail to bisection at 8 probes measured worse
-   (mean 27.5). The open part: bound the degenerate tail without paying the typical case —
-   then compose with the warm start (it deletes searches that moved < 1 tick; AB cuts
-   probes on those that did not). Budget: one hour — the harness (counters, env gate,
-   equality test, kill rule) is already in the tree. Note: of the four killed policy rows,
-   only the pure secant is regenerable from `work/patch.diff`; Illinois-on-signed was
-   reproduced by the checker at mean 28.0 (author 28.0, worst 30, digest identical).
-2. The warm start (0b85) then lands on top: it deletes the search where the crossing moves
-   by under a tick; AB deletes the probes where it does not.
+  2.0× the probes (the halved anchor leaves the level's neighbourhood entirely) —
+  20261014-1511-quant-7226; still the one kill-table row that does not regenerate from
+  either run's patch.
+- **The leaver-median cut as a both-pace criterion**: at battle pace the median leaver
+  kick does not track the search (dipping minority; the saving lands at p99) — no probe
+  policy can move a search-free median (20261014-1631-second-…-2ae0).
+
+## Open directions
+1. **Freeze the composition** (warm start + guarded AB-IQI as the shipped default): the
+   identity record is now three seeds × two paces × every layer, digests bit-identical —
+   what remains is the integrator's call on the two env gates and a re-measure on the M1.
+   The search then sits at ~5 readouts against the bind's ~46 % share: the kick's next
+   lever is the bind (H0209-…-ad26 line), not the search.
+2. The `next_exit` fast path (Illinois + vertex quadratic, author-built, 0 searches in
+   every arm measured so far) is inherited, unexercised; a scene that fires it should
+   first run the equality test against it.
 
 ## Contradictions
 - (unchanged) The stack's lazy-tier gate regression and the frame-cost page's merge
@@ -127,3 +138,18 @@ search fires on every fired kick because `rebind` resets `Binding.impact`.
 - 20261014-1010-quant-036c (silver): the crash search's warm start built — search −38…−60% µs/call, leaver kicks −35…−40% at flying pace (~0 at battle pace), digests bit-identical at 8 arms + bench; guess settles 42–69%, half the priced win.
 - 20261014-1010-second-20261014-0450-quant-1845-0b85 (second author): the warm start built — kick −43%/−38%/−44% (battle/battle/flying), 0 fallbacks in 3,928 warm searches, warm search ~13 µs, digests = shipped everywhere incl. clamp-only reference; prior record reproduced at base; hand-out half unchanged.
 - 20261014-1511-quant-7226 (this run, awaiting grade): the search census (29.4 probes mean,
+- 20261011-0836-autoresearch-461c (lead): kick attribution (rebind 87.2%, quadrature ~61%) reproduces; the kept change breaks digests, killed.
+- 20261012-2257-spacex-5eb6 (silver): the lazy deletion built — quiet frame O(1) (1.35 µs flat to 2×10⁵, 10,872×; 4×10⁵, tie-storm and 25×-wander cases hold, checker), digests identical across arms and 15 schedules; sustained starvation breaks the fleet cap — one experiment from merge.
+- 20261013-0236-second-20261013-0037-system-174d-0f2a: the law's own cadence re-prices the tide counterfactual — ~0–24 events against 377–1,085 burst kicks at every level incl. paced L15 8 s; lever adoptable.
+- 20261013-1428-system-2964 (silver): the cadence's two edges priced — deletion collapses events 19–204× and the lag to 0.038 s but breaks at the velocity word; 16× refinement keeps the stutter; the carry's contract measured.
+- 20261013-1915-fermi-367f (silver, checker-corrected): the plane's first N-wall is the fleet frame's leak into sticky promotions (~0.5 ms, ~8.3 kB each, no demotion); the frame's own advance is only ≈N^0.6–0.8.
+- 20261013-2005-quant-7055 (silver, checker-corrected): the hand-out's exact-memo edge priced — 33% of hand-out compiles are same-member coarser-word retries (bind −39%/hand-out −31%, bit-identical); the retry and the sticky promotion stay the levers.
+- 20261013-2005-spacex-3989 (silver, checker-corrected): dormant leavers cure the first N-wall at every seed and size tested but break the digest in 3 of 4 far seeds, and the arm is load-nondeterministic.
+- 20261013-2130-second-20261013-2005-spacex-3989-bc2b (second author): the dormancy arm's seed breaks and load nondeterminism were one bug (the settle's one-shot drain losing settle-time leavers); fixed, identity at seeds 1/3/7/11; the canon-exact doll rule kills the same-doll flying cure.
+- 20261013-2252-system-ad26 (awaiting grade): one wall — the bind is 41–65% of every event-carrying item class; the four unmerged levers compose to 22% of the battle cost, ceiling ~10^5 members; projection, composite unverified.
+- 20261014-0000-second-20261013-2252-system-ad26-790b (second author): the stack measured — word fix+lazy tier bit-identical, D+fixed 50% on one binary; memo 0/3,225 hits on the word-fixed bind and Carlson not a bind lever kill the 22%/10^5 endgame; ceiling measured ≈2.8e4.
+- 20261014-0450-quant-1845 (silver, checker-extended): the fired kick is 46% bind, 45% the crash-tick bisection (115 µs, ~25 readouts, every kick and the dipping half of hand-outs); warm-start bracket priced −45%/kick.
+- 20261014-1010-quant-036c (silver): the crash search's warm start built — search −38…−60% µs/call, leaver kicks −35…−40% at flying pace, digests bit-identical; guess settles 42–69%.
+- 20261014-1010-second-20261014-0450-quant-1845-0b85 (second author): the warm start built — kick −43%/−38%/−44%, 0 fallbacks in 3,928 warm searches, digests = shipped everywhere.
+- 20261014-1511-quant-7226 (silver): the search census (29.4 probes mean, worst 32; exit search retired by the passage guess) and the naive probe policies killed with the crawl mechanism named.
+- 20261014-1631-second-20261014-1511-quant-7226-2ae0 (this run): the guarded AB-IQI policy passes the frozen rule (worst 11–18, probes −62…−64%, flying leaver −34…−35%, digests identical at every layer); composed with the warm start, readouts −78…−83%, worst 11–12; the kill table regenerates from the patch.

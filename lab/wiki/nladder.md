@@ -2,11 +2,71 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261014-1511-components-a2c1
+<<<<<<< main
+updated: 20261014-1631-library-7f99
+=======
+updated: 20261014-1631-taleb-6138
+>>>>>>> 20261014-1631-taleb-6138
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+<<<<<<< main
+
+**The deletion program gets its method, priced from Julien's library mined verbatim for the first
+time (20261014-1631-library-7f99; 762 highlighted books, 4,580 highlights cached in the run).**
+A grep-backed audit of the engine's own record: **26 kills, 5 revival-shaped events** — landed
+same-job add-backs 2 (the rotating binary doll — the family H0210 killed; the chronon kept as test
+judge) = **8%**, all five = 19%: the law level brackets Musk's 10% add-back quota ("if you do not
+end up adding back at least 10% of them, then you didn't delete enough", Isaacson). The shipped
+frame path holds **0 add-backs** (only the frame tier and the old view search were ever deleted
+there) — below quota, and the unfired backlog is exactly the named terms: a2c1's two sensors, b29a's
+sticky promotion, 0e37's `entry` field. Ordering: automation last (the allocator lands after the
+deletions; the 6 anchored guard/fallback sites — the caps, the density rule + walk-all, the hull
+widening — exist only to manage undeleted state). Promotion collapses to a **filter**: the refit's
+refusal is the trigger (b29a's 9–26% at Δv/v ≈ 1), no hysteresis machinery, no sticky binding. The
+direction-0 build gets its acceptance number: **427 (p95) – 877 (p50) recompiles/frame** at 33 ms
+against measured demand 0/s (belt) and 1.4/s (cast) — ≥ 9×10³ headroom; the +24 B two-word
+completion is the expected add-back (4.6% of the 520 B deleted). All numbers: the run's `audit.py`.
+   *[Checker 7f99: the revival census misses one landed scoped restoration — r9 killed kick-avg,
+   yet `docs/law.md` keeps kicks orbit-averaged on stable orbits (PRINCIPLES register) — a sixth
+   revival-shaped event, putting the law level at 3/26 ≈ 12% landed; and the 26 kills are a sample
+   (the Refuted sections of encounters/b12/kick-cadence/kick-jet hold more). The frame-path 0 and
+   the ordering survive both corrections.]*
+=======
+**The wave's freeze is the player's doll, measured on shipped main: the shock a 20 s rung never
+sees (F1's window ends 11,000 game-s before it) is absorbed as 1.45 s of lag when the player is out of
+the root doll and as unbudgeted 0.3–1.2 s single frames when it is in it (20261014-1631-taleb-6138).**
+Every belt body is born at tick 0 with one Δs, so the first kicks arrive as one smooth wave at
+13,037–14,542 game-s (belt_first, 199,700 bodies: p01 13,377, p50 14,072, p99 14,473; ~221 bodies a
+frame mean, no intrinsic spike — the monsters are accumulation). On this Linux box, 200 s flights at
+rtf 100, budget 12 ms, L8 burn: worst frame **315 ms at 10⁵, 1,213 ms at 2×10⁵ (seed 1), 1,244 ms
+(seed 2: structural, 1.03×)** against 12 ms; the monster frames sit in the wave, spaced 49–50 frames
+(the player's item cadence), each carrying up to 24,467 events at ~49 µs inside one item; between
+them the budgeted drain saturates at 11.9 ms / ~235 events and cannot catch up — it only reaches the
+frame's 1.67 game-s tick, while `pull_ships(key, !in_root)` (`universe.rs:769`) resolves every ship
+below the player's next item (~83 game-s of horizon under burn): **batch = wave density × the
+player's item horizon, linear in N** (6,443 → 24,467 → the M1 record's 37,938 at 3×10⁵ ≈ 5 s a pull
+at 10⁶). Control: same seed, same wave, coast — max 12.0 ms, zero frames over, 1.45 s of lag
+recovered after the wave (the overload is real in both flights; the seam decides its shape). The
+freeze does not ratchet (past the wave ≤ 1.2 ms sampled; bits held: refusals 0, dead 0). The M1's
+45 ms at 10⁵ vs 315 ms here: the exact monster is schedule-conditional (where the item lands in
+the wave), the phenomenon is not. *[checker 6138: one reading of two — at 5×10⁴ burn on this box
+the wave passes with zero frames over budget (the only failures are the second seam, 1 event,
+17-19 ms), so the onset N moves with the drain rate: machine-conditional as much as
+schedule-conditional; and the batch model misses its drain term: at rtf 200 (2×10⁵ burn, same
+seed) the monsters carry 30,301 events against 24,535 at rtf 100, the extra ≈ the halved drain's
+25 frames × ~245 events — batch = wave demand in the item horizon − what the budget-cut drain
+removed, and the first doubling (6,393 → 24,535, 3.8× for 2× N) is superlinear, so "linear in N"
+holds for the demand term only.]* Named fix, in the engine's own idiom: the scan is already holdable off
+the critical path (`universe.rs:1164`); hold it when the backlog it would read is over a threshold
+and let the budgeted drain resolve it — certificate: `frame_digest` unchanged. Gate consequence: an
+N rung flown 20 s certifies a window that excludes every belt body's first event; the rung must fly
+past the wave (≥ 150 s) before F1 can certify scale. Domain: Linux shared box, one box, burn arms at
+10⁵–2×10⁵ only (3×10⁵ quoted from the M1 record: it exceeds this box's 2 GB cap); a second milder
+burn-only seam at frames 11,094+ (13–55 ms, event-thin, every ~50 frames) is unnamed.
+>>>>>>> 20261014-1631-taleb-6138
 
 **Break #3's scan half is decomposed: the player's scan walks its certificate's poison, not the
 doll — a write-once speed cap and a global-count density rule (20261014-1511-components-a2c1).**
@@ -181,27 +241,39 @@ re-regenerated by the 7497 run: 12.347 bits/member at 7 ns, storm 48.38 with gra
 fallback, convoy hot max 10.9 µs vs a 1.29 ms compaction step).**
 
 The four rules that survive, with rule 2 struck and adjudicated:
-1. **Delete before you measure cheaper** (Musk's algorithm): every ladder term (per-frame
-   walks, rekey, the queue, memory per live body) gets a *deleted* rung before a
-   *cheaper* rung.
+1. **Delete before you measure cheaper, and to the quota** (Musk's algorithm + his 10% rule,
+   library-7f99): every ladder term gets a *deleted* rung before a *cheaper* rung, and ~10% of
+   deleted terms must come back — else the deletion was too timid. Audit 7f99: law level 8–19%
+   (at quota), frame path 0% (backlog unfired: the caps, the density rule, the hull, the sticky
+   promotion, `entry`).
 2. ~~**The live set is a rank, not a count**~~ — **dead by measurement and by
    decomposition** (7497, adjudicated 3071): the distribution's bulk is flat per orbit
    by construction, its native concentration is the compiled period ladder (a birth
    constant), its head is driver-caused, and its churn is death. The live-set bar is a
    period/clock-regime threshold knowable at generation; falsify further on belt scenes
    (conjunction clustering), not the plane.
-3. **Promotion judges on event time, not frame time** (sampling noise): hysteresis
-   windows in the body's own event time; the 210-handoff chatter is the counterexample
-   to fix. *[At the half-run scale no hysteresis is needed — live ranks sit at the
-   counting-noise null (ea91); below that scale untested.]*
+3. **Promotion judges on event time, not frame time** (sampling noise): the judged form is a
+   **filter, not machinery** (library-7f99): the refit's refusal is the promote-to-live trigger
+   (b29a: 9–26% refusal at Δv/v ≈ 1) — no hysteresis windows, no rank state. *[At the half-run
+   scale live ranks sit at the counting-noise null (ea91). Held-out: the 210-handoff chatter
+   vanishes if those handoffs never refuse the refit.]*
 4. **Buy the option, not the headroom** (optionality): no ahead-of-demand promotion;
    the promotion to make cheap is the *ephemeral* one (demote at commit, frame-cost),
    and the repack/compaction step (1.29–12.1 ms) is the scheduled spike.
 5. **One mechanism at every scale** (Waitzkin): a rung that needs a special case for
    the head of the distribution fails the rung, whatever its numbers.
+6. **Automation last** (Musk, via library-7f99): the allocator lands after the frame-path
+   deletions; a guard or fallback that exists to manage undeleted shared state (the 6 anchored
+   sites) is a deletion marker, not a scheduling input.
+7. **Shared state pays sensor cost** (Karpathy, via library-7f99): a doll-wide or singleton cache
+   is priced procure + maintain + incorporate (the monotone cap, the window widening) — delete it
+   for one exact per-body instrument rather than repair it (a2c1's fix order inverts).
 
 ## Refuted
 
+- "The wave is the drain's problem": the drain holds the coast at 12.0 ms through the same wave
+  (0 frames over, 1.45 s lag); the freeze is the player's item alone (`pull_ships` at the root doll)
+  (20261014-1631-taleb-6138).
 - "The scan's walk is O(N) at ladder scale" (the reading of the ladder's before-fix capture
   profile, 45–50 ns a body, carried into break 3's wording): at 10⁴–3×10⁵ the walk is
   doll-scoped, 194 bodies a call (79 on the burn arms) — the O(N) reading holds only where the
@@ -245,9 +317,15 @@ The four rules that survive, with rule 2 struck and adjudicated:
 
 ## Open directions
 
+0. **Hold-the-scan on the root-doll backlog** (taleb-6138's named fix, priced next): the pull
+   exists so the scan reads resolved tubes; a held scan reads them after the drain, so the
+   certificate is `frame_digest` unchanged — measure the worst frame at 3×10⁵–10⁶ burn with it.
+   With it, re-fly the rung past the wave (≥ 150 s) so F1's window contains every belt body's
+   first event; the event-thin 13–55 ms seam at frames 11,094+ under burn is unnamed and open.
 0. **The break-#2 build (the lever is now measured):** `Segment` drops `entry`, gains the key
    (+56 B) and the two-word (a, ȧ) completion (~24 B; a-word's open direction 1 is its missing
    half — the write needs the field's derivative at the kick); `observe::partial`'s ramp reads
+
    the word instead of decoding the previous tube; `binding_at` recompiles on the rare
    non-window read. Deletes ~520 B/body accounted (~800 B/body footprint) at zero flight CPU;
    with the Carlson kernel (kick-jet de99) the current generation deletes too (~750 B/body,
@@ -276,6 +354,8 @@ The four rules that survive, with rule 2 struck and adjudicated:
    battle pocket; measure the quiet belt's promotion mix (death vs dormancy) before
    sizing retirement vs demotion. The avalanche stream (Fano 8–28) is the allocator's
    target for burst absorption (PRINCIPLES #12).
+   *[7f99: automation last — this direction and any allocator build fire after directions 0–2's
+   deletions land; the quota expects ~10% back, the cast exception the candidate.]*
 8. The haulers' far-field clock cadence per orbit is extrapolated from ~1 kick
    (0.03–0.3 % of an orbit measured); a full-orbit measurement needs ~10⁷–10⁸ game-s
    (wall-days) — only worth it if the ladder reaches the root-doll bulk. *[effb: the
@@ -304,3 +384,5 @@ The four rules that survive, with rule 2 struck and adjudicated:
 - 20261014-0450-scout-b29a (silver): the smallest promotion composed and measured — ~34–38 µs/12–40 B ephemeral vs 486 µs/8,257 B sticky; key-space kick 0.11 µs at the birth floor; checker: cold-belt 13×, 6.4× at σ0.3, darwin domain p ≤ 8192 M.
 - 20261014-1221-components-0e37 (this run, awaiting grade): break #2's lever measured — compiled orbits are write-only in flight (retired: 0 reads; flight reads O(1) in N), exactly the key (1,001/1,001 regen), floor 673 vs standing 1,806 B/body; the view's ramp is the one reader (≥1 retired read/row post-wave) — the two-word completion deletes the retired generation free.
 - 20261014-1511-components-a2c1 (this run, awaiting grade): the scan seam censused — unpoisoned keep 15+2 at every N, the write-once `speed_cap` poisons the window ±9×r (walked 203, 12×), the density rule walks all dolls at N=10³ (1,017, 60×); capture dearer at 10³ (178 µs) than 10⁵ (129 µs); fixes named in cost order.
+- 20261014-1631-library-7f99 (this run, awaiting grade): the library mined verbatim (4,580 highlights cached); deletion audit 26 kills / 2 landed add-backs (8%; law level at quota, frame path 0%); automation debt 6 anchored sites; promotion = refusal filter; lookup budget 427–877 recompiles/frame vs demand ≤ 1.4/s.
+- 20261014-1631-taleb-6138 (this run, awaiting grade): the wave's ruin basin measured — 315 ms/1,213 ms single frames at 10⁵/2×10⁵ burn (seed-stable), the batch = wave density × the player's item horizon at universe.rs:769, coast 12.0 ms through the same wave; fix named (hold the scan), rung must fly past the wave.
