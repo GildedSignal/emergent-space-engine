@@ -1,0 +1,22 @@
+belt: n=200000 bodies, a~U[0.95,1.05], e~Rayleigh(0.05) clip 0.35, phases random
+
+== D in [70m,470000m] real-belt-like (Ceres top): belt mass 1.2e-11 M_sun ==
+   pairs 12000 | K(conj per 10^3 orbits) med 43 p90 100
+   dmin med 1.119e-03 p10 1.767e-04 | vrel@event med 0.0779 p10 0.0206
+   DELETABLE 0.958667 | surviving 4.133e-02 | surviving member D med 181 m
+
+== D in [70m,300000m] 300-km top: belt mass 1.7e-10 M_sun ==
+   pairs 12000 | K(conj per 10^3 orbits) med 43 p90 100
+   dmin med 1.146e-03 p10 1.737e-04 | vrel@event med 0.0783 p10 0.0195
+   DELETABLE 0.955417 | surviving 4.458e-02 | surviving member D med 142 m
+
+== D in [50m,300000m] 50-m floor, 300-km top: belt mass 6.4e-12 M_sun ==
+   pairs 12000 | K(conj per 10^3 orbits) med 43 p90 100
+   dmin med 1.139e-03 p10 1.664e-04 | vrel@event med 0.0792 p10 0.0208
+   DELETABLE 0.979917 | surviving 2.008e-02 | surviving member D med 97 m
+
+== variants on D in [70m,470km] ==
+   Q52 quantum: deletable 0.731750
+   real-belt mass x52 (total 1.2e-9 M_sun): deletable 0.376833
+   all-50m control: deletable 0.999750 (c7eb anchor: 0/1000 -> ~1.0)
+   all-10km control: deletable 0.002750 (author model said 0.118)

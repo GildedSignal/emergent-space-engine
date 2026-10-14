@@ -1,0 +1,47 @@
+== control: exact event search vs brute force (60 pairs) + checker-table spot check ==
+control: exact event search vs brute (min-miss, 60 pairs): worst rel +0.00016, fails 0/60
+checker-table spot check (8 seeds, e=0.05, random omega): da=0.005/0.02/0.1 ->
+--- sanity: the checker's per-da table, vector vs radial-only miss ---
+checker table: da=0.005 -> 1.0e-3 | 0.02 -> 2.7e-4 | 0.1 -> 3.0e-2
+da=0.005: vector-miss med 1.443e-03 | radial-only med 7.970e-09 (8 seeds)
+da=0.02: vector-miss med 6.530e-03 | radial-only med 7.500e-09 (8 seeds)
+da=0.1: vector-miss med 3.657e-02 | radial-only med 4.997e-08 (8 seeds)
+== decisive: 3 spectra x 12k candidate pairs, exact Kepler misses + variants ==
+belt: n=200000 bodies, a~U[0.95,1.05], e~Rayleigh(0.05) clip 0.35, phases random
+
+== D in [70m,470000m] real-belt-like (Ceres top): belt mass 1.2e-11 M_sun ==
+   pairs 12000 | K(conj per 10^3 orbits) med 43 p90 100
+   dmin med 1.119e-03 p10 1.767e-04 | vrel@event med 0.0779 p10 0.0206
+   DELETABLE 0.958667 | surviving 4.133e-02 | surviving member D med 181 m
+
+== D in [70m,300000m] 300-km top: belt mass 1.7e-10 M_sun ==
+   pairs 12000 | K(conj per 10^3 orbits) med 43 p90 100
+   dmin med 1.146e-03 p10 1.737e-04 | vrel@event med 0.0783 p10 0.0195
+   DELETABLE 0.955417 | surviving 4.458e-02 | surviving member D med 142 m
+
+== D in [50m,300000m] 50-m floor, 300-km top: belt mass 6.4e-12 M_sun ==
+   pairs 12000 | K(conj per 10^3 orbits) med 43 p90 100
+   dmin med 1.139e-03 p10 1.664e-04 | vrel@event med 0.0792 p10 0.0208
+   DELETABLE 0.979917 | surviving 2.008e-02 | surviving member D med 97 m
+
+== variants on D in [70m,470km] ==
+   Q52 quantum: deletable 0.731750
+   real-belt mass x52 (total 1.2e-9 M_sun): deletable 0.376833
+   all-50m control: deletable 0.999750 (c7eb anchor: 0/1000 -> ~1.0)
+   all-10km control: deletable 0.002750 (author model said 0.118)
+== r bench: the wired gate's unit cost (scalar C) ==
+r_event: 481.5 ns/conjunction-eval over 2000000 iters (deleted 1943977, sink 2601876.678)
+r_event: 481.5 ns/conjunction-eval over 2000000 iters (deleted 1943977, sink 2601876.678)
+== ledger: gated = ungated x (surviving + f_r) on 1738's anchors ==
+r_event 482 ns x86 -> 287 ns M1-implied
+events per refresh window (E_true=90/10^3 orbits, window 3.6 orbits): 0.32
+f_r event-scheduled = 0.0173 | f_r per-refresh-full-horizon = 4.8 (killed)
+
+gated ledger (flying pace, budget 4 cores), event-scheduled wiring:
+  D[70m,470km] Ceres-top: ungated 1.65e+03 -> gated 96.7 cores  (s=4.13e-02, f_r=0.0173; ungated x (s+f_r_every) = 8.05e+03 under per-refresh wiring)
+  D[70m,470km] Ceres-top: ungated 8.20e+03 -> gated 481 cores  (s=4.13e-02, f_r=0.0173; ungated x (s+f_r_every) = 4e+04 under per-refresh wiring)
+  D[70m,300km]: ungated 1.65e+03 -> gated 102 cores  (s=4.46e-02, f_r=0.0173; ungated x (s+f_r_every) = 8.05e+03 under per-refresh wiring)
+  D[70m,300km]: ungated 8.20e+03 -> gated 507 cores  (s=4.46e-02, f_r=0.0173; ungated x (s+f_r_every) = 4e+04 under per-refresh wiring)
+  D[50m,300km]: ungated 1.65e+03 -> gated 61.6 cores  (s=2.01e-02, f_r=0.0173; ungated x (s+f_r_every) = 8.01e+03 under per-refresh wiring)
+  D[50m,300km]: ungated 8.20e+03 -> gated 306 cores  (s=2.01e-02, f_r=0.0173; ungated x (s+f_r_every) = 3.98e+04 under per-refresh wiring)
+done.
