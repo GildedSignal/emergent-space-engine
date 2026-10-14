@@ -1,0 +1,356 @@
+diff --git a/crates/lattice/examples/rt_carry.rs b/crates/lattice/examples/rt_carry.rs
+new file mode 100644
+index 00000000..52c8caa9
+--- /dev/null
++++ b/crates/lattice/examples/rt_carry.rs
+@@ -0,0 +1,350 @@
++//! Premise red-team probe (20261014-0000-redteam-f3ce): the contact carry of
++//! `es-lattice-relativistic-v1` against representation.md §2's "at most one floor unit
++//! per event, carried forward so that it never compounds".
++//!
++//! Arms (see lab/results/20261014-0000-redteam-f3ce/predictions.md):
++//! - `self`      instrument self-test (exponent estimator on planted series)
++//! - `gas-cold`  200-body gas, beta <= 0.01, equal masses, 5 seeds
++//! - `gas-hot`   200-body gas, beta <= 0.7,  equal masses, 5 seeds
++//! - `gas-mixed` 200-body gas, beta <= 0.9,  masses 1..1000, seeds given on argv
++//! - `label`     1000:1 mass pair, repeated contacts, 10 seeds x 2 id assignments
++//! - `perm`      32-body gas, ids pseudo-randomly permuted, 5 seeds x 2
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Container, Law, Response, World};
++use emergent_lattice::{relativity, worlds, Stepper};
++
++const Q: i64 = 1 << 16;
++const T_GAS: i64 = 60_000;
++const T_LABEL: i64 = 40_000;
++const T_PERM: i64 = 20_000;
++
++/// Deterministic LCG (probe-local; the law itself never sees floats).
++struct Lcg(u64);
++impl Lcg {
++    fn next(&mut self) -> u64 {
++        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        self.0 >> 11
++    }
++    fn f(&mut self) -> f64 {
++        self.next() as f64 / (1u64 << 53) as f64
++    }
++    fn range(&mut self, lo: i64, hi: i64) -> i64 {
++        lo + (self.next() % ((hi - lo + 1) as u64)) as i64
++    }
++}
++
++fn gas_world(seed: u64, beta_max: f64, masses: &[i64], fill: f64) -> World {
++    let n = masses.len() as i64;
++    let side = ((n as f64 * std::f64::consts::PI / fill).sqrt()).ceil() as i64;
++    let per_row = (n as f64).sqrt().ceil() as i64;
++    let cell = side / per_row;
++    let mut rng = Lcg(seed ^ 0x6A5_5EE5);
++    let radius = Q;
++    let half = ((beta_max / std::f64::consts::SQRT_2) * Q as f64) as i64;
++    let bodies: Vec<Body> = (0..n)
++        .map(|i| {
++            let jitter = (cell - 4).max(1);
++            let p = [
++                (i % per_row) * cell + cell / 2 + rng.range(-jitter / 2, jitter / 2),
++                (i / per_row) * cell + cell / 2 + rng.range(-jitter / 2, jitter / 2),
++            ];
++            let k = [rng.range(-half, half), rng.range(-half, half)];
++            Body::new(i as u64 + 1, [p[0] * Q, p[1] * Q], k, masses[i as usize], radius, Response::Bounce)
++        })
++        .collect();
++    let container = Container { min: [0, 0], max: [side * Q, side * Q] };
++    World::new(Q, Some(container), bodies).expect("gas within ranges").with_law(Law::RelativisticV1).expect("subluminal")
++}
++
++fn checkpoints(t_end: i64) -> Vec<i64> {
++    // 1/3-decade steps from 10^2 to t_end
++    let mut ts = vec![];
++    let mut e = 2.0f64;
++    while 10f64.powf(e) < t_end as f64 {
++        ts.push(10f64.powf(e) as i64);
++        e += 1.0 / 3.0;
++    }
++    ts.push(t_end);
++    ts
++}
++
++struct Snap {
++    t: i64,
++    contacts: u64,
++    sum_res: i128,
++    max_res: i64,
++    max_carry: i64,
++    ekin: i128,
++    energy: i128,
++    ledger_ok: bool,
++}
++
++fn snap(c: &Chronon, e0: i128) -> Snap {
++    let w = c.world();
++    let mut max_res = 0i64;
++    let mut max_carry = 0i64;
++    for b in &w.bodies {
++        max_res = max_res.max(b.residual.abs());
++        max_carry = max_carry.max(b.carry[0].abs()).max(b.carry[1].abs());
++    }
++    let sum_res = w.residual();
++    let energy = relativity::total(&w)[0];
++    Snap {
++        t: w.tick,
++        contacts: c.log().contacts,
++        sum_res,
++        max_res,
++        max_carry,
++        ekin: w.energy(),
++        energy,
++        ledger_ok: energy - e0 == sum_res,
++    }
++}
++
++/// Growth exponent of the running max over the last decade (b12's alpha; median across
++/// seeds applied by the caller). None when the series never leaves zero.
++fn alpha(running: &[(i64, i64)]) -> Option<f64> {
++    let last = running.last()?;
++    let t1 = last.0 as f64;
++    let t0 = t1 / 10.0;
++    let mut m = 0i64;
++    let mut v0 = None;
++    let mut t0_at = None;
++    for &(t, v) in running {
++        m = m.max(v);
++        if (t as f64) <= t0 {
++            v0 = Some(m);
++            t0_at = Some(t);
++        }
++    }
++    let v1 = m as f64;
++    let v0 = v0? as f64;
++    let t0_at = t0_at? as f64;
++    if v1 <= 0.0 || v0 <= 0.0 || t1 <= t0_at {
++        return None;
++    }
++    Some((v1.ln() - v0.ln()) / (t1.ln() - t0_at.ln()))
++}
++
++fn self_test() {
++    let sqrt: Vec<(i64, i64)> = (1..=100).map(|i| (i * 600, ((i as f64).sqrt() * 100.0) as i64)).collect();
++    let sat: Vec<(i64, i64)> = (1..=100).map(|i| (i * 600, (((i as f64).sqrt() * 100.0).min(700.0)) as i64)).collect();
++    let a1 = alpha(&sqrt).unwrap_or(f64::NAN);
++    let a2 = alpha(&sat).unwrap_or(f64::NAN);
++    println!("selftest sqrt_alpha={a1:.3} expect~0.5 saturating_alpha={a2:.3}");
++    assert!((0.42..=0.58).contains(&a1), "exponent estimator broken: {a1}");
++}
++
++fn run_gas(name: &str, seed: u64, beta: f64, masses: &[i64]) -> Vec<f64> {
++    let w = gas_world(seed, beta, masses, 0.30);
++    let e0 = relativity::total(&w)[0];
++    let mut c = Chronon::new(w, false).expect("chronon");
++    let cps = checkpoints(T_GAS);
++    let mut series_max: Vec<(i64, i64)> = vec![];
++    let mut series_sum: Vec<(i64, i64)> = vec![];
++    let mut all_ledger = true;
++    let mut final_frac = 0f64;
++    let mut idx = 0;
++    for t in 0..=T_GAS {
++        if idx < cps.len() && t == cps[idx] {
++            let s = snap(&c, e0);
++            all_ledger &= s.ledger_ok;
++            series_max.push((s.t, s.max_res));
++            series_sum.push((s.t, s.sum_res.unsigned_abs() as i64));
++            println!(
++                "{name} seed={seed} t={} contacts={} sum_res={} max_res={} max_carry={} ekin={} sum_over_ekin={:.3e} ledger={}",
++                s.t, s.contacts, s.sum_res, s.max_res, s.max_carry, s.ekin,
++                s.sum_res as f64 / s.ekin as f64,
++                if s.ledger_ok { "OK" } else { "BROKEN" }
++            );
++            final_frac = s.sum_res as f64 / s.ekin as f64;
++            idx += 1;
++        }
++        if t < T_GAS {
++            c.step();
++        }
++    }
++    let a_max = alpha(&series_max);
++    let a_sum = alpha(&series_sum);
++    println!(
++        "{name} seed={seed} RESULT alpha_max_res={} alpha_abs_sum_res={} ledger_all={} final_sum_over_ekin={final_frac:.3e}",
++        a_max.map(|x| format!("{x:.3}")).unwrap_or("none".into()),
++        a_sum.map(|x| format!("{x:.3}")).unwrap_or("none".into()),
++        all_ledger
++    );
++    vec![a_max.unwrap_or(0.0), a_sum.unwrap_or(0.0), final_frac]
++}
++
++fn median(mut v: Vec<f64>) -> f64 {
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[v.len() / 2]
++}
++
++fn gas_arm(name: &str, seeds: &[u64], beta: f64, mixed: bool) {
++    let mut res = vec![];
++    for &s in seeds {
++        let masses: Vec<i64> = if mixed {
++            (0..200).map(|i| (10f64.powf(3.0 * i as f64 / 199.0).round() as i64).max(1)).collect()
++        } else {
++            vec![1; 200]
++        };
++        res.push(run_gas(name, s, beta, &masses));
++    }
++    let am: Vec<f64> = res.iter().map(|r| r[0]).collect();
++    let asu: Vec<f64> = res.iter().map(|r| r[1]).collect();
++    let fr: Vec<f64> = res.iter().map(|r| r[2]).collect();
++    println!(
++        "{name} MEDIAN alpha_max_res={:.3} alpha_abs_sum_res={:.3} final_frac={:.3e} (kill bar: alpha>=0.2 or frac>1%)",
++        median(am), median(asu), median(fr)
++    );
++}
++
++/// Two bodies, masses 1000 and 1, colliding repeatedly in a box. `swap` exchanges the ids.
++fn pair_world(seed: u64, swap: bool) -> World {
++    pair_world_beta(seed, swap, 0.30, 0.70)
++}
++
++fn pair_world_beta(seed: u64, swap: bool, b0: f64, b1: f64) -> World {
++    let mut r = Lcg(0xBEEF ^ seed);
++    let speed = ((b0 + (b1 - b0) * r.f()) * Q as f64) as i64;
++    let yoff = r.range(2, 5) * Q / 2;
++    let (xh, xl) = (16 * Q, 46 * Q);
++    let (y, radius) = (32 * Q, 4 * Q);
++    let heavy = Body::new(if swap { 2 } else { 1 }, [xh, y - yoff], [speed, 0], 1000, radius, Response::Bounce);
++    let light = Body::new(if swap { 1 } else { 2 }, [xl, y + yoff], [-speed, 0], 1, radius, Response::Bounce);
++    let mut bodies = vec![heavy, light];
++    bodies.sort_by_key(|b| b.id);
++    let container = Container { min: [0, 0], max: [64 * Q, 64 * Q] };
++    World::new(Q, Some(container), bodies).expect("pair within ranges").with_law(Law::RelativisticV1).expect("subluminal")
++}
++
++fn label_arm() {
++    label_run("label", 0.30, 0.70);
++}
++
++fn label_run(name: &str, b0: f64, b1: f64) {
++    let _ = name;
++    let mut div_seeds = 0;
++    for seed in 0..10u64 {
++        let e0 = relativity::total(&pair_world_beta(seed, false, b0, b1))[0];
++        let mut a = Chronon::new(pair_world_beta(seed, false, b0, b1), false).unwrap();
++        let mut b = Chronon::new(pair_world_beta(seed, true, b0, b1), false).unwrap();
++        let mut first_div: Option<i64> = None;
++        let mut max_dk = 0i64;
++        for t in 1..=T_LABEL {
++            a.step();
++            b.step();
++            let wa = a.world();
++            let wb = b.world();
++            // physical match: heavy is the mass-1000 body
++            let (ha, la) = (&wa.bodies[0], &wa.bodies[1]);
++            let (hb, lb) = (&wb.bodies[0], &wb.bodies[1]);
++            let (h_a, l_a) = if ha.mass == 1000 { (ha, la) } else { (la, ha) };
++            let (h_b, l_b) = if hb.mass == 1000 { (hb, lb) } else { (lb, hb) };
++            let d = (h_a.k[0] - h_b.k[0]).abs().max((h_a.k[1] - h_b.k[1]).abs())
++                .max((l_a.k[0] - l_b.k[0]).abs()).max((l_a.k[1] - l_b.k[1]).abs());
++            if d > 0 {
++                first_div.get_or_insert(t);
++                max_dk = max_dk.max(d);
++            }
++            if t % 4000 == 0 {
++                println!("{name} seed={seed} series t={t} sum_res_a={}", wa.residual());
++            }
++        }
++        let (da, db) = (a.world().digest(), b.world().digest());
++        let (sa, sb) = (a.world().residual(), b.world().residual());
++        let ke = a.world().energy();
++        let same = da == db;
++        if first_div.is_some() {
++            div_seeds += 1;
++        }
++        println!(
++            "{name} seed={seed} contacts={} first_div_tick={} max_dk={max_dk} digest_same={same} sum_res_a={sa} sum_res_b={sb} res_over_E0={:.3e} res_over_KE={:.3e} per_contact_KE={:.3e}",
++            a.log().contacts,
++            first_div.map(|t| t.to_string()).unwrap_or("never".into()),
++            sa as f64 / e0 as f64,
++            sa as f64 / ke as f64,
++            sa as f64 / ke as f64 / a.log().contacts as f64
++        );
++    }
++    println!("{name} MEDIAN n_divergent_seeds={div_seeds}/10");
++}
++
++/// Gas with permuted ids: identical physics (same positions, velocities, masses as a
++/// multiset), different id assignment.
++fn perm_arm() {
++    let half = Q / 8;
++    for seed in 1..=5u64 {
++        let base = worlds::gas(32, 0.15, Q, half, seed).with_law(Law::RelativisticV1).expect("subluminal");
++        let mut permuted = base.clone();
++        // bijective id remap: id -> ((id * 17 + 5) mod 32) + 1
++        for b in &mut permuted.bodies {
++            b.id = ((b.id * 17 + 5) % 32) + 1;
++        }
++        permuted.bodies.sort_by_key(|b| b.id);
++        permuted.consumed.clear();
++        let mut a = Chronon::new(base, false).unwrap();
++        let mut b = Chronon::new(permuted, false).unwrap();
++        let mut first_div: Option<i64> = None;
++        let mut max_dk = 0i64;
++        for t in 1..=T_PERM {
++            a.step();
++            b.step();
++            let (wa, wb) = (a.world(), b.world());
++            for ba in &wa.bodies {
++                let mut best: Option<&Body> = None;
++                let mut bd = i128::MAX;
++                for bb in &wb.bodies {
++                    if bb.mass != ba.mass {
++                        continue;
++                    }
++                    let d = (bb.x[0] as i128 - ba.x[0] as i128).abs() + (bb.x[1] as i128 - ba.x[1] as i128).abs();
++                    if d < bd {
++                        bd = d;
++                        best = Some(bb);
++                    }
++                }
++                if let Some(bb) = best {
++                    let dk = (ba.k[0] - bb.k[0]).abs().max((ba.k[1] - bb.k[1]).abs());
++                    if dk > 0 {
++                        first_div.get_or_insert(t);
++                        max_dk = max_dk.max(dk);
++                    }
++                }
++            }
++        }
++        let same = a.world().digest() == b.world().digest();
++        println!(
++            "perm seed={seed} first_div_tick={} max_dk={max_dk} digest_same={same} contacts={}",
++            first_div.map(|t| t.to_string()).unwrap_or("never".into()),
++            a.log().contacts
++        );
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().skip(1).collect();
++    let arm = args.first().map(|s| s.as_str()).unwrap_or("all");
++    self_test();
++    match arm {
++        "self" => {}
++        "gas-cold" => gas_arm("gas-cold", &[1, 2, 3, 4, 5], 0.014, false),
++        "gas-hot" => gas_arm("gas-hot", &[1, 2, 3, 4, 5], 0.7, false),
++        "gas-mixed" => {
++            let seeds: Vec<u64> = args.iter().skip(1).filter_map(|s| s.parse().ok()).collect();
++            let seeds = if seeds.is_empty() { vec![1, 2, 3, 4, 5] } else { seeds };
++            gas_arm("gas-mixed", &seeds, 0.9, true)
++        }
++        "label" => label_arm(),
++        "label-slow" => label_run("label-slow", 0.02, 0.05),
++        "perm" => perm_arm(),
++        "all" => {
++            gas_arm("gas-cold", &[1, 2, 3, 4, 5], 0.014, false);
++            gas_arm("gas-hot", &[1, 2, 3, 4, 5], 0.7, false);
++            gas_arm("gas-mixed", &[1, 2, 3, 4, 5], 0.9, true);
++            label_arm();
++            perm_arm();
++        }
++        other => panic!("unknown arm {other}"),
++    }
++}
