@@ -1,0 +1,507 @@
+diff --git a/crates/universe/examples/seam_cycle.rs b/crates/universe/examples/seam_cycle.rs
+new file mode 100644
+index 00000000..3110941d
+--- /dev/null
++++ b/crates/universe/examples/seam_cycle.rs
+@@ -0,0 +1,501 @@
++//! Lab probe 20261014-1137-second-...-b9c8 (second author on 20261014-1010-taleb-292a):
++//! the compact<->live crossing cycle, with the two instrument flaws the checker found fixed.
++//!
++//! Fixes vs taleb-292a's seam_cycle.rs:
++//! 1. TRUE PHASES. `Scalar::raw(n, e)` = n*2^e, so the old `raw(phi,3)` was 8*phi*P — both
++//!    phi arms sampled periapsis. Now `raw(phi, -3)` for phi in {1,3,5,7}: true phases
++//!    1/8, 3/8, 5/8, 7/8 (inbound to outbound).
++//! 2. THE DOLL. `Unit::of(raw(0x147AE1, 20))` was mu ~ 1.4e12 (a 2^40 unit jump: every
++//!    non-unity arm overflowed the word). Now `raw(0x147AE1, -20)`: mu ~ 1.2846 in [1,2),
++//!    the documented domain of `Unit`.
++//! 3. THE WORD. Units are now based on the DOLL-unit radius (after `to_doll`), as the
++//!    shipped flow implies (bind.rs: `units = (exact.length_exponent, ...)`, decode converts
++//!    the tube radius to doll before `cartesian`); velocities are the same in both units.
++//! 4. DEPTH 256 with a prefix-64 snapshot, so one chain answers both the record's depth-64
++//!    view and the checker's saturation/refusal extension.
++//! 5. RADIUS DRIFT. For e=0 circles the position "drift" is the same circle at a lotteried
++//!    orientation; the invariant is the radius, so it is measured too (integer isqrt).
++//!
++//! Cycle (unchanged from the graded run): columns -> Orbit::compile -> state at phase
++//! -> cartesian (doll word) -> [in_tube_units: to_tube(x).fixed(0), shipped bind.rs mirror]
++//! -> Rebinding::from_state -> columns'. Shipped pub APIs only; no engine code changed.
++
++use emergent_space::binding::{cartesian, IntegerState, Rebinding};
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use emergent_universe::world::Unit;
++use std::collections::HashSet;
++use std::time::Instant;
++
++type R<T> = std::result::Result<T, emergent_space::Error>;
++
++/// The shipped `in_tube_units` (crates/universe/src/bind.rs:252-258), mirrored from pub APIs.
++fn in_tube(st: IntegerState, unit: &Unit) -> R<IntegerState> {
++    if unit.unity {
++        return Ok(st);
++    }
++    let q = |p: i64| -> R<i64> {
++        let s = unit
++            .to_tube(Scalar::raw(p as i128, 0)?)
++            .map_err(|_| emergent_space::Error::Range)?;
++        let fixed = s.fixed(0)?;
++        i64::try_from(fixed).map_err(|_| emergent_space::Error::Range)
++    };
++    Ok(IntegerState { position: [q(st.position[0])?, q(st.position[1])?], ..st })
++}
++
++/// The key's k value (k * 2^k_exponent) as one integer count of Q48 ulps, checked.
++fn k_q48(k: u64, e: i16) -> Option<i128> {
++    let shift = e as i32;
++    if shift >= 0 {
++        (k as i128).checked_shl(shift as u32)
++    } else if shift <= -64 {
++        None
++    } else {
++        Some((k as i128) >> (-shift) as u32)
++    }
++}
++
++fn key_q48(k: &OrbitKey) -> Option<i128> {
++    k_q48(k.k, k.k_exponent)
++}
++
++/// A Scalar as (significand, exponent).
++fn scalar_parts(s: Scalar) -> (i128, i16) {
++    (s.significand() as i128, s.exponent())
++}
++
++fn shift_to(s: i128, e: i16, m: i16) -> Option<i128> {
++    let d = e - m;
++    if d >= 64 || d <= -64 {
++        return None;
++    }
++    if d >= 0 { s.checked_shl(d as u32) } else { Some(s >> (-d) as u32) }
++}
++
++fn ulp_diff(s1: i128, e1: i16, s2: i128, e2: i16) -> Option<i128> {
++    let m = e1.min(e2);
++    let (a, b) = (shift_to(s1, e1, m)?, shift_to(s2, e2, m)?);
++    a.checked_sub(b)
++}
++
++/// Coarse integer log2 of |d| in units of scale*2^-64 (no floats decide anything).
++fn rel_exp(d: i128, scale: i128) -> i32 {
++    let (mut a, mut acc) = (d.abs().max(1), 0i32);
++    let mut s2 = scale.abs().max(1);
++    while s2 > (i128::MAX >> 1) { s2 >>= 1; }
++    while a > s2 && acc < 120 { a >>= 1; acc += 1; }
++    acc - 64
++}
++
++/// Exact integer sqrt (Newton from above); positions are < 2^62 so x*x cannot overflow u128.
++fn isqrt128(v: u128) -> u128 {
++    if v == 0 { return 0; }
++    let mut x = 1u128 << ((128 - v.leading_zeros() + 1) / 2);
++    loop {
++        let y = (x + v / x) >> 1;
++        if y >= x { break; }
++        x = y;
++    }
++    x
++}
++
++fn pos_radius(p: &[i64; 2]) -> u128 {
++    let x = p[0] as i128;
++    let y = p[1] as i128;
++    isqrt128((x.wrapping_mul(x) + y.wrapping_mul(y)) as u128)
++}
++
++const HUGE: i128 = i128::MIN / 2;
++
++#[derive(Clone, PartialEq)]
++struct Step {
++    k: i128, // key value in Q48 ulps; overflow -> HUGE sentinel
++    p: (i128, i16),
++    w: i32,
++    pos: [i64; 2], // tube-quantized cartesian position at this crossing
++}
++
++/// Aggregate walk statistics over steps [0..n).
++#[derive(Default, Clone)]
++struct Stats {
++    dk_max: i128,
++    dk_first: Option<i128>,
++    dk_final: i128,
++    dw_max: i64,
++    signs: (i64, i64, i64),
++    dstate_quanta: i128,
++    dstate_rel_exp: i32,
++    dr_rel_scaled: i128, // max |r_n - r_0|/r_0 in units of 2^-20
++}
++
++fn stats_over(steps: &[Step]) -> Stats {
++    let mut s = Stats { dstate_rel_exp: -200, ..Default::default() };
++    if steps.is_empty() {
++        return s;
++    }
++    let s0 = &steps[0];
++    let r0 = pos_radius(&s0.pos).max(1);
++    let p0mag = s0.pos.iter().map(|p| p.abs() as i128).max().unwrap_or(1);
++    for (i, st) in steps.iter().enumerate() {
++        if i > 0 {
++            let prev = &steps[i - 1];
++            if st.k != HUGE && prev.k != HUGE {
++                let a = st.k - prev.k;
++                s.dk_max = s.dk_max.max(a.abs());
++                match a.signum() {
++                    1 => s.signs.0 += 1,
++                    -1 => s.signs.1 += 1,
++                    _ => s.signs.2 += 1,
++                }
++                if s.dk_first.is_none() && a != 0 {
++                    s.dk_first = Some(a);
++                }
++            }
++            s.dw_max = s.dw_max.max((st.w - prev.w).abs() as i64);
++        }
++        for c in 0..2 {
++            s.dstate_quanta = s.dstate_quanta.max((st.pos[c] as i128 - s0.pos[c] as i128).abs());
++        }
++        s.dstate_rel_exp = s.dstate_rel_exp.max(rel_exp(s.dstate_quanta, p0mag));
++        let dr = (pos_radius(&st.pos) as i128 - r0 as i128).unsigned_abs();
++        s.dr_rel_scaled = s.dr_rel_scaled.max(((dr as i128) << 20) / (r0 as i128));
++    }
++    if let Some(last) = steps.last() {
++        if last.k != HUGE && s0.k != HUGE {
++            s.dk_final = last.k - s0.k;
++        }
++    }
++    s
++}
++
++struct ChainOut {
++    config: String,
++    p: i32,
++    e_num: u64,   // e as Q48 (integer, canonical)
++    phi: i128,    // true phase = phi/8
++    shift: i16,
++    mu: &'static str,
++    refused_at: Option<(usize, String)>,
++    steps_done: usize,
++    unique: usize,
++    unique64: usize,
++    cycle_len: Option<usize>,
++    cycle_at: Option<usize>,
++    s64: Stats, // prefix of the first 64 crossings
++    sfull: Stats,
++    p1_reconstruct_ok: bool,
++    p2_kick_dk: i128,
++    steps: Vec<Step>,
++}
++
++fn run_chain(
++    pexp: i32,
++    eq48: u64,
++    phi_num: i128,
++    w0: u32,
++    cw0: bool,
++    shift: i16,
++    unit: &Unit,
++    depth: usize,
++) -> ChainOut {
++    let config = format!(
++        "p16e{pexp}_e{eq48}_phi{phi_num}o8_w{w0:x}_cw{cw0}_s{shift}_mu{}",
++        if unit.unity { "1" } else { "x" }
++    );
++    let mut out = ChainOut {
++        config,
++        p: pexp,
++        e_num: eq48,
++        phi: phi_num,
++        shift,
++        mu: if unit.unity { "1" } else { "x" },
++        refused_at: None,
++        steps_done: 0,
++        unique: 0,
++        unique64: 0,
++        cycle_len: None,
++        cycle_at: None,
++        s64: Stats::default(),
++        sfull: Stats::default(),
++        p1_reconstruct_ok: false,
++        p2_kick_dk: 0,
++        steps: Vec::new(),
++    };
++    let key0 = match OrbitKey::bound(Scalar::integer(16).scale(pexp).unwrap(), eq48) {
++        Ok(k) => k,
++        Err(e) => {
++            out.refused_at = Some((0, format!("bound:{e:?}")));
++            return out;
++        }
++    };
++    let orbit0 = match Orbit::compile(key0) {
++        Ok(o) => o,
++        Err(e) => {
++            out.refused_at = Some((0, format!("compile:{e:?}")));
++            return out;
++        }
++    };
++    let per = match orbit0.period() {
++        Ok(p) => p,
++        Err(e) => {
++            out.refused_at = Some((0, format!("period:{e:?}")));
++            return out;
++        }
++    };
++    // FIX 1: raw(phi, -3) = phi/8 — a true phase, not 8*phi.
++    let t = match per.mul(Scalar::raw(phi_num, -3).unwrap()) {
++        Ok(t) => t,
++        Err(e) => {
++            out.refused_at = Some((0, format!("time:{e:?}")));
++            return out;
++        }
++    };
++    let st0 = match orbit0.state(t) {
++        Ok(s) => s,
++        Err(e) => {
++            out.refused_at = Some((0, format!("state:{e:?}")));
++            return out;
++        }
++    };
++    // FIX 3: the word is based on the DOLL-unit radius (the shipped decode converts the
++    // tube radius to doll before cartesian, and bind.rs takes units from the doll-unit
++    // exact state). Velocities are identical in both unit systems.
++    let r_for_word = if unit.unity {
++        st0.radius
++    } else {
++        match unit.to_doll(st0.radius) {
++            Ok(r) => r,
++            Err(_) => {
++                out.refused_at = Some((0, "to_doll(word)".into()));
++                return out;
++            }
++        }
++    };
++    let units = (
++        r_for_word.exponent() - 60 + shift,
++        st0.transverse_velocity.abs().exponent() - 60 + shift,
++    );
++
++    let mut key = key0;
++    let mut w = w0;
++    let mut cw = cw0;
++    let mut seen: Vec<OrbitKey> = Vec::new();
++
++    for n in 0..depth {
++        let orbit = match Orbit::compile(key) {
++            Ok(o) => o,
++            Err(e) => {
++                out.refused_at = Some((n, format!("compile:{e:?}")));
++                break;
++            }
++        };
++        // The compact t column is a phase; time is re-derived from the current key's period.
++        let t = match orbit.period().and_then(|p| p.mul(Scalar::raw(phi_num, -3).unwrap())) {
++            Ok(t) => t,
++            Err(e) => {
++                out.refused_at = Some((n, format!("time:{e:?}")));
++                break;
++            }
++        };
++        let mut st = match orbit.state(t) {
++            Ok(s) => s,
++            Err(e) => {
++                out.refused_at = Some((n, format!("state:{e:?}")));
++                break;
++            }
++        };
++        // The shipped decode (bind.rs:127-131): the radius leaves tube units via to_doll.
++        if !unit.unity {
++            st.radius = match unit.to_doll(st.radius) {
++                Ok(r) => r,
++                Err(_) => {
++                    out.refused_at = Some((n, "to_doll".into()));
++                    break;
++                }
++            };
++        }
++        let s = match cartesian(st, w, cw, units) {
++            Ok(s) => s,
++            Err(e) => {
++                out.refused_at = Some((n, format!("cartesian:{e:?}")));
++                break;
++            }
++        };
++        let s = match in_tube(s, unit) {
++            Ok(s) => s,
++            Err(e) => {
++                out.refused_at = Some((n, format!("in_tube:{e:?}")));
++                break;
++            }
++        };
++        if n == 0 {
++            // P1 control: reconstruct is an exact left inverse (residual carried).
++            if let Ok(f) = Rebinding::from_state(s, t, None) {
++                out.p1_reconstruct_ok = f.reconstruct().map(|r| r == s).unwrap_or(false);
++            }
++            // P2 control: a real kick (|v|/1024 on one component) must dwarf 4 ulps.
++            let mut sk = s;
++            let vv = sk.velocity[0].unsigned_abs() >> 10;
++            sk.velocity[0] += vv as i64;
++            if let Ok(fk) = Rebinding::from_state(sk, t, None) {
++                if let (Some(nk), Some(ok)) = (
++                    fk.trajectory.key().and_then(|k| k_q48(k.k, k.k_exponent)),
++                    key_q48(&key),
++                ) {
++                    out.p2_kick_dk = (nk - ok).abs();
++                }
++            }
++        }
++        let fit = match Rebinding::from_state(s, t, None) {
++            Ok(f) => f,
++            Err(e) => {
++                out.refused_at = Some((n, format!("fit:{e:?}")));
++                break;
++            }
++        };
++        let nk = match fit.trajectory.key() {
++            Some(k) => k,
++            None => {
++                out.refused_at = Some((n, "fit:Plunge".into()));
++                break;
++            }
++        };
++        out.steps.push(Step {
++            k: key_q48(&nk).unwrap_or(HUGE),
++            p: scalar_parts(nk.periapsis),
++            w: fit.periapsis_angle as i32,
++            pos: s.position,
++        });
++        seen.push(nk);
++        key = nk;
++        w = fit.periapsis_angle;
++        cw = fit.clockwise;
++    }
++    out.steps_done = out.steps.len();
++    out.sfull = stats_over(&out.steps);
++    out.s64 = stats_over(&out.steps[..out.steps.len().min(64)]);
++    out.unique = seen.iter().collect::<HashSet<_>>().len();
++    out.unique64 = seen[..seen.len().min(64)].iter().collect::<HashSet<_>>().len();
++    let mut dup = HashSet::new();
++    for (i, k) in seen.iter().enumerate() {
++        if !dup.insert(k) {
++            let first = seen.iter().position(|x| x == k).unwrap();
++            out.cycle_len = Some(i - first);
++            out.cycle_at = Some(i);
++            break;
++        }
++    }
++    out
++}
++
++fn main() {
++    let unit_one = Unit::ONE;
++    // FIX 2: mu ~ 1.2846 in [1,2) — the documented domain — not mu ~ 1.4e12.
++    let unit_mu = Unit::of(Scalar::raw(0x14_7AE1, -20).unwrap()).unwrap();
++    let phi_e = || Scalar::raw(1i128, -3).unwrap();
++    println!("phase quantum check: raw(1,-3) exponent={} significand={} (1/8 has exponent -3)", phi_e().exponent(), phi_e().significand());
++    println!("doll check: mu exponent={} significand={} (expect ~2^0 * 1.2846)", unit_mu.mu.exponent(), unit_mu.mu.significand());
++
++    let depth: usize = std::env::args().nth(2).and_then(|d| d.parse().ok()).unwrap_or(256);
++    let mut rows: Vec<ChainOut> = Vec::new();
++    for &pexp in &[-1i32, 8, 17, 18, 19, 30] {
++        for &eq48 in &[
++            0u64,
++            (1u64 << 48) / 1000,
++            (1u64 << 48) / 10,
++            (1u64 << 48) / 2,
++            (9 * (1u64 << 48)) / 10,
++            (99 * (1u64 << 48)) / 100,
++        ] {
++            for &phi in &[1i128, 3, 5, 7] {
++                for &shift in &[0i16, 4, 8] {
++                    for u in [&unit_one, &unit_mu] {
++                        let r = run_chain(pexp, eq48, phi, 0x2000_0000, false, shift, u, depth);
++                        rows.push(r);
++                    }
++                }
++            }
++        }
++    }
++
++    let mut json = String::from("[\n");
++    for r in &rows {
++        let refused_str = r
++            .refused_at
++            .as_ref()
++            .map(|(n, s)| format!("{n} {}", s.replace('"', "'")))
++            .unwrap_or_else(|| "None".into());
++        let o = |v: Option<usize>| v.map(|x| x.to_string()).unwrap_or_else(|| "null".into());
++        let dkf = |v: Option<i128>| v.map(|x| x.to_string()).unwrap_or_else(|| "null".into());
++        json.push_str(&format!(
++            "{{\"mu\":\"{}\",\"p\":{},\"e_q48\":{},\"phi\":{},\"shift\":{},\"cfg\":\"{}\",\"refused\":\"{}\",\"steps\":{},\"unique\":{},\"unique64\":{},\"cycle\":{},\"cycle_at\":{},\"dk_first\":{},\"dk_max\":{},\"dk_max64\":{},\"dk_final\":{},\"dk_final64\":{},\"dp_rel_exp\":{},\"dw_max\":{},\"dw_max64\":{},\"dstate_quanta\":{},\"dstate_quanta64\":{},\"dstate_rel_exp\":{},\"dstate_rel_exp64\":{},\"dr_rel\":{},\"dr_rel64\":{},\"signed\":{:.3},\"signed64\":{:.3},\"p1\":{},\"p2_dk\":{}}},\n",
++            r.mu, r.p, r.e_num, r.phi, r.shift, r.config, refused_str, r.steps_done,
++            r.unique, r.unique64, o(r.cycle_len), o(r.cycle_at),
++            dkf(r.sfull.dk_first), r.sfull.dk_max, r.s64.dk_max, r.sfull.dk_final, r.s64.dk_final,
++            r.sfull.dstate_rel_exp, r.sfull.dw_max, r.s64.dw_max,
++            r.sfull.dstate_quanta, r.s64.dstate_quanta, r.sfull.dstate_rel_exp, r.s64.dstate_rel_exp,
++            r.sfull.dr_rel_scaled, r.s64.dr_rel_scaled,
++            {
++                let t = (r.sfull.signs.0 + r.sfull.signs.1 + r.sfull.signs.2).max(1) as f64;
++                r.sfull.signs.0.max(r.sfull.signs.1) as f64 / t
++            },
++            {
++                let t = (r.s64.signs.0 + r.s64.signs.1 + r.s64.signs.2).max(1) as f64;
++                r.s64.signs.0.max(r.s64.signs.1) as f64 / t
++            },
++            r.p1_reconstruct_ok, r.p2_kick_dk,
++        ));
++    }
++    json.push_str("]\n");
++    std::fs::write(std::env::args().nth(1).unwrap_or_else(|| "seam2.json".into()), &json).unwrap();
++
++    // quick stdout summary; analyze.py does the real breakdown
++    let done64: Vec<_> = rows.iter().filter(|r| r.steps_done >= 64).collect();
++    println!(
++        "chains={} depth={} done>=64={} refused={} (of which mid-walk n>0: {}, beyond-64 n>=64: {})",
++        rows.len(),
++        depth,
++        done64.len(),
++        rows.iter().filter(|r| r.refused_at.is_some()).count(),
++        rows.iter().filter(|r| r.refused_at.as_ref().map(|(n, _)| *n > 0).unwrap_or(false)).count(),
++        rows.iter().filter(|r| r.refused_at.as_ref().map(|(n, _)| *n >= 64).unwrap_or(false)).count(),
++    );
++    for phi in [1i128, 3, 5, 7] {
++        let sub: Vec<_> = done64.iter().filter(|r| r.phi == phi).collect();
++        let walk64 = sub.iter().filter(|r| r.unique64 >= 64).count();
++        let cyc64 = sub.iter().filter(|r| r.cycle_at.map(|c| c <= 64).unwrap_or(false)).count();
++        println!("phi={}/8: n>=64={} walk64(no repeat in 64)={} cyclic-in-64={}", phi, sub.len(), walk64, cyc64);
++    }
++    let p1ok = rows.iter().filter(|r| r.p1_reconstruct_ok).count();
++    println!("P1 reconstruct exact left inverse: {p1ok}/{}", rows.len());
++    let p2: Vec<_> = rows.iter().map(|r| r.p2_kick_dk).filter(|v| *v > 0).collect::<Vec<_>>();
++    println!("P2 kick control: n={} min_dk={} max_dk={}", p2.len(), p2.iter().min().unwrap_or(&0), p2.iter().max().unwrap_or(&0));
++
++    // determinism: rerun one chain, steps must repeat bit-exactly
++    let a = run_chain(18, (1u64 << 48) / 10, 3, 0x2000_0000, false, 0, &unit_one, 64);
++    let b = run_chain(18, (1u64 << 48) / 10, 3, 0x2000_0000, false, 0, &unit_one, 64);
++    println!("determinism rerun identical: {}", a.steps == b.steps && a.unique == b.unique);
++
++    // cost: mid config, 2000 crossings, then from_state alone on a fixed state
++    let key = OrbitKey::bound(Scalar::integer(16).scale(18).unwrap(), (1u64 << 48) / 10).unwrap();
++    let orbit = Orbit::compile(key).unwrap();
++    let t = orbit.period().unwrap().mul(Scalar::raw(3, -3).unwrap()).unwrap();
++    let st = orbit.state(t).unwrap();
++    let units = (st.radius.exponent() - 60, st.transverse_velocity.abs().exponent() - 60);
++    let s = cartesian(st, 0x2000_0000, false, units).unwrap();
++    let now = Instant::now();
++    for _ in 0..2000 {
++        let orbit = Orbit::compile(key).unwrap();
++        let st = orbit.state(t).unwrap();
++        let s = cartesian(st, 0x2000_0000, false, units).unwrap();
++        let _ = Rebinding::from_state(s, t, None).unwrap();
++    }
++    let full = now.elapsed().as_nanos() as f64 / 2000.0;
++    let now = Instant::now();
++    for _ in 0..2000 {
++        let _ = Rebinding::from_state(s, t, None).unwrap();
++    }
++    let fitonly = now.elapsed().as_nanos() as f64 / 2000.0;
++    println!("cost: full crossing = {full:.1} ns, from_state alone = {fitonly:.1} ns");
++}

@@ -1,0 +1,74 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: function `shift_to` is never used
+  --> crates/universe/examples/seam_cycle.rs:68:4
+   |
+68 | fn shift_to(s: i128, e: i16, m: i16) -> Option<i128> {
+   |    ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `ulp_diff` is never used
+  --> crates/universe/examples/seam_cycle.rs:76:4
+   |
+76 | fn ulp_diff(s1: i128, e1: i16, s2: i128, e2: i16) -> Option<i128> {
+   |    ^^^^^^^^
+
+warning: `emergent-universe` (example "seam_cycle") generated 2 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 4.58s
+     Running `/home/glmlab/lab-target-0/release/examples/seam_cycle lab/results/20261014-1137-second-20261014-1010-taleb-292a-b9c8/seam2.json 256`
+phase quantum check: raw(1,-3) exponent=-3 significand=4611686018427387904 (1/8 has exponent -3)
+doll check: mu exponent=0 significand=5902956872134033408 (expect ~2^0 * 1.2846)
+chains=864 depth=256 done>=64=864 refused=0 (of which mid-walk n>0: 0, beyond-64 n>=64: 0)
+phi=1/8: n>=64=216 walk64(no repeat in 64)=194 cyclic-in-64=22
+phi=3/8: n>=64=216 walk64(no repeat in 64)=202 cyclic-in-64=14
+phi=5/8: n>=64=216 walk64(no repeat in 64)=201 cyclic-in-64=15
+phi=7/8: n>=64=216 walk64(no repeat in 64)=195 cyclic-in-64=21
+P1 reconstruct exact left inverse: 864/864
+P2 kick control: n=852 min_dk=243934 max_dk=869578575926
+determinism rerun identical: true
+cost: full crossing = 20680.5 ns, from_state alone = 12692.5 ns
+chains=864 depth=256 refusal_stages={'ok': 864}
+completed=864
+
+== per true phase (all dolls, all words) ==
+phi=1/8 d64: walk=194 cyclic=22 drel min/med/max = 3.17e-13/4.51e-08/1.94e+00
+phi=1/8 d256: walk=185 cyclic=31 drel min/med/max = 1.28e-12/2.07e-07/2.00e+00
+phi=3/8 d64: walk=202 cyclic=14 drel min/med/max = 2.97e-13/7.52e-12/1.98e+00
+phi=3/8 d256: walk=196 cyclic=20 drel min/med/max = 1.17e-12/3.04e-11/2.00e+00
+phi=5/8 d64: walk=201 cyclic=15 drel min/med/max = 3.19e-13/5.67e-04/3.68e+00
+phi=5/8 d256: walk=197 cyclic=19 drel min/med/max = 1.29e-12/2.29e-03/3.68e+00
+phi=7/8 d64: walk=195 cyclic=21 drel min/med/max = 3.51e-14/7.60e-04/3.65e+00
+phi=7/8 d256: walk=194 cyclic=22 drel min/med/max = 1.41e-13/3.08e-03/3.65e+00
+
+== near-circles (e=0, 0.001) per phase, depth 64 ==
+phi=1/8: n=72 per-crossing |dw| max=0.117 med=2.45e-02 turns | e=0 drift med/max=1.71/1.94 | e=.001 med/max=6.22e-09/1.84e-07
+phi=3/8: n=72 per-crossing |dw| max=0.130 med=2.13e-02 turns | e=0 drift med/max=1.71/1.98 | e=.001 med/max=3.37e-13/7.65e-13
+phi=5/8: n=72 per-crossing |dw| max=0.119 med=2.71e-02 turns | e=0 drift med/max=1.79/1.90 | e=.001 med/max=2.83e-04/2.86e-01
+phi=7/8: n=72 per-crossing |dw| max=0.086 med=2.80e-02 turns | e=0 drift med/max=1.74/1.97 | e=.001 med/max=2.83e-04/5.72e-01
+
+circles: n=144 pos drift 256 med/max=1.71/2.00 radius drift max=0.00e+00 (2^-20 units)
+
+cycles: total=92 closed<=64=72 new in (64,256]=20
+fixed points (cycle_len=1): key-level=76, column-level (w also fixed)=25
+  key fixed but w keeps wobbling: 51 chains, |dw| max=3.77e-03 turns/crossing
+  cycle-length census: {1: 76, 3: 5, 2: 7, 8: 1, 4: 2, 14: 1}
+
+word-closure flips (some shift closes, another walks): 26/288 (p,e,phi,mu) groups; all-walk groups=244
+word-invariance on all-walking groups d64: n=244 ratio med=1.00 p90=2.25 within2x=219/244 max=225570.03
+record max drift d256 = 3.68 radii
+
+== saturation (walking at 64, no cycle by 256) ==
+n=772 ratio d256/d64 min/med/max = 1.00/4.05/17417.61 (linear ~4, bounded ~1)
+strong walkers (d64>=1e-3): n=243 med=1.03 max=4.61
+
+== mu doll vs unity, paired per (p,e,phi,shift) ==
+paired walking pairs=377 within 2x=315 (84%) mu-smaller=267 (71%) ratio med=1.00 max=51750.62
+mu=1: chains=432 walking=383 drel256 med=8.36e-04 max=3.68e+00
+mu=x: chains=432 walking=389 drel256 med=5.72e-04 max=2.94e+00
+
+== k column (Q48 ulps) ==
+|dk| per crossing: med=1 max=241876
+|dk| over 64 (walkers): med=63 max=2420137
+
+P1 reconstruct exact left inverse: 864/864
+P2 kick control: n=852 min=243934 max=869578575926 Q48 ulps; zero on 12 arms (p=-1, e=0.001, phi 1,3: fit on the kicked state refuses or moves k<1 ulp)
