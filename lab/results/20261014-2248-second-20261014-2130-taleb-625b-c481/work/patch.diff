@@ -1,0 +1,490 @@
+diff --git a/crates/universe/examples/band_site.rs b/crates/universe/examples/band_site.rs
+new file mode 100644
+index 00000000..70c2c9de
+--- /dev/null
++++ b/crates/universe/examples/band_site.rs
+@@ -0,0 +1,253 @@
++//! The run's instrument: the per-site counters on the scan path (`scanmem`) flown on the record's arms. The
++//! checker's named experiment — "instrument capture/the held-answer store with a per-site counter and fly the kill
++//! arm once; the transit arm" — answered here: which site accounts for the in-band retention (the candidates
++//! vectors' standing bytes vs RSS), whether the drain ever answers under burn (created vs answered), what the scan
++//! holds at each radius (the probe sweep: the transit's integrand), and the live switch as a player crosses the
++//! belt's inner edge (the transit arm).
++//!
++//! Frames of 1/60 s at rtf, a wall budget, `input(word(keys, level))` at frame 60 — the record's loop. RSS is read
++//! every frame from /proc/self/statm; past `ES_RSS_LIMIT_MB` (default 1800) the flight stops itself and says so
++//! (the box kills at 2 GB; the record's kill is exit 137 — the same death, caught one step early so the counters
++//! survive).
++//!
++//! cargo run --release -p emergent-universe --features prof --example band_site -- \
++//!   ctrl   <home|band> <seed> <N> <s> <keys> <level> [budget ms=12] [rtf=100]
++//!   probe  <r_au> <seed> <N> <s> <keys> <level> [budget ms=12] [rtf=100]
++//!   cross  <a_au> <seed> <N> <s> <keys> <level> <e> <r0_au> [budget ms=12] [rtf=100]
++use emergent_universe::bind::Binding;
++use emergent_universe::scenario::{plane_extra, plane_extra_band, plane_extra_ecc, Plane, AU};
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{scanmem, Budget, Config};
++use std::time::{Duration, Instant};
++
++fn rss_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/statm")
++        .ok()
++        .and_then(|s| s.split_whitespace().nth(1).and_then(|r| r.parse::<u64>().ok()))
++        .map_or(0.0, |p| p as f64 * 4096.0 / 1e6)
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++/// The mean-anomaly fraction (the phase, as a fraction of the period) that puts a body of semi-major axis `a` and
++/// eccentricity `e` at radius `r0` at tick 0, outbound: solve `E` from `r`, then `M = E − e·sinE`.
++fn phase_for(a: f64, e: f64, r0: f64) -> (f64, f64) {
++    let mut ee = ((1.0 - r0 / a) / e).acos(); // outbound: E in (0, pi)
++    for _ in 0..80 {
++        ee -= (a * (1.0 - e * ee.cos()) - r0) / (a * e * ee.sin());
++    }
++    let m = ee - e * ee.sin();
++    (m / std::f64::consts::TAU, m)
++}
++
++/// The predicted radius at game time `t_s` (ballistic; the burn drifts it — the measured candidates are the truth).
++fn r_at(a: f64, e: f64, m0: f64, t_s: f64) -> f64 {
++    let n = 1.0 / a.powi(3).sqrt(); // rad per year
++    let mut m = (m0 + n * (t_s / 3.156e7)) % std::f64::consts::TAU;
++    if m > std::f64::consts::PI {
++        m -= std::f64::consts::TAU;
++    }
++    let mut ee = m + e * m.sin();
++    for _ in 0..80 {
++        ee -= (ee - e * ee.sin() - m) / (1.0 - e * ee.cos());
++    }
++    a * (1.0 - e * ee.cos())
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args.get(1).cloned().unwrap_or_else(|| "ctrl".into());
++    let place = args.get(2).cloned().unwrap_or_else(|| "home".into());
++    let seed: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let n: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let seconds: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(160.0);
++    let keys: u8 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let level: u8 = args.get(7).and_then(|s| s.parse().ok()).unwrap_or(8);
++    let mut ix = 8;
++    let mut a_au = 0.0;
++    let mut e_orb = 0.0;
++    let mut r0_au = 0.0;
++    let p: Plane = match mode.as_str() {
++        "ctrl" => {
++            ix = 8;
++            if place == "band" {
++                plane_extra_band(Config::default(), seed, emergent_universe::fleet::Order::Sparse, 1, 48, n, (5 * AU as u64) << 7).unwrap()
++            } else {
++                plane_extra(Config::default(), seed, emergent_universe::fleet::Order::Sparse, 1, 48, n).unwrap()
++            }
++        }
++        "probe" => {
++            let r: f64 = place.parse().unwrap_or(2.5);
++            ix = 8;
++            a_au = r;
++            r0_au = r;
++            plane_extra_ecc(Config::default(), seed, emergent_universe::fleet::Order::Sparse, 1, 48, n, r, 0.0, 0.0).unwrap()
++        }
++        "cross" => {
++            a_au = place.parse().unwrap_or(2.0);
++            e_orb = args.get(8).and_then(|s| s.parse().ok()).unwrap_or(0.95);
++            r0_au = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(1.9992);
++            ix = 10;
++            let (phase, _) = phase_for(a_au, e_orb, r0_au);
++            plane_extra_ecc(Config::default(), seed, emergent_universe::fleet::Order::Sparse, 1, 48, n, a_au * (1.0 - e_orb), e_orb, phase).unwrap()
++        }
++        _ => panic!("modes: ctrl <home|band>, probe <r_au>, cross <a> <e> <r0>"),
++    };
++    let budget_ms: f64 = args.get(ix).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let rtf: f64 = args.get(ix + 1).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let limit_mb: f64 = std::env::var("ES_RSS_LIMIT_MB").ok().and_then(|s| s.parse().ok()).unwrap_or(1800.0);
++    let frames = (seconds * 60.0) as usize;
++    let mut p = p;
++    println!(
++        "mode {} seed {} N {} ({} bodies), {} s at rtf {}, keys {} level {} from 1 s, budget {} ms, rss limit {:.0} MB, player doll {}, item {} b/binding {}",
++        mode,
++        seed,
++        n,
++        p.u.n_bodies(),
++        seconds,
++        rtf,
++        keys,
++        level,
++        budget_ms,
++        limit_mb,
++        p.u.rec(p.player).b.doll,
++        std::mem::size_of::<(usize, Binding, emergent_space::orbit::Scalar)>(),
++        std::mem::size_of::<Binding>()
++    );
++    let m0 = if mode == "cross" { phase_for(a_au, e_orb, r0_au).1 } else { 0.0 };
++    if mode == "cross" {
++        println!(
++            "cross: a {} AU e {} r0 {} AU (predicted r at 5k/10k/15k game-s: {:.4} {:.4} {:.4})",
++            a_au,
++            e_orb,
++            r0_au,
++            r_at(a_au, e_orb, m0, 5e3),
++            r_at(a_au, e_orb, m0, 1e4),
++            r_at(a_au, e_orb, m0, 1.5e4)
++        );
++    }
++    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, rss
++    let mut doll = p.u.rec(p.player).b.doll;
++    let mut transitions: Vec<(usize, u16)> = vec![(0, doll)];
++    let mut total = Duration::ZERO;
++    let mut limited = None;
++    for f in 0..frames {
++        if f == 60 && keys != 0 {
++            let _ = p.u.input(p.u.now, word(keys, level));
++        }
++        let s0 = p.u.stats;
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget::wall(budget_ms), i64::MAX);
++        let took = start.elapsed();
++        total += took;
++        let s1 = p.u.stats;
++        let rss = rss_mb();
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events, rss));
++        if rss > limit_mb {
++            limited = Some(f);
++            break;
++        }
++        let d = p.u.rec(p.player).b.doll;
++        if d != doll {
++            doll = d;
++            transitions.push((f, d));
++        }
++        if !p.u.rec(p.player).alive {
++            println!("the player was lost at frame {f}");
++            break;
++        }
++        if (f + 1) % 50 == 0 {
++            let r_now = match p.u.rec(p.player).b.cartesian(p.u.now) {
++                Ok((x, _)) => {
++                    let (x0, x1) = (emergent_universe::num::to_f64(x[0]), emergent_universe::num::to_f64(x[1]));
++                    ((x0 * x0 + x1 * x1).sqrt() / AU as f64)
++                }
++                Err(_) => 0.0,
++            };
++            let c = scanmem::snapshot();
++            println!(
++                "w{:>5} t={:>7.0}s r={:.4} rss={:>7.1}MB held={:>5} standing={:>8.1}MB created={:>4} answered={:>4} reused={:>3} cand/scan={:>6.0} cap_ms={:>7.2} ans_ms={:>7.2} player_us={:>8}",
++                f + 1,
++                p.u.now as f64 * TICK_SECONDS,
++                if mode == "cross" || mode == "probe" { r_now } else { 0.0 },
++                rss,
++                p.u.held_scans(),
++                c[4] as f64 / 1e6,
++                c[0],
++                c[2],
++                c[1],
++                if c[0] > 0 { c[3] as f64 / c[0] as f64 } else { 0.0 },
++                if c[7] > 0 { c[6] as f64 / c[7] as f64 / 1e6 } else { 0.0 },
++                if c[9] > 0 { c[8] as f64 / c[9] as f64 / 1e6 } else { 0.0 },
++                (s1.cost_ns[3] - s0.cost_ns[3]) / 1000
++            );
++        }
++    }
++    let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut ev: Vec<f64> = late.iter().map(|r| r.2 as f64).collect();
++    ev.sort_by(|a, b| a.partial_cmp(&b).unwrap());
++    println!(
++        "frames after 1 s: {}  ms p50 {:.3} p99 {:.3} max {:.3} mean {:.3}   events p50 {} p99 {} max {}   over budget {}   kicks so far {}",
++        late.len(),
++        if late.is_empty() { 0.0 } else { pct(&ms, 0.5) },
++        if late.is_empty() { 0.0 } else { pct(&ms, 0.99) },
++        if late.is_empty() { 0.0 } else { pct(&ms, 1.0) },
++        if late.is_empty() { 0.0 } else { ms.iter().sum::<f64>() / late.len() as f64 },
++        if late.is_empty() { 0 } else { pct(&ev, 0.5) as u64 },
++        if late.is_empty() { 0 } else { pct(&ev, 0.99) as u64 },
++        if late.is_empty() { 0 } else { pct(&ev, 1.0) as u64 },
++        late.iter().filter(|r| r.1 > budget_ms).count(),
++        p.u.stats.kicks
++    );
++    println!("player doll transitions (frame, doll): {:?}", transitions);
++    let c = scanmem::snapshot();
++    println!(
++        "scanmem final: created {} reused {} answered {} cand_n {} standing {:.1} MB cap {:.1} ms/call ans {:.1} ms/call",
++        c[0],
++        c[1],
++        c[2],
++        c[3],
++        c[4] as f64 / 1e6,
++        if c[7] > 0 { c[6] as f64 / c[7] as f64 / 1e6 } else { 0.0 },
++        if c[9] > 0 { c[8] as f64 / c[9] as f64 / 1e6 } else { 0.0 }
++    );
++    println!("radial window: walk_all {} windowed {}", scanmem::walk_all(), scanmem::windowed());
++    if let Some(f) = limited {
++        println!(
++            "SELF-LIMITED at frame {} (rss {:.0} MB > {:.0}): the flight does not complete — the record's kill (exit 137), caught one step early so the counters survive. No digest (nothing canonical to compare).",
++            f,
++            rss_mb(),
++            limit_mb
++        );
++        println!("total engine wall {:.3} s", total.as_secs_f64());
++        return;
++    }
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    let reached = p.u.now;
++    let t0 = Instant::now();
++    p.u.settle(cut);
++    println!(
++        "cut {} (reached {} before settle, settle {:.1} s): digest {}, kicks {}, encounters {}, contacts {}",
++        cut,
++        reached,
++        t0.elapsed().as_secs_f64(),
++        &p.u.digest()[..32],
++        p.u.stats.kicks,
++        p.u.stats.encounters,
++        p.u.contacts
++    );
++    let c = scanmem::snapshot();
++    println!(
++        "scanmem after settle: created {} reused {} answered {} standing {:.1} MB (drained: everything answered, the heap returns)",
++        c[0],
++        c[1],
++        c[2],
++        c[4] as f64 / 1e6
++    );
++    println!("total engine wall {:.3} s", total.as_secs_f64());
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..288832ab 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -74,6 +74,14 @@ struct Scan {
+     /// Every body that passed the cheap tests (alive, born, in the player's doll, with a reach), with its binding.
+     candidates: Vec<(usize, Binding, Scalar)>,
+     found: OnceLock<Vec<Encounter>>,
++    /// The `candidates` vector's heap bytes (the site the lab's scan counters attribute: `crate::scanmem`).
++    bytes: u64,
++}
++
++impl Drop for Scan {
++    fn drop(&mut self) {
++        crate::scanmem::note_dropped(self.bytes);
++    }
+ }
+ 
+ impl Scan {
+@@ -121,7 +129,9 @@ fn integers(a: V2, q_exp: i32) -> Res<[i128; 2]> {
+ 
+ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+-        self.found.get_or_init(|| self.compute()).clone()
++        let (t0, out) = (std::time::Instant::now(), self.found.get_or_init(|| self.compute()).clone());
++        crate::scanmem::note_answer(t0.elapsed().as_nanos() as u64);
++        out
+     }
+ }
+ 
+@@ -160,6 +170,7 @@ impl Encounters for PlayerNeighbourhood {
+     }
+ 
+     fn capture(&self, ctx: &Ctx, body: usize, t: Tick, interval: Tick) -> Option<Arc<dyn Held>> {
++        let t_cap0 = std::time::Instant::now();
+         let me = ctx.bodies.binding_at(body, t)?;
+         // The cheap tests, in body order: who is there to be read.
+         // Only the bodies whose radial range can meet the player's window are read (`crate::radial`: the apsidal filter, a certificate
+@@ -171,6 +182,7 @@ impl Encounters for PlayerNeighbourhood {
+             let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
+             ctx.radial.candidates(me.doll, &w)
+         })();
++        crate::scanmem::note_window(near.is_none());
+         let mut candidates = Vec::new();
+         for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+@@ -190,9 +202,13 @@ impl Encounters for PlayerNeighbourhood {
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
++            crate::scanmem::note_reuse();
+             return Some(l.clone() as Arc<dyn Held>);
+         }
+-        let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new() });
++         let bytes = (candidates.capacity() * std::mem::size_of::<(usize, Binding, Scalar)>()) as u64;
++         let n = candidates.len() as u64;
++         let scan = Arc::new(Scan { body, t, interval, me, candidates, found: OnceLock::new(), bytes });
++        crate::scanmem::note_created(bytes, n, t_cap0.elapsed().as_nanos() as u64);
+         *last = Some(scan.clone());
+         Some(scan)
+     }
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..3d62a5c4 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -11,6 +11,7 @@ pub mod lorentz;
+ pub mod num;
+ pub mod observe;
+ pub mod prof;
++pub mod scanmem;
+ pub mod radial;
+ pub mod scenario;
+ pub mod step;
+diff --git a/crates/universe/src/scanmem.rs b/crates/universe/src/scanmem.rs
+new file mode 100644
+index 00000000..fc23a583
+--- /dev/null
++++ b/crates/universe/src/scanmem.rs
+@@ -0,0 +1,90 @@
++//! Per-site counters on the scan path (the lab's instrument for the in-band retention, run 20261014-2248): which
++//! site accounts for the memory a held scan holds. Counters only — no outcome depends on them (relaxed atomics,
++//! single-threaded universe), so every digest is unchanged. Read with [`snapshot`].
++use std::sync::atomic::{AtomicU64, Ordering};
++
++/// Scans minted (a fresh `Scan` allocated: its inputs differ from the last one's).
++pub fn scans_created() -> u64 {
++    CREATED.load(Ordering::Relaxed)
++}
++/// Scans answered by the last-scan cache instead (no new memory).
++pub fn scans_reused() -> u64 {
++    REUSED.load(Ordering::Relaxed)
++}
++/// Held scans answered (`Held::answer` computed or re-read).
++pub fn scans_answered() -> u64 {
++    ANSWERED.load(Ordering::Relaxed)
++}
++/// Sum of `candidates.len()` over minted scans.
++pub fn candidates_n() -> u64 {
++    CAND_N.load(Ordering::Relaxed)
++}
++/// Heap bytes the minted scans' `candidates` vectors allocated, less what dropped scans returned.
++pub fn standing_bytes() -> u64 {
++    CREATED_B.load(Ordering::Relaxed).saturating_sub(DROPPED_B.load(Ordering::Relaxed))
++}
++/// Total `candidates` heap bytes minted (never decremented).
++pub fn created_bytes() -> u64 {
++    CREATED_B.load(Ordering::Relaxed)
++}
++/// Capture (`Encounters::capture`) total ns and calls.
++pub fn capture_ns() -> (u64, u64) {
++    (CAP_NS.load(Ordering::Relaxed), CAP_CALLS.load(Ordering::Relaxed))
++}
++/// Answer (`Held::answer`) total ns and calls.
++pub fn answer_ns() -> (u64, u64) {
++    (ANS_NS.load(Ordering::Relaxed), ANS_CALLS.load(Ordering::Relaxed))
++}
++/// Everything at a glance.
++pub fn snapshot() -> [u64; 10] {
++    [scans_created(), scans_reused(), scans_answered(), candidates_n(), standing_bytes(), created_bytes(), capture_ns().0, capture_ns().1, answer_ns().0, answer_ns().1]
++}
++pub const NAMES: [&str; 10] = ["created", "reused", "answered", "cand_n", "standing_b", "created_b", "cap_ns", "cap_calls", "ans_ns", "ans_calls"];
++
++static CREATED: AtomicU64 = AtomicU64::new(0);
++static REUSED: AtomicU64 = AtomicU64::new(0);
++static ANSWERED: AtomicU64 = AtomicU64::new(0);
++static CAND_N: AtomicU64 = AtomicU64::new(0);
++static CREATED_B: AtomicU64 = AtomicU64::new(0);
++static DROPPED_B: AtomicU64 = AtomicU64::new(0);
++static CAP_NS: AtomicU64 = AtomicU64::new(0);
++static CAP_CALLS: AtomicU64 = AtomicU64::new(0);
++static ANS_NS: AtomicU64 = AtomicU64::new(0);
++static ANS_CALLS: AtomicU64 = AtomicU64::new(0);
++static WALK_ALL: AtomicU64 = AtomicU64::new(0);
++static WINDOWED: AtomicU64 = AtomicU64::new(0);
++
++
++pub(crate) fn note_reuse() {
++    REUSED.fetch_add(1, Ordering::Relaxed);
++}
++pub(crate) fn note_answer(ns: u64) {
++    ANSWERED.fetch_add(1, Ordering::Relaxed);
++    ANS_NS.fetch_add(ns, Ordering::Relaxed);
++    ANS_CALLS.fetch_add(1, Ordering::Relaxed);
++}
++pub(crate) fn note_created(bytes: u64, n: u64, ns: u64) {
++    CREATED.fetch_add(1, Ordering::Relaxed);
++    CREATED_B.fetch_add(bytes, Ordering::Relaxed);
++    CAND_N.fetch_add(n, Ordering::Relaxed);
++    CAP_NS.fetch_add(ns, Ordering::Relaxed);
++    CAP_CALLS.fetch_add(1, Ordering::Relaxed);
++}
++pub(crate) fn note_dropped(bytes: u64) {
++    DROPPED_B.fetch_add(bytes, Ordering::Relaxed);
++}
++/// Captures whose radial window was dropped (`candidates` returned None: the caller read every body of the doll).
++pub fn walk_all() -> u64 {
++    WALK_ALL.load(Ordering::Relaxed)
++}
++/// Captures served from the radial window's list.
++pub fn windowed() -> u64 {
++    WINDOWED.load(Ordering::Relaxed)
++}
++pub(crate) fn note_window(all: bool) {
++    if all {
++        WALK_ALL.fetch_add(1, Ordering::Relaxed);
++    } else {
++        WINDOWED.fetch_add(1, Ordering::Relaxed);
++    }
++}
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..d1ae4cb4 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -164,6 +164,12 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_built(cfg, seed, order, threads, world, extra, None, None)
++}
++
++/// The body of [`plane_with_extra`], with the player's placement parameterized: `None` is the shipped player near
++/// the fleet about Home; `Some` moves it into the root doll (the lab's band and transit probes below).
++fn plane_built(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, spec: Option<OrbitSpec>, mass: Option<Scalar>) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -270,8 +276,8 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     let p_orbit = Scalar::raw(r_lat as i128, -20 + 18)?; // lattice units → root units → Home's units
+     let player = u.add_body(
+         Kind::Player,
+-        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
+-        Scalar::raw(34, -10 + 18)?,
++        spec.unwrap_or(OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 }),
++        mass.unwrap_or(Scalar::raw(34, -10 + 18)?),
+     )?;
+     names.push("You".into());
+     let f = u.add_fleet(fleet);
+@@ -279,6 +285,33 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+ }
+ 
++
++/// [`plane_extra`] with the player moved into the belt band: the same universe bit for bit except the player, a body of
++/// the root doll on a circular orbit at `au_q8` e-2^8 AU about the star (the belt is 2–3 AU, on the same 2^-8 AU grid).
++/// The lab's probe scene for the seam the record names untested (the player inside the band when the wave arrives);
++/// not a game scene.
++pub fn plane_extra_band(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, au_q8: u64) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    let spec = OrbitSpec { doll: 0, periapsis: Scalar::raw(au_q8 as i128, -8)?, e_q48: 0, clockwise: false, angle: 0x2000_0000, phase: 0 };
++    plane_built(cfg, seed, order, threads, world, extra, Some(spec), Some(Scalar::raw(34, -10)?))
++}
++
++/// [`plane_extra_band`] with the player's orbit free (a root-doll body of the given periapsis in AU, eccentricity and
++/// phase at tick 0 as the fraction of the radial period since periapsis): the transit probe (a player crossing the
++/// band, not parked in it) and the radius sweep of the scan's bill.
++pub fn plane_extra_ecc(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, peri_au: f64, e: f64, phase: f64) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    let spec = OrbitSpec {
++        doll: 0,
++        periapsis: Scalar::raw((peri_au * 256.0 * AU as f64) as i128, -8)?,
++        e_q48: (e * (1u64 << 48) as f64) as u64,
++        clockwise: false,
++        angle: 0x2000_0000,
++        phase: (phase * (1u64 << 32) as f64) as u32,
++    };
++    plane_built(cfg, seed, order, threads, world, extra, Some(spec), Some(Scalar::raw(34, -10)?))
++}
++
+ // ---- the N ladder's population -------------------------------------------------------------------
+ 
+ /// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.

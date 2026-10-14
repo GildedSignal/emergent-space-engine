@@ -1,0 +1,33 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: unnecessary parentheses around block return value
+   --> crates/universe/examples/band_site.rs:166:21
+    |
+166 |                     ((x0 * x0 + x1 * x1).sqrt() / AU as f64)
+    |                     ^                                      ^
+    |
+    = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+    |
+166 -                     ((x0 * x0 + x1 * x1).sqrt() / AU as f64)
+166 +                     (x0 * x0 + x1 * x1).sqrt() / AU as f64
+    |
+
+warning: value assigned to `ix` is never read
+  --> crates/universe/examples/band_site.rs:69:13
+   |
+69 |     let mut ix = 8;
+   |             ^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: `emergent-universe` (example "band_site") generated 2 warnings (run `cargo fix --example "band_site"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 11.12s
+lab/results/20261014-2248-second-20261014-2130-taleb-625b-c481/work/home_coast.txt:cut 3248407148 (reached 3248053955 before settle, settle 0.0 s): digest 2c16867e4cef05dcdef296053672623c, kicks 125220, encounters 796, contacts 0
+lab/results/20261014-2248-second-20261014-2130-taleb-625b-c481/work/band_coast.txt:cut 3248407148 (reached 3248400000 before settle, settle 0.0 s): digest d467a24f384cf42bec9138bb032b6e09, kicks 124447, encounters 0, contacts 0
+lab/results/20261014-2248-second-20261014-2130-taleb-625b-c481/work/home_burn.txt:cut 3248407148 (reached 3247979093 before settle, settle 0.0 s): digest 128d1cd8bbf0c3b5af6bf9984f8e9937, kicks 125975, encounters 4032, contacts 0
+lab/results/20261014-2248-second-20261014-2130-taleb-625b-c481/work/band_burn_1e4.txt:cut 3248407148 (reached 3235708321 before settle, settle 23.8 s): digest 28a621c8ededa3836ca8da39fdbb8e50, kicks 35054, encounters 0, contacts 0
+lab/results/20261014-2248-second-20261014-2130-taleb-625b-c481/work/band_burn_kill.txt:scanmem final: created 69 reused 69 answered 0 cand_n 6880335 standing 2025.8 MB cap 11.3 ms/call ans 0.0 ms/call
+lab/results/20261014-2248-second-20261014-2130-taleb-625b-c481/work/band_burn_kill.txt:SELF-LIMITED at frame 197 (rss 1804 MB > 1800): the flight does not complete — the record's kill (exit 137), caught one step early so the counters survive. No digest (nothing canonical to compare).
+lab/results/20261014-2248-second-20261014-2130-taleb-625b-c481/work/band_burn_1e4.txt:scanmem final: created 607 reused 607 answered 1 cand_n 5897005 standing 2227.7 MB cap 1.0 ms/call ans 37.7 ms/call
+done
