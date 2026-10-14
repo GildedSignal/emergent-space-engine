@@ -1,0 +1,224 @@
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..3d5fba09 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -30,7 +30,11 @@ pub const H_BIND: usize = 21;
+ pub const H_REPLAN: usize = 22;
+ /// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+ pub const FIT2: usize = 23;
+-pub const N: usize = 24;
++/// `next_impact`: the crash-tick search a fresh binding buys (a fired kick's non-bind half).
++pub const IMPACT: usize = 24;
++/// A `next_impact` call settled by the prior tube's certified guess (two readouts), not the bisection.
++pub const IMPACT_GUESS: usize = 25;
++pub const N: usize = 26;
+ 
+ pub const NAMES: [&str; N] = [
+     "rekey (all deadlines)",
+@@ -57,6 +61,8 @@ pub const NAMES: [&str; N] = [
+     "  hand-out: bind (the member as a tube)",
+     "  hand-out: first plan (replan)",
+     "  fit again: the coarser word (bind_surface)",
++    "  impact: next_impact (the crash search)",
++    "  impact: settled by the prior tube's guess",
+ ];
+ 
+ #[cfg(feature = "prof")]
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..30d3c085 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -282,7 +282,25 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// found by bisection on that branch: the answer is the same however far ahead it is. None when the periapsis is above the
+ /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+ /// tick of its fall.
+-pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
++/// Whether the crash search warm-starts from the tube before the binding (env `ES_IMPACT_GUESS`, a probe,
++/// read once). The guess is certified by [`next_impact`]'s own predicate, so on and off give one answer.
++fn guess_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_IMPACT_GUESS").is_ok());
++    *ON
++}
++
++pub fn next_impact(b: &Binding, surface: Scalar, after: Tick, guess: Option<Tick>) -> Res<Option<Tick>> {
++    let t0 = crate::prof::t();
++    let found = next_impact_search(b, surface, after, guess);
++    crate::prof::add(crate::prof::IMPACT, t0);
++    found
++}
++
++/// [`next_impact`]'s search. `guess` is a crossing tick the tube before this one held: the radius falls
++/// monotonically on the branch, so the guess settles the search in two readouts when the course moved by
++/// less than a tick and narrows the bracket by one step when it did not — the exact predicate decides
++/// either way, so the answer is the one the plain bisection returns.
++fn next_impact_search(b: &Binding, surface: Scalar, after: Tick, guess: Option<Tick>) -> Res<Option<Tick>> {
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+     if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
+         return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+@@ -306,6 +324,18 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     if !inside(hi)? {
+         return Ok(None);
+     }
++    // The guess, certified by the same predicate: it cannot move the answer.
++    if let Some(g) = guess.filter(|&g| g > lo && g <= hi) {
++        if inside(g)? {
++            if !inside(g - 1)? {
++                crate::prof::count(crate::prof::IMPACT_GUESS);
++                return Ok(Some(g));
++            }
++            hi = g;
++        } else {
++            lo = g;
++        }
++    }
+     while hi - lo > 1 {
+         let mid = lo + (hi - lo) / 2;
+         if inside(mid)? {
+@@ -336,6 +366,9 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// The impact the tube before the current binding held (if it did): a certified guess for the crash
++    /// search the next `plan_terminal` buys.
++    prior_impact: Option<Tick>,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -362,6 +395,8 @@ impl Work<'_, '_> {
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
++        // The kicked tube's crossing is near the old one's: kept as the guess for the search below.
++        let prior = if guess_on() { old.impact.and_then(|(_, found)| found) } else { None };
+         self.rec.b = Binding {
+             doll,
+             tube: bound.tube,
+@@ -375,6 +410,7 @@ impl Work<'_, '_> {
+             impact: None,
+         };
+         self.new_entry = Some(bound.entry.clone());
++        self.prior_impact = prior;
+         self.rec.plan.retain(|item| item.what != What::Crash);
+         self.plan_terminal(t)?;
+         Ok(bound)
+@@ -525,7 +561,7 @@ impl Work<'_, '_> {
+             let found = match self.rec.b.impact {
+                 Some((a, found)) if a == after => found,
+                 _ => {
+-                    let found = next_impact(&self.rec.b, self.doll().surface, after)?;
++                    let found = next_impact(&self.rec.b, self.doll().surface, after, self.prior_impact.take())?;
+                     self.rec.b.impact = Some((after, found));
+                     found
+                 }
+@@ -826,7 +862,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, prior_impact: None };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -863,10 +899,9 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+     };
+     Update { rec: w.rec, retired: w.retired, new_entry: w.new_entry, kind }
+ }
+-
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, prior_impact: None };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+@@ -878,7 +913,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, prior_impact: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+diff --git a/crates/universe/src/view.rs b/crates/universe/src/view.rs
+index b49198a1..9a17a71a 100644
+--- a/crates/universe/src/view.rs
++++ b/crates/universe/src/view.rs
+@@ -273,7 +273,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+         t_now
+     } else {
+         let doll = &u.dolls[rec.b.doll as usize];
+-        crate::step::next_impact(&rec.b, doll.surface, rec.b.event_time).ok().flatten().unwrap_or(rec.b.event_time)
++        crate::step::next_impact(&rec.b, doll.surface, rec.b.event_time, None).ok().flatten().unwrap_or(rec.b.event_time)
+     };
+     let (xo, vo) = match root_state(&ctx, p, t_read) {
+         Ok(x) => x,
+@@ -429,7 +429,7 @@ fn gather_with(u: &Universe, names: &[String], mut cache: Option<&mut ViewCache>
+ /// better than a wrong one: the engine's own refusal is shown elsewhere).
+ fn impact_course(u: &Universe, rec: &crate::body::BodyRec, t_now: Tick) -> Option<Impact> {
+     let doll = &u.dolls[rec.b.doll as usize];
+-    let tick = crate::step::next_impact(&rec.b, doll.surface, t_now.max(rec.b.event_time)).ok().flatten()?;
++    let tick = crate::step::next_impact(&rec.b, doll.surface, t_now.max(rec.b.event_time), None).ok().flatten()?;
+     let (x, v) = rec.b.cartesian(tick).ok()?;
+     let (x, v) = ([to_f64(x[0]), to_f64(x[1])], [to_f64(v[0]), to_f64(v[1])]);
+     let r = dot(x, x).sqrt().max(1e-300);
+@@ -449,7 +449,7 @@ fn loss_cause(u: &Universe, rec: &crate::body::BodyRec) -> String {
+     };
+     let fmt_speed = |b: f64| if b < 0.1 { format!("{:.2} km/s", b * 299_792.458) } else { format!("{:.4} c", b) };
+     // The impact the last tube held (the first tick at or after the last state that is under the surface).
+-    if let Ok(Some(h)) = crate::step::next_impact(&rec.b, doll.surface, t0) {
++    if let Ok(Some(h)) = crate::step::next_impact(&rec.b, doll.surface, t0, None) {
+         if let Some((_, v)) = r_at(h) {
+             let body = if rec.b.doll == 0 { "the star" } else { doll.name };
+             return format!("hit {body} at {} (relative to {body}), at world time {}", fmt_speed(v), clock_text(h as f64 * TICK_SECONDS));
+diff --git a/xtask/Cargo.toml b/xtask/Cargo.toml
+index 64224451..218f5d30 100644
+--- a/xtask/Cargo.toml
++++ b/xtask/Cargo.toml
+@@ -18,3 +18,6 @@ serde_json.workspace = true
+ blake3.workspace = true
+ libc = "0.2"
+ num-traits.workspace = true
++
++[features]
++prof = ["emergent-universe/prof"]
+diff --git a/xtask/src/universe/kick_bench.rs b/xtask/src/universe/kick_bench.rs
+index a24d6e8b..6d097d63 100644
+--- a/xtask/src/universe/kick_bench.rs
++++ b/xtask/src/universe/kick_bench.rs
+@@ -96,6 +96,9 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         frames = n;
+     }
+     let mut all: Vec<f64> = made.iter().chain(leavers.iter()).copied().collect();
++    let (prof_ns, prof_calls) = emergent_universe::prof::take();
++    let (imp_calls, imp_hits) = (prof_calls[emergent_universe::prof::IMPACT], prof_calls[emergent_universe::prof::IMPACT_GUESS]);
++    let imp_us_per_call = if imp_calls > 0 { prof_ns[emergent_universe::prof::IMPACT] as f64 / 1e3 / imp_calls as f64 } else { 0.0 };
+     println!("{}", serde_json::to_string_pretty(&json!({
+         "scope": "one replay per distinct pending ship kick at deterministic 60 Hz plane snapshots; pure resolver only; scheduler/application/view excluded",
+         "seed": s.seed, "rtf_target": s.rtf, "frames": frames, "samples": all.len(),
+@@ -103,6 +106,12 @@ pub(super) fn run(mut s: Session, seconds: f64) -> crate::Result<u8> {
+         "kick_us_leavers": percentiles(&mut leavers),
+         "kick_us_all": percentiles(&mut all),
+         "memo": shapes.json(),
++        "prof_impact": {
++            "note": "next_impact (the crash search): calls, guess-settled calls, their share, us per call (zeros when built without --features prof)",
++            "calls": imp_calls, "guess_settled": imp_hits,
++            "guess_share": if imp_calls > 0 { imp_hits as f64 / imp_calls as f64 } else { 0.0 },
++            "us_per_call": imp_us_per_call
++        },
+         "refused": refused, "replay_digest": digest.finalize().to_hex().to_string(),
+         "digest": s.digest_at_cut().1, "machine_before": machine_before,
+         "machine_after": crate::measure::machine_state("after"), "wall_seconds": wall.elapsed().as_secs_f64()
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..ea693c9f 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,7 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, std::env::var("ES_MEMBERS").ok().and_then(|v| v.parse::<u64>().ok()).filter(|&c| c >= 4).unwrap_or(400)),
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;

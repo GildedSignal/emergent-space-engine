@@ -1,0 +1,55 @@
+== kick-bench arms (one prof binary, off = shipped, on = ES_IMPACT_GUESS=1)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 41.96s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 3 --rtf 1 --seconds 3 --members 4000`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 3 --rtf 1 --seconds 3 --members 4000`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 3 --rtf 1 --seconds 3 --members 1500`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 3 --rtf 1 --seconds 3 --members 1500`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 7 --rtf 1 --seconds 3 --members 1500`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 7 --rtf 1 --seconds 3 --members 1500`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 3 --rtf 100 --seconds 3 --members 400`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 3 --rtf 100 --seconds 3 --members 400`
+== bench arms (plain build, no prof) + pristine digest control
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 40.53s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --bench --seed 3 --rtf 1 --seconds 8 --members 4000`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --bench --seed 3 --rtf 1 --seconds 8 --members 4000`
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/xtask universe --kick-bench --seed 3 --rtf 1 --seconds 3 --members 1500`
+== suite with the guess forced on
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.22s
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 17.21s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.61s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.68s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.24s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 28.21s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.45s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.19s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.48s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.20s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.87s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+== summary (digests must match within each arm pair; us/call is the search)
+kb-m4000-seed3-rtf1: made 62.4->43.2  leavers 363.8->362.7  search 112.1->67.5 us/call  guess_share 0.45  IDENTICAL
+kb-m400-seed3-rtf100: made 38.2->39.1  leavers 199.0->126.7  search 108.4->43.6 us/call  guess_share 0.69  IDENTICAL
+kb-m1500-seed3-rtf1: made 46.9->43.5  leavers 399.0->363.9  search 124.2->72.8 us/call  guess_share 0.42  IDENTICAL
+kb-m1500-seed7-rtf1: made 43.5->42.5  leavers 364.9->366.6  search 111.8->71.9 us/call  guess_share 0.43  IDENTICAL
+bench m4000/s8: digest 2e97e58000cb9fd7 vs 2e97e58000cb9fd7 (IDENTICAL)
+pristine vs prof-off digest: 76624237fc91e312 vs 76624237fc91e312 (IDENTICAL)
