@@ -1,0 +1,4 @@
+Working...
+The run is complete: predictions pre-registered, oracle validated against the shipped increments (the P6 control caught and forced the `q = 1/(p·k)` fix, independently confirmed by exact reproduction of the ladder's cut knots), regen verified from outside the tree, and the wiki page written.
+
+**Claim:** the shipped compile's panel grid (the fixed 2^(-j/16) EDGE ladder) runs **4.8–10.5× above its measured information floor** on the whole expensive band (e ≥ 0.9: shipped 68–284 panels against a 2⁻³⁰-certificate floor of 12–27, itself flat in e) — so the kick's panel-count lever needs no Carlson kernel: an error-equidistributed **integer grid on the same walk machinery cuts the compile 4.8–10.5×**, and the Carlson-built crossing table (closed-form-kernel's open direction 2) is priced dead at 78–1650 µs against the thinned walk's ~14–60 µs.

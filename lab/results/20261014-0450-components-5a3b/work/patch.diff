@@ -1,0 +1,264 @@
+diff --git a/crates/space/examples/p6.rs b/crates/space/examples/p6.rs
+new file mode 100644
+index 00000000..e31e8c1f
+--- /dev/null
++++ b/crates/space/examples/p6.rs
+@@ -0,0 +1,46 @@
++//! Dump knot psis and compare float cumulative integrals to shipped increments.
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++
++fn decode(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++fn encode(x: f64) -> Scalar {
++    let e = x.log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - e)).round() as i128, e - 60).unwrap()
++}
++
++fn main() {
++    let (p, e) = (8.0, 0.1);
++    let ok = OrbitKey::bound(encode(p), (e * 2f64.powi(48)).round() as u64).unwrap();
++    let o = Orbit::compile(ok).unwrap();
++    let k = ok.k as f64 / 2f64.powi(48);
++    let q = 1.0 / p;
++    let node = |psi: f64| {
++        let x = k + (1.0 - k) * psi.cos();
++        let a = 4.0 * k + 2.0 * x;
++        let root = (1.0 - q * a).sqrt();
++        a / (root * (1.0 + root))
++    };
++    let cum = |end: f64| {
++        let n = 40000;
++        let h = end / n as f64;
++        let mut s = 0.0;
++        for i in 0..n {
++            s += node((i as f64 + 0.5) * h);
++        }
++        s * h
++    };
++    println!("last knot psi raw = {}", o.shape().knots().last().unwrap().psi);
++    println!("PI Q61            = {}", 7244019458077122842u64);
++    for kn in o.shape().knots().iter() {
++        let psi61 = kn.psi as f64 / 2f64.powi(61);
++        let psi62 = kn.psi as f64 / 2f64.powi(62);
++        println!(
++            "psi={:>20} asQ61={:.6} asQ62={:.6} Iphi61={:.6} Iphi62={:.6}",
++            kn.psi, psi61, psi62, cum(psi61), cum(psi62)
++        );
++    }
++    // t-channel cumulative at knots via the public crossing_time, last vs period.
++    println!("crossing_time(last)={} period={}", decode(o.crossing_time(o.shape().knots().len() - 1).unwrap()), decode(o.period().unwrap()));
++    println!("advance={}  q*Iphi(pi)={}", decode(o.advance().unwrap()), q * cum(std::f64::consts::PI));
++}
+diff --git a/crates/space/examples/panel_floor.rs b/crates/space/examples/panel_floor.rs
+new file mode 100644
+index 00000000..f416593d
+--- /dev/null
++++ b/crates/space/examples/panel_floor.rs
+@@ -0,0 +1,206 @@
++//! Panel-grid floor of `Orbit::compile` (lab run 20261014-0450-components-5a3b).
++//!
++//! The shipped walk (`OrbitShape::bound`) places panels on a fixed EDGE ladder
++//! (2^(-j/16) band edges in x, CAP = pi/4 chunks, a dyadic cut near the periapsis
++//! layer). This probe measures, per key, how few panels a 4-point Gauss–Legendre
++//! compound rule actually needs to hold the law's ~2^-30 total certificate, by greedy
++//! bisection against a high-order Gauss reference in f64 (floats explore; the shipped
++//! integers are read, not replaced). It also prints the shipped knot count, the shipped
++//! compile's own summed panel error (control P6), and the oracle-vs-increments check.
++use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
++
++fn decode(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++fn encode(x: f64) -> Scalar {
++    let e = x.log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - e)).round() as i128, e - 60).unwrap()
++}
++fn key(p: f64, e: f64) -> Option<OrbitKey> {
++    OrbitKey::bound(encode(p), (e * 2f64.powi(48)).round() as u64).ok()
++}
++
++/// The three channel integrands of `OrbitShape::node`, in f64, as functions of psi.
++struct F { k: f64, q: f64, tn: f64, d: f64 }
++impl F {
++    fn new(k: f64, q: f64) -> Self {
++        let eta = 1.0 - k;
++        let d = k - q * (3.0 * k * k + eta * eta);
++        let tn = k * (1.0 - 2.0 * q) * (1.0 + 2.0 * q * (1.0 - 2.0 * k));
++        F { k, q, tn: tn.sqrt(), d: d.sqrt() }
++    }
++    fn node(&self, psi: f64) -> [f64; 3] {
++        let x = self.k + (1.0 - self.k) * psi.cos();
++        let a = 4.0 * self.k + 2.0 * x;
++        let root = (1.0 - self.q * a).sqrt();
++        let g = 1.0 / root;
++        let excess = a / (root * (1.0 + root));
++        let inv_x2 = 1.0 / (x * x);
++        let t = self.tn * g * inv_x2 / (1.0 - 2.0 * self.q * x);
++        let tau = self.d * g * inv_x2;
++        [excess, t, tau]
++    }
++}
++
++/// Gauss–Legendre n-point nodes/weights on [-1,1] (Newton on the recurrence).
++fn gl(n: usize) -> (Vec<f64>, Vec<f64>) {
++    let mut x = vec![0.0; n];
++    let mut w = vec![0.0; n];
++    for i in 0..(n + 1) / 2 {
++        let mut z = (std::f64::consts::PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
++        for _ in 0..100 {
++            let (mut p0, mut p1) = (1.0, z);
++            for j in 1..n {
++                let p2 = ((2 * j + 1) as f64 * z * p1 - j as f64 * p0) / (j + 1) as f64;
++                p0 = p1;
++                p1 = p2;
++            }
++            let dp = n as f64 * (z * p1 - p0) / (z * z - 1.0);
++            let dz = p1 / dp;
++            z -= dz;
++            if dz.abs() < 1e-15 { break; }
++        }
++        let (mut p0, mut p1) = (1.0, z);
++        for j in 1..n {
++            let p2 = ((2 * j + 1) as f64 * z * p1 - j as f64 * p0) / (j + 1) as f64;
++            p0 = p1;
++            p1 = p2;
++        }
++        let dp = n as f64 * (z * p1 - p0) / (z * z - 1.0);
++        x[i] = -z;
++        x[n - 1 - i] = z;
++        w[i] = 2.0 / ((1.0 - z * z) * dp * dp);
++        w[n - 1 - i] = w[i];
++    }
++    (x, w)
++}
++
++struct Rule { x: Vec<f64>, w: Vec<f64> }
++impl Rule {
++    fn quad(&self, f: &F, a: f64, b: f64) -> [f64; 3] {
++        let h = (b - a) / 2.0;
++        let m = (a + b) / 2.0;
++        let mut s = [0.0f64; 3];
++        for (xi, wi) in self.x.iter().zip(&self.w) {
++            let n = f.node(m + xi * h);
++            for c in 0..3 {
++                s[c] += wi * n[c];
++            }
++        }
++        s.map(|v| v * h)
++    }
++}
++
++fn main() {
++    let g4 = Rule { x: gl(4).0, w: gl(4).1 };
++    let g16 = Rule { x: gl(16).0, w: gl(16).1 };
++    let g32 = Rule { x: gl(32).0, w: gl(32).1 };
++
++    // Key grid: the record's ranges, chosen blind (see predictions.md); p=4.5/6 added
++    // for near-separatrix coverage (P4) before any result was seen.
++    let ps = [4.5, 6.0, 8.0, 20.0, 50.0, 1000.0, 100000.0];
++    let es = [0.0, 0.1, 0.5, 0.9, 0.94, 0.99, 0.999, 0.9999, 0.99999];
++
++    println!("p,e,knots,panels_shipped,compile_us,err_phi_shipped,err_t_shipped,err_tau_shipped,oracle_phi,adv_reldev,per_reldev,prop_reldev,nstar_2^-30,ratio,tol_panel_used");
++    for &p in &ps {
++        for &e in &es {
++            let Some(ok) = key(p, e) else { continue; };
++            let Ok(o) = Orbit::compile(ok) else { continue; };
++            let knots = o.shape().knots();
++            let n_ship = knots.len() - 1;
++            let t0 = std::time::Instant::now();
++            for _ in 0..5 { std::hint::black_box(Orbit::compile(ok).unwrap()); }
++            let compile_us = t0.elapsed().as_secs_f64() / 5.0 * 1e6;
++
++            let k = ok.k as f64 / 2f64.powi(48);
++            // The key stores periapsis·k (semi-latus rectum): q = 1/(p·k).
++            let q = 1.0 / (p * k);
++            let f = F::new(k, q);
++
++            // Oracle totals: GL16 summed over the shipped panels (a single rule over
++            // [0, pi] cannot resolve the apoapsis 1/x^2 layer at high e).
++            let mut total = [0.0f64; 3];
++            {
++                let mut last = 0.0f64;
++                for kn in knots.iter().skip(1) {
++                    let b = kn.psi as f64 / 2f64.powi(61);
++                    let s = g16.quad(&f, last, b);
++                    for c in 0..3 {
++                        total[c] += s[c];
++                    }
++                    last = b;
++                }
++            }
++            // Shipped ladder's own error: sum |G4 - G16| over the shipped panels.
++            let mut ship_err = [0.0f64; 3];
++            let mut last = 0.0f64;
++            for kn in knots.iter().skip(1) {
++                let b = kn.psi as f64 / 2f64.powi(61);
++                let a4 = g4.quad(&f, last, b);
++                let a16 = g16.quad(&f, last, b);
++                for c in 0..3 {
++                    ship_err[c] += (a4[c] - a16[c]).abs();
++                }
++                last = b;
++            }
++            let rel = |v: f64, t: f64| v / t.abs();
++            let mut n_cap = usize::MAX;
++            // period/proper = 2·I·(p·k)^1.5 (time_scale = periapsis·sqrt(periapsis)).
++            let adv = decode(o.advance().unwrap());
++            let per = decode(o.period().unwrap());
++            let prop = decode(o.proper_period().unwrap());
++            let ts = (p * k).powf(1.5);
++            let reldev = |a: f64, b: f64| (a / b - 1.0).abs();
++
++            // Greedy bisection per-panel tolerance; keep the loosest tol whose summed
++            // abs error stays within 2^-30 relative on every channel.
++            let target = 2f64.powi(-30);
++            let mut n_star = usize::MAX;
++            let mut tol_used = 0.0f64;
++            for &tol in &[2f64.powi(-36), 2f64.powi(-34), 2f64.powi(-32), 2f64.powi(-30), 2f64.powi(-28)] {
++                let mut panels: Vec<(f64, f64)> = vec![(0.0, std::f64::consts::PI)];
++                let mut acc = [0.0f64; 3];
++                let mut count = 0usize;
++                let mut i = 0;
++                while i < panels.len() {
++                    let (a, b) = panels[i];
++                    let e4 = g4.quad(&f, a, b);
++                    let e16 = g16.quad(&f, a, b);
++                    let mut worst = 0.0f64;
++                    for c in 0..3 {
++                        worst = worst.max((e4[c] - e16[c]).abs() / total[c].abs());
++                    }
++                    if worst <= tol || (b - a) < 1e-13 {
++                        for c in 0..3 {
++                            acc[c] += (e4[c] - e16[c]).abs();
++                        }
++                        count += 1;
++                        i += 1;
++                    } else {
++                        let m = (a + b) / 2.0;
++                        panels[i] = (a, m);
++                        panels.insert(i + 1, (m, b));
++                    }
++                }
++                let ok_all = (0..3).all(|c| acc[c] / total[c].abs() <= target);
++                if ok_all {
++                    n_star = count;
++                    // Practical floor: the readout's Newton solve caps panels at pi/4.
++                    n_cap = panels.iter().map(|&(a, b)| {
++                        ((b - a) / (std::f64::consts::PI / 4.0)).ceil() as usize
++                    }).sum();
++                    tol_used = tol;
++                }
++            }
++
++            let ratio = n_ship as f64 / n_star as f64;
++            println!(
++                "{p},{e},{},{},{:.1},{:.3e},{:.3e},{:.3e},{:.6e},{:.2e},{:.2e},{:.2e},{},{:.1},{:.1e},{}",
++                knots.len(), n_ship, compile_us,
++                rel(ship_err[0], total[0]), rel(ship_err[1], total[1]), rel(ship_err[2], total[2]),
++                total[0], reldev(adv, 2.0 * q * total[0]), reldev(per, 2.0 * total[1] * ts), reldev(prop, 2.0 * total[2] * ts),
++                n_star, ratio, tol_used, n_cap
++            );
++        }
++    }
++}
