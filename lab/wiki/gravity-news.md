@@ -2,12 +2,59 @@ topic: gravity-news
 status: open
 closed-by:
 valid-while:
-updated: 20261013-2005-scout-d947
+updated: 20261014-1137-redteam-56cd
 
 # Gravity at c: news, the cursor, the version ring
 
 ## Current best
 
+**The fleet doll under thrust is now measured on the shipped frame, and it freezes at the
+escape burn (20261014-1137-redteam-56cd).** representation.md §1's battle doll ("the
+free-fall frame of its centre of mass"), driven through `Battle::burn` (an integer Δv
+kink, the decision's own channel) with the reanchor test's RK4 truth plus the same burn:
+a gentle shared burn (Δv = 0.10 v_c over 0.25 P) is tracked cleanly (0 refusals, group
+shape 0.24% against a 0.20% no-burn control, origin within 0.31 dr of the true COM —
+under the ½a(P/64)² ≈ 3 dr bound, P1 held; burns add no anchors: 193 = 193); an escape
+burn (0.82 v_c) **freezes the doll**: 9 anchors then 56 refused, reason measured
+`"the origin's state is not on a bound orbit"`, and a refused anchor changes nothing —
+no hand-out, no dissolution — while the origin diverges 3,174 dr (3.17 R, unbounded) and
+the stale tube feeds every tide kick (shape 32% wrong); a half-fleet gentle burn
+dissolves the doll cleanly through the size rule (real relative drift 745 dr ≫ r_p/32 =
+31 dr; 12/12 handed out in 3 P, 25% shape on the way out). So the premise holds only
+*between* manoeuvres: the origin's representation (an exact bound geodesic tube) is wrong
+under fleet thrust — the same acceleration slot the payload decided ((x,v,a); the origin
+needs it, not the members, whose law is translation-invariant and carried the split).
+No rung, gate or engine test can see any of this (r5 judges bit-identity of contacts in a
+CW frame with no thrust scene; B8 freezes identically in both orders); the fix is one
+rule in `anchor.rs` (rebind to an unbound tube via the `space` crate's passages, or
+escalate persistent refusal to hand-out/dissolution) plus a fleet-thrust scene in r5.
+Instrument control (kept): a probe bug that burned all 12 members against a 6-of-12
+truth was caught violently — shape 99.9%, origin 1,125 dr.
+
+**Checker's adversarial (this run, same probe extended): the freeze class is larger than
+escape.** A 0.40 v_c prograde burn — still bound (escape is 0.414) — already refuses
+through the weak-field rule (`"the new tube's circular speed exceeds c/4"`: 33 refused,
+shape 9.2%), and the mirror of the tracked arm — retrograde, same 0.10 v_c, same scene —
+trips the same rule (34 refused, 9/12 handed out, shape 893%, origin 6,258 dr): at the
+shipped reanchor scene (nR = c/4 exactly, the test's own constants) a prograde burn keeps
+r_p = R and passes while a retro burn dips the periapsis below R and refuses, so "gentle
+shared burns are tracked" is prograde-at-the-edge only. Escape held to 3 P: 184 refused,
+0 handed out, origin 13,247 dr (13.2 R) — unbounded confirmed; an 11-of-12 escape hands
+the non-burner out at a completed anchor (1) then freezes the 11 burners.
+**Checker2 (independent, same probe extended to two scenes): the freeze is
+scene-independent and the refusal set has four reasons; the safe cone is narrower still.**
+At the edge scene prograde 0.20 v_c already refuses (37, weak-field — the 0.40 arm was
+not needed) and a *radial* 0.10 v_c burn freezes (186 refused, ending "not on a bound
+orbit"); escape held to 5 P: 313 refused, 0 handed out, origin 24,355 dr (24 R), last
+refusal "state outside the tube's integer range". At a relaxed scene (n = 2⁻¹⁵, v_c =
+c/8) the freeze persists (prograde 0.6 v_c: 186 refused; retro 0.2 v_c: 188; escape
+1.64 v_c at 5 P: 319, origin 68 R), with a fourth reason measured — "the new tube turns
+the tide's axis by too much per epoch" (radial 0.2 v_c) — so the freeze class is *any*
+persistent refusal. The dissolution branch can also win the race: an 11-of-12 escape at
+the relaxed scene hands all 12 out at completing anchors (191 anchors, 3 refused, shape
+0.26%): freeze or dissolve depends on whether the size rule fires at a completing
+anchor before the rebind state goes bad. Controls hold at 6 P (origin 0.08 dr, 0
+refusals) at both scenes.
 **The version payload is decided: it must carry the source's total acceleration
 (x, v, a) and nothing more — jerk never enters the field, only the staleness of the
 a-slot (20261013-2005-scout-d947).** The literature anchor, read at source: the
@@ -72,6 +119,15 @@ exist (r5/r6 never frozen; B16 is light-only).
 
 ## Refuted
 
+- **"A battle/fleet is one doll: the free-fall frame of its COM" under its own thrust, as
+  built**: shared escape burn → the rebind refuses ("not on a bound orbit") and a refused
+  anchor changes nothing, so the frame neither tracks nor dissolves (origin 3,174 dr off
+  and growing, tide from the stale tube, shape 32%); half-fleet gentle burn → the doll
+  dissolves through the size rule (12/12 handed out). Gentle shared burns are tracked
+  (20261014-1137-redteam-56cd) — prograde, ≲0.1 v_c, at the edge scene only: the freeze
+  class is any persistent rebind refusal — unbound, weak-field, tide-axis or
+  integer-range (checker2) — and a gentle *retro* or *radial* shared burn already
+  refuses at the shipped scene (checker, checker2).
 - "Naive retardation (pull toward where the source was) is good enough": spirals binaries
   out (Laplace), unbound in 4–12 orbits at β 0.1–0.3, ~170 at 3.3×10⁻³; 1PN-sized spurious
   precession (a237).
@@ -92,26 +148,38 @@ exist (r5/r6 never frozen; B16 is light-only).
 
 ## Open directions
 
-1. **Carry the source's total acceleration on the version** (a237's float payload already
+1. **Fix the frame's origin rule and freeze the fleet-thrust scene in r5**
+   (20261014-1137-redteam-56cd): rebind to an unbound tube (the `space` crate's passage
+   machinery) or escalate persistent refusal to hand-out/dissolution; criterion: under a
+   0.8 v_c shared burn the frame must not freeze (origin within r_p/32 of the members'
+   COM, or all members handed out and the frame dissolved within one anchor age); the
+   shipped refusal behaviour is the negative control. The origin — not the members — is
+   where the (x,v,a) slot lands: the member law is translation-invariant and carried the
+   partial split (the size rule, not the physics, dissolved it).
+   Both refusal classes must be covered: escalation-on-persistent-refusal does; rebinding
+   to an unbound tube alone does not — a bound burn below escape also refuses, through
+   the weak-field rule (checker's 0.40 v_c and retro arms).
+2. **Carry the source's total acceleration on the version** (a237's float payload already
    had the `a` slot, gravitational only; the wired 16 B tube drops it — restore and extend
    to thrust; quadratic readout ≈2 multiply-adds) and freeze `r-news` with the criterion
    above and scout-d947's numbers — the missing instrument for law.md's causality
    primitive (7ab4, scout-d947). The slot is the same one the burn carry and the view's
    field term request (2964: one adoption, three bottlenecks).
-2. **Expressibility before instrumenting the plane:** the plane cannot resolve arrival at
+3. **Expressibility before instrumenting the plane:** the plane cannot resolve arrival at
    stellar scale (kick steps 25–500 ticks vs light delays 4–32) nor express mutual β above
    the star's escape speed — the causal half needs scenes it can bite (e300 E3; 7ab4's
    probe is standalone float; scout-d947's toy likewise).
-3. ~~A causal oracle: the retarded 2PN oracle computation would fix the required payload
+4. ~~A causal oracle: the retarded 2PN oracle computation would fix the required payload
    (acceleration vs jerk)~~ **answered at the field level by the literature (Kinnersley/
    Carlip: acceleration, never jerk) and in float (scout-d947); what remains of the
    oracle question is the strong-field consumer (r = 20M, where the O(v²) extrapolation
    corrections and the direct tide grow) and the burn-profile family (constant-jerk
    programs only were swept; curving burns are where the jerk slot pays — checker) —
    unmeasured.
-4. **The fleet doll under thrust** (adjacent, unmeasured): the dense order's Fermi frame is
-   defined along a geodesic; a burning fleet centre is not on one (7ab4 names it;
-   b-fermi-phase2 owns the build).
+5. ~~**The fleet doll under thrust** (adjacent, unmeasured)~~ **measured**
+   (20261014-1137-redteam-56cd, current best above): what remains with b-fermi-phase2 is
+   the Schwarzschild-tide/geodetic seam and the Galilean recentre at high member speeds
+   (the handoff page's "fast grandchild" hole), both unprobed.
 
 ## Contradictions
 
@@ -122,7 +190,9 @@ agreement numbers of earlier runs are the β_c of their scenes (5×10⁻⁸–10
 not a bound on the mechanism. 7ab4's rebind-scar coefficient form (0.7·β²/2·|δv|) does
 not transfer to the toy's window-sampling channel (toy C = 0.004–0.038, spread 10×,
 tidal-dominated) — different channel, same exponent family in T; kept as a domain note,
-not a conflict.
+not a conflict. The frame-freeze finding composes with (does not contradict) 7ab4's
+½aT²: the frame's rebind is the same channel at the origin, and the freeze is the
+refusal rule on top of it.
 
 ## Runs
 - 20261005-1404-q-gravity-at-c-a237 (silver): news vs inst vs ret on binaries, a star system, flybys, a struck source; Laplace refuted; free-fall news ≡ inst to 10⁻⁷; probe payload (t, x, v, a), quadratic read, gravitational `a` only — thrust-blind as built.
@@ -132,3 +202,7 @@ not a conflict.
 - 20261013-0236-redteam-7ab4 (this run, awaiting grade): the rebind scar law (0.7·β²/2·δv,
 - 20261013-0236-redteam-7ab4 (this run, awaiting grade): the rebind scar law (0.7·β²/2·δv, exponent 1.963) and the thrust-blind tube: ½aT² cadence-invariant, consumer absorbs β²/2 of the burn's Δv; payload must carry total a.
 - 20261013-2005-scout-d947 (this run, awaiting grade): payload decided from Kinnersley/Carlip and measured — (x,v,a) exact at constant thrust (floor), jerk residual ∝ j·T³ (1.8×10⁻⁸ at P/32, β 0.3; T* ≈ P/6.5), jerk slot exactly dead, as-if-now readout's total scar cadence-invariant (3.4×10³× gap).
+- 20261013-0236-redteam-7ab4 (awaiting grade): the rebind scar law (0.7·β²/2·δv,
+- 20261013-0236-redteam-7ab4 (awaiting grade): the rebind scar law (0.7·β²/2·δv, exponent 1.963) and the thrust-blind tube: ½aT² cadence-invariant, consumer absorbs β²/2 of the burn's Δv; payload must carry total a.
+- 20261013-2005-scout-d947 (awaiting grade): payload decided from Kinnersley/Carlip and measured — (x,v,a) exact at constant thrust (floor), jerk residual ∝ j·T³ (1.8×10⁻⁸ at P/32, β 0.3; T* ≈ P/6.5), jerk slot exactly dead, as-if-now readout's total scar cadence-invariant (3.4×10³× gap).
+- 20261014-1137-redteam-56cd (awaiting grade): the fleet doll under thrust measured on the shipped frame: escape burn freezes it (56 refused rebinds, origin 3,174 dr off, shape 32%), half-fleet burn dissolves it, gentle shared burn tracked; no rung sees any of it.
