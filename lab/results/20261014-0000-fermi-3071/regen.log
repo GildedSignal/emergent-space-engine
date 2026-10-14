@@ -1,0 +1,26 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 40.98s
+roster: ticks/game-s=203025, native rate ladder 0.0484..0.00e+00 (1613:1)
+
+== Table 1: the census decomposed (ea91's saved scenes; model = roster-rate x T for natives, measured counts for members)
+tune: T= 3000gs G_all=0.730 (model 0.748) | G(nat) items/kicks=0.718/0.740 vs roster-pred 0.759 | rho=0.940 | members alive 22 dead 26
+ho1: T= 5500gs G_all=0.737 (model 0.740) | G(nat) items/kicks=0.736/0.745 vs roster-pred 0.759 | rho=0.958 | members alive 156 dead 244
+ho2: T= 5500gs G_all=0.715 (model 0.727) | G(nat) items/kicks=0.736/0.745 vs roster-pred 0.759 | rho=0.958 | members alive 15 dead 27
+
+== Table 2: same-rate determinism (native counts, kicks; ea91 saved scenes + held-out)
+tune    T=  3000 orb1,2=(73,73) orb3-5=(36,36,36) sk2,3=(9,9) player=95
+ho1     T=  5500 orb1,2=(133,133) orb3-5=(67,67,67) sk2,3=(17,17) player=202
+ho2     T=  5500 orb1,2=(133,133) orb3-5=(67,67,67) sk2,3=(17,17) player=202
+ho1rep  T=  5500 orb1,2=(133,133) orb3-5=(67,67,67) sk2,3=(17,17) player=202
+hoA     T=  5500 orb1,2=(133,133) orb3-5=(67,67,67) sk2,3=(17,17) player=202
+hoB     T= 11000 orb1,2=(266,266) orb3-5=(133,133,133) sk2,3=(33,33) player=164
+
+== Table 3: held-out scorecard
+A (seed 11 m120 55s): G_all=0.721 in [.64,.78]? True | G(nat)=0.736 in [.70,.78]? True | rho=0.958>=0.93? True | dead frac=0.47 in [.45,.70]? True | alive h2 med=2<=5? True
+B (seed 3 m400 rtf200 55s, T=11000): orb12 533,533 = 2x(267,267)? True | orb345 267,267,267 = 2x134? True | G(nat)=0.713 band [.716,.756]? False (player 350 vs 2x417: schedule-bound) | G_all=0.753 vs predicted <0.737: FAILED (rose; per-second rate 2.4/s vs 3.7/s amortized) | zipf=-1.59 in [-2.3,-1.5]? True
+
+== Table 4: counter choice (items vs kicks) changes nothing
+ho1     G_all items=0.737 kicks=0.759 | zipf items=-1.58 kicks=-1.61
+hoA     G_all items=0.721 kicks=0.736 | zipf items=-1.68 kicks=-1.71
+hoB     G_all items=0.753 kicks=0.771 | zipf items=-1.59 kicks=-1.57
