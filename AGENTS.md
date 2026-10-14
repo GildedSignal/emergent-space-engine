@@ -17,7 +17,7 @@
 
 - **Skunk Works, physics first** (Julien, 30 September: the SR-71's way). Speed to the finished product is the measure, and overhead costs the integrator's attention. The integrator reads code and gate output, not reports; reports are minimal; each builder tests its own product; the product flies early (Julien plays the slice as soon as it exists). At least 60% of each Claude and Astra window goes to the plan's steps, and no process change lands without a physics merge since the last one.
 - **Comparative advantage, and spend every provider's usage.** Check it with `get_usage` for Claude, the rollout `rate_limits` for Codex, and `omp usage` for GLM.
-  - **Claude Opus**, the integrator: taste and divergent thinking, judgement, contracts, adjudication, merges, the journal. It never builds as a sub-agent.
+  - **Claude Opus**, the integrator (taste and divergent thinking, judgement, contracts, adjudication, merges, the journal), and as a sub-agent the strongest Claude builder, for the hardest Claude-side jobs (Julien, 14 October: "opus can certaintly be used as a sub-agent, it is a great one").
   - **gpt-6.1-sol:** most of the building (close to Astra, about 5× cheaper).
   - **gpt-6-astra:** reserved for the hard, convergent, math-like work: exact algorithms, proofs. It consumes tokens fastest, and every Astra token is one Sol cannot spend (opportunity cost; the same holds for Opus against Sonnet), so reviews and audits go to Sol or Sonnet.
   - **Claude Sonnet**, as sub-agents: the Claude-side builder, including every judge of OpenAI's modules.
@@ -33,7 +33,7 @@
   - Every specialist prompt begins with PRINCIPLES.md's goal and philosophy, verbatim.
   - No time estimates: progress is a rough % and principles. A step whose builder passes no new gate across two consecutive work windows stops and is re-derived from the goal instead of extended.
   - Every statement of Julien's enters the register in PRINCIPLES.md, and stays until it is followed or disproven with evidence.
-- **Specialists** work in `/private/tmp/emergent-wt-<task>` on `wt/<task>`, and job files live in `artifacts/runs/<id>/`. The integrator merges, then deletes the branch and worktree. Heavy work that needs neither Metal nor timing may run in a cloud session.
+- **Specialists** work in `~/Research/emergent-wt/<task>` on `wt/<task>` (never `/private/tmp`: a restart wiped it on 14 October), and job files live in `artifacts/runs/<id>/`. The integrator merges, then deletes the branch and worktree. Heavy work that needs neither Metal nor timing may run in a cloud session.
 
 ## Workspace
 

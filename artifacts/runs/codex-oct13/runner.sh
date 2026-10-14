@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Codex continues jobs that a Claude builder started (Julien, 13 October: "use gpt a lot"). Never merges.
 # Usage: runner.sh <lane>; queue-<lane>.txt lines: <job> <model> <effort> <job file> [<base branch for a new worktree>]
-# A job runs in /private/tmp/emergent-wt-<job> on wt/<job>: the existing worktree if there is one, else a new one from
+# A job runs in ~/Research/emergent-wt/<job> on wt/<job> (never /private/tmp: a restart wiped it on 14 October): the existing worktree if there is one, else a new one from
 # the base (default origin/main). On a usage limit it waits 45 min and resumes. Then it commits and pushes the branch.
 R=$HOME/Research/emergent-space; C=/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex
 D=$R/artifacts/runs/codex-oct13; LANE=$1; Q=$D/queue-$LANE.txt; S=$D/status-$LANE.txt
@@ -15,7 +15,7 @@ log "lane $LANE started"
 while read -r job model effort file base; do
   [ -n "$job" ] || continue
   grep -q " done $job\$" $S 2>/dev/null && continue
-  W=/private/tmp/emergent-wt-$job; J=$D/$job; mkdir -p $J
+  W=$HOME/Research/emergent-wt/$job; J=$D/$job; mkdir -p $J $HOME/Research/emergent-wt
   cd $R && git fetch -q origin
   if [ -d $W ]; then cont=1; else cont=0; git worktree add -q -B wt/$job $W ${base:-origin/main}; fi
   { cat $R/$file
