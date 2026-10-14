@@ -1,0 +1,29 @@
+{
+  "source": "source-law.md B12 row (origin/main snapshot recorded in provenance.json)",
+  "horizon_periods": 10000,
+  "samples_per_period": 8,
+  "integer_scale": 1099511627776,
+  "integerization": "signed (C(t)-C0)/abs(C0), nearest ties-to-even Q40",
+  "allan": "nonoverlapping lab R1, discard t=0, exact rational AVAR(T/4)>AVAR(T/32)",
+  "alpha": "running maxima at 1,10,100,1000,10000 P; FAIL iff M10000^5>10*M1000^5 above floor",
+  "floor": "Q40 magnitude * 10^12 <= 2^40",
+  "cap": "Q40 magnitude * 10000 <= 2^40",
+  "disagreement": "reported per ship, UNRESOLVED; never pooled into PASS",
+  "controls": {
+    "echo": "PASS",
+    "planted-bounded": "PASS",
+    "planted-detuned": "PASS",
+    "planted-compound": "FAIL",
+    "planted-slow-leak": "FAIL",
+    "planted-drift": "FAIL"
+  },
+  "detuned_control": {
+    "amplitude": 1e-07,
+    "period_planet_periods": 100.001
+  },
+  "slow_leak_per_horizon": 2e-10,
+  "window_prerequisites": "T>=4*P_max and T>=16*tau_c. External B12_WINDOW_FILE records p_max_samples/tau_c_samples for 16 ships. Absent bounds: UNVERIFIED, no qualification. reference_periods>=10000 and closest_planet_radius_q40>=2^40 are also required for extended surface-domain qualification.",
+  "corpus_limit": "unchanged exact inputs; offline convergence/surface/replica assessment covers 200 P only. No long-horizon qualification claimed.",
+  "injection": "delivery checked; both per-ship readings recorded for each injection; sensitivity diagnostic, not a new frozen threshold",
+  "stop": "no threshold or law tuning after the control measurements"
+}

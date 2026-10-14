@@ -1,7 +1,8 @@
-//! Candidate B12 detector; local-affine slow-state adjustment, then exposure ranks.
+//! Retired v2 statistic retained for pairing/leak-fit diagnostics and injection.
 //! Adapted from GLM 20261006-1545-q-b12-design-9242. Its published variance was
 //! twice too large for a ship and inconsistent in the pool. Rank scores here
 //! are diagnostics, NOT independent-sample significance: returns are correlated.
+#![allow(dead_code)] // Retained v2 diagnostics; the pooled verdict is deleted.
 use super::handoff::{COARSE, FLOOR, PERIODS};
 use super::restricted::Restricted;
 // A recurrence within one standard deviation in normalized slow state.
@@ -319,22 +320,4 @@ pub fn inject_leak(
             }
         })
         .collect()
-}
-
-/// Reference normalization, not an unconditional significance calculation.
-pub fn pooled_score(stats: &[ShipStat]) -> f64 {
-    let (mut sum, mut variance) = (0.0, 0.0);
-    for st in stats {
-        if st.above_floor && st.n >= MIN_PAIRS && !st.bad {
-            let n = st.n as f64;
-            let w = (n * (n - 1.0) * (2.0 * n + 5.0) / 18.0).sqrt();
-            sum += st.z * w;
-            variance += w * w;
-        }
-    }
-    if variance > 0.0 {
-        sum / variance.sqrt()
-    } else {
-        0.0
-    }
 }

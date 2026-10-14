@@ -1,0 +1,221 @@
+{
+  "status": "STOPPED: not qualified; no threshold tuning",
+  "trigger": "echo 2/16 incomplete at 10000 P; bounded also completed and both instruments rejected 10/14; detuned interrupted",
+  "scope": "B12 v3 only; no crates, law row, handoff, wiki or other gates changed. B12 door timeout exemption and marking full-B12 integration tests ignored are included.",
+  "tests": "9 passed, 5 ignored, <=0.01 s execution; history check PASS 215; git diff --check PASS",
+  "qualifications_missing": [
+    "P_max and tau_c bounds",
+    "10000 P reference surface assessment; v2 corpus covers 200 P only"
+  ],
+  "source_hashes": {
+    "xtask/src/behave/b12_instruments.rs": "71e2e84f1f47e973ee2825899a7fae89b43e2820cb14cfd508370985022040ab",
+    "xtask/src/behave/handoff.rs": "5d0982f04be3473478f25ea3cbabd164c5df05bf5b56a98cf2c7fe11b7bca51d",
+    "xtask/src/behave/b12_stat.rs": "b6070182beeeb99874f0dcb2e54f05fe52f123d75a761548140cb5d7b2886893",
+    "xtask/src/behave/laws.rs": "12d8e0d5a28f972659c6b4c5d19dfb6ba87f9c243ca2c10c8cc1b84547344f1c",
+    "xtask/src/behave/mod.rs": "7de258710151ad2897158d64b0888d0a87050b3d58c0a9c7b889bc0c7d971529",
+    "xtask/src/behave/b12_corpus.json": "4473d56e5ff0f6f94760dc668103198170bdd147fcb04b3e0591c63851c01c1a"
+  },
+  "results": [
+    {
+      "law": "echo",
+      "before": "B12 PASS handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 0.000 (limit 5, NOT a correlated-return confidence level); worst err 2.03e-15 (limit 1e-4); pairs 6438 (1312 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 3.09e-16, maximum fitted leak 1.20e-15/horizon; injected leak arrow 52.382, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN [2.33 s]",
+      "after": "B12 FAIL handoffs v3: 16 recorded ships; horizon 10000 P; signed relative Jacobi Q40; worst err 9.09e-13 (integer cap 1/10000); 2 missing/junk, 0 both-fail, 0 instrument disagreements, 2 envelope failures; Allan R1 {\"fail\":0,\"infinite_ratio\":0,\"median_finite\":0.36695075757575757,\"n\":16,\"numeric_n\":1,\"worst_finite\":0.36695075757575757,\"zero_short_variance\":15}; alpha top {\"fail\":0,\"infinite_ratio\":1,\"median_finite\":0.0,\"n\":16,\"numeric_n\":13,\"worst_finite\":0.0,\"zero_short_variance\":16}; window domain UNVERIFIED (T >= 4 P_max, T >= 16 tau_c); corpus provenance: assessed at 200 P (crossings min 20, closest 1.04 Rp, converged 16/16), extended-horizon surface domain UNVERIFIED; injected 2e-10/horizon: UNSUPPORTED (7 undelivered); readings FAIL; NOT QUALIFIED [18.95 s]",
+      "requested_ships": 16,
+      "reported_ships": 16,
+      "complete_ships": 14,
+      "missing_ordinals": [
+        6,
+        12
+      ],
+      "allan": {
+        "n": 14,
+        "fail": 0,
+        "missing": 2,
+        "finite_n": 1,
+        "worst_finite": 0.36695075757575757,
+        "median_finite": 0.36695075757575757,
+        "undefined": 13
+      },
+      "alpha": {
+        "n": 14,
+        "fail": 0,
+        "missing": 2,
+        "finite_n": 13,
+        "worst_finite": 0.0,
+        "median_finite": 0.0,
+        "undefined": 1
+      }
+    },
+    {
+      "law": "planted-bounded",
+      "before": "B12 PASS handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow -2.806 (limit 5, NOT a correlated-return confidence level); worst err 5.22e-6 (limit 1e-4); pairs 6439 (0 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 1.24e-11, maximum fitted leak 2.64e-10/horizon; injected leak arrow 49.155, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN [2.21 s]",
+      "after": "B12 FAIL handoffs v3: 16 recorded ships; horizon 10000 P; signed relative Jacobi Q40; worst err 1.32e-5 (integer cap 1/10000); 2 missing/junk, 10 both-fail, 4 instrument disagreements, 2 envelope failures; Allan R1 {\"fail\":14,\"infinite_ratio\":0,\"median_finite\":9.440669216464283,\"n\":16,\"numeric_n\":14,\"worst_finite\":24.850638177981764,\"zero_short_variance\":2}; alpha top {\"fail\":10,\"infinite_ratio\":0,\"median_finite\":0.44124013551222346,\"n\":16,\"numeric_n\":14,\"worst_finite\":0.7100989312474975,\"zero_short_variance\":2}; window domain UNVERIFIED (T >= 4 P_max, T >= 16 tau_c); corpus provenance: assessed at 200 P (crossings min 20, closest 1.04 Rp, converged 16/16), extended-horizon surface domain UNVERIFIED; injected 2e-10/horizon: UNSUPPORTED (7 undelivered); readings FAIL; NOT QUALIFIED [20.64 s]",
+      "requested_ships": 16,
+      "reported_ships": 16,
+      "complete_ships": 14,
+      "missing_ordinals": [
+        6,
+        12
+      ],
+      "allan": {
+        "n": 14,
+        "fail": 14,
+        "missing": 2,
+        "finite_n": 14,
+        "worst_finite": 24.850638177981764,
+        "median_finite": 9.440669216464283,
+        "undefined": 0
+      },
+      "alpha": {
+        "n": 14,
+        "fail": 10,
+        "missing": 2,
+        "finite_n": 14,
+        "worst_finite": 0.7100989312474975,
+        "median_finite": 0.44124013551222346,
+        "undefined": 0
+      }
+    },
+    {
+      "law": "planted-detuned",
+      "before": "B12 FAIL handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow -10.031 (limit 5, NOT a correlated-return confidence level); worst err 1.00e-7 (limit 1e-4); pairs 6438 (0 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 1.05e-7, maximum fitted leak 5.03e-7/horizon; injected leak arrow -10.060, sensitivity UNSUPPORTED (0 undelivered injections); candidate, NOT FROZEN [2.27 s]",
+      "after": "INTERRUPTED",
+      "requested_ships": 16,
+      "reported_ships": 10,
+      "complete_ships": 9,
+      "missing_ordinals": [
+        6
+      ],
+      "allan": {
+        "n": 9,
+        "fail": 0,
+        "missing": 1,
+        "finite_n": 9,
+        "worst_finite": 0.00020460969788685973,
+        "median_finite": 2.260020169969148e-09,
+        "undefined": 0
+      },
+      "alpha": {
+        "n": 9,
+        "fail": 0,
+        "missing": 1,
+        "finite_n": 9,
+        "worst_finite": 0.000552633003432554,
+        "median_finite": 3.949873188644535e-06,
+        "undefined": 0
+      }
+    },
+    {
+      "law": "planted-compound",
+      "before": "B12 FAIL handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 16.714 (limit 5, NOT a correlated-return confidence level); worst err 7.46e-7 (limit 1e-4); pairs 6438 (147 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 3.90e-7, maximum fitted leak 8.41e-7/horizon; injected leak arrow 16.717, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN [2.41 s]",
+      "after": "NOT RUN: required stop on control failure",
+      "requested_ships": 16,
+      "reported_ships": 0,
+      "complete_ships": 0,
+      "missing_ordinals": [],
+      "allan": {
+        "n": 0,
+        "fail": 0,
+        "missing": 0,
+        "finite_n": 0,
+        "worst_finite": null,
+        "median_finite": null,
+        "undefined": 0
+      },
+      "alpha": {
+        "n": 0,
+        "fail": 0,
+        "missing": 0,
+        "finite_n": 0,
+        "worst_finite": null,
+        "median_finite": null,
+        "undefined": 0
+      }
+    },
+    {
+      "law": "planted-slow-leak",
+      "before": "B12 FAIL handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 52.382 (limit 5, NOT a correlated-return confidence level); worst err 2.00e-10 (limit 1e-4); pairs 6438 (0 exact ties), maximum pair-gap mean 119.6 P, maximum ship median residual 1.22e-10, maximum fitted leak 2.00e-10/horizon; injected leak arrow 52.381, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN [3.56 s]",
+      "after": "NOT RUN: required stop on control failure",
+      "requested_ships": 16,
+      "reported_ships": 0,
+      "complete_ships": 0,
+      "missing_ordinals": [],
+      "allan": {
+        "n": 0,
+        "fail": 0,
+        "missing": 0,
+        "finite_n": 0,
+        "worst_finite": null,
+        "median_finite": null,
+        "undefined": 0
+      },
+      "alpha": {
+        "n": 0,
+        "fail": 0,
+        "missing": 0,
+        "finite_n": 0,
+        "worst_finite": null,
+        "median_finite": null,
+        "undefined": 0
+      }
+    },
+    {
+      "law": "planted-drift",
+      "before": "B12 FAIL handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow 51.654 (limit 5, NOT a correlated-return confidence level); worst err 3.81e-10 (limit 1e-4); pairs 7230 (0 exact ties), maximum pair-gap mean 106.9 P, maximum ship median residual 1.46e-10, maximum fitted leak 4.72e-10/horizon; injected leak arrow 68.349, sensitivity RESOLVED (0 undelivered injections); candidate, NOT FROZEN [2.28 s]",
+      "after": "NOT RUN: required stop on control failure",
+      "requested_ships": 16,
+      "reported_ships": 0,
+      "complete_ships": 0,
+      "missing_ordinals": [],
+      "allan": {
+        "n": 0,
+        "fail": 0,
+        "missing": 0,
+        "finite_n": 0,
+        "worst_finite": null,
+        "median_finite": null,
+        "undefined": 0
+      },
+      "alpha": {
+        "n": 0,
+        "fail": 0,
+        "missing": 0,
+        "finite_n": 0,
+        "worst_finite": null,
+        "median_finite": null,
+        "undefined": 0
+      }
+    },
+    {
+      "law": "plane",
+      "before": "B12 FAIL handoffs: 16 recorded ships, nominal R_SOI crossings 20..44, replica median >= 20, closest primary reference 1.04 R_p; horizon 200 P, detectable linear leak 2.0e-10/horizon; 1 perturbation-stable surviving fates, 15 split fates use uninterrupted point-mass histories; 0 missing/junk, 0 stable-fate failures, 0 unresolved above-floor histories; conditional arrow -5.251 (limit 5, NOT a correlated-return confidence level); worst err 3.05e-6 (limit 1e-4); pairs 7524 (0 exact ties), maximum pair-gap mean 120.6 P, maximum ship median residual 4.81e-8, maximum fitted leak 4.07e-8/horizon; injected leak arrow -5.291, sensitivity UNSUPPORTED (0 undelivered injections); candidate, NOT FROZEN [51.34 s]",
+      "after": "NOT RUN: required stop on control failure",
+      "requested_ships": 16,
+      "reported_ships": 0,
+      "complete_ships": 0,
+      "missing_ordinals": [],
+      "allan": {
+        "n": 0,
+        "fail": 0,
+        "missing": 0,
+        "finite_n": 0,
+        "worst_finite": null,
+        "median_finite": null,
+        "undefined": 0
+      },
+      "alpha": {
+        "n": 0,
+        "fail": 0,
+        "missing": 0,
+        "finite_n": 0,
+        "worst_finite": null,
+        "median_finite": null,
+        "undefined": 0
+      }
+    }
+  ],
+  "machine": {
+    "uname": "Darwin arm64",
+    "note": "Machine_state recorded in each log. Hardware/load/swap denied by sandbox; thermal API unavailable. AC power."
+  }
+}

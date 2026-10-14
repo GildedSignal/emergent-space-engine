@@ -440,6 +440,8 @@ pub fn by_name(name: &str) -> Option<Box<dyn Law>> {
     Some(match name {
         "space" => Box::new(super::space::Space::default()),
         "echo" => Box::new(Echo),
+        "planted-detuned" => Box::new(super::handoff::control(true)),
+        "planted-slow-leak" => Box::new(super::handoff::control(false)),
         "planted-precession" => Box::new(Planted(Fault::Precession)),
         "planted-walk" => Box::new(Planted(Fault::Walk)),
         "planted-nocapture" => Box::new(Planted(Fault::NoCapture)),

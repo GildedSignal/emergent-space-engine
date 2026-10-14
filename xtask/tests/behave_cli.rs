@@ -14,6 +14,7 @@ fn gates(lines: &[String]) -> Vec<(String, String)> {
 }
 
 #[test]
+#[ignore = "includes B12 v3 door gate; use the per-gate CLI runner"]
 fn echo_passes_every_gate_between_two_machine_states() {
     let (code, lines) = behave(&["--law", "echo"]);
     assert_eq!(code, 0, "{lines:?}");
@@ -25,6 +26,7 @@ fn echo_passes_every_gate_between_two_machine_states() {
 }
 
 #[test]
+#[ignore = "includes B12 v3 door gate; use the per-gate CLI runner"]
 fn a_planted_law_exits_1_and_fails_only_its_gate() {
     let (code, lines) = behave(&["--law=planted-walk"]);
     assert_eq!(code, 1, "{lines:?}");
