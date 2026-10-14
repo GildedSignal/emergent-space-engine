@@ -1,0 +1,351 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..eb9caa46 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -115,6 +115,7 @@ pub struct Binding {
+ /// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+ /// the radius and the proper time out; angles and velocities are the same in both).
+ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++    let t_row = crate::prof::t();
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let mut elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+@@ -129,6 +130,7 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
+         state.radius = entry.unit.to_doll(state.radius)?;
+         state.proper_time = entry.unit.to_doll(state.proper_time)?;
+     }
++    crate::prof::add(crate::prof::K_ROWF, t_row);
+     Ok((cartesian(state, tube.periapsis_angle, entry.clockwise, units)?, state))
+ }
+ 
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..7b4de66e 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -30,7 +30,28 @@ pub const H_BIND: usize = 21;
+ pub const H_REPLAN: usize = 22;
+ /// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+ pub const FIT2: usize = 23;
+-pub const N: usize = 24;
++/// The fired kick's interior, the sub-stage decomposition: readout+scalars, secondaries+tide, force, quantize.
++pub const K_READ: usize = 24;
++pub const K_SECS: usize = 25;
++pub const K_FORCE: usize = 26;
++pub const K_QUANT: usize = 27;
++/// `rebind`'s non-fit part: the tau pair, the retired clone, the entry clones.
++pub const K_REST: usize = 28;
++/// `plan_terminal` whole, `next_impact`'s search inside it.
++pub const K_TERM: usize = 29;
++/// `next_impact`'s search (a bisection whose every step is an `orbit_state`).
++pub const K_IMP: usize = 30;
++/// The kick's word quantize after the rebind.
++pub const K_WORD: usize = 31;
++/// Every `decode` readout wherever it runs (the searches' readouts nest here).
++pub const K_ROWF: usize = 32;
++/// `next_impact`'s `inside` predicate evaluations: exactly the readouts a search spends.
++pub const K_PING: usize = 33;
++/// Warm-started searches (`ES_IMP_WARM`): the retired tube's crash tick as the gallop's start.
++pub const K_WARM: usize = 34;
++/// Warm gallops that reached the cold bracket's edge (the hint failed to localize the boundary).
++pub const K_FB: usize = 35;
++pub const N: usize = 36;
+ 
+ pub const NAMES: [&str; N] = [
+     "rekey (all deadlines)",
+@@ -57,6 +78,18 @@ pub const NAMES: [&str; N] = [
+     "  hand-out: bind (the member as a tube)",
+     "  hand-out: first plan (replan)",
+     "  fit again: the coarser word (bind_surface)",
++    "  kick: readout + scalars",
++    "  kick: secondaries + tide",
++    "  kick: force::acceleration",
++    "  kick: quantize/burn before the rebind",
++    "  rebind non-fit: tau pair, retire, entry clones",
++    "  plan_terminal (terminal/impact search)",
++    "  next_impact bisection",
++    "  kick: word quantize after the rebind",
++    "  orbit_state/readout family (decode, all callers)",
++    "  impact predicate evaluations (the searches' readouts)",
++    "  warm impact search (gallop from the retired crash tick)",
++    "  warm gallop fallback (reached the cold bracket's edge)",
+ ];
+ 
+ #[cfg(feature = "prof")]
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..30454f12 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -283,12 +283,34 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+ /// tick of its fall.
+ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
++    next_impact_from(b, surface, after, None)
++}
++
++/// Whether the warm start is on: `ES_IMP_WARM` in the environment (a probe; unset, the search is the shipped cold one).
++fn impact_warm_on() -> bool {
++    static G: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_IMP_WARM").is_ok());
++    *G
++}
++
++/// [`next_impact`], with `warm` — the crash tick the *retired* tube of this body already found — as the
++/// search's starting point. A rebind drops the memo (`impact: None`) and `plan_terminal` rebuys the whole
++/// half-orbit bisection; but the kicked tube's boundary lies near the retired tube's (the kick's `Δv` is
++/// quanta), so the search gallops out from `warm`, doubling its reach until the readings change sign, and
++/// bisects only the span it bounded. Exact by the same monotone fall the cold search leans on (the comment
++/// above): a bracket whose lower end reads out and whose upper end reads in holds the same unique boundary
++/// the cold bracket does, so the tick returned is the cold search's tick, bit for bit; a gallop that reaches
++/// the cold bracket's edge (counted) simply pays the cold width plus the gallop. `None` for `warm`, or the
++/// probe off, runs the shipped search verbatim.
++pub fn next_impact_from(b: &Binding, surface: Scalar, after: Tick, warm: Option<Tick>) -> Res<Option<Tick>> {
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+     if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
+         return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+     }
+     // The engine's own reading (the turned tube plus its remainder), the one a kick or a crash checks the surface with.
+-    let inside = |t: Tick| -> Res<bool> { Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface) };
++    let inside = |t: Tick| -> Res<bool> {
++        crate::prof::count(crate::prof::K_PING);
++        Ok(norm2(scalars(&b.readout(t)?)?.0)? < surface)
++    };
+     if inside(after)? {
+         return Ok(Some(after));
+     }
+@@ -302,19 +324,61 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+         Trajectory::Plunge(_) => return Ok(None), // returned above
+     };
+     let half = i64::try_from(b.to_doll(whole.scale(-1)?)?.fixed_ceil(-(b.clock_exp as i32))?).map_err(|_| Error::Refused("half period"))?;
+-    let (mut lo, mut hi) = (after.max(tp.saturating_sub(half)), tp);
++    // The cold bracket: the fall branch from the apoapsis (or `after`, if later) to the periapsis.
++    let (lo, hi) = (after.max(tp.saturating_sub(half)), tp);
+     if !inside(hi)? {
+         return Ok(None);
+     }
+-    while hi - lo > 1 {
+-        let mid = lo + (hi - lo) / 2;
+-        if inside(mid)? {
+-            hi = mid;
+-        } else {
+-            lo = mid;
++    let bisect = |mut lo: i64, mut hi: i64| -> Res<Tick> {
++        while hi - lo > 1 {
++            let mid = lo + (hi - lo) / 2;
++            if inside(mid)? {
++                hi = mid;
++            } else {
++                lo = mid;
++            }
+         }
++        Ok(hi)
++    };
++    if let Some(w) = warm.filter(|_| impact_warm_on()) {
++        crate::prof::count(crate::prof::K_WARM);
++        // Inside the fall bracket the boundary is the unique sign change of `inside`, so one reading at the
++        // the retired tick tells which side it fell to, and a gallop of doubling steps bounds it; reaching an edge
++        // of the cold bracket instead (counted) leaves the cold width to bisect.
++        let w = w.max(lo).min(hi);
++        let side = if w == hi { true } else { inside(w)? };
++        if side {
++            // The boundary is at or before `w`: gallop down for the first reading out.
++            let mut k = 1i64;
++            let l = loop {
++                let cand = w.saturating_sub(k);
++                if cand <= lo {
++                    crate::prof::count(crate::prof::K_FB);
++                    break lo;
++                }
++                if !inside(cand)? {
++                    break cand;
++                }
++                k <<= 1;
++            };
++            return Ok(Some(bisect(l, w)?));
++        }
++        // The boundary is after `w`: gallop up for the first reading in.
++        let mut k = 1i64;
++        let h = loop {
++            let cand = w.saturating_add(k);
++            if cand >= hi {
++                crate::prof::count(crate::prof::K_FB);
++                break hi;
++            }
++            if inside(cand)? {
++                break cand;
++            }
++            k <<= 1;
++        };
++        return Ok(Some(bisect(w, h)?));
+     }
+-    Ok(Some(hi))
++    Ok(Some(bisect(lo, hi)?))
+ }
+ 
+ /// The proper time (root units) a binding's tube has run between `since` (or its binding event, if later)
+@@ -336,6 +400,9 @@ struct Work<'a, 'c> {
+     rec: BodyRec,
+     retired: Vec<Segment>,
+     new_entry: Option<Arc<Entry>>,
++    /// The crash tick the binding being replaced already found (its `impact` memo), if it is in the same
++    /// doll: the warm start of the next `next_impact` search. Set by [`Work::rebind`], read once.
++    warm: Option<Tick>,
+ }
+ 
+ impl Work<'_, '_> {
+@@ -356,12 +423,17 @@ impl Work<'_, '_> {
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
++        let t_rest = crate::prof::t();
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+         let root_tau = tau.scale(-(self.ctx.dolls[old.doll as usize].shift as i32))?;
+         self.rec.proper = self.rec.proper.add(root_tau)?;
+         self.retired.push(Segment { b: old.clone(), until: t });
++        // The retired tube's crash tick is the warm start of the search the new binding is about to run:
++        // the memo itself is dropped below (a stale impact must never outlive its orbit), but its tick is
++        // a fact about where the boundary lies, and the kicked tube's boundary lies near it.
++        let warm = if old.doll == doll { old.impact.and_then(|(_, found)| found) } else { None };
+         self.rec.b = Binding {
+             doll,
+             tube: bound.tube,
+@@ -374,9 +446,13 @@ impl Work<'_, '_> {
+             kick: Kick::NONE,
+             impact: None,
+         };
++        self.warm = warm;
+         self.new_entry = Some(bound.entry.clone());
++        crate::prof::add(crate::prof::K_REST, t_rest);
++        let t_term = crate::prof::t();
+         self.rec.plan.retain(|item| item.what != What::Crash);
+         self.plan_terminal(t)?;
++        crate::prof::add(crate::prof::K_TERM, t_term);
+         Ok(bound)
+     }
+ 
+@@ -404,17 +480,24 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let t_read = crate::prof::t();
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
++        crate::prof::add(crate::prof::K_READ, t_read);
+         let d = self.rec.b.doll;
++        let t_secs = crate::prof::t();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
++        crate::prof::add(crate::prof::K_SECS, t_secs);
++        let t_force = crate::prof::t();
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
++        crate::prof::add(crate::prof::K_FORCE, t_force);
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+         let added;
++        let t_quant = crate::prof::t();
+         let next = if thrusting {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+@@ -425,20 +508,24 @@ impl Work<'_, '_> {
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
++                crate::prof::add(crate::prof::K_QUANT, t_quant);
+                 return Ok(());
+             }
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
++        crate::prof::add(crate::prof::K_QUANT, t_quant);
+         self.rebind(next, t, d)?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
++        let t_word = crate::prof::t();
+         let ve = self.rec.b.units.1 as i32;
+         let q = |s: Scalar| -> Res<i64> { i64::try_from(s.fixed(-ve)?).map_err(|_| Error::Refused("kick outside the word")) };
+         // (A kick that does not fit the word's quanta leaves no ramp: the rebinding stands either way.)
+         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
+             self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
+         }
++        crate::prof::add(crate::prof::K_WORD, t_word);
+         Ok(())
+     }
+ 
+@@ -525,7 +612,9 @@ impl Work<'_, '_> {
+             let found = match self.rec.b.impact {
+                 Some((a, found)) if a == after => found,
+                 _ => {
+-                    let found = next_impact(&self.rec.b, self.doll().surface, after)?;
++                    let t_imp = crate::prof::t();
++                    let found = next_impact_from(&self.rec.b, self.doll().surface, after, self.warm.take())?;
++                    crate::prof::add(crate::prof::K_IMP, t_imp);
+                     self.rec.b.impact = Some((after, found));
+                     found
+                 }
+@@ -826,7 +915,7 @@ impl Work<'_, '_> {
+ /// Resolve body `i`'s next item against the context. Pure: it reads other bodies' tubes at the
+ /// item's tick and returns the new record; the universe applies it.
+ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, warm: None };
+     let item = w.rec.plan.remove(0);
+     w.rec.events += 1;
+     let t = item.t;
+@@ -866,7 +955,7 @@ pub fn process(ctx: &Ctx, i: usize, rec: BodyRec) -> Update {
+ 
+ /// Plan a body's first interval at its creation.
+ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, warm: None };
+     w.rec.plan.clear();
+     if w.plan_interval(t).is_err() {
+         w.rec.alive = false;
+@@ -878,7 +967,7 @@ pub fn replan(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick) -> Update {
+ /// updates the heading), set the keys. New keys replan from `t`; the same keys held (the player re-asserting
+ /// them each frame) only flush, so the kicks keep their cadence.
+ pub fn decide(ctx: &Ctx, i: usize, rec: BodyRec, t: Tick, word: u8) -> Update {
+-    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None };
++    let mut w = Work { ctx, i, rec, retired: Vec::new(), new_entry: None, warm: None };
+     let (keys, level) = thrust::split(word);
+     let same = w.rec.thrust.is_some_and(|th| th.keys == keys && th.level == level);
+     let res = (|| -> Res<()> {
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..54764afb 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,11 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => {
++                // ES_MEMBERS lifts the probe clamp ([4, 400]) to [4, 10^6]: the lab's scaling arms, never the shipped default.
++                let hi = std::env::var("ES_MEMBERS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(400);
++                members = val("--members")?.parse::<u64>()?.clamp(4, hi);
++            }
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;
+@@ -149,13 +153,19 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         .iter()
+         .enumerate()
+         .map(|(i, k)| json!({"kind": k, "items": st.items[i], "total_ms": st.cost_ns[i] as f64 / 1e6, "us_per_item": if st.items[i] > 0 { st.cost_ns[i] as f64 / 1e3 / st.items[i] as f64 } else { 0.0 }}))
+-        .collect();
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
++        .collect();
++    let (pns, pcalls) = emergent_universe::prof::take();
++    let prof: Vec<_> = emergent_universe::prof::NAMES.iter().enumerate()
++        .filter(|(i, _)| pcalls[*i] > 0)
++        .map(|(i, n)| json!({"stage": n, "ms": pns[i] as f64 / 1e6, "calls": pcalls[i], "us_per_call": pns[i] as f64 / 1e3 / pcalls[i] as f64}))
++        .collect();
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
++        "prof_stages": prof,
+         "frame_ms": {"p50": d.p50, "p95": d.p95, "p99": d.p99, "p99.9": d.p999},
+         "frame_cpu_ms": {"p50": d.cpu.0, "p99": d.cpu.1, "p99.9": d.cpu.2, "worst": d.cpu.3, "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed", "hitch_counts": d.cpu_hitch_counts},
+         "hitches_per_gameplay_hour": {"above_16.7ms": d.hitches_per_hour[0], "above_33ms": d.hitches_per_hour[1], "above_50ms": d.hitches_per_hour[2]},
