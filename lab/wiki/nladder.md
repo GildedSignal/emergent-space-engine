@@ -1,20 +1,110 @@
+<<<<<<< main
+updated: 20261014-2012-components-38bf
+=======
 topic: nladder
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261014-1719-dynamics-bf21
-updated: 20261014-1631-taleb-6138
-=======
-updated: 20261014-1719-second-20261014-1631-taleb-6138-4487
->>>>>>> 20261014-1719-second-20261014-1631-taleb-6138-4487
+updated: 20261014-2012-second-20261014-1631-library-7f99-5903
+>>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
 
+**The ladder's breaks 1, 2 and 4 are one dial: the tube key's own quantum (20261014-2012-system-a669, system lens).**
+The belt's per-kick dL/L is 2.1e-7 (p01 3.0e-9) against the key's documented L range
+(1/4 <= L <= 4096, Q32): 226 L-quanta a kick at the coarsest legal scaling, 3.7e6 at the
+finest — the key flips on 100% of kicks at every legal scaling, so `Rebinding::from_state`'s
+unconditional `Orbit::compile` (binding.rs:422) mints a compiled orbit per kick: the wave's
+~30 us/kick CPU (break 1), the 2.6->5.1 KB first-kick doubling and the retired-segment churn
+(break 2), and the birth build's compile term (break 4) are the same bill. The velocity-word
+carry gate (step.rs:424) never blocks on this belt (p01 |dv| = 2,363 quanta; early returns
+0.0%). The binding's residual already carries sub-quantum exactness legally (bind.rs: "the
+remainder is carried and never dropped"), so a per-population coarser key with a flip-gated
+rebind divides all three breaks by the run length — measured exactly linear (diffusion-
+limited, no synodic-absorption bonus: cancellation 0.168): E 3.3 kicks at Q48 (flip
+fraction 0.300, |dE| p50 0.23 quanta) -> 107 at 2^5 -> 857 at 2^8; L measured linear too by the
+checker: run 107 needs ~2^15-2^16 (at 2^13 the L run is ~28, not the dossier's ~2^12-2^13).
+Composed: the pair run at 2^5/2^13 is ~22 (~10^1.3x, checker); ~10^2x needs ~2^5(E)/2^15(L) —
+off the wave CPU, the churn and the build compile. Adoption check: B5/B12 on the coarser walk (between-events readout drift grows by
+the coarsening factor, ~2 km/step at 2^13 = 6e-9 relative, re-anchored per flip). Hole
+named: the naive root-doll reading puts the belt's L at 1.6e4, outside [1/4,4096] — either
+doll 0 rescales (the bracket is invariant) or belt tubes are keyed otherwise and only the E
+axis (319.3 m^2/s^2, f0a2) stands (3.3->107x at 2^5). Checker corrections: the live tube key is
+`OrbitKey{periapsis: Scalar, k: Q48}` (orbit.rs:31-34), finer than the legacy Darwin `Key` whose
+[1/4,4096] range the bracket uses (that `Key` survives for shipmem fixtures only, ENVELOPE.md) —
+the flip conclusion holds a fortiori, the quoted quanta describe the legacy words; and the standing
+record must be answered, not just B5/B12: law.md "Not adopted: a quantized (E, L) memo for kicks:
+it re-rounds the orbit at every kick, a random walk (principle 13)" and crates/universe/tests/memo.rs
+(exact keys never recur on distinct kicks; the law's quantized cell already hits >90%; wiring it is a
+law-level choice behind B1/B2/B9) — the delta claimed here is the flip gate plus the residual carry.
+The 100%-flip holds at the shipped 2.814e4 s cadence (at h/4 the p01 |dL|/L falls below the coarsest
+legal quantum — checker). Domain: SI Kepler replica of the shipped roster and cadence, cold belt only
+(the checker's inner system, 0.45-0.85 AU, also flips at any grain); silver, one build from gold.
+
 <<<<<<< main
-<<<<<<< main
+**The input seam inside a wave is measured and bounded: with the pull capped, a player decision
+mid-wave costs O(1) — 0.168 ms once, ≤ 0.229 ms at 60 Hz through the whole wave — and a no-op
+decision moves no kick but can move the log (20261014-2012-components-38bf).** On shipped main plus
+this run's re-derivation of bf21's cap (`ES_PULL_CAP`, default-unset; bench `wave_input`), the wave
+scene (2×10⁵, seed 1, L8 burn, rtf 100, 12 ms, cut 16,000 game-s settled): uncapped worst frame
+1,486.9 ms / 9 over; capped 12.487 ms with the digest bit-identical (`c2b834bb…`, kicks 225,949
+equal — bf21's certificate reproduced independently); then one no-op decision at the wave's p50
+costs 0.168 ms (≤ 2 events), and 657 of them (every frame of p01–p99, an adversarial bound: the
+shipped page calls `input` on key change only, `session.rs:118`) cost ≤ 0.229 ms each — max frame
+12.5 ms, 1 over, lag +0.21 game-s. The checker-2-bf21 exposure (`input` resolving the player's
+items over an overdue backlog outside the queue) is **bounded, with or without the cap**: O(1), not
+O(backlog); the input path needs no deferral machinery. Margin: kicks bit-equal
+everywhere, but the 657 no-op decisions add encounters at the log's margin (+1 measured; +2 on the
+checker's re-run — pace-dependent: the decision's requeue carries scans at ticks the scheduled items
+never scan) — "same keys" is not "no
+event". Unmeasured: a key-**changing** decision mid-wave (a turn re-plans the player), the player
+inside the belt band, 4×10⁵, a busy box (4487's 1-event second seam is load-conditional; it did not
+appear here — the worst frames are the budgeted drain itself, and P1 vs P2 digests equal under
+settle-at-cut on one pair, which does not retire 4487's instability finding).
+   *[Checker 38bf: every counter and the P1/P2 digest identity reproduce (8 further flights);
+   the exposure never fired **even uncapped** — one mid-wave decision with the cap unset costs
+   0.154 ms at rtf 100 and 0.158 ms at rtf 200 (the uncapped frame monsters 1.3–1.9 s are the
+   scheduled pulls, not the input path; the lane is already tiled to the player's key), so "real
+   as a mechanism" is structure, not a measured cost. The named untested arm is answered: a
+   key-changing decision (`word(5,8)`) costs 0.20 ms at 2×10⁵, and 657 of them every frame at
+   3×10⁵ hold max frame 11.97 ms (0.26 ms a call, RSS 1.38 GB; `one` at 3×10⁵: 0.161 ms, max
+   12.1 ms — the window is N-independent, `belt_first`). The one-decision digest does not
+   regenerate (three runs, three values at the same frame — decision-bearing digests at the 16 k
+   cut are wall-unstable, 4487's direction 12; compare counters, not those digests). And
+   `session.rs:118` does not exist in this tree — no shipped caller of `input` outside examples;
+   the realism caveat rests on an unverifiable citation.]*
+=======
+**The frame path's first standing deletion is executed, digest-identical, and its horizon constant is
+refuted (20261014-2012-second-20261014-1631-library-7f99-5903).**
+The radial index's two shared-state sensors are deleted on shipped code: the doll-wide write-once `speed_cap`
+(a2c1's 84x poison) and the all-dolls density rule whose misfire walked every body; each body's registration is
+widened by **its own** speed bound over one scan horizon instead, with a loud exact fallback (`h` beyond the
+horizon walks the doll). The universe digest is **bit-identical on all four flight arms** (10^3 and 10^5 coast
+`6895ce06...`/`f98d6b13...`, 128 encounters = 128 each; 10^4 burn `d1822b88...`, 3,946 = 3,946; the
+`ES_SCAN_H=1` walk-all control identical), and the walk is **constant in N: 66/call at 10^3 and 10^5** -
+15x under the density walk-all (1,017), 2.9x under the poisoned window (194), kept 319 -> 49. The sustained
+certificate need is ~49 kept: the "~17-body keep set" was the pre-kick transient (seq 1). But the one-constant
+horizon is **refuted as the contract's equal on three independent signs**: the burn's finer h pays the coarse
+widening (75 -> 248 walked/call); belt scale pays 12x build and ~9 kB/body (98.5 s, 1.1 GB at 10^5); and the
+shipped drop-contract test fails (`the_radial_index_finds_what_the_brute_force_finds`: at h=2e9 the far ships
+widen back in, 38/38 kept). Exactness never breaks - the drop contract does: the widening must carry its own
+scale (a dyadic widening level per interval class, or per-doll units), the named next experiment. The same run
+measured the library lens's promote-on-refusal on the 18d2 surface (branch, re-emitted probe - the "shipped"
+chatter case is not shipped): at all 193 of the 0.49 R_H retrograde chatter's would-be handoffs the current
+doll's refit **succeeds** (0 refusals), and gated on it the chatter collapses 193 -> 0 - at 3.9-8.8x the events
+on the body (the child doll never engages): the refusal gate is a kill-switch, not a surface.
+  *[Checker 5903: the constant-in-N walk is **coast-only** — at 10^5 burn (the decade the author did not fly)
+  the deletion walks 1,975/call against base 74.9 (kept 1,970: the coarse widening pulls the far belt into the
+  window; the penalty grows with N in burn, 3.3x at 10^4 -> 26x at 10^5), digest `c53c2de6...` identical with
+  3,946 = 3,946 logged: exactness holds, and this is a fourth sign the widening must be interval-and-scale
+  relative. The chatter half's probe source (`tests/handoff.rs`) is not in the run record — its numbers were
+  verified on the run's surviving compiled binary — and the gated refusal also fails the branch's own
+  `a_moon_born_in_the_planets_doll_never_leaves` (passes ungated): load-bearing handoffs die with the chatter.]*
+
+>>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
+
 **The wave's fix is measured and certified, and the wave is a standing train (20261014-1719-dynamics-bf21).**
 Capping the player's look-ahead pull (`pull_ships_capped`, 9 lines, `ES_PULL_CAP`-gated; the pull resolves every
 ship below the player's *next* item inside its current one, outside the budget — the burst 6138 named) holds the
@@ -59,7 +149,7 @@ checker.]*
    is the real untested exposure. Settle at 4×10⁵ grows to 11 s (the deferred backlog answered
    after the flight): the drain, not the frame, scales with N.]*
 
-=======
+<<<<<<< main
 **The belt's cadence is the doll's clock, and the 10⁹ rate law is corrected 24× (20261014-1719-fermi-cf45).**
 Measured on shipped main (`examples/cadence.rs`, read-only, seed 1 + held-out 11, N 1000/4000):
 every root-doll ship steps at 2^step_log2 per period of the doll's **shortest secondary**
@@ -86,8 +176,8 @@ planar, prograde) at 2–3 AU, one Linux box; not measured: belts inside P_D's o
 secondaries (f' shortens), under thrust, or a P_D that itself rebinds (the doll's clock is
 dynamic); the locals' arm of the probe carried a doll-unit bug and made no claim.
 
-<<<<<<< main
->>>>>>> 20261014-1719-fermi-cf45
+=======
+>>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 
 **The deletion program gets its method, priced from Julien's library mined verbatim for the first
 time (20261014-1631-library-7f99; 762 highlighted books, 4,580 highlights cached in the run).**
@@ -344,6 +434,11 @@ The four rules that survive, with rule 2 struck and adjudicated:
 
 ## Refuted
 
+- The library lens's "the walk lands at the keep set (~17)" (7f99's lesson-3 headline): 17 is the pre-kick
+  transient (seq 1; the old early window already walked 31-40 by seq 2); the sustained need at 10^3 is ~49 kept
+  / 66 walked - measured on the digest-identical deletion (5903). "The shipped chatter case" is not shipped
+  either: it lives on 18d2's lead branch (5903 re-emitted the probe; 193 handoffs/20 periods, the checker's 210
+  same phenomenon).
 - "Hold the scan" read as holding the whole scan (capture at answer time): digest-refuted — the late capture
   reads pruned history (4,029 ≠ 4,060 encounters, digest differs); only the answer is holdable, and the capture
   must stay at the player's item, where the bindings at its tick are final (20261014-1719-dynamics-bf21).
@@ -394,7 +489,7 @@ The four rules that survive, with rule 2 struck and adjudicated:
   (20261013-2252-dynamics-ea91).
 - "Most promoted bodies go dormant (zero events in the second half)": true only of the
   dead; among live promotions 0–9 % are dormant in a half-run (20261013-2252-dynamics-ea91).
-=======
+<<<<<<< main
 **The wave's freeze is deleted, and the fix is certified bit-exact where the cut is canonical
 (20261014-1719-second-20261014-1631-taleb-6138-4487; the checker's named gold experiment, built and
 flown).** The named fix in the engine's own idiom: the player's in-root item pulls at most `PULL_HOLD
@@ -468,7 +563,6 @@ the compiled period ladder, its head is driver-caused, its churn is death.
 (The longer standing blocks — the store's update path, the four surviving rules with rule 2 struck,
 the kick census, the surprise-rate distribution — are unchanged below this point on the page.)
 
-## Refuted
 
 - "The wave is the drain's problem": the drain holds the coast at 12.0 ms through the same wave; the
   freeze is the player's item alone (20261014-1631-taleb-6138).
@@ -485,20 +579,38 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
 - "The retired compiled orbit is needed by the engine between kicks" / "deleting it is free at
   today's view": read-0 in flight but the view's ramp completes through it — the two-word completion
   is the prerequisite (20261014-1221-components-0e37).
->>>>>>> 20261014-1719-second-20261014-1631-taleb-6138-4487
+=======
+>>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 
 - "effb's cadence law `rate = 2⁷/P with κ ∈ [128, 256]` — a pure birth constant, the cold rail's whole bill" (and the checker's 0.5-AU/5.3-core composition): right only inside secondary dolls; the root-doll belt runs on the doll's clock — measured 3.553×10⁻⁵/s flat in a, 24× the own-period law at p50; the dial's anchor is P_D (77.24 d), not P_own (20261014-1719-fermi-cf45).
+- "A player decision inside a same-doll wave is an unbudgeted backlog drain" (the checker-2-bf21
+  exposure, read as a cost): the drain never manifests — ≤ 0.229 ms a call at 2×10⁵ mid-wave, every
+  frame through the wave, max frame 12.5 ms, and (checker) 0.154–0.158 ms **with the cap unset** at
+  rtf 100 and 200: the scheduled pulls keep the ship lane tiled to the player's key, so `input`
+  finds ≤ 2 due items regardless; what a no-op decision can still move is the log, not the kicks
+  (+1 to +2 encounters per 657 decisions, pace-dependent) (20261014-2012-components-38bf).
 - ladder.txt's "period of Cinder … 88 days": the root doll's shortest secondary is 77.24 d (same run).
 
 ## Open directions
 
 <<<<<<< main
+0. **The key-changing decision mid-wave** (38bf's untested arm): a turn under burn re-plans the
+   player (the no-op arm never re-derived the plan); one flight with `word(5,8)` at the wave's p50
+   against the no-op control, judged on the frame profile and the counters. With it, the wave seam's
+   player-facing story is closed and the cap can be adopted without an input caveat.
+   *[Checker 38bf: flown — 0.201 ms at 2×10⁵ (encounters −3, kicks equal, max frame 12.48 ms), and
+   657 key-changing decisions every frame of the window at 3×10⁵ hold max frame 11.97 ms (0.26 ms a
+   call): answered affirmatively on this scene; the player inside the belt band and a busy box stay
+   open.]*
+=======
+>>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 0. **The capped pull is measured and certified** (bf21, above): adopt the constant (the env gate comes out;
    any small bound works — the cap only bites when the queue is behind, which is the wave), then re-fly the N rung
    past a *whole wave train period* (≥ 27.5 k game-s, not just past the first wave) so F1's window contains a
    wave; at 10⁶ the frame holds but real time does not (~34 s of lag per pass on this box) — the generation-side
    stagger (birth grid over one step, ~24× flatter) is the measured-next lever, a `shipmem` wiring decision
-   (effb's direction 9). The event-thin 13–55 ms seam at frames 11,094+ under burn stays unnamed and open.0. **The break-#2 build (the lever is now measured):** `Segment` drops `entry`, gains the key
+   (effb's direction 9). The event-thin 13–55 ms seam at frames 11,094+ under burn stays unnamed and open.
+1. **The break-#2 build (the lever is now measured):** `Segment` drops `entry`, gains the key
    (+56 B) and the two-word (a, ȧ) completion (~24 B; a-word's open direction 1 is its missing
    half — the write needs the field's derivative at the kick); `observe::partial`'s ramp reads
 
@@ -512,8 +624,11 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
    the w/t column anchoring. The refit's *refusal* is the true promote-to-live trigger.
 2. **The deleted rungs** (rule 1): per term, what does the frame loop look like with the
    term gone; count what the per-frame walk visits that the hot tier did not touch.
-3. **Event-time hysteresis on the shipped chatter case** (rule 3): retrograde 0.49 R_H,
+3. **Event-time hysteresis on the chatter case** (rule 3): retrograde 0.49 R_H,
    boundary evaluated at the doll's events; expect handoffs per 20 periods to collapse.
+   *[5903: the promote-on-refusal variant is measured on 18d2's branch - chatter 193 -> 0 with 0 refusals at
+   every would-be handoff, but 3.9-8.8x events on the body (the child doll never engages): the refusal gate is
+   a kill-switch, not a surface; the hysteresis question stands.]*
 4. **Compaction as the scheduled spike** (measured): fold the storm row's update stream
    into the shipped allocator and check the p99 frame. Primary direction for the
    promotion work (rule 2's death redirects it here and to ephemeral promotion).
@@ -542,24 +657,25 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
    CPU bill is 2^step_log2/P summed over the period mix; the billion's event load is a
    content policy, not an engine property — set it when wiring shipmem, with the
    encounter term (not the kick) as the binding constraint it must leave room for.
-=======
-0. **The second seam now binds F1** (the fix removed the wave's monsters): 1-event frames at
+<<<<<<< main
+10. **The second seam now binds F1** (the fix removed the wave's monsters): 1-event frames at
    37.7/90.3/123.8 ms for 10⁵/2×10⁵/3×10⁵ burn, every ~50 frames (the player's item cadence), burn
    only — and from 5×10⁴ up (19–22 ms there, both engines, the same frames: it predates the fix;
    checker 4487) — the player's own item cost under burn (a2c1's walk-all and cap candidates name
    the suspects); unnamed, cheaper to diagnose than the pull was.
-1. **The mid-drain cut** (16,000 game-s): the fixed engine's digest differs there by exactly the
+11. **The mid-drain cut** (16,000 game-s): the fixed engine's digest differs there by exactly the
    drain's unfinished share (11,473 events at 2×10⁵) — a cut is canonical for the held pull only
    once no held key remains below it; the rung writer's cut choice must respect that (or the settle
    must drain before the digest, which it does — the residual is the *flight's* pace, not the
    settle's).
-2. The wall-schedule instability of the belt digest on shipped main (two pristine runs differ):
+12. The wall-schedule instability of the belt digest on shipped main (two pristine runs differ):
    worth its own run — it breaks the "digest independent of schedule" contract at 2×10⁵ belt scale
    even without any fix; the deterministic-budget mode (`NLADDER_EBUDGET`) is the instrument until
    it is understood.
-3. The standing directions from a2c1 (the caps, the density rule, the per-body window), 0e37 (the
+13. The standing directions from a2c1 (the caps, the density rule, the per-body window), 0e37 (the
    two-word completion), b29a (the filter promotion), and the ladder's 10⁶ arm.
->>>>>>> 20261014-1719-second-20261014-1631-taleb-6138-4487
+=======
+>>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 
 ## Contradictions
 
@@ -587,3 +703,13 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
 - 20261014-0450-scout-b29a (silver): the smallest promotion is no promotion.
 - 20261014-0059-fermi-effb (silver): the 10⁹ ledger composed; the cadence law code-verified.
 - 20261014-0000-fermi-3071 (silver): rule 2 dead by decomposition; the tail manufactured.
+- 20261014-0000-fermi-3071 (silver): the conflict adjudicated by decomposition — native counts identical across seeds and exactly 2× with the window, roster-predicted Gini 0.759 vs measured 0.718–0.745; rule 2 dead, ea91's description stands, certificate = birth constant.
+- 20261014-0059-fermi-effb (silver): the 10⁹ ledger composed — cadence law rate = 2⁷/P code-verified (roster endpoints 0.96/0.76, Orbiters ⊂ [128,256]); encounters 1,925× over skin-on, 7,051× the kicks; two rails (hot = kick gap, cold = encounters + memory); held-out: wired wall ~5.2×10⁵.
+- 20261014-1221-components-0e37 (silver): break #2's lever measured — compiled orbits are write-only in flight (retired: 0 reads; flight reads O(1) in N), exactly the key (1,001/1,001 regen), floor 673 vs standing 1,806 B/body; the view's ramp is the one reader (≥1 retired read/row post-wave) — the two-word completion deletes the retired generation free.
+- 20261014-1511-components-a2c1 (silver): the scan seam censused — unpoisoned keep 15+2 at every N, the write-once `speed_cap` poisons the window ±9×r (walked 203, 12×), the density rule walks all dolls at N=10³ (1,017, 60×); capture dearer at 10³ (178 µs) than at 10⁵ (129 µs); fixes named in cost order.
+- 20261014-1631-library-7f99 (gold): the library mined verbatim (4,580 highlights cached); deletion audit 26 kills / 2 landed add-backs (8%; law level at quota, frame path 0%); automation debt 6 anchored sites; promotion = refusal filter; lookup budget 427–877 recompiles/frame vs demand ≤ 1.4/s.
+- 20261014-1631-taleb-6138 (silver): the wave's ruin basin measured — 315 ms/1,213 ms single frames at 10⁵/2×10⁵ burn (seed-stable), the batch = wave density × the player's item horizon at universe.rs:769, coast 12.0 ms through the same wave; fix named (hold the scan), rung must fly past the wave.
+- 20261014-1719-second-20261014-1631-taleb-6138-4487 (awaiting grade): the wave's freeze deleted — pull held at 64, a budgeted drain, Waiting scans; 315→37.7 ms at 10⁵, 1,213→90.3 at 2×10⁵, 1,280→123.8 at 3×10⁵; bit-exact at every canonical cut past the drain; the mid-drain cut and the belt digest's wall-schedule instability named.
+- 20261014-2012-components-38bf (awaiting grade): the input seam bounded — 0.17–0.23 ms a decision mid-wave under the cap, monsters 1,487→12.5 ms, digest bit-identical, +1 to +2 encounters per 657 no-op decisions (checker: 0.15–0.16 ms even uncapped; silver).
+- 20261014-2012-second-20261014-1631-library-7f99-5903: sensors deleted digest-identical (10^3 walk 15x); horizon not belt-scale; chatter 193 -> 0 under refusal at 3.9x events.
+- 20261014-2012-system-a669 (silver): key quantum vs per-kick dL — breaks 1/2/4 one dial; flip-gated rebind.

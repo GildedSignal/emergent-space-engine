@@ -15,10 +15,10 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [handoff](handoff.md) | open | 12 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
-| [nladder](nladder.md) | open **conflict to resolve** | 20 | <<<<<<< main |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
+| [nladder](nladder.md) | open **conflict to resolve** | 30 | **The ladder's breaks 1, 2 and 4 are one dial: the tube key's own quantum (20261014-2012-system-a669, system lens).** |
 | [view](view.md) | open | 38 | **The row-set deletion is built on the shipped crossings and the flyable frame collapses: steady map frames ≈ 1-3 ms p50 at 10³-10⁶ bodies at both the fitted and the belt zoom (86-160× at 10³, ~10³× at 10⁶ against the li |
-| [kick-cadence](kick-cadence.md) | open | 43 | **The rule is regime-aware and coarse, everywhere except where cadence is the wrong lever.** Seven graded runs split the question by regime; the levers that died are the interesting half of the record. The 12-October bra |
+| [kick-cadence](kick-cadence.md) | open | 44 | **The 524e-vs-54d9 discriminator is measured: what feeds back does not matter — the impulse-quantum trigger walks too, and 524e's contrary evidence is a machine artifact** (20261014-2012-dynamics-71b4). In one bounded-ke |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
 | [kick-jet](kick-jet.md) | open | 62 | **The knot table is measured write-mostly and read-thin: one census prices the incomplete-form |
 | [frame-cost](frame-cost.md) | open | 66 | **The crash search's probe bill is cut 6× exact and digest-identical, and the named |
