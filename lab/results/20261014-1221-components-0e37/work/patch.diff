@@ -1,0 +1,289 @@
+diff --git a/crates/universe/examples/cache_census.rs b/crates/universe/examples/cache_census.rs
+new file mode 100644
+index 00000000..809f821f
+--- /dev/null
++++ b/crates/universe/examples/cache_census.rs
+@@ -0,0 +1,243 @@
++//! The compiled-orbit cache census (lab 20261014-1221-components-0e37).
++//!
++//! A kicked body's binding holds an `Arc` to its compiled trajectory (knots, ~88 B each), and
++//! every rebind retires the old binding (with its own `Arc`) into history for the view. The
++//! compile is a pure function of the `OrbitKey` (`Orbit::compile`), so all of that is a cache of
++//! the key. This census measures, on the nladder wave scene: who reads the cached tables
++//! (every read goes through `bind::decode`, counted by `DECODES`), how many tables are held
++//! (current + retired) versus read, the standing bytes split per body, and whether recompiling
++//! from the stored key reproduces the held table exactly.
++//!
++//! cargo run --release -p emergent-universe --example cache_census [-- <N> <wall s> <rtf>]
++use emergent_universe::bind::DECODES;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use emergent_universe::body::BodyStore;
++use std::mem::size_of;
++use std::time::{Duration, Instant};
++
++/// Resident + swapped bytes on Linux (the macOS instrument uses phys footprint; orders only).
++fn footprint() -> u64 {
++    let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut total = 0u64;
++    for line in s.lines() {
++        for key in ["VmRSS:", "VmSwap:"] {
++            if let Some(rest) = line.strip_prefix(key) {
++                total += rest.trim().split(' ').next().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0) * 1024;
++            }
++        }
++    }
++    total
++}
++
++fn shape_bytes(t: &emergent_space::binding::Trajectory) -> usize {
++    use emergent_space::binding::Trajectory;
++    match t {
++        Trajectory::Cycle(o) => {
++            o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>()
++                + o.shape().crossings().len() * size_of::<usize>()
++        }
++        Trajectory::Passage(_) => 4096,
++        Trajectory::Plunge(p) => p.retained_bytes(),
++    }
++}
++
++struct Snapshot {
++    game_s: f64,
++    decodes: u64,
++    frames: usize,
++    events: u64,
++    live: usize,
++    history: u64,
++    foot: u64,
++}
++
++fn snap(p: &emergent_universe::Universe, frames: usize, events: u64) -> Snapshot {
++    let live = p.catalogue_live();
++    let history: u64 = (0..p.n_bodies()).map(|i| p.bodies().history_len(i) as u64).sum();
++    Snapshot {
++        game_s: p.now as f64 * TICK_SECONDS,
++        decodes: DECODES.load(std::sync::atomic::Ordering::Relaxed),
++        frames,
++        events,
++        live,
++        history,
++        foot: footprint(),
++    }
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let wall_s: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(80.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(200.0);
++    let frames = (wall_s * 60.0) as usize;
++
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let nb = p.u.n_bodies();
++    println!(
++        "census N={n} ({nb} bodies) rtf {rtf} wall {wall_s} s; build {build:.1} s, footprint {:.0} MiB",
++        footprint() as f64 / 1048576.0
++    );
++    println!(
++        "sizes B: BodyRec {} Binding {} Segment {} Tube {} Knot {} OrbitKey {} Item {}; floor/body (rec+plan+1 segment) ~{}",
++        size_of::<emergent_universe::body::BodyRec>(),
++        size_of::<emergent_universe::bind::Binding>(),
++        size_of::<emergent_universe::body::Segment>(),
++        emergent_universe::body::tube_bytes(),
++        size_of::<emergent_space::orbit::Knot>(),
++        size_of::<emergent_space::orbit::OrbitKey>(),
++        size_of::<emergent_universe::body::Item>(),
++        size_of::<emergent_universe::body::BodyRec>() + 4 * size_of::<emergent_universe::body::Item>() + size_of::<emergent_universe::body::Segment>(),
++    );
++
++    let mut snaps = vec![snap(&p.u, 0, 0)];
++    let (mut events, mut max_ms, mut over) = (0u64, 0.0f64, 0usize);
++    for f in 0..frames {
++        let start = Instant::now();
++        let frame = p.u.frame_to(
++            1.0 / 60.0,
++            rtf,
++            Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) },
++            i64::MAX,
++        );
++        let took = start.elapsed().as_secs_f64() * 1e3;
++        events += frame.events;
++        max_ms = max_ms.max(took);
++        over += (took > 12.0) as usize;
++        if (f + 1) % 600 == 0 || f + 1 == frames {
++            snaps.push(snap(&p.u, f + 1, events));
++        }
++    }
++    println!("flight: max frame {max_ms:.2} ms, {over} over 12 ms, {events} events");
++    println!("  [game_s, decodes_total, decodes/frame, live_slots, history_segs, MiB]");
++    let mut prev_d = 0u64;
++    for s in &snaps {
++        let per_frame = (s.decodes - prev_d) as f64 / 600.0f64.max(1.0);
++        prev_d = s.decodes;
++        println!(
++            "  [{:8.0}, {:10}, {:8.1}, {:8}, {:9}, {:6.0}]",
++            s.game_s,
++            s.decodes,
++            per_frame,
++            s.live,
++            s.history,
++            s.foot as f64 / 1048576.0
++        );
++    }
++    let end = snaps.last().unwrap();
++    let held = end.live as u64 + end.history;
++    let flight_s = (end.game_s - snaps[0].game_s).max(1.0f64);
++    println!(
++        "census: held tables {} ({} current + {} retired) for {} bodies; flight reads {} over {:.0} game s = {:.3e}/held-table/game-s",
++        held,
++        end.live,
++        end.history,
++        nb,
++        end.decodes,
++        flight_s,
++        end.decodes as f64 / held as f64 / flight_s
++    );
++
++    // Standing bytes split, full sweep for current + rec, sampled for history entries.
++    let (mut rec_plan, mut cur_shape, mut plan_items) = (0usize, 0usize, 0usize);
++    for i in 0..nb {
++        let r = p.u.bodies().rec(i);
++        rec_plan += size_of::<emergent_universe::body::BodyRec>();
++        plan_items += r.plan.capacity();
++        cur_shape += shape_bytes(&r.b.entry.trajectory);
++    }
++    let mut hist_shape = 0usize;
++    let mut hist_segs = 0usize;
++    let step = (nb / 2000).max(1);
++    let mut sampled = 0usize;
++    for i in (0..nb).step_by(step) {
++        let bs = p.u.bodies().bindings_of(i);
++        for b in &bs[..bs.len().saturating_sub(1)] {
++            hist_shape += shape_bytes(&b.entry.trajectory);
++            hist_segs += 1;
++        }
++        sampled += 1;
++    }
++    let scale = if hist_segs > 0 { end.history as f64 / hist_segs as f64 } else { 0.0 };
++    let hist_shape_all = (hist_shape as f64 * scale) as usize;
++    println!(
++        "split B/body: BodyRec+plan {:.0} (plan items {:.1}), current shape {:.0}, retired shape {:.0} (sampled {sampled} bodies, {hist_segs} segs, x{scale:.1}); knots dominate: shape share {:.1}%",
++        rec_plan as f64 / nb as f64,
++        plan_items as f64 / nb as f64,
++        cur_shape as f64 / nb as f64,
++        hist_shape_all as f64 / nb as f64,
++        100.0 * (cur_shape + hist_shape_all) as f64 / (rec_plan + cur_shape + hist_shape_all) as f64
++    );
++    println!(
++        "floor: rec+plan+segment {:.0} B/body vs standing (excl. base) {:.0} B/body; catalogue {} slots",
++        (rec_plan + end.history as usize * size_of::<emergent_universe::body::Segment>()) as f64 / nb as f64,
++        (rec_plan + cur_shape + hist_shape_all) as f64 / nb as f64,
++        end.live
++    );
++
++    // Regen: is the held table exactly the key? Recompile from the stored key and compare.
++    use emergent_space::binding::Trajectory;
++    let (mut checked, mut equal, mut differing) = (0usize, 0usize, None);
++    for i in (0..nb).step_by((nb / 1000).max(1)) {
++        let b = &p.u.bodies().rec(i).b;
++        if let Trajectory::Cycle(o) = &b.entry.trajectory {
++            let again = emergent_space::orbit::Orbit::compile(o.key()).unwrap();
++            let same = again.shape().knots().len() == o.shape().knots().len()
++                && again.shape().crossings().len() == o.shape().crossings().len()
++                && format!("{:?}", again.advance()) == format!("{:?}", o.advance())
++                && format!("{:?}", again.period()) == format!("{:?}", o.period())
++                && format!("{:?}", again.proper_period()) == format!("{:?}", o.proper_period());
++            checked += 1;
++            equal += same as usize;
++            if !same && differing.is_none() {
++                differing = Some((i, again.shape().knots().len(), o.shape().knots().len()));
++            }
++        }
++    }
++    println!(
++        "regen: {equal}/{checked} sampled current tables reproduce exactly from their stored key{:?}",
++        differing.map(|(i, a, b)| format!(" (first difference body {i}: {a} vs {b} knots)"))
++    );
++
++    println!(
++        "retired reads in flight (before any gather): {}",
++        emergent_universe::bind::PARTIAL_RETIRE.load(std::sync::atomic::Ordering::Relaxed)
++    );
++    // The view: one cold gather, counted.
++    let d0 = DECODES.load(std::sync::atomic::Ordering::Relaxed);
++    let t = Instant::now();
++    let mut cache = ViewCache::default();
++    let seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
++    let cold = t.elapsed().as_secs_f64() * 1e3;
++    let d1 = DECODES.load(std::sync::atomic::Ordering::Relaxed);
++    let t = Instant::now();
++    let _ = gather_cached(&p.u, &p.names, &mut cache);
++    let warm = t.elapsed().as_secs_f64() * 1e3;
++    let d2 = DECODES.load(std::sync::atomic::Ordering::Relaxed);
++    println!(
++        "view: gather cold {cold:.1} ms ({} reads, {seen} seen), warm {warm:.1} ms ({} reads); reads/seen cold {:.2}",
++        d1 - d0,
++        d2 - d1,
++        (d1 - d0) as f64 / seen.max(1) as f64
++    );
++    let retired_reads = emergent_universe::bind::PARTIAL_RETIRE.load(std::sync::atomic::Ordering::Relaxed);
++    println!("retired reads: {} rows completed through a retired binding ({} of {} seen, {:.4}%), flight total {}", retired_reads, retired_reads, seen, 100.0 * retired_reads as f64 / seen.max(1) as f64, retired_reads);
++    println!(
++        "censusline: n={n} bodies={nb} rtf={rtf} game_s={:.0} held={held} current={} retired={} flight_reads={} reads_per_held_gs={:.3e} b_floor={:.0} b_shape={:.0} b_standing={:.0} regen={equal}/{checked} gather_ms={cold:.1} gather_reads={} foot_mb={:.0}",
++        end.game_s,
++        end.live,
++        end.history,
++        end.decodes,
++        end.decodes as f64 / held as f64 / flight_s,
++        (rec_plan + end.history as usize * size_of::<emergent_universe::body::Segment>()) as f64 / nb as f64,
++        (cur_shape + hist_shape_all) as f64 / nb as f64,
++        (rec_plan + cur_shape + hist_shape_all) as f64 / nb as f64,
++        d1 - d0,
++        end.foot as f64 / 1048576.0
++    );
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..f62504ca 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -23,6 +23,15 @@ use emergent_space::{
+     Tube,
+ };
+ use std::sync::Arc;
++use std::sync::atomic::{AtomicU64, Ordering};
++
++/// Census (lab 20261014-1221-components-0e37): every read of a compiled trajectory table
++/// (the knots the kick compiled) goes through [`decode`]. Counting reads never changes outcomes.
++pub static DECODES: AtomicU64 = AtomicU64::new(0);
++
++/// Census: gathers that completed a row through the previous (retired) binding, the retired
++/// table's only reader. Counting never changes outcomes.
++pub static PARTIAL_RETIRE: AtomicU64 = AtomicU64::new(0);
+ 
+ /// A compiled trajectory and its sense: the entry a tube's key indexes. The trajectory is compiled
+ /// about a mass of one, in units of the doll's mass; `unit` converts it to the doll's own units (the
+@@ -115,6 +124,7 @@ pub struct Binding {
+ /// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+ /// the radius and the proper time out; angles and velocities are the same in both).
+ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++    DECODES.fetch_add(1, Ordering::Relaxed);
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let mut elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+diff --git a/crates/universe/src/observe.rs b/crates/universe/src/observe.rs
+index 5d15c9d9..7d5de3cf 100644
+--- a/crates/universe/src/observe.rs
++++ b/crates/universe/src/observe.rs
+@@ -129,6 +129,7 @@ fn partial(ctx: &Ctx, i: usize, t: Tick, b: &Binding) -> Res<(V2, V2)> {
+         }
+         match ctx.bodies.binding_at(i, b.event_time - 1) {
+             Some(prev) => {
++                crate::bind::PARTIAL_RETIRE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 held = prev;
+                 (&held, b.event_time - k.lead)
+             }

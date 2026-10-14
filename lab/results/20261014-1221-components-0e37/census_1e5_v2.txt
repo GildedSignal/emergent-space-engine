@@ -1,0 +1,20 @@
+census N=100000 (100028 bodies) rtf 200 wall 80 s; build 4.3 s, footprint 226 MiB
+sizes B: BodyRec 464 Binding 192 Segment 208 Tube 16 Knot 88 OrbitKey 56 Item 16; floor/body (rec+plan+1 segment) ~736
+flight: max frame 11.97 ms, 0 over 12 ms, 153993 events
+  [game_s, decodes_total, decodes/frame, live_slots, history_segs, MiB]
+  [       0,     799897,   1333.2,   100028,         0,    226]
+  [    1997,     914629,    191.2,   100076,       638,    233]
+  [    3997,    1003161,    147.6,   100076,       679,    233]
+  [    5997,    1071018,    113.1,   100076,       767,    233]
+  [    7997,    1136037,    108.4,   100076,       785,    233]
+  [    9997,    1200339,    107.2,   100076,       760,    233]
+  [   11997,    1266487,    110.2,   100076,       761,    233]
+  [   13997,    1508554,    403.4,   100076,     23283,    280]
+  [   15997,    2199316,   1151.3,   100076,    100491,    459]
+census: held tables 200567 (100076 current + 100491 retired) for 100028 bodies; flight reads 2199316 over 15997 game s = 6.855e-4/held-table/game-s
+split B/body: BodyRec+plan 464 (plan items 2.0), current shape 672, retired shape 670 (sampled 2001 bodies, 2000 segs, x50.2); knots dominate: shape share 74.3%
+floor: rec+plan+segment 673 B/body vs standing (excl. base) 1806 B/body; catalogue 100076 slots
+regen: 1001/1001 sampled current tables reproduce exactly from their stored keyNone
+view: gather cold 4440.0 ms (1071968 reads, 100048 seen), warm 2147.2 ms (499265 reads); reads/seen cold 10.71
+retired reads: 309227 rows completed through a retired binding (309227 of 100048 seen, 309.0786%), flight total 309227
+censusline: n=100000 bodies=100028 rtf=200 game_s=15997 held=200567 current=100076 retired=100491 flight_reads=2199316 reads_per_held_gs=6.855e-4 b_floor=673 b_shape=1342 b_standing=1806 regen=1001/1001 gather_ms=4440.0 gather_reads=1071968 foot_mb=459
