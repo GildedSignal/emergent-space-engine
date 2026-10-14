@@ -1,0 +1,331 @@
+diff --git a/crates/encounters/src/bin/belttail.rs b/crates/encounters/src/bin/belttail.rs
+new file mode 100644
+index 00000000..3506de6a
+--- /dev/null
++++ b/crates/encounters/src/bin/belttail.rs
+@@ -0,0 +1,325 @@
++//! Belt-tail instrument (run 20261014-0201-taleb-63af): is the per-body true-conjunction
++//! distribution on a generic quiet belt heavy-tailed beyond birth constants?
++//! One JSON object per line per scene. Uses only shipped pieces: make_belt, radial_pairs,
++//! truth_pair (the r8 truth, no leak), par_chunks.
++//!
++//! Scenes: `fit <spec> <seed>` prints fit + stats; `pred <spec> <seed> <k> <C>` scores a
++//! held-out seed against a birth-constant model lambda_i = C*(k + e_i)*a_i^-1.5.
++
++use emergent_encounters::belt::{make_belt, Rng, Spec};
++use emergent_encounters::kepler::Body;
++use emergent_encounters::truth::{truth_pair, TruthStats};
++use emergent_encounters::par_chunks;
++use std::collections::HashMap;
++
++const THREADS: usize = 4;
++
++fn spec_of(name: &str) -> Spec {
++    let s = 20261001u64;
++    let (n, sigma_e, rho, a_lo, a_hi, keys, orbits) = match name {
++        "g-s3e-3-r1e-3" => (1000usize, 3e-3f64, 1e-3f64, 1.0f64, 1.5f64, 0usize, 100.0f64),
++        "g-mid" => (1000, 1e-2, 3e-3, 1.0, 1.5, 0, 100.0),
++        "g-s3e-2-r1e-3" => (1000, 3e-2, 1e-3, 1.0, 1.5, 0, 50.0),
++        "g-hi" => (1000, 3e-2, 3e-3, 1.0, 1.5, 0, 100.0),
++        "g-dense3k" => (3000, 1e-2, 3e-4, 1.0, 1.5, 0, 20.0),
++        "g-wide" => (1000, 2e-1, 1e-3, 0.5, 3.0, 0, 50.0),
++        "g-hot" => (500, 1e-1, 1e-3, 1.0, 1.5, 0, 50.0),
++        "p-keys" => (300, 1e-2, 1e-3, 1.0, 1.001, 3, 50.0),
++        "p-coorbital" => (300, 3e-4, 1e-3, 1.0, 1.0001, 0, 50.0),
++        _ => panic!("unknown spec"),
++    };
++    Spec { name: name.into(), n, sigma_e, rho, a_lo, a_hi, keys, seed: s, orbits }
++}
++
++fn truth_events(b: &[Body], pairs: &[(u32, u32)], rho: f64, t_end: f64) -> Vec<(u32, u32, f64)> {
++    let parts = par_chunks(pairs.len(), 256, THREADS, |r| {
++        let mut out = Vec::new();
++        let mut st = TruthStats::default();
++        let mut tmp = Vec::new();
++        for &(i, j) in &pairs[r] {
++            tmp.clear();
++            truth_pair(&b[i as usize], &b[j as usize], rho, t_end, &mut tmp, &mut st);
++            out.extend(tmp.iter().map(|&(t, _)| (i, j, t)));
++        }
++        out
++    });
++    let mut all = Vec::new();
++    for mut o in parts {
++        all.append(&mut o);
++    }
++    all.sort_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
++    all
++}
++
++fn gini(v: &[f64]) -> f64 {
++    let n = v.len();
++    if n == 0 {
++        return 0.0;
++    }
++    let mut s: Vec<f64> = v.to_vec();
++    s.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let sum: f64 = s.iter().sum();
++    if sum <= 0.0 {
++        return 0.0;
++    }
++    let mut cum = 0.0;
++    for (i, &x) in s.iter().enumerate() {
++        cum += (2.0 * ((i + 1) as f64) - n as f64 - 1.0) * x;
++    }
++    cum / (n as f64 * sum)
++}
++
++fn top_decile_share(v: &[f64]) -> f64 {
++    let mut s: Vec<f64> = v.to_vec();
++    s.sort_by(|a, b| b.partial_cmp(a).unwrap());
++    let k = (v.len() / 10).max(1);
++    let top: f64 = s.iter().take(k).sum();
++    let all: f64 = s.iter().sum();
++    if all <= 0.0 {
++        0.0
++    } else {
++        top / all
++    }
++}
++
++fn zipf_slope(v: &[f64]) -> f64 {
++    let mut s: Vec<f64> = v.to_vec();
++    s.sort_by(|a, b| b.partial_cmp(a).unwrap());
++    let pos: Vec<f64> = s.into_iter().filter(|&x| x > 0.0).collect();
++    let m = pos.len();
++    if m < 8 {
++        return 0.0;
++    }
++    let xs: Vec<f64> = (1..=m).map(|i| i as f64).collect();
++    let ys: Vec<f64> = pos.iter().map(|&c| c.ln()).collect();
++    let mx: f64 = xs.iter().sum::<f64>() / m as f64;
++    let my: f64 = ys.iter().sum::<f64>() / m as f64;
++    let mut num = 0.0;
++    let mut den = 0.0;
++    for i in 0..m {
++        num += (xs[i] - mx) * (ys[i] - my);
++        den += (xs[i] - mx) * (xs[i] - mx);
++    }
++    if den == 0.0 {
++        0.0
++    } else {
++        num / den
++    }
++}
++
++fn ranks(v: &[f64]) -> Vec<f64> {
++    let mut idx: Vec<usize> = (0..v.len()).collect();
++    idx.sort_by(|&a, &b| v[a].partial_cmp(&v[b]).unwrap());
++    let mut r = vec![0.0f64; v.len()];
++    let mut i = 0;
++    while i < idx.len() {
++        let mut j = i;
++        while j + 1 < idx.len() && v[idx[j + 1]] == v[idx[i]] {
++            j += 1;
++        }
++        let avg = ((i + j) as f64 + 2.0) / 2.0;
++        for &k in &idx[i..=j] {
++            r[k] = avg;
++        }
++        i = j + 1;
++    }
++    r
++}
++
++fn spearman(a: &[f64], b: &[f64]) -> f64 {
++    let (ra, rb) = (ranks(a), ranks(b));
++    let n = a.len() as f64;
++    let ma: f64 = ra.iter().sum::<f64>() / n;
++    let mb: f64 = rb.iter().sum::<f64>() / n;
++    let mut num = 0.0;
++    let (mut da, mut db) = (0.0, 0.0);
++    for i in 0..a.len() {
++        num += (ra[i] - ma) * (rb[i] - mb);
++        da += (ra[i] - ma) * (ra[i] - ma);
++        db += (rb[i] - mb) * (rb[i] - mb);
++    }
++    if da == 0.0 || db == 0.0 {
++        0.0
++    } else {
++        num / (da * db).sqrt()
++    }
++}
++
++fn poisson(rng: &mut Rng, lam: f64) -> u64 {
++    if lam <= 0.0 {
++        return 0;
++    }
++    if lam > 30.0 {
++        // normal approximation, adequate for dispersion/Gini comparisons at these rates
++        let u1 = rng.f64().max(1e-12);
++        let u2 = rng.f64();
++        let z = (-2.0 * u1.ln()).sqrt() * (TAU * u2).cos();
++        return (lam + lam.sqrt() * z).max(0.0).round() as u64;
++    }
++    let l = (-lam).exp();
++    let mut k = 0u64;
++    let mut p = 1.0;
++    loop {
++        p *= rng.f64();
++        if p <= l {
++            return k;
++        }
++        k += 1;
++    }
++}
++
++use std::f64::consts::TAU;
++
++#[allow(clippy::too_many_arguments)]
++fn measure(sp: &Spec, seed: u64, k: Option<f64>, c: Option<f64>, sim_seed: u64) -> String {
++    let mut sp = sp.clone();
++    sp.seed = seed;
++    let b = make_belt(&sp);
++    let t_end = sp.orbits * TAU;
++    let rp = emergent_encounters::pairs::radial_pairs(&b, sp.rho);
++    let ev = truth_events(&b, &rp, sp.rho, t_end);
++
++    let n = b.len();
++    let mut cnt = vec![0u64; n];
++    let mut by_pair: HashMap<(u32, u32), u64> = HashMap::new();
++    let mut per_body_partner: Vec<HashMap<u32, u64>> = vec![HashMap::new(); n];
++    for &(i, j, _t) in &ev {
++        cnt[i as usize] += 1;
++        cnt[j as usize] += 1;
++        *by_pair.entry((i, j)).or_default() += 1;
++        *per_body_partner[i as usize].entry(j).or_default() += 1;
++        *per_body_partner[j as usize].entry(i).or_default() += 1;
++    }
++    let counts: Vec<f64> = cnt.iter().map(|&x| x as f64).collect();
++    let total: f64 = counts.iter().sum();
++
++    // repeats: share of a body's events coming from its single busiest partner (median over
++    // bodies with >=2 events); pair multiplicity distribution
++    let mut partner_share = Vec::new();
++    for (bi, m) in per_body_partner.iter().enumerate() {
++        let t: u64 = m.values().sum();
++        if t >= 2 {
++            let mx = *m.values().max().unwrap() as f64;
++            partner_share.push(mx / t as f64);
++        }
++        let _ = bi;
++    }
++    let partner_share_med = if partner_share.is_empty() {
++        0.0
++    } else {
++        partner_share.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        partner_share[partner_share.len() / 2]
++    };
++    let pair_multi: Vec<f64> = by_pair.values().map(|&x| x as f64).collect();
++    let ev_in_ge2: f64 = pair_multi.iter().filter(|&&m| m >= 2.0).sum::<f64>() * 2.0;
++    let ev_in_ge4: f64 = pair_multi.iter().filter(|&&m| m >= 4.0).sum::<f64>() * 2.0;
++
++    // Fano of the aggregate stream in 20 equal bins
++    let nb = 20;
++    let mut bins = vec![0u64; nb];
++    for &(_, _, t) in &ev {
++        let idx = ((t / t_end) * nb as f64).floor() as usize;
++        let idx = idx.min(nb - 1);
++        bins[idx] += 1;
++    }
++    let mb = bins.iter().map(|&x| x as f64).sum::<f64>() / nb as f64;
++    let fano = if mb > 0.0 {
++        bins.iter().map(|&x| x as f64).map(|x| (x - mb) * (x - mb)).sum::<f64>() / nb as f64 / mb
++    } else {
++        0.0
++    };
++
++    // birth-constant model lambda_i = C*(k + e_i)*a_i^-1.5
++    let e: Vec<f64> = b.iter().map(|x| x.e).collect();
++    let a: Vec<f64> = b.iter().map(|x| x.a).collect();
++    let base = |kk: f64| -> Vec<f64> { (0..n).map(|i| (kk + e[i]) * a[i].powf(-1.5)).collect() };
++    let (kf, cf) = match (k, c) {
++        (Some(kk), Some(cc)) => (kk, cc),
++        _ => {
++            // fit on this scene: scan k, closed-form C
++            let mut best = (f64::INFINITY, 0.0, 0.0);
++            let mut kk = 0.0;
++            while kk <= 0.31 {
++                let mu0 = base(kk);
++                let d: f64 = mu0.iter().map(|&m| m * m).sum();
++                if d > 0.0 {
++                    let cc = mu0.iter().zip(&counts).map(|(&m, &c)| m * c).sum::<f64>() / d;
++                    let pred: Vec<f64> = mu0.iter().map(|&m| m * cc).collect();
++                    let sse: f64 = pred.iter().zip(&counts).map(|(&p, &c)| (p - c) * (p - c)).sum();
++                    if sse < best.0 {
++                        best = (sse, kk, cc);
++                    }
++                }
++                kk += 0.0025;
++            }
++            (best.1, best.2)
++        }
++    };
++    let mu: Vec<f64> = base(kf).iter().map(|&m| m * cf).collect();
++    let rho_model = spearman(&mu, &counts);
++    let rho_e = spearman(&e, &counts);
++    let rho_a = spearman(&a, &counts);
++
++    // residual dispersion vs a Poisson process with the same per-body rates
++    let resid: Vec<f64> = (0..n).map(|i| counts[i] - mu[i]).collect();
++    let mres: f64 = resid.iter().sum::<f64>() / n as f64;
++    let vres: f64 = resid.iter().map(|x| (x - mres) * (x - mres)).sum::<f64>() / n as f64;
++    let mmu: f64 = mu.iter().sum::<f64>() / n as f64;
++    let disp = if mmu > 0.0 { vres / mmu } else { 0.0 };
++    // the same statistic on a Poisson simulation with these exact rates (noise floor)
++    let mut rng = Rng(sim_seed);
++    let sim: Vec<f64> = mu.iter().map(|&m| poisson(&mut rng, m) as f64).collect();
++    let rho_model_sim = spearman(&mu, &sim);
++    let sres: Vec<f64> = (0..n).map(|i| sim[i] - mu[i]).collect();
++    let ms: f64 = sres.iter().sum::<f64>() / n as f64;
++    let vs: f64 = sres.iter().map(|x| (x - ms) * (x - ms)).sum::<f64>() / n as f64;
++    let disp_sim = if mmu > 0.0 { vs / mmu } else { 0.0 };
++
++    let med = {
++        let mut s = counts.clone();
++        s.sort_by(|x, y| x.partial_cmp(y).unwrap());
++        s[s.len() / 2]
++    };
++    let j = format!(
++        concat!(
++            r#"{{"spec":"{:?}","seed":{},"n":{},"orbits":{},"rho":{:e},"sigma_e":{:e},"#,
++            r#""radial_pairs":{},"events":{},"per_body_mean":{:.4},"per_body_median":{},"per_body_max":{},"#,
++            r#""zero_frac":{:.4},"gini":{:.4},"gini_poisson_model":{:.4},"#,
++            r#""top_decile":{:.4},"top_decile_poisson_model":{:.4},"#,
++            r#""zipf":{:.3},"zipf_poisson_model":{:.3},"#,
++            r#""rho_model":{:.4},"rho_e":{:.4},"rho_a":{:.4},"rho_model_sim":{:.4},"#,
++            r#""k_fit":{:.5},"C_fit":{:.e},"disp_resid":{:.4},"disp_poisson":{:.4},"#,
++            r#""partner_share_med":{:.4},"ev_in_ge2_share":{:.4},"ev_in_ge4_share":{:.4},"fano":{:.4}}}"#
++        ),
++        sp.name, seed, n, sp.orbits, sp.rho, sp.sigma_e,
++        rp.len(), ev.len(), total / n as f64, med, counts.iter().cloned().fold(0.0, f64::max),
++        counts.iter().filter(|&&c| c == 0.0).count() as f64 / n as f64,
++        gini(&counts), gini(&sim),
++        top_decile_share(&counts), top_decile_share(&sim),
++        zipf_slope(&counts), zipf_slope(&sim),
++        rho_model, rho_e, rho_a, rho_model_sim,
++        kf, cf, disp, disp_sim,
++        partner_share_med,
++        if total > 0.0 { ev_in_ge2 / total } else { 0.0 },
++        if total > 0.0 { ev_in_ge4 / total } else { 0.0 },
++        fano
++    );
++    j
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args[1].clone();
++    let name = args[2].clone();
++    let seed: u64 = args[3].parse().unwrap();
++    let sp = spec_of(&name);
++    match mode.as_str() {
++        "fit" => println!("{}", measure(&sp, seed, None, None, 2026_1014)),
++        "pred" => {
++            let k: f64 = args[4].parse().unwrap();
++            let c: f64 = args[5].parse().unwrap();
++            println!("{}", measure(&sp, seed, Some(k), Some(c), 2026_1014));
++        }
++        _ => panic!("modes: fit <spec> <seed> | pred <spec> <seed> <k> <C>"),
++    }
++}
