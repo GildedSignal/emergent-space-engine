@@ -1,0 +1,44 @@
+== building the oracle example ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.51s
+== the seen instruments vs the SR oracle (dossier: exact-path + Δte note) ==
+warning: unused variable: `ve`
+   --> crates/universe/examples/seen_oracle.rs:133:21
+    |
+133 |                 let ve = ve_e;
+    |                     ^^ help: if this is intentional, prefix it with an underscore: `_ve`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "seen_oracle") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/examples/seen_oracle 6`
+observer β, emitter β, geometry — 6 frames at rtf 100 (frame = 338375 ticks), 24 emitters at 1e6
+case                         max Δshift  max Δdir°  Δte tick Δdist rel        n
+still: 0.9c toward              0.000e0  6.361e-15    721.22      0.00       24
+still: 0.9c across              0.000e0  6.361e-15    705.35      0.00       24
+0.9c obs: 0.9c across         9.883e-12  6.361e-15    565.08      0.00       24
+0.9c obs: 0.9c toward         9.883e-12  6.361e-15    717.67      0.00       24
+0.9c obs: 0.9c away           9.883e-12  6.361e-15     38.82      0.00       24
+0.9c obs: still               9.883e-12  6.361e-15     73.91      0.00       24
+0.99c obs: 0.9c toward        1.381e-10  6.361e-15    717.36      0.00       24
+== the three seams (dossier: S1/S2/S3 tables) ==
+S1  fleet member: shipped rate / true rate = gamma(beta_m)
+ beta_m   gamma  colour err lum err (g^4-1)   domain
+3.05e-05  1.0000   4.651e-10       1.861e-09   the plane's flown battle (2^-15 c)
+   0.14  1.0099    0.009946         0.04038   1% colour threshold
+   0.31  1.0518     0.05182          0.2239   5%
+    0.5  1.1547      0.1547          0.7778   
+    0.7  1.4003      0.4003           2.845   contact-law test range
+    0.9  2.2942       1.294            26.7   contact-law test range
+   0.99  7.0888       6.089            2524   
+
+S2  nested dolls (planet beta_p, member beta_m perpendicular, worst n):
+  beta_p   beta_m  |v_exact - v_gal|  max shift err
+  0.0001      0.9            8.1e-05       0.001194  (parallel)
+     0.1      0.9            0.08257            inf  (parallel)
+     0.5      0.9             0.4345            inf  (parallel)
+     0.9      0.9             0.8055            inf  (parallel)
+
+S3  burning observer in the ROOT doll: exact (one level, no composition).
+    The clock side (clocks_with) re-derives the rate with dv in the chain;
+    only a nested doll + burn binds, by the S2 arithmetic.

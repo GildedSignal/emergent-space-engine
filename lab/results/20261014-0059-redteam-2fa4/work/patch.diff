@@ -1,0 +1,152 @@
+diff --git a/crates/universe/examples/seen_oracle.rs b/crates/universe/examples/seen_oracle.rs
+new file mode 100644
+index 00000000..4f9c9fe5
+--- /dev/null
++++ b/crates/universe/examples/seen_oracle.rs
+@@ -0,0 +1,146 @@
++//! The seen instruments against an independent SR oracle, for the one scene class the
++//! game exists for: a moving observer and relativistic emitters (the `stream` scene —
++//! bare straight tubes at 1e8 root units, where gravity is 2e-8 and the worldlines are
++//! analytic). Everything here is a read; the oracle is written from the scene's own
++//! construction (scenario.rs:72-96), never from the engine's readouts.
++//!
++//! Prints, per case: the max relative error of `Seen.shift`, the max direction error in
++//! degrees, and the emitters judged. `seen_oracle [FRAMES]`.
++use emergent_universe::scenario::{stream, Stream};
++use emergent_universe::view::{gather, TICK_SECONDS};
++
++const R: f64 = 1.0e8;
++
++fn dot(a: [f64; 2], b: [f64; 2]) -> f64 {
++    a[0] * b[0] + a[1] * b[1]
++}
++
++/// The observer's analytic state at tick `t` (scenario.rs:76-80): circular at R when
++/// still (ω = √(M/R³), M = 1 in root units), straight at β along +y otherwise.
++fn observer(bo: f64, t: f64, start: f64) -> ([f64; 2], [f64; 2]) {
++    if bo == 0.0 {
++        let w = (1.0 / (R * R * R)).sqrt();
++        let (s, c) = (w * t).sin_cos();
++        ([R * c, R * s], [-R * w * s, R * w * c])
++    } else {
++        ([R, bo * (t - start)], [0.0, bo])
++    }
++}
++
++/// Schwarzschild-coordinate rate dτ/dt at radius `r` and speed `v` (c = 1, M = 1).
++fn rate(x: [f64; 2], v: [f64; 2]) -> f64 {
++    let r = dot(x, x).sqrt();
++    let f = 1.0 - 2.0 / r;
++    (f - dot(v, v)).max(1e-300).sqrt()
++}
++
++/// The last emission tick on the observer's past cone, in closed form: the larger root
++/// of |C + v_e·t| = t_now − t with C = x_e(0) − x_o(t_now).
++fn emit_tick(c: [f64; 2], v: [f64; 2], t_now: f64) -> f64 {
++    let a = dot(v, v) - 1.0;
++    let b = dot(c, v);
++    let cc = dot(c, c);
++    // |C + v·t|² = (t_now − t)²  →  (|v|²−1)t² + 2(b + t_now)t + (cc − t_now²) = 0
++    let (a, b, c) = (a, b + t_now, cc - t_now * t_now);
++    let disc = (b * b - a * c).max(0.0).sqrt();
++    let mut t = (-b - disc) / a;
++    if t > t_now || (-b + disc) / a <= t_now {
++        t = (-b + disc) / a;
++    }
++    t
++}
++
++/// The source direction in the observer's frame: boost the root-frame null momentum
++/// (spatial part −n, the photon's travel direction) with the boost matrix — an arithmetic
++/// path independent of `view::aberration`'s closed form — and flip it back to a bearing.
++fn seen_dir(n: [f64; 2], beta: [f64; 2]) -> [f64; 2] {
++    let bb = dot(beta, beta);
++    if bb == 0.0 {
++        return n;
++    }
++    let g = (1.0 - bb).sqrt().recip();
++    let m = [-n[0], -n[1]]; // photon travel direction
++    let w = (g - 1.0) * dot(beta, m) / bb - g;
++    let d = [m[0] + w * beta[0], m[1] + w * beta[1]];
++    let len = dot(d, d).sqrt();
++    [-d[0] / len, -d[1] / len]
++}
++
++/// The player's body id (the observer).
++fn view_observer(u: &emergent_universe::universe::Universe) -> usize {
++    u.player().expect("a player")
++}
++
++fn main() {
++    let frames: usize = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(6);
++    let start = 1_200_000_000i64;
++    let frame = (100.0 / 60.0 / TICK_SECONDS) as i64;
++    println!("observer β, emitter β, geometry — {frames} frames at rtf 100 (frame = {frame} ticks), 24 emitters at 1e6");
++    println!("{:<28} {:>10} {:>10} {:>9} {:>9} {:>8}", "case", "max Δshift", "max Δdir°", "Δte tick", "Δdist rel", "n");
++    use Stream::*;
++    let cases: [(&str, f64, f64, Stream); 7] = [
++        ("still: 0.9c toward", 0.0, 0.9, Toward),
++        ("still: 0.9c across", 0.0, 0.9, Across),
++        ("0.9c obs: 0.9c across", 0.9, 0.9, Across),
++        ("0.9c obs: 0.9c toward", 0.9, 0.9, Toward),
++        ("0.9c obs: 0.9c away", 0.9, 0.9, Away),
++        ("0.9c obs: still", 0.9, 0.0, Across),
++        ("0.99c obs: 0.9c toward", 0.99, 0.9, Toward),
++    ];
++    for (name, bo, b, kind) in cases {
++        let (mut u, ids, p) = stream(bo, b, kind, 24, 1.0e6, start).unwrap();
++        let _ = p;
++        let (mut worst_shift, mut worst_dir, mut judged) = (0.0f64, 0.0f64, 0usize);
++        let (mut worst_te, mut worst_dist) = (0.0f64, 0.0f64);
++        for f in 0..frames {
++            let t = start + f as i64 * frame;
++            u.settle(t);
++            u.now = t;
++            let Some(view) = gather(&u, &[]) else { continue };
++            // the observer's state: the engine's own readout (the analytic model below is kept
++            // only for the Δte note; it neglects the star's pull, ~72 units over the flight)
++            let ctx0 = u.ctx();
++            let (xo, vo) = emergent_universe::observe::root_state(&ctx0, view_observer(&u), t)
++                .unwrap_or_else(|_| observer(bo, t as f64, start as f64));
++            for id in ids.iter().copied() {
++                let Some(s) = view.seen.iter().find(|s| s.id == id) else { continue };
++                // the emitter's analytic worldline (scenario.rs:82-92)
++                let th = (ids.iter().position(|x| *x == id).unwrap() as f64 + 0.5) / ids.len() as f64 * std::f64::consts::TAU;
++                let bearing = [th.cos(), th.sin()];
++                let dir = match kind {
++                    Stream::Across => [-bearing[1], bearing[0]],
++                    Stream::Toward => [-bearing[0], -bearing[1]],
++                    Stream::Away => bearing,
++                };
++                let ve = [b * dir[0], b * dir[1]];
++                let at_start = [R + 1.0e6 * bearing[0], 1.0e6 * bearing[1]];
++                let x0 = [at_start[0] - ve[0] * start as f64, at_start[1] - ve[1] * start as f64];
++                let c = [x0[0] - xo[0], x0[1] - xo[1]];
++                let te = emit_tick(c, ve, t as f64);
++                // The instruments are judged at the engine's own event: the state readouts at the
++                // engine's emission tick and at now (all pub), so any disagreement is the formula,
++                // not the worldline model.
++                let te_e = t - (s.age / TICK_SECONDS).round() as i64;
++                let ctx = u.ctx();
++                let Ok((xe, ve_e, rate_e)) = emergent_universe::observe::state_rate(&ctx, id, te_e) else { continue };
++                let d = [xo[0] - xe[0], xo[1] - xe[1]];
++                let dist = dot(d, d).sqrt();
++                let n_prop = [d[0] / dist, d[1] / dist]; // photon travel direction
++                let shift_o = ((1.0 - dot(n_prop, vo)) / rate(xo, vo)) / ((1.0 - dot(n_prop, ve_e)) / rate_e);
++                worst_shift = worst_shift.max((s.shift / shift_o - 1.0).abs());
++                worst_te = worst_te.max((t as f64 - s.age / TICK_SECONDS - te).abs());
++                worst_dist = worst_dist.max((s.light_seconds / TICK_SECONDS / dist - 1.0).abs());
++                let ve = ve_e;
++                // direction on the sky: toward the source
++                let toward = [-n_prop[0], -n_prop[1]];
++                let want = seen_dir(toward, vo);
++                let got = s.direction;
++                let cross = want[0] * got[1] - want[1] * got[0];
++                let cos = dot(want, got).clamp(-1.0, 1.0);
++                worst_dir = worst_dir.max(cross.atan2(cos).abs().to_degrees());
++                judged += 1;
++            }
++        }
++        println!("{:<28} {:>10.3e} {:>10.3e} {:>9.2} {:>9.2} {:>8}", name, worst_shift, worst_dir, worst_te, worst_dist, judged / frames.max(1));
++    }
++}

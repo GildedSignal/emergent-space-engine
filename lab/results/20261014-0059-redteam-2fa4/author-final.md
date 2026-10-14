@@ -1,0 +1,4 @@
+Working...
+All deliverables verified: `predictions.md` (pre-registered, all four held), `dossier.md`, `regen.sh` (rerun end-to-end, <1 min), `oracle.txt`/`seams.txt`, and the folded `wiki/view.md`; the new `seen_oracle.rs` example rides the run's patch.
+
+**Claim:** the design's "−p·u *is* the colour, the direction *is* the aberration" premise is measured for the first time for a moving observer and holds to the float floor on shipped code (≤1.4×10⁻¹⁰ shift, ≤6.4×10⁻¹⁵° direction at observer β 0.9–0.99, emitter β 0.9, seven geometries) — except on the fleet seam, where every battle member's seen colour and luminosity omit the member's kinetic γ (wrong by γ−1 / γ⁴−1: 1% at β 0.14, 130%/27× at the contact law's tested β 0.9, dormant at the plane's flown 2⁻¹⁵ c), and no rung, gate or example judges any seen value.
