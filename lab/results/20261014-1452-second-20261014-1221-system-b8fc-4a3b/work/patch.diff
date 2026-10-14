@@ -1,0 +1,865 @@
+diff --git a/crates/space/src/census.rs b/crates/space/src/census.rs
+new file mode 100644
+index 00000000..fe6948ef
+--- /dev/null
++++ b/crates/space/src/census.rs
+@@ -0,0 +1,88 @@
++//! Knot-table census (lab run 20261014-1221-system-b8fc): who pays for the compiled cycle's panel
++//! grid, and who reads it. Purely additive counters — no arithmetic of the law is touched, so no
++//! bit can move. All hooks are in `orbit.rs` (the bound Darwin cycle and its readouts); Kerr and
++//! light are out of this census's domain.
++use std::cell::{Cell, RefCell};
++use std::collections::HashSet;
++
++pub const COMPILES: usize = 0; // bound-cycle table builds (Orbit::compile)
++pub const KNOTS: usize = 1; // knots pushed by the build walk (panels + 1)
++pub const C_QUADS: usize = 2; // quad calls at build
++pub const C_NODES: usize = 3; // node() integrand evals at build (general branch)
++pub const READS: usize = 4; // outbound_at calls: every time→state readout
++pub const R_PROBES: usize = 5; // bracket binary-search probes over the knot sums
++pub const R_NEWTON: usize = 6; // Newton iterations inside the bracket
++pub const R_QUADS: usize = 7; // quad calls at readout (partial-panel re-integration)
++pub const R_NODES: usize = 8; // node() evals inside readout quads
++pub const R_RATE: usize = 9; // node() evals as Newton's rate
++pub const R_AR: usize = 10; // at_radius calls (the passage guess path)
++pub const AR_QUADS: usize = 11; // quad calls inside at_radius
++pub const TOUCHED: usize = 12; // distinct (table, bracket) cells ever read
++pub const TABLES: usize = 13; // distinct tables that were read at least once
++pub const OTHER_NODES: usize = 14; // node() evals outside build/read/at_radius
++pub const N: usize = 15;
++
++pub const NAMES: [&str; N] = [
++    "compiles (Orbit::compile)",
++    "knots pushed",
++    "quad calls at build",
++    "node evals at build",
++    "readouts (outbound_at)",
++    "bracket probes",
++    "newton iterations",
++    "quad calls at readout",
++    "node evals in readout quads",
++    "node evals as newton rate",
++    "at_radius calls",
++    "quad calls in at_radius",
++    "distinct (table,bracket) read",
++    "distinct tables read",
++    "node evals elsewhere",
++];
++
++/// Who is calling `node()` right now (0 other, 1 build, 2 readout, 3 at_radius).
++thread_local! {
++    static ROLE: Cell<u8> = const { Cell::new(0) };
++    static C: RefCell<Census> = RefCell::new(Census { c: [0; N], cells: HashSet::new(), tables: HashSet::new() });
++}
++
++struct Census {
++    c: [u64; N],
++    cells: HashSet<(usize, u32)>,
++    tables: HashSet<usize>,
++}
++
++pub fn node() {
++    C.with(|c| {
++        let i = match ROLE.get() {
++            1 => C_NODES,
++            2 => R_NODES,
++            3 => R_NODES, // at_radius re-integrates the same partial panels; counted by its quad calls
++            _ => OTHER_NODES,
++        };
++        c.borrow_mut().c[i] += 1;
++    });
++}
++
++pub fn bump(i: usize) {
++    C.with(|c| c.borrow_mut().c[i] += 1);
++}
++pub fn role(r: u8) {
++    ROLE.set(r);
++}
++/// A readout settled on bracket `index` of table `id`.
++pub fn touch(id: usize, index: usize) {
++    C.with(|c| {
++        let mut b = c.borrow_mut();
++        b.cells.insert((id, index as u32));
++        b.tables.insert(id);
++    });
++}
++pub fn take() -> [u64; N] {
++    C.with(|c| {
++        let mut b = c.borrow_mut();
++        b.c[TOUCHED] = b.cells.len() as u64;
++        b.c[TABLES] = b.tables.len() as u64;
++        b.c
++    })
++}
+diff --git a/crates/space/src/closedread.rs b/crates/space/src/closedread.rs
+new file mode 100644
+index 00000000..6fe6f167
+--- /dev/null
++++ b/crates/space/src/closedread.rs
+@@ -0,0 +1,539 @@
++//! Incomplete-Carlson readout for the t channel (lab run 20261014-1452-second-…-4a3b).
++//!
++//! The knot-table census (20261014-1221-system-b8fc) showed every time→state readout
++//! re-integrates ~13 integrand point-evals because only ~7 of 77–92 knots are ever read.
++//! This module prices the named deletion: the t-channel cumulative time as ONE closed
++//! form (incomplete Carlson RF/RD/RJ), inverting time→ψ by Newton on a closed-form
++//! derivative. Purely additive: nothing here runs unless `capture()` was enabled by the
++//! example, and the capture never touches the law's arithmetic (digest-checked).
++//!
++//! Reduction (from `OrbitShape::node`'s t integrand; c = 2k−1, x = c+(1−c)s², s = sin θ,
++//! θ = π/2 − ψ/2, A = 1−q(8k−2), m = 4q(1−k)/A, γ = 1−2qc, n3 = 2q(1−c)/γ, β = (1−c)/c):
++//!   T(ψ) = 2√tn/(c²γ√A) · [H(π/2) − H(θ)],  H = a1·Π(−β) + a2·J0i(−β) + a3·Π(n3),
++//!   a1 = βn3/(β+n3)², a2 = β/(β+n3), a3 = n3²/(β+n3)²,
++//!   J0i(n;θ|m) = λ1·[sinθ·cosθ·√(1−m sin²θ)/(1−n sin²θ)] + λ2·F + λ3·E + λ4·Π(n),
++//!     λ1 = n²/(2(n−1)(n−m)), λ2 = 1/(2(n−1)), λ3 = −n/(2(n−1)(n−m)),
++//!     λ4 = (n²−2(1+m)n+3m)/(2(n−1)(n−m))   [complete case = de99's J0, verified there
++//!                                             against mpmath to 1.1e-16; the λ1 boundary
++//!                                             term is this run's incomplete extension].
++//! Weak shapes (shape q = 0): m = n3 = 0, H = J0i(−β|0), plus the orbit-q clock term
++//!   q·6√k/c·[Π(−β;π/2|0) − Π(−β;θ|0)].
++use std::cell::RefCell;
++use std::hint::black_box;
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++
++use crate::orbit::Orbit;
++use crate::scaled::Scalar;
++
++const PI: f64 = std::f64::consts::PI;
++const R_CERT: f64 = 1e-15;
++
++// ---- Carlson symmetric forms, verbatim from Carlson 1994 (arXiv:math/9409227),
++// ---- as landed (bit-for-bit) by run 20261013-1915-…-de99 on this repo's branches.
++fn rf(x: f64, y: f64, z: f64) -> f64 {
++    let a0 = (x + y + z) / 3.0;
++    let q = (3.0 * R_CERT).powf(-1.0 / 6.0)
++        * (a0 - x).abs().max((a0 - y).abs()).max((a0 - z).abs());
++    let (mut xn, mut yn, mut zn) = (x, y, z);
++    let mut an = a0;
++    let mut n = 0u32;
++    while q / 4f64.powi(n as i32) >= an.abs() && n < 50 {
++        let (sx, sy, sz) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
++        let lam = sx * sy + sx * sz + sy * sz;
++        an = (an + lam) / 4.0;
++        xn = (xn + lam) / 4.0;
++        yn = (yn + lam) / 4.0;
++        zn = (zn + lam) / 4.0;
++        n += 1;
++    }
++    let p4n = 4f64.powi(n as i32);
++    let xd = (a0 - x) / (p4n * an);
++    let yd = (a0 - y) / (p4n * an);
++    let zd = -xd - yd;
++    let e2 = xd * yd - zd * zd;
++    let e3 = xd * yd * zd;
++    (1.0 - e2 / 10.0 + e3 / 14.0 + e2 * e2 / 24.0 - 3.0 * e2 * e3 / 44.0) / an.sqrt()
++}
++
++fn rd(x: f64, y: f64, z: f64) -> f64 {
++    let a0 = (x + y + 3.0 * z) / 5.0;
++    let q = (R_CERT / 4.0).powf(-1.0 / 6.0)
++        * (a0 - x).abs().max((a0 - y).abs()).max((a0 - z).abs());
++    let (mut xn, mut yn, mut zn) = (x, y, z);
++    let mut an = a0;
++    let mut sum = 0.0;
++    let mut n = 0u32;
++    while q / 4f64.powi(n as i32) >= an.abs() && n < 50 {
++        let (sx, sy, sz) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
++        let lam = sx * sy + sx * sz + sy * sz;
++        sum += 3.0 / (sz * (zn + lam)) / 4f64.powi(n as i32);
++        an = (an + lam) / 4.0;
++        xn = (xn + lam) / 4.0;
++        yn = (yn + lam) / 4.0;
++        zn = (zn + lam) / 4.0;
++        n += 1;
++    }
++    let p4n = 4f64.powi(n as i32);
++    let xd = (a0 - x) / (p4n * an);
++    let yd = (a0 - y) / (p4n * an);
++    let zd = -(xd + yd) / 3.0;
++    let xy = xd * yd;
++    let e2 = xy - 6.0 * zd * zd;
++    let e3 = (3.0 * xy - 8.0 * zd * zd) * zd;
++    let e4 = 3.0 * (xy - zd * zd) * zd * zd;
++    let e5 = xd * yd * zd.powi(3);
++    (4f64.powi(n as i32).recip() * an.powf(-1.5))
++        * (1.0 - 3.0 / 14.0 * e2
++            + 1.0 / 6.0 * e3
++            + 9.0 / 88.0 * e2 * e2
++            - 3.0 / 22.0 * e4
++            - 9.0 / 52.0 * e2 * e3
++            + 3.0 / 26.0 * e5)
++        + sum
++}
++
++fn rj(x: f64, y: f64, z: f64, p: f64) -> f64 {
++    // RC inlined (degree-7 series, Carlson eqs (2.9)-(2.13)).
++    fn rc(x: f64, y: f64) -> f64 {
++        let a0 = (x + 2.0 * y) / 3.0;
++        let q = (3.0 * R_CERT).powf(-1.0 / 8.0) * (a0 - x).abs();
++        let (mut xn, mut yn) = (x, y);
++        let mut an = a0;
++        let mut n = 0u32;
++        while q / 4f64.powi(n as i32) >= an.abs() && n < 50 {
++            let lam = 2.0 * xn.sqrt() * yn.sqrt() + yn;
++            an = (an + lam) / 4.0;
++            xn = (xn + lam) / 4.0;
++            yn = (yn + lam) / 4.0;
++            n += 1;
++        }
++        let p4n = 4f64.powi(n as i32);
++        let s = (y - a0) / (p4n * an);
++        (1.0
++            + 3.0 / 10.0 * s * s
++            + 1.0 / 7.0 * s * s * s
++            + 3.0 / 8.0 * s.powi(4)
++            + 9.0 / 22.0 * s.powi(5)
++            + 159.0 / 208.0 * s.powi(6)
++            + 9.0 / 8.0 * s.powi(7))
++            / an.sqrt()
++    }
++    let a0 = (x + y + z + 2.0 * p) / 5.0;
++    let delta = (p - x) * (p - y) * (p - z);
++    let q = (R_CERT / 4.0).powf(-1.0 / 6.0)
++        * (a0 - x).abs().max((a0 - y).abs()).max((a0 - z).abs()).max((a0 - p).abs());
++    let (mut xn, mut yn, mut zn, mut pn) = (x, y, z, p);
++    let mut an = a0;
++    let mut sum = 0.0;
++    let mut n = 0u32;
++    while q / 4f64.powi(n as i32) >= an.abs() && n < 50 {
++        let (sx, sy, sz, sp) = (xn.sqrt(), yn.sqrt(), zn.sqrt(), pn.sqrt());
++        let lam = sx * sy + sx * sz + sy * sz;
++        let dm = (sp + sx) * (sp + sy) * (sp + sz);
++        let em = 4f64.powi(-3 * n as i32) * delta / (dm * dm);
++        sum += 6.0 * 4f64.powi(-(n as i32)) / dm * rc(1.0, 1.0 + em);
++        an = (an + lam) / 4.0;
++        xn = (xn + lam) / 4.0;
++        yn = (yn + lam) / 4.0;
++        zn = (zn + lam) / 4.0;
++        pn = (pn + lam) / 4.0;
++        n += 1;
++    }
++    let p4n = 4f64.powi(n as i32);
++    let xd = (a0 - x) / (p4n * an);
++    let yd = (a0 - y) / (p4n * an);
++    let zd = (a0 - z) / (p4n * an);
++    let pd = (-xd - yd - zd) / 2.0;
++    let e2 = xd * yd + xd * zd + yd * zd - 3.0 * pd * pd;
++    let e3 = xd * yd * zd + 2.0 * e2 * pd + 4.0 * pd * pd * pd;
++    let e4 = (2.0 * xd * yd * zd + e2 * pd + 3.0 * pd * pd * pd) * pd;
++    let e5 = xd * yd * zd * pd * pd;
++    (4f64.powi(n as i32).recip() * an.powf(-1.5))
++        * (1.0 - 3.0 / 14.0 * e2
++            + 1.0 / 6.0 * e3
++            + 9.0 / 88.0 * e2 * e2
++            - 3.0 / 22.0 * e4
++            - 9.0 / 52.0 * e2 * e3
++            + 3.0 / 26.0 * e5)
++        + sum
++}
++
++// ---- incomplete Legendre layer (Carlson's standard reductions) -------------
++
++/// One θ-slice of the three base forms sharing a single RF.
++struct Slice {
++    f: f64,
++    e: f64,
++    /// Π(n;θ|m) for the given n, sharing `f`'s RF.
++    pub pi: fn(&Self, n: f64) -> f64,
++    s: f64,
++}
++fn slice(theta: f64, m: f64) -> Slice {
++    let s = theta.sin();
++    let c2 = theta.cos().powi(2);
++    let w = 1.0 - m * s * s;
++    let base = s * rf(c2, w, 1.0);
++    let s3 = s * s * s;
++    Slice {
++        f: base,
++        e: base - m / 3.0 * s3 * rd(c2, w, 1.0),
++        s,
++        pi: move |this: &Slice, n: f64| base + n / 3.0 * s3 * rj(c2, w, 1.0, 1.0 - n * this.s * this.s),
++    }
++}
++fn pi_of(sl: &Slice, n: f64) -> f64 {
++    let s3 = sl.s * sl.s * sl.s;
++    let c2 = (1.0 - sl.s * sl.s).max(0.0);
++    let w = 1.0;
++    // recompute from stored f is not possible without w; keep it simple instead:
++    sl.f + n / 3.0 * s3 * rj(c2, w, 1.0 - n * sl.s * sl.s, 1.0 - (1.0 - 0.0) * sl.s * sl.s * 0.0)
++}
++
++/// J0i(n;θ|m) = ∫₀^θ dφ/((1−n sin²φ)²√(1−m sin²φ)), the λ-reduction above.
++fn j0i(sl: &Slice, n: f64, m: f64, theta: f64) -> f64 {
++    let s = sl.s;
++    let c = theta.cos();
++    let w = (1.0 - m * s * s).sqrt();
++    let d = 1.0 - n * s * s;
++    let l1 = n * n / (2.0 * (n - 1.0) * (n - m));
++    let l2 = 1.0 / (2.0 * (n - 1.0));
++    let l3 = -n / (2.0 * (n - 1.0) * (n - m));
++    let l4 = (n * n - 2.0 * (1.0 + m) * n + 3.0 * m) / (2.0 * (n - 1.0) * (n - m));
++    l1 * (s * c * w / d) + l2 * sl.f + l3 * sl.e + l4 * pi_of(sl, n)
++}
++
++// ---- the t-channel closed form ---------------------------------------------
++
++/// Parameters of one bound shape (reconstructed from the integer key fields).
++pub struct Params {
++    k: f64,
++    q_shape: f64,
++    q_orbit: f64,
++    tn_sqrt: f64,
++    /// (c, beta, A, m, gamma, n3, a1, a2, a3); weak shapes carry m = n3 = 0.
++    strong: Option<(f64, f64, f64, f64, f64, f64, f64, f64, f64)>,
++    circular: bool,
++}
++
++fn scalar_f64(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi(s.exponent() as i32 - 62)
++}
++
++impl Params {
++    pub fn of(orbit: &Orbit) -> Self {
++        let shape = orbit.shape();
++        let k = shape.kQ62() as f64 / 2f64.powi(62);
++        let q_shape = shape.qQ62() as f64 / 2f64.powi(62);
++        let q_orbit = scalar_f64(orbit.qScalar());
++        let tn = if q_shape > 0.0 {
++            k * (1.0 - 2.0 * q_shape) * (1.0 + 2.0 * q_shape * (1.0 - 2.0 * k))
++        } else {
++            k
++        };
++        let circular = k > 1.0 - 1e-12;
++        let strong = if circular || q_shape <= 0.0 {
++            None
++        } else {
++            let c = 2.0 * k - 1.0;
++            let beta = (1.0 - c) / c;
++            let a_den = 1.0 - q_shape * (8.0 * k - 2.0);
++            let m = 4.0 * q_shape * (1.0 - k) / a_den;
++            let gamma = 1.0 - 2.0 * q_shape * c;
++            let n3 = 2.0 * q_shape * (1.0 - c) / gamma;
++            let bpn = beta + n3;
++            Some((
++                c,
++                beta,
++                a_den,
++                m,
++                gamma,
++                n3,
++                beta * n3 / (bpn * bpn),
++                beta / bpn,
++                n3 * n3 / (bpn * bpn),
++            ))
++        };
++        Self { k, q_shape, q_orbit, tn_sqrt: tn.sqrt(), strong, circular }
++    }
++    /// The cumulative normalized time T(ψ) of the shipped node() t integrand.
++    pub fn t_of_psi(&self, psi_normalized: f64) -> f64 {
++        if self.circular {
++            // x ≡ 1: integrand = 1/√(1−6q); includes the weak limit q → 0 (T = ψ).
++            let a = 1.0 - 6.0 * self.q_shape;
++            return psi_normalized / a.max(1e-300).sqrt();
++        }
++        let theta = (PI - psi_normalized) / 2.0;
++        if let Some((c, beta, aden, m, gamma, n3, a1, a2, a3)) = self.self_strong() {
++            let half = Self::h(&slice(PI / 2, m), a1, a2, a3, beta, n3, m, PI / 2);
++            let here = Self::h(&slice(theta, m), a1, a2, a3, beta, n3, m, theta);
++            2.0 * self.tn_sqrt / (c * c * gamma * aden.sqrt()) * (half - here)
++        } else {
++            // weak: m = 0, n3 = 0 → H = J0i(−β|0); plus the orbit-q clock term.
++            let c = 2.0 * self.k - 1.0;
++            let beta = (1.0 - c) / c;
++            let jhalf = j0i(&slice(PI / 2, 0.0), -beta, 0.0, PI / 2);
++            let sl = slice(theta, 0.0);
++            let jhere = j0i(&sl, -beta, 0.0, theta);
++            let base = 2.0 * self.tn_sqrt / (c * c) * (jhalf - jhere);
++            let q_term = if self.q_orbit > 0.0 {
++                let half_pi = pi_of(&slice(PI / 2, 0.0), -beta);
++                let here_pi = pi_of(&sl, -beta);
++                6.0 * self.q_orbit * self.tn_sqrt / c * (half_pi - here_pi)
++            } else {
++                0.0
++            };
++            base + q_term
++        }
++    }
++    fn self_strong(&self) -> Option<(f64, f64, f64, f64, f64, f64, f64, f64, f64)> {
++        self.strong
++    }
++    fn h(sl: &Slice, a1: f64, a2: f64, a3: f64, beta: f64, n3: f64, m: f64, theta: f64) -> f64 {
++        a1 * pi_of(sl, -beta) + a2 * j0i(sl, -beta, m, theta) + a3 * pi_of(sl, n3)
++    }
++    /// dT/dψ in closed form (the node() integrand itself).
++    pub fn dt_dpsi(&self, psi_normalized: f64) -> f64 {
++        let cs = psi_normalized.cos();
++        let x = self.k + (1.0 - self.k) * cs;
++        let a = 4.0 * self.k + 2.0 * x;
++        self.tn_sqrt
++            / (x * x * (1.0 - 2.0 * self.q_shape * x) * (1.0 - self.q_shape * a).sqrt())
++    }
++    /// Newton inversion from a start ψ₀ (normalized units). Returns the converged ψ.
++    pub fn invert(&self, target: f64, start: f64) -> f64 {
++        let mut psi = start;
++        for _ in 0..40 {
++            let t = self.t_of_psi(psi);
++            let err = target - t;
++            if err.abs() <= 1e-15 * target.abs().max(1e-300) {
++                break;
++            }
++            let step = err / self.dt_dpsi(psi);
++            psi += step.clamp(-PI, PI);
++        }
++        psi
++    }
++}
++
++// ---- capture ---------------------------------------------------------------
++
++pub struct Sample {
++    pub orbit: Orbit,
++    pub target: Scalar,
++    pub target_f64: f64,
++    pub quantum_f64: f64,
++    pub psi_walk: i128,
++    pub bracket_a: i128,
++}
++
++static CAPTURE: AtomicBool = AtomicBool::new(false);
++static NEXT: AtomicU64 = AtomicU64::new(0);
++
++thread_local! {
++    static SAMPLES: RefCell<Vec<Sample>> = RefCell::new(Vec::new());
++}
++
++pub fn enable() {
++    CAPTURE.store(true, Ordering::Relaxed);
++}
++
++/// Called by the outbound_at wrapper (orbit.rs); purely observational.
++pub fn sample(orbit: &Orbit, target: Scalar, psi_walk: i128, bracket_a: i128, quantum: f64) {
++    if !CAPTURE.load(Ordering::Relaxed) {
++        return;
++    }
++    let i = NEXT.fetch_add(1, Ordering::Relaxed);
++    if i % 29 != 0 {
++        return;
++    }
++    SAMPLES.with(|s| {
++        let mut v = s.borrow_mut();
++        if v.len() < 60_000 {
++            v.push(Sample {
++                orbit: orbit.clone(),
++                target,
++                target_f64: scalar_f64(target),
++                quantum_f64: quantum,
++                psi_walk,
++                bracket_a,
++            });
++        }
++    });
++}
++
++pub fn take_samples() -> Vec<Sample> {
++    SAMPLES.with(|s| std::mem::take(&mut *s.borrow_mut()))
++}
++
++// ---- self-verification of the incomplete layer -----------------------------
++
++pub fn self_check() -> Result<(), &'static str> {
++    // J0i and the incomplete Π/F/E against 1024-point Gauss–Legendre on hard points.
++    let (nodes, weights) = gauss_legendre(1024);
++    let cases = [
++        (-3.5, 0.2, 0.7),
++        (-3.5, 0.9, 1.3),
++        (0.4, 0.5, 1.1),
++        (0.9, 0.05, 0.9),
++        (-0.9, 0.75, 1.5),
++    ];
++    for &(n, m, theta) in &cases {
++        let quad = |n: f64, pow: i32| -> f64 {
++            let (nn, ww) = (&nodes, &weights);
++            let mut acc = 0.0;
++            for i in 0..nn.len() {
++                let t = theta / 2.0 * (nn[i] + 1.0);
++                let s = t.sin();
++                let base = 1.0 - n * s * s;
++                acc += ww[i]
++                    * base.powi(pow)
++                    * (1.0 - m * s * s).powi(-1).sqrt()
++                    * theta
++                    / 2.0;
++            }
++            acc
++        };
++        let sl = slice(theta, m);
++        let pi_ref = quad(n, 1);
++        let j_ref = quad(n, -2);
++        let pi = pi_of(&sl, n);
++        let j = j0i(&sl, n, m, theta);
++        if (pi - pi_ref).abs() > 1e-12 * (1.0 + pi_ref.abs())
++            || (j - j_ref).abs() > 1e-12 * (1.0 + j_ref.abs())
++        {
++            return Err("incomplete layer disagrees with quadrature");
++        }
++    }
++    Ok(())
++}
++
++fn gauss_legendre(n: usize) -> (Vec<f64>, Vec<f64>) {
++    // Newton on Legendre polynomials; standard, adequate for a self-check.
++    let mut x = vec![0.0; n];
++    let mut w = vec![0.0; n];
++    for i in 0..(n + 1) / 2 {
++        let mut z = (PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
++        let mut dp = 0.0;
++        for _ in 0..100 {
++            let (mut p0, mut p1) = (1.0, z);
++            for j in 2..=n {
++                let p2 = ((2 * j - 1) as f64 * z * p1 - (j - 1) as f64 * p0) / j as f64;
++                p0 = p1;
++                p1 = p2;
++            }
++            dp = n as f64 * (z * p1 - p0) / (z * z - 1.0);
++            let dz = p1 / dp;
++            z -= dz;
++            if dz.abs() < 1e-14 {
++                break;
++            }
++        }
++        x[i] = -z;
++        x[n - 1 - i] = z;
++        w[i] = 2.0 / ((1.0 - z * z) * dp * dp);
++        w[n - 1 - i] = w[i];
++    }
++    (x, w)
++}
++
++// ---- the report ------------------------------------------------------------
++
++pub struct ReportLine {
++    pub kind: &'static str,
++    pub n: u64,
++}
++
++pub fn report(arms: &[(String, Vec<Sample>)]) {
++    for (label, samples) in arms {
++        println!("== closed readout: {label}, {} sampled readouts ==", samples.len());
++        let mut within1 = 0u64;
++        let mut within4 = 0u64;
++        let mut worst_ratio = 0.0f64;
++        let mut dpsi_ulps_max = 0i128;
++        let mut dpsi_norm_max = 0.0f64;
++        let mut band_ratio_min = f64::INFINITY;
++        let mut inverted = 0u64;
++        let mut failures = 0u64;
++        for s in samples {
++            let p = Params::of(&s.orbit);
++            let psiw = s.psi_walk as f64 / 2f64.powi(61);
++            let tw = p.t_of_psi(psiw);
++            let ratio = (tw - s.target_f64).abs() / s.quantum_f64.max(1e-300);
++            if ratio <= 1.0 {
++                within1 += 1;
++            }
++            if ratio <= 4.0 {
++                within4 += 1;
++            }
++            worst_ratio = worst_ratio.max(ratio);
++            // inversion from the same bracket start the walk uses (linear fraction).
++            let a = s.bracket_a as f64 / 2f64.powi(61);
++            let start = a.max(0.0) + (PI - a).max(0.0) * 0.5;
++            let psic = p.invert(s.target_f64, start);
++            if !(psic.is_finite() && psic >= -1e-9 && psic <= PI + 1e-9) {
++                failures += 1;
++                continue;
++            }
++            inverted += 1;
++            let dpsi = (psic - psiw).abs();
++            dpsi_norm_max = dpsi_norm_max.max(dpsi);
++            dpsi_ulps_max = dpsi_ulps_max.max(((psic - psiw).abs() * 2f64.powi(61)) as i128);
++            // the walk's own acceptance band in ψ units at ψw
++            let band = s.quantum_f64 / p.dt_dpsi(psiw);
++            if band > 0.0 {
++                band_ratio_min = band_ratio_min.min(dpsi / band);
++            }
++        }
++        println!(
++            "  |T(ψw)−target|/quantum: within band {:.3}%, within 4× {:.3}%, worst {:.2}×",
++            100.0 * within1 as f64 / samples.len().max(1) as f64,
++            100.0 * within4 as f64 / samples.len().max(1) as f64,
++            worst_ratio,
++        );
++        println!(
++            "  inverted ψ vs walk ψ: max |Δψ| {:.3e} norm ({:.3e} × 2⁻⁶¹ ulps), min band-ratio {:.1}×, failures {failures}/{}, inverted {inverted}",
++            dpsi_norm_max,
++            dpsi_ulps_max as f64,
++            band_ratio_min,
++            samples.len(),
++        );
++    }
++}
++
++pub fn bench(samples: &[Sample], passes: u32) {
++    // Walk side: the shipped outbound_at (bracket + re-integration), black-boxed.
++    let mut walk_ns = 0u128;
++    let mut n_ok = 0u64;
++    for _ in 0..passes {
++        for s in samples.iter().take(20_000) {
++            let t0 = std::time::Instant::now();
++            let r = s.orbit.bench_outbound(s.target);
++            walk_ns += t0.elapsed().as_nanos();
++            if r.is_ok() {
++                n_ok += 1;
++            }
++        }
++    }
++    // Closed side: fraction start + Newton on the closed form (no table at all).
++    let params: Vec<(Params, f64)> = samples
++        .iter()
++        .take(20_000)
++        .map(|s| (Params::of(&s.orbit), s.target_f64))
++        .collect();
++    let mut closed_ns = 0u128;
++    for _ in 0..passes {
++        for (p, target) in black_box(&params) {
++            let t0 = std::time::Instant::now();
++            let psi = p.invert(*target, PI * 0.5);
++            closed_ns += t0.elapsed().as_nanos();
++            black_box(psi);
++        }
++    }
++    let n = (passes as u64) * params.len() as u64;
++    println!(
++        "  bench over {n} readouts: shipped walk {:.0} ns/readout (ok {n_ok}), closed Newton {:.0} ns/readout, ratio {:.1}×",
++        walk_ns as f64 / n as f64,
++        closed_ns as f64 / n as f64,
++        walk_ns as f64 / closed_ns.max(1) as f64,
++    );
++}
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 8dce4968..364726f5 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -122,6 +122,7 @@ pub mod events;
+ #[cfg(feature = "profile")]
+ pub mod profile;
+ mod tables;
++pub mod census;
+ 
+ macro_rules! stage {
+     ($i:expr, $e:expr) => {{
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..4968c050 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -312,6 +312,7 @@ impl OrbitShape {
+         self.k + product(ONE - self.k, cos(psi))
+     }
+     fn node(&self, psi: i128) -> Result<Integral> {
++        crate::census::node();
+         let cs = cos(psi);
+         let x = self.k + product(ONE - self.k, cs);
+         if x <= 0 {
+@@ -447,7 +448,14 @@ impl OrbitShape {
+             Scalar::ZERO,
+         ]))
+     }
++    /// census: the build walk (lab run 20261014-1221-system-b8fc); counters only, wrapped.
+     fn append(&mut self, end: i128) -> Result<()> {
++        crate::census::role(1);
++        let out = self.append_inner(end);
++        crate::census::role(0);
++        out
++    }
++    fn append_inner(&mut self, end: i128) -> Result<()> {
+         let start = self.knots.last().unwrap().psi as i128;
+         let eta = ONE - self.k;
+         let delta = ONE - product(self.q, 6 * self.k + 2 * eta);
+@@ -472,7 +480,9 @@ impl OrbitShape {
+             for i in 0..n {
+                 let a = lo + (hi - lo) * i / n;
+                 let b = lo + (hi - lo) * (i + 1) / n;
++                crate::census::bump(crate::census::C_QUADS);
+                 let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
++                crate::census::bump(crate::census::KNOTS);
+                 self.knots.push(Knot { psi: b as u64, sum });
+             }
+             lo = hi;
+@@ -549,6 +559,7 @@ impl Orbit {
+         &self.shape
+     }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
++        crate::census::bump(crate::census::COMPILES);
+         if key.null {
+             return Err(Error::NotPeriodic);
+         }
+@@ -743,7 +754,15 @@ impl Orbit {
+         }
+         Ok(state)
+     }
++    /// census: at_radius wrapped (lab run 20261014-1221-system-b8fc); counters only.
+     pub(crate) fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
++        crate::census::bump(crate::census::R_AR);
++        crate::census::role(3);
++        let out = self.at_radius_inner(radius);
++        crate::census::role(0);
++        out
++    }
++    pub(crate) fn at_radius_inner(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+         if self.key.k_exponent == 0 && self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+             if radius != self.key.periapsis {
+                 return Err(Error::Range);
+@@ -766,6 +785,7 @@ impl Orbit {
+             .partition_point(|k| k.psi as i128 <= psi)
+             .saturating_sub(1);
+         let base = &self.shape.knots[i];
++        crate::census::bump(crate::census::AR_QUADS);
+         let sum = base.sum.add(self.shape.quad(base.psi as i128, psi)?)?;
+         Ok((
+             self.time(sum)?.mul(self.time_scale)?,
+@@ -778,10 +798,13 @@ impl Orbit {
+         self.read(cycles, k.psi as i128, outbound, k.sum)
+     }
+     fn outbound_at(&self, target: Scalar) -> Result<(i128, Integral)> {
++        // census: every time→state readout of a compiled table (lab run 20261014-1221-system-b8fc).
++        crate::census::bump(crate::census::READS);
+         let s = &self.shape;
+         let mut lo_i = 0;
+         let mut hi_i = s.knots.len();
+         while lo_i < hi_i {
++            crate::census::bump(crate::census::R_PROBES);
+             let mid = (lo_i + hi_i) / 2;
+             if self.time(s.knots[mid].sum)? <= target {
+                 lo_i = mid + 1;
+@@ -790,6 +813,7 @@ impl Orbit {
+             }
+         }
+         let index = lo_i.saturating_sub(1);
++        crate::census::touch(self as *const _ as usize, index);
+         let base = &s.knots[index];
+         if self.time(base.sum)? == target || index + 1 == s.knots.len() {
+             return Ok((base.psi as i128, base.sum));
+@@ -812,7 +836,12 @@ impl Orbit {
+                 Scalar::ZERO
+             })?;
+         for iteration in 0..72 {
+-            let sum = base.sum.add(s.quad(a, psi)?)?;
++            crate::census::bump(crate::census::R_NEWTON);
++            crate::census::role(2);
++            crate::census::bump(crate::census::R_QUADS);
++            let q = s.quad(a, psi);
++            crate::census::role(0);
++            let sum = base.sum.add(q?)?;
+             let t = self.time(sum)?;
+             if t.sub(target)?.abs() <= quantum || hi - lo <= 1 {
+                 return Ok((psi, sum));
+@@ -826,7 +855,11 @@ impl Orbit {
+                 psi = lo + (hi - lo) / 2;
+                 continue;
+             }
+-            let rate = self.time(s.node(psi)?)?;
++            crate::census::bump(crate::census::R_RATE);
++            crate::census::role(2);
++            let r = s.node(psi);
++            crate::census::role(0);
++            let rate = self.time(r?)?;
+             let step = target.sub(t)?.div(rate)?.fixed(61)?;
+             let next = psi + step;
+             // Accept the quantum nearest the root if Newton cannot change psi.
+diff --git a/crates/universe/examples/knot_census.rs b/crates/universe/examples/knot_census.rs
+new file mode 100644
+index 00000000..0e4c1837
+--- /dev/null
++++ b/crates/universe/examples/knot_census.rs
+@@ -0,0 +1,90 @@
++//! The knot-table census (lab run 20261014-1221-system-b8fc): on a shipped plane scene, who pays
++//! for the compiled cycle's panel grid (the build walk) and who reads it (brackets + partial-panel
++//! re-integration), with the universe's own stage timers when built `--features prof`.
++//! Counters only — no arithmetic changed — so the digest at the cut is the shipped one and must
++//! agree across schedules (checked here at unlimited vs a biting wall budget).
++//!
++//! cargo run --release -p emergent-universe --features prof --example knot_census --
++//!   [<seed> <members> <rtf> <game-seconds> [<wall-ms budget, 0 = unlimited>]]
++use emergent_space::census;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let seed: u64 = a.get(1).and_then(|s| s.parse().ok()).unwrap_or(3);
++    let members: u64 = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(1500);
++    let rtf: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(1.0);
++    let secs: f64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(8.0);
++    let wall_ms: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(0.0);
++    let cut = (secs * rtf / TICK_SECONDS) as i64;
++    let mut p = plane(Config::default(), seed, Order::Sparse, 1, members).unwrap();
++    let budget = if wall_ms > 0.0 { Budget::wall(wall_ms) } else { Budget::unlimited() };
++    let t0 = std::time::Instant::now();
++    for _ in 0..200_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, rtf, budget, cut);
++    }
++    let reached = p.u.now;
++    let engine = t0.elapsed();
++    p.u.settle(cut);
++    let digest = p.u.digest();
++    let c = census::take();
++    println!(
++        "seed {seed} members {members} rtf {rtf} {secs} game-s budget {} | digest {} reached {} kicks {} handouts {}",
++        if wall_ms > 0.0 { format!("{wall_ms} ms") } else { "unlimited".into() },
++        &digest[..32],
++        reached,
++        p.u.stats.kicks,
++        p.u.stats.dissolved,
++    );
++    println!("engine wall {:.2} s (frames, before the settle)", engine.as_secs_f64());
++    for (i, n) in census::NAMES.iter().zip(c.iter()) {
++        println!("  {:<34} {}", n, n_separated(*n));
++    }
++    // Unified point model: every quad (general, fast or weak) evaluates 4 integrand points —
++    // the general branch's node() calls ARE those 4 points (C_NODES/R_NODES), so they must not
++    // be added on top of 4·quads (the pre-fix summary double-counted both sides this way).
++    let integrand_build = 4 * c[census::C_QUADS];
++    let integrand_read = 4 * c[census::R_QUADS] + c[census::R_RATE] + 4 * c[census::AR_QUADS];
++    println!(
++        "  integrand evals: build {} ({:.1}%) read {} ({:.1}%) | knots/table {:.1} readouts/table {:.1} cells-read/table {:.1}",
++        n_separated(integrand_build),
++        100.0 * integrand_build as f64 / (integrand_build + integrand_read).max(1) as f64,
++        n_separated(integrand_read),
++        100.0 * integrand_read as f64 / (integrand_build + integrand_read).max(1) as f64,
++        c[census::KNOTS] as f64 / c[census::COMPILES].max(1) as f64,
++        c[census::READS] as f64 / c[census::TABLES].max(1) as f64,
++        c[census::TOUCHED] as f64 / c[census::TABLES].max(1) as f64,
++    );
++    if emergent_universe::prof::ENABLED {
++        let (ns, calls) = emergent_universe::prof::take();
++        for i in 0..emergent_universe::prof::N {
++            if calls[i] > 0 {
++                println!(
++                    "  prof {:<40} {:>9.1} ms  {:>7} calls  {:>7.0} ns/call",
++                    emergent_universe::prof::NAMES[i],
++                    ns[i] as f64 / 1e6,
++                    n_separated(calls[i]),
++                    ns[i] as f64 / calls[i].max(1) as f64
++                );
++            }
++        }
++    }
++}
++
++fn n_separated(n: u64) -> String {
++    let s = n.to_string();
++    let mut out = String::new();
++    for (i, ch) in s.chars().enumerate() {
++        if i > 0 && (s.len() - i) % 3 == 0 {
++            out.push(',');
++        }
++        out.push(ch);
++    }
++    out
++}
