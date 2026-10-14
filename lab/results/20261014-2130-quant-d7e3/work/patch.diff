@@ -1,0 +1,340 @@
+diff --git a/crates/universe/examples/wave_band.rs b/crates/universe/examples/wave_band.rs
+new file mode 100644
+index 00000000..c1c08cac
+--- /dev/null
++++ b/crates/universe/examples/wave_band.rs
+@@ -0,0 +1,112 @@
++//! The named untested exposure of the wave fix: the player INSIDE the belt band during the belt's
++//! first-kick wave (bf21's checker: "a player inside the belt band during a wave is the real
++//! untested exposure"; 38bf left it unmeasured). Same flight as `wave_input` — the ladder belt at
++//! N, the burn at L8 from tick 0, 60 frames a second at `rtf`, a 12 ms engine budget, settled at
++//! the canonical cut — but the player orbits at `a_au` AU in the root doll, among the belt ships,
++//! instead of at Home. `ES_PULL_CAP` (engine patch, default unset) arms bf21's cap; the certificate
++//! under test is whether capped and uncapped stay one digest and one counter set on THIS scene
++//! (bf21's neutrality proof was out-of-band: "the scan's candidates never overlap the wave
++//! backlog" — scene-structural, not a law).
++//!
++//! cargo run --release -p emergent-universe --example wave_band [-- <N> <seed> <a_au> [wall s [rtf [budget ms]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra_belt_player;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// The wave's arrival window at N=2×10⁵, seed 1 (taleb-6138's `belt_first`: p01, p50, p99), game seconds.
++const WIN: (f64, f64, f64) = (13_377.0, 14_072.0, 14_473.0);
++/// The flight's canonical cut, game seconds: past the wave, before the second (26-29 k s).
++const CUT_S: f64 = 16_000.0;
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(200_000);
++    let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let a_au: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(2.5);
++    let seconds: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(175.0);
++    let rtf: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let frames = (seconds * 60.0) as usize;
++    let cut = (CUT_S / TICK_SECONDS) as i64;
++    let cap = std::env::var("ES_PULL_CAP").unwrap_or_else(|_| "unset".into());
++    let t0 = Instant::now();
++    let mut p = plane_extra_belt_player(Config::default(), seed, Order::Sparse, 1, 48, n, a_au).unwrap();
++    println!(
++        "N={n} seed={seed} a={a_au} AU rtf={rtf} budget={budget_ms} ms cap={cap} cut={CUT_S:.0} game-s; build {:.1} s",
++        t0.elapsed().as_secs_f64()
++    );
++    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, engine ms, events, lag game-s
++    let mut doll_at: Vec<(usize, u16)> = Vec::new();
++    let mut held_max = 0usize;
++    let s0;
++    {
++        let t = p.u.now;
++        p.u.input(t, word(1, 8)).unwrap(); // the burn, as the ladder flies it
++        s0 = p.u.stats;
++    }
++    for f in 0..frames {
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, cut);
++        rows.push((f, start.elapsed().as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        if f % 300 == 0 {
++            let rss = std::fs::read_to_string("/proc/self/statm")
++                .ok()
++                .and_then(|s| s.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++                .map_or(0, |p| p * 4096 / 1_048_576);
++            println!("progress f={f} game_s={:.0} rss={rss} MB held={held_max}", p.u.now as f64 * TICK_SECONDS);
++        }
++        held_max = held_max.max(p.u.held_scans());
++        let rec = p.u.rec(p.player);
++        if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
++            doll_at.push((f, rec.b.doll));
++        }
++        if !rec.alive {
++            println!("player lost at frame {f}");
++            break;
++        }
++        if p.u.now >= cut {
++            break;
++        }
++    }
++    let settle = Instant::now();
++    p.u.settle(cut);
++    let s1 = p.u.stats;
++    let digest = p.u.digest();
++    let mut ms: Vec<f64> = rows.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let over = rows.iter().filter(|r| r.1 > budget_ms).count();
++    let lag = rows.iter().map(|r| r.3).fold(0.0, f64::max);
++    // where the over-budget frames sit relative to the wave window (frame → game-s at rtf)
++    let wave_frames = |lo: f64, hi: f64| rows.iter().filter(|r| { let g = r.0 as f64 * rtf / 60.0; (lo..=hi).contains(&g) && r.1 > budget_ms }).count();
++    println!(
++        "frames {} (settled at cut in {:.1} s): engine ms p50 {:.3} p90 {:.3} p99 {:.3} max {:.3}; over {budget_ms} ms: {over} (in wave window: {}); worst lag {lag:.3} game-s; scans held max {held_max}",
++        rows.len(), settle.elapsed().as_secs_f64(), pct(&ms, 0.5), pct(&ms, 0.9), pct(&ms, 0.99), pct(&ms, 1.0), wave_frames(WIN.0 - 500.0, WIN.2 + 500.0)
++    );
++    println!(
++        "physics: kicks {} events {} encounters {} decisions {} refused {}; player alive {}, doll {:?}",
++        s1.kicks - s0.kicks,
++        s1.events() - s0.events(),
++        s1.encounters - s0.encounters,
++        s1.decisions - s0.decisions,
++        s1.refused - s0.refused,
++        p.u.rec(p.player).alive,
++        p.u.rec(p.player).b.doll
++    );
++    println!("doll trace (frame, doll): {doll_at:?}");
++    let mut worst: Vec<_> = rows.clone();
++    worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
++    println!("worst frames (frame, ms, events, lag): {}", worst.iter().take(6).map(|r| format!("({},{:.2},{},{:.2})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    println!("digest {digest}");
++    println!(
++        "waveband: n={n} seed={seed} a_au={a_au} cap={cap} frames={} over={over} max_ms={:.3} p99_ms={:.3} lag_s={lag:.3} kicks={} events={} encounters={} decisions={} alive={} digest={digest} wall_s={:.1}",
++        rows.len(), pct(&ms, 1.0), pct(&ms, 0.99), s1.kicks - s0.kicks, s1.events() - s0.events(), s1.encounters - s0.encounters, s1.decisions - s0.decisions, p.u.rec(p.player).alive as u8, t_start.elapsed().as_secs_f64()
++    );
++}
+diff --git a/crates/universe/examples/wave_input.rs b/crates/universe/examples/wave_input.rs
+new file mode 100644
+index 00000000..f3a26538
+--- /dev/null
++++ b/crates/universe/examples/wave_input.rs
+@@ -0,0 +1,134 @@
++//! The input seam inside a kick wave: what one player decision costs when it lands in one
++//! (20261014-2012-components-38bf). The wave is the belt's first kicks (all bodies born at tick 0:
++//! game 13,377-14,473 s at N=2×10⁵, seed 1; `belt_first` measures it), and the player burning at L8
++//! from frame 60 is in the root doll by then, so every one of its items pulls the due ships
++//! (`pull_ships`). `ES_PULL_CAP` (engine patch) bounds that pull; this bench flies the wave three
++//! ways with the cap on: `plain` (no further input), `one` (one no-op decision — the same word the
++//! burn already holds — at the wave's p50, game 14,072 s), `held` (that no-op decision every frame
++//! of the p01-p99 window: the adversarial upper bound; the shipped page calls `input` only on a key
++//! change, `session.rs:118`). A no-op decision must move no bit: `plain` vs `one`/`held` compare the
++//! physics counters (the digest also hashes the input log, so it cannot be compared directly), and
++//! `plain` with and without the cap must give one digest (the cap is default-neutral).
++//!
++//! cargo run --release -p emergent-universe --example wave_input [-- <N> <plain|one|held> [wall s [rtf [budget ms]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// The wave's arrival window at N=2×10⁵, seed 1 (taleb-6138's `belt_first`: p01, p50, p99), game seconds.
++const WIN: (f64, f64, f64) = (13_377.0, 14_072.0, 14_473.0);
++/// The flight's canonical cut, game seconds: past the wave, before the second (26-29 k s).
++const CUT_S: f64 = 16_000.0;
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(200_000);
++    let mode = args.get(2).cloned().unwrap_or_else(|| "plain".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(175.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let frames = (seconds * 60.0) as usize;
++    let cut = (CUT_S / TICK_SECONDS) as i64;
++    let cap = std::env::var("ES_PULL_CAP").unwrap_or_else(|_| "unset".into());
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    println!("N={n} mode={mode} rtf={rtf} budget={budget_ms} ms cap={cap} cut={CUT_S:.0} game-s; build {:.1} s", t0.elapsed().as_secs_f64());
++    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, engine ms, events, lag game-s
++    let mut ins: Vec<(usize, f64, u64)> = Vec::new(); // frame, input ms, events resolved inside
++    let mut fired = false;
++    let mut doll_at: Vec<(usize, u16)> = Vec::new();
++    let mut held_max = 0usize;
++    let s0;
++    {
++        let t = p.u.now;
++        p.u.input(t, word(1, 8)).unwrap(); // the burn, as the ladder flies it
++        s0 = p.u.stats;
++    }
++    for f in 0..frames {
++        let game_s = p.u.now as f64 * TICK_SECONDS;
++        if std::env::var("WI_DEBUG").is_ok() && f % 10 == 0 {
++            println!("[dbg f={f} game_s={game_s:.0}]");
++        }
++        // the decision under test: the same word the burn already holds (a no-op), inside the wave
++        let want = match mode.as_str() {
++            "one" => !fired && game_s >= WIN.1,
++            "held" => (WIN.0..=WIN.2).contains(&game_s),
++            _ => false,
++        };
++        if want {
++            fired = true;
++            let before = p.u.stats.events();
++            let t = Instant::now();
++            let r = p.u.input(p.u.now, word(1, 8));
++            ins.push((f, t.elapsed().as_secs_f64() * 1e3, p.u.stats.events() - before));
++            if let Err(e) = r {
++                println!("input refused at frame {f}: {e:?}");
++                break;
++            }
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, cut);
++        rows.push((f, start.elapsed().as_secs_f64() * 1e3, frame.events, (frame.target - frame.presented) as f64 * TICK_SECONDS));
++        held_max = held_max.max(p.u.held_scans());
++        let rec = p.u.rec(p.player);
++        if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
++            doll_at.push((f, rec.b.doll));
++        }
++        if !rec.alive {
++            println!("player lost at frame {f}");
++            break;
++        }
++        if p.u.now >= cut {
++            break;
++        }
++    }
++    let settle = Instant::now();
++    p.u.settle(cut);
++    let s1 = p.u.stats;
++    let digest = p.u.digest();
++    let mut ms: Vec<f64> = rows.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let over = rows.iter().filter(|r| r.1 > budget_ms).count();
++    let lag = rows.iter().map(|r| r.3).fold(0.0, f64::max);
++    let imax = ins.iter().enumerate().max_by(|a, b| a.1 .1.total_cmp(&b.1 .1));
++    println!(
++        "frames {} (settled at cut in {:.1} s): engine ms p50 {:.3} p90 {:.3} p99 {:.3} max {:.3}; over {budget_ms} ms: {over}; worst lag {lag:.3} game-s; scans held max {held_max}",
++        rows.len(), settle.elapsed().as_secs_f64(), pct(&ms, 0.5), pct(&ms, 0.9), pct(&ms, 0.99), pct(&ms, 1.0)
++    );
++    println!(
++        "inputs: {} calls, p50 {:.3} ms, max {:.3} ms (frame {}), events inside one: max {}; total {:.1} ms",
++        ins.len(),
++        if ins.is_empty() { 0.0 } else { { let mut v: Vec<f64> = ins.iter().map(|i| i.1).collect(); v.sort_by(|a, b| a.partial_cmp(b).unwrap()); pct(&v, 0.5) } },
++        imax.as_ref().map_or(0.0, |(_, i)| i.1),
++        imax.as_ref().map_or(usize::MAX, |(_, i)| i.0),
++        ins.iter().map(|i| i.2).max().unwrap_or(0),
++        ins.iter().map(|i| i.1).sum::<f64>(),
++    );
++    println!(
++        "physics: kicks {} events {} encounters {} decisions {} refused {}; player alive {}, doll {:?}",
++        s1.kicks - s0.kicks,
++        s1.events() - s0.events(),
++        s1.encounters - s0.encounters,
++        s1.decisions - s0.decisions,
++        s1.refused - s0.refused,
++        p.u.rec(p.player).alive,
++        p.u.rec(p.player).b.doll
++    );
++    println!("doll trace (frame, doll): {doll_at:?}");
++    let mut worst: Vec<_> = rows.clone();
++    worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
++    println!("worst frames (frame, ms, events, lag): {}", worst.iter().take(6).map(|r| format!("({},{:.2},{},{:.2})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" "));
++    println!("digest {digest}");
++    println!(
++        "waveinput: n={n} mode={mode} cap={cap} frames={} over={over} max_ms={:.3} p99_ms={:.3} lag_s={lag:.3} inputs={} input_max_ms={:.3} input_max_events={} kicks={} events={} encounters={} decisions={} digest={digest} wall_s={:.1}",
++        rows.len(), pct(&ms, 1.0), pct(&ms, 0.99), ins.len(), imax.as_ref().map_or(0.0, |(_, i)| i.1), ins.iter().map(|i| i.2).max().unwrap_or(0), s1.kicks - s0.kicks, s1.events() - s0.events(), s1.encounters - s0.encounters, s1.decisions - s0.decisions, t_start.elapsed().as_secs_f64()
++    );
++}
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..305fa0de 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -164,6 +164,19 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_build(cfg, seed, order, threads, world, extra, None)
++}
++
++/// [`plane_extra`] with the player moved into the belt band: the root doll, a near-circular orbit at
++/// `a_au` AU among the ladder's belt ships (2-3 AU), the radius in root units as the star-orbiting
++/// ships' is. Everything else, the fleet at Home included, is bit for bit the plane's — the one
++/// change is where the player flies.
++pub fn plane_extra_belt_player(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, a_au: f64) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_build(cfg, seed, order, threads, world, extra, Some(a_au))
++}
++
++fn plane_build(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, player_belt_a: Option<f64>) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -268,11 +281,19 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     let fleet = Fleet::new("Armada", home_doll, home, -18, world, r_lat, fleet_angle, order, threads.max(1))?;
+     // The player: the same circle, a little ahead of the fleet (about 20 km along the orbit).
+     let p_orbit = Scalar::raw(r_lat as i128, -20 + 18)?; // lattice units → root units → Home's units
+-    let player = u.add_body(
+-        Kind::Player,
+-        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
+-        Scalar::raw(34, -10 + 18)?,
+-    )?;
++    let player = match player_belt_a {
++        // In the belt band: the root doll, as the belt ships' own spec (radius in root units).
++        Some(au) => u.add_body(
++            Kind::Player,
++            OrbitSpec { doll: 0, periapsis: s((au * AU as f64) as i64), e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
++            Scalar::raw(34, -10)?,
++        )?,
++        _ => u.add_body(
++            Kind::Player,
++            OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
++            Scalar::raw(34, -10 + 18)?,
++        )?,
++    };
+     names.push("You".into());
+     let f = u.add_fleet(fleet);
+     u.start()?;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..ef166b9e 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -81,6 +81,14 @@ const SCAN_BACKLOG: usize = 2048;
+ /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
+ const FRAME_TAIL_NS: u64 = 50_000;
+ 
++/// The most ship items one player-item pull resolves (`ES_PULL_CAP`, read once; unset: unbounded, the shipped behaviour).
++fn pull_cap() -> u64 {
++    static CAP: std::sync::LazyLock<u64> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_PULL_CAP").ok().and_then(|s| s.parse().ok()).unwrap_or(u64::MAX)
++    });
++    *CAP
++}
++
+ /// The encounter hash chain's next link.
+ fn chain(prev: [u8; 32], e: &Encounter) -> [u8; 32] {
+     let mut h = blake3::Hasher::new();
+@@ -686,9 +694,11 @@ impl Universe {
+     }
+ 
+     /// Resolve every ship item with a key below `key`, in key order (the ships' own minimum is `ship_ticks`' first slot: no walk over them);
+-    /// with `children_only`, the items of the ships of a planet's doll only.
++    /// with `children_only`, the items of the ships of a planet's doll only. [`pull_cap`] bounds how many one call resolves: the
++    /// player's item must not drain a wave inside one call (the queue's budgeted drain finishes the rest, in deadline order);
++    /// unset, the pull is unbounded, as before.
+     fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) {
+-        loop {
++        for _ in 0..pull_cap() {
+             let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
+             let Some((t, i)) = ticks.peek() else { break };
+             if (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i) >= key {

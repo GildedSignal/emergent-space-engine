@@ -1,0 +1,57 @@
+error: crates/universe/examples/wave_band.rs: already exists in working directory
+error: crates/universe/examples/wave_input.rs: already exists in working directory
+error: patch failed: crates/universe/src/scenario.rs:164
+error: crates/universe/src/scenario.rs: patch does not apply
+error: patch failed: crates/universe/src/universe.rs:81
+error: crates/universe/src/universe.rs: patch does not apply
+    Finished `release` profile [optimized + debuginfo] target(s) in 24.14s
+=== ctl-uncapped 22:03:29
+exit 0 (22:03:53)
+	Maximum resident set size (kbytes): 933004
+waveinput: n=200000 mode=plain cap=unset frames=9602 over=9 max_ms=1299.804 p99_ms=11.937 lag_s=1.433 inputs=0 input_max_ms=0.000 input_max_events=0 kicks=225949 events=258940 encounters=1624 decisions=0 digest=c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774 wall_s=23.2
+=== ctl-capped 22:03:53
+exit 0 (22:04:17)
+	Maximum resident set size (kbytes): 938388
+waveinput: n=200000 mode=plain cap=64 frames=9602 over=1 max_ms=12.003 p99_ms=11.937 lag_s=1.433 inputs=0 input_max_ms=0.000 input_max_events=0 kicks=225949 events=259530 encounters=1624 decisions=0 digest=c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774 wall_s=23.5
+=== band-uncapped 22:04:17
+exit 137 (22:06:41)
+	Maximum resident set size (kbytes): 10990012
+=== band-capped 22:06:41
+exit 137 (22:07:57)
+	Maximum resident set size (kbytes): 12242952
+=== band50-uncapped 22:07:57
+exit 0 (22:10:20)
+	Maximum resident set size (kbytes): 6876168
+waveband: n=50000 seed=1 a_au=2.5 cap=unset frames=9300 over=606 max_ms=200.915 p99_ms=15.677 lag_s=1.505 kicks=75054 events=108368 encounters=0 decisions=0 alive=1 digest=0898713151148b2eac1917b3f05fb36565b269b4580afe773d01907fd23092c3 wall_s=141.5
+=== band50-capped 22:10:20
+exit 0 (22:12:46)
+	Maximum resident set size (kbytes): 6873480
+waveband: n=50000 seed=1 a_au=2.5 cap=64 frames=9300 over=607 max_ms=208.814 p99_ms=17.824 lag_s=1.505 kicks=75054 events=108368 encounters=0 decisions=0 alive=1 digest=0898713151148b2eac1917b3f05fb36565b269b4580afe773d01907fd23092c3 wall_s=146.0
+=== band100-capped 22:12:46
+exit 137 (22:15:18)
+	Maximum resident set size (kbytes): 12005048
+=== band1k-uncapped 22:15:18
+exit 0 (22:15:23)
+	Maximum resident set size (kbytes): 96464
+waveband: n=1000 seed=1 a_au=2.5 cap=unset frames=900 over=0 max_ms=11.294 p99_ms=8.864 lag_s=0.000 kicks=26054 events=58565 encounters=0 decisions=0 alive=1 digest=ad8a0e78a786383756c6704b9e7099720d3b1f873b11185a234b8eaa3c1eab9e wall_s=4.1
+
+== digests (controls identical; in-band 2e5/1e5/5e4 die before the cut)
+lab/results/20261014-2130-quant-d7e3/out/ctl-uncapped.txt:digest c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774
+lab/results/20261014-2130-quant-d7e3/out/ctl-capped.txt:digest c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774
+lab/results/20261014-2130-quant-d7e3/out/band1k-uncapped.txt:digest ad8a0e78a786383756c6704b9e7099720d3b1f873b11185a234b8eaa3c1eab9e
+== summary lines
+waveband: n=1000 seed=1 a_au=2.5 cap=unset frames=900 over=0 max_ms=11.294 p99_ms=8.864 lag_s=0.000 kicks=26054 events=58565 encounters=0 decisions=0 alive=1 digest=ad8a0e78a786383756c6704b9e7099720d3b1f873b11185a234b8eaa3c1eab9e wall_s=4.1
+waveband: n=50000 seed=1 a_au=2.5 cap=64 frames=9300 over=607 max_ms=208.814 p99_ms=17.824 lag_s=1.505 kicks=75054 events=108368 encounters=0 decisions=0 alive=1 digest=0898713151148b2eac1917b3f05fb36565b269b4580afe773d01907fd23092c3 wall_s=146.0
+waveband: n=50000 seed=1 a_au=2.5 cap=unset frames=9300 over=606 max_ms=200.915 p99_ms=15.677 lag_s=1.505 kicks=75054 events=108368 encounters=0 decisions=0 alive=1 digest=0898713151148b2eac1917b3f05fb36565b269b4580afe773d01907fd23092c3 wall_s=141.5
+waveinput: n=200000 mode=plain cap=64 frames=9602 over=1 max_ms=12.003 p99_ms=11.937 lag_s=1.433 inputs=0 input_max_ms=0.000 input_max_events=0 kicks=225949 events=259530 encounters=1624 decisions=0 digest=c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774 wall_s=23.5
+waveinput: n=200000 mode=plain cap=unset frames=9602 over=9 max_ms=1299.804 p99_ms=11.937 lag_s=1.433 inputs=0 input_max_ms=0.000 input_max_events=0 kicks=225949 events=258940 encounters=1624 decisions=0 digest=c2b834bb97d87722f4426ab107922a6c5eefe832118521f3b0864c2a9e827774 wall_s=23.2
+== the accumulation (band50 pair, progress tails)
+== peaks
+lab/results/20261014-2130-quant-d7e3/out/band100-capped.txt:	Maximum resident set size (kbytes): 12005048
+lab/results/20261014-2130-quant-d7e3/out/band1k-uncapped.txt:	Maximum resident set size (kbytes): 96464
+lab/results/20261014-2130-quant-d7e3/out/band50-capped.txt:	Maximum resident set size (kbytes): 6873480
+lab/results/20261014-2130-quant-d7e3/out/band50-uncapped.txt:	Maximum resident set size (kbytes): 6876168
+lab/results/20261014-2130-quant-d7e3/out/band-capped.txt:	Maximum resident set size (kbytes): 12242952
+lab/results/20261014-2130-quant-d7e3/out/band-uncapped.txt:	Maximum resident set size (kbytes): 10990012
+lab/results/20261014-2130-quant-d7e3/out/ctl-capped.txt:	Maximum resident set size (kbytes): 938388
+lab/results/20261014-2130-quant-d7e3/out/ctl-uncapped.txt:	Maximum resident set size (kbytes): 933004

@@ -1,0 +1,33 @@
+N=1000 seed=1 a=2.5 AU rtf=100 budget=12 ms cap=unset cut=16000 game-s; build 0.1 s
+progress f=0 game_s=2 rss=6 MB held=0
+progress f=300 game_s=502 rss=14 MB held=82
+progress f=600 game_s=1002 rss=17 MB held=82
+frames 900 (settled at cut in 2.4 s): engine ms p50 0.120 p90 5.714 p99 8.864 max 11.294; over 12 ms: 0 (in wave window: 0); worst lag 0.000 game-s; scans held max 82
+physics: kicks 26054 events 58565 encounters 0 decisions 0 refused 0; player alive true, doll 0
+doll trace (frame, doll): [(0, 0)]
+worst frames (frame, ms, events, lag): (10,11.29,30,0.00) (61,11.24,43,0.00) (198,9.25,344,0.00) (49,9.14,108,0.00) (30,8.97,15,0.00) (14,8.97,11,0.00)
+digest ad8a0e78a786383756c6704b9e7099720d3b1f873b11185a234b8eaa3c1eab9e
+waveband: n=1000 seed=1 a_au=2.5 cap=unset frames=900 over=0 max_ms=11.294 p99_ms=8.864 lag_s=0.000 kicks=26054 events=58565 encounters=0 decisions=0 alive=1 digest=ad8a0e78a786383756c6704b9e7099720d3b1f873b11185a234b8eaa3c1eab9e wall_s=4.1
+	Command being timed: "env -u ES_PULL_CAP /home/glmlab/lab-target-1/release/examples/wave_band 1000 1 2.5 15 100 12"
+	User time (seconds): 3.96
+	System time (seconds): 0.03
+	Percent of CPU this job got: 97%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.12
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 96464
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 11
+	Minor (reclaiming a frame) page faults: 26008
+	Voluntary context switches: 18
+	Involuntary context switches: 8
+	Swaps: 0
+	File system inputs: 3192
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
