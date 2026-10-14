@@ -1,0 +1,19 @@
+kill grid census: 79/108 cells >= 1 tick, 52 >= 10 ticks
+== controls ==
+depth-1 (beta2=0):    err V1 0.000e+00  V2 0.000e+00 ticks
+depth-2 moon speed:   err V1 3.094e-03  V2 3.094e-03 ticks
+oracle vs analytic:   max |diff| = 5.286e-12 over the 108-cell grid
+== named held-out rows (offsets in light-ticks) ==
+player_group_b.3_.3_90deg_d1e3     err V1     15.18  V2     15.18  wigner  -2.70 deg
+inspiral_b.5_.5_0deg_d2e3          err V1    178.63  V2    357.27  wigner   0.00 deg
+high_gamma_b.9_.1_d1e3             err V1    130.07  V2    140.47  wigner   0.00 deg
+perp_offset_null_b.5_.5_90deg      err V1      0.00  V2      0.00  wigner  -8.21 deg
+== doll-tick channel (beta1=beta2=0.5, tB=1e4) ==
+exact gamma1*gamma2 = 1.3333; unscaled-tick error 6666.7; inner-gamma-only 5119.7 ticks
+== depth scaling (beta 0.3 per link, d = 1000) ==
+depth 2:  err V1    15.18  V2    30.37
+depth 3:  err V1    78.12  V2   124.41
+depth 4:  err V1   227.50  V2   321.58
+worst kill cell: b1=0.9 b2=0.3 th=0.00 d=10000: V1 4069.9 V2 5066.9 ticks
+wrote results.json
+regen: all dossier numbers reproduced and asserted
