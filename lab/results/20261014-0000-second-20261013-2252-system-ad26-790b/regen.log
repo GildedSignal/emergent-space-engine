@@ -1,0 +1,88 @@
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+warning: unused import: `Fitted`
+  --> crates/universe/src/bind.rs:21:26
+   |
+21 |     binding::{cartesian, Fitted, IntegerState, Rebinding, Residual, Trajectory},
+   |                          ^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `std::sync::atomic::Ordering`
+  --> crates/universe/src/bind.rs:49:5
+   |
+49 | use std::sync::atomic::Ordering;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+   Compiling emergent-shipmem v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/shipmem)
+warning: `emergent-universe` (lib) generated 2 warnings (run `cargo fix --lib -p emergent-universe` to apply 2 suggestions)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 51.70s
+run                         m sd  rtf |    D_ms bind_ms bind%D fit2%b hbind%ho us/fit ev/m/gs  kicks    ho  ovf fixed_ms
+base_m1500_s1.json       1500  1    1 |   208.3   113.2  54.3%  39.6%    80.1%  196.6  0.0904    114   232   30       93
+base_m4000_s1.json       4000  1    1 |  1488.9  1000.9  67.2%  38.9%    80.1%  190.0  0.1785   1056  2163  291      581
+st_m12000_s3.json       12000  3    1 |  2522.9  1619.4  64.2%   0.0%    65.4%  215.3  0.1570      0  7522  480        7
+st_m1500_s1.json         1500  1    1 |   168.0    64.0  38.1%   0.0%    69.3%  184.0  0.0900    114   232   20        1
+st_m1500_s1_r100.json    1500  1  100 |  2192.3   825.4  37.7%   0.0%    61.3%  116.7  0.0124   5724  1358  401       25
+st_m1500_s7.json         1500  7    1 |   161.9    56.3  34.8%   0.0%    70.0%  199.1  0.0812     91   190   17        1
+st_m20000_s1.json       20000  1    1 |  2543.7  1196.4  47.0%   0.0%    48.9%  131.8  0.1136      0  9074  480        8
+st_m4000_s1.json         4000  1    1 |  1179.2   644.4  54.6%   0.0%    69.7%  199.9  0.1772   1058  2163  199        8
+st_m400_s1.json           400  1    1 |    39.6     0.1   0.1%   0.0%     0.0%   27.3  0.1619      0     0    0        1
+st_m400_s1_r100.json      400  1  100 |   928.4   334.8  36.1%   0.0%    59.9%   90.1  0.0311   3361   374  134       16
+st_m48_s1.json             48  1    1 |     8.7     0.1   1.5%   0.0%     0.0%   66.8  1.3490      0     0    0        1
+shipped (baseline arm)       D=  186.1 bind= 125.1 ho_bind= 111.3 fixed= 72.6 D+fixed=  258.7 ms/game-s | fit2 calls=  1141 | digest=5c8fe1a8e439 bodies= 2191 ovf=291 worst= 60.3ms | memo compiles=0 hits=0 ho_compiles=0 ho_hits=0
+stacked (word fix + lazy)    D=  147.3 bind=  80.5 ho_bind=  65.6 fixed=  1.0 D+fixed=  148.4 ms/game-s | fit2 calls=     0 | digest=5c8fe1a8e439 bodies= 2191 ovf=199 worst= 59.6ms | memo compiles=0 hits=0 ho_compiles=0 ho_hits=0
+stacked + memo (7055)        D=  142.0 bind=  78.1 ho_bind=  63.3 fixed=  0.8 D+fixed=  142.8 ms/game-s | fit2 calls=     0 | digest=5c8fe1a8e439 bodies= 2191 ovf=196 worst= 61.3ms | memo compiles=3225 hits=0 ho_compiles=2162 ho_hits=0
+shipped + memo (control)     D=  144.9 bind=  81.4 ho_bind=  67.3 fixed= 89.0 D+fixed=  233.9 ms/game-s | fit2 calls=  1141 | digest=5c8fe1a8e439 bodies= 2191 ovf=222 worst= 60.5ms | memo compiles=4366 hits=1090 ho_compiles=3303 ho_hits=1090
+
+measured composite at m4000:            D 186.1 -> 147.3 ms/game-s (79%), D+fixed 258.7 -> 148.4 (57%)
+7055 memo hit rate:                     shipped+memo 25.0% vs stacked+memo 0.0% of 3225 compiles (hand-out 0/2162)
+memo's price on the word-fixed bind:    ho_bind 65.6 -> 63.3 ms/game-s (shared-box, logging on; order of magnitude)
++ Carlson x10 priced (conservative, 60%):   D -> 103.8 ms/game-s (56% of shipped D; checker's bar: within ~2x of 42.3, i.e. <= 85)
++ Carlson x10 priced (high, 66%):   D -> 99.5 ms/game-s (53% of shipped D; checker's bar: within ~2x of 42.3, i.e. <= 85)
+ceiling on shipped D+fixed                 15462 members (25% of 4 cores)
+ceiling on stacked D+fixed                 26957 members (25% of 4 cores)
+ceiling on stacked + Carlson(60%) D+fixed      38135 members (25% of 4 cores)
+running 10 tests
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+running 4 tests
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+running 12 tests
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+running 17 tests
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+running 9 tests
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+running 5 tests
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+running 5 tests
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+running 7 tests
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+running 10 tests
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.11s
+running 3 tests
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 16.62s
+running 4 tests
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.76s
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.13s
+running 6 tests
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.15s
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+running 9 tests
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 27.12s
+running 4 tests
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+running 2 tests
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.16s
+running 6 tests
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.44s
+error: test failed, to rerun pass `-p emergent-universe --test plane`
+REGEN_DONE

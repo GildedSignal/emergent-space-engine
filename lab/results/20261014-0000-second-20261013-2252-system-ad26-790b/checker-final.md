@@ -1,0 +1,10 @@
+Working...
+**Grade: silver** — written to `check.md`, with the page corrected in place and the tree restored clean.
+
+**What reproduced** (runner's regen + my own rebuild from `work/patch.diff` on clean f687ec25):
+- **Digest interlock, 7/7 arms**: stacked digests bit-identical to ad26's stored shipped record at every comparable arm (read off its publish branch), including m12,000 where counts move with the wall (7,522 vs 5,964 leavers) while the canonical digest holds. My own held-out cell — m4,000/seed 7, both arms, one binary — identical (`53a3bf70…`). Every digest in the dossier table regenerates exactly.
+- **The refutation**: fit2 1,141→0; memo 33% (1,090/3,303 hand-out) → **0 of 3,225** on the word-fixed bind; Carlson verified in `orbit.rs` — `from_shape` (line 565) reads its three increments off `knots.last().sum` (line 615) while the knots grid is what readout interpolates, so the kernel cannot serve the bind. Composite D+fixed 259→148 ms/game-s (57%; author 50%), ceiling 26,957 members. ad26's 22%/9.5×10⁴ endgame is dead either way — every number sits far above the ≤85 bar.
+
+**What broke**: `suites green (0 failed)` does not regenerate. The dossier's own suite command fails deterministically (3 runs) on `work_per_frame_is_bounded_and_overflow_is_a_dip_not_a_hitch` (plane.rs:165) at the gate's **own scene** — seed 11, threads 1, outside the seeds-2/5/9/threads-4 corner the dossier scopes. Gate-isolated: `ES_EAGER=1` (shipped loop, stacked bind) passes, `ES_BASELINE_ARM=1` (lazy tier) fails — the 8b43 rebase onto the frame merge re-breaks a gate that 8b43's fix had made pass at that scene. So P6 is scored "held" but did not hold, and the "one merge queue" adoption claim is false as shipped.
+
+**One experiment to gold**: restore 8b43's starvation closure on the rebased stack, rerun suite (0 failed) + census; the adoption claim then becomes a measurement. Secondary notes in check.md: the m4,000 p99 −12% is box-bound and does not regenerate (fresh: 41.1→43.6; the "tail untouched" conclusion survives, strengthened), and the memo denominators (hand-out 33% vs total 25%) are inconsistent between dossier and `endgame2.py`.

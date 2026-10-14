@@ -1,0 +1,291 @@
+{
+  "bodies": 28,
+  "bytes_per_body": 1214,
+  "catalogue_live": 28,
+  "cut_tick": 1624204,
+  "decisions": {
+    "logged": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ]
+    ],
+    "note": "scheduled at canonical ticks before the run; taken at those ticks, never at a wall-derived one",
+    "taken": [
+      [
+        0,
+        1
+      ],
+      [
+        64291,
+        0
+      ],
+      [
+        808718,
+        9
+      ],
+      [
+        876393,
+        0
+      ],
+      [
+        1620820,
+        2
+      ]
+    ]
+  },
+  "digest": "c21df6f821926a69b6c16bc8063645b8313e045130c880d5f20b765271be86af",
+  "digest_note": "the digest is taken at the canonical cut (cut_tick, a tick of the root clock): no frame advanced past it, and everything up to it is resolved (settle); two runs with one input log, one seed and one cut give one digest, paced or not, on any budget",
+  "engine_budget_ms": 5.0,
+  "engine_cost_by_kind": [
+    {
+      "items": 0,
+      "kind": "planet",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "moon",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "ship",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 0,
+      "kind": "player",
+      "total_ms": 0.0,
+      "us_per_item": 0.0
+    },
+    {
+      "items": 480,
+      "kind": "fleet",
+      "total_ms": 52.4995,
+      "us_per_item": 109.37395833333333
+    }
+  ],
+  "events_per_second": 60.62519519797224,
+  "frame_cpu_ms": {
+    "hitch_counts": [
+      0,
+      0,
+      0
+    ],
+    "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed",
+    "p50": 4.411875999999893,
+    "p99": 8.99362599999995,
+    "p99.9": 12.672064000000091,
+    "worst": 12.672064000000091
+  },
+  "frame_ms": {
+    "p50": 4.413509,
+    "p95": 8.569129,
+    "p99": 8.992807,
+    "p99.9": 12.671050999999999
+  },
+  "frames": 480,
+  "hitch_counts": [
+    0,
+    0,
+    0
+  ],
+  "hitches_per_gameplay_hour": {
+    "above_16.7ms": 0.0,
+    "above_33ms": 0.0,
+    "above_50ms": 0.0
+  },
+  "lost_bodies": [],
+  "machine_after": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-14T00:32:18Z",
+    "unix": 1791937938,
+    "when": "after"
+  },
+  "machine_before": {
+    "batt": "unavailable: No such file or directory (os error 2)",
+    "hardware": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/machdep/cpu/brand_string: No such file or directory",
+    "kind": "machine",
+    "loadavg": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/loadavg: No such file or directory",
+    "power_source": "unavailable: No such file or directory (os error 2)",
+    "swap": "unavailable: exit exit status: 1 sysctl: cannot stat /proc/sys/vm/swapusage: No such file or directory",
+    "therm": "unavailable: No such file or directory (os error 2)",
+    "time_utc": "2026-10-14T00:32:10Z",
+    "unix": 1791937930,
+    "when": "before"
+  },
+  "paced": true,
+  "player_alive": true,
+  "presented_tick_at_end": 1623940,
+  "prof_stages": [
+    {
+      "calls": 3,
+      "ms": 0.037745,
+      "stage": "rekey (all deadlines)"
+    },
+    {
+      "calls": 27,
+      "ms": 0.210479,
+      "stage": "  position walk (root_state_raw)"
+    },
+    {
+      "calls": 33,
+      "ms": 0.216036,
+      "stage": "apply (whole)"
+    },
+    {
+      "calls": 1055,
+      "ms": 0.652601,
+      "stage": "requeue"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "process (whole)"
+    },
+    {
+      "calls": 2,
+      "ms": 0.05457,
+      "stage": "  fit: bind_surface (kicks, hand-outs)"
+    },
+    {
+      "calls": 960,
+      "ms": 0.375089,
+      "stage": "take_due"
+    },
+    {
+      "calls": 7,
+      "ms": 0.014902,
+      "stage": "prune"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "encounters: capture (cheap half)"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "encounters: held scans answered"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "item: kick (Wisdom-Holman)"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "item: kick (clock)"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "item: kick at a changeover level"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "item: boundary"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "item: open"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "item: crash"
+    },
+    {
+      "calls": 5,
+      "ms": 0.179555,
+      "stage": "decision (player input)"
+    },
+    {
+      "calls": 480,
+      "ms": 38.900604,
+      "stage": "fleet: battle run_to"
+    },
+    {
+      "calls": 480,
+      "ms": 39.432715,
+      "stage": "fleet: advance (whole item)"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "hand-out (a member made a body)"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "  hand-out: pull planets and moons"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "  hand-out: bind (the member as a tube)"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "  hand-out: first plan (replan)"
+    },
+    {
+      "calls": 0,
+      "ms": 0.0,
+      "stage": "  fit again: the coarser word (bind_surface)"
+    }
+  ],
+  "promo_probe": {
+    "compiles": 0,
+    "exact_hits": 0,
+    "handout_compiles": 0,
+    "handout_exact_hits": 0,
+    "memo_entries": 0,
+    "memo_on": false
+  },
+  "rtf": {
+    "lowest_1pct": 0.9997095424161262,
+    "median": 0.9998306436769784,
+    "overflow_frames": 0
+  },
+  "rtf_target": 1.0,
+  "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+  "seed": 1,
+  "stats": "Stats { kicks: 0, opens: 33, boundaries: 0, handoffs: 0, lost: 0, refused: 0, rekeys: 3, slices: 480, encounters: 0, decisions: 5, leavers: 0, dissolved: 0, cost_ns: [0, 0, 0, 0, 52499500], items: [0, 0, 0, 0, 480] }",
+  "throttle_level": 0,
+  "uptime_after": "00:32:18 up 47 days, 15:34,  0 user,  load average: 2.00, 2.77, 2.55",
+  "uptime_before": "00:32:10 up 47 days, 15:34,  0 user,  load average: 2.27, 2.85, 2.58",
+  "wall_seconds": 8.002144165,
+  "worst_hitch_at_frame": 146,
+  "worst_hitch_ms": 12.671050999999999
+}
