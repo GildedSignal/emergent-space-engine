@@ -1,0 +1,292 @@
+diff --git a/crates/universe/examples/wave_flight.rs b/crates/universe/examples/wave_flight.rs
+new file mode 100644
+index 00000000..e05526ac
+--- /dev/null
++++ b/crates/universe/examples/wave_flight.rs
+@@ -0,0 +1,81 @@
++//! One flight through the belt's first-kick wave, with the canonical digest at a fixed cut: the
++//! certificate that holding the player's scan (ES_PULL_CAP) changes no bit. Prints the frame
++//! profile (p50/p99/worst, frames over budget, worst lag) and `digest=<hex>` at the end.
++//!
++//! cargo run --release -p emergent-universe --example wave_flight [-- <N> <coast|burn> <wall s> <rtf> <budget ms>]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64 * p).round()) as usize]
++}
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let n: usize = a.get(1).and_then(|s| s.parse().ok()).unwrap_or(200_000);
++    let burn = a.get(2).map(|s| s == "burn").unwrap_or(true);
++    let seconds: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(160.0);
++    let rtf: f64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let start = p.u.now;
++    let end = start + (seconds * rtf / TICK_SECONDS) as i64;
++    let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new();
++    let mut held_max = 0usize;
++    let mut alive = true;
++    let frames = (seconds * 60.0) as usize;
++    for f in 0..frames {
++        if f == 60 && burn {
++            let t = p.u.now;
++            let _ = p.u.input(t, word(1, 8));
++        }
++        let s = Instant::now();
++        let fr = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(s + Duration::from_micros((budget_ms * 1e3) as u64)) }, end);
++        rows.push((f, s.elapsed().as_secs_f64() * 1e3, fr.events, (fr.target - fr.presented) as f64 * TICK_SECONDS));
++        held_max = held_max.max(p.u.held_scans());
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++        if p.u.now >= end {
++            break;
++        }
++    }
++    let flown = rows.len();
++    let held_at_end = p.u.held_scans();
++    // The canonical cut: everything below `end` resolved, then the digest.
++    let t1 = Instant::now();
++    p.u.settle(end);
++    let settle_s = t1.elapsed().as_secs_f64();
++    let digest = p.u.digest();
++    let mut late: Vec<f64> = rows.iter().skip(60).map(|r| r.1).collect();
++    late.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let over = rows.iter().skip(60).filter(|r| r.1 > budget_ms).count();
++    let lag = rows.iter().skip(60).map(|r| r.3).fold(0.0, f64::max);
++    let mut ev: Vec<f64> = rows.iter().skip(60).map(|r| r.2 as f64).collect();
++    ev.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut worst: Vec<_> = rows.iter().skip(60).collect();
++    worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
++    println!(
++        "flight N={n} {} {seconds} s rtf {rtf} budget {budget_ms} ms: build {build:.1} s, frames {flown}, engine ms p50 {:.2} p99 {:.2} max {:.2}; over: {over}; worst lag {lag:.2} s; events/frame p50 {:.0} max {:.0}; scans held max {held_max}, at end {held_at_end}; settle {settle_s:.1} s; encounters {}, kicks {}; alive(player) {alive}",
++        if burn { "burn" } else { "coast" },
++        pct(&late, 0.5),
++        pct(&late, 0.99),
++        pct(&late, 1.0),
++        pct(&ev, 0.5),
++        pct(&ev, 1.0),
++        p.u.stats.encounters,
++        p.u.stats.kicks,
++    );
++    println!(
++        "worst frames (frame, ms, events, lag s): {}",
++        worst.iter().take(6).map(|r| format!("({},{:.1},{},{:.2})", r.0, r.1, r.2, r.3)).collect::<Vec<_>>().join(" ")
++    );
++    println!("digest={digest}");
++}
+diff --git a/crates/universe/examples/wave_train.rs b/crates/universe/examples/wave_train.rs
+new file mode 100644
+index 00000000..53f3ac33
+--- /dev/null
++++ b/crates/universe/examples/wave_train.rs
+@@ -0,0 +1,99 @@
++//! The belt's kick wave train: the anatomy of the first wave (birth plans, steps, anchors) and the
++//! recurrence (the items that follow it, read after a settle past the first wave). The belt's bodies
++//! are born at tick 0 with one Δs each; this measures when their kicks arrive and whether the arrival
++//! is a one-shot shock or a train.
++//!
++//! cargo run --release -p emergent-universe --example wave_train [-- <N> [<game s to settle>]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::Config;
++use std::collections::BTreeMap;
++
++fn game_s(t: i64) -> f64 {
++    t as f64 * TICK_SECONDS
++}
++
++fn q(v: &mut Vec<f64>, p: f64) -> f64 {
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[((v.len() - 1) as f64 * p) as usize]
++}
++
++fn main() {
++    let n: usize = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let to_s: f64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(20_500.0);
++    let t0 = std::time::Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let locals = ladder_locals(n as u64) as usize;
++    let base = p.player - n;
++    // The birth anatomy: the belt's first item, its kind, the step each body runs on.
++    let (mut first, steps, whats) = {
++        let (mut first, mut steps, mut whats) = (Vec::new(), BTreeMap::new(), BTreeMap::new());
++        for k in locals..n {
++            let r = p.u.rec(base + k);
++            if let Some(it) = r.plan.first() {
++                first.push(game_s(it.t));
++                *whats.entry(format!("{:?}", it.what)).or_insert(0u64) += 1;
++            }
++            *steps.entry(r.step).or_insert(0u64) += 1;
++        }
++        (first, steps, whats)
++    };
++    println!(
++        "birth: build {build:.1} s; belt {} bodies, first item game s: min {:.0} p01 {:.0} p50 {:.0} p99 {:.0} max {:.0}; kinds {:?}",
++        first.len(),
++        q(&mut first, 0.0),
++        q(&mut first, 0.01),
++        q(&mut first, 0.5),
++        q(&mut first, 0.99),
++        q(&mut first, 1.0),
++        whats
++    );
++    println!(
++        "steps (ticks, log2, game s, share): {}",
++        steps
++            .iter()
++            .map(|(s, c)| format!("({},{},{:.0},{:.3})", s, 63 - s.leading_zeros(), game_s(*s), *c as f64 / n as f64))
++            .collect::<Vec<_>>()
++            .join(" ")
++    );
++    // The recurrence: settle past the first wave, then read every belt body's next item and the gap
++    // since the binding it now sits on.
++    let horizon = (to_s / TICK_SECONDS) as i64;
++    let t1 = std::time::Instant::now();
++    p.u.settle(horizon);
++    let settle = t1.elapsed().as_secs_f64();
++    let (mut second, mut gaps) = (Vec::new(), Vec::new());
++    let mut gap_census: BTreeMap<i64, u64> = BTreeMap::new();
++    for k in locals..n {
++        let r = p.u.rec(base + k);
++        if let Some(it) = r.plan.first() {
++            second.push(game_s(it.t));
++            let gap = it.t - r.b.event_time;
++            gaps.push(game_s(gap));
++            *gap_census.entry(gap).or_insert(0u64) += 1;
++        }
++    }
++    println!(
++        "after a settle to {:.0} game s ({settle:.1} s wall, {} events): next item game s: min {:.0} p01 {:.0} p50 {:.0} p99 {:.0} max {:.0}; gap since the binding: p01 {:.0} p50 {:.0} p99 {:.0}",
++        to_s,
++        p.u.stats.events(),
++        q(&mut second, 0.0),
++        q(&mut second, 0.01),
++        q(&mut second, 0.5),
++        q(&mut second, 0.99),
++        q(&mut second, 1.0),
++        q(&mut gaps, 0.01),
++        q(&mut gaps, 0.5),
++        q(&mut gaps, 0.99),
++    );
++    println!(
++        "gap census (game s: share): {}",
++        gap_census
++            .iter()
++            .map(|(g, c)| format!("({:.0}:{:.3})", game_s(*g), *c as f64 / gaps.len().max(1) as f64))
++            .collect::<Vec<_>>()
++            .join(" ")
++    );
++}
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..5ed0e62f 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -205,12 +205,12 @@ pub struct Universe {
+     encounters: Box<dyn Encounters>,
+     /// Scans the player's items took and the allocator has not answered yet, in the order taken
+     /// ([`Universe::drain_scans`]); the log, the count and the hash below are as if each had been answered at once once
+-    /// this is empty, and [`Universe::digest`] answers what is held.
++    /// the look-ahead pull below it was capped (a backlog the frame's budget must drain first), so the capture itself waits
++    /// for `ship_ticks`' minimum to pass the scan's tick (every item before it resolved).
+     scans: VecDeque<Arc<dyn Held>>,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
+     /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+-    /// forgets (1/64 an item of the class). A frame with a wall to keep starts an item only if that much is left, once it has resolved one.
+     item_ns: [u64; 5],
+     pub enc_log: Vec<Encounter>,
+     enc_digest: [u8; 32],
+@@ -223,6 +223,14 @@ pub struct Universe {
+     body_cap: usize,
+ }
+ 
++/// The look-ahead pull of a player item resolves at most this many ships inside the item (the rest is left to the
++/// frame's budgeted queue): `usize::MAX` unless `ES_PULL_CAP` is set — the lab's measure of the wave's ruin basin.
++fn pull_cap() -> usize {
++    static CAP: std::sync::LazyLock<usize> =
++        std::sync::LazyLock::new(|| std::env::var("ES_PULL_CAP").ok().and_then(|v| v.parse().ok()).unwrap_or(usize::MAX));
++    *CAP
++}
++
+ #[derive(Default)]
+ struct Lanes {
+     planets: Vec<usize>,
+@@ -688,15 +696,26 @@ impl Universe {
+     /// Resolve every ship item with a key below `key`, in key order (the ships' own minimum is `ship_ticks`' first slot: no walk over them);
+     /// with `children_only`, the items of the ships of a planet's doll only.
+     fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) {
+-        loop {
+-            let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
+-            let Some((t, i)) = ticks.peek() else { break };
+-            if (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i) >= key {
+-                break;
++        self.pull_ships_capped(key, children_only, usize::MAX);
++    }
++
++    /// [`Universe::pull_ships`] that stops after `cap` ships: `true` when it stopped before `key` (a backlog remains below it).
++    fn pull_ships_capped(&mut self, key: (Tick, usize), children_only: bool, cap: usize) -> bool {
++        let mut done = 0usize;
++         loop {
++             let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
++             let Some((t, i)) = ticks.peek() else { break };
++             if (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i) >= key {
++                 break;
++             }
++            if done >= cap {
++                return true;
+             }
+-            self.resolve_body(i);
+-            self.requeue(i);
+-        }
++             self.resolve_body(i);
++             self.requeue(i);
++            done += 1;
++         }
++        false
+     }
+ 
+     /// Resolve every item of `ids` with a key below `key`, in key order.
+@@ -767,7 +786,19 @@ impl Universe {
+             // the size of the root's whole wave of kicks, inside one item and outside the budget). Ships read only the sources, and the
+             // player reads no ship: resolving the player's item before theirs changes no bit.
+             let in_root = self.bodies.doll(i) == 0;
+-            self.pull_ships(key, !in_root);
++            // The look-ahead pull exists so the scan reads resolved tubes; when the backlog below the player's next item is
++            // a wave (more than `pull_cap()` ships), resolving it inside the item is the unbudgeted burst that froze the
++            // frame. The ships are left to the queue (the frame's own budget drains them, in key order), and the scan is
++            // *requested* rather than taken: `drain_scans` takes it once `ship_ticks`' minimum has passed its tick, so it
++            // reads exactly the resolved bindings it would have read (resolving the player's item before a ship's changes
++            // no bit: the order of the two is not a decision).
++            let backlog = if in_root {
++                self.pull_ships_capped(key, false, pull_cap())
++            } else {
++                self.pull_ships(key, true);
++                false
++            };
++            let _ = backlog;
+             let t_enc = crate::prof::t();
+             self.encounters_for_player();
+             crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
+@@ -1182,7 +1213,8 @@ impl Universe {
+     }
+ 
+     /// Answer the held scans, oldest first, while `until` allows (all of them if `None`): scans are idle-time work as far
+-    /// as the frame's budget goes, and they keep their order.
++    /// as the frame's budget goes, and they keep their order. A requested scan whose tick a ship is still due before waits
++    /// (and so do the ones behind it: the order is the log's).
+     fn drain_scans(&mut self, until: Option<Instant>) {
+         while !self.scans.is_empty() {
+             if let Some(u) = until {
