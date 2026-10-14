@@ -1,0 +1,98 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..f5432acb 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,30 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: resident now (statm) and peak resident (VmHWM). No compressed-page accounting on this host.
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/statm") {
++        if let Some(rss) = s.split_whitespace().nth(1) {
++            if let Ok(pages) = rss.parse::<u64>() {
++                now = pages * 4096;
++            }
++        }
++    }
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmHWM:") {
++                if let Ok(kb) = v.trim().trim_end_matches(" kB").parse::<u64>() {
++                    peak = kb * 1024;
++                }
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -40,6 +66,9 @@ fn pct(sorted: &[f64], p: f64) -> f64 {
+ fn main() {
+     let t_start = Instant::now();
+     let args: Vec<String> = std::env::args().collect();
++    let max_s: f64 = std::env::var("NLADDER_MAX_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0);
++    let seed: u64 = std::env::var("NLADDER_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let trace = std::env::var("NLADDER_TRACE").is_ok();
+     let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+     let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
+     let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+@@ -49,7 +78,7 @@ fn main() {
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -64,7 +93,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(max_s) {
+             truncated = true;
+             break;
+         }
+@@ -90,6 +119,10 @@ fn main() {
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
++        if trace && f >= 60 && f % 120 == 0 {
++            let r = rows.last().unwrap();
++            println!("trace f={} ms={:.2} ev={} lag={:.3}", r.0, r.1, r.2, r.3);
++        }
+         let rec = p.u.rec(p.player);
+         if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
+             doll_at.push((f, rec.b.doll));
+@@ -123,7 +156,7 @@ fn main() {
+     let mut cache = ViewCache::default();
+     let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
+     // (a cold gather costs about 30 us a body: it runs only when it fits in the run's 60 s)
+-    if t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < 55.0 {
++    if t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < max_s {
+         let tv = Instant::now();
+         seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
+         cold = tv.elapsed().as_secs_f64() * 1e3;

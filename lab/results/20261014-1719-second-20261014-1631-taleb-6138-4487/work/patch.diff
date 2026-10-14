@@ -1,0 +1,455 @@
+diff --git a/crates/universe/examples/frame_digest.rs b/crates/universe/examples/frame_digest.rs
+index cbc2ee8d..d3894f56 100644
+--- a/crates/universe/examples/frame_digest.rs
++++ b/crates/universe/examples/frame_digest.rs
+@@ -67,6 +67,14 @@ fn finder(p: &mut emergent_universe::scenario::Plane) {
+     }
+ }
+ 
++/// The forced control: hold every in-root pull, however small, so the held path's digest is checked
++/// against the taken one on the same scripted flights (FORCE_HOLD=1).
++fn force_hold(p: &mut emergent_universe::scenario::Plane) {
++    if std::env::var("FORCE_HOLD").is_ok() {
++        p.u.set_pull_hold(0);
++    }
++}
++
+ type Script = Vec<(f64, u8, u8)>;
+ 
+ /// (name, seed, members, script): keys 1 forward, 2 reverse, 4 left, 8 right.
+@@ -87,6 +95,7 @@ fn flights() -> Vec<(&'static str, u64, u64, Script)> {
+ fn run(seed: u64, members: u64, script: &Script, cut: i64, budget: Budget, threads: usize) -> (String, i64, u64, u64, u64) {
+     let mut p = plane(Config::default(), seed, Order::Sparse, threads, members).unwrap();
+     finder(&mut p);
++    force_hold(&mut p);
+     for &(wall, keys, level) in script {
+         let t = (wall * RTF / TICK_SECONDS) as i64;
+         p.u.schedule(t, word(keys, level)).unwrap();
+@@ -106,6 +115,7 @@ fn run(seed: u64, members: u64, script: &Script, cut: i64, budget: Budget, threa
+ fn run_wall(seed: u64, members: u64, script: &Script, cut: i64, ms: f64) -> (String, i64, u64, u64, u64) {
+     let mut p = plane(Config::default(), seed, Order::Sparse, 1, members).unwrap();
+     finder(&mut p);
++    force_hold(&mut p);
+     for &(wall, keys, level) in script {
+         let t = (wall * RTF / TICK_SECONDS) as i64;
+         p.u.schedule(t, word(keys, level)).unwrap();
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..06a604a1 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -14,12 +14,14 @@ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -30,6 +32,30 @@ fn footprint() -> (u64, u64) {
+     (buf[9], buf[30])
+ }
+ 
++/// Linux: resident now (statm) and peak resident (VmHWM). No compressed-page accounting on this host.
++#[cfg(not(target_os = "macos"))]
++fn footprint() -> (u64, u64) {
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/statm") {
++        if let Some(rss) = s.split_whitespace().nth(1) {
++            if let Ok(pages) = rss.parse::<u64>() {
++                now = pages * 4096;
++            }
++        }
++    }
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmHWM:") {
++                if let Ok(kb) = v.trim().trim_end_matches(" kB").parse::<u64>() {
++                    peak = kb * 1024;
++                }
++            }
++        }
++    }
++    (now, peak)
++}
++
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+     if sorted.is_empty() {
+         return 0.0;
+@@ -40,6 +66,9 @@ fn pct(sorted: &[f64], p: f64) -> f64 {
+ fn main() {
+     let t_start = Instant::now();
+     let args: Vec<String> = std::env::args().collect();
++    let max_s: f64 = std::env::var("NLADDER_MAX_S").ok().and_then(|s| s.parse().ok()).unwrap_or(55.0);
++    let seed: u64 = std::env::var("NLADDER_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let trace = std::env::var("NLADDER_TRACE").is_ok();
+     let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+     let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
+     let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
+@@ -49,10 +78,17 @@ fn main() {
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    if let Some(hold) = std::env::var("NLADDER_HOLD").ok().and_then(|s| s.parse::<usize>().ok()) {
++        p.u.set_pull_hold(hold);
++        println!("pull hold: {hold} ship items an item (the engine's default is 64)");
++    }
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
++    // A deterministic budget (events a frame, no wall): the flight's schedule is then independent of the box, so
++    // digests compare across builds (a wall-budgeted belt flight's digest is not stable even on shipped main).
++    let ebudget: Option<u64> = std::env::var("NLADDER_EBUDGET").ok().and_then(|s| s.parse().ok());
+     println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
+     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+@@ -64,7 +100,7 @@ fn main() {
+     let mut ran = 0usize;
+     let mut doll_at: Vec<(usize, u16)> = Vec::new(); // (frame, doll) each time the player's doll changes
+     for f in 0..frames {
+-        if t_start.elapsed() > Duration::from_secs(55) {
++        if t_start.elapsed() > Duration::from_secs_f64(max_s) {
+             truncated = true;
+             break;
+         }
+@@ -77,7 +113,11 @@ fn main() {
+             let _ = emergent_universe::prof::take();
+         }
+         let start = Instant::now();
+-        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        let budget = ebudget.map_or_else(
++            || Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) },
++            Budget::events,
++        );
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, budget, i64::MAX);
+         let took = start.elapsed();
+         let (ns, calls) = emergent_universe::prof::take();
+         if f >= 60 {
+@@ -90,6 +130,10 @@ fn main() {
+         held_max = held_max.max(p.u.held_scans());
+         last_stats = p.u.stats;
+         ran += 1;
++        if trace && f >= 60 && f % 120 == 0 {
++            let r = rows.last().unwrap();
++            println!("trace f={} ms={:.2} ev={} lag={:.3}", r.0, r.1, r.2, r.3);
++        }
+         let rec = p.u.rec(p.player);
+         if doll_at.last().map(|d| d.1) != Some(rec.b.doll) {
+             doll_at.push((f, rec.b.doll));
+@@ -123,7 +167,7 @@ fn main() {
+     let mut cache = ViewCache::default();
+     let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
+     // (a cold gather costs about 30 us a body: it runs only when it fits in the run's 60 s)
+-    if t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < 55.0 {
++    if t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < max_s {
+         let tv = Instant::now();
+         seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
+         cold = tv.elapsed().as_secs_f64() * 1e3;
+@@ -160,4 +204,23 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    // The canonical cut(s) the digest is compared at (game-seconds, comma-separated): settle, then one line a cut.
++    if let Ok(list) = std::env::var("NLADDER_DIGEST") {
++        for cut in list.split(',').filter_map(|s| s.trim().parse::<f64>().ok()) {
++            let horizon = (cut / TICK_SECONDS) as i64;
++            let t_settle = Instant::now();
++            p.u.settle(horizon);
++            println!(
++                "cut {} game-s: digest {} [settle {:.2} s, kicks {}, events {}, encounters {}, contacts {}, scans held {}]",
++                cut,
++                p.u.digest(),
++                t_settle.elapsed().as_secs_f64(),
++                p.u.stats.kicks,
++                p.u.stats.events(),
++                p.u.stats.encounters,
++                p.u.contacts,
++                p.u.held_scans()
++            );
++        }
++    }
+ }
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..201f7d71 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -81,6 +81,30 @@ const SCAN_BACKLOG: usize = 2048;
+ /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
+ const FRAME_TAIL_NS: u64 = 50_000;
+ 
++/// How many ship items the player's item pulls before the rest is held for the frame-budgeted drain: over this the pull
++/// is a wave the budget never sees (a belt's whole first-kick wave inside one item, ~5 s a frame at 10⁶), under it the
++/// pull stays inside its item as it always was. The scan that needs the pull waits for the drain instead of reading a
++/// half-pulled doll: the answer is the same, the frame is bounded.
++const PULL_HOLD: usize = 64;
++
++/// One held scan: taken (and merely unanswered), or still waiting for the pull that feeds it.
++enum ScanEntry {
++    /// The scan was taken: everything its answer reads is held in it ([`encounter::Held`]).
++    Ready(Arc<dyn Held>),
++    /// The scan waits for its pull: the capture runs once the ship lane is clear of `key`, on the same state the pull
++    /// would have read (every ship item below the key resolved, in key order), so its answer cannot differ from the
++    /// one an unheld pull would have given.
++    Waiting(HeldScan),
++}
++
++/// What a waiting scan needs to capture: the player, the tick and interval its item read, and the pull it waits on.
++struct HeldScan {
++    body: usize,
++    t: Tick,
++    interval: Tick,
++    key: (Tick, usize),
++}
++
+ /// The encounter hash chain's next link.
+ fn chain(prev: [u8; 32], e: &Encounter) -> [u8; 32] {
+     let mut h = blake3::Hasher::new();
+@@ -206,7 +230,11 @@ pub struct Universe {
+     /// Scans the player's items took and the allocator has not answered yet, in the order taken
+     /// ([`Universe::drain_scans`]); the log, the count and the hash below are as if each had been answered at once once
+     /// this is empty, and [`Universe::digest`] answers what is held.
+-    scans: VecDeque<Arc<dyn Held>>,
++    scans: VecDeque<ScanEntry>,
++    /// The keys of the pulls those `Waiting` scans still wait on, in the order taken (the drain resolves below the oldest).
++    held_pulls: VecDeque<(Tick, usize)>,
++    /// How many ship items a player's item may pull before the rest is held for the drain ([`PULL_HOLD`]).
++    pull_hold: usize,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
+     /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+@@ -269,6 +297,8 @@ impl Universe {
+             target: 0,
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
++            held_pulls: VecDeque::new(),
++            pull_hold: PULL_HOLD,
+             scan_ns: 0,
+             item_ns: [0; 5],
+             enc_log: Vec::new(),
+@@ -472,6 +502,13 @@ impl Universe {
+         self.encounters = e;
+     }
+ 
++    /// A test's control: hold the player's pull over `n` ship items (0 holds every in-root pull, however small), to
++    /// check the held path's digest against the taken one.
++    #[doc(hidden)]
++    pub fn set_pull_hold(&mut self, n: usize) {
++        self.pull_hold = n;
++    }
++
+     /// Everything is made: plan every body's first interval and build the queue.
+     pub fn start(&mut self) -> Res<()> {
+         let n = self.bodies.len();
+@@ -686,19 +723,30 @@ impl Universe {
+     }
+ 
+     /// Resolve every ship item with a key below `key`, in key order (the ships' own minimum is `ship_ticks`' first slot: no walk over them);
+-    /// with `children_only`, the items of the ships of a planet's doll only.
+-    fn pull_ships(&mut self, key: (Tick, usize), children_only: bool) {
++    /// with `children_only`, the items of the ships of a planet's doll only. At most `cap` items when not `children_only`:
++    /// whether the backlog went over it (the rest is the drain's, and the scan that needed the pull waits for it).
++    fn pull_ships(&mut self, key: (Tick, usize), children_only: bool, cap: usize) -> bool {
++        let mut pulled = 0usize;
+         loop {
+             let ticks = if children_only { &self.child_ticks } else { &self.ship_ticks };
+-            let Some((t, i)) = ticks.peek() else { break };
++            let Some((t, i)) = ticks.peek() else { return false };
+             if (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i) >= key {
+-                break;
++                return false;
++            }
++            if !children_only && pulled >= cap {
++                return true;
+             }
+             self.resolve_body(i);
+             self.requeue(i);
++            pulled += 1;
+         }
+     }
+ 
++    /// The ships' own minimum key, as [`Universe::pull_ships`] reads it: what a waiting scan's lane must be clear of.
++    fn ship_lane_key(&self) -> Option<(Tick, usize)> {
++        self.ship_ticks.peek().map(|(t, i)| (t.fixed(0).unwrap_or(i128::MAX).min(Tick::MAX as i128) as Tick, i))
++    }
++
+     /// Resolve every item of `ids` with a key below `key`, in key order.
+     fn pull(&mut self, ids: &[usize], key: (Tick, usize)) {
+         while let Some(k) = self.lane(ids) {
+@@ -767,10 +815,20 @@ impl Universe {
+             // the size of the root's whole wave of kicks, inside one item and outside the budget). Ships read only the sources, and the
+             // player reads no ship: resolving the player's item before theirs changes no bit.
+             let in_root = self.bodies.doll(i) == 0;
+-            self.pull_ships(key, !in_root);
+-            let t_enc = crate::prof::t();
+-            self.encounters_for_player();
+-            crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
++            if self.pull_ships(key, !in_root, if in_root { self.pull_hold } else { usize::MAX }) {
++                // The backlog went over the hold: the rest of the pull is the drain's (inside the frame's budget, in key
++                // order), and the scan waits for it rather than reading a half-pulled doll. Its capture, once the ship
++                // lane is clear of `key`, reads exactly the state the whole pull would have left; its answer, order and
++                // chain are as if taken at once (the digest folds a held scan as answered).
++                self.held_pulls.push_back(key);
++                let t = self.bodies.event_time(i);
++                let interval = self.bodies.rec(i).step.max(2);
++                self.scans.push_back(ScanEntry::Waiting(HeldScan { body: i, t, interval, key }));
++            } else {
++                let t_enc = crate::prof::t();
++                self.encounters_for_player();
++                crate::prof::add(crate::prof::ENCOUNTERS, t_enc);
++            }
+         }
+     }
+ 
+@@ -980,6 +1038,28 @@ impl Universe {
+         self.stats.cost_ns[2] += t0.elapsed().as_nanos() as u64;
+     }
+ 
++    /// One item of the pulls the player's items held (a backlog over [`PULL_HOLD`]): the ships below the oldest key
++    /// still held, in key order — the order the pull itself would take — behind the frame's budget. Whether one was
++    /// resolved here. A key whose lane is clear stays (a resolution can schedule a next item below it): it goes when its
++    /// scan is answered.
++    fn drain_held_pull(&mut self, done: u64, budget: &Budget) -> bool {
++        let mut at = 0usize;
++        while let Some(&key) = self.held_pulls.get(at) {
++            if self.ship_lane_key().is_some_and(|k| k >= key) {
++                at += 1;
++                continue;
++            }
++            if budget.spent_before(done, if done == 0 { 0 } else { self.item_ns[Kind::Ship as usize] + FRAME_TAIL_NS }) {
++                return false;
++            }
++            let Some((_, i)) = self.ship_ticks.peek() else { at += 1; continue };
++            self.resolve_body(i);
++            self.requeue(i);
++            return true;
++        }
++        false
++    }
++
+     /// Spend `budget` resolving items with a tick up to `target`, in causal-deadline order.
+     pub fn advance(&mut self, target: Tick, budget: Budget) -> Advanced {
+         self.target = target;
+@@ -992,6 +1072,13 @@ impl Universe {
+             let t_due = crate::prof::t();
+             self.take_due(target);
+             crate::prof::add(crate::prof::TAKE_DUE, t_due);
++            // The pulls the player's items held: queue work now (the ships below the oldest held key, in the pull's own key
++            // order, one item a pass behind the same budget gate as any other item), so a frame through a wave of kicks
++            // carries its share, not the wave whole inside one unbudgeted item.
++            if self.drain_held_pull(done, &budget) {
++                done = self.resolved - start;
++                continue;
++            }
+             let Some((dl, e)) = self.queue.as_ref().and_then(|q| q.peek()) else { break };
+             let dl = self.deadline_of_key(dl);
+             let Some((t, _)) = self.key_of(e) else {
+@@ -1014,8 +1101,9 @@ impl Universe {
+             // Held scans are work like any other once they pile up (the memory they hold is bounded): at the backlog's cap
+             // the player's next item waits for the oldest scan, inside the budget, so a frame stays within it and the
+             // presented time lags (as it did before scans were held), instead of the frame overrunning.
+-            if self.scans.len() >= SCAN_BACKLOG {
+-                self.answer_front();
++            // (a scan that waits for its pull holds almost nothing: the cap falls through to the items, which is what
++            // clears the pull.)
++            if self.scans.len() >= SCAN_BACKLOG && self.answer_front() {
+                 continue;
+             }
+             let t_item = Instant::now();
+@@ -1162,7 +1250,7 @@ impl Universe {
+         let interval = self.bodies.rec(p).step.max(2);
+         match self.encounters.capture(&self.ctx(), p, t, interval) {
+             // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+-            Some(held) => self.scans.push_back(held),
++            Some(held) => self.scans.push_back(ScanEntry::Ready(held)),
+             None => {
+                 for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                     self.log_encounter(e);
+@@ -1182,7 +1270,8 @@ impl Universe {
+     }
+ 
+     /// Answer the held scans, oldest first, while `until` allows (all of them if `None`): scans are idle-time work as far
+-    /// as the frame's budget goes, and they keep their order.
++    /// as the frame's budget goes, and they keep their order. The oldest may be waiting for its pull: nothing behind it is
++    /// answered either (the chain keeps the order the scans were taken in).
+     fn drain_scans(&mut self, until: Option<Instant>) {
+         while !self.scans.is_empty() {
+             if let Some(u) = until {
+@@ -1191,22 +1280,42 @@ impl Universe {
+                     break;
+                 }
+             }
+-            self.answer_front();
++            if !self.answer_front() {
++                break;
++            }
+         }
+     }
+ 
+-    /// Answer the oldest held scan: into the count, the log and the hash.
+-    fn answer_front(&mut self) {
++    /// Answer the oldest held scan: into the count, the log and the hash. Whether there was one to answer (a scan
++    /// waiting for its pull is not answered: its lane is not clear of the pull's key yet).
++    fn answer_front(&mut self) -> bool {
+         let (t0, t_scan) = (Instant::now(), crate::prof::t());
+-        let found = self.scans.front().map(|held| held.answer()).unwrap_or_default();
++        let found = match self.scans.front() {
++            Some(ScanEntry::Ready(held)) => held.answer(),
++            Some(ScanEntry::Waiting(d)) => {
++                if self.ship_lane_key().is_some_and(|k| k < d.key) {
++                    return false;
++                }
++                // The pull it waited for is done (checked live): the capture reads the same state the whole pull
++                // would have left at the item, so the answer is the one an unheld pull would have given.
++                let ctx = self.ctx();
++                self.encounters.capture(&ctx, d.body, d.t, d.interval).map_or_else(Vec::new, |h| h.answer())
++            }
++            None => return false,
++        };
+         let ns = t0.elapsed().as_nanos() as u64;
+         crate::prof::add(crate::prof::SCANS, t_scan);
+         // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
+         self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
+-        self.scans.pop_front();
++        if let Some(ScanEntry::Waiting(d)) = self.scans.pop_front() {
++            if self.held_pulls.front() == Some(&d.key) {
++                self.held_pulls.pop_front();
++            }
++        }
+         for e in found {
+             self.log_encounter(e);
+         }
++        true
+     }
+ 
+     // ---- observation ----------------------------------------------------------------------------
+@@ -1357,10 +1466,18 @@ impl Universe {
+         if !self.handouts.is_empty() {
+             put(&mut h, self.handouts.len() as i128);
+         }
+-        // The scans still held count as answered: the chain, extended by them in their order.
++        // The scans still held count as answered: the chain, extended by them in their order. One waiting for its pull
++        // captures here (at a canonical cut the settle has drained the pull, so the capture reads what the pull read).
+         let mut enc = self.enc_digest;
+-        for held in &self.scans {
+-            for e in held.answer() {
++        for entry in &self.scans {
++            let found = match entry {
++                ScanEntry::Ready(held) => held.answer(),
++                ScanEntry::Waiting(d) => self
++                    .encounters
++                    .capture(&self.ctx(), d.body, d.t, d.interval)
++                    .map_or_else(Vec::new, |h| h.answer()),
++            };
++            for e in found {
+                 enc = chain(enc, &e);
+             }
+         }

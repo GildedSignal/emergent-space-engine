@@ -1,0 +1,45 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 30.21s
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 30.13s
+arm                                  max ms     p99  over   evmax   lag   MiB  wave-region worst (8300-8799)
+fixed_n100k_burn_s1                    43.4   11.93    19     333  1.67   729  11.95
+fixed_n200k_burn_s1                    85.1   11.94    12     333  1.67  1322  11.94
+fixed_n200k_burn_s1_eb25               12.0    3.41     1     218  1.67   705  0.00
+fixed_n200k_burn_s2                    83.1   11.95    14     637  1.67  1276  11.97
+fixed_n200k_coast_s1                   12.0   11.94     0     334  1.45   950  11.91
+fixed_n2k_burn_s1                      11.1    4.74     0     333  1.45    35  0.00
+fixed_n300k_burn_s1                   535.5    4.70    26     333  1.67   737  0.01
+pristine_n200k_burn_s1_b             1211.2   11.94    27   24578  1.45  1457  11.95
+pristine_n200k_burn_s1_eb25          1741.8    5.93    53   34866  1.67  1045  0.00
+pristine_n200k_coast_s1                12.0   11.94     0     334  1.45   950  11.95
+pristine_n2k_burn_s1                   11.1    4.72     0     333  1.45    35  0.00
+
+digests at the canonical cuts (game-s -> digest[:16], kicks/events/encounters):
+  fixed_n100k_burn_s1                16000  bd2e12ad6c7b90ec  kicks  131961 events  270555 enc  4966
+  fixed_n100k_burn_s1                21000  5595e787dd3d6a76  kicks  133608 events  273814 enc  5708
+  fixed_n200k_burn_s1                16000  86d3678774adad5a  kicks  231206 events  468985 enc  5307
+  fixed_n200k_burn_s1                21000  6cef635470a7308b  kicks  233602 events  473770 enc  7397
+  fixed_n200k_burn_s1_eb25           16000  1a725862a9a377a5  kicks  225967 events  458148 enc  3994
+  fixed_n200k_burn_s1_eb25           21000  ae06c773c8a10da6  kicks  233600 events  473200 enc  7356
+  fixed_n200k_coast_s1               16000  af43df43c7739042  kicks  231537 events  467104 enc   934
+  fixed_n200k_coast_s1               21000  57a3a09c0fe5663a  kicks  233065 events  470095 enc  1031
+  fixed_n2k_burn_s1                  12000  13bc8c51c7811872  kicks   34123 events   74842 enc  3952
+  fixed_n2k_burn_s1                  16000  13bc8c51c7811872  kicks   34123 events   74842 enc  3952
+  fixed_n2k_burn_s1                  21000  30b89579db7d5220  kicks   35608 events   77748 enc  3966
+  fixed_n300k_burn_s1                21000  e8fd35cbe4fcde92  kicks  333608 events  673469 enc  9115
+  pristine_n200k_burn_s1_b           16000  62d02dc1685825e3  kicks  232123 events  470842 enc  5930
+  pristine_n200k_burn_s1_b           21000  33b794aaa0eb1360  kicks  233608 events  473748 enc  7424
+  pristine_n200k_burn_s1_eb25        16000  603c931a44a15d59  kicks  231849 events  469621 enc  5678
+  pristine_n200k_burn_s1_eb25        21000  ae06c773c8a10da6  kicks  233600 events  473200 enc  7356
+  pristine_n200k_coast_s1            16000  af43df43c7739042  kicks  231537 events  467104 enc   934
+  pristine_n200k_coast_s1            21000  57a3a09c0fe5663a  kicks  233065 events  470095 enc  1031
+  pristine_n2k_burn_s1               12000  13bc8c51c7811872  kicks   34123 events   74842 enc  3952
+  pristine_n2k_burn_s1               16000  13bc8c51c7811872  kicks   34123 events   74842 enc  3952
+  pristine_n2k_burn_s1               21000  30b89579db7d5220  kicks   35608 events   77748 enc  3966
+
+frame_digest (the shipped certificate, 8 scripted flights x 4 schedules):
+  pristine : 8 digests, first bc81133d29758910
+  fixed    : 8 digests, first bc81133d29758910
+  forced-0 : 8 digests, first bc81133d29758910
+  pristine == fixed == forced on every flight: True

@@ -1,0 +1,10 @@
+pull hold: 0 ship items an item (the engine's default is 64)
+rung N=200000 (200028 bodies), burn, rtf 100, 200 s of wall time, engine budget 12 ms; build 8.86 s, peak footprint 471 MB (now 471 MB)
+frames after 1 s: 11940  engine ms p50 0.543 p90 1.262 p99 3.540 max 13.281; over 12 ms: 1; frames behind: 3596, worst lag 1.667 s; events/frame p50 6 p99 25 max 218; scans held max 1
+game 14091.7 s after the first second: kicks 119583 (4.242e-5/body/game-s), events 148578 (5.271e-5/body/game-s), stats {opens 338, boundaries 22135, handoffs 1, lost 25, refused 0, slices 6521}; refusals held 0, dead 0, alive(player) true
+memory: peak footprint 471 MB at the build's end, 704 MB at the flight's end (now 704 MB); 2342 B a body from the build; dashboard bytes/body 1302; view gather 8663.3 ms cold, 4026.5 ms warm (200048 seen); catalogue 200076 entries
+frames over the budget (first 12): [717]; the player's doll (frame, doll): [(0, 2), (1019, 0)]
+worst frames (frame, ms, events, lag s): (717, 13.28, 124, 0.375) (685, 11.36, 86, 0.375) (73, 10.51, 25, 1.667) (701, 10.16, 49, 0.375) (703, 10.04, 25, 0.375)
+ladder: n=200000 bodies=200028 flight=burn rtf=100 frames=12000 build_s=8.86 foot_build_mb=471 foot_end_mb=704 b_per_body=2342 p50_ms=0.543 p99_ms=3.540 max_ms=13.281 over=1 lag_s=1.667 kicks_per_body_gs=4.242e-5 events_per_body_gs=5.271e-5 refusals=0 dead=0 held_max=1 view_ms=4026.5 truncated=false wall_s=29.7
+cut 16000 game-s: digest 1a725862a9a377a50d482fa7ad8cc139d3ac74fb2fe2818082fa3d5905cd20fc [settle 5.77 s, kicks 225967, events 458148, encounters 3994, contacts 0, scans held 0]
+cut 21000 game-s: digest ae06c773c8a10da697c86cadaf680890be561c12d269b0842825c1e7b1556d32 [settle 17.25 s, kicks 233600, events 473200, encounters 7356, contacts 0, scans held 0]
