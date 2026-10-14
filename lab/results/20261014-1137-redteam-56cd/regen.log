@@ -1,0 +1,15 @@
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.26s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/examples/rt_fleet_thrust`
+fleet doll under thrust: q=1048576, R=1000 dr, n=2^-14, v_c=nR=c/4, epoch=64, period=102943 chronons, stride 640
+ARM A0   apps=0 dv_total=0       | anchors=193 refused=0 handed_out=0 active=12/12 | max_rel=0.4496% max_shape=0.1952% | origin_vs_truth_com=0.020 dr (worst at tick 308480, 2.997 P) | tube radius 4194303923 (genesis 4194304000)
+      handoffs recorded: 0; last refusal: None
+ARM A1   apps=40 dv_total=0.10234375 | anchors=193 refused=0 handed_out=0 active=12/12 | max_rel=0.4496% max_shape=0.2391% | origin_vs_truth_com=0.307 dr (worst at tick 30080, 0.292 P) | tube radius 4002424391 (genesis 4194304000)
+      handoffs recorded: 0; last refusal: None
+ARM A2   apps=24 dv_total=0.8191875 | anchors=9 refused=56 handed_out=0 active=12/12 | max_rel=7.0879% max_shape=32.3862% | origin_vs_truth_com=3174.186 dr (worst at tick 102400, 0.995 P) | tube radius 4088177306 (genesis 4194304000)
+      handoffs recorded: 0; last refusal: Some("the origin's state is not on a bound orbit")
+ARM A3   apps=40 dv_total=0.10234375 | anchors=194 refused=0 handed_out=12 active=0/12 | max_rel=92.2096% max_shape=25.1023% | origin_vs_truth_com=902.999 dr (worst at tick 308480, 2.997 P) | tube radius 4142740524 (genesis 4194304000)
+      handoffs recorded: 12; last refusal: None
+--- controls ---
+refusal reason present
