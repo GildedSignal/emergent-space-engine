@@ -2,12 +2,49 @@ topic: closed-form-kernel
 status: open
 closed-by:
 valid-while:
-updated: 20261014-0450-components-5a3b
+updated: 20261014-1010-spacex-f9b4
 
 # One exact O(1) kernel for the cycle: the Carlson basis, all three channels
 
 ## Current best
 
+**The static edge rule exists, is measured, and holds the certificate at the ladder's
+own pass count (20261014-1010-spacex-f9b4).** Pure-integer, key-derived, on the shipped
+walk machinery (`cut`, CAP, dyadic layer, quad, readout untouched): apoapsis rungs
+x = x_a + (1−x_a)·2^(−j/2) down to x−x_a = x_a >> 4, plus periapsis rungs
+x = 1 − 2^(−j) down to the separatrix scale δ/(2q) (the walk's own near-periapsis
+algebra 1 − q·a = δ − 2q(1−x); they vanish far from p → 6+2e). Grid 8×9 + 10 held-out
+keys + 3 hyperbolic passages, certificate ≤ 2⁻³⁰ on all three channels vs mpmath 50
+digits, ladder control in the record's band: **69/73 keys pass, the same as the
+shipped ladder**; disjoint misses — the ladder alone fails (8, 0.99), the rule alone
+fails (6.7, 0.3) at 7.4×10⁻⁹, placement-immune (a doubled depth reads the same error
+at 21 vs 13 panels: node arithmetic, not panels). Checker correction: the rule-alone
+miss is a band, not one key — (6.65, 0.3) fails 7.1×10⁻⁹ where the ladder passes
+(5.4×10⁻¹⁰), also placement-immune — while the rule passes four near-separatrix/m→1
+keys where the ladder fails: (7.205, 0.6) 2.8×10⁻¹⁰ vs 3.0×10⁻⁸, (8.001, 0.999),
+(8.005, 0.999), (7.999, 0.998), all confirmed against an independent ODE +
+elliptic-K reference.
+On the shared p = 8, e ≥ 0.999 tail the rule is 6–220× more accurate than the ladder. **e ≥ 0.9: panels ÷4.96
+(median, 36 keys), compile ÷3.54** ((8, 0.99999): 294→75 panels, 463→155 µs;
+(20, 0.99): 125→27, 166→38–49 µs — 5a3b's projected 26–38 µs band; (10⁵, 0.99999):
+282→45 at the record's own 1.59 µs/knot). `Passage::compile` on the same patch point,
+untuned: 114→24, 184→53, 124→25 panels (3.5–5×). Mechanism, measured: the ladder's
+density buys the apoapsis 1/u² shoulder (peri-only geometric arms fail at e ≥ 0.9,
+up to 7.6×10⁻⁷); near the separatrix the binding spike crosses to periapsis and the
+δ/(2q) rungs carry it; 2 rungs/octave is the cheapest passing taper; the m=1 taper
+fails. Adoption: one build, canon reset, certificate re-freeze as prescribed; the
+probe's off-arm keeps the shipped ladder bit-identical (crate suite green, 53/53;
+checker: 74 tests, 0 failed, and all 73 key rows bit-identical against unpatched
+HEAD).
+Domain: bound Darwin (p, e) keys 6.7–10⁵ and 3 hyperbolic passages, Linux shared
+cloud timings; not 3-D, not the Kerr walk, the passage tail is uncertified.
+Checker domain notes: at δ ≤ 0.05 toward the separatrix (p 6.60–6.65, e 0.3) the
+residual band persists and both arms degrade as δ → 0 (c 2–3.6× worse where both
+fail); p 10⁶–10⁷ cuts 68→18 panels with ~10⁻¹² agreement; e ≤ 10⁻³ is exact parity;
+refusals are identical in every arm; e = 10/100 passages refuse NoBoundOrbit in both
+arms alike.
+
+**Prior best (the floor, standing).**
 **The panel grid has a measured floor, and it is 4.0–10.5× below the shipped ladder on
 the expensive band (5.1–10.5× at p ≥ 20; ~3× at the refusal edge — checker-corrected
 range; see below) — so the compile's O(1)-in-e win needs no Carlson kernel: a
@@ -73,6 +110,15 @@ corrupts; the certificate holds on e ≤ 0.9999 only until the ν-corner is pre-
 
 ## Refuted
 
+- "A static rule needs the ladder's 16 steps/octave density to hold the certificate":
+  2 rungs/octave at the apoapsis plus separatrix-keyed periapsis rungs hold it at the
+  ladder's own pass count, 69/73 (20261014-1010-spacex-f9b4).
+- "One geometric family fits every key" (this run's dev-set story): the binding
+  turning point moves — periapsis-only arms fail at e ≥ 0.9 (up to 7.6×10⁻⁷ on t/τ),
+  apoapsis-only arms fail near the separatrix (advance, 8×10⁻⁹ class), the m = 1
+  taper fails at e ≥ 0.9 (1.8×10⁻⁹); the passing rule is regime-keyed by δ/(2q), and
+  its one residual miss (6.7, 0.3) is placement-immune — node arithmetic, not panels
+  (same run).
 - "The compile's cost is intrinsically panel-bound and only a closed-form kernel can
   flatten it in e": the floor itself is flat in e (12–27 panels at p ≥ 20 for
   e 0.9–0.99999); an error-equidistributed grid on the shipped walk machinery is
@@ -93,18 +139,14 @@ corrupts; the certificate holds on e ≤ 0.9999 only until the ν-corner is pre-
 
 ## Open directions
 
-1. **The thinned integer grid (new, the cheap route):** replace the EDGE ladder in
-   `OrbitShape::bound`/`append` with an error-equidistributed integer edge list computed
-   from the key (keep `cut()`, CAP, the quad, the readout); expected 4.0–10.5× compile
-   cut on e ≥ 0.9 (5.1–10.5× at p ≥ 20, ~3× at the refusal edge) at 1.25–2× at e ≤ 0.1
-   (nothing there); canon reset (knots move) with
-   the certificate re-freeze the record already prescribes. **Checker's gap:** the floor
-   was proven by adaptive bisection against a GL16 reference, which cannot run per
-   compile — the build needs a *static* edge rule from the key (the run's own mechanism,
-   ≈1 geometric rung/octave + CAP + the cut, is the candidate but is unmeasured); that
-   demonstration is the gold experiment. First: extend this floor
-   analysis to `Passage::compile` (89–97% of the leaver rebind, same ladder shape) and
-   the weak branch, so the edge list serves all three walks.
+1. **The build (the demonstration is done):** hardcode the rule of f9b4 (drop the env
+   parse and the probe Vec; freeze the two stops x_a >> 4 and δ/(2q) >> 2), canon
+   reset, certificate re-freeze as prescribed. Two named edges to carry: the
+   (6.7, 0.3)-class arithmetic residual (node-phase, not panels — the quad's fixed
+   point floors at q ≈ 0.2, low e; a panel rule should not chase it, the Carlson
+   basis is the standing alternative there), and the passage tail's own certificate
+   (the counts are cut 3.5–5×; the tail quad is unmeasured). The weak branch
+   (q = 0) inherits the same patch point untested.
 2. **[Standing] The Carlson basis as the m→1 fix and the bytes cut** (its 18–40 µs flat
    is the same order as the thinned grid; its real edge is where the shipped walk loses
    2⁻³⁰ itself — p = 8-class keys, measured 3.7×10⁻⁷ here again — plus 0.5–12 kB/shape):
@@ -128,3 +170,4 @@ answer is the same walk, 4.8–10.5× fewer panels.
 - 20261013-1915-system-81ca (silver): all three channels one exact integer Carlson
 - 20261013-2005-second-20261013-1915-system-81ca-6701 (awaiting grade): readout half
 - 20261014-0450-components-5a3b (awaiting grade): the panel grid's floor measured —
+- 20261014-1010-spacex-f9b4 (awaiting grade): the static edge rule measured — 69/73 at the ladder's pass count, panels ÷4.96 at e ≥ 0.9, passages 3.5–5×; one placement-immune residual.
