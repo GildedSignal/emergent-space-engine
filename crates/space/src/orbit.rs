@@ -30,8 +30,9 @@ fn square_root(a: i128) -> Result<Scalar> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct OrbitKey {
     pub periapsis: Scalar,
-    /// 1/(1+e), Q48. Bound >1/2; parabolic =1/2; hyperbolic <1/2.
+    /// Mantissa of 1/(1+e): `k * 2^(k_exponent-48)`. Exponent zero retains Q48.
     pub k: u64,
+    pub k_exponent: i16,
     /// Zero rest mass uses the same radial shape, with a null clock numerator.
     pub null: bool,
     /// The clock's gap `d = k − q(3k²+η²)` (`q` = 1/periapsis, η = 1−k) as a number with its own exponent, where the Q48 `k`
@@ -56,9 +57,27 @@ impl OrbitKey {
         Ok(Self {
             periapsis,
             k,
+            k_exponent: 0,
             null: false,
             gap: None,
         })
+    }
+    /// Preserve the Q48 domain bit for bit; below its relative-precision floor,
+    /// move the binary point instead of rejecting the orbit. The 48-bit mantissa
+    /// is normalized to [1/2,1), independently of the periapsis and clock gap.
+    pub fn scaled(periapsis: Scalar, k: Scalar) -> Result<Self> {
+        if !k.is_positive() || k > Scalar::ONE {
+            return Err(Error::Range);
+        }
+        if k >= Scalar::power_of_two(-28) {
+            return Self::new(periapsis, k.fixed(48)? as u64);
+        }
+        let exponent = k.exponent().checked_add(1).ok_or(Error::Range)?;
+        let mantissa = k.scale(-(exponent as i32))?.fixed(48)? as u64;
+        Ok(Self { k_exponent: exponent, ..Self::new(periapsis, mantissa)? })
+    }
+    pub fn shape(self) -> Result<Scalar> {
+        Scalar::raw(self.k as i128, self.k_exponent as i32 - 48)
     }
     /// Whether this weak-field hyperbolic key's proper clock needs the exact gap. The weak branch's clock is first order in
     /// `q`: its numerator `√d = √k·√(1 − 2q·term)` is expanded with `term = (3k²+η²)/(2k)`, whose error is `s²/8` with
@@ -75,7 +94,7 @@ impl OrbitKey {
         if q > Scalar::power_of_two(WEAK_EXPONENT) {
             return Ok(false);
         }
-        let k = Scalar::raw(self.k as i128, -48)?;
+        let k = self.shape()?;
         let eta = Scalar::ONE.sub(k)?;
         let s = q.mul(k.mul(k)?.mul(Scalar::integer(3))?.add(eta.mul(eta)?)?)?.div(k)?;
         Ok(s >= Scalar::power_of_two(-16))
@@ -96,7 +115,7 @@ impl OrbitKey {
         Self::new(p.mul(Scalar::raw(k as i128, -48)?)?, k)
     }
     pub fn periodic(self) -> bool {
-        !self.null && self.k > HALF
+        !self.null && self.k_exponent == 0 && self.k > HALF
     }
     pub fn memo_key(self) -> Result<Self> {
         self.quantized(MEMO_SHAPE_BITS, MEMO_SCALE_BITS)
@@ -115,6 +134,11 @@ impl OrbitKey {
             return Ok(self);
         }
         Self::new(self.periapsis, self.k)?;
+        if self.k_exponent != 0 {
+            let mut key = Self::scaled(self.periapsis.quantize(scale_bits)?, self.shape()?.quantize(shape_bits)?)?;
+            key.gap = self.gap.map(|g| g.quantize(shape_bits)).transpose()?;
+            return Ok(key);
+        }
         // The clock is singular at e=1. Quantize distance from that boundary,
         // not k itself: a relative quantum preserves information at every eccentricity.
         let k = if self.periodic() {
@@ -123,7 +147,7 @@ impl OrbitKey {
                 .fixed(48)? as u64;
             (UNIT + gap) / 2
         } else {
-            Scalar::raw(self.k as i128, -48)?
+            self.shape()?
                 .quantize(shape_bits)?
                 .fixed(48)? as u64
         };
@@ -137,6 +161,7 @@ impl OrbitKey {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct ShapeKey {
     pub k: u64,
+    pub k_exponent: i16,
     /// Zero selects the Taylor coefficients at q=0. The binding retains its actual q.
     pub compactness: Scalar,
     pub null: bool,
@@ -146,6 +171,7 @@ impl ShapeKey {
         let q = key.compactness()?;
         Ok(Self {
             k: key.k,
+            k_exponent: key.k_exponent,
             compactness: if !key.null && q <= Scalar::power_of_two(WEAK_EXPONENT) {
                 Scalar::ZERO
             } else {
@@ -209,18 +235,19 @@ impl OrbitShape {
         &self.crossings
     }
     fn new(key: ShapeKey) -> Result<Self> {
-        if (key.k == 0 && !key.null) || key.k > UNIT {
+        if (key.k == 0 && !key.null) || key.k > UNIT || key.k_exponent > 0 {
             return Err(Error::Range);
         }
         if key.compactness < Scalar::ZERO || key.compactness >= Scalar::power_of_two(-1) {
             return Err(Error::NoBoundOrbit);
         }
-        let k = (key.k as i128) << 14;
+        let scalar_k = Scalar::raw(key.k as i128, key.k_exponent as i32 - 48)?;
+        let k = scalar_k.fixed(62)?;
         let q = key.compactness.fixed(62)?;
         let eta = ONE - k;
         let d = k - product(q, product(3 * k, k) + product(eta, eta));
         // A turning orbit must be outside its separatrix; refusal is dynamical, not a size cap.
-        if q < 0 || ONE - product(q, 6 * k + 2 * eta) <= 0 || (!key.null && d <= 0) {
+        if q < 0 || ONE - product(q, 6 * k + 2 * eta) <= 0 || (!key.null && d <= 0 && key.k_exponent == 0) {
             return Err(Error::NoBoundOrbit);
         }
         let tn = if key.null {
@@ -228,13 +255,23 @@ impl OrbitShape {
         } else {
             product(product(k, ONE - 2 * q), ONE + product(2 * q, ONE - 2 * k))
         };
-        if tn <= 0 {
+        if tn <= 0 && key.k_exponent == 0 {
             return Err(Error::NoBoundOrbit);
         }
         let floor = (2 * k - ONE).max(1);
-        let t_numerator = square_root(tn)?;
+        // Q62 resolves O(1) angular factors, but must not round away sqrt(k).
+        // Tiny shapes keep both clock numerators and their ratio in scaled form.
+        let t_numerator = if key.k_exponent != 0 {
+            scalar_k.mul(Scalar::ONE.sub(key.compactness.scale(1)?)?)?
+                .mul(Scalar::ONE.add(key.compactness.scale(1)?.mul(Scalar::ONE.sub(scalar_k.scale(1)?)?)?)?)?.sqrt()?
+        } else { square_root(tn)? };
         let tau_numerator = if key.null {
             Scalar::ZERO
+        } else if key.k_exponent != 0 {
+            let eta = Scalar::ONE.sub(scalar_k)?;
+            let d = scalar_k.sub(key.compactness.mul(scalar_k.mul(scalar_k)?.mul(Scalar::integer(3))?.add(eta.mul(eta)?)?)?)?;
+            if !d.is_positive() { return Err(Error::NoBoundOrbit); }
+            d.sqrt()?
         } else {
             square_root(d)?
         };
@@ -258,6 +295,9 @@ impl OrbitShape {
             tau_numerator,
             weak_tau_term: if key.null {
                 Scalar::ZERO
+            } else if key.k_exponent != 0 {
+                let eta = Scalar::ONE.sub(scalar_k)?;
+                scalar_k.mul(scalar_k)?.mul(Scalar::integer(3))?.add(eta.mul(eta)?)?.div(scalar_k.scale(1)?)?
             } else {
                 f(product(3 * k, k) + product(eta, eta))?.div(f(2 * k)?)?
             },
@@ -451,7 +491,7 @@ impl OrbitShape {
         }
     }
     fn bound(key: ShapeKey) -> Result<Self> {
-        if key.k <= HALF {
+        if key.k_exponent != 0 || key.k <= HALF {
             return Err(Error::NotPeriodic);
         }
         let mut s = Self::new(key)?;
@@ -514,13 +554,14 @@ impl Orbit {
         }
         // A symbolic circle has no radial instability to integrate. The same
         // azimuth/clock readout applies on either side of the ISCO, down to r>3M.
-        if key.k == UNIT && key.compactness()? >= Scalar::ONE.div(Scalar::integer(6))? {
+        if key.k_exponent == 0 && key.k == UNIT && key.compactness()? >= Scalar::ONE.div(Scalar::integer(6))? {
             let q = key.compactness()?;
             if q >= Scalar::ONE.div(Scalar::integer(3))? {
                 return Err(Error::NoBoundOrbit);
             }
             let mut shape = OrbitShape::bound(ShapeKey {
                 k: UNIT,
+                k_exponent: 0,
                 compactness: Scalar::ZERO,
                 null: false,
             })?;
@@ -544,11 +585,12 @@ impl Orbit {
         }
         let shape = Arc::new(OrbitShape::bound(ShapeKey {
             k: key.k,
+            k_exponent: key.k_exponent,
             compactness: Scalar::ZERO,
             null: false,
         })?);
         let time_scale = key.periapsis.mul(key.periapsis.sqrt()?)?;
-        let k = Scalar::raw(key.k as i128, -48)?;
+        let k = key.shape()?;
         let period = shape.knots.last().unwrap().sum.0[1]
             .mul(time_scale)?
             .scale(1)?;
@@ -578,11 +620,12 @@ impl Orbit {
         if shape.key.compactness != q && !key.periodic() && key.gap.is_none() {
             let _ = OrbitShape::new(ShapeKey {
                 k: key.k,
+                k_exponent: key.k_exponent,
                 compactness: q,
                 null: key.null,
             })?;
         }
-        let k = f((key.k as i128) << 14)?;
+        let k = key.shape()?;
         let tn = k
             .mul(Scalar::ONE.sub(q.scale(1)?)?)?
             .mul(Scalar::ONE.add(q.scale(1)?.mul(Scalar::ONE.sub(k.scale(1)?)?)?)?)?;
@@ -648,7 +691,7 @@ impl Orbit {
         if normalized_time < Scalar::ZERO {
             return Err(Error::Range);
         }
-        if self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+        if self.key.k_exponent == 0 && self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
             if normalized_time > Scalar::raw(2 * PI, -61)? {
                 return Err(Error::Range);
             }
@@ -701,7 +744,7 @@ impl Orbit {
         Ok(state)
     }
     pub(crate) fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
-        if self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+        if self.key.k_exponent == 0 && self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
             if radius != self.key.periapsis {
                 return Err(Error::Range);
             }
@@ -712,7 +755,7 @@ impl Orbit {
         if x < low - 64 || x > ONE + 64 {
             return Err(Error::Range);
         }
-        let psi = if self.key.k == UNIT {
+        let psi = if self.key.k_exponent == 0 && self.key.k == UNIT {
             0
         } else {
             self.shape.cut(x.clamp(low, ONE))

@@ -195,7 +195,7 @@ pub fn word_for(entry: &Entry) -> Res<(i32, i32)> {
         return Ok((entry.unit.to_doll(p.initial_radius())?.exponent() as i32 - 60, p.speed_bound()?.scale(1)?.exponent() as i32 - 60));
     }
     let key = entry.trajectory.key().ok_or(Error::Refused("turning key"))?;
-    let k = Scalar::raw(key.k as i128, -48)?;
+    let k = key.shape()?;
     let r_max = match &entry.trajectory {
         Trajectory::Cycle(_) => key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?,
         Trajectory::Passage(p) => p.outer_radius,

@@ -134,7 +134,7 @@ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
     let b = ctx.bodies.binding_at(j, t).ok_or(Error::Refused("history pruned"))?;
     let Trajectory::Cycle(c) = &b.entry.trajectory else { return Err(Error::Refused("a source without a period")) };
     let key = c.key();
-    let k = Scalar::raw(key.k as i128, -48)?;
+    let k = key.shape()?;
     let den = k.scale(1)?.sub(Scalar::ONE)?;
     if !den.is_positive() {
         return Err(Error::Refused("a source on an unbound orbit"));

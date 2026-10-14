@@ -315,7 +315,7 @@ impl Universe {
         // Periapsis `phase` of a period before tick 0.
         let behind = period.mul(Scalar::raw(spec.phase as i128, -32)?)?;
         let peri = -i64::try_from(behind.fixed(-(doll.clock_exp() as i32))?).map_err(|_| Error::Refused("period outside the clock"))?;
-        let k = Scalar::raw(key.k as i128, -48)?;
+        let k = key.shape()?;
         let r_max = unit.to_doll(key.periapsis.div(k.scale(1)?.sub(Scalar::ONE)?)?)?; // apoapsis: p/(2k − 1)
         let v_max = Scalar::integer(2).mul(Scalar::ONE.div(key.periapsis)?)?.sqrt()?.scale(1)?;
         Ok((entry, Tube::new(0, spec.angle, peri), crate::bind::choose_units(r_max, v_max)))
@@ -1146,6 +1146,9 @@ impl Universe {
             if let Some(key) = r.b.entry.trajectory.key() {
                 put_s(&mut h, key.periapsis);
                 put(&mut h, key.k as i128);
+                if key.k_exponent != 0 {
+                    put(&mut h, key.k_exponent as i128);
+                }
                 if let Some(gap) = key.gap {
                     put_s(&mut h, gap);
                 }
