@@ -12,6 +12,109 @@ updated: 20261014-2012-second-20261014-1631-library-7f99-5903
 
 ## Current best
 
+<<<<<<< main
+<<<<<<< main
+
+**The wave's untested exposure is measured and it is a memory ceiling, not a stutter: the player
+inside the belt band turns the first-kick wave into a process-killing accumulation of held scans
+(20261014-2130-quant-d7e3, quant lens).** Scene: the plane bit for bit except the player orbits
+at 2.5 AU in the root doll among the belt ships (`plane_extra_belt_player`), L8 burn, rtf 100,
+12 ms budget, the 16,000 game-s cut — 38bf's `wave_input` protocol with only the player moved;
+the validity control reproduces 38bf's digest `c2b834bb…` exactly (capped and uncapped, kicks
+225,949 = 225,949, encounters 1,624 = 1,624). Findings, all on shipped main + the pending
+`ES_PULL_CAP` patch: (1) **at every N ≥ 5×10⁴ measured, both arms are OOM-killed** — 2×10⁵ uncapped 77 s in and
+capped ~210 s in; 5×10⁴ uncapped and capped at the same 6.88/6.87 GB peak with identical
+trajectories (the accumulation is deterministic and pull-independent: the cap does not touch
+it); 10⁵ capped at 11.83 GB (the per-held answer scales with N); no in-band digest exists at
+any N ≥ 5×10⁴, so the cap's digest certificate cannot even be posed there; (2) **the
+mechanism is the held-scan standing memory**: in-band at 5×10⁴ uncapped the RSS climbs
+monotonically through the flight (6.05 GB at frame 5,700 → 6.6 GB at frame 9,000 → killed at
+6.88 GB peak before the cut; ~6.5 MB per held scan, held count 1,110→1,196 with no demotion —
+an all-bodies-sized answer per held scan where the out-of-band record's is ~10 KB), against
+0.89 GB for the whole out-of-band flight at 4× the bodies;
+(3) **at N=10³ in-band the engine holds frame budget** (0 over, max 11.6 ms, 96 MB, digest
+`ad8a0e78…`; one noisy pass's 351 ms spikes were box contention — same digest, clean rerun): the
+exposure is not frame time but memory growth; (4) the player itself becomes a root-doll ship
+under thrust: its burn chain owns the kick counter (26,054 by the cut at N=10³).
+The guard the cap needs before merge, named: hold the capture keyed on the candidate's doll
+being mid-wave (the `SCAN_BACKLOG` idiom) **and bound the held answers' standing size** — a2c1's
+"~10 KB a held scan" is an out-of-band number; in-band each stands ~650× that at 5×10⁴ (~2.6×10³× at 2×10⁵). Domain: seeds 1
+(seed 7's arm started and was killed to free the box), N ∈ {10³, 5×10⁴, 10⁵, 2×10⁵}, a = 2.5 AU
+planar near-circular, one shared Linux box with a 2 GB/process ceiling; the OOM's exact interior
+(held-answer contents vs capture buffers) is inferred from the per-scan growth rate, not heap-
+profiled; the 5×10⁴ digest pair and the 10⁵ capped arm are in the run's `out/`.
+*[checker d7e3: every digest reproduces bit-for-bit; the 5×10⁴ pair completes on the regen's
+quieter box (digest `0898731…` cap-identical — "no in-band digest at any N ≥ 5×10⁴" withdrawn),
+and there BOTH arms run 606/607 frames over 12 ms (p99 15.7/17.8, max 200.9/208.8 ms, only 15 in
+the wave window) — the cap does not tame the in-band frame seam at 5×10⁴. Held out: seed 7 at 10³
+and a full through-the-wave 10³ flight (the author's arm flew only ~1,500 game-s and settled the
+wave) both clean, digest `ad8a0e78…`, held saturating at 82 — demotion works at 10³; N=10⁴
+completes at 1.36 GB with held 1,215, per-scan standing ∝ N (peak ratio 5.05×).]*
+=======
+**The a669 dial is refuted on shipped code, and the mint it targeted is counted: 1.00 compiles/kick
+(20261014-2130-second-20261014-2012-system-a669-eb2d).** The flip-gated rebind is wired (patch in the
+run: quantize the fitted key by a dial, reuse the compiled trajectory and `Arc`-reuse the entry on
+key equality, default bit-identical to pristine on the wave, crossing and frame_digest), and the
+shipped stream is 34,606 compiles for 34,537 kicks with zero exact-key reuses. But the live
+`OrbitKey`'s key words walk far faster than the replica's arithmetic — fat-tailed, not one constant
+(checker-2: the coarse arms fit ~2^-13, the fine arms track ~2^-22.5 = the replica's own p50, and the
+de-gated (2,16) reuses 0.009 in a wrecked scene) — so at every map-alive grain the run is >=10x shorter
+than q/p50 predicts (checker-2: (12,16) predicted ~158, measured 3.1); the flip run saturates at ~4 at
+scale quantum 2^-11 (reuse 0.747) where the map is already dead (encounters 934->0, 1,342 refusals);
+map death is grain-idiosyncratic, not a scale threshold ((12,16) alive, (33,20)/(24,16)/(12,12) dead),
+and the best measured map-alive cut is 3.1x at (12,16; reuse 0.682, encounters 928, 9 refusals —
+checker-2), 1.75x at (12,20; reuse 0.430, encounters 928, 1 refusal), 1.33x at (12,24) — and the
+(`Space(Range)`) on this scene at every material-reuse grain measured ((12,12), (12,16), (12,20),
+(12,24) — checker-2 ran the last three). Mechanism: the key is re-fit from decode(tube)+residual and the residual is a frozen
+Cartesian offset that maps to element changes each rebind — the walk is representation-driven, which
+is law.md:36's recorded objection, now measured with the gate wired. The lever that remains is a key
+that does not walk (carry the fit's drift as an integer phasor), not a coarser quantum.
+   *[Checker eb2d: the table regenerates end-to-end (runner) and the arms hold beyond the author's
+   domain — N=10^4 keeps the mint at 1.00 (41,606/41,537) and (12,24) map-safe (reuse 0.207,
+   encounters 928). Two corrections. (1) The map-safe frontier is scale >= 20, not (12,24): the
+   untested (12,20) is map-safe with reuse 0.430 — a 1.75x cut, the best measured, still <= 2x and
+   nowhere near 10^2x. (2) The Space(Range) panic is not metered by reuse or coarseness: the
+   quantizer path panics the same readout at the full-width identity dial (48,62 — wave counters
+   bit-equal to default, digest moves at the last ulp, so the dial is never bit-neutral when on)
+   while coarser (16,32)/(20,36) run — a rounding-boundary fragility of quantize() on this scene,
+   not the walk; the held-walk evidence is the 30-500x/900-1600x arms, and patched-default jacobi
+   equals pristine exactly. Dossier typo: 24,16 kicks are 33323, not 33223.]*
+   *[Checker 2 eb2d: everything reproduces from a clean tree (wave raw-identical; frame5/crossing
+   wall-times only; patched-default jacobi byte-equal; every table cell and both refusal counts).
+   New arms, all outside the author's coast/seed-1/N=3000 domain: burn L8 keeps the mint at 1.00
+   (37,426/37,338) and the same frontier ((12,20) reuse 0.397, encounters -0.05%; (12,12) 0.691
+   with -2.7% encounters and 422 refusals); N=10^3 (0.264/0.456) and N=10^4 (0.207) hold; seed 2
+   **leaks: map-alive dials drop encounters -14%** ((12,20) 2406->2052), so "-0.6%" is a seed-1
+   number. Two corrections folded in above: (12,16) is map-alive at reuse 0.682 — a 3.1x cut, the
+   best measured, refuting "scale >= 20" and "encounters 0 at scale <= 16" as rules (map death is
+   grain-idiosyncratic; (2,16) wrecks the scene instead: kicks -34%, encounters 250); and the
+   ~2^-13 single-constant walk is a tail statement, not a median — it fits the coarse arms, the
+   fine arms sit on ~2^-22.5 (the replica's own p50). The verdict is unchanged by both: the
+   maximum reuse measured anywhere is 0.747 (run 4, map dead), the map-alive maximum 0.682 (run
+   3.1, readout panics), and a669's composition needs run ~22-100 — unbought at every grain. The
+   1.00/kick mint holds at N 10^3-10^4, coast and burn, seeds 1-2.]* 
+>>>>>>> 20261014-2130-second-20261014-2012-system-a669-eb2d
+=======
+**The seam the record twice declined to test is measured, and it is ruin, not cost: the player inside the belt band (20261014-2130-taleb-625b).**
+With the player a circular 2.5 AU body of doll 0 (`plane_extra_band`: everything else bit-for-bit `plane_extra`) at
+ N = 10^5, an in-band L8 burn retains **~465 MB/s from the flight's first seconds, plateaus at 11.2 GB and is killed
+ (exit 137) before the cut** — every at-Home arm of the same scene flies in ~1.1 GB (the plateau value is box-bound: the
+ checker's watched rerun was killed at a 5.1 GB plateau — the kill, the retention and the ~0.45-0.5 GB/s growth are the
+ invariants). The term is the scan, **214x**
+(capture 30.2 ms/call) to **1,087x** (a held answer 614.6 ms/call) its at-Home cost, times the burn's ~50-frame
+re-plan cadence (~190 scans x ~59 MB ≈ the 11.2 GB plateau; coast's 2 player items stay flat; the retaining site
+unlocalized, one counter away). Under coast the wave still lands **one 2,008 ms frame — 30,341 events, the player's
+first item mid-wave sweeping the belt's overdue backlog** (`pull_ships(key, !in_root = false)` from tick 0: the bill
+6138 measured after the burn's rebind at frame 950, here native); seed 2: 1,062 ms. At 10^4 seed 1 the same burn
+completes flat (1,330 MB, max 47 ms) but seed 2 lives at the seam's other face: **max 17,261 ms, 111 frames over, 101
+game-s of lag** — a 364x seed spread on the worst frame. Certificate: unlimited vs 12 ms budget, digest `d467a24f...`
+ bit-identical (the seam is a cost, never a law). Domain: a parked player mid-band, held L8 burn, Linux shared box,
+ 10^4-10^5 only; a player crossing the band (the transit case) unmeasured; both kills had prof on (the checker's
+ prof-off rerun runs away the same: ~0.5 GB/s, killed — not prof-only). Checker's domain edges: 10^3 in-band L8 flies
+ flat (max 11.9 ms, 0 over — the cliff sits between 10^3 and 10^4); L1 at 10^5 completes but retains ~4.2 GB with 350
+ frames over budget — the ruin is dose-dependent on the re-plan cadence.
+>>>>>>> 20261014-2130-taleb-625b
+
 **The ladder's breaks 1, 2 and 4 are one dial: the tube key's own quantum (20261014-2012-system-a669, system lens).**
 The belt's per-kick dL/L is 2.1e-7 (p01 3.0e-9) against the key's documented L range
 (1/4 <= L <= 4096, Q32): 226 L-quanta a kick at the coarsest legal scaling, 3.7e6 at the
@@ -713,3 +816,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
 - 20261014-2012-components-38bf (awaiting grade): the input seam bounded — 0.17–0.23 ms a decision mid-wave under the cap, monsters 1,487→12.5 ms, digest bit-identical, +1 to +2 encounters per 657 no-op decisions (checker: 0.15–0.16 ms even uncapped; silver).
 - 20261014-2012-second-20261014-1631-library-7f99-5903: sensors deleted digest-identical (10^3 walk 15x); horizon not belt-scale; chatter 193 -> 0 under refusal at 3.9x events.
 - 20261014-2012-system-a669 (silver): key quantum vs per-kick dL — breaks 1/2/4 one dial; flip-gated rebind.
+- 20261014-2130-quant-d7e3 (this run, awaiting grade): in-band wave exposure measured — OOM at
+- 20261014-2130-second-20261014-2012-system-a669-eb2d: flip-gated rebind wired, default-neutral; the dial's run caps at 4 — 10^2x refuted, mint counted 1.00/kick.
+- 20261014-2130-taleb-625b (silver): the player in the belt band: in-band burn = memory ruin (11.2 GB, killed); scan 214-1,087x; coast monster 2 s.
