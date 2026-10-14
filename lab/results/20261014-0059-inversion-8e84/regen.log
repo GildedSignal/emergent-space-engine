@@ -1,0 +1,28 @@
+== build (clean law crates) ==
+== baselines ==
+exit=0
+exit=0
+== mutant panel (git-checkout + touch restores; the v2 protocol) ==
+warning: function `hit_narrow` is never used
+   --> crates/lattice/src/law.rs:341:4
+    |
+341 | fn hit_narrow(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<bool> {
+    |    ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+exit=0
+== done: compare lab/results/20261014-0059-inversion-8e84/regen-logs against the dossier table ==

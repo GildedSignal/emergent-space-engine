@@ -1,0 +1,13 @@
+warning: function `hit_narrow` is never used
+   --> crates/lattice/src/law.rs:341:4
+    |
+341 | fn hit_narrow(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<bool> {
+    |    ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+replay-all: 3 flight(s) in artifacts/flights, longest first, 55 s in all; now 33c83f1ab483 (dirty), law es-space-v2 #085d0ec88f9895ee
+changed    20261013T143932Z-seed1.json  the digest differs, the law changed since 73c98a46996f (law es-space-v2 #be41b063b93acb52 -> es-space-v2 #085d0ec88f9895ee): 7a9ec8f1ad0e -> 3156066056a7
+changed    20261013T143859Z-seed1.json  the digest differs, the law changed since 73c98a46996f (law es-space-v2 #be41b063b93acb52 -> es-space-v2 #085d0ec88f9895ee): d1fba9298aa9 -> 03f348c9b092
+changed    20261013T143928Z-seed1.json  the loss vanished: it was hit Home at 7.51 km/s (relative to Home), at world time 6 min 35 s (tick 80084992); the digest differs, the law changed since 73c98a46996f (law es-space-v2 #be41b063b93acb52 -> es-space-v2 #085d0ec88f9895ee): 67023bcc26bc -> 2bb1889a99f8
+replay-all: 0 same, 3 changed, 0 unchecked, 0 skipped (time), 0 regression(s), 1.9 s

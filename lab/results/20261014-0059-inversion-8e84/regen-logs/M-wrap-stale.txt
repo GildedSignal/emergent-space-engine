@@ -1,0 +1,14 @@
+warning: function `hit_narrow` is never used
+   --> crates/lattice/src/law.rs:341:4
+    |
+341 | fn hit_narrow(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<bool> {
+    |    ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+replay-all: 3 flight(s) in artifacts/flights, longest first, 55 s in all; now 33c83f1ab483 (dirty), law es-space-v2 #c3231140f9c60e35
+same       20261013T143932Z-seed1.json  digest 7a9ec8f1ad0e  cut 445497722  loss none  0.5 s
+same       20261013T143859Z-seed1.json  digest d1fba9298aa9  cut 244668019  loss none  1.4 s
+same       20261013T143928Z-seed1.json  digest 67023bcc26bc  cut 82898677  loss yes (as recorded)  0.2 s
+replay-all: 3 same, 0 changed, 0 unchecked, 0 skipped (time), 0 regression(s), 2.1 s
+exit=0

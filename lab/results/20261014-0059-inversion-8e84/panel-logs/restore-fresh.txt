@@ -1,0 +1,13 @@
+warning: function `hit_narrow` is never used
+   --> crates/lattice/src/law.rs:341:4
+    |
+341 | fn hit_narrow(d: [i128; 2], w: [i128; 2], reach: i128) -> Option<bool> {
+    |    ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+replay-all: 3 flight(s) in lab/results/20261014-0059-inversion-8e84/corpus-fresh, longest first, 55 s in all; now 33c83f1ab483 (dirty), law es-space-v2 #41f180a05c92cfe1
+REGRESSION 20261013T143932Z-seed1.json  the digest differs under the SAME law (41f180a05c92cfe1): the replay is not exact, or the file was altered (recorded a4afc1ca6c30 by 33c83f1ab483, now 7a9ec8f1ad0e)
+REGRESSION 20261013T143859Z-seed1.json  the digest differs under the SAME law (41f180a05c92cfe1): the replay is not exact, or the file was altered (recorded 2fd67418e8eb by 33c83f1ab483, now d1fba9298aa9)
+REGRESSION 20261013T143928Z-seed1.json  the digest differs under the SAME law (41f180a05c92cfe1): the replay is not exact, or the file was altered (recorded 83699edde72a by 33c83f1ab483, now 67023bcc26bc)
+replay-all: 0 same, 0 changed, 0 unchecked, 0 skipped (time), 3 regression(s), 2.1 s
