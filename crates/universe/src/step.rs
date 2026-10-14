@@ -621,22 +621,25 @@ impl Work<'_, '_> {
     }
 
     /// Begin (or begin again, after a decision or a handoff) the clock at tick `t`, where the state is synchronised: the
-    /// constants of the clock are derived if the body has none, the register is projected onto `K = 0`, and the first kick
-    /// is planned at the middle of the first step.
+    /// constants of the clock are derived if the body has none (with its first step's stub, for a ship), the register is projected
+    /// onto `K = 0`, and the first kick is planned at the middle of the first step.
     fn plan_clock(&mut self, t: Tick) -> Res<()> {
         let d = self.rec.b.doll;
         if self.rec.ext.is_none() {
             let st = self.rec.b.readout(t)?;
-            let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, self.ctx.cfg.step_log2)?;
+            // Each ship on its own clock, its first step a stub of its own phase; the player on the doll's (crate::ext, module docs).
+            let own = self.ctx.cfg.own_clock && self.rec.kind != Kind::Player;
+            let (ds, c, b) = crate::ext::constants(self.ctx, d, t, self.i, own.then_some(&self.rec.b))?;
             let pt_exp = i16::try_from(2 * st.velocity_exponent as i32 + 64).map_err(|_| Error::Refused("exponent"))?;
-            self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, c, b });
+            let stub = if own { crate::ext::phase(self.i) } else { 0 };
+            self.rec.ext = Some(Ext { pt: 0, pt_exp, pt_carry: 0, dt_carry: 0, ds, stub, c, b });
         }
         self.project(t)?;
         let st = self.rec.b.readout(t)?;
         let (x, v) = scalars(&st)?;
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
-        let mut half = ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
+        let mut half = ext.ticks(ext.time(y, ext.step()?.scale(-1)?)?, self.ctx.dolls[d as usize].clock_exp())?;
         // A held burn limits the step as it does at every kick (the clock's own step is far longer in the far field: the burn
         // would be one lump, and the velocity leaves its word): the velocity moves by a small fraction of itself per step.
         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
@@ -654,7 +657,9 @@ impl Work<'_, '_> {
     }
 
     /// A kick of the clock: `Kc(Δs)` at the middle of a step, then the next boundary and kick, planned from the state it leaves.
-    /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one.
+    /// The weight is `w = Δs·f'(U_P + c)`: the velocity gets `w·∇U_P`, the register `w·∂_tU_P`, and the two flows are one. A body's
+    /// first step is a stub (`φ·Δs`, [`crate::ext::phase`]): its kick weighs `φ·Δs`, and the drift after it is the stub's second
+    /// half and the first half of a whole step, with the boundary between them.
     fn kick_clock(&mut self, t: Tick, _level: u8) -> Res<Resolved> {
         let d = self.rec.b.doll;
         let st = self.rec.b.readout(t)?;
@@ -676,7 +681,7 @@ impl Work<'_, '_> {
         }
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         let f = force::field(&secs, x)?;
-        let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+        let w = ext.time(ext.y(f.potential)?, ext.step()?)?;
         let dv = scale2(f.accel, w)?;
         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
         let (next, carry) = if thrusting {
@@ -702,19 +707,29 @@ impl Work<'_, '_> {
         let (x, v) = scalars(&next)?;
         let mut ext = self.rec.ext.expect("a clock-stepped body");
         let y = ext.y(force::kepler(x, v, self.tube_mu()?)?.add(ext.pt_value()?)?)?;
-        let mut full = ext.ticks(ext.time(y, ext.ds)?, self.ctx.dolls[d as usize].clock_exp())?;
+        let clock_exp = self.ctx.dolls[d as usize].clock_exp();
+        let (mut full, mut to_boundary) = if ext.stub != 0 {
+            // The stub's kick: its second half drift to the boundary, then the first half of a whole step.
+            let rest = ext.ticks(ext.time(y, ext.step()?.scale(-1)?)?, clock_exp)?;
+            ext.stub = 0;
+            (rest + ext.ticks(ext.time(y, ext.ds.scale(-1)?)?, clock_exp)?, rest)
+        } else {
+            let full = ext.ticks(ext.time(y, ext.ds)?, clock_exp)?;
+            (full, full / 2)
+        };
         if matches!(self.rec.thrust, Some(th) if th.keys & 3 != 0) {
             full = full.min(self.thrust_step(t)?);
+            to_boundary = to_boundary.min(full / 2);
         }
         self.rec.ext = Some(ext);
         if fired {
             // The step the next reader completes by a partial step: from the boundary in the middle, and how long the step this kick
             // closes had been running.
-            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + full / 2, lead: t - self.rec.anchor };
+            self.rec.b.kick = Kick { len: full, level: 0, dv: [0; 2], clock: true, boundary: t + to_boundary, lead: t - self.rec.anchor };
         }
         self.rec.interval = full;
         self.rec.step = full;
-        insert(&mut self.rec.plan, Item { t: t + full / 2, what: What::Boundary });
+        insert(&mut self.rec.plan, Item { t: t + to_boundary, what: What::Boundary });
         insert(&mut self.rec.plan, Item { t: t + full, what: What::Kick(0) });
         self.plan_terminal(t)?;
         Ok(Resolved::Kick)

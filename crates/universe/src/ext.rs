@@ -23,8 +23,16 @@
 //!   floor of `10·Σ gm_j/a_j` that keeps `U_P + c` positive for the origin's fall out to ten separations (past the doll's
 //!   useful range `U_P + c` is held at `c/8`: a guard, a coarser step, not a branch of the law);
 //! - `b = 30·c`: the refinement passes from `d²` to `d` (Sundman's `dt ∝ r`) at about `R_H/30`;
-//! - `Δs = 2^−k·P_D/f'(c)`, rounded down to a power of two: `2^k` steps (`Config::step_log2`) per period `P_D` of the doll's
-//!   shortest secondary, far from it.
+//! - `Δs = T/f'(c)`, rounded down to a power of two, `T` the step the body's own orbit asks for far from every secondary
+//!   (**each body's own clock**, 14 October; [`constants`]): `T = min(2^−k_s·P, 2^−k·P_j over the secondaries j it can meet)`,
+//!   `P` its own radial period (`k_s = Config::smooth_log2`, the lab's smooth frontier: 16 a period), `P_j` the period of a
+//!   secondary its orbit can meet (`k = Config::step_log2`, the passage price B13 is measured at). Which secondaries a body can
+//!   meet is one dimensionless number per secondary: the gap between the radial ranges of the two orbits in the secondary's Hill
+//!   radii, against `2√3` (Gladman's bound: orbits further apart never meet). A body whose tube has no period (a passage
+//!   through the system) can meet them all; the player, whose orbit is a decision, keeps the doll's clock (`2^−k` of the
+//!   period of the doll's shortest secondary), as every body did before.
+//! - **No lockstep:** a body's first step is a stub `φ·Δs`, `φ ∈ (0, 1)` a function of its id ([`phase`]), a symmetric step
+//!   like the others (`D(φΔs/2)·Kc(φΔs)·D(φΔs/2)`), so that bodies born at one tick with one `Δs` never kick at one tick.
 //!
 //! **The integers.** `p_t` is an `i128` word (a body under thrust takes its energy toward `c²/2`, far past an orbit's: the word
 //! is wide enough for any speed the law allows) at the exponent `pt_exp` fixed when the body is born (`2·ve + 64`, `ve` its velocity
@@ -32,6 +40,7 @@
 //! velocity kick brings: `Δp_t = w·∂_tU_P`, the sub-quantum part carried by sigma-delta like the velocity's, so `J = p_t + Ω·L`
 //! (for a source on a circle) moves by the carries only and never trends. The fractional tick of every physical time is carried
 //! the same way, so the next event's tick is a function of the integer state.
+use crate::bind::Binding;
 use crate::ctx::Ctx;
 use crate::num::{log2_floor, Error, Res, Tick};
 use emergent_space::{binding::Trajectory, orbit::Scalar};
@@ -57,6 +66,8 @@ pub struct Ext {
     pub dt_carry: i64,
     /// The fictitious step `Δs`, a power of two.
     pub ds: Scalar,
+    /// The step now running is a stub of `stub/2^16` of `Δs` (the body's first: [`phase`]); zero: a whole step.
+    pub stub: u16,
     /// The floor of the time transformation and its break: `f'(y) = 1/y² + 1/(b·y)`.
     pub c: Scalar,
     pub b: Scalar,
@@ -87,6 +98,14 @@ impl Ext {
     /// `y = max(level + c, c/2^GUARD_LOG2)`, `level` being `U_P` or `H_D + p_t`.
     pub fn y(&self, level: Scalar) -> Res<Scalar> {
         Ok(level.add(self.c)?.max(self.c.scale(-GUARD_LOG2)?))
+    }
+
+    /// The fictitious length of the step now running: `Δs`, or the stub's `(stub/2^16)·Δs` (exact: `Δs` is a power of two).
+    pub fn step(&self) -> Res<Scalar> {
+        if self.stub == 0 {
+            return Ok(self.ds);
+        }
+        Ok(Scalar::raw(self.stub as i128, -16)?.mul(self.ds)?)
     }
 
     /// The physical time of `sigma` ticks of the fictitious clock at `y`: `σ·f'(y)`, in the doll's time units.
@@ -123,29 +142,58 @@ pub fn cbrt(x: Scalar) -> Res<Scalar> {
     Ok(y)
 }
 
-/// What a source of the doll gives the clock: its semi-major axis and period, in the doll's units.
+/// The radial range and period of a bound tube, in the doll's units: `(periapsis, apoapsis, semi-major axis, radial period)`,
+/// or None for a tube without a period (a passage, a plunge).
+fn span(b: &Binding) -> Res<Option<(Scalar, Scalar, Scalar, Scalar)>> {
+    let Trajectory::Cycle(c) = &b.entry.trajectory else { return Ok(None) };
+    let key = c.key();
+    let k = key.shape()?;
+    let den = k.scale(1)?.sub(Scalar::ONE)?;
+    if !den.is_positive() {
+        return Ok(None);
+    }
+    // r = p/(1 + e·cos χ) with k = 1/(1 + e): periapsis `key.periapsis`, apoapsis `periapsis/(2k − 1)`, axis `periapsis·k/(2k − 1)`.
+    let q = key.periapsis;
+    Ok(Some((b.to_doll(q)?, b.to_doll(q.div(den)?)?, b.to_doll(q.mul(k)?.div(den)?)?, b.to_doll(c.period()?)?)))
+}
+
+/// What a source of the doll gives the clock: its strength, radial range, semi-major axis and period, in the doll's units.
 struct Source {
     gm: Scalar,
+    peri: Scalar,
+    apo: Scalar,
     axis: Scalar,
     period: Scalar,
 }
 
 fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
     let b = ctx.bodies.binding_at(j, t).ok_or(Error::Refused("history pruned"))?;
-    let Trajectory::Cycle(c) = &b.entry.trajectory else { return Err(Error::Refused("a source without a period")) };
-    let key = c.key();
-    let k = key.shape()?;
-    let den = k.scale(1)?.sub(Scalar::ONE)?;
-    if !den.is_positive() {
-        return Err(Error::Refused("a source on an unbound orbit"));
-    }
-    Ok(Source { gm: ctx.info[j].gm, axis: b.to_doll(key.periapsis.mul(k)?.div(den)?)?, period: b.to_doll(c.period()?)? })
+    let Some((peri, apo, axis, period)) = span(&b)? else { return Err(Error::Refused("a source without a period")) };
+    Ok(Source { gm: ctx.info[j].gm, peri, apo, axis, period })
+}
+
+/// The phase of a body's first step: the stub's share of `Δs`, in `2^-16` (1 to 65,535), from the body's id alone (splitmix64's
+/// finalizer), so bodies born at one tick with one step never kick at one tick, and a body's clock is a function of what it is.
+pub fn phase(id: usize) -> u16 {
+    let mut z = (id as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    (z % 65_535) as u16 + 1
 }
 
 /// The constants of the clock of a body of doll `d` (its secondaries other than `except`), read at `t`: `(Δs, c, b)`.
-pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) -> Res<(Scalar, Scalar, Scalar)> {
+///
+/// `own` is the body's tube when it has its own clock (a ship), None for the doll's clock (the player, and every body under
+/// `Config::own_clock = false`). The step far from every secondary is `T = min(2^-k_s·P, 2^-k·P_j)` over the secondaries `j`
+/// the tube can meet (module docs): the gap between the tube's radial range `[q, Q]` and the secondary's `[q_j, Q_j]` is under
+/// `2√3·R_H,j`. A tube without a period can meet every secondary.
+pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, own: Option<&Binding>) -> Res<(Scalar, Scalar, Scalar)> {
     let host = ctx.dolls[d as usize].unit.mu;
-    let (mut c, mut floor, mut period) = (Scalar::ZERO, Scalar::ZERO, None::<Scalar>);
+    let (k, k_s) = (ctx.cfg.step_log2, ctx.cfg.smooth_log2);
+    let mine = own.map(span).transpose()?.flatten();
+    let reach = Scalar::integer(12).sqrt()?; // 2√3
+    let (mut c, mut floor, mut shortest, mut met) = (Scalar::ZERO, Scalar::ZERO, None::<Scalar>, None::<Scalar>);
     for &j in &ctx.sources[d as usize] {
         if j == except {
             continue;
@@ -155,12 +203,31 @@ pub fn constants(ctx: &Ctx, d: u16, t: Tick, except: usize, kicks_log2: i32) -> 
         let hill = s.axis.mul(cbrt(s.gm.div(host.mul(Scalar::integer(3))?)?)?)?;
         c = c.add(s.gm.div(hill)?)?;
         floor = floor.add(s.gm.div(s.axis)?)?;
-        period = Some(period.map_or(s.period, |p| p.min(s.period)));
+        shortest = Some(shortest.map_or(s.period, |p| p.min(s.period)));
+        let meets = match (own, mine) {
+            (None, _) => false,
+            (Some(_), None) => true,
+            (Some(_), Some((q, apo, _, _))) => q.sub(s.apo)?.max(s.peri.sub(apo)?) < reach.mul(hill)?,
+        };
+        if meets {
+            met = Some(met.map_or(s.period, |p| p.min(s.period)));
+        }
     }
-    let Some(period) = period else { return Err(Error::Refused("a doll without a source has no clock")) };
+    let Some(shortest) = shortest else { return Err(Error::Refused("a doll without a source has no clock")) };
+    let step = match (own, mine) {
+        (None, _) => shortest.scale(-k)?,
+        (Some(_), None) => met.unwrap_or(shortest).scale(-k)?,
+        (Some(_), Some((_, _, _, p))) => {
+            let mine = p.scale(-k_s)?;
+            match met {
+                Some(m) => mine.min(m.scale(-k)?),
+                None => mine,
+            }
+        }
+    };
     let c = c.max(floor.mul(Scalar::integer(FLOOR_FACTOR))?);
     let b = c.mul(Scalar::integer(B_OVER_C))?;
-    // Δs = 2^-k·P_D/f'(c), rounded down to a power of two.
-    let ds = period.scale(-kicks_log2)?.div(fprime(c, b)?)?;
+    // Δs = T/f'(c), rounded down to a power of two.
+    let ds = step.div(fprime(c, b)?)?;
     Ok((Scalar::power_of_two(log2_floor(ds) as i16), c, b))
 }
