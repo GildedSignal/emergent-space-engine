@@ -1,0 +1,38 @@
+== control 1: deflection formula vs RK4 (natural units, mu in GM=1) ==
+  mu=1e-12 b=1e-06 pred=4.000e-05 rk4=4.000e-05 ratio=1.000
+  mu=1e-12 b=1e-04 pred=4.000e-07 rk4=4.000e-07 ratio=1.000
+  mu=1e-10 b=1e-06 pred=4.000e-03 rk4=3.997e-03 ratio=0.999
+  mu=1e-10 b=1e-04 pred=4.000e-05 rk4=4.000e-05 ratio=1.000
+  mu=1e-08 b=1e-06 pred=4.000e-01 rk4=7.314e-01 ratio=1.829
+  mu=1e-08 b=1e-04 pred=4.000e-03 rk4=3.997e-03 ratio=0.999
+
+== control 2 (positive, c7eb anchor): every body a real 50-m rock ==
+  deletable fraction = 1.000000 (c7eb: 0/1000 crossed a tick -> expect ~1.0)
+
+== control 3 (negative): every body a 10-km body ==
+  deletable fraction = 0.117620 (prediction: < 0.5)
+
+== decisive: 10^9-body belt, dN/dD ∝ D^-3.5 (candidate pairs are mass-blind; ==
+   masses drawn per body from the spectrum; belt mass falls out)
+  D∈[70m,470000m] real-belt-like (Ceres top, N(>1km)~1.5e6): belt mass 2.3e-11 M_sun | deletable 0.999620 | surviving 3.800e-04 of candidates | surviving member D med 108 m | bmin med 2.95e-01, vrel med 0.138
+    ledger: ungated 1.65e+03 cores -> gated 6.27e-01 cores (budget 4)
+    ledger: ungated 8.20e+03 cores -> gated 3.12e+00 cores (budget 4)
+  D∈[70m,300000m] 300-km top: belt mass 3.5e-11 M_sun | deletable 0.999680 | surviving 3.200e-04 of candidates | surviving member D med 840 m | bmin med 2.95e-01, vrel med 0.138
+    ledger: ungated 1.65e+03 cores -> gated 5.28e-01 cores (budget 4)
+    ledger: ungated 8.20e+03 cores -> gated 2.62e+00 cores (budget 4)
+  D∈[50m,300000m] 50-m floor, 300-km top: belt mass 3.4e-12 M_sun | deletable 0.999900 | surviving 1.000e-04 of candidates | surviving member D med 226 m | bmin med 2.97e-01, vrel med 0.138
+    ledger: ungated 1.65e+03 cores -> gated 1.65e-01 cores (budget 4)
+    ledger: ungated 8.20e+03 cores -> gated 8.20e-01 cores (budget 4)
+
+== spectrum sensitivity (the content dial) ==
+  D_min    100 m (floor 100 m): deletable 0.999280
+  D_min    500 m (floor 500 m): deletable 0.966180
+  D_min   2000 m (floor 2 km): deletable 0.557540
+
+== part A (prediction 1): cell-pair worst case over phases ==
+  K sampled member-phase pairs -> min miss b at the crossing (vs 1/K)
+  K=     10: b_min = 2.855e-01  (1/K = 1.000e-01)
+  K=    100: b_min = 2.784e-02  (1/K = 1.000e-02)
+  K=   1000: b_min = 2.289e-02  (1/K = 1.000e-03)
+  K=  10000: b_min = 1.452e-03  (1/K = 1.000e-04)
+  K= 100000: b_min = 1.623e-06  (1/K = 1.000e-05)
