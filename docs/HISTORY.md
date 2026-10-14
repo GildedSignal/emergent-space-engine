@@ -3203,3 +3203,17 @@ Use `cargo xtask history list` for the index, `cargo xtask history search "topic
 - Evidence: artifacts/evidence/play-20261013/, lab/wiki/b12-statistic.md
 - Limitations: stutter from L8 up (F1 in flight); a prograde L15 clock drifts past γ≈60 and far flights are refused past ~6 AU (both owned by `range`).
 - Next: merge frame, recorder, range; Julien flies; integration.
+
+## H0218 — The plane holds a million bodies for a flight, contacts are exact, far flybys fly; the scoreboard picks the work
+
+- Date: 2026-10-14
+- Kind: implementation
+- Status: partial
+- Revisions: 53165a9c (frame), aa5fca4f (recorder), 31d124b9 (exact contacts), 9143329b (range), f416ea93 (nladder)
+- Scope: crates/universe, crates/lattice, crates/space, xtask/src/universe, docs
+- Changed: Julien asked for numbers against the goal and to close the furthest gap first; the scoreboard (HANDOFF) showed it was bodies in the flyable engine. The N ladder took the plane from 10³ to 10⁶ bodies for a 20 s flight, bits held: the frame stopped walking every body. Far flybys compile to 100 AU (R1). The contact predicate wrapped its i128 products on 16–58% of a burn's pairs; it is now exact. Every flight is recorded and replayed before merges.
+- Why: Julien: "tackle what's the furthest behind … without just asymptoting".
+- Validation: the suites; G1–G6, B19; B13 60/64, B17; 8 flights on 4 schedules bit for bit; replay-all 0 regressions.
+- Evidence: artifacts/runs/nladder/, artifacts/runs/range/, artifacts/runs/frame/
+- Limitations: the root doll kicks every body on one 88-day grid (a wave ~140 s in, ~250× the kicks behaviour needs); memory ~2.5–5.1 KB a live body. A watchdog reset at 00:26 wiped /private/tmp; worktrees moved.
+- Next: the root cadence (wt/cadence), burst2, b12v3.
