@@ -1,0 +1,182 @@
+diff --git a/crates/universe/examples/cadence.rs b/crates/universe/examples/cadence.rs
+new file mode 100644
+index 00000000..7e5dea50
+--- /dev/null
++++ b/crates/universe/examples/cadence.rs
+@@ -0,0 +1,176 @@
++//! The belt's cadence law, measured (run 20261014-1719-fermi-cf45, Fermi lens): which clock steps a
++//! root-doll belt body — its own period (`step_for`: 2^step_log2 kicks per P_own, the law the
++//! secondary dolls use) or the doll's (`ext::constants`: 2^step_log2 steps per period of the doll's
++//! shortest secondary, refined by position through dt/ds = f'(U_P + c))? Two wiki records disagree
++//! by >= 10x at the plane's 2-3 AU belt, and the 10^9 steady-state CPU bill hangs on it.
++//!
++//! cargo run --release -p emergent-universe --example cadence [-- <N>]
++use emergent_space::binding::Trajectory;
++use emergent_space::orbit::Scalar;
++use emergent_universe::bind::Binding;
++use emergent_universe::fleet::Order;
++use emergent_universe::observe::root_state;
++use emergent_universe::scenario::{ladder_locals, plane_extra, AU};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Config, Kind};
++
++fn f64s(s: Scalar) -> f64 {
++    s.significand() as f64 * 2f64.powi(s.exponent() as i32 - 62)
++}
++
++/// The own radial period of a binding, in game seconds (its tube's, in its doll).
++fn period_s(b: &Binding) -> Option<f64> {
++    let per = match &b.entry.trajectory {
++        Trajectory::Cycle(c) => c.period().ok()?,
++        _ => return None,
++    };
++    Some(f64s(b.to_doll(per).ok()?) / 2f64.powi(b.clock_exp as i32) * TICK_SECONDS)
++}
++
++fn q(v: &mut Vec<f64>, p: f64) -> f64 {
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[((v.len() - 1) as f64 * p) as usize].abs()
++}
++
++fn main() {
++    let n: usize = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(4000);
++    let seed: u64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let t0 = std::time::Instant::now();
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let locals = ladder_locals(n as u64) as usize;
++    let base = p.player - n;
++    println!(
++        "built n={n} (locals {locals}, belt {}) in {:.1}s; tick = {TICK_SECONDS:.3e} s (the root doll's)",
++        n - locals,
++        t0.elapsed().as_secs_f32()
++    );
++
++    // The root doll's sources on cycles (the planets about the star): their periods set the doll clock.
++    let mut sources: Vec<(usize, f64)> = Vec::new();
++    {
++        let ctx = p.u.ctx();
++        for j in 0..base {
++            let r = p.u.rec(j);
++            if r.b.doll == 0 && !matches!(r.kind, Kind::Ship | Kind::Player) {
++                if let Some(per) = period_s(&r.b) {
++                    sources.push((j, per));
++                }
++            }
++        }
++    }
++    sources.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
++    for (j, per) in &sources {
++        println!("root source {j}: period {per:.4e} s ({:.2} d)", per / 86400.0);
++    }
++    let pd = sources.first().map(|s| s.1).unwrap_or(f64::NAN);
++    println!("P_D (shortest secondary) = {pd:.4e} s; P_D/2^7 = {:.4e}; P_D/2^8 = {:.4e}", pd / 128.0, pd / 256.0);
++
++    // (doll, a AU, own period s, planned interval s, per-body event count)
++    type Row = (u16, f64, f64, f64, u64);
++    let read = |u: &emergent_universe::Universe, rows: &mut Vec<Row>| {
++        rows.clear();
++        let ctx = u.ctx();
++        for k in 0..n {
++            let i = base + k;
++            let r = u.rec(i);
++            // `BodyRec::interval` is the level-0 step now planned, on both clocks; `b.kick.len`
++            // carries it for clock bodies too (a cross-check that agreed everywhere here).
++            let l = if r.interval > 0 { r.interval } else { r.b.kick.len };
++            if l == 0 {
++                continue;
++            }
++            let Some(per) = period_s(&r.b) else { continue };
++            let len_s = (l as f64) / 2f64.powi(r.b.clock_exp as i32) * TICK_SECONDS;
++            let (x, _) = root_state(&ctx, i, u.now).unwrap();
++            let a = (x[0] * x[0] + x[1] * x[1]).sqrt() / AU as f64;
++            rows.push((r.b.doll, a, per, len_s, r.events));
++        }
++    };
++    let report = |tag: &str, rows: &[Row]| {
++        for (name, doll0) in [("belt (root doll)", true), ("locals (secondary dolls)", false)] {
++            let set: Vec<&Row> = rows.iter().filter(|r| (r.0 == 0) == doll0).collect();
++            if set.is_empty() {
++                continue;
++            }
++            let mut per = set.iter().map(|r| r.2).collect::<Vec<f64>>();
++            let mut len = set.iter().map(|r| r.3).collect::<Vec<f64>>();
++            let mut kpo = set.iter().map(|r| r.2 / r.3).collect::<Vec<f64>>();
++            println!(
++                "{tag} {name}: n {} | own period s p01 {:.2e} p50 {:.2e} p99 {:.2e} | interval s p01 {:.3e} p50 {:.3e} p99 {:.3e} | kicks/own-orbit p01 {:.0} p50 {:.0} p99 {:.0} | rate/s p50 {:.3e}",
++                set.len(),
++                q(&mut per, 0.01),
++                q(&mut per, 0.5),
++                q(&mut per, 0.99),
++                q(&mut len, 0.01),
++                q(&mut len, 0.5),
++                q(&mut len, 0.99),
++                q(&mut kpo, 0.01),
++                q(&mut kpo, 0.5),
++                q(&mut kpo, 0.99),
++                1.0 / q(&mut len.clone(), 0.5)
++            );
++        }
++        let mut by_a: Vec<(f64, f64)> = rows.iter().filter(|r| r.0 == 0).map(|r| (r.1, r.3)).collect();
++        by_a.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
++        let m = by_a.len();
++        if m > 40 {
++            for w in 0..4 {
++                let s = &by_a[m * w / 4..m * (w + 1) / 4];
++                let a: f64 = s.iter().map(|r| r.0).sum::<f64>() / s.len() as f64;
++                let l: f64 = s.iter().map(|r| r.1).sum::<f64>() / s.len() as f64;
++                println!("{tag} belt quartile {}: mean a {a:.3} AU -> mean interval {l:.4e} s", w + 1);
++            }
++        }
++    };
++    let mut rows: Vec<Row> = Vec::new();
++    read(&p.u, &mut rows);
++    report("birth", &rows);
++
++    // Steady state: advance headless past the first kicks. Instruments: the plan's interval, the
++    // global kick counter, and the per-body event counter (belt-only, unpolluted by the battle).
++    let belt_events0: Vec<u64> = rows.iter().filter(|r| r.0 == 0).map(|r| r.4).collect();
++    let (k0, e0) = (p.u.stats.kicks, p.u.stats.events());
++    let mut frames = 0usize;
++    while (p.u.now as f64) * TICK_SECONDS < 60_000.0 {
++        p.u.frame_to(1.0 / 60.0, 2.0e4, emergent_universe::Budget::unlimited(), i64::MAX);
++        frames += 1;
++    }
++    let elapsed = p.u.now as f64 * TICK_SECONDS;
++    let dk = p.u.stats.kicks - k0;
++    read(&p.u, &mut rows);
++    report("t=60ks", &rows);
++    let belt: Vec<&Row> = rows.iter().filter(|r| r.0 == 0).collect();
++    let deb: Vec<f64> = belt
++        .iter()
++        .zip(belt_events0.iter())
++        .map(|(r, e0)| (r.4 - e0) as f64)
++        .collect::<Vec<f64>>();
++    let mean_ev = deb.iter().sum::<f64>() / deb.len() as f64;
++    println!(
++        "advanced to {elapsed:.0} game-s in {frames} frames ({:.1}s wall): global kicks +{dk}, events +{} | belt per-body events mean {mean_ev:.2} = {:.4e}/game-s = {:.4e} kicks/game-s at ~2.1 events a kick",
++        t0.elapsed().as_secs_f32(),
++        p.u.stats.events() - e0,
++        mean_ev / elapsed,
++        mean_ev / elapsed / 2.1
++    );
++
++    // The counterfactual: what the secondary-doll law (own period / 2^step_log2) would give the belt.
++    let mut want: Vec<f64> = Vec::new();
++    for k in (0..n).step_by((n / 200).max(1)) {
++        let r = p.u.rec(base + k);
++        if r.b.doll == 0 {
++            if let Ok(w) = emergent_universe::step::step_for(&r.b, 7, None) {
++                want.push(w as f64 * TICK_SECONDS);
++            }
++        }
++    }
++    if !want.is_empty() {
++        println!(
++            "counterfactual step_for (own-period law) on the belt: interval p01 {:.3e} p50 {:.3e} p99 {:.3e} s",
++            q(&mut want.clone(), 0.01),
++            q(&mut want.clone(), 0.5),
++            q(&mut want, 0.99)
++        );
++    }
++    println!("done in {:.1}s", t0.elapsed().as_secs_f32());
++}

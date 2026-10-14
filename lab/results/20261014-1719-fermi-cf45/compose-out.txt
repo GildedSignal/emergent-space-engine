@@ -1,0 +1,16 @@
+measured belt cadence rho = 3.553e-05/game-s/body; stream at 1e9 = 3.553e+04 kicks/game-s
+arm                                    cores (rtf 1)  affordable kicks/gs  overrun at rtf 100
+0.11 us(b29a key arm)                          0.004                65455                  1x
+2.9 us (Carlson family, kick-jet de99)         0.103                 2483                 14x
+30 us  (M1, ladder.txt wave events)            1.066                  240                148x
+49 us  (this box, taleb-6138 in-item)          1.741                  147                242x
+231 us (effb's shipped kick arm)               8.207                   31               1140x
+
+step_log2 dial (each -1 octave halves the stream):
+  step_log2 7: interval 2.814e+04 s, stream 3.553e+04 kicks/gs | 49: 241.80x budget | 30: 148.04x budget | 2.9: 14.31x budget | 0.11: 0.54x budget
+  step_log2 5: interval 1.126e+05 s, stream 8.882e+03 kicks/gs | 49: 60.45x budget | 30: 37.01x budget | 2.9: 3.58x budget | 0.11: 0.14x budget
+  step_log2 4: interval 2.251e+05 s, stream 4.441e+03 kicks/gs | 49: 30.23x budget | 30: 18.51x budget | 2.9: 1.79x budget | 0.11: 0.07x budget
+  step_log2 2: interval 9.005e+05 s, stream 1.110e+03 kicks/gs | 49: 7.56x budget | 30: 4.63x budget | 2.9: 0.45x budget | 0.11: 0.02x budget
+  step_log2 0: interval 3.602e+06 s, stream 2.776e+02 kicks/gs | 49: 1.89x budget | 30: 1.16x budget | 2.9: 0.11x budget | 0.11: 0.00x budget
+
+the birth wave at 1e9 (all born at tick 0): 9.09e+05 kicks/game-s for ~1.1e3 game-s = 26x the steady stream; at rtf 100 even the 0.11 us arm pays 10.0 s/s
