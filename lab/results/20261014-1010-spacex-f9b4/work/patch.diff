@@ -1,0 +1,297 @@
+diff --git a/crates/space/examples/thin_edge.rs b/crates/space/examples/thin_edge.rs
+new file mode 100644
+index 00000000..780d2651
+--- /dev/null
++++ b/crates/space/examples/thin_edge.rs
+@@ -0,0 +1,119 @@
++//! Lab probe 20261014-1010: the static geometric edge rule vs the shipped EDGE ladder.
++//! Read-only measurement: panels, crossings, the three increments, compile time.
++//! Arm selected by ES_THIN_EDGE (unset = shipped ladder; 1|2|4 = rungs per octave).
++use emergent_space::orbit::{Orbit, OrbitKey, Passage, Scalar};
++use std::{env, hint::black_box, time::Instant};
++
++fn encode(x: f64) -> Scalar {
++    let e = x.log2().floor() as i32;
++    Scalar::raw((x * 2f64.powi(60 - e)).round() as i128, e - 60).unwrap()
++}
++fn decode(x: Scalar) -> f64 {
++    x.significand() as f64 * 2f64.powi(x.exponent() as i32 - 62)
++}
++fn key(p: f64, e: f64) -> OrbitKey {
++    OrbitKey::bound(encode(p), (e * 2f64.powi(48)).round() as u64).unwrap()
++}
++
++fn time_compile(p: f64, e: f64) -> (u128, usize) {
++    let k = key(p, e);
++    let o = Orbit::compile(k).unwrap();
++    let panels = o.shape().knots().len() - 1;
++    for _ in 0..20 {
++        black_box(Orbit::compile(k).unwrap());
++    }
++    let mut best = u128::MAX;
++    for _ in 0..3 {
++        let t = Instant::now();
++        for _ in 0..200 {
++            black_box(Orbit::compile(k).unwrap());
++        }
++        best = best.min(t.elapsed().as_nanos() / 200);
++    }
++    (best, panels)
++}
++
++fn row(p: f64, e: f64) {
++    let k = key(p, e);
++    let arm = env::var("ES_THIN_EDGE").unwrap_or_default();
++    let o = match Orbit::compile(k) {
++        Ok(o) => o,
++        Err(err) => {
++            println!("ROW,{p},{e},{arm},ERR,{err:?}");
++            return;
++        }
++    };
++    let (ns, panels) = time_compile(p, e);
++    let crossings = o.shape().crossings().len();
++    println!(
++        "ROW,{p},{e},{arm},{panels},{crossings},{:.16e},{:.16e},{:.16e},{ns}",
++        decode(o.advance().unwrap()),
++        decode(o.period().unwrap()),
++        decode(o.proper_period().unwrap())
++    );
++}
++
++fn passage_row(p: f64, e: f64, outer: f64) {
++    let arm = env::var("ES_THIN_EDGE").unwrap_or_default();
++    // Hyperbolic: k = 1/(1+e) < 1/2 stored in Q48; periapsis stored = p*k.
++    let k = 1.0 / (1.0 + e);
++    let key = OrbitKey::new(encode(p * k), (k * 2f64.powi(48)).round() as u64).unwrap();
++    let passage = match Passage::compile(key, encode(outer)) {
++        Ok(x) => x,
++        Err(err) => {
++            println!("PASSAGE,{p},{e},{outer},{arm},ERR,{err:?}");
++            return;
++        }
++    };
++    let (t, panels) = {
++        for _ in 0..20 {
++            black_box(Passage::compile(key, encode(outer)).unwrap());
++        }
++        let mut best = u128::MAX;
++        for _ in 0..3 {
++            let s = Instant::now();
++            for _ in 0..200 {
++                black_box(Passage::compile(key, encode(outer)).unwrap());
++            }
++            best = best.min(s.elapsed().as_nanos() / 200);
++        }
++        (best, passage.panels())
++    };
++    println!("PASSAGE,{p},{e},{outer},{arm},{panels},{t}");
++}
++
++fn main() {
++    let set = env::args().nth(1).unwrap_or_else(|| "grid".into());
++    let keys: Vec<(f64, f64)> = match set.as_str() {
++        "dev" => vec![(20.0, 0.1), (20.0, 0.5), (20.0, 0.9), (20.0, 0.99)],
++        "grid" => {
++            let ps = [7.1, 8.0, 10.0, 20.0, 50.0, 200.0, 1000.0, 100000.0];
++            let es = [0.1, 0.3, 0.5, 0.7, 0.9, 0.99, 0.999, 0.9999, 0.99999];
++            ps.iter()
++                .flat_map(|p| es.iter().map(move |e| (*p, *e)))
++                .collect()
++        }
++        "heldout" => vec![
++            (6.7, 0.3),
++            (6.7, 0.6),
++            (9.3, 0.45),
++            (33.3, 0.2),
++            (33.3, 0.8),
++            (777.0, 0.05),
++            (777.0, 0.95),
++            (12.0, 0.333),
++            (100000.0, 0.99999),
++            (6.9, 0.45),
++        ],
++        _ => panic!("unknown set"),
++    };
++    for (p, e) in keys {
++        row(p, e);
++    }
++    if set == "heldout" {
++        // The leaver rebind's walk (unbound): panels only; e > 1.
++        for (p, e, outer) in [(20.0, 1.5, 1e3), (100.0, 3.0, 1e5), (1e4, 1.1, 1e6)] {
++            passage_row(p, e, outer);
++        }
++    }
++}
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..b84e1947 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -490,22 +490,127 @@ impl OrbitShape {
+             PI - crate::num::atan(crate::num::ratio_sqrt(x - ua, up - x))
+         }
+     }
++    /// The x-edge walk shared by the bound compile and the passage compile.
++    /// Shipped: the EDGE ladder, 16 steps per octave of x. Lab probe 20261014-1010
++    /// (`ES_THIN_EDGE=m[:D]`): pure-integer geometric rung rules that keep `cut`,
++    /// CAP, the dyadic layer and the quad untouched. Arms: m rungs/octave anchored
++    /// geometric-in-x at the periapsis side and mirrored at the apoapsis side down
++    /// to (x - floor_x) = floor_x >> D; `a` = apoapsis rungs only (2/octave);
++    /// `b` = apoapsis 2/octave + periapsis rungs down to the separatrix scale
++    /// delta/(2q), which vanishes far from the separatrix.
++    fn walk_edges(s: &mut Self, floor_x: i128) -> Result<()> {
++        let thin = std::env::var("ES_THIN_EDGE").ok().and_then(|v| {
++            let (key, d) = match v.split_once(':') {
++                Some((m, d)) => (m, d),
++                None => (v.as_str(), "4"),
++            };
++            let depth: i32 = d.parse().ok()?;
++            match key {
++                "a" => Some((0u32, depth)),
++                "b" => Some((5u32, depth)),
++                "c" => Some((6u32, depth)), // b with a 4x deeper separatrix taper
++                _ => match key.parse::<u32>().ok()? {
++                    1 | 2 | 4 => Some((key.parse().unwrap(), depth)),
++                    _ => None,
++                },
++            }
++        });
++        let rung = |j: i64, m: u32| -> i128 {
++            let m = if m == 0 || m == 5 || m == 6 { 2 } else { m };
++            match m {
++                1 if j <= 62 => ONE >> j,
++                2 if j <= 124 => crate::num::isqrt(1u128 << (124 - j)) as i128,
++                4 if j <= 124 => {
++                    ((crate::num::isqrt(crate::num::isqrt(1u128 << (124 - j))) as i128) << 31)
++                }
++                _ => 0,
++            }
++        };
++        let mut edges: Vec<i128> = Vec::new();
++        match thin {
++            Some((m, depth)) => {
++                // Rungs at the periapsis turning point.
++                let mut j = 1i64;
++                if m == 5 || m == 6 {
++                    // Geometric in distance from periapsis, down to the separatrix
++                    // scale delta/(2q): the advance channel's g-spike width in x
++                    // (1 - q a = delta - 2 q (1 - x) near periapsis). Arm c goes a
++                    // constant 4x deeper than arm b.
++                    let eta = ONE - s.k;
++                    let delta = ONE - product(s.q, 6 * s.k + 2 * eta);
++                    let sep = if s.q > 0 {
++                        let raw = (((delta.max(0) as u128) << 62) / ((2 * s.q) as u128)) as i128;
++                        if m == 6 {
++                            raw >> 2
++                        } else {
++                            raw
++                        }
++                    } else {
++                        ONE
++                    };
++                    loop {
++                        let dist = ONE >> j;
++                        if dist <= sep || dist <= 0 || ONE - dist <= floor_x {
++                            break;
++                        }
++                        edges.push(ONE - dist);
++                        j += 1;
++                    }
++                } else if m > 0 {
++                    loop {
++                        let edge = rung(j, m);
++                        if edge <= floor_x || edge <= 0 {
++                            break;
++                        }
++                        edges.push(edge);
++                        j += 1;
++                    }
++                }
++                // Rungs at the apoapsis turning point: geometric in x - floor_x.
++                let span = ONE - floor_x;
++                let stop = (floor_x >> depth).max(1);
++                let mut j = 1i64;
++                loop {
++                    let step = ((span as u128 * rung(j, m) as u128) >> 62) as i128;
++                    if step <= stop || step <= 0 {
++                        break;
++                    }
++                    let edge = floor_x + step;
++                    if edge >= ONE {
++                        break;
++                    }
++                    edges.push(edge);
++                    j += 1;
++                }
++                edges.sort_unstable_by(|a, b| b.cmp(a));
++                edges.dedup();
++                for edge in edges {
++                    s.append(s.cut(edge))?;
++                    s.crossings.push(s.knots.len() - 1);
++                }
++            }
++            None => {
++                let mut band = 1usize;
++                loop {
++                    let edge = EDGE[band % 16] >> (band / 16);
++                    if edge <= floor_x {
++                        break;
++                    }
++                    s.append(s.cut(edge))?;
++                    s.crossings.push(s.knots.len() - 1);
++                    band += 1;
++                }
++            }
++        }
++        Ok(())
++    }
+     fn bound(key: ShapeKey) -> Result<Self> {
+         if key.k_exponent != 0 || key.k <= HALF {
+             return Err(Error::NotPeriodic);
+         }
+         let mut s = Self::new(key)?;
+-        let xa = 2 * s.k - ONE;
+-        let mut band = 1usize;
+-        loop {
+-            let edge = EDGE[band % 16] >> (band / 16);
+-            if edge <= xa {
+-                break;
+-            }
+-            s.append(s.cut(edge))?;
+-            s.crossings.push(s.knots.len() - 1);
+-            band += 1;
+-        }
++        let floor_x = 2 * s.k - ONE;
++        Self::walk_edges(&mut s, floor_x)?;
+         s.append(PI)?;
+         Ok(s)
+     }
+@@ -1036,16 +1141,7 @@ impl Passage {
+             shape.t_numerator.div(floor2)?,
+             shape.tau_numerator.div(floor2)?,
+         ];
+-        let mut band = 1usize;
+-        loop {
+-            let edge = EDGE[band % 16] >> (band / 16);
+-            if edge <= x {
+-                break;
+-            }
+-            shape.append(shape.cut(edge))?;
+-            shape.crossings.push(shape.knots.len() - 1);
+-            band += 1;
+-        }
++        OrbitShape::walk_edges(&mut shape, x)?;
+         shape.append(shape.cut(x))?;
+         let mut passage = Self {
+             orbit: Orbit::from_shape(key, Arc::new(shape))?,
+@@ -1080,6 +1176,10 @@ impl Passage {
+     pub fn key(&self) -> OrbitKey {
+         self.orbit.key
+     }
++    /// Lab probe 20261014-1010: panels in the walk (tail panels included).
++    pub fn panels(&self) -> usize {
++        self.orbit.shape.knots.len() - 1 + self.tail.len()
++    }
+     pub fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+         let x = self.key().periapsis.div(radius)?;
+         if self.tail.is_empty() || x >= self.tail[0].0 {
