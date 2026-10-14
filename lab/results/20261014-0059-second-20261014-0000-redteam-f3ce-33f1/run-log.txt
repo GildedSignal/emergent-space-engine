@@ -1,0 +1,37 @@
+# Instrument history (2^16 diagnostics, pre-freeze; regenerate: cargo run --release
+# -p emergent-lattice --example rt_r5 -- diag 65536 4)
+#
+# [1] First contacts, shipped, seed 4 (fixed scene beta=0.6, pre-sampler-fix):
+# contact t=19 n=1 e_E=51540640 e_over_KE0=3.330e-5 hk=(39181,-61) lk=(59821,20259)
+#   -> light |k|=63160=0.963Q after ONE contact: gamma ~ 3.9 (velocity addition).
+# contact t=203/242/403: e_E 3.2e-5..4.6e-4, light climbing.
+# contact t=498..546: e_E -5.0e-9? no: -5.0e9..-2.6e10 E-units (-3.2e-3..-1.7e-2 KE0)
+#   with the light at |k|=(52248,39545)|=65551>Q? no: 0.96..0.99Q, gamma 5..30.
+# contact t=1361: e_E=-8.34e10 (-5.4e-2 KE0); replica dump shows the pair bound,
+#   light |k|=(64798,9754)| -> 0.9995Q, gamma ~ 32; heavy decelerating 35130 -> 24300.
+# contact t=1373: e_E=-2.86e11; light target tb=(-63260.5,17117.5): |tb|^2 = 4.295e9
+#   = Q^2*(1-3.5e-5): gamma = 114. Heavy target (854,10027): the heavy has given up
+#   most of its KE to the light (Fermi pumping against the shuttling heavy + walls).
+#
+# [2] The light body's exact per-quanta energy step (integer diff of four_momentum_v1
+# over one radial lattice step), from the widen debug prints:
+#   contact 1: de_light = 8.4e6   contact 2: 4.0e8   contact 3: 2.7e9   contact 4: 3.3e9
+#   (400x in four contacts; de_heavy ~ 1.2-1.5e8 flat). The walk's big steps are this
+#   gamma^3-weighted quantum: at gamma=114, de_light/KE0 ~ 0.13 (2^16).
+#
+# [3] LCG seed artifact: python check of the first range(2,5) draw for seeds 0..5
+#   all returned 2 (bits 11-12 of the state are constant across consecutive seeds);
+#   equal-mass and pair arms were bit-identical across "seeds" until the sampler fix.
+#
+# [4] No-op bug: a "fixed" run bit-identical to shipped exposed the rational cone
+#   check comparing numerators (units 1/den) against the integer cone; after the fix
+#   the candidate engaged (dynamics diverge from shipped at 2^16 and 2^20).
+#
+# [5] Fix form results at 2^16 (5 seeds): shipped 0.157 median end; form1 2.94;
+#   form2 -1.87; form3 -0.33. At 2^20: shipped 7.4e-3 (abs median), form3 1.4e-2.
+#
+# [6] Post-freeze disclosure found in final verification: the corrected yoff sampler
+# (1 + 3f) as i64 truncates to {1,2,3} -> 3 distinct y-offset classes; seeds collide
+# pairwise (t=43595/43889/42528 pattern; seeds 1≡3, 2≡4). Median over 5 seeds is a
+# median over a 3-class multiset. A future rung should draw yoff at single-quanta
+# granularity. Numbers stand as measured; diversity is 3 geometries, not 5.

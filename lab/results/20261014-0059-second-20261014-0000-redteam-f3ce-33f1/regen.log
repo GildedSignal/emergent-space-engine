@@ -1,0 +1,107 @@
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-0/crates/lattice)
+warning: unused variable: `ca`
+   --> crates/lattice/src/relativity.rs:358:22
+    |
+358 |                 for (ca, ea) in &fa {
+    |                      ^^ help: if this is intentional, prefix it with an underscore: `_ca`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `cb`
+   --> crates/lattice/src/relativity.rs:365:22
+    |
+365 |                 for (cb, eb) in &fb {
+    |                      ^^ help: if this is intentional, prefix it with an underscore: `_cb`
+
+warning: function `owed_shift` is never used
+   --> crates/lattice/src/relativity.rs:233:4
+    |
+233 | fn owed_shift(law: Law, m: i64, t: Target, owed_e: i128, q: i64) -> [i64; 2] {
+    |    ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `emergent-lattice` (lib) generated 3 warnings
+warning: unused variable: `t`
+   --> crates/lattice/examples/rt_r5.rs:129:13
+    |
+129 |         for t in 1..=T_MAX {
+    |             ^ help: if this is intentional, prefix it with an underscore: `_t`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: method `range` is never used
+  --> crates/lattice/examples/rt_r5.rs:31:8
+   |
+26 | impl Lcg {
+   | -------- method in this implementation
+...
+31 |     fn range(&mut self, lo: i64, hi: i64) -> i64 {
+   |        ^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: struct `Cfg` is never constructed
+  --> crates/lattice/examples/rt_r5.rs:57:8
+   |
+57 | struct Cfg {
+   |        ^^^
+
+warning: `emergent-lattice` (example "rt_r5") generated 3 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.31s
+rung config=shipped scene=pair1000 q=1048576 seeds=[0, 1, 2, 3, 4]
+rung shipped pair1000 seed=0 contacts=200 t=43595 sum_res=2390213568383 res_over_KE=7.355596e-3 max_step=3.630e-2 rms_step=9.898e-3 max_res=14601594355459 ledger=OK
+rung shipped pair1000 seed=1 contacts=200 t=43889 sum_res=-1824080965041 res_over_KE=-1.271729e-2 max_step=3.495e-2 rms_step=1.001e-2 max_res=12689091917347 ledger=OK
+rung shipped pair1000 seed=2 contacts=200 t=42528 sum_res=1334100011286 res_over_KE=5.207066e-3 max_step=3.723e-2 rms_step=1.013e-2 max_res=15249294640670 ledger=OK
+rung shipped pair1000 seed=3 contacts=200 t=43889 sum_res=-1824080965041 res_over_KE=-1.271729e-2 max_step=3.495e-2 rms_step=1.001e-2 max_res=12689091917347 ledger=OK
+rung shipped pair1000 seed=4 contacts=200 t=42528 sum_res=1334100011286 res_over_KE=5.207066e-3 max_step=3.723e-2 rms_step=1.013e-2 max_res=15249294640670 ledger=OK
+rung shipped pair1000 MEDIAN res_over_KE=5.207066e-3 worst=7.355596e-3 ledger_all=true subluminal_all=true
+METRIC shipped frac_1000_1_median 5.2070660220e-3
+rung config=shipped scene=pairequal q=1048576 seeds=[0, 1, 2, 3, 4]
+rung shipped pairequal seed=0 contacts=200 t=124569 sum_res=1048140000 res_over_KE=1.323999e-6 max_step=5.142e-6 rms_step=1.638e-6 max_res=2325526000 ledger=OK
+rung shipped pairequal seed=1 contacts=200 t=118203 sum_res=1132284000 res_over_KE=1.430288e-6 max_step=3.930e-6 rms_step=1.578e-6 max_res=2354420000 ledger=OK
+rung shipped pairequal seed=2 contacts=200 t=133806 sum_res=1453284000 res_over_KE=1.835771e-6 max_step=5.224e-6 rms_step=1.855e-6 max_res=2344482000 ledger=OK
+rung shipped pairequal seed=3 contacts=200 t=118203 sum_res=1132284000 res_over_KE=1.430288e-6 max_step=3.930e-6 rms_step=1.578e-6 max_res=2354420000 ledger=OK
+rung shipped pairequal seed=4 contacts=200 t=133806 sum_res=1453284000 res_over_KE=1.835771e-6 max_step=5.224e-6 rms_step=1.855e-6 max_res=2344482000 ledger=OK
+rung shipped pairequal MEDIAN res_over_KE=1.430288e-6 worst=1.835771e-6 ledger_all=true subluminal_all=true
+METRIC shipped frac_equal_median 1.4302882069e-6
+rung config=pair-carry scene=pair1000 q=1048576 seeds=[0, 1, 2, 3, 4]
+rung pair-carry pair1000 seed=0 contacts=200 t=45387 sum_res=-7701484195576 res_over_KE=-5.278862e-1 max_step=3.092e-2 rms_step=7.309e-3 max_res=9892962506189 ledger=OK
+rung pair-carry pair1000 seed=1 contacts=200 t=43451 sum_res=-270209848879 res_over_KE=-8.644899e-4 max_step=3.235e-2 rms_step=9.390e-3 max_res=11520294521654 ledger=OK
+rung pair-carry pair1000 seed=2 contacts=200 t=42877 sum_res=-1839598852377 res_over_KE=-1.418911e-2 max_step=3.100e-2 rms_step=9.256e-3 max_res=18302864187918 ledger=OK
+rung pair-carry pair1000 seed=3 contacts=200 t=43451 sum_res=-270209848879 res_over_KE=-8.644899e-4 max_step=3.235e-2 rms_step=9.390e-3 max_res=11520294521654 ledger=OK
+rung pair-carry pair1000 seed=4 contacts=200 t=42877 sum_res=-1839598852377 res_over_KE=-1.418911e-2 max_step=3.100e-2 rms_step=9.256e-3 max_res=18302864187918 ledger=OK
+rung pair-carry pair1000 MEDIAN res_over_KE=-1.418911e-2 worst=-8.644899e-4 ledger_all=true subluminal_all=true
+METRIC pair-carry frac_1000_1_median -1.4189114095e-2
+rung config=pair-carry scene=pairequal q=1048576 seeds=[0, 1, 2, 3, 4]
+rung pair-carry pairequal seed=0 contacts=200 t=124569 sum_res=1048140000 res_over_KE=1.323999e-6 max_step=5.142e-6 rms_step=1.638e-6 max_res=2325526000 ledger=OK
+rung pair-carry pairequal seed=1 contacts=200 t=118203 sum_res=1132284000 res_over_KE=1.430288e-6 max_step=3.930e-6 rms_step=1.578e-6 max_res=2354420000 ledger=OK
+rung pair-carry pairequal seed=2 contacts=200 t=133806 sum_res=1453284000 res_over_KE=1.835771e-6 max_step=5.224e-6 rms_step=1.855e-6 max_res=2344482000 ledger=OK
+rung pair-carry pairequal seed=3 contacts=200 t=118203 sum_res=1132284000 res_over_KE=1.430288e-6 max_step=3.930e-6 rms_step=1.578e-6 max_res=2354420000 ledger=OK
+rung pair-carry pairequal seed=4 contacts=200 t=133806 sum_res=1453284000 res_over_KE=1.835771e-6 max_step=5.224e-6 rms_step=1.855e-6 max_res=2344482000 ledger=OK
+rung pair-carry pairequal MEDIAN res_over_KE=1.430288e-6 worst=1.835771e-6 ledger_all=true subluminal_all=true
+METRIC pair-carry frac_equal_median 1.4302882069e-6
+rung config=shipped scene=pair1000 q=1048576 seeds=[11, 12, 13, 14, 15]
+rung shipped pair1000 seed=11 contacts=200 t=43889 sum_res=-1824080965041 res_over_KE=-1.271729e-2 max_step=3.495e-2 rms_step=1.001e-2 max_res=12689091917347 ledger=OK
+rung shipped pair1000 seed=12 contacts=200 t=43595 sum_res=2390213568383 res_over_KE=7.355596e-3 max_step=3.630e-2 rms_step=9.898e-3 max_res=14601594355459 ledger=OK
+rung shipped pair1000 seed=13 contacts=200 t=43889 sum_res=-1824080965041 res_over_KE=-1.271729e-2 max_step=3.495e-2 rms_step=1.001e-2 max_res=12689091917347 ledger=OK
+rung shipped pair1000 seed=14 contacts=200 t=42528 sum_res=1334100011286 res_over_KE=5.207066e-3 max_step=3.723e-2 rms_step=1.013e-2 max_res=15249294640670 ledger=OK
+rung shipped pair1000 seed=15 contacts=200 t=43595 sum_res=2390213568383 res_over_KE=7.355596e-3 max_step=3.630e-2 rms_step=9.898e-3 max_res=14601594355459 ledger=OK
+rung shipped pair1000 MEDIAN res_over_KE=5.207066e-3 worst=7.355596e-3 ledger_all=true subluminal_all=true
+METRIC shipped frac_1000_1_median 5.2070660220e-3
+rung config=pair-carry scene=pair1000 q=1048576 seeds=[11, 12, 13, 14, 15]
+rung pair-carry pair1000 seed=11 contacts=200 t=43451 sum_res=-270209848879 res_over_KE=-8.644899e-4 max_step=3.235e-2 rms_step=9.390e-3 max_res=11520294521654 ledger=OK
+rung pair-carry pair1000 seed=12 contacts=200 t=45387 sum_res=-7701484195576 res_over_KE=-5.278862e-1 max_step=3.092e-2 rms_step=7.309e-3 max_res=9892962506189 ledger=OK
+rung pair-carry pair1000 seed=13 contacts=200 t=43451 sum_res=-270209848879 res_over_KE=-8.644899e-4 max_step=3.235e-2 rms_step=9.390e-3 max_res=11520294521654 ledger=OK
+rung pair-carry pair1000 seed=14 contacts=200 t=42877 sum_res=-1839598852377 res_over_KE=-1.418911e-2 max_step=3.100e-2 rms_step=9.256e-3 max_res=18302864187918 ledger=OK
+rung pair-carry pair1000 seed=15 contacts=200 t=45387 sum_res=-7701484195576 res_over_KE=-5.278862e-1 max_step=3.092e-2 rms_step=7.309e-3 max_res=9892962506189 ledger=OK
+rung pair-carry pair1000 MEDIAN res_over_KE=-1.418911e-2 worst=-8.644899e-4 ledger_all=true subluminal_all=true
+METRIC pair-carry frac_1000_1_median -1.4189114095e-2
+{"shipped": {"frac_1000_1_median": 0.007355596, "frac_equal_median": 1.430288e-06}, "pair-carry": {"frac_1000_1_median": 0.01418911, "frac_equal_median": 1.430288e-06}}
+Verdict: VOID; negative passes every criterion, so the test cannot fail: shipped
+shipped negative pass
+pair-carry candidate fail frac1000
+5
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.96s
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.86s
