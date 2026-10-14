@@ -1,0 +1,182 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index dd90ea9c..d345b79f 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -115,6 +115,7 @@ pub struct Binding {
+ /// (the compiled trajectory is read in units of the doll's mass: elapsed time is converted in, and
+ /// the radius and the proper time out; angles and velocities are the same in both).
+ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick) -> Res<(IntegerState, OrbitState)> {
++    let t_row = crate::prof::t();
+     let peri = time_of(tube.periapsis_time.get() as i64, clock_exp)?;
+     let mut elapsed = entry.unit.to_tube(time_of(t, clock_exp)?.sub(peri)?)?;
+     if let Trajectory::Plunge(p) = &entry.trajectory {
+@@ -129,6 +130,7 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
+         state.radius = entry.unit.to_doll(state.radius)?;
+         state.proper_time = entry.unit.to_doll(state.proper_time)?;
+     }
++    crate::prof::add(crate::prof::K_ROWF, t_row);
+     Ok((cartesian(state, tube.periapsis_angle, entry.clockwise, units)?, state))
+ }
+ 
+diff --git a/crates/universe/src/prof.rs b/crates/universe/src/prof.rs
+index 9c5438de..d749280d 100644
+--- a/crates/universe/src/prof.rs
++++ b/crates/universe/src/prof.rs
+@@ -30,7 +30,20 @@ pub const H_BIND: usize = 21;
+ pub const H_REPLAN: usize = 22;
+ /// The second `bind_in` of `bind_surface`: the word was too small for the new tube and the state is bound again, coarser.
+ pub const FIT2: usize = 23;
+-pub const N: usize = 24;
++/// The fired kick's interior, this decomposition: the non-bind half of `P_KICK`.
++pub const K_READ: usize = 24;
++pub const K_SECS: usize = 25;
++pub const K_FORCE: usize = 26;
++pub const K_QUANT: usize = 27;
++/// `rebind`'s non-fit part: the tau pair, the retired clone, the entry clones.
++pub const K_REST: usize = 28;
++pub const K_TERM: usize = 29;
++/// `next_impact`'s search (a bisection whose every step is an `orbit_state`).
++pub const K_IMP: usize = 30;
++pub const K_WORD: usize = 31;
++/// Every `orbit_state`/`readout` evaluation wherever it runs (the searches' readouts nest here).
++pub const K_ROWF: usize = 32;
++pub const N: usize = 33;
+ 
+ pub const NAMES: [&str; N] = [
+     "rekey (all deadlines)",
+@@ -57,6 +70,15 @@ pub const NAMES: [&str; N] = [
+     "  hand-out: bind (the member as a tube)",
+     "  hand-out: first plan (replan)",
+     "  fit again: the coarser word (bind_surface)",
++    "  kick: readout + scalars",
++    "  kick: secondaries + tide",
++    "  kick: force::acceleration",
++    "  kick: quantize/burn before the rebind",
++    "  rebind non-fit: tau pair, retire, entry clones",
++    "  plan_terminal (terminal/impact search)",
++    "  next_impact bisection",
++    "  kick: word quantize after the rebind",
++    "  orbit_state/readout family (wall nests)",
+ ];
+ 
+ #[cfg(feature = "prof")]
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..f2acbd0e 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -356,6 +356,7 @@ impl Work<'_, '_> {
+     fn rebind(&mut self, exact: IntegerState, t: Tick, doll: u16) -> Res<Bound> {
+         let clock_exp = self.ctx.dolls[doll as usize].clock_exp();
+         let bound = bind_surface(exact, t, clock_exp, self.passage_edge(doll), self.ctx.tube_unit(self.i, doll)?, Some(self.ctx.dolls[doll as usize].surface))?;
++        let t_rest = crate::prof::t();
+         let old = &self.rec.b;
+         // The tube's length since the last binding is the body's clock reading (root units).
+         let tau = old.orbit_state(t)?.proper_time.sub(old.orbit_state(old.event_time)?.proper_time)?;
+@@ -375,8 +376,10 @@ impl Work<'_, '_> {
+             impact: None,
+         };
+         self.new_entry = Some(bound.entry.clone());
+-        self.rec.plan.retain(|item| item.what != What::Crash);
++        crate::prof::add(crate::prof::K_REST, t_rest);
++        let t_term = crate::prof::t();
+         self.plan_terminal(t)?;
++        crate::prof::add(crate::prof::K_TERM, t_term);
+         Ok(bound)
+     }
+ 
+@@ -404,17 +407,24 @@ impl Work<'_, '_> {
+ 
+     /// A kick at `level`: read the exact state, add `Δv = h·a`, rebind.
+     fn kick(&mut self, t: Tick, level: u8) -> Res<()> {
++        let t_read = crate::prof::t();
+         let st = self.rec.b.readout(t)?;
+         let (x, v) = scalars(&st)?;
++        crate::prof::add(crate::prof::K_READ, t_read);
+         let d = self.rec.b.doll;
++        let t_secs = crate::prof::t();
+         let secs = self.ctx.secondaries(d, t, self.i)?;
+         let tide = self.ctx.tide(d, t)?;
++        crate::prof::add(crate::prof::K_SECS, t_secs);
++        let t_force = crate::prof::t();
+         let a = force::acceleration(level, x, &secs, tide)?;
+         let h = time_of(self.rec.interval >> (2 * level as i64), self.rec.b.clock_exp)?;
+         let dv = scale2(a, h)?;
++        crate::prof::add(crate::prof::K_FORCE, t_force);
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
+         // What the split's impulse added, as scalars (the burn is owed up to this tick, not pending: only the tide's part is).
+         let added;
++        let t_quant = crate::prof::t();
+         let next = if thrusting {
+             // The player's burn rides on the level-0 kick: velocity after the tide, then the boost.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+@@ -425,20 +435,24 @@ impl Work<'_, '_> {
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
++                crate::prof::add(crate::prof::K_QUANT, t_quant);
+                 return Ok(());
+             }
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
++        crate::prof::add(crate::prof::K_QUANT, t_quant);
+         self.rebind(next, t, d)?;
+         // The binding remembers the kick it is: the window it stands for and the velocity it added, so a reader between
+         // kicks completes the tube by the ramp (docs/law.md, "A body's state between kicks").
++        let t_word = crate::prof::t();
+         let ve = self.rec.b.units.1 as i32;
+         let q = |s: Scalar| -> Res<i64> { i64::try_from(s.fixed(-ve)?).map_err(|_| Error::Refused("kick outside the word")) };
+         // (A kick that does not fit the word's quanta leaves no ramp: the rebinding stands either way.)
+         if let (Ok(a), Ok(b)) = (q(added[0]), q(added[1])) {
+             self.rec.b.kick = Kick { len: self.rec.interval >> (2 * level as i64), level, dv: [a, b], ..Kick::NONE };
+         }
++        crate::prof::add(crate::prof::K_WORD, t_word);
+         Ok(())
+     }
+ 
+@@ -525,7 +539,9 @@ impl Work<'_, '_> {
+             let found = match self.rec.b.impact {
+                 Some((a, found)) if a == after => found,
+                 _ => {
++                    let t_imp = crate::prof::t();
+                     let found = next_impact(&self.rec.b, self.doll().surface, after)?;
++                    crate::prof::add(crate::prof::K_IMP, t_imp);
+                     self.rec.b.impact = Some((after, found));
+                     found
+                 }
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..cd2747f0 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -37,7 +37,11 @@ pub(crate) fn run(args: Vec<String>) -> crate::Result<u8> {
+             "--rtf" => rtf = val("--rtf")?.parse()?,
+             "--port" => port = val("--port")?.parse()?,
+             "--threads" => threads = val("--threads")?.parse::<usize>()?.clamp(1, 16),
+-            "--members" => members = val("--members")?.parse::<u64>()?.clamp(4, 400),
++            "--members" => {
++                // ES_MEMBERS lifts the probe clamp ([4, 400]) to [4, 10^6]: the lab's scaling arms, never the shipped default.
++                let hi = std::env::var("ES_MEMBERS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(400);
++                members = val("--members")?.parse::<u64>()?.clamp(4, hi);
++            }
+             "--seconds" => {
+                 seconds = val("--seconds")?.parse()?;
+                 seconds_given = true;
+@@ -150,12 +154,18 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         .enumerate()
+         .map(|(i, k)| json!({"kind": k, "items": st.items[i], "total_ms": st.cost_ns[i] as f64 / 1e6, "us_per_item": if st.items[i] > 0 { st.cost_ns[i] as f64 / 1e3 / st.items[i] as f64 } else { 0.0 }}))
+         .collect();
++    let (pns, pcalls) = emergent_universe::prof::take();
++    let prof: Vec<_> = emergent_universe::prof::NAMES.iter().enumerate()
++        .filter(|(i, _)| pcalls[*i] > 0)
++        .map(|(i, n)| json!({"stage": n, "ms": pns[i] as f64 / 1e6, "calls": pcalls[i], "us_per_call": pns[i] as f64 / 1e3 / pcalls[i] as f64}))
++        .collect();
+     // What the paced frames did is read before the cut's settle (which does the budget's leftover work unpaced).
+     let (player_alive, lost, bytes_per_body, bodies, catalogue_live, stats_s) = (s.player_alive(), s.lost_bodies(), s.bytes_per_body(), s.n_bodies(), s.catalogue_live(), format!("{:?}", s.stats()));
+     let (cut_tick, digest) = s.digest_at_cut();
+     let report = json!({
+         "scope": "engine advance (budgeted, causal-deadline order) + view gather + JSON serialisation; paced at 60 Hz; no browser or HTTP",
+         "paced": paced, "frames": d.frames, "wall_seconds": wall_s, "rtf_target": s.rtf, "seed": s.seed,
++        "prof_stages": prof,
+         "frame_ms": {"p50": d.p50, "p95": d.p95, "p99": d.p99, "p99.9": d.p999},
+         "frame_cpu_ms": {"p50": d.cpu.0, "p99": d.cpu.1, "p99.9": d.cpu.2, "worst": d.cpu.3, "note": "the thread's CPU time per frame: the work without the waiting; a hitch in frame_ms that is not here was a stall (descheduled or paged), not computed", "hitch_counts": d.cpu_hitch_counts},
+         "hitches_per_gameplay_hour": {"above_16.7ms": d.hitches_per_hour[0], "above_33ms": d.hitches_per_hour[1], "above_50ms": d.hitches_per_hour[2]},

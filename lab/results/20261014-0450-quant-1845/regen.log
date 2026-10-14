@@ -1,0 +1,28 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 44.66s
+    Finished `release` profile [optimized + debuginfo] target(s) in 44.40s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+identity control m400/s3: prof digest db05a06994d8251f == pristine db05a06994d8251f: True
+
+== m4000-s3: digest 2e97e58000cb9fd7 bodies 2069 wall 18.0s overflow 274/480
+  fired kick           :   250.2 us/call x 1032
+    bind (by substraction)   114.6 us  (46% of the kick)
+    impact bisection         114.5 us  (46% of the kick; 2064 searches = 2.00/kick incl. hand-out replans)
+    all other terms           21.1 us  (8%)
+  readout family       : 4.57 us/call, 1769609 calls, 8.08 s total (~25 readouts per search)
+  hand-out             : 532.2 us/call x 2041 (replan 96.2 us: the same bisection, once per hand-out)
+
+== m1500-s3: digest 7b33d0b866149e71 bodies 233 wall 8.0s overflow 26/480
+  fired kick           :   260.9 us/call x 95
+    bind (by substraction)   126.3 us  (48% of the kick)
+    impact bisection         115.8 us  (44% of the kick; 190 searches = 2.00/kick incl. hand-out replans)
+    all other terms           18.9 us  (7%)
+  readout family       : 4.63 us/call, 259321 calls, 1.20 s total (~25 readouts per search)
+  hand-out             : 560.0 us/call x 205 (replan 95.4 us: the same bisection, once per hand-out)
+
+== m4000-s7: digest d539b8b6ea7ff0b5 bodies 2552 wall 19.1s overflow 336/480
+  fired kick           :   254.1 us/call x 1131
+    bind (by substraction)   118.1 us  (46% of the kick)
+    impact bisection         115.0 us  (45% of the kick; 2346 searches = 2.07/kick incl. hand-out replans)
+    all other terms           21.0 us  (8%)
+  readout family       : 4.60 us/call, 1969712 calls, 9.06 s total (~25 readouts per search)
+  hand-out             : 538.7 us/call x 2524 (replan 94.4 us: the same bisection, once per hand-out)
