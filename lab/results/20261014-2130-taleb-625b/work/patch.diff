@@ -1,0 +1,204 @@
+diff --git a/crates/universe/examples/wave_band.rs b/crates/universe/examples/wave_band.rs
+new file mode 100644
+index 00000000..be18bce7
+--- /dev/null
++++ b/crates/universe/examples/wave_band.rs
+@@ -0,0 +1,147 @@
++//! The seam the record twice names untested (bf21's checker, 38bf's unmeasured list): the player INSIDE the belt band
++//! when the first-kick wave arrives. Out of the band the player's item pulls only the planet dolls' ships
++//! (`pull_ships(key, !in_root)`); in the band it is a body of the root doll, so every one of its items pulls the belt's
++//! whole overdue backlog inside itself, and its neighbourhood scan reads the root doll's index (10^5 registered hulls,
++//! widening as the wave's kicks land). Same flight as the record's wave arms (frames of 1/60 s at rtf 100, a wall
++//! budget, an L8 burn from 1 s), the at-Home placement as the control, then the digest and counters at a canonical cut.
++//!
++//! cargo run --release -p emergent-universe --features prof --example wave_band [-- <home|band> <seed> <N> <wall s> <keys> <level> [budget ms] [rtf]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane_extra, plane_extra_band, Plane};
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let band = args.get(1).map(|s| s == "band").unwrap_or(false);
++    let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let n: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let seconds: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(160.0);
++    let keys: u8 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let level: u8 = args.get(6).and_then(|s| s.parse().ok()).unwrap_or(8);
++    let budget_ms: f64 = args.get(7).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let rtf: f64 = args.get(8).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let frames = (seconds * 60.0) as usize;
++    // 2.5 AU on the belt's own 2^-8 AU grid: mid-band, circular.
++    let p: Plane = if band {
++        plane_extra_band(Config::default(), seed, Order::Sparse, 1, 48, n, (5 * 101_300_000u64) << 7).unwrap()
++    } else {
++        plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap()
++    };
++    let mut p = p;
++    println!(
++        "placement {} seed {} N {} ({} bodies), {} s at rtf {}, keys {} level {} from 1 s, budget {} ms, player doll {}",
++        if band { "band" } else { "home" },
++        seed,
++        n,
++        p.u.n_bodies(),
++        seconds,
++        rtf,
++        keys,
++        level,
++        budget_ms,
++        p.u.rec(p.player).b.doll
++    );
++    let mut rows: Vec<(usize, f64, u64, u64, u64)> = Vec::new(); // frame, ms, events, player µs, kicks
++    let mut doll = p.u.rec(p.player).b.doll;
++    let mut transitions: Vec<(usize, u16)> = vec![(0, doll)];
++    let mut total = Duration::ZERO;
++    let mut stage_ns = [0u64; emergent_universe::prof::N];
++    let mut stage_calls = [0u64; emergent_universe::prof::N];
++    let mut stage_rows: Vec<(usize, [u64; emergent_universe::prof::N])> = Vec::new();
++    for f in 0..frames {
++        if f == 60 && keys != 0 {
++            let _ = p.u.input(p.u.now, word(keys, level));
++        }
++        let s0 = p.u.stats;
++        let _ = emergent_universe::prof::take();
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget::wall(budget_ms), i64::MAX);
++        let took = start.elapsed();
++        total += took;
++        let s1 = p.u.stats;
++        rows.push((f, took.as_secs_f64() * 1e3, frame.events, (s1.cost_ns[3] - s0.cost_ns[3]) / 1000, s1.kicks - s0.kicks));
++        let d = p.u.rec(p.player).b.doll;
++        if d != doll {
++            doll = d;
++            transitions.push((f, d));
++        }
++        let (ns, calls) = emergent_universe::prof::take();
++        if f >= 60 {
++            for k in 0..emergent_universe::prof::N {
++                stage_ns[k] += ns[k];
++                stage_calls[k] += calls[k];
++            }
++            stage_rows.push((f, ns));
++        }
++        if !p.u.rec(p.player).alive {
++            println!("the player was lost at frame {f}");
++            break;
++        }
++    }
++    let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let mut ev: Vec<f64> = late.iter().map(|r| r.2 as f64).collect();
++    ev.sort_by(|a, b| a.partial_cmp(&b).unwrap());
++    let kicks: u64 = late.iter().map(|r| r.4).sum();
++    let player_us: f64 = late.iter().map(|r| r.3).sum::<u64>() as f64;
++    println!(
++        "frames after 1 s: {}  ms p50 {:.3} p90 {:.3} p99 {:.3} max {:.3} mean {:.3}   events p50 {} p99 {} max {}   kicks {}   player items {:.0} µs total   over budget {}",
++        late.len(),
++        pct(&ms, 0.5),
++        pct(&ms, 0.9),
++        pct(&ms, 0.99),
++        pct(&ms, 1.0),
++        ms.iter().sum::<f64>() / late.len() as f64,
++        pct(&ev, 0.5),
++        pct(&ev, 0.99),
++        pct(&ev, 1.0),
++        kicks,
++        player_us,
++        late.iter().filter(|r| r.1 > budget_ms).count()
++    );
++    println!("player doll transitions (frame, doll): {:?}", transitions);
++    if emergent_universe::prof::ENABLED {
++        println!("stages (µs per frame, calls per frame, ns per call), over the {} frames:", late.len());
++        for k in 0..emergent_universe::prof::N {
++            if stage_calls[k] > 0 {
++                println!("  {:<38} {:>9.1} {:>8.2} {:>10.0}", emergent_universe::prof::NAMES[k], stage_ns[k] as f64 / 1e3 / late.len() as f64, stage_calls[k] as f64 / late.len() as f64, stage_ns[k] as f64 / stage_calls[k] as f64);
++            }
++        }
++    }
++    let mut worst: Vec<_> = late.clone();
++    worst.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
++    println!("the 8 worst frames: frame, ms, events, kicks, player µs");
++    for r in worst.iter().take(8) {
++        println!("{:>5} {:>7.3} {:>6} {:>6} {:>8}", r.0, r.1, r.2, r.4, r.3);
++        if emergent_universe::prof::ENABLED {
++            let ns = stage_rows.iter().find(|x| x.0 == r.0).map(|x| x.1).unwrap_or([0; emergent_universe::prof::N]);
++            use emergent_universe::prof::*;
++            let us = |k: usize| ns[k] as f64 / 1e3;
++            println!("        process {:>7.0} encounters {:>7.0} rekey {:>7.0} apply {:>7.0} requeue {:>7.0} fit {:>7.0} | scans {:>7.0} handout {:>7.0}", us(PROCESS), us(ENCOUNTERS), us(REKEY), us(APPLY), us(REQUEUE), us(FIT), us(SCANS), us(HANDOUT));
++        }
++    }
++    // The cut: settle what the budget left and take the digest, as the digest flights do.
++    let cut = (seconds * rtf / TICK_SECONDS) as i64;
++    let reached = p.u.now;
++    let t0 = Instant::now();
++    p.u.settle(cut);
++    println!(
++        "cut {} (reached {} before settle, settle {:.1} s): digest {}, kicks {}, encounters {}, contacts {}",
++        cut,
++        reached,
++        t0.elapsed().as_secs_f64(),
++        &p.u.digest()[..32],
++        p.u.stats.kicks,
++        p.u.stats.encounters,
++        p.u.contacts
++    );
++    println!("total engine wall {:.3} s", total.as_secs_f64());
++}
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..8f243a47 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -164,6 +164,12 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_built(cfg, seed, order, threads, world, extra, None)
++}
++
++/// The body of [`plane_with_extra`], with the player's placement parameterized: `None` is the shipped player near the
++/// fleet about Home, `Some(au_q8)` moves it into the belt band (see [`plane_extra_band`]).
++fn plane_built(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, band_au_q8: Option<u64>) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -270,8 +276,15 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     let p_orbit = Scalar::raw(r_lat as i128, -20 + 18)?; // lattice units → root units → Home's units
+     let player = u.add_body(
+         Kind::Player,
+-        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
+-        Scalar::raw(34, -10 + 18)?,
++        match band_au_q8 {
++            // In the band: a body of the root doll, circular, on the belt's own 2^-8 AU grid; the fleet stays about Home.
++            Some(au_q8) => OrbitSpec { doll: 0, periapsis: Scalar::raw(au_q8 as i128, -8)?, e_q48: 0, clockwise: false, angle: 0x2000_0000, phase: 0 },
++            None => OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
++        },
++        match band_au_q8 {
++            Some(_) => Scalar::raw(34, -10)?,
++            None => Scalar::raw(34, -10 + 18)?,
++        },
+     )?;
+     names.push("You".into());
+     let f = u.add_fleet(fleet);
+@@ -279,6 +292,15 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     Ok(Plane { u, planets, dolls, moon: m, player, ships, fleet: f, names })
+ }
+ 
++/// [`plane_extra`] with the player moved into the belt band: the same universe bit for bit except the player, a body of
++/// the root doll on a circular orbit at `au_q8` e-2^8 AU about the star (the belt is 2–3 AU, on the same 2^-8 AU grid).
++/// The lab's probe scene for the seam the record names untested (the player inside the band when the wave arrives);
++/// not a game scene.
++pub fn plane_extra_band(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize, au_q8: u64) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_built(cfg, seed, order, threads, world, extra, Some(au_q8))
++}
++
+ // ---- the N ladder's population -------------------------------------------------------------------
+ 
+ /// How many of `extra` ladder ships are about Home and the Moon (the rest are the belt): a few hundred, at most half.

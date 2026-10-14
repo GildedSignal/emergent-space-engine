@@ -1,0 +1,46 @@
+placement home seed 1 N 100000 (100028 bodies), 160 s at rtf 100, keys 1 level 8 from 1 s, budget 12 ms, player doll 2
+frames after 1 s: 9540  ms p50 0.017 p90 1.753 p99 10.700 max 17600.539 mean 6.136   events p50 0 p99 135 max 18106   kicks 125827   player items 53389137 µs total   over budget 14
+player doll transitions (frame, doll): [(0, 2), (951, 0)]
+stages (µs per frame, calls per frame, ns per call), over the 9540 frames:
+  rekey (all deadlines)                       24.6     1.00      24583
+    position walk (root_state_raw)            92.2    15.58       5916
+  apply (whole)                             2159.2    15.84     136296
+  requeue                                     16.5    44.69        370
+  process (whole)                           3705.6    15.84     233962
+    fit: bind_surface (kicks, hand-outs)    3233.8    13.18     245296
+  take_due                                     0.3    12.00         28
+  prune                                       15.6     1.00      15632
+  encounters: capture (cheap half)           112.4     0.26     427275
+  encounters: held scans answered             82.5     0.26     314883
+  item: kick (Wisdom-Holman)                 311.1     2.61     119141
+  item: kick (clock)                        3263.9    10.47     311596
+  item: kick at a changeover level            55.7     0.09     595297
+  item: boundary                              74.7     2.62      28475
+  item: open                                   0.7     0.03      21775
+  item: crash                                  0.0     0.00       6526
+  fleet: battle run_to                         2.4     0.74       3216
+  fleet: advance (whole item)                  3.3     0.74       4443
+  hand-out (a member made a body)              2.4     0.00     615271
+    hand-out: pull planets and moons           0.0     0.00        198
+    hand-out: bind (the member as a tube)       1.8     0.00     457557
+    hand-out: first plan (replan)              0.5     0.00     135690
+    fit again: the coarser word (bind_surface)       1.3     0.00     315813
+the 8 worst frames: frame, ms, events, kicks, player µs
+ 8568 17600.539   9036   8875 17600435
+        process 13362470 encounters  417481 rekey      99 apply 3810613 requeue    2859 fit 13099150 | scans       0 handout       0
+ 8419 14073.371  17787  17708 14073183
+        process 2870705 encounters     431 rekey     184 apply 11183036 requeue    5009 fit 2381898 | scans       0 handout       0
+ 8518 6033.251  18106  18023  6033065
+        process 4842658 encounters  266123 rekey     181 apply  904912 requeue    5706 fit 4359159 | scans       0 handout       0
+ 8369 4452.506  10388  10219  4452247
+        process 3631559 encounters     201 rekey     255 apply  808998 requeue    3105 fit 3347529 | scans       0 handout       0
+ 8617 4312.705   7784   7696  4312594
+        process 2409876 encounters  291756 rekey      95 apply 1602174 requeue    2575 fit 2147362 | scans       0 handout       0
+ 8468 3600.062  15311  15192  3599880
+        process 2549492 encounters     596 rekey     173 apply 1033701 requeue    4413 fit 2129311 | scans       0 handout       0
+ 8320 1100.839   4026   4026  1100748
+        process  537274 encounters     189 rekey      86 apply  559127 requeue    1070 fit  432595 | scans       0 handout       0
+ 8667 711.801   6314   6196   711706
+        process  668009 encounters     433 rekey      89 apply   36426 requeue    2069 fit  502796 | scans       0 handout       0
+cut 3248407148 (reached 3246811506 before settle, settle 0.0 s): digest 48a29edf7022d28e9953cfacdd1e581f, kicks 125970, encounters 4016, contacts 0
+total engine wall 58.578 s

@@ -1,0 +1,9 @@
+The player All deliverables are in place and every number is grounded in `work/*.txt`. Summary of the run:
+
+**Claim (one sentence):** The player inside the belt band — the exposure bf21's checker and 38bf both named and no run flew — is a measured **ruin state**: at 10⁵ bodies an in-band L8 burn retains ~465 MB/s and is killed at 11.2 GB (exit 137, twice) where every at-Home arm of the same scene flies in ~1.1 GB; the term is the root doll's neighbourhood scan at **214×** (capture, 30.2 ms/call) to **1,087×** (held answer, 614.6 ms/call) its at-Home cost, multiplied by the burn's ~50-frame re-plan cadence (~190 scans × ~59 MB ≈ the measured plateau), while the wave itself lands a **2,008 ms coast frame** through `pull_ships(key, !in_root = false)` sweeping 30,341 overdue events inside the player's first item — and none of it is a law: unlimited vs 12 ms budget gives digest `d467a24f…` bit-identical.
+
+- **Controls held:** at-Home coast 15.4 ms/3 over; at-Home burn 757 ms/6 over with the doll-0 rebind at frame 950 (6138/bf21's shape reproduced).
+- **Fat tails:** seed 2 coast monster 1,062 ms (same shape); seed 2 at 10⁴ completes but at max 17,261 ms / 111 over / 101 game-s lag vs seed 1's 47 ms — a 364× seed spread on the worst frame at fixed law and scene.
+- **Honest holes named:** the retaining site is unlocalized (one per-site counter away); both kills had prof on (checker should rerun one kill arm without it); the transit case (a player crossing the band, not parked in it) is unmeasured.
+
+Deliverables: `predictions.md` (written before the arms, P1–P5 all held or exceeded), `dossier.md`, `regen.sh` (~8 min, the kill is the expected outcome), `wiki/nladder.md` (result folded in, conflicts preserved), `work/patch.diff` (scenario refactor with a bit-for-bit `None` arm + `wave_band.rs`).
