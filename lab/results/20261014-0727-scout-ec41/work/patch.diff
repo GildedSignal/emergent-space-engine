@@ -1,0 +1,140 @@
+diff --git a/crates/encounters/examples/cycle.rs b/crates/encounters/examples/cycle.rs
+new file mode 100644
+index 00000000..21345ac5
+--- /dev/null
++++ b/crates/encounters/examples/cycle.rs
+@@ -0,0 +1,134 @@
++//! Cycle (20261014-0727-scout-ec41): renewal-on-certificate-failure vs per-kick re-certification.
++//!
++//! The shipped `kick` experiment applies ONE kick and asks which pairs a stored slack would skip.
++//! The engine's real stream is cumulative: every body receives ~2^step_log2 kicks per orbit and a
++//! pair certificate is consumed by BOTH partners' kicks. This probe drifts each sampled body
++//! through 1024 kicks (co-signed and random-walk), recomputes its pairs' exact horizon hits at
++//! log-spaced checkpoints, and counts how often a renewal is actually forced (consecutive
++//! checkpoint hit sets differ) and what the renewal costs in proposals (over-fire).
++//! Baseline: the shipped per-kick policy re-runs every pair every kick (812.8 pairs/kick).
++
++use emergent_encounters::belt::{make_belt, Rng, Spec};
++use emergent_encounters::kepler::Body;
++use emergent_encounters::method::{pair_events, Stats};
++use emergent_encounters::pairs::{is_candidate, Sorted};
++use std::f64::consts::TAU;
++
++const SAFETY: f64 = 1.1;
++const HORIZON: f64 = 1000.0; // orbits, same as shipped `kick`
++const TK: f64 = 10.0 * TAU;
++const KMAX: usize = 1024; // kicks streamed per body (~4 orbits of kicks at step_log2=7 for the pair)
++/// Checkpoints (kicks since start): log grid. Renewal counted when consecutive hit sets differ.
++const GRID: [usize; 11] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
++
++fn spec(n: usize, sigma_e: f64, rho: f64, seed: u64) -> Spec {
++    Spec { name: "cycle".into(), n, sigma_e, rho, a_lo: 1.0, a_hi: 1.5, keys: 0, seed, orbits: 0.0 }
++}
++
++fn drifted(old: &Body, a_new: f64, n_new: f64) -> Body {
++    let lam_k = old.mean_anomaly(TK) + old.pom;
++    Body::new(a_new, old.e, old.pom, lam_k - n_new * TK)
++}
++
++fn same_hits(a: &[(f64, f64)], b: &[(f64, f64)]) -> bool {
++    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| (x.0 - y.0).abs() < 1e-3 && (x.1 - y.1).abs() < 1e-3)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).map(|x| x.parse().unwrap()).unwrap_or(10_000);
++    let rho: f64 = args.get(2).map(|x| x.parse().unwrap()).unwrap_or(1e-4);
++    let sigma_e: f64 = args.get(3).map(|x| x.parse().unwrap()).unwrap_or(1e-2);
++    let seed: u64 = args.get(4).map(|x| x.parse().unwrap()).unwrap_or(20261050);
++    let nb: usize = args.get(5).map(|x| x.parse().unwrap()).unwrap_or(30);
++
++    let sp = spec(n, sigma_e, rho, seed);
++    let b = make_belt(&sp);
++    let sorted = Sorted::new(&b, rho);
++    let horizon = HORIZON * TAU;
++    let kicked: Vec<usize> = (0..nb).map(|q| (q * 97 + 13) % n).collect();
++    let eps_grid = [1e-9f64, 1e-7, 1e-5];
++    let mut setup_pairs_total = 0u64;
++
++    for &eps in &eps_grid {
++        for &rw in &[false, true] {
++            let t0 = std::time::Instant::now();
++            let (mut renewals, mut checks, mut pairs_total, mut hits_total, mut ever_changed) = (0u64, 0u64, 0u64, 0u64, 0u64);
++            // per-pair first-change kick bracket (upper bound), for the distribution.
++            let mut first_change: Vec<usize> = Vec::new();
++            for &i in &kicked {
++                let old = b[i];
++                let mut rng = Rng(seed.wrapping_add(i as u64));
++                let mut signs: Vec<f64> = Vec::with_capacity(KMAX);
++                for _ in 0..KMAX {
++                    signs.push(if rw && (rng.next_u64() & 1) == 1 { -1.0 } else { 1.0 });
++                }
++                // partners under the original orbit (same enumeration as shipped `kick`).
++                let mut partners: Vec<Body> = Vec::new();
++                let (lo, hi) = sorted.range(old.binet()[0], sorted.reach(&old));
++                for &(_, j) in &sorted.order[lo..hi] {
++                    if j as usize == i || !is_candidate(&old, &b[j as usize], rho) {
++                        continue;
++                    }
++                    partners.push(b[j as usize]);
++                }
++                pairs_total += partners.len() as u64;
++                // checkpoint states of body i (a drifts multiplicatively; lambda held at TK).
++                let mut states: Vec<Body> = Vec::with_capacity(GRID.len() + 1);
++                states.push(old);
++                let mut a_k = old.a;
++                let mut n_k = old.n;
++                let mut next = 0usize;
++                for &k in &GRID {
++                    while next < k {
++                        a_k *= 1.0 + eps * signs[next];
++                        n_k = a_k.powf(-1.5);
++                        next += 1;
++                    }
++                    states.push(drifted(&old, a_k, n_k));
++                }
++                for pj in &partners {
++                    let mut st = Stats::default();
++                    let mut prev: Vec<(f64, f64)> = Vec::new();
++                    pair_events(&states[0], pj, rho, SAFETY, TK, TK + horizon, &mut st, &mut prev);
++                    hits_total += prev.len() as u64;
++                    let mut changed_at = 0usize;
++                    for (c, &k) in GRID.iter().enumerate() {
++                        let mut cur: Vec<(f64, f64)> = Vec::new();
++                        let mut st2 = Stats::default();
++                        pair_events(&states[c + 1], pj, rho, SAFETY, TK, TK + horizon, &mut st2, &mut cur);
++                        checks += st2.checks_total();
++                        hits_total += cur.len() as u64;
++                        if !same_hits(&prev, &cur) {
++                            renewals += 1;
++                            if changed_at == 0 {
++                                changed_at = k;
++                            }
++                        }
++                        prev = cur;
++                    }
++                    if changed_at > 0 {
++                        ever_changed += 1;
++                        first_change.push(changed_at);
++                    }
++                }
++            }
++            setup_pairs_total += pairs_total;
++            first_change.sort_unstable();
++            let q = |f: f64| first_change[((first_change.len() as f64 - 1.0) * f) as usize];
++            let renew_per_pair_per_kick = renewals as f64 / pairs_total as f64 / KMAX as f64;
++            let cut = if renewals == 0 { f64::INFINITY } else { (pairs_total as f64 * KMAX as f64) / renewals as f64 };
++            println!(
++                "{{\"exp\":\"cycle\",\"n\":{},\"sigma_e\":{},\"rho\":{},\"seed\":{},\"eps\":{:e},\"drift\":\"{}\",\"bodies\":{},\"pairs\":{},\"ever_changed_pairs\":{},\
++\"renewals\":{},\"renewals_per_pair_per_kick\":{:.3e},\"cut_vs_per_kick\":{:.1},\"checks_per_renewal\":{:.3},\"checks_per_pair_kick\":{:.3e},\
++\"first_change_k_p10\":{},\"first_change_k_median\":{},\"first_change_k_p90\":{},\"wall_s\":{:.1}}}",
++                n, sigma_e, rho, seed, eps, if rw { "rw" } else { "co" }, kicked.len(), pairs_total, ever_changed,
++                renewals, renew_per_pair_per_kick, cut,
++                checks as f64 / renewals.max(1) as f64, checks as f64 / (pairs_total as f64 * KMAX as f64),
++                if first_change.is_empty() { 0 } else { q(0.10) }, if first_change.is_empty() { 0 } else { q(0.50) }, if first_change.is_empty() { 0 } else { q(0.90) },
++                t0.elapsed().as_secs_f64()
++            );
++        }
++    }
++    eprintln!("pairs sampled total (both arms summed): {setup_pairs_total}");
++}
