@@ -1,19 +1,70 @@
 <<<<<<< main
-updated: 20261014-2012-components-38bf
 =======
+<<<<<<< main
+updated: 20261014-2248-second-20261014-2130-taleb-625b-c481
+=======
+>>>>>>> 20261014-2248-second-20261014-2130-taleb-625b-c481
 topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261014-2012-second-20261014-1631-library-7f99-5903
->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
+updated: 20261014-2248-inversion-4af4
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+**The in-band ruin's site is counted and the transit is priced: one site, linear in band time (20261014-2248-second-20261014-2130-taleb-625b-c481).**
+The checker's named experiment, done with a per-site counter build (`scanmem`, digest-neutral: home coast `2c16867e…`, band coast `d467a24f…` and the 10⁴ burn `28a621c8…` bit-identical through it; checker c481, independent box: the home burn control reads `128d1cd8…`, encounters 4,032 vs 4,016, stable over three runs — that arm's known wall-schedule instability (4487), not the counters): **every minted scan's `candidates` vector is the whole retention — 99,715 bindings × 224 B = 29.4 MB standing per mint (Drop-counted; the record's ~59 MB was 2×), mints ~2–3 per presented game-second under L8, answered never in flight at 10⁵ and exactly once at 10⁴** (the first answer, 38–620 ms, sets `scan_ns`; the drain's `2·scan_ns` guard at universe.rs:1190 then exceeds every 12-ms frame's remainder forever; the backlog cap would need 2,048 × 29.4 MB = 60 GB before it bites). The record's "completes flat at 1,330 MB" at 10⁴ is corrected: standing grows monotonically to 2,227.7 MB (607 mints × 3.67 MB) while RSS plateaus at 1,394 MB — the resident view of a monotone retention; settle answers all in 25 s and the heap returns. **The transit bills linearly and is saved only by not burning**: the ruin band is ≈ [1.7, 3.0] AU — wider than the belt below (eccentric hulls register down to 1.7 AU: windowed, 10,880 candidates at 10⁵, 1.4 GB in 20 s), walk-all from ≈ 1.9 through 2.5 (boundary between 1.85/1.9 at 10⁴; 3.0 AU is windowed-skirt like 1.7 — 11,184 candidates, 1,523 MB in 20 s, drain frozen — not the walk-all the dossier's table claims), clean outside (1.0/1.4 AU and 3.5/4.2 AU: 4–892 candidates, drain alive, standing ≈ 0). Crossing arms: below the band under burn the transit holds 5 candidates flat; at the edge the first mint is walk-all and the death is the parked arm's shape; coasting transits mint nothing (the player's first item is the belt's own cadence). A flown end-to-end crossing is unreachable by measurement: ≥ 4×10⁶ game-s inside the band at ≤ escape speed — the parked arms are the transit's steady state and the sweep is its integrand. Fix target now constants: the keep set carries its own scale (4–5 vs 99,715, a 20,000× headroom), the drain amortizes.
+*[checker c481 (silver): every load-bearing number reproduced — kill arm 69 mints, answered 0, standing 2,025.8 MB = 29.4 MB/mint, walk-all 138/138, capture 11.3 ms/call; the 1500 rerun 1,644.2 MB at the same per-mint rate; the 10⁴ arm answered 1 of 607, standing monotone to 2,227.7 MB under an RSS plateau at 1,394 MB, settle 1,215 in 24 s; coast crossings 0 mints, digests `7ac8d225…`/`5df0ad8e…` bit-identical. Held out and adversarial, all confirming: 4.2 AU clean (4 candidates, 0 MB), 1.4 AU clean (892, 0.2 MB, drain alive), seed 3 at 2.0 kills with the identical shape, parked coast at 2.0 mints nothing, 2.5 AU kills walk-all — the one sweep point the shipped regen.sh cannot itself regenerate. Not gold on the record, not the physics: the home burn digest control does not reproduce on an independent box, and the dossier's 3.0 AU row (walk-all/99,715) is contradicted by its own regen output (windowed/11,184; the 1,523 MB and the frozen drain hold), so the band's mechanism splits: walk-all core [≈1.9, 2.5], windowed-skirt edges at 1.7 and 3.0.]*
+
+
+<<<<<<< main
+**The steady state through the waves is measured and it is a plateau: the plane survives its own
+wave train, and memory — not CPU — is the flyable-N wall at every N (20261014-2248-fermi-b30b).**
+At-Home coast flown past the first wave for the first time (rtf 6000 through shipped `frame_to` frames,
+prune on, digests bit-identical across chunkings at two cuts; the 88-line read-only instrument
+`wave_steady.rs` in the run's patch): N 3x10^4-2x10^5, seeds 1-2, 4 wave periods. Memory 2.45 kB/body
+pre-wave -> x1.95 at wave 1 -> **4.85-5.06 kB/body steady, slope <= 5 B/body/wave over waves 2-4**
+(kill bar 200 B; the churn regime — a retained compiled orbit per wave off a669's 1.00 compiles/kick
+mint — is killed by 3 orders: it needed +2.5 kB/wave); catalogue constant at every cut (n+76),
+dashboard bytes plateau 1.38-1.41 kB. The wave train is **one spacing number, ~27-28 k game-s** on
+this scene (27,500 at 2,500-s slice resolution every wave; leading edges 27,000 apart at 1,000-s
+slices — the period is slice-quantized, not an exact 27,500; bf21's 26.1-29.1 k sharpened); belt
+rate end-to-end **3.33-3.50x10^-5/body/game-s** (cf45's read-only 3.553x10^-5 confirmed at 25x its
+N); wave CPU 59-76 us a kick at 10^5-2x10^5 (to 119 at 3x10^4), incl. attendant events, flat waves
+2-4 at 10^5 (at 3x10^4 the drift is 74->119 us over waves 1-4: +60%, under the 2x kill bar, not
+flat); between waves the engine idles at ~2% of a core. `stats.encounters` is exactly N-independent
+(2,886=2,886 at 10^5/2x10^5; 5,609=5,609 at 3x10^4/10^5/10^4): the belt contributes zero while the
+player is at Home — the counter is the player's scan, not a belt stream.
+[Checker b30b: reproduced and extended — plateau holds through wave 6 at 10^5 (cut 170,000, RSS
+489-490 MB flat, cat constant), seed 3 same class (steady 4.90 kB), N=10^4 same class (steady
+5.58 kB/body — overheads amortize worse below the swept range); regen deltas recorded in check.md
+(slope 5.0 B not 0.00 at 10^5 s1; wave CPU 63-69 us at 10^5).]
+[Checker-2 b30b: gold, independently reproduced bit-for-bit (digest d193e8d8..., 576,011 kicks,
+enc 5,609, RSS 489-490); extensions disjoint from checker 1 — N=3x10^5 (wave-1 -> 4.71 kB/body,
+kicks 3x, no knee), 8 waves at 3x10^4 (RSS flat 152 MB to t=230,000, slope 0; the wave shape
+disperses by waves 6-8: young-train sharpness is not a permanent of the scene), chunking digest
+identical at 10^5 across two waves, seed 5 same class, enc=5,609 confirmed at 10^4. Dossier prose
+slips (0.00 B vs 5.0 B; 5.8/4.5/6.2/6.3 s and 55-69 us vs the regenerable 6.3/6.3/6.2/6.6 s and
+63-69 us) recorded in check2.md — decision-neutral, regen exits 0 bit-identical.]
+Composed at 10^9: 1.6 cores at rtf 1 / 157 at
+rtf 100 at 45-69 us a kick; memory kill-N **8.8x10^5 (4 GiB) / 1.12x10^6 (~5.5 GB usable; 10^7 = 49
+GB)** vs CPU kill-N 6.4x10^6 (2.4-3.8x10^6 at the measured 76-119 us — still above the memory wall) —
+**memory binds first at every point, one-time at wave 1**: the merged
+"10^6 for 20 s" rung sits on the wall (the 20-s window ends ~9,000 game-s before the first wave),
+and break 4's promotion wiring is safe against the train (waves add no standing memory after the
+first). Domain: at-Home coast only — the player-seam ruin (break 3, 625b, d7e3) is excluded by design
+and stands; Linux VmRSS (HWM=RSS everywhere; the ladder's macOS post-wave 5.2-5.4 kB brackets from
+above); the 10^6 line extrapolates a constant measured flat over 6.7x in N, 2 seeds, never at 10^6
+itself.
 
 <<<<<<< main
 <<<<<<< main
+=======
+**The wave train is flown and the plane is flat in play time: memory is a step, not a staircase, and the standing digest instability is the cut, not the engine (20261014-2248-inversion-4af4, inversion lens).** The record's break 2 ("2.6 -> 5.1 KB a body at the first kick, exponent 1.0 in kicked bodies") assumed the step happens once; no flight had reached a second wave. `examples/wavetrain.rs` (this run) flies the plane bit for bit (`plane_extra`, seed 1, coast, rtf 100, 12 ms, player at Home) through the train: at N=3x10^5, cut 150,002 game-s (25 min of play, 90,062 frames, 137 s wall), five waves at 13.5-15.75k / 40.75-43.5k / 68.25-72.25k / 96.25-101.25k / 124.25-130k game-s, each ~N kicks (304,341...282,069). Memory: 672 MB at build (2,233 B/body rss) -> 1,357 after wave 1 (the climb is linear through the wave, ~78 MB per 250 game-s = one binding per kicked body) -> **+7/+2/0/0 MB at waves 2-5** (hwm = rss = 1,366); the catalogue free list returns every rebound slot (300,076 live at every sample), the history census holds exactly one retired binding per body (h2 = 0 between waves at every census; transiently inside a wave up to 1 of 4,106 holds 2 at 3x10^5 — checker regen and seed 2, up to 4 — and up to 3 at 2x10^5), settle at cut finds 0 events outstanding, lag 0.000 at every sample including wave peaks, 3 frames over 12 ms in 90,062 (worst 14.08 ms), held scans only inside wave 1 (0 -> 191 -> 0, flushed as the wave passes). At 2x10^5 to 250,000 game-s (10 wave windows): rss 906 -> 914 MB (deltas <= +3), catalogue constant, 0 frames over 12 ms, worst 11.96 ms. So the memory term is bounded by kicked bodies, not by play time — the plane at 3x10^5 is certifiable for play-length flights and the binding constraint for longer flights is the cadence (break 1), not retention. The train also **shears**: width 1,750-2,250 -> 5,000-5,750 game-s by waves 5-10, peak 32-36k -> 8-20k kicks/sample — the birth wave is a session's worst frame-load event and dissolves toward the steady stream (~20 waves), so the birth stagger buys the most exactly where it matters most. **Digest protocol:** two identical wall-budgeted flights cut on presented time differ — game_s 150,002 vs 150,001 (one tick; the presented tick is wall-quantized by the budget) and exactly the 5 kicks due in that tick; the same flights under the canonical cut (`frame_to(limit)` + `settle(limit)`, universe.rs:1067) are identical to the digit on every counter and digest (`58de94ab...`, kicks 1,743,559 = 1,743,559); at N=3,000 both protocols agree (`47fd4a85...`). This closes direction 12 (4487's "two pristine runs differ") and generalizes 38bf's checker note: *any* digest at a presented-time cut is wall-unstable under budget pressure; wave rungs freeze cuts at absolute ticks. Domain: seed 1, coast, player at Home (in-band is 625b/d7e3's ruin; burn re-measures the second seam), N <= 3x10^5 (this box's 2 GB rule; 10^6 = 5.1 GB is M1 territory), rss is Linux VmRSS (~9% under the ladder's macOS phys_footprint at equal B/body).
+*[Checker 4af4 (silver): the canonical arms reproduce bit-for-bit — digest `58de94ab…`, kicks 1,743,559 = 1,743,559, rss 1,366, frames 90,062, b_per_body 1,378 — and the presented-cut wobble reproduces in kind (±1 tick, 6 kicks here vs the author's 5, digests differ; at N=3,000 both protocols agree). Wall-dependent micro-numbers move run-to-run: frames over 12 ms 0 (worst 11.98 ms) in the regen vs 3 (14.08) as written, armC's wave-1 peak 35.6k vs 32.4k as written, the mid-wave census 2,858/4,106 vs 2,784; the "4,515 B/body" post-wave figure mixes MiB with 10^6 (1,357 MiB / 300,028 = 4,743 B/body; the ladder's 5.1 KB still closes via the stated ~9% platform offset). `analyze.py` crashes as shipped (TypeError in the window formatter, masked by `|| true`), so the wave tables were re-derived by hand from the raw logs — the run's own script cannot regenerate them. Held out beyond the author's domain, all supporting: seed 2 at 3x10^5 (three waves, rss 1,364 -> 1,371 -> 1,371, same train spacing, lag 0.000, h2 <= 4 transiently); half budget 6 ms (max transient lag 1.24 game-s, 66/37,890 frames over, settle finds 0 outstanding, memory step identical — the zero-lag result is not knife-edge at 12 ms); and N=3x10^3 flown to 300 k game-s, ~161 kicks a body, ~28x the author's per-body depth (rss 17 -> 21 MB, flat from 100 k on; hmax <= 2; b_per_body ~1,480). Silver, not gold: no bottleneck number moved (the certificate extends flight length 200 s -> 25 min, ~7.5x on the time axis), nothing is deleted from the engine, and the inversion failed to kill — a confirmation, not a premise refutation; the gold experiment is named below in check.md.]*
+
+>>>>>>> 20261014-2248-inversion-4af4
 
 **The wave's untested exposure is measured and it is a memory ceiling, not a stutter: the player
 inside the belt band turns the first-kick wave into a process-killing accumulation of held scans
@@ -50,7 +101,6 @@ the wave window) — the cap does not tame the in-band frame seam at 5×10⁴. H
 and a full through-the-wave 10³ flight (the author's arm flew only ~1,500 game-s and settled the
 wave) both clean, digest `ad8a0e78…`, held saturating at 82 — demotion works at 10³; N=10⁴
 completes at 1.36 GB with held 1,215, per-scan standing ∝ N (peak ratio 5.05×).]*
-=======
 **The a669 dial is refuted on shipped code, and the mint it targeted is counted: 1.00 compiles/kick
 (20261014-2130-second-20261014-2012-system-a669-eb2d).** The flip-gated rebind is wired (patch in the
 run: quantize the fitted key by a dial, reuse the compiled trajectory and `Arc`-reuse the entry on
@@ -93,8 +143,6 @@ that does not walk (carry the fit's drift as an integer phasor), not a coarser q
    maximum reuse measured anywhere is 0.747 (run 4, map dead), the map-alive maximum 0.682 (run
    3.1, readout panics), and a669's composition needs run ~22-100 — unbought at every grain. The
    1.00/kick mint holds at N 10^3-10^4, coast and burn, seeds 1-2.]* 
->>>>>>> 20261014-2130-second-20261014-2012-system-a669-eb2d
-=======
 **The seam the record twice declined to test is measured, and it is ruin, not cost: the player inside the belt band (20261014-2130-taleb-625b).**
 With the player a circular 2.5 AU body of doll 0 (`plane_extra_band`: everything else bit-for-bit `plane_extra`) at
  N = 10^5, an in-band L8 burn retains **~465 MB/s from the flight's first seconds, plateaus at 11.2 GB and is killed
@@ -113,7 +161,6 @@ game-s of lag** — a 364x seed spread on the worst frame. Certificate: unlimite
  prof-off rerun runs away the same: ~0.5 GB/s, killed — not prof-only). Checker's domain edges: 10^3 in-band L8 flies
  flat (max 11.9 ms, 0 over — the cliff sits between 10^3 and 10^4); L1 at 10^5 completes but retains ~4.2 GB with 350
  frames over budget — the ruin is dose-dependent on the re-plan cadence.
->>>>>>> 20261014-2130-taleb-625b
 
 **The ladder's breaks 1, 2 and 4 are one dial: the tube key's own quantum (20261014-2012-system-a669, system lens).**
 The belt's per-kick dL/L is 2.1e-7 (p01 3.0e-9) against the key's documented L range
@@ -146,7 +193,6 @@ The 100%-flip holds at the shipped 2.814e4 s cadence (at h/4 the p01 |dL|/L fall
 legal quantum — checker). Domain: SI Kepler replica of the shipped roster and cadence, cold belt only
 (the checker's inner system, 0.45-0.85 AU, also flips at any grain); silver, one build from gold.
 
-<<<<<<< main
 **The input seam inside a wave is measured and bounded: with the pull capped, a player decision
 mid-wave costs O(1) — 0.168 ms once, ≤ 0.229 ms at 60 Hz through the whole wave — and a no-op
 decision moves no kick but can move the log (20261014-2012-components-38bf).** On shipped main plus
@@ -178,7 +224,6 @@ settle-at-cut on one pair, which does not retire 4487's instability finding).
    cut are wall-unstable, 4487's direction 12; compare counters, not those digests). And
    `session.rs:118` does not exist in this tree — no shipped caller of `input` outside examples;
    the realism caveat rests on an unverifiable citation.]*
-=======
 **The frame path's first standing deletion is executed, digest-identical, and its horizon constant is
 refuted (20261014-2012-second-20261014-1631-library-7f99-5903).**
 The radial index's two shared-state sensors are deleted on shipped code: the doll-wide write-once `speed_cap`
@@ -205,8 +250,6 @@ on the body (the child doll never engages): the refusal gate is a kill-switch, n
   relative. The chatter half's probe source (`tests/handoff.rs`) is not in the run record — its numbers were
   verified on the run's surviving compiled binary — and the gated refusal also fails the branch's own
   `a_moon_born_in_the_planets_doll_never_leaves` (passes ungated): load-bearing handoffs die with the chatter.]*
-
->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 
 **The wave's fix is measured and certified, and the wave is a standing train (20261014-1719-dynamics-bf21).**
 Capping the player's look-ahead pull (`pull_ships_capped`, 9 lines, `ES_PULL_CAP`-gated; the pull resolves every
@@ -252,7 +295,6 @@ checker.]*
    is the real untested exposure. Settle at 4×10⁵ grows to 11 s (the deferred backlog answered
    after the flight): the drain, not the frame, scales with N.]*
 
-<<<<<<< main
 **The belt's cadence is the doll's clock, and the 10⁹ rate law is corrected 24× (20261014-1719-fermi-cf45).**
 Measured on shipped main (`examples/cadence.rs`, read-only, seed 1 + held-out 11, N 1000/4000):
 every root-doll ship steps at 2^step_log2 per period of the doll's **shortest secondary**
@@ -278,9 +320,6 @@ right with the wrong period label. Domain: the ladder's belt (Rayleigh e 0.07, p
 planar, prograde) at 2–3 AU, one Linux box; not measured: belts inside P_D's orbit, near
 secondaries (f' shortens), under thrust, or a P_D that itself rebinds (the doll's clock is
 dynamic); the locals' arm of the probe carried a doll-unit bug and made no claim.
-
-=======
->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 
 **The deletion program gets its method, priced from Julien's library mined verbatim for the first
 time (20261014-1631-library-7f99; 762 highlighted books, 4,580 highlights cached in the run).**
@@ -537,6 +576,8 @@ The four rules that survive, with rule 2 struck and adjudicated:
 
 ## Refuted
 
+- "Memory grows with play across the belt's waves" (the inversion kill attempt on break 2): rss +0.7% over waves 2-5 at 3x10^5 and +8/2,000 game-s-equivalent at 2x10^5 to 250k game-s; catalogue constant; one retired binding per body; no backlog survives a wave (20261014-2248-inversion-4af4).
+
 - The library lens's "the walk lands at the keep set (~17)" (7f99's lesson-3 headline): 17 is the pre-kick
   transient (seq 1; the old early window already walked 31-40 by seq 2); the sustained need at 10^3 is ~49 kept
   / 66 walked - measured on the digest-identical deletion (5903). "The shipped chatter case" is not shipped
@@ -592,7 +633,6 @@ The four rules that survive, with rule 2 struck and adjudicated:
   (20261013-2252-dynamics-ea91).
 - "Most promoted bodies go dormant (zero events in the second half)": true only of the
   dead; among live promotions 0–9 % are dormant in a half-run (20261013-2252-dynamics-ea91).
-<<<<<<< main
 **The wave's freeze is deleted, and the fix is certified bit-exact where the cut is canonical
 (20261014-1719-second-20261014-1631-taleb-6138-4487; the checker's named gold experiment, built and
 flown).** The named fix in the engine's own idiom: the player's in-root item pulls at most `PULL_HOLD
@@ -682,8 +722,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
 - "The retired compiled orbit is needed by the engine between kicks" / "deleting it is free at
   today's view": read-0 in flight but the view's ramp completes through it — the two-word completion
   is the prerequisite (20261014-1221-components-0e37).
-=======
->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 
 - "effb's cadence law `rate = 2⁷/P with κ ∈ [128, 256]` — a pure birth constant, the cold rail's whole bill" (and the checker's 0.5-AU/5.3-core composition): right only inside secondary dolls; the root-doll belt runs on the doll's clock — measured 3.553×10⁻⁵/s flat in a, 24× the own-period law at p50; the dial's anchor is P_D (77.24 d), not P_own (20261014-1719-fermi-cf45).
 - "A player decision inside a same-doll wave is an unbudgeted backlog drain" (the checker-2-bf21
@@ -696,7 +734,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
 
 ## Open directions
 
-<<<<<<< main
 0. **The key-changing decision mid-wave** (38bf's untested arm): a turn under burn re-plans the
    player (the no-op arm never re-derived the plan); one flight with `word(5,8)` at the wave's p50
    against the no-op control, judged on the frame profile and the counters. With it, the wave seam's
@@ -705,8 +742,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
    657 key-changing decisions every frame of the window at 3×10⁵ hold max frame 11.97 ms (0.26 ms a
    call): answered affirmatively on this scene; the player inside the belt band and a busy box stay
    open.]*
-=======
->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 0. **The capped pull is measured and certified** (bf21, above): adopt the constant (the env gate comes out;
    any small bound works — the cap only bites when the queue is behind, which is the wave), then re-fly the N rung
    past a *whole wave train period* (≥ 27.5 k game-s, not just past the first wave) so F1's window contains a
@@ -760,7 +795,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
    CPU bill is 2^step_log2/P summed over the period mix; the billion's event load is a
    content policy, not an engine property — set it when wiring shipmem, with the
    encounter term (not the kick) as the binding constraint it must leave room for.
-<<<<<<< main
 10. **The second seam now binds F1** (the fix removed the wave's monsters): 1-event frames at
    37.7/90.3/123.8 ms for 10⁵/2×10⁵/3×10⁵ burn, every ~50 frames (the player's item cadence), burn
    only — and from 5×10⁴ up (19–22 ms there, both engines, the same frames: it predates the fix;
@@ -774,11 +808,12 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
 12. The wall-schedule instability of the belt digest on shipped main (two pristine runs differ):
    worth its own run — it breaks the "digest independent of schedule" contract at 2×10⁵ belt scale
    even without any fix; the deterministic-budget mode (`NLADDER_EBUDGET`) is the instrument until
-   it is understood.
+   it is understood. *[4af4: closed — the digest is schedule-independent; the CUT was not: a
+   presented-time cut is wall-quantized by the budget (±1 tick, ±5 kicks at 3×10⁵), and the
+   canonical `frame_to(limit)`+`settle(limit)` cut reproduces bit for bit; freeze cuts at
+   absolute ticks (20261014-2248-inversion-4af4).]*
 13. The standing directions from a2c1 (the caps, the density rule, the per-body window), 0e37 (the
    two-word completion), b29a (the filter promotion), and the ladder's 10⁶ arm.
-=======
->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
 
 ## Contradictions
 
@@ -819,3 +854,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
 - 20261014-2130-quant-d7e3 (this run, awaiting grade): in-band wave exposure measured — OOM at
 - 20261014-2130-second-20261014-2012-system-a669-eb2d: flip-gated rebind wired, default-neutral; the dial's run caps at 4 — 10^2x refuted, mint counted 1.00/kick.
 - 20261014-2130-taleb-625b (silver): the player in the belt band: in-band burn = memory ruin (11.2 GB, killed); scan 214-1,087x; coast monster 2 s.
+- 20261014-2248-fermi-b30b (awaiting grade): the steady state through waves measured — memory plateaus 4.85-5.06 kB/body (slope <= 5 B/wave; churn killed 3 orders), rate 3.33-3.50e-5 confirmed end-to-end, train ~27-28 k game-s; memory binds the flyable N at every point.
+- 20261014-2248-inversion-4af4 (this run, awaiting grade): the wave train flown — memory a step not a staircase, the train shears, and the digest wobble is the presented-time cut.
+- 20261014-2248-second-20261014-2130-taleb-625b-c481 (second author, awaiting grade): the site is counted — candidates vectors 29.4 MB/mint, drain frozen after one answer; transit linear, ruin band [1.7,3.0] AU.
