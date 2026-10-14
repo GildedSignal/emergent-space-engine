@@ -1,0 +1,7 @@
+The compileThe compiled cycle's knot table is one structure behind the plane's three measured walls — the kick's bind (46% of a fired kick), the kick's impact search (45%), and the ~5 KB/body standing memory — and the census shows it is a cache that costs more than what it caches: of each 77–92-knot table built per kick, only 7.1–7.6 bracket cells (8–10%) are ever read, while every time→state readout re-integrates ~13 quadrature point-evals of Newton quadrature, so the fenced incomplete-Carlson readout plus the already-certified complete-form increments would delete all three walls in one adoption.
+
+Evidence (all from shipped `plane` code + an additive counter patch, `regen.sh` < 1 min/arm):
+- **Cells read/table**: 7.6 of 76.9 (400 members) and 7.1 of 92.3 (1,500 members), seed 3, rtf 100, 8 game-s — upper bounds (address-identity can only undercount).
+- **Read anatomy**: 2.8–2.9 partial-panel quads + 1.9 rate evals per readout, 55–60 readouts per table lifetime; read side carries 66–69% of all integrand point-evals — my pre-registered prediction said the build would dominate; it failed into the sharper finding (recorded as such in `predictions.md`/dossier).
+- **Bits unmoved**: digest `b1feb4bf1157db6958091a41aa140903` identical under unlimited and 3 ms-wall budgets.
+- Folded into the `kick-jet` wiki page (the incomplete-form readout moves to the top open direction); run folder `lab/results/20261014-1221-system-b8fc/` holds dossier, predictions, regen.sh, wiki page, and `work/patch.diff`.

@@ -1,0 +1,308 @@
+diff --git a/crates/space/src/census.rs b/crates/space/src/census.rs
+new file mode 100644
+index 00000000..fe6948ef
+--- /dev/null
++++ b/crates/space/src/census.rs
+@@ -0,0 +1,88 @@
++//! Knot-table census (lab run 20261014-1221-system-b8fc): who pays for the compiled cycle's panel
++//! grid, and who reads it. Purely additive counters — no arithmetic of the law is touched, so no
++//! bit can move. All hooks are in `orbit.rs` (the bound Darwin cycle and its readouts); Kerr and
++//! light are out of this census's domain.
++use std::cell::{Cell, RefCell};
++use std::collections::HashSet;
++
++pub const COMPILES: usize = 0; // bound-cycle table builds (Orbit::compile)
++pub const KNOTS: usize = 1; // knots pushed by the build walk (panels + 1)
++pub const C_QUADS: usize = 2; // quad calls at build
++pub const C_NODES: usize = 3; // node() integrand evals at build (general branch)
++pub const READS: usize = 4; // outbound_at calls: every time→state readout
++pub const R_PROBES: usize = 5; // bracket binary-search probes over the knot sums
++pub const R_NEWTON: usize = 6; // Newton iterations inside the bracket
++pub const R_QUADS: usize = 7; // quad calls at readout (partial-panel re-integration)
++pub const R_NODES: usize = 8; // node() evals inside readout quads
++pub const R_RATE: usize = 9; // node() evals as Newton's rate
++pub const R_AR: usize = 10; // at_radius calls (the passage guess path)
++pub const AR_QUADS: usize = 11; // quad calls inside at_radius
++pub const TOUCHED: usize = 12; // distinct (table, bracket) cells ever read
++pub const TABLES: usize = 13; // distinct tables that were read at least once
++pub const OTHER_NODES: usize = 14; // node() evals outside build/read/at_radius
++pub const N: usize = 15;
++
++pub const NAMES: [&str; N] = [
++    "compiles (Orbit::compile)",
++    "knots pushed",
++    "quad calls at build",
++    "node evals at build",
++    "readouts (outbound_at)",
++    "bracket probes",
++    "newton iterations",
++    "quad calls at readout",
++    "node evals in readout quads",
++    "node evals as newton rate",
++    "at_radius calls",
++    "quad calls in at_radius",
++    "distinct (table,bracket) read",
++    "distinct tables read",
++    "node evals elsewhere",
++];
++
++/// Who is calling `node()` right now (0 other, 1 build, 2 readout, 3 at_radius).
++thread_local! {
++    static ROLE: Cell<u8> = const { Cell::new(0) };
++    static C: RefCell<Census> = RefCell::new(Census { c: [0; N], cells: HashSet::new(), tables: HashSet::new() });
++}
++
++struct Census {
++    c: [u64; N],
++    cells: HashSet<(usize, u32)>,
++    tables: HashSet<usize>,
++}
++
++pub fn node() {
++    C.with(|c| {
++        let i = match ROLE.get() {
++            1 => C_NODES,
++            2 => R_NODES,
++            3 => R_NODES, // at_radius re-integrates the same partial panels; counted by its quad calls
++            _ => OTHER_NODES,
++        };
++        c.borrow_mut().c[i] += 1;
++    });
++}
++
++pub fn bump(i: usize) {
++    C.with(|c| c.borrow_mut().c[i] += 1);
++}
++pub fn role(r: u8) {
++    ROLE.set(r);
++}
++/// A readout settled on bracket `index` of table `id`.
++pub fn touch(id: usize, index: usize) {
++    C.with(|c| {
++        let mut b = c.borrow_mut();
++        b.cells.insert((id, index as u32));
++        b.tables.insert(id);
++    });
++}
++pub fn take() -> [u64; N] {
++    C.with(|c| {
++        let mut b = c.borrow_mut();
++        b.c[TOUCHED] = b.cells.len() as u64;
++        b.c[TABLES] = b.tables.len() as u64;
++        b.c
++    })
++}
+diff --git a/crates/space/src/lib.rs b/crates/space/src/lib.rs
+index 8dce4968..364726f5 100644
+--- a/crates/space/src/lib.rs
++++ b/crates/space/src/lib.rs
+@@ -122,6 +122,7 @@ pub mod events;
+ #[cfg(feature = "profile")]
+ pub mod profile;
+ mod tables;
++pub mod census;
+ 
+ macro_rules! stage {
+     ($i:expr, $e:expr) => {{
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..c6151c72 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -312,6 +312,7 @@ impl OrbitShape {
+         self.k + product(ONE - self.k, cos(psi))
+     }
+     fn node(&self, psi: i128) -> Result<Integral> {
++        crate::census::node();
+         let cs = cos(psi);
+         let x = self.k + product(ONE - self.k, cs);
+         if x <= 0 {
+@@ -447,7 +448,14 @@ impl OrbitShape {
+             Scalar::ZERO,
+         ]))
+     }
++    /// census: the build walk (lab run 20261014-1221-system-b8fc); counters only, wrapped.
+     fn append(&mut self, end: i128) -> Result<()> {
++        crate::census::role(1);
++        let out = self.append_inner(end);
++        crate::census::role(0);
++        out
++    }
++    fn append_inner(&mut self, end: i128) -> Result<()> {
+         let start = self.knots.last().unwrap().psi as i128;
+         let eta = ONE - self.k;
+         let delta = ONE - product(self.q, 6 * self.k + 2 * eta);
+@@ -472,7 +480,9 @@ impl OrbitShape {
+             for i in 0..n {
+                 let a = lo + (hi - lo) * i / n;
+                 let b = lo + (hi - lo) * (i + 1) / n;
++                crate::census::bump(crate::census::C_QUADS);
+                 let sum = self.knots.last().unwrap().sum.add(self.quad(a, b)?)?;
++                crate::census::bump(crate::census::KNOTS);
+                 self.knots.push(Knot { psi: b as u64, sum });
+             }
+             lo = hi;
+@@ -549,6 +559,7 @@ impl Orbit {
+         &self.shape
+     }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
++        crate::census::bump(crate::census::COMPILES);
+         if key.null {
+             return Err(Error::NotPeriodic);
+         }
+@@ -743,7 +754,15 @@ impl Orbit {
+         }
+         Ok(state)
+     }
++    /// census: at_radius wrapped (lab run 20261014-1221-system-b8fc); counters only.
+     pub(crate) fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
++        crate::census::bump(crate::census::R_AR);
++        crate::census::role(3);
++        let out = self.at_radius_inner(radius);
++        crate::census::role(0);
++        out
++    }
++    pub(crate) fn at_radius_inner(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+         if self.key.k_exponent == 0 && self.key.k == UNIT && self.q >= Scalar::ONE.div(Scalar::integer(6))? {
+             if radius != self.key.periapsis {
+                 return Err(Error::Range);
+@@ -778,10 +797,13 @@ impl Orbit {
+         self.read(cycles, k.psi as i128, outbound, k.sum)
+     }
+     fn outbound_at(&self, target: Scalar) -> Result<(i128, Integral)> {
++        // census: every time→state readout of a compiled table (lab run 20261014-1221-system-b8fc).
++        crate::census::bump(crate::census::READS);
+         let s = &self.shape;
+         let mut lo_i = 0;
+         let mut hi_i = s.knots.len();
+         while lo_i < hi_i {
++            crate::census::bump(crate::census::R_PROBES);
+             let mid = (lo_i + hi_i) / 2;
+             if self.time(s.knots[mid].sum)? <= target {
+                 lo_i = mid + 1;
+@@ -790,6 +812,7 @@ impl Orbit {
+             }
+         }
+         let index = lo_i.saturating_sub(1);
++        crate::census::touch(self as *const _ as usize, index);
+         let base = &s.knots[index];
+         if self.time(base.sum)? == target || index + 1 == s.knots.len() {
+             return Ok((base.psi as i128, base.sum));
+@@ -812,7 +835,11 @@ impl Orbit {
+                 Scalar::ZERO
+             })?;
+         for iteration in 0..72 {
+-            let sum = base.sum.add(s.quad(a, psi)?)?;
++            crate::census::bump(crate::census::R_NEWTON);
++            crate::census::role(2);
++            let q = s.quad(a, psi);
++            crate::census::role(0);
++            let sum = base.sum.add(q?)?;
+             let t = self.time(sum)?;
+             if t.sub(target)?.abs() <= quantum || hi - lo <= 1 {
+                 return Ok((psi, sum));
+@@ -826,7 +853,11 @@ impl Orbit {
+                 psi = lo + (hi - lo) / 2;
+                 continue;
+             }
+-            let rate = self.time(s.node(psi)?)?;
++            crate::census::bump(crate::census::R_RATE);
++            crate::census::role(2);
++            let r = s.node(psi);
++            crate::census::role(0);
++            let rate = self.time(r?)?;
+             let step = target.sub(t)?.div(rate)?.fixed(61)?;
+             let next = psi + step;
+             // Accept the quantum nearest the root if Newton cannot change psi.
+diff --git a/crates/universe/examples/knot_census.rs b/crates/universe/examples/knot_census.rs
+new file mode 100644
+index 00000000..5e2f9999
+--- /dev/null
++++ b/crates/universe/examples/knot_census.rs
+@@ -0,0 +1,87 @@
++//! The knot-table census (lab run 20261014-1221-system-b8fc): on a shipped plane scene, who pays
++//! for the compiled cycle's panel grid (the build walk) and who reads it (brackets + partial-panel
++//! re-integration), with the universe's own stage timers when built `--features prof`.
++//! Counters only — no arithmetic changed — so the digest at the cut is the shipped one and must
++//! agree across schedules (checked here at unlimited vs a biting wall budget).
++//!
++//! cargo run --release -p emergent-universe --features prof --example knot_census --
++//!   [<seed> <members> <rtf> <game-seconds> [<wall-ms budget, 0 = unlimited>]]
++use emergent_space::census;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++fn main() {
++    let a: Vec<String> = std::env::args().collect();
++    let seed: u64 = a.get(1).and_then(|s| s.parse().ok()).unwrap_or(3);
++    let members: u64 = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(1500);
++    let rtf: f64 = a.get(3).and_then(|s| s.parse().ok()).unwrap_or(1.0);
++    let secs: f64 = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(8.0);
++    let wall_ms: f64 = a.get(5).and_then(|s| s.parse().ok()).unwrap_or(0.0);
++    let cut = (secs * rtf / TICK_SECONDS) as i64;
++    let mut p = plane(Config::default(), seed, Order::Sparse, 1, members).unwrap();
++    let budget = if wall_ms > 0.0 { Budget::wall(wall_ms) } else { Budget::unlimited() };
++    let t0 = std::time::Instant::now();
++    for _ in 0..200_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, rtf, budget, cut);
++    }
++    let reached = p.u.now;
++    let engine = t0.elapsed();
++    p.u.settle(cut);
++    let digest = p.u.digest();
++    let c = census::take();
++    println!(
++        "seed {seed} members {members} rtf {rtf} {secs} game-s budget {} | digest {} reached {} kicks {} handouts {}",
++        if wall_ms > 0.0 { format!("{wall_ms} ms") } else { "unlimited".into() },
++        &digest[..32],
++        reached,
++        p.u.stats.kicks,
++        p.u.stats.dissolved,
++    );
++    println!("engine wall {:.2} s (frames, before the settle)", engine.as_secs_f64());
++    for (i, n) in census::NAMES.iter().zip(c.iter()) {
++        println!("  {:<34} {}", n, n_separated(*n));
++    }
++    let integrand_build = 4 * c[census::C_QUADS] + c[census::C_NODES];
++    let integrand_read = 4 * c[census::R_QUADS] + c[census::R_NODES] + 4 * c[census::AR_QUADS];
++    println!(
++        "  integrand evals: build {} ({:.1}%) read {} ({:.1}%) | knots/table {:.1} readouts/table {:.1} cells-read/table {:.1}",
++        n_separated(integrand_build),
++        100.0 * integrand_build as f64 / (integrand_build + integrand_read).max(1) as f64,
++        n_separated(integrand_read),
++        100.0 * integrand_read as f64 / (integrand_build + integrand_read).max(1) as f64,
++        c[census::KNOTS] as f64 / c[census::COMPILES].max(1) as f64,
++        c[census::READS] as f64 / c[census::TABLES].max(1) as f64,
++        c[census::TOUCHED] as f64 / c[census::TABLES].max(1) as f64,
++    );
++    if emergent_universe::prof::ENABLED {
++        let (ns, calls) = emergent_universe::prof::take();
++        for i in 0..emergent_universe::prof::N {
++            if calls[i] > 0 {
++                println!(
++                    "  prof {:<40} {:>9.1} ms  {:>7} calls  {:>7.0} ns/call",
++                    emergent_universe::prof::NAMES[i],
++                    ns[i] as f64 / 1e6,
++                    n_separated(calls[i]),
++                    ns[i] as f64 / calls[i].max(1) as f64
++                );
++            }
++        }
++    }
++}
++
++fn n_separated(n: u64) -> String {
++    let s = n.to_string();
++    let mut out = String::new();
++    for (i, ch) in s.chars().enumerate() {
++        if i > 0 && (s.len() - i) % 3 == 0 {
++            out.push(',');
++        }
++        out.push(ch);
++    }
++    out
++}

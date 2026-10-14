@@ -1,0 +1,239 @@
+== battle-paced arm: seed 3, 1500 members, rtf 100, 8 game-s, unlimited ==
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/space)
+warning: unused doc comment
+  --> crates/space/src/census.rs:43:1
+   |
+43 | /// Who is calling `node()` right now (0 other, 1 build, 2 readout, 3 at_radius).
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ rustdoc does not generate documentation for macro invocations
+   |
+   = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+   = note: `#[warn(unused_doc_comments)]` on by default
+
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+warning: `emergent-space` (lib) generated 1 warning
+warning: unused variable: `i`
+  --> crates/universe/examples/knot_census.rs:46:10
+   |
+46 |     for (i, n) in census::NAMES.iter().zip(c.iter()) {
+   |          ^ help: if this is intentional, prefix it with an underscore: `_i`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "knot_census") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.82s
+     Running `/home/glmlab/lab-target-1/release/examples/knot_census 3 1500 100 8`
+seed 3 members 1500 rtf 100 8 game-s budget unlimited | digest 7766fddb0c005551bed720d677ebcef7 reached 162420357 kicks 14599 handouts 0
+engine wall 5.44 s (frames, before the settle)
+  15553                              15,553
+  1436056                            1,436,056
+  1436056                            1,436,056
+  876232                             876,232
+  825221                             825,221
+  4672112                            4,672,112
+  2352102                            2,352,102
+  0                                  0
+  2204788                            2,204,788
+  1553608                            1,553,608
+  17929                              17,929
+  0                                  0
+  106082                             106,082
+  14961                              14,961
+  0                                  0
+  integrand evals: build 6,620,456 (75.0%) read 2,204,788 (25.0%) | knots/table 92.3 readouts/table 55.2 cells-read/table 7.1
+  prof rekey (all deadlines)                         13.1 ms      483 calls    27033 ns/call
+  prof   position walk (root_state_raw)             227.6 ms   30,706 calls     7413 ns/call
+  prof apply (whole)                                256.4 ms   30,784 calls     8329 ns/call
+  prof requeue                                       18.0 ms  113,068 calls      159 ns/call
+  prof process (whole)                             3283.3 ms   29,353 calls   111855 ns/call
+  prof   fit: bind_surface (kicks, hand-outs)      1464.8 ms   15,982 calls    91653 ns/call
+  prof take_due                                       1.0 ms   56,617 calls       18 ns/call
+  prof prune                                         63.7 ms      481 calls   132464 ns/call
+  prof encounters: capture (cheap half)              18.1 ms       77 calls   234810 ns/call
+  prof encounters: held scans answered              482.9 ms       77 calls  6271642 ns/call
+  prof item: kick (Wisdom-Holman)                  2997.3 ms   14,579 calls   205592 ns/call
+  prof item: boundary                               283.2 ms   14,157 calls    20006 ns/call
+  prof item: crash                                    3.6 ms      617 calls     5757 ns/call
+  prof fleet: battle run_to                         404.8 ms   22,741 calls    17800 ns/call
+  prof fleet: advance (whole item)                  408.8 ms   22,741 calls    17975 ns/call
+  prof hand-out (a member made a body)              733.7 ms    1,403 calls   522930 ns/call
+  prof   hand-out: pull planets and moons             0.1 ms    1,403 calls       87 ns/call
+  prof   hand-out: bind (the member as a tube)      544.5 ms    1,403 calls   388087 ns/call
+  prof   hand-out: first plan (replan)              169.1 ms    1,403 calls   120514 ns/call
+  prof   fit again: the coarser word (bind_surface)     257.5 ms      928 calls   277531 ns/call
+== flying arm: seed 3, 400 members, rtf 100, 8 game-s, unlimited ==
+warning: unused doc comment
+  --> crates/space/src/census.rs:43:1
+   |
+43 | /// Who is calling `node()` right now (0 other, 1 build, 2 readout, 3 at_radius).
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ rustdoc does not generate documentation for macro invocations
+   |
+   = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+   = note: `#[warn(unused_doc_comments)]` on by default
+
+warning: `emergent-space` (lib) generated 1 warning
+warning: unused variable: `i`
+  --> crates/universe/examples/knot_census.rs:46:10
+   |
+46 |     for (i, n) in census::NAMES.iter().zip(c.iter()) {
+   |          ^ help: if this is intentional, prefix it with an underscore: `_i`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "knot_census") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/examples/knot_census 3 400 100 8`
+seed 3 members 400 rtf 100 8 game-s budget unlimited | digest b1feb4bf1157db6958091a41aa140903 reached 162420357 kicks 4004 handouts 0
+engine wall 1.37 s (frames, before the settle)
+  4348                               4,348
+  334267                             334,267
+  334267                             334,267
+  191136                             191,136
+  224233                             224,233
+  1202378                            1,202,378
+  639616                             639,616
+  0                                  0
+  560905                             560,905
+  422361                             422,361
+  4808                               4,808
+  0                                  0
+  28345                              28,345
+  3730                               3,730
+  0                                  0
+  integrand evals: build 1,528,204 (73.2%) read 560,905 (26.8%) | knots/table 76.9 readouts/table 60.1 cells-read/table 7.6
+  prof rekey (all deadlines)                          6.4 ms      483 calls    13296 ns/call
+  prof   position walk (root_state_raw)              61.2 ms    8,306 calls     7368 ns/call
+  prof apply (whole)                                 69.6 ms    8,384 calls     8298 ns/call
+  prof requeue                                        5.5 ms   38,087 calls      145 ns/call
+  prof process (whole)                              832.6 ms    7,983 calls   104295 ns/call
+  prof   fit: bind_surface (kicks, hand-outs)       343.2 ms    4,338 calls    79124 ns/call
+  prof take_due                                       0.3 ms   19,066 calls       17 ns/call
+  prof prune                                         17.2 ms      481 calls    35702 ns/call
+  prof encounters: capture (cheap half)               8.4 ms       77 calls   109714 ns/call
+  prof encounters: held scans answered              116.9 ms       77 calls  1518377 ns/call
+  prof item: kick (Wisdom-Holman)                   753.4 ms    3,965 calls   190023 ns/call
+  prof item: boundary                                78.5 ms    3,845 calls    20420 ns/call
+  prof item: crash                                    1.0 ms      173 calls     5505 ns/call
+  prof fleet: battle run_to                          58.2 ms    7,590 calls     7671 ns/call
+  prof fleet: advance (whole item)                   61.3 ms    7,590 calls     8080 ns/call
+  prof hand-out (a member made a body)              196.2 ms      373 calls   525918 ns/call
+  prof   hand-out: pull planets and moons             0.0 ms      373 calls       97 ns/call
+  prof   hand-out: bind (the member as a tube)      139.1 ms      373 calls   372824 ns/call
+  prof   hand-out: first plan (replan)               51.5 ms      373 calls   138199 ns/call
+  prof   fit again: the coarser word (bind_surface)      64.9 ms      230 calls   282064 ns/call
+== schedule identity: the same arm on a biting 3 ms wall budget (digest must equal the unlimited arm) ==
+warning: unused doc comment
+  --> crates/space/src/census.rs:43:1
+   |
+43 | /// Who is calling `node()` right now (0 other, 1 build, 2 readout, 3 at_radius).
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ rustdoc does not generate documentation for macro invocations
+   |
+   = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+   = note: `#[warn(unused_doc_comments)]` on by default
+
+warning: `emergent-space` (lib) generated 1 warning
+warning: unused variable: `i`
+  --> crates/universe/examples/knot_census.rs:46:10
+   |
+46 |     for (i, n) in census::NAMES.iter().zip(c.iter()) {
+   |          ^ help: if this is intentional, prefix it with an underscore: `_i`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "knot_census") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/examples/knot_census 3 400 100 8 3`
+seed 3 members 400 rtf 100 8 game-s budget 3 ms | digest b1feb4bf1157db6958091a41aa140903 reached 862690 kicks 4004 handouts 0
+engine wall 1.14 s (frames, before the settle)
+  4348                               4,348
+  334267                             334,267
+  334267                             334,267
+  191136                             191,136
+  618593                             618,593
+  2383128                            2,383,128
+  1423190                            1,423,190
+  0                                  0
+  950119                             950,119
+  811575                             811,575
+  4808                               4,808
+  0                                  0
+  29119                              29,119
+  4434                               4,434
+  0                                  0
+  integrand evals: build 1,528,204 (61.7%) read 950,119 (38.3%) | knots/table 76.9 readouts/table 139.5 cells-read/table 6.6
+  prof rekey (all deadlines)                       1097.4 ms  200,003 calls     5487 ns/call
+  prof   position walk (root_state_raw)              62.4 ms    8,306 calls     7507 ns/call
+  prof apply (whole)                                 72.3 ms    8,384 calls     8618 ns/call
+  prof requeue                                       76.1 ms  1,419,302 calls       54 ns/call
+  prof process (whole)                              857.3 ms    7,983 calls   107393 ns/call
+  prof   fit: bind_surface (kicks, hand-outs)       353.7 ms    4,338 calls    81535 ns/call
+  prof take_due                                       3.5 ms  213,372 calls       16 ns/call
+  prof prune                                         10.2 ms  200,000 calls       51 ns/call
+  prof encounters: capture (cheap half)               9.3 ms       77 calls   120651 ns/call
+  prof encounters: held scans answered              114.5 ms       77 calls  1487595 ns/call
+  prof item: kick (Wisdom-Holman)                   775.9 ms    3,965 calls   195694 ns/call
+  prof item: boundary                                80.6 ms    3,845 calls    20972 ns/call
+  prof item: crash                                    1.0 ms      173 calls     5738 ns/call
+  prof fleet: battle run_to                          60.9 ms    5,250 calls    11597 ns/call
+  prof fleet: advance (whole item)                   63.8 ms    5,250 calls    12151 ns/call
+  prof hand-out (a member made a body)              192.5 ms      373 calls   515984 ns/call
+  prof   hand-out: pull planets and moons             0.0 ms      373 calls      126 ns/call
+  prof   hand-out: bind (the member as a tube)      137.0 ms      373 calls   367314 ns/call
+  prof   hand-out: first plan (replan)               49.5 ms      373 calls   132715 ns/call
+  prof   fit again: the coarser word (bind_surface)      63.9 ms      230 calls   277896 ns/call
+== rtf 1 arm (the quiet battle pace) ==
+warning: unused doc comment
+  --> crates/space/src/census.rs:43:1
+   |
+43 | /// Who is calling `node()` right now (0 other, 1 build, 2 readout, 3 at_radius).
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ rustdoc does not generate documentation for macro invocations
+   |
+   = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+   = note: `#[warn(unused_doc_comments)]` on by default
+
+warning: `emergent-space` (lib) generated 1 warning
+warning: unused variable: `i`
+  --> crates/universe/examples/knot_census.rs:46:10
+   |
+46 |     for (i, n) in census::NAMES.iter().zip(c.iter()) {
+   |          ^ help: if this is intentional, prefix it with an underscore: `_i`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "knot_census") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+     Running `/home/glmlab/lab-target-1/release/examples/knot_census 3 1500 1 8`
+seed 3 members 1500 rtf 1 8 game-s budget unlimited | digest 1d1b68c1e4d56fd847b18b06288962fd reached 1624203 kicks 95 handouts 0
+engine wall 0.19 s (frames, before the settle)
+  236                                236
+  58826                              58,826
+  58826                              58,826
+  128760                             128,760
+  11454                              11,454
+  67712                              67,712
+  31270                              31,270
+  0                                  0
+  37621                              37,621
+  20117                              20,117
+  613                                613
+  0                                  0
+  1570                               1,570
+  338                                338
+  0                                  0
+  integrand evals: build 364,064 (90.6%) read 37,621 (9.4%) | knots/table 249.3 readouts/table 33.9 cells-read/table 4.6
+  prof rekey (all deadlines)                          2.9 ms      483 calls     5971 ns/call
+  prof   position walk (root_state_raw)               3.0 ms      327 calls     9032 ns/call
+  prof apply (whole)                                  3.7 ms      328 calls    11409 ns/call
+  prof requeue                                        0.6 ms    7,858 calls       71 ns/call
+  prof process (whole)                               25.1 ms       95 calls   263727 ns/call
+  prof   fit: bind_surface (kicks, hand-outs)        62.2 ms      300 calls   207263 ns/call
+  prof take_due                                       0.1 ms    4,155 calls       20 ns/call
+  prof prune                                          0.0 ms      481 calls       72 ns/call
+  prof item: kick (Wisdom-Holman)                    25.1 ms       95 calls   263761 ns/call
+  prof fleet: battle run_to                          36.0 ms      481 calls    74797 ns/call
+  prof fleet: advance (whole item)                   36.1 ms      481 calls    74973 ns/call
+  prof hand-out (a member made a body)              116.4 ms      205 calls   567631 ns/call
+  prof   hand-out: pull planets and moons             0.0 ms      205 calls      145 ns/call
+  prof   hand-out: bind (the member as a tube)       93.7 ms      205 calls   457184 ns/call
+  prof   hand-out: first plan (replan)               19.6 ms      205 calls    95713 ns/call
+  prof   fit again: the coarser word (bind_surface)      43.4 ms      121 calls   358338 ns/call
