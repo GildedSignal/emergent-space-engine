@@ -1,0 +1,31 @@
+== 1. the original falsifier (record regeneration) ==
+kill grid census: 79/108 cells >= 1 tick, 52 >= 10 ticks
+== controls ==
+depth-1 (beta2=0):    err V1 0.000e+00  V2 0.000e+00 ticks
+depth-2 moon speed:   err V1 3.094e-03  V2 3.094e-03 ticks
+oracle vs analytic:   max |diff| = 5.286e-12 over the 108-cell grid
+== named held-out rows (offsets in light-ticks) ==
+player_group_b.3_.3_90deg_d1e3     err V1     15.18  V2     15.18  wigner  -2.70 deg
+inspiral_b.5_.5_0deg_d2e3          err V1    178.63  V2    357.27  wigner   0.00 deg
+high_gamma_b.9_.1_d1e3             err V1    130.07  V2    140.47  wigner   0.00 deg
+perp_offset_null_b.5_.5_90deg      err V1      0.00  V2      0.00  wigner  -8.21 deg
+== doll-tick channel (beta1=beta2=0.5, tB=1e4) ==
+exact gamma1*gamma2 = 1.3333; unscaled-tick error 6666.7; inner-gamma-only 5119.7 ticks
+== depth scaling (beta 0.3 per link, d = 1000) ==
+depth 2:  err V1    15.18  V2    30.37
+depth 3:  err V1    78.12  V2   124.41
+depth 4:  err V1   227.50  V2   321.58
+worst kill cell: b1=0.9 b2=0.3 th=0.00 d=10000: V1 4069.9 V2 5066.9 ticks
+wrote results.json
+regen: the frozen record reproduced and asserted
+== 2. the positive control on the shipped path (cargo build + run) ==
+{"tag":"selfcheck_one_link","t_exact":2.41892983165269106e3,"key1":2.41892983165269152e3,"key2":2.41892983165269152e3,"key_comp":2.41892983165269106e3,"err1":-4.547474e-13,"err2":-4.547474e-13,"err_comp":0.000000e0}
+== 3. assertions against the frozen predictions ==
+composed key: max |err| = 4.657e-10 ticks at scale_d80000 (<= 1 tick by 2.1e+09x); 162 cases, 0 over 1 tick
+scaling signature: err(d=8e4)/err(d=1e4) = 8.00 (oracle-noise-limited, as predicted)
+additive keys: G1 census 79/108 >= 1 tick, 52 >= 10; worst 4069.9/5066.9; depths 15.2/78.1/227.5/511.9/994.7/2921.0 - the frozen record reproduced
+worst cell (0.9,0.9,45deg,1e4): V1 26721.0  V2 45615.6  composed -5.82e-11
+t_B channel: collinear t_exact 16666.67 = gamma1*gamma2*(1+b1b2)*tB (unscaled misses 6666.7, per-link gamma1*gamma2 misses 3333.3, composed errs 3.6e-12); perpendicular gamma1*gamma2 exact (0.0), composed 3.6e-12
+extended G2 (beta up to 0.99): worst additive 45616 ticks; planar G3 (theta1 != 0, flip path): composed max 7.3e-12
+analyze: every frozen prediction held; all dossier numbers asserted
+regen: done
