@@ -1,0 +1,10 @@
+Working...
+Check complete. `check.md` written: **Grade: silver.**
+
+**Reproduction.** Applied `work/patch.diff` (probe only), re-ran the flights. The canonical absolute-tick arms reproduce bit-for-bit — digest `58de94ab…`, kicks 1,743,559 = 1,743,559, rss 1,366, b_per_body 1,378, frames 90,062 — and the presented-cut wobble reproduces in kind (±1 tick → 6 kicks here vs the author's 5, digests differ), with the N=3,000 control agreeing on both protocols. The wave table I re-derived by hand from the raw logs: rss 678 → 1,357 through wave 1 (linear, one binding per kicked body), then +7/+2/0/0 MB; catalogue 300,076 constant; census one retired segment per body between waves; lag 0.000; armC 905→913 MB over 10 windows. Citations (`frame_to` canonical-cut doc, `enc_log` 4,096 cap) verified in-tree.
+
+**Attack, three arms outside the author's domain, all supporting:** seed 2 at 3×10⁵ (same train, rss 1,364→1,371→1,371, h2≤4 transient); half budget 6 ms (max transient lag 1.24 game-s, settle 0 outstanding, memory step identical — zero-lag is not knife-edge); N=3×10³ to 300 k game-s ≈ 161 kicks/body (rss 17→21 MB flat from 100 k, hmax ≤ 2) — retention bounded in kick count, ~28× the author's per-body depth.
+
+**Why silver:** nothing in the gold triad — N unmoved (200 s → 25 min is the certificate axis, not the 28 → 10⁹ gap), no component deleted, and the inversion *failed to kill* (a confirmation, not a premise refutation). Plus record defects: `analyze.py` crashes as shipped (TypeError masked by `|| true` — the wave tables don't regenerate from the run's own script), wall-dependent micro-numbers drift (3-over/14.08 ms → 0-over/11.98; armC wave-1 peak 32.4k → 35.6k), a MiB/10⁶ slip (4,743 not 4,515 B/body), and one overstated wiki clause ("h2 = 0 at every 3×10⁵ census" — regen shows h2=1, seed 2 shows 4, transiently). I corrected the clause and appended a checker note in the run's `wiki/nladder.md`.
+
+**Gold experiment named:** fly 10⁶ through ≥2-3 waves on an M1-class box (5.1 GB — one command), extending the play-time certificate to the ladder's headline scale.

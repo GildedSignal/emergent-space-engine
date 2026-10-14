@@ -1,0 +1,322 @@
+diff --git a/crates/universe/examples/wavetrain.rs b/crates/universe/examples/wavetrain.rs
+new file mode 100644
+index 00000000..0ce6f105
+--- /dev/null
++++ b/crates/universe/examples/wavetrain.rs
+@@ -0,0 +1,173 @@
++//! The belt's kicks come as a train: every root-doll ship is stepped by the doll's clock (one
++//! item every ~26-29 k game-s), so the first wave (13.0-14.5 k game-s) is followed by a second
++//! at ~26-29 k and a third at ~39-44 k. The ladder's 20 s flights end before the first wave and
++//! its 200 s flights end just past it, so what stands between waves has never been measured:
++//! whether the memory step at a body's first kick (2.6 -> 5.1 KB: the last retired binding,
++//! with its compiled orbit) is a step or a staircase, whether the catalogue's free list really
++//! returns the rebound slots, and whether the drain's lag recovers between waves. This probe
++//! flies the plane's coast flight on, sampling resident memory, the catalogue, held scans,
++//! retired history and the frame bill through every wave, and settles at the cut for a
++//! canonical digest.
++//!
++//! cargo run --release -p emergent-universe --example wavetrain [-- <N> <cut_game_s> [<rtf> [<budget_ms> [<sample_game_s>]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident, high-water mark) in kB from /proc: this machine is Linux.
++fn proc_status() -> (u64, u64) {
++    let mut rss = 0u64;
++    let mut hwm = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            let get = |v: &str| v.trim().split_whitespace().next().and_then(|x| x.parse().ok()).unwrap_or(0);
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                rss = get(v);
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                hwm = get(v);
++            }
++        }
++    }
++    (rss, hwm)
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(3000);
++    let cut: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(60000.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let sample: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(250.0);
++    // `now`: cut on presented game time (the protocol this run found wall-unstable: the presented
++    // tick is quantized by the wall budget, so identical flights can settle a tick apart).
++    // `tick` (default): the canonical cut of universe.rs — frame_to(limit) then settle(limit).
++    let presented_cut = args.get(6).map(String::as_str) == Some("now");
++    let (rss0, _) = proc_status();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let locals = ladder_locals(n as u64) as usize;
++    let base = p.player - n;
++    // A fixed sample of belt ids (constant over the flight) for the history census.
++    let stride = (n - locals).max(1) / 4096;
++    let belt_sample: Vec<usize> = ((base + locals)..(base + n)).step_by(stride.max(1)).collect();
++    // The canonical cut (universe.rs: a digest taken after settle(limit) is the same whatever the
++    // frames were): the limit is a fixed absolute tick anchored at the deterministic post-build now,
++    // so two identical flights settle at the same tick whatever the wall did to their budgets.
++    let anchor = p.u.now;
++    let limit = anchor + ((cut + 100.0) / TICK_SECONDS).round() as i64; // +100 game-s: the ladder's first-second warmup
++    let game_s_of = |now: i64| (now - anchor) as f64 * TICK_SECONDS - 100.0;
++
++    let mut next_sample = 0.0f64;
++    let mut next_heavy = 0.0f64;
++    let (mut held_max, mut alive, mut ran) = (0usize, true, 0usize);
++    let mut worst = (0usize, 0.0f64, 0u64); // frame, ms, events
++    let mut s_win = p.u.stats;
++    let (mut over_win, mut max_win) = (0usize, 0.0f64);
++    while presented_cut && game_s_of(p.u.now) < cut || !presented_cut && p.u.now < limit {
++        let start = Instant::now();
++        let lim = if presented_cut { i64::MAX } else { limit };
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, lim);
++        let took = start.elapsed().as_secs_f64() * 1e3;
++        ran += 1;
++        held_max = held_max.max(p.u.held_scans());
++        max_win = max_win.max(took);
++        over_win += (took > budget_ms) as usize;
++        if took > worst.1 {
++            worst = (ran, took, frame.events);
++        }
++        let game_s = game_s_of(p.u.now);
++        if ran > 60 && game_s >= next_sample {
++            let (rss, hwm) = proc_status();
++            let s = p.u.stats;
++            println!(
++                "w: game_s={game_s:.0} rss={:.0} hwm={:.0} kicks={} events={} held={} hand={} cat={} pending={} lag={:.3} max_ms={max_win:.2} over={over_win}",
++                rss as f64 / 1024.0,
++                hwm as f64 / 1024.0,
++                s.kicks - s_win.kicks,
++                s.events() - s_win.events(),
++                p.u.held_scans(),
++                s.handoffs - s_win.handoffs,
++                p.u.catalogue_live(),
++                p.u.pending_handouts(),
++                (frame.target - frame.presented) as f64 * TICK_SECONDS
++            );
++            s_win = p.u.stats;
++            over_win = 0;
++            max_win = 0.0;
++            next_sample += sample;
++        }
++        if ran > 60 && game_s >= next_heavy {
++            let store = p.u.bodies();
++            let (mut h1, mut h2, mut hmax, mut hsum) = (0usize, 0usize, 0usize, 0u64);
++            for &i in &belt_sample {
++                let h = store.history_len(i);
++                h1 += (h >= 1) as usize;
++                h2 += (h >= 2) as usize;
++                hmax = hmax.max(h);
++                hsum += h as u64;
++            }
++            let (mut refusals, mut dead) = (0u64, 0usize);
++            for i in 0..bodies {
++                let r = p.u.rec(i);
++                refusals += r.refusals;
++                dead += (!r.alive) as usize;
++            }
++            println!(
++                "h: game_s={game_s:.0} b_per_body={} hist_sample={}/{} h2={} hmax={} hsum={} refusals={refusals} dead={dead} enc={} lost={}",
++                p.u.bytes_per_body(),
++                h1,
++                belt_sample.len(),
++                h2,
++                hmax,
++                hsum,
++                p.u.stats.encounters,
++                p.u.stats.lost
++            );
++            next_heavy += 5000.0;
++        }
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++    }
++    let game_s = game_s_of(p.u.now);
++    let settle_t = Instant::now();
++    let backlog_before = p.u.stats.events();
++    p.u.settle(if presented_cut { p.u.now } else { limit });
++    let settle_s = settle_t.elapsed().as_secs_f64();
++    let digest = p.u.digest();
++    let (rss2, hwm2) = proc_status();
++    let s = p.u.stats;
++    println!(
++        "end: game_s={game_s:.0} frames={ran} alive(player)={alive} settle={settle_s:.2} s (events after cut {}) rss={:.0} hwm={:.0} MB; kicks={} events={} encounters={} opens={} boundaries={} handoffs={} refused={} lost={} held_max={held_max} worst=({},{:.2},{})",
++        s.events() - backlog_before,
++        rss2 as f64 / 1024.0,
++        hwm2 as f64 / 1024.0,
++        s.kicks,
++        s.events(),
++        s.encounters,
++        s.opens,
++        s.boundaries,
++        s.handoffs,
++        s.refused,
++        s.lost,
++        worst.0,
++        worst.1,
++        worst.2
++    );
++    println!("digest: {digest}");
++    println!(
++        "train: n={n} bodies={bodies} cut={cut:.0} rtf={rtf} frames={ran} build_s={build:.2} wall_s={:.1} settle_s={settle_s:.2} rss_end_mb={:.0} hwm_mb={:.0} b_per_body={} kicks={} encounters={} digest={digest} alive={alive}",
++        t_start.elapsed().as_secs_f64(),
++        rss2 as f64 / 1024.0,
++        hwm2 as f64 / 1024.0,
++        p.u.bytes_per_body(),
++        s.kicks,
++        s.encounters
++    );
++}
+diff --git a/lab/wiki/nladder.md b/lab/wiki/nladder.md
+index 9d63a499..a64b084a 100644
+--- a/lab/wiki/nladder.md
++++ b/lab/wiki/nladder.md
+@@ -1,19 +1,13 @@
+-<<<<<<< main
+-updated: 20261014-2012-components-38bf
+-=======
+ topic: nladder
+ status: open
+ closed-by:
+ valid-while:
+ updated: 20261014-2012-second-20261014-1631-library-7f99-5903
+->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
+ 
+ # The N ladder: 28 live bodies toward 10⁹
+ 
+ ## Current best
+ 
+-<<<<<<< main
+-<<<<<<< main
+ 
+ **The wave's untested exposure is measured and it is a memory ceiling, not a stutter: the player
+ inside the belt band turns the first-kick wave into a process-killing accumulation of held scans
+@@ -50,7 +44,6 @@ the wave window) — the cap does not tame the in-band frame seam at 5×10⁴. H
+ and a full through-the-wave 10³ flight (the author's arm flew only ~1,500 game-s and settled the
+ wave) both clean, digest `ad8a0e78…`, held saturating at 82 — demotion works at 10³; N=10⁴
+ completes at 1.36 GB with held 1,215, per-scan standing ∝ N (peak ratio 5.05×).]*
+-=======
+ **The a669 dial is refuted on shipped code, and the mint it targeted is counted: 1.00 compiles/kick
+ (20261014-2130-second-20261014-2012-system-a669-eb2d).** The flip-gated rebind is wired (patch in the
+ run: quantize the fitted key by a dial, reuse the compiled trajectory and `Arc`-reuse the entry on
+@@ -93,8 +86,6 @@ that does not walk (carry the fit's drift as an integer phasor), not a coarser q
+    maximum reuse measured anywhere is 0.747 (run 4, map dead), the map-alive maximum 0.682 (run
+    3.1, readout panics), and a669's composition needs run ~22-100 — unbought at every grain. The
+    1.00/kick mint holds at N 10^3-10^4, coast and burn, seeds 1-2.]* 
+->>>>>>> 20261014-2130-second-20261014-2012-system-a669-eb2d
+-=======
+ **The seam the record twice declined to test is measured, and it is ruin, not cost: the player inside the belt band (20261014-2130-taleb-625b).**
+ With the player a circular 2.5 AU body of doll 0 (`plane_extra_band`: everything else bit-for-bit `plane_extra`) at
+  N = 10^5, an in-band L8 burn retains **~465 MB/s from the flight's first seconds, plateaus at 11.2 GB and is killed
+@@ -113,7 +104,6 @@ game-s of lag** — a 364x seed spread on the worst frame. Certificate: unlimite
+  prof-off rerun runs away the same: ~0.5 GB/s, killed — not prof-only). Checker's domain edges: 10^3 in-band L8 flies
+  flat (max 11.9 ms, 0 over — the cliff sits between 10^3 and 10^4); L1 at 10^5 completes but retains ~4.2 GB with 350
+  frames over budget — the ruin is dose-dependent on the re-plan cadence.
+->>>>>>> 20261014-2130-taleb-625b
+ 
+ **The ladder's breaks 1, 2 and 4 are one dial: the tube key's own quantum (20261014-2012-system-a669, system lens).**
+ The belt's per-kick dL/L is 2.1e-7 (p01 3.0e-9) against the key's documented L range
+@@ -146,7 +136,6 @@ The 100%-flip holds at the shipped 2.814e4 s cadence (at h/4 the p01 |dL|/L fall
+ legal quantum — checker). Domain: SI Kepler replica of the shipped roster and cadence, cold belt only
+ (the checker's inner system, 0.45-0.85 AU, also flips at any grain); silver, one build from gold.
+ 
+-<<<<<<< main
+ **The input seam inside a wave is measured and bounded: with the pull capped, a player decision
+ mid-wave costs O(1) — 0.168 ms once, ≤ 0.229 ms at 60 Hz through the whole wave — and a no-op
+ decision moves no kick but can move the log (20261014-2012-components-38bf).** On shipped main plus
+@@ -178,7 +167,6 @@ settle-at-cut on one pair, which does not retire 4487's instability finding).
+    cut are wall-unstable, 4487's direction 12; compare counters, not those digests). And
+    `session.rs:118` does not exist in this tree — no shipped caller of `input` outside examples;
+    the realism caveat rests on an unverifiable citation.]*
+-=======
+ **The frame path's first standing deletion is executed, digest-identical, and its horizon constant is
+ refuted (20261014-2012-second-20261014-1631-library-7f99-5903).**
+ The radial index's two shared-state sensors are deleted on shipped code: the doll-wide write-once `speed_cap`
+@@ -206,8 +194,6 @@ on the body (the child doll never engages): the refusal gate is a kill-switch, n
+   verified on the run's surviving compiled binary — and the gated refusal also fails the branch's own
+   `a_moon_born_in_the_planets_doll_never_leaves` (passes ungated): load-bearing handoffs die with the chatter.]*
+ 
+->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
+-
+ **The wave's fix is measured and certified, and the wave is a standing train (20261014-1719-dynamics-bf21).**
+ Capping the player's look-ahead pull (`pull_ships_capped`, 9 lines, `ES_PULL_CAP`-gated; the pull resolves every
+ ship below the player's *next* item inside its current one, outside the budget — the burst 6138 named) holds the
+@@ -252,7 +238,6 @@ checker.]*
+    is the real untested exposure. Settle at 4×10⁵ grows to 11 s (the deferred backlog answered
+    after the flight): the drain, not the frame, scales with N.]*
+ 
+-<<<<<<< main
+ **The belt's cadence is the doll's clock, and the 10⁹ rate law is corrected 24× (20261014-1719-fermi-cf45).**
+ Measured on shipped main (`examples/cadence.rs`, read-only, seed 1 + held-out 11, N 1000/4000):
+ every root-doll ship steps at 2^step_log2 per period of the doll's **shortest secondary**
+@@ -279,9 +264,6 @@ planar, prograde) at 2–3 AU, one Linux box; not measured: belts inside P_D's o
+ secondaries (f' shortens), under thrust, or a P_D that itself rebinds (the doll's clock is
+ dynamic); the locals' arm of the probe carried a doll-unit bug and made no claim.
+ 
+-=======
+->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
+-
+ **The deletion program gets its method, priced from Julien's library mined verbatim for the first
+ time (20261014-1631-library-7f99; 762 highlighted books, 4,580 highlights cached in the run).**
+ A grep-backed audit of the engine's own record: **26 kills, 5 revival-shaped events** — landed
+@@ -592,7 +574,6 @@ The four rules that survive, with rule 2 struck and adjudicated:
+   (20261013-2252-dynamics-ea91).
+ - "Most promoted bodies go dormant (zero events in the second half)": true only of the
+   dead; among live promotions 0–9 % are dormant in a half-run (20261013-2252-dynamics-ea91).
+-<<<<<<< main
+ **The wave's freeze is deleted, and the fix is certified bit-exact where the cut is canonical
+ (20261014-1719-second-20261014-1631-taleb-6138-4487; the checker's named gold experiment, built and
+ flown).** The named fix in the engine's own idiom: the player's in-root item pulls at most `PULL_HOLD
+@@ -682,8 +663,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
+ - "The retired compiled orbit is needed by the engine between kicks" / "deleting it is free at
+   today's view": read-0 in flight but the view's ramp completes through it — the two-word completion
+   is the prerequisite (20261014-1221-components-0e37).
+-=======
+->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
+ 
+ - "effb's cadence law `rate = 2⁷/P with κ ∈ [128, 256]` — a pure birth constant, the cold rail's whole bill" (and the checker's 0.5-AU/5.3-core composition): right only inside secondary dolls; the root-doll belt runs on the doll's clock — measured 3.553×10⁻⁵/s flat in a, 24× the own-period law at p50; the dial's anchor is P_D (77.24 d), not P_own (20261014-1719-fermi-cf45).
+ - "A player decision inside a same-doll wave is an unbudgeted backlog drain" (the checker-2-bf21
+@@ -696,7 +675,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
+ 
+ ## Open directions
+ 
+-<<<<<<< main
+ 0. **The key-changing decision mid-wave** (38bf's untested arm): a turn under burn re-plans the
+    player (the no-op arm never re-derived the plan); one flight with `word(5,8)` at the wave's p50
+    against the no-op control, judged on the frame profile and the counters. With it, the wave seam's
+@@ -705,8 +683,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
+    657 key-changing decisions every frame of the window at 3×10⁵ hold max frame 11.97 ms (0.26 ms a
+    call): answered affirmatively on this scene; the player inside the belt band and a busy box stay
+    open.]*
+-=======
+->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
+ 0. **The capped pull is measured and certified** (bf21, above): adopt the constant (the env gate comes out;
+    any small bound works — the cap only bites when the queue is behind, which is the wave), then re-fly the N rung
+    past a *whole wave train period* (≥ 27.5 k game-s, not just past the first wave) so F1's window contains a
+@@ -760,7 +736,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
+    CPU bill is 2^step_log2/P summed over the period mix; the billion's event load is a
+    content policy, not an engine property — set it when wiring shipmem, with the
+    encounter term (not the kick) as the binding constraint it must leave room for.
+-<<<<<<< main
+ 10. **The second seam now binds F1** (the fix removed the wave's monsters): 1-event frames at
+    37.7/90.3/123.8 ms for 10⁵/2×10⁵/3×10⁵ burn, every ~50 frames (the player's item cadence), burn
+    only — and from 5×10⁴ up (19–22 ms there, both engines, the same frames: it predates the fix;
+@@ -777,8 +752,6 @@ the kick census, the surprise-rate distribution — are unchanged below this poi
+    it is understood.
+ 13. The standing directions from a2c1 (the caps, the density rule, the per-body window), 0e37 (the
+    two-word completion), b29a (the filter promotion), and the ladder's 10⁶ arm.
+-=======
+->>>>>>> 20261014-2012-second-20261014-1631-library-7f99-5903
+ 
+ ## Contradictions
+ 

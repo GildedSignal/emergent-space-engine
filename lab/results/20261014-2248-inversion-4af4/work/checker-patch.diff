@@ -1,0 +1,358 @@
+diff --git a/crates/universe/examples/wavetrain.rs b/crates/universe/examples/wavetrain.rs
+new file mode 100644
+index 00000000..0ce6f105
+--- /dev/null
++++ b/crates/universe/examples/wavetrain.rs
+@@ -0,0 +1,173 @@
++//! The belt's kicks come as a train: every root-doll ship is stepped by the doll's clock (one
++//! item every ~26-29 k game-s), so the first wave (13.0-14.5 k game-s) is followed by a second
++//! at ~26-29 k and a third at ~39-44 k. The ladder's 20 s flights end before the first wave and
++//! its 200 s flights end just past it, so what stands between waves has never been measured:
++//! whether the memory step at a body's first kick (2.6 -> 5.1 KB: the last retired binding,
++//! with its compiled orbit) is a step or a staircase, whether the catalogue's free list really
++//! returns the rebound slots, and whether the drain's lag recovers between waves. This probe
++//! flies the plane's coast flight on, sampling resident memory, the catalogue, held scans,
++//! retired history and the frame bill through every wave, and settles at the cut for a
++//! canonical digest.
++//!
++//! cargo run --release -p emergent-universe --example wavetrain [-- <N> <cut_game_s> [<rtf> [<budget_ms> [<sample_game_s>]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident, high-water mark) in kB from /proc: this machine is Linux.
++fn proc_status() -> (u64, u64) {
++    let mut rss = 0u64;
++    let mut hwm = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            let get = |v: &str| v.trim().split_whitespace().next().and_then(|x| x.parse().ok()).unwrap_or(0);
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                rss = get(v);
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                hwm = get(v);
++            }
++        }
++    }
++    (rss, hwm)
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(3000);
++    let cut: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(60000.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let sample: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(250.0);
++    // `now`: cut on presented game time (the protocol this run found wall-unstable: the presented
++    // tick is quantized by the wall budget, so identical flights can settle a tick apart).
++    // `tick` (default): the canonical cut of universe.rs — frame_to(limit) then settle(limit).
++    let presented_cut = args.get(6).map(String::as_str) == Some("now");
++    let (rss0, _) = proc_status();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let locals = ladder_locals(n as u64) as usize;
++    let base = p.player - n;
++    // A fixed sample of belt ids (constant over the flight) for the history census.
++    let stride = (n - locals).max(1) / 4096;
++    let belt_sample: Vec<usize> = ((base + locals)..(base + n)).step_by(stride.max(1)).collect();
++    // The canonical cut (universe.rs: a digest taken after settle(limit) is the same whatever the
++    // frames were): the limit is a fixed absolute tick anchored at the deterministic post-build now,
++    // so two identical flights settle at the same tick whatever the wall did to their budgets.
++    let anchor = p.u.now;
++    let limit = anchor + ((cut + 100.0) / TICK_SECONDS).round() as i64; // +100 game-s: the ladder's first-second warmup
++    let game_s_of = |now: i64| (now - anchor) as f64 * TICK_SECONDS - 100.0;
++
++    let mut next_sample = 0.0f64;
++    let mut next_heavy = 0.0f64;
++    let (mut held_max, mut alive, mut ran) = (0usize, true, 0usize);
++    let mut worst = (0usize, 0.0f64, 0u64); // frame, ms, events
++    let mut s_win = p.u.stats;
++    let (mut over_win, mut max_win) = (0usize, 0.0f64);
++    while presented_cut && game_s_of(p.u.now) < cut || !presented_cut && p.u.now < limit {
++        let start = Instant::now();
++        let lim = if presented_cut { i64::MAX } else { limit };
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, lim);
++        let took = start.elapsed().as_secs_f64() * 1e3;
++        ran += 1;
++        held_max = held_max.max(p.u.held_scans());
++        max_win = max_win.max(took);
++        over_win += (took > budget_ms) as usize;
++        if took > worst.1 {
++            worst = (ran, took, frame.events);
++        }
++        let game_s = game_s_of(p.u.now);
++        if ran > 60 && game_s >= next_sample {
++            let (rss, hwm) = proc_status();
++            let s = p.u.stats;
++            println!(
++                "w: game_s={game_s:.0} rss={:.0} hwm={:.0} kicks={} events={} held={} hand={} cat={} pending={} lag={:.3} max_ms={max_win:.2} over={over_win}",
++                rss as f64 / 1024.0,
++                hwm as f64 / 1024.0,
++                s.kicks - s_win.kicks,
++                s.events() - s_win.events(),
++                p.u.held_scans(),
++                s.handoffs - s_win.handoffs,
++                p.u.catalogue_live(),
++                p.u.pending_handouts(),
++                (frame.target - frame.presented) as f64 * TICK_SECONDS
++            );
++            s_win = p.u.stats;
++            over_win = 0;
++            max_win = 0.0;
++            next_sample += sample;
++        }
++        if ran > 60 && game_s >= next_heavy {
++            let store = p.u.bodies();
++            let (mut h1, mut h2, mut hmax, mut hsum) = (0usize, 0usize, 0usize, 0u64);
++            for &i in &belt_sample {
++                let h = store.history_len(i);
++                h1 += (h >= 1) as usize;
++                h2 += (h >= 2) as usize;
++                hmax = hmax.max(h);
++                hsum += h as u64;
++            }
++            let (mut refusals, mut dead) = (0u64, 0usize);
++            for i in 0..bodies {
++                let r = p.u.rec(i);
++                refusals += r.refusals;
++                dead += (!r.alive) as usize;
++            }
++            println!(
++                "h: game_s={game_s:.0} b_per_body={} hist_sample={}/{} h2={} hmax={} hsum={} refusals={refusals} dead={dead} enc={} lost={}",
++                p.u.bytes_per_body(),
++                h1,
++                belt_sample.len(),
++                h2,
++                hmax,
++                hsum,
++                p.u.stats.encounters,
++                p.u.stats.lost
++            );
++            next_heavy += 5000.0;
++        }
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++    }
++    let game_s = game_s_of(p.u.now);
++    let settle_t = Instant::now();
++    let backlog_before = p.u.stats.events();
++    p.u.settle(if presented_cut { p.u.now } else { limit });
++    let settle_s = settle_t.elapsed().as_secs_f64();
++    let digest = p.u.digest();
++    let (rss2, hwm2) = proc_status();
++    let s = p.u.stats;
++    println!(
++        "end: game_s={game_s:.0} frames={ran} alive(player)={alive} settle={settle_s:.2} s (events after cut {}) rss={:.0} hwm={:.0} MB; kicks={} events={} encounters={} opens={} boundaries={} handoffs={} refused={} lost={} held_max={held_max} worst=({},{:.2},{})",
++        s.events() - backlog_before,
++        rss2 as f64 / 1024.0,
++        hwm2 as f64 / 1024.0,
++        s.kicks,
++        s.events(),
++        s.encounters,
++        s.opens,
++        s.boundaries,
++        s.handoffs,
++        s.refused,
++        s.lost,
++        worst.0,
++        worst.1,
++        worst.2
++    );
++    println!("digest: {digest}");
++    println!(
++        "train: n={n} bodies={bodies} cut={cut:.0} rtf={rtf} frames={ran} build_s={build:.2} wall_s={:.1} settle_s={settle_s:.2} rss_end_mb={:.0} hwm_mb={:.0} b_per_body={} kicks={} encounters={} digest={digest} alive={alive}",
++        t_start.elapsed().as_secs_f64(),
++        rss2 as f64 / 1024.0,
++        hwm2 as f64 / 1024.0,
++        p.u.bytes_per_body(),
++        s.kicks,
++        s.encounters
++    );
++}
+diff --git a/crates/universe/examples/wavetrain_seed.rs b/crates/universe/examples/wavetrain_seed.rs
+new file mode 100644
+index 00000000..3db8f4be
+--- /dev/null
++++ b/crates/universe/examples/wavetrain_seed.rs
+@@ -0,0 +1,173 @@
++//! The belt's kicks come as a train: every root-doll ship is stepped by the doll's clock (one
++//! item every ~26-29 k game-s), so the first wave (13.0-14.5 k game-s) is followed by a second
++//! at ~26-29 k and a third at ~39-44 k. The ladder's 20 s flights end before the first wave and
++//! its 200 s flights end just past it, so what stands between waves has never been measured:
++//! whether the memory step at a body's first kick (2.6 -> 5.1 KB: the last retired binding,
++//! with its compiled orbit) is a step or a staircase, whether the catalogue's free list really
++//! returns the rebound slots, and whether the drain's lag recovers between waves. This probe
++//! flies the plane's coast flight on, sampling resident memory, the catalogue, held scans,
++//! retired history and the frame bill through every wave, and settles at the cut for a
++//! canonical digest.
++//!
++//! cargo run --release -p emergent-universe --example wavetrain [-- <N> <cut_game_s> [<rtf> [<budget_ms> [<sample_game_s>]]]]
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{ladder_locals, plane_extra};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident, high-water mark) in kB from /proc: this machine is Linux.
++fn proc_status() -> (u64, u64) {
++    let mut rss = 0u64;
++    let mut hwm = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            let get = |v: &str| v.trim().split_whitespace().next().and_then(|x| x.parse().ok()).unwrap_or(0);
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                rss = get(v);
++            } else if let Some(v) = line.strip_prefix("VmHWM:") {
++                hwm = get(v);
++            }
++        }
++    }
++    (rss, hwm)
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(3000);
++    let cut: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(60000.0);
++    let rtf: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let sample: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(250.0);
++    // `now`: cut on presented game time (the protocol this run found wall-unstable: the presented
++    // tick is quantized by the wall budget, so identical flights can settle a tick apart).
++    // `tick` (default): the canonical cut of universe.rs — frame_to(limit) then settle(limit).
++    let presented_cut = args.get(6).map(String::as_str) == Some("now");
++    let (rss0, _) = proc_status();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), std::env::var("WSEED").ok().and_then(|s| s.parse::<u64>().ok()).unwrap_or(1), Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let bodies = p.u.n_bodies();
++    let locals = ladder_locals(n as u64) as usize;
++    let base = p.player - n;
++    // A fixed sample of belt ids (constant over the flight) for the history census.
++    let stride = (n - locals).max(1) / 4096;
++    let belt_sample: Vec<usize> = ((base + locals)..(base + n)).step_by(stride.max(1)).collect();
++    // The canonical cut (universe.rs: a digest taken after settle(limit) is the same whatever the
++    // frames were): the limit is a fixed absolute tick anchored at the deterministic post-build now,
++    // so two identical flights settle at the same tick whatever the wall did to their budgets.
++    let anchor = p.u.now;
++    let limit = anchor + ((cut + 100.0) / TICK_SECONDS).round() as i64; // +100 game-s: the ladder's first-second warmup
++    let game_s_of = |now: i64| (now - anchor) as f64 * TICK_SECONDS - 100.0;
++
++    let mut next_sample = 0.0f64;
++    let mut next_heavy = 0.0f64;
++    let (mut held_max, mut alive, mut ran) = (0usize, true, 0usize);
++    let mut worst = (0usize, 0.0f64, 0u64); // frame, ms, events
++    let mut s_win = p.u.stats;
++    let (mut over_win, mut max_win) = (0usize, 0.0f64);
++    while presented_cut && game_s_of(p.u.now) < cut || !presented_cut && p.u.now < limit {
++        let start = Instant::now();
++        let lim = if presented_cut { i64::MAX } else { limit };
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, lim);
++        let took = start.elapsed().as_secs_f64() * 1e3;
++        ran += 1;
++        held_max = held_max.max(p.u.held_scans());
++        max_win = max_win.max(took);
++        over_win += (took > budget_ms) as usize;
++        if took > worst.1 {
++            worst = (ran, took, frame.events);
++        }
++        let game_s = game_s_of(p.u.now);
++        if ran > 60 && game_s >= next_sample {
++            let (rss, hwm) = proc_status();
++            let s = p.u.stats;
++            println!(
++                "w: game_s={game_s:.0} rss={:.0} hwm={:.0} kicks={} events={} held={} hand={} cat={} pending={} lag={:.3} max_ms={max_win:.2} over={over_win}",
++                rss as f64 / 1024.0,
++                hwm as f64 / 1024.0,
++                s.kicks - s_win.kicks,
++                s.events() - s_win.events(),
++                p.u.held_scans(),
++                s.handoffs - s_win.handoffs,
++                p.u.catalogue_live(),
++                p.u.pending_handouts(),
++                (frame.target - frame.presented) as f64 * TICK_SECONDS
++            );
++            s_win = p.u.stats;
++            over_win = 0;
++            max_win = 0.0;
++            next_sample += sample;
++        }
++        if ran > 60 && game_s >= next_heavy {
++            let store = p.u.bodies();
++            let (mut h1, mut h2, mut hmax, mut hsum) = (0usize, 0usize, 0usize, 0u64);
++            for &i in &belt_sample {
++                let h = store.history_len(i);
++                h1 += (h >= 1) as usize;
++                h2 += (h >= 2) as usize;
++                hmax = hmax.max(h);
++                hsum += h as u64;
++            }
++            let (mut refusals, mut dead) = (0u64, 0usize);
++            for i in 0..bodies {
++                let r = p.u.rec(i);
++                refusals += r.refusals;
++                dead += (!r.alive) as usize;
++            }
++            println!(
++                "h: game_s={game_s:.0} b_per_body={} hist_sample={}/{} h2={} hmax={} hsum={} refusals={refusals} dead={dead} enc={} lost={}",
++                p.u.bytes_per_body(),
++                h1,
++                belt_sample.len(),
++                h2,
++                hmax,
++                hsum,
++                p.u.stats.encounters,
++                p.u.stats.lost
++            );
++            next_heavy += 5000.0;
++        }
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++    }
++    let game_s = game_s_of(p.u.now);
++    let settle_t = Instant::now();
++    let backlog_before = p.u.stats.events();
++    p.u.settle(if presented_cut { p.u.now } else { limit });
++    let settle_s = settle_t.elapsed().as_secs_f64();
++    let digest = p.u.digest();
++    let (rss2, hwm2) = proc_status();
++    let s = p.u.stats;
++    println!(
++        "end: game_s={game_s:.0} frames={ran} alive(player)={alive} settle={settle_s:.2} s (events after cut {}) rss={:.0} hwm={:.0} MB; kicks={} events={} encounters={} opens={} boundaries={} handoffs={} refused={} lost={} held_max={held_max} worst=({},{:.2},{})",
++        s.events() - backlog_before,
++        rss2 as f64 / 1024.0,
++        hwm2 as f64 / 1024.0,
++        s.kicks,
++        s.events(),
++        s.encounters,
++        s.opens,
++        s.boundaries,
++        s.handoffs,
++        s.refused,
++        s.lost,
++        worst.0,
++        worst.1,
++        worst.2
++    );
++    println!("digest: {digest}");
++    println!(
++        "train: n={n} bodies={bodies} cut={cut:.0} rtf={rtf} frames={ran} build_s={build:.2} wall_s={:.1} settle_s={settle_s:.2} rss_end_mb={:.0} hwm_mb={:.0} b_per_body={} kicks={} encounters={} digest={digest} alive={alive}",
++        t_start.elapsed().as_secs_f64(),
++        rss2 as f64 / 1024.0,
++        hwm2 as f64 / 1024.0,
++        p.u.bytes_per_body(),
++        s.kicks,
++        s.encounters
++    );
++}

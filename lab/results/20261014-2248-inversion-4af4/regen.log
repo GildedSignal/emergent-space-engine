@@ -1,0 +1,27 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: unused variable: `rss0`
+  --> crates/universe/examples/wavetrain.rs:48:10
+   |
+48 |     let (rss0, _) = proc_status();
+   |          ^^^^ help: if this is intentional, prefix it with an underscore: `_rss0`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `emergent-universe` (example "wavetrain") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 9.06s
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261014-2248-inversion-4af4/analyze.py", line 84, in <module>
+    main(sys.argv[1])
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261014-2248-inversion-4af4/analyze.py", line 50, in main
+    print(f"wave windows (game-s): {['%.0f-%.0f' % s for s in spans]}")
+                                     ~~~~~~~~~~~~^~~
+TypeError: must be real number, not list
+Traceback (most recent call last):
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261014-2248-inversion-4af4/analyze.py", line 84, in <module>
+    main(sys.argv[1])
+  File "/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/lab/results/20261014-2248-inversion-4af4/analyze.py", line 50, in main
+    print(f"wave windows (game-s): {['%.0f-%.0f' % s for s in spans]}")
+                                     ~~~~~~~~~~~~^~~
+TypeError: must be real number, not list
+--- determinism pairs ---
+done
