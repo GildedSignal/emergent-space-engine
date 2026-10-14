@@ -1,0 +1,83 @@
+{
+  "base": "ac1a0a4a9c8fedd948a18fe3d366de9c2330bffc",
+  "branch": "wt/range",
+  "change": "Independent i16 binary exponent for the hyperbolic shape below 2^-28; retained Q48 path unchanged. Both inverse paths, scaled clock numerators, memo keys and universe readout/digests carry it.",
+  "R1": {
+    "before": {
+      "refusals": 4,
+      "cases": 12,
+      "worst_relative_position": 1.657e-07,
+      "worst_relative_velocity": 1.657e-07,
+      "oracle_convergence": 1.507e-12
+    },
+    "after": {
+      "refusals": 0,
+      "cases": 12,
+      "worst_relative_position": 3.033e-08,
+      "worst_relative_velocity": 3.033e-08,
+      "oracle_convergence": 1.507e-12
+    },
+    "criterion": 1e-06,
+    "oracle": "Independent Schwarzschild proper-time ODE, step-doubled RK4, 81 checkpoints per side from the turn to near the 2^40 M leave. Position normalized by reference radius, velocity by periapsis speed. Builder-authored harness; integrator adjudicates."
+  },
+  "C1": {
+    "before": "PASS: both nonignored tests",
+    "after": "PASS: both nonignored tests",
+    "limitation": "Existing ignored full-to-leave test exceeds 60 seconds and was not run."
+  },
+  "gates": {
+    "before": {
+      "G1": "PASS",
+      "G2": "PASS",
+      "G3": "PASS",
+      "G4": "PASS",
+      "G5": "PASS",
+      "G6": "PASS",
+      "B19": "PASS"
+    },
+    "after": {
+      "G1": "PASS",
+      "G2": "PASS",
+      "G3": "PASS",
+      "G4": "PASS",
+      "G5": "PASS",
+      "G6": "PASS",
+      "B19": "PASS"
+    }
+  },
+  "suites": {
+    "command": "cargo test --release -p emergent-space -p emergent-universe",
+    "before_with_R1": "FAIL only the new R1; cargo stops at that binary",
+    "before_skip_R1": {
+      "passed": 120,
+      "failed": 0,
+      "ignored": 2,
+      "longest_test_binary_seconds": 27.71
+    },
+    "after": {
+      "passed": 124,
+      "failed": 0,
+      "ignored": 2,
+      "longest_test_binary_seconds": 33.14
+    },
+    "ignored": [
+      "full C1 to leave",
+      "existing single chaotic Jacobi orbit"
+    ]
+  },
+  "compatibility": {
+    "retained_readout_count": 948,
+    "before_and_after_fingerprint": "c0e57acda1dfa0ce",
+    "plane_before_and_after_printed_digest_prefix": "05cf9658e3233426",
+    "B19_before_and_after_digest": "59d54de0f9ead66f",
+    "scope": "All measured fingerprints identical; exponent-zero arithmetic and digest serialization preserve the old path."
+  },
+  "additional_probes": [
+    "Shape and readout through periapsis 2^200 M, below Q48 and Q62 shape quanta.",
+    "Invariant compiler through E=1e6 and periapsis 2^60 M.",
+    "18 universe adapter cases, including periapses 2^38 and 2^39 M."
+  ],
+  "diagnostic_correction": "Initial optional adapter probe wrongly assumed Universe::settle schedules isolated system-leave events and stats.leavers counts them (it counts fleet handouts). Kept its failure in after/adapter-debug.log; replaced with a word-selection/readout probe. R1 and its thresholds were unchanged.",
+  "history_check": "PASS",
+  "machine": "before/machine.json and after/machine.json record AC power and load; sandbox denies thermal/swap detail."
+}

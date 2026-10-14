@@ -2,11 +2,7 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-<<<<<<< main
-updated: 20261013-1428-components-2368
-=======
-updated: 20261013-1428-scout-21ba
->>>>>>> 20261013-1428-scout-21ba
+updated: 20261013-1915-second-20261013-1428-scout-21ba-de99
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
@@ -62,6 +58,43 @@ certified 2⁻³⁰ no longer holds; panels there grow only as log(1/P) (43 knot
 explosion is in e, not in m. Weak/strong cut at 2⁻¹⁸ confirmed (3.5×10⁻¹⁰ strong side,
 8.7×10⁻⁶ ≈ 3·q weak side).]
 
+**The named experiment is done: the honest Carlson kernel delivers all three increments
+as a drop-in, priced on an instrument that cannot delete the work
+(20261013-1915-second-20261013-1428-scout-21ba-de99).** RF/RC/RD/RJ verbatim from Carlson
+1994 (arXiv:math/9409227, read at source) with the certified stop rules at r = 10⁻¹⁵ and
+`black_box` timing: on every strong key of the 32-key grid (q 2.4×10⁻⁴…0.2436 plus weak
+rows at 9.5×10⁻⁷–1.8×10⁻⁶, e to 0.99999, m to 0.99999999) advance/period/proper_period
+match shipped compile to **≤ 7.6×10⁻¹⁰ (best 4.7×10⁻¹¹)** — inside the walk's own 2⁻³⁰
+quantum (9.3×10⁻¹⁰) — with kernel-vs-truth at the **f64 roundoff floor** (0…2×10⁻¹⁶;
+2×10⁻¹³ at e 0.99999 from the predicted Π(−β)=K+(n/3)RJ cancellation at β≈2×10⁶).
+Walls: φ 129 ns flat in e, τ/t
+0.7–1.4 µs, all three 2.9 µs, against the walk's 5.4→307 µs: **φ 42–2378×, all-three
+3.5–106×**. The certified law measured: spread ratio exactly 0.2500 (min = median = max,
+4.15×10⁷ duplications), final X ≤ 3.3×10⁻³ inside Carlson's (3r)^{1/6} envelope, 5–6
+duplications per R (11 at β = 2×10⁶). The m→1 ladder: the walk degrades 1.4×10⁻¹¹
+(P=10⁻¹) → **6.7×10⁻⁷ (P=3×10⁻⁹, advance; periods 4.4–4.9×10⁻⁷ — check2's number
+reproduced)** while the kernel stays ≤ 3.6×10⁻¹⁰ from truth. Weak rows: advance 4.3×10⁻⁶
+(the branch's own truncation), periods 10⁻¹¹. Readout fenced with numbers: 177 knots ×
+88 B + 175 crossings vs 48 B of increments; the increments and the knot sums share the
+same 704 node() evaluations, so the compile wall falls only when the knot table's
+replacement (incomplete, amplitude-carrying Carlson forms — fenced, not built) lands
+too; with the table kept, panels remain and the increment win is not on the compile
+wall. Two instrument findings for the record: the first run's tanh-sinh `de` had its
+weight bug (sech² of the tanh value instead of the argument — the junk 1.00e0 DE
+columns both checkers saw), and the t-channel needs the horizon prefactor
+γ⁻¹ = (1−2q(2k−1))⁻¹ that neither checker's τ/t form carried (their period forms
+missed it by exactly γ⁻¹−1). Next named step: the integer port (isqrt-closed, 9384)
+and the incomplete forms for the readout.
+
+[Checker, this run's check: physics columns bit-identical on regen. Extended one decade
+past every swept dimension: at e 0.999999/0.9999999 the kernel stays 7.6×10⁻¹³/3.3×10⁻¹¹
+from truth while the walk drifts to 8.2×10⁻⁹/1.6×10⁻⁷ — the closed form beats the walk
+past the stated domain too; at P=10⁻¹¹ (edge e 0.5) the walk is 9×10⁻⁶ off. mpmath
+50 dps (fourth arbiter, no shared code): Legendre layer 1.3×10⁻¹⁵, J₀ 4×10⁻¹⁹, and the
+ship measured 6.68/4.87/4.35×10⁻⁷ from exact at P=3×10⁻⁹ — the walk's error, not the
+kernel's. Branch cut, two new refusals, DE sanity ∫₁=2.0 and the duplication census
+(RF/RD med 5 max 8, RJ med 6 max 17 at harder keys, RC ≤ 3) all reproduce.]
+
 **The jet is retired** (law.md:36, 12 October; HANDOFF item 4 is now struck through — "done in law.md (not in the shipped code)"): a kick recompiles its cycle exactly, as the plane does, and the kick's cost is now the frame-cost bottleneck. The six standing gold refutations are 4978, 9a04, a059, b33f, ee08, d617 (law.md:36 cites 4978, b33f, d617; df81, the run the law originally adopted, had one checker — 4978). The refutation, in one pass: the multiply-add's error is C·drift² with no bound (df81: the 10⁻⁶ floor crossed after ~730 correlated 10⁻⁶ kicks); it diverges at the Schwarzschild separatrix on the L axis (4978: one 10⁻³-of-L kick errs 10³–10⁹× the floor, and a plunge is fabricated as a bound cycle) and on the E axis (9a04: relerr(T_t) ≈ (15/8)·(δE/(1−…
 
 **The exact replacement, priced on shipped code.** The rebind (fit → compile → readout) is 84.6% of a plane kick's wall (96b4, correcting ea6b's wrong-path table), the compile alone 49–62% on fleet leavers (1e74) — the same shape at the 97 µs era (0083: compile 64.5%, rebind 78.7%, forces 9%) and on the leaver tail (ec9d: Passage::compile is 89–97% of a 365–381 µs leaver rebind); the rebind runs ~270× above a two-integer floor, and 1,400–1,800× above a measured ~42–56 ns information floor (b063, gold; the board files it under frame-cost); the compile's uncounted interior (allocations, key search, ~182 i128 panels), not its ~2,300 counted Scalar ops (~3–5 µs), owns most of the ~25–27 µs (fa08, 30e1); the fired kick's generator update runs 9–16× above its floo…
@@ -74,11 +107,7 @@ explosion is in e, not in m. Weak/strong cut at 2⁻¹⁸ confirmed (3.5×10⁻�
 
 **The word-transition double compile, measured and deleted (digest-identical).** The shipped `bind` chose the integer word from the *compiled* entry (`word_for(&bound.entry)`), so every word transition compiled a full trajectory, read two exponents off it, threw it away and compiled again: on plane settles (600 s game, seeds 1/3, 48 and 400 members) transitions are 5.1–6.0% of binds but are the expensive binds (leaver-class; 278–310 µs discarded per transition against a ~104 µs mean bind), so the discarded first pass was 14.5–18.2% of all bind time (binds ≈ 43–50% of settle wall at 400 members). The word is a function of the fit's key (plus, for a passage, the compile edge — both known before compiling): `Rebinding::fit_of` (the fit without the compile) + `w…
 
-<<<<<<< main
-=======
 **Domain.** Tested: plane seeds 1–7 at rtf 30–1000, fleets to 200 members; the hlive belt (Jupiter 2⁻¹⁰, Saturn 2⁻¹², 24 game-years); Schwarzschild and equatorial Kerr χ ∈ {−0.9, 0.5, 0.9, 0.998}; e ≤ 0.99. Not tested: inclined Kerr, resonant kick trains against a carry, the dense order, and behaviour gates on any derivative-carrying build (see Contradictions). Inspiral is not a jet: Peters' a(t) is its generator (law.md:36; df81; the Peters flux drifting the tube's (E, L) is adoptable with measured contracts — 4c5b, silver, gravity-news topic). The allocation census (20261013-0236-fermi-061f) adds: one ship class, one scene, tcache-warm single thread. The division-floor census (20261013-0350-components-c914) adds: x86-64 only at the time (i7-4790-class, shared), compile grids not a settle's kick stream, leaver `Passage::compile` under-sampled; the arm64 floor proxy (20261013-1145-second-...-00d2) extends it off-M1 (QEMU TCG + instruction census, see Current best). The divisor census (20261013-0350-scout-7d2b) adds: the four `fast_quad` sites plus `div_word` only; `isqrt`'s internal Newton divisions uncensused. The elliptic probe (20261013-1428-scout-21ba) adds: Schwarzschild bound keys only (orbit.rs; kerr.rs and the passage/plunge paths unprobed), one f64 Carlson implementation, φ channel only, panels counted as knots−1, wall medians on the shared runner.
-
->>>>>>> 20261013-1428-scout-21ba
 **The division-primitive lever inside the walk is killed, and the node's arithmetic is a
 three-way tie, not a division monopoly (20261013-0350-scout-7d2b).** Census on a 48-key
 exact compile sweep: 674 u128 `/` divisions per compile on the `fast_quad` sites (min 89,
@@ -111,7 +140,6 @@ count, a law question). On this grid the measured drop (−9.5%) at the measured
 (1.78×) implies an isqrt compile share of ~22% (checker arms: 22–26%), between c914's 6–14%
 and 7d2b's 30%-of-node.
 
-<<<<<<< main
 **The cos primitive, closed by interleaving the panel's four chains — bit-identically (20261013-1428-components-2368).**
 7d2b's other named lever, built. The shipped `cos` (thirteen nested floored factors = 26
 dependent 64×64 multiply-highs) costs 41.9–44.9 ns and **unrolling alone buys 1.01–1.03×**
@@ -132,9 +160,6 @@ cos closed; what remains in the node is the none-of-these 44–58%, interleaving
 division/isqrt chains themselves (function-call-shaped, untouched), and panel count (a law change).
 
 **Domain.** Tested: plane seeds 1–7 at rtf 30–1000, fleets to 200 members; the hlive belt (Jupiter 2⁻¹⁰, Saturn 2⁻¹², 24 game-years); Schwarzschild and equatorial Kerr χ ∈ {−0.9, 0.5, 0.9, 0.998}; e ≤ 0.99. Not tested: inclined Kerr, resonant kick trains against a carry, the dense order, and behaviour gates on any derivative-carrying build (see Contradictions). Inspiral is not a jet: Peters' a(t) is its generator (law.md:36; df81; the Peters flux drifting the tube's (E, L) is adoptable with measured contracts — 4c5b, silver, gravity-news topic). The allocation census (20261013-0236-fermi-061f) adds: one ship class, one scene, tcache-warm single thread. The division-floor census (20261013-0350-components-c914) adds: x86-64 only at the time (i7-4790-class, shared), compile grids not a settle's kick stream, leaver `Passage::compile` under-sampled; the arm64 floor proxy (20261013-1145-second-...-00d2) extends it off-M1 (QEMU TCG + instruction census, see Current best). The divisor census (20261013-0350-scout-7d2b) adds: the four `fast_quad` sites plus `div_word` only; `isqrt`'s internal Newton divisions uncensused. The cos run (20261013-1428-components-2368) adds: x86-64 only (shared box), one 85-key grid and one plane seed for the digest; the `cost_split` kick arm is single-shot.
-
-=======
->>>>>>> 20261013-1428-scout-21ba
 ## Refuted
 - **"Full closed forms for strong-field cycles — revisit only if compiles show in a
   profile" as a closed door** (Opus memo): the condition is now met — the compile is
@@ -175,11 +200,7 @@ division/isqrt chains themselves (function-call-shaped, untouched), and panel co
 
 ## Open directions
 
-<<<<<<< main
-1. **Cheapen the exact recompile — every named primitive is now closed or at its floor; what remains is structure.** The interior: divisions 20–35% of the compile on x86 **at their hardware floor** (divq 1.04×, exact Newton reciprocal 1.05× — no lever there; 20261013-0350-components-c914; the arm64 QEMU/census proxy bounds the c914 prototype off-M1 — Newton 2.8× the wall, 1.49× the instructions — but the aarch64 baseline carries ~2.8 `udiv`/div, so M1 silicon decides the division lever: checker-corrected, 20261013-1145-second-...-00d2), allocations 0.3% and key search absent (061f), `isqrt` closed bit-identically at 54.2 ns / compile −9.5% (20261013-1145-components-9384), `cos` closed bit-identically by 4-way interleaving at 14.1 ns/cos / compile −10.6–12.4% (20261013-1428-components-2368), and 44–58% none of these (products, Scalar normalization, knot accumulation, scaffolding). What remains: fewer panel evaluations per compile (the law's π/4 quantum and band cuts — a law change with recertification, not an optimization), interleaving the four nodes' division/isqrt chains (the same ILP lever cos just proved, now on function-call-shaped code — inline or batch them as `cos4` batches cos), interleaving the four nodes' independent chains if the walk is latency-bound beyond cos, and the integrator's M1 re-measure of the division floor and the interleaved cos (the Newton prototype ships in `div_bench`; the expectation to falsify is 1.49× instructions / ≥1.5× wall — 00d2). The word-transition double-compile half is done (009b: −12.9 to −17.5% of bind time); a crossing-read tier already reads at 0.34–0.42 µs (8c81, c4ce). Digest-identical cuts already measured: fit_only deletes one dead trajectory decode per kick (−10.9%, a48d), a proper_at_event cache plus cartesian-free orbit_state cuts ~9–10% (2833), a weak-hyperbolic quadrature shortcut cuts the leaver ladder 40–45% (c3a5); ec9d's bounded Passage::compile projects ~10× off the leaver tail.
-=======
-1. **Cheapen the exact recompile — the panel-count half now has a named replacement: Carlson's closed forms (20261013-1428-scout-21ba).** The arithmetic interior is bounded on x86 (divisions at their hardware floor, c914) and on the arm64 proxy for the prototype alone (00d2), isqrt closed bit-identically (9384, −9.5–12% compile), allocations dead (061f); what remains inside the walk is `cos` (12–40%) and scaffolding, and above it the panel count itself: measured 5→176 panels (e→0.999) and 3.2→197 µs wall, O(1) in the closed form (one RF verified exact for φ; τ/t cited, RJ/RD family). The build order the record now implies: (a) verify the τ/t reduction numerically (my DE instrument failed — one clean mpmath/Carlson check), (b) price an **integer** Carlson RF against the shipped node (the duplication step is adds + one isqrt at 54 ns; ~6 iterations), (c) only then the law change: drop the band-cut panel walk for complete forms, incomplete forms for the readout's crossing table, with the near-separatrix (m→1) handled by the complementary forms — the same place the λ-ladder lives today. The M1 re-measure of the division floor still pending (the Newton prototype ships in `div_bench`; expectation to falsify: 1.49× instructions / ≥1.5× wall — 00d2). The word-transition double-compile half is done (009b: −12.9 to −17.5% of bind time); a crossing-read tier already reads at 0.34–0.42 µs (8c81, c4ce). Digest-identical cuts already measured: fit_only deletes one dead trajectory decode per kick (−10.9%, a48d), a proper_at_event cache plus cartesian-free orbit_state cuts ~9–10% (2833), a weak-hyperbolic quadrature shortcut cuts the leaver ladder 40–45% (c3a5); ec9d's bounded Passage::compile projects ~10× off the leaver tail.
->>>>>>> 20261013-1428-scout-21ba
+1. **Cheapen the exact recompile — the panel-count half now has a named replacement: Carlson's closed forms (20261013-1428-scout-21ba).** The arithmetic interior is bounded on x86 (divisions at their hardware floor, c914) and on the arm64 proxy for the prototype alone (00d2), isqrt closed bit-identically (9384, −9.5–12% compile), allocations dead (061f); what remains inside the walk is `cos` (12–40%) and scaffolding, and above it the panel count itself: measured 5→176 panels (e→0.999) and 3.2→197 µs wall, O(1) in the closed form (one RF verified exact for φ; τ/t cited, RJ/RD family). The build order the record now implies: (a) ~~verify the τ/t reduction~~ done and black_box-priced (de99: all three channels to the walk's quantum, φ 42–2378×, all-three 3.5–106×, certified bound measured at X ≤ 3.3×10⁻³), (b) the integer Carlson port (its only non-add primitive, sqrt, is isqrt-closed — 9384), (c) price an **integer** Carlson RF against the shipped node (the duplication step is adds + one isqrt at 54 ns; ~6 iterations), (c) only then the law change: drop the band-cut panel walk for complete forms, incomplete forms for the readout's crossing table, with the near-separatrix (m→1) handled by the complementary forms — the same place the λ-ladder lives today. The M1 re-measure of the division floor still pending (the Newton prototype ships in `div_bench`; expectation to falsify: 1.49× instructions / ≥1.5× wall — 00d2). The word-transition double-compile half is done (009b: −12.9 to −17.5% of bind time); a crossing-read tier already reads at 0.34–0.42 µs (8c81, c4ce). Digest-identical cuts already measured: fit_only deletes one dead trajectory decode per kick (−10.9%, a48d), a proper_at_event cache plus cartesian-free orbit_state cuts ~9–10% (2833), a weak-hyperbolic quadrature shortcut cuts the leaver ladder 40–45% (c3a5); ec9d's bounded Passage::compile projects ~10× off the leaver tail.
 2. **The fate predicate at a kick.** 9a04's tri-predicate (bound ⇔ E < 1 ∧ three real roots ∧ middle root > 2M; escape ⇔ E ≥ 1 ∧ three real roots; plunge otherwise) is complete and freeze-ready for b-plunge-tubes; ee08 folds both failure families into one root-distance rule in u-space on roots darwin16 already factors, and d617 prices the domain guard (μ ≥ 0.3 plus a drift counter, ≈0.01 compiles/kick, residents only). Would change: deletes the plane's NoBoundOrbit refusals (4978) and guards the exact path's fate flips.
 3. **Inspiral by Peters' generator, not kicks** (law.md:36; 4c5b: handoff = separatrix, re-key wall, 1PN flux contract measured; its circ_L √a artifact was corrected by the checker). Would change: deletes the GW channel's per-kick work.
 4. **If a carry is ever reopened:** it must carry the (E,L) sensitivities (b33f) and the period derivatives ∂Δt/∂E, ∂Δt/∂L per band (fa08: without them it dies at kick 1–4), trigger on offset × window age, not offset alone (b242, ungraded), and face B12/B13/B17 and the lifecycle pin on the same build that holds drift (b33f; 2c68).
@@ -251,3 +272,4 @@ division/isqrt chains themselves (function-call-shaped, untouched), and panel co
 - 20261013-1145-components-9384 (silver): bit-identical isqrt (f64 seed + Newton + fix-ups) 96.5→54.2 ns, compile −9.5% A/B/A, digests identical; isqrt lever closed, mul-only reciprocal open.
 - 20261013-1428-components-2368 (this run, awaiting grade): cos closed bit-identically by 4-way interleaving of the panel's Gauss nodes — primitive 42→14.1 ns/cos (3.0×), compile −10.6–12.4% A/B/A, plane digest identical, kick resolve 33.2→28.3 µs; unrolling alone refuted (1.01–1.03×).
 - 20261013-1428-scout-21ba (this run, awaiting grade): the φ channel of the shipped panel compile is one Carlson RF call, exact to the compile's Q30 quantum on every strong key; panels 5→176 (e→0.999, band cuts), wall 3.2→197 µs vs ~90–420 ns closed form (checker-corrected; the run's 37–39 ns was a timing artifact); panel-count lever now has a named replacement mechanism.
+- 20261013-1915-second-20261013-1428-scout-21ba-de99 (awaiting grade): the honest Carlson kernel (paper-verbatim, r=10⁻¹⁵, black_box) delivers φ/τ/t as a drop-in to the walk's quantum on 29 keys; φ 129 ns flat, all-three ≤2.9 µs vs 307 µs walk (42–2378× per channel); walk degrades to 6.7×10⁻⁷ at m→1 where the kernel holds 10⁻¹⁰; first run's DE weight bug found and fixed.

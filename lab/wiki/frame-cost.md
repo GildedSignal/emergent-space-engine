@@ -2,11 +2,145 @@ topic: frame-cost
 status: open
 closed-by:
 valid-while:
-updated: 20261013-1428-system-2964
+updated: 20261014-0450-quant-1845
 
 # The frame loop and the kick resolver: cost per body and per kick
 
 ## Current best
+**The kick's non-bind half is one bisection, rebought every kick and every dipping hand-out (20261014-0450-quant-1845).** Sub-stage prof counters inside `P_KICK` on shipped code (battle arms m4000/s3, m1500/s3, held-out m4000/s7, rtf 1, 8 game-s; `ES_MEMBERS` clamp lift env-gated; prof-vs-pristine digest bit-identical, m1500/s3 reproduces be78's `7b33d0b866149e71`): the fired kick 254/299/257 µs is **46% bind (117 µs), 45% one `next_impact` bisection (115 µs ≈ 25 readouts × 4.6 µs, bracket half an orbit wide)**, 9% everything else (forces 1.2 µs, ctx 7.6, readout 4.9, quantize+word 0.2, tau pair + three entry clones 7.9 — the clones are 3%, dead as a lever). The search fires on **every** fired kick because `rebind` resets `Binding.impact` (`impact: None`), plus once per hand-out whose tube dips (K_IMP = 2.00 × kicks: ~half the hand-outs at m4000 — replan 96 µs is the average over dipping ~153 µs and clear ~38 µs). The deletion, priced by measurement: warm-start the bracket from the retired tube's cached impact tick + monotone verify + widen-fallback — exact by the predicate's monotonicity, digest-identical by construction, **−45% on the fired kick (254 → ~140 µs, assuming the warm bracket holds) and −10% on the hand-out at the battle arm** (529 → ~476; only the dipping half pays); the build (and its fallback-rate count) is the next run. Same one-slot family as 790b's surviving burst: the kick after this and the word-fixed bind is ~140 µs, and the readout family's remaining 8.1 s at m4000 (1.77 M `decode` calls, majority in the frame's position/view walks, not events) becomes the next measured wall.
+
+**Checker (this run): every number reproduced, and the domain extends past every edge the author tested.** Own regen (158 s): identity control passes, m4000/s3 251.8 µs kick = 46% bind + 46% bisection with counts bit-stable across three runs (1032/2064/1034), m1500 digest `7b33d0b866149e71` = be78's. Outside the author's domain: **flying pace** (m400/s3/rtf 100) the bisection is **57%** of a 192 µs kick (K_IMP/kicks 1.01 — every kick, no other callers); **held-out seed 11** (m1500) 47%, digest `5093fe58d892f6bd` = be78's checker2; **16,000 members** (a decade past 4000) the fired kick vanishes entirely (480/480 overflow, all budget to hand-outs) while the same search is **43% of a 302 µs hand-out** (6,865 searches = 97% of hand-outs; digest `4df28df692b3b7bf` = be78's checker2) — the dipping fraction grows with N, so the deletion's hand-out half matters more, not less, up the ladder. Corrections: the dossier's −18% hand-out price assumed every hand-out searches (measured: ~half at the battle arms — honest −10% there); its "tree drift" explanation of the m4000 digest mismatch is wrong (crates/ and xtask/ are byte-identical since f687ec25; the cause is the wall-dependent leaver count at the overflowed arm alone).
+**The adoption queue is measured as one stack and it is worth 2×, not 4.5×: the composed
+endgame is refuted, the interlock is confirmed (20261014-0000-second-20261013-2252-system-ad26-790b).**
+The three engine-path levers stacked on one binary against shipped f687ec25 (009b's word fix
+ported onto the post-plunge `bind_surface` — every engine bind now passes a surface, so the
+original patch's path is dead and the port chooses the word pre-compile for keyed fits only;
+7055's memo routed inside `from_fit`; 8b43's lazy tier rebased onto the frame merge): digests
+bit-identical to shipped at **every** comparable arm (7/7, incl. held-out seed 7, both flying
+paces, the 12,000 rung where counts move with the wall — 7,439 leavers vs 5,856–6,016 — but the
+canonical digest does not), and at m4,000/rtf 1: fit2 1,141 calls → **0**
+(hand-out bind −45.7%), fixed tier 2.09 M requeues → 12.6 k (D+fixed 286 → **142 ms/game-s,
+50% on one binary**; ~61% against the pristine shipped fixed tier). Two of ad26's four factors
+die on the stack: the memo's hit rate is 33% on shipped and **0 of 3,225** compiles on the
+word-fixed bind (the −31% was the retry's recompile; the endgame counted both), and Carlson's
+kernel is not a bind lever — `from_shape` reads the three increments off the walk's last knot,
+the compile exists to build the panel grid the readout interpolates, so the kernel's home is
+increments-only consumers (cadence, envelopes), not `bind_surface`; priced onto the bind anyway
+it lands D → 95–100 ms/game-s. Measured composite **141 ms/game-s (71% of shipped D)**, measured
+ceiling **≈ 2.8×10⁴ members** (≈ 4×10⁴ Carlson-priced), not 42.3 and not 9.5×10⁴. Tails after
+the whole queue: p99 47.6 → 41.7 ms (−12%), hitches >50 ms/hr −57%, overflow 309 → 194 — the
+burst (the bind concentration at the settle) survives the queue; the kick's non-bind 55% is the
+next wall. **Checker (this run): the rebased lazy tier re-breaks the shipped gate at its own
+scene** — `work_per_frame_is_bounded_and_overflow_is_a_dip_not_a_hitch` (seed 11, threads 1)
+fails deterministically on the stacked default paths and passes with `ES_EAGER=1` (shipped
+loop, stacked bind), a regression against 8b43 where the deadline-ordered fix made this gate
+pass at that scene; the stack is not one merge queue until that is restored, and the dossier's
+"suites green (0 failed)" does not regenerate (1 failed, `-p emergent-universe --test plane`).
+
+### Prior best
+
+
+**The hand-out's retry is deleted, not cached: the word is derived from the state's own key before the bind (20261013-2252-components-be78).** An env-gated probe (`ES_WORD_FIRST`) in `bind_surface` computes, before the first compile, the same re-expression the shipped retry performs after it — from the turning key `fit_key` returns for the state (`fit_of_state` + `word_of_key`, published in `crates/space`; apoapsis `periapsis/(k-1)` for a turning orbit, the compiled-out edge for a flyby, `1/sqrt(periapsis*k)` for the speed, the same arithmetic `word_for` runs on the finished entry) — so the member is bound once at the word its orbit implies. Measured on the bench ladder (7 scenes, 9,395 hand-outs — the 8,908 in the dossier matched neither pass; corrected by checker2, Linux/x86, orders of magnitude): digests bit-identical everywhere, including the plain no-`prof` build; main-thread retries (40-62% of hand-outs, fermi's 52-63% band) go to 0; the hand-out 538 -> 360 us calls-weighted (-29...-46% per scene on the regen pass; -16...-45% on the author pass), the bind term -38...-52%; no map and no standing bytes, so quant-7055's memo — whose catchment was exactly these fit-again recompiles — becomes dead code with it. Identity is structural, not sampled: `from_state` compiles from the same key, so the predicted word equals `word_for(entry)` for Cycle and Passage by construction; a Plunge is reachable only when `fit_key` itself refuses (`NoBoundOrbit` originates there), where the probe defers to the shipped path; any error on the pre-shifted bind falls back to the shipped path verbatim. The one hole — a compile that errors at the state's own word but succeeds at the coarser one, which would save a member shipped loses and move the digest — never fired. The collapse-regime run-path counters (lost/bodies/presented tick at m400/rtf 100, 174-231 overflow frames) wobble as much between two shipped runs as between arms (off/off2 control: presented 101 M vs 91 M ticks, digest `540ec08d304060d6` in all three runs) — the canonical digest is the instrument, and it never moved. What remains of the promotion after this: `replan` (now the larger half of the 332-411 us) and the stick itself (8,257 B standing, no demote path — the term the 10^9 arithmetic breaks on).
+
+**Checker2 (same run, blind): every equality reproduced bit-exact, and the domain extends past every edge the author tested.** Rebuilt from `work/patch.diff`: m1500-s3 and m8000-s3 digests `7b33d0b866149e71`/`79ec315d7e51f6b5` equal off/on and equal to the author's stored JSONs; counts identical (205 hand-outs/121 retries, 6,099/3,200 → 0), hand-out −32/−34%, bind −42% both. Three passes aggregate 531→352, 538→360, 519→343 µs per hand-out — the µs wobble as disclosed, every count and equality stable. Attacks outside the author's domain: **16,000 members** (13,729 hand-outs, 52% retrying: 7,192→0, bind 423→248, digest `4df28df692b3b7bf` identical, RSS 391 MB), **rtf 400** at m400 (400/400 members handed out, 253→0, `a67872b1c6ef1dc9`), seed 11 (99→0, `5093fe58d892f6bd`), and the universe suite green with the probe forced on — the named hole (compile errors at the state's own word, succeeds coarser) never fired in 23,711 hand-outs plus the suite. `Passage::compile` stores its `outer_radius` argument verbatim (orbit.rs:1009), so the identity argument holds as written.
+
+
+
+**Every event-carrying item class pays one wall, the tube rebind, and the record's four
+unmerged levers compose to 22% of today's resolved-battle cost (20261013-2252-system-ad26).**
+Measured on one scene and one clock (shipped `prof` feature printed by a 12-line probe; the
+`--members` clamp lifted env-gated; 48–12,000 members, rtf 1 and 100, held-out seed 7 and
+rung 12,000): the bind (`bind_surface` = fit + the coarser-word retry) is **39–68% of D**
+(checker-corrected floor: 39% on the flying arm, straddling the 40% kill line; seed 7 at
+4,000 gives 68%; at the checker's 20,000 rung the share falls to 49% and the retry to 12%)
+(D = process + handout + fleet item + decisions, a clean partition — the hand-out is timed
+outside the fleet item) at every arm where events happen, **80% of a hand-out** (408 of
+510 µs; replan 18%) and ≈45% of a battle kick (112 of 248.6 µs); the retry alone is
+**18–39% of the bind** (53% of hand-outs re-fit, confirming 367f); the fixed tier is 21% of
+D at 4,000 members (1.33 M requeue calls — deleted by 5eb6/8b43, pending). The m4,000 arm
+reproduces 367f's scene (2,163 hand-outs, 1,058 kicks, digest `5c8fe1a8e439221d`). Endgame
+arithmetic on cited factors only: word fix → hand-out memo → Carlson ×10 on 70% of the
+survivor → fixed tier deleted takes D = 192 → 42.3 ms/game-s (**22%**), slope 10.6
+µs/member/game-s, **resolved-battle ceiling ≈ 9.5×10⁴ members** at 25% of 4 cores (today's
+break 10³–10⁴), and the quiet 10⁹ belt costs 1.08 cores of event work at Carlson-priced
+30 µs/event — the bodies gap and the kick gap are one adoption queue, not four problems.
+Failed as pre-registered: the share is 41–65%, not ≥60% at every count (1,500-member arms
+49–51%); at made-class bind costs the kick's non-bind half (forces, readout, planning)
+dominates and the unification weakens to "the promotion and the leaver kick share the bind".
+The ceiling is a projection; the four merges are individually verified, the composite is not
+(009b and 7055 touch the same retry path — the memo must be re-priced against the word-fixed
+bind).
+**Dormancy is canon-exact and deterministic with the settle-loop drain; the sound wake rule is a priced choice, not a missing piece (20261013-2130-second-20261013-2005-spacex-3989-bc2b, on 20261013-2005-spacex-3989).** The silver run's seed breaks and its load nondeterminism were ONE bug: the settle drained its dormant list once, before its own advances — every leaver the fleet hands out *during* the settle (a wall-budget-dependent count: 6 lost at engine-ms 5, 13 at 0.5, 0 at 100) stayed compact and unbound, while the fleet's own state at the cut is identical at every budget (tick = cut, hand-offs 1,403, members 97 — the battle is budget-independent; the checker's cap-interleaving inference was close but the channel is the drain). Draining inside the settle loop (9 lines) closes it: **digest identity with the shipped arm bit for bit at seeds 1/3/7/11, near and far** (`351e5b8ec9e4`/`46c7652f3985`/`d5f75e970e4a`/`2b524171f776`), **one digest at engine-ms 0.5/5/100** (the flight/settle split moves — held 1,387/1,398/1,403 — the canonical state does not), **eight of eight concurrent dormant runs = shipped** (held 1,397, cut identical; the checker's probe, twice; shipped control stable ×4), and the cure intact everywhere it was claimed: far 1,500/rtf 100 — bodies 1,384–1,403 -> 28, overflow 427–447 -> 48–61, p50 ~20 -> ~5 ms, rtf 0 -> 100, **0 wakes** (52,704–54,204 gate checks all negative, 0 in-flight encounters in *both* arms — the scan-candidate canon never fired in these scenes: the silver run's "identity 1 of 4 far seeds" was the drain bug's footprint, not the canon's boundary); 4,000/rtf 1 — `e81b138959ad`, overflow 261 -> 0, delivered rtf 0 -> 1 (doll rule too, there: the starved flight never meets a non-empty dormant list); 8,000/rtf 100, 4 s — `304df5e33ec4`, 3,518 -> 28 bodies, 240 -> 78 of 240 overflow, p50 37.5 -> 4.5 ms. **The canon-exact wake rule is built and priced** (`ES_DORMANT_WAKE=doll`: force-wake same-doll members at the player's item — exactly the shipped queue's rule; other-doll dormancy canon-free by the scan's `other.doll != me.doll` candidate filter): identity by construction, measured (s3 `46c7652f3985`, s7 `d5f75e970e4a`) — and it **kills the flying-pace cure in a same-doll scene** (1,367/1,368 woken, overflow 393/480, rtf 0, worst frame 228 ms); a provably sound radius-only bound (the vis-viva annulus: wake unless [periapsis, apoapsis] and the player's radius are disjoint beyond reach + max-speed x interval) also wakes everything co-orbital — the annuli overlap — so same-doll deferral needs the leaver's *phase* (a Kepler evaluation), which is what the drift gate fakes with an f64 pad: **0 misses measured at every far cell, soundness unproven — the one open edge**. The near-regime wake storm is intrinsic to waking at the player's item (worst 253.7 ms at near 1,500, 76.3 at near 48, vs 23.9/12.0 shipped; the doll rule storms equally, 224–228 ms — PRINCIPLES 12: deferral moves the spike, it does not delete it). Adoption is one step: the drain fix is unconditioned (no dormant arm can be trusted without it); the wake rule is the integrator's choice — `doll` where proof is required (pay the binds in same-doll scenes), `drift` where the reader's doll differs (canon-free by construction) or the unproven bound is accepted as a guard. Diagnostic note: `stats.encounters` is schedule-dependent at fixed digest on the shipped arm itself (near 48: 40/40/41 over three runs, digest `a2ae2910b624` each time — scan reuse re-logging); cite digests, never that counter.
+**Checker2 (same run, blind): every number reproduced, and the drift gate's "unproven" edge is a measured break.** Rebuilt from `work/patch.diff` on base 294215b8 (private target dir): all far identities bit-exact (seeds 1/3/7/11 plus held-out 17/23 — `cc6fe015e79a`/`b7c01da2c531`, cure intact), one digest at engine-ms 0.5/5/100, 4/4 concurrent-load dormant = shipped, 4,000/rtf 1 and **12,000 members** (a decade past the author's 8,000: `5ff12082ca17`, bodies 28, ovf 240→128) and 12 game-s (`d286947276cd`) all identical; the pre-fix break rebuilt independently — digest moves with the budget (ms 5 → `4ac2d175db7c`, ms 0.5 → `27bb014ce655`, stable twice; wall-draws, not the dossier's values) while the fleet state stays bit-identical at every budget: the root cause confirmed in an independent rebuild. **In the intermediate co-orbital regime the author named and did not construct (player 45° and 22.5° from the fleet, seed 3, 8 s), the drift rule breaks canon — measured, not unproven**: shipped `fb8c9b10e297`/`6a3481b12c1c` with 3 in-flight encounters; drift `13ef70711304`/`d6eabb0e403f` with 49/34 encounters and worst frames 935/1,076 ms (4× the near storm — the deferral spike peaks where the gate fires mid-flight, PRINCIPLES 12); `doll` holds identity exactly there (`fb8c9b10e297`, enc 3) paying the binds (1,367 woken, ovf 386, rtf 0). So `drift` cannot be the default wake rule even in far-looking scenes: its safe window is positional, not only durational (with the first checker's 16 s break, it is bounded in angle and in time); the adoption shape is the drain (unconditional) + `doll` (canon-safe, same-doll price) + other-doll dormancy (canon-free by construction). Two wording nits on the author's paragraph: the near identity cells ran seed 1 only (not the 1/3/7/11 cross-product), and `checks`/`held` are not exact across logs (checks 52,721↔54,118 at s3; held moves with the budget by the run's own sweep) — digests, woken, enc and cut are.
+**Checker (same run): reproduced end to end, and the drift gate's "one open edge" is now a measured boundary, not an open question.** Rebuilt from `work/patch.diff` on base 294215b8: identity bit-exact at seeds 3 and 7 (the silver breaks) and at held-out seeds 5 and 13 (`cc168360f0b2`/`5713e1a723d9`, cure intact), one digest at engine-ms 0.5/5/100, 8/8 concurrent-load dormant runs = shipped, the quarter-turn scene (canon channel live: 426 in-flight encounters in both arms, gate wakes everything) identical, 4,000/rtf 1 identical; the pre-fix budget sweep reproduces with the one-shot drain restored (ms 100/5 → `46c7652f3985`/`7f1641e8df40`, ms 0.5 moves again — value wall-dependent there — fleet state bit-identical at every budget: the root cause confirmed independently). At **16 s wall (1,600 game-s, 2× the author's duration) the drift arm breaks identity in the author's own far scene**: `ade1352a771a` vs shipped `7024e553eb57`, 9 in-flight encounters vs 0, only 106/1,464 woken — while `doll` at 16 s holds `7024e553eb57` (woken 1,387, enc 0) and drift at 12 s still holds (`d286947276cd` both arms): **the drift gate's safe window ends in (1,200, 1,600] game-s in the safest scene class — adoption under drift needs a canonical guard horizon (the 2³³-tick stale clause is ~26× too far out), not only a proof of the bound.** Doll's "identity by construction at any scene" carries one unnamed edge: a same-doll leaver that dies before the player's scan when bound early (shipped) is alive at the scan when woken at the item — a canon difference in the direction doll ≥ shipped; it never fired in any measured cell, "by construction at any scene" overstates.
+**The shared-shape half of the promotion is priced — and the sharing is not between members
+(mechanism corrected by this run's checker; 20261013-2005-quant-7055).** An **exact** memo keyed on
+(OrbitKey, edge) in `Rebinding::from_state` (env-gated probe on shipped code; the `--members` clamp
+lifted; prof counters in `universe --bench`; digests at the canonical cut) hits 33.0% of hand-out
+compiles at 4,000 members, rtf 1, 8 game-s (seed 3: 32.5%; 1,500: 33.5%; checker-held-out: seed 7
+28.0%, 16 game-s 32.4%, 8,000 members 31.9%), cutting bind 407–419 → 250–252 µs (−39%; checker
+scenes −34 to −37%) and the whole hand-out 508–525 → 351–354 µs (−31%), bit-identically (digests
+equal memo-off/on at every scene, twice at m4000; universe suite green with the memo forced on,
+0 failed, 70 passed, 2 ignored clock flights). But the hits are **not member-to-member sharing**:
+every duplicate key is two compiles of the *same* hand-out — `bind_surface` rebinds at a coarser
+integer word when the tube outgrows its word ([bind.rs](../../../crates/universe/src/bind.rs),
+"fit again: the coarser word"), and the OrbitKey survives the one-quantum rounding; hand-out calls
++ fit-again calls = hand-out compiles within 1 at every scene and three checker scenes (2,163 +
+1,141 = 3,303 at m4000), every duplicate exactly two rows and adjacent, ~no periodic key ever
+repeats. Member-to-member exact key sharing is ~0: the fermi run's "shared-shape" premise, read as
+members sharing compiled trajectories, is refuted — what the memo caught is redundant recompiles of
+one member. At flying pace (m400 rtf 100) hits collapse to 0.6% and bind moves ±1–8% (noise, 4
+hits); no hand-outs occur at all at ≤ 400 members in 8 game-s. So sharing buys a constant ~1.45× on
+the hand-out, not the 10× the board wants; the levers that remain are the ephemeral half (demote at
+commit) and deleting the retry itself — choose the word before the first bind, or thread the first
+fit's trajectory into the retry (same key, no map). No standing bytes are saved: the first fit's
+entry is discarded on retry either way, one standing `Entry` per hand-out.
+
+**The ladder's first wall is the compact fleet frame's own leak, an order below the walk
+tier: it hands out members superlinearly and every hand-out is a sticky promotion
+(20261013-1915-fermi-367f; decomposition corrected by its checker).** Measured on the plane scene itself (probe patch:
+
+the `--members` clamp lifted, RSS and the 24 `prof` counters added to `universe --bench`;
+seed-deterministic inputs, shared-box timings). At flying pace (rtf 100) the plane holds
+400 members (engine p50 2.2 ms of the 5 ms budget) and collapses at 1,500 (449/480
+overflow, seed 3 reproduces): the binding term is the event stream ∝ N — ~0.041
+events/member/game-s in the battle regime, kicks 182–231 µs and handouts 486–585 µs
+each. At rtf 1 (the battle fully resolved) the *compact* side breaks instead: the fleet's
+leak rate is 0 at 400 members, 1.9×10⁻² at 1,500, 6.8×10⁻² per member per game-s
+at 4,000 (∝ N^~1.3 over the two sampled rungs 1,500–4,000, softening to ≈N^0.7 by 8,000
+members — 0.107 per member per game-s, checker; a 10⁵-member frame empties in
+game-seconds, not the game-milliseconds first claimed), and even rtf 1 collapses at 4,000
+members (engine p50 pinned at the budget, worst CPU frame 62 ms). **The frame's own
+advance is not a second wall (checker):** the engine's `fleet` kind item — 14 → 51 → 362 →
+4,311 µs, first read as advance ≈ N^1.9 — includes the hand-outs by construction
+(`universe.rs`: "a hand-out was inside its item"), and the advance prof counter alone is
+10 → 104 → 131 → 317 → 466 µs per frame from 48 to 8,000 members ≈ **N^0.6–0.8**, i.e.
+~0.1–0.3 µs per member, walk-tier class, not quadratic and not independent of the live
+side. The walk tier measured
+on these same runs is cheap and late: rekey 0.10–0.15 µs/body/frame (~5×10⁴ live bodies
+to the 5 ms budget) and peak RSS 80 MB at 4,000 members — an order behind. **The
+promotion, as shipped** (`resolve_handout`, the only wired compact→live path): 486–585 µs
+flat in N (bind 355–421 µs with the coarser re-fit on 52–63% of handouts, replan
+100–160 µs; 2.2 kicks, dearer than the player item) and 8,257 B marginal standing bytes,
+**sticky — no demotion path exists**; ~3,000× the 22-bit compact member, ~145× the
+56.8 B packed live floor. Construction RSS is flat (4.7–6.2 MB for 48–4,000 members:
+the compact member is ~0–1 kB, lost in the process floor). The 10⁹ identity on these
+slopes: in the quiet belt regime (3.6×10⁻⁵ events/body/game-s) the kick cost, not the
+promotion, is the CPU wall (~8.3 cores at 231 µs), but sticky promotion grows with any
+nonzero promotion mix — ~15 MB/game-s at the *assumed* 5% mix (the only measured mix,
+the battle at 4,000/rtf 1, is 67% hand-outs: 2,163 hand-outs against 1,058 kicks) — so the
+smallest promotion must be **ephemeral (demote at commit), shared-shape, census-gated**,
+not cheaper; the battle density
+(0.041 events/member/game-s at the 48-member smoke rung, falling ~6× by 4,000) is a local pocket no 10⁹ can live in. The
+probe patch drops the bench report's `digest` field (the settle still runs).
+
+**Checker's domain extension (same run):** members 800 (rtf 100: median rtf 9.8, fully
+collapsed — the collapse window's lower edge sits at or below 400 on the checker's box,
+where the 400 rung itself medians 77 with 252/480 overflow), members 8,000 (rtf 1:
+240/240 overflow, leak 0.107/member/game-s, hand-out still flat at 507 µs, marginal bytes
+per promoted body rising to ~11 kB), and seed 7 (rtf 1, 1,500: leak 1.6×10⁻², hand-out
+604 µs — consistent). The corrected break order: the leak×promotion stream alone breaks
+the plane at ~10³ members; the frame's own advance and the walk tier are both behind it.
 
 
 **The cadence's two halves are now both priced, and neither is what the waterfall pays for: the
@@ -264,7 +398,7 @@ deterministic); not tested there: other input patterns, the M1. The lazy
 tier's digest identity is tested on plane scenes and quiet tubes to 4×10⁵ (checker), a tie storm
 and a 25×-wander player; under sustained starvation (3-event budgets, 200/200 overflow) it holds
 at seed 11 threads 1 and fails on seeds 2/5/9 and threads 4 (checker,
-20261013-0037-second-…-8b43); not tested: checkpoints, the M1. The waterfall decomposition
+20261013-0037-second-…-8b43); not tested: checkpoints, the M1. The ladder probe (20261013-1915-fermi-367f) adds the plane scene itself at members 48–4,000 (checker: 800 and 8,000, seed 7), seeds 1 and 3, rtf 1 and 100, flights 4–8 s; not tested there: sparser battle geometry (the 400-member xtask clamp is lifted only by the probe patch), the M1, and the demotion half of promotion (no shipped path). The waterfall decomposition
 (20261013-0037-system-174d, 20261013-0236-second-20261013-0037-system-174d-0f2a) covers seeds 1, 3 and 7, one scene, 48 members,
 forward/brake/turn patterns at levels 8–15, flights 2–8 s (16 s, rtf 20 and a reverse-L15 brake,
 checker2) including the plunge approach (r to
@@ -273,6 +407,8 @@ other scenes, the M1.
 
 ## Refuted
 
+- A padded f64 drift guess as *proof* of sound dormancy — the bound ignores acceleration, so it cannot decide the scan's reach; measured to miss nothing at every far cell tested, but the seed-3/7/11 digest breaks first cited as its failures were the settle drain bug, not the gate (20261013-2005-spacex-3989; evidence corrected by 20261013-2130-second-20261013-2005-spacex-3989-bc2b).
+- Dormancy without the settle-loop drain — a one-shot drain loses every leaver handed out during the settle (a wall-budget-dependent count), which was both the seed breaks and the load nondeterminism (two digests at one cut, kicks 115/112, 0 wakes): fixed by draining inside the loop, identity and load stability proven after (20261013-2005-spacex-3989, checker; root cause and fix by 20261013-2130-second-20261013-2005-spacex-3989-bc2b).
 - The thrust word's refit against every scheduled kick as the waterfall's mechanism — no such refit
   exists: `decide` clears the plan and plans one kick; the burst is the player's own burn-cadence
   chain of Kick(0)+Boundary pairs (20261013-0037-system-174d, correcting 20261012-2257-quant-32ab's
@@ -378,6 +514,16 @@ other scenes, the M1.
    resolve is only ~140–150 µs (20261012-2257-quant-32ab).
 8. **Hand-out cost at fleet scale**: 443 µs per hand-out, 12× a kick, plus deadline pinning
    (20261011-1102-quant-ba35).
+9. **Adopt dormancy: the drain fix is unconditioned; the wake rule is a priced choice** (the silver
+   run's gold experiment, done): the settle must drain its dormant list inside its loop (9 lines — no
+   dormant arm is a certificate without it), and then the rule is either `doll` (canon-exact by
+   construction, identity measured; pays every bind in same-doll scenes — the far-scene cure dies at
+   flying pace, overflow 393/480) or `drift` (keeps the cure, 0 misses measured, the f64 bound
+   unproven — its soundness against a leaver that truly closes to within `1024 x reach` mid-flight is
+   the one unmeasured scene; constructing it is the next rung on this lever). Other-doll dormancy is
+   canon-free by the scan's candidate filter either way — the 10⁹ case (a fleet per doll, readers
+   elsewhere) never needs a gate (20261013-2130-second-20261013-2005-spacex-3989-bc2b, on
+   20261013-2005-spacex-3989).
 
 ## Contradictions
 
@@ -439,3 +585,11 @@ other scenes, the M1.
 - 20261013-0037-system-174d (silver): the waterfall decomposed — all burst items are the player's burn-cadence chain; tide/burn ≤ 1.3×10⁻⁹; delete by carrying the burn, don't spread.
 - 20261013-0236-second-20261013-0037-system-174d-0f2a: the law's own cadence re-prices the tide counterfactual — ~0–24 events against 377–1,085 burst kicks at every level incl. paced L15 8 s; the fixed-granularity inversion was the divisor's artifact; lever adoptable.
 - 20261013-1428-system-2964 (this run): the cadence's two edges priced — deletion collapses events 19–204× and the lag to 0.038 s but breaks at the velocity word (prograde burns lost, refusals, envelope to 4.2e-2 c; retrograde lands ~7% low); 16× refinement keeps the stutter and shows the shipped arm ~1% off its own fine limit; the carry's contract measured.
+- 20261013-1915-fermi-367f (silver, checker-corrected): the plane's first N-wall is the fleet frame's leak into sticky promotions (~0.5 ms, ~8.3 kB each, no demotion); the frame's own advance is only ≈N^0.6–0.8 (the N^1.9 "fleet item" includes the hand-outs).
+- 20261013-2005-quant-7055 (silver, checker-corrected): the hand-out's exact-memo edge priced — 33% of hand-out compiles are same-member coarser-word retries (bind −39%/hand-out −31%, bit-identical; member-to-member sharing ~0; 0.6% at rtf 100); the retry and the sticky promotion stay the levers.
+- 20261013-2005-spacex-3989 (silver, checker-corrected): dormant leavers cure the first N-wall at every seed and size tested (286->0 overflow, rtf 0->1 at 4000/rtf1; flyable at 8000) but break the digest in 3 of 4 far seeds, and the arm is load-nondeterministic; the gate's bound and the arm's determinism, not the dormancy, gate adoption.
+- 20261013-2130-second-20261013-2005-spacex-3989-bc2b (second author): the dormancy arm's seed breaks and load nondeterminism were one bug (the settle's one-shot drain losing settle-time leavers); fixed, identity at seeds 1/3/7/11 near and far, one digest across budgets and 4-way load, cure intact to 8,000; the canon-exact doll rule kills the same-doll flying cure (393/480) — the win needs other dolls or the unproven drift bound.
+- 20261013-2252-components-be78 (author, unchecked): word-before-bind deletes the fit-again retry (40-62% of hand-outs, hand-out -16...-45%), digests identical on 7 scenes + plain build.
+- 20261013-2252-system-ad26 (this run, awaiting grade): one wall — the bind is 41–65% of every event-carrying item class (80% of a hand-out, 45% of a battle kick; the retry 18–39% of the bind); the four unmerged levers compose to 22% of the battle cost, ceiling ~10^5 members; projection, composite unverified.
+- 20261014-0000-second-20261013-2252-system-ad26-790b (second author, awaiting grade): the stack measured — word fix+lazy tier bit-identical, D+fixed 50% on one binary; memo 0/3,225 hits on the word-fixed bind and Carlson not a bind lever kill the 22%/10^5 endgame; ceiling measured ≈2.8e4.
+- 20261014-0450-quant-1845 (silver, checker-extended): the fired kick is 46% bind, 45% the crash-tick bisection (115 µs, ~25 readouts, every kick and the dipping half of hand-outs, cache reset per rebind; 57% at flying pace, 43% of the hand-out at 16k); warm-start bracket priced −45%/kick, −10%/hand-out at the battle arm.

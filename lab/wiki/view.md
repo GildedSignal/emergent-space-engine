@@ -2,7 +2,7 @@ topic: view
 status: open
 closed-by:
 valid-while:
-updated: 20261013-0350-system-7b86
+updated: 20261014-0059-redteam-2fa4
 
 # The view: the observer's past light cone, lensing, kinked tubes
 
@@ -18,16 +18,32 @@ updated: 20261013-0350-system-7b86
 
 **"Crosses once" is wrong by an integer (two silvers).** Near a mass, ≥ 2 and ≥ 3 images exist on 100% of emitter azimuths at every r_o probed (100 M…3.2 M), 4 images for 99% at 3.2 M; the first winding family sits at b = 5.199 M ≈ b_c (capture control 0.022%) (`6eae`). The player-visible part is exactly two images — the direct k = 0 ray and its Einstein partner, jointly visible (> 1/50) on 43% (r_o = 100 M) to 84% (r_o = 3.2 M) of azimuths — while winding images are never player-visible (max relative brightness 0.0111, per-winding decay ≈ e⁻²π ≈ 1/535). The fix is the k = 0 pair plus a magnification cutoff, which deletes `6eae`'s own proposed winding-indexed multi-sheet memo (`8f00`; the two-image structure extends to interior emitters).
 
+**The moving-observer instruments are now measured, and exact to the float floor (20261014-0059-redteam-2fa4).** The named hole
+"moving observers, the seen/Doppler instruments" is closed for the body path: on B15's `stream` scene (straight tubes at
+1e8 root units), judged at the engine's own retarded events against an independent SR oracle (closed-form crossing solve,
+boost-matrix Doppler/aberration), the shipped `Seen.shift` and `Seen.direction` agree to ≤ 1.4×10⁻¹⁰ (shift, observer
+0.99c / emitters 0.9c toward) and ≤ 6.4×10⁻¹⁵° (direction) over 7 geometries — machine noise of two different arithmetic
+paths, exactly 0.0 for a still observer. **But the same premise is computed Newtonianly on the fleet seam:** every
+member's rate omits its kinetic factor (`view.rs:397`: `rate0·√(1−2μ/r)` — no `√(1−v²)`, which every body gets via
+`state_rate`), so seen colour is high by γ(member) and luminosity by γ⁴: 1% colour at β_m 0.14, 40%/−285% at 0.70,
+130%/−26.7× at 0.90 — the contact law's own tested range — while the plane's flown battle (2⁻¹⁵ c) sits at 4.7×10⁻¹⁰
+(dormant today). The nested-doll Doppler numerator is Galilean (`observe.rs:272`): ≤ 1.2×10⁻³ at planetary β_p, but the
+parallel sum leaves the physical domain at β_p ≥ 0.1 — the handoff page's "fast grandchild" hole extended to seen values;
+a burning observer's `vo + dv` (`view.rs:288`) is exact in the root doll and binds only nested + burn.
+
 **What survives.** Kinked tubes at closing β → 1, on the shipped code: with emitters kinked by the engine's own stepper, every crossing is found (0 drops in 6,000 gathered emitter-frames per case), cold and memo views are bit-identical, an independent bisection oracle agrees on every emission tick, at 1.15–1.92 readouts/emitter; the densest accepted configuration (12/12 emitters kinked, 244k kicks) costs the same as the straight control; the strong-kink regime is empty by physics (a relativistic tide deflects a 0.9999c emitter by ~4×10⁻⁸ relative), and checker attacks (111× source mass, β = 0.99999, mutual, combined stale-jumps) all survived (`94dc`, gold). Newton's crossing converges in ~1.0–1.1 readouts/emitter on the plane (`f22e`, `3102`, `70b0`) and in 3.00 iterations at every β ≤ 0.999 warm-started — cold seeds leave the bracket at β ≥ 0.9, its check (`0fe0`). At signature speeds the view's one-sample-per-pixel aliases: every pre-flyby frame at γ = 125–250 is Nyquist-broken (5.8–11.5 rad/frame) and renders 96–98% frozen (`efb2`, silver, from the high-gamma page).
 
 **Cost: the view is the frame constraint.** The unbudgeted O(all-bodies) view path (gather + json + wire) takes 56–93% of every frame at ~6–8 µs/body, linear (`f22e`); the gather alone holds 59–71% across four seeds, a repeat, co-load and rtf 1 (`97fd`), 62–72% with engine 12–34% of budget at 76–428 bodies (`acff`), and inside it 95–97% is the per-body crossing loop (`51bf`, `3102`), 97% of that the ramped readout — 60% tube decode + ramp credit, 39% the motion-law-v2 partial step with its force evaluation (`70b0`, ungraded) — with 81% of readout time field evaluations re-read per emitter per Newton step (`51bf`). The crossing cache is near-perfect (1.0–1.1 readouts/emitter: `f22e`, `3102`, `70b0`), so the lever is the row itself, at 6–9 µs (`0e54`). H0210 had already put the gather at 83% of a light frame; this family adds anatomy and N-scaling, not the headline. Dead lever: the display-quantum row cache serves only 5.5–31.2% of rows (saves 0.28–0.48 ms p50, claim was 54–83%) and its gate fails at every rtf ≤ 100 by 15–1,962 quanta (`0e54`). Live lever: the gated view cache — gather p50 0.77–0.86 → 0.21–0.22 ms (3.6–3.9×), readouts 62 → 2–7, worst offset 5.8–6.6×10⁻⁵ against the 1×10⁻⁴ quantum, universe digest bit-identical base↔gated at two seeds and under six adversarial cases; frame gain machine-dependent (1.6–1.7× quiet vs 2.4× claimed) (`08f7`). The display readout is the only over-budget component on main (a838a28): `accumulate()` clears all planes and re-splats every tube every frame, cost flat in change (rtf enters only via plan.t) — far median 36.3–37.1 ms at 10× less motion, 47.0 ms at 100× less, 110.7 ms at 1080p, 200/200 frames over 16.7 ms; ~10× available, queued as b-readout-cost (`48cf`). A recurrence memo for view streams dies incommensurate: single-orbit streams are exact at order = samples/orbit (5×10⁻¹⁴), two incommensurate eccentric orbits admit no recurrence of order ≤ 96 (plateaus ~2–3×10⁻⁵ rad at e 0.3, ~10⁻¹ at e 0.7) (`8202`). The bookkeeping is already one readout: scheduler deadlines, the view gather and the coming news gravity re-derive the same doll-chain readout — `ViewCache::put` stores the arrival rate (1+n·β_obs)/(1+n·β_em) every frame and `apply`'s `root_state_raw` exists solely to feed light_distance → deadline_of — so the delay(b) column has a home (memo redundancy 2.9%; gather 13–18× engine median in the `lab_arrival` harness) (`d51f`).
 
 **Now measured: that field-evaluation term is ≤ 10⁻⁵ of the gather's read quantum everywhere on the shipped scenes and exactly zero on plain scenes, so it is deletable (~35 lines, no law change); the remaining row cost is the tube decode and the partial step's drift (`7b86`).** Checker (`7b86` check): the bound holds at 16 s flights and 400 members (e_max ≤ 9.8×10⁻⁶, brake-L15 and stirred regimes included), and dropping the term **entirely** (tube alone) errors the same ≤ 9.8×10⁻⁶ on these scenes — the view needs no stored-a there; the slot buys the view nothing in this regime, only a strong-field consumer that needs `a` accurately.
 
-**Domain.** Physics: float oracles, Schwarzschild 2+1 (M = 1) — circular-geodesic emitters r_e 3.2–1000 M, static observers r_o 3.2–5000 M — plus Kerr retrograde for the sense key (χ 0.5–0.998); the only shipped-code physics probe is the kinked-tube family (`94dc`). Cost: the shipped plane bench on shared Linux/x86 (orders of magnitude only; the integrator re-measures on the M1), 28–948 bodies. Not measured anywhere: a delay-corrected gather end-to-end in the engine (no build exists), moving observers, the seen/Doppler instruments, eccentric emitters for the timing error, Kerr timing, multi-mass composition (static-spherical only), and newborn images at the shadow rim (ungraded `a616` claims Newton-from-previous-frame misses 100% of them even granted a perfect oracle).
+**Domain.** Physics: float oracles, Schwarzschild 2+1 (M = 1) — circular-geodesic emitters r_e 3.2–1000 M, static observers r_o 3.2–5000 M — plus Kerr retrograde for the sense key (χ 0.5–0.998); the only shipped-code physics probe is the kinked-tube family (`94dc`). Cost: the shipped plane bench on shared Linux/x86 (orders of magnitude only; the integrator re-measures on the M1), 28–948 bodies. Moving observers and the seen/Doppler instruments are measured on the body path for the straight-tube `stream` class only (`2fa4`, checker-verified to β 0.999/0.999); not measured anywhere: a delay-corrected gather end-to-end in the engine (no build exists), seen values beyond that class (lensing scenes, nested-doll emitters), eccentric emitters for the timing error, Kerr timing, multi-mass composition (static-spherical only), and newborn images at the shadow rim (ungraded `a616` claims Newton-from-previous-frame misses 100% of them even granted a perfect oracle).
 
 ## Refuted
 
+- "A fleet member's seen colour/luminosity is read out relativistically like a body's":
+  the member's rate omits its kinetic γ — colour off by γ−1, luminosity by γ⁴−1
+  (20261014-0059-redteam-2fa4).
 - "The gather has a time-transfer law / t − d/c is enough" (`ace6`, `5977`, `0b45`, `fb64`).
 - "deflection(b) alone is a sufficient memo key" (`8be2`, `9f4a`).
 - "Each visible tube crosses the observer's past light cone once" (`6eae`, `8f00`).
@@ -48,7 +64,8 @@ updated: 20261013-0350-system-7b86
 4. **Newborn photon-ring images at the shadow rim** — ungraded `a616` claims 100% missed even with a perfect oracle; grade it before trusting the k = 0 fix at the rim.
 5. **The gated cache on the M1** (frame gain 1.6–2.4× is machine-dependent) and the 6–9 µs row itself (`08f7`, `0e54`).
 6. **The aliasing boundary** — where one-sample-per-pixel breaks for the player; measured only pre-flyby at γ 125–250 (`efb2`).
-7. **Unmeasured physics:** moving observers, Doppler/seen instruments, eccentric emitters for the timing error, Kerr timing, multi-mass composition (`ace6`, `5977`).
+7. **Unmeasured physics:** eccentric emitters for the timing error, Kerr timing, multi-mass composition (`ace6`, `5977`); moving observers and the seen/Doppler instruments are now measured exact on the body path (`2fa4`), leaving the fleet seam below.
+8. **The one-line fleet fix and its gate** (`2fa4`): multiply the member's rate by `√(1−|v|²)` at `view.rs:397` (or route members through `state_rate`), and freeze the first `Seen`-value criterion in the unfrozen r6 — a fast-fleet scene (`scenes::battle`, small `speed_div`, β 0.3–0.9), |shift − SR| < 10⁻³, the Newtonian rate as the negative control. No rung, gate or example currently judges any seen value.
 
 ## Contradictions
 
@@ -80,3 +97,4 @@ None open. Inside the record, four disagreements were resolved by later runs or 
 - 20261011-1917-redteam-fb64 (silver): arrival delay renders 1–97 px wrong within ~60 M; delay(b) memo collapses error 40–150× at r_e ≥ 60.
 - 20261012-0138-redteam-0fe0 (silver): representation red-team; for the view: no view gate exists, and Newton's crossing holds at 3.00 iterations for every β warm-started (cold seeds leave the bracket at β ≥ 0.9, its check).
 - 20261013-0350-system-7b86 (pending grade): partial's per-read field term ≤ 10⁻⁵ read quanta, zero on plain scenes; one acceleration slot asked for by view, gravity ring and burn waterfall.
+- 20261014-0059-redteam-2fa4 (awaiting grade): moving-observer instruments exact to 1.4e-10/6.4e-15°; fleet members' seen colour Newtonian (γ−1/γ⁴−1); no gate judges a seen value.
