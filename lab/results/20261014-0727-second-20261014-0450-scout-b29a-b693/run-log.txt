@@ -1,0 +1,60 @@
+warning: fields `compose_refit`, `compose_key`, and `bytes_per_event` are never read
+   --> crates/shipmem/examples/promo_contact.rs:120:5
+    |
+119 | struct BeltOut {
+    |        ------- fields in this struct
+120 |     compose_refit: f64,
+    |     ^^^^^^^^^^^^^
+121 |     compose_key: f64,
+    |     ^^^^^^^^^^^
+122 |     bytes_per_event: f64,
+    |     ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+
+BELT cold n=4096
+STAT QUANT cold float_E_vs_key_Q48 n=4096 p50=3.281e0 p95=5.812e0 max=8.469e0
+STAT QUANT cold float_L_vs_key_Q32 n=4096 p50=6.824e0 p95=1.333e1 max=1.968e1
+MASS cold rock50m m=6.6e-21 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=4.98e-15 dv_over_v_max=3.83e-13 arm_med=1.53e4 arm_p95=2.75e4 arm_relk_med=5.92e-11 truth_med=6.83 truth_p95=13.33 within8=0.620 skip0=1.000 dE_q_med=0.0 dL_q_med=0.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.000 wide=0.000
+MASS cold ship1Mt m=5.0e-19 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=3.78e-13 dv_over_v_max=2.90e-11 arm_med=1.63e4 arm_p95=1.30e5 arm_relk_med=5.96e-11 truth_med=6.82 truth_p95=13.44 within8=0.621 skip0=0.900 dE_q_med=0.0 dL_q_med=0.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.000 wide=0.000
+MASS cold rock600m m=1.3e-18 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=9.82e-13 dv_over_v_max=7.55e-11 arm_med=1.79e4 arm_p95=2.39e5 arm_relk_med=5.97e-11 truth_med=6.85 truth_p95=13.73 within8=0.615 skip0=0.778 dE_q_med=0.0 dL_q_med=0.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.000 wide=0.000
+MASS cold mcrit1.35km m=1.3e-17 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=9.82e-12 dv_over_v_max=7.55e-10 arm_med=1.09e5 arm_p95=5.48e5 arm_relk_med=7.07e-11 truth_med=6.98 truth_p95=16.30 within8=0.586 skip0=0.019 dE_q_med=1.0 dL_q_med=2.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.017 wide=0.000
+MASS cold rock5km m=6.6e-16 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=4.98e-10 dv_over_v_max=3.83e-8 arm_med=8.74e4 arm_p95=5.10e5 arm_relk_med=7.50e-11 truth_med=7.65 truth_p95=21.12 within8=0.514 skip0=0.000 dE_q_med=47.0 dL_q_med=100.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.266 wide=0.000
+MASS cold rock28km m=1.3e-14 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=9.82e-9 dv_over_v_max=7.55e-7 arm_med=8.69e4 arm_p95=4.97e5 arm_relk_med=7.51e-11 truth_med=7.62 truth_p95=21.75 within8=0.520 skip0=0.000 dE_q_med=934.0 dL_q_med=1979.0 dcol_p_med=3.0 dcol_e_med=19.0 unchanged=0.000 wide=0.000
+MASS cold ceres470km m=4.7e-10 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=3.55e-4 dv_over_v_max=2.73e-2 arm_med=8.84e4 arm_p95=4.88e5 arm_relk_med=7.74e-11 truth_med=7.84 truth_p95=21.63 within8=0.508 skip0=0.000 dE_q_med=33781177.0 dL_q_med=71544535.0 dcol_p_med=121941.0 dcol_e_med=696967.0 unchanged=0.000 wide=0.999
+STAT US cold compile n=4096 p50=8.175e0 p95=1.380e2 max=3.470e2
+STAT US cold read n=4096 p50=3.293e0 p95=3.904e0 max=1.735e1
+STAT US cold cartesian n=4096 p50=3.990e-1 p95=5.420e-1 max=3.817e0
+STAT US cold refit n=28672 p50=1.745e1 p95=2.536e1 max=3.285e2
+STAT US cold keykick_geom n=28672 p50=6.000e-2 p95=1.060e-1 max=5.316e0
+STAT US cold inv_to_shape n=28672 p50=3.272e2 p95=3.538e2 max=7.959e2
+STAT US cold scar n=4096 p50=7.410e-1 p95=7.670e1 max=4.068e2
+COMPOSED cold refit_arm=30.1us key_arm_with_inverse=339.4us conditional_mcrit=29.55us (P(delta!=0)=0.981) scar_events=4096 bytes_per_event=40.00B
+
+BELT ecc n=4096
+STAT QUANT ecc float_E_vs_key_Q48 n=4096 p50=4.062e0 p95=7.750e0 max=1.275e1
+STAT QUANT ecc float_L_vs_key_Q32 n=4096 p50=5.503e0 p95=1.107e1 max=1.861e1
+MASS ecc rock50m m=6.6e-21 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=3.66e-15 dv_over_v_max=3.58e-13 arm_med=9.40e3 arm_p95=2.03e4 arm_relk_med=4.68e-11 truth_med=5.84 truth_p95=11.11 within8=0.763 skip0=1.000 dE_q_med=0.0 dL_q_med=0.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.000 wide=0.000
+MASS ecc ship1Mt m=5.0e-19 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=2.77e-13 dv_over_v_max=2.71e-11 arm_med=9.75e3 arm_p95=2.53e4 arm_relk_med=4.68e-11 truth_med=5.84 truth_p95=11.21 within8=0.759 skip0=0.920 dE_q_med=0.0 dL_q_med=0.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.000 wide=0.000
+MASS ecc rock600m m=1.3e-18 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=7.21e-13 dv_over_v_max=7.06e-11 arm_med=1.02e4 arm_p95=4.37e4 arm_relk_med=4.68e-11 truth_med=5.84 truth_p95=11.40 within8=0.758 skip0=0.825 dE_q_med=0.0 dL_q_med=0.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.000 wide=0.000
+MASS ecc mcrit1.35km m=1.3e-17 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=7.21e-12 dv_over_v_max=7.06e-10 arm_med=1.71e4 arm_p95=1.14e5 arm_relk_med=4.62e-11 truth_med=5.86 truth_p95=13.24 within8=0.698 skip0=0.074 dE_q_med=1.0 dL_q_med=1.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.011 wide=0.000
+MASS ecc rock5km m=6.6e-16 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=3.66e-10 dv_over_v_max=3.58e-8 arm_med=1.88e4 arm_p95=9.88e4 arm_relk_med=4.94e-11 truth_med=6.20 truth_p95=17.55 within8=0.600 skip0=0.002 dE_q_med=55.0 dL_q_med=75.0 dcol_p_med=1.0 dcol_e_med=1.0 unchanged=0.201 wide=0.000
+MASS ecc rock28km m=1.3e-14 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=7.21e-9 dv_over_v_max=7.06e-7 arm_med=1.91e4 arm_p95=1.02e5 arm_relk_med=5.04e-11 truth_med=6.14 truth_p95=16.89 within8=0.600 skip0=0.000 dE_q_med=1090.0 dL_q_med=1486.0 dcol_p_med=3.0 dcol_e_med=18.0 unchanged=0.000 wide=0.000
+MASS ecc ceres470km m=4.7e-10 n=4096 refit_refused=0 plunge=0 keynew_refused=0 dv_over_v_med=2.61e-4 dv_over_v_max=2.55e-2 arm_med=1.88e4 arm_p95=1.01e5 arm_relk_med=5.03e-11 truth_med=6.09 truth_p95=17.49 within8=0.601 skip0=0.000 dE_q_med=39419450.0 dL_q_med=53717849.0 dcol_p_med=91989.0 dcol_e_med=644048.0 unchanged=0.000 wide=0.998
+STAT US ecc compile n=4096 p50=3.213e1 p95=7.736e1 max=3.264e2
+STAT US ecc read n=4096 p50=3.416e0 p95=5.280e0 max=1.099e1
+STAT US ecc cartesian n=4096 p50=4.140e-1 p95=8.880e-1 max=1.284e1
+STAT US ecc refit n=28672 p50=3.783e1 p95=7.358e1 max=1.715e2
+STAT US ecc keykick_geom n=28672 p50=6.400e-2 p95=1.070e-1 max=3.769e0
+STAT US ecc inv_to_shape n=28672 p50=3.390e2 p95=6.853e2 max=1.538e3
+STAT US ecc scar n=4096 p50=8.080e-1 p95=4.114e0 max=1.354e2
+COMPOSED ecc refit_arm=74.6us key_arm_with_inverse=375.4us conditional_mcrit=69.12us (P(delta!=0)=0.926) scar_events=4096 bytes_per_event=40.00B
+
+FAR band p=[16384,18432)M n=4096
+FAR darwin_err=4096 keynew_range_err=0 v3_compile_ok=4096 v3_refit_ok=4096/4096 mcrit, 4096/4096 ceres
+STAT FAR invariants_direct_vs_bound quanta n=4096 p50=5.200e6 p95=2.739e7 max=6.627e8
+STAT FAR invariants_direct_vs_bound relk n=4096 p50=3.026e-10 p95=1.456e-9 max=3.430e-8
+STAT US FAR compile n=4096 p50=7.999e0 p95=1.784e1 max=1.113e2
+STAT US FAR refit n=4096 p50=1.759e1 p95=2.764e1 max=9.805e1
+STATE load="5.54 4.01 2.43 5/480 2055233" cores=8

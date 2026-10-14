@@ -1,0 +1,514 @@
+diff --git a/crates/shipmem/examples/promo_contact.rs b/crates/shipmem/examples/promo_contact.rs
+new file mode 100644
+index 00000000..a3e0a64b
+--- /dev/null
++++ b/crates/shipmem/examples/promo_contact.rs
+@@ -0,0 +1,508 @@
++//! Second author on 20261014-0450-scout-b29a: the checker's named gold experiment.
++//!
++//! Composes the REAL encounters-tier contact impulse (c7eb gold, RK4-validated:
++//! Δv_i = 2 m_j b/(|b|² v_rel) at the conjunction's closest approach, b ⊥ v_rel) as the
++//! ΔE/ΔL source of the compact→live promotion, through both arms, on a cold belt
++//! (σ0.07, e≤0.6) and an eccentric belt (σ0.3, e≤0.9):
++//!   arm A (refit):      cartesian IntegerState + integer Δv -> `Rebinding::from_state`;
++//!   arm B (key-space):  ΔE/ΔL as integers on the key's own Q48/Q32 quanta, from the
++//!                       conjunction geometry alone — the law's polar readout (r, v_r, v_t)
++//!                       plus the tier's (d/a, v_rel/v_circ, cosψ, side, m_j) — via the same
++//!                       closed-form metric algebra `fit_key` uses. No cartesian state,
++//!                       no refit.
++//! The geometry (d/a, v_rel/v_circ, cosψ) is drawn from 482 measured game-density truth
++//! encounters (c7eb's game3d-planar dump), so the impulse magnitude AND direction follow
++//! the real distribution (cosψ strongly bimodal at ±1: shear-dominated conjunctions).
++//! Also folds in the Darwin-domain statement on a far band (p ∈ [16384,18432) M):
++//! `Key::darwin` caps p at 8192 M; v3 `OrbitKey::bound` has no cap; `Key::new` caps L at
++//! 4096·2³², which is the key-space arm's true outer boundary.
++use emergent_space::binding::{cartesian, IntegerState, Rebinding};
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_space::scaled::Scalar;
++use emergent_space::Key;
++use emergent_shipmem::belt::{Body, Population, Spec};
++use std::hint::black_box;
++use std::time::Instant;
++
++include!("../../../lab/results/20261014-0727-second-20261014-0450-scout-b29a-b693/triples.rs");
++
++const UNITS: (i16, i16) = (-30, -40); // position quanta 2^-30 M, velocity quanta 2^-40 c
++const N: u64 = 4096;
++
++/// Mass ladder, ratios to the central mass (radii at 2.5 g/cm³; m_crit from c7eb).
++const MASSES: [(f64, &str); 7] = [
++    (6.6e-21, "rock50m"),
++    (5.0e-19, "ship1Mt"),
++    (1.3e-18, "rock600m"),
++    (1.3e-17, "mcrit1.35km"),
++    (6.6e-16, "rock5km"),
++    (1.3e-14, "rock28km"),
++    (4.7e-10, "ceres470km"),
++];
++
++struct R(u64);
++impl R {
++    fn next(&mut self) -> u64 {
++        let mut x = self.0;
++        x ^= x << 13;
++        x ^= x >> 7;
++        x ^= x << 17;
++        self.0 = x;
++        x
++    }
++    fn unit(&mut self) -> f64 {
++        (self.next() >> 11) as f64 / (1u64 << 53) as f64
++    }
++}
++
++fn stat(name: &str, mut v: Vec<f64>) {
++    if v.is_empty() {
++        println!("STAT {} empty", name);
++        return;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let q = |p: f64| v[((v.len() as f64 - 1.0) * p) as usize];
++    println!(
++        "STAT {} n={} p50={:.3e} p95={:.3e} max={:.3e}",
++        name,
++        v.len(),
++        q(0.5),
++        q(0.95),
++        q(1.0)
++    );
++}
++fn med(v: &mut Vec<f64>) -> f64 {
++    if v.is_empty() {
++        return f64::NAN;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    v[v.len() / 2]
++}
++
++fn scf(s: Scalar) -> f64 {
++    s.fixed(40).unwrap_or(0) as f64 / 2f64.powi(40)
++}
++
++/// E, L from coordinate-time polar components, `fit_key`'s algebra (M=1, c=1):
++/// den = (1-2u) - (vr^2/(1-2u) + vt^2); E^2 = lapse^2/den, L = r*vt/sqrt(den).
++fn invariants(r: f64, vr: f64, vt: f64) -> (f64, f64) {
++    let lapse = 1.0 - 2.0 / r;
++    let den = lapse - (vr * vr / lapse + vt * vt);
++    let e = (lapse * lapse / den).sqrt();
++    let l = r * vt / den.sqrt();
++    (e, l)
++}
++
++fn invariants_cart(s: &IntegerState) -> (f64, f64) {
++    let f = |v: i64, x: i16| v as f64 * 2f64.powi(x as i32);
++    let (x, y) = (f(s.position[0], s.length_exponent), f(s.position[1], s.length_exponent));
++    let (vx, vy) = (f(s.velocity[0], s.velocity_exponent), f(s.velocity[1], s.velocity_exponent));
++    let r = (x * x + y * y).sqrt();
++    let vr = (x * vx + y * vy) / r;
++    let vt = (x * vy - y * vx) / r;
++    invariants(r, vr, vt)
++}
++
++/// Belt columns of a shape key + refit, glue in f64 (the store's own grid decides).
++fn columns(rng: &mut R, ok: &OrbitKey, reb: &Rebinding) -> Body {
++    let k = ok.k as f64 / (1u64 << 48) as f64;
++    let e48 = (1.0 / k - 1.0) * (1u64 << 48) as f64;
++    let peri = ok.periapsis.fixed(20).unwrap_or(0) as f64 / (1u64 << 20) as f64;
++    Body {
++        p: (peri * (1.0 / k) * 65536.0) as u64,
++        e: (e48 / (1u64 << 18) as f64) as u64,
++        w: reb.periapsis_angle as u64,
++        t: (reb.event_time.fixed(0).unwrap_or(0) as u64 + (rng.next() & 2047)) & ((1u64 << 44) - 1),
++    }
++}
++
++struct BeltOut {
++    compose_refit: f64,
++    compose_key: f64,
++    bytes_per_event: f64,
++}
++
++fn run_belt(name: &str, spec: Spec, _seed: u64, rng: &mut R) -> BeltOut {
++    let mut pop = Population::birth(spec, N, 17).unwrap();
++    let bytes0 = pop.bytes_used();
++
++    let (mut t_compile, mut t_read, mut t_cart, mut t_refit, mut t_key, mut t_inv, mut t_scar) =
++        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
++    let mut self_eq = Vec::new();
++    let mut self_lq = Vec::new();
++    // per mass
++    let mut dvv: [Vec<f64>; 7] = [const { Vec::new() }; 7];
++    let mut arm_q: [Vec<f64>; 7] = [const { Vec::new() }; 7];
++    let mut arm_relk: [Vec<f64>; 7] = [const { Vec::new() }; 7];
++    let mut truth_q: [Vec<f64>; 7] = [const { Vec::new() }; 7];
++    let mut within8 = [0usize; 7];
++    let mut refused = [0usize; 7];
++    let mut plunge = [0usize; 7];
++    let mut keynew_refused = [0usize; 7];
++    let mut counts = [0usize; 7];
++    let mut dcol_p: [Vec<f64>; 7] = [const { Vec::new() }; 7];
++    let mut dcol_e: [Vec<f64>; 7] = [const { Vec::new() }; 7];
++    let mut wide = [0usize; 7];
++    let mut skip0 = [0usize; 7];
++    let mut dl_q_abs: [Vec<f64>; 7] = [const { Vec::new() }; 7];
++    let mut de_q_abs: [Vec<f64>; 7] = [const { Vec::new() }; 7];
++    let mut unchanged = [0usize; 7];
++    let mut scar_events = 0usize;
++
++    for i in 0..N {
++        let b0 = pop.body(i);
++        let Ok(key0) = Key::darwin(b0.p as u32, b0.e as u32) else { continue };
++        let (e0q, l0q) = (key0.energy.get(), key0.angular.get());
++        let Ok(ok0) = OrbitKey::from_invariants(
++            Scalar::raw(e0q as i128 - (1i128 << 48), -48).unwrap(),
++            Scalar::raw(l0q as i128, -32).unwrap(),
++        ) else { continue };
++        let t0 = Instant::now();
++        let Ok(orbit) = Orbit::compile(ok0) else { continue };
++        t_compile.push(t0.elapsed().as_nanos() as f64 / 1000.0);
++        let period = scf(orbit.period().unwrap());
++        let elapsed = Scalar::raw((period * rng.unit()) as i128, -30).unwrap();
++        let t1 = Instant::now();
++        let st = orbit.signed_state(elapsed).unwrap();
++        t_read.push(t1.elapsed().as_nanos() as f64 / 1000.0);
++        // the tier's polar conjunction state (what the encounters tier hands the law)
++        let (r_c, vr_c, vt_c) = (scf(st.radius), scf(st.radial_velocity), scf(st.transverse_velocity));
++        let t2 = Instant::now();
++        let int0 = cartesian(st, b0.w as u32, false, UNITS).unwrap();
++        t_cart.push(t2.elapsed().as_nanos() as f64 / 1000.0);
++        let (ea0, la0) = invariants_cart(&int0);
++        self_eq.push((ea0 * (1u64 << 48) as f64 - e0q as f64).abs());
++        self_lq.push((la0 * (1u64 << 32) as f64 - l0q as f64).abs());
++
++        // the measured encounter geometry for this body
++        let (delta_d, w_rel, cospsi) = TRIPLES[(rng.next() % TRIPLES.len() as u64) as usize];
++        let side = if rng.next() & 1 == 0 { 1.0 } else { -1.0 };
++        let p_m = b0.p as f64 / 65536.0;
++        let ecc = b0.e as f64 / (1u64 << 30) as f64;
++        let a_law = p_m / (1.0 - ecc * ecc);
++        let d_law = delta_d * a_law;
++        let vrel_law = w_rel / a_law.sqrt();
++
++        // cartesian velocity direction (arm A) and polar (arm B): same vector, two bases
++        let fv = |v: i64, x: i16| v as f64 * 2f64.powi(x as i32);
++        let (vx, vy) = (fv(int0.velocity[0], UNITS.1), fv(int0.velocity[1], UNITS.1));
++        let vnorm_c = (vx * vx + vy * vy).sqrt();
++        let vnorm_p = (vr_c * vr_c + vt_c * vt_c).sqrt();
++        let sinpsi = (1.0 - cospsi * cospsi).sqrt();
++
++        for (mi, (m_j, _mname)) in MASSES.iter().enumerate() {
++            counts[mi] += 1;
++            let dv_mag = 2.0 * m_j / (d_law * vrel_law);
++            dvv[mi].push(dv_mag / vnorm_p);
++            let _ = dv_mag;
++            // ---- arm B: key-space ΔE/ΔL from conjunction geometry alone ----
++            let (br, bt) = (
++                (cospsi * vr_c - side * sinpsi * vt_c) / vnorm_p,
++                (cospsi * vt_c + side * sinpsi * vr_c) / vnorm_p,
++            );
++            let t4 = Instant::now();
++            let (e1, l1) = invariants(r_c, vr_c + dv_mag * br, vt_c + dv_mag * bt);
++            let (e0c, l0c) = invariants(r_c, vr_c, vt_c);
++            let de_q = ((e1 - e0c) * (1u64 << 48) as f64).round() as i64;
++            let dl_q = ((l1 - l0c) * (1u64 << 32) as f64).round() as i64;
++            let key_b = Key::new(
++                e0q.wrapping_add(de_q as u64),
++                l0q.wrapping_add(dl_q as u64),
++            );
++            if de_q == 0 && dl_q == 0 {
++                skip0[mi] += 1;
++            }
++            t_key.push(t4.elapsed().as_nanos() as f64 / 1000.0);
++            dl_q_abs[mi].push(dl_q.abs() as f64);
++            de_q_abs[mi].push(de_q.abs() as f64);
++            let key_b = match key_b {
++                Ok(k) => k,
++                Err(_) => {
++                    keynew_refused[mi] += 1;
++                    continue;
++                }
++            };
++            // ---- arm A: exact refit of the kicked cartesian state ----
++            let ddx = dv_mag * (cospsi * vx / vnorm_c - side * sinpsi * vy / vnorm_c);
++            let ddy = dv_mag * (cospsi * vy / vnorm_c + side * sinpsi * vx / vnorm_c);
++            let kicked = IntegerState {
++                velocity: [
++                    int0.velocity[0] + (ddx * (1u64 << 40) as f64) as i64,
++                    int0.velocity[1] + (ddy * (1u64 << 40) as f64) as i64,
++                ],
++                ..int0
++            };
++            let t3 = Instant::now();
++            let reb = match Rebinding::from_state(kicked, Scalar::ZERO, None) {
++                Ok(r) => r,
++                Err(_) => {
++                    refused[mi] += 1;
++                    continue;
++                }
++            };
++            t_refit.push(t3.elapsed().as_nanos() as f64 / 1000.0);
++            let key_a = reb.trajectory.key();
++            let Some(key_a) = key_a else {
++                plunge[mi] += 1;
++                continue;
++            };
++            // arm vs arm, in shape-key space
++            let t5 = Instant::now();
++            let ok_b = OrbitKey::from_invariants(
++                Scalar::raw(key_b.energy.get() as i128 - (1i128 << 48), -48).unwrap(),
++                Scalar::raw(key_b.angular.get() as i128, -32).unwrap(),
++            )
++            .unwrap();
++            t_inv.push(t5.elapsed().as_nanos() as f64 / 1000.0);
++            let dk = (key_a.k as i64 - ok_b.k as i64).abs() as f64;
++            let dp = (key_a.periapsis.fixed(40).unwrap_or(0) - ok_b.periapsis.fixed(40).unwrap_or(0)).abs() as f64;
++            arm_q[mi].push(dk.max(dp));
++            arm_relk[mi].push(dk / key_a.k as f64);
++            // arm B vs the kicked state's f64 truth
++            let (et, lt) = invariants_cart(&kicked);
++            let tq = (key_b.energy.get() as f64 - et * (1u64 << 48) as f64).abs()
++                .max((key_b.angular.get() as f64 - lt * (1u64 << 32) as f64).abs());
++            truth_q[mi].push(tq);
++            if tq <= 8.0 {
++                within8[mi] += 1;
++            }
++            // store columns from the refit (the real promotion's scar row)
++            let body_a = columns(rng, &key_a, &reb);
++            let (dp_c, de_c) = (
++                (body_a.p as i64 - b0.p as i64).abs() as f64,
++                (body_a.e as i64 - b0.e as i64).abs() as f64,
++            );
++            dcol_p[mi].push(dp_c);
++            dcol_e[mi].push(de_c);
++            if dp_c > 32767.0 || de_c > 32767.0 {
++                wide[mi] += 1;
++            }
++            if dp_c == 0.0 && de_c == 0.0 {
++                unchanged[mi] += 1;
++            }
++            // scar at m_crit: the realistic per-event store path
++            if *m_j == 1.3e-17 {
++                let t6 = Instant::now();
++                pop.scar(i, body_a);
++                t_scar.push(t6.elapsed().as_nanos() as f64 / 1000.0);
++                scar_events += 1;
++                black_box(&body_a);
++            }
++        }
++    }
++
++    println!("\nBELT {name} n={N}");
++    stat(&format!("QUANT {name} float_E_vs_key_Q48"), self_eq);
++    stat(&format!("QUANT {name} float_L_vs_key_Q32"), self_lq);
++    for (mi, (m_j, mname)) in MASSES.iter().enumerate() {
++        let n = counts[mi].max(1);
++        println!(
++            "MASS {name} {mname} m={m_j:.1e} n={n} refit_refused={} plunge={} keynew_refused={} \
++dv_over_v_med={:.2e} dv_over_v_max={:.2e} arm_med={:.2e} arm_p95={:.2e} arm_relk_med={:.2e} \
++truth_med={:.2} truth_p95={:.2} within8={:.3} skip0={:.3} dE_q_med={:.1} dL_q_med={:.1} \
++dcol_p_med={:.1} dcol_e_med={:.1} unchanged={:.3} wide={:.3}",
++            refused[mi],
++            plunge[mi],
++            keynew_refused[mi],
++            med(&mut dvv[mi]),
++            dvv[mi].iter().cloned().fold(0.0, f64::max),
++            med(&mut arm_q[mi]),
++            {
++                let mut v = arm_q[mi].clone();
++                v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++                v[(((v.len() as f64 - 1.0) * 0.95) as usize).min(v.len() - 1)]
++            },
++            med(&mut arm_relk[mi]),
++            med(&mut truth_q[mi]),
++            {
++                let mut v = truth_q[mi].clone();
++                v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++                v[(((v.len() as f64 - 1.0) * 0.95) as usize).min(v.len() - 1)]
++            },
++            within8[mi] as f64 / n as f64,
++            skip0[mi] as f64 / n as f64,
++            med(&mut de_q_abs[mi]),
++            med(&mut dl_q_abs[mi]),
++            med(&mut dcol_p[mi]),
++            med(&mut dcol_e[mi]),
++            unchanged[mi] as f64 / n as f64,
++            wide[mi] as f64 / n as f64,
++        );
++    }
++    stat(&format!("US {name} compile"), t_compile.clone());
++    stat(&format!("US {name} read"), t_read.clone());
++    stat(&format!("US {name} cartesian"), t_cart.clone());
++    stat(&format!("US {name} refit"), t_refit.clone());
++    stat(&format!("US {name} keykick_geom"), t_key.clone());
++    stat(&format!("US {name} inv_to_shape"), t_inv.clone());
++    stat(&format!("US {name} scar"), t_scar.clone());
++    let (c, rd, ca, rf, kk, iv, sc) = (
++        med(&mut t_compile.clone()),
++        med(&mut t_read.clone()),
++        med(&mut t_cart.clone()),
++        med(&mut t_refit.clone()),
++        med(&mut t_key.clone()),
++        med(&mut t_inv.clone()),
++        med(&mut t_scar.clone()),
++    );
++    let bytes_per_event = (pop.bytes_used() - bytes0) as f64 / scar_events.max(1) as f64;
++    // The conditional path per real event: the 0.05-us integer filter decides; the law is
++    // called (compile+read+cart+refit+scar) only when the integer dE/dL is nonzero.
++    let mc = MASSES.iter().position(|(m, _)| *m == 1.3e-17).unwrap();
++    let p_skip = 1.0 - skip0[mc] as f64 / counts[mc].max(1) as f64;
++    println!(
++        "COMPOSED {name} refit_arm={:.1}us key_arm_with_inverse={:.1}us conditional_mcrit={:.2}us \
++(P(delta!=0)={:.3}) scar_events={} bytes_per_event={:.2}B",
++        c + rd + ca + rf + sc,
++        c + rd + kk + iv + sc,
++        kk + p_skip * (c + rd + ca + rf + sc),
++        p_skip,
++        scar_events,
++        bytes_per_event
++    );
++    BeltOut {
++        compose_refit: c + rd + ca + rf + sc,
++        compose_key: c + rd + kk + iv + sc,
++        bytes_per_event,
++    }
++}
++
++/// The far band, beyond `Key::darwin`'s p ≤ 8192 M cap: the domain statement.
++fn run_far(rng: &mut R) {
++    let spec = Spec {
++        p_lo: 16384 << 16,
++        p_bits: 27,
++        sigma_milli: 70,
++        e_bits: 30,
++        e_cap: 644_245_094,
++        w_bits: 32,
++        t_bits: 44,
++    };
++    let mut pop = Population::birth(spec, N, 31).unwrap();
++    let mut darwin_err = 0usize;
++    let mut keynew_range = 0usize;
++    let mut v3_ok = 0usize;
++    let mut v3_refit_refused = [0usize; 2];
++    let mut v3_ok_after = [0usize; 2];
++    let (mut far_arm_q, mut far_arm_relk) = (Vec::new(), Vec::new());
++    let (mut t_compile, mut t_refit) = (Vec::new(), Vec::new());
++    let masses = [1.3e-17f64, 4.7e-10f64];
++    for i in 0..N {
++        let b0 = pop.body(i);
++        if Key::darwin(b0.p as u32, b0.e as u32).is_err() {
++            darwin_err += 1;
++        }
++        // invariants-direct row→(E,L): darwin's own algebra in f64 (L = p/√(p−3−e²) …)
++        let (p_m, ecc) = (b0.p as f64 / 65536.0, b0.e as f64 / (1u64 << 30) as f64);
++        let l_c = p_m / (p_m - 3.0 - ecc * ecc).sqrt();
++        let u_p = (1.0 + ecc) / p_m;
++        let e_c = ((1.0 - 2.0 * u_p) * (1.0 + (l_c * u_p) * (l_c * u_p))).sqrt();
++        let key_direct = Key::new((e_c * (1u64 << 48) as f64) as u64, (l_c * (1u64 << 32) as f64) as u64);
++        if key_direct.is_err() {
++            keynew_range += 1;
++        }
++        // the v3 path: OrbitKey::bound has no p cap
++        let Ok(ok0) = OrbitKey::bound(Scalar::raw(b0.p as i128, -16).unwrap(), (b0.e as u64) << 18)
++        else {
++            continue;
++        };
++        // does the invariants-direct key (E,L) agree with v3's bound key in shape space?
++        if let Ok(kd) = key_direct {
++            if let Ok(okd) = OrbitKey::from_invariants(
++                Scalar::raw(kd.energy.get() as i128 - (1i128 << 48), -48).unwrap(),
++                Scalar::raw(kd.angular.get() as i128, -32).unwrap(),
++            ) {
++                let dk = (ok0.k as i64 - okd.k as i64).abs() as f64;
++                let dp = (ok0.periapsis.fixed(40).unwrap_or(0) - okd.periapsis.fixed(40).unwrap_or(0)).abs() as f64;
++                far_arm_q.push(dk.max(dp));
++                far_arm_relk.push(dk / ok0.k as f64);
++            }
++        }
++        let t0 = Instant::now();
++        let Ok(orbit) = Orbit::compile(ok0) else { continue };
++        t_compile.push(t0.elapsed().as_nanos() as f64 / 1000.0);
++        v3_ok += 1;
++        let period = scf(orbit.period().unwrap());
++        let elapsed = Scalar::raw((period * rng.unit()) as i128, -30).unwrap();
++        let Ok(st) = orbit.signed_state(elapsed) else { continue };
++        let Ok(int0) = cartesian(st, b0.w as u32, false, UNITS) else { continue };
++        let (delta_d, w_rel, cospsi) = TRIPLES[(rng.next() % TRIPLES.len() as u64) as usize];
++        let side = if rng.next() & 1 == 0 { 1.0 } else { -1.0 };
++        let a_law = p_m / (1.0 - ecc * ecc);
++        let dv_mag_base = 2.0 / (delta_d * a_law * (w_rel / a_law.sqrt()));
++        let (vx, vy) = (
++            int0.velocity[0] as f64 * 2f64.powi(-40),
++            int0.velocity[1] as f64 * 2f64.powi(-40),
++        );
++        let vn = (vx * vx + vy * vy).sqrt();
++        let sinpsi = (1.0 - cospsi * cospsi).sqrt();
++        for (mi, m_j) in masses.iter().enumerate() {
++            let dv = dv_mag_base * m_j;
++            let ddx = dv * (cospsi * vx / vn - side * sinpsi * vy / vn);
++            let ddy = dv * (cospsi * vy / vn + side * sinpsi * vx / vn);
++            let kicked = IntegerState {
++                velocity: [
++                    int0.velocity[0] + (ddx * (1u64 << 40) as f64) as i64,
++                    int0.velocity[1] + (ddy * (1u64 << 40) as f64) as i64,
++                ],
++                ..int0
++            };
++            let t1 = Instant::now();
++            if let Ok(reb) = Rebinding::from_state(kicked, Scalar::ZERO, None) {
++                if reb.trajectory.key().is_some() {
++                    v3_ok_after[mi] += 1;
++                    if *m_j == 1.3e-17 {
++                        t_refit.push(t1.elapsed().as_nanos() as f64 / 1000.0);
++                        let key = reb.trajectory.key().unwrap();
++                        let body = columns(rng, &key, &reb);
++                        pop.scar(i, body);
++                    }
++                }
++            } else {
++                v3_refit_refused[mi] += 1;
++            }
++        }
++    }
++    println!("\nFAR band p=[16384,18432)M n={N}");
++    println!(
++        "FAR darwin_err={} keynew_range_err={} v3_compile_ok={} v3_refit_ok={}/{} mcrit, {}/{} ceres",
++        darwin_err,
++        keynew_range,
++        v3_ok,
++        v3_ok_after[0],
++        v3_ok.max(1),
++        v3_ok_after[1],
++        v3_ok.max(1),
++    );
++    stat("FAR invariants_direct_vs_bound quanta", far_arm_q);
++    stat("FAR invariants_direct_vs_bound relk", far_arm_relk);
++    stat("US FAR compile", t_compile.clone());
++    stat("US FAR refit", t_refit);
++}
++
++fn main() {
++    let mut rng = R(0x9E3779B97F4A7C15);
++    #[allow(unused_variables)]
++    let cold = Spec {
++        p_lo: 2048 << 16,
++        p_bits: 27,
++        sigma_milli: 70,
++        e_bits: 30,
++        e_cap: 644_245_094,
++        w_bits: 32,
++        t_bits: 44,
++    };
++    let ecc = Spec {
++        sigma_milli: 300,
++        e_cap: 966_367_641, // 0.9
++        ..cold
++    };
++    let _c = run_belt("cold", cold, 17, &mut rng);
++    let _e = run_belt("ecc", ecc, 23, &mut rng);
++    run_far(&mut rng);
++    println!(
++        "STATE load=\"{}\" cores={}",
++        std::fs::read_to_string("/proc/loadavg").unwrap_or_default().trim(),
++        std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0)
++    );
++}

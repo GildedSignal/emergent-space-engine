@@ -1,0 +1,15 @@
+[package]
+name = "enc-dump"
+version = "0.1.0"
+edition = "2021"
+
+# Second-author run 20261009-1345: lives outside the workspace (see [workspace] below),
+# path-depends on the shipped crate unchanged.
+
+[workspace]
+
+[dependencies]
+emergent-encounters = { path = "../../../../crates/encounters" }
+
+[profile.release]
+opt-level = 3
