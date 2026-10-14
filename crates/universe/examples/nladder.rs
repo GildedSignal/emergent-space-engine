@@ -122,7 +122,8 @@ fn main() {
     // the view: one gather from a cold cache and one from the warm one, wall (skipped when the run is near its 60 s).
     let mut cache = ViewCache::default();
     let (mut cold, mut warm, mut seen) = (-1.0f64, -1.0f64, 0usize);
-    if t_start.elapsed() < Duration::from_secs(40) {
+    // (a cold gather costs about 30 us a body: it runs only when it fits in the run's 60 s)
+    if t_start.elapsed().as_secs_f64() + bodies as f64 * 3.0e-5 < 55.0 {
         let tv = Instant::now();
         seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
         cold = tv.elapsed().as_secs_f64() * 1e3;

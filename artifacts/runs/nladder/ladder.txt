@@ -70,3 +70,34 @@ SECOND TERMS, outside or after the first (measured here, not fixed by the first 
   - The player in the belt: the scan against every body of its doll is exact and O(candidates) per player item (encounters.md: 1.5-1.9 us a body; priced out as a per-pair filter): these flights stay near 1 AU,
     so they never meet it (the burn reaches the star's doll at 15.8 s but is still at 1 AU, within about 0.02 AU of it; the belt's periapses are above 1.2 AU). A flight into the belt is the next ladder.
   - Memory and build: 2.4-2.6 KB a body (a compiled orbit per body in the catalogue, never shared: 1.2-1.5 KB; a 448 B record; plan, info, spec) and 29-31 us a body to build: the plane cannot hold 10^7 whatever the frame does.
+
+
+AFTER 0f112b89 (14 October, Opus, wt/nladder): the frame stopped walking every body. Same probe, same columns, same seed (the draw corrected: rayleigh_q48 in Q96, a probe population
+change, see verify_0f112b89.txt; bits held for the frame change). Raw: artifacts/runs/nladder/after/. Machine: load 7-12 (another builder's compile and behave runs), AC power, swap 1.3 of 2 GB,
+no thermal warning (state.sh at each run, in each raw file). Fanless M1 8 GB, 1 thread.
+
+       N flight   bodies  build s    MiB  B/body   p50 ms   p99 ms   max ms  >12ms  lag s   ev/b/gs kick/b/gs refus  held  view ms frames wall s  F1
+       0 burn         28     0.00     29  196608    0.375    5.661    10.70      0  0.000  1.93e-01  4.32e-02     0    21      0.4   1200    0.7  pass
+       0 coast        28     0.00      9  196608    0.022    1.802    11.57      0  0.000  1.20e-01  2.00e-02     0     1      0.4   1200    0.2  pass
+     100 burn        128     0.00     29    5571    0.398    6.245    10.66      0  0.000  4.81e-02  1.12e-02     0    21      1.4   1200    0.8  pass
+     100 coast       128     0.00      9    5734    0.022    1.543     9.97      0  0.000  3.29e-02  6.10e-03     0     0      1.3   1200    0.3  pass
+    1000 burn       1028     0.03     32    3129    0.401    8.595    11.30      0  0.000  9.61e-03  2.49e-03     0    21     11.6   1200    1.3  pass
+    1000 coast      1028     0.03     12    3146    0.022    4.489    10.40      0  0.000  8.30e-03  1.86e-03     0     0     11.5   1200    0.6  pass
+   10000 burn      10028     0.28     54    2626    0.399    8.553    11.27      0  0.000  9.85e-04  2.55e-04     0    21    137.2   1200    1.8  pass
+   10000 coast     10028     0.28     34    2631    0.022    4.144    10.47      0  0.000  8.50e-04  1.90e-04     0     0    135.1   1200    1.2  pass
+  100000 burn     100028     2.81    283    2653    0.399    8.570    11.27      0  0.000  9.88e-05  2.56e-05     0    21   1375.2   1200    8.2  pass
+  100000 coast    100028     2.81    264    2652    0.022    4.136    10.36      0  0.000  8.52e-05  1.91e-05     0     0   1377.7   1200    7.6  pass
+ 1000000 burn    1000028    28.66   2369    2483    0.400    8.514    11.26      0  0.000  9.88e-06  2.56e-06     0    21     -1.0   1200   60.2  pass
+ 1000000 coast   1000028    28.81   2305    2407    0.022    4.154    10.38      0  0.000  8.53e-06  1.91e-06     0     0     -1.0   1200   59.6  pass
+(view ms -1 at 10^6: the warm gather did not fit the run's 60 s; the cold gather is 29.8 s, 30 us a body. The 10^6 burn run took 60.2 s of wall, 30 s of it the view;
+the probe now skips the view when it cannot fit: examples/nladder.rs.)
+
+THE SCORE AFTER (gate N1): N = 10^6 (1,000,028 bodies, 10^6.0): both flights keep F1 (no frame over 12 ms after the first second, zero lag), 2.4 GB < 4 GiB, zero refusals.
+Before: 10^3. The frame no longer depends on N: engine p50 0.022 ms (coast) and 0.40 ms (burn) at every N from 0 to 10^6 (exponent 0.00); p99 4.1-4.5 / 8.5-8.6 ms flat
+from 10^3 on (the 300 locals' orbits); max 10.4 / 11.3 ms at every N, frame 61 (the fleet's opening exodus, at N = 0 too). Stage costs (prof_*, us a frame, coast): rekey 5.9 / 6.0 / 6.4
+at 10^3 / 10^4 / 10^5 (was 58 / 501 / 8,089), requeue 1.1-1.2 (was 51 / 469 / 7,592), take_due 0.4 (was 19 / 173 / 1,461); prune 89-93 us a call every 64th frame (was 1.5 ms at 10^5).
+
+WHAT GROWS WITH N NOW (bodies that changed a frame: flat, events/frame p50 2-4, p99 216-226, max 348-452 at every N): only what is held per body.
+  memory  2.4-2.7 KB a body (2,407 B at 10^6), MiB 264 -> 2,305 from 10^5 to 10^6: exponent 0.94-1.0. 4 GiB at ~1.7x10^6 bodies: 10^7 needs 24 GB.  <- the next rung's break
+  build   28-31 us a body, 2.81 -> 28.8 s: exponent 1.01. 10^7 needs ~290 s (the rung cannot run in 60 s).
+  view    the page's gather reads every body: 136 ms (10^4), 1,377 ms (10^5) warm, 29.8 s cold at 10^6: exponent 1.0 (outside the engine's F1; the page pays it).
