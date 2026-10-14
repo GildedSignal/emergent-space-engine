@@ -2,32 +2,65 @@ topic: nladder
 status: open
 closed-by:
 valid-while:
-updated: 20261014-0000-fermi-3071
+updated: 20261014-0059-fermi-effb
 
 # The N ladder: 28 live bodies toward 10⁹
 
 ## Current best
+
+**The 10⁹ ledger is composed, and the scoreboard's gaps resolve into two rails: the kick
+gap is the hot rail's alone, and the cold rail is encounter-bound by ~1.9×10³ skin-on
+(20261014-0059-fermi-effb).** The cadence law is now code-verified: `step_for` is one
+step per 2⁻⁷ of the radial period, power-of-two rounded (`ctx.rs:44` `step_log2: 7`;
+`step.rs:75-97`), so **rate = 2⁷/P with κ ∈ [128, 256] — a pure birth constant**; it
+reproduces 3071's roster endpoints (top 0.0462 vs 0.0484, ratio 0.96 — 4.7% *above*
+the κ=256 ceiling, so band-edge-tight; floor 3×10⁻⁵, which the hauler band cannot
+reach — its κ<256 top at 0.5 AU is 2.29×10⁻⁵ — while Cinder's band [1.7, 3.3]×10⁻⁵
+contains it at κ≈231 — **no period-independent clock floor** on either reading;
+checker: the floor body's identity is unverified), contains 7497's Orbiters
+(202–223 ⊂ [128, 256]), and validates the SI unit reading (root unit 1.477 km, c = 1,
+game-second = second). Composed at 10⁹ quiet (rtf 1, 4 cores): kicks 0.12–1.065 cores
+at Carlson (code-derived 1–2 AU belt 0.043–0.243, a9d7 rate 1.065; checker: at the
+shipped 231 µs the true 1–2 AU band is 0.33–1.87 — the ledger's 0.94 is the κ=128@1 AU
+edge — and a 0.5 AU belt runs up to 5.3 cores at 231 µs; Carlson busts 4 cores only
+inside ~0.16 AU)
+— 8.2 only at the a9d7 rate × 231 µs (367f's 8.3 and ad26's 1.08 re-derived
+independently; both stand, the spread is the period mix: the record's per-body rate
+constants span ~100× by instrument — roster mean 3.3×10⁻³, a9d7 3.55×10⁻⁵, haulers
+1.8×10⁻⁷–2.3×10⁻⁵); **encounters 7.7×10³ cores skin-on (1,925× over; 9.66×10⁴
+no-skin), 7,051× the kick term at Carlson pricing**; memory 2.6–5 GB quiet (fits),
+15.75 driven (the quanta); hot 90–186 MB; H_live ~0; frame tier deleted (gate open).
+Rails: hot (battle density 0.041/member/s) measured ceiling 2.8×10⁴ at the stack
+(790b), model-scaled to ~4–6×10⁸ at the 42–55 ns floor (the ledger's own 4.9×10⁸;
+checker-corrected from ~10⁷–10⁸) — the kick gap (10^3.3) buys
+this rail, 4+ of the bodies gap's 6.4 orders; cold (belt) never kick-bound, encounter-
+and memory-bound. **Expected break order as the plane grows: promotion stream ~10³
+(367f) → hot D-slope 2.8×10⁴ (790b) → the wired encounter tier at ~5.2×10⁵ bodies
+skin-on (~4.1×10⁴ no-skin; held-out, falsifiable when H0216 wires it) → memory at 10⁹
+(quiet: never; driven: the quanta).** The cold rail's entire CPU bill is chosen at
+generation: when shipmem's belt is wired, pick its `step_log2` knowing rate =
+2^step_log2/P is the whole bill.
 
 **The rule-2 conflict is resolved by decomposition: the tail is manufactured, and the
 promotion certificate is arithmetic on stored birth constants (20261014-0000-fermi-3071,
 adjudicating 20261013-2252-dynamics-ea91 against
 20261013-2252-second-20261013-2130-library-ae3d-7497).** ea91's ho1 scene reproduces
 bit-identically (digest `aca905ad…`). The plane's 28 natives carry compiled rates
-0.0484 → 3×10⁻⁵/s (1,613:1 by construction): same-rate bodies have identical census
-counts (133,133 / 67,67,67 / 17,17 at T = 5,500 game-s), counts are identical across
-seeds 3/7/11 and member counts 48/120/400, and exactly 2× under a doubled window
-(kicks 266 = 2·133 exactly; 133 = 2·67−1, 33 = 2·17−1). Roster-predicted native Gini
-0.759 vs measured 0.718–0.745 (ρ = 0.94–0.96); the model "natives = rate×T, members =
-measured" reproduces G_all within 0.017 (worst case, tune) and even the Zipf slope
-(−1.6…−2.0). Held-out: seed 11 m120 held 5/5; the doubled window held the ladder
-exactly (2× per ladder body; the roster Gini is T-invariant by construction) while the
-player proved schedule-bound (350 ≠ 2×417) and G_all *rose* (0.753) as dead members'
-one-time bursts froze against ∝T ladder bodies — both misses in the driver/member
-channels no rank reads. So: **rule 2 is dead as a ladder rule** (7497's verdict, now
-decomposed);
-**every ea91 measurement stands** as a correct description of a manufactured
-distribution; the live fraction is set at generation (12 of 28 natives above
-3×10⁻³/s here), and the promotion cost question stays at frame-cost's `resolve_handout`.
+0.0484 → 3×10⁻⁵/s (1,613:1 by construction — now derived from the cadence law above):
+same-rate bodies have identical census counts (133,133 / 67,67,67 / 17,17 at T = 5,500
+game-s), counts are identical across seeds 3/7/11 and member counts 48/120/400, and
+exactly 2× under a doubled window (kicks 266 = 2·133 exactly; 133 = 2·67−1, 33 =
+2·17−1). Roster-predicted native Gini 0.759 vs measured 0.718–0.745 (ρ = 0.94–0.96);
+the model "natives = rate×T, members = measured" reproduces G_all within 0.017 (worst
+case, tune) and even the Zipf slope (−1.6…−2.0). Held-out: seed 11 m120 held 5/5; the
+doubled window held the ladder exactly (2× per ladder body; the roster Gini is
+T-invariant by construction) while the player proved schedule-bound (350 ≠ 2×417) and
+G_all *rose* (0.753) as dead members' one-time bursts froze against ∝T ladder bodies —
+both misses in the driver/member channels no rank reads. So: **rule 2 is dead as a
+ladder rule** (7497's verdict, now decomposed); **every ea91 measurement stands** as a
+correct description of a manufactured distribution; the live fraction is set at
+generation (12 of 28 natives above 3×10⁻³/s here), and the promotion cost question
+stays at frame-cost's `resolve_handout`.
 
 **The surprise-rate distribution as measured (ea91, instrument = the env-gated
 per-body census in `Universe::apply`, digest-neutral):** across bodies, resolved items
@@ -104,16 +137,27 @@ The four rules that survive, with rule 2 struck and adjudicated:
 3. **Compaction as the scheduled spike** (measured): fold the storm row's update stream
    into the shipped allocator and check the p99 frame. Primary direction for the
    promotion work (rule 2's death redirects it here and to ephemeral promotion).
-4. **The belt revival path** (both runs and the adjudication point here): a dense belt
+4. **The wired encounter wall** (effb's held-out number): when H0216 wires the encounters
+   tier into the plane, the first CPU wall lands at ~5.2×10⁵ belt bodies skin-on
+   (~4.1×10⁴ no-skin) — measure it there; the further ~1.9×10³ cut (cells, setup, what
+   never needs a pair test) is the cold rail's 10⁹ lever, ahead of any kick-cost work.
+5. **The belt revival path** (both runs and the adjudication point here): a dense belt
    where conjunctions cluster on bodies could still be heavy-tailed *without* a driver —
    unmeasured; it is the one scene class that could revive a measured rank.
-5. **The death channel at belt scale** (ea91): the 47–64 % promotion death rate is the
+6. **The death channel at belt scale** (ea91): the 47–64 % promotion death rate is the
    battle pocket; measure the quiet belt's promotion mix (death vs dormancy) before
    sizing retirement vs demotion. The avalanche stream (Fano 8–28) is the allocator's
    target for burst absorption (PRINCIPLES #12).
-6. The haulers' far-field clock cadence per orbit is extrapolated from ~1 kick
+7. The haulers' far-field clock cadence per orbit is extrapolated from ~1 kick
    (0.03–0.3 % of an orbit measured); a full-orbit measurement needs ~10⁷–10⁸ game-s
-   (wall-days) — only worth it if the ladder reaches the root-doll bulk.
+   (wall-days) — only worth it if the ladder reaches the root-doll bulk. *[effb: the
+   cadence law rate = 2⁷/P now explains why the haulers sit at ~1 kick per *measured
+   window* without any separate far-field clock: their κ/P is simply small; no extra
+   law is needed.]*
+8. **Pick the belt's `step_log2` as a budget decision** (effb): the cold rail's whole
+   CPU bill is 2^step_log2/P summed over the period mix; the billion's event load is a
+   content policy, not an engine property — set it when wiring shipmem, with the
+   encounter term (not the kick) as the binding constraint it must leave room for.
 
 ## Contradictions
 
@@ -128,3 +172,4 @@ The four rules that survive, with rule 2 struck and adjudicated:
 - 20261013-2252-dynamics-ea91 (awaiting grade): surprise distribution heavy (Gini 0.72–0.74, top decile ≈ half the work), live ranks frozen, churn is death (54–64 % of promotions), steady stream avalanches (Fano 8–28).
 - 20261013-2252-second-20261013-2130-library-ae3d-7497 (second author): rule 2's falsifier run on four shipped scenes — distribution not heavy-tailed (bulk flat per orbit by construction, head driver-caused); promotion is a fixed fraction; digest-neutral probe.
 - 20261014-0000-fermi-3071 (awaiting grade): the conflict adjudicated by decomposition — native counts identical across seeds and exactly 2× with the window, roster-predicted Gini 0.759 vs measured 0.718–0.745; rule 2 dead, ea91's description stands, certificate = birth constant.
+- 20261014-0059-fermi-effb (awaiting grade): the 10⁹ ledger composed — cadence law rate = 2⁷/P code-verified (roster endpoints 0.96/0.76, Orbiters ⊂ [128,256]); encounters 1,925× over skin-on, 7,051× the kicks; two rails (hot = kick gap, cold = encounters + memory); held-out: wired wall ~5.2×10⁵.
