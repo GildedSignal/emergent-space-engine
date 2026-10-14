@@ -1,0 +1,122 @@
+//! The fleet seam judged live, on shipped code: the r6-style `Seen`-value criterion the view
+//! page's open direction 8 asks for. A fast fleet (`scenes::battle`, `speed_div` 2/4/8 — the
+//! plane's own fleet wiring via `scenario::plane_with`), the shipped `gather`'s `Seen.shift`
+//! for every live member against an SR oracle written from the frame's own integers:
+//! exact SR velocity composition (`ov/q ⊕ mo.k/q` then `⊕ cv`; the engine's line is the
+//! Galilean sum, the S2 seam), my own retarded extrapolation, flat-space Doppler
+//! `((1−n·vo)/√(1−vo²)) / ((1−n·v)/√(1−v²))`. The observer's `(xo, vo)` comes from
+//! `root_state` — that side was judged exact to 1.4e-10 by 2fa4. Also prints the Newtonian
+//! prediction (the shipped rate law) so one build shows both the γ−1 law and the fix's law.
+//! `seen_fleet [T0] [GATHERS]`.
+use emergent_engine::scenes;
+use emergent_lattice::Motion;
+use emergent_universe::fleet::{Order, Q};
+use emergent_universe::observe::{clock_rate, root_state};
+use emergent_universe::scenario::plane_with;
+use emergent_universe::view::gather;
+use emergent_universe::{Config, Universe};
+
+fn dot(a: [f64; 2], b: [f64; 2]) -> f64 {
+    a[0] * b[0] + a[1] * b[1]
+}
+
+/// Exact SR velocity composition `u ⊕ w` (both as fractions of c): the parallel part adds,
+/// the perpendicular part divides by γ(u), the whole divides by `1 + u·w`.
+fn compose(u: [f64; 2], w: [f64; 2]) -> [f64; 2] {
+    let uu = dot(u, u);
+    if uu <= 0.0 {
+        return w;
+    }
+    let g = (1.0 - uu).sqrt().recip();
+    let uw = dot(u, w);
+    let c = uw / uu;
+    let s = 1.0 + c * (1.0 - 1.0 / g);
+    [(w[0] / g + u[0] * s) / (1.0 + uw), (w[1] / g + u[1] * s) / (1.0 + uw)]
+}
+
+fn main() {
+    let t0: i64 = std::env::args().nth(1).map(|s| s.parse().unwrap()).unwrap_or(5_000_000);
+    let gathers: usize = std::env::args().nth(2).map(|s| s.parse().unwrap()).unwrap_or(3);
+    let frame = (100.0 / 60.0 / 4.926e-6) as i64; // one displayed frame in ticks (rtf 100)
+    println!("the fleet seam judged live: t0 {t0}, {gathers} gathers {frame} ticks apart, 64 members");
+    println!("{:>6} {:>8} {:>6} {:>8} {:>9} {:>9} {:>9} {:>8} {:>10}", "div", "seed", "judged", "max beta", "max|dt|", "max rel e", "pred g-1", "grav", "shift");
+    for (div, seed) in [(2i64, 1u64), (4, 1), (8, 1), (2, 7), (8, 7)] {
+        let world = scenes::battle(64, Q, seed, div, false).0;
+        let mut p = plane_with(Config::default(), seed, Order::Sparse, 1, world).unwrap();
+        let (mut max_e, mut max_pred, mut max_dt, mut max_b, mut judged, mut grav, mut lo, mut hi) =
+            (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0usize, 0.0f64, 1e9f64, 0.0f64);
+        for g in 0..gathers {
+            p.u.settle(t0 + g as i64 * frame);
+            let (e, pr, dt, b, n, gr, s_lo, s_hi) = judge(&p);
+            max_e = max_e.max(e);
+            max_pred = max_pred.max(pr);
+            max_dt = max_dt.max(dt);
+            max_b = max_b.max(b);
+            judged += n;
+            grav = grav.max(gr);
+            lo = lo.min(s_lo);
+            hi = hi.max(s_hi);
+        }
+        println!("{div:>6} {seed:>8} {judged:>6} {max_b:>8.4} {max_dt:>9.1} {max_e:>9.2e} {max_pred:>9.2e} {grav:>8.1e} {lo:>5.2}-{hi:<5.2}");
+    }
+}
+
+/// One gather, judged: `(max |shift/shift_SR − 1|, max Newtonian-prediction error, max |dt|,
+/// max β_m, members judged, max gravitational factor, shift range)`.
+fn judge(p: &emergent_universe::scenario::Plane) -> (f64, f64, f64, f64, usize, f64, f64, f64) {
+    let u: &Universe = &p.u;
+    let v = gather(u, &p.names).expect("a view");
+    let t_now = u.now;
+    let ctx = u.ctx();
+    let f = &u.fleets[p.fleet];
+    let tc = f.tick();
+    let home = f.centre;
+    let clamped = tc.max(u.bodies().event_time(home)).min(t_now);
+    let (Some((o, ov)), Ok((cp, cv))) = (f.origin(tc), root_state(&ctx, home, clamped)) else {
+        return (0.0, 0.0, 0.0, 0.0, 0, 0.0, 1.0, 1.0);
+    };
+    let rate0 = clock_rate(&ctx, home, tc.max(0).min(t_now)).unwrap_or(1.0);
+    let (xo, vo) = root_state(&ctx, p.player, t_now).expect("the player");
+    let doll = &u.dolls[f.doll as usize];
+    let (k, shift) = (2f64.powi(-20), doll.shift as i32);
+    let mu = doll.mu_f64();
+    let mut motions: Vec<Motion> = Vec::new();
+    f.motions(&mut motions);
+    let (mut max_e, mut max_pred, mut max_dt, mut max_b, mut n, mut grav, mut lo, mut hi) =
+        (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0usize, 0.0f64, 1e9f64, 0.0f64);
+    let rate_obs = (1.0 - dot(vo, vo)).sqrt(); // the oracle's flat γ_o; the engine's rate_obs differs by gravity ~1e-9
+    for (m, mo) in motions.iter().enumerate() {
+        if !f.is_member(m) {
+            continue;
+        }
+        // The member's state, from the frame's integers, with exact SR composition.
+        let v_frame = compose([ov[0] / Q as f64, ov[1] / Q as f64], [mo.k[0] as f64 / Q as f64, mo.k[1] as f64 / Q as f64]);
+        let vel = compose(cv, v_frame);
+        let x = [cp[0] + (o[0] + mo.x[0] as f64) * k, cp[1] + (o[1] + mo.x[1] as f64) * k];
+        let d0 = [x[0] - xo[0], x[1] - xo[1]];
+        let want = t_now as f64 - dot(d0, d0).sqrt();
+        let dt = want - tc as f64;
+        let xe = [x[0] + vel[0] * dt, x[1] + vel[1] * dt];
+        let d = [xe[0] - xo[0], xe[1] - xo[1]];
+        let dist = dot(d, d).sqrt().max(1e-9);
+        let n_prop = [-d[0] / dist, -d[1] / dist]; // emitter → observer
+        let b = dot(vel, vel).sqrt();
+        let shift_sr = ((1.0 - dot(n_prop, vo)) / rate_obs) / ((1.0 - dot(n_prop, vel)) / (1.0 - b * b).sqrt());
+        // The shipped rate law (the Newtonian prediction): the planet's clock, the potential, no kinetic factor.
+        let rel = [(o[0] + mo.x[0] as f64) * k, (o[1] + mo.x[1] as f64) * k];
+        let r_doll = dot(rel, rel).sqrt() * 2f64.powi(shift);
+        let rate_newton = rate0 * (1.0 - 2.0 * mu / r_doll.max(3.0)).sqrt();
+        let shift_newton = ((1.0 - dot(n_prop, vo)) / rate_obs) / ((1.0 - dot(n_prop, vel)) / rate_newton);
+        // The live readout for this member.
+        let Some(row) = v.seen.iter().find(|s| s.id == 1_000_000 + p.fleet * 1000 + m && s.kind == 4) else { continue };
+        n += 1;
+        max_e = max_e.max((row.shift / shift_sr - 1.0).abs());
+        max_pred = max_pred.max((shift_newton / shift_sr - 1.0).abs());
+        max_dt = max_dt.max(dt.abs());
+        max_b = max_b.max(b);
+        grav = grav.max((1.0 / rate_newton - 1.0).abs());
+        lo = lo.min(row.shift);
+        hi = hi.max(row.shift);
+    }
+    (max_e, max_pred, max_dt, max_b, n, grav, lo, hi)
+}
