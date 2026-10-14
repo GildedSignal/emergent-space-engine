@@ -1,0 +1,41 @@
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index 3253025d..bca3552c 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -87,6 +87,17 @@ fn chain(prev: [u8; 32], e: &Encounter) -> [u8; 32] {
+     *h.finalize().as_bytes()
+ }
+ 
++// The census (a lab probe, `ES_CENSUS`): observation only, never a decision, so it cannot move a bit.
++static CENSUS: std::sync::Mutex<Vec<(Tick, usize, u8)>> = std::sync::Mutex::new(Vec::new());
++static CENSUS_ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("ES_CENSUS").is_ok());
++fn census_on() -> bool {
++    *CENSUS_ON
++}
++/// The resolved items' `(tick, body, kind)` as they were applied, taken and cleared by a lab probe (`ES_CENSUS`).
++pub fn take_census() -> Vec<(Tick, usize, u8)> {
++    std::mem::take(&mut *CENSUS.lock().unwrap_or_else(|e| e.into_inner()))
++}
++
+ /// What one presented frame did.
+ #[derive(Clone, Copy, Debug)]
+ pub struct Frame {
+@@ -575,6 +586,18 @@ impl Universe {
+         }
+         self.resolved += 1;
+         let t = upd.rec.b.event_time;
++        // The census (a lab probe, `ES_CENSUS`): observation only, never a decision, so it cannot move a bit.
++        if census_on() {
++            let k = match upd.kind {
++                Resolved::Kick => 0,
++                Resolved::Open => 1,
++                Resolved::Boundary => 2,
++                Resolved::Handoff => 3,
++                Resolved::Lost => 4,
++                Resolved::Refused => 5,
++            };
++            CENSUS.lock().unwrap_or_else(|e| e.into_inner()).push((t, i, k));
++        }
+         self.bodies.put(i, upd.rec);
+         // The position cache is read by `light_distance` and nothing else, and the player's light distance is zero by
+         // definition (`rekey` reads the observer from the player's own state): its walk of the doll chain, the dearest
