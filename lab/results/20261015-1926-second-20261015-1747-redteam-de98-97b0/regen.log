@@ -1,0 +1,25 @@
+=== validations ===
+V1 nu->0 baseline at nu=1e-9 (should equal the O(nu) effect at 1e-9, i.e. ~ek(0.25)*4e-9, NOT a truncation floor): [(20, '2.4e-10'), (12, '6.7e-10'), (50, '-3.9e-12'), (8.5, '2.2e-09')]
+V2 pbar=80: corrDJS=+0.00558  EOB3PN=+0.00843  gap(correct)=2.85e-03  gap(wrong sign)=5.70e-03
+V2 pbar=100: corrDJS=+0.00471  EOB3PN=+0.00647  gap(correct)=1.76e-03  gap(wrong sign)=4.88e-03
+V2 pbar=120: corrDJS=+0.00405  EOB3PN=+0.00525  gap(correct)=1.19e-03  gap(wrong sign)=4.24e-03
+V4 DJS rows (de98 stored: +13.09% at 20/0.6, +5.18% at 30/0.6): [(20, '+13.0920%'), (30, '+5.4185%')]
+V5 doll vs series 3/p̄+27/2p̄² (residual = 3PN term): [(100.0, '2.27e-03'), (300.0, '2.72e-04')]
+V6 (a) Newtonian k=6.31e-14  (b) k(p̄=100,e=.3,ν→0)=0.031429 vs series 0.031350  (c) iso 11.75→12.77 / 48.99→50.00 (doll areal 12.5 / 50.0)
+V3 EOB quad vs RK relerr: [(20, 0.6, '7.66e-09'), (12, 0.3, '7.80e-09'), (30, 0.6, '1.37e-08')]
+V7 p̄=400 per-unit-ν effect (%): DJS -0.5037 | A2/D -0.5139 | ecfd A2·D̄ +0.0052 | no-D A2 -0.2543
+=== adjudication (conv_tp) ===
+Adjudication, conv_tp (ecfd convention) at (20, 0.6, 0.25):
+   F= A2timesD order=2:  ek=+0.3575%  eT=-1.5407%
+   F=  A2overD order=2:  ek=+3.2050%  eT=-1.3381%
+   F=  A2overD order=3:  ek=+5.9309%  eT=-1.1754%
+
+=== P5/P7 ===
+P5 ν-ratio at (30, 0.6): 25.5
+P7 ν=0.25: 21/21 labels disagree (band [6.5, 8.499999999999993], doll-plunge/eob-bound)
+P7 ν=0.01: 0/21 labels disagree (band None, None)
+=== dossier table numbers (from oracle_data.json) ===
+de98-conv pbar=20: ek2=+3.37% ek3=+6.03% ek4=+5.96% ek_djs=+13.09%
+de98-conv pbar=30: ek2=+2.04% ek3=+3.10% ek4=+3.07% ek_djs=+5.42%
+de98-conv pbar=50: ek2=+1.16% ek3=+1.52% ek4=+1.51% ek_djs=+2.18%
+doll-conv pbar=20: ek3=+6.64% eT3=-1.71%
