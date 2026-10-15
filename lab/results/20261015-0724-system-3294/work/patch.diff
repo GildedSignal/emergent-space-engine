@@ -1,0 +1,235 @@
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..d0e53749 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -21,13 +21,35 @@ extern "C" {
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
+ fn footprint() -> (u64, u64) {
+-    let mut buf = [0u64; 64];
+-    // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+-    let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
+-    if ok != 0 {
+-        return (0, 0);
++    #[cfg(target_os = "macos")]
++    {
++        extern "C" {
++            fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
++        }
++        let mut buf = [0u64; 64];
++        // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
++        let ok = unsafe { proc_pid_rusage(std::process::id() as i32, 4, buf.as_mut_ptr()) };
++        if ok != 0 {
++            return (0, 0);
++        }
++        (buf[9], buf[30])
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        // Linux: peak VmHWM and current VmRSS from /proc, bytes.
++        let read = |k: &str| -> u64 {
++            std::fs::read_to_string("/proc/self/status")
++                .ok()
++                .and_then(|s| {
++                    s.lines()
++                        .find(|l| l.starts_with(k))
++                        .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++                })
++                .unwrap_or(0)
++                * 1024
++        };
++        (read("VmRSS:"), read("VmHWM:"))
+     }
+-    (buf[9], buf[30])
+ }
+ 
+ fn pct(sorted: &[f64], p: f64) -> f64 {
+@@ -54,6 +76,7 @@ fn main() {
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+     println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s of wall time, engine budget {budget_ms} ms; build {build:.2} s, peak footprint {:.0} MB (now {:.0} MB)", rss1 as f64 / 1e6, now1 as f64 / 1e6);
++    emergent_universe::census::reset();
+     let mut rows: Vec<(usize, f64, u64, f64)> = Vec::new(); // frame, ms, events, lag s
+     let mut stage_ns = [0u64; emergent_universe::prof::N];
+     let mut stage_calls = [0u64; emergent_universe::prof::N];
+@@ -160,4 +183,15 @@ fn main() {
+         "ladder: n={n} bodies={bodies} flight={flight} rtf={rtf} frames={ran} build_s={build:.2} foot_build_mb={:.0} foot_end_mb={:.0} b_per_body={:.0} p50_ms={:.3} p99_ms={:.3} max_ms={:.3} over={over} lag_s={lag:.3} kicks_per_body_gs={:.3e} events_per_body_gs={:.3e} refusals={refusals} dead={dead} held_max={held_max} view_ms={warm:.1} truncated={truncated} wall_s={:.1}",
+         rss1 as f64 / 1e6, rss2 as f64 / 1e6, (rss1.saturating_sub(rss0)) as f64 / n.max(1) as f64, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), per(kicks), per(evs), t_start.elapsed().as_secs_f64()
+     );
++    println!("{}", emergent_universe::census::line());
++    if let Ok(out) = std::env::var("CENSUS_TRAIN") {
++        let train = emergent_universe::census::train();
++        if let Ok(mut f) = std::fs::File::create(&out) {
++            use std::io::Write;
++            for (t, id) in &train {
++                let _ = writeln!(f, "{t} {id}");
++            }
++        }
++        println!("census train: {} fires dumped to {out}", train.len());
++    }
+ }
+diff --git a/crates/universe/src/census.rs b/crates/universe/src/census.rs
+new file mode 100644
+index 00000000..c76f7202
+--- /dev/null
++++ b/crates/universe/src/census.rs
+@@ -0,0 +1,110 @@
++//! Digest-neutral counters for the kick census (lab run 20261015-0724-system-3294). Nothing here
++//! reads back into the law: every function is a write to a counter, and no behaviour branches on it.
++//!
++//! The question: what does a kick of the metronome actually carry? Each kick quantizes its impulse
++//! against the velocity word and fires (rebinds) only when at least one unit flips; the sub-quantum
++//! part is carried (sigma-delta). The census counts, per kind and doll, kick events, fires, the
++//! fired impulse's size in word units (log2 buckets), and the tick and body of every fire (the
++//! phase structure of the stream: the standing wave train).
++use crate::body::Kind;
++use crate::num::Tick;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::Mutex;
++
++/// (kind as u8, root as u8) -> index. Planet 0, Moon 1, Ship 2, Player 3; root doll is `doll == 0`
++/// (the plane's star doll).
++fn slot(kind: Kind, root: bool) -> usize {
++    2 * (match kind {
++        Kind::Planet => 0,
++        Kind::Moon => 1,
++        Kind::Ship => 2,
++        Kind::Player => 3,
++    }) + root as usize
++}
++
++pub const NAMES: [&str; 8] = [
++    "planet/child", "planet/root", "moon/child", "moon/root", "ship/child", "ship/root", "player/child", "player/root",
++];
++
++static KICKS: [AtomicU64; 8] = [const { AtomicU64::new(0) }; 8];
++static FIRED: [AtomicU64; 8] = [const { AtomicU64::new(0) }; 8];
++/// Fires by floor(log2(|dvq| in word units)), per slot: bucket 0 is |dvq| = 1, 7 is >= 128.
++static DV: [[AtomicU64; 8]; 8] = [const { [const { AtomicU64::new(0) }; 8] }; 8];
++/// The non-clock (SyMBA-level) kick path, for completeness.
++static NC_KICKS: AtomicU64 = AtomicU64::new(0);
++static NC_FIRED: AtomicU64 = AtomicU64::new(0);
++
++/// Every fire's (tick, body id), the phase structure of the stream. Capped; a full cap is reported.
++static TRAIN: Mutex<Option<Vec<(Tick, u64)>>> = Mutex::new(None);
++pub const TRAIN_CAP: usize = 4_000_000;
++
++/// One kick event: whether it fired, and the impulse in word units when it did.
++pub fn kick(kind: Kind, root: bool, fired: bool, dv_units: u64, t: Tick, id: usize) {
++    let s = slot(kind, root);
++    KICKS[s].fetch_add(1, Ordering::Relaxed);
++    if !fired {
++        return;
++    }
++    FIRED[s].fetch_add(1, Ordering::Relaxed);
++    if dv_units > 0 {
++        let b = (64 - dv_units.leading_zeros() - 1).min(7) as usize; // floor(log2)
++        DV[s][b].fetch_add(1, Ordering::Relaxed);
++    }
++    if let Ok(mut g) = TRAIN.lock() {
++        if let Some(v) = g.as_mut() {
++            if v.len() < TRAIN_CAP {
++                v.push((t, id as u64));
++            }
++        }
++    }
++}
++
++/// One kick event of the non-clock path (the levelled changeover). Recorded in the same per-kind
++/// arrays (kicks, fires, impulse buckets, train); the levelled count is kept separately so the two
++/// paths stay distinguishable in the report.
++pub fn kick_levelled(kind: Kind, root: bool, fired: bool, dv_units: u64, t: Tick, id: usize) {
++    NC_KICKS.fetch_add(1, Ordering::Relaxed);
++    kick(kind, root, fired, dv_units, t, id);
++    if fired {
++        NC_FIRED.fetch_add(1, Ordering::Relaxed);
++    }
++}
++
++/// The tick of every fire, for the train histogram (empty before any flight).
++pub fn train() -> Vec<(Tick, u64)> {
++    TRAIN.lock().map(|g| g.as_ref().cloned().unwrap_or_default()).unwrap_or_default()
++}
++
++/// One line a script can parse.
++pub fn line() -> String {
++    let mut s = String::from("census:");
++    for i in 0..8 {
++        let (k, f) = (KICKS[i].load(Ordering::Relaxed), FIRED[i].load(Ordering::Relaxed));
++        if k == 0 {
++            continue;
++        }
++        let buckets: Vec<u64> = DV[i].iter().map(|a| a.load(Ordering::Relaxed)).collect();
++        s.push_str(&format!(
++            " {} kicks={} fired={} fire_rate={:.3e} dv_log2={:?}",
++            NAMES[i], k, f, f as f64 / k as f64, buckets
++        ));
++    }
++    s.push_str(&format!(" levelled kicks={} fired={}", NC_KICKS.load(Ordering::Relaxed), NC_FIRED.load(Ordering::Relaxed)));
++    s
++}
++
++/// Reset (the example builds once; this keeps re-runs in one process honest).
++pub fn reset() {
++    for i in 0..8 {
++        KICKS[i].store(0, Ordering::Relaxed);
++        FIRED[i].store(0, Ordering::Relaxed);
++        for b in 0..8 {
++            DV[i][b].store(0, Ordering::Relaxed);
++        }
++    }
++    NC_KICKS.store(0, Ordering::Relaxed);
++    NC_FIRED.store(0, Ordering::Relaxed);
++    if let Ok(mut g) = TRAIN.lock() {
++        *g = Some(Vec::new());
++    }
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..3eae4652 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -1,8 +1,8 @@
+ //! The plane: one star system, whole (docs/plane.md). See the module docs for each foundation.
+ pub mod bind;
+ pub mod body;
++pub mod census;
+ pub mod ctx;
+-pub mod dash;
+ pub mod encounter;
+ pub mod ext;
+ pub mod fleet;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..9f4846e9 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -425,8 +425,10 @@ impl Work<'_, '_> {
+             self.rec.carry = carry;
+             if dvq == [0, 0] {
+                 // A sub-quantum kick fires nothing: it is carried.
++                crate::census::kick_levelled(self.rec.kind, d == 0, false, 0, t, self.i);
+                 return Ok(());
+             }
++            crate::census::kick_levelled(self.rec.kind, d == 0, true, (dvq[0].unsigned_abs() + dvq[1].unsigned_abs()) as u64, t, self.i);
+             added = [Scalar::raw(dvq[0] as i128, st.velocity_exponent as i32)?, Scalar::raw(dvq[1] as i128, st.velocity_exponent as i32)?];
+             IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }
+         };
+@@ -679,16 +681,18 @@ impl Work<'_, '_> {
+         let w = ext.time(ext.y(f.potential)?, ext.ds)?;
+         let dv = scale2(f.accel, w)?;
+         let thrusting = self.rec.thrust.is_some_and(|t| t.keys != 0);
++        let mut dv_units: u64 = 0;
+         let (next, carry) = if thrusting {
+             // The player's burn rides on the kick; it is not a flow of the Hamiltonian, so the register is projected after.
+             let v2 = self.burn(x, add2(v, dv)?, t)?;
+             (IntegerState { velocity: self.velocity_after(&st, v2)?, ..st }, self.rec.carry)
+         } else {
+             let (dvq, carry) = quantize(dv, st.velocity_exponent, self.rec.carry)?;
+-            ext.add_pt(w.mul(f.rate)?)?;
++            dv_units = (dvq[0].unsigned_abs() + dvq[1].unsigned_abs()) as u64;
+             (IntegerState { velocity: [st.velocity[0] + dvq[0], st.velocity[1] + dvq[1]], ..st }, carry)
+         };
+         let fired = next.velocity != st.velocity;
++        crate::census::kick(self.rec.kind, d == 0, fired, dv_units, t, self.i);
+         if fired {
+             self.rebind(next, t, d)?;
+         }

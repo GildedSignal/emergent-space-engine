@@ -1,0 +1,40 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+warning: variable does not need to be mutable
+   --> crates/universe/src/step.rs:679:13
+    |
+679 |         let mut ext = self.rec.ext.expect("a clock-stepped body");
+    |             ----^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `emergent-universe` (lib) generated 1 warning (run `cargo fix --lib -p emergent-universe` to apply 1 suggestion)
+warning: function `proc_pid_rusage` is never used
+  --> crates/universe/examples/nladder.rs:18:8
+   |
+18 |     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+   |        ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `emergent-universe` (example "nladder") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 19.00s
+== 1e4_coast ==
+ladder: n=10000 bodies=10028 flight=coast rtf=1500 frames=3300 build_s=0.65 foot_build_mb=27 foot_end_mb=62 b_per_body=2459 p50_ms=4.661 p99_ms=11.932 max_ms=18.021 over=6 lag_s=23.497 kicks_per_body_gs=1.911e-4 events_per_body_gs=3.705e-4 refusals=0 dead=0 held_max=118 view_ms=213.5 truncated=false wall_s=18.4
+census: planet/root kicks=2 fired=2 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 2] moon/child kicks=8 fired=8 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 8] ship/child kicks=119113 fired=118830 fire_rate=9.976e-1 dv_log2=[0, 0, 0, 0, 0, 0, 0, 118830] ship/root kicks=29143 fired=29143 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 29143] player/child kicks=3840 fired=3840 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 3840] levelled kicks=122963 fired=122680
+belt: bodies 9716 fires 29144 interval_s median 28141.5 waves: [(110, 13893.8, 6.9), (176, 13907.1, 11.3), (146, 13918.7, 10.5), (250, 13931.9, 13.1), (510, 13945.3, 22.9), (261, 13972.7, 11.0)]
+== 1e5_coast ==
+ladder: n=100000 bodies=100028 flight=coast rtf=600 frames=3300 build_s=4.52 foot_build_mb=238 foot_end_mb=486 b_per_body=2348 p50_ms=2.010 p99_ms=11.947 max_ms=13.589 over=2 lag_s=9.609 kicks_per_body_gs=4.949e-5 events_per_body_gs=9.947e-5 refusals=0 dead=0 held_max=148 view_ms=2264.3 truncated=false wall_s=24.7
+census: planet/root kicks=1 fired=1 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 1] moon/child kicks=3 fired=3 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 3] ship/child kicks=46148 fired=46019 fire_rate=9.972e-1 dv_log2=[0, 0, 0, 0, 0, 0, 0, 46019] ship/root kicks=99712 fired=99712 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 99712] player/child kicks=1457 fired=1457 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 1457] levelled kicks=47609 fired=47480
+belt: bodies 99792 fires 99947 interval_s median 10577.4 waves: []
+== 3e4_coast ==
+ladder: n=30000 bodies=30028 flight=coast rtf=1500 frames=3300 build_s=1.42 foot_build_mb=74 foot_end_mb=159 b_per_body=2372 p50_ms=5.783 p99_ms=11.949 max_ms=19.030 over=18 lag_s=23.879 kicks_per_body_gs=9.160e-5 events_per_body_gs=1.707e-4 refusals=0 dead=0 held_max=142 view_ms=684.7 truncated=false wall_s=25.0
+census: planet/root kicks=2 fired=2 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 2] moon/child kicks=7 fired=7 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 7] ship/child kicks=109287 fired=109004 fire_rate=9.974e-1 dv_log2=[0, 0, 0, 0, 0, 0, 0, 109004] ship/root kicks=85893 fired=85893 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 85893] player/child kicks=3517 fired=3517 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 3517] levelled kicks=112813 fired=112530
+belt: bodies 29716 fires 85897 interval_s median 28112.2 waves: [(135, 13906.7, 2.7), (128, 13910.9, 2.3), (257, 13933.4, 4.5), (135, 13938.4, 2.0), (153, 13942.0, 2.5), (122, 13945.6, 2.2)]
+== 1e4_burn ==
+ladder: n=10000 bodies=10028 flight=burn rtf=1500 frames=3300 build_s=0.47 foot_build_mb=27 foot_end_mb=260 b_per_body=2456 p50_ms=3.996 p99_ms=11.938 max_ms=78.181 over=16 lag_s=23.790 kicks_per_body_gs=1.878e-4 events_per_body_gs=3.646e-4 refusals=0 dead=0 held_max=1589 view_ms=211.7 truncated=false wall_s=17.1
+census: planet/root kicks=2 fired=2 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 2] moon/child kicks=8 fired=8 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 8] ship/child kicks=121573 fired=121290 fire_rate=9.977e-1 dv_log2=[0, 0, 0, 0, 0, 0, 0, 121290] ship/root kicks=29143 fired=29143 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 29143] player/child kicks=68 fired=68 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 68] player/root kicks=372 fired=372 fire_rate=1.000e0 dv_log2=[0, 0, 0, 0, 0, 0, 0, 0] levelled kicks=121651 fired=121368
+belt: bodies 9716 fires 29144 interval_s median 28141.5 waves: [(110, 13893.8, 6.9), (176, 13907.1, 11.3), (146, 13918.7, 10.5), (250, 13931.9, 13.1), (510, 13945.3, 22.9), (261, 13972.7, 11.0)]
+machine state:
+ 07:58:18 up 48 days, 23:00,  0 user,  load average: 4.98, 4.43, 2.61
