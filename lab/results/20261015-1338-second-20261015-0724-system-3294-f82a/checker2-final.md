@@ -1,0 +1,9 @@
+Check compl**Grade: silver** — written to `check2.md`, with the page corrected in place and the tree left clean.
+
+**What I reproduced** (regen exit 0 + my own flights): the baseline record to the digit (29,143/99,712 fires, rate 1.000, all dv ≥ 2⁷, interval 28,142 s, waves 246.6/1,101.7 s), the new dimensionless census (belt |dv|/|v| median 2⁻²³, identical at 10⁵; moon 2⁻¹³; player 2⁻²⁹), the stagger flattening to exactly uniform (0.494·I, conc50 1.0×), and 3294's corrected arithmetic (0.015–0.06 cores needs the ×100 flying pace — 3294 was indeed 10× low; 4,428/orbit ✓).
+
+**My attacks, all passed by the work**: census stubbed to no-ops → baseline digest still d5bc72b7… (instrument proven digest-neutral); **10⁵×burn, the cell nobody flew**: baseline max_ms **818**, stagger **36.4** (22×), held pile unmoved 1,041→1,030 — the burn held-pile attribution holds a decade out; 10⁵ digests reproduce within arms and differ across; splitmix64 passes KS vs uniform (D≈0.008 < 0.0138).
+
+**The decisive defect**: the stagger — the run's headline third — is a **replication of published work**. `lab/wiki/birth-stagger.md` (20261015-0128-fermi-ed3a, silver, 12 h earlier) already derived the same phase-lock mechanism, shipped the same id-derived first-kick stagger, measured the same flattening (16.7–17.7×) and tail gains, and already stated "the two levers are independent multipliers." Uncited in dossier and proposed page; the author's own prompt index listed it. Three runs have now missed it (3294, its checker, this one). Page corrected in place, marked checker2.
+
+**What stands as new**: the dimensionless census (3294's named gap, now stub-verified neutral) with the binding arithmetic corrected to 16–18 octaves, the canonical-cut digest protocol (over-flown digests non-canonical), and the held-pile attribution. For gold: measure |dv|/|v| at coarser Δs instead of deriving ∝Δs, or fly the stagger through the frozen B-gates.
