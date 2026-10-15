@@ -1,0 +1,4 @@
+Working...
+The run is complete: predictions pre-registered, decisive arms flown (10⁵ coast, 10⁴ coast, 10⁴ burn — digests `2109a2e0…`/`f8b52855…`/`44d6a9b5…` reproduced across independent processes), dossier, regen.sh, and the folded nladder wiki page all in `lab/results/20261015-0250-scout-760f/`.
+
+**Claim:** the smallest promotion between a compact body and a live one is one `Orbit::compile` — 4.6 µs p50, bit-identical for 120,083/120,083 standing bindings (0 refusals), costing ~0.16 cores at 10⁹ — but the compiled orbit is not the belt's memory wall (672 B/body, none over 1.6 kB, 13.7% of the 4.89 kB/body plateau): trajectory eviction buys only 1.16×, the wall is the per-body record stack, and 10⁹ in ~6 GB is reachable only through population programs, now with promotion priced at 17 ns regeneration plus one compile per event.

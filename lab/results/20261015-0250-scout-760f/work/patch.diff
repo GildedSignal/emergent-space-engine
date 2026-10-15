@@ -1,0 +1,132 @@
+diff --git a/crates/universe/examples/promote.rs b/crates/universe/examples/promote.rs
+new file mode 100644
+index 00000000..40830f3e
+--- /dev/null
++++ b/crates/universe/examples/promote.rs
+@@ -0,0 +1,126 @@
++//! The promotion surface between a compact body and a live one (board: "the smallest promotion
++//! between a compact body and a live one"). Flies the ladder scene exactly as `nladder` does
++//! (coast unless told otherwise), past the first kick wave, then holds a census at the cut over
++//! every body's *current* binding: the standing bytes of its compiled trajectory (the knots),
++//! the binding's own width without the entry (the compact record, unpacked), and the price of
++//! one promotion — recompiling the trajectory from the key the binding itself carries, compared
++//! bit for bit. If every shape regenerates, the compiled trajectory is a cache, and demotion is
++//! dropping the `Arc`; the census prices promotion, the compact record, and the live set.
++//!
++//! cargo run --release -p emergent-universe --example promote [-- <N> [coast|burn] [<wall s>] [<rtf>]]]
++use emergent_space::binding::Trajectory;
++use emergent_space::orbit::Orbit;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::{gather_cached, ViewCache};
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident bytes now, peak resident bytes) — Linux.
++fn footprint() -> (u64, u64) {
++    let statm = std::fs::read_to_string("/proc/self/statm").unwrap_or_default();
++    let rss = statm.split_whitespace().nth(1).and_then(|s| s.parse::<u64>().ok()).unwrap_or(0) * 4096;
++    let hwm = std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines().find(|l| l.starts_with("VmHWM:")).and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++        })
++        .unwrap_or(0)
++        * 1024;
++    (rss, hwm)
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(8.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(6000.0);
++    let burn = flight == "burn";
++    let frames = (seconds * 60.0) as usize;
++    let (rss0, _) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (foot_build, _) = footprint();
++    let bodies = p.u.n_bodies();
++    let last_stats = p.u.stats;
++    let t_first = p.u.now;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(45) {
++            break;
++        }
++        if f == 60 && burn {
++            let _ = p.u.input(p.u.now, word(1, 8));
++        }
++        let _ = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: None }, i64::MAX);
++    }
++    let (rss_end, hwm) = footprint();
++    let game_s = (p.u.now - t_first) as f64 * emergent_universe::view::TICK_SECONDS;
++    let kicks = p.u.stats.kicks - last_stats.kicks;
++    println!(
++        "flight: N={n} ({bodies} bodies) {flight} rtf {rtf}; build {build:.2} s ({:.0} B/body), {game_s:.0} game-s, kicks {kicks} ({:.3e}/body/game-s), digest {}",
++        (foot_build.saturating_sub(rss0)) as f64 / n.max(1) as f64, kicks as f64 / bodies as f64 / game_s, p.u.digest()
++    );
++    // The census: every body's current binding.
++    let (mut cycles, mut passages, mut plunges) = (0usize, 0usize, 0usize);
++    let (mut mismatch, mut refused) = (0usize, 0usize);
++    let mut knots_bytes = 0u64;
++    let mut compile_us: Vec<f64> = Vec::new();
++    let mut knots_b_each: Vec<f64> = Vec::new();
++    for i in 0..bodies {
++        let b = p.u.rec(i).b;
++        match &b.entry.trajectory {
++            Trajectory::Cycle(o) => {
++                cycles += 1;
++                let kb = (o.shape().knots().len() * std::mem::size_of::<emergent_space::orbit::Knot>()
++                    + o.shape().crossings().len() * std::mem::size_of::<usize>()) as f64;
++                knots_b_each.push(kb);
++                knots_bytes += kb as u64;
++                let key = o.key();
++                let t = Instant::now();
++                match Orbit::compile(key) {
++                    Ok(re) => {
++                        compile_us.push(t.elapsed().as_secs_f64() * 1e6);
++                        if re.shape() != o.shape() || re.key() != key {
++                            mismatch += 1;
++                        }
++                    }
++                    Err(_) => refused += 1,
++                }
++            }
++            Trajectory::Passage(_) => passages += 1,
++            Trajectory::Plunge(_) => plunges += 1,
++        }
++    }
++    compile_us.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    knots_b_each.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let knots_b = knots_bytes as f64 / cycles.max(1) as f64;
++    let compact = (std::mem::size_of::<emergent_universe::bind::Binding>() - std::mem::size_of::<std::sync::Arc<emergent_universe::bind::Entry>>()) as f64;
++    println!(
++        "census: cycles {cycles} passages {passages} plunges {plunges}; recompile mismatch {mismatch} refused {refused}; compile µs p50 {:.1} p90 {:.1} p99 {:.1} max {:.1} ({} compiles, {:.1} s total); knots {:.0} B/body ({:.0} MB standing), p50 {:.0} p99 {:.0} max {:.0}, over 2 kB {:.3}; compact record {:.0} B/body unpacked; catalogue_live {} (bindings standing {})",
++        pct(&compile_us, 0.5), pct(&compile_us, 0.9), pct(&compile_us, 0.99), pct(&compile_us, 1.0), compile_us.len(), compile_us.iter().sum::<f64>() / 1e6, knots_b, knots_bytes as f64 / 1e6, pct(&knots_b_each, 0.5), pct(&knots_b_each, 0.99), pct(&knots_b_each, 1.0), knots_b_each.iter().filter(|k| **k > 2048.0).count() as f64 / cycles.max(1) as f64, compact, p.u.catalogue_live(), bodies
++    );
++    // the view's live read set at the cut (the bodies a gather touches)
++    let mut cache = ViewCache::default();
++    let tg = Instant::now();
++    let seen = gather_cached(&p.u, &p.names, &mut cache).map_or(0, |v| v.seen.len());
++    let gather_ms = tg.elapsed().as_secs_f64() * 1e3;
++    // demote-after-kick composition: live bodies if every entry is dropped after its kick
++    let per = if game_s > 0.0 { kicks as f64 / bodies as f64 / game_s } else { 0.0 };
++    let cores = per * 1e9 * pct(&compile_us, 0.5) / 1e6;
++    println!(
++        "promote: view seen {seen} (gather {gather_ms:.1} ms cold); at this scene's kick rate {:.3e}/body/game-s, 10^9 bodies mint {:.3e} promotions/game-s = {:.2} cores at the p50 compile; live standing under demote-after-kick ≈ seen + in-flight (kicks/frame {:.1}); rss end {:.0} MB, peak {:.0} MB, knots standing {:.1} GB at 10^9",
++        per, per * 1e9, cores, kicks as f64 / frames.max(1) as f64, rss_end as f64 / 1e6, hwm as f64 / 1e6, knots_b * 1e9 / 1e9
++    );
++    println!(
++        "promote: n={n} bodies={bodies} flight={flight} game_s={game_s:.0} kicks={kicks} digest={} cycles={cycles} mismatch={mismatch} refused={refused} compile_us_p50={:.1} compile_us_p99={:.1} knots_b_per_body={:.0} knots_p99={:.0} knots_mb={:.0} compact_b={:.0} catalogue_live={} seen={seen} rss_end_mb={:.0} foot_build_mb={:.0} b_per_body_build={:.0}",
++        p.u.digest(), pct(&compile_us, 0.5), pct(&compile_us, 0.99), knots_b, pct(&knots_b_each, 0.99), knots_bytes as f64 / 1e6, compact, p.u.catalogue_live(), rss_end as f64 / 1e6, foot_build as f64 / 1e6, (foot_build.saturating_sub(rss0)) as f64 / n.max(1) as f64
++    );
++}
