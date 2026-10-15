@@ -1,0 +1,117 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.75s
+{
+ "anchors": {
+  "n1e4": {
+   "shallow": {
+    "bodies": 10028.0,
+    "gs": 18450.5,
+    "kicks": 38658.0,
+    "events": 68831.0,
+    "foot_build_mb": 27.0,
+    "foot_end_mb": 57.0,
+    "birth_bpb": 2456.0,
+    "dash_bpb": 1436.0,
+    "catalogue": 10076.0,
+    "held_max": 56.0,
+    "lag_s": 8.07,
+    "p50_ms": 3.745
+   },
+   "deep": {
+    "bodies": 10028.0,
+    "gs": 44646.1,
+    "kicks": 89244.0,
+    "events": 169518.0,
+    "foot_build_mb": 27.0,
+    "foot_end_mb": 58.0,
+    "birth_bpb": 2465.0,
+    "dash_bpb": 1437.0,
+    "catalogue": 10076.0,
+    "held_max": 56.0,
+    "lag_s": 13.776,
+    "p50_ms": 3.774
+   },
+   "shallow_kick_rate": 0.00020893775145643253,
+   "deep_kick_rate_avg": 0.00019933390490848213,
+   "depth_kick_rate_diff": 0.00019256957155734837,
+   "depth_event_rate_diff": 0.00038329285674682195,
+   "depth_bpb_gross": 5783.805345033905,
+   "flight_growth_B_per_body_game_s": 0.0038067760162366735
+  },
+  "n1e5": {
+   "shallow": {
+    "bodies": 100028.0,
+    "gs": 14171.0,
+    "kicks": 90188.0,
+    "events": 113090.0,
+    "foot_build_mb": 238.0,
+    "foot_end_mb": 409.0,
+    "birth_bpb": 2349.0,
+    "dash_bpb": 1352.0,
+    "catalogue": 100076.0,
+    "held_max": 146.0,
+    "lag_s": 49.651,
+    "p50_ms": 11.801
+   },
+   "deep": {
+    "bodies": 100028.0,
+    "gs": 52969.7,
+    "kicks": 281792.0,
+    "events": 465591.0,
+    "foot_build_mb": 237.0,
+    "foot_end_mb": 490.0,
+    "birth_bpb": 2347.0,
+    "dash_bpb": 1412.0,
+    "catalogue": 100076.0,
+    "held_max": 157.0,
+    "lag_s": 50.0,
+    "p50_ms": 10.798
+   },
+   "shallow_kick_rate": 6.36248355294333e-05,
+   "deep_kick_rate_avg": 5.3183824021338355e-05,
+   "depth_kick_rate_diff": 4.937030516423197e-05,
+   "depth_event_rate_diff": 9.082838531918402e-05,
+   "depth_bpb_gross": 4898.628384052466,
+   "flight_growth_B_per_body_game_s": 0.02087114422612675
+  }
+ },
+ "law_cross_checks": {
+  "rtf100_ladder_txt_n1e4": 0.00019,
+  "rtf100_ladder_txt_n1e3": 0.000186,
+  "this_rtf900_diff": 0.00019256957155734837
+ },
+ "throttle": {
+  "cores_needed_at_1e5_rtf3000": 4.332815360040338,
+  "budget_cores": 0.72,
+  "predicted_delivery": 0.1661737092792472,
+  "measured_delivery": 0.2563764605434,
+  "held_1e4_deep": 56.0,
+  "held_1e5_deep": 157.0
+ },
+ "composition": {
+  "law_cadence_per_body_game_s": 0.00019256957155734837,
+  "at_1e9": {
+   "kicks_per_game_s": 192569.57155734836,
+   "kick_cores_c01c": 8.28049157696598,
+   "kick_cores_scoreboard": 30.81113144917574,
+   "kick_cores_at_floor": 0.009628478577867418,
+   "remint_cores_cap_coast": 0.7125074147621889,
+   "remint_cores_nocap": 9.0488441674798,
+   "cpu_cores_today_cap": 8.99299899172817,
+   "cpu_over_m1_x_cap": 1.1241248739660212,
+   "mem_record_stack_tb": [
+    0.98,
+    1.317
+   ],
+   "mem_arcs_seam_gb": 8.6,
+   "mem_over_budget_x": 163.33333333333334
+  },
+  "memory_binds_x_harder_than_cpu": 145.29821118278218,
+  "check_0757_remint_0p15_cores": {
+   "composed_steady_cap": 0.7125074147621889,
+   "composed_steady_nocap": 9.0488441674798,
+   "their_basis": "20k-cut promotion count (1.31/body avg) on rtf-paced 10^5 arms",
+   "understates_cap_by_x": 4.750049431747926,
+   "understates_nocap_by_x": 60.32562778319867
+  }
+ }
+}

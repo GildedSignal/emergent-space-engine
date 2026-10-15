@@ -1,0 +1,8 @@
+Working...
+Check complete. **Grade: lead** — written to `lab/results/20261015-2041-fermi-99b5/check.md`, with the author's proposed `wiki/n9-ledger.md` corrected in place.
+
+**The verdict, briefly:**
+
+- **Reproduced:** the 10⁴ anchors (rate 1.926e-4, memory 2,456–2,465 B/body, catalogue N+76, p50 3.7 ms). **Not reproduced:** every 10⁵ throttle number (14% → 25.6% delivered, held_max 2,048 → 157) — and regen.sh overwrites the author's raw evidence, so the originals are unauditable.
+- **Headline refuted, three independent ways.** The claimed "belt cadence 1.9e-4, 5.4× the wiki law" is the 10⁴ *scene average*: ~82% of kicks come from the fixed 328 near-Home locals. (1) 3294's census on this same scene measured the belt's own interval at **28,141.5 s median** (= cf45's 2.814e4 law exactly) and published the same 1.90e-4 all-bodies counter *with* that decomposition; (2) my unthrottled flights at rtf 900 give **1.54e-3 / 1.93e-4 / 5.69e-5** at 10³/10⁴/10⁵ — the fixed-locals dilution signature, not an N-flat law (the 10⁵ arm ran at p50 3.3 ms, unthrottled, delivering the true cadence); (3) the author's own 10⁵ shallow arm (1.715e-5, belt silent) is locals alone. The dossier also mis-cites ladder.txt's 10³ row by 10× (1.86e-3 read as 1.86e-4).
+- **Everything derived falls with it:** the throttle story inverts (the 10⁵ rung delivers ~100% of truth, not 14%), the 0757 correction inverts (true re-mint bill 0.131 cores ≈ 0757's "~0.15" — they were right), and 10⁹ CPU is 0.21× the M1, not 1.13×. The surviving conclusion — the record stack binds 10⁹ memory at 163× — is already on record (760f, quant-0619, d6ba's checker, effb's ledger).
