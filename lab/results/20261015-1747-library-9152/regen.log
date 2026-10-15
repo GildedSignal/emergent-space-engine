@@ -1,0 +1,20 @@
+== machine state (runs must compare honestly) ==
+ 17:57:05 up 49 days,  8:59,  1 user,  load average: 1.14, 0.77, 0.78
+               total        used        free      shared  buff/cache   available
+Mem:           15934        2689        3123          37       10494       13244
+8
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 12.08s
+   bodies  n_extra  peak_MB  b/body_end   view_ms
+       28        0        4     1134592       0.6
+     1028     1000        6        3572       9.9
+    10028    10000       27        2458      98.5
+   100028   100000      237        2348     990.2
+
+marginal        28->1028     :     2000 B/body (build peak slope)
+marginal      1028->10028    :     2333 B/body (build peak slope)
+marginal     10028->100028   :     2333 B/body (build peak slope)
+
+largest-rung slope 2333 B/body; at 1e9 belt bodies: 2.33 TB
+8 GB machine all-in budget: 8 B/body; over budget by 292x
+view gather slope 9.91 us/body -> 9908 ms at 1e6 bodies, 2.75 h at 1e9

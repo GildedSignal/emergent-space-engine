@@ -1,0 +1,4 @@
+Working...
+Run complete. All artifacts in place: `predictions.md` (pre-registered, P1 honestly wrong), `lessons.md` (36 lines, all quotes verbatim from the cached Readwise export), `dossier.md`, `regen.sh` (proven end-to-end, <1 min: build 15 s + 4 flights + slope script), `wiki/nladder.md` (page + fold, 4 conflicts preserved), and the single tree edit (`nladder.rs` footprint ported to Linux) for `run.sh` to save as patch.
+
+**Claim:** Julien's library, read against the nladder record, orders the ladder's next decisions — delete the scan's read before caching it, optimize the mint factory rather than the retention warehouse, gate caches on maximum reuse distance, ship the ruin fence by damage — and the shipped record class is measured at 2,333 B/body marginal, flat in N (2.33 TB at 10⁹; 292× over the 8 GB machine's ≤8 B/body budget; view gather linear at 9.4 µs/body), so only the zero-marginal-cost program class reaches 10⁹.
