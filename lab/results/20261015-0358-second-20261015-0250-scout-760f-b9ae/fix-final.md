@@ -1,0 +1,7 @@
+Working...
+Fixed. Root cause: the runner's patch capture returned `work/patch.diff` as **0 bytes**, so the seam/instrument source (`examples/lazy.rs` + 10-file `lazy_demote` seam) never reached the record and `cargo build --example lazy` failed — but the author's final instrument build survived at `/home/glmlab/lab-target-0/release/examples/lazy` (sha256 `e5708a1b…77b8824d`, whose control arms reproduce the scout's bit-identical digests, anchoring it to shipped dynamics).
+
+- **regen.sh**: build is now best-effort with the prebuilt-binary fallback (already half-written, unreachable behind `set -e`), loud failure if neither exists, and the instrument's sha256 logged for tamper-evidence. Full run: exit 0, 154 s, 8 arms, `CERTIFICATE: PASS` — all four control/lazy digest equalities and all three scout baselines hold, and every table number (demotions 93,200/91,212/273,200/89,843; promotions 1.66 M/2.11 M/2.38 M/1.56 M; rss 545→377 MB, 61→44 MB, 84→80 MB, 61→43 MB; B/body 1,603→1,002 etc.) regenerates exactly.
+- **dossier.md** (only what the fix needed): Evidence and Regenerability sections now disclose the capture failure, name the surviving binary and its hash, state the anchoring argument, and note that the seam's source must be re-derived from the design description before adoption.
+
+**Claim:** regen.sh now regenerates every dossier number from the surviving pinned instrument (154 s, `CERTIFICATE: PASS`), with the lost `work/patch.diff` disclosed in the dossier rather than hidden.
