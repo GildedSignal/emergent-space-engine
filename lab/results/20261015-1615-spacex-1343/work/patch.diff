@@ -1,0 +1,363 @@
+diff --git a/crates/space/examples/passage_tail.rs b/crates/space/examples/passage_tail.rs
+new file mode 100644
+index 00000000..12bd8785
+--- /dev/null
++++ b/crates/space/examples/passage_tail.rs
+@@ -0,0 +1,136 @@
++//! The passage tail: standing bytes, compile cost and re-mint identity against the window
++//! exponent `w = log2(outer_radius / periapsis)`, on the law's own bind path
++//! (`Rebinding::from_state`, the same call the universe makes). Also the cycle control:
++//! knots against apoapsis span, and re-mint identity from the key alone.
++//!
++//! cargo run --release -p emergent-space --example passage_tail
++use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
++use emergent_space::orbit::Scalar;
++use std::time::Instant;
++
++fn state_at(r0_q: i64, r0_e: i16, vt: i64, vr: i64, ve: i16) -> IntegerState {
++    IntegerState {
++        position: [r0_q, 0],
++        velocity: [vt, vr],
++        length_exponent: r0_e,
++        velocity_exponent: ve,
++    }
++}
++
++/// One unbound state (GM = 1 in the law's scaled units): r0 = 10^6, v = 2.0e-3 mostly
++/// tangential, 1.125e-6 > 1/r0 = 1e-6 specific orbital energy: hyperbolic, L = 1500.
++fn hyper_state() -> IntegerState {
++    state_at(1_000_000 << 20, -20, (1.5e-3 * (1u64 << 40) as f64) as i64, (-1.0e-3 * (1u64 << 40) as f64) as i64, -40)
++}
++
++/// A bound state at apoapsis (v purely tangential, v² < 2/r0): the cycle control.
++fn bound_state(vt: f64) -> IntegerState {
++    // position along +x, so the tangential direction is +y: v = (0, vt), v_r = 0 at apoapsis.
++    state_at(1_000_000 << 20, -20, 0, (vt * (1u64 << 40) as f64) as i64, -40)
++}
++
++fn main() {
++    println!(
++        "sizes: Scalar {} B, passage panel (Scalar, Integral) — measured below",
++        std::mem::size_of::<Scalar>()
++    );
++
++    // ---- the passage curve: w from 0 (Topology control) to the law's edge ----
++    println!("\n== passages: standing bytes and compile µs against w = log2(outer/periapsis) ==");
++    println!("(the state is fixed; the key's periapsis is read once, then the edge is peri·2^w)\n");
++    let probe = hyper_state();
++    let fit = Rebinding::from_state(probe.clone(), Scalar::ZERO, None).unwrap();
++    let Trajectory::Passage(p0) = &fit.trajectory else { panic!("state is not a passage") };
++    let peri = p0.key().periapsis;
++    println!(
++        "state minted: periapsis {peri:?}, r0 10^6, panels at birth(w≈0) {}, knots {}",
++        p0.panels(),
++        p0.orbit_knots()
++    );
++    let mut first_w = None;
++    for w in [0i32, 9, 10, 11, 12, 13, 16, 21, 26, 31, 36, 41, 51, 56, 59, 61] {
++        // edge = peri * 2^w, but the state's r0 must stay inside the window: bind from the
++        // state with the edge directly (from_state takes passage_edge).
++        let edge = peri.mul(Scalar::power_of_two(w as i16)).unwrap();
++        let fit = match Rebinding::from_state(probe.clone(), Scalar::ZERO, Some(edge)) {
++            Ok(f) => f,
++            Err(e) => {
++                println!("w={w:>3}: refused {e:?}");
++                continue;
++            }
++        };
++        let Trajectory::Passage(p) = &fit.trajectory else { panic!("not a passage") };
++        if first_w.is_none() {
++            first_w = Some(w);
++        }
++        let bytes = p.retained_bytes();
++        // re-mint: the same two arguments, twice; read at 64 radii across the window.
++        let again = Rebinding::from_state(probe.clone(), Scalar::ZERO, Some(edge)).unwrap();
++        let Trajectory::Passage(p2) = &again.trajectory else { panic!() };
++        let mut diffs = 0u32;
++        let mut readouts = 0u32;
++        for k in 0..64u32 {
++            // geometric radii from just above periapsis to just below the edge
++            let frac = ((k as i64 + 1) * (w as i64 + 2) / 65) as i32;
++            let r = peri.mul(Scalar::power_of_two((w - frac) as i16)).unwrap();
++            let a = p.at_radius(r);
++            let b = p2.at_radius(r);
++            readouts += 1;
++            match (a, b) {
++                (Ok(x), Ok(y)) if x == y => {}
++                (Err(_), Err(_)) => {}
++                _ => diffs += 1,
++            }
++        }
++        let t0 = Instant::now();
++        for _ in 0..32 {
++            let _ = Rebinding::from_state(probe.clone(), Scalar::ZERO, Some(edge)).unwrap();
++        }
++        let us = t0.elapsed().as_secs_f64() / 32.0 * 1e6;
++        println!(
++            "w={w:>3}: panels {:>4}, knots {:>3}, standing {bytes:>7} B, compile {us:>7.1} µs, re-mint diffs {diffs}/{readouts}, key equal {}",
++            p.panels(),
++            p.orbit_knots(),
++            p.key() == p2.key(),
++        );
++    }
++
++    // ---- the cycle control: knots against apoapsis span, re-mint from the key ----
++    println!("\n== cycles (control): knots against apoapsis span; re-mint from the key = Orbit::compile ==");
++    for vt in [0.40e-3, 0.60e-3, 0.80e-3, 0.90e-3, 0.98e-3, 1.02e-3, 1.05e-3] {
++        let st = bound_state(vt);
++        let fit = match Rebinding::from_state(st.clone(), Scalar::ZERO, None) {
++            Ok(f) => f,
++            Err(e) => {
++                println!("vt={vt:.4e}: refused {e:?}");
++                continue;
++            }
++        };
++        let Trajectory::Cycle(c) = &fit.trajectory else { panic!("not a cycle") };
++        let peri = c.key().periapsis;
++        // the state sits at apoapsis (v_r = 0, bound): span = r0 / peri
++        let span = Scalar::integer(1_000_000).div(peri).unwrap();
++        let mut span_log2 = 0i32;
++        while Scalar::power_of_two(span_log2 as i16) < span {
++            span_log2 += 1;
++        }
++        let again = emergent_space::orbit::Orbit::compile(c.key()).unwrap();
++        let mut diffs = 0u32;
++        for k in 0..16u32 {
++            let frac = ((k as i64 + 1) * (span_log2 as i64 + 1) / 17) as i32;
++            let r = Scalar::power_of_two(12).mul(Scalar::power_of_two(-(frac as i16))).unwrap();
++            match (c.signed_state(r), again.signed_state(r)) {
++                (Ok(x), Ok(y)) if x == y => {}
++                (Err(_), Err(_)) => {}
++                _ => diffs += 1,
++            }
++        }
++        let shape = c.shape();
++        println!(
++            "vt={vt:.4e}: peri {peri:?}, span 2^{span_log2}, knots {:>3}, standing {:>6} B, re-mint diffs {diffs}/16",
++            shape.knots().len(),
++            shape.knots().len() * std::mem::size_of::<emergent_space::orbit::Knot>()
++                + shape.crossings().len() * std::mem::size_of::<usize>()
++        );
++    }
++}
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..f5638bed 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -1080,6 +1080,22 @@ impl Passage {
+     pub fn key(&self) -> OrbitKey {
+         self.orbit.key
+     }
++    /// Tail panels compiled for the window beyond the psi/x join (each shrinks x by 15/16).
++    pub fn panels(&self) -> usize {
++        self.tail.len()
++    }
++    /// Knots of the compiled shape (the radial quadrature's standing cost).
++    pub fn orbit_knots(&self) -> usize {
++        self.orbit.shape().knots().len()
++    }
++    /// Standing heap bytes of the compiled arc: the shape's knots and crossings plus the
++    /// tail's (Scalar, Integral) panels. Exact sizes, not an estimate.
++    pub fn retained_bytes(&self) -> usize {
++        let shape = self.orbit.shape();
++        shape.knots().len() * std::mem::size_of::<Knot>()
++            + shape.crossings().len() * std::mem::size_of::<usize>()
++            + self.tail.len() * std::mem::size_of::<(Scalar, Integral)>()
++    }
+     pub fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+         let x = self.key().periapsis.div(radius)?;
+         if self.tail.is_empty() || x >= self.tail[0].0 {
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..4d7b44f3 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -7,19 +7,41 @@
+ //! gather, and with `--features prof` the stage profile. One `ladder:` line holds every number (key=value) for the tables.
+ //!
+ //! cargo run --release -p emergent-universe --example nladder [-- <N> <coast|burn> [<wall seconds of flight> [<rtf> [<engine budget ms>]]]]
++use emergent_universe::body::Kind;
+ use emergent_universe::fleet::Order;
+-use emergent_universe::scenario::plane_extra;
++use emergent_universe::scenario::{plane_comets, plane_extra};
+ use emergent_universe::thrust::word;
+ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    // VmRSS now, VmHWM peak, from /proc (kB): the closest Linux analogue of the physical
++    // footprint; compressed pages are not recoverable here, so both are lower bounds.
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches(" kB").parse().unwrap_or(0) * 1024;
++            }
++            if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches(" kB").parse().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (now, peak)
++}
++
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -46,10 +68,18 @@ fn main() {
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
+     let burn = flight == "burn";
++    let _ = &n;
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let comet_w: Option<i32> = flight.strip_prefix("comet").and_then(|s| s.parse().ok());
++    let mut p = match comet_w {
++        Some(w) => plane_comets(Config::default(), 1, Order::Sparse, 1, 48, n, w).unwrap(),
++        None => plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap(),
++    };
++    if comet_w.is_some() {
++        p.u.stats = p.u.stats; // comets were born inside the scenario, before start()
++    }
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -100,6 +130,50 @@ fn main() {
+         }
+     }
+     let (now2, rss2) = footprint();
++    // The standing-trajectory census: what each body's compiled arc is, exactly.
++    {
++        use emergent_space::binding::Trajectory;
++        let (mut cyc, mut pas, mut plu, mut dead) = (0usize, 0usize, 0usize, 0usize);
++        let (mut panels, mut standing, mut w_min, mut w_max) = (0usize, 0usize, i32::MAX, i32::MIN);
++        let mut samples: Vec<(i32, usize, usize)> = Vec::new();
++        for i in 0..bodies {
++            let r = p.u.rec(i);
++            if !r.alive {
++                dead += 1;
++                continue;
++            }
++            match &r.b.entry.trajectory {
++                Trajectory::Cycle(o) => {
++                    cyc += 1;
++                    let sh = o.shape();
++                    standing += sh.knots().len() * std::mem::size_of::<emergent_space::orbit::Knot>()
++                        + sh.crossings().len() * std::mem::size_of::<usize>();
++                }
++                Trajectory::Passage(q) => {
++                    pas += 1;
++                    panels += q.panels();
++                    let bts = q.retained_bytes();
++                    standing += bts;
++                    let mut w = 0i32;
++                    let huge = emergent_space::orbit::Scalar::power_of_two(62);
++                    while q.key().periapsis.mul(emergent_space::orbit::Scalar::power_of_two(w as i16)).unwrap_or(huge) < q.outer_radius {
++                        w += 1;
++                    }
++                    w_min = w_min.min(w);
++                    w_max = w_max.max(w);
++                    samples.push((w, q.panels(), bts));
++                }
++                Trajectory::Plunge(_) => plu += 1,
++            }
++        }
++        samples.sort();
++        samples.dedup();
++        samples.truncate(6);
++        println!(
++            "census: alive cycles {cyc}, passages {pas}, plunges {plu}, dead {dead}; standing compiled arcs {standing} B; passage panels total {panels}; passage w range [{w_min}, {w_max}] (empty={}); first passages (w, panels, bytes) {samples:?}",
++            w_min == i32::MAX
++        );
++    }
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
+     ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..09664c29 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -151,7 +151,7 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
+ /// [`plane`] with the fleet's world given (lattice bodies in the frame's axes, `crates/engine`'s scenes or
+ /// a test's own): the same star, planets, moon, ships and player.
+ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World) -> Res<Plane> {
+-    plane_with_extra(cfg, seed, order, threads, world, 0)
++    plane_with_extra(cfg, seed, order, threads, world, 0, None)
+ }
+ 
+ /// [`plane`] with `extra` more real bodies: ships made by [`ladder_ship`] (the N ladder's population: a few hundred about
+@@ -159,11 +159,27 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+ /// and before the player's. `extra = 0` is the plane, bit for bit.
+ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize) -> Res<Plane> {
+     let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
+-    plane_with_extra(cfg, seed, order, threads, world, extra)
++    plane_with_extra(cfg, seed, order, threads, world, extra, None)
++}
++
++/// [`plane_extra`] with `n` comets instead of ladder ships: bodies unbound about the star, born
++/// at `r0 = 2.5 AU · 2^w` (so the birth bind's passage window exponent is `w` by construction),
++/// periapsis near 1.2 AU. The comet stream: the passage tail's natural scene.
++pub fn plane_comets(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, n: usize, w: i32) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_with_extra(cfg, seed, order, threads, world, 0, Some((n, w)))
+ }
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+-pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++pub fn plane_with_extra(
++    cfg: Config,
++    seed: u64,
++    order: crate::fleet::Order,
++    threads: usize,
++    world: emergent_lattice::law::World,
++    extra: usize,
++    comets: Option<(usize, i32)>,
++) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -262,6 +278,32 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+         names.push(String::new());
+     }
++    // The comet stream (before start(): the position cache is sized there).
++    let mut comets_born = 0usize;
++    if let Some((cn, cw)) = comets {
++        let au = AU as f64;
++        // Sun-like GM in root units · c²: v_circ(1 AU) ≈ 2e-4 c.
++        let gm = 2.0e-4 * 2.0e-4 * au;
++        let peri = 1.2 * au;
++        let r0 = 2.5 * au * (1u64 << cw) as f64;
++        let vt = (gm * 2.0 * peri).sqrt() / r0; // L² = 2 GM peri (e ≈ 1)
++        let vinf = 1.0e-4;
++        let v = (vinf * vinf + 2.0 * gm / r0).sqrt();
++        let vr = -(v * v - vt * vt).sqrt();
++        let word = |x: f64, e: i32| (x * (1u64 << e) as f64) as i128;
++        let sc = |x: f64, e: i32| Scalar::raw(word(x, e), -e).unwrap();
++        for k in 0..cn {
++            let ang = k as f64 * 2.399963;
++            let (c, sn) = (ang.cos(), ang.sin());
++            let pos = [sc(r0 * c, 6), sc(r0 * sn, 6)];
++            let vel = [sc(vr * c - vt * sn, 34), sc(vr * sn + vt * c, 34)];
++            if u.add_body_state(Kind::Ship, 0, pos, vel, Scalar::raw(34, -10)?).is_ok() {
++                comets_born += 1;
++            }
++            names.push(String::new());
++        }
++        println!("comets: requested {cn}, born {comets_born} (w={cw}, r0 {r0:.3e}, peri {peri:.0}, v_t {vt:.3e}, v_r {vr:.3e})");
++    }
+     // The fleet: lattice radius of Home's low orbit (7,000 km: 4,740 root units), starting at angle 0.
+     let r_lat: i64 = 4_740 * Q;
+     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);

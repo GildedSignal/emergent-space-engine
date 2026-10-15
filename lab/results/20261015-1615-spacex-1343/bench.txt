@@ -1,0 +1,31 @@
+sizes: Scalar 16 B, passage panel (Scalar, Integral) — measured below
+
+== passages: standing bytes and compile µs against w = log2(outer/periapsis) ==
+(the state is fixed; the key's periapsis is read once, then the edge is peri·2^w)
+
+state minted: periapsis Scalar { significand: 7036861746079782857, exponent: 18 }, r0 10^6, panels at birth(w≈0) 0, knots 39
+w=  0: refused Topology
+w=  9: panels    0, knots 145, standing   13904 B, compile   349.4 µs, re-mint diffs 0/64, key equal true
+w= 10: panels    0, knots 161, standing   15440 B, compile   381.7 µs, re-mint diffs 0/64, key equal true
+w= 11: panels   12, knots 161, standing   16592 B, compile   414.8 µs, re-mint diffs 0/64, key equal true
+w= 12: panels   23, knots 161, standing   17648 B, compile   439.2 µs, re-mint diffs 0/64, key equal true
+w= 13: panels   34, knots 161, standing   18704 B, compile   469.4 µs, re-mint diffs 0/64, key equal true
+w= 16: panels   66, knots 161, standing   21776 B, compile   557.9 µs, re-mint diffs 0/64, key equal true
+w= 21: panels  120, knots 161, standing   26960 B, compile   688.0 µs, re-mint diffs 0/64, key equal true
+w= 26: panels  173, knots 161, standing   32048 B, compile   827.3 µs, re-mint diffs 0/64, key equal true
+w= 31: panels  227, knots 161, standing   37232 B, compile   963.9 µs, re-mint diffs 0/64, key equal true
+w= 36: panels  281, knots 161, standing   42416 B, compile  1103.3 µs, re-mint diffs 0/64, key equal true
+w= 41: panels  334, knots 161, standing   47504 B, compile  1237.9 µs, re-mint diffs 0/64, key equal true
+w= 51: panels  442, knots 161, standing   57872 B, compile  1569.7 µs, re-mint diffs 0/64, key equal true
+w= 56: panels  496, knots 161, standing   63056 B, compile  1646.3 µs, re-mint diffs 0/64, key equal true
+w= 59: panels  528, knots 161, standing   66128 B, compile  1720.5 µs, re-mint diffs 0/64, key equal true
+w= 61: panels  549, knots 161, standing   68144 B, compile  1774.4 µs, re-mint diffs 0/64, key equal true
+
+== cycles (control): knots against apoapsis span; re-mint from the key = Orbit::compile ==
+vt=4.0000e-4: peri Scalar { significand: 6118881552674180979, exponent: 16 }, span 2^4, knots  58, standing   5552 B, re-mint diffs 0/16
+vt=6.0000e-4: peri Scalar { significand: 7723331753443808532, exponent: 17 }, span 2^3, knots  37, standing   3536 B, re-mint diffs 0/16
+vt=8.0000e-4: peri Scalar { significand: 8278648386621188009, exponent: 18 }, span 2^2, knots  19, standing   1808 B, re-mint diffs 0/16
+vt=9.0000e-4: peri Scalar { significand: 5987247133116780135, exponent: 19 }, span 2^1, knots  10, standing    944 B, re-mint diffs 0/16
+vt=9.8000e-4: peri Scalar { significand: 8125976386499942493, exponent: 19 }, span 2^1, knots   6, standing    536 B, re-mint diffs 0/16
+vt=1.0200e-3: peri Scalar { significand: 8796093022207999890, exponent: 19 }, span 2^1, knots   6, standing    536 B, re-mint diffs 0/16
+vt=1.0500e-3: peri Scalar { significand: 8796093022207999966, exponent: 19 }, span 2^1, knots   7, standing    648 B, re-mint diffs 0/16

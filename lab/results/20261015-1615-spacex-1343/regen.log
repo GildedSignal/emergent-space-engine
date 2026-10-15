@@ -1,0 +1,74 @@
+== build ==
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.98s
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: unused import: `emergent_universe::body::Kind`
+  --> crates/universe/examples/nladder.rs:10:5
+   |
+10 | use emergent_universe::body::Kind;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `emergent-universe` (example "nladder") generated 1 warning (run `cargo fix --example "nladder"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 16.19s
+== bench: the passage tail on the law's bind path ==
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+     Running `/home/glmlab/lab-target-3/release/examples/passage_tail`
+sizes: Scalar 16 B, passage panel (Scalar, Integral) — measured below
+
+== passages: standing bytes and compile µs against w = log2(outer/periapsis) ==
+(the state is fixed; the key's periapsis is read once, then the edge is peri·2^w)
+
+state minted: periapsis Scalar { significand: 7036861746079782857, exponent: 18 }, r0 10^6, panels at birth(w≈0) 0, knots 39
+w=  0: refused Topology
+w=  9: panels    0, knots 145, standing   13904 B, compile   349.4 µs, re-mint diffs 0/64, key equal true
+w= 10: panels    0, knots 161, standing   15440 B, compile   381.7 µs, re-mint diffs 0/64, key equal true
+w= 11: panels   12, knots 161, standing   16592 B, compile   414.8 µs, re-mint diffs 0/64, key equal true
+w= 12: panels   23, knots 161, standing   17648 B, compile   439.2 µs, re-mint diffs 0/64, key equal true
+w= 13: panels   34, knots 161, standing   18704 B, compile   469.4 µs, re-mint diffs 0/64, key equal true
+w= 16: panels   66, knots 161, standing   21776 B, compile   557.9 µs, re-mint diffs 0/64, key equal true
+w= 21: panels  120, knots 161, standing   26960 B, compile   688.0 µs, re-mint diffs 0/64, key equal true
+w= 26: panels  173, knots 161, standing   32048 B, compile   827.3 µs, re-mint diffs 0/64, key equal true
+w= 31: panels  227, knots 161, standing   37232 B, compile   963.9 µs, re-mint diffs 0/64, key equal true
+w= 36: panels  281, knots 161, standing   42416 B, compile  1103.3 µs, re-mint diffs 0/64, key equal true
+w= 41: panels  334, knots 161, standing   47504 B, compile  1237.9 µs, re-mint diffs 0/64, key equal true
+w= 51: panels  442, knots 161, standing   57872 B, compile  1569.7 µs, re-mint diffs 0/64, key equal true
+w= 56: panels  496, knots 161, standing   63056 B, compile  1646.3 µs, re-mint diffs 0/64, key equal true
+w= 59: panels  528, knots 161, standing   66128 B, compile  1720.5 µs, re-mint diffs 0/64, key equal true
+w= 61: panels  549, knots 161, standing   68144 B, compile  1774.4 µs, re-mint diffs 0/64, key equal true
+
+== cycles (control): knots against apoapsis span; re-mint from the key = Orbit::compile ==
+vt=4.0000e-4: peri Scalar { significand: 6118881552674180979, exponent: 16 }, span 2^4, knots  58, standing   5552 B, re-mint diffs 0/16
+vt=6.0000e-4: peri Scalar { significand: 7723331753443808532, exponent: 17 }, span 2^3, knots  37, standing   3536 B, re-mint diffs 0/16
+vt=8.0000e-4: peri Scalar { significand: 8278648386621188009, exponent: 18 }, span 2^2, knots  19, standing   1808 B, re-mint diffs 0/16
+vt=9.0000e-4: peri Scalar { significand: 5987247133116780135, exponent: 19 }, span 2^1, knots  10, standing    944 B, re-mint diffs 0/16
+vt=9.8000e-4: peri Scalar { significand: 8125976386499942493, exponent: 19 }, span 2^1, knots   6, standing    536 B, re-mint diffs 0/16
+vt=1.0200e-3: peri Scalar { significand: 8796093022207999890, exponent: 19 }, span 2^1, knots   6, standing    536 B, re-mint diffs 0/16
+vt=1.0500e-3: peri Scalar { significand: 8796093022207999966, exponent: 19 }, span 2^1, knots   7, standing    648 B, re-mint diffs 0/16
+== flights: standard (the plane's own passage mints) and the comet stream ==
+rung N=1000 (1028 bodies), coast, rtf 100, 20 s of wall time, engine budget 12 ms; build 0.04 s, peak footprint 6 MB (now 6 MB)
+census: alive cycles 1028, passages 0, plunges 0, dead 0; standing compiled arcs 650384 B; passage panels total 0; passage w range [2147483647, -2147483648] (empty=true); first passages (w, panels, bytes) []
+memory: peak footprint 6 MB at the build's end, 13 MB at the flight's end (now 13 MB); 3535 B a body from the build; dashboard bytes/body 1510; view gather 38.3 ms cold, 18.7 ms warm (1051 seen); catalogue 1076 entries
+ladder: n=1000 bodies=1028 flight=coast rtf=100 frames=1200 build_s=0.04 foot_build_mb=6 foot_end_mb=13 b_per_body=3535 p50_ms=0.040 p99_ms=6.566 max_ms=10.998 over=0 lag_s=1.448 kicks_per_body_gs=1.857e-3 events_per_body_gs=5.695e-3 refusals=0 dead=0 held_max=1 view_ms=18.7 truncated=false wall_s=0.9
+rung N=10000 (10028 bodies), coast, rtf 100, 20 s of wall time, engine budget 12 ms; build 0.46 s, peak footprint 27 MB (now 27 MB)
+census: alive cycles 10028, passages 0, plunges 0, dead 0; standing compiled arcs 6701088 B; passage panels total 0; passage w range [2147483647, -2147483648] (empty=true); first passages (w, panels, bytes) []
+memory: peak footprint 27 MB at the build's end, 34 MB at the flight's end (now 34 MB); 2464 B a body from the build; dashboard bytes/body 1233; view gather 451.8 ms cold, 216.1 ms warm (10051 seen); catalogue 10076 entries
+ladder: n=10000 bodies=10028 flight=coast rtf=100 frames=1200 build_s=0.46 foot_build_mb=27 foot_end_mb=34 b_per_body=2464 p50_ms=0.039 p99_ms=5.796 max_ms=11.749 over=0 lag_s=1.448 kicks_per_body_gs=1.903e-4 events_per_body_gs=5.838e-4 refusals=0 dead=0 held_max=1 view_ms=216.1 truncated=false wall_s=1.8
+rung N=10000 (10028 bodies), burn, rtf 100, 20 s of wall time, engine budget 12 ms; build 0.46 s, peak footprint 27 MB (now 27 MB)
+census: alive cycles 10027, passages 1, plunges 0, dead 0; standing compiled arcs 6702368 B; passage panels total 0; passage w range [2, 2] (empty=false); first passages (w, panels, bytes) [(2, 0, 1808)]
+memory: peak footprint 27 MB at the build's end, 56 MB at the flight's end (now 47 MB); 2457 B a body from the build; dashboard bytes/body 1233; view gather 450.3 ms cold, 215.9 ms warm (10051 seen); catalogue 10076 entries
+ladder: n=10000 bodies=10028 flight=burn rtf=100 frames=1200 build_s=0.46 foot_build_mb=27 foot_end_mb=56 b_per_body=2457 p50_ms=0.671 p99_ms=10.797 max_ms=11.226 over=0 lag_s=1.448 kicks_per_body_gs=2.552e-4 events_per_body_gs=8.490e-4 refusals=0 dead=0 held_max=286 view_ms=215.9 truncated=false wall_s=2.9
+comets: requested 2000, born 2000 (w=12, r0 1.037e12, peri 121560000, v_t 3.026e-8, v_r -1.000e-4)
+rung N=2000 (2028 bodies), comet12, rtf 100, 20 s of wall time, engine budget 12 ms; build 2.23 s, peak footprint 60 MB (now 60 MB)
+census: alive cycles 28, passages 2000, plunges 0, dead 0; standing compiled arcs 37618824 B; passage panels total 70000; passage w range [14, 14] (empty=false); first passages (w, panels, bytes) [(14, 35, 18800)]
+memory: peak footprint 60 MB at the build's end, 371 MB at the flight's end (now 371 MB); 28797 B a body from the build; dashboard bytes/body 5800; view gather 466.3 ms cold, 180.5 ms warm (2051 seen); catalogue 2076 entries
+ladder: n=2000 bodies=2028 flight=comet12 rtf=100 frames=1200 build_s=2.23 foot_build_mb=60 foot_end_mb=371 b_per_body=28797 p50_ms=11.320 p99_ms=11.976 max_ms=12.136 over=6 lag_s=1.448 kicks_per_body_gs=2.961e-3 events_per_body_gs=6.896e-3 refusals=0 dead=0 held_max=192 view_ms=180.5 truncated=false wall_s=16.5
+comets: requested 2000, born 2000 (w=13, r0 2.075e12, peri 121560000, v_t 1.513e-8, v_r -1.000e-4)
+rung N=2000 (2028 bodies), comet13, rtf 100, 20 s of wall time, engine budget 12 ms; build 2.31 s, peak footprint 60 MB (now 60 MB)
+census: alive cycles 28, passages 1010, plunges 0, dead 990; standing compiled arcs 20073384 B; passage panels total 46460; passage w range [15, 15] (empty=false); first passages (w, panels, bytes) [(15, 46, 19856)]
+memory: peak footprint 60 MB at the build's end, 93 MB at the flight's end (now 93 MB); 28752 B a body from the build; dashboard bytes/body 4713; view gather 288.5 ms cold, 92.2 ms warm (1061 seen); catalogue 2076 entries
+ladder: n=2000 bodies=2028 flight=comet13 rtf=100 frames=1200 build_s=2.31 foot_build_mb=60 foot_end_mb=93 b_per_body=28752 p50_ms=0.043 p99_ms=11.468 max_ms=11.880 over=0 lag_s=1.448 kicks_per_body_gs=4.000e-4 events_per_body_gs=1.686e-3 refusals=0 dead=990 held_max=17 view_ms=92.2 truncated=false wall_s=4.3
+== done: see /home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/lab/results/20261015-1615-spacex-1343/bench.txt and /home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/lab/results/20261015-1615-spacex-1343/flights.txt ==

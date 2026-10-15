@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place and verified: bench + 5 flights saved, `emergent-space` 10/10 and `emergent-universe` 10/10 lib tests pass on the patched tree, predictions pre-registered before the decisive runs, dossier/regen/wiki written.
+
+**Claim:** the passage/plunge tail is priced — a compiled passage stands at `knots + 96 B × panels` growing 10.74 panels/octave of window past the 2¹⁰ join (18.8 kB per comet at the plane's measured w=14 cap, 28× a belt body, with the root loss radius 2⁴⁰ killing bodies past w≈15 and 990/2,000 comets lost there in flight) — and the seam's never-demote rule is deleted for passages: `Passage::compile(key, outer_radius)` is pure, re-mint bit-identical at every window (0/64 readouts), so a ~120 B key+edge record replaces 18.8 kB of standing arc, leaving plunges (which have no key) as the rule's only domain.
