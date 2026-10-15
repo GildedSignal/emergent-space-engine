@@ -1,0 +1,130 @@
+diff --git a/crates/universe/examples/nladder_lin.rs b/crates/universe/examples/nladder_lin.rs
+new file mode 100644
+index 00000000..485ec476
+--- /dev/null
++++ b/crates/universe/examples/nladder_lin.rs
+@@ -0,0 +1,124 @@
++//! This run's Linux port of the shipped `nladder.rs` (the shipped one links `proc_pid_rusage`,
++//! macOS-only), read-only changes beyond the port: one `gather_cached` per wall second while the
++//! plane flies (the view the player has; the shipped example gathers only after the flight), a
++//! `--history` census at the end, and `ES_NO_GATHER=1` to disable in-flight gathers. Digest taken
++//! after `settle` at the flight's end.
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++/// (resident now, peak resident) in bytes, Linux VmRSS/VmHWM (the b30b idiom).
++fn footprint() -> (u64, u64) {
++    let now = std::fs::read_to_string("/proc/self/statm").ok().and_then(|s| {
++        let mut it = s.split_whitespace();
++        it.next()?;
++        it.next().and_then(|v| v.parse::<u64>().ok()).map(|p| p * 4096)
++    });
++    let peak = std::fs::read_to_string("/proc/self/status").ok().and_then(|s| {
++        s.lines().find(|l| l.starts_with("VmHWM:")).and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()).map(|k| k * 1024))
++    });
++    (now.unwrap_or(0), peak.unwrap_or(0))
++}
++
++fn pct(sorted: &[f64], p: f64) -> f64 {
++    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
++}
++
++fn main() {
++    let t_start = Instant::now();
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let seconds: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10.0);
++    let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
++    let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
++    let no_gather = std::env::var("ES_NO_GATHER").is_ok();
++    let frames = (seconds * 60.0) as usize;
++    let (_, rss0) = footprint();
++    let t0 = Instant::now();
++    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    let (_, rss1) = footprint();
++    let bodies = p.u.n_bodies();
++    println!("rung N={n} ({bodies} bodies), {flight}, rtf {rtf}, {seconds} s wall; build {build:.2} s, rss {:.0} MB", rss1 as f64 / 1e6);
++    let mut rows: Vec<(usize, f64, u64)> = Vec::new();
++    let mut cache = ViewCache::default();
++    let (mut gather_ms, mut gathers, mut readouts, mut seen_max) = (0.0f64, 0usize, 0u64, 0usize);
++    let mut held_max = 0usize;
++    let mut last = p.u.stats;
++    let s0 = last;
++    let t_first = p.u.now;
++    let mut alive = true;
++    for f in 0..frames {
++        if t_start.elapsed() > Duration::from_secs(52) {
++            println!("truncated at frame {f}");
++            break;
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_micros((budget_ms * 1e3) as u64)) }, i64::MAX);
++        rows.push((f, start.elapsed().as_secs_f64() * 1e3, frame.events));
++        held_max = held_max.max(p.u.held_scans());
++        last = p.u.stats;
++        if !no_gather && f % 60 == 59 {
++            // one map refresh a second, the way the shipped page reads the sky
++            let tg = Instant::now();
++            if let Some(v) = gather_cached(&p.u, &p.names, &mut cache) {
++                gather_ms += tg.elapsed().as_secs_f64() * 1e3;
++                gathers += 1;
++                readouts += cache.readouts;
++                seen_max = seen_max.max(v.seen.len());
++            }
++        }
++        if !p.u.rec(p.player).alive {
++            alive = false;
++            break;
++        }
++    }
++    p.u.settle(i64::MAX);
++    let digest = p.u.digest();
++    let (rss2, hwm) = footprint();
++    let late: Vec<_> = rows.iter().collect();
++    let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
++    ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let over = late.iter().filter(|r| r.1 > budget_ms).count();
++    let game_s = (p.u.now - t_first) as f64 * TICK_SECONDS;
++    let kicks = last.kicks - s0.kicks;
++    // the store census: standing bytes, retired history
++    let mut store_b = 0usize;
++    let mut retired_segs = 0usize;
++    let mut bodies_with_history = 0usize;
++    for i in 0..bodies {
++        store_b += p.u.bodies().bytes_of(i);
++        let h = p.u.bodies().history_len(i);
++        retired_segs += h;
++        bodies_with_history += (h > 0) as usize;
++    }
++    let mut cold = -1.0f64;
++    if !no_gather {
++        let mut c2 = ViewCache::default();
++        let tv = Instant::now();
++        let v = gather_cached(&p.u, &p.names, &mut c2);
++        cold = tv.elapsed().as_secs_f64() * 1e3;
++        seen_max = seen_max.max(v.map_or(0, |v| v.seen.len()));
++    }
++    println!(
++        "frames {} over {budget_ms} ms: {over}; ms p50 {:.3} p99 {:.3} max {:.3}; kicks {kicks} ({:.3e}/body/game-s over {game_s:.0} game-s); player alive {alive}; held max {held_max}",
++        late.len(), pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0), kicks as f64 / bodies as f64 / game_s
++    );
++    println!(
++        "view: {gathers} refreshes, {:.2} ms mean, {:.1} ms cold-final, readouts/refresh {:.2}, seen max {seen_max} ({:.1}% of {bodies})",
++        if gathers > 0 { gather_ms / gathers as f64 } else { 0.0 }, cold, if gathers > 0 { readouts as f64 / gathers as f64 } else { 0.0 }, seen_max as f64 / bodies as f64 * 100.0
++    );
++    println!(
++        "census: rss {:.0} MB end ({:.0} peak), {:.0} B/body end (build was {:.0}); store {:.0} B/body; bodies with retired history {}/{} ({} segs, {:.1}/body); dashboard bytes/body {}; catalogue {}",
++        rss2 as f64 / 1e6, hwm as f64 / 1e6, (rss2.saturating_sub(rss0)) as f64 / bodies as f64, (rss1.saturating_sub(rss0)) as f64 / bodies as f64,
++        store_b as f64 / bodies as f64, bodies_with_history, bodies, retired_segs, retired_segs as f64 / bodies as f64, p.u.bytes_per_body(), p.u.catalogue_live()
++    );
++    println!("digest {digest}");
++    println!(
++        "lin: n={n} bodies={bodies} flight={flight} rtf={rtf} build_s={build:.2} rss_end_mb={:.0} hwm_mb={:.0} b_per_body_end={:.0} store_b_per_body={:.0} hist_bodies={bodies_with_history} segs_per_body={:.2} gathers={gathers} readouts_per={:.2} seen={seen_max} seen_pct={:.1} ms_p50={:.3} ms_p99={:.3} ms_max={:.3} over={over} kicks={kicks} held_max={held_max} digest={digest}",
++        rss2 as f64 / 1e6, hwm as f64 / 1e6, (rss2.saturating_sub(rss0)) as f64 / bodies as f64, store_b as f64 / bodies as f64, retired_segs as f64 / bodies as f64, if gathers > 0 { readouts as f64 / gathers as f64 } else { 0.0 }, seen_max as f64 / bodies as f64 * 100.0, pct(&ms, 0.5), pct(&ms, 0.99), pct(&ms, 1.0)
++    );
++}
