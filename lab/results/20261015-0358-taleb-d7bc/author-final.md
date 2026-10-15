@@ -1,0 +1,4 @@
+Working...
+All deliverables are in place (predictions.md written before the flights, dossier.md, regen.sh, wiki/nladder.md, out/ logs; lib tests 10/10 in both touched crates). The tree edits — the cap in `universe.rs`/`encounter.rs`, `heap_bytes` in `crates/space`, the band scene, the `scan_cap` harness — are saved by `run.sh` as the run's patch.
+
+**Claim:** the band seam's process-killing memory growth is one missing bound — the held scans' *bytes*, not their count — and a default-off byte cap on what unanswered scans pin (`ES_SCAN_STANDING`, answering the oldest inside the frame) holds the player-in-band flight flat at 290-311 MB RSS where shipped climbs ~315 MB/s and dies, bit-identical in digest wherever shipped completes (and 19× lighter at 10⁴: 1,328 → 71 MB peak), while exposing the bill the ruin was hiding: ~0.1-0.5 s per O(N) scan answer, 4-28× play time at 10⁵.
