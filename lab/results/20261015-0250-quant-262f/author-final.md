@@ -1,0 +1,4 @@
+Working...
+All deliverables in place and `regen.sh` reproduces end-to-end (11.4 µs, same exactness, 6 iterations; tree untouched, no patch needed).
+
+**Claim:** the belt's first-kick promotion has an exact closed (Carlson-form) readout — its squared-pole reduction now derived twice independently, κ digit-identical to cd6e's — and its batched price is measured for the first time on the true ladder-belt mix: **11.7 µs/promotion over 10⁶ bodies** (SoA/AVX, 6-iteration Newton, cold start included), exact to 2×10⁻¹⁶ against the shipped integrands, with a native-port projection of ≈4 µs against the record's ~30 µs shipped compile — answering kick-jet's open direction 4 and completing the Carlson adoption case's last unpriced half (the knot table deletes with it), with the native SIMD ratio and the integer port named as what remains.

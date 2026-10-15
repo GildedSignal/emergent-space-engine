@@ -1,0 +1,8 @@
+  p,k,q,e=belt_draw(rng,1); u=float(rng.random())*np.pi/2; k=float(k); q=float(q)
+== verification vs Simpson of the shipped integrands (belt mix) ==
+max rel err: {'adv': '1.75e-08', 't': '3.45e-16', 'tau': '3.59e-16'}
+== batched price over the wave's promotions (SoA, vectorized Newton, N=1e6) ==
+batched: 11.306 us/promotion | newton iters=6 | recovered-u err max=8.9e-16 p99=2.2e-16
+belt mix: e mean=0.088 p99=0.212; q in [3.30e-09,7.22e-09]
+== scalar reference (python loop, interpreter-inflated; 2e3 bodies, no Newton) ==
+scalar: 41.49 us/readout (upper bound; no Newton)
