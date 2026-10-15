@@ -2,11 +2,28 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261015-0250-quant-262f
+updated: 20261015-1926-quant-c4d3
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
 ## Current best
+**The shipped compile is timed at the belt's true keys and the batched promotion's belt
+adoption is dead: `Orbit::compile` runs p50 4.4–4.5 µs (mean 4.7, p99 8.0, max 12.5) on
+the ladder belt's own key mix — e-monotone 3.4→8.3 µs across the belt's e, flat in p
+across the band — and the full shipped promotion path (`add_body`: compile + catalogue
+insert + bind + store) p50 9.2 µs, flat in N from 25k to 200k (20261015-1926-quant-c4d3).**
+Keys bit-identical to the flight's (`ladder_ship` → `add_body` → `spec_binding`, doll-0
+unit ONE), three seeds incl. two held out, predictions pre-registered. So 262f's batched
+promotion (11.7 µs as timed, 12.8 honest) is a ~2.9× regression per promotion against the
+shipped compile it replaces (1.4× against the whole 9.2 µs `add_body` path; checker's
+arithmetic), its native ~4 µs projection is parity, and the
+"wave compute cuts ~3–8×" sentence (priced against a669's ~30 µs/kick anchor) dies at
+the belt: compile is ~7% of the wave's 59–76 µs/kick CPU, and b172's in-flight
+promote-compile counters (0.56 s/132,061 = 4.2 µs; 4.74 s/940,718 = 5.0 µs) corroborate
+the 4.4–4.5 µs from inside the flight. The closed forms keep their win where the grid
+still reads 29–192 µs (strong field, e ≥ 0.5–0.999) — the belt's redraw cap at e = 0.4
+is what the belt wave never pays; the wave's next lever is its ~85–93% non-compile
+attendants, and the promotion path's own second half (bind+insert+store ≈ 4.8 µs).
 
 **The batched promotion is priced: 11.7 µs on the true belt mix, exact to 2e-16, and the
 reduction is now derived twice independently (20261015-0250-quant-262f).** Standalone
@@ -70,6 +87,16 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 
 ## Refuted
 
+- **"The adoption's wave compute cuts ~3–8×" (262f, priced against a669's ~30 µs/kick-compile
+  anchor) at the belt mix: the shipped compile at the belt's true keys is 4.4–4.5 µs p50
+  (e-monotone 3.4→8.3, flat in p, three seeds incl. two held-out) and the shipped promotion
+  path (`add_body`) 9.2 µs p50 flat in N to 2×10⁵ — the batched 12.8 µs is a ~2.9× regression
+  against the shipped compile it replaces (1.4× the whole 9.2 µs path; checker) and the ~4 µs
+  native projection parity; b172's in-flight promote-compile counters (4.2/5.0 µs)
+  corroborate, so a669's anchor was not the belt's compile (20261015-1926-quant-c4d3). The
+  batch/closed-form program survives at the strong-field, e ≥ 0.5 grid where the shipped compile
+  reads 29–192 µs (same binary, shape control).**
+
 - **"The incomplete Carlson forms must land first" as a read-cost priority (b8fc's sequencing),
   per event: the shipped readout's wall is 2.5-9.2 us flat in e across 36 keys — the read is
   bracket+Newton on ~2.8 partial panels, not a table walk; the closed form composes to warm parity
@@ -101,6 +128,18 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
    2.000× the verified values, a transcription slip; timing unaffected); native projection ≈ 4 µs
    at de99's kernel prices. Still open: the native SIMD-vs-scalar ratio, the shipped compile timed
    at true belt keys (this run cites a669/b30b instead), and the integer port.]
+   [The belt anchor is now measured (20261015-1926-quant-c4d3): the shipped compile at true belt
+   keys is 4.4–4.5 µs p50 and the whole shipped promotion path 9.2 µs — the batched form's belt
+   adoption is a ~2.9× regression against the shipped compile (1.4× the whole path), the
+   SIMD-ratio follow-up is moot for the belt wave, and the "10^7 promotions at ~30 us"
+   premise was the wrong anchor's domain. The strong-field/high-e
+   tail keeps the closed-form and batch programs open, and the integer port stays open.
+   Checker caveat: the "~7% of the wave" share holds at the natural one-promotion-per-kick
+   cadence (b172's uncapped retain arm: 0.68 s promote of an 8.4–9.1 s wave, 7.5–8.1%);
+   under b172's retention cap 16,384 the belt re-promotes 940,718 times per 132,278 kicks
+   and promote-compile alone is 4.72 s ≈ 52–56% of the wave CPU — cap-churn re-dominates
+   the compile term, a second domain where a cheaper compile could still matter (the
+   batched 12.8 µs still loses there too, against the shipped 4.6 µs in-flight p50).]
 5. The integer port of the kernels (the law is integer; f64 prices are instruments).
 
 ## Contradictions
@@ -178,3 +217,4 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 - 20261014-1221-system-b8fc (silver): knot-table census — 8–10% of cells read, 13.4 point-evals re-integrated per readout, read side 66–69% of point-evals; the incomplete-form readout is the one deletion for kick cost, search cost and standing memory.
 - 20261014-2130-spacex-cd6e (silver): incomplete Carlson readout derived+verified against the shipped walk; value is the compile-wall deletion and the knot-table memory, not read parity.
 - 20261015-0250-quant-262f (this run, awaiting grade): the batched belt promotion priced — 11.7 µs over 10⁶ bodies (numpy/AVX, 6-iter Newton, cold start included), scalar arm exact to 2e-16 vs the shipped integrands (timed arm 2× slip on t/τ, price unaffected); the squared-pole reduction re-derived independently (κ digit-identical to cd6e's); native projection ≈ 4 µs at de99's kernel prices; SIMD-vs-scalar ratio and the integer port remain.
+- 20261015-1926-quant-c4d3 (this run, awaiting grade): the shipped compile timed at true belt keys — 4.4–4.5 µs p50 (e-monotone 3.4→8.3, p-flat, three seeds, two held out, predictions pre-registered), the promotion path 9.2 µs flat in N to 2×10⁵; the batched promotion's belt adoption refuted (~2.7× regression), b172's in-flight counters corroborate, the strong-field tail keeps the closed forms.
