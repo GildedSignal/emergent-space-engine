@@ -1,0 +1,4 @@
+Working...
+Everything verified: digest `ae3ba5bf…` identical across independent runs, patch scope clean (example + 3-line dev-dependency), all run artifacts in place (`predictions.md` pre-registered before d1/d2/h1, `dossier.md`, `regen.sh` at 7.4 min, `wiki/contact-speed.md`, `work/results.jsonl` + `analysis.txt`).
+
+**Claim:** the contact law's receding-skip gate is measured innocent in a cold dense gas — 0.1–2.7% of contacts and 10⁻⁴–10⁻² of momentum transport dropped at fleet-scale closing speeds, equipartition and relaxation unchanged within noise, no re-encounter cascade — while the fast half bites exactly as the closed form predicts (48% of transport at |w| ≫ reach), and the wiki's proposed no-root fix ("resolve at τ\* = −d·w/|w|²") is provably and measurably the identity (the reflection at the closest-approach normal exchanges nothing for any masses, 0.3% applied vs 48% for the contact-root resolver), so a real fix must pay the contact root |d| = reach.

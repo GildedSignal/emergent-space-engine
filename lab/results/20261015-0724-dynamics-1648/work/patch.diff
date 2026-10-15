@@ -1,0 +1,636 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index e29c906e..7cd0a4c2 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -129,6 +129,7 @@ dependencies = [
+  "blake3",
+  "num-bigint",
+  "serde",
++ "serde_json",
+ ]
+ 
+ [[package]]
+diff --git a/crates/lattice/Cargo.toml b/crates/lattice/Cargo.toml
+index 13de0b0c..4e948990 100644
+--- a/crates/lattice/Cargo.toml
++++ b/crates/lattice/Cargo.toml
+@@ -9,3 +9,6 @@ description = "The integer lattice law es-lattice-elastic-v0: state, exact predi
+ serde.workspace = true
+ blake3.workspace = true
+ num-bigint.workspace = true
++
++[dev-dependencies]
++serde_json.workspace = true
+diff --git a/crates/lattice/examples/skipgas.rs b/crates/lattice/examples/skipgas.rs
+new file mode 100644
+index 00000000..992c7f29
+--- /dev/null
++++ b/crates/lattice/examples/skipgas.rs
+@@ -0,0 +1,607 @@
++//! Dynamics-lens probe (run 20261015-0724-dynamics-1648): does the contact law's receding
++//! skip gate distort a cold dense gas's relaxation (equipartition attractor), or is the
++//! dropped grazing impulse a bounded perturbation?
++//!
++//! Three arms on one genesis:
++//! - `shipped`: the CPU chronon reference under `Law::RelativisticV1` (skip as built).
++//! - `skip`:    f64 twin mirroring the shipped rule exactly (exchange at bin end when
++//!              approaching; receding detected pairs ghost through). f50d's exact-twin
++//!              convention, extended to a dense gas.
++//! - `fix`:     identical twin except receding detected pairs resolve at the closest
++//!              approach the detection already finds (8144's fix rule, open direction 1).
++//! The skip's distortion is `fix` vs `skip` (float vs float); `shipped` vs `skip` re-tests
++//! quantization innocence (f50d) in this scene class.
++//!
++//! Scenes: c1 deep control (no contact can skip: all arms must agree), c2 fast control
++//! (nearly all skip: arms must grossly diverge), d1/d2 the decisive cold dense gases,
++//! h1 held-out (new seed, denser). One JSON object per scene-arm on stdout.
++
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law::{Body, Container, Response, World};
++use emergent_lattice::{Kind, Law, Stepper};
++use std::collections::HashMap;
++
++// ---------------------------------------------------------------- deterministic randomness
++
++struct Rng(u64);
++impl Rng {
++    fn next(&mut self) -> u64 {
++        let mut x = self.0;
++        x ^= x << 13;
++        x ^= x >> 7;
++        x ^= x << 17;
++        self.0 = x;
++        x
++    }
++    fn uniform(&mut self) -> f64 {
++        (self.next() >> 11) as f64 / (1u64 << 53) as f64
++    }
++    fn gaussian(&mut self) -> f64 {
++        let u1 = self.uniform().max(1e-300);
++        let u2 = self.uniform();
++        (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
++    }
++}
++
++// ---------------------------------------------------------------- genesis
++
++struct Genesis {
++    x: Vec<[i64; 2]>,
++    k: Vec<[i64; 2]>,
++    m: Vec<i64>,
++    r: i64,
++    light: Vec<bool>,
++}
++
++/// n bodies, radius r quanta, box side L quanta, hot class thermal speed vth (1/Q units
++/// per chronon), cold class vth/16 (T_A/T_B = 4 at birth). Non-overlapping placement.
++fn genesis(seed: u64, n: usize, r: i64, l: i64, vth: f64) -> Genesis {
++    let mut rng = Rng(seed);
++    let reach = 2 * r;
++    let lo = 4 * r;
++    let span = (l - 8 * r) as f64;
++    let mut x: Vec<[i64; 2]> = Vec::with_capacity(n);
++    while x.len() < n {
++        let pi = [lo + (rng.uniform() * span) as i64, lo + (rng.uniform() * span) as i64];
++        if x.iter().all(|q| {
++            let dx = q[0] - pi[0];
++            let dy = q[1] - pi[1];
++            dx * dx + dy * dy >= (reach + 8) * (reach + 8)
++        }) {
++            x.push(pi);
++        }
++    }
++    let mut k = Vec::with_capacity(n);
++    let mut light = Vec::with_capacity(n);
++    for i in 0..n {
++        let hot = i % 2 == 0;
++        let s = if hot { vth } else { vth / 16.0 } / std::f64::consts::SQRT_2;
++        k.push([
++            (rng.gaussian() * s).round() as i64,
++            (rng.gaussian() * s).round() as i64,
++        ]);
++        light.push(hot);
++    }
++    let m = light.iter().map(|&h| if h { 1 } else { 64 }).collect();
++    Genesis { x, k, m, r, light }
++}
++
++// ---------------------------------------------------------------- float twins
++
++#[derive(Clone)]
++struct FBody {
++    x: [f64; 2],
++    v: [f64; 2],
++    m: f64,
++    rev: u32,
++}
++
++fn mom(m: f64, v: [f64; 2], q: f64) -> [f64; 3] {
++    let bx = v[0] / q;
++    let by = v[1] / q;
++    let g = 1.0 / (1.0 - bx * bx - by * by).sqrt();
++    [m * g, m * g * bx, m * g * by]
++}
++
++/// The law's own reflection (relativity.rs): both 4-momenta in the Minkowski hyperplane
++/// orthogonal to N = (d·P_spatial, E_tot·d). Returns the new velocities.
++fn reflect(vi: [f64; 2], vj: [f64; 2], mi: f64, mj: f64, d: [f64; 2], q: f64) -> Option<([f64; 2], [f64; 2])> {
++    let pi = mom(mi, vi, q);
++    let pj = mom(mj, vj, q);
++    let e = pi[0] + pj[0];
++    let ps = [pi[1] + pj[1], pi[2] + pj[2]];
++    let n0 = d[0] * ps[0] + d[1] * ps[1];
++    let ns = [e * d[0], e * d[1]];
++    let nn = n0 * n0 - ns[0] * ns[0] - ns[1] * ns[1];
++    if nn == 0.0 {
++        return None;
++    }
++    let apply = |p: [f64; 3]| -> [f64; 3] {
++        let pdn = p[0] * n0 - p[1] * ns[0] - p[2] * ns[1];
++        let c = 2.0 * pdn / nn;
++        [p[0] - c * n0, p[1] - c * ns[0], p[2] - c * ns[1]]
++    };
++    let ai = apply(pi);
++    let aj = apply(pj);
++    Some(([q * ai[1] / ai[0], q * ai[2] / ai[0]], [q * aj[1] / aj[0], q * aj[2] / aj[0]]))
++}
++
++/// Float mirror of `law::hit` (the exact branches, in order).
++fn hit_f(d: [f64; 2], w: [f64; 2], reach: f64) -> bool {
++    let dd = d[0] * d[0] + d[1] * d[1];
++    let dw = d[0] * w[0] + d[1] * w[1];
++    let ww = w[0] * w[0] + w[1] * w[1];
++    let rr = reach * reach;
++    if dd <= rr {
++        dw < 0.0
++    } else if ww == 0.0 || dw >= 0.0 {
++        false
++    } else if -dw >= ww {
++        let e = [d[0] + w[0], d[1] + w[1]];
++        e[0] * e[0] + e[1] * e[1] <= rr
++    } else {
++        let cross = d[0] * w[1] - d[1] * w[0];
++        cross * cross <= rr * ww
++    }
++}
++
++#[derive(Default)]
++struct TwinStats {
++    contacts: u64,
++    skips: u64,
++    /// Σ m·|Δv| over exchanged impulses (normal contacts).
++    transport: f64,
++    /// Skip-class contacts: `fix` pays this (impulse at the crossing); `skip` drops it
++    /// (counterfactual at bin-end geometry).
++    dropped_transport: f64,
++    multipair_bins: u64,
++    contaminated: u64,
++    degenerate: u64,
++    rho_bins: [u64; 7],
++    rho_skips: [u64; 7],
++    reenc_after_skip: u64,
++    reenc_after_exchange: u64,
++}
++
++fn rho_index(rho: f64) -> usize {
++    if rho < 0.3 {
++        0
++    } else if rho < 0.5 {
++        1
++    } else if rho < 0.7 {
++        2
++    } else if rho < 1.0 {
++        3
++    } else if rho < 1.5 {
++        4
++    } else if rho < 2.0 {
++        5
++    } else {
++        6
++    }
++}
++
++#[derive(Clone, Copy, PartialEq)]
++enum Fix {
++    /// shipped: receding detected pairs ghost through
++    No,
++    /// physical: resolve at the true contact |d| = reach (the quadratic's earlier root)
++    Contact,
++    /// cheap: exchange at the bin-end separation, exactly like approaching pairs
++    Cross,
++    /// 8144's proposed rule as worded: reflect at the closest-approach normal. Provably
++    /// the identity (COM argument); kept to measure it.
++    Tau,
++}
++
++struct Twin {
++    b: Vec<FBody>,
++    r: f64,
++    q: f64,
++    lo: [f64; 2],
++    hi: [f64; 2],
++    consumed: HashMap<(u32, u32), (u32, u32)>,
++    last: HashMap<(u32, u32), (i64, bool)>,
++    fix: Fix,
++    s: TwinStats,
++}
++
++impl Twin {
++    fn new(g: &Genesis, l: i64, fix: Fix, q: i64) -> Self {
++        let r = g.r as f64;
++        let b = g
++            .x
++            .iter()
++            .zip(&g.k)
++            .zip(&g.m)
++            .map(|((&x, &k), &m)| FBody { x: [x[0] as f64, x[1] as f64], v: [k[0] as f64, k[1] as f64], m: m as f64, rev: 0 })
++            .collect();
++        Twin {
++            b,
++            r,
++            q: q as f64,
++            lo: [r, r],
++            hi: [(l - g.r) as f64, (l - g.r) as f64],
++            consumed: HashMap::new(),
++            last: HashMap::new(),
++            fix,
++            s: TwinStats::default(),
++        }
++    }
++
++    fn temps(&self, light: &[bool]) -> (f64, f64) {
++        let mut acc = [[0.0f64; 2]; 2];
++        let mut cnt = [0usize; 2];
++        for (b, &l) in self.b.iter().zip(light) {
++            let c = if l { 0 } else { 1 };
++            acc[c][0] += b.v[0];
++            acc[c][1] += b.v[1];
++            cnt[c] += 1;
++        }
++        let mut t = [0.0f64; 2];
++        for (b, &l) in self.b.iter().zip(light) {
++            let c = if l { 0 } else { 1 };
++            let (mx, my) = (acc[c][0] / cnt[c] as f64, acc[c][1] / cnt[c] as f64);
++            t[c] += b.m * ((b.v[0] - mx).powi(2) + (b.v[1] - my).powi(2));
++        }
++        (t[0] / (2.0 * cnt[0] as f64), t[1] / (2.0 * cnt[1] as f64))
++    }
++
++    fn step(&mut self, tick: i64) -> usize {
++        let n = self.b.len();
++        let reach = 2.0 * self.r;
++        let v0: Vec<[f64; 2]> = self.b.iter().map(|b| b.v).collect();
++        let xs0: Vec<[f64; 2]> = self.b.iter().map(|b| b.x).collect();
++        // 1. Detect with bin-start positions and current velocities.
++        let mut pairs: Vec<(usize, usize)> = Vec::new();
++        for i in 0..n {
++            for j in i + 1..n {
++                let (a, c) = (&self.b[i], &self.b[j]);
++                if self.consumed.get(&(i as u32, j as u32)) == Some(&(a.rev, c.rev)) {
++                    continue;
++                }
++                let d = [c.x[0] - a.x[0], c.x[1] - a.x[1]];
++                let w = [c.v[0] - a.v[0], c.v[1] - a.v[1]];
++                if d[0].abs() > reach + w[0].abs() || d[1].abs() > reach + w[1].abs() {
++                    continue;
++                }
++                if hit_f(d, w, reach) {
++                    pairs.push((i, j));
++                }
++            }
++        }
++        if pairs.len() > 1 {
++            let mut touched = std::collections::HashSet::new();
++            for &(i, j) in &pairs {
++                touched.insert(i);
++                touched.insert(j);
++            }
++            if touched.len() < pairs.len() * 2 {
++                self.s.multipair_bins += 1;
++            }
++        }
++        // 2. Advance.
++        for b in self.b.iter_mut() {
++            b.x[0] += b.v[0];
++            b.x[1] += b.v[1];
++        }
++        // 3. Wall set (end positions), mirrors `at_wall`.
++        let mut walls: Vec<usize> = Vec::new();
++        for (i, b) in self.b.iter().enumerate() {
++            let mut w = false;
++            for c in 0..2 {
++                if (b.v[c] < 0.0 && b.x[c] <= self.lo[c]) || (b.v[c] > 0.0 && b.x[c] >= self.hi[c]) {
++                    w = true;
++                }
++            }
++            if w {
++                walls.push(i);
++            }
++        }
++        // 4. Respond pairs in id order, then walls (the law's order).
++        let mut touched_bin = vec![false; n];
++        for &(i, j) in &pairs {
++            let (d0, w0) = {
++                let (a, c) = (&self.b[i], &self.b[j]);
++                (
++                    [xs0[j][0] - xs0[i][0], xs0[j][1] - xs0[i][1]],
++                    [c.v[0] - a.v[0], c.v[1] - a.v[1]],
++                )
++            };
++            let ww0 = w0[0] * w0[0] + w0[1] * w0[1];
++            let bpar = if ww0 > 0.0 {
++                (d0[0] * w0[1] - d0[1] * w0[0]).abs() / ww0.sqrt()
++            } else {
++                (d0[0] * d0[0] + d0[1] * d0[1]).sqrt()
++            };
++            let depth = (reach * reach - bpar * bpar).max(0.0).sqrt();
++            let rho = if ww0 > 0.0 { depth / ww0.sqrt() } else { 1e9 };
++            let ri = rho_index(rho);
++            self.s.rho_bins[ri] += 1;
++            self.s.contacts += 1;
++            let dend = [self.b[j].x[0] - self.b[i].x[0], self.b[j].x[1] - self.b[i].x[1]];
++            let wnow = [self.b[j].v[0] - self.b[i].v[0], self.b[j].v[1] - self.b[i].v[1]];
++            let receding = dend[0] * wnow[0] + dend[1] * wnow[1] >= 0.0;
++            if receding {
++                self.s.skips += 1;
++                self.s.rho_skips[ri] += 1;
++            }
++            if let Some(&(_bin, was_skip)) = self.last.get(&(i as u32, j as u32)) {
++                if was_skip {
++                    self.s.reenc_after_skip += 1;
++                } else {
++                    self.s.reenc_after_exchange += 1;
++                }
++            }
++            let (vi, vj, mi, mj) = (self.b[i].v, self.b[j].v, self.b[i].m, self.b[j].m);
++            if !receding {
++                if let Some((a, c)) = reflect(vi, vj, mi, mj, dend, self.q) {
++                    self.s.transport += mi * ((a[0] - vi[0]).hypot(a[1] - vi[1]));
++                    self.b[i].v = a;
++                    self.b[j].v = c;
++                } else {
++                    self.s.degenerate += 1;
++                }
++            } else {
++                // Skip class. The impulse the law drops (and the fix arms pay):
++                // `Contact` resolves at |d| = reach (the detection quadratic's earlier
++                // root); `Cross` exchanges at the bin-end separation like approaching
++                // pairs; `No` only prices the counterfactual at the contact root.
++                // NOTE: reflecting about the closest-approach normal d(tau*) is the
++                // identity (both COM momenta are parallel to w _|_ d(tau*)) - measured
++                // mean impulse 0.08 quanta on 46.6k contacts in the first build.
++                let dd0 = d0[0] * d0[0] + d0[1] * d0[1];
++                let dw0 = d0[0] * w0[0] + d0[1] * w0[1];
++                let disc = dw0 * dw0 - ww0 * (dd0 - reach * reach);
++                let s1 = if disc > 0.0 && ww0 > 0.0 {
++                    ((-dw0 - disc.sqrt()) / ww0).clamp(0.0, 1.0)
++                } else {
++                    0.0
++                };
++                let dcon = [d0[0] + w0[0] * s1, d0[1] + w0[1] * s1];
++                let dtau = if disc > 0.0 && ww0 > 0.0 {
++                    let st = (-dw0 / ww0).clamp(0.0, 1.0);
++                    [d0[0] + w0[0] * st, d0[1] + w0[1] * st]
++                } else {
++                    d0
++                };
++                let dref = match self.fix {
++                    Fix::Cross => dend,
++                    Fix::Tau => dtau,
++                    _ => dcon,
++                };
++                if let Some((a, c)) = reflect(vi, vj, mi, mj, dref, self.q) {
++                    self.s.dropped_transport += mi * ((a[0] - vi[0]).hypot(a[1] - vi[1]));
++                    if self.fix != Fix::No {
++                        if touched_bin[i] || touched_bin[j] {
++                            self.s.contaminated += 1;
++                        } else {
++                            let s = match self.fix {
++                                Fix::Cross => 1.0,
++                                Fix::Tau => (-dw0 / ww0.max(1e-300)).clamp(0.0, 1.0),
++                                _ => s1,
++                            };
++                            for &(who, old, new) in &[(i, vi, a), (j, vj, c)] {
++                                self.b[who].x = [
++                                    xs0[who][0] + old[0] * s + new[0] * (1.0 - s),
++                                    xs0[who][1] + old[1] * s + new[1] * (1.0 - s),
++                                ];
++                            }
++                        }
++                        self.b[i].v = a;
++                        self.b[j].v = c;
++                    }
++                } else {
++                    self.s.degenerate += 1;
++                }
++            }
++            self.last.insert((i as u32, j as u32), (tick, receding));
++            touched_bin[i] = true;
++            touched_bin[j] = true;
++        }
++        for &i in &walls {
++            for c in 0..2 {
++                let b = &mut self.b[i];
++                if (b.v[c] < 0.0 && b.x[c] <= self.lo[c]) || (b.v[c] > 0.0 && b.x[c] >= self.hi[c]) {
++                    b.v[c] = -b.v[c];
++                }
++            }
++        }
++        // A body revises iff its velocity changed (contact or wall), exactly as the law.
++        for (i, b) in self.b.iter_mut().enumerate() {
++            if b.v != v0[i] {
++                b.rev += 1;
++            }
++        }
++        for &(i, j) in &pairs {
++            self.consumed.insert((i as u32, j as u32), (self.b[i].rev, self.b[j].rev));
++        }
++        // Canonical retain: a live consumed entry needs matching revs and approach.
++        let bodies = &self.b;
++        self.consumed.retain(|&(i, j), &mut (ra, rb)| {
++            let (a, c) = (&bodies[i as usize], &bodies[j as usize]);
++            if a.rev != ra || c.rev != rb {
++                return false;
++            }
++            let d = [c.x[0] - a.x[0], c.x[1] - a.x[1]];
++            let w = [c.v[0] - a.v[0], c.v[1] - a.v[1]];
++            d[0] * w[0] + d[1] * w[1] < 0.0
++        });
++        pairs.len()
++    }
++}
++
++// ---------------------------------------------------------------- shipped arm
++
++fn run_shipped(g: &Genesis, l: i64, q: i64, bins: i64, _light: &[bool]) -> serde_json::Value {
++    let bodies: Vec<Body> = g
++        .x
++        .iter()
++        .zip(&g.k)
++        .zip(&g.m)
++        .enumerate()
++        .map(|(i, ((&x, &k), &m))| Body::new(i as u64, x, k, m, g.r, Response::Bounce))
++        .collect();
++    let world = World::new(q, Some(Container { min: [0, 0], max: [l, l] }), bodies)
++        .unwrap()
++        .with_law(Law::RelativisticV1)
++        .unwrap();
++    let e0 = emergent_lattice::relativity::total(&world);
++    let mut chronon = Chronon::new(world, true).unwrap();
++    let mut skips_pred = 0u64;
++    let mut skips_obs = 0u64;
++    let mut agree = 0u64;
++    let mut st: Vec<i64> = Vec::new();
++    let mut sta: Vec<f64> = Vec::new();
++    let mut stb: Vec<f64> = Vec::new();
++    let mut contacts = 0u64;
++    let mut multipair_bins = 0u64;
++    let mut rho_bins = [0u64; 7];
++    let mut rho_skips = [0u64; 7];
++    let reach = 2 * g.r;
++    for t in 1..=bins {
++        let w = chronon.world();
++        let pre: Vec<([i64; 2], [i64; 2], u32)> = w.bodies.iter().map(|b| (b.x, b.k, b.rev)).collect();
++        let ev0 = chronon.log().events.len();
++        chronon.step();
++        let w2 = chronon.world();
++        let mut this_tick = 0u64;
++        for e in &chronon.log().events[ev0..] {
++            if e.kind != Kind::Contact {
++                continue;
++            }
++            this_tick += 1;
++            contacts += 1;
++            let (i, j) = (w2.index_of(e.a).unwrap(), w2.index_of(e.b).unwrap());
++            let d0 = [pre[j].0[0] as i128 - pre[i].0[0] as i128, pre[j].0[1] as i128 - pre[i].0[1] as i128];
++            let w0 = [pre[j].1[0] as i128 - pre[i].1[0] as i128, pre[j].1[1] as i128 - pre[i].1[1] as i128];
++            let ww = w0[0] * w0[0] + w0[1] * w0[1];
++            let predicted = d0[0] * w0[0] + d0[1] * w0[1] + ww >= 0;
++            let observed = pre[i].2 == w2.bodies[i].rev && pre[j].2 == w2.bodies[j].rev;
++            if predicted == observed {
++                agree += 1;
++            }
++            skips_pred += predicted as u64;
++            skips_obs += observed as u64;
++            let bpar = if ww > 0 {
++                ((d0[0] * w0[1] - d0[1] * w0[0]).abs() as f64) / (ww as f64).sqrt()
++            } else {
++                ((d0[0] * d0[0] + d0[1] * d0[1]) as f64).sqrt()
++            };
++            let depth = ((reach as f64).powi(2) - bpar * bpar).max(0.0).sqrt();
++            let rho = if ww > 0 { depth / (ww as f64).sqrt() } else { 1e9 };
++            let ri = rho_index(rho);
++            rho_bins[ri] += 1;
++            rho_skips[ri] += observed as u64;
++        }
++        if this_tick > 1 {
++            multipair_bins += 1;
++        }
++        if t % 500 == 0 {
++            let mut acc = [0.0f64; 4];
++            let mut cnt = [0usize; 2];
++            for b in &w2.bodies {
++                let c = if b.mass == 1 { 0 } else { 1 };
++                acc[c * 2] += b.k[0] as f64;
++                acc[c * 2 + 1] += b.k[1] as f64;
++                cnt[c] += 1;
++            }
++            let mut tt = [0.0f64; 2];
++            for b in &w2.bodies {
++                let c = if b.mass == 1 { 0 } else { 1 };
++                let (mx, my) = (acc[c * 2] / cnt[c] as f64, acc[c * 2 + 1] / cnt[c] as f64);
++                tt[c] += b.mass as f64 * ((b.k[0] as f64 - mx).powi(2) + (b.k[1] as f64 - my).powi(2));
++            }
++            st.push(t);
++            sta.push(tt[0] / (2.0 * cnt[0] as f64));
++            stb.push(tt[1] / (2.0 * cnt[1] as f64));
++        }
++    }
++    let w_end = chronon.world();
++    let e1 = emergent_lattice::relativity::total(&w_end);
++    let carried = emergent_lattice::relativity::carried(&w_end);
++    serde_json::json!({
++        "arm": "shipped",
++        "contacts": contacts,
++        "skips_pred": skips_pred,
++        "skips_obs": skips_obs,
++        "classifier_agree": agree,
++        "multipair_bins": multipair_bins,
++        "rho_bins": rho_bins,
++        "rho_skips": rho_skips,
++        "t": st,
++        "TA": sta,
++        "TB": stb,
++        "ledger_ok": e1[0] - e0[0] == carried[0],
++        "digest": w_end.digest(),
++    })
++}
++
++fn run_twin(g: &Genesis, l: i64, q: i64, bins: i64, light: &[bool], fix: Fix, name: &str) -> serde_json::Value {
++    let mut twin = Twin::new(g, l, fix, q);
++    let mut st: Vec<i64> = Vec::new();
++    let mut sta: Vec<f64> = Vec::new();
++    let mut stb: Vec<f64> = Vec::new();
++    let mut contacts_per_bin: Vec<u64> = Vec::new();
++    for t in 1..=bins {
++        contacts_per_bin.push(twin.step(t) as u64);
++        if t % 500 == 0 {
++            let (ta, tb) = twin.temps(light);
++            st.push(t);
++            sta.push(ta);
++            stb.push(tb);
++        }
++    }
++    let active: Vec<u64> = contacts_per_bin.iter().copied().filter(|(&c)| c > 0).collect();
++    let mean = active.iter().sum::<u64>() as f64 / active.len().max(1) as f64;
++    let var = if active.is_empty() {
++        0.0
++    } else {
++        active.iter().map(|&c| (c as f64 - mean).powi(2)).sum::<f64>() / active.len() as f64
++    };
++    serde_json::json!({
++        "arm": name,
++        "contacts": twin.s.contacts,
++        "skips": twin.s.skips,
++        "transport": twin.s.transport,
++        "dropped_transport": twin.s.dropped_transport,
++        "multipair_bins": twin.s.multipair_bins,
++        "contaminated": twin.s.contaminated,
++        "degenerate": twin.s.degenerate,
++        "rho_bins": twin.s.rho_bins,
++        "rho_skips": twin.s.rho_skips,
++        "reenc_after_skip": twin.s.reenc_after_skip,
++        "reenc_after_exchange": twin.s.reenc_after_exchange,
++        "t": st,
++        "TA": sta,
++        "TB": stb,
++        "fano_active": if mean > 0.0 { var / mean } else { 0.0 },
++    })
++}
++
++fn main() {
++    let q: i64 = 1 << 20;
++    let l: i64 = 1 << 18;
++    let r: i64 = 1024;
++    let scenes: Vec<(&str, u64, usize, i64, f64)> = vec![
++        ("c1", 1, 200, 120_000, 8.0),
++        ("c2", 1, 200, 30_000, 4000.0),
++        ("d1", 1, 200, 400_000, 150.0),
++        ("d2", 1, 200, 200_000, 700.0),
++        ("h1", 13, 300, 250_000, 400.0),
++    ];
++    let only: Vec<String> = std::env::args().skip(1).collect();
++    for (name, seed, n, bins, vth) in scenes {
++        if !only.is_empty() && !only.iter().any(|o| o == name) {
++            continue;
++        }
++        let g = genesis(seed, n, r, l, vth);
++        let light = g.light.clone();
++        eprintln!("scene {name} n={n} vth={vth} bins={bins}");
++        println!("{}", run_shipped(&g, l, q, bins, &light));
++        println!("{}", run_twin(&g, l, q, bins, &light, Fix::No, "skip"));
++        println!("{}", run_twin(&g, l, q, bins, &light, Fix::Contact, "contact"));
++        println!("{}", run_twin(&g, l, q, bins, &light, Fix::Cross, "cross"));
++        println!("{}", run_twin(&g, l, q, bins, &light, Fix::Tau, "tau"));
++    }
++}

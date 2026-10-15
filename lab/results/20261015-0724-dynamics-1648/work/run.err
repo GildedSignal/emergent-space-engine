@@ -1,0 +1,22 @@
+   Compiling emergent-lattice v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/lattice)
+warning: unnecessary parentheses around pattern
+   --> crates/lattice/examples/skipgas.rs:555:69
+    |
+555 |     let active: Vec<u64> = contacts_per_bin.iter().copied().filter(|(&c)| c > 0).collect();
+    |                                                                     ^  ^
+    |
+    = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+    |
+555 -     let active: Vec<u64> = contacts_per_bin.iter().copied().filter(|(&c)| c > 0).collect();
+555 +     let active: Vec<u64> = contacts_per_bin.iter().copied().filter(|&c| c > 0).collect();
+    |
+
+warning: `emergent-lattice` (example "skipgas") generated 1 warning (run `cargo fix --example "skipgas"` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.78s
+     Running `/home/glmlab/lab-target-1/release/examples/skipgas`
+scene c1 n=200 vth=8 bins=120000
+scene c2 n=200 vth=4000 bins=30000
+scene d1 n=200 vth=150 bins=400000
+scene d2 n=200 vth=700 bins=200000
+scene h1 n=300 vth=400 bins=250000
