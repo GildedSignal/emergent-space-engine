@@ -1,0 +1,233 @@
+diff --git a/crates/universe/examples/belt_bind.rs b/crates/universe/examples/belt_bind.rs
+new file mode 100644
+index 00000000..65ac7df3
+--- /dev/null
++++ b/crates/universe/examples/belt_bind.rs
+@@ -0,0 +1,47 @@
++//! Prices the shipped promotion path (`add_body`: spec_binding compile + catalogue
++//! insert + bind_exact + store) at the ladder belt's true keys, against the isolated
++//! `Orbit::compile` (example `belt_compile`). The wave CPU anchor is 59-76 µs/kick
++//! incl. attendants (b30b); this splits compile from attendants at the belt mix.
++use emergent_space::scaled::Scalar;
++use emergent_universe::scenario::{ladder_locals, ladder_ship, STAR_RADIUS};
++use emergent_universe::{Config, Kind, Universe};
++use std::time::Instant;
++
++fn pct(sorted: &[u128], p: f64) -> u128 {
++    sorted[((sorted.len() - 1) as f64 * p) as usize]
++}
++
++fn main() {
++    let n: u64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(100_000);
++    let seed: u64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let locals = ladder_locals(n);
++    let mut u = Universe::new(Scalar::raw(STAR_RADIUS as i128, 0).unwrap(), Config::default());
++    u.threads = 1;
++    let mut t = Vec::with_capacity((n - locals) as usize);
++    for k in locals..n {
++        let (spec, radius) = ladder_ship(seed, k, n, 1).unwrap();
++        let a = Instant::now();
++        let id = u.add_body(Kind::Ship, spec, radius).unwrap();
++        let b = a.elapsed().as_nanos();
++        debug_assert!(id < usize::MAX);
++        t.push(b);
++    }
++    t.sort_unstable();
++    let mean = t.iter().sum::<u128>() as f64 / t.len() as f64;
++    println!(
++        "add_body (promotion path) at belt keys: n={} mean={:.2}us p50={:.2} p90={:.2} p99={:.2} max={:.2}",
++        t.len(),
++        mean / 1000.0,
++        pct(&t, 0.50) as f64 / 1000.0,
++        pct(&t, 0.90) as f64 / 1000.0,
++        pct(&t, 0.99) as f64 / 1000.0,
++        *t.last().unwrap() as f64 / 1000.0
++    );
++    // Front half vs back half: does the catalogue/store cost grow with N already?
++    let half = t.len() / 2;
++    println!(
++        "front half mean={:.2}us back half mean={:.2}us",
++        t[..half].iter().sum::<u128>() as f64 / half as f64 / 1000.0,
++        t[half..].iter().sum::<u128>() as f64 / (t.len() - half) as f64 / 1000.0
++    );
++}
+diff --git a/crates/universe/examples/belt_compile.rs b/crates/universe/examples/belt_compile.rs
+new file mode 100644
+index 00000000..4aedd806
+--- /dev/null
++++ b/crates/universe/examples/belt_compile.rs
+@@ -0,0 +1,174 @@
++//! Prices the shipped `Orbit::compile` at the N-ladder belt's true keys
++//! (kick-jet open direction 4: "the shipped compile timed at true belt keys").
++//! Belt mix verbatim from `scenario::ladder_ship` (a uniform in [2,3) AU,
++//! e Rayleigh 0.07 re-drawn above 0.4, p = a(1-e), doll 0 whose unit is ONE,
++//! so tube units = root units and `OrbitKey::bound` sees the spec unchanged).
++use emergent_space::orbit::{Orbit, OrbitKey};
++use emergent_universe::scenario::{ladder_locals, ladder_ship};
++use std::time::Instant;
++
++fn pct(sorted: &[u128], p: f64) -> u128 {
++    sorted[((sorted.len() - 1) as f64 * p) as usize]
++}
++
++fn main() {
++    let n: u64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(200_000);
++    let seed: u64 = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let passes: usize = std::env::args().nth(3).and_then(|s| s.parse().ok()).unwrap_or(3);
++    let locals = ladder_locals(n);
++    // The belt's keys, exactly as the ladder mints them.
++    let mut keys = Vec::with_capacity((n - locals) as usize);
++    let mut es = Vec::with_capacity((n - locals) as usize);
++    let mut bad = 0u64;
++    for k in locals..n {
++        let (spec, _) = match ladder_ship(seed, k, n, 1) {
++            Ok(x) => x,
++            Err(_) => {
++                bad += 1;
++                continue;
++            }
++        };
++        assert_eq!(spec.doll, 0, "belt ships live in the root doll");
++        let key = OrbitKey::bound(spec.periapsis, spec.e_q48).expect("belt key");
++        es.push(spec.e_q48);
++        keys.push(key);
++    }
++    // e straight from the spec lane (independent of e_of's key arithmetic).
++    let mut es_sorted = es.clone();
++    es_sorted.sort_unstable();
++    let med_e = es_sorted[es_sorted.len() / 2] as f64 / (1u64 << 48) as f64;
++    let max_e = *es_sorted.last().unwrap() as f64 / (1u64 << 48) as f64;
++    println!("belt e: median={:.4} max={:.4} (Rayleigh 0.07 redrawn at 0.4)", med_e, max_e);
++    let e_of = |k: &OrbitKey| -> f64 {
++        // 1/k − 1 = e, in Q48 integers first (k = mantissa of 1/(1+e), exponent 0 for bound keys).
++        assert_eq!(k.k_exponent, 0);
++        (((1u128 << 96) / (k.k as u128)) - (1u64 << 48) as u128) as f64 / (1u64 << 48) as f64
++    };
++    // Correctness smoke: every belt key compiles and yields a positive period.
++    let mut ok = 0u64;
++    for key in keys.iter().take(10_000) {
++        if let Ok(c) = Orbit::compile(*key) {
++            assert!(c.period().is_ok());
++            ok += 1;
++        }
++    }
++    println!("n={} seed={} passes={} refusals={} compiled={}", n, seed, passes, bad, ok);
++
++    // Control: the key construction itself (the timer's floor).
++    let t0 = Instant::now();
++    let mut sink = 0u64;
++    for k in locals..(locals + 20_000).min(n) {
++        let (spec, _) = ladder_ship(seed, k, n, 1).unwrap();
++        let key = OrbitKey::bound(spec.periapsis, spec.e_q48).unwrap();
++        sink = sink.wrapping_add(key.k);
++    }
++    let key_ns = t0.elapsed().as_nanos() as f64 / 20_000.0;
++    println!("control ladder_ship+key: {:.0} ns  (sink {})", key_ns, sink & 1);
++
++    // Per-key compile timing: min over passes kills scheduler noise; the
++    // compile is pure, so the min is the true price, and pass-to-pass spread
++    // shows the machine's wobble (quant lens: report the tails, never the mean).
++    let mut best: Vec<u128> = vec![u128::MAX; keys.len()];
++    let mut pass_tot = Vec::new();
++    for _p in 0..passes {
++        let t = Instant::now();
++        for (i, key) in keys.iter().enumerate() {
++            let a = Instant::now();
++            let c = Orbit::compile(*key).ok();
++            let b = a.elapsed().as_nanos();
++            if c.is_some() {
++                if b < best[i] {
++                    best[i] = b;
++                }
++            } else {
++                best[i] = 0; // refusal: excluded below
++            }
++        }
++        pass_tot.push(t.elapsed().as_secs_f64());
++    }
++    let mut v: Vec<u128> = best.iter().copied().filter(|&x| x > 0).collect();
++    v.sort_unstable();
++    let mean = v.iter().sum::<u128>() as f64 / v.len() as f64;
++    println!(
++        "belt compile: n={} mean={:.2}us p50={:.2} p90={:.2} p99={:.2} p999={:.2} max={:.2}",
++        v.len(),
++        mean / 1000.0,
++        pct(&v, 0.50) as f64 / 1000.0,
++        pct(&v, 0.90) as f64 / 1000.0,
++        pct(&v, 0.99) as f64 / 1000.0,
++        pct(&v, 0.999) as f64 / 1000.0,
++        *v.last().unwrap() as f64 / 1000.0
++    );
++    println!("pass totals (s): {:?}", pass_tot);
++
++    // e-band split: does the belt's price sit on the e-monotone curve the grid saw?
++    let bands = [0.00f64, 0.02, 0.05, 0.10, 0.20, 0.40, 1.01];
++    for w in bands.windows(2) {
++        let mut rows = Vec::new();
++        for (i, key) in keys.iter().enumerate() {
++            let e = e_of(key);
++            if e >= w[0] && e < w[1] && best[i] > 0 {
++                rows.push(best[i]);
++            }
++        }
++        if rows.len() < 20 {
++            continue;
++        }
++        rows.sort_unstable();
++        println!(
++            "  e in [{:.2},{:.2}): n={} p50={:.2}us p90={:.2} max={:.2}",
++            w[0],
++            w[1],
++            rows.len(),
++            pct(&rows, 0.50) as f64 / 1000.0,
++            pct(&rows, 0.90) as f64 / 1000.0,
++            *rows.last().unwrap() as f64 / 1000.0
++        );
++    }
++
++    // cd6e's grid, same box: the e/p-monotone shape control (strong field).
++    // p in M units, e Q48. The belt band's own p is ~[1.2e8, 3e8] M.
++    let au = 101_300_000i128;
++    let grid: Vec<(i128, f64)> = vec![
++        (7, 0.001), (7, 0.5), (7, 0.9), (7, 0.999),
++        (100, 0.001), (100, 0.5), (100, 0.9), (100, 0.999),
++        (10_000, 0.001), (10_000, 0.5), (10_000, 0.9), (10_000, 0.999),
++        (1_000_000, 0.001), (1_000_000, 0.5), (1_000_000, 0.9), (1_000_000, 0.999),
++        (2 * au, 0.001), (2 * au, 0.07), (2 * au, 0.3), (2 * au, 0.4),
++        (3 * au, 0.07), (au, 0.07), (5 * au, 0.07), (20 * au, 0.07),
++    ];
++    println!("grid (p M, e) -> compile us [min of 200]:");
++    for (p, e) in grid {
++        let key = OrbitKey::bound(
++            emergent_space::scaled::Scalar::raw(p, 0).unwrap(),
++            (e * (1u64 << 48) as f64) as u64,
++        )
++        .unwrap();
++        let mut m = u128::MAX;
++        let mut works = true;
++        for _ in 0..200 {
++            let a = Instant::now();
++            let c = Orbit::compile(key);
++            let b = a.elapsed().as_nanos();
++            match c {
++                Ok(cy) => {
++                    assert!(cy.period().is_ok());
++                    if b < m {
++                        m = b;
++                    }
++                }
++                Err(_) => {
++                    works = false;
++                    break;
++                }
++            }
++        }
++        println!(
++            "  p={:>9} e={:<6} {} {}",
++            p,
++            e,
++            if works { "ok" } else { "REFUSED" },
++            if works { format!("{:.2}", m as f64 / 1000.0) } else { "-".to_string() }
++        );
++    }
++}

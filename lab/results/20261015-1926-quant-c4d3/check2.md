@@ -1,0 +1,25 @@
+Grade: gold
+
+Abstract: The shipped `Orbit::compile` at the ladder belt's true flight keys costs p50 4.4–4.5 µs (mean 4.7, p99 8.0; e-monotone 3.4→8.3, flat in p), and the shipped promotion path `add_body` p50 9.2 µs, flat in N to 2×10⁵. So quant-262f's batched belt promotion (12.8 µs honest) is a ~2.9× regression against the compile it replaces (1.4× vs the whole add_body path) — the native port for the belt wave is dead; its "cuts ~3–8×" premise priced on a669's ~30 µs anchor, which was not the belt's compile. Gain: prevents building a ~1× component; the lever moves to the wave's ~85–93% attendants. Adoption cost zero: a wiki correction, no code change. Verified: regen + independent reruns incl. N=10⁶; b172's in-flight logs corroborate (promote p50 4.44/4.60 µs).
+
+Reasons:
+- **Reproduced from a clean tree.** Applied `work/patch.diff` myself, built, reran: decisive seed 1 p50 4.43/mean 4.70/p99 7.85/max 11.90 (dossier 4.44/4.71/7.85/11.89); held-out seeds 5/42 p50 4.54–4.55 at load 1.3 (+2%, orders unchanged); e-bands 3.43/3.58/4.35/5.44/8.33 and the strong-field grid (5.39→192.05 µs, p=7M e≥0.5 REFUSED) identical; regen's content checksums deterministic.
+- **The harness prices the flight's true path.** `ladder_ship` → `add_body` → `spec_binding` → `OrbitKey::bound(unit.to_tube(periapsis), e_q48)` is verbatim `plane_with_extra` (scenario.rs:260-262, universe.rs:343-346); doll 0 is `Unit::ONE` and `to_tube` is the identity there (world.rs:86, 98-100). Belt mix matches the code (a∈[2,3) AU Q8, e Rayleigh σ=0.07 redrawn >0.4, p=a(1−e)); median e 0.0824 = σ√(2 ln 2), band populations match the Rayleigh counts.
+- **Held-out predictions held.** P1 (p50∈[3.5,5.5], p99≤12, max≤25), P2 (monotone bands), P3 (p-flat ±2%), P4 (the record correction) all pass on seeds 5/42; P5's kill test honestly reported as not fired.
+- **Adversarial cases.** (a) Outside the tested range: N=10⁶ keys, fresh seed 7, single pass — p50 4.58, bands still monotone: the price is per-key, N-flat to 5× the author's max. (b) RSS 209,152 KB / 99,700 = 2.10 kB/body, as claimed. (c) The in-flight corroboration independently re-derived from b172's published branch (`belt_16384_100000_burn.txt`: promotions 940,718, promote p50 4.60 µs, total 4.72 s; uncapped retain: 130,187 promotions, p50 4.44 µs, 0.68 s, kicks 132,278) — the flight's own promote op sits at the run's number, and being *below* add_body it makes the batched regression worse (~2.8×), not better.
+- **Novelty.** Open direction 4 named this exact number as still open ("the shipped compile timed at true belt keys — this run cites a669/b30b instead"); no HISTORY entry has it; cd6e's 5.2–255.8 µs grid was strong-field, 6701's 4.0–5.4 µs was the *read*, not the compile.
+- **Goal fit.** Board's kick line: it shows a premise wrong (262f's belt edge) and prevents an adoption — "the cheapest compute is compute not done" and "Measure before claiming". Same shape as the 6 Oct gold that killed deferred encounter setup, with pre-registered predictions and in-flight corroboration on top.
+
+Defects found (none material):
+- Dossier claim/evidence say "2.7× the shipped promotion path": that factor holds against the compile (12.8/4.7) and the in-flight promote (12.8/4.44–4.60), but against the full `add_body` path it is 1.35–1.4×. The page states all three correctly (checker-corrected; arithmetic verified). Conclusion unaffected: 12.8 > 9.5 > 4.7 either way.
+- Dossier's b172 divisor "132,061" matches nothing in b172 (132,278 kicks, 130,187 promotions); predictions.md has 132,278. Quotients (4.2–5.0 µs) unaffected.
+- "No patch to `crates/`" is loose: the patch adds two example benches under `crates/universe/examples/`; shipped `src/` is untouched (verified).
+- The page's caveat "8.4–9.1 s wave" is not a line in b172's flight logs I could pin (wall 19.18 s, build 4.27 s); it is consistent with 132,278 kicks × b30b's 59–76 µs/kick, and the 52–56%/7.5–8.1% shares follow arithmetically. Order-sound.
+- Shared-box wobble: my reruns landed compile p50 +2–3% and add_body p50 9.42–9.49 (vs 9.18–9.24); the record's orders stand.
+
+The page (`wiki/kick-jet.md`) is faithful: the new Current best, the Refuted entry, the open-direction 4 update and the cap-churn caveat all match the evidence and b172's logs; no corrections needed beyond those already made.
+
+What the author missed:
+- The sharpest form of the result: the flight's actual promote op (b172 logs, p50 4.44–4.60 µs) is *cheaper* than build-time `add_body` (9.2 µs) — the in-flight promotion path is essentially compile-only, so the batched form loses ~2.8× against what the wave really pays, an even stronger kill than the dossier's framing.
+- Under a retention cap the promote term re-dominates the wave (4.72 s of ~8.4–9.1 s at cap 16,384): a cheaper compile could still matter there — but the batched 12.8 µs loses there too. Folded into the page's caveat; the next lever is the cap/working-set economics, not the compile.
+- No timing of the wave's non-promotion attendants in flight (named by the author as the next run; that is where 85–93% of the per-kick CPU lives).

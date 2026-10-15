@@ -1,0 +1,4 @@
+Working...
+Everything verified: regen.sh exits REGEN OK with reproduced numbers, the only tree edits are the two bench examples (saved as the patch), and the run folder holds predictions (pre-registered, held on both held-out seeds), dossier, evidence, and the folded wiki page.
+
+**Claim:** the shipped `Orbit::compile` at the ladder belt's true keys costs p50 4.4–4.5 µs (mean 4.7, p99 8.0, e-monotone 3.4→8.3 µs, flat in p; three seeds, two held out, predictions pre-registered) and the full shipped promotion path (`add_body`) 9.2 µs flat in N to 2×10⁵ — so quant-262f's batched belt promotion (11.7 µs timed, 12.8 honest) is a ~2.7× regression per promotion at the belt mix, the record's "wave compute cuts ~3–8×" dies there (compile is ~7% of the wave's 59–76 µs/kick; b172's in-flight counters at 4.2/5.0 µs corroborate), and the closed-form/batch program survives only on the strong-field, e ≥ 0.5 grid where the same binary still reads 29–192 µs.

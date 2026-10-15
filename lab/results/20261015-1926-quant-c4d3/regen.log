@@ -1,0 +1,19 @@
+== build (uses the applied patch's examples) ==
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-1/crates/universe)
+    Finished `release` profile [optimized + debuginfo] target(s) in 6.76s
+== decisive: shipped Orbit::compile at true belt keys ==
+== held-out seeds ==
+== shipped promotion path (add_body), N-flatness + held-out seed ==
+== deterministic content (timings wobble; these must not) ==
+a40e43a31002e1141050d48d7730c1fa  -
+d7e7fc6bff4b5346555705ed695174dc  -
+7e8e38f6f7f25ce2aa2f6c39e6974a24  -
+== headline timings ==
+lab/results/20261015-1926-quant-c4d3/out/belt_s1.txt:belt compile: n=199700 mean=4.70us p50=4.43 p90=6.22 p99=7.84 p999=9.67 max=11.85
+lab/results/20261015-1926-quant-c4d3/out/belt_s42.txt:belt compile: n=99700 mean=4.70us p50=4.43 p90=6.20 p99=7.83 p999=9.73 max=12.43
+lab/results/20261015-1926-quant-c4d3/out/belt_s5.txt:belt compile: n=99700 mean=4.71us p50=4.44 p90=6.25 p99=7.87 p999=9.73 max=12.48
+lab/results/20261015-1926-quant-c4d3/out/bind_s1_200k.txt:add_body (promotion path) at belt keys: n=199700 mean=9.53us p50=9.21 p90=11.70 p99=14.40 max=233.48
+lab/results/20261015-1926-quant-c4d3/out/bind_s1_25k.txt:add_body (promotion path) at belt keys: n=24700 mean=9.71us p50=9.21 p90=11.89 p99=20.24 max=155.32
+lab/results/20261015-1926-quant-c4d3/out/bind_s1.txt:add_body (promotion path) at belt keys: n=99700 mean=9.72us p50=9.24 p90=11.92 p99=19.84 max=177.18
+lab/results/20261015-1926-quant-c4d3/out/bind_s5.txt:add_body (promotion path) at belt keys: n=99700 mean=9.91us p50=9.46 p90=12.21 p99=19.13 max=160.89
+REGEN OK
