@@ -1,0 +1,31 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 10.54s
+flight              cut seg/body   max    bpb   rss   promos  passPro digest
+belt_all_32k        32k     1.04    37    974    34  1461009    62847 cb1747c606b7
+belt_all_48k        48k     1.04    36   1004    37  2175163    92289 f8b528554776
+belt_all_96k        96k     1.04    36    976    46  4283122   150512 e75c90f24ffb
+belt_ctl_96k        96k     1.04    36   1668    62        0        0 e75c90f24ffb
+comet25_all_64k     64k   426.12  5496 143832    23   841238   376401 14a740d41316
+comet25_ctl_32k     32k   214.72  2753  76492   716        0        0 c0ac841592b7
+comet25_ctl_64k     64k   426.12  5496 147536  1421        0        0 14a740d41316
+comet_ctl_32k       32k   479.86  2770 165751  2816        0        0 5ed61af25a7c
+comet_ctl_3k         3k    46.53   260  20206   273        0        0 09f73249d761
+smoke_all             ?     1.04    36   1004    32   936098    38005 5e8c9e249f92
+smoke_ctl             ?     1.04    36   1697    62        0        0 5e8c9e249f92
+
+identity: belt 96k ctl==all: True | comet 64k (N=25) ctl==all: True
+
+
+belt (all: saturation): seg/body 1.04 -> 1.04 over t x3: exponent -0.00
+  cut   32000: seg/body     1.04  bpb     974  segments  10488  rss_mb 34
+  cut   48000: seg/body     1.04  bpb    1004  segments  10471  rss_mb 37
+  cut   96000: seg/body     1.04  bpb     976  segments  10472  rss_mb 46
+
+comet ctl N=100 (shipped: growth): seg/body 46.53 -> 479.86 over t x10: exponent +0.99
+  cut    3000: seg/body    46.53  bpb   20206  segments   7957  rss_mb 273
+  cut   32000: seg/body   479.86  bpb  165751  segments  83496  rss_mb 2816
+
+comet ctl N=25 (shipped: depth): seg/body 214.72 -> 426.12 over t x2: exponent +0.99
+  cut   32000: seg/body   214.72  bpb   76492  segments  21257  rss_mb 716
+  cut   64000: seg/body   426.12  bpb  147536  segments  42186  rss_mb 1421
+comet all N=25 64k: seg/body 426.12 bpb 143832 rss 23
+intensivity check at 32k ctl: N=100 479.86 vs N=25 214.72 seg/body
