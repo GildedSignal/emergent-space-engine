@@ -1,0 +1,48 @@
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 10s
+  Executable unittests src/main.rs (/home/glmlab/lab-target-3/release/deps/xtask-b057117972fdd8dc)
+  Executable tests/behave_cli.rs (/home/glmlab/lab-target-3/release/deps/behave_cli-b8c749578c061600)
+trojan: arm=float step=7 rtol=0.000000000001 ships=144 horizon=512P samples=4097 workers=8
+trojan: arm float done in 3.3s -> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/lab/results/20261015-0128-dynamics-b9be/float-12.jsonl
+test behave::trojan::trojan_probe ... ok
+trojan: arm=float step=7 rtol=0.0000000001 ships=144 horizon=512P samples=4097 workers=8
+trojan: arm float done in 1.4s -> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/lab/results/20261015-0128-dynamics-b9be/float-10.jsonl
+test behave::trojan::trojan_probe ... ok
+trojan: arm=plane step=7 rtol=1 ships=144 horizon=512P samples=4097 workers=8
+test behave::trojan::trojan_probe has been running for over 60 seconds
+trojan: arm plane done in 291.2s -> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/lab/results/20261015-0128-dynamics-b9be/plane-7.jsonl
+test behave::trojan::trojan_probe ... ok
+trojan: arm=plane step=2 rtol=1 ships=144 horizon=512P samples=4097 workers=8
+trojan: arm plane done in 8.9s -> /home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/lab/results/20261015-0128-dynamics-b9be/plane-2.jsonl
+test behave::trojan::trojan_probe ... ok
+               float-12   float-10    plane-7    plane-2
+           n        144        144        144        144
+        live        144        144         96        112
+        dead          0          0         48         32
+     gave_up          0          0          0          0
+    episodes       2951       3111       1965       2849
+never_entered          0          0          0          0
+     max_p50      5.375      5.375      13.25       8.25
+     max_p90    512.125    512.125    512.125    512.125
+      ep_p50        1.5       1.25        2.5      0.875
+      ep_p90       13.0     12.625     13.625     12.625
+      ep_max    512.125    512.125    512.125    512.125
+ capped_frac      0.375      0.375     0.5625 0.44642857142857145
+   in_capped 0.6388888888888888      0.625 0.8035714285714286    0.71875
+ out_capture        1.0        1.0        1.0        1.0
+  float-12 deaths(P): []
+  float-10 deaths(P): []
+  plane-7 deaths(P): [0.0, 0.0, 16.0, 16.0, 16.0, 32.0, 32.0, 32.0, 32.0, 32.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 128.0, 128.0, 128.0, 128.0, 128.0, 192.0, 192.0, 192.0, 192.0, 192.0, 192.0, 192.0, 256.0, 320.0, 320.0, 384.0, 384.0, 384.0, 448.0, 448.0, 448.0, 448.0, 480.0, 480.0, 480.0, 480.0]
+  plane-2 deaths(P): [0.0, 16.0, 32.0, 32.0, 32.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 64.0, 128.0, 128.0, 128.0, 128.0, 128.0, 192.0, 192.0, 256.0, 256.0, 320.0, 320.0, 320.0, 320.0, 320.0, 320.0, 384.0, 384.0, 448.0, 448.0]
+
+[PASS] P1 pos ctl  float10 vs float12: capped within 2x
+[PASS] P2 main     plane7  vs float12: capped within 2x and p90 within 1.5x
+[FAIL] P3 neg ctl  plane2  vs float12: must EXCEED a bound
+[PASS] P4 deaths   plane7 dead > float12 gave_up
+[FAIL] P5 tail     p90 ratio further from 1 than p50 ratio (plane7 vs float12)
+
+  float-12 classes: {'captured': 54, 'escaped': 90, 'dead': 0}
+  float-10 classes: {'captured': 54, 'escaped': 90, 'dead': 0}
+  plane-7 classes: {'captured': 54, 'escaped': 42, 'dead': 48}
+  plane-2 classes: {'captured': 50, 'escaped': 62, 'dead': 32}
+  float-12 closest approach: min 28.2 Rp, p10 92.5 Rp (P/8 sampling)

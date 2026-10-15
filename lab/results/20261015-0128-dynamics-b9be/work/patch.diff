@@ -1,0 +1,215 @@
+diff --git a/xtask/src/behave/mod.rs b/xtask/src/behave/mod.rs
+index a1e9b0a4..29de5f6e 100644
+--- a/xtask/src/behave/mod.rs
++++ b/xtask/src/behave/mod.rs
+@@ -41,6 +41,7 @@ pub mod oracle;
+ pub mod resonance;
+ pub mod restricted;
+ pub mod rotating;
++pub mod trojan;
+ pub mod scale;
+ pub mod select;
+ pub mod sample;
+diff --git a/xtask/src/behave/trojan.rs b/xtask/src/behave/trojan.rs
+new file mode 100644
+index 00000000..5755912a
+--- /dev/null
++++ b/xtask/src/behave/trojan.rs
+@@ -0,0 +1,197 @@
++//! Lab probe (chaos-shadowing open direction 1): the dwell arm on the shipped law.
++//!
++//! The wiki's chaos-shadowing page asks whether the shipped law's quantization preserves
++//! trapping statistics where the toy (standard map) showed rounding inflating or crushing
++//! sticky-dwell tails. Scene: the judge's own circular restricted three-body problem
++//! (`JUPITER`, μ = 1e-3), whose 1:1 co-orbital band (the Trojan tadpoles, the fleet regime)
++//! has a mixed phase space: a chaotic layer at the band edge, sticky orbits, permanent traps.
++//!
++//! Instrument (behaviour class, never phase distance): a ship is *in the co-orbital band* at a
++//! sample when its osculating heliocentric axis satisfies |a/sep − 1| ≤ √(8μ/3) (the tadpole
++//! libration half width). Dwell = a maximal continuous run of in-band samples. The statistic of
++//! record: per ship, the longest dwell (in planet periods) and whether it is censored by the
++//! horizon (a permanent trap), plus surface deaths (a law that kills a ship the oracle keeps).
++//!
++//! Arms: the shipped plane through `Plane::restricted` (the engine's own integers at this
++//! scene; `step_log2` cadence), and the judge's float64 oracle `reference` at two tolerances
++//! (the coarse one is the instrument's positive control). Run with TROJAN_OUT=<file>:
++//!
++//! ```text
++//! TROJAN_OUT=/tmp/t.jsonl cargo test --release -p xtask trojan_probe -- --ignored --nocapture
++//! ```
++#![cfg(test)]
++
++use super::plane::Plane;
++use super::Law;
++use super::restricted::{reference, Restricted, JUPITER, RTOL};
++use std::io::Write as _;
++
++/// The 1:1 co-orbital band's half width in a/sep: √(8μ/3), the tadpole libration width.
++fn band(scene: &Restricted) -> f64 {
++    (8.0 * scene.mu / 3.0).sqrt()
++}
++
++/// A circular heliocentric orbit of radius a = sep·(1+du) at synodic angle `phi` (rad) from the
++/// planet, as a barycentric inertial state: the restricted() scene's own birth rule.
++fn ic(scene: &Restricted, du: f64, phi: f64) -> [f64; 4] {
++    let a = scene.sep * (1.0 + du);
++    let (sp, sv) = scene.star(0.0);
++    let v = ((1.0 - scene.mu) / a).sqrt();
++    let (s, c) = phi.sin_cos();
++    [a * c + sp[0], a * s + sp[1], -v * s + sv[0], v * c + sv[1]]
++}
++
++/// Maximal in-band runs as (start sample, length in samples).
++fn episodes(scene: &Restricted, times: &[f64], states: &[[f64; 4]]) -> Vec<(usize, usize)> {
++    let (w, mu) = (band(scene), 1.0 - scene.mu);
++    let mut out = Vec::new();
++    let mut run: Option<(usize, usize)> = None;
++    for (j, (t, st)) in times.iter().zip(states).enumerate() {
++        let e = scene.heliocentric(*t, st).0;
++        let inside = e < 0.0 && ((-mu / (2.0 * e)) / scene.sep - 1.0).abs() <= w;
++        match (inside, &mut run) {
++            (true, None) => run = Some((j, 1)),
++            (true, Some(r)) => r.1 += 1,
++            (false, _) => out.extend(run.take()),
++        }
++    }
++    out.extend(run);
++    out
++}
++
++/// One result line for a (ship, arm).
++fn line(arm: &str, du: f64, phi: f64, times: &[f64], states: &[[f64; 4]], death: Option<f64>, closest_r: f64) -> String {
++    let scene = JUPITER;
++    let eps = episodes(&scene, times, states);
++    let n = times.len() - 1;
++    let censored = eps.last().is_some_and(|&(s, l)| s + l == n);
++    let mut s = format!(
++        r#"{{"arm":"{}","du":{:.4},"phi_deg":{:.1},"death":{},"episodes":["#,
++        arm,
++        du,
++        phi.to_degrees(),
++        death.map_or("null".into(), |d| if d.is_infinite() { "\"gave_up\"".into() } else { format!("{:.4}", d / scene.period()) })
++    );
++    for (i, &(a, l)) in eps.iter().enumerate() {
++        if i > 0 {
++            s.push(',');
++        }
++        s.push_str(&format!(r#"[{},{}]"#, a, l));
++    }
++    s.push_str(&format!(r#"],"censored":{},"closest_R":{:.3},"samples":{}}}"#, censored, closest_r, n));
++    s
++}
++
++/// The plane's states for one ship, locating a death coarsely: if the law loses the ship, the
++/// horizon is probed at descending fractions until a prefix answers, so the episodes before the
++/// death are kept and the death time is known to ~6% of the horizon (counted, never averaged).
++fn plane_states(law: &Plane, scene: &Restricted, ship: [f64; 4], times: &[f64]) -> (Vec<[f64; 4]>, Option<f64>) {
++    if let Some(s) = law.restricted(scene, ship, times) {
++        return (s, None);
++    }
++    let n = times.len() - 1;
++    let mut best: Vec<[f64; 4]> = Vec::new();
++    let mut alive_to = 0.0;
++    for f in [0.9375, 0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125, 0.0625, 0.03125] {
++        let k = (n as f64 * f) as usize;
++        if k == 0 {
++            break;
++        }
++        if let Some(s) = law.restricted(scene, ship, &times[..=k]) {
++            best = s;
++            alive_to = times[k];
++            break;
++        }
++    }
++    (best, Some(alive_to))
++}
++
++#[test]
++#[ignore]
++fn trojan_probe() {
++    let scene = JUPITER;
++    let out_path = std::env::var("TROJAN_OUT").expect("TROJAN_OUT=<file> for the JSONL results");
++    let workers: usize = std::env::var("TROJAN_WORKERS").ok().and_then(|w| w.parse().ok()).unwrap_or(6);
++    let periods: f64 = std::env::var("TROJAN_PERIODS").ok().and_then(|p| p.parse().ok()).unwrap_or(1024.0);
++    let step: i32 = std::env::var("TROJAN_STEP").ok().and_then(|s| s.parse().ok()).unwrap_or(7);
++    let rtol: f64 = std::env::var("TROJAN_RTOL").ok().and_then(|r| r.parse().ok()).unwrap_or(RTOL);
++    let arm = std::env::var("TROJAN_ARM").unwrap_or_else(|_| "plane".into());
++    // The ensemble: du in band-width units on both sides of the tadpole band (inside = born
++    // captured, outside = born in the chaotic layer), synodic angles around the planet.
++    let dus: Vec<f64> = [0.35, 0.6, 0.85, 1.05, 1.25, 1.45].iter().flat_map(|&u| [u, -u]).collect();
++    let phis: Vec<f64> = (0..12).map(|k| (15.0 + 30.0 * k as f64).to_radians()).collect();
++    let p = scene.period();
++    let times: Vec<f64> = (0..=(periods * 8.0) as usize).map(|j| j as f64 * p / 8.0).collect();
++    let jobs: Vec<(f64, f64)> = phis.iter().flat_map(|&phi| dus.iter().map(move |&du| (du, phi))).collect();
++    eprintln!(
++        "trojan: arm={} step={} rtol={} ships={} horizon={}P samples={} workers={}",
++        arm,
++        step,
++        rtol,
++        jobs.len(),
++        periods,
++        times.len(),
++        workers
++    );
++    let t0 = std::time::Instant::now();
++    let (tx, rx) = std::sync::mpsc::channel::<String>();
++    let next = std::sync::atomic::AtomicUsize::new(0);
++    let (arm_ref, times_ref, jobs_ref, next_ref) = (arm.as_str(), times.as_slice(), jobs.as_slice(), &next);
++    std::thread::scope(|scope| {
++        let senders: Vec<_> = (0..workers).map(|_| tx.clone()).collect();
++        for s in senders {
++            scope.spawn(move || loop {
++                let i = next_ref.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
++                if i >= jobs_ref.len() {
++                    break;
++                }
++                let (du, phi) = jobs_ref[i];
++                let ship = ic(&scene, du * band(&scene), phi);
++                let (states, death) = match arm_ref {
++                    "plane" => plane_states(&Plane { step_log2: step }, &scene, ship, times_ref),
++                    "float" => match reference(&scene, ship, times_ref, rtol) {
++                        Some(s) => (s, None),
++                        None => (Vec::new(), Some(f64::INFINITY)),
++                    },
++                    _ => panic!("TROJAN_ARM must be plane or float"),
++                };
++                let closest_r = states.iter().zip(times_ref.iter()).map(|(st, t)| scene.planet_distance(*t, st)).fold(f64::INFINITY, f64::min) / scene.planet_radius;
++                let l = line(arm_ref, du, phi, times_ref, &states, death, closest_r);
++                if let Err(e) = s.send(l) {
++                    eprintln!("trojan: worker send failed: {e}");
++                    break;
++                }
++            });
++        }
++        drop(tx);
++        let mut file = std::fs::File::create(&out_path).expect("create TROJAN_OUT");
++        let mut n = 0usize;
++        while let Ok(l) = rx.recv() {
++            writeln!(file, "{l}").expect("write result line");
++            n += 1;
++        }
++        assert_eq!(n, jobs.len(), "every ship must leave one line");
++    });
++    eprintln!("trojan: arm {} done in {:.1}s -> {}", arm, t0.elapsed().as_secs_f64(), out_path);
++}
++
++#[test]
++#[ignore]
++fn trojan_debug() {
++    let scene = JUPITER;
++    let (w, p) = (band(&scene), scene.period());
++    for (du, phi) in [(0.35f64, 15f64), (0.6, 60.0), (1.05, 60.0), (0.35, 180.0)] {
++        let ship = ic(&scene, du * w, phi.to_radians());
++        let times: Vec<f64> = (0..64).map(|j| j as f64 * p / 8.0).collect();
++        let states = reference(&scene, ship, &times, 1e-12).expect("float");
++        let s: Vec<String> = times
++            .iter()
++            .zip(&states)
++            .map(|(t, st)| {
++                let e = scene.heliocentric(*t, st).0;
++                format!("{:.2}", ((-(1.0 - scene.mu) / (2.0 * e)) / scene.sep - 1.0) / w)
++            })
++            .collect();
++        eprintln!("du={} phi={}: a/w series {}", du, phi, s.join(" "));
++    }
++}
