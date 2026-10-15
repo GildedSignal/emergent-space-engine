@@ -1,0 +1,31 @@
+# 20261015-0358-taleb-d7bc — the standing-scan cap: the band seam's ruin becomes a priced cost
+
+## Claim
+
+The band seam's process-killing memory growth is one missing bound — the held scans' **bytes**, not their count — and `ES_SCAN_STANDING` (a byte cap on what unanswered scans pin, answering the oldest inside the frame, off by default) holds the flight flat at 290-311 MB RSS where shipped climbs ~315 MB/s and dies; the digest is unchanged wherever an uncapped flight completes, and the price the ruin was hiding is now measured: ~28× play time at 10⁵ in-band under an L8 burn, because each scan's answer is O(N) work the shipped engine never lives long enough to pay.
+
+## Bottleneck
+
+`nladder`'s player-seam ruin (the board's bodies gap): a player inside the belt band under burn OOM-kills the plane (taleb-625b, quant-d7e3, counted by c481). The site is one — every minted scan's capture — and the shipped bound (`SCAN_BACKLOG = 2048`, universe.rs:79) caps the **count** on the assumption each scan holds "about 10 KB" (its own comment); in-band each capture is the whole retention, O(N), and behind it a generation of pinned entries, so the count cap bounds nothing: measured here, 118 mints at 10⁵ pin **14.8 GB by count** (14761 MB standing, my counter, an upper bound) before the box kills the process at 1.5 GB RSS (game 119.2 s, ~315 MB/s climb — the record's ~465 MB/s class). The gain is not speed but survival: ruin → bounded cost, memory flat for as long as the flight runs.
+
+## Evidence
+
+All from `regen.sh` (this run's patch: `crates/universe/examples/scan_cap.rs`, the band scene `plane_extra_band` in `crates/universe/src/scenario.rs`, the byte accounting `Trajectory::heap_bytes`/`Orbit::heap_bytes` in `crates/space`, `Held::standing` in `crates/universe/src/encounter.rs`, the cap in `crates/universe/src/universe.rs`; `ES_SCAN_STANDING` unset = shipped verbatim). Scene: player a circular 2.5 AU body of the root doll among the belt ships, L8 prograde burn held from wall second 1, rtf 100, 12 ms budget, seed 1, Linux shared box.
+
+- **B1 (the ruin, bounded for the box):** N=10⁵, cap off, self-kill at 1,500 MB → `SELF_KILL at rss 1506 MB, game 119.2, held 118, standing 14761 MB` — ~1.25 mint/game-s, ~125 MB pinned per mint at 10⁵ (22 MB capture Vec + pinned entries), RSS 244→1506 MB in ~4 s of flight.
+- **B2 (the cap):** same flight, `ES_SCAN_STANDING=64` → RSS **flat at 290-311 MB** for 180 s of flight (2.5× the uncapped arm's lifetime and still flat when stopped), standing peak **125 MB** = the cap plus one mint's overshoot (the guard answers the oldest inside the frame), 1,106/10,800 frames over 12 ms, worst frame 470 ms, presented time **7-28× behind target** (effective rtf 3.6-7.4 against 100): the answer bill (~0.1-0.5 s per mint at 10⁵) was always owed; ruin was deferring it past death.
+- **A1/A2 (digest identity at 10⁴, where shipped completes):** uncapped vs cap 64, cut 16,000 game-s — **the same digest bit for bit** (`11e2ccd78cbb86eccadd510205b36ee49341d94d0aa9d21dc28046e57f21c0e8` both, encounters 0 = 0, decisions 1 = 1): answers keep their set and order, and the digest counts what is held as answered, so *when* they are given moves no bit. The cap also **cuts the flight's peak RSS 19×** (1,328 → 71 MB: the uncapped arm's memory *was* the standing scans) and the cut's held-answering 23.0 s → 0.09 s, for 607/9,749 frames over 12 ms and a 50.3 ms worst frame.
+- **C1/C2 (inert at Home):** N=10⁵ at-Home L8 burn, cut 4,000 game-s — **the same digest bit for bit** (`ecef9f8f651d2c36645f13dc2f48575707fcbdf2fa244621abbd869e8877454d` both, 0 frames over either arm, encounters 3,946 = 3,946); standing peaks 17-18 MB under the 64 MB cap, which never fires.
+- The library tests pass under the patch (`emergent-universe` 10/10, `emergent-space` 10/10); the `nladder` example's link failure (`proc_pid_rusage`, macOS-only) is pre-existing on Linux, not this patch.
+
+## What would make it wrong
+
+The digest identity rests on answers preserving their set and order — any cap policy that *drops* a scan instead of answering it breaks it (bf21 showed late capture breaks the digest; dropping is worse). The pinned-bytes counter is an upper bound (entries the store also holds are counted per slot; reused scans counted per slot), so the cap can fire earlier than the strict footprint demands — never later — and a scene with huge shared entries could force answers sooner than needed. The B2 arm did not reach the 16,000 game-s cut (the answer bill throttles play): no capped 10⁵ digest exists to compare, because no uncapped one can exist — that asymmetry is the ruin, not a gap in the guard. Not measured: the view gather in-band (my first harness gathered per frame and the flight crawled at ~rtf 0.7 with ~2 s/frame somewhere in that path — dropped from the harness, unpriced), other seeds, band transit, and burn levels other than L8.
+
+## Cost of adoption, and fit
+
+A ~60-line patch, default-off (one env var to enable): `Trajectory::heap_bytes` (exact for cycles; passages/plunges report an inline floor), `Held::standing`, a running counter, one clause in the shipped backlog guard. The integrator's call is the cap's unit and value (64 MB used here) and whether the guard should also fire in `drain_scans`. This deletes nothing yet — it fences the ruin the record counted (c481) until the real fix lands: the candidate set itself (a whole-retention capture per scan is the wrong representation in-band; the cap makes that cost visible per frame instead of per OOM). PRINCIPLES: "clip your downside, protect yourself from extreme harm" and "its risk of breaking makes anything you do to improve it inconsequential unless you first reduce that risk of breaking" — smoothness (the p99) is now the binding constraint at the seam, no longer survival.
+
+## The lens
+
+Taleb's guard dog found the fence post in the wrong unit (a count cap assuming a size — the assumption printed in its own comment). What it may have missed: the cap is a bandage on a representation error (one scan should never hold the whole retention), and a lens primed for ruin can accept "bounded and slow" as the end state — at 10⁵ in-band the throttled rtf is its own failure (4-28×); the gold behind this guard is a bounded candidate set, and this run prices why.

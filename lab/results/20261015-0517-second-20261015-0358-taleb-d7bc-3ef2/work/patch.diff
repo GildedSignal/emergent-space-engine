@@ -1,0 +1,883 @@
+diff --git a/crates/space/src/binding.rs b/crates/space/src/binding.rs
+index d74a2a57..f3500111 100644
+--- a/crates/space/src/binding.rs
++++ b/crates/space/src/binding.rs
+@@ -54,6 +54,16 @@ impl Trajectory {
+             Self::Plunge(_) => None,
+         }
+     }
++
++    /// The heap bytes this trajectory pins. Exact for a cycle (the shape's knots and crossings, shared per key
++    /// and counted per holder); a passage or a plunge reports its inline size as a floor. A scan that must
++    /// budget what it holds reads this.
++    pub fn heap_bytes(&self) -> usize {
++        match self {
++            Self::Cycle(c) => c.heap_bytes(),
++            Self::Passage(_) | Self::Plunge(_) => std::mem::size_of::<Self>(),
++        }
++    }
+     pub fn state(&self, time: Scalar) -> Result<OrbitState> {
+         match self {
+             Self::Cycle(c) => c.signed_state(time),
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..d8541f59 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -548,6 +548,13 @@ impl Orbit {
+     pub fn shape(&self) -> &OrbitShape {
+         &self.shape
+     }
++
++    /// The heap bytes of the shared shape (its knots and crossings) that holding this orbit pins. A catalogue
++    /// pays them once per key; a holder that must bound what it keeps alive counts them per reference.
++    pub fn heap_bytes(&self) -> usize {
++        self.shape.knots().len() * std::mem::size_of::<Knot>()
++            + self.shape.crossings().len() * std::mem::size_of::<usize>()
++    }
+     pub fn compile(key: OrbitKey) -> Result<Self> {
+         if key.null {
+             return Err(Error::NotPeriodic);
+diff --git a/crates/universe/examples/scan_cap.rs b/crates/universe/examples/scan_cap.rs
+new file mode 100644
+index 00000000..60401b1c
+--- /dev/null
++++ b/crates/universe/examples/scan_cap.rs
+@@ -0,0 +1,119 @@
++//! The band seam with the held-scan standing cap. The player is a circular belt body at 2.5 AU in the
++//! root doll, among the belt ships (`plane_extra_band`: everything else bit for bit the ladder), an
++//! L-level prograde burn held from the first second of wall time, rtf 100, a 12 ms budget. One line
++//! every 5 s of wall time: presented game-s, RSS, held scans, the bytes they pin, frames over budget,
++//! the worst frame, the worst lag; at the cut the digest (which answers what is held).
++//!
++//! The ruin this measures (quant-d7e3, taleb-625b, c481): shipped, each minted scan's capture is the
++//! whole retention, O(N), and behind it a generation of entries; the backlog's count cap (2048,
++//! assuming ~10 KB a scan) bounds nothing there, so the process dies on memory. `ES_SCAN_STANDING`
++//! (MiB) bounds the pinned bytes instead: over it the oldest scan is answered inside the frame, which
++//! moves no bit — the digest counts what is held as answered, in their order, whenever they are given.
++//!
++//! `ES_RSS_LIMIT_MB` (unset: no limit) stops the flight when RSS passes it, reporting where it stood:
++//! the ruin's kill arm, bounded for a shared box.
++//!
++//! cargo run --release -p emergent-universe --example scan_cap -- <extra> <burn level> [seed] [cut game-s] [rtf] [band 1|0]
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane_extra, plane_extra_band};
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn rss_mb() -> u64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmRSS:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++        })
++        .map_or(0, |kb| kb / 1024)
++}
++
++fn rss_limit() -> Option<u64> {
++    std::env::var("ES_RSS_LIMIT_MB").ok().and_then(|v| v.parse().ok())
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let extra: usize = args[1].parse().unwrap();
++    let level: u8 = args[2].parse().unwrap();
++    let seed: u64 = args.get(3).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let cut: f64 = args.get(4).map(|s| s.parse().unwrap()).unwrap_or(16_000.0);
++    let rtf: f64 = args.get(5).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let band: bool = args.get(6).map(|s| s != "0").unwrap_or(true);
++    let cap = std::env::var("ES_SCAN_STANDING").unwrap_or_else(|_| "off".into());
++    let (t0, mut p) = (Instant::now(), if band {
++        plane_extra_band(Config::default(), seed, Order::Sparse, 1, 48, extra).unwrap()
++    } else {
++        plane_extra(Config::default(), seed, Order::Sparse, 1, 48, extra).unwrap()
++    });
++    println!(
++        "built in {:.2}s: {} bodies, band {band}, seed {seed}, L{level} held burn, rtf {rtf}, 12 ms budget, cut {cut} game-s, ES_SCAN_STANDING {cap}, rss limit {:?} MB",
++        t0.elapsed().as_secs_f64(),
++        p.u.n_bodies(),
++        rss_limit()
++    );
++    let mut sent = false;
++    let (mut frames, mut over, mut worst, mut lag) = (0u64, 0u64, Duration::ZERO, 0f64);
++    let (mut last_line, mut peak_rss, mut peak_standing) = (0f64, 0u64, 0u64);
++    let cut_tick = (cut / TICK_SECONDS) as i64;
++    let t0 = Instant::now();
++    let digest;
++    loop {
++        // The burn is one held decision at one tick (a key held is not a decision per frame): no view gather
++        // needed in flight, and gathering in-band is its own unmeasured cost this run does not price.
++        if !sent && frames as f64 / 60.0 >= 1.0 {
++            let _ = p.u.input(p.u.now, word(1, level));
++            sent = true;
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, i64::MAX);
++        let dt = start.elapsed();
++        frames += 1;
++        if dt > Duration::from_millis(12) {
++            over += 1;
++        }
++        worst = worst.max(dt);
++        lag = lag.max((frame.target - frame.presented) as f64 * TICK_SECONDS);
++        let (rss, standing, held) = (rss_mb(), p.u.held_scan_bytes() / 1_000_000, p.u.held_scans());
++        peak_rss = peak_rss.max(rss);
++        peak_standing = peak_standing.max(standing);
++        let wall = t0.elapsed().as_secs_f64();
++        if wall - last_line >= 5.0 {
++            println!(
++                "t+{wall:5.0}s game {:>9.1} rss {rss:>5} MB (peak {peak_rss}) held {held:>5} standing {standing:>5} MB (peak {peak_standing}) over {over:>4} worst {:>7.1} ms lag {lag:>7.3} s",
++                frame.presented as f64 * TICK_SECONDS,
++                worst.as_secs_f64() * 1e3
++            );
++            last_line = wall;
++        }
++        if let Some(limit) = rss_limit() {
++            if rss > limit {
++                println!("SELF_KILL at rss {rss} MB > {limit}: game {:.1}, held {held}, standing {standing} MB", frame.presented as f64 * TICK_SECONDS);
++                std::process::exit(9);
++            }
++        }
++        if frame.presented >= cut_tick {
++            let t = Instant::now();
++            digest = p.u.digest();
++            println!(
++                "cut at game {:.1}: digest {digest} (held answered in {:.2}s), rss {rss} MB peak {peak_rss}, standing peak {peak_standing} MB, held now {}, encounters {}, decisions {}, frames {frames}, over {over}, worst {:.1} ms, lag {lag:.3} s",
++                frame.presented as f64 * TICK_SECONDS,
++                t.elapsed().as_secs_f64(),
++                p.u.held_scans(),
++                p.u.stats.encounters,
++                p.u.stats.decisions,
++                worst.as_secs_f64() * 1e3
++            );
++            break;
++        }
++        if t0.elapsed().as_secs_f64() > 480.0 {
++            println!("WALL CAP at game {:.1}: no digest (the cut was not reached)", frame.presented as f64 * TICK_SECONDS);
++            std::process::exit(8);
++        }
++    }
++}
+diff --git a/crates/universe/examples/scan_phase.rs b/crates/universe/examples/scan_phase.rs
+new file mode 100644
+index 00000000..bafdba5f
+--- /dev/null
++++ b/crates/universe/examples/scan_phase.rs
+@@ -0,0 +1,110 @@
++//! The band seam with the phase tier: the same flight as `scan_cap`, digested on the canonical instrument
++//! (the checker's settle-at-cut: `frame_to` stops a margin before the cut tick, `settle(cut_tick)` resolves
++//! the horizon exactly there, then `digest`), because the shipped digest-at-presented wobbles with the wall
++//! schedule. One line every 5 s of wall time; at the cut, the digest and the flight's counters.
++//!
++//! `ES_SCAN_PHASE` bounds the scan's candidate set in angle (`crate::radial`'s phase tier: a pair the exact
++//! predicate could find must be within `reach` at the scan's tick, so its chord bounds the angle gap; the
++//! radial hull of an eccentric belt ship says nothing about where it is now, which is why the shipped walk
++//! reads the whole retention in-band). `ES_PHASE_AUDIT` recomputes the shipped walk's answer on every bounded
++//! capture and compares, pair for pair: the soundness control.
++//!
++//! cargo run --release -p emergent-universe --example scan_phase -- <extra> <burn level> [seed] [cut game-s] [rtf] [band 1|0]
++
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane_extra, plane_extra_band};
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++use std::time::{Duration, Instant};
++
++fn rss_mb() -> u64 {
++    std::fs::read_to_string("/proc/self/status")
++        .ok()
++        .and_then(|s| {
++            s.lines()
++                .find(|l| l.starts_with("VmRSS:"))
++                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()))
++        })
++        .map_or(0, |kb| kb / 1024)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let extra: usize = args[1].parse().unwrap();
++    let level: u8 = args[2].parse().unwrap();
++    let seed: u64 = args.get(3).map(|s| s.parse().unwrap()).unwrap_or(1);
++    let cut: f64 = args.get(4).map(|s| s.parse().unwrap()).unwrap_or(16_000.0);
++    let rtf: f64 = args.get(5).map(|s| s.parse().unwrap()).unwrap_or(100.0);
++    let band: bool = args.get(6).map(|s| s != "0").unwrap_or(true);
++    let phase = std::env::var("ES_SCAN_PHASE").unwrap_or_else(|_| "off".into());
++    let audit = std::env::var("ES_PHASE_AUDIT").unwrap_or_else(|_| "off".into());
++    let cap = std::env::var("ES_SCAN_STANDING").unwrap_or_else(|_| "off".into());
++    let margin: i64 = std::env::var("ES_CANON_MARGIN").ok().and_then(|v| v.parse().ok()).unwrap_or(120);
++    let (t0, mut p) = (Instant::now(), if band {
++        plane_extra_band(Config::default(), seed, Order::Sparse, 1, 48, extra).unwrap()
++    } else {
++        plane_extra(Config::default(), seed, Order::Sparse, 1, 48, extra).unwrap()
++    });
++    println!(
++        "built in {:.2}s: {} bodies, band {band}, seed {seed}, L{level} held burn, rtf {rtf}, 12 ms budget, cut {cut} game-s, phase {phase}, audit {audit}, cap {cap}, margin {margin}",
++        t0.elapsed().as_secs_f64(),
++        p.u.n_bodies()
++    );
++    let cut_tick = (cut / TICK_SECONDS) as i64;
++    let mut sent = false;
++    let (mut frames, mut over, mut worst, mut lag) = (0u64, 0u64, Duration::ZERO, 0f64);
++    let (mut last_line, mut peak_rss, mut peak_standing, mut peak_held) = (0f64, 0u64, 0u64, 0usize);
++    let t0 = Instant::now();
++    loop {
++        // The burn is one held decision at one tick; no view gather in flight (a per-frame gather in-band is
++        // its own unmeasured cost, as the run before this one records).
++        if !sent && frames as f64 / 60.0 >= 1.0 {
++            let _ = p.u.input(p.u.now, word(1, level));
++            sent = true;
++        }
++        let start = Instant::now();
++        let frame = p.u.frame_to(1.0 / 60.0, rtf, Budget { events: u64::MAX, until: Some(start + Duration::from_millis(12)) }, i64::MAX);
++        let dt = start.elapsed();
++        frames += 1;
++        if dt > Duration::from_millis(12) {
++            over += 1;
++        }
++        worst = worst.max(dt);
++        lag = lag.max((frame.target - frame.presented) as f64 * TICK_SECONDS);
++        let (rss, standing, held) = (rss_mb(), p.u.held_scan_bytes() / 1_000_000, p.u.held_scans());
++        peak_rss = peak_rss.max(rss);
++        peak_standing = peak_standing.max(standing);
++        peak_held = peak_held.max(held);
++        let wall = t0.elapsed().as_secs_f64();
++        if wall - last_line >= 5.0 {
++            println!(
++                "t+{wall:5.0}s game {:>9.1} rss {rss:>5} MB (peak {peak_rss}) held {held:>5} (peak {peak_held}) standing {standing:>5} MB (peak {peak_standing}) over {over:>4} worst {:>7.1} ms lag {lag:>7.3} s",
++                frame.presented as f64 * TICK_SECONDS,
++                worst.as_secs_f64() * 1e3
++            );
++            last_line = wall;
++        }
++        if frame.presented >= cut_tick - margin {
++            break;
++        }
++        if t0.elapsed().as_secs_f64() > 1_800.0 {
++            println!("WALL CAP at game {:.1}: no digest (the cut was not reached)", frame.presented as f64 * TICK_SECONDS);
++            std::process::exit(8);
++        }
++    }
++    let t = Instant::now();
++    p.u.settle(cut_tick);
++    let settle_s = t.elapsed().as_secs_f64();
++    let digest = p.u.digest();
++    println!(
++        "canonical at tick {cut_tick} (game {:.1}): digest {digest} (settle {settle_s:.2}s, held now {}, standing peak {peak_standing} MB, held peak {peak_held}, encounters {}, decisions {}, frames {frames}, over {over}, worst {:.1} ms, lag {lag:.3} s, rss peak {peak_rss} MB, wall {:.0} s, rtf {:.1})",
++        cut_tick as f64 * TICK_SECONDS,
++        p.u.held_scans(),
++        p.u.stats.encounters,
++        p.u.stats.decisions,
++        worst.as_secs_f64() * 1e3,
++        t0.elapsed().as_secs_f64(),
++        cut_tick as f64 * TICK_SECONDS / t0.elapsed().as_secs_f64()
++    );
++}
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..b6583908 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -7,7 +7,7 @@
+ //! linear relative motion over the interval comes within `reach`, exact in integers. A
+ //! *contact* is within the two bodies' radii; an *encounter* is within `2^ENCOUNTER_LOG2` of them
+ //! (the neighbourhood the player's own instruments would call close).
+-use crate::bind::Binding;
++use crate::bind::{Binding, Entry};
+ use crate::ctx::Ctx;
+ use crate::num::{sub2, time_of, to_f64, Res, Tick, V2};
+ use crate::radial::Window;
+@@ -43,6 +43,14 @@ pub trait Encounters: Send + Sync {
+ /// is given (the bodies' histories may have moved on, been pruned, or the bodies died since).
+ pub trait Held: Send + Sync {
+     fn answer(&self) -> Vec<Encounter>;
++    /// The bytes this scan pins until answered: its capture and the entries behind it (an upper bound — an entry
++    /// the store also holds is not extra, and a scan reused by a later capture is counted per slot — so a cap on
++    /// the sum may fire sooner than the strict footprint demands, never later). The backlog's count cap assumes
++    /// about 10 KB a scan; inside the belt band one capture is the whole retention, O(N), so only a cap on this
++    /// bounds the memory there.
++    fn standing(&self) -> u64 {
++        0
++    }
+ }
+ 
+ /// The exact check for the player's neighbourhood: every body in the player's doll, tested against the player over the
+@@ -123,6 +131,22 @@ impl Held for Scan {
+     fn answer(&self) -> Vec<Encounter> {
+         self.found.get_or_init(|| self.compute()).clone()
+     }
++
++    fn standing(&self) -> u64 {
++        self.capture_bytes() as u64
++    }
++}
++
++impl Scan {
++    /// The bytes this scan pins: its candidate slots and, behind each, the entry's own heap.
++    fn capture_bytes(&self) -> usize {
++        self.candidates.capacity() * std::mem::size_of::<(usize, Binding, Scalar)>()
++            + self
++                .candidates
++                .iter()
++                .map(|(_, b, _)| std::mem::size_of::<Entry>() + b.entry.trajectory.heap_bytes())
++                .sum::<usize>()
++    }
+ }
+ 
+ impl Scan {
+@@ -167,26 +191,51 @@ impl Encounters for PlayerNeighbourhood {
+         let near = (|| -> Option<Vec<usize>> {
+             let (x, v) = me.cartesian(t).ok()?;
+             let h = time_of(interval, me.clock_exp).ok()?;
++            let (now, theta) = (to_f64(time_of(t, me.clock_exp).ok()?), to_f64(x[1]).atan2(to_f64(x[0])));
+             let norm = |a: V2| to_f64(a[0]).hypot(to_f64(a[1]));
+-            let w = Window { r: norm(x), v: norm(v), reach_p: to_f64(ctx.info[body].radius), near_log2: ENCOUNTER_LOG2, h: to_f64(h) };
++            let w = Window {
++                r: norm(x),
++                v: norm(v),
++                reach_p: to_f64(ctx.info[body].radius),
++                near_log2: ENCOUNTER_LOG2,
++                h: to_f64(h),
++                t: now,
++                theta,
++            };
+             ctx.radial.candidates(me.doll, &w)
+         })();
+-        let mut candidates = Vec::new();
+-        for j in near.map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
++        // The cheap tests, in body order: who is there to be read.
++        let pass = |j: usize| -> Option<(usize, Binding, Scalar)> {
+             // A member handed out of a frame is there for the ticks after its hand-out.
+             if j == body || !ctx.bodies.alive(j) || t <= ctx.info[j].born {
+-                continue;
++                return None;
+             }
+-            let Some(other) = ctx.bodies.binding_at(j, t) else { continue };
++            let other = ctx.bodies.binding_at(j, t)?;
+             if other.doll != me.doll {
+-                continue;
++                return None;
+             }
+             let reach = ctx.info[body].radius.add(ctx.info[j].radius).unwrap_or(Scalar::ZERO);
+             if reach.is_zero() {
+-                continue;
++                return None;
+             }
+-            candidates.push((j, other, reach));
++            Some((j, other, reach))
++        };
++        let mut candidates = Vec::new();
++        for j in near.clone().map_or_else(|| Box::new(0..ctx.bodies.len()) as Box<dyn Iterator<Item = usize>>, |ids| Box::new(ids.into_iter())) {
++            if let Some(c) = pass(j) {
++                candidates.push(c);
++            }
++        }
++        // `ES_PHASE_AUDIT`: the soundness control. The certificate must never change an answer, so on every
++        // bounded capture the shipped walk's answer is recomputed and compared, pair for pair. It costs the
++        // flight its smoothness; it is not run where the record is being timed.
++        if audit_on() && near.is_some() {
++            let full: Vec<(usize, Binding, Scalar)> = (0..ctx.bodies.len()).filter_map(|j| pass(j)).collect();
++            let bounded = Scan { body, t, interval, me: me.clone(), candidates: candidates.clone(), found: OnceLock::new() };
++            let shipped = Scan { body, t, interval, me: me.clone(), candidates: full.clone(), found: OnceLock::new() };
++            audit_cmp(&bounded.answer(), &shipped.answer(), candidates.len(), full.len());
+         }
++
+         let mut last = self.last.lock().expect("the finder's last scan");
+         let reusable = |l: &&Arc<Scan>| if self.sloppy { l.body == body } else { l.same_inputs(body, t, interval, &me, &candidates) };
+         if let Some(l) = last.as_ref().filter(reusable) {
+@@ -197,3 +246,25 @@ impl Encounters for PlayerNeighbourhood {
+         Some(scan)
+     }
+ }
++
++/// Whether the audit control runs (`ES_PHASE_AUDIT`): every bounded capture's answer is compared against the
++/// shipped walk's, pair for pair, and a mismatch is printed the moment it happens.
++fn audit_on() -> bool {
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_PHASE_AUDIT").map_or(false, |v| v != "0"));
++    *ON
++}
++
++fn audit_cmp(bounded: &[Encounter], shipped: &[Encounter], k: usize, full: usize) {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    static N: AtomicU64 = AtomicU64::new(0);
++    static BAD: AtomicU64 = AtomicU64::new(0);
++    let n = N.fetch_add(1, Ordering::Relaxed);
++    if bounded != shipped {
++        let bad = BAD.fetch_add(1, Ordering::Relaxed) + 1;
++        eprintln!("AUDIT MISMATCH #{bad} at capture {n}: bounded {k} kept vs shipped {full}: bounded says {bounded:?} shipped says {shipped:?}");
++    }
++    if n % 200 == 0 {
++        eprintln!("audit {n} captures: {} mismatches, last kept {k} of {full}", BAD.load(Ordering::Relaxed));
++    }
++}
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..770d62d4 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -17,7 +17,7 @@
+ //! the belt), the caller reads every body as before: the filter costs nothing it does not save.
+ use crate::bind::Binding;
+ use crate::body::Kind;
+-use crate::num::to_f64;
++use crate::num::{time_of, to_f64, Tick};
+ use emergent_space::{binding::Trajectory, orbit::Scalar};
+ use std::collections::HashMap;
+ 
+@@ -50,13 +50,17 @@ struct DollIndex {
+     radius_cap: f64,
+     speed_cap: f64,
+ }
+-
+ #[derive(Default)]
+ pub struct Radial {
+     dolls: Vec<DollIndex>,
+     /// Per body: its registration in the first doll it was seen in; more dolls (a ship captured by a planet's doll, rare) in `extra`.
+     first: Vec<Reg>,
+     extra: HashMap<(u32, u16), Reg>,
++    /// The same bodies' phase in the same dolls, where the binding is a bound cycle ([`phase_of`]): what the
++    /// scan's angle certificate reads. Like the registration it follows the binding events; unlike the radial
++    /// hull it is replaced, never widened — a hull spans an orbit, an angle interval is only where the body is.
++    phases: Vec<Option<Phase>>,
++    phase_extra: HashMap<(u32, u16), Phase>,
+     /// Bodies registered (with or without a range).
+     pub bodies: usize,
+ }
+@@ -83,13 +87,18 @@ pub fn range_of(b: &Binding) -> Option<(f64, f64, f64)> {
+ }
+ 
+ /// What a scan asks: the player's radius `r` and speed `v` at the scan's tick, its radius as the finder reads it (`reach_p`, before the
+-/// `2^near_log2`), and the interval `h` in the doll's time.
++/// `2^near_log2`), and the interval `h` in the doll's time — plus, for the angle certificate, the tick itself in the doll's time
++/// (`t`) and the player's true angle there (`theta`), from the same readout that fills the rest.
+ pub struct Window {
+     pub r: f64,
+     pub v: f64,
+     pub reach_p: f64,
+     pub near_log2: i32,
+     pub h: f64,
++    /// The scan's tick in the doll's time, and the player's true angle there (radians): what the angle
++    /// certificate reads. Both measured at the same readout that fills the rest of the window.
++    pub t: f64,
++    pub theta: f64,
+ }
+ 
+ impl Radial {
+@@ -113,6 +122,9 @@ impl Radial {
+         if self.first.len() <= i {
+             self.first.resize(i + 1, NONE);
+         }
++        if self.phases.len() <= i {
++            self.phases.resize(i + 1, None);
++        }
+         if self.first[i].doll == u16::MAX {
+             self.first[i] = r;
+             self.bodies += 1;
+@@ -123,6 +135,30 @@ impl Radial {
+         }
+     }
+ 
++    /// The body's phase registration in doll `d`, if any: kept wherever the radial registration is a range.
++    fn phase_reg(&self, i: usize, d: u16) -> Option<Phase> {
++        let f = self.first.get(i).copied().unwrap_or(NONE);
++        if f.doll == d {
++            self.phases.get(i).copied().flatten()
++        } else {
++            self.phase_extra.get(&(i as u32, d)).copied()
++        }
++    }
++
++    fn set_phase(&mut self, i: usize, d: u16, p: Option<Phase>) {
++        let f = self.first.get(i).copied().unwrap_or(NONE);
++        if f.doll == d {
++            if self.phases.len() <= i {
++                self.phases.resize(i + 1, None);
++            }
++            self.phases[i] = p;
++        } else if let Some(p) = p {
++            self.phase_extra.insert((i as u32, d), p);
++        } else {
++            self.phase_extra.remove(&(i as u32, d));
++        }
++    }
++
+     fn put_in(list: &mut Vec<u32>, i: u32) -> bool {
+         match list.binary_search(&i) {
+             Ok(_) => false,
+@@ -180,11 +216,13 @@ impl Radial {
+         self.set_reg(i, new);
+     }
+ 
+-    /// Body `i` has the binding `b` now (a creation, an event): register it, widening what is registered of it in `b`'s doll to cover it.
+-    /// Only a ship is given a range (`radius` is its radius as the finder reads it); everything else is unbounded in its doll.
++    /// Body `i` has the binding `b` now (a creation, an event): register it, widening what is registered of it in `b`'s
++    /// doll to cover it. Only a ship is given a range (`radius` is its radius as the finder reads it); everything else is
++    /// unbounded in its doll. The phase follows the binding: the new event's angle is where the body is from now on.
+     pub fn note(&mut self, i: usize, kind: Kind, radius: f64, b: &Binding) {
+         let d = b.doll;
+         let range = if kind == Kind::Ship { range_of(b) } else { None };
++        let phase = if kind == Kind::Ship { phase_of(b) } else { None };
+         let old = self.reg(i, d);
+         let want = match range {
+             Some((lo, hi, v)) => {
+@@ -205,11 +243,14 @@ impl Radial {
+         if want != old {
+             self.move_reg(i, d, want);
+         }
++        self.set_phase(i, d, phase);
+     }
+ 
+-    /// Body `i`'s retained bindings are `bindings` now (the history was pruned): register the hull of what remains, per doll.
++    /// Body `i`'s retained bindings are `bindings` now (the history was pruned): register the hull of what remains, per
++    /// doll, and keep the phase of the newest binding — the one the scan reads for any tick it can still ask about.
+     pub fn rebuild<'a>(&mut self, i: usize, kind: Kind, radius: f64, bindings: impl Iterator<Item = &'a Binding>) {
+         let mut hulls: Vec<(u16, Option<(i32, i32)>)> = Vec::new();
++        let mut newest: Option<(u16, Tick, Option<Phase>)> = None;
+         for b in bindings {
+             let range = if kind == Kind::Ship { range_of(b) } else { None };
+             let at = match hulls.iter().position(|h| h.0 == b.doll) {
+@@ -228,6 +269,9 @@ impl Radial {
+                 }
+                 _ => None,
+             };
++            if newest.map_or(true, |(_, t0, _)| b.event_time >= t0) {
++                newest = Some((b.doll, b.event_time, if kind == Kind::Ship { phase_of(b) } else { None }));
++            }
+         }
+         for (d, hull) in hulls {
+             let want = match hull {
+@@ -238,21 +282,31 @@ impl Radial {
+                 self.move_reg(i, d, want);
+             }
+         }
++        if let Some((d, _, p)) = newest {
++            self.set_phase(i, d, p);
++        }
+     }
+ 
+     /// The bodies of doll `d` that can be within the window of the player (ascending), or None when that is most of what is registered
+-    /// in the doll (the caller then reads every body, as it did before there was an index).
++    /// in the doll (the caller then reads every body, as it did before there was an index). With `ES_SCAN_PHASE` there is no None:
++    /// the walk-everyone case is answered by the phase tier instead, which keeps only the bodies whose angle can meet the player's.
+     pub fn candidates(&self, d: u16, w: &Window) -> Option<Vec<usize>> {
+         let idx = self.dolls.get(d as usize)?;
+         let near = (w.reach_p + idx.radius_cap) * 2f64.powi(w.near_log2);
+         let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
+         let (lo, hi) = (bin_of((w.r - reach).max(1e-30)), bin_of(w.r + reach));
+         if hi - lo > 4096 {
+-            return None;
++            if !phase_on() {
++                return None;
++            }
++            return self.phase_candidates(d, w, near, i32::MIN / 2, i32::MAX / 2);
+         }
+         let hit: usize = (lo..=hi).filter_map(|b| idx.bins.get(&b)).map(|l| l.len()).sum();
+         if hit + idx.unbounded.len() > self.bodies / 4 + 64 {
+-            return None;
++            if !phase_on() {
++                return None;
++            }
++            return self.phase_candidates(d, w, near, lo, hi);
+         }
+         let mut ids: Vec<u32> = idx.unbounded.clone();
+         for b in lo..=hi {
+@@ -264,4 +318,148 @@ impl Radial {
+         ids.dedup();
+         Some(ids.into_iter().map(|i| i as usize).collect())
+     }
++
++    /// The phase tier: the radial window's own certificates first (the bins, the unbounded always kept), then the
++    /// angle certificate on what the bins leave. A pair the predicate could find satisfies `|d(t)| ≤ reach` (its
++    /// linear model cannot close more than the relative speed times the interval), and both radii at `t` are at
++    /// least `r_lo`, so its chord is at least `2·r_lo·sin(gap/2)`: a body whose angle interval misses the
++    /// player's by more than that cannot be found, and is dropped before it is ever read.
++    fn phase_candidates(&self, d: u16, w: &Window, near: f64, lo: i32, hi: i32) -> Option<Vec<usize>> {
++        let idx = self.dolls.get(d as usize)?;
++        let reach = (near + (w.v + idx.speed_cap) * w.h) * 1.01 + w.r * 1e-9;
++        let mut ids: Vec<u32> = idx.unbounded.clone();
++        let r_p = w.r * (1.0 - 1e-9);
++        for b in lo..=hi {
++            let Some(list) = idx.bins.get(&b) else { continue };
++            for &i in list {
++                // No phase registered (the binding is not a readable cycle): the certificate cannot speak, so the body is kept.
++                let Some(p) = self.phase_reg(i as usize, d) else {
++                    ids.push(i);
++                    continue;
++                };
++                // The registration is newer than the scan's tick (the body was rebound since): it cannot speak for that tick.
++                if w.t < p.t0 {
++                    ids.push(i);
++                    continue;
++                }
++                let lam = p.theta0 + p.n * (w.t - p.t0);
++                let mut g = (lam - w.theta).rem_euclid(2.0 * std::f64::consts::PI);
++                if g > std::f64::consts::PI {
++                    g = 2.0 * std::f64::consts::PI - g;
++                }
++                let gap = g - p.dev - 1e-9;
++                if gap <= 0.0 {
++                    ids.push(i);
++                    continue;
++                }
++                let r_lo = r_p.min(p.lo);
++                if r_lo <= reach || 2.0 * r_lo * (0.5 * gap).sin() <= reach * 1.001 + 1e-9 {
++                    ids.push(i);
++                }
++            }
++        }
++        phase_probe(self, d, w, near, reach, lo, hi, ids.len());
++        ids.sort_unstable();
++        ids.dedup();
++        Some(ids.into_iter().map(|i| i as usize).collect())
++    }
++}
++
++// ---- the phase tier -----------------------------------------------------------------------------------------------
++
++/// Whether the scan's candidate set is bounded in angle too (`ES_SCAN_PHASE`): inside a belt the radial hull of a
++/// ship — the whole span of its eccentric orbit — says nothing about where it is now, and the caller walks every
++/// body. The certificate drops only pairs whose angle gap at the scan's tick already exceeds every distance the
++/// predicate's own linear model could close, so no kept-or-dropped outcome can change: the exact predicate reads
++/// the survivors unchanged.
++fn phase_on() -> bool {
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_SCAN_PHASE").map_or(false, |v| v != "0"));
++    *ON
++}
++
++/// Where one ship-cycle's angle can be in its doll: its true angle at its binding event, advanced by the mean
++/// motion, with a bound on how far the true angle can sit from that line (twice the equation of centre, `2·c`
++/// with `|ν − M| ≤ c = 2·arcsin(e)`, one `c` at each end), widened by what the binding carries beyond the tube.
++/// Sound for any `t ≥ t0` — the binding's readout domain — and never consulted for `t < t0`.
++#[derive(Clone, Copy, Debug)]
++struct Phase {
++    /// The true angle at `t0`, radians, from one readout at the binding event.
++    theta0: f64,
++    /// The binding's event time, in the doll's time units.
++    t0: f64,
++    /// The signed mean motion, radians per doll time unit (negative when the orbit turns against the doll's frame).
++    n: f64,
++    /// The bound on `|angle(t) − (theta0 + n·(t − t0))|`, radians.
++    dev: f64,
++    /// The binding's periapsis as a lower bound on its radius, in doll units (the widening `range_of` gives).
++    lo: f64,
++}
++
++/// The phase of a ship's cycle binding, or None where it is not a bound cycle. Every float here only ever widens
++/// what it measures; the certificate built on it only ever drops what cannot be met.
++fn phase_of(b: &Binding) -> Option<Phase> {
++    let Trajectory::Cycle(_) = &b.entry.trajectory else { return None };
++    let key = b.entry.trajectory.key()?;
++    let k = to_f64(key.shape().ok()?);
++    let one_minus_e = (2.0 * k - 1.0) / k;
++    if !(k > 0.5) || one_minus_e <= 0.0 {
++        return None;
++    }
++    let peri = to_f64(b.to_doll(key.periapsis).ok()?);
++    let e = (1.0 - k) / k;
++    // A doll whose mass is one: the mean motion is a^(-3/2), with a = p / (1 − e).
++    let n = (peri / one_minus_e).powf(-1.5);
++    let q_len = 2f64.powi(b.units.0 as i32);
++    let beyond = ((b.residual.position[0].unsigned_abs() + b.residual.position[1].unsigned_abs()) as f64 + 8.0) * q_len;
++    let (x, _) = b.cartesian(b.event_time).ok()?;
++    Some(Phase {
++        theta0: to_f64(x[1]).atan2(to_f64(x[0])),
++        t0: to_f64(time_of(b.event_time, b.clock_exp).ok()?),
++        n: if b.entry.clockwise { -n } else { n },
++        dev: 1.1 * (4.0 * e.asin() + beyond / peri),
++        lo: peri * (1.0 - 1.0 / 1024.0) - beyond,
++    })
++}
++
++/// `ES_PHASE_PROBE`: what the phase tier sees, for the first few walks and then every 500th (the window, the
++/// certificates' sizes, the walk and the keep). Instrument only — it is never run where a record is timed.
++fn phase_probe(radial: &Radial, d: u16, w: &Window, near: f64, reach: f64, lo: i32, hi: i32, kept: usize) {
++    use std::sync::atomic::{AtomicU64, Ordering};
++    static ON: std::sync::LazyLock<bool> =
++        std::sync::LazyLock::new(|| std::env::var("ES_PHASE_PROBE").map_or(false, |v| v != "0"));
++    if !*ON {
++        return;
++    }
++    static N: AtomicU64 = AtomicU64::new(0);
++    let n = N.fetch_add(1, Ordering::Relaxed);
++    if n > 2 && n % 500 != 0 {
++        return;
++    }
++    let idx = radial.dolls.get(d as usize);
++    let walked = idx.map_or(0, |i| (lo..=hi).filter_map(|b| i.bins.get(&b)).map(|l| l.len()).sum::<usize>());
++    let mut devs: Vec<f64> = Vec::new();
++    if n == 0 {
++        if let Some(i) = idx {
++            for b in lo..=hi {
++                if let Some(list) = i.bins.get(&b) {
++                    for &id in list {
++                        if let Some(p) = radial.phase_reg(id as usize, d) {
++                            devs.push(p.dev);
++                        }
++                    }
++                }
++            }
++            devs.sort_by(|a, b| a.total_cmp(b));
++        }
++    }
++    let dev = if devs.is_empty() {
++        String::new()
++    } else {
++        format!(" dev p50 {:.4} p90 {:.4} max {:.4}", devs[devs.len() / 2], devs[devs.len() * 9 / 10], devs[devs.len() - 1])
++    };
++    eprintln!(
++        "probe #{n}: doll {d} r {:.3e} v {:.3e} h {:.3e} near {:.3e} reach {:.3e} (vhat {:.3e}) bins {lo}..{hi} walked {walked} kept {kept} unbounded {}{dev}",
++        w.r, w.v, w.h, near, reach, idx.map_or(0.0, |i| i.speed_cap), idx.map_or(0, |i| i.unbounded.len())
++    );
+ }
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..11b36a8e 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -162,8 +162,19 @@ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads:
+     plane_with_extra(cfg, seed, order, threads, world, extra)
+ }
+ 
++/// [`plane_extra`] with the player on a circular belt orbit at 2.5 AU in the root doll, among the belt ships: the
++/// band seam's scene (everything else bit for bit the ladder).
++pub fn plane_extra_band(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_built(cfg, seed, order, threads, world, extra, true)
++}
++
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++    plane_built(cfg, seed, order, threads, world, extra, false)
++}
++
++fn plane_built(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize, band_player: bool) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -266,13 +277,16 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+     let r_lat: i64 = 4_740 * Q;
+     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
+     let fleet = Fleet::new("Armada", home_doll, home, -18, world, r_lat, fleet_angle, order, threads.max(1))?;
+-    // The player: the same circle, a little ahead of the fleet (about 20 km along the orbit).
++    // The player: the same circle, a little ahead of the fleet (about 20 km along the orbit); in the band, a circular
++    // belt orbit at 2.5 AU in the root doll, among the belt ships, one radius unit like them.
+     let p_orbit = Scalar::raw(r_lat as i128, -20 + 18)?; // lattice units → root units → Home's units
+-    let player = u.add_body(
+-        Kind::Player,
+-        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 },
+-        Scalar::raw(34, -10 + 18)?,
+-    )?;
++    let player_spec = if band_player {
++        let belt = Scalar::raw(((5 * AU as u128) << 7) as i128, -8)?; // 2.5 AU in the belt's Q8 root units
++        OrbitSpec { doll: 0, periapsis: belt, e_q48: 0, clockwise: false, angle: fleet_angle, phase: 0 }
++    } else {
++        OrbitSpec { doll: home_doll, periapsis: p_orbit, e_q48: 0, clockwise: false, angle: fleet_angle.wrapping_add(player_offset), phase: 0 }
++    };
++    let player = u.add_body(Kind::Player, player_spec, Scalar::raw(34, -10 + if band_player { 0 } else { 18 })?)?;
+     names.push("You".into());
+     let f = u.add_fleet(fleet);
+     u.start()?;
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..ace3d1ad 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -78,6 +78,21 @@ const SCAN_MARGIN_NS: u64 = 750_000;
+ /// frame resolves anything else once this many are waiting, the oldest first, so the memory they hold is bounded.
+ const SCAN_BACKLOG: usize = 2048;
+ 
++/// The bytes the unanswered scans together may pin: `ES_SCAN_STANDING`, in MiB. Over it the oldest is answered inside the
++/// frame, exactly as the backlog's count cap above does. The count cap assumes about 10 KB a scan; inside the belt band one
++/// capture is the whole retention, O(N) bodies, and behind it a generation of entries, so there the count bounds nothing and
++/// the process dies on memory (the rung's band seam). Unset, no scan's bytes are capped (shipped). Answers keep their order,
++/// so the digest reads the same whenever they are given.
++fn scan_standing_cap() -> u64 {
++    static CAP: std::sync::LazyLock<u64> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_SCAN_STANDING")
++            .ok()
++            .and_then(|v| v.parse::<u64>().ok())
++            .map_or(u64::MAX, |mb| mb * 1_000_000)
++    });
++    *CAP
++}
++
+ /// What a frame does after its last item (the horizon, what was set aside, the check for idle time), ns: kept free of items.
+ const FRAME_TAIL_NS: u64 = 50_000;
+ 
+@@ -209,6 +224,8 @@ pub struct Universe {
+     scans: VecDeque<Arc<dyn Held>>,
+     /// The longest a scan took to answer recently, in ns: idle time is spent on one only when it fits.
+     scan_ns: u64,
++    /// What the unanswered scans together pin, as each reports ([`Held::standing`]): what [`scan_standing_cap`] caps.
++    scan_standing: u64,
+     /// The longest recent item of each class (a planet, a moon, a ship, the player; a fleet or a hand-out), ns: a running maximum that
+     /// forgets (1/64 an item of the class). A frame with a wall to keep starts an item only if that much is left, once it has resolved one.
+     item_ns: [u64; 5],
+@@ -270,6 +287,7 @@ impl Universe {
+             encounters: Box::<PlayerNeighbourhood>::default(),
+             scans: VecDeque::new(),
+             scan_ns: 0,
++            scan_standing: 0,
+             item_ns: [0; 5],
+             enc_log: Vec::new(),
+             enc_digest: [0; 32],
+@@ -299,6 +317,12 @@ impl Universe {
+     pub fn held_scans(&self) -> usize {
+         self.scans.len()
+     }
++
++    /// The bytes those held scans pin, as each reports ([`Held::standing`]): an upper bound on what holding them
++    /// keeps alive.
++    pub fn held_scan_bytes(&self) -> u64 {
++        self.scan_standing
++    }
+     /// Answer every held scan now (what the count, the log and the hash read once nothing is held; `settle` does it too).
+     pub fn flush_scans(&mut self) {
+         self.drain_scans(None);
+@@ -1011,10 +1035,10 @@ impl Universe {
+                 overflow = dl <= target;
+                 break;
+             }
+-            // Held scans are work like any other once they pile up (the memory they hold is bounded): at the backlog's cap
+-            // the player's next item waits for the oldest scan, inside the budget, so a frame stays within it and the
+-            // presented time lags (as it did before scans were held), instead of the frame overrunning.
+-            if self.scans.len() >= SCAN_BACKLOG {
++            // Held scans are work like any other once they pile up: at the backlog's count cap, or over the standing bytes
++            // the cap allows, the player's next item waits for the oldest scan, answered inside the frame, so the frame stays
++            // within it and the presented time lags (as it did before scans were held), instead of the memory walking away.
++            if self.scans.len() >= SCAN_BACKLOG || self.scan_standing > scan_standing_cap() {
+                 self.answer_front();
+                 continue;
+             }
+@@ -1161,8 +1185,11 @@ impl Universe {
+         let t = self.bodies.event_time(p);
+         let interval = self.bodies.rec(p).step.max(2);
+         match self.encounters.capture(&self.ctx(), p, t, interval) {
+-            // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan.
+-            Some(held) => self.scans.push_back(held),
++            // The answer is not on the frame's critical path (nothing the view shows reads it): hold the scan, bytes and all.
++            Some(held) => {
++                self.scan_standing += held.standing();
++                self.scans.push_back(held);
++            }
+             None => {
+                 for e in self.encounters.find(&self.ctx(), p, t, interval) {
+                     self.log_encounter(e);
+@@ -1198,12 +1225,14 @@ impl Universe {
+     /// Answer the oldest held scan: into the count, the log and the hash.
+     fn answer_front(&mut self) {
+         let (t0, t_scan) = (Instant::now(), crate::prof::t());
++        let standing = self.scans.front().map(|held| held.standing()).unwrap_or(0);
+         let found = self.scans.front().map(|held| held.answer()).unwrap_or_default();
+         let ns = t0.elapsed().as_nanos() as u64;
+         crate::prof::add(crate::prof::SCANS, t_scan);
+         // The longest recently: a running maximum that forgets (a scan that repeats another costs nothing).
+         self.scan_ns = if ns >= self.scan_ns { ns } else { self.scan_ns - self.scan_ns / 64 };
+         self.scans.pop_front();
++        self.scan_standing = self.scan_standing.saturating_sub(standing);
+         for e in found {
+             self.log_encounter(e);
+         }
