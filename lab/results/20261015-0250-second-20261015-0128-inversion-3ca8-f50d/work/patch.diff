@@ -1,0 +1,595 @@
+diff --git a/crates/lattice/examples/shadow2.rs b/crates/lattice/examples/shadow2.rs
+new file mode 100644
+index 00000000..c1fcb7e7
+--- /dev/null
++++ b/crates/lattice/examples/shadow2.rs
+@@ -0,0 +1,589 @@
++//! Second-author probe (run 20261015-0250-second-20261015-0128-inversion-3ca8-f50d):
++//! the checker's named experiment — rebuild the twin as the *exact continuum limit of
++//! the shipped rule* (mirror the receding-skip gate of `relativity::resolve_law` AND use
++//! the law's own reflection, the f64 Householder about N = (d·P_s, E_tot·d), not the SR
++//! COM mirror `sr_disc`), then re-run the pump arms across seeds and scenes.
++//!
++//! Arms:
++//! - `engine`: the shipped `Chronon` stepper under `Law::RelativisticV1`, Q = 2^20 default.
++//! - `float`: the first run's twin (continuum f64 state, analytic SR COM-mirror impulse,
++//!   every detected pair reflected) — kept for the record; NOT the law's continuum limit.
++//! - `exact`: the corrected twin. Per chronon, mirroring `chronon::step` + `resolve_law`
++//!   exactly, in f64: detect with positions at t-1 (`law::hit`'s branch structure), skip
++//!   pairs consumed at both bodies' current revisions; advance x += v; wall-eligible set
++//!   from pre-respond velocities (`law::at_wall`); respond pairs in id order sequentially:
++//!   d = x_b − x_a at the bin's end, w = v_b − v_a with in-progress velocities, **skip the
++//!   impulse when dot(d,w) ≥ 0** (the receding-skip: crossed-in-bin pairs are consumed
++//!   and counted as contacts but exchange nothing, exactly as shipped), else reflect both
++//!   4-momenta p' = p − 2(p·N)/(N·N)·N with N = (d·P_s, E_tot·d) and set v' = p'_s/E';
++//!   then flip wall-eligible bodies whose post-impulse velocity points outward; consume
++//!   every detected pair at the new revisions.
++//!
++//! Scenes: `pump` (1000:1, β 0.6, 64 lights, 512×4), `pos` (1:1, β 0.05: control),
++//! `neg` (1000:1, β 0.6, one light: two-body pump), `soft` (100:1, β 0.8, 64 lights),
++//! `tall` (1000:1, β 0.6, 128 lights, 512×8). `micro` prints the glancing single-contact
++//! table: engine respond vs `law_reflect` (the law's own continuum reflection) vs `sr_disc`.
++//!
++//! Usage: `cargo run --release -p emergent-lattice --example shadow2 -- <scene> <arm> <q_log2> <t_log2> [seed]`
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::law;
++use emergent_lattice::law::{Body, Container, Law, Response, World};
++use emergent_lattice::{Kind, Stepper};
++use std::time::Instant;
++
++const RH: f64 = 0.5;
++const RL: f64 = 0.0625;
++
++struct Rng(u64);
++impl Rng {
++    fn next(&mut self) -> u64 {
++        self.0 = self.0.wrapping_add(0x9E3779B97F4A7C15);
++        let mut z = self.0;
++        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
++        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
++        z ^ (z >> 31)
++    }
++    /// High-entropy draw only (contact-carry's seed-sampler warning).
++    fn unit(&mut self) -> f64 {
++        (self.next() >> 11) as f64 / (1u64 << 53) as f64
++    }
++}
++
++#[derive(Clone, Copy)]
++struct Spec {
++    mh: f64,
++    bh: f64,
++    nl: usize,
++    w: f64,
++    h: f64,
++}
++
++fn spec(scene: &str) -> Spec {
++    match scene {
++        "pump" => Spec { mh: 1000.0, bh: 0.6, nl: 64, w: 512.0, h: 4.0 },
++        "pos" => Spec { mh: 1.0, bh: 0.05, nl: 64, w: 512.0, h: 4.0 },
++        "neg" => Spec { mh: 1000.0, bh: 0.6, nl: 1, w: 512.0, h: 4.0 },
++        "soft" => Spec { mh: 100.0, bh: 0.8, nl: 64, w: 512.0, h: 4.0 },
++        "tall" => Spec { mh: 1000.0, bh: 0.6, nl: 128, w: 512.0, h: 8.0 },
++        _ => panic!("scene must be pump|pos|neg|soft|tall"),
++    }
++}
++
++/// Physical genesis, shared by all arms (the engine sees it rounded to the 1/Q grid).
++fn genesis(s: Spec, seed: u64) -> Vec<([f64; 2], [f64; 2], f64, f64)> {
++    let mut rng = Rng(seed.wrapping_mul(0x2545F4914F6CDD1D) | 1);
++    let mut out = vec![];
++    // heavy
++    out.push(([s.w / 8.0, s.h / 2.0], [s.bh, 0.0], s.mh, RH));
++    while out.len() <= s.nl {
++        let x = RL * 3.0 + rng.unit() * (s.w - RL * 6.0);
++        let y = RL * 3.0 + rng.unit() * (s.h - RL * 6.0);
++        let far = out.iter().all(|&(px, _, _, pr)| {
++            let (dx, dy) = (x - px[0], y - px[1]);
++            dx * dx + dy * dy > (1.3 * (pr + RL)).powi(2)
++        });
++        if !far {
++            continue;
++        }
++        let ang = rng.unit() * std::f64::consts::TAU;
++        let sp = 0.01;
++        out.push(([x, y], [sp * ang.cos(), sp * ang.sin()], 1.0, RL));
++    }
++    out
++}
++
++#[derive(Default)]
++struct Stats {
++    final_beta: Vec<f64>,
++    max_beta: Vec<f64>,
++    contacts: Vec<u64>,
++    dwell_tot: Vec<i64>,
++    dwell_max: Vec<i64>,
++    heavy_beta: f64,
++    above_end: usize,
++}
++
++fn gamma_of_beta(beta: f64) -> f64 {
++    1.0 / (1.0 - beta * beta).max(1e-16).sqrt()
++}
++
++fn track(beta: f64, i: usize, run: &mut Vec<i64>, st: &mut Stats) {
++    if beta > st.max_beta[i] {
++        st.max_beta[i] = beta;
++    }
++    if gamma_of_beta(beta) > 2.0 {
++        st.dwell_tot[i] += 1;
++        run[i] += 1;
++        if run[i] > st.dwell_max[i] {
++            st.dwell_max[i] = run[i];
++        }
++    } else {
++        run[i] = 0;
++    }
++}
++
++fn quantile(mut v: Vec<f64>, q: f64) -> f64 {
++    if v.is_empty() {
++        return 0.0;
++    }
++    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
++    let idx = ((v.len() as f64 - 1.0) * q).round() as usize;
++    v[idx.min(v.len() - 1)]
++}
++
++fn median_u64(mut v: Vec<u64>) -> u64 {
++    v.sort_unstable();
++    v[v.len() / 2]
++}
++
++fn median_i64(mut v: Vec<i64>) -> i64 {
++    v.sort_unstable();
++    v[v.len() / 2]
++}
++
++// ---------------- engine arm (shipped code, untouched) ----------------
++
++fn engine_arm(s: Spec, q: i64, t_max: i64, seed: u64) -> (Stats, i128, u64) {
++    let gen = genesis(s, seed);
++    let bodies: Vec<Body> = gen
++        .iter()
++        .enumerate()
++        .map(|(i, &(x, v, m, r))| {
++            Body::new(
++                i as u64,
++                [(x[0] * q as f64).round() as i64, (x[1] * q as f64).round() as i64],
++                [(v[0] * q as f64).round() as i64, (v[1] * q as f64).round() as i64],
++                m as i64,
++                (r * q as f64).round() as i64,
++                Response::Bounce,
++            )
++        })
++        .collect();
++    let cont = Container {
++        min: [0, 0],
++        max: [(s.w * q as f64) as i64, (s.h * q as f64) as i64],
++    };
++    let world = World::new(q, Some(cont), bodies)
++        .and_then(|w| w.with_law(Law::RelativisticV1))
++        .expect("genesis");
++    let nl = s.nl;
++    let mut chron = Chronon::new(world, true).expect("chronon");
++    let mut st = Stats {
++        final_beta: vec![0.0; nl],
++        max_beta: vec![0.0; nl],
++        contacts: vec![0; nl],
++        dwell_tot: vec![0; nl],
++        dwell_max: vec![0; nl],
++        heavy_beta: 0.0,
++        above_end: 0,
++    };
++    let mut run = vec![0i64; nl];
++    let qf = q as f64;
++    for _ in 0..t_max {
++        chron.step();
++        let w = chron.world();
++        for (i, b) in w.bodies.iter().enumerate().skip(1) {
++            let beta = ((b.k[0] as f64).powi(2) + (b.k[1] as f64).powi(2)).sqrt() / qf;
++            track(beta, i - 1, &mut run, &mut st);
++        }
++    }
++    let w = chron.world();
++    for (i, b) in w.bodies.iter().enumerate().skip(1) {
++        st.final_beta[i - 1] = ((b.k[0] as f64).powi(2) + (b.k[1] as f64).powi(2)).sqrt() / qf;
++    }
++    let hb = &w.bodies[0].k;
++    st.heavy_beta = ((hb[0] as f64).powi(2) + (hb[1] as f64).powi(2)).sqrt() / qf;
++    st.above_end = st.final_beta.iter().filter(|&b| gamma_of_beta(*b) > 2.0).count();
++    let residual = w.residual();
++    let mut contacts = 0u64;
++    for e in &chron.log().events {
++        if e.kind == Kind::Contact {
++            contacts += 1;
++            for i in 1..=nl {
++                if e.a == i as u64 || e.b == i as u64 {
++                    st.contacts[i - 1] += 1;
++                }
++            }
++        }
++    }
++    (st, residual, contacts)
++}
++
++// ---------------- f64 twins ----------------
++
++#[derive(Clone)]
++struct FBody {
++    x: [f64; 2],
++    v: [f64; 2],
++    m: f64,
++    r: f64,
++    rev: u32,
++}
++
++fn gamma_of(u: [f64; 2]) -> f64 {
++    1.0 / (1.0 - u[0] * u[0] - u[1] * u[1]).max(1e-18).sqrt()
++}
++
++/// Boost lab velocity u into the frame moving at v (|v| < 1).
++fn to_com(u: [f64; 2], v: [f64; 2]) -> [f64; 2] {
++    let v2 = v[0] * v[0] + v[1] * v[1];
++    if v2 < 1e-24 {
++        return u;
++    }
++    let uv = u[0] * v[0] + u[1] * v[1];
++    let den = 1.0 - uv;
++    let s = uv / v2;
++    let g = (1.0 - v2).sqrt();
++    [
++        ((s - 1.0) * v[0] + (u[0] - s * v[0]) * g) / den,
++        ((s - 1.0) * v[1] + (u[1] - s * v[1]) * g) / den,
++    ]
++}
++
++/// Inverse boost.
++fn to_lab(w: [f64; 2], v: [f64; 2]) -> [f64; 2] {
++    let v2 = v[0] * v[0] + v[1] * v[1];
++    if v2 < 1e-24 {
++        return w;
++    }
++    let wv = w[0] * v[0] + w[1] * v[1];
++    let den = 1.0 + wv;
++    let s = wv / v2;
++    let g = (1.0 - v2).sqrt();
++    [
++        ((s + 1.0) * v[0] + (w[0] - s * v[0]) * g) / den,
++        ((s + 1.0) * v[1] + (w[1] - s * v[1]) * g) / den,
++    ]
++}
++
++/// Exact SR elastic disc impulse (the physical continuum; the first run's twin used this):
++/// COM boost, flip the contact-normal component, boost back.
++fn sr_disc(m1: f64, u1: &mut [f64; 2], m2: f64, u2: &mut [f64; 2], d: [f64; 2]) {
++    let (g1, g2) = (gamma_of(*u1), gamma_of(*u2));
++    let (e1, e2) = (m1 * g1, m2 * g2);
++    let v = [
++        (e1 * u1[0] + e2 * u2[0]) / (e1 + e2),
++        (e1 * u1[1] + e2 * u2[1]) / (e1 + e2),
++    ];
++    let mut w1 = to_com(*u1, v);
++    let mut w2 = to_com(*u2, v);
++    let dn = (d[0] * d[0] + d[1] * d[1]).sqrt();
++    let n = if dn > 1e-300 { [d[0] / dn, d[1] / dn] } else { [1.0, 0.0] };
++    for w in [&mut w1, &mut w2] {
++        let wn = w[0] * n[0] + w[1] * n[1];
++        w[0] -= 2.0 * wn * n[0];
++        w[1] -= 2.0 * wn * n[1];
++    }
++    *u1 = to_lab(w1, v);
++    *u2 = to_lab(w2, v);
++}
++
++/// **The shipped law's own continuum reflection**: the f64 form of `relativity::targets`
++/// (Householder about N = (d·P_s, E_tot·d), Minkowski metric), per unit mass proportional
++/// to (γ, γv) as in `four_momentum_v1`. Scale-invariant, so the 2Q² factor drops.
++/// d = x_b − x_a at the bin's end. None when the pair exchanges nothing (p_a·N = 0).
++fn law_reflect(ma: f64, ua: [f64; 2], mb: f64, ub: [f64; 2], d: [f64; 2]) -> Option<([f64; 2], [f64; 2])> {
++    let (ga, gb) = (gamma_of(ua), gamma_of(ub));
++    let (ea, eb) = (ma * ga, mb * gb);
++    let pa = [ea, ea * ua[0], ea * ua[1]];
++    let pb = [eb, eb * ub[0], eb * ub[1]];
++    let pt = [pa[0] + pb[0], pa[1] + pb[1], pa[2] + pb[2]];
++    let dsp = d[0] * pt[1] + d[1] * pt[2];
++    let n = [dsp, pt[0] * d[0], pt[0] * d[1]];
++    let mdot = |x: [f64; 3], y: [f64; 3]| x[0] * y[0] - x[1] * y[1] - x[2] * y[2];
++    let t = mdot(n, n);
++    let s = mdot(pa, n);
++    if t == 0.0 || s == 0.0 {
++        return None;
++    }
++    let f = 2.0 * s / t;
++    let pao = [pa[0] - f * n[0], pa[1] - f * n[1], pa[2] - f * n[2]];
++    let pbo = [pb[0] + f * n[0], pb[1] + f * n[1], pb[2] + f * n[2]];
++    let va = [pao[1] / pao[0], pao[2] / pao[0]];
++    let vb = [pbo[1] / pbo[0], pbo[2] / pbo[0]];
++    Some((va, vb))
++}
++
++/// The shipped bin predicate, in f64 (mirrors law::hit's branch structure).
++fn hit_f(d: [f64; 2], w: [f64; 2], reach: f64) -> bool {
++    let (dd, dw, ww) = (d[0] * d[0] + d[1] * d[1], d[0] * w[0] + d[1] * w[1], w[0] * w[0] + w[1] * w[1]);
++    let rr = reach * reach;
++    if dd <= rr {
++        dw < 0.0
++    } else if ww == 0.0 || dw >= 0.0 {
++        false
++    } else if -dw >= ww {
++        let (e0, e1) = (d[0] + w[0], d[1] + w[1]);
++        e0 * e0 + e1 * e1 <= rr
++    } else {
++        let cross = d[0] * w[1] - d[1] * w[0];
++        cross * cross <= rr * ww
++    }
++}
++
++/// law::at_wall in f64.
++fn at_wall_f(x: [f64; 2], v: [f64; 2], lo: [f64; 2], hi: [f64; 2]) -> bool {
++    (0..2).any(|c| (v[c] < 0.0 && x[c] <= lo[c]) || (v[c] > 0.0 && x[c] >= hi[c]))
++}
++
++#[derive(Clone, Copy, PartialEq)]
++enum Twin {
++    /// First run's twin: reflect every detected pair with the SR COM mirror.
++    Float,
++    /// Exact continuum limit of the shipped rule: receding-skip + law_reflect + engine
++    /// wall-set semantics.
++    Exact,
++    /// The checker's partial probe: receding-skip mirrored, but the SR COM mirror as the
++    /// impulse — isolates the tilted reflection's ensemble effect with the skip held fixed.
++    SrSkip,
++}
++
++
++fn twin_arm(s: Spec, t_max: i64, seed: u64, mode: Twin) -> (Stats, u64, u64) {
++    let gen = genesis(s, seed);
++    let mut b: Vec<FBody> = gen
++        .iter()
++        .enumerate()
++        .map(|(_id, &(x, v, m, r))| FBody { x, v, m, r, rev: 0 })
++        .collect();
++    let nl = s.nl;
++    let n = b.len();
++    let np = n * (n - 1) / 2;
++    let mut consumed: Vec<(u32, u32)> = vec![(u32::MAX, u32::MAX); np];
++    let mut st = Stats {
++        final_beta: vec![0.0; nl],
++        max_beta: vec![0.0; nl],
++        contacts: vec![0; nl],
++        dwell_tot: vec![0; nl],
++        dwell_max: vec![0; nl],
++        heavy_beta: 0.0,
++        above_end: 0,
++    };
++    let mut run = vec![0i64; nl];
++    let mut contacts = 0u64;
++    let mut impulses = 0u64; // pairs that passed the receding-skip and exchanged
++    for _ in 0..t_max {
++        // 1. detect with positions at t-1 (mirrors chronon::step's order).
++        let mut pairs: Vec<(usize, usize)> = Vec::new();
++        for i in 0..n {
++            for j in (i + 1)..n {
++                let (d, w) = ([b[j].x[0] - b[i].x[0], b[j].x[1] - b[i].x[1]], [b[j].v[0] - b[i].v[0], b[j].v[1] - b[i].v[1]]);
++                let reach = b[i].r + b[j].r;
++                // component early-out (the doc's own bound)
++                if d[0].abs() > reach + w[0].abs() || d[1].abs() > reach + w[1].abs() {
++                    continue;
++                }
++                let pi = i * n - i * (i + 1) / 2 + (j - i - 1);
++                let (ra, rb) = consumed[pi];
++                if ra == b[i].rev && rb == b[j].rev {
++                    continue;
++                }
++                if hit_f(d, w, reach) {
++                    pairs.push((i, j));
++                }
++            }
++        }
++        // 2. advance
++        for body in b.iter_mut() {
++            body.x[0] += body.v[0];
++            body.x[1] += body.v[1];
++        }
++        // 3. wall-eligible set, from pre-respond velocities (mirrors chronon::step:86-98).
++        let mut eligible = vec![false; n];
++        for i in 0..n {
++            let (lo, hi) = ([b[i].r, b[i].r], [s.w - b[i].r, s.h - b[i].r]);
++            eligible[i] = at_wall_f(b[i].x, b[i].v, lo, hi);
++        }
++        // 4. respond: pairs in id order (sequential), then walls — mirrors resolve_law.
++        for &(i, j) in &pairs {
++            let d = [b[j].x[0] - b[i].x[0], b[j].x[1] - b[i].x[1]];
++            contacts += 1;
++            let apply = |i: usize, j: usize, d: [f64; 2], b: &mut Vec<FBody>, impulses: &mut u64| {
++                let dd = d[0] * d[0] + d[1] * d[1];
++                if mode == Twin::Exact {
++                    // the shipped receding-skip: in-progress relative velocity at bin end
++                    let w = [b[j].v[0] - b[i].v[0], b[j].v[1] - b[i].v[1]];
++                    if d[0] * w[0] + d[1] * w[1] >= 0.0 || dd == 0.0 {
++                        return; // consumed and counted as a contact, no impulse
++                    }
++                    if let Some((va, vb)) = law_reflect(b[i].m, b[i].v, b[j].m, b[j].v, d) {
++                        if va != b[i].v {
++                            b[i].rev += 1;
++                        }
++                        if vb != b[j].v {
++                            b[j].rev += 1;
++                        }
++                        b[i].v = va;
++                        b[j].v = vb;
++                        *impulses += 1;
++                    }
++                } else if mode == Twin::SrSkip {
++                    // skip as shipped, impulse = the physical SR mirror (the tilt probe)
++                    let w = [b[j].v[0] - b[i].v[0], b[j].v[1] - b[i].v[1]];
++                    if d[0] * w[0] + d[1] * w[1] >= 0.0 || dd == 0.0 {
++                        return;
++                    }
++                    let (mut u1, mut u2) = (b[i].v, b[j].v);
++                    sr_disc(b[i].m, &mut u1, b[j].m, &mut u2, d);
++                    if u1 != b[i].v {
++                        b[i].rev += 1;
++                    }
++                    if u2 != b[j].v {
++                        b[j].rev += 1;
++                    }
++                    b[i].v = u1;
++                    b[j].v = u2;
++                    *impulses += 1;
++                } else {
++                    let (mut u1, mut u2) = (b[i].v, b[j].v);
++                    sr_disc(b[i].m, &mut u1, b[j].m, &mut u2, d);
++                    if u1 != b[i].v {
++                        b[i].rev += 1;
++                    }
++                    if u2 != b[j].v {
++                        b[j].rev += 1;
++                    }
++                    b[i].v = u1;
++                    b[j].v = u2;
++                    *impulses += 1;
++                }
++            };
++            apply(i, j, d, &mut b, &mut impulses);
++            for t in 1..=nl {
++                if i == t || j == t {
++                    st.contacts[t - 1] += 1;
++                }
++            }
++        }
++        // walls: only eligible bodies, post-impulse velocity (mirrors resolve_law:274-288)
++        for i in 0..n {
++            if !eligible[i] {
++                continue;
++            }
++            let (lo, hi) = ([b[i].r, b[i].r], [s.w - b[i].r, s.h - b[i].r]);
++            let (x, v) = (b[i].x, b[i].v);
++            let mut flipped = false;
++            for c in 0..2 {
++                if (x[c] <= lo[c] && v[c] < 0.0) || (x[c] >= hi[c] && v[c] > 0.0) {
++                    b[i].v[c] = -v[c];
++                    flipped = true;
++                }
++            }
++            if flipped {
++                b[i].rev += 1;
++            }
++        }
++        // 5. consume every detected pair at the new revisions (mirrors chronon::step:118-122)
++        for &(i, j) in &pairs {
++            let pi = i * n - i * (i + 1) / 2 + (j - i - 1);
++            consumed[pi] = (b[i].rev, b[j].rev);
++        }
++        // metrics
++        for i in 1..n {
++            let beta = (b[i].v[0] * b[i].v[0] + b[i].v[1] * b[i].v[1]).sqrt();
++            track(beta, i - 1, &mut run, &mut st);
++        }
++    }
++    for i in 1..n {
++        st.final_beta[i - 1] = (b[i].v[0] * b[i].v[0] + b[i].v[1] * b[i].v[1]).sqrt();
++    }
++    st.heavy_beta = (b[0].v[0] * b[0].v[0] + b[0].v[1] * b[0].v[1]).sqrt();
++    st.above_end = st.final_beta.iter().filter(|&x| gamma_of_beta(*x) > 2.0).count();
++    (st, contacts, impulses)
++}
++
++// ---------------- micro: glancing single contacts ----------------
++
++fn angle_of(v: [f64; 2]) -> f64 {
++    v[1].atan2(v[0])
++}
++
++/// One glancing micro case at lattice Q: heavy a (bh along x), light b incoming at −bl,
++/// separation d = x_b − x_a with |d| = 0.9·reach and transverse offset u·reach.
++fn micro_case(q: i64, mh: f64, bh: f64, bl: f64, u: f64) {
++    let reach_f = RH + RL;
++    let dd = 0.9 * reach_f;
++    let dy = u * reach_f;
++    let dx = (dd * dd - dy * dy).sqrt();
++    let _reach = (reach_f * q as f64).round() as i64;
++    let mut b = vec![
++        Body::new(0, [0, 0], [(bh * q as f64).round() as i64, 0], mh as i64, (RH * q as f64).round() as i64, Response::Bounce),
++        Body::new(1, [(dx * q as f64).round() as i64, (dy * q as f64).round() as i64], [(-bl * q as f64).round() as i64, 0], 1, (RL * q as f64).round() as i64, Response::Bounce),
++    ];
++    let d = [dx, dy];
++    debug_assert!(d[0] * (-(bl + bh)) < 0.0, "approaching at bin end");
++    law::respond(Law::RelativisticV1, q, &mut b, &[(0, 1)], &[false, false], None, &mut [0, 0]);
++    let kf = [b[1].k[0] as f64 / q as f64, b[1].k[1] as f64 / q as f64];
++    let (a_eng, s_eng) = (angle_of(kf), (kf[0] * kf[0] + kf[1] * kf[1]).sqrt());
++    let (_, vb) = law_reflect(mh, [bh, 0.0], 1.0, [-bl, 0.0], d).expect("exchange");
++    let (a_law, s_law) = (angle_of(vb), (vb[0] * vb[0] + vb[1] * vb[1]).sqrt());
++    let (mut u1, mut u2) = ([bh, 0.0f64], [-bl, 0.0f64]);
++    sr_disc(mh, &mut u1, 1.0, &mut u2, d);
++    let (a_sr, s_sr) = (angle_of(u2), (u2[0] * u2[0] + u2[1] * u2[1]).sqrt());
++    println!(
++        "{{\"micro\":true,\"q_log2\":{},\"mh\":{mh},\"bh\":{bh},\"bl\":{bl},\"u\":{u},\
++\"eng_beta\":{s_eng:.7},\"eng_ang\":{a_eng:.7},\"law_beta\":{s_law:.7},\"law_ang\":{a_law:.7},\
++\"sr_beta\":{s_sr:.7},\"sr_ang\":{a_sr:.7},\"d_ang_eng_law\":{:.3e},\"d_ang_law_sr\":{:.3e},\"d_beta_eng_law\":{:.3e}}}",
++        q.trailing_zeros(),
++        (a_eng - a_law).abs(),
++        (a_law - a_sr).abs(),
++        (s_eng - s_law).abs(),
++    );
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let scene = args.get(1).map(String::as_str).unwrap_or("pump");
++    let arm = args.get(2).map(String::as_str).unwrap_or("engine");
++    let q_log2: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20);
++    let t_log2: u32 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(20);
++    let seed: u64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1);
++    if scene == "micro" {
++        for u in [0.0f64, 0.2, 0.45, 0.54] {
++            for bl in [0.0f64, 0.6, 0.97, 0.999] {
++                micro_case(1i64 << 20, 1000.0, 0.6, bl, u);
++            }
++        }
++        // equal-mass slow control
++        for u in [0.0f64, 0.45] {
++            micro_case(1i64 << 20, 1.0, 0.05, 0.05, u);
++        }
++        return;
++    }
++    let s = spec(scene);
++    let q = 1i64 << q_log2;
++    let t_max = 1i64 << t_log2;
++    let start = Instant::now();
++    let (st, residual, contacts, impulses) = if arm == "engine" {
++        let (st, residual, contacts) = engine_arm(s, q, t_max, seed);
++        (st, residual, contacts, 0u64)
++    } else {
++        let mode = match arm {
++            "exact" => Twin::Exact,
++            "srskip" => Twin::SrSkip,
++            _ => Twin::Float,
++        };
++        let (st, contacts, impulses) = twin_arm(s, t_max, seed, mode);
++        (st, 0, contacts, impulses)
++    };
++    let wall = start.elapsed().as_secs_f64();
++    let fb = &st.final_beta;
++    println!(
++        "{{\"scene\":\"{scene}\",\"arm\":\"{arm}\",\"q_log2\":{q_log2},\"t_log2\":{t_log2},\"seed\":{seed},\"wall_s\":{wall:.1},\
++\"contacts\":{contacts},\"impulses\":{impulses},\"passthrough_frac\":{:.4},\"light_contacts_median\":{},\
++\"final_gamma_p50\":{:.5},\"final_gamma_p90\":{:.5},\"final_gamma_max\":{:.5},\
++\"max_gamma_max\":{:.5},\"above05_end\":{},\"dwell05_tot_median\":{},\"dwell05_max_max\":{},\
++\"heavy_gamma_final\":{:.5},\"residual\":{}}}",
++        if contacts > 0 { 1.0 - impulses as f64 / contacts as f64 } else { 0.0 },
++        median_u64(st.contacts.clone()),
++        quantile(fb.iter().map(|b| gamma_of_beta(*b)).collect(), 0.5),
++        quantile(fb.iter().map(|b| gamma_of_beta(*b)).collect(), 0.9),
++        fb.iter().map(|b| gamma_of_beta(*b)).fold(0.0f64, f64::max),
++        st.max_beta.iter().map(|b| gamma_of_beta(*b)).fold(0.0f64, f64::max),
++        st.above_end,
++        median_i64(st.dwell_tot.clone()),
++        st.dwell_max.iter().copied().max().unwrap_or(0),
++        gamma_of_beta(st.heavy_beta),
++        residual,
++    );
++}
