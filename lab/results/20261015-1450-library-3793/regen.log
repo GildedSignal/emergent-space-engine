@@ -1,0 +1,116 @@
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/crates/universe)
+   Compiling xtask v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-2/xtask)
+    Finished `release` profile [optimized + debuginfo] target(s) in 45.22s
+  "digest": "ca195a2ccf4fda37b1175494dc9bf70420dd50bb6ef4b5a64669ea8d1b0e2875",
+  "digest": "ca195a2ccf4fda37b1175494dc9bf70420dd50bb6ef4b5a64669ea8d1b0e2875",
+{
+ "trace": "lab/results/20261015-1450-library-3793/work/trace10k.bin",
+ "reads": 2403360,
+ "distinct": 428,
+ "post_burn_reads": 2163024,
+ "full": {
+  "reads": 2403360,
+  "lru_64": 0.6605,
+  "2q_64": 0.7307,
+  "mru_64": 0.7161,
+  "lru_128": 0.6658,
+  "2q_128": 0.8008,
+  "mru_128": 0.7748,
+  "lru_256": 0.9487
+ },
+ "post_burn_in": {
+  "reads": 2163024,
+  "lru_64": 0.6525,
+  "2q_64": 0.7255,
+  "mru_64": 0.7157,
+  "lru_128": 0.6573,
+  "2q_128": 0.7971,
+  "mru_128": 0.7959,
+  "lru_256": 0.9685
+ },
+ "middle_third": {
+  "reads": 801120,
+  "lru_64": 0.6552,
+  "2q_64": 0.7264,
+  "mru_64": 0.7422,
+  "lru_128": 0.6603,
+  "2q_128": 0.7886,
+  "mru_128": 0.8402,
+  "lru_256": 0.9996
+ }
+}
+{
+ "trace": "lab/results/20261015-1450-library-3793/work/trace10k-deep.bin",
+ "reads": 4823955,
+ "distinct": 428,
+ "post_burn_reads": 4341560,
+ "full": {
+  "reads": 4823955,
+  "lru_64": 0.8426,
+  "2q_64": 0.8777,
+  "mru_64": 0.8535,
+  "lru_128": 0.85,
+  "2q_128": 0.918,
+  "mru_128": 0.8828,
+  "lru_256": 0.9846
+ },
+ "post_burn_in": {
+  "reads": 4341560,
+  "lru_64": 0.8448,
+  "2q_64": 0.8805,
+  "mru_64": 0.7421,
+  "lru_128": 0.8516,
+  "2q_128": 0.921,
+  "mru_128": 0.8161,
+  "lru_256": 0.9972
+ },
+ "middle_third": {
+  "reads": 1607985,
+  "lru_64": 0.8511,
+  "2q_64": 0.8856,
+  "mru_64": 0.7924,
+  "lru_128": 0.857,
+  "2q_128": 0.919,
+  "mru_128": 0.9056,
+  "lru_256": 0.9999
+ }
+}
+{
+ "trace": "lab/results/20261015-1450-library-3793/work/trace10k-1m.bin",
+ "reads": 6788357,
+ "distinct": 428,
+ "post_burn_reads": 6109522,
+ "full": {
+  "reads": 6788357,
+  "lru_64": 0.8991,
+  "2q_64": 0.9211,
+  "mru_64": 0.8904,
+  "lru_128": 0.905,
+  "2q_128": 0.948,
+  "mru_128": 0.9094,
+  "lru_256": 0.9901
+ },
+ "post_burn_in": {
+  "reads": 6109522,
+  "lru_64": 0.9055,
+  "2q_64": 0.9269,
+  "mru_64": 0.9054,
+  "lru_128": 0.9107,
+  "2q_128": 0.9535,
+  "mru_128": 0.9412,
+  "lru_256": 0.9999
+ },
+ "middle_third": {
+  "reads": 2262786,
+  "lru_64": 0.9053,
+  "2q_64": 0.927,
+  "mru_64": 0.9331,
+  "lru_128": 0.9104,
+  "2q_128": 0.9538,
+  "mru_128": 0.9669,
+  "lru_256": 0.9999
+ }
+}
+replay10k.json reads 2403360 distinct 428 K=64:LRU0.652/2Q0.725 K=128:LRU0.657/2Q0.797 K=256:LRU0.968/2Q0.925 K=512:LRU1.000/2Q0.998
+replaydeep.json reads 4823955 distinct 428 K=64:LRU0.845/2Q0.880 K=128:LRU0.852/2Q0.921 K=256:LRU0.997/2Q0.995 K=512:LRU1.000/2Q1.000
+replay1m.json reads 6788357 distinct 428 K=64:LRU0.906/2Q0.927 K=128:LRU0.911/2Q0.953 K=256:LRU1.000/2Q0.999 K=512:LRU1.000/2Q1.000

@@ -1,0 +1,165 @@
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..7cf1cc43 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -133,7 +133,9 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
+ }
+ 
+ impl Binding {
++
+     pub fn terminal_tick(&self) -> Res<Option<Tick>> {
++        crate::keytrace::touch(self.tube.key);
+         let Trajectory::Plunge(p) = &self.entry.trajectory else { return Ok(None) };
+         // An arc whose anchor has inward speed and is still ahead of the state is a leg the ship leaves its doll by: it
+         // never reaches the surface.
+@@ -152,12 +154,14 @@ impl Binding {
+ 
+     /// The orbit state at `t` (proper time, radius, velocities of the tube).
+     pub fn orbit_state(&self, t: Tick) -> Res<OrbitState> {
++        crate::keytrace::touch(self.tube.key);
+         Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
+     }
+ 
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+     /// binding event it equals the bound state.
+     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
++        crate::keytrace::touch(self.tube.key);
+         let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
+         let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
+         let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index fda3b93e..88827ca6 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -132,6 +132,7 @@ struct Source {
+ 
+ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
+     let b = ctx.bodies.binding_at(j, t).ok_or(Error::Refused("history pruned"))?;
++    crate::keytrace::touch(b.tube.key);
+     let Trajectory::Cycle(c) = &b.entry.trajectory else { return Err(Error::Refused("a source without a period")) };
+     let key = c.key();
+     let k = key.shape()?;
+diff --git a/crates/universe/src/keytrace.rs b/crates/universe/src/keytrace.rs
+new file mode 100644
+index 00000000..3a80bf86
+--- /dev/null
++++ b/crates/universe/src/keytrace.rs
+@@ -0,0 +1,33 @@
++//! A lab probe (run 20261015-1450-library-3793): an env-gated trace of every in-flight read of a
++//! standing binding's compiled trajectory, keyed by catalogue slot (`tube.key`, the key a lazy
++//! retained-entry cache would be keyed on). `ES_KEYTRACE=1` arms it; the flight harness dumps the
++//! read sequence to `ES_KEYTRACE_OUT` at the canonical cut, so bounded-cache policies (LRU, 2Q)
++//! can be priced offline by replaying the exact trace the engine produced. Off by default: one
++//! branch per read.
++
++use std::io::Write;
++use std::sync::{LazyLock, Mutex};
++
++static TRACE: LazyLock<Option<Mutex<Vec<u32>>>> =
++    LazyLock::new(|| std::env::var("ES_KEYTRACE").ok().map(|_| Mutex::new(Vec::new())));
++
++#[inline]
++pub fn touch(key: u32) {
++    if let Some(t) = TRACE.as_ref() {
++        if let Ok(mut v) = t.lock() {
++            v.push(key);
++        }
++    }
++}
++
++/// Write the trace (little-endian u32 keys) and return its length. Not part of the engine.
++pub fn dump(path: &str) -> std::io::Result<usize> {
++    let Some(t) = TRACE.as_ref() else { return Ok(0) };
++    let v = std::mem::take(&mut *t.lock().unwrap());
++    let mut f = std::io::BufWriter::new(std::fs::File::create(path)?);
++    for k in &v {
++        f.write_all(&k.to_le_bytes())?;
++    }
++    f.flush()?;
++    Ok(v.len())
++}
+diff --git a/crates/universe/src/lib.rs b/crates/universe/src/lib.rs
+index 83a0a557..a77ec607 100644
+--- a/crates/universe/src/lib.rs
++++ b/crates/universe/src/lib.rs
+@@ -7,6 +7,7 @@ pub mod encounter;
+ pub mod ext;
+ pub mod fleet;
+ pub mod force;
++pub mod keytrace;
+ pub mod lorentz;
+ pub mod num;
+ pub mod observe;
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..2f97ac9d 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -64,6 +64,7 @@ pub struct Radial {
+ /// The radial range `[lo, hi]` a binding's readout can have (doll units) and a bound on its speed (c = 1): None where the tube is no
+ /// bounded cycle (a passage, a plunge), so no range is known.
+ pub fn range_of(b: &Binding) -> Option<(f64, f64, f64)> {
++    crate::keytrace::touch(b.tube.key);
+     let Trajectory::Cycle(_) = &b.entry.trajectory else { return None };
+     let key = b.entry.trajectory.key()?;
+     let k = Scalar::raw(key.k as i128, -48).ok()?;
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..05eb2e16 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -73,6 +73,7 @@ pub enum Resolved {
+ /// two of ticks. Inside a planet's doll the orbit that leaves the doll (a flyby, a quasi-parabolic
+ /// capture) is resolved over what it spends in the doll: twice the leg from periapsis to the edge.
+ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<i64> {
++    crate::keytrace::touch(b.tube.key);
+     let mut period = b.to_doll(match &b.entry.trajectory {
+         Trajectory::Cycle(c) => c.period()?,
+         Trajectory::Passage(p) => p.duration()?,
+@@ -205,6 +206,7 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+         return Ok(Some(after));
+     }
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
++    crate::keytrace::touch(b.tube.key);
+     let after_s = time_of(after, b.clock_exp)?;
+     let apex = match &b.entry.trajectory {
+         Trajectory::Cycle(c) => {
+@@ -255,6 +257,7 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+ 
+ /// The tick of the tube's next periapsis passage at or after `after`, if it has one.
+ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
++    crate::keytrace::touch(b.tube.key);
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+     let after_s = time_of(after, b.clock_exp)?;
+     let at = match &b.entry.trajectory {
+@@ -283,6 +286,7 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// surface (the course no longer crosses it), when it has passed (the way out is clear), or when the tube dips by less than a
+ /// tick of its fall.
+ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
++    crate::keytrace::touch(b.tube.key);
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+     if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
+         return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+@@ -514,6 +518,7 @@ impl Work<'_, '_> {
+     /// where the course meets the surface, not at the periapsis behind it). A rebinding plans it again from the new tube,
+     /// so a stale impact never outlives the orbit it was read from; the item is re-checked at its tick all the same.
+     fn plan_terminal(&mut self, t: Tick) -> Res<()> {
++        crate::keytrace::touch(self.rec.b.tube.key);
+         self.rec.plan.retain(|item| item.what != What::Crash);
+         if let Some(tick) = self.rec.b.terminal_tick()? {
+             insert(&mut self.rec.plan, Item { t: tick, what: What::Crash });
+diff --git a/xtask/src/universe/mod.rs b/xtask/src/universe/mod.rs
+index de14199a..d4ffc40f 100644
+--- a/xtask/src/universe/mod.rs
++++ b/xtask/src/universe/mod.rs
+@@ -141,6 +141,12 @@ fn benchmark(mut s: Session, seconds: f64, paced: bool, level: u8) -> crate::Res
+         last = Instant::now();
+         s.step(None, if paced { dt } else { 1.0 / 60.0 })?;
+     }
++    if let Ok(out) = std::env::var("ES_KEYTRACE_OUT") {
++        match emergent_universe::keytrace::dump(&out) {
++            Ok(n) => println!("keytrace: {n} reads -> {out}"),
++            Err(e) => eprintln!("keytrace dump failed: {e}"),
++        }
++    }
+     let d = s.dash.summary();
+     let wall_s = wall.elapsed().as_secs_f64();
+     let presented_at_end = s.p.u.now;
