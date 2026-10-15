@@ -1,0 +1,11 @@
+Working...
+Check complete. **Grade: gold** — written to `lab/results/20261015-1615-quant-0619/check.md`, with the author's wiki page corrected in place (only files touched; no commits).
+
+**What I verified:**
+
+- **Reproduction:** the runner's regen re-flew all 22 flights bit-for-bit from the frozen binary (hash-verified, carries the patch). I re-derived every derived integer with my own script over the *regenerated* flights: `retained_now = demotions` at all 7 saturating arms, `WS − N = 30,187` at four N, the price law exact at 7/7 below-knee arms, read-stream invariance, zombies +27,911 and glob live = N + 2,276 constant at three N, the hit cliff, and the ×dem ratios. The 0757 anchors (584,807 hits / 40,187 / digest `5caeb1b6…`) match the merged wiki's record.
+- **Predictions:** mtime-verified pre-registration (16:19:54, after only the anchor smokes, before all decisive flights). P2–P6 held; the author *self-refuted* P1's sub-linear law (α=0.58 sat inside the pre-registered range — they were stricter than their own criterion and reported the additive truth); P7's half-failure was diagnosed and folded in.
+- **Four adversarial cases, all outside the tested domain, all confirming:** N=10³ (demotions = 31,187 = N + 30,187 exactly — every multiplicative reading dead; bonus: cap 16,384 *below* the knee held the floor, so the constant offset is evictable zombie mass and the needed cap is the ∝N component), N=3×10⁵ (330,187 exact), coast 10⁵ (WS = demotions = 131,053, hits exactly 763,888 — identity is scene-general), seed 42 (third offset, identity intact).
+- **Novelty:** this was b0ed's checker's explicitly named "gold experiment"; it refutes 0757's standing "concurrently re-read bodies" mechanism and kills both 1450 default-cap proposals, closing the burn-safe rule the board's #1 bottleneck left open.
+
+**Named defects** (in check.md, §7): the shipped `knee_table.py` crashes (line 41, a post-artifact edit at 16:34:46) and `regen.sh` masks it with exit 0 — the data path regenerates perfectly, every lost number is trivial arithmetic I re-derived, and the 0757 precedent (contaminated regen, checker re-flew, gold stood) applies; plus two cosmetic slips (3.4→4.0 ms/frame — corrected on the page; 21 vs 22 flights) and the unsourced 0.40 ms budget denominator.
