@@ -5,6 +5,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
+| [binet-cells](binet-cells.md) | open | 1 | **r1 was executed once before, by its checker (H0205, 29 September, DISPUTED — never |
 | [birth-stagger](birth-stagger.md) | open | 1 | **The stagger is measured and it holds: the first-kick wave flattens 16.7–17.7× at the window |
 | [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
@@ -22,7 +23,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [view](view.md) | open | 43 | **The in-band gather is priced and its floor is measured exact: between the tube's own time quanta a view row is bit-reproducible from one cached emission and the fresh observer state, so the shipped per-frame O(N) cross |
 | [kick-cadence](kick-cadence.md) | open | 46 | **3294's record regenerates, its impulses are dimensionless now, and the wave train is off the dial: the belt's fired impulse is 2⁻²³ of the body's own speed (p01 2⁻²⁴, p99 2⁻²⁰, identical at 10⁵), so at the behaviour fl |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [nladder](nladder.md) | open | 56 | **The retention rule is built and priced, and the record's sentence is half right (20261015-1338-quant-1d52, quant): with the cache shared across slot clones, promotions fall to EXACTLY one per demotion at every rung (41 |
+| [nladder](nladder.md) | open **conflict to resolve** | 58 | <<<<<<< main |
 | [frame-cost](frame-cost.md) | open | 66 | **The crash search's probe bill is cut 6× exact and digest-identical, and the named |
 | [kick-jet](kick-jet.md) | open | 69 | **The batched promotion is priced: 11.7 µs on the true belt mix, exact to 2e-16, and the |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
