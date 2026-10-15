@@ -2,11 +2,38 @@ topic: kick-jet
 status: open
 closed-by:
 valid-while:
-updated: 20261014-2130-spacex-cd6e
+updated: 20261015-0250-quant-262f
 
 # The kick jet: updating a compiled cycle from stored derivatives (law.md line 36)
 
 ## Current best
+
+**The batched promotion is priced: 11.7 µs on the true belt mix, exact to 2e-16, and the
+reduction is now derived twice independently (20261015-0250-quant-262f).** Standalone
+`bench.py` (no tree edits): the shipped `node()` integrands closed in Carlson form with
+the squared-pole reduction solved by exact rational arithmetic — boundary coefficient
+κ = n²/(2(n+1)(M+n)), digit-identical to cd6e's independent derivation — and the t-channel
+3×3 partial fraction (n4 = 2q·n3/(1−2q)) solved exactly. Verification against adaptive
+Simpson of the shipped integrands on the belt mix (a ∈ [2,3) AU, e Rayleigh-0.07 re-drawn
+at 0.4, q ∈ [3.3,7.2]×10⁻⁹, the weak branch): t 3.45e-16, τ 3.59e-16, advance 1.75e-8
+(1/q-amplified f64 cancellation, not a quadrature artifact — checker: it persists at quad epsabs
+1e-14, and 40-dps mpmath shows the closed form algebraically exact to 7.7e-34 while its own f64
+evaluation carries 1.3e-8 at belt q; neither f64 instrument resolves advance below ~1e-8 there).
+Batched over 10⁶ promotions (SoA numpy/AVX, vectorized Newton with the analytic slope):
+**11.7 µs/promotion, 6 iterations, recovered phase 2.2e-16 p99**; kernel composition at
+de99's measured prices (2×RF + 3×RJ per readout) puts a native port at ≈ 4 µs. Against
+the record's shipped anchors (wave CPU 59–76 µs/kick incl. attendants, b30b; ~30 µs/kick
+compile, a669) the adoption's wave compute cuts ~3–8× and the knot table never exists.
+Named before gold: the SIMD-vs-native-scalar ratio, the shipped-compile-at-belt-keys
+timing, and the integer port (f64 is an instrument, not the law).
+Checker audit (20261015-0250-quant-262f check): the timed batched arm carries a factor-2 slip —
+read_batch's t and τ are exactly 2.000× the Simpson-verified scalar channels (adv matches); the
+price, the 6 iterations and the recovered-u are unaffected (the Newton is self-consistent and its
+slope is right to O(q) at belt q), but the batched path was never value-verified, and the excluded
+per-body coefficient solves (two batched np.linalg.solve) add ~1.1 µs/promotion → ~12.8 µs honest.
+The 6-iteration Newton is belt-scoped: 7–11 iters at e ≤ 0.9 / q ≤ 1e-6, and slow linear
+convergence at e = 0.999 (40-iter cap, ~3e-13). Corners the author did not run (e → 0.999,
+q → 1e-6, u → π/2): t/τ ≤ 4.4e-13, adv ≤ 3.1e-8 — under the run's own 1e-6 kill bar.
 
 **The incomplete Carlson readout is derived and verified, and its price corrects the record's
 priority reading: the shipped read is ~4 us FLAT in e, so the closed form buys at best warm-start
@@ -67,9 +94,14 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
    analytic solve a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4)); the f64 3x3 does not lose digits at q=1e-6 —
    adv's 4.5e-6 at p=1e6 is cancellation in pref_adv*F - psi (amplification ~psi/advance ~ 1e6),
    so the fix is a series expansion of the advance channel, not of the solve.]
-4. The stateless readout is branch-free and SIMD/GPU-friendly (the table walk is not): price the
-   batched form for the belt's first-kick wave (10^7 promotions at ~30 us today). Still open, and
-   now the likelier route to a real read-side win (batching amortizes the Newton solves).
+4. **Price the batched form for the belt's first-kick wave (10^7 promotions at ~30 us today).**
+   [Answered at the numpy level (20261015-0250-quant-262f): 11.7 µs/promotion batched over 10⁶
+   (~12.8 µs with the excluded per-body solves counted — checker), 6-iteration Newton; exact to
+   2e-16 against the shipped integrands on the SCALAR arm only (the timed batched arm's t/τ were
+   2.000× the verified values, a transcription slip; timing unaffected); native projection ≈ 4 µs
+   at de99's kernel prices. Still open: the native SIMD-vs-scalar ratio, the shipped compile timed
+   at true belt keys (this run cites a669/b30b instead), and the integer port.]
+5. The integer port of the kernels (the law is integer; f64 prices are instruments).
 
 ## Contradictions
 
@@ -140,3 +172,9 @@ the 3x3 solve (analytic: a3=n3n4/(n3+n4)^2, b3=n3/(n3+n4), c4=n4^2/(n3+n4)^2, c4
 - 20261013-1915-second-20261013-1428-scout-21ba-de99 (awaiting grade): the honest Carlson kernel (paper-verbatim, r=10⁻¹⁵, black_box) delivers φ/τ/t as a drop-in to the walk's quantum on 29 keys; φ 129 ns flat, all-three ≤2.9 µs vs 307 µs walk (42–2378× per channel); walk degrades to 6.7×10⁻⁷ at m→1 where the kernel holds 10⁻¹⁰; first run's DE weight bug found and fixed.
 - 20261014-1221-system-b8fc (this run): knot-table census — 8–10% of cells read, 13.4 point-evals re-integrated per readout, read side 66–69% of point-evals; the incomplete-form readout is the one deletion for kick cost, search cost and standing memory.
 - 20261014-2130-spacex-cd6e (silver, this run): incomplete Carlson readout derived+verified
+- 20261013-1428-components-2368 (silver): cos closed bit-identically by 4-way interleaving of the panel's Gauss nodes — primitive 42→14.1 ns/cos (3.0×), compile −10.6–12.4% A/B/A, plane digest identical, kick resolve 33.2→28.3 µs; unrolling alone refuted (1.01–1.03×).
+- 20261013-1428-scout-21ba (silver): the φ channel of the shipped panel compile is one Carlson RF call, exact to the compile's Q30 quantum on every strong key; panels 5→176 (e→0.999, band cuts), wall 3.2→197 µs vs ~90–420 ns closed form (checker-corrected; the run's 37–39 ns was a timing artifact); panel-count lever now has a named replacement mechanism.
+- 20261013-1915-second-20261013-1428-scout-21ba-de99 (silver): the honest Carlson kernel (paper-verbatim, r=10⁻¹⁵, black_box) delivers φ/τ/t as a drop-in to the walk's quantum on 29 keys; φ 129 ns flat, all-three ≤2.9 µs vs 307 µs walk (42–2378× per channel); walk degrades to 6.7×10⁻⁷ at m→1 where the kernel holds 10⁻¹⁰; first run's DE weight bug found and fixed.
+- 20261014-1221-system-b8fc (silver): knot-table census — 8–10% of cells read, 13.4 point-evals re-integrated per readout, read side 66–69% of point-evals; the incomplete-form readout is the one deletion for kick cost, search cost and standing memory.
+- 20261014-2130-spacex-cd6e (silver): incomplete Carlson readout derived+verified against the shipped walk; value is the compile-wall deletion and the knot-table memory, not read parity.
+- 20261015-0250-quant-262f (this run, awaiting grade): the batched belt promotion priced — 11.7 µs over 10⁶ bodies (numpy/AVX, 6-iter Newton, cold start included), scalar arm exact to 2e-16 vs the shipped integrands (timed arm 2× slip on t/τ, price unaffected); the squared-pole reduction re-derived independently (κ digit-identical to cd6e's); native projection ≈ 4 µs at de99's kernel prices; SIMD-vs-scalar ratio and the integer port remain.
