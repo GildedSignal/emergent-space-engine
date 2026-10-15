@@ -1,0 +1,1391 @@
+diff --git a/crates/space/examples/passage_tail.rs b/crates/space/examples/passage_tail.rs
+new file mode 100644
+index 00000000..12bd8785
+--- /dev/null
++++ b/crates/space/examples/passage_tail.rs
+@@ -0,0 +1,136 @@
++//! The passage tail: standing bytes, compile cost and re-mint identity against the window
++//! exponent `w = log2(outer_radius / periapsis)`, on the law's own bind path
++//! (`Rebinding::from_state`, the same call the universe makes). Also the cycle control:
++//! knots against apoapsis span, and re-mint identity from the key alone.
++//!
++//! cargo run --release -p emergent-space --example passage_tail
++use emergent_space::binding::{IntegerState, Rebinding, Trajectory};
++use emergent_space::orbit::Scalar;
++use std::time::Instant;
++
++fn state_at(r0_q: i64, r0_e: i16, vt: i64, vr: i64, ve: i16) -> IntegerState {
++    IntegerState {
++        position: [r0_q, 0],
++        velocity: [vt, vr],
++        length_exponent: r0_e,
++        velocity_exponent: ve,
++    }
++}
++
++/// One unbound state (GM = 1 in the law's scaled units): r0 = 10^6, v = 2.0e-3 mostly
++/// tangential, 1.125e-6 > 1/r0 = 1e-6 specific orbital energy: hyperbolic, L = 1500.
++fn hyper_state() -> IntegerState {
++    state_at(1_000_000 << 20, -20, (1.5e-3 * (1u64 << 40) as f64) as i64, (-1.0e-3 * (1u64 << 40) as f64) as i64, -40)
++}
++
++/// A bound state at apoapsis (v purely tangential, v² < 2/r0): the cycle control.
++fn bound_state(vt: f64) -> IntegerState {
++    // position along +x, so the tangential direction is +y: v = (0, vt), v_r = 0 at apoapsis.
++    state_at(1_000_000 << 20, -20, 0, (vt * (1u64 << 40) as f64) as i64, -40)
++}
++
++fn main() {
++    println!(
++        "sizes: Scalar {} B, passage panel (Scalar, Integral) — measured below",
++        std::mem::size_of::<Scalar>()
++    );
++
++    // ---- the passage curve: w from 0 (Topology control) to the law's edge ----
++    println!("\n== passages: standing bytes and compile µs against w = log2(outer/periapsis) ==");
++    println!("(the state is fixed; the key's periapsis is read once, then the edge is peri·2^w)\n");
++    let probe = hyper_state();
++    let fit = Rebinding::from_state(probe.clone(), Scalar::ZERO, None).unwrap();
++    let Trajectory::Passage(p0) = &fit.trajectory else { panic!("state is not a passage") };
++    let peri = p0.key().periapsis;
++    println!(
++        "state minted: periapsis {peri:?}, r0 10^6, panels at birth(w≈0) {}, knots {}",
++        p0.panels(),
++        p0.orbit_knots()
++    );
++    let mut first_w = None;
++    for w in [0i32, 9, 10, 11, 12, 13, 16, 21, 26, 31, 36, 41, 51, 56, 59, 61] {
++        // edge = peri * 2^w, but the state's r0 must stay inside the window: bind from the
++        // state with the edge directly (from_state takes passage_edge).
++        let edge = peri.mul(Scalar::power_of_two(w as i16)).unwrap();
++        let fit = match Rebinding::from_state(probe.clone(), Scalar::ZERO, Some(edge)) {
++            Ok(f) => f,
++            Err(e) => {
++                println!("w={w:>3}: refused {e:?}");
++                continue;
++            }
++        };
++        let Trajectory::Passage(p) = &fit.trajectory else { panic!("not a passage") };
++        if first_w.is_none() {
++            first_w = Some(w);
++        }
++        let bytes = p.retained_bytes();
++        // re-mint: the same two arguments, twice; read at 64 radii across the window.
++        let again = Rebinding::from_state(probe.clone(), Scalar::ZERO, Some(edge)).unwrap();
++        let Trajectory::Passage(p2) = &again.trajectory else { panic!() };
++        let mut diffs = 0u32;
++        let mut readouts = 0u32;
++        for k in 0..64u32 {
++            // geometric radii from just above periapsis to just below the edge
++            let frac = ((k as i64 + 1) * (w as i64 + 2) / 65) as i32;
++            let r = peri.mul(Scalar::power_of_two((w - frac) as i16)).unwrap();
++            let a = p.at_radius(r);
++            let b = p2.at_radius(r);
++            readouts += 1;
++            match (a, b) {
++                (Ok(x), Ok(y)) if x == y => {}
++                (Err(_), Err(_)) => {}
++                _ => diffs += 1,
++            }
++        }
++        let t0 = Instant::now();
++        for _ in 0..32 {
++            let _ = Rebinding::from_state(probe.clone(), Scalar::ZERO, Some(edge)).unwrap();
++        }
++        let us = t0.elapsed().as_secs_f64() / 32.0 * 1e6;
++        println!(
++            "w={w:>3}: panels {:>4}, knots {:>3}, standing {bytes:>7} B, compile {us:>7.1} µs, re-mint diffs {diffs}/{readouts}, key equal {}",
++            p.panels(),
++            p.orbit_knots(),
++            p.key() == p2.key(),
++        );
++    }
++
++    // ---- the cycle control: knots against apoapsis span, re-mint from the key ----
++    println!("\n== cycles (control): knots against apoapsis span; re-mint from the key = Orbit::compile ==");
++    for vt in [0.40e-3, 0.60e-3, 0.80e-3, 0.90e-3, 0.98e-3, 1.02e-3, 1.05e-3] {
++        let st = bound_state(vt);
++        let fit = match Rebinding::from_state(st.clone(), Scalar::ZERO, None) {
++            Ok(f) => f,
++            Err(e) => {
++                println!("vt={vt:.4e}: refused {e:?}");
++                continue;
++            }
++        };
++        let Trajectory::Cycle(c) = &fit.trajectory else { panic!("not a cycle") };
++        let peri = c.key().periapsis;
++        // the state sits at apoapsis (v_r = 0, bound): span = r0 / peri
++        let span = Scalar::integer(1_000_000).div(peri).unwrap();
++        let mut span_log2 = 0i32;
++        while Scalar::power_of_two(span_log2 as i16) < span {
++            span_log2 += 1;
++        }
++        let again = emergent_space::orbit::Orbit::compile(c.key()).unwrap();
++        let mut diffs = 0u32;
++        for k in 0..16u32 {
++            let frac = ((k as i64 + 1) * (span_log2 as i64 + 1) / 17) as i32;
++            let r = Scalar::power_of_two(12).mul(Scalar::power_of_two(-(frac as i16))).unwrap();
++            match (c.signed_state(r), again.signed_state(r)) {
++                (Ok(x), Ok(y)) if x == y => {}
++                (Err(_), Err(_)) => {}
++                _ => diffs += 1,
++            }
++        }
++        let shape = c.shape();
++        println!(
++            "vt={vt:.4e}: peri {peri:?}, span 2^{span_log2}, knots {:>3}, standing {:>6} B, re-mint diffs {diffs}/16",
++            shape.knots().len(),
++            shape.knots().len() * std::mem::size_of::<emergent_space::orbit::Knot>()
++                + shape.crossings().len() * std::mem::size_of::<usize>()
++        );
++    }
++}
+diff --git a/crates/space/src/orbit.rs b/crates/space/src/orbit.rs
+index f77046d7..f5638bed 100644
+--- a/crates/space/src/orbit.rs
++++ b/crates/space/src/orbit.rs
+@@ -1080,6 +1080,22 @@ impl Passage {
+     pub fn key(&self) -> OrbitKey {
+         self.orbit.key
+     }
++    /// Tail panels compiled for the window beyond the psi/x join (each shrinks x by 15/16).
++    pub fn panels(&self) -> usize {
++        self.tail.len()
++    }
++    /// Knots of the compiled shape (the radial quadrature's standing cost).
++    pub fn orbit_knots(&self) -> usize {
++        self.orbit.shape().knots().len()
++    }
++    /// Standing heap bytes of the compiled arc: the shape's knots and crossings plus the
++    /// tail's (Scalar, Integral) panels. Exact sizes, not an estimate.
++    pub fn retained_bytes(&self) -> usize {
++        let shape = self.orbit.shape();
++        shape.knots().len() * std::mem::size_of::<Knot>()
++            + shape.crossings().len() * std::mem::size_of::<usize>()
++            + self.tail.len() * std::mem::size_of::<(Scalar, Integral)>()
++    }
+     pub fn at_radius(&self, radius: Scalar) -> Result<(Scalar, OrbitState)> {
+         let x = self.key().periapsis.div(radius)?;
+         if self.tail.is_empty() || x >= self.tail[0].0 {
+diff --git a/crates/universe/examples/clock_pin.rs b/crates/universe/examples/clock_pin.rs
+index 343e8f30..3014e2c9 100644
+--- a/crates/universe/examples/clock_pin.rs
++++ b/crates/universe/examples/clock_pin.rs
+@@ -34,7 +34,7 @@ fn main() {
+         let e_ex = f * ut;
+         let l_ex = r * vt * ut;
+         // key
+-        let Some(key) = rec.b.entry.trajectory.key() else {
++        let Some(key) = rec.b.entry.entry().unwrap().trajectory.key() else {
+             eprintln!("plunge at {t}: the arc has no turning key");
+             break;
+         };
+@@ -52,7 +52,7 @@ fn main() {
+         let b = rec.b.orbit_state(t + dtk).unwrap().proper_time;
+         let dtau = to_f64(b.sub(a).unwrap()) * 2f64.powi(-shift);
+         let dtdtau = dtk as f64 / dtau;
+-        let kind = match &rec.b.entry.trajectory { emergent_space::binding::Trajectory::Cycle(_) => "cycle", _ => "passage" };
++        let kind = match &rec.b.entry.entry().unwrap().trajectory { emergent_space::binding::Trajectory::Cycle(_) => "cycle", _ => "passage" };
+         let b2 = (l_ex / e_ex).abs();
+         eprintln!("t={:>12} r={:>11.4e} gamma={:>11.4} E_exact={:>12.6} E_key={:>12.6} dt/dtau_tube={:>11.6} u^t={:>12.6} L/E={:.4e} peri={:.4e} k={:.6e} q={:.3e} kind={kind} refusals={} ev_lag={} events={} step={} wall_ms={}", t, r, 1.0/(1.0-(vr*vr+vt*vt)).sqrt(), e_ex, e_key, dtdtau, ut, b2, peri, kq, q, rec.refusals, t-rec.b.event_time, rec.events, rec.step, wall.elapsed().as_millis());
+         t_prev = t;
+diff --git a/crates/universe/examples/lazy_flight.rs b/crates/universe/examples/lazy_flight.rs
+new file mode 100644
+index 00000000..bfce7bff
+--- /dev/null
++++ b/crates/universe/examples/lazy_flight.rs
+@@ -0,0 +1,79 @@
++//! The lazy-entry seam's certificate: `Universe::digest()` at a canonical cut on the ladder's
++//! populations, flown as `ladder_digest` flies them (`frame_to` limited to the cut tick, then
++//! `settle(cut)`), with the seam off (shipped verbatim) or on (`ES_LAZY_ENTRY=1`): the two arms
++//! must print the same digest bit for bit. Also prints the seam's counters (demotions,
++//! promotions, the promotion compile's p50/p99), the dashboard's `bytes_per_body`,
++//! `catalogue_live`, and the process's RSS/HWM.
++//!
++//! cargo run --release -p emergent-universe --example lazy_flight [-- <N> <coast|burn> <cut game-s> <seed> [<rtf>]]
++use emergent_universe::bind::lazy_counters;
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::plane_extra;
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++/// (rss, hwm) in bytes on Linux.
++fn mem() -> (u64, u64) {
++    let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut rss = 0;
++    let mut hwm = 0;
++    for line in s.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            rss = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            hwm = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    (rss, hwm)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let cut_game_s: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20_000.0);
++    let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let rtf: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1000.0);
++    let burn = flight == "burn";
++    let t0 = std::time::Instant::now();
++
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap();
++    let build = t0.elapsed().as_secs_f64();
++    if burn {
++        let t = (1.0 * rtf / TICK_SECONDS) as i64;
++        p.u.schedule(t, word(1, 8)).unwrap();
++    }
++    let cut = (cut_game_s / TICK_SECONDS) as i64;
++    let mut frames = 0usize;
++    for _ in 0..4_000_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), cut);
++        frames += 1;
++    }
++    p.u.settle(cut);
++    let d = p.u.digest();
++    let (rss, hwm) = mem();
++    let (dem, pro, ns, p50, p99, mx) = lazy_counters();
++    let s = &p.u.stats;
++    println!("arm N={n} {flight} cut={cut_game_s} seed={seed} rtf={rtf} lazy={}", emergent_universe::bind::lazy_entry_on());
++    println!("digest {d}");
++    println!(
++        "kicks {} opens {} boundaries {} handoffs {} lost {} refused {} slices {} contacts {}",
++        s.kicks, s.opens, s.boundaries, s.handoffs, s.lost, s.refused, s.slices, p.u.contacts
++    );
++    println!(
++        "bodies {} bytes_per_body {} catalogue_live {} demotions {dem} promotions {pro} promote_us p50 {:.2} p99 {:.2} max {:.2} total_s {:.2}",
++        p.u.n_bodies(),
++        p.u.bytes_per_body(),
++        p.u.catalogue_live(),
++        p50 as f64 / 1e3,
++        p99 as f64 / 1e3,
++        mx as f64 / 1e3,
++        ns as f64 / 1e9
++    );
++    println!("build_s {build:.2} frames {frames} wall_s {:.2} rss_mb {:.0} hwm_mb {:.0}", t0.elapsed().as_secs_f64(), rss as f64 / 1e6, hwm as f64 / 1e6);
++}
+diff --git a/crates/universe/examples/nladder.rs b/crates/universe/examples/nladder.rs
+index 2c7302cd..b1888d93 100644
+--- a/crates/universe/examples/nladder.rs
++++ b/crates/universe/examples/nladder.rs
+@@ -7,19 +7,41 @@
+ //! gather, and with `--features prof` the stage profile. One `ladder:` line holds every number (key=value) for the tables.
+ //!
+ //! cargo run --release -p emergent-universe --example nladder [-- <N> <coast|burn> [<wall seconds of flight> [<rtf> [<engine budget ms>]]]]
++use emergent_universe::body::Kind;
+ use emergent_universe::fleet::Order;
+-use emergent_universe::scenario::plane_extra;
++use emergent_universe::scenario::{plane_comets, plane_extra};
+ use emergent_universe::thrust::word;
+ use emergent_universe::view::{gather_cached, ViewCache, TICK_SECONDS};
+ use emergent_universe::{Budget, Config};
+ use std::time::{Duration, Instant};
+ 
++#[cfg(target_os = "macos")]
+ extern "C" {
+     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut u64) -> i32;
+ }
+ 
+ /// (physical footprint now, its peak over the process's life) in bytes: the memory the process holds, compressed pages
+ /// included (the resident size alone drops pages the machine has compressed or swapped, and this machine does under load).
++#[cfg(target_os = "linux")]
++fn footprint() -> (u64, u64) {
++    // VmRSS now, VmHWM peak, from /proc (kB): the closest Linux analogue of the physical
++    // footprint; compressed pages are not recoverable here, so both are lower bounds.
++    let mut now = 0u64;
++    let mut peak = 0u64;
++    if let Ok(s) = std::fs::read_to_string("/proc/self/status") {
++        for line in s.lines() {
++            if let Some(v) = line.strip_prefix("VmRSS:") {
++                now = v.trim().trim_end_matches(" kB").parse().unwrap_or(0) * 1024;
++            }
++            if let Some(v) = line.strip_prefix("VmHWM:") {
++                peak = v.trim().trim_end_matches(" kB").parse().unwrap_or(0) * 1024;
++            }
++        }
++    }
++    (now, peak)
++}
++
++#[cfg(target_os = "macos")]
+ fn footprint() -> (u64, u64) {
+     let mut buf = [0u64; 64];
+     // flavor 4: rusage_info_v4; ri_phys_footprint is word 9, ri_lifetime_max_phys_footprint word 30.
+@@ -46,10 +68,18 @@ fn main() {
+     let rtf: f64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(100.0);
+     let budget_ms: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(12.0);
+     let burn = flight == "burn";
++    let _ = &n;
+     let frames = (seconds * 60.0) as usize;
+     let (_, rss0) = footprint();
+     let t0 = Instant::now();
+-    let mut p = plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap();
++    let comet_w: Option<i32> = flight.strip_prefix("comet").and_then(|s| s.parse().ok());
++    let mut p = match comet_w {
++        Some(w) => plane_comets(Config::default(), 1, Order::Sparse, 1, 48, &[(n, w, 1.2)]).unwrap(),
++        None => plane_extra(Config::default(), 1, Order::Sparse, 1, 48, n).unwrap(),
++    };
++    if comet_w.is_some() {
++        p.u.stats = p.u.stats; // comets were born inside the scenario, before start()
++    }
+     let build = t0.elapsed().as_secs_f64();
+     let (now1, rss1) = footprint();
+     let bodies = p.u.n_bodies();
+@@ -100,6 +130,61 @@ fn main() {
+         }
+     }
+     let (now2, rss2) = footprint();
++    // The standing-trajectory census: what each body's compiled arc is, exactly (a demoted
++    // slot under the seam holds no arc: its kind is the record's, its standing bytes zero).
++    {
++        use emergent_space::binding::Trajectory;
++        use emergent_universe::bind::EntrySlot;
++        let (mut cyc, mut pas, mut plu, mut dead, mut dem_pas, mut dem_cyc) =
++            (0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
++        let (mut panels, mut standing, mut w_min, mut w_max) = (0usize, 0usize, i32::MAX, i32::MIN);
++        let mut samples: Vec<(i32, usize, usize)> = Vec::new();
++        let w_of = |peri: emergent_space::orbit::Scalar, outer: emergent_space::orbit::Scalar| {
++            let mut w = 0i32;
++            let huge = emergent_space::orbit::Scalar::power_of_two(62);
++            while peri.mul(emergent_space::orbit::Scalar::power_of_two(w as i16)).unwrap_or(huge) < outer {
++                w += 1;
++            }
++            w
++        };
++        for i in 0..bodies {
++            let r = p.u.rec(i);
++            if !r.alive {
++                dead += 1;
++                continue;
++            }
++            match &r.b.entry {
++                EntrySlot::Live(e) => match &e.trajectory {
++                    Trajectory::Cycle(o) => {
++                        cyc += 1;
++                        let sh = o.shape();
++                        standing += sh.knots().len() * std::mem::size_of::<emergent_space::orbit::Knot>()
++                            + sh.crossings().len() * std::mem::size_of::<usize>();
++                    }
++                    Trajectory::Passage(q) => {
++                        pas += 1;
++                        panels += q.panels();
++                        let bts = q.retained_bytes();
++                        standing += bts;
++                        let w = w_of(q.key().periapsis, q.outer_radius);
++                        w_min = w_min.min(w);
++                        w_max = w_max.max(w);
++                        samples.push((w, q.panels(), bts));
++                    }
++                    Trajectory::Plunge(_) => plu += 1,
++                },
++                EntrySlot::Demoted { outer: Some(_), .. } => dem_pas += 1,
++                EntrySlot::Demoted { outer: None, .. } => dem_cyc += 1,
++            }
++        }
++        samples.sort();
++        samples.dedup();
++        samples.truncate(6);
++        println!(
++            "census: alive cycles {cyc}, passages {pas}, plunges {plu}, demoted cycles {dem_cyc}, demoted passages {dem_pas}, dead {dead}; standing compiled arcs {standing} B; passage panels total {panels}; passage w range [{w_min}, {w_max}] (empty={}); first passages (w, panels, bytes) {samples:?}",
++            w_min == i32::MAX
++        );
++    }
+     let late: Vec<_> = rows.iter().filter(|r| r.0 >= 60).collect();
+     let mut ms: Vec<f64> = late.iter().map(|r| r.1).collect();
+     ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+diff --git a/crates/universe/examples/passage_demote.rs b/crates/universe/examples/passage_demote.rs
+new file mode 100644
+index 00000000..4a10cb87
+--- /dev/null
++++ b/crates/universe/examples/passage_demote.rs
+@@ -0,0 +1,155 @@
++//! The demote-passages variant of the lazy-entry seam, flown for digest identity and priced
++//! (20261015-1615-spacex-1343's checker's named gold experiment). Three arms by environment:
++//! ctl (`ES_LAZY_ENTRY` unset: shipped, nothing demotes), seam (`ES_LAZY_ENTRY=1`: cycles
++//! demote, passages never — the rule as it stands), variant (`ES_LAZY_ENTRY=1
++//! ES_LAZY_PASSAGES=1`: passages demote too, the record carrying key + outer edge + sense/unit).
++//! Every arm must print the same digest at the same canonical cut. Scenes: the standard ladder
++//! (coast/burn) and the comet stream at mixed periapsis (1.2 AU and star-grazing), the passage
++//! tail's natural scene. Counters: demotions/promotions split cycle/passage, census of standing
++//! arcs vs demoted records, RSS.
++//!
++//! cargo run --release -p emergent-universe --example passage_demote [-- <N> <coast|burn|comet|stargraze|mixed> <cut game-s> [<seed> [<rtf>]]]
++use emergent_universe::bind::{lazy_all_demote_on, lazy_counters, lazy_entry_on, lazy_passage_counters, lazy_passages_demote_on, EntrySlot};
++use emergent_universe::fleet::Order;
++use emergent_universe::scenario::{plane_comets, plane_extra};
++use emergent_universe::thrust::word;
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{Budget, Config};
++
++/// (rss, hwm) in bytes on Linux.
++fn mem() -> (u64, u64) {
++    let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
++    let mut rss = 0;
++    let mut hwm = 0;
++    for line in s.lines() {
++        if let Some(v) = line.strip_prefix("VmRSS:") {
++            rss = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++        if let Some(v) = line.strip_prefix("VmHWM:") {
++            hwm = v.trim().trim_end_matches("kB").trim().parse().unwrap_or(0) * 1024;
++        }
++    }
++    (rss, hwm)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(2000);
++    let flight = args.get(2).cloned().unwrap_or_else(|| "coast".into());
++    let cut_game_s: f64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(20_000.0);
++    let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
++    let rtf: f64 = args.get(5).and_then(|s| s.parse().ok()).unwrap_or(1000.0);
++    let burn = flight == "burn";
++    let t0 = std::time::Instant::now();
++
++    // The comet stream: (count, w, peri_au). comet = one peri (1.2 AU), stargraze = 0.006 AU
++    // (1.3 stellar radii), mixed = both at the same r0 (w=12), dive = peri 0.001 AU, inside the
++    // star: the plunge class (it binds as a Plunge or refuses at birth — the edge the seam
++    // cannot demote). N is the comet count (or half of it, per class, for mixed).
++    let classes: Vec<(usize, i32, f64)> = match flight.as_str() {
++        "comet" => vec![(n, 12, 1.2)],
++        "stargraze" => vec![(n, 12, 0.006)],
++        "mixed" => vec![(n / 2, 12, 1.2), (n - n / 2, 12, 0.006)],
++        "dive" => vec![(n, 12, 0.001)],
++        _ => Vec::new(),
++    };
++    let mut p = if classes.is_empty() {
++        plane_extra(Config::default(), seed, Order::Sparse, 1, 48, n).unwrap()
++    } else {
++        plane_comets(Config::default(), seed, Order::Sparse, 1, 48, &classes).unwrap()
++    };
++    let build = t0.elapsed().as_secs_f64();
++    if burn {
++        let t = (1.0 * rtf / TICK_SECONDS) as i64;
++        p.u.schedule(t, word(1, 8)).unwrap();
++    }
++    let cut = (cut_game_s / TICK_SECONDS) as i64;
++    let mut frames = 0usize;
++    for _ in 0..4_000_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, rtf, Budget::unlimited(), cut);
++        frames += 1;
++    }
++    p.u.settle(cut);
++    let d = p.u.digest();
++    let reached = p.u.now;
++    // The census: standing compiled arcs vs demoted records, by kind, without minting anything
++    // (a demoted slot's kind is its record's: outer set = passage).
++    let (mut cyc, mut pas, mut plu, mut dead, mut dem_cyc, mut dem_pas) = (0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
++    let (mut panels, mut standing, mut w_min, mut w_max) = (0usize, 0usize, i32::MAX, i32::MIN);
++    for i in 0..p.u.n_bodies() {
++        let r = p.u.rec(i);
++        if !r.alive {
++            dead += 1;
++            continue;
++        }
++        match &r.b.entry {
++            EntrySlot::Live(e) => match &e.trajectory {
++                emergent_space::binding::Trajectory::Cycle(o) => {
++                    cyc += 1;
++                    let sh = o.shape();
++                    standing += sh.knots().len() * std::mem::size_of::<emergent_space::orbit::Knot>()
++                        + sh.crossings().len() * std::mem::size_of::<usize>();
++                }
++                emergent_space::binding::Trajectory::Passage(q) => {
++                    pas += 1;
++                    panels += q.panels();
++                    let bts = q.retained_bytes();
++                    standing += bts;
++                    let mut w = 0i32;
++                    let huge = emergent_space::orbit::Scalar::power_of_two(62);
++                    while q.key().periapsis.mul(emergent_space::orbit::Scalar::power_of_two(w as i16)).unwrap_or(huge) < q.outer_radius {
++                        w += 1;
++                    }
++                    w_min = w_min.min(w);
++                    w_max = w_max.max(w);
++                }
++                emergent_space::binding::Trajectory::Plunge(_) => plu += 1,
++            },
++            EntrySlot::Demoted { outer: Some(_), .. } => dem_pas += 1,
++            EntrySlot::Demoted { outer: None, .. } => dem_cyc += 1,
++        }
++    }
++    let (rss, hwm) = mem();
++    let (dem, pro, ns, p50, p99, mx) = lazy_counters();
++    let (pdem, ppro, pns, pp50, pp99, ppmx) = lazy_passage_counters();
++    let s = &p.u.stats;
++    let arm = match (lazy_entry_on(), lazy_all_demote_on()) {
++        (false, _) => "ctl",
++        (true, false) => if lazy_passages_demote_on() { "variant" } else { "seam" },
++        (true, true) => "all",
++    };
++    println!("arm {arm} N={n} {flight} cut={cut_game_s} seed={seed} rtf={rtf}");
++    println!("digest {d}");
++    println!(
++        "kicks {} opens {} boundaries {} handoffs {} lost {} refused {} slices {} contacts {}",
++        s.kicks, s.opens, s.boundaries, s.handoffs, s.lost, s.refused, s.slices, p.u.contacts
++    );
++    println!(
++        "census cycles {cyc} passages {pas} (w [{}, {}], panels {panels}, standing {standing} B) plunges {plu} demoted_cycles {dem_cyc} demoted_passages {dem_pas} dead {dead}",
++        if w_min == i32::MAX { -1 } else { w_min },
++        if w_max == i32::MIN { -1 } else { w_max },
++    );
++    println!(
++        "bodies {} bytes_per_body {} catalogue_live {} demotions {dem} promotions {pro} promote_us p50 {:.2} p99 {:.2} max {:.2} total_s {:.2} | passage: demotions {pdem} promotions {ppro} promote_us p50 {:.2} p99 {:.2} max {:.2} total_s {:.2}",
++        p.u.n_bodies(),
++        p.u.bytes_per_body(),
++        p.u.catalogue_live(),
++        p50 as f64 / 1e3,
++        p99 as f64 / 1e3,
++        mx as f64 / 1e3,
++        ns as f64 / 1e9,
++        pp50 as f64 / 1e3,
++        pp99 as f64 / 1e3,
++        ppmx as f64 / 1e3,
++        pns as f64 / 1e9,
++    );
++    println!("reached {reached} build_s {build:.2} frames {frames} wall_s {:.2} rss_mb {:.0} hwm_mb {:.0} entryslot_b {} demoted_record_b {}", t0.elapsed().as_secs_f64(), rss as f64 / 1e6, hwm as f64 / 1e6, std::mem::size_of::<emergent_universe::bind::EntrySlot>(), {
++        // The record a demoted passage rides on: key + outer + sense + unit.
++        use emergent_universe::bind::EntrySlot;
++        std::mem::size_of::<emergent_space::orbit::OrbitKey>() + std::mem::size_of::<emergent_space::orbit::Scalar>() + std::mem::size_of::<bool>() + std::mem::size_of::<emergent_universe::world::Unit>()
++    });
++    let _ = &args;
++}
+diff --git a/crates/universe/src/bind.rs b/crates/universe/src/bind.rs
+index c8fa90ed..71c1d647 100644
+--- a/crates/universe/src/bind.rs
++++ b/crates/universe/src/bind.rs
+@@ -19,14 +19,13 @@ use crate::num::{cross2, dot2, time_of, Error, Res, Tick, V2};
+ use crate::world::Unit;
+ use emergent_space::{
+     binding::{cartesian, IntegerState, Rebinding, Residual, Trajectory},
+-    orbit::{OrbitState, Scalar},
+-    Tube,
++    orbit::{Orbit, OrbitKey, OrbitState, Passage, Scalar},
+ };
++use emergent_space::Tube;
+ use std::sync::Arc;
+ 
+ /// A compiled trajectory and its sense: the entry a tube's key indexes. The trajectory is compiled
+ /// about a mass of one, in units of the doll's mass; `unit` converts it to the doll's own units (the
+-/// mantissa of the doll's mass; the identity when the mass is a power of two).
+ #[derive(Debug)]
+ pub struct Entry {
+     pub trajectory: Trajectory,
+@@ -34,6 +33,62 @@ pub struct Entry {
+     pub unit: Unit,
+ }
+ 
++/// The seam behind `ES_LAZY_ENTRY` (off by default; the plane is shipped verbatim): a binding's
++/// compiled trajectory is a cache of the exact key it was compiled from (PRINCIPLES 6: store the
++/// generator, not the generated), so a kick-settled binding may hold only the key and re-mint the
++/// entry on touch. [`EntrySlot::Live`] is the shipped state; [`EntrySlot::Demoted`] holds the
++/// exact key, the sense and the unit, and never took a catalogue slot (`tube.key` is `u32::MAX`,
++/// which [`Catalogue::release`] ignores). With `ES_LAZY_PASSAGES=1` the demote set extends to
++/// passages: the record also carries the window's outer edge — the second argument of the pure
++/// `Passage::compile(key, outer)` — so a demoted passage re-mints bit-identically too.
++#[derive(Clone, Debug)]
++pub enum EntrySlot {
++    Live(Arc<Entry>),
++    /// The compiled trajectory is gone (with its catalogue slot): the exact key, sense and unit;
++    /// `outer` is the passage window's outer edge when the demoted trajectory was a passage.
++    Demoted { key: OrbitKey, clockwise: bool, unit: Unit, outer: Option<Scalar> },
++}
++
++impl EntrySlot {
++    /// The entry, re-minted from the key when demoted (one pure compile: a promotion — `Orbit::compile`
++    /// for a cycle, `Passage::compile` for a passage, each pure in exactly the record's fields).
++    pub fn entry(&self) -> Res<Arc<Entry>> {
++        match self {
++            EntrySlot::Live(e) => Ok(e.clone()),
++            EntrySlot::Demoted { key, clockwise, unit, outer } => {
++                let t0 = std::time::Instant::now();
++                let trajectory = match *outer {
++                    None => Trajectory::Cycle(Orbit::compile(*key)?),
++                    Some(outer) => Trajectory::Passage(Passage::compile(*key, outer)?),
++                };
++                let e = Arc::new(Entry { trajectory, clockwise: *clockwise, unit: *unit });
++                note_promotion(t0.elapsed(), outer.is_some());
++                Ok(e)
++            }
++        }
++    }
++    /// The doll-mass unit of the entry, without minting anything.
++    pub fn unit(&self) -> Unit {
++        match self { EntrySlot::Live(e) => e.unit, EntrySlot::Demoted { unit, .. } => *unit }
++    }
++    /// The trajectory's exact key if it has one (a demoted slot is its key), without minting.
++    pub fn key(&self) -> Option<OrbitKey> {
++        match self {
++            EntrySlot::Live(e) => e.trajectory.key(),
++            EntrySlot::Demoted { key, .. } => Some(*key),
++        }
++    }
++    /// A demoted passage stays a passage: `range_of` and the scan's candidate rules read the
++    /// kind, not the compiled arc, and must not change under the seam.
++    pub fn is_cycle(&self) -> bool {
++        match self {
++            EntrySlot::Live(e) => matches!(e.trajectory, Trajectory::Cycle(_)),
++            EntrySlot::Demoted { outer: None, .. } => true,
++            EntrySlot::Demoted { outer: Some(_), .. } => false,
++        }
++    }
++}
++
+ /// The catalogue of compiled trajectories behind the tubes' key indexes.
+ #[derive(Default)]
+ pub struct Catalogue {
+@@ -89,13 +144,149 @@ impl Kick {
+     pub const NONE: Kick = Kick { len: 0, level: 0, dv: [0; 2], clock: false, boundary: 0, lead: 0 };
+ }
+ 
++fn lazy_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_LAZY_ENTRY").map_or(false, |v| v == "1" || v == "on")
++    });
++    *ON
++}
++
++/// The demote set is every keyed entry (`ES_LAZY_ALL=1`, with `ES_LAZY_ENTRY`): births and
++/// no-kick settles demote too, not only kick-settled bindings — the class list dies and a
++/// binding stores only its generator (key [+ outer] + sense/unit), whatever minted it.
++fn lazy_all_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_LAZY_ALL").map_or(false, |v| v == "1" || v == "on")
++    });
++    *ON
++}
++
++/// The demote set extends to passages (`ES_LAZY_PASSAGES=1`, with `ES_LAZY_ENTRY`): a kick-settled
++/// Passage binding keeps key + outer edge + sense/unit instead of its compiled arc.
++fn lazy_passages_on() -> bool {
++    static ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
++        std::env::var("ES_LAZY_PASSAGES").map_or(false, |v| v == "1" || v == "on")
++    });
++    *ON
++}
++
++
++static DEMOTIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static PROMOTIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static PROMOTION_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static SAMPLES: std::sync::LazyLock<std::sync::Mutex<Vec<u32>>> =
++    std::sync::LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
++// The passage half of the same counters: a passage promotion is 70-350x a cycle's, so the bill
++// is reported separately.
++static PASS_DEMOTIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static PASS_PROMOTIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static PASS_PROMOTION_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++static PASS_SAMPLES: std::sync::LazyLock<std::sync::Mutex<Vec<u32>>> =
++    std::sync::LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
++
++/// The seam is on (`ES_LAZY_ENTRY=1`): kick-settled Cycle bindings demote at apply.
++pub fn lazy_entry_on() -> bool {
++    lazy_on()
++}
++
++/// Every keyed entry demotes (`ES_LAZY_ALL=1`): at birth and at every settle, kick or not.
++pub fn lazy_all_demote_on() -> bool {
++    lazy_all_on()
++}
++
++/// The seam's demote set includes passages (`ES_LAZY_PASSAGES=1`, or `ES_LAZY_ALL=1`).
++pub fn lazy_passages_demote_on() -> bool {
++    lazy_passages_on() || lazy_all_on()
++}
++
++/// Note one demotion (the demoted binding's compiled trajectory and catalogue slot are gone).
++pub fn note_demotion() {
++    DEMOTIONS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++}
++
++/// Note one passage demotion (counted in the total too).
++pub fn note_passage_demotion() {
++    PASS_DEMOTIONS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++}
++
++/// Demote `entry` to its record if the demote set allows its kind: `Some(slot)` (and the
++/// counters noted) when the compiled arc is dropped, `None` when it must stay Live (a plunge:
++/// no key to re-mint from) or when its class is not in the demote set. `passages` gates the
++/// Passage class independently of who is calling.
++pub fn try_demote(entry: &Entry, passages: bool) -> Option<EntrySlot> {
++    match &entry.trajectory {
++        Trajectory::Cycle(c) => {
++            note_demotion();
++            Some(EntrySlot::Demoted { key: c.key(), clockwise: entry.clockwise, unit: entry.unit, outer: None })
++        }
++        Trajectory::Passage(p) if passages => {
++            note_demotion();
++            note_passage_demotion();
++            Some(EntrySlot::Demoted { key: p.key(), clockwise: entry.clockwise, unit: entry.unit, outer: Some(p.outer_radius) })
++        }
++        _ => None,
++    }
++}
++
++
++fn note_promotion(took: std::time::Duration, passage: bool) {
++    use std::sync::atomic::Ordering::Relaxed;
++    PROMOTIONS.fetch_add(1, Relaxed);
++    PROMOTION_NS.fetch_add(took.as_nanos() as u64, Relaxed);
++    let ns = u32::try_from(took.as_nanos()).unwrap_or(u32::MAX);
++    let samples = if passage { &*PASS_SAMPLES } else { &*SAMPLES };
++    if let Ok(mut g) = samples.lock() {
++        if g.len() < 5_000_000 {
++            g.push(ns);
++        }
++    }
++    if passage {
++        PASS_PROMOTIONS.fetch_add(1, Relaxed);
++        PASS_PROMOTION_NS.fetch_add(took.as_nanos() as u64, Relaxed);
++    }
++}
++
++/// Demotions and promotions since start: counts, total compile ns, p50/p99/max in ns (0 when none).
++pub fn lazy_counters() -> (u64, u64, u64, u32, u32, u32) {
++    use std::sync::atomic::Ordering::Relaxed;
++    let Ok(s) = SAMPLES.lock() else { return (0, 0, 0, 0, 0, 0) };
++    let mut s = s.clone();
++    s.sort_unstable();
++    let q = |p: f64| s.get(((s.len().max(1) - 1) as f64 * p).round() as usize).copied().unwrap_or(0);
++    (
++        DEMOTIONS.load(Relaxed),
++        PROMOTIONS.load(Relaxed),
++        PROMOTION_NS.load(Relaxed),
++        q(0.5),
++        q(0.99),
++        s.last().copied().unwrap_or(0),
++    )
++}
++
++/// The passage half of [`lazy_counters`]: demotions, promotions, total compile ns, p50/p99/max.
++pub fn lazy_passage_counters() -> (u64, u64, u64, u32, u32, u32) {
++    use std::sync::atomic::Ordering::Relaxed;
++    let Ok(s) = PASS_SAMPLES.lock() else { return (0, 0, 0, 0, 0, 0) };
++    let mut s = s.clone();
++    s.sort_unstable();
++    let q = |p: f64| s.get(((s.len().max(1) - 1) as f64 * p).round() as usize).copied().unwrap_or(0);
++    (
++        PASS_DEMOTIONS.load(Relaxed),
++        PASS_PROMOTIONS.load(Relaxed),
++        PASS_PROMOTION_NS.load(Relaxed),
++        q(0.5),
++        q(0.99),
++        s.last().copied().unwrap_or(0),
++    )
++}
++
+ /// Everything needed to read one body's state at any time after its binding event.
+ #[derive(Clone, Debug)]
+ pub struct Binding {
+     /// The doll whose frame the tube is in (units: that doll's `M = c = G = 1`).
+     pub doll: u16,
+     pub tube: Tube,
+-    pub entry: Arc<Entry>,
++    pub entry: EntrySlot,
+     /// What the fit discarded, exact at `event_time`: an integer offset and a sub-quantum turn.
+     pub residual: Residual,
+     pub turn: Turn,
+@@ -134,7 +325,7 @@ fn decode(entry: &Entry, tube: &Tube, clock_exp: i16, units: (i16, i16), t: Tick
+ 
+ impl Binding {
+     pub fn terminal_tick(&self) -> Res<Option<Tick>> {
+-        let Trajectory::Plunge(p) = &self.entry.trajectory else { return Ok(None) };
++        let Trajectory::Plunge(p) = &self.entry.entry()?.trajectory else { return Ok(None) };
+         // An arc whose anchor has inward speed and is still ahead of the state is a leg the ship leaves its doll by: it
+         // never reaches the surface.
+         if !p.rests_at_anchor() && self.event_time < self.tube.periapsis_time.get() as i64 {
+@@ -147,18 +338,20 @@ impl Binding {
+     }
+     /// A length or time of the compiled trajectory (in units of the doll's mass) in the doll's own units.
+     pub fn to_doll(&self, x: Scalar) -> Res<Scalar> {
+-        self.entry.unit.to_doll(x)
++        self.entry.unit().to_doll(x)
+     }
+ 
+     /// The orbit state at `t` (proper time, radius, velocities of the tube).
+     pub fn orbit_state(&self, t: Tick) -> Res<OrbitState> {
+-        Ok(decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?.1)
++        let e = self.entry.entry()?;
++        Ok(decode(&e, &self.tube, self.clock_exp, self.units, t)?.1)
+     }
+ 
+     /// The body's exact integer state at `t ≥ event_time`: the turned tube plus the offset. At the
+     /// binding event it equals the bound state.
+     pub fn readout(&self, t: Tick) -> Res<IntegerState> {
+-        let (d, _) = decode(&self.entry, &self.tube, self.clock_exp, self.units, t)?;
++        let e = self.entry.entry()?;
++        let (d, _) = decode(&e, &self.tube, self.clock_exp, self.units, t)?;
+         let (p, v) = (self.turn.apply(d.position)?, self.turn.apply(d.velocity)?);
+         let fit = |c: i128, r: i128| -> Res<i64> { i64::try_from(c + r).map_err(|_| Error::Refused("state outside the integer word")) };
+         Ok(IntegerState {
+@@ -175,6 +368,7 @@ impl Binding {
+     }
+ }
+ 
++
+ /// An integer state as scalars (units of the doll, c = 1).
+ pub fn scalars(st: &IntegerState) -> Res<(V2, V2)> {
+     let p = |i: usize| Scalar::raw(st.position[i] as i128, st.length_exponent as i32);
+@@ -292,7 +486,7 @@ pub fn bind_exact(entry: Arc<Entry>, tube: Tube, clock_exp: i16, units: (i16, i1
+     Binding {
+         doll,
+         tube,
+-        entry,
++        entry: EntrySlot::Live(entry),
+         residual: Residual { position: [0; 2], velocity: [0; 2] },
+         turn: Turn::NONE,
+         units,
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..0acf4c5d 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -188,10 +188,14 @@ impl BodyStore for PlainBodies {
+     }
+     fn bytes_of(&self, i: usize) -> usize {
+         let r = &self.recs[i];
+-        let shape = match &r.b.entry.trajectory {
+-            emergent_space::binding::Trajectory::Cycle(o) => o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>() + o.shape().crossings().len() * size_of::<usize>(),
+-            emergent_space::binding::Trajectory::Passage(_) => 4096,
+-            emergent_space::binding::Trajectory::Plunge(p) => p.retained_bytes(),
++        let shape = match &r.b.entry {
++            // A demoted binding holds no compiled trajectory: the key rides in the record (the cache is the floor).
++            crate::bind::EntrySlot::Demoted { .. } => 0,
++            crate::bind::EntrySlot::Live(e) => match &e.trajectory {
++                emergent_space::binding::Trajectory::Cycle(o) => o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>() + o.shape().crossings().len() * size_of::<usize>(),
++                emergent_space::binding::Trajectory::Passage(_) => 4096,
++                emergent_space::binding::Trajectory::Plunge(p) => p.retained_bytes(),
++            },
+         };
+         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
+diff --git a/crates/universe/src/encounter.rs b/crates/universe/src/encounter.rs
+index e8e74e0c..23f34285 100644
+--- a/crates/universe/src/encounter.rs
++++ b/crates/universe/src/encounter.rs
+@@ -90,7 +90,11 @@ impl Scan {
+ /// The same binding, in every part a reading of it depends on (the compiled trajectory by identity: an entry is
+ /// immutable, and the scan holds a reference, so its address cannot be another's).
+ fn same(a: &Binding, b: &Binding) -> bool {
+-    Arc::ptr_eq(&a.entry, &b.entry)
++    let eq = match (&a.entry, &b.entry) {
++        (crate::bind::EntrySlot::Live(x), crate::bind::EntrySlot::Live(y)) => Arc::ptr_eq(x, y),
++        _ => false,
++    };
++    eq
+         && a.tube == b.tube
+         && a.residual == b.residual
+         && a.turn == b.turn
+diff --git a/crates/universe/src/ext.rs b/crates/universe/src/ext.rs
+index fda3b93e..20b6a94b 100644
+--- a/crates/universe/src/ext.rs
++++ b/crates/universe/src/ext.rs
+@@ -132,7 +132,8 @@ struct Source {
+ 
+ fn source(ctx: &Ctx, j: usize, t: Tick) -> Res<Source> {
+     let b = ctx.bodies.binding_at(j, t).ok_or(Error::Refused("history pruned"))?;
+-    let Trajectory::Cycle(c) = &b.entry.trajectory else { return Err(Error::Refused("a source without a period")) };
++    let e = b.entry.entry()?;
++    let Trajectory::Cycle(c) = &e.trajectory else { return Err(Error::Refused("a source without a period")) };
+     let key = c.key();
+     let k = key.shape()?;
+     let den = k.scale(1)?.sub(Scalar::ONE)?;
+diff --git a/crates/universe/src/radial.rs b/crates/universe/src/radial.rs
+index 9f822265..9b5bdfc8 100644
+--- a/crates/universe/src/radial.rs
++++ b/crates/universe/src/radial.rs
+@@ -18,7 +18,7 @@
+ use crate::bind::Binding;
+ use crate::body::Kind;
+ use crate::num::to_f64;
+-use emergent_space::{binding::Trajectory, orbit::Scalar};
++use emergent_space::orbit::Scalar;
+ use std::collections::HashMap;
+ 
+ /// Bins per octave of radius.
+@@ -64,8 +64,8 @@ pub struct Radial {
+ /// The radial range `[lo, hi]` a binding's readout can have (doll units) and a bound on its speed (c = 1): None where the tube is no
+ /// bounded cycle (a passage, a plunge), so no range is known.
+ pub fn range_of(b: &Binding) -> Option<(f64, f64, f64)> {
+-    let Trajectory::Cycle(_) = &b.entry.trajectory else { return None };
+-    let key = b.entry.trajectory.key()?;
++    let Some(key) = b.entry.key() else { return None };
++    if !b.entry.is_cycle() { return None }
+     let k = Scalar::raw(key.k as i128, -48).ok()?;
+     let two_k_less_one = k.scale(1).ok()?.sub(Scalar::ONE).ok()?;
+     if !two_k_less_one.is_positive() {
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..5b21155f 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -151,7 +151,7 @@ pub fn plane(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize,
+ /// [`plane`] with the fleet's world given (lattice bodies in the frame's axes, `crates/engine`'s scenes or
+ /// a test's own): the same star, planets, moon, ships and player.
+ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World) -> Res<Plane> {
+-    plane_with_extra(cfg, seed, order, threads, world, 0)
++    plane_with_extra(cfg, seed, order, threads, world, 0, None)
+ }
+ 
+ /// [`plane`] with `extra` more real bodies: ships made by [`ladder_ship`] (the N ladder's population: a few hundred about
+@@ -159,11 +159,34 @@ pub fn plane_with(cfg: Config, seed: u64, order: crate::fleet::Order, threads: u
+ /// and before the player's. `extra = 0` is the plane, bit for bit.
+ pub fn plane_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, members: u64, extra: usize) -> Res<Plane> {
+     let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
+-    plane_with_extra(cfg, seed, order, threads, world, extra)
++    plane_with_extra(cfg, seed, order, threads, world, extra, None)
++}
++
++/// [`plane_extra`] with a comet stream instead of ladder ships: bodies unbound about the star,
++/// each class born at `r0 = 2.5 AU · 2^w` with periapsis `peri_au` AU (star-grazing at ~0.006:
++/// 1.3 stellar radii). The passage tail's natural scene, mixed-peri when several classes are given.
++pub fn plane_comets(
++    cfg: Config,
++    seed: u64,
++    order: crate::fleet::Order,
++    threads: usize,
++    members: u64,
++    classes: &[(usize, i32, f64)],
++) -> Res<Plane> {
++    let (world, _) = emergent_engine::scenes::battle(members, crate::fleet::Q, seed, 1 << 15, false);
++    plane_with_extra(cfg, seed, order, threads, world, 0, Some(classes))
+ }
+ 
+ /// [`plane_with`] with `extra` more real bodies (see [`plane_extra`]).
+-pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, threads: usize, world: emergent_lattice::law::World, extra: usize) -> Res<Plane> {
++pub fn plane_with_extra(
++    cfg: Config,
++    seed: u64,
++    order: crate::fleet::Order,
++    threads: usize,
++    world: emergent_lattice::law::World,
++    extra: usize,
++    comets: Option<&[(usize, i32, f64)]>,
++) -> Res<Plane> {
+     use crate::fleet::{Fleet, Q};
+     let mut u = Universe::new(s(STAR_RADIUS), cfg);
+     u.threads = threads;
+@@ -193,7 +216,7 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         Scalar::raw(1_176, 18)?,
+     )?;
+     // Its sphere of influence from the mass ratio, in Home's units.
+-    let sep = u.rec(m).b.entry.trajectory.key().ok_or(crate::num::Error::Refused("moon without turning orbit"))?.periapsis;
++    let sep = u.rec(m).b.entry.key().ok_or(crate::num::Error::Refused("moon without turning orbit"))?.periapsis;
+     let proto = emergent_space::events::Doll::child(emergent_space::events::LogMass((-24) << 24), home_doll, u.rec(m).b.tube);
+     let soi = proto.edge_radius(&u.dolls[home_doll as usize].record.clone(), sep)?;
+     u.make_source(m, -6, soi)?;
+@@ -262,6 +285,34 @@ pub fn plane_with_extra(cfg: Config, seed: u64, order: crate::fleet::Order, thre
+         ships.push(u.add_body(Kind::Ship, spec, radius)?);
+         names.push(String::new());
+     }
++    // The comet stream (before start(): the position cache is sized there).
++    let mut comets_born = 0usize;
++    if let Some(classes) = comets {
++        let au = AU as f64;
++        // Sun-like GM in root units · c²: v_circ(1 AU) ≈ 2e-4 c.
++        let gm = 2.0e-4 * 2.0e-4 * au;
++        let vinf = 1.0e-4;
++        let word = |x: f64, e: i32| (x * (1u64 << e) as f64) as i128;
++        let sc = |x: f64, e: i32| Scalar::raw(word(x, e), -e).unwrap();
++        for &(cn, cw, peri_au) in classes {
++            let peri = peri_au * au;
++            let r0 = 2.5 * au * (1u64 << cw) as f64;
++            let vt = (gm * 2.0 * peri).sqrt() / r0; // L² = 2 GM peri (e ≈ 1)
++            let v = (vinf * vinf + 2.0 * gm / r0).sqrt();
++            let vr = -(v * v - vt * vt).sqrt();
++            for k in 0..cn {
++                let ang = k as f64 * 2.399963;
++                let (c, sn) = (ang.cos(), ang.sin());
++                let pos = [sc(r0 * c, 6), sc(r0 * sn, 6)];
++                let vel = [sc(vr * c - vt * sn, 34), sc(vr * sn + vt * c, 34)];
++                if u.add_body_state(Kind::Ship, 0, pos, vel, Scalar::raw(34, -10)?).is_ok() {
++                    comets_born += 1;
++                }
++                names.push(String::new());
++            }
++            println!("comets: requested {cn}, born {comets_born} so far (w={cw}, r0 {r0:.3e}, peri {peri:.0} = {peri_au} AU, v_t {vt:.3e}, v_r {vr:.3e})");
++        }
++    }
+     // The fleet: lattice radius of Home's low orbit (7,000 km: 4,740 root units), starting at angle 0.
+     let r_lat: i64 = 4_740 * Q;
+     let (fleet_angle, player_offset) = (0x4000_0000u32, 2_100_000u32);
+diff --git a/crates/universe/src/step.rs b/crates/universe/src/step.rs
+index ba8c2a9a..089077b7 100644
+--- a/crates/universe/src/step.rs
++++ b/crates/universe/src/step.rs
+@@ -73,7 +73,8 @@ pub enum Resolved {
+ /// two of ticks. Inside a planet's doll the orbit that leaves the doll (a flyby, a quasi-parabolic
+ /// capture) is resolved over what it spends in the doll: twice the leg from periapsis to the edge.
+ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<i64> {
+-    let mut period = b.to_doll(match &b.entry.trajectory {
++    let e = b.entry.entry()?;
++    let mut period = b.to_doll(match &e.trajectory {
+         Trajectory::Cycle(c) => c.period()?,
+         Trajectory::Passage(p) => p.duration()?,
+         Trajectory::Plunge(p) => {
+@@ -84,7 +85,7 @@ pub fn step_for(b: &Binding, per_period_log2: i32, edge: Option<Scalar>) -> Res<
+         },
+     })?;
+     if let (Some(edge), Some(tp)) = (edge, next_periapsis(b, b.event_time)?) {
+-        if b.entry.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r < edge)) {
++        if e.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r < edge)) {
+             if let Some(out) = next_exit(b, tp, edge)? {
+                 let inside = time_of(out - tp, b.clock_exp)?.scale(1)?;
+                 if inside < period {
+@@ -206,7 +207,8 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+     }
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+     let after_s = time_of(after, b.clock_exp)?;
+-    let apex = match &b.entry.trajectory {
++    let e = b.entry.entry()?;
++    let apex = match &e.trajectory {
+         Trajectory::Cycle(c) => {
+             let tube_period = c.period()?;
+             if edge > b.to_doll(c.signed_state(tube_period.scale(-1)?)?.radius)? {
+@@ -225,7 +227,7 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+         Trajectory::Plunge(_) => peri,
+     };
+     // A passage's last readable tick is one before its window closes: round the end inward.
+-    let end = if matches!(b.entry.trajectory, Trajectory::Passage(_)) { apex.fixed_floor(-(b.clock_exp as i32))? - 1 } else { apex.fixed_ceil(-(b.clock_exp as i32))? };
++    let end = if matches!(e.trajectory, Trajectory::Passage(_)) { apex.fixed_floor(-(b.clock_exp as i32))? - 1 } else { apex.fixed_ceil(-(b.clock_exp as i32))? };
+     let (mut lo, mut hi) = (after, i64::try_from(end).map_err(|_| Error::Refused("exit"))?);
+     if hi < lo || !outside(hi)? {
+         return Ok(None);
+@@ -234,8 +236,8 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+     // the predicate itself (inside one tick before, outside on it), and the bisection below, which finds the same
+     // tick (the predicate is monotone from `after`), is the fallback. A hand-out plans each leaver's passage, and
+     // fifty readouts a bisection took most of the time.
+-    if let (true, Trajectory::Passage(p)) = (guess, &b.entry.trajectory) {
+-        let guess = b.entry.unit.to_tube(edge).ok().and_then(|e| p.at_radius(e).ok()).and_then(|(off, _)| b.to_doll(off).ok()).and_then(|off| peri.add(off).ok()).and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok()).and_then(|t| i64::try_from(t).ok());
++    if let (true, Trajectory::Passage(p)) = (guess, &e.trajectory) {
++        let guess = e.unit.to_tube(edge).ok().and_then(|e| p.at_radius(e).ok()).and_then(|(off, _)| b.to_doll(off).ok()).and_then(|off| peri.add(off).ok()).and_then(|t| t.fixed_ceil(-(b.clock_exp as i32)).ok()).and_then(|t| i64::try_from(t).ok());
+         if let Some(g) = guess.filter(|&g| g > lo && g <= hi) {
+             if outside(g)? && !outside(g - 1)? {
+                 return Ok(Some(g));
+@@ -257,7 +259,8 @@ fn next_exit_with(b: &Binding, after: Tick, edge: Scalar, guess: bool) -> Res<Op
+ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+     let peri = time_of(b.tube.periapsis_time.get() as i64, b.clock_exp)?;
+     let after_s = time_of(after, b.clock_exp)?;
+-    let at = match &b.entry.trajectory {
++    let e = b.entry.entry()?;
++    let at = match &e.trajectory {
+         Trajectory::Plunge(_) => return Ok(None),
+         Trajectory::Cycle(c) => {
+             let period = b.to_doll(c.period()?)?;
+@@ -284,7 +287,7 @@ fn next_periapsis(b: &Binding, after: Tick) -> Res<Option<Tick>> {
+ /// tick of its fall.
+ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick>> {
+     // A plunge is an arc that ends at the surface: its terminal tick is the impact.
+-    if matches!(b.entry.trajectory, Trajectory::Plunge(_)) {
++    if matches!(b.entry.entry()?.trajectory, Trajectory::Plunge(_)) {
+         return Ok(b.terminal_tick()?.map(|t| t.max(after)));
+     }
+     // The engine's own reading (the turned tube plus its remainder), the one a kick or a crash checks the surface with.
+@@ -292,11 +295,11 @@ pub fn next_impact(b: &Binding, surface: Scalar, after: Tick) -> Res<Option<Tick
+     if inside(after)? {
+         return Ok(Some(after));
+     }
+-    if b.entry.trajectory.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r >= surface)) {
++    if b.entry.key().is_some_and(|k| b.to_doll(k.periapsis).is_ok_and(|r| r >= surface)) {
+         return Ok(None);
+     }
+     let Some(tp) = next_periapsis(b, after)? else { return Ok(None) };
+-    let whole = match &b.entry.trajectory {
++    let whole = match &b.entry.entry()?.trajectory {
+         Trajectory::Cycle(c) => c.period()?,
+         Trajectory::Passage(p) => p.duration()?,
+         Trajectory::Plunge(_) => return Ok(None), // returned above
+@@ -365,7 +368,7 @@ impl Work<'_, '_> {
+         self.rec.b = Binding {
+             doll,
+             tube: bound.tube,
+-            entry: bound.entry.clone(),
++            entry: crate::bind::EntrySlot::Live(bound.entry.clone()),
+             residual: bound.residual,
+             turn: bound.turn,
+             units: bound.units,
+@@ -518,7 +521,7 @@ impl Work<'_, '_> {
+         if let Some(tick) = self.rec.b.terminal_tick()? {
+             insert(&mut self.rec.plan, Item { t: tick, what: What::Crash });
+         } else if self.rec.kind != Kind::Planet
+-            && self.rec.b.entry.trajectory.key().is_some_and(|key| self.rec.b.to_doll(key.periapsis).is_ok_and(|r| r < self.doll().surface))
++            && self.rec.b.entry.key().is_some_and(|key| self.rec.b.to_doll(key.periapsis).is_ok_and(|r| r < self.doll().surface))
+         {
+             // The impact is a function of the binding: the boundary after a kick finds it where the kick left it.
+             let after = self.rec.b.event_time;
+@@ -934,7 +937,7 @@ mod tests {
+             let born = p.u.info[i].born;
+             let b = p.u.bodies().binding_at(i, born).unwrap();
+             let doll = &p.u.dolls[b.doll as usize];
+-            let is_passage = matches!(b.entry.trajectory, Trajectory::Passage(_));
++            let is_passage = b.entry.entry().map(|e| matches!(e.trajectory, Trajectory::Passage(_))).unwrap_or(false);
+             let starts = [Some(born), next_periapsis(&b, born).unwrap()];
+             for after in starts.into_iter().flatten() {
+                 for edge in [doll.edge, doll.edge.scale(-1).unwrap(), doll.edge.scale(-3).unwrap()] {
+diff --git a/crates/universe/src/universe.rs b/crates/universe/src/universe.rs
+index fc5be609..42ad0821 100644
+--- a/crates/universe/src/universe.rs
++++ b/crates/universe/src/universe.rs
+@@ -318,7 +318,7 @@ impl Universe {
+         let host = self.bodies.rec(centre).b.doll;
+         let tube = self.bodies.rec(centre).b.tube;
+         // The separation in the host's own units (the tube is compiled in units of the host's mass).
+-        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.trajectory.key().ok_or(Error::Refused("a doll centre needs a turning orbit"))?.periapsis)?;
++        let sep = self.bodies.rec(centre).b.to_doll(self.bodies.rec(centre).b.entry.key().ok_or(Error::Refused("a doll centre needs a turning orbit"))?.periapsis)?;
+         let parent_rec = self.dolls[host as usize].record.clone();
+         let rec = DollRec::child(name, host, mass, centre, tube, surface, Scalar::ZERO)?;
+         // The sphere of influence from the mass ratio (Laplace): separation · (m/M)^(2/5), in the parent's units.
+@@ -358,9 +358,22 @@ impl Universe {
+     /// Make a body from an orbit: a tube of `spec.doll`, exactly (no remainder to carry).
+     pub fn add_body(&mut self, kind: Kind, spec: OrbitSpec, radius: Scalar) -> Res<usize> {
+         let (entry, mut tube, units) = self.spec_binding(&spec, self.dolls[spec.doll as usize].unit)?;
+-        tube.key = self.cat.insert(entry.clone())?;
+-        let b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
++        // Under `ES_LAZY_ALL` a birth demotes too: the record rides, the arc never exists (the
++        // heading is read first, while the entry is still Live, so the birth itself never mints).
++        let birth = if crate::bind::lazy_entry_on() && crate::bind::lazy_all_demote_on() {
++            crate::bind::try_demote(&entry, true)
++        } else {
++            None
++        };
++        tube.key = match &birth {
++            Some(_) => u32::MAX,
++            None => self.cat.insert(entry.clone())?,
++        };
++        let mut b = bind_exact(entry, tube, self.dolls[spec.doll as usize].clock_exp(), units, 0, spec.doll);
+         let heading = prograde(&b)?;
++        if let Some(slot) = birth {
++            b.entry = slot;
++        }
+         let rec = BodyRec {
+             kind,
+             b,
+@@ -407,9 +420,22 @@ impl Universe {
+         let edge = (doll != 0).then(|| d.edge.scale(2)).transpose()?;
+         let bound = bind_surface(exact, 0, d.clock_exp(), edge, d.unit, Some(d.surface))?;
+         let mut tube = bound.tube;
+-        tube.key = self.cat.insert(bound.entry.clone())?;
+-        let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE, impact: None };
++        // Under `ES_LAZY_ALL` a birth demotes too (passages included: unbound births carry
++        // `outer`); the heading is read first, while the entry is still Live.
++        let birth = if crate::bind::lazy_entry_on() && crate::bind::lazy_all_demote_on() {
++            crate::bind::try_demote(&bound.entry, true)
++        } else {
++            None
++        };
++        tube.key = match &birth {
++            Some(_) => u32::MAX,
++            None => self.cat.insert(bound.entry.clone())?,
++        };
++        let mut b = Binding { doll, tube, entry: crate::bind::EntrySlot::Live(bound.entry), residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp: d.clock_exp(), event_time: 0, kick: crate::bind::Kick::NONE, impact: None };
+         let heading = prograde(&b)?;
++        if let Some(slot) = birth {
++            b.entry = slot;
++        }
+         let rec = BodyRec {
+             kind,
+             b,
+@@ -643,8 +669,26 @@ impl Universe {
+             self.bodies.retire(i, Segment { b: seg.b, until: seg.until });
+         }
+         if let Some(entry) = upd.new_entry.take() {
+-            if let Ok(id) = self.cat.insert(entry) {
+-                upd.rec.b.tube.key = id;
++            // The seam (`ES_LAZY_ENTRY=1`, off by default): a settled binding keeps no compiled
++            // trajectory — the exact key rides in the record and reads re-mint it (`Orbit::compile` /
++            // `Passage::compile` are pure in the record's fields), so neither the slot nor the `Arc`
++            // is ever taken. `u32::MAX` is a key no catalogue slot has, so the releases below are
++            // no-ops for demoted bindings. With `ES_LAZY_PASSAGES=1` the demote set extends to
++            // passages; with `ES_LAZY_ALL=1` the class list dies: every settle demotes, kick or not.
++            // Plunges never demote (no key to re-mint from).
++            let mut demoted = false;
++            let gate = upd.rec.b.kick.len > 0 || crate::bind::lazy_all_demote_on();
++            if crate::bind::lazy_entry_on() && gate {
++                if let Some(slot) = crate::bind::try_demote(&entry, crate::bind::lazy_passages_demote_on()) {
++                    upd.rec.b.tube.key = u32::MAX;
++                    upd.rec.b.entry = slot;
++                    demoted = true;
++                }
++            }
++            if !demoted {
++                if let Ok(id) = self.cat.insert(entry) {
++                    upd.rec.b.tube.key = id;
++                }
+             }
+         }
+         match upd.kind {
+@@ -870,10 +914,18 @@ impl Universe {
+             let t_bind = crate::prof::t();
+             let bound = bind_surface(l.state, l.tick, clock_exp, crate::step::passage_edge(&self.ctx(), doll), self.dolls[doll as usize].unit, Some(self.dolls[doll as usize].surface))?;
+             crate::prof::add(crate::prof::H_BIND, t_bind);
+-            let key = self.cat.insert(bound.entry.clone())?;
+             let mut tube = bound.tube;
+-            tube.key = key;
+-            let b = Binding { doll, tube, entry: bound.entry, residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE, impact: None };
++            // Under `ES_LAZY_ALL` a spawn demotes too: no catalogue slot, no standing arc.
++            let birth = if crate::bind::lazy_entry_on() && crate::bind::lazy_all_demote_on() {
++                crate::bind::try_demote(&bound.entry, true)
++            } else {
++                None
++            };
++            tube.key = match &birth {
++                Some(_) => u32::MAX,
++                None => self.cat.insert(bound.entry.clone())?,
++            };
++            let b = Binding { doll, tube, entry: birth.unwrap_or_else(|| crate::bind::EntrySlot::Live(bound.entry)), residual: bound.residual, turn: bound.turn, units: bound.units, clock_exp, event_time: l.tick, kick: crate::bind::Kick::NONE, impact: None };
+             let rec = BodyRec {
+                 kind: Kind::Ship,
+                 b,
+@@ -1288,21 +1340,36 @@ impl Universe {
+             put(&mut h, r.b.event_time as i128);
+             put(&mut h, r.b.tube.periapsis_angle as i128);
+             put(&mut h, r.b.tube.periapsis_time.get() as i64 as i128);
+-            if let Some(key) = r.b.entry.trajectory.key() {
+-                put_s(&mut h, key.periapsis);
+-                put(&mut h, key.k as i128);
+-                if key.k_exponent != 0 {
+-                    put(&mut h, key.k_exponent as i128);
++            match &r.b.entry {
++                crate::bind::EntrySlot::Live(e) => {
++                    if let Some(key) = e.trajectory.key() {
++                        put_s(&mut h, key.periapsis);
++                        put(&mut h, key.k as i128);
++                        if key.k_exponent != 0 {
++                            put(&mut h, key.k_exponent as i128);
++                        }
++                        if let Some(gap) = key.gap {
++                            put_s(&mut h, gap);
++                        }
++                    } else if let Trajectory::Plunge(p) = &e.trajectory {
++                        put(&mut h, -1);
++                        for coefficient in p.coefficients() { put_s(&mut h, coefficient); }
++                        put_s(&mut h, p.arrival().end.radius());
++                    }
++                    put(&mut h, e.clockwise as i128);
+                 }
+-                if let Some(gap) = key.gap {
+-                    put_s(&mut h, gap);
++                crate::bind::EntrySlot::Demoted { key, clockwise, .. } => {
++                    put_s(&mut h, key.periapsis);
++                    put(&mut h, key.k as i128);
++                    if key.k_exponent != 0 {
++                        put(&mut h, key.k_exponent as i128);
++                    }
++                    if let Some(gap) = key.gap {
++                        put_s(&mut h, gap);
++                    }
++                    put(&mut h, *clockwise as i128);
+                 }
+-            } else if let Trajectory::Plunge(p) = &r.b.entry.trajectory {
+-                put(&mut h, -1);
+-                for coefficient in p.coefficients() { put_s(&mut h, coefficient); }
+-                put_s(&mut h, p.arrival().end.radius());
+             }
+-            put(&mut h, r.b.entry.clockwise as i128);
+             put(&mut h, r.b.turn.a as i128);
+             put(&mut h, r.b.turn.b as i128);
+             for c in 0..2 {
+diff --git a/crates/universe/tests/flight.rs b/crates/universe/tests/flight.rs
+index 725c0fe4..5f7992c8 100644
+--- a/crates/universe/tests/flight.rs
++++ b/crates/universe/tests/flight.rs
+@@ -108,7 +108,7 @@ fn frame(p: &mut Plane, rtf: f64) -> View {
+ fn under_surface(p: &Plane) -> bool {
+     let rec = p.u.rec(p.player);
+     // a turning tube whose periapsis is under it, or a plunge (an arc that ends at it)
+-    rec.b.entry.trajectory.key().is_none_or(|k| rec.b.to_doll(k.periapsis).unwrap() < p.u.dolls[rec.b.doll as usize].surface)
++    rec.b.entry.entry().unwrap().trajectory.key().is_none_or(|k| rec.b.to_doll(k.periapsis).unwrap() < p.u.dolls[rec.b.doll as usize].surface)
+ }
+ 
+ fn planned_crash(p: &Plane) -> bool {
+diff --git a/crates/universe/tests/motion.rs b/crates/universe/tests/motion.rs
+index 812e9e55..fdba36bc 100644
+--- a/crates/universe/tests/motion.rs
++++ b/crates/universe/tests/motion.rs
+@@ -65,7 +65,7 @@ fn an_isolated_orbit_is_the_compiled_tube_and_costs_nothing() {
+         let (x, y) = (st.position[0] as f64, st.position[1] as f64);
+         (x * x + y * y).sqrt() * 2f64.powi(st.length_exponent as i32)
+     };
+-    let period = match &u.rec(ship).b.entry.trajectory {
++    let period = match &u.rec(ship).b.entry.entry().unwrap().trajectory {
+         emergent_space::binding::Trajectory::Cycle(o) => o.period().unwrap(),
+         _ => unreachable!(),
+     };
+diff --git a/crates/universe/tests/origin.rs b/crates/universe/tests/origin.rs
+index 2ccbfdf7..6534c6d0 100644
+--- a/crates/universe/tests/origin.rs
++++ b/crates/universe/tests/origin.rs
+@@ -53,7 +53,7 @@ fn a_mass_with_a_mantissa_is_in_the_law() {
+         let ship = u.add_body(Kind::Ship, OrbitSpec { doll: d, periapsis: s(a_f), e_q48: 0, clockwise: false, angle: 0, phase: 0 }, Scalar::ZERO).unwrap();
+         u.start().unwrap();
+         let b = u.rec(ship).b;
+-        let emergent_space::binding::Trajectory::Cycle(c) = &b.entry.trajectory else { unreachable!() };
++        let emergent_space::binding::Trajectory::Cycle(c) = &b.entry.entry().unwrap().trajectory else { unreachable!() };
+         // the compiled period is in the units of the planet's mass; to the doll's by the mantissa, to root ticks by the exponent
+         to_f64(b.to_doll(c.period().unwrap()).unwrap()) * 2f64.powi(-(u.dolls[d as usize].shift as i32))
+     };
+diff --git a/crates/universe/tests/p2_burn_out.rs b/crates/universe/tests/p2_burn_out.rs
+index 286dea97..8d42ed6c 100644
+--- a/crates/universe/tests/p2_burn_out.rs
++++ b/crates/universe/tests/p2_burn_out.rs
+@@ -66,7 +66,7 @@ fn a_toss_rises_to_its_apoapsis_and_falls_back_to_the_surface() {
+ 
+ fn a_toss(level: u8) {
+     let mut u = world(5.0);
+-    assert!(matches!(u.rec(ME).b.entry.trajectory, emergent_space::binding::Trajectory::Plunge(_)), "at rest above the planet is a fall");
++    assert!(matches!(u.rec(ME).b.entry.entry().unwrap().trajectory, emergent_space::binding::Trajectory::Plunge(_)), "at rest above the planet is a fall");
+     let burn_ticks = (3.0 / TICK_SECONDS) as Tick;
+     burn(&mut u, level, burn_ticks);
+     u.now = burn_ticks;
+@@ -82,7 +82,7 @@ fn a_toss(level: u8) {
+     let apo = -1.0 / energy;
+     // the tube now is a plunge arc, anchored at the apoapsis
+     let rec = u.rec(ME);
+-    let anchor = match &rec.b.entry.trajectory {
++    let anchor = match &rec.b.entry.entry().unwrap().trajectory {
+         emergent_space::binding::Trajectory::Plunge(p) => to_f64(p.initial_radius()),
+         t => panic!("a near-radial rise is a plunge arc, not {t:?}"),
+     };
+@@ -169,7 +169,7 @@ fn a_toss_from_a_given_state_matches_the_exact_geodesic() {
+             };
+             let u = make();
+             let rec = u.rec(0);
+-            let apo = match &rec.b.entry.trajectory {
++            let apo = match &rec.b.entry.entry().unwrap().trajectory {
+                 emergent_space::binding::Trajectory::Plunge(p) => to_f64(p.initial_radius()),
+                 t => panic!("ratio {ratio}, frac {frac}: expected a plunge arc, got {t:?}"),
+             };
+diff --git a/crates/universe/tests/plunge.rs b/crates/universe/tests/plunge.rs
+index 3d28a76f..e0c9ef3b 100644
+--- a/crates/universe/tests/plunge.rs
++++ b/crates/universe/tests/plunge.rs
+@@ -8,7 +8,7 @@ fn stopping_above_a_surface_falls_and_resolves_one_exact_terminal_event() {
+         let mut u = Universe::new(surface, Config::default());
+         let body = u.add_body_state(Kind::Player, 0, [Scalar::integer(r), Scalar::ZERO],
+             [Scalar::ZERO; 2], Scalar::ZERO).unwrap();
+-        assert!(matches!(u.rec(body).b.entry.trajectory, Trajectory::Plunge(_)));
++        assert!(matches!(u.rec(body).b.entry.entry().unwrap().trajectory, Trajectory::Plunge(_)));
+         let at = u.rec(body).b.terminal_tick().unwrap().unwrap();
+         let exact = u.rec(body).b.readout(0).unwrap();
+         assert_eq!(exact.velocity, [0; 2]);
+@@ -33,7 +33,7 @@ fn a_near_radial_kick_binding_keeps_its_exact_event_and_terminal_clock() {
+     let initial = IntegerState { position: [1 << 50, 0], velocity: [-(1 << 38), 1],
+         length_exponent: -40, velocity_exponent: -48 };
+     let bound = bind_surface(initial, 123, 0, None, Unit::ONE, Some(Scalar::integer(32))).unwrap();
+-    let mut binding = bind_exact(bound.entry, bound.tube, 0, bound.units, 123, 0);
++    let mut binding = bind_exact(bound.entry.clone(), bound.tube, 0, bound.units, 123, 0);
+     binding.turn = bound.turn;
+     binding.residual = bound.residual;
+     assert_eq!(binding.readout(123).unwrap(), initial);
