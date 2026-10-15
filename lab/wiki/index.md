@@ -6,7 +6,7 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | Topic | State | Runs | Current best |
 |---|---|---|---|
 | [birth-stagger](birth-stagger.md) | open | 1 | **The stagger is measured and it holds: the first-kick wave flattens 16.7–17.7× at the window |
-| [contact-speed](contact-speed.md) | open | 1 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
+| [contact-speed](contact-speed.md) | open | 2 | **The skip is solved in closed form, and it is a threshold in speed, not a tail: a detected |
 | [a-word](a-word.md) | open | 3 | **The word is wired and the readout half is refuted on the shipped gates: no one-word per-window |
 | [contact-carry](contact-carry.md) | open | 3 | **The r5 rung now exists, frozen at the engine's Q = 2²⁰, and at that Q the shipped law |
 | [replay-gate](replay-gate.md) | open | 3 | **The gate cannot fail for a law regression, and on main as it stands it certifies the |
@@ -20,9 +20,9 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
 | [view](view.md) | open | 38 | **The row-set deletion is built on the shipped crossings and the flyable frame collapses: steady map frames ≈ 1-3 ms p50 at 10³-10⁶ bodies at both the fitted and the belt zoom (86-160× at 10³, ~10³× at 10⁶ against the li |
-| [nladder](nladder.md) | open **conflict to resolve** | 40 | <<<<<<< main |
-| [kick-cadence](kick-cadence.md) | open | 44 | **The 524e-vs-54d9 discriminator is measured: what feeds back does not matter — the impulse-quantum trigger walks too, and 524e's contrary evidence is a machine artifact** (20261014-2012-dynamics-71b4). In one bounded-ke |
+| [kick-cadence](kick-cadence.md) | open | 45 | **There is no sub-quantum kick regime in the flown plane: every metronome kick fires a rebind, the accumulator never engages, and the quantum cannot constrain the cadence — so cadence, kick cost, the wave train and the c |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
+| [nladder](nladder.md) | open | 55 | **The record now exists: the lazy-Entry seam is rebuilt from the design description, committed as a patch, and re-flown — demote-after-kick is outcome-free on five arms, and the 10⁵ digest lands exactly on the scout's an |
 | [frame-cost](frame-cost.md) | open | 66 | **The crash search's probe bill is cut 6× exact and digest-identical, and the named |
 | [kick-jet](kick-jet.md) | open | 69 | **The batched promotion is priced: 11.7 µs on the true belt mix, exact to 2e-16, and the |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |
