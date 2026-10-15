@@ -1,0 +1,36 @@
+# Clean first-flight record — arm D (overwritten in out/ by the regen rerun; preserved from the
+# session's recorded greps before the overwrite. The regen rerun proved the digest and every
+# law counter bit-identical, so these clean-box numbers are the same flight's wall view.)
+
+Box at launch (01:34, idle): load average 0.16, 0.13, 0.06; 10.1 GB free.
+
+    end: game_s=700000 frames=420062 alive(player)=true settle=0.00 s (events after cut 0)
+         rss=913 hwm=913 MB; kicks=6040477 events=12172103 encounters=33984 opens=200637
+         boundaries=5926862 handoffs=18 refused=0 lost=30 held_max=121 worst=(8352,11.96,238)
+    digest: 90348a698294dd47ccfca67a70dc890b8ea8835030bdd1a22eb2a74ee8293004
+    train: n=200000 bodies=200028 cut=700000 rtf=100 frames=90062->420062 build_s=8.53
+         wall_s=427.4 settle_s=0.00 rss_end_mb=913 hwm_mb=913 b_per_body=1395
+         kicks=6040477 encounters=33984 digest=90348a69… alive=true
+
+Wave/floor table (idle box), kicks per 250-game-s sample:
+    era            floor  peak          ratio   rss(MB)  over  max_ms
+    10k-35k        343    35697/35484   103x    455->906   0    11.96
+    60k-110k       343    23830->13575  70->37x 906->912   0    11.94
+    135k-235k      350    11893->7958   34->22x 912->913   0    11.94
+    260k-385k      424    7208->4488    17->7x  913        0    11.51
+    410k-585k      701    5048->3748    7->4x   913        0    11.17
+    610k-700k      1137   3656->3442    3->2.3x 913        0    11.65
+  rss deltas at waves: +1/+5/+1/+0 then 0 for 599k game-s; lag=0.000 at all 2801 samples;
+  0 frames over 12 ms in 420062 (worst 11.96 ms at frame 8352, build era);
+  h census: hist 4161/4161 from 20k on; h2>0 at 29/141 samples, max 3 (game_s 70001, 210001),
+  hmax<=2, hsum back to 4161; refusals 0; dead 0; encounters 33984 (48.55/ks).
+
+The regen rerun (01:45-01:57, box contended by the window's other builds: load 7.4):
+  digest and all law counters bit-identical (kicks 6040477, events 12172103, encounters 33984,
+  opens 200637, boundaries 5926862, handoffs 18, refused 0, lost 30, b_per_body 1395);
+  frames 420062; but frames-over-budget appeared late (22-67 per 25k window from 585k on,
+  max_ms up to 28.5), held_max 2048 (vs 121), settle 0.62 s, rss 913 -> 995 (+82 MB,
+  allocator-retained after the held scans flushed; VmHWM = 995). Lag 0.000 at every sample
+  even so. This is the budget-contention measurement reported in the dossier: wall contention
+  pushes frames over the 12 ms budget, the drain holds scans, their standing memory raises
+  rss; the per-body retention (catalogue, history, b_per_body) never moves.
