@@ -1,0 +1,68 @@
+== A: per-kick multiply-add error (Newtonian, closed form) ==
+      e               kick   x=dE/|E|       eps1       eps2  >1%  >r2floor
+    0.3     encounter 1e-3  3.258e-03  1.992e-05  7.572e-08  False     True
+    0.3  deep passage 1e-2  3.258e-02  2.011e-03  7.654e-05  False     True
+    0.3      slingshot 0.3  9.773e-01  2.295e+00  2.684e+00   True     True
+    0.6     encounter 1e-3  6.325e-03  7.516e-05  5.547e-07  False     True
+    0.6  deep passage 1e-2  6.325e-02  7.656e-03  5.664e-04  False     True
+    0.6      slingshot 0.3  1.897e+00  1.010e+01  2.319e+01   True     True
+    0.9     encounter 1e-3  2.757e-02  1.438e-03  4.630e-05  False     True
+    0.9  deep passage 1e-2  2.757e-01  1.550e-01  5.034e-02   True     True
+    0.9      slingshot 0.3  8.270e+00  3.229e+02  3.297e+03   True     True
+  0.961     encounter 1e-3  7.181e-02  9.898e-03  8.317e-04  False     True
+  0.961  deep passage 1e-2  7.181e-01  1.174e+00  1.004e+00   True     True
+  0.961      slingshot 0.3  2.154e+01  3.353e+03  8.980e+04   True     True
+   0.99     encounter 1e-3  2.821e-01  1.626e-01  5.406e-02   True     True
+   0.99  deep passage 1e-2  2.821e+00  2.514e+01  8.635e+01   True     True
+   0.99      slingshot 0.3  8.464e+01  9.983e+04  1.055e+07   True     True
+  0.999         belt 2^-23  3.371e-04  2.131e-07  8.380e-11  False    False
+  0.999     encounter 1e-3  2.828e+00  2.528e+01  8.700e+01   True     True
+  0.999  deep passage 1e-2  2.828e+01  6.562e+03  2.309e+05   True     True
+  0.999      slingshot 0.3  8.483e+02  3.147e+07  3.337e+10   True     True
+H1 law check: [(0.001, '3.33e-04'), (0.01, '3.33e-03'), (0.1, '3.27e-02'), (0.3, '9.50e-02')]
+H2 benign control eps: 1.88e-08
+e* per kick (1% bar, 1st/2nd order): {'belt 2^-23': 5e-06, 'encounter 1e-3': 0.038372, 'deep passage 1e-2': 0.351739, 'slingshot 0.3': None} {'belt 2^-23': 2e-06, 'encounter 1e-3': 0.016966, 'deep passage 1e-2': 0.163284, 'slingshot 0.3': None}
+ring crossings/cycle: {0.3: 16, 0.6: 42, 0.9: 106, 0.961: 150, 0.99: 213, 0.999: 319}
+
+== B: chaining (mean-anomaly error, turns) ==
+one_sided fresh   kicks 17 e_final 0.99775 {10: '7.87e-02'}
+one_sided chained kicks 17 e_final 0.99775 {10: '3.47e-01'}
+random_sign fresh   kicks 200 e_final 0.977828 {10: '1.16e-01', 50: '6.13e-01', 100: '4.95e-01', 200: '7.09e+00'}
+random_sign chained kicks 200 e_final 0.977828 {10: '5.38e-01', 50: '1.17e+01', 100: '1.44e+01', 200: '1.39e+02'}
+
+== C harness control (g=0): Kepler tau relerr, phi err ==
+tau relerr 2.32e-06  phi_cycle err 7.30e-05
+
+== C: GR separatrix (E = 0.95, M = 1) ==
+u_c 0.20313  L_sep 3.550081
+d=2e-02  window edge
+d=1e-02  T=2.9456e+02  phi=12.8
+d=3e-03  T=3.1847e+02  phi=15.2
+d=1e-03  T=3.4223e+02  phi=17.5
+d=3e-04  T=3.6940e+02  phi=20.0
+d=1e-04  T=3.9470e+02  phi=22.3
+local exponents dlnT/dln(1/d): [(0.003, 0.065), (0.001, 0.065), (0.0003, 0.063), (0.0001, 0.06)]
+log fit T ~ a + b*ln(1/d): b=21.82 a=192.7
+multiply-add rows:
+  d=1e-02 dL/L=1e-03 eps=5.322e-04 crossed=False
+  d=3e-03 dL/L=1e-03 eps=5.550e-03 crossed=False
+  d=1e-03 dL/L=1e-03 eps=4.885e-02 crossed=False
+  d=1e-03 dL/L=-2e-03 BOUNDARY KICK: MA predicts bound T=365.0, exact = PLUNGE (no cycle)
+
+wall 1.3 s
+--- key rows (compare with dossier.md) ---
+A: e=0.99 kick=encounter 1e-3: eps1=1.626e-01
+A: e=0.9 kick=deep passage 1e-2: eps1=1.550e-01
+A: e=0.999 kick=belt 2^-23: eps1=2.131e-07
+A e*(1%): {'belt 2^-23': 5e-06, 'encounter 1e-3': 0.038372, 'deep passage 1e-2': 0.351739, 'slingshot 0.3': None}  2nd-order: {'belt 2^-23': 2e-06, 'encounter 1e-3': 0.016966, 'deep passage 1e-2': 0.163284, 'slingshot 0.3': None}
+B: one_sided fresh kicks=17 last_err=7.87e-02 turns
+B: one_sided chained kicks=17 last_err=3.47e-01 turns
+B: random_sign fresh kicks=200 last_err=7.09e+00 turns
+B: random_sign chained kicks=200 last_err=1.39e+02 turns
+C control tau relerr: 2.32e-06
+C: T = 192.7 + 21.82 ln(1/d)
+C MA: d=1e-02 dL/L=1e-03 eps=5.322e-04
+C MA: d=3e-03 dL/L=1e-03 eps=5.550e-03
+C MA: d=1e-03 dL/L=1e-03 eps=4.885e-02
+C MA boundary kick: T_ma=365.0 exact=PLUNGE (no cycle)
+wall_s: 1.32
