@@ -1,0 +1,165 @@
+//! The bind's floor, component lens: where a belt bind's time goes (compile, the readouts, the
+//! turn, the fit), the primitive prices that set the floor, and whether the two event readouts
+//! every bind pays (the `Rebinding`'s own residual decode and the universe's decode for the turn)
+//! are the same numbers.
+//!
+//! cargo run --release -p emergent-universe --example bindfloor
+use emergent_space::binding::{cartesian, IntegerState, Rebinding};
+use emergent_space::orbit::{Orbit, OrbitKey, Scalar};
+use emergent_universe::bind::{bind, choose_units};
+use emergent_universe::world::Unit;
+use std::time::Instant;
+
+const AU: i64 = 101_300_000;
+
+struct Rng(u64);
+impl Rng {
+    fn f(&mut self) -> f64 {
+        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        ((self.0 >> 11) as f64) / ((1u64 << 53) as f64)
+    }
+}
+
+fn us(d: std::time::Duration, n: usize) -> f64 {
+    d.as_secs_f64() * 1e6 / n as f64
+}
+
+fn main() {
+    // Belt ensemble about the star (the root doll: mass 1 in its own units, Unit::ONE):
+    // 0.5-8 AU, e up to 0.25, biased small (the scenario's belt mix).
+    let seed: u64 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0x9E37_79B9_7F4A_7C15);
+    let strong = std::env::args().nth(2).map(|s| s == "strong").unwrap_or(false);
+    let mut rng = Rng(seed);
+    let n = 400;
+    let mut states = Vec::new();
+    let mut elapsed = Vec::new();
+    while states.len() < n {
+        let (a, e) = if strong {
+            ((0.5 + 1.5 * rng.f()) * AU as f64, 0.5 + 0.45 * rng.f())
+        } else {
+            ((0.5 + 7.5 * rng.f()) * AU as f64, 0.25 * rng.f().powf(1.5))
+        };
+        let p = Scalar::integer((a * (1.0 - e)) as i64);
+        let key = match OrbitKey::bound(p, (((e) * (1u64 << 48) as f64) as u64).max(1)) {
+            Ok(k) => k,
+            Err(_) => continue,
+        };
+        let orbit = match Orbit::compile(key) {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+        let period = orbit.period().unwrap();
+        let frac = Scalar::raw((rng.f() * ((1u64 << 40) as f64)) as i128, -40).unwrap();
+        let el = period.mul(frac).unwrap();
+        let st = orbit.signed_state(el).unwrap();
+        let r_max = Scalar::integer((a * (1.0 + e)) as i64);
+        // periapsis speed, Newtonian-sized: sqrt((1+e)/(1-e) / a), c=1, M=1
+        let v_max = Scalar::integer((((1.0 + e) / (1.0 - e) / a) as f64).sqrt() as i64);
+
+        let units = choose_units(r_max, v_max);
+        let s = cartesian(st, 0, false, units).unwrap();
+        states.push(s);
+        elapsed.push(el);
+    }
+
+    let t: i64 = 40_000_000; // ~461 days: mid-orbit for most of the belt
+    let mut t_bind = std::time::Duration::ZERO;
+    let mut t_from = std::time::Duration::ZERO;
+    let mut t_compile = std::time::Duration::ZERO;
+    let mut t_dead = std::time::Duration::ZERO;
+    let mut t_read = std::time::Duration::ZERO;
+    let (mut same, mut diff, mut refused) = (0usize, 0usize, 0usize);
+    let mut bdigest: u64 = 0;
+    let mut worst = [0i64; 4];
+
+    // Warm, then measure.
+    for s in states.iter().take(20) {
+        let _ = bind(*s, t, 0, None, Unit::ONE);
+    }
+    for (i, s) in states.iter().enumerate() {
+        let t0 = Instant::now();
+        let bound = bind(*s, t, 0, None, Unit::ONE);
+        t_bind += t0.elapsed();
+        let bound = match bound {
+            Ok(b) => b,
+            Err(_) => {
+                refused += 1;
+                continue;
+            }
+        };
+        let time = Scalar::integer(t);
+        let t0 = Instant::now();
+        let fit = Rebinding::from_state(*s, time, None).unwrap();
+        t_from += t0.elapsed();
+        // Bound digest: fold every field the engine stores into one number.
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        format!("{:?} {:?} {:?}", bound.tube, bound.turn, bound.residual).hash(&mut h);
+        (bound.units.0, bound.units.1, bound.orbit.radius).hash(&mut h);
+        bdigest = (bdigest.wrapping_mul(0x100000001b3)).wrapping_add(h.finish());
+        let key = fit.trajectory.key().unwrap();
+        let t0 = Instant::now();
+        let _ = Orbit::compile(key).unwrap();
+        t_compile += t0.elapsed();
+        let t0 = Instant::now();
+        let dead = fit.decoded_event().unwrap();
+        t_dead += t0.elapsed();
+        let t0 = Instant::now();
+        let _ = fit.trajectory.state(elapsed[i]).unwrap();
+        t_read += t0.elapsed();
+        // The universe's own decode of the same event: the tube readout path the turn is
+        // measured against (Unit::ONE, so no conversion): same instant, second computation.
+        let dt = Scalar::integer(t).sub(fit.periapsis_time).unwrap();
+        let live = cartesian(
+            bound.entry.trajectory.state(dt).unwrap(),
+            bound.tube.periapsis_angle,
+            bound.entry.clockwise,
+            bound.units,
+        )
+        .unwrap();
+        if live == dead {
+            same += 1;
+        } else {
+            diff += 1;
+            for k in 0..2 {
+                worst[0] = worst[0].max((live.position[k] - dead.position[k]).abs());
+                worst[2] = worst[2].max((live.velocity[k] - dead.velocity[k]).abs());
+            }
+        }
+    }
+    let m = (n - refused) as f64;
+    println!("ensemble: {n} {} states, seed {:x}, {refused} refused, t = {t} s", if strong {"strong (0.5-2 AU, e 0.5-0.95)"} else {"belt (0.5-8 AU, e<=0.25)"}, seed);
+    println!("  universe bind() whole          {:8.2} us", us(t_bind, n - refused));
+    println!("  Rebinding::from_state          {:8.2} us", us(t_from, m as usize));
+    println!("    Orbit::compile alone         {:8.2} us", us(t_compile, m as usize));
+    println!("    decoded_event (dead here)    {:8.2} us", us(t_dead, m as usize));
+    println!("    fit_key+at_radius+phase      {:8.2} us  (from_state - compile - decoded_event)",
+        us(t_from, m as usize) - us(t_compile, m as usize) - us(t_dead, m as usize));
+    println!("  one trajectory read (state)    {:8.2} us", us(t_read, m as usize));
+    println!("  bind - from_state (turn+cnv)   {:8.2} us", us(t_bind, n - refused) - us(t_from, m as usize));
+    println!("Bound digest: {bdigest:016x}");
+    println!("event readout identity: {same} bit-identical, {diff} differ (worst pos/vel word delta {} / {})", worst[0], worst[2]);
+    // The floor's primitive prices on this box (exact arithmetic the fit is made of).
+    let reps = 200_000;
+    let x = Scalar::integer(123_456_789);
+    let y = Scalar::integer(987_654_321);
+    let xs: Vec<_> = (0..reps).map(|i| Scalar::integer(123_456_789 + (i as i64 % 1000) * 7919)).collect();
+    let ys: Vec<_> = (0..reps).map(|i| Scalar::integer(987_654_321 - (i as i64 % 977) * 6421)).collect();
+    let t0 = Instant::now();
+    for i in 0..reps { std::hint::black_box(xs[i].mul(ys[i]).unwrap()); }
+    println!("primitives: Scalar mul {:.2} ns", t0.elapsed().as_secs_f64() * 1e9 / reps as f64);
+    let t0 = Instant::now();
+    for i in 0..reps { std::hint::black_box(xs[i].div(ys[i]).unwrap()); }
+    println!("primitives: Scalar div {:.2} ns", t0.elapsed().as_secs_f64() * 1e9 / reps as f64);
+    let t0 = Instant::now();
+    for i in 0..reps { std::hint::black_box(ys[i].sqrt().unwrap()); }
+    println!("primitives: Scalar sqrt {:.2} ns", t0.elapsed().as_secs_f64() * 1e9 / reps as f64);
+    let ai: Vec<_> = (0..reps).map(|i| 0x1234_5678_9ABC_DEF0i128.wrapping_add(i as i128)).collect();
+    let bi: Vec<_> = (0..reps).map(|i| 0x0FED_CBA9_8765_4321i128.wrapping_add(i as i128 * 3)).collect();
+    let t0 = Instant::now();
+    for i in 0..reps { std::hint::black_box(ai[i] / bi[i]); }
+    println!("primitives: i128 div {:.2} ns", t0.elapsed().as_secs_f64() * 1e9 / reps as f64);
+    let t0 = Instant::now();
+    for i in 0..reps { std::hint::black_box(ai[i].wrapping_mul(bi[i])); }
+    println!("primitives: i128 mul {:.2} ns", t0.elapsed().as_secs_f64() * 1e9 / reps as f64);
+}

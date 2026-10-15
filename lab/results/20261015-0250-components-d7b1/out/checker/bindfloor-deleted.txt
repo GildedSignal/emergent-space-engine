@@ -1,0 +1,64 @@
+--- belt (tuned)
+ensemble: 400 belt (0.5-8 AU, e<=0.25) states, seed 9e3779b97f4a7c15, 0 refused, t = 40000000 s
+  universe bind() whole             14.83 us
+  Rebinding::from_state             13.76 us
+    Orbit::compile alone             5.37 us
+    decoded_event (dead here)        3.30 us
+    fit_key+at_radius+phase          5.08 us  (from_state - compile - decoded_event)
+  one trajectory read (state)        3.14 us
+  bind - from_state (turn+cnv)       1.07 us
+Bound digest: 4e7c95a96345ec58
+event readout identity: 400 bit-identical, 0 differ (worst pos/vel word delta 0 / 0)
+primitives: Scalar mul 2.91 ns
+primitives: Scalar div 24.49 ns
+primitives: Scalar sqrt 93.91 ns
+primitives: i128 div 12.70 ns
+primitives: i128 mul 1.71 ns
+--- strong (held out)
+ensemble: 400 strong (0.5-2 AU, e 0.5-0.95) states, seed cafe, 0 refused, t = 40000000 s
+  universe bind() whole             41.82 us
+  Rebinding::from_state             40.58 us
+    Orbit::compile alone            32.20 us
+    decoded_event (dead here)        3.33 us
+    fit_key+at_radius+phase          5.05 us  (from_state - compile - decoded_event)
+  one trajectory read (state)        3.17 us
+  bind - from_state (turn+cnv)       1.24 us
+Bound digest: 68e343c4c2d3c1da
+event readout identity: 400 bit-identical, 0 differ (worst pos/vel word delta 0 / 0)
+primitives: Scalar mul 2.74 ns
+primitives: Scalar div 24.75 ns
+primitives: Scalar sqrt 95.36 ns
+primitives: i128 div 13.06 ns
+primitives: i128 mul 1.66 ns
+--- belt seed 1337 (held out)
+ensemble: 400 belt (0.5-8 AU, e<=0.25) states, seed 539, 0 refused, t = 40000000 s
+  universe bind() whole             14.84 us
+  Rebinding::from_state             13.63 us
+    Orbit::compile alone             5.41 us
+    decoded_event (dead here)        3.32 us
+    fit_key+at_radius+phase          4.90 us  (from_state - compile - decoded_event)
+  one trajectory read (state)        3.18 us
+  bind - from_state (turn+cnv)       1.21 us
+Bound digest: 62ac6bbb982f1d20
+event readout identity: 400 bit-identical, 0 differ (worst pos/vel word delta 0 / 0)
+primitives: Scalar mul 2.71 ns
+primitives: Scalar div 24.91 ns
+primitives: Scalar sqrt 93.42 ns
+primitives: i128 div 12.77 ns
+primitives: i128 mul 1.76 ns
+--- strong seed 1337 (held out)
+ensemble: 400 strong (0.5-2 AU, e 0.5-0.95) states, seed 539, 0 refused, t = 40000000 s
+  universe bind() whole             42.17 us
+  Rebinding::from_state             40.71 us
+    Orbit::compile alone            32.47 us
+    decoded_event (dead here)        3.32 us
+    fit_key+at_radius+phase          4.92 us  (from_state - compile - decoded_event)
+  one trajectory read (state)        3.16 us
+  bind - from_state (turn+cnv)       1.45 us
+Bound digest: 0fe34a074357926a
+event readout identity: 400 bit-identical, 0 differ (worst pos/vel word delta 0 / 0)
+primitives: Scalar mul 2.71 ns
+primitives: Scalar div 24.46 ns
+primitives: Scalar sqrt 93.44 ns
+primitives: i128 div 12.71 ns
+primitives: i128 mul 1.69 ns
