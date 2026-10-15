@@ -1,0 +1,192 @@
+diff --git a/crates/lattice/examples/passthrough.rs b/crates/lattice/examples/passthrough.rs
+new file mode 100644
+index 00000000..8df7c781
+--- /dev/null
++++ b/crates/lattice/examples/passthrough.rs
+@@ -0,0 +1,186 @@
++//! The premise red-team's falsifier (run 20261015-0358-redteam-8144): does the shipped
++//! contact law resolve every detected contact, or does the receding-skip gate drop the
++//! ones whose closest approach lands inside the detection bin?
++//!
++//! Drives `Chronon` (the reference stepper every mode must reproduce bit for bit) under
++//! `Law::RelativisticV1` at the engine's Q = 2^20 with constructed head-on pairs:
++//! first touch at phase alpha inside bin 0, rho = reach/|w|. Prediction (from the code,
++//! pre-registered in the run's predictions.md): skip <=> d0 <= wa (closest approach inside
++//! the bin), independent of reach, |w| and mass separately.
++//!
++//! Usage: cargo run -p emergent-lattice --release --example passthrough
++use emergent_lattice::chronon::Chronon;
++use emergent_lattice::{Body, Law, Response, Stepper, World};
++
++const Q: i64 = 1 << 20;
++/// One lattice unit on the fleet lattice: 2^-20 of the star's M (1.477 km), in metres
++/// (crates/universe/src/fleet.rs header: c = 2^20 lattice units per tick, one lattice
++/// unit is 2^-20 of the star's M, a chronon is one tick of the root clock).
++const UNIT_M: f64 = 1_477.0 / (1 << 20) as f64;
++/// One chronon in seconds (crates/universe/src/view.rs TICK_SECONDS).
++const CHRONON_S: f64 = 4.925_490_947e-6;
++
++struct Arm {
++    reach: i64,
++    wa: i64,
++    /// first-touch offset inside bin 0, in quanta (d0 = reach + delta)
++    delta: i64,
++    steps: i64,
++}
++
++struct Outcome {
++    detected: bool,
++    exchanged: bool,
++    /// prediction: skip <=> d0 <= wa
++    predicted_skip: bool,
++    actual_d0: i64,
++    late_exchange: bool,
++    exact_swap: bool,
++}
++
++fn run_arm(a: Arm) -> Outcome {
++    let d0 = a.reach + a.delta;
++    let (xa, xb) = (-(d0 / 2), d0 - d0 / 2); // xb - xa = d0 exactly
++    let (ka, kb) = (a.wa / 2, a.wa / 2 - a.wa); // kb - ka = -wa exactly: A at xa moves toward B at xb
++    let bodies = vec![
++        Body::new(1, [xa, 0], [ka, 0], 1000, a.reach / 2, Response::Bounce),
++        Body::new(2, [xb, 0], [kb, 0], 1000, a.reach - a.reach / 2, Response::Bounce),
++    ];
++    let w = World::new(Q, None, bodies)
++        .and_then(|w| w.with_law(Law::RelativisticV1))
++        .expect("genesis");
++    let mut c = Chronon::new(w, true).expect("chronon");
++    let (k0a, k0b) = (c.world().bodies[0].k, c.world().bodies[1].k);
++    // Bin 0 is the detection bin by construction (first touch at delta/wa in (0, 1]).
++    let mut detected = false;
++    let mut exchanged = false;
++    let mut exact_swap = false;
++    let mut late_exchange = false;
++    for i in 0..a.steps {
++        c.step();
++        let w = c.world();
++        let (b0, b1) = (&w.bodies[0], &w.bodies[1]);
++        let moved = b0.k != k0a || b1.k != k0b || b0.rev > 0 || b1.rev > 0;
++        if i == 0 {
++            detected = w_tick_contacts(&c) > 0;
++            exchanged = moved;
++            // positive control: equal-mass head-on v1 reflection swaps the velocities
++            exact_swap = b0.k == k0b && b1.k == k0a;
++        } else if moved && !exchanged {
++            late_exchange = true;
++            break;
++        }
++        // stop early once the pair is far and receding (saves nothing at n=2 but is honest)
++        let dx = b1.x[0] - b0.x[0];
++        if i > 2 && dx > 4 * a.reach && (b1.k[0] - b0.k[0]) > 0 {
++            break;
++        }
++    }
++    Outcome {
++        detected,
++        exchanged,
++        predicted_skip: d0 <= a.wa,
++        actual_d0: d0,
++        late_exchange,
++        exact_swap,
++    }
++}
++
++fn w_tick_contacts(c: &Chronon) -> u64 {
++    c.log().contacts
++}
++
++fn main() {
++    println!("unit_m={UNIT_M:.4} chronon_s={CHRONON_S:.4e} c_per_chronon_m={:.1}", UNIT_M * Q as f64);
++    println!();
++
++    // ---- 1. the boundary grid: skip <=> d0 <= wa, swept in rho x first-touch phase -------
++    let mut misses = 0usize;
++    let mut rows = 0usize;
++    let mut skip_at: Vec<(f64, usize, usize)> = Vec::new(); // (rho, skips, exchanged)
++    for &reach in &[7i64, 71, 709] {
++        for &rho in &[0.01f64, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 0.99, 1.01, 1.2, 1.5, 2.0, 5.0] {
++            let wa = (((reach as f64 / rho) as i64) / 2) * 2; // even
++            let wa = wa.max(2);
++            let mut skips = 0usize;
++            let mut exchanged = 0usize;
++            for &alpha in &[0.05f64, 0.2, 0.35, 0.5, 0.65, 0.8, 0.95] {
++                let delta = (alpha * wa as f64) as i64;
++                let o = run_arm(Arm { reach, wa, delta, steps: 200 });
++                rows += 1;
++                let pred_skip = o.predicted_skip;
++                let actual_skip = o.detected && !o.exchanged && !o.late_exchange;
++                if o.detected && actual_skip != pred_skip {
++                    misses += 1;
++                    println!("MISS reach={reach} wa={wa} d0={} predicted_skip={pred_skip} actual={:?}", o.actual_d0, (o.detected, o.exchanged, o.late_exchange));
++                }
++                if !o.detected {
++                    misses += 1;
++                    println!("MISS (no detection!) reach={reach} wa={wa} delta={delta}");
++                }
++                if actual_skip {
++                    skips += 1;
++                } else if o.exchanged {
++                    exchanged += 1;
++                }
++            }
++            skip_at.push((reach as f64 / wa as f64, skips, exchanged));
++        }
++    }
++    println!("boundary grid: {rows} arms, {misses} misses against skip<=>d0<=wa");
++    println!("rho (reach/|w|)  skips/exchanged over 7 phases   (prediction: skip-rate = max(0,1-rho))");
++    for (rho, s, e) in &skip_at {
++        println!("  {rho:7.3}          {}/{}", s, s + e);
++    }
++    println!();
++
++    // ---- 2. the named game cases ----------------------------------------------------------
++    let cases: &[(&str, f64, f64)] = &[
++        ("0.5 m missile + 50 m ship, closing 0.9 c", 50.5, 0.9),
++        ("0.5 m missile + 50 m ship, closing 0.0034 c (just under)", 50.5, 0.0034),
++        ("5 m + 5 m ships, closing 0.0068 c (the 50% point)", 10.0, 0.0068),
++        ("5 m + 5 m ships, closing 0.001 c (below)", 10.0, 0.001),
++        ("50 m + 50 m ships, closing 0.9 c", 100.0, 0.9),
++        ("50 m + 50 m ships, closing 0.068 c (the 50% point)", 100.0, 0.068),
++    ];
++    println!("game cases (reach_m, closing beta_c) — coin flip at the phase, run at phase 0.5:");
++    for (name, reach_m, beta) in cases {
++        let reach = (reach_m / UNIT_M) as i64;
++        let wa = (beta * Q as f64) as i64;
++        let delta = (0.5 * wa as f64) as i64;
++        let o = run_arm(Arm { reach, wa, delta, steps: 300 });
++        println!(
++            "  {name}: reach={reach}q wa={wa}q d0={} -> detected={} exchanged={} (predicted skip: {})",
++            o.actual_d0, o.detected, o.exchanged, o.predicted_skip
++        );
++    }
++    println!();
++
++    // ---- 3. controls ------------------------------------------------------------------------
++    let pos = run_arm(Arm { reach: 71, wa: 14, delta: 7, steps: 300 }); // rho ~ 5, phase ~0.5
++    println!(
++        "positive control (rho~5): detected={} exchanged={} exact velocity swap={} late_exchange={}",
++        pos.detected, pos.exchanged, pos.exact_swap, pos.late_exchange
++    );
++    let neg = run_arm(Arm { reach: 71, wa: 4 * Q / 5, delta: 1, steps: 300 }); // rho ~ 0.0004
++    println!(
++        "negative control (rho~4e-4, closing 0.8c): detected={} exchanged={} late_exchange={} (200+ chronons watched)",
++        neg.detected, neg.exchanged, neg.late_exchange
++    );
++
++    // ---- 4. the threshold table (computed from the verified law) ---------------------------
++    println!();
++    println!("threshold: pair ghosts when closing speed > reach per chronon; v* = reach_m/{} m/s", UNIT_M * Q as f64 / 1.0);
++    println!("  {:>28} | {:>10} | {:>12} | {:>10}", "pair", "reach m", "v* (km/s)", "v* (c)");
++    for (name, reach_m) in [
++        ("pebble + pebble", 1.0f64),
++        ("5 m + 5 m ships", 10.0),
++        ("0.5 m missile + 50 m ship", 50.5),
++        ("50 m + 50 m ships", 100.0),
++        ("500 m + 500 m (station)", 1000.0),
++        ("Home (Earth) surface", 6.37e6),
++    ] {
++        let v = reach_m / (UNIT_M * Q as f64) * 299_792.458; // km/s: reach_m/(c*chronon m)*c_kms
++        println!("  {name:>28} | {reach_m:10.3} | {v:12.3} | {vc:10.4}", vc = v / 299_792.458);
++    }
++}

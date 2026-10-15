@@ -1,0 +1,66 @@
+unit_m=0.0014 chronon_s=4.9255e-6 c_per_chronon_m=1477.0
+
+boundary grid: 294 arms, 0 misses against skip<=>d0<=wa
+rho (reach/|w|)  skips/exchanged over 7 phases   (prediction: skip-rate = max(0,1-rho))
+    0.010          7/7
+    0.050          7/7
+    0.100          6/7
+    0.206          6/7
+    0.318          5/7
+    0.500          4/7
+    0.700          3/7
+    1.167          0/7
+    1.167          0/7
+    1.167          0/7
+    1.750          0/7
+    1.750          0/7
+    3.500          0/7
+    3.500          0/7
+    0.010          7/7
+    0.050          7/7
+    0.100          6/7
+    0.201          6/7
+    0.301          5/7
+    0.500          4/7
+    0.710          2/7
+    0.910          1/7
+    1.014          0/7
+    1.014          0/7
+    1.224          0/7
+    1.543          0/7
+    2.088          0/7
+    5.071          0/7
+    0.010          7/7
+    0.050          7/7
+    0.100          6/7
+    0.200          6/7
+    0.300          5/7
+    0.500          4/7
+    0.701          2/7
+    0.902          1/7
+    0.990          0/7
+    1.013          0/7
+    1.202          0/7
+    1.502          0/7
+    2.003          0/7
+    5.064          0/7
+
+game cases (reach_m, closing beta_c) — coin flip at the phase, run at phase 0.5:
+  0.5 m missile + 50 m ship, closing 0.9 c: reach=35851q wa=943718q d0=507710 -> detected=true exchanged=false (predicted skip: true)
+  0.5 m missile + 50 m ship, closing 0.0034 c (just under): reach=35851q wa=3565q d0=37633 -> detected=true exchanged=true (predicted skip: false)
+  5 m + 5 m ships, closing 0.0068 c (the 50% point): reach=7099q wa=7130q d0=10664 -> detected=true exchanged=true (predicted skip: false)
+  5 m + 5 m ships, closing 0.001 c (below): reach=7099q wa=1048q d0=7623 -> detected=true exchanged=true (predicted skip: false)
+  50 m + 50 m ships, closing 0.9 c: reach=70993q wa=943718q d0=542852 -> detected=true exchanged=false (predicted skip: true)
+  50 m + 50 m ships, closing 0.068 c (the 50% point): reach=70993q wa=71303q d0=106644 -> detected=true exchanged=true (predicted skip: false)
+
+positive control (rho~5): detected=true exchanged=true exact velocity swap=true late_exchange=false
+negative control (rho~4e-4, closing 0.8c): detected=true exchanged=false late_exchange=false (200+ chronons watched)
+
+threshold: pair ghosts when closing speed > reach per chronon; v* = reach_m/1477 m/s
+                          pair |    reach m |    v* (km/s) |     v* (c)
+               pebble + pebble |      1.000 |      202.974 |     0.0007
+               5 m + 5 m ships |     10.000 |     2029.739 |     0.0068
+     0.5 m missile + 50 m ship |     50.500 |    10250.182 |     0.0342
+             50 m + 50 m ships |    100.000 |    20297.391 |     0.0677
+       500 m + 500 m (station) |   1000.000 |   202973.905 |     0.6770
+          Home (Earth) surface | 6370000.000 | 1292943776.209 |  4312.7962
