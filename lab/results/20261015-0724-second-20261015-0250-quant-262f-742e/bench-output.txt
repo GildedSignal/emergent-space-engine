@@ -1,0 +1,24 @@
+== machine ==
+cpu: Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz
+nproc: 8, loadavg: 0.32 1.86 2.45 1/493 226481
+
+== value: closed vs Simpson of the shipped node() integrands (belt mix, 200 keys) ==
+scalar vs simpson max rel: adv 4.19e-8  t 9.24e-16  tau 7.34e-16
+analytic slope vs FD: max rel 3.11e-10  (bar 1e-6)
+soa batch vs scalar  max rel: adv 0.00e0  t 0.00e0  tau 0.00e0
+avx2 batch vs scalar max rel: adv 6.77e-8  t 1.01e-15  tau 1.01e-15
+scalar newton: iters median 4 worst 6 | recovered-u err max 8.9e-16 p99 4.4e-16
+
+== value: wider grid (the promise 262f dropped) ==
+grid worst t at: e=0.999 p=1000000 u=0.392699 (t +6.194078e-1 simp +6.194078e-1)
+grid (180 pts): t 4.62e-13  tau 4.62e-13  adv 2.35e-8 (worst adv at e=0.7 p=100000000 u=1.5698)
+grid newton worst iters: 17 (cap 60), worst recovered-u err 1.7e-13
+
+== timings (belt keys; per promotion; median of reps) ==
+shipped compile: knots p50 7 p99 11 max 16 (0 errors / 10k)
+(a) shipped compile us/promotion: reps 4.88 4.88 4.87 | median 4.88
+(b) scalar us/promotion: reps 3.549 3.549 3.549 | median 3.549 | iters worst 6 | u err 8.9e-16
+(c) soa batch us/promotion: 1e6 reps 4.420 4.384 4.609 med 4.420 | 1e7 aggregate 4.403 | newton passes 6 iters worst 6 | u err 1.1e-15
+(d) avx2 batch us/promotion: 1e6 reps 2.581 2.512 2.510 med 2.512 | 1e7 aggregate 2.576 | newton passes 6 iters worst 6 | u err 1.3e-15
+
+== done ==

@@ -1,0 +1,16 @@
+[package]
+name = "promo-bench"
+version = "0.1.0"
+edition = "2021"
+
+# Standalone crate (not a workspace member): never edits the shipped crates.
+[workspace]
+
+[dependencies]
+emergent-space = { path = "../../../../crates/space" }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+debug = false

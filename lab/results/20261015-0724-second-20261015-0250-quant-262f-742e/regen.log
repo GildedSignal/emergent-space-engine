@@ -1,0 +1,66 @@
+== build (standalone crate; path-depends on shipped crates/space; x86-64-v3) ==
+warning: unused variable: `s3`
+    --> src/main.rs:1046:13
+     |
+1046 |         let s3 = s2 * s;
+     |             ^^ help: if this is intentional, prefix it with an underscore: `_s3`
+     |
+     = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `v`
+    --> src/main.rs:1048:13
+     |
+1048 |         let v = 1.0 - c.n3 * s2;
+     |             ^ help: if this is intentional, prefix it with an underscore: `_v`
+
+warning: unnecessary `unsafe` block
+    --> src/main.rs:1022:9
+     |
+1022 |         unsafe { std::hint::black_box(()); }
+     |         ^^^^^^ unnecessary `unsafe` block
+     |
+     = note: `#[warn(unused_unsafe)]` on by default
+
+warning: `promo-bench` (bin "promo-bench") generated 3 warnings
+    Finished `release` profile [optimized] target(s) in 0.01s
+== full bench: value checks, wider grid, three timing arms ==
+== machine ==
+cpu: Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz
+nproc: 8, loadavg: 0.32 1.86 2.45 1/493 226481
+
+== value: closed vs Simpson of the shipped node() integrands (belt mix, 200 keys) ==
+scalar vs simpson max rel: adv 4.19e-8  t 9.24e-16  tau 7.34e-16
+analytic slope vs FD: max rel 3.11e-10  (bar 1e-6)
+soa batch vs scalar  max rel: adv 0.00e0  t 0.00e0  tau 0.00e0
+avx2 batch vs scalar max rel: adv 6.77e-8  t 1.01e-15  tau 1.01e-15
+scalar newton: iters median 4 worst 6 | recovered-u err max 8.9e-16 p99 4.4e-16
+
+== value: wider grid (the promise 262f dropped) ==
+grid worst t at: e=0.999 p=1000000 u=0.392699 (t +6.194078e-1 simp +6.194078e-1)
+grid (180 pts): t 4.62e-13  tau 4.62e-13  adv 2.35e-8 (worst adv at e=0.7 p=100000000 u=1.5698)
+grid newton worst iters: 17 (cap 60), worst recovered-u err 1.7e-13
+
+== timings (belt keys; per promotion; median of reps) ==
+shipped compile: knots p50 7 p99 11 max 16 (0 errors / 10k)
+(a) shipped compile us/promotion: reps 4.88 4.88 4.87 | median 4.88
+(b) scalar us/promotion: reps 3.549 3.549 3.549 | median 3.549 | iters worst 6 | u err 8.9e-16
+(c) soa batch us/promotion: 1e6 reps 4.420 4.384 4.609 med 4.420 | 1e7 aggregate 4.403 | newton passes 6 iters worst 6 | u err 1.1e-15
+(d) avx2 batch us/promotion: 1e6 reps 2.581 2.512 2.510 med 2.512 | 1e7 aggregate 2.576 | newton passes 6 iters worst 6 | u err 1.3e-15
+
+== done ==
+== kernel reference checks (Carlson's published values + mpmath 30 dps) ==
+rj( 2.000000, 3.000000, 4.000000, 5.000000) = 0.14297579667156754
+rj( 0.000001, 1.000000, 1.000000, 1.266667) = 1.96758981729961047
+rj( 0.500000, 0.500000, 0.500000, 2.000000) = 1.11836068453037107
+rj( 1.000000, 2.000000, 0.000000, 1.000000) = 1.79721035210338864
+rj( 0.010000, 1.000000, 1.000000, 1.500000) = 1.54893433874420139
+rj( 0.000001, 1.000000, 1.000000, 1.266667) = 1.96758981701040447
+rj( 0.000001, 1.571429, 1.000000, 1.266667) = 1.65852585935616470
+mpmath rj (2, 3, 4, 5) = 0.14297579667156753833233879422
+mpmath rj (1e-06, 1, 1, 1.2666666666666666) = 1.96758981729961051285830073059
+mpmath rj (1e-06, 1.5714285714285714, 1, 1.2666666666666666) = 1.65852585935616496025999024762
+== strong-q corner: closed form exact at 40 dps (dossier's 3e-41 line) ==
+closed t (40dps) = 12.24878258602047941457237876277308495754
+quad   t (40dps) = 12.24878258602047941457237876277308495754
+rel diff         = 2.999008122253813240585626455922178162329e-41
+== done ==
