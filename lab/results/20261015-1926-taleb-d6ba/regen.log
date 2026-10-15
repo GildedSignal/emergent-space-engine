@@ -1,0 +1,33 @@
+== build ==
+   Compiling emergent-space v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/space)
+   Compiling emergent-engine v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/engine)
+   Compiling emergent-universe v0.1.0 (/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/crates/universe)
+warning: unused variable: `mx`
+   --> crates/universe/examples/arc_pin.rs:216:34
+    |
+216 |     let (dem, pro, ns, p50, p99, mx) = lazy_counters();
+    |                                  ^^ help: if this is intentional, prefix it with an underscore: `_mx`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `o`
+   --> crates/universe/examples/arc_pin.rs:149:39
+    |
+149 |                     Trajectory::Cycle(o) => {
+    |                                       ^ help: if this is intentional, prefix it with an underscore: `_o`
+
+warning: `emergent-universe` (example "arc_pin") generated 2 warnings
+    Finished `release` profile [optimized + debuginfo] target(s) in 13.27s
+== freeze a private binary (contamination defense) ==
+== the anchors (pre-wave smoke, cheap) ==
+current-bindings alive: live cycles 10031 passages 18 plunges 0 (nokick 79 kickheld 9970) demoted 0 | dead: live 27 demoted 0
+arm ctl N=10000 coast cut=5000 seed=1 rtf=1000
+pinned_total_B 8039536 per_body_B 797.9 bodies 10076 bpb_engine 1370 mints kick 8446 kickless 0 demotions 0 promotions 0 promote_us p50 0.00 p99 0.00 total_s 0.00 | passage: dem 0 pro 0 p50 0.00 p99 0.00 total_s 0.00
+current-bindings alive: live cycles 9791 passages 0 plunges 0 (nokick 79 kickheld 9712) demoted 258 | dead: live 10 demoted 17
+arm variant N=10000 coast cut=5000 seed=1 rtf=1000
+pinned_total_B 6758136 per_body_B 670.7 bodies 10076 bpb_engine 1334 mints kick 8446 kickless 0 demotions 8446 promotions 199269 promote_us p50 3.70 p99 93.87 total_s 3.59 | passage: dem 35 pro 6205 p50 310.67 p99 405.33 total_s 1.99
+== the decisive depth matrix ==
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/lab/results/20261015-1926-taleb-d6ba/flights/stargraze500_4k8_var.txt:arm variant N=500 stargraze cut=4800 seed=1 rtf=1000
+/home/glmlab/actions-runner/_work/emergent-space-engine/lab-3/lab/results/20261015-1926-taleb-d6ba/flights/stargraze500_4k8_var.txt:pinned_total_B 12981792 per_body_B 22537.8 bodies 576 bpb_engine 38452 mints kick 63093 kickless 0 demotions 63093 promotions 402980 promote_us p50 4.18 p99 130.46 total_s 221.94 | passage: dem 61458 pro 373381 p50 593.74 p99 657.65 total_s 220.97
+MATRIX DONE
+REGEN DONE
