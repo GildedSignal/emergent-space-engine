@@ -14,15 +14,15 @@ closed ones do not, until their certificate breaks. Fewest runs first among the 
 | [chaos-shadowing](chaos-shadowing.md) | open | 5 | **The inversion is confirmed on a valid instrument: the shipped dense order's ensemble |
 | [order-boundary](order-boundary.md) | open | 5 | **The crossing's walk is measured at column level on a corrected instrument — true phases, |
 | [closed-form-kernel](closed-form-kernel.md) | open | 7 | **The static edge rule exists, is measured, and holds the certificate at the ladder's |
-| [gravity-news](gravity-news.md) | open | 11 | **The fleet doll under thrust is now measured on the shipped frame, and it freezes at the |
+| [gravity-news](gravity-news.md) | open | 12 | **The payload is complete at strong field, and the cheap readout is not: the exact GR |
 | [handoff](handoff.md) | open | 12 | **The boundary in time stands; the boundary in space does not.** The doll boundary has |
 | [high-gamma-clock](high-gamma-clock.md) | open | 17 | - **The crash basin's ruler is measured: the tangent family Λ\* = κ(r)·R/√(r²−R²), with κ = 2.85 ± 0.07 |
 | [belt](belt.md) | open | 19 | **The birth program stands, is wired into the law, and survives stirring only if it |
 | [b12-statistic](b12-statistic.md) | open | 24 | **No separating statistic is freezable at the gate's horizon; the census is now complete (all 662 lab branches swept: 23 runs, fourteen candidates dead with causes, every survivor naming a missing requirement); two instr |
-| [view](view.md) | open | 38 | **The row-set deletion is built on the shipped crossings and the flyable frame collapses: steady map frames ≈ 1-3 ms p50 at 10³-10⁶ bodies at both the fitted and the belt zoom (86-160× at 10³, ~10³× at 10⁶ against the li |
-| [kick-cadence](kick-cadence.md) | open | 45 | **There is no sub-quantum kick regime in the flown plane: every metronome kick fires a rebind, the accumulator never engages, and the quantum cannot constrain the cadence — so cadence, kick cost, the wave train and the c |
+| [view](view.md) | open | 43 | **The in-band gather is priced and its floor is measured exact: between the tube's own time quanta a view row is bit-reproducible from one cached emission and the fresh observer state, so the shipped per-frame O(N) cross |
+| [kick-cadence](kick-cadence.md) | open | 46 | **3294's record regenerates, its impulses are dimensionless now, and the wave train is off the dial: the belt's fired impulse is 2⁻²³ of the body's own speed (p01 2⁻²⁴, p99 2⁻²⁰, identical at 10⁵), so at the behaviour fl |
 | [coorbital-cert](coorbital-cert.md) | open | 48 | **The representation stands; every constant in the adopted sentence died.** Gold `20261006-0346-taleb-09b5` measured co-orbital concentration as the pairwise tier's ruin — a 400-ship formation pays ~5.0×10⁵ evals per rea |
-| [nladder](nladder.md) | open | 55 | **The record now exists: the lazy-Entry seam is rebuilt from the design description, committed as a patch, and re-flown — demote-after-kick is outcome-free on five arms, and the 10⁵ digest lands exactly on the scout's an |
+| [nladder](nladder.md) | open | 56 | **The retention rule is built and priced, and the record's sentence is half right (20261015-1338-quant-1d52, quant): with the cache shared across slot clones, promotions fall to EXACTLY one per demotion at every rung (41 |
 | [frame-cost](frame-cost.md) | open | 66 | **The crash search's probe bill is cut 6× exact and digest-identical, and the named |
 | [kick-jet](kick-jet.md) | open | 69 | **The batched promotion is priced: 11.7 µs on the true belt mix, exact to 2e-16, and the |
 | [encounters](encounters.md) | open **conflict to resolve** | 95 | <<<<<<< main |

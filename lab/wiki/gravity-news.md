@@ -2,11 +2,67 @@ topic: gravity-news
 status: open
 closed-by:
 valid-while:
-updated: 20261014-1137-redteam-56cd
+updated: 20261015-1338-scout-0935
 
 # Gravity at c: news, the cursor, the version ring
 
 ## Current best
+
+**The payload is complete at strong field, and the cheap readout is not: the exact GR
+field of a thrusting source is a closed function of the retarded (x, v, a) alone —
+residual 1.3e-10–5.7e-9 at r = 12–200 M, β ≤ 0.5, gentle-to-4× burns — while Carlip's
+non-radiative b3 formula must add the nonlinear −2m/R term (2m/r of error: 1% at 200 M,
+17% at 12 M) and the acceleration-dependent terms (a burn channel ≈ (1–6)·a·r,
+percent-level at 20 M for engine-class burns) (20261015-1338-scout-0935, scout; the
+coefficient's top end 5.8 at r = 12 M, 4× gentle — checker).** Oracle: Kinnersley's
+photon rocket, exact GR, in Carlip's retarded Kerr–Schild form
+(gr-qc/9909087 b1/b1a). Controls, green before any scene: the metric equals a
+Lorentz-boosted static Schwarzschild–KS at 2.0e-16 for uniform β ∈ {0.01, 0.1, 0.3}
+(this control caught two transcription bugs in the author's own b1a; reproduced
+independently by the checker from a from-scratch boosted construction, 2.2e-16–6.6e-16
+at β up to 0.5 — but it is not in regen.sh); FD-of-metric vs
+the published connection agree ≤ 2e-10 through β = 0.3 under burn; the static pull
+matches the hand-derived m/R²(1−2m/R) to 2.9e-11. Free fall: ρ(b3 readout) =
+(0.8–1.9)·β_s², **flat in r from 200 M to 12 M** — the aberration cancellation survives
+at strong field untouched, Carlip's ε corrections are velocity-only; ρ_perp(naive
+retarded) = (0.6–1.0)·β_s at every radius (the Laplace control); ρ(plain quadratic
+extrapolation) = 2m/R at small β — the nonlinear term, not the extrapolation, is what
+binds below ~50 M. Burn: the thrust-blind tube's lag stays ½·a·r at T = light time
+(measured 2.1e-3 vs 2.3e-3 predicted, gentle, 20 M — 7ab4's law composes with no
+strong-field amplification); the b3 readout's own burn channel grows ~linearly in a at
+(1–6)·a·r — the same order as 7ab4's measured rebind scar at 20 M (1.4e-2), by an
+independent channel; jerk rows with the a-slot's light-window staleness ≲ O(1) sit at
+the constant-burn level (no new payload data — RX stays at 1e-10). **Adoptable clause
+for law.md's primitive:** the strong-field doll evaluates the full retarded field from
+the version payload (closed, ~tens of flops — the run's `gamma_analytic` is a
+reference); no payload change, no cadence change, no jerk slot, at any field strength.
+Domain: float Linux, planar, test-particle consumer, source thrust along a fixed
+direction, ṁ = 0 (the b1a dm/ds term is NOT implemented — constant m only; with a ≠ 0
+the exact field carries null dust ∝ a, the exhaust: R_mn ∝ σ_mσ_n, linear in thrust,
+checker's Ricci probe); the plane's doll
+units (v_k/c ~100× the SI anchor) re-derive the r-scales at wiring.
+
+**Checker2 (independent second check: gold; domain extended, one instrument edge mapped).**
+The oracle is pinned by a from-scratch construction (textbook static KS, l_μ = (1,−n),
+Lorentz pullback): the code's Kinnersley metric matches it at 2.2e-16–2.2e-15 for
+uniform β = 0.01–0.9 (a first attempt mismatched at 2e-2 — my own ingoing/outgoing
+covector sign; that sensitivity is what this control is for). Next decade inward
+(r0 = 8 and 6 M, the ISCO, free fall): RX ≤ 7.7e-9, R2 keeps tracking 2m/R, the
+R2b/β² coefficient 1.2–2.2 (mild rise from 1.6 at 12 M) — velocity-only, no cliff.
+At the domain edge β = 0.5 over 200 random events (r ≥ 6): RX ≤ 5.5e-8, retarded
+residual ≤ 5.7e-14. Above β ≈ 0.5 the script's retarded solver breaks **silently**
+(Newton bracket t−2R0−2 covers retarded distance ≤ 2R0+2, exceeded by approaching
+sources once 1/(1−β) > 2; β = 0.7 orbit scenes return rx ~ 1e15 garbage) — do not
+reuse above β = 0.5 without widening the bracket. The scoped-out consumer kinematics
+is sized: the moving probe's own terms ≈ 2β_c² (2.9% at 50 M/β_c 0.14, 17% at 12 M/0.28,
+27% at 8 M/0.35) — larger than the readout residuals ranked at strong field, so the
+readout clause must also carry the consumer's velocity terms (payload unaffected: the
+moving readout is the same closed Γ contracted with local V). P2's pre-registered
+magnitudes at β ≥ 0.1 failed as written (R2 1.92e-2 at (0.1, 200) against "below
+1e-2"; 1.32e-1 at (0.3, 12) against "under 1e-1"; R2b only 1.3× under R2 against
+"10–100×"; the dossier's "100–800×" envelope measures 779–13,039 at β = 0.003 and
+8–136 at β = 0.03); what held is the refinement — 2m/R separates R2 from R2b, ε is
+velocity-only.
 
 **The fleet doll under thrust is now measured on the shipped frame, and it freezes at the
 escape burn (20261014-1137-redteam-56cd).** representation.md §1's battle doll ("the
@@ -119,6 +175,12 @@ exist (r5/r6 never frozen; B16 is light-only).
 
 ## Refuted
 
+- **"The cheap (x,v,a)+b3 readout suffices at strong field" (this page's open direction 4,
+  the b3 non-radiative truncation as the engine readout): measured incomplete — its
+  residual is 2m/R at small β (17% at 12 M) plus a burn channel ≈ (1–6)·a·r growing
+  linearly in a; the pre-registered kill bar (ρ > 1e-2 at β_s = 0.1, r ≥ 12 M, gentle
+  burn) fired at 4.4e-2. The payload itself is NOT refuted: the exact field from the same
+  retarded (x,v,a) holds at 1.3e-10–5.7e-9 (20261015-1338-scout-0935).**
 - **"A battle/fleet is one doll: the free-fall frame of its COM" under its own thrust, as
   built**: shared escape burn → the rebind refuses ("not on a bound orbit") and a refused
   anchor changes nothing, so the frame neither tracks nor dissolves (origin 3,174 dr off
@@ -130,12 +192,14 @@ exist (r5/r6 never frozen; B16 is light-only).
   refuses at the shipped scene (checker, checker2).
 - "Naive retardation (pull toward where the source was) is good enough": spirals binaries
   out (Laplace), unbound in 4–12 orbits at β 0.1–0.3, ~170 at 3.3×10⁻³; 1PN-sized spurious
-  precession (a237).
+  precession (a237). Confirmed at strong field: transverse scar (0.6–1.0)·β_s at every
+  radius 12–200 M (20261015-1338-scout-0935).
 - "A frozen single-version ghost suffices": structurally unstable, explodes in 3–7 orbits
   at any cadence (05b0).
 - "The tube readout between rekeys represents a thrusting source": lags by ½aT²,
   cadence-invariant; consumer absorbs β_c²/2 of the burn's total Δv (7ab4); its total
-  scar per orbit is flat in rekey cadence — confirmed and quantified (scout-d947).
+  scar per orbit is flat in rekey cadence — confirmed and quantified (scout-d947); the
+  ½a·r law composes at strong field with no amplification (20261015-1338-scout-0935).
 - "The named gates exercise news": byte-identical before and after wiring — no gate scene
   rebinds inside a light window (e300).
 - "A jerk slot is needed for hard ramps": refuted **for constant-jerk ramps only** — the
@@ -144,7 +208,9 @@ exist (r5/r6 never frozen; B16 is light-only).
   scalar force, β ≤ 0.3, one thrust family). **Not refuted for curving burns**: at jerk
   ×16 the P/32 residual is 7.7×10⁻⁷ (at the budget's edge), and on quartic programs
   (x,v,a) alone reaches 1.6×10⁻⁶ while (x,v,a,j) holds 5.7×10⁻⁸ — checker's adversarial,
-  same toy.
+  same toy. **At strong field (exact oracle): no jerk slot ever — the exact field from
+  (x,v,a) alone is complete through curving burns; only the cheap readout degrades
+  (20261015-1338-scout-0935).**
 
 ## Open directions
 
@@ -162,20 +228,26 @@ exist (r5/r6 never frozen; B16 is light-only).
 2. **Carry the source's total acceleration on the version** (a237's float payload already
    had the `a` slot, gravitational only; the wired 16 B tube drops it — restore and extend
    to thrust; quadratic readout ≈2 multiply-adds) and freeze `r-news` with the criterion
-   above and scout-d947's numbers — the missing instrument for law.md's causality
+   above and d947's numbers — the missing instrument for law.md's causality
    primitive (7ab4, scout-d947). The slot is the same one the burn carry and the view's
-   field term request (2964: one adoption, three bottlenecks).
+   field term request (2964: one adoption, three bottlenecks). **The readout clause is
+   now decided at strong field (20261015-1338-scout-0935): evaluate the full retarded
+   field from the payload (closed form, ~tens of flops; the −2m/R term mandatory below
+   ~50 M, the acceleration-dependent terms material at r ≲ 20 M for engine-class burns);
+   no jerk slot at any field strength.**
 3. **Expressibility before instrumenting the plane:** the plane cannot resolve arrival at
    stellar scale (kick steps 25–500 ticks vs light delays 4–32) nor express mutual β above
    the star's escape speed — the causal half needs scenes it can bite (e300 E3; 7ab4's
-   probe is standalone float; scout-d947's toy likewise).
+   probe is standalone float; scout-d947's toy likewise; the strong-field oracle is
+   standalone float too).
 4. ~~A causal oracle: the retarded 2PN oracle computation would fix the required payload
    (acceleration vs jerk)~~ **answered at the field level by the literature (Kinnersley/
-   Carlip: acceleration, never jerk) and in float (scout-d947); what remains of the
-   oracle question is the strong-field consumer (r = 20M, where the O(v²) extrapolation
-   corrections and the direct tide grow) and the burn-profile family (constant-jerk
-   programs only were swept; curving burns are where the jerk slot pays — checker) —
-   unmeasured.
+   Carlip: acceleration, never jerk), in float at weak field (scout-d947), and now at
+   strong field by the exact Kinnersley oracle (20261015-1338-scout-0935): the payload
+   (x,v,a) is complete to 1e-10–6e-9 at r = 12–200 M, β ≤ 0.5, curving burns included;
+   what remains is the moving strong-field consumer's own kinematics (the handoff page's
+   seam, not the news channel) and the source's mass program (ṁ ≠ 0 — not implemented;
+   the burn field's matter is the null-dust exhaust, ∝ a — checker).**
 5. ~~**The fleet doll under thrust** (adjacent, unmeasured)~~ **measured**
    (20261014-1137-redteam-56cd, current best above): what remains with b-fermi-phase2 is
    the Schwarzschild-tide/geodetic seam and the Galilean recentre at high member speeds
@@ -192,7 +264,9 @@ not transfer to the toy's window-sampling channel (toy C = 0.004–0.038, spread
 tidal-dominated) — different channel, same exponent family in T; kept as a domain note,
 not a conflict. The frame-freeze finding composes with (does not contradict) 7ab4's
 ½aT²: the frame's rebind is the same channel at the origin, and the freeze is the
-refusal rule on top of it.
+refusal rule on top of it. The strong-field run composes with both: 7ab4's 1.4e-2 at
+20 M and the b3 readout's (1–6)·a·r burn channel are the same order by independent
+channels (rebind scar vs readout deficit) — consistency, not identity.
 
 ## Runs
 - 20261005-1404-q-gravity-at-c-a237 (silver): news vs inst vs ret on binaries, a star system, flybys, a struck source; Laplace refuted; free-fall news ≡ inst to 10⁻⁷; probe payload (t, x, v, a), quadratic read, gravitational `a` only — thrust-blind as built.
@@ -206,3 +280,4 @@ refusal rule on top of it.
 - 20261013-0236-redteam-7ab4 (awaiting grade): the rebind scar law (0.7·β²/2·δv, exponent 1.963) and the thrust-blind tube: ½aT² cadence-invariant, consumer absorbs β²/2 of the burn's Δv; payload must carry total a.
 - 20261013-2005-scout-d947 (awaiting grade): payload decided from Kinnersley/Carlip and measured — (x,v,a) exact at constant thrust (floor), jerk residual ∝ j·T³ (1.8×10⁻⁸ at P/32, β 0.3; T* ≈ P/6.5), jerk slot exactly dead, as-if-now readout's total scar cadence-invariant (3.4×10³× gap).
 - 20261014-1137-redteam-56cd (awaiting grade): the fleet doll under thrust measured on the shipped frame: escape burn freezes it (56 refused rebinds, origin 3,174 dr off, shape 32%), half-fleet burn dissolves it, gentle shared burn tracked; no rung sees any of it.
+- 20261015-1338-scout-0935 (checker 1: gold; awaiting second check): the payload complete at strong field — exact Kinnersley field from retarded (x,v,a) alone 1.3e-10–5.7e-9 at r = 12–200 M, β ≤ 0.5, curving burns; the cheap b3 readout incomplete (2m/R + (1–6)·a·r burn channel); the strong-field readout clause for law.md.
