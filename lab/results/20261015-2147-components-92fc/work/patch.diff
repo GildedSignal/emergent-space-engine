@@ -1,0 +1,158 @@
+diff --git a/crates/universe/examples/hist_census.rs b/crates/universe/examples/hist_census.rs
+new file mode 100644
+index 00000000..5c541940
+--- /dev/null
++++ b/crates/universe/examples/hist_census.rs
+@@ -0,0 +1,64 @@
++//! The history stack's census on the shipped plane: one flight to a canonical cut, then the
++//! retired segments, the compiled-arc bytes they pin, the reads that ever served a retired
++//! binding, and the process's resident memory. `ES_COMETS=<n>` (read by `scenario`) turns the
++//! first n belt ships into infalling comets; unset, the flight is the shipped ladder scene.
++//!
++//! cargo run --release -p emergent-universe --example hist_census -- <game-seconds> <extra>
++use emergent_universe::scenario::{plane_extra, ladder_locals};
++use emergent_universe::view::TICK_SECONDS;
++use emergent_universe::{body, Budget, Config};
++use emergent_universe::fleet::Order;
++
++const RTF: f64 = 100.0;
++
++fn rss_mb() -> f64 {
++    std::fs::read_to_string("/proc/self/statm")
++        .ok()
++        .and_then(|s| s.split_whitespace().nth(1).and_then(|r| r.parse::<u64>().ok()))
++        .map(|pages| pages as f64 * 4096.0 / 1e6)
++        .unwrap_or(0.0)
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let seconds: f64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(8_000.0);
++    let extra: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2_000);
++    let seed: u64 = std::env::var("SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(1);
++    let cut = (seconds * RTF / TICK_SECONDS) as i64;
++    let mut p = plane_extra(Config::default(), seed, Order::Sparse, 1, extra, 0).unwrap();
++    for _ in 0..400_000 {
++        if p.u.now >= cut {
++            break;
++        }
++        p.u.frame_to(1.0 / 60.0, RTF, Budget::unlimited(), cut);
++    }
++    p.u.settle(cut);
++    let n = p.u.bodies().len();
++    let mut segs = 0usize;
++    let mut arc = 0usize;
++    let mut deep = (0usize, 0usize, 0usize); // bodies with >50 segments: count, segs, arc bytes
++    let mut top = vec![(0usize, 0usize); 8]; // (segs, arc) leaders
++    for i in 0..n {
++        let (l, a) = (p.u.bodies().history_len(i), p.u.bodies().history_arc_bytes(i));
++        segs += l;
++        arc += a;
++        if l > 50 {
++            deep.0 += 1;
++            deep.1 += l;
++            deep.2 += a;
++        }
++        if l > top[7].0 {
++            top[7] = (l, a);
++            top.sort_by(|x, y| y.0.cmp(&x.0));
++        }
++    }
++    let comets: u64 = std::env::var("ES_COMETS").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
++    println!(
++        "cut {:.0}s bodies {} (comets {}, locals {}) | kicks {} | retired_reads {} | segs {} (deep>50: {} bodies, {} segs) | pinned_arc_MB {:.1} (deep {:.1}) | rss_MB {:.1}",
++        seconds, n, comets, ladder_locals(extra), p.u.stats.kicks,
++        body::RETIRED_READS.load(std::sync::atomic::Ordering::Relaxed),
++        segs, deep.0, deep.1, arc as f64 / 1e6, deep.2 as f64 / 1e6, rss_mb()
++    );
++    println!("  per-body segs: {}", top.iter().map(|(l, a)| format!("{}:{:.0}kB", l, *a as f64 / 1e3)).collect::<Vec<_>>().join(" "));
++    println!("  digest {}", &p.u.digest()[..32]);
++}
+diff --git a/crates/universe/src/body.rs b/crates/universe/src/body.rs
+index 97710210..8f49f07c 100644
+--- a/crates/universe/src/body.rs
++++ b/crates/universe/src/body.rs
+@@ -11,6 +11,21 @@ use emergent_space::{orbit::Scalar, Tube};
+ use std::collections::VecDeque;
+ use std::mem::size_of;
+ 
++pub use std::sync::atomic::{AtomicU64, Ordering};
++
++/// Reads that served a RETIRED binding (the history stack's whole read demand). Observation only:
++/// `binding_at` is `&self`, so this counter cannot move a bit of state.
++pub static RETIRED_READS: AtomicU64 = AtomicU64::new(0);
++
++/// Bytes of the compiled trajectory an `Arc` holds, by the store's own accounting (`bytes_of`'s
++/// shape formula: knots for cycles, a panel budget for passages, the plunge's retained bytes).
++pub fn arc_bytes(t: &emergent_space::binding::Trajectory) -> usize {
++    match t {
++        emergent_space::binding::Trajectory::Cycle(o) => o.shape().knots().len() * size_of::<emergent_space::orbit::Knot>() + o.shape().crossings().len() * size_of::<usize>(),
++        emergent_space::binding::Trajectory::Passage(_) => 4096,
++        emergent_space::binding::Trajectory::Plunge(p) => p.retained_bytes(),
++    }
++}
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub enum Kind {
+     Planet,
+@@ -101,6 +116,11 @@ pub trait BodyStore: Send + Sync {
+     /// The current binding's event time (the body's committed tick).
+     fn event_time(&self, i: usize) -> Tick;
+     fn next_time(&self, i: usize) -> Option<Tick>;
++    /// The compiled-trajectory bytes this body's RETIRED segments pin (0 by default).
++    fn history_arc_bytes(&self, i: usize) -> usize {
++        let _ = i;
++        0
++    }
+     fn alive(&self, i: usize) -> bool;
+     /// The doll the body's current tube is in.
+     fn doll(&self, i: usize) -> u16 {
+@@ -156,6 +176,7 @@ impl BodyStore for PlainBodies {
+         }
+         let h = &self.history[i];
+         // Segments are contiguous and ascending in `until`: the first with `until > t`.
++        RETIRED_READS.fetch_add(1, Ordering::Relaxed);
+         let k = h.partition_point(|s| s.until <= t);
+         h.get(k).filter(|s| s.b.event_time <= t).map(|s| s.b.clone())
+     }
+@@ -195,6 +216,11 @@ impl BodyStore for PlainBodies {
+         };
+         size_of::<BodyRec>() + r.plan.capacity() * size_of::<Item>() + shape + self.history[i].len() * size_of::<Segment>()
+     }
++    /// The compiled-trajectory bytes this body's RETIRED segments pin (the arcs of history; the
++    /// current binding's arc is `bytes_of`'s shape term). Shared arcs are counted per segment.
++    fn history_arc_bytes(&self, i: usize) -> usize {
++        self.history[i].iter().map(|s| arc_bytes(&s.b.entry.trajectory)).sum()
++    }
+ }
+ 
+ /// The body's tube record (the law's 16 bytes).
+diff --git a/crates/universe/src/scenario.rs b/crates/universe/src/scenario.rs
+index 98852ebf..db239d3e 100644
+--- a/crates/universe/src/scenario.rs
++++ b/crates/universe/src/scenario.rs
+@@ -330,6 +330,25 @@ pub fn ladder_ship(seed: u64, k: u64, extra: u64, home_doll: u16) -> Res<(OrbitS
+     let (angle, phase) = (d(3) as u32, (d(3) >> 32) as u32);
+     let locals = ladder_locals(extra);
+     if k >= locals {
++        // ES_COMETS: the first N belt ships become infalling comets instead — periapsis 0.01 AU,
++        // apoapsis ~8 AU (e from (A−P)/(A+P), Q48), phase within 1/64 past periapsis: the dense-kick
++        // regime from tick 0, at a light distance the causal keep rule must respect. The belt is
++        // untouched when the variable is unset (every other body byte-identical).
++        let comet_n: u64 = std::env::var("ES_COMETS").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
++        if comet_n > 0 && k - locals < comet_n {
++            let peri_q8 = (AU as u128) / 100; // 0.01 AU
++            let apo_q8 = ((AU as u128) << 3) + (((d(1) as u128) * (AU as u128)) >> 34); // [8, 9) AU
++            let e = ((apo_q8 - peri_q8) << 48) / (apo_q8 + peri_q8); // (A−P)/(A+P), Q48
++            let spec = OrbitSpec {
++                doll: 0,
++                periapsis: Scalar::raw(peri_q8 as i128, -8)?,
++                e_q48: e as u64,
++                clockwise: false,
++                angle,
++                phase: (d(3) as u32) >> 6, // within 1/64 of the radial period past periapsis
++            };
++            return Ok((spec, Scalar::raw(34, -10)?));
++        }
+         // The belt: a uniform in [2, 3) AU at 2^-8 of a root unit, e Rayleigh (re-drawn above 0.4), p = a (1 - e).
+         let a_q8 = ((2 * AU as u128) << 8) + (d(1) as u128 % ((AU as u128) << 8));
+         let mut e = rayleigh_q48((d(2) >> 32) as u32, 70);
