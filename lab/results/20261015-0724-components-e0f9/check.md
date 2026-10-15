@@ -1,0 +1,21 @@
+Grade: gold
+
+**Abstract.** The lazy-Entry seam exists as a committed, regenerable build (work/patch.diff applies clean at base 6067af6, 11 s rebuild) and demote-after-kick is outcome-free: digest bit-identical control-vs-seam on all five author arms (runner regen: ALL IDENTICAL, 10⁵ anchor `2109a2e0…`, demotions 273,200 = b9ae's count) and on my four adversarial arms — N=2×10⁵ (`af43df43…`, 1,059→749 MB, −42 % B/body), 96 k cut (`e75c90f2…` = b9ae's build's digest at the same cut), 10⁵ burn (`d3542eea…`), seed 42 (`5ff9487e…`). Standing store deleted at run time: 1,603→930 B/body. Cost: ~200 default-off lines + the retention rule (named, priced). Gold experiment as pre-registered by b9ae's checker.
+
+**Reasons.**
+- Reproduction: I applied the patch to the clean tree myself, rebuilt (11 s), re-flew four arms control-vs-seam (eight flights). Every digest, every law counter identical; memory deltas match the dossier (−42 % B/body, −27…−31 % rss at 10⁵/2×10⁵); the wall decomposition reproduces (38.19 − 12.56 = 25.6 s ≈ ctl 23.9 s: the machinery is free, the re-mints are the bill).
+- Held-out: predictions.md is specific and falsifiable; 7/7 bands held in substance (identity everywhere incl. seeds 7 and my 42; demotions ≈ kicks; 5–25 promotions/demotion at 10⁴–10⁵; catalogue_live → O(30)). One clause failed as written: P6's "at 10⁴ the delta is lost in build noise" — it is clearly visible (×1.87–2.0), and the dossier's "all seven held" papers over it by quoting a ×1.41–2.00 range whose upper end *is* those 10⁴ arms. Reporting flaw; the per-arm table hides nothing.
+- Cross-build independence: demotions 273,200 and the 96 k digest `e75c90f2…` match b9ae's independent build exactly — two builds from the design description, one event set. `Orbit::compile` purity (760f's 120,083/120,083) plus nine identity arms here.
+- Code audit: demotion gated on `lazy_on() && kick.len > 0` at apply, Cycle-only; `Catalogue::release(u32::MAX)` is a genuine no-op (`slots.get_mut` bounds-check); no `cat.get(key)` reader exists, so `tube.key = u32::MAX` cannot be indexed; `same()` (scan memo only — not self-exclusion) degrades Live-vs-demoted to a memo miss, answer-neutral for a pure compile; seam-off code paths are value-identical to shipped, corroborated by the `2109a2e0…` anchor chain (shipped → 760f → b9ae ctl → this ctl).
+- Novelty: b9ae's record was unregenerable (0-byte patch); this run is the missing artifact, the exact build b9ae's checker named gold. Not a repetition of 760f (certificate only) or 5465 (inner-system doll).
+- Goal fit: deletes the standing compiled-orbit store at run time — "Store the generator, not the generated" (P6), "Compute only surprises" (P3) — on the board's first-listed bottleneck (bodies in the flyable engine); PRINCIPLES 2's "exact means deterministic and reproducible" is the certificate flown.
+
+**Corrections made on the page (wiki/nladder.md).**
+1. "~64 B inline" is wrong: `EntrySlot` is **104 B** inline (probe: key 56 + sense + unit 40 + discriminant; `Binding` 192→288 B). b9ae's ~100 B was right. Measured net is still −673 B/body.
+2. d7bc's standing current-best block (the `ES_SCAN_STANDING` fence) was dropped when the author resolved the page's merge conflict; restored — two standing results coexist.
+3. Three pre-20261014 Runs lines (ae3d, ea91, 7497) were dropped; Runs is append-only; restored.
+
+**What the author missed.**
+- `regen.sh`'s suite line is inert on Linux: `cargo test -p emergent-universe` dies linking the shipped `nladder` example (`proc_pid_rusage`, macOS-only) — regen.log has no `test result` lines, so "suite green" was unevidenced by the record. With examples excluded (`cargo test --release -p emergent-universe --tests`): 18 binaries, **72 passed, 0 failed, 2 ignored** on the patched tree — the author's claim confirmed.
+- **Contacts = 0 on every arm (author's and mine):** the encounter-memo identity path (`same()` with demoted candidates) never produced a non-empty answer. A contact-rich scene (e.g. d7bc's Home cap-4 corner, 3,946 encounters) with the seam on is the one experiment still open; until then the identity certificate covers empty encounter chains.
+- Passage-heavy scenes (deep-flyby band) keep their compiled arcs standing — the author names this; it bounds the deletion's domain, and the claim correctly says so.
